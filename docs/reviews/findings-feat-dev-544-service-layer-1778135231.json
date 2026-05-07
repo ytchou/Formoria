@@ -1,0 +1,80 @@
+{
+  "findings": [
+    {
+      "severity": "Important",
+      "file": "src/lib/services/taxonomy.ts",
+      "line": "93-108",
+      "description": "mergeTag issues individual DB calls (delete or update) per row inside a loop — classic N+1 pattern. With many brands tagged with the source tag this will be very slow. Should batch into two operations: one bulk delete for duplicates, one bulk update for non-duplicates.",
+      "flagged_by": "Bug Hunter + Architecture",
+      "status": "resolved"
+    },
+    {
+      "severity": "Important",
+      "file": "src/lib/services/brands.ts",
+      "line": "100",
+      "description": "getBrands uses createServiceClient() (bypasses RLS) for read operations. Plan says read ops should use createClient(). However, admin use cases (getBrands with status='pending') legitimately need service client to bypass RLS. The plan guidance conflicts with actual admin read requirements. Marking debatable — consider adding a comment documenting the rationale.",
+      "flagged_by": "Bug Hunter + Plan Alignment",
+      "status": "debatable"
+    },
+    {
+      "severity": "Important",
+      "file": "src/lib/services/submissions.ts",
+      "line": "53",
+      "description": "createSubmission uses createServiceClient() (bypasses RLS) but plan explicitly says 'uses createClient() (public insert via RLS)'. The RLS policy 'Public can submit brands' allows anonymous inserts, so the anon client should work. Using service role unnecessarily elevates privileges.",
+      "flagged_by": "Plan Alignment",
+      "status": "resolved"
+    },
+    {
+      "severity": "Important",
+      "file": "src/lib/services/taxonomy.ts",
+      "line": "72-116",
+      "description": "mergeTag operation is not atomic. It performs multiple sequential DB operations (read source rows, read target rows, loop with individual delete/update, then deactivate). If the process fails mid-loop, the merge will be partially applied with no rollback. Should use an RPC/stored procedure or at minimum document the non-atomicity risk.",
+      "flagged_by": "Architecture",
+      "status": "debatable"
+    },
+    {
+      "severity": "Important",
+      "file": "src/lib/services/brands.ts",
+      "line": "99-116",
+      "description": "BrandFilters type includes tagIds?: string[] but getBrands never applies this filter. The type contract promises tag filtering but the implementation silently ignores it. Either implement the filter or remove tagIds from BrandFilters to avoid misleading callers.",
+      "flagged_by": "Bug Hunter + Plan Alignment",
+      "status": "resolved"
+    },
+    {
+      "severity": "Important",
+      "file": "src/lib/services/brands.ts",
+      "line": "85",
+      "description": "brandToInsert passes socialLinks through as-is without reverse-transforming officialWebsite back to official_website. The DB stores official_website as the key, but domain type uses officialWebsite. mapSocialLinksToDomain handles the forward direction but there is no reverse mapper, causing data inconsistency on writes.",
+      "flagged_by": "Bug Hunter",
+      "status": "resolved"
+    },
+    {
+      "severity": "Minor",
+      "file": "src/lib/services/brands.ts",
+      "line": "110",
+      "description": "getBrands search filter uses ilike with unescaped user input: `%${filters.search}%`. While Supabase parameterizes the value (no SQL injection), LIKE pattern characters (% and _) in user input are not escaped, allowing users to craft unexpected wildcard patterns.",
+      "flagged_by": "Bug Hunter",
+      "status": "resolved"
+    },
+    {
+      "severity": "Minor",
+      "file": "src/lib/services/brands.test.ts",
+      "line": "1-105",
+      "description": "Test data uses placeholder IDs like '123', 'tag1' instead of realistic UUIDs. Per testing-philosophy.md, tests should use realistic data shapes to catch edge cases.",
+      "flagged_by": "Test Philosophy",
+      "status": "valid"
+    },
+    {
+      "severity": "Minor",
+      "file": "src/lib/services/brands.test.ts",
+      "line": "4-20",
+      "description": "Test names are framed around function signatures ('converts name to kebab-case', 'transforms snake_case DB row to camelCase Brand') rather than user outcomes. Per testing-philosophy.md naming violations.",
+      "flagged_by": "Test Philosophy",
+      "status": "valid"
+    }
+  ],
+  "active_agents": ["Bug Hunter", "Architecture", "Plan Alignment", "Test Philosophy"],
+  "skipped": [],
+  "head_sha": "60f8370ff6740246491647e3c50ca1cc3749d4db",
+  "review_log_path": "docs/reviews/2026-05-07-feat-dev-544-service-layer.md"
+}
