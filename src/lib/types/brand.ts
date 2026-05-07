@@ -47,6 +47,5 @@ export type Brand = {
 export type BrandFilters = {
   status?: BrandStatus
   category?: string
-  tagIds?: string[]
   search?: string
 }
