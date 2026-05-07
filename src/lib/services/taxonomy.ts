@@ -89,30 +89,41 @@ export async function mergeTag(sourceId: string, targetId: string): Promise<void
   if (targetErr) throw targetErr
 
   const targetBrandIds = new Set((targetRows ?? []).map((r) => r.brand_id))
+  const sourceBrandIds = (sourceRows ?? []).map((r) => r.brand_id)
 
-  for (const row of sourceRows ?? []) {
-    if (targetBrandIds.has(row.brand_id)) {
-      // Duplicate: delete the source row
-      await supabase
-        .from('brand_taxonomy')
-        .delete()
-        .eq('brand_id', row.brand_id)
-        .eq('tag_id', sourceId)
-    } else {
-      // Reassign to target
-      await supabase
-        .from('brand_taxonomy')
-        .update({ tag_id: targetId })
-        .eq('brand_id', row.brand_id)
-        .eq('tag_id', sourceId)
-    }
+  // Split into duplicates (already tagged with target) and reassignables
+  const duplicateBrandIds = sourceBrandIds.filter((id) => targetBrandIds.has(id))
+  const reassignBrandIds = sourceBrandIds.filter((id) => !targetBrandIds.has(id))
+
+  // Batch delete duplicates
+  if (duplicateBrandIds.length > 0) {
+    const { error: delErr } = await supabase
+      .from('brand_taxonomy')
+      .delete()
+      .in('brand_id', duplicateBrandIds)
+      .eq('tag_id', sourceId)
+
+    if (delErr) throw delErr
+  }
+
+  // Batch reassign non-duplicates to target
+  if (reassignBrandIds.length > 0) {
+    const { error: updateErr } = await supabase
+      .from('brand_taxonomy')
+      .update({ tag_id: targetId })
+      .in('brand_id', reassignBrandIds)
+      .eq('tag_id', sourceId)
+
+    if (updateErr) throw updateErr
   }
 
   // Deactivate source tag
-  await supabase
+  const { error: deactivateErr } = await supabase
     .from('taxonomy_tags')
     .update({ is_active: false })
     .eq('id', sourceId)
+
+  if (deactivateErr) throw deactivateErr
 }
 
 export async function deactivateTag(id: string): Promise<void> {
