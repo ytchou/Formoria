@@ -1,6 +1,6 @@
 import type { BrandSubmission, SubmissionStatus } from '@/lib/types'
 import { NotFoundError } from '@/lib/errors'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 
 // ---------------------------------------------------------------------------
 // Mappers
@@ -50,7 +50,8 @@ export async function createSubmission(
   data: Pick<BrandSubmission, 'brandName' | 'submitterEmail'> &
     Partial<Pick<BrandSubmission, 'submitterName' | 'description' | 'websiteUrl' | 'socialLinks' | 'suggestedTags'>>
 ): Promise<BrandSubmission> {
-  const supabase = createServiceClient()
+  // Public insert — use anon client with RLS (policy allows anonymous inserts)
+  const supabase = await createClient()
   const row = submissionToInsert(data)
   const { data: inserted, error } = await supabase
     .from('brand_submissions')
