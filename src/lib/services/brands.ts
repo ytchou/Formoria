@@ -29,6 +29,15 @@ function mapSocialLinksToDomain(raw: Record<string, string | undefined>): Social
   return result
 }
 
+function mapSocialLinksToDb(links: SocialLinks): Record<string, string | undefined> {
+  const result: Record<string, string | undefined> = {}
+  if (links.instagram) result.instagram = links.instagram
+  if (links.threads) result.threads = links.threads
+  if (links.facebook) result.facebook = links.facebook
+  if (links.officialWebsite) result.official_website = links.officialWebsite
+  return result
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export function brandToDomain(row: any): Brand {
   const taxonomyJoin: any[] = row.brand_taxonomy ?? []
@@ -82,7 +91,7 @@ export function brandToInsert(data: Partial<Brand>): Record<string, unknown> {
   if (data.category !== undefined) row.category = data.category
   if (data.foundingYear !== undefined) row.founding_year = data.foundingYear
   if (data.purchaseLinks !== undefined) row.purchase_links = data.purchaseLinks
-  if (data.socialLinks !== undefined) row.social_links = data.socialLinks
+  if (data.socialLinks !== undefined) row.social_links = mapSocialLinksToDb(data.socialLinks)
   if (data.retailLocations !== undefined) row.retail_locations = data.retailLocations
   if (data.productPhotos !== undefined) row.product_photos = data.productPhotos
   if (data.contactEmail !== undefined) row.contact_email = data.contactEmail

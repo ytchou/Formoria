@@ -97,7 +97,7 @@ describe('brandToInsert', () => {
     expect(row.slug).toBe('new-brand')
     expect(row.logo_url).toBe('https://example.com/logo.png')
     expect(row.purchase_links).toEqual([{ platform: 'official', url: 'https://brand.com', label: 'Official' }])
-    expect(row.social_links).toEqual({ instagram: '@brand', officialWebsite: 'https://brand.com' })
+    expect(row.social_links).toEqual({ instagram: '@brand', official_website: 'https://brand.com' })
     expect(row.contact_email).toBe('brand@example.com')
     expect(row).not.toHaveProperty('logoUrl')
     expect(row).not.toHaveProperty('purchaseLinks')
