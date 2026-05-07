@@ -54,6 +54,7 @@ next-env.d.ts
 # Strategy/internal docs (keep local, never push)
 *.md
 !README.md
+!docs/decisions/**/*.md
 
 # worktrees
 .worktrees/
