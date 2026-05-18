@@ -14,7 +14,13 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = await createClient();
-  await supabase.auth.exchangeCodeForSession(code);
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+  if (error) {
+    return NextResponse.redirect(
+      new URL("/auth/sign-in?error=expired-code", request.url)
+    );
+  }
 
   const redirectTo = next && isRelativeUrl(next) ? next : "/dashboard";
 
