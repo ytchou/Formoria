@@ -55,6 +55,11 @@ next-env.d.ts
 *.md
 !README.md
 !docs/decisions/**/*.md
+docs/
+*.pen
+
+# Supabase local
+supabase/
 
 # worktrees
 .worktrees/
