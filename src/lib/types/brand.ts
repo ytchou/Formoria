@@ -1,4 +1,5 @@
 import type { TaxonomyTag } from './taxonomy'
+import type { BrandSortOption } from '@/lib/pagination'
 
 export type BrandStatus = 'pending' | 'approved' | 'rejected' | 'hidden'
 
@@ -48,4 +49,8 @@ export type BrandFilters = {
   status?: BrandStatus
   category?: string
   search?: string
+  tags?: string[]
+  sort?: BrandSortOption
+  limit?: number
+  offset?: number
 }
