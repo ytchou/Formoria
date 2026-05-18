@@ -9,4 +9,4 @@ export type {
 
 export type { TagCategory, TaxonomyTag } from './taxonomy'
 
-export type { BrandSubmission, SubmissionStatus } from './submission'
+export type { BrandSubmission, SubmissionStatus, ValidationStatus } from './submission'

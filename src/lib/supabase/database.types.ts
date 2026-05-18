@@ -140,6 +140,10 @@ export type Database = {
           submitted_at: string
           reviewed_at: string | null
           reviewed_by: string | null
+          validation_status: string | null
+          validation_errors: Json | null
+          notified_at: string | null
+          is_brand_owner: boolean
         }
         Insert: {
           id?: string
@@ -156,6 +160,10 @@ export type Database = {
           submitted_at?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
+          validation_status?: string | null
+          validation_errors?: Json | null
+          notified_at?: string | null
+          is_brand_owner?: boolean
         }
         Update: {
           id?: string
@@ -172,6 +180,10 @@ export type Database = {
           submitted_at?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
+          validation_status?: string | null
+          validation_errors?: Json | null
+          notified_at?: string | null
+          is_brand_owner?: boolean
         }
       }
     }
