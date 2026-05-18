@@ -18,6 +18,10 @@ describe('submissionToDomain', () => {
       submitted_at: '2026-01-01T00:00:00Z',
       reviewed_at: null,
       reviewed_by: null,
+      validation_status: null,
+      validation_errors: null,
+      notified_at: null,
+      is_brand_owner: false,
     }
 
     const submission = submissionToDomain(dbRow)
@@ -34,6 +38,40 @@ describe('submissionToDomain', () => {
     expect(submission.reviewerNotes).toBeNull()
     expect(submission.reviewedAt).toBeNull()
     expect(submission.reviewedBy).toBeNull()
+    expect(submission.validationStatus).toBeNull()
+    expect(submission.validationErrors).toBeNull()
+    expect(submission.notifiedAt).toBeNull()
+    expect(submission.isBrandOwner).toBe(false)
+  })
+
+  it('maps pipeline fields from database row', () => {
+    const dbRow = {
+      id: 'sub-2',
+      brand_id: null,
+      brand_name: 'Pipeline Brand',
+      submitter_email: 'test@test.com',
+      submitter_name: null,
+      description: 'A test brand description that is long enough',
+      website_url: 'https://test.com',
+      social_links: {},
+      suggested_tags: [],
+      status: 'pending',
+      reviewer_notes: null,
+      submitted_at: '2026-05-18T00:00:00Z',
+      reviewed_at: null,
+      reviewed_by: null,
+      validation_status: 'valid',
+      validation_errors: null,
+      notified_at: '2026-05-18T09:00:00Z',
+      is_brand_owner: true,
+    }
+
+    const submission = submissionToDomain(dbRow)
+
+    expect(submission.validationStatus).toBe('valid')
+    expect(submission.validationErrors).toBeNull()
+    expect(submission.notifiedAt).toBe('2026-05-18T09:00:00Z')
+    expect(submission.isBrandOwner).toBe(true)
   })
 })
 

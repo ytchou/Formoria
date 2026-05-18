@@ -2,6 +2,7 @@ import type { Brand, BrandFilters, SocialLinks } from '@/lib/types'
 import type { TaxonomyTag } from '@/lib/types'
 import { NotFoundError, ValidationError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
+import { BRAND_SORT_CONFIG } from '@/lib/pagination'
 
 // ---------------------------------------------------------------------------
 // Slug generation
@@ -128,9 +129,18 @@ export function brandToInsert(data: Partial<Brand>): Record<string, unknown> {
 
 const BRAND_SELECT = '*, brand_taxonomy(taxonomy_tags(*))'
 
-export async function getBrands(filters?: BrandFilters): Promise<Brand[]> {
+export async function getBrands(
+  filters?: BrandFilters
+): Promise<{ brands: Brand[]; totalCount: number }> {
   const supabase = createServiceClient()
-  let query = supabase.from('brands').select(BRAND_SELECT)
+
+  // When filtering by tags, use !inner join so only matching brands are returned
+  const select =
+    filters?.tags && filters.tags.length > 0
+      ? '*, brand_taxonomy!inner(taxonomy_tags!inner(*))'
+      : BRAND_SELECT
+
+  let query = supabase.from('brands').select(select, { count: 'exact' })
 
   if (filters?.status) {
     query = query.eq('status', filters.status)
@@ -139,15 +149,28 @@ export async function getBrands(filters?: BrandFilters): Promise<Brand[]> {
     query = query.eq('category', filters.category)
   }
   if (filters?.search) {
-    // Escape LIKE pattern characters so user input is treated as literal text
     const escaped = filters.search.replace(/[%_\\]/g, '\\$&')
     query = query.ilike('name', `%${escaped}%`)
   }
+  if (filters?.tags && filters.tags.length > 0) {
+    query = query.in('brand_taxonomy.taxonomy_tags.slug', filters.tags)
+  }
 
-  const { data, error } = await query
+  // Sorting
+  const sortKey = filters?.sort ?? 'name'
+  const sortConfig = BRAND_SORT_CONFIG[sortKey]
+  query = query.order(sortConfig.column, { ascending: sortConfig.ascending })
+
+  // Pagination
+  if (filters?.limit !== undefined) {
+    const offset = filters.offset ?? 0
+    query = query.range(offset, offset + filters.limit - 1)
+  }
+
+  const { data, error, count } = await query
 
   if (error) throw error
-  return (data ?? []).map(brandToDomain)
+  return { brands: (data ?? []).map(brandToDomain), totalCount: count ?? 0 }
 }
 
 export async function getBrandBySlug(slug: string): Promise<Brand> {
