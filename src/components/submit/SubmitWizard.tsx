@@ -24,6 +24,13 @@ const STEP_LABELS = ['Brand Info', 'Products', 'Links', 'Review']
 
 const STEP_SCHEMAS = [brandInfoSchema, productsSchema, linksSchema, reviewSchema]
 
+const STEP_FIELDS: (keyof SubmissionFormData)[][] = [
+  ['name', 'description', 'category', 'tags', 'logoUrl'],
+  ['productPhotos', 'productHighlights'],
+  ['purchaseLinks', 'socialLinks', 'retailLocations'],
+  ['pdpaConsent'],
+]
+
 type Category = {
   slug: string
   label?: string
@@ -69,8 +76,8 @@ export function SubmitWizard({ categories }: SubmitWizardProps) {
     // Validate current step fields
     const result = schema.safeParse(currentValues)
     if (!result.success) {
-      // Trigger validation display for the current step fields
-      await methods.trigger()
+      // Trigger validation display for only the current step's fields
+      await methods.trigger(STEP_FIELDS[currentStep])
       return
     }
 
