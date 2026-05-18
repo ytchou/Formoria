@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from 'zod/v3'
 
 export const brandInfoSchema = z.object({
   name: z.string().min(2, 'Brand name must be at least 2 characters').max(100),
@@ -13,7 +13,7 @@ export const brandInfoSchema = z.object({
 
 export const productsSchema = z.object({
   productPhotos: z.array(z.string()).max(6, 'Maximum 6 photos allowed'),
-  productHighlights: z.string().max(300).optional().default(''),
+  productHighlights: z.string().max(300),
 })
 
 const purchaseLinkSchema = z.object({
@@ -22,10 +22,10 @@ const purchaseLinkSchema = z.object({
 })
 
 const socialLinksSchema = z.object({
-  instagram: z.string().optional().default(''),
-  threads: z.string().optional().default(''),
-  facebook: z.string().optional().default(''),
-  website: z.string().optional().default(''),
+  instagram: z.string(),
+  threads: z.string(),
+  facebook: z.string(),
+  website: z.string(),
 })
 
 const retailLocationSchema = z.object({

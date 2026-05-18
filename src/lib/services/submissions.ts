@@ -23,6 +23,7 @@ export function submissionToDomain(row: any): BrandSubmission {
     submittedAt: row.submitted_at,
     reviewedAt: row.reviewed_at ?? null,
     reviewedBy: row.reviewed_by ?? null,
+    pdpaConsentAt: row.pdpa_consent_at ?? null,
   }
 }
 
@@ -38,6 +39,7 @@ export function submissionToInsert(data: Partial<BrandSubmission>): Record<strin
   if (data.suggestedTags !== undefined) row.suggested_tags = data.suggestedTags
   if (data.status !== undefined) row.status = data.status
   if (data.reviewerNotes !== undefined) row.reviewer_notes = data.reviewerNotes
+  if (data.pdpaConsentAt !== undefined) row.pdpa_consent_at = data.pdpaConsentAt
   return row
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
