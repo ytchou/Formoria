@@ -6,7 +6,6 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     setupFiles: ["./src/test/setup.ts", "./src/test/setup-dom.ts"],
-    environmentMatchGlobs: [["src/components/**/*.test.tsx", "jsdom"]],
   },
   resolve: {
     alias: {
