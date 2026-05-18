@@ -9,4 +9,10 @@ export type {
 
 export type { TagCategory, TaxonomyTag } from './taxonomy'
 
-export type { BrandSubmission, SubmissionStatus } from './submission'
+export type {
+  BrandSubmission,
+  FormPurchaseLink,
+  FormRetailLocation,
+  FormSocialLinks,
+  SubmissionStatus,
+} from './submission'
