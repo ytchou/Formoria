@@ -8,5 +8,5 @@ doctor:
 
 seed: ## Seed taxonomy and sample brands
 	@echo "Seeding taxonomy and sample brands..."
-	npx supabase db execute --file supabase/seed.sql
+	npx supabase db query --linked --file supabase/seed.sql
 	@echo "Done."
