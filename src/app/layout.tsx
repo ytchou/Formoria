@@ -13,26 +13,26 @@ const bricolage = Bricolage_Grotesque({
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
+})
 
 export const metadata: Metadata = {
   title: "MIT Map — Made in Taiwan Brand Directory",
-  description: "Discover brands made in Taiwan",
+  description: "台灣製造品牌目錄 — Discover thoughtfully curated Taiwanese brands",
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.ReactNode
 }>) {
   return (
     <html
-      lang="en"
+      lang="zh-TW"
       className={`${inter.variable} ${bricolage.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col bg-background text-foreground">{children}</body>
     </html>
-  );
+  )
 }
