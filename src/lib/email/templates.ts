@@ -1,6 +1,15 @@
 import type { EmailMessage } from './types'
 import type { ValidationErrorCode } from '../validation/types'
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 const FROM_ADDRESS = 'MIT Map <noreply@mitmap.tw>'
 
 const ERROR_LABELS: Record<ValidationErrorCode, string> = {
@@ -21,11 +30,11 @@ export function buildApprovalEmail(params: {
   return {
     to: params.submitterEmail,
     from: FROM_ADDRESS,
-    subject: `Your brand "${params.brandName}" has been approved on MIT Map`,
+    subject: `Your brand "${escapeHtml(params.brandName)}" has been approved on MIT Map`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Your brand has been approved!</h2>
-        <p>Great news -- <strong>${params.brandName}</strong> is now listed on MIT Map.</p>
+        <p>Great news -- <strong>${escapeHtml(params.brandName)}</strong> is now listed on MIT Map.</p>
         <p>You can view your brand page here:</p>
         <p><a href="${brandUrl}" style="color: #2563eb;">${brandUrl}</a></p>
         <p>Thank you for contributing to the Made in Taiwan directory.</p>
@@ -46,18 +55,18 @@ export function buildRejectionEmail(params: {
       ? `
         <p><strong>Reviewer notes:</strong></p>
         <blockquote style="border-left: 3px solid #d1d5db; padding-left: 12px; color: #374151;">
-          ${params.reviewerNotes}
+          ${escapeHtml(params.reviewerNotes)}
         </blockquote>`
       : ''
 
   return {
     to: params.submitterEmail,
     from: FROM_ADDRESS,
-    subject: `Update on your brand submission "${params.brandName}" -- MIT Map`,
+    subject: `Update on your brand submission "${escapeHtml(params.brandName)}" -- MIT Map`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Update on your submission</h2>
-        <p>Thank you for submitting <strong>${params.brandName}</strong> to MIT Map.</p>
+        <p>Thank you for submitting <strong>${escapeHtml(params.brandName)}</strong> to MIT Map.</p>
         <p>After review, we were unable to approve this submission at this time.</p>
         ${notesSection}
         <p>You are welcome to resubmit with updated information.</p>
@@ -81,11 +90,11 @@ export function buildIncompleteSubmissionEmail(params: {
   return {
     to: params.submitterEmail,
     from: FROM_ADDRESS,
-    subject: `Action needed: your submission for "${params.brandName}" -- MIT Map`,
+    subject: `Action needed: your submission for "${escapeHtml(params.brandName)}" -- MIT Map`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Your submission needs attention</h2>
-        <p>Thank you for submitting <strong>${params.brandName}</strong> to MIT Map.</p>
+        <p>Thank you for submitting <strong>${escapeHtml(params.brandName)}</strong> to MIT Map.</p>
         <p>We found the following issues with your submission:</p>
         <ul>${fieldList}</ul>
         <p>Please update your submission so we can continue the review process.</p>
