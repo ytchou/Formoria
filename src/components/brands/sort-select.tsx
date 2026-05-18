@@ -15,7 +15,7 @@ export function SortSelect() {
       <select
         value={currentSort}
         onChange={(e) => setSort(e.target.value as BrandSortOption)}
-        className="rounded-lg border border-border bg-background px-3 py-1.5 text-[13px] font-medium text-foreground transition-colors hover:border-foreground/20 focus:outline-none focus:ring-2 focus:ring-primary/20"
+        className="rounded-lg border border-border bg-background px-3 py-1.5 text-[13px] font-medium text-foreground transition-colors hover:border-foreground/20 focus:outline-none focus:ring-2 focus:ring-ring/20"
       >
         {(Object.entries(BRAND_SORT_CONFIG) as [BrandSortOption, (typeof BRAND_SORT_CONFIG)[BrandSortOption]][]).map(
           ([key, config]) => (
