@@ -44,7 +44,7 @@ VALUES (
   '包袋',
   'https://cdn01.pinkoi.com/product/42bbieHG/0/2/500x0.jpg',
   '["https://cdn01.pinkoi.com/product/42bbieHG/0/2/500x0.jpg"]',
-  '[{"label": "Pinkoi", "url": "https://www.pinkoi.com/store/bangstree"}]',
+  '[{"platform": "pinkoi", "label": "Pinkoi", "url": "https://www.pinkoi.com/store/bangstree"}]',
   '{}',
   'approved', now(), now(), now(), now()
 )
@@ -64,7 +64,7 @@ VALUES (
   '居家生活用品',
   'https://cdn01.pinkoi.com/product/CUgMM2CB/0/1/500x0.jpg',
   '["https://cdn01.pinkoi.com/product/CUgMM2CB/0/1/500x0.jpg", "https://cdn01.pinkoi.com/product/VC2Q6trS/0/2/500x0.jpg"]',
-  '[{"label": "Pinkoi", "url": "https://www.pinkoi.com/store/slow2hite"}]',
+  '[{"platform": "pinkoi", "label": "Pinkoi", "url": "https://www.pinkoi.com/store/slow2hite"}]',
   '{}',
   'approved', now(), now(), now(), now()
 )
@@ -84,7 +84,7 @@ VALUES (
   '文具設計、設計商品',
   'https://cdn01.pinkoi.com/product/jhaWrNxa/0/1/500x0.jpg',
   '["https://cdn01.pinkoi.com/product/jhaWrNxa/0/1/500x0.jpg", "https://cdn01.pinkoi.com/product/hTVcWs2p/0/1/500x0.jpg"]',
-  '[{"label": "Pinkoi", "url": "https://www.pinkoi.com/store/livinzoo"}]',
+  '[{"platform": "pinkoi", "label": "Pinkoi", "url": "https://www.pinkoi.com/store/livinzoo"}]',
   '{}',
   'approved', now(), now(), now(), now()
 )
@@ -104,7 +104,7 @@ VALUES (
   '飾品',
   'https://cdn01.pinkoi.com/product/RHUfKiVh/0/6/500x0.jpg',
   '["https://cdn01.pinkoi.com/product/RHUfKiVh/0/6/500x0.jpg", "https://cdn01.pinkoi.com/product/TdR5crNs/0/3/500x0.jpg"]',
-  '[{"label": "Pinkoi", "url": "https://www.pinkoi.com/store/febbi"}]',
+  '[{"platform": "pinkoi", "label": "Pinkoi", "url": "https://www.pinkoi.com/store/febbi"}]',
   '{}',
   'approved', now(), now(), now(), now()
 )
@@ -124,7 +124,7 @@ VALUES (
   '服飾',
   'https://cdn01.pinkoi.com/product/bjGfun4v/0/1/500x0.jpg',
   '["https://cdn01.pinkoi.com/product/bjGfun4v/0/1/500x0.jpg"]',
-  '[{"label": "Pinkoi", "url": "https://www.pinkoi.com/store/yunski"}]',
+  '[{"platform": "pinkoi", "label": "Pinkoi", "url": "https://www.pinkoi.com/store/yunski"}]',
   '{}',
   'approved', now(), now(), now(), now()
 )
@@ -144,7 +144,7 @@ VALUES (
   '飾品、3C 配件',
   'https://cdn01.pinkoi.com/product/8tkDEf6P/0/1/500x0.jpg',
   '["https://cdn01.pinkoi.com/product/8tkDEf6P/0/1/500x0.jpg"]',
-  '[{"label": "Pinkoi", "url": "https://www.pinkoi.com/store/life-n-soul"}]',
+  '[{"platform": "pinkoi", "label": "Pinkoi", "url": "https://www.pinkoi.com/store/life-n-soul"}]',
   '{}',
   'approved', now(), now(), now(), now()
 )
@@ -164,7 +164,7 @@ VALUES (
   '鞋履',
   'https://cdn01.pinkoi.com/product/NhMxt5RT/0/1/500x0.jpg',
   '["https://cdn01.pinkoi.com/product/NhMxt5RT/0/1/500x0.jpg", "https://cdn01.pinkoi.com/product/ZhCgUS6j/0/1/500x0.jpg"]',
-  '[{"label": "Pinkoi", "url": "https://www.pinkoi.com/store/cicalapu"}]',
+  '[{"platform": "pinkoi", "label": "Pinkoi", "url": "https://www.pinkoi.com/store/cicalapu"}]',
   '{}',
   'approved', now(), now(), now(), now()
 )
@@ -185,7 +185,7 @@ VALUES (
   'https://twrr.org.tw/uploads/partner/611982834835652661.jpg',
   '["https://twrr.org.tw/uploads/partner/611982834835652661.jpg", "https://twrr.org.tw/uploads/partner/611989436754035119.jpg"]',
   '[]',
-  '{"officialWebsite": "https://onelife.com.tw/"}',
+  '{"official_website": "https://onelife.com.tw/"}',
   'approved', now(), now(), now(), now()
 )
 ON CONFLICT (slug) DO NOTHING;
@@ -205,7 +205,7 @@ VALUES (
   'https://twrr.org.tw/uploads/partner/495301611028742402.jpg',
   '["https://twrr.org.tw/uploads/partner/495301611028742402.jpg"]',
   '[]',
-  '{"officialWebsite": "https://maac.io/1DwtV"}',
+  '{"official_website": "https://maac.io/1DwtV"}',
   'approved', now(), now(), now(), now()
 )
 ON CONFLICT (slug) DO NOTHING;
@@ -225,7 +225,7 @@ VALUES (
   'https://twrr.org.tw/uploads/partner/596246476846531142.jpg',
   '["https://twrr.org.tw/uploads/partner/596246476846531142.jpg", "https://twrr.org.tw/uploads/partner/498788851725107297.jpg"]',
   '[]',
-  '{"officialWebsite": "http://www.1931.com.tw/"}',
+  '{"official_website": "http://www.1931.com.tw/"}',
   'approved', now(), now(), now(), now()
 )
 ON CONFLICT (slug) DO NOTHING;
