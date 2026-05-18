@@ -103,3 +103,75 @@ describe('brandToInsert', () => {
     expect(row).not.toHaveProperty('purchaseLinks')
   })
 })
+
+describe('brandToDomain — founder and productHighlights', () => {
+  const baseRow = {
+    id: 'test-id', name: 'Test Brand', slug: 'test-brand',
+    description: 'A test brand', logo_url: null, hero_image_url: null,
+    status: 'approved', category: 'Food & Beverage', founding_year: 2004,
+    purchase_links: [], social_links: {}, retail_locations: [],
+    product_photos: [], contact_email: null, brand_taxonomy: [],
+    submitted_at: '2026-01-01T00:00:00Z', approved_at: null,
+    created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+    founder: null, product_highlights: [],
+  }
+
+  it('maps founder JSONB with snake_case to BrandFounder with camelCase', () => {
+    const row = {
+      ...baseRow,
+      founder: {
+        name: 'Zhao Wenhao', title: 'Founder',
+        avatar_url: 'https://example.com/avatar.jpg',
+        quote: '我希望每瓶產品都能訴說台灣土地的故事',
+      },
+    }
+    const brand = brandToDomain(row)
+    expect(brand.founder).toEqual({
+      name: 'Zhao Wenhao', title: 'Founder',
+      avatarUrl: 'https://example.com/avatar.jpg',
+      quote: '我希望每瓶產品都能訴說台灣土地的故事',
+    })
+  })
+
+  it('maps product_highlights with snake_case to ProductHighlight[] with camelCase', () => {
+    const row = {
+      ...baseRow,
+      product_highlights: [
+        { name: '苦茶籽洗髮露', image_url: 'https://example.com/p1.jpg', description: 'Shampoo' },
+        { name: '山茶花護手霜', image_url: 'https://example.com/p2.jpg', description: null },
+      ],
+    }
+    const brand = brandToDomain(row)
+    expect(brand.productHighlights).toEqual([
+      { name: '苦茶籽洗髮露', imageUrl: 'https://example.com/p1.jpg', description: 'Shampoo' },
+      { name: '山茶花護手霜', imageUrl: 'https://example.com/p2.jpg', description: null },
+    ])
+  })
+
+  it('handles null founder gracefully', () => {
+    const brand = brandToDomain(baseRow)
+    expect(brand.founder).toBeNull()
+  })
+
+  it('handles null product_highlights gracefully', () => {
+    const row = { ...baseRow, product_highlights: null }
+    const brand = brandToDomain(row)
+    expect(brand.productHighlights).toEqual([])
+  })
+})
+
+describe('brandToInsert — founder and productHighlights', () => {
+  it('maps founder and productHighlights to snake_case DB columns', () => {
+    const input = {
+      founder: { name: 'Jane', title: 'CEO', avatarUrl: 'https://ex.com/a.jpg', quote: 'Hello' },
+      productHighlights: [{ name: 'Product A', imageUrl: 'https://ex.com/a.jpg', description: 'Desc' }],
+    }
+    const row = brandToInsert(input)
+    expect(row.founder).toEqual({
+      name: 'Jane', title: 'CEO', avatar_url: 'https://ex.com/a.jpg', quote: 'Hello',
+    })
+    expect(row.product_highlights).toEqual([
+      { name: 'Product A', image_url: 'https://ex.com/a.jpg', description: 'Desc' },
+    ])
+  })
+})
