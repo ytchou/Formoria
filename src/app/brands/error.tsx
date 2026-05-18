@@ -7,6 +7,9 @@ export default function BrandsError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  // Log for debugging — never expose to user
+  console.error('[BrandsError]', error)
+
   return (
     <main className="mx-auto flex w-full max-w-screen-xl flex-col items-center justify-center px-6 py-24 text-center md:px-10">
       <p className="text-base font-semibold text-foreground">
