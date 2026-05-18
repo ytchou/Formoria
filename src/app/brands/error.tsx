@@ -13,11 +13,11 @@ export default function BrandsError({
         Something went wrong loading brands
       </p>
       <p className="mt-1 text-sm text-muted-foreground">
-        {error.message || 'An unexpected error occurred. Please try again.'}
+        An unexpected error occurred. Please try again.
       </p>
       <button
         onClick={reset}
-        className="mt-6 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+        className="mt-6 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring/20"
       >
         Try again
       </button>
