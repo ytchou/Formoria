@@ -2,8 +2,11 @@ import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { getBrands } from '@/lib/services/brands'
 import { getTags } from '@/lib/services/taxonomy'
+import { parsePageParam, parseSortParam, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import { TaxonomyFilterSidebar } from '@/components/brands/taxonomy-filter-sidebar'
 import { BrandGrid } from '@/components/brands/brand-grid'
+import { Pagination } from '@/components/brands/pagination'
+import { SortSelect } from '@/components/brands/sort-select'
 
 export const metadata: Metadata = {
   title: 'Brand Directory — MIT Map',
@@ -13,41 +16,85 @@ export const metadata: Metadata = {
 // ISR: revalidate every hour
 export const revalidate = 3600
 
-/**
- * Server component: fetches all approved brands and taxonomy tags,
- * then renders the sidebar (client) and grid (client) in a single layout.
- *
- * Client-side filtering via URL ?tags= param — no full page reload needed.
- */
-export default async function BrandsPage() {
-  const [brands, tags] = await Promise.all([
-    getBrands({ status: 'approved' }),
+interface BrandsPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}
+
+export default async function BrandsPage({ searchParams }: BrandsPageProps) {
+  const params = await searchParams
+
+  const page = parsePageParam(params.page as string | undefined)
+  const sort = parseSortParam(params.sort as string | undefined)
+  const tags =
+    typeof params.tags === 'string'
+      ? params.tags
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : []
+
+  const [{ brands, totalCount }, allTags] = await Promise.all([
+    getBrands({
+      status: 'approved',
+      tags: tags.length > 0 ? tags : undefined,
+      sort,
+      limit: DEFAULT_PAGE_SIZE,
+      offset: (page - 1) * DEFAULT_PAGE_SIZE,
+    }),
     getTags(),
   ])
+
+  // Clamp page to last valid page if user navigated beyond
+  const totalPages = Math.ceil(totalCount / DEFAULT_PAGE_SIZE)
+  const clampedPage = totalCount > 0 && page > totalPages ? totalPages : page
+
+  // If page was clamped, re-fetch with correct offset
+  let displayBrands = brands
+  if (clampedPage !== page && totalCount > 0) {
+    const refetched = await getBrands({
+      status: 'approved',
+      tags: tags.length > 0 ? tags : undefined,
+      sort,
+      limit: DEFAULT_PAGE_SIZE,
+      offset: (clampedPage - 1) * DEFAULT_PAGE_SIZE,
+    })
+    displayBrands = refetched.brands
+  }
+
+  // Build searchParams record for pagination links (excluding page)
+  const paginationParams: Record<string, string> = {}
+  if (tags.length > 0) paginationParams.tags = tags.join(',')
+  if (sort !== 'name') paginationParams.sort = sort
+
+  // Calculate display range
+  const rangeStart = totalCount > 0 ? (clampedPage - 1) * DEFAULT_PAGE_SIZE + 1 : 0
+  const rangeEnd = Math.min(clampedPage * DEFAULT_PAGE_SIZE, totalCount)
 
   return (
     <main className="mx-auto w-full max-w-screen-xl px-6 py-10 md:px-10">
       {/* Page header */}
-      <div className="mb-8">
-        <h1 className="font-[family-name:var(--font-heading)] text-2xl font-bold leading-tight text-foreground">
-          Brand Directory
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {brands.length} Made in Taiwan brand{brands.length !== 1 ? 's' : ''}
-        </p>
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="font-[family-name:var(--font-heading)] text-2xl font-bold leading-tight text-foreground">
+            Brand Directory
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {totalCount > 0
+              ? `Showing ${rangeStart}–${rangeEnd} of ${totalCount} brand${totalCount !== 1 ? 's' : ''}`
+              : '0 brands found'}
+          </p>
+        </div>
+        <Suspense fallback={null}>
+          <SortSelect />
+        </Suspense>
       </div>
 
       {/* Layout: sidebar + grid */}
       <div className="flex gap-8">
-        {/*
-          Suspense boundary required because TaxonomyFilterSidebar uses
-          useSearchParams() internally (client component).
-        */}
-        <Suspense fallback={<div className="hidden md:block w-52 shrink-0" />}>
-          <TaxonomyFilterSidebar tags={tags} />
+        <Suspense fallback={<div className="hidden w-52 shrink-0 md:block" />}>
+          <TaxonomyFilterSidebar tags={allTags} />
         </Suspense>
 
-        {/* Brand grid — also uses useSearchParams for client filtering */}
         <div className="min-w-0 flex-1">
           <Suspense
             fallback={
@@ -67,8 +114,15 @@ export default async function BrandsPage() {
               </div>
             }
           >
-            <BrandGrid brands={brands} />
+            <BrandGrid brands={displayBrands} />
           </Suspense>
+
+          <Pagination
+            totalCount={totalCount}
+            currentPage={clampedPage}
+            pageSize={DEFAULT_PAGE_SIZE}
+            searchParams={paginationParams}
+          />
         </div>
       </div>
     </main>
