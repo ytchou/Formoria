@@ -22,6 +22,19 @@ export type RetailLocation = {
   longitude: number
 }
 
+export type BrandFounder = {
+  name: string
+  title: string | null
+  avatarUrl: string | null
+  quote: string | null
+}
+
+export type ProductHighlight = {
+  name: string
+  imageUrl: string
+  description: string | null
+}
+
 export type Brand = {
   id: string
   name: string
@@ -37,6 +50,8 @@ export type Brand = {
   retailLocations: RetailLocation[]
   productPhotos: string[]
   contactEmail: string | null
+  founder: BrandFounder | null
+  productHighlights: ProductHighlight[]
   tags: TaxonomyTag[]
   submittedAt: string
   approvedAt: string | null
