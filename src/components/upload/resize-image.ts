@@ -4,6 +4,8 @@ export function resizeImage(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.onload = () => {
+      URL.revokeObjectURL(img.src)
+
       let { width, height } = img
       if (width > MAX_WIDTH) {
         height = Math.round((height * MAX_WIDTH) / width)
@@ -39,7 +41,10 @@ export function resizeImage(file: File): Promise<Blob> {
         0.8
       )
     }
-    img.onerror = () => reject(new Error('Failed to load image'))
+    img.onerror = () => {
+      URL.revokeObjectURL(img.src)
+      reject(new Error('Failed to load image'))
+    }
     img.src = URL.createObjectURL(file)
   })
 }
