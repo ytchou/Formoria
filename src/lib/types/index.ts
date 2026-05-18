@@ -11,4 +11,11 @@ export type {
 
 export type { TagCategory, TaxonomyTag } from './taxonomy'
 
-export type { BrandSubmission, SubmissionStatus, ValidationStatus } from './submission'
+export type {
+  BrandSubmission,
+  FormPurchaseLink,
+  FormRetailLocation,
+  FormSocialLinks,
+  SubmissionStatus,
+  ValidationStatus,
+} from './submission'

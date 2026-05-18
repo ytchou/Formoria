@@ -18,8 +18,29 @@ export type BrandSubmission = {
   submittedAt: string
   reviewedAt: string | null
   reviewedBy: string | null
+  pdpaConsentAt: string | null
   validationStatus: ValidationStatus | null
   validationErrors: string[] | null
   notifiedAt: string | null
   isBrandOwner: boolean
+}
+
+/** Form-level purchase link (no label field required) */
+export type FormPurchaseLink = {
+  platform: string
+  url: string
+}
+
+/** Form-level social links (all strings, not optional) */
+export type FormSocialLinks = {
+  instagram: string
+  threads: string
+  facebook: string
+  website: string
+}
+
+/** Form-level retail location */
+export type FormRetailLocation = {
+  name: string
+  address: string
 }
