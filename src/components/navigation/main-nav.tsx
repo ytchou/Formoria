@@ -3,14 +3,14 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X } from 'lucide-react'
+import { Menu } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
-  SheetTrigger,
   SheetClose,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { Dialog as SheetPrimitive } from '@base-ui/react/dialog'
 
 const navLinks = [
   { label: 'Browse', href: '/' },
@@ -66,35 +66,39 @@ export function MainNav() {
 
         {/* Mobile menu */}
         <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger asChild>
-            <button
-              className="inline-flex size-10 items-center justify-center rounded-lg md:hidden"
-              aria-label="Open menu"
-            >
-              <Menu className="size-5" />
-            </button>
-          </SheetTrigger>
+          <SheetPrimitive.Trigger
+            render={
+              <button
+                className="inline-flex size-10 items-center justify-center rounded-lg md:hidden"
+                aria-label="Open menu"
+              />
+            }
+          >
+            <Menu className="size-5" />
+          </SheetPrimitive.Trigger>
           <SheetContent side="right" className="w-72">
             <SheetTitle className="sr-only">Navigation</SheetTitle>
             <div className="flex flex-col gap-4 pt-8">
               {navLinks.map((link) => (
-                <SheetClose key={link.href} asChild>
+                <SheetClose key={link.href}>
                   <Link
                     href={link.href}
-                    className={`rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
+                    className={`block rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
                       isActive(link.href)
                         ? 'bg-accent text-accent-foreground'
                         : 'text-foreground hover:bg-secondary'
                     }`}
+                    onClick={() => setOpen(false)}
                   >
                     {link.label}
                   </Link>
                 </SheetClose>
               ))}
-              <SheetClose asChild>
+              <SheetClose>
                 <Link
                   href="/submit"
-                  className="rounded-full bg-primary px-5 py-3 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                  className="block rounded-full bg-primary px-5 py-3 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                  onClick={() => setOpen(false)}
                 >
                   Submit a Brand
                 </Link>
