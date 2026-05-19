@@ -9,6 +9,7 @@ const navLinks = [
   { label: 'Submissions', href: '/admin/submissions' },
   { label: 'Brands', href: '/admin/brands' },
   { label: 'Taxonomy', href: '/admin/taxonomy' },
+  { label: 'Flagged', href: '/admin/flagged' },
 ]
 
 export function AdminNav() {

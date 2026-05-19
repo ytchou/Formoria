@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   buildApprovalEmail,
   buildRejectionEmail,
+  buildClaimEmail,
   buildIncompleteSubmissionEmail,
 } from './templates'
 
@@ -42,6 +43,35 @@ describe('buildRejectionEmail', () => {
     })
     expect(email.to).toBe('owner@brand.com')
     expect(email.html).not.toContain('null')
+  })
+})
+
+describe('buildClaimEmail', () => {
+  it('returns an EmailMessage with claim URL in body', () => {
+    const result = buildClaimEmail({
+      submitterEmail: 'owner@example.com',
+      brandName: 'Dachun Soap',
+      claimUrl: 'https://mitmap.tw/auth/sign-up?claim=abc123',
+      siteUrl: 'https://mitmap.tw',
+    })
+
+    expect(result.to).toBe('owner@example.com')
+    expect(result.subject).toContain('Claim your brand')
+    expect(result.html).toContain('Dachun Soap')
+    expect(result.html).toContain('https://mitmap.tw/auth/sign-up?claim=abc123')
+    expect(result.html).toContain('Claim')
+  })
+
+  it('escapes HTML in brand name', () => {
+    const result = buildClaimEmail({
+      submitterEmail: 'owner@example.com',
+      brandName: '<script>alert("xss")</script>',
+      claimUrl: 'https://mitmap.tw/auth/sign-up?claim=abc123',
+      siteUrl: 'https://mitmap.tw',
+    })
+
+    expect(result.html).not.toContain('<script>')
+    expect(result.html).toContain('&lt;script&gt;')
   })
 })
 

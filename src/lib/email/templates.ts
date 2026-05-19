@@ -77,6 +77,32 @@ export function buildRejectionEmail(params: {
   }
 }
 
+export function buildClaimEmail(params: {
+  submitterEmail: string
+  brandName: string
+  claimUrl: string
+  siteUrl: string
+}): EmailMessage {
+  return {
+    to: params.submitterEmail,
+    from: FROM_ADDRESS,
+    subject: `Claim your brand listing on MIT Map -- ${escapeHtml(params.brandName)}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Congratulations! Your brand has been approved.</h2>
+        <p><strong>${escapeHtml(params.brandName)}</strong> is now listed on MIT Map.</p>
+        <p>As the brand owner, you can claim your listing to manage and edit your brand page directly.</p>
+        <p style="margin: 24px 0;">
+          <a href="${params.claimUrl}" style="display: inline-block; background-color: #E06B3F; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Claim Your Brand</a>
+        </p>
+        <p style="color: #6b7280; font-size: 14px;">This link expires in 7 days. If you did not submit this brand, you can safely ignore this email.</p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+        <p style="color: #6b7280; font-size: 14px;">MIT Map -- Made in Taiwan Brand Directory</p>
+      </div>
+    `.trim(),
+  }
+}
+
 export function buildIncompleteSubmissionEmail(params: {
   submitterEmail: string
   brandName: string

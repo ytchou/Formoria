@@ -9,10 +9,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function SignInForm() {
+type SignInFormProps = {
+  claimToken?: string;
+  claimBrandName?: string;
+};
+
+export function SignInForm({ claimToken, claimBrandName }: SignInFormProps) {
   const [state, action, pending] = useActionState<AuthState, FormData>(signIn, {});
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
+
+  const signUpHref = claimToken
+    ? `/auth/sign-up?claim=${claimToken}`
+    : "/auth/sign-up";
 
   return (
     <div className="space-y-6">
@@ -24,6 +33,12 @@ export function SignInForm() {
           Enter your email and password to continue
         </p>
       </div>
+
+      {claimToken && claimBrandName && (
+        <div className="rounded-lg border border-[#E06B3F]/20 bg-[#E06B3F]/5 px-4 py-3 text-sm">
+          Sign in to claim <strong>{claimBrandName}</strong> on MIT Map.
+        </div>
+      )}
 
       {message && (
         <div className="rounded-lg bg-secondary px-4 py-3 text-sm text-secondary-foreground">
@@ -38,6 +53,10 @@ export function SignInForm() {
       )}
 
       <form action={action} className="space-y-4">
+        {claimToken && (
+          <input type="hidden" name="claimToken" value={claimToken} />
+        )}
+
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input
@@ -69,7 +88,7 @@ export function SignInForm() {
       <p className="text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{" "}
         <Link
-          href="/auth/sign-up"
+          href={signUpHref}
           className="font-medium text-foreground underline-offset-4 hover:underline"
         >
           Sign up

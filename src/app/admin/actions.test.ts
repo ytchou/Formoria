@@ -14,5 +14,6 @@ describe('admin actions module', () => {
     expect(typeof mod.renameTagAction).toBe('function')
     expect(typeof mod.mergeTagAction).toBe('function')
     expect(typeof mod.deactivateTagAction).toBe('function')
+    expect(typeof mod.reviewFlagAction).toBe('function')
   })
 })
