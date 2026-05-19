@@ -22,7 +22,7 @@ async function requireAdmin(): Promise<{ userId: string; email: string } | { err
   }
 
   if (!isAdmin(user.email ?? '')) {
-    return { error: 'You are not authorize to perform this action' }
+    return { error: 'You are not authorized to perform this action' }
   }
 
   return { userId: user.id, email: user.email ?? '' }

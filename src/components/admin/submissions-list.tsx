@@ -130,7 +130,7 @@ export function SubmissionsList({
 
                 {expandedId === submission.id && (
                   <TableRow key={`${submission.id}-expanded`}>
-                    <TableCell colSpan={4} className="bg-[#FAF9F6] p-6">
+                    <TableCell colSpan={4} className="bg-[#FAF7F4] p-6">
                       <div className="space-y-4">
                         {submission.description && (
                           <div>

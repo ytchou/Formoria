@@ -13,11 +13,11 @@ const statusConfig: Record<Status, { label: string; className: string }> = {
   },
   rejected: {
     label: 'Rejected',
-    className: 'bg-red-50 text-[#D94F3D]',
+    className: 'bg-[#FDF3EC] text-[#D94F3D]',
   },
   hidden: {
     label: 'Hidden',
-    className: 'bg-gray-100 text-gray-500',
+    className: 'bg-[#F5F4F1] text-[#7C7570]',
   },
 }
 

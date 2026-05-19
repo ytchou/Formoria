@@ -22,7 +22,7 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6]">
+    <div className="min-h-screen bg-background">
       <AdminNav />
       <main className="mx-auto max-w-screen-xl px-10 py-8">{children}</main>
     </div>
