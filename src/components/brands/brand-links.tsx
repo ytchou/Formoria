@@ -1,7 +1,6 @@
 'use client'
 
 import { ExternalLink, Globe } from 'lucide-react'
-import { buttonVariants } from '@/components/ui/button'
 import { ThreadsIcon } from '@/components/icons/threads-icon'
 import type { Brand } from '@/lib/types'
 
@@ -52,31 +51,36 @@ export function BrandLinks({ brand }: BrandLinksProps) {
     })
   }
   for (const link of brand.purchaseLinks) {
-    links.push({ label: link.label, url: link.url, icon: 'external', type: 'purchase' })
+    links.push({
+      label: link.label,
+      url: link.url,
+      icon: 'external',
+      type: 'purchase',
+    })
   }
 
   if (links.length === 0) return null
 
   return (
     <section>
-      <h2 className="mb-3 font-[family-name:var(--font-heading)] text-lg font-bold text-foreground">
+      <h2 className="mb-3 font-heading text-base font-bold text-foreground">
         Find Them
       </h2>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-3">
         {links.map((link, i) => (
           <a
             key={i}
             href={link.url}
             target="_blank"
             rel="noopener noreferrer"
-            className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
           >
             {link.icon === 'globe' ? (
-              <Globe className="size-3.5" />
+              <Globe className="size-4" />
             ) : link.icon === 'threads' ? (
-              <ThreadsIcon className="size-3.5" />
+              <ThreadsIcon className="size-4" />
             ) : (
-              <ExternalLink className="size-3.5" />
+              <ExternalLink className="size-4" />
             )}
             {link.label}
           </a>
