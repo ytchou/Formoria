@@ -268,3 +268,47 @@ export async function getAllBrandSlugs(): Promise<string[]> {
   if (error) throw error
   return (data ?? []).map((row) => row.slug)
 }
+
+export async function getBrandById(id: string): Promise<Brand> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brands')
+    .select(BRAND_SELECT)
+    .eq('id', id)
+    .single()
+
+  if (error || !data) throw new NotFoundError('Brand', id)
+  return brandToDomain(data)
+}
+
+export async function completeBrandClaim({
+  userId,
+  brandId,
+  email,
+}: {
+  userId: string
+  brandId: string
+  email: string
+}): Promise<void> {
+  const supabase = createServiceClient()
+
+  const { error: insertError } = await supabase
+    .from('brand_owners')
+    .insert({ user_id: userId, brand_id: brandId })
+    .select()
+    .single()
+
+  if (insertError) {
+    if (insertError.code === '23505') {
+      throw new ValidationError('This brand has already been claimed')
+    }
+    throw insertError
+  }
+
+  const { error: updateError } = await supabase
+    .from('brands')
+    .update({ contact_email: email })
+    .eq('id', brandId)
+
+  if (updateError) throw updateError
+}
