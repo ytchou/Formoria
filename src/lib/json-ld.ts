@@ -74,4 +74,29 @@ export function buildBreadcrumbJsonLd(items: BreadcrumbItem[]): Record<string, a
   }
 }
 
+/**
+ * Build ItemList JSON-LD structured data for a category page.
+ */
+export function buildCategoryItemListJsonLd(
+  categoryName: string,
+  categorySlug: string,
+  brands: Array<{ name: string; slug: string }>,
+): Record<string, any> {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: `${categoryName} — Made in Taiwan Brands`,
+    url: `${siteUrl}/category/${categorySlug}`,
+    numberOfItems: brands.length,
+    itemListElement: brands.map((brand, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: brand.name,
+      url: `${siteUrl}/brands/${brand.slug}`,
+    })),
+  }
+}
+
 /* eslint-enable @typescript-eslint/no-explicit-any */

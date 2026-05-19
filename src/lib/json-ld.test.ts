@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildBrandJsonLd, buildBreadcrumbJsonLd } from './json-ld'
+import { buildBrandJsonLd, buildBreadcrumbJsonLd, buildCategoryItemListJsonLd } from './json-ld'
 import type { Brand } from '@/lib/types'
 
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
@@ -71,6 +71,44 @@ describe('buildBrandJsonLd', () => {
     expect(jsonLd.sameAs).toBeUndefined()
     expect(jsonLd.address).toBeUndefined()
     expect(jsonLd.founder).toBeUndefined()
+  })
+})
+
+describe('buildCategoryItemListJsonLd', () => {
+  const mockBrands = [
+    { name: '茶籽堂', slug: 'cha-zi-tang' },
+    { name: 'DAYLILY', slug: 'daylily' },
+    { name: '印花樂', slug: 'inblooom' },
+  ]
+
+  it('returns valid ItemList JSON-LD', () => {
+    const result = buildCategoryItemListJsonLd('美妝', 'beauty', mockBrands)
+
+    expect(result['@context']).toBe('https://schema.org')
+    expect(result['@type']).toBe('ItemList')
+    expect(result.name).toContain('美妝')
+    expect(result.numberOfItems).toBe(3)
+  })
+
+  it('generates ListItem entries with correct positions', () => {
+    const result = buildCategoryItemListJsonLd('美妝', 'beauty', mockBrands)
+    const items = result.itemListElement
+
+    expect(items).toHaveLength(3)
+    expect(items[0]).toMatchObject({
+      '@type': 'ListItem',
+      position: 1,
+      name: '茶籽堂',
+    })
+    expect(items[0].url).toContain('/brands/cha-zi-tang')
+    expect(items[2].position).toBe(3)
+  })
+
+  it('handles empty brands array', () => {
+    const result = buildCategoryItemListJsonLd('食品', 'food', [])
+
+    expect(result.numberOfItems).toBe(0)
+    expect(result.itemListElement).toEqual([])
   })
 })
 
