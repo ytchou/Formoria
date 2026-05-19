@@ -1,7 +1,6 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { getBrands } from '@/lib/services/brands'
-import { getTags } from '@/lib/services/taxonomy'
 import { getActiveCategories } from '@/lib/services/taxonomy'
 import { parsePageParam, parseSortParam, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import { SearchInput } from '@/components/brands/search-input'
@@ -41,7 +40,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           .filter(Boolean)
       : []
 
-  const [{ brands, totalCount }, allTags, categories] = await Promise.all([
+  const [{ brands, totalCount }, categories] = await Promise.all([
     getBrands({
       status: 'approved',
       search: search || undefined,
@@ -51,7 +50,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       limit: DEFAULT_PAGE_SIZE,
       offset: (page - 1) * DEFAULT_PAGE_SIZE,
     }),
-    getTags(),
     getActiveCategories(),
   ])
 
