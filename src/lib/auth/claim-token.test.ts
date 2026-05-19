@@ -53,7 +53,7 @@ describe('claim-token', () => {
   describe('missing secret', () => {
     it('throws when CLAIM_TOKEN_SECRET is not set', async () => {
       vi.stubEnv('CLAIM_TOKEN_SECRET', '')
-      await expect(generateClaimToken(brandId, email)).rejects.toThrow()
+      await expect(generateClaimToken(brandId, email, brandName)).rejects.toThrow()
     })
   })
 })
