@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
-import { usePostHog } from 'posthog-js/react'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { trackGalleryPhotoView } from '@/lib/analytics'
 import {
   Dialog,
   DialogContent,
@@ -16,7 +16,6 @@ interface BrandPhotoGalleryProps {
 }
 
 export function BrandPhotoGallery({ photos, brandSlug }: BrandPhotoGalleryProps) {
-  const posthog = usePostHog()
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
 
   const isOpen = selectedIndex !== null
@@ -62,10 +61,7 @@ export function BrandPhotoGallery({ photos, brandSlug }: BrandPhotoGalleryProps)
             className="relative aspect-[4/3] overflow-hidden rounded-lg bg-muted"
             onClick={() => {
               setSelectedIndex(i)
-              posthog.capture('photo_gallery_opened', {
-                brand_slug: brandSlug,
-                photo_index: i,
-              })
+              trackGalleryPhotoView(brandSlug, i)
             }}
           >
             <Image

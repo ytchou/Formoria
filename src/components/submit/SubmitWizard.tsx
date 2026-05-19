@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useTransition } from 'react'
+import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
@@ -19,6 +19,11 @@ import {
   type SubmissionFormData,
 } from '@/lib/validations/submission'
 import { submitBrand } from '@/app/submit/actions'
+import {
+  trackSubmissionStart,
+  trackSubmissionStep,
+  trackSubmissionComplete,
+} from '@/lib/analytics'
 
 const STEP_LABELS = ['Brand Info', 'Products', 'Links', 'Review']
 
@@ -51,6 +56,10 @@ export function SubmitWizard({ categories }: SubmitWizardProps) {
 
   const sessionId = useMemo(() => crypto.randomUUID(), [])
 
+  useEffect(() => {
+    trackSubmissionStart()
+  }, [])
+
   const methods = useForm<SubmissionFormData>({
     resolver: zodResolver(fullSubmissionSchema),
     defaultValues: {
@@ -81,7 +90,9 @@ export function SubmitWizard({ categories }: SubmitWizardProps) {
       return
     }
 
-    setCurrentStep((prev) => Math.min(prev + 1, STEP_LABELS.length - 1))
+    const nextStep = Math.min(currentStep + 1, STEP_LABELS.length - 1)
+    setCurrentStep(nextStep)
+    trackSubmissionStep(nextStep + 1)
   }
 
   const handleBack = () => {
@@ -99,6 +110,7 @@ export function SubmitWizard({ categories }: SubmitWizardProps) {
       if (result?.error) {
         setSubmitError(result.error)
       } else {
+        trackSubmissionComplete()
         router.push('/submit/confirmation')
       }
     })

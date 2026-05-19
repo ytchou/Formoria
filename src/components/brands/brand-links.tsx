@@ -1,6 +1,5 @@
 'use client'
 
-import { usePostHog } from 'posthog-js/react'
 import { ExternalLink, Globe } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { ThreadsIcon } from '@/components/icons/threads-icon'
@@ -13,7 +12,6 @@ interface BrandLinksProps {
 }
 
 export function BrandLinks({ brand }: BrandLinksProps) {
-  const posthog = usePostHog()
   const links: {
     label: string
     url: string
@@ -72,13 +70,6 @@ export function BrandLinks({ brand }: BrandLinksProps) {
             target="_blank"
             rel="noopener noreferrer"
             className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            onClick={() => {
-              posthog.capture('outbound_link_clicked', {
-                brand_slug: brand.slug,
-                platform: link.label.toLowerCase(),
-                link_type: link.type,
-              })
-            }}
           >
             {link.icon === 'globe' ? (
               <Globe className="size-3.5" />
