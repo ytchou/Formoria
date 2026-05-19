@@ -147,6 +147,12 @@ export async function scrapeBrandUrl(url: string): Promise<ScrapedBrandData> {
       return emptyResult(url)
     }
 
+    // Verify content-type is HTML before reading body
+    const contentType = response.headers.get('content-type') ?? ''
+    if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
+      return emptyResult(url)
+    }
+
     // Check content-length before reading body
     const contentLength = parseInt(
       response.headers.get('content-length') ?? '0',
