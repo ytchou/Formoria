@@ -53,7 +53,7 @@ export default async function BrandDashboardPage({ params }: Props) {
       <div className="mt-8 grid gap-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium text-[#7C7570]">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
               Details
             </CardTitle>
           </CardHeader>
@@ -109,14 +109,14 @@ export default async function BrandDashboardPage({ params }: Props) {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium text-[#7C7570]">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
               Public Page
             </CardTitle>
           </CardHeader>
           <CardContent>
             <Link
               href={`/brands/${slug}`}
-              className="text-sm text-[#E06B3F] hover:underline"
+              className="text-sm text-primary hover:underline"
             >
               View your brand on MIT Map
             </Link>

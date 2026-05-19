@@ -16,6 +16,11 @@ export async function updateBrandAction(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
+  const brandSlug = formData.get('brandSlug') as string
+  if (!brandSlug) {
+    return { error: 'Missing brand slug' }
+  }
+
   try {
     const supabase = await createClient()
     const {
@@ -24,11 +29,6 @@ export async function updateBrandAction(
 
     if (!user) {
       return { error: 'You must be signed in to edit a brand' }
-    }
-
-    const brandSlug = formData.get('brandSlug') as string
-    if (!brandSlug) {
-      return { error: 'Missing brand slug' }
     }
 
     const brand = await getBrandBySlug(brandSlug)
@@ -103,6 +103,5 @@ export async function updateBrandAction(
     }
   }
 
-  const brandSlug = formData.get('brandSlug') as string
   redirect(`/dashboard/brands/${brandSlug}`)
 }
