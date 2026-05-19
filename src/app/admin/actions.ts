@@ -7,7 +7,9 @@ import { getSubmission, approveSubmission, rejectSubmission } from '@/lib/servic
 import { createBrand, updateBrand, deleteBrand, generateSlug } from '@/lib/services/brands'
 import { createTag, updateTag, mergeTag, deactivateTag } from '@/lib/services/taxonomy'
 import { createResendProvider } from '@/lib/email/resend-adapter'
-import { buildApprovalEmail, buildRejectionEmail } from '@/lib/email/templates'
+import { buildApprovalEmail, buildRejectionEmail, buildClaimEmail } from '@/lib/email/templates'
+import { generateClaimToken } from '@/lib/auth/claim-token'
+import { createServiceClient } from '@/lib/supabase/server'
 import type { TagCategory } from '@/lib/types'
 
 async function requireAdmin(): Promise<{ userId: string; email: string } | { error: string }> {
@@ -50,7 +52,7 @@ export async function approveSubmissionAction(
     const submission = await getSubmission(submissionId)
     const slug = generateSlug(submission.brandName)
 
-    await createBrand({
+    const brand = await createBrand({
       name: submission.brandName,
       slug,
       description: submission.description,
@@ -71,12 +73,24 @@ export async function approveSubmissionAction(
     await approveSubmission(submissionId, auth.userId)
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://mitmap.tw'
-    sendEmail(buildApprovalEmail({
-      submitterEmail: submission.submitterEmail,
-      brandName: submission.brandName,
-      brandSlug: slug,
-      siteUrl,
-    }))
+
+    if (submission.isBrandOwner) {
+      const token = await generateClaimToken(brand.id, submission.submitterEmail)
+      const claimUrl = `${siteUrl}/auth/sign-up?claim=${token}`
+      sendEmail(buildClaimEmail({
+        submitterEmail: submission.submitterEmail,
+        brandName: submission.brandName,
+        claimUrl,
+        siteUrl,
+      }))
+    } else {
+      sendEmail(buildApprovalEmail({
+        submitterEmail: submission.submitterEmail,
+        brandName: submission.brandName,
+        brandSlug: slug,
+        siteUrl,
+      }))
+    }
 
     revalidatePath('/admin/submissions')
     revalidatePath('/admin')
@@ -258,6 +272,40 @@ export async function mergeTagAction(
     return undefined
   } catch (err) {
     console.error('[admin:mergeTag]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
+}
+
+export async function reviewFlagAction(
+  flagId: string,
+  decision: 'reviewed' | 'dismissed'
+): Promise<{ error: string } | undefined> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth
+
+    const supabase = createServiceClient()
+    const updateData: Record<string, unknown> = {
+      status: decision,
+    }
+    if (decision === 'reviewed') {
+      updateData.reviewed_at = new Date().toISOString()
+    }
+
+    const { error } = await supabase
+      .from('moderation_flags')
+      .update(updateData)
+      .eq('id', flagId)
+
+    if (error) throw error
+
+    revalidatePath('/admin/flagged')
+    revalidatePath('/admin')
+    return undefined
+  } catch (err) {
+    console.error('[admin:reviewFlag]', err)
     return {
       error: err instanceof Error ? err.message : 'An unexpected error occurred',
     }

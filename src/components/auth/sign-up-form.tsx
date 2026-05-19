@@ -9,10 +9,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function SignUpForm() {
+type SignUpFormProps = {
+  claimToken?: string;
+  claimBrandName?: string;
+};
+
+export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
   const [state, action, pending] = useActionState<AuthState, FormData>(signUp, {});
   const searchParams = useSearchParams();
   const email = searchParams.get("email") ?? "";
+
+  const signInHref = claimToken
+    ? `/auth/sign-in?claim=${claimToken}`
+    : "/auth/sign-in";
 
   return (
     <div className="space-y-6">
@@ -25,6 +34,13 @@ export function SignUpForm() {
         </p>
       </div>
 
+      {claimToken && claimBrandName && (
+        <div className="rounded-lg border border-[#E06B3F]/20 bg-[#E06B3F]/5 px-4 py-3 text-sm">
+          You&apos;ve been invited to claim <strong>{claimBrandName}</strong> on MIT Map.
+          Create an account to manage your brand listing.
+        </div>
+      )}
+
       {state.error && (
         <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {state.error}
@@ -32,6 +48,10 @@ export function SignUpForm() {
       )}
 
       <form action={action} className="space-y-4">
+        {claimToken && (
+          <input type="hidden" name="claimToken" value={claimToken} />
+        )}
+
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input
@@ -76,7 +96,7 @@ export function SignUpForm() {
       <p className="text-center text-sm text-muted-foreground">
         Already have an account?{" "}
         <Link
-          href="/auth/sign-in"
+          href={signInHref}
           className="font-medium text-foreground underline-offset-4 hover:underline"
         >
           Sign in

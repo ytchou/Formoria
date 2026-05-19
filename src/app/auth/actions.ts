@@ -33,6 +33,11 @@ export async function signIn(
     return { error: error.message };
   }
 
+  const claimToken = formData.get("claimToken") as string | null;
+  if (claimToken) {
+    redirect(`/auth/callback?claim=${claimToken}`);
+  }
+
   redirect("/dashboard");
 }
 
@@ -51,10 +56,20 @@ export async function signUp(
     return { error: parsed.error.issues[0].message };
   }
 
+  const claimToken = formData.get("claimToken") as string | null;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://mitmap.tw";
+
+  const emailRedirectTo = claimToken
+    ? `${siteUrl}/auth/callback?claim=${claimToken}`
+    : `${siteUrl}/auth/callback`;
+
   const supabase = await createClient();
   const { error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
+    options: {
+      emailRedirectTo,
+    },
   });
 
   if (error) {
