@@ -78,7 +78,7 @@ export default function ConfirmationPage() {
         {/* CTAs */}
         <div className="mt-8 space-y-3">
           <Link
-            href="/brands"
+            href="/"
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#E06B3F] px-5 py-3 text-sm font-medium text-white hover:bg-[#C85A33]"
           >
             <Home className="h-4 w-4" />
