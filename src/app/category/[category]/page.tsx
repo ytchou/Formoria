@@ -100,7 +100,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
     { label: categoryName },
   ]
 
-  // JSON-LD data for all brands in this category (not just current page)
+  // JSON-LD data for brands on the current page
   const brandSummaries = displayBrands.map((b) => ({ name: b.name, slug: b.slug }))
 
   return (
