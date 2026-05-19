@@ -122,7 +122,7 @@ export function TagManager({ tags }: { tags: TaxonomyTag[] }) {
             />
           </div>
           <div className="w-40">
-            <Select value={newTagCategory} onValueChange={setNewTagCategory}>
+            <Select value={newTagCategory} onValueChange={(v) => v && setNewTagCategory(v)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -227,7 +227,7 @@ export function TagManager({ tags }: { tags: TaxonomyTag[] }) {
                           <div className="flex items-center gap-1">
                             <Select
                               value={mergeTargetId}
-                              onValueChange={setMergeTargetId}
+                              onValueChange={(v) => v && setMergeTargetId(v)}
                             >
                               <SelectTrigger className="h-7 w-28 text-xs">
                                 <SelectValue placeholder="Merge into..." />

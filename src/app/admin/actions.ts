@@ -125,7 +125,7 @@ export async function updateBrandAction(
     const auth = await requireAdmin()
     if ('error' in auth) return auth
 
-    await updateBrand(brandId, data)
+    await updateBrand(brandId, data as Parameters<typeof updateBrand>[1])
 
     revalidatePath('/admin/brands')
     revalidatePath('/admin')
