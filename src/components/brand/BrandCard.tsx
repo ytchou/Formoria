@@ -34,7 +34,7 @@ export function BrandCard({ brand }: BrandCardProps) {
 
   return (
     <Link
-      href={`/brands/${slug}`}
+      href={`/${slug}`}
       className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl"
       aria-label={`View ${name}`}
     >

@@ -1,5 +1,9 @@
 import { z } from 'zod/v3'
 
+export const scrapeUrlSchema = z.object({
+  url: z.string().url().max(2048).startsWith('https://'),
+})
+
 export const brandInfoSchema = z.object({
   name: z.string().min(2, 'Brand name must be at least 2 characters').max(100),
   description: z

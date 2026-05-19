@@ -4,6 +4,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { FormProvider, useForm } from 'react-hook-form'
 import { BrandInfoStep } from './BrandInfoStep'
+import type { PhotoItem } from '@/lib/types/scraper'
 
 vi.mock('../upload/ImageUploader', () => ({
   ImageUploader: ({ onUpload }: { onUpload: (url: string) => void }) => (
@@ -73,5 +74,103 @@ describe('BrandInfoStep', () => {
       </Wrapper>
     )
     expect(screen.getByText(/0.*\/.*500.*max.*characters/i)).toBeInTheDocument()
+  })
+})
+
+describe('BrandInfoStep photo gallery', () => {
+  const scrapedPhotos: PhotoItem[] = [
+    { id: '1', url: 'https://example.com/photo1.jpg', source: 'scraped' },
+    { id: '2', url: 'https://example.com/photo2.jpg', source: 'scraped' },
+    { id: '3', url: 'https://example.com/photo3.jpg', source: 'uploaded' },
+  ]
+
+  it('renders scraped images with correct badges', () => {
+    render(
+      <Wrapper>
+        <BrandInfoStep
+          categories={mockCategories}
+          uploadPath="brands/test-uuid"
+          photos={scrapedPhotos}
+          onPhotosChange={vi.fn()}
+        />
+      </Wrapper>
+    )
+
+    expect(screen.getByText('Hero')).toBeInTheDocument()
+    expect(screen.getAllByText('from website')).toHaveLength(2)
+    expect(screen.getByText('uploaded')).toBeInTheDocument()
+  })
+
+  it('shows Hero badge on first image only', () => {
+    render(
+      <Wrapper>
+        <BrandInfoStep
+          categories={mockCategories}
+          uploadPath="brands/test-uuid"
+          photos={scrapedPhotos}
+          onPhotosChange={vi.fn()}
+        />
+      </Wrapper>
+    )
+
+    const heroElements = screen.getAllByText('Hero')
+    expect(heroElements).toHaveLength(1)
+  })
+
+  it('removes photo when X button is clicked', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    render(
+      <Wrapper>
+        <BrandInfoStep
+          categories={mockCategories}
+          uploadPath="brands/test-uuid"
+          photos={scrapedPhotos}
+          onPhotosChange={onChange}
+        />
+      </Wrapper>
+    )
+
+    const removeButtons = screen.getAllByRole('button', { name: /remove/i })
+    await user.click(removeButtons[0])
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.not.arrayContaining([expect.objectContaining({ id: '1' })])
+    )
+  })
+
+  it('shows empty state when no photos', () => {
+    render(
+      <Wrapper>
+        <BrandInfoStep
+          categories={mockCategories}
+          uploadPath="brands/test-uuid"
+          photos={[]}
+          onPhotosChange={vi.fn()}
+        />
+      </Wrapper>
+    )
+
+    expect(screen.getByText(/no photos found/i)).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /add.*photos/i })
+    ).toBeInTheDocument()
+  })
+
+  it('shows add more button below photo grid', () => {
+    render(
+      <Wrapper>
+        <BrandInfoStep
+          categories={mockCategories}
+          uploadPath="brands/test-uuid"
+          photos={scrapedPhotos}
+          onPhotosChange={vi.fn()}
+        />
+      </Wrapper>
+    )
+
+    expect(
+      screen.getByRole('button', { name: /add more photos/i })
+    ).toBeInTheDocument()
   })
 })

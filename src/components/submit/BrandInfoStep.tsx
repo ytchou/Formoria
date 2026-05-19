@@ -1,8 +1,21 @@
 'use client'
 
 import { useFormContext, Controller } from 'react-hook-form'
+import { X, Plus, Star, Globe, Upload } from 'lucide-react'
+import {
+  DndContext,
+  closestCenter,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { ImageUploader } from '../upload/ImageUploader'
 import type { SubmissionFormData } from '@/lib/validations/submission'
+import type { PhotoItem } from '@/lib/types/scraper'
 
 type Category = {
   slug: string
@@ -15,9 +28,163 @@ type Category = {
 type BrandInfoStepProps = {
   categories: Category[]
   uploadPath: string
+  photos?: PhotoItem[]
+  onPhotosChange?: (photos: PhotoItem[]) => void
 }
 
-export function BrandInfoStep({ categories, uploadPath }: BrandInfoStepProps) {
+function SortablePhoto({
+  photo,
+  isHero,
+  onRemove,
+}: {
+  photo: PhotoItem
+  isHero: boolean
+  onRemove: () => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: photo.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="group relative aspect-[4/3] overflow-hidden rounded-lg border border-[#E8E5E0]"
+      {...attributes}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={photo.url}
+        alt=""
+        loading="lazy"
+        className="h-full w-full cursor-grab object-cover"
+        {...listeners}
+      />
+
+      {/* Badges */}
+      <div className="absolute left-1.5 top-1.5 flex flex-col gap-1">
+        {isHero && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#E06B3F] px-2 py-0.5 text-[10px] font-medium text-white">
+            <Star className="h-3 w-3" />
+            Hero
+          </span>
+        )}
+
+        {photo.source === 'scraped' && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#3D3530] px-2 py-0.5 text-[10px] font-medium text-white">
+            <Globe className="h-3 w-3" />
+            from website
+          </span>
+        )}
+        {photo.source === 'uploaded' && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-medium text-white">
+            <Upload className="h-3 w-3" />
+            uploaded
+          </span>
+        )}
+      </div>
+
+      {/* Remove button */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onRemove()
+        }}
+        className="absolute right-1.5 top-1.5 flex h-[22px] w-[22px] items-center justify-center rounded-full bg-[#3D3530]/80 text-white hover:bg-[#3D3530]"
+        aria-label={`Remove photo ${photo.id}`}
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
+  )
+}
+
+function PhotoGallery({
+  photos,
+  onPhotosChange,
+}: {
+  photos: PhotoItem[]
+  onPhotosChange: (photos: PhotoItem[]) => void
+}) {
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const oldIndex = photos.findIndex((p) => p.id === active.id)
+    const newIndex = photos.findIndex((p) => p.id === over.id)
+
+    const reordered = [...photos]
+    const [moved] = reordered.splice(oldIndex, 1)
+    reordered.splice(newIndex, 0, moved)
+    onPhotosChange(reordered)
+  }
+
+  const handleRemove = (id: string) => {
+    onPhotosChange(photos.filter((p) => p.id !== id))
+  }
+
+  if (photos.length === 0) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-[#7C7570]">
+          No photos found from your website
+        </p>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#8B7355] hover:text-[#6A573F]"
+          aria-label="Add photos"
+        >
+          <Plus className="h-4 w-4" />
+          Add photos
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext
+          items={photos.map((p) => p.id)}
+          strategy={rectSortingStrategy}
+        >
+          <div className="grid grid-cols-4 gap-3">
+            {photos.map((photo, index) => (
+              <SortablePhoto
+                key={photo.id}
+                photo={photo}
+                isHero={index === 0}
+                onRemove={() => handleRemove(photo.id)}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+
+      {photos.length < 6 && (
+        <button
+          type="button"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#8B7355] hover:text-[#6A573F]"
+        >
+          <Plus className="h-4 w-4" />
+          Add more photos
+        </button>
+      )}
+    </div>
+  )
+}
+
+export function BrandInfoStep({
+  categories,
+  uploadPath,
+  photos,
+  onPhotosChange,
+}: BrandInfoStepProps) {
   const {
     register,
     control,
@@ -75,6 +242,19 @@ export function BrandInfoStep({ categories, uploadPath }: BrandInfoStepProps) {
           </span>
         </div>
       </div>
+
+      {/* Photo Gallery (from scraping) */}
+      {photos && onPhotosChange && (
+        <div className="space-y-1.5">
+          <label className="block text-sm font-semibold text-[#1A1918]">
+            Photos
+          </label>
+          <p className="text-xs text-[#7C7570]">
+            Drag to reorder. The first photo becomes the hero image.
+          </p>
+          <PhotoGallery photos={photos} onPhotosChange={onPhotosChange} />
+        </div>
+      )}
 
       {/* Category */}
       <div className="space-y-1.5">

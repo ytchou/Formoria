@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useMemo, useTransition, useEffect } from 'react'
+import { useState, useMemo, useTransition, useEffect, useCallback } from 'react'
 import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ArrowRight, Send } from 'lucide-react'
 import { StepIndicator } from './StepIndicator'
+import { UrlStep } from './UrlStep'
 import { BrandInfoStep } from './BrandInfoStep'
 import { ProductsStep } from './ProductsStep'
 import { LinksStep } from './LinksStep'
@@ -24,6 +25,7 @@ import {
   trackSubmissionStep,
   trackSubmissionComplete,
 } from '@/lib/analytics'
+import type { ScrapedBrandData, PhotoItem } from '@/lib/types/scraper'
 
 const STEP_LABELS = ['Brand Info', 'Products', 'Links', 'Review']
 
@@ -48,11 +50,39 @@ type SubmitWizardProps = {
   categories: Category[]
 }
 
+type WizardPhase = 'url' | 'form'
+
+function mapScrapedToPhotos(data: ScrapedBrandData): PhotoItem[] {
+  const photos: PhotoItem[] = []
+
+  if (data.heroImageUrl) {
+    photos.push({
+      id: crypto.randomUUID(),
+      url: data.heroImageUrl,
+      source: 'scraped',
+    })
+  }
+
+  for (const url of data.galleryImageUrls) {
+    if (url !== data.heroImageUrl) {
+      photos.push({
+        id: crypto.randomUUID(),
+        url,
+        source: 'scraped',
+      })
+    }
+  }
+
+  return photos
+}
+
 export function SubmitWizard({ categories }: SubmitWizardProps) {
   const router = useRouter()
+  const [phase, setPhase] = useState<WizardPhase>('url')
   const [currentStep, setCurrentStep] = useState(0)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [photos, setPhotos] = useState<PhotoItem[]>([])
 
   const sessionId = useMemo(() => crypto.randomUUID(), [])
 
@@ -77,6 +107,41 @@ export function SubmitWizard({ categories }: SubmitWizardProps) {
     },
     mode: 'onTouched',
   })
+
+  const handleUrlSuccess = useCallback(
+    (data: ScrapedBrandData) => {
+      // Pre-fill form with scraped data
+      if (data.brandName) {
+        methods.setValue('name', data.brandName)
+      }
+      if (data.description) {
+        methods.setValue('description', data.description)
+      }
+
+      // Map social links
+      methods.setValue('socialLinks', {
+        instagram: data.socialLinks.instagram ?? '',
+        threads: data.socialLinks.threads ?? '',
+        facebook: data.socialLinks.facebook ?? '',
+        website: data.websiteUrl,
+      })
+
+      // Map category hints to tags
+      if (data.categoryHints.length > 0) {
+        methods.setValue('tags', data.categoryHints.slice(0, 5))
+      }
+
+      // Map photos
+      setPhotos(mapScrapedToPhotos(data))
+
+      setPhase('form')
+    },
+    [methods]
+  )
+
+  const handleUrlSkip = useCallback(() => {
+    setPhase('form')
+  }, [])
 
   const handleNext = async () => {
     const schema = STEP_SCHEMAS[currentStep]
@@ -105,8 +170,16 @@ export function SubmitWizard({ categories }: SubmitWizardProps) {
 
   const handleSubmit = methods.handleSubmit((data) => {
     setSubmitError(null)
+
+    // Merge scraped photo URLs into productPhotos before submission
+    const photoUrls = photos.map((p) => p.url)
+    const mergedData = {
+      ...data,
+      productPhotos: [...photoUrls, ...data.productPhotos.filter((url) => !photoUrls.includes(url))],
+    }
+
     startTransition(async () => {
-      const result = await submitBrand(data)
+      const result = await submitBrand(mergedData)
       if (result?.error) {
         setSubmitError(result.error)
       } else {
@@ -129,73 +202,83 @@ export function SubmitWizard({ categories }: SubmitWizardProps) {
         </p>
       </div>
 
-      <StepIndicator steps={STEP_LABELS} currentStep={currentStep} />
+      {phase === 'url' ? (
+        <div className="rounded-xl border border-[#E8E5E0] bg-white p-8 shadow-sm">
+          <UrlStep onSuccess={handleUrlSuccess} onSkip={handleUrlSkip} />
+        </div>
+      ) : (
+        <>
+          <StepIndicator steps={STEP_LABELS} currentStep={currentStep} />
 
-      <FormProvider {...methods}>
-        <form onSubmit={handleSubmit}>
-          <div className="rounded-xl border border-[#E8E5E0] bg-white p-8 shadow-sm">
-            {currentStep === 0 && (
-              <BrandInfoStep
-                categories={categories}
-                uploadPath={uploadPath}
-              />
-            )}
-            {currentStep === 1 && (
-              <ProductsStep uploadPath={uploadPath} />
-            )}
-            {currentStep === 2 && <LinksStep />}
-            {currentStep === 3 && (
-              <ReviewStep onEditStep={handleEditStep} />
-            )}
+          <FormProvider {...methods}>
+            <form onSubmit={handleSubmit}>
+              <div className="rounded-xl border border-[#E8E5E0] bg-white p-8 shadow-sm">
+                {currentStep === 0 && (
+                  <BrandInfoStep
+                    categories={categories}
+                    uploadPath={uploadPath}
+                    photos={photos}
+                    onPhotosChange={setPhotos}
+                  />
+                )}
+                {currentStep === 1 && (
+                  <ProductsStep uploadPath={uploadPath} />
+                )}
+                {currentStep === 2 && <LinksStep />}
+                {currentStep === 3 && (
+                  <ReviewStep onEditStep={handleEditStep} />
+                )}
 
-            {submitError && (
-              <p className="mt-4 text-sm text-red-600">{submitError}</p>
-            )}
+                {submitError && (
+                  <p className="mt-4 text-sm text-red-600">{submitError}</p>
+                )}
 
-            {/* Navigation */}
-            <div className="mt-8 flex items-center justify-between">
-              {currentStep > 0 ? (
-                <button
-                  type="button"
-                  onClick={handleBack}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#D4CFC9] bg-white px-5 py-2.5 text-sm font-medium text-[#1A1918] hover:bg-[#F5F4F1]"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Back
-                </button>
-              ) : (
-                <span />
-              )}
-
-              {currentStep < STEP_LABELS.length - 1 ? (
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#E06B3F] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#C85A33]"
-                >
-                  Next
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#E06B3F] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#C85A33] disabled:opacity-50"
-                >
-                  {isPending ? (
-                    'Submitting...'
+                {/* Navigation */}
+                <div className="mt-8 flex items-center justify-between">
+                  {currentStep > 0 ? (
+                    <button
+                      type="button"
+                      onClick={handleBack}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#D4CFC9] bg-white px-5 py-2.5 text-sm font-medium text-[#1A1918] hover:bg-[#F5F4F1]"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      Back
+                    </button>
                   ) : (
-                    <>
-                      <Send className="h-4 w-4" />
-                      Submit Brand
-                    </>
+                    <span />
                   )}
-                </button>
-              )}
-            </div>
-          </div>
-        </form>
-      </FormProvider>
+
+                  {currentStep < STEP_LABELS.length - 1 ? (
+                    <button
+                      type="button"
+                      onClick={handleNext}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#E06B3F] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#C85A33]"
+                    >
+                      Next
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={isPending}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#E06B3F] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#C85A33] disabled:opacity-50"
+                    >
+                      {isPending ? (
+                        'Submitting...'
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4" />
+                          Submit Brand
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </form>
+          </FormProvider>
+        </>
+      )}
     </div>
   )
 }

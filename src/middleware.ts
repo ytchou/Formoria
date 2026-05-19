@@ -1,6 +1,21 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+/**
+ * Routes that are reserved for static pages and cannot be used as brand slugs.
+ * Used by the brands service to validate slug uniqueness against app routes.
+ */
+export const RESERVED_ROUTES = new Set([
+  'admin',
+  'api',
+  'auth',
+  'submit',
+  'categories',
+  'dashboard',
+  'sentry-example-page',
+  'global-error',
+])
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,

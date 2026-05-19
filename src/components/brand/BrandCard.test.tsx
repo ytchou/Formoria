@@ -96,7 +96,7 @@ describe("BrandCard", () => {
     it("links to the brand detail page", () => {
       render(<BrandCard brand={baseBrand} />);
       const link = screen.getByRole("link", { name: "View Test Brand" });
-      expect(link).toHaveAttribute("href", "/brands/test-brand");
+      expect(link).toHaveAttribute("href", "/test-brand");
     });
   });
 

@@ -21,12 +21,11 @@ describe('sitemap', () => {
 
     expect(urls).toEqual(
       expect.arrayContaining([
-        expect.stringContaining('/brands'),
-        expect.stringContaining('/brands/cha-zi-tang'),
-        expect.stringContaining('/brands/daylily'),
-        expect.stringContaining('/brands/inblooom'),
-        expect.stringContaining('/category/food'),
-        expect.stringContaining('/category/beauty'),
+        expect.stringContaining('/cha-zi-tang'),
+        expect.stringContaining('/daylily'),
+        expect.stringContaining('/inblooom'),
+        expect.stringContaining('/categories/food'),
+        expect.stringContaining('/categories/beauty'),
       ])
     )
   })
@@ -41,8 +40,8 @@ describe('sitemap', () => {
 
   it('includes changeFrequency and priority', async () => {
     const entries = await sitemap()
-    const brandEntry = entries.find((e) => e.url.includes('/brands/cha-zi-tang'))
-    const categoryEntry = entries.find((e) => e.url.includes('/category/food'))
+    const brandEntry = entries.find((e) => e.url.includes('/cha-zi-tang'))
+    const categoryEntry = entries.find((e) => e.url.includes('/categories/food'))
 
     expect(brandEntry?.changeFrequency).toBe('weekly')
     expect(categoryEntry?.changeFrequency).toBe('weekly')

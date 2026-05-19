@@ -16,6 +16,81 @@ function Wrapper({ children }: { children: React.ReactNode }) {
   return <FormProvider {...methods}>{children}</FormProvider>
 }
 
+function WrapperWithDefaults({
+  children,
+  socialDefaults,
+}: {
+  children: React.ReactNode
+  socialDefaults?: {
+    instagram?: string
+    threads?: string
+    facebook?: string
+    website?: string
+  }
+}) {
+  const methods = useForm({
+    defaultValues: {
+      purchaseLinks: [{ platform: '', url: '' }],
+      socialLinks: {
+        instagram: socialDefaults?.instagram ?? '',
+        threads: socialDefaults?.threads ?? '',
+        facebook: socialDefaults?.facebook ?? '',
+        website: socialDefaults?.website ?? '',
+      },
+      retailLocations: [] as { name: string; address: string }[],
+    },
+  })
+  return <FormProvider {...methods}>{children}</FormProvider>
+}
+
+describe('LinksStep pre-fill', () => {
+  it('pre-fills social link fields from scraped data', () => {
+    const defaultValues = {
+      instagram: 'https://instagram.com/mybrand',
+      threads: 'https://threads.net/@mybrand',
+      facebook: 'https://facebook.com/mybrand',
+      website: 'https://mybrand.com.tw',
+    }
+
+    render(
+      <WrapperWithDefaults socialDefaults={defaultValues}>
+        <LinksStep />
+      </WrapperWithDefaults>
+    )
+
+    expect(
+      screen.getByDisplayValue('https://instagram.com/mybrand')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByDisplayValue('https://threads.net/@mybrand')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByDisplayValue('https://facebook.com/mybrand')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByDisplayValue('https://mybrand.com.tw')
+    ).toBeInTheDocument()
+  })
+
+  it('renders empty fields when no default values', () => {
+    render(
+      <Wrapper>
+        <LinksStep />
+      </Wrapper>
+    )
+
+    const socialInputs = [
+      screen.getByLabelText(/instagram/i),
+      screen.getByLabelText(/threads/i),
+      screen.getByLabelText(/facebook/i),
+      screen.getByLabelText(/website/i),
+    ]
+    socialInputs.forEach((input) => {
+      expect(input).toHaveValue('')
+    })
+  })
+})
+
 describe('LinksStep', () => {
   it('renders purchase links section with one default row', () => {
     render(
