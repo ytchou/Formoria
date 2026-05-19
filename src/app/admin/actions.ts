@@ -75,7 +75,7 @@ export async function approveSubmissionAction(
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://mitmap.tw'
 
     if (submission.isBrandOwner) {
-      const token = await generateClaimToken(brand.id, submission.submitterEmail)
+      const token = await generateClaimToken(brand.id, submission.submitterEmail, submission.brandName)
       const claimUrl = `${siteUrl}/auth/sign-up?claim=${token}`
       sendEmail(buildClaimEmail({
         submitterEmail: submission.submitterEmail,

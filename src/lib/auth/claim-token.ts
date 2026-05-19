@@ -10,10 +10,11 @@ function getSecret(): Uint8Array {
 
 export async function generateClaimToken(
   brandId: string,
-  email: string
+  email: string,
+  brandName: string
 ): Promise<string> {
   const secret = getSecret()
-  return new SignJWT({ brandId, email })
+  return new SignJWT({ brandId, email, brandName })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('7d')
