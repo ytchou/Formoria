@@ -170,8 +170,16 @@ export function SubmitWizard({ categories }: SubmitWizardProps) {
 
   const handleSubmit = methods.handleSubmit((data) => {
     setSubmitError(null)
+
+    // Merge scraped photo URLs into productPhotos before submission
+    const photoUrls = photos.map((p) => p.url)
+    const mergedData = {
+      ...data,
+      productPhotos: [...photoUrls, ...data.productPhotos.filter((url) => !photoUrls.includes(url))],
+    }
+
     startTransition(async () => {
-      const result = await submitBrand(data)
+      const result = await submitBrand(mergedData)
       if (result?.error) {
         setSubmitError(result.error)
       } else {
