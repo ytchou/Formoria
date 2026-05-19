@@ -225,6 +225,17 @@ export async function updateBrand(id: string, data: Partial<Brand>): Promise<Bra
   return brandToDomain(updated)
 }
 
+export async function deleteBrand(id: string): Promise<void> {
+  const supabase = createServiceClient()
+  const { error, count } = await supabase
+    .from('brands')
+    .delete()
+    .eq('id', id)
+
+  if (error) throw error
+  if (count === 0) throw new NotFoundError('Brand', id)
+}
+
 export async function hideBrand(id: string): Promise<Brand> {
   return updateBrand(id, { status: 'hidden' })
 }

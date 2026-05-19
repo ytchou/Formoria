@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { brandToDomain, brandToInsert, generateSlug } from './brands'
+import { brandToDomain, brandToInsert, generateSlug, deleteBrand } from './brands'
 
 describe('generateSlug', () => {
   it('converts name to kebab-case', () => {
@@ -16,6 +16,12 @@ describe('generateSlug', () => {
 
   it('trims leading/trailing hyphens', () => {
     expect(generateSlug(' -Brand- ')).toBe('brand')
+  })
+})
+
+describe('deleteBrand', () => {
+  it('should be an exported async function', () => {
+    expect(typeof deleteBrand).toBe('function')
   })
 })
 
