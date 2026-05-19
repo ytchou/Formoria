@@ -12,6 +12,7 @@ import { BrandAbout } from '@/components/brands/brand-about'
 import { BrandFounder } from '@/components/brands/brand-founder'
 import { BrandTags } from '@/components/brands/brand-tags'
 import { BrandProductHighlights } from '@/components/brands/brand-product-highlights'
+import { BrandPhotoGallery } from '@/components/brands/brand-photo-gallery'
 import { BrandLinks } from '@/components/brands/brand-links'
 import { BrandLocations } from '@/components/brands/brand-locations'
 import { RelatedBrands } from '@/components/brands/related-brands'
@@ -132,6 +133,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
           <BrandFounder brand={brand} />
           <BrandTags brand={brand} />
           <BrandProductHighlights brand={brand} />
+          <BrandPhotoGallery photos={brand.productPhotos} brandSlug={brand.slug} />
           <BrandLinks brand={brand} />
           <BrandLocations brand={brand} />
         </div>
