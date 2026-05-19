@@ -14,7 +14,6 @@ type UrlStepProps = {
 export function UrlStep({ onSuccess, onSkip }: UrlStepProps) {
   const [url, setUrl] = useState('')
   const [status, setStatus] = useState<UrlStepStatus>('idle')
-  const [errorMessage, setErrorMessage] = useState('')
   const abortRef = useRef<AbortController | null>(null)
 
   const isValidUrl = url.startsWith('https://')
@@ -23,7 +22,6 @@ export function UrlStep({ onSuccess, onSkip }: UrlStepProps) {
     if (!isValidUrl) return
 
     setStatus('loading')
-    setErrorMessage('')
 
     abortRef.current = new AbortController()
 
@@ -36,10 +34,6 @@ export function UrlStep({ onSuccess, onSkip }: UrlStepProps) {
       })
 
       if (!response.ok) {
-        const body = await response.json().catch(() => ({}))
-        setErrorMessage(
-          body.error ?? 'Could not fetch brand info. Please try again.'
-        )
         setStatus('error')
         return
       }
@@ -51,7 +45,6 @@ export function UrlStep({ onSuccess, onSkip }: UrlStepProps) {
         setStatus('idle')
         return
       }
-      setErrorMessage('Could not fetch brand info. Please try again.')
       setStatus('error')
     }
   }
