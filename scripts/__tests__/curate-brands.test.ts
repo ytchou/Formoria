@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
+import type { Brand } from '@/lib/types'
 import { scoreBrand, buildEnrichPatch } from '../curate-brands'
 
-function makeBrand(overrides: Record<string, unknown> = {}) {
+function makeBrand(overrides: Partial<Brand> = {}): Brand {
   return {
     id: 'test-id',
     name: 'Test Brand',
@@ -9,7 +10,7 @@ function makeBrand(overrides: Record<string, unknown> = {}) {
     description: null,
     logoUrl: null,
     heroImageUrl: null,
-    status: 'pending' as const,
+    status: 'pending',
     category: null,
     foundingYear: null,
     purchaseLinks: [],
@@ -31,7 +32,7 @@ function makeBrand(overrides: Record<string, unknown> = {}) {
 describe('scoreBrand', () => {
   it('returns 0 for empty brand with no URL (before penalty)', () => {
     const brand = makeBrand()
-    const result = scoreBrand(brand as any)
+    const result = scoreBrand(brand)
     expect(result.score).toBeLessThan(0)
     expect(result.websiteUrl).toBeNull()
   })
@@ -58,7 +59,7 @@ describe('scoreBrand', () => {
       ],
       category: 'Accessories',
     })
-    const result = scoreBrand(brand as any)
+    const result = scoreBrand(brand)
     expect(result.score).toBe(100)
     expect(result.websiteUrl).toBe('https://example.com')
   })
@@ -68,7 +69,7 @@ describe('scoreBrand', () => {
       description: 'Has a description that is long enough for points.',
       category: 'Food',
     })
-    const result = scoreBrand(brand as any)
+    const result = scoreBrand(brand)
     expect(result.score).toBe(15 + 5 - 50)
     expect(result.websiteUrl).toBeNull()
   })
@@ -84,7 +85,7 @@ describe('scoreBrand', () => {
         },
       ],
     })
-    const result = scoreBrand(brand as any)
+    const result = scoreBrand(brand)
     expect(result.websiteUrl).toBe('https://brand.com')
   })
 
@@ -98,7 +99,7 @@ describe('scoreBrand', () => {
         },
       ],
     })
-    const result = scoreBrand(brand as any)
+    const result = scoreBrand(brand)
     expect(result.websiteUrl).toBe('https://pinkoi.com/store/x')
   })
 })
@@ -118,14 +119,14 @@ describe('buildEnrichPatch', () => {
   it('fills description when brand has none', () => {
     const brand = makeBrand({ description: null })
     const scraped = { ...emptyScraped, description: 'Scraped description' }
-    const patch = buildEnrichPatch(brand as any, scraped)
+    const patch = buildEnrichPatch(brand, scraped)
     expect(patch.description).toBe('Scraped description')
   })
 
   it('does NOT overwrite existing description', () => {
     const brand = makeBrand({ description: 'Existing description' })
     const scraped = { ...emptyScraped, description: 'Scraped description' }
-    const patch = buildEnrichPatch(brand as any, scraped)
+    const patch = buildEnrichPatch(brand, scraped)
     expect(patch.description).toBeUndefined()
   })
 
@@ -141,7 +142,7 @@ describe('buildEnrichPatch', () => {
         facebook: null,
       },
     }
-    const patch = buildEnrichPatch(brand as any, scraped)
+    const patch = buildEnrichPatch(brand, scraped)
     expect(patch.socialLinks?.instagram).toBe(
       'https://instagram.com/existing'
     )
@@ -157,13 +158,13 @@ describe('buildEnrichPatch', () => {
         facebook: 'https://facebook.com/x',
       },
     })
-    const patch = buildEnrichPatch(brand as any, emptyScraped)
+    const patch = buildEnrichPatch(brand, emptyScraped)
     expect(Object.keys(patch)).toHaveLength(0)
   })
 
   it('does not include socialLinks in patch when no new links found', () => {
     const brand = makeBrand({ socialLinks: {} })
-    const patch = buildEnrichPatch(brand as any, emptyScraped)
+    const patch = buildEnrichPatch(brand, emptyScraped)
     expect(patch.socialLinks).toBeUndefined()
   })
 })

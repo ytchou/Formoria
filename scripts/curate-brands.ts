@@ -252,6 +252,50 @@ async function scoreAndScrape(dryRun: boolean): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// set-visibility
+// ---------------------------------------------------------------------------
+
+async function setVisibility(slugs: string[]): Promise<void> {
+  if (slugs.length === 0) {
+    console.log('Usage: pnpm curate set-visibility <slug1> <slug2> ...')
+    console.log('Hides all brands, then approves only the listed slugs.')
+    process.exit(1)
+  }
+
+  console.log(`Validating ${slugs.length} slug(s)...`)
+  const { brands } = await getBrands({ limit: 1000 })
+  const slugMap = new Map(brands.map((b) => [b.slug, b]))
+
+  // Fail fast if any slug is missing
+  const missing = slugs.filter((s) => !slugMap.has(s))
+  if (missing.length > 0) {
+    console.error(`Missing slugs: ${missing.join(', ')}`)
+    process.exit(1)
+  }
+
+  // Bulk-hide all brands
+  console.log('Hiding all brands...')
+  const supabase = createServiceClient()
+  const { count, error } = await supabase
+    .from('brands')
+    .update({ status: 'hidden' })
+    .neq('status', 'hidden')
+
+  if (error) throw error
+  console.log(`  Hidden ${count ?? 0} brand(s)`)
+
+  // Approve selected
+  console.log(`Approving ${slugs.length} brand(s)...`)
+  for (const slug of slugs) {
+    const brand = slugMap.get(slug)!
+    await updateBrand(brand.id, { status: 'approved' })
+    console.log(`  [OK] ${slug}`)
+  }
+
+  console.log(`\nDone. ${slugs.length} brands are now visible.`)
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -270,6 +314,10 @@ async function main() {
     case 'score-and-scrape': {
       const dryRun = args.includes('--dry-run')
       await scoreAndScrape(dryRun)
+      break
+    }
+    case 'set-visibility': {
+      await setVisibility(args)
       break
     }
     default:
