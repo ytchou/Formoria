@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { SubmitWizard } from './SubmitWizard'
 
 vi.mock('./StepIndicator', () => ({
@@ -25,6 +26,41 @@ vi.mock('./ReviewStep', () => ({
     </div>
   ),
 }))
+vi.mock('./UrlStep', () => ({
+  UrlStep: ({
+    onSuccess,
+    onSkip,
+  }: {
+    onSuccess: (data: Record<string, unknown>) => void
+    onSkip: () => void
+  }) => (
+    <div data-testid="url-step">
+      <label htmlFor="test-url">Website URL</label>
+      <input id="test-url" />
+      <button
+        onClick={() =>
+          onSuccess({
+            brandName: 'Scraped Brand',
+            description: 'From the web',
+            heroImageUrl: null,
+            galleryImageUrls: [],
+            socialLinks: {
+              instagram: 'https://instagram.com/test',
+              threads: null,
+              facebook: null,
+            },
+            categoryHints: [],
+            websiteUrl: 'https://test.com',
+            rawJsonLd: null,
+          })
+        }
+      >
+        Fetch Brand Info
+      </button>
+      <button onClick={onSkip}>Skip and fill manually</button>
+    </div>
+  ),
+}))
 vi.mock('@/app/submit/actions', () => ({
   submitBrand: vi.fn(),
 }))
@@ -43,21 +79,42 @@ const mockCategories = [
 describe('SubmitWizard', () => {
   it('renders step indicator and first step by default', () => {
     render(<SubmitWizard categories={mockCategories} />)
-    expect(screen.getByTestId('step-indicator')).toHaveTextContent('Step 1')
-    expect(screen.getByTestId('brand-info-step')).toBeInTheDocument()
+    expect(screen.getByTestId('url-step')).toBeInTheDocument()
   })
 
-  it('shows Next button on step 1', () => {
+  it('shows Next button is not visible on UrlStep', () => {
     render(<SubmitWizard categories={mockCategories} />)
-    expect(
-      screen.getByRole('button', { name: /next/i })
-    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^next$/i })).not.toBeInTheDocument()
+  })
+})
+
+describe('SubmitWizard with UrlStep', () => {
+  it('shows UrlStep as first step', () => {
+    render(<SubmitWizard categories={mockCategories} />)
+
+    expect(screen.getByText(/submit your brand/i)).toBeInTheDocument()
+    expect(screen.getByTestId('url-step')).toBeInTheDocument()
   })
 
-  it('does not show Back button on step 1', () => {
+  it('transitions to BrandInfoStep after skip', async () => {
+    const user = userEvent.setup()
     render(<SubmitWizard categories={mockCategories} />)
-    expect(
-      screen.queryByRole('button', { name: /back/i })
-    ).not.toBeInTheDocument()
+
+    await user.click(screen.getByText(/skip and fill manually/i))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('brand-info-step')).toBeInTheDocument()
+    })
+  })
+
+  it('transitions to BrandInfoStep after successful scrape', async () => {
+    const user = userEvent.setup()
+    render(<SubmitWizard categories={mockCategories} />)
+
+    await user.click(screen.getByRole('button', { name: /fetch brand info/i }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('brand-info-step')).toBeInTheDocument()
+    })
   })
 })
