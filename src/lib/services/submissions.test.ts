@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { submissionToDomain, submissionToInsert } from './submissions'
+import { submissionToDomain, submissionToInsert, getSubmission } from './submissions'
 
 describe('submissionToDomain', () => {
   it('transforms snake_case DB row to camelCase BrandSubmission', () => {
@@ -72,6 +72,12 @@ describe('submissionToDomain', () => {
     expect(submission.validationErrors).toBeNull()
     expect(submission.notifiedAt).toBe('2026-05-18T09:00:00Z')
     expect(submission.isBrandOwner).toBe(true)
+  })
+})
+
+describe('getSubmission', () => {
+  it('should be an exported async function', () => {
+    expect(typeof getSubmission).toBe('function')
   })
 })
 

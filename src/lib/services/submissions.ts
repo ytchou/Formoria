@@ -73,6 +73,18 @@ export async function createSubmission(
   return submissionToDomain(inserted)
 }
 
+export async function getSubmission(id: string): Promise<BrandSubmission> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brand_submissions')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (error || !data) throw new NotFoundError('BrandSubmission', id)
+  return submissionToDomain(data)
+}
+
 export async function getSubmissions(status?: SubmissionStatus): Promise<BrandSubmission[]> {
   const supabase = createServiceClient()
   let query = supabase.from('brand_submissions').select('*')
