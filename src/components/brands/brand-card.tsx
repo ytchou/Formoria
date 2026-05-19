@@ -9,7 +9,7 @@ interface BrandCardProps {
 export function BrandCard({ brand }: BrandCardProps) {
   return (
     <Link
-      href={`/brands/${brand.slug}`}
+      href={`/${brand.slug}`}
       className="group block rounded-xl border border-border bg-card transition-all hover:-translate-y-px hover:shadow-[0_2px_8px_oklch(0_0_0_/_0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={brand.name}
     >

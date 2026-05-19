@@ -88,13 +88,13 @@ export function buildCategoryItemListJsonLd(
     '@context': 'https://schema.org',
     '@type': 'ItemList',
     name: `${categoryName} — Made in Taiwan Brands`,
-    url: `${siteUrl}/category/${categorySlug}`,
+    url: `${siteUrl}/categories/${categorySlug}`,
     numberOfItems: brands.length,
     itemListElement: brands.map((brand, index) => ({
       '@type': 'ListItem',
       position: index + 1,
       name: brand.name,
-      url: `${siteUrl}/brands/${brand.slug}`,
+      url: `${siteUrl}/${brand.slug}`,
     })),
   }
 }
