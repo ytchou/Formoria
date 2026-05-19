@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 const IMAGE_FETCH_TIMEOUT_MS = 10_000
 
@@ -18,7 +18,7 @@ export async function downloadAndStoreImages(
 ): Promise<string[]> {
   if (urls.length === 0) return []
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const results = await Promise.allSettled(
     urls.map(async (url) => {

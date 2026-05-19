@@ -15,6 +15,14 @@ vi.mock('@/lib/supabase/server', () => ({
       },
     })
   ),
+  createServiceClient: vi.fn(() => ({
+    storage: {
+      from: vi.fn(() => ({
+        upload: mockUpload,
+        getPublicUrl: mockGetPublicUrl,
+      })),
+    },
+  })),
 }))
 
 import { downloadAndStoreImages } from '@/lib/services/image-download'
