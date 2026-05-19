@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import { getBrandBySlug, getRelatedBrands, getAllBrandSlugs } from '@/lib/services/brands'
 import { buildBrandJsonLd, buildBreadcrumbJsonLd } from '@/lib/json-ld'
 import type { BreadcrumbItem } from '@/lib/json-ld'
+import { BrandViewTracker } from '@/components/brands/brand-view-tracker'
 import { BrandBreadcrumb } from '@/components/brands/brand-breadcrumb'
 import { ImageCarousel } from '@/components/brands/image-carousel'
 import { BrandHeader } from '@/components/brands/brand-header'
@@ -90,6 +91,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
 
   return (
     <main className="mx-auto max-w-screen-xl px-6 py-10 md:px-10">
+      <BrandViewTracker brandSlug={slug} />
       {/* JSON-LD structured data */}
       <script
         type="application/ld+json"

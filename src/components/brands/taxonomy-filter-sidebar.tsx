@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { X, SlidersHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { TagCategory, TaxonomyTag } from '@/lib/types'
 import { useFilterParams } from '@/hooks/use-filter-params'
+import { trackFilterCategory } from '@/lib/analytics'
 
 const CATEGORY_LABELS: Record<TagCategory, string> = {
   product_type: 'Product Type',
@@ -137,6 +138,14 @@ export function TaxonomyFilterSidebar({ tags }: TaxonomyFilterSidebarProps) {
   const { selectedSlugs, toggleSlug, clearFilters, activeCount } = useFilterParams()
   const [mobileOpen, setMobileOpen] = useState(false)
 
+  const handleToggle = useCallback(
+    (slug: string) => {
+      toggleSlug(slug)
+      trackFilterCategory(slug)
+    },
+    [toggleSlug],
+  )
+
   return (
     <>
       {/* Mobile filter toggle button */}
@@ -182,7 +191,7 @@ export function TaxonomyFilterSidebar({ tags }: TaxonomyFilterSidebarProps) {
             tags={tags}
             selectedSlugs={selectedSlugs}
             activeCount={activeCount}
-            onToggle={toggleSlug}
+            onToggle={handleToggle}
             onClear={clearFilters}
           />
         </div>
@@ -198,7 +207,7 @@ export function TaxonomyFilterSidebar({ tags }: TaxonomyFilterSidebarProps) {
             tags={tags}
             selectedSlugs={selectedSlugs}
             activeCount={activeCount}
-            onToggle={toggleSlug}
+            onToggle={handleToggle}
             onClear={clearFilters}
           />
         </div>
