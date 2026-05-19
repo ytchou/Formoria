@@ -37,7 +37,7 @@ describe('ConfirmationPage', () => {
     const link = screen.getByRole('link', {
       name: /explore.*mit map|mit map.*directory/i,
     })
-    expect(link).toHaveAttribute('href', '/brands')
+    expect(link).toHaveAttribute('href', '/')
   })
 
   it('shows a 3-step timeline', () => {

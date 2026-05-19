@@ -8,7 +8,7 @@ let mockSearchParams: URLSearchParams
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
-  usePathname: () => '/brands',
+  usePathname: () => '/',
   useSearchParams: () => mockSearchParams,
 }))
 

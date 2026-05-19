@@ -100,7 +100,7 @@ describe('buildCategoryItemListJsonLd', () => {
       position: 1,
       name: '茶籽堂',
     })
-    expect(items[0].url).toContain('/brands/cha-zi-tang')
+    expect(items[0].url).toContain('/cha-zi-tang')
     expect(items[2].position).toBe(3)
   })
 
@@ -115,8 +115,8 @@ describe('buildCategoryItemListJsonLd', () => {
 describe('buildBreadcrumbJsonLd', () => {
   it('builds BreadcrumbList with correct positions', () => {
     const items = [
-      { label: 'Brands', href: '/brands' },
-      { label: 'Food & Beverage', href: '/brands?category=Food+%26+Beverage' },
+      { label: 'Home', href: '/' },
+      { label: 'Food & Beverage', href: '/?category=Food+%26+Beverage' },
       { label: '茶籽堂 Chatzutang' },
     ]
     const jsonLd = buildBreadcrumbJsonLd(items)
@@ -128,7 +128,7 @@ describe('buildBreadcrumbJsonLd', () => {
   })
 
   it('omits item URL for the last breadcrumb (current page)', () => {
-    const items = [{ label: 'Brands', href: '/brands' }, { label: 'Brand Name' }]
+    const items = [{ label: 'Home', href: '/' }, { label: 'Brand Name' }]
     const jsonLd = buildBreadcrumbJsonLd(items)
     expect(jsonLd.itemListElement[0].item).toBeDefined()
     expect(jsonLd.itemListElement[1].item).toBeUndefined()

@@ -21,23 +21,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         changeFrequency: 'daily',
         priority: 1.0,
       },
-      {
-        url: `${siteUrl}/brands`,
-        lastModified: now,
-        changeFrequency: 'daily',
-        priority: 1.0,
-      },
     ]
 
     const brandPages: MetadataRoute.Sitemap = brandSlugs.map((slug) => ({
-      url: `${siteUrl}/brands/${slug}`,
+      url: `${siteUrl}/${slug}`,
       lastModified: now,
       changeFrequency: 'weekly' as const,
       priority: 0.8,
     }))
 
     const categoryPages: MetadataRoute.Sitemap = categories.map(({ slug }) => ({
-      url: `${siteUrl}/category/${slug}`,
+      url: `${siteUrl}/categories/${slug}`,
       lastModified: now,
       changeFrequency: 'weekly' as const,
       priority: 0.9,
@@ -49,12 +43,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     return [
       {
         url: siteUrl,
-        lastModified: now,
-        changeFrequency: 'daily',
-        priority: 1.0,
-      },
-      {
-        url: `${siteUrl}/brands`,
         lastModified: now,
         changeFrequency: 'daily',
         priority: 1.0,

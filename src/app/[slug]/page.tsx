@@ -82,9 +82,9 @@ export default async function BrandDetailPage({ params }: PageProps) {
 
   // Breadcrumb items for JSON-LD
   const breadcrumbItems: BreadcrumbItem[] = [
-    { label: 'Brands', href: '/brands' },
+    { label: 'Home', href: '/' },
     ...(brand.category
-      ? [{ label: brand.category, href: `/brands?category=${encodeURIComponent(brand.category)}` }]
+      ? [{ label: brand.category, href: `/?category=${encodeURIComponent(brand.category)}` }]
       : []),
     { label: brand.name },
   ]

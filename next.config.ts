@@ -11,6 +11,30 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: '/brands',
+        destination: '/',
+        permanent: true,
+      },
+      {
+        source: '/brands/:slug',
+        destination: '/:slug',
+        permanent: true,
+      },
+      {
+        source: '/category/:category',
+        destination: '/categories/:category',
+        permanent: true,
+      },
+      {
+        source: '/categories',
+        destination: '/',
+        permanent: true,
+      },
+    ]
+  },
 };
 
 export default withSentryConfig(nextConfig, {

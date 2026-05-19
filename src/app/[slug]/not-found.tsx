@@ -11,7 +11,7 @@ export default function BrandNotFound() {
         The brand you&apos;re looking for doesn&apos;t exist or hasn&apos;t been approved yet.
       </p>
       <Link
-        href="/brands"
+        href="/"
         className={buttonVariants({ variant: 'default' }) + ' mt-6'}
       >
         Browse all brands

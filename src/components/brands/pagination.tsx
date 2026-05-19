@@ -45,7 +45,7 @@ export function Pagination({
   totalCount,
   currentPage,
   pageSize,
-  basePath = '/brands',
+  basePath = '/',
   searchParams = {},
 }: PaginationProps) {
   const totalPages = Math.ceil(totalCount / pageSize)
