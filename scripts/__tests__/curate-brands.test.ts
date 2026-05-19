@@ -55,7 +55,7 @@ describe('scoreBrand', () => {
       ],
       founder: { name: 'Jane', title: 'CEO', avatarUrl: null, quote: null },
       productHighlights: [
-        { name: 'Product A', imageUrl: null, description: 'Great' },
+        { name: 'Product A', imageUrl: 'https://example.com/product-a.jpg', description: 'Great' },
       ],
       category: 'Accessories',
     })
