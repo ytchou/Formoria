@@ -57,7 +57,7 @@ describe('scrapeBrandUrl', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
-        headers: new Headers({ 'content-length': '1000' }),
+        headers: new Headers({ 'content-length': '1000', 'content-type': 'text/html; charset=utf-8' }),
         text: () => Promise.resolve(HTML_FULL),
       })
     )
@@ -92,7 +92,7 @@ describe('scrapeBrandUrl', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
-        headers: new Headers({ 'content-length': '500' }),
+        headers: new Headers({ 'content-length': '500', 'content-type': 'text/html' }),
         text: () => Promise.resolve(HTML_NO_OG),
       })
     )
@@ -108,7 +108,7 @@ describe('scrapeBrandUrl', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
-        headers: new Headers({ 'content-length': '100' }),
+        headers: new Headers({ 'content-length': '100', 'content-type': 'text/html' }),
         text: () => Promise.resolve(HTML_MINIMAL),
       })
     )
