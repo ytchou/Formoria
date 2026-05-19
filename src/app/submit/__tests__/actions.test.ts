@@ -17,7 +17,7 @@ vi.mock('@/lib/supabase/server', () => ({
   ),
 }))
 
-import { downloadAndStoreImages } from '../actions'
+import { downloadAndStoreImages } from '@/lib/services/image-download'
 
 describe('downloadAndStoreImages', () => {
   beforeEach(() => {
