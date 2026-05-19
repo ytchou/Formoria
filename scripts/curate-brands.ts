@@ -1,4 +1,5 @@
-import type { Brand } from '@/lib/types'
+import type { Brand, SocialLinks } from '@/lib/types'
+import type { ScrapedBrandData } from '@/lib/types/scraper'
 
 // ---------------------------------------------------------------------------
 // Scoring
@@ -67,6 +68,42 @@ export function scoreBrand(brand: Brand): {
   }
 
   return { score, websiteUrl }
+}
+
+// ---------------------------------------------------------------------------
+// Merge strategy (fill-gaps-only)
+// ---------------------------------------------------------------------------
+
+export function buildEnrichPatch(
+  brand: Brand,
+  scraped: ScrapedBrandData
+): Partial<Brand> {
+  const patch: Partial<Brand> = {}
+
+  // Fill description only if brand has none
+  if (!brand.description && scraped.description) {
+    patch.description = scraped.description
+  }
+
+  // Merge social links: preserve existing, fill missing
+  const existingLinks = brand.socialLinks
+  const scrapedLinks = scraped.socialLinks
+  const mergedLinks: SocialLinks = { ...existingLinks }
+  let hasNewLink = false
+
+  const linkKeys = ['instagram', 'threads', 'facebook'] as const
+  for (const key of linkKeys) {
+    if (!existingLinks[key] && scrapedLinks[key]) {
+      mergedLinks[key] = scrapedLinks[key]!
+      hasNewLink = true
+    }
+  }
+
+  if (hasNewLink) {
+    patch.socialLinks = mergedLinks
+  }
+
+  return patch
 }
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { scoreBrand } from '../curate-brands'
+import { scoreBrand, buildEnrichPatch } from '../curate-brands'
 
 function makeBrand(overrides: Record<string, unknown> = {}) {
   return {
@@ -100,5 +100,70 @@ describe('scoreBrand', () => {
     })
     const result = scoreBrand(brand as any)
     expect(result.websiteUrl).toBe('https://pinkoi.com/store/x')
+  })
+})
+
+describe('buildEnrichPatch', () => {
+  const emptyScraped = {
+    brandName: null,
+    description: null,
+    heroImageUrl: null,
+    galleryImageUrls: [],
+    socialLinks: { instagram: null, threads: null, facebook: null },
+    categoryHints: [],
+    websiteUrl: 'https://example.com',
+    rawJsonLd: null,
+  }
+
+  it('fills description when brand has none', () => {
+    const brand = makeBrand({ description: null })
+    const scraped = { ...emptyScraped, description: 'Scraped description' }
+    const patch = buildEnrichPatch(brand as any, scraped)
+    expect(patch.description).toBe('Scraped description')
+  })
+
+  it('does NOT overwrite existing description', () => {
+    const brand = makeBrand({ description: 'Existing description' })
+    const scraped = { ...emptyScraped, description: 'Scraped description' }
+    const patch = buildEnrichPatch(brand as any, scraped)
+    expect(patch.description).toBeUndefined()
+  })
+
+  it('merges missing social links without overwriting existing', () => {
+    const brand = makeBrand({
+      socialLinks: { instagram: 'https://instagram.com/existing' },
+    })
+    const scraped = {
+      ...emptyScraped,
+      socialLinks: {
+        instagram: 'https://instagram.com/new',
+        threads: 'https://threads.net/new',
+        facebook: null,
+      },
+    }
+    const patch = buildEnrichPatch(brand as any, scraped)
+    expect(patch.socialLinks?.instagram).toBe(
+      'https://instagram.com/existing'
+    )
+    expect(patch.socialLinks?.threads).toBe('https://threads.net/new')
+  })
+
+  it('returns empty patch when nothing to fill', () => {
+    const brand = makeBrand({
+      description: 'Has everything',
+      socialLinks: {
+        instagram: 'https://instagram.com/x',
+        threads: 'https://threads.net/x',
+        facebook: 'https://facebook.com/x',
+      },
+    })
+    const patch = buildEnrichPatch(brand as any, emptyScraped)
+    expect(Object.keys(patch)).toHaveLength(0)
+  })
+
+  it('does not include socialLinks in patch when no new links found', () => {
+    const brand = makeBrand({ socialLinks: {} })
+    const patch = buildEnrichPatch(brand as any, emptyScraped)
+    expect(patch.socialLinks).toBeUndefined()
   })
 })
