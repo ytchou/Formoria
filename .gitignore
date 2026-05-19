@@ -60,7 +60,10 @@ docs/
 *.pen
 
 # Supabase local
-supabase/
+/supabase/
 
 # worktrees
 .worktrees/
+
+# Sentry Config File
+.env.sentry-build-plugin

@@ -12,7 +12,7 @@
     "test:watch": "vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "git config core.hooksPath scripts/hooks"
+    "prepare": "git config core.hooksPath scripts/hooks 2>/dev/null || true"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
