@@ -7,7 +7,6 @@ import { Menu } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
-  SheetClose,
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Dialog as SheetPrimitive } from '@base-ui/react/dialog'
@@ -80,29 +79,26 @@ export function MainNav() {
             <SheetTitle className="sr-only">Navigation</SheetTitle>
             <div className="flex flex-col gap-4 pt-8">
               {navLinks.map((link) => (
-                <SheetClose key={link.href}>
-                  <Link
-                    href={link.href}
-                    className={`block rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
-                      isActive(link.href)
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-foreground hover:bg-secondary'
-                    }`}
-                    onClick={() => setOpen(false)}
-                  >
-                    {link.label}
-                  </Link>
-                </SheetClose>
-              ))}
-              <SheetClose>
                 <Link
-                  href="/submit"
-                  className="block rounded-full bg-primary px-5 py-3 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                  key={link.href}
+                  href={link.href}
+                  className={`block rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
+                    isActive(link.href)
+                      ? 'bg-accent text-accent-foreground'
+                      : 'text-foreground hover:bg-secondary'
+                  }`}
                   onClick={() => setOpen(false)}
                 >
-                  Submit a Brand
+                  {link.label}
                 </Link>
-              </SheetClose>
+              ))}
+              <Link
+                href="/submit"
+                className="block rounded-full bg-primary px-5 py-3 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                onClick={() => setOpen(false)}
+              >
+                Submit a Brand
+              </Link>
             </div>
           </SheetContent>
         </Sheet>
