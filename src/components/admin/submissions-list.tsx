@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { Fragment, useState, useTransition } from 'react'
 import type { BrandSubmission, SubmissionStatus } from '@/lib/types'
 import { StatusBadge } from './status-badge'
 import { approveSubmissionAction, rejectSubmissionAction } from '@/app/admin/actions'
@@ -113,9 +113,8 @@ export function SubmissionsList({
           </TableHeader>
           <TableBody>
             {filtered.map((submission) => (
-              <>
+              <Fragment key={submission.id}>
                 <TableRow
-                  key={submission.id}
                   className="cursor-pointer hover:bg-[#F5F4F1]"
                   onClick={() => handleRowClick(submission.id)}
                 >
@@ -230,7 +229,7 @@ export function SubmissionsList({
                     </TableCell>
                   </TableRow>
                 )}
-              </>
+              </Fragment>
             ))}
             {filtered.length === 0 && (
               <TableRow>
