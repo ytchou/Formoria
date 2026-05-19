@@ -115,7 +115,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
         </div>
 
         {/* Right: scrolling content */}
-        <div className="min-w-0 flex-1 space-y-8">
+        <div className="min-w-0 flex-1 space-y-6">
           <BrandHeader brand={brand} />
 
           {/* Visit Website CTA */}
@@ -131,11 +131,20 @@ export default async function BrandDetailPage({ params }: PageProps) {
           )}
 
           <BrandActions />
+
+          <hr className="border-border" />
+
           <BrandAbout brand={brand} />
           <BrandFounder brand={brand} />
+
+          <hr className="border-border" />
+
           <BrandTags brand={brand} />
           <BrandProductHighlights brand={brand} />
           <BrandPhotoGallery photos={brand.productPhotos} brandSlug={brand.slug} />
+
+          <hr className="border-border" />
+
           <BrandLinks brand={brand} />
           <BrandLocations brand={brand} />
         </div>

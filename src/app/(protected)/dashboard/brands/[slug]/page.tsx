@@ -115,7 +115,7 @@ export default async function BrandDashboardPage({ params }: Props) {
           </CardHeader>
           <CardContent>
             <Link
-              href={`/brands/${slug}`}
+              href={`/${slug}`}
               className="text-sm text-primary hover:underline"
             >
               View your brand on MIT Map

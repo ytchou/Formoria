@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { BrandCard } from "./BrandCard";
 import type { Brand } from "@/lib/types";
 
@@ -23,20 +23,21 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-type NextImageProps = {
-  src: string;
-  alt: string;
-  className?: string;
-  fill?: boolean;
-  sizes?: string;
-  priority?: boolean;
-};
-
 // Mock next/image to a standard img element
 vi.mock("next/image", () => ({
-  default: ({ src, alt, className }: NextImageProps) => (
+  default: ({
+    src,
+    alt,
+    className,
+    onError,
+  }: {
+    src: string;
+    alt: string;
+    className?: string;
+    onError?: () => void;
+  }) => (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt={alt} className={className} />
+    <img src={src} alt={alt} className={className} onError={onError} />
   ),
 }));
 
@@ -122,6 +123,15 @@ describe("BrandCard", () => {
       expect(desc?.textContent).toBe(
         "A high-quality Taiwanese brand making sustainable products.",
       );
+    });
+  });
+
+  describe("image error fallback", () => {
+    it("shows fallback gradient when image fails to load", () => {
+      render(<BrandCard brand={baseBrand} />);
+      const img = screen.getByRole("img", { name: "Test Brand logo" });
+      fireEvent.error(img);
+      expect(screen.getByTestId("image-fallback")).toBeInTheDocument();
     });
   });
 

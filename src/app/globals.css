@@ -46,6 +46,12 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --color-coffee: var(--coffee);
+  --color-warm-caption: var(--warm-caption);
+  --color-warm-secondary: var(--warm-secondary);
+  --color-gold: var(--gold);
+  --color-verified-green: var(--verified-green);
+  --color-verified-green-bg: var(--verified-green-bg);
 }
 
 :root {
@@ -76,6 +82,18 @@
 
   /* Semantic */
   --destructive: oklch(0.58 0.18 30);
+
+  /* Extended semantic tokens */
+  --coffee: oklch(0.30 0.02 50);
+  --warm-caption: oklch(0.58 0.01 55);
+  --warm-secondary: oklch(0.54 0.01 55);
+  --gold: oklch(0.74 0.08 65);
+  --verified-green: oklch(0.40 0.10 140);
+  --verified-green-bg: oklch(0.95 0.02 140);
+  --shadow-card: 0 2px 8px oklch(0 0 0 / 0.06);
+  --shadow-card-hover: 0 4px 12px oklch(0 0 0 / 0.10);
+  --nav-height: 64px;
+  --filter-bar-height: 48px;
 
   /* Radius — 12px base */
   --radius: 0.75rem;
@@ -142,4 +160,20 @@
   html {
     @apply font-sans;
   }
+}
+
+/* Masonry grid (react-masonry-css) */
+.masonry-grid {
+  display: flex;
+  margin-left: -20px;
+  width: auto;
+}
+
+.masonry-grid_column {
+  padding-left: 20px;
+  background-clip: padding-box;
+}
+
+.masonry-grid_column > * {
+  margin-bottom: 20px;
 }

@@ -1,17 +1,19 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { getBrands } from '@/lib/services/brands'
-import { getTags } from '@/lib/services/taxonomy'
+import { getActiveCategories } from '@/lib/services/taxonomy'
 import { parsePageParam, parseSortParam, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import { SearchInput } from '@/components/brands/search-input'
-import { TaxonomyFilterSidebar } from '@/components/brands/taxonomy-filter-sidebar'
-import { BrandGrid } from '@/components/brands/brand-grid'
+import { CategoryPills } from '@/components/brands/category-pills'
+import { MasonryGrid } from '@/components/brands/masonry-grid'
+import { BrandCard } from '@/components/brands/brand-card'
 import { Pagination } from '@/components/brands/pagination'
 import { SortSelect } from '@/components/brands/sort-select'
 
 export const metadata: Metadata = {
   title: 'MIT Map — Made in Taiwan Brand Directory',
-  description: 'Discover curated Made in Taiwan brands across all categories',
+  description:
+    'Discover thoughtfully curated Taiwanese brands. Browse by category, search, and explore the best of Made in Taiwan.',
 }
 
 // ISR: revalidate every hour
@@ -28,6 +30,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const sort = parseSortParam(params.sort as string | undefined)
   const search =
     typeof params.search === 'string' ? params.search.trim() : ''
+  const categoryFilter =
+    typeof params.category === 'string' ? params.category.trim() : ''
   const tags =
     typeof params.tags === 'string'
       ? params.tags
@@ -36,16 +40,17 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           .filter(Boolean)
       : []
 
-  const [{ brands, totalCount }, allTags] = await Promise.all([
+  const [{ brands, totalCount }, categories] = await Promise.all([
     getBrands({
       status: 'approved',
       search: search || undefined,
+      category: categoryFilter || undefined,
       tags: tags.length > 0 ? tags : undefined,
       sort,
       limit: DEFAULT_PAGE_SIZE,
       offset: (page - 1) * DEFAULT_PAGE_SIZE,
     }),
-    getTags(),
+    getActiveCategories(),
   ])
 
   // Clamp page to last valid page if user navigated beyond
@@ -58,6 +63,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     const refetched = await getBrands({
       status: 'approved',
       search: search || undefined,
+      category: categoryFilter || undefined,
       tags: tags.length > 0 ? tags : undefined,
       sort,
       limit: DEFAULT_PAGE_SIZE,
@@ -71,73 +77,84 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   if (search) paginationParams.search = search
   if (tags.length > 0) paginationParams.tags = tags.join(',')
   if (sort !== 'name') paginationParams.sort = sort
-
-  // Calculate display range
-  const rangeStart = totalCount > 0 ? (clampedPage - 1) * DEFAULT_PAGE_SIZE + 1 : 0
-  const rangeEnd = Math.min(clampedPage * DEFAULT_PAGE_SIZE, totalCount)
+  if (categoryFilter) paginationParams.category = categoryFilter
 
   return (
     <main className="mx-auto w-full max-w-screen-xl px-6 py-10 md:px-10">
-      {/* Page header */}
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-[family-name:var(--font-heading)] text-2xl font-bold leading-tight text-foreground">
-            Brand Directory
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {totalCount > 0
-              ? `Showing ${rangeStart}–${rangeEnd} of ${totalCount} brand${totalCount !== 1 ? 's' : ''}`
-              : '0 brands found'}
-          </p>
-        </div>
-        <Suspense fallback={null}>
-          <SortSelect />
-        </Suspense>
-      </div>
-
-      {/* Search input */}
-      <div className="mb-6">
+      {/* Centered search */}
+      <div className="mx-auto mb-8 max-w-[600px]">
         <Suspense fallback={null}>
           <SearchInput />
         </Suspense>
       </div>
 
-      {/* Layout: sidebar + grid */}
-      <div className="flex gap-8">
-        <Suspense fallback={<div className="hidden w-52 shrink-0 md:block" />}>
-          <TaxonomyFilterSidebar tags={allTags} />
-        </Suspense>
-
-        <div className="min-w-0 flex-1">
-          <Suspense
-            fallback={
-              <div
-                className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-4"
-                aria-label="Loading brands..."
-              >
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="rounded-xl border border-border bg-card">
-                    <div className="aspect-[4/3] animate-pulse rounded-t-xl bg-muted" />
-                    <div className="p-4">
-                      <div className="h-4 animate-pulse rounded bg-muted" />
-                      <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-muted" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            }
-          >
-            <BrandGrid brands={displayBrands} />
-          </Suspense>
-
-          <Pagination
-            totalCount={totalCount}
-            currentPage={clampedPage}
-            pageSize={DEFAULT_PAGE_SIZE}
-            searchParams={paginationParams}
+      {/* Category pills */}
+      <div className="mb-6">
+        <Suspense fallback={null}>
+          <CategoryPills
+            categories={categories.map((c) => ({
+              slug: c.slug,
+              name: c.nameZh ?? c.name,
+            }))}
           />
-        </div>
+        </Suspense>
       </div>
+
+      {/* Count + sort header */}
+      <div className="mb-6 flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {totalCount > 0
+            ? `${totalCount} brand${totalCount !== 1 ? 's' : ''}`
+            : '0 brands found'}
+        </p>
+        <Suspense fallback={null}>
+          <SortSelect />
+        </Suspense>
+      </div>
+
+      {/* Masonry brand grid */}
+      <Suspense
+        fallback={
+          <div
+            className="grid grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2 lg:grid-cols-4"
+            aria-label="Loading brands..."
+          >
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="rounded-xl border border-border bg-card">
+                <div className="aspect-[4/3] animate-pulse rounded-t-xl bg-muted" />
+                <div className="p-4">
+                  <div className="h-4 animate-pulse rounded bg-muted" />
+                  <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-muted" />
+                </div>
+              </div>
+            ))}
+          </div>
+        }
+      >
+        {displayBrands.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <p className="text-base font-semibold text-foreground">
+              No brands found
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Try adjusting or clearing your filters.
+            </p>
+          </div>
+        ) : (
+          <MasonryGrid>
+            {displayBrands.map((brand) => (
+              <BrandCard key={brand.id} brand={brand} />
+            ))}
+          </MasonryGrid>
+        )}
+      </Suspense>
+
+      <Pagination
+        totalCount={totalCount}
+        currentPage={clampedPage}
+        pageSize={DEFAULT_PAGE_SIZE}
+        searchParams={paginationParams}
+      />
     </main>
   )
 }

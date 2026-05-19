@@ -11,8 +11,8 @@ export function BrandFounder({ brand }: BrandFounderProps) {
   const initials = brand.founder.name.charAt(0)
 
   return (
-    <section>
-      <h2 className="mb-3 font-[family-name:var(--font-heading)] text-lg font-bold text-foreground">
+    <section className="border-t border-border pt-6">
+      <h2 className="mb-3 font-heading text-base font-bold text-foreground">
         Founder Story
       </h2>
       <div className="flex items-start gap-4">
@@ -39,12 +39,12 @@ export function BrandFounder({ brand }: BrandFounderProps) {
             {brand.founder.name}
           </p>
           {brand.founder.title && (
-            <p className="text-xs text-muted-foreground">{brand.founder.title}</p>
+            <p className="text-xs text-warm-caption">{brand.founder.title}</p>
           )}
 
           {/* Quote */}
           {brand.founder.quote && (
-            <blockquote className="mt-2 border-l-2 border-primary/30 pl-3 text-sm italic leading-relaxed text-muted-foreground">
+            <blockquote className="mt-2 border-l-2 border-ring pl-4 text-sm italic leading-relaxed text-muted-foreground">
               {brand.founder.quote}
             </blockquote>
           )}

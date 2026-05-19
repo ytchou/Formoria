@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 
 interface ImageCarouselProps {
   images: string[]
@@ -31,45 +30,73 @@ export function ImageCarousel({ images, alt }: ImageCarouselProps) {
   }
 
   return (
-    <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted">
-      <Image
-        src={images[current]}
-        alt={`${alt} — photo ${current + 1}`}
-        fill
-        className="object-cover"
-        sizes="(max-width: 1024px) 100vw, 580px"
-        priority={current === 0}
-      />
+    <div className="space-y-3">
+      {/* Hero image */}
+      <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted">
+        <Image
+          src={images[current]}
+          alt={`${alt} — photo ${current + 1}`}
+          fill
+          className="object-cover"
+          sizes="(max-width: 1024px) 100vw, 580px"
+          priority={current === 0}
+        />
 
+        {total > 1 && (
+          <>
+            {/* Prev button */}
+            <button
+              type="button"
+              className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-accent/80 p-2 text-accent-foreground backdrop-blur-sm transition-colors hover:bg-accent"
+              onClick={() => goTo(current - 1)}
+              aria-label="Previous image"
+            >
+              <ChevronLeft className="size-5" />
+            </button>
+
+            {/* Next button */}
+            <button
+              type="button"
+              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-accent/80 p-2 text-accent-foreground backdrop-blur-sm transition-colors hover:bg-accent"
+              onClick={() => goTo(current + 1)}
+              aria-label="Next image"
+            >
+              <ChevronRight className="size-5" />
+            </button>
+
+            {/* Counter badge */}
+            <span className="absolute bottom-4 right-4 rounded-full bg-accent/80 px-2.5 py-1 text-xs font-medium text-accent-foreground backdrop-blur-sm">
+              {current + 1} / {total}
+            </span>
+          </>
+        )}
+      </div>
+
+      {/* Thumbnail grid */}
       {total > 1 && (
-        <>
-          {/* Prev button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute left-2 top-1/2 -translate-y-1/2 bg-background/60 backdrop-blur-sm hover:bg-background/80"
-            onClick={() => goTo(current - 1)}
-            aria-label="Previous image"
-          >
-            <ChevronLeft className="size-5" />
-          </Button>
-
-          {/* Next button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-background/60 backdrop-blur-sm hover:bg-background/80"
-            onClick={() => goTo(current + 1)}
-            aria-label="Next image"
-          >
-            <ChevronRight className="size-5" />
-          </Button>
-
-          {/* Counter badge */}
-          <span className="absolute bottom-3 right-3 rounded-full bg-background/70 px-2.5 py-1 text-xs font-medium text-foreground backdrop-blur-sm">
-            {current + 1} / {total}
-          </span>
-        </>
+        <div className="flex gap-2 overflow-x-auto">
+          {images.map((src, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setCurrent(i)}
+              className={`relative size-16 shrink-0 overflow-hidden rounded-lg ${
+                i === current
+                  ? 'ring-2 ring-primary ring-offset-2'
+                  : 'opacity-70 hover:opacity-100'
+              }`}
+              aria-label={`View photo ${i + 1}`}
+            >
+              <Image
+                src={src}
+                alt={`${alt} thumbnail ${i + 1}`}
+                fill
+                className="object-cover"
+                sizes="64px"
+              />
+            </button>
+          ))}
+        </div>
       )}
     </div>
   )
