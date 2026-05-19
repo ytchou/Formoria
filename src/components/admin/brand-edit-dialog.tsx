@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import type { Brand } from '@/lib/types'
 import { updateBrandAction } from '@/app/admin/actions'
 import {
@@ -27,20 +27,11 @@ export function BrandEditDialog({
   open,
   onOpenChange,
 }: BrandEditDialogProps) {
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [category, setCategory] = useState('')
+  const [name, setName] = useState(brand?.name ?? '')
+  const [description, setDescription] = useState(brand?.description ?? '')
+  const [category, setCategory] = useState(brand?.category ?? '')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-
-  useEffect(() => {
-    if (brand) {
-      setName(brand.name)
-      setDescription(brand.description ?? '')
-      setCategory(brand.category ?? '')
-      setError(null)
-    }
-  }, [brand])
 
   function handleSave() {
     if (!brand) return

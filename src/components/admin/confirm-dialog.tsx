@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -38,15 +38,16 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const [inputValue, setInputValue] = useState('')
 
-  useEffect(() => {
-    if (!open) setInputValue('')
-  }, [open])
+  function handleOpenChange(nextOpen: boolean) {
+    if (!nextOpen) setInputValue('')
+    onOpenChange(nextOpen)
+  }
 
   const isConfirmDisabled =
     isPending || (confirmText != null && inputValue !== confirmText)
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>

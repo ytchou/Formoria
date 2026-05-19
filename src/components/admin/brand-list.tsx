@@ -169,6 +169,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
       </div>
 
       <BrandEditDialog
+        key={editingBrand?.id ?? 'none'}
         brand={editingBrand}
         open={editingBrand !== null}
         onOpenChange={(open) => {
