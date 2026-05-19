@@ -65,6 +65,84 @@ describe('useFilterParams', () => {
     })
   })
 
+  describe('search', () => {
+    it('reads search param from URL', () => {
+      mockSearchParams = new URLSearchParams('search=tea')
+      const { result } = renderHook(() => useFilterParams())
+
+      expect(result.current.filters.search).toBe('tea')
+    })
+
+    it('setSearch updates URL with search param', () => {
+      vi.useFakeTimers()
+      const { result } = renderHook(() => useFilterParams())
+
+      act(() => {
+        result.current.setSearch('tea')
+      })
+
+      vi.advanceTimersByTime(300)
+
+      expect(mockPush).toHaveBeenCalledWith(
+        expect.stringContaining('search=tea'),
+        { scroll: false }
+      )
+      vi.useRealTimers()
+    })
+
+    it('setSearch resets page to 1', () => {
+      vi.useFakeTimers()
+      mockSearchParams = new URLSearchParams('page=3')
+      const { result } = renderHook(() => useFilterParams())
+
+      act(() => {
+        result.current.setSearch('test')
+      })
+
+      vi.advanceTimersByTime(300)
+
+      expect(mockPush).toHaveBeenCalledWith(
+        expect.not.stringContaining('page='),
+        { scroll: false }
+      )
+      vi.useRealTimers()
+    })
+
+    it('setSearch debounces rapid calls (300ms)', () => {
+      vi.useFakeTimers()
+      const { result } = renderHook(() => useFilterParams())
+
+      act(() => {
+        result.current.setSearch('t')
+        result.current.setSearch('te')
+        result.current.setSearch('tea')
+      })
+
+      vi.advanceTimersByTime(300)
+
+      expect(mockPush).toHaveBeenCalledTimes(1)
+      expect(mockPush).toHaveBeenCalledWith(
+        expect.stringContaining('search=tea'),
+        { scroll: false }
+      )
+      vi.useRealTimers()
+    })
+
+    it('clearFilters removes search param', () => {
+      mockSearchParams = new URLSearchParams('search=test&tags=food')
+      const { result } = renderHook(() => useFilterParams())
+
+      act(() => {
+        result.current.clearFilters()
+      })
+
+      expect(mockPush).toHaveBeenCalledWith(
+        expect.not.stringContaining('search='),
+        { scroll: false }
+      )
+    })
+  })
+
   describe('filter + page interaction', () => {
     it('toggleSlug resets page to 1', () => {
       mockSearchParams = new URLSearchParams('page=3&tags=food')

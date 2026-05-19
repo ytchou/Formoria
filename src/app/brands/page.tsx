@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { getBrands } from '@/lib/services/brands'
 import { getTags } from '@/lib/services/taxonomy'
 import { parsePageParam, parseSortParam, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
+import { SearchInput } from '@/components/brands/search-input'
 import { TaxonomyFilterSidebar } from '@/components/brands/taxonomy-filter-sidebar'
 import { BrandGrid } from '@/components/brands/brand-grid'
 import { Pagination } from '@/components/brands/pagination'
@@ -25,6 +26,8 @@ export default async function BrandsPage({ searchParams }: BrandsPageProps) {
 
   const page = parsePageParam(params.page as string | undefined)
   const sort = parseSortParam(params.sort as string | undefined)
+  const search =
+    typeof params.search === 'string' ? params.search.trim() : ''
   const tags =
     typeof params.tags === 'string'
       ? params.tags
@@ -36,6 +39,7 @@ export default async function BrandsPage({ searchParams }: BrandsPageProps) {
   const [{ brands, totalCount }, allTags] = await Promise.all([
     getBrands({
       status: 'approved',
+      search: search || undefined,
       tags: tags.length > 0 ? tags : undefined,
       sort,
       limit: DEFAULT_PAGE_SIZE,
@@ -53,6 +57,7 @@ export default async function BrandsPage({ searchParams }: BrandsPageProps) {
   if (clampedPage !== page && totalCount > 0) {
     const refetched = await getBrands({
       status: 'approved',
+      search: search || undefined,
       tags: tags.length > 0 ? tags : undefined,
       sort,
       limit: DEFAULT_PAGE_SIZE,
@@ -63,6 +68,7 @@ export default async function BrandsPage({ searchParams }: BrandsPageProps) {
 
   // Build searchParams record for pagination links (excluding page)
   const paginationParams: Record<string, string> = {}
+  if (search) paginationParams.search = search
   if (tags.length > 0) paginationParams.tags = tags.join(',')
   if (sort !== 'name') paginationParams.sort = sort
 
@@ -86,6 +92,13 @@ export default async function BrandsPage({ searchParams }: BrandsPageProps) {
         </div>
         <Suspense fallback={null}>
           <SortSelect />
+        </Suspense>
+      </div>
+
+      {/* Search input */}
+      <div className="mb-6">
+        <Suspense fallback={null}>
+          <SearchInput />
         </Suspense>
       </div>
 

@@ -149,8 +149,8 @@ export async function getBrands(
     query = query.eq('category', filters.category)
   }
   if (filters?.search) {
-    const escaped = filters.search.replace(/[%_\\]/g, '\\$&')
-    query = query.ilike('name', `%${escaped}%`)
+    const term = filters.search.slice(0, 100).replace(/[%_\\]/g, '\\$&')
+    query = query.or(`name.ilike.%${term}%,description.ilike.%${term}%`)
   }
   if (filters?.tags && filters.tags.length > 0) {
     query = query.in('brand_taxonomy.taxonomy_tags.slug', filters.tags)

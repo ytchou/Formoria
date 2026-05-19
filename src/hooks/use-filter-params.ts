@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   parsePageParam,
   parseSortParam,
@@ -36,6 +36,20 @@ export function useFilterParams() {
     () => parseSortParam(searchParams.get('sort') ?? undefined),
     [searchParams]
   )
+
+  const currentSearch = useMemo(
+    () => searchParams.get('search') ?? '',
+    [searchParams]
+  )
+
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
+    }
+  }, [])
 
   const buildUrl = useCallback(
     (params: URLSearchParams) => {
@@ -74,8 +88,12 @@ export function useFilterParams() {
   )
 
   const clearFilters = useCallback(() => {
-    setFilters([])
-  }, [setFilters])
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('tags')
+    params.delete('search')
+    params.delete('page')
+    router.push(buildUrl(params), { scroll: false })
+  }, [router, buildUrl, searchParams])
 
   const setPage = useCallback(
     (page: number) => {
@@ -105,6 +123,24 @@ export function useFilterParams() {
     [router, buildUrl, searchParams]
   )
 
+  const setSearch = useCallback(
+    (term: string) => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
+
+      searchTimeoutRef.current = setTimeout(() => {
+        const params = new URLSearchParams(searchParams.toString())
+        if (term) {
+          params.set('search', term)
+        } else {
+          params.delete('search')
+        }
+        params.delete('page')
+        router.push(buildUrl(params), { scroll: false })
+      }, 300)
+    },
+    [router, buildUrl, searchParams]
+  )
+
   return {
     selectedSlugs,
     toggleSlug,
@@ -112,7 +148,9 @@ export function useFilterParams() {
     activeCount: selectedSlugs.length,
     currentPage,
     currentSort,
+    filters: { search: currentSearch },
     setPage,
     setSort,
+    setSearch,
   }
 }

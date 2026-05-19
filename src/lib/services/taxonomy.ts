@@ -53,6 +53,36 @@ export async function getTags(category?: TagCategory): Promise<TaxonomyTag[]> {
   return (data ?? []).map(tagToDomain)
 }
 
+export async function getActiveCategories(): Promise<
+  { slug: string; name: string; nameZh: string | null }[]
+> {
+  const supabase = createServiceClient()
+
+  // Find product_type tags that have at least one approved brand
+  const { data, error } = await supabase
+    .from('taxonomy_tags')
+    .select('*, brand_taxonomy!inner(brands!inner(status))')
+    .eq('category', 'product_type')
+    .eq('is_active', true)
+    .eq('brand_taxonomy.brands.status', 'approved')
+
+  if (error) throw error
+
+  // Deduplicate by slug (multiple brands may produce repeated rows)
+  const seen = new Set<string>()
+  const result: { slug: string; name: string; nameZh: string | null }[] = []
+
+  for (const row of data ?? []) {
+    const tag = tagToDomain(row)
+    if (!seen.has(tag.slug)) {
+      seen.add(tag.slug)
+      result.push({ slug: tag.slug, name: tag.name, nameZh: tag.nameZh })
+    }
+  }
+
+  return result
+}
+
 export async function createTag(
   data: Pick<TaxonomyTag, 'name' | 'category'> & Partial<Pick<TaxonomyTag, 'nameZh' | 'suggestedBy'>>
 ): Promise<TaxonomyTag> {
