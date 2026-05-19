@@ -3,6 +3,7 @@ import type { TaxonomyTag } from '@/lib/types'
 import { NotFoundError, ValidationError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
 import { BRAND_SORT_CONFIG } from '@/lib/pagination'
+import { RESERVED_ROUTES } from '@/middleware'
 
 // ---------------------------------------------------------------------------
 // Slug generation
@@ -14,6 +15,10 @@ export function generateSlug(name: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
+}
+
+export function isReservedSlug(slug: string): boolean {
+  return RESERVED_ROUTES.has(slug)
 }
 
 // ---------------------------------------------------------------------------
@@ -190,6 +195,11 @@ export async function createBrand(
 ): Promise<Brand> {
   const supabase = createServiceClient()
   const slug = data.slug || generateSlug(data.name)
+
+  // Check slug against reserved routes
+  if (isReservedSlug(slug)) {
+    throw new ValidationError(`Brand slug conflicts with a reserved route: ${slug}`)
+  }
 
   // Check slug uniqueness
   const { data: existing } = await supabase

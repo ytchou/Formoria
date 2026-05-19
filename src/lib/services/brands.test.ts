@@ -1,5 +1,23 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { brandToDomain, brandToInsert, generateSlug, deleteBrand } from './brands'
+import { RESERVED_ROUTES } from '@/middleware'
+
+vi.mock('@supabase/ssr', () => ({
+  createServerClient: vi.fn(() => ({
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
+    },
+  })),
+}))
+
+vi.mock('next/server', () => {
+  const NextResponse = {
+    next: vi.fn(() => ({
+      cookies: { set: vi.fn() },
+    })),
+  }
+  return { NextResponse }
+})
 
 describe('generateSlug', () => {
   it('converts name to kebab-case', () => {
@@ -179,5 +197,29 @@ describe('brandToInsert — founder and productHighlights', () => {
     expect(row.product_highlights).toEqual([
       { name: 'Product A', image_url: 'https://ex.com/a.jpg', description: 'Desc' },
     ])
+  })
+})
+
+describe('brand slug validation against reserved routes', () => {
+  it('RESERVED_ROUTES set is available and non-empty', () => {
+    expect(RESERVED_ROUTES.size).toBeGreaterThan(0)
+  })
+
+  it('generateSlug can produce reserved slugs that must be caught', () => {
+    const slug = generateSlug('Admin')
+    expect(slug).toBe('admin')
+    expect(RESERVED_ROUTES.has(slug)).toBe(true)
+  })
+
+  it('normal brand names do not collide with reserved routes', () => {
+    const slug = generateSlug('Cha Zi Tang')
+    expect(RESERVED_ROUTES.has(slug)).toBe(false)
+  })
+
+  it('isReservedSlug returns true for reserved slugs', async () => {
+    const { isReservedSlug } = await import('./brands')
+    expect(isReservedSlug('admin')).toBe(true)
+    expect(isReservedSlug('api')).toBe(true)
+    expect(isReservedSlug('cha-zi-tang')).toBe(false)
   })
 })
