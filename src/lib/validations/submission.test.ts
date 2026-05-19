@@ -1,11 +1,48 @@
 import { describe, it, expect } from 'vitest'
 import {
+  scrapeUrlSchema,
   brandInfoSchema,
   productsSchema,
   linksSchema,
   reviewSchema,
   fullSubmissionSchema,
 } from './submission'
+
+describe('scrapeUrlSchema', () => {
+  it('accepts valid HTTPS URL', () => {
+    const result = scrapeUrlSchema.safeParse({ url: 'https://mybrand.com.tw' })
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts HTTPS URL with path', () => {
+    const result = scrapeUrlSchema.safeParse({
+      url: 'https://mybrand.com.tw/about',
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects HTTP URL', () => {
+    const result = scrapeUrlSchema.safeParse({ url: 'http://mybrand.com' })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects invalid URL', () => {
+    const result = scrapeUrlSchema.safeParse({ url: 'not-a-url' })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects empty string', () => {
+    const result = scrapeUrlSchema.safeParse({ url: '' })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects URL exceeding max length', () => {
+    const result = scrapeUrlSchema.safeParse({
+      url: 'https://x.com/' + 'a'.repeat(2048),
+    })
+    expect(result.success).toBe(false)
+  })
+})
 
 describe('brandInfoSchema', () => {
   it('accepts valid brand info', () => {
