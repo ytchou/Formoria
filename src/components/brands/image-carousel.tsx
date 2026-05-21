@@ -11,36 +11,54 @@ interface ImageCarouselProps {
 
 export function ImageCarousel({ images, alt }: ImageCarouselProps) {
   const [current, setCurrent] = useState(0)
+  const [brokenImages, setBrokenImages] = useState<Set<number>>(new Set())
   const total = images.length
+
+  const initial = alt.charAt(0)
 
   if (total === 0) {
     return (
       <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted">
         <div className="flex h-full items-center justify-center">
           <span className="text-4xl font-bold text-muted-foreground">
-            {alt.charAt(0)}
+            {initial}
           </span>
         </div>
       </div>
     )
   }
 
+  function handleImageError(index: number) {
+    setBrokenImages((prev) => new Set(prev).add(index))
+  }
+
   function goTo(index: number) {
     setCurrent(((index % total) + total) % total)
   }
+
+  const isCurrentBroken = brokenImages.has(current)
 
   return (
     <div className="space-y-3">
       {/* Hero image */}
       <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted">
-        <Image
-          src={images[current]}
-          alt={`${alt} — photo ${current + 1}`}
-          fill
-          className="object-cover"
-          sizes="(max-width: 1024px) 100vw, 580px"
-          priority={current === 0}
-        />
+        {isCurrentBroken ? (
+          <div className="flex h-full items-center justify-center">
+            <span className="text-4xl font-bold text-muted-foreground">
+              {initial}
+            </span>
+          </div>
+        ) : (
+          <Image
+            src={images[current]}
+            alt={`${alt} — photo ${current + 1}`}
+            fill
+            className="object-cover"
+            sizes="(max-width: 1024px) 100vw, 580px"
+            priority={current === 0}
+            onError={() => handleImageError(current)}
+          />
+        )}
 
         {total > 1 && (
           <>
@@ -87,13 +105,22 @@ export function ImageCarousel({ images, alt }: ImageCarouselProps) {
               }`}
               aria-label={`View photo ${i + 1}`}
             >
-              <Image
-                src={src}
-                alt={`${alt} thumbnail ${i + 1}`}
-                fill
-                className="object-cover"
-                sizes="64px"
-              />
+              {brokenImages.has(i) ? (
+                <div className="flex h-full items-center justify-center bg-muted">
+                  <span className="text-xs font-bold text-muted-foreground">
+                    {initial}
+                  </span>
+                </div>
+              ) : (
+                <Image
+                  src={src}
+                  alt={`${alt} thumbnail ${i + 1}`}
+                  fill
+                  className="object-cover"
+                  sizes="64px"
+                  onError={() => handleImageError(i)}
+                />
+              )}
             </button>
           ))}
         </div>

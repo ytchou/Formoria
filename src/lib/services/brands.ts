@@ -268,6 +268,22 @@ export async function getRelatedBrands(
   return (data ?? []).map(brandToDomain)
 }
 
+export async function getBrandCountByCategory(
+  category: string,
+  excludeSlug: string,
+): Promise<number> {
+  const supabase = createServiceClient()
+  const { count, error } = await supabase
+    .from('brands')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'approved')
+    .eq('category', category)
+    .neq('slug', excludeSlug)
+
+  if (error) throw error
+  return count ?? 0
+}
+
 export async function getAllBrandSlugs(): Promise<string[]> {
   const supabase = createServiceClient()
   const { data, error } = await supabase

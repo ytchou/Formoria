@@ -73,14 +73,14 @@ export function BrandLinks({ brand }: BrandLinksProps) {
             href={link.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+            className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80"
           >
             {link.icon === 'globe' ? (
-              <Globe className="size-4" />
+              <Globe className="size-3.5 text-coffee" />
             ) : link.icon === 'threads' ? (
-              <ThreadsIcon className="size-4" />
+              <ThreadsIcon className="size-3.5 text-coffee" />
             ) : (
-              <ExternalLink className="size-4" />
+              <ExternalLink className="size-3.5 text-coffee" />
             )}
             {link.label}
           </a>

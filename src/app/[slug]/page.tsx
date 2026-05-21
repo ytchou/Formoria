@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
 import type { Metadata } from 'next'
-import { getBrandBySlug, getRelatedBrands, getAllBrandSlugs } from '@/lib/services/brands'
+import { getBrandBySlug, getRelatedBrands, getBrandCountByCategory, getAllBrandSlugs } from '@/lib/services/brands'
 import { buildBrandJsonLd, buildBreadcrumbJsonLd } from '@/lib/json-ld'
 import type { BreadcrumbItem } from '@/lib/json-ld'
 import { BrandViewTracker } from '@/components/brands/brand-view-tracker'
@@ -16,8 +15,8 @@ import { BrandProductHighlights } from '@/components/brands/brand-product-highli
 import { BrandPhotoGallery } from '@/components/brands/brand-photo-gallery'
 import { BrandLinks } from '@/components/brands/brand-links'
 import { BrandLocations } from '@/components/brands/brand-locations'
+import { MoreInCategory } from '@/components/brands/more-in-category'
 import { RelatedBrands } from '@/components/brands/related-brands'
-import { buttonVariants } from '@/components/ui/button'
 
 // ISR: revalidate every hour
 export const revalidate = 3600
@@ -72,17 +71,20 @@ export default async function BrandDetailPage({ params }: PageProps) {
     (url): url is string => Boolean(url),
   )
 
-  // Related brands
-  const relatedBrands = brand.category
-    ? await getRelatedBrands(brand.category, brand.slug, 4)
-    : []
+  // Parallel fetch: related brands + category count
+  const [relatedBrands, categoryCount] = brand.category
+    ? await Promise.all([
+        getRelatedBrands(brand.category, brand.slug, 4),
+        getBrandCountByCategory(brand.category, brand.slug),
+      ])
+    : [[], 0]
 
   // Visit Website URL
   const visitUrl = brand.socialLinks.officialWebsite ?? brand.purchaseLinks[0]?.url
 
   // Breadcrumb items for JSON-LD
   const breadcrumbItems: BreadcrumbItem[] = [
-    { label: 'Home', href: '/' },
+    { label: 'Brands', href: '/' },
     ...(brand.category
       ? [{ label: brand.category, href: `/?category=${encodeURIComponent(brand.category)}` }]
       : []),
@@ -118,19 +120,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
         <div className="min-w-0 flex-1 space-y-6">
           <BrandHeader brand={brand} />
 
-          {/* Visit Website CTA */}
-          {visitUrl && (
-            <Link
-              href={visitUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={buttonVariants({ variant: 'default', size: 'lg' }) + ' w-full'}
-            >
-              Visit Website
-            </Link>
-          )}
-
-          <BrandActions />
+          <BrandActions websiteUrl={visitUrl ?? null} />
 
           <hr className="border-border" />
 
@@ -147,6 +137,10 @@ export default async function BrandDetailPage({ params }: PageProps) {
 
           <BrandLinks brand={brand} />
           <BrandLocations brand={brand} />
+
+          {brand.category && (
+            <MoreInCategory category={brand.category} count={categoryCount} />
+          )}
         </div>
       </div>
 

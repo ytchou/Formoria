@@ -35,16 +35,14 @@ export function BrandFounder({ brand }: BrandFounderProps) {
 
         <div className="min-w-0 flex-1">
           {/* Name + title */}
-          <p className="text-sm font-medium text-foreground">
+          <p className="text-sm font-semibold text-foreground">
             {brand.founder.name}
+            {brand.founder.title && <span className="font-normal text-warm-caption"> · {brand.founder.title}</span>}
           </p>
-          {brand.founder.title && (
-            <p className="text-xs text-warm-caption">{brand.founder.title}</p>
-          )}
 
           {/* Quote */}
           {brand.founder.quote && (
-            <blockquote className="mt-2 border-l-2 border-ring pl-4 text-sm italic leading-relaxed text-muted-foreground">
+            <blockquote className="mt-2 border-l-2 border-ring pl-4 text-sm italic leading-snug text-muted-foreground">
               {brand.founder.quote}
             </blockquote>
           )}

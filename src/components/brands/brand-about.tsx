@@ -11,7 +11,7 @@ export function BrandAbout({ brand }: BrandAboutProps) {
 
   return (
     <section>
-      <h2 className="mb-3 font-[family-name:var(--font-heading)] text-lg font-bold text-foreground">
+      <h2 className="mb-3 font-[family-name:var(--font-heading)] text-sm font-semibold text-foreground">
         About
       </h2>
       <div className="space-y-3">
