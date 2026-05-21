@@ -15,7 +15,7 @@ export function BrandBreadcrumb({ category, brandName }: BrandBreadcrumbProps) {
             href="/"
             className="transition-colors hover:text-foreground"
           >
-            Home
+            Brands
           </Link>
         </li>
         {category && (
