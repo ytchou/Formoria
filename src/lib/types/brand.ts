@@ -32,7 +32,7 @@ export type BrandFounder = {
 
 export type ProductHighlight = {
   name: string
-  imageUrl: string
+  imageUrl: string | null
   description: string | null
 }
 

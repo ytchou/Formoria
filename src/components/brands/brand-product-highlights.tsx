@@ -20,13 +20,21 @@ export function BrandProductHighlights({ brand }: BrandProductHighlightsProps) {
             className="overflow-hidden rounded-[10px] bg-secondary"
           >
             <div className="relative aspect-[4/3] bg-muted">
-              <Image
-                src={product.imageUrl}
-                alt={product.name}
-                fill
-                className="rounded-t-[10px] object-cover"
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 200px"
-              />
+              {product.imageUrl ? (
+                <Image
+                  src={product.imageUrl}
+                  alt={product.name}
+                  fill
+                  className="rounded-t-[10px] object-cover"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 200px"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <span className="text-2xl font-bold text-muted-foreground">
+                    {product.name.charAt(0)}
+                  </span>
+                </div>
+              )}
             </div>
             <div className="px-2.5 py-2">
               <p className="text-sm font-medium text-foreground">
