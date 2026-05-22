@@ -10,7 +10,7 @@ import { createResendProvider } from '@/lib/email/resend-adapter'
 import { buildApprovalEmail, buildRejectionEmail, buildClaimEmail } from '@/lib/email/templates'
 import { generateClaimToken } from '@/lib/auth/claim-token'
 import { updateFlagStatus } from '@/lib/services/moderation'
-import type { TagCategory } from '@/lib/types'
+import type { TagCategory, Brand } from '@/lib/types'
 
 async function requireAdmin(): Promise<{ userId: string; email: string } | { error: string }> {
   const supabase = await createClient()
@@ -356,7 +356,7 @@ export async function revertFlagAction(
   if (!flag.previous_content) return { error: 'stale' }
 
   // 3. Fetch the current brand via service layer (properly typed, snake_case → camelCase decoded)
-  let brand
+  let brand: Brand
   try {
     brand = await getBrandById(flag.brand_id)
   } catch {
