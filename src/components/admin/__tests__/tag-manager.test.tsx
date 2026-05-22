@@ -41,7 +41,7 @@ describe('TagManager', () => {
 
   it('renders add tag form', () => {
     render(<TagManager tags={mockTags} />)
-    expect(screen.getByPlaceholderText(/tag name \(english\)/i)).toBeDefined()
+    expect(screen.getByPlaceholderText('標籤名稱（英文）')).toBeDefined()
   })
 
   it('renders suggested tags section for tags with suggestedBy', () => {
@@ -58,10 +58,10 @@ describe('TagManager', () => {
 
   it('submits new tag form', async () => {
     render(<TagManager tags={mockTags} />)
-    const nameInput = screen.getByPlaceholderText(/tag name \(english\)/i)
+    const nameInput = screen.getByPlaceholderText('標籤名稱（英文）')
     fireEvent.change(nameInput, { target: { value: 'New Tag' } })
 
-    const addButton = screen.getByRole('button', { name: /add tag/i })
+    const addButton = screen.getByRole('button', { name: '新增標籤' })
     fireEvent.click(addButton)
 
     const { createTagAction } = await import('@/app/admin/actions')

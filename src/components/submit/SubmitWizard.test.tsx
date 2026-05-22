@@ -92,7 +92,7 @@ describe('SubmitWizard with UrlStep', () => {
   it('shows UrlStep as first step', () => {
     render(<SubmitWizard categories={mockCategories} />)
 
-    expect(screen.getByText(/submit your brand/i)).toBeInTheDocument()
+    expect(screen.getByText(/提交品牌/)).toBeInTheDocument()
     expect(screen.getByTestId('url-step')).toBeInTheDocument()
   })
 

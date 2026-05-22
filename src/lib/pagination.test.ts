@@ -66,12 +66,12 @@ describe('constants', () => {
     expect(BRAND_SORT_CONFIG.newest).toEqual({
       column: 'created_at',
       ascending: false,
-      label: 'Newest',
+      label: '最新',
     })
     expect(BRAND_SORT_CONFIG.year).toEqual({
       column: 'founding_year',
       ascending: false,
-      label: 'Founding Year',
+      label: '創立年份',
     })
   })
 })

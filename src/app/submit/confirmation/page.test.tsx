@@ -23,27 +23,27 @@ vi.mock('next/link', () => ({
 describe('ConfirmationPage', () => {
   it('renders thank you heading', () => {
     render(<ConfirmationPage />)
-    expect(screen.getByText(/thank you/i)).toBeInTheDocument()
+    expect(screen.getByText(/感謝您/)).toBeInTheDocument()
   })
 
   it('explains the review process', () => {
     render(<ConfirmationPage />)
-    expect(screen.getByText(/review in progress/i)).toBeInTheDocument()
-    expect(screen.getByText(/3 business days/i)).toBeInTheDocument()
+    expect(screen.getByText(/審核中/)).toBeInTheDocument()
+    expect(screen.getByText(/3 個工作天/)).toBeInTheDocument()
   })
 
   it('has a link to the directory', () => {
     render(<ConfirmationPage />)
     const link = screen.getByRole('link', {
-      name: /explore.*mit map|mit map.*directory/i,
+      name: /探索 MIT Map/,
     })
     expect(link).toHaveAttribute('href', '/')
   })
 
   it('shows a 3-step timeline', () => {
     render(<ConfirmationPage />)
-    expect(screen.getByText(/review in progress/i)).toBeInTheDocument()
-    expect(screen.getByText(/reach out/i)).toBeInTheDocument()
-    expect(screen.getByText(/goes live/i)).toBeInTheDocument()
+    expect(screen.getByText(/審核中/)).toBeInTheDocument()
+    expect(screen.getByText(/聯繫/)).toBeInTheDocument()
+    expect(screen.getByText(/品牌上線/)).toBeInTheDocument()
   })
 })

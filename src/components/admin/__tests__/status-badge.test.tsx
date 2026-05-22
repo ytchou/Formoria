@@ -6,22 +6,22 @@ import { StatusBadge } from '../status-badge'
 describe('StatusBadge', () => {
   it('renders pending status with correct text', () => {
     render(<StatusBadge status="pending" />)
-    expect(screen.getByText('Pending')).toBeDefined()
+    expect(screen.getByText('待審核')).toBeDefined()
   })
 
   it('renders approved status with correct text', () => {
     render(<StatusBadge status="approved" />)
-    expect(screen.getByText('Approved')).toBeDefined()
+    expect(screen.getByText('已核准')).toBeDefined()
   })
 
   it('renders rejected status with correct text', () => {
     render(<StatusBadge status="rejected" />)
-    expect(screen.getByText('Rejected')).toBeDefined()
+    expect(screen.getByText('已拒絕')).toBeDefined()
   })
 
   it('renders hidden status with correct text', () => {
     render(<StatusBadge status="hidden" />)
-    expect(screen.getByText('Hidden')).toBeDefined()
+    expect(screen.getByText('已隱藏')).toBeDefined()
   })
 
   it('applies different visual styles per status', () => {

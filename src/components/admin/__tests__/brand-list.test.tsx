@@ -92,33 +92,33 @@ describe('BrandList', () => {
 
   it('renders status filter tabs', () => {
     render(<BrandList brands={mockBrands} />)
-    expect(screen.getByRole('tab', { name: /All/ })).toBeDefined()
-    expect(screen.getByRole('tab', { name: /Approved/ })).toBeDefined()
-    expect(screen.getByRole('tab', { name: /Hidden/ })).toBeDefined()
+    expect(screen.getByRole('tab', { name: /全部/ })).toBeDefined()
+    expect(screen.getByRole('tab', { name: /已核准/ })).toBeDefined()
+    expect(screen.getByRole('tab', { name: /已隱藏/ })).toBeDefined()
   })
 
   it('filters brands by status tab', () => {
     render(<BrandList brands={mockBrands} />)
-    fireEvent.click(screen.getByRole('tab', { name: /Hidden/ }))
+    fireEvent.click(screen.getByRole('tab', { name: /已隱藏/ }))
     expect(screen.queryByText('Pottery Studio')).toBeNull()
     expect(screen.getByText('Tea House')).toBeDefined()
   })
 
   it('renders action buttons per row', () => {
     render(<BrandList brands={mockBrands} />)
-    const editButtons = screen.getAllByRole('button', { name: /edit/i })
+    const editButtons = screen.getAllByRole('button', { name: '編輯' })
     expect(editButtons.length).toBeGreaterThanOrEqual(1)
   })
 
   it('shows Hide button for approved brands and Unhide for hidden brands', () => {
     render(<BrandList brands={mockBrands} />)
-    expect(screen.getByRole('button', { name: /^Hide$/i })).toBeDefined()
-    expect(screen.getByRole('button', { name: /unhide/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: '隱藏' })).toBeDefined()
+    expect(screen.getByRole('button', { name: '取消隱藏' })).toBeDefined()
   })
 
   it('opens edit dialog when edit button is clicked', () => {
     render(<BrandList brands={mockBrands} />)
-    const editButtons = screen.getAllByRole('button', { name: /edit/i })
+    const editButtons = screen.getAllByRole('button', { name: '編輯' })
     fireEvent.click(editButtons[0])
     expect(screen.getByDisplayValue('Pottery Studio')).toBeDefined()
   })
