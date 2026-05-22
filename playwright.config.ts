@@ -5,7 +5,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: process.env.CI ? 2 : undefined,
   reporter: 'html',
   timeout: 30_000,
   use: {
@@ -50,9 +50,9 @@ export default defineConfig({
   ],
   globalSetup: './e2e/global-setup.ts',
   webServer: {
-    command: 'pnpm dev',
+    command: process.env.CI ? 'pnpm build && pnpm start' : 'pnpm dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: process.env.CI ? 180_000 : 120_000,
   },
 });
