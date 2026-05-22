@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import { processImage } from '@/lib/security/image-processor'
+import {
+  uploadProcessedImage,
+  ALLOWED_UPLOAD_BUCKETS,
+  type AllowedUploadBucket,
+} from '@/lib/services/image-upload'
 
 export async function POST(request: Request) {
   try {
@@ -19,7 +24,7 @@ export async function POST(request: Request) {
     const formData = await request.formData()
     const file = formData.get('file')
     const path = formData.get('path')
-    const bucket = (formData.get('bucket') as string | null) ?? 'brand-assets'
+    const rawBucket = (formData.get('bucket') as string | null) ?? 'brand-assets'
 
     if (!file || !(file instanceof File)) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
@@ -34,6 +39,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid path' }, { status: 400 })
     }
 
+    // Validate bucket against allowlist
+    if (!(ALLOWED_UPLOAD_BUCKETS as readonly string[]).includes(rawBucket)) {
+      return NextResponse.json({ error: 'Invalid bucket' }, { status: 400 })
+    }
+    const bucket = rawBucket as AllowedUploadBucket
+
     // Convert file to Buffer and process server-side
     const buffer = Buffer.from(await file.arrayBuffer())
 
@@ -47,30 +58,19 @@ export async function POST(request: Request) {
       )
     }
 
-    // Upload to Supabase Storage using service client (bypasses RLS)
-    const filename = `${path}/${Date.now()}-${crypto.randomUUID()}.webp`
-    const serviceSupabase = createServiceClient()
-
-    const { error: uploadError } = await serviceSupabase.storage
-      .from(bucket)
-      .upload(filename, processed.buffer, {
-        contentType: 'image/webp',
-        upsert: false,
-      })
-
-    if (uploadError) {
-      console.error('Storage upload error:', uploadError)
+    // Upload via service layer
+    let result
+    try {
+      result = await uploadProcessedImage(processed, path, bucket)
+    } catch (err) {
+      console.error('Storage upload error:', err)
       return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
     }
 
-    const {
-      data: { publicUrl },
-    } = serviceSupabase.storage.from(bucket).getPublicUrl(filename)
-
     return NextResponse.json({
-      url: publicUrl,
-      width: processed.width,
-      height: processed.height,
+      url: result.url,
+      width: result.width,
+      height: result.height,
     })
   } catch (error) {
     console.error('Upload API error:', error)
