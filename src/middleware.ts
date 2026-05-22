@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { checkRateLimit } from "@/lib/security/rate-limiter";
 
 /**
  * Routes that are reserved for static pages and cannot be used as brand slugs.
@@ -17,6 +18,10 @@ export const RESERVED_ROUTES = new Set([
 ])
 
 export async function middleware(request: NextRequest) {
+  // Check rate limit before any other processing
+  const rateLimitResponse = checkRateLimit(request)
+  if (rateLimitResponse) return rateLimitResponse
+
   let supabaseResponse = NextResponse.next({
     request,
   });
