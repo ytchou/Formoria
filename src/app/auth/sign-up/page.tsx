@@ -3,7 +3,7 @@ import { decodeJwt } from "jose";
 import { SignUpForm } from "@/components/auth/sign-up-form";
 
 export const metadata: Metadata = {
-  title: "Sign Up | MIT Map",
+  title: "註冊 | MIT Map",
 };
 
 type Props = {

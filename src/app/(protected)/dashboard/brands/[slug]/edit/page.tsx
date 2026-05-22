@@ -6,7 +6,7 @@ import { isOwnerOf } from "@/lib/services/brand-owners";
 import { BrandEditForm } from "./brand-edit-form";
 
 export const metadata: Metadata = {
-  title: "Edit Brand | MIT Map",
+  title: "編輯品牌 | MIT Map",
 };
 
 type Props = {

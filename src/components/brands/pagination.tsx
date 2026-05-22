@@ -61,13 +61,13 @@ export function Pagination({
         <Link
           href={buildPageUrl(basePath, currentPage - 1, searchParams)}
           className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-[13px] font-medium text-foreground/70 transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring/20"
-          aria-label="Previous page"
+          aria-label="上一頁"
         >
-          &lsaquo; Prev
+          &lsaquo; 上一頁
         </Link>
       ) : (
         <span className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-[13px] font-medium text-foreground/20">
-          &lsaquo; Prev
+          &lsaquo; 上一頁
         </span>
       )}
 
@@ -114,13 +114,13 @@ export function Pagination({
         <Link
           href={buildPageUrl(basePath, currentPage + 1, searchParams)}
           className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-[13px] font-medium text-foreground/70 transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring/20"
-          aria-label="Next page"
+          aria-label="下一頁"
         >
-          Next &rsaquo;
+          下一頁 &rsaquo;
         </Link>
       ) : (
         <span className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-[13px] font-medium text-foreground/20">
-          Next &rsaquo;
+          下一頁 &rsaquo;
         </span>
       )}
     </nav>

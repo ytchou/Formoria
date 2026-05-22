@@ -11,7 +11,7 @@ export function SortSelect() {
 
   return (
     <label className="inline-flex items-center gap-2 text-[13px] font-medium text-muted-foreground">
-      Sort by
+      排序方式
       <select
         value={currentSort}
         onChange={(e) => setSort(e.target.value as BrandSortOption)}

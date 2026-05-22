@@ -124,7 +124,7 @@ describe('updateBrandAction', () => {
     formData.set('name', 'Hijacked')
 
     const result = await updateBrandAction(undefined, formData)
-    expect(result?.error).toContain('permission')
+    expect(result?.error).toContain('權限')
   })
 })
 

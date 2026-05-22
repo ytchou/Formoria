@@ -16,7 +16,7 @@ describe('buildApprovalEmail', () => {
     })
     expect(email.to).toBe('owner@brand.com')
     expect(email.subject).toContain('Test Brand')
-    expect(email.subject).toContain('approved')
+    expect(email.subject).toContain('已通過審核')
     expect(email.html).toContain('Test Brand')
     expect(email.html).toContain('https://mitmap.tw/brands/test-brand')
     expect(email.from).toContain('mitmap')
@@ -56,10 +56,10 @@ describe('buildClaimEmail', () => {
     })
 
     expect(result.to).toBe('owner@example.com')
-    expect(result.subject).toContain('Claim your brand')
+    expect(result.subject).toContain('認領您在 MIT Map')
     expect(result.html).toContain('Dachun Soap')
     expect(result.html).toContain('https://mitmap.tw/auth/sign-up?claim=abc123')
-    expect(result.html).toContain('Claim')
+    expect(result.html).toContain('認領')
   })
 
   it('escapes HTML in brand name', () => {
@@ -85,7 +85,7 @@ describe('buildIncompleteSubmissionEmail', () => {
     })
     expect(email.to).toBe('owner@brand.com')
     expect(email.subject).toContain('Test Brand')
-    expect(email.html).toContain('Description')
-    expect(email.html).toContain('Website')
+    expect(email.html).toContain('品牌介紹')
+    expect(email.html).toContain('網站')
   })
 })

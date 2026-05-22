@@ -19,7 +19,7 @@ describe('SignInForm', () => {
       <SignInForm claimToken="test-token" claimBrandName="Dachun Soap" />
     )
     expect(
-      screen.getByText(/sign in to claim/i)
+      screen.getByText(/登入以在/)
     ).toBeInTheDocument()
   })
 
@@ -34,7 +34,7 @@ describe('SignInForm', () => {
   it('does not show claim banner without claimToken', () => {
     render(<SignInForm />)
     expect(
-      screen.queryByText(/sign in to claim/i)
+      screen.queryByText(/登入以在/)
     ).not.toBeInTheDocument()
   })
 })

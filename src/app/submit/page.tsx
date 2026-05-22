@@ -4,8 +4,8 @@ import { getTags } from '@/lib/services/taxonomy'
 import { SubmitWizard } from '@/components/submit/SubmitWizard'
 
 export const metadata = {
-  title: 'Submit Your Brand | MIT Map',
-  description: 'Share your Made in Taiwan brand with the community',
+  title: '提交品牌 | MIT Map',
+  description: '將您的台灣製造品牌分享給社群',
 }
 
 export default async function SubmitPage() {

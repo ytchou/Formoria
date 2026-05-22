@@ -3,6 +3,7 @@ import { Bricolage_Grotesque, Geist_Mono, Inter } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { Agentation } from "agentation";
 import { MainNav } from "@/components/navigation/main-nav";
+import { SessionTracker } from "@/components/analytics/session-tracker";
 import "./globals.css";
 
 const inter = Inter({
@@ -23,10 +24,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
   title: {
-    default: 'MIT Map — Made in Taiwan Brand Directory',
-    template: '%s — MIT Map',
+    default: 'MIT Map — 台灣品牌目錄',
+    template: '%s | MIT Map',
   },
-  description: "台灣製造品牌目錄 — Discover thoughtfully curated Taiwanese brands",
+  description: "台灣製造品牌目錄 — 探索精選台灣品牌",
   openGraph: {
     siteName: 'MIT Map',
     locale: 'zh_TW',
@@ -48,6 +49,7 @@ export default function RootLayout({
       className={`${inter.variable} ${bricolage.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
+        <SessionTracker />
         <MainNav />
         {children}
         {process.env.NODE_ENV === "development" && <Agentation />}

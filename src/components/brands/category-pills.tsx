@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { trackCategoryFilterApplied } from '@/lib/analytics'
 
 interface CategoryPillsProps {
   categories: Array<{ slug: string; name: string }>
@@ -14,6 +15,9 @@ export function CategoryPills({ categories }: CategoryPillsProps) {
   const activeCategory = searchParams.get('category') ?? ''
 
   function handleClick(slug: string) {
+    if (slug) {
+      trackCategoryFilterApplied(slug)
+    }
     const params = new URLSearchParams(searchParams.toString())
     if (slug) {
       params.set('category', slug)
@@ -38,7 +42,7 @@ export function CategoryPills({ categories }: CategoryPillsProps) {
             : 'border border-border bg-card text-foreground hover:bg-secondary'
         }`}
       >
-        All
+        全部
       </button>
 
       {/* Category pills */}

@@ -13,18 +13,18 @@ describe('UrlStep', () => {
   it('renders URL input and fetch button', () => {
     render(<UrlStep {...defaultProps} />)
 
-    expect(screen.getByLabelText(/website url/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/品牌網站/)).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: /fetch brand info/i })
+      screen.getByRole('button', { name: /自動填入/ })
     ).toBeInTheDocument()
-    expect(screen.getByText(/skip and fill manually/i)).toBeInTheDocument()
+    expect(screen.getByText(/跳過/)).toBeInTheDocument()
   })
 
   it('disables fetch button when URL is empty', () => {
     render(<UrlStep {...defaultProps} />)
 
     expect(
-      screen.getByRole('button', { name: /fetch brand info/i })
+      screen.getByRole('button', { name: /自動填入/ })
     ).toBeDisabled()
   })
 
@@ -33,12 +33,12 @@ describe('UrlStep', () => {
     render(<UrlStep {...defaultProps} />)
 
     await user.type(
-      screen.getByLabelText(/website url/i),
+      screen.getByLabelText(/品牌網站/),
       'https://mybrand.com'
     )
 
     expect(
-      screen.getByRole('button', { name: /fetch brand info/i })
+      screen.getByRole('button', { name: /自動填入/ })
     ).toBeEnabled()
   })
 
@@ -51,12 +51,12 @@ describe('UrlStep', () => {
     render(<UrlStep {...defaultProps} />)
 
     await user.type(
-      screen.getByLabelText(/website url/i),
+      screen.getByLabelText(/品牌網站/),
       'https://mybrand.com'
     )
-    await user.click(screen.getByRole('button', { name: /fetch brand info/i }))
+    await user.click(screen.getByRole('button', { name: /自動填入/ }))
 
-    expect(screen.getByText(/fetching brand info/i)).toBeInTheDocument()
+    expect(screen.getByText(/正在取得品牌資訊/)).toBeInTheDocument()
   })
 
   it('calls onSuccess with scraped data on successful fetch', async () => {
@@ -72,10 +72,10 @@ describe('UrlStep', () => {
 
     render(<UrlStep {...defaultProps} />)
     await user.type(
-      screen.getByLabelText(/website url/i),
+      screen.getByLabelText(/品牌網站/),
       'https://mybrand.com'
     )
-    await user.click(screen.getByRole('button', { name: /fetch brand info/i }))
+    await user.click(screen.getByRole('button', { name: /自動填入/ }))
 
     await waitFor(() => {
       expect(defaultProps.onSuccess).toHaveBeenCalledWith(mockData)
@@ -95,24 +95,24 @@ describe('UrlStep', () => {
 
     render(<UrlStep {...defaultProps} />)
     await user.type(
-      screen.getByLabelText(/website url/i),
+      screen.getByLabelText(/品牌網站/),
       'https://mybrand.com'
     )
-    await user.click(screen.getByRole('button', { name: /fetch brand info/i }))
+    await user.click(screen.getByRole('button', { name: /自動填入/ }))
 
     await waitFor(() => {
       expect(
-        screen.getByText(/could not fetch brand info/i)
+        screen.getByText(/無法取得品牌資訊/)
       ).toBeInTheDocument()
     })
-    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /再試一次/ })).toBeInTheDocument()
   })
 
   it('calls onSkip when skip link is clicked', async () => {
     const user = userEvent.setup()
     render(<UrlStep {...defaultProps} />)
 
-    await user.click(screen.getByText(/skip and fill manually/i))
+    await user.click(screen.getByText(/跳過/))
 
     expect(defaultProps.onSkip).toHaveBeenCalled()
   })

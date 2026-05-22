@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: "Brand Dashboard | MIT Map",
+  title: "品牌管理 | MIT Map",
 };
 
 type Props = {
@@ -42,11 +42,11 @@ export default async function BrandDashboardPage({ params }: Props) {
             {brand.name}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage your brand listing
+            管理您的品牌頁面
           </p>
         </div>
         <Link href={`/dashboard/brands/${slug}/edit`}>
-          <Button>Edit Brand</Button>
+          <Button>編輯品牌</Button>
         </Link>
       </div>
 
@@ -63,7 +63,7 @@ export default async function BrandDashboardPage({ params }: Props) {
                 Description
               </p>
               <p className="mt-1 text-sm">
-                {brand.description ?? "No description yet"}
+                {brand.description ?? "尚未填寫介紹"}
               </p>
             </div>
 
@@ -72,7 +72,7 @@ export default async function BrandDashboardPage({ params }: Props) {
                 Category
               </p>
               <p className="mt-1 text-sm">
-                {brand.category ?? "Uncategorized"}
+                {brand.category ?? "未分類"}
               </p>
             </div>
 
@@ -81,7 +81,7 @@ export default async function BrandDashboardPage({ params }: Props) {
                 Website
               </p>
               <p className="mt-1 text-sm">
-                {brand.socialLinks.officialWebsite ?? "Not set"}
+                {brand.socialLinks.officialWebsite ?? "未設定"}
               </p>
             </div>
 
@@ -118,7 +118,7 @@ export default async function BrandDashboardPage({ params }: Props) {
               href={`/${slug}`}
               className="text-sm text-primary hover:underline"
             >
-              View your brand on MIT Map
+              在 MIT Map 查看您的品牌
             </Link>
           </CardContent>
         </Card>
@@ -129,7 +129,7 @@ export default async function BrandDashboardPage({ params }: Props) {
           href="/dashboard"
           className="text-sm text-muted-foreground hover:underline"
         >
-          Back to Dashboard
+          返回品牌管理
         </Link>
       </div>
     </div>

@@ -76,7 +76,7 @@ export async function signUp(
     return { error: error.message };
   }
 
-  redirect("/auth/sign-in?message=Check your email to confirm your account");
+  redirect("/auth/sign-in?message=請確認您的電子郵件以完成帳號驗證");
 }
 
 export async function signOut(): Promise<void> {

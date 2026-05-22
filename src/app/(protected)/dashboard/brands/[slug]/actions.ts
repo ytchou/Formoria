@@ -28,14 +28,14 @@ export async function updateBrandAction(
     } = await supabase.auth.getUser()
 
     if (!user) {
-      return { error: 'You must be signed in to edit a brand' }
+      return { error: '請先登入才能編輯品牌' }
     }
 
     const brand = await getBrandBySlug(brandSlug)
     const owner = await isOwnerOf(user.id, brand.id)
 
     if (!owner) {
-      return { error: 'You do not have permission to edit this brand' }
+      return { error: '您沒有權限編輯此品牌' }
     }
 
     // Extract editable fields
@@ -116,7 +116,7 @@ export async function updateBrandAction(
   } catch (err) {
     console.error('[brand:updateBrandAction]', err)
     return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      error: err instanceof Error ? err.message : '發生預期外的錯誤，請再試一次。',
     }
   }
 

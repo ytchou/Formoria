@@ -30,7 +30,10 @@ export async function generateStaticParams() {
   }
 }
 
-type PageProps = { params: Promise<{ slug: string }> }
+type PageProps = {
+  params: Promise<{ slug: string }>
+  searchParams: Promise<{ source?: string }>
+}
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params
@@ -39,7 +42,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const brand = await getBrandBySlug(slug)
     return {
       title: brand.name,
-      description: brand.description ?? `Discover ${brand.name}, a Made in Taiwan brand.`,
+      description: brand.description ?? `探索 ${brand.name}，台灣製造品牌。`,
       alternates: { canonical: `/${brand.slug}` },
       openGraph: {
         title: brand.name,
@@ -53,12 +56,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       },
     }
   } catch {
-    return { title: 'Brand Not Found' }
+    return { title: '找不到品牌' }
   }
 }
 
-export default async function BrandDetailPage({ params }: PageProps) {
+export default async function BrandDetailPage({ params, searchParams }: PageProps) {
   const { slug } = await params
+  const { source: sourceParam } = await searchParams
+  const source = (
+    sourceParam === 'search' ||
+    sourceParam === 'category' ||
+    sourceParam === 'direct' ||
+    sourceParam === 'recommendation'
+  ) ? sourceParam : 'direct'
 
   let brand
   try {
@@ -99,7 +109,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
 
   return (
     <main className="mx-auto max-w-screen-xl px-6 py-10 md:px-10">
-      <BrandViewTracker brandSlug={slug} />
+      <BrandViewTracker brandSlug={slug} source={source} />
       {/* JSON-LD structured data */}
       <script
         type="application/ld+json"
@@ -126,7 +136,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
         <div className="min-w-0 flex-1 space-y-6">
           <BrandHeader brand={brand} />
 
-          <BrandActions websiteUrl={visitUrl ?? null} />
+          <BrandActions websiteUrl={visitUrl ?? null} brandSlug={brand.slug} />
 
           <hr className="border-border" />
 

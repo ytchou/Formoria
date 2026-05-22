@@ -32,11 +32,11 @@ describe('MainNav', () => {
   it('renders navigation links', async () => {
     const { MainNav } = await import('./main-nav')
     render(<MainNav />)
-    expect(screen.getByRole('link', { name: /browse/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /瀏覽/ })).toHaveAttribute(
       'href',
       '/'
     )
-    expect(screen.getByRole('link', { name: /about/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /關於/ })).toHaveAttribute(
       'href',
       '/about'
     )
@@ -45,7 +45,7 @@ describe('MainNav', () => {
   it('renders Submit a Brand CTA', async () => {
     const { MainNav } = await import('./main-nav')
     render(<MainNav />)
-    expect(screen.getByRole('link', { name: /submit/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /提交/ })).toHaveAttribute(
       'href',
       '/submit'
     )

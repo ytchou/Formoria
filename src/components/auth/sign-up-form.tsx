@@ -27,17 +27,17 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
     <div className="space-y-6">
       <div className="space-y-2 text-center">
         <h1 className="font-heading text-2xl font-bold tracking-tight">
-          Create an account
+          建立帳號
         </h1>
         <p className="text-sm text-muted-foreground">
-          Enter your details to get started
+          填寫您的資料以開始使用
         </p>
       </div>
 
       {claimToken && claimBrandName && (
         <div className="rounded-lg border border-[#E06B3F]/20 bg-[#E06B3F]/5 px-4 py-3 text-sm">
-          You&apos;ve been invited to claim <strong>{claimBrandName}</strong> on MIT Map.
-          Create an account to manage your brand listing.
+          您已受邀在 MIT Map 認領 <strong>{claimBrandName}</strong>。
+          建立帳號以管理您的品牌頁面。
         </div>
       )}
 
@@ -53,7 +53,7 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">電子郵件</Label>
           <Input
             id="email"
             name="email"
@@ -66,19 +66,19 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">密碼</Label>
           <Input
             id="password"
             name="password"
             type="password"
-            placeholder="At least 8 characters"
+            placeholder="至少 8 個字元"
             required
             autoComplete="new-password"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="confirmPassword">Confirm password</Label>
+          <Label htmlFor="confirmPassword">確認密碼</Label>
           <Input
             id="confirmPassword"
             name="confirmPassword"
@@ -89,17 +89,17 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
         </div>
 
         <Button type="submit" className="w-full" size="lg" disabled={pending}>
-          {pending ? "Creating account..." : "Create account"}
+          {pending ? "建立中..." : "建立帳號"}
         </Button>
       </form>
 
       <p className="text-center text-sm text-muted-foreground">
-        Already have an account?{" "}
+        已有帳號？{" "}
         <Link
           href={signInHref}
           className="font-medium text-foreground underline-offset-4 hover:underline"
         >
-          Sign in
+          登入
         </Link>
       </p>
     </div>

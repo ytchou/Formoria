@@ -88,15 +88,15 @@ export function SubmissionsList({
         onValueChange={(v) => setActiveTab(v as TabValue)}
       >
         <TabsList>
-          <TabsTrigger value="all">All ({tabCounts.all})</TabsTrigger>
+          <TabsTrigger value="all">全部 ({tabCounts.all})</TabsTrigger>
           <TabsTrigger value="pending">
-            Pending ({tabCounts.pending})
+            待審核 ({tabCounts.pending})
           </TabsTrigger>
           <TabsTrigger value="approved">
-            Approved ({tabCounts.approved})
+            已核准 ({tabCounts.approved})
           </TabsTrigger>
           <TabsTrigger value="rejected">
-            Rejected ({tabCounts.rejected})
+            已拒絕 ({tabCounts.rejected})
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -105,10 +105,10 @@ export function SubmissionsList({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Brand</TableHead>
-              <TableHead>Submitter</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>品牌</TableHead>
+              <TableHead>提交者</TableHead>
+              <TableHead>日期</TableHead>
+              <TableHead>狀態</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -196,12 +196,12 @@ export function SubmissionsList({
                               disabled={isPending}
                               className="bg-[#E06B3F] hover:bg-[#c95d36]"
                             >
-                              Approve
+                              核准
                             </Button>
                             <div className="flex-1">
                               {rejectingId === submission.id && (
                                 <Textarea
-                                  placeholder="Rejection notes (optional)"
+                                  placeholder="退件原因（選填）"
                                   value={rejectNotes}
                                   onChange={(e) =>
                                     setRejectNotes(e.target.value)
@@ -219,8 +219,8 @@ export function SubmissionsList({
                                 disabled={isPending}
                               >
                                 {rejectingId === submission.id
-                                  ? 'Confirm Reject'
-                                  : 'Reject'}
+                                  ? '確認拒絕'
+                                  : '拒絕'}
                               </Button>
                             </div>
                           </div>
@@ -237,7 +237,7 @@ export function SubmissionsList({
                   colSpan={4}
                   className="py-8 text-center text-[#7C7570]"
                 >
-                  No submissions found.
+                  找不到提交記錄。
                 </TableCell>
               </TableRow>
             )}

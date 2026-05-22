@@ -3,7 +3,7 @@ import { getTags } from '@/lib/services/taxonomy'
 import { TagManager } from '@/components/admin/tag-manager'
 
 export const metadata: Metadata = {
-  title: 'Taxonomy | Admin | MIT Map',
+  title: '分類管理 | 管理後台 | MIT Map',
 }
 
 export default async function TaxonomyPage() {

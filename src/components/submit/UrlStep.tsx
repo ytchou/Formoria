@@ -61,11 +61,10 @@ export function UrlStep({ onSuccess, onSkip }: UrlStepProps) {
           htmlFor="website-url"
           className="block text-sm font-semibold text-[#1A1918]"
         >
-          Website URL
+          品牌網站 URL
         </label>
         <p className="text-xs text-[#7C7570]">
-          Paste your brand&apos;s website URL and we&apos;ll auto-fill your
-          submission
+          貼上品牌網站的網址，我們將自動填入您的提交資料
         </p>
         <div className="relative">
           <Link2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#B0AAA4]" />
@@ -84,8 +83,7 @@ export function UrlStep({ onSuccess, onSkip }: UrlStepProps) {
       {status === 'error' && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3">
           <p className="text-sm text-red-700">
-            Could not fetch brand info. Please try again or fill in the form
-            manually.
+            無法取得品牌資訊，請再試一次或手動填寫表單。
           </p>
         </div>
       )}
@@ -95,14 +93,14 @@ export function UrlStep({ onSuccess, onSkip }: UrlStepProps) {
           <>
             <div className="inline-flex items-center gap-2 text-sm text-[#7C7570]">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Fetching brand info...
+              正在取得品牌資訊...
             </div>
             <button
               type="button"
               onClick={handleCancel}
               className="text-sm font-medium text-[#8B7355] hover:text-[#6A573F]"
             >
-              Cancel
+              取消
             </button>
           </>
         ) : status === 'error' ? (
@@ -112,14 +110,14 @@ export function UrlStep({ onSuccess, onSkip }: UrlStepProps) {
               onClick={handleFetch}
               className="inline-flex items-center gap-1.5 rounded-lg bg-[#E06B3F] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#C85A33]"
             >
-              Try again
+              再試一次
             </button>
             <button
               type="button"
               onClick={onSkip}
               className="text-sm font-medium text-[#8B7355] hover:text-[#6A573F]"
             >
-              Fill manually instead
+              改為手動填寫
             </button>
           </>
         ) : (
@@ -130,14 +128,14 @@ export function UrlStep({ onSuccess, onSkip }: UrlStepProps) {
               disabled={!isValidUrl}
               className="inline-flex items-center gap-1.5 rounded-lg bg-[#E06B3F] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#C85A33] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Fetch Brand Info
+              自動填入品牌資訊
             </button>
             <button
               type="button"
               onClick={onSkip}
               className="text-sm font-medium text-[#8B7355] hover:text-[#6A573F]"
             >
-              Skip and fill manually
+              跳過，手動填寫
             </button>
           </>
         )}

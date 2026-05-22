@@ -104,11 +104,11 @@ export function TagManager({ tags }: { tags: TaxonomyTag[] }) {
     <div className="space-y-8">
       {/* Add Tag Form */}
       <div className="rounded-lg bg-[#F5F4F1] p-4">
-        <h3 className="mb-3 text-sm font-medium text-[#7C7570]">Add New Tag</h3>
+        <h3 className="mb-3 text-sm font-medium text-[#7C7570]">新增標籤</h3>
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex-1">
             <Input
-              placeholder="Tag name (English)"
+              placeholder="標籤名稱（英文）"
               value={newTagName}
               onChange={(e) => setNewTagName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
@@ -116,7 +116,7 @@ export function TagManager({ tags }: { tags: TaxonomyTag[] }) {
           </div>
           <div className="flex-1">
             <Input
-              placeholder="Tag name (Chinese, optional)"
+              placeholder="標籤名稱（中文，選填）"
               value={newTagNameZh}
               onChange={(e) => setNewTagNameZh(e.target.value)}
             />
@@ -136,7 +136,7 @@ export function TagManager({ tags }: { tags: TaxonomyTag[] }) {
             </Select>
           </div>
           <Button onClick={handleAddTag} disabled={isPending || !newTagName.trim()}>
-            Add Tag
+            新增標籤
           </Button>
         </div>
         {error && <p className="mt-2 text-sm text-[#D94F3D]">{error}</p>}
@@ -230,7 +230,7 @@ export function TagManager({ tags }: { tags: TaxonomyTag[] }) {
                               onValueChange={(v) => v && setMergeTargetId(v)}
                             >
                               <SelectTrigger className="h-7 w-28 text-xs">
-                                <SelectValue placeholder="Merge into..." />
+                                <SelectValue placeholder="合併至..." />
                               </SelectTrigger>
                               <SelectContent>
                                 {categoryTags

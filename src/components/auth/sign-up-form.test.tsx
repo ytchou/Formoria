@@ -19,7 +19,7 @@ describe('SignUpForm', () => {
       <SignUpForm claimToken="test-token" claimBrandName="Dachun Soap" />
     )
     expect(
-      screen.getByText(/invited to claim/i)
+      screen.getByText(/您已受邀/)
     ).toBeInTheDocument()
     expect(screen.getByText(/Dachun Soap/i)).toBeInTheDocument()
   })
@@ -27,7 +27,7 @@ describe('SignUpForm', () => {
   it('does not show claim banner without claimToken', () => {
     render(<SignUpForm />)
     expect(
-      screen.queryByText(/invited to claim/i)
+      screen.queryByText(/您已受邀/)
     ).not.toBeInTheDocument()
   })
 
@@ -44,7 +44,7 @@ describe('SignUpForm', () => {
     render(
       <SignUpForm claimToken="test-token" claimBrandName="Dachun Soap" />
     )
-    const signInLink = screen.getByRole('link', { name: /sign in/i })
+    const signInLink = screen.getByRole('link', { name: /登入/ })
     expect(signInLink).toHaveAttribute(
       'href',
       expect.stringContaining('claim=test-token')

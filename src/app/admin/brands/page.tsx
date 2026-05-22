@@ -3,7 +3,7 @@ import { getBrands } from '@/lib/services/brands'
 import { BrandList } from '@/components/admin/brand-list'
 
 export const metadata: Metadata = {
-  title: 'Brands | Admin | MIT Map',
+  title: '品牌 | 管理後台 | MIT Map',
 }
 
 export default async function BrandsPage() {

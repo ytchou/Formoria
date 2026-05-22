@@ -3,7 +3,7 @@ import { getSubmissions } from '@/lib/services/submissions'
 import { SubmissionsList } from '@/components/admin/submissions-list'
 
 export const metadata: Metadata = {
-  title: 'Submissions | Admin | MIT Map',
+  title: '待審核提交 | 管理後台 | MIT Map',
 }
 
 export default async function SubmissionsPage() {

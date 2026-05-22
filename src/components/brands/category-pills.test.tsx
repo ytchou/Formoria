@@ -26,7 +26,7 @@ describe('CategoryPills', () => {
   it('renders All pill and category pills', async () => {
     const { CategoryPills } = await import('./category-pills')
     render(<CategoryPills categories={categories} />)
-    expect(screen.getByRole('button', { name: /all/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /全部/ })).toBeInTheDocument()
     expect(screen.getByText('Food & Beverage')).toBeInTheDocument()
     expect(screen.getByText('Fashion')).toBeInTheDocument()
     expect(screen.getByText('Lifestyle')).toBeInTheDocument()
@@ -35,7 +35,7 @@ describe('CategoryPills', () => {
   it('highlights All pill when no category selected', async () => {
     const { CategoryPills } = await import('./category-pills')
     render(<CategoryPills categories={categories} />)
-    const allPill = screen.getByRole('button', { name: /all/i })
+    const allPill = screen.getByRole('button', { name: /全部/ })
     expect(allPill).toHaveAttribute('data-active', 'true')
   })
 

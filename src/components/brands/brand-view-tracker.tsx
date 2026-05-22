@@ -1,20 +1,23 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { trackBrandView } from '@/lib/analytics'
+import { trackBrandDetailViewed } from '@/lib/analytics'
+
+type BrandViewSource = 'search' | 'category' | 'direct' | 'recommendation'
 
 interface BrandViewTrackerProps {
   brandSlug: string
+  source?: BrandViewSource
 }
 
-export function BrandViewTracker({ brandSlug }: BrandViewTrackerProps) {
+export function BrandViewTracker({ brandSlug, source = 'direct' }: BrandViewTrackerProps) {
   const trackedRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (trackedRef.current === brandSlug) return
     trackedRef.current = brandSlug
-    trackBrandView(brandSlug)
-  }, [brandSlug])
+    trackBrandDetailViewed(brandSlug, source)
+  }, [brandSlug, source])
 
   return null
 }

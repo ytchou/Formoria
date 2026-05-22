@@ -34,7 +34,7 @@ export function BrandEditForm({ brandSlug, defaultValues }: BrandEditFormProps) 
         <input type="hidden" name="brandSlug" value={brandSlug} />
 
         <div className="space-y-2">
-          <Label htmlFor="name">Brand Name</Label>
+          <Label htmlFor="name">品牌名稱</Label>
           <Input
             id="name"
             name="name"
@@ -47,7 +47,7 @@ export function BrandEditForm({ brandSlug, defaultValues }: BrandEditFormProps) 
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="description">Description</Label>
+          <Label htmlFor="description">品牌介紹</Label>
           <textarea
             id="description"
             name="description"
@@ -62,10 +62,10 @@ export function BrandEditForm({ brandSlug, defaultValues }: BrandEditFormProps) 
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-sm font-medium">Social Links</h3>
+          <h3 className="text-sm font-medium">社群連結</h3>
 
           <div className="space-y-2">
-            <Label htmlFor="websiteUrl">Website</Label>
+            <Label htmlFor="websiteUrl">官方網站</Label>
             <Input
               id="websiteUrl"
               name="websiteUrl"
@@ -108,11 +108,11 @@ export function BrandEditForm({ brandSlug, defaultValues }: BrandEditFormProps) 
 
         <div className="flex gap-4">
           <Button type="submit" disabled={pending}>
-            {pending ? "Saving..." : "Save Changes"}
+            {pending ? "儲存中..." : "儲存變更"}
           </Button>
           <Link href={`/dashboard/brands/${brandSlug}`}>
             <Button type="button" variant="outline">
-              Cancel
+              取消
             </Button>
           </Link>
         </div>

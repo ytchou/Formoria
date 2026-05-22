@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useFilterParams } from '@/hooks/use-filter-params'
 import {
   trackSearchNoResults,
-  trackSearchQuery,
-  trackSearchSuggestionSelect,
+  trackSearchExecuted,
+  trackSearchResultClicked,
 } from '@/lib/analytics'
 import type { SearchResult } from '@/lib/services/brands'
 import { SearchSuggestions, SEARCH_SUGGESTIONS_ID } from './search-suggestions'
@@ -93,8 +93,8 @@ function SearchInput() {
     setShowDropdown(false)
   }
 
-  function handleSelect(slug: string) {
-    trackSearchSuggestionSelect(slug)
+  function handleSelect(slug: string, index: number) {
+    trackSearchResultClicked(value, index)
     setShowDropdown(false)
     router.push(`/brands/${slug}`)
   }
@@ -113,9 +113,9 @@ function SearchInput() {
     } else if (e.key === 'Enter') {
       if (selectedIndex >= 0 && suggestions[selectedIndex]) {
         e.preventDefault()
-        handleSelect(suggestions[selectedIndex].slug)
+        handleSelect(suggestions[selectedIndex].slug, selectedIndex)
       } else if (value.trim()) {
-        trackSearchQuery(value)
+        trackSearchExecuted(value, suggestions.length)
       }
     } else if (e.key === 'Escape') {
       setShowDropdown(false)
@@ -145,7 +145,7 @@ function SearchInput() {
       <input
         type="search"
         role="searchbox"
-        aria-label="Search brands"
+        aria-label="搜尋品牌"
         aria-autocomplete="list"
         aria-controls={showDropdown ? SEARCH_SUGGESTIONS_ID : undefined}
         aria-activedescendant={
@@ -153,7 +153,7 @@ function SearchInput() {
             ? `search-suggestion-${suggestions[selectedIndex].id}`
             : undefined
         }
-        placeholder="Search brands..."
+        placeholder="搜尋品牌..."
         maxLength={100}
         value={value}
         onChange={handleChange}
@@ -166,7 +166,7 @@ function SearchInput() {
         <button
           type="button"
           onClick={handleClear}
-          aria-label="Clear search"
+          aria-label="清除搜尋"
           className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
         >
           <svg

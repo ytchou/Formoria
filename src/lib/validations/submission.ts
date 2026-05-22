@@ -5,24 +5,24 @@ export const scrapeUrlSchema = z.object({
 })
 
 export const brandInfoSchema = z.object({
-  name: z.string().min(2, 'Brand name must be at least 2 characters').max(100),
+  name: z.string().min(2, '品牌名稱至少需要 2 個字元').max(100),
   description: z
     .string()
-    .min(10, 'Description must be at least 10 characters')
+    .min(10, '品牌介紹至少需要 10 個字元')
     .max(500),
-  category: z.string().min(1, 'Please select a category'),
-  tags: z.array(z.string()).max(5, 'Maximum 5 tags allowed'),
-  logoUrl: z.string().url('Please upload a logo').min(1, 'Please upload a logo'),
+  category: z.string().min(1, '請選擇分類'),
+  tags: z.array(z.string()).max(5, '最多可選擇 5 個標籤'),
+  logoUrl: z.string().url('請上傳品牌標誌').min(1, '請上傳品牌標誌'),
 })
 
 export const productsSchema = z.object({
-  productPhotos: z.array(z.string()).max(6, 'Maximum 6 photos allowed'),
+  productPhotos: z.array(z.string()).max(6, '最多可上傳 6 張照片'),
   productHighlights: z.string().max(300),
 })
 
 const purchaseLinkSchema = z.object({
-  platform: z.string().min(1, 'Please select a platform'),
-  url: z.string().url('Please enter a valid URL'),
+  platform: z.string().min(1, '請選擇平台'),
+  url: z.string().url('請輸入有效的網址'),
 })
 
 const socialLinksSchema = z.object({
@@ -33,26 +33,26 @@ const socialLinksSchema = z.object({
 })
 
 const retailLocationSchema = z.object({
-  name: z.string().min(1, 'Location name is required'),
-  address: z.string().min(1, 'Address is required'),
+  name: z.string().min(1, '請輸入地點名稱'),
+  address: z.string().min(1, '請輸入地址'),
 })
 
 export const linksSchema = z.object({
   purchaseLinks: z
     .array(purchaseLinkSchema)
-    .min(1, 'At least one purchase link is required'),
+    .min(1, '請提供至少一個購買連結'),
   socialLinks: socialLinksSchema,
   retailLocations: z.array(retailLocationSchema),
 })
 
 export const reviewSchema = z.object({
   pdpaConsent: z.boolean().refine((v) => v === true, {
-    message: 'You must agree to the privacy policy',
+    message: '請同意隱私政策',
   }),
 })
 
 export const botDetectionSchema = z.object({
-  turnstileToken: z.string().min(1, 'Please complete the verification'),
+  turnstileToken: z.string().min(1, '請完成驗證'),
   _honeypot: z.string().max(0).optional(),
 })
 

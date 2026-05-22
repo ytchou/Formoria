@@ -62,15 +62,15 @@ describe('SubmissionsList', () => {
 
   it('renders status filter tabs', () => {
     render(<SubmissionsList submissions={mockSubmissions} />)
-    expect(screen.getByRole('tab', { name: /All/ })).toBeDefined()
-    expect(screen.getByRole('tab', { name: /Pending/ })).toBeDefined()
-    expect(screen.getByRole('tab', { name: /Approved/ })).toBeDefined()
-    expect(screen.getByRole('tab', { name: /Rejected/ })).toBeDefined()
+    expect(screen.getByRole('tab', { name: /全部/ })).toBeDefined()
+    expect(screen.getByRole('tab', { name: /待審核/ })).toBeDefined()
+    expect(screen.getByRole('tab', { name: /已核准/ })).toBeDefined()
+    expect(screen.getByRole('tab', { name: /已拒絕/ })).toBeDefined()
   })
 
   it('filters submissions by status tab', () => {
     render(<SubmissionsList submissions={mockSubmissions} />)
-    const pendingTab = screen.getByRole('tab', { name: /Pending/ })
+    const pendingTab = screen.getByRole('tab', { name: /待審核/ })
     fireEvent.click(pendingTab)
     expect(screen.getByText('Pottery Studio')).toBeDefined()
     expect(screen.queryByText('Tea House')).toBeNull()
@@ -85,8 +85,8 @@ describe('SubmissionsList', () => {
   it('shows approve and reject buttons in expanded pending row', () => {
     render(<SubmissionsList submissions={mockSubmissions} />)
     fireEvent.click(screen.getByText('Pottery Studio'))
-    expect(screen.getByRole('button', { name: /approve/i })).toBeDefined()
-    expect(screen.getByRole('button', { name: /reject/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: '核准' })).toBeDefined()
+    expect(screen.getByRole('button', { name: '拒絕' })).toBeDefined()
   })
 
   it('shows suggested tags in expanded row', () => {

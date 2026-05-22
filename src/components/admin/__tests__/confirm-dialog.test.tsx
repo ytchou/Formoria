@@ -27,7 +27,7 @@ describe('ConfirmDialog', () => {
 
   it('renders cancel button', () => {
     render(<ConfirmDialog {...defaultProps} />)
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDefined()
+    expect(screen.getByRole('button', { name: '取消' })).toBeDefined()
   })
 
   it('calls onConfirm when confirm button is clicked', () => {

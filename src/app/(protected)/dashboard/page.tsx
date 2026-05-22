@@ -10,13 +10,13 @@ import {
 } from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: "Dashboard | MIT Map",
+  title: "品牌管理 | MIT Map",
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
-  "invalid-claim": "The claim link is invalid or has expired. Please contact support.",
-  "email-mismatch": "The email you signed in with does not match the claim invitation. Please sign in with the correct email.",
-  "claim-failed": "This brand has already been claimed. If you believe this is an error, please contact support.",
+  "invalid-claim": "認領連結無效或已過期，請聯繫客服。",
+  "email-mismatch": "您登入的電子郵件與認領邀請不符，請使用正確的電子郵件登入。",
+  "claim-failed": "此品牌已被認領。若您認為有誤，請聯繫客服。",
 };
 
 type Props = {
@@ -36,10 +36,10 @@ export default async function DashboardPage({ searchParams }: Props) {
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
       <h1 className="font-heading text-3xl font-bold tracking-tight">
-        Dashboard
+        品牌管理
       </h1>
       <p className="mt-2 text-muted-foreground">
-        Welcome, {user?.email}
+        歡迎，{user?.email}
       </p>
 
       {errorMessage && (
@@ -50,12 +50,12 @@ export default async function DashboardPage({ searchParams }: Props) {
 
       <div className="mt-8">
         <h2 className="font-heading text-xl font-semibold tracking-tight">
-          Your Brands
+          您的品牌
         </h2>
 
         {brands.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">
-            No claimed brands yet. When you claim a brand listing, it will appear here.
+            尚未認領任何品牌。認領品牌後，它將顯示在此處。
           </p>
         ) : (
           <div className="mt-4 grid gap-4 sm:grid-cols-2">

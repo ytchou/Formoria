@@ -12,8 +12,8 @@ import {
 import { Dialog as SheetPrimitive } from '@base-ui/react/dialog'
 
 const navLinks = [
-  { label: 'Browse', href: '/' },
-  { label: 'About', href: '/about' },
+  { label: '瀏覽', href: '/' },
+  { label: '關於', href: '/about' },
 ]
 
 export function MainNav() {
@@ -60,7 +60,7 @@ export function MainNav() {
           href="/submit"
           className="hidden rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 md:inline-flex"
         >
-          Submit a Brand
+          提交品牌
         </Link>
 
         {/* Mobile menu */}
@@ -97,7 +97,7 @@ export function MainNav() {
                 className="block rounded-full bg-primary px-5 py-3 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                 onClick={() => setOpen(false)}
               >
-                Submit a Brand
+                提交品牌
               </Link>
             </div>
           </SheetContent>

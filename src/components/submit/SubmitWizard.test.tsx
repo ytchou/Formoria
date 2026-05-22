@@ -1,5 +1,10 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+const mockSendGAEvent = vi.fn()
+vi.mock('@next/third-parties/google', () => ({
+  sendGAEvent: (...args: unknown[]) => mockSendGAEvent(...args),
+}))
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SubmitWizard } from './SubmitWizard'
@@ -92,7 +97,7 @@ describe('SubmitWizard with UrlStep', () => {
   it('shows UrlStep as first step', () => {
     render(<SubmitWizard categories={mockCategories} />)
 
-    expect(screen.getByText(/submit your brand/i)).toBeInTheDocument()
+    expect(screen.getByText(/提交品牌/)).toBeInTheDocument()
     expect(screen.getByTestId('url-step')).toBeInTheDocument()
   })
 
@@ -115,6 +120,26 @@ describe('SubmitWizard with UrlStep', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('brand-info-step')).toBeInTheDocument()
+    })
+  })
+})
+
+describe('SubmitWizard — analytics', () => {
+  beforeEach(() => {
+    mockSendGAEvent.mockClear()
+  })
+
+  it('fires submission_form_opened with source on mount', () => {
+    render(<SubmitWizard categories={mockCategories} source="hero_cta" />)
+    expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'submission_form_opened', {
+      source: 'hero_cta',
+    })
+  })
+
+  it('fires submission_form_opened with default source when none provided', () => {
+    render(<SubmitWizard categories={mockCategories} />)
+    expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'submission_form_opened', {
+      source: 'hero_cta',
     })
   })
 })

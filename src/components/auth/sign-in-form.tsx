@@ -27,16 +27,16 @@ export function SignInForm({ claimToken, claimBrandName }: SignInFormProps) {
     <div className="space-y-6">
       <div className="space-y-2 text-center">
         <h1 className="font-heading text-2xl font-bold tracking-tight">
-          Sign in
+          登入
         </h1>
         <p className="text-sm text-muted-foreground">
-          Enter your email and password to continue
+          請輸入您的電子郵件和密碼以繼續
         </p>
       </div>
 
       {claimToken && claimBrandName && (
         <div className="rounded-lg border border-[#E06B3F]/20 bg-[#E06B3F]/5 px-4 py-3 text-sm">
-          Sign in to claim <strong>{claimBrandName}</strong> on MIT Map.
+          登入以在 MIT Map 認領 <strong>{claimBrandName}</strong>。
         </div>
       )}
 
@@ -58,7 +58,7 @@ export function SignInForm({ claimToken, claimBrandName }: SignInFormProps) {
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">電子郵件</Label>
           <Input
             id="email"
             name="email"
@@ -70,7 +70,7 @@ export function SignInForm({ claimToken, claimBrandName }: SignInFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">密碼</Label>
           <Input
             id="password"
             name="password"
@@ -81,17 +81,17 @@ export function SignInForm({ claimToken, claimBrandName }: SignInFormProps) {
         </div>
 
         <Button type="submit" className="w-full" size="lg" disabled={pending}>
-          {pending ? "Signing in..." : "Sign in"}
+          {pending ? "登入中..." : "登入"}
         </Button>
       </form>
 
       <p className="text-center text-sm text-muted-foreground">
-        Don&apos;t have an account?{" "}
+        還沒有帳號？{" "}
         <Link
           href={signUpHref}
           className="font-medium text-foreground underline-offset-4 hover:underline"
         >
-          Sign up
+          註冊
         </Link>
       </p>
     </div>

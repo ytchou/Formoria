@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useTransition, useEffect, useCallback } from 'react'
+import { useState, useMemo, useTransition, useEffect, useCallback, useRef } from 'react'
 import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
@@ -21,13 +21,16 @@ import {
 } from '@/lib/validations/submission'
 import { submitBrand } from '@/app/submit/actions'
 import {
-  trackSubmissionStart,
-  trackSubmissionStep,
-  trackSubmissionComplete,
+  trackSubmissionFormOpened,
+  trackSubmissionFormStepCompleted,
+  trackSubmissionCompleted,
+  trackSubmissionFormAbandoned,
+  SUBMISSION_STEP_NAMES,
+  type SubmissionStepName,
 } from '@/lib/analytics'
 import type { ScrapedBrandData, PhotoItem } from '@/lib/types/scraper'
 
-const STEP_LABELS = ['Brand Info', 'Products', 'Links', 'Review']
+const STEP_LABELS = ['品牌資訊', '產品', '連結', '確認']
 
 const STEP_SCHEMAS = [brandInfoSchema, productsSchema, linksSchema, reviewSchema]
 
@@ -48,6 +51,7 @@ type Category = {
 
 type SubmitWizardProps = {
   categories: Category[]
+  source?: 'header_cta' | 'hero_cta' | 'footer_link'
 }
 
 type WizardPhase = 'url' | 'form'
@@ -76,19 +80,37 @@ function mapScrapedToPhotos(data: ScrapedBrandData): PhotoItem[] {
   return photos
 }
 
-export function SubmitWizard({ categories }: SubmitWizardProps) {
+export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardProps) {
   const router = useRouter()
   const [phase, setPhase] = useState<WizardPhase>('url')
   const [currentStep, setCurrentStep] = useState(0)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [photos, setPhotos] = useState<PhotoItem[]>([])
+  const [completed, setCompleted] = useState(false)
+
+  const mountTimeRef = useRef<number>(0)
+  const lastStepRef = useRef<SubmissionStepName>(SUBMISSION_STEP_NAMES[0])
 
   const sessionId = useMemo(() => crypto.randomUUID(), [])
 
   useEffect(() => {
-    trackSubmissionStart()
-  }, [])
+    mountTimeRef.current = Date.now()
+    trackSubmissionFormOpened(source)
+  }, [source])
+
+  // Abandonment tracking via visibilitychange
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'hidden' && !completed) {
+        const elapsed = Math.round((Date.now() - mountTimeRef.current) / 1000)
+        trackSubmissionFormAbandoned(lastStepRef.current, elapsed)
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [completed])
 
   const methods = useForm<SubmissionFormData>({
     resolver: zodResolver(fullSubmissionSchema),
@@ -112,7 +134,6 @@ export function SubmitWizard({ categories }: SubmitWizardProps) {
 
   const handleUrlSuccess = useCallback(
     (data: ScrapedBrandData) => {
-      // Pre-fill form with scraped data
       if (data.brandName) {
         methods.setValue('name', data.brandName)
       }
@@ -120,7 +141,6 @@ export function SubmitWizard({ categories }: SubmitWizardProps) {
         methods.setValue('description', data.description)
       }
 
-      // Map social links
       methods.setValue('socialLinks', {
         instagram: data.socialLinks.instagram ?? '',
         threads: data.socialLinks.threads ?? '',
@@ -128,14 +148,11 @@ export function SubmitWizard({ categories }: SubmitWizardProps) {
         website: data.websiteUrl,
       })
 
-      // Map category hints to tags
       if (data.categoryHints.length > 0) {
         methods.setValue('tags', data.categoryHints.slice(0, 5))
       }
 
-      // Map photos
       setPhotos(mapScrapedToPhotos(data))
-
       setPhase('form')
     },
     [methods]
@@ -149,17 +166,18 @@ export function SubmitWizard({ categories }: SubmitWizardProps) {
     const schema = STEP_SCHEMAS[currentStep]
     const currentValues = methods.getValues()
 
-    // Validate current step fields
     const result = schema.safeParse(currentValues)
     if (!result.success) {
-      // Trigger validation display for only the current step's fields
       await methods.trigger(STEP_FIELDS[currentStep])
       return
     }
 
     const nextStep = Math.min(currentStep + 1, STEP_LABELS.length - 1)
     setCurrentStep(nextStep)
-    trackSubmissionStep(nextStep + 1)
+
+    const stepName = SUBMISSION_STEP_NAMES[currentStep as keyof typeof SUBMISSION_STEP_NAMES]
+    lastStepRef.current = stepName
+    trackSubmissionFormStepCompleted(stepName)
   }
 
   const handleBack = () => {
@@ -170,10 +188,10 @@ export function SubmitWizard({ categories }: SubmitWizardProps) {
     setCurrentStep(stepIndex)
   }
 
+  // eslint-disable-next-line react-hooks/refs
   const handleSubmit = methods.handleSubmit((data) => {
     setSubmitError(null)
 
-    // Merge scraped photo URLs into productPhotos before submission
     const photoUrls = photos.map((p) => p.url)
     const mergedData = {
       ...data,
@@ -185,7 +203,14 @@ export function SubmitWizard({ categories }: SubmitWizardProps) {
       if (result?.error) {
         setSubmitError(result.error)
       } else {
-        trackSubmissionComplete()
+        setCompleted(true)
+        const elapsed = Math.round((Date.now() - mountTimeRef.current) / 1000)
+        trackSubmissionCompleted(
+          data.name,
+          data.category,
+          Boolean(data.logoUrl),
+          elapsed
+        )
         router.push('/submit/confirmation')
       }
     })
@@ -197,10 +222,10 @@ export function SubmitWizard({ categories }: SubmitWizardProps) {
     <div className="mx-auto max-w-3xl space-y-8 px-4 py-12">
       <div className="text-center">
         <h1 className="font-display text-[26px] font-bold text-[#1A1918]">
-          Submit Your Brand
+          提交品牌
         </h1>
         <p className="mt-2 text-sm text-[#7C7570]">
-          Share your Made in Taiwan brand with the community
+          將您的台灣製造品牌分享給社群
         </p>
       </div>
 
@@ -244,7 +269,7 @@ export function SubmitWizard({ categories }: SubmitWizardProps) {
                       className="inline-flex items-center gap-1.5 rounded-lg border border-[#D4CFC9] bg-white px-5 py-2.5 text-sm font-medium text-[#1A1918] hover:bg-[#F5F4F1]"
                     >
                       <ArrowLeft className="h-4 w-4" />
-                      Back
+                      返回
                     </button>
                   ) : (
                     <span />
@@ -256,7 +281,7 @@ export function SubmitWizard({ categories }: SubmitWizardProps) {
                       onClick={handleNext}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-[#E06B3F] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#C85A33]"
                     >
-                      Next
+                      下一步
                       <ArrowRight className="h-4 w-4" />
                     </button>
                   ) : (
@@ -266,11 +291,11 @@ export function SubmitWizard({ categories }: SubmitWizardProps) {
                       className="inline-flex items-center gap-1.5 rounded-lg bg-[#E06B3F] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#C85A33] disabled:opacity-50"
                     >
                       {isPending ? (
-                        'Submitting...'
+                        '提交中...'
                       ) : (
                         <>
                           <Send className="h-4 w-4" />
-                          Submit Brand
+                          提交品牌
                         </>
                       )}
                     </button>

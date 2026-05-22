@@ -4,12 +4,14 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import type { Brand } from '@/lib/types'
+import { trackBrandCardClicked } from '@/lib/analytics'
 
 interface BrandCardProps {
   brand: Brand
+  position?: number
 }
 
-export function BrandCard({ brand }: BrandCardProps) {
+export function BrandCard({ brand, position = 0 }: BrandCardProps) {
   const [imgError, setImgError] = useState(false)
   const imageSrc = brand.heroImageUrl ?? brand.logoUrl
   const showImage = imageSrc && !imgError
@@ -19,6 +21,7 @@ export function BrandCard({ brand }: BrandCardProps) {
       href={`/${brand.slug}`}
       className="group block rounded-xl border border-border bg-card shadow-[var(--shadow-card)] transition-all hover:-translate-y-px hover:shadow-[var(--shadow-card-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={brand.name}
+      onClick={() => trackBrandCardClicked(brand.slug, brand.category, position)}
     >
       {/* Image */}
       <div className="relative aspect-[4/3] overflow-hidden rounded-t-xl bg-muted">
@@ -61,7 +64,7 @@ export function BrandCard({ brand }: BrandCardProps) {
         )}
         {brand.foundingYear && (
           <p className="mt-2 text-xs text-warm-caption">
-            Est. {brand.foundingYear}
+            創立於 {brand.foundingYear}
           </p>
         )}
         {brand.tags.length > 0 && (

@@ -7,8 +7,8 @@ export const BRAND_SORT_CONFIG: Record<
   { column: string; ascending: boolean; label: string }
 > = {
   name: { column: 'name', ascending: true, label: 'A-Z' },
-  newest: { column: 'created_at', ascending: false, label: 'Newest' },
-  year: { column: 'founding_year', ascending: false, label: 'Founding Year' },
+  newest: { column: 'created_at', ascending: false, label: '最新' },
+  year: { column: 'founding_year', ascending: false, label: '創立年份' },
 }
 
 export function parsePageParam(

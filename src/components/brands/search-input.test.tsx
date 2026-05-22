@@ -35,7 +35,7 @@ describe('SearchInput', () => {
 
     const input = screen.getByRole('searchbox')
     expect(input).toBeInTheDocument()
-    expect(screen.getByLabelText(/search/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/搜尋/)).toBeInTheDocument()
   })
 
   it('calls setSearch on user input', async () => {
@@ -55,7 +55,7 @@ describe('SearchInput', () => {
     const input = screen.getByRole('searchbox')
     await user.type(input, 'test')
 
-    const clearButton = screen.getByRole('button', { name: /clear/i })
+    const clearButton = screen.getByRole('button', { name: /清除/ })
     expect(clearButton).toBeInTheDocument()
   })
 
@@ -65,7 +65,7 @@ describe('SearchInput', () => {
 
     const input = screen.getByRole('searchbox')
     await user.type(input, 'test')
-    await user.click(screen.getByRole('button', { name: /clear/i }))
+    await user.click(screen.getByRole('button', { name: /清除/ }))
 
     expect(input).toHaveValue('')
     expect(mockSetSearch).toHaveBeenLastCalledWith('')
