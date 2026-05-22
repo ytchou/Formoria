@@ -38,6 +38,7 @@ export function FlaggedTable({ flags }: FlaggedTableProps) {
   }
 
   function handleBulk(decision: 'reviewed' | 'dismissed') {
+    setBulkResult(null)
     startTransition(async () => {
       const result = await bulkUpdateFlagsAction(Array.from(selected), decision)
       setSelected(new Set())

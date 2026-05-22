@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isAdmin } from '@/lib/auth/admin'
 import { getSubmission, approveSubmission, rejectSubmission } from '@/lib/services/submissions'
-import { createBrand, updateBrand, deleteBrand, generateSlug, syncBrandImages } from '@/lib/services/brands'
+import { createBrand, updateBrand, getBrandById, deleteBrand, generateSlug, syncBrandImages } from '@/lib/services/brands'
 import { createTag, updateTag, mergeTag, deactivateTag } from '@/lib/services/taxonomy'
 import { createResendProvider } from '@/lib/email/resend-adapter'
 import { buildApprovalEmail, buildRejectionEmail, buildClaimEmail } from '@/lib/email/templates'
@@ -355,80 +355,52 @@ export async function revertFlagAction(
   // 2. If no previous content to revert to, it's stale
   if (!flag.previous_content) return { error: 'stale' }
 
-  // 3. Fetch the current brand field value to check staleness
-  const { data: brand, error: brandErr } = await supabase
-    .from('brands')
-    .select('id, description, name, social_links')
-    .eq('id', flag.brand_id)
-    .single()
-
-  if (brandErr || !brand) return { error: 'not_found' }
-
-  type RawBrandRow = {
-    id: string
-    name: string | null
-    description: string | null
-    social_links: Record<string, string | undefined> | null
+  // 3. Fetch the current brand via service layer (properly typed, snake_case → camelCase decoded)
+  let brand
+  try {
+    brand = await getBrandById(flag.brand_id)
+  } catch {
+    return { error: 'not_found' }
   }
 
-  // 4. Map field_name to the current brand value
-  function getCurrentValue(fieldName: string, b: RawBrandRow): string | null {
+  // 4. Map field_name to the current brand value using camelCase domain types
+  function getCurrentValue(fieldName: string): string | null {
     switch (fieldName) {
-      case 'name': return b.name ?? null
-      case 'description': return b.description ?? null
-      case 'websiteUrl': return b.social_links?.officialWebsite ?? null
-      case 'instagram': return b.social_links?.instagram ?? null
-      case 'threads': return b.social_links?.threads ?? null
-      case 'facebook': return b.social_links?.facebook ?? null
+      case 'name': return brand.name ?? null
+      case 'description': return brand.description ?? null
+      case 'websiteUrl': return brand.socialLinks.officialWebsite ?? null
+      case 'instagram': return brand.socialLinks.instagram ?? null
+      case 'threads': return brand.socialLinks.threads ?? null
+      case 'facebook': return brand.socialLinks.facebook ?? null
       default: return null
     }
   }
 
-  const currentValue = getCurrentValue(flag.field_name, brand as RawBrandRow)
+  const currentValue = getCurrentValue(flag.field_name)
 
   // 5. Stale check — if the brand field no longer matches the flagged content, revert is no longer safe
   if (currentValue !== flag.flagged_content) return { error: 'stale' }
 
-  // 6. Build the update payload for the brand
-  function buildBrandUpdate(fieldName: string, previousContent: string, b: RawBrandRow): Record<string, unknown> {
+  // 6. Build the update payload using domain types — updateBrand handles snake_case mapping
+  function buildBrandUpdate(fieldName: string, previousContent: string): Parameters<typeof updateBrand>[1] {
     if (['websiteUrl', 'instagram', 'threads', 'facebook'].includes(fieldName)) {
-      const socialLinks = { ...(b.social_links ?? {}) }
-      const socialKey: Record<string, string> = {
-        websiteUrl: 'officialWebsite',
-        instagram: 'instagram',
-        threads: 'threads',
-        facebook: 'facebook',
+      return {
+        socialLinks: {
+          ...brand.socialLinks,
+          [fieldName === 'websiteUrl' ? 'officialWebsite' : fieldName]: previousContent,
+        },
       }
-      socialLinks[socialKey[fieldName]] = previousContent
-      return { social_links: socialLinks }
     }
-    return { [fieldName]: previousContent }
+    return { [fieldName]: previousContent } as Parameters<typeof updateBrand>[1]
   }
 
-  const brandUpdate = buildBrandUpdate(flag.field_name, flag.previous_content, brand as RawBrandRow)
-
-  const { error: updateBrandErr } = await supabase
-    .from('brands')
-    .update(brandUpdate)
-    .eq('id', flag.brand_id)
-
-  if (updateBrandErr) throw new Error(updateBrandErr.message)
+  await updateBrand(brand.id, buildBrandUpdate(flag.field_name, flag.previous_content))
 
   // 7. Mark flag as reviewed
   await updateFlagStatus(flagId, 'reviewed')
 
   revalidatePath('/admin/flagged')
-  if (brand) {
-    // revalidate brand page if slug is available — best effort
-    const { data: brandWithSlug } = await supabase
-      .from('brands')
-      .select('slug')
-      .eq('id', flag.brand_id)
-      .single()
-    if (brandWithSlug?.slug) {
-      revalidatePath(`/brands/${brandWithSlug.slug}`)
-    }
-  }
+  revalidatePath(`/brands/${brand.slug}`)
 
   return { success: true }
 }

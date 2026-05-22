@@ -6,9 +6,6 @@ vi.mock('@/lib/services/moderation', () => ({
   getPendingFlags: vi.fn(),
 }))
 
-vi.mock('../actions', () => ({
-  reviewFlagAction: vi.fn(),
-}))
 
 describe('FlaggedPage — diff display', () => {
   it('shows before/after diff when previous_content is present', async () => {
