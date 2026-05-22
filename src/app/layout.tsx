@@ -20,8 +20,20 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "MIT Map — Made in Taiwan Brand Directory",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
+  title: {
+    default: 'MIT Map — Made in Taiwan Brand Directory',
+    template: '%s — MIT Map',
+  },
   description: "台灣製造品牌目錄 — Discover thoughtfully curated Taiwanese brands",
+  openGraph: {
+    siteName: 'MIT Map',
+    locale: 'zh_TW',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+  },
 };
 
 export default function RootLayout({
