@@ -6,6 +6,15 @@ import { BRAND_SORT_CONFIG } from '@/lib/pagination'
 import { RESERVED_ROUTES } from '@/middleware'
 import { downloadAndStoreImages } from './image-download'
 
+export type SearchResult = {
+  id: string
+  name: string
+  slug: string
+  logoUrl: string | null
+  category: string
+  similarity: number
+}
+
 // ---------------------------------------------------------------------------
 // Slug generation
 // ---------------------------------------------------------------------------
@@ -380,4 +389,36 @@ export async function completeBrandClaim({
     .eq('id', brandId)
 
   if (updateError) throw updateError
+}
+
+export async function searchBrands(query: string, limit: number = 5): Promise<SearchResult[]> {
+  const trimmed = query.trim().slice(0, 100)
+  if (!trimmed) return []
+
+  const supabase = createServiceClient()
+  const { data, error } = await supabase.rpc('search_brands', {
+    search_query: trimmed,
+    result_limit: limit,
+  })
+
+  if (error) {
+    console.error('searchBrands RPC error:', error)
+    return []
+  }
+
+  return (data ?? []).map((row: {
+    id: string
+    name: string
+    slug: string
+    logo_url: string | null
+    primary_category_name: string
+    similarity_score: number
+  }) => ({
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    logoUrl: row.logo_url,
+    category: row.primary_category_name,
+    similarity: row.similarity_score,
+  }))
 }
