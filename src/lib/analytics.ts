@@ -58,3 +58,30 @@ export function trackGalleryPhotoView(slug: string, index: number) {
     // Graceful degradation
   }
 }
+
+export function trackSearchQuery(searchTerm: string) {
+  try {
+    sendGAEvent('event', 'search', { search_term: searchTerm })
+  } catch {
+    // Graceful degradation
+  }
+}
+
+export function trackSearchSuggestionSelect(slug: string) {
+  try {
+    sendGAEvent('event', 'select_content', {
+      content_type: 'brand_suggestion',
+      item_id: slug,
+    })
+  } catch {
+    // Graceful degradation
+  }
+}
+
+export function trackSearchNoResults(searchTerm: string) {
+  try {
+    sendGAEvent('event', 'search_no_results', { search_term: searchTerm })
+  } catch {
+    // Graceful degradation
+  }
+}

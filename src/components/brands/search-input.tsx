@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useFilterParams } from '@/hooks/use-filter-params'
+import {
+  trackSearchNoResults,
+  trackSearchQuery,
+  trackSearchSuggestionSelect,
+} from '@/lib/analytics'
 import type { SearchResult } from '@/lib/services/brands'
 import { SearchSuggestions } from './search-suggestions'
 
@@ -28,9 +33,13 @@ function SearchInput() {
       if (!res.ok) return
 
       const data = await res.json()
-      setSuggestions(data.results ?? [])
+      const results = data.results ?? []
+      setSuggestions(results)
       setShowDropdown(true)
       setSelectedIndex(-1)
+      if (results.length === 0 && q.trim()) {
+        trackSearchNoResults(q)
+      }
     } catch {
       // Ignore fetch errors; search filtering still works.
     }
@@ -82,6 +91,7 @@ function SearchInput() {
   }
 
   function handleSelect(slug: string) {
+    trackSearchSuggestionSelect(slug)
     setShowDropdown(false)
     router.push(`/brands/${slug}`)
   }
@@ -101,6 +111,8 @@ function SearchInput() {
       if (selectedIndex >= 0 && suggestions[selectedIndex]) {
         e.preventDefault()
         handleSelect(suggestions[selectedIndex].slug)
+      } else if (value.trim()) {
+        trackSearchQuery(value)
       }
     } else if (e.key === 'Escape') {
       setShowDropdown(false)
