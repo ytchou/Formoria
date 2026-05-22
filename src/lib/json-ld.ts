@@ -102,7 +102,7 @@ export function buildCategoryItemListJsonLd(
 /**
  * Build WebSite JSON-LD structured data for the home page.
  */
-export function buildWebSiteJsonLd(): Record<string, unknown> {
+export function buildWebSiteJsonLd(): Record<string, any> {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
 
   return {
