@@ -3,7 +3,7 @@ import { decodeJwt } from "jose";
 import { SignInForm } from "@/components/auth/sign-in-form";
 
 export const metadata: Metadata = {
-  title: "Sign In | MIT Map",
+  title: "登入 | MIT Map",
 };
 
 type Props = {

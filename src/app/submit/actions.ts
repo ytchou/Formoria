@@ -25,7 +25,7 @@ export async function submitBrand(
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return { error: 'You must be logged in to submit a brand' }
+      return { error: '請先登入才能提交品牌' }
     }
 
     // Honeypot check — silently succeed (don't reveal the trap to bots)
@@ -36,13 +36,13 @@ export async function submitBrand(
     // Rate limit check per user
     const rateResult = submissionRateLimiter.check(user.id, 60_000, 5)
     if (!rateResult.allowed) {
-      return { error: 'Too many submissions. Please try again later.' }
+      return { error: '提交次數過多，請稍後再試。' }
     }
 
     // Turnstile verification
     const turnstile = await verifyTurnstileToken(parsed.turnstileToken)
     if (!turnstile.success) {
-      return { error: 'Verification failed. Please try again.' }
+      return { error: '驗證失敗，請再試一次。' }
     }
 
     // Create brand with pending status
@@ -101,7 +101,7 @@ export async function submitBrand(
       error:
         err instanceof Error
           ? err.message
-          : 'An unexpected error occurred. Please try again.',
+          : '發生預期外的錯誤，請再試一次。',
     }
   }
 }

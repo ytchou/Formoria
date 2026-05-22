@@ -5,11 +5,11 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
 const navLinks = [
-  { label: 'Dashboard', href: '/admin' },
-  { label: 'Submissions', href: '/admin/submissions' },
-  { label: 'Brands', href: '/admin/brands' },
-  { label: 'Taxonomy', href: '/admin/taxonomy' },
-  { label: 'Flagged', href: '/admin/flagged' },
+  { label: '管理後台', href: '/admin' },
+  { label: '待審核提交', href: '/admin/submissions' },
+  { label: '品牌', href: '/admin/brands' },
+  { label: '分類管理', href: '/admin/taxonomy' },
+  { label: '已標記', href: '/admin/flagged' },
 ]
 
 export function AdminNav() {
@@ -24,7 +24,7 @@ export function AdminNav() {
     <nav className="bg-[#2C1810]">
       <div className="mx-auto flex h-16 max-w-screen-xl items-center gap-8 px-10">
         <span className="font-heading text-lg font-bold text-white">
-          Admin
+          管理後台
         </span>
 
         <div className="flex items-center gap-1">

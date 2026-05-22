@@ -76,15 +76,15 @@ export function BrandList({ brands }: { brands: Brand[] }) {
         onValueChange={(v) => setActiveTab(v as TabValue)}
       >
         <TabsList>
-          <TabsTrigger value="all">All ({brands.length})</TabsTrigger>
+          <TabsTrigger value="all">全部 ({brands.length})</TabsTrigger>
           <TabsTrigger value="approved">
-            Approved ({brands.filter((b) => b.status === 'approved').length})
+            已核准 ({brands.filter((b) => b.status === 'approved').length})
           </TabsTrigger>
           <TabsTrigger value="hidden">
-            Hidden ({brands.filter((b) => b.status === 'hidden').length})
+            已隱藏 ({brands.filter((b) => b.status === 'hidden').length})
           </TabsTrigger>
           <TabsTrigger value="pending">
-            Pending ({brands.filter((b) => b.status === 'pending').length})
+            待審核 ({brands.filter((b) => b.status === 'pending').length})
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -97,11 +97,11 @@ export function BrandList({ brands }: { brands: Brand[] }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Brand</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>品牌</TableHead>
+              <TableHead>狀態</TableHead>
+              <TableHead>分類</TableHead>
+              <TableHead>建立日期</TableHead>
+              <TableHead className="text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -120,7 +120,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                       size="sm"
                       onClick={() => setEditingBrand(brand)}
                     >
-                      Edit
+                      編輯
                     </Button>
                     {brand.status === 'approved' && (
                       <Button
@@ -129,7 +129,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                         onClick={() => handleHide(brand)}
                         disabled={isPending}
                       >
-                        Hide
+                        隱藏
                       </Button>
                     )}
                     {brand.status === 'hidden' && (
@@ -139,7 +139,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                         onClick={() => handleUnhide(brand)}
                         disabled={isPending}
                       >
-                        Unhide
+                        取消隱藏
                       </Button>
                     )}
                     <Button
@@ -148,7 +148,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                       className="text-[#D94F3D] hover:text-[#D94F3D]"
                       onClick={() => setDeletingBrand(brand)}
                     >
-                      Delete
+                      刪除
                     </Button>
                   </div>
                 </TableCell>
@@ -160,7 +160,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                   colSpan={5}
                   className="py-8 text-center text-[#7C7570]"
                 >
-                  No brands found.
+                  找不到品牌。
                 </TableCell>
               </TableRow>
             )}
@@ -182,10 +182,10 @@ export function BrandList({ brands }: { brands: Brand[] }) {
         onOpenChange={(open) => {
           if (!open) setDeletingBrand(null)
         }}
-        title="Delete Brand"
-        description="This action cannot be undone. The brand and all associated data will be permanently deleted."
+        title="刪除品牌"
+        description="此操作無法撤銷。品牌及其所有關聯資料將被永久刪除。"
         onConfirm={handleDelete}
-        confirmLabel="Delete"
+        confirmLabel="刪除"
         variant="destructive"
         confirmText={deletingBrand?.name}
         isPending={isPending}

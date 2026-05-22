@@ -39,7 +39,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const brand = await getBrandBySlug(slug)
     return {
       title: brand.name,
-      description: brand.description ?? `Discover ${brand.name}, a Made in Taiwan brand.`,
+      description: brand.description ?? `探索 ${brand.name}，台灣製造品牌。`,
       alternates: { canonical: `/${brand.slug}` },
       openGraph: {
         title: brand.name,
@@ -53,7 +53,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       },
     }
   } catch {
-    return { title: 'Brand Not Found' }
+    return { title: '找不到品牌' }
   }
 }
 
@@ -126,7 +126,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
         <div className="min-w-0 flex-1 space-y-6">
           <BrandHeader brand={brand} />
 
-          <BrandActions websiteUrl={visitUrl ?? null} />
+          <BrandActions websiteUrl={visitUrl ?? null} brandSlug={brand.slug} />
 
           <hr className="border-border" />
 

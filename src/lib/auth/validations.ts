@@ -1,18 +1,18 @@
 import { z } from "zod";
 
 export const signInSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(1, "Password is required"),
+  email: z.string().email("請輸入有效的電子郵件地址"),
+  password: z.string().min(1, "請輸入密碼"),
 });
 
 export const signUpSchema = z
   .object({
-    email: z.string().email("Please enter a valid email address"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
+    email: z.string().email("請輸入有效的電子郵件地址"),
+    password: z.string().min(8, "密碼至少需要 8 個字元"),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords do not match",
+    message: "密碼不一致",
     path: ["confirmPassword"],
   });
 

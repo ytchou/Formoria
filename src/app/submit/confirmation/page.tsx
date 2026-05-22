@@ -2,24 +2,24 @@ import { Check, Home, Plus } from 'lucide-react'
 import Link from 'next/link'
 
 export const metadata = {
-  title: 'Submission Received | MIT Map',
-  description: 'Your brand submission has been received and is being reviewed.',
+  title: '提交成功 | MIT Map',
+  description: '我們已收到您的品牌提交，正在進行審核。',
 }
 
 const TIMELINE_STEPS = [
   {
-    label: 'Review in progress',
-    description: 'Our team typically reviews within 3 business days',
+    label: '審核中',
+    description: '我們的團隊通常在 3 個工作天內完成審核',
     active: true,
   },
   {
-    label: "We'll reach out if we need more info",
-    description: 'You may receive an email with follow-up questions',
+    label: '如有需要，我們會與您聯繫',
+    description: '您可能會收到詢問後續問題的電子郵件',
     active: false,
   },
   {
-    label: 'Your brand goes live',
-    description: "Once approved, it'll appear in the MIT Map directory",
+    label: '您的品牌上線',
+    description: '通過審核後，您的品牌將出現在 MIT Map 目錄中',
     active: false,
   },
 ]
@@ -37,10 +37,10 @@ export default function ConfirmationPage() {
 
         {/* Heading */}
         <h1 className="mt-6 text-center font-display text-[26px] font-bold text-[#1A1918]">
-          Thank You!
+          感謝您！
         </h1>
         <p className="mt-2 text-center text-[15px] text-[#7C7570]">
-          Your brand submission has been received
+          我們已收到您的品牌提交
         </p>
 
         {/* Timeline */}
@@ -82,14 +82,14 @@ export default function ConfirmationPage() {
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#E06B3F] px-5 py-3 text-sm font-medium text-white hover:bg-[#C85A33]"
           >
             <Home className="h-4 w-4" />
-            Explore the MIT Map Directory
+            探索 MIT Map 目錄
           </Link>
           <Link
             href="/submit"
             className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#D4CFC9] bg-white px-5 py-3 text-sm font-medium text-[#1A1918] hover:bg-[#F5F4F1]"
           >
             <Plus className="h-4 w-4" />
-            Submit another brand
+            再提交一個品牌
           </Link>
         </div>
       </div>

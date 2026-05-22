@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: "Dashboard | MIT Map",
+  title: "品牌管理 | MIT Map",
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -36,7 +36,7 @@ export default async function DashboardPage({ searchParams }: Props) {
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
       <h1 className="font-heading text-3xl font-bold tracking-tight">
-        Dashboard
+        品牌管理
       </h1>
       <p className="mt-2 text-muted-foreground">
         Welcome, {user?.email}
@@ -50,12 +50,12 @@ export default async function DashboardPage({ searchParams }: Props) {
 
       <div className="mt-8">
         <h2 className="font-heading text-xl font-semibold tracking-tight">
-          Your Brands
+          您的品牌
         </h2>
 
         {brands.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">
-            No claimed brands yet. When you claim a brand listing, it will appear here.
+            尚未認領任何品牌。認領品牌後，它將顯示在此處。
           </p>
         ) : (
           <div className="mt-4 grid gap-4 sm:grid-cols-2">

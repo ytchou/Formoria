@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: "Admin | MIT Map",
+  title: "管理後台 | MIT Map",
 };
 
 export default async function AdminPage() {
@@ -24,17 +24,17 @@ export default async function AdminPage() {
 
   const stats = [
     {
-      label: "Pending Submissions",
+      label: "待審核提交",
       count: pendingSubmissions.length,
       href: "/admin/submissions",
     },
     {
-      label: "Total Brands",
+      label: "品牌總數",
       count: brandCount,
       href: "/admin/brands",
     },
     {
-      label: "Active Tags",
+      label: "啟用標籤",
       count: tags.length,
       href: "/admin/taxonomy",
     },
@@ -43,10 +43,10 @@ export default async function AdminPage() {
   return (
     <div>
       <h1 className="font-heading text-3xl font-bold tracking-tight">
-        Admin Dashboard
+        管理後台
       </h1>
       <p className="mt-2 text-[#7C7570]">
-        Manage brands, submissions, and site settings.
+        管理品牌、提交記錄和站台設定。
       </p>
 
       <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">

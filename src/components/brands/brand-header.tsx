@@ -28,7 +28,7 @@ export function BrandHeader({ brand }: BrandHeaderProps) {
         {brand.approvedAt && (
           <span className="flex items-center gap-1 rounded-full bg-verified-green-bg px-2.5 py-1 text-[11px] font-semibold text-verified-green">
             <CheckCircle className="size-3" />
-            Verified
+            已認證
           </span>
         )}
 
@@ -43,7 +43,7 @@ export function BrandHeader({ brand }: BrandHeaderProps) {
         {/* Founding year */}
         {brand.foundingYear && (
           <span className="text-xs text-warm-caption">
-            Est. {brand.foundingYear}
+            創立於 {brand.foundingYear}
           </span>
         )}
       </div>
