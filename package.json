@@ -13,7 +13,11 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "git config core.hooksPath scripts/hooks 2>/dev/null || true",
-    "curate": "tsx --env-file=.env.local scripts/curate-brands.ts"
+    "curate": "tsx --env-file=.env.local scripts/curate-brands.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:smoke": "playwright test --project=smoke-chromium --project=smoke-firefox --project=smoke-webkit",
+    "test:e2e:deep": "playwright test --project=deep",
+    "test:e2e:perf": "playwright test --project=perf"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -43,6 +47,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -53,6 +58,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "jsdom": "^29.1.1",
+    "lighthouse": "^13.3.0",
     "tailwindcss": "^4",
     "tsx": "^4",
     "typescript": "^5",

@@ -61,11 +61,27 @@ check_env() {
   fi
 }
 
+# ── e2e env vars (opt-in with --e2e) ─────────────────────────────────────────
+check_e2e() {
+  if [[ "$*" == *"--e2e"* ]]; then
+    echo "Checking e2e env vars..."
+    for var in E2E_ADMIN_EMAIL E2E_ADMIN_PASSWORD E2E_USER_EMAIL E2E_USER_PASSWORD; do
+      if [ -z "${!var}" ]; then
+        echo "  MISSING: $var"
+        ERRORS=$((ERRORS + 1))
+      else
+        echo "  OK: $var"
+      fi
+    done
+  fi
+}
+
 # ── Run checks ───────────────────────────────────────────────────────────────
 check_node
 check_pnpm
 check_deps
 check_env
+check_e2e "$@"
 
 echo ""
 if [ $ERRORS -eq 0 ]; then
