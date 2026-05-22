@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isAdmin } from '@/lib/auth/admin'
 import { getSubmission, approveSubmission, rejectSubmission } from '@/lib/services/submissions'
 import { createBrand, updateBrand, deleteBrand, generateSlug, syncBrandImages } from '@/lib/services/brands'
@@ -333,4 +333,122 @@ export async function deactivateTagAction(
       error: err instanceof Error ? err.message : 'An unexpected error occurred',
     }
   }
+}
+
+export async function revertFlagAction(
+  flagId: string
+): Promise<{ success: true } | { error: 'stale' | 'not_found' }> {
+  const auth = await requireAdmin()
+  if ('error' in auth) throw new Error(auth.error)
+
+  const supabase = createServiceClient()
+
+  // 1. Fetch the flag
+  const { data: flag, error: flagErr } = await supabase
+    .from('moderation_flags')
+    .select('id, brand_id, field_name, flagged_content, previous_content')
+    .eq('id', flagId)
+    .single()
+
+  if (flagErr || !flag) return { error: 'not_found' }
+
+  // 2. If no previous content to revert to, it's stale
+  if (!flag.previous_content) return { error: 'stale' }
+
+  // 3. Fetch the current brand field value to check staleness
+  const { data: brand, error: brandErr } = await supabase
+    .from('brands')
+    .select('id, description, name, social_links')
+    .eq('id', flag.brand_id)
+    .single()
+
+  if (brandErr || !brand) return { error: 'not_found' }
+
+  // 4. Map field_name to the current brand value
+  function getCurrentValue(fieldName: string, brand: any): string | null {
+    switch (fieldName) {
+      case 'name': return brand.name ?? null
+      case 'description': return brand.description ?? null
+      case 'websiteUrl': return brand.social_links?.officialWebsite ?? null
+      case 'instagram': return brand.social_links?.instagram ?? null
+      case 'threads': return brand.social_links?.threads ?? null
+      case 'facebook': return brand.social_links?.facebook ?? null
+      default: return null
+    }
+  }
+
+  const currentValue = getCurrentValue(flag.field_name, brand)
+
+  // 5. Stale check — if the brand field no longer matches the flagged content, revert is no longer safe
+  if (currentValue !== flag.flagged_content) return { error: 'stale' }
+
+  // 6. Build the update payload for the brand
+  function buildBrandUpdate(fieldName: string, previousContent: string, brand: any): Record<string, unknown> {
+    if (['websiteUrl', 'instagram', 'threads', 'facebook'].includes(fieldName)) {
+      const socialLinks = { ...(brand.social_links ?? {}) }
+      const socialKey: Record<string, string> = {
+        websiteUrl: 'officialWebsite',
+        instagram: 'instagram',
+        threads: 'threads',
+        facebook: 'facebook',
+      }
+      socialLinks[socialKey[fieldName]] = previousContent
+      return { social_links: socialLinks }
+    }
+    return { [fieldName]: previousContent }
+  }
+
+  const brandUpdate = buildBrandUpdate(flag.field_name, flag.previous_content, brand)
+
+  const { error: updateBrandErr } = await supabase
+    .from('brands')
+    .update(brandUpdate)
+    .eq('id', flag.brand_id)
+
+  if (updateBrandErr) throw new Error(updateBrandErr.message)
+
+  // 7. Mark flag as reviewed
+  await updateFlagStatus(flagId, 'reviewed')
+
+  revalidatePath('/admin/flagged')
+  if (brand) {
+    // revalidate brand page if slug is available — best effort
+    const { data: brandWithSlug } = await supabase
+      .from('brands')
+      .select('slug')
+      .eq('id', flag.brand_id)
+      .single()
+    if (brandWithSlug?.slug) {
+      revalidatePath(`/brands/${brandWithSlug.slug}`)
+    }
+  }
+
+  return { success: true }
+}
+
+export async function bulkUpdateFlagsAction(
+  flagIds: string[],
+  decision: 'reviewed' | 'dismissed'
+): Promise<{ updated: number; errors: { id: string; message: string }[] }> {
+  const auth = await requireAdmin()
+  if ('error' in auth) throw new Error(auth.error)
+
+  let updated = 0
+  const errors: { id: string; message: string }[] = []
+
+  for (const id of flagIds) {
+    try {
+      await updateFlagStatus(id, decision)
+      updated++
+    } catch (err) {
+      errors.push({
+        id,
+        message: err instanceof Error ? err.message : 'Unknown error',
+      })
+    }
+  }
+
+  revalidatePath('/admin/flagged')
+
+  return { updated, errors }
 }

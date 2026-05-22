@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getPendingFlags } from "@/lib/services/moderation";
-import { reviewFlagAction } from "../actions";
+import { reviewFlagAction, revertFlagAction } from "../actions";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
@@ -78,7 +78,7 @@ export default async function FlaggedContentPage() {
                     {new Date(flag.createdAt).toLocaleDateString()}
                   </td>
                   <td className="py-3">
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <form
                         action={async () => {
                           "use server";
@@ -99,6 +99,22 @@ export default async function FlaggedContentPage() {
                           Dismiss
                         </Button>
                       </form>
+                      {flag.previousContent !== null && (
+                        <form
+                          action={async () => {
+                            "use server";
+                            const result = await revertFlagAction(flag.id);
+                            if ('error' in result && result.error === 'stale') {
+                              // stale revert — content has changed since flag was created
+                              console.warn('[admin:revert] stale revert attempted for flag', flag.id);
+                            }
+                          }}
+                        >
+                          <Button size="sm" variant="destructive">
+                            Revert
+                          </Button>
+                        </form>
+                      )}
                     </div>
                   </td>
                 </tr>
