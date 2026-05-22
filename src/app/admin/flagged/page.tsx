@@ -57,8 +57,21 @@ export default async function FlaggedContentPage() {
                     {flag.brandName ?? "Unknown"}
                   </td>
                   <td className="py-3 pr-4">{flag.fieldName}</td>
-                  <td className="max-w-xs truncate py-3 pr-4 text-muted-foreground">
-                    {flag.flaggedContent}
+                  <td className="max-w-xs py-3 pr-4">
+                    {flag.previousContent !== null ? (
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="mb-1 block font-medium text-muted-foreground">Before</span>
+                          <span className="text-muted-foreground">{flag.previousContent}</span>
+                        </div>
+                        <div>
+                          <span className="mb-1 block font-medium">After</span>
+                          <span>{flag.flaggedContent}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="truncate text-muted-foreground">{flag.flaggedContent}</span>
+                    )}
                   </td>
                   <td className="py-3 pr-4">{flag.flagReason}</td>
                   <td className="py-3 pr-4 text-muted-foreground">

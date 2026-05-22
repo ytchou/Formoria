@@ -116,6 +116,7 @@ export type ModerationFlag = {
   userId: string
   fieldName: string
   flaggedContent: string
+  previousContent: string | null
   flagReason: string
   tier: string
   status: string
@@ -144,6 +145,7 @@ export async function getPendingFlags(): Promise<ModerationFlag[]> {
     userId: row.user_id,
     fieldName: row.field_name,
     flaggedContent: row.flagged_content,
+    previousContent: row.previous_content ?? null,
     flagReason: row.flag_reason,
     tier: row.tier,
     status: row.status,
