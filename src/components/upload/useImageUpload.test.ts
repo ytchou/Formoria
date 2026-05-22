@@ -1,25 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useImageUpload } from './useImageUpload'
-
-const mockUpload = vi.fn()
-const mockGetPublicUrl = vi.fn()
-
-vi.mock('@/lib/supabase/client', () => ({
-  createClient: () => ({
-    storage: {
-      from: () => ({
-        upload: mockUpload,
-        getPublicUrl: mockGetPublicUrl,
-      }),
-    },
-  }),
-}))
-
-vi.mock('./resize-image', () => ({
-  resizeImage: vi.fn().mockResolvedValue(new Blob(['fake'], { type: 'image/webp' })),
-}))
 
 function createMockFile(name: string, size: number, type: string): File {
   const buffer = new ArrayBuffer(size)
@@ -29,13 +11,10 @@ function createMockFile(name: string, size: number, type: string): File {
 describe('useImageUpload', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockUpload.mockResolvedValue({
-      data: { path: 'test/logo.webp' },
-      error: null,
-    })
-    mockGetPublicUrl.mockReturnValue({
-      data: { publicUrl: 'https://storage.example.com/test/logo.webp' },
-    })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   it('returns idle status initially', () => {
@@ -59,7 +38,6 @@ describe('useImageUpload', () => {
 
     expect(result.current.status).toBe('error')
     expect(result.current.error).toMatch(/5MB/)
-    expect(mockUpload).not.toHaveBeenCalled()
   })
 
   it('rejects non-image files', async () => {
@@ -77,6 +55,13 @@ describe('useImageUpload', () => {
   })
 
   it('uploads and returns public URL on success', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ url: 'https://storage.example.com/test/logo.webp' }),
+        { status: 200 }
+      )
+    )
+
     const { result } = renderHook(() =>
       useImageUpload({ bucket: 'brand-assets', path: 'test' })
     )
@@ -87,17 +72,13 @@ describe('useImageUpload', () => {
     })
 
     expect(result.current.status).toBe('success')
-    expect(result.current.url).toBe(
-      'https://storage.example.com/test/logo.webp'
-    )
-    expect(mockUpload).toHaveBeenCalledOnce()
+    expect(result.current.url).toBe('https://storage.example.com/test/logo.webp')
   })
 
   it('handles upload errors gracefully', async () => {
-    mockUpload.mockResolvedValue({
-      data: null,
-      error: { message: 'Bucket not found' },
-    })
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'Bucket not found' }), { status: 500 })
+    )
 
     const { result } = renderHook(() =>
       useImageUpload({ bucket: 'brand-assets', path: 'test' })

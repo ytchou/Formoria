@@ -1,11 +1,9 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { resizeImage } from './resize-image'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
-const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
 type UploadStatus = 'idle' | 'uploading' | 'success' | 'error'
 
@@ -28,15 +26,14 @@ export function useImageUpload(config: UseImageUploadConfig): UseImageUploadRetu
   const [error, setError] = useState<string | null>(null)
 
   const upload = useCallback(
-    async (file: File, filename: string) => {
-      // Validate file type
+    async (file: File, _: string) => {
+      // Client-side pre-filter: validate file type and size before hitting server
       if (!ACCEPTED_TYPES.includes(file.type)) {
         setStatus('error')
-        setError('Please upload an image file (JPEG, PNG, WebP, or GIF)')
+        setError('Please upload an image file (JPEG, PNG, or WebP)')
         return
       }
 
-      // Validate file size
       if (file.size > MAX_FILE_SIZE) {
         setStatus('error')
         setError('File size must be under 5MB')
@@ -47,28 +44,25 @@ export function useImageUpload(config: UseImageUploadConfig): UseImageUploadRetu
       setError(null)
 
       try {
-        const blob = await resizeImage(file)
-        const supabase = createClient()
-        const filePath = `${config.path}/${filename}`
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('path', config.path)
+        formData.append('bucket', config.bucket)
 
-        const { error: uploadError } = await supabase.storage
-          .from(config.bucket)
-          .upload(filePath, blob, {
-            contentType: 'image/webp',
-            upsert: true,
-          })
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        })
 
-        if (uploadError) {
+        if (!response.ok) {
+          const data = (await response.json()) as { error?: string }
           setStatus('error')
-          setError(uploadError.message)
+          setError(data.error ?? 'Upload failed')
           return
         }
 
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from(config.bucket).getPublicUrl(filePath)
-
-        setUrl(publicUrl)
+        const data = (await response.json()) as { url: string }
+        setUrl(data.url)
         setStatus('success')
       } catch (err) {
         setStatus('error')
