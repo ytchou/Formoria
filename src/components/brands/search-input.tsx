@@ -48,14 +48,13 @@ function SearchInput() {
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
 
-    if (!value.trim()) {
-      setSuggestions([])
-      setShowDropdown(false)
-      return
-    }
-
     debounceRef.current = setTimeout(() => {
-      fetchSuggestions(value)
+      if (!value.trim()) {
+        setSuggestions([])
+        setShowDropdown(false)
+      } else {
+        fetchSuggestions(value)
+      }
     }, 300)
 
     return () => {
@@ -144,7 +143,6 @@ function SearchInput() {
         role="searchbox"
         aria-label="Search brands"
         aria-autocomplete="list"
-        aria-expanded={showDropdown}
         placeholder="Search brands..."
         maxLength={100}
         value={value}
