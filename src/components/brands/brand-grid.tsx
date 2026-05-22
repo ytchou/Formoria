@@ -14,9 +14,9 @@ export function BrandGrid({ brands }: BrandGridProps) {
   if (brands.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
-        <p className="text-base font-semibold text-foreground">No brands found</p>
+        <p className="text-base font-semibold text-foreground">找不到品牌</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Try adjusting or clearing your filters.
+          請嘗試調整或清除篩選條件。
         </p>
       </div>
     )
@@ -28,9 +28,9 @@ export function BrandGrid({ brands }: BrandGridProps) {
       aria-label="Brand directory"
       role="list"
     >
-      {brands.map((brand) => (
+      {brands.map((brand, index) => (
         <div key={brand.id} role="listitem">
-          <BrandCard brand={brand} />
+          <BrandCard brand={brand} position={index} />
         </div>
       ))}
     </div>

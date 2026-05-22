@@ -18,8 +18,9 @@ describe('BrandViewTracker', () => {
 
   it('fires brand_view event on mount with brand slug', () => {
     render(<BrandViewTracker brandSlug="awesome-tea" />)
-    expect(sendGAEvent).toHaveBeenCalledWith('event', 'brand_view', {
+    expect(sendGAEvent).toHaveBeenCalledWith('event', 'brand_detail_viewed', {
       brand_slug: 'awesome-tea',
+      source: 'direct',
     })
   })
 
