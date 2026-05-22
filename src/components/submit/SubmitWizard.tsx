@@ -174,7 +174,7 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
     const nextStep = Math.min(currentStep + 1, STEP_LABELS.length - 1)
     setCurrentStep(nextStep)
 
-    const stepName = SUBMISSION_STEP_NAMES[nextStep as keyof typeof SUBMISSION_STEP_NAMES]
+    const stepName = SUBMISSION_STEP_NAMES[currentStep as keyof typeof SUBMISSION_STEP_NAMES]
     lastStepRef.current = stepName
     trackSubmissionFormStepCompleted(stepName)
   }
