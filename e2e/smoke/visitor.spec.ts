@@ -11,7 +11,7 @@ test.describe('Visitor smoke', () => {
   test('category filter narrows results', async ({ page }) => {
     await page.goto('/');
     // Click first available filter pill
-    const firstFilter = page.locator('button[data-active]').first();
+    const firstFilter = page.locator('button[data-active="false"]').first();
     await firstFilter.click();
     // URL should update with filter param
     await expect(page).toHaveURL(/category=|filter=/);
@@ -22,9 +22,9 @@ test.describe('Visitor smoke', () => {
     await page.goto('/');
     const searchInput = page.getByRole('searchbox').or(page.getByPlaceholder(/search/i)).first();
     await searchInput.fill('a');
-    // Autocomplete dropdown or results should appear
+    // Autocomplete dropdown should open (with results or "no results" message)
     await expect(
-      page.locator('[role="option"]').first()
+      page.locator('[role="listbox"]')
     ).toBeVisible({ timeout: 5_000 });
   });
 

@@ -50,9 +50,9 @@ export default defineConfig({
   ],
   globalSetup: './e2e/global-setup.ts',
   webServer: {
-    command: process.env.CI ? 'pnpm build && pnpm start' : 'pnpm dev',
+    command: 'pnpm dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
-    timeout: process.env.CI ? 180_000 : 120_000,
+    timeout: 120_000,
   },
 });
