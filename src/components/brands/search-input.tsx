@@ -93,8 +93,8 @@ function SearchInput() {
     setShowDropdown(false)
   }
 
-  function handleSelect(slug: string, index?: number) {
-    trackSearchResultClicked(value, index ?? selectedIndex)
+  function handleSelect(slug: string, index: number) {
+    trackSearchResultClicked(value, index)
     setShowDropdown(false)
     router.push(`/brands/${slug}`)
   }
@@ -113,7 +113,7 @@ function SearchInput() {
     } else if (e.key === 'Enter') {
       if (selectedIndex >= 0 && suggestions[selectedIndex]) {
         e.preventDefault()
-        handleSelect(suggestions[selectedIndex].slug)
+        handleSelect(suggestions[selectedIndex].slug, selectedIndex)
       } else if (value.trim()) {
         trackSearchExecuted(value, suggestions.length)
       }

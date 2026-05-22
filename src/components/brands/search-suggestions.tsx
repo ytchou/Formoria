@@ -5,7 +5,7 @@ import type { SearchResult } from '@/lib/services/brands'
 interface SearchSuggestionsProps {
   suggestions: SearchResult[]
   selectedIndex: number
-  onSelect: (slug: string) => void
+  onSelect: (slug: string, index: number) => void
 }
 
 export const SEARCH_SUGGESTIONS_ID = 'search-suggestions-listbox'
@@ -30,7 +30,7 @@ export function SearchSuggestions({
             id={`search-suggestion-${item.id}`}
             role="option"
             aria-selected={index === selectedIndex}
-            onClick={() => onSelect(item.slug)}
+            onClick={() => onSelect(item.slug, index)}
             className={`cursor-pointer px-4 py-3 text-sm ${
               index === selectedIndex ? 'bg-secondary' : 'hover:bg-secondary'
             }`}
