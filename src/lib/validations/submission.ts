@@ -51,9 +51,15 @@ export const reviewSchema = z.object({
   }),
 })
 
+export const botDetectionSchema = z.object({
+  turnstileToken: z.string().min(1, 'Please complete the verification'),
+  _honeypot: z.string().max(0).optional(),
+})
+
 export const fullSubmissionSchema = brandInfoSchema
   .merge(productsSchema)
   .merge(linksSchema)
   .merge(reviewSchema)
+  .merge(botDetectionSchema)
 
 export type SubmissionFormData = z.infer<typeof fullSubmissionSchema>

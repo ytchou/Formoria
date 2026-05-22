@@ -185,6 +185,7 @@ describe('fullSubmissionSchema', () => {
       },
       retailLocations: [],
       pdpaConsent: true,
+      turnstileToken: 'valid-token',
     })
     expect(result.success).toBe(true)
   })

@@ -104,6 +104,8 @@ export function SubmitWizard({ categories }: SubmitWizardProps) {
       socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
       retailLocations: [],
       pdpaConsent: false,
+      turnstileToken: '',
+      _honeypot: '',
     },
     mode: 'onTouched',
   })

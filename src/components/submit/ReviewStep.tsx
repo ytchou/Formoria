@@ -3,6 +3,7 @@
 import { useFormContext, Controller } from 'react-hook-form'
 import { Pencil } from 'lucide-react'
 import type { SubmissionFormData } from '@/lib/validations/submission'
+import { TurnstileWidget } from './TurnstileWidget'
 
 type ReviewStepProps = {
   onEditStep: (stepIndex: number) => void
@@ -52,7 +53,7 @@ function ReviewRow({
 }
 
 export function ReviewStep({ onEditStep }: ReviewStepProps) {
-  const { control, watch } = useFormContext<SubmissionFormData>()
+  const { control, watch, setValue, register } = useFormContext<SubmissionFormData>()
 
   const formData = watch()
 
@@ -203,6 +204,21 @@ export function ReviewStep({ onEditStep }: ReviewStepProps) {
           )}
         />
       </div>
+
+      {/* Bot detection */}
+      <TurnstileWidget
+        onSuccess={(token) => setValue('turnstileToken', token)}
+      />
+
+      {/* Honeypot — hidden from real users, traps bots */}
+      <input
+        type="text"
+        {...register('_honeypot')}
+        tabIndex={-1}
+        autoComplete="off"
+        className="absolute -left-[9999px] opacity-0 h-0 w-0 pointer-events-none"
+        aria-hidden="true"
+      />
     </div>
   )
 }
