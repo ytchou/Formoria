@@ -76,7 +76,7 @@ export function BrandLinks({ brand }: BrandLinksProps) {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80"
             onClick={() =>
-              trackExternalLinkClicked(brand.slug, link.type, typeof window !== 'undefined' ? window.location.pathname : '')
+              trackExternalLinkClicked(brand.slug, link.label.toLowerCase(), typeof window !== 'undefined' ? window.location.pathname : '')
             }
           >
             {link.icon === 'globe' ? (
