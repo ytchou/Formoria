@@ -110,6 +110,8 @@ export async function approveSubmissionAction(
 
     revalidatePath('/admin/submissions')
     revalidatePath('/admin')
+    revalidatePath('/')
+    revalidatePath('/brands')
     return undefined
   } catch (err) {
     console.error('[admin:approveSubmission]', err)
@@ -138,6 +140,8 @@ export async function rejectSubmissionAction(
 
     revalidatePath('/admin/submissions')
     revalidatePath('/admin')
+    revalidatePath('/')
+    revalidatePath('/brands')
     return undefined
   } catch (err) {
     console.error('[admin:rejectSubmission]', err)
@@ -159,6 +163,8 @@ export async function updateBrandAction(
 
     revalidatePath('/admin/brands')
     revalidatePath('/admin')
+    revalidatePath('/')
+    revalidatePath('/brands')
     return undefined
   } catch (err) {
     console.error('[admin:updateBrand]', err)
@@ -179,6 +185,8 @@ export async function hideBrandAction(
 
     revalidatePath('/admin/brands')
     revalidatePath('/admin')
+    revalidatePath('/')
+    revalidatePath('/brands')
     return undefined
   } catch (err) {
     console.error('[admin:hideBrand]', err)
@@ -199,6 +207,8 @@ export async function unhideBrandAction(
 
     revalidatePath('/admin/brands')
     revalidatePath('/admin')
+    revalidatePath('/')
+    revalidatePath('/brands')
     return undefined
   } catch (err) {
     console.error('[admin:unhideBrand]', err)
@@ -219,6 +229,8 @@ export async function deleteBrandAction(
 
     revalidatePath('/admin/brands')
     revalidatePath('/admin')
+    revalidatePath('/')
+    revalidatePath('/brands')
     return undefined
   } catch (err) {
     console.error('[admin:deleteBrand]', err)
