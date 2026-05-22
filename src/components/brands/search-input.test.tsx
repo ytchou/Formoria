@@ -14,6 +14,17 @@ vi.mock('@/hooks/use-filter-params', () => ({
   }),
 }))
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => '/',
+}))
+
+global.fetch = vi.fn().mockResolvedValue({
+  ok: true,
+  json: () => Promise.resolve({ results: [] }),
+})
+
 describe('SearchInput', () => {
   beforeEach(() => {
     vi.clearAllMocks()

@@ -1,11 +1,72 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useFilterParams } from '@/hooks/use-filter-params'
+import type { SearchResult } from '@/lib/services/brands'
+import { SearchSuggestions } from './search-suggestions'
 
-export function SearchInput() {
+function SearchInput() {
   const { filters, setSearch } = useFilterParams()
   const [value, setValue] = useState(filters.search)
+  const [suggestions, setSuggestions] = useState<SearchResult[]>([])
+  const [selectedIndex, setSelectedIndex] = useState(-1)
+  const [showDropdown, setShowDropdown] = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const router = useRouter()
+
+  const fetchSuggestions = useCallback(async (q: string) => {
+    if (!q.trim()) {
+      setSuggestions([])
+      setShowDropdown(false)
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=5`)
+      if (!res.ok) return
+
+      const data = await res.json()
+      setSuggestions(data.results ?? [])
+      setShowDropdown(true)
+      setSelectedIndex(-1)
+    } catch {
+      // Ignore fetch errors; search filtering still works.
+    }
+  }, [])
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+
+    if (!value.trim()) {
+      setSuggestions([])
+      setShowDropdown(false)
+      return
+    }
+
+    debounceRef.current = setTimeout(() => {
+      fetchSuggestions(value)
+    }, 300)
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [fetchSuggestions, value])
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setShowDropdown(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const next = e.target.value
@@ -16,10 +77,39 @@ export function SearchInput() {
   function handleClear() {
     setValue('')
     setSearch('')
+    setSuggestions([])
+    setShowDropdown(false)
+  }
+
+  function handleSelect(slug: string) {
+    setShowDropdown(false)
+    router.push(`/brands/${slug}`)
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (!showDropdown && value.trim()) {
+        setShowDropdown(true)
+        return
+      }
+      setSelectedIndex((prev) => Math.min(prev + 1, suggestions.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSelectedIndex((prev) => Math.max(prev - 1, -1))
+    } else if (e.key === 'Enter') {
+      if (selectedIndex >= 0 && suggestions[selectedIndex]) {
+        e.preventDefault()
+        handleSelect(suggestions[selectedIndex].slug)
+      }
+    } else if (e.key === 'Escape') {
+      setShowDropdown(false)
+      setSelectedIndex(-1)
+    }
   }
 
   return (
-    <div className="relative w-full max-w-md">
+    <div ref={containerRef} className="relative w-full max-w-md">
       {/* Search icon */}
       <svg
         className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7C7570]"
@@ -41,10 +131,13 @@ export function SearchInput() {
         type="search"
         role="searchbox"
         aria-label="Search brands"
+        aria-autocomplete="list"
+        aria-expanded={showDropdown}
         placeholder="Search brands..."
         maxLength={100}
         value={value}
         onChange={handleChange}
+        onKeyDown={handleKeyDown}
         className="w-full rounded-lg border border-[#E5E4E1] bg-white py-2 pl-9 pr-8 text-sm text-[#1A1918] placeholder:text-[#857E79] focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]"
       />
 
@@ -69,6 +162,17 @@ export function SearchInput() {
           </svg>
         </button>
       )}
+
+      {showDropdown && (
+        <SearchSuggestions
+          suggestions={suggestions}
+          selectedIndex={selectedIndex}
+          onSelect={handleSelect}
+        />
+      )}
     </div>
   )
 }
+
+export { SearchInput }
+export default SearchInput
