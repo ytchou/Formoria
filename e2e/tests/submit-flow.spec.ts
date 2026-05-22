@@ -20,8 +20,8 @@ test.describe('Submit flow deep', () => {
   test('wizard steps are all reachable', async ({ userPage }) => {
     await userPage.goto('/submit');
     // Should show wizard step 1 indicator
-    const stepIndicator = userPage.locator('[data-testid="step-indicator"], [aria-label*="step"]').first();
-    await expect(userPage.getByRole('heading')).toBeVisible({ timeout: 5_000 });
+    await expect(userPage.locator('[data-testid="step-indicator"], [aria-label*="step"]').first()
+      .or(userPage.getByRole('heading'))).toBeVisible({ timeout: 5_000 });
   });
 
   test('validation shows errors on empty required fields', async ({ userPage }) => {

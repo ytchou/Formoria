@@ -31,7 +31,6 @@ test.describe('Mobile responsive', () => {
   });
 
   test('admin dashboard is usable at 375px', async ({ page }) => {
-    const path = require('path');
     await page.goto('/admin');
     const body = await page.evaluate(() => document.body.scrollWidth);
     expect(body).toBeLessThanOrEqual(page.viewportSize()!.width + 5);

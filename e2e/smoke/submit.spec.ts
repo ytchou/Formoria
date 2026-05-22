@@ -1,11 +1,11 @@
 import { test, expect } from '../fixtures/auth';
 
-const TEST_PREFIX = '[E2E-TEST]';
+const TEST_PREFIX = '[E2E-TEST]' as const;
 
 test.describe('Submit smoke', () => {
   let submittedBrandName: string;
 
-  test.afterAll(async ({ request }) => {
+  test.afterAll(async () => {
     // Cleanup: delete any [E2E-TEST] submissions created during this run
     // via admin API or direct Supabase REST call if needed
     // This is a best-effort cleanup

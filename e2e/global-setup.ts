@@ -1,8 +1,8 @@
-import { chromium, FullConfig } from '@playwright/test';
+import { chromium } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
 
-async function globalSetup(config: FullConfig) {
+async function globalSetup() {
   const requiredVars = [
     'E2E_ADMIN_EMAIL',
     'E2E_ADMIN_PASSWORD',

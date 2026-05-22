@@ -54,7 +54,7 @@ test.describe('Admin dashboard deep', () => {
     }
   });
 
-  test('approve submission makes brand visible in directory', async ({ adminPage, page }) => {
+  test('approve submission makes brand visible in directory', async ({ adminPage }) => {
     await adminPage.goto('/admin/submissions');
     const row = adminPage.locator('tr, [role="row"]').filter({ hasText: '[E2E-TEST] Dashboard Test Brand' });
     const approveBtn = row.getByRole('button', { name: /approve/i });
