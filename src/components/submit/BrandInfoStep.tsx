@@ -356,7 +356,7 @@ export function BrandInfoStep({
           render={({ field }) => (
             <ImageUploader
               mode="single"
-              bucket="brand-assets"
+              bucket="brand-images"
               path={uploadPath}
               value={field.value}
               onUpload={(url) => field.onChange(url)}

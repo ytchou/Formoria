@@ -18,7 +18,7 @@ describe('ImageUploader', () => {
     render(
       <ImageUploader
         mode="single"
-        bucket="brand-assets"
+        bucket="brand-images"
         path="test"
         onUpload={vi.fn()}
       />
@@ -32,7 +32,7 @@ describe('ImageUploader', () => {
     render(
       <ImageUploader
         mode="multi"
-        bucket="brand-assets"
+        bucket="brand-images"
         path="test"
         onUpload={vi.fn()}
       />
@@ -46,7 +46,7 @@ describe('ImageUploader', () => {
     render(
       <ImageUploader
         mode="single"
-        bucket="brand-assets"
+        bucket="brand-images"
         path="test"
         value="https://example.com/logo.webp"
         onUpload={vi.fn()}
@@ -66,7 +66,7 @@ describe('ImageUploader', () => {
     render(
       <ImageUploader
         mode="multi"
-        bucket="brand-assets"
+        bucket="brand-images"
         path="test"
         value={urls}
         onUpload={vi.fn()}
@@ -82,7 +82,7 @@ describe('ImageUploader', () => {
     render(
       <ImageUploader
         mode="multi"
-        bucket="brand-assets"
+        bucket="brand-images"
         path="test"
         value={['https://example.com/p1.webp']}
         onUpload={vi.fn()}
@@ -97,7 +97,7 @@ describe('ImageUploader', () => {
     render(
       <ImageUploader
         mode="single"
-        bucket="brand-assets"
+        bucket="brand-images"
         path="test"
         onUpload={vi.fn()}
       />

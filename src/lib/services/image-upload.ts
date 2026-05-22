@@ -1,7 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import type { ProcessedImage } from '@/lib/security/image-processor'
 
-export const ALLOWED_UPLOAD_BUCKETS = ['brand-assets'] as const
+export const ALLOWED_UPLOAD_BUCKETS = ['brand-images'] as const
 export type AllowedUploadBucket = (typeof ALLOWED_UPLOAD_BUCKETS)[number]
 
 export interface UploadResult {

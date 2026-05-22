@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { isAdmin } from '@/lib/auth/admin'
 import { getSubmission, approveSubmission, rejectSubmission } from '@/lib/services/submissions'
-import { createBrand, updateBrand, deleteBrand, generateSlug } from '@/lib/services/brands'
+import { createBrand, updateBrand, deleteBrand, generateSlug, syncBrandImages } from '@/lib/services/brands'
 import { createTag, updateTag, mergeTag, deactivateTag } from '@/lib/services/taxonomy'
 import { createResendProvider } from '@/lib/email/resend-adapter'
 import { buildApprovalEmail, buildRejectionEmail, buildClaimEmail } from '@/lib/email/templates'
@@ -50,29 +50,45 @@ export async function approveSubmissionAction(
     if ('error' in auth) return auth
 
     const submission = await getSubmission(submissionId)
-    const slug = generateSlug(submission.brandName)
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://mitmap.tw'
 
-    const brand = await createBrand({
-      name: submission.brandName,
-      slug,
-      description: submission.description,
-      logoUrl: null,
-      heroImageUrl: null,
-      status: 'approved',
-      category: null,
-      foundingYear: null,
-      purchaseLinks: [],
-      socialLinks: submission.socialLinks,
-      retailLocations: [],
-      productPhotos: [],
-      contactEmail: submission.submitterEmail,
-      founder: null,
-      productHighlights: [],
-    })
+    let brand: Awaited<ReturnType<typeof createBrand>>
+    let slug: string
+
+    if (submission.brandId == null) {
+      // Legacy path: no linked brand — create a minimal one
+      slug = generateSlug(submission.brandName)
+      brand = await createBrand({
+        name: submission.brandName,
+        slug,
+        description: submission.description,
+        logoUrl: null,
+        heroImageUrl: null,
+        status: 'approved',
+        category: null,
+        foundingYear: null,
+        purchaseLinks: [],
+        socialLinks: submission.socialLinks,
+        retailLocations: [],
+        productPhotos: [],
+        contactEmail: submission.submitterEmail,
+        founder: null,
+        productHighlights: [],
+      })
+      slug = brand.slug
+    } else {
+      // New path: brand already exists — approve it and sync images
+      brand = await updateBrand(submission.brandId, { status: 'approved' })
+      slug = brand.slug
+
+      try {
+        await syncBrandImages(submission.brandId)
+      } catch (syncErr) {
+        console.error('[admin:approveSubmission] syncBrandImages failed:', syncErr)
+      }
+    }
 
     await approveSubmission(submissionId, auth.userId)
-
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://mitmap.tw'
 
     if (submission.isBrandOwner) {
       const token = await generateClaimToken(brand.id, submission.submitterEmail, submission.brandName)

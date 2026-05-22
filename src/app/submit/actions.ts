@@ -46,7 +46,7 @@ export async function submitBrand(
     }
 
     // Create brand with pending status
-    await createBrand({
+    const brand = await createBrand({
       name: parsed.name,
       slug: '',
       description: parsed.description,
@@ -78,6 +78,7 @@ export async function submitBrand(
 
     // Create submission audit record
     await createSubmission({
+      brandId: brand.id,
       brandName: parsed.name,
       submitterEmail: user.email ?? '',
       submitterName: user.user_metadata?.full_name ?? null,

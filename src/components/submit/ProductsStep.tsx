@@ -34,7 +34,7 @@ export function ProductsStep({ uploadPath }: ProductsStepProps) {
           render={({ field }) => (
             <ImageUploader
               mode="multi"
-              bucket="brand-assets"
+              bucket="brand-images"
               path={`${uploadPath}/photos`}
               value={field.value}
               onUpload={(url) => field.onChange([...(field.value ?? []), url])}

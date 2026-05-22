@@ -58,7 +58,7 @@ export function submissionToInsert(data: Partial<BrandSubmission>): Record<strin
 
 export async function createSubmission(
   data: Pick<BrandSubmission, 'brandName' | 'submitterEmail'> &
-    Partial<Pick<BrandSubmission, 'submitterName' | 'description' | 'websiteUrl' | 'socialLinks' | 'suggestedTags' | 'pdpaConsentAt'>>
+    Partial<Pick<BrandSubmission, 'brandId' | 'submitterName' | 'description' | 'websiteUrl' | 'socialLinks' | 'suggestedTags' | 'pdpaConsentAt'>>
 ): Promise<BrandSubmission> {
   // Public insert — use anon client with RLS (policy allows anonymous inserts)
   const supabase = await createClient()

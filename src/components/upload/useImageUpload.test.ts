@@ -19,7 +19,7 @@ describe('useImageUpload', () => {
 
   it('returns idle status initially', () => {
     const { result } = renderHook(() =>
-      useImageUpload({ bucket: 'brand-assets', path: 'test' })
+      useImageUpload({ bucket: 'brand-images', path: 'test' })
     )
     expect(result.current.status).toBe('idle')
     expect(result.current.url).toBeNull()
@@ -28,7 +28,7 @@ describe('useImageUpload', () => {
 
   it('rejects files over 5MB', async () => {
     const { result } = renderHook(() =>
-      useImageUpload({ bucket: 'brand-assets', path: 'test' })
+      useImageUpload({ bucket: 'brand-images', path: 'test' })
     )
     const bigFile = createMockFile('huge.jpg', 6 * 1024 * 1024, 'image/jpeg')
 
@@ -42,7 +42,7 @@ describe('useImageUpload', () => {
 
   it('rejects non-image files', async () => {
     const { result } = renderHook(() =>
-      useImageUpload({ bucket: 'brand-assets', path: 'test' })
+      useImageUpload({ bucket: 'brand-images', path: 'test' })
     )
     const textFile = createMockFile('doc.txt', 100, 'text/plain')
 
@@ -63,7 +63,7 @@ describe('useImageUpload', () => {
     )
 
     const { result } = renderHook(() =>
-      useImageUpload({ bucket: 'brand-assets', path: 'test' })
+      useImageUpload({ bucket: 'brand-images', path: 'test' })
     )
     const file = createMockFile('logo.png', 1024, 'image/png')
 
@@ -81,7 +81,7 @@ describe('useImageUpload', () => {
     )
 
     const { result } = renderHook(() =>
-      useImageUpload({ bucket: 'brand-assets', path: 'test' })
+      useImageUpload({ bucket: 'brand-images', path: 'test' })
     )
     const file = createMockFile('logo.png', 1024, 'image/png')
 

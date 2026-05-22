@@ -4,6 +4,7 @@ import { NotFoundError, ValidationError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
 import { BRAND_SORT_CONFIG } from '@/lib/pagination'
 import { RESERVED_ROUTES } from '@/middleware'
+import { downloadAndStoreImages } from './image-download'
 
 // ---------------------------------------------------------------------------
 // Slug generation
@@ -305,6 +306,48 @@ export async function getBrandById(id: string): Promise<Brand> {
 
   if (error || !data) throw new NotFoundError('Brand', id)
   return brandToDomain(data)
+}
+
+export async function syncBrandImages(brandId: string): Promise<void> {
+  const brand = await getBrandById(brandId)
+
+  const supabaseStorageBase = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '') + '/storage/'
+
+  type ImageRef = { url: string; field: 'hero' | 'logo' | 'photo'; index?: number }
+  const refs: ImageRef[] = []
+
+  if (brand.heroImageUrl && !brand.heroImageUrl.includes(supabaseStorageBase)) {
+    refs.push({ url: brand.heroImageUrl, field: 'hero' })
+  }
+  if (brand.logoUrl && !brand.logoUrl.includes(supabaseStorageBase)) {
+    refs.push({ url: brand.logoUrl, field: 'logo' })
+  }
+  for (let i = 0; i < brand.productPhotos.length; i++) {
+    const url = brand.productPhotos[i]
+    if (url && !url.includes(supabaseStorageBase)) {
+      refs.push({ url, field: 'photo', index: i })
+    }
+  }
+
+  if (refs.length === 0) return
+
+  const externalUrls = refs.map((r) => r.url)
+  const storedUrls = await downloadAndStoreImages(externalUrls, brandId)
+
+  const patch: Partial<{ heroImageUrl: string; logoUrl: string; productPhotos: string[] }> = {}
+  const updatedPhotos = [...brand.productPhotos]
+
+  // Best-effort positional match: consume stored URLs in input order
+  for (let i = 0; i < storedUrls.length; i++) {
+    const stored = storedUrls[i]
+    const ref = refs[i]
+    if (ref.field === 'hero') patch.heroImageUrl = stored
+    else if (ref.field === 'logo') patch.logoUrl = stored
+    else if (ref.field === 'photo' && ref.index !== undefined) updatedPhotos[ref.index] = stored
+  }
+
+  patch.productPhotos = updatedPhotos
+  await updateBrand(brandId, patch)
 }
 
 export async function completeBrandClaim({
