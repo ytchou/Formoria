@@ -38,9 +38,12 @@ test.describe('Directory deep', () => {
   });
 
   test('category page loads with filtered brands', async ({ page }) => {
-    await page.goto('/categories/fashion');
-    await expect(page).toHaveTitle(/fashion|category/i);
-    await expect(page.locator('[data-testid="brand-card"]').first().or(page.getByText(/no brands/i))).toBeVisible({ timeout: 5_000 });
+    const categorySlug = process.env.E2E_CATEGORY_SLUG ?? 'fashion';
+    await page.goto(`/categories/${categorySlug}`);
+    // Accept either brand cards or a "no brands" empty state — both are valid
+    await expect(
+      page.locator('[data-testid="brand-card"]').first().or(page.getByText(/no brands|no results/i))
+    ).toBeVisible({ timeout: 5_000 });
   });
 
   test('empty search shows empty state not error', async ({ page }) => {

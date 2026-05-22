@@ -65,7 +65,7 @@ check_env() {
 check_e2e() {
   if [[ "$*" == *"--e2e"* ]]; then
     echo "Checking e2e env vars..."
-    for var in E2E_ADMIN_EMAIL E2E_ADMIN_PASSWORD E2E_USER_EMAIL E2E_USER_PASSWORD; do
+    for var in E2E_ADMIN_EMAIL E2E_ADMIN_PASSWORD E2E_USER_EMAIL E2E_USER_PASSWORD E2E_BRAND_SLUG E2E_CATEGORY_SLUG; do
       if [ -z "${!var}" ]; then
         echo "  MISSING: $var"
         ERRORS=$((ERRORS + 1))

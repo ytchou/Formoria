@@ -1,15 +1,16 @@
 import { test, expect } from '../fixtures/auth';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 test.describe('Admin smoke', () => {
   let testSubmissionId: string;
+  // createClient is deferred to beforeAll to ensure env vars are loaded by Playwright
+  let supabaseAdmin: ReturnType<typeof createClient>;
 
   test.beforeAll(async () => {
+    supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
     // Create a test submission via Supabase directly for approve/reject test
     const { data } = await supabaseAdmin
       .from('brand_submissions')
@@ -25,7 +26,7 @@ test.describe('Admin smoke', () => {
   });
 
   test.afterAll(async () => {
-    if (testSubmissionId) {
+    if (testSubmissionId && supabaseAdmin) {
       await supabaseAdmin.from('brand_submissions').delete().eq('id', testSubmissionId);
     }
   });

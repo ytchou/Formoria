@@ -9,8 +9,11 @@ test.describe('Brand detail deep', () => {
     await page.goto('/');
     const firstCard = page.locator('[data-testid="brand-card"]').first();
     await firstCard.click();
-    brandSlug = new URL(page.url()).pathname.replace('/', '');
+    brandSlug = new URL(page.url()).pathname.replace(/^\//, '');
     await page.close();
+    if (!brandSlug) {
+      throw new Error('brand-detail: could not resolve a brand slug from homepage. Ensure the DB has at least one approved brand.');
+    }
   });
 
   test('all sections render without error', async ({ page }) => {

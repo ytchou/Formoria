@@ -34,7 +34,8 @@ test.describe('SEO deep', () => {
   });
 
   test('category page has unique title and description', async ({ page }) => {
-    await page.goto('/categories/fashion');
+    const categorySlug = process.env.E2E_CATEGORY_SLUG ?? 'fashion';
+    await page.goto(`/categories/${categorySlug}`);
     const title = await page.title();
     expect(title.length).toBeGreaterThan(0);
     const desc = await page.locator('meta[name="description"]').getAttribute('content');

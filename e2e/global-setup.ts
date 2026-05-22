@@ -31,7 +31,8 @@ async function globalSetup() {
     await page.getByLabel(/email/i).fill(email);
     await page.getByLabel(/password/i).fill(password);
     await page.getByRole('button', { name: /sign in/i }).click();
-    await page.waitForURL('/', { timeout: 15_000 });
+    // Wait for any navigation away from /sign-in (handles redirect to /, /dashboard, etc.)
+    await page.waitForURL((url) => !url.pathname.includes('/sign-in'), { timeout: 15_000 });
     await page.context().storageState({ path: storePath });
     await page.close();
   }

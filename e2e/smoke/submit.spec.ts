@@ -1,4 +1,5 @@
 import { test, expect } from '../fixtures/auth';
+import { createClient } from '@supabase/supabase-js';
 
 const TEST_PREFIX = '[E2E-TEST]' as const;
 
@@ -6,9 +7,11 @@ test.describe('Submit smoke', () => {
   let submittedBrandName: string;
 
   test.afterAll(async () => {
-    // Cleanup: delete any [E2E-TEST] submissions created during this run
-    // via admin API or direct Supabase REST call if needed
-    // This is a best-effort cleanup
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    await supabase.from('brand_submissions').delete().like('brand_name', `${TEST_PREFIX}%`);
   });
 
   test('authenticated user can complete submission wizard', async ({ userPage }) => {
@@ -36,7 +39,8 @@ test.describe('Submit smoke', () => {
       const nextBtn = userPage.getByRole('button', { name: /next|continue|skip/i }).first();
       if (await nextBtn.isVisible()) {
         await nextBtn.click();
-        await userPage.waitForTimeout(300);
+        // Wait for the button to re-enable or the URL to change (next step loaded)
+        await userPage.waitForLoadState('domcontentloaded');
       } else {
         break;
       }

@@ -1,15 +1,15 @@
 import { test, expect } from '../fixtures/auth';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 test.describe('Submit flow deep', () => {
   const createdSubmissions: string[] = [];
 
   test.afterAll(async () => {
+    // createClient is deferred to afterAll to ensure env vars are loaded by Playwright
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
     if (createdSubmissions.length > 0) {
       await supabase.from('brand_submissions').delete().in('id', createdSubmissions);
     }
@@ -37,19 +37,25 @@ test.describe('Submit flow deep', () => {
   test('Tier 1 keyword blocks submission', async ({ userPage }) => {
     await userPage.goto('/submit');
     // Navigate to brand name step and enter a Tier 1 trigger word
-    // Tier 1 blocks should prevent form submission
     const inputs = userPage.locator('input[type="text"], textarea');
     await inputs.first().fill('https://example.com');
     const nextBtns = userPage.getByRole('button', { name: /next|continue/i });
     await nextBtns.first().click({ force: true });
-    // Fill brand name with Tier 1 trigger
+    // Fill brand name with Tier 1 trigger word
     const nameInput = userPage.getByLabel(/brand name|name/i);
     if (await nameInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
       await nameInput.fill('[E2E-TEST] Brand with explicit_blocked_word');
+      // Advance to trigger validation
+      const nextBtn = userPage.getByRole('button', { name: /next|continue/i }).first();
+      if (await nextBtn.isVisible()) await nextBtn.click({ force: true });
     }
-    // The form should either block inline or on submission
-    // Verify the submission doesn't reach the directory
-    // (detailed behavior depends on implementation)
+    // Tier 1 block should show an error/rejection message OR redirect to a rejection page
+    // The user must NOT reach the confirmation page
+    await expect(
+      userPage.locator('[data-testid="field-error"], [role="alert"], .error').first()
+        .or(userPage.getByText(/blocked|not allowed|rejected|flagged/i))
+    ).toBeVisible({ timeout: 5_000 });
+    await expect(userPage).not.toHaveURL(/\/submit\/confirmation|\/submit\/success/i);
   });
 
   test('unauthenticated user is redirected to sign-in', async ({ anonPage }) => {

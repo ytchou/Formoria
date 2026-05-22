@@ -1,15 +1,16 @@
 import { test, expect } from '../fixtures/auth';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 test.describe('Admin dashboard deep', () => {
   let testSubmissionId: string;
+  // createClient is deferred to beforeAll to ensure env vars are loaded by Playwright
+  let supabase: ReturnType<typeof createClient>;
 
   test.beforeAll(async () => {
+    supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
     const { data } = await supabase
       .from('brand_submissions')
       .insert({
