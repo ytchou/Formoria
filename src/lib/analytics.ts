@@ -148,11 +148,13 @@ export function trackSessionStart(
 }
 
 // Stub — share UI doesn't exist yet
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function trackBrandPageShared(_slug: string) {
   // stub
 }
 
 // Stub — no owner share UI exists
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function trackListingSharedByOwner(_slug: string) {
   // stub
 }

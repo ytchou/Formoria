@@ -89,12 +89,13 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
   const [photos, setPhotos] = useState<PhotoItem[]>([])
   const [completed, setCompleted] = useState(false)
 
-  const mountTimeRef = useRef<number>(Date.now())
+  const mountTimeRef = useRef<number>(0)
   const lastStepRef = useRef<SubmissionStepName>(SUBMISSION_STEP_NAMES[0])
 
   const sessionId = useMemo(() => crypto.randomUUID(), [])
 
   useEffect(() => {
+    mountTimeRef.current = Date.now()
     trackSubmissionFormOpened(source)
   }, [source])
 
@@ -187,6 +188,7 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
     setCurrentStep(stepIndex)
   }
 
+  // eslint-disable-next-line react-hooks/refs
   const handleSubmit = methods.handleSubmit((data) => {
     setSubmitError(null)
 
