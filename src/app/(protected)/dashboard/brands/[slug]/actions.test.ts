@@ -169,7 +169,7 @@ describe('expanded field moderation', () => {
       name: 'Test Brand',
       description: 'Original description before edit',
       socialLinks: {},
-    } as any)
+    } as unknown as Awaited<ReturnType<typeof getBrandBySlug>>)
 
     const { checkContent } = await import('@/lib/services/moderation')
     vi.mocked(checkContent).mockReturnValueOnce({
@@ -185,7 +185,7 @@ describe('expanded field moderation', () => {
       from: vi.fn().mockReturnValue({
         insert: mockInsert,
       }),
-    } as any)
+    } as unknown as ReturnType<typeof createServiceClient>)
 
     const { updateBrandAction } = await import('./actions')
 

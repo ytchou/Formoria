@@ -364,28 +364,35 @@ export async function revertFlagAction(
 
   if (brandErr || !brand) return { error: 'not_found' }
 
+  type RawBrandRow = {
+    id: string
+    name: string | null
+    description: string | null
+    social_links: Record<string, string | undefined> | null
+  }
+
   // 4. Map field_name to the current brand value
-  function getCurrentValue(fieldName: string, brand: any): string | null {
+  function getCurrentValue(fieldName: string, b: RawBrandRow): string | null {
     switch (fieldName) {
-      case 'name': return brand.name ?? null
-      case 'description': return brand.description ?? null
-      case 'websiteUrl': return brand.social_links?.officialWebsite ?? null
-      case 'instagram': return brand.social_links?.instagram ?? null
-      case 'threads': return brand.social_links?.threads ?? null
-      case 'facebook': return brand.social_links?.facebook ?? null
+      case 'name': return b.name ?? null
+      case 'description': return b.description ?? null
+      case 'websiteUrl': return b.social_links?.officialWebsite ?? null
+      case 'instagram': return b.social_links?.instagram ?? null
+      case 'threads': return b.social_links?.threads ?? null
+      case 'facebook': return b.social_links?.facebook ?? null
       default: return null
     }
   }
 
-  const currentValue = getCurrentValue(flag.field_name, brand)
+  const currentValue = getCurrentValue(flag.field_name, brand as RawBrandRow)
 
   // 5. Stale check — if the brand field no longer matches the flagged content, revert is no longer safe
   if (currentValue !== flag.flagged_content) return { error: 'stale' }
 
   // 6. Build the update payload for the brand
-  function buildBrandUpdate(fieldName: string, previousContent: string, brand: any): Record<string, unknown> {
+  function buildBrandUpdate(fieldName: string, previousContent: string, b: RawBrandRow): Record<string, unknown> {
     if (['websiteUrl', 'instagram', 'threads', 'facebook'].includes(fieldName)) {
-      const socialLinks = { ...(brand.social_links ?? {}) }
+      const socialLinks = { ...(b.social_links ?? {}) }
       const socialKey: Record<string, string> = {
         websiteUrl: 'officialWebsite',
         instagram: 'instagram',
@@ -398,7 +405,7 @@ export async function revertFlagAction(
     return { [fieldName]: previousContent }
   }
 
-  const brandUpdate = buildBrandUpdate(flag.field_name, flag.previous_content, brand)
+  const brandUpdate = buildBrandUpdate(flag.field_name, flag.previous_content, brand as RawBrandRow)
 
   const { error: updateBrandErr } = await supabase
     .from('brands')

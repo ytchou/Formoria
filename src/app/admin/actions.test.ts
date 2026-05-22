@@ -126,7 +126,7 @@ describe('revertFlagAction', () => {
           eq: vi.fn().mockResolvedValue({ error: null }),
         }),
       }),
-    } as any)
+    } as unknown as ReturnType<typeof createServiceClient>)
 
     const { revertFlagAction } = await import('./actions')
     const result = await revertFlagAction('flag-1')
