@@ -19,6 +19,7 @@ async function globalSetup() {
   const authDir = path.join(__dirname, '.auth');
   if (!fs.existsSync(authDir)) fs.mkdirSync(authDir, { recursive: true });
 
+  const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000';
   const browser = await chromium.launch();
 
   for (const role of ['admin', 'user'] as const) {
@@ -27,7 +28,7 @@ async function globalSetup() {
     const storePath = path.join(authDir, `${role}.json`);
 
     const page = await browser.newPage();
-    await page.goto('/sign-in');
+    await page.goto(`${baseURL}/sign-in`);
     await page.getByLabel(/email/i).fill(email);
     await page.getByLabel(/password/i).fill(password);
     await page.getByRole('button', { name: /sign in/i }).click();
