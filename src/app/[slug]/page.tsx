@@ -38,16 +38,22 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   try {
     const brand = await getBrandBySlug(slug)
     return {
-      title: `${brand.name} — MIT Map`,
+      title: brand.name,
       description: brand.description ?? `Discover ${brand.name}, a Made in Taiwan brand.`,
+      alternates: { canonical: `/${brand.slug}` },
       openGraph: {
         title: brand.name,
         description: brand.description ?? undefined,
         images: brand.heroImageUrl ? [{ url: brand.heroImageUrl }] : undefined,
       },
+      twitter: {
+        title: brand.name,
+        description: brand.description ?? undefined,
+        images: brand.heroImageUrl ? [brand.heroImageUrl] : undefined,
+      },
     }
   } catch {
-    return { title: 'Brand Not Found — MIT Map' }
+    return { title: 'Brand Not Found' }
   }
 }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildBrandJsonLd, buildBreadcrumbJsonLd, buildCategoryItemListJsonLd } from './json-ld'
+import { buildBrandJsonLd, buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildWebSiteJsonLd } from './json-ld'
 import type { Brand } from '@/lib/types'
 
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
@@ -132,5 +132,30 @@ describe('buildBreadcrumbJsonLd', () => {
     const jsonLd = buildBreadcrumbJsonLd(items)
     expect(jsonLd.itemListElement[0].item).toBeDefined()
     expect(jsonLd.itemListElement[1].item).toBeUndefined()
+  })
+})
+
+describe('buildWebSiteJsonLd', () => {
+  it('returns WebSite schema with correct structure', () => {
+    const jsonLd = buildWebSiteJsonLd()
+    expect(jsonLd['@context']).toBe('https://schema.org')
+    expect(jsonLd['@type']).toBe('WebSite')
+    expect(jsonLd.name).toBe('MIT Map')
+    expect(jsonLd.url).toBeDefined()
+  })
+
+  it('includes SearchAction with search URL template', () => {
+    const jsonLd = buildWebSiteJsonLd()
+    expect(jsonLd.potentialAction['@type']).toBe('SearchAction')
+    expect(jsonLd.potentialAction.target.urlTemplate).toContain('search=')
+    expect(jsonLd.potentialAction['query-input']).toContain(
+      'search_term_string'
+    )
+  })
+
+  it('includes Chinese alternate name', () => {
+    const jsonLd = buildWebSiteJsonLd()
+    expect(jsonLd.alternateName).toBeDefined()
+    expect(typeof jsonLd.alternateName).toBe('string')
   })
 })

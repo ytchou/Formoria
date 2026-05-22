@@ -32,19 +32,26 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   try {
     const tags = await getTags('product_type')
     const tag = tags.find((t) => t.slug === slug)
-    if (!tag) return { title: 'Category Not Found — MIT Map' }
+    if (!tag) return { title: 'Category Not Found' }
 
     const displayName = tag.nameZh ?? tag.name
+    const title = `${displayName} 台灣品牌`
+    const description = `探索台灣製造的${displayName}品牌。Discover Made in Taiwan ${tag.name} brands.`
     return {
-      title: `${displayName} 台灣品牌 | MIT Map`,
-      description: `探索台灣製造的${displayName}品牌。Discover Made in Taiwan ${tag.name} brands.`,
+      title,
+      description,
+      alternates: { canonical: `/categories/${slug}` },
       openGraph: {
-        title: `${displayName} 台灣品牌 | MIT Map`,
-        description: `探索台灣製造的${displayName}品牌。Discover Made in Taiwan ${tag.name} brands.`,
+        title,
+        description,
+      },
+      twitter: {
+        title,
+        description,
       },
     }
   } catch {
-    return { title: 'Category Not Found — MIT Map' }
+    return { title: 'Category Not Found' }
   }
 }
 

@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { getBrands } from '@/lib/services/brands'
+import { buildWebSiteJsonLd } from '@/lib/json-ld'
 import { getActiveCategories } from '@/lib/services/taxonomy'
 import { parsePageParam, parseSortParam, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import { SearchInput } from '@/components/brands/search-input'
@@ -11,9 +12,10 @@ import { Pagination } from '@/components/brands/pagination'
 import { SortSelect } from '@/components/brands/sort-select'
 
 export const metadata: Metadata = {
-  title: 'MIT Map — Made in Taiwan Brand Directory',
+  title: { absolute: 'MIT Map — Made in Taiwan Brand Directory' },
   description:
     'Discover thoughtfully curated Taiwanese brands. Browse by category, search, and explore the best of Made in Taiwan.',
+  alternates: { canonical: '/' },
 }
 
 // ISR: revalidate every hour
@@ -81,6 +83,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   return (
     <main className="mx-auto w-full max-w-screen-xl px-6 py-10 md:px-10">
+      {/* JSON-LD structured data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildWebSiteJsonLd()) }}
+      />
+
       {/* Centered search */}
       <div className="mx-auto mb-8 max-w-[600px]">
         <Suspense fallback={null}>
