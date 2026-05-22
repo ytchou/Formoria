@@ -60,6 +60,6 @@ test.describe('Submit flow deep', () => {
 
   test('unauthenticated user is redirected to sign-in', async ({ anonPage }) => {
     await anonPage.goto('/submit');
-    await expect(anonPage).toHaveURL(/\/sign-in|\/login/i, { timeout: 10_000 });
+    await expect(anonPage).toHaveURL(/\/auth\/sign-in|\/login/i, { timeout: 10_000 });
   });
 });
