@@ -26,7 +26,8 @@ export function useImageUpload(config: UseImageUploadConfig): UseImageUploadRetu
   const [error, setError] = useState<string | null>(null)
 
   const upload = useCallback(
-    async (file: File, _: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async (file: File, _filename: string) => {
       // Client-side pre-filter: validate file type and size before hitting server
       if (!ACCEPTED_TYPES.includes(file.type)) {
         setStatus('error')

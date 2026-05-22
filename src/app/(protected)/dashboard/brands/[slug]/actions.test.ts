@@ -127,3 +127,86 @@ describe('updateBrandAction', () => {
     expect(result?.error).toContain('permission')
   })
 })
+
+describe('expanded field moderation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('checks websiteUrl for moderation', async () => {
+    const { checkContent } = await import('@/lib/services/moderation')
+    vi.mocked(checkContent).mockReturnValueOnce({
+      blocked: [],
+      flagged: [{ field: 'websiteUrl', content: 'https://brand.tk', reason: 'suspicious TLD', tier: 'flag' as const }],
+      isBlocked: false,
+    })
+
+    const { updateBrandAction } = await import('./actions')
+
+    const formData = new FormData()
+    formData.set('brandSlug', 'test-brand')
+    formData.set('websiteUrl', 'https://brand.tk')
+
+    try {
+      await updateBrandAction(undefined, formData)
+    } catch {
+      // redirect throws
+    }
+
+    expect(checkContent).toHaveBeenCalledWith(
+      expect.objectContaining({ websiteUrl: 'https://brand.tk' })
+    )
+    // Assert: update proceeded (not blocked)
+    const { updateBrand } = await import('@/lib/services/brands')
+    expect(updateBrand).toHaveBeenCalled()
+  })
+
+  it('includes previous_content when inserting flags', async () => {
+    const { getBrandBySlug } = await import('@/lib/services/brands')
+    vi.mocked(getBrandBySlug).mockResolvedValueOnce({
+      id: 'brand-123',
+      slug: 'test-brand',
+      name: 'Test Brand',
+      description: 'Original description before edit',
+      socialLinks: {},
+    } as unknown as Awaited<ReturnType<typeof getBrandBySlug>>)
+
+    const { checkContent } = await import('@/lib/services/moderation')
+    vi.mocked(checkContent).mockReturnValueOnce({
+      blocked: [],
+      flagged: [{ field: 'description', content: 'SPAMMY CONTENT', reason: 'test', tier: 'flag' as const }],
+      isBlocked: false,
+    })
+
+    // Capture the insert call
+    const mockInsert = vi.fn().mockResolvedValue({ error: null })
+    const { createServiceClient } = await import('@/lib/supabase/server')
+    vi.mocked(createServiceClient).mockReturnValueOnce({
+      from: vi.fn().mockReturnValue({
+        insert: mockInsert,
+      }),
+    } as unknown as ReturnType<typeof createServiceClient>)
+
+    const { updateBrandAction } = await import('./actions')
+
+    const formData = new FormData()
+    formData.set('brandSlug', 'test-brand')
+    formData.set('description', 'SPAMMY CONTENT')
+
+    try {
+      await updateBrandAction(undefined, formData)
+    } catch {
+      // redirect throws
+    }
+
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field_name: 'description',
+          flagged_content: 'SPAMMY CONTENT',
+          previous_content: 'Original description before edit',
+        }),
+      ])
+    )
+  })
+})

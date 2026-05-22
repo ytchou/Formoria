@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { getPendingFlags } from "@/lib/services/moderation";
-import { reviewFlagAction } from "../actions";
-import { Button } from "@/components/ui/button";
+import { FlaggedTable } from "@/components/admin/flagged-table";
 
 export const metadata: Metadata = {
   title: "Flagged Content | Admin | MIT Map",
@@ -38,60 +37,8 @@ export default async function FlaggedContentPage() {
           No pending flags. All clear!
         </p>
       ) : (
-        <div className="mt-8 overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b text-xs font-medium uppercase text-muted-foreground">
-                <th className="pb-3 pr-4">Brand</th>
-                <th className="pb-3 pr-4">Field</th>
-                <th className="pb-3 pr-4">Content</th>
-                <th className="pb-3 pr-4">Reason</th>
-                <th className="pb-3 pr-4">Date</th>
-                <th className="pb-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {flags.map((flag) => (
-                <tr key={flag.id} className="border-b">
-                  <td className="py-3 pr-4 font-medium">
-                    {flag.brandName ?? "Unknown"}
-                  </td>
-                  <td className="py-3 pr-4">{flag.fieldName}</td>
-                  <td className="max-w-xs truncate py-3 pr-4 text-muted-foreground">
-                    {flag.flaggedContent}
-                  </td>
-                  <td className="py-3 pr-4">{flag.flagReason}</td>
-                  <td className="py-3 pr-4 text-muted-foreground">
-                    {new Date(flag.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="py-3">
-                    <div className="flex gap-2">
-                      <form
-                        action={async () => {
-                          "use server";
-                          await reviewFlagAction(flag.id, "reviewed");
-                        }}
-                      >
-                        <Button size="sm" variant="outline">
-                          Review
-                        </Button>
-                      </form>
-                      <form
-                        action={async () => {
-                          "use server";
-                          await reviewFlagAction(flag.id, "dismissed");
-                        }}
-                      >
-                        <Button size="sm" variant="ghost">
-                          Dismiss
-                        </Button>
-                      </form>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="mt-8">
+          <FlaggedTable flags={flags} />
         </div>
       )}
     </div>

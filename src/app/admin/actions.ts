@@ -1,16 +1,16 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isAdmin } from '@/lib/auth/admin'
 import { getSubmission, approveSubmission, rejectSubmission } from '@/lib/services/submissions'
-import { createBrand, updateBrand, deleteBrand, generateSlug, syncBrandImages } from '@/lib/services/brands'
+import { createBrand, updateBrand, getBrandById, deleteBrand, generateSlug, syncBrandImages } from '@/lib/services/brands'
 import { createTag, updateTag, mergeTag, deactivateTag } from '@/lib/services/taxonomy'
 import { createResendProvider } from '@/lib/email/resend-adapter'
 import { buildApprovalEmail, buildRejectionEmail, buildClaimEmail } from '@/lib/email/templates'
 import { generateClaimToken } from '@/lib/auth/claim-token'
 import { updateFlagStatus } from '@/lib/services/moderation'
-import type { TagCategory } from '@/lib/types'
+import type { TagCategory, Brand } from '@/lib/types'
 
 async function requireAdmin(): Promise<{ userId: string; email: string } | { error: string }> {
   const supabase = await createClient()
@@ -333,4 +333,101 @@ export async function deactivateTagAction(
       error: err instanceof Error ? err.message : 'An unexpected error occurred',
     }
   }
+}
+
+export async function revertFlagAction(
+  flagId: string
+): Promise<{ success: true } | { error: 'stale' | 'not_found' }> {
+  const auth = await requireAdmin()
+  if ('error' in auth) throw new Error(auth.error)
+
+  const supabase = createServiceClient()
+
+  // 1. Fetch the flag
+  const { data: flag, error: flagErr } = await supabase
+    .from('moderation_flags')
+    .select('id, brand_id, field_name, flagged_content, previous_content')
+    .eq('id', flagId)
+    .single()
+
+  if (flagErr || !flag) return { error: 'not_found' }
+
+  // 2. If no previous content to revert to, it's stale
+  if (!flag.previous_content) return { error: 'stale' }
+
+  // 3. Fetch the current brand via service layer (properly typed, snake_case → camelCase decoded)
+  let brand: Brand
+  try {
+    brand = await getBrandById(flag.brand_id)
+  } catch {
+    return { error: 'not_found' }
+  }
+
+  // 4. Map field_name to the current brand value using camelCase domain types
+  function getCurrentValue(fieldName: string): string | null {
+    switch (fieldName) {
+      case 'name': return brand.name ?? null
+      case 'description': return brand.description ?? null
+      case 'websiteUrl': return brand.socialLinks.officialWebsite ?? null
+      case 'instagram': return brand.socialLinks.instagram ?? null
+      case 'threads': return brand.socialLinks.threads ?? null
+      case 'facebook': return brand.socialLinks.facebook ?? null
+      default: return null
+    }
+  }
+
+  const currentValue = getCurrentValue(flag.field_name)
+
+  // 5. Stale check — if the brand field no longer matches the flagged content, revert is no longer safe
+  if (currentValue !== flag.flagged_content) return { error: 'stale' }
+
+  // 6. Build the update payload using domain types — updateBrand handles snake_case mapping
+  function buildBrandUpdate(fieldName: string, previousContent: string): Parameters<typeof updateBrand>[1] {
+    if (['websiteUrl', 'instagram', 'threads', 'facebook'].includes(fieldName)) {
+      return {
+        socialLinks: {
+          ...brand.socialLinks,
+          [fieldName === 'websiteUrl' ? 'officialWebsite' : fieldName]: previousContent,
+        },
+      }
+    }
+    return { [fieldName]: previousContent } as Parameters<typeof updateBrand>[1]
+  }
+
+  await updateBrand(brand.id, buildBrandUpdate(flag.field_name, flag.previous_content))
+
+  // 7. Mark flag as reviewed
+  await updateFlagStatus(flagId, 'reviewed')
+
+  revalidatePath('/admin/flagged')
+  revalidatePath(`/brands/${brand.slug}`)
+
+  return { success: true }
+}
+
+export async function bulkUpdateFlagsAction(
+  flagIds: string[],
+  decision: 'reviewed' | 'dismissed'
+): Promise<{ updated: number; errors: { id: string; message: string }[] }> {
+  const auth = await requireAdmin()
+  if ('error' in auth) throw new Error(auth.error)
+
+  let updated = 0
+  const errors: { id: string; message: string }[] = []
+
+  for (const id of flagIds) {
+    try {
+      await updateFlagStatus(id, decision)
+      updated++
+    } catch (err) {
+      errors.push({
+        id,
+        message: err instanceof Error ? err.message : 'Unknown error',
+      })
+    }
+  }
+
+  revalidatePath('/admin/flagged')
+
+  return { updated, errors }
 }

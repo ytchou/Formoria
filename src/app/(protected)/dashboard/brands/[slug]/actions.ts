@@ -46,10 +46,14 @@ export async function updateBrandAction(
     const threads = formData.get('threads') as string | null
     const facebook = formData.get('facebook') as string | null
 
-    // Build fields to check for moderation
+    // Build fields to check for moderation (name, description, URL, social)
     const fieldsToCheck: Record<string, string> = {}
     if (name) fieldsToCheck.name = name
     if (description) fieldsToCheck.description = description
+    if (websiteUrl) fieldsToCheck.websiteUrl = websiteUrl
+    if (instagram) fieldsToCheck.instagram = instagram
+    if (threads) fieldsToCheck.threads = threads
+    if (facebook) fieldsToCheck.facebook = facebook
 
     // Run moderation
     const moderation = checkContent(fieldsToCheck)
@@ -81,6 +85,18 @@ export async function updateBrandAction(
     // Record flags for Tier 2 content
     if (moderation.flagged.length > 0) {
       const serviceClient = createServiceClient()
+      // Resolve the previous field value from the brand fetched before the edit
+      function getPreviousContent(fieldName: string): string | null {
+        switch (fieldName) {
+          case 'name': return brand.name ?? null
+          case 'description': return brand.description ?? null
+          case 'websiteUrl': return brand.socialLinks.officialWebsite ?? null
+          case 'instagram': return brand.socialLinks.instagram ?? null
+          case 'threads': return brand.socialLinks.threads ?? null
+          case 'facebook': return brand.socialLinks.facebook ?? null
+          default: return null
+        }
+      }
       const flagRecords = moderation.flagged.map((flag) => ({
         brand_id: brand.id,
         user_id: user.id,
@@ -89,6 +105,7 @@ export async function updateBrandAction(
         flag_reason: flag.reason,
         tier: flag.tier,
         status: 'pending' as const,
+        previous_content: getPreviousContent(flag.field),
       }))
 
       await serviceClient.from('moderation_flags').insert(flagRecords)
