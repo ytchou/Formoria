@@ -40,19 +40,51 @@ function extractSocialLinks($: cheerio.CheerioAPI) {
   return { instagram, threads, facebook }
 }
 
+const NON_PRODUCT_IMAGE_PATH_RE =
+  /\/(logo|avatar|profile|banner|icon|favicon|placeholder|default|sprite|pixel)/i
+
+function resolveUrl(rawUrl: string, pageUrl: string): string | null {
+  if (!rawUrl || rawUrl.startsWith('data:')) return null
+  try {
+    return new URL(rawUrl, pageUrl).href
+  } catch {
+    return null
+  }
+}
+
 function extractGalleryImages(
-  $: cheerio.CheerioAPI
+  $: cheerio.CheerioAPI,
+  pageUrl: string
 ): string[] {
   const urls: string[] = []
 
   $('img').each((_, el) => {
-    const src = $(el).attr('src') ?? ''
+    if (urls.length >= MAX_GALLERY_IMAGES) return
 
-    // Skip data URIs
-    if (src.startsWith('data:')) return
+    // Resolve candidate URL: prefer data-src / data-original (lazy-load), then src
+    const rawSrc =
+      $(el).attr('data-src') ||
+      $(el).attr('data-original') ||
+      $(el).attr('src') ||
+      ''
 
-    // Skip favicon/icon paths
-    if (/\/(favicon|icon)/i.test(src)) return
+    // Also check srcset — take the first URL from the list
+    const srcset = $(el).attr('srcset') ?? ''
+    const srcsetFirst = srcset.split(',')[0]?.trim().split(/\s+/)[0] ?? ''
+
+    const raw = rawSrc || srcsetFirst
+    if (!raw || raw.startsWith('data:')) return
+
+    const resolved = resolveUrl(raw, pageUrl)
+    if (!resolved) return
+
+    // Block non-product images: logos, icons, banners, etc.
+    try {
+      const pathname = new URL(resolved).pathname
+      if (NON_PRODUCT_IMAGE_PATH_RE.test(pathname)) return
+    } catch {
+      return
+    }
 
     // Skip small images when dimensions are available
     const width = parseInt($(el).attr('width') ?? '0', 10)
@@ -61,9 +93,7 @@ function extractGalleryImages(
       return
     }
 
-    if (src && urls.length < MAX_GALLERY_IMAGES) {
-      urls.push(src)
-    }
+    urls.push(resolved)
   })
 
   return urls
@@ -175,13 +205,24 @@ export async function scrapeBrandUrl(url: string): Promise<ScrapedBrandData> {
       $('meta[name="description"]').attr('content') ||
       null
 
-    const heroImageUrl =
-      $('meta[property="og:image"]').attr('content') || null
+    const rawHeroImage =
+      $('meta[property="og:image"]').attr('content') ||
+      $('meta[name="twitter:image"]').attr('content') ||
+      null
 
-    const galleryImageUrls = extractGalleryImages($)
+    const galleryImageUrls = extractGalleryImages($, url)
     const socialLinks = extractSocialLinks($)
     const categoryHints = extractCategoryHints($)
     const rawJsonLd = extractJsonLd($)
+
+    // Resolve hero image: og:image / twitter:image → JSON-LD image → first gallery image
+    const jsonLdImage =
+      rawJsonLd && typeof rawJsonLd.image === 'string' ? rawJsonLd.image : null
+    const heroCandidate =
+      rawHeroImage ||
+      jsonLdImage ||
+      (galleryImageUrls.length > 0 ? galleryImageUrls[0] : null)
+    const heroImageUrl = heroCandidate ? (resolveUrl(heroCandidate, url) ?? null) : null
 
     return {
       brandName,

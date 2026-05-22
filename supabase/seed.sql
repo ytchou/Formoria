@@ -6,25 +6,57 @@
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
--- Part 1: Taxonomy tags (product_type category)
+-- Part 1: Taxonomy tags (product_type + value categories)
 -- -----------------------------------------------------------------------------
-INSERT INTO taxonomy_tags (id, name, name_zh, slug, category, is_active, created_at)
+
+-- 23 product_type tags
+INSERT INTO taxonomy_tags (name, name_zh, slug, category, is_active)
 VALUES
-  (gen_random_uuid(), 'Food',             '食品',   'food',             'product_type', true, now()),
-  (gen_random_uuid(), 'Beverages',        '飲品',   'beverages',        'product_type', true, now()),
-  (gen_random_uuid(), 'Clothing',         '服飾',   'clothing',         'product_type', true, now()),
-  (gen_random_uuid(), 'Accessories',      '配件',   'accessories',      'product_type', true, now()),
-  (gen_random_uuid(), 'Beauty',           '美妝',   'beauty',           'product_type', true, now()),
-  (gen_random_uuid(), 'Home',             '家居',   'home',             'product_type', true, now()),
-  (gen_random_uuid(), 'Furniture',        '家具',   'furniture',        'product_type', true, now()),
-  (gen_random_uuid(), 'Stationery',       '文具',   'stationery',       'product_type', true, now()),
-  (gen_random_uuid(), 'Tech Accessories', '3C周邊', 'tech-accessories', 'product_type', true, now()),
-  (gen_random_uuid(), 'Pets',             '寵物',   'pets',             'product_type', true, now()),
-  (gen_random_uuid(), 'Outdoor',          '戶外',   'outdoor',          'product_type', true, now()),
-  (gen_random_uuid(), 'Crafts',           '手工藝', 'crafts',           'product_type', true, now()),
-  (gen_random_uuid(), 'Baby & Kids',      '母嬰',   'baby-kids',        'product_type', true, now()),
-  (gen_random_uuid(), 'Cleaning',         '清潔',   'cleaning',         'product_type', true, now())
-ON CONFLICT (slug) DO NOTHING;
+  ('Clothing',            '服飾',     'clothing',        'product_type', true),
+  ('Footwear',            '鞋履',     'footwear',        'product_type', true),
+  ('Bags & Leather',      '包袋皮件', 'bags',            'product_type', true),
+  ('Jewelry',             '飾品',     'jewelry',         'product_type', true),
+  ('Accessories',         '配件',     'accessories',     'product_type', true),
+  ('Food & Snacks',       '食品',     'food',            'product_type', true),
+  ('Beverages',           '飲品',     'beverages',       'product_type', true),
+  ('Agriculture',         '農產',     'agriculture',     'product_type', true),
+  ('Beauty & Skincare',   '美妝保養', 'beauty',          'product_type', true),
+  ('Bath & Body Care',    '洗沐清潔', 'bath-body',       'product_type', true),
+  ('Home & Living',       '居家生活', 'home',            'product_type', true),
+  ('Kitchen & Cookware',  '廚房',     'kitchen',         'product_type', true),
+  ('Furniture',           '家具',     'furniture',       'product_type', true),
+  ('Stationery & Design', '文具設計', 'stationery',      'product_type', true),
+  ('Art & Creative',      '藝術創作', 'art',             'product_type', true),
+  ('Outdoor & Sports',    '戶外運動', 'outdoor',         'product_type', true),
+  ('Tech & Electronics',  '3C科技',   'tech',            'product_type', true),
+  ('Pets',                '寵物',     'pets',            'product_type', true),
+  ('Baby & Kids',         '母嬰',     'baby-kids',       'product_type', true),
+  ('Crafts & Handmade',   '手作工藝', 'crafts',          'product_type', true),
+  ('Fragrance',           '香氛',     'fragrance',       'product_type', true),
+  ('Gardening',           '園藝植栽', 'gardening',       'product_type', true),
+  ('Experiences',         '體驗觀光', 'experiences',     'product_type', true)
+ON CONFLICT (slug) DO UPDATE
+  SET name    = EXCLUDED.name,
+      name_zh = EXCLUDED.name_zh,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active;
+
+-- 8 value tags
+INSERT INTO taxonomy_tags (name, name_zh, slug, category, is_active)
+VALUES
+  ('Sustainability',       '永續',     'sustainability',       'value', true),
+  ('Local Revitalization', '地方創生', 'local-revitalization', 'value', true),
+  ('Social Enterprise',    '社會企業', 'social-enterprise',    'value', true),
+  ('Local Culture',        '在地文化', 'local-culture',        'value', true),
+  ('Fair Trade',           '公平貿易', 'fair-trade',           'value', true),
+  ('Handmade',             '手作',     'handmade',             'value', true),
+  ('Organic',              '有機',     'organic',              'value', true),
+  ('Eco-Friendly',         '環保',     'eco-friendly',         'value', true)
+ON CONFLICT (slug) DO UPDATE
+  SET name    = EXCLUDED.name,
+      name_zh = EXCLUDED.name_zh,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active;
 
 -- -----------------------------------------------------------------------------
 -- Part 2: Sample Taiwan brands (~10 real brands)

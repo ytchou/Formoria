@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
-const CATEGORIES: TagCategory[] = ['product_type', 'material', 'price_range', 'region']
+const CATEGORIES: TagCategory[] = ['product_type', 'material', 'price_range', 'region', 'value']
 
 function categoryLabel(category: string): string {
   return category.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
