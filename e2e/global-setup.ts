@@ -29,9 +29,11 @@ async function globalSetup() {
 
     const page = await browser.newPage();
     await page.goto(`${baseURL}/sign-in`);
-    await page.getByLabel(/email/i).fill(email);
-    await page.getByLabel(/password/i).fill(password);
-    await page.getByRole('button', { name: /sign in/i }).click();
+    // Wait for client-side hydration — useSearchParams() delays SSR form rendering
+    await page.waitForSelector('input[name="email"]', { state: 'visible', timeout: 30_000 });
+    await page.locator('input[name="email"]').fill(email);
+    await page.locator('input[name="password"]').fill(password);
+    await page.locator('button[type="submit"]').click();
     // Wait for any navigation away from /sign-in (handles redirect to /, /dashboard, etc.)
     await page.waitForURL((url) => !url.pathname.includes('/sign-in'), { timeout: 15_000 });
     await page.context().storageState({ path: storePath });
