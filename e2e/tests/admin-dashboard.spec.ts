@@ -1,10 +1,13 @@
 import { test, expect } from '../fixtures/auth';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabaseClient = SupabaseClient<any, any, any>;
 
 test.describe('Admin dashboard deep', () => {
   let testSubmissionId: string;
   // createClient is deferred to beforeAll to ensure env vars are loaded by Playwright
-  let supabase: ReturnType<typeof createClient>;
+  let supabase: AnySupabaseClient;
 
   test.beforeAll(async () => {
     supabase = createClient(

@@ -1,8 +1,14 @@
 /* eslint-disable react-hooks/rules-of-hooks */
-import { test as base } from '@playwright/test';
+import { test as base, type Page } from '@playwright/test';
 import path from 'path';
 
-export const test = base.extend({
+type AuthFixtures = {
+  adminPage: Page;
+  userPage: Page;
+  anonPage: Page;
+};
+
+export const test = base.extend<AuthFixtures>({
   adminPage: async ({ browser }, use) => {
     const context = await browser.newContext({
       storageState: path.join(__dirname, '../.auth/admin.json'),
