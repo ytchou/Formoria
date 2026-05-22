@@ -1,5 +1,6 @@
 'use client'
 
+import { useCallback } from 'react'
 import { useFormContext, Controller } from 'react-hook-form'
 import { Pencil } from 'lucide-react'
 import type { SubmissionFormData } from '@/lib/validations/submission'
@@ -58,6 +59,11 @@ export function ReviewStep({ onEditStep }: ReviewStepProps) {
   const formData = watch()
 
   const photoCount = formData.productPhotos?.length ?? 0
+
+  const handleTurnstileSuccess = useCallback(
+    (token: string) => setValue('turnstileToken', token),
+    [setValue]
+  )
 
   return (
     <div className="space-y-6">
@@ -207,7 +213,7 @@ export function ReviewStep({ onEditStep }: ReviewStepProps) {
 
       {/* Bot detection */}
       <TurnstileWidget
-        onSuccess={(token) => setValue('turnstileToken', token)}
+        onSuccess={handleTurnstileSuccess}
       />
 
       {/* Honeypot — hidden from real users, traps bots */}
