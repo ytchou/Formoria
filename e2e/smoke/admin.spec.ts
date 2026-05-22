@@ -38,7 +38,7 @@ test.describe('Admin smoke', () => {
     await adminPage.goto('/admin');
     await expect(adminPage.getByRole('heading', { name: /admin|dashboard/i })).toBeVisible({ timeout: 10_000 });
     // Stats should be visible
-    await expect(adminPage.locator('[data-testid="stat-card"], .stat, [class*="stat"]').first()).toBeVisible();
+    await expect(adminPage.locator('.font-heading.text-4xl').first()).toBeVisible();
   });
 
   test('submissions review queue shows pending items', async ({ adminPage }) => {

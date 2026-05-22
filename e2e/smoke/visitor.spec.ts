@@ -5,17 +5,17 @@ test.describe('Visitor smoke', () => {
     await page.goto('/');
     await expect(page).toHaveTitle(/mit map|made in taiwan/i);
     // Brand cards should render
-    await expect(page.locator('[data-testid="brand-card"]').first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('a[aria-label]').first()).toBeVisible({ timeout: 10_000 });
   });
 
   test('category filter narrows results', async ({ page }) => {
     await page.goto('/');
     // Click first available filter pill
-    const firstFilter = page.locator('[data-testid="filter-pill"]').first();
+    const firstFilter = page.locator('button[data-active]').first();
     await firstFilter.click();
     // URL should update with filter param
     await expect(page).toHaveURL(/category=|filter=/);
-    await expect(page.locator('[data-testid="brand-card"]').first()).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('a[aria-label]').first()).toBeVisible({ timeout: 5_000 });
   });
 
   test('search returns results', async ({ page }) => {
@@ -24,13 +24,13 @@ test.describe('Visitor smoke', () => {
     await searchInput.fill('a');
     // Autocomplete dropdown or results should appear
     await expect(
-      page.locator('[data-testid="autocomplete-item"], [data-testid="search-result"]').first()
+      page.locator('[role="option"]').first()
     ).toBeVisible({ timeout: 5_000 });
   });
 
   test('brand detail page renders', async ({ page }) => {
     await page.goto('/');
-    const firstBrand = page.locator('[data-testid="brand-card"]').first();
+    const firstBrand = page.locator('a[aria-label]').first();
     await firstBrand.click();
     // Should navigate to brand detail
     await expect(page).toHaveURL(/\/[^/]+$/);

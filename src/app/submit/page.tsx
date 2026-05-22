@@ -17,7 +17,7 @@ export default async function SubmitPage() {
   } = await supabase.auth.getUser()
 
   if (error || !user) {
-    redirect('/login')
+    redirect('/auth/sign-in')
   }
 
   // Fetch taxonomy categories for the form
