@@ -2,7 +2,7 @@ name: E2E Nightly (Deep)
 
 on:
   schedule:
-    - cron: '0 3 * * *' # 03:00 UTC daily
+    - cron: '0 22 * * *' # 06:00 TST (UTC+8) daily
   workflow_dispatch: # allow manual trigger
 
 jobs:
