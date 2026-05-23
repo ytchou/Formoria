@@ -16,8 +16,7 @@ test.describe('Mobile responsive', () => {
 
   test('homepage renders brand cards in single column', async ({ page }) => {
     await page.goto('/');
-    // BrandGrid uses role="listitem" for each brand card wrapper
-    const firstCard = page.locator('[role="listitem"]').first();
+    const firstCard = page.locator('.masonry-grid a[aria-label]').first();
     await expect(firstCard).toBeVisible({ timeout: 10_000 });
     const box = await firstCard.boundingBox();
     // Card should be close to full viewport width on mobile

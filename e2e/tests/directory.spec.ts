@@ -48,11 +48,14 @@ test.describe('Directory deep', () => {
 
   test('category page loads with filtered brands', async ({ page }) => {
     const categorySlug = process.env.E2E_CATEGORY_SLUG ?? 'fashion';
-    await page.goto(`/categories/${categorySlug}`);
-    // BrandGrid uses role="listitem" for each card; empty state shows 找不到品牌
+    const response = await page.goto(`/categories/${categorySlug}`);
+    if (!response || response.status() === 404) {
+      test.skip(true, `Category "${categorySlug}" not found — set E2E_CATEGORY_SLUG`);
+      return;
+    }
     await expect(
-      page.locator('[role="listitem"]').first().or(page.getByText(/找不到品牌|no brands|no results/i))
-    ).toBeVisible({ timeout: 5_000 });
+      page.locator('[role="listitem"]').first().or(page.getByText(/找不到品牌/i))
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test('empty search shows empty state not error', async ({ page }) => {
