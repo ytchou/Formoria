@@ -21,7 +21,7 @@ test.describe('Admin smoke', () => {
         brand_name: '[E2E-TEST] Admin Smoke Brand',
         website_url: 'https://e2e-test.example.com',
         status: 'pending',
-        submitted_by_email: process.env.E2E_USER_EMAIL,
+        submitter_email: process.env.E2E_USER_EMAIL,
       })
       .select('id')
       .single();
