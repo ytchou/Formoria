@@ -53,15 +53,12 @@ test.describe('Admin smoke', () => {
   test('admin can approve a submission', async ({ adminPage }) => {
     if (!testSubmissionId) test.skip();
     await adminPage.goto('/admin/submissions');
-    const row = adminPage.locator('tr, [role="row"]').filter({ hasText: testBrandName });
-    const approveBtn = row.getByRole('button', { name: /approve|核准/i });
+    // Click the row to expand the detail section (approve button is inside it)
+    await adminPage.getByText(testBrandName).click();
+    const approveBtn = adminPage.getByRole('button', { name: /^approve$|^核准$/i });
+    await expect(approveBtn).toBeVisible({ timeout: 5_000 });
     await approveBtn.click();
-    // Confirm dialog or toast (bilingual)
-    const confirmBtn = adminPage.getByRole('button', { name: /confirm|yes|approve|確認|是|核准/i }).last();
-    if (await confirmBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await confirmBtn.click();
-    }
-    // Success feedback (bilingual)
-    await expect(adminPage.getByText(/approved|success|已核准|成功/i)).toBeVisible({ timeout: 10_000 });
+    // After approval the server action revalidates and the button disappears
+    await expect(approveBtn).toBeHidden({ timeout: 15_000 });
   });
 });
