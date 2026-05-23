@@ -1,24 +1,24 @@
 import { test, expect } from '../fixtures/auth';
-import { createClient } from '@supabase/supabase-js';
-
-const TEST_PREFIX = '[E2E-TEST]' as const;
 
 test.describe('Submit smoke', () => {
-  test.afterAll(async () => {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-    await supabase.from('brand_submissions').delete().like('brand_name', `${TEST_PREFIX}%`);
-  });
-
-  test('authenticated user can see submit wizard', async ({ userPage }) => {
+  test('wizard loads and skip-to-form works', async ({ userPage }) => {
     await userPage.goto('/submit');
-    // Heading should be visible (bilingual: English or Chinese)
+
+    // URL step renders with heading and URL input
     await expect(userPage.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 5_000 });
-    // The wizard form should render with at least one input
-    await expect(
-      userPage.locator('input[type="url"], input[type="text"], [role="textbox"]').first()
-    ).toBeVisible({ timeout: 5_000 });
+    await expect(userPage.locator('input[type="url"]')).toBeVisible();
+
+    // Skip URL scraping to enter the multi-step form
+    await userPage.getByRole('button', { name: /skip|跳過/i }).click();
+
+    // Step 1 (Brand Info) loads with form fields
+    await expect(userPage.locator('#brand-name')).toBeVisible({ timeout: 5_000 });
+    await expect(userPage.locator('#brand-description')).toBeVisible();
+
+    // Fill fields to verify form interactivity
+    await userPage.locator('#brand-name').fill('[E2E-TEST] Smoke Brand');
+    await userPage.locator('#brand-description').fill('Test description for smoke test');
+    await expect(userPage.locator('#brand-name')).toHaveValue('[E2E-TEST] Smoke Brand');
+    await expect(userPage.locator('#brand-description')).toHaveValue('Test description for smoke test');
   });
 });
