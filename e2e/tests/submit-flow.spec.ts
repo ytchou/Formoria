@@ -44,7 +44,7 @@ test.describe('Submit flow deep', () => {
     // Fill brand name with Tier 1 trigger word
     const nameInput = userPage.getByLabel(/brand name|name/i);
     if (await nameInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await nameInput.fill('[E2E-TEST] Brand with explicit_blocked_word');
+      await nameInput.fill(`[E2E-TEST] Brand casino ${Date.now()}`);
       // Advance to trigger validation
       const nextBtn = userPage.getByRole('button', { name: /next|continue/i }).first();
       if (await nextBtn.isVisible()) await nextBtn.click({ force: true });

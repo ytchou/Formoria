@@ -4,16 +4,17 @@ test.describe('Brand detail deep', () => {
   let brandSlug: string;
 
   test.beforeAll(async ({ browser }) => {
-    // Get first brand slug from homepage
+    // Get first brand href from homepage — use goto(href) to avoid hydration race
     const page = await browser.newPage();
     await page.goto('/');
-    const firstCard = page.locator('[data-testid="brand-card"]').first();
-    await firstCard.click();
-    brandSlug = new URL(page.url()).pathname.replace(/^\//, '');
+    const firstCard = page.locator('main a[aria-label]').first();
+    await firstCard.waitFor({ state: 'visible', timeout: 10_000 });
+    const href = await firstCard.getAttribute('href');
     await page.close();
-    if (!brandSlug) {
-      throw new Error('brand-detail: could not resolve a brand slug from homepage. Ensure the DB has at least one approved brand.');
+    if (!href) {
+      throw new Error('brand-detail: could not resolve a brand href from homepage. Ensure the DB has at least one approved brand.');
     }
+    brandSlug = href.replace(/^\//, '');
   });
 
   test('all sections render without error', async ({ page }) => {

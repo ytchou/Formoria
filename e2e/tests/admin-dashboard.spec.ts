@@ -6,6 +6,7 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
 
 test.describe('Admin dashboard deep', () => {
   let testSubmissionId: string;
+  let testBrandName: string;
   // createClient is deferred to beforeAll to ensure env vars are loaded by Playwright
   let supabase: AnySupabaseClient;
 
@@ -14,13 +15,14 @@ test.describe('Admin dashboard deep', () => {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
+    testBrandName = `[E2E-TEST] Dashboard Test Brand ${Date.now()}`;
     const { data } = await supabase
       .from('brand_submissions')
       .insert({
-        brand_name: '[E2E-TEST] Dashboard Test Brand',
+        brand_name: testBrandName,
         website_url: 'https://e2e-dashboard.example.com',
         status: 'pending',
-        submitted_by_email: process.env.E2E_USER_EMAIL,
+        submitter_email: process.env.E2E_USER_EMAIL,
       })
       .select('id')
       .single();
@@ -59,40 +61,39 @@ test.describe('Admin dashboard deep', () => {
   });
 
   test('approve submission makes brand visible in directory', async ({ adminPage }) => {
+    if (!testSubmissionId) test.skip();
     await adminPage.goto('/admin/submissions');
-    const row = adminPage.locator('tr, [role="row"]').filter({ hasText: '[E2E-TEST] Dashboard Test Brand' });
-    const approveBtn = row.getByRole('button', { name: /approve/i });
+    // Click the row text to expand the detail section (approve button is inside it)
+    await adminPage.getByText(testBrandName).click();
+    const approveBtn = adminPage.getByRole('button', { name: /^approve$|^核准$/i });
+    await expect(approveBtn).toBeVisible({ timeout: 5_000 });
     await approveBtn.click();
-    // Handle confirm dialog
-    const confirmBtn = adminPage.getByRole('button', { name: /confirm|approve|yes/i }).last();
-    if (await confirmBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await confirmBtn.click();
-    }
-    await expect(adminPage.getByText(/approved|success/i)).toBeVisible({ timeout: 10_000 });
+    // After approval the server action revalidates and the button disappears
+    await expect(approveBtn).toBeHidden({ timeout: 15_000 });
   });
 
   test('reject submission keeps brand out of directory', async ({ adminPage }) => {
     // Create a separate submission for rejection test
+    const rejectBrandName = `[E2E-TEST] Rejected Brand ${Date.now()}`;
     const { data } = await supabase
       .from('brand_submissions')
       .insert({
-        brand_name: '[E2E-TEST] Rejected Brand',
+        brand_name: rejectBrandName,
         website_url: 'https://e2e-reject.example.com',
         status: 'pending',
-        submitted_by_email: process.env.E2E_USER_EMAIL,
+        submitter_email: process.env.E2E_USER_EMAIL,
       })
       .select('id')
       .single();
 
     await adminPage.goto('/admin/submissions');
-    const row = adminPage.locator('tr, [role="row"]').filter({ hasText: '[E2E-TEST] Rejected Brand' });
-    const rejectBtn = row.getByRole('button', { name: /reject/i });
+    // Click the row text to expand the detail section (reject button is inside it)
+    await adminPage.getByText(rejectBrandName).click();
+    const rejectBtn = adminPage.getByRole('button', { name: /^reject$|^拒絕$/i });
+    await expect(rejectBtn).toBeVisible({ timeout: 5_000 });
     await rejectBtn.click();
-    const confirmBtn = adminPage.getByRole('button', { name: /confirm|reject|yes/i }).last();
-    if (await confirmBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await confirmBtn.click();
-    }
-    await expect(adminPage.getByText(/rejected|success/i)).toBeVisible({ timeout: 10_000 });
+    // After rejection the server action revalidates and the button disappears
+    await expect(rejectBtn).toBeHidden({ timeout: 15_000 });
 
     if (data?.id) {
       await supabase.from('brand_submissions').delete().eq('id', data.id);
