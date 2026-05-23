@@ -1,18 +1,11 @@
 'use client'
 
 import Masonry from 'react-masonry-css'
-import type { ReactNode } from 'react'
+import { Children, type ReactNode } from 'react'
 
-const breakpointColumns = {
-  default: 4,
-  1024: 4,
-  640: 2,
-  0: 1,
-}
+const breakpointColumns = { default: 4, 1024: 4, 640: 2, 0: 1 }
 
-interface MasonryGridProps {
-  children: ReactNode
-}
+interface MasonryGridProps { children: ReactNode }
 
 export function MasonryGrid({ children }: MasonryGridProps) {
   return (
@@ -20,8 +13,11 @@ export function MasonryGrid({ children }: MasonryGridProps) {
       breakpointCols={breakpointColumns}
       className="masonry-grid"
       columnClassName="masonry-grid_column"
+      role="list"
     >
-      {children}
+      {Children.map(children, (child) => (
+        <div role="listitem">{child}</div>
+      ))}
     </Masonry>
   )
 }

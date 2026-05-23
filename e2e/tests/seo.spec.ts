@@ -14,7 +14,8 @@ test.describe('SEO deep', () => {
     const ogDesc = await page.locator('meta[property="og:description"]').getAttribute('content');
     expect(ogTitle?.length).toBeGreaterThan(0);
     expect(ogDesc?.length).toBeGreaterThan(0);
-    // og:image is not configured on the homepage — only check title and description
+    const ogImage = await page.locator('meta[property="og:image"]').getAttribute('content');
+    expect(ogImage).toBeTruthy();
   });
 
   test('robots.txt is accessible and allows crawling', async ({ request }) => {
@@ -34,7 +35,7 @@ test.describe('SEO deep', () => {
   });
 
   test('category page has unique title and description', async ({ page }) => {
-    const categorySlug = process.env.E2E_CATEGORY_SLUG ?? 'fashion';
+    const categorySlug = process.env.E2E_CATEGORY_SLUG ?? 'clothing';
     await page.goto(`/categories/${categorySlug}`);
     const title = await page.title();
     expect(title.length).toBeGreaterThan(0);
