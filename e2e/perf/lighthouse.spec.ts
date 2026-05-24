@@ -46,7 +46,7 @@ test.describe('Lighthouse perf audits', () => {
     console.log(`brand-detail: LCP=${Math.round(lcp)}ms, CLS=${cls.toFixed(3)}`);
     // Local dev server does not have ISR/CDN warmth; production target is < 500ms.
     // Use 3000ms threshold for local dev — tighten when running against staging/prod.
-    expect(lcp, 'Brand detail LCP').toBeLessThan(3000);
+    expect(lcp, 'Brand detail LCP').toBeLessThan(500);
     expect(cls, 'Brand detail CLS').toBeLessThan(0.1);
   });
 });
