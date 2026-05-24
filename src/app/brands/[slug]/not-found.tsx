@@ -11,7 +11,7 @@ export default function BrandNotFound() {
         您尋找的品牌不存在或尚未通過審核。
       </p>
       <Link
-        href="/"
+        href="/brands"
         className={buttonVariants({ variant: 'default' }) + ' mt-6'}
       >
         瀏覽所有品牌

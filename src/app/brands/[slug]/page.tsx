@@ -43,7 +43,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return {
       title: brand.name,
       description: brand.description ?? `探索 ${brand.name}，台灣製造品牌。`,
-      alternates: { canonical: `/${brand.slug}` },
+      alternates: { canonical: `/brands/${brand.slug}` },
       openGraph: {
         title: brand.name,
         description: brand.description ?? undefined,
@@ -100,9 +100,9 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
 
   // Breadcrumb items for JSON-LD
   const breadcrumbItems: BreadcrumbItem[] = [
-    { label: 'Brands', href: '/' },
+    { label: 'Brands', href: '/brands' },
     ...(brand.category
-      ? [{ label: brand.category, href: `/?category=${encodeURIComponent(brand.category)}` }]
+      ? [{ label: brand.category, href: `/brands?category=${encodeURIComponent(brand.category)}` }]
       : []),
     { label: brand.name },
   ]
