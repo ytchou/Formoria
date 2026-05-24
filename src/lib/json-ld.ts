@@ -94,7 +94,7 @@ export function buildCategoryItemListJsonLd(
       '@type': 'ListItem',
       position: index + 1,
       name: brand.name,
-      url: `${siteUrl}/${brand.slug}`,
+      url: `${siteUrl}/brands/${brand.slug}`,
     })),
   }
 }
@@ -115,7 +115,7 @@ export function buildWebSiteJsonLd(): Record<string, any> {
       '@type': 'SearchAction',
       target: {
         '@type': 'EntryPoint',
-        urlTemplate: `${siteUrl}/?search={search_term_string}`,
+        urlTemplate: `${siteUrl}/brands?search={search_term_string}`,
       },
       'query-input': 'required name=search_term_string',
     },
