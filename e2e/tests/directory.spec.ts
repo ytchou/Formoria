@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Directory deep', () => {
   test('all filter combinations return results or empty state', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/brands');
     const filters = page.locator('[data-testid="filter-pill"]');
     const count = await filters.count();
     for (let i = 0; i < Math.min(count, 3); i++) {
@@ -17,7 +17,7 @@ test.describe('Directory deep', () => {
   });
 
   test('search autocomplete shows suggestions', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/brands');
     const search = page.getByRole('searchbox').or(page.getByPlaceholder(/search/i)).first();
     await search.fill('te');
     // SearchSuggestions renders items as <li role="option"> inside <ul role="listbox">
@@ -32,7 +32,7 @@ test.describe('Directory deep', () => {
   });
 
   test('pagination controls work', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/brands');
     // Pagination renders <Link> elements (role="link"), not buttons.
     // "Next" link has aria-label "下一頁"; URL param is ?page=2
     const nextLink = page.getByRole('link', { name: /下一頁/ })
@@ -59,7 +59,7 @@ test.describe('Directory deep', () => {
   });
 
   test('empty search shows empty state not error', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/brands');
     const search = page.getByRole('searchbox').or(page.getByPlaceholder(/search/i)).first();
     await search.fill('zzzzzzzzzzzzz_nonexistent');
     await page.keyboard.press('Enter');

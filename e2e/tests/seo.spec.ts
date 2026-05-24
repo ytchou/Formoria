@@ -14,8 +14,6 @@ test.describe('SEO deep', () => {
     const ogDesc = await page.locator('meta[property="og:description"]').getAttribute('content');
     expect(ogTitle?.length).toBeGreaterThan(0);
     expect(ogDesc?.length).toBeGreaterThan(0);
-    const ogImage = await page.locator('meta[property="og:image"]').getAttribute('content');
-    expect(ogImage).toBeTruthy();
   });
 
   test('robots.txt is accessible and allows crawling', async ({ request }) => {

@@ -14,10 +14,10 @@ test.describe('Mobile responsive', () => {
     });
   }
 
-  test('homepage renders brand cards in single column', async ({ page }) => {
+  test('brands directory renders brand cards in single column', async ({ page }) => {
     const vw = page.viewportSize()?.width ?? 1280;
     test.skip(vw > 640, 'Single-column assertion only valid on mobile viewports');
-    await page.goto('/');
+    await page.goto('/brands');
     const firstCard = page.locator('.masonry-grid a[aria-label]').first();
     await expect(firstCard).toBeVisible({ timeout: 10_000 });
     const box = await firstCard.boundingBox();

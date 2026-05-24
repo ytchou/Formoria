@@ -42,7 +42,7 @@ test.describe('Lighthouse perf audits', () => {
     await runLighthouse(`${baseURL}/`); // warm up
     // Get a real brand slug from environment or use a known seed slug
     const slug = process.env.E2E_BRAND_SLUG ?? 'test-brand';
-    const { lcp, cls } = await runLighthouse(`${baseURL}/${slug}`);
+    const { lcp, cls } = await runLighthouse(`${baseURL}/brands/${slug}`);
     console.log(`brand-detail: LCP=${Math.round(lcp)}ms, CLS=${cls.toFixed(3)}`);
     // Local dev server does not have ISR/CDN warmth; production target is < 500ms.
     // Use 3000ms threshold for local dev — tighten when running against staging/prod.

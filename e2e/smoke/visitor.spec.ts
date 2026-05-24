@@ -1,14 +1,21 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Visitor smoke', () => {
-  test('homepage loads brand directory', async ({ page }) => {
+  test('landing page loads at /', async ({ page }) => {
     await page.goto('/');
+    await expect(page).toHaveTitle(/mit map/i);
+    // Landing page has a hero heading visible
+    await expect(page.getByRole('heading').first()).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('brands directory loads at /brands', async ({ page }) => {
+    await page.goto('/brands');
     await expect(page).toHaveTitle(/mit map|made in taiwan/i);
     await expect(page.locator('main a[aria-label]').first()).toBeVisible({ timeout: 10_000 });
   });
 
   test('category filter narrows results', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/brands');
     // Click first available filter pill
     const firstFilter = page.locator('button[data-active="false"]').first();
     await firstFilter.click();
@@ -30,7 +37,7 @@ test.describe('Visitor smoke', () => {
   });
 
   test('search returns results', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/brands');
     const searchInput = page.getByRole('searchbox').or(page.getByPlaceholder(/search/i)).first();
     await searchInput.fill('a');
     // The autocomplete dropdown may or may not appear depending on whether
@@ -45,7 +52,7 @@ test.describe('Visitor smoke', () => {
   });
 
   test('brand detail page renders', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/brands');
     const firstBrand = page.locator('main a[aria-label]').first();
     await firstBrand.waitFor({ state: 'visible', timeout: 10_000 });
     const href = await firstBrand.getAttribute('href');

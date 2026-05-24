@@ -4,16 +4,17 @@ test.describe('Brand detail deep', () => {
   let brandSlug: string;
 
   test.beforeAll(async ({ browser }) => {
-    // Get first brand href from homepage — use goto(href) to avoid hydration race
+    // Get first brand href from brands directory — use goto(href) to avoid hydration race
     const page = await browser.newPage();
-    await page.goto('/');
+    await page.goto('/brands');
     const firstCard = page.locator('main a[aria-label]').first();
     await firstCard.waitFor({ state: 'visible', timeout: 10_000 });
     const href = await firstCard.getAttribute('href');
     await page.close();
     if (!href) {
-      throw new Error('brand-detail: could not resolve a brand href from homepage. Ensure the DB has at least one approved brand.');
+      throw new Error('brand-detail: could not resolve a brand href from /brands. Ensure the DB has at least one approved brand.');
     }
+    // href is now /brands/some-slug — keep as-is for goto()
     brandSlug = href.replace(/^\//, '');
   });
 
