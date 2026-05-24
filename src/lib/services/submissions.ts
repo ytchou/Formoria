@@ -174,3 +174,28 @@ export async function rejectSubmission(
   if (error || !data) throw new NotFoundError('BrandSubmission', id)
   return submissionToDomain(data)
 }
+
+export type UserSubmissionSummary = {
+  id: string
+  brandName: string
+  status: 'pending' | 'approved' | 'rejected'
+  createdAt: string
+}
+
+export async function getUserSubmissions(userEmail: string): Promise<UserSubmissionSummary[]> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brand_submissions')
+    .select('id, brand_name, status, submitted_at')
+    .eq('submitter_email', userEmail)
+    .order('submitted_at', { ascending: false })
+
+  if (error) throw error
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    brandName: row.brand_name,
+    status: (row.status as 'pending' | 'approved' | 'rejected') ?? 'pending',
+    createdAt: row.submitted_at,
+  }))
+}
