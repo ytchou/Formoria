@@ -1,11 +1,11 @@
 "use client"
 
-import * as React from "react"
 import { Checkbox as CheckboxPrimitive } from "@base-ui/react/checkbox"
+import type { CheckboxRootProps } from "@base-ui/react/checkbox"
 import { Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-type CheckboxProps = CheckboxPrimitive.Root.Props & {
+type CheckboxProps = CheckboxRootProps & {
   className?: string
 }
 

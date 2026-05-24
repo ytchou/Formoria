@@ -114,7 +114,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
         <Checkbox
           id="is-brand-owner"
           checked={isOwner}
-          onCheckedChange={(checked) => onOwnerChange(!!checked)}
+          onCheckedChange={(checked: boolean) => onOwnerChange(checked)}
         />
         <label
           htmlFor="is-brand-owner"
