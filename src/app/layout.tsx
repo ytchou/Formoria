@@ -3,6 +3,7 @@ import { Bricolage_Grotesque, Geist_Mono, Inter } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { Agentation } from "agentation";
 import { MainNav } from "@/components/navigation/main-nav";
+import { Footer } from "@/components/navigation/footer";
 import { SessionTracker } from "@/components/analytics/session-tracker";
 import "./globals.css";
 
@@ -51,7 +52,8 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <SessionTracker />
         <MainNav />
-        {children}
+        <div className="flex-1">{children}</div>
+        <Footer />
         {process.env.NODE_ENV === "development" && <Agentation />}
         {process.env.NEXT_PUBLIC_GA_ID && (
           <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />
