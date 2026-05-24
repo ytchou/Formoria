@@ -236,12 +236,12 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
       {phase === 'url' ? (
         <div className="rounded-xl border border-[#E8E5E0] bg-white p-8 shadow-sm">
           <UrlStep
-                onSuccess={handleUrlSuccess}
-                onSkip={handleUrlSkip}
-                isOwner={isOwner}
-                onOwnerChange={setIsOwner}
-                onAttributionChange={setSourceAttribution}
-              />
+            onSuccess={handleUrlSuccess}
+            onSkip={handleUrlSkip}
+            isOwner={isOwner}
+            onOwnerChange={setIsOwner}
+            onAttributionChange={setSourceAttribution}
+          />
         </div>
       ) : (
         <>
