@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Load .env.local so global-setup can access env vars outside the Next.js runtime
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+require('dotenv').config({ path: '.env.local' });
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
