@@ -8,26 +8,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
   const now = new Date()
 
+  const staticPages: MetadataRoute.Sitemap = [
+    {
+      url: siteUrl,
+      lastModified: now,
+      changeFrequency: 'daily',
+      priority: 1.0,
+    },
+    {
+      url: `${siteUrl}/faq`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.5,
+    },
+  ]
+
   try {
     const [brandSlugs, categories] = await Promise.all([
       getAllBrandSlugs(),
       getActiveCategories(),
     ])
-
-    const staticPages: MetadataRoute.Sitemap = [
-      {
-        url: siteUrl,
-        lastModified: now,
-        changeFrequency: 'daily',
-        priority: 1.0,
-      },
-      {
-        url: `${siteUrl}/faq`,
-        lastModified: now,
-        changeFrequency: 'monthly',
-        priority: 0.5,
-      },
-    ]
 
     const brandPages: MetadataRoute.Sitemap = brandSlugs.map((slug) => ({
       url: `${siteUrl}/${slug}`,
@@ -45,14 +45,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     return [...staticPages, ...brandPages, ...categoryPages]
   } catch {
-    // Fallback: minimal sitemap on error
-    return [
-      {
-        url: siteUrl,
-        lastModified: now,
-        changeFrequency: 'daily',
-        priority: 1.0,
-      },
-    ]
+    // Fallback: static pages only (DB unavailable)
+    return staticPages
   }
 }
