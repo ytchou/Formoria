@@ -6,13 +6,14 @@ import { createSubmission } from '@/lib/services/submissions'
 import { createClient } from '@/lib/supabase/server'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
 import { createInMemoryRateLimiter } from '@/lib/security/rate-limiter'
+import type { SourceAttribution } from '@/lib/types/submission'
 
 // Per-user in-action rate limiter for brand submissions (5 per 60s)
 const submissionRateLimiter = createInMemoryRateLimiter()
 
 type SubmitBrandInput = SubmissionFormData & {
   isOwner?: boolean
-  sourceAttribution?: string
+  sourceAttribution?: SourceAttribution
 }
 
 export async function submitBrand(
@@ -100,9 +101,7 @@ export async function submitBrand(
       suggestedTags: parsed.tags,
       pdpaConsentAt: new Date().toISOString(),
       isBrandOwner: isOwner,
-      sourceAttribution: data.sourceAttribution
-        ? (data.sourceAttribution as import('@/lib/types/submission').SourceAttribution)
-        : undefined,
+      sourceAttribution: data.sourceAttribution ?? undefined,
     })
 
     return undefined // Success — no error
