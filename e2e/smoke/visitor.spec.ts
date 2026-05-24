@@ -44,6 +44,12 @@ test.describe('Visitor smoke', () => {
     await expect(searchInput).toHaveValue('a');
   });
 
+  test('FAQ page renders with accordion items', async ({ page }) => {
+    await page.goto('/faq')
+    await expect(page.getByRole('heading', { name: '常見問題' })).toBeVisible({ timeout: 5_000 })
+    await expect(page.locator('details').first()).toBeVisible()
+  })
+
   test('brand detail page renders', async ({ page }) => {
     await page.goto('/');
     const firstBrand = page.locator('main a[aria-label]').first();
