@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
+import type { SourceAttribution } from '@/lib/types/submission'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 
 type UrlStepStatus = 'idle' | 'loading' | 'error'
@@ -28,7 +29,7 @@ type UrlStepProps = {
   onSkip: () => void
   isOwner: boolean
   onOwnerChange: (isOwner: boolean) => void
-  onAttributionChange: (attribution: string | undefined) => void
+  onAttributionChange: (attribution: SourceAttribution | undefined) => void
 }
 
 export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributionChange }: UrlStepProps) {
@@ -130,7 +131,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
           <label className="block text-sm font-semibold text-[#1A1918]">
             你如何認識這個品牌？
           </label>
-          <Select onValueChange={(val) => onAttributionChange(typeof val === 'string' ? val : undefined)}>
+          <Select onValueChange={(val) => onAttributionChange(val as SourceAttribution)}>
             <SelectTrigger
               aria-label="你如何認識這個品牌？"
               className="h-11 w-full border-[#D4CFC9] text-sm text-[#1A1918]"

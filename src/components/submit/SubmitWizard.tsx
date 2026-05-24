@@ -29,6 +29,7 @@ import {
   type SubmissionStepName,
 } from '@/lib/analytics'
 import type { ScrapedBrandData, PhotoItem } from '@/lib/types/scraper'
+import type { SourceAttribution } from '@/lib/types/submission'
 
 const STEP_LABELS = ['品牌資訊', '產品', '連結', '確認']
 
@@ -89,7 +90,7 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
   const [photos, setPhotos] = useState<PhotoItem[]>([])
   const [completed, setCompleted] = useState(false)
   const [isOwner, setIsOwner] = useState(false)
-  const [sourceAttribution, setSourceAttribution] = useState<string | undefined>(undefined)
+  const [sourceAttribution, setSourceAttribution] = useState<SourceAttribution | undefined>(undefined)
 
   const mountTimeRef = useRef<number>(0)
   const lastStepRef = useRef<SubmissionStepName>(SUBMISSION_STEP_NAMES[0])

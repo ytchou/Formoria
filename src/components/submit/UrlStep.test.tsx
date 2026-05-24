@@ -8,6 +8,9 @@ describe('UrlStep', () => {
   const defaultProps = {
     onSuccess: vi.fn(),
     onSkip: vi.fn(),
+    isOwner: false,
+    onOwnerChange: vi.fn(),
+    onAttributionChange: vi.fn(),
   }
 
   it('renders URL input and fetch button', () => {
