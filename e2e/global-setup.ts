@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import path from 'path';
 import fs from 'fs';
+import { cleanupTestData } from './helpers/cleanup';
 
 const BASE64_PREFIX = 'base64-';
 const MAX_CHUNK_SIZE = 3180;
@@ -46,6 +47,9 @@ function createChunks(key: string, value: string): Array<{ name: string; value: 
 }
 
 async function globalSetup() {
+  // Sweep orphaned test data from previous runs
+  await cleanupTestData();
+
   const requiredVars = [
     'E2E_ADMIN_EMAIL',
     'E2E_ADMIN_PASSWORD',
