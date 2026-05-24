@@ -30,6 +30,7 @@ type BrandInfoStepProps = {
   uploadPath: string
   photos?: PhotoItem[]
   onPhotosChange?: (photos: PhotoItem[]) => void
+  isOwner?: boolean
 }
 
 function SortablePhoto({
@@ -184,6 +185,7 @@ export function BrandInfoStep({
   uploadPath,
   photos,
   onPhotosChange,
+  isOwner: _isOwner,
 }: BrandInfoStepProps) {
   const {
     register,

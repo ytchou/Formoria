@@ -13,7 +13,11 @@ const PLATFORM_OPTIONS = [
   { value: 'other', label: 'Other' },
 ]
 
-export function LinksStep() {
+type LinksStepProps = {
+  isOwner?: boolean
+}
+
+export function LinksStep({ isOwner: _isOwner }: LinksStepProps = {}) {
   const {
     register,
     control,
