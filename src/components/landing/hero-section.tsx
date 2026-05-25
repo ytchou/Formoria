@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 import { SearchInput } from '@/components/brands/search-input'
 
-export default function HeroSection() {
+export function HeroSection() {
   return (
     <section className="bg-background py-16 md:py-24">
       <div className="mx-auto max-w-3xl px-6 text-center md:px-10">
@@ -28,3 +28,5 @@ export default function HeroSection() {
     </section>
   )
 }
+
+export default HeroSection
