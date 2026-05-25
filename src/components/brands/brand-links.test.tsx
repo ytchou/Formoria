@@ -17,6 +17,7 @@ const mockBrand = {
   category: 'accessories',
   description: null,
   status: 'approved' as const,
+  isVerified: false,
   logoUrl: null,
   heroImageUrl: null,
   foundingYear: null,

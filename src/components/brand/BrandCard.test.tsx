@@ -49,6 +49,7 @@ const baseBrand: Brand = {
   logoUrl: "https://example.com/logo.png",
   heroImageUrl: null,
   status: "approved",
+  isVerified: false,
   category: "Food",
   foundingYear: 2020,
   purchaseLinks: [],
