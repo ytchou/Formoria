@@ -99,6 +99,9 @@ export function ReviewStep({ onEditStep }: ReviewStepProps) {
               />
             </div>
           )}
+          {formData.founderName && (
+            <ReviewRow label="Founder" value={formData.founderName} />
+          )}
         </div>
       </div>
 
@@ -126,10 +129,10 @@ export function ReviewStep({ onEditStep }: ReviewStepProps) {
               ))}
             </div>
           )}
-          {formData.productHighlights && (
+          {formData.brandHighlights && (
             <ReviewRow
               label="Highlights"
-              value={formData.productHighlights}
+              value={formData.brandHighlights}
             />
           )}
         </div>
