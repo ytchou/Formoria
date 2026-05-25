@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
 import { BrandHighlights } from './brand-highlights'
 import { describe, it, expect } from 'vitest'
