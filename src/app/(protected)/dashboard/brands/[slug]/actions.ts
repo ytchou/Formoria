@@ -178,7 +178,7 @@ export async function updateBrandAction(
   } catch (err) {
     console.error('[brand:updateBrandAction]', err)
     return {
-      error: err instanceof Error ? err.message : '発生預期外的錯誤，請再試一次。',
+      error: err instanceof Error ? err.message : '發生預期外的錯誤，請再試一次。',
     }
   }
 
