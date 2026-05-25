@@ -59,7 +59,13 @@ export function BrandTagEditor({ brand, allTags, onSave }: Props) {
                 >
                   {tag.name}
                   {isAuto && (
-                    <span className="text-[11px] font-medium text-[#857E79] bg-[#F5F4F1] rounded-full px-2 py-0.5 ml-1">
+                    <span
+                      className={
+                        isSelected
+                          ? 'text-[11px] font-medium text-white/70 bg-white/20 rounded-full px-2 py-0.5 ml-1'
+                          : 'text-[11px] font-medium text-[#857E79] bg-[#F5F4F1] rounded-full px-2 py-0.5 ml-1'
+                      }
+                    >
                       auto
                     </span>
                   )}
