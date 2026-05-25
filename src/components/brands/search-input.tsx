@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useFilterParams } from '@/hooks/use-filter-params'
+import { cn } from '@/lib/utils'
 import {
   trackSearchNoResults,
   trackSearchExecuted,
@@ -14,9 +15,10 @@ import { SearchSuggestions, SEARCH_SUGGESTIONS_ID } from './search-suggestions'
 interface SearchInputProps {
   redirectTo?: string
   placeholder?: string
+  className?: string
 }
 
-function SearchInput({ redirectTo, placeholder }: SearchInputProps = {}) {
+function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = {}) {
   const { filters, setSearch } = useFilterParams()
   const [value, setValue] = useState(filters.search)
   const [suggestions, setSuggestions] = useState<SearchResult[]>([])
@@ -146,7 +148,7 @@ function SearchInput({ redirectTo, placeholder }: SearchInputProps = {}) {
   }
 
   return (
-    <form ref={containerRef} role="search" onSubmit={handleSubmit} className="relative w-full max-w-md">
+    <form ref={containerRef} role="search" onSubmit={handleSubmit} className={cn('relative w-full max-w-md', className)}>
       {/* Search icon */}
       <svg
         className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"

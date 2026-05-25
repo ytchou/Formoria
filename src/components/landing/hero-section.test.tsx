@@ -2,10 +2,8 @@
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 
-vi.mock('@/components/brands/search-input', () => ({
-  SearchInput: ({ redirectTo, placeholder }: { redirectTo?: string; placeholder?: string }) => (
-    <input role="searchbox" placeholder={placeholder ?? ''} data-redirect={redirectTo} />
-  ),
+vi.mock('next/image', () => ({
+  default: (props: Record<string, unknown>) => <img {...props} />,
 }))
 
 vi.mock('next/link', () => ({
@@ -19,13 +17,6 @@ describe('HeroSection', () => {
     render(<HeroSection />)
     const heading = screen.getByRole('heading', { level: 1 })
     expect(heading).toBeInTheDocument()
-  })
-
-  it('renders SearchInput with redirect to /brands', () => {
-    render(<HeroSection />)
-    const searchbox = screen.getByRole('searchbox')
-    expect(searchbox).toBeInTheDocument()
-    expect(searchbox).toHaveAttribute('data-redirect', '/brands')
   })
 
   it('renders CTA link to /brands', () => {

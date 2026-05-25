@@ -10,9 +10,10 @@ import { trackBrandCardClicked } from '@/lib/analytics'
 interface BrandCardProps {
   brand: Brand
   position?: number
+  priority?: boolean
 }
 
-export function BrandCard({ brand, position = 0 }: BrandCardProps) {
+export function BrandCard({ brand, position = 0, priority = false }: BrandCardProps) {
   const [imgError, setImgError] = useState(false)
   const imageSrc = brand.heroImageUrl ?? brand.logoUrl
   const showImage = imageSrc && !imgError
@@ -31,6 +32,7 @@ export function BrandCard({ brand, position = 0 }: BrandCardProps) {
             src={imageSrc}
             alt={brand.name}
             fill
+            priority={priority}
             className="object-cover transition-transform group-hover:scale-[1.02]"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
             onError={() => setImgError(true)}

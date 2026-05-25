@@ -143,11 +143,12 @@ export async function getBrands(
 ): Promise<{ brands: Brand[]; totalCount: number }> {
   const supabase = createServiceClient()
 
-  // When filtering by tags, use !inner join so only matching brands are returned
-  const select =
-    filters?.tags && filters.tags.length > 0
-      ? '*, brand_taxonomy!inner(taxonomy_tags!inner(*))'
-      : BRAND_SELECT
+  // When filtering by tags or category, use !inner join so only matching brands are returned
+  const needsInnerJoin =
+    (filters?.tags && filters.tags.length > 0) || filters?.category
+  const select = needsInnerJoin
+    ? '*, brand_taxonomy!inner(taxonomy_tags!inner(*))'
+    : BRAND_SELECT
 
   let query = supabase.from('brands').select(select, { count: 'exact' })
 
@@ -155,7 +156,7 @@ export async function getBrands(
     query = query.eq('status', filters.status)
   }
   if (filters?.category) {
-    query = query.eq('category', filters.category)
+    query = query.eq('brand_taxonomy.taxonomy_tags.slug', filters.category)
   }
   if (filters?.search) {
     const term = filters.search.slice(0, 100).replace(/[%_\\]/g, '\\$&')
