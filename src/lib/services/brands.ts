@@ -82,6 +82,7 @@ export function brandToDomain(row: any): Brand {
     heroImageUrl: row.hero_image_url ?? null,
     status: row.status,
     category: row.category ?? null,
+    isVerified: Array.isArray(row.brand_owners) && row.brand_owners.length > 0,
     foundingYear: row.founding_year ?? null,
     purchaseLinks: row.purchase_links ?? [],
     socialLinks: mapSocialLinksToDomain(row.social_links ?? {}),
@@ -142,7 +143,7 @@ export function brandToInsert(data: Partial<Brand>): Record<string, unknown> {
 // Service functions
 // ---------------------------------------------------------------------------
 
-const BRAND_SELECT = '*, brand_taxonomy(taxonomy_tags(*))'
+const BRAND_SELECT = '*, brand_taxonomy(taxonomy_tags(*)), brand_owners(user_id)'
 
 export async function getBrands(
   filters?: BrandFilters

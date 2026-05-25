@@ -45,6 +45,7 @@ export type Brand = {
   heroImageUrl: string | null
   status: BrandStatus
   category: string | null
+  isVerified: boolean
   foundingYear: number | null
   purchaseLinks: PurchaseLink[]
   socialLinks: SocialLinks
