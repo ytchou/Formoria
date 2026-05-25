@@ -1,7 +1,35 @@
 import type { TagCategory, TaxonomyTag } from '@/lib/types'
+import type { TagSource } from '@/lib/types/taxonomy'
 import { NotFoundError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
 import { generateSlug } from './brands'
+
+// ---------------------------------------------------------------------------
+// Additional types for taxonomy governance
+// ---------------------------------------------------------------------------
+
+export type UntaggedBrand = {
+  id: string
+  name: string
+  slug: string
+  category: string
+}
+
+export type BrandForReview = {
+  id: string
+  name: string
+  slug: string
+  tags: Array<TaxonomyTag & { source: TagSource }>
+}
+
+export type ProcessSuggestedTagAction = 'create-new' | 'map-existing' | 'reject'
+
+export type NewTagData = {
+  name: string
+  nameZh?: string
+  category: TagCategory
+  brandId: string
+}
 
 // ---------------------------------------------------------------------------
 // Mappers
@@ -193,4 +221,133 @@ export async function deactivateTag(id: string): Promise<void> {
     .eq('id', id)
 
   if (error) throw error
+}
+
+// ---------------------------------------------------------------------------
+// Tag assignment CRUD
+// ---------------------------------------------------------------------------
+
+export async function setBrandTags(
+  brandId: string,
+  tagIds: string[],
+  source: TagSource
+): Promise<void> {
+  const supabase = createServiceClient()
+
+  const { error: deleteErr } = await supabase
+    .from('brand_taxonomy')
+    .delete()
+    .eq('brand_id', brandId)
+
+  if (deleteErr) throw deleteErr
+
+  if (tagIds.length === 0) return
+
+  const rows = tagIds.map((tagId) => ({ brand_id: brandId, tag_id: tagId, source }))
+  const { error: insertErr } = await supabase.from('brand_taxonomy').insert(rows)
+
+  if (insertErr) throw insertErr
+}
+
+export async function addTagToBrand(
+  brandId: string,
+  tagId: string,
+  source: TagSource
+): Promise<void> {
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('brand_taxonomy')
+    .upsert({ brand_id: brandId, tag_id: tagId, source }, { onConflict: 'brand_id,tag_id' })
+
+  if (error) throw error
+}
+
+export async function removeTagFromBrand(brandId: string, tagId: string): Promise<void> {
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('brand_taxonomy')
+    .delete()
+    .eq('brand_id', brandId)
+    .eq('tag_id', tagId)
+
+  if (error) throw error
+}
+
+// ---------------------------------------------------------------------------
+// Review queries
+// ---------------------------------------------------------------------------
+
+export async function getUntaggedBrands(): Promise<UntaggedBrand[]> {
+  const supabase = createServiceClient()
+
+  const { data, error } = await supabase
+    .from('brands')
+    .select('id, name, slug, category, brand_taxonomy!left(brand_id)')
+    .eq('status', 'approved')
+
+  if (error) throw error
+
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  return (data ?? [])
+    .filter((row: any) => !row.brand_taxonomy || row.brand_taxonomy.length === 0)
+    .map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      category: row.category,
+    }))
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+}
+
+export async function getBrandsForReview(source: TagSource = 'auto'): Promise<BrandForReview[]> {
+  const supabase = createServiceClient()
+
+  const { data, error } = await supabase
+    .from('brands')
+    .select('id, name, slug, brand_taxonomy!inner(source, taxonomy_tags(*))')
+    .eq('brand_taxonomy.source', source)
+
+  if (error) throw error
+
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    tags: (row.brand_taxonomy ?? []).map((bt: any) => ({
+      ...tagToDomain(bt.taxonomy_tags),
+      source: bt.source as TagSource,
+    })),
+  }))
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+}
+
+// ---------------------------------------------------------------------------
+// Suggested tag processing
+// ---------------------------------------------------------------------------
+
+export async function processSuggestedTag(
+  submissionId: string,
+  action: ProcessSuggestedTagAction,
+  targetTagId?: string,
+  newTagData?: NewTagData
+): Promise<void> {
+  if (action === 'reject') return
+
+  if (action === 'map-existing') {
+    if (!targetTagId) throw new Error('targetTagId required for map-existing action')
+    await addTagToBrand(submissionId, targetTagId, 'suggested')
+    return
+  }
+
+  if (action === 'create-new') {
+    if (!newTagData) throw new Error('newTagData required for create-new action')
+    const newTag = await createTag({
+      name: newTagData.name,
+      nameZh: newTagData.nameZh,
+      category: newTagData.category,
+      suggestedBy: submissionId,
+    })
+    await addTagToBrand(newTagData.brandId, newTag.id, 'suggested')
+  }
 }
