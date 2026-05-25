@@ -9,10 +9,6 @@ export type AnalyticsResult = {
   clickTrend: Trend
 }
 
-function today(): string {
-  return new Date().toISOString().split('T')[0]
-}
-
 export async function incrementView(brandId: string): Promise<void> {
   try {
     const client = createServiceClient()
