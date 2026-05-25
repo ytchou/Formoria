@@ -16,10 +16,7 @@ function today(): string {
 export async function incrementView(brandId: string): Promise<void> {
   try {
     const client = createServiceClient()
-    await client.from('brand_analytics').upsert(
-      { brand_id: brandId, date: today(), views: 1, clicks: 0 },
-      { onConflict: 'brand_id,date', ignoreDuplicates: false }
-    )
+    await client.rpc('increment_brand_view', { p_brand_id: brandId })
   } catch {
     // silent failure — analytics are non-critical
   }
@@ -28,10 +25,7 @@ export async function incrementView(brandId: string): Promise<void> {
 export async function incrementClick(brandId: string): Promise<void> {
   try {
     const client = createServiceClient()
-    await client.from('brand_analytics').upsert(
-      { brand_id: brandId, date: today(), views: 0, clicks: 1 },
-      { onConflict: 'brand_id,date', ignoreDuplicates: false }
-    )
+    await client.rpc('increment_brand_click', { p_brand_id: brandId })
   } catch {
     // silent failure — analytics are non-critical
   }

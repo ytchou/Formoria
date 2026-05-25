@@ -9,8 +9,8 @@ import { createServiceClient } from '@/lib/supabase/server'
 
 function makeSupabaseClient(data: unknown = null, error: unknown = null) {
   const chain = {
+    rpc: vi.fn().mockResolvedValue({ error }),
     from: vi.fn().mockReturnThis(),
-    upsert: vi.fn().mockResolvedValue({ error }),
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     gte: vi.fn().mockResolvedValue({ data, error }),
@@ -20,14 +20,10 @@ function makeSupabaseClient(data: unknown = null, error: unknown = null) {
 }
 
 describe('incrementView', () => {
-  it('calls upsert on brand_analytics with views increment', async () => {
+  it('calls rpc increment_brand_view with the brand id', async () => {
     const client = makeSupabaseClient()
     await incrementView('brand-1')
-    expect(client.from).toHaveBeenCalledWith('brand_analytics')
-    expect(client.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ brand_id: 'brand-1', views: 1 }),
-      expect.objectContaining({ onConflict: 'brand_id,date' })
-    )
+    expect(client.rpc).toHaveBeenCalledWith('increment_brand_view', { p_brand_id: 'brand-1' })
   })
 
   it('does not throw on supabase error', async () => {
@@ -37,13 +33,10 @@ describe('incrementView', () => {
 })
 
 describe('incrementClick', () => {
-  it('calls upsert on brand_analytics with clicks increment', async () => {
+  it('calls rpc increment_brand_click with the brand id', async () => {
     const client = makeSupabaseClient()
     await incrementClick('brand-1')
-    expect(client.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ brand_id: 'brand-1', clicks: 1 }),
-      expect.anything()
-    )
+    expect(client.rpc).toHaveBeenCalledWith('increment_brand_click', { p_brand_id: 'brand-1' })
   })
 })
 
