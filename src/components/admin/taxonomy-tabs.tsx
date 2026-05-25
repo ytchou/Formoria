@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { confirmBrandTagsAction, processSuggestedTagAction } from '@/app/admin/actions'
+import { confirmBrandTagsAction, approveSuggestedTagAction, processSuggestedTagAction } from '@/app/admin/actions'
 import { cn } from '@/lib/utils'
 
 type Tab = 'tags' | 'review' | 'suggested'
@@ -47,11 +47,17 @@ export function TaxonomyTabs({ tags, brandsForReview }: Props) {
     setEditingBrand(null)
   }
 
-  function handleProcessSuggestion(tagId: string, action: 'map-existing' | 'reject') {
+  function handleApproveSuggestion(tagId: string) {
+    startTransition(async () => {
+      await approveSuggestedTagAction(tagId)
+    })
+  }
+
+  function handleRejectSuggestion(tagId: string) {
     startTransition(async () => {
       const formData = new FormData()
       formData.append('submissionId', tagId)
-      formData.append('action', action)
+      formData.append('action', 'reject')
       await processSuggestedTagAction(formData)
     })
   }
@@ -123,7 +129,7 @@ export function TaxonomyTabs({ tags, brandsForReview }: Props) {
                     <button
                       type="button"
                       disabled={isPending}
-                      onClick={() => handleProcessSuggestion(tag.id, 'map-existing')}
+                      onClick={() => handleApproveSuggestion(tag.id)}
                       className="rounded-md border border-[#1A1918] px-3 py-1.5 text-xs font-medium text-[#1A1918] transition-colors hover:bg-[#1A1918] hover:text-white disabled:opacity-60"
                     >
                       Approve
@@ -131,7 +137,7 @@ export function TaxonomyTabs({ tags, brandsForReview }: Props) {
                     <button
                       type="button"
                       disabled={isPending}
-                      onClick={() => handleProcessSuggestion(tag.id, 'reject')}
+                      onClick={() => handleRejectSuggestion(tag.id)}
                       className="rounded-md px-3 py-1.5 text-xs font-medium text-[#D94F3D] transition-colors hover:bg-[#FDF3EC] disabled:opacity-60"
                     >
                       Reject

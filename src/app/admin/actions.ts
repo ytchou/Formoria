@@ -5,7 +5,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isAdmin } from '@/lib/auth/admin'
 import { getSubmission, approveSubmission, rejectSubmission } from '@/lib/services/submissions'
 import { createBrand, updateBrand, getBrandById, deleteBrand, generateSlug, syncBrandImages } from '@/lib/services/brands'
-import { createTag, updateTag, mergeTag, deactivateTag, setBrandTags, processSuggestedTag } from '@/lib/services/taxonomy'
+import { createTag, updateTag, mergeTag, deactivateTag, activateTag, setBrandTags, processSuggestedTag } from '@/lib/services/taxonomy'
 import { createResendProvider } from '@/lib/email/resend-adapter'
 import { buildApprovalEmail, buildRejectionEmail, buildClaimEmail } from '@/lib/email/templates'
 import { generateClaimToken } from '@/lib/auth/claim-token'
@@ -341,6 +341,26 @@ export async function deactivateTagAction(
     return undefined
   } catch (err) {
     console.error('[admin:deactivateTag]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
+}
+
+export async function approveSuggestedTagAction(
+  tagId: string
+): Promise<{ error: string } | undefined> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth
+
+    await activateTag(tagId)
+
+    revalidatePath('/admin/taxonomy')
+    revalidatePath('/admin')
+    return undefined
+  } catch (err) {
+    console.error('[admin:approveSuggestedTag]', err)
     return {
       error: err instanceof Error ? err.message : 'An unexpected error occurred',
     }

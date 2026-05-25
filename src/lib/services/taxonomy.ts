@@ -223,6 +223,16 @@ export async function deactivateTag(id: string): Promise<void> {
   if (error) throw error
 }
 
+export async function activateTag(id: string): Promise<void> {
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('taxonomy_tags')
+    .update({ is_active: true })
+    .eq('id', id)
+
+  if (error) throw error
+}
+
 // ---------------------------------------------------------------------------
 // Tag assignment CRUD
 // ---------------------------------------------------------------------------
