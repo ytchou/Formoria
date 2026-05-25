@@ -3,8 +3,17 @@ import { incrementView, incrementClick } from '@/lib/services/brand-analytics'
 export const runtime = 'nodejs'
 
 // In-memory rate limit: Map<`${ip}:${brandId}:${event}`, lastTimestamp>
+// Stale entries (older than RATE_LIMIT_MS) are purged on each write to prevent unbounded growth.
 const rateLimit = new Map<string, number>()
 const RATE_LIMIT_MS = 30 * 60 * 1000 // 30 minutes
+
+function purgeStaleRateLimitEntries(now: number): void {
+  for (const [key, ts] of rateLimit) {
+    if (now - ts >= RATE_LIMIT_MS) {
+      rateLimit.delete(key)
+    }
+  }
+}
 
 export async function POST(request: Request): Promise<Response> {
   let body: unknown
@@ -37,6 +46,7 @@ export async function POST(request: Request): Promise<Response> {
     return new Response(null, { status: 204 })
   }
   rateLimit.set(rateLimitKey, now)
+  purgeStaleRateLimitEntries(now)
 
   try {
     if (event === 'view') {
