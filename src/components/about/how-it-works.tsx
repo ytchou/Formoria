@@ -29,7 +29,7 @@ export default function HowItWorks() {
       <div className="mt-8 flex flex-col gap-8 sm:flex-row">
         {steps.map(({ number, icon: Icon, label, description }) => (
           <div key={number} className="flex-1">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground text-sm font-bold text-background">
               {number}
             </div>
             <Icon className="mt-4 h-5 w-5 text-muted-foreground" />
