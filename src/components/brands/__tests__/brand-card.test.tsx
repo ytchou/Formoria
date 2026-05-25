@@ -23,7 +23,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     socialLinks: {},
     retailLocations: [],
     productPhotos: [],
-    productHighlights: [],
+    brandHighlights: null,
     tags: [],
     founder: null,
     foundingYear: null,

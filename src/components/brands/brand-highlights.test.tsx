@@ -14,6 +14,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     heroImageUrl: null,
     status: 'approved',
     category: 'food',
+    isVerified: false,
     foundingYear: null,
     purchaseLinks: [],
     socialLinks: {},
