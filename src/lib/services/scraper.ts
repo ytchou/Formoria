@@ -10,6 +10,9 @@ function emptyResult(websiteUrl: string): ScrapedBrandData {
   return {
     brandName: null,
     description: null,
+    founderName: null,
+    founderTitle: null,
+    brandHighlights: null,
     heroImageUrl: null,
     galleryImageUrls: [],
     socialLinks: { instagram: null, threads: null, facebook: null },
@@ -224,9 +227,22 @@ export async function scrapeBrandUrl(url: string): Promise<ScrapedBrandData> {
       (galleryImageUrls.length > 0 ? galleryImageUrls[0] : null)
     const heroImageUrl = heroCandidate ? (resolveUrl(heroCandidate, url) ?? null) : null
 
+    // Extract founder from JSON-LD
+    const jsonLdFounder = rawJsonLd?.founder as
+      | { name?: string; jobTitle?: string }
+      | undefined
+    const founderName = jsonLdFounder?.name ?? null
+    const founderTitle = jsonLdFounder?.jobTitle ?? null
+
+    // Brand highlights from meta description
+    const brandHighlights = description ?? null
+
     return {
       brandName,
       description,
+      founderName,
+      founderTitle,
+      brandHighlights,
       heroImageUrl,
       galleryImageUrls,
       socialLinks,
