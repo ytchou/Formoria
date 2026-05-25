@@ -24,7 +24,7 @@ test.describe('Landing page smoke', () => {
   test('search from landing page navigates to /brands?search=', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('searchbox').fill('coffee');
-    await page.keyboard.press('Enter');
+    await page.getByRole('searchbox').press('Enter');
     await expect(page).toHaveURL(/\/brands\?search=coffee/);
   });
 });
