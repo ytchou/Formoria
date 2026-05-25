@@ -1,9 +1,14 @@
-import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { buildWebSiteJsonLd } from '@/lib/json-ld'
 import { HeroSection } from '@/components/landing/hero-section'
-import { SearchInput } from '@/components/brands/search-input'
-import { ValueProps } from '@/components/landing/value-props'
+import TrustBar from '@/components/landing/trust-bar'
+import Manifesto from '@/components/landing/manifesto'
+import CategoryGrid from '@/components/landing/category-grid'
+import BrandShowcase from '@/components/shared/brand-showcase'
+import ValueChips from '@/components/landing/value-chips'
+import DualCta from '@/components/landing/dual-cta'
+import { getBrandStats, getRandomBrands, getNewBrands } from '@/lib/services/brands'
+import { getActiveCategories, getTags } from '@/lib/services/taxonomy'
 
 export const revalidate = 3600
 
@@ -21,6 +26,14 @@ export const metadata: Metadata = {
 export default async function LandingPage() {
   const jsonLd = buildWebSiteJsonLd()
 
+  const [stats, categories, randomBrands, newBrands, valueTags] = await Promise.all([
+    getBrandStats(),
+    getActiveCategories(),
+    getRandomBrands(4),
+    getNewBrands(4),
+    getTags('value'),
+  ])
+
   return (
     <>
       <script
@@ -29,12 +42,54 @@ export default async function LandingPage() {
       />
       <main>
         <HeroSection />
-        <section className="mx-auto max-w-screen-xl px-6 py-8 md:px-10">
-          <Suspense fallback={null}>
-            <SearchInput placeholder="搜尋品牌..." redirectTo="/brands" />
-          </Suspense>
+
+        <section className="py-6">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            <TrustBar brandCount={stats.brandCount} categoryCount={stats.categoryCount} />
+          </div>
         </section>
-        <ValueProps />
+
+        <section className="py-12 md:py-16">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            <Manifesto />
+          </div>
+        </section>
+
+        <section className="py-12 md:py-16">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            <CategoryGrid categories={categories} />
+          </div>
+        </section>
+
+        <section className="py-12 md:py-16">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            <BrandShowcase
+              brands={randomBrands}
+              heading="探索品牌"
+              linkText="瀏覽全部品牌 →"
+              linkHref="/brands"
+            />
+          </div>
+        </section>
+
+        <section className="py-12 md:py-16">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            <ValueChips tags={valueTags} />
+          </div>
+        </section>
+
+        <section className="py-12 md:py-16">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            <BrandShowcase
+              brands={newBrands}
+              heading="最新品牌"
+              linkText="瀏覽全部品牌 →"
+              linkHref="/brands"
+            />
+          </div>
+        </section>
+
+        <DualCta />
       </main>
     </>
   )
