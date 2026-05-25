@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useTransition, useEffect, useCallback, useRef } from 'react'
-import { useForm, FormProvider } from 'react-hook-form'
+import { useForm, FormProvider, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ArrowRight, Send } from 'lucide-react'
@@ -125,7 +125,7 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
   }, [completed])
 
   const methods = useForm<SubmissionFormData>({
-    resolver: zodResolver(fullSubmissionSchema),
+    resolver: zodResolver(fullSubmissionSchema) as Resolver<SubmissionFormData>,
     defaultValues: {
       name: '',
       description: '',
@@ -209,8 +209,8 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
 
     const photoUrls = photos.map((p) => p.url)
     const mergedData = {
-      ...data,
-      productPhotos: [...photoUrls, ...data.productPhotos.filter((url) => !photoUrls.includes(url))],
+      ...(data as SubmissionFormData),
+      productPhotos: [...photoUrls, ...(data as SubmissionFormData).productPhotos.filter((url: string) => !photoUrls.includes(url))],
       isOwner,
       sourceAttribution,
     }

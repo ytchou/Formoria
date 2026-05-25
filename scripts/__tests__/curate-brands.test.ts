@@ -106,6 +106,9 @@ describe('buildEnrichPatch', () => {
   const emptyScraped = {
     brandName: null,
     description: null,
+    founderName: null,
+    founderTitle: null,
+    brandHighlights: null,
     heroImageUrl: null,
     galleryImageUrls: [],
     socialLinks: { instagram: null, threads: null, facebook: null },
