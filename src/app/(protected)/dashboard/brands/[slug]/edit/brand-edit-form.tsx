@@ -144,7 +144,6 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
           <div className="space-y-2">
             <Label>Purchase Links</Label>
             <DynamicArrayField
-              name="purchaseLinks"
               initialItems={brand.purchaseLinks}
               createItem={() => ({ platform: "", url: "", label: "" })}
               addLabel="Add purchase link"
@@ -183,7 +182,6 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
           </h2>
 
           <DynamicArrayField
-            name="retailLocations"
             initialItems={brand.retailLocations}
             createItem={() => ({ name: "", address: "" })}
             addLabel="Add retail location"

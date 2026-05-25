@@ -2,7 +2,6 @@
 import { useState } from 'react'
 
 type DynamicArrayFieldProps<T extends object> = {
-  name?: string
   initialItems: T[]
   renderItem: (item: T, index: number, onRemove: () => void) => React.ReactNode
   createItem: () => T
@@ -11,7 +10,6 @@ type DynamicArrayFieldProps<T extends object> = {
 }
 
 export function DynamicArrayField<T extends object>({
-  name,
   initialItems,
   renderItem,
   createItem,
@@ -34,15 +32,6 @@ export function DynamicArrayField<T extends object>({
       {items.map((item, index) => (
         <div key={index}>
           {renderItem(item, index, () => removeItem(index))}
-          {name &&
-            Object.entries(item as Record<string, unknown>).map(([key, value]) => (
-              <input
-                key={key}
-                type="hidden"
-                name={`${name}[${index}].${key}`}
-                value={String(value ?? '')}
-              />
-            ))}
         </div>
       ))}
       <button
