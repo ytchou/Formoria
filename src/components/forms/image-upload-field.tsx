@@ -56,6 +56,7 @@ export function ImageUploadField({
       </label>
       {displayUrl ? (
         <div className="relative inline-block">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={displayUrl}
             alt={`${label} preview`}
