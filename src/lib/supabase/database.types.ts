@@ -33,7 +33,7 @@ export type Database = {
           product_photos: Json
           contact_email: string | null
           founder: Json | null
-          product_highlights: Json | null
+          brand_highlights: string | null
           submitted_at: string
           approved_at: string | null
           created_at: string
@@ -55,7 +55,7 @@ export type Database = {
           product_photos?: Json
           contact_email?: string | null
           founder?: Json | null
-          product_highlights?: Json | null
+          brand_highlights?: string | null
           submitted_at?: string
           approved_at?: string | null
           created_at?: string
@@ -77,7 +77,7 @@ export type Database = {
           product_photos?: Json
           contact_email?: string | null
           founder?: Json | null
-          product_highlights?: Json | null
+          brand_highlights?: string | null
           submitted_at?: string
           approved_at?: string | null
           created_at?: string

@@ -12,7 +12,7 @@ import { BrandActions } from '@/components/brands/brand-actions'
 import { BrandAbout } from '@/components/brands/brand-about'
 import { BrandFounder } from '@/components/brands/brand-founder'
 import { BrandTags } from '@/components/brands/brand-tags'
-import { BrandProductHighlights } from '@/components/brands/brand-product-highlights'
+import { BrandHighlights } from '@/components/brands/brand-highlights'
 import { BrandPhotoGallery } from '@/components/brands/brand-photo-gallery'
 import { BrandLinks } from '@/components/brands/brand-links'
 import { BrandLocations } from '@/components/brands/brand-locations'
@@ -148,7 +148,7 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
           <hr className="border-border" />
 
           <BrandTags brand={brand} />
-          <BrandProductHighlights brand={brand} />
+          <BrandHighlights brand={brand} />
           <BrandPhotoGallery photos={brand.productPhotos} brandSlug={brand.slug} />
 
           <hr className="border-border" />

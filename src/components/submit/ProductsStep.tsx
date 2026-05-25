@@ -16,7 +16,7 @@ export function ProductsStep({ uploadPath }: ProductsStepProps) {
     formState: { errors },
   } = useFormContext<SubmissionFormData>()
 
-  const highlights = watch('productHighlights') ?? ''
+  const highlights = watch('brandHighlights') ?? ''
 
   return (
     <div className="space-y-6">
@@ -54,32 +54,32 @@ export function ProductsStep({ uploadPath }: ProductsStepProps) {
         )}
       </div>
 
-      {/* Product Highlights */}
+      {/* Brand Highlights */}
       <div className="space-y-1.5">
         <label
-          htmlFor="product-highlights"
+          htmlFor="brand-highlights"
           className="block text-sm font-semibold text-[#1A1918]"
         >
-          Product Highlights
+          Brand Highlights
         </label>
         <p className="text-xs text-[#7C7570]">
-          What makes your products special?
+          What makes your brand special?
         </p>
         <textarea
-          id="product-highlights"
+          id="brand-highlights"
           rows={3}
           placeholder="e.g. Handcrafted with local Taiwanese cedar..."
           className="w-full rounded-lg border border-[#D4CFC9] bg-white px-3 py-2 text-sm text-[#1A1918] placeholder:text-[#B0AAA4] focus:border-[#8B7355] focus:outline-none focus:ring-2 focus:ring-[#8B7355]/20"
-          {...register('productHighlights')}
+          {...register('brandHighlights')}
         />
         <div className="flex justify-end">
           <span className="text-xs text-[#7C7570]">
             {highlights.length} / 300
           </span>
         </div>
-        {errors.productHighlights && (
+        {errors.brandHighlights && (
           <p className="text-xs text-red-600">
-            {errors.productHighlights.message}
+            {errors.brandHighlights.message}
           </p>
         )}
       </div>

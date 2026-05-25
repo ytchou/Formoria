@@ -35,7 +35,7 @@ vi.mock('../upload/ImageUploader', () => ({
 
 function Wrapper({ children }: { children: React.ReactNode }) {
   const methods = useForm({
-    defaultValues: { productPhotos: [] as string[], productHighlights: '' },
+    defaultValues: { productPhotos: [] as string[], brandHighlights: '' },
   })
   return <FormProvider {...methods}>{children}</FormProvider>
 }
@@ -48,7 +48,7 @@ describe('ProductsStep', () => {
       </Wrapper>
     )
     expect(screen.getByTestId('photo-uploader')).toBeInTheDocument()
-    expect(screen.getByLabelText(/product highlights/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/brand highlights/i)).toBeInTheDocument()
   })
 
   it('allows typing in highlights field', async () => {
@@ -58,7 +58,7 @@ describe('ProductsStep', () => {
         <ProductsStep uploadPath="brands/test-uuid/photos" />
       </Wrapper>
     )
-    const textarea = screen.getByLabelText(/product highlights/i)
+    const textarea = screen.getByLabelText(/brand highlights/i)
     await user.type(textarea, 'Handcrafted cedar')
     expect(textarea).toHaveValue('Handcrafted cedar')
   })

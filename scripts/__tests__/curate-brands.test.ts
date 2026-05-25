@@ -20,7 +20,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     productPhotos: [],
     contactEmail: null,
     founder: null,
-    productHighlights: [],
+    brandHighlights: null,
     tags: [],
     submittedAt: '2026-01-01T00:00:00Z',
     approvedAt: null,
@@ -55,9 +55,7 @@ describe('scoreBrand', () => {
         { platform: 'website', url: 'https://example.com', label: 'Shop' },
       ],
       founder: { name: 'Jane', title: 'CEO', avatarUrl: null, quote: null },
-      productHighlights: [
-        { name: 'Product A', imageUrl: 'https://example.com/product-a.jpg', description: 'Great' },
-      ],
+      brandHighlights: 'Product A — Great',
       category: 'Accessories',
     })
     const result = scoreBrand(brand)
@@ -109,6 +107,9 @@ describe('buildEnrichPatch', () => {
   const emptyScraped = {
     brandName: null,
     description: null,
+    founderName: null,
+    founderTitle: null,
+    brandHighlights: null,
     heroImageUrl: null,
     galleryImageUrls: [],
     socialLinks: { instagram: null, threads: null, facebook: null },

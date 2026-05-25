@@ -99,7 +99,7 @@ describe('server action schema routing', () => {
       pdpaConsent: true,
       socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
       productPhotos: [],
-      productHighlights: '',
+      brandHighlights: '',
       retailLocations: [],
       turnstileToken: 'test-token',
     }
@@ -120,10 +120,65 @@ describe('server action schema routing', () => {
       socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
       sourceAttribution: 'found_online',
       productPhotos: [],
-      productHighlights: '',
+      brandHighlights: '',
       retailLocations: [],
       turnstileToken: 'test-token',
     }
     expect(schema.safeParse(communityPayload).success).toBe(true)
+  })
+
+  it('preserves founder fields through createSubmissionSchema parse', () => {
+    const schema = createSubmissionSchema(false)
+    const payload = {
+      name: 'Test Brand',
+      description: 'Long enough description for the test',
+      category: 'fashion',
+      tags: [],
+      isOwner: false,
+      purchaseLinks: [],
+      pdpaConsent: true,
+      socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
+      sourceAttribution: 'found_online',
+      productPhotos: [],
+      brandHighlights: '',
+      retailLocations: [],
+      turnstileToken: 'test-token',
+      founderName: 'Lin Wei-Chen',
+      founderTitle: 'Founder & CEO',
+      founderBio: 'Started the brand after returning from Tokyo.',
+    }
+    const result = schema.safeParse(payload)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.founderName).toBe('Lin Wei-Chen')
+      expect(result.data.founderTitle).toBe('Founder & CEO')
+      expect(result.data.founderBio).toBe('Started the brand after returning from Tokyo.')
+    }
+  })
+
+  it('founder fields default to empty string when omitted', () => {
+    const schema = createSubmissionSchema(false)
+    const payload = {
+      name: 'Test Brand',
+      description: 'Long enough description for the test',
+      category: 'fashion',
+      tags: [],
+      isOwner: false,
+      purchaseLinks: [],
+      pdpaConsent: true,
+      socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
+      sourceAttribution: 'found_online',
+      productPhotos: [],
+      brandHighlights: '',
+      retailLocations: [],
+      turnstileToken: 'test-token',
+    }
+    const result = schema.safeParse(payload)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.founderName).toBe('')
+      expect(result.data.founderTitle).toBe('')
+      expect(result.data.founderBio).toBe('')
+    }
   })
 })

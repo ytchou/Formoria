@@ -22,6 +22,10 @@ function Wrapper({ children }: { children: React.ReactNode }) {
       category: '',
       tags: [] as string[],
       logoUrl: '',
+      founderName: '',
+      founderTitle: '',
+      founderBio: '',
+      brandHighlights: '',
     },
   })
   return <FormProvider {...methods}>{children}</FormProvider>
@@ -74,6 +78,32 @@ describe('BrandInfoStep', () => {
       </Wrapper>
     )
     expect(screen.getByText(/0.*\/.*500.*max.*characters/i)).toBeInTheDocument()
+  })
+
+  it('renders founder name field', () => {
+    render(
+      <Wrapper>
+        <BrandInfoStep
+          categories={mockCategories}
+          uploadPath="brands/test-uuid"
+          isOwner={false}
+        />
+      </Wrapper>
+    )
+    expect(screen.getByLabelText(/founder name/i)).toBeInTheDocument()
+  })
+
+  it('renders founder bio field', () => {
+    render(
+      <Wrapper>
+        <BrandInfoStep
+          categories={mockCategories}
+          uploadPath="brands/test-uuid"
+          isOwner={false}
+        />
+      </Wrapper>
+    )
+    expect(screen.getByLabelText(/founder bio/i)).toBeInTheDocument()
   })
 })
 

@@ -30,12 +30,6 @@ export type BrandFounder = {
   quote: string | null
 }
 
-export type ProductHighlight = {
-  name: string
-  imageUrl: string | null
-  description: string | null
-}
-
 export type Brand = {
   id: string
   name: string
@@ -53,7 +47,7 @@ export type Brand = {
   productPhotos: string[]
   contactEmail: string | null
   founder: BrandFounder | null
-  productHighlights: ProductHighlight[]
+  brandHighlights: string | null
   tags: TaxonomyTag[]
   submittedAt: string
   approvedAt: string | null
