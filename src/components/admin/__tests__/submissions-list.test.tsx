@@ -1,12 +1,40 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { SubmissionsList } from '../submissions-list'
+import type { BrandSubmission } from '@/lib/types'
 
 vi.mock('@/app/admin/actions', () => ({
   approveSubmissionAction: vi.fn(),
   rejectSubmissionAction: vi.fn(),
 }))
+
+function makeSubmission(overrides: Partial<BrandSubmission> = {}): BrandSubmission {
+  return {
+    id: 'sub-1',
+    brandId: null,
+    brandName: 'Pottery Studio',
+    submitterEmail: 'potter@test.com',
+    submitterName: 'Potter',
+    description: 'Handmade ceramics from Yingge',
+    websiteUrl: null,
+    status: 'pending',
+    suggestedTags: ['ceramics'],
+    socialLinks: {},
+    submittedAt: '2026-05-18T10:00:00Z',
+    reviewedAt: null,
+    reviewedBy: null,
+    reviewerNotes: null,
+    pdpaConsentAt: null,
+    validationStatus: null,
+    validationErrors: null,
+    notifiedAt: null,
+    isBrandOwner: false,
+    sourceAttribution: null,
+    ...overrides,
+  }
+}
 
 const mockSubmissions = [
   {
@@ -104,5 +132,44 @@ describe('SubmissionsList', () => {
     fireEvent.click(screen.getByText('Tea House'))
     expect(screen.queryByText('Handmade ceramics from Yingge')).toBeNull()
     expect(screen.getByText('Premium oolong tea')).toBeDefined()
+  })
+})
+
+describe('source badge', () => {
+  it('renders "Owner" badge when isBrandOwner is true', () => {
+    render(<SubmissionsList submissions={[makeSubmission({ isBrandOwner: true })]} />)
+    expect(screen.getByText('Owner')).toBeInTheDocument()
+    expect(screen.queryByText('Community')).not.toBeInTheDocument()
+  })
+
+  it('renders "Community" badge when isBrandOwner is false', () => {
+    render(<SubmissionsList submissions={[makeSubmission({ isBrandOwner: false })]} />)
+    expect(screen.getByText('Community')).toBeInTheDocument()
+    expect(screen.queryByText('Owner')).not.toBeInTheDocument()
+  })
+})
+
+describe('sourceAttribution in expanded row', () => {
+  it('shows attribution label when isBrandOwner is false and sourceAttribution is set', async () => {
+    const submission = makeSubmission({ isBrandOwner: false, sourceAttribution: 'bought_product' })
+    render(<SubmissionsList submissions={[submission]} />)
+    await userEvent.click(screen.getByText(submission.brandName))
+    expect(screen.getByText('How do you know this brand?')).toBeInTheDocument()
+  })
+
+  it('does not show attribution label when isBrandOwner is true', async () => {
+    const submission = makeSubmission({ isBrandOwner: true, sourceAttribution: null })
+    render(<SubmissionsList submissions={[submission]} />)
+    await userEvent.click(screen.getByText(submission.brandName))
+    expect(screen.queryByText('How do you know this brand?')).not.toBeInTheDocument()
+  })
+})
+
+describe('admin helper text', () => {
+  it('renders community review guidance above the table', () => {
+    render(<SubmissionsList submissions={[]} />)
+    expect(
+      screen.getByText(/Community submissions may have incomplete info/i)
+    ).toBeInTheDocument()
   })
 })
