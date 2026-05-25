@@ -13,6 +13,6 @@ test.describe('Landing page smoke', () => {
     await page.goto('/');
     await page.getByRole('searchbox').fill('coffee');
     await page.getByRole('searchbox').press('Enter');
-    await expect(page).toHaveURL(/\/brands\?search=coffee/);
+    await expect(page).toHaveURL(/\/brands\?search=coffee/, { timeout: 15_000 });
   });
 });

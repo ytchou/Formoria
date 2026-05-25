@@ -204,6 +204,9 @@ function SearchInput({ redirectTo, placeholder }: SearchInputProps = {}) {
         </button>
       )}
 
+      {/* Hidden submit button ensures implicit form submission works in all browsers (WebKit) */}
+      <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
+
       {showDropdown && (
         <SearchSuggestions
           suggestions={suggestions}
