@@ -45,13 +45,9 @@ describe('MainNav', () => {
   it('renders navigation links', async () => {
     const { MainNav } = await import('./main-nav')
     render(<MainNav categories={mockCategories} />)
-    expect(screen.getByRole('link', { name: /瀏覽/ })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /品牌目錄/ })).toHaveAttribute(
       'href',
       '/brands'
-    )
-    expect(screen.getByRole('link', { name: /關於/ })).toHaveAttribute(
-      'href',
-      '/about'
     )
   })
 

@@ -1,11 +1,15 @@
 import { sendGAEvent } from '@next/third-parties/google'
 
 function safeGAEvent(...args: Parameters<typeof sendGAEvent>) {
-  if (typeof window === 'undefined') return
-  // Ensure dataLayer exists before GA script loads
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ;(window as any).dataLayer = (window as any).dataLayer || []
-  sendGAEvent(...args)
+  try {
+    if (typeof window === 'undefined') return
+    // Ensure dataLayer exists before GA script loads
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).dataLayer = (window as any).dataLayer || []
+    sendGAEvent(...args)
+  } catch {
+    // Silently swallow — analytics must never break the app
+  }
 }
 
 export const SUBMISSION_STEP_NAMES = {

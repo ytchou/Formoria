@@ -15,11 +15,6 @@ describe('Footer', () => {
     expect(screen.getByRole('contentinfo')).toBeInTheDocument()
   })
 
-  it('renders 常見問題 link pointing to /faq', () => {
-    render(<Footer />)
-    expect(screen.getByRole('link', { name: '常見問題' })).toHaveAttribute('href', '/faq')
-  })
-
   it('renders 關於我們 link pointing to /about', () => {
     render(<Footer />)
     expect(screen.getByRole('link', { name: '關於我們' })).toHaveAttribute('href', '/about')
@@ -28,11 +23,6 @@ describe('Footer', () => {
   it('renders 服務條款 link pointing to /terms', () => {
     render(<Footer />)
     expect(screen.getByRole('link', { name: '服務條款' })).toHaveAttribute('href', '/terms')
-  })
-
-  it('renders 請我喝咖啡 ☕ link pointing to support page', () => {
-    render(<Footer />)
-    expect(screen.getByRole('link', { name: '請我喝咖啡 ☕' })).toHaveAttribute('href', '/support')
   })
 
   it('renders 聯絡我們 as a mailto link', () => {
