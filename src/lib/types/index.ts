@@ -16,6 +16,7 @@ export type {
   FormPurchaseLink,
   FormRetailLocation,
   FormSocialLinks,
+  SourceAttribution,
   SubmissionStatus,
   ValidationStatus,
 } from './submission'

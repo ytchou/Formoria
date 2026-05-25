@@ -14,6 +14,7 @@ import { Dialog as SheetPrimitive } from '@base-ui/react/dialog'
 const navLinks = [
   { label: '瀏覽', href: '/' },
   { label: '關於', href: '/about' },
+  { label: '我的提交', href: '/my-submissions' },
 ]
 
 export function MainNav() {

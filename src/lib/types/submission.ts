@@ -2,6 +2,20 @@ import type { SocialLinks } from './brand'
 
 export type SubmissionStatus = 'pending' | 'approved' | 'rejected'
 export type ValidationStatus = 'valid' | 'incomplete'
+export type SourceAttribution =
+  | 'bought_product'
+  | 'saw_at_market'
+  | 'found_online'
+  | 'friend_recommended'
+  | 'work_there'
+
+export const SOURCE_ATTRIBUTION_VALUES = [
+  'bought_product',
+  'saw_at_market',
+  'found_online',
+  'friend_recommended',
+  'work_there',
+] as const satisfies readonly SourceAttribution[]
 
 export type BrandSubmission = {
   id: string
@@ -23,6 +37,7 @@ export type BrandSubmission = {
   validationErrors: string[] | null
   notifiedAt: string | null
   isBrandOwner: boolean
+  sourceAttribution?: SourceAttribution | null
 }
 
 /** Form-level purchase link (no label field required) */

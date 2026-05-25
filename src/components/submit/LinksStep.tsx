@@ -13,7 +13,11 @@ const PLATFORM_OPTIONS = [
   { value: 'other', label: 'Other' },
 ]
 
-export function LinksStep() {
+type LinksStepProps = {
+  isOwner?: boolean
+}
+
+export function LinksStep({ isOwner = false }: LinksStepProps = {}) {
   const {
     register,
     control,
@@ -38,7 +42,7 @@ export function LinksStep() {
       <div className="space-y-3">
         <div>
           <h3 className="text-sm font-semibold text-[#1A1918]">
-            Purchase Links
+            {isOwner ? 'Purchase Links *' : 'Purchase Links（可選）'}
           </h3>
           <p className="text-xs text-[#7C7570]">
             Add links where people can buy your products

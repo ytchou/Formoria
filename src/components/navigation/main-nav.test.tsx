@@ -45,9 +45,18 @@ describe('MainNav', () => {
   it('renders Submit a Brand CTA', async () => {
     const { MainNav } = await import('./main-nav')
     render(<MainNav />)
-    expect(screen.getByRole('link', { name: /提交/ })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '提交品牌' })).toHaveAttribute(
       'href',
       '/submit'
+    )
+  })
+
+  it('renders My Submissions nav link', async () => {
+    const { MainNav } = await import('./main-nav')
+    render(<MainNav />)
+    expect(screen.getAllByRole('link', { name: '我的提交' })[0]).toHaveAttribute(
+      'href',
+      '/my-submissions'
     )
   })
 

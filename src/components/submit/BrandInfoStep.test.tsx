@@ -45,7 +45,7 @@ describe('BrandInfoStep', () => {
     expect(screen.getByLabelText(/brand name/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/brand description/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/category/i)).toBeInTheDocument()
-    expect(screen.getByText('Brand Logo')).toBeInTheDocument()
+    expect(screen.getByText(/logo（可選）|logo \*/i)).toBeInTheDocument()
   })
 
   it('allows typing in name and description fields', async () => {

@@ -30,6 +30,7 @@ type BrandInfoStepProps = {
   uploadPath: string
   photos?: PhotoItem[]
   onPhotosChange?: (photos: PhotoItem[]) => void
+  isOwner?: boolean
 }
 
 function SortablePhoto({
@@ -184,6 +185,7 @@ export function BrandInfoStep({
   uploadPath,
   photos,
   onPhotosChange,
+  isOwner = false,
 }: BrandInfoStepProps) {
   const {
     register,
@@ -345,7 +347,7 @@ export function BrandInfoStep({
       {/* Brand Logo */}
       <div className="space-y-1.5">
         <label className="block text-sm font-semibold text-[#1A1918]">
-          Brand Logo
+          {isOwner ? 'Logo *' : 'Logo（可選）'}
         </label>
         <p className="text-xs text-[#7C7570]">
           Upload your brand logo (max 5MB, will be resized to max 1200px)

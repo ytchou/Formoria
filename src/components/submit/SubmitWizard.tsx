@@ -29,6 +29,7 @@ import {
   type SubmissionStepName,
 } from '@/lib/analytics'
 import type { ScrapedBrandData, PhotoItem } from '@/lib/types/scraper'
+import type { SourceAttribution } from '@/lib/types/submission'
 
 const STEP_LABELS = ['品牌資訊', '產品', '連結', '確認']
 
@@ -88,6 +89,8 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
   const [isPending, startTransition] = useTransition()
   const [photos, setPhotos] = useState<PhotoItem[]>([])
   const [completed, setCompleted] = useState(false)
+  const [isOwner, setIsOwner] = useState(false)
+  const [sourceAttribution, setSourceAttribution] = useState<SourceAttribution | undefined>(undefined)
 
   const mountTimeRef = useRef<number>(0)
   const lastStepRef = useRef<SubmissionStepName>(SUBMISSION_STEP_NAMES[0])
@@ -196,6 +199,8 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
     const mergedData = {
       ...data,
       productPhotos: [...photoUrls, ...data.productPhotos.filter((url) => !photoUrls.includes(url))],
+      isOwner,
+      sourceAttribution,
     }
 
     startTransition(async () => {
@@ -231,7 +236,13 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
 
       {phase === 'url' ? (
         <div className="rounded-xl border border-[#E8E5E0] bg-white p-8 shadow-sm">
-          <UrlStep onSuccess={handleUrlSuccess} onSkip={handleUrlSkip} />
+          <UrlStep
+            onSuccess={handleUrlSuccess}
+            onSkip={handleUrlSkip}
+            isOwner={isOwner}
+            onOwnerChange={setIsOwner}
+            onAttributionChange={setSourceAttribution}
+          />
         </div>
       ) : (
         <>
@@ -246,12 +257,13 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
                     uploadPath={uploadPath}
                     photos={photos}
                     onPhotosChange={setPhotos}
+                    isOwner={isOwner}
                   />
                 )}
                 {currentStep === 1 && (
                   <ProductsStep uploadPath={uploadPath} />
                 )}
-                {currentStep === 2 && <LinksStep />}
+                {currentStep === 2 && <LinksStep isOwner={isOwner} />}
                 {currentStep === 3 && (
                   <ReviewStep onEditStep={handleEditStep} />
                 )}

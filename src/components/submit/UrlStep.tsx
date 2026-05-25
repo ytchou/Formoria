@@ -2,16 +2,37 @@
 
 import { useState, useRef } from 'react'
 import { Link2, Loader2 } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
+import type { SourceAttribution } from '@/lib/types/submission'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 
 type UrlStepStatus = 'idle' | 'loading' | 'error'
 
+const SOURCE_ATTRIBUTION_LABELS: Record<(typeof SOURCE_ATTRIBUTION_VALUES)[number], string> = {
+  bought_product: '買過他們的產品',
+  saw_at_market: '在市集或實體店看到',
+  found_online: '在網路上發現',
+  friend_recommended: '朋友推薦',
+  work_there: '在這裡工作',
+}
+
 type UrlStepProps = {
   onSuccess: (data: ScrapedBrandData) => void
   onSkip: () => void
+  isOwner: boolean
+  onOwnerChange: (isOwner: boolean) => void
+  onAttributionChange: (attribution: SourceAttribution | undefined) => void
 }
 
-export function UrlStep({ onSuccess, onSkip }: UrlStepProps) {
+export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributionChange }: UrlStepProps) {
   const [url, setUrl] = useState('')
   const [status, setStatus] = useState<UrlStepStatus>('idle')
   const abortRef = useRef<AbortController | null>(null)
@@ -56,6 +77,15 @@ export function UrlStep({ onSuccess, onSkip }: UrlStepProps) {
 
   return (
     <div className="mx-auto max-w-[600px] space-y-6">
+      <div className="space-y-1">
+        <h2 className="text-lg font-semibold text-[#1A1918]">
+          提交你喜愛的品牌
+        </h2>
+        <p className="text-sm text-[#7C7570]">
+          與社群分享台灣製造品牌
+        </p>
+      </div>
+
       <div className="space-y-1.5">
         <label
           htmlFor="website-url"
@@ -79,6 +109,45 @@ export function UrlStep({ onSuccess, onSkip }: UrlStepProps) {
           />
         </div>
       </div>
+
+      {/* Brand owner checkbox */}
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="is-brand-owner"
+          checked={isOwner}
+          onCheckedChange={(checked: boolean) => onOwnerChange(checked)}
+        />
+        <label
+          htmlFor="is-brand-owner"
+          className="cursor-pointer select-none text-sm font-medium text-[#1A1918]"
+        >
+          我是品牌所有者
+        </label>
+      </div>
+
+      {/* Source attribution — shown only when not owner */}
+      {!isOwner && (
+        <div className="space-y-1.5">
+          <label className="block text-sm font-semibold text-[#1A1918]">
+            你如何認識這個品牌？
+          </label>
+          <Select onValueChange={(val) => onAttributionChange(val as SourceAttribution)}>
+            <SelectTrigger
+              aria-label="你如何認識這個品牌？"
+              className="h-11 w-full border-[#D4CFC9] text-sm text-[#1A1918]"
+            >
+              <SelectValue placeholder="選擇你認識這品牌的方式（可選）" />
+            </SelectTrigger>
+            <SelectContent>
+              {SOURCE_ATTRIBUTION_VALUES.map((value) => (
+                <SelectItem key={value} value={value}>
+                  {SOURCE_ATTRIBUTION_LABELS[value]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {status === 'error' && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3">
