@@ -11,8 +11,12 @@ test.describe('Landing page smoke', () => {
 
   test('search from landing page navigates to /brands?search=', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('searchbox').fill('coffee');
-    await page.getByRole('searchbox').press('Enter');
+    const searchbox = page.getByRole('searchbox');
+    await searchbox.click();
+    // Use pressSequentially instead of fill() — fill() does not reliably
+    // trigger React onChange on controlled inputs in WebKit.
+    await searchbox.pressSequentially('coffee', { delay: 50 });
+    await searchbox.press('Enter');
     await expect(page).toHaveURL(/\/brands\?search=coffee/, { timeout: 15_000 });
   });
 });
