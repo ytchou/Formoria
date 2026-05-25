@@ -16,11 +16,14 @@ export const brandInfoSchema = z.object({
   category: categoryField,
   tags: tagsField,
   logoUrl: z.string().url('請上傳品牌標誌').min(1, '請上傳品牌標誌'),
+  founderName: z.string().max(100).optional().default(''),
+  founderTitle: z.string().max(100).optional().default(''),
+  founderBio: z.string().max(300).optional().default(''),
 })
 
 export const productsSchema = z.object({
   productPhotos: z.array(z.string()).max(6, '最多可上傳 6 張照片'),
-  productHighlights: z.string().max(300),
+  brandHighlights: z.string().max(300).optional().default(''),
 })
 
 const purchaseLinkSchema = z.object({
