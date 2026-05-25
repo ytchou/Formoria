@@ -16,6 +16,7 @@ const mockTags = [
 
 describe('ValueChips', () => {
   it('renders tag names as chip links', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     render(<ValueChips tags={mockTags as any} />)
 
     expect(screen.getByText('永續經營')).toBeInTheDocument()

@@ -23,6 +23,7 @@ describe('BrandShowcase', () => {
   it('renders heading and brand cards', () => {
     render(
       <BrandShowcase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         brands={mockBrands as any}
         heading="探索品牌"
         linkText="瀏覽全部品牌"
@@ -51,6 +52,7 @@ describe('BrandShowcase', () => {
   it('renders link to view all brands', () => {
     render(
       <BrandShowcase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         brands={mockBrands as any}
         heading="探索品牌"
         linkText="瀏覽全部品牌"
