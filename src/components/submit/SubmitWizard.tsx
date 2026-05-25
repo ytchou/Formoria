@@ -36,8 +36,17 @@ const STEP_LABELS = ['品牌資訊', '產品', '連結', '確認']
 const STEP_SCHEMAS = [brandInfoSchema, productsSchema, linksSchema, reviewSchema]
 
 const STEP_FIELDS: (keyof SubmissionFormData)[][] = [
-  ['name', 'description', 'category', 'tags', 'logoUrl'],
-  ['productPhotos', 'productHighlights'],
+  [
+    'name',
+    'description',
+    'category',
+    'tags',
+    'logoUrl',
+    'founderName',
+    'founderTitle',
+    'founderBio',
+  ],
+  ['productPhotos', 'brandHighlights'],
   ['purchaseLinks', 'socialLinks', 'retailLocations'],
   ['pdpaConsent'],
 ]
@@ -123,8 +132,11 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
       category: '',
       tags: [],
       logoUrl: '',
+      founderName: '',
+      founderTitle: '',
+      founderBio: '',
       productPhotos: [],
-      productHighlights: '',
+      brandHighlights: '',
       purchaseLinks: [{ platform: '', url: '' }],
       socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
       retailLocations: [],
