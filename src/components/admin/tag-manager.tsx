@@ -31,7 +31,13 @@ function categoryLabel(category: string): string {
   return category.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-export function TagManager({ tags }: { tags: TaxonomyTag[] }) {
+interface TagManagerProps {
+  tags: TaxonomyTag[]
+  /** Optional callback to handle suggested tag processing externally. When provided, the built-in suggested tags section is hidden. */
+  onProcessSuggestion?: (tagId: string, action: 'map-existing' | 'reject') => void
+}
+
+export function TagManager({ tags, onProcessSuggestion }: TagManagerProps) {
   const [newTagName, setNewTagName] = useState('')
   const [newTagNameZh, setNewTagNameZh] = useState('')
   const [newTagCategory, setNewTagCategory] = useState<string>('product_type')
@@ -142,8 +148,8 @@ export function TagManager({ tags }: { tags: TaxonomyTag[] }) {
         {error && <p className="mt-2 text-sm text-[#D94F3D]">{error}</p>}
       </div>
 
-      {/* Suggested Tags Section */}
-      {suggestedTags.length > 0 && (
+      {/* Suggested Tags Section — hidden when parent handles it via onProcessSuggestion */}
+      {suggestedTags.length > 0 && !onProcessSuggestion && (
         <div>
           <h3 className="text-lg font-medium">
             Suggested Tags ({suggestedTags.length})

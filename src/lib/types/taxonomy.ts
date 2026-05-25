@@ -1,5 +1,7 @@
 export type TagCategory = 'product_type' | 'material' | 'price_range' | 'region' | 'value'
 
+export type TagSource = 'auto' | 'manual' | 'suggested'
+
 export type TaxonomyTag = {
   id: string
   name: string
@@ -10,3 +12,4 @@ export type TaxonomyTag = {
   suggestedBy: string | null
   createdAt: string
 }
+

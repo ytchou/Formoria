@@ -5,7 +5,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isAdmin } from '@/lib/auth/admin'
 import { getSubmission, approveSubmission, rejectSubmission } from '@/lib/services/submissions'
 import { createBrand, updateBrand, getBrandById, deleteBrand, generateSlug, syncBrandImages } from '@/lib/services/brands'
-import { createTag, updateTag, mergeTag, deactivateTag } from '@/lib/services/taxonomy'
+import { createTag, updateTag, mergeTag, deactivateTag, activateTag, setBrandTags, processSuggestedTag } from '@/lib/services/taxonomy'
 import { createResendProvider } from '@/lib/email/resend-adapter'
 import { buildApprovalEmail, buildRejectionEmail, buildClaimEmail } from '@/lib/email/templates'
 import { generateClaimToken } from '@/lib/auth/claim-token'
@@ -348,6 +348,26 @@ export async function deactivateTagAction(
   }
 }
 
+export async function approveSuggestedTagAction(
+  tagId: string
+): Promise<{ error: string } | undefined> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth
+
+    await activateTag(tagId)
+
+    revalidatePath('/admin/taxonomy')
+    revalidatePath('/admin')
+    return undefined
+  } catch (err) {
+    console.error('[admin:approveSuggestedTag]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
+}
+
 export async function revertFlagAction(
   flagId: string
 ): Promise<{ success: true } | { error: 'stale' | 'not_found' }> {
@@ -416,6 +436,102 @@ export async function revertFlagAction(
   revalidatePath(`/brands/${brand.slug}`)
 
   return { success: true }
+}
+
+export async function setBrandTagsAction(
+  formData: FormData
+): Promise<{ success: true } | { error: string }> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth
+
+    const brandId = formData.get('brandId')
+    const tagIdsRaw = formData.get('tagIds')
+
+    if (!brandId || typeof brandId !== 'string') {
+      return { error: 'brandId is required' }
+    }
+
+    const tagIds: string[] = tagIdsRaw ? JSON.parse(tagIdsRaw as string) : []
+
+    await setBrandTags(brandId, tagIds, 'manual')
+
+    revalidatePath('/admin/brands')
+    revalidatePath('/admin/taxonomy')
+    return { success: true }
+  } catch (err) {
+    console.error('[admin:setBrandTags]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
+}
+
+export async function confirmBrandTagsAction(
+  formData: FormData
+): Promise<{ success: true } | { error: string }> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth
+
+    const brandId = formData.get('brandId')
+    const tagIdsRaw = formData.get('tagIds')
+
+    if (!brandId || typeof brandId !== 'string') {
+      return { error: 'brandId is required' }
+    }
+
+    const tagIds: string[] = tagIdsRaw ? JSON.parse(tagIdsRaw as string) : []
+
+    await setBrandTags(brandId, tagIds, 'manual')
+
+    revalidatePath('/admin/brands')
+    revalidatePath('/admin/taxonomy')
+    return { success: true }
+  } catch (err) {
+    console.error('[admin:confirmBrandTags]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
+}
+
+export async function processSuggestedTagAction(
+  formData: FormData
+): Promise<{ success: true } | { error: string }> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth
+
+    const submissionId = formData.get('submissionId')
+    const action = formData.get('action')
+    const targetTagId = formData.get('targetTagId') ?? undefined
+    const newTagDataRaw = formData.get('newTagData') ?? undefined
+
+    if (!submissionId || typeof submissionId !== 'string') {
+      return { error: 'submissionId is required' }
+    }
+    if (!action || typeof action !== 'string') {
+      return { error: 'action is required' }
+    }
+
+    const newTagData = newTagDataRaw ? JSON.parse(newTagDataRaw as string) : undefined
+
+    await processSuggestedTag(
+      submissionId,
+      action as Parameters<typeof processSuggestedTag>[1],
+      targetTagId as string | undefined,
+      newTagData
+    )
+
+    revalidatePath('/admin/taxonomy')
+    return { success: true }
+  } catch (err) {
+    console.error('[admin:processSuggestedTag]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
 }
 
 export async function bulkUpdateFlagsAction(

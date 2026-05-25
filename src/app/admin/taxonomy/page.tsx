@@ -1,13 +1,17 @@
 import type { Metadata } from 'next'
 import { getTags } from '@/lib/services/taxonomy'
-import { TagManager } from '@/components/admin/tag-manager'
+import { getBrandsForReview } from '@/lib/services/taxonomy'
+import { TaxonomyTabs } from '@/components/admin/taxonomy-tabs'
 
 export const metadata: Metadata = {
   title: '分類管理 | 管理後台 | MIT Map',
 }
 
 export default async function TaxonomyPage() {
-  const tags = await getTags(undefined, true)
+  const [tags, brandsForReview] = await Promise.all([
+    getTags(undefined, true),
+    getBrandsForReview('auto'),
+  ])
 
   return (
     <div>
@@ -19,7 +23,7 @@ export default async function TaxonomyPage() {
       </p>
 
       <div className="mt-8">
-        <TagManager tags={tags} />
+        <TaxonomyTabs tags={tags} brandsForReview={brandsForReview} />
       </div>
     </div>
   )
