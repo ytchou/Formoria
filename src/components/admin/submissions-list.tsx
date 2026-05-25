@@ -138,7 +138,7 @@ export function SubmissionsList({
                   <TableCell>{formatDate(submission.submittedAt)}</TableCell>
                   <TableCell>
                     {submission.isBrandOwner ? (
-                      <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                      <span className="inline-flex items-center rounded-full bg-[#2C1810] px-2 py-0.5 text-xs font-semibold text-white">
                         Owner
                       </span>
                     ) : (
