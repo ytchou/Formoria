@@ -99,7 +99,7 @@ describe('server action schema routing', () => {
       pdpaConsent: true,
       socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
       productPhotos: [],
-      productHighlights: '',
+      brandHighlights: '',
       retailLocations: [],
       turnstileToken: 'test-token',
     }
@@ -120,7 +120,7 @@ describe('server action schema routing', () => {
       socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
       sourceAttribution: 'found_online',
       productPhotos: [],
-      productHighlights: '',
+      brandHighlights: '',
       retailLocations: [],
       turnstileToken: 'test-token',
     }

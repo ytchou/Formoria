@@ -10,7 +10,7 @@ const basePayload = {
   pdpaConsent: true,
   socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://testbrand.com' },
   productPhotos: [],
-  productHighlights: '',
+  brandHighlights: '',
   retailLocations: [],
   turnstileToken: 'test-token',
 }

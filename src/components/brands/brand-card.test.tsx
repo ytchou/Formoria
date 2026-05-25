@@ -27,7 +27,7 @@ const mockBrand = {
   retailLocations: [],
   contactEmail: null,
   founder: null,
-  productHighlights: [],
+  brandHighlights: null,
   submittedAt: '2024-01-01',
   approvedAt: null,
   createdAt: '2024-01-01',
