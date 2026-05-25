@@ -2,8 +2,9 @@
 import { render, screen } from '@testing-library/react'
 import { BrandHighlights } from './brand-highlights'
 import { describe, it, expect } from 'vitest'
+import type { Brand } from '@/lib/types'
 
-function makeBrand(overrides: Record<string, unknown> = {}) {
+function makeBrand(overrides: Partial<Brand> = {}): Brand {
   return {
     id: 'test-id',
     name: 'Test Brand',
@@ -11,7 +12,7 @@ function makeBrand(overrides: Record<string, unknown> = {}) {
     description: 'Test description',
     logoUrl: null,
     heroImageUrl: null,
-    status: 'approved' as const,
+    status: 'approved',
     category: 'food',
     foundingYear: null,
     purchaseLinks: [],
@@ -33,13 +34,13 @@ function makeBrand(overrides: Record<string, unknown> = {}) {
 describe('BrandHighlights', () => {
   it('renders highlights text when present', () => {
     const brand = makeBrand({ brandHighlights: 'Made in Tainan since 1992' })
-    render(<BrandHighlights brand={brand as any} />)
+    render(<BrandHighlights brand={brand} />)
     expect(screen.getByText('Made in Tainan since 1992')).toBeInTheDocument()
   })
 
   it('renders nothing when brandHighlights is null', () => {
     const brand = makeBrand({ brandHighlights: null })
-    const { container } = render(<BrandHighlights brand={brand as any} />)
+    const { container } = render(<BrandHighlights brand={brand} />)
     expect(container).toBeEmptyDOMElement()
   })
 })
