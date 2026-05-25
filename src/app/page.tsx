@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { buildWebSiteJsonLd } from '@/lib/json-ld'
-import { HeroSection } from '@/components/landing/hero-section'
+import HeroSection from '@/components/landing/hero-section'
 import TrustBar from '@/components/landing/trust-bar'
 import Manifesto from '@/components/landing/manifesto'
 import CategoryGrid from '@/components/landing/category-grid'
@@ -43,25 +43,25 @@ export default async function LandingPage() {
       <main>
         <HeroSection />
 
-        <section className="py-6">
+        <div className="py-6">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <TrustBar brandCount={stats.brandCount} categoryCount={stats.categoryCount} />
           </div>
-        </section>
+        </div>
 
-        <section className="py-12 md:py-16">
+        <div className="py-12 md:py-16">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <Manifesto />
           </div>
-        </section>
+        </div>
 
-        <section className="py-12 md:py-16">
+        <div className="py-12 md:py-16">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <CategoryGrid categories={categories} />
           </div>
-        </section>
+        </div>
 
-        <section className="py-12 md:py-16">
+        <div className="py-12 md:py-16">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <BrandShowcase
               brands={randomBrands}
@@ -70,15 +70,15 @@ export default async function LandingPage() {
               linkHref="/brands"
             />
           </div>
-        </section>
+        </div>
 
-        <section className="py-12 md:py-16">
+        <div className="py-12 md:py-16">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <ValueChips tags={valueTags} />
           </div>
-        </section>
+        </div>
 
-        <section className="py-12 md:py-16">
+        <div className="py-12 md:py-16">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <BrandShowcase
               brands={newBrands}
@@ -87,7 +87,7 @@ export default async function LandingPage() {
               linkHref="/brands"
             />
           </div>
-        </section>
+        </div>
 
         <DualCta />
       </main>

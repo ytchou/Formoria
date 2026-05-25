@@ -26,37 +26,37 @@ export default async function AboutPage() {
 
   return (
     <main>
-      <section className="py-12 md:py-16">
+      <div className="py-12 md:py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <AboutHero />
         </div>
-      </section>
+      </div>
 
-      <section className="py-12 md:py-16">
+      <div className="py-12 md:py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <OriginStory />
         </div>
-      </section>
+      </div>
 
-      <section className="py-12 md:py-16">
+      <div className="py-12 md:py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <WhatIsMit />
         </div>
-      </section>
+      </div>
 
-      <section className="py-12 md:py-16">
+      <div className="py-12 md:py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <MissionPillars />
         </div>
-      </section>
+      </div>
 
-      <section className="py-12 md:py-16">
+      <div className="py-12 md:py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <StatsBar brandCount={stats.brandCount} categoryCount={stats.categoryCount} />
         </div>
-      </section>
+      </div>
 
-      <section className="py-12 md:py-16">
+      <div className="py-12 md:py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <BrandShowcase
             brands={randomBrands}
@@ -65,19 +65,19 @@ export default async function AboutPage() {
             linkHref="/brands"
           />
         </div>
-      </section>
+      </div>
 
-      <section className="py-12 md:py-16">
+      <div className="py-12 md:py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <HowItWorks />
         </div>
-      </section>
+      </div>
 
-      <section className="py-12 md:py-16">
+      <div className="py-12 md:py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <TeamSection />
         </div>
-      </section>
+      </div>
 
       <AboutCta />
     </main>
