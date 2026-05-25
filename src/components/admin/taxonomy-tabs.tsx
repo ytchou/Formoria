@@ -38,13 +38,15 @@ export function TaxonomyTabs({ tags, brandsForReview }: Props) {
     })
   }
 
-  async function handleEditorSave(tagIds: string[]) {
+  function handleEditorSave(tagIds: string[]) {
     if (!editingBrand) return
-    const formData = new FormData()
-    formData.append('brandId', editingBrand.id)
-    formData.append('tagIds', JSON.stringify(tagIds))
-    await confirmBrandTagsAction(formData)
-    setEditingBrand(null)
+    startTransition(async () => {
+      const formData = new FormData()
+      formData.append('brandId', editingBrand.id)
+      formData.append('tagIds', JSON.stringify(tagIds))
+      await confirmBrandTagsAction(formData)
+      setEditingBrand(null)
+    })
   }
 
   function handleApproveSuggestion(tagId: string) {

@@ -6,7 +6,7 @@ import type { TaxonomyTag, TagSource } from '@/lib/types/taxonomy'
 interface Props {
   brand: { id: string; name: string; tags: Array<TaxonomyTag & { source: TagSource }> }
   allTags: TaxonomyTag[]
-  onSave: (tagIds: string[]) => Promise<void>
+  onSave: (tagIds: string[]) => void | Promise<void>
 }
 
 export function BrandTagEditor({ brand, allTags, onSave }: Props) {
