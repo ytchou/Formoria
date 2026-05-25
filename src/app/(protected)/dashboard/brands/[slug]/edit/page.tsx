@@ -37,17 +37,7 @@ export default async function BrandEditPage({ params }: Props) {
       </p>
 
       <div className="mt-8">
-        <BrandEditForm
-          brandSlug={brand.slug}
-          defaultValues={{
-            name: brand.name,
-            description: brand.description ?? "",
-            websiteUrl: brand.socialLinks.officialWebsite ?? "",
-            instagram: brand.socialLinks.instagram ?? "",
-            threads: brand.socialLinks.threads ?? "",
-            facebook: brand.socialLinks.facebook ?? "",
-          }}
-        />
+        <BrandEditForm brand={brand} />
       </div>
     </div>
   );
