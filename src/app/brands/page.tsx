@@ -2,10 +2,7 @@ import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { getBrands } from '@/lib/services/brands'
 import { buildWebSiteJsonLd } from '@/lib/json-ld'
-import { getActiveCategories } from '@/lib/services/taxonomy'
 import { parsePageParam, parseSortParam, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
-import { SearchInput } from '@/components/brands/search-input'
-import { CategoryPills } from '@/components/brands/category-pills'
 import { MasonryGrid } from '@/components/brands/masonry-grid'
 import { BrandCard } from '@/components/brands/brand-card'
 import { Pagination } from '@/components/brands/pagination'
@@ -42,18 +39,15 @@ export default async function BrandsPage({ searchParams }: BrandsPageProps) {
           .filter(Boolean)
       : []
 
-  const [{ brands, totalCount }, categories] = await Promise.all([
-    getBrands({
-      status: 'approved',
-      search: search || undefined,
-      category: categoryFilter || undefined,
-      tags: tags.length > 0 ? tags : undefined,
-      sort,
-      limit: DEFAULT_PAGE_SIZE,
-      offset: (page - 1) * DEFAULT_PAGE_SIZE,
-    }),
-    getActiveCategories(),
-  ])
+  const { brands, totalCount } = await getBrands({
+    status: 'approved',
+    search: search || undefined,
+    category: categoryFilter || undefined,
+    tags: tags.length > 0 ? tags : undefined,
+    sort,
+    limit: DEFAULT_PAGE_SIZE,
+    offset: (page - 1) * DEFAULT_PAGE_SIZE,
+  })
 
   // Clamp page to last valid page if user navigated beyond
   const totalPages = Math.ceil(totalCount / DEFAULT_PAGE_SIZE)
@@ -88,25 +82,6 @@ export default async function BrandsPage({ searchParams }: BrandsPageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(buildWebSiteJsonLd()) }}
       />
-
-      {/* Centered search */}
-      <div className="mx-auto mb-8 max-w-[600px]">
-        <Suspense fallback={null}>
-          <SearchInput />
-        </Suspense>
-      </div>
-
-      {/* Category pills */}
-      <div className="mb-6">
-        <Suspense fallback={null}>
-          <CategoryPills
-            categories={categories.map((c) => ({
-              slug: c.slug,
-              name: c.nameZh ?? c.name,
-            }))}
-          />
-        </Suspense>
-      </div>
 
       {/* Count + sort header */}
       <div className="mb-6 flex items-center justify-between">
@@ -150,8 +125,8 @@ export default async function BrandsPage({ searchParams }: BrandsPageProps) {
           </div>
         ) : (
           <MasonryGrid>
-            {displayBrands.map((brand) => (
-              <BrandCard key={brand.id} brand={brand} />
+            {displayBrands.map((brand, index) => (
+              <BrandCard key={brand.id} brand={brand} priority={index < 4} />
             ))}
           </MasonryGrid>
         )}

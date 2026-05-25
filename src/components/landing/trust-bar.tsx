@@ -11,7 +11,7 @@ export default function TrustBar({ brandCount, categoryCount }: TrustBarProps) {
         <span aria-hidden="true">·</span>
         <span>{categoryCount} 個分類</span>
         <span aria-hidden="true">·</span>
-        <span>社群共同策展</span>
+        <span>社群共建</span>
       </div>
     </section>
   )

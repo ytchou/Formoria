@@ -1,10 +1,8 @@
 import Link from 'next/link'
 
 const footerLinks = [
-  { label: '常見問題', href: '/faq' },
   { label: '關於我們', href: '/about' },
   { label: '服務條款', href: '/terms' },
-  { label: '請我喝咖啡 ☕', href: '/support' },
   { label: '聯絡我們', href: 'mailto:patrick.ytchou@gmail.com' },
 ]
 

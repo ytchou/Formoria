@@ -14,7 +14,7 @@ describe('TrustBar', () => {
   it('renders community curation label', () => {
     render(<TrustBar brandCount={10} categoryCount={3} />)
 
-    expect(screen.getByText(/社群共同策展/)).toBeInTheDocument()
+    expect(screen.getByText(/社群共建/)).toBeInTheDocument()
   })
 
   it('renders zero counts without crashing', () => {

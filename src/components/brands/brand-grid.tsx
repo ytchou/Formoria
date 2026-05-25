@@ -30,7 +30,7 @@ export function BrandGrid({ brands }: BrandGridProps) {
     >
       {brands.map((brand, index) => (
         <div key={brand.id} role="listitem">
-          <BrandCard brand={brand} position={index} />
+          <BrandCard brand={brand} position={index} priority={index < 4} />
         </div>
       ))}
     </div>

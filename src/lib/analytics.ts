@@ -1,5 +1,13 @@
 import { sendGAEvent } from '@next/third-parties/google'
 
+function safeGAEvent(...args: Parameters<typeof sendGAEvent>) {
+  if (typeof window === 'undefined') return
+  // Ensure dataLayer exists before GA script loads
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(window as any).dataLayer = (window as any).dataLayer || []
+  sendGAEvent(...args)
+}
+
 export const SUBMISSION_STEP_NAMES = {
   0: 'brand_info',
   1: 'category_select',
@@ -13,11 +21,7 @@ export function trackBrandDetailViewed(
   slug: string,
   source: 'search' | 'category' | 'direct' | 'recommendation' = 'direct'
 ) {
-  try {
-    sendGAEvent('event', 'brand_detail_viewed', { brand_slug: slug, source })
-  } catch {
-    // Graceful degradation
-  }
+  safeGAEvent('event', 'brand_detail_viewed', { brand_slug: slug, source })
 }
 
 export function trackBrandCardClicked(
@@ -25,15 +29,11 @@ export function trackBrandCardClicked(
   category: string | null | undefined,
   positionInGrid: number
 ) {
-  try {
-    sendGAEvent('event', 'brand_card_clicked', {
-      brand_slug: slug,
-      category: category ?? null,
-      position_in_grid: positionInGrid,
-    })
-  } catch {
-    // Graceful degradation
-  }
+  safeGAEvent('event', 'brand_card_clicked', {
+    brand_slug: slug,
+    category: category ?? null,
+    position_in_grid: positionInGrid,
+  })
 }
 
 export function trackExternalLinkClicked(
@@ -41,64 +41,40 @@ export function trackExternalLinkClicked(
   linkType: string,
   referrerPage: string
 ) {
-  try {
-    sendGAEvent('event', 'external_link_clicked', {
-      brand_slug: slug,
-      link_type: linkType,
-      referrer_page: referrerPage,
-    })
-  } catch {
-    // Graceful degradation
-  }
+  safeGAEvent('event', 'external_link_clicked', {
+    brand_slug: slug,
+    link_type: linkType,
+    referrer_page: referrerPage,
+  })
 }
 
 export function trackCategoryFilterApplied(category: string) {
-  try {
-    sendGAEvent('event', 'category_filter_applied', { category })
-  } catch {
-    // Graceful degradation
-  }
+  safeGAEvent('event', 'category_filter_applied', { category })
 }
 
 export function trackSearchExecuted(query: string, resultCount: number) {
-  try {
-    sendGAEvent('event', 'search_executed', {
-      query,
-      result_count: resultCount,
-      has_results: resultCount > 0,
-    })
-  } catch {
-    // Graceful degradation
-  }
+  safeGAEvent('event', 'search_executed', {
+    query,
+    result_count: resultCount,
+    has_results: resultCount > 0,
+  })
 }
 
 export function trackSearchResultClicked(query: string, positionInResults: number) {
-  try {
-    sendGAEvent('event', 'search_result_clicked', {
-      query,
-      position_in_results: positionInResults,
-    })
-  } catch {
-    // Graceful degradation
-  }
+  safeGAEvent('event', 'search_result_clicked', {
+    query,
+    position_in_results: positionInResults,
+  })
 }
 
 export function trackSubmissionFormOpened(
   source: 'header_cta' | 'hero_cta' | 'footer_link' = 'hero_cta'
 ) {
-  try {
-    sendGAEvent('event', 'submission_form_opened', { source })
-  } catch {
-    // Graceful degradation
-  }
+  safeGAEvent('event', 'submission_form_opened', { source })
 }
 
 export function trackSubmissionFormStepCompleted(step: SubmissionStepName) {
-  try {
-    sendGAEvent('event', 'submission_form_step_completed', { step })
-  } catch {
-    // Graceful degradation
-  }
+  safeGAEvent('event', 'submission_form_step_completed', { step })
 }
 
 export function trackSubmissionCompleted(
@@ -107,44 +83,32 @@ export function trackSubmissionCompleted(
   hasLogo: boolean,
   timeSpentSeconds: number
 ) {
-  try {
-    sendGAEvent('event', 'submission_completed', {
-      brand_name: brandName,
-      category,
-      has_logo: hasLogo,
-      time_spent_seconds: timeSpentSeconds,
-    })
-  } catch {
-    // Graceful degradation
-  }
+  safeGAEvent('event', 'submission_completed', {
+    brand_name: brandName,
+    category,
+    has_logo: hasLogo,
+    time_spent_seconds: timeSpentSeconds,
+  })
 }
 
 export function trackSubmissionFormAbandoned(
   lastStepCompleted: SubmissionStepName,
   timeSpentSeconds: number
 ) {
-  try {
-    sendGAEvent('event', 'submission_form_abandoned', {
-      last_step_completed: lastStepCompleted,
-      time_spent_seconds: timeSpentSeconds,
-    })
-  } catch {
-    // Graceful degradation
-  }
+  safeGAEvent('event', 'submission_form_abandoned', {
+    last_step_completed: lastStepCompleted,
+    time_spent_seconds: timeSpentSeconds,
+  })
 }
 
 export function trackSessionStart(
   isReturning: boolean,
   daysSinceLastVisit: number | null
 ) {
-  try {
-    sendGAEvent('event', 'session_start', {
-      is_returning: isReturning,
-      days_since_last_visit: daysSinceLastVisit,
-    })
-  } catch {
-    // Graceful degradation
-  }
+  safeGAEvent('event', 'session_start', {
+    is_returning: isReturning,
+    days_since_last_visit: daysSinceLastVisit,
+  })
 }
 
 // Stub — share UI doesn't exist yet
@@ -161,38 +125,22 @@ export function trackListingSharedByOwner(_slug: string) {
 
 // Keep as-is: non-spec extras with useful signal
 export function trackFilterSearch(queryLength: number) {
-  try {
-    sendGAEvent('event', 'filter_search', { query_length: queryLength })
-  } catch {
-    // Graceful degradation
-  }
+  safeGAEvent('event', 'filter_search', { query_length: queryLength })
 }
 
 export function trackGalleryPhotoView(slug: string, index: number) {
-  try {
-    sendGAEvent('event', 'gallery_photo_view', {
-      brand_slug: slug,
-      photo_index: index,
-    })
-  } catch {
-    // Graceful degradation
-  }
+  safeGAEvent('event', 'gallery_photo_view', {
+    brand_slug: slug,
+    photo_index: index,
+  })
 }
 
 export function trackSearchSuggestionSelect(slug: string) {
-  try {
-    sendGAEvent('event', 'search_suggestion_select', {
-      brand_slug: slug,
-    })
-  } catch {
-    // Graceful degradation
-  }
+  safeGAEvent('event', 'search_suggestion_select', {
+    brand_slug: slug,
+  })
 }
 
 export function trackSearchNoResults(searchTerm: string) {
-  try {
-    sendGAEvent('event', 'search_no_results', { search_term: searchTerm })
-  } catch {
-    // Graceful degradation
-  }
+  safeGAEvent('event', 'search_no_results', { search_term: searchTerm })
 }
