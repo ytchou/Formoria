@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import type { TaxonomyTag } from '@/lib/types'
 import type { UntaggedBrand } from '@/lib/services/taxonomy'
 import { setBrandTagsAction } from '@/app/admin/actions'
@@ -27,6 +28,7 @@ type Props = {
 }
 
 export function UntaggedBrandsSection({ brands, allTags }: Props) {
+  const router = useRouter()
   const [editingBrand, setEditingBrand] = useState<UntaggedBrand | null>(null)
   const [, startTransition] = useTransition()
 
@@ -40,7 +42,7 @@ export function UntaggedBrandsSection({ brands, allTags }: Props) {
     await setBrandTagsAction(formData)
     setEditingBrand(null)
     startTransition(() => {
-      window.location.reload()
+      router.refresh()
     })
   }
 
