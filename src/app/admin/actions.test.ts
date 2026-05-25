@@ -57,6 +57,9 @@ vi.mock('@/lib/services/taxonomy', () => ({
   updateTag: vi.fn(),
   mergeTag: vi.fn(),
   deactivateTag: vi.fn(),
+  setBrandTags: vi.fn().mockResolvedValue(undefined),
+  getBrandsForReview: vi.fn().mockResolvedValue([]),
+  processSuggestedTag: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('@/lib/services/moderation', () => ({
@@ -161,5 +164,82 @@ describe('bulkUpdateFlagsAction', () => {
     expect(result.updated).toBe(1)
     expect(result.errors).toHaveLength(1)
     expect(result.errors[0].id).toBe('flag-2')
+  })
+})
+
+describe('setBrandTagsAction', () => {
+  it('calls setBrandTags with manual source', async () => {
+    const { setBrandTags } = await import('@/lib/services/taxonomy')
+    vi.mocked(setBrandTags).mockResolvedValue(undefined)
+
+    const { setBrandTagsAction } = await import('./actions')
+    const formData = new FormData()
+    formData.append('brandId', 'brand-123')
+    formData.append('tagIds', JSON.stringify(['tag-1', 'tag-2']))
+
+    const result = await setBrandTagsAction(formData)
+
+    expect(setBrandTags).toHaveBeenCalledWith('brand-123', ['tag-1', 'tag-2'], 'manual')
+    expect(result).toEqual({ success: true })
+  })
+
+  it('returns error when brandId is missing', async () => {
+    const { setBrandTagsAction } = await import('./actions')
+    const formData = new FormData()
+    formData.append('tagIds', JSON.stringify(['tag-1']))
+
+    const result = await setBrandTagsAction(formData)
+
+    expect(result).toHaveProperty('error')
+  })
+})
+
+describe('confirmBrandTagsAction', () => {
+  it('calls setBrandTags to upgrade source from auto to manual', async () => {
+    const { setBrandTags } = await import('@/lib/services/taxonomy')
+    vi.mocked(setBrandTags).mockResolvedValue(undefined)
+
+    const { confirmBrandTagsAction } = await import('./actions')
+    const formData = new FormData()
+    formData.append('brandId', 'brand-123')
+    formData.append('tagIds', JSON.stringify(['tag-1']))
+
+    const result = await confirmBrandTagsAction(formData)
+
+    expect(setBrandTags).toHaveBeenCalledWith('brand-123', ['tag-1'], 'manual')
+    expect(result).toEqual({ success: true })
+  })
+})
+
+describe('processSuggestedTagAction', () => {
+  it('calls processSuggestedTag with correct params for reject', async () => {
+    const { processSuggestedTag } = await import('@/lib/services/taxonomy')
+    vi.mocked(processSuggestedTag).mockResolvedValue(undefined)
+
+    const { processSuggestedTagAction } = await import('./actions')
+    const formData = new FormData()
+    formData.append('submissionId', 'sub-123')
+    formData.append('action', 'reject')
+
+    const result = await processSuggestedTagAction(formData)
+
+    expect(processSuggestedTag).toHaveBeenCalledWith('sub-123', 'reject', undefined, undefined)
+    expect(result).toEqual({ success: true })
+  })
+
+  it('passes targetTagId for map-existing action', async () => {
+    const { processSuggestedTag } = await import('@/lib/services/taxonomy')
+    vi.mocked(processSuggestedTag).mockResolvedValue(undefined)
+
+    const { processSuggestedTagAction } = await import('./actions')
+    const formData = new FormData()
+    formData.append('submissionId', 'sub-123')
+    formData.append('action', 'map-existing')
+    formData.append('targetTagId', 'tag-456')
+
+    const result = await processSuggestedTagAction(formData)
+
+    expect(processSuggestedTag).toHaveBeenCalledWith('sub-123', 'map-existing', 'tag-456', undefined)
+    expect(result).toEqual({ success: true })
   })
 })
