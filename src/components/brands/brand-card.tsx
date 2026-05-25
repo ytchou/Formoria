@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { CheckCircle } from 'lucide-react'
 import type { Brand } from '@/lib/types'
 import { trackBrandCardClicked } from '@/lib/analytics'
 
@@ -54,9 +55,21 @@ export function BrandCard({ brand, position = 0 }: BrandCardProps) {
 
       {/* Content */}
       <div className="p-4">
-        <h3 className="text-sm font-bold leading-snug text-foreground">
-          {brand.name}
-        </h3>
+        <div className="flex items-center gap-1.5">
+          <h3 className="text-sm font-bold leading-snug text-foreground">
+            {brand.name}
+          </h3>
+          {brand.isVerified && (
+            <span
+              aria-label="Verified brand"
+              title="This brand has been verified by its owner"
+              className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold bg-verified-green-bg text-verified-green"
+            >
+              <CheckCircle className="h-3 w-3" aria-hidden />
+              Verified
+            </span>
+          )}
+        </div>
         {brand.description && (
           <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground line-clamp-2">
             {brand.description}
