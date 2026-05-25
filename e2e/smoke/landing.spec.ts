@@ -5,8 +5,10 @@ test.describe('Landing page smoke', () => {
     await page.goto('/');
     // Hero section heading visible
     await expect(page.getByRole('heading').first()).toBeVisible({ timeout: 10_000 });
-    // Search input present
+    // Search input present (moved inside HeroSection but still findable by role)
     await expect(page.getByRole('searchbox')).toBeVisible();
+    // Trust bar with live brand count visible
+    await expect(page.getByText(/個品牌/)).toBeVisible({ timeout: 10_000 });
   });
 
   test('search from landing page navigates to /brands?search=', async ({ page }) => {
