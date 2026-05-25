@@ -89,13 +89,44 @@ describe('brandInfoSchema', () => {
     })
     expect(result.success).toBe(false)
   })
+
+  it('accepts optional founder fields', () => {
+    const result = brandInfoSchema.safeParse({
+      name: 'Test Brand',
+      category: 'food',
+      description: 'A valid description here.',
+      tags: [],
+      logoUrl: 'https://example.com/logo.webp',
+      founderName: 'Lin Wei-Chen',
+      founderTitle: 'Founder & CEO',
+      founderBio: 'Started the brand after returning from Tokyo.',
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.founderName).toBe('Lin Wei-Chen')
+      expect(result.data.founderBio).toBe(
+        'Started the brand after returning from Tokyo.'
+      )
+    }
+  })
+
+  it('accepts missing founder fields (all optional)', () => {
+    const result = brandInfoSchema.safeParse({
+      name: 'Test Brand',
+      category: 'food',
+      description: 'A valid description here.',
+      tags: [],
+      logoUrl: 'https://example.com/logo.webp',
+    })
+    expect(result.success).toBe(true)
+  })
 })
 
 describe('productsSchema', () => {
   it('accepts empty products (all optional)', () => {
     const result = productsSchema.safeParse({
       productPhotos: [],
-      productHighlights: '',
+      brandHighlights: '',
     })
     expect(result.success).toBe(true)
   })
@@ -106,7 +137,7 @@ describe('productsSchema', () => {
         'https://example.com/photo1.webp',
         'https://example.com/photo2.webp',
       ],
-      productHighlights: 'Made with local Taiwanese cedar.',
+      brandHighlights: 'Made with local Taiwanese cedar.',
     })
     expect(result.success).toBe(true)
   })
@@ -114,7 +145,15 @@ describe('productsSchema', () => {
   it('rejects more than 6 photos', () => {
     const result = productsSchema.safeParse({
       productPhotos: Array(7).fill('https://example.com/photo.webp'),
-      productHighlights: '',
+      brandHighlights: '',
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects brandHighlights over 300 chars', () => {
+    const result = productsSchema.safeParse({
+      productPhotos: [],
+      brandHighlights: 'a'.repeat(301),
     })
     expect(result.success).toBe(false)
   })
@@ -175,7 +214,7 @@ describe('fullSubmissionSchema', () => {
       tags: ['handmade'],
       logoUrl: 'https://example.com/logo.webp',
       productPhotos: ['https://example.com/photo.webp'],
-      productHighlights: 'Cedar wood soles.',
+      brandHighlights: 'Cedar wood soles.',
       purchaseLinks: [{ platform: 'shopee', url: 'https://shopee.tw/store' }],
       socialLinks: {
         instagram: '@brand',

@@ -65,6 +65,7 @@ export async function approveSubmissionAction(
         logoUrl: null,
         heroImageUrl: null,
         status: 'approved',
+        isVerified: false,
         category: null,
         foundingYear: null,
         purchaseLinks: [],
@@ -73,7 +74,7 @@ export async function approveSubmissionAction(
         productPhotos: [],
         contactEmail: submission.submitterEmail,
         founder: null,
-        productHighlights: [],
+        brandHighlights: null,
       })
       slug = brand.slug
     } else {

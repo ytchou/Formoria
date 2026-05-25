@@ -61,6 +61,7 @@ export async function submitBrand(
       logoUrl: parsed.logoUrl ?? null,
       heroImageUrl: null,
       status: 'pending',
+      isVerified: false,
       category: parsed.category,
       foundingYear: null,
       purchaseLinks: parsed.purchaseLinks.map((l) => ({
@@ -80,8 +81,15 @@ export async function submitBrand(
       })),
       productPhotos: parsed.productPhotos,
       contactEmail: user.email ?? null,
-      founder: null,
-      productHighlights: [],
+      founder: parsed.founderName?.trim()
+        ? {
+            name: parsed.founderName.trim(),
+            title: parsed.founderTitle?.trim() || null,
+            avatarUrl: null,
+            quote: parsed.founderBio?.trim() || null,
+          }
+        : null,
+      brandHighlights: parsed.brandHighlights?.trim() || null,
     })
 
     // Create submission audit record

@@ -39,7 +39,10 @@ test.describe('Visitor smoke', () => {
   test('search returns results', async ({ page }) => {
     await page.goto('/brands');
     const searchInput = page.getByRole('searchbox').or(page.getByPlaceholder(/search/i)).first();
-    await searchInput.fill('a');
+    await searchInput.click();
+    // Use pressSequentially instead of fill() — fill() does not reliably
+    // trigger React onChange on controlled inputs in WebKit.
+    await searchInput.pressSequentially('a', { delay: 50 });
     // The autocomplete dropdown may or may not appear depending on whether
     // search_brands RPC is deployed. Just verify the input accepted text
     // and either a listbox appears or the page remains stable.

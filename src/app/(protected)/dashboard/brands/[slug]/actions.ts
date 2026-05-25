@@ -6,11 +6,33 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isOwnerOf } from '@/lib/services/brand-owners'
 import { getBrandBySlug, updateBrand } from '@/lib/services/brands'
 import { checkContent } from '@/lib/services/moderation'
+import type { PurchaseLink, RetailLocation } from '@/lib/types'
 
 type ActionState = {
   error?: string
   fieldErrors?: Record<string, string>
 } | undefined
+
+function parseArrayField<T extends Record<string, string>>(
+  formData: FormData,
+  fieldName: string,
+  keys: (keyof T)[]
+): T[] {
+  const results: T[] = []
+  let index = 0
+  while (true) {
+    const firstKey = String(keys[0])
+    const value = formData.get(`${fieldName}[${index}].${firstKey}`)
+    if (value === null) break
+    const item = {} as T
+    for (const key of keys) {
+      item[key] = (formData.get(`${fieldName}[${index}].${String(key)}`) ?? '') as T[typeof key]
+    }
+    results.push(item)
+    index++
+  }
+  return results
+}
 
 export async function updateBrandAction(
   _prevState: ActionState,
@@ -38,7 +60,7 @@ export async function updateBrandAction(
       return { error: '您沒有權限編輯此品牌' }
     }
 
-    // Extract editable fields
+    // Extract basic fields
     const name = formData.get('name') as string | null
     const description = formData.get('description') as string | null
     const websiteUrl = formData.get('websiteUrl') as string | null
@@ -46,7 +68,26 @@ export async function updateBrandAction(
     const threads = formData.get('threads') as string | null
     const facebook = formData.get('facebook') as string | null
 
-    // Build fields to check for moderation (name, description, URL, social)
+    // Extract new fields
+    const foundingYearRaw = formData.get('foundingYear') as string | null
+    const foundingYear = foundingYearRaw ? parseInt(foundingYearRaw, 10) : null
+    const founderName = formData.get('founderName') as string | null
+    const founderTitle = formData.get('founderTitle') as string | null
+    const founderQuote = formData.get('founderQuote') as string | null
+
+    // Parse array fields
+    const purchaseLinks = parseArrayField<{ platform: string; url: string; label: string }>(
+      formData,
+      'purchaseLinks',
+      ['platform', 'url', 'label']
+    )
+    const retailLocations = parseArrayField<{ name: string; address: string }>(
+      formData,
+      'retailLocations',
+      ['name', 'address']
+    )
+
+    // Build fields to check for moderation
     const fieldsToCheck: Record<string, string> = {}
     if (name) fieldsToCheck.name = name
     if (description) fieldsToCheck.description = description
@@ -54,6 +95,8 @@ export async function updateBrandAction(
     if (instagram) fieldsToCheck.instagram = instagram
     if (threads) fieldsToCheck.threads = threads
     if (facebook) fieldsToCheck.facebook = facebook
+    if (founderName) fieldsToCheck.founderName = founderName
+    if (founderQuote) fieldsToCheck.founderQuote = founderQuote
 
     // Run moderation
     const moderation = checkContent(fieldsToCheck)
@@ -66,10 +109,17 @@ export async function updateBrandAction(
       return { fieldErrors }
     }
 
-    // Update brand
+    // Build update data
     const updateData: Record<string, unknown> = {}
     if (name) updateData.name = name
     if (description !== null) updateData.description = description
+    if (foundingYear !== null && !isNaN(foundingYear)) updateData.foundingYear = foundingYear
+    if (purchaseLinks.length > 0) {
+      updateData.purchaseLinks = purchaseLinks as PurchaseLink[]
+    }
+    if (retailLocations.length > 0) {
+      updateData.retailLocations = retailLocations as RetailLocation[]
+    }
     if (websiteUrl !== null || instagram !== null || threads !== null || facebook !== null) {
       updateData.socialLinks = {
         ...brand.socialLinks,
@@ -80,12 +130,22 @@ export async function updateBrandAction(
       }
     }
 
+    // Handle founder fields
+    const hasFounderFields = founderName !== null || founderTitle !== null || founderQuote !== null
+    if (hasFounderFields) {
+      updateData.founder = {
+        ...(brand.founder ?? {}),
+        ...(founderName !== null ? { name: founderName } : {}),
+        ...(founderTitle !== null ? { title: founderTitle || null } : {}),
+        ...(founderQuote !== null ? { quote: founderQuote || null } : {}),
+      }
+    }
+
     await updateBrand(brand.id, updateData as Parameters<typeof updateBrand>[1])
 
     // Record flags for Tier 2 content
     if (moderation.flagged.length > 0) {
       const serviceClient = createServiceClient()
-      // Resolve the previous field value from the brand fetched before the edit
       function getPreviousContent(fieldName: string): string | null {
         switch (fieldName) {
           case 'name': return brand.name ?? null
@@ -94,6 +154,8 @@ export async function updateBrandAction(
           case 'instagram': return brand.socialLinks.instagram ?? null
           case 'threads': return brand.socialLinks.threads ?? null
           case 'facebook': return brand.socialLinks.facebook ?? null
+          case 'founderName': return brand.founder?.name ?? null
+          case 'founderQuote': return brand.founder?.quote ?? null
           default: return null
         }
       }

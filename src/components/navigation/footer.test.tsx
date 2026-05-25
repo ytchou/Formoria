@@ -30,6 +30,11 @@ describe('Footer', () => {
     expect(screen.getByRole('link', { name: '服務條款' })).toHaveAttribute('href', '/terms')
   })
 
+  it('renders 請我喝咖啡 ☕ link pointing to support page', () => {
+    render(<Footer />)
+    expect(screen.getByRole('link', { name: '請我喝咖啡 ☕' })).toHaveAttribute('href', '/support')
+  })
+
   it('renders 聯絡我們 as a mailto link', () => {
     render(<Footer />)
     const link = screen.getByRole('link', { name: '聯絡我們' })

@@ -14,7 +14,7 @@ function Wrapper({ children }: { children: React.ReactNode }) {
       tags: ['handmade'],
       logoUrl: 'https://example.com/logo.webp',
       productPhotos: ['https://example.com/p1.webp'],
-      productHighlights: 'Cedar wood soles.',
+      brandHighlights: 'Cedar wood soles.',
       purchaseLinks: [
         { platform: 'shopee', url: 'https://shopee.tw/store' },
       ],

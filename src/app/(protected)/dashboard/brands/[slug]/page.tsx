@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getBrandBySlug } from "@/lib/services/brands";
 import { isOwnerOf } from "@/lib/services/brand-owners";
+import { getAnalytics } from "@/lib/services/brand-analytics";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { AnalyticsCards } from "@/components/dashboard/analytics-cards";
 
 export const metadata: Metadata = {
   title: "品牌管理 | MIT Map",
@@ -34,6 +36,8 @@ export default async function BrandDashboardPage({ params }: Props) {
 
   if (!owner) redirect("/dashboard");
 
+  const analytics = await getAnalytics(brand.id, 30);
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
       <div className="flex items-center justify-between">
@@ -48,6 +52,18 @@ export default async function BrandDashboardPage({ params }: Props) {
         <Link href={`/dashboard/brands/${slug}/edit`}>
           <Button>編輯品牌</Button>
         </Link>
+      </div>
+
+      <div className="mt-8">
+        <h2 className="mb-4 text-sm font-semibold uppercase text-muted-foreground">
+          Analytics
+        </h2>
+        <AnalyticsCards
+          totalViews={analytics.totalViews}
+          totalClicks={analytics.totalClicks}
+          viewTrend={analytics.viewTrend}
+          clickTrend={analytics.clickTrend}
+        />
       </div>
 
       <div className="mt-8 grid gap-6">

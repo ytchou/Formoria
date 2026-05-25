@@ -1,7 +1,7 @@
 'use client'
 
 import { Fragment, useState, useTransition } from 'react'
-import type { BrandSubmission, SubmissionStatus } from '@/lib/types'
+import type { BrandSubmission, SourceAttribution, SubmissionStatus } from '@/lib/types'
 import { StatusBadge } from './status-badge'
 import { approveSubmissionAction, rejectSubmissionAction } from '@/app/admin/actions'
 import {
@@ -17,6 +17,14 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 
 type TabValue = 'all' | SubmissionStatus
+
+const SOURCE_ATTRIBUTION_LABELS: Record<SourceAttribution, string> = {
+  bought_product: 'I bought their product',
+  saw_at_market: 'I saw them at a market or event',
+  found_online: 'I found them online',
+  friend_recommended: 'A friend recommended them',
+  work_there: 'I work there or know the founder',
+}
 
 export function SubmissionsList({
   submissions,
@@ -83,6 +91,10 @@ export function SubmissionsList({
 
   return (
     <div>
+      <p className="mb-4 text-sm text-[#7C7570]">
+        Community submissions may have incomplete info — verify before approving.
+      </p>
+
       <Tabs
         value={activeTab}
         onValueChange={(v) => setActiveTab(v as TabValue)}
@@ -108,6 +120,7 @@ export function SubmissionsList({
               <TableHead>品牌</TableHead>
               <TableHead>提交者</TableHead>
               <TableHead>日期</TableHead>
+              <TableHead>來源</TableHead>
               <TableHead>狀態</TableHead>
             </TableRow>
           </TableHeader>
@@ -124,13 +137,24 @@ export function SubmissionsList({
                   <TableCell>{submission.submitterEmail}</TableCell>
                   <TableCell>{formatDate(submission.submittedAt)}</TableCell>
                   <TableCell>
+                    {submission.isBrandOwner ? (
+                      <span className="inline-flex items-center rounded-full bg-[#2C1810] px-2 py-0.5 text-xs font-semibold text-white">
+                        Owner
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-[#EAF3E8] px-2 py-0.5 text-xs font-semibold text-[#2D5A27]">
+                        Community
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     <StatusBadge status={submission.status} />
                   </TableCell>
                 </TableRow>
 
                 {expandedId === submission.id && (
                   <TableRow key={`${submission.id}-expanded`}>
-                    <TableCell colSpan={4} className="bg-[#FAF7F4] p-6">
+                    <TableCell colSpan={5} className="bg-[#FAF7F4] p-6">
                       <div className="space-y-4">
                         {submission.description && (
                           <div>
@@ -139,6 +163,17 @@ export function SubmissionsList({
                             </p>
                             <p className="mt-1 text-sm">
                               {submission.description}
+                            </p>
+                          </div>
+                        )}
+
+                        {!submission.isBrandOwner && submission.sourceAttribution && (
+                          <div>
+                            <p className="text-sm font-medium text-[#7C7570]">
+                              How do you know this brand?
+                            </p>
+                            <p className="mt-1 text-sm">
+                              {SOURCE_ATTRIBUTION_LABELS[submission.sourceAttribution]}
                             </p>
                           </div>
                         )}
@@ -234,7 +269,7 @@ export function SubmissionsList({
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={4}
+                  colSpan={5}
                   className="py-8 text-center text-[#7C7570]"
                 >
                   找不到提交記錄。

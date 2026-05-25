@@ -16,6 +16,11 @@
 e2e/.auth/
 e2e/test-results/
 e2e/playwright-report/
+/test-results/
+/playwright-report/
+
+# Claude Code local state
+.claude/
 
 # next.js
 /.next/

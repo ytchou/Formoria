@@ -1,9 +1,7 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
-import { getActiveCategories } from '@/lib/services/taxonomy'
 import { buildWebSiteJsonLd } from '@/lib/json-ld'
 import { HeroSection } from '@/components/landing/hero-section'
-import { CategoryNav } from '@/components/landing/category-nav'
 import { SearchInput } from '@/components/brands/search-input'
 import { ValueProps } from '@/components/landing/value-props'
 
@@ -21,11 +19,6 @@ export const metadata: Metadata = {
 }
 
 export default async function LandingPage() {
-  const rawCategories = await getActiveCategories()
-  const categories = rawCategories.map((c) => ({
-    slug: c.slug,
-    name: c.nameZh ?? c.name,
-  }))
   const jsonLd = buildWebSiteJsonLd()
 
   return (
@@ -40,9 +33,6 @@ export default async function LandingPage() {
           <Suspense fallback={null}>
             <SearchInput placeholder="搜尋品牌..." redirectTo="/brands" />
           </Suspense>
-        </section>
-        <section className="mx-auto max-w-screen-xl px-6 pb-8 md:px-10">
-          <CategoryNav categories={categories} />
         </section>
         <ValueProps />
       </main>

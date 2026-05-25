@@ -108,7 +108,7 @@ function SearchInput({ redirectTo, placeholder }: SearchInputProps = {}) {
     router.push(`/brands/${slug}`)
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
     if (selectedIndex >= 0 && suggestions[selectedIndex]) {
       handleSelect(suggestions[selectedIndex].slug, selectedIndex)
@@ -118,7 +118,9 @@ function SearchInput({ redirectTo, placeholder }: SearchInputProps = {}) {
     if (q) {
       trackSearchExecuted(q, suggestions.length)
       if (redirectTo) {
-        router.push(`${redirectTo}?search=${encodeURIComponent(q)}`)
+        // Use native navigation for cross-page redirects — router.push
+        // intermittently fails in WebKit when navigating from / to /brands.
+        window.location.href = `${redirectTo}?search=${encodeURIComponent(q)}`
       }
     }
   }
@@ -203,6 +205,9 @@ function SearchInput({ redirectTo, placeholder }: SearchInputProps = {}) {
           </svg>
         </button>
       )}
+
+      {/* Hidden submit button ensures implicit form submission works in all browsers (WebKit) */}
+      <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
 
       {showDropdown && (
         <SearchSuggestions

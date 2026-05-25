@@ -161,6 +161,50 @@ describe('expanded field moderation', () => {
     expect(updateBrand).toHaveBeenCalled()
   })
 
+  it('extracts foundingYear from FormData', async () => {
+    const { updateBrandAction } = await import('./actions')
+    const { updateBrand } = await import('@/lib/services/brands')
+
+    const formData = new FormData()
+    formData.set('brandSlug', 'test-brand')
+    formData.set('foundingYear', '2020')
+
+    try {
+      await updateBrandAction(undefined, formData)
+    } catch {
+      // redirect throws
+    }
+
+    expect(updateBrand).toHaveBeenCalledWith(
+      'brand-1',
+      expect.objectContaining({ foundingYear: 2020 })
+    )
+  })
+
+  it('extracts purchaseLinks array from FormData', async () => {
+    const { updateBrandAction } = await import('./actions')
+    const { updateBrand } = await import('@/lib/services/brands')
+
+    const formData = new FormData()
+    formData.set('brandSlug', 'test-brand')
+    formData.set('purchaseLinks[0].platform', 'shopee')
+    formData.set('purchaseLinks[0].url', 'https://shopee.tw/example')
+    formData.set('purchaseLinks[0].label', 'Buy on Shopee')
+
+    try {
+      await updateBrandAction(undefined, formData)
+    } catch {
+      // redirect throws
+    }
+
+    expect(updateBrand).toHaveBeenCalledWith(
+      'brand-1',
+      expect.objectContaining({
+        purchaseLinks: [{ platform: 'shopee', url: 'https://shopee.tw/example', label: 'Buy on Shopee' }],
+      })
+    )
+  })
+
   it('includes previous_content when inserting flags', async () => {
     const { getBrandBySlug } = await import('@/lib/services/brands')
     vi.mocked(getBrandBySlug).mockResolvedValueOnce({

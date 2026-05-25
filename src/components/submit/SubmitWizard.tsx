@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useTransition, useEffect, useCallback, useRef } from 'react'
-import { useForm, FormProvider } from 'react-hook-form'
+import { useForm, FormProvider, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ArrowRight, Send } from 'lucide-react'
@@ -36,8 +36,17 @@ const STEP_LABELS = ['品牌資訊', '產品', '連結', '確認']
 const STEP_SCHEMAS = [brandInfoSchema, productsSchema, linksSchema, reviewSchema]
 
 const STEP_FIELDS: (keyof SubmissionFormData)[][] = [
-  ['name', 'description', 'category', 'tags', 'logoUrl'],
-  ['productPhotos', 'productHighlights'],
+  [
+    'name',
+    'description',
+    'category',
+    'tags',
+    'logoUrl',
+    'founderName',
+    'founderTitle',
+    'founderBio',
+  ],
+  ['productPhotos', 'brandHighlights'],
   ['purchaseLinks', 'socialLinks', 'retailLocations'],
   ['pdpaConsent'],
 ]
@@ -116,15 +125,18 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
   }, [completed])
 
   const methods = useForm<SubmissionFormData>({
-    resolver: zodResolver(fullSubmissionSchema),
+    resolver: zodResolver(fullSubmissionSchema) as Resolver<SubmissionFormData>,
     defaultValues: {
       name: '',
       description: '',
       category: '',
       tags: [],
       logoUrl: '',
+      founderName: '',
+      founderTitle: '',
+      founderBio: '',
       productPhotos: [],
-      productHighlights: '',
+      brandHighlights: '',
       purchaseLinks: [{ platform: '', url: '' }],
       socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
       retailLocations: [],
@@ -197,8 +209,8 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
 
     const photoUrls = photos.map((p) => p.url)
     const mergedData = {
-      ...data,
-      productPhotos: [...photoUrls, ...data.productPhotos.filter((url) => !photoUrls.includes(url))],
+      ...(data as SubmissionFormData),
+      productPhotos: [...photoUrls, ...(data as SubmissionFormData).productPhotos.filter((url: string) => !photoUrls.includes(url))],
       isOwner,
       sourceAttribution,
     }

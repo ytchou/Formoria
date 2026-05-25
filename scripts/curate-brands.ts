@@ -61,8 +61,8 @@ export function scoreBrand(brand: Brand): {
     score += 10
   }
 
-  // productHighlights: 10 pts — length >= 1
-  if (brand.productHighlights.length >= 1) {
+  // brandHighlights: 10 pts — has text
+  if (brand.brandHighlights != null && brand.brandHighlights.length > 0) {
     score += 10
   }
 
@@ -110,6 +110,21 @@ export function buildEnrichPatch(
 
   if (hasNewLink) {
     patch.socialLinks = mergedLinks
+  }
+
+  // Fill founder from scraped JSON-LD if brand has no founder yet
+  if (!brand.founder && scraped.founderName) {
+    patch.founder = {
+      name: scraped.founderName,
+      title: scraped.founderTitle || null,
+      avatarUrl: null,
+      quote: null,
+    }
+  }
+
+  // Fill brandHighlights from scraped description if brand has none
+  if (!brand.brandHighlights && scraped.brandHighlights) {
+    patch.brandHighlights = scraped.brandHighlights
   }
 
   return patch

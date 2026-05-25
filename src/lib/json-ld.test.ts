@@ -8,7 +8,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     description: 'Natural body care with camellia seed oil',
     logoUrl: 'https://example.com/logo.png',
     heroImageUrl: 'https://example.com/hero.jpg',
-    status: 'approved', category: 'Food & Beverage', foundingYear: 2004,
+    status: 'approved', isVerified: false, category: 'Food & Beverage', foundingYear: 2004,
     purchaseLinks: [{ platform: 'Pinkoi', url: 'https://pinkoi.com/chatzutang', label: 'Pinkoi' }],
     socialLinks: {
       officialWebsite: 'https://chatzutang.com',
@@ -16,7 +16,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
       facebook: 'https://facebook.com/chatzutang',
     },
     retailLocations: [{ name: 'Nanzhuang Store', address: '苗栗縣南庄鄉', latitude: 24.59, longitude: 120.99 }],
-    productPhotos: [], productHighlights: [],
+    productPhotos: [], brandHighlights: null,
     contactEmail: 'hello@chatzutang.com',
     founder: { name: '趙文豪', title: 'Founder', avatarUrl: null, quote: null },
     tags: [],
