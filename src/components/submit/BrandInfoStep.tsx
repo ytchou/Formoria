@@ -369,6 +369,58 @@ export function BrandInfoStep({
           <p className="text-xs text-red-600">{errors.logoUrl.message}</p>
         )}
       </div>
+
+      <div className="space-y-3">
+        <p className="text-sm font-semibold text-[#1A1918]">
+          Founder Information{' '}
+          <span className="text-xs font-normal text-[#7C7570]">(Optional)</span>
+        </p>
+        <div className="space-y-1.5">
+          <label
+            htmlFor="founder-name"
+            className="block text-sm font-medium text-[#1A1918]"
+          >
+            Founder Name
+          </label>
+          <input
+            id="founder-name"
+            type="text"
+            placeholder="e.g. Lin Wei-Chen"
+            className="w-full rounded-lg border border-[#D4CFC9] bg-white px-3 py-2 text-sm text-[#1A1918] placeholder:text-[#B0AAA4] focus:border-[#8B7355] focus:outline-none focus:ring-2 focus:ring-[#8B7355]/20"
+            {...register('founderName')}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label
+            htmlFor="founder-title"
+            className="block text-sm font-medium text-[#1A1918]"
+          >
+            Founder Title
+          </label>
+          <input
+            id="founder-title"
+            type="text"
+            placeholder="e.g. Founder & CEO"
+            className="w-full rounded-lg border border-[#D4CFC9] bg-white px-3 py-2 text-sm text-[#1A1918] placeholder:text-[#B0AAA4] focus:border-[#8B7355] focus:outline-none focus:ring-2 focus:ring-[#8B7355]/20"
+            {...register('founderTitle')}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label
+            htmlFor="founder-bio"
+            className="block text-sm font-medium text-[#1A1918]"
+          >
+            Founder Bio
+          </label>
+          <textarea
+            id="founder-bio"
+            rows={3}
+            placeholder="e.g. Started the brand after returning from Tokyo..."
+            className="w-full rounded-lg border border-[#D4CFC9] bg-white px-3 py-2 text-sm text-[#1A1918] placeholder:text-[#B0AAA4] focus:border-[#8B7355] focus:outline-none focus:ring-2 focus:ring-[#8B7355]/20"
+            {...register('founderBio')}
+          />
+        </div>
+      </div>
     </div>
   )
 }
