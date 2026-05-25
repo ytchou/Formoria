@@ -2,6 +2,7 @@ import type { Brand, BrandFilters, SocialLinks } from '@/lib/types'
 import type { TaxonomyTag } from '@/lib/types'
 import { NotFoundError, ValidationError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getActiveCategories } from '@/lib/services/taxonomy'
 import { BRAND_SORT_CONFIG } from '@/lib/pagination'
 import { RESERVED_ROUTES } from '@/middleware'
 import { downloadAndStoreImages } from './image-download'
@@ -414,4 +415,53 @@ export async function searchBrands(query: string, limit: number = 5): Promise<Se
     category: row.primary_category_name,
     similarity: row.similarity_score,
   }))
+}
+
+export async function getRandomBrands(limit = 4): Promise<Brand[]> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brands')
+    .select(BRAND_SELECT)
+    .eq('status', 'approved')
+    .limit(limit * 3)
+
+  if (error) throw error
+
+  const rows = data ?? []
+  if (rows.length === 0) return []
+
+  // Fisher-Yates shuffle
+  for (let i = rows.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[rows[i], rows[j]] = [rows[j], rows[i]]
+  }
+
+  return rows.slice(0, limit).map(brandToDomain)
+}
+
+export async function getNewBrands(limit = 4): Promise<Brand[]> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brands')
+    .select(BRAND_SELECT)
+    .eq('status', 'approved')
+    .order('approved_at', { ascending: false })
+    .limit(limit)
+
+  if (error) throw error
+  return (data ?? []).map(brandToDomain)
+}
+
+export async function getBrandStats(): Promise<{ brandCount: number; categoryCount: number }> {
+  const supabase = createServiceClient()
+  const [{ count, error }, categories] = await Promise.all([
+    supabase
+      .from('brands')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'approved'),
+    getActiveCategories(),
+  ])
+
+  if (error) throw error
+  return { brandCount: count ?? 0, categoryCount: categories.length }
 }
