@@ -12,15 +12,39 @@ export const RESERVED_ROUTES = new Set([
   'auth',
   'submit',
   'categories',
+  'category',
+  'brands',
   'dashboard',
+  'faq',
+  'about',
+  'my-submissions',
   'sentry-example-page',
   'global-error',
+  'sitemap.xml',
+  'robots.txt',
+  'favicon.ico',
 ])
+
+const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{2,79}$/
 
 export async function middleware(request: NextRequest) {
   // Check rate limit before any other processing
   const rateLimitResponse = checkRateLimit(request)
   if (rateLimitResponse) return rateLimitResponse
+
+  // Redirect top-level brand slugs: /:slug → /brands/:slug (301 for SEO continuity)
+  // Only applies to single-segment paths that match the brand slug format
+  // and are not reserved app routes.
+  const { pathname } = request.nextUrl
+  const segments = pathname.split('/').filter(Boolean)
+  if (segments.length === 1) {
+    const slug = segments[0]
+    if (!RESERVED_ROUTES.has(slug) && SLUG_PATTERN.test(slug)) {
+      const url = request.nextUrl.clone()
+      url.pathname = `/brands/${slug}`
+      return NextResponse.redirect(url, 301)
+    }
+  }
 
   let supabaseResponse = NextResponse.next({
     request,

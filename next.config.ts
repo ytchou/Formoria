@@ -65,14 +65,6 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
-      // /:slug → /brands/:slug (301 for SEO continuity — old brand detail URLs at root)
-      // Regex scoped to brand slug format: lowercase alphanumeric + hyphens, 3-80 chars
-      // Does NOT catch /about, /submit, /admin — dedicated app/ files take priority
-      {
-        source: '/:slug([a-z0-9][a-z0-9-]{2,79})',
-        destination: '/brands/:slug',
-        permanent: true,
-      },
       // /categories → /brands (brands directory moved to /brands)
       {
         source: '/categories',

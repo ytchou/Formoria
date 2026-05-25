@@ -23,7 +23,9 @@ describe('RESERVED_ROUTES', () => {
   it('includes all known static route prefixes', () => {
     const expected = [
       'admin', 'api', 'auth', 'submit', 'categories',
-      'dashboard', 'sentry-example-page', 'global-error',
+      'category', 'brands', 'dashboard', 'faq', 'about',
+      'my-submissions', 'sentry-example-page', 'global-error',
+      'sitemap.xml', 'robots.txt', 'favicon.ico',
     ]
     for (const route of expected) {
       expect(RESERVED_ROUTES.has(route)).toBe(true)

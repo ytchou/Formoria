@@ -18,7 +18,7 @@ export function BrandCard({ brand, position = 0 }: BrandCardProps) {
 
   return (
     <Link
-      href={`/${brand.slug}`}
+      href={`/brands/${brand.slug}`}
       className="group block rounded-xl border border-border bg-card shadow-[var(--shadow-card)] transition-all hover:-translate-y-px hover:shadow-[var(--shadow-card-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={brand.name}
       onClick={() => trackBrandCardClicked(brand.slug, brand.category, position)}
