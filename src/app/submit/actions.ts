@@ -62,6 +62,7 @@ export async function submitBrand(
       heroImageUrl: null,
       status: 'pending',
       isVerified: false,
+      isDemo: false,
       category: parsed.category,
       foundingYear: null,
       purchaseLinks: parsed.purchaseLinks.map((l) => ({

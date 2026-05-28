@@ -8,7 +8,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     description: 'Natural body care with camellia seed oil',
     logoUrl: 'https://example.com/logo.png',
     heroImageUrl: 'https://example.com/hero.jpg',
-    status: 'approved', isVerified: false, category: 'Food & Beverage', foundingYear: 2004,
+    status: 'approved', isVerified: false, isDemo: false, category: 'Food & Beverage', foundingYear: 2004,
     purchaseLinks: [{ platform: 'Pinkoi', url: 'https://pinkoi.com/chatzutang', label: 'Pinkoi' }],
     socialLinks: {
       officialWebsite: 'https://chatzutang.com',

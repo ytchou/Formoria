@@ -18,6 +18,7 @@ const mockBrand = {
   description: null,
   status: 'approved' as const,
   isVerified: false,
+  isDemo: false,
   logoUrl: null,
   heroImageUrl: null,
   foundingYear: null,

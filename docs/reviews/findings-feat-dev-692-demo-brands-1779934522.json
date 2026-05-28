@@ -1,0 +1,40 @@
+{
+  "findings": [
+    {
+      "severity": "Important",
+      "file": "supabase/seed-demo.sql",
+      "line": "259",
+      "description": "Destructive UPDATE bundled in seed file — Part 4 unconditionally hides ALL real approved brands (`UPDATE brands SET status = 'hidden' WHERE is_demo = false AND status = 'approved'`). If someone runs this seed file on a production database expecting only additive demo data insertion, all real brands silently become hidden. This should either be separated into its own clearly-named file (e.g., `hide-real-brands.sql`) or at minimum have a prominent warning comment block before the statement.",
+      "flagged_by": "Architecture & Design",
+      "status": "resolved"
+    },
+    {
+      "severity": "Minor",
+      "file": "src/components/admin/brand-list.tsx",
+      "line": "113",
+      "description": "Demo badge uses raw hex colors (bg-[#EDE8F5], text-[#6B47B8]) not documented in DESIGN.md. While intentionally chosen to be purple/lavender (per design input), these colors should be added to DESIGN.md as semantic tokens (e.g., --demo-badge-bg, --demo-badge-text) to prevent palette drift. The Badges section in DESIGN.md documents Verified and Category but not Demo.",
+      "flagged_by": "Design Quality",
+      "status": "resolved"
+    }
+  ],
+  "active_agents": ["Architecture & Design", "Design Quality"],
+  "skipped": [
+    {
+      "file": "src/lib/services/__tests__/brands.test.ts",
+      "line": "57-93",
+      "reason": "Test naming uses function-signature framing (brandToDomain -- isDemo) but this is the existing convention for pure mapper unit tests in this file, and consistent with the isVerified test block above."
+    },
+    {
+      "file": "src/lib/services/__tests__/brands.test.ts",
+      "line": "3",
+      "reason": "eslint-disable for @typescript-eslint/no-explicit-any is intentional — mapper tests pass minimal objects via `as any` to avoid constructing full Brand types. Follows existing pattern."
+    },
+    {
+      "file": "supabase/seed-demo.sql",
+      "line": "147-219",
+      "reason": "Silent no-op when tag slugs don't exist in taxonomy_tags is standard seed file behavior. All referenced tag slugs (food, sustainability, handmade, clothing, beauty, home) verified to exist in migrations/00008 and seed.sql."
+    }
+  ],
+  "head_sha": "9caa96bfcd4a613bbadac16bdcf8147557d66c04",
+  "review_log_path": "docs/reviews/2026-05-28-feat-dev-692-demo-brands.md"
+}

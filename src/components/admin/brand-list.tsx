@@ -107,7 +107,14 @@ export function BrandList({ brands }: { brands: Brand[] }) {
           <TableBody>
             {filtered.map((brand) => (
               <TableRow key={brand.id}>
-                <TableCell className="font-medium">{brand.name}</TableCell>
+                <TableCell className="font-medium">
+                  {brand.name}
+                  {brand.isDemo && (
+                    <span className="ml-1.5 inline-flex items-center rounded-full bg-[#EDE8F5] px-2 py-0.5 text-[11px] font-medium text-[#6B47B8]">
+                      Demo
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell>
                   <StatusBadge status={brand.status} />
                 </TableCell>

@@ -40,6 +40,7 @@ export type Brand = {
   status: BrandStatus
   category: string | null
   isVerified: boolean
+  isDemo: boolean
   foundingYear: number | null
   purchaseLinks: PurchaseLink[]
   socialLinks: SocialLinks
