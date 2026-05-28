@@ -3,6 +3,12 @@
 -- 5 AI-generated demo brands for partner pitches
 -- Safe to run multiple times (idempotent via ON CONFLICT DO NOTHING)
 -- Remove all demo data: DELETE FROM brands WHERE is_demo = true;
+--
+-- NOTE: This file is ADDITIVE only — it inserts demo brands and populates
+--       their detail fields. It does NOT hide or modify real brands.
+--
+-- To hide real brands for a clean demo environment, run separately:
+--   psql $DATABASE_URL -f supabase/hide-real-brands.sql
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
@@ -252,9 +258,3 @@ UPDATE brands SET
   retail_locations = '[{"name": "膚語花蓮旗艦店", "address": "花蓮縣花蓮市", "latitude": 23.9910, "longitude": 121.6011}]'
 WHERE slug = 'skin-verse';
 
--- -----------------------------------------------------------------------------
--- Part 4: Hide existing real brands from public views
--- -----------------------------------------------------------------------------
-
-UPDATE brands SET status = 'hidden'
-WHERE is_demo = false AND status = 'approved';
