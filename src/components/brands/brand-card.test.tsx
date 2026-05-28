@@ -18,6 +18,7 @@ const mockBrand = {
   description: 'A test brand',
   status: 'approved' as const,
   isVerified: false,
+  isDemo: false,
   logoUrl: null,
   heroImageUrl: null,
   foundingYear: 2020,
