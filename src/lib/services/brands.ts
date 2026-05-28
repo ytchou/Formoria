@@ -84,6 +84,7 @@ export function brandToDomain(row: any): Brand {
     status: row.status,
     category: row.category ?? null,
     isVerified: Array.isArray(row.brand_owners) && row.brand_owners.length > 0,
+    isDemo: row.is_demo ?? false,
     foundingYear: row.founding_year ?? null,
     purchaseLinks: row.purchase_links ?? [],
     socialLinks: mapSocialLinksToDomain(row.social_links ?? {}),
@@ -128,6 +129,7 @@ export function brandToInsert(data: Partial<Brand>): Record<string, unknown> {
       : null
   }
   if (data.brandHighlights != null) row.brand_highlights = data.brandHighlights
+  if (data.isDemo !== undefined) row.is_demo = data.isDemo
   return row
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */

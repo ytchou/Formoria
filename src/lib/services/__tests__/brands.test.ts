@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { brandToDomain } from '../brands'
+import { brandToDomain, brandToInsert } from '../brands'
 
 // Minimal row shape matching Supabase SELECT output
 function makeBrandRow(overrides: Record<string, unknown> = {}) {
@@ -49,5 +49,43 @@ describe('brandToDomain — isVerified', () => {
     const row = makeBrandRow({ brand_owners: null })
     const brand = brandToDomain(row)
     expect(brand.isVerified).toBe(false)
+  })
+})
+
+describe('brandToDomain — isDemo', () => {
+  it('maps is_demo true to isDemo true', () => {
+    const row = makeBrandRow({ is_demo: true })
+    const brand = brandToDomain(row)
+    expect(brand.isDemo).toBe(true)
+  })
+
+  it('maps is_demo false to isDemo false', () => {
+    const row = makeBrandRow({ is_demo: false })
+    const brand = brandToDomain(row)
+    expect(brand.isDemo).toBe(false)
+  })
+
+  it('defaults isDemo to false when is_demo is missing', () => {
+    const row = makeBrandRow()
+    // makeBrandRow does not include is_demo
+    const brand = brandToDomain(row)
+    expect(brand.isDemo).toBe(false)
+  })
+})
+
+describe('brandToInsert — isDemo', () => {
+  it('maps isDemo true to is_demo true', () => {
+    const result = brandToInsert({ isDemo: true } as any)
+    expect(result.is_demo).toBe(true)
+  })
+
+  it('maps isDemo false to is_demo false', () => {
+    const result = brandToInsert({ isDemo: false } as any)
+    expect(result.is_demo).toBe(false)
+  })
+
+  it('does not include is_demo when isDemo is undefined', () => {
+    const result = brandToInsert({ name: 'Test' } as any)
+    expect(result).not.toHaveProperty('is_demo')
   })
 })
