@@ -20,7 +20,7 @@ CREATE INDEX IF NOT EXISTS idx_brands_description_trgm
 -- ============================================================
 
 CREATE INDEX IF NOT EXISTS idx_brands_category_status
-  ON brands (primary_category_id, status);
+  ON brands (category, status);
 
 -- ============================================================
 -- RPC function: search_brands
@@ -50,13 +50,12 @@ AS $$
     b.name,
     b.slug,
     b.logo_url,
-    COALESCE(t.name, '') AS primary_category_name,
+    COALESCE(b.category, '') AS primary_category_name,
     GREATEST(
       similarity(b.name, search_query),
       similarity(COALESCE(b.description, ''), search_query)
     ) AS similarity_score
   FROM brands b
-  LEFT JOIN taxonomy_tags t ON t.id = b.primary_category_id
   WHERE
     b.status = 'approved'
     AND (
