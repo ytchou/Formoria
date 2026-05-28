@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { brandToDomain, brandToInsert } from '../brands'
 
 // Minimal row shape matching Supabase SELECT output
