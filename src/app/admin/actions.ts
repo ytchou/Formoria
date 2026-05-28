@@ -66,6 +66,7 @@ export async function approveSubmissionAction(
         heroImageUrl: null,
         status: 'approved',
         isVerified: false,
+        isDemo: false,
         category: null,
         foundingYear: null,
         purchaseLinks: [],

@@ -50,6 +50,7 @@ const baseBrand: Brand = {
   heroImageUrl: null,
   status: "approved",
   isVerified: false,
+  isDemo: false,
   category: "Food",
   foundingYear: 2020,
   purchaseLinks: [],
