@@ -4,7 +4,7 @@ import { getTags } from '@/lib/services/taxonomy'
 import { SubmitWizard } from '@/components/submit/SubmitWizard'
 
 export const metadata = {
-  title: '提交品牌 | MIT Map',
+  title: '提交品牌',
   description: '將您的台灣製造品牌分享給社群',
 }
 
