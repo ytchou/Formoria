@@ -58,8 +58,11 @@ test.describe('Submit flow deep', () => {
     await expect(userPage).not.toHaveURL(/\/submit\/confirmation|\/submit\/success/i);
   });
 
-  test('unauthenticated user is redirected to sign-in', async ({ anonPage }) => {
+  test('unauthenticated user sees submit overview page (not redirected)', async ({ anonPage }) => {
     await anonPage.goto('/submit');
-    await expect(anonPage).toHaveURL(/\/auth\/sign-in|\/login/i, { timeout: 10_000 });
+    await expect(anonPage).toHaveURL('/submit', { timeout: 10_000 });
+    const cta = anonPage.getByRole('link', { name: /登入並開始提交/i });
+    await expect(cta).toBeVisible({ timeout: 5_000 });
+    await expect(cta).toHaveAttribute('href', '/auth/sign-in?next=/submit');
   });
 });
