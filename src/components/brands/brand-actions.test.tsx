@@ -9,7 +9,7 @@ vi.mock('@/lib/analytics', () => ({
 }));
 
 vi.mock('@/components/brands/report-dialog', () => ({
-  ReportDialog: ({ brandId }: { brandId: string }) => (
+  ReportDialog: (_props: { brandId: string; brandSlug: string }) => (
     <button aria-label="檢舉">mock-report</button>
   ),
 }));

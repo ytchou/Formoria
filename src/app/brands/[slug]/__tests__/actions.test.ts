@@ -68,6 +68,7 @@ describe('submitReportAction', () => {
     // Use a unique IP to avoid interference from other tests above (127.0.0.1 used 1 call)
     const { headers } = await import('next/headers')
     vi.mocked(headers).mockResolvedValue(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       new Map([['x-forwarded-for', '10.9.9.9']]) as any
     )
     const fd = makeFormData({ brandId: 'b1', reason: 'not_mit' })

@@ -41,6 +41,7 @@ describe('ReportDialog', () => {
 
   it('shows success confirmation when state.success is true', async () => {
     const { useActionState } = await import('react')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(useActionState).mockReturnValue([{ success: true }, vi.fn(), false] as any)
     render(<ReportDialog brandId="b1" brandSlug="test-brand" />)
     // Open dialog
@@ -50,6 +51,7 @@ describe('ReportDialog', () => {
 
   it('shows error banner when state.error is set', async () => {
     const { useActionState } = await import('react')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(useActionState).mockReturnValue([{ error: '發生錯誤' }, vi.fn(), false] as any)
     render(<ReportDialog brandId="b1" brandSlug="test-brand" />)
     await userEvent.setup().click(screen.getByRole('button', { name: /檢舉/i }))
