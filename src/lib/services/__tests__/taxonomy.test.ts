@@ -15,6 +15,7 @@ import {
   getUntaggedBrands,
   getBrandsForReview,
   processSuggestedTag,
+  getValueTagsWithCoverage,
 } from '../taxonomy'
 
 // Build a chainable thenable proxy. Every property access returns a fn that returns another proxy.
@@ -265,5 +266,72 @@ describe('processSuggestedTag', () => {
 
     expect(insertMock).toHaveBeenCalled()
     expect(upsertMock).toHaveBeenCalled()
+  })
+})
+
+describe('getValueTagsWithCoverage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  // Helper to make a flat tag row (one row per join result)
+  function makeValueTagRow(overrides: Partial<{ id: string; slug: string; name: string; name_zh: string }>) {
+    return {
+      id: overrides.id ?? 'tag-uuid',
+      name: overrides.name ?? 'Test Tag',
+      name_zh: overrides.name_zh ?? null,
+      slug: overrides.slug ?? 'test-tag',
+      category: 'value',
+      is_active: true,
+      suggested_by: null,
+      created_at: '2026-01-01T00:00:00Z',
+    }
+  }
+
+  it('returns value tags that have at least minBrands approved brands', async () => {
+    // sustainability appears 3x (3 approved brands), handmade 2x, organic 1x
+    const rows = [
+      makeValueTagRow({ id: 'sust-id', slug: 'sustainability', name: 'Sustainability', name_zh: '永續' }),
+      makeValueTagRow({ id: 'sust-id', slug: 'sustainability', name: 'Sustainability', name_zh: '永續' }),
+      makeValueTagRow({ id: 'sust-id', slug: 'sustainability', name: 'Sustainability', name_zh: '永續' }),
+      makeValueTagRow({ id: 'hand-id', slug: 'handmade', name: 'Handmade', name_zh: '手作' }),
+      makeValueTagRow({ id: 'hand-id', slug: 'handmade', name: 'Handmade', name_zh: '手作' }),
+      makeValueTagRow({ id: 'org-id', slug: 'organic', name: 'Organic', name_zh: '有機' }),
+    ]
+    mockFrom.mockReturnValue(makeChain({ data: rows, error: null }))
+
+    const result = await getValueTagsWithCoverage(2)
+
+    expect(result).toHaveLength(2)
+    const slugs = result.map((t) => t.slug)
+    expect(slugs).toContain('sustainability')
+    expect(slugs).toContain('handmade')
+    expect(slugs).not.toContain('organic') // only 1 brand — below minBrands=2
+  })
+
+  it('returns all tags with ≥1 brand when minBrands defaults to 1', async () => {
+    const rows = [
+      makeValueTagRow({ id: 'sust-id', slug: 'sustainability' }),
+      makeValueTagRow({ id: 'org-id', slug: 'organic' }),
+    ]
+    mockFrom.mockReturnValue(makeChain({ data: rows, error: null }))
+
+    const result = await getValueTagsWithCoverage()
+
+    expect(result).toHaveLength(2)
+  })
+
+  it('returns empty array when no tags have approved brands', async () => {
+    mockFrom.mockReturnValue(makeChain({ data: [], error: null }))
+
+    const result = await getValueTagsWithCoverage()
+
+    expect(result).toHaveLength(0)
+  })
+
+  it('throws when supabase returns an error', async () => {
+    mockFrom.mockReturnValue(makeChain({ data: null, error: new Error('DB error') }))
+
+    await expect(getValueTagsWithCoverage()).rejects.toThrow('DB error')
   })
 })
