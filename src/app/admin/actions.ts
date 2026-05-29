@@ -588,6 +588,9 @@ export async function bulkUpdateReportsAction(
   reportIds: string[],
   decision: 'reviewed' | 'dismissed'
 ): Promise<{ updated: number; errors: { id: string; error: string }[] }> {
+  const auth = await requireAdmin()
+  if ('error' in auth) throw new Error(auth.error)
+
   const errors: { id: string; error: string }[] = []
   let updated = 0
 
