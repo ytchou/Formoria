@@ -238,7 +238,7 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
   return (
     <div className="mx-auto max-w-3xl space-y-8 px-4 py-12">
       <div className="text-center">
-        <h1 className="font-display text-[26px] font-bold text-foreground">
+        <h1 className="font-heading text-[26px] font-bold text-foreground">
           提交品牌
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">

@@ -36,7 +36,7 @@ export default function ConfirmationPage() {
         </div>
 
         {/* Heading */}
-        <h1 className="mt-6 text-center font-display text-[26px] font-bold text-[#1A1918]">
+        <h1 className="mt-6 text-center font-heading text-[26px] font-bold text-[#1A1918]">
           感謝您！
         </h1>
         <p className="mt-2 text-center text-[15px] text-[#7C7570]">
