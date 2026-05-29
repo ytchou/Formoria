@@ -136,9 +136,10 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
 
         {/* Right: scrolling content */}
         <div className="min-w-0 flex-1 space-y-6">
-          <BrandHeader brand={brand} />
-
-          <BrandActions websiteUrl={visitUrl ?? null} brandSlug={brand.slug} />
+          <BrandHeader
+            brand={brand}
+            actionsSlot={<BrandActions websiteUrl={visitUrl ?? null} brandSlug={brand.slug} />}
+          />
 
           <hr className="border-border" />
 

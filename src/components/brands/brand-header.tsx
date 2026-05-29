@@ -1,11 +1,13 @@
 import { CheckCircle, MapPin } from 'lucide-react'
+import type { ReactNode } from 'react'
 import type { Brand } from '@/lib/types'
 
 interface BrandHeaderProps {
   brand: Brand
+  actionsSlot?: ReactNode
 }
 
-export function BrandHeader({ brand }: BrandHeaderProps) {
+export function BrandHeader({ brand, actionsSlot }: BrandHeaderProps) {
   const locationName = brand.retailLocations[0]?.name
 
   return (
@@ -14,6 +16,9 @@ export function BrandHeader({ brand }: BrandHeaderProps) {
       <h1 className="font-heading text-[26px] font-bold leading-tight text-foreground md:text-[32px]">
         {brand.name}
       </h1>
+
+      {/* CTA slot — rendered between name and meta row */}
+      {actionsSlot}
 
       {/* Meta row */}
       <div className="flex flex-wrap items-center gap-2 text-sm">
