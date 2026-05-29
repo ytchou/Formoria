@@ -224,6 +224,48 @@ SELECT b.id, t.id FROM brands b, taxonomy_tags t
 WHERE b.slug = 'skin-verse' AND t.slug = 'handmade'
 ON CONFLICT DO NOTHING;
 
+-- Extended value-tag mapping (DEV-691) — ensures all 8 value tags have ≥1 brand
+INSERT INTO brand_taxonomy (brand_id, tag_id)
+SELECT b.id, t.id FROM brands b, taxonomy_tags t
+WHERE b.slug = 'shan-wu-tea-house' AND t.slug = 'local-revitalization'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO brand_taxonomy (brand_id, tag_id)
+SELECT b.id, t.id FROM brands b, taxonomy_tags t
+WHERE b.slug = 'claylight-studio' AND t.slug = 'local-culture'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO brand_taxonomy (brand_id, tag_id)
+SELECT b.id, t.id FROM brands b, taxonomy_tags t
+WHERE b.slug = 'woven-words' AND t.slug = 'local-culture'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO brand_taxonomy (brand_id, tag_id)
+SELECT b.id, t.id FROM brands b, taxonomy_tags t
+WHERE b.slug = 'woven-words' AND t.slug = 'social-enterprise'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO brand_taxonomy (brand_id, tag_id)
+SELECT b.id, t.id FROM brands b, taxonomy_tags t
+WHERE b.slug = 'woven-words' AND t.slug = 'fair-trade'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO brand_taxonomy (brand_id, tag_id)
+SELECT b.id, t.id FROM brands b, taxonomy_tags t
+WHERE b.slug = 'island-season' AND t.slug = 'local-revitalization'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO brand_taxonomy (brand_id, tag_id)
+SELECT b.id, t.id FROM brands b, taxonomy_tags t
+WHERE b.slug = 'skin-verse' AND t.slug = 'organic'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO brand_taxonomy (brand_id, tag_id)
+SELECT b.id, t.id FROM brands b, taxonomy_tags t
+WHERE b.slug = 'skin-verse' AND t.slug = 'eco-friendly'
+ON CONFLICT DO NOTHING;
+
+
 -- -----------------------------------------------------------------------------
 -- Part 3: Brand detail enrichment (founder, product_highlights, retail_locations)
 -- -----------------------------------------------------------------------------
