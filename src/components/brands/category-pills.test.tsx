@@ -13,9 +13,9 @@ vi.mock('next/navigation', () => ({
 
 describe('CategoryPills', () => {
   const categories = [
-    { slug: 'food-beverage', name: 'Food & Beverage' },
-    { slug: 'fashion', name: 'Fashion' },
-    { slug: 'lifestyle', name: 'Lifestyle' },
+    { slug: 'food-beverage', name: 'Food & Beverage', nameZh: null },
+    { slug: 'fashion', name: 'Fashion', nameZh: null },
+    { slug: 'lifestyle', name: 'Lifestyle', nameZh: null },
   ]
 
   beforeEach(() => {
