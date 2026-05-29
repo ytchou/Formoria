@@ -38,7 +38,9 @@ export async function signIn(
     redirect(`/auth/callback?claim=${claimToken}`);
   }
 
-  redirect("/dashboard");
+  const next = formData.get("next") as string | null;
+  const isRelativeUrl = next && next.startsWith("/") && !next.startsWith("//");
+  redirect(isRelativeUrl ? next : "/dashboard");
 }
 
 export async function signUp(

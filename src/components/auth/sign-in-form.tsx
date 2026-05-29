@@ -18,6 +18,7 @@ export function SignInForm({ claimToken, claimBrandName }: SignInFormProps) {
   const [state, action, pending] = useActionState<AuthState, FormData>(signIn, {});
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
+  const next = searchParams.get("next");
 
   const signUpHref = claimToken
     ? `/auth/sign-up?claim=${claimToken}`
@@ -55,6 +56,9 @@ export function SignInForm({ claimToken, claimBrandName }: SignInFormProps) {
       <form action={action} className="space-y-4">
         {claimToken && (
           <input type="hidden" name="claimToken" value={claimToken} />
+        )}
+        {next && (
+          <input type="hidden" name="next" value={next} />
         )}
 
         <div className="space-y-2">
