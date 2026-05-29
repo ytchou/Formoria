@@ -145,27 +145,22 @@ export async function getBrands(
 ): Promise<{ brands: Brand[]; totalCount: number }> {
   const supabase = createServiceClient()
 
-  // When filtering by tags or category, use !inner join so only matching brands are returned
-  const needsInnerJoin =
-    (filters?.tags && filters.tags.length > 0) || filters?.category
-  const select = needsInnerJoin
-    ? '*, brand_taxonomy!inner(taxonomy_tags!inner(*))'
-    : BRAND_SELECT
-
-  let query = supabase.from('brands').select(select, { count: 'exact' })
+  let query = supabase.from('brands').select(BRAND_SELECT, { count: 'exact' })
 
   if (filters?.status) {
     query = query.eq('status', filters.status)
   }
   if (filters?.category) {
-    query = query.eq('brand_taxonomy.taxonomy_tags.slug', filters.category)
+    // brand has this category (a product_type tag slug)
+    query = query.contains('tag_slugs', [filters.category])
   }
   if (filters?.search) {
     const term = filters.search.slice(0, 100).replace(/[%_\\]/g, '\\$&')
     query = query.or(`name.ilike.%${term}%,description.ilike.%${term}%`)
   }
   if (filters?.tags && filters.tags.length > 0) {
-    query = query.in('brand_taxonomy.taxonomy_tags.slug', filters.tags)
+    // brand has at least one of these value tags
+    query = query.overlaps('tag_slugs', filters.tags)
   }
 
   // Sorting

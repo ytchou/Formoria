@@ -53,8 +53,8 @@ export default function FilterableBrandShowcase({
           onClick={() => setSelectedCategory(null)}
           className={`rounded-full px-4 py-1.5 text-sm transition-colors ${
             !selectedCategory
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-secondary text-muted-foreground hover:bg-secondary/80'
+              ? 'border border-transparent bg-primary text-primary-foreground'
+              : 'border border-border bg-transparent text-muted-foreground hover:border-foreground/30 hover:text-foreground'
           }`}
         >
           全部
@@ -65,8 +65,8 @@ export default function FilterableBrandShowcase({
             onClick={() => setSelectedCategory(cat.slug)}
             className={`rounded-full px-4 py-1.5 text-sm transition-colors ${
               selectedCategory === cat.slug
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary text-muted-foreground hover:bg-secondary/80'
+                ? 'border border-transparent bg-primary text-primary-foreground'
+                : 'border border-border bg-transparent text-muted-foreground hover:border-foreground/30 hover:text-foreground'
             }`}
           >
             {cat.nameZh ?? cat.name}

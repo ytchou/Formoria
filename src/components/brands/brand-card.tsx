@@ -47,12 +47,6 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
             </span>
           </div>
         )}
-        {/* Category overlay pill */}
-        {brand.category && (
-          <span className="absolute left-3 top-3 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-medium text-coffee">
-            {brand.category}
-          </span>
-        )}
       </div>
 
       {/* Content */}
@@ -82,12 +76,19 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
             創立於 {brand.foundingYear}
           </p>
         )}
-        {brand.tags.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
+        {(brand.category || brand.tags.length > 0) && (
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            {/* Category — primary classification (filled) */}
+            {brand.category && (
+              <span className="inline-block rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-coffee">
+                {brand.category}
+              </span>
+            )}
+            {/* Tags — value classification (outlined) */}
             {brand.tags.slice(0, 3).map((tag) => (
               <span
                 key={tag.id}
-                className="inline-block rounded-full bg-muted px-3 py-1 text-[11px] font-medium text-secondary-foreground"
+                className="inline-block rounded-full border border-border bg-transparent px-3 py-1 text-[11px] font-medium text-warm-caption"
               >
                 {tag.nameZh ?? tag.name}
               </span>

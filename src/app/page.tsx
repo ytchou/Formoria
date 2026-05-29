@@ -29,7 +29,7 @@ export default async function LandingPage() {
   const [stats, categories, { brands: allBrands }, newBrands, valueTags] = await Promise.all([
     getBrandStats(),
     getActiveCategories(),
-    getBrands(),
+    getBrands({ status: 'approved' }),
     getNewBrands(4),
     getValueTagsWithCoverage(1),
   ])
