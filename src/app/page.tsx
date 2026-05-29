@@ -5,9 +5,10 @@ import TrustBar from '@/components/landing/trust-bar'
 import Manifesto from '@/components/landing/manifesto'
 import BrandShowcase from '@/components/shared/brand-showcase'
 import FilterableBrandShowcase from '@/components/landing/filterable-brand-showcase'
+import ValueChips from '@/components/landing/value-chips'
 import DualCta from '@/components/landing/dual-cta'
 import { getBrandStats, getBrands, getNewBrands } from '@/lib/services/brands'
-import { getActiveCategories } from '@/lib/services/taxonomy'
+import { getActiveCategories, getValueTagsWithCoverage } from '@/lib/services/taxonomy'
 
 export const revalidate = 3600
 
@@ -25,11 +26,12 @@ export const metadata: Metadata = {
 export default async function LandingPage() {
   const jsonLd = buildWebSiteJsonLd()
 
-  const [stats, categories, { brands: allBrands }, newBrands] = await Promise.all([
+  const [stats, categories, { brands: allBrands }, newBrands, valueTags] = await Promise.all([
     getBrandStats(),
     getActiveCategories(),
     getBrands(),
     getNewBrands(4),
+    getValueTagsWithCoverage(1),
   ])
 
   return (
@@ -50,6 +52,12 @@ export default async function LandingPage() {
         <div className="py-6 md:py-8">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <FilterableBrandShowcase brands={allBrands} categories={categories} />
+          </div>
+        </div>
+
+        <div className="py-6 md:py-8">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            <ValueChips tags={valueTags} />
           </div>
         </div>
 

@@ -115,6 +115,33 @@ export async function getActiveCategories(): Promise<
   return result
 }
 
+export async function getValueTagsWithCoverage(minBrands = 1): Promise<TaxonomyTag[]> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('taxonomy_tags')
+    .select('*, brand_taxonomy!inner(brands!inner(status))')
+    .eq('category', 'value')
+    .eq('is_active', true)
+    .eq('brand_taxonomy.brands.status', 'approved')
+
+  if (error) throw error
+
+  // Count occurrences per tag (one row per brand_taxonomy join)
+  const counts = new Map<string, { row: (typeof data)[0]; count: number }>()
+  for (const row of data ?? []) {
+    const existing = counts.get(row.id)
+    if (existing) {
+      existing.count++
+    } else {
+      counts.set(row.id, { row, count: 1 })
+    }
+  }
+
+  return Array.from(counts.values())
+    .filter(({ count }) => count >= minBrands)
+    .map(({ row }) => tagToDomain(row))
+}
+
 export async function createTag(
   data: Pick<TaxonomyTag, 'name' | 'category'> & Partial<Pick<TaxonomyTag, 'nameZh' | 'suggestedBy'>>
 ): Promise<TaxonomyTag> {
