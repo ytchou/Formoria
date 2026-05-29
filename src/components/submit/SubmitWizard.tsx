@@ -238,16 +238,16 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
   return (
     <div className="mx-auto max-w-3xl space-y-8 px-4 py-12">
       <div className="text-center">
-        <h1 className="font-display text-[26px] font-bold text-[#1A1918]">
+        <h1 className="font-display text-[26px] font-bold text-foreground">
           提交品牌
         </h1>
-        <p className="mt-2 text-sm text-[#7C7570]">
+        <p className="mt-2 text-sm text-muted-foreground">
           將您的台灣製造品牌分享給社群
         </p>
       </div>
 
       {phase === 'url' ? (
-        <div className="rounded-xl border border-[#E8E5E0] bg-white p-8 shadow-sm">
+        <div className="rounded-xl border border-border bg-white p-8 shadow-sm">
           <UrlStep
             onSuccess={handleUrlSuccess}
             onSkip={handleUrlSkip}
@@ -262,7 +262,7 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
 
           <FormProvider {...methods}>
             <form onSubmit={handleSubmit}>
-              <div className="rounded-xl border border-[#E8E5E0] bg-white p-8 shadow-sm">
+              <div className="rounded-xl border border-border bg-white p-8 shadow-sm">
                 {currentStep === 0 && (
                   <BrandInfoStep
                     categories={categories}
@@ -290,7 +290,7 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
                     <button
                       type="button"
                       onClick={handleBack}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#D4CFC9] bg-white px-5 py-2.5 text-sm font-medium text-[#1A1918] hover:bg-[#F5F4F1]"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-5 py-2.5 text-sm font-medium text-foreground hover:bg-secondary"
                     >
                       <ArrowLeft className="h-4 w-4" />
                       返回
@@ -303,7 +303,7 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
                     <button
                       type="button"
                       onClick={handleNext}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#E06B3F] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#C85A33]"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-cta px-5 py-2.5 text-sm font-medium text-cta-foreground hover:bg-cta/90"
                     >
                       下一步
                       <ArrowRight className="h-4 w-4" />
@@ -312,7 +312,7 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
                     <button
                       type="submit"
                       disabled={isPending}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#E06B3F] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#C85A33] disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-cta px-5 py-2.5 text-sm font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-50"
                     >
                       {isPending ? (
                         '提交中...'

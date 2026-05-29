@@ -54,7 +54,7 @@ function SortablePhoto({
     <div
       ref={setNodeRef}
       style={style}
-      className="group relative aspect-[4/3] overflow-hidden rounded-lg border border-[#E8E5E0]"
+      className="group relative aspect-[4/3] overflow-hidden rounded-lg border border-border"
       {...attributes}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -69,14 +69,14 @@ function SortablePhoto({
       {/* Badges */}
       <div className="absolute left-1.5 top-1.5 flex flex-col gap-1">
         {isHero && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-[#E06B3F] px-2 py-0.5 text-[10px] font-medium text-white">
+          <span className="inline-flex items-center gap-1 rounded-full bg-cta px-2 py-0.5 text-[10px] font-medium text-cta-foreground">
             <Star className="h-3 w-3" />
             Hero
           </span>
         )}
 
         {photo.source === 'scraped' && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-[#3D3530] px-2 py-0.5 text-[10px] font-medium text-white">
+          <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[10px] font-medium text-accent-foreground">
             <Globe className="h-3 w-3" />
             from website
           </span>
@@ -96,7 +96,7 @@ function SortablePhoto({
           e.stopPropagation()
           onRemove()
         }}
-        className="absolute right-1.5 top-1.5 flex h-[22px] w-[22px] items-center justify-center rounded-full bg-[#3D3530]/80 text-white hover:bg-[#3D3530]"
+        className="absolute right-1.5 top-1.5 flex h-[22px] w-[22px] items-center justify-center rounded-full bg-accent/80 text-accent-foreground hover:bg-accent"
         aria-label={`Remove photo ${photo.id}`}
       >
         <X className="h-3 w-3" />
@@ -132,12 +132,12 @@ function PhotoGallery({
   if (photos.length === 0) {
     return (
       <div className="space-y-3">
-        <p className="text-sm text-[#7C7570]">
+        <p className="text-sm text-muted-foreground">
           No photos found from your website
         </p>
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#8B7355] hover:text-[#6A573F]"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground/80"
           aria-label="Add photos"
         >
           <Plus className="h-4 w-4" />
@@ -170,7 +170,7 @@ function PhotoGallery({
       {photos.length < 6 && (
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#8B7355] hover:text-[#6A573F]"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground/80"
         >
           <Plus className="h-4 w-4" />
           Add more photos
@@ -202,7 +202,7 @@ export function BrandInfoStep({
       <div className="space-y-1.5">
         <label
           htmlFor="brand-name"
-          className="block text-sm font-semibold text-[#1A1918]"
+          className="block text-sm font-semibold text-foreground"
         >
           Brand Name
         </label>
@@ -210,7 +210,7 @@ export function BrandInfoStep({
           id="brand-name"
           type="text"
           placeholder="e.g. 雨靴工作室"
-          className="h-11 w-full rounded-lg border border-[#D4CFC9] bg-white px-3 text-sm text-[#1A1918] placeholder:text-[#B0AAA4] focus:border-[#8B7355] focus:outline-none focus:ring-2 focus:ring-[#8B7355]/20"
+          className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
           {...register('name')}
         />
         {errors.name && (
@@ -222,7 +222,7 @@ export function BrandInfoStep({
       <div className="space-y-1.5">
         <label
           htmlFor="brand-description"
-          className="block text-sm font-semibold text-[#1A1918]"
+          className="block text-sm font-semibold text-foreground"
         >
           Brand Description
         </label>
@@ -230,7 +230,7 @@ export function BrandInfoStep({
           id="brand-description"
           rows={4}
           placeholder="Tell us about your brand..."
-          className="w-full rounded-lg border border-[#D4CFC9] bg-white px-3 py-2 text-sm text-[#1A1918] placeholder:text-[#B0AAA4] focus:border-[#8B7355] focus:outline-none focus:ring-2 focus:ring-[#8B7355]/20"
+          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
           {...register('description')}
         />
         <div className="flex justify-between">
@@ -239,7 +239,7 @@ export function BrandInfoStep({
           ) : (
             <span />
           )}
-          <span className="text-xs text-[#7C7570]">
+          <span className="text-xs text-muted-foreground">
             {description.length} / 500 max characters
           </span>
         </div>
@@ -248,10 +248,10 @@ export function BrandInfoStep({
       {/* Photo Gallery (from scraping) */}
       {photos && onPhotosChange && (
         <div className="space-y-1.5">
-          <label className="block text-sm font-semibold text-[#1A1918]">
+          <label className="block text-sm font-semibold text-foreground">
             Photos
           </label>
-          <p className="text-xs text-[#7C7570]">
+          <p className="text-xs text-muted-foreground">
             Drag to reorder. The first photo becomes the hero image.
           </p>
           <PhotoGallery photos={photos} onPhotosChange={onPhotosChange} />
@@ -262,13 +262,13 @@ export function BrandInfoStep({
       <div className="space-y-1.5">
         <label
           htmlFor="brand-category"
-          className="block text-sm font-semibold text-[#1A1918]"
+          className="block text-sm font-semibold text-foreground"
         >
           Category
         </label>
         <select
           id="brand-category"
-          className="h-11 w-full rounded-lg border border-[#D4CFC9] bg-white px-3 text-sm text-[#1A1918] focus:border-[#8B7355] focus:outline-none focus:ring-2 focus:ring-[#8B7355]/20"
+          className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
           {...register('category')}
         >
           <option value="">Select a category</option>
@@ -286,10 +286,10 @@ export function BrandInfoStep({
 
       {/* Tags */}
       <div className="space-y-1.5">
-        <label className="block text-sm font-semibold text-[#1A1918]">
+        <label className="block text-sm font-semibold text-foreground">
           Tags
         </label>
-        <p className="text-xs text-[#7C7570]">
+        <p className="text-xs text-muted-foreground">
           Add up to 5 tags to help people find your brand
         </p>
         <Controller
@@ -301,7 +301,7 @@ export function BrandInfoStep({
                 {(field.value ?? []).map((tag: string, i: number) => (
                   <span
                     key={i}
-                    className="inline-flex items-center gap-1 rounded-full bg-[#F5F4F1] px-3 py-1 text-xs text-[#1A1918]"
+                    className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs text-foreground"
                   >
                     {tag}
                     <button
@@ -311,7 +311,7 @@ export function BrandInfoStep({
                         next.splice(i, 1)
                         field.onChange(next)
                       }}
-                      className="ml-0.5 text-[#7C7570] hover:text-[#1A1918]"
+                      className="ml-0.5 text-muted-foreground hover:text-foreground"
                       aria-label={`Remove tag ${tag}`}
                     >
                       &times;
@@ -323,7 +323,7 @@ export function BrandInfoStep({
                 <input
                   type="text"
                   placeholder="Type and press Enter to add a tag"
-                  className="h-9 w-full rounded-lg border border-[#D4CFC9] bg-white px-3 text-sm text-[#1A1918] placeholder:text-[#B0AAA4] focus:border-[#8B7355] focus:outline-none focus:ring-2 focus:ring-[#8B7355]/20"
+                  className="h-9 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault()
@@ -346,10 +346,10 @@ export function BrandInfoStep({
 
       {/* Brand Logo */}
       <div className="space-y-1.5">
-        <label className="block text-sm font-semibold text-[#1A1918]">
+        <label className="block text-sm font-semibold text-foreground">
           {isOwner ? 'Logo *' : 'Logo（可選）'}
         </label>
-        <p className="text-xs text-[#7C7570]">
+        <p className="text-xs text-muted-foreground">
           Upload your brand logo (max 5MB, will be resized to max 1200px)
         </p>
         <Controller
@@ -371,14 +371,14 @@ export function BrandInfoStep({
       </div>
 
       <div className="space-y-3">
-        <p className="text-sm font-semibold text-[#1A1918]">
+        <p className="text-sm font-semibold text-foreground">
           Founder Information{' '}
-          <span className="text-xs font-normal text-[#7C7570]">(Optional)</span>
+          <span className="text-xs font-normal text-muted-foreground">(Optional)</span>
         </p>
         <div className="space-y-1.5">
           <label
             htmlFor="founder-name"
-            className="block text-sm font-medium text-[#1A1918]"
+            className="block text-sm font-medium text-foreground"
           >
             Founder Name
           </label>
@@ -386,14 +386,14 @@ export function BrandInfoStep({
             id="founder-name"
             type="text"
             placeholder="e.g. Lin Wei-Chen"
-            className="w-full rounded-lg border border-[#D4CFC9] bg-white px-3 py-2 text-sm text-[#1A1918] placeholder:text-[#B0AAA4] focus:border-[#8B7355] focus:outline-none focus:ring-2 focus:ring-[#8B7355]/20"
+            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
             {...register('founderName')}
           />
         </div>
         <div className="space-y-1.5">
           <label
             htmlFor="founder-title"
-            className="block text-sm font-medium text-[#1A1918]"
+            className="block text-sm font-medium text-foreground"
           >
             Founder Title
           </label>
@@ -401,14 +401,14 @@ export function BrandInfoStep({
             id="founder-title"
             type="text"
             placeholder="e.g. Founder & CEO"
-            className="w-full rounded-lg border border-[#D4CFC9] bg-white px-3 py-2 text-sm text-[#1A1918] placeholder:text-[#B0AAA4] focus:border-[#8B7355] focus:outline-none focus:ring-2 focus:ring-[#8B7355]/20"
+            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
             {...register('founderTitle')}
           />
         </div>
         <div className="space-y-1.5">
           <label
             htmlFor="founder-bio"
-            className="block text-sm font-medium text-[#1A1918]"
+            className="block text-sm font-medium text-foreground"
           >
             Founder Bio
           </label>
@@ -416,7 +416,7 @@ export function BrandInfoStep({
             id="founder-bio"
             rows={3}
             placeholder="e.g. Started the brand after returning from Tokyo..."
-            className="w-full rounded-lg border border-[#D4CFC9] bg-white px-3 py-2 text-sm text-[#1A1918] placeholder:text-[#B0AAA4] focus:border-[#8B7355] focus:outline-none focus:ring-2 focus:ring-[#8B7355]/20"
+            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
             {...register('founderBio')}
           />
         </div>

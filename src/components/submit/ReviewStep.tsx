@@ -21,11 +21,11 @@ function SectionHeader({
 }) {
   return (
     <div className="flex items-center justify-between">
-      <h3 className="text-[13px] font-semibold text-[#6A573F]">{title}</h3>
+      <h3 className="text-[13px] font-semibold text-foreground/80">{title}</h3>
       <button
         type="button"
         onClick={() => onEdit(stepIndex)}
-        className="inline-flex items-center gap-1 rounded-full bg-[#F5F4F1] px-3 py-1 text-xs font-medium text-[#8B7355] hover:bg-[#EAE7E1]"
+        className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-secondary"
       >
         <Pencil className="h-3 w-3" />
         Edit
@@ -43,11 +43,11 @@ function ReviewRow({
 }) {
   return (
     <div className="flex gap-3">
-      <span className="w-[140px] shrink-0 text-xs text-[#7C7570]">
+      <span className="w-[140px] shrink-0 text-xs text-muted-foreground">
         {label}
       </span>
-      <span className="text-[13px] font-semibold text-[#1A1918]">
-        {value || <span className="font-normal text-[#B0AAA4]">--</span>}
+      <span className="text-[13px] font-semibold text-foreground">
+        {value || <span className="font-normal text-muted-foreground">--</span>}
       </span>
     </div>
   )
@@ -74,7 +74,7 @@ export function ReviewStep({ onEditStep }: ReviewStepProps) {
           stepIndex={0}
           onEdit={onEditStep}
         />
-        <div className="space-y-2 rounded-lg bg-[#FAFAF8] p-4">
+        <div className="space-y-2 rounded-lg bg-background p-4">
           <ReviewRow label="Brand Name" value={formData.name} />
           <ReviewRow label="Description" value={formData.description} />
           <ReviewRow label="Category" value={formData.category} />
@@ -88,7 +88,7 @@ export function ReviewStep({ onEditStep }: ReviewStepProps) {
           />
           {formData.logoUrl && (
             <div className="flex gap-3">
-              <span className="w-[140px] shrink-0 text-xs text-[#7C7570]">
+              <span className="w-[140px] shrink-0 text-xs text-muted-foreground">
                 Logo
               </span>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -112,8 +112,8 @@ export function ReviewStep({ onEditStep }: ReviewStepProps) {
           stepIndex={1}
           onEdit={onEditStep}
         />
-        <div className="space-y-2 rounded-lg bg-[#FAFAF8] p-4">
-          <p className="text-[13px] text-[#1A1918]">
+        <div className="space-y-2 rounded-lg bg-background p-4">
+          <p className="text-[13px] text-foreground">
             {photoCount} {photoCount === 1 ? 'photo' : 'photos'} uploaded
           </p>
           {photoCount > 0 && (
@@ -145,7 +145,7 @@ export function ReviewStep({ onEditStep }: ReviewStepProps) {
           stepIndex={2}
           onEdit={onEditStep}
         />
-        <div className="space-y-2 rounded-lg bg-[#FAFAF8] p-4">
+        <div className="space-y-2 rounded-lg bg-background p-4">
           {formData.purchaseLinks?.map((link, i) => (
             <ReviewRow
               key={i}
@@ -155,7 +155,7 @@ export function ReviewStep({ onEditStep }: ReviewStepProps) {
                   href={link.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#8B7355] underline"
+                  className="text-muted-foreground underline"
                 >
                   {link.url}
                 </a>
@@ -178,7 +178,7 @@ export function ReviewStep({ onEditStep }: ReviewStepProps) {
       </div>
 
       {/* PDPA Consent */}
-      <div className="space-y-2 rounded-lg border border-[#D4CFC9] p-4">
+      <div className="space-y-2 rounded-lg border border-border p-4">
         <Controller
           name="pdpaConsent"
           control={control}
@@ -189,15 +189,15 @@ export function ReviewStep({ onEditStep }: ReviewStepProps) {
                   type="checkbox"
                   checked={field.value}
                   onChange={field.onChange}
-                  className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded border-[#D4CFC9] accent-[#E06B3F]"
+                  className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded border-border accent-cta"
                 />
-                <span className="text-[13px] text-[#1A1918]">
+                <span className="text-[13px] text-foreground">
                   I agree to the collection and use of my personal data in
                   accordance with the{' '}
                   <a
                     href="/privacy"
                     target="_blank"
-                    className="text-[#8B7355] underline"
+                    className="text-muted-foreground underline"
                   >
                     Privacy Policy
                   </a>{' '}

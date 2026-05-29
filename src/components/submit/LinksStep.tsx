@@ -41,10 +41,10 @@ export function LinksStep({ isOwner = false }: LinksStepProps = {}) {
       {/* Purchase Links */}
       <div className="space-y-3">
         <div>
-          <h3 className="text-sm font-semibold text-[#1A1918]">
+          <h3 className="text-sm font-semibold text-foreground">
             {isOwner ? 'Purchase Links *' : 'Purchase Links（可選）'}
           </h3>
-          <p className="text-xs text-[#7C7570]">
+          <p className="text-xs text-muted-foreground">
             Add links where people can buy your products
           </p>
         </div>
@@ -54,7 +54,7 @@ export function LinksStep({ isOwner = false }: LinksStepProps = {}) {
             <div key={field.id} className="flex items-start gap-2">
               <select
                 role="combobox"
-                className="h-11 w-40 shrink-0 rounded-lg border border-[#D4CFC9] bg-white px-3 text-sm text-[#1A1918] focus:border-[#8B7355] focus:outline-none focus:ring-2 focus:ring-[#8B7355]/20"
+                className="h-11 w-40 shrink-0 rounded-lg border border-border bg-white px-3 text-sm text-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
                 {...register(`purchaseLinks.${index}.platform`)}
               >
                 <option value="">Platform</option>
@@ -67,14 +67,14 @@ export function LinksStep({ isOwner = false }: LinksStepProps = {}) {
               <input
                 type="url"
                 placeholder="https://..."
-                className="h-11 flex-1 rounded-lg border border-[#D4CFC9] bg-white px-3 text-sm text-[#1A1918] placeholder:text-[#B0AAA4] focus:border-[#8B7355] focus:outline-none focus:ring-2 focus:ring-[#8B7355]/20"
+                className="h-11 flex-1 rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
                 {...register(`purchaseLinks.${index}.url`)}
               />
               {purchaseFields.length > 1 && (
                 <button
                   type="button"
                   onClick={() => removePurchase(index)}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[#7C7570] hover:bg-[#F5F4F1] hover:text-[#1A1918]"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
                   aria-label={`Remove purchase link ${index + 1}`}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -95,7 +95,7 @@ export function LinksStep({ isOwner = false }: LinksStepProps = {}) {
         <button
           type="button"
           onClick={() => appendPurchase({ platform: '', url: '' })}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#8B7355] hover:text-[#6A573F]"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground/80"
         >
           <Plus className="h-4 w-4" />
           Add another link
@@ -104,12 +104,12 @@ export function LinksStep({ isOwner = false }: LinksStepProps = {}) {
 
       {/* Social Links */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-[#1A1918]">Social Links</h3>
+        <h3 className="text-sm font-semibold text-foreground">Social Links</h3>
         <div className="space-y-2">
           <div className="flex items-center gap-3">
             <label
               htmlFor="social-instagram"
-              className="w-28 shrink-0 text-sm text-[#7C7570]"
+              className="w-28 shrink-0 text-sm text-muted-foreground"
             >
               Instagram
             </label>
@@ -117,14 +117,14 @@ export function LinksStep({ isOwner = false }: LinksStepProps = {}) {
               id="social-instagram"
               type="text"
               placeholder="@yourbrand"
-              className="h-11 flex-1 rounded-lg border border-[#D4CFC9] bg-white px-3 text-sm text-[#1A1918] placeholder:text-[#B0AAA4] focus:border-[#8B7355] focus:outline-none focus:ring-2 focus:ring-[#8B7355]/20"
+              className="h-11 flex-1 rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
               {...register('socialLinks.instagram')}
             />
           </div>
           <div className="flex items-center gap-3">
             <label
               htmlFor="social-threads"
-              className="w-28 shrink-0 text-sm text-[#7C7570]"
+              className="w-28 shrink-0 text-sm text-muted-foreground"
             >
               Threads
             </label>
@@ -132,14 +132,14 @@ export function LinksStep({ isOwner = false }: LinksStepProps = {}) {
               id="social-threads"
               type="text"
               placeholder="@yourbrand"
-              className="h-11 flex-1 rounded-lg border border-[#D4CFC9] bg-white px-3 text-sm text-[#1A1918] placeholder:text-[#B0AAA4] focus:border-[#8B7355] focus:outline-none focus:ring-2 focus:ring-[#8B7355]/20"
+              className="h-11 flex-1 rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
               {...register('socialLinks.threads')}
             />
           </div>
           <div className="flex items-center gap-3">
             <label
               htmlFor="social-facebook"
-              className="w-28 shrink-0 text-sm text-[#7C7570]"
+              className="w-28 shrink-0 text-sm text-muted-foreground"
             >
               Facebook
             </label>
@@ -147,14 +147,14 @@ export function LinksStep({ isOwner = false }: LinksStepProps = {}) {
               id="social-facebook"
               type="text"
               placeholder="https://facebook.com/yourbrand"
-              className="h-11 flex-1 rounded-lg border border-[#D4CFC9] bg-white px-3 text-sm text-[#1A1918] placeholder:text-[#B0AAA4] focus:border-[#8B7355] focus:outline-none focus:ring-2 focus:ring-[#8B7355]/20"
+              className="h-11 flex-1 rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
               {...register('socialLinks.facebook')}
             />
           </div>
           <div className="flex items-center gap-3">
             <label
               htmlFor="social-website"
-              className="w-28 shrink-0 text-sm text-[#7C7570]"
+              className="w-28 shrink-0 text-sm text-muted-foreground"
             >
               Website
             </label>
@@ -162,7 +162,7 @@ export function LinksStep({ isOwner = false }: LinksStepProps = {}) {
               id="social-website"
               type="url"
               placeholder="https://yourbrand.com"
-              className="h-11 flex-1 rounded-lg border border-[#D4CFC9] bg-white px-3 text-sm text-[#1A1918] placeholder:text-[#B0AAA4] focus:border-[#8B7355] focus:outline-none focus:ring-2 focus:ring-[#8B7355]/20"
+              className="h-11 flex-1 rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
               {...register('socialLinks.website')}
             />
           </div>
@@ -172,10 +172,10 @@ export function LinksStep({ isOwner = false }: LinksStepProps = {}) {
       {/* Retail Locations */}
       <div className="space-y-3">
         <div>
-          <h3 className="text-sm font-semibold text-[#1A1918]">
+          <h3 className="text-sm font-semibold text-foreground">
             Retail Locations
           </h3>
-          <p className="text-xs text-[#7C7570]">
+          <p className="text-xs text-muted-foreground">
             Physical locations where your products are sold (optional)
           </p>
         </div>
@@ -187,19 +187,19 @@ export function LinksStep({ isOwner = false }: LinksStepProps = {}) {
                 <input
                   type="text"
                   placeholder="Store name"
-                  className="h-11 w-40 shrink-0 rounded-lg border border-[#D4CFC9] bg-white px-3 text-sm text-[#1A1918] placeholder:text-[#B0AAA4] focus:border-[#8B7355] focus:outline-none focus:ring-2 focus:ring-[#8B7355]/20"
+                  className="h-11 w-40 shrink-0 rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
                   {...register(`retailLocations.${index}.name`)}
                 />
                 <input
                   type="text"
                   placeholder="Address"
-                  className="h-11 flex-1 rounded-lg border border-[#D4CFC9] bg-white px-3 text-sm text-[#1A1918] placeholder:text-[#B0AAA4] focus:border-[#8B7355] focus:outline-none focus:ring-2 focus:ring-[#8B7355]/20"
+                  className="h-11 flex-1 rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
                   {...register(`retailLocations.${index}.address`)}
                 />
                 <button
                   type="button"
                   onClick={() => removeLocation(index)}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[#7C7570] hover:bg-[#F5F4F1] hover:text-[#1A1918]"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
                   aria-label={`Remove location ${index + 1}`}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -212,7 +212,7 @@ export function LinksStep({ isOwner = false }: LinksStepProps = {}) {
         <button
           type="button"
           onClick={() => appendLocation({ name: '', address: '' })}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#8B7355] hover:text-[#6A573F]"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground/80"
         >
           <Plus className="h-4 w-4" />
           Add location

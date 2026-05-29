@@ -12,9 +12,9 @@ function getStepState(index: number, currentStep: number): StepState {
 }
 
 const stateStyles: Record<StepState, string> = {
-  completed: 'bg-[#1A1918] text-white',
-  active: 'bg-[#E06B3F] text-white',
-  upcoming: 'bg-[#F5F4F1] text-[#7C7570]',
+  completed: 'bg-foreground text-background',
+  active: 'bg-cta text-cta-foreground',
+  upcoming: 'bg-secondary text-muted-foreground',
 }
 
 export function StepIndicator({ steps, currentStep }: StepIndicatorProps) {

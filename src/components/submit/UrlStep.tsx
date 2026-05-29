@@ -78,10 +78,10 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
   return (
     <div className="mx-auto max-w-[600px] space-y-6">
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-[#1A1918]">
+        <h2 className="text-lg font-semibold text-foreground">
           提交你喜愛的品牌
         </h2>
-        <p className="text-sm text-[#7C7570]">
+        <p className="text-sm text-muted-foreground">
           與社群分享台灣製造品牌
         </p>
       </div>
@@ -89,15 +89,15 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
       <div className="space-y-1.5">
         <label
           htmlFor="website-url"
-          className="block text-sm font-semibold text-[#1A1918]"
+          className="block text-sm font-semibold text-foreground"
         >
           品牌網站 URL
         </label>
-        <p className="text-xs text-[#7C7570]">
+        <p className="text-xs text-muted-foreground">
           貼上品牌網站的網址，我們將自動填入您的提交資料
         </p>
         <div className="relative">
-          <Link2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#B0AAA4]" />
+          <Link2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             id="website-url"
             type="url"
@@ -105,7 +105,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             disabled={status === 'loading'}
-            className="h-11 w-full rounded-lg border border-[#D4CFC9] bg-white pl-10 pr-3 text-sm text-[#1A1918] placeholder:text-[#B0AAA4] focus:border-[#8B7355] focus:outline-none focus:ring-2 focus:ring-[#8B7355]/20 disabled:opacity-50"
+            className="h-11 w-full rounded-lg border border-border bg-white pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20 disabled:opacity-50"
           />
         </div>
       </div>
@@ -119,7 +119,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
         />
         <label
           htmlFor="is-brand-owner"
-          className="cursor-pointer select-none text-sm font-medium text-[#1A1918]"
+          className="cursor-pointer select-none text-sm font-medium text-foreground"
         >
           我是品牌所有者
         </label>
@@ -128,13 +128,13 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
       {/* Source attribution — shown only when not owner */}
       {!isOwner && (
         <div className="space-y-1.5">
-          <label className="block text-sm font-semibold text-[#1A1918]">
+          <label className="block text-sm font-semibold text-foreground">
             你如何認識這個品牌？
           </label>
           <Select onValueChange={(val) => onAttributionChange(val as SourceAttribution)}>
             <SelectTrigger
               aria-label="你如何認識這個品牌？"
-              className="h-11 w-full border-[#D4CFC9] text-sm text-[#1A1918]"
+              className="h-11 w-full border-border text-sm text-foreground"
             >
               <SelectValue placeholder="選擇你認識這品牌的方式（可選）" />
             </SelectTrigger>
@@ -160,14 +160,14 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
       <div className="flex flex-col items-center gap-3">
         {status === 'loading' ? (
           <>
-            <div className="inline-flex items-center gap-2 text-sm text-[#7C7570]">
+            <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               正在取得品牌資訊...
             </div>
             <button
               type="button"
               onClick={handleCancel}
-              className="text-sm font-medium text-[#8B7355] hover:text-[#6A573F]"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground/80"
             >
               取消
             </button>
@@ -177,14 +177,14 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
             <button
               type="button"
               onClick={handleFetch}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#E06B3F] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#C85A33]"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-cta px-5 py-2.5 text-sm font-medium text-cta-foreground hover:bg-cta/90"
             >
               再試一次
             </button>
             <button
               type="button"
               onClick={onSkip}
-              className="text-sm font-medium text-[#8B7355] hover:text-[#6A573F]"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground/80"
             >
               改為手動填寫
             </button>
@@ -195,14 +195,14 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
               type="button"
               onClick={handleFetch}
               disabled={!isValidUrl}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#E06B3F] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#C85A33] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-cta px-5 py-2.5 text-sm font-medium text-cta-foreground hover:bg-cta/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               自動填入品牌資訊
             </button>
             <button
               type="button"
               onClick={onSkip}
-              className="text-sm font-medium text-[#8B7355] hover:text-[#6A573F]"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground/80"
             >
               跳過，手動填寫
             </button>
