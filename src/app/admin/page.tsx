@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getSubmissions } from "@/lib/services/submissions";
 import { getBrands } from "@/lib/services/brands";
 import { getTags } from "@/lib/services/taxonomy";
+import { getPendingReports } from "@/lib/services/reports";
 import {
   Card,
   CardContent,
@@ -15,11 +16,12 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminPage() {
-  const [pendingSubmissions, { totalCount: brandCount }, tags] =
+  const [pendingSubmissions, { totalCount: brandCount }, tags, pendingReports] =
     await Promise.all([
       getSubmissions("pending"),
       getBrands(),
       getTags(),
+      getPendingReports().catch(() => [] as Awaited<ReturnType<typeof getPendingReports>>),
     ]);
 
   const stats = [
@@ -38,6 +40,11 @@ export default async function AdminPage() {
       count: tags.length,
       href: "/admin/taxonomy",
     },
+    {
+      label: "待審核檢舉",
+      count: pendingReports.length,
+      href: "/admin/reports",
+    },
   ];
 
   return (
@@ -49,7 +56,7 @@ export default async function AdminPage() {
         管理品牌、提交記錄和站台設定。
       </p>
 
-      <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+      <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-4">
         {stats.map((stat) => (
           <Link key={stat.href} href={stat.href}>
             <Card className="transition-shadow hover:shadow-md">
