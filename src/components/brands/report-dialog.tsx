@@ -33,13 +33,11 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
 
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <button
-          className="flex size-[42px] shrink-0 items-center justify-center rounded-xl bg-secondary text-foreground transition-colors hover:bg-secondary/80"
-          aria-label="檢舉"
-        >
-          <Flag className="size-4" />
-        </button>
+      <DialogTrigger
+        className="flex size-[42px] shrink-0 items-center justify-center rounded-xl bg-secondary text-foreground transition-colors hover:bg-secondary/80"
+        aria-label="檢舉"
+      >
+        <Flag className="size-4" />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -50,7 +48,7 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
         {state.success ? (
           <div className="space-y-4">
             <p>感謝你的回報，我們會盡快審核。</p>
-            <DialogClose asChild>
+            <DialogClose>
               <Button variant="outline">關閉</Button>
             </DialogClose>
           </div>
