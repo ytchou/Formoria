@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mocks must be at top-level for vitest hoisting
 vi.mock('@/lib/supabase/server', () => ({
@@ -64,6 +64,10 @@ vi.mock('@/lib/services/taxonomy', () => ({
 
 vi.mock('@/lib/services/moderation', () => ({
   updateFlagStatus: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('@/lib/services/reports', () => ({
+  updateReportStatus: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('@/lib/email/resend-adapter', () => ({
@@ -241,5 +245,41 @@ describe('processSuggestedTagAction', () => {
 
     expect(processSuggestedTag).toHaveBeenCalledWith('sub-123', 'map-existing', 'tag-456', undefined)
     expect(result).toEqual({ success: true })
+  })
+})
+
+describe('reviewReportAction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('returns undefined on success when admin', async () => {
+    const { reviewReportAction } = await import('./actions')
+    const result = await reviewReportAction('report-uuid-1', 'reviewed')
+    expect(result).toBeUndefined()
+  })
+
+  it('returns error when not admin', async () => {
+    const { isAdmin } = await import('@/lib/auth/admin')
+    vi.mocked(isAdmin).mockReturnValueOnce(false)
+    const { reviewReportAction } = await import('./actions')
+    const result = await reviewReportAction('report-uuid-1', 'reviewed')
+    expect(result?.error).toBeTruthy()
+  })
+})
+
+describe('bulkUpdateReportsAction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('returns updated count on success', async () => {
+    const { updateReportStatus } = await import('@/lib/services/reports')
+    vi.mocked(updateReportStatus).mockResolvedValue(undefined)
+
+    const { bulkUpdateReportsAction } = await import('./actions')
+    const result = await bulkUpdateReportsAction(['r1', 'r2'], 'dismissed')
+    expect(result.updated).toBe(2)
+    expect(result.errors).toHaveLength(0)
   })
 })

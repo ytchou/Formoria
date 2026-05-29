@@ -10,6 +10,7 @@ import { createResendProvider } from '@/lib/email/resend-adapter'
 import { buildApprovalEmail, buildRejectionEmail, buildClaimEmail } from '@/lib/email/templates'
 import { generateClaimToken } from '@/lib/auth/claim-token'
 import { updateFlagStatus } from '@/lib/services/moderation'
+import { updateReportStatus } from '@/lib/services/reports'
 import type { TagCategory, Brand } from '@/lib/types'
 
 async function requireAdmin(): Promise<{ userId: string; email: string } | { error: string }> {
@@ -558,6 +559,57 @@ export async function bulkUpdateFlagsAction(
   }
 
   revalidatePath('/admin/flagged')
+
+  return { updated, errors }
+}
+
+export async function reviewReportAction(
+  reportId: string,
+  decision: 'reviewed' | 'dismissed'
+): Promise<{ error: string } | undefined> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth
+
+    await updateReportStatus(reportId, decision)
+
+    revalidatePath('/admin/reports')
+    revalidatePath('/admin')
+    return undefined
+  } catch (err) {
+    console.error('[admin:reviewReport]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
+}
+
+export async function bulkUpdateReportsAction(
+  reportIds: string[],
+  decision: 'reviewed' | 'dismissed'
+): Promise<{ updated: number; errors: { id: string; error: string }[] }> {
+  const auth = await requireAdmin()
+  if ('error' in auth) throw new Error(auth.error)
+
+  const errors: { id: string; error: string }[] = []
+  let updated = 0
+
+  for (const id of reportIds) {
+    try {
+      await updateReportStatus(id, decision)
+      updated++
+    } catch (err) {
+      errors.push({
+        id,
+        error: err instanceof Error ? err.message : 'Unknown error',
+      })
+    }
+  }
+
+  if (updated > 0) {
+    revalidatePath('/admin/reports')
+    revalidatePath('/admin')
+  }
 
   return { updated, errors }
 }

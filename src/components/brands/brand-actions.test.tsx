@@ -8,6 +8,10 @@ vi.mock('@/lib/analytics', () => ({
   trackBrandPageShared: vi.fn(),
 }));
 
+vi.mock('@/components/brands/report-dialog', () => ({
+  ReportDialog: () => <button aria-label="檢舉">mock-report</button>,
+}));
+
 describe('BrandActions', () => {
   it('renders 前往官網 link with bg-cta class when websiteUrl is provided', () => {
     render(<BrandActions websiteUrl='https://example.com' brandSlug='test-brand' />);
@@ -16,11 +20,24 @@ describe('BrandActions', () => {
     expect(ctaLink.className).toContain('bg-cta');
     expect(ctaLink.className).not.toContain('bg-terracotta');
   });
-  it('does NOT render bookmark or report buttons', () => {
+  it('does NOT render bookmark button', () => {
     render(<BrandActions websiteUrl='https://example.com' brandSlug='test-brand' />);
     expect(screen.queryByRole('button', { name: /收藏/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /檢舉/i })).not.toBeInTheDocument();
   });
+  it('renders report button when brandId is provided', () => {
+    render(
+      <BrandActions
+        websiteUrl="https://example.com"
+        brandSlug="test-brand"
+        brandId="brand-uuid-123"
+      />
+    )
+    expect(screen.getByRole('button', { name: /檢舉/i })).toBeInTheDocument()
+  })
+  it('does not render report button when brandId is absent', () => {
+    render(<BrandActions websiteUrl="https://example.com" brandSlug="test-brand" />)
+    expect(screen.queryByRole('button', { name: /檢舉/i })).not.toBeInTheDocument()
+  })
   it('renders share button', () => {
     render(<BrandActions websiteUrl='https://example.com' brandSlug='test-brand' />);
     expect(screen.getByRole('button', { name: /分享/i })).toBeInTheDocument();

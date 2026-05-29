@@ -10,6 +10,7 @@ const navLinks = [
   { label: '品牌', href: '/admin/brands' },
   { label: '分類管理', href: '/admin/taxonomy' },
   { label: '已標記', href: '/admin/flagged' },
+  { label: '檢舉', href: '/admin/reports' },
 ]
 
 export function AdminNav() {

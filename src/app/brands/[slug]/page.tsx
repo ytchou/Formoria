@@ -138,7 +138,7 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
         <div className="min-w-0 flex-1 space-y-6">
           <BrandHeader
             brand={brand}
-            actionsSlot={<BrandActions websiteUrl={visitUrl ?? null} brandSlug={brand.slug} />}
+            actionsSlot={<BrandActions websiteUrl={visitUrl ?? null} brandSlug={brand.slug} brandId={brand.id} />}
           />
 
           <hr className="border-border" />

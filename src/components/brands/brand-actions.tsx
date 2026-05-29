@@ -3,13 +3,15 @@
 import Link from 'next/link'
 import { ExternalLink, Share2 } from 'lucide-react'
 import { trackExternalLinkClicked, trackBrandPageShared } from '@/lib/analytics'
+import { ReportDialog } from '@/components/brands/report-dialog'
 
 interface BrandActionsProps {
   websiteUrl: string | null
   brandSlug?: string
+  brandId?: string
 }
 
-export function BrandActions({ websiteUrl, brandSlug = '' }: BrandActionsProps) {
+export function BrandActions({ websiteUrl, brandSlug = '', brandId }: BrandActionsProps) {
   return (
     <>
       <div className="flex gap-2">
@@ -39,6 +41,7 @@ export function BrandActions({ websiteUrl, brandSlug = '' }: BrandActionsProps) 
         >
           <Share2 className="size-[17px]" />
         </button>
+        {brandId && <ReportDialog brandId={brandId} brandSlug={brandSlug} />}
       </div>
       {websiteUrl && (
         <div
