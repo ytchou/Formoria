@@ -92,7 +92,7 @@ export function SubmissionsList({
   return (
     <div>
       <p className="mb-4 text-sm text-[#7C7570]">
-        Community submissions may have incomplete info — verify before approving.
+        Community submissions may have incomplete info — approve if core details (name, category, description) are accurate. Owner can claim and enhance later.
       </p>
 
       <Tabs
