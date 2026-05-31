@@ -1,11 +1,16 @@
 import CtaSection from '@/components/shared/cta-section'
 
-export default function AboutCta() {
+interface AboutCtaProps {
+  primaryLabel: string
+  secondaryLabel: string
+}
+
+export default function AboutCta({ primaryLabel, secondaryLabel }: AboutCtaProps) {
   return (
     <CtaSection
-      primaryLabel="探索品牌"
+      primaryLabel={primaryLabel}
       primaryHref="/brands"
-      secondaryLabel="提交品牌"
+      secondaryLabel={secondaryLabel}
       secondaryHref="/submit"
     />
   )

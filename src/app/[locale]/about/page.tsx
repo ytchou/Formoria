@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
 import AboutHero from '@/components/about/about-hero'
 import OriginStory from '@/components/about/origin-story'
 import WhatIsMit from '@/components/about/what-is-mit'
@@ -12,13 +13,25 @@ import { getBrandStats, getRandomBrands } from '@/lib/services/brands'
 
 export const revalidate = 3600
 
-export const metadata: Metadata = {
-  title: '關於',
-  description:
-    'Formoria 是一個開放原始碼的台灣品牌目錄，致力於推廣台灣製造品牌，支持小型企業，讓世界看見台灣的美好。',
+type PageProps = {
+  params: Promise<{ locale: string }>
 }
 
-export default async function AboutPage() {
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { locale } = await params
+  setRequestLocale(locale)
+  const t = await getTranslations('about.metadata')
+  return {
+    title: t('title'),
+    description: t('description'),
+  }
+}
+
+export default async function AboutPage({ params }: PageProps) {
+  const { locale } = await params
+  setRequestLocale(locale)
+  const t = await getTranslations('about')
+
   const [stats, randomBrands] = await Promise.all([
     getBrandStats(),
     getRandomBrands(4),
@@ -28,31 +41,57 @@ export default async function AboutPage() {
     <main>
       <div className="py-12 md:py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <AboutHero />
+          <AboutHero
+            title={t('hero.title')}
+            subtitle={t('hero.subtitle')}
+          />
         </div>
       </div>
 
       <div className="py-12 md:py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <OriginStory />
+          <OriginStory
+            heading={t('origin.heading')}
+            body1={t('origin.body1')}
+            body2={t('origin.body2')}
+            body3={t('origin.body3')}
+            body4={t('origin.body4')}
+          />
         </div>
       </div>
 
       <div className="py-12 md:py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <WhatIsMit />
+          <WhatIsMit
+            heading={t('whatIsMit.heading')}
+            body1={t('whatIsMit.body1')}
+            body2={t('whatIsMit.body2')}
+            body3={t('whatIsMit.body3')}
+          />
         </div>
       </div>
 
       <div className="py-12 md:py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <MissionPillars />
+          <MissionPillars
+            heading={t('mission.heading')}
+            pillars={[
+              { heading: t('mission.promote.heading'), description: t('mission.promote.body') },
+              { heading: t('mission.smallBusiness.heading'), description: t('mission.smallBusiness.body') },
+              { heading: t('mission.platform.heading'), description: t('mission.platform.body') },
+            ]}
+          />
         </div>
       </div>
 
       <div className="py-12 md:py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <StatsBar brandCount={stats.brandCount} categoryCount={stats.categoryCount} />
+          <StatsBar
+            brandCount={stats.brandCount}
+            categoryCount={stats.categoryCount}
+            brandUnit={t('stats.brandUnit')}
+            categoryUnit={t('stats.categoryUnit')}
+          />
         </div>
       </div>
 
@@ -60,8 +99,8 @@ export default async function AboutPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <BrandShowcase
             brands={randomBrands}
-            heading="探索品牌"
-            linkText="瀏覽全部品牌 →"
+            heading={t('showcase.heading')}
+            linkText={t('showcase.linkText')}
             linkHref="/brands"
           />
         </div>
@@ -69,17 +108,31 @@ export default async function AboutPage() {
 
       <div className="py-12 md:py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <HowItWorks />
+          <HowItWorks
+            heading={t('howItWorks.heading')}
+            steps={[
+              { label: t('howItWorks.submit.label'), description: t('howItWorks.submit.description') },
+              { label: t('howItWorks.review.label'), description: t('howItWorks.review.description') },
+              { label: t('howItWorks.publish.label'), description: t('howItWorks.publish.description') },
+            ]}
+            cta={t('howItWorks.cta')}
+          />
         </div>
       </div>
 
       <div className="py-12 md:py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <TeamSection />
+          <TeamSection
+            heading={t('team.heading')}
+            description={t('team.description')}
+          />
         </div>
       </div>
 
-      <AboutCta />
+      <AboutCta
+        primaryLabel={t('cta.primary')}
+        secondaryLabel={t('cta.secondary')}
+      />
     </main>
   )
 }

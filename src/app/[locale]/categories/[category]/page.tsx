@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
 import type { Metadata } from 'next'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
+import { Link } from '@/i18n/navigation'
 import { getBrands } from '@/lib/services/brands'
 import { getTags, getActiveCategories } from '@/lib/services/taxonomy'
 import { buildCategoryItemListJsonLd, buildBreadcrumbJsonLd } from '@/lib/json-ld'
@@ -22,21 +23,23 @@ export async function generateStaticParams() {
 }
 
 type PageProps = {
-  params: Promise<{ category: string }>
+  params: Promise<{ locale: string; category: string }>
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { category: slug } = await params
+  const { locale, category: slug } = await params
+  setRequestLocale(locale)
+  const t = await getTranslations('categories')
 
   try {
     const tags = await getTags('product_type')
     const tag = tags.find((t) => t.slug === slug)
-    if (!tag) return { title: 'Category Not Found' }
+    if (!tag) return { title: t('notFoundTitle') }
 
     const displayName = tag.nameZh ?? tag.name
-    const title = `${displayName} 台灣品牌`
-    const description = `探索台灣製造的${displayName}品牌。Discover Made in Taiwan ${tag.name} brands.`
+    const title = t('metadata.title', { displayName })
+    const description = t('metadata.description', { displayName, name: tag.name })
     return {
       title,
       description,
@@ -51,12 +54,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       },
     }
   } catch {
-    return { title: 'Category Not Found' }
+    return { title: t('notFoundTitle') }
   }
 }
 
 export default async function CategoryPage({ params, searchParams }: PageProps) {
-  const { category: slug } = await params
+  const { locale, category: slug } = await params
+  setRequestLocale(locale)
+  const t = await getTranslations('categories')
+
   const sp = await searchParams
 
   const page = parsePageParam(sp.page as string | undefined)
@@ -102,12 +108,14 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
 
   // Breadcrumb items
   const breadcrumbItems: BreadcrumbItem[] = [
-    { label: 'Home', href: '/' },
+    { label: t('breadcrumbHome'), href: '/' },
     { label: categoryName },
   ]
 
   // JSON-LD data for brands on the current page
   const brandSummaries = displayBrands.map((b) => ({ name: b.name, slug: b.slug }))
+
+  const plural = totalCount !== 1 ? 's' : ''
 
   return (
     <main className="mx-auto w-full max-w-screen-xl px-6 py-10 md:px-10">
@@ -130,7 +138,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
         <ol className="flex items-center gap-1.5">
           <li>
             <Link href="/" className="hover:text-[#8B5E3C]">
-              Home
+              {t('breadcrumbHome')}
             </Link>
           </li>
           <li aria-hidden="true">/</li>
@@ -145,11 +153,11 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
             {categoryName}
           </h1>
           <span className="rounded-full bg-[#F5F4F1] px-3 py-0.5 text-sm text-[#7C7570]">
-            {totalCount} brand{totalCount !== 1 ? 's' : ''}
+            {t('brandCount', { count: totalCount, plural })}
           </span>
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
-          Discover Made in Taiwan {tag.name.toLowerCase()} brands.
+          {t('description', { category: tag.name.toLowerCase() })}
         </p>
       </div>
 
