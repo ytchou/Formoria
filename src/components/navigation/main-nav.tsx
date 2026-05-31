@@ -12,6 +12,7 @@ import {
 import { Dialog as SheetPrimitive } from '@base-ui/react/dialog'
 import { NavSearchInput } from './nav-search-input'
 import { NavCategoryTabs } from './nav-category-tabs'
+import { BrandMark } from '@/lib/brand/BrandMark'
 
 interface MainNavProps {
   categories: Array<{ slug: string; name: string; nameZh: string | null }>
@@ -31,9 +32,7 @@ export function MainNav({ categories }: MainNavProps) {
       <div className="mx-auto flex h-14 max-w-screen-xl items-center gap-4 px-6">
         {/* Logo */}
         <Link href="/" className="flex shrink-0 items-center gap-2">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
-            F
-          </div>
+          <BrandMark size={32} />
           <span className="font-heading text-base font-bold text-foreground">
             Formoria
           </span>
