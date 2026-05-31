@@ -1,11 +1,14 @@
+import { getTranslations } from 'next-intl/server'
 import CtaSection from '@/components/shared/cta-section'
 
-export default function DualCta() {
+export default async function DualCta() {
+  const t = await getTranslations('landing.dualCta')
+
   return (
     <CtaSection
-      primaryLabel="探索所有品牌"
+      primaryLabel={t('primary')}
       primaryHref="/brands"
-      secondaryLabel="提交你的品牌"
+      secondaryLabel={t('secondary')}
       secondaryHref="/submit"
     />
   )

@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
+import { NextIntlClientProvider } from 'next-intl'
+import zhMessages from '../../../messages/zh-TW.json'
 
 vi.mock('next/image', () => ({
   default: ({ alt = '', ...props }: Record<string, unknown>) => (
@@ -15,15 +17,23 @@ vi.mock('next/link', () => ({
 
 import HeroSection from './hero-section'
 
+function renderWithZhTW(ui: React.ReactElement) {
+  return render(
+    <NextIntlClientProvider locale="zh-TW" messages={zhMessages}>
+      {ui}
+    </NextIntlClientProvider>
+  )
+}
+
 describe('HeroSection', () => {
   it('renders the main heading', () => {
-    render(<HeroSection />)
+    renderWithZhTW(<HeroSection />)
     const heading = screen.getByRole('heading', { level: 1 })
     expect(heading).toBeInTheDocument()
   })
 
   it('renders CTA link to /brands', () => {
-    render(<HeroSection />)
+    renderWithZhTW(<HeroSection />)
     const link = screen.getByRole('link', { name: /探索品牌/ })
     expect(link).toHaveAttribute('href', '/brands')
   })

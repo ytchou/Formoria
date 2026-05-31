@@ -1,4 +1,7 @@
+'use client'
+
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import type { TaxonomyTag } from '@/lib/types'
 
 interface ValueChipsProps {
@@ -6,11 +9,13 @@ interface ValueChipsProps {
 }
 
 export default function ValueChips({ tags }: ValueChipsProps) {
+  const t = useTranslations('landing.valueChips')
+
   if (tags.length === 0) return null
 
   return (
     <section>
-      <h2 className="mb-6 font-heading text-xl font-bold">依品牌價值瀏覽</h2>
+      <h2 className="mb-6 font-heading text-xl font-bold">{t('heading')}</h2>
       <div className="flex flex-wrap gap-3">
         {tags.map((tag) => (
           <Link

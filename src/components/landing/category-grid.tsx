@@ -1,4 +1,7 @@
+'use client'
+
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 
 interface Category {
   slug: string
@@ -11,11 +14,13 @@ interface CategoryGridProps {
 }
 
 export default function CategoryGrid({ categories }: CategoryGridProps) {
+  const t = useTranslations('landing.categoryGrid')
+
   if (categories.length === 0) return null
 
   return (
     <section>
-      <h2 className="mb-6 font-heading text-xl font-bold">探索分類</h2>
+      <h2 className="mb-6 font-heading text-xl font-bold">{t('heading')}</h2>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {categories.map((category) => (
           <Link

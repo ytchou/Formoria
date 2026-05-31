@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
 import { buildWebSiteJsonLd } from '@/lib/json-ld'
 import HeroSection from '@/components/landing/hero-section'
 import TrustBar from '@/components/landing/trust-bar'
@@ -12,18 +13,21 @@ import { getActiveCategories, getValueTagsWithCoverage } from '@/lib/services/ta
 
 export const revalidate = 3600
 
-export const metadata: Metadata = {
-  title: { absolute: 'Formoria — 探索台灣製造品牌' },
-  description:
-    '探索並發現精選的台灣製造品牌。從食品到時尚，支持本土設計師和製造商。',
-  alternates: { canonical: '/' },
-  openGraph: {
-    title: 'Formoria — 探索台灣製造品牌',
-    description: '探索並發現精選的台灣製造品牌。從食品到時尚，支持本土設計師和製造商。',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('landing.metadata')
+  return {
+    title: { absolute: t('title') },
+    description: t('description'),
+    alternates: { canonical: '/' },
+    openGraph: {
+      title: t('title'),
+      description: t('description'),
+    },
+  }
 }
 
 export default async function LandingPage() {
+  const t = await getTranslations('landing')
   const jsonLd = buildWebSiteJsonLd()
 
   const [stats, categories, { brands: allBrands }, newBrands, valueTags] = await Promise.all([
@@ -67,8 +71,8 @@ export default async function LandingPage() {
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <BrandShowcase
               brands={newBrands}
-              heading="最新品牌"
-              linkText="瀏覽全部品牌 →"
+              heading={t('newBrands.heading')}
+              linkText={t('newBrands.linkText')}
               linkHref="/brands"
             />
           </div>

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { BrandCard } from '@/components/brands/brand-card'
 import type { Brand } from '@/lib/types/brand'
 
@@ -20,6 +21,7 @@ export default function FilterableBrandShowcase({
   brands,
   categories,
 }: FilterableBrandShowcaseProps) {
+  const t = useTranslations('landing.showcase')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
   const filteredBrands = useMemo(() => {
@@ -37,8 +39,8 @@ export default function FilterableBrandShowcase({
     : null
 
   const ctaText = selectedCategoryLabel
-    ? `瀏覽全部${selectedCategoryLabel} →`
-    : '瀏覽全部品牌 →'
+    ? t('browseAllCategory', { category: selectedCategoryLabel })
+    : t('browseAll')
 
   const ctaHref = selectedCategory
     ? `/brands?category=${selectedCategory}`
@@ -46,7 +48,7 @@ export default function FilterableBrandShowcase({
 
   return (
     <section>
-      <h2 className="font-heading text-2xl font-bold">探索品牌</h2>
+      <h2 className="font-heading text-2xl font-bold">{t('heading')}</h2>
 
       <div className="mt-3 flex flex-wrap gap-2">
         <button
@@ -57,7 +59,7 @@ export default function FilterableBrandShowcase({
               : 'border border-border bg-transparent text-muted-foreground hover:border-foreground/30 hover:text-foreground'
           }`}
         >
-          全部
+          {t('all')}
         </button>
         {categories.map((cat) => (
           <button
@@ -82,7 +84,7 @@ export default function FilterableBrandShowcase({
         </div>
       ) : (
         <p className="mt-6 text-sm text-muted-foreground">
-          目前此分類尚無品牌
+          {t('emptyCategory')}
         </p>
       )}
 

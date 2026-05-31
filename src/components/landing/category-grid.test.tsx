@@ -1,12 +1,22 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
+import { NextIntlClientProvider } from 'next-intl'
+import zhMessages from '../../../messages/zh-TW.json'
 
 vi.mock('next/link', () => ({
   default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => <a href={href} {...props}>{children}</a>,
 }))
 
 import CategoryGrid from './category-grid'
+
+function renderWithZhTW(ui: React.ReactElement) {
+  return render(
+    <NextIntlClientProvider locale="zh-TW" messages={zhMessages}>
+      {ui}
+    </NextIntlClientProvider>
+  )
+}
 
 const mockCategories = [
   { slug: 'food', name: 'Food & Beverage', nameZh: '食品飲料' },
@@ -17,7 +27,7 @@ const mockCategories = [
 
 describe('CategoryGrid', () => {
   it('renders category names as links to /brands?category=slug', () => {
-    render(<CategoryGrid categories={mockCategories} />)
+    renderWithZhTW(<CategoryGrid categories={mockCategories} />)
 
     expect(screen.getByText('食品飲料')).toBeInTheDocument()
     expect(screen.getByText('美妝保養')).toBeInTheDocument()
@@ -27,7 +37,7 @@ describe('CategoryGrid', () => {
   })
 
   it('renders nothing when categories is empty', () => {
-    const { container } = render(<CategoryGrid categories={[]} />)
+    const { container } = renderWithZhTW(<CategoryGrid categories={[]} />)
     expect(container.innerHTML).toBe('')
   })
 })
