@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { trackCategoryFilterApplied } from '@/lib/analytics'
 
 interface CategoryPillsProps {
@@ -8,6 +9,7 @@ interface CategoryPillsProps {
 }
 
 export function CategoryPills({ categories }: CategoryPillsProps) {
+  const t = useTranslations('brands')
   const router = useRouter()
   const searchParams = useSearchParams()
   const pathname = usePathname()
@@ -42,7 +44,7 @@ export function CategoryPills({ categories }: CategoryPillsProps) {
             : 'border border-border bg-card text-foreground hover:bg-secondary'
         }`}
       >
-        全部
+        {t('categoryAll')}
       </button>
 
       {/* Category pills */}

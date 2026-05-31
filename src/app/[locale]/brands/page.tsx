@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
 import { getBrands } from '@/lib/services/brands'
 import { getActiveCategories } from '@/lib/services/taxonomy'
 import { buildWebSiteJsonLd } from '@/lib/json-ld'
@@ -25,6 +26,7 @@ interface BrandsPageProps {
 }
 
 export default async function BrandsPage({ searchParams }: BrandsPageProps) {
+  const t = await getTranslations('brands')
   const params = await searchParams
 
   const page = parsePageParam(params.page as string | undefined)
@@ -93,7 +95,7 @@ export default async function BrandsPage({ searchParams }: BrandsPageProps) {
       {/* Count + sort header */}
       <div className="mb-6 flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {totalCount > 0 ? `共 ${totalCount} 個品牌` : '找不到品牌'}
+          {totalCount > 0 ? t('count', { count: totalCount }) : t('notFound')}
         </p>
         <Suspense fallback={null}>
           <SortSelect />
@@ -105,7 +107,7 @@ export default async function BrandsPage({ searchParams }: BrandsPageProps) {
         fallback={
           <div
             className="grid grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2 lg:grid-cols-4"
-            aria-label="Loading brands..."
+            aria-label={t('loadingAria')}
           >
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="rounded-xl border border-border bg-card">
@@ -122,10 +124,10 @@ export default async function BrandsPage({ searchParams }: BrandsPageProps) {
         {displayBrands.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <p className="text-base font-semibold text-foreground">
-              找不到品牌
+              {t('emptyTitle')}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              請調整或清除篩選條件
+              {t('emptyDescription')}
             </p>
           </div>
         ) : (

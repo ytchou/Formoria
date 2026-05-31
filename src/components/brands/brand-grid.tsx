@@ -1,3 +1,4 @@
+import { getTranslations } from 'next-intl/server'
 import type { Brand } from '@/lib/types'
 import { BrandCard } from './brand-card'
 
@@ -10,13 +11,15 @@ interface BrandGridProps {
  * Filtering and pagination are handled server-side — this component
  * receives only the brands to display.
  */
-export function BrandGrid({ brands }: BrandGridProps) {
+export async function BrandGrid({ brands }: BrandGridProps) {
+  const t = await getTranslations('brands')
+
   if (brands.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
-        <p className="text-base font-semibold text-foreground">找不到品牌</p>
+        <p className="text-base font-semibold text-foreground">{t('emptyTitle')}</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          請嘗試調整或清除篩選條件。
+          {t('emptyGridDescription')}
         </p>
       </div>
     )

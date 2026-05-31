@@ -1,11 +1,19 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { NextIntlClientProvider } from 'next-intl'
 import { BrandCard } from '../brand-card'
 import type { Brand } from '@/lib/types'
+import en from '../../../../messages/en.json'
 
 vi.mock('@/lib/analytics', () => ({
   trackBrandCardClicked: vi.fn(),
+}))
+
+vi.mock('@/i18n/navigation', () => ({
+  Link: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
+    <a href={href} {...props}>{children}</a>
+  ),
 }))
 
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
@@ -36,14 +44,22 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
   }
 }
 
+function renderWithProvider(ui: React.ReactElement) {
+  return render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      {ui}
+    </NextIntlClientProvider>
+  )
+}
+
 describe('BrandCard — verified badge', () => {
   it('renders a verified badge when isVerified is true', () => {
-    render(<BrandCard brand={makeBrand({ isVerified: true })} />)
+    renderWithProvider(<BrandCard brand={makeBrand({ isVerified: true })} />)
     expect(screen.getByLabelText('Verified brand')).toBeInTheDocument()
   })
 
   it('does not render a verified badge when isVerified is false', () => {
-    render(<BrandCard brand={makeBrand({ isVerified: false })} />)
+    renderWithProvider(<BrandCard brand={makeBrand({ isVerified: false })} />)
     expect(screen.queryByLabelText('Verified brand')).not.toBeInTheDocument()
   })
 })

@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import type { SearchResult } from '@/lib/services/brands'
 
 interface SearchSuggestionsProps {
@@ -15,6 +16,7 @@ export function SearchSuggestions({
   selectedIndex,
   onSelect,
 }: SearchSuggestionsProps) {
+  const t = useTranslations('brands')
   return (
     <ul
       id={SEARCH_SUGGESTIONS_ID}
@@ -22,7 +24,7 @@ export function SearchSuggestions({
       className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-card shadow-lg"
     >
       {suggestions.length === 0 ? (
-        <li className="px-4 py-3 text-sm text-muted-foreground">No results found</li>
+        <li className="px-4 py-3 text-sm text-muted-foreground">{t('noResultsInSuggestions')}</li>
       ) : (
         suggestions.map((item, index) => (
           <li

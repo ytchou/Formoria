@@ -102,8 +102,12 @@
       "nextAria": "下一頁"
     },
     "card": {
-      "foundingYear": "創立於 {year}"
-    }
+      "foundingYear": "創立於 {year}",
+      "verifiedLabel": "已認證品牌",
+      "verifiedBadge": "已認證"
+    },
+    "loadingAria": "載入品牌中...",
+    "noResultsInSuggestions": "找不到結果"
   },
   "brandDetail": {
     "metadata": {

@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
+import { Link } from '@/i18n/navigation'
 import Image from 'next/image'
 import { CheckCircle } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import type { Brand } from '@/lib/types'
 import { trackBrandCardClicked } from '@/lib/analytics'
 
@@ -14,6 +15,7 @@ interface BrandCardProps {
 }
 
 export function BrandCard({ brand, position = 0, priority = false }: BrandCardProps) {
+  const t = useTranslations('brands')
   const [imgError, setImgError] = useState(false)
   const imageSrc = brand.heroImageUrl ?? brand.logoUrl
   const showImage = imageSrc && !imgError
@@ -57,12 +59,12 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
           </h3>
           {brand.isVerified && (
             <span
-              aria-label="Verified brand"
-              title="This brand has been verified by its owner"
+              aria-label={t('card.verifiedLabel')}
+              title={t('card.verifiedLabel')}
               className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold bg-verified-green-bg text-verified-green"
             >
               <CheckCircle className="h-3 w-3" aria-hidden />
-              Verified
+              {t('card.verifiedBadge')}
             </span>
           )}
         </div>
@@ -73,7 +75,7 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
         )}
         {brand.foundingYear && (
           <p className="mt-2 text-xs text-warm-caption">
-            創立於 {brand.foundingYear}
+            {t('card.foundingYear', { year: brand.foundingYear })}
           </p>
         )}
         {(brand.category || brand.tags.length > 0) && (

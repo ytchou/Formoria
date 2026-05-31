@@ -1,4 +1,5 @@
-import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
+import { Link } from '@/i18n/navigation'
 
 interface PaginationProps {
   totalCount: number
@@ -41,13 +42,14 @@ function getPageRange(currentPage: number, totalPages: number): (number | 'ellip
   return pages
 }
 
-export function Pagination({
+export async function Pagination({
   totalCount,
   currentPage,
   pageSize,
   basePath = '/',
   searchParams = {},
 }: PaginationProps) {
+  const t = await getTranslations('brands')
   const totalPages = Math.ceil(totalCount / pageSize)
 
   if (totalPages <= 1) return null
@@ -61,13 +63,13 @@ export function Pagination({
         <Link
           href={buildPageUrl(basePath, currentPage - 1, searchParams)}
           className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-[13px] font-medium text-foreground/70 transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring/20"
-          aria-label="上一頁"
+          aria-label={t('pagination.previousAria')}
         >
-          &lsaquo; 上一頁
+          {t('pagination.previous')}
         </Link>
       ) : (
         <span className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-[13px] font-medium text-foreground/20">
-          &lsaquo; 上一頁
+          {t('pagination.previous')}
         </span>
       )}
 
@@ -114,13 +116,13 @@ export function Pagination({
         <Link
           href={buildPageUrl(basePath, currentPage + 1, searchParams)}
           className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-[13px] font-medium text-foreground/70 transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring/20"
-          aria-label="下一頁"
+          aria-label={t('pagination.nextAria')}
         >
-          下一頁 &rsaquo;
+          {t('pagination.next')}
         </Link>
       ) : (
         <span className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-[13px] font-medium text-foreground/20">
-          下一頁 &rsaquo;
+          {t('pagination.next')}
         </span>
       )}
     </nav>

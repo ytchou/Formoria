@@ -102,8 +102,12 @@
       "nextAria": "Next page"
     },
     "card": {
-      "foundingYear": "Est. {year}"
-    }
+      "foundingYear": "Est. {year}",
+      "verifiedLabel": "Verified brand",
+      "verifiedBadge": "Verified"
+    },
+    "loadingAria": "Loading brands...",
+    "noResultsInSuggestions": "No results found"
   },
   "brandDetail": {
     "metadata": {

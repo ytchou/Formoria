@@ -4,6 +4,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { NextIntlClientProvider } from 'next-intl'
+import en from '../../../messages/en.json'
 
 // Mock useFilterParams
 vi.mock('@/hooks/use-filter-params', () => ({
@@ -25,6 +27,14 @@ const mockFetch = vi.fn()
 global.fetch = mockFetch
 
 const { default: SearchInput } = await import('./search-input')
+
+function renderWithProvider(ui: React.ReactElement) {
+  return render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      {ui}
+    </NextIntlClientProvider>
+  )
+}
 
 describe('SearchInput autocomplete', () => {
   beforeEach(() => {
@@ -57,7 +67,7 @@ describe('SearchInput autocomplete', () => {
 
   it('shows suggestions dropdown after typing', async () => {
     const user = userEvent.setup()
-    render(<SearchInput />)
+    renderWithProvider(<SearchInput />)
 
     const input = screen.getByRole('searchbox')
     await user.type(input, 'tea')
@@ -72,7 +82,7 @@ describe('SearchInput autocomplete', () => {
 
   it('navigates suggestions with arrow keys', async () => {
     const user = userEvent.setup()
-    render(<SearchInput />)
+    renderWithProvider(<SearchInput />)
 
     const input = screen.getByRole('searchbox')
     await user.type(input, 'tea')
@@ -92,7 +102,7 @@ describe('SearchInput autocomplete', () => {
 
   it('closes dropdown on Escape', async () => {
     const user = userEvent.setup()
-    render(<SearchInput />)
+    renderWithProvider(<SearchInput />)
 
     const input = screen.getByRole('searchbox')
     await user.type(input, 'tea')
@@ -112,7 +122,7 @@ describe('SearchInput autocomplete', () => {
     })
 
     const user = userEvent.setup()
-    render(<SearchInput />)
+    renderWithProvider(<SearchInput />)
 
     const input = screen.getByRole('searchbox')
     await user.type(input, 'xyznonexistent')

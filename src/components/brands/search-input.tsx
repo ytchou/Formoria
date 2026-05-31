@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useFilterParams } from '@/hooks/use-filter-params'
 import { cn } from '@/lib/utils'
 import {
@@ -19,6 +20,7 @@ interface SearchInputProps {
 }
 
 function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = {}) {
+  const t = useTranslations('brands')
   const { filters, setSearch } = useFilterParams()
   const [value, setValue] = useState(filters.search)
   const [suggestions, setSuggestions] = useState<SearchResult[]>([])
@@ -170,7 +172,7 @@ function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = 
         name="q"
         type="text"
         role="searchbox"
-        aria-label="搜尋品牌"
+        aria-label={t('search.aria')}
         aria-autocomplete="list"
         aria-controls={showDropdown ? SEARCH_SUGGESTIONS_ID : undefined}
         aria-activedescendant={
@@ -178,7 +180,7 @@ function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = 
             ? `search-suggestion-${suggestions[selectedIndex].id}`
             : undefined
         }
-        placeholder={placeholder ?? '搜尋品牌...'}
+        placeholder={placeholder ?? t('search.placeholder')}
         maxLength={100}
         value={value}
         onChange={handleChange}
@@ -191,7 +193,7 @@ function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = 
         <button
           type="button"
           onClick={handleClear}
-          aria-label="清除搜尋"
+          aria-label={t('search.clear')}
           className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
         >
           <svg
