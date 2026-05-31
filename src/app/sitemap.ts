@@ -6,7 +6,6 @@ import { buildAlternates } from '@/lib/seo/alternates'
 export const revalidate = 86400 // 24hr ISR
 
 function makeEntry(
-  siteUrl: string,
   path: string,
   now: Date,
   changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency'],
@@ -30,15 +29,14 @@ function makeEntry(
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
   const now = new Date()
 
   const staticPages: MetadataRoute.Sitemap = [
-    makeEntry(siteUrl, '/', now, 'daily', 1.0),
-    makeEntry(siteUrl, '/brands', now, 'weekly', 0.9),
-    makeEntry(siteUrl, '/faq', now, 'monthly', 0.5),
-    makeEntry(siteUrl, '/terms', now, 'monthly', 0.5),
-    makeEntry(siteUrl, '/support', now, 'monthly', 0.5),
+    makeEntry('/', now, 'daily', 1.0),
+    makeEntry('/brands', now, 'weekly', 0.9),
+    makeEntry('/faq', now, 'monthly', 0.5),
+    makeEntry('/terms', now, 'monthly', 0.5),
+    makeEntry('/support', now, 'monthly', 0.5),
   ]
 
   try {
@@ -48,11 +46,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ])
 
     const brandPages: MetadataRoute.Sitemap = brandSlugs.map((slug) =>
-      makeEntry(siteUrl, `/brands/${slug}`, now, 'weekly', 0.8)
+      makeEntry(`/brands/${slug}`, now, 'weekly', 0.8)
     )
 
     const categoryPages: MetadataRoute.Sitemap = categories.map(({ slug }) =>
-      makeEntry(siteUrl, `/categories/${slug}`, now, 'weekly', 0.9)
+      makeEntry(`/categories/${slug}`, now, 'weekly', 0.9)
     )
 
     return [...staticPages, ...brandPages, ...categoryPages]
