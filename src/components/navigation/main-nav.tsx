@@ -32,10 +32,10 @@ export function MainNav({ categories }: MainNavProps) {
         {/* Logo */}
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
-            M
+            F
           </div>
           <span className="font-heading text-base font-bold text-foreground">
-            MIT Map
+            Formoria
           </span>
         </Link>
 
