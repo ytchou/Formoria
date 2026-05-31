@@ -1,0 +1,317 @@
+{
+  "common": {
+    "brandName": "MIT Map",
+    "exploreBrands": "探索品牌",
+    "browseAllBrands": "瀏覽全部品牌 →",
+    "submitBrand": "提交品牌",
+    "submitYourBrand": "提交你的品牌",
+    "all": "全部",
+    "allBrands": "全部品牌",
+    "noBrandsFound": "找不到品牌",
+    "adjustOrClearFilters": "請調整或清除篩選條件",
+    "tryAdjustOrClearFilters": "請嘗試調整或清除篩選條件。",
+    "foundingYear": "創立於 {year}",
+    "verified": "已認證"
+  },
+  "nav": {
+    "brandDirectory": "品牌目錄",
+    "faq": "常見問題",
+    "support": "請我喝咖啡",
+    "mySubmissions": "我的提交",
+    "submitBrand": "提交品牌",
+    "allBrands": "全部品牌",
+    "searchPlaceholder": "搜尋品牌...",
+    "searchAria": "搜尋品牌",
+    "clearSearch": "清除搜尋"
+  },
+  "footer": {
+    "about": "關於我們",
+    "terms": "服務條款",
+    "contact": "聯絡我們",
+    "copyright": "© {year} MIT Map"
+  },
+  "landing": {
+    "metadata": {
+      "title": "MIT Map — 探索台灣製造品牌",
+      "description": "探索並發現精選的台灣製造品牌。從食品到時尚，支持本土設計師和製造商。"
+    },
+    "hero": {
+      "headline": "探索台灣製造的精品品牌",
+      "subheadline": "Discover quality brands made in Taiwan",
+      "cta": "探索品牌"
+    },
+    "trustBar": {
+      "brandCount": "{count} 個品牌",
+      "categoryCount": "{count} 個分類",
+      "communityBuilt": "社群共建"
+    },
+    "showcase": {
+      "heading": "探索品牌",
+      "all": "全部",
+      "browseAll": "瀏覽全部品牌 →",
+      "browseAllCategory": "瀏覽全部{category} →",
+      "emptyCategory": "目前此分類尚無品牌"
+    },
+    "valueChips": {
+      "heading": "依品牌價值瀏覽"
+    },
+    "categoryGrid": {
+      "heading": "探索分類"
+    },
+    "manifesto": {
+      "headline": "讓台灣品牌被世界看見",
+      "body1": "台灣製造不只是一個標籤，而是一份對品質的堅持。從在地食材到設計選品，台灣有太多默默耕耘的品牌，等待被看見。",
+      "body2": "MIT Map 想成為這些品牌與世界之間的橋樑——讓每一個用心做好產品的人，都有機會被發現。",
+      "cta": "了解我們的故事"
+    },
+    "newBrands": {
+      "heading": "最新品牌",
+      "linkText": "瀏覽全部品牌 →"
+    },
+    "dualCta": {
+      "primary": "探索所有品牌",
+      "secondary": "提交你的品牌"
+    }
+  },
+  "brands": {
+    "metadata": {
+      "title": "MIT Map — Made in Taiwan Brand Directory",
+      "description": "Discover thoughtfully curated Taiwanese brands. Browse by category, search, and explore the best of Made in Taiwan."
+    },
+    "count": "共 {count} 個品牌",
+    "notFound": "找不到品牌",
+    "emptyTitle": "找不到品牌",
+    "emptyDescription": "請調整或清除篩選條件",
+    "emptyGridDescription": "請嘗試調整或清除篩選條件。",
+    "categoryAll": "全部",
+    "sortLabel": "排序方式",
+    "sort": {
+      "name": "A-Z",
+      "newest": "最新",
+      "year": "創立年份"
+    },
+    "search": {
+      "aria": "搜尋品牌",
+      "placeholder": "搜尋品牌...",
+      "clear": "清除搜尋"
+    },
+    "pagination": {
+      "previous": "‹ 上一頁",
+      "previousAria": "上一頁",
+      "next": "下一頁 ›",
+      "nextAria": "下一頁"
+    },
+    "card": {
+      "foundingYear": "創立於 {year}"
+    }
+  },
+  "brandDetail": {
+    "metadata": {
+      "fallbackDescription": "探索 {name}，台灣製造品牌。",
+      "notFoundTitle": "找不到品牌"
+    },
+    "verified": "已認證",
+    "foundingYear": "創立於 {year}",
+    "actions": {
+      "visitWebsite": "前往官網",
+      "share": "分享",
+      "visitOfficialWebsiteAria": "前往品牌官網"
+    },
+    "links": {
+      "purchaseChannels": "購買管道"
+    },
+    "report": {
+      "trigger": "檢舉",
+      "title": "檢舉品牌",
+      "description": "請選擇檢舉原因",
+      "success": "感謝你的回報，我們會盡快審核。",
+      "close": "關閉",
+      "alreadyReported": "你已回報過此品牌",
+      "reasonNotMit": "非台灣製造",
+      "reasonIncorrectInfo": "資訊有誤",
+      "reasonBrokenLink": "連結失效",
+      "reasonInappropriate": "不當內容",
+      "notesPlaceholder": "補充說明（選填）",
+      "submitting": "送出中...",
+      "submit": "送出檢舉"
+    }
+  },
+  "categories": {
+    "metadata": {
+      "title": "{displayName} 台灣品牌",
+      "description": "探索台灣製造的{displayName}品牌。Discover Made in Taiwan {name} brands."
+    },
+    "notFoundTitle": "Category Not Found",
+    "breadcrumbHome": "Home",
+    "brandCount": "{count} brand{plural}",
+    "description": "Discover Made in Taiwan {category} brands."
+  },
+  "legal": {
+    "terms": {
+      "metadata": {
+        "title": "服務條款 | MIT Map",
+        "description": "了解 MIT Map 的服務條款，包括內容所有權、資料使用方式、品牌審核流程及免責聲明。"
+      },
+      "title": "服務條款",
+      "intro": "感謝您使用 MIT Map。使用本平台即表示您同意以下條款。請在提交品牌資料前仔細閱讀。",
+      "lastUpdated": "最後更新：2026 年 5 月",
+      "contentOwnership": {
+        "heading": "內容所有權",
+        "body": "您提交至 MIT Map 的品牌資料（包括名稱、描述、圖片、連結等）應為您合法擁有或已獲授權使用的內容。提交內容即表示您授予 MIT Map 非獨家、免授權費的使用權，用於在本平台展示及推廣台灣品牌。"
+      },
+      "dataUse": {
+        "heading": "資料使用方式",
+        "body": "MIT Map 蒐集的品牌資料僅用於建立台灣品牌目錄及提供品牌探索功能。我們不會將您的個人資料或品牌資訊出售予第三方。資料使用方式以本條款及相關隱私政策為準。"
+      },
+      "reviewProcess": {
+        "heading": "品牌審核流程",
+        "body": "所有提交的品牌資料須經過人工審核後方可上線。MIT Map 保留拒絕或移除任何不符合平台標準之品牌資料的權利，且不承擔因審核結果對提交者造成影響的責任。審核通過不代表 MIT Map 對該品牌的背書或認可。"
+      },
+      "disclaimer": {
+        "heading": "免責聲明",
+        "body": "MIT Map 以現狀提供服務，不對平台內容的完整性、準確性或即時性作出保證。對於因使用本平台而產生的任何直接或間接損失，MIT Map 不承擔法律責任。"
+      },
+      "changes": {
+        "heading": "條款變更",
+        "body": "MIT Map 保留隨時修改本服務條款的權利。重大變更將於平台公告，持續使用本服務即視為接受更新後的條款。如有任何疑問，請透過聯絡頁面與我們聯繫。"
+      }
+    },
+    "support": {
+      "metadata": {
+        "title": "支持 MIT Map",
+        "description": "MIT Map 是一個由社群驅動的開放平台，完全免費。如果這個專案對你有幫助，歡迎請我們喝杯咖啡！"
+      },
+      "title": "支持 MIT Map",
+      "intro1": "MIT Map 是一個由社群驅動的開放原始碼專案，完全免費，沒有廣告，沒有付費牆。所有的功能開發與維護都靠熱情與志願者的時間支撐。",
+      "intro2": "如果 MIT Map 對你有幫助，或你認同我們推廣台灣品牌的使命，歡迎請我們喝杯咖啡，讓這個專案可以繼續成長。",
+      "coffee": {
+        "heading": "請我們喝杯咖啡",
+        "body": "你的支持是我們繼續前進的動力。每一杯咖啡都代表著對台灣品牌推廣的認同。"
+      },
+      "usage": {
+        "heading": "你的支持用在哪裡？",
+        "server": {
+          "heading": "伺服器費用",
+          "body": "維持平台穩定運行，讓每位使用者都能快速瀏覽台灣品牌目錄。"
+        },
+        "development": {
+          "heading": "功能開發",
+          "body": "持續改善平台功能，讓品牌展示與探索體驗更加完善。"
+        },
+        "community": {
+          "heading": "社群推廣",
+          "body": "幫助更多人認識台灣製造品牌，擴大平台的影響力與覆蓋範圍。"
+        }
+      },
+      "widgetDescription": "支持 MIT Map 繼續成長！"
+    }
+  },
+  "faq": {
+    "metadata": {
+      "title": "常見問題",
+      "description": "關於 MIT Map 台灣品牌目錄的常見問題解答 — 了解什麼是台灣製造、如何提交品牌、審核流程與品牌認領方式。"
+    },
+    "title": "常見問題",
+    "intro": "以下整理了訪客最常詢問的問題。若仍有疑問，歡迎透過頁面底部的聯絡方式與我們聯繫。",
+    "items": {
+      "whatIsMitMap": {
+        "question": "什麼是 MIT Map？",
+        "answer": "MIT Map 是一個開放原始碼的台灣品牌目錄，致力於讓更多人認識與支持台灣製造的優質品牌。無論你是想探索本土品牌的消費者，還是希望被更多人看見的品牌經營者，MIT Map 都是你的起點。"
+      },
+      "whatDoesMitMean": {
+        "question": "「MIT」是什麼意思？",
+        "answer": "「MIT」代表 Made in Taiwan，即台灣製造。MIT Map 收錄的品牌，主要生產製造在台灣，包含在台灣設計、生產或創立的品牌。我們看重的不只是產地標籤，更是每個品牌背後的工藝精神與品牌故事。"
+      },
+      "howToSubmit": {
+        "question": "如何提交品牌到 MIT Map？",
+        "answer": "任何人都可以透過我們的提交表單提交品牌資料。請前往「提交品牌」頁面，填寫品牌基本資訊、官方網站、社群連結等內容，送出後由 MIT Map 團隊進行審核。我們不收取任何費用，審核以品質與真實性為唯一標準。"
+      },
+      "reviewTime": {
+        "question": "品牌審核需要多久時間？",
+        "answer": "一般情況下，品牌審核約需 7 個工作天。審核期間，我們的團隊會確認品牌的真實性及其與台灣製造的連結。審核通過後，品牌即會出現在目錄中；若資料不完整，我們可能會透過信件與提交者聯繫補件。"
+      },
+      "claimOrUpdate": {
+        "question": "我是品牌負責人，如何認領或更新品牌頁面？",
+        "answer": "若你是品牌的負責人或官方代表，歡迎透過信件與我們聯繫，告知品牌名稱及你的身份證明方式。我們的團隊會協助你確認身份並進行品牌資料的更新或認領。請來信至頁面底部的聯絡信箱。"
+      },
+      "dataAccuracy": {
+        "question": "品牌資料的準確性如何保障？",
+        "answer": "MIT Map 採眾包方式收集品牌資料，並由管理團隊在審核時進行初步核實。如果你發現任何品牌資訊有誤或已過期，歡迎透過聯絡方式告知我們，我們會盡快處理。"
+      },
+      "contact": {
+        "question": "如何聯繫 MIT Map 團隊？",
+        "answer": "如有任何問題、建議或合作洽詢，歡迎來信：patrick.ytchou@gmail.com。我們的團隊會於收信後盡快回覆，一般工作日內 2–3 個工作天回應。"
+      }
+    }
+  },
+  "about": {
+    "metadata": {
+      "title": "關於",
+      "description": "MIT Map 是一個開放原始碼的台灣品牌目錄，致力於推廣台灣製造品牌，支持小型企業，讓世界看見台灣的美好。"
+    },
+    "hero": {
+      "title": "關於 MIT Map",
+      "subtitle": "推廣台灣製造品牌，讓世界看見台灣的美好"
+    },
+    "origin": {
+      "heading": "我們的故事",
+      "body1": "在美國的五年，我一直在找台灣的東西。",
+      "body2": "留學、工作，生活漸漸習慣了，但有些東西始終無法被取代——家鄉的味道、用慣的品牌、那種「啊，這就是台灣」的感覺。我試著在網路上找台灣品牌，卻發現沒有一個地方能好好地把它們集中起來。",
+      "body3": "後來我在一間幫助小型品牌被世界看見的科技公司工作，看到了一件事：好的品牌不一定缺產品力，缺的是一個被發現的機會。",
+      "body4": "台灣有太多默默耕耘的品牌，從在地食材到設計選品，每一個背後都有值得被說的故事。MIT Map 就是從這個念頭開始的——如果沒有人把這些品牌集合起來，那就自己來做。"
+    },
+    "whatIsMit": {
+      "heading": "什麼是 Made in Taiwan?",
+      "body1": "台灣曾以製造業聞名世界，從電子零件到紡織品，「MIT」代表的是品質與可靠。如今，台灣已進化為設計與品牌的舞台——本土品牌以細膩的工藝、獨特的文化底蘊，在全球市場建立自己的位置。",
+      "body2": "MIT Map 收錄的台灣製造品牌，涵蓋在台灣設計、生產或創立的品牌。我們看重的不只是產地標籤，更是每個品牌背後的工藝精神與品牌故事。",
+      "body3": "從在地食材到設計選品，每一個品牌都代表著台灣人對品質的堅持與創新的勇氣。MIT Map 希望成為這些品牌與消費者之間的橋樑，讓品質說話。"
+    },
+    "mission": {
+      "heading": "我們的使命",
+      "promote": {
+        "heading": "推廣台灣品牌",
+        "body": "讓優質的台灣製造品牌被更多人認識與支持。每一個品牌背後，都有一段值得被看見的故事。"
+      },
+      "smallBusiness": {
+        "heading": "支持小型企業",
+        "body": "幫助小型品牌被看見，讓每個用心經營的品牌都有機會發光。規模不是衡量品質的標準。"
+      },
+      "platform": {
+        "heading": "品牌展示平台",
+        "body": "為品牌提供另一個展示自己、被發現的管道。讓你的品牌出現在正在尋找你的人面前。"
+      }
+    },
+    "stats": {
+      "brandUnit": "個品牌",
+      "categoryUnit": "個分類"
+    },
+    "showcase": {
+      "heading": "探索品牌",
+      "linkText": "瀏覽全部品牌 →"
+    },
+    "howItWorks": {
+      "heading": "品牌如何上架",
+      "submit": {
+        "label": "提交",
+        "description": "填寫品牌資料並提交審核申請"
+      },
+      "review": {
+        "label": "審核",
+        "description": "MIT Map 團隊確認品牌真實性與台灣製造連結"
+      },
+      "publish": {
+        "label": "上架",
+        "description": "通過審核後品牌出現在目錄中"
+      },
+      "cta": "提交品牌 →"
+    },
+    "team": {
+      "heading": "團隊",
+      "description": "一個相信台灣品牌值得被看見的普通台灣人"
+    },
+    "cta": {
+      "primary": "探索品牌",
+      "secondary": "提交品牌"
+    }
+  }
+}

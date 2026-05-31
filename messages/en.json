@@ -1,0 +1,317 @@
+{
+  "common": {
+    "brandName": "MIT Map",
+    "exploreBrands": "Explore Brands",
+    "browseAllBrands": "Browse All Brands →",
+    "submitBrand": "Submit a Brand",
+    "submitYourBrand": "Submit Your Brand",
+    "all": "All",
+    "allBrands": "All Brands",
+    "noBrandsFound": "No brands found",
+    "adjustOrClearFilters": "Try adjusting or clearing your filters",
+    "tryAdjustOrClearFilters": "Try adjusting or clearing your filters.",
+    "foundingYear": "Est. {year}",
+    "verified": "Verified"
+  },
+  "nav": {
+    "brandDirectory": "Brand Directory",
+    "faq": "FAQ",
+    "support": "Buy Us a Coffee",
+    "mySubmissions": "My Submissions",
+    "submitBrand": "Submit a Brand",
+    "allBrands": "All Brands",
+    "searchPlaceholder": "Search brands...",
+    "searchAria": "Search brands",
+    "clearSearch": "Clear search"
+  },
+  "footer": {
+    "about": "About",
+    "terms": "Terms of Service",
+    "contact": "Contact",
+    "copyright": "© {year} MIT Map"
+  },
+  "landing": {
+    "metadata": {
+      "title": "MIT Map — Discover Made in Taiwan Brands",
+      "description": "Explore and discover curated Made in Taiwan brands. From food to fashion, support local designers and manufacturers."
+    },
+    "hero": {
+      "headline": "Discover Premium Brands Made in Taiwan",
+      "subheadline": "Discover quality brands made in Taiwan",
+      "cta": "Explore Brands"
+    },
+    "trustBar": {
+      "brandCount": "{count} brands",
+      "categoryCount": "{count} categories",
+      "communityBuilt": "Community Built"
+    },
+    "showcase": {
+      "heading": "Explore Brands",
+      "all": "All",
+      "browseAll": "Browse All Brands →",
+      "browseAllCategory": "Browse All {category} →",
+      "emptyCategory": "No brands in this category yet"
+    },
+    "valueChips": {
+      "heading": "Browse by Brand Values"
+    },
+    "categoryGrid": {
+      "heading": "Explore Categories"
+    },
+    "manifesto": {
+      "headline": "Putting Taiwanese Brands on the World Map",
+      "body1": "Made in Taiwan is more than a label — it's a commitment to quality. From local ingredients to thoughtfully designed goods, Taiwan is home to countless brands quietly doing exceptional work, waiting to be discovered.",
+      "body2": "MIT Map is the bridge between these brands and the world — so that everyone who puts care into their craft has a chance to be found.",
+      "cta": "Learn Our Story"
+    },
+    "newBrands": {
+      "heading": "Newest Brands",
+      "linkText": "Browse All Brands →"
+    },
+    "dualCta": {
+      "primary": "Explore All Brands",
+      "secondary": "Submit Your Brand"
+    }
+  },
+  "brands": {
+    "metadata": {
+      "title": "MIT Map — Made in Taiwan Brand Directory",
+      "description": "Discover thoughtfully curated Taiwanese brands. Browse by category, search, and explore the best of Made in Taiwan."
+    },
+    "count": "{count} brands",
+    "notFound": "No brands found",
+    "emptyTitle": "No brands found",
+    "emptyDescription": "Try adjusting or clearing your filters",
+    "emptyGridDescription": "Try adjusting or clearing your filters.",
+    "categoryAll": "All",
+    "sortLabel": "Sort by",
+    "sort": {
+      "name": "A-Z",
+      "newest": "Newest",
+      "year": "Founding Year"
+    },
+    "search": {
+      "aria": "Search brands",
+      "placeholder": "Search brands...",
+      "clear": "Clear search"
+    },
+    "pagination": {
+      "previous": "‹ Previous",
+      "previousAria": "Previous page",
+      "next": "Next ›",
+      "nextAria": "Next page"
+    },
+    "card": {
+      "foundingYear": "Est. {year}"
+    }
+  },
+  "brandDetail": {
+    "metadata": {
+      "fallbackDescription": "Explore {name}, a Made in Taiwan brand.",
+      "notFoundTitle": "Brand Not Found"
+    },
+    "verified": "Verified",
+    "foundingYear": "Est. {year}",
+    "actions": {
+      "visitWebsite": "Visit Website",
+      "share": "Share",
+      "visitOfficialWebsiteAria": "Visit the brand's official website"
+    },
+    "links": {
+      "purchaseChannels": "Where to Buy"
+    },
+    "report": {
+      "trigger": "Report",
+      "title": "Report Brand",
+      "description": "Please select a reason for reporting",
+      "success": "Thank you for your report. We'll review it shortly.",
+      "close": "Close",
+      "alreadyReported": "You have already reported this brand",
+      "reasonNotMit": "Not Made in Taiwan",
+      "reasonIncorrectInfo": "Incorrect information",
+      "reasonBrokenLink": "Broken link",
+      "reasonInappropriate": "Inappropriate content",
+      "notesPlaceholder": "Additional notes (optional)",
+      "submitting": "Submitting...",
+      "submit": "Submit Report"
+    }
+  },
+  "categories": {
+    "metadata": {
+      "title": "{displayName} Brands from Taiwan",
+      "description": "Explore Made in Taiwan {displayName} brands. Discover Made in Taiwan {name} brands."
+    },
+    "notFoundTitle": "Category Not Found",
+    "breadcrumbHome": "Home",
+    "brandCount": "{count} brand{plural}",
+    "description": "Discover Made in Taiwan {category} brands."
+  },
+  "legal": {
+    "terms": {
+      "metadata": {
+        "title": "Terms of Service | MIT Map",
+        "description": "Read MIT Map's terms of service, including content ownership, data usage, brand review process, and disclaimer."
+      },
+      "title": "Terms of Service",
+      "intro": "Thank you for using MIT Map. By using this platform, you agree to the following terms. Please read carefully before submitting brand information.",
+      "lastUpdated": "Last updated: May 2026",
+      "contentOwnership": {
+        "heading": "Content Ownership",
+        "body": "Brand information you submit to MIT Map (including name, description, images, links, etc.) must be content you legally own or have the right to use. By submitting, you grant MIT Map a non-exclusive, royalty-free license to display and promote the content on this platform for the purpose of showcasing Taiwanese brands."
+      },
+      "dataUse": {
+        "heading": "Data Usage",
+        "body": "Brand data collected by MIT Map is used solely to build the Taiwanese brand directory and provide brand discovery features. We do not sell your personal information or brand data to third parties. Data use is governed by these terms and our privacy policy."
+      },
+      "reviewProcess": {
+        "heading": "Brand Review Process",
+        "body": "All submitted brand information is subject to manual review before being published. MIT Map reserves the right to reject or remove any brand information that does not meet our platform standards, without liability to the submitter. Approval does not constitute endorsement or certification of the brand by MIT Map."
+      },
+      "disclaimer": {
+        "heading": "Disclaimer",
+        "body": "MIT Map provides this service as-is and makes no warranties regarding the completeness, accuracy, or timeliness of content on the platform. MIT Map is not liable for any direct or indirect losses arising from the use of this platform."
+      },
+      "changes": {
+        "heading": "Changes to Terms",
+        "body": "MIT Map reserves the right to modify these terms at any time. Significant changes will be announced on the platform. Continued use of the service constitutes acceptance of the updated terms. If you have questions, please contact us via the contact page."
+      }
+    },
+    "support": {
+      "metadata": {
+        "title": "Support MIT Map",
+        "description": "MIT Map is a community-driven open platform, completely free to use. If this project has been helpful to you, consider buying us a coffee!"
+      },
+      "title": "Support MIT Map",
+      "intro1": "MIT Map is a community-driven open-source project — completely free, no ads, no paywalls. All development and maintenance is sustained by passion and volunteer time.",
+      "intro2": "If MIT Map has been useful to you, or if you believe in our mission to promote Taiwanese brands, consider buying us a coffee to help this project keep growing.",
+      "coffee": {
+        "heading": "Buy Us a Coffee",
+        "body": "Your support keeps us going. Every coffee is a vote for Taiwanese brands getting the visibility they deserve."
+      },
+      "usage": {
+        "heading": "Where Your Support Goes",
+        "server": {
+          "heading": "Server Costs",
+          "body": "Keeping the platform running smoothly so every visitor can browse the Taiwanese brand directory quickly."
+        },
+        "development": {
+          "heading": "Feature Development",
+          "body": "Continuously improving the platform to make brand discovery and showcase even better."
+        },
+        "community": {
+          "heading": "Community Outreach",
+          "body": "Helping more people discover Made in Taiwan brands and expanding the platform's reach and impact."
+        }
+      },
+      "widgetDescription": "Support MIT Map to keep growing!"
+    }
+  },
+  "faq": {
+    "metadata": {
+      "title": "FAQ",
+      "description": "Frequently asked questions about the MIT Map Taiwanese brand directory — learn what Made in Taiwan means, how to submit a brand, the review process, and how to claim your brand page."
+    },
+    "title": "Frequently Asked Questions",
+    "intro": "Here are the most common questions we receive. If you still have questions, feel free to reach out via the contact information at the bottom of the page.",
+    "items": {
+      "whatIsMitMap": {
+        "question": "What is MIT Map?",
+        "answer": "MIT Map is an open-source directory of Taiwanese brands dedicated to helping people discover and support quality Made in Taiwan products. Whether you're a consumer looking to explore local brands or a brand owner hoping to reach more people, MIT Map is your starting point."
+      },
+      "whatDoesMitMean": {
+        "question": "What does \"MIT\" mean?",
+        "answer": "\"MIT\" stands for Made in Taiwan. The brands listed on MIT Map are primarily manufactured in Taiwan — including brands that are designed, produced, or founded in Taiwan. We care not just about the origin label, but about the craftsmanship and story behind each brand."
+      },
+      "howToSubmit": {
+        "question": "How do I submit a brand to MIT Map?",
+        "answer": "Anyone can submit a brand using our submission form. Go to the Submit a Brand page, fill in the brand's basic information, official website, social media links, and more. Once submitted, the MIT Map team will review the listing. There is no fee — we evaluate submissions based solely on quality and authenticity."
+      },
+      "reviewTime": {
+        "question": "How long does the brand review take?",
+        "answer": "In most cases, brand reviews take about 7 business days. During that time, our team verifies the brand's authenticity and its connection to Made in Taiwan. Once approved, the brand will appear in the directory. If the submission is incomplete, we may reach out by email to request additional information."
+      },
+      "claimOrUpdate": {
+        "question": "I'm the brand owner — how do I claim or update my brand page?",
+        "answer": "If you are the brand owner or an authorized representative, please email us with the brand name and proof of identity. Our team will verify your identity and help you update or claim your brand listing. Please write to the contact email at the bottom of the page."
+      },
+      "dataAccuracy": {
+        "question": "How is the accuracy of brand information ensured?",
+        "answer": "MIT Map collects brand information through community contributions and our admin team performs an initial review during the approval process. If you find any brand information that is incorrect or outdated, please let us know through our contact channel and we'll address it promptly."
+      },
+      "contact": {
+        "question": "How do I contact the MIT Map team?",
+        "answer": "For any questions, suggestions, or partnership inquiries, please email: patrick.ytchou@gmail.com. Our team typically responds within 2–3 business days."
+      }
+    }
+  },
+  "about": {
+    "metadata": {
+      "title": "About",
+      "description": "MIT Map is an open-source Taiwanese brand directory dedicated to promoting Made in Taiwan brands, supporting small businesses, and letting the world discover the best of Taiwan."
+    },
+    "hero": {
+      "title": "About MIT Map",
+      "subtitle": "Promoting Made in Taiwan brands and letting the world discover the best of Taiwan"
+    },
+    "origin": {
+      "heading": "Our Story",
+      "body1": "For five years living in the US, I was always looking for Taiwanese things.",
+      "body2": "Studying, working, gradually settling in — but some things could never be replaced. The taste of home, the brands I'd grown up with, that feeling of \"yes, this is Taiwan.\" I tried searching online for Taiwanese brands, but there was no single place that brought them all together.",
+      "body3": "Later, I worked at a tech company that helped small brands get discovered by the world. That's when I saw something clearly: great brands don't always lack product quality — they lack an opportunity to be found.",
+      "body4": "Taiwan has so many brands quietly doing exceptional work — from local ingredients to thoughtfully designed goods. Every one of them has a story worth telling. MIT Map started from that idea: if no one was going to collect these brands in one place, I'd do it myself."
+    },
+    "whatIsMit": {
+      "heading": "What is Made in Taiwan?",
+      "body1": "Taiwan was once known to the world primarily for manufacturing — electronics, textiles, and more. \"MIT\" stood for quality and reliability. Today, Taiwan has evolved into a stage for design and brand-building, with local brands establishing their own place in global markets through refined craftsmanship and a unique cultural identity.",
+      "body2": "The Made in Taiwan brands on MIT Map include those designed, produced, or founded in Taiwan. We care not just about the origin label, but about the craftsmanship and story behind each brand.",
+      "body3": "From local ingredients to designer goods, every brand represents Taiwan's commitment to quality and courage to innovate. MIT Map aims to be the bridge between these brands and consumers — letting quality speak for itself."
+    },
+    "mission": {
+      "heading": "Our Mission",
+      "promote": {
+        "heading": "Promote Taiwanese Brands",
+        "body": "Help quality Made in Taiwan brands reach more people. Behind every brand is a story worth seeing."
+      },
+      "smallBusiness": {
+        "heading": "Support Small Businesses",
+        "body": "Help small brands get the visibility they deserve. Size is not a measure of quality."
+      },
+      "platform": {
+        "heading": "A Platform for Discovery",
+        "body": "Give brands another channel to showcase themselves and be found — putting your brand in front of the people already looking for you."
+      }
+    },
+    "stats": {
+      "brandUnit": "brands",
+      "categoryUnit": "categories"
+    },
+    "showcase": {
+      "heading": "Explore Brands",
+      "linkText": "Browse All Brands →"
+    },
+    "howItWorks": {
+      "heading": "How Brands Get Listed",
+      "submit": {
+        "label": "Submit",
+        "description": "Fill in brand information and submit for review"
+      },
+      "review": {
+        "label": "Review",
+        "description": "The MIT Map team verifies the brand's authenticity and its Made in Taiwan connection"
+      },
+      "publish": {
+        "label": "Publish",
+        "description": "Once approved, the brand appears in the directory"
+      },
+      "cta": "Submit a Brand →"
+    },
+    "team": {
+      "heading": "Team",
+      "description": "An ordinary Taiwanese person who believes Taiwanese brands deserve to be seen"
+    },
+    "cta": {
+      "primary": "Explore Brands",
+      "secondary": "Submit a Brand"
+    }
+  }
+}
