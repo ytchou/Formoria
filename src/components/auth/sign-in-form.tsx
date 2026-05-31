@@ -37,7 +37,7 @@ export function SignInForm({ claimToken, claimBrandName }: SignInFormProps) {
 
       {claimToken && claimBrandName && (
         <div className="rounded-lg border border-[#E06B3F]/20 bg-[#E06B3F]/5 px-4 py-3 text-sm">
-          登入以在 MIT Map 認領 <strong>{claimBrandName}</strong>。
+          登入以在 Formoria 認領 <strong>{claimBrandName}</strong>。
         </div>
       )}
 

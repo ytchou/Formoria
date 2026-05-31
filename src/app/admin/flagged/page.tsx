@@ -3,7 +3,7 @@ import { getPendingFlags } from "@/lib/services/moderation";
 import { FlaggedTable } from "@/components/admin/flagged-table";
 
 export const metadata: Metadata = {
-  title: "Flagged Content | Admin | MIT Map",
+  title: "Flagged Content | Admin",
 };
 
 export default async function FlaggedContentPage() {

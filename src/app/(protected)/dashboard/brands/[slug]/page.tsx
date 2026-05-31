@@ -15,7 +15,7 @@ import {
 import { AnalyticsCards } from "@/components/dashboard/analytics-cards";
 
 export const metadata: Metadata = {
-  title: "品牌管理 | MIT Map",
+  title: "品牌管理",
 };
 
 type Props = {
@@ -134,7 +134,7 @@ export default async function BrandDashboardPage({ params }: Props) {
               href={`/${slug}`}
               className="text-sm text-primary hover:underline"
             >
-              在 MIT Map 查看您的品牌
+              在 Formoria 查看您的品牌
             </Link>
           </CardContent>
         </Card>

@@ -59,7 +59,7 @@ export async function signUp(
   }
 
   const claimToken = formData.get("claimToken") as string | null;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://mitmap.tw";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://formoria.com";
 
   const emailRedirectTo = claimToken
     ? `${siteUrl}/auth/callback?claim=${claimToken}`

@@ -12,14 +12,17 @@ describe('buildApprovalEmail', () => {
       submitterEmail: 'owner@brand.com',
       brandName: 'Test Brand',
       brandSlug: 'test-brand',
-      siteUrl: 'https://mitmap.tw',
+      siteUrl: 'https://formoria.com',
     })
     expect(email.to).toBe('owner@brand.com')
     expect(email.subject).toContain('Test Brand')
     expect(email.subject).toContain('已通過審核')
+    expect(email.subject).toContain('Formoria')
+    expect(email.subject).not.toContain('MIT Map')
     expect(email.html).toContain('Test Brand')
-    expect(email.html).toContain('https://mitmap.tw/brands/test-brand')
-    expect(email.from).toContain('mitmap')
+    expect(email.html).toContain('https://formoria.com/brands/test-brand')
+    expect(email.html).toContain('Formoria — 台灣品牌目錄')
+    expect(email.from).toBe('Formoria <noreply@formoria.com>')
   })
 })
 
@@ -51,14 +54,14 @@ describe('buildClaimEmail', () => {
     const result = buildClaimEmail({
       submitterEmail: 'owner@example.com',
       brandName: 'Dachun Soap',
-      claimUrl: 'https://mitmap.tw/auth/sign-up?claim=abc123',
-      siteUrl: 'https://mitmap.tw',
+      claimUrl: 'https://formoria.com/auth/sign-up?claim=abc123',
+      siteUrl: 'https://formoria.com',
     })
 
     expect(result.to).toBe('owner@example.com')
-    expect(result.subject).toContain('認領您在 MIT Map')
+    expect(result.subject).toContain('認領您在 Formoria')
     expect(result.html).toContain('Dachun Soap')
-    expect(result.html).toContain('https://mitmap.tw/auth/sign-up?claim=abc123')
+    expect(result.html).toContain('https://formoria.com/auth/sign-up?claim=abc123')
     expect(result.html).toContain('認領')
   })
 
@@ -66,8 +69,8 @@ describe('buildClaimEmail', () => {
     const result = buildClaimEmail({
       submitterEmail: 'owner@example.com',
       brandName: '<script>alert("xss")</script>',
-      claimUrl: 'https://mitmap.tw/auth/sign-up?claim=abc123',
-      siteUrl: 'https://mitmap.tw',
+      claimUrl: 'https://formoria.com/auth/sign-up?claim=abc123',
+      siteUrl: 'https://formoria.com',
     })
 
     expect(result.html).not.toContain('<script>')
@@ -81,7 +84,7 @@ describe('buildIncompleteSubmissionEmail', () => {
       submitterEmail: 'owner@brand.com',
       brandName: 'Test Brand',
       missingFields: ['description_too_short', 'website_url_invalid'],
-      siteUrl: 'https://mitmap.tw',
+      siteUrl: 'https://formoria.com',
     })
     expect(email.to).toBe('owner@brand.com')
     expect(email.subject).toContain('Test Brand')

@@ -1,17 +1,35 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Visitor smoke', () => {
+  test('home page has Formoria title', async ({ page }) => {
+    await page.goto('/');
+    await expect(page).toHaveTitle(/formoria/i);
+    await expect(page).not.toHaveTitle(/mit map/i);
+  });
+
   test('landing page loads at /', async ({ page }) => {
     await page.goto('/');
-    await expect(page).toHaveTitle(/mit map/i);
     // Landing page has a hero heading visible
     await expect(page.getByRole('heading').first()).toBeVisible({ timeout: 10_000 });
   });
 
+  test('brands page title is Formoria-branded, not duplicated', async ({ page }) => {
+    await page.goto('/brands');
+    await expect(page).toHaveTitle(/formoria|made in taiwan/i);
+    const title = await page.title();
+    expect((title.match(/formoria/gi) ?? []).length).toBeLessThanOrEqual(1);
+  });
+
   test('brands directory loads at /brands', async ({ page }) => {
     await page.goto('/brands');
-    await expect(page).toHaveTitle(/mit map|made in taiwan/i);
     await expect(page.locator('main a[aria-label]').first()).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('auth page title is not duplicated (DEV-698)', async ({ page }) => {
+    await page.goto('/auth/sign-in');
+    const title = await page.title();
+    expect(title).not.toMatch(/mit map/i);
+    expect((title.match(/formoria/gi) ?? []).length).toBeLessThanOrEqual(1);
   });
 
   test('category filter narrows results', async ({ page }) => {

@@ -51,7 +51,7 @@ export async function approveSubmissionAction(
     if ('error' in auth) return auth
 
     const submission = await getSubmission(submissionId)
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://mitmap.tw'
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://formoria.com'
 
     let brand: Awaited<ReturnType<typeof createBrand>>
     let slug: string

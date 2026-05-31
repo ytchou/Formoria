@@ -11,7 +11,7 @@ import { Pagination } from '@/components/brands/pagination'
 import { SortSelect } from '@/components/brands/sort-select'
 
 export const metadata: Metadata = {
-  title: { absolute: 'MIT Map — Made in Taiwan Brand Directory' },
+  title: { absolute: 'Formoria — Made in Taiwan Brand Directory' },
   description:
     'Discover thoughtfully curated Taiwanese brands. Browse by category, search, and explore the best of Made in Taiwan.',
   alternates: { canonical: '/brands' },

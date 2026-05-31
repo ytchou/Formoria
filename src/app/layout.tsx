@@ -31,14 +31,14 @@ const getCachedCategories = unstable_cache(
 )
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://formoria.com'),
   title: {
-    default: 'MIT Map — 台灣品牌目錄',
-    template: '%s | MIT Map',
+    default: 'Formoria 島藏 — 台灣製造品牌目錄',
+    template: '%s | Formoria',
   },
   description: "台灣製造品牌目錄 — 探索精選台灣品牌",
   openGraph: {
-    siteName: 'MIT Map',
+    siteName: 'Formoria',
     locale: 'zh_TW',
     type: 'website',
   },

@@ -37,7 +37,7 @@ export function Footer() {
           )}
         </div>
         <p className="text-xs text-accent-foreground/50">
-          © {new Date().getFullYear()} MIT Map
+          © {new Date().getFullYear()} Formoria
         </p>
       </div>
     </footer>

@@ -5,7 +5,7 @@ import { BrandList } from '@/components/admin/brand-list'
 import { UntaggedBrandsSection } from '@/components/admin/untagged-brands-section'
 
 export const metadata: Metadata = {
-  title: '品牌 | 管理後台 | MIT Map',
+  title: '品牌 | 管理後台',
 }
 
 export default async function BrandsPage() {

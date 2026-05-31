@@ -35,7 +35,7 @@ describe('ConfirmationPage', () => {
   it('has a link to the directory', () => {
     render(<ConfirmationPage />)
     const link = screen.getByRole('link', {
-      name: /探索 MIT Map/,
+      name: /探索 Formoria 目錄/,
     })
     expect(link).toHaveAttribute('href', '/')
   })

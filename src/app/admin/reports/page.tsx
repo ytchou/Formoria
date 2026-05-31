@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { getPendingReports } from '@/lib/services/reports'
 import { ReportsTable } from '@/components/admin/reports-table'
 
-export const metadata: Metadata = { title: 'Brand Reports | Admin | MIT Map' }
+export const metadata: Metadata = { title: 'Brand Reports | Admin' }
 
 export default async function AdminReportsPage() {
   let reports: Awaited<ReturnType<typeof getPendingReports>> = []

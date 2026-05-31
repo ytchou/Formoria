@@ -36,7 +36,7 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
 
       {claimToken && claimBrandName && (
         <div className="rounded-lg border border-[#E06B3F]/20 bg-[#E06B3F]/5 px-4 py-3 text-sm">
-          您已受邀在 MIT Map 認領 <strong>{claimBrandName}</strong>。
+          您已受邀在 Formoria 認領 <strong>{claimBrandName}</strong>。
           建立帳號以管理您的品牌頁面。
         </div>
       )}

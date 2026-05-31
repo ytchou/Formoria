@@ -169,7 +169,7 @@ export async function scrapeBrandUrl(url: string): Promise<ScrapedBrandData> {
     const response = await fetch(url, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'MITMap-Bot/1.0 (+https://mitmap.tw)',
+        'User-Agent': 'Formoria-Bot/1.0 (+https://formoria.com)',
         Accept: 'text/html',
       },
     })

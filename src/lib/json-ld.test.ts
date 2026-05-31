@@ -145,22 +145,22 @@ describe('buildBreadcrumbJsonLd', () => {
 
 describe('buildFaqPageJsonLd', () => {
   it('returns FAQPage schema with correct @context and @type', () => {
-    const items = [{ question: '什麼是 MIT Map？', answer: 'MIT Map 是台灣品牌目錄。' }]
+    const items = [{ question: '什麼是 Formoria？', answer: 'Formoria 是台灣品牌目錄。' }]
     const result = buildFaqPageJsonLd(items)
     expect(result['@context']).toBe('https://schema.org')
     expect(result['@type']).toBe('FAQPage')
   })
 
   it('maps each item to a Question/Answer entity', () => {
-    const items = [{ question: '什麼是 MIT Map？', answer: 'MIT Map 是台灣品牌目錄。' }]
+    const items = [{ question: '什麼是 Formoria？', answer: 'Formoria 是台灣品牌目錄。' }]
     const result = buildFaqPageJsonLd(items)
     expect((result.mainEntity as unknown[]).length).toBe(1)
     expect((result.mainEntity as unknown[])[0]).toEqual({
       '@type': 'Question',
-      name: '什麼是 MIT Map？',
+      name: '什麼是 Formoria？',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'MIT Map 是台灣品牌目錄。',
+        text: 'Formoria 是台灣品牌目錄。',
       },
     })
   })
@@ -188,8 +188,11 @@ describe('buildWebSiteJsonLd', () => {
     const jsonLd = buildWebSiteJsonLd()
     expect(jsonLd['@context']).toBe('https://schema.org')
     expect(jsonLd['@type']).toBe('WebSite')
-    expect(jsonLd.name).toBe('MIT Map')
+    expect(jsonLd.name).toBe('Formoria')
+    expect(jsonLd.alternateName).toBe('島藏')
     expect(jsonLd.url).toBeDefined()
+    expect(jsonLd.url).toContain('formoria.com')
+    expect(jsonLd.url).not.toContain('mitmap')
   })
 
   it('includes SearchAction with search URL template', () => {

@@ -80,7 +80,7 @@ export default async function OgImage({
               fontFamily: 'system-ui',
             }}
           >
-            MIT Map
+            Formoria
           </div>
 
           {/* Category name */}

@@ -11,7 +11,7 @@ if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
   echo "ERROR: Direct commits to main are not allowed."
   echo ""
   echo "Create a worktree:"
-  echo "  git worktree add ../mitmap-<branch-name> -b <branch-name>"
+  echo "  git worktree add ../formoria-<branch-name> -b <branch-name>"
   echo ""
   exit 1
 fi

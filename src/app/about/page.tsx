@@ -15,7 +15,7 @@ export const revalidate = 3600
 export const metadata: Metadata = {
   title: '關於',
   description:
-    'MIT Map 是一個開放原始碼的台灣品牌目錄，致力於推廣台灣製造品牌，支持小型企業，讓世界看見台灣的美好。',
+    'Formoria 是一個開放原始碼的台灣品牌目錄，致力於推廣台灣製造品牌，支持小型企業，讓世界看見台灣的美好。',
 }
 
 export default async function AboutPage() {

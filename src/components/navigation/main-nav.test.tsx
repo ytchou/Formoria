@@ -36,10 +36,10 @@ const mockCategories = [
 ]
 
 describe('MainNav', () => {
-  it('renders logo with MIT Map text', async () => {
+  it('renders logo with Formoria text', async () => {
     const { MainNav } = await import('./main-nav')
     render(<MainNav categories={mockCategories} />)
-    expect(screen.getByText('MIT Map')).toBeInTheDocument()
+    expect(screen.getByText('Formoria')).toBeInTheDocument()
   })
 
   it('renders navigation links', async () => {

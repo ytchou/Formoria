@@ -2,9 +2,9 @@ import type { Metadata } from 'next'
 import Script from 'next/script'
 
 export const metadata: Metadata = {
-  title: '支持 MIT Map',
+  title: '支持',
   description:
-    'MIT Map 是一個由社群驅動的開放平台，完全免費。如果這個專案對你有幫助，歡迎請我們喝杯咖啡！',
+    'Formoria 是一個由社群驅動的開放平台，完全免費。如果這個專案對你有幫助，歡迎請我們喝杯咖啡！',
 }
 
 export default function SupportPage() {
@@ -14,13 +14,13 @@ export default function SupportPage() {
         {/* Hero */}
         <section className="space-y-4">
           <h1 className="font-heading text-[26px] font-bold text-foreground">
-            支持 MIT Map
+            支持 Formoria
           </h1>
           <p className="font-sans text-sm text-muted-foreground leading-[1.7] max-w-2xl">
-            MIT Map 是一個由社群驅動的開放原始碼專案，完全免費，沒有廣告，沒有付費牆。所有的功能開發與維護都靠熱情與志願者的時間支撐。
+            Formoria 是一個由社群驅動的開放原始碼專案，完全免費，沒有廣告，沒有付費牆。所有的功能開發與維護都靠熱情與志願者的時間支撐。
           </p>
           <p className="font-sans text-sm text-muted-foreground leading-[1.7] max-w-2xl">
-            如果 MIT Map 對你有幫助，或你認同我們推廣台灣品牌的使命，歡迎請我們喝杯咖啡，讓這個專案可以繼續成長。
+            如果 Formoria 對你有幫助，或你認同我們推廣台灣品牌的使命，歡迎請我們喝杯咖啡，讓這個專案可以繼續成長。
           </p>
         </section>
 
@@ -84,7 +84,7 @@ export default function SupportPage() {
         src="https://cdnjs.buymeacoffee.com/1.0.0/widget.prod.min.js"
         data-name="BMC-Widget"
         data-id="ytchou"
-        data-description="支持 MIT Map 繼續成長！"
+        data-description="支持 Formoria 繼續成長！"
         data-color="#40DCA5"
         data-position="Right"
         data-x_margin="18"

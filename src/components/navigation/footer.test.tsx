@@ -31,8 +31,8 @@ describe('Footer', () => {
     expect(link.getAttribute('href')).toMatch(/^mailto:/)
   })
 
-  it('renders copyright text containing MIT Map', () => {
+  it('renders copyright text containing Formoria', () => {
     render(<Footer />)
-    expect(screen.getByText(/MIT Map/)).toBeInTheDocument()
+    expect(screen.getByText(/Formoria/)).toBeInTheDocument()
   })
 })

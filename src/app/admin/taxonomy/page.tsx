@@ -4,7 +4,7 @@ import { getBrandsForReview } from '@/lib/services/taxonomy'
 import { TaxonomyTabs } from '@/components/admin/taxonomy-tabs'
 
 export const metadata: Metadata = {
-  title: '分類管理 | 管理後台 | MIT Map',
+  title: '分類管理 | 管理後台',
 }
 
 export default async function TaxonomyPage() {

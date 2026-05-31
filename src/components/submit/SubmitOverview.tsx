@@ -7,7 +7,7 @@ export default function SubmitOverview() {
         提交你的台灣品牌
       </h1>
       <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-        MIT Map 收錄台灣在地製造與設計品牌，讓更多人發現你的故事。
+        Formoria 收錄台灣在地製造與設計品牌，讓更多人發現你的故事。
       </p>
       <ul className="mt-8 space-y-3">
         <li className="flex items-start gap-3">

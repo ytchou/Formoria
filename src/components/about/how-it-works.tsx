@@ -12,7 +12,7 @@ const steps = [
     number: 2,
     icon: Search,
     label: '審核',
-    description: 'MIT Map 團隊確認品牌真實性與台灣製造連結',
+    description: 'Formoria 團隊確認品牌真實性與台灣製造連結',
   },
   {
     number: 3,

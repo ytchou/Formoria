@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: "管理後台 | MIT Map",
+  title: "管理後台",
 };
 
 export default async function AdminPage() {

@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: "品牌管理 | MIT Map",
+  title: "品牌管理",
 };
 
 const ERROR_MESSAGES: Record<string, string> = {

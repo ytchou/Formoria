@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 import SubmitOverview from './SubmitOverview';
 
 describe('SubmitOverview', () => {
-  it('renders a heading explaining MIT Map', () => {
+  it('renders a heading explaining Formoria', () => {
     render(<SubmitOverview />);
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
   });

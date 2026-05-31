@@ -8,7 +8,7 @@ describe('createResendProvider', () => {
   const provider = createResendProvider('test-api-key')
   const testMessage = {
     to: 'user@example.com',
-    from: 'MIT Map <noreply@mitmap.tw>',
+    from: 'Formoria <noreply@formoria.com>',
     subject: 'Test',
     html: '<p>Hello</p>',
   }

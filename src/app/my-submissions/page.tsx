@@ -6,7 +6,7 @@ import { getUserSubmissions } from '@/lib/services/submissions'
 import { Badge } from '@/components/ui/badge'
 
 export const metadata: Metadata = {
-  title: '我的提交 | MIT Map',
+  title: '我的提交',
 }
 
 const STATUS_LABELS: Record<string, string> = {

@@ -25,9 +25,9 @@ describe('FaqPage', () => {
     expect(container.querySelectorAll('details > summary')).toHaveLength(7)
   })
 
-  it('includes the 什麼是 MIT Map question', () => {
+  it('includes the 什麼是 Formoria question', () => {
     render(<FaqPage />)
-    expect(screen.getByText(/什麼是 MIT Map/)).toBeInTheDocument()
+    expect(screen.getByText(/什麼是 Formoria/)).toBeInTheDocument()
   })
 
   it('includes the 如何提交品牌 question', () => {
