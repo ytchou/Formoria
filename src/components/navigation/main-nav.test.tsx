@@ -35,13 +35,16 @@ const mockCategories = [
   { slug: 'fashion', name: 'Fashion', nameZh: '時尚' },
 ]
 
-describe('MainNav', () => {
-  it('renders logo with Formoria text', async () => {
+describe('MainNav brand', () => {
+  it('renders the BrandMark svg and Formoria wordmark', async () => {
     const { MainNav } = await import('./main-nav')
-    render(<MainNav categories={mockCategories} />)
+    const { container } = render(<MainNav categories={mockCategories} />)
+    expect(container.querySelector('svg')).toBeInTheDocument()
     expect(screen.getByText('Formoria')).toBeInTheDocument()
   })
+})
 
+describe('MainNav', () => {
   it('renders navigation links', async () => {
     const { MainNav } = await import('./main-nav')
     render(<MainNav categories={mockCategories} />)
