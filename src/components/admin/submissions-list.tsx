@@ -23,7 +23,7 @@ const SOURCE_ATTRIBUTION_LABELS: Record<SourceAttribution, string> = {
   saw_at_market: 'I saw them at a market or event',
   found_online: 'I found them online',
   friend_recommended: 'A friend recommended them',
-  work_there: 'I work there or know the founder',
+  work_there: 'I work there or know the team',
 }
 
 export function SubmissionsList({

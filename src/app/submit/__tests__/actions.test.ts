@@ -1,12 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createSubmissionSchema } from '@/lib/validations/submission'
 
-const mockUpload = vi.fn()
-const mockGetPublicUrl = vi.fn()
-const mockGetUser = vi.fn()
-const mockCreateBrand = vi.fn()
-const mockCreateSubmission = vi.fn()
-const mockVerifyTurnstileToken = vi.fn()
+const {
+  mockUpload,
+  mockGetPublicUrl,
+  mockGetUser,
+  mockCreateBrand,
+  mockCreateSubmission,
+  mockVerifyTurnstileToken,
+} = vi.hoisted(() => ({
+  mockUpload: vi.fn(),
+  mockGetPublicUrl: vi.fn(),
+  mockGetUser: vi.fn(),
+  mockCreateBrand: vi.fn(),
+  mockCreateSubmission: vi.fn(),
+  mockVerifyTurnstileToken: vi.fn(),
+}))
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() =>
@@ -161,7 +170,7 @@ describe('server action schema routing', () => {
     expect(schema.safeParse(communityPayload).success).toBe(true)
   })
 
-  it('omits founder from the brand insert payload', async () => {
+  it('omits the dormant brand column from the brand insert payload', async () => {
     await submitBrand({
       name: 'Test Brand',
       description: 'Long enough description for the test',

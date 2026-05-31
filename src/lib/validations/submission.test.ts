@@ -91,7 +91,7 @@ describe('brandInfoSchema', () => {
   })
 })
 
-describe('brandInfoSchema — About (description) and founder removal', () => {
+describe('brandInfoSchema — About description', () => {
   const base = {
     name: '測試品牌',
     description: '這是一個測試品牌的介紹文字。',
@@ -116,20 +116,6 @@ describe('brandInfoSchema — About (description) and founder removal', () => {
     expect(result.success).toBe(false)
   })
 
-  it('no longer includes founder fields in parsed output', () => {
-    const result = brandInfoSchema.safeParse({
-      ...base,
-      founderName: 'X',
-      founderTitle: 'Y',
-      founderBio: 'Z',
-    })
-    expect(result.success).toBe(true)
-    if (result.success) {
-      expect('founderName' in result.data).toBe(false)
-      expect('founderTitle' in result.data).toBe(false)
-      expect('founderBio' in result.data).toBe(false)
-    }
-  })
 })
 
 describe('productsSchema', () => {

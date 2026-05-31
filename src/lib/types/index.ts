@@ -1,7 +1,6 @@
 export type {
   Brand,
   BrandFilters,
-  BrandFounder,
   BrandStatus,
   PurchaseLink,
   RetailLocation,

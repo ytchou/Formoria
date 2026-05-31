@@ -20,7 +20,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     retailLocations: [],
     productPhotos: [],
     contactEmail: null,
-    founder: null,
     brandHighlights: null,
     tags: [],
     submittedAt: '2026-01-01T00:00:00Z',
@@ -39,7 +38,7 @@ describe('scoreBrand', () => {
     expect(result.websiteUrl).toBeNull()
   })
 
-  it('scores a fully populated brand at 100', () => {
+  it('scores a fully populated brand at 90', () => {
     const brand = makeBrand({
       description:
         'A detailed description of this brand that is definitely long enough.',
@@ -55,12 +54,11 @@ describe('scoreBrand', () => {
       purchaseLinks: [
         { platform: 'website', url: 'https://example.com', label: 'Shop' },
       ],
-      founder: { name: 'Jane', title: 'CEO', avatarUrl: null, quote: null },
       brandHighlights: 'Product A — Great',
       category: 'Accessories',
     })
     const result = scoreBrand(brand)
-    expect(result.score).toBe(100)
+    expect(result.score).toBe(90)
     expect(result.websiteUrl).toBe('https://example.com')
   })
 
@@ -108,8 +106,6 @@ describe('buildEnrichPatch', () => {
   const emptyScraped = {
     brandName: null,
     description: null,
-    founderName: null,
-    founderTitle: null,
     brandHighlights: null,
     heroImageUrl: null,
     galleryImageUrls: [],

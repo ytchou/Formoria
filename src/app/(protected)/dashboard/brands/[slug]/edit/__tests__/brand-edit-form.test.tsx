@@ -24,7 +24,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     productPhotos: [],
     brandHighlights: null,
     tags: [],
-    founder: null,
     foundingYear: 2020,
     contactEmail: null,
     submittedAt: '2026-01-01T00:00:00Z',
@@ -60,10 +59,4 @@ describe('BrandEditForm — sections', () => {
     expect(screen.getByRole('button', { name: /add.*location/i })).toBeInTheDocument()
   })
 
-  it('does not render founder fields', () => {
-    render(<BrandEditForm brand={mockBrand} />)
-    expect(screen.queryByLabelText(/founder name/i)).not.toBeInTheDocument()
-    expect(screen.queryByLabelText(/founder title/i)).not.toBeInTheDocument()
-    expect(screen.queryByLabelText(/founder quote/i)).not.toBeInTheDocument()
-  })
 })

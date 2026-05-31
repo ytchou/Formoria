@@ -91,14 +91,6 @@ export function brandToDomain(row: any): Brand {
     retailLocations: row.retail_locations ?? [],
     productPhotos: row.product_photos ?? [],
     contactEmail: row.contact_email ?? null,
-    founder: row.founder
-      ? {
-          name: row.founder.name,
-          title: row.founder.title ?? null,
-          avatarUrl: row.founder.avatar_url ?? null,
-          quote: row.founder.quote ?? null,
-        }
-      : null,
     brandHighlights: row.brand_highlights ?? null,
     tags,
     submittedAt: row.submitted_at,
@@ -123,11 +115,6 @@ export function brandToInsert(data: Partial<Brand>): Record<string, unknown> {
   if (data.retailLocations !== undefined) row.retail_locations = data.retailLocations
   if (data.productPhotos !== undefined) row.product_photos = data.productPhotos
   if (data.contactEmail !== undefined) row.contact_email = data.contactEmail
-  if (data.founder !== undefined) {
-    row.founder = data.founder
-      ? { name: data.founder.name, title: data.founder.title, avatar_url: data.founder.avatarUrl, quote: data.founder.quote }
-      : null
-  }
   if (data.brandHighlights != null) row.brand_highlights = data.brandHighlights
   if (data.isDemo) row.is_demo = data.isDemo
   return row
