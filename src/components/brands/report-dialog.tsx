@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react'
 import { Flag } from 'lucide-react'
-import { submitReportAction, type ReportState } from '@/app/brands/[slug]/actions'
+import { submitReportAction, type ReportState } from '@/app/[locale]/brands/[slug]/actions'
 import {
   Dialog,
   DialogTrigger,

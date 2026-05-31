@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 // Mock server action
-vi.mock('@/app/brands/[slug]/actions', () => ({
+vi.mock('@/app/[locale]/brands/[slug]/actions', () => ({
   submitReportAction: vi.fn(),
 }))
 

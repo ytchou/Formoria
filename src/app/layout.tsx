@@ -3,6 +3,8 @@ import { Bricolage_Grotesque, Geist_Mono, Inter } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { Agentation } from "agentation";
 import { unstable_cache } from "next/cache";
+import { NextIntlClientProvider } from 'next-intl'
+import { getLocale, getMessages } from 'next-intl/server'
 import { MainNav } from "@/components/navigation/main-nav";
 import { Footer } from "@/components/navigation/footer";
 import { SessionTracker } from "@/components/analytics/session-tracker";
@@ -52,22 +54,28 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const categories = await getCachedCategories()
+  const [categories, locale, messages] = await Promise.all([
+    getCachedCategories(),
+    getLocale(),
+    getMessages(),
+  ])
 
   return (
     <html
-      lang="zh-TW"
+      lang={locale}
       className={`${inter.variable} ${bricolage.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <SessionTracker />
-        <MainNav categories={categories} />
-        <div className="flex-1">{children}</div>
-        <Footer />
-        {process.env.NODE_ENV === "development" && <Agentation />}
-        {process.env.NEXT_PUBLIC_GA_ID && (
-          <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />
-        )}
+        <NextIntlClientProvider messages={messages}>
+          <SessionTracker />
+          <MainNav categories={categories} />
+          <div className="flex-1">{children}</div>
+          <Footer />
+          {process.env.NODE_ENV === "development" && <Agentation />}
+          {process.env.NEXT_PUBLIC_GA_ID && (
+            <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />
+          )}
+        </NextIntlClientProvider>
       </body>
     </html>
   )
