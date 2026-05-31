@@ -1,8 +1,6 @@
 export interface ScrapedBrandData {
   brandName: string | null
   description: string | null
-  founderName: string | null
-  founderTitle: string | null
   brandHighlights: string | null
   heroImageUrl: string | null
   galleryImageUrls: string[]

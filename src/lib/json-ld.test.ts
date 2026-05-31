@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildBrandJsonLd, buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildWebSiteJsonLd, buildFaqPageJsonLd } from './json-ld'
+import { buildBrandJsonLd, buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildWebSiteJsonLd, buildFaqPageJsonLd } from '@/lib/json-ld'
 import type { Brand } from '@/lib/types'
 
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
@@ -51,13 +51,9 @@ describe('buildBrandJsonLd', () => {
     })
   })
 
-  it('includes founder as Person schema', () => {
+  it('does not include a founder Person in the structured data', () => {
     const jsonLd = buildBrandJsonLd(makeBrand())
-    expect(jsonLd.founder).toEqual({
-      '@type': 'Person',
-      name: '趙文豪',
-      jobTitle: 'Founder',
-    })
+    expect(JSON.stringify(jsonLd)).not.toContain('founder')
   })
 
   it('omits optional fields when null', () => {

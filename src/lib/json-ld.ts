@@ -39,15 +39,6 @@ export function buildBrandJsonLd(brand: Brand): Record<string, any> {
     }
   }
 
-  if (brand.founder) {
-    const person: Record<string, any> = {
-      '@type': 'Person',
-      name: brand.founder.name,
-    }
-    if (brand.founder.title) person.jobTitle = brand.founder.title
-    jsonLd.founder = person
-  }
-
   return jsonLd
 }
 
