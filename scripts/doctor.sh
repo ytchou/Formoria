@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "MIT Map — Environment Doctor"
+echo "Formoria — Environment Doctor"
 echo "================================"
 echo ""
 

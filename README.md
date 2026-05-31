@@ -1,4 +1,4 @@
-# MIT Map
+# Formoria
 
 Open-source Made in Taiwan brand directory. Discover and support brands that manufacture in Taiwan.
 
