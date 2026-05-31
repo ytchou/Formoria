@@ -75,7 +75,6 @@ export async function approveSubmissionAction(
         retailLocations: [],
         productPhotos: [],
         contactEmail: submission.submitterEmail,
-        founder: null,
         brandHighlights: null,
       })
       slug = brand.slug
