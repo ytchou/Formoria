@@ -99,9 +99,6 @@ export function ReviewStep({ onEditStep }: ReviewStepProps) {
               />
             </div>
           )}
-          {formData.founderName && (
-            <ReviewRow label="Founder" value={formData.founderName} />
-          )}
         </div>
       </div>
 

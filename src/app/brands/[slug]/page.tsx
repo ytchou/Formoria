@@ -10,7 +10,6 @@ import { ImageCarousel } from '@/components/brands/image-carousel'
 import { BrandHeader } from '@/components/brands/brand-header'
 import { BrandActions } from '@/components/brands/brand-actions'
 import { BrandAbout } from '@/components/brands/brand-about'
-import { BrandFounder } from '@/components/brands/brand-founder'
 import { BrandTags } from '@/components/brands/brand-tags'
 import { BrandHighlights } from '@/components/brands/brand-highlights'
 import { BrandPhotoGallery } from '@/components/brands/brand-photo-gallery'
@@ -144,7 +143,6 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
           <hr className="border-border" />
 
           <BrandAbout brand={brand} />
-          <BrandFounder brand={brand} />
 
           <hr className="border-border" />
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildBrandJsonLd, buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildWebSiteJsonLd, buildFaqPageJsonLd } from './json-ld'
+import { buildBrandJsonLd, buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildWebSiteJsonLd, buildFaqPageJsonLd } from '@/lib/json-ld'
 import type { Brand } from '@/lib/types'
 
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
@@ -18,7 +18,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     retailLocations: [{ name: 'Nanzhuang Store', address: '苗栗縣南庄鄉', latitude: 24.59, longitude: 120.99 }],
     productPhotos: [], brandHighlights: null,
     contactEmail: 'hello@chatzutang.com',
-    founder: { name: '趙文豪', title: 'Founder', avatarUrl: null, quote: null },
     tags: [],
     submittedAt: '2026-01-01T00:00:00Z', approvedAt: '2026-01-02T00:00:00Z',
     createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-02T00:00:00Z',
@@ -51,19 +50,15 @@ describe('buildBrandJsonLd', () => {
     })
   })
 
-  it('includes founder as Person schema', () => {
+  it('does not include a founder Person in the structured data', () => {
     const jsonLd = buildBrandJsonLd(makeBrand())
-    expect(jsonLd.founder).toEqual({
-      '@type': 'Person',
-      name: '趙文豪',
-      jobTitle: 'Founder',
-    })
+    expect(JSON.stringify(jsonLd)).not.toContain('founder')
   })
 
   it('omits optional fields when null', () => {
     const jsonLd = buildBrandJsonLd(makeBrand({
       logoUrl: null, heroImageUrl: null, foundingYear: null,
-      contactEmail: null, socialLinks: {}, retailLocations: [], founder: null,
+      contactEmail: null, socialLinks: {}, retailLocations: [],
     }))
     expect(jsonLd.logo).toBeUndefined()
     expect(jsonLd.image).toBeUndefined()

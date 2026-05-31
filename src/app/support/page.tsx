@@ -37,6 +37,7 @@ export default function SupportPage() {
             target="_blank"
             rel="noopener noreferrer"
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png"
               alt="Buy Me A Coffee"

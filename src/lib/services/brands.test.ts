@@ -128,7 +128,7 @@ describe('brandToInsert', () => {
   })
 })
 
-describe('brandToDomain — founder and brandHighlights', () => {
+describe('brandToDomain — brandHighlights', () => {
   const baseRow = {
     id: 'test-id', name: 'Test Brand', slug: 'test-brand',
     description: 'A test brand', logo_url: null, hero_image_url: null,
@@ -137,24 +137,18 @@ describe('brandToDomain — founder and brandHighlights', () => {
     product_photos: [], contact_email: null, brand_taxonomy: [],
     submitted_at: '2026-01-01T00:00:00Z', approved_at: null,
     created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
-    founder: null, brand_highlights: null,
+    brand_highlights: null,
   }
 
-  it('maps founder JSONB with snake_case to BrandFounder with camelCase', () => {
+  it('brandToDomain ignores the dormant founder column', () => {
     const row = {
       ...baseRow,
-      founder: {
-        name: 'Zhao Wenhao', title: 'Founder',
-        avatar_url: 'https://example.com/avatar.jpg',
-        quote: '我希望每瓶產品都能訴說台灣土地的故事',
-      },
+      description: '介紹',
+      founder: { name: 'X' },
     }
     const brand = brandToDomain(row)
-    expect(brand.founder).toEqual({
-      name: 'Zhao Wenhao', title: 'Founder',
-      avatarUrl: 'https://example.com/avatar.jpg',
-      quote: '我希望每瓶產品都能訴說台灣土地的故事',
-    })
+    expect((brand as { founder?: unknown }).founder).toBeUndefined()
+    expect(brand.description).toBe('介紹')
   })
 
   it('maps brand_highlights string to brandHighlights', () => {
@@ -169,24 +163,17 @@ describe('brandToDomain — founder and brandHighlights', () => {
     expect(brand.brandHighlights).toBeNull()
   })
 
-  it('handles null founder gracefully', () => {
-    const brand = brandToDomain(baseRow)
-    expect(brand.founder).toBeNull()
-  })
-
 })
 
-describe('brandToInsert — founder and brandHighlights', () => {
-  it('maps founder and brandHighlights to snake_case DB columns', () => {
+describe('brandToInsert — brandHighlights', () => {
+  it('brandToInsert does not write a founder field', () => {
     const input = {
-      founder: { name: 'Jane', title: 'CEO', avatarUrl: 'https://ex.com/a.jpg', quote: 'Hello' },
+      description: '介紹',
       brandHighlights: 'Eco-certified packaging',
     }
     const row = brandToInsert(input)
-    expect(row.founder).toEqual({
-      name: 'Jane', title: 'CEO', avatar_url: 'https://ex.com/a.jpg', quote: 'Hello',
-    })
-    expect(row.brand_highlights).toBe('Eco-certified packaging')
+    expect('founder' in row).toBe(false)
+    expect(row.description).toBe('介紹')
   })
 
   it('omits brand_highlights when brandHighlights is null', () => {

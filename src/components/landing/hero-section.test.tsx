@@ -3,7 +3,10 @@ import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('next/image', () => ({
-  default: (props: Record<string, unknown>) => <img {...props} />,
+  default: ({ alt = '', ...props }: Record<string, unknown>) => (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img alt={String(alt)} {...props} />
+  ),
 }))
 
 vi.mock('next/link', () => ({

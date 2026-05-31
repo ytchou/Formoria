@@ -71,9 +71,6 @@ export async function updateBrandAction(
     // Extract new fields
     const foundingYearRaw = formData.get('foundingYear') as string | null
     const foundingYear = foundingYearRaw ? parseInt(foundingYearRaw, 10) : null
-    const founderName = formData.get('founderName') as string | null
-    const founderTitle = formData.get('founderTitle') as string | null
-    const founderQuote = formData.get('founderQuote') as string | null
 
     // Parse array fields
     const purchaseLinks = parseArrayField<{ platform: string; url: string; label: string }>(
@@ -95,8 +92,6 @@ export async function updateBrandAction(
     if (instagram) fieldsToCheck.instagram = instagram
     if (threads) fieldsToCheck.threads = threads
     if (facebook) fieldsToCheck.facebook = facebook
-    if (founderName) fieldsToCheck.founderName = founderName
-    if (founderQuote) fieldsToCheck.founderQuote = founderQuote
 
     // Run moderation
     const moderation = checkContent(fieldsToCheck)
@@ -130,17 +125,6 @@ export async function updateBrandAction(
       }
     }
 
-    // Handle founder fields
-    const hasFounderFields = founderName !== null || founderTitle !== null || founderQuote !== null
-    if (hasFounderFields) {
-      updateData.founder = {
-        ...(brand.founder ?? {}),
-        ...(founderName !== null ? { name: founderName } : {}),
-        ...(founderTitle !== null ? { title: founderTitle || null } : {}),
-        ...(founderQuote !== null ? { quote: founderQuote || null } : {}),
-      }
-    }
-
     await updateBrand(brand.id, updateData as Parameters<typeof updateBrand>[1])
 
     // Record flags for Tier 2 content
@@ -154,8 +138,6 @@ export async function updateBrandAction(
           case 'instagram': return brand.socialLinks.instagram ?? null
           case 'threads': return brand.socialLinks.threads ?? null
           case 'facebook': return brand.socialLinks.facebook ?? null
-          case 'founderName': return brand.founder?.name ?? null
-          case 'founderQuote': return brand.founder?.quote ?? null
           default: return null
         }
       }

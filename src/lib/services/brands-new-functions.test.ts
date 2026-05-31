@@ -24,7 +24,7 @@ const mockBrandRows = [
     social_links: {}, brand_taxonomy: [], brand_owners: [],
     created_at: '2026-01-01', updated_at: '2026-01-01',
     purchase_links: [], retail_locations: [], product_photos: [],
-    contact_email: null, founder: null, brand_highlights: null,
+    contact_email: null, brand_highlights: null,
   },
   {
     id: '2', name: '春一枝', slug: 'chun-yi-zhi', description: '天然水果冰棒',
@@ -34,7 +34,7 @@ const mockBrandRows = [
     social_links: {}, brand_taxonomy: [], brand_owners: [],
     created_at: '2026-01-02', updated_at: '2026-01-02',
     purchase_links: [], retail_locations: [], product_photos: [],
-    contact_email: null, founder: null, brand_highlights: null,
+    contact_email: null, brand_highlights: null,
   },
   {
     id: '3', name: '印花樂', slug: 'inblooom', description: '台灣花布設計',
@@ -44,7 +44,7 @@ const mockBrandRows = [
     social_links: {}, brand_taxonomy: [], brand_owners: [],
     created_at: '2026-01-03', updated_at: '2026-01-03',
     purchase_links: [], retail_locations: [], product_photos: [],
-    contact_email: null, founder: null, brand_highlights: null,
+    contact_email: null, brand_highlights: null,
   },
 ]
 

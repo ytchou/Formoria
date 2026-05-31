@@ -205,44 +205,6 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
           />
         </section>
 
-        {/* About */}
-        <section className="space-y-4">
-          <h2 className="font-heading text-base font-bold text-foreground border-b border-border pb-2">
-            About
-          </h2>
-
-          <div className="space-y-2">
-            <Label htmlFor="founderName">Founder Name</Label>
-            <Input
-              id="founderName"
-              name="founderName"
-              placeholder="Founder's name"
-              defaultValue={brand.founder?.name ?? ""}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="founderTitle">Founder Title</Label>
-            <Input
-              id="founderTitle"
-              name="founderTitle"
-              placeholder="e.g. CEO, Founder"
-              defaultValue={brand.founder?.title ?? ""}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="founderQuote">Founder Quote</Label>
-            <textarea
-              id="founderQuote"
-              name="founderQuote"
-              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              placeholder="A quote from the founder"
-              defaultValue={brand.founder?.quote ?? ""}
-            />
-          </div>
-        </section>
-
         <div className="flex gap-4">
           <Button type="submit" disabled={pending}>
             {pending ? "儲存中..." : "儲存變更"}
