@@ -19,7 +19,7 @@ const TIMELINE_STEPS = [
   },
   {
     label: '您的品牌上線',
-    description: '通過審核後，您的品牌將出現在 MIT Map 目錄中',
+    description: '通過審核後，您的品牌將出現在 Formoria 目錄中',
     active: false,
   },
 ]
@@ -82,7 +82,7 @@ export default function ConfirmationPage() {
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#E06B3F] px-5 py-3 text-sm font-medium text-white hover:bg-[#C85A33]"
           >
             <Home className="h-4 w-4" />
-            探索 MIT Map 目錄
+            探索 Formoria 目錄
           </Link>
           <Link
             href="/submit"
