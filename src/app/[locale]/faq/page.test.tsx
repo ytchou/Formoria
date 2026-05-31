@@ -98,8 +98,8 @@ describe('FaqPage (en)', () => {
     expect(screen.getByRole('heading', { name: 'Frequently Asked Questions' })).toBeInTheDocument()
   })
 
-  it('includes the English What is MIT Map question', async () => {
+  it('includes the English What is Formoria question', async () => {
     render(await FaqPage({ params: Promise.resolve({ locale: 'en' }) }))
-    expect(screen.getByText(/What is MIT Map/)).toBeInTheDocument()
+    expect(screen.getByText(/What is Formoria/)).toBeInTheDocument()
   })
 })

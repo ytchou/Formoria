@@ -15,7 +15,7 @@ vi.mock('next-intl', () => ({
       about: '關於我們',
       terms: '服務條款',
       contact: '聯絡我們',
-      copyright: `© ${params?.year ?? new Date().getFullYear()} MIT Map`,
+      copyright: `© ${params?.year ?? new Date().getFullYear()} Formoria`,
     }
     return map[key] ?? key
   },
