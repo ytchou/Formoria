@@ -6,15 +6,9 @@ export const scrapeUrlSchema = z.object({
 })
 
 const nameField = z.string().min(2, '品牌名稱至少需要 2 個字元').max(100)
-const descriptionField = z.string().min(10, '品牌介紹至少需要 10 個字元').max(500)
+const descriptionField = z.string().min(10, '品牌介紹至少需要 10 個字元').max(2000)
 const categoryField = z.string().min(1, '請選擇分類')
 const tagsField = z.array(z.string()).max(5, '最多可選擇 5 個標籤')
-
-const founderFields = z.object({
-  founderName: z.string().max(100).optional().default(''),
-  founderTitle: z.string().max(100).optional().default(''),
-  founderBio: z.string().max(300).optional().default(''),
-})
 
 export const brandInfoSchema = z.object({
   name: nameField,
@@ -22,7 +16,7 @@ export const brandInfoSchema = z.object({
   category: categoryField,
   tags: tagsField,
   logoUrl: z.string().url('請上傳品牌標誌').min(1, '請上傳品牌標誌'),
-}).merge(founderFields)
+})
 
 export const productsSchema = z.object({
   productPhotos: z.array(z.string()).max(6, '最多可上傳 6 張照片'),
@@ -86,7 +80,7 @@ export function createSubmissionSchema(isOwner: boolean) {
     logoUrl: isOwner
       ? z.string().url('請上傳品牌標誌').min(1, '請上傳品牌標誌')
       : z.string().url().optional().or(z.literal('')),
-  }).merge(founderFields)
+  })
 
   const linksBase = z.object({
     purchaseLinks: isOwner

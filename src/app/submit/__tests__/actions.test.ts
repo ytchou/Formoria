@@ -3,11 +3,15 @@ import { createSubmissionSchema } from '@/lib/validations/submission'
 
 const mockUpload = vi.fn()
 const mockGetPublicUrl = vi.fn()
+const mockGetUser = vi.fn()
+const mockCreateBrand = vi.fn()
+const mockCreateSubmission = vi.fn()
+const mockVerifyTurnstileToken = vi.fn()
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() =>
     Promise.resolve({
-      auth: { getUser: vi.fn() },
+      auth: { getUser: mockGetUser },
       storage: {
         from: vi.fn(() => ({
           upload: mockUpload,
@@ -26,7 +30,20 @@ vi.mock('@/lib/supabase/server', () => ({
   })),
 }))
 
+vi.mock('@/lib/services/brands', () => ({
+  createBrand: mockCreateBrand,
+}))
+
+vi.mock('@/lib/services/submissions', () => ({
+  createSubmission: mockCreateSubmission,
+}))
+
+vi.mock('@/lib/security/turnstile', () => ({
+  verifyTurnstileToken: mockVerifyTurnstileToken,
+}))
+
 import { downloadAndStoreImages } from '@/lib/services/image-download'
+import { submitBrand } from '@/app/submit/actions'
 
 describe('downloadAndStoreImages', () => {
   beforeEach(() => {
@@ -87,6 +104,23 @@ describe('downloadAndStoreImages', () => {
 // Test the schema selection logic in isolation — not the full action
 // (Full action involves Turnstile + Supabase; those are covered by E2E)
 describe('server action schema routing', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetUser.mockResolvedValue({
+      data: {
+        user: {
+          id: 'user-123',
+          email: 'owner@example.com',
+          user_metadata: { full_name: 'Owner User' },
+        },
+      },
+      error: null,
+    })
+    mockVerifyTurnstileToken.mockResolvedValue({ success: true })
+    mockCreateBrand.mockResolvedValue({ id: 'brand-123' })
+    mockCreateSubmission.mockResolvedValue({ id: 'submission-123' })
+  })
+
   it('owner payload without logoUrl fails owner schema', () => {
     const schema = createSubmissionSchema(true)
     const ownerPayload = {
@@ -127,58 +161,25 @@ describe('server action schema routing', () => {
     expect(schema.safeParse(communityPayload).success).toBe(true)
   })
 
-  it('preserves founder fields through createSubmissionSchema parse', () => {
-    const schema = createSubmissionSchema(false)
-    const payload = {
+  it('omits founder from the brand insert payload', async () => {
+    await submitBrand({
       name: 'Test Brand',
       description: 'Long enough description for the test',
       category: 'fashion',
       tags: [],
-      isOwner: false,
-      purchaseLinks: [],
+      logoUrl: 'https://example.com/logo.webp',
+      isOwner: true,
+      purchaseLinks: [{ platform: 'shopify', url: 'https://shop.com' }],
       pdpaConsent: true,
       socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
-      sourceAttribution: 'found_online',
       productPhotos: [],
       brandHighlights: '',
       retailLocations: [],
       turnstileToken: 'test-token',
-      founderName: 'Lin Wei-Chen',
-      founderTitle: 'Founder & CEO',
-      founderBio: 'Started the brand after returning from Tokyo.',
-    }
-    const result = schema.safeParse(payload)
-    expect(result.success).toBe(true)
-    if (result.success) {
-      expect(result.data.founderName).toBe('Lin Wei-Chen')
-      expect(result.data.founderTitle).toBe('Founder & CEO')
-      expect(result.data.founderBio).toBe('Started the brand after returning from Tokyo.')
-    }
-  })
+    })
 
-  it('founder fields default to empty string when omitted', () => {
-    const schema = createSubmissionSchema(false)
-    const payload = {
-      name: 'Test Brand',
-      description: 'Long enough description for the test',
-      category: 'fashion',
-      tags: [],
-      isOwner: false,
-      purchaseLinks: [],
-      pdpaConsent: true,
-      socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
-      sourceAttribution: 'found_online',
-      productPhotos: [],
-      brandHighlights: '',
-      retailLocations: [],
-      turnstileToken: 'test-token',
-    }
-    const result = schema.safeParse(payload)
-    expect(result.success).toBe(true)
-    if (result.success) {
-      expect(result.data.founderName).toBe('')
-      expect(result.data.founderTitle).toBe('')
-      expect(result.data.founderBio).toBe('')
-    }
+    expect(mockCreateBrand).toHaveBeenCalledTimes(1)
+    const payload = mockCreateBrand.mock.calls[0][0]
+    expect('founder' in payload).toBe(false)
   })
 })

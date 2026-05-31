@@ -229,6 +229,7 @@ export function BrandInfoStep({
         <textarea
           id="brand-description"
           rows={4}
+          maxLength={2000}
           placeholder="Tell us about your brand..."
           className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
           {...register('description')}
@@ -240,7 +241,7 @@ export function BrandInfoStep({
             <span />
           )}
           <span className="text-xs text-muted-foreground">
-            {description.length} / 500 max characters
+            {description.length} / 2000 max characters
           </span>
         </div>
       </div>
@@ -370,57 +371,6 @@ export function BrandInfoStep({
         )}
       </div>
 
-      <div className="space-y-3">
-        <p className="text-sm font-semibold text-foreground">
-          Founder Information{' '}
-          <span className="text-xs font-normal text-muted-foreground">(Optional)</span>
-        </p>
-        <div className="space-y-1.5">
-          <label
-            htmlFor="founder-name"
-            className="block text-sm font-medium text-foreground"
-          >
-            Founder Name
-          </label>
-          <input
-            id="founder-name"
-            type="text"
-            placeholder="e.g. Lin Wei-Chen"
-            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
-            {...register('founderName')}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <label
-            htmlFor="founder-title"
-            className="block text-sm font-medium text-foreground"
-          >
-            Founder Title
-          </label>
-          <input
-            id="founder-title"
-            type="text"
-            placeholder="e.g. Founder & CEO"
-            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
-            {...register('founderTitle')}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <label
-            htmlFor="founder-bio"
-            className="block text-sm font-medium text-foreground"
-          >
-            Founder Bio
-          </label>
-          <textarea
-            id="founder-bio"
-            rows={3}
-            placeholder="e.g. Started the brand after returning from Tokyo..."
-            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
-            {...register('founderBio')}
-          />
-        </div>
-      </div>
     </div>
   )
 }

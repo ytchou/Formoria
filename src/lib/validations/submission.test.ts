@@ -89,36 +89,46 @@ describe('brandInfoSchema', () => {
     })
     expect(result.success).toBe(false)
   })
+})
 
-  it('accepts optional founder fields', () => {
+describe('brandInfoSchema — About (description) and founder removal', () => {
+  const base = {
+    name: '測試品牌',
+    description: '這是一個測試品牌的介紹文字。',
+    category: 'tea',
+    tags: [],
+    logoUrl: 'https://example.com/logo.webp',
+  }
+
+  it('accepts an About description up to 2000 chars', () => {
     const result = brandInfoSchema.safeParse({
-      name: 'Test Brand',
-      category: 'food',
-      description: 'A valid description here.',
-      tags: [],
-      logoUrl: 'https://example.com/logo.webp',
-      founderName: 'Lin Wei-Chen',
-      founderTitle: 'Founder & CEO',
-      founderBio: 'Started the brand after returning from Tokyo.',
+      ...base,
+      description: '字'.repeat(2000),
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects an About description over 2000 chars', () => {
+    const result = brandInfoSchema.safeParse({
+      ...base,
+      description: '字'.repeat(2001),
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('no longer includes founder fields in parsed output', () => {
+    const result = brandInfoSchema.safeParse({
+      ...base,
+      founderName: 'X',
+      founderTitle: 'Y',
+      founderBio: 'Z',
     })
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data.founderName).toBe('Lin Wei-Chen')
-      expect(result.data.founderBio).toBe(
-        'Started the brand after returning from Tokyo.'
-      )
+      expect('founderName' in result.data).toBe(false)
+      expect('founderTitle' in result.data).toBe(false)
+      expect('founderBio' in result.data).toBe(false)
     }
-  })
-
-  it('accepts missing founder fields (all optional)', () => {
-    const result = brandInfoSchema.safeParse({
-      name: 'Test Brand',
-      category: 'food',
-      description: 'A valid description here.',
-      tags: [],
-      logoUrl: 'https://example.com/logo.webp',
-    })
-    expect(result.success).toBe(true)
   })
 })
 
