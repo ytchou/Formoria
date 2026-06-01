@@ -65,4 +65,10 @@ test.describe('Submit flow deep', () => {
     await expect(cta).toBeVisible({ timeout: 5_000 });
     await expect(cta).toHaveAttribute('href', '/auth/sign-in?next=/submit');
   });
+
+  test('English submit route resolves under /en', async ({ anonPage }) => {
+    const res = await anonPage.goto('/en/submit');
+    expect(res?.status()).toBe(200);
+    await expect(anonPage).toHaveURL(/\/en\/submit/);
+  });
 });

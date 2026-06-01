@@ -3,9 +3,9 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import ConfirmationPage from './page'
 
-// Mock next/link to a simple anchor
-vi.mock('next/link', () => ({
-  default: ({
+// Mock localized Link to a simple anchor
+vi.mock('@/i18n/navigation', () => ({
+  Link: ({
     href,
     children,
     className,

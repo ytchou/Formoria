@@ -80,4 +80,17 @@ test.describe('i18n English browse', () => {
     await page.goto(href!);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
   });
+
+  test('switching to EN via the switcher updates chrome + client components without refresh', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await expect(page.getByRole('link', { name: '品牌目錄' })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('link', { name: 'EN', exact: true }).click();
+    await expect(page).toHaveURL(/\/en$/, { timeout: 10_000 });
+    await expect(page.getByRole('link', { name: /brand directory/i })).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('h1')).not.toHaveText('探索台灣製造的精品品牌');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(page.getByRole('link', { name: 'EN', exact: true })).toHaveAttribute('aria-current', 'true');
+  });
 });

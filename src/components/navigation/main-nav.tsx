@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import NextLink from 'next/link'
 import { Link, usePathname } from '@/i18n/navigation'
 import { Menu } from 'lucide-react'
 import {
@@ -78,7 +77,7 @@ export function MainNav({ categories }: MainNavProps) {
           >
             {t('support')}
           </Link>
-          <NextLink
+          <Link
             href="/my-submissions"
             className={`text-sm transition-colors ${
               isActive('/my-submissions')
@@ -87,13 +86,13 @@ export function MainNav({ categories }: MainNavProps) {
             }`}
           >
             {t('mySubmissions')}
-          </NextLink>
-          <NextLink
+          </Link>
+          <Link
             href="/submit"
             className="rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             {t('submitBrand')}
-          </NextLink>
+          </Link>
           <LocaleSwitcher />
         </div>
 
@@ -151,7 +150,7 @@ export function MainNav({ categories }: MainNavProps) {
                 >
                   {t('support')}
                 </Link>
-                <NextLink
+                <Link
                   href="/my-submissions"
                   className={`block rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
                     isActive('/my-submissions')
@@ -161,14 +160,14 @@ export function MainNav({ categories }: MainNavProps) {
                   onClick={() => setOpen(false)}
                 >
                   {t('mySubmissions')}
-                </NextLink>
-                <NextLink
+                </Link>
+                <Link
                   href="/submit"
                   className="block rounded-full bg-primary px-5 py-3 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                   onClick={() => setOpen(false)}
                 >
                   {t('submitBrand')}
-                </NextLink>
+                </Link>
                 <div className="px-4">
                   <LocaleSwitcher />
                 </div>

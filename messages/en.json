@@ -322,5 +322,21 @@
       "primary": "Explore Brands",
       "secondary": "Submit a Brand"
     }
+  },
+  "mySubmissions": {
+    "metadata": {
+      "title": "My Submissions"
+    },
+    "heading": "My Submissions",
+    "subheading": "View all brands you have submitted",
+    "empty": {
+      "message": "You haven't submitted any brands yet.",
+      "cta": "Submit a Brand"
+    },
+    "status": {
+      "pending": "Under Review",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    }
   }
 }

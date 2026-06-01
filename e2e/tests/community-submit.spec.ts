@@ -64,4 +64,12 @@ test.describe('Community submit flow', () => {
     await expect(userPage.getByRole('heading', { name: /my submissions|我的提交/i }))
       .toBeVisible({ timeout: 5_000 })
   })
+
+  test('my-submissions renders English copy under /en', async ({ userPage }) => {
+    const res = await userPage.goto('/en/my-submissions')
+    expect(res?.status()).toBe(200)
+    await expect(userPage.getByRole('heading', { name: /my submissions/i })).toBeVisible({
+      timeout: 10_000,
+    })
+  })
 })

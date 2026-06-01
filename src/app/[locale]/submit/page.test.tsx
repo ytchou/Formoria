@@ -28,6 +28,10 @@ vi.mock('@/lib/services/taxonomy', () => ({
 
 vi.mock('next/navigation', () => ({
   redirect: vi.fn(),
+  permanentRedirect: vi.fn(),
+  useRouter: vi.fn(() => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() })),
+  usePathname: vi.fn(() => '/'),
+  useSearchParams: vi.fn(() => new URLSearchParams()),
 }))
 
 describe('SubmitPage', () => {

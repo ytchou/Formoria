@@ -1,4 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
+import zh from '../../../../messages/zh-TW.json'
+
+vi.mock('next-intl/server', () => ({
+  getTranslations: vi.fn(),
+  getLocale: vi.fn().mockResolvedValue('zh-TW'),
+  setRequestLocale: vi.fn(),
+}))
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: () =>
@@ -26,6 +33,34 @@ vi.mock('@/lib/services/submissions', () => ({
 vi.mock('next/navigation', () => ({
   redirect: vi.fn(),
 }))
+
+vi.mock('@/i18n/navigation', () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  Link: (props: any) => ({ type: 'a', props }),
+}))
+
+import { getTranslations } from 'next-intl/server'
+
+type Messages = typeof zh
+
+function makeT(messages: Messages, namespace: string) {
+  return (key: string) => {
+    const parts = `${namespace}.${key}`.split('.')
+    let current: unknown = messages
+    for (const part of parts) {
+      if (typeof current !== 'object' || current === null) return key
+      current = (current as Record<string, unknown>)[part]
+    }
+    return typeof current === 'string' ? current : key
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+vi.mocked(getTranslations).mockImplementation(async (namespace: any) => {
+  const t = makeT(zh as Messages, typeof namespace === 'string' ? namespace : '')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return t as any
+})
 
 describe('MySubmissionsPage', () => {
   it('exports a default async component', async () => {

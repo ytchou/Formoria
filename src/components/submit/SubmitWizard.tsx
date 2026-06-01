@@ -3,7 +3,6 @@
 import { useState, useMemo, useTransition, useEffect, useCallback, useRef } from 'react'
 import { useForm, FormProvider, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useRouter } from 'next/navigation'
 import { ArrowLeft, ArrowRight, Send } from 'lucide-react'
 import { StepIndicator } from './StepIndicator'
 import { UrlStep } from './UrlStep'
@@ -19,7 +18,8 @@ import {
   fullSubmissionSchema,
   type SubmissionFormData,
 } from '@/lib/validations/submission'
-import { submitBrand } from '@/app/submit/actions'
+import { useRouter } from '@/i18n/navigation'
+import { submitBrand } from '@/app/[locale]/submit/actions'
 import {
   trackSubmissionFormOpened,
   trackSubmissionFormStepCompleted,

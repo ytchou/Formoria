@@ -322,5 +322,21 @@
       "primary": "探索品牌",
       "secondary": "提交品牌"
     }
+  },
+  "mySubmissions": {
+    "metadata": {
+      "title": "我的提交"
+    },
+    "heading": "我的提交",
+    "subheading": "查看您提交的所有品牌",
+    "empty": {
+      "message": "您尚未提交任何品牌。",
+      "cta": "提交品牌"
+    },
+    "status": {
+      "pending": "審核中",
+      "approved": "已通過",
+      "rejected": "已拒絕"
+    }
   }
 }

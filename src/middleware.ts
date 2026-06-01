@@ -44,9 +44,12 @@ const PUBLIC_INTL_SEGMENTS = new Set([
   'faq',
   'terms',
   'support',
+  'submit',
+  'my-submissions',
+  'dashboard',
 ])
 
-function isLocalizedPublicPath(pathname: string) {
+export function isLocalizedPublicPath(pathname: string) {
   const segments = pathname.split('/').filter(Boolean)
   if (segments.length === 0) return true
 
