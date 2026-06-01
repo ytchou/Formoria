@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const mockGetUser = vi.fn()
 
 vi.mock('@/lib/services/scraper', () => ({
-  scrapeBrandUrl: vi.fn(),
+  scrapeBrandUrls: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -17,7 +17,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 
 import { POST } from '../route'
-import { scrapeBrandUrl } from '@/lib/services/scraper'
+import { scrapeBrandUrls } from '@/lib/services/scraper'
 
 function makeRequest(body: Record<string, unknown>) {
   return new Request('http://localhost/api/scrape', {
@@ -39,7 +39,7 @@ describe('POST /api/scrape', () => {
     const mockData = {
       brandName: 'Test Brand',
       description: 'A test brand',
-      brandHighlights: null,
+      story: null,
       heroImageUrl: null,
       galleryImageUrls: [],
       socialLinks: { instagram: null, threads: null, facebook: null },
@@ -47,17 +47,24 @@ describe('POST /api/scrape', () => {
       websiteUrl: 'https://test.com',
       rawJsonLd: null,
     }
-    vi.mocked(scrapeBrandUrl).mockResolvedValue(mockData)
+    const mockStatuses = [
+      { url: 'https://a.com', ok: true, classification: 'official-site' as const },
+    ]
+    vi.mocked(scrapeBrandUrls).mockResolvedValue({
+      data: mockData,
+      statuses: mockStatuses,
+    })
 
-    const response = await POST(makeRequest({ url: 'https://test.com' }))
+    const response = await POST(makeRequest({ urls: ['https://a.com'] }))
     const json = await response.json()
 
     expect(response.status).toBe(200)
-    expect(json.brandName).toBe('Test Brand')
+    expect(json.data).toEqual(mockData)
+    expect(json.statuses).toEqual(mockStatuses)
   })
 
   it('returns 400 for invalid URL', async () => {
-    const response = await POST(makeRequest({ url: 'not-a-url' }))
+    const response = await POST(makeRequest({ urls: ['nope'] }))
     expect(response.status).toBe(400)
   })
 
@@ -66,7 +73,7 @@ describe('POST /api/scrape', () => {
       data: { user: null },
     })
 
-    const response = await POST(makeRequest({ url: 'https://test.com' }))
+    const response = await POST(makeRequest({ urls: ['https://test.com'] }))
     expect(response.status).toBe(401)
   })
 })

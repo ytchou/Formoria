@@ -9,38 +9,19 @@ import {
 } from './submission'
 
 describe('scrapeUrlSchema', () => {
-  it('accepts valid HTTPS URL', () => {
-    const result = scrapeUrlSchema.safeParse({ url: 'https://mybrand.com.tw' })
-    expect(result.success).toBe(true)
+  it('accepts 1–3 https urls', () => {
+    expect(scrapeUrlSchema.safeParse({ urls: ['https://a.com'] }).success).toBe(true)
+    expect(scrapeUrlSchema.safeParse({ urls: ['https://a.com','https://b.com','https://c.com'] }).success).toBe(true)
   })
-
-  it('accepts HTTPS URL with path', () => {
-    const result = scrapeUrlSchema.safeParse({
-      url: 'https://mybrand.com.tw/about',
-    })
-    expect(result.success).toBe(true)
+  it('dedupes identical urls', () => {
+    const p = scrapeUrlSchema.safeParse({ urls: ['https://a.com','https://a.com'] })
+    expect(p.success && p.data.urls.length).toBe(1)
   })
-
-  it('rejects HTTP URL', () => {
-    const result = scrapeUrlSchema.safeParse({ url: 'http://mybrand.com' })
-    expect(result.success).toBe(false)
-  })
-
-  it('rejects invalid URL', () => {
-    const result = scrapeUrlSchema.safeParse({ url: 'not-a-url' })
-    expect(result.success).toBe(false)
-  })
-
-  it('rejects empty string', () => {
-    const result = scrapeUrlSchema.safeParse({ url: '' })
-    expect(result.success).toBe(false)
-  })
-
-  it('rejects URL exceeding max length', () => {
-    const result = scrapeUrlSchema.safeParse({
-      url: 'https://x.com/' + 'a'.repeat(2048),
-    })
-    expect(result.success).toBe(false)
+  it('rejects >3, empty, http, and non-urls', () => {
+    expect(scrapeUrlSchema.safeParse({ urls: ['https://a.com','https://b.com','https://c.com','https://d.com'] }).success).toBe(false)
+    expect(scrapeUrlSchema.safeParse({ urls: [] }).success).toBe(false)
+    expect(scrapeUrlSchema.safeParse({ urls: ['http://a.com'] }).success).toBe(false)
+    expect(scrapeUrlSchema.safeParse({ urls: ['nope'] }).success).toBe(false)
   })
 })
 

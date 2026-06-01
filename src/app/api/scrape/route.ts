@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { scrapeUrlSchema } from '@/lib/validations/submission'
-import { scrapeBrandUrl } from '@/lib/services/scraper'
+import { scrapeBrandUrls } from '@/lib/services/scraper'
 import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
@@ -26,10 +26,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid URL' }, { status: 400 })
     }
 
-    // Scrape the URL
-    const data = await scrapeBrandUrl(parsed.data.url)
+    // Scrape the URLs
+    const { data, statuses } = await scrapeBrandUrls(parsed.data.urls)
 
-    return NextResponse.json(data)
+    return NextResponse.json({ data, statuses })
   } catch (error) {
     console.error('Scrape API error:', error)
     return NextResponse.json(
