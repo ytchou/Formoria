@@ -69,7 +69,7 @@ describe('UrlStep', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve(mockData),
+        json: () => Promise.resolve({ data: mockData }),
       })
     )
 
