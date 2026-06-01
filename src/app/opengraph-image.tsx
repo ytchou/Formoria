@@ -4,6 +4,7 @@ import { BrandMark } from '@/lib/brand/BrandMark'
 import { brand } from '@/lib/brand/colors'
 import { getOgFonts } from '@/lib/brand/og-fonts'
 
+export const dynamic = 'force-dynamic'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
