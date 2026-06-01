@@ -58,6 +58,20 @@ function isLocalizedPublicPath(pathname: string) {
   return PUBLIC_INTL_SEGMENTS.has(firstSegment)
 }
 
+function previewAllowedEmails(): Set<string> {
+  const emails = [
+    process.env.ADMIN_EMAILS,
+    process.env.PREVIEW_ALLOWED_EMAILS,
+  ]
+
+  return new Set(
+    emails
+      .flatMap((value) => value?.split(',') ?? [])
+      .map((email) => email.trim().toLowerCase())
+      .filter((email) => email.length > 0)
+  )
+}
+
 async function refreshSupabaseSession(request: NextRequest, response: NextResponse) {
   const supabaseResponse = response
 
@@ -119,8 +133,11 @@ export async function middleware(request: NextRequest) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    const allowedEmails = previewAllowedEmails()
+    const userEmail = user?.email?.toLowerCase()
+    const isPreviewAllowed = userEmail ? allowedEmails.has(userEmail) : false
 
-    if (!user) {
+    if (!isPreviewAllowed) {
       return new NextResponse(underConstructionHtml, {
         status: 503,
         headers: {
