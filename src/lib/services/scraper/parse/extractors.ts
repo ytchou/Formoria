@@ -2,8 +2,6 @@ import * as cheerio from 'cheerio'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import { resolveUrl } from '../fetch-guards'
 
-type ScrapedBrandDataWithStory = ScrapedBrandData & { story: null }
-
 const MAX_GALLERY_IMAGES = 10
 const MIN_IMAGE_DIMENSION = 200
 
@@ -113,7 +111,7 @@ export function filterHeroImage(rawUrl: string, pageUrl: string): string | null 
   return resolved
 }
 
-export function emptyResult(websiteUrl: string): ScrapedBrandDataWithStory {
+export function emptyResult(websiteUrl: string): ScrapedBrandData {
   return {
     brandName: null,
     description: null,
@@ -124,5 +122,5 @@ export function emptyResult(websiteUrl: string): ScrapedBrandDataWithStory {
     categoryHints: [],
     websiteUrl,
     rawJsonLd: null,
-  } as unknown as ScrapedBrandDataWithStory
+  }
 }

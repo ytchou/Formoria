@@ -107,9 +107,9 @@ export function buildEnrichPatch(
     patch.socialLinks = mergedLinks
   }
 
-  // Fill brandHighlights from scraped description if brand has none
-  if (!brand.brandHighlights && scraped.brandHighlights) {
-    patch.brandHighlights = scraped.brandHighlights
+  // Fill brandHighlights from scraped story if brand has none
+  if (!brand.brandHighlights && scraped.story) {
+    patch.brandHighlights = scraped.story
   }
 
   return patch

@@ -39,7 +39,7 @@ describe('POST /api/scrape', () => {
     const mockData = {
       brandName: 'Test Brand',
       description: 'A test brand',
-      brandHighlights: null,
+      story: null,
       heroImageUrl: null,
       galleryImageUrls: [],
       socialLinks: { instagram: null, threads: null, facebook: null },

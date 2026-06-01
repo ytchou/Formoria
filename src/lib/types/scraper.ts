@@ -1,7 +1,7 @@
 export interface ScrapedBrandData {
   brandName: string | null
   description: string | null
-  brandHighlights: string | null
+  story: string | null
   heroImageUrl: string | null
   galleryImageUrls: string[]
   socialLinks: {
