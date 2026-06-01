@@ -1,6 +1,10 @@
 import Link from 'next/link';
 
-export default function SubmitOverview() {
+type SubmitOverviewProps = {
+  nextPath?: string;
+};
+
+export default function SubmitOverview({ nextPath = '/submit' }: SubmitOverviewProps) {
   return (
     <main className="mx-auto max-w-2xl px-6 py-20">
       <h1 className="font-heading text-3xl font-bold text-foreground">
@@ -25,7 +29,7 @@ export default function SubmitOverview() {
       </ul>
       <p className="mt-6 text-sm text-muted-foreground">大約 10 分鐘即可完成</p>
       <Link
-        href="/auth/sign-in?next=/submit"
+        href={`/auth/sign-in?next=${nextPath}`}
         className="mt-8 inline-flex items-center justify-center rounded-lg bg-cta px-8 py-3 text-base font-semibold text-cta-foreground transition-colors hover:bg-cta/90"
       >
         登入並開始提交

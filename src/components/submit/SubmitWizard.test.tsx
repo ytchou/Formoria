@@ -66,10 +66,10 @@ vi.mock('./UrlStep', () => ({
     </div>
   ),
 }))
-vi.mock('@/app/submit/actions', () => ({
+vi.mock('@/app/[locale]/submit/actions', () => ({
   submitBrand: vi.fn(),
 }))
-vi.mock('next/navigation', () => ({
+vi.mock('@/i18n/navigation', () => ({
   useRouter: () => ({
     push: vi.fn(),
     replace: vi.fn(),

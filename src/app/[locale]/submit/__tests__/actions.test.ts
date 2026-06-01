@@ -52,7 +52,7 @@ vi.mock('@/lib/security/turnstile', () => ({
 }))
 
 import { downloadAndStoreImages } from '@/lib/services/image-download'
-import { submitBrand } from '@/app/submit/actions'
+import { submitBrand } from '@/app/[locale]/submit/actions'
 
 describe('downloadAndStoreImages', () => {
   beforeEach(() => {

@@ -8,7 +8,12 @@ export const metadata = {
   description: '將您的台灣製造品牌分享給社群',
 }
 
-export default async function SubmitPage() {
+type SubmitPageProps = {
+  params: Promise<{ locale: string }>
+}
+
+export default async function SubmitPage({ params }: SubmitPageProps) {
+  const { locale } = await params
   const supabase = await createClient()
   const {
     data: { user },
@@ -16,7 +21,7 @@ export default async function SubmitPage() {
   } = await supabase.auth.getUser()
 
   if (error || !user) {
-    return <SubmitOverview />
+    return <SubmitOverview nextPath={locale === 'en' ? '/en/submit' : '/submit'} />
   }
 
   const categories = await getTags('product_type')
