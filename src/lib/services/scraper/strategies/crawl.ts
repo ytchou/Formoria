@@ -19,6 +19,7 @@ interface CrawlCandidate {
 }
 
 const MAX_CRAWL_PAGES = 5
+const MAX_CATEGORY_HINTS = 5
 const CRAWL_CONCURRENCY = 3
 const ASSET_PATH_RE =
   /\.(?:avif|bmp|css|gif|ico|jpe?g|js|json|map|pdf|png|svg|webp|woff2?)$/i
@@ -211,10 +212,10 @@ function mergeSocialLinks(
 function mergeCategoryHints(base: string[], next: string[]): string[] {
   const seen = new Set(base)
   for (const hint of next) {
-    if (seen.size >= MAX_CRAWL_PAGES) break
+    if (seen.size >= MAX_CATEGORY_HINTS) break
     seen.add(hint)
   }
-  return [...seen].slice(0, MAX_CRAWL_PAGES)
+  return [...seen].slice(0, MAX_CATEGORY_HINTS)
 }
 
 export class CrawlStrategy implements ScrapeStrategy {

@@ -103,7 +103,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
       }: { data: ScrapedBrandData; statuses?: ScrapeStatus[] } = await response.json()
       if (statuses?.some((sourceStatus) => !sourceStatus.ok)) {
         const loadedCount = statuses.filter((sourceStatus) => sourceStatus.ok).length
-        setLoadedBanner(`${loadedCount} of ${statuses.length} sources loaded`)
+        setLoadedBanner(`已載入 ${loadedCount} / ${statuses.length} 個來源`)
       }
       setStatus('idle')
       onSuccess(data)
