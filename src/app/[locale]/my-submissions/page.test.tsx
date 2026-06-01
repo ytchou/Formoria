@@ -3,6 +3,7 @@ import zh from '../../../../messages/zh-TW.json'
 
 vi.mock('next-intl/server', () => ({
   getTranslations: vi.fn(),
+  getLocale: vi.fn().mockResolvedValue('zh-TW'),
   setRequestLocale: vi.fn(),
 }))
 
@@ -31,6 +32,11 @@ vi.mock('@/lib/services/submissions', () => ({
 
 vi.mock('next/navigation', () => ({
   redirect: vi.fn(),
+}))
+
+vi.mock('@/i18n/navigation', () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  Link: (props: any) => ({ type: 'a', props }),
 }))
 
 import { getTranslations } from 'next-intl/server'

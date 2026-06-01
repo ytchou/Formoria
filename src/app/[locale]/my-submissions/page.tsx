@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import { Link } from '@/i18n/navigation'
 import { redirect } from 'next/navigation'
-import { getTranslations } from 'next-intl/server'
+import { getLocale, getTranslations } from 'next-intl/server'
 import { createClient } from '@/lib/supabase/server'
 import { getUserSubmissions } from '@/lib/services/submissions'
 import { Badge } from '@/components/ui/badge'
@@ -20,13 +20,15 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 export default async function MySubmissionsPage() {
+  const locale = await getLocale()
+  const next = locale === 'en' ? '/en/my-submissions' : '/my-submissions'
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect('/auth/sign-in?next=/my-submissions')
+    redirect(`/auth/sign-in?next=${next}`)
   }
 
   const t = await getTranslations('mySubmissions')
@@ -63,7 +65,7 @@ export default async function MySubmissionsPage() {
               <div>
                 <p className="font-medium text-[#1A1918]">{sub.brandName}</p>
                 <p className="mt-0.5 text-xs text-[#B0AAA4]">
-                  {new Date(sub.createdAt).toLocaleDateString('zh-TW')}
+                  {new Date(sub.createdAt).toLocaleDateString(locale === 'en' ? 'en-US' : 'zh-TW')}
                 </p>
               </div>
               <Badge
