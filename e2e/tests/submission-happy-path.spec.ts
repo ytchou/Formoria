@@ -21,13 +21,7 @@ type ReactFiberNode = {
   } | null;
 };
 
-async function seedTurnstileTokenIfWidgetIsMissing(page: Page, token: string) {
-  await page.waitForTimeout(250);
-
-  const hasTurnstileScript =
-    (await page.locator('script[src*="challenges.cloudflare.com/turnstile"]').count()) > 0;
-  if (hasTurnstileScript) return false;
-
+async function triggerTurnstileSuccess(page: Page, token: string) {
   await page.evaluate((injectedToken) => {
     const getFiber = (element: Element | null): ReactFiberNode | null => {
       if (!element) return null;
@@ -86,8 +80,54 @@ async function seedTurnstileTokenIfWidgetIsMissing(page: Page, token: string) {
 
     throw new Error('Unable to find TurnstileWidget in the React tree');
   }, token);
+}
 
-  return true;
+async function waitForTurnstileWidgetToken(page: Page, timeout = 15_000) {
+  const tokenHandle = await page
+    .waitForFunction(
+      () => {
+        const responseFields = document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
+          'input[name="cf-turnstile-response"], textarea[name="cf-turnstile-response"]'
+        );
+
+        for (const field of responseFields) {
+          const value = field.value.trim();
+          if (value) return value;
+        }
+
+        return null;
+      },
+      undefined,
+      { timeout }
+    )
+    .catch(() => null);
+
+  if (!tokenHandle) return null;
+
+  const token = await tokenHandle.jsonValue<string | null>();
+  return token?.trim() || null;
+}
+
+async function ensureTurnstileToken(page: Page, fallbackToken: string) {
+  await page.waitForTimeout(250);
+
+  const widgetToken = await waitForTurnstileWidgetToken(page);
+  if (widgetToken) {
+    await triggerTurnstileSuccess(page, widgetToken);
+    return 'widget';
+  }
+
+  const hasTurnstileScript =
+    (await page.locator('script[src*="challenges.cloudflare.com/turnstile"]').count()) > 0;
+  if (hasTurnstileScript && process.env.TURNSTILE_SECRET_KEY) {
+    throw new Error(
+      'Turnstile script loaded but no widget token was issued before submit in a server-validated environment'
+    );
+  }
+
+  await triggerTurnstileSuccess(page, fallbackToken);
+
+  return 'seeded';
 }
 
 test.describe('Submission happy path', () => {
@@ -179,7 +219,7 @@ test.describe('Submission happy path', () => {
       })
       .check();
 
-    await seedTurnstileTokenIfWidgetIsMissing(userPage, `e2e-turnstile-${timestamp}`);
+    await ensureTurnstileToken(userPage, `e2e-turnstile-${timestamp}`);
 
     await Promise.all([
       userPage.waitForURL('**/submit/confirmation', { timeout: 20_000 }),
