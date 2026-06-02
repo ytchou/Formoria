@@ -1,11 +1,39 @@
 import type { Brand, BrandFilters, SocialLinks } from '@/lib/types'
 import type { TaxonomyTag } from '@/lib/types'
+import type { Database } from '@/lib/supabase/database.types'
 import { NotFoundError, ValidationError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getActiveCategories } from '@/lib/services/taxonomy'
 import { BRAND_SORT_CONFIG } from '@/lib/pagination'
 import { RESERVED_ROUTES } from '@/middleware'
 import { downloadAndStoreImages } from './image-download'
+
+// ---------------------------------------------------------------------------
+// Row types
+// ---------------------------------------------------------------------------
+
+type BrandRow = Database['public']['Tables']['brands']['Row']
+type TaxonomyTagRow = Database['public']['Tables']['taxonomy_tags']['Row']
+
+/** Shape returned by: brand_taxonomy(taxonomy_tags(*)) — only the nested tag is used by the mapper */
+type BrandTaxonomyWithTag = {
+  taxonomy_tags: TaxonomyTagRow | null
+}
+
+/** Shape returned by: brand_owners(user_id) */
+type BrandOwnerRef = { user_id: string }
+
+/**
+ * Full joined row from BRAND_SELECT. Extends Partial<BrandRow> so that
+ * unit test fixtures can omit columns added in later migrations (is_demo,
+ * tag_slugs, founder, brand_highlights) without a cast — the mapper uses
+ * ?? defaults for all optional fields.
+ */
+export type BrandRowWithJoins = Partial<BrandRow> &
+  Pick<BrandRow, 'id' | 'name' | 'slug' | 'status' | 'submitted_at' | 'created_at' | 'updated_at'> & {
+    brand_taxonomy?: BrandTaxonomyWithTag[] | null
+    brand_owners?: BrandOwnerRef[] | null
+  }
 
 export type SearchResult = {
   id: string
@@ -55,19 +83,19 @@ function mapSocialLinksToDb(links: SocialLinks): Record<string, string | undefin
   return result
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-export function brandToDomain(row: any): Brand {
-  const taxonomyJoin: any[] = row.brand_taxonomy ?? []
+export function brandToDomain(row: BrandRowWithJoins): Brand {
+  const taxonomyJoin = row.brand_taxonomy ?? []
   const tags: TaxonomyTag[] = taxonomyJoin
-    .filter((bt: any) => bt.taxonomy_tags)
-    .map((bt: any) => {
-      const t = bt.taxonomy_tags
+    .filter((bt) => bt.taxonomy_tags !== null)
+    .map((bt) => {
+      const t = bt.taxonomy_tags as TaxonomyTagRow
       return {
         id: t.id,
         name: t.name,
         nameZh: t.name_zh ?? null,
         slug: t.slug,
-        category: t.category,
+        // taxonomy_tags.category is text in the DB — cast to TagCategory at the boundary
+        category: t.category as TaxonomyTag['category'],
         isActive: t.is_active,
         suggestedBy: t.suggested_by ?? null,
         createdAt: t.created_at,
@@ -81,15 +109,17 @@ export function brandToDomain(row: any): Brand {
     description: row.description ?? null,
     logoUrl: row.logo_url ?? null,
     heroImageUrl: row.hero_image_url ?? null,
-    status: row.status,
+    // status is text in the DB — cast to BrandStatus at the boundary
+    status: row.status as Brand['status'],
     category: row.category ?? null,
     isVerified: Array.isArray(row.brand_owners) && row.brand_owners.length > 0,
     isDemo: row.is_demo ?? false,
     foundingYear: row.founding_year ?? null,
-    purchaseLinks: row.purchase_links ?? [],
-    socialLinks: mapSocialLinksToDomain(row.social_links ?? {}),
-    retailLocations: row.retail_locations ?? [],
-    productPhotos: row.product_photos ?? [],
+    // Json columns are cast to domain types at the service boundary
+    purchaseLinks: (row.purchase_links as Brand['purchaseLinks']) ?? [],
+    socialLinks: mapSocialLinksToDomain((row.social_links as Record<string, string | undefined>) ?? {}),
+    retailLocations: (row.retail_locations as Brand['retailLocations']) ?? [],
+    productPhotos: (row.product_photos as string[]) ?? [],
     contactEmail: row.contact_email ?? null,
     brandHighlights: row.brand_highlights ?? null,
     tags,
@@ -119,7 +149,6 @@ export function brandToInsert(data: Partial<Brand>): Record<string, unknown> {
   if (data.isDemo) row.is_demo = data.isDemo
   return row
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 // ---------------------------------------------------------------------------
 // Service functions
