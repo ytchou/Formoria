@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "check:favicon": "node scripts/check-favicon-rgba.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "prettier --write .",

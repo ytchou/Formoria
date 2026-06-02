@@ -18,3 +18,6 @@ fi
 
 # ── Run linting ───────────────────────────────────────────────────────────────
 # pnpm run lint
+
+# Guard: favicon.ico must be RGBA or `next build` (Turbopack) crashes the deploy.
+node scripts/check-favicon-rgba.mjs || exit 1

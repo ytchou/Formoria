@@ -8,6 +8,8 @@ on:
       - '**/*.tsx'
       - '**/*.js'
       - '**/*.jsx'
+      - 'src/app/favicon.ico'
+      - 'src/app/*.png'
       - 'package.json'
       - 'pnpm-lock.yaml'
 
@@ -21,6 +23,8 @@ jobs:
         with:
           node-version: 20
           cache: 'pnpm'
+      - name: Verify favicon is RGBA
+        run: node scripts/check-favicon-rgba.mjs
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm tsc --noEmit
