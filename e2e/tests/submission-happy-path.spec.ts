@@ -92,6 +92,7 @@ async function seedTurnstileTokenIfWidgetIsMissing(page: Page, token: string) {
 
 test.describe('Submission happy path', () => {
   let supabase: ReturnType<typeof createClient>;
+  let createdBrandName: string;
 
   test.beforeAll(async () => {
     supabase = createClient(
@@ -101,14 +102,16 @@ test.describe('Submission happy path', () => {
   });
 
   test.afterAll(async () => {
-    await supabase.from('brand_submissions').delete().like('brand_name', '[E2E-TEST]%');
-    await supabase.from('brands').delete().like('name', '[E2E-TEST]%');
+    if (!createdBrandName) return;
+    await supabase.from('brand_submissions').delete().eq('brand_name', createdBrandName);
+    await supabase.from('brands').delete().eq('name', createdBrandName);
   });
 
   test('submits a brand end-to-end and shows it in my submissions', async ({ userPage }) => {
     test.setTimeout(120_000);
     const timestamp = Date.now();
     const brandName = `[E2E-TEST] Happy Path ${timestamp}`;
+    createdBrandName = brandName;
     const websiteUrl = `https://happy-path-${timestamp}.example.com`;
     const purchaseUrl = `https://shop.example.com/products/${timestamp}`;
 
