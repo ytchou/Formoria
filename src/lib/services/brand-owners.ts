@@ -1,4 +1,21 @@
+import type { Database } from '@/lib/supabase/database.types'
 import { createServiceClient } from '@/lib/supabase/server'
+
+// ---------------------------------------------------------------------------
+// Row types
+// ---------------------------------------------------------------------------
+
+type BrandOwnerRow = Database['public']['Tables']['brand_owners']['Row']
+
+/** Shape returned by: brand_owners.select('brand_id, claimed_at, brands(id, name, slug, logo_url)') */
+type BrandOwnerRowWithBrand = Pick<BrandOwnerRow, 'brand_id' | 'claimed_at'> & {
+  brands: {
+    id: string
+    name: string
+    slug: string
+    logo_url: string | null
+  }
+}
 
 export type OwnedBrand = {
   brandId: string
@@ -17,15 +34,15 @@ export async function getUserBrands(userId: string): Promise<OwnedBrand[]> {
 
   if (error) throw error
 
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  return (data ?? []).map((row: any) => ({
+  // Cast to typed join shape — Supabase's select return type doesn't track the brands join
+  const rows = (data ?? []) as unknown as BrandOwnerRowWithBrand[]
+  return rows.map((row) => ({
     brandId: row.brand_id,
     brandName: row.brands.name,
     brandSlug: row.brands.slug,
     logoUrl: row.brands.logo_url ?? null,
     claimedAt: row.claimed_at,
   }))
-  /* eslint-enable @typescript-eslint/no-explicit-any */
 }
 
 export async function isOwnerOf(
