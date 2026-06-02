@@ -6,23 +6,29 @@ export type BreadcrumbItem = {
   href?: string
 }
 
+/**
+ * schema.org JSON-LD output — values can be any valid JSON type plus nested objects.
+ * Record<string, any> is the correct type here: JSON-LD objects are deliberately
+ * open-ended schema.org structures, not domain types we control.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type JsonLdObject = Record<string, any>
+
 /** Map a next-intl locale to a schema.org inLanguage value. */
 function toInLanguage(locale: Locale): string {
   return locale === 'zh-TW' ? 'zh-TW' : 'en'
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 /**
  * Build Organization JSON-LD structured data for a brand detail page.
  */
-export function buildBrandJsonLd(brand: Brand, locale: Locale = 'zh-TW'): Record<string, any> {
+export function buildBrandJsonLd(brand: Brand, locale: Locale = 'zh-TW'): JsonLdObject {
   const socialUrls = Object.entries(brand.socialLinks)
     .filter(([key]) => key !== 'officialWebsite')
     .map(([, url]) => url)
     .filter(Boolean)
 
-  const jsonLd: Record<string, any> = {
+  const jsonLd: JsonLdObject = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: brand.name,
@@ -52,7 +58,7 @@ export function buildBrandJsonLd(brand: Brand, locale: Locale = 'zh-TW'): Record
 /**
  * Build BreadcrumbList JSON-LD structured data.
  */
-export function buildBreadcrumbJsonLd(items: BreadcrumbItem[], locale: Locale = 'zh-TW'): Record<string, any> {
+export function buildBreadcrumbJsonLd(items: BreadcrumbItem[], locale: Locale = 'zh-TW'): JsonLdObject {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
 
   return {
@@ -60,7 +66,7 @@ export function buildBreadcrumbJsonLd(items: BreadcrumbItem[], locale: Locale = 
     '@type': 'BreadcrumbList',
     inLanguage: toInLanguage(locale),
     itemListElement: items.map((item, index) => {
-      const element: Record<string, any> = {
+      const element: JsonLdObject = {
         '@type': 'ListItem',
         position: index + 1,
         name: item.label,
@@ -81,7 +87,7 @@ export function buildCategoryItemListJsonLd(
   categorySlug: string,
   brands: Array<{ name: string; slug: string }>,
   locale: Locale = 'zh-TW',
-): Record<string, any> {
+): JsonLdObject {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
 
   return {
@@ -103,7 +109,7 @@ export function buildCategoryItemListJsonLd(
 /**
  * Build WebSite JSON-LD structured data for the home page.
  */
-export function buildWebSiteJsonLd(locale: Locale = 'zh-TW'): Record<string, any> {
+export function buildWebSiteJsonLd(locale: Locale = 'zh-TW'): JsonLdObject {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://formoria.com'
 
   return {
@@ -130,7 +136,7 @@ export function buildWebSiteJsonLd(locale: Locale = 'zh-TW'): Record<string, any
 export function buildFaqPageJsonLd(
   items: Array<{ question: string; answer: string }>,
   locale: Locale = 'zh-TW',
-): Record<string, unknown> {
+): JsonLdObject {
   return {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -145,5 +151,3 @@ export function buildFaqPageJsonLd(
     })),
   }
 }
-
-/* eslint-enable @typescript-eslint/no-explicit-any */
