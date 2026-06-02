@@ -3,14 +3,15 @@ import { test, expect } from '@playwright/test';
 test.describe('Directory deep', () => {
   test('all filter combinations return results or empty state', async ({ page }) => {
     await page.goto('/brands');
-    const filters = page.locator('[data-testid="filter-pill"]');
+    const filters = page.locator('main button[data-active]:visible');
     const count = await filters.count();
-    for (let i = 0; i < Math.min(count, 3); i++) {
+    for (let i = 1; i < Math.min(count, 4); i++) {
       await filters.nth(i).click();
-      // Should show results OR empty state, never error
-      // BrandGrid uses role="listitem" for each card; empty state shows Chinese text 找不到品牌
       await expect(
-        page.locator('[role="listitem"]').first().or(page.getByText(/找不到品牌|no brands|no results/i))
+        page
+          .locator('main [role="list"] [role="listitem"]')
+          .first()
+          .or(page.getByText(/找不到品牌|no brands|no results/i))
       ).toBeVisible({ timeout: 5_000 });
       await filters.nth(i).click(); // deselect
     }
@@ -18,30 +19,25 @@ test.describe('Directory deep', () => {
 
   test('search autocomplete shows suggestions', async ({ page }) => {
     await page.goto('/brands');
-    const search = page.getByRole('searchbox').or(page.getByPlaceholder(/search/i)).first();
+    const search = page.locator('form[role="search"] input[role="searchbox"]:visible');
     await search.fill('te');
-    // SearchSuggestions renders items as <li role="option"> inside <ul role="listbox">
-    // If the search_brands RPC is unavailable the dropdown may not appear — accept that gracefully
-    const dropdown = page.locator('[role="listbox"]');
+    const dropdown = page.locator('[role="listbox"]:visible');
     const hasDropdown = await dropdown.isVisible({ timeout: 5_000 }).catch(() => false);
     if (hasDropdown) {
       await expect(
-        page.locator('[role="option"]').first().or(page.getByText(/no results found/i))
+        dropdown.locator('[role="option"]').first().or(page.getByText(/no results found/i))
       ).toBeVisible({ timeout: 5_000 });
     }
   });
 
   test('pagination controls work', async ({ page }) => {
     await page.goto('/brands');
-    // Pagination renders <Link> elements (role="link"), not buttons.
-    // "Next" link has aria-label "下一頁"; URL param is ?page=2
-    const nextLink = page.getByRole('link', { name: /下一頁/ })
-      .or(page.locator('[aria-label="下一頁"]'));
+    const pagination = page.locator('nav[aria-label="Pagination"]');
+    const nextLink = pagination.locator('a[aria-label="下一頁"]:visible');
     if (await nextLink.isVisible()) {
       await nextLink.click();
       await expect(page).toHaveURL(/page=2/);
-      const prevLink = page.getByRole('link', { name: /上一頁/ })
-        .or(page.locator('[aria-label="上一頁"]'));
+      const prevLink = pagination.locator('a[aria-label="上一頁"]:visible');
       await expect(prevLink).toBeVisible();
     }
   });
@@ -54,18 +50,20 @@ test.describe('Directory deep', () => {
       return;
     }
     await expect(
-      page.locator('[role="listitem"]').first().or(page.getByText(/找不到品牌/i))
+      page
+        .locator('main [role="list"] [role="listitem"]')
+        .first()
+        .or(page.getByText(/找不到品牌|no brands|no results/i))
     ).toBeVisible({ timeout: 10_000 });
   });
 
   test('empty search shows empty state not error', async ({ page }) => {
     await page.goto('/brands');
-    const search = page.getByRole('searchbox').or(page.getByPlaceholder(/search/i)).first();
+    const search = page.locator('form[role="search"] input[role="searchbox"]:visible');
     await search.fill('zzzzzzzzzzzzz_nonexistent');
     await page.keyboard.press('Enter');
-    // BrandGrid empty state renders 找不到品牌 in Chinese
     await expect(
-      page.getByText(/找不到品牌|no results|no brands|nothing found/i)
+      page.getByText(/找不到品牌|no results|no brands|nothing found/i).first()
     ).toBeVisible({ timeout: 5_000 });
   });
 });

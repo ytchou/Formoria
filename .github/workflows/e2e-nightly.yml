@@ -9,6 +9,9 @@ jobs:
   e2e-deep:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -19,8 +22,8 @@ jobs:
       E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
       E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
       NEXT_PUBLIC_SITE_URL: http://localhost:3000
-      NEXT_PUBLIC_TURNSTILE_SITE_KEY: 1x-0000000000000000000AA
-      TURNSTILE_SECRET_KEY: 0x0000000000000000000000000000000000
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
+      TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -37,3 +40,72 @@ jobs:
           name: playwright-report-nightly
           path: playwright-report/
           retention-days: 14
+      - uses: actions/github-script@v7
+        if: ${{ failure() }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            try {
+              const owner = context.repo.owner;
+              const repo = context.repo.repo;
+              const labelName = 'e2e-nightly';
+              const issueTitle = 'Nightly e2e failing';
+              const runUrl = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
+              const date = new Date().toISOString();
+
+              try {
+                await github.rest.issues.getLabel({
+                  owner,
+                  repo,
+                  name: labelName,
+                });
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+
+                try {
+                  await github.rest.issues.createLabel({
+                    owner,
+                    repo,
+                    name: labelName,
+                    color: 'd73a4a',
+                    description: 'Nightly deep Playwright e2e failures',
+                  });
+                } catch (createError) {
+                  if (createError.status !== 422 || createError.errors?.[0]?.code !== 'already_exists') {
+                    throw createError;
+                  }
+                }
+              }
+
+              const { data: openIssues } = await github.rest.issues.listForRepo({
+                owner,
+                repo,
+                state: 'open',
+                labels: labelName,
+              });
+
+              const body = `Nightly deep Playwright run failed on ${date}.\n\nFailed run: ${runUrl}`;
+
+              if (openIssues.length > 0) {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: openIssues[0].number,
+                  body,
+                });
+              } else {
+                await github.rest.issues.create({
+                  owner,
+                  repo,
+                  title: issueTitle,
+                  labels: [labelName],
+                  body,
+                });
+              }
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              core.warning(`Unable to create or update nightly e2e alert issue: ${message}`);
+              console.log(error);
+            }
