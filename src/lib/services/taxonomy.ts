@@ -1,8 +1,32 @@
 import type { TagCategory, TaxonomyTag } from '@/lib/types'
 import type { TagSource } from '@/lib/types/taxonomy'
+import type { Database } from '@/lib/supabase/database.types'
 import { NotFoundError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
 import { generateSlug } from './brands'
+
+// ---------------------------------------------------------------------------
+// Row types
+// ---------------------------------------------------------------------------
+
+type TaxonomyTagRow = Database['public']['Tables']['taxonomy_tags']['Row']
+type BrandRow = Database['public']['Tables']['brands']['Row']
+
+/** Partial brand row (only the columns selected in getUntaggedBrands) */
+type BrandWithTaxonomyLeft = Pick<BrandRow, 'id' | 'name' | 'slug' | 'category'> & {
+  brand_taxonomy: Array<{ brand_id: string }> | null
+}
+
+/** brand_taxonomy row with nested tag used in getBrandsForReview */
+type BrandTaxonomyWithSourceAndTag = {
+  source: string
+  taxonomy_tags: TaxonomyTagRow | null
+}
+
+/** Partial brand row (only the columns selected in getBrandsForReview) */
+type BrandWithTaxonomyForReview = Pick<BrandRow, 'id' | 'name' | 'slug'> & {
+  brand_taxonomy: BrandTaxonomyWithSourceAndTag[] | null
+}
 
 // ---------------------------------------------------------------------------
 // Additional types for taxonomy governance
@@ -35,14 +59,14 @@ type NewTagData = {
 // Mappers
 // ---------------------------------------------------------------------------
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-export function tagToDomain(row: any): TaxonomyTag {
+export function tagToDomain(row: TaxonomyTagRow): TaxonomyTag {
   return {
     id: row.id,
     name: row.name,
     nameZh: row.name_zh ?? null,
     slug: row.slug,
-    category: row.category,
+    // taxonomy_tags.category is text in DB — cast to TagCategory at the boundary
+    category: row.category as TagCategory,
     isActive: row.is_active,
     suggestedBy: row.suggested_by ?? null,
     createdAt: row.created_at,
@@ -59,7 +83,6 @@ export function tagToInsert(data: Partial<TaxonomyTag>): Record<string, unknown>
   if (data.suggestedBy !== undefined) row.suggested_by = data.suggestedBy
   return row
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 // ---------------------------------------------------------------------------
 // Service functions
@@ -346,16 +369,16 @@ export async function getUntaggedBrands(): Promise<UntaggedBrand[]> {
 
   if (error) throw error
 
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  return (data ?? [])
-    .filter((row: any) => !row.brand_taxonomy || row.brand_taxonomy.length === 0)
-    .map((row: any) => ({
+  // Cast to typed join shape — Supabase's select return type doesn't track multi-level joins
+  const rows = (data ?? []) as unknown as BrandWithTaxonomyLeft[]
+  return rows
+    .filter((row) => !row.brand_taxonomy || row.brand_taxonomy.length === 0)
+    .map((row) => ({
       id: row.id,
       name: row.name,
       slug: row.slug,
-      category: row.category,
+      category: row.category ?? '',
     }))
-  /* eslint-enable @typescript-eslint/no-explicit-any */
 }
 
 export async function getBrandsForReview(source: TagSource = 'auto'): Promise<BrandForReview[]> {
@@ -368,17 +391,19 @@ export async function getBrandsForReview(source: TagSource = 'auto'): Promise<Br
 
   if (error) throw error
 
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  return (data ?? []).map((row: any) => ({
+  // Cast to typed join shape — Supabase's select return type doesn't track multi-level joins
+  const rows = (data ?? []) as unknown as BrandWithTaxonomyForReview[]
+  return rows.map((row) => ({
     id: row.id,
     name: row.name,
     slug: row.slug,
-    tags: (row.brand_taxonomy ?? []).map((bt: any) => ({
-      ...tagToDomain(bt.taxonomy_tags),
-      source: bt.source as TagSource,
-    })),
+    tags: (row.brand_taxonomy ?? [])
+      .filter((bt) => bt.taxonomy_tags !== null)
+      .map((bt) => ({
+        ...tagToDomain(bt.taxonomy_tags as TaxonomyTagRow),
+        source: bt.source as TagSource,
+      })),
   }))
-  /* eslint-enable @typescript-eslint/no-explicit-any */
 }
 
 // ---------------------------------------------------------------------------
