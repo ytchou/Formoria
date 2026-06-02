@@ -1,3 +1,16 @@
+import type { Database } from '@/lib/supabase/database.types'
+
+// ---------------------------------------------------------------------------
+// Row types
+// ---------------------------------------------------------------------------
+
+type ReportRow = Database['public']['Tables']['brand_reports']['Row']
+
+/** Shape returned by: brand_reports.select('*, brands(name, slug)') */
+type ReportRowWithBrand = ReportRow & {
+  brands: { name: string; slug: string } | null
+}
+
 export type ReportReason = 'not_mit' | 'incorrect_info' | 'broken_link' | 'inappropriate'
 
 export type ReportStatus = 'pending' | 'reviewed' | 'dismissed'
@@ -53,19 +66,19 @@ export async function getPendingReports(): Promise<BrandReport[]> {
 
   if (error) throw error
 
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  return (data ?? []).map((row: any) => ({
+  // Cast to typed join shape — Supabase's select return type doesn't track the brands join
+  const rows = (data ?? []) as unknown as ReportRowWithBrand[]
+  return rows.map((row) => ({
     id: row.id,
     brandId: row.brand_id,
     brandName: row.brands?.name ?? null,
     brandSlug: row.brands?.slug ?? null,
-    reason: row.reason,
+    reason: row.reason as ReportReason,
     notes: row.notes ?? null,
-    status: row.status,
+    status: row.status as ReportStatus,
     reviewedAt: row.reviewed_at ?? null,
     createdAt: row.created_at,
   }))
-  /* eslint-enable @typescript-eslint/no-explicit-any */
 }
 
 export async function updateReportStatus(

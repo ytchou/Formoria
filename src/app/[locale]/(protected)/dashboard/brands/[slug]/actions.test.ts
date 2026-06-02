@@ -35,6 +35,7 @@ vi.mock('@/lib/services/moderation', () => ({
     flagged: [],
     isBlocked: false,
   }),
+  createModerationFlags: vi.fn().mockResolvedValue([]),
 }))
 
 vi.mock('next/cache', () => ({
@@ -222,14 +223,7 @@ describe('expanded field moderation', () => {
       isBlocked: false,
     })
 
-    // Capture the insert call
-    const mockInsert = vi.fn().mockResolvedValue({ error: null })
-    const { createServiceClient } = await import('@/lib/supabase/server')
-    vi.mocked(createServiceClient).mockReturnValueOnce({
-      from: vi.fn().mockReturnValue({
-        insert: mockInsert,
-      }),
-    } as unknown as ReturnType<typeof createServiceClient>)
+    const { createModerationFlags } = await import('@/lib/services/moderation')
 
     const { updateBrandAction } = await import('./actions')
 
@@ -243,12 +237,12 @@ describe('expanded field moderation', () => {
       // redirect throws
     }
 
-    expect(mockInsert).toHaveBeenCalledWith(
+    expect(createModerationFlags).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
-          field_name: 'description',
-          flagged_content: 'SPAMMY CONTENT',
-          previous_content: 'Original description before edit',
+          fieldName: 'description',
+          flaggedContent: 'SPAMMY CONTENT',
+          previousContent: 'Original description before edit',
         }),
       ])
     )

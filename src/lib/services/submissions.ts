@@ -1,6 +1,35 @@
 import type { BrandSubmission, SubmissionStatus, SourceAttribution } from '@/lib/types'
+import type { Database } from '@/lib/supabase/database.types'
 import { NotFoundError } from '@/lib/errors'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+
+// ---------------------------------------------------------------------------
+// Row types
+// ---------------------------------------------------------------------------
+
+type SubmissionRow = Database['public']['Tables']['brand_submissions']['Row']
+
+/**
+ * Mapper input: the required core fields are mandatory; columns added in later
+ * migrations (pdpa_consent_at, logo_url, source_attribution) are optional so that
+ * unit test fixtures can omit them without casts.
+ */
+type SubmissionRowInput = Pick<
+  SubmissionRow,
+  | 'id'
+  | 'brand_id'
+  | 'brand_name'
+  | 'submitter_email'
+  | 'submitted_at'
+  | 'status'
+> & Partial<Omit<SubmissionRow,
+  | 'id'
+  | 'brand_id'
+  | 'brand_name'
+  | 'submitter_email'
+  | 'submitted_at'
+  | 'status'
+>>
 
 // ---------------------------------------------------------------------------
 // Pure record builder (no DB calls — testable in isolation)
@@ -42,8 +71,7 @@ export function buildSubmissionRecord(input: CreateSubmissionInput): Record<stri
 // Mappers
 // ---------------------------------------------------------------------------
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-export function submissionToDomain(row: any): BrandSubmission {
+export function submissionToDomain(row: SubmissionRowInput): BrandSubmission {
   return {
     id: row.id,
     brandId: row.brand_id ?? null,
@@ -52,18 +80,20 @@ export function submissionToDomain(row: any): BrandSubmission {
     submitterName: row.submitter_name ?? null,
     description: row.description ?? null,
     websiteUrl: row.website_url ?? null,
-    socialLinks: row.social_links ?? {},
-    suggestedTags: row.suggested_tags ?? [],
-    status: row.status,
+    // Json columns cast to domain types at the service boundary
+    socialLinks: (row.social_links as Record<string, string>) ?? {},
+    suggestedTags: (row.suggested_tags as string[]) ?? [],
+    status: row.status as BrandSubmission['status'],
     reviewerNotes: row.reviewer_notes ?? null,
     submittedAt: row.submitted_at,
     reviewedAt: row.reviewed_at ?? null,
     reviewedBy: row.reviewed_by ?? null,
     pdpaConsentAt: row.pdpa_consent_at ?? null,
-    validationStatus: row.validation_status ?? null,
-    validationErrors: row.validation_errors ?? null,
+    validationStatus: (row.validation_status as BrandSubmission['validationStatus']) ?? null,
+    validationErrors: (row.validation_errors as string[] | null) ?? null,
     notifiedAt: row.notified_at ?? null,
     isBrandOwner: row.is_brand_owner ?? false,
+    sourceAttribution: (row.source_attribution as BrandSubmission['sourceAttribution']) ?? null,
   }
 }
 
@@ -87,7 +117,6 @@ export function submissionToInsert(data: Partial<BrandSubmission>): Record<strin
   if (data.sourceAttribution !== undefined) row.source_attribution = data.sourceAttribution
   return row
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 // ---------------------------------------------------------------------------
 // Service functions
@@ -97,7 +126,7 @@ export async function createSubmission(
   data: Pick<BrandSubmission, 'brandName' | 'submitterEmail'> &
     Partial<Pick<BrandSubmission, 'brandId' | 'submitterName' | 'description' | 'websiteUrl' | 'socialLinks' | 'suggestedTags' | 'pdpaConsentAt' | 'isBrandOwner' | 'sourceAttribution'>>
 ): Promise<BrandSubmission> {
-  // Public insert — use anon client with RLS (policy allows anonymous inserts)
+  // Authenticated insert: RLS requires a signed-in user, and the submit action authenticates first.
   const supabase = await createClient()
   const row = submissionToInsert(data)
   const { data: inserted, error } = await supabase

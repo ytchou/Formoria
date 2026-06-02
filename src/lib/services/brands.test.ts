@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { brandToDomain, brandToInsert, generateSlug, deleteBrand } from './brands'
 import { RESERVED_ROUTES } from '@/middleware'
 
@@ -180,6 +180,109 @@ describe('brandToInsert — brandHighlights', () => {
     const data = { brandHighlights: null }
     const row = brandToInsert(data)
     expect(row).not.toHaveProperty('brand_highlights')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// getBrands — search via search_brands RPC (Task 2)
+// ---------------------------------------------------------------------------
+
+// Mock at top level to avoid hoisting issues
+const mockRpc = vi.fn()
+const mockFrom = vi.fn()
+
+vi.mock('@/lib/supabase/server', () => ({
+  createServiceClient: vi.fn(() => ({
+    rpc: mockRpc,
+    from: mockFrom,
+  })),
+}))
+
+describe('getBrands — search uses search_brands RPC', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('routes a misspelling/partial term through RPC and returns matching brand', async () => {
+    const { getBrands } = await import('./brands')
+
+    // RPC returns a matched brand ID (simulate pg_trgm fuzzy match for "茶" partial)
+    mockRpc.mockResolvedValue({
+      data: [{ id: 'brand-tea', name: 'Sun Tea', slug: 'sun-tea', logo_url: null, primary_category_name: 'Food', similarity_score: 0.8 }],
+      error: null,
+    })
+
+    // Full brand row returned by the follow-up .from('brands').select().in() query
+    const fakeBrandRow = {
+      id: 'brand-tea',
+      name: 'Sun Tea',
+      slug: 'sun-tea',
+      description: 'Premium loose-leaf tea from Nantou.',
+      logo_url: null,
+      hero_image_url: null,
+      status: 'approved',
+      category: 'food',
+      founding_year: 2010,
+      purchase_links: [],
+      social_links: {},
+      retail_locations: [],
+      product_photos: [],
+      contact_email: null,
+      brand_taxonomy: [],
+      brand_owners: [],
+      submitted_at: '2026-01-01T00:00:00Z',
+      approved_at: '2026-01-02T00:00:00Z',
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-02T00:00:00Z',
+      brand_highlights: null,
+      is_demo: false,
+    }
+
+    const mockIn = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        order: vi.fn().mockResolvedValue({ data: [fakeBrandRow], error: null, count: 1 }),
+      }),
+      order: vi.fn().mockResolvedValue({ data: [fakeBrandRow], error: null, count: 1 }),
+    })
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({ in: mockIn }),
+    })
+
+    const result = await getBrands({ search: 'sun te', status: 'approved' })
+
+    // Verify RPC was called with the search query
+    expect(mockRpc).toHaveBeenCalledWith('search_brands', expect.objectContaining({
+      search_query: 'sun te',
+    }))
+
+    // Result should contain the matched brand
+    expect(result.brands).toHaveLength(1)
+    expect(result.brands[0].name).toBe('Sun Tea')
+    expect(result.totalCount).toBe(1)
+  })
+
+  it('returns empty when RPC finds no matches', async () => {
+    const { getBrands } = await import('./brands')
+
+    mockRpc.mockResolvedValue({ data: [], error: null })
+
+    const result = await getBrands({ search: 'xyznonexistent' })
+    expect(result.brands).toEqual([])
+    expect(result.totalCount).toBe(0)
+    // from() should NOT be called — no IDs to query
+    expect(mockFrom).not.toHaveBeenCalled()
+  })
+
+  it('returns empty and logs error when RPC fails', async () => {
+    const { getBrands } = await import('./brands')
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockRpc.mockResolvedValue({ data: null, error: new Error('RPC unavailable') })
+
+    const result = await getBrands({ search: 'tea' })
+    expect(result.brands).toEqual([])
+    expect(result.totalCount).toBe(0)
+    consoleSpy.mockRestore()
   })
 })
 

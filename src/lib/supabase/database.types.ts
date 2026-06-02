@@ -38,6 +38,8 @@ export type Database = {
           approved_at: string | null
           created_at: string
           updated_at: string
+          is_demo: boolean
+          tag_slugs: string[]
         }
         Insert: {
           id?: string
@@ -60,6 +62,8 @@ export type Database = {
           approved_at?: string | null
           created_at?: string
           updated_at?: string
+          is_demo?: boolean
+          tag_slugs?: string[]
         }
         Update: {
           id?: string
@@ -82,6 +86,8 @@ export type Database = {
           approved_at?: string | null
           created_at?: string
           updated_at?: string
+          is_demo?: boolean
+          tag_slugs?: string[]
         }
       }
       taxonomy_tags: {
@@ -120,14 +126,17 @@ export type Database = {
         Row: {
           brand_id: string
           tag_id: string
+          source: string
         }
         Insert: {
           brand_id: string
           tag_id: string
+          source?: string
         }
         Update: {
           brand_id?: string
           tag_id?: string
+          source?: string
         }
       }
       brand_submissions: {
@@ -150,6 +159,9 @@ export type Database = {
           validation_errors: Json | null
           notified_at: string | null
           is_brand_owner: boolean
+          pdpa_consent_at: string | null
+          logo_url: string | null
+          source_attribution: string | null
         }
         Insert: {
           id?: string
@@ -170,6 +182,9 @@ export type Database = {
           validation_errors?: Json | null
           notified_at?: string | null
           is_brand_owner?: boolean
+          pdpa_consent_at?: string | null
+          logo_url?: string | null
+          source_attribution?: string | null
         }
         Update: {
           id?: string
@@ -190,6 +205,128 @@ export type Database = {
           validation_errors?: Json | null
           notified_at?: string | null
           is_brand_owner?: boolean
+          pdpa_consent_at?: string | null
+          logo_url?: string | null
+          source_attribution?: string | null
+        }
+      }
+      brand_owners: {
+        Row: {
+          id: string
+          user_id: string
+          brand_id: string
+          claimed_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          brand_id: string
+          claimed_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          brand_id?: string
+          claimed_at?: string
+          created_at?: string
+        }
+      }
+      moderation_flags: {
+        Row: {
+          id: string
+          brand_id: string
+          user_id: string
+          field_name: string
+          flagged_content: string
+          previous_content: string | null
+          flag_reason: string
+          tier: string
+          status: string
+          reviewed_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          brand_id: string
+          user_id: string
+          field_name: string
+          flagged_content: string
+          previous_content?: string | null
+          flag_reason: string
+          tier: string
+          status?: string
+          reviewed_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          brand_id?: string
+          user_id?: string
+          field_name?: string
+          flagged_content?: string
+          previous_content?: string | null
+          flag_reason?: string
+          tier?: string
+          status?: string
+          reviewed_at?: string | null
+          created_at?: string
+        }
+      }
+      brand_reports: {
+        Row: {
+          id: string
+          brand_id: string
+          reason: string
+          notes: string | null
+          status: string
+          reviewed_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          brand_id: string
+          reason: string
+          notes?: string | null
+          status?: string
+          reviewed_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          brand_id?: string
+          reason?: string
+          notes?: string | null
+          status?: string
+          reviewed_at?: string | null
+          created_at?: string
+        }
+      }
+      brand_analytics: {
+        Row: {
+          id: string
+          brand_id: string
+          date: string
+          views: number
+          clicks: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          brand_id: string
+          date?: string
+          views?: number
+          clicks?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          brand_id?: string
+          date?: string
+          views?: number
+          clicks?: number
+          created_at?: string
         }
       }
     }

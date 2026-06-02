@@ -3,9 +3,9 @@ import { sendGAEvent } from '@next/third-parties/google'
 function safeGAEvent(...args: Parameters<typeof sendGAEvent>) {
   try {
     if (typeof window === 'undefined') return
-    // Ensure dataLayer exists before GA script loads
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(window as any).dataLayer = (window as any).dataLayer || []
+    // Ensure dataLayer exists before GA script loads.
+    // window.dataLayer is typed by @next/third-parties as Object[] | undefined.
+    window.dataLayer = window.dataLayer ?? []
     sendGAEvent(...args)
   } catch {
     // Silently swallow — analytics must never break the app

@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import { isAdmin } from '@/lib/auth/admin'
 import { getSubmission, approveSubmission, rejectSubmission } from '@/lib/services/submissions'
 import { createBrand, updateBrand, getBrandById, deleteBrand, generateSlug, syncBrandImages } from '@/lib/services/brands'
@@ -9,7 +9,7 @@ import { createTag, updateTag, mergeTag, deactivateTag, activateTag, setBrandTag
 import { createResendProvider } from '@/lib/email/resend-adapter'
 import { buildApprovalEmail, buildRejectionEmail, buildClaimEmail } from '@/lib/email/templates'
 import { generateClaimToken } from '@/lib/auth/claim-token'
-import { updateFlagStatus } from '@/lib/services/moderation'
+import { updateFlagStatus, getModerationFlag } from '@/lib/services/moderation'
 import { updateReportStatus } from '@/lib/services/reports'
 import type { TagCategory, Brand } from '@/lib/types'
 
@@ -375,29 +375,23 @@ export async function revertFlagAction(
   const auth = await requireAdmin()
   if ('error' in auth) throw new Error(auth.error)
 
-  const supabase = createServiceClient()
+  // 1. Fetch the flag via service layer
+  const flag = await getModerationFlag(flagId)
 
-  // 1. Fetch the flag
-  const { data: flag, error: flagErr } = await supabase
-    .from('moderation_flags')
-    .select('id, brand_id, field_name, flagged_content, previous_content')
-    .eq('id', flagId)
-    .single()
-
-  if (flagErr || !flag) return { error: 'not_found' }
+  if (!flag) return { error: 'not_found' }
 
   // 2. If no previous content to revert to, it's stale
-  if (!flag.previous_content) return { error: 'stale' }
+  if (!flag.previousContent) return { error: 'stale' }
 
   // 3. Fetch the current brand via service layer (properly typed, snake_case → camelCase decoded)
   let brand: Brand
   try {
-    brand = await getBrandById(flag.brand_id)
+    brand = await getBrandById(flag.brandId)
   } catch {
     return { error: 'not_found' }
   }
 
-  // 4. Map field_name to the current brand value using camelCase domain types
+  // 4. Map fieldName to the current brand value using camelCase domain types
   function getCurrentValue(fieldName: string): string | null {
     switch (fieldName) {
       case 'name': return brand.name ?? null
@@ -410,10 +404,10 @@ export async function revertFlagAction(
     }
   }
 
-  const currentValue = getCurrentValue(flag.field_name)
+  const currentValue = getCurrentValue(flag.fieldName)
 
   // 5. Stale check — if the brand field no longer matches the flagged content, revert is no longer safe
-  if (currentValue !== flag.flagged_content) return { error: 'stale' }
+  if (currentValue !== flag.flaggedContent) return { error: 'stale' }
 
   // 6. Build the update payload using domain types — updateBrand handles snake_case mapping
   function buildBrandUpdate(fieldName: string, previousContent: string): Parameters<typeof updateBrand>[1] {
@@ -428,7 +422,7 @@ export async function revertFlagAction(
     return { [fieldName]: previousContent } as Parameters<typeof updateBrand>[1]
   }
 
-  await updateBrand(brand.id, buildBrandUpdate(flag.field_name, flag.previous_content))
+  await updateBrand(brand.id, buildBrandUpdate(flag.fieldName, flag.previousContent))
 
   // 7. Mark flag as reviewed
   await updateFlagStatus(flagId, 'reviewed')

@@ -1,5 +1,166 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { checkContent } from './moderation'
+
+// ---------------------------------------------------------------------------
+// Mocks for Supabase — declared at top level to avoid hoisting issues
+// ---------------------------------------------------------------------------
+
+const mockInsert = vi.fn()
+const mockSelect = vi.fn()
+
+const mockFrom = vi.fn(() => ({
+  insert: mockInsert,
+  select: mockSelect,
+}))
+
+vi.mock('@/lib/supabase/server', () => ({
+  createServiceClient: vi.fn(() => ({
+    from: mockFrom,
+  })),
+}))
+
+// ---------------------------------------------------------------------------
+// Tests for createModerationFlags
+// ---------------------------------------------------------------------------
+
+describe('createModerationFlags', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('inserts records and returns mapped domain objects (happy path)', async () => {
+    const { createModerationFlags } = await import('./moderation')
+
+    const fakeRow = {
+      id: 'flag-1',
+      brand_id: 'brand-1',
+      user_id: 'user-1',
+      field_name: 'description',
+      flagged_content: 'spammy text',
+      previous_content: 'original text',
+      flag_reason: 'excessive URLs',
+      tier: 'flag',
+      status: 'pending',
+      reviewed_at: null,
+      created_at: '2026-06-02T00:00:00Z',
+      brands: { name: 'My Brand', slug: 'my-brand' },
+    }
+
+    mockInsert.mockReturnValue({
+      select: vi.fn().mockResolvedValue({ data: [fakeRow], error: null }),
+    })
+
+    const result = await createModerationFlags([
+      {
+        brandId: 'brand-1',
+        userId: 'user-1',
+        fieldName: 'description',
+        flaggedContent: 'spammy text',
+        previousContent: 'original text',
+        flagReason: 'excessive URLs',
+        tier: 'flag',
+        status: 'pending',
+      },
+    ])
+
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('flag-1')
+    expect(result[0].brandId).toBe('brand-1')
+    expect(result[0].fieldName).toBe('description')
+    expect(result[0].flaggedContent).toBe('spammy text')
+    expect(result[0].brandName).toBe('My Brand')
+    expect(result[0].brandSlug).toBe('my-brand')
+  })
+
+  it('throws when the insert returns an error (edge case)', async () => {
+    const { createModerationFlags } = await import('./moderation')
+
+    mockInsert.mockReturnValue({
+      select: vi.fn().mockResolvedValue({ data: null, error: new Error('DB error') }),
+    })
+
+    await expect(
+      createModerationFlags([
+        {
+          brandId: 'b',
+          userId: 'u',
+          fieldName: 'name',
+          flaggedContent: 'x',
+          previousContent: null,
+          flagReason: 'test',
+          tier: 'flag',
+          status: 'pending',
+        },
+      ])
+    ).rejects.toThrow('DB error')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Tests for getModerationFlag
+// ---------------------------------------------------------------------------
+
+describe('getModerationFlag', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('returns a mapped domain object when the flag exists (happy path)', async () => {
+    const { getModerationFlag } = await import('./moderation')
+
+    const fakeRow = {
+      id: 'flag-2',
+      brand_id: 'brand-2',
+      user_id: 'user-2',
+      field_name: 'name',
+      flagged_content: 'spam name',
+      previous_content: null,
+      flag_reason: 'spam',
+      tier: 'flag',
+      status: 'pending',
+      reviewed_at: null,
+      created_at: '2026-06-02T00:00:00Z',
+      brands: null,
+    }
+
+    mockFrom.mockReturnValue({
+      insert: mockInsert,
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: fakeRow, error: null }),
+        }),
+      }),
+    })
+
+    const result = await getModerationFlag('flag-2')
+
+    expect(result).not.toBeNull()
+    expect(result?.id).toBe('flag-2')
+    expect(result?.brandId).toBe('brand-2')
+    expect(result?.fieldName).toBe('name')
+    expect(result?.brandName).toBeNull()
+    expect(result?.previousContent).toBeNull()
+  })
+
+  it('returns null when flag is not found (edge case — PGRST116)', async () => {
+    const { getModerationFlag } = await import('./moderation')
+
+    mockFrom.mockReturnValue({
+      insert: mockInsert,
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: null,
+            error: { code: 'PGRST116', message: 'No rows found' },
+          }),
+        }),
+      }),
+    })
+
+    const result = await getModerationFlag('nonexistent')
+    expect(result).toBeNull()
+  })
+})
 
 // --- New Tier 1 pattern tests ---
 

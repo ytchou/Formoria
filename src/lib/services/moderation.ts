@@ -1,3 +1,16 @@
+import type { Database } from '@/lib/supabase/database.types'
+
+// ---------------------------------------------------------------------------
+// Row types
+// ---------------------------------------------------------------------------
+
+type ModerationFlagRow = Database['public']['Tables']['moderation_flags']['Row']
+
+/** Shape returned by: moderation_flags.select('*, brands(name, slug)') */
+type ModerationFlagRowWithBrand = ModerationFlagRow & {
+  brands: { name: string; slug: string } | null
+}
+
 export type FieldError = {
   field: string
   reason: string
@@ -124,20 +137,8 @@ export type ModerationFlag = {
   createdAt: string
 }
 
-export async function getPendingFlags(): Promise<ModerationFlag[]> {
-  const { createServiceClient } = await import('@/lib/supabase/server')
-  const supabase = createServiceClient()
-
-  const { data, error } = await supabase
-    .from('moderation_flags')
-    .select('*, brands(name, slug)')
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false })
-
-  if (error) throw error
-
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  return (data ?? []).map((row: any) => ({
+function flagToDomain(row: ModerationFlagRowWithBrand): ModerationFlag {
+  return {
     id: row.id,
     brandId: row.brand_id,
     brandName: row.brands?.name ?? null,
@@ -151,8 +152,84 @@ export async function getPendingFlags(): Promise<ModerationFlag[]> {
     status: row.status,
     reviewedAt: row.reviewed_at ?? null,
     createdAt: row.created_at,
+  }
+}
+
+export async function getPendingFlags(): Promise<ModerationFlag[]> {
+  const { createServiceClient } = await import('@/lib/supabase/server')
+  const supabase = createServiceClient()
+
+  const { data, error } = await supabase
+    .from('moderation_flags')
+    .select('*, brands(name, slug)')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+
+  // Cast to typed join shape — Supabase's select return type doesn't track the brands join
+  const rows = (data ?? []) as unknown as ModerationFlagRowWithBrand[]
+  return rows.map(flagToDomain)
+}
+
+export type CreateModerationFlagInput = {
+  brandId: string
+  userId: string
+  fieldName: string
+  flaggedContent: string
+  previousContent: string | null
+  flagReason: string
+  tier: string
+  status: string
+}
+
+export async function createModerationFlags(
+  records: CreateModerationFlagInput[]
+): Promise<ModerationFlag[]> {
+  const { createServiceClient } = await import('@/lib/supabase/server')
+  const supabase = createServiceClient()
+
+  const insertRows = records.map((r) => ({
+    brand_id: r.brandId,
+    user_id: r.userId,
+    field_name: r.fieldName,
+    flagged_content: r.flaggedContent,
+    previous_content: r.previousContent,
+    flag_reason: r.flagReason,
+    tier: r.tier,
+    status: r.status,
   }))
-  /* eslint-enable @typescript-eslint/no-explicit-any */
+
+  const { data, error } = await supabase
+    .from('moderation_flags')
+    .insert(insertRows)
+    .select('*, brands(name, slug)')
+
+  if (error) throw error
+
+  // Cast to typed join shape — Supabase's select return type doesn't track the brands join
+  const resultRows = (data ?? []) as unknown as ModerationFlagRowWithBrand[]
+  return resultRows.map(flagToDomain)
+}
+
+export async function getModerationFlag(id: string): Promise<ModerationFlag | null> {
+  const { createServiceClient } = await import('@/lib/supabase/server')
+  const supabase = createServiceClient()
+
+  const { data, error } = await supabase
+    .from('moderation_flags')
+    .select('*, brands(name, slug)')
+    .eq('id', id)
+    .single()
+
+  if (error) {
+    if (error.code === 'PGRST116') return null // row not found
+    throw error
+  }
+  if (!data) return null
+
+  // Cast to typed join shape — Supabase's select return type doesn't track the brands join
+  return flagToDomain(data as unknown as ModerationFlagRowWithBrand)
 }
 
 export async function updateFlagStatus(

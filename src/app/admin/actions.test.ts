@@ -63,6 +63,7 @@ vi.mock('@/lib/services/taxonomy', () => ({
 }))
 
 vi.mock('@/lib/services/moderation', () => ({
+  getModerationFlag: vi.fn(),
   updateFlagStatus: vi.fn().mockResolvedValue(undefined),
 }))
 
@@ -113,27 +114,22 @@ describe('revertFlagAction', () => {
   })
 
   it('returns stale error when flag has no previous_content', async () => {
-    const { createServiceClient } = await import('@/lib/supabase/server')
-    const mockSingle = vi.fn().mockResolvedValue({
-      data: {
-        id: 'flag-1',
-        brand_id: 'brand-1',
-        field_name: 'description',
-        flagged_content: 'SPAM',
-        previous_content: null, // no previous content
-      },
-      error: null,
+    const { getModerationFlag } = await import('@/lib/services/moderation')
+    vi.mocked(getModerationFlag).mockResolvedValue({
+      id: 'flag-1',
+      brandId: 'brand-1',
+      brandName: null,
+      brandSlug: null,
+      userId: 'user-1',
+      fieldName: 'description',
+      flaggedContent: 'SPAM',
+      previousContent: null,
+      flagReason: 'test',
+      tier: 'flag',
+      status: 'pending',
+      reviewedAt: null,
+      createdAt: '2026-01-01T00:00:00Z',
     })
-    vi.mocked(createServiceClient).mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({ single: mockSingle }),
-        }),
-        update: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({ error: null }),
-        }),
-      }),
-    } as unknown as ReturnType<typeof createServiceClient>)
 
     const { revertFlagAction } = await import('./actions')
     const result = await revertFlagAction('flag-1')

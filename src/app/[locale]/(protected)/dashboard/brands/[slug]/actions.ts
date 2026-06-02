@@ -2,10 +2,10 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import { isOwnerOf } from '@/lib/services/brand-owners'
 import { getBrandBySlug, updateBrand } from '@/lib/services/brands'
-import { checkContent } from '@/lib/services/moderation'
+import { checkContent, createModerationFlags } from '@/lib/services/moderation'
 import type { PurchaseLink, RetailLocation } from '@/lib/types'
 
 type ActionState = {
@@ -129,7 +129,6 @@ export async function updateBrandAction(
 
     // Record flags for Tier 2 content
     if (moderation.flagged.length > 0) {
-      const serviceClient = createServiceClient()
       function getPreviousContent(fieldName: string): string | null {
         switch (fieldName) {
           case 'name': return brand.name ?? null
@@ -141,18 +140,18 @@ export async function updateBrandAction(
           default: return null
         }
       }
-      const flagRecords = moderation.flagged.map((flag) => ({
-        brand_id: brand.id,
-        user_id: user.id,
-        field_name: flag.field,
-        flagged_content: flag.content,
-        flag_reason: flag.reason,
+      const flagInputs = moderation.flagged.map((flag) => ({
+        brandId: brand.id,
+        userId: user.id,
+        fieldName: flag.field,
+        flaggedContent: flag.content,
+        flagReason: flag.reason,
         tier: flag.tier,
         status: 'pending' as const,
-        previous_content: getPreviousContent(flag.field),
+        previousContent: getPreviousContent(flag.field),
       }))
 
-      await serviceClient.from('moderation_flags').insert(flagRecords)
+      await createModerationFlags(flagInputs)
     }
 
     revalidatePath(`/brands/${brandSlug}`)

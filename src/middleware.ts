@@ -24,7 +24,6 @@ export const RESERVED_ROUTES = new Set([
   'terms',
   'support',
   'my-submissions',
-  'sentry-example-page',
   'global-error',
   'sitemap.xml',
   'robots.txt',
