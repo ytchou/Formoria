@@ -1,6 +1,4 @@
 import { describe, it, expect } from 'vitest'
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { brandToDomain, brandToInsert } from '../brands'
 
 // Minimal row shape matching Supabase SELECT output
@@ -76,17 +74,17 @@ describe('brandToDomain — isDemo', () => {
 
 describe('brandToInsert — isDemo', () => {
   it('maps isDemo true to is_demo true', () => {
-    const result = brandToInsert({ isDemo: true } as any)
+    const result = brandToInsert({ isDemo: true })
     expect(result.is_demo).toBe(true)
   })
 
   it('does not include is_demo when isDemo is false', () => {
-    const result = brandToInsert({ isDemo: false } as any)
+    const result = brandToInsert({ isDemo: false })
     expect(result).not.toHaveProperty('is_demo')
   })
 
   it('does not include is_demo when isDemo is undefined', () => {
-    const result = brandToInsert({ name: 'Test' } as any)
+    const result = brandToInsert({ name: 'Test' })
     expect(result).not.toHaveProperty('is_demo')
   })
 })
