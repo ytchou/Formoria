@@ -3,6 +3,8 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { FormProvider, useForm } from 'react-hook-form'
+import { NextIntlClientProvider } from 'next-intl'
+import zhMessages from '../../../messages/zh-TW.json'
 import { BrandInfoStep } from './BrandInfoStep'
 import type { PhotoItem } from '@/lib/types/scraper'
 
@@ -25,7 +27,11 @@ function Wrapper({ children }: { children: React.ReactNode }) {
       brandHighlights: '',
     },
   })
-  return <FormProvider {...methods}>{children}</FormProvider>
+  return (
+    <NextIntlClientProvider locale="zh-TW" messages={zhMessages}>
+      <FormProvider {...methods}>{children}</FormProvider>
+    </NextIntlClientProvider>
+  )
 }
 
 const mockCategories = [
@@ -43,10 +49,11 @@ describe('BrandInfoStep', () => {
         />
       </Wrapper>
     )
-    expect(screen.getByLabelText(/brand name/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/brand description/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/category/i)).toBeInTheDocument()
-    expect(screen.getByText(/logo（可選）|logo \*/i)).toBeInTheDocument()
+    // Labels are zh-TW: 品牌名稱, 品牌描述, 類別, Logo（可選）
+    expect(screen.getByLabelText(/品牌名稱/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/品牌描述/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/類別/)).toBeInTheDocument()
+    expect(screen.getByText(/Logo（可選）|Logo \*/)).toBeInTheDocument()
   })
 
   it('allows typing in name and description fields', async () => {
@@ -60,7 +67,7 @@ describe('BrandInfoStep', () => {
       </Wrapper>
     )
 
-    const nameInput = screen.getByLabelText(/brand name/i)
+    const nameInput = screen.getByLabelText(/品牌名稱/)
     await user.type(nameInput, '雨靴工作室')
     expect(nameInput).toHaveValue('雨靴工作室')
   })
@@ -74,7 +81,8 @@ describe('BrandInfoStep', () => {
         />
       </Wrapper>
     )
-    expect(screen.getByText(/0.*\/.*2000.*max.*characters/i)).toBeInTheDocument()
+    // charCount in zh-TW: "{count} / {max} 個字元上限"
+    expect(screen.getByText(/0.*\/.*2000.*個字元/)).toBeInTheDocument()
   })
 })
 
@@ -98,8 +106,9 @@ describe('BrandInfoStep photo gallery', () => {
     )
 
     expect(screen.getByText('Hero')).toBeInTheDocument()
-    expect(screen.getAllByText('from website')).toHaveLength(2)
-    expect(screen.getByText('uploaded')).toBeInTheDocument()
+    // fromWebsite = "來自網站", uploaded = "已上傳" in zh-TW
+    expect(screen.getAllByText('來自網站')).toHaveLength(2)
+    expect(screen.getByText('已上傳')).toBeInTheDocument()
   })
 
   it('shows Hero badge on first image only', () => {
@@ -152,9 +161,10 @@ describe('BrandInfoStep photo gallery', () => {
       </Wrapper>
     )
 
-    expect(screen.getByText(/no photos found/i)).toBeInTheDocument()
+    // noPhotos = "未從您的網站找到照片", addPhotos = "新增照片" in zh-TW
+    expect(screen.getByText(/未從您的網站找到照片/)).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: /add.*photos/i })
+      screen.getByRole('button', { name: /新增照片/ })
     ).toBeInTheDocument()
   })
 
@@ -170,8 +180,9 @@ describe('BrandInfoStep photo gallery', () => {
       </Wrapper>
     )
 
+    // addMorePhotos = "新增更多照片" in zh-TW
     expect(
-      screen.getByRole('button', { name: /add more photos/i })
+      screen.getByRole('button', { name: /新增更多照片/ })
     ).toBeInTheDocument()
   })
 })

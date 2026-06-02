@@ -1,6 +1,7 @@
 'use client'
 
 import { useFormContext, Controller } from 'react-hook-form'
+import { useTranslations } from 'next-intl'
 import { ImageUploader } from '../upload/ImageUploader'
 import type { SubmissionFormData } from '@/lib/validations/submission'
 
@@ -9,6 +10,7 @@ type ProductsStepProps = {
 }
 
 export function ProductsStep({ uploadPath }: ProductsStepProps) {
+  const t = useTranslations('submit.fields')
   const {
     register,
     control,
@@ -23,10 +25,10 @@ export function ProductsStep({ uploadPath }: ProductsStepProps) {
       {/* Product Photos */}
       <div className="space-y-1.5">
         <label className="block text-sm font-semibold text-foreground">
-          Product Photos
+          {t('productPhotos')}
         </label>
         <p className="text-xs text-muted-foreground">
-          Upload up to 6 photos to showcase your products
+          {t('productPhotosHint')}
         </p>
         <Controller
           name="productPhotos"
@@ -60,15 +62,15 @@ export function ProductsStep({ uploadPath }: ProductsStepProps) {
           htmlFor="brand-highlights"
           className="block text-sm font-semibold text-foreground"
         >
-          Brand Highlights
+          {t('brandHighlights')}
         </label>
         <p className="text-xs text-muted-foreground">
-          What makes your brand special?
+          {t('brandHighlightsHint')}
         </p>
         <textarea
           id="brand-highlights"
           rows={3}
-          placeholder="e.g. Handcrafted with local Taiwanese cedar..."
+          placeholder={t('brandHighlightsPlaceholder')}
           className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
           {...register('brandHighlights')}
         />

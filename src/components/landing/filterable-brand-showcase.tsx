@@ -1,8 +1,8 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import Link from 'next/link'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
+import { Link } from '@/i18n/navigation'
 import { BrandCard } from '@/components/brands/brand-card'
 import type { Brand } from '@/lib/types/brand'
 
@@ -22,6 +22,7 @@ export default function FilterableBrandShowcase({
   categories,
 }: FilterableBrandShowcaseProps) {
   const t = useTranslations('landing.showcase')
+  const locale = useLocale()
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
   const filteredBrands = useMemo(() => {
@@ -34,8 +35,11 @@ export default function FilterableBrandShowcase({
   const displayBrands = filteredBrands.slice(0, 4)
 
   const selectedCategoryLabel = selectedCategory
-    ? (categories.find((c) => c.slug === selectedCategory)?.nameZh ??
-      categories.find((c) => c.slug === selectedCategory)?.name)
+    ? (() => {
+        const cat = categories.find((c) => c.slug === selectedCategory)
+        if (!cat) return null
+        return locale === 'en' ? cat.name : (cat.nameZh ?? cat.name)
+      })()
     : null
 
   const ctaText = selectedCategoryLabel
@@ -71,7 +75,7 @@ export default function FilterableBrandShowcase({
                 : 'border border-border bg-transparent text-muted-foreground hover:border-foreground/30 hover:text-foreground'
             }`}
           >
-            {cat.nameZh ?? cat.name}
+            {locale === 'en' ? cat.name : (cat.nameZh ?? cat.name)}
           </button>
         ))}
       </div>

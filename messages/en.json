@@ -28,7 +28,17 @@
     "about": "About",
     "terms": "Terms of Service",
     "contact": "Contact",
-    "copyright": "© {year} Formoria"
+    "copyright": "© {year} Formoria",
+    "tagline": "Putting Taiwanese brands on the world map.",
+    "discoverHeading": "Discover",
+    "directory": "Brand Directory",
+    "categories": "Categories",
+    "submit": "Submit a Brand",
+    "companyHeading": "Company",
+    "faq": "FAQ",
+    "support": "Support",
+    "legalHeading": "Legal",
+    "connectHeading": "Connect"
   },
   "landing": {
     "metadata": {
@@ -143,6 +153,9 @@
       "notesPlaceholder": "Additional notes (optional)",
       "submitting": "Submitting...",
       "submit": "Submit Report"
+    },
+    "breadcrumb": {
+      "directory": "Brands"
     }
   },
   "categories": {
@@ -152,8 +165,16 @@
     },
     "notFoundTitle": "Category Not Found",
     "breadcrumbHome": "Home",
-    "brandCount": "{count} brand{plural}",
-    "description": "Discover Made in Taiwan {category} brands."
+    "brandCount": "{count, plural, =0 {No brands} one {# brand} other {# brands}}",
+    "description": "Discover Made in Taiwan {category} brands.",
+    "index": {
+      "metadata": {
+        "title": "Browse by Category — Made in Taiwan Brands",
+        "description": "Explore all categories of Made in Taiwan brands on Formoria. Discover food, fashion, design, and more."
+      },
+      "heading": "Browse by Category",
+      "subheading": "Discover Made in Taiwan brands across all categories"
+    }
   },
   "legal": {
     "terms": {
@@ -337,6 +358,204 @@
       "pending": "Under Review",
       "approved": "Approved",
       "rejected": "Rejected"
+    }
+  },
+  "auth": {
+    "signIn": {
+      "heading": "Sign In",
+      "subheading": "Enter your email and password to continue",
+      "claimMessage": "Sign in to claim <strong>{brandName}</strong> on Formoria.",
+      "emailLabel": "Email",
+      "passwordLabel": "Password",
+      "submit": "Sign In",
+      "submitting": "Signing in...",
+      "noAccount": "Don't have an account?",
+      "signUpLink": "Sign up"
+    },
+    "signUp": {
+      "heading": "Create Account",
+      "subheading": "Fill in your details to get started",
+      "claimMessage": "You have been invited to claim <strong>{brandName}</strong> on Formoria. Create an account to manage your brand page.",
+      "emailLabel": "Email",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "At least 8 characters",
+      "confirmPasswordLabel": "Confirm Password",
+      "submit": "Create Account",
+      "submitting": "Creating...",
+      "hasAccount": "Already have an account?",
+      "signInLink": "Sign in"
+    },
+    "confirmEmail": "Please confirm your email to complete account verification"
+  },
+  "dashboard": {
+    "metadata": {
+      "title": "Brand Management"
+    },
+    "heading": "Brand Management",
+    "welcome": "Welcome, {email}",
+    "yourBrands": "Your Brands",
+    "empty": "You haven't claimed any brands yet. Once you claim a brand, it will appear here.",
+    "claimedAt": "Claimed {date}",
+    "errors": {
+      "invalidClaim": "The claim link is invalid or has expired. Please contact support.",
+      "emailMismatch": "The email you signed in with does not match the claim invitation. Please sign in with the correct email.",
+      "claimFailed": "This brand has already been claimed. If you believe this is an error, please contact support."
+    }
+  },
+  "errors": {
+    "notFound": {
+      "title": "Page Not Found",
+      "description": "The page you're looking for doesn't exist or may have moved.",
+      "cta": "Back to home",
+      "browseDirectory": "Browse the directory"
+    },
+    "boundary": {
+      "title": "Something went wrong",
+      "description": "An unexpected error occurred. Please try again.",
+      "retry": "Try again"
+    }
+  },
+  "submit": {
+    "metadata": {
+      "title": "Submit a Brand",
+      "description": "Share your Taiwan-made brand with the community"
+    },
+    "overview": {
+      "heading": "Submit Your Taiwan Brand",
+      "description": "Formoria lists locally made and designed Taiwan brands so more people can discover your story.",
+      "step1": "Fill in your brand's basic information",
+      "step2": "Upload brand photos and product images",
+      "step3": "Submit for review and wait for community notification",
+      "timeEstimate": "Takes about 10 minutes to complete",
+      "cta": "Sign in and start submitting"
+    },
+    "wizard": {
+      "heading": "Submit a Brand",
+      "subheading": "Share your Taiwan-made brand with the community",
+      "back": "Back",
+      "next": "Next",
+      "submitting": "Submitting...",
+      "submitBrand": "Submit Brand",
+      "steps": {
+        "brandInfo": "Brand Info",
+        "products": "Products",
+        "links": "Links",
+        "review": "Review"
+      }
+    },
+    "url": {
+      "heading": "Submit a brand you love",
+      "subheading": "Share Taiwan-made brands with the community",
+      "label": "Brand Website URL",
+      "hint": "Paste the brand's website URL and we'll auto-fill your submission data",
+      "removeLink": "Remove link",
+      "addLink": "Add link",
+      "urlAriaLabel": "Brand website URL {index}",
+      "isBrandOwner": "I am the brand owner",
+      "howKnowBrand": "How do you know this brand?",
+      "howKnowPlaceholder": "Select how you know this brand (optional)",
+      "fetchError": "Could not retrieve brand information. Please try again or fill in the form manually.",
+      "loadedStatus": "Loaded {loaded} / {total} sources",
+      "loading": "Fetching brand information...",
+      "cancel": "Cancel",
+      "retry": "Try again",
+      "manualFill": "Fill in manually instead",
+      "autoFill": "Auto-fill brand information",
+      "skip": "Skip, fill in manually"
+    },
+    "attribution": {
+      "bought_product": "Bought their products",
+      "saw_at_market": "Saw at a market or physical store",
+      "found_online": "Found online",
+      "friend_recommended": "Friend recommended",
+      "work_there": "Work there"
+    },
+    "fields": {
+      "brandName": "Brand Name",
+      "brandNamePlaceholder": "e.g. Rain Boot Studio",
+      "brandDescription": "Brand Description",
+      "brandDescriptionPlaceholder": "Tell us about your brand...",
+      "charCount": "{count} / {max} max characters",
+      "photos": "Photos",
+      "photosDragHint": "Drag to reorder. The first photo becomes the hero image.",
+      "noPhotos": "No photos found from your website",
+      "addPhotos": "Add photos",
+      "addMorePhotos": "Add more photos",
+      "fromWebsite": "from website",
+      "uploaded": "uploaded",
+      "category": "Category",
+      "categoryPlaceholder": "Select a category",
+      "tags": "Tags",
+      "tagsHint": "Add up to 5 tags to help people find your brand",
+      "tagsInputPlaceholder": "Type and press Enter to add a tag",
+      "removeTag": "Remove tag {tag}",
+      "logoRequired": "Logo *",
+      "logoOptional": "Logo (optional)",
+      "logoHint": "Upload your brand logo (max 5MB, will be resized to max 1200px)",
+      "productPhotos": "Product Photos",
+      "productPhotosHint": "Upload up to 6 photos to showcase your products",
+      "brandHighlights": "Brand Highlights",
+      "brandHighlightsHint": "What makes your brand special?",
+      "brandHighlightsPlaceholder": "e.g. Handcrafted with local Taiwanese cedar...",
+      "purchaseLinksRequired": "Purchase Links *",
+      "purchaseLinksOptional": "Purchase Links (optional)",
+      "purchaseLinksHint": "Add links where people can buy your products",
+      "purchaseLinkError": "Please add at least one purchase link",
+      "addAnotherLink": "Add another link",
+      "platform": "Platform",
+      "socialLinks": "Social Links",
+      "retailLocations": "Retail Locations",
+      "retailLocationsHint": "Physical locations where your products are sold (optional)",
+      "storeName": "Store name",
+      "address": "Address",
+      "addLocation": "Add location"
+    },
+    "review": {
+      "brandInfo": "Brand Info",
+      "productPhotos": "Product Photos",
+      "linksAndSocial": "Links & Social",
+      "edit": "Edit",
+      "brandName": "Brand Name",
+      "description": "Description",
+      "category": "Category",
+      "tags": "Tags",
+      "logo": "Logo",
+      "highlights": "Highlights",
+      "photoCount": "{count} photos uploaded",
+      "photoCountSingular": "1 photo uploaded",
+      "pdpaConsent": "I agree to the collection and use of my personal data in accordance with the <privacyPolicy>Privacy Policy</privacyPolicy> (PDPA compliance)."
+    },
+    "confirmation": {
+      "metadata": {
+        "title": "Submission Successful",
+        "description": "We have received your brand submission and it is under review."
+      },
+      "heading": "Thank you!",
+      "subheading": "We have received your brand submission",
+      "timeline": {
+        "review": {
+          "label": "Under Review",
+          "description": "Our team typically completes the review within 3 business days"
+        },
+        "contact": {
+          "label": "We'll reach out if needed",
+          "description": "You may receive an email asking follow-up questions"
+        },
+        "live": {
+          "label": "Your brand goes live",
+          "description": "Once approved, your brand will appear in the Formoria directory"
+        }
+      },
+      "cta": {
+        "explore": "Explore the Formoria Directory",
+        "submitAnother": "Submit Another Brand"
+      }
+    },
+    "errors": {
+      "notAuthenticated": "Please sign in before submitting a brand",
+      "rateLimit": "Too many submissions, please try again later.",
+      "validation": "Validation failed, please try again.",
+      "unexpected": "An unexpected error occurred, please try again."
     }
   }
 }

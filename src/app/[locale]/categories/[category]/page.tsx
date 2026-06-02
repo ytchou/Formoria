@@ -124,8 +124,6 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
   // JSON-LD data for brands on the current page
   const brandSummaries = displayBrands.map((b) => ({ name: b.name, slug: b.slug }))
 
-  const plural = totalCount !== 1 ? 's' : ''
-
   return (
     <main className="mx-auto w-full max-w-screen-xl px-6 py-10 md:px-10">
       {/* JSON-LD structured data */}
@@ -162,7 +160,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
             {categoryName}
           </h1>
           <span className="rounded-full bg-[#F5F4F1] px-3 py-0.5 text-sm text-[#7C7570]">
-            {t('brandCount', { count: totalCount, plural })}
+            {t('brandCount', { count: totalCount })}
           </span>
         </div>
         <p className="mt-2 text-sm text-muted-foreground">

@@ -1,5 +1,6 @@
 'use server'
 
+import { getTranslations } from 'next-intl/server'
 import { createSubmissionSchema, type SubmissionFormData } from '@/lib/validations/submission'
 import { createBrand } from '@/lib/services/brands'
 import { createSubmission } from '@/lib/services/submissions'
@@ -19,6 +20,8 @@ type SubmitBrandInput = SubmissionFormData & {
 export async function submitBrand(
   data: SubmitBrandInput
 ): Promise<{ error: string } | undefined> {
+  const t = await getTranslations('submit.errors')
+
   try {
     // Server-side validation — schema switches based on isOwner flag
     const isOwner = data.isOwner ?? false
@@ -33,7 +36,7 @@ export async function submitBrand(
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return { error: '請先登入才能提交品牌' }
+      return { error: t('notAuthenticated') }
     }
 
     // Honeypot check — silently succeed (don't reveal the trap to bots)
@@ -44,13 +47,13 @@ export async function submitBrand(
     // Rate limit check per user
     const rateResult = submissionRateLimiter.check(user.id, 60_000, 5)
     if (!rateResult.allowed) {
-      return { error: '提交次數過多，請稍後再試。' }
+      return { error: t('rateLimit') }
     }
 
     // Turnstile verification
     const turnstile = await verifyTurnstileToken(parsed.turnstileToken)
     if (!turnstile.success) {
-      return { error: '驗證失敗，請再試一次。' }
+      return { error: t('validation') }
     }
 
     // Create brand with pending status
@@ -112,7 +115,7 @@ export async function submitBrand(
       error:
         err instanceof Error
           ? err.message
-          : '發生預期外的錯誤，請再試一次。',
+          : t('unexpected'),
     }
   }
 }

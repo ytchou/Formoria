@@ -7,6 +7,8 @@ vi.mock('@next/third-parties/google', () => ({
 }))
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { NextIntlClientProvider } from 'next-intl'
+import zhMessages from '../../../messages/zh-TW.json'
 import { SubmitWizard } from './SubmitWizard'
 
 vi.mock('./StepIndicator', () => ({
@@ -81,21 +83,29 @@ const mockCategories = [
   { slug: 'fashion', label: 'Fashion', labelZh: '時尚' },
 ]
 
+function renderWithZhTW(ui: React.ReactElement) {
+  return render(
+    <NextIntlClientProvider locale="zh-TW" messages={zhMessages}>
+      {ui}
+    </NextIntlClientProvider>
+  )
+}
+
 describe('SubmitWizard', () => {
   it('renders step indicator and first step by default', () => {
-    render(<SubmitWizard categories={mockCategories} />)
+    renderWithZhTW(<SubmitWizard categories={mockCategories} />)
     expect(screen.getByTestId('url-step')).toBeInTheDocument()
   })
 
   it('shows Next button is not visible on UrlStep', () => {
-    render(<SubmitWizard categories={mockCategories} />)
+    renderWithZhTW(<SubmitWizard categories={mockCategories} />)
     expect(screen.queryByRole('button', { name: /^next$/i })).not.toBeInTheDocument()
   })
 })
 
 describe('SubmitWizard with UrlStep', () => {
   it('shows UrlStep as first step', () => {
-    render(<SubmitWizard categories={mockCategories} />)
+    renderWithZhTW(<SubmitWizard categories={mockCategories} />)
 
     expect(screen.getByText(/提交品牌/)).toBeInTheDocument()
     expect(screen.getByTestId('url-step')).toBeInTheDocument()
@@ -103,7 +113,7 @@ describe('SubmitWizard with UrlStep', () => {
 
   it('transitions to BrandInfoStep after skip', async () => {
     const user = userEvent.setup()
-    render(<SubmitWizard categories={mockCategories} />)
+    renderWithZhTW(<SubmitWizard categories={mockCategories} />)
 
     await user.click(screen.getByText(/skip and fill manually/i))
 
@@ -114,7 +124,7 @@ describe('SubmitWizard with UrlStep', () => {
 
   it('transitions to BrandInfoStep after successful scrape', async () => {
     const user = userEvent.setup()
-    render(<SubmitWizard categories={mockCategories} />)
+    renderWithZhTW(<SubmitWizard categories={mockCategories} />)
 
     await user.click(screen.getByRole('button', { name: /fetch brand info/i }))
 
@@ -130,14 +140,14 @@ describe('SubmitWizard — analytics', () => {
   })
 
   it('fires submission_form_opened with source on mount', () => {
-    render(<SubmitWizard categories={mockCategories} source="hero_cta" />)
+    renderWithZhTW(<SubmitWizard categories={mockCategories} source="hero_cta" />)
     expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'submission_form_opened', {
       source: 'hero_cta',
     })
   })
 
   it('fires submission_form_opened with default source when none provided', () => {
-    render(<SubmitWizard categories={mockCategories} />)
+    renderWithZhTW(<SubmitWizard categories={mockCategories} />)
     expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'submission_form_opened', {
       source: 'hero_cta',
     })

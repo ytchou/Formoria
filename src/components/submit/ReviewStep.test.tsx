@@ -3,7 +3,13 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { FormProvider, useForm } from 'react-hook-form'
+import { NextIntlClientProvider } from 'next-intl'
+import zhMessages from '../../../messages/zh-TW.json'
 import { ReviewStep } from './ReviewStep'
+
+vi.mock('./TurnstileWidget', () => ({
+  TurnstileWidget: () => null,
+}))
 
 function Wrapper({ children }: { children: React.ReactNode }) {
   const methods = useForm({
@@ -28,7 +34,11 @@ function Wrapper({ children }: { children: React.ReactNode }) {
       pdpaConsent: false,
     },
   })
-  return <FormProvider {...methods}>{children}</FormProvider>
+  return (
+    <NextIntlClientProvider locale="zh-TW" messages={zhMessages}>
+      <FormProvider {...methods}>{children}</FormProvider>
+    </NextIntlClientProvider>
+  )
 }
 
 describe('ReviewStep', () => {
@@ -50,7 +60,8 @@ describe('ReviewStep', () => {
         <ReviewStep onEditStep={vi.fn()} />
       </Wrapper>
     )
-    expect(screen.getByText(/1 photo/i)).toBeInTheDocument()
+    // photoCountSingular in zh-TW: "1 張照片已上傳"
+    expect(screen.getByText(/1 張照片/)).toBeInTheDocument()
   })
 
   it('displays purchase links', () => {
@@ -78,7 +89,8 @@ describe('ReviewStep', () => {
         <ReviewStep onEditStep={vi.fn()} />
       </Wrapper>
     )
-    expect(screen.getByText(/privacy policy/i)).toHaveAttribute(
+    // pdpaConsent rich text renders "隱私政策" as a link in zh-TW
+    expect(screen.getByText(/隱私政策/)).toHaveAttribute(
       'href',
       '/privacy'
     )
@@ -92,7 +104,8 @@ describe('ReviewStep', () => {
         <ReviewStep onEditStep={onEditStep} />
       </Wrapper>
     )
-    const editButtons = screen.getAllByText(/edit/i)
+    // edit = "編輯" in zh-TW
+    const editButtons = screen.getAllByText(/編輯/)
     await user.click(editButtons[0])
     expect(onEditStep).toHaveBeenCalledWith(0)
   })

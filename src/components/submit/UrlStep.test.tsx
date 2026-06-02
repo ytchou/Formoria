@@ -2,7 +2,17 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { NextIntlClientProvider } from 'next-intl'
+import zhMessages from '../../../messages/zh-TW.json'
 import { UrlStep } from './UrlStep'
+
+function renderWithZhTW(ui: React.ReactElement) {
+  return render(
+    <NextIntlClientProvider locale="zh-TW" messages={zhMessages}>
+      {ui}
+    </NextIntlClientProvider>
+  )
+}
 
 describe('UrlStep', () => {
   const defaultProps = {
@@ -14,7 +24,7 @@ describe('UrlStep', () => {
   }
 
   it('renders URL input and fetch button', () => {
-    render(<UrlStep {...defaultProps} />)
+    renderWithZhTW(<UrlStep {...defaultProps} />)
 
     expect(screen.getByLabelText(/品牌網站/)).toBeInTheDocument()
     expect(
@@ -24,7 +34,7 @@ describe('UrlStep', () => {
   })
 
   it('disables fetch button when URL is empty', () => {
-    render(<UrlStep {...defaultProps} />)
+    renderWithZhTW(<UrlStep {...defaultProps} />)
 
     expect(
       screen.getByRole('button', { name: /自動填入/ })
@@ -33,7 +43,7 @@ describe('UrlStep', () => {
 
   it('enables fetch button when valid URL is entered', async () => {
     const user = userEvent.setup()
-    render(<UrlStep {...defaultProps} />)
+    renderWithZhTW(<UrlStep {...defaultProps} />)
 
     await user.type(
       screen.getByLabelText(/品牌網站/),
@@ -51,7 +61,7 @@ describe('UrlStep', () => {
       'fetch',
       vi.fn(() => new Promise(() => {}))
     )
-    render(<UrlStep {...defaultProps} />)
+    renderWithZhTW(<UrlStep {...defaultProps} />)
 
     await user.type(
       screen.getByLabelText(/品牌網站/),
@@ -73,7 +83,7 @@ describe('UrlStep', () => {
       })
     )
 
-    render(<UrlStep {...defaultProps} />)
+    renderWithZhTW(<UrlStep {...defaultProps} />)
     await user.type(
       screen.getByLabelText(/品牌網站/),
       'https://mybrand.com'
@@ -96,7 +106,7 @@ describe('UrlStep', () => {
       })
     )
 
-    render(<UrlStep {...defaultProps} />)
+    renderWithZhTW(<UrlStep {...defaultProps} />)
     await user.type(
       screen.getByLabelText(/品牌網站/),
       'https://mybrand.com'
@@ -113,7 +123,7 @@ describe('UrlStep', () => {
 
   it('calls onSkip when skip link is clicked', async () => {
     const user = userEvent.setup()
-    render(<UrlStep {...defaultProps} />)
+    renderWithZhTW(<UrlStep {...defaultProps} />)
 
     await user.click(screen.getByText(/跳過/))
 

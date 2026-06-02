@@ -112,10 +112,17 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
   const visitUrl = brand.socialLinks.officialWebsite ?? brand.purchaseLinks[0]?.url
 
   // Breadcrumb items for JSON-LD
+  const tBrandDetail = await getTranslations('brandDetail')
+  const directoryLabel = tBrandDetail('breadcrumb.directory')
+  const productTypeTag = brand.tags.find((tag) => tag.category === 'product_type')
+  const categoryLabel = productTypeTag
+    ? (safeLocale === 'zh-TW' ? (productTypeTag.nameZh ?? productTypeTag.name) : productTypeTag.name)
+    : brand.category
+
   const breadcrumbItems: BreadcrumbItem[] = [
-    { label: 'Brands', href: '/brands' },
-    ...(brand.category
-      ? [{ label: brand.category, href: `/brands?category=${encodeURIComponent(brand.category)}` }]
+    { label: directoryLabel, href: '/brands' },
+    ...(categoryLabel
+      ? [{ label: categoryLabel, href: `/brands?category=${encodeURIComponent(brand.category ?? '')}` }]
       : []),
     { label: brand.name },
   ]

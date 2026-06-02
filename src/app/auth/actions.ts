@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { signInSchema, signUpSchema } from "@/lib/auth/validations";
 
@@ -78,7 +79,8 @@ export async function signUp(
     return { error: error.message };
   }
 
-  redirect("/auth/sign-in?message=請確認您的電子郵件以完成帳號驗證");
+  const t = await getTranslations("auth");
+  redirect(`/auth/sign-in?message=${encodeURIComponent(t("confirmEmail"))}`);
 }
 
 export async function signOut(): Promise<void> {

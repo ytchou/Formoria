@@ -1,30 +1,27 @@
+import type { Metadata } from 'next'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Check, Home, Plus } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 
-export const metadata = {
-  title: '提交成功',
-  description: '我們已收到您的品牌提交，正在進行審核。',
+type ConfirmationPageProps = {
+  params: Promise<{ locale: string }>
 }
 
-const TIMELINE_STEPS = [
-  {
-    label: '審核中',
-    description: '我們的團隊通常在 3 個工作天內完成審核',
-    active: true,
-  },
-  {
-    label: '如有需要，我們會與您聯繫',
-    description: '您可能會收到詢問後續問題的電子郵件',
-    active: false,
-  },
-  {
-    label: '您的品牌上線',
-    description: '通過審核後，您的品牌將出現在 Formoria 目錄中',
-    active: false,
-  },
-]
+export async function generateMetadata({ params }: ConfirmationPageProps): Promise<Metadata> {
+  const { locale } = await params
+  setRequestLocale(locale)
+  const t = await getTranslations('submit.confirmation.metadata')
+  return {
+    title: t('title'),
+    description: t('description'),
+  }
+}
 
-export default function ConfirmationPage() {
+export default async function ConfirmationPage({ params }: ConfirmationPageProps) {
+  const { locale } = await params
+  setRequestLocale(locale)
+  const t = await getTranslations('submit.confirmation')
+
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
       <div className="w-full max-w-[560px] rounded-2xl border border-[#E8E5E0] bg-white p-10 shadow-sm">
@@ -37,16 +34,20 @@ export default function ConfirmationPage() {
 
         {/* Heading */}
         <h1 className="mt-6 text-center font-heading text-[26px] font-bold text-[#1A1918]">
-          感謝您！
+          {t('heading')}
         </h1>
         <p className="mt-2 text-center text-[15px] text-[#7C7570]">
-          我們已收到您的品牌提交
+          {t('subheading')}
         </p>
 
         {/* Timeline */}
         <div className="mt-8 rounded-xl bg-[#FAFAF8] p-6">
           <div className="space-y-4">
-            {TIMELINE_STEPS.map((step, i) => (
+            {([
+              { label: t('timeline.review.label'), description: t('timeline.review.description'), active: true },
+              { label: t('timeline.contact.label'), description: t('timeline.contact.description'), active: false },
+              { label: t('timeline.live.label'), description: t('timeline.live.description'), active: false },
+            ] as const).map((step, i) => (
               <div key={i} className="flex gap-3">
                 <div className="flex flex-col items-center">
                   <div
@@ -54,7 +55,7 @@ export default function ConfirmationPage() {
                       step.active ? 'bg-[#E06B3F]' : 'bg-[#D4CFC9]'
                     }`}
                   />
-                  {i < TIMELINE_STEPS.length - 1 && (
+                  {i < 2 && (
                     <div className="mt-1 h-full w-px bg-[#D4CFC9]" />
                   )}
                 </div>
@@ -82,14 +83,14 @@ export default function ConfirmationPage() {
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#E06B3F] px-5 py-3 text-sm font-medium text-white hover:bg-[#C85A33]"
           >
             <Home className="h-4 w-4" />
-            探索 Formoria 目錄
+            {t('cta.explore')}
           </Link>
           <Link
             href="/submit"
             className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#D4CFC9] bg-white px-5 py-3 text-sm font-medium text-[#1A1918] hover:bg-[#F5F4F1]"
           >
             <Plus className="h-4 w-4" />
-            再提交一個品牌
+            {t('cta.submitAnother')}
           </Link>
         </div>
       </div>

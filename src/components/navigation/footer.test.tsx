@@ -12,10 +12,20 @@ vi.mock('@/i18n/navigation', () => ({
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string, params?: Record<string, unknown>) => {
     const map: Record<string, string> = {
+      discoverHeading: '探索',
+      directory: '品牌目錄',
+      categories: '分類瀏覽',
+      submit: '提交品牌',
+      companyHeading: '關於',
       about: '關於我們',
+      faq: '常見問題',
+      support: '支持我們',
+      legalHeading: '法律',
       terms: '服務條款',
+      connectHeading: '聯絡',
       contact: '聯絡我們',
-      copyright: `© ${params?.year ?? new Date().getFullYear()} Formoria`,
+      tagline: '讓台灣品牌被世界看見。',
+      copyright: `© ${params?.year ?? new Date().getFullYear()} 島藏`,
     }
     return map[key] ?? key
   },
@@ -43,8 +53,8 @@ describe('Footer', () => {
     expect(link.getAttribute('href')).toMatch(/^mailto:/)
   })
 
-  it('renders copyright text containing Formoria', () => {
+  it('renders copyright text containing 島藏', () => {
     render(<Footer />)
-    expect(screen.getByText(/Formoria/)).toBeInTheDocument()
+    expect(screen.getByText(/島藏/)).toBeInTheDocument()
   })
 })
