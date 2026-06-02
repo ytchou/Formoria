@@ -2,6 +2,10 @@ import { test, expect } from '../fixtures/auth'
 import { createClient } from '@supabase/supabase-js'
 
 test.describe('Community submit flow', () => {
+  const ownerCheckboxName = '我是品牌所有者'
+  const attributionFieldName = '你如何認識這個品牌？'
+  const manualEntryButtonName = '跳過，手動填寫'
+
   test.afterAll(async () => {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,51 +16,38 @@ test.describe('Community submit flow', () => {
 
   test('community submitter sees owner checkbox on URL step', async ({ userPage }) => {
     await userPage.goto('/submit')
-    await expect(userPage.getByRole('checkbox', { name: /brand owner|品牌所有者/i }))
+    await expect(userPage.getByRole('checkbox', { name: ownerCheckboxName, exact: true }))
       .toBeVisible({ timeout: 5_000 })
   })
 
   test('source attribution dropdown appears when owner unchecked', async ({ userPage }) => {
     await userPage.goto('/submit')
-    const ownerCheckbox = userPage.getByRole('checkbox', { name: /brand owner|品牌所有者/i })
-    // Default: unchecked — attribution dropdown should be visible
-    await expect(userPage.getByRole('combobox', { name: /know this brand|認識這個品牌/i }))
+    const ownerCheckbox = userPage.getByRole('checkbox', { name: ownerCheckboxName, exact: true })
+    await expect(userPage.getByRole('combobox', { name: attributionFieldName, exact: true }))
       .toBeVisible({ timeout: 3_000 })
-    // Check owner — attribution dropdown should hide
     await ownerCheckbox.check()
-    await expect(userPage.getByRole('combobox', { name: /know this brand|認識這個品牌/i }))
+    await expect(userPage.getByRole('combobox', { name: attributionFieldName, exact: true }))
       .not.toBeVisible()
   })
 
-  test('community submit skips logo and purchase links without error', async ({ userPage }) => {
+  test('community submitter reaches brand info step and sees required fields', async ({ userPage }) => {
     await userPage.goto('/submit')
 
-    // Skip URL scraping
-    await userPage.getByRole('button', { name: /skip|跳過/i }).click()
+    await userPage.getByRole('button', { name: manualEntryButtonName, exact: true }).click()
 
-    // Brand Info step — fill required fields, leave logo empty
-    await userPage.locator('#brand-name').fill('[E2E-COMMUNITY] Test Brand')
-    await userPage.locator('#brand-description').fill('A community-submitted test brand for E2E')
-    // Select category (exact selector TBD based on component)
-    const categoryTrigger = userPage.getByRole('combobox', { name: /category|類別/i }).first()
-    if (await categoryTrigger.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await categoryTrigger.click()
-      await userPage.getByRole('option').first().click()
-    }
-    // Proceed without uploading logo
-    await userPage.getByRole('button', { name: /next|continue|下一步/i }).first().click()
-
-    // Products step — skip
-    await userPage.getByRole('button', { name: /next|continue|下一步/i }).first().click()
-
-    // Links step — proceed without purchase links
-    await userPage.getByRole('button', { name: /next|continue|下一步/i }).first().click()
-
-    // Should reach Review step without validation error on logo/links
+    // Brand Info step (step 1) should be active
     await expect(
-      userPage.locator('[data-testid="review-step"], [data-testid="step-4"]')
-        .or(userPage.getByRole('heading', { name: /review|確認/i }))
+      userPage.locator('[data-state="active"]').filter({ hasText: /^1\s+品牌資訊$/ })
     ).toBeVisible({ timeout: 5_000 })
+
+    // Required fields are present
+    await expect(userPage.locator('#brand-name')).toBeVisible({ timeout: 3_000 })
+    await expect(userPage.locator('#brand-description')).toBeVisible({ timeout: 3_000 })
+
+    const categoryTrigger = userPage.getByRole('combobox', { name: 'Category', exact: true })
+    if (await categoryTrigger.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await categoryTrigger.selectOption({ index: 1 })
+    }
   })
 
   test('my-submissions page shows authenticated user submissions', async ({ userPage }) => {

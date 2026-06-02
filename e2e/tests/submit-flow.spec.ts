@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 
 test.describe('Submit flow deep', () => {
   const createdSubmissions: string[] = [];
+  const manualEntryButtonName = '跳過，手動填寫';
+  const nextButtonName = '下一步';
 
   test.afterAll(async () => {
     // createClient is deferred to afterAll to ensure env vars are loaded by Playwright
@@ -19,40 +21,30 @@ test.describe('Submit flow deep', () => {
 
   test('wizard steps are all reachable', async ({ userPage }) => {
     await userPage.goto('/submit');
-    // Should show wizard step 1 indicator
-    await expect(userPage.locator('[data-testid="step-indicator"], [aria-label*="step"]').first()
-      .or(userPage.getByRole('heading'))).toBeVisible({ timeout: 5_000 });
+    await expect(
+      userPage.getByRole('heading', { name: '提交你喜愛的品牌', exact: true })
+    ).toBeVisible({ timeout: 5_000 });
   });
 
   test('validation shows errors on empty required fields', async ({ userPage }) => {
     await userPage.goto('/submit');
-    const nextBtn = userPage.getByRole('button', { name: /next|continue/i }).first();
+    await userPage.getByRole('button', { name: manualEntryButtonName, exact: true }).click();
+    const nextBtn = userPage.getByRole('button', { name: nextButtonName, exact: true });
     await nextBtn.click();
-    // Error message should appear
-    await expect(
-      userPage.locator('[data-testid="field-error"], [role="alert"], .error').first()
-    ).toBeVisible({ timeout: 3_000 });
+    await expect(userPage.locator('p.text-red-600').first()).toBeVisible({ timeout: 3_000 });
   });
 
   test('Tier 1 keyword blocks submission', async ({ userPage }) => {
     await userPage.goto('/submit');
-    // Navigate to brand name step and enter a Tier 1 trigger word
-    const inputs = userPage.locator('input[type="text"], textarea');
-    await inputs.first().fill('https://example.com');
-    const nextBtns = userPage.getByRole('button', { name: /next|continue/i });
-    await nextBtns.first().click({ force: true });
-    // Fill brand name with Tier 1 trigger word
-    const nameInput = userPage.getByLabel(/brand name|name/i);
+    await userPage.getByRole('button', { name: manualEntryButtonName, exact: true }).click();
+    const nameInput = userPage.getByLabel('Brand Name', { exact: true });
     if (await nameInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
       await nameInput.fill(`[E2E-TEST] Brand casino ${Date.now()}`);
-      // Advance to trigger validation
-      const nextBtn = userPage.getByRole('button', { name: /next|continue/i }).first();
+      const nextBtn = userPage.getByRole('button', { name: nextButtonName, exact: true });
       if (await nextBtn.isVisible()) await nextBtn.click({ force: true });
     }
-    // Tier 1 block should show an error/rejection message OR redirect to a rejection page
-    // The user must NOT reach the confirmation page
     await expect(
-      userPage.locator('[data-testid="field-error"], [role="alert"], .error').first()
+      userPage.locator('p.text-red-600').first()
         .or(userPage.getByText(/blocked|not allowed|rejected|flagged/i))
     ).toBeVisible({ timeout: 5_000 });
     await expect(userPage).not.toHaveURL(/\/submit\/confirmation|\/submit\/success/i);
@@ -61,7 +53,9 @@ test.describe('Submit flow deep', () => {
   test('unauthenticated user sees submit overview page (not redirected)', async ({ anonPage }) => {
     await anonPage.goto('/submit');
     await expect(anonPage).toHaveURL('/submit', { timeout: 10_000 });
-    const cta = anonPage.getByRole('link', { name: /登入並開始提交/i });
+    const cta = anonPage
+      .locator('main a[href="/auth/sign-in?next=/submit"]:visible')
+      .filter({ hasText: /^登入並開始提交$/ });
     await expect(cta).toBeVisible({ timeout: 5_000 });
     await expect(cta).toHaveAttribute('href', '/auth/sign-in?next=/submit');
   });
