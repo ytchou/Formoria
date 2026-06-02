@@ -29,7 +29,7 @@ export default async function FaqPage({ params }: PageProps) {
   const t = await getTranslations('faq')
 
   const faqItemKeys = [
-    'whatIsMitMap',
+    'whatIsFormoria',
     'whatDoesMitMean',
     'howToSubmit',
     'reviewTime',

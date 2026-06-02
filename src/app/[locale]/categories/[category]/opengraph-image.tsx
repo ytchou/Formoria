@@ -1,7 +1,6 @@
 import { ImageResponse } from 'next/og'
-import { BrandMark } from '@/lib/brand/BrandMark'
 import { brand } from '@/lib/brand/colors'
-import { getOgFonts } from '@/lib/brand/og-fonts'
+import { getOgFonts, getOgMarkDataUri } from '@/lib/brand/og-fonts'
 import { getTags } from '@/lib/services/taxonomy'
 import { getBrands } from '@/lib/services/brands'
 
@@ -14,7 +13,7 @@ export default async function OgImage({
   params: Promise<{ category: string }>
 }) {
   const { category: slug } = await params
-  const fonts = await getOgFonts()
+  const [fonts, markDataUri] = await Promise.all([getOgFonts(), getOgMarkDataUri()])
 
   let categoryName = 'Made in Taiwan Brands'
   let brandCount = 0
@@ -78,7 +77,7 @@ export default async function OgImage({
               fontFamily: 'Bricolage Grotesque',
             }}
           >
-            <BrandMark color={brand.primary} size={36} />
+            <img width={36} height={36} src={markDataUri} />
             <div
               style={{
                 marginLeft: 14,

@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: BrandsPageProps): Promise<Met
   const ogLocale = safeLocale === 'zh-TW' ? 'zh_TW' : 'en_US'
   const ogAlternateLocale = safeLocale === 'zh-TW' ? 'en_US' : 'zh_TW'
   return {
-    title: { absolute: 'MIT Map — Made in Taiwan Brand Directory' },
+    title: { absolute: 'Formoria — Made in Taiwan Brand Directory' },
     description:
       'Discover thoughtfully curated Taiwanese brands. Browse by category, search, and explore the best of Made in Taiwan.',
     alternates: { canonical, languages },
