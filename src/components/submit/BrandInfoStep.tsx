@@ -1,6 +1,7 @@
 'use client'
 
 import { useFormContext, Controller } from 'react-hook-form'
+import { useTranslations } from 'next-intl'
 import { X, Plus, Star, Globe, Upload } from 'lucide-react'
 import {
   DndContext,
@@ -37,10 +38,14 @@ function SortablePhoto({
   photo,
   isHero,
   onRemove,
+  tFromWebsite,
+  tUploaded,
 }: {
   photo: PhotoItem
   isHero: boolean
   onRemove: () => void
+  tFromWebsite: string
+  tUploaded: string
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({ id: photo.id })
@@ -78,13 +83,13 @@ function SortablePhoto({
         {photo.source === 'scraped' && (
           <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[10px] font-medium text-accent-foreground">
             <Globe className="h-3 w-3" />
-            from website
+            {tFromWebsite}
           </span>
         )}
         {photo.source === 'uploaded' && (
           <span className="inline-flex items-center gap-1 rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-medium text-white">
             <Upload className="h-3 w-3" />
-            uploaded
+            {tUploaded}
           </span>
         )}
       </div>
@@ -108,9 +113,19 @@ function SortablePhoto({
 function PhotoGallery({
   photos,
   onPhotosChange,
+  tNoPhotos,
+  tAddPhotos,
+  tAddMorePhotos,
+  tFromWebsite,
+  tUploaded,
 }: {
   photos: PhotoItem[]
   onPhotosChange: (photos: PhotoItem[]) => void
+  tNoPhotos: string
+  tAddPhotos: string
+  tAddMorePhotos: string
+  tFromWebsite: string
+  tUploaded: string
 }) {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
@@ -133,15 +148,15 @@ function PhotoGallery({
     return (
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          No photos found from your website
+          {tNoPhotos}
         </p>
         <button
           type="button"
           className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground/80"
-          aria-label="Add photos"
+          aria-label={tAddPhotos}
         >
           <Plus className="h-4 w-4" />
-          Add photos
+          {tAddPhotos}
         </button>
       </div>
     )
@@ -161,6 +176,8 @@ function PhotoGallery({
                 photo={photo}
                 isHero={index === 0}
                 onRemove={() => handleRemove(photo.id)}
+                tFromWebsite={tFromWebsite}
+                tUploaded={tUploaded}
               />
             ))}
           </div>
@@ -173,7 +190,7 @@ function PhotoGallery({
           className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground/80"
         >
           <Plus className="h-4 w-4" />
-          Add more photos
+          {tAddMorePhotos}
         </button>
       )}
     </div>
@@ -187,6 +204,7 @@ export function BrandInfoStep({
   onPhotosChange,
   isOwner = false,
 }: BrandInfoStepProps) {
+  const t = useTranslations('submit.fields')
   const {
     register,
     control,
@@ -204,12 +222,12 @@ export function BrandInfoStep({
           htmlFor="brand-name"
           className="block text-sm font-semibold text-foreground"
         >
-          Brand Name
+          {t('brandName')}
         </label>
         <input
           id="brand-name"
           type="text"
-          placeholder="e.g. 雨靴工作室"
+          placeholder={t('brandNamePlaceholder')}
           className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
           {...register('name')}
         />
@@ -224,13 +242,13 @@ export function BrandInfoStep({
           htmlFor="brand-description"
           className="block text-sm font-semibold text-foreground"
         >
-          Brand Description
+          {t('brandDescription')}
         </label>
         <textarea
           id="brand-description"
           rows={4}
           maxLength={2000}
-          placeholder="Tell us about your brand..."
+          placeholder={t('brandDescriptionPlaceholder')}
           className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
           {...register('description')}
         />
@@ -241,7 +259,7 @@ export function BrandInfoStep({
             <span />
           )}
           <span className="text-xs text-muted-foreground">
-            {description.length} / 2000 max characters
+            {t('charCount', { count: description.length, max: 2000 })}
           </span>
         </div>
       </div>
@@ -250,12 +268,20 @@ export function BrandInfoStep({
       {photos && onPhotosChange && (
         <div className="space-y-1.5">
           <label className="block text-sm font-semibold text-foreground">
-            Photos
+            {t('photos')}
           </label>
           <p className="text-xs text-muted-foreground">
-            Drag to reorder. The first photo becomes the hero image.
+            {t('photosDragHint')}
           </p>
-          <PhotoGallery photos={photos} onPhotosChange={onPhotosChange} />
+          <PhotoGallery
+            photos={photos}
+            onPhotosChange={onPhotosChange}
+            tNoPhotos={t('noPhotos')}
+            tAddPhotos={t('addPhotos')}
+            tAddMorePhotos={t('addMorePhotos')}
+            tFromWebsite={t('fromWebsite')}
+            tUploaded={t('uploaded')}
+          />
         </div>
       )}
 
@@ -265,14 +291,14 @@ export function BrandInfoStep({
           htmlFor="brand-category"
           className="block text-sm font-semibold text-foreground"
         >
-          Category
+          {t('category')}
         </label>
         <select
           id="brand-category"
           className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
           {...register('category')}
         >
-          <option value="">Select a category</option>
+          <option value="">{t('categoryPlaceholder')}</option>
           {categories.map((cat) => (
             <option key={cat.slug} value={cat.slug}>
               {cat.label ?? cat.name}
@@ -288,10 +314,10 @@ export function BrandInfoStep({
       {/* Tags */}
       <div className="space-y-1.5">
         <label className="block text-sm font-semibold text-foreground">
-          Tags
+          {t('tags')}
         </label>
         <p className="text-xs text-muted-foreground">
-          Add up to 5 tags to help people find your brand
+          {t('tagsHint')}
         </p>
         <Controller
           name="tags"
@@ -313,7 +339,7 @@ export function BrandInfoStep({
                         field.onChange(next)
                       }}
                       className="ml-0.5 text-muted-foreground hover:text-foreground"
-                      aria-label={`Remove tag ${tag}`}
+                      aria-label={t('removeTag', { tag })}
                     >
                       &times;
                     </button>
@@ -323,7 +349,7 @@ export function BrandInfoStep({
               {(field.value?.length ?? 0) < 5 && (
                 <input
                   type="text"
-                  placeholder="Type and press Enter to add a tag"
+                  placeholder={t('tagsInputPlaceholder')}
                   className="h-9 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -348,10 +374,10 @@ export function BrandInfoStep({
       {/* Brand Logo */}
       <div className="space-y-1.5">
         <label className="block text-sm font-semibold text-foreground">
-          {isOwner ? 'Logo *' : 'Logo（可選）'}
+          {isOwner ? t('logoRequired') : t('logoOptional')}
         </label>
         <p className="text-xs text-muted-foreground">
-          Upload your brand logo (max 5MB, will be resized to max 1200px)
+          {t('logoHint')}
         </p>
         <Controller
           name="logoUrl"

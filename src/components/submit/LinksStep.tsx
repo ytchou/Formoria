@@ -1,6 +1,7 @@
 'use client'
 
 import { useFormContext, useFieldArray } from 'react-hook-form'
+import { useTranslations } from 'next-intl'
 import { Plus, Trash2 } from 'lucide-react'
 import type { SubmissionFormData } from '@/lib/validations/submission'
 
@@ -18,6 +19,7 @@ type LinksStepProps = {
 }
 
 export function LinksStep({ isOwner = false }: LinksStepProps = {}) {
+  const t = useTranslations('submit.fields')
   const {
     register,
     control,
@@ -42,10 +44,10 @@ export function LinksStep({ isOwner = false }: LinksStepProps = {}) {
       <div className="space-y-3">
         <div>
           <h3 className="text-sm font-semibold text-foreground">
-            {isOwner ? 'Purchase Links *' : 'Purchase Links（可選）'}
+            {isOwner ? t('purchaseLinksRequired') : t('purchaseLinksOptional')}
           </h3>
           <p className="text-xs text-muted-foreground">
-            Add links where people can buy your products
+            {t('purchaseLinksHint')}
           </p>
         </div>
 
@@ -57,7 +59,7 @@ export function LinksStep({ isOwner = false }: LinksStepProps = {}) {
                 className="h-11 w-40 shrink-0 rounded-lg border border-border bg-white px-3 text-sm text-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
                 {...register(`purchaseLinks.${index}.platform`)}
               >
-                <option value="">Platform</option>
+                <option value="">{t('platform')}</option>
                 {PLATFORM_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
@@ -88,7 +90,7 @@ export function LinksStep({ isOwner = false }: LinksStepProps = {}) {
           <p className="text-xs text-red-600">
             {typeof errors.purchaseLinks.message === 'string'
               ? errors.purchaseLinks.message
-              : 'Please add at least one purchase link'}
+              : t('purchaseLinkError')}
           </p>
         )}
 
@@ -98,13 +100,13 @@ export function LinksStep({ isOwner = false }: LinksStepProps = {}) {
           className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground/80"
         >
           <Plus className="h-4 w-4" />
-          Add another link
+          {t('addAnotherLink')}
         </button>
       </div>
 
       {/* Social Links */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-foreground">Social Links</h3>
+        <h3 className="text-sm font-semibold text-foreground">{t('socialLinks')}</h3>
         <div className="space-y-2">
           <div className="flex items-center gap-3">
             <label
@@ -173,10 +175,10 @@ export function LinksStep({ isOwner = false }: LinksStepProps = {}) {
       <div className="space-y-3">
         <div>
           <h3 className="text-sm font-semibold text-foreground">
-            Retail Locations
+            {t('retailLocations')}
           </h3>
           <p className="text-xs text-muted-foreground">
-            Physical locations where your products are sold (optional)
+            {t('retailLocationsHint')}
           </p>
         </div>
 
@@ -186,13 +188,13 @@ export function LinksStep({ isOwner = false }: LinksStepProps = {}) {
               <div key={field.id} className="flex items-start gap-2">
                 <input
                   type="text"
-                  placeholder="Store name"
+                  placeholder={t('storeName')}
                   className="h-11 w-40 shrink-0 rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
                   {...register(`retailLocations.${index}.name`)}
                 />
                 <input
                   type="text"
-                  placeholder="Address"
+                  placeholder={t('address')}
                   className="h-11 flex-1 rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
                   {...register(`retailLocations.${index}.address`)}
                 />
@@ -215,7 +217,7 @@ export function LinksStep({ isOwner = false }: LinksStepProps = {}) {
           className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground/80"
         >
           <Plus className="h-4 w-4" />
-          Add location
+          {t('addLocation')}
         </button>
       </div>
     </div>

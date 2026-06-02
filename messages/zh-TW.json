@@ -338,5 +338,190 @@
       "approved": "已通過",
       "rejected": "已拒絕"
     }
+  },
+  "auth": {
+    "signIn": {
+      "heading": "登入",
+      "subheading": "請輸入您的電子郵件和密碼以繼續",
+      "claimMessage": "登入以在 Formoria 認領 <strong>{brandName}</strong>。",
+      "emailLabel": "電子郵件",
+      "passwordLabel": "密碼",
+      "submit": "登入",
+      "submitting": "登入中...",
+      "noAccount": "還沒有帳號？",
+      "signUpLink": "註冊"
+    },
+    "signUp": {
+      "heading": "建立帳號",
+      "subheading": "填寫您的資料以開始使用",
+      "claimMessage": "您已受邀在 Formoria 認領 <strong>{brandName}</strong>。建立帳號以管理您的品牌頁面。",
+      "emailLabel": "電子郵件",
+      "passwordLabel": "密碼",
+      "passwordPlaceholder": "至少 8 個字元",
+      "confirmPasswordLabel": "確認密碼",
+      "submit": "建立帳號",
+      "submitting": "建立中...",
+      "hasAccount": "已有帳號？",
+      "signInLink": "登入"
+    },
+    "confirmEmail": "請確認您的電子郵件以完成帳號驗證"
+  },
+  "dashboard": {
+    "metadata": {
+      "title": "品牌管理"
+    },
+    "heading": "品牌管理",
+    "welcome": "歡迎，{email}",
+    "yourBrands": "您的品牌",
+    "empty": "尚未認領任何品牌。認領品牌後，它將顯示在此處。",
+    "claimedAt": "認領於 {date}",
+    "errors": {
+      "invalidClaim": "認領連結無效或已過期，請聯繫客服。",
+      "emailMismatch": "您登入的電子郵件與認領邀請不符，請使用正確的電子郵件登入。",
+      "claimFailed": "此品牌已被認領。若您認為有誤，請聯繫客服。"
+    }
+  },
+  "submit": {
+    "metadata": {
+      "title": "提交品牌",
+      "description": "將您的台灣製造品牌分享給社群"
+    },
+    "overview": {
+      "heading": "提交你的台灣品牌",
+      "description": "Formoria 收錄台灣在地製造與設計品牌，讓更多人發現你的故事。",
+      "step1": "填寫品牌基本資訊",
+      "step2": "上傳品牌照片與產品圖",
+      "step3": "提交審核，等待社群通知",
+      "timeEstimate": "大約 10 分鐘即可完成",
+      "cta": "登入並開始提交"
+    },
+    "wizard": {
+      "heading": "提交品牌",
+      "subheading": "將您的台灣製造品牌分享給社群",
+      "back": "返回",
+      "next": "下一步",
+      "submitting": "提交中...",
+      "submitBrand": "提交品牌",
+      "steps": {
+        "brandInfo": "品牌資訊",
+        "products": "產品",
+        "links": "連結",
+        "review": "確認"
+      }
+    },
+    "url": {
+      "heading": "提交你喜愛的品牌",
+      "subheading": "與社群分享台灣製造品牌",
+      "label": "品牌網站 URL",
+      "hint": "貼上品牌網站的網址，我們將自動填入您的提交資料",
+      "removeLink": "移除連結",
+      "addLink": "新增連結",
+      "urlAriaLabel": "品牌網站 URL {index}",
+      "isBrandOwner": "我是品牌所有者",
+      "howKnowBrand": "你如何認識這個品牌？",
+      "howKnowPlaceholder": "選擇你認識這品牌的方式（可選）",
+      "fetchError": "無法取得品牌資訊，請再試一次或手動填寫表單。",
+      "loadedStatus": "已載入 {loaded} / {total} 個來源",
+      "loading": "正在取得品牌資訊...",
+      "cancel": "取消",
+      "retry": "再試一次",
+      "manualFill": "改為手動填寫",
+      "autoFill": "自動填入品牌資訊",
+      "skip": "跳過，手動填寫"
+    },
+    "attribution": {
+      "bought_product": "買過他們的產品",
+      "saw_at_market": "在市集或實體店看到",
+      "found_online": "在網路上發現",
+      "friend_recommended": "朋友推薦",
+      "work_there": "在這裡工作"
+    },
+    "fields": {
+      "brandName": "品牌名稱",
+      "brandNamePlaceholder": "例：雨靴工作室",
+      "brandDescription": "品牌描述",
+      "brandDescriptionPlaceholder": "告訴我們關於您的品牌...",
+      "charCount": "{count} / {max} 個字元上限",
+      "photos": "照片",
+      "photosDragHint": "拖曳以排序。第一張照片將成為主圖。",
+      "noPhotos": "未從您的網站找到照片",
+      "addPhotos": "新增照片",
+      "addMorePhotos": "新增更多照片",
+      "fromWebsite": "來自網站",
+      "uploaded": "已上傳",
+      "category": "類別",
+      "categoryPlaceholder": "選擇類別",
+      "tags": "標籤",
+      "tagsHint": "最多新增 5 個標籤，幫助大家找到您的品牌",
+      "tagsInputPlaceholder": "輸入後按 Enter 新增標籤",
+      "removeTag": "移除標籤 {tag}",
+      "logoRequired": "Logo *",
+      "logoOptional": "Logo（可選）",
+      "logoHint": "上傳您的品牌 Logo（最大 5MB，將調整至最大 1200px）",
+      "productPhotos": "產品照片",
+      "productPhotosHint": "上傳最多 6 張照片展示您的產品",
+      "brandHighlights": "品牌亮點",
+      "brandHighlightsHint": "是什麼讓您的品牌與眾不同？",
+      "brandHighlightsPlaceholder": "例：以台灣本地檜木手工製作...",
+      "purchaseLinksRequired": "購買連結 *",
+      "purchaseLinksOptional": "購買連結（可選）",
+      "purchaseLinksHint": "新增讓大家購買您產品的連結",
+      "purchaseLinkError": "請至少新增一個購買連結",
+      "addAnotherLink": "新增另一個連結",
+      "platform": "平台",
+      "socialLinks": "社群連結",
+      "retailLocations": "實體零售地點",
+      "retailLocationsHint": "販售產品的實體地點（可選）",
+      "storeName": "店名",
+      "address": "地址",
+      "addLocation": "新增地點"
+    },
+    "review": {
+      "brandInfo": "品牌資訊",
+      "productPhotos": "產品照片",
+      "linksAndSocial": "連結與社群",
+      "edit": "編輯",
+      "brandName": "品牌名稱",
+      "description": "描述",
+      "category": "類別",
+      "tags": "標籤",
+      "logo": "Logo",
+      "highlights": "亮點",
+      "photoCount": "{count} 張照片已上傳",
+      "photoCountSingular": "1 張照片已上傳",
+      "pdpaConsent": "我同意依據<privacyPolicy>隱私政策</privacyPolicy>收集和使用我的個人資料（PDPA 合規）。"
+    },
+    "confirmation": {
+      "metadata": {
+        "title": "提交成功",
+        "description": "我們已收到您的品牌提交，正在進行審核。"
+      },
+      "heading": "感謝您！",
+      "subheading": "我們已收到您的品牌提交",
+      "timeline": {
+        "review": {
+          "label": "審核中",
+          "description": "我們的團隊通常在 3 個工作天內完成審核"
+        },
+        "contact": {
+          "label": "如有需要，我們會與您聯繫",
+          "description": "您可能會收到詢問後續問題的電子郵件"
+        },
+        "live": {
+          "label": "您的品牌上線",
+          "description": "通過審核後，您的品牌將出現在 Formoria 目錄中"
+        }
+      },
+      "cta": {
+        "explore": "探索 Formoria 目錄",
+        "submitAnother": "再提交一個品牌"
+      }
+    },
+    "errors": {
+      "notAuthenticated": "請先登入才能提交品牌",
+      "rateLimit": "提交次數過多，請稍後再試。",
+      "validation": "驗證失敗，請再試一次。",
+      "unexpected": "發生預期外的錯誤，請再試一次。"
+    }
   }
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 import { Link2, Loader2, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -27,14 +28,6 @@ type ScrapeStatus = {
   ok: boolean
 }
 
-const SOURCE_ATTRIBUTION_LABELS: Record<(typeof SOURCE_ATTRIBUTION_VALUES)[number], string> = {
-  bought_product: '買過他們的產品',
-  saw_at_market: '在市集或實體店看到',
-  found_online: '在網路上發現',
-  friend_recommended: '朋友推薦',
-  work_there: '在這裡工作',
-}
-
 type UrlStepProps = {
   onSuccess: (data: ScrapedBrandData) => void
   onSkip: () => void
@@ -44,6 +37,7 @@ type UrlStepProps = {
 }
 
 export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributionChange }: UrlStepProps) {
+  const t = useTranslations('submit')
   const [urlRows, setUrlRows] = useState<UrlRow[]>([
     { id: 'website-url', value: '' },
   ])
@@ -103,7 +97,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
       }: { data: ScrapedBrandData; statuses?: ScrapeStatus[] } = await response.json()
       if (statuses?.some((sourceStatus) => !sourceStatus.ok)) {
         const loadedCount = statuses.filter((sourceStatus) => sourceStatus.ok).length
-        setLoadedBanner(`已載入 ${loadedCount} / ${statuses.length} 個來源`)
+        setLoadedBanner(t('url.loadedStatus', { loaded: loadedCount, total: statuses.length }))
       }
       setStatus('idle')
       onSuccess(data)
@@ -125,10 +119,10 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
     <div className="mx-auto max-w-xl space-y-6">
       <div className="space-y-1">
         <h2 className="text-lg font-semibold text-foreground">
-          提交你喜愛的品牌
+          {t('url.heading')}
         </h2>
         <p className="text-sm text-muted-foreground">
-          與社群分享台灣製造品牌
+          {t('url.subheading')}
         </p>
       </div>
 
@@ -137,10 +131,10 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
           htmlFor="website-url"
           className="block text-sm font-semibold text-foreground"
         >
-          品牌網站 URL
+          {t('url.label')}
         </label>
         <p className="text-xs text-muted-foreground">
-          貼上品牌網站的網址，我們將自動填入您的提交資料
+          {t('url.hint')}
         </p>
         <div className="space-y-2">
           {urlRows.map((row, index) => {
@@ -152,7 +146,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
                   <Input
                     id={inputId}
                     type="url"
-                    aria-label={index === 0 ? undefined : `品牌網站 URL ${index + 1}`}
+                    aria-label={index === 0 ? undefined : t('url.urlAriaLabel', { index: index + 1 })}
                     placeholder="https://yourbrand.com"
                     value={row.value}
                     onChange={(e) => updateUrlRow(row.id, e.target.value)}
@@ -165,7 +159,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
                     type="button"
                     variant="ghost"
                     size="icon"
-                    aria-label="移除連結"
+                    aria-label={t('url.removeLink')}
                     onClick={() => removeUrlRow(row.id)}
                     disabled={status === 'loading'}
                     className="h-12 w-12 rounded-lg p-2 text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring"
@@ -186,7 +180,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
             className="h-12 rounded-lg px-2 text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Plus className="h-4 w-4" />
-            新增連結
+            {t('url.addLink')}
           </Button>
         )}
       </div>
@@ -202,7 +196,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
           htmlFor="is-brand-owner"
           className="cursor-pointer select-none text-sm font-medium text-foreground"
         >
-          我是品牌所有者
+          {t('url.isBrandOwner')}
         </label>
       </div>
 
@@ -210,19 +204,19 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
       {!isOwner && (
         <div className="space-y-1.5">
           <label className="block text-sm font-semibold text-foreground">
-            你如何認識這個品牌？
+            {t('url.howKnowBrand')}
           </label>
           <Select onValueChange={(val) => onAttributionChange(val as SourceAttribution)}>
             <SelectTrigger
-              aria-label="你如何認識這個品牌？"
+              aria-label={t('url.howKnowBrand')}
               className="h-11 w-full border-border text-sm text-foreground"
             >
-              <SelectValue placeholder="選擇你認識這品牌的方式（可選）" />
+              <SelectValue placeholder={t('url.howKnowPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
               {SOURCE_ATTRIBUTION_VALUES.map((value) => (
                 <SelectItem key={value} value={value}>
-                  {SOURCE_ATTRIBUTION_LABELS[value]}
+                  {t(`attribution.${value}`)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -233,7 +227,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
       {status === 'error' && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3">
           <p className="text-sm text-destructive">
-            無法取得品牌資訊，請再試一次或手動填寫表單。
+            {t('url.fetchError')}
           </p>
         </div>
       )}
@@ -249,7 +243,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
           <>
             <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              正在取得品牌資訊...
+              {t('url.loading')}
             </div>
             <Button
               type="button"
@@ -257,7 +251,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
               variant="ghost"
               className="h-12 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             >
-              取消
+              {t('url.cancel')}
             </Button>
           </>
         ) : status === 'error' ? (
@@ -267,7 +261,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
               onClick={handleFetch}
               className="focus-visible:ring-2 focus-visible:ring-ring"
             >
-              再試一次
+              {t('url.retry')}
             </Button>
             <Button
               type="button"
@@ -275,7 +269,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
               variant="ghost"
               className="h-12 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             >
-              改為手動填寫
+              {t('url.manualFill')}
             </Button>
           </>
         ) : (
@@ -286,7 +280,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
               disabled={!isValidUrl}
               className="focus-visible:ring-2 focus-visible:ring-ring"
             >
-              自動填入品牌資訊
+              {t('url.autoFill')}
             </Button>
             <Button
               type="button"
@@ -294,7 +288,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
               variant="ghost"
               className="h-12 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             >
-              跳過，手動填寫
+              {t('url.skip')}
             </Button>
           </>
         )}

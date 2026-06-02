@@ -2,6 +2,7 @@
 
 import { useCallback } from 'react'
 import { useFormContext, Controller } from 'react-hook-form'
+import { useTranslations } from 'next-intl'
 import { Pencil } from 'lucide-react'
 import type { SubmissionFormData } from '@/lib/validations/submission'
 import { TurnstileWidget } from './TurnstileWidget'
@@ -12,10 +13,12 @@ type ReviewStepProps = {
 
 function SectionHeader({
   title,
+  editLabel,
   stepIndex,
   onEdit,
 }: {
   title: string
+  editLabel: string
   stepIndex: number
   onEdit: (step: number) => void
 }) {
@@ -28,7 +31,7 @@ function SectionHeader({
         className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-secondary"
       >
         <Pencil className="h-3 w-3" />
-        Edit
+        {editLabel}
       </button>
     </div>
   )
@@ -54,6 +57,7 @@ function ReviewRow({
 }
 
 export function ReviewStep({ onEditStep }: ReviewStepProps) {
+  const t = useTranslations('submit.review')
   const { control, watch, setValue, register } = useFormContext<SubmissionFormData>()
 
   const formData = watch()
@@ -70,16 +74,17 @@ export function ReviewStep({ onEditStep }: ReviewStepProps) {
       {/* Brand Info Panel */}
       <div className="space-y-3">
         <SectionHeader
-          title="Brand Info"
+          title={t('brandInfo')}
+          editLabel={t('edit')}
           stepIndex={0}
           onEdit={onEditStep}
         />
         <div className="space-y-2 rounded-lg bg-background p-4">
-          <ReviewRow label="Brand Name" value={formData.name} />
-          <ReviewRow label="Description" value={formData.description} />
-          <ReviewRow label="Category" value={formData.category} />
+          <ReviewRow label={t('brandName')} value={formData.name} />
+          <ReviewRow label={t('description')} value={formData.description} />
+          <ReviewRow label={t('category')} value={formData.category} />
           <ReviewRow
-            label="Tags"
+            label={t('tags')}
             value={
               formData.tags?.length
                 ? formData.tags.join(', ')
@@ -89,7 +94,7 @@ export function ReviewStep({ onEditStep }: ReviewStepProps) {
           {formData.logoUrl && (
             <div className="flex gap-3">
               <span className="w-[140px] shrink-0 text-xs text-muted-foreground">
-                Logo
+                {t('logo')}
               </span>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -105,13 +110,16 @@ export function ReviewStep({ onEditStep }: ReviewStepProps) {
       {/* Product Photos Panel */}
       <div className="space-y-3">
         <SectionHeader
-          title="Product Photos"
+          title={t('productPhotos')}
+          editLabel={t('edit')}
           stepIndex={1}
           onEdit={onEditStep}
         />
         <div className="space-y-2 rounded-lg bg-background p-4">
           <p className="text-[13px] text-foreground">
-            {photoCount} {photoCount === 1 ? 'photo' : 'photos'} uploaded
+            {photoCount === 1
+              ? t('photoCountSingular')
+              : t('photoCount', { count: photoCount })}
           </p>
           {photoCount > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -128,7 +136,7 @@ export function ReviewStep({ onEditStep }: ReviewStepProps) {
           )}
           {formData.brandHighlights && (
             <ReviewRow
-              label="Highlights"
+              label={t('highlights')}
               value={formData.brandHighlights}
             />
           )}
@@ -138,7 +146,8 @@ export function ReviewStep({ onEditStep }: ReviewStepProps) {
       {/* Links Panel */}
       <div className="space-y-3">
         <SectionHeader
-          title="Links & Social"
+          title={t('linksAndSocial')}
+          editLabel={t('edit')}
           stepIndex={2}
           onEdit={onEditStep}
         />
@@ -189,16 +198,18 @@ export function ReviewStep({ onEditStep }: ReviewStepProps) {
                   className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded border-border accent-cta"
                 />
                 <span className="text-[13px] text-foreground">
-                  I agree to the collection and use of my personal data in
-                  accordance with the{' '}
-                  <a
-                    href="/privacy"
-                    target="_blank"
-                    className="text-muted-foreground underline"
-                  >
-                    Privacy Policy
-                  </a>{' '}
-                  (PDPA compliance).
+                  {t.rich('pdpaConsent', {
+                    privacyPolicy: (chunks) => (
+                      <a
+                        href="/privacy"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-muted-foreground underline"
+                      >
+                        {chunks}
+                      </a>
+                    ),
+                  })}
                 </span>
               </label>
               {fieldState.error && (

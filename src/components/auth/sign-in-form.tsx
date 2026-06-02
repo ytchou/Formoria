@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { signIn } from "@/app/auth/actions";
 import type { AuthState } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ export function SignInForm({ claimToken, claimBrandName }: SignInFormProps) {
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
   const next = searchParams.get("next");
+  const t = useTranslations("auth");
 
   const signUpHref = claimToken
     ? `/auth/sign-up?claim=${claimToken}`
@@ -28,16 +30,19 @@ export function SignInForm({ claimToken, claimBrandName }: SignInFormProps) {
     <div className="space-y-6">
       <div className="space-y-2 text-center">
         <h1 className="font-heading text-2xl font-bold tracking-tight">
-          登入
+          {t("signIn.heading")}
         </h1>
         <p className="text-sm text-muted-foreground">
-          請輸入您的電子郵件和密碼以繼續
+          {t("signIn.subheading")}
         </p>
       </div>
 
       {claimToken && claimBrandName && (
         <div className="rounded-lg border border-[#E06B3F]/20 bg-[#E06B3F]/5 px-4 py-3 text-sm">
-          登入以在 Formoria 認領 <strong>{claimBrandName}</strong>。
+          {t.rich("signIn.claimMessage", {
+            brandName: claimBrandName,
+            strong: (chunks) => <strong>{chunks}</strong>,
+          })}
         </div>
       )}
 
@@ -62,7 +67,7 @@ export function SignInForm({ claimToken, claimBrandName }: SignInFormProps) {
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="email">電子郵件</Label>
+          <Label htmlFor="email">{t("signIn.emailLabel")}</Label>
           <Input
             id="email"
             name="email"
@@ -74,7 +79,7 @@ export function SignInForm({ claimToken, claimBrandName }: SignInFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password">密碼</Label>
+          <Label htmlFor="password">{t("signIn.passwordLabel")}</Label>
           <Input
             id="password"
             name="password"
@@ -85,17 +90,17 @@ export function SignInForm({ claimToken, claimBrandName }: SignInFormProps) {
         </div>
 
         <Button type="submit" className="w-full" size="lg" disabled={pending}>
-          {pending ? "登入中..." : "登入"}
+          {pending ? t("signIn.submitting") : t("signIn.submit")}
         </Button>
       </form>
 
       <p className="text-center text-sm text-muted-foreground">
-        還沒有帳號？{" "}
+        {t("signIn.noAccount")}{" "}
         <Link
           href={signUpHref}
           className="font-medium text-foreground underline-offset-4 hover:underline"
         >
-          註冊
+          {t("signIn.signUpLink")}
         </Link>
       </p>
     </div>

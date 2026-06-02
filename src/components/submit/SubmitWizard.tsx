@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useTransition, useEffect, useCallback, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 import { useForm, FormProvider, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowLeft, ArrowRight, Send } from 'lucide-react'
@@ -31,7 +32,7 @@ import {
 import type { ScrapedBrandData, PhotoItem } from '@/lib/types/scraper'
 import type { SourceAttribution } from '@/lib/types/submission'
 
-const STEP_LABELS = ['品牌資訊', '產品', '連結', '確認']
+const STEP_COUNT = 4
 
 const STEP_SCHEMAS = [brandInfoSchema, productsSchema, linksSchema, reviewSchema]
 
@@ -88,6 +89,7 @@ function mapScrapedToPhotos(data: ScrapedBrandData): PhotoItem[] {
 }
 
 export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardProps) {
+  const t = useTranslations('submit')
   const router = useRouter()
   const [phase, setPhase] = useState<WizardPhase>('url')
   const [currentStep, setCurrentStep] = useState(0)
@@ -181,7 +183,7 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
       return
     }
 
-    const nextStep = Math.min(currentStep + 1, STEP_LABELS.length - 1)
+    const nextStep = Math.min(currentStep + 1, STEP_COUNT - 1)
     setCurrentStep(nextStep)
 
     const stepName = SUBMISSION_STEP_NAMES[currentStep as keyof typeof SUBMISSION_STEP_NAMES]
@@ -233,10 +235,10 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
     <div className="mx-auto max-w-3xl space-y-8 px-4 py-12">
       <div className="text-center">
         <h1 className="font-heading text-[26px] font-bold text-foreground">
-          提交品牌
+          {t('wizard.heading')}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          將您的台灣製造品牌分享給社群
+          {t('wizard.subheading')}
         </p>
       </div>
 
@@ -252,7 +254,15 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
         </div>
       ) : (
         <>
-          <StepIndicator steps={STEP_LABELS} currentStep={currentStep} />
+          <StepIndicator
+            steps={[
+              t('wizard.steps.brandInfo'),
+              t('wizard.steps.products'),
+              t('wizard.steps.links'),
+              t('wizard.steps.review'),
+            ]}
+            currentStep={currentStep}
+          />
 
           <FormProvider {...methods}>
             <form onSubmit={handleSubmit}>
@@ -287,19 +297,19 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
                       className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-5 py-2.5 text-sm font-medium text-foreground hover:bg-secondary"
                     >
                       <ArrowLeft className="h-4 w-4" />
-                      返回
+                      {t('wizard.back')}
                     </button>
                   ) : (
                     <span />
                   )}
 
-                  {currentStep < STEP_LABELS.length - 1 ? (
+                  {currentStep < STEP_COUNT - 1 ? (
                     <button
                       type="button"
                       onClick={handleNext}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-cta px-5 py-2.5 text-sm font-medium text-cta-foreground hover:bg-cta/90"
                     >
-                      下一步
+                      {t('wizard.next')}
                       <ArrowRight className="h-4 w-4" />
                     </button>
                   ) : (
@@ -309,11 +319,11 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
                       className="inline-flex items-center gap-1.5 rounded-lg bg-cta px-5 py-2.5 text-sm font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-50"
                     >
                       {isPending ? (
-                        '提交中...'
+                        t('wizard.submitting')
                       ) : (
                         <>
                           <Send className="h-4 w-4" />
-                          提交品牌
+                          {t('wizard.submitBrand')}
                         </>
                       )}
                     </button>

@@ -1,19 +1,27 @@
+import type { Metadata } from 'next'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { createClient } from '@/lib/supabase/server'
 import { getTags } from '@/lib/services/taxonomy'
 import { SubmitWizard } from '@/components/submit/SubmitWizard'
 import SubmitOverview from '@/components/submit/SubmitOverview'
 
-export const metadata = {
-  title: '提交品牌',
-  description: '將您的台灣製造品牌分享給社群',
-}
-
 type SubmitPageProps = {
   params: Promise<{ locale: string }>
 }
 
+export async function generateMetadata({ params }: SubmitPageProps): Promise<Metadata> {
+  const { locale } = await params
+  setRequestLocale(locale)
+  const t = await getTranslations('submit.metadata')
+  return {
+    title: t('title'),
+    description: t('description'),
+  }
+}
+
 export default async function SubmitPage({ params }: SubmitPageProps) {
   const { locale } = await params
+  setRequestLocale(locale)
   const supabase = await createClient()
   const {
     data: { user },

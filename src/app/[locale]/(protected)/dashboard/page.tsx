@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUserBrands } from "@/lib/services/brand-owners";
 import {
@@ -9,37 +10,49 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export const metadata: Metadata = {
-  title: "品牌管理",
-};
-
-const ERROR_MESSAGES: Record<string, string> = {
-  "invalid-claim": "認領連結無效或已過期，請聯繫客服。",
-  "email-mismatch": "您登入的電子郵件與認領邀請不符，請使用正確的電子郵件登入。",
-  "claim-failed": "此品牌已被認領。若您認為有誤，請聯繫客服。",
-};
-
 type Props = {
+  params: Promise<{ locale: string }>;
   searchParams: Promise<{ error?: string }>;
 };
 
-export default async function DashboardPage({ searchParams }: Props) {
-  const params = await searchParams;
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const t = await getTranslations("dashboard");
+  return {
+    title: t("metadata.title"),
+  };
+}
+
+export default async function DashboardPage({ params, searchParams }: Props) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const t = await getTranslations("dashboard");
+
+  const resolvedSearchParams = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   const brands = user ? await getUserBrands(user.id) : [];
-  const errorMessage = params.error ? ERROR_MESSAGES[params.error] : null;
+
+  const ERROR_KEYS: Record<string, "errors.invalidClaim" | "errors.emailMismatch" | "errors.claimFailed"> = {
+    "invalid-claim": "errors.invalidClaim",
+    "email-mismatch": "errors.emailMismatch",
+    "claim-failed": "errors.claimFailed",
+  };
+
+  const errorKey = resolvedSearchParams.error ? ERROR_KEYS[resolvedSearchParams.error] : undefined;
+  const errorMessage = errorKey ? t(errorKey) : null;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
       <h1 className="font-heading text-3xl font-bold tracking-tight">
-        品牌管理
+        {t("heading")}
       </h1>
       <p className="mt-2 text-muted-foreground">
-        歡迎，{user?.email}
+        {t("welcome", { email: user?.email ?? "" })}
       </p>
 
       {errorMessage && (
@@ -50,12 +63,12 @@ export default async function DashboardPage({ searchParams }: Props) {
 
       <div className="mt-8">
         <h2 className="font-heading text-xl font-semibold tracking-tight">
-          您的品牌
+          {t("yourBrands")}
         </h2>
 
         {brands.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">
-            尚未認領任何品牌。認領品牌後，它將顯示在此處。
+            {t("empty")}
           </p>
         ) : (
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -70,7 +83,11 @@ export default async function DashboardPage({ searchParams }: Props) {
                   </CardHeader>
                   <CardContent>
                     <p className="text-xs text-muted-foreground">
-                      Claimed {new Date(brand.claimedAt).toLocaleDateString()}
+                      {t("claimedAt", {
+                        date: new Date(brand.claimedAt).toLocaleDateString(
+                          locale === "en" ? "en-US" : "zh-TW"
+                        ),
+                      })}
                     </p>
                   </CardContent>
                 </Card>
