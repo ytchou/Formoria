@@ -1,5 +1,5 @@
 -- =============================================================================
--- MIT Map Seed Data
+-- Formoria Seed Data
 -- Taxonomy categories + sample Taiwan brands
 -- Sourced from: https://github.com/kun1225/taiwan-brands
 -- Safe to run multiple times (idempotent via ON CONFLICT DO NOTHING)

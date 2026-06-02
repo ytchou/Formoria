@@ -1,6 +1,6 @@
 {
   "common": {
-    "brandName": "MIT Map",
+    "brandName": "島藏",
     "exploreBrands": "探索品牌",
     "browseAllBrands": "瀏覽全部品牌 →",
     "submitBrand": "提交品牌",
@@ -223,7 +223,7 @@
     "title": "常見問題",
     "intro": "以下整理了訪客最常詢問的問題。若仍有疑問，歡迎透過頁面底部的聯絡方式與我們聯繫。",
     "items": {
-      "whatIsMitMap": {
+      "whatIsFormoria": {
         "question": "什麼是 Formoria？",
         "answer": "Formoria 是一個開放原始碼的台灣品牌目錄，致力於讓更多人認識與支持台灣製造的優質品牌。無論你是想探索本土品牌的消費者，還是希望被更多人看見的品牌經營者，Formoria 都是你的起點。"
       },

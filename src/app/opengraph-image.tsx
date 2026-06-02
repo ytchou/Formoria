@@ -1,14 +1,13 @@
 import { ImageResponse } from 'next/og'
 
-import { BrandMark } from '@/lib/brand/BrandMark'
 import { brand } from '@/lib/brand/colors'
-import { getOgFonts } from '@/lib/brand/og-fonts'
+import { getOgFonts, getOgMarkDataUri } from '@/lib/brand/og-fonts'
 
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
 export default async function OgImage() {
-  const fonts = await getOgFonts()
+  const [fonts, markDataUri] = await Promise.all([getOgFonts(), getOgMarkDataUri()])
 
   return new ImageResponse(
     (
@@ -43,7 +42,7 @@ export default async function OgImage() {
             padding: '96px',
           }}
         >
-          <BrandMark color={brand.primary} size={96} />
+          <img width={96} height={96} src={markDataUri} />
 
           <div
             style={{

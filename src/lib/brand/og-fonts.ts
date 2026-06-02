@@ -9,6 +9,13 @@ type ImageResponseOptions = NonNullable<
 export type OgFontFace = NonNullable<ImageResponseOptions["fonts"]>[number];
 type OgFonts = NonNullable<ImageResponseOptions["fonts"]>;
 
+export async function getOgMarkDataUri(): Promise<string> {
+  const data = await readFile(
+    join(process.cwd(), "src/assets/brand/formoria-mark.png"),
+  );
+  return `data:image/png;base64,${data.toString("base64")}`;
+}
+
 export async function getOgFonts(): Promise<OgFonts> {
   try {
     const [bricolageData, notoSansTcData] = await Promise.all([

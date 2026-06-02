@@ -1,6 +1,6 @@
 {
   "common": {
-    "brandName": "MIT Map",
+    "brandName": "Formoria",
     "exploreBrands": "Explore Brands",
     "browseAllBrands": "Browse All Brands →",
     "submitBrand": "Submit a Brand",
@@ -61,7 +61,7 @@
     "manifesto": {
       "headline": "Putting Taiwanese Brands on the World Map",
       "body1": "Made in Taiwan is more than a label — it's a commitment to quality. From local ingredients to thoughtfully designed goods, Taiwan is home to countless brands quietly doing exceptional work, waiting to be discovered.",
-      "body2": "MIT Map is the bridge between these brands and the world — so that everyone who puts care into their craft has a chance to be found.",
+      "body2": "Formoria is the bridge between these brands and the world — so that everyone who puts care into their craft has a chance to be found.",
       "cta": "Learn Our Story"
     },
     "newBrands": {
@@ -223,7 +223,7 @@
     "title": "Frequently Asked Questions",
     "intro": "Here are the most common questions we receive. If you still have questions, feel free to reach out via the contact information at the bottom of the page.",
     "items": {
-      "whatIsMitMap": {
+      "whatIsFormoria": {
         "question": "What is Formoria?",
         "answer": "Formoria is an open-source directory of Taiwanese brands dedicated to helping people discover and support quality Made in Taiwan products. Whether you're a consumer looking to explore local brands or a brand owner hoping to reach more people, Formoria is your starting point."
       },
