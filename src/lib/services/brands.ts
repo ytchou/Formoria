@@ -132,6 +132,59 @@ export async function getBrands(
 ): Promise<{ brands: Brand[]; totalCount: number }> {
   const supabase = createServiceClient()
 
+  // When a search term is present, use the search_brands pg_trgm RPC for ranked/fuzzy results.
+  // Fetch a generous pool of ranked IDs, then apply all remaining filters + pagination over them.
+  if (filters?.search) {
+    const trimmed = filters.search.trim().slice(0, 100)
+    if (!trimmed) {
+      return { brands: [], totalCount: 0 }
+    }
+
+    const { data: rpcData, error: rpcError } = await supabase.rpc('search_brands', {
+      search_query: trimmed,
+      result_limit: 500, // generous pool — filters + pagination narrow this down
+    })
+
+    if (rpcError) {
+      console.error('getBrands search_brands RPC error:', rpcError)
+      return { brands: [], totalCount: 0 }
+    }
+
+    const rankedIds: string[] = (rpcData ?? []).map((row: { id: string }) => row.id)
+    if (rankedIds.length === 0) {
+      return { brands: [], totalCount: 0 }
+    }
+
+    // Apply remaining filters over the ranked ID set
+    let query = supabase.from('brands').select(BRAND_SELECT, { count: 'exact' })
+    query = query.in('id', rankedIds)
+
+    if (filters.status) {
+      query = query.eq('status', filters.status)
+    }
+    if (filters.category) {
+      query = query.contains('tag_slugs', [filters.category])
+    }
+    if (filters.tags && filters.tags.length > 0) {
+      query = query.overlaps('tag_slugs', filters.tags)
+    }
+
+    // Sorting
+    const sortKey = filters.sort ?? 'name'
+    const sortConfig = BRAND_SORT_CONFIG[sortKey]
+    query = query.order(sortConfig.column, { ascending: sortConfig.ascending })
+
+    // Pagination
+    if (filters.limit !== undefined) {
+      const offset = filters.offset ?? 0
+      query = query.range(offset, offset + filters.limit - 1)
+    }
+
+    const { data, error, count } = await query
+    if (error) throw error
+    return { brands: (data ?? []).map(brandToDomain), totalCount: count ?? 0 }
+  }
+
   let query = supabase.from('brands').select(BRAND_SELECT, { count: 'exact' })
 
   if (filters?.status) {
@@ -140,10 +193,6 @@ export async function getBrands(
   if (filters?.category) {
     // brand has this category (a product_type tag slug)
     query = query.contains('tag_slugs', [filters.category])
-  }
-  if (filters?.search) {
-    const term = filters.search.slice(0, 100).replace(/[%_\\]/g, '\\$&')
-    query = query.or(`name.ilike.%${term}%,description.ilike.%${term}%`)
   }
   if (filters?.tags && filters.tags.length > 0) {
     // brand has at least one of these value tags
