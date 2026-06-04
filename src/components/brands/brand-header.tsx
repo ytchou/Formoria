@@ -26,7 +26,7 @@ export function BrandHeader({ brand, actionsSlot }: BrandHeaderProps) {
       <div className="flex flex-wrap items-center gap-2 text-sm">
         {/* Category pill */}
         {brand.category && (
-          <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-coffee">
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-foreground">
             {brand.category}
           </span>
         )}

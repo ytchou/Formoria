@@ -49,7 +49,6 @@
 }
 
 @theme {
-  --color-coffee: var(--coffee);
   --color-warm-caption: var(--warm-caption);
   --color-warm-secondary: var(--warm-secondary);
   --color-gold: var(--gold);
@@ -95,7 +94,6 @@
   --destructive: oklch(0.58 0.18 30);
 
   /* Extended semantic tokens */
-  --coffee: oklch(0.30 0.02 50);
   --warm-caption: oklch(0.58 0.01 55);
   --warm-secondary: oklch(0.54 0.01 55);
   --gold: oklch(0.74 0.08 65);

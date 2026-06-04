@@ -82,11 +82,11 @@ export function BrandLinks({ brand }: BrandLinksProps) {
             }
           >
             {link.icon === 'globe' ? (
-              <Globe className="size-3.5 text-coffee" />
+              <Globe className="size-3.5 text-foreground" />
             ) : link.icon === 'threads' ? (
-              <ThreadsIcon className="size-3.5 text-coffee" />
+              <ThreadsIcon className="size-3.5 text-foreground" />
             ) : (
-              <ExternalLink className="size-3.5 text-coffee" />
+              <ExternalLink className="size-3.5 text-foreground" />
             )}
             {link.label}
           </a>
