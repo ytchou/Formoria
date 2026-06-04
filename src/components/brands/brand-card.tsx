@@ -42,7 +42,7 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
         ) : (
           <div
             data-testid="image-fallback"
-            className="flex h-full items-center justify-center bg-gradient-to-br from-secondary to-border"
+            className="flex h-full items-center justify-center bg-secondary"
           >
             <span className="text-2xl font-bold text-muted-foreground">
               {brand.name.charAt(0)}
@@ -82,7 +82,7 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
             {/* Category — primary classification (filled) */}
             {brand.category && (
-              <span className="inline-block rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-coffee">
+              <span className="inline-block rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-foreground">
                 {brand.category}
               </span>
             )}
