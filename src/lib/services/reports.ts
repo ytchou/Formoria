@@ -1,5 +1,7 @@
 import type { Database } from '@/lib/supabase/database.types'
 
+import { buildReviewUpdate, type ReviewStatus, type ReviewDecision } from './review-status'
+
 // ---------------------------------------------------------------------------
 // Row types
 // ---------------------------------------------------------------------------
@@ -13,7 +15,7 @@ type ReportRowWithBrand = ReportRow & {
 
 export type ReportReason = 'not_mit' | 'incorrect_info' | 'broken_link' | 'inappropriate'
 
-export type ReportStatus = 'pending' | 'reviewed' | 'dismissed'
+export type ReportStatus = ReviewStatus
 
 export type BrandReport = {
   id: string
@@ -83,17 +85,12 @@ export async function getPendingReports(): Promise<BrandReport[]> {
 
 export async function updateReportStatus(
   reportId: string,
-  decision: 'reviewed' | 'dismissed'
+  decision: ReviewDecision
 ): Promise<void> {
   const { createServiceClient } = await import('@/lib/supabase/server')
   const supabase = createServiceClient()
 
-  const updateData: Record<string, unknown> = {
-    status: decision,
-  }
-  if (decision === 'reviewed') {
-    updateData.reviewed_at = new Date().toISOString()
-  }
+  const updateData = buildReviewUpdate(decision)
 
   const { error } = await supabase
     .from('brand_reports')
