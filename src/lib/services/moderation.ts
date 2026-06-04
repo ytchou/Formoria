@@ -1,4 +1,5 @@
 import type { Database } from '@/lib/supabase/database.types'
+import { buildReviewUpdate, type ReviewDecision } from './review-status'
 
 // ---------------------------------------------------------------------------
 // Row types
@@ -234,17 +235,12 @@ export async function getModerationFlag(id: string): Promise<ModerationFlag | nu
 
 export async function updateFlagStatus(
   flagId: string,
-  decision: 'reviewed' | 'dismissed'
+  decision: ReviewDecision
 ): Promise<void> {
   const { createServiceClient } = await import('@/lib/supabase/server')
   const supabase = createServiceClient()
 
-  const updateData: Record<string, unknown> = {
-    status: decision,
-  }
-  if (decision === 'reviewed') {
-    updateData.reviewed_at = new Date().toISOString()
-  }
+  const updateData = buildReviewUpdate(decision)
 
   const { error } = await supabase
     .from('moderation_flags')
