@@ -63,4 +63,26 @@ describe('ClaimRequestsList', () => {
       'insufficient proof'
     )
   })
+
+  it('renders unsafe proof URLs as plain text instead of links', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ClaimRequestsList
+        claimRequests={[
+          {
+            ...FAKE_PENDING_CLAIM,
+            proofUrl: 'javascript:alert(1)',
+          },
+        ]}
+      />
+    )
+
+    expect(screen.queryByRole('link', { name: 'View proof' })).not.toBeInTheDocument()
+    expect(screen.getByText('javascript:alert(1)')).toBeInTheDocument()
+
+    await user.click(screen.getByText('Sun Room Studio'))
+
+    expect(screen.getAllByText('javascript:alert(1)')).toHaveLength(2)
+  })
 })

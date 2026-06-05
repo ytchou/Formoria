@@ -24,6 +24,17 @@ const PROOF_TYPE_LABELS: Record<ClaimRequest['proofType'], string> = {
   business_registration: 'Business registration',
 }
 
+function isSafeHttpUrl(value: string | null | undefined): boolean {
+  if (!value) return false
+
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 export function ClaimRequestsList({
   claimRequests,
 }: {
@@ -148,15 +159,21 @@ export function ClaimRequestsList({
                   </TableCell>
                   <TableCell>
                     {claimRequest.proofUrl ? (
+                      isSafeHttpUrl(claimRequest.proofUrl) ? (
                       <a
                         href={claimRequest.proofUrl}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noreferrer noopener"
                         className="underline underline-offset-2"
                         onClick={(event) => event.stopPropagation()}
                       >
                         View proof
                       </a>
+                      ) : (
+                        <span className="underline underline-offset-2">
+                          {claimRequest.proofUrl}
+                        </span>
+                      )
                     ) : (
                       'None'
                     )}
@@ -176,15 +193,21 @@ export function ClaimRequestsList({
                             Proof URL
                           </p>
                           {claimRequest.proofUrl ? (
-                            <a
-                              href={claimRequest.proofUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-1 inline-block break-all text-sm underline underline-offset-2"
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              {claimRequest.proofUrl}
-                            </a>
+                            isSafeHttpUrl(claimRequest.proofUrl) ? (
+                              <a
+                                href={claimRequest.proofUrl}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className="mt-1 inline-block break-all text-sm underline underline-offset-2"
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                {claimRequest.proofUrl}
+                              </a>
+                            ) : (
+                              <span className="mt-1 inline-block break-all text-sm underline underline-offset-2">
+                                {claimRequest.proofUrl}
+                              </span>
+                            )
                           ) : (
                             <p className="mt-1 text-sm">No proof URL provided.</p>
                           )}
