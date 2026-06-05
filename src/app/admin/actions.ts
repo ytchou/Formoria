@@ -170,11 +170,11 @@ export async function approveClaimAction(
 
     revalidatePath('/admin/claim-requests')
     revalidatePath('/admin')
-    revalidatePath('/')
-    revalidatePath('/brands')
+    revalidatePath('/[locale]', 'page')
+    revalidatePath('/[locale]/brands', 'page')
 
     if (claimRequest.brandSlug) {
-      revalidatePath(`/brands/${claimRequest.brandSlug}`)
+      revalidatePath('/[locale]/brands/[slug]', 'page')
     }
 
     return undefined
@@ -199,11 +199,11 @@ export async function rejectClaimAction(
 
     revalidatePath('/admin/claim-requests')
     revalidatePath('/admin')
-    revalidatePath('/')
-    revalidatePath('/brands')
+    revalidatePath('/[locale]', 'page')
+    revalidatePath('/[locale]/brands', 'page')
 
     if (claimRequest.brandSlug) {
-      revalidatePath(`/brands/${claimRequest.brandSlug}`)
+      revalidatePath('/[locale]/brands/[slug]', 'page')
     }
 
     return undefined
