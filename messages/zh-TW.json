@@ -114,7 +114,8 @@
     "card": {
       "foundingYear": "創立於 {year}",
       "verifiedLabel": "已認證品牌",
-      "verifiedBadge": "已認證"
+      "verifiedBadge": "已認證",
+      "communityLabel": "社群"
     },
     "loadingAria": "載入品牌中...",
     "noResultsInSuggestions": "找不到結果"

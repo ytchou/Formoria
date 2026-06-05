@@ -69,7 +69,7 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
           )}
           {!brand.isVerified && (
             <span className="inline-flex items-center rounded-full bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-              Community / 社群
+              {t('card.communityLabel')}
             </span>
           )}
         </div>
