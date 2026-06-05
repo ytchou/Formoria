@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 const navLinks = [
   { label: '管理後台', href: '/admin' },
   { label: '待審核提交', href: '/admin/submissions' },
+  { label: '認領申請', href: '/admin/claim-requests' },
   { label: '品牌', href: '/admin/brands' },
   { label: '分類管理', href: '/admin/taxonomy' },
   { label: '已標記', href: '/admin/flagged' },
