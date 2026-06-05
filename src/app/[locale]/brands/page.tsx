@@ -6,12 +6,14 @@ import { getActiveCategories } from '@/lib/services/taxonomy'
 import { buildWebSiteJsonLd } from '@/lib/json-ld'
 import { parsePageParam, parseSortParam, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import { CategoryPills } from '@/components/brands/category-pills'
+import { VerificationFilter } from '@/components/brands/verification-filter'
 import { MasonryGrid } from '@/components/brands/masonry-grid'
 import { BrandCard } from '@/components/brands/brand-card'
 import { Pagination } from '@/components/brands/pagination'
 import { SortSelect } from '@/components/brands/sort-select'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import type { BrandFilters } from '@/lib/types'
 
 // ISR: revalidate every hour
 export const revalidate = 3600
@@ -19,6 +21,12 @@ export const revalidate = 3600
 interface BrandsPageProps {
   params: Promise<{ locale: string }>
   searchParams: Promise<Record<string, string | string[] | undefined>>
+}
+
+function parseVerificationParam(
+  value: string | string[] | undefined
+): NonNullable<BrandFilters['verificationFilter']> {
+  return value === 'verified' || value === 'community' || value === 'all' ? value : 'all'
 }
 
 export async function generateMetadata({ params }: BrandsPageProps): Promise<Metadata> {
@@ -53,6 +61,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
     typeof sp.search === 'string' ? sp.search.trim() : ''
   const categoryFilter =
     typeof sp.category === 'string' ? sp.category.trim() : ''
+  const verificationFilter = parseVerificationParam(sp.verification)
   const tags =
     typeof sp.tags === 'string'
       ? sp.tags
@@ -66,6 +75,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
       status: 'approved',
       search: search || undefined,
       category: categoryFilter || undefined,
+      verificationFilter,
       tags: tags.length > 0 ? tags : undefined,
       sort,
       limit: DEFAULT_PAGE_SIZE,
@@ -85,6 +95,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
       status: 'approved',
       search: search || undefined,
       category: categoryFilter || undefined,
+      verificationFilter,
       tags: tags.length > 0 ? tags : undefined,
       sort,
       limit: DEFAULT_PAGE_SIZE,
@@ -99,6 +110,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   if (tags.length > 0) paginationParams.tags = tags.join(',')
   if (sort !== 'name') paginationParams.sort = sort
   if (categoryFilter) paginationParams.category = categoryFilter
+  if (verificationFilter) paginationParams.verification = verificationFilter
 
   return (
     <main className="mx-auto w-full max-w-screen-xl px-6 py-10 md:px-10">
@@ -108,7 +120,10 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
         dangerouslySetInnerHTML={{ __html: JSON.stringify(buildWebSiteJsonLd(safeLocale)) }}
       />
 
-      <CategoryPills categories={categories} />
+      <div className="mb-4 space-y-1">
+        <CategoryPills categories={categories} />
+        <VerificationFilter active={verificationFilter} />
+      </div>
 
       {/* Count + sort header */}
       <div className="mb-6 flex items-center justify-between">
