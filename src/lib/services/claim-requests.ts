@@ -1,12 +1,15 @@
 import type { Database } from '@/lib/supabase/database.types'
 import { NotFoundError, ValidationError } from '@/lib/errors'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { completeBrandClaim } from './brands'
 
 type BrandRow = Database['public']['Tables']['brands']['Row']
 
 type ClaimRequestStatus = 'pending' | 'approved' | 'rejected'
 type ClaimProofType = 'domain_email' | 'social_post' | 'business_registration'
+const MAX_PROOF_URL_LENGTH = 2048
+const DUPLICATE_PENDING_CLAIM_ERROR = 'a pending claim already exists for this brand'
+const CLAIM_ALREADY_REVIEWED_ERROR = 'claim already reviewed'
+const CLAIM_REQUESTER_EMAIL_NOT_FOUND_ERROR = 'Claim requester email not found'
 
 type ClaimRequestRow = {
   id: string
@@ -42,10 +45,24 @@ type ClaimRequestManyResult<T> = Promise<{
   error: ClaimRequestError | null
 }>
 
+type ClaimRequestUpdateSelectResult<T> = Promise<{
+  data: T | null
+  error: ClaimRequestError | null
+}>
+
 type ClaimRequestSelectBuilder = {
   eq(column: string, value: string): ClaimRequestSelectBuilder
   order(column: string, options: { ascending: boolean }): ClaimRequestManyResult<ClaimRequestRowWithJoins>
   single(): ClaimRequestSingleResult<ClaimRequestRowWithJoins>
+  maybeSingle(): ClaimRequestSingleResult<ClaimRequestRowWithJoins>
+}
+
+type ClaimRequestUpdateBuilder = {
+  eq(column: string, value: string): ClaimRequestUpdateBuilder
+  select(columns: string): {
+    single(): ClaimRequestUpdateSelectResult<{ id: string }>
+    maybeSingle(): ClaimRequestUpdateSelectResult<{ id: string }>
+  }
 }
 
 type ClaimRequestTable = {
@@ -55,13 +72,14 @@ type ClaimRequestTable = {
     }
   }
   select(columns: string): ClaimRequestSelectBuilder
-  update(values: Record<string, unknown>): {
-    eq(column: string, value: string): {
-      select(columns: string): {
-        single(): ClaimRequestSingleResult<{ id: string }>
-      }
-    }
-  }
+  update(values: Record<string, unknown>): ClaimRequestUpdateBuilder
+}
+
+type ClaimRequestRpcClient = {
+  rpc(
+    fn: 'approve_claim_request',
+    params: { p_claim_id: string; p_reviewer_id: string }
+  ): Promise<{ data: unknown; error: ClaimRequestError | null }>
 }
 
 export type ClaimRequest = {
@@ -104,6 +122,32 @@ function claimRequestsTable(client: unknown): ClaimRequestTable {
   return (client as { from: (table: 'claim_requests') => ClaimRequestTable }).from('claim_requests')
 }
 
+function claimRequestRpcClient(client: unknown): ClaimRequestRpcClient {
+  return client as ClaimRequestRpcClient
+}
+
+function normalizeProofUrl(proofUrl?: string): string | null {
+  const trimmed = proofUrl?.trim()
+  if (!trimmed) return null
+
+  if (trimmed.length > MAX_PROOF_URL_LENGTH) {
+    throw new ValidationError(`proofUrl must be ${MAX_PROOF_URL_LENGTH} characters or fewer`)
+  }
+
+  let parsed: URL
+  try {
+    parsed = new URL(trimmed)
+  } catch {
+    throw new ValidationError('proofUrl must be a valid http/https URL')
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new ValidationError('proofUrl must be a valid http/https URL')
+  }
+
+  return parsed.toString()
+}
+
 async function attachRequesterEmails(rows: ClaimRequestRowWithJoins[]): Promise<ClaimRequest[]> {
   const supabase = createServiceClient()
   const userIds = [...new Set(rows.map((row) => row.user_id))]
@@ -133,18 +177,39 @@ export async function createClaimRequest(input: {
   proofNotes?: string
 }): Promise<ClaimRequest> {
   const supabase = await createClient()
+  const proofUrl = normalizeProofUrl(input.proofUrl)
+
+  const { data: existingPendingClaim, error: existingPendingClaimError } = await claimRequestsTable(
+    supabase
+  )
+    .select('id')
+    .eq('brand_id', input.brandId)
+    .eq('user_id', input.userId)
+    .eq('status', 'pending')
+    .maybeSingle()
+
+  if (existingPendingClaimError) throw existingPendingClaimError
+  if (existingPendingClaim) {
+    throw new ValidationError(DUPLICATE_PENDING_CLAIM_ERROR)
+  }
+
   const { data, error } = await claimRequestsTable(supabase)
     .insert({
       user_id: input.userId,
       brand_id: input.brandId,
       proof_type: input.proofType,
-      proof_url: input.proofUrl ?? null,
+      proof_url: proofUrl,
       proof_notes: input.proofNotes ?? null,
     })
     .select('*')
     .single()
 
-  if (error) throw error
+  if (error) {
+    if (error.code === '23505') {
+      throw new ValidationError(DUPLICATE_PENDING_CLAIM_ERROR)
+    }
+    throw error
+  }
   return rowToClaimRequest(data as ClaimRequestRowWithJoins)
 }
 
@@ -176,36 +241,29 @@ export async function getClaimRequest(id: string): Promise<ClaimRequest> {
 }
 
 export async function approveClaimRequest(id: string, reviewerId: string): Promise<void> {
-  const request = await getClaimRequest(id)
-  if (!request.requesterEmail) {
-    throw new ValidationError('Claim requester email not found')
-  }
-
-  try {
-    await completeBrandClaim({
-      userId: request.userId,
-      brandId: request.brandId,
-      email: request.requesterEmail,
-    })
-  } catch (error) {
-    if ((error as { code?: string }).code === '23505') {
-      throw new ValidationError('This brand has already been claimed')
-    }
-    throw error
-  }
-
   const supabase = createServiceClient()
-  const { data, error } = await claimRequestsTable(supabase)
-    .update({
-      status: 'approved',
-      reviewed_at: new Date().toISOString(),
-      reviewed_by: reviewerId,
-    })
-    .eq('id', id)
-    .select('id')
-    .single()
+  const { error } = await claimRequestRpcClient(supabase).rpc('approve_claim_request', {
+    p_claim_id: id,
+    p_reviewer_id: reviewerId,
+  })
 
-  if (error || !data) throw new NotFoundError('ClaimRequest', id)
+  if (!error) {
+    return
+  }
+
+  if (error.code === '23505' || error.message.includes('already been claimed')) {
+    throw new ValidationError('This brand has already been claimed')
+  }
+
+  if (error.message.includes(CLAIM_ALREADY_REVIEWED_ERROR)) {
+    throw new ValidationError(CLAIM_ALREADY_REVIEWED_ERROR)
+  }
+
+  if (error.message.includes(CLAIM_REQUESTER_EMAIL_NOT_FOUND_ERROR)) {
+    throw new ValidationError(CLAIM_REQUESTER_EMAIL_NOT_FOUND_ERROR)
+  }
+
+  throw error
 }
 
 export async function rejectClaimRequest(
@@ -222,8 +280,10 @@ export async function rejectClaimRequest(
       reviewed_by: reviewerId,
     })
     .eq('id', id)
+    .eq('status', 'pending')
     .select('id')
-    .single()
+    .maybeSingle()
 
-  if (error || !data) throw new NotFoundError('ClaimRequest', id)
+  if (error) throw error
+  if (!data) throw new ValidationError(CLAIM_ALREADY_REVIEWED_ERROR)
 }
