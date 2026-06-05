@@ -101,7 +101,6 @@ describeWithDb('getBrands tags+category filtering (integration)', () => {
 
 describeWithDb('getBrands — verificationFilter', () => {
   let verifiedBrandId: string
-  let communityBrandId: string
   let ownerUserId: string
 
   beforeAll(async () => {
@@ -140,7 +139,6 @@ describeWithDb('getBrands — verificationFilter', () => {
     }
 
     verifiedBrandId = verifiedBrand.id
-    communityBrandId = communityBrand.id
 
     const { data: createdUser, error: userErr } = await client.auth.admin.createUser({
       email: VERIFIED_OWNER_EMAIL,
