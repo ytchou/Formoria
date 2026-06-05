@@ -32,6 +32,12 @@ function makeBrandRow(overrides: Record<string, unknown> = {}) {
 }
 
 describe('brandToDomain — isVerified', () => {
+  it('sets isVerified=true when brand_owners is a single object', () => {
+    const row = makeBrandRow({ brand_owners: { user_id: 'user-abc' } })
+    const brand = brandToDomain(row)
+    expect(brand.isVerified).toBe(true)
+  })
+
   it('sets isVerified=true when brand_owners has at least one entry', () => {
     const row = makeBrandRow({ brand_owners: [{ user_id: 'user-abc' }] })
     const brand = brandToDomain(row)

@@ -33,7 +33,7 @@ type BrandOwnerRef = { user_id: string }
 export type BrandRowWithJoins = Partial<BrandRow> &
   Pick<BrandRow, 'id' | 'name' | 'slug' | 'status' | 'submitted_at' | 'created_at' | 'updated_at'> & {
     brand_taxonomy?: BrandTaxonomyWithTag[] | null
-    brand_owners?: BrandOwnerRef[] | null
+    brand_owners?: BrandOwnerRef | BrandOwnerRef[] | null
   }
 
 export type SearchResult = {
@@ -86,6 +86,11 @@ function mapSocialLinksToDb(links: SocialLinks): Record<string, string | undefin
 
 export function brandToDomain(row: BrandRowWithJoins): Brand {
   const taxonomyJoin = row.brand_taxonomy ?? []
+  const owners = Array.isArray(row.brand_owners)
+    ? row.brand_owners
+    : row.brand_owners
+      ? [row.brand_owners]
+      : []
   const tags: TaxonomyTag[] = taxonomyJoin
     .filter((bt) => bt.taxonomy_tags !== null)
     .map((bt) => {
@@ -113,7 +118,7 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     // status is text in the DB — cast to BrandStatus at the boundary
     status: row.status as Brand['status'],
     category: row.category ?? null,
-    isVerified: Array.isArray(row.brand_owners) && row.brand_owners.length > 0,
+    isVerified: owners.length > 0,
     isDemo: row.is_demo ?? false,
     foundingYear: row.founding_year ?? null,
     // Json columns are cast to domain types at the service boundary
