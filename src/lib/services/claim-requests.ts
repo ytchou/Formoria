@@ -1,8 +1,9 @@
 import type { Database } from '@/lib/supabase/database.types'
 import { NotFoundError, ValidationError } from '@/lib/errors'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 type BrandRow = Database['public']['Tables']['brands']['Row']
+type BrandOwnerRow = Database['public']['Tables']['brand_owners']['Row']
 
 type ClaimRequestStatus = 'pending' | 'approved' | 'rejected'
 type ClaimProofType = 'domain_email' | 'social_post' | 'business_registration'
@@ -176,8 +177,30 @@ export async function createClaimRequest(input: {
   proofUrl?: string
   proofNotes?: string
 }): Promise<ClaimRequest> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const proofUrl = normalizeProofUrl(input.proofUrl)
+
+  const { data: brand, error: brandError } = await supabase
+    .from('brands')
+    .select('status')
+    .eq('id', input.brandId)
+    .maybeSingle<Pick<BrandRow, 'status'>>()
+
+  if (brandError) throw brandError
+  if (!brand) {
+    throw new NotFoundError('Brand', input.brandId)
+  }
+
+  const { data: existingOwner, error: existingOwnerError } = await supabase
+    .from('brand_owners')
+    .select('id')
+    .eq('brand_id', input.brandId)
+    .maybeSingle<Pick<BrandOwnerRow, 'id'>>()
+
+  if (existingOwnerError) throw existingOwnerError
+  if (brand.status !== 'approved' || existingOwner) {
+    throw new ValidationError('This brand is not available to claim')
+  }
 
   const { data: existingPendingClaim, error: existingPendingClaimError } = await claimRequestsTable(
     supabase

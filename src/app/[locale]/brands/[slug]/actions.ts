@@ -74,6 +74,7 @@ export async function submitClaimAction(input: SubmitClaimInput): Promise<Submit
     })
 
     revalidatePath('/admin')
+    revalidatePath('/admin/claim-requests')
     return { ok: true }
   } catch (err) {
     console.error('[brands:submitClaim]', err)
@@ -102,6 +103,14 @@ export async function requestBrandRemovalAction(
     const message = input.message?.trim()
     if (message && message.length > 1000) {
       return { error: '補充說明不得超過 1000 字 / Message must be 1000 characters or fewer.' }
+    }
+
+    const h = await headers()
+    const ip = h.get('x-forwarded-for')?.split(',')[0].trim() ?? h.get('x-real-ip') ?? 'unknown'
+
+    const rl = reportRateLimiter.check(`removal:${ip}`, 60_000, 3)
+    if (!rl.allowed) {
+      return { error: '檢舉次數過多，請稍後再試。' }
     }
 
     await requestBrandRemoval({
