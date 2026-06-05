@@ -23,8 +23,8 @@ import { BrandLocations } from '@/components/brands/brand-locations'
 import { MoreInCategory } from '@/components/brands/more-in-category'
 import { RelatedBrands } from '@/components/brands/related-brands'
 
-// ISR: revalidate every hour
-export const revalidate = 3600
+// 30s ISR: ownership/verified-state changes (claim approval) propagate quickly; full route still statically served between regenerations
+export const revalidate = 30
 
 export async function generateStaticParams() {
   try {

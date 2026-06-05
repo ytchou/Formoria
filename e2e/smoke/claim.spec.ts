@@ -65,7 +65,7 @@ test.describe('Claim smoke', () => {
     userPage,
     adminPage,
   }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(180_000);
 
     const brandPath = `/brands/${brandSlug}`;
     const brandResponse = await userPage.goto(brandPath);
@@ -142,9 +142,13 @@ test.describe('Claim smoke', () => {
       )
       .toBe(userId);
 
-    await userPage.goto(brandPath);
-    await expect(userPage.getByTitle('This brand has been verified by its owner')).toBeVisible({
-      timeout: 10_000,
-    });
+    // Verified badge is eventually consistent: the brand detail page is ISR-cached,
+    // so poll-reload until the regenerated page reflects the approved ownership.
+    await expect(async () => {
+      await userPage.goto(brandPath);
+      await expect(
+        userPage.getByTitle('This brand has been verified by its owner')
+      ).toBeVisible({ timeout: 5_000 });
+    }).toPass({ timeout: 120_000, intervals: [2_000, 3_000, 5_000, 10_000] });
   });
 });

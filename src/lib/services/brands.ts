@@ -291,7 +291,7 @@ export async function getBrandBySlug(slug: string): Promise<Brand> {
       return data ? brandToDomain(data) : null
     },
     ['brand-by-slug', slug],
-    { tags: [`brand:${slug}`], revalidate: 3600 }
+    { tags: [`brand:${slug}`], revalidate: 30 }
   )
 
   const cachedBrand = await getCachedBrandBySlug()
