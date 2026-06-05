@@ -3,7 +3,10 @@ import { test, expect } from '@playwright/test';
 test.describe('Directory deep', () => {
   test('all filter combinations return results or empty state', async ({ page }) => {
     await page.goto('/brands');
-    const filters = page.locator('main button[data-active]:visible');
+    const filters = page
+      .locator('main button[data-active]:visible')
+      .filter({ hasNotText: /verified|community/i })
+      .filter({ hasNotText: /^全部 All$/i });
     const count = await filters.count();
     for (let i = 1; i < Math.min(count, 4); i++) {
       await filters.nth(i).click();
