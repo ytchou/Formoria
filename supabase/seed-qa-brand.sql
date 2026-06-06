@@ -14,7 +14,7 @@
 -- Run:
 --   make seed-qa-brand
 --   # or directly:
---   npx supabase db execute --file supabase/seed-qa-brand.sql
+--   npx supabase db query --linked --file supabase/seed-qa-brand.sql
 --   # or with psql:
 --   psql $DATABASE_URL -f supabase/seed-qa-brand.sql
 --

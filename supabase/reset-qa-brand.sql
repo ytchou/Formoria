@@ -6,7 +6,7 @@
 -- re-runs seed-qa-brand.sql to restore all field values (mit_status='unverified').
 --
 -- Run standalone:
---   npx supabase db execute --file supabase/reset-qa-brand.sql
+--   npx supabase db query --linked --file supabase/reset-qa-brand.sql
 --   # or:  psql $DATABASE_URL -f supabase/reset-qa-brand.sql
 -- ============================================================================
 
