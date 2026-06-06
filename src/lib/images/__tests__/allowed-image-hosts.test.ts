@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   isAllowedImageHost,
+  isNonImageHost,
   safeImageSrc,
   ALLOWED_IMAGE_HOSTS,
 } from '@/lib/images/allowed-image-hosts'
@@ -54,5 +55,42 @@ describe('safeImageSrc', () => {
     expect(safeImageSrc('')).toBeNull()
     expect(safeImageSrc('not a url')).toBeNull()
     expect(safeImageSrc('data:image/png;base64,iVBOR')).toBeNull()
+  })
+})
+
+describe('isNonImageHost', () => {
+  it('flags Facebook tracking-pixel hosts', () => {
+    expect(
+      isNonImageHost(
+        'https://www.facebook.com/tr?id=112344346178092&ev=PageView&noscript=1',
+      ),
+    ).toBe(true)
+    expect(isNonImageHost('https://facebook.com/anything')).toBe(true)
+  })
+
+  it('flags LINE tracking and link hosts (host-based, any path)', () => {
+    expect(isNonImageHost('https://tr.line.me/tag.gif?c_t=lap&e=pv')).toBe(true)
+    expect(isNonImageHost('https://page.line.me/hellome?openQrModal=true')).toBe(
+      true,
+    )
+  })
+
+  it('allows real image CDNs (even those not in ALLOWED_IMAGE_HOSTS)', () => {
+    expect(isNonImageHost('https://cdn01.pinkoi.com/product/x/1/800x0.jpg')).toBe(
+      false,
+    )
+    expect(isNonImageHost('https://static.wixstatic.com/media/abc.png')).toBe(
+      false,
+    )
+    expect(
+      isNonImageHost(
+        'https://project.supabase.co/storage/v1/object/public/brand/x.webp',
+      ),
+    ).toBe(false)
+  })
+
+  it('returns false for malformed / non-URL input (never throws)', () => {
+    expect(isNonImageHost('')).toBe(false)
+    expect(isNonImageHost('not a url')).toBe(false)
   })
 })

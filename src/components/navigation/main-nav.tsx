@@ -10,6 +10,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Dialog as SheetPrimitive } from '@base-ui/react/dialog'
+import { AccountMenu } from '@/components/auth/account-menu'
 import { NavSearchInput } from './nav-search-input'
 import { NavCategoryTabs } from './nav-category-tabs'
 import { BrandMark } from '@/lib/brand/BrandMark'
@@ -94,6 +95,7 @@ export function MainNav({ categories }: MainNavProps) {
             {t('submitBrand')}
           </Link>
           <LocaleSwitcher />
+          <AccountMenu />
         </div>
 
         {/* Mobile hamburger */}
@@ -170,6 +172,9 @@ export function MainNav({ categories }: MainNavProps) {
                 </Link>
                 <div className="px-4">
                   <LocaleSwitcher />
+                </div>
+                <div className="px-4">
+                  <AccountMenu />
                 </div>
               </div>
             </SheetContent>

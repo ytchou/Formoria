@@ -5,6 +5,7 @@ import { NotFoundError, ValidationError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getActiveCategories } from '@/lib/services/taxonomy'
 import { BRAND_SORT_CONFIG } from '@/lib/pagination'
+import { isNonImageHost } from '@/lib/images/allowed-image-hosts'
 import { RESERVED_ROUTES } from '@/middleware'
 import { downloadAndStoreImages } from './image-download'
 
@@ -426,23 +427,66 @@ export async function getBrandById(id: string): Promise<Brand> {
   return brandToDomain(data)
 }
 
+function isSupabaseStorageUrl(url: string): boolean {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
+  const storagePrefix = supabaseUrl ? `${supabaseUrl}/storage/` : ''
+
+  if (storagePrefix && url.startsWith(storagePrefix)) {
+    return true
+  }
+
+  try {
+    const parsedUrl = new URL(url)
+    const normalizedHostname = parsedUrl.hostname.toLowerCase()
+
+    return (
+      normalizedHostname.endsWith('.supabase.co') &&
+      parsedUrl.pathname.startsWith('/storage/')
+    )
+  } catch {
+    return false
+  }
+}
+
+export function collectSyncableImageUrls(input: {
+  heroImageUrl: string | null
+  logoUrl: string | null
+  productPhotos: string[]
+}): string[] {
+  const urls = [input.heroImageUrl, input.logoUrl, ...input.productPhotos]
+
+  return urls.filter((url): url is string => {
+    if (!url) {
+      return false
+    }
+
+    return !isSupabaseStorageUrl(url) && !isNonImageHost(url)
+  })
+}
+
 export async function syncBrandImages(brandId: string): Promise<void> {
   const brand = await getBrandById(brandId)
 
-  const supabaseStorageBase = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '') + '/storage/'
-
   type ImageRef = { url: string; field: 'hero' | 'logo' | 'photo'; index?: number }
+  const syncableUrls = collectSyncableImageUrls({
+    heroImageUrl: brand.heroImageUrl,
+    logoUrl: brand.logoUrl,
+    productPhotos: brand.productPhotos,
+  })
+
+  if (syncableUrls.length === 0) return
+
   const refs: ImageRef[] = []
 
-  if (brand.heroImageUrl && !brand.heroImageUrl.includes(supabaseStorageBase)) {
+  if (brand.heroImageUrl && syncableUrls.includes(brand.heroImageUrl)) {
     refs.push({ url: brand.heroImageUrl, field: 'hero' })
   }
-  if (brand.logoUrl && !brand.logoUrl.includes(supabaseStorageBase)) {
+  if (brand.logoUrl && syncableUrls.includes(brand.logoUrl)) {
     refs.push({ url: brand.logoUrl, field: 'logo' })
   }
   for (let i = 0; i < brand.productPhotos.length; i++) {
     const url = brand.productPhotos[i]
-    if (url && !url.includes(supabaseStorageBase)) {
+    if (url && syncableUrls.includes(url)) {
       refs.push({ url, field: 'photo', index: i })
     }
   }

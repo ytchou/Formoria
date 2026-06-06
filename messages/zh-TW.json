@@ -22,7 +22,8 @@
     "allBrands": "全部品牌",
     "searchPlaceholder": "搜尋品牌...",
     "searchAria": "搜尋品牌",
-    "clearSearch": "清除搜尋"
+    "clearSearch": "清除搜尋",
+    "signIn": "登入"
   },
   "footer": {
     "about": "關於我們",
@@ -391,7 +392,14 @@
       "hasAccount": "已有帳號？",
       "signInLink": "登入"
     },
+    "continueWithGoogle": "使用 Google 繼續",
+    "orDivider": "或",
     "confirmEmail": "請確認您的電子郵件以完成帳號驗證"
+  },
+  "account": {
+    "menuLabel": "帳號",
+    "dashboard": "管理後台",
+    "signOut": "登出"
   },
   "dashboard": {
     "metadata": {
@@ -421,6 +429,52 @@
       "trendUp": "上升趨勢",
       "trendDown": "下降趨勢",
       "trendFlat": "持平"
+    },
+    "completeness": {
+      "title": "品牌資料完整度",
+      "summary": "已完成 {completed}/{total}",
+      "toComplete": "待補充",
+      "completed": "已完成",
+      "editCta": "編輯",
+      "complete": "品牌頁面資料完整！顧客能找到所需的一切資訊。",
+      "items": {
+        "heroImage": {
+          "label": "主視覺",
+          "nudge": "顧客進入頁面第一眼看到的畫面。"
+        },
+        "logo": {
+          "label": "品牌標誌",
+          "nudge": "建立品牌辨識度與信任感。"
+        },
+        "description": {
+          "label": "品牌介紹",
+          "nudge": "讓顧客了解你的品牌與台灣製造的故事。"
+        },
+        "purchaseLinks": {
+          "label": "購買連結",
+          "nudge": "附上商店或電商連結，讓顧客直接購買。"
+        },
+        "productPhotos": {
+          "label": "產品照片",
+          "nudge": "用最好的照片展示你的產品。"
+        },
+        "socialLinks": {
+          "label": "社群連結",
+          "nudge": "讓粉絲在各平台上追蹤你。"
+        },
+        "brandHighlights": {
+          "label": "品牌亮點",
+          "nudge": "一眼看見品牌的賣點特色。"
+        },
+        "foundingYear": {
+          "label": "創立年份",
+          "nudge": "增添品牌歷史與可信度。"
+        },
+        "retailLocations": {
+          "label": "實體據點",
+          "nudge": "讓在地顧客找到實體據點。"
+        }
+      }
     },
     "errors": {
       "invalidClaim": "認領連結無效或已過期，請聯繫客服。",

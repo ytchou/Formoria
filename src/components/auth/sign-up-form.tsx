@@ -4,8 +4,9 @@ import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { signUp } from "@/app/auth/actions";
+import { signInWithGoogle, signUp } from "@/app/auth/actions";
 import type { AuthState } from "@/app/auth/actions";
+import { GoogleButton } from "@/components/auth/google-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +20,7 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
   const [state, action, pending] = useActionState<AuthState, FormData>(signUp, {});
   const searchParams = useSearchParams();
   const email = searchParams.get("email") ?? "";
+  const googleAction = signInWithGoogle.bind(null, claimToken, undefined);
   const t = useTranslations("auth");
 
   const signInHref = claimToken
@@ -96,6 +98,8 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
           {pending ? t("signUp.submitting") : t("signUp.submit")}
         </Button>
       </form>
+
+      <GoogleButton action={googleAction} />
 
       <p className="text-center text-sm text-muted-foreground">
         {t("signUp.hasAccount")}{" "}
