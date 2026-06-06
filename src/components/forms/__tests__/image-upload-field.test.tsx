@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ImageUploadField } from '../image-upload-field'
@@ -49,17 +49,15 @@ describe('ImageUploadField', () => {
     )
   })
 
-  it('calls onDelete when the remove button is clicked', async () => {
-    const onDelete = vi.fn()
+  it('clears the preview when the remove button is clicked', async () => {
     render(
       <ImageUploadField
         name="hero"
         label="Hero Image"
         currentUrl="https://example.com/hero.jpg"
-        onDelete={onDelete}
       />
     )
     await userEvent.click(screen.getByRole('button', { name: /remove/i }))
-    expect(onDelete).toHaveBeenCalledOnce()
+    expect(screen.queryByAltText('Hero Image preview')).not.toBeInTheDocument()
   })
 })

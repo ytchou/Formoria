@@ -1,102 +1,151 @@
 'use client'
-import { useState, useRef, useId } from 'react'
+
+import { useRef, useState, useCallback } from 'react'
+import { Loader2 } from 'lucide-react'
+import { useImageUpload } from '@/components/upload/useImageUpload'
+import { Label } from '@/components/ui/label'
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
 type ImageUploadFieldProps = {
   name: string
   label: string
+  brandId?: string
   currentUrl?: string | null
-  onDelete?: () => void
-  maxSizeBytes?: number
-  accept?: string
 }
 
 export function ImageUploadField({
   name,
   label,
+  brandId,
   currentUrl,
-  onDelete,
-  maxSizeBytes = 5 * 1024 * 1024,
-  accept = 'image/*',
 }: ImageUploadFieldProps) {
-  const [preview, setPreview] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const id = useId()
+  const inputId = `image-upload-${name}`
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const displayUrl = preview ?? currentUrl ?? null
+  const [localPreview, setLocalPreview] = useState<string | null>(currentUrl ?? null)
+  const [cleared, setCleared] = useState(false)
+  const [sizeError, setSizeError] = useState<string | null>(null)
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setError(null)
-    if (file.size > maxSizeBytes) {
-      setError('File too large. Maximum size is 5MB.')
-      return
-    }
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      if (typeof ev.target?.result === 'string') {
-        setPreview(ev.target.result)
+  const storagePath = brandId ? `brands/${brandId}/${name}` : `brands/tmp/${name}`
+  const { status, url, error, upload } = useImageUpload({
+    bucket: 'brand-images',
+    path: storagePath,
+  })
+
+  // Derive the hidden URL value: uploaded URL > currentUrl (unless cleared)
+  const hiddenValue = cleared ? '' : (url ?? currentUrl ?? '')
+
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      if (!file) return
+
+      setSizeError(null)
+
+      if (file.size > MAX_FILE_SIZE) {
+        setSizeError('File too large — maximum 5MB')
+        e.target.value = ''
+        return
       }
-    }
-    reader.readAsDataURL(file)
-  }
 
-  function handleDelete() {
-    setPreview(null)
-    setError(null)
-    if (inputRef.current) inputRef.current.value = ''
-    onDelete?.()
-  }
+      // Show local preview immediately; reset cleared flag
+      const objectUrl = URL.createObjectURL(file)
+      setLocalPreview(objectUrl)
+      setCleared(false)
+
+      // Pre-upload to Supabase Storage via the hook → /api/upload
+      const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`
+      upload(file, filename)
+
+      // Reset file input so the same file can be selected again
+      e.target.value = ''
+    },
+    [upload]
+  )
+
+  const handleRemove = useCallback(() => {
+    setLocalPreview(null)
+    setCleared(true)
+    setSizeError(null)
+  }, [])
+
+  const displayError = sizeError ?? error
 
   return (
     <div className="space-y-2">
-      <label htmlFor={id} className="block text-sm font-medium text-[#1A1918]">
-        {label}
-      </label>
-      {displayUrl ? (
-        <div className="relative inline-block">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={displayUrl}
-            alt={`${label} preview`}
-            className="h-32 w-32 rounded-lg object-cover border border-[#E5E4E1]"
-          />
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="absolute -top-2 -right-2 rounded-full bg-white border border-[#E5E4E1] p-1 text-xs text-[#D94F3D] hover:bg-[#F5F4F1]"
-            aria-label="Remove"
-          >
-            ✕
-          </button>
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[#E5E4E1] bg-[#F5F4F1] p-6 hover:border-[#8B5E3C]">
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className="text-sm font-medium text-[#8B5E3C] hover:underline"
-            aria-label="Upload"
-          >
-            Upload
-          </button>
-          <p className="text-xs text-[#857E79]">
-            PNG, JPG up to {Math.round(maxSizeBytes / 1024 / 1024)}MB
-          </p>
-        </div>
-      )}
+      <Label htmlFor={inputId}>{label}</Label>
+
+      {/* Hidden URL input — submitted as the field value in FormData */}
+      <input type="hidden" name={name} value={hiddenValue} />
+
+      {/* File input — labeled for accessibility */}
       <input
-        ref={inputRef}
+        ref={fileInputRef}
+        id={inputId}
         type="file"
-        id={id}
-        name={name}
-        accept={accept}
-        onChange={handleChange}
-        className="sr-only"
+        accept="image/jpeg,image/png,image/webp"
         aria-label={label}
+        className="sr-only"
+        onChange={handleFileSelect}
       />
-      {error && <p className="text-xs text-[#D94F3D]">{error}</p>}
+
+      <div className="space-y-3">
+        {/* Preview */}
+        {localPreview && (
+          <div className="relative inline-block">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={localPreview}
+              alt={`${label} preview`}
+              className="h-24 w-24 rounded-lg border border-border object-cover"
+            />
+            {status === 'uploading' && (
+              <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-card/70">
+                <Loader2 className="h-5 w-5 animate-spin text-cta" />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Controls */}
+        <div className="flex min-h-[48px] items-center gap-3">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={status === 'uploading'}
+            aria-label={localPreview ? 'Replace image' : 'Upload image'}
+            className="inline-flex min-h-[48px] items-center rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {status === 'uploading' ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin text-cta" />
+                上傳中…
+              </>
+            ) : localPreview ? (
+              '更換'
+            ) : (
+              'Upload'
+            )}
+          </button>
+
+          {localPreview && (
+            <button
+              type="button"
+              onClick={handleRemove}
+              aria-label="Remove image"
+              className="inline-flex min-h-[48px] items-center rounded-lg px-4 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
+            >
+              移除
+            </button>
+          )}
+        </div>
+
+        {/* Error */}
+        {displayError && (
+          <p className="text-xs text-destructive">{displayError}</p>
+        )}
+      </div>
     </div>
   )
 }
