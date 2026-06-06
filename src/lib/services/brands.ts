@@ -1,7 +1,6 @@
 import type { Brand, BrandFilters, SocialLinks } from '@/lib/types'
 import type { TaxonomyTag } from '@/lib/types'
 import type { Database } from '@/lib/supabase/database.types'
-import { unstable_cache } from 'next/cache'
 import { NotFoundError, ValidationError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getActiveCategories } from '@/lib/services/taxonomy'
@@ -283,25 +282,6 @@ export async function getBrands(
 }
 
 export async function getBrandBySlug(slug: string): Promise<Brand> {
-  const getCachedBrandBySlug = unstable_cache(
-    async () => {
-      const supabase = createServiceClient()
-      const { data, error } = await supabase
-        .from('brands')
-        .select(BRAND_SELECT)
-        .eq('slug', slug)
-        .maybeSingle()
-
-      if (error) throw error
-      return data ? brandToDomain(data) : null
-    },
-    ['brand-by-slug', slug],
-    { tags: [`brand:${slug}`], revalidate: 30 }
-  )
-
-  const cachedBrand = await getCachedBrandBySlug()
-  if (cachedBrand) return cachedBrand
-
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('brands')

@@ -23,8 +23,8 @@ import { BrandLocations } from '@/components/brands/brand-locations'
 import { MoreInCategory } from '@/components/brands/more-in-category'
 import { RelatedBrands } from '@/components/brands/related-brands'
 
-// 30s ISR: ownership/verified-state changes (claim approval) propagate quickly; full route still statically served between regenerations
-export const revalidate = 30
+// 60s ISR: ownership/verified-state changes propagate within ~a minute; route still statically served between regenerations
+export const revalidate = 60
 
 export async function generateStaticParams() {
   try {

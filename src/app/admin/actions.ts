@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { isAdmin } from '@/lib/auth/admin'
 import { getSubmission, approveSubmission, rejectSubmission } from '@/lib/services/submissions'
@@ -174,7 +174,7 @@ export async function approveClaimAction(
     revalidatePath('/[locale]/brands', 'page')
 
     if (claimRequest.brandSlug) {
-      revalidateTag(`brand:${claimRequest.brandSlug}`, 'max')
+      revalidatePath('/[locale]/brands/[slug]', 'page')
     }
 
     return undefined
@@ -203,7 +203,7 @@ export async function rejectClaimAction(
     revalidatePath('/[locale]/brands', 'page')
 
     if (claimRequest.brandSlug) {
-      revalidateTag(`brand:${claimRequest.brandSlug}`, 'max')
+      revalidatePath('/[locale]/brands/[slug]', 'page')
     }
 
     return undefined
