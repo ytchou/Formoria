@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ImageUploadField } from "@/components/forms/image-upload-field";
 import { DynamicArrayField } from "@/components/forms/dynamic-array-field";
+import { ProductPhotosField } from "@/components/forms/product-photos-field";
 import type { Brand } from "@/lib/types";
 
 type BrandEditFormProps = {
@@ -63,6 +64,23 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="brandHighlights">品牌亮點</Label>
+            <textarea
+              id="brandHighlights"
+              name="brandHighlights"
+              maxLength={300}
+              className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              defaultValue={brand.brandHighlights ?? ""}
+            />
+            <p className="text-xs text-muted-foreground">最多 300 字</p>
+            {state?.fieldErrors?.brandHighlights && (
+              <p className="text-xs text-destructive">
+                {state.fieldErrors.brandHighlights}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="foundingYear">Founding Year</Label>
             <Input
               id="foundingYear"
@@ -82,16 +100,27 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
           </h2>
 
           <ImageUploadField
-            name="logo"
+            name="logoUrl"
             label="Logo"
+            brandId={brand.id}
             currentUrl={brand.logoUrl}
           />
 
           <ImageUploadField
-            name="heroImage"
+            name="heroImageUrl"
             label="Hero Image"
+            brandId={brand.id}
             currentUrl={brand.heroImageUrl}
           />
+
+          <div className="space-y-2">
+            <Label htmlFor="productPhotos">產品照片</Label>
+            <ProductPhotosField
+              name="productPhotos"
+              brandId={brand.id}
+              defaultPhotos={brand.productPhotos ?? []}
+            />
+          </div>
         </section>
 
         {/* Links */}
