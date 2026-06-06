@@ -30,3 +30,4 @@ begin
 end; $$;
 
 grant execute on function public.increment_brand_link_click(uuid, text) to service_role;
+revoke execute on function public.increment_brand_link_click(uuid, text) from public, anon, authenticated;
