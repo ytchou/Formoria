@@ -9,6 +9,7 @@ import {
   getClaimRequest,
   rejectClaimRequest,
 } from '@/lib/services/claim-requests'
+import { verifyMitStatus, rejectMitStatus } from '@/lib/services/mit-verification'
 import { createBrand, updateBrand, getBrandById, deleteBrand, generateSlug, syncBrandImages } from '@/lib/services/brands'
 import { createTag, updateTag, mergeTag, deactivateTag, activateTag, setBrandTags, processSuggestedTag } from '@/lib/services/taxonomy'
 import { createResendProvider } from '@/lib/email/resend-adapter'
@@ -209,6 +210,80 @@ export async function rejectClaimAction(
     return undefined
   } catch (err) {
     console.error('[admin:rejectClaimAction]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
+}
+
+export async function verifyMitAction(
+  brandId: string,
+  cert?: string
+): Promise<{ error: string } | undefined> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth
+
+    let resolvedCert = cert ?? null
+
+    if (resolvedCert == null) {
+      const supabase = await createClient()
+      const { data: claimRequest, error: claimRequestError } = await supabase
+        .from('claim_requests')
+        .select('mit_smile_cert')
+        .eq('brand_id', brandId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (claimRequestError) throw claimRequestError
+
+      resolvedCert = claimRequest?.mit_smile_cert ?? null
+    }
+
+    await verifyMitStatus(brandId, resolvedCert as string, auth.userId)
+
+    revalidatePath('/admin/claim-requests')
+    revalidatePath('/admin/brands')
+    revalidatePath('/admin')
+    revalidatePath('/[locale]', 'page')
+    revalidatePath('/[locale]/brands', 'page')
+    revalidatePath('/[locale]/brands/[slug]', 'page')
+
+    return undefined
+  } catch (err) {
+    console.error('[admin:verifyMitAction]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
+}
+
+export async function rejectMitAction(
+  brandId: string,
+  notes: string
+): Promise<{ error: string } | undefined> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth
+
+    const trimmedNotes = notes.trim()
+    if (!trimmedNotes) {
+      return { error: 'Rejection notes are required.' }
+    }
+
+    await rejectMitStatus(brandId, auth.userId, trimmedNotes)
+
+    revalidatePath('/admin/claim-requests')
+    revalidatePath('/admin/brands')
+    revalidatePath('/admin')
+    revalidatePath('/[locale]', 'page')
+    revalidatePath('/[locale]/brands', 'page')
+    revalidatePath('/[locale]/brands/[slug]', 'page')
+
+    return undefined
+  } catch (err) {
+    console.error('[admin:rejectMitAction]', err)
     return {
       error: err instanceof Error ? err.message : 'An unexpected error occurred',
     }
