@@ -4,9 +4,13 @@ import { useTranslations } from 'next-intl'
 import { ExternalLink, Globe } from 'lucide-react'
 import { ThreadsIcon } from '@/components/icons/threads-icon'
 import type { Brand } from '@/lib/types'
-import { trackExternalLinkClicked } from '@/lib/analytics'
+import {
+  mapPurchaseDestination,
+  trackDbClick,
+  trackExternalLinkClicked,
+} from '@/lib/analytics'
 
-type LinkType = 'social' | 'purchase'
+type LinkType = 'officialWebsite' | 'instagram' | 'facebook' | 'threads' | 'purchase'
 
 interface BrandLinksProps {
   brand: Brand
@@ -19,6 +23,7 @@ export function BrandLinks({ brand }: BrandLinksProps) {
     url: string
     icon: 'globe' | 'external' | 'threads'
     type: LinkType
+    platform?: string
   }[] = []
 
   if (brand.socialLinks.officialWebsite) {
@@ -26,7 +31,7 @@ export function BrandLinks({ brand }: BrandLinksProps) {
       label: 'Website',
       url: brand.socialLinks.officialWebsite,
       icon: 'globe',
-      type: 'social',
+      type: 'officialWebsite',
     })
   }
   if (brand.socialLinks.instagram) {
@@ -34,7 +39,7 @@ export function BrandLinks({ brand }: BrandLinksProps) {
       label: 'Instagram',
       url: brand.socialLinks.instagram,
       icon: 'external',
-      type: 'social',
+      type: 'instagram',
     })
   }
   if (brand.socialLinks.facebook) {
@@ -42,7 +47,7 @@ export function BrandLinks({ brand }: BrandLinksProps) {
       label: 'Facebook',
       url: brand.socialLinks.facebook,
       icon: 'external',
-      type: 'social',
+      type: 'facebook',
     })
   }
   if (brand.socialLinks.threads) {
@@ -50,7 +55,7 @@ export function BrandLinks({ brand }: BrandLinksProps) {
       label: 'Threads',
       url: brand.socialLinks.threads,
       icon: 'threads',
-      type: 'social',
+      type: 'threads',
     })
   }
   for (const link of brand.purchaseLinks) {
@@ -59,6 +64,7 @@ export function BrandLinks({ brand }: BrandLinksProps) {
       url: link.url,
       icon: 'external',
       type: 'purchase',
+      platform: link.platform,
     })
   }
 
@@ -77,9 +83,19 @@ export function BrandLinks({ brand }: BrandLinksProps) {
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80"
-            onClick={() =>
+            onClick={() => {
               trackExternalLinkClicked(brand.slug, link.label.toLowerCase(), typeof window !== 'undefined' ? window.location.pathname : '')
-            }
+              const destination =
+                link.type === 'purchase'
+                  ? mapPurchaseDestination(link.platform ?? '')
+                  : link.type === 'officialWebsite'
+                    ? 'official_website'
+                    : link.type
+
+              if (destination) {
+                trackDbClick(brand.id, destination)
+              }
+            }}
           >
             {link.icon === 'globe' ? (
               <Globe className="size-3.5 text-foreground" />
