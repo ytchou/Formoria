@@ -67,6 +67,11 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
               {t('card.verifiedBadge')}
             </span>
           )}
+          {!brand.isVerified && (
+            <span className="inline-flex items-center rounded-full bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+              {t('card.communityLabel')}
+            </span>
+          )}
         </div>
         {brand.description && (
           <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground line-clamp-2">

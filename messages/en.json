@@ -114,7 +114,8 @@
     "card": {
       "foundingYear": "Est. {year}",
       "verifiedLabel": "Verified brand",
-      "verifiedBadge": "Verified"
+      "verifiedBadge": "Verified",
+      "communityLabel": "Community"
     },
     "loadingAria": "Loading brands...",
     "noResultsInSuggestions": "No results found"

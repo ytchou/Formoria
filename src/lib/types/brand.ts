@@ -51,6 +51,7 @@ export type Brand = {
 export type BrandFilters = {
   status?: BrandStatus
   category?: string
+  verificationFilter?: 'verified' | 'community' | 'all'
   search?: string
   tags?: string[]
   sort?: BrandSortOption

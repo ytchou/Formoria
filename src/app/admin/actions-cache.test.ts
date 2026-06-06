@@ -44,6 +44,15 @@ vi.mock('@/lib/services/submissions', () => ({
   rejectSubmission: vi.fn().mockResolvedValue(undefined),
 }))
 
+vi.mock('@/lib/services/claim-requests', () => ({
+  getClaimRequest: vi.fn().mockResolvedValue({
+    id: 'claim-1',
+    brandSlug: 'test-brand',
+  }),
+  approveClaimRequest: vi.fn().mockResolvedValue(undefined),
+  rejectClaimRequest: vi.fn().mockResolvedValue(undefined),
+}))
+
 vi.mock('@/lib/services/brands', () => ({
   createBrand: vi.fn().mockResolvedValue({ id: 'brand-1', slug: 'test-brand' }),
   updateBrand: vi.fn().mockResolvedValue({ id: 'brand-1', slug: 'test-brand' }),
@@ -82,6 +91,7 @@ vi.mock('@/lib/services/moderation', () => ({
 const {
   approveSubmissionAction,
   rejectSubmissionAction,
+  approveClaimAction,
   updateBrandAction,
   hideBrandAction,
   unhideBrandAction,
@@ -105,6 +115,14 @@ describe('admin actions cache invalidation', () => {
 
     expect(mockRevalidatePath).toHaveBeenCalledWith('/')
     expect(mockRevalidatePath).toHaveBeenCalledWith('/brands')
+  })
+
+  it('approveClaimAction revalidates locale-aware public brand pages', async () => {
+    await approveClaimAction('claim-1')
+
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/[locale]/brands/[slug]', 'page')
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/[locale]/brands', 'page')
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/[locale]', 'page')
   })
 
   it('updateBrandAction revalidates public brand pages', async () => {

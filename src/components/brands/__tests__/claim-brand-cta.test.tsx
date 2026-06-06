@@ -1,0 +1,42 @@
+// @vitest-environment jsdom
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
+
+const mockSubmitClaimAction = vi.fn()
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/zh-TW/brands/test-brand',
+}))
+
+vi.mock('@/app/[locale]/brands/[slug]/actions', () => ({
+  submitClaimAction: (...args: unknown[]) => mockSubmitClaimAction(...args),
+}))
+
+import { ClaimBrandCta } from '../claim-brand-cta'
+
+describe('ClaimBrandCta', () => {
+  beforeEach(() => {
+    mockSubmitClaimAction.mockReset()
+    mockSubmitClaimAction.mockResolvedValue({ ok: true })
+  })
+
+  it('renders the claim CTA for an unclaimed brand and submits the selected proof type', async () => {
+    const user = userEvent.setup()
+
+    render(<ClaimBrandCta brandId="brand-1" />)
+
+    await user.click(screen.getByRole('button', { name: /認領這個品牌/i }))
+    await user.selectOptions(screen.getByLabelText(/認領證明類型/i), 'social_post')
+    await user.click(screen.getByRole('button', { name: /submit claim/i }))
+
+    await waitFor(() => {
+      expect(mockSubmitClaimAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          brandId: 'brand-1',
+          proofType: 'social_post',
+        })
+      )
+    })
+  })
+})

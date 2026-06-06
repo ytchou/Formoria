@@ -14,6 +14,9 @@ import { describeWithDb, createTestClient } from '@/test/setup'
 import { getBrands } from '../brands'
 
 const TEST_SLUG = 'zzz-tagslugs-itest'
+const VERIFIED_SLUG = 'zzz-verified-tier-itest'
+const COMMUNITY_SLUG = 'zzz-community-tier-itest'
+const VERIFIED_OWNER_EMAIL = 'zzz-verified-tier-itest@example.com'
 
 // product_type slug and value slug confirmed in seed.sql
 const PRODUCT_TYPE_SLUG = 'food'
@@ -93,5 +96,110 @@ describeWithDb('getBrands tags+category filtering (integration)', () => {
     })
     const slugs = brands.map((b) => b.slug)
     expect(slugs).not.toContain(TEST_SLUG)
+  })
+})
+
+describeWithDb('getBrands — verificationFilter', () => {
+  let verifiedBrandId: string
+  let ownerUserId: string
+
+  beforeAll(async () => {
+    const client = createTestClient()
+
+    const { error: brandErr } = await client.from('brands').insert([
+      {
+        name: 'ZZZ Verified Tier Integration Test Brand',
+        slug: VERIFIED_SLUG,
+        description: 'Throwaway verified brand for verificationFilter integration test',
+        status: 'approved',
+      },
+      {
+        name: 'ZZZ Community Tier Integration Test Brand',
+        slug: COMMUNITY_SLUG,
+        description: 'Throwaway community brand for verificationFilter integration test',
+        status: 'approved',
+      },
+    ])
+    if (brandErr) throw new Error(`Failed to insert verification test brands: ${brandErr.message}`)
+
+    const { data: brands, error: fetchErr } = await client
+      .from('brands')
+      .select('id, slug')
+      .in('slug', [VERIFIED_SLUG, COMMUNITY_SLUG])
+    if (fetchErr || !brands || brands.length < 2) {
+      throw new Error(
+        `Failed to fetch verification test brands: ${fetchErr?.message ?? 'got ' + (brands?.length ?? 0) + ' rows'}`
+      )
+    }
+
+    const verifiedBrand = brands.find((brand) => brand.slug === VERIFIED_SLUG)
+    const communityBrand = brands.find((brand) => brand.slug === COMMUNITY_SLUG)
+    if (!verifiedBrand || !communityBrand) {
+      throw new Error('Failed to find seeded verification test brands by slug')
+    }
+
+    verifiedBrandId = verifiedBrand.id
+
+    const { data: createdUser, error: userErr } = await client.auth.admin.createUser({
+      email: VERIFIED_OWNER_EMAIL,
+      password: 'Password123!',
+      email_confirm: true,
+    })
+    if (userErr || !createdUser.user) {
+      throw new Error(`Failed to create verification test owner user: ${userErr?.message}`)
+    }
+
+    ownerUserId = createdUser.user.id
+
+    const { error: ownerErr } = await client.from('brand_owners').insert({
+      user_id: ownerUserId,
+      brand_id: verifiedBrandId,
+    })
+    if (ownerErr) throw new Error(`Failed to insert verification test owner row: ${ownerErr.message}`)
+  })
+
+  afterAll(async () => {
+    const client = createTestClient()
+
+    if (verifiedBrandId) {
+      await client.from('brand_owners').delete().eq('brand_id', verifiedBrandId)
+    }
+
+    await client.from('brands').delete().in('slug', [VERIFIED_SLUG, COMMUNITY_SLUG])
+
+    if (ownerUserId) {
+      await client.auth.admin.deleteUser(ownerUserId)
+    }
+  })
+
+  it('returns only claimed approved brands for verificationFilter=verified', async () => {
+    const { brands } = await getBrands({ status: 'approved', verificationFilter: 'verified' })
+    const slugs = brands.map((brand) => brand.slug)
+
+    expect(slugs).toContain(VERIFIED_SLUG)
+    expect(slugs).not.toContain(COMMUNITY_SLUG)
+    expect(brands.every((brand) => brand.isVerified)).toBe(true)
+  })
+
+  it('returns only unclaimed approved brands for verificationFilter=community', async () => {
+    const { brands } = await getBrands({ status: 'approved', verificationFilter: 'community' })
+    const slugs = brands.map((brand) => brand.slug)
+
+    expect(slugs).toContain(COMMUNITY_SLUG)
+    expect(slugs).not.toContain(VERIFIED_SLUG)
+    expect(brands.every((brand) => !brand.isVerified)).toBe(true)
+  })
+
+  it('returns both tiers for verificationFilter=all and when omitted', async () => {
+    const { brands: allBrands } = await getBrands({ status: 'approved', verificationFilter: 'all' })
+    const { brands: defaultBrands } = await getBrands({ status: 'approved' })
+
+    const allSlugs = allBrands.map((brand) => brand.slug)
+    const defaultSlugs = defaultBrands.map((brand) => brand.slug)
+
+    expect(allSlugs).toContain(VERIFIED_SLUG)
+    expect(allSlugs).toContain(COMMUNITY_SLUG)
+    expect(defaultSlugs).toContain(VERIFIED_SLUG)
+    expect(defaultSlugs).toContain(COMMUNITY_SLUG)
   })
 })

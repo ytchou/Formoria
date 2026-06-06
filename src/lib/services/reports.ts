@@ -13,7 +13,14 @@ type ReportRowWithBrand = ReportRow & {
   brands: { name: string; slug: string } | null
 }
 
-export type ReportReason = 'not_mit' | 'incorrect_info' | 'broken_link' | 'inappropriate'
+export const REMOVAL_REQUEST_REASON = 'removal_request' as const
+
+export type ReportReason =
+  | 'not_mit'
+  | 'incorrect_info'
+  | 'broken_link'
+  | 'inappropriate'
+  | typeof REMOVAL_REQUEST_REASON
 
 export type ReportStatus = ReviewStatus
 
@@ -54,6 +61,34 @@ export async function createReport(input: {
     .insert(buildReportRecord(input))
 
   if (error) throw error
+}
+
+export async function requestBrandRemoval(input: {
+  brandId: string
+  reason: typeof REMOVAL_REQUEST_REASON
+  message?: string | null
+}): Promise<void> {
+  const { createServiceClient } = await import('@/lib/supabase/server')
+  const supabase = createServiceClient()
+
+  const { data: existingPendingRemoval, error: existingPendingRemovalError } = await supabase
+    .from('brand_reports')
+    .select('id')
+    .eq('brand_id', input.brandId)
+    .eq('reason', REMOVAL_REQUEST_REASON)
+    .eq('status', 'pending')
+    .maybeSingle()
+
+  if (existingPendingRemovalError) throw existingPendingRemovalError
+  if (existingPendingRemoval) {
+    return
+  }
+
+  await createReport({
+    brandId: input.brandId,
+    reason: input.reason,
+    notes: input.message ?? null,
+  })
 }
 
 export async function getPendingReports(): Promise<BrandReport[]> {

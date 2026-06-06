@@ -4,6 +4,11 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { isAdmin } from '@/lib/auth/admin'
 import { getSubmission, approveSubmission, rejectSubmission } from '@/lib/services/submissions'
+import {
+  approveClaimRequest,
+  getClaimRequest,
+  rejectClaimRequest,
+} from '@/lib/services/claim-requests'
 import { createBrand, updateBrand, getBrandById, deleteBrand, generateSlug, syncBrandImages } from '@/lib/services/brands'
 import { createTag, updateTag, mergeTag, deactivateTag, activateTag, setBrandTags, processSuggestedTag } from '@/lib/services/taxonomy'
 import { createResendProvider } from '@/lib/email/resend-adapter'
@@ -147,6 +152,63 @@ export async function rejectSubmissionAction(
     return undefined
   } catch (err) {
     console.error('[admin:rejectSubmission]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
+}
+
+export async function approveClaimAction(
+  claimRequestId: string
+): Promise<{ error: string } | undefined> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth
+
+    const claimRequest = await getClaimRequest(claimRequestId)
+    await approveClaimRequest(claimRequestId, auth.userId)
+
+    revalidatePath('/admin/claim-requests')
+    revalidatePath('/admin')
+    revalidatePath('/[locale]', 'page')
+    revalidatePath('/[locale]/brands', 'page')
+
+    if (claimRequest.brandSlug) {
+      revalidatePath('/[locale]/brands/[slug]', 'page')
+    }
+
+    return undefined
+  } catch (err) {
+    console.error('[admin:approveClaimAction]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
+}
+
+export async function rejectClaimAction(
+  claimRequestId: string,
+  notes: string
+): Promise<{ error: string } | undefined> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth
+
+    const claimRequest = await getClaimRequest(claimRequestId)
+    await rejectClaimRequest(claimRequestId, auth.userId, notes)
+
+    revalidatePath('/admin/claim-requests')
+    revalidatePath('/admin')
+    revalidatePath('/[locale]', 'page')
+    revalidatePath('/[locale]/brands', 'page')
+
+    if (claimRequest.brandSlug) {
+      revalidatePath('/[locale]/brands/[slug]', 'page')
+    }
+
+    return undefined
+  } catch (err) {
+    console.error('[admin:rejectClaimAction]', err)
     return {
       error: err instanceof Error ? err.message : 'An unexpected error occurred',
     }

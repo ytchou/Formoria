@@ -34,8 +34,11 @@ test.describe('Visitor smoke', () => {
 
   test('category filter narrows results', async ({ page }) => {
     await page.goto('/brands');
-    // Click first available filter pill
-    const firstFilter = page.locator('button[data-active="false"]').first();
+    // Stay on category pills; the verification row also uses button[data-active].
+    const firstFilter = page
+      .locator('button[data-active="false"]')
+      .filter({ hasNotText: /verified|community/i })
+      .first();
     await firstFilter.click();
     // URL should update with filter param
     await expect(page).toHaveURL(/category=|filter=/);
@@ -47,7 +50,10 @@ test.describe('Visitor smoke', () => {
       // No explicit empty-state element — that's fine, the page just shows fewer results
     });
     // Verify "All" pill resets the filter (round-trip)
-    const allPill = page.locator('button[data-active="false"]').filter({ hasText: /all/i }).first();
+    const allPill = page
+      .locator('button[data-active="false"]')
+      .filter({ hasText: /^全部$|^all$/i })
+      .first();
     if (await allPill.isVisible({ timeout: 2_000 }).catch(() => false)) {
       await allPill.click();
       await expect(page).not.toHaveURL(/category=/, { timeout: 5_000 });

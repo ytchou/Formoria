@@ -15,6 +15,7 @@ const REASON_LABELS: Record<ReportReason, string> = {
   incorrect_info: '資訊有誤',
   broken_link: '連結失效',
   inappropriate: '不當內容',
+  removal_request: '要求移除',
 }
 
 export function ReportsTable({ reports }: ReportsTableProps) {

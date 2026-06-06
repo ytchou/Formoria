@@ -32,7 +32,7 @@ type BrandOwnerRef = { user_id: string }
 export type BrandRowWithJoins = Partial<BrandRow> &
   Pick<BrandRow, 'id' | 'name' | 'slug' | 'status' | 'submitted_at' | 'created_at' | 'updated_at'> & {
     brand_taxonomy?: BrandTaxonomyWithTag[] | null
-    brand_owners?: BrandOwnerRef[] | null
+    brand_owners?: BrandOwnerRef | BrandOwnerRef[] | null
   }
 
 export type SearchResult = {
@@ -85,6 +85,11 @@ function mapSocialLinksToDb(links: SocialLinks): Record<string, string | undefin
 
 export function brandToDomain(row: BrandRowWithJoins): Brand {
   const taxonomyJoin = row.brand_taxonomy ?? []
+  const owners = Array.isArray(row.brand_owners)
+    ? row.brand_owners
+    : row.brand_owners
+      ? [row.brand_owners]
+      : []
   const tags: TaxonomyTag[] = taxonomyJoin
     .filter((bt) => bt.taxonomy_tags !== null)
     .map((bt) => {
@@ -112,7 +117,7 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     // status is text in the DB — cast to BrandStatus at the boundary
     status: row.status as Brand['status'],
     category: row.category ?? null,
-    isVerified: Array.isArray(row.brand_owners) && row.brand_owners.length > 0,
+    isVerified: owners.length > 0,
     isDemo: row.is_demo ?? false,
     foundingYear: row.founding_year ?? null,
     // Json columns are cast to domain types at the service boundary
@@ -155,6 +160,17 @@ export function brandToInsert(data: Partial<Brand>): Record<string, unknown> {
 // ---------------------------------------------------------------------------
 
 const BRAND_SELECT = '*, brand_taxonomy(taxonomy_tags(*)), brand_owners(user_id)'
+const VERIFIED_BRAND_SELECT = '*, brand_taxonomy(taxonomy_tags(*)), brand_owners!inner(user_id)'
+
+function formatInFilterValues(values: string[]): string {
+  return `(${values.map((value) => `"${value}"`).join(',')})`
+}
+
+async function getOwnedBrandIds(supabase: ReturnType<typeof createServiceClient>): Promise<string[]> {
+  const { data, error } = await supabase.from('brand_owners').select('brand_id')
+  if (error) throw error
+  return Array.from(new Set((data ?? []).map((row) => row.brand_id)))
+}
 
 export async function getBrands(
   filters?: BrandFilters
@@ -185,8 +201,18 @@ export async function getBrands(
     }
 
     // Apply remaining filters over the ranked ID set
-    let query = supabase.from('brands').select(BRAND_SELECT, { count: 'exact' })
-    query = query.in('id', rankedIds)
+    const verificationFilter = filters.verificationFilter
+    const selectClause =
+      verificationFilter === 'verified' ? VERIFIED_BRAND_SELECT : BRAND_SELECT
+
+    let query = supabase.from('brands').select(selectClause, { count: 'exact' }).in('id', rankedIds)
+
+    if (verificationFilter === 'community') {
+      const ownedBrandIds = await getOwnedBrandIds(supabase)
+      if (ownedBrandIds.length > 0) {
+        query = query.not('id', 'in', formatInFilterValues(ownedBrandIds))
+      }
+    }
 
     if (filters.status) {
       query = query.eq('status', filters.status)
@@ -214,7 +240,17 @@ export async function getBrands(
     return { brands: (data ?? []).map(brandToDomain), totalCount: count ?? 0 }
   }
 
-  let query = supabase.from('brands').select(BRAND_SELECT, { count: 'exact' })
+  const verificationFilter = filters?.verificationFilter
+  const selectClause = verificationFilter === 'verified' ? VERIFIED_BRAND_SELECT : BRAND_SELECT
+
+  let query = supabase.from('brands').select(selectClause, { count: 'exact' })
+
+  if (verificationFilter === 'community') {
+    const ownedBrandIds = await getOwnedBrandIds(supabase)
+    if (ownedBrandIds.length > 0) {
+      query = query.not('id', 'in', formatInFilterValues(ownedBrandIds))
+    }
+  }
 
   if (filters?.status) {
     query = query.eq('status', filters.status)
@@ -251,7 +287,7 @@ export async function getBrandBySlug(slug: string): Promise<Brand> {
     .from('brands')
     .select(BRAND_SELECT)
     .eq('slug', slug)
-    .single()
+    .maybeSingle()
 
   if (error || !data) throw new NotFoundError('Brand', slug)
   return brandToDomain(data)

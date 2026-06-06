@@ -56,6 +56,8 @@ export default async function LandingPage({ params }: PageProps) {
     getNewBrands(4),
     getValueTagsWithCoverage(1),
   ])
+  const verifiedBrands = allBrands.filter((brand) => brand.isVerified)
+  const communityBrands = allBrands.filter((brand) => !brand.isVerified)
 
   return (
     <>
@@ -75,6 +77,25 @@ export default async function LandingPage({ params }: PageProps) {
         <div className="py-6 md:py-8">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <FilterableBrandShowcase brands={allBrands} categories={categories} />
+          </div>
+        </div>
+
+        <div className="py-6 md:py-8">
+          <div className="max-w-6xl mx-auto space-y-12 px-4 sm:px-6">
+            <BrandShowcase
+              brands={verifiedBrands}
+              heading="認證品牌"
+              subheading="Verified"
+              linkText={t('newBrands.linkText')}
+              linkHref="/brands?verification=verified"
+            />
+            <BrandShowcase
+              brands={communityBrands}
+              heading="社群推薦"
+              subheading="Community"
+              linkText={t('newBrands.linkText')}
+              linkHref="/brands?verification=community"
+            />
           </div>
         </div>
 
