@@ -14,6 +14,11 @@ test.describe('Auth — sign-in flow', () => {
     await expect(anonPage.getByRole('heading', { name: '登入', exact: true })).toBeVisible({
       timeout: 10_000,
     });
+    await expect(
+      anonPage.getByRole('button', { name: '使用 Google 繼續', exact: true })
+    ).toBeVisible({
+      timeout: 10_000,
+    });
 
     await anonPage.getByLabel('電子郵件', { exact: true }).fill(email);
     await anonPage.getByLabel('密碼', { exact: true }).fill(password);
