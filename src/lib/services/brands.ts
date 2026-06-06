@@ -159,6 +159,16 @@ export function brandToInsert(data: Partial<Brand>): Record<string, unknown> {
   return row
 }
 
+function brandToUpdate(data: Partial<Brand>): Record<string, unknown> {
+  const row = brandToInsert(data)
+
+  if (data.brandHighlights !== undefined) {
+    row.brand_highlights = data.brandHighlights === '' ? null : data.brandHighlights
+  }
+
+  return row
+}
+
 // ---------------------------------------------------------------------------
 // Service functions
 // ---------------------------------------------------------------------------
@@ -332,7 +342,7 @@ export async function createBrand(
 
 export async function updateBrand(id: string, data: Partial<Brand>): Promise<Brand> {
   const supabase = createServiceClient()
-  const row = brandToInsert(data)
+  const row = brandToUpdate(data)
   const { data: updated, error } = await supabase
     .from('brands')
     .update(row)
