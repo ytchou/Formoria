@@ -114,30 +114,34 @@ export async function BrandCompletenessCard({
           </div>
         ) : null}
 
-        <div className="h-px w-full bg-[#E5E0D8]" />
+        {complete.length > 0 ? (
+          <>
+            <div className="h-px w-full bg-[#E5E0D8]" />
 
-        <div className="space-y-3">
-          <p className="text-sm font-semibold text-foreground">
-            {t('dashboard.completeness.completed')}
-          </p>
-          <div className="space-y-3">
-            {complete.map((item) => (
-              <div
-                key={item.key}
-                className="flex items-start gap-3"
-                data-key={item.key}
-                data-testid="completeness-item"
-              >
-                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#EAF3E8]">
-                  <Check className="h-3 w-3 text-[#2D5A27]" aria-hidden="true" />
-                </div>
-                <p className="text-[14px] font-medium text-muted-foreground">
-                  {t(`dashboard.completeness.items.${item.key}.label`)}
-                </p>
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-foreground">
+                {t('dashboard.completeness.completed')}
+              </p>
+              <div className="space-y-3">
+                {complete.map((item) => (
+                  <div
+                    key={item.key}
+                    className="flex items-start gap-3"
+                    data-key={item.key}
+                    data-testid="completeness-item"
+                  >
+                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#EAF3E8]">
+                      <Check className="h-3 w-3 text-[#2D5A27]" aria-hidden="true" />
+                    </div>
+                    <p className="text-[14px] font-medium text-muted-foreground">
+                      {t(`dashboard.completeness.items.${item.key}.label`)}
+                    </p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+          </>
+        ) : null}
       </CardContent>
     </Card>
   )
