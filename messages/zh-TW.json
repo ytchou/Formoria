@@ -402,6 +402,23 @@
     "yourBrands": "您的品牌",
     "empty": "尚未認領任何品牌。認領品牌後，它將顯示在此處。",
     "claimedAt": "認領於 {date}",
+    "analytics": {
+      "trendsLabel": "趨勢",
+      "viewsClicksTitle": "瀏覽與點擊",
+      "dailyTrend": "每日趨勢",
+      "views": "瀏覽",
+      "clicks": "點擊",
+      "period30": "30天",
+      "period90": "90天",
+      "breakdownLabel": "各連結點擊數",
+      "perDestination": "各連結點擊數",
+      "total": "共 {count} 次",
+      "empty": "尚無連結點擊",
+      "emptyBody": "訪客點擊連結後，此處將顯示各連結的點擊數據。",
+      "pageViews": "頁面瀏覽",
+      "outboundClicks": "外部連結點擊",
+      "last30Days": "過去 30 天"
+    },
     "errors": {
       "invalidClaim": "認領連結無效或已過期，請聯繫客服。",
       "emailMismatch": "您登入的電子郵件與認領邀請不符，請使用正確的電子郵件登入。",
