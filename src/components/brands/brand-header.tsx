@@ -1,5 +1,5 @@
 import { useTranslations } from 'next-intl'
-import { CheckCircle, MapPin } from 'lucide-react'
+import { BadgeCheck, MapPin, ShieldCheck } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { Brand } from '@/lib/types'
 
@@ -11,6 +11,10 @@ interface BrandHeaderProps {
 export function BrandHeader({ brand, actionsSlot }: BrandHeaderProps) {
   const t = useTranslations('brandDetail')
   const locationName = brand.retailLocations[0]?.name
+  const hasMitVerifiedBadge = brand.mitVerified === true
+  const hasOwnerVerifiedBadge = brand.isVerified
+  const badgeClassName =
+    'flex items-center gap-1 rounded-full px-2.5 py-1 font-sans text-[11px] font-semibold'
 
   return (
     <div className="space-y-3">
@@ -31,14 +35,32 @@ export function BrandHeader({ brand, actionsSlot }: BrandHeaderProps) {
           </span>
         )}
 
-        {/* Verified badge */}
-        {brand.isVerified && (
-          <span
-            title={t('verifiedTitle')}
-            className="flex items-center gap-1 rounded-full bg-verified-green-bg px-2.5 py-1 text-[11px] font-semibold text-verified-green"
-          >
-            <CheckCircle className="size-3" aria-hidden />
-            {t('verified')}
+        {(hasMitVerifiedBadge || hasOwnerVerifiedBadge) && (
+          <div className="flex items-center gap-2">
+            {hasMitVerifiedBadge && (
+              <span
+                className={`${badgeClassName} bg-mit-verified-bg text-mit-verified`}
+              >
+                <ShieldCheck className="h-[11px] w-[11px]" aria-hidden />
+                {t('mitVerified')}
+              </span>
+            )}
+            {hasOwnerVerifiedBadge && (
+              <span
+                title={t('verifiedTitle')}
+                className={`${badgeClassName} bg-verified-green-bg text-verified-green`}
+              >
+                <BadgeCheck className="h-[11px] w-[11px]" aria-hidden />
+                {t('verified')}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Founding year */}
+        {brand.foundingYear && (
+          <span className="text-xs text-warm-caption">
+            {t('foundingYear', { year: brand.foundingYear })}
           </span>
         )}
 
@@ -47,13 +69,6 @@ export function BrandHeader({ brand, actionsSlot }: BrandHeaderProps) {
           <span className="flex items-center gap-1 text-xs text-warm-caption">
             <MapPin className="size-3.5" />
             {locationName}
-          </span>
-        )}
-
-        {/* Founding year */}
-        {brand.foundingYear && (
-          <span className="text-xs text-warm-caption">
-            {t('foundingYear', { year: brand.foundingYear })}
           </span>
         )}
       </div>

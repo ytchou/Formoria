@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Link } from '@/i18n/navigation'
 import Image from 'next/image'
-import { CheckCircle } from 'lucide-react'
+import { BadgeCheck, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { Brand } from '@/lib/types'
 import { trackBrandCardClicked } from '@/lib/analytics'
@@ -14,11 +14,40 @@ interface BrandCardProps {
   priority?: boolean
 }
 
+type BrandCardBadge = {
+  key: 'mit' | 'owner'
+  label: string
+  title: string
+  className: string
+  icon: LucideIcon
+}
+
 export function BrandCard({ brand, position = 0, priority = false }: BrandCardProps) {
   const t = useTranslations('brands')
+  const tDetail = useTranslations('brandDetail')
   const [imgError, setImgError] = useState(false)
   const imageSrc = brand.heroImageUrl ?? brand.logoUrl
   const showImage = imageSrc && !imgError
+  const badges = [
+    brand.mitVerified === true
+      ? {
+          key: 'mit',
+          label: t('card.mitVerifiedBadge'),
+          title: tDetail('mitVerified'),
+          className: 'bg-mit-verified-bg text-mit-verified',
+          icon: ShieldCheck,
+        }
+      : null,
+    brand.isVerified
+      ? {
+          key: 'owner',
+          label: t('card.verifiedBadge'),
+          title: t('card.verifiedLabel'),
+          className: 'bg-verified-green-bg text-verified-green',
+          icon: BadgeCheck,
+        }
+      : null,
+  ].filter((badge): badge is BrandCardBadge => badge !== null)
 
   return (
     <Link
@@ -53,22 +82,31 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
 
       {/* Content */}
       <div className="p-4">
-        <div className="flex items-center gap-1.5">
-          <h3 className="text-sm font-bold leading-snug text-foreground">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <h3 className="min-w-0 truncate text-sm font-bold leading-snug text-foreground">
             {brand.name}
           </h3>
-          {brand.isVerified && (
-            <span
-              aria-label={t('card.verifiedLabel')}
-              title={t('card.verifiedLabel')}
-              className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold bg-verified-green-bg text-verified-green"
-            >
-              <CheckCircle className="h-3 w-3" aria-hidden />
-              {t('card.verifiedBadge')}
-            </span>
+          {badges.length > 0 && (
+            <div className="flex shrink-0 items-center gap-1.5">
+              {badges.map((badge) => {
+                const Icon = badge.icon
+
+                return (
+                  <span
+                    key={badge.key}
+                    aria-label={badge.title}
+                    title={badge.title}
+                    className={`inline-flex items-center gap-[3px] rounded-full px-[7px] py-0.5 font-sans text-[10px] font-semibold ${badge.className}`}
+                  >
+                    <Icon className="h-[9px] w-[9px]" aria-hidden />
+                    {badge.label}
+                  </span>
+                )
+              })}
+            </div>
           )}
-          {!brand.isVerified && (
-            <span className="inline-flex items-center rounded-full bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+          {badges.length === 0 && (
+            <span className="shrink-0 text-[11px] font-medium text-muted-foreground">
               {t('card.communityLabel')}
             </span>
           )}
