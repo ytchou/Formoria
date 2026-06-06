@@ -22,6 +22,7 @@ export type SubmitClaimInput = {
   proofType: (typeof CLAIM_PROOF_TYPES)[number]
   proofUrl?: string
   proofNotes?: string
+  mitSmileCert?: string
 }
 
 export type SubmitClaimResult = { ok: true } | { error: string }
@@ -64,6 +65,7 @@ export async function submitClaimAction(input: SubmitClaimInput): Promise<Submit
 
     const proofUrl = input.proofUrl?.trim()
     const proofNotes = input.proofNotes?.trim()
+    const mitSmileCert = input.mitSmileCert?.trim()
 
     await createClaimRequest({
       userId: auth.userId,
@@ -71,6 +73,7 @@ export async function submitClaimAction(input: SubmitClaimInput): Promise<Submit
       proofType: input.proofType,
       proofUrl: proofUrl || undefined,
       proofNotes: proofNotes || undefined,
+      mitSmileCert: mitSmileCert || null,
     })
 
     revalidatePath('/admin')

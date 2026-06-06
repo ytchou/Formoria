@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { usePathname } from 'next/navigation'
 import { useRef, useState, useTransition, type FormEvent } from 'react'
 import { submitClaimAction } from '@/app/[locale]/brands/[slug]/actions'
@@ -50,6 +51,7 @@ function isAuthError(message: string) {
 }
 
 export function ClaimBrandCta({ brandId }: ClaimBrandCtaProps) {
+  const t = useTranslations('submit.fields')
   const pathname = usePathname()
   const formRef = useRef<HTMLFormElement>(null)
   const [isOpen, setIsOpen] = useState(false)
@@ -58,6 +60,10 @@ export function ClaimBrandCta({ brandId }: ClaimBrandCtaProps) {
   const [isPending, startTransition] = useTransition()
 
   const signInHref = `/auth/sign-in?next=${encodeURIComponent(pathname)}`
+  const mitSmileMarkHelper = t('mitSmileMarkNumberHelper')
+  const mitSmileMarkSupportEmail = 'ops@formoria.com'
+  const [mitSmileMarkHelperBeforeEmail, mitSmileMarkHelperAfterEmail] =
+    mitSmileMarkHelper.split(mitSmileMarkSupportEmail)
 
   function openForm() {
     setIsOpen(true)
@@ -80,6 +86,7 @@ export function ClaimBrandCta({ brandId }: ClaimBrandCtaProps) {
 
     const proofUrl = formData.get('proofUrl')?.toString().trim() ?? ''
     const proofNotes = formData.get('proofNotes')?.toString().trim() ?? ''
+    const mitSmileCert = formData.get('mitSmileCert')?.toString().trim() ?? ''
 
     setFeedback({ type: 'idle' })
 
@@ -91,6 +98,7 @@ export function ClaimBrandCta({ brandId }: ClaimBrandCtaProps) {
             proofType: selectedProofType,
             proofUrl: proofUrl || undefined,
             proofNotes: proofNotes || undefined,
+            mitSmileCert: mitSmileCert || undefined,
           })
 
           if ('error' in result) {
@@ -165,6 +173,26 @@ export function ClaimBrandCta({ brandId }: ClaimBrandCtaProps) {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="claim-mit-smile-cert" className="block text-sm font-medium text-foreground">
+              {t('mitSmileMarkNumber')}
+            </label>
+            <Input
+              id="claim-mit-smile-cert"
+              name="mitSmileCert"
+              type="text"
+              placeholder={t('mitSmileMarkNumberPlaceholder')}
+              className="h-12 bg-card px-3.5 py-2.5 text-sm focus-visible:border-mit-verified focus-visible:ring-3 focus-visible:ring-mit-verified/20"
+            />
+            <p className="text-xs text-muted-foreground">
+              {mitSmileMarkHelperBeforeEmail}
+              <a href={`mailto:${mitSmileMarkSupportEmail}`} className="underline underline-offset-4">
+                {mitSmileMarkSupportEmail}
+              </a>
+              {mitSmileMarkHelperAfterEmail}
+            </p>
           </div>
 
           <div className="space-y-2">
