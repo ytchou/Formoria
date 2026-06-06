@@ -402,6 +402,52 @@
     "yourBrands": "Your Brands",
     "empty": "You haven't claimed any brands yet. Once you claim a brand, it will appear here.",
     "claimedAt": "Claimed {date}",
+    "completeness": {
+      "title": "Profile completeness",
+      "summary": "{completed} of {total} complete",
+      "toComplete": "To complete",
+      "completed": "Completed",
+      "editCta": "Edit",
+      "complete": "Your brand page is complete — shoppers can find everything they need.",
+      "items": {
+        "heroImage": {
+          "label": "Hero image",
+          "nudge": "The first thing shoppers see on your page."
+        },
+        "logo": {
+          "label": "Logo",
+          "nudge": "Builds instant recognition and trust."
+        },
+        "description": {
+          "label": "Description",
+          "nudge": "Tell shoppers what makes your brand Taiwanese-made."
+        },
+        "purchaseLinks": {
+          "label": "Purchase links",
+          "nudge": "Let shoppers buy — link your shop or marketplace."
+        },
+        "productPhotos": {
+          "label": "Product photos",
+          "nudge": "Show your products in their best light."
+        },
+        "socialLinks": {
+          "label": "Social links",
+          "nudge": "Help fans follow you across platforms."
+        },
+        "brandHighlights": {
+          "label": "Brand highlights",
+          "nudge": "Quick selling points at a glance."
+        },
+        "foundingYear": {
+          "label": "Founding year",
+          "nudge": "Adds heritage and credibility."
+        },
+        "retailLocations": {
+          "label": "Retail locations",
+          "nudge": "Help local shoppers find you in person."
+        }
+      }
+    },
     "errors": {
       "invalidClaim": "The claim link is invalid or has expired. Please contact support.",
       "emailMismatch": "The email you signed in with does not match the claim invitation. Please sign in with the correct email.",
