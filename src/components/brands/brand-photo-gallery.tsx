@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { trackGalleryPhotoView } from '@/lib/analytics'
+import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import {
   Dialog,
   DialogContent,
@@ -16,18 +17,14 @@ interface BrandPhotoGalleryProps {
 }
 
 export function BrandPhotoGallery({ photos, brandSlug }: BrandPhotoGalleryProps) {
+  const validPhotos = photos.flatMap((photo) => {
+    const safeSrc = safeImageSrc(photo)
+    return safeSrc ? [safeSrc] : []
+  })
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
 
   const isOpen = selectedIndex !== null
-  const total = photos.length
-
-  const goToPrev = useCallback(() => {
-    setSelectedIndex((prev) => (prev !== null && prev > 0 ? prev - 1 : prev))
-  }, [])
-
-  const goToNext = useCallback(() => {
-    setSelectedIndex((prev) => (prev !== null && prev < total - 1 ? prev + 1 : prev))
-  }, [total])
+  const total = validPhotos.length
 
   useEffect(() => {
     if (!isOpen) return
@@ -35,18 +32,18 @@ export function BrandPhotoGallery({ photos, brandSlug }: BrandPhotoGalleryProps)
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'ArrowLeft') {
         e.preventDefault()
-        goToPrev()
+        setSelectedIndex((prev) => (prev !== null && prev > 0 ? prev - 1 : prev))
       } else if (e.key === 'ArrowRight') {
         e.preventDefault()
-        goToNext()
+        setSelectedIndex((prev) => (prev !== null && prev < total - 1 ? prev + 1 : prev))
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, goToPrev, goToNext])
+  }, [isOpen, total])
 
-  if (photos.length === 0) return null
+  if (validPhotos.length === 0) return null
 
   return (
     <section>
@@ -54,7 +51,7 @@ export function BrandPhotoGallery({ photos, brandSlug }: BrandPhotoGalleryProps)
         Photos
       </h2>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {photos.map((photo, i) => (
+        {validPhotos.map((photo, i) => (
           <button
             key={i}
             type="button"
@@ -99,7 +96,7 @@ export function BrandPhotoGallery({ photos, brandSlug }: BrandPhotoGalleryProps)
               </button>
               <div className="relative h-[80vh] w-full">
                 <Image
-                  src={photos[selectedIndex]}
+                  src={validPhotos[selectedIndex]}
                   alt={`Product photo ${selectedIndex + 1}`}
                   fill
                   className="object-contain"
@@ -111,7 +108,9 @@ export function BrandPhotoGallery({ photos, brandSlug }: BrandPhotoGalleryProps)
               {selectedIndex > 0 && (
                 <button
                   type="button"
-                  onClick={goToPrev}
+                  onClick={() => {
+                    setSelectedIndex((prev) => (prev !== null && prev > 0 ? prev - 1 : prev))
+                  }}
                   className="absolute left-2 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70"
                   aria-label="Previous photo"
                 >
@@ -122,7 +121,9 @@ export function BrandPhotoGallery({ photos, brandSlug }: BrandPhotoGalleryProps)
               {selectedIndex < total - 1 && (
                 <button
                   type="button"
-                  onClick={goToNext}
+                  onClick={() => {
+                    setSelectedIndex((prev) => (prev !== null && prev < total - 1 ? prev + 1 : prev))
+                  }}
                   className="absolute right-2 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70"
                   aria-label="Next photo"
                 >

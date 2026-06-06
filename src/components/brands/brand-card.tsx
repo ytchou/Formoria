@@ -7,6 +7,7 @@ import { BadgeCheck, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { Brand } from '@/lib/types'
 import { trackBrandCardClicked } from '@/lib/analytics'
+import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 
 interface BrandCardProps {
   brand: Brand
@@ -26,8 +27,8 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
   const t = useTranslations('brands')
   const tDetail = useTranslations('brandDetail')
   const [imgError, setImgError] = useState(false)
-  const imageSrc = brand.heroImageUrl ?? brand.logoUrl
-  const showImage = imageSrc && !imgError
+  const imageSrc = safeImageSrc(brand.heroImageUrl ?? brand.logoUrl)
+  const showImage = imageSrc !== null && !imgError
   const badges = [
     brand.mitVerified === true
       ? {

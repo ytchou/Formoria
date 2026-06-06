@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 
 interface ImageCarouselProps {
   images: string[]
@@ -10,9 +11,13 @@ interface ImageCarouselProps {
 }
 
 export function ImageCarousel({ images, alt }: ImageCarouselProps) {
+  const validImages = images.flatMap((image) => {
+    const safeSrc = safeImageSrc(image)
+    return safeSrc ? [safeSrc] : []
+  })
   const [current, setCurrent] = useState(0)
   const [brokenImages, setBrokenImages] = useState<Set<number>>(new Set())
-  const total = images.length
+  const total = validImages.length
 
   const initial = alt.charAt(0)
 
@@ -50,7 +55,7 @@ export function ImageCarousel({ images, alt }: ImageCarouselProps) {
           </div>
         ) : (
           <Image
-            src={images[current]}
+            src={validImages[current]}
             alt={`${alt} — photo ${current + 1}`}
             fill
             className="object-cover"
@@ -93,7 +98,7 @@ export function ImageCarousel({ images, alt }: ImageCarouselProps) {
       {/* Thumbnail grid */}
       {total > 1 && (
         <div className="flex gap-2 overflow-x-auto">
-          {images.map((src, i) => (
+          {validImages.map((src, i) => (
             <button
               key={i}
               type="button"

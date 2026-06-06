@@ -1,25 +1,14 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 import createNextIntlPlugin from 'next-intl/plugin'
+import { ALLOWED_IMAGE_HOSTS } from './src/lib/images/allowed-image-hosts'
 
 const nextConfig: NextConfig = {
   images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '*.supabase.co',
-        pathname: '/storage/v1/object/public/**',
-      },
-      { protocol: 'https', hostname: '1973home.myshopify.com' },
-      { protocol: 'https', hostname: 'cdn01.pinkoi.com' },
-      { protocol: 'https', hostname: 'cdn02.pinkoi.com' },
-      { protocol: 'https', hostname: 'cms-static.cdn.91app.com' },
-      { protocol: 'https', hostname: 'img.gogoshop.cloud' },
-      { protocol: 'https', hostname: 'img.shoplineapp.com' },
-      { protocol: 'https', hostname: 'shoplineimg.com' },
-      { protocol: 'https', hostname: 'twrr.org.tw' },
-      { protocol: 'https', hostname: 'www.sobdeall.com.tw' },
-    ],
+    remotePatterns: ALLOWED_IMAGE_HOSTS.map((hostname) => ({
+      protocol: 'https',
+      hostname,
+    })),
   },
   async headers() {
     return [

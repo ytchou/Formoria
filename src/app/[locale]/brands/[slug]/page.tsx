@@ -22,6 +22,7 @@ import { BrandLinks } from '@/components/brands/brand-links'
 import { BrandLocations } from '@/components/brands/brand-locations'
 import { MoreInCategory } from '@/components/brands/more-in-category'
 import { RelatedBrands } from '@/components/brands/related-brands'
+import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 
 // 60s ISR: ownership/verified-state changes propagate within ~a minute; route still statically served between regenerations
 export const revalidate = 60
@@ -48,6 +49,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   try {
     const brand = await getBrandBySlug(slug)
+    const heroImageUrl = safeImageSrc(brand.heroImageUrl)
     const { canonical, languages } = buildAlternates(`/brands/${brand.slug}`, safeLocale)
     const ogLocale = safeLocale === 'zh-TW' ? 'zh_TW' : 'en_US'
     const ogAlternateLocale = safeLocale === 'zh-TW' ? 'en_US' : 'zh_TW'
@@ -58,14 +60,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       openGraph: {
         title: brand.name,
         description: brand.description ?? undefined,
-        images: brand.heroImageUrl ? [{ url: brand.heroImageUrl }] : undefined,
+        images: heroImageUrl ? [{ url: heroImageUrl }] : undefined,
         locale: ogLocale,
         alternateLocale: [ogAlternateLocale],
       },
       twitter: {
         title: brand.name,
         description: brand.description ?? undefined,
-        images: brand.heroImageUrl ? [brand.heroImageUrl] : undefined,
+        images: heroImageUrl ?? undefined,
       },
     }
   } catch {
