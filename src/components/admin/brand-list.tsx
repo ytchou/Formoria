@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { Fragment, useState, useTransition } from 'react'
 import type { Brand, BrandStatus } from '@/lib/types'
 import { StatusBadge } from './status-badge'
 import { BrandEditDialog } from './brand-edit-dialog'
@@ -9,6 +9,8 @@ import {
   hideBrandAction,
   unhideBrandAction,
   deleteBrandAction,
+  rejectMitAction,
+  verifyMitAction,
 } from '@/app/admin/actions'
 import {
   Table,
@@ -20,13 +22,57 @@ import {
 } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
 
 type TabValue = 'all' | BrandStatus
+type MitStatus = NonNullable<Brand['mitStatus']>
+
+const MIT_STATUS_CONFIG: Record<MitStatus, { label: string; className: string }> = {
+  unverified: {
+    label: 'MIT 未驗證',
+    className: 'bg-[#F5F4F1] text-[#7C7570]',
+  },
+  claimed: {
+    label: 'MIT 待審核',
+    className: 'bg-[#F5F4F1] text-[#7C7570]',
+  },
+  verified: {
+    label: 'MIT 已驗證',
+    className: 'bg-[#EAF3E8] text-[#2D5A27]',
+  },
+  rejected: {
+    label: 'MIT 已拒絕',
+    className: 'bg-[#FDF3EC] text-[#D94F3D]',
+  },
+}
+
+function getMitStatus(brand: Brand): MitStatus {
+  if (brand.mitStatus) return brand.mitStatus
+  return brand.mitVerified ? 'verified' : 'unverified'
+}
+
+function MitStatusBadge({ status }: { status: MitStatus }) {
+  const config = MIT_STATUS_CONFIG[status]
+
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+        config.className
+      )}
+    >
+      {config.label}
+    </span>
+  )
+}
 
 export function BrandList({ brands }: { brands: Brand[] }) {
   const [activeTab, setActiveTab] = useState<TabValue>('all')
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null)
   const [deletingBrand, setDeletingBrand] = useState<Brand | null>(null)
+  const [mitRejectingBrandId, setMitRejectingBrandId] = useState<string | null>(null)
+  const [mitRejectNotes, setMitRejectNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
@@ -58,6 +104,39 @@ export function BrandList({ brands }: { brands: Brand[] }) {
       const result = await deleteBrandAction(deletingBrand.id)
       if (result?.error) setError(result.error)
       else setDeletingBrand(null)
+    })
+  }
+
+  function handleVerifyMit(brand: Brand) {
+    startTransition(async () => {
+      setError(null)
+      const result = await verifyMitAction(brand.id, brand.mitEvidence?.mit_smile_cert)
+      if (result?.error) setError(result.error)
+    })
+  }
+
+  function handleRejectMit(brand: Brand) {
+    if (mitRejectingBrandId !== brand.id) {
+      setMitRejectingBrandId(brand.id)
+      setMitRejectNotes('')
+      setError(null)
+      return
+    }
+
+    const notes = mitRejectNotes.trim()
+    if (!notes) {
+      setError('Rejection notes are required.')
+      return
+    }
+
+    startTransition(async () => {
+      setError(null)
+      const result = await rejectMitAction(brand.id, notes)
+      if (result?.error) setError(result.error)
+      else {
+        setMitRejectingBrandId(null)
+        setMitRejectNotes('')
+      }
     })
   }
 
@@ -99,6 +178,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
             <TableRow>
               <TableHead>品牌</TableHead>
               <TableHead>狀態</TableHead>
+              <TableHead>MIT</TableHead>
               <TableHead>分類</TableHead>
               <TableHead>建立日期</TableHead>
               <TableHead className="text-right">操作</TableHead>
@@ -106,65 +186,112 @@ export function BrandList({ brands }: { brands: Brand[] }) {
           </TableHeader>
           <TableBody>
             {filtered.map((brand) => (
-              <TableRow key={brand.id}>
-                <TableCell className="font-medium">
-                  {brand.name}
-                  {brand.isDemo && (
-                    <span className="ml-1.5 inline-flex items-center rounded-full bg-[#EDE8F5] px-2 py-0.5 text-[11px] font-medium text-[#6B47B8]">
-                      Demo
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <StatusBadge status={brand.status} />
-                </TableCell>
-                <TableCell>{brand.category ?? '-'}</TableCell>
-                <TableCell>{formatDate(brand.createdAt)}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setEditingBrand(brand)}
-                    >
-                      編輯
-                    </Button>
-                    {brand.status === 'approved' && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleHide(brand)}
-                        disabled={isPending}
-                      >
-                        隱藏
-                      </Button>
+              <Fragment key={brand.id}>
+                <TableRow>
+                  <TableCell className="font-medium">
+                    {brand.name}
+                    {brand.isDemo && (
+                      <span className="ml-1.5 inline-flex items-center rounded-full bg-[#EDE8F5] px-2 py-0.5 text-[11px] font-medium text-[#6B47B8]">
+                        Demo
+                      </span>
                     )}
-                    {brand.status === 'hidden' && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleUnhide(brand)}
-                        disabled={isPending}
-                      >
-                        取消隱藏
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-[#D94F3D] hover:text-[#D94F3D]"
-                      onClick={() => setDeletingBrand(brand)}
-                    >
-                      刪除
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge status={brand.status} />
+                  </TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <MitStatusBadge status={getMitStatus(brand)} />
+                      {brand.mitEvidence?.mit_smile_cert && (
+                        <p className="text-xs text-[#7C7570]">
+                          Cert: {brand.mitEvidence.mit_smile_cert}
+                        </p>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>{brand.category ?? '-'}</TableCell>
+                  <TableCell>{formatDate(brand.createdAt)}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingBrand(brand)}
+                        >
+                          編輯
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleVerifyMit(brand)}
+                          disabled={isPending}
+                        >
+                          Verify MIT
+                        </Button>
+                        <Button
+                          variant={mitRejectingBrandId === brand.id ? 'destructive' : 'ghost'}
+                          size="sm"
+                          className={
+                            mitRejectingBrandId === brand.id
+                              ? undefined
+                              : 'text-[#D94F3D] hover:text-[#D94F3D]'
+                          }
+                          onClick={() => handleRejectMit(brand)}
+                          disabled={isPending}
+                        >
+                          {mitRejectingBrandId === brand.id
+                            ? 'Confirm reject MIT'
+                            : 'Reject MIT'}
+                        </Button>
+                        {brand.status === 'approved' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleHide(brand)}
+                            disabled={isPending}
+                          >
+                            隱藏
+                          </Button>
+                        )}
+                        {brand.status === 'hidden' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleUnhide(brand)}
+                            disabled={isPending}
+                          >
+                            取消隱藏
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-[#D94F3D] hover:text-[#D94F3D]"
+                          onClick={() => setDeletingBrand(brand)}
+                        >
+                          刪除
+                        </Button>
+                      </div>
+                      {mitRejectingBrandId === brand.id && (
+                        <div className="w-full max-w-sm">
+                          <Textarea
+                            autoFocus
+                            placeholder="Why are you rejecting this MIT verification?"
+                            value={mitRejectNotes}
+                            onChange={(event) => setMitRejectNotes(event.target.value)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              </Fragment>
             ))}
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="py-8 text-center text-[#7C7570]"
                 >
                   找不到品牌。

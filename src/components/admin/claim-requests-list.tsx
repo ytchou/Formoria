@@ -1,7 +1,12 @@
 'use client'
 
 import { Fragment, useState, useTransition } from 'react'
-import { approveClaimAction, rejectClaimAction } from '@/app/admin/actions'
+import {
+  approveClaimAction,
+  rejectClaimAction,
+  rejectMitAction,
+  verifyMitAction,
+} from '@/app/admin/actions'
 import { StatusBadge } from '@/components/admin/status-badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,6 +22,10 @@ import { Textarea } from '@/components/ui/textarea'
 import type { ClaimRequest } from '@/lib/services/claim-requests'
 
 type TabValue = 'all' | ClaimRequest['status']
+type RejectActionTarget =
+  | { kind: 'claim'; id: string }
+  | { kind: 'mit'; id: string }
+  | null
 
 const PROOF_TYPE_LABELS: Record<ClaimRequest['proofType'], string> = {
   domain_email: 'Domain email',
@@ -42,7 +51,7 @@ export function ClaimRequestsList({
 }) {
   const [activeTab, setActiveTab] = useState<TabValue>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [rejectingId, setRejectingId] = useState<string | null>(null)
+  const [rejectTarget, setRejectTarget] = useState<RejectActionTarget>(null)
   const [rejectNotes, setRejectNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -61,7 +70,13 @@ export function ClaimRequestsList({
 
   function handleRowClick(id: string) {
     setExpandedId((prev) => (prev === id ? null : id))
-    setRejectingId(null)
+    setRejectTarget(null)
+    setRejectNotes('')
+    setError(null)
+  }
+
+  function beginReject(kind: NonNullable<RejectActionTarget>['kind'], id: string) {
+    setRejectTarget({ kind, id })
     setRejectNotes('')
     setError(null)
   }
@@ -74,10 +89,9 @@ export function ClaimRequestsList({
     })
   }
 
-  function handleReject(id: string) {
-    if (rejectingId !== id) {
-      setRejectingId(id)
-      setError(null)
+  function handleRejectClaim(id: string) {
+    if (rejectTarget?.kind !== 'claim' || rejectTarget.id !== id) {
+      beginReject('claim', id)
       return
     }
 
@@ -92,7 +106,38 @@ export function ClaimRequestsList({
       const result = await rejectClaimAction(id, notes)
       if (result?.error) setError(result.error)
       else {
-        setRejectingId(null)
+        setRejectTarget(null)
+        setRejectNotes('')
+      }
+    })
+  }
+
+  function handleVerifyMit(brandId: string, cert: string) {
+    startTransition(async () => {
+      setError(null)
+      const result = await verifyMitAction(brandId, cert)
+      if (result?.error) setError(result.error)
+    })
+  }
+
+  function handleRejectMit(brandId: string) {
+    if (rejectTarget?.kind !== 'mit' || rejectTarget.id !== brandId) {
+      beginReject('mit', brandId)
+      return
+    }
+
+    const notes = rejectNotes.trim()
+    if (!notes) {
+      setError('Rejection notes are required.')
+      return
+    }
+
+    startTransition(async () => {
+      setError(null)
+      const result = await rejectMitAction(brandId, notes)
+      if (result?.error) setError(result.error)
+      else {
+        setRejectTarget(null)
         setRejectNotes('')
       }
     })
@@ -222,6 +267,15 @@ export function ClaimRequestsList({
                           </p>
                         </div>
 
+                        {claimRequest.mitSmileCert && (
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">
+                              MIT Smile cert
+                            </p>
+                            <p className="mt-1 text-sm">{claimRequest.mitSmileCert}</p>
+                          </div>
+                        )}
+
                         {claimRequest.reviewerNotes && (
                           <div>
                             <p className="text-sm font-medium text-muted-foreground">
@@ -248,7 +302,8 @@ export function ClaimRequestsList({
                             </Button>
 
                             <div className="w-full max-w-xl">
-                              {rejectingId === claimRequest.id && (
+                              {rejectTarget?.kind === 'claim' &&
+                                rejectTarget.id === claimRequest.id && (
                                 <Textarea
                                   autoFocus
                                   placeholder="Why are you rejecting this claim?"
@@ -257,21 +312,85 @@ export function ClaimRequestsList({
                                   onClick={(event) => event.stopPropagation()}
                                   className="mb-2"
                                 />
-                              )}
+                                )}
                               <Button
-                                variant={rejectingId === claimRequest.id ? 'destructive' : 'outline'}
+                                variant={
+                                  rejectTarget?.kind === 'claim' &&
+                                  rejectTarget.id === claimRequest.id
+                                    ? 'destructive'
+                                    : 'outline'
+                                }
                                 size="lg"
                                 className="min-h-12 px-4"
                                 onClick={(event) => {
                                   event.stopPropagation()
-                                  handleReject(claimRequest.id)
+                                  handleRejectClaim(claimRequest.id)
                                 }}
                                 disabled={isPending}
                               >
-                                {rejectingId === claimRequest.id
+                                {rejectTarget?.kind === 'claim' &&
+                                rejectTarget.id === claimRequest.id
                                   ? 'Confirm reject'
                                   : 'Reject'}
                               </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {claimRequest.mitSmileCert && (
+                          <div className="space-y-3 border-t pt-4">
+                            <p className="text-sm font-medium text-muted-foreground">
+                              MIT verification
+                            </p>
+                            <div className="flex flex-col items-start gap-3 sm:flex-row">
+                              <Button
+                                size="lg"
+                                className="min-h-12 px-4"
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  handleVerifyMit(
+                                    claimRequest.brandId,
+                                    claimRequest.mitSmileCert as string
+                                  )
+                                }}
+                                disabled={isPending}
+                              >
+                                Verify MIT
+                              </Button>
+
+                              <div className="w-full max-w-xl">
+                                {rejectTarget?.kind === 'mit' &&
+                                  rejectTarget.id === claimRequest.brandId && (
+                                    <Textarea
+                                      autoFocus
+                                      placeholder="Why are you rejecting this MIT verification?"
+                                      value={rejectNotes}
+                                      onChange={(event) => setRejectNotes(event.target.value)}
+                                      onClick={(event) => event.stopPropagation()}
+                                      className="mb-2"
+                                    />
+                                  )}
+                                <Button
+                                  variant={
+                                    rejectTarget?.kind === 'mit' &&
+                                    rejectTarget.id === claimRequest.brandId
+                                      ? 'destructive'
+                                      : 'outline'
+                                  }
+                                  size="lg"
+                                  className="min-h-12 px-4"
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    handleRejectMit(claimRequest.brandId)
+                                  }}
+                                  disabled={isPending}
+                                >
+                                  {rejectTarget?.kind === 'mit' &&
+                                  rejectTarget.id === claimRequest.brandId
+                                    ? 'Confirm reject MIT'
+                                    : 'Reject MIT'}
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         )}
