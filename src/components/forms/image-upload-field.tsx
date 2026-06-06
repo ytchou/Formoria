@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useImageUpload } from '@/components/upload/useImageUpload'
 import { Label } from '@/components/ui/label'
@@ -26,6 +26,12 @@ export function ImageUploadField({
   const [localPreview, setLocalPreview] = useState<string | null>(currentUrl ?? null)
   const [cleared, setCleared] = useState(false)
   const [sizeError, setSizeError] = useState<string | null>(null)
+  // URL confirmed by the most-recent completed upload (guards against stale race)
+  const [confirmedUrl, setConfirmedUrl] = useState<string | null>(null)
+  // Monotonically-increasing counter; each file-select increments it
+  const selectTokenRef = useRef(0)
+  // Token that was active when the current upload started — needed for the effect guard
+  const [pendingToken, setPendingToken] = useState(0)
 
   const storagePath = brandId ? `brands/${brandId}/${name}` : `brands/tmp/${name}`
   const { status, url, error, upload } = useImageUpload({
@@ -33,8 +39,16 @@ export function ImageUploadField({
     path: storagePath,
   })
 
-  // Derive the hidden URL value: uploaded URL > currentUrl (unless cleared)
-  const hiddenValue = cleared ? '' : (url ?? currentUrl ?? '')
+  // When the hook reports a successful upload, only commit the URL if its
+  // select-token is still the latest one (stale-URL race guard).
+  useEffect(() => {
+    if (status === 'success' && url && pendingToken === selectTokenRef.current) {
+      setConfirmedUrl(url)
+    }
+  }, [status, url, pendingToken])
+
+  // Derive the hidden URL value: confirmed uploaded URL > currentUrl (unless cleared)
+  const hiddenValue = cleared ? '' : (confirmedUrl ?? currentUrl ?? '')
 
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,6 +62,13 @@ export function ImageUploadField({
         e.target.value = ''
         return
       }
+
+      // Increment and capture a token for this specific selection; a slower earlier
+      // upload that completes after a newer one will see pendingToken !== selectTokenRef.current
+      // in the effect and discard its result.
+      selectTokenRef.current += 1
+      const token = selectTokenRef.current
+      setPendingToken(token)
 
       // Show local preview immediately; reset cleared flag
       const objectUrl = URL.createObjectURL(file)
@@ -68,6 +89,9 @@ export function ImageUploadField({
     setLocalPreview(null)
     setCleared(true)
     setSizeError(null)
+    setConfirmedUrl(null)
+    // Invalidate any in-flight upload by advancing the token
+    selectTokenRef.current += 1
   }, [])
 
   const displayError = sizeError ?? error
