@@ -65,8 +65,9 @@ next-env.d.ts
 docs/
 *.pen
 
-# Supabase local
-/supabase/
+# Supabase local artifacts only (keep migrations/config/functions/seed tracked)
+supabase/.temp/
+supabase/.branches/
 
 # worktrees
 .worktrees/
