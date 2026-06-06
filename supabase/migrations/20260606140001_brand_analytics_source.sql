@@ -53,3 +53,8 @@ BEGIN
   DO UPDATE SET clicks = brand_analytics.clicks + 1;
 END;
 $$;
+
+REVOKE EXECUTE ON FUNCTION increment_brand_view(uuid, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION increment_brand_view(uuid, text) TO service_role;
+REVOKE EXECUTE ON FUNCTION increment_brand_click(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION increment_brand_click(uuid) TO service_role;
