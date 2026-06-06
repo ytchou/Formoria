@@ -428,6 +428,13 @@ export async function getBrandById(id: string): Promise<Brand> {
 }
 
 function isSupabaseStorageUrl(url: string): boolean {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
+  const storagePrefix = supabaseUrl ? `${supabaseUrl}/storage/` : ''
+
+  if (storagePrefix && url.startsWith(storagePrefix)) {
+    return true
+  }
+
   try {
     const parsedUrl = new URL(url)
     const normalizedHostname = parsedUrl.hostname.toLowerCase()
