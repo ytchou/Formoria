@@ -3,11 +3,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getBrandBySlug } from "@/lib/services/brands";
+import { computeBrandCompleteness } from "@/lib/services/brand-completeness";
 import { isOwnerOf } from "@/lib/services/brand-owners";
 import {
   getAnalytics,
   getSourceBreakdown,
 } from "@/lib/services/brand-analytics";
+import { BrandCompletenessCard } from "@/components/dashboard/brand-completeness-card";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -36,6 +38,7 @@ export default async function BrandDashboardPage({ params }: Props) {
   if (!user) redirect("/auth/sign-in");
 
   const brand = await getBrandBySlug(slug);
+  const completeness = computeBrandCompleteness(brand);
   const owner = await isOwnerOf(user.id, brand.id);
 
   if (!owner) redirect("/dashboard");
@@ -72,6 +75,10 @@ export default async function BrandDashboardPage({ params }: Props) {
           clickTrend={analytics.clickTrend}
         />
         <SourcesBreakdownCard sources={sources} />
+      </div>
+
+      <div className="mt-8">
+        <BrandCompletenessCard completeness={completeness} slug={brand.slug} />
       </div>
 
       <div className="mt-8 grid gap-6">

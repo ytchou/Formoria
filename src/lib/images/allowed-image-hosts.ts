@@ -11,6 +11,8 @@ export const ALLOWED_IMAGE_HOSTS = [
   'www.sobdeall.com.tw',
 ] as const satisfies string[]
 
+export const NON_IMAGE_HOSTS = ['facebook.com', 'line.me'] as const
+
 export function isAllowedImageHost(hostname: string): boolean {
   const normalizedHostname = hostname.toLowerCase()
 
@@ -29,6 +31,21 @@ export function isAllowedImageHost(hostname: string): boolean {
 
     return normalizedHostname === normalizedPattern
   })
+}
+
+export function isNonImageHost(url: string): boolean {
+  try {
+    const parsedUrl = new URL(url)
+    const normalizedHostname = parsedUrl.hostname.toLowerCase()
+
+    return NON_IMAGE_HOSTS.some(
+      (host) =>
+        normalizedHostname === host ||
+        normalizedHostname.endsWith(`.${host}`),
+    )
+  } catch {
+    return false
+  }
 }
 
 export function safeImageSrc(url: string | null | undefined): string | null {

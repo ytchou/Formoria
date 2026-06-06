@@ -13,6 +13,7 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/app/auth/actions', () => ({
   signIn: vi.fn(),
+  signInWithGoogle: vi.fn(),
 }))
 
 function renderWithZhTW(ui: React.ReactElement) {

@@ -30,7 +30,7 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
         <input type="hidden" name="brandSlug" value={brand.slug} />
 
         {/* Basic Info */}
-        <section className="space-y-4">
+        <section id="basic-info" className="space-y-4">
           <h2 className="font-heading text-base font-bold text-foreground border-b border-border pb-2">
             Basic Info
           </h2>
@@ -94,7 +94,7 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
         </section>
 
         {/* Media */}
-        <section className="space-y-4">
+        <section id="media" className="space-y-4">
           <h2 className="font-heading text-base font-bold text-foreground border-b border-border pb-2">
             Media
           </h2>
@@ -124,7 +124,7 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
         </section>
 
         {/* Links */}
-        <section className="space-y-4">
+        <section id="links" className="space-y-4">
           <h2 className="font-heading text-base font-bold text-foreground border-b border-border pb-2">
             Links
           </h2>
@@ -205,7 +205,7 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
         </section>
 
         {/* Locations */}
-        <section className="space-y-4">
+        <section id="locations" className="space-y-4">
           <h2 className="font-heading text-base font-bold text-foreground border-b border-border pb-2">
             Locations
           </h2>

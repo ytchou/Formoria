@@ -46,6 +46,10 @@ vi.mock('@/components/i18n/locale-switcher', () => ({
   LocaleSwitcher: () => <div data-testid="locale-switcher" />,
 }))
 
+vi.mock('@/lib/auth/use-user', () => ({
+  useUser: () => ({ user: null, loading: false }),
+}))
+
 const mockCategories = [
   { slug: 'food', name: 'Food', nameZh: '食品' },
   { slug: 'fashion', name: 'Fashion', nameZh: '時尚' },
