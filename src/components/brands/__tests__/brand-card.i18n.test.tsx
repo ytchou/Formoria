@@ -55,8 +55,8 @@ describe('BrandCard — English locale (i18n)', () => {
     // Founding year uses English translation key
     expect(screen.getByText('Est. 2010')).toBeInTheDocument()
 
-    // Verified badge uses English label
-    expect(screen.getByLabelText('Verified brand')).toBeInTheDocument()
-    expect(screen.getByText('Verified')).toBeInTheDocument()
+    // Owner badge uses updated English short label and ARIA/title text
+    expect(screen.getByLabelText('Managed by the brand owner')).toBeInTheDocument()
+    expect(screen.getByText('Brand')).toBeInTheDocument()
   })
 })

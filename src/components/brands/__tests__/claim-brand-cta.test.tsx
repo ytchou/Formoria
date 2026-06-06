@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { NextIntlClientProvider } from 'next-intl'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
+import zh from '../../../../messages/zh-TW.json'
 
 const mockSubmitClaimAction = vi.fn()
 
@@ -15,6 +17,14 @@ vi.mock('@/app/[locale]/brands/[slug]/actions', () => ({
 
 import { ClaimBrandCta } from '../claim-brand-cta'
 
+function renderWithIntl(ui: React.ReactElement) {
+  return render(
+    <NextIntlClientProvider locale="zh-TW" messages={zh}>
+      {ui}
+    </NextIntlClientProvider>
+  )
+}
+
 describe('ClaimBrandCta', () => {
   beforeEach(() => {
     mockSubmitClaimAction.mockReset()
@@ -24,7 +34,7 @@ describe('ClaimBrandCta', () => {
   it('renders the claim CTA for an unclaimed brand and submits the selected proof type', async () => {
     const user = userEvent.setup()
 
-    render(<ClaimBrandCta brandId="brand-1" />)
+    renderWithIntl(<ClaimBrandCta brandId="brand-1" />)
 
     await user.click(screen.getByRole('button', { name: /認領這個品牌/i }))
     await user.selectOptions(screen.getByLabelText(/認領證明類型/i), 'social_post')

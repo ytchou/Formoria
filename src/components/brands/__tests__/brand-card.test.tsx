@@ -55,13 +55,14 @@ function renderWithProvider(ui: React.ReactElement) {
 describe('BrandCard — verified badge', () => {
   it('renders a verified badge when isVerified is true', () => {
     renderWithProvider(<BrandCard brand={makeBrand({ isVerified: true })} />)
-    expect(screen.getByLabelText('Verified brand')).toBeInTheDocument()
+    expect(screen.getByLabelText('Managed by the brand owner')).toBeInTheDocument()
+    expect(screen.getByText('Brand')).toBeInTheDocument()
     expect(screen.queryByText('Community')).not.toBeInTheDocument()
   })
 
   it('renders a community label when isVerified is false', () => {
     renderWithProvider(<BrandCard brand={makeBrand({ isVerified: false })} />)
-    expect(screen.queryByLabelText('Verified brand')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Managed by the brand owner')).not.toBeInTheDocument()
     expect(screen.getByText('Community')).toBeInTheDocument()
   })
 })

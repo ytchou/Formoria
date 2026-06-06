@@ -45,22 +45,19 @@ function renderWithIntl(ui: React.ReactElement) {
 describe('BrandHeader — verified badge', () => {
   it('shows verified badge tooltip when isVerified is true', () => {
     renderWithIntl(<BrandHeader brand={makeBrand({ isVerified: true })} />)
-    expect(
-      screen.getByTitle('This brand has been verified by its owner')
-    ).toBeInTheDocument()
+    expect(screen.getByText('品牌經營')).toBeInTheDocument()
+    expect(screen.getByTitle('由品牌方經營管理')).toBeInTheDocument()
   })
 
   it('does not show verified badge when isVerified is false', () => {
     renderWithIntl(<BrandHeader brand={makeBrand({ isVerified: false })} />)
-    expect(
-      screen.queryByTitle('This brand has been verified by its owner')
-    ).not.toBeInTheDocument()
+    expect(screen.queryByText('品牌經營')).not.toBeInTheDocument()
+    expect(screen.queryByTitle('由品牌方經營管理')).not.toBeInTheDocument()
   })
 
   it('does not show verified badge based on approvedAt alone', () => {
     renderWithIntl(<BrandHeader brand={makeBrand({ isVerified: false, approvedAt: '2026-05-01' })} />)
-    expect(
-      screen.queryByTitle('This brand has been verified by its owner')
-    ).not.toBeInTheDocument()
+    expect(screen.queryByText('品牌經營')).not.toBeInTheDocument()
+    expect(screen.queryByTitle('由品牌方經營管理')).not.toBeInTheDocument()
   })
 })

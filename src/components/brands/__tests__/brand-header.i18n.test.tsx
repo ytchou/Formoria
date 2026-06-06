@@ -42,8 +42,9 @@ describe('BrandHeader — English locale (i18n)', () => {
     // Proper noun (brand name) is unchanged
     expect(screen.getByText('Sunrise Tea')).toBeInTheDocument()
 
-    // Verified badge uses English label from brandDetail.verified
-    expect(screen.getByText('Verified')).toBeInTheDocument()
+    // Owner badge uses updated English label and tooltip from brandDetail
+    expect(screen.getByText('Brand-managed')).toBeInTheDocument()
+    expect(screen.getByTitle('Managed by the brand owner')).toBeInTheDocument()
 
     // Founding year uses English translation key (brandDetail.foundingYear)
     expect(screen.getByText('Est. 2010')).toBeInTheDocument()
