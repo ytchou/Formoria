@@ -83,8 +83,41 @@ export async function signUp(
   redirect(`/auth/sign-in?message=${encodeURIComponent(t("confirmEmail"))}`);
 }
 
+export async function signInWithGoogle(
+  claimToken?: string,
+  next?: string
+): Promise<void> {
+  const supabase = await createClient();
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://formoria.com";
+
+  const params = new URLSearchParams();
+  if (claimToken) {
+    params.set("claim", claimToken);
+  }
+  if (next) {
+    params.set("next", next);
+  }
+
+  const redirectTo = `${siteUrl}/auth/callback${
+    params.size > 0 ? `?${params.toString()}` : ""
+  }`;
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo,
+    },
+  });
+
+  if (error || !data?.url) {
+    redirect("/auth/sign-in?error=oauth-failed");
+  }
+
+  redirect(data.url);
+}
+
 export async function signOut(): Promise<void> {
   const supabase = await createClient();
   await supabase.auth.signOut();
-  redirect("/auth/sign-in");
+  redirect("/");
 }
