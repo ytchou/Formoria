@@ -1,5 +1,5 @@
 -- Formoria Made-in-Taiwan brand seed — REVIEW ONLY, do NOT auto-run.
--- Rows: 139 brands. Generated from formoria-seed-loadready.csv.
+-- Rows: 135 brands. Generated from formoria-seed-loadready.csv.
 -- Target table: public.brands (see supabase/migrations/00001_create_service_tables.sql).
 -- DEPENDS ON migration 00015_add_mit_verification_to_brands.sql being applied FIRST
 --   (adds source, mit_status, mit_claimed_at, mit_verified_at, mit_evidence columns).
@@ -11,6 +11,7 @@
 --   is_demo=false, status='pending' (brands route through the approval queue).
 -- Single quotes are escaped by doubling (e.g. S'MORE -> S''MORE).
 -- Review and adjust before running against any database.
+-- Patch 2026-06-06: satbakhi category → Beauty & Personal Care; removed 4 image-less brands (jun616xteen, ttfood2020, artsweet, swan). Now 135 rows.
 
 INSERT INTO brands (
   name, slug, description, category, hero_image_url,
@@ -43,9 +44,6 @@ INSERT INTO brands (
    'threads_seed', 'unverified', NULL, false, 'pending'),
   ('HIPPORIZZ 河馬引力', 'hipporizz', '極致工藝打造高品質3C配件 包袋與生活周邊、不只防護、更展現個人風格與質感生活。❮設計×規格強化❯ 從iPhone／iPad保護殼 磁吸支架 充電器到線材配件。以兼具美學與實用的設計理念、打造HIPPORIZZ 抗黃透明殼 輕薄防摔殼與磁吸系列、結合高規格材質與細節工藝、讓你的Apple設備不只是工具、...', 'Bags & Accessories', 'https://hipporizz.com.tw/cdn/shop/files/20260428__2_1920x1208_753901fb-c682-4b9f-876e-1a8ef9b2e0f7.jpg?v=1778473415',
    '{"phone-cases","watch-bands","3c-accessories"}'::text[], '{"instagram": "@hipporizz.official", "threads": "@hipporizz.official"}'::jsonb, '[{"label": "Website", "url": "https://hipporizz.com.tw"}, {"label": "Shop", "url": "https://hipporizz.com.tw/collections/all"}]'::jsonb, '["https://hipporizz.com.tw/cdn/shop/files/ChatGPT_Image_2026_4_23_11_53_49.png?v=1776916465&width=480", "https://hipporizz.com.tw/cdn/shop/files/ZENO_3-in-1.2998-extend.png?v=1778556245&width=480", "https://hipporizz.com.tw/cdn/shop/files/ChatGPT_Image_2026_4_23_11_16_25.png?v=1776914219&width=480"]'::jsonb,
-   'threads_seed', 'unverified', NULL, false, 'pending'),
-  ('Jun616xteen', 'jun616xteen', 'Follow our story Instagram@jun616xteen', 'Bags & Accessories', 'https://jun616xteen.com/wp-content/uploads/2025/09/cropped-1200xc.png',
-   '{"vegan-leather","pineapple-fiber","accessories"}'::text[], '{"instagram": "@jun616xteen", "threads": "@jun616xteen"}'::jsonb, '[{"label": "Website", "url": "https://jun616xteen.com"}, {"label": "Shop", "url": "https://jun616xteen.com/products/"}]'::jsonb, '["https://jun616xteen.com/wp-content/uploads/2025/09/1200x.webp", "https://jun616xteen.com/wp-content/uploads/2026/05/Jun-web-03.jpg", "https://jun616xteen.com/wp-content/uploads/2026/05/Jun-web-04.jpg"]'::jsonb,
    'threads_seed', 'unverified', NULL, false, 'pending'),
   ('nunotao', 'nunotao', 'Nunotao 步道設計官方經營商店、Pinkoi 新會員享 APP 運費優惠、最高折 NT$100！●** nunotao 品牌主張** nuno是日文布的意思; tao 則是道。中文的諧音格為步道 亦即以一步一腳印的理念 以從布起步走 創意無限走的品牌slogan 強調在地設計 在地材料與在地做工、重塑在地材的新視野。 ●**茄芷的故事** 「茄芷」在維基百科中、被認定為「台客袋」、其名稱源於日語「かぎ編み (kagiami)」。傳統茄芷袋是採用藺草手編而成、專用於農用袋物、現在成為旅客必帶的伴手禮。目前生產茄芷袋的區域、主要位於台南市後壁區、從日本時代全盛期的30多家、到目前僅剩三家茄芷工廠。因此Nuno tao運用不同媒材與茄芷的結合、期待重塑茄芷', 'Bags & Accessories', 'https://cdn01.pinkoi.com/product/9ks5gQ47/0/800x0.jpg',
    '{"jiazhi-bags","woven-bags","designer"}'::text[], '{"instagram": "@nunotao", "threads": "@nunotao"}'::jsonb, '[{"label": "Website", "url": "https://pinkoi.com/store/nunotao"}, {"label": "Shop", "url": "https://www.pinkoi.com/topic/fashion-trend#travel"}]'::jsonb, '["https://cdn02.pinkoi.com/store/nunotao/banner/44/1200x245.jpg", "https://cdn02.pinkoi.com/user/nunotao/avatar/4/50x50.jpg"]'::jsonb,
@@ -248,9 +246,6 @@ INSERT INTO brands (
   ('十甲有機農場 Shi Jia Organic Farm', 'shi-jia-organic-farm', '嘉義縣政府大力推動的「嘉義優鮮」自有品牌正式上市、讓您找到心目中最優最鮮的農漁畜產品。網站上有所有入選的業者及產品、若需選購也可直接聯繫業者。', 'Food & Beverage', 'https://www.chiayum.com.tw/picture/tradmarker/aa3e67631afd47209efe8f01e1e614d7/2022062815461077b94e8df7a94e8e.jpg',
    '{"organic","grains","farm"}'::text[], '{"instagram": "@shi_jia_organic_farm", "threads": "@shi_jia_organic_farm"}'::jsonb, '[{"label": "Website", "url": "https://www.chiayum.com.tw/store/tradmaker/101"}, {"label": "Shop", "url": "https://www.chiayum.com.tw/store/tradmaker"}]'::jsonb, '["https://www.chiayum.com.tw/picture/tradmarker/aa3e67631afd47209efe8f01e1e614d7/2022062815461077b94e8df7a94e8e.jpg", "https://www.chiayum.com.tw/picture/tradmarker/aa3e67631afd47209efe8f01e1e614d7/2022062811055310f6158848664be8.jpg", "https://www.chiayum.com.tw/picture/tradmarker/aa3e67631afd47209efe8f01e1e614d7/202206281105537677b0ce1ab247bb.jpg"]'::jsonb,
    'threads_seed', 'unverified', NULL, false, 'pending'),
-  ('宅日常手作鮮木耳', 'ttfood2020', '選用台灣有機認證黑白木耳、費時費工手工熬煮的鮮木耳露與不濾渣豆漿、堅持新鮮、健康、無添加；接單生產、提供全台宅配、外送與自取。', 'Food & Beverage', '',
-   '{"wood-ear-soy-milk-handmade-organic"}'::text[], '{"instagram": "@ttfood2020", "threads": "@ttfood2020"}'::jsonb, '[{"label": "Website", "url": "https://www.ttfood2020.com.tw/"}, {"label": "Shop", "url": "https://www.ttfood2020.com.tw/"}]'::jsonb, '[]'::jsonb,
-   'threads_seed', 'unverified', NULL, false, 'pending'),
   ('家酪優 JAROU', 'jarou', '家酪優是在台灣推廣自製優格和益生菌的先驅、於1993年時就展開與美國專業菌種公司的合作開發730優格菌。近年來憑著乳酸菌的專業、與生合生物共同開發出多款益生菌產品、廣受消費者熱烈迴響、我們秉持初衷、堅持使用好的原料。把你視同自己、製作出能幫助到大家的產品、讓我們感到開心與滿足。', 'Food & Beverage', 'https://img.shoplineapp.com/media/image_clips/611b0e1e318d720020218144/original.png?1629163037',
    '{"yogurt","yogurt-cultures","probiotics"}'::text[], '{"instagram": "@jarou.yogurt", "threads": "@jarou.yogurt"}'::jsonb, '[{"label": "Website", "url": "https://jarou.com.tw"}, {"label": "Shop", "url": "https://shopee.tw/jarou.tw"}]'::jsonb, '["https://img.shoplineapp.com/media/image_clips/611b0e1e318d720020218144/original.png?1629163037", "https://img.shoplineapp.com/media/image_clips/611b0e20f88862001257b536/original.png?1629163039", "https://www.jarou.com.tw/{{ getImgSrc(item,"]'::jsonb,
    'threads_seed', 'unverified', NULL, false, 'pending'),
@@ -268,9 +263,6 @@ INSERT INTO brands (
    'threads_seed', 'unverified', NULL, false, 'pending'),
   ('耕 豆腐專賣店 (Plough Tofu)', 'plough-tofu', '耕豆腐生產的有機及非基改豆製品深得街坊鄰里喜愛 製作過程全程開放透明 每日新鮮製作不加化學添加 嚴選非基改黃豆與傳統凝固劑做出高鈣豆腐', 'Food & Beverage', 'https://img.shoplineapp.com/media/image_clips/5f5ebd25dee996004e05a4a8/original.png?1600044325',
    '{"tofu-non-gmo-handmade-soy-milk"}'::text[], '{"instagram": "@ploughtofu", "threads": "@ploughtofu"}'::jsonb, '[{"label": "Website", "url": "https://www.benjianaturalfoods.com/"}, {"label": "Shop", "url": "https://www.benjianaturalfoods.com/categories/%E8%80%95%E8%B1%86%E8%85%90"}]'::jsonb, '["https://shoplineimg.com/598d2a426ef2d41ec400867f/5f5ebd25dee996004e05a4a8/1200x.webp?source_format=png、https://img.shoplineapp.com/media/image_clips/6a06c2e5c49fc44df5d6e083/original.jpg?1778828004"]'::jsonb,
-   'threads_seed', 'unverified', NULL, false, 'pending'),
-  ('藝菓ArtSweet和菓子工作室', 'artsweet', '高雄左營和菓子工作室 #和菓子（可冷凍宅配） #和菓子下午茶 #和菓子手作體驗', 'Food & Beverage', '',
-   '{"wagashi","sweets","afternoon-tea"}'::text[], '{"instagram": "@artsweetstudio", "threads": "@artsweetstudio"}'::jsonb, '[{"label": "Website", "url": "https://ssur.cc/RaM33tcSd"}]'::jsonb, '[]'::jsonb,
    'threads_seed', 'unverified', NULL, false, 'pending'),
   ('虎尾釀 Favorland', 'favorland', '虎尾釀 台灣地酒品牌 我們從虎尾起家 取材在地 用這片土地的水、溫度、氣候釀製美酒與好醋 藉由釀造訴說土地的故事 首創台灣米釀威士忌與蘭姆酒', 'Food & Beverage', 'https://i0.wp.com/favorland.com.tw/wp-content/uploads/2025/08/%E8%B3%87%E7%94%A2-75-e1760455730100.webp?fit=3000%2C919&ssl=1',
    '{"craft-spirits-rice-wine-distillery-local-liquor"}'::text[], '{"instagram": "@favorland_2002", "threads": "@favorland_2002"}'::jsonb, '[{"label": "Website", "url": "https://favorland.com.tw/"}, {"label": "Shop", "url": "https://favorland.com.tw/product-category/buy-local-wine/"}]'::jsonb, '["https://i0.wp.com/favorland.com.tw/wp-content/uploads/2025/07/Home8.webp?fit=601%2C701&ssl=1"]'::jsonb,
@@ -290,9 +282,6 @@ INSERT INTO brands (
   ('SDN 臺灣製涼鞋', 'sdn', '皮革涼拖製造商 腳丫子工作室有限公司 鞋子批發、ODM 、聯名、各式合作歡迎 SDN原創手作鞋-台灣好拖鞋。 SDN made in Taiwan', 'Footwear', 'https://static.wixstatic.com/media/d564fd_b6a3d1e294c745bbb7a02f3e3a098086%7Emv2.jpg/v1/fit/w_2500,h_1330,al_c/d564fd_b6a3d1e294c745bbb7a02f3e3a098086%7Emv2.jpg',
    '{"sandals","leather-sandals","handmade"}'::text[], '{"instagram": "@sdntaiwan", "threads": "@sdntaiwan"}'::jsonb, '[{"label": "Website", "url": "https://sdn.com.tw"}, {"label": "Shop", "url": "https://www.sdn.ltd/"}]'::jsonb, '["https://static.wixstatic.com/media/d564fd_f6857faebef14cba99d2b4edef4361a3~mv2.jpg/v1/fill/w_112,h_113,q_90,enc_avif,quality_auto/d564fd_f6857faebef14cba99d2b4edef4361a3~mv2.jpg", "https://static.wixstatic.com/media/d564fd_d85adca37f8e4f74a3fefd5af549e3d5~mv2.png/v1/fill/w_149,h_113,q_90,enc_avif,quality_auto/d564fd_d85adca37f8e4f74a3fefd5af549e3d5~mv2.png", "https://static.wixstatic.com/media/d564fd_3a941b5de1074a2399f75714d2596045~mv2.jpg/v1/fill/w_266,h_266,q_90,enc_avif,quality_auto/d564fd_3a941b5de1074a2399f75714d2596045~mv2.jpg"]'::jsonb,
    'threads_seed', 'unverified', NULL, false, 'pending'),
-  ('Swan天鵝', 'swan', 'Swan天鵝｜手工製童鞋 給寶貝最美好的穿鞋體驗', 'Footwear', '',
-   '{"kids-shoes","baby-sandals","handmade"}'::text[], '{"instagram": "@swankids_official", "threads": "@swankids_official"}'::jsonb, '[{"label": "Website", "url": "https://swan.tw"}]'::jsonb, '[]'::jsonb,
-   'threads_seed', 'unverified', '{"mit_smile_listed": true, "mit_smile_cert": "01800508-00001"}'::jsonb, false, 'pending'),
   ('波波娜拉 Bubble Nara', 'bubble-nara', 'Bubble nara 是台灣在地製作的手工鞋品牌、專為台灣女孩量身打造藏肉還不擠腳的的舒適鞋版、輕鬆擁有一雙時髦又好穿的美鞋。防水鞋 雨鞋 樂福鞋 短靴 牛津鞋 德比鞋 穆勒鞋 平底鞋 涼拖鞋 奧塞鞋 瑪莉珍鞋 婚鞋 上班鞋 旅行好走鞋 低跟鞋 高跟鞋 小白鞋 切爾西靴等、為妳準備一雙日常都能輕鬆穿出門的鞋。', 'Footwear', 'https://cms-static.cdn.91app.com/images/original/41454/8b6f421f-e21c-409b-948f-a8cb963d3205-1666677956-73fcvrx5ia_m_1200x675_800x450_400x225.jpg',
    '{"shoes"}'::text[], '{"instagram": "@bubblenara168", "threads": "@bubblenara168"}'::jsonb, '[{"label": "Website", "url": "https://bubble-nara.com"}, {"label": "Shop", "url": "https://www.bubble-nara.com/V2/ShoppingCart/Index?shopId=41454"}]'::jsonb, '["https://cms-static.cdn.91app.com/images/original/41454/e345a172-6886-41b7-aefd-b998ea909419-1763971984-k6b6kler39_d.png", "https://cms-static.cdn.91app.com/images/original/41454/58d8bb0d-40a6-4358-84d5-21a8dadcc9c7-1779963970-iz1d9kr446_d_1920x850_1280x567_1124x498_800x354_600x266_400x177.jpg"]'::jsonb,
    'threads_seed', 'unverified', NULL, false, 'pending'),
@@ -413,7 +402,7 @@ INSERT INTO brands (
   ('SAEKO Taiwan', 'saeko-taiwan', '台灣泳鏡品牌 Made in Taiwan 超清晰視野看世界', 'Sports & Outdoor', 'https://img.shoplineapp.com/media/image_clips/67c7cc5f4dea81000e35806c/original.png?1741147231',
    '{"swim-goggles","swim-caps","smart-goggles"}'::text[], '{"instagram": "@saekotw", "threads": "@saekotw"}'::jsonb, '[{"label": "Website", "url": "https://saekotw.com"}, {"label": "Shop", "url": "https://www.saekotw.com/pages/store"}]'::jsonb, '["https://shoplineimg.com/5f50add870e52e003f419a2c/67c7cc5f4dea81000e35806c/1200x.png?", "https://www.saekotw.com/{{ getImgSrc(item,", "https://www.saekotw.com/{{ getImgSrc(addonItem,"]'::jsonb,
    'threads_seed', 'unverified', NULL, false, 'pending'),
-  ('SATBAKHI 虱目魚小姐', 'satbakhi', '台灣魚鱗、登上日本設計殿堂 ! SATBAKHI寫下68 年來首件獲獎的 Leggings【榮獲 2025 GOOD DESIGN AWARD 日本優良設計】', 'Sports & Outdoor', 'https://img.shoplineapp.com/media/image_clips/68f19ad85b42a900105fc300/original.jpg?1760664280=&owner_id=6488496190a1b50021602e58',
+  ('SATBAKHI 虱目魚小姐', 'satbakhi', '台灣魚鱗、登上日本設計殿堂 ! SATBAKHI寫下68 年來首件獲獎的 Leggings【榮獲 2025 GOOD DESIGN AWARD 日本優良設計】', 'Beauty & Personal Care', 'https://img.shoplineapp.com/media/image_clips/68f19ad85b42a900105fc300/original.jpg?1760664280=&owner_id=6488496190a1b50021602e58',
    '{"activewear","collagen-fabric","leggings"}'::text[], '{"instagram": "@satbakhi", "threads": "@satbakhi"}'::jsonb, '[{"label": "Website", "url": "https://www.satbakhi.com"}, {"label": "Shop", "url": "https://shoplineimg.com"}]'::jsonb, '["https://www.satbakhi.com/{{ getImgSrc(item,", "https://www.satbakhi.com/{{ getImgSrc(addonItem,", "https://shoplineimg.com/6488496190a1b50021602e58/68ef2de22f698a000a2185da/750x.jpg?"]'::jsonb,
    'threads_seed', 'unverified', NULL, false, 'pending'),
   ('衣力美 EasyMain', 'easymain', '創立於1999 年、專業戶外服飾設計、製造與行銷的台灣企業品牌。至今是亞洲區使用最多美國產製Polartec戶外機能布料的企業之一、且擁有旗下研發Cycledry全系列布種。一貫堅持只採用無任何化學助劑的高成本布料、及首創機能性服飾售後保固期措施、滿足您隨時出門的意念、陪您到任何想去的地方。', 'Sports & Outdoor', 'https://www.easymain.com.tw/themes/zh-tw/assets/images/i2_slide_spring_front.png',
