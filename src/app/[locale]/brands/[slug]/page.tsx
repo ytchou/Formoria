@@ -83,6 +83,7 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
   const source = (
     sourceParam === 'search' ||
     sourceParam === 'category' ||
+    sourceParam === 'directory' ||
     sourceParam === 'direct' ||
     sourceParam === 'recommendation'
   ) ? sourceParam : 'direct'

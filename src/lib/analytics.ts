@@ -23,7 +23,7 @@ export type SubmissionStepName = (typeof SUBMISSION_STEP_NAMES)[keyof typeof SUB
 
 export function trackBrandDetailViewed(
   slug: string,
-  source: 'search' | 'category' | 'direct' | 'recommendation' = 'direct'
+  source: 'search' | 'category' | 'directory' | 'direct' | 'recommendation' = 'direct'
 ) {
   safeGAEvent('event', 'brand_detail_viewed', { brand_slug: slug, source })
 }

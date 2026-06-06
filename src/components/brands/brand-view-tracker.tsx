@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { trackBrandDetailViewed } from '@/lib/analytics'
 
-type BrandViewSource = 'search' | 'category' | 'direct' | 'recommendation'
+type BrandViewSource = 'search' | 'category' | 'directory' | 'direct' | 'recommendation'
 
 interface BrandViewTrackerProps {
   brandSlug: string
