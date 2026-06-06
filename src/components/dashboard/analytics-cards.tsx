@@ -44,6 +44,15 @@ export function AnalyticsCards({
   clickTrend,
 }: AnalyticsCardsProps) {
   const t = useTranslations('dashboard.analytics')
+  const getTrendLabel = (trend: Trend) => {
+    if (trend === 'up') {
+      return t('trendUp')
+    }
+    if (trend === 'down') {
+      return t('trendDown')
+    }
+    return t('trendFlat')
+  }
 
   return (
     <div className="grid grid-cols-2 gap-4">
@@ -58,14 +67,7 @@ export function AnalyticsCards({
             <span className="text-2xl font-bold text-[#1A1918]">
               {totalViews}
             </span>
-            <TrendIcon
-              trend={viewTrend}
-              label={
-                viewTrend === 'flat'
-                  ? 'Trending flat'
-                  : `Views trending ${viewTrend}`
-              }
-            />
+            <TrendIcon trend={viewTrend} label={getTrendLabel(viewTrend)} />
           </div>
           <p className="mt-1 text-xs text-[#857E79]">{t('last30Days')}</p>
         </CardContent>
@@ -82,14 +84,7 @@ export function AnalyticsCards({
             <span className="text-2xl font-bold text-[#1A1918]">
               {totalClicks}
             </span>
-            <TrendIcon
-              trend={clickTrend}
-              label={
-                clickTrend === 'flat'
-                  ? 'Trending flat'
-                  : `Clicks trending ${clickTrend}`
-              }
-            />
+            <TrendIcon trend={clickTrend} label={getTrendLabel(clickTrend)} />
           </div>
           <p className="mt-1 text-xs text-[#857E79]">{t('last30Days')}</p>
         </CardContent>

@@ -417,7 +417,10 @@
       "emptyBody": "When visitors click your links, you'll see a breakdown by destination here.",
       "pageViews": "Page Views",
       "outboundClicks": "Outbound Clicks",
-      "last30Days": "Last 30 days"
+      "last30Days": "Last 30 days",
+      "trendUp": "Trending up",
+      "trendDown": "Trending down",
+      "trendFlat": "No change"
     },
     "errors": {
       "invalidClaim": "The claim link is invalid or has expired. Please contact support.",

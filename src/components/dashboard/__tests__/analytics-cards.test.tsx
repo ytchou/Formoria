@@ -39,8 +39,8 @@ describe('AnalyticsCards', () => {
         />
       )
     )
-    expect(screen.getByLabelText('Views trending up')).toBeInTheDocument()
-    expect(screen.getByLabelText('Clicks trending down')).toBeInTheDocument()
+    expect(screen.getByLabelText('Trending up')).toBeInTheDocument()
+    expect(screen.getByLabelText('Trending down')).toBeInTheDocument()
   })
 
   it('shows a dash for flat trend', () => {
@@ -54,7 +54,7 @@ describe('AnalyticsCards', () => {
         />
       )
     )
-    expect(screen.getAllByLabelText('Trending flat')).toHaveLength(2)
+    expect(screen.getAllByLabelText('No change')).toHaveLength(2)
   })
 
   it('renders localized labels', () => {

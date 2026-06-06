@@ -417,7 +417,10 @@
       "emptyBody": "訪客點擊連結後，此處將顯示各連結的點擊數據。",
       "pageViews": "頁面瀏覽",
       "outboundClicks": "外部連結點擊",
-      "last30Days": "過去 30 天"
+      "last30Days": "過去 30 天",
+      "trendUp": "上升趨勢",
+      "trendDown": "下降趨勢",
+      "trendFlat": "持平"
     },
     "errors": {
       "invalidClaim": "認領連結無效或已過期，請聯繫客服。",
