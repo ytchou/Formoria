@@ -6,8 +6,11 @@ import { NextIntlClientProvider } from 'next-intl'
 import zh from '../../../messages/zh-TW.json'
 
 const mockTrackExternalLinkClicked = vi.fn()
+const mockTrackDbClick = vi.fn()
 vi.mock('@/lib/analytics', () => ({
   trackExternalLinkClicked: (...args: unknown[]) => mockTrackExternalLinkClicked(...args),
+  trackDbClick: (...args: unknown[]) => mockTrackDbClick(...args),
+  mapPurchaseDestination: vi.fn((platform: string) => platform),
 }))
 
 import { BrandLinks } from './brand-links'
@@ -50,6 +53,7 @@ function renderWithIntl(ui: React.ReactElement) {
 describe('BrandLinks', () => {
   beforeEach(() => {
     mockTrackExternalLinkClicked.mockClear()
+    mockTrackDbClick.mockClear()
   })
 
   it('calls trackExternalLinkClicked when an outbound link is clicked', async () => {

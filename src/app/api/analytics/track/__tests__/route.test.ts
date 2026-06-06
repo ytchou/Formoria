@@ -4,9 +4,10 @@ import { POST } from '../route'
 vi.mock('@/lib/services/brand-analytics', () => ({
   incrementView: vi.fn().mockResolvedValue(undefined),
   incrementClick: vi.fn().mockResolvedValue(undefined),
+  incrementLinkClick: vi.fn().mockResolvedValue(undefined),
 }))
 
-import { incrementView, incrementClick } from '@/lib/services/brand-analytics'
+import { incrementView, incrementClick, incrementLinkClick } from '@/lib/services/brand-analytics'
 
 function makeRequest(body: object, ip = '127.0.0.1') {
   return new Request('http://localhost/api/analytics/track', {
@@ -33,6 +34,55 @@ describe('POST /api/analytics/track', () => {
     const res = await POST(makeRequest({ brandId: 'brand-1', event: 'click' }))
     expect(res.status).toBe(204)
     expect(incrementClick).toHaveBeenCalledWith('brand-1')
+  })
+
+  it('click with valid destination calls incrementLinkClick', async () => {
+    const res = await POST(
+      makeRequest({ brandId: 'brand-click-destination', event: 'click', destination: 'shopee' })
+    )
+    expect(res.status).toBe(204)
+    expect(incrementClick).toHaveBeenCalledWith('brand-click-destination')
+    expect(incrementLinkClick).toHaveBeenCalledWith('brand-click-destination', 'shopee')
+  })
+
+  it('click with invalid destination still counts the total, skips per-link', async () => {
+    const res = await POST(
+      makeRequest({
+        brandId: 'brand-click-invalid-destination',
+        event: 'click',
+        destination: 'BAD DEST!!',
+      })
+    )
+    expect(res.status).toBe(204)
+    expect(incrementClick).toHaveBeenCalledWith('brand-click-invalid-destination')
+    expect(incrementLinkClick).not.toHaveBeenCalled()
+  })
+
+  it('click without destination is unchanged (back-compat)', async () => {
+    const res = await POST(makeRequest({ brandId: 'brand-click-no-destination', event: 'click' }))
+    expect(res.status).toBe(204)
+    expect(incrementClick).toHaveBeenCalledWith('brand-click-no-destination')
+    expect(incrementLinkClick).not.toHaveBeenCalled()
+  })
+
+  it('different destinations are not mutually rate-limited', async () => {
+    await POST(
+      makeRequest(
+        { brandId: 'brand-click-rate-limit-destination', event: 'click', destination: 'shopee' },
+        '1.1.1.1'
+      )
+    )
+    await POST(
+      makeRequest(
+        {
+          brandId: 'brand-click-rate-limit-destination',
+          event: 'click',
+          destination: 'instagram',
+        },
+        '1.1.1.1'
+      )
+    )
+    expect(incrementLinkClick).toHaveBeenCalledTimes(2)
   })
 
   it('returns 400 for missing brandId', async () => {

@@ -2,7 +2,11 @@
 
 import { useTranslations } from 'next-intl'
 import { ExternalLink, Share2 } from 'lucide-react'
-import { trackExternalLinkClicked, trackBrandPageShared } from '@/lib/analytics'
+import {
+  trackBrandPageShared,
+  trackDbClick,
+  trackExternalLinkClicked,
+} from '@/lib/analytics'
 import { ReportDialog } from '@/components/brands/report-dialog'
 
 interface BrandActionsProps {
@@ -13,6 +17,17 @@ interface BrandActionsProps {
 
 export function BrandActions({ websiteUrl, brandSlug = '', brandId }: BrandActionsProps) {
   const t = useTranslations('brandDetail')
+  const handleWebsiteClick = () => {
+    trackExternalLinkClicked(
+      brandSlug,
+      'website',
+      typeof window !== 'undefined' ? window.location.pathname : ''
+    )
+
+    if (brandId) {
+      trackDbClick(brandId, 'official_website')
+    }
+  }
 
   return (
     <>
@@ -23,13 +38,7 @@ export function BrandActions({ websiteUrl, brandSlug = '', brandId }: BrandActio
             target="_blank"
             rel="noopener noreferrer"
             className="flex h-[42px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-cta text-sm font-semibold text-cta-foreground transition-colors hover:bg-cta/90"
-            onClick={() =>
-              trackExternalLinkClicked(
-                brandSlug,
-                'website',
-                typeof window !== 'undefined' ? window.location.pathname : ''
-              )
-            }
+            onClick={handleWebsiteClick}
           >
             <ExternalLink className="size-[15px]" />
             {t('actions.visitWebsite')}
@@ -55,9 +64,7 @@ export function BrandActions({ websiteUrl, brandSlug = '', brandId }: BrandActio
             target="_blank"
             rel="noopener noreferrer"
             aria-label={t('actions.visitOfficialWebsiteAria')}
-            onClick={() =>
-              trackExternalLinkClicked(brandSlug, 'website', typeof window !== 'undefined' ? window.location.pathname : '')
-            }
+            onClick={handleWebsiteClick}
             className="flex h-[48px] w-full items-center justify-center gap-1.5 rounded-xl bg-cta text-sm font-semibold text-cta-foreground transition-colors hover:bg-cta/90"
           >
             {t('actions.visitWebsite')} <ExternalLink size={14} />

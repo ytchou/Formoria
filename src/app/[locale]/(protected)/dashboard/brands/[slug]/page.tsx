@@ -7,6 +7,8 @@ import { computeBrandCompleteness } from "@/lib/services/brand-completeness";
 import { isOwnerOf } from "@/lib/services/brand-owners";
 import {
   getAnalytics,
+  getDailySeries,
+  getLinkClickBreakdown,
   getSourceBreakdown,
 } from "@/lib/services/brand-analytics";
 import { BrandCompletenessCard } from "@/components/dashboard/brand-completeness-card";
@@ -18,6 +20,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { AnalyticsCards } from "@/components/dashboard/analytics-cards";
+import { AnalyticsChart } from "@/components/dashboard/analytics-chart";
+import { LinkBreakdown } from "@/components/dashboard/link-breakdown";
 import { SourcesBreakdownCard } from "@/components/dashboard/sources-breakdown-card";
 
 export const metadata: Metadata = {
@@ -43,8 +47,10 @@ export default async function BrandDashboardPage({ params }: Props) {
 
   if (!owner) redirect("/dashboard");
 
-  const [analytics, sources] = await Promise.all([
+  const [analytics, series, breakdown, sources] = await Promise.all([
     getAnalytics(brand.id, 30),
+    getDailySeries(brand.id, 90),
+    getLinkClickBreakdown(brand.id, 90),
     getSourceBreakdown(brand.id, 30),
   ]);
 
@@ -79,6 +85,11 @@ export default async function BrandDashboardPage({ params }: Props) {
 
       <div className="mt-8">
         <BrandCompletenessCard completeness={completeness} slug={brand.slug} />
+      </div>
+
+      <div className="mt-8 grid gap-6">
+        <AnalyticsChart series={series} />
+        <LinkBreakdown rows={breakdown} />
       </div>
 
       <div className="mt-8 grid gap-6">

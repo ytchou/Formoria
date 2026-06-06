@@ -2,12 +2,55 @@ import type { SourceBucket } from '@/lib/analytics/source-bucket'
 import { createServiceClient } from '@/lib/supabase/server'
 
 type Trend = 'up' | 'down' | 'flat'
+type AnalyticsClient = ReturnType<typeof createServiceClient> & {
+  from: (table: string) => {
+    select: (columns: string) => {
+      eq: (column: string, value: string) => {
+        gte: (column: string, value: string) => {
+          order: (
+            column: string,
+            options?: { ascending?: boolean }
+          ) => Promise<{ data: Array<Record<string, unknown>> | null; error: unknown }>
+        }
+        order: (
+          column: string,
+          options?: { ascending?: boolean }
+        ) => Promise<{ data: Array<Record<string, unknown>> | null; error: unknown }>
+      }
+    }
+  }
+  rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ error: unknown }>
+}
 
 export type AnalyticsResult = {
   totalViews: number
   totalClicks: number
   viewTrend: Trend
   clickTrend: Trend
+}
+
+export type DailyPoint = {
+  date: string
+  views: number
+  clicks: number
+}
+
+export type LinkBreakdownPoint = {
+  destination: string
+  clicks: number
+}
+
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function getDaysAgo(daysAgo: number): string {
+  const date = new Date()
+  date.setDate(date.getDate() - daysAgo)
+  return formatLocalDate(date)
 }
 
 export async function incrementView(brandId: string, source: SourceBucket = 'direct'): Promise<void> {
@@ -25,6 +68,91 @@ export async function incrementClick(brandId: string): Promise<void> {
     await client.rpc('increment_brand_click', { p_brand_id: brandId })
   } catch {
     // silent failure — analytics are non-critical
+  }
+}
+
+export async function incrementLinkClick(brandId: string, destination: string): Promise<void> {
+  try {
+    const client = createServiceClient() as unknown as AnalyticsClient
+    await client.rpc('increment_brand_link_click', {
+      p_brand_id: brandId,
+      p_destination: destination,
+    })
+  } catch {
+    // silent failure — analytics are non-critical
+  }
+}
+
+export async function getDailySeries(brandId: string, days = 90): Promise<DailyPoint[]> {
+  try {
+    const client = createServiceClient() as unknown as AnalyticsClient
+    const since = getDaysAgo(days - 1)
+    const { data, error } = await client
+      .from('brand_analytics')
+      .select('date, views, clicks')
+      .eq('brand_id', brandId)
+      .gte('date', since)
+      .order('date', { ascending: true })
+
+    if (error) {
+      return []
+    }
+
+    const pointsByDate = new Map<string, DailyPoint>()
+
+    for (const row of data ?? []) {
+      const date = String(row.date)
+      pointsByDate.set(date, {
+        date,
+        views: Number(row.views ?? 0),
+        clicks: Number(row.clicks ?? 0),
+      })
+    }
+
+    const series: DailyPoint[] = []
+
+    for (let daysAgo = days - 1; daysAgo >= 0; daysAgo -= 1) {
+      const date = getDaysAgo(daysAgo)
+      series.push(pointsByDate.get(date) ?? { date, views: 0, clicks: 0 })
+    }
+
+    return series
+  } catch {
+    return []
+  }
+}
+
+export async function getLinkClickBreakdown(
+  brandId: string,
+  days = 90
+): Promise<LinkBreakdownPoint[]> {
+  try {
+    const client = createServiceClient() as unknown as AnalyticsClient
+    const since = getDaysAgo(days - 1)
+    const { data, error } = await client
+      .from('brand_link_clicks')
+      .select('destination, clicks')
+      .eq('brand_id', brandId)
+      .gte('date', since)
+      .order('date', { ascending: true })
+
+    if (error) {
+      return []
+    }
+
+    const clicksByDestination = new Map<string, number>()
+
+    for (const row of data ?? []) {
+      const destination = String(row.destination)
+      const clicks = Number(row.clicks ?? 0)
+      clicksByDestination.set(destination, (clicksByDestination.get(destination) ?? 0) + clicks)
+    }
+
+    return Array.from(clicksByDestination.entries())
+      .map(([destination, clicks]) => ({ destination, clicks }))
+      .sort((left, right) => right.clicks - left.clicks)
+  } catch {
+    return []
   }
 }
 

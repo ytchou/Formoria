@@ -8,6 +8,7 @@ import zh from '../../../messages/zh-TW.json';
 vi.mock('@/lib/analytics', () => ({
   trackExternalLinkClicked: vi.fn(),
   trackBrandPageShared: vi.fn(),
+  trackDbClick: vi.fn(),
 }));
 
 vi.mock('@/components/brands/report-dialog', () => ({
