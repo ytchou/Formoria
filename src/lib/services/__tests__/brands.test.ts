@@ -78,6 +78,39 @@ describe('brandToDomain — isDemo', () => {
   })
 })
 
+describe('brandToDomain — MIT verification fields', () => {
+  it('maps verified MIT status, timestamp, evidence, and convenience boolean', () => {
+    const row = makeBrandRow({
+      mit_status: 'verified',
+      mit_verified_at: '2026-02-03T04:05:06Z',
+      mit_evidence: {
+        mit_smile_listed: true,
+        mit_smile_cert: '01200024-02134',
+      },
+      brand_owners: null,
+    })
+
+    const brand = brandToDomain(row)
+
+    expect(brand.mitStatus).toBe('verified')
+    expect(brand.mitVerified).toBe(true)
+    expect(brand.mitVerifiedAt).toBe('2026-02-03T04:05:06Z')
+    expect(brand.mitEvidence?.mit_smile_cert).toBe('01200024-02134')
+  })
+
+  it('maps unverified MIT status to mitVerified=false', () => {
+    const row = makeBrandRow({
+      mit_status: 'unverified',
+      brand_owners: null,
+    })
+
+    const brand = brandToDomain(row)
+
+    expect(brand.mitStatus).toBe('unverified')
+    expect(brand.mitVerified).toBe(false)
+  })
+})
+
 describe('brandToInsert — isDemo', () => {
   it('maps isDemo true to is_demo true', () => {
     const result = brandToInsert({ isDemo: true })

@@ -118,6 +118,10 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     status: row.status as Brand['status'],
     category: row.category ?? null,
     isVerified: owners.length > 0,
+    mitStatus: (row.mit_status as Brand['mitStatus']) ?? 'unverified',
+    mitVerifiedAt: row.mit_verified_at ?? null,
+    mitEvidence: (row.mit_evidence as Brand['mitEvidence']) ?? null,
+    mitVerified: row.mit_status === 'verified',
     isDemo: row.is_demo ?? false,
     foundingYear: row.founding_year ?? null,
     // Json columns are cast to domain types at the service boundary
@@ -159,8 +163,10 @@ export function brandToInsert(data: Partial<Brand>): Record<string, unknown> {
 // Service functions
 // ---------------------------------------------------------------------------
 
-const BRAND_SELECT = '*, brand_taxonomy(taxonomy_tags(*)), brand_owners(user_id)'
-const VERIFIED_BRAND_SELECT = '*, brand_taxonomy(taxonomy_tags(*)), brand_owners!inner(user_id)'
+const BRAND_SELECT =
+  '*, mit_status, mit_verified_at, mit_evidence, brand_taxonomy(taxonomy_tags(*)), brand_owners(user_id)'
+const VERIFIED_BRAND_SELECT =
+  '*, mit_status, mit_verified_at, mit_evidence, brand_taxonomy(taxonomy_tags(*)), brand_owners!inner(user_id)'
 
 function formatInFilterValues(values: string[]): string {
   return `(${values.map((value) => `"${value}"`).join(',')})`
