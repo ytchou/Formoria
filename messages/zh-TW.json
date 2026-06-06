@@ -22,7 +22,8 @@
     "allBrands": "全部品牌",
     "searchPlaceholder": "搜尋品牌...",
     "searchAria": "搜尋品牌",
-    "clearSearch": "清除搜尋"
+    "clearSearch": "清除搜尋",
+    "signIn": "登入"
   },
   "footer": {
     "about": "關於我們",
@@ -391,7 +392,14 @@
       "hasAccount": "已有帳號？",
       "signInLink": "登入"
     },
+    "continueWithGoogle": "使用 Google 繼續",
+    "orDivider": "或",
     "confirmEmail": "請確認您的電子郵件以完成帳號驗證"
+  },
+  "account": {
+    "menuLabel": "帳號",
+    "dashboard": "管理後台",
+    "signOut": "登出"
   },
   "dashboard": {
     "metadata": {

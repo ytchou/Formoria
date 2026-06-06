@@ -22,7 +22,8 @@
     "allBrands": "All Brands",
     "searchPlaceholder": "Search brands...",
     "searchAria": "Search brands",
-    "clearSearch": "Clear search"
+    "clearSearch": "Clear search",
+    "signIn": "Sign in"
   },
   "footer": {
     "about": "About",
@@ -391,7 +392,14 @@
       "hasAccount": "Already have an account?",
       "signInLink": "Sign in"
     },
+    "continueWithGoogle": "Continue with Google",
+    "orDivider": "or",
     "confirmEmail": "Please confirm your email to complete account verification"
+  },
+  "account": {
+    "menuLabel": "Account",
+    "dashboard": "Dashboard",
+    "signOut": "Sign out"
   },
   "dashboard": {
     "metadata": {
