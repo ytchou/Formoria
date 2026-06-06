@@ -23,9 +23,9 @@ describe('POST /api/analytics/track', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('returns 204 and calls incrementView for view events', async () => {
-    const res = await POST(makeRequest({ brandId: 'brand-1', event: 'view' }))
+    const res = await POST(makeRequest({ brandId: 'brand-1', event: 'view' }, '127.0.0.1'))
     expect(res.status).toBe(204)
-    expect(incrementView).toHaveBeenCalledWith('brand-1')
+    expect(incrementView).toHaveBeenCalledWith('brand-1', 'direct')
     expect(incrementClick).not.toHaveBeenCalled()
   })
 
@@ -45,9 +45,27 @@ describe('POST /api/analytics/track', () => {
     expect(res.status).toBe(400)
   })
 
+  it('forwards a valid source to incrementView', async () => {
+    const res = await POST(
+      makeRequest({ brandId: 'brand-1', event: 'view', source: 'category' }, '127.0.0.2')
+    )
+    expect(res.status).toBe(204)
+    expect(incrementView).toHaveBeenCalledWith('brand-1', 'category')
+  })
+
+  it('coerces an invalid source to direct', async () => {
+    await POST(makeRequest({ brandId: 'brand-1', event: 'view', source: 'garbage' }, '127.0.0.3'))
+    expect(incrementView).toHaveBeenCalledWith('brand-1', 'direct')
+  })
+
+  it('defaults a missing source to direct', async () => {
+    await POST(makeRequest({ brandId: 'brand-1', event: 'view' }, '127.0.0.4'))
+    expect(incrementView).toHaveBeenCalledWith('brand-1', 'direct')
+  })
+
   it('returns 204 even when incrementView throws', async () => {
     vi.mocked(incrementView).mockRejectedValueOnce(new Error('DB error'))
-    const res = await POST(makeRequest({ brandId: 'brand-1', event: 'view' }))
+    const res = await POST(makeRequest({ brandId: 'brand-1', event: 'view' }, '127.0.0.5'))
     expect(res.status).toBe(204)
   })
 })
