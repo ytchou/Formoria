@@ -5,7 +5,7 @@ test.describe('Directory deep', () => {
     await page.goto('/brands');
     const filters = page
       .locator('main button[data-active]:visible')
-      .filter({ hasNotText: /verified|community/i })
+      .filter({ hasNotText: /品牌經營|Brand-managed|MIT|社群|Community|verified|community/i })
       .filter({ hasNotText: /^全部 All$/i });
     const count = await filters.count();
     for (let i = 1; i < Math.min(count, 4); i++) {

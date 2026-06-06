@@ -37,7 +37,7 @@ test.describe('Visitor smoke', () => {
     // Stay on category pills; the verification row also uses button[data-active].
     const firstFilter = page
       .locator('button[data-active="false"]')
-      .filter({ hasNotText: /verified|community/i })
+      .filter({ hasNotText: /品牌經營|Brand-managed|MIT|社群|Community|verified|community/i })
       .first();
     await firstFilter.click();
     // URL should update with filter param

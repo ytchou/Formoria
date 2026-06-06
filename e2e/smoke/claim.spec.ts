@@ -80,7 +80,7 @@ test.describe('Claim smoke', () => {
     await expect(userPage.getByRole('button', { name: /claim this brand/i })).toBeVisible({
       timeout: 10_000,
     });
-    await expect(userPage.getByTitle('This brand has been verified by its owner')).toHaveCount(0);
+    await expect(userPage.getByTitle('由品牌方經營管理')).toHaveCount(0);
 
     await userPage.getByRole('button', { name: /claim this brand/i }).click();
     await userPage.locator('#claim-proof-type').selectOption('domain_email');
@@ -147,7 +147,7 @@ test.describe('Claim smoke', () => {
     await expect(async () => {
       await userPage.goto(brandPath);
       await expect(
-        userPage.getByTitle('This brand has been verified by its owner')
+        userPage.getByTitle('由品牌方經營管理')
       ).toBeVisible({ timeout: 5_000 });
     }).toPass({ timeout: 120_000, intervals: [2_000, 3_000, 5_000, 10_000] });
   });
