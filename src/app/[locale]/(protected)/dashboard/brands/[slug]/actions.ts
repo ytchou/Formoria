@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { isOwnerOf } from '@/lib/services/brand-owners'
 import { getBrandBySlug, updateBrand } from '@/lib/services/brands'
+import { deleteBrandImages, diffRemovedImageUrls } from '@/lib/services/image-upload'
 import { checkContent, createModerationFlags } from '@/lib/services/moderation'
 import type { PurchaseLink, RetailLocation } from '@/lib/types'
 
@@ -12,6 +13,8 @@ type ActionState = {
   error?: string
   fieldErrors?: Record<string, string>
 } | undefined
+
+const BRAND_HIGHLIGHTS_MAX_LENGTH = 300
 
 function parseArrayField<T extends Record<string, string>>(
   formData: FormData,
@@ -32,6 +35,10 @@ function parseArrayField<T extends Record<string, string>>(
     index++
   }
   return results
+}
+
+function parseOptionalString(value: FormDataEntryValue | null): string | null {
+  return typeof value === 'string' && value !== '' ? value : null
 }
 
 export async function updateBrandAction(
@@ -67,10 +74,28 @@ export async function updateBrandAction(
     const instagram = formData.get('instagram') as string | null
     const threads = formData.get('threads') as string | null
     const facebook = formData.get('facebook') as string | null
+    const logoUrl = parseOptionalString(formData.get('logoUrl'))
+    const heroImageUrl = parseOptionalString(formData.get('heroImageUrl'))
+    const brandHighlightsRaw = parseOptionalString(formData.get('brandHighlights'))
+    const brandHighlights = brandHighlightsRaw?.slice(0, BRAND_HIGHLIGHTS_MAX_LENGTH) ?? null
 
     // Extract new fields
     const foundingYearRaw = formData.get('foundingYear') as string | null
     const foundingYear = foundingYearRaw ? parseInt(foundingYearRaw, 10) : null
+    let productPhotos: string[] = []
+
+    try {
+      const productPhotosRaw = formData.get('productPhotos')
+      if (productPhotosRaw !== null) {
+        const parsed = JSON.parse(String(productPhotosRaw))
+        if (!Array.isArray(parsed) || !parsed.every((value) => typeof value === 'string')) {
+          return { error: 'Invalid productPhotos payload' }
+        }
+        productPhotos = parsed
+      }
+    } catch {
+      return { error: 'Invalid productPhotos payload' }
+    }
 
     // Parse array fields
     const purchaseLinks = parseArrayField<{ platform: string; url: string; label: string }>(
@@ -92,6 +117,7 @@ export async function updateBrandAction(
     if (instagram) fieldsToCheck.instagram = instagram
     if (threads) fieldsToCheck.threads = threads
     if (facebook) fieldsToCheck.facebook = facebook
+    if (brandHighlights) fieldsToCheck.brandHighlights = brandHighlights
 
     // Run moderation
     const moderation = checkContent(fieldsToCheck)
@@ -104,7 +130,17 @@ export async function updateBrandAction(
       return { fieldErrors }
     }
 
-    // Build update data
+    const previousImageUrls = [
+      brand.logoUrl,
+      brand.heroImageUrl,
+      ...(brand.productPhotos ?? []),
+    ].filter((url): url is string => Boolean(url))
+    const nextImageUrls = [logoUrl, heroImageUrl, ...productPhotos].filter(
+      (url): url is string => Boolean(url)
+    )
+    const orphans = diffRemovedImageUrls(previousImageUrls, nextImageUrls)
+
+    // Security-relevant allow-list: only explicitly permitted owner-editable fields may reach updateBrand.
     const updateData: Record<string, unknown> = {}
     if (name) updateData.name = name
     if (description !== null) updateData.description = description
@@ -124,8 +160,13 @@ export async function updateBrandAction(
         ...(facebook !== null ? { facebook: facebook || undefined } : {}),
       }
     }
+    if (formData.has('logoUrl')) updateData.logoUrl = logoUrl
+    if (formData.has('heroImageUrl')) updateData.heroImageUrl = heroImageUrl
+    if (formData.has('productPhotos')) updateData.productPhotos = productPhotos
+    if (formData.has('brandHighlights')) updateData.brandHighlights = brandHighlights
 
     await updateBrand(brand.id, updateData as Parameters<typeof updateBrand>[1])
+    await deleteBrandImages(orphans)
 
     // Record flags for Tier 2 content
     if (moderation.flagged.length > 0) {
@@ -137,6 +178,7 @@ export async function updateBrandAction(
           case 'instagram': return brand.socialLinks.instagram ?? null
           case 'threads': return brand.socialLinks.threads ?? null
           case 'facebook': return brand.socialLinks.facebook ?? null
+          case 'brandHighlights': return brand.brandHighlights ?? null
           default: return null
         }
       }
@@ -154,7 +196,7 @@ export async function updateBrandAction(
       await createModerationFlags(flagInputs)
     }
 
-    revalidatePath(`/brands/${brandSlug}`)
+    revalidatePath('/[locale]/brands/[slug]', 'page')
     revalidatePath(`/dashboard/brands/${brandSlug}`)
   } catch (err) {
     console.error('[brand:updateBrandAction]', err)
