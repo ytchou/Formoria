@@ -4,7 +4,14 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getBrandBySlug } from "@/lib/services/brands";
 import { isOwnerOf } from "@/lib/services/brand-owners";
-import { getAnalytics } from "@/lib/services/brand-analytics";
+import {
+  getAnalytics,
+  getDailySeries,
+  getLinkClickBreakdown,
+} from "@/lib/services/brand-analytics";
+import { AnalyticsCards } from "@/components/dashboard/analytics-cards";
+import { AnalyticsChart } from "@/components/dashboard/analytics-chart";
+import { LinkBreakdown } from "@/components/dashboard/link-breakdown";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,7 +19,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { AnalyticsCards } from "@/components/dashboard/analytics-cards";
 
 export const metadata: Metadata = {
   title: "品牌管理",
@@ -36,7 +42,11 @@ export default async function BrandDashboardPage({ params }: Props) {
 
   if (!owner) redirect("/dashboard");
 
-  const analytics = await getAnalytics(brand.id, 30);
+  const [analytics, series, breakdown] = await Promise.all([
+    getAnalytics(brand.id, 30),
+    getDailySeries(brand.id, 90),
+    getLinkClickBreakdown(brand.id, 90),
+  ]);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
@@ -64,6 +74,11 @@ export default async function BrandDashboardPage({ params }: Props) {
           viewTrend={analytics.viewTrend}
           clickTrend={analytics.clickTrend}
         />
+      </div>
+
+      <div className="mt-8 grid gap-6">
+        <AnalyticsChart series={series} />
+        <LinkBreakdown rows={breakdown} />
       </div>
 
       <div className="mt-8 grid gap-6">
