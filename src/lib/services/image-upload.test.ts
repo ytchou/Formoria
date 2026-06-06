@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createServiceClient } from '@/lib/supabase/server'
 import { deleteBrandImages, diffRemovedImageUrls, storageKeyFromPublicUrl } from './image-upload'
 
@@ -15,8 +15,18 @@ vi.mock('@/lib/supabase/server', () => ({
   })),
 }))
 
-const SUPA = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://abc.supabase.co'
+const TEST_SUPABASE_URL = 'https://abc.supabase.co'
+const SUPA = TEST_SUPABASE_URL
 const publicUrl = (key: string) => `${SUPA}/storage/v1/object/public/brand-images/${key}`
+
+// Ensure NEXT_PUBLIC_SUPABASE_URL is set so the lazy prefix matches the test URLs
+const originalSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+beforeAll(() => {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = TEST_SUPABASE_URL
+})
+afterAll(() => {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = originalSupabaseUrl
+})
 
 describe('storageKeyFromPublicUrl', () => {
   it('extracts the storage key from a brand-images public URL', () => {
@@ -29,6 +39,18 @@ describe('storageKeyFromPublicUrl', () => {
     expect(storageKeyFromPublicUrl(`${SUPA}/storage/v1/object/public/avatars/x.webp`)).toBeNull()
     expect(storageKeyFromPublicUrl('https://evil.example.com/x.png')).toBeNull()
     expect(storageKeyFromPublicUrl('')).toBeNull()
+  })
+
+  it('returns null for a foreign origin that matches the brand-images path', () => {
+    expect(
+      storageKeyFromPublicUrl(
+        'https://evil.example.com/storage/v1/object/public/brand-images/brands/x/a.webp'
+      )
+    ).toBeNull()
+  })
+
+  it('returns null for same-origin brand-images URLs outside the brands/ path', () => {
+    expect(storageKeyFromPublicUrl(publicUrl('avatars/x.webp'))).toBeNull()
   })
 })
 

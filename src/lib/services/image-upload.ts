@@ -5,6 +5,11 @@ export const ALLOWED_UPLOAD_BUCKETS = ['brand-images'] as const
 export type AllowedUploadBucket = (typeof ALLOWED_UPLOAD_BUCKETS)[number]
 const BRAND_IMAGES_BUCKET = ALLOWED_UPLOAD_BUCKETS[0]
 const BRAND_IMAGES_PUBLIC_SEGMENT = `/storage/v1/object/public/${BRAND_IMAGES_BUCKET}/`
+const BRAND_IMAGES_KEY_PREFIX = 'brands/'
+
+function getBrandImagesPublicPrefix(): string {
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''}${BRAND_IMAGES_PUBLIC_SEGMENT}`
+}
 
 export interface UploadResult {
   url: string
@@ -13,18 +18,17 @@ export interface UploadResult {
 }
 
 export function storageKeyFromPublicUrl(url: string): string | null {
-  if (!url) {
+  const prefix = getBrandImagesPublicPrefix()
+  if (!url || !prefix || !url.startsWith(prefix)) {
     return null
   }
 
-  const segmentIndex = url.indexOf(BRAND_IMAGES_PUBLIC_SEGMENT)
-
-  if (segmentIndex === -1) {
+  const key = url.slice(prefix.length)
+  if (!key || !key.startsWith(BRAND_IMAGES_KEY_PREFIX)) {
     return null
   }
 
-  const key = url.slice(segmentIndex + BRAND_IMAGES_PUBLIC_SEGMENT.length)
-  return key || null
+  return key
 }
 
 export function diffRemovedImageUrls(
