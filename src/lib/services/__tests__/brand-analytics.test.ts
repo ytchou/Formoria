@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { incrementView, incrementClick, getAnalytics } from '../brand-analytics'
+import { incrementView, incrementClick, getAnalytics, getSourceBreakdown } from '../brand-analytics'
 
 vi.mock('@/lib/supabase/server', () => ({
   createServiceClient: vi.fn(),
@@ -23,7 +23,28 @@ describe('incrementView', () => {
   it('calls rpc increment_brand_view with the brand id', async () => {
     const client = makeSupabaseClient()
     await incrementView('brand-1')
-    expect(client.rpc).toHaveBeenCalledWith('increment_brand_view', { p_brand_id: 'brand-1' })
+    expect(client.rpc).toHaveBeenCalledWith('increment_brand_view', {
+      p_brand_id: 'brand-1',
+      p_source: 'direct',
+    })
+  })
+
+  it('passes p_source to the increment_brand_view RPC', async () => {
+    const client = makeSupabaseClient()
+    await incrementView('brand-1', 'category')
+    expect(client.rpc).toHaveBeenCalledWith('increment_brand_view', {
+      p_brand_id: 'brand-1',
+      p_source: 'category',
+    })
+  })
+
+  it('defaults source to direct when omitted', async () => {
+    const client = makeSupabaseClient()
+    await incrementView('brand-1')
+    expect(client.rpc).toHaveBeenCalledWith('increment_brand_view', {
+      p_brand_id: 'brand-1',
+      p_source: 'direct',
+    })
   })
 
   it('does not throw on supabase error', async () => {
@@ -71,5 +92,38 @@ describe('getAnalytics', () => {
     expect(result.totalClicks).toBe(0)
     expect(result.viewTrend).toBe('flat')
     expect(result.clickTrend).toBe('flat')
+  })
+})
+
+describe('getSourceBreakdown', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-05-20T00:00:00Z'))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('aggregates views by source, sorted desc, excluding zero', async () => {
+    const rows = [
+      { source: 'direct', views: 10 },
+      { source: 'direct', views: 5 },
+      { source: 'external_search', views: 20 },
+      { source: 'social', views: 0 },
+    ]
+    makeSupabaseClient(rows)
+
+    const result = await getSourceBreakdown('brand-1', 30)
+
+    expect(result).toEqual([
+      { source: 'external_search', views: 20 },
+      { source: 'direct', views: 15 },
+    ])
+  })
+
+  it('returns [] on db error', async () => {
+    makeSupabaseClient(null, { message: 'DB error' })
+    expect(await getSourceBreakdown('brand-1', 30)).toEqual([])
   })
 })

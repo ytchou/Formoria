@@ -1,3 +1,4 @@
+import type { SourceBucket } from '@/lib/analytics/source-bucket'
 import { createServiceClient } from '@/lib/supabase/server'
 
 type Trend = 'up' | 'down' | 'flat'
@@ -9,10 +10,10 @@ export type AnalyticsResult = {
   clickTrend: Trend
 }
 
-export async function incrementView(brandId: string): Promise<void> {
+export async function incrementView(brandId: string, source: SourceBucket = 'direct'): Promise<void> {
   try {
     const client = createServiceClient()
-    await client.rpc('increment_brand_view', { p_brand_id: brandId })
+    await client.rpc('increment_brand_view', { p_brand_id: brandId, p_source: source })
   } catch {
     // silent failure — analytics are non-critical
   }
@@ -24,6 +25,45 @@ export async function incrementClick(brandId: string): Promise<void> {
     await client.rpc('increment_brand_click', { p_brand_id: brandId })
   } catch {
     // silent failure — analytics are non-critical
+  }
+}
+
+export async function getSourceBreakdown(
+  brandId: string,
+  days = 30
+): Promise<Array<{ source: SourceBucket | 'unknown'; views: number }>> {
+  try {
+    const client = createServiceClient()
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - days)
+    const since = cutoff.toISOString().split('T')[0]
+
+    const { data, error } = await client
+      .from('brand_analytics')
+      .select('source, views')
+      .eq('brand_id', brandId)
+      .gte('date', since)
+
+    if (error || !data || data.length === 0) {
+      return []
+    }
+
+    const totals = new Map<string, number>()
+
+    for (const row of data) {
+      const source = row.source ?? 'unknown'
+      totals.set(source, (totals.get(source) ?? 0) + row.views)
+    }
+
+    return Array.from(totals.entries())
+      .map(([source, views]) => ({
+        source: source as SourceBucket | 'unknown',
+        views,
+      }))
+      .filter(({ views }) => views > 0)
+      .sort((a, b) => b.views - a.views)
+  } catch {
+    return []
   }
 }
 
