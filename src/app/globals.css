@@ -54,6 +54,8 @@
   --color-gold: var(--gold);
   --color-verified-green: var(--verified-green);
   --color-verified-green-bg: var(--verified-green-bg);
+  --color-mit-verified: var(--mit-verified);
+  --color-mit-verified-bg: var(--mit-verified-bg);
   --color-cta: var(--cta);
   --color-cta-foreground: var(--cta-foreground);
   --color-primary-dark: var(--primary-dark);
@@ -99,6 +101,8 @@
   --gold: oklch(0.74 0.08 65);
   --verified-green: oklch(0.40 0.10 140);
   --verified-green-bg: oklch(0.95 0.02 140);
+  --mit-verified: oklch(0.40 0.08 65);
+  --mit-verified-bg: oklch(0.96 0.03 65);
   --shadow-card: 0 2px 8px oklch(0 0 0 / 0.06);
   --shadow-card-hover: 0 4px 12px oklch(0 0 0 / 0.10);
   --nav-height: 100px;
