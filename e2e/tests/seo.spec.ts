@@ -119,4 +119,28 @@ test.describe('SEO deep', () => {
     expect(canonical).toBeTruthy();
     expect(canonical).toContain('/en/');
   });
+
+  test('robots allows /submit', async ({ request }) => {
+    const body = await (await request.get('/robots.txt')).text();
+    expect(body).not.toMatch(/Disallow:\s*\/submit\b/);
+  });
+
+  test('sitemap includes /glossary', async ({ request }) => {
+    const body = await (await request.get('/sitemap.xml')).text();
+    expect(body).toContain('/glossary');
+  });
+
+  test('llms.txt is served as text', async ({ request }) => {
+    const res = await request.get('/llms.txt');
+    expect(res.status()).toBe(200);
+    expect(res.headers()['content-type']).toContain('text/plain');
+    expect(await res.text()).toContain('/glossary');
+  });
+
+  test('brand + categories OG/twitter image routes respond', async ({ request }) => {
+    for (const path of ['/categories/opengraph-image', '/categories/twitter-image']) {
+      const res = await request.get(path);
+      expect(res.status()).toBeLessThan(400);
+    }
+  });
 });
