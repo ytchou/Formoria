@@ -20,5 +20,13 @@ export function isRelativeUrl(url: string): boolean {
   if (!url) return false;
   if (!url.startsWith("/")) return false;
   if (url.startsWith("//")) return false;
-  return true;
+  try {
+    // Resolve against a fixed base; reject anything that escapes the base origin.
+    // Catches backslash- and control-char-based protocol-relative bypasses that
+    // WHATWG URL parsing normalizes (e.g. "/\\evil.com" -> host "evil.com").
+    const base = "https://formoria.invalid";
+    return new URL(url, base).origin === base;
+  } catch {
+    return false;
+  }
 }
