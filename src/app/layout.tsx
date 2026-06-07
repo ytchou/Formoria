@@ -3,6 +3,7 @@ import { Bricolage_Grotesque, Geist_Mono, Inter } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { Agentation } from "agentation";
 import { SessionTracker } from "@/components/analytics/session-tracker";
+import { getSiteUrl } from "@/lib/seo/site-url";
 import "./globals.css";
 
 const inter = Inter({
@@ -21,7 +22,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://formoria.com'),
+  metadataBase: new URL(getSiteUrl()),
   title: {
     default: 'Formoria 島藏 — 台灣製造品牌目錄',
     template: '%s | Formoria',
