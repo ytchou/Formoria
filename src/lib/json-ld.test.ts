@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest'
-import { buildBrandJsonLd, buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildWebSiteJsonLd, buildFaqPageJsonLd } from '@/lib/json-ld'
+import {
+  buildArticleJsonLd,
+  buildBrandJsonLd,
+  buildBreadcrumbJsonLd,
+  buildCategoryItemListJsonLd,
+  buildDefinedTermSetJsonLd,
+  buildFaqPageJsonLd,
+  buildOrganizationJsonLd,
+  buildWebSiteJsonLd,
+  type JsonLdObject,
+} from '@/lib/json-ld'
 import type { Brand } from '@/lib/types'
 
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
@@ -186,7 +196,7 @@ describe('buildWebSiteJsonLd', () => {
     expect(jsonLd.name).toBe('Formoria')
     expect(jsonLd.alternateName).toBe('島藏')
     expect(jsonLd.url).toBeDefined()
-    expect(jsonLd.url).toContain('formoria.com')
+    expect(jsonLd.url).toContain('localhost:3000')
     expect(jsonLd.url).not.toContain('mitmap')
   })
 
@@ -210,5 +220,39 @@ describe('buildWebSiteJsonLd', () => {
     const urlTemplate = jsonLd.potentialAction.target.urlTemplate
     expect(urlTemplate).toContain('/brands?search=')
     expect(urlTemplate).not.toContain('/?search=')
+  })
+})
+
+describe('buildOrganizationJsonLd', () => {
+  it('emits an Organization with name and absolute url', () => {
+    const ld = buildOrganizationJsonLd('zh-TW') as JsonLdObject
+    expect(ld['@type']).toBe('Organization')
+    expect(ld.name).toBe('Formoria')
+    expect(ld.url).toMatch(/^https?:\/\//)
+  })
+  it('omits sameAs when no socials are configured', () => {
+    const ld = buildOrganizationJsonLd('en') as JsonLdObject
+    expect('sameAs' in ld).toBe(false)
+  })
+})
+
+describe('buildArticleJsonLd', () => {
+  it('emits an Article with headline and publisher Organization', () => {
+    const ld = buildArticleJsonLd({ title: 'About', description: 'desc', path: '/about', locale: 'zh-TW' }) as JsonLdObject
+    expect(ld['@type']).toBe('Article')
+    expect(ld.headline).toBe('About')
+    expect(ld.publisher['@type']).toBe('Organization')
+  })
+})
+
+describe('buildDefinedTermSetJsonLd', () => {
+  it('emits a DefinedTermSet with DefinedTerm members', () => {
+    const ld = buildDefinedTermSetJsonLd(
+      [{ name: '台灣製造', description: 'Made in Taiwan' }],
+      'zh-TW',
+    ) as JsonLdObject
+    expect(ld['@type']).toBe('DefinedTermSet')
+    expect(ld.hasDefinedTerm[0]['@type']).toBe('DefinedTerm')
+    expect(ld.hasDefinedTerm[0].name).toBe('台灣製造')
   })
 })

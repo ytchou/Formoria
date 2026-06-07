@@ -3,3 +3,5 @@ export const CONTACT_EMAILS = {
   contact: 'hello@formoria.com',
   noreply: 'noreply@formoria.com',
 } as const
+
+export const FORMORIA_SOCIALS: string[] = []
