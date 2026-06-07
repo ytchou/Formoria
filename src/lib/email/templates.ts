@@ -104,6 +104,82 @@ export function buildClaimEmail(params: {
   }
 }
 
+export function buildClaimApprovedEmail(params: {
+  ownerEmail: string
+  brandName: string
+  brandSlug: string
+  siteUrl: string
+}): EmailMessage {
+  const dashboardUrl = `${params.siteUrl}/dashboard/brands/${params.brandSlug}`
+
+  return {
+    to: params.ownerEmail,
+    from: FROM_ADDRESS,
+    subject: `您的品牌認領申請「${escapeHtml(params.brandName)}」已通過審核 / Your brand claim for "${escapeHtml(params.brandName)}" has been approved — Formoria`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>您的品牌認領申請已通過審核！</h2>
+        <p>恭喜您，<strong>${escapeHtml(params.brandName)}</strong> 的品牌認領申請已獲批准。</p>
+        <p>您現在可以前往品牌主後台管理品牌資訊。</p>
+        <p style="margin: 24px 0;">
+          <a href="${dashboardUrl}" style="display: inline-block; background-color: #E06B3F; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">前往品牌主後台</a>
+        </p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+        <h2>Your brand claim has been approved</h2>
+        <p>Congratulations. Your claim for <strong>${escapeHtml(params.brandName)}</strong> has been approved.</p>
+        <p>You can now manage your brand from the owner dashboard.</p>
+        <p style="margin: 24px 0;">
+          <a href="${dashboardUrl}" style="display: inline-block; background-color: #E06B3F; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Go to owner dashboard</a>
+        </p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+        <p style="color: #6b7280; font-size: 14px;">Formoria — 台灣品牌目錄</p>
+      </div>
+    `.trim(),
+  }
+}
+
+export function buildClaimRejectedEmail(params: {
+  ownerEmail: string
+  brandName: string
+  reviewerNotes: string
+  siteUrl: string
+}): EmailMessage {
+  const reviewerNotes = params.reviewerNotes.trim()
+  const notesSection =
+    reviewerNotes !== ''
+      ? `
+        <p><strong>審核意見 / Reviewer notes:</strong></p>
+        <blockquote style="border-left: 3px solid #d1d5db; padding-left: 12px; color: #374151;">
+          ${escapeHtml(reviewerNotes)}
+        </blockquote>`
+      : ''
+
+  return {
+    to: params.ownerEmail,
+    from: FROM_ADDRESS,
+    subject: `您的品牌認領申請「${escapeHtml(params.brandName)}」未通過審核 / Your brand claim for "${escapeHtml(params.brandName)}" was not approved — Formoria`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>您的品牌認領申請未通過審核</h2>
+        <p>感謝您提交 <strong>${escapeHtml(params.brandName)}</strong> 的品牌認領申請。</p>
+        <p>經審核後，我們目前無法批准此次申請。</p>
+        ${notesSection}
+        <p>若您有補充資料，可前往 Formoria 重新確認品牌資訊。</p>
+        <p><a href="${params.siteUrl}" style="color: #2563eb;">${params.siteUrl}</a></p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+        <h2>Your brand claim was not approved</h2>
+        <p>Thank you for submitting a claim for <strong>${escapeHtml(params.brandName)}</strong>.</p>
+        <p>After review, we are unable to approve this claim at this time.</p>
+        ${notesSection}
+        <p>If you have more supporting information, please review your brand details on Formoria.</p>
+        <p><a href="${params.siteUrl}" style="color: #2563eb;">${params.siteUrl}</a></p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+        <p style="color: #6b7280; font-size: 14px;">Formoria — 台灣品牌目錄</p>
+      </div>
+    `.trim(),
+  }
+}
+
 export function buildIncompleteSubmissionEmail(params: {
   submitterEmail: string
   brandName: string

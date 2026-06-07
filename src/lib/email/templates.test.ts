@@ -3,6 +3,8 @@ import {
   buildApprovalEmail,
   buildRejectionEmail,
   buildClaimEmail,
+  buildClaimApprovedEmail,
+  buildClaimRejectedEmail,
   buildIncompleteSubmissionEmail,
 } from './templates'
 
@@ -90,5 +92,58 @@ describe('buildIncompleteSubmissionEmail', () => {
     expect(email.subject).toContain('Test Brand')
     expect(email.html).toContain('品牌介紹')
     expect(email.html).toContain('網站')
+  })
+})
+
+describe('buildClaimApprovedEmail', () => {
+  const msg = buildClaimApprovedEmail({
+    ownerEmail: 'owner@example.com',
+    brandName: '島嶼工坊',
+    brandSlug: 'island-workshop',
+    siteUrl: 'https://formoria.com',
+  })
+
+  it('addresses the owner from the Formoria no-reply address', () => {
+    expect(msg.to).toBe('owner@example.com')
+    expect(msg.from).toContain('noreply@formoria.com')
+  })
+
+  it('has a non-empty subject mentioning the brand', () => {
+    expect(msg.subject.length).toBeGreaterThan(0)
+    expect(msg.subject).toContain('島嶼工坊')
+  })
+
+  it('is bilingual and links to the owner dashboard', () => {
+    expect(msg.html).toContain('島嶼工坊')
+    expect(msg.html).toMatch(/[一-鿿]/)
+    expect(msg.html).toMatch(/[A-Za-z]{3,}/)
+    expect(msg.html).toContain(
+      'https://formoria.com/dashboard/brands/island-workshop'
+    )
+  })
+})
+
+describe('buildClaimRejectedEmail', () => {
+  it('includes reviewer notes when present', () => {
+    const msg = buildClaimRejectedEmail({
+      ownerEmail: 'owner@example.com',
+      brandName: '島嶼工坊',
+      reviewerNotes: '無法驗證網域擁有權 / could not verify domain ownership',
+      siteUrl: 'https://formoria.com',
+    })
+    expect(msg.to).toBe('owner@example.com')
+    expect(msg.from).toContain('noreply@formoria.com')
+    expect(msg.html).toContain('could not verify domain ownership')
+  })
+
+  it('omits the notes block cleanly when notes are empty', () => {
+    const msg = buildClaimRejectedEmail({
+      ownerEmail: 'owner@example.com',
+      brandName: '島嶼工坊',
+      reviewerNotes: '',
+      siteUrl: 'https://formoria.com',
+    })
+    expect(msg.html).toContain('島嶼工坊')
+    expect(msg.html).not.toMatch(/undefined|null/)
   })
 })
