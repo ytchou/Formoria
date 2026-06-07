@@ -64,6 +64,7 @@ next-env.d.ts
 # Strategy/internal docs (keep local, never push)
 *.md
 !README.md
+!marketing/cards/**/*.md
 docs/
 *.pen
 
