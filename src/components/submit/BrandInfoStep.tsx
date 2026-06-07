@@ -252,6 +252,9 @@ export function BrandInfoStep({
           className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
           {...register('description')}
         />
+        <p className="text-xs text-muted-foreground">
+          {t('brandDescriptionHint')}
+        </p>
         <div className="flex justify-between">
           {errors.description ? (
             <p className="text-xs text-red-600">{errors.description.message}</p>

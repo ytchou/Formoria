@@ -12,7 +12,7 @@ export const scrapeUrlSchema = z.object({
 })
 
 const nameField = z.string().min(2, '品牌名稱至少需要 2 個字元').max(100)
-const descriptionField = z.string().min(10, '品牌介紹至少需要 10 個字元').max(2000)
+export const descriptionField = z.string().min(40, '品牌介紹至少需要 40 個字元').max(2000)
 const categoryField = z.string().min(1, '請選擇分類')
 const tagsField = z.array(z.string()).max(5, '最多可選擇 5 個標籤')
 
