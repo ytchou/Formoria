@@ -1,14 +1,8 @@
 import { Globe, Heart, Layers } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
-interface Pillar {
-  heading: string
-  description: string
-}
-
 interface MissionPillarsProps {
   heading: string
-  pillars: [Pillar, Pillar, Pillar]
 }
 
 const ICONS = [Globe, Heart, Layers]

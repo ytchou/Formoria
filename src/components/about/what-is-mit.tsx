@@ -2,7 +2,6 @@ interface WhatIsMitProps {
   heading: string
   body1: string
   body2: string
-  body3?: string
 }
 
 export default function WhatIsMit({ heading, body1, body2 }: WhatIsMitProps) {

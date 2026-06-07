@@ -43,14 +43,10 @@ export default async function AboutPage({ params }: PageProps) {
 
   return (
     <main>
-      <div className="py-12 md:py-16">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <AboutHero
-            brandCount={stats.brandCount}
-            categoryCount={stats.categoryCount}
-          />
-        </div>
-      </div>
+      <AboutHero
+        brandCount={stats.brandCount}
+        categoryCount={stats.categoryCount}
+      />
 
       <div className="py-12 md:py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
@@ -72,11 +68,6 @@ export default async function AboutPage({ params }: PageProps) {
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <MissionPillars
             heading={t('mission.heading')}
-            pillars={[
-              { heading: t('mission.promote.heading'), description: t('mission.promote.body') },
-              { heading: t('mission.smallBusiness.heading'), description: t('mission.smallBusiness.body') },
-              { heading: t('mission.platform.heading'), description: t('mission.platform.body') },
-            ]}
           />
         </div>
       </div>
@@ -117,14 +108,7 @@ export default async function AboutPage({ params }: PageProps) {
         </div>
       </div>
 
-      <div className="py-12 md:py-16">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <AboutCta
-            primaryLabel={t('cta.primary')}
-            secondaryLabel={t('cta.secondary')}
-          />
-        </div>
-      </div>
+      <AboutCta />
     </main>
   )
 }

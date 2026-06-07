@@ -1,14 +1,6 @@
 import { useTranslations } from 'next-intl'
 
-interface OriginStoryProps {
-  heading?: string
-  body1?: string
-  body2?: string
-  body3?: string
-  body4?: string
-}
-
-export default function OriginStory({}: OriginStoryProps) {
+export default function OriginStory() {
   const t = useTranslations('about')
 
   return (
@@ -17,7 +9,7 @@ export default function OriginStory({}: OriginStoryProps) {
         <blockquote className="font-heading text-2xl text-primary md:text-3xl">
           {t('origin.quote')}
         </blockquote>
-        <div className="mt-8 space-y-4 text-sm leading-[1.8] text-[#1C1C1C]">
+        <div className="mt-8 space-y-4 text-sm leading-[1.8] text-foreground">
           <p>{t('origin.body1')}</p>
           <p>{t('origin.body2')}</p>
           <p>{t('origin.body3')}</p>

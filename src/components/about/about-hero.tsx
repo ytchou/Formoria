@@ -9,20 +9,11 @@ interface AboutHeroProps {
   categoryCount: number
 }
 
-type LegacyAboutHeroProps = {
-  title: string
-  subtitle: string
-  brandCount?: number
-  categoryCount?: number
-}
-
-export default function AboutHero(props: AboutHeroProps | LegacyAboutHeroProps) {
+export default function AboutHero({ brandCount, categoryCount }: AboutHeroProps) {
   const t = useTranslations('about')
-  const brandCount = props.brandCount ?? 0
-  const categoryCount = props.categoryCount ?? 0
 
   return (
-    <section className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen overflow-hidden py-16 md:py-24">
+    <section className="relative overflow-hidden py-16 md:py-24">
       <Image
         src="/images/manifesto-bg.png"
         alt=""
@@ -33,7 +24,7 @@ export default function AboutHero(props: AboutHeroProps | LegacyAboutHeroProps) 
       />
       <div className="absolute inset-0 bg-black/40" />
       <div className="relative mx-auto max-w-3xl px-6 text-center md:px-10">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-white/80">
+        <p className="text-sm font-semibold text-white/80">
           {t('hero.eyebrow')}
         </p>
         <h1 className="mt-4 font-heading text-4xl font-bold leading-tight text-white lg:text-6xl">
@@ -53,7 +44,7 @@ export default function AboutHero(props: AboutHeroProps | LegacyAboutHeroProps) 
         <div className="mt-8">
           <Link
             href="/brands"
-            className="inline-flex items-center justify-center rounded-lg bg-cta px-8 py-3 text-base font-semibold text-white transition-colors hover:bg-cta/90"
+            className="inline-flex items-center justify-center rounded-lg bg-cta px-8 py-3 text-base font-semibold text-cta-foreground transition-colors hover:bg-cta/90"
           >
             {t('hero.cta')}
           </Link>

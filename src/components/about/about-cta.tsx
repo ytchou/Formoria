@@ -2,18 +2,11 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 
-interface AboutCtaProps {
-  primaryLabel?: string
-  secondaryLabel?: string
-}
-
-export default function AboutCta(props: AboutCtaProps) {
-  void props
-
+export default function AboutCta() {
   const t = useTranslations('about')
 
   return (
-    <section className="relative overflow-hidden bg-background py-16 md:py-24">
+    <section className="relative overflow-hidden py-16 md:py-24">
       <Image
         src="/images/hero-bg.png"
         alt=""
@@ -28,7 +21,7 @@ export default function AboutCta(props: AboutCtaProps) {
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link
             href="/brands"
-            className="inline-flex min-h-12 items-center justify-center rounded-lg bg-cta px-8 py-3 text-base font-semibold text-white transition-colors hover:bg-cta/90"
+            className="inline-flex min-h-12 items-center justify-center rounded-lg bg-cta px-8 py-3 text-base font-semibold text-cta-foreground transition-colors hover:bg-cta/90"
           >
             {t('cta.primary')}
           </Link>
