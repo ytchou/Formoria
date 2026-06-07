@@ -277,7 +277,7 @@
       },
       "contact": {
         "question": "How do I contact the Formoria team?",
-        "answer": "For any questions, suggestions, or partnership inquiries, please email: patrick.ytchou@gmail.com. Our team typically responds within 2–3 business days."
+        "answer": "For any questions, suggestions, or partnership inquiries, please email: <mail>{email}</mail>. Our team typically responds within 2–3 business days."
       }
     }
   },
@@ -555,7 +555,7 @@
       "brandDescriptionPlaceholder": "Tell us about your brand...",
       "mitSmileMarkNumber": "MIT Smile mark number (optional)",
       "mitSmileMarkNumberPlaceholder": "例如 01200024-02134",
-      "mitSmileMarkNumberHelper": "Already certified by MIT Smile? Email ops@formoria.com to request verification.",
+      "mitSmileMarkNumberHelper": "Already certified by MIT Smile? Email <mail>{email}</mail> to request verification.",
       "charCount": "{count} / {max} max characters",
       "photos": "Photos",
       "photosDragHint": "Drag to reorder. The first photo becomes the hero image.",

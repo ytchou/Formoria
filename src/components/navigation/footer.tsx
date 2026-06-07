@@ -1,5 +1,6 @@
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
+import { CONTACT_EMAILS } from '@/lib/constants'
 
 export function Footer() {
   const t = useTranslations('footer')
@@ -103,7 +104,7 @@ export function Footer() {
             <ul className="mt-4 space-y-2">
               <li>
                 <a
-                  href="mailto:patrick.ytchou@gmail.com"
+                  href={`mailto:${CONTACT_EMAILS.contact}`}
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {t('contact')}

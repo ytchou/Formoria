@@ -63,6 +63,7 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;')
 }
 
+// keep in sync with CONTACT_EMAILS.noreply in src/lib/constants.ts (Deno edge fn can't import from src/)
 const FROM_ADDRESS = 'Formoria <noreply@formoria.com>'
 const SITE_URL = Deno.env.get('SITE_URL') ?? 'https://formoria.com'
 

@@ -1,5 +1,6 @@
 import type { EmailMessage } from './types'
 import type { ValidationErrorCode } from '../validation/types'
+import { CONTACT_EMAILS } from '@/lib/constants'
 
 function escapeHtml(str: string): string {
   return str
@@ -10,7 +11,7 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;')
 }
 
-const FROM_ADDRESS = 'Formoria <noreply@formoria.com>'
+const FROM_ADDRESS = `Formoria <${CONTACT_EMAILS.noreply}>`
 
 const ERROR_LABELS: Record<ValidationErrorCode, string> = {
   brand_name_empty: '品牌名稱為必填',

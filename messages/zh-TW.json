@@ -277,7 +277,7 @@
       },
       "contact": {
         "question": "如何聯繫 Formoria 團隊？",
-        "answer": "如有任何問題、建議或合作洽詢，歡迎來信：patrick.ytchou@gmail.com。我們的團隊會於收信後盡快回覆，一般工作日內 2–3 個工作天回應。"
+        "answer": "如有任何問題、建議或合作洽詢，歡迎來信：<mail>{email}</mail>。我們的團隊會於收信後盡快回覆，一般工作日內 2–3 個工作天回應。"
       }
     }
   },
@@ -555,7 +555,7 @@
       "brandDescriptionPlaceholder": "告訴我們關於您的品牌...",
       "mitSmileMarkNumber": "MIT 微笑標章編號（選填）",
       "mitSmileMarkNumberPlaceholder": "例如 01200024-02134",
-      "mitSmileMarkNumberHelper": "已通過 MIT 微笑標章？來信 ops@formoria.com 申請驗證。",
+      "mitSmileMarkNumberHelper": "已通過 MIT 微笑標章？來信 <mail>{email}</mail> 申請驗證。",
       "charCount": "{count} / {max} 個字元上限",
       "photos": "照片",
       "photosDragHint": "拖曳以排序。第一張照片將成為主圖。",
