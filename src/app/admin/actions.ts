@@ -7,13 +7,20 @@ import { getSubmission, approveSubmission, rejectSubmission } from '@/lib/servic
 import {
   approveClaimRequest,
   getClaimRequest,
+  getClaimRequestById,
   rejectClaimRequest,
 } from '@/lib/services/claim-requests'
 import { verifyMitStatus, rejectMitStatus } from '@/lib/services/mit-verification'
 import { createBrand, updateBrand, getBrandById, deleteBrand, generateSlug, syncBrandImages } from '@/lib/services/brands'
 import { createTag, updateTag, mergeTag, deactivateTag, activateTag, setBrandTags, processSuggestedTag } from '@/lib/services/taxonomy'
 import { createResendProvider } from '@/lib/email/resend-adapter'
-import { buildApprovalEmail, buildRejectionEmail, buildClaimEmail } from '@/lib/email/templates'
+import {
+  buildApprovalEmail,
+  buildRejectionEmail,
+  buildClaimEmail,
+  buildClaimApprovedEmail,
+  buildClaimRejectedEmail,
+} from '@/lib/email/templates'
 import { generateClaimToken } from '@/lib/auth/claim-token'
 import { updateFlagStatus, getModerationFlag } from '@/lib/services/moderation'
 import { updateReportStatus } from '@/lib/services/reports'
@@ -167,6 +174,7 @@ export async function approveClaimAction(
     if ('error' in auth) return auth
 
     const claimRequest = await getClaimRequest(claimRequestId)
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://formoria.com'
     await approveClaimRequest(claimRequestId, auth.userId)
 
     revalidatePath('/admin/claim-requests')
@@ -176,6 +184,20 @@ export async function approveClaimAction(
 
     if (claimRequest.brandSlug) {
       revalidatePath('/[locale]/brands/[slug]', 'page')
+    }
+
+    try {
+      const claim = await getClaimRequestById(claimRequestId)
+      if (claim?.requesterEmail && claim.brandName && claim.brandSlug) {
+        await sendEmail(buildClaimApprovedEmail({
+          ownerEmail: claim.requesterEmail,
+          brandName: claim.brandName,
+          brandSlug: claim.brandSlug,
+          siteUrl,
+        }))
+      }
+    } catch (err) {
+      console.error('[claim-approved-email] send failed', err)
     }
 
     return undefined
@@ -196,6 +218,7 @@ export async function rejectClaimAction(
     if ('error' in auth) return auth
 
     const claimRequest = await getClaimRequest(claimRequestId)
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://formoria.com'
     await rejectClaimRequest(claimRequestId, auth.userId, notes)
 
     revalidatePath('/admin/claim-requests')
@@ -205,6 +228,20 @@ export async function rejectClaimAction(
 
     if (claimRequest.brandSlug) {
       revalidatePath('/[locale]/brands/[slug]', 'page')
+    }
+
+    try {
+      const claim = await getClaimRequestById(claimRequestId)
+      if (claim?.requesterEmail && claim.brandName) {
+        await sendEmail(buildClaimRejectedEmail({
+          ownerEmail: claim.requesterEmail,
+          brandName: claim.brandName,
+          reviewerNotes: notes,
+          siteUrl,
+        }))
+      }
+    } catch (err) {
+      console.error('[claim-rejected-email] send failed', err)
     }
 
     return undefined
