@@ -11,7 +11,7 @@
 
 import { beforeAll, afterAll, expect, it } from 'vitest'
 import { describeWithDb, createTestClient } from '@/test/setup'
-import { getBrands } from '../brands'
+import { getBrands, searchBrands } from '../brands'
 
 const TEST_SLUG = 'zzz-tagslugs-itest'
 const VERIFIED_SLUG = 'zzz-verified-tier-itest'
@@ -201,5 +201,35 @@ describeWithDb('getBrands — verificationFilter', () => {
     expect(allSlugs).toContain(COMMUNITY_SLUG)
     expect(defaultSlugs).toContain(VERIFIED_SLUG)
     expect(defaultSlugs).toContain(COMMUNITY_SLUG)
+  })
+})
+
+describeWithDb('searchBrands — ranking order', () => {
+  it('ranks an exact 2-char CJK name first', async () => {
+    const results = await searchBrands('遮日', 10)
+
+    expect(results.length).toBeGreaterThan(0)
+    expect(results[0]?.name).toBe('ZALY 遮日')
+  })
+
+  it('ranks a name match above a description-only match', async () => {
+    // Q='手工皂': 'Natub 台灣製造天然手工皂 品牌專賣館' matches by name (ws_name=0.5, tier 1)
+    // while '艾莎妮亞名床 Aisaniea' matches by description only (ws_desc=0.5, tier 2).
+    const results = await searchBrands('手工皂', 20)
+    const names = results.map((result) => result.name)
+
+    expect(names).toContain('Natub 台灣製造天然手工皂 品牌專賣館')
+    expect(names).toContain('艾莎妮亞名床 Aisaniea')
+    expect(names.indexOf('Natub 台灣製造天然手工皂 品牌專賣館')).toBeLessThan(
+      names.indexOf('艾莎妮亞名床 Aisaniea')
+    )
+  })
+
+  it('returns a stable, deterministic order across identical searches', async () => {
+    const first = (await searchBrands('山芙蓉', 20)).map((result) => result.name)
+    const second = (await searchBrands('山芙蓉', 20)).map((result) => result.name)
+
+    expect(first).toEqual(second)
+    expect(first).toContain('中富生物科技 (Zhongfu Biotech)')
   })
 })
