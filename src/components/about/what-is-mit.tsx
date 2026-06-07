@@ -2,10 +2,10 @@ interface WhatIsMitProps {
   heading: string
   body1: string
   body2: string
-  body3: string
+  body3?: string
 }
 
-export default function WhatIsMit({ heading, body1, body2, body3 }: WhatIsMitProps) {
+export default function WhatIsMit({ heading, body1, body2 }: WhatIsMitProps) {
   return (
     <section className="py-12 md:py-16">
       <div className="max-w-2xl">
@@ -13,7 +13,6 @@ export default function WhatIsMit({ heading, body1, body2, body3 }: WhatIsMitPro
         <div className="mt-6 space-y-4 text-sm leading-[1.8] text-muted-foreground">
           <p>{body1}</p>
           <p>{body2}</p>
-          <p>{body3}</p>
         </div>
       </div>
     </section>

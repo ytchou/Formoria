@@ -34,7 +34,7 @@ export default function HowItWorks({ heading, steps, cta }: HowItWorksProps) {
         })}
       </div>
       <div className="mt-8">
-        <Link href="/submit" className="font-medium text-primary">
+        <Link href="/submit" className="font-medium text-cta">
           {cta}
         </Link>
       </div>
