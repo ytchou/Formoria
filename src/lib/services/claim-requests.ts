@@ -277,6 +277,20 @@ export async function getClaimRequest(id: string): Promise<ClaimRequest> {
   return request
 }
 
+export async function getClaimRequestById(id: string): Promise<ClaimRequest | null> {
+  const supabase = createServiceClient()
+  const { data, error } = await claimRequestsTable(supabase)
+    .select(CLAIM_REQUEST_WITH_BRAND_SELECT)
+    .eq('id', id)
+    .maybeSingle()
+
+  if (error) throw error
+  if (!data) return null
+
+  const [request] = await attachRequesterEmails([data as ClaimRequestRowWithJoins])
+  return request ?? null
+}
+
 export async function approveClaimRequest(id: string, reviewerId: string): Promise<void> {
   const supabase = createServiceClient()
   const { error } = await claimRequestRpcClient(supabase).rpc('approve_claim_request', {

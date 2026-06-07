@@ -27,6 +27,7 @@ import {
   approveClaimRequest,
   createClaimRequest,
   getClaimRequest,
+  getClaimRequestById,
   rejectClaimRequest,
 } from '../claim-requests'
 import { getUserBrands } from '../brand-owners'
@@ -158,6 +159,24 @@ describeWithDb('claim requests service (integration)', () => {
     })
 
     expect(request.mitSmileCert).toBeNull()
+  })
+
+  it('getClaimRequestById returns the claim with brand name/slug and requester email', async () => {
+    const created = await createClaimRequest({
+      brandId,
+      userId,
+      proofType: 'domain_email',
+      proofUrl: `https://example.com/proof/${BRAND_SLUG}`,
+      proofNotes: 'integration test',
+    })
+
+    const result = await getClaimRequestById(created.id)
+
+    expect(result).not.toBeNull()
+    expect(result!.id).toBe(created.id)
+    expect(result!.brandName).toBe('ZZZ Claim Request Integration Brand')
+    expect(result!.brandSlug).toBe(BRAND_SLUG)
+    expect(result!.requesterEmail).toBe(USER_EMAIL)
   })
 
   it('approveClaimRequest claims the brand and marks the request approved', async () => {
