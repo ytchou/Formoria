@@ -311,72 +311,74 @@
   },
   "about": {
     "metadata": {
-      "title": "About",
-      "description": "Formoria is a community-driven Taiwanese brand directory dedicated to promoting Made in Taiwan brands, supporting small businesses, and letting the world discover the best of Taiwan."
+      "title": "About Formoria | Made-in-Taiwan Brand Directory",
+      "description": "Formoria helps quality Made-in-Taiwan brands get found through a community-curated directory built for discovery, craft, and care."
     },
     "hero": {
-      "title": "About Formoria",
-      "subtitle": "Promoting Made in Taiwan brands and letting the world discover the best of Taiwan"
+      "eyebrow": "Formoria · 島藏",
+      "title": "Putting Taiwan's best brands on the world map.",
+      "subtitle": "A community-curated directory for discovering quality Made-in-Taiwan brands, from everyday staples to thoughtful design.",
+      "statSuffix": " — and growing",
+      "cta": "Explore brands"
     },
     "origin": {
-      "heading": "Our Story",
-      "body1": "For five years living in the US, I was always looking for Taiwanese things.",
-      "body2": "Studying, working, gradually settling in — but some things could never be replaced. The taste of home, the brands I'd grown up with, that feeling of \"yes, this is Taiwan.\" I tried searching online for Taiwanese brands, but there was no single place that brought them all together.",
-      "body3": "Later, I worked at a tech company that helped small brands get discovered by the world. That's when I saw something clearly: great brands don't always lack product quality — they lack an opportunity to be found.",
-      "body4": "Taiwan has so many brands quietly doing exceptional work — from local ingredients to thoughtfully designed goods. Every one of them has a story worth telling. Formoria started from that idea: if no one was going to collect these brands in one place, I'd do it myself."
+      "heading": "Why Formoria Exists",
+      "quote": "I kept looking for Taiwan online and finding pieces, not a place.",
+      "body1": "I am a Taiwanese founder who spent years abroad trying to find the brands that made home feel close: pantry staples, design objects, daily goods, and small labels I trusted but could not easily explain to friends.",
+      "body2": "My background is in technology for small businesses, where I saw the same pattern again and again. Many independent brands already have the quality, taste, and care. What they lack is a simple way to be found by people who are already looking for something better.",
+      "body3": "Formoria began as a quiet answer to that gap: a focused, anonymous founder-led directory for Taiwan's best brands, built so the work can stand in front of the biography."
     },
     "whatIsMit": {
       "heading": "What is Made in Taiwan?",
-      "body1": "Taiwan was once known to the world primarily for manufacturing — electronics, textiles, and more. \"MIT\" stood for quality and reliability. Today, Taiwan has evolved into a stage for design and brand-building, with local brands establishing their own place in global markets through refined craftsmanship and a unique cultural identity.",
-      "body2": "The Made in Taiwan brands on Formoria include those designed, produced, or founded in Taiwan. We care not just about the origin label, but about the craftsmanship and story behind each brand.",
-      "body3": "From local ingredients to designer goods, every brand represents Taiwan's commitment to quality and courage to innovate. Formoria aims to be the bridge between these brands and consumers — letting quality speak for itself."
+      "body1": "Made in Taiwan is more than a mark of origin. It carries a history of reliability, practical craft, and constant improvement across food, home, beauty, apparel, design, and technology.",
+      "body2": "On Formoria, MIT means a brand is founded, designed, produced, or deeply rooted in Taiwan. We look for real connection, considered quality, and a story worth helping more people discover."
     },
     "mission": {
       "heading": "Our Mission",
+      "statement": "Our mission is to help quality Made-in-Taiwan brands get found — and put Taiwan on the map for design, craft, and care.",
       "promote": {
         "heading": "Promote Taiwanese Brands",
-        "body": "Help quality Made in Taiwan brands reach more people. Behind every brand is a story worth seeing."
+        "body": "Make it easier for people around the world to discover Taiwanese brands with strong products, thoughtful stories, and a real connection to place."
       },
       "smallBusiness": {
         "heading": "Support Small Businesses",
-        "body": "Help small brands get the visibility they deserve. Size is not a measure of quality."
+        "body": "Give independent makers, family businesses, and emerging labels another path to visibility without asking them to become something they are not."
       },
       "platform": {
-        "heading": "A Platform for Discovery",
-        "body": "Give brands another channel to showcase themselves and be found — putting your brand in front of the people already looking for you."
+        "heading": "Build a Discovery Platform",
+        "body": "Create a clean, trusted place where shoppers, travelers, editors, and diaspora communities can find Taiwan-made brands worth remembering."
       }
     },
     "stats": {
       "brandUnit": "brands",
-      "categoryUnit": "categories"
+      "categoryUnit": "categories",
+      "curatedLabel": "community curated",
+      "curatedValue": "100%"
     },
     "showcase": {
-      "heading": "Explore Brands",
-      "linkText": "Browse All Brands →"
+      "heading": "Explore Taiwanese Brands",
+      "linkText": "Browse all brands →"
     },
     "howItWorks": {
-      "heading": "How Brands Get Listed",
+      "heading": "How It Works",
       "submit": {
-        "label": "Submit",
-        "description": "Fill in brand information and submit for review"
+        "label": "Share a brand",
+        "description": "Submit a Taiwan-rooted brand you love, whether it is your own business or one the community should know."
       },
       "review": {
-        "label": "Review",
-        "description": "The Formoria team verifies the brand's authenticity and its Made in Taiwan connection"
+        "label": "Curate with care",
+        "description": "We review each submission for authenticity, quality signals, and a meaningful Made-in-Taiwan connection."
       },
       "publish": {
-        "label": "Publish",
-        "description": "Once approved, the brand appears in the directory"
+        "label": "Help it get found",
+        "description": "Approved brands join the directory with clear context so more people can discover, compare, and support them."
       },
       "cta": "Submit a Brand →"
     },
-    "team": {
-      "heading": "Team",
-      "description": "An ordinary Taiwanese person who believes Taiwanese brands deserve to be seen"
-    },
     "cta": {
-      "primary": "Explore Brands",
-      "secondary": "Submit a Brand"
+      "heading": "Find Taiwan-made brands worth coming back to.",
+      "primary": "Explore brands",
+      "secondary": "Submit a brand"
     }
   },
   "mySubmissions": {
