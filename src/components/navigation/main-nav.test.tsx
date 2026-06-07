@@ -22,16 +22,23 @@ vi.mock('@/i18n/navigation', () => ({
 }))
 
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => {
-    const map: Record<string, string> = {
-      brandDirectory: '品牌目錄',
-      faq: '常見問題',
-      support: '請我喝咖啡',
-      mySubmissions: '我的提交',
-      submitBrand: '提交品牌',
-    }
-    return map[key] ?? key
-  },
+  useLocale: () => 'zh-TW',
+  useTranslations:
+    (namespace?: string) =>
+    (key: string) => {
+      const map: Record<string, Record<string, string>> = {
+        nav: {
+          brandDirectory: '品牌目錄',
+          faq: '常見問題',
+          support: '請我喝咖啡',
+          mySubmissions: '我的提交',
+          submitBrand: '提交品牌',
+          languageLabel: '切換語言',
+        },
+      }
+
+      return namespace ? map[namespace]?.[key] ?? key : key
+    },
 }))
 
 vi.mock('./nav-search-input', () => ({
@@ -40,10 +47,6 @@ vi.mock('./nav-search-input', () => ({
 
 vi.mock('./nav-category-tabs', () => ({
   NavCategoryTabs: () => <div data-testid="nav-category-tabs" />,
-}))
-
-vi.mock('@/components/i18n/locale-switcher', () => ({
-  LocaleSwitcher: () => <div data-testid="locale-switcher" />,
 }))
 
 vi.mock('@/lib/auth/use-user', () => ({
@@ -96,5 +99,11 @@ describe('MainNav', () => {
     const { MainNav } = await import('./main-nav')
     render(<MainNav categories={mockCategories} />)
     expect(screen.getByRole('button', { name: /menu/i })).toBeInTheDocument()
+  })
+
+  it('renders the language switcher trigger', async () => {
+    const { MainNav } = await import('./main-nav')
+    render(<MainNav categories={mockCategories} />)
+    expect(screen.getByRole('button', { name: '切換語言' })).toBeInTheDocument()
   })
 })

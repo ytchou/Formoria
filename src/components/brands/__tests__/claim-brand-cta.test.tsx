@@ -37,8 +37,8 @@ describe('ClaimBrandCta', () => {
     renderWithIntl(<ClaimBrandCta brandId="brand-1" />)
 
     await user.click(screen.getByRole('button', { name: /認領這個品牌/i }))
-    await user.selectOptions(screen.getByLabelText(/認領證明類型/i), 'social_post')
-    await user.click(screen.getByRole('button', { name: /submit claim/i }))
+    await user.selectOptions(screen.getByLabelText(/證明類型/i), 'social_post')
+    await user.click(screen.getByRole('button', { name: /提交認領/i }))
 
     await waitFor(() => {
       expect(mockSubmitClaimAction).toHaveBeenCalledWith(

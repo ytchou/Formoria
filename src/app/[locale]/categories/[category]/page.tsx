@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const tag = tags.find((t) => t.slug === slug)
     if (!tag) return { title: t('notFoundTitle') }
 
-    const displayName = tag.nameZh ?? tag.name
+    const displayName = safeLocale === 'en' ? tag.name : tag.nameZh ?? tag.name
     const title = t('metadata.title', { displayName })
     const description = t('metadata.description', { displayName, name: tag.name })
     const { canonical, languages } = buildAlternates(`/categories/${slug}`, safeLocale)
@@ -93,7 +93,8 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
   const tag = allTags.find((t) => t.slug === slug)
   if (!tag) notFound()
 
-  const categoryName = tag.nameZh ?? tag.name
+  const categoryName = safeLocale === 'en' ? tag.name : tag.nameZh ?? tag.name
+  const categoryDescription = safeLocale === 'en' ? tag.name.toLowerCase() : categoryName
 
   // Pagination params (excluding page)
   const paginationParams: Record<string, string> = {}
@@ -164,7 +165,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
           </span>
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
-          {t('description', { category: tag.name.toLowerCase() })}
+          {t('description', { category: categoryDescription })}
         </p>
       </div>
 

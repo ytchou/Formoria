@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { NextIntlClientProvider } from 'next-intl'
 import enMessages from '../../../../messages/en.json'
+import zhMessages from '../../../../messages/zh-TW.json'
 
 vi.mock('next/image', () => ({
   default: (props: Record<string, unknown>) => <img {...props} />,
@@ -23,5 +24,15 @@ describe('HeroSection (English)', () => {
     )
 
     expect(screen.getByText(enMessages.landing.hero.headline)).toBeInTheDocument()
+  })
+
+  it('omits the subheadline when the locale message is empty', () => {
+    render(
+      <NextIntlClientProvider locale="zh-TW" messages={zhMessages}>
+        <HeroSection />
+      </NextIntlClientProvider>
+    )
+
+    expect(screen.queryByText(enMessages.landing.hero.subheadline)).not.toBeInTheDocument()
   })
 })

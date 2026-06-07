@@ -23,7 +23,8 @@
     "searchPlaceholder": "搜尋品牌...",
     "searchAria": "搜尋品牌",
     "clearSearch": "清除搜尋",
-    "signIn": "登入"
+    "signIn": "登入",
+    "languageLabel": "切換語言"
   },
   "footer": {
     "about": "關於我們",
@@ -48,13 +49,8 @@
     },
     "hero": {
       "headline": "探索台灣製造的精品品牌",
-      "subheadline": "Discover quality brands made in Taiwan",
-      "cta": "探索品牌"
-    },
-    "trustBar": {
-      "brandCount": "{count} 個品牌",
-      "categoryCount": "{count} 個分類",
-      "communityBuilt": "社群共建"
+      "subheadline": "",
+      "cta": "探索所有品牌"
     },
     "showcase": {
       "heading": "探索品牌",
@@ -75,13 +71,17 @@
       "body2": "Formoria 想成為這些品牌與世界之間的橋樑——讓每一個用心做好產品的人，都有機會被發現。",
       "cta": "了解我們的故事"
     },
+    "submitBand": {
+      "headline": "你的品牌，值得被世界看見",
+      "body": "免費提交，加入 Formoria 社群目錄",
+      "cta": "提交你的品牌"
+    },
+    "verifiedRail": {
+      "heading": "認證品牌"
+    },
     "newBrands": {
       "heading": "最新品牌",
       "linkText": "瀏覽全部品牌 →"
-    },
-    "dualCta": {
-      "primary": "探索所有品牌",
-      "secondary": "提交你的品牌"
     }
   },
   "brands": {
@@ -119,6 +119,34 @@
       "mitVerifiedLabel": "MIT 已驗證",
       "mitVerifiedBadge": "MIT",
       "communityLabel": "社群"
+    },
+    "verificationFilter": {
+      "all": "全部",
+      "verified": "已驗證",
+      "community": "社群"
+    },
+    "claimCta": {
+      "proofTypeRequired": "請選擇有效的認領證明類型",
+      "submitSuccess": "我們已收到你的認領申請，會盡快審核。",
+      "submitError": "提交失敗，請稍後再試。",
+      "communityTitle": "這是社群整理品牌頁",
+      "communityListing": "社群收錄。如果你是這個品牌的代表，請提交證明以認領並管理它。",
+      "claimButton": "認領這個品牌",
+      "proofHeading": "提交認領證明",
+      "proofPrompt": "請提交所有權證明，以便我們審核你的認領申請。",
+      "proofTypeLabel": "證明類型",
+      "proofType": {
+        "domainEmail": "官方網域信箱",
+        "socialPost": "社群帳號發文",
+        "businessRegistration": "商業登記資料"
+      },
+      "proofUrlLabel": "證明連結（選填）",
+      "notesLabel": "備註（選填）",
+      "notesPlaceholder": "可補充品牌身份、角色或相關說明",
+      "signIn": "立即登入",
+      "submitting": "提交中…",
+      "submit": "提交認領",
+      "cancel": "取消"
     },
     "loadingAria": "載入品牌中...",
     "noResultsInSuggestions": "找不到結果"
@@ -168,12 +196,12 @@
   "categories": {
     "metadata": {
       "title": "{displayName} 台灣品牌",
-      "description": "探索台灣製造的{displayName}品牌。Discover Made in Taiwan {name} brands."
+      "description": "探索台灣製造的 {displayName} 品牌。"
     },
-    "notFoundTitle": "Category Not Found",
-    "breadcrumbHome": "Home",
+    "notFoundTitle": "找不到此分類",
+    "breadcrumbHome": "首頁",
     "brandCount": "{count, plural, =0 {尚無品牌} other {# 個品牌}}",
-    "description": "Discover Made in Taiwan {category} brands.",
+    "description": "探索台灣製造的 {category} 品牌。",
     "index": {
       "metadata": {
         "title": "依類別瀏覽 — 台灣製造品牌",

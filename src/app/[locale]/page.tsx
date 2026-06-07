@@ -2,13 +2,12 @@ import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildWebSiteJsonLd } from '@/lib/json-ld'
 import HeroSection from '@/components/landing/hero-section'
-import TrustBar from '@/components/landing/trust-bar'
 import Manifesto from '@/components/landing/manifesto'
 import BrandShowcase from '@/components/shared/brand-showcase'
 import FilterableBrandShowcase from '@/components/landing/filterable-brand-showcase'
+import SubmitBand from '@/components/landing/submit-band'
 import ValueChips from '@/components/landing/value-chips'
-import DualCta from '@/components/landing/dual-cta'
-import { getBrandStats, getBrands, getNewBrands } from '@/lib/services/brands'
+import { getBrands, getNewBrands } from '@/lib/services/brands'
 import { getActiveCategories, getValueTagsWithCoverage } from '@/lib/services/taxonomy'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
@@ -49,15 +48,13 @@ export default async function LandingPage({ params }: PageProps) {
   const t = await getTranslations('landing')
   const jsonLd = buildWebSiteJsonLd(safeLocale)
 
-  const [stats, categories, { brands: allBrands }, newBrands, valueTags] = await Promise.all([
-    getBrandStats(),
+  const [categories, { brands: allBrands }, newBrands, valueTags] = await Promise.all([
     getActiveCategories(),
     getBrands({ status: 'approved', limit: 60 }),
     getNewBrands(4),
     getValueTagsWithCoverage(1),
   ])
   const verifiedBrands = allBrands.filter((brand) => brand.isVerified)
-  const communityBrands = allBrands.filter((brand) => !brand.isVerified)
 
   return (
     <>
@@ -68,12 +65,6 @@ export default async function LandingPage({ params }: PageProps) {
       <main>
         <HeroSection />
 
-        <div className="bg-secondary">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
-            <TrustBar brandCount={stats.brandCount} categoryCount={stats.categoryCount} />
-          </div>
-        </div>
-
         <div className="py-6 md:py-8">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <FilterableBrandShowcase brands={allBrands} categories={categories} />
@@ -81,20 +72,12 @@ export default async function LandingPage({ params }: PageProps) {
         </div>
 
         <div className="py-6 md:py-8">
-          <div className="max-w-6xl mx-auto space-y-12 px-4 sm:px-6">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <BrandShowcase
               brands={verifiedBrands}
-              heading="認證品牌"
-              subheading="Verified"
+              heading={t('verifiedRail.heading')}
               linkText={t('newBrands.linkText')}
               linkHref="/brands?verification=verified"
-            />
-            <BrandShowcase
-              brands={communityBrands}
-              heading="社群推薦"
-              subheading="Community"
-              linkText={t('newBrands.linkText')}
-              linkHref="/brands?verification=community"
             />
           </div>
         </div>
@@ -118,7 +101,7 @@ export default async function LandingPage({ params }: PageProps) {
           </div>
         </div>
 
-        <DualCta />
+        <SubmitBand />
       </main>
     </>
   )

@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import type { BrandFilters } from '@/lib/types'
 
@@ -9,16 +10,16 @@ interface VerificationFilterProps {
   active: VerificationFilterValue
 }
 
-const OPTIONS: Array<{ value: VerificationFilterValue; label: string }> = [
-  { value: 'all', label: '全部 All' },
-  { value: 'verified', label: '已驗證 Verified' },
-  { value: 'community', label: '社群 Community' },
-]
-
 export function VerificationFilter({ active }: VerificationFilterProps) {
+  const t = useTranslations('brands.verificationFilter')
   const router = useRouter()
   const searchParams = useSearchParams()
   const pathname = usePathname()
+  const options: Array<{ value: VerificationFilterValue; label: string }> = [
+    { value: 'all', label: t('all') },
+    { value: 'verified', label: t('verified') },
+    { value: 'community', label: t('community') },
+  ]
 
   function handleClick(value: VerificationFilterValue) {
     const params = new URLSearchParams(searchParams.toString())
@@ -30,7 +31,7 @@ export function VerificationFilter({ active }: VerificationFilterProps) {
 
   return (
     <div className="flex gap-2 overflow-x-auto snap-x pb-2 scrollbar-none">
-      {OPTIONS.map((option) => {
+      {options.map((option) => {
         const isActive = active === option.value
 
         return (

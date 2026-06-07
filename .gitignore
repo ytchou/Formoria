@@ -33,6 +33,7 @@ e2e/playwright-report/
 .DS_Store
 *.pem
 Thumbs.db
+*.csv
 
 # debug
 npm-debug.log*

@@ -34,7 +34,7 @@ describe('HeroSection', () => {
 
   it('renders CTA link to /brands', () => {
     renderWithZhTW(<HeroSection />)
-    const link = screen.getByRole('link', { name: /探索品牌/ })
+    const link = screen.getByRole('link', { name: /探索所有品牌/ })
     expect(link).toHaveAttribute('href', '/brands')
   })
 })
