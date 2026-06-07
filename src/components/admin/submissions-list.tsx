@@ -36,6 +36,7 @@ export function SubmissionsList({
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectNotes, setRejectNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [warning, setWarning] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const filtered =
@@ -53,8 +54,13 @@ export function SubmissionsList({
   function handleApprove(id: string) {
     startTransition(async () => {
       setError(null)
+      setWarning(null)
       const result = await approveSubmissionAction(id)
       if (result?.error) setError(result.error)
+      else if (result?.imageSyncWarning) {
+        const { synced, failed } = result.imageSyncWarning
+        setWarning(`Approved, but ${failed} of ${synced + failed} image(s) couldn't be downloaded and kept their source URL. Use "Re-sync images" in Brands after fixing the source.`)
+      }
     })
   }
 
@@ -219,6 +225,9 @@ export function SubmissionsList({
 
                         {error && (
                           <p className="text-sm text-[#D94F3D]">{error}</p>
+                        )}
+                        {warning && (
+                          <p className="text-sm text-amber-600">{warning}</p>
                         )}
 
                         {submission.status === 'pending' && (

@@ -464,17 +464,46 @@ export function collectSyncableImageUrls(input: {
   })
 }
 
-export async function syncBrandImages(brandId: string): Promise<void> {
+export type ImageRef = {
+  url: string
+  field: 'hero' | 'logo' | 'photo'
+  index?: number
+}
+
+export function buildSyncedImagePatch(
+  refs: ImageRef[],
+  storedUrls: (string | null)[],
+  productPhotos: string[],
+): Partial<{ heroImageUrl: string; logoUrl: string; productPhotos: string[] }> {
+  const patch: Partial<{ heroImageUrl: string; logoUrl: string; productPhotos: string[] }> = {}
+  const updatedPhotos = [...productPhotos]
+
+  for (let i = 0; i < refs.length; i++) {
+    const stored = storedUrls[i]
+    if (stored == null) {
+      continue
+    }
+
+    const ref = refs[i]
+    if (ref.field === 'hero') patch.heroImageUrl = stored
+    else if (ref.field === 'logo') patch.logoUrl = stored
+    else if (ref.field === 'photo' && ref.index !== undefined) updatedPhotos[ref.index] = stored
+  }
+
+  patch.productPhotos = updatedPhotos
+  return patch
+}
+
+export async function syncBrandImages(brandId: string): Promise<{ synced: number; failed: number }> {
   const brand = await getBrandById(brandId)
 
-  type ImageRef = { url: string; field: 'hero' | 'logo' | 'photo'; index?: number }
   const syncableUrls = collectSyncableImageUrls({
     heroImageUrl: brand.heroImageUrl,
     logoUrl: brand.logoUrl,
     productPhotos: brand.productPhotos,
   })
 
-  if (syncableUrls.length === 0) return
+  if (syncableUrls.length === 0) return { synced: 0, failed: 0 }
 
   const refs: ImageRef[] = []
 
@@ -491,25 +520,16 @@ export async function syncBrandImages(brandId: string): Promise<void> {
     }
   }
 
-  if (refs.length === 0) return
+  if (refs.length === 0) return { synced: 0, failed: 0 }
 
   const externalUrls = refs.map((r) => r.url)
   const storedUrls = await downloadAndStoreImages(externalUrls, brandId)
 
-  const patch: Partial<{ heroImageUrl: string; logoUrl: string; productPhotos: string[] }> = {}
-  const updatedPhotos = [...brand.productPhotos]
-
-  // Best-effort positional match: consume stored URLs in input order
-  for (let i = 0; i < storedUrls.length; i++) {
-    const stored = storedUrls[i]
-    const ref = refs[i]
-    if (ref.field === 'hero') patch.heroImageUrl = stored
-    else if (ref.field === 'logo') patch.logoUrl = stored
-    else if (ref.field === 'photo' && ref.index !== undefined) updatedPhotos[ref.index] = stored
-  }
-
-  patch.productPhotos = updatedPhotos
+  const patch = buildSyncedImagePatch(refs, storedUrls, brand.productPhotos)
   await updateBrand(brandId, patch)
+
+  const failed = storedUrls.filter((u) => u == null).length
+  return { synced: storedUrls.length - failed, failed }
 }
 
 export async function completeBrandClaim({

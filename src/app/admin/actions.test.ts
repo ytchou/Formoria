@@ -39,11 +39,12 @@ vi.mock('@/lib/auth/admin', () => ({
 
 vi.mock('@/lib/services/brands', () => ({
   getBrandBySlug: vi.fn(),
+  getBrandById: vi.fn().mockResolvedValue({ id: 'brand-1', slug: 'test-brand' }),
   updateBrand: vi.fn().mockResolvedValue({ id: 'brand-1', slug: 'test-brand' }),
   createBrand: vi.fn(),
   deleteBrand: vi.fn(),
   generateSlug: vi.fn(),
-  syncBrandImages: vi.fn(),
+  syncBrandImages: vi.fn().mockResolvedValue({ synced: 0, failed: 0 }),
 }))
 
 vi.mock('@/lib/services/submissions', () => ({
@@ -99,11 +100,32 @@ describe('admin actions module', () => {
     expect(typeof mod.hideBrandAction).toBe('function')
     expect(typeof mod.unhideBrandAction).toBe('function')
     expect(typeof mod.deleteBrandAction).toBe('function')
+    expect(typeof mod.resyncBrandImagesAction).toBe('function')
     expect(typeof mod.createTagAction).toBe('function')
     expect(typeof mod.renameTagAction).toBe('function')
     expect(typeof mod.mergeTagAction).toBe('function')
     expect(typeof mod.deactivateTagAction).toBe('function')
     expect(typeof mod.reviewFlagAction).toBe('function')
+  })
+})
+
+describe('resyncBrandImagesAction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('returns sync counts and revalidates admin brands', async () => {
+    const { getBrandById, syncBrandImages } = await import('@/lib/services/brands')
+    const { revalidatePath } = await import('next/cache')
+    vi.mocked(getBrandById).mockResolvedValue({ id: 'brand-1', slug: 'test-brand' } as Awaited<ReturnType<typeof getBrandById>>)
+    vi.mocked(syncBrandImages).mockResolvedValue({ synced: 2, failed: 1 })
+
+    const { resyncBrandImagesAction } = await import('./actions')
+    const result = await resyncBrandImagesAction('brand-1')
+
+    expect(syncBrandImages).toHaveBeenCalledWith('brand-1')
+    expect(revalidatePath).toHaveBeenCalledWith('/admin/brands')
+    expect(result).toEqual({ synced: 2, failed: 1 })
   })
 })
 

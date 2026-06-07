@@ -15,7 +15,7 @@ function getExtFromContentType(contentType: string): string {
 export async function downloadAndStoreImages(
   urls: string[],
   brandId: string
-): Promise<string[]> {
+): Promise<(string | null)[]> {
   if (urls.length === 0) return []
 
   const supabase = createServiceClient()
@@ -63,9 +63,5 @@ export async function downloadAndStoreImages(
     })
   )
 
-  return results
-    .filter(
-      (r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled'
-    )
-    .map((r) => r.value)
+  return results.map((r) => (r.status === 'fulfilled' ? r.value : null))
 }

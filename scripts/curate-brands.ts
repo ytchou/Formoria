@@ -216,7 +216,8 @@ async function scoreAndScrape(dryRun: boolean, targetSlugs?: string[], stopAfter
     let downloadedImages: string[] = []
     if (imageUrls.length > 0) {
       try {
-        downloadedImages = await downloadAndStoreImages(imageUrls, brand.id)
+        downloadedImages = (await downloadAndStoreImages(imageUrls, brand.id))
+          .filter((url): url is string => url !== null)
       } catch (err) {
         console.warn(`  [ERROR] Image download failed for ${brand.slug}:`, err)
       }
