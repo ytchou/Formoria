@@ -1,7 +1,8 @@
 import { useTranslations } from 'next-intl'
-import { BadgeCheck, MapPin, ShieldCheck } from 'lucide-react'
+import { MapPin } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { Brand } from '@/lib/types'
+import { MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badges'
 
 interface BrandHeaderProps {
   brand: Brand
@@ -13,8 +14,6 @@ export function BrandHeader({ brand, actionsSlot }: BrandHeaderProps) {
   const locationName = brand.retailLocations[0]?.name
   const hasMitVerifiedBadge = brand.mitVerified === true
   const hasOwnerVerifiedBadge = brand.isVerified
-  const badgeClassName =
-    'flex items-center gap-1 rounded-full px-2.5 py-1 font-sans text-[11px] font-semibold'
 
   return (
     <div className="space-y-3">
@@ -38,22 +37,10 @@ export function BrandHeader({ brand, actionsSlot }: BrandHeaderProps) {
         {(hasMitVerifiedBadge || hasOwnerVerifiedBadge) && (
           <div className="flex items-center gap-2">
             {hasMitVerifiedBadge && (
-              <span
-                title={t('mitVerifiedTitle')}
-                className={`${badgeClassName} bg-mit-verified-bg text-mit-verified`}
-              >
-                <ShieldCheck className="h-[11px] w-[11px]" aria-hidden />
-                {t('mitVerified')}
-              </span>
+              <MitVerifiedBadge label={t('mitVerified')} title={t('mitVerifiedTitle')} />
             )}
             {hasOwnerVerifiedBadge && (
-              <span
-                title={t('verifiedTitle')}
-                className={`${badgeClassName} bg-verified-green-bg text-verified-green`}
-              >
-                <BadgeCheck className="h-[11px] w-[11px]" aria-hidden />
-                {t('verified')}
-              </span>
+              <OwnerVerifiedBadge label={t('verified')} title={t('verifiedTitle')} />
             )}
           </div>
         )}

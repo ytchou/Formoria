@@ -830,5 +830,151 @@
       "validation": "Validation failed, please try again.",
       "unexpected": "An unexpected error occurred, please try again."
     }
+  },
+  "glossary": {
+    "metadata": {
+      "title": "Glossary — Formoria",
+      "description": "Definitions of key terms related to Made in Taiwan manufacturing and brand verification on the Formoria brand directory."
+    },
+    "eyebrow": "Brand Terms",
+    "heading": "Glossary",
+    "lede": "Understand the labels, badges, and categories used throughout Formoria — so you can find and support Taiwanese brands with confidence.",
+    "sections": {
+      "core": {
+        "title": "Core Concepts",
+        "terms": {
+          "mit": {
+            "zh": "台灣製造",
+            "en": "Made in Taiwan",
+            "definition": "Products manufactured in Taiwan, meeting Taiwan's legal standards for country-of-origin designation. The primary production processes take place in Taiwan, making it a key indicator for consumers seeking locally-made goods."
+          },
+          "formoria": {
+            "zh": "島藏",
+            "en": "Formoria",
+            "definition": "Formoria (島藏) is a community-curated directory of Taiwanese brands, dedicated to helping people discover and support locally made and designed products from Taiwan."
+          },
+          "brandDirectory": {
+            "zh": "品牌目錄",
+            "en": "Brand Directory",
+            "definition": "A curated database of Taiwanese brands that allows consumers to browse and search by category, tags, and other filters."
+          },
+          "communityCurated": {
+            "zh": "社群策展",
+            "en": "Community-curated",
+            "definition": "Brand data is submitted and maintained by community members and reviewed by human editors to ensure quality — rather than being purely automated or edited solely by an official team."
+          }
+        }
+      },
+      "verification": {
+        "title": "Verification Badges",
+        "terms": {
+          "mitVerified": {
+            "zh": "MIT 已驗證",
+            "en": "MIT Verified",
+            "definition": "Indicates the brand has submitted an MIT Smile Mark registration number that has been confirmed against Taiwan's public registry (data.gov.tw) by the Formoria team. Brands with this badge have verified Made-in-Taiwan credentials.",
+            "badge": "verified"
+          },
+          "ownerManaged": {
+            "zh": "品牌經營",
+            "en": "Brand-managed",
+            "definition": "Indicates this brand page has been claimed and is actively managed by the brand itself. Information is maintained by the official brand account, ensuring greater accuracy and timeliness.",
+            "badge": "owner"
+          },
+          "mitSmileMark": {
+            "zh": "MIT 微笑標章",
+            "en": "MIT Smile Mark",
+            "definition": "An official certification mark issued by organizations such as TEEMA (Taiwan Textile Federation) that certifies a product meets Taiwan manufacturing standards. Formoria uses Smile Mark registration numbers as a basis for MIT verification."
+          }
+        }
+      },
+      "materials": {
+        "title": "Materials & Craft",
+        "terms": {
+          "localMaterials": {
+            "zh": "在地材料",
+            "en": "Local Materials",
+            "definition": "The raw materials or ingredients used by the brand are primarily sourced within Taiwan, strengthening the product's connection to local land and reducing import dependency."
+          },
+          "handcraft": {
+            "zh": "手工製作",
+            "en": "Handcrafted",
+            "definition": "The primary production processes are completed by artisans by hand rather than fully mechanized, emphasizing craftsmanship, attention to detail, and uniqueness."
+          },
+          "smallBatch": {
+            "zh": "小批量生產",
+            "en": "Small-batch",
+            "definition": "The brand produces in smaller quantities, typically with greater emphasis on quality control, craft detail, and reduced waste compared to mass production."
+          }
+        }
+      },
+      "priceRange": {
+        "title": "Price Range",
+        "terms": {
+          "affordable": {
+            "zh": "親民",
+            "en": "Affordable",
+            "definition": "The brand's primary products are priced in the lower-to-mid range in the Taiwanese market, making Made-in-Taiwan goods accessible to a wider audience.",
+            "range": "NT$100–500"
+          },
+          "midRange": {
+            "zh": "中價位",
+            "en": "Mid-range",
+            "definition": "Primary products are priced in the middle tier, suitable for consumers seeking quality and value. This is the most common price band among Taiwanese manufacturing brands.",
+            "range": "NT$500–2,000"
+          },
+          "premium": {
+            "zh": "精品",
+            "en": "Premium",
+            "definition": "The brand is positioned for the high-end market with higher-priced primary products, emphasizing craftsmanship, design, or rare materials for consumers seeking a premium experience.",
+            "range": "NT$2,000+"
+          }
+        }
+      },
+      "regions": {
+        "title": "Taiwan Regions",
+        "terms": {
+          "northTaiwan": {
+            "zh": "北台灣",
+            "en": "Northern Taiwan",
+            "definition": "Encompasses Taipei, New Taipei, Keelung, Taoyuan, Hsinchu and nearby areas — Taiwan's primary commercial and design brand hub."
+          },
+          "centralTaiwan": {
+            "zh": "中台灣",
+            "en": "Central Taiwan",
+            "definition": "Encompasses Taichung, Changhua, Nantou and nearby areas, known for traditional crafts, agricultural processing, and cultural creative brands."
+          },
+          "southTaiwan": {
+            "zh": "南台灣",
+            "en": "Southern Taiwan",
+            "definition": "Encompasses Tainan, Kaohsiung, Pingtung and nearby areas — rich in historical culture and local manufacturing traditions that have nurtured many distinctive brands."
+          },
+          "easternTaiwan": {
+            "zh": "東台灣",
+            "en": "Eastern Taiwan",
+            "definition": "Encompasses Hualien and Taitung, known for indigenous cultural crafts, organic agriculture, and eco-friendly brands."
+          }
+        }
+      },
+      "values": {
+        "title": "Brand Values",
+        "terms": {
+          "sustainability": {
+            "zh": "永續經營",
+            "en": "Sustainability",
+            "definition": "The brand prioritizes environmental friendliness, social responsibility, or long-term sustainable development in its design, production, or operations — rather than purely pursuing short-term profit."
+          },
+          "culturalHeritage": {
+            "zh": "文化傳承",
+            "en": "Cultural Heritage",
+            "definition": "The brand's core value is preserving and passing on Taiwanese traditional culture, craft techniques, or local stories through its products to help more people appreciate Taiwanese culture."
+          },
+          "socialEnterprise": {
+            "zh": "社會企業",
+            "en": "Social Enterprise",
+            "definition": "The brand's mission is to address social issues or serve specific communities, combining social impact with commercial operations to create a model that balances public benefit and sustainability."
+          }
+        }
+      }
+    }
   }
 }

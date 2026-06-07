@@ -830,5 +830,151 @@
       "validation": "驗證失敗，請再試一次。",
       "unexpected": "發生預期外的錯誤，請再試一次。"
     }
+  },
+  "glossary": {
+    "metadata": {
+      "title": "名詞解說 — 島藏",
+      "description": "台灣製造與品牌認證相關詞彙解說，幫助您了解 Formoria 品牌目錄的標章與分類。"
+    },
+    "eyebrow": "品牌詞彙",
+    "heading": "名詞解說",
+    "lede": "了解台灣製造、品牌認證與 Formoria 品牌目錄中常見術語的定義，讓您更清楚地找到與支持台灣在地品牌。",
+    "sections": {
+      "core": {
+        "title": "核心概念",
+        "terms": {
+          "mit": {
+            "zh": "台灣製造",
+            "en": "Made in Taiwan",
+            "definition": "指產品在台灣境內製造完成，符合台灣相關法規對原產地的認定標準。台灣製造代表產品的主要生產工序在台灣完成，是消費者辨識本土製造的重要依據。"
+          },
+          "formoria": {
+            "zh": "島藏",
+            "en": "Formoria",
+            "definition": "Formoria（島藏）是一個以社群策展為基礎的台灣品牌目錄，致力於讓更多人認識並支持台灣在地製造與設計品牌。"
+          },
+          "brandDirectory": {
+            "zh": "品牌目錄",
+            "en": "Brand Directory",
+            "definition": "收錄並整理台灣製造品牌的資料庫，讓消費者可依類別、標籤等條件瀏覽與搜尋品牌。"
+          },
+          "communityCurated": {
+            "zh": "社群策展",
+            "en": "Community-curated",
+            "definition": "品牌資料由社群成員共同提交與維護，經過人工審核確保資訊品質，而非純粹自動化或官方單獨編輯。"
+          }
+        }
+      },
+      "verification": {
+        "title": "驗證標章",
+        "terms": {
+          "mitVerified": {
+            "zh": "MIT 已驗證",
+            "en": "MIT Verified",
+            "definition": "代表該品牌已提交 MIT 微笑標章登錄號碼，並由 Formoria 團隊比對政府公開資料庫（data.gov.tw）確認通過驗證。帶有此標章的品牌可信賴其產品原產地聲明。",
+            "badge": "verified"
+          },
+          "ownerManaged": {
+            "zh": "品牌經營",
+            "en": "Brand-managed",
+            "definition": "代表此品牌頁面由品牌方本身的帳號認領並經營管理，資訊由品牌官方維護，準確性與時效性更有保障。",
+            "badge": "owner"
+          },
+          "mitSmileMark": {
+            "zh": "MIT 微笑標章",
+            "en": "MIT Smile Mark",
+            "definition": "由台灣紡織業拓展會（TEEMA）等機構頒發的官方認證標章，代表產品符合台灣製造標準。Formoria 使用微笑標章登錄號碼作為 MIT 驗證的依據之一。"
+          }
+        }
+      },
+      "materials": {
+        "title": "材質與工藝",
+        "terms": {
+          "localMaterials": {
+            "zh": "在地材料",
+            "en": "Local Materials",
+            "definition": "指品牌所使用的原料或材料主要來自台灣本地，進一步強化產品與台灣土地的連結，並減少進口依賴。"
+          },
+          "handcraft": {
+            "zh": "手工製作",
+            "en": "Handcrafted",
+            "definition": "產品的主要工序由工匠以手工完成，而非完全依賴機械化生產，強調工藝技術、細節與獨特性。"
+          },
+          "smallBatch": {
+            "zh": "小批量生產",
+            "en": "Small-batch",
+            "definition": "品牌以較小的生產規模製造產品，通常更注重品質控管、工藝細節，並減少庫存浪費。"
+          }
+        }
+      },
+      "priceRange": {
+        "title": "價格區間",
+        "terms": {
+          "affordable": {
+            "zh": "親民",
+            "en": "Affordable",
+            "definition": "品牌的主力商品售價在台灣市場屬於較低至中等價位，讓更多消費者能輕鬆入門台灣製造。",
+            "range": "NT$100–500"
+          },
+          "midRange": {
+            "zh": "中價位",
+            "en": "Mid-range",
+            "definition": "主力商品價位介於中等，適合追求品質與性價比的消費者，是台灣製造品牌中最常見的價位帶。",
+            "range": "NT$500–2,000"
+          },
+          "premium": {
+            "zh": "精品",
+            "en": "Premium",
+            "definition": "品牌定位為高端市場，主力商品售價較高，強調工藝、設計或使用稀有材料，適合追求精品體驗的消費者。",
+            "range": "NT$2,000+"
+          }
+        }
+      },
+      "regions": {
+        "title": "台灣地區",
+        "terms": {
+          "northTaiwan": {
+            "zh": "北台灣",
+            "en": "Northern Taiwan",
+            "definition": "包含台北、新北、基隆、桃園、新竹等縣市，是台灣最主要的商業與設計品牌聚集地區。"
+          },
+          "centralTaiwan": {
+            "zh": "中台灣",
+            "en": "Central Taiwan",
+            "definition": "包含台中、彰化、南投等縣市，以傳統工藝、農業加工及文創品牌著稱。"
+          },
+          "southTaiwan": {
+            "zh": "南台灣",
+            "en": "Southern Taiwan",
+            "definition": "包含台南、高雄、屏東等縣市，擁有深厚的歷史文化底蘊與在地製造傳統，孕育許多獨特品牌。"
+          },
+          "easternTaiwan": {
+            "zh": "東台灣",
+            "en": "Eastern Taiwan",
+            "definition": "包含花蓮、台東等縣市，以原住民文化工藝、有機農業及生態友善品牌見長。"
+          }
+        }
+      },
+      "values": {
+        "title": "品牌價值",
+        "terms": {
+          "sustainability": {
+            "zh": "永續經營",
+            "en": "Sustainability",
+            "definition": "品牌在設計、生產或營運上注重環境友善、社會責任或長期可持續發展，而非純粹追求短期利益。"
+          },
+          "culturalHeritage": {
+            "zh": "文化傳承",
+            "en": "Cultural Heritage",
+            "definition": "品牌以傳承台灣傳統文化、工藝技術或在地故事為核心價值，透過產品讓更多人認識台灣文化。"
+          },
+          "socialEnterprise": {
+            "zh": "社會企業",
+            "en": "Social Enterprise",
+            "definition": "品牌以解決社會問題或服務特定社群為使命，將社會影響力與商業經營結合，創造兼顧公益與永續的品牌模式。"
+          }
+        }
+      }
+    }
   }
 }
