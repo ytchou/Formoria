@@ -23,7 +23,8 @@
     "searchPlaceholder": "Search brands...",
     "searchAria": "Search brands",
     "clearSearch": "Clear search",
-    "signIn": "Sign in"
+    "signIn": "Sign in",
+    "languageLabel": "Switch language"
   },
   "footer": {
     "about": "About",
@@ -49,12 +50,7 @@
     "hero": {
       "headline": "Discover Premium Brands Made in Taiwan",
       "subheadline": "Discover quality brands made in Taiwan",
-      "cta": "Explore Brands"
-    },
-    "trustBar": {
-      "brandCount": "{count} brands",
-      "categoryCount": "{count} categories",
-      "communityBuilt": "Community Built"
+      "cta": "Explore All Brands"
     },
     "showcase": {
       "heading": "Explore Brands",
@@ -75,13 +71,17 @@
       "body2": "Formoria is the bridge between these brands and the world — so that everyone who puts care into their craft has a chance to be found.",
       "cta": "Learn Our Story"
     },
+    "submitBand": {
+      "headline": "Your brand deserves to be seen by the world",
+      "body": "Submit for free and join the Formoria community directory.",
+      "cta": "Submit Your Brand"
+    },
+    "verifiedRail": {
+      "heading": "Verified Brands"
+    },
     "newBrands": {
       "heading": "Newest Brands",
       "linkText": "Browse All Brands →"
-    },
-    "dualCta": {
-      "primary": "Explore All Brands",
-      "secondary": "Submit Your Brand"
     }
   },
   "brands": {
@@ -119,6 +119,34 @@
       "mitVerifiedLabel": "MIT Verified",
       "mitVerifiedBadge": "MIT",
       "communityLabel": "Community"
+    },
+    "verificationFilter": {
+      "all": "All",
+      "verified": "Verified",
+      "community": "Community"
+    },
+    "claimCta": {
+      "proofTypeRequired": "Please choose a valid proof type.",
+      "submitSuccess": "Your claim has been submitted.",
+      "submitError": "Something went wrong. Please try again.",
+      "communityTitle": "This is a community listing",
+      "communityListing": "Community listing. If you represent this brand, submit proof to claim and manage it.",
+      "claimButton": "Claim this brand",
+      "proofHeading": "Submit claim proof",
+      "proofPrompt": "Submit proof of ownership so we can review your claim request.",
+      "proofTypeLabel": "Proof type",
+      "proofType": {
+        "domainEmail": "Domain email",
+        "socialPost": "Social post",
+        "businessRegistration": "Business registration"
+      },
+      "proofUrlLabel": "Proof URL (optional)",
+      "notesLabel": "Notes (optional)",
+      "notesPlaceholder": "Add any helpful context.",
+      "signIn": "Sign in",
+      "submitting": "Submitting claim...",
+      "submit": "Submit claim",
+      "cancel": "Cancel"
     },
     "loadingAria": "Loading brands...",
     "noResultsInSuggestions": "No results found"
@@ -168,7 +196,7 @@
   "categories": {
     "metadata": {
       "title": "{displayName} Brands from Taiwan",
-      "description": "Explore Made in Taiwan {displayName} brands. Discover Made in Taiwan {name} brands."
+      "description": "Discover Made in Taiwan {name} brands."
     },
     "notFoundTitle": "Category Not Found",
     "breadcrumbHome": "Home",

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import zh from '../../../../messages/zh-TW.json'
 
 vi.mock('next-intl/server', () => ({
   getTranslations: vi.fn(),
@@ -19,7 +20,6 @@ vi.mock('@/lib/seo/alternates', () => ({
 }))
 
 vi.mock('@/lib/services/brands', () => ({
-  getBrandStats: vi.fn(),
   getBrands: vi.fn(),
   getNewBrands: vi.fn(),
 }))
@@ -33,10 +33,6 @@ vi.mock('@/components/landing/hero-section', () => ({
   default: () => <div data-testid="hero-section" />,
 }))
 
-vi.mock('@/components/landing/trust-bar', () => ({
-  default: () => <div data-testid="trust-bar" />,
-}))
-
 vi.mock('@/components/landing/manifesto', () => ({
   default: () => <div data-testid="manifesto" />,
 }))
@@ -45,8 +41,8 @@ vi.mock('@/components/landing/value-chips', () => ({
   default: () => <div data-testid="value-chips" />,
 }))
 
-vi.mock('@/components/landing/dual-cta', () => ({
-  default: () => <div data-testid="dual-cta" />,
+vi.mock('@/components/landing/submit-band', () => ({
+  default: () => <div data-testid="submit-band" />,
 }))
 
 vi.mock('@/components/landing/filterable-brand-showcase', () => ({
@@ -79,10 +75,28 @@ vi.mock('@/components/shared/brand-showcase', () => ({
 }))
 
 import { getTranslations } from 'next-intl/server'
-import { getBrandStats, getBrands, getNewBrands } from '@/lib/services/brands'
+import { getBrands, getNewBrands } from '@/lib/services/brands'
 import { getActiveCategories, getValueTagsWithCoverage } from '@/lib/services/taxonomy'
 import type { Brand } from '@/lib/types'
 import LandingPage from '../page'
+
+type Messages = typeof zh
+
+// Minimal Translator stub — satisfies next-intl's Translator shape for type-checking purposes
+type TranslatorStub = (key: string) => string
+
+function makeT(messages: Messages, namespace: string): TranslatorStub {
+  return (key: string) => {
+    const parts = `${namespace}.${key}`.split('.')
+    let value: unknown = messages
+
+    for (const part of parts) {
+      value = (value as Record<string, unknown>)?.[part]
+    }
+
+    return typeof value === 'string' ? value : key
+  }
+}
 
 function createBrand(overrides: Partial<Brand>): Brand {
   return {
@@ -116,12 +130,10 @@ describe('LandingPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(getTranslations).mockImplementation((async () => ((key: string) => key)) as any)
-    vi.mocked(getBrandStats).mockResolvedValue({
-      brandCount: 12,
-      categoryCount: 4,
-    })
+    vi.mocked(getTranslations).mockImplementation(
+      async (namespace: Parameters<typeof getTranslations>[0]) =>
+        makeT(zh as Messages, typeof namespace === 'string' ? namespace : '') as ReturnType<typeof makeT> as unknown as Awaited<ReturnType<typeof getTranslations>>
+    )
     vi.mocked(getActiveCategories).mockResolvedValue([])
     vi.mocked(getBrands).mockResolvedValue({
       brands: [
@@ -142,22 +154,17 @@ describe('LandingPage', () => {
     vi.mocked(getValueTagsWithCoverage).mockResolvedValue([])
   })
 
-  it('renders verified and community rails from the single approved brands result', async () => {
+  it('renders the verified rail from the single approved brands result', async () => {
     render(await LandingPage({ params: Promise.resolve({ locale: 'zh-TW' }) }))
 
     expect(screen.getByRole('heading', { name: '認證品牌' })).toBeInTheDocument()
-    expect(screen.getByText('Verified')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '社群推薦' })).toBeInTheDocument()
-    expect(screen.getByText('Community')).toBeInTheDocument()
+    expect(screen.getByTestId('submit-band')).toBeInTheDocument()
+    expect(screen.queryByText('Verified')).not.toBeInTheDocument()
     expect(screen.getByText('Verified Brand')).toBeInTheDocument()
-    expect(screen.getByText('Community Brand')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '社群推薦' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: '/brands?verification=verified' })).toHaveAttribute(
       'href',
       '/brands?verification=verified'
-    )
-    expect(screen.getByRole('link', { name: '/brands?verification=community' })).toHaveAttribute(
-      'href',
-      '/brands?verification=community'
     )
     expect(getBrands).toHaveBeenCalledTimes(1)
     expect(getBrands).toHaveBeenCalledWith({ status: 'approved', limit: 60 })

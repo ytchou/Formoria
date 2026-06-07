@@ -39,10 +39,6 @@ vi.mock('../nav-category-tabs', () => ({
   NavCategoryTabs: () => <div data-testid="nav-category-tabs" />,
 }))
 
-vi.mock('@/components/i18n/locale-switcher', () => ({
-  LocaleSwitcher: () => <div data-testid="locale-switcher" />,
-}))
-
 function renderWithIntl(ui: ReactNode) {
   return render(
     <NextIntlClientProvider locale="en" messages={enMessages}>
@@ -57,6 +53,14 @@ describe('MainNav', () => {
 
     expect(
       screen.getAllByRole('link', { name: 'Sign in' }).length,
+    ).toBeGreaterThan(0)
+  })
+
+  it('renders the language switcher trigger', () => {
+    renderWithIntl(<MainNav categories={[]} />)
+
+    expect(
+      screen.getAllByRole('button', { name: 'Switch language' }).length,
     ).toBeGreaterThan(0)
   })
 })

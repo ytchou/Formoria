@@ -77,18 +77,18 @@ test.describe('Claim smoke', () => {
     await expect(userPage.getByRole('heading', { level: 1, name: brandName })).toBeVisible({
       timeout: 10_000,
     });
-    await expect(userPage.getByRole('button', { name: /claim this brand/i })).toBeVisible({
+    await expect(userPage.getByRole('button', { name: '認領這個品牌' })).toBeVisible({
       timeout: 10_000,
     });
     await expect(userPage.getByTitle('由品牌方經營管理')).toHaveCount(0);
 
-    await userPage.getByRole('button', { name: /claim this brand/i }).click();
+    await userPage.getByRole('button', { name: '認領這個品牌' }).click();
     await userPage.locator('#claim-proof-type').selectOption('domain_email');
     await userPage.locator('#claim-proof-url').fill(`https://example.com/proof/${brandSlug}`);
     await userPage
       .locator('#claim-proof-notes')
       .fill('Smoke-test claim submitted by the seeded non-owner user fixture.');
-    await userPage.getByRole('button', { name: /submit claim/i }).click();
+    await userPage.getByRole('button', { name: '提交認領' }).click();
 
     await expect(
       userPage.getByText(/我們已收到你的認領申請|your claim has been submitted/i)

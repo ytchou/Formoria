@@ -1,41 +1,55 @@
 'use client'
 
-import { useLocale } from 'next-intl'
+import { Globe } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Link, usePathname } from '@/i18n/navigation'
 
 export function LocaleSwitcher() {
   const locale = useLocale()
   const pathname = usePathname()
+  const t = useTranslations('nav')
 
   return (
-    <div className="flex items-center gap-2 text-sm">
-      <Link
-        href={pathname}
-        locale="zh-TW"
-        aria-current={locale === 'zh-TW' ? 'true' : undefined}
-        className={
-          locale === 'zh-TW'
-            ? 'font-medium text-foreground'
-            : 'text-muted-foreground hover:text-foreground transition-colors'
-        }
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label={t('languageLabel')}
+        className="inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        中文
-      </Link>
-      <span className="text-muted-foreground/40" aria-hidden="true">
-        /
-      </span>
-      <Link
-        href={pathname}
-        locale="en"
-        aria-current={locale === 'en' ? 'true' : undefined}
-        className={
-          locale === 'en'
-            ? 'font-medium text-foreground'
-            : 'text-muted-foreground hover:text-foreground transition-colors'
-        }
-      >
-        EN
-      </Link>
-    </div>
+        <Globe className="size-4" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-36 min-w-36">
+        <DropdownMenuItem
+          className={locale === 'zh-TW' ? 'font-medium' : undefined}
+          render={
+            <Link
+              href={pathname}
+              locale="zh-TW"
+              aria-current={locale === 'zh-TW' ? 'true' : undefined}
+            />
+          }
+        >
+          中文
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className={locale === 'en' ? 'font-medium' : undefined}
+          render={
+            <Link
+              href={pathname}
+              locale="en"
+              aria-current={locale === 'en' ? 'true' : undefined}
+            />
+          }
+        >
+          English
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

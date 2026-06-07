@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { ChevronDownIcon } from 'lucide-react'
 
 import { signOut } from '@/app/auth/actions'
 import { useUser } from '@/lib/auth/use-user'
@@ -45,12 +44,9 @@ export function AccountMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={t('account.menuLabel')}
-        className="inline-flex h-9 w-[88px] items-center justify-between rounded-lg border border-border bg-background px-2 text-sm font-medium text-foreground transition-colors outline-none hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="inline-flex size-9 items-center justify-center rounded-full bg-secondary text-sm font-semibold text-secondary-foreground transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        <span className="inline-flex size-7 items-center justify-center rounded-full bg-secondary text-sm font-semibold text-secondary-foreground">
-          {initial}
-        </span>
-        <ChevronDownIcon className="size-4 text-muted-foreground" />
+        {initial}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40 min-w-40">
         <DropdownMenuItem
