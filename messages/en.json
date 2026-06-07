@@ -219,7 +219,7 @@
         "description": "Formoria is a community-driven open platform, completely free to use. If this project has been helpful to you, consider buying us a coffee!"
       },
       "title": "Support Formoria",
-      "intro1": "Formoria is a community-driven open-source project — completely free, no ads, no paywalls. All development and maintenance is sustained by passion and volunteer time.",
+      "intro1": "Formoria is a community-driven project — completely free, no ads, no paywalls. All development and maintenance is sustained by passion and volunteer time.",
       "intro2": "If Formoria has been useful to you, or if you believe in our mission to promote Taiwanese brands, consider buying us a coffee to help this project keep growing.",
       "coffee": {
         "heading": "Buy Us a Coffee",
@@ -253,7 +253,7 @@
     "items": {
       "whatIsFormoria": {
         "question": "What is Formoria?",
-        "answer": "Formoria is an open-source directory of Taiwanese brands dedicated to helping people discover and support quality Made in Taiwan products. Whether you're a consumer looking to explore local brands or a brand owner hoping to reach more people, Formoria is your starting point."
+        "answer": "Formoria is a community-driven directory of Taiwanese brands dedicated to helping people discover and support quality Made in Taiwan products. Whether you're a consumer looking to explore local brands or a brand owner hoping to reach more people, Formoria is your starting point."
       },
       "whatDoesMitMean": {
         "question": "What does \"MIT\" mean?",
@@ -284,7 +284,7 @@
   "about": {
     "metadata": {
       "title": "About",
-      "description": "Formoria is an open-source Taiwanese brand directory dedicated to promoting Made in Taiwan brands, supporting small businesses, and letting the world discover the best of Taiwan."
+      "description": "Formoria is a community-driven Taiwanese brand directory dedicated to promoting Made in Taiwan brands, supporting small businesses, and letting the world discover the best of Taiwan."
     },
     "hero": {
       "title": "About Formoria",
