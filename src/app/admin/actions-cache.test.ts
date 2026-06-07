@@ -56,9 +56,10 @@ vi.mock('@/lib/services/claim-requests', () => ({
 vi.mock('@/lib/services/brands', () => ({
   createBrand: vi.fn().mockResolvedValue({ id: 'brand-1', slug: 'test-brand' }),
   updateBrand: vi.fn().mockResolvedValue({ id: 'brand-1', slug: 'test-brand' }),
+  getBrandById: vi.fn().mockResolvedValue({ id: 'brand-1', slug: 'test-brand' }),
   deleteBrand: vi.fn().mockResolvedValue(undefined),
   generateSlug: vi.fn().mockReturnValue('test-brand'),
-  syncBrandImages: vi.fn().mockResolvedValue(undefined),
+  syncBrandImages: vi.fn().mockResolvedValue({ synced: 0, failed: 0 }),
 }))
 
 vi.mock('@/lib/services/taxonomy', () => ({
@@ -96,6 +97,7 @@ const {
   hideBrandAction,
   unhideBrandAction,
   deleteBrandAction,
+  resyncBrandImagesAction,
 } = await import('./actions')
 
 describe('admin actions cache invalidation', () => {
@@ -108,6 +110,15 @@ describe('admin actions cache invalidation', () => {
 
     expect(mockRevalidatePath).toHaveBeenCalledWith('/')
     expect(mockRevalidatePath).toHaveBeenCalledWith('/brands')
+  })
+
+  it('approveSubmissionAction returns an image sync warning on partial failure', async () => {
+    const { syncBrandImages } = await import('@/lib/services/brands')
+    vi.mocked(syncBrandImages).mockResolvedValueOnce({ synced: 1, failed: 2 })
+
+    const result = await approveSubmissionAction('sub-1')
+
+    expect(result).toEqual({ imageSyncWarning: { synced: 1, failed: 2 } })
   })
 
   it('rejectSubmissionAction revalidates public brand pages', async () => {
@@ -148,6 +159,13 @@ describe('admin actions cache invalidation', () => {
 
   it('deleteBrandAction revalidates public brand pages', async () => {
     await deleteBrandAction('brand-1')
+
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/')
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/brands')
+  })
+
+  it('resyncBrandImagesAction revalidates public brand pages', async () => {
+    await resyncBrandImagesAction('brand-1')
 
     expect(mockRevalidatePath).toHaveBeenCalledWith('/')
     expect(mockRevalidatePath).toHaveBeenCalledWith('/brands')

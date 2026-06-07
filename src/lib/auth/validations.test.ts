@@ -60,15 +60,28 @@ describe("isRelativeUrl", () => {
   it("accepts relative paths", () => {
     expect(isRelativeUrl("/dashboard")).toBe(true);
     expect(isRelativeUrl("/admin/users")).toBe(true);
+    expect(isRelativeUrl("/dashboard/brands/foo")).toBe(true);
+    expect(isRelativeUrl("/brands/x?a=1#frag")).toBe(true);
   });
 
   it("rejects absolute URLs", () => {
     expect(isRelativeUrl("https://evil.com")).toBe(false);
     expect(isRelativeUrl("http://evil.com")).toBe(false);
+    expect(isRelativeUrl("evil.com")).toBe(false);
   });
 
   it("rejects protocol-relative URLs", () => {
     expect(isRelativeUrl("//evil.com")).toBe(false);
+  });
+
+  it("rejects backslash-based open redirect bypasses", () => {
+    expect(isRelativeUrl("/\\evil.com")).toBe(false);
+    expect(isRelativeUrl("/\\/evil.com")).toBe(false);
+    expect(isRelativeUrl("\\\\evil.com")).toBe(false);
+  });
+
+  it("rejects control-character open redirect bypasses", () => {
+    expect(isRelativeUrl("/\t/evil.com")).toBe(false);
   });
 
   it("returns false for empty string", () => {

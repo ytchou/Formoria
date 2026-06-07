@@ -8,6 +8,7 @@ import {
   signInSchema,
   signUpSchema,
 } from "@/lib/auth/validations";
+import { getSiteUrl } from "@/lib/auth/site-url";
 
 export type AuthState = {
   error?: string;
@@ -64,7 +65,7 @@ export async function signUp(
   }
 
   const claimToken = formData.get("claimToken") as string | null;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://formoria.com";
+  const siteUrl = getSiteUrl();
 
   const emailRedirectTo = claimToken
     ? `${siteUrl}/auth/callback?claim=${claimToken}`
@@ -92,7 +93,7 @@ export async function signInWithGoogle(
   next?: string
 ): Promise<void> {
   const supabase = await createClient();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://formoria.com";
+  const siteUrl = getSiteUrl();
 
   const params = new URLSearchParams();
   if (claimToken) {

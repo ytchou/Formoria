@@ -9,6 +9,7 @@ import {
   hideBrandAction,
   unhideBrandAction,
   deleteBrandAction,
+  resyncBrandImagesAction,
   rejectMitAction,
   verifyMitAction,
 } from '@/app/admin/actions'
@@ -74,6 +75,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
   const [mitRejectingBrandId, setMitRejectingBrandId] = useState<string | null>(null)
   const [mitRejectNotes, setMitRejectNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const filtered =
@@ -104,6 +106,16 @@ export function BrandList({ brands }: { brands: Brand[] }) {
       const result = await deleteBrandAction(deletingBrand.id)
       if (result?.error) setError(result.error)
       else setDeletingBrand(null)
+    })
+  }
+
+  function handleResyncImages(brand: Brand) {
+    startTransition(async () => {
+      setError(null)
+      setNotice(null)
+      const result = await resyncBrandImagesAction(brand.id)
+      if (result.error) setError(result.error)
+      else setNotice(`${brand.name}: synced ${result.synced ?? 0} image(s)${result.failed ? `, ${result.failed} failed` : ''}`)
     })
   }
 
@@ -170,6 +182,9 @@ export function BrandList({ brands }: { brands: Brand[] }) {
 
       {error && (
         <p className="mt-2 text-sm text-[#D94F3D]">{error}</p>
+      )}
+      {notice && (
+        <p className="mt-2 text-sm text-amber-600">{notice}</p>
       )}
 
       <div className="mt-4 rounded-lg border bg-white">
@@ -264,6 +279,14 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                             取消隱藏
                           </Button>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleResyncImages(brand)}
+                          disabled={isPending}
+                        >
+                          Re-sync images
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"

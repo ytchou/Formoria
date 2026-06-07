@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isRelativeUrl } from "@/lib/auth/validations";
 import { verifyClaimToken } from "@/lib/auth/claim-token";
+import { getSiteUrl } from "@/lib/auth/site-url";
 import { completeBrandClaim, getBrandById } from "@/lib/services/brands";
 
 export async function GET(request: NextRequest) {
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   if (!code && !claimToken) {
     return NextResponse.redirect(
-      new URL("/auth/sign-in?error=missing-code", request.url)
+      new URL("/auth/sign-in?error=missing-code", getSiteUrl())
     );
   }
 
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
       return NextResponse.redirect(
-        new URL("/auth/sign-in?error=expired-code", request.url)
+        new URL("/auth/sign-in?error=expired-code", getSiteUrl())
       );
     }
     userId = data.user?.id;
@@ -44,13 +45,13 @@ export async function GET(request: NextRequest) {
 
     if (!claim) {
       return NextResponse.redirect(
-        new URL("/dashboard?error=invalid-claim", request.url)
+        new URL("/dashboard?error=invalid-claim", getSiteUrl())
       );
     }
 
     if (claim.email !== userEmail) {
       return NextResponse.redirect(
-        new URL("/dashboard?error=email-mismatch", request.url)
+        new URL("/dashboard?error=email-mismatch", getSiteUrl())
       );
     }
 
@@ -63,15 +64,15 @@ export async function GET(request: NextRequest) {
 
       const brand = await getBrandById(claim.brandId);
       return NextResponse.redirect(
-        new URL(`/dashboard/brands/${brand.slug}`, request.url)
+        new URL(`/dashboard/brands/${brand.slug}`, getSiteUrl())
       );
     } catch {
       return NextResponse.redirect(
-        new URL("/dashboard?error=claim-failed", request.url)
+        new URL("/dashboard?error=claim-failed", getSiteUrl())
       );
     }
   }
 
   const redirectTo = next && isRelativeUrl(next) ? next : "/dashboard";
-  return NextResponse.redirect(new URL(redirectTo, request.url));
+  return NextResponse.redirect(new URL(redirectTo, getSiteUrl()));
 }

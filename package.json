@@ -15,6 +15,7 @@
     "format:check": "prettier --check .",
     "prepare": "git config core.hooksPath scripts/hooks 2>/dev/null || true",
     "curate": "tsx --env-file=.env.local scripts/curate-brands.ts",
+    "backfill-images": "tsx --env-file=.env.local scripts/backfill-brand-images.ts",
     "test:e2e": "playwright test",
     "test:e2e:smoke": "playwright test --project=smoke-chromium --project=smoke-firefox --project=smoke-webkit",
     "test:e2e:deep": "playwright test --project=deep",

@@ -57,7 +57,7 @@ function sendEmail(email: Parameters<ReturnType<typeof createResendProvider>['se
 
 export async function approveSubmissionAction(
   submissionId: string
-): Promise<{ error: string } | undefined> {
+): Promise<{ error?: string; imageSyncWarning?: { synced: number; failed: number } } | undefined> {
   try {
     const auth = await requireAdmin()
     if ('error' in auth) return auth
@@ -67,6 +67,7 @@ export async function approveSubmissionAction(
 
     let brand: Awaited<ReturnType<typeof createBrand>>
     let slug: string
+    let imageSyncWarning: { synced: number; failed: number } | undefined
 
     if (submission.brandId == null) {
       // Legacy path: no linked brand — create a minimal one
@@ -96,7 +97,8 @@ export async function approveSubmissionAction(
       slug = brand.slug
 
       try {
-        await syncBrandImages(submission.brandId)
+        const syncResult = await syncBrandImages(submission.brandId)
+        if (syncResult.failed > 0) imageSyncWarning = syncResult
       } catch (syncErr) {
         console.error('[admin:approveSubmission] syncBrandImages failed:', syncErr)
       }
@@ -126,7 +128,7 @@ export async function approveSubmissionAction(
     revalidatePath('/admin')
     revalidatePath('/')
     revalidatePath('/brands')
-    return undefined
+    return imageSyncWarning ? { imageSyncWarning } : undefined
   } catch (err) {
     console.error('[admin:approveSubmission]', err)
     return {
@@ -410,6 +412,28 @@ export async function deleteBrandAction(
     return {
       error: err instanceof Error ? err.message : 'An unexpected error occurred',
     }
+  }
+}
+
+export async function resyncBrandImagesAction(
+  brandId: string
+): Promise<{ error?: string; synced?: number; failed?: number }> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth
+
+    const brand = await getBrandById(brandId)
+    const result = await syncBrandImages(brandId)
+
+    revalidatePath('/admin/brands')
+    revalidatePath('/admin')
+    revalidatePath('/')
+    revalidatePath('/brands')
+    revalidatePath(`/brands/${brand.slug}`)
+    return result
+  } catch (err) {
+    console.error('[admin:resyncBrandImages]', err)
+    return { error: err instanceof Error ? err.message : 'An unexpected error occurred' }
   }
 }
 

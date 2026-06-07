@@ -103,7 +103,7 @@ describe('downloadAndStoreImages', () => {
     expect(fetch).toHaveBeenCalledTimes(2)
   })
 
-  it('skips failed image downloads gracefully', async () => {
+  it('returns null in place for failed image downloads (index-aligned)', async () => {
     vi.stubGlobal(
       'fetch',
       vi
@@ -121,7 +121,9 @@ describe('downloadAndStoreImages', () => {
       'brand-123'
     )
 
-    expect(result).toHaveLength(1)
+    expect(result).toHaveLength(2)
+    expect(result[0]).toBe('https://supabase.co/storage/brand-images/photo.jpg')
+    expect(result[1]).toBeNull()
   })
 
   it('returns empty array when no URLs provided', async () => {
