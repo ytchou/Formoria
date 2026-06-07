@@ -33,6 +33,7 @@
       object-fit: cover;
       display: block;
     }
+    .bg:not([src]), .bg[src=""] { display: none; }
 
     /* Layer 2: Scrim overlay (lower-half gradient passed via {{SCRIM}}) */
     .scrim {
