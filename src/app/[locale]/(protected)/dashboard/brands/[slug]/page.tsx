@@ -12,6 +12,7 @@ import {
   getSourceBreakdown,
 } from "@/lib/services/brand-analytics";
 import { BrandCompletenessCard } from "@/components/dashboard/brand-completeness-card";
+import { MitStatusCard } from "./mit-status-card";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -85,6 +86,10 @@ export default async function BrandDashboardPage({ params }: Props) {
 
       <div className="mt-8">
         <BrandCompletenessCard completeness={completeness} slug={brand.slug} />
+      </div>
+
+      <div className="mt-8">
+        <MitStatusCard brand={brand} />
       </div>
 
       <div className="mt-8 grid gap-6">

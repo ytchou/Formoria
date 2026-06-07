@@ -22,7 +22,7 @@ import FaqPage from './page'
 type Messages = typeof zh
 
 function makeT(messages: Messages, namespace: string) {
-  return (key: string) => {
+  const translate = (key: string) => {
     const parts = `${namespace}.${key}`.split('.')
     let current: unknown = messages
     for (const part of parts) {
@@ -31,6 +31,28 @@ function makeT(messages: Messages, namespace: string) {
     }
     return typeof current === 'string' ? current : key
   }
+
+  const substitute = (str: string, values: Record<string, unknown>) =>
+    str.replace(/\{(\w+)\}/g, (_match, name: string) =>
+      typeof values[name] === 'function' ? '' : String(values[name] ?? `{${name}}`)
+    )
+
+  // Minimal next-intl t.rich shim: substitutes {placeholders} and a single <tag>…</tag>.
+  const rich = (key: string, values: Record<string, unknown> = {}) => {
+    const raw = translate(key)
+    const tagMatch = raw.match(/<(\w+)>(.*?)<\/\1>/)
+    if (!tagMatch) return substitute(raw, values)
+    const [full, tagName, inner] = tagMatch
+    const before = substitute(raw.slice(0, tagMatch.index ?? 0), values)
+    const after = substitute(raw.slice((tagMatch.index ?? 0) + full.length), values)
+    const innerText = substitute(inner, values)
+    const tagFn = values[tagName]
+    const rendered = typeof tagFn === 'function' ? (tagFn as (c: string) => unknown)(innerText) : innerText
+    const segments = [before, rendered, after]
+    return segments.every((s) => typeof s === 'string') ? segments.join('') : segments
+  }
+
+  return Object.assign((key: string) => translate(key), { rich })
 }
 
 function setupMocks(messages: Messages) {

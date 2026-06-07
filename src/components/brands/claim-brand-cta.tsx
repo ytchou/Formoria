@@ -7,6 +7,7 @@ import { useRef, useState, useTransition, type FormEvent } from 'react'
 import { submitClaimAction } from '@/app/[locale]/brands/[slug]/actions'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { CONTACT_EMAILS } from '@/lib/constants'
 
 type ClaimBrandCtaProps = {
   brandId: string
@@ -60,10 +61,6 @@ export function ClaimBrandCta({ brandId }: ClaimBrandCtaProps) {
   const [isPending, startTransition] = useTransition()
 
   const signInHref = `/auth/sign-in?next=${encodeURIComponent(pathname)}`
-  const mitSmileMarkHelper = t('mitSmileMarkNumberHelper')
-  const mitSmileMarkSupportEmail = 'ops@formoria.com'
-  const [mitSmileMarkHelperBeforeEmail, mitSmileMarkHelperAfterEmail] =
-    mitSmileMarkHelper.split(mitSmileMarkSupportEmail)
 
   function openForm() {
     setIsOpen(true)
@@ -187,11 +184,14 @@ export function ClaimBrandCta({ brandId }: ClaimBrandCtaProps) {
               className="h-12 bg-card px-3.5 py-2.5 text-sm focus-visible:border-mit-verified focus-visible:ring-3 focus-visible:ring-mit-verified/20"
             />
             <p className="text-xs text-muted-foreground">
-              {mitSmileMarkHelperBeforeEmail}
-              <a href={`mailto:${mitSmileMarkSupportEmail}`} className="underline underline-offset-4">
-                {mitSmileMarkSupportEmail}
-              </a>
-              {mitSmileMarkHelperAfterEmail}
+              {t.rich('mitSmileMarkNumberHelper', {
+                email: CONTACT_EMAILS.operations,
+                mail: (chunks) => (
+                  <a href={`mailto:${CONTACT_EMAILS.operations}`} className="underline underline-offset-4">
+                    {chunks}
+                  </a>
+                ),
+              })}
             </p>
           </div>
 

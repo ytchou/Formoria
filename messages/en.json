@@ -277,7 +277,7 @@
       },
       "contact": {
         "question": "How do I contact the Formoria team?",
-        "answer": "For any questions, suggestions, or partnership inquiries, please email: patrick.ytchou@gmail.com. Our team typically responds within 2–3 business days."
+        "answer": "For any questions, suggestions, or partnership inquiries, please email: <mail>{email}</mail>. Our team typically responds within 2–3 business days."
       }
     }
   },
@@ -476,6 +476,24 @@
         }
       }
     },
+    "mit": {
+      "title": "MIT Verification",
+      "status": {
+        "unverified": "Not verified",
+        "claimed": "Under review",
+        "verified": "MIT Verified",
+        "rejected": "Not approved"
+      },
+      "description": {
+        "unverified": "You can request MIT Smile mark verification by email to help shoppers find your brand.",
+        "claimed": "Your verification request is under review — we will get back to you shortly.",
+        "verified": "Your brand has been confirmed against the MIT Smile mark registry.",
+        "rejected": "This verification was not approved. Please see the reviewer note and feel free to request again by email."
+      },
+      "certLabel": "MIT Smile mark number",
+      "reviewNote": "Reviewer note",
+      "resubmitCta": "Request verification by email"
+    },
     "errors": {
       "invalidClaim": "The claim link is invalid or has expired. Please contact support.",
       "emailMismatch": "The email you signed in with does not match the claim invitation. Please sign in with the correct email.",
@@ -557,7 +575,7 @@
       "brandDescriptionPlaceholder": "Tell us about your brand...",
       "mitSmileMarkNumber": "MIT Smile mark number (optional)",
       "mitSmileMarkNumberPlaceholder": "例如 01200024-02134",
-      "mitSmileMarkNumberHelper": "Already certified by MIT Smile? Email ops@formoria.com to request verification.",
+      "mitSmileMarkNumberHelper": "Already certified by MIT Smile? Email <mail>{email}</mail> to request verification.",
       "charCount": "{count} / {max} max characters",
       "photos": "Photos",
       "photosDragHint": "Drag to reorder. The first photo becomes the hero image.",

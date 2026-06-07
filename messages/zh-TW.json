@@ -277,7 +277,7 @@
       },
       "contact": {
         "question": "如何聯繫 Formoria 團隊？",
-        "answer": "如有任何問題、建議或合作洽詢，歡迎來信：patrick.ytchou@gmail.com。我們的團隊會於收信後盡快回覆，一般工作日內 2–3 個工作天回應。"
+        "answer": "如有任何問題、建議或合作洽詢，歡迎來信：<mail>{email}</mail>。我們的團隊會於收信後盡快回覆，一般工作日內 2–3 個工作天回應。"
       }
     }
   },
@@ -476,6 +476,24 @@
         }
       }
     },
+    "mit": {
+      "title": "MIT 驗證狀態",
+      "status": {
+        "unverified": "尚未驗證",
+        "claimed": "審核中",
+        "verified": "MIT 已驗證",
+        "rejected": "驗證未通過"
+      },
+      "description": {
+        "unverified": "您可以來信申請 MIT 微笑標章驗證，讓消費者更容易找到您的品牌。",
+        "claimed": "您的驗證申請正在審核中，我們將盡快處理。",
+        "verified": "您的品牌已通過 MIT 微笑標章登錄驗證。",
+        "rejected": "本次驗證未通過，請參閱審核備註後，歡迎再次來信申請。"
+      },
+      "certLabel": "微笑標章號碼",
+      "reviewNote": "審核備註",
+      "resubmitCta": "以 Email 申請驗證"
+    },
     "errors": {
       "invalidClaim": "認領連結無效或已過期，請聯繫客服。",
       "emailMismatch": "您登入的電子郵件與認領邀請不符，請使用正確的電子郵件登入。",
@@ -557,7 +575,7 @@
       "brandDescriptionPlaceholder": "告訴我們關於您的品牌...",
       "mitSmileMarkNumber": "MIT 微笑標章編號（選填）",
       "mitSmileMarkNumberPlaceholder": "例如 01200024-02134",
-      "mitSmileMarkNumberHelper": "已通過 MIT 微笑標章？來信 ops@formoria.com 申請驗證。",
+      "mitSmileMarkNumberHelper": "已通過 MIT 微笑標章？來信 <mail>{email}</mail> 申請驗證。",
       "charCount": "{count} / {max} 個字元上限",
       "photos": "照片",
       "photosDragHint": "拖曳以排序。第一張照片將成為主圖。",
