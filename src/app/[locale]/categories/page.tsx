@@ -3,10 +3,11 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { getActiveCategories } from '@/lib/services/taxonomy'
 import { getBrands } from '@/lib/services/brands'
-import { buildBreadcrumbJsonLd } from '@/lib/json-ld'
+import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd } from '@/lib/json-ld'
 import type { BreadcrumbItem } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import { getSiteUrl } from '@/lib/seo/site-url'
 
 // ISR: revalidate every hour (matches [category] page)
 export const revalidate = 3600
@@ -71,18 +72,19 @@ export default async function CategoriesIndexPage({ params }: PageProps) {
     { label: t('index.heading') },
   ]
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+  const siteUrl = getSiteUrl()
+  const categorySummaries = categoriesWithCounts.map((cat) => ({
+    name: safeLocale === 'zh-TW' ? (cat.nameZh ?? cat.name) : cat.name,
+    slug: cat.slug,
+  }))
   const categoriesItemListJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'ItemList',
+    ...buildCategoryItemListJsonLd(t('index.heading'), '', categorySummaries, safeLocale),
     name: t('index.heading'),
     url: `${siteUrl}/categories`,
-    inLanguage: safeLocale === 'zh-TW' ? 'zh-TW' : 'en',
-    numberOfItems: categoriesWithCounts.length,
-    itemListElement: categoriesWithCounts.map((cat, index) => ({
+    itemListElement: categorySummaries.map((cat, index) => ({
       '@type': 'ListItem',
       position: index + 1,
-      name: safeLocale === 'zh-TW' ? (cat.nameZh ?? cat.name) : cat.name,
+      name: cat.name,
       url: `${siteUrl}/categories/${cat.slug}`,
     })),
   }
