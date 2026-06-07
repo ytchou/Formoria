@@ -1,5 +1,8 @@
 'use client'
 
+import { useEffect } from 'react'
+import * as Sentry from '@sentry/nextjs'
+
 export default function AdminError({
   error,
   reset,
@@ -7,7 +10,10 @@ export default function AdminError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  console.error('[AdminError]', error)
+  useEffect(() => {
+    Sentry.captureException(error)
+    console.error('[AdminError]', error)
+  }, [error])
 
   return (
     <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">

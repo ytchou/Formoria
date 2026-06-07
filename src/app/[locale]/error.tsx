@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import * as Sentry from '@sentry/nextjs'
 import { useTranslations } from 'next-intl'
 
 // This error boundary sits inside the locale layout, so the next-intl provider
@@ -16,6 +17,7 @@ export default function Error({
 
   useEffect(() => {
     // Surface the error to the console (and any attached error reporter).
+    Sentry.captureException(error)
     console.error(error)
   }, [error])
 
