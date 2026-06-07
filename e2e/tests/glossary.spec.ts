@@ -8,3 +8,9 @@ test('glossary renders grouped definitions with DefinedTermSet JSON-LD', async (
   const hasTermSet = blocks.some((b) => b.includes('"DefinedTermSet"'))
   expect(hasTermSet).toBe(true)
 })
+
+test('footer links to the glossary', async ({ page }) => {
+  await page.goto('/')
+  const link = page.locator('footer a[href$="/glossary"]')
+  await expect(link.first()).toBeVisible()
+})
