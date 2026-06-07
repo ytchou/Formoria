@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { buildWebSiteJsonLd } from '@/lib/json-ld'
+import { buildOrganizationJsonLd, buildWebSiteJsonLd } from '@/lib/json-ld'
 import HeroSection from '@/components/landing/hero-section'
 import Manifesto from '@/components/landing/manifesto'
 import BrandShowcase from '@/components/shared/brand-showcase'
@@ -32,6 +32,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: { absolute: t('title') },
     description: t('description'),
     alternates: { canonical, languages },
+    twitter: {
+      card: 'summary_large_image',
+      title: t('title'),
+      description: t('description'),
+    },
     openGraph: {
       title: t('title'),
       description: t('description'),
@@ -47,6 +52,7 @@ export default async function LandingPage({ params }: PageProps) {
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const t = await getTranslations('landing')
   const jsonLd = buildWebSiteJsonLd(safeLocale)
+  const organizationJsonLd = buildOrganizationJsonLd(safeLocale)
 
   const [categories, { brands: allBrands }, newBrands, valueTags] = await Promise.all([
     getActiveCategories(),
@@ -61,6 +67,10 @@ export default async function LandingPage({ params }: PageProps) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
       />
       <main>
         <HeroSection />

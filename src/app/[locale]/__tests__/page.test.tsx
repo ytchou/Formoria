@@ -10,6 +10,7 @@ vi.mock('next-intl/server', () => ({
 
 vi.mock('@/lib/json-ld', () => ({
   buildWebSiteJsonLd: vi.fn(() => ({ '@context': 'https://schema.org' })),
+  buildOrganizationJsonLd: vi.fn(() => ({ '@context': 'https://schema.org', '@type': 'Organization' })),
 }))
 
 vi.mock('@/lib/seo/alternates', () => ({
