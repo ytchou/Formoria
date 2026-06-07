@@ -11,13 +11,13 @@ describe('robots', () => {
     )
   })
 
-  it('disallows admin, api, auth, and submit paths', () => {
+  it('disallows admin, api, and auth paths but allows submit', () => {
     const result = robots()
     const rule = Array.isArray(result.rules) ? result.rules[0] : result.rules
     expect(rule.disallow).toContain('/admin')
     expect(rule.disallow).toContain('/api/')
     expect(rule.disallow).toContain('/auth/')
-    expect(rule.disallow).toContain('/submit')
+    expect(rule.disallow).not.toContain('/submit')
   })
 
   it('references sitemap.xml', () => {

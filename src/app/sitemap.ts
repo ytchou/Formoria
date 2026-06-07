@@ -2,8 +2,9 @@ import type { MetadataRoute } from 'next'
 import { getAllBrandSlugs } from '@/lib/services/brands'
 import { getActiveCategories } from '@/lib/services/taxonomy'
 import { buildAlternates } from '@/lib/seo/alternates'
+import { getSiteUrl } from '@/lib/seo/site-url'
 
-export const revalidate = 86400 // 24hr ISR
+export const revalidate = 3600 // 1hr ISR
 
 function makeEntry(
   path: string,
@@ -11,9 +12,11 @@ function makeEntry(
   changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency'],
   priority: number
 ): MetadataRoute.Sitemap[number] {
+  const base = getSiteUrl()
   const { languages } = buildAlternates(path, 'zh-TW')
+  const normalizedPath = path === '' || path === '/' ? '' : `/${path.replace(/^\//, '')}`
   // Sitemap canonical = zh-TW (prefix-free) URL
-  const url = languages['zh-TW']
+  const url = `${base}${normalizedPath}`
   return {
     url,
     lastModified: now,
@@ -35,6 +38,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     makeEntry('/', now, 'daily', 1.0),
     makeEntry('/brands', now, 'weekly', 0.9),
     makeEntry('/about', now, 'monthly', 0.5),
+    makeEntry('/glossary', now, 'monthly', 0.5),
     makeEntry('/faq', now, 'monthly', 0.5),
     makeEntry('/terms', now, 'monthly', 0.5),
     makeEntry('/support', now, 'monthly', 0.5),

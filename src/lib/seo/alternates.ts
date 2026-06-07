@@ -1,3 +1,5 @@
+import { getSiteUrl } from './site-url'
+
 export type Locale = 'zh-TW' | 'en'
 
 export type AlternatesResult = {
@@ -16,7 +18,7 @@ export type AlternatesResult = {
  * @param locale The locale of the current page (determines the self-referencing canonical)
  */
 export function buildAlternates(path: string, locale: Locale): AlternatesResult {
-  const base = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/$/, '')
+  const base = getSiteUrl()
 
   // Normalize: home path ('' or '/') → no trailing slash; other paths start with '/'
   const normalizedPath = path === '' || path === '/' ? '' : `/${path.replace(/^\//, '')}`

@@ -70,7 +70,7 @@ describe('MySubmissionsPage', () => {
 
   it('renders submission list when user has submissions', async () => {
     const { default: MySubmissionsPage } = await import('./page')
-    const element = await MySubmissionsPage()
+    const element = await MySubmissionsPage({ params: Promise.resolve({ locale: 'zh-TW' }) })
     // Server Component returns a React element — check it's not null
     expect(element).not.toBeNull()
   })

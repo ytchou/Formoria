@@ -35,6 +35,7 @@
     "discoverHeading": "Discover",
     "directory": "Brand Directory",
     "categories": "Categories",
+    "glossary": "Glossary",
     "submit": "Submit a Brand",
     "companyHeading": "Company",
     "faq": "FAQ",
@@ -202,6 +203,17 @@
     "breadcrumbHome": "Home",
     "brandCount": "{count, plural, =0 {No brands} one {# brand} other {# brands}}",
     "description": "Discover Made in Taiwan {category} brands.",
+    "descriptions": {
+      "clothing": "Explore Taiwan clothing brands shaped by textile know-how, practical tailoring, and a modern design point of view. From everyday basics to independent labels, these makers show how local craft moves with daily life.",
+      "bags": "Discover bag and leather goods brands from Taiwan, including workshops focused on durable materials, careful stitching, and functional silhouettes. Many balance small-batch production with the island's long relationship with craft manufacturing.",
+      "food": "Browse Taiwan food and snack brands that turn local ingredients, nostalgic flavors, and regional specialties into products ready to travel. This category highlights pantry staples, sweets, and everyday tastes rooted in Taiwanese food culture.",
+      "beverages": "Find Taiwan beverage brands spanning tea, coffee, fruit drinks, and fermented craft. These makers draw from the island's farming regions and cafe culture to create drinks with a clear sense of place.",
+      "beauty": "Explore Taiwanese beauty and skincare brands built around climate-aware formulas, gentle routines, and ingredient transparency. From daily skincare to targeted treatments, these labels reflect a practical approach to care.",
+      "home": "Discover home and living brands from Taiwan making objects for cooking, decorating, storage, and everyday rituals. The best pieces combine useful design with materials and stories that feel distinctly local.",
+      "stationery": "Browse Taiwan stationery and design brands known for paper goods, illustration, writing tools, and thoughtful desk objects. This category reflects the island's strong graphic culture and affection for useful small details.",
+      "crafts": "Explore Taiwan craft and handmade brands where ceramics, textiles, wood, metal, and mixed materials are shaped in small batches. These makers keep traditional skills active while giving them contemporary form.",
+      "tech": "Discover Taiwan tech and electronics brands connected to the island's hardware, design, and manufacturing strengths. From useful gadgets to creator tools, these products show how engineering and everyday needs meet."
+    },
     "index": {
       "metadata": {
         "title": "Browse by Category — Made in Taiwan Brands",
@@ -209,6 +221,137 @@
       },
       "heading": "Browse by Category",
       "subheading": "Discover Made in Taiwan brands across all categories"
+    }
+  },
+  "glossary": {
+    "metadata": {
+      "title": "Glossary | Formoria",
+      "description": "Definitions for terms used across Formoria — from what Made in Taiwan means to how trust badges work and how we organise the directory."
+    },
+    "eyebrow": "Reference",
+    "heading": "Glossary",
+    "lede": "Terms and definitions used across Formoria — from what 'Made in Taiwan' means to how trust badges work and how we organise the directory.",
+    "sections": {
+      "core": {
+        "title": "Core",
+        "terms": {
+          "madeInTaiwan": {
+            "zh": "台灣製造",
+            "en": "Made in Taiwan",
+            "definition": "Primary design, manufacturing, or founding rooted in Taiwan — a commitment to craft, not just an origin label."
+          },
+          "communityCurated": {
+            "zh": "社群策展",
+            "en": "Community-curated",
+            "definition": "Submitted and reviewed by the community, not by an algorithm — every listing reflects a human decision."
+          }
+        }
+      },
+      "verification": {
+        "title": "Verification",
+        "terms": {
+          "mitVerified": {
+            "zh": "MIT 微笑標章",
+            "en": "Verified",
+            "definition": "Registry-confirmed against the 微笑產品標章 — independently cross-checked, not self-reported.",
+            "badge": "verified"
+          },
+          "ownerClaimed": {
+            "zh": "品牌經營",
+            "en": "Owner-claimed",
+            "definition": "The brand owner has claimed and actively manages this listing — a live, maintained presence.",
+            "badge": "owner"
+          },
+          "communityLabel": {
+            "zh": "社群標記",
+            "en": "Community label",
+            "definition": "Community-maintained with no owner claim and no registry check — always welcome to claim."
+          }
+        }
+      },
+      "materials": {
+        "title": "Materials",
+        "terms": {
+          "leather": {
+            "zh": "皮革",
+            "en": "Leather",
+            "definition": "Full- or top-grain, vegetable-tanned leather — not synthetics."
+          },
+          "ceramic": {
+            "zh": "陶瓷",
+            "en": "Ceramic",
+            "definition": "Clay, porcelain, and stoneware, with strong roots in Yingge (鶯歌) heritage."
+          },
+          "naturalFibre": {
+            "zh": "天然纖維",
+            "en": "Natural Fibre",
+            "definition": "Cotton, linen, wool, silk, or bamboo — plant- or animal-sourced only."
+          }
+        }
+      },
+      "priceRange": {
+        "title": "Price Range",
+        "terms": {
+          "accessible": {
+            "zh": "親民",
+            "en": "Accessible",
+            "definition": "Everyday pricing, from NT$0 to NT$500.",
+            "range": "NT$0 – NT$500"
+          },
+          "midRange": {
+            "zh": "中價位",
+            "en": "Mid-range",
+            "definition": "Considered purchases, from NT$500 to NT$3,000.",
+            "range": "NT$500 – NT$3,000"
+          },
+          "premium": {
+            "zh": "精品",
+            "en": "Premium",
+            "definition": "Premium craft, NT$3,000 and above.",
+            "range": "NT$3,000+"
+          }
+        }
+      },
+      "regions": {
+        "title": "Regions",
+        "terms": {
+          "north": {
+            "zh": "北部",
+            "en": "North Taiwan",
+            "definition": "Taipei, New Taipei, Taoyuan, Keelung — the island's design and fashion hub."
+          },
+          "central": {
+            "zh": "中部",
+            "en": "Central Taiwan",
+            "definition": "Taichung, Changhua, Nantou — known for ceramics, tea, and woodwork."
+          },
+          "south": {
+            "zh": "南部",
+            "en": "South Taiwan",
+            "definition": "Tainan, Kaohsiung, Pingtung — artisan and food culture, the cultural capital."
+          }
+        }
+      },
+      "values": {
+        "title": "Values",
+        "terms": {
+          "slowMade": {
+            "zh": "慢工出細活",
+            "en": "Slow-made",
+            "definition": "Small-batch and handmade — a curatorial signal, not a certification."
+          },
+          "ecoConscious": {
+            "zh": "永續意識",
+            "en": "Eco-conscious",
+            "definition": "A material commitment to environmental responsibility in sourcing, packaging, and waste."
+          },
+          "familyRun": {
+            "zh": "家族傳承",
+            "en": "Family-run",
+            "definition": "Family-owned and operated, often across multiple generations."
+          }
+        }
+      }
     }
   },
   "legal": {
@@ -603,6 +746,7 @@
       "brandNamePlaceholder": "e.g. Rain Boot Studio",
       "brandDescription": "Brand Description",
       "brandDescriptionPlaceholder": "Tell us about your brand...",
+      "brandDescriptionHint": "Write a specific, factual description (at least 40 characters) — what you make, your materials, and what makes the brand Taiwanese.",
       "mitSmileMarkNumber": "MIT Smile mark number (optional)",
       "mitSmileMarkNumberPlaceholder": "例如 01200024-02134",
       "mitSmileMarkNumberHelper": "Already certified by MIT Smile? Email <mail>{email}</mail> to request verification.",

@@ -17,8 +17,10 @@ test.describe('Submit smoke', () => {
 
     // Fill fields to verify form interactivity
     await userPage.locator('#brand-name').fill('[E2E-TEST] Smoke Brand');
-    await userPage.locator('#brand-description').fill('Test description for smoke test');
+    await userPage.locator('#brand-description').fill('Smoke test brand description with enough detail');
     await expect(userPage.locator('#brand-name')).toHaveValue('[E2E-TEST] Smoke Brand');
-    await expect(userPage.locator('#brand-description')).toHaveValue('Test description for smoke test');
+    await expect(userPage.locator('#brand-description')).toHaveValue(
+      'Smoke test brand description with enough detail',
+    );
   });
 });

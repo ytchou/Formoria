@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Check, Home, Plus } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
+import { buildAlternates } from '@/lib/seo/alternates'
+import type { Locale } from '@/lib/seo/alternates'
 
 type ConfirmationPageProps = {
   params: Promise<{ locale: string }>
@@ -14,6 +16,7 @@ export async function generateMetadata({ params }: ConfirmationPageProps): Promi
   return {
     title: t('title'),
     description: t('description'),
+    alternates: buildAlternates('/submit/confirmation', locale as Locale),
   }
 }
 

@@ -35,6 +35,7 @@
     "discoverHeading": "探索",
     "directory": "品牌目錄",
     "categories": "分類瀏覽",
+    "glossary": "名詞解說",
     "submit": "提交品牌",
     "companyHeading": "關於",
     "faq": "常見問題",
@@ -202,6 +203,17 @@
     "breadcrumbHome": "首頁",
     "brandCount": "{count, plural, =0 {尚無品牌} other {# 個品牌}}",
     "description": "探索台灣製造的 {category} 品牌。",
+    "descriptions": {
+      "clothing": "探索以紡織技術、實穿剪裁與當代設計觀點為核心的台灣服飾品牌。從日常基本款到獨立設計，它們讓在地工藝走進每一天的穿著。",
+      "bags": "發現來自台灣的包袋與皮件品牌，聚焦耐用材質、細緻車縫與實用輪廓。許多品牌在小批量製作與台灣長久的工藝製造基礎之間取得平衡。",
+      "food": "瀏覽把在地食材、懷舊風味與地方特色轉化為可分享產品的台灣食品與零食品牌。這裡收錄日常調味、甜點零嘴與深植台灣飲食文化的味道。",
+      "beverages": "尋找涵蓋茶、咖啡、果飲與發酵工藝的台灣飲品品牌。這些品牌從島嶼農產地景與咖啡文化汲取靈感，做出帶有明確地域感的飲品。",
+      "beauty": "探索以適合氣候的配方、溫和保養流程與成分透明度為基礎的台灣美妝保養品牌。從日常保養到針對性護理，呈現務實而細膩的照護觀點。",
+      "home": "發現製作烹飪、佈置、收納與日常儀式用品的台灣居家生活品牌。好的物件兼具實用設計、材質選擇與屬於在地的故事。",
+      "stationery": "瀏覽以紙品、插畫、書寫工具與桌上小物聞名的台灣文具設計品牌。這個分類展現島嶼濃厚的圖像文化，以及對實用細節的喜愛。",
+      "crafts": "探索以陶瓷、織品、木作、金工與複合材質小批量製作的台灣手作工藝品牌。這些創作者讓傳統技藝持續被使用，也賦予它們當代形式。",
+      "tech": "發現連結台灣硬體、設計與製造實力的 3C 科技品牌。從實用裝置到創作者工具，這些產品展現工程能力如何回應日常需求。"
+    },
     "index": {
       "metadata": {
         "title": "依類別瀏覽 — 台灣製造品牌",
@@ -209,6 +221,137 @@
       },
       "heading": "依類別瀏覽",
       "subheading": "探索各類別的台灣在地品牌"
+    }
+  },
+  "glossary": {
+    "metadata": {
+      "title": "名詞解說 | Formoria",
+      "description": "Formoria 名詞解說——台灣製造定義、信任標章說明，以及目錄分類標籤總覽。"
+    },
+    "eyebrow": "參考",
+    "heading": "名詞解說",
+    "lede": "Formoria 上使用的名詞與定義——從「台灣製造」的意義、信任標章的運作，到我們如何組織整個目錄。",
+    "sections": {
+      "core": {
+        "title": "核心概念",
+        "terms": {
+          "madeInTaiwan": {
+            "zh": "台灣製造",
+            "en": "Made in Taiwan",
+            "definition": "主要設計、製造或創立根植於台灣——是對工藝的承諾，而非僅是產地標籤。"
+          },
+          "communityCurated": {
+            "zh": "社群策展",
+            "en": "Community-curated",
+            "definition": "由社群提交與審核，而非演算法——每筆收錄都來自真人的判斷。"
+          }
+        }
+      },
+      "verification": {
+        "title": "驗證標章",
+        "terms": {
+          "mitVerified": {
+            "zh": "MIT 微笑標章",
+            "en": "Verified",
+            "definition": "比對微笑產品標章登錄資料確認——經獨立查核，而非自行申報。",
+            "badge": "verified"
+          },
+          "ownerClaimed": {
+            "zh": "品牌經營",
+            "en": "Owner-claimed",
+            "definition": "品牌經營者已認領並主動維護此頁面——是持續維護的真實存在。",
+            "badge": "owner"
+          },
+          "communityLabel": {
+            "zh": "社群標記",
+            "en": "Community label",
+            "definition": "由社群維護，尚無經營者認領、也未經登錄查核——隨時歡迎認領。"
+          }
+        }
+      },
+      "materials": {
+        "title": "材質",
+        "terms": {
+          "leather": {
+            "zh": "皮革",
+            "en": "Leather",
+            "definition": "全粒面或頭層、植鞣皮革——非合成材質。"
+          },
+          "ceramic": {
+            "zh": "陶瓷",
+            "en": "Ceramic",
+            "definition": "陶土、瓷器與炻器，深植鶯歌工藝傳統。"
+          },
+          "naturalFibre": {
+            "zh": "天然纖維",
+            "en": "Natural Fibre",
+            "definition": "棉、麻、羊毛、絲或竹——僅限植物或動物來源。"
+          }
+        }
+      },
+      "priceRange": {
+        "title": "價格區間",
+        "terms": {
+          "accessible": {
+            "zh": "親民",
+            "en": "Accessible",
+            "definition": "日常價位，NT$0 至 NT$500。",
+            "range": "NT$0 – NT$500"
+          },
+          "midRange": {
+            "zh": "中價位",
+            "en": "Mid-range",
+            "definition": "進階選擇，NT$500 至 NT$3,000。",
+            "range": "NT$500 – NT$3,000"
+          },
+          "premium": {
+            "zh": "精品",
+            "en": "Premium",
+            "definition": "精品工藝，NT$3,000 以上。",
+            "range": "NT$3,000+"
+          }
+        }
+      },
+      "regions": {
+        "title": "地區",
+        "terms": {
+          "north": {
+            "zh": "北部",
+            "en": "North Taiwan",
+            "definition": "台北、新北、桃園、基隆——島嶼的設計與時尚樞紐。"
+          },
+          "central": {
+            "zh": "中部",
+            "en": "Central Taiwan",
+            "definition": "台中、彰化、南投——以陶瓷、茶與木工著稱。"
+          },
+          "south": {
+            "zh": "南部",
+            "en": "South Taiwan",
+            "definition": "台南、高雄、屏東——工藝與飲食文化，文化古都。"
+          }
+        }
+      },
+      "values": {
+        "title": "價值理念",
+        "terms": {
+          "slowMade": {
+            "zh": "慢工出細活",
+            "en": "Slow-made",
+            "definition": "小批量、手工製作——是策展訊號，而非認證。"
+          },
+          "ecoConscious": {
+            "zh": "永續意識",
+            "en": "Eco-conscious",
+            "definition": "在選料、包裝與廢棄物上，對環境責任的實質承諾。"
+          },
+          "familyRun": {
+            "zh": "家族傳承",
+            "en": "Family-run",
+            "definition": "家族擁有並經營，往往跨越數代傳承。"
+          }
+        }
+      }
     }
   },
   "legal": {
@@ -603,6 +746,7 @@
       "brandNamePlaceholder": "例：雨靴工作室",
       "brandDescription": "品牌描述",
       "brandDescriptionPlaceholder": "告訴我們關於您的品牌...",
+      "brandDescriptionHint": "請寫下具體、可查證的介紹（至少 40 個字元）——你做什麼、使用的材料，以及品牌的台灣特色。",
       "mitSmileMarkNumber": "MIT 微笑標章編號（選填）",
       "mitSmileMarkNumberPlaceholder": "例如 01200024-02134",
       "mitSmileMarkNumberHelper": "已通過 MIT 微笑標章？來信 <mail>{email}</mail> 申請驗證。",

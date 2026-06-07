@@ -186,7 +186,7 @@ describe('fullSubmissionSchema', () => {
   it('validates a complete submission', () => {
     const result = fullSubmissionSchema.safeParse({
       name: '雨靴工作室',
-      description: 'Handcrafted rain boots from Tainan.',
+      description: 'Handcrafted rain boots from Tainan with durable city-ready soles.',
       category: 'fashion',
       tags: ['handmade'],
       logoUrl: 'https://example.com/logo.webp',
