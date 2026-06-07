@@ -1,15 +1,26 @@
 import type { Metadata } from 'next'
 import { Link } from '@/i18n/navigation'
 import { redirect } from 'next/navigation'
-import { getLocale, getTranslations } from 'next-intl/server'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
+import { buildAlternates } from '@/lib/seo/alternates'
+import type { Locale } from '@/lib/seo/alternates'
 import { createClient } from '@/lib/supabase/server'
 import { getUserSubmissions } from '@/lib/services/submissions'
 import { Badge } from '@/components/ui/badge'
 
-export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations('mySubmissions.metadata')
+type MySubmissionsPageProps = {
+  params: Promise<{ locale: string }>
+}
+
+export async function generateMetadata({ params }: MySubmissionsPageProps): Promise<Metadata> {
+  const { locale } = await params
+  setRequestLocale(locale)
+  const t = await getTranslations('mySubmissions')
   return {
-    title: t('title'),
+    title: t('metadata.title'),
+    description: t('subheading'),
+    alternates: buildAlternates('/my-submissions', locale as Locale),
+    robots: { index: false, follow: true },
   }
 }
 
@@ -19,8 +30,9 @@ const STATUS_COLORS: Record<string, string> = {
   rejected: 'bg-red-50 text-red-700 border-red-200',
 }
 
-export default async function MySubmissionsPage() {
-  const locale = await getLocale()
+export default async function MySubmissionsPage({ params }: MySubmissionsPageProps) {
+  const { locale } = await params
+  setRequestLocale(locale)
   const next = locale === 'en' ? '/en/my-submissions' : '/my-submissions'
   const supabase = await createClient()
   const {

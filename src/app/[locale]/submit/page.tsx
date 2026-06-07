@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
+import { buildAlternates } from '@/lib/seo/alternates'
+import type { Locale } from '@/lib/seo/alternates'
 import { createClient } from '@/lib/supabase/server'
 import { getTags } from '@/lib/services/taxonomy'
 import { SubmitWizard } from '@/components/submit/SubmitWizard'
@@ -16,6 +18,7 @@ export async function generateMetadata({ params }: SubmitPageProps): Promise<Met
   return {
     title: t('title'),
     description: t('description'),
+    alternates: buildAlternates('/submit', locale as Locale),
   }
 }
 
