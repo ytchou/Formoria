@@ -61,6 +61,9 @@ check_env() {
     if ! grep -q "RENDER_API_KEY=" .env.local 2>/dev/null; then
       echo "WARN: RENDER_API_KEY may not be set (optional hosted rendering; local Playwright fallback will be used)"
     fi
+    if ! grep -q "RESEND_API_KEY=" .env.local 2>/dev/null; then
+      echo "WARN: RESEND_API_KEY may not be set (optional transactional owner emails will no-op)"
+    fi
   fi
 }
 
