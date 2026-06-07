@@ -64,6 +64,12 @@ check_env() {
     if ! grep -q "RESEND_API_KEY=" .env.local 2>/dev/null; then
       echo "WARN: RESEND_API_KEY may not be set (optional transactional owner emails will no-op)"
     fi
+    if ! grep -q "NEXT_PUBLIC_SENTRY_DSN=https://" .env.local 2>/dev/null; then
+      echo "WARN: NEXT_PUBLIC_SENTRY_DSN may not be set — Sentry error monitoring disabled (check .env.local)"
+    fi
+    if ! grep -q "SENTRY_AUTH_TOKEN=" .env.local 2>/dev/null; then
+      echo "WARN: SENTRY_AUTH_TOKEN may not be set — Sentry source map upload will be skipped at build (check .env.local)"
+    fi
   fi
 }
 
