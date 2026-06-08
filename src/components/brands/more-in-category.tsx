@@ -17,7 +17,7 @@ export async function MoreInCategory({ category, categoryLabel, count }: MoreInC
   return (
     <Link
       href={`/categories/${encodeURIComponent(category)}`}
-      className="flex items-center justify-between rounded-xl bg-secondary px-4 py-3.5 transition-colors hover:bg-secondary/80"
+      className="flex items-center justify-between rounded-xl bg-card border border-border px-4 py-3.5 transition-colors hover:border-foreground/20"
     >
       <div className="space-y-0.5">
         <p className="text-sm font-semibold text-foreground">

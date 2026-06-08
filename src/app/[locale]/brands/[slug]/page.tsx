@@ -165,10 +165,10 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
           />
 
           {!brand.isVerified && (
-            <div className="space-y-2">
-              <ClaimBrandCta brandId={brand.id} />
-              <RequestRemoval brandId={brand.id} />
-            </div>
+            <ClaimBrandCta
+              brandId={brand.id}
+              removalSlot={<RequestRemoval brandName={brand.name} brandSlug={brand.slug} />}
+            />
           )}
 
           <hr className="border-border" />

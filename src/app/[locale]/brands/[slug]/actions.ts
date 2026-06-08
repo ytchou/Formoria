@@ -6,11 +6,7 @@ import { getTranslations } from 'next-intl/server'
 import { createClient } from '@/lib/supabase/server'
 import { createInMemoryRateLimiter } from '@/lib/security/rate-limiter'
 import { createClaimRequest } from '@/lib/services/claim-requests'
-import {
-  createReport,
-  REMOVAL_REQUEST_REASON,
-  requestBrandRemoval,
-} from '@/lib/services/reports'
+import { createReport } from '@/lib/services/reports'
 
 const REPORT_REASONS = ['not_mit', 'incorrect_info', 'broken_link', 'inappropriate'] as const
 const CLAIM_PROOF_TYPES = ['domain_email', 'social_post', 'business_registration'] as const
@@ -27,12 +23,6 @@ export type SubmitClaimInput = {
 }
 
 export type SubmitClaimResult = { ok: true } | { error: string }
-export type RequestBrandRemovalInput = {
-  brandId: string
-  message?: string
-}
-
-export type RequestBrandRemovalResult = { ok: true } | { error: string }
 
 const reportRateLimiter = createInMemoryRateLimiter()
 
@@ -88,46 +78,6 @@ export async function submitClaimAction(input: SubmitClaimInput): Promise<Submit
       return { error: t('duplicate') }
     }
 
-    return {
-      error: err instanceof Error ? err.message : t('unknown'),
-    }
-  }
-}
-
-export async function requestBrandRemovalAction(
-  input: RequestBrandRemovalInput
-): Promise<RequestBrandRemovalResult> {
-  const t = await getTranslations('brandDetail.removal.errors')
-  try {
-    const brandId = input.brandId.trim()
-    if (!brandId) {
-      return { error: t('missingBrandId') }
-    }
-
-    const message = input.message?.trim()
-    if (message && message.length > 1000) {
-      return { error: t('notesTooLong') }
-    }
-
-    const h = await headers()
-    const ip = h.get('x-forwarded-for')?.split(',')[0].trim() ?? h.get('x-real-ip') ?? 'unknown'
-
-    const rl = reportRateLimiter.check(`removal:${ip}`, 60_000, 3)
-    if (!rl.allowed) {
-      return { error: t('rateLimited') }
-    }
-
-    await requestBrandRemoval({
-      brandId,
-      reason: REMOVAL_REQUEST_REASON,
-      message: message || undefined,
-    })
-
-    revalidatePath('/admin/reports')
-    revalidatePath('/admin')
-    return { ok: true }
-  } catch (err) {
-    console.error('[brands:requestRemoval]', err)
     return {
       error: err instanceof Error ? err.message : t('unknown'),
     }

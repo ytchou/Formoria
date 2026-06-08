@@ -63,34 +63,6 @@ export async function createReport(input: {
   if (error) throw error
 }
 
-export async function requestBrandRemoval(input: {
-  brandId: string
-  reason: typeof REMOVAL_REQUEST_REASON
-  message?: string | null
-}): Promise<void> {
-  const { createServiceClient } = await import('@/lib/supabase/server')
-  const supabase = createServiceClient()
-
-  const { data: existingPendingRemoval, error: existingPendingRemovalError } = await supabase
-    .from('brand_reports')
-    .select('id')
-    .eq('brand_id', input.brandId)
-    .eq('reason', REMOVAL_REQUEST_REASON)
-    .eq('status', 'pending')
-    .maybeSingle()
-
-  if (existingPendingRemovalError) throw existingPendingRemovalError
-  if (existingPendingRemoval) {
-    return
-  }
-
-  await createReport({
-    brandId: input.brandId,
-    reason: input.reason,
-    notes: input.message ?? null,
-  })
-}
-
 export async function getPendingReports(): Promise<BrandReport[]> {
   const { createServiceClient } = await import('@/lib/supabase/server')
   const supabase = createServiceClient()

@@ -1,8 +1,7 @@
 import { useTranslations } from 'next-intl'
-import { ExternalLink, MapPin } from 'lucide-react'
+import { MapPin } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { Brand } from '@/lib/types'
-import { MIT_SMILE_REGISTRY_URL } from '@/lib/constants'
 import { MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badges'
 
 interface BrandHeaderProps {
@@ -48,17 +47,11 @@ export function BrandHeader({ brand, categoryLabel, actionsSlot }: BrandHeaderPr
           </div>
         )}
 
-        {/* MIT Smile registry proof link */}
+        {/* MIT Smile cert number — plain caption, no link */}
         {mitSmileCert && (
-          <a
-            href={MIT_SMILE_REGISTRY_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-warm-caption underline-offset-2 transition-colors hover:text-foreground hover:underline"
-          >
+          <span className="text-xs text-warm-caption">
             {t('mitProofLink', { cert: mitSmileCert })}
-            <ExternalLink className="size-3" aria-hidden />
-          </a>
+          </span>
         )}
 
         {/* Founding year */}

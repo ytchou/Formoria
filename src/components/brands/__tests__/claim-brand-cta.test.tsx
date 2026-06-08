@@ -9,6 +9,9 @@ const mockSubmitClaimAction = vi.fn()
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/zh-TW/brands/test-brand',
+  useRouter: () => ({ push: () => {}, replace: () => {}, prefetch: () => {}, refresh: () => {} }),
+  redirect: () => {},
+  permanentRedirect: () => {},
 }))
 
 vi.mock('@/app/[locale]/brands/[slug]/actions', () => ({

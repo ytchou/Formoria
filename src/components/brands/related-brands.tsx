@@ -8,16 +8,15 @@ interface RelatedBrandsProps {
   categoryLabel?: string | null
 }
 
-export async function RelatedBrands({ brands, categoryName, categoryLabel }: RelatedBrandsProps) {
+export async function RelatedBrands({ brands }: RelatedBrandsProps) {
   if (brands.length === 0) return null
 
   const t = await getTranslations('brandDetail')
-  const displayLabel = categoryLabel ?? categoryName
 
   return (
     <section className="mt-16 border-t border-border pt-8">
       <h2 className="mb-6 font-heading text-xl font-bold text-foreground">
-        {t('moreInCategory.heading', { category: displayLabel })}
+        {t('relatedBrands.heading')}
       </h2>
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {brands.map((brand) => (

@@ -130,7 +130,7 @@
       "proofTypeRequired": "請選擇有效的認領證明類型",
       "submitSuccess": "我們已收到你的認領申請，會盡快審核。",
       "submitError": "提交失敗，請稍後再試。",
-      "communityTitle": "這是社群整理品牌頁",
+      "communityTitle": "這是你的品牌嗎？",
       "communityListing": "社群收錄。如果你是這個品牌的代表，請提交證明以認領並管理它。",
       "claimButton": "認領這個品牌",
       "proofHeading": "提交認領證明",
@@ -147,7 +147,8 @@
       "signIn": "立即登入",
       "submitting": "提交中…",
       "submit": "提交認領",
-      "cancel": "取消"
+      "cancel": "取消",
+      "whyClaim": "為什麼要認領？了解好處"
     },
     "loadingAria": "載入品牌中...",
     "noResultsInSuggestions": "找不到結果"
@@ -161,7 +162,7 @@
     "verifiedTitle": "由品牌方經營管理",
     "mitVerified": "MIT 已驗證",
     "mitVerifiedTitle": "已通過 MIT 微笑標章登錄驗證",
-    "mitProofLink": "查看 MIT 微笑標章驗證（證號 {cert}）",
+    "mitProofLink": "MIT 微笑標章證號 {cert}",
     "foundingYear": "創立於 {year}",
     "actions": {
       "visitWebsite": "前往官網",
@@ -223,24 +224,13 @@
       "heading": "更多{category}",
       "subtext": "此分類還有 {count} 個品牌"
     },
+    "relatedBrands": {
+      "heading": "你可能也會喜歡"
+    },
     "removal": {
       "trigger": "要求移除",
-      "title": "要求移除此品牌頁",
-      "description": "如果這個社群品牌頁不應繼續公開，我們可以交由管理員審核移除。",
-      "label": "補充說明",
-      "labelOptional": "選填",
-      "placeholder": "可補充品牌關係、原因或希望我們知道的背景資訊",
-      "cancel": "取消",
-      "submit": "確認要求移除",
-      "submitting": "提交中",
-      "successMessage": "我們已收到移除請求，會交由管理員審核。",
-      "errorMessage": "提交失敗，請稍後再試。",
-      "errors": {
-        "missingBrandId": "缺少品牌 ID",
-        "notesTooLong": "補充說明不得超過 1000 字",
-        "rateLimited": "檢舉次數過多，請稍後再試。",
-        "unknown": "提交失敗，請稍後再試。"
-      }
+      "mailtoSubject": "品牌移除請求：{name}",
+      "mailtoBody": "品牌：{name}（{slug}）\n\n請說明希望移除的原因：\n"
     },
     "claim": {
       "errors": {
@@ -500,7 +490,7 @@
       },
       "claimOrUpdate": {
         "question": "我是品牌負責人，如何認領或更新品牌頁面？",
-        "answer": "若你是品牌的負責人或官方代表，歡迎透過信件與我們聯繫，告知品牌名稱及你的身份證明方式。我們的團隊會協助你確認身份並進行品牌資料的更新或認領。請來信至頁面底部的聯絡信箱。"
+        "answer": "品牌認領後，你可以直接管理與更新品牌資訊、獲得品牌經營者徽章以彰顯真實身份、代表品牌與社群互動，以及未來優先取得品牌分析數據（即將推出）。如需認領，請在品牌頁面點擊「認領這個品牌」並提交所有權證明，我們的團隊會盡快審核。"
       },
       "dataAccuracy": {
         "question": "品牌資料的準確性如何保障？",

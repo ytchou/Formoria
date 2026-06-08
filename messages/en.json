@@ -130,7 +130,7 @@
       "proofTypeRequired": "Please choose a valid proof type.",
       "submitSuccess": "Your claim has been submitted.",
       "submitError": "Something went wrong. Please try again.",
-      "communityTitle": "This is a community listing",
+      "communityTitle": "Is this your brand?",
       "communityListing": "Community listing. If you represent this brand, submit proof to claim and manage it.",
       "claimButton": "Claim this brand",
       "proofHeading": "Submit claim proof",
@@ -147,7 +147,8 @@
       "signIn": "Sign in",
       "submitting": "Submitting claim...",
       "submit": "Submit claim",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "whyClaim": "Why claim? See the benefits"
     },
     "loadingAria": "Loading brands...",
     "noResultsInSuggestions": "No results found"
@@ -161,7 +162,7 @@
     "verifiedTitle": "Managed by the brand owner",
     "mitVerified": "MIT Verified",
     "mitVerifiedTitle": "Verified against the MIT Smile registry",
-    "mitProofLink": "View MIT Smile listing (cert. {cert})",
+    "mitProofLink": "MIT Smile mark cert. {cert}",
     "foundingYear": "Est. {year}",
     "actions": {
       "visitWebsite": "Visit Website",
@@ -223,24 +224,13 @@
       "heading": "More in {category}",
       "subtext": "{count} other brands in this category"
     },
+    "relatedBrands": {
+      "heading": "You might also like"
+    },
     "removal": {
       "trigger": "Request removal",
-      "title": "Request removal of this brand page",
-      "description": "If this community listing should not remain public, submit a removal request for review.",
-      "label": "Message",
-      "labelOptional": "optional",
-      "placeholder": "Add any context that helps review this request.",
-      "cancel": "Cancel",
-      "submit": "Confirm removal request",
-      "submitting": "Submitting",
-      "successMessage": "Your removal request has been submitted for review.",
-      "errorMessage": "Something went wrong. Please try again.",
-      "errors": {
-        "missingBrandId": "Missing brand ID",
-        "notesTooLong": "Message must be 1000 characters or fewer",
-        "rateLimited": "Too many requests. Please try again later.",
-        "unknown": "Something went wrong. Please try again."
-      }
+      "mailtoSubject": "Brand removal request: {name}",
+      "mailtoBody": "Brand: {name} ({slug})\n\nPlease describe why this should be removed:\n"
     },
     "claim": {
       "errors": {
@@ -500,7 +490,7 @@
       },
       "claimOrUpdate": {
         "question": "I'm the brand owner — how do I claim or update my brand page?",
-        "answer": "If you are the brand owner or an authorized representative, please email us with the brand name and proof of identity. Our team will verify your identity and help you update or claim your brand listing. Please write to the contact email at the bottom of the page."
+        "answer": "Claiming your brand lets you manage and update your brand information directly, earn an owner badge to show authentic representation, represent your brand to the community, and get early access to brand insights (coming soon). To claim, click \"Claim this brand\" on the brand page and submit proof of ownership — our team will review it promptly."
       },
       "dataAccuracy": {
         "question": "How is the accuracy of brand information ensured?",

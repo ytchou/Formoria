@@ -66,7 +66,7 @@ export default async function FaqPage({ params }: PageProps) {
       </section>
       <div className="mt-12 divide-y divide-border">
         {plainItemKeys.map((key, i) => (
-          <details key={i} className="group py-5">
+          <details key={i} id={key === 'claimOrUpdate' ? 'claim' : undefined} className="group py-5">
             <summary className="flex cursor-pointer list-none items-center justify-between font-heading text-base font-semibold text-foreground [&::-webkit-details-marker]:hidden">
               {t(`items.${key}.question`)}
               <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />

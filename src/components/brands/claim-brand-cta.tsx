@@ -1,16 +1,17 @@
 'use client'
 
-import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { usePathname } from 'next/navigation'
-import { useRef, useState, useTransition, type FormEvent } from 'react'
+import { useRef, useState, useTransition, type FormEvent, type ReactNode } from 'react'
 import { submitClaimAction } from '@/app/[locale]/brands/[slug]/actions'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Link } from '@/i18n/navigation'
 import { CONTACT_EMAILS } from '@/lib/constants'
 
 type ClaimBrandCtaProps = {
   brandId: string
+  removalSlot?: ReactNode
 }
 
 type ClaimProofType = 'domain_email' | 'social_post' | 'business_registration'
@@ -31,7 +32,7 @@ function isAuthError(message: string) {
   return normalized.includes('sign in') || normalized.includes('登入') || normalized.includes('authenticate')
 }
 
-export function ClaimBrandCta({ brandId }: ClaimBrandCtaProps) {
+export function ClaimBrandCta({ brandId, removalSlot }: ClaimBrandCtaProps) {
   const t = useTranslations('brands.claimCta')
   const tSubmit = useTranslations('submit.fields')
   const pathname = usePathname()
@@ -119,7 +120,7 @@ export function ClaimBrandCta({ brandId }: ClaimBrandCtaProps) {
   }
 
   return (
-    <section className="space-y-4 rounded-xl border border-border bg-card p-5 text-left">
+    <section className="space-y-4 rounded-xl border border-border bg-muted p-5 text-left">
       <div className="space-y-1">
         <p className="text-base font-semibold text-foreground">{t('communityTitle')}</p>
         <p className="text-sm text-muted-foreground">
@@ -128,13 +129,18 @@ export function ClaimBrandCta({ brandId }: ClaimBrandCtaProps) {
       </div>
 
       {!isOpen ? (
-        <button
-          type="button"
-          onClick={openForm}
-          className="inline-flex min-h-12 items-center justify-center rounded-lg bg-cta px-6 py-3 text-left text-cta-foreground transition-all hover:bg-cta/90 active:scale-[0.98]"
-        >
-          <span className="text-sm font-semibold">{t('claimButton')}</span>
-        </button>
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={openForm}
+            className="inline-flex min-h-12 items-center justify-center rounded-lg bg-cta px-6 py-3 text-left text-cta-foreground transition-all hover:bg-cta/90 active:scale-[0.98]"
+          >
+            <span className="text-sm font-semibold">{t('claimButton')}</span>
+          </button>
+          <Link href="/faq#claim" className="block text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+            {t('whyClaim')}
+          </Link>
+        </div>
       ) : (
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
@@ -247,6 +253,12 @@ export function ClaimBrandCta({ brandId }: ClaimBrandCtaProps) {
             </button>
           </div>
         </form>
+      )}
+
+      {removalSlot && (
+        <div className="border-t border-border pt-3">
+          {removalSlot}
+        </div>
       )}
     </section>
   )
