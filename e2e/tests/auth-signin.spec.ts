@@ -1,7 +1,53 @@
 import { test, expect } from '../fixtures/auth';
 
+test.describe('Auth — Google OAuth offline guard', () => {
+  /**
+   * Verifies that the Google OAuth entry point is wired correctly without
+   * completing the OAuth flow. Clicking the Google button triggers a Server
+   * Action that calls supabase.auth.signInWithOAuth, which returns a URL like:
+   *   https://<project>.supabase.co/auth/v1/authorize?provider=google&...
+   * The server then redirects the browser to that URL. We intercept the browser
+   * navigation to *.supabase.co/auth/v1/authorize, abort it, and assert
+   * provider=google is present in the URL — no live Google navigation occurs.
+   */
+  test('Google sign-in button is present and initiates provider=google authorize request', async ({
+    anonPage,
+  }) => {
+    let capturedAuthorizeUrl: string | null = null;
+
+    // Intercept the browser navigation to Supabase /auth/v1/authorize and abort it
+    await anonPage.route('**/auth/v1/authorize**', async (route) => {
+      capturedAuthorizeUrl = route.request().url();
+      await route.abort();
+    });
+
+    await anonPage.goto('/auth/sign-in');
+
+    // Button must be visible before any click
+    const googleBtn = anonPage.getByRole('button', { name: '使用 Google 繼續', exact: true });
+    await expect(googleBtn).toBeVisible({ timeout: 10_000 });
+
+    // Click — the Server Action fires, and the browser is redirected to Supabase /authorize.
+    // The route intercept aborts that navigation; a navigation error is expected — swallow it.
+    await Promise.race([
+      googleBtn.click(),
+      anonPage.waitForURL('**/auth/v1/authorize**', { timeout: 10_000 }).catch(() => {}),
+    ]).catch(() => {});
+
+    // Give the intercepted request a moment to be captured
+    await anonPage.waitForTimeout(1_500);
+
+    // The intercepted URL must include provider=google
+    expect(capturedAuthorizeUrl).not.toBeNull();
+    expect(capturedAuthorizeUrl).toContain('provider=google');
+  });
+});
+
 test.describe('Auth — sign-in flow', () => {
   test('signs in through the UI and lands on the dashboard', async ({ anonPage }) => {
+    // Supabase signInWithPassword can be slow in dev; allow up to 45s total
+    test.setTimeout(45_000);
+
     const email = process.env.E2E_USER_EMAIL;
     const password = process.env.E2E_USER_PASSWORD;
 
@@ -24,7 +70,8 @@ test.describe('Auth — sign-in flow', () => {
     await anonPage.getByLabel('密碼', { exact: true }).fill(password);
 
     await Promise.all([
-      anonPage.waitForURL(/\/dashboard(?:[/?#]|$)/, { timeout: 15_000 }),
+      // Server Action → Supabase round-trip can be slow in dev; allow 30s
+      anonPage.waitForURL(/\/dashboard(?:[/?#]|$)/, { timeout: 30_000 }),
       anonPage.getByRole('button', { name: '登入', exact: true }).click(),
     ]);
 
