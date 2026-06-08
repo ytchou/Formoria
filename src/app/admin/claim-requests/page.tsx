@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { ClaimRequestsList } from '@/components/admin/claim-requests-list'
-import { isAdmin } from '@/lib/auth/admin'
+import { isActingAsAdmin } from '@/lib/auth/admin-mode'
 import { listClaimRequests } from '@/lib/services/claim-requests'
 import { createClient } from '@/lib/supabase/server'
 
@@ -19,7 +19,7 @@ async function requireAdmin() {
     redirect('/auth/sign-in?next=/admin/claim-requests')
   }
 
-  if (!isAdmin(user.email ?? '')) {
+  if (!(await isActingAsAdmin(user.email))) {
     redirect('/')
   }
 }

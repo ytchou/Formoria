@@ -30,6 +30,12 @@ vi.mock('@/lib/auth/admin', () => ({
   isAdmin: vi.fn().mockReturnValue(true),
 }))
 
+vi.mock('next/headers', () => ({
+  cookies: vi.fn().mockResolvedValue({
+    get: (name: string) => (name === 'fm_mode' ? { value: 'god' } : undefined),
+  }),
+}))
+
 vi.mock('@/lib/services/submissions', () => ({
   getSubmission: vi.fn().mockResolvedValue({
     id: 'sub-1',

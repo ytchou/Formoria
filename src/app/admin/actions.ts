@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { isAdmin } from '@/lib/auth/admin'
+import { isActingAsAdmin } from '@/lib/auth/admin-mode'
 import { getSubmission, approveSubmission, rejectSubmission } from '@/lib/services/submissions'
 import {
   approveClaimRequest,
@@ -36,7 +36,7 @@ async function requireAdmin(): Promise<{ userId: string; email: string } | { err
     return { error: 'You must authenticate to perform this action' }
   }
 
-  if (!isAdmin(user.email ?? '')) {
+  if (!(await isActingAsAdmin(user.email))) {
     return { error: 'You are not authorized to perform this action' }
   }
 

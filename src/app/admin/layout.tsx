@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth/admin";
+import { isActingAsAdmin } from "@/lib/auth/admin-mode";
 import { AdminNav } from "@/components/admin/admin-nav";
 
 export default async function AdminLayout({
@@ -17,7 +17,7 @@ export default async function AdminLayout({
     redirect("/auth/sign-in?next=/admin");
   }
 
-  if (!isAdmin(user.email ?? "")) {
+  if (!(await isActingAsAdmin(user.email))) {
     redirect("/");
   }
 

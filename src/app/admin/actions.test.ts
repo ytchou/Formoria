@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { cookies } from 'next/headers'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 
 // Mocks must be at top-level for vitest hoisting
 vi.mock('@/lib/supabase/server', () => ({
@@ -35,6 +36,10 @@ vi.mock('@/lib/supabase/server', () => ({
 
 vi.mock('@/lib/auth/admin', () => ({
   isAdmin: vi.fn().mockReturnValue(true),
+}))
+
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(),
 }))
 
 vi.mock('@/lib/services/brands', () => ({
@@ -89,6 +94,15 @@ vi.mock('@/lib/auth/claim-token', () => ({
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }))
+
+const mockCookie = (value?: string) =>
+  (cookies as Mock).mockResolvedValue({
+    get: (name: string) => (name === 'fm_mode' && value ? { value } : undefined),
+  })
+
+beforeEach(() => {
+  mockCookie('god')
+})
 
 describe('admin actions module', () => {
   it('exports all required action functions', async () => {
@@ -283,6 +297,13 @@ describe('reviewReportAction', () => {
     const { reviewReportAction } = await import('./actions')
     const result = await reviewReportAction('report-uuid-1', 'reviewed')
     expect(result?.error).toBeTruthy()
+  })
+
+  it('requireAdmin denies an admin in viewer mode', async () => {
+    mockCookie('viewer')
+    const { reviewReportAction } = await import('./actions')
+    const result = await reviewReportAction('report-uuid-1', 'reviewed')
+    expect(result).toMatchObject({ error: expect.any(String) })
   })
 })
 
