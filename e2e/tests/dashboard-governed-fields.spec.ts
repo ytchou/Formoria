@@ -8,12 +8,13 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
  * Governed-field integrity tests.
  *
  * Two cases:
- * (a) Non-owner access: adminPage's user is NOT in brand_owners for the seeded brand →
+ * (a) Non-manager access: adminPage's user is NOT in brand_owners for the seeded brand →
  *     navigating to /dashboard/brands/[slug]/edit redirects to /dashboard (server-side guard).
- *     (The edit gate is ownership-only via isOwnerOf — no admin bypass — so an admin who is not
- *     an owner is redirected too; using adminPage avoids clashing with userPage's owner role in case b.)
- *     The `您沒有權限編輯此品牌` error is only returned from the Server Action — it's unreachable
- *     via the UI without ownership; the page guard redirects before the form renders.
+ *     The edit gate is `canManageBrand = isOwnerOf || isActingAsAdmin`. A god-mode admin
+ *     (the default) would reach the edit page, so this test forces `fm_mode=viewer` on the
+ *     admin context to downgrade `isActingAsAdmin` to false, exercising the non-manager
+ *     redirect path. The `您沒有權限編輯此品牌` error is only returned from the Server Action —
+ *     it's unreachable via the UI without management rights; the page guard redirects first.
  *
  * (b) Allow-list integrity: owner saves via the edit form and the admin-only governed columns
  *     (mit_status, status) remain untouched in the DB after the save.
@@ -76,10 +77,23 @@ test.describe('Dashboard — governed field integrity', () => {
   });
 
   /**
-   * Case (a): Non-owner is blocked at the page level.
-   * adminPage is authenticated as the admin user, who is NOT in brand_owners for this brand.
+   * Case (a): Non-manager is blocked at the page level.
+   * adminPage is authenticated as the admin user (NOT in brand_owners for this brand).
+   * The fm_mode=viewer cookie downgrades isActingAsAdmin → false so canManageBrand
+   * falls back to ownership-only, triggering the server-side redirect.
    */
-  test('non-owner navigating to edit page is redirected to /dashboard', async ({ adminPage }) => {
+  test('non-manager navigating to edit page is redirected to /dashboard', async ({ adminPage }) => {
+    // Downgrade the admin context to viewer mode so isActingAsAdmin = false.
+    // Without this, a god-mode admin would reach the edit page via canManageBrand.
+    await adminPage.context().addCookies([
+      {
+        name: 'fm_mode',
+        value: 'viewer',
+        url: 'http://localhost:3000',
+        path: '/',
+      },
+    ]);
+
     const resp = await adminPage.goto(`/dashboard/brands/${brandSlug}/edit`);
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
