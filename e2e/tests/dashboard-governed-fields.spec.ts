@@ -8,8 +8,10 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
  * Governed-field integrity tests.
  *
  * Two cases:
- * (a) Non-owner access: userPage is NOT in brand_owners for the seeded brand →
+ * (a) Non-owner access: adminPage's user is NOT in brand_owners for the seeded brand →
  *     navigating to /dashboard/brands/[slug]/edit redirects to /dashboard (server-side guard).
+ *     (The edit gate is ownership-only via isOwnerOf — no admin bypass — so an admin who is not
+ *     an owner is redirected too; using adminPage avoids clashing with userPage's owner role in case b.)
  *     The `您沒有權限編輯此品牌` error is only returned from the Server Action — it's unreachable
  *     via the UI without ownership; the page guard redirects before the form renders.
  *
