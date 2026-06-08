@@ -1,6 +1,7 @@
 'use client'
 
 import { Fragment, useState, useTransition } from 'react'
+import Link from 'next/link'
 import type { Brand, BrandStatus } from '@/lib/types'
 import { StatusBadge } from './status-badge'
 import { BrandEditDialog } from './brand-edit-dialog'
@@ -22,8 +23,9 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { routing } from '@/i18n/routing'
 import { cn } from '@/lib/utils'
 
 type TabValue = 'all' | BrandStatus
@@ -236,6 +238,12 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                         >
                           編輯
                         </Button>
+                        <Link
+                          href={`/${routing.defaultLocale}/dashboard/brands/${brand.slug}`}
+                          className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+                        >
+                          以擁有者身分檢視
+                        </Link>
                         <Button
                           variant="ghost"
                           size="sm"
