@@ -3,9 +3,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
+import { canManageBrand } from "@/lib/auth/admin-mode";
 import { getBrandBySlug } from "@/lib/services/brands";
 import { computeBrandCompleteness } from "@/lib/services/brand-completeness";
-import { isOwnerOf } from "@/lib/services/brand-owners";
 import {
   getAnalytics,
   getDailySeries,
@@ -47,7 +47,7 @@ export default async function BrandDashboardPage({ params }: Props) {
 
   const brand = await getBrandBySlug(slug);
   const completeness = computeBrandCompleteness(brand);
-  const owner = await isOwnerOf(user.id, brand.id);
+  const owner = await canManageBrand(user.id, user.email, brand.id);
 
   if (!owner) redirect("/dashboard");
 

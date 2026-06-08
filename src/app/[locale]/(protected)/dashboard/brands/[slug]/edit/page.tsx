@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
+import { canManageBrand } from "@/lib/auth/admin-mode";
 import { getBrandBySlug } from "@/lib/services/brands";
-import { isOwnerOf } from "@/lib/services/brand-owners";
 import { BrandEditForm } from "./brand-edit-form";
 
 type Props = {
@@ -26,7 +26,7 @@ export default async function BrandEditPage({ params }: Props) {
   if (!user) redirect("/auth/sign-in");
 
   const brand = await getBrandBySlug(slug);
-  const owner = await isOwnerOf(user.id, brand.id);
+  const owner = await canManageBrand(user.id, user.email, brand.id);
 
   if (!owner) redirect("/dashboard");
 

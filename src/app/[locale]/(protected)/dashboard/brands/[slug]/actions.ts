@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { createClient } from '@/lib/supabase/server'
+import { isActingAsAdmin } from '@/lib/auth/admin-mode'
 import { isOwnerOf } from '@/lib/services/brand-owners'
 import { getBrandBySlug, updateBrand } from '@/lib/services/brands'
 import { deleteBrandImages, diffRemovedImageUrls } from '@/lib/services/image-upload'
@@ -64,8 +65,9 @@ export async function updateBrandAction(
 
     const brand = await getBrandBySlug(brandSlug)
     const owner = await isOwnerOf(user.id, brand.id)
+    const actingAdmin = !owner && (await isActingAsAdmin(user.email))
 
-    if (!owner) {
+    if (!owner && !actingAdmin) {
       return { error: t('forbidden') }
     }
 
@@ -191,9 +193,10 @@ export async function updateBrandAction(
         userId: user.id,
         fieldName: flag.field,
         flaggedContent: flag.content,
-        flagReason: flag.reason,
+        flagReason: actingAdmin ? `admin-edit: ${flag.reason}` : flag.reason,
         tier: flag.tier,
-        status: 'pending' as const,
+        status: actingAdmin ? 'reviewed' as const : 'pending' as const,
+        ...(actingAdmin ? { reviewedAt: new Date().toISOString() } : {}),
         previousContent: getPreviousContent(flag.field),
       }))
 
