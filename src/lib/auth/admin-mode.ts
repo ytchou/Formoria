@@ -1,10 +1,9 @@
 import { cookies } from 'next/headers'
 import { isOwnerOf } from '@/lib/services/brand-owners'
 import { isAdmin } from './admin'
+import { VIEWER_MODE_COOKIE, type AdminMode } from './admin-mode-cookie'
 
-export const VIEWER_MODE_COOKIE = 'fm_mode'
-
-export type AdminMode = 'god' | 'viewer'
+export { VIEWER_MODE_COOKIE, resolveAdminModeCookie, type AdminMode } from './admin-mode-cookie'
 
 export async function getAdminMode(): Promise<AdminMode> {
   const c = await cookies()
@@ -27,18 +26,4 @@ export async function canManageBrand(
   brandId: string
 ): Promise<boolean> {
   return (await isOwnerOf(userId, brandId)) || (await isActingAsAdmin(email))
-}
-
-export function resolveAdminModeCookie({
-  email,
-  currentCookie,
-}: {
-  email: string | null
-  currentCookie: string | undefined
-}): { action: 'set'; value: AdminMode } | { action: 'none' } | { action: 'delete' } {
-  if (email && isAdmin(email)) {
-    return currentCookie ? { action: 'none' } : { action: 'set', value: 'god' }
-  }
-
-  return currentCookie ? { action: 'delete' } : { action: 'none' }
 }
