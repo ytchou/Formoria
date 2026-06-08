@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures/auth';
 import { createClient } from '@supabase/supabase-js';
+import { gotoSubmitWizard } from '../utils/submit-wizard';
 
 test.describe('Submit flow deep', () => {
   const createdSubmissions: string[] = [];
@@ -20,21 +21,13 @@ test.describe('Submit flow deep', () => {
   });
 
   test('wizard steps are all reachable', async ({ userPage }) => {
-    await userPage.goto('/submit');
-    // For authenticated users, /submit renders SubmitWizard directly (server-side auth check).
-    // The UrlStep (phase='url') is the first visible panel — its h2 and URL input are the
-    // reliable ready-signals. Avoid asserting on the outer wizard h1 which can lose the race
-    // against hydration in slow CI environments.
-    await expect(
-      userPage.getByRole('heading', { name: '提交你喜愛的品牌', exact: true })
-    ).toBeVisible({ timeout: 10_000 });
-    await expect(userPage.locator('input[type="url"]').first()).toBeVisible({ timeout: 5_000 });
+    test.setTimeout(60_000);
+    await gotoSubmitWizard(userPage);
   });
 
   test('validation shows errors on empty required fields', async ({ userPage }) => {
-    await userPage.goto('/submit');
-    // Wait for the UrlStep URL input to confirm the wizard is hydrated before interacting.
-    await expect(userPage.locator('input[type="url"]').first()).toBeVisible({ timeout: 10_000 });
+    test.setTimeout(60_000);
+    await gotoSubmitWizard(userPage);
     const skipBtn = userPage.getByRole('button', { name: manualEntryButtonName, exact: true });
     await expect(skipBtn).toBeVisible({ timeout: 5_000 });
     await skipBtn.click();
@@ -44,9 +37,8 @@ test.describe('Submit flow deep', () => {
   });
 
   test('Tier 1 keyword blocks submission', async ({ userPage }) => {
-    await userPage.goto('/submit');
-    // Wait for the UrlStep URL input to confirm the wizard is hydrated before interacting.
-    await expect(userPage.locator('input[type="url"]').first()).toBeVisible({ timeout: 10_000 });
+    test.setTimeout(60_000);
+    await gotoSubmitWizard(userPage);
     const skipBtn = userPage.getByRole('button', { name: manualEntryButtonName, exact: true });
     await expect(skipBtn).toBeVisible({ timeout: 5_000 });
     await skipBtn.click();

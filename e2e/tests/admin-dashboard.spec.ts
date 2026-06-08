@@ -47,6 +47,9 @@ test.describe('Admin dashboard deep', () => {
   });
 
   test('admin nav links all work', async ({ adminPage }) => {
+    // DEV-762: admin sub-routes also cold-compile in CI dev mode; bump per-link
+    // <main> wait to 15s and add a 60s test budget.
+    test.setTimeout(60_000);
     await adminPage.goto('/admin');
     const navLinks = adminPage.locator('nav a, [data-testid="admin-nav"] a');
     const count = await navLinks.count();
@@ -54,19 +57,24 @@ test.describe('Admin dashboard deep', () => {
       const href = await navLinks.nth(i).getAttribute('href');
       if (href?.startsWith('/admin')) {
         await adminPage.goto(href);
-        await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 5_000 });
+        await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 15_000 });
         await expect(adminPage.getByText(/something went wrong/i)).not.toBeVisible();
       }
     }
   });
 
   test('approve submission makes brand visible in directory', async ({ adminPage }) => {
+    // DEV-762: /admin/submissions cold-compiles in CI; give the page and the
+    // approve action generous budgets.
+    test.setTimeout(60_000);
     if (!testSubmissionId) test.skip();
     await adminPage.goto('/admin/submissions');
+    // Wait for the page to be interactive before looking for the seeded row.
+    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 15_000 });
     // Click the row text to expand the detail section (approve button is inside it)
     await adminPage.getByText(testBrandName).click();
     const approveBtn = adminPage.getByRole('button', { name: /^approve$|^核准$/i });
-    await expect(approveBtn).toBeVisible({ timeout: 5_000 });
+    await expect(approveBtn).toBeVisible({ timeout: 10_000 });
     await approveBtn.click();
     // After approval the server action revalidates and the button disappears
     await expect(approveBtn).toBeHidden({ timeout: 15_000 });

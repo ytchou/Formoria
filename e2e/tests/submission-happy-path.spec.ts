@@ -1,6 +1,7 @@
 import { test, expect } from '../fixtures/auth';
 import type { Page } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
+import { gotoSubmitWizard } from '../utils/submit-wizard';
 
 // 4x4 sRGB PNG — small enough for fast uploads, robust enough for libspng
 const TINY_PNG_BASE64 =
@@ -155,15 +156,7 @@ test.describe('Submission happy path', () => {
     const websiteUrl = `https://happy-path-${timestamp}.example.com`;
     const purchaseUrl = `https://shop.example.com/products/${timestamp}`;
 
-    await userPage.goto('/submit');
-
-    // For authenticated users, /submit renders SubmitWizard directly (server-side auth check).
-    // The UrlStep h2 and URL input are the reliable ready-signals for the wizard being active.
-    // Avoid waiting on the outer wizard h1 which can lose a hydration race in slow CI.
-    await expect(
-      userPage.getByRole('heading', { name: '提交你喜愛的品牌', exact: true })
-    ).toBeVisible({ timeout: 10_000 });
-    await expect(userPage.locator('input[type="url"]').first()).toBeVisible({ timeout: 5_000 });
+    await gotoSubmitWizard(userPage);
 
     await userPage.getByRole('checkbox', { name: ownerCheckboxName, exact: true }).check();
     await userPage.getByRole('button', { name: manualEntryButtonName, exact: true }).click();

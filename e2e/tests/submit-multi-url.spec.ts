@@ -1,18 +1,12 @@
 import { test, expect } from '../fixtures/auth'
+import { gotoSubmitWizard } from '../utils/submit-wizard'
 
 test.describe('Submit multi-URL affordances', () => {
   test('adds URL rows up to the cap and removes a row', async ({ userPage }) => {
-    await userPage.goto('/submit')
-
-    // For authenticated users, /submit renders SubmitWizard and immediately shows the UrlStep
-    // (phase='url'). Use the UrlStep h2 + URL input as the ready-signal — the outer wizard h1
-    // is less reliable in slow CI environments and duplicates the UrlStep check.
-    await expect(userPage.getByRole('heading', { name: '提交你喜愛的品牌', exact: true })).toBeVisible({
-      timeout: 10_000,
-    })
+    test.setTimeout(60_000)
+    await gotoSubmitWizard(userPage)
 
     const urlInputs = userPage.locator('input[type="url"]')
-    await expect(urlInputs.first()).toBeVisible({ timeout: 5_000 })
 
     // '新增連結' is the exact translated label for the add-URL button
     const addLinkButton = userPage.getByRole('button', { name: '新增連結', exact: true })
