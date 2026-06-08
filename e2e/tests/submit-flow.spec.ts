@@ -21,6 +21,11 @@ test.describe('Submit flow deep', () => {
 
   test('wizard steps are all reachable', async ({ userPage }) => {
     await userPage.goto('/submit');
+    // The wizard h1 is '提交品牌'; the UrlStep (first phase) renders h2 '提交你喜愛的品牌'.
+    // Wait for the wizard h1 to confirm the authenticated wizard (not anon overview) rendered.
+    await expect(
+      userPage.getByRole('heading', { name: '提交品牌', exact: true })
+    ).toBeVisible({ timeout: 10_000 });
     await expect(
       userPage.getByRole('heading', { name: '提交你喜愛的品牌', exact: true })
     ).toBeVisible({ timeout: 5_000 });
@@ -28,7 +33,9 @@ test.describe('Submit flow deep', () => {
 
   test('validation shows errors on empty required fields', async ({ userPage }) => {
     await userPage.goto('/submit');
-    await userPage.getByRole('button', { name: manualEntryButtonName, exact: true }).click();
+    const skipBtn = userPage.getByRole('button', { name: manualEntryButtonName, exact: true });
+    await expect(skipBtn).toBeVisible({ timeout: 10_000 });
+    await skipBtn.click();
     const nextBtn = userPage.getByRole('button', { name: nextButtonName, exact: true });
     await nextBtn.click();
     await expect(userPage.locator('p.text-red-600').first()).toBeVisible({ timeout: 3_000 });
@@ -36,7 +43,9 @@ test.describe('Submit flow deep', () => {
 
   test('Tier 1 keyword blocks submission', async ({ userPage }) => {
     await userPage.goto('/submit');
-    await userPage.getByRole('button', { name: manualEntryButtonName, exact: true }).click();
+    const skipBtn = userPage.getByRole('button', { name: manualEntryButtonName, exact: true });
+    await expect(skipBtn).toBeVisible({ timeout: 10_000 });
+    await skipBtn.click();
     const nameInput = userPage.getByLabel('品牌名稱', { exact: true });
     if (await nameInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
       await nameInput.fill(`[E2E-TEST] Brand casino ${Date.now()}`);

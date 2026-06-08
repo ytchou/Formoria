@@ -1,9 +1,12 @@
 import { test, expect } from '@playwright/test'
 
 test('glossary renders grouped definitions with DefinedTermSet JSON-LD', async ({ page }) => {
-  await page.goto('/glossary')
+  // /glossary (bare) is caught by the brand-slug redirect middleware → /brands/glossary (404).
+  // The canonical zh-TW glossary URL requires an explicit locale prefix.
+  await page.goto('/zh-TW/glossary')
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 20_000 })
-  await expect(page.getByText('台灣製造')).toBeVisible()
+  // First term is "台灣製造·Made in Taiwan"; getByText uses partial matching
+  await expect(page.getByText('台灣製造').first()).toBeVisible()
   const blocks = await page.locator('script[type="application/ld+json"]').allTextContents()
   const hasTermSet = blocks.some((b) => b.includes('"DefinedTermSet"'))
   expect(hasTermSet).toBe(true)

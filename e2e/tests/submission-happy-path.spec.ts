@@ -157,6 +157,11 @@ test.describe('Submission happy path', () => {
 
     await userPage.goto('/submit');
 
+    // The wizard h1 is '提交品牌'; the UrlStep (first phase) shows h2 '提交你喜愛的品牌'.
+    // Wait for the wizard h1 first, then verify the url-step h2 is also visible.
+    await expect(
+      userPage.getByRole('heading', { name: '提交品牌', exact: true })
+    ).toBeVisible({ timeout: 10_000 });
     await expect(
       userPage.getByRole('heading', { name: '提交你喜愛的品牌', exact: true })
     ).toBeVisible({ timeout: 5_000 });

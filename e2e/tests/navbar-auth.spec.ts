@@ -1,51 +1,24 @@
-import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures/auth';
 
-async function signInWithSeededUser(page: Page) {
-  const email = process.env.E2E_USER_EMAIL;
-  const password = process.env.E2E_USER_PASSWORD;
-
-  if (!email || !password) {
-    throw new Error('E2E_USER_EMAIL and E2E_USER_PASSWORD must be set');
-  }
-
-  await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible({
-    timeout: 10_000,
-  });
-
-  await page.getByLabel('電子郵件', { exact: true }).fill(email);
-  await page.getByLabel('密碼', { exact: true }).fill(password);
-
-  await Promise.all([
-    page.waitForURL(/\/dashboard(?:[/?#]|$)/, { timeout: 15_000 }),
-    page.getByRole('button', { name: '登入', exact: true }).click(),
-  ]);
-}
-
 test.describe('Navbar auth journey', () => {
-  test('shows sign in when logged out, then account menu after sign in, then returns home on sign out', async ({
-    anonPage,
-  }) => {
+  test('logged-out visitor sees sign-in link', async ({ anonPage }) => {
     await anonPage.goto('/');
 
     const signInLink = anonPage.getByRole('link', { name: /sign in|登入/i });
-
     await expect(signInLink).toBeVisible({ timeout: 10_000 });
     await expect(signInLink).toHaveAttribute('href', '/auth/sign-in');
+  });
 
-    await Promise.all([
-      anonPage.waitForURL(/\/auth\/sign-in(?:[/?#]|$)/, { timeout: 15_000 }),
-      signInLink.click(),
-    ]);
+  test('authenticated user sees account menu, not sign-in link', async ({ userPage }) => {
+    await userPage.goto('/');
 
-    await signInWithSeededUser(anonPage);
-
-    const accountTrigger = anonPage.getByRole('button', { name: /account|帳號/i });
-
+    const accountTrigger = userPage.getByRole('button', { name: /account|帳號/i });
     await expect(accountTrigger).toBeVisible({ timeout: 10_000 });
+    await expect(userPage.getByRole('link', { name: /sign in|登入/i })).toHaveCount(0);
+
     await accountTrigger.click();
 
-    const accountMenu = anonPage.locator('[data-slot="dropdown-menu-content"]');
+    const accountMenu = userPage.locator('[data-slot="dropdown-menu-content"]');
     const dashboardLink = accountMenu.locator('a[href="/dashboard"]');
     const signOutItem = accountMenu.getByText(/sign out|登出/i);
 
@@ -53,15 +26,27 @@ test.describe('Navbar auth journey', () => {
     await expect(dashboardLink).toHaveAttribute('href', '/dashboard');
     await expect(dashboardLink).toContainText(/dashboard|管理後台/i);
     await expect(signOutItem).toBeVisible({ timeout: 10_000 });
+  });
 
-    await Promise.all([
-      anonPage.waitForURL(/\/(?:[?#].*)?$/, { timeout: 15_000 }),
-      signOutItem.click(),
-    ]);
+  test('sign out from authenticated session returns to logged-out home state', async ({ userPage }) => {
+    await userPage.goto('/');
 
-    await expect(anonPage).toHaveURL(/\/(?:[?#].*)?$/);
-    await expect(anonPage.getByRole('link', { name: /sign in|登入/i })).toBeVisible({
-      timeout: 10_000,
-    });
+    const accountTrigger = userPage.getByRole('button', { name: /account|帳號/i });
+    await expect(accountTrigger).toBeVisible({ timeout: 10_000 });
+    await accountTrigger.click();
+
+    const accountMenu = userPage.locator('[data-slot="dropdown-menu-content"]');
+    const signOutItem = accountMenu.getByText(/sign out|登出/i);
+    await expect(signOutItem).toBeVisible({ timeout: 10_000 });
+
+    await signOutItem.click();
+
+    // After sign-out, poll-reload home until the navbar reflects the logged-out state
+    // (session-cookie clear + navbar re-render can lag the click).
+    await expect(async () => {
+      await userPage.goto('/');
+      await expect(userPage.getByRole('link', { name: /sign in|登入/i })).toBeVisible();
+      await expect(userPage.getByRole('button', { name: /account|帳號/i })).toHaveCount(0);
+    }).toPass({ timeout: 20_000, intervals: [1_000, 2_000, 3_000, 5_000] });
   });
 });

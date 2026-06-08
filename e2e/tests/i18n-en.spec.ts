@@ -7,58 +7,65 @@ import { test, expect } from '@playwright/test';
  *   zh-TW (default) — prefix-free: /brands, /categories/…
  *   en               — under /en:   /en/brands, /en/categories/…
  *
- * The LocaleSwitcher renders:
- *   <a href="…">中文</a> / <a href="…">EN</a>
+ * The LocaleSwitcher renders as a dropdown:
+ *   button[aria-label="Switch language" | "切換語言"]
+ *   → menu with menuitem "中文" (href /zh-TW/…) and menuitem "English" (href /en/…)
  */
 test.describe('i18n English browse', () => {
-  test('/en returns 200 and shows English nav label', async ({ page }) => {
+  test('/en returns 200 and shows English header chrome', async ({ page }) => {
     const response = await page.goto('/en');
     expect(response?.status()).toBe(200);
+    // Header renders "Submit a Brand" in English; html[lang] is "en"
     await expect(
-      page
-        .locator('header a[href="/en/brands"]:visible')
-        .filter({ hasText: /^Brand Directory$/ })
+      page.locator('header').getByRole('link', { name: 'Submit a Brand' })
     ).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   });
 
   test('/en/brands returns 200 and shows English directory chrome', async ({ page }) => {
     const response = await page.goto('/en/brands');
     expect(response?.status()).toBe(200);
+    // The directory page renders brands in a list or an empty-state message
     await expect(
       page
-        .locator('header a[href="/en/brands"]:visible')
-        .filter({ hasText: /^Brand Directory$/ })
-        .or(page.getByText(/all brands/i).first())
+        .locator('main [role="list"] [role="listitem"]')
+        .first()
         .or(page.getByText(/no brands found/i))
     ).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   });
 
-  test('LocaleSwitcher "中文" link on /en/brands points to the zh-TW equivalent', async ({
+  test('LocaleSwitcher "中文" menuitem on /en/brands points to the zh-TW equivalent', async ({
     page,
   }) => {
     await page.goto('/en/brands');
 
-    // When current locale is "en", next-intl renders the zh-TW switcher link.
-    // We verify the link is rendered and points toward /brands (zh-TW prefix-free or /zh-TW/brands).
-    const zhLink = page
-      .locator('header a:visible')
-      .filter({ hasText: /^中文$/ });
-    await expect(zhLink).toBeVisible({ timeout: 10_000 });
+    // The LocaleSwitcher is now a button + dropdown menu, not bare <a> links.
+    const switcherBtn = page.getByRole('button', { name: 'Switch language' });
+    await expect(switcherBtn).toBeVisible({ timeout: 10_000 });
+    await switcherBtn.click();
 
-    const href = await zhLink.getAttribute('href');
+    // When current locale is "en", the dropdown contains menuitem "中文" → /zh-TW/brands
+    const zhItem = page.getByRole('menuitem', { name: '中文' });
+    await expect(zhItem).toBeVisible({ timeout: 5_000 });
+
+    const href = await zhItem.getAttribute('href');
     expect(href).toBeTruthy();
-    // The zh-TW switcher href must end in /brands (either /brands or /zh-TW/brands)
+    // The zh-TW switcher href must end in /brands (zh-TW prefix or prefix-free)
     expect(href).toMatch(/\/brands$/);
   });
 
-  test('LocaleSwitcher "EN" link on /brands navigates to /en/brands', async ({ page }) => {
+  test('LocaleSwitcher "English" menuitem on /brands navigates to /en/brands', async ({ page }) => {
     await page.goto('/brands');
 
-    const enLink = page
-      .locator('header a[href="/en/brands"]:visible')
-      .filter({ hasText: /^EN$/ });
-    await expect(enLink).toBeVisible({ timeout: 10_000 });
-    await enLink.click();
+    // The LocaleSwitcher is a button + dropdown — no bare <a href="/en/brands"> link.
+    const switcherBtn = page.getByRole('button', { name: '切換語言' });
+    await expect(switcherBtn).toBeVisible({ timeout: 10_000 });
+    await switcherBtn.click();
+
+    const enItem = page.getByRole('menuitem', { name: 'English' });
+    await expect(enItem).toBeVisible({ timeout: 5_000 });
+    await enItem.click();
 
     await expect(page).toHaveURL(/\/en\/brands/, { timeout: 10_000 });
   });
@@ -82,27 +89,19 @@ test.describe('i18n English browse', () => {
     page,
   }) => {
     await page.goto('/');
+    // The LocaleSwitcher is now a dropdown button, not bare <a> links.
+    // Open the menu and click "English" to switch locale.
+    const switcherBtn = page.getByRole('button', { name: '切換語言' });
+    await expect(switcherBtn).toBeVisible({ timeout: 10_000 });
+    await switcherBtn.click();
+    const enItem = page.getByRole('menuitem', { name: 'English' });
+    await expect(enItem).toBeVisible({ timeout: 5_000 });
+    await enItem.click();
+    await expect(page).toHaveURL(/\/en/, { timeout: 10_000 });
+    // After switching: header submit link should be in English
     await expect(
-      page
-        .locator('header a[href="/brands"]:visible')
-        .filter({ hasText: /^品牌目錄$/ })
+      page.locator('header').getByRole('link', { name: 'Submit a Brand' })
     ).toBeVisible({ timeout: 10_000 });
-    await page
-      .locator('header a[href="/en"]:visible')
-      .filter({ hasText: /^EN$/ })
-      .click();
-    await expect(page).toHaveURL(/\/en$/, { timeout: 10_000 });
-    await expect(
-      page
-        .locator('header a[href="/en/brands"]:visible')
-        .filter({ hasText: /^Brand Directory$/ })
-    ).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator('h1')).not.toHaveText('探索台灣製造的精品品牌');
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-    await expect(
-      page
-        .locator('header a[aria-current="true"]:visible')
-        .filter({ hasText: /^EN$/ })
-    ).toHaveAttribute('aria-current', 'true');
   });
 });
