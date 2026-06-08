@@ -28,6 +28,13 @@ const checkContent = vi.fn()
 const createModerationFlags = vi.fn().mockResolvedValue([])
 const diffRemovedImageUrls = vi.fn((): string[] => [])
 const deleteBrandImages = vi.fn().mockResolvedValue(undefined)
+const cookieGet = vi.fn()
+
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(async () => ({
+    get: cookieGet,
+  })),
+}))
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => ({
@@ -87,12 +94,24 @@ function form(fields: Record<string, string>) {
   return formData
 }
 
+function mockCookie(value: 'god' | 'viewer') {
+  cookieGet.mockImplementation((name: string) => (
+    name === 'fm_mode' ? { value } : undefined
+  ))
+}
+
+function mockUser(email: string, id = 'user-1') {
+  getUser.mockResolvedValue({
+    data: { user: { id, email } },
+  })
+}
+
 describe('updateBrandAction', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    getUser.mockResolvedValue({
-      data: { user: { id: 'user-1', email: 'owner@example.com' } },
-    })
+    process.env.ADMIN_EMAILS = 'admin@formoria.com'
+    mockCookie('god')
+    mockUser('owner@example.com')
     getBrandBySlug.mockResolvedValue({
       id: 'brand-1',
       slug: 'test-brand',
@@ -457,5 +476,133 @@ describe('updateBrandAction', () => {
     }
 
     expect(revalidatePath).toHaveBeenCalledWith('/[locale]/brands/[slug]', 'page')
+  })
+})
+
+describe('updateBrandAction — admin bypass + moderation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    process.env.ADMIN_EMAILS = 'admin@formoria.com'
+    mockCookie('god')
+    mockUser('owner@example.com')
+    getBrandBySlug.mockResolvedValue({
+      id: 'brand-1',
+      slug: 'test-brand',
+      name: 'Test Brand',
+      description: 'Original description before edit',
+      socialLinks: {},
+      logoUrl: null,
+      heroImageUrl: null,
+      productPhotos: [],
+      brandHighlights: null,
+    })
+    checkContent.mockReturnValue({
+      blocked: [],
+      flagged: [],
+      isBlocked: false,
+    })
+    diffRemovedImageUrls.mockReturnValue([])
+  })
+
+  it('lets a god-mode admin edit a brand they do not own', async () => {
+    const { isOwnerOf } = await import('@/lib/services/brand-owners')
+    vi.mocked(isOwnerOf).mockResolvedValueOnce(false)
+    mockCookie('god')
+    mockUser('admin@formoria.com', 'admin-1')
+
+    const { updateBrandAction } = await import('./actions')
+
+    try {
+      await updateBrandAction(undefined, form({
+        brandSlug: 'test-brand',
+        description: 'Admin description edit',
+      }))
+    } catch {
+      // redirect throws
+    }
+
+    expect(updateBrand).toHaveBeenCalled()
+  })
+
+  it('auto-resolves moderation flags for god-mode admin edits', async () => {
+    const { isOwnerOf } = await import('@/lib/services/brand-owners')
+    vi.mocked(isOwnerOf).mockResolvedValueOnce(false)
+    mockCookie('god')
+    mockUser('admin@formoria.com', 'admin-1')
+    vi.mocked(checkContent).mockReturnValueOnce({
+      blocked: [],
+      flagged: [{ field: 'description', content: 'many urls', reason: 'excessive URLs', tier: 'flag' as const }],
+      isBlocked: false,
+    })
+
+    const { updateBrandAction } = await import('./actions')
+
+    try {
+      await updateBrandAction(undefined, form({
+        brandSlug: 'test-brand',
+        description: 'Visit http://a.com http://b.com http://c.com http://d.com',
+      }))
+    } catch {
+      // redirect throws
+    }
+
+    expect(createModerationFlags).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: 'reviewed',
+          reviewedAt: expect.any(String),
+          flagReason: expect.stringContaining('admin-edit'),
+        }),
+      ])
+    )
+  })
+
+  it('keeps pending flags for a real owner edit', async () => {
+    const { isOwnerOf } = await import('@/lib/services/brand-owners')
+    vi.mocked(isOwnerOf).mockResolvedValueOnce(true)
+    mockCookie('god')
+    mockUser('owner@example.com')
+    vi.mocked(checkContent).mockReturnValueOnce({
+      blocked: [],
+      flagged: [{ field: 'description', content: 'many urls', reason: 'excessive URLs', tier: 'flag' as const }],
+      isBlocked: false,
+    })
+
+    const { updateBrandAction } = await import('./actions')
+
+    try {
+      await updateBrandAction(undefined, form({
+        brandSlug: 'test-brand',
+        description: 'Visit http://a.com http://b.com http://c.com http://d.com',
+      }))
+    } catch {
+      // redirect throws
+    }
+
+    expect(createModerationFlags).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: 'pending',
+          flagReason: 'excessive URLs',
+        }),
+      ])
+    )
+  })
+
+  it('forbids an admin in viewer mode from editing an un-owned brand', async () => {
+    const { isOwnerOf } = await import('@/lib/services/brand-owners')
+    vi.mocked(isOwnerOf).mockResolvedValueOnce(false)
+    mockCookie('viewer')
+    mockUser('admin@formoria.com', 'admin-1')
+
+    const { updateBrandAction } = await import('./actions')
+
+    const result = await updateBrandAction(undefined, form({
+      brandSlug: 'test-brand',
+      description: 'Viewer mode edit',
+    }))
+
+    expect(result).toMatchObject({ error: expect.any(String) })
+    expect(updateBrand).not.toHaveBeenCalled()
   })
 })

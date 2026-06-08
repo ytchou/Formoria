@@ -94,6 +94,37 @@ describe('createModerationFlags', () => {
       ])
     ).rejects.toThrow('DB error')
   })
+
+  it('persists status=reviewed and reviewed_at for auto-resolved (admin-edit) flags', async () => {
+    const { createModerationFlags } = await import('./moderation')
+    const reviewedAt = '2026-06-08T00:00:00.000Z'
+
+    mockInsert.mockReturnValue({
+      select: vi.fn().mockResolvedValue({ data: [], error: null }),
+    })
+
+    await createModerationFlags([
+      {
+        brandId: 'b1',
+        userId: 'admin',
+        fieldName: 'description',
+        flaggedContent: 'x',
+        previousContent: 'y',
+        flagReason: 'admin-edit: excessive URLs',
+        tier: 'flag',
+        status: 'reviewed',
+        reviewedAt,
+      },
+    ])
+
+    expect(mockInsert).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({
+        status: 'reviewed',
+        reviewed_at: reviewedAt,
+        flag_reason: 'admin-edit: excessive URLs',
+      }),
+    ]))
+  })
 })
 
 // ---------------------------------------------------------------------------

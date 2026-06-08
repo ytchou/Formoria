@@ -2,7 +2,8 @@ import type { Metadata } from 'next'
 import { unstable_cache } from 'next/cache'
 import { notFound } from 'next/navigation'
 import { NextIntlClientProvider } from 'next-intl'
-import { getMessages, setRequestLocale } from 'next-intl/server'
+import { getMessages, getTranslations, setRequestLocale } from 'next-intl/server'
+import { AdminModeBar } from '@/components/admin-mode/admin-mode-bar'
 import { SyncHtmlLang } from '@/components/i18n/sync-html-lang'
 import { Footer } from '@/components/navigation/footer'
 import { MainNav } from '@/components/navigation/main-nav'
@@ -53,14 +54,24 @@ export default async function LocaleLayout({ children, params }: LayoutProps) {
   }
 
   setRequestLocale(locale)
-  const [messages, categories] = await Promise.all([
+  const [messages, categories, tAdmin] = await Promise.all([
     getMessages(),
     getCachedCategories(),
+    getTranslations('adminMode'),
   ])
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       <SyncHtmlLang />
+      <AdminModeBar
+        labels={{
+          god: tAdmin('god'),
+          viewer: tAdmin('viewer'),
+          enter: tAdmin('enter'),
+          exit: tAdmin('exit'),
+          banner: tAdmin('banner'),
+        }}
+      />
       <MainNav categories={categories} />
       <div className="flex-1">{children}</div>
       <Footer />

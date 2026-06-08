@@ -181,7 +181,8 @@ export type CreateModerationFlagInput = {
   previousContent: string | null
   flagReason: string
   tier: string
-  status: string
+  status?: ModerationFlagRow['status']
+  reviewedAt?: string
 }
 
 export async function createModerationFlags(
@@ -198,7 +199,8 @@ export async function createModerationFlags(
     previous_content: r.previousContent,
     flag_reason: r.flagReason,
     tier: r.tier,
-    status: r.status,
+    status: r.status ?? 'pending',
+    reviewed_at: r.reviewedAt ?? null,
   }))
 
   const { data, error } = await supabase

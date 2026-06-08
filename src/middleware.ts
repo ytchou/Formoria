@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import createMiddleware from 'next-intl/middleware'
 import { NextResponse, type NextRequest } from "next/server";
 import { routing } from '@/i18n/routing'
+import { resolveAdminModeCookie } from '@/lib/auth/admin-mode-cookie'
 import { underConstructionHtml } from "@/lib/preview/under-construction";
 import { checkRateLimit } from "@/lib/security/rate-limiter";
 
@@ -100,7 +101,22 @@ async function refreshSupabaseSession(request: NextRequest, response: NextRespon
 
   // Refresh the session — must call getUser() not getSession()
   // to properly validate the JWT against the Supabase Auth server
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const currentCookie = request.cookies.get('fm_mode')?.value
+  const decision = resolveAdminModeCookie({ email: user?.email ?? null, currentCookie })
+  if (decision.action === 'set') {
+    response.cookies.set('fm_mode', decision.value, {
+      sameSite: 'lax',
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+    })
+  } else if (decision.action === 'delete') {
+    response.cookies.delete('fm_mode')
+  }
 
   return supabaseResponse;
 }

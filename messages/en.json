@@ -1006,5 +1006,12 @@
       "validation": "Validation failed, please try again.",
       "unexpected": "An unexpected error occurred, please try again."
     }
+  },
+  "adminMode": {
+    "god": "God mode",
+    "viewer": "Viewer mode",
+    "enter": "Switch to viewer",
+    "exit": "Exit viewer mode",
+    "banner": "plain-user view"
   }
 }
