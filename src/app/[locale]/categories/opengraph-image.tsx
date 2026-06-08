@@ -108,7 +108,7 @@ export default async function OgImage({
                 fontFamily: 'Bricolage Grotesque',
               }}
             >
-              {categories.length} categor{categories.length === 1 ? 'y' : 'ies'}
+              {`${categories.length} categor${categories.length === 1 ? 'y' : 'ies'}`}
             </div>
           </div>
         </div>

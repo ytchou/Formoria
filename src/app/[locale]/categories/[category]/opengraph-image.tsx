@@ -126,7 +126,7 @@ export default async function OgImage({
                 fontFamily: 'Bricolage Grotesque',
               }}
             >
-              {brandCount} brand{brandCount !== 1 ? 's' : ''}
+              {`${brandCount} brand${brandCount !== 1 ? 's' : ''}`}
             </div>
           )}
         </div>
