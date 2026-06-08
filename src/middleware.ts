@@ -78,7 +78,6 @@ function previewAllowedEmails(): Set<string> {
 async function refreshSupabaseSession(request: NextRequest, response: NextResponse) {
   const supabaseResponse = response
 
-  let refreshFired = false // DEV-762 TEMP
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -88,7 +87,6 @@ async function refreshSupabaseSession(request: NextRequest, response: NextRespon
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          refreshFired = true // DEV-762 TEMP: setAll fires only when the session is rotated/refreshed
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
@@ -102,24 +100,7 @@ async function refreshSupabaseSession(request: NextRequest, response: NextRespon
 
   // Refresh the session — must call getUser() not getSession()
   // to properly validate the JWT against the Supabase Auth server
-  const {
-    data: { user: mwUser },
-    error: mwError,
-  } = await supabase.auth.getUser();
-
-  // DEV-762 TEMP: prove whether the MIDDLEWARE sees the user + refreshes on the
-  // failing /submit requests (vs the page seeing none) → confirms the intl-branch
-  // request-cookie-forwarding bug. Logs no token values. Remove after diagnosis.
-  const dev762Path = request.nextUrl.pathname;
-  if (dev762Path.includes("submit") || dev762Path.includes("dashboard")) {
-    console.error("[DEV-762-MW]", {
-      path: dev762Path,
-      mwUserPresent: Boolean(mwUser),
-      mwErr: mwError?.name ?? null,
-      refreshFired,
-      branch: isLocalizedPublicPath(dev762Path) ? "intl" : "next",
-    });
-  }
+  await supabase.auth.getUser();
 
   return supabaseResponse;
 }
