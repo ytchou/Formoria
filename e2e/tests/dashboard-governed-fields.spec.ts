@@ -90,7 +90,6 @@ test.describe('Dashboard — governed field integrity', () => {
         name: 'fm_mode',
         value: 'viewer',
         url: 'http://localhost:3000',
-        path: '/',
       },
     ]);
 
