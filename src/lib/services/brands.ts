@@ -179,16 +179,6 @@ export const BRAND_SELECT =
 const VERIFIED_BRAND_SELECT =
   '*, brand_taxonomy(taxonomy_tags(*)), brand_owners!inner(user_id)'
 
-function formatInFilterValues(values: string[]): string {
-  return `(${values.map((value) => `"${value}"`).join(',')})`
-}
-
-async function getOwnedBrandIds(supabase: ReturnType<typeof createServiceClient>): Promise<string[]> {
-  const { data, error } = await supabase.from('brand_owners').select('brand_id')
-  if (error) throw error
-  return Array.from(new Set((data ?? []).map((row) => row.brand_id)))
-}
-
 export async function getBrands(
   filters?: BrandFilters
 ): Promise<{ brands: Brand[]; totalCount: number }> {
@@ -220,15 +210,12 @@ export async function getBrands(
     // Apply remaining filters over the ranked ID set
     const verificationFilter = filters.verificationFilter
     const selectClause =
-      verificationFilter === 'verified' ? VERIFIED_BRAND_SELECT : BRAND_SELECT
+      verificationFilter === 'owned' ? VERIFIED_BRAND_SELECT : BRAND_SELECT
 
     let query = supabase.from('brands').select(selectClause, { count: 'exact' }).in('id', rankedIds)
 
-    if (verificationFilter === 'community') {
-      const ownedBrandIds = await getOwnedBrandIds(supabase)
-      if (ownedBrandIds.length > 0) {
-        query = query.not('id', 'in', formatInFilterValues(ownedBrandIds))
-      }
+    if (verificationFilter === 'mit-verified') {
+      query = query.eq('mit_status', 'verified')
     }
 
     if (!filters.includeTestBrands) {
@@ -237,8 +224,8 @@ export async function getBrands(
     if (filters.status) {
       query = query.eq('status', filters.status)
     }
-    if (filters.category) {
-      query = query.contains('tag_slugs', [filters.category])
+    if (filters.category && filters.category.length > 0) {
+      query = query.overlaps('tag_slugs', filters.category)
     }
     if (filters.tags && filters.tags.length > 0) {
       query = query.overlaps('tag_slugs', filters.tags)
@@ -261,15 +248,12 @@ export async function getBrands(
   }
 
   const verificationFilter = filters?.verificationFilter
-  const selectClause = verificationFilter === 'verified' ? VERIFIED_BRAND_SELECT : BRAND_SELECT
+  const selectClause = verificationFilter === 'owned' ? VERIFIED_BRAND_SELECT : BRAND_SELECT
 
   let query = supabase.from('brands').select(selectClause, { count: 'exact' })
 
-  if (verificationFilter === 'community') {
-    const ownedBrandIds = await getOwnedBrandIds(supabase)
-    if (ownedBrandIds.length > 0) {
-      query = query.not('id', 'in', formatInFilterValues(ownedBrandIds))
-    }
+  if (verificationFilter === 'mit-verified') {
+    query = query.eq('mit_status', 'verified')
   }
 
   if (!filters?.includeTestBrands) {
@@ -278,9 +262,9 @@ export async function getBrands(
   if (filters?.status) {
     query = query.eq('status', filters.status)
   }
-  if (filters?.category) {
-    // brand has this category (a product_type tag slug)
-    query = query.contains('tag_slugs', [filters.category])
+  if (filters?.category && filters.category.length > 0) {
+    // brand has at least one of these category (product_type) tag slugs
+    query = query.overlaps('tag_slugs', filters.category)
   }
   if (filters?.tags && filters.tags.length > 0) {
     // brand has at least one of these value tags

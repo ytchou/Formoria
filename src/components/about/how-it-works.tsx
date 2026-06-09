@@ -1,5 +1,4 @@
-import Link from 'next/link'
-import { Upload, Search, CheckCircle } from 'lucide-react'
+import { Link } from '@/i18n/navigation'
 
 interface Step {
   label: string
@@ -12,29 +11,29 @@ interface HowItWorksProps {
   cta: string
 }
 
-const STEP_ICONS = [Upload, Search, CheckCircle]
-
 export default function HowItWorks({ heading, steps, cta }: HowItWorksProps) {
   return (
-    <section className="py-12 md:py-16">
-      <h2 className="font-heading text-xl font-bold">{heading}</h2>
-      <div className="mt-8 flex flex-col gap-8 sm:flex-row">
-        {steps.map(({ label, description }, i) => {
-          const Icon = STEP_ICONS[i]
-          return (
-            <div key={i} className="flex-1">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground text-sm font-bold text-background">
-                {i + 1}
-              </div>
-              <Icon className="mt-4 h-5 w-5 text-muted-foreground" />
-              <h3 className="mt-2 font-heading text-base font-bold">{label}</h3>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{description}</p>
-            </div>
-          )
-        })}
-      </div>
-      <div className="mt-8">
-        <Link href="/submit" className="font-medium text-cta">
+    <section className="border-t border-border py-16 md:py-24">
+      <div className="mx-auto max-w-5xl px-6 md:px-8">
+        <h2 className="font-heading text-3xl font-bold leading-tight text-foreground md:text-4xl">
+          {heading}
+        </h2>
+        <ol className="mt-12 grid gap-8 md:grid-cols-3">
+          {steps.map(({ label, description }, index) => (
+            <li key={label}>
+              <p className="font-heading text-3xl font-bold text-primary/30">
+                {String(index + 1).padStart(2, '0')}
+              </p>
+              <h3 className="mt-4 font-heading text-lg font-bold text-foreground">
+                {label}
+              </h3>
+              <p className="mt-3 text-base leading-relaxed text-muted-foreground md:text-lg">
+                {description}
+              </p>
+            </li>
+          ))}
+        </ol>
+        <Link href="/submit" className="mt-10 inline-flex text-sm font-semibold text-primary hover:underline">
           {cta}
         </Link>
       </div>

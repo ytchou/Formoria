@@ -98,6 +98,17 @@
     "emptyGridDescription": "Try adjusting or clearing your filters.",
     "categoryAll": "All",
     "sortLabel": "Sort by",
+    "filters": {
+      "title": "Filters",
+      "trigger": "Filters ({count})",
+      "all": "All",
+      "category": "Category",
+      "brandStatus": "Brand status",
+      "brandValues": "Brand values",
+      "appliedCount": "{count} filters applied",
+      "clearAll": "Clear all",
+      "showResults": "Show {count} results"
+    },
     "sort": {
       "name": "A-Z",
       "newest": "Newest",
@@ -123,8 +134,8 @@
     },
     "verificationFilter": {
       "all": "All",
-      "verified": "Verified",
-      "community": "Community"
+      "mit-verified": "MIT Verified",
+      "owned": "Owned"
     },
     "claimCta": {
       "proofTypeRequired": "Please choose a valid proof type.",
@@ -284,12 +295,12 @@
         "title": "Core",
         "terms": {
           "madeInTaiwan": {
-            "zh": "台灣製造",
+            "zh": "Taiwan-made",
             "en": "Made in Taiwan",
             "definition": "Primary design, manufacturing, or founding rooted in Taiwan — a commitment to craft, not just an origin label."
           },
           "communityCurated": {
-            "zh": "社群策展",
+            "zh": "Community curated",
             "en": "Community-curated",
             "definition": "Submitted and reviewed by the community, not by an algorithm — every listing reflects a human decision."
           }
@@ -299,19 +310,19 @@
         "title": "Verification",
         "terms": {
           "mitVerified": {
-            "zh": "MIT 微笑標章",
+            "zh": "MIT Smile Mark",
             "en": "Verified",
-            "definition": "Registry-confirmed against the 微笑產品標章 — independently cross-checked, not self-reported.",
+            "definition": "Registry-confirmed against the MIT Smile Mark — independently cross-checked, not self-reported.",
             "badge": "verified"
           },
           "ownerClaimed": {
-            "zh": "品牌經營",
+            "zh": "Owner managed",
             "en": "Owner-claimed",
             "definition": "The brand owner has claimed and actively manages this listing — a live, maintained presence.",
             "badge": "owner"
           },
           "communityLabel": {
-            "zh": "社群標記",
+            "zh": "Community label",
             "en": "Community label",
             "definition": "Community-maintained with no owner claim and no registry check — always welcome to claim."
           }
@@ -321,17 +332,17 @@
         "title": "Materials",
         "terms": {
           "leather": {
-            "zh": "皮革",
+            "zh": "Leather",
             "en": "Leather",
             "definition": "Full- or top-grain, vegetable-tanned leather — not synthetics."
           },
           "ceramic": {
-            "zh": "陶瓷",
+            "zh": "Ceramic",
             "en": "Ceramic",
-            "definition": "Clay, porcelain, and stoneware, with strong roots in Yingge (鶯歌) heritage."
+            "definition": "Clay, porcelain, and stoneware, with strong roots in Yingge heritage."
           },
           "naturalFibre": {
-            "zh": "天然纖維",
+            "zh": "Natural fibre",
             "en": "Natural Fibre",
             "definition": "Cotton, linen, wool, silk, or bamboo — plant- or animal-sourced only."
           }
@@ -341,19 +352,19 @@
         "title": "Price Range",
         "terms": {
           "accessible": {
-            "zh": "親民",
+            "zh": "Accessible",
             "en": "Accessible",
             "definition": "Everyday pricing, from NT$0 to NT$500.",
             "range": "NT$0 – NT$500"
           },
           "midRange": {
-            "zh": "中價位",
+            "zh": "Mid-range",
             "en": "Mid-range",
             "definition": "Considered purchases, from NT$500 to NT$3,000.",
             "range": "NT$500 – NT$3,000"
           },
           "premium": {
-            "zh": "精品",
+            "zh": "Premium",
             "en": "Premium",
             "definition": "Premium craft, NT$3,000 and above.",
             "range": "NT$3,000+"
@@ -364,17 +375,17 @@
         "title": "Regions",
         "terms": {
           "north": {
-            "zh": "北部",
+            "zh": "North",
             "en": "North Taiwan",
             "definition": "Taipei, New Taipei, Taoyuan, Keelung — the island's design and fashion hub."
           },
           "central": {
-            "zh": "中部",
+            "zh": "Central",
             "en": "Central Taiwan",
             "definition": "Taichung, Changhua, Nantou — known for ceramics, tea, and woodwork."
           },
           "south": {
-            "zh": "南部",
+            "zh": "South",
             "en": "South Taiwan",
             "definition": "Tainan, Kaohsiung, Pingtung — artisan and food culture, the cultural capital."
           }
@@ -384,17 +395,17 @@
         "title": "Values",
         "terms": {
           "slowMade": {
-            "zh": "慢工出細活",
+            "zh": "Slow-made",
             "en": "Slow-made",
             "definition": "Small-batch and handmade — a curatorial signal, not a certification."
           },
           "ecoConscious": {
-            "zh": "永續意識",
+            "zh": "Eco-conscious",
             "en": "Eco-conscious",
             "definition": "A material commitment to environmental responsibility in sourcing, packaging, and waste."
           },
           "familyRun": {
-            "zh": "家族傳承",
+            "zh": "Family-run",
             "en": "Family-run",
             "definition": "Family-owned and operated, often across multiple generations."
           }
@@ -509,22 +520,16 @@
     },
     "hero": {
       "eyebrow": "Formoria",
-      "title": "Putting Taiwan's best brands on the world map.",
+      "title": "Putting Taiwan's best brands on the world map",
       "subtitle": "A community-curated directory for discovering quality Made-in-Taiwan brands, from everyday staples to thoughtful design.",
       "statSuffix": " — and growing",
       "cta": "Explore brands"
     },
     "origin": {
       "heading": "Why Formoria Exists",
-      "quote": "I kept looking for Taiwan online and finding pieces, not a place.",
-      "body1": "I am a Taiwanese founder who spent years abroad trying to find the brands that made home feel close: pantry staples, design objects, daily goods, and small labels I trusted but could not easily explain to friends.",
-      "body2": "My background is in technology for small businesses, where I saw the same pattern again and again. Many independent brands already have the quality, taste, and care. What they lack is a simple way to be found by people who are already looking for something better.",
-      "body3": "Formoria began as a quiet answer to that gap: a focused, anonymous founder-led directory for Taiwan's best brands, built so the work can stand in front of the biography."
-    },
-    "whatIsMit": {
-      "heading": "What is Made in Taiwan?",
-      "body1": "Made in Taiwan is more than a mark of origin. It carries a history of reliability, practical craft, and constant improvement across food, home, beauty, apparel, design, and technology.",
-      "body2": "On Formoria, MIT means a brand is founded, designed, produced, or deeply rooted in Taiwan. We look for real connection, considered quality, and a story worth helping more people discover."
+      "body1": "For years abroad, I kept looking for the brands that made home feel close: familiar pantry staples, well-made daily goods, design objects, and small labels I trusted but could never quite explain to friends. So many independent brands already have the quality, the taste, the care — what they lack is a simple way to be found by the people already looking for them.",
+      "body2": "Portuguese sailors who sailed past Taiwan called it Ilha Formosa, the beautiful island. Formoria is the place that brings together the brands of this beautiful island worth treasuring.",
+      "body3": "On Formoria, MIT means a brand is founded, designed, produced, or deeply rooted in Taiwan. We look for real connection, considered quality, and a story worth helping more people discover."
     },
     "mission": {
       "heading": "Our Mission",
@@ -542,15 +547,22 @@
         "body": "Create a clean, trusted place where shoppers, travelers, editors, and diaspora communities can find Taiwan-made brands worth remembering."
       }
     },
+    "taiwanStats": {
+      "eyebrow": "Why back Taiwan's brands",
+      "heading": "Taiwan's economy is built by small brands.",
+      "intro": "Behind every brand in our directory is a small or medium business. In Taiwan, those businesses were never a side act.",
+      "items": {
+        "count": { "value": "1.67M+", "label": "small & medium enterprises", "detail": "An all-time high in 2023" },
+        "share": { "value": "98%", "label": "of all Taiwan businesses", "detail": "Taiwan's economy is essentially SMEs" },
+        "employment": { "value": "~80%", "label": "of the national workforce", "detail": "Employed by SMEs — over 9.16 million people" }
+      },
+      "note": "Together they generate over NT$28 trillion in annual sales — more than half of all enterprise revenue. Backing one Taiwan brand backs the everyday life of the island.",
+      "sourceLabel": "Source",
+      "sourceName": "SME White Paper 2024, SME & Startup Administration, MOEA (2023 data)"
+    },
     "stats": {
       "brandUnit": "brands",
-      "categoryUnit": "categories",
-      "curatedLabel": "community curated",
-      "curatedValue": "100%"
-    },
-    "showcase": {
-      "heading": "Explore Taiwanese Brands",
-      "linkText": "Browse all brands →"
+      "categoryUnit": "categories"
     },
     "howItWorks": {
       "heading": "How It Works",
@@ -567,11 +579,6 @@
         "description": "Approved brands join the directory with clear context so more people can discover, compare, and support them."
       },
       "cta": "Submit a Brand →"
-    },
-    "cta": {
-      "heading": "Find Taiwan-made brands worth coming back to.",
-      "primary": "Explore brands",
-      "secondary": "Submit a brand"
     }
   },
   "mySubmissions": {
@@ -896,7 +903,7 @@
       "brandDescriptionPlaceholder": "Tell us about your brand...",
       "brandDescriptionHint": "Write a specific, factual description (at least 40 characters) — what you make, your materials, and what makes the brand Taiwanese.",
       "mitSmileMarkNumber": "MIT Smile mark number (optional)",
-      "mitSmileMarkNumberPlaceholder": "例如 01200024-02134",
+      "mitSmileMarkNumberPlaceholder": "e.g. 01200024-02134",
       "mitSmileMarkNumberHelper": "Already certified by MIT Smile? Email <mail>{email}</mail> to request verification.",
       "charCount": "{count} / {max} max characters",
       "photos": "Photos",

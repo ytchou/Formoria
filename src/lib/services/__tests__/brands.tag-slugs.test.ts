@@ -1,7 +1,7 @@
 /**
  * Unit test: getBrands() query construction for tag_slugs array-operator filtering.
  *
- * Verifies that the refactored getBrands() calls .contains() and .overlaps() on the
+ * Verifies that getBrands() calls .overlaps() on the
  * denormalized tag_slugs column instead of the old embedded-relation path, and that
  * no !inner join appears in the select string.
  */
@@ -37,15 +37,15 @@ describe('getBrands — tag_slugs array-operator filtering', () => {
     vi.clearAllMocks()
   })
 
-  it('calls .contains() and .overlaps() on tag_slugs when category + tags are combined', async () => {
+  it('calls .overlaps() on tag_slugs when category + tags are combined', async () => {
     const chain = createMockChain()
     vi.mocked(createServiceClient).mockReturnValue({
       from: vi.fn(() => chain),
     } as unknown as ReturnType<typeof createServiceClient>)
 
-    await getBrands({ status: 'approved', category: 'food', tags: ['handmade'] })
+    await getBrands({ status: 'approved', category: ['food'], tags: ['handmade'] })
 
-    expect(chain.contains).toHaveBeenCalledWith('tag_slugs', ['food'])
+    expect(chain.overlaps).toHaveBeenCalledWith('tag_slugs', ['food'])
     expect(chain.overlaps).toHaveBeenCalledWith('tag_slugs', ['handmade'])
   })
 
@@ -55,7 +55,7 @@ describe('getBrands — tag_slugs array-operator filtering', () => {
       from: vi.fn(() => chain),
     } as unknown as ReturnType<typeof createServiceClient>)
 
-    await getBrands({ status: 'approved', category: 'food', tags: ['handmade'] })
+    await getBrands({ status: 'approved', category: ['food'], tags: ['handmade'] })
 
     expect(chain.select).toHaveBeenCalledWith(
       expect.not.stringContaining('!inner'),
@@ -63,16 +63,15 @@ describe('getBrands — tag_slugs array-operator filtering', () => {
     )
   })
 
-  it('calls .contains() but not .overlaps() when only category is provided', async () => {
+  it('calls .overlaps() when only category is provided', async () => {
     const chain = createMockChain()
     vi.mocked(createServiceClient).mockReturnValue({
       from: vi.fn(() => chain),
     } as unknown as ReturnType<typeof createServiceClient>)
 
-    await getBrands({ status: 'approved', category: 'food' })
+    await getBrands({ status: 'approved', category: ['food'] })
 
-    expect(chain.contains).toHaveBeenCalledWith('tag_slugs', ['food'])
-    expect(chain.overlaps).not.toHaveBeenCalled()
+    expect(chain.overlaps).toHaveBeenCalledWith('tag_slugs', ['food'])
   })
 
   it('calls .overlaps() but not .contains() when only tags are provided', async () => {
