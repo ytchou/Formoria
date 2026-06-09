@@ -163,9 +163,9 @@ describe('LandingPage', () => {
     expect(screen.queryByText('Verified')).not.toBeInTheDocument()
     expect(screen.getByText('Verified Brand')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '社群推薦' })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '/brands?verification=verified' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '/brands?verification=mit-verified' })).toHaveAttribute(
       'href',
-      '/brands?verification=verified'
+      '/brands?verification=mit-verified'
     )
     expect(getBrands).toHaveBeenCalledTimes(1)
     expect(getBrands).toHaveBeenCalledWith({ status: 'approved', limit: 60 })

@@ -31,7 +31,7 @@
     "terms": "服務條款",
     "contact": "聯絡我們",
     "copyright": "© {year} Formoria",
-    "tagline": "讓台灣品牌被世界看見。",
+    "tagline": "讓台灣品牌被世界看見",
     "discoverHeading": "探索",
     "directory": "品牌目錄",
     "categories": "分類瀏覽",
@@ -98,6 +98,17 @@
     "emptyGridDescription": "請嘗試調整或清除篩選條件。",
     "categoryAll": "全部",
     "sortLabel": "排序方式",
+    "filters": {
+      "title": "篩選",
+      "trigger": "篩選（{count}）",
+      "all": "全部",
+      "category": "分類",
+      "brandStatus": "品牌狀態",
+      "brandValues": "品牌價值",
+      "appliedCount": "已套用 {count} 個篩選",
+      "clearAll": "清除全部",
+      "showResults": "顯示 {count} 個結果"
+    },
     "sort": {
       "name": "A-Z",
       "newest": "最新",
@@ -123,8 +134,8 @@
     },
     "verificationFilter": {
       "all": "全部",
-      "verified": "已驗證",
-      "community": "社群"
+      "mit-verified": "MIT 已驗證",
+      "owned": "品牌經營"
     },
     "claimCta": {
       "proofTypeRequired": "請選擇有效的認領證明類型",
@@ -509,22 +520,16 @@
     },
     "hero": {
       "eyebrow": "Formoria",
-      "title": "把台灣最好的品牌，帶向世界。",
+      "title": "把台灣最好的品牌，帶向世界",
       "subtitle": "一個社群嚴選的台灣製造品牌目錄，讓人們從日常選物到設計好物，都能找到值得認識的台灣品牌。",
       "statSuffix": "，持續增加中",
       "cta": "探索品牌"
     },
     "origin": {
       "heading": "Formoria 為什麼存在",
-      "quote": "我一直在網路上尋找台灣，卻只找到零散的片段，而不是一個真正的入口。",
-      "body1": "我是一位台灣創辦人。旅居海外的幾年裡，我常常想找那些讓家變得靠近的品牌：熟悉的食材、好用的日用品、有設計感的物件，以及我信任、卻很難向朋友介紹清楚的小品牌。",
-      "body2": "我的背景是服務小型企業的科技產業，也因此反覆看見同一件事：許多獨立品牌並不缺品質、品味或用心，缺的是一個讓正在尋找它們的人找到的方式。",
-      "body3": "Formoria 就是從這個缺口開始的。一個由匿名創辦人推動、專注收錄台灣優質品牌的目錄，讓品牌本身站到故事前面。"
-    },
-    "whatIsMit": {
-      "heading": "什麼是 Made in Taiwan?",
-      "body1": "Made in Taiwan 不只是產地標籤。它承載著可靠、務實工藝與持續改進的歷史，橫跨食品、居家、美妝、服飾、設計與科技等領域。",
-      "body2": "在 Formoria，MIT 代表品牌在台灣創立、設計、生產，或與台灣有深刻連結。我們重視真實的關係、經得起使用的品質，以及值得被更多人發現的故事。"
+      "body1": "旅居海外的幾年裡，我常常想找那些讓家變得靠近的品牌：熟悉的食材、好用的日用品、有設計感的物件，以及我信任、卻很難向朋友介紹清楚的小品牌。許多獨立品牌並不缺品質、品味或用心，缺的是一個讓正在尋找它們的人找到的方式。",
+      "body2": "葡萄牙水手航經台灣時，稱這裡為「Ilha Formosa」。Formoria，就是把這座美麗之島上值得珍藏的好品牌，聚集在一起的地方。",
+      "body3": "在 Formoria，MIT 代表品牌在台灣創立、設計、生產，或與台灣有深刻連結。我們重視真實的關係、經得起使用的品質，以及值得被更多人發現的故事。"
     },
     "mission": {
       "heading": "我們的使命",
@@ -542,15 +547,22 @@
         "body": "打造一個乾淨、可信任的地方，讓消費者、旅人、編輯與海外台灣社群，都能找到值得記住的台灣製造品牌。"
       }
     },
+    "taiwanStats": {
+      "eyebrow": "為什麼支持台灣品牌",
+      "heading": "台灣的經濟，是由小品牌撐起來的。",
+      "intro": "我們收錄的每一個品牌，背後都是一家中小企業。而在台灣，中小企業從來不是配角。",
+      "items": {
+        "count": { "value": "167.4 萬+", "label": "家台灣中小企業", "detail": "2023 年家數創歷年新高" },
+        "share": { "value": "98%", "label": "占全體企業比例", "detail": "台灣經濟，幾乎就是中小企業" },
+        "employment": { "value": "近 8 成", "label": "全國就業人口", "detail": "由中小企業所雇用，逾 916 萬人" }
+      },
+      "note": "這些品牌每年合計創造超過 28 兆元銷售額，占全體企業逾五成——支持一個台灣小品牌，就是支持這座島的日常。",
+      "sourceLabel": "資料來源",
+      "sourceName": "經濟部中小及新創企業署《2024 年中小企業白皮書》（2023 年資料）"
+    },
     "stats": {
       "brandUnit": "個品牌",
-      "categoryUnit": "個分類",
-      "curatedLabel": "社群嚴選",
-      "curatedValue": "100%"
-    },
-    "showcase": {
-      "heading": "探索台灣品牌",
-      "linkText": "瀏覽所有品牌 →"
+      "categoryUnit": "個分類"
     },
     "howItWorks": {
       "heading": "運作方式",
@@ -567,11 +579,6 @@
         "description": "通過後，品牌會加入目錄，並以清楚的脈絡讓更多人發現、比較與支持。"
       },
       "cta": "提交品牌 →"
-    },
-    "cta": {
-      "heading": "找到值得一再回訪的台灣製造品牌。",
-      "primary": "探索品牌",
-      "secondary": "提交品牌"
     }
   },
   "mySubmissions": {

@@ -57,6 +57,7 @@ test.describe('Brand tier differentiation — Community vs Verified', () => {
         name: verifiedBrandName,
         slug: verifiedBrandSlug,
         status: 'approved',
+        mit_status: 'verified',
         description: 'E2E throwaway — owner-verified brand.',
         purchase_links: [],
         social_links: {},
@@ -120,37 +121,31 @@ test.describe('Brand tier differentiation — Community vs Verified', () => {
     await expect(ownerBadge).toContainText('品牌');
   });
 
-  test('verification filter pill 已驗證 hides community brand; 社群 hides verified brand', async ({
+  test('brand status filters show owned and MIT verified brands', async ({
     anonPage,
   }) => {
     test.setTimeout(60_000);
 
-    // Navigate to verified filter — community brand must not be visible in this filter
-    const verifiedResp = await anonPage.goto('/brands?verification=verified');
-    if (verifiedResp?.status() === 503) {
+    // Navigate to owned filter — community brand must not be visible in this filter
+    const ownedResp = await anonPage.goto('/brands?verification=owned');
+    if (ownedResp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
     }
 
-    // The 已驗證 pill must show as active
-    const verifiedPill = anonPage.locator('main').locator('button', { hasText: '已驗證' });
-    await expect(verifiedPill).toBeVisible({ timeout: 5_000 });
-    await expect(verifiedPill).toHaveAttribute('data-active', 'true');
+    await expect(anonPage.locator('main').getByLabel('品牌經營')).toBeChecked({ timeout: 5_000 });
 
-    // Community brand must NOT appear in verified-only view
+    // Community brand must NOT appear in owned-only view
     await expect(
       anonPage.locator(`a[href="/brands/${communityBrandSlug}"]`)
     ).toHaveCount(0);
 
-    // Navigate to community filter — verified brand must not be visible
-    await anonPage.goto('/brands?verification=community');
-    const communityPill = anonPage.locator('main').locator('button', { hasText: '社群' });
-    await expect(communityPill).toBeVisible({ timeout: 5_000 });
-    await expect(communityPill).toHaveAttribute('data-active', 'true');
-
-    await expect(
-      anonPage.locator(`a[href="/brands/${verifiedBrandSlug}"]`)
-    ).toHaveCount(0);
+    // Navigate to MIT verified filter — the MIT-verified brand is visible and selected.
+    await anonPage.goto('/brands?verification=mit-verified');
+    await expect(anonPage.locator('main').getByLabel('MIT 已驗證')).toBeChecked({ timeout: 5_000 });
+    await expect(anonPage.locator(`a[href="/brands/${verifiedBrandSlug}"]`)).toBeVisible({
+      timeout: 5_000,
+    });
 
     // 全部 pill (verification row) restores all — navigate to it directly via URL
     await anonPage.goto('/brands?verification=all');

@@ -67,7 +67,7 @@ describeWithDb('getBrands tags+category filtering (integration)', () => {
   })
 
   it('returns brand when filtering by category only', async () => {
-    const { brands } = await getBrands({ status: 'approved', category: PRODUCT_TYPE_SLUG })
+    const { brands } = await getBrands({ status: 'approved', category: [PRODUCT_TYPE_SLUG] })
     const slugs = brands.map((b) => b.slug)
     expect(slugs).toContain(TEST_SLUG)
   })
@@ -81,7 +81,7 @@ describeWithDb('getBrands tags+category filtering (integration)', () => {
   it('returns brand when filtering by category AND value tag (the bug scenario)', async () => {
     const { brands } = await getBrands({
       status: 'approved',
-      category: PRODUCT_TYPE_SLUG,
+      category: [PRODUCT_TYPE_SLUG],
       tags: [VALUE_SLUG],
     })
     const slugs = brands.map((b) => b.slug)
@@ -91,7 +91,7 @@ describeWithDb('getBrands tags+category filtering (integration)', () => {
   it('excludes brand when value tag does not match', async () => {
     const { brands } = await getBrands({
       status: 'approved',
-      category: PRODUCT_TYPE_SLUG,
+      category: [PRODUCT_TYPE_SLUG],
       tags: ['nonexistent-zzz'],
     })
     const slugs = brands.map((b) => b.slug)
@@ -112,6 +112,7 @@ describeWithDb('getBrands — verificationFilter', () => {
         slug: VERIFIED_SLUG,
         description: 'Throwaway verified brand for verificationFilter integration test',
         status: 'approved',
+        mit_status: 'verified',
       },
       {
         name: 'ZZZ Community Tier Integration Test Brand',
@@ -172,8 +173,8 @@ describeWithDb('getBrands — verificationFilter', () => {
     }
   })
 
-  it('returns only claimed approved brands for verificationFilter=verified', async () => {
-    const { brands } = await getBrands({ status: 'approved', verificationFilter: 'verified' })
+  it('returns only owned approved brands for verificationFilter=owned', async () => {
+    const { brands } = await getBrands({ status: 'approved', verificationFilter: 'owned' })
     const slugs = brands.map((brand) => brand.slug)
 
     expect(slugs).toContain(VERIFIED_SLUG)
@@ -181,13 +182,13 @@ describeWithDb('getBrands — verificationFilter', () => {
     expect(brands.every((brand) => brand.isVerified)).toBe(true)
   })
 
-  it('returns only unclaimed approved brands for verificationFilter=community', async () => {
-    const { brands } = await getBrands({ status: 'approved', verificationFilter: 'community' })
+  it('returns only MIT verified approved brands for verificationFilter=mit-verified', async () => {
+    const { brands } = await getBrands({ status: 'approved', verificationFilter: 'mit-verified' })
     const slugs = brands.map((brand) => brand.slug)
 
-    expect(slugs).toContain(COMMUNITY_SLUG)
-    expect(slugs).not.toContain(VERIFIED_SLUG)
-    expect(brands.every((brand) => !brand.isVerified)).toBe(true)
+    expect(slugs).toContain(VERIFIED_SLUG)
+    expect(slugs).not.toContain(COMMUNITY_SLUG)
+    expect(brands.every((brand) => brand.mitStatus === 'verified')).toBe(true)
   })
 
   it('returns both tiers for verificationFilter=all and when omitted', async () => {

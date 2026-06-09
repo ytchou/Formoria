@@ -87,7 +87,7 @@ export default async function LandingPage({ params }: PageProps) {
               brands={verifiedBrands}
               heading={t('verifiedRail.heading')}
               linkText={t('newBrands.linkText')}
-              linkHref="/brands?verification=verified"
+              linkHref="/brands?verification=mit-verified"
             />
           </div>
         </div>

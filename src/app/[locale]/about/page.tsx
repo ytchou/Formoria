@@ -5,13 +5,10 @@ import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import AboutHero from '@/components/about/about-hero'
 import OriginStory from '@/components/about/origin-story'
-import WhatIsMit from '@/components/about/what-is-mit'
+import TaiwanStats from '@/components/about/taiwan-stats'
 import MissionPillars from '@/components/about/mission-pillars'
-import StatsBar from '@/components/about/stats-bar'
-import BrandShowcase from '@/components/shared/brand-showcase'
 import HowItWorks from '@/components/about/how-it-works'
-import AboutCta from '@/components/about/about-cta'
-import { getBrandStats, getRandomBrands } from '@/lib/services/brands'
+import { getBrandStats } from '@/lib/services/brands'
 
 export const revalidate = 3600
 
@@ -60,10 +57,7 @@ export default async function AboutPage({ params }: PageProps) {
   const organizationJsonLd = buildOrganizationJsonLd(safeLocale)
   const articleJsonLd = buildArticleJsonLd({ title, description, path: '/about', locale: safeLocale })
 
-  const [stats, randomBrands] = await Promise.all([
-    getBrandStats(),
-    getRandomBrands(4),
-  ])
+  const stats = await getBrandStats()
 
   return (
     <>
@@ -81,67 +75,58 @@ export default async function AboutPage({ params }: PageProps) {
           categoryCount={stats.categoryCount}
         />
 
-        <div className="py-12 md:py-16">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <OriginStory />
-          </div>
-        </div>
+        <OriginStory
+          heading={t('origin.heading')}
+          body1={t('origin.body1')}
+          body2={t('origin.body2')}
+          body3={t('origin.body3')}
+        />
 
-        <div className="py-12 md:py-16">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <WhatIsMit
-              heading={t('whatIsMit.heading')}
-              body1={t('whatIsMit.body1')}
-              body2={t('whatIsMit.body2')}
-            />
-          </div>
-        </div>
+        <TaiwanStats
+          eyebrow={t('taiwanStats.eyebrow')}
+          heading={t('taiwanStats.heading')}
+          intro={t('taiwanStats.intro')}
+          items={[
+            {
+              value: t('taiwanStats.items.count.value'),
+              label: t('taiwanStats.items.count.label'),
+              detail: t('taiwanStats.items.count.detail'),
+            },
+            {
+              value: t('taiwanStats.items.share.value'),
+              label: t('taiwanStats.items.share.label'),
+              detail: t('taiwanStats.items.share.detail'),
+            },
+            {
+              value: t('taiwanStats.items.employment.value'),
+              label: t('taiwanStats.items.employment.label'),
+              detail: t('taiwanStats.items.employment.detail'),
+            },
+          ]}
+          note={t('taiwanStats.note')}
+          sourceLabel={t('taiwanStats.sourceLabel')}
+          sourceName={t('taiwanStats.sourceName')}
+        />
 
-        <div className="py-12 md:py-16">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <MissionPillars
-              heading={t('mission.heading')}
-            />
-          </div>
-        </div>
+        <MissionPillars
+          heading={t('mission.heading')}
+          statement={t('mission.statement')}
+          pillars={[
+            { heading: t('mission.promote.heading'), body: t('mission.promote.body') },
+            { heading: t('mission.smallBusiness.heading'), body: t('mission.smallBusiness.body') },
+            { heading: t('mission.platform.heading'), body: t('mission.platform.body') },
+          ]}
+        />
 
-        <div className="py-12 md:py-16">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <StatsBar
-              brandCount={stats.brandCount}
-              categoryCount={stats.categoryCount}
-              brandUnit={t('stats.brandUnit')}
-              categoryUnit={t('stats.categoryUnit')}
-            />
-          </div>
-        </div>
-
-        <div className="py-12 md:py-16">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <BrandShowcase
-              brands={randomBrands}
-              heading={t('showcase.heading')}
-              linkText={t('showcase.linkText')}
-              linkHref="/brands"
-            />
-          </div>
-        </div>
-
-        <div className="py-12 md:py-16">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <HowItWorks
-              heading={t('howItWorks.heading')}
-              steps={[
-                { label: t('howItWorks.submit.label'), description: t('howItWorks.submit.description') },
-                { label: t('howItWorks.review.label'), description: t('howItWorks.review.description') },
-                { label: t('howItWorks.publish.label'), description: t('howItWorks.publish.description') },
-              ]}
-              cta={t('howItWorks.cta')}
-            />
-          </div>
-        </div>
-
-        <AboutCta />
+        <HowItWorks
+          heading={t('howItWorks.heading')}
+          steps={[
+            { label: t('howItWorks.submit.label'), description: t('howItWorks.submit.description') },
+            { label: t('howItWorks.review.label'), description: t('howItWorks.review.description') },
+            { label: t('howItWorks.publish.label'), description: t('howItWorks.publish.description') },
+          ]}
+          cta={t('howItWorks.cta')}
+        />
       </main>
     </>
   )
