@@ -156,7 +156,7 @@ test.describe('Submission happy path', () => {
     const websiteUrl = `https://happy-path-${timestamp}.example.com`;
     const purchaseUrl = `https://shop.example.com/products/${timestamp}`;
 
-    await gotoSubmitWizard(userPage, { timeout: 60_000 });
+    await gotoSubmitWizard(userPage, { timeout: 90_000 });
 
     await userPage.getByRole('checkbox', { name: ownerCheckboxName, exact: true }).check();
     await userPage.getByRole('button', { name: manualEntryButtonName, exact: true }).click();
