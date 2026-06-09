@@ -21,6 +21,22 @@ async function globalSetup() {
   // global-setup intentionally does NOT write shared .auth/*.json files —
   // each Playwright worker will call writeAuthStorageState() for its own
   // per-worker path, giving every worker a distinct Supabase refresh token.
+
+  // Best-effort warm-up: trigger Next.js cold-compile for /submit so the first
+  // spec doesn't pay the full cold-compile tax. webServer is guaranteed ready
+  // before globalSetup runs (Playwright waits on the webServer url first).
+  // Any failure is swallowed — this must NEVER break the suite.
+  const baseURL = 'http://localhost:3000';
+  await (async () => {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 90_000);
+      await fetch(`${baseURL}/submit`, { signal: controller.signal });
+      clearTimeout(timer);
+    } catch {
+      // swallow — warm-up is best-effort only
+    }
+  })();
 }
 
 export default globalSetup;
