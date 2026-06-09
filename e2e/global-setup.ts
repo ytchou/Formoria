@@ -32,7 +32,7 @@ async function globalSetup() {
   // real headless browser with an authenticated storageState to force Next.js to
   // compile the full client bundle once before specs run.
   // Any failure is swallowed — this must NEVER break the suite.
-  const baseURL = 'http://localhost:3000';
+  const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000';
   const tmpStorePath = path.join(__dirname, '.auth', 'warmup-user.json');
   await (async () => {
     let browser: Browser | undefined;
