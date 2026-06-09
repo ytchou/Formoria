@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import { BrandCard } from '../brand-card'
 import type { Brand } from '@/lib/types'
-import en from '../../../../messages/en.json'
+import zh from '../../../../messages/zh-TW.json'
 
 vi.mock('@/lib/analytics', () => ({
   trackBrandCardClicked: vi.fn(),
@@ -19,14 +19,18 @@ vi.mock('@/i18n/navigation', () => ({
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
   return {
     id: 'brand-1',
-    name: 'Test Brand',
+    name: '測試品牌',
     slug: 'test-brand',
-    description: 'A brand',
+    description: '品牌描述',
     logoUrl: null,
     heroImageUrl: null,
     status: 'approved',
     category: 'fashion',
     isVerified: false,
+    mitStatus: 'unverified',
+    mitVerifiedAt: null,
+    mitEvidence: null,
+    mitVerified: false,
     isDemo: false,
     purchaseLinks: [],
     socialLinks: {},
@@ -46,23 +50,40 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
 
 function renderWithProvider(ui: React.ReactElement) {
   return render(
-    <NextIntlClientProvider locale="en" messages={en}>
+    <NextIntlClientProvider locale="zh-TW" messages={zh}>
       {ui}
     </NextIntlClientProvider>
   )
 }
 
-describe('BrandCard — verified badge', () => {
-  it('renders a verified badge when isVerified is true', () => {
-    renderWithProvider(<BrandCard brand={makeBrand({ isVerified: true })} />)
-    expect(screen.getByLabelText('Managed by the brand owner')).toBeInTheDocument()
-    expect(screen.getByText('Brand')).toBeInTheDocument()
-    expect(screen.queryByText('Community')).not.toBeInTheDocument()
+describe('BrandCard badges', () => {
+  it('renders the MIT verified badge for MIT-verified brands', () => {
+    renderWithProvider(
+      <BrandCard brand={makeBrand({ mitStatus: 'verified', mitVerified: true })} />
+    )
+
+    expect(screen.getByTitle('MIT 已驗證')).toBeInTheDocument()
+    expect(screen.getByTitle('MIT 已驗證')).toHaveTextContent('MIT')
   })
 
-  it('renders no owner or community badge when isVerified is false', () => {
-    renderWithProvider(<BrandCard brand={makeBrand({ isVerified: false })} />)
-    expect(screen.queryByLabelText('Managed by the brand owner')).not.toBeInTheDocument()
-    expect(screen.queryByText('Community')).not.toBeInTheDocument()
+  it('renders the owner badge for verified brands', () => {
+    renderWithProvider(<BrandCard brand={makeBrand({ isVerified: true })} />)
+
+    expect(screen.getByTitle('由品牌方經營管理')).toBeInTheDocument()
+    expect(screen.getByTitle('由品牌方經營管理')).toHaveTextContent('品牌')
+  })
+
+  it('renders community text without the owner badge for community brands', () => {
+    renderWithProvider(<BrandCard brand={makeBrand({ category: '社群', isVerified: false })} />)
+
+    expect(screen.queryByTitle('由品牌方經營管理')).toBeNull()
+    expect(screen.getByText('社群')).toBeInTheDocument()
+  })
+
+  it('renders no badge when isVerified is false and mitVerified is false', () => {
+    renderWithProvider(<BrandCard brand={makeBrand({ isVerified: false, mitVerified: false })} />)
+
+    expect(screen.queryByTitle('由品牌方經營管理')).toBeNull()
+    expect(screen.queryByTitle('MIT 已驗證')).toBeNull()
   })
 })

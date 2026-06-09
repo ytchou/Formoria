@@ -110,30 +110,6 @@ test.describe('MIT verification badges', () => {
     await expect(anonPage.locator('span[title="由品牌方經營管理"]')).toHaveCount(0);
   });
 
-  test('MIT-verified brand shows MIT badge on directory card', async ({ anonPage }) => {
-    const resp = await anonPage.goto(`/brands?verification=all`);
-    if (resp?.status() === 503) {
-      test.skip(true, 'PREVIEW_MODE active — skipping.');
-      return;
-    }
-
-    // The MIT card badge uses aria-label = title = '已通過 MIT 微笑標章登錄驗證'
-    // Find the card link for our seeded brand, then look for the badge within it
-    const card = anonPage.locator(`a[href="/brands/${mitBrandSlug}"]`);
-    // Brand may be on a later pagination page — poll-reload to find it
-    await expect(async () => {
-      await anonPage.goto(`/brands?verification=all`);
-      await expect(card).toBeVisible({ timeout: 5_000 });
-    }).toPass({ timeout: 60_000, intervals: [2_000, 3_000, 5_000, 10_000] });
-
-    // Card badge uses brandDetail.mitVerified = 'MIT 已驗證' as title (not mitVerifiedTitle).
-    // brand-card.tsx: title: tDetail('mitVerified') → '已驗證' key → "MIT 已驗證"
-    // Detail-page badge uses 'mitVerifiedTitle' = '已通過 MIT 微笑標章登錄驗證' (different key).
-    const mitCardBadge = card.locator('span[title="MIT 已驗證"]');
-    await expect(mitCardBadge).toBeVisible({ timeout: 5_000 });
-    await expect(mitCardBadge).toContainText('MIT');
-  });
-
   test('owner-managed brand shows owner badge but NOT MIT badge on detail page', async ({
     anonPage,
   }) => {
