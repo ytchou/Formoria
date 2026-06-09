@@ -188,7 +188,7 @@ test.describe('Submission happy path', () => {
       }),
     ]);
 
-    await expect(userPage.getByAltText('Upload 1')).toBeVisible({ timeout: 10_000 });
+    await expect(userPage.getByAltText('上傳 1')).toBeVisible({ timeout: 10_000 });
     await userPage.getByRole('button', { name: nextButtonName, exact: true }).click();
 
     await expect(userPage.getByLabel('品牌亮點', { exact: true })).toBeVisible({

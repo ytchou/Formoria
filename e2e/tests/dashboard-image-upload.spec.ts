@@ -106,7 +106,7 @@ test.describe('Dashboard — brand image upload', () => {
 
     // Wait for the upload to complete: the button aria-label changes from 'Upload image'
     // to 'Replace image' (the visible text changes to '更換') once a preview is set.
-    await expect(userPage.getByRole('button', { name: 'Replace image' }).first()).toBeVisible({
+    await expect(userPage.getByRole('button', { name: '更換圖片' }).first()).toBeVisible({
       timeout: 10_000,
     });
 
