@@ -175,6 +175,8 @@
     "mitVerifiedTitle": "已通過 MIT 微笑標章登錄驗證",
     "mitProofLink": "MIT 微笑標章證號 {cert}",
     "foundingYear": "創立於 {year}",
+    "previewBanner": "預覽模式 — 尚未發布",
+    "previewBackToEdit": "返回編輯",
     "actions": {
       "visitWebsite": "前往官網",
       "share": "分享",
@@ -780,6 +782,12 @@
       "metaTitle": "品牌管理",
       "subtitle": "管理您的品牌頁面",
       "editButton": "編輯品牌",
+      "draftPendingTitle": "草稿待發布",
+      "draftPendingHint": "您有尚未發布、已儲存為草稿的變更。",
+      "draftPreview": "預覽",
+      "draftPublish": "發布",
+      "draftDiscard": "捨棄",
+      "draftDiscardConfirm": "確定捨棄此草稿？此動作無法復原。",
       "analyticsHeading": "Analytics",
       "detailsCardTitle": "Details",
       "descriptionLabel": "Description",
@@ -819,11 +827,15 @@
       "fieldStoreName": "Store name",
       "fieldAddress": "Address",
       "saving": "儲存中...",
+      "saveDraft": "儲存草稿",
+      "savingDraft": "儲存草稿中…",
+      "viewAsVisitor": "以訪客身分檢視",
       "save": "儲存變更",
       "cancel": "取消",
       "errors": {
         "notLoggedIn": "請先登入才能編輯品牌",
         "forbidden": "您沒有權限編輯此品牌",
+        "noDraft": "沒有可發布的草稿。",
         "unknown": "發生預期外的錯誤，請再試一次。"
       }
     }

@@ -175,6 +175,8 @@
     "mitVerifiedTitle": "Verified against the MIT Smile registry",
     "mitProofLink": "MIT Smile mark cert. {cert}",
     "foundingYear": "Est. {year}",
+    "previewBanner": "Preview mode — not live",
+    "previewBackToEdit": "Back to edit",
     "actions": {
       "visitWebsite": "Visit Website",
       "share": "Share",
@@ -780,6 +782,12 @@
       "metaTitle": "Brand Management",
       "subtitle": "Manage your brand page",
       "editButton": "Edit brand",
+      "draftPendingTitle": "Draft pending",
+      "draftPendingHint": "You have unpublished changes saved as a draft.",
+      "draftPreview": "Preview",
+      "draftPublish": "Publish",
+      "draftDiscard": "Discard",
+      "draftDiscardConfirm": "Discard this draft? This cannot be undone.",
       "analyticsHeading": "Analytics",
       "detailsCardTitle": "Details",
       "descriptionLabel": "Description",
@@ -819,11 +827,15 @@
       "fieldStoreName": "Store name",
       "fieldAddress": "Address",
       "saving": "Saving...",
+      "saveDraft": "Save as draft",
+      "savingDraft": "Saving draft…",
+      "viewAsVisitor": "View as visitor",
       "save": "Save changes",
       "cancel": "Cancel",
       "errors": {
         "notLoggedIn": "Please sign in to edit this brand",
         "forbidden": "You do not have permission to edit this brand",
+        "noDraft": "No draft to publish.",
         "unknown": "An unexpected error occurred. Please try again."
       }
     }
