@@ -12,6 +12,7 @@ on:
       - 'src/app/*.png'
       - 'package.json'
       - 'pnpm-lock.yaml'
+      - '.github/workflows/**'
 
 jobs:
   lint-type-test:
