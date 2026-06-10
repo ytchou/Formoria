@@ -400,7 +400,20 @@ export async function publishDraftAction(
 
     await createFlagsForModeration(moderation, brand, user.id, actingAdmin)
 
-    const orphans = diffRemovedImageUrls(imageUrlsFromBrand(brand), imageUrlsFromSnapshot(snapshot))
+    const nextImageUrls = imageUrlsFromBrand({
+      logoUrl: 'logoUrl' in snapshot
+        ? (typeof snapshot.logoUrl === 'string' ? snapshot.logoUrl : null)
+        : brand.logoUrl,
+      heroImageUrl: 'heroImageUrl' in snapshot
+        ? (typeof snapshot.heroImageUrl === 'string' ? snapshot.heroImageUrl : null)
+        : brand.heroImageUrl,
+      productPhotos: 'productPhotos' in snapshot
+        ? (Array.isArray(snapshot.productPhotos)
+            ? snapshot.productPhotos.filter((url): url is string => typeof url === 'string')
+            : [])
+        : brand.productPhotos,
+    })
+    const orphans = diffRemovedImageUrls(imageUrlsFromBrand(brand), nextImageUrls)
     await publishDraft(brand.id)
     await deleteBrandImages(orphans)
 
