@@ -14,6 +14,7 @@ import { downloadAndStoreImages } from './image-download'
 // ---------------------------------------------------------------------------
 
 type BrandRow = Database['public']['Tables']['brands']['Row']
+type BrandDraftData = BrandRow['draft_data']
 type TaxonomyTagRow = Database['public']['Tables']['taxonomy_tags']['Row']
 
 /** Shape returned by: brand_taxonomy(taxonomy_tags(*)) — only the nested tag is used by the mapper */
@@ -119,6 +120,10 @@ function normalizeDraftSocialLinks(value: unknown, base: SocialLinks = {}): Soci
     result.facebook = typeof value.facebook === 'string' ? value.facebook : undefined
   }
   return result
+}
+
+function draftDataToSnapshot(value: BrandDraftData): Record<string, unknown> | null {
+  return isRecord(value) ? value : null
 }
 
 export function brandToDraftSnapshot(data: Partial<Brand>): Record<string, unknown> {
@@ -448,6 +453,87 @@ export async function updateBrand(id: string, data: Partial<Brand>): Promise<Bra
 
   if (error || !updated) throw new NotFoundError('Brand', id)
   return brandToDomain(updated)
+}
+
+export async function saveDraft(brandId: string, data: Partial<Brand>): Promise<void> {
+  const supabase = createServiceClient()
+  const { error, count } = await supabase
+    .from('brands')
+    .update(
+      {
+        draft_data: brandToDraftSnapshot(data) as BrandDraftData,
+        draft_updated_at: new Date().toISOString(),
+      },
+      { count: 'exact' },
+    )
+    .eq('id', brandId)
+
+  if (error) throw error
+  if (count === 0) throw new NotFoundError('Brand', brandId)
+}
+
+export async function getBrandDraft(brandId: string): Promise<Record<string, unknown> | null> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brands')
+    .select('draft_data')
+    .eq('id', brandId)
+    .maybeSingle()
+
+  if (error) throw error
+  return draftDataToSnapshot(data?.draft_data ?? null)
+}
+
+export async function publishDraft(brandId: string): Promise<Brand> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brands')
+    .select('draft_data')
+    .eq('id', brandId)
+    .single()
+
+  if (error || !data) throw new NotFoundError('Brand', brandId)
+
+  const snapshot = draftDataToSnapshot(data.draft_data)
+  if (!snapshot) throw new ValidationError('No draft to publish')
+
+  const currentBrand = await getBrandById(brandId)
+  const partial = draftSnapshotToDomain(snapshot, currentBrand)
+  const published = await updateBrand(brandId, partial)
+
+  const { error: clearError, count } = await supabase
+    .from('brands')
+    .update({ draft_data: null, draft_updated_at: null }, { count: 'exact' })
+    .eq('id', brandId)
+
+  if (clearError) throw clearError
+  if (count === 0) throw new NotFoundError('Brand', brandId)
+
+  return published
+}
+
+export async function discardDraft(
+  brandId: string,
+): Promise<{ snapshot: Record<string, unknown> | null }> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brands')
+    .select('draft_data')
+    .eq('id', brandId)
+    .maybeSingle()
+
+  if (error) throw error
+
+  const snapshot = draftDataToSnapshot(data?.draft_data ?? null)
+  const { error: clearError, count } = await supabase
+    .from('brands')
+    .update({ draft_data: null, draft_updated_at: null }, { count: 'exact' })
+    .eq('id', brandId)
+
+  if (clearError) throw clearError
+  if (count === 0) throw new NotFoundError('Brand', brandId)
+
+  return { snapshot }
 }
 
 export async function deleteBrand(id: string): Promise<void> {
