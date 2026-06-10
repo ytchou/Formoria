@@ -25,7 +25,7 @@ export function MainNav({ categories }: MainNavProps) {
   const t = useTranslations('nav')
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background">
+    <header className="border-b border-border bg-background">
       {/* Row 1: Logo | Search | Actions */}
       <div className="mx-auto flex h-14 max-w-screen-xl items-center gap-4 px-6">
         {/* Logo */}
@@ -43,6 +43,12 @@ export function MainNav({ categories }: MainNavProps) {
 
         {/* Right actions (desktop) */}
         <div className="hidden items-center gap-4 md:flex">
+          <Link
+            href="/about"
+            className="text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
+          >
+            {t('about')}
+          </Link>
           <Link
             href="/submit"
             className="rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
@@ -74,6 +80,13 @@ export function MainNav({ categories }: MainNavProps) {
                   <NavSearchInput />
                 </div>
 
+                <Link
+                  href="/about"
+                  className="block px-1 text-sm font-medium text-foreground"
+                  onClick={() => setOpen(false)}
+                >
+                  {t('about')}
+                </Link>
                 <Link
                   href="/submit"
                   className="block rounded-full bg-primary px-5 py-3 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"

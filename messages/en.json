@@ -24,7 +24,8 @@
     "searchAria": "Search brands",
     "clearSearch": "Clear search",
     "signIn": "Sign in",
-    "languageLabel": "Switch language"
+    "languageLabel": "Switch language",
+    "about": "About"
   },
   "footer": {
     "about": "About",
@@ -442,37 +443,6 @@
         "heading": "Changes to Terms",
         "body": "Formoria reserves the right to modify these terms at any time. Significant changes will be announced on the platform. Continued use of the service constitutes acceptance of the updated terms. If you have questions, please contact us via the contact page."
       }
-    },
-    "support": {
-      "metadata": {
-        "title": "Support Formoria",
-        "description": "Formoria is an independently run directory of Made-in-Taiwan brands. No ads, no listing fees. If it is useful to you, consider buying me a coffee."
-      },
-      "hero": {
-        "title": "Help more Taiwan brands get found",
-        "body": "Formoria is an independently run directory of Made-in-Taiwan brands. No ads, no listing fees, ranked by content and never by payment. If it's useful to you, a coffee helps keep it going."
-      },
-      "cta": "☕ Buy me a coffee",
-      "usage": {
-        "heading": "Where your support goes",
-        "discover": {
-          "title": "Finding & verifying brands",
-          "body": "Sourcing and curating each brand by hand so the directory stays real and complete."
-        },
-        "hosting": {
-          "title": "Keeping the site running",
-          "body": "Covering hosting, image storage, and domains so it stays fast and free."
-        },
-        "neutral": {
-          "title": "Staying neutral & ad-free",
-          "body": "No ads and no listing fees, so the space stays for genuinely good brands."
-        }
-      },
-      "otherWays": {
-        "heading": "Other ways to help",
-        "submit": "Recommend a Taiwan brand you love",
-        "share": "Share Formoria with a friend"
-      }
     }
   },
   "faq": {
@@ -482,6 +452,8 @@
     },
     "title": "Frequently Asked Questions",
     "intro": "Here are the most common questions we receive. If you still have questions, feel free to reach out via the contact information at the bottom of the page.",
+    "stillHaveQuestions": "Still have questions?",
+    "contactCta": "Contact us",
     "items": {
       "whatIsFormoria": {
         "question": "What is Formoria?",
@@ -520,7 +492,7 @@
     },
     "hero": {
       "eyebrow": "Formoria",
-      "title": "Putting Taiwan's best brands on the world map",
+      "title": "A community built for Taiwan's brands",
       "subtitle": "A community-curated directory for discovering quality Made-in-Taiwan brands, from everyday staples to thoughtful design.",
       "statSuffix": " — and growing",
       "cta": "Explore brands"

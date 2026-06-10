@@ -1,14 +1,16 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import type { AdminMode } from '@/lib/auth/admin-mode'
 import { cn } from '@/lib/utils'
 
 import { setAdminModeAction } from './actions'
 
 type AdminModeBarProps = {
+  mode: AdminMode
   labels: {
     god: string
     viewer: string
@@ -18,26 +20,18 @@ type AdminModeBarProps = {
   }
 }
 
-export function AdminModeBar({ labels }: AdminModeBarProps) {
-  const [mode, setMode] = useState<'god' | 'viewer' | null>(null)
+export function AdminModeBar({ mode: serverMode, labels }: AdminModeBarProps) {
+  const [mode, setMode] = useState<AdminMode>(serverMode)
   const [isPending, startTransition] = useTransition()
 
-  useEffect(() => {
-    const m = document.cookie.match(/(?:^|;\s*)fm_mode=(god|viewer)/)?.[1]
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMode(m === 'viewer' ? 'viewer' : m === 'god' ? 'god' : null)
-  }, [])
-
-  if (mode === null) return null
-
   const isViewer = mode === 'viewer'
-  const next = isViewer ? 'god' : 'viewer'
+  const next: AdminMode = isViewer ? 'god' : 'viewer'
   const buttonLabel = isViewer ? labels.exit : labels.enter
 
   return (
     <div
       className={cn(
-        'fixed top-0 inset-x-0 z-50 border-b px-3 py-1.5',
+        'border-b px-3 py-1.5',
         isViewer
           ? 'border-destructive/30 bg-destructive/10 text-destructive'
           : 'border-border bg-secondary text-foreground'
@@ -58,6 +52,7 @@ export function AdminModeBar({ labels }: AdminModeBarProps) {
           variant={isViewer ? 'destructive' : 'secondary'}
           disabled={isPending}
           onClick={() => {
+            setMode(next)
             startTransition(() => {
               void setAdminModeAction(next)
             })

@@ -68,14 +68,6 @@ export function Footer() {
                   {t('faq')}
                 </Link>
               </li>
-              <li>
-                <Link
-                  href="/support"
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {t('support')}
-                </Link>
-              </li>
             </ul>
           </div>
 

@@ -1,17 +1,22 @@
 'use client'
 
+import { useState } from 'react'
+import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 
+const HERO_IMAGE_SRC = '/images/submit-hero.png'
+
 type SubmitOverviewProps = {
-  nextPath?: string;
-};
+  nextPath?: string
+}
 
 export default function SubmitOverview({ nextPath = '/submit' }: SubmitOverviewProps) {
   const t = useTranslations('submit.overview')
+  const [imageFailed, setImageFailed] = useState(false)
 
-  return (
-    <main className="mx-auto max-w-2xl px-6 py-20">
+  const content = (
+    <div>
       <h1 className="font-heading text-3xl font-bold text-foreground">
         {t('heading')}
       </h1>
@@ -39,6 +44,30 @@ export default function SubmitOverview({ nextPath = '/submit' }: SubmitOverviewP
       >
         {t('cta')}
       </Link>
+    </div>
+  )
+
+  // Single brand-neutral hero image; falls back to the single-column intro if the
+  // asset is missing (404) so we never show a broken tile.
+  if (imageFailed) {
+    return <main className="mx-auto max-w-2xl px-6 py-20">{content}</main>
+  }
+
+  return (
+    <main className="mx-auto max-w-5xl px-6 py-20">
+      <div className="grid items-center gap-10 md:grid-cols-2 md:gap-16">
+        {content}
+        <div className="relative aspect-[4/5] overflow-hidden rounded-xl border border-border bg-muted">
+          <Image
+            src={HERO_IMAGE_SRC}
+            alt=""
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, 480px"
+            onError={() => setImageFailed(true)}
+          />
+        </div>
+      </div>
     </main>
-  );
+  )
 }

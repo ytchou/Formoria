@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import type { AdminMode } from "@/lib/auth/admin-mode";
 import { isActingAsAdmin } from "@/lib/auth/admin-mode";
 import { AdminModeBar } from "@/components/admin-mode/admin-mode-bar";
 import { AdminNav } from "@/components/admin/admin-nav";
@@ -22,9 +24,14 @@ export default async function AdminLayout({
     redirect("/");
   }
 
+  const cookieStore = await cookies();
+  const fmMode = cookieStore.get("fm_mode")?.value;
+  const adminBarMode: AdminMode = fmMode === "viewer" ? "viewer" : "god";
+
   return (
     <div className="min-h-screen bg-background">
       <AdminModeBar
+        mode={adminBarMode}
         labels={{
           god: "管理者模式",
           viewer: "訪客檢視",

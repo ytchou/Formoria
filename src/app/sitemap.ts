@@ -41,7 +41,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     makeEntry('/glossary', now, 'monthly', 0.5),
     makeEntry('/faq', now, 'monthly', 0.5),
     makeEntry('/terms', now, 'monthly', 0.5),
-    makeEntry('/support', now, 'monthly', 0.5),
   ]
 
   try {

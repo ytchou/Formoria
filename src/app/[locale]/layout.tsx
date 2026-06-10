@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { unstable_cache } from 'next/cache'
+import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, getTranslations, setRequestLocale } from 'next-intl/server'
@@ -8,6 +9,7 @@ import { SyncHtmlLang } from '@/components/i18n/sync-html-lang'
 import { Footer } from '@/components/navigation/footer'
 import { MainNav } from '@/components/navigation/main-nav'
 import { routing } from '@/i18n/routing'
+import type { AdminMode } from '@/lib/auth/admin-mode'
 import { getActiveCategories } from '@/lib/services/taxonomy'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
@@ -59,20 +61,29 @@ export default async function LocaleLayout({ children, params }: LayoutProps) {
     getCachedCategories(),
     getTranslations('adminMode'),
   ])
+  const cookieStore = await cookies()
+  const fmMode = cookieStore.get('fm_mode')?.value
+  const adminBarMode: AdminMode | null =
+    fmMode === 'viewer' ? 'viewer' : fmMode === 'god' ? 'god' : null
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       <SyncHtmlLang />
-      <AdminModeBar
-        labels={{
-          god: tAdmin('god'),
-          viewer: tAdmin('viewer'),
-          enter: tAdmin('enter'),
-          exit: tAdmin('exit'),
-          banner: tAdmin('banner'),
-        }}
-      />
-      <MainNav categories={categories} />
+      <div className="sticky top-0 z-50">
+        {adminBarMode ? (
+          <AdminModeBar
+            mode={adminBarMode}
+            labels={{
+              god: tAdmin('god'),
+              viewer: tAdmin('viewer'),
+              enter: tAdmin('enter'),
+              exit: tAdmin('exit'),
+              banner: tAdmin('banner'),
+            }}
+          />
+        ) : null}
+        <MainNav categories={categories} />
+      </div>
       <div className="flex-1">{children}</div>
       <Footer />
     </NextIntlClientProvider>
