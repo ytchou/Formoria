@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { canManageBrand } from "@/lib/auth/admin-mode";
-import { getBrandBySlug } from "@/lib/services/brands";
+import { getBrandBySlug, getBrandDraft } from "@/lib/services/brands";
+import { DraftBanner } from "../draft-banner";
 import { BrandEditForm } from "./brand-edit-form";
 
 type Props = {
@@ -30,6 +31,7 @@ export default async function BrandEditPage({ params }: Props) {
 
   if (!owner) redirect("/dashboard");
 
+  const draft = await getBrandDraft(brand.id);
   const t = await getTranslations("dashboard.edit");
 
   return (
@@ -42,6 +44,11 @@ export default async function BrandEditPage({ params }: Props) {
       </p>
 
       <div className="mt-8">
+        {draft ? (
+          <div className="mb-8">
+            <DraftBanner slug={brand.slug} draftUpdatedAt={null} />
+          </div>
+        ) : null}
         <BrandEditForm brand={brand} />
       </div>
     </div>

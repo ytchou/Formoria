@@ -24,6 +24,10 @@ const getUser = vi.fn().mockResolvedValue({
 })
 const updateBrand = vi.fn().mockResolvedValue({ slug: 'test-brand' })
 const getBrandBySlug = vi.fn()
+const saveDraft = vi.fn().mockResolvedValue(undefined)
+const getBrandDraft = vi.fn().mockResolvedValue(null)
+const publishDraft = vi.fn().mockResolvedValue({ slug: 'test-brand' })
+const discardDraft = vi.fn().mockResolvedValue({ snapshot: null })
 const checkContent = vi.fn()
 const createModerationFlags = vi.fn().mockResolvedValue([])
 const diffRemovedImageUrls = vi.fn((): string[] => [])
@@ -55,7 +59,12 @@ vi.mock('@/lib/services/brand-owners', () => ({
 
 vi.mock('@/lib/services/brands', () => ({
   getBrandBySlug,
+  saveDraft,
+  getBrandDraft,
+  publishDraft,
+  discardDraft,
   updateBrand,
+  diffRemovedImageUrls,
 }))
 
 vi.mock('@/lib/services/moderation', () => ({
@@ -64,7 +73,6 @@ vi.mock('@/lib/services/moderation', () => ({
 }))
 
 vi.mock('@/lib/services/image-upload', () => ({
-  diffRemovedImageUrls,
   deleteBrandImages,
 }))
 

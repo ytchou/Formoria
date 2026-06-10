@@ -14,6 +14,7 @@ import { downloadAndStoreImages } from './image-download'
 // ---------------------------------------------------------------------------
 
 type BrandRow = Database['public']['Tables']['brands']['Row']
+type BrandDraftData = BrandRow['draft_data']
 type TaxonomyTagRow = Database['public']['Tables']['taxonomy_tags']['Row']
 
 /** Shape returned by: brand_taxonomy(taxonomy_tags(*)) — only the nested tag is used by the mapper */
@@ -82,6 +83,115 @@ function mapSocialLinksToDb(links: SocialLinks): Record<string, string | undefin
   if (links.facebook) result.facebook = links.facebook
   if (links.officialWebsite) result.official_website = links.officialWebsite
   return result
+}
+
+const BRAND_DRAFT_EDITABLE_KEYS = [
+  'name',
+  'description',
+  'foundingYear',
+  'socialLinks',
+  'logoUrl',
+  'heroImageUrl',
+  'productPhotos',
+  'brandHighlights',
+  'purchaseLinks',
+  'retailLocations',
+] as const satisfies readonly (keyof Brand)[]
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function normalizeDraftSocialLinks(value: unknown, base: SocialLinks = {}): SocialLinks {
+  if (!isRecord(value)) return base
+
+  const result: SocialLinks = { ...base }
+  if ('officialWebsite' in value) {
+    result.officialWebsite =
+      typeof value.officialWebsite === 'string' ? value.officialWebsite : undefined
+  }
+  if ('instagram' in value) {
+    result.instagram = typeof value.instagram === 'string' ? value.instagram : undefined
+  }
+  if ('threads' in value) {
+    result.threads = typeof value.threads === 'string' ? value.threads : undefined
+  }
+  if ('facebook' in value) {
+    result.facebook = typeof value.facebook === 'string' ? value.facebook : undefined
+  }
+  return result
+}
+
+function draftDataToSnapshot(value: BrandDraftData): Record<string, unknown> | null {
+  return isRecord(value) ? value : null
+}
+
+export function brandToDraftSnapshot(data: Partial<Brand>): Record<string, unknown> {
+  const snapshot: Record<string, unknown> = {}
+  for (const key of BRAND_DRAFT_EDITABLE_KEYS) {
+    if (key in data && data[key] !== undefined) {
+      snapshot[key] = data[key]
+    }
+  }
+  return snapshot
+}
+
+export function draftSnapshotToDomain(
+  snapshot: Record<string, unknown>,
+  base: Brand
+): Partial<Brand> {
+  const partial: Partial<Brand> = {}
+
+  for (const key of BRAND_DRAFT_EDITABLE_KEYS) {
+    if (!(key in snapshot)) continue
+
+    switch (key) {
+      case 'name':
+        partial.name = snapshot.name as Brand['name']
+        break
+      case 'description':
+        partial.description = snapshot.description as Brand['description']
+        break
+      case 'foundingYear':
+        partial.foundingYear = snapshot.foundingYear as Brand['foundingYear']
+        break
+      case 'socialLinks':
+        partial.socialLinks = normalizeDraftSocialLinks(snapshot.socialLinks, base.socialLinks)
+        break
+      case 'logoUrl':
+        partial.logoUrl = snapshot.logoUrl as Brand['logoUrl']
+        break
+      case 'heroImageUrl':
+        partial.heroImageUrl = snapshot.heroImageUrl as Brand['heroImageUrl']
+        break
+      case 'productPhotos':
+        partial.productPhotos = snapshot.productPhotos as Brand['productPhotos']
+        break
+      case 'brandHighlights':
+        partial.brandHighlights = snapshot.brandHighlights as Brand['brandHighlights']
+        break
+      case 'purchaseLinks':
+        partial.purchaseLinks = snapshot.purchaseLinks as Brand['purchaseLinks']
+        break
+      case 'retailLocations':
+        partial.retailLocations = snapshot.retailLocations as Brand['retailLocations']
+        break
+    }
+  }
+
+  return partial
+}
+
+export function mergeDraftOverBrand(
+  brand: Brand,
+  snapshot: Record<string, unknown> | null
+): Brand {
+  return snapshot ? { ...brand, ...draftSnapshotToDomain(snapshot, brand) } : brand
+}
+
+export function diffRemovedImageUrls(previous: string[], next: string[]): string[] {
+  const nextUrls = new Set(next.filter(Boolean))
+  return previous.filter((url) => Boolean(url) && !nextUrls.has(url))
 }
 
 export function brandToDomain(row: BrandRowWithJoins): Brand {
@@ -343,6 +453,87 @@ export async function updateBrand(id: string, data: Partial<Brand>): Promise<Bra
 
   if (error || !updated) throw new NotFoundError('Brand', id)
   return brandToDomain(updated)
+}
+
+export async function saveDraft(brandId: string, data: Partial<Brand>): Promise<void> {
+  const supabase = createServiceClient()
+  const { error, count } = await supabase
+    .from('brands')
+    .update(
+      {
+        draft_data: brandToDraftSnapshot(data) as BrandDraftData,
+        draft_updated_at: new Date().toISOString(),
+      },
+      { count: 'exact' },
+    )
+    .eq('id', brandId)
+
+  if (error) throw error
+  if (count === 0) throw new NotFoundError('Brand', brandId)
+}
+
+export async function getBrandDraft(brandId: string): Promise<Record<string, unknown> | null> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brands')
+    .select('draft_data')
+    .eq('id', brandId)
+    .maybeSingle()
+
+  if (error) throw error
+  return draftDataToSnapshot(data?.draft_data ?? null)
+}
+
+export async function publishDraft(brandId: string): Promise<Brand> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brands')
+    .select('draft_data')
+    .eq('id', brandId)
+    .single()
+
+  if (error || !data) throw new NotFoundError('Brand', brandId)
+
+  const snapshot = draftDataToSnapshot(data.draft_data)
+  if (!snapshot) throw new ValidationError('No draft to publish')
+
+  const currentBrand = await getBrandById(brandId)
+  const partial = draftSnapshotToDomain(snapshot, currentBrand)
+  const published = await updateBrand(brandId, partial)
+
+  const { error: clearError, count } = await supabase
+    .from('brands')
+    .update({ draft_data: null, draft_updated_at: null }, { count: 'exact' })
+    .eq('id', brandId)
+
+  if (clearError) throw clearError
+  if (count === 0) throw new NotFoundError('Brand', brandId)
+
+  return published
+}
+
+export async function discardDraft(
+  brandId: string,
+): Promise<{ snapshot: Record<string, unknown> | null }> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brands')
+    .select('draft_data')
+    .eq('id', brandId)
+    .maybeSingle()
+
+  if (error) throw error
+
+  const snapshot = draftDataToSnapshot(data?.draft_data ?? null)
+  const { error: clearError, count } = await supabase
+    .from('brands')
+    .update({ draft_data: null, draft_updated_at: null }, { count: 'exact' })
+    .eq('id', brandId)
+
+  if (clearError) throw clearError
+  if (count === 0) throw new NotFoundError('Brand', brandId)
+
+  return { snapshot }
 }
 
 export async function deleteBrand(id: string): Promise<void> {

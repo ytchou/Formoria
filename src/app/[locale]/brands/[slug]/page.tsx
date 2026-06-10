@@ -1,12 +1,24 @@
 import { notFound } from 'next/navigation'
+import { connection } from 'next/server'
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { getBrandBySlug, getRelatedBrands, getBrandCountByCategory, getAllBrandSlugs } from '@/lib/services/brands'
+import {
+  getBrandBySlug,
+  getRelatedBrands,
+  getBrandCountByCategory,
+  getAllBrandSlugs,
+  getBrandDraft,
+  mergeDraftOverBrand,
+} from '@/lib/services/brands'
 import { buildBrandJsonLd, buildBreadcrumbJsonLd } from '@/lib/json-ld'
 import type { BreadcrumbItem } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import type { Brand } from '@/lib/types'
+import { canManageBrand } from '@/lib/auth/admin-mode'
+import { createClient } from '@/lib/supabase/server'
 import { BrandViewTracker } from '@/components/brands/brand-view-tracker'
+import { PreviewBanner } from '@/components/brands/preview-banner'
 import { BrandAnalyticsTracker } from './brand-analytics-tracker'
 import { BrandBreadcrumb } from '@/components/brands/brand-breadcrumb'
 import { ImageCarousel } from '@/components/brands/image-carousel'
@@ -39,7 +51,7 @@ export async function generateStaticParams() {
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>
-  searchParams: Promise<{ source?: string }>
+  searchParams: Promise<{ source?: string; preview?: string }>
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -80,7 +92,13 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
   const { locale, slug } = await params
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const { source: sourceParam } = await searchParams
+  const { source: sourceParam, preview } = await searchParams
+  const previewRequested = preview === '1'
+
+  if (previewRequested) {
+    await connection()
+  }
+
   const source = (
     sourceParam === 'search' ||
     sourceParam === 'category' ||
@@ -96,106 +114,142 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
     notFound()
   }
 
+  let displayBrand: Brand = brand
+  let previewMode = false
+
+  if (previewRequested) {
+    const {
+      data: { user },
+    } = await (await createClient()).auth.getUser()
+    const allowed = !!user && await canManageBrand(user.id, user.email, brand.id)
+
+    if (allowed) {
+      displayBrand = mergeDraftOverBrand(brand, await getBrandDraft(brand.id))
+      previewMode = true
+    }
+  }
+
   // Non-approved brands should 404
-  if (brand.status !== 'approved') {
+  if (!previewMode && brand.status !== 'approved') {
     notFound()
   }
 
   // Gallery images: hero + product photos
-  const galleryImages = [brand.heroImageUrl, ...brand.productPhotos].filter(
+  const galleryImages = [displayBrand.heroImageUrl, ...displayBrand.productPhotos].filter(
     (url): url is string => Boolean(url),
   )
 
   // Parallel fetch: related brands + category count
-  const [relatedBrands, categoryCount] = brand.category
+  const [relatedBrands, categoryCount] = displayBrand.category
     ? await Promise.all([
-        getRelatedBrands(brand.category, brand.slug, 4),
-        getBrandCountByCategory(brand.category, brand.slug),
+        getRelatedBrands(displayBrand.category, displayBrand.slug, 4),
+        getBrandCountByCategory(displayBrand.category, displayBrand.slug),
       ])
     : [[], 0]
 
   // Visit Website URL
-  const visitUrl = brand.socialLinks.officialWebsite ?? brand.purchaseLinks[0]?.url
+  const visitUrl = displayBrand.socialLinks.officialWebsite ?? displayBrand.purchaseLinks[0]?.url
 
   // Breadcrumb items for JSON-LD
   const tBrandDetail = await getTranslations('brandDetail')
   const directoryLabel = tBrandDetail('breadcrumb.directory')
-  const categoryLabel = getBrandCategoryLabel(brand)
+  const categoryLabel = getBrandCategoryLabel(displayBrand)
 
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: directoryLabel, href: '/brands' },
     ...(categoryLabel
-      ? [{ label: categoryLabel, href: `/brands?category=${encodeURIComponent(brand.category ?? '')}` }]
+      ? [{ label: categoryLabel, href: `/brands?category=${encodeURIComponent(displayBrand.category ?? '')}` }]
       : []),
-    { label: brand.name },
+    { label: displayBrand.name },
   ]
 
   return (
-    <main className="mx-auto max-w-screen-xl px-6 pt-10 pb-24 md:px-10 lg:pb-10">
-      <BrandViewTracker brandSlug={slug} source={source} />
-      <BrandAnalyticsTracker brandId={brand.id} source={source} />
-      {/* JSON-LD structured data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildBrandJsonLd(brand, safeLocale)) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildBreadcrumbJsonLd(breadcrumbItems, safeLocale)) }}
-      />
+    <>
+      {previewMode && <PreviewBanner slug={slug} />}
+      <main className="mx-auto max-w-screen-xl px-6 pt-10 pb-24 md:px-10 lg:pb-10">
+        {!previewMode && (
+          <>
+            <BrandViewTracker brandSlug={slug} source={source} />
+            <BrandAnalyticsTracker brandId={displayBrand.id} source={source} />
+          </>
+        )}
+        {/* JSON-LD structured data */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(buildBrandJsonLd(displayBrand, safeLocale)) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(buildBreadcrumbJsonLd(breadcrumbItems, safeLocale)) }}
+        />
 
-      {/* Breadcrumb */}
-      <BrandBreadcrumb category={brand.category} categoryLabel={categoryLabel || null} brandName={brand.name} />
+        {/* Breadcrumb */}
+        <BrandBreadcrumb
+          category={displayBrand.category}
+          categoryLabel={categoryLabel || null}
+          brandName={displayBrand.name}
+        />
 
-      {/* Two-column layout */}
-      <div className="flex flex-col gap-10 lg:flex-row lg:gap-12">
-        {/* Left: sticky image gallery */}
-        <div className="w-full lg:w-[580px] lg:shrink-0">
-          <div className="lg:sticky lg:top-8">
-            <ImageCarousel images={galleryImages} alt={brand.name} />
+        {/* Two-column layout */}
+        <div className="flex flex-col gap-10 lg:flex-row lg:gap-12">
+          {/* Left: sticky image gallery */}
+          <div className="w-full lg:w-[580px] lg:shrink-0">
+            <div className="lg:sticky lg:top-8">
+              <ImageCarousel images={galleryImages} alt={displayBrand.name} />
+            </div>
+          </div>
+
+          {/* Right: scrolling content */}
+          <div className="min-w-0 flex-1 space-y-6">
+            <BrandHeader
+              brand={displayBrand}
+              categoryLabel={categoryLabel || null}
+              actionsSlot={
+                <BrandActions websiteUrl={visitUrl ?? null} brandSlug={displayBrand.slug} brandId={displayBrand.id} />
+              }
+            />
+
+            {!displayBrand.isVerified && (
+              <ClaimBrandCta
+                brandId={displayBrand.id}
+                removalSlot={<RequestRemoval brandName={displayBrand.name} brandSlug={displayBrand.slug} />}
+              />
+            )}
+
+            <hr className="border-border" />
+
+            <BrandAbout brand={displayBrand} />
+
+            <hr className="border-border" />
+
+            <BrandTags brand={displayBrand} />
+            <BrandHighlights brand={displayBrand} />
+            <BrandPhotoGallery photos={displayBrand.productPhotos} brandSlug={displayBrand.slug} />
+
+            <hr className="border-border" />
+
+            <BrandLinks brand={displayBrand} />
+            <BrandLocations brand={displayBrand} />
+
+            {displayBrand.category && (
+              <MoreInCategory
+                category={displayBrand.category}
+                categoryLabel={categoryLabel || null}
+                count={categoryCount}
+              />
+            )}
           </div>
         </div>
 
-        {/* Right: scrolling content */}
-        <div className="min-w-0 flex-1 space-y-6">
-          <BrandHeader
-            brand={brand}
+        {/* Related brands */}
+        {displayBrand.category && (
+          <RelatedBrands
+            brands={relatedBrands}
+            categoryName={displayBrand.category}
             categoryLabel={categoryLabel || null}
-            actionsSlot={<BrandActions websiteUrl={visitUrl ?? null} brandSlug={brand.slug} brandId={brand.id} />}
           />
-
-          {!brand.isVerified && (
-            <ClaimBrandCta
-              brandId={brand.id}
-              removalSlot={<RequestRemoval brandName={brand.name} brandSlug={brand.slug} />}
-            />
-          )}
-
-          <hr className="border-border" />
-
-          <BrandAbout brand={brand} />
-
-          <hr className="border-border" />
-
-          <BrandTags brand={brand} />
-          <BrandHighlights brand={brand} />
-          <BrandPhotoGallery photos={brand.productPhotos} brandSlug={brand.slug} />
-
-          <hr className="border-border" />
-
-          <BrandLinks brand={brand} />
-          <BrandLocations brand={brand} />
-
-          {brand.category && (
-            <MoreInCategory category={brand.category} categoryLabel={categoryLabel || null} count={categoryCount} />
-          )}
-        </div>
-      </div>
-
-      {/* Related brands */}
-      {brand.category && (
-        <RelatedBrands brands={relatedBrands} categoryName={brand.category} categoryLabel={categoryLabel || null} />
-      )}
-    </main>
+        )}
+      </main>
+    </>
   )
 }

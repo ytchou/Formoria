@@ -22,6 +22,8 @@ export type Database = {
           name: string
           slug: string
           description: string | null
+          draft_data: Json | null
+          draft_updated_at: string | null
           logo_url: string | null
           hero_image_url: string | null
           status: string
@@ -51,6 +53,8 @@ export type Database = {
           name: string
           slug: string
           description?: string | null
+          draft_data?: Json | null
+          draft_updated_at?: string | null
           logo_url?: string | null
           hero_image_url?: string | null
           status?: string
@@ -80,6 +84,8 @@ export type Database = {
           name?: string
           slug?: string
           description?: string | null
+          draft_data?: Json | null
+          draft_updated_at?: string | null
           logo_url?: string | null
           hero_image_url?: string | null
           status?: string

@@ -2,8 +2,8 @@
 
 import { useActionState } from "react";
 import { useTranslations } from "next-intl";
-import Link from "next/link";
-import { updateBrandAction } from "../actions";
+import { Link } from "@/i18n/navigation";
+import { saveDraftAction, updateBrandAction } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,18 +17,30 @@ type BrandEditFormProps = {
 };
 
 export function BrandEditForm({ brand }: BrandEditFormProps) {
-  const [state, action, pending] = useActionState(updateBrandAction, undefined);
+  const [publishState, publishFormAction, publishPending] = useActionState(
+    updateBrandAction,
+    undefined
+  );
+  const [draftState, draftFormAction, draftPending] = useActionState(
+    saveDraftAction,
+    undefined
+  );
   const t = useTranslations("dashboard.edit");
+  const fieldErrors = {
+    ...publishState?.fieldErrors,
+    ...draftState?.fieldErrors,
+  };
+  const error = publishState?.error ?? draftState?.error;
 
   return (
     <div className="space-y-10">
-      {state?.error && (
+      {error && (
         <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {state.error}
+          {error}
         </div>
       )}
 
-      <form action={action} className="space-y-10">
+      <form className="space-y-10">
         <input type="hidden" name="brandSlug" value={brand.slug} />
 
         {/* Basic Info */}
@@ -45,8 +57,8 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
               defaultValue={brand.name}
               required
             />
-            {state?.fieldErrors?.name && (
-              <p className="text-xs text-destructive">{state.fieldErrors.name}</p>
+            {fieldErrors.name && (
+              <p className="text-xs text-destructive">{fieldErrors.name}</p>
             )}
           </div>
 
@@ -58,9 +70,9 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
               className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               defaultValue={brand.description ?? ""}
             />
-            {state?.fieldErrors?.description && (
+            {fieldErrors.description && (
               <p className="text-xs text-destructive">
-                {state.fieldErrors.description}
+                {fieldErrors.description}
               </p>
             )}
           </div>
@@ -75,9 +87,9 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
               defaultValue={brand.brandHighlights ?? ""}
             />
             <p className="text-xs text-muted-foreground">{t("fieldHighlightsHint")}</p>
-            {state?.fieldErrors?.brandHighlights && (
+            {fieldErrors.brandHighlights && (
               <p className="text-xs text-destructive">
-                {state.fieldErrors.brandHighlights}
+                {fieldErrors.brandHighlights}
               </p>
             )}
           </div>
@@ -236,14 +248,34 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
           />
         </section>
 
-        <div className="flex gap-4">
-          <Button type="submit" disabled={pending}>
-            {pending ? t("saving") : t("save")}
+        <div className="flex flex-wrap items-center gap-4">
+          <Button
+            type="submit"
+            formAction={publishFormAction}
+            disabled={publishPending}
+          >
+            {publishPending ? t("saving") : t("save")}
+          </Button>
+          <Button
+            type="submit"
+            variant="outline"
+            formAction={draftFormAction}
+            disabled={draftPending}
+          >
+            {draftPending ? t("savingDraft") : t("saveDraft")}
           </Button>
           <Link href={`/dashboard/brands/${brand.slug}`}>
             <Button type="button" variant="outline">
               {t("cancel")}
             </Button>
+          </Link>
+          <Link
+            href={`/brands/${brand.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            {t("viewAsVisitor")}
           </Link>
         </div>
       </form>
