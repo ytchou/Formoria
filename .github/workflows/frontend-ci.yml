@@ -12,6 +12,7 @@ on:
       - 'src/app/*.png'
       - 'package.json'
       - 'pnpm-lock.yaml'
+      - '.github/workflows/**'
 
 jobs:
   lint-type-test:
@@ -155,3 +156,38 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  # Production build gate. Nothing else in CI runs `next build`, and Railway builds on
+  # merge — so this catches build-only failures (SSG/ISR generation, server/client
+  # boundary, next/image config, route/metadata exports) before they break the deploy.
+  # Runs in parallel with the jobs above; the .next/cache restore keeps it incremental.
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Build statically generates category pages (SSG/ISR), which read Supabase, and
+      # inlines NEXT_PUBLIC_* values — so the build needs the same env Railway provides.
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      # Cloudflare Turnstile always-pass test keys (public test values, not real secrets)
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
+      TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Restore Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('src/**/*.ts', 'src/**/*.tsx', 'src/**/*.js', 'src/**/*.jsx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
+      - name: Production build
+        run: pnpm build
