@@ -84,6 +84,111 @@ function mapSocialLinksToDb(links: SocialLinks): Record<string, string | undefin
   return result
 }
 
+const BRAND_DRAFT_EDITABLE_KEYS = [
+  'name',
+  'description',
+  'foundingYear',
+  'socialLinks',
+  'logoUrl',
+  'heroImageUrl',
+  'productPhotos',
+  'brandHighlights',
+  'purchaseLinks',
+  'retailLocations',
+] as const satisfies readonly (keyof Brand)[]
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function normalizeDraftSocialLinks(value: unknown, base: SocialLinks = {}): SocialLinks {
+  if (!isRecord(value)) return base
+
+  const result: SocialLinks = { ...base }
+  if ('officialWebsite' in value) {
+    result.officialWebsite =
+      typeof value.officialWebsite === 'string' ? value.officialWebsite : undefined
+  }
+  if ('instagram' in value) {
+    result.instagram = typeof value.instagram === 'string' ? value.instagram : undefined
+  }
+  if ('threads' in value) {
+    result.threads = typeof value.threads === 'string' ? value.threads : undefined
+  }
+  if ('facebook' in value) {
+    result.facebook = typeof value.facebook === 'string' ? value.facebook : undefined
+  }
+  return result
+}
+
+export function brandToDraftSnapshot(data: Partial<Brand>): Record<string, unknown> {
+  const snapshot: Record<string, unknown> = {}
+  for (const key of BRAND_DRAFT_EDITABLE_KEYS) {
+    if (key in data && data[key] !== undefined) {
+      snapshot[key] = data[key]
+    }
+  }
+  return snapshot
+}
+
+export function draftSnapshotToDomain(
+  snapshot: Record<string, unknown>,
+  base: Brand
+): Partial<Brand> {
+  const partial: Partial<Brand> = {}
+
+  for (const key of BRAND_DRAFT_EDITABLE_KEYS) {
+    if (!(key in snapshot)) continue
+
+    switch (key) {
+      case 'name':
+        partial.name = snapshot.name as Brand['name']
+        break
+      case 'description':
+        partial.description = snapshot.description as Brand['description']
+        break
+      case 'foundingYear':
+        partial.foundingYear = snapshot.foundingYear as Brand['foundingYear']
+        break
+      case 'socialLinks':
+        partial.socialLinks = normalizeDraftSocialLinks(snapshot.socialLinks, base.socialLinks)
+        break
+      case 'logoUrl':
+        partial.logoUrl = snapshot.logoUrl as Brand['logoUrl']
+        break
+      case 'heroImageUrl':
+        partial.heroImageUrl = snapshot.heroImageUrl as Brand['heroImageUrl']
+        break
+      case 'productPhotos':
+        partial.productPhotos = snapshot.productPhotos as Brand['productPhotos']
+        break
+      case 'brandHighlights':
+        partial.brandHighlights = snapshot.brandHighlights as Brand['brandHighlights']
+        break
+      case 'purchaseLinks':
+        partial.purchaseLinks = snapshot.purchaseLinks as Brand['purchaseLinks']
+        break
+      case 'retailLocations':
+        partial.retailLocations = snapshot.retailLocations as Brand['retailLocations']
+        break
+    }
+  }
+
+  return partial
+}
+
+export function mergeDraftOverBrand(
+  brand: Brand,
+  snapshot: Record<string, unknown> | null
+): Brand {
+  return snapshot ? { ...brand, ...draftSnapshotToDomain(snapshot, brand) } : brand
+}
+
+export function diffRemovedImageUrls(previous: string[], next: string[]): string[] {
+  const nextUrls = new Set(next.filter(Boolean))
+  return previous.filter((url) => Boolean(url) && !nextUrls.has(url))
+}
+
 export function brandToDomain(row: BrandRowWithJoins): Brand {
   const taxonomyJoin = row.brand_taxonomy ?? []
   const owners = Array.isArray(row.brand_owners)
