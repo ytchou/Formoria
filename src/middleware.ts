@@ -19,6 +19,7 @@ export const RESERVED_ROUTES = new Set([
   'categories',
   'category',
   'brands',
+  'site',
   'dashboard',
   'faq',
   'about',
@@ -120,12 +121,31 @@ async function refreshSupabaseSession(request: NextRequest, response: NextRespon
 }
 
 export async function middleware(request: NextRequest) {
+  const host = request.headers.get('host') ?? ''
+  if (host === (process.env.MICROSITE_HOST ?? 'brand.formoria.com')) {
+    const { pathname } = request.nextUrl
+    const segments = pathname.split('/').filter(Boolean)
+
+    if (segments.length === 1) {
+      const slug = segments[0]
+      if (!RESERVED_ROUTES.has(slug) && slug !== '_next' && slug !== 'api' && SLUG_PATTERN.test(slug)) {
+        const url = request.nextUrl.clone()
+        url.pathname = `/site${pathname}`
+        return NextResponse.rewrite(url)
+      }
+    }
+
+    return NextResponse.next()
+  }
+
   const { pathname } = request.nextUrl
 
   if (
     process.env.PREVIEW_MODE === 'true' &&
     !pathname.startsWith('/auth/') &&
-    pathname !== '/api/health'
+    pathname !== '/api/health' &&
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   ) {
     const supabaseResponse = NextResponse.next({ request })
     const supabase = createServerClient(
