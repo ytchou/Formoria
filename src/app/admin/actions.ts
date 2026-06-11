@@ -89,6 +89,7 @@ export async function approveSubmissionAction(
         productPhotos: [],
         contactEmail: submission.submitterEmail,
         brandHighlights: null,
+        siteContent: null,
       })
       slug = brand.slug
     } else {

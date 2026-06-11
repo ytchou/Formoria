@@ -32,6 +32,7 @@ const fixtureBrand: Brand = {
   retailLocations: [],
   productPhotos: [],
   brandHighlights: null,
+    siteContent: null,
   tags: [],
   foundingYear: 2010,
   contactEmail: null,

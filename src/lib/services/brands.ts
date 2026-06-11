@@ -1,4 +1,5 @@
 import type { Brand, BrandFilters, SocialLinks } from '@/lib/types'
+import type { SiteContent, SiteProduct, SiteTokens } from '@/lib/types/brand'
 import type { TaxonomyTag } from '@/lib/types'
 import type { Database } from '@/lib/supabase/database.types'
 import { NotFoundError, ValidationError } from '@/lib/errors'
@@ -100,6 +101,60 @@ const BRAND_DRAFT_EDITABLE_KEYS = [
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
+function normalizeSiteTokens(value: unknown): SiteTokens {
+  const tokens = isRecord(value) ? value : {}
+  const result: SiteTokens = {
+    accent: typeof tokens.accent === 'string' ? tokens.accent : '',
+  }
+  const accentForeground = optionalString(tokens.accentForeground)
+  if (accentForeground !== undefined) result.accentForeground = accentForeground
+  return result
+}
+
+function normalizeSiteProduct(value: unknown): SiteProduct | null {
+  if (!isRecord(value)) return null
+
+  const result: SiteProduct = {
+    name: typeof value.name === 'string' ? value.name : '',
+  }
+  const imageUrl = optionalString(value.imageUrl)
+  if (imageUrl !== undefined) result.imageUrl = imageUrl
+  const url = optionalString(value.url)
+  if (url !== undefined) result.url = url
+  const caption = optionalString(value.caption)
+  if (caption !== undefined) result.caption = caption
+  return result
+}
+
+export function normalizeSiteContent(raw: unknown): SiteContent | null {
+  if (!raw || !isRecord(raw) || Object.keys(raw).length === 0) return null
+
+  const result: SiteContent = {
+    template: typeof raw.template === 'string' ? raw.template : 'default',
+    tokens: normalizeSiteTokens(raw.tokens),
+    products: Array.isArray(raw.products)
+      ? raw.products.flatMap((product) => {
+          const normalized = normalizeSiteProduct(product)
+          return normalized ? [normalized] : []
+        })
+      : [],
+    ctaType: raw.ctaType === 'mailto' ? raw.ctaType : 'mailto',
+  }
+
+  const tagline = optionalString(raw.tagline)
+  if (tagline !== undefined) result.tagline = tagline
+  const story = optionalString(raw.story)
+  if (story !== undefined) result.story = story
+  const ctaValue = optionalString(raw.ctaValue)
+  if (ctaValue !== undefined) result.ctaValue = ctaValue
+
+  return result
 }
 
 function normalizeDraftSocialLinks(value: unknown, base: SocialLinks = {}): SocialLinks {
@@ -242,6 +297,7 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     productPhotos: (row.product_photos as string[]) ?? [],
     contactEmail: row.contact_email ?? null,
     brandHighlights: row.brand_highlights ?? null,
+    siteContent: normalizeSiteContent(row.site_content as Brand['siteContent']),
     tags,
     submittedAt: row.submitted_at ?? '',
     approvedAt: row.approved_at ?? null,
@@ -591,6 +647,18 @@ export async function getAllBrandSlugs(): Promise<string[]> {
     .from('brands')
     .select('slug')
     .eq('status', 'approved')
+
+  if (error) throw error
+  return (data ?? []).map((row) => row.slug)
+}
+
+export async function getMicrositeSlugs(): Promise<string[]> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brands')
+    .select('slug')
+    .eq('status', 'approved')
+    .not('site_content', 'is', null)
 
   if (error) throw error
   return (data ?? []).map((row) => row.slug)

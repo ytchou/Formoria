@@ -21,6 +21,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     productPhotos: [],
     contactEmail: null,
     brandHighlights: null,
+    siteContent: null,
     tags: [],
     submittedAt: '2026-01-01T00:00:00Z',
     approvedAt: null,
@@ -55,6 +56,7 @@ describe('scoreBrand', () => {
         { platform: 'website', url: 'https://example.com', label: 'Shop' },
       ],
       brandHighlights: 'Product A — Great',
+    siteContent: null,
       category: 'Accessories',
     })
     const result = scoreBrand(brand)
