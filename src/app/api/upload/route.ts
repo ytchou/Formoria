@@ -3,7 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { processImage } from '@/lib/security/image-processor'
 import { createInMemoryRateLimiter } from '@/lib/security/rate-limiter'
 import {
-  uploadProcessedImage,
+  uploadPrivateImage,
+  uploadPublicImage,
   ALLOWED_UPLOAD_BUCKETS,
   getUploadImageProcessingConfig,
   type AllowedUploadBucket,
@@ -12,6 +13,7 @@ import {
 const uploadRateLimiter = createInMemoryRateLimiter()
 const UPLOAD_RATE_LIMIT_WINDOW_MS = 60_000
 const UPLOAD_RATE_LIMIT_MAX_REQUESTS = 10
+const PRIVATE_UPLOAD_BUCKET = 'claim-proofs'
 
 export async function POST(request: Request) {
   try {
@@ -60,6 +62,10 @@ export async function POST(request: Request) {
     }
     const bucket = rawBucket as AllowedUploadBucket
 
+    if (bucket === PRIVATE_UPLOAD_BUCKET && !path.startsWith(`${user.id}/`)) {
+      return NextResponse.json({ error: 'Invalid path' }, { status: 403 })
+    }
+
     // Convert file to Buffer and process server-side
     const buffer = Buffer.from(await file.arrayBuffer())
 
@@ -74,20 +80,39 @@ export async function POST(request: Request) {
     }
 
     // Upload via service layer
-    let result
+    const objectPath = `${path}/${Date.now()}-${crypto.randomUUID()}.webp`
     try {
-      result = await uploadProcessedImage(processed, path, bucket)
+      if (bucket === PRIVATE_UPLOAD_BUCKET) {
+        const result = await uploadPrivateImage({
+          bucket,
+          path: objectPath,
+          data: processed.buffer,
+          contentType: 'image/webp',
+        })
+
+        return NextResponse.json({
+          key: result.key,
+          width: processed.width,
+          height: processed.height,
+        })
+      }
+
+      const result = await uploadPublicImage({
+        bucket,
+        path: objectPath,
+        data: processed.buffer,
+        contentType: 'image/webp',
+      })
+
+      return NextResponse.json({
+        url: result.url,
+        width: processed.width,
+        height: processed.height,
+      })
     } catch (err) {
       console.error('Storage upload error:', err)
       return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
     }
-
-    return NextResponse.json({
-      url: result.url,
-      key: result.key,
-      width: processed.width,
-      height: processed.height,
-    })
   } catch (error) {
     console.error('Upload API error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

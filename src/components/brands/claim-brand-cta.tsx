@@ -2,7 +2,7 @@
 
 import { Upload } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { useEffect, useRef, useState, useTransition, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
+import { useRef, useState, useTransition, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
 import { submitClaimAction } from '@/app/[locale]/brands/[slug]/actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,11 +32,12 @@ type FeedbackState =
   | { type: 'error'; message: string; authRequired?: boolean }
 
 type UploadHookState = {
-  upload: (file: File, filename: string) => Promise<void>
+  upload: (file: File, filename: string) => Promise<{ url: string | null; key: string | null } | null>
   uploading?: boolean
   progress?: number
   status?: string
   url?: string | null
+  key?: string | null
   error?: string | null
 }
 
@@ -73,13 +74,11 @@ function ClaimProofUpload({
   brandId,
   proofType,
   userId,
-  imageKey,
   onUploaded,
 }: {
   brandId: string
   proofType: ClaimProofType
   userId: string
-  imageKey: string
   onUploaded: (imageKey: string) => void
 }) {
   const t = useTranslations('brands.claimCta')
@@ -91,20 +90,15 @@ function ClaimProofUpload({
   }) as UploadHookState
   const uploading = uploadState.uploading ?? uploadState.status === 'uploading'
 
-  useEffect(() => {
-    if (uploadState.url && imageKey) {
-      onUploaded(imageKey)
-    }
-  }, [imageKey, onUploaded, uploadState.url])
-
   async function handleFileSelect(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     if (!file) return
 
     const filename = `${Date.now()}-${sanitizeFilename(file.name)}`
-    const nextImageKey = `claim-proofs/${uploadPath}/${filename}`
-    await uploadState.upload(file, filename)
-    onUploaded(nextImageKey)
+    const result = await uploadState.upload(file, filename)
+    if (result?.key) {
+      onUploaded(result.key)
+    }
     event.target.value = ''
   }
 
@@ -323,7 +317,6 @@ export function ClaimBrandCta({ brandId, removalSlot }: ClaimBrandCtaProps) {
                         brandId={brandId}
                         proofType={type}
                         userId={userId}
-                        imageKey={proof.imageKey}
                         onUploaded={(imageKey) => updateProof(type, { imageKey })}
                       />
 
