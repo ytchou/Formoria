@@ -1,6 +1,7 @@
 'use client'
 
 import { Fragment, useState, useTransition } from 'react'
+import { useTranslations } from 'next-intl'
 import {
   approveClaimAction,
   rejectClaimAction,
@@ -19,37 +20,31 @@ import {
 } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import type { ClaimRequest } from '@/lib/services/claim-requests'
+import type { ClaimProofType, ClaimRequest, ProofEvidence } from '@/lib/services/claim-requests'
 
 type TabValue = 'all' | ClaimRequest['status']
+type SignedProofEvidence = ProofEvidence & { signedUrl?: string }
+type ClaimRequestWithSignedProof = Omit<ClaimRequest, 'proofEvidence'> & {
+  proofEvidence: SignedProofEvidence[]
+}
 type RejectActionTarget =
   | { kind: 'claim'; id: string }
   | { kind: 'mit'; id: string }
   | null
 
-const PROOF_TYPE_LABELS: Record<ClaimRequest['proofType'], string> = {
-  domain_email: 'Domain email',
-  social_dm: 'Social DM',
-  backend_screenshot: 'Backend screenshot',
-  business_doc: 'Business document',
-}
-
-function isSafeHttpUrl(value: string | null | undefined): boolean {
-  if (!value) return false
-
-  try {
-    const url = new URL(value)
-    return url.protocol === 'http:' || url.protocol === 'https:'
-  } catch {
-    return false
-  }
+const PROOF_TYPE_KEYS: Record<ClaimProofType, string> = {
+  domain_email: 'domainEmail',
+  social_dm: 'socialDm',
+  backend_screenshot: 'backendScreenshot',
+  business_doc: 'businessDoc',
 }
 
 export function ClaimRequestsList({
   claimRequests,
 }: {
-  claimRequests: ClaimRequest[]
+  claimRequests: ClaimRequestWithSignedProof[]
 }) {
+  const proofTypesT = useTranslations('brands.claimCta.proofTypes')
   const [activeTab, setActiveTab] = useState<TabValue>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [rejectTarget, setRejectTarget] = useState<RejectActionTarget>(null)
@@ -182,8 +177,7 @@ export function ClaimRequestsList({
             <TableRow>
               <TableHead>Brand</TableHead>
               <TableHead>Requester email</TableHead>
-              <TableHead>Proof type</TableHead>
-              <TableHead>Proof URL</TableHead>
+              <TableHead>Proofs</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
@@ -200,30 +194,7 @@ export function ClaimRequestsList({
                     {claimRequest.brandName ?? 'Unknown brand'}
                   </TableCell>
                   <TableCell>{claimRequest.requesterEmail ?? 'Unknown'}</TableCell>
-                  <TableCell>
-                    {PROOF_TYPE_LABELS[claimRequest.proofType]}
-                  </TableCell>
-                  <TableCell>
-                    {claimRequest.proofUrl ? (
-                      isSafeHttpUrl(claimRequest.proofUrl) ? (
-                      <a
-                        href={claimRequest.proofUrl}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="underline underline-offset-2"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        View proof
-                      </a>
-                      ) : (
-                        <span className="underline underline-offset-2">
-                          {claimRequest.proofUrl}
-                        </span>
-                      )
-                    ) : (
-                      'None'
-                    )}
-                  </TableCell>
+                  <TableCell>{claimRequest.proofEvidence.length}</TableCell>
                   <TableCell>{formatDate(claimRequest.createdAt)}</TableCell>
                   <TableCell>
                     <StatusBadge status={claimRequest.status} />
@@ -232,40 +203,56 @@ export function ClaimRequestsList({
 
                 {expandedId === claimRequest.id && (
                   <TableRow>
-                    <TableCell colSpan={6} className="bg-muted/30 p-6 whitespace-normal">
+                    <TableCell colSpan={5} className="bg-secondary p-6 whitespace-normal">
                       <div className="space-y-4">
-                        <div>
+                        <div className="space-y-3">
                           <p className="text-sm font-medium text-muted-foreground">
-                            Proof URL
+                            Proof evidence
                           </p>
-                          {claimRequest.proofUrl ? (
-                            isSafeHttpUrl(claimRequest.proofUrl) ? (
-                              <a
-                                href={claimRequest.proofUrl}
-                                target="_blank"
-                                rel="noreferrer noopener"
-                                className="mt-1 inline-block break-all text-sm underline underline-offset-2"
-                                onClick={(event) => event.stopPropagation()}
-                              >
-                                {claimRequest.proofUrl}
-                              </a>
-                            ) : (
-                              <span className="mt-1 inline-block break-all text-sm underline underline-offset-2">
-                                {claimRequest.proofUrl}
-                              </span>
-                            )
+                          {claimRequest.proofEvidence.length > 0 ? (
+                            <div className="space-y-3">
+                              {claimRequest.proofEvidence.map((proof, index) => (
+                                <div
+                                  key={`${proof.type}-${proof.url ?? proof.imageKey ?? index}`}
+                                  className="rounded-lg border border-border bg-card p-4"
+                                >
+                                  <div className="space-y-3">
+                                    <p className="text-sm font-medium text-foreground">
+                                      {proofTypesT(`${PROOF_TYPE_KEYS[proof.type]}.label`)}
+                                    </p>
+                                    {proof.url && (
+                                      <a
+                                        href={proof.url}
+                                        target="_blank"
+                                        rel="noreferrer noopener"
+                                        className="inline-block break-all text-sm text-cta underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        onClick={(event) => event.stopPropagation()}
+                                      >
+                                        {proof.url}
+                                      </a>
+                                    )}
+                                    {proof.signedUrl && (
+                                      // eslint-disable-next-line @next/next/no-img-element -- Private signed proof URLs are short-lived review thumbnails.
+                                      <img
+                                        src={proof.signedUrl}
+                                        alt={proofTypesT(`${PROOF_TYPE_KEYS[proof.type]}.label`)}
+                                        className="h-20 w-20 rounded-md border border-border object-cover"
+                                      />
+                                    )}
+                                    {proof.note && (
+                                      <p className="text-sm text-muted-foreground">
+                                        {proof.note}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           ) : (
-                            <p className="mt-1 text-sm">No proof URL provided.</p>
+                            <p className="text-sm text-muted-foreground">
+                              No proof evidence provided.
+                            </p>
                           )}
-                        </div>
-
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">
-                            Proof notes
-                          </p>
-                          <p className="mt-1 text-sm">
-                            {claimRequest.proofNotes ?? 'No proof notes provided.'}
-                          </p>
                         </div>
 
                         {claimRequest.mitSmileCert && (
@@ -404,7 +391,7 @@ export function ClaimRequestsList({
 
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
                   No claim requests found.
                 </TableCell>
               </TableRow>

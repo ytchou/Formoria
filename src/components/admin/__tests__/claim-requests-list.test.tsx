@@ -1,17 +1,30 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { NextIntlClientProvider } from 'next-intl'
 import { ClaimRequestsList } from '../claim-requests-list'
-import { approveClaimAction, rejectClaimAction } from '@/app/admin/actions'
+import {
+  approveClaimAction,
+  rejectClaimAction,
+  rejectMitAction,
+  verifyMitAction,
+} from '@/app/admin/actions'
 import type { ClaimRequest } from '@/lib/services/claim-requests'
+import messages from '../../../../messages/zh-TW.json'
 
 vi.mock('@/app/admin/actions', () => ({
   approveClaimAction: vi.fn(),
   rejectClaimAction: vi.fn(),
+  rejectMitAction: vi.fn(),
+  verifyMitAction: vi.fn(),
 }))
 
-const FAKE_PENDING_CLAIM: ClaimRequest = {
+type ClaimRequestWithSignedProof = ClaimRequest & {
+  proofEvidence: Array<ClaimRequest['proofEvidence'][number] & { signedUrl?: string }>
+}
+
+const FAKE_PENDING_CLAIM: ClaimRequestWithSignedProof = {
   id: 'claim-1',
   brandId: 'brand-1',
   userId: 'user-1',
@@ -27,6 +40,7 @@ const FAKE_PENDING_CLAIM: ClaimRequest = {
     {
       type: 'backend_screenshot',
       imageKey: 'claim-proofs/user-1/brand-1/admin.webp',
+      signedUrl: 'https://x.supabase.co/sign/admin',
     },
   ],
   mitSmileCert: null,
@@ -40,16 +54,32 @@ const FAKE_PENDING_CLAIM: ClaimRequest = {
   requesterEmail: 'owner@sunroom.test',
 }
 
+function renderList(claimRequests: Partial<ClaimRequestWithSignedProof>[]) {
+  const normalized = claimRequests.map((claimRequest) => ({
+    ...FAKE_PENDING_CLAIM,
+    ...claimRequest,
+    proofEvidence: claimRequest.proofEvidence ?? FAKE_PENDING_CLAIM.proofEvidence,
+  }))
+
+  return render(
+    <NextIntlClientProvider locale="zh-TW" messages={messages}>
+      <ClaimRequestsList claimRequests={normalized} />
+    </NextIntlClientProvider>
+  )
+}
+
 describe('ClaimRequestsList', () => {
   beforeEach(() => {
     vi.mocked(approveClaimAction).mockReset()
     vi.mocked(rejectClaimAction).mockReset()
+    vi.mocked(rejectMitAction).mockReset()
+    vi.mocked(verifyMitAction).mockReset()
   })
 
   it('clicking Approve calls approveClaimAction with the claim id', async () => {
     const user = userEvent.setup()
 
-    render(<ClaimRequestsList claimRequests={[FAKE_PENDING_CLAIM]} />)
+    renderList([FAKE_PENDING_CLAIM])
 
     await user.click(screen.getByText('Sun Room Studio'))
     await user.click(screen.getByRole('button', { name: 'Approve' }))
@@ -60,7 +90,7 @@ describe('ClaimRequestsList', () => {
   it('requires notes before confirming rejection', async () => {
     const user = userEvent.setup()
 
-    render(<ClaimRequestsList claimRequests={[FAKE_PENDING_CLAIM]} />)
+    renderList([FAKE_PENDING_CLAIM])
 
     await user.click(screen.getByText('Sun Room Studio'))
     await user.click(screen.getByRole('button', { name: 'Reject' }))
@@ -76,25 +106,27 @@ describe('ClaimRequestsList', () => {
     )
   })
 
-  it('renders unsafe proof URLs as plain text instead of links', async () => {
+  it('clicking Verify MIT calls verifyMitAction with the brand id and cert', async () => {
     const user = userEvent.setup()
 
-    render(
-      <ClaimRequestsList
-        claimRequests={[
-          {
-            ...FAKE_PENDING_CLAIM,
-            proofUrl: 'javascript:alert(1)',
-          },
-        ]}
-      />
-    )
-
-    expect(screen.queryByRole('link', { name: 'View proof' })).not.toBeInTheDocument()
-    expect(screen.getByText('javascript:alert(1)')).toBeInTheDocument()
+    renderList([{ mitSmileCert: 'MIT-2023-12345' }])
 
     await user.click(screen.getByText('Sun Room Studio'))
+    await user.click(screen.getByRole('button', { name: 'Verify MIT' }))
 
-    expect(screen.getAllByText('javascript:alert(1)')).toHaveLength(2)
+    expect(verifyMitAction).toHaveBeenCalledWith('brand-1', 'MIT-2023-12345')
+  })
+
+  it('renders each submitted proof with its type, link, thumbnail and note', () => {
+    renderList([{ id: 'c1', brandName: 'Wuxiang', status: 'pending',
+      proofEvidence: [
+        { type: 'domain_email', url: 'mailto:owner@wuxiang.com', note: 'mailbox' },
+        { type: 'backend_screenshot', imageKey: 'claim-proofs/u1/b1/a.webp', signedUrl: 'https://x.supabase.co/sign/a' },
+      ], mitSmileCert: 'MIT-2023-12345' }])
+    fireEvent.click(screen.getByText('Wuxiang'))
+    expect(screen.getByText('品牌網域信箱')).toBeInTheDocument()
+    expect(screen.getByText('後台截圖')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /owner@wuxiang.com/ })).toBeInTheDocument()
+    expect(screen.getByRole('img')).toHaveAttribute('src', expect.stringContaining('sign/a'))
   })
 })
