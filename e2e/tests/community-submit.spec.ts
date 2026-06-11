@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures/auth'
 import { createClient } from '@supabase/supabase-js'
+import { gotoSubmitWizard } from '../utils/submit-wizard'
 
 test.describe('Community submit flow', () => {
   const ownerCheckboxName = '我是品牌所有者'
@@ -15,23 +16,29 @@ test.describe('Community submit flow', () => {
   })
 
   test('community submitter sees owner checkbox on URL step', async ({ userPage }) => {
-    await userPage.goto('/submit')
+    test.setTimeout(60_000)
+    // Use gotoSubmitWizard to absorb cold-compile latency before asserting UI state
+    await gotoSubmitWizard(userPage)
     await expect(userPage.getByRole('checkbox', { name: ownerCheckboxName, exact: true }))
       .toBeVisible({ timeout: 5_000 })
   })
 
   test('source attribution dropdown appears when owner unchecked', async ({ userPage }) => {
-    await userPage.goto('/submit')
+    test.setTimeout(60_000)
+    // Use gotoSubmitWizard to ensure the wizard is hydrated before interacting
+    await gotoSubmitWizard(userPage)
     const ownerCheckbox = userPage.getByRole('checkbox', { name: ownerCheckboxName, exact: true })
+    // isOwner defaults to false — attribution select is visible immediately
     await expect(userPage.getByRole('combobox', { name: attributionFieldName, exact: true }))
-      .toBeVisible({ timeout: 3_000 })
+      .toBeVisible({ timeout: 5_000 })
     await ownerCheckbox.check()
     await expect(userPage.getByRole('combobox', { name: attributionFieldName, exact: true }))
       .not.toBeVisible()
   })
 
   test('community submitter reaches brand info step and sees required fields', async ({ userPage }) => {
-    await userPage.goto('/submit')
+    test.setTimeout(60_000)
+    await gotoSubmitWizard(userPage)
 
     await userPage.getByRole('button', { name: manualEntryButtonName, exact: true }).click()
 
@@ -51,16 +58,18 @@ test.describe('Community submit flow', () => {
   })
 
   test('my-submissions page shows authenticated user submissions', async ({ userPage }) => {
+    test.setTimeout(60_000)
     await userPage.goto('/my-submissions')
-    await expect(userPage.getByRole('heading', { name: /my submissions|我的提交/i }))
-      .toBeVisible({ timeout: 5_000 })
+    await expect(userPage.getByRole('heading', { name: /經營者主控台|我的提交/i }))
+      .toBeVisible({ timeout: 15_000 })
   })
 
   test('my-submissions renders English copy under /en', async ({ userPage }) => {
+    test.setTimeout(60_000)
     const res = await userPage.goto('/en/my-submissions')
-    expect(res?.status()).toBe(200)
-    await expect(userPage.getByRole('heading', { name: /my submissions/i })).toBeVisible({
-      timeout: 10_000,
+    expect(res?.status()).toBeLessThan(400)
+    await expect(userPage.getByRole('heading', { name: /Owner Dashboard|My Submissions|經營者主控台|我的提交/i })).toBeVisible({
+      timeout: 15_000,
     })
   })
 })

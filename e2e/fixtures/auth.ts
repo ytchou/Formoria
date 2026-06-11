@@ -5,6 +5,27 @@ import fs from 'fs';
 import { writeAuthStorageState } from '../helpers/auth-session';
 
 const AUTH_DIR = path.join(__dirname, '../.auth');
+const SESSION_BUFFER_S = 300;
+
+function isSessionExpired(filePath: string): boolean {
+  try {
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    const expires = data?.cookies?.[0]?.expires;
+    if (typeof expires !== 'number') return true;
+    return Math.floor(Date.now() / 1000) > expires - SESSION_BUFFER_S;
+  } catch {
+    return true;
+  }
+}
+
+function ensureFreshSession(storePath: string): boolean {
+  if (!fs.existsSync(storePath)) return false;
+  if (isSessionExpired(storePath)) {
+    fs.unlinkSync(storePath);
+    return false;
+  }
+  return true;
+}
 
 type AuthFixtures = {
   adminPage: Page;
@@ -24,7 +45,7 @@ export const test = base.extend<AuthFixtures, WorkerAuthFixtures>({
   adminStorageState: [
     async ({ }, use, workerInfo) => {
       const storePath = path.join(AUTH_DIR, `admin-${workerInfo.workerIndex}.json`);
-      if (!fs.existsSync(storePath)) {
+      if (!ensureFreshSession(storePath)) {
         await writeAuthStorageState('admin', storePath);
       }
       await use(storePath);
@@ -35,7 +56,7 @@ export const test = base.extend<AuthFixtures, WorkerAuthFixtures>({
   userStorageState: [
     async ({ }, use, workerInfo) => {
       const storePath = path.join(AUTH_DIR, `user-${workerInfo.workerIndex}.json`);
-      if (!fs.existsSync(storePath)) {
+      if (!ensureFreshSession(storePath)) {
         await writeAuthStorageState('user', storePath);
       }
       await use(storePath);

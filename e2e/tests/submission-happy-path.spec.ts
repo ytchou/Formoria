@@ -156,6 +156,9 @@ test.describe('Submission happy path', () => {
     const websiteUrl = `https://happy-path-${timestamp}.example.com`;
     const purchaseUrl = `https://shop.example.com/products/${timestamp}`;
 
+    // 90s budget absorbs /submit cold-compile under parallel CI load (DEV-762).
+    // global-setup warms the bundle, but a second worker hitting /submit simultaneously
+    // may still pay a residual compile cost.
     await gotoSubmitWizard(userPage, { timeout: 90_000 });
 
     await userPage.getByRole('checkbox', { name: ownerCheckboxName, exact: true }).check();

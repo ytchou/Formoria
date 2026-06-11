@@ -5,6 +5,13 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
 test.describe('Admin dashboard deep', () => {
+  test.beforeEach(() => {
+    const adminEmail = process.env.E2E_ADMIN_EMAIL;
+    const list = (process.env.ADMIN_EMAILS ?? '').split(',').map(e => e.trim());
+    test.skip(!adminEmail || !list.includes(adminEmail),
+      'E2E_ADMIN_EMAIL not in ADMIN_EMAILS — admin tests require matching env');
+  });
+
   let testSubmissionId: string;
   let testBrandName: string;
   // createClient is deferred to beforeAll to ensure env vars are loaded by Playwright
@@ -39,9 +46,10 @@ test.describe('Admin dashboard deep', () => {
   });
 
   test('admin dashboard shows accurate stats', async ({ adminPage }) => {
+    test.setTimeout(60_000);
     await adminPage.goto('/admin');
     // At minimum: page loads with headings and some stat indicators
-    await expect(adminPage.getByRole('heading', { level: 1 }).or(adminPage.getByRole('heading', { level: 2 }))).toBeVisible();
+    await expect(adminPage.getByRole('heading', { name: /管理後台/i })).toBeVisible({ timeout: 15_000 });
     // No broken layout: check there's no React error boundary text
     await expect(adminPage.getByText(/something went wrong|minified react error/i)).not.toBeVisible();
   });

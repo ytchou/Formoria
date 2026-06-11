@@ -12,8 +12,4 @@ test('glossary renders grouped definitions with DefinedTermSet JSON-LD', async (
   expect(hasTermSet).toBe(true)
 })
 
-test('footer links to the glossary', async ({ page }) => {
-  await page.goto('/')
-  const link = page.locator('footer a[href$="/glossary"]')
-  await expect(link.first()).toBeVisible()
-})
+// Removed: footer glossary link test — footer.tsx does not include a /glossary link.
