@@ -20,6 +20,9 @@ export type ProofEvidence = {
   note?: string
 }
 const MAX_PROOF_URL_LENGTH = 2048
+const CLAIM_PROOF_BUCKET = 'claim-proofs'
+const CLAIM_PROOF_BUCKET_PREFIX = `${CLAIM_PROOF_BUCKET}/`
+const CLAIM_PROOF_SIGNED_URL_EXPIRES_IN_SECONDS = 300
 const DUPLICATE_PENDING_CLAIM_ERROR = 'a pending claim already exists for this brand'
 const CLAIM_ALREADY_REVIEWED_ERROR = 'claim already reviewed'
 const CLAIM_REQUESTER_EMAIL_NOT_FOUND_ERROR = 'Claim requester email not found'
@@ -117,6 +120,10 @@ export type ClaimRequest = {
   brandName: string | null
   brandSlug: string | null
   requesterEmail: string | null
+}
+
+export type ClaimRequestWithSignedProofs = Omit<ClaimRequest, 'proofEvidence'> & {
+  proofEvidence: Array<ProofEvidence & { signedUrl?: string }>
 }
 
 export function rowToClaimRequest(row: ClaimRequestRowWithJoins): ClaimRequest {
@@ -228,6 +235,12 @@ function normalizeMitSmileCert(mitSmileCert?: string | null): string | null {
   return trimmed ? trimmed : null
 }
 
+function toClaimProofBucketPath(imageKey: string): string {
+  return imageKey.startsWith(CLAIM_PROOF_BUCKET_PREFIX)
+    ? imageKey.slice(CLAIM_PROOF_BUCKET_PREFIX.length)
+    : imageKey
+}
+
 async function attachRequesterEmails(rows: ClaimRequestRowWithJoins[]): Promise<ClaimRequest[]> {
   const supabase = createServiceClient()
   const userIds = [...new Set(rows.map((row) => row.user_id))]
@@ -247,6 +260,48 @@ async function attachRequesterEmails(rows: ClaimRequestRowWithJoins[]): Promise<
       requester_email: emailByUserId.get(row.user_id) ?? null,
     })
   )
+}
+
+export async function attachSignedProofUrls(
+  claims: ClaimRequest[]
+): Promise<ClaimRequestWithSignedProofs[]> {
+  const imageKeys = [
+    ...new Set(
+      claims.flatMap((claim) =>
+        claim.proofEvidence.flatMap((proof) => (proof.imageKey ? [proof.imageKey] : []))
+      )
+    ),
+  ]
+
+  if (imageKeys.length === 0) {
+    return claims
+  }
+
+  const bucketPaths = imageKeys.map(toClaimProofBucketPath)
+  const supabase = createServiceClient()
+  const { data, error } = await supabase.storage
+    .from(CLAIM_PROOF_BUCKET)
+    .createSignedUrls(bucketPaths, CLAIM_PROOF_SIGNED_URL_EXPIRES_IN_SECONDS)
+
+  if (error) {
+    return claims
+  }
+
+  const signedUrlByImageKey = new Map<string, string | undefined>()
+  data?.forEach((signedUrlResult, index) => {
+    signedUrlByImageKey.set(
+      imageKeys[index],
+      signedUrlResult.error ? undefined : signedUrlResult.signedUrl ?? undefined
+    )
+  })
+
+  return claims.map((claim) => ({
+    ...claim,
+    proofEvidence: claim.proofEvidence.map((proof) => ({
+      ...proof,
+      ...(proof.imageKey ? { signedUrl: signedUrlByImageKey.get(proof.imageKey) } : {}),
+    })),
+  }))
 }
 
 export async function createClaimRequest(input: {
