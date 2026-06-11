@@ -78,10 +78,12 @@ test.describe.serial('Dashboard brand draft preview', () => {
   });
 
   test('step 1 — owner saves a draft and sees the draft-pending banner', async ({ userPage }) => {
+    // DEV-762: dashboard/brands/[slug]/edit cold-compiles in CI dev mode; give generous budget
+    test.setTimeout(60_000);
     await userPage.goto(`/dashboard/brands/${brandSlug}/edit`);
 
     const descriptionField = userPage.locator('textarea[name="description"]');
-    await expect(descriptionField).toBeVisible({ timeout: 10_000 });
+    await expect(descriptionField).toBeVisible({ timeout: 30_000 });
     await expect(descriptionField).toHaveValue(oldDescription, { timeout: 5_000 });
 
     await descriptionField.fill('');

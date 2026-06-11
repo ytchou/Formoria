@@ -2,6 +2,13 @@ import { createClient } from '@supabase/supabase-js';
 import { test, expect } from '../fixtures/auth';
 
 test.describe('Admin reports deep', () => {
+  test.beforeEach(() => {
+    const adminEmail = process.env.E2E_ADMIN_EMAIL;
+    const list = (process.env.ADMIN_EMAILS ?? '').split(',').map(e => e.trim());
+    test.skip(!adminEmail || !list.includes(adminEmail),
+      'E2E_ADMIN_EMAIL not in ADMIN_EMAILS — admin tests require matching env');
+  });
+
   let supabase: ReturnType<typeof createClient> | null = null;
   let seededReportId: string | null = null;
   let seededReportNote: string | null = null;
@@ -49,11 +56,13 @@ test.describe('Admin reports deep', () => {
   });
 
   test('reports page renders heading and table columns or empty state', async ({ adminPage }) => {
+    // DEV-762: admin sub-routes cold-compile in CI dev mode; give generous budget
+    test.setTimeout(60_000);
     await adminPage.goto('/admin/reports');
 
     await expect(
       adminPage.getByRole('heading', { name: '品牌檢舉' })
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: 15_000 });
 
     const table = adminPage.locator('table').first();
     const emptyState = adminPage.getByText('目前沒有待處理的檢舉。');
@@ -78,12 +87,16 @@ test.describe('Admin reports deep', () => {
       !seededReportId || !seededReportNote,
       'Skipped because no existing brand was available for safe report seeding.'
     );
+    // DEV-762: admin sub-routes cold-compile in CI dev mode; give generous budget
+    test.setTimeout(60_000);
 
     await adminPage.goto('/admin/reports');
+    // Wait for main to confirm the page loaded before looking for the seeded row
+    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 15_000 });
 
     const seededRow = adminPage.locator('tbody tr', { hasText: seededReportNote! });
 
-    await expect(seededRow).toBeVisible({ timeout: 10_000 });
+    await expect(seededRow).toBeVisible({ timeout: 15_000 });
     await expect(seededRow.getByText('資訊有誤')).toBeVisible();
     await expect(seededRow.getByRole('button', { name: '審核' })).toBeVisible();
     await expect(seededRow.getByRole('button', { name: '忽略' })).toBeVisible();

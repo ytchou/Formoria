@@ -77,7 +77,7 @@ test.describe('Auth — sign-in flow', () => {
 
     await expect(anonPage).not.toHaveURL(/\/auth\/sign-in(?:[/?#]|$)/);
     await expect(anonPage).toHaveURL(/\/dashboard(?:[/?#]|$)/);
-    await expect(anonPage.getByRole('heading', { name: '品牌管理', exact: true })).toBeVisible({
+    await expect(anonPage.getByRole('heading', { name: '經營者主控台', exact: true })).toBeVisible({
       timeout: 10_000,
     });
     await expect(anonPage.getByText(`歡迎，${email}`, { exact: true })).toBeVisible({

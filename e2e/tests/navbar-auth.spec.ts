@@ -6,7 +6,8 @@ test.describe('Navbar auth journey', () => {
 
     const signInLink = anonPage.getByRole('link', { name: /sign in|登入/i });
     await expect(signInLink).toBeVisible({ timeout: 10_000 });
-    await expect(signInLink).toHaveAttribute('href', '/auth/sign-in');
+    // href includes ?next=... query param — assert it starts with /auth/sign-in
+    await expect(signInLink).toHaveAttribute('href', /^\/auth\/sign-in/);
   });
 
   test('authenticated user sees account menu, not sign-in link', async ({ userPage }) => {
@@ -24,7 +25,7 @@ test.describe('Navbar auth journey', () => {
 
     await expect(dashboardLink).toBeVisible({ timeout: 10_000 });
     await expect(dashboardLink).toHaveAttribute('href', '/dashboard');
-    await expect(dashboardLink).toContainText(/dashboard|管理後台/i);
+    await expect(dashboardLink).toContainText(/dashboard|管理後台|經營者主控台/i);
     await expect(signOutItem).toBeVisible({ timeout: 10_000 });
   });
 
