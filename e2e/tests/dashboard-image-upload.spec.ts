@@ -113,8 +113,11 @@ test.describe('Dashboard — brand image upload', () => {
     // Save the form
     await userPage.getByRole('button', { name: '儲存變更' }).click();
 
-    // After save, we are redirected to the dashboard brand page
-    await userPage.waitForURL(`**/dashboard/brands/${brandSlug}`, { timeout: 15_000 });
+    // After save, we are redirected to the dashboard tab for this brand
+    await userPage.waitForURL(
+      (u) => new URL(u).searchParams.get('tab') === brandSlug,
+      { timeout: 15_000 }
+    );
 
     // Navigate back to edit to confirm persistence
     await userPage.goto(editPath);

@@ -92,12 +92,14 @@ test.describe('Dashboard brand edit', () => {
     // Submit the form
     await userPage.getByRole('button', { name: '儲存變更' }).click();
 
-    // Success indicator: redirected away from /edit to the brand dashboard detail page
-    await userPage.waitForURL(`**\/dashboard\/brands\/${brandSlug}`, {
-      timeout: 15_000,
-    });
+    // Success indicator: redirected to the dashboard tab for this brand
+    await userPage.waitForURL(
+      (u) => new URL(u).searchParams.get('tab') === brandSlug,
+      { timeout: 15_000 }
+    );
 
-    // Verify the brand detail page shows the updated description
+    // Verify the inline BrandManagementPanel rendered (h2 brand heading + updated description)
+    await expect(userPage.locator('h2').first()).toBeVisible({ timeout: 5_000 });
     await expect(userPage.getByText(updatedDescription)).toBeVisible({
       timeout: 5_000,
     });
@@ -119,9 +121,10 @@ test.describe('Dashboard brand edit', () => {
     await field.fill(highlight);
 
     await userPage.getByRole('button', { name: '儲存變更' }).click();
-    await userPage.waitForURL(`**\/dashboard\/brands\/${brandSlug}`, {
-      timeout: 15_000,
-    });
+    await userPage.waitForURL(
+      (u) => new URL(u).searchParams.get('tab') === brandSlug,
+      { timeout: 15_000 }
+    );
 
     await userPage.goto(`/dashboard/brands/${brandSlug}/edit`);
     await expect(

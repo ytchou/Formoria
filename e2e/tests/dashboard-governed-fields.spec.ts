@@ -128,7 +128,10 @@ test.describe('Dashboard — governed field integrity', () => {
 
     // Save
     await userPage.getByRole('button', { name: '儲存變更' }).click();
-    await userPage.waitForURL(`**/dashboard/brands/${brandSlug}`, { timeout: 15_000 });
+    await userPage.waitForURL(
+      (u) => new URL(u).searchParams.get('tab') === brandSlug,
+      { timeout: 15_000 }
+    );
 
     // Verify via service-role DB read that governed columns were not mutated
     const { data: row, error } = await supabase
