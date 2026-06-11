@@ -69,7 +69,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps) {
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       <SyncHtmlLang />
-      <div className="sticky top-0 z-50">
+      <div className="relative z-50">
         {adminBarMode ? (
           <AdminModeBar
             mode={adminBarMode}

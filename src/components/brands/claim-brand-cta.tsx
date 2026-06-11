@@ -130,14 +130,21 @@ export function ClaimBrandCta({ brandId, removalSlot }: ClaimBrandCtaProps) {
 
       {!isOpen ? (
         <div className="space-y-2">
-          <button
-            type="button"
-            onClick={openForm}
-            className="inline-flex min-h-12 items-center justify-center rounded-lg bg-cta px-6 py-3 text-left text-cta-foreground transition-all hover:bg-cta/90 active:scale-[0.98]"
-          >
-            <span className="text-sm font-semibold">{t('claimButton')}</span>
-          </button>
-          <Link href="/faq#claim" className="block text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={openForm}
+              className="inline-flex min-h-12 items-center justify-center rounded-lg bg-cta px-6 py-3 text-left text-cta-foreground transition-all hover:bg-cta/90 active:scale-[0.98]"
+            >
+              <span className="text-sm font-semibold">{t('claimButton')}</span>
+            </button>
+            {removalSlot && (
+              <>
+                {removalSlot}
+              </>
+            )}
+          </div>
+          <Link href="/faq#claim" className="block text-xs inline-link">
             {t('whyClaim')}
           </Link>
         </div>
@@ -253,12 +260,6 @@ export function ClaimBrandCta({ brandId, removalSlot }: ClaimBrandCtaProps) {
             </button>
           </div>
         </form>
-      )}
-
-      {removalSlot && (
-        <div className="border-t border-border pt-3">
-          {removalSlot}
-        </div>
       )}
     </section>
   )

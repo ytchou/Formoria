@@ -29,9 +29,16 @@ export function BrandHeader({ brand, categoryLabel, actionsSlot }: BrandHeaderPr
 
       {/* Meta row */}
       <div className="flex flex-wrap items-center gap-2 text-sm">
+        {/* Founding year */}
+        {brand.foundingYear && (
+          <span className="text-xs text-warm-caption">
+            {t('foundingYear', { year: brand.foundingYear })}
+          </span>
+        )}
+
         {/* Category pill */}
         {(categoryLabel ?? brand.category) && (
-          <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-foreground">
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
             {categoryLabel ?? brand.category}
           </span>
         )}
@@ -51,13 +58,6 @@ export function BrandHeader({ brand, categoryLabel, actionsSlot }: BrandHeaderPr
         {mitSmileCert && (
           <span className="text-xs text-warm-caption">
             {t('mitProofLink', { cert: mitSmileCert })}
-          </span>
-        )}
-
-        {/* Founding year */}
-        {brand.foundingYear && (
-          <span className="text-xs text-warm-caption">
-            {t('foundingYear', { year: brand.foundingYear })}
           </span>
         )}
 

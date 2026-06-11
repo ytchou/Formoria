@@ -117,7 +117,7 @@ export function BrandLinks({ brand }: BrandLinksProps) {
               className="inline-flex items-center gap-1.5 rounded-full bg-muted/40 px-3.5 py-2 text-sm font-medium text-muted-foreground cursor-not-allowed"
             >
               {iconEl}
-              {slot.label}
+              <span className="line-through decoration-muted-foreground/60">{slot.label}</span>
             </span>
           )
         })}

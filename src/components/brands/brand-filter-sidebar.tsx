@@ -210,7 +210,7 @@ export function BrandFilterSidebar({
             <button
               type="button"
               onClick={clearAll}
-              className="text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              className="text-sm inline-link"
             >
               {t('clearAll')}
             </button>
