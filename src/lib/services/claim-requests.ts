@@ -21,6 +21,7 @@ const CLAIM_REQUESTER_EMAIL_NOT_FOUND_ERROR = 'Claim requester email not found'
 const CLAIM_REQUEST_SELECT =
   'id, brand_id, user_id, proof_type, proof_url, proof_notes, proof_evidence, mit_smile_cert, status, reviewer_notes, reviewed_at, reviewed_by, created_at'
 const CLAIM_REQUEST_WITH_BRAND_SELECT = `${CLAIM_REQUEST_SELECT}, brands(name, slug)`
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 type ClaimRequestRow = {
   id: string
@@ -150,26 +151,19 @@ function claimRequestRpcClient(client: unknown): ClaimRequestRpcClient {
   return client as ClaimRequestRpcClient
 }
 
-function normalizeProofUrl(proofUrl?: string): string | null {
-  const trimmed = proofUrl?.trim()
+function normalizeDomainEmail(email?: string): string | null {
+  const trimmed = email?.trim()
   if (!trimmed) return null
 
   if (trimmed.length > MAX_PROOF_URL_LENGTH) {
-    throw new ValidationError(`proofUrl must be ${MAX_PROOF_URL_LENGTH} characters or fewer`)
+    throw new ValidationError(`domain email must be ${MAX_PROOF_URL_LENGTH} characters or fewer`)
   }
 
-  let parsed: URL
-  try {
-    parsed = new URL(trimmed)
-  } catch {
-    throw new ValidationError('proofUrl must be a valid URL')
+  if (!EMAIL_PATTERN.test(trimmed)) {
+    throw new ValidationError('domain email must be a valid email address')
   }
 
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:' && parsed.protocol !== 'mailto:') {
-    throw new ValidationError('proofUrl must be a valid URL')
-  }
-
-  return parsed.toString()
+  return trimmed
 }
 
 function isClaimProofType(value: unknown): value is ClaimProofType {
@@ -200,12 +194,16 @@ export function normalizeProofEvidence(input: ProofEvidence[], userId: string): 
       throw new ValidationError('proofEvidence contains an invalid proof type')
     }
 
-    const url = normalizeProofUrl(proof.url) ?? undefined
+    const url = proof.type === 'domain_email' ? normalizeDomainEmail(proof.url) ?? undefined : undefined
     const imageKey = proof.imageKey?.trim() || undefined
     const note = proof.note?.trim() || undefined
 
-    if (!url && !imageKey) {
-      throw new ValidationError('Each proof must include a URL or image key')
+    if (proof.type === 'domain_email' && !url) {
+      throw new ValidationError('Domain email proof must include a valid email address')
+    }
+
+    if ((proof.type === 'backend_screenshot' || proof.type === 'business_doc') && !imageKey) {
+      throw new ValidationError('Screenshot and business document proofs must include an image key')
     }
 
     if (imageKey && !imageKey.startsWith(imageNamespace)) {
@@ -220,8 +218,8 @@ export function normalizeProofEvidence(input: ProofEvidence[], userId: string): 
     }
   })
 
-  if (normalized.length < 2) {
-    throw new ValidationError('Please provide at least 2 proofs')
+  if (normalized.length < 1) {
+    throw new ValidationError('Please provide at least 1 proof')
   }
 
   return normalized
@@ -364,6 +362,19 @@ export async function createClaimRequest(input: {
     throw error
   }
   return rowToClaimRequest(data as ClaimRequestRowWithJoins)
+}
+
+export async function hasPendingClaim(userId: string, brandId: string): Promise<boolean> {
+  const supabase = createServiceClient()
+  const { data, error } = await claimRequestsTable(supabase)
+    .select('id')
+    .eq('user_id', userId)
+    .eq('brand_id', brandId)
+    .eq('status', 'pending')
+    .maybeSingle()
+
+  if (error) throw error
+  return Boolean(data)
 }
 
 export async function listClaimRequests(status?: ClaimRequestStatus): Promise<ClaimRequest[]> {

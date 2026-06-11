@@ -5,6 +5,7 @@ import { buildFaqPageJsonLd } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { CONTACT_EMAILS } from '@/lib/constants'
+import { OpenTargetDetails } from './open-target-details'
 
 type PageProps = {
   params: Promise<{ locale: string }>
@@ -34,6 +35,7 @@ export default async function FaqPage({ params }: PageProps) {
     'whatDoesMitMean',
     'howToSubmit',
     'reviewTime',
+    'claimBenefits',
     'claimOrUpdate',
     'dataAccuracy',
   ] as const
@@ -58,6 +60,7 @@ export default async function FaqPage({ params }: PageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(buildFaqPageJsonLd(faqItems, safeLocale)) }}
       />
+      <OpenTargetDetails />
       <div className="grid gap-10 md:grid-cols-[18rem_minmax(0,1fr)] md:gap-16">
         <aside className="space-y-4 md:sticky md:top-24 md:self-start">
           <h1 className="font-heading text-[26px] font-bold text-foreground">{t('title')}</h1>
@@ -74,7 +77,7 @@ export default async function FaqPage({ params }: PageProps) {
         </aside>
         <div className="divide-y divide-border">
           {plainItemKeys.map((key, i) => (
-            <details key={i} id={key === 'claimOrUpdate' ? 'claim' : undefined} className="group py-5">
+            <details key={i} id={key === 'claimBenefits' ? 'claim' : undefined} className="group scroll-mt-24 py-5">
               <summary className="flex cursor-pointer list-none items-center justify-between font-heading text-base font-semibold text-foreground [&::-webkit-details-marker]:hidden">
                 {t(`items.${key}.question`)}
                 <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />

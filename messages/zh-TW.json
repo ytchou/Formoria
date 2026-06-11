@@ -143,47 +143,46 @@
       "submitSuccess": "我們已收到你的認領申請，會盡快審核。",
       "submitError": "提交失敗，請稍後再試。",
       "communityTitle": "這是你的品牌嗎？",
-      "communityListing": "社群收錄。如果你是這個品牌的代表，請提交證明以認領並管理它。",
+      "communityListing": "如果你是這個品牌的代表，可以提交證明來認領並管理它；若不希望品牌出現在目錄中，也可以要求移除。",
       "claimButton": "認領這個品牌",
       "proofHeading": "提交認領證明",
       "proofPrompt": "請提交所有權證明，以便我們審核你的認領申請。",
       "proofTypeLabel": "證明類型",
-      "proofType": {
-        "domainEmail": "官方網域信箱",
-        "socialPost": "社群帳號發文",
-        "businessRegistration": "商業登記資料"
-      },
-      "pickTwoInstruction": "請提供至少 2 種你能證明的擁有方式",
-      "stillNeed": "需再選 {n} 項",
+      "pickOneInstruction": "請提供以下任一種擁有證明",
+      "stillNeed": "請先選擇 1 項證明",
       "readyToSubmit": "可以送出申請了",
-      "linkLabel": "連結",
-      "uploadLabel": "上傳截圖",
-      "uploadHint": "JPG / PNG，最大 5MB",
       "noteLabel": "備註（選填）",
       "uploadingLabel": "上傳中…",
-      "pendingTitle": "認領申請已送出",
-      "pendingBody": "我們會盡快審核你的證明並通知你",
+      "pendingTitle": "已收到你的認領申請",
+      "pendingBody": "我們會盡快審核你提交的擁有證明，並以 Email 通知你結果。",
       "mitCertLabel": "MIT 微笑標章編號（選填）",
-      "socialDisabledHint": "官方社群私訊尚未開放",
+      "mitCertHint": "填寫後可獲得額外的「MIT 已驗證」標章",
       "proofTypes": {
         "domainEmail": {
           "label": "品牌網域信箱",
-          "description": "使用品牌網域的信箱（例如 you@yourbrand.com）"
-        },
-        "socialDm": {
-          "label": "官方社群帳號私訊",
-          "description": "從官方帳號私訊我們"
+          "description": "輸入使用品牌網域的信箱（例如 you@yourbrand.com）",
+          "emailLabel": "網域信箱",
+          "placeholder": "you@yourbrand.com"
         },
         "backendScreenshot": {
           "label": "後台截圖",
-          "description": "品牌商店或社群後台的截圖"
+          "description": "上傳能證明你管理此品牌官方帳號或商店的後台截圖",
+          "loginNote": "需顯示你已登入，而非公開頁面",
+          "examples": [
+            "Instagram／社群：登入後的個人檔案頁（顯示「編輯個人檔案」按鈕）或專業帳號儀表板",
+            "網路商店：商店管理後台（Shopify、官網後台、電商賣家中心等）"
+          ],
+          "uploadLabel": "上傳後台截圖",
+          "uploadHint": "JPG / PNG，最大 5MB"
         },
         "businessDoc": {
           "label": "商業登記文件",
-          "description": "顯示負責人姓名的登記文件"
+          "description": "顯示負責人姓名的登記文件",
+          "privacyNote": "此文件僅供審核人員私下查看，驗證後即刪除。除統一編號、商業名稱、負責人姓名外，其餘資訊可自行塗黑。",
+          "uploadLabel": "上傳商業登記文件",
+          "uploadHint": "PDF / JPG / PNG，最大 5MB"
         }
       },
-      "proofUrlLabel": "證明連結（選填）",
       "notesLabel": "備註（選填）",
       "notesPlaceholder": "可補充品牌身份、角色或相關說明",
       "signIn": "立即登入",
@@ -282,8 +281,9 @@
         "missingBrandId": "缺少品牌 ID",
         "invalidProofType": "請選擇有效的認領證明類型",
         "invalidProofUrl": "請輸入有效的證明連結",
-        "proofEvidenceRequired": "每項證明都需要連結或上傳圖片",
-        "proofsMin": "請提供至少 2 項證明",
+        "invalidProofEmail": "請輸入有效的品牌網域信箱",
+        "proofEvidenceRequired": "每項證明都需要提供對應資料",
+        "proofsMin": "請提供至少 1 項證明",
         "invalidImageKey": "上傳的證明圖片不屬於目前使用者",
         "duplicate": "你已提交過這個品牌的認領申請",
         "unknown": "提交失敗，請稍後再試。"
@@ -506,6 +506,10 @@
       "reviewTime": {
         "question": "品牌審核需要多久時間？",
         "answer": "一般情況下，品牌審核約需 7 個工作天。審核期間，我們的團隊會確認品牌的真實性及其與台灣製造的連結。審核通過後，品牌即會出現在目錄中；若資料不完整，我們可能會透過信件與提交者聯繫補件。"
+      },
+      "claimBenefits": {
+        "question": "為什麼要認領品牌？認領後有什麼好處？",
+        "answer": "認領並通過審核後，你就能管理這個品牌頁面：編輯與更新品牌資料、照片與連結；頁面會顯示「由品牌方經營管理」標章，提升訪客信任；你也可以使用草稿與預覽功能，在發布前先確認內容。"
       },
       "claimOrUpdate": {
         "question": "我是品牌負責人，如何認領或更新品牌頁面？",
@@ -1026,7 +1030,6 @@
       "adminProofLabel": "擁有權證明",
       "proofTypes": {
         "domainEmail": "品牌網域信箱",
-        "socialDm": "官方社群帳號私訊",
         "backendScreenshot": "後台截圖",
         "businessDoc": "商業登記文件"
       }

@@ -1,6 +1,5 @@
 export const CLAIM_PROOF_TYPES = [
   'domain_email',
-  'social_dm',
   'backend_screenshot',
   'business_doc',
 ] as const
@@ -13,7 +12,6 @@ export type ProofEvidence = {
 }
 export const PROOF_TYPE_I18N_KEYS: Record<ClaimProofType, string> = {
   domain_email: 'domainEmail',
-  social_dm: 'socialDm',
   backend_screenshot: 'backendScreenshot',
   business_doc: 'businessDoc',
 }

@@ -143,47 +143,46 @@
       "submitSuccess": "Your claim has been submitted.",
       "submitError": "Something went wrong. Please try again.",
       "communityTitle": "Is this your brand?",
-      "communityListing": "Community listing. If you represent this brand, submit proof to claim and manage it.",
+      "communityListing": "If you represent this brand, you can submit proof to claim and manage it — or, if you would prefer it not appear in the directory, you can request removal.",
       "claimButton": "Claim this brand",
       "proofHeading": "Submit claim proof",
       "proofPrompt": "Submit proof of ownership so we can review your claim request.",
       "proofTypeLabel": "Proof type",
-      "proofType": {
-        "domainEmail": "Domain email",
-        "socialPost": "Social post",
-        "businessRegistration": "Business registration"
-      },
-      "pickTwoInstruction": "Provide at least 2 ways you can prove ownership",
-      "stillNeed": "{n} more to go",
+      "pickOneInstruction": "Provide any one of the following proofs of ownership",
+      "stillNeed": "Select one proof to continue",
       "readyToSubmit": "Ready to submit",
-      "linkLabel": "Link",
-      "uploadLabel": "Upload screenshot",
-      "uploadHint": "JPG / PNG, max 5MB",
       "noteLabel": "Note (optional)",
       "uploadingLabel": "Uploading…",
-      "pendingTitle": "Claim submitted",
-      "pendingBody": "We'll review your proof and get back to you soon",
+      "pendingTitle": "Claim request received",
+      "pendingBody": "We'll review the ownership proof you submitted and email you the result.",
       "mitCertLabel": "MIT Smile Mark number (optional)",
-      "socialDisabledHint": "Official social DMs are not available yet.",
+      "mitCertHint": "Add it to earn an additional \"MIT verified\" badge.",
       "proofTypes": {
         "domainEmail": {
           "label": "Brand domain email",
-          "description": "An email on the brand's own domain (e.g. you@yourbrand.com)"
-        },
-        "socialDm": {
-          "label": "Official social account DM",
-          "description": "DM us from the official account."
+          "description": "Enter an email address using the brand's domain (for example, you@yourbrand.com)",
+          "emailLabel": "Domain email",
+          "placeholder": "you@yourbrand.com"
         },
         "backendScreenshot": {
           "label": "Admin/backend screenshot",
-          "description": "A screenshot of the brand's store or social admin panel"
+          "description": "Upload a screenshot showing you manage this brand's official account or store",
+          "loginNote": "Must show you're logged in — not a public page.",
+          "examples": [
+            "Instagram / social: your logged-in profile page (showing the Edit profile button) or the professional dashboard",
+            "Online store: your store admin dashboard (Shopify, your site admin, marketplace seller center, etc.)"
+          ],
+          "uploadLabel": "Upload backend screenshot",
+          "uploadHint": "JPG / PNG, max 5MB"
         },
         "businessDoc": {
           "label": "Business registration document",
-          "description": "A registration document showing the responsible person's name"
+          "description": "A registration document showing the responsible person's name",
+          "privacyNote": "Seen only by our reviewer and deleted after verification. You may black out everything except your business number, business name, and responsible person's name.",
+          "uploadLabel": "Upload business registration document",
+          "uploadHint": "PDF / JPG / PNG, max 5MB"
         }
       },
-      "proofUrlLabel": "Proof URL (optional)",
       "notesLabel": "Notes (optional)",
       "notesPlaceholder": "Add any helpful context.",
       "signIn": "Sign in",
@@ -282,8 +281,9 @@
         "missingBrandId": "Missing brand ID",
         "invalidProofType": "Please choose a valid proof type",
         "invalidProofUrl": "Please enter a valid proof URL",
-        "proofEvidenceRequired": "Each proof needs a link or uploaded image",
-        "proofsMin": "Please provide at least 2 proofs",
+        "invalidProofEmail": "Please enter a valid brand domain email",
+        "proofEvidenceRequired": "Each proof needs the required evidence",
+        "proofsMin": "Please provide at least 1 proof",
         "invalidImageKey": "Uploaded proof image is not valid for this user",
         "duplicate": "You have already submitted a claim for this brand",
         "unknown": "Something went wrong. Please try again."
@@ -506,6 +506,10 @@
       "reviewTime": {
         "question": "How long does the brand review take?",
         "answer": "In most cases, brand reviews take about 7 business days. During that time, our team verifies the brand's authenticity and its connection to Made in Taiwan. Once approved, the brand will appear in the directory. If the submission is incomplete, we may reach out by email to request additional information."
+      },
+      "claimBenefits": {
+        "question": "Why claim a brand? What are the benefits?",
+        "answer": "Once your claim is approved, you can manage this brand page: edit and update your brand info, photos, and links. The page shows a managed by the brand badge that builds visitor trust, and you can use draft & preview to check changes before publishing."
       },
       "claimOrUpdate": {
         "question": "I'm the brand owner — how do I claim or update my brand page?",
@@ -1026,7 +1030,6 @@
       "adminProofLabel": "Ownership proof",
       "proofTypes": {
         "domainEmail": "Brand domain email",
-        "socialDm": "Official social account DM",
         "backendScreenshot": "Admin/backend screenshot",
         "businessDoc": "Business registration document"
       }

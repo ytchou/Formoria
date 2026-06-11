@@ -10,7 +10,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { useImageUpload } from '@/components/upload/useImageUpload'
 import { Link, usePathname } from '@/i18n/navigation'
 import { useUser } from '@/lib/auth/use-user'
-import { FORMORIA_SOCIALS } from '@/lib/constants'
 import {
   CLAIM_PROOF_TYPES,
   PROOF_TYPE_I18N_KEYS,
@@ -20,6 +19,7 @@ import { cn } from '@/lib/utils'
 
 type ClaimBrandCtaProps = {
   brandId: string
+  hasPendingClaim?: boolean
   removalSlot?: ReactNode
 }
 
@@ -57,6 +57,9 @@ const INITIAL_PROOFS = CLAIM_PROOF_TYPES.reduce(
   }),
   {} as Record<ClaimProofType, ProofState>,
 )
+const IMAGE_ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const BUSINESS_DOC_ACCEPTED_TYPES = [...IMAGE_ACCEPTED_TYPES, 'application/pdf']
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function isAuthError(message: string) {
   const normalized = message.toLowerCase()
@@ -67,15 +70,31 @@ function sanitizeFilename(filename: string) {
   return filename.replace(/[^a-zA-Z0-9.]/g, '_')
 }
 
+function hasRequiredEvidence(type: ClaimProofType, proof: ProofState) {
+  if (type === 'domain_email') {
+    return EMAIL_PATTERN.test(proof.url.trim())
+  }
+
+  return Boolean(proof.imageKey)
+}
+
 function ClaimProofUpload({
   brandId,
   proofType,
   userId,
+  label,
+  hint,
+  accept,
+  acceptedTypes,
   onUploaded,
 }: {
   brandId: string
   proofType: ClaimProofType
   userId: string
+  label: string
+  hint: string
+  accept: string
+  acceptedTypes: string[]
   onUploaded: (imageKey: string) => void
 }) {
   const t = useTranslations('brands.claimCta')
@@ -84,6 +103,8 @@ function ClaimProofUpload({
   const uploadState = useImageUpload({
     bucket: 'claim-proofs',
     path: uploadPath,
+    acceptedTypes,
+    uploadFields: { proofType },
   }) as UploadHookState
   const uploading = uploadState.uploading ?? uploadState.status === 'uploading'
 
@@ -101,7 +122,7 @@ function ClaimProofUpload({
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium text-foreground">{t('uploadLabel')}</p>
+      <p className="text-sm font-medium text-foreground">{label}</p>
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
@@ -109,13 +130,13 @@ function ClaimProofUpload({
         className="flex min-h-24 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted px-4 py-4 text-sm font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
       >
         <Upload className="h-4 w-4" aria-hidden="true" />
-        <span>{uploading ? t('uploadingLabel') : t('uploadHint')}</span>
+        <span>{uploading ? t('uploadingLabel') : hint}</span>
       </button>
       <input
         ref={inputRef}
         id={`claim-${proofType}-image`}
         type="file"
-        accept="image/*"
+        accept={accept}
         className="sr-only"
         onChange={handleFileSelect}
       />
@@ -127,24 +148,27 @@ function ClaimProofUpload({
   )
 }
 
-export function ClaimBrandCta({ brandId, removalSlot }: ClaimBrandCtaProps) {
+export function ClaimBrandCta({ brandId, hasPendingClaim = false, removalSlot }: ClaimBrandCtaProps) {
   const t = useTranslations('brands.claimCta')
+  const claimErrorsT = useTranslations('brandDetail.claim.errors')
   const pathname = usePathname()
   const { user } = useUser()
   const [isOpen, setIsOpen] = useState(false)
   const [proofs, setProofs] = useState<Record<ClaimProofType, ProofState>>(INITIAL_PROOFS)
   const [mitSmileCert, setMitSmileCert] = useState('')
-  const [feedback, setFeedback] = useState<FeedbackState>({ type: 'idle' })
+  const [feedback, setFeedback] = useState<FeedbackState>(
+    hasPendingClaim ? { type: 'pending' } : { type: 'idle' },
+  )
   const [isPending, startTransition] = useTransition()
   const userId = user?.id ?? 'anonymous'
   const selectedProofs = CLAIM_PROOF_TYPES.filter((type) => proofs[type].selected)
   const selectedCount = selectedProofs.length
-  const stillNeedCount = Math.max(0, 2 - selectedCount)
+  const stillNeedCount = Math.max(0, 1 - selectedCount)
   const selectedProofsHaveEvidence = selectedProofs.every((type) => {
     const proof = proofs[type]
-    return Boolean(proof.url.trim() || proof.imageKey)
+    return hasRequiredEvidence(type, proof)
   })
-  const canSubmit = selectedCount >= 2 && selectedProofsHaveEvidence && !isPending
+  const canSubmit = selectedCount >= 1 && selectedProofsHaveEvidence && !isPending
 
   function openForm() {
     setIsOpen(true)
@@ -213,8 +237,7 @@ export function ClaimBrandCta({ brandId, removalSlot }: ClaimBrandCtaProps) {
     return (
       <section className="space-y-3 rounded-xl border border-border bg-card p-5 text-left">
         <p className="text-base font-semibold text-foreground">{t('pendingTitle')}</p>
-        <p className="text-sm text-muted-foreground">{t('pendingBody')}</p>
-        {removalSlot && <div className="border-t border-border pt-3">{removalSlot}</div>}
+        <p className="text-sm leading-relaxed text-muted-foreground">{t('pendingBody')}</p>
       </section>
     )
   }
@@ -227,30 +250,40 @@ export function ClaimBrandCta({ brandId, removalSlot }: ClaimBrandCtaProps) {
       </div>
 
       {!isOpen ? (
-        <div className="space-y-2">
+        <div className="space-y-3">
+          {!user && (
+            <p className="text-sm text-muted-foreground">{claimErrorsT('notLoggedIn')}</p>
+          )}
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={openForm}
-              className="inline-flex min-h-12 items-center justify-center rounded-lg bg-cta px-6 py-3 text-left text-cta-foreground transition-all hover:bg-cta/90 active:scale-[0.98]"
-            >
-              <span className="text-sm font-semibold">{t('claimButton')}</span>
-            </button>
-            {removalSlot && (
-              <>
-                {removalSlot}
-              </>
+            {user ? (
+              <button
+                type="button"
+                onClick={openForm}
+                className="inline-flex min-h-12 items-center justify-center rounded-lg bg-cta px-6 py-3 text-sm font-semibold text-cta-foreground transition-all hover:bg-cta/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]"
+              >
+                {t('claimButton')}
+              </button>
+            ) : (
+              <Link
+                href={`/auth/sign-in?next=${encodeURIComponent(pathname)}`}
+                className="inline-flex min-h-12 items-center justify-center rounded-lg bg-cta px-6 py-3 text-sm font-semibold text-cta-foreground transition-all hover:bg-cta/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]"
+              >
+                {t('signIn')}
+              </Link>
             )}
           </div>
-          <Link href="/faq#claim" className="block text-xs inline-link">
-            {t('whyClaim')}
-          </Link>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <Link href="/faq#claim" className="text-xs text-primary underline underline-offset-4">
+              {t('whyClaim')}
+            </Link>
+            {user && removalSlot}
+          </div>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-1">
             <h2 className="text-sm font-semibold text-foreground">{t('proofHeading')}</h2>
-            <p className="text-sm text-muted-foreground">{t('pickTwoInstruction')}</p>
+            <p className="text-sm text-muted-foreground">{t('pickOneInstruction')}</p>
           </div>
 
           <div
@@ -264,7 +297,7 @@ export function ClaimBrandCta({ brandId, removalSlot }: ClaimBrandCtaProps) {
             )}
             aria-live="polite"
           >
-            {stillNeedCount > 0 ? t('stillNeed', { n: stillNeedCount }) : canSubmit ? t('readyToSubmit') : t('pickTwoInstruction')}
+            {stillNeedCount > 0 ? t('stillNeed', { n: stillNeedCount }) : canSubmit ? t('readyToSubmit') : t('pickOneInstruction')}
           </div>
 
           <div className="space-y-3">
@@ -272,7 +305,6 @@ export function ClaimBrandCta({ brandId, removalSlot }: ClaimBrandCtaProps) {
               const proof = proofs[type]
               const label = t(`proofTypes.${PROOF_TYPE_I18N_KEYS[type]}.label`)
               const description = t(`proofTypes.${PROOF_TYPE_I18N_KEYS[type]}.description`)
-              const disabled = type === 'social_dm' && FORMORIA_SOCIALS.length === 0
 
               return (
                 <div
@@ -280,7 +312,6 @@ export function ClaimBrandCta({ brandId, removalSlot }: ClaimBrandCtaProps) {
                   className={cn(
                     'space-y-4 rounded-xl border border-border bg-card p-4',
                     proof.selected && 'border-primary bg-primary/5',
-                    disabled && 'opacity-60',
                   )}
                 >
                   <div className="flex gap-3">
@@ -288,42 +319,77 @@ export function ClaimBrandCta({ brandId, removalSlot }: ClaimBrandCtaProps) {
                       id={`claim-proof-${type}`}
                       type="checkbox"
                       checked={proof.selected}
-                      disabled={disabled}
-                      title={disabled ? t('socialDisabledHint') : undefined}
                       onChange={(event) => updateProof(type, { selected: event.target.checked })}
-                      className="mt-1 h-5 w-5 rounded border-border accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed"
+                      className="mt-1 h-5 w-5 rounded border-border accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
                     <div className="min-w-0 flex-1 space-y-1">
                       <label htmlFor={`claim-proof-${type}`} className="block min-h-6 cursor-pointer text-sm font-semibold text-foreground">
                         {label}
                       </label>
                       <p className="text-sm text-muted-foreground">{description}</p>
-                      {disabled && <p className="text-xs text-muted-foreground">{t('socialDisabledHint')}</p>}
+                      {type === 'business_doc' && (
+                        <p className="text-xs leading-relaxed text-muted-foreground">
+                          {t('proofTypes.businessDoc.privacyNote')}
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  {proof.selected && !disabled && (
+                  {proof.selected && (
                     <div className="grid gap-4 border-t border-border pt-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <label htmlFor={`claim-${type}-url`} className="block text-sm font-medium text-foreground">
-                          {t('linkLabel')}
-                        </label>
-                        <Input
-                          id={`claim-${type}-url`}
-                          type="url"
-                          value={proof.url}
-                          onChange={(event) => updateProof(type, { url: event.target.value })}
-                          placeholder="https://"
-                          className="min-h-12 bg-card px-3.5 py-2.5 text-sm focus-visible:ring-2 focus-visible:ring-ring"
-                        />
-                      </div>
+                      {type === 'domain_email' && (
+                        <div className="space-y-2 md:col-span-2">
+                          <label htmlFor={`claim-${type}-email`} className="block text-sm font-medium text-foreground">
+                            {t('proofTypes.domainEmail.emailLabel')}
+                          </label>
+                          <Input
+                            id={`claim-${type}-email`}
+                            type="email"
+                            value={proof.url}
+                            onChange={(event) => updateProof(type, { url: event.target.value })}
+                            placeholder={t('proofTypes.domainEmail.placeholder')}
+                            className="min-h-12 bg-card px-3.5 py-2.5 text-sm focus-visible:ring-2 focus-visible:ring-ring"
+                          />
+                        </div>
+                      )}
 
-                      <ClaimProofUpload
-                        brandId={brandId}
-                        proofType={type}
-                        userId={userId}
-                        onUploaded={(imageKey) => updateProof(type, { imageKey })}
-                      />
+                      {type === 'backend_screenshot' && (
+                        <div className="space-y-3 md:col-span-2">
+                          <ul className="list-disc space-y-1 pl-5 text-xs leading-relaxed text-muted-foreground">
+                            {(t.raw('proofTypes.backendScreenshot.examples') as string[]).map((example) => (
+                              <li key={example}>{example}</li>
+                            ))}
+                          </ul>
+                          <ClaimProofUpload
+                            brandId={brandId}
+                            proofType={type}
+                            userId={userId}
+                            label={t('proofTypes.backendScreenshot.uploadLabel')}
+                            hint={t('proofTypes.backendScreenshot.uploadHint')}
+                            accept="image/*"
+                            acceptedTypes={IMAGE_ACCEPTED_TYPES}
+                            onUploaded={(imageKey) => updateProof(type, { imageKey })}
+                          />
+                          <p className="text-xs leading-relaxed text-muted-foreground">
+                            {t('proofTypes.backendScreenshot.loginNote')}
+                          </p>
+                        </div>
+                      )}
+
+                      {type === 'business_doc' && (
+                        <div className="md:col-span-2">
+                          <ClaimProofUpload
+                            brandId={brandId}
+                            proofType={type}
+                            userId={userId}
+                            label={t('proofTypes.businessDoc.uploadLabel')}
+                            hint={t('proofTypes.businessDoc.uploadHint')}
+                            accept="application/pdf,image/*"
+                            acceptedTypes={BUSINESS_DOC_ACCEPTED_TYPES}
+                            onUploaded={(imageKey) => updateProof(type, { imageKey })}
+                          />
+                        </div>
+                      )}
 
                       <div className="space-y-2 md:col-span-2">
                         <label htmlFor={`claim-${type}-note`} className="block text-sm font-medium text-foreground">
@@ -355,6 +421,7 @@ export function ClaimBrandCta({ brandId, removalSlot }: ClaimBrandCtaProps) {
               onChange={(event) => setMitSmileCert(event.target.value)}
               className="min-h-12 bg-card px-3.5 py-2.5 text-sm focus-visible:ring-2 focus-visible:ring-ring"
             />
+            <p className="text-xs text-muted-foreground">{t('mitCertHint')}</p>
           </div>
 
           {feedback.type === 'error' && (

@@ -17,7 +17,7 @@ export function RequestRemoval({ brandName, brandSlug }: RequestRemovalProps) {
   return (
     <a
       href={mailto}
-      className="inline-flex min-h-12 items-center justify-center rounded-lg border border-border bg-card px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+      className="text-xs text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground"
     >
       {t('removal.trigger')}
     </a>

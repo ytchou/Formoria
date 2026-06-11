@@ -98,6 +98,12 @@ export async function uploadPrivateImage(input: PrivateUploadImageInput): Promis
   return { key: `${input.bucket}/${path}` }
 }
 
+export async function uploadPrivateFile(input: PrivateUploadImageInput): Promise<{ key: string }> {
+  const path = await uploadStorageObject(input)
+
+  return { key: `${input.bucket}/${path}` }
+}
+
 export async function uploadPublicImage(input: PublicUploadImageInput): Promise<{ url: string }> {
   await uploadStorageObject(input)
   const supabase = createServiceClient()
