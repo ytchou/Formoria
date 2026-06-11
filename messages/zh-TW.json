@@ -280,6 +280,10 @@
         "notLoggedIn": "請先登入後再提交認領申請",
         "missingBrandId": "缺少品牌 ID",
         "invalidProofType": "請選擇有效的認領證明類型",
+        "invalidProofUrl": "請輸入有效的證明連結",
+        "proofEvidenceRequired": "每項證明都需要連結或上傳圖片",
+        "proofsMin": "請提供至少 2 項證明",
+        "invalidImageKey": "上傳的證明圖片不屬於目前使用者",
         "duplicate": "你已提交過這個品牌的認領申請",
         "unknown": "提交失敗，請稍後再試。"
       }

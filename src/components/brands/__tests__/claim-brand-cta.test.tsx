@@ -40,14 +40,18 @@ describe('ClaimBrandCta', () => {
     renderWithIntl(<ClaimBrandCta brandId="brand-1" />)
 
     await user.click(screen.getByRole('button', { name: /認領這個品牌/i }))
-    await user.selectOptions(screen.getByLabelText(/證明類型/i), 'social_post')
+    await user.selectOptions(screen.getByLabelText(/證明類型/i), 'social_dm')
     await user.click(screen.getByRole('button', { name: /提交認領/i }))
 
     await waitFor(() => {
       expect(mockSubmitClaimAction).toHaveBeenCalledWith(
         expect.objectContaining({
           brandId: 'brand-1',
-          proofType: 'social_post',
+          proofs: [
+            expect.objectContaining({
+              type: 'social_dm',
+            }),
+          ],
         })
       )
     })

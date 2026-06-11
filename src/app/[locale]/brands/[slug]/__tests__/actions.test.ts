@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+const createClaimRequest = vi.hoisted(() => vi.fn())
+
 vi.mock('next/headers', () => ({
   headers: vi.fn().mockResolvedValue(
     new Map([['x-forwarded-for', '127.0.0.1']])
@@ -16,6 +18,15 @@ vi.mock('@/lib/services/reports', () => ({
   createReport: vi.fn().mockResolvedValue(undefined),
 }))
 
+vi.mock('@/lib/services/claim-requests', () => ({
+  createClaimRequest: (...a: unknown[]) => createClaimRequest(...a),
+  CLAIM_PROOF_TYPES: ['domain_email', 'social_dm', 'backend_screenshot', 'business_doc'],
+}))
+
+vi.mock('@/lib/auth/claim-user', () => ({
+  requireClaimUser: vi.fn(async () => ({ id: 'u1' })),
+}))
+
 function makeFormData(data: Record<string, string>) {
   const fd = new FormData()
   Object.entries(data).forEach(([k, v]) => fd.set(k, v))
@@ -23,7 +34,53 @@ function makeFormData(data: Record<string, string>) {
 }
 
 // Reimport to get fresh module (rate limiter state resets per test file)
-const { submitReportAction } = await import('../actions')
+const { submitClaimAction, submitReportAction } = await import('../actions')
+
+describe('submitClaimAction', () => {
+  beforeEach(() => {
+    createClaimRequest.mockReset()
+    createClaimRequest.mockResolvedValue({ id: 'c1' })
+  })
+
+  it('rejects when fewer than 2 proofs are provided', async () => {
+    const res = await submitClaimAction({
+      brandId: 'b1',
+      proofs: [{ type: 'domain_email', url: 'mailto:a@b.com' }],
+    })
+
+    expect(res).toMatchObject({ error: expect.any(String) })
+    expect(createClaimRequest).not.toHaveBeenCalled()
+  })
+
+  it('rejects an imageKey outside the user namespace', async () => {
+    const res = await submitClaimAction({
+      brandId: 'b1',
+      proofs: [
+        { type: 'domain_email', url: 'mailto:a@b.com' },
+        { type: 'backend_screenshot', imageKey: 'claim-proofs/OTHER/b1/x.webp' },
+      ],
+    })
+
+    expect(res).toMatchObject({ error: expect.any(String) })
+    expect(createClaimRequest).not.toHaveBeenCalled()
+  })
+
+  it('forwards 2 valid proofs to the service', async () => {
+    const res = await submitClaimAction({
+      brandId: 'b1',
+      proofs: [
+        { type: 'domain_email', url: 'mailto:a@b.com' },
+        { type: 'backend_screenshot', imageKey: 'claim-proofs/u1/b1/x.webp' },
+      ],
+      mitSmileCert: '01200024-02134',
+    })
+
+    expect(res).toEqual({ ok: true })
+    expect(createClaimRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ brandId: 'b1', userId: 'u1' })
+    )
+  })
+})
 
 describe('submitReportAction', () => {
   beforeEach(() => {

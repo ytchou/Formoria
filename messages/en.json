@@ -280,6 +280,10 @@
         "notLoggedIn": "Please sign in to submit a claim",
         "missingBrandId": "Missing brand ID",
         "invalidProofType": "Please choose a valid proof type",
+        "invalidProofUrl": "Please enter a valid proof URL",
+        "proofEvidenceRequired": "Each proof needs a link or uploaded image",
+        "proofsMin": "Please provide at least 2 proofs",
+        "invalidImageKey": "Uploaded proof image is not valid for this user",
         "duplicate": "You have already submitted a claim for this brand",
         "unknown": "Something went wrong. Please try again."
       }

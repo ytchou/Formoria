@@ -3,22 +3,25 @@
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { getTranslations } from 'next-intl/server'
-import { createClient } from '@/lib/supabase/server'
+import { z } from 'zod/v3'
+import { requireClaimUser } from '@/lib/auth/claim-user'
 import { createInMemoryRateLimiter } from '@/lib/security/rate-limiter'
-import { createClaimRequest } from '@/lib/services/claim-requests'
+import {
+  CLAIM_PROOF_TYPES,
+  createClaimRequest,
+  type ProofEvidence,
+} from '@/lib/services/claim-requests'
 import { createReport } from '@/lib/services/reports'
 
 const REPORT_REASONS = ['not_mit', 'incorrect_info', 'broken_link', 'inappropriate'] as const
-const CLAIM_PROOF_TYPES = ['domain_email', 'social_post', 'business_registration'] as const
 type SubmitReportReason = (typeof REPORT_REASONS)[number]
+type Translator = Awaited<ReturnType<typeof getTranslations<'brandDetail.claim.errors'>>>
 
 export type ReportState = { error?: string; success?: boolean }
 
 export type SubmitClaimInput = {
   brandId: string
-  proofType: (typeof CLAIM_PROOF_TYPES)[number]
-  proofUrl?: string
-  proofNotes?: string
+  proofs: ProofEvidence[]
   mitSmileCert?: string
 }
 
@@ -26,46 +29,56 @@ export type SubmitClaimResult = { ok: true } | { error: string }
 
 const reportRateLimiter = createInMemoryRateLimiter()
 
-async function requireClaimUser(t: Awaited<ReturnType<typeof getTranslations<'brandDetail.claim.errors'>>>): Promise<{ userId: string } | { error: string }> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser()
+function buildFieldSchemas(t: Translator) {
+  const proofSchema = z
+    .object({
+      type: z.enum(CLAIM_PROOF_TYPES, {
+        errorMap: () => ({ message: t('invalidProofType') }),
+      }),
+      url: z.string().trim().url(t('invalidProofUrl')).optional(),
+      imageKey: z.string().trim().optional(),
+      note: z.string().trim().optional(),
+    })
+    .refine((proof) => Boolean(proof.url || proof.imageKey), {
+      message: t('proofEvidenceRequired'),
+    })
 
-  if (error || !user) {
-    return { error: t('notLoggedIn') }
+  return {
+    brandId: z.string().trim().min(1, t('missingBrandId')),
+    proofs: z.array(proofSchema).min(2, t('proofsMin')),
+    mitSmileCert: z.string().trim().optional(),
   }
+}
 
-  return { userId: user.id }
+function getSubmitClaimSchema(t: Translator) {
+  const fields = buildFieldSchemas(t)
+  return z.object(fields)
 }
 
 export async function submitClaimAction(input: SubmitClaimInput): Promise<SubmitClaimResult> {
   const t = await getTranslations('brandDetail.claim.errors')
   try {
-    const auth = await requireClaimUser(t)
-    if ('error' in auth) return auth
+    const user = await requireClaimUser()
+    if (!user) return { error: t('notLoggedIn') }
 
-    const brandId = input.brandId.trim()
-    if (!brandId) {
-      return { error: t('missingBrandId') }
+    const parsed = getSubmitClaimSchema(t).safeParse(input)
+    if (!parsed.success) {
+      return { error: parsed.error.issues[0]?.message ?? t('unknown') }
     }
 
-    if (!CLAIM_PROOF_TYPES.includes(input.proofType)) {
-      return { error: t('invalidProofType') }
+    const imageNamespace = `claim-proofs/${user.id}/`
+    const invalidImageKey = parsed.data.proofs.find(
+      (proof) => proof.imageKey && !proof.imageKey.startsWith(imageNamespace)
+    )
+    if (invalidImageKey) {
+      return { error: t('invalidImageKey') }
     }
-
-    const proofUrl = input.proofUrl?.trim()
-    const proofNotes = input.proofNotes?.trim()
-    const mitSmileCert = input.mitSmileCert?.trim()
 
     await createClaimRequest({
-      userId: auth.userId,
-      brandId,
-      proofType: input.proofType,
-      proofUrl: proofUrl || undefined,
-      proofNotes: proofNotes || undefined,
-      mitSmileCert: mitSmileCert || null,
+      userId: user.id,
+      brandId: parsed.data.brandId,
+      proofEvidence: parsed.data.proofs,
+      mitSmileCert: parsed.data.mitSmileCert || undefined,
     })
 
     revalidatePath('/admin')

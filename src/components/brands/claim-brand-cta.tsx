@@ -14,9 +14,14 @@ type ClaimBrandCtaProps = {
   removalSlot?: ReactNode
 }
 
-type ClaimProofType = 'domain_email' | 'social_post' | 'business_registration'
+type ClaimProofType = 'domain_email' | 'social_dm' | 'backend_screenshot' | 'business_doc'
 
-const CLAIM_PROOF_TYPES = ['domain_email', 'social_post', 'business_registration'] as const
+const CLAIM_PROOF_TYPES = [
+  'domain_email',
+  'social_dm',
+  'backend_screenshot',
+  'business_doc',
+] as const
 
 type FeedbackState =
   | { type: 'idle' }
@@ -44,15 +49,19 @@ export function ClaimBrandCta({ brandId, removalSlot }: ClaimBrandCtaProps) {
   const proofOptions: Array<{ value: ClaimProofType; label: string }> = [
     {
       value: 'domain_email',
-      label: t('proofType.domainEmail'),
+      label: t('proofTypes.domainEmail.label'),
     },
     {
-      value: 'social_post',
-      label: t('proofType.socialPost'),
+      value: 'social_dm',
+      label: t('proofTypes.socialDm.label'),
     },
     {
-      value: 'business_registration',
-      label: t('proofType.businessRegistration'),
+      value: 'backend_screenshot',
+      label: t('proofTypes.backendScreenshot.label'),
+    },
+    {
+      value: 'business_doc',
+      label: t('proofTypes.businessDoc.label'),
     },
   ]
 
@@ -88,9 +97,13 @@ export function ClaimBrandCta({ brandId, removalSlot }: ClaimBrandCtaProps) {
         try {
           const result = await submitClaimAction({
             brandId,
-            proofType: selectedProofType,
-            proofUrl: proofUrl || undefined,
-            proofNotes: proofNotes || undefined,
+            proofs: [
+              {
+                type: selectedProofType,
+                url: proofUrl || undefined,
+                note: proofNotes || undefined,
+              },
+            ],
             mitSmileCert: mitSmileCert || undefined,
           })
 

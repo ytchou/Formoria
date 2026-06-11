@@ -15,9 +15,20 @@ const FAKE_PENDING_CLAIM: ClaimRequest = {
   id: 'claim-1',
   brandId: 'brand-1',
   userId: 'user-1',
-  proofType: 'social_post',
+  proofType: 'social_dm',
   proofUrl: 'https://instagram.com/p/abc123',
   proofNotes: 'Posted the studio walkthrough on our official account.',
+  proofEvidence: [
+    {
+      type: 'social_dm',
+      url: 'https://instagram.com/p/abc123',
+      note: 'Posted the studio walkthrough on our official account.',
+    },
+    {
+      type: 'backend_screenshot',
+      imageKey: 'claim-proofs/user-1/brand-1/admin.webp',
+    },
+  ],
   mitSmileCert: null,
   status: 'pending',
   reviewerNotes: null,

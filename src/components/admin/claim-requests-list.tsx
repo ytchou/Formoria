@@ -29,8 +29,9 @@ type RejectActionTarget =
 
 const PROOF_TYPE_LABELS: Record<ClaimRequest['proofType'], string> = {
   domain_email: 'Domain email',
-  social_post: 'Social post',
-  business_registration: 'Business registration',
+  social_dm: 'Social DM',
+  backend_screenshot: 'Backend screenshot',
+  business_doc: 'Business document',
 }
 
 function isSafeHttpUrl(value: string | null | undefined): boolean {

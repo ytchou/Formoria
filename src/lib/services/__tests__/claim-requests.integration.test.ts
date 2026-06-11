@@ -128,22 +128,36 @@ describeWithDb('claim requests service (integration)', () => {
     const request = await createClaimRequest({
       userId,
       brandId,
-      proofType: 'domain_email',
-      proofUrl: 'https://example.com/proof/domain-email',
-      proofNotes: 'Can receive email at the official domain',
+      proofEvidence: [
+        {
+          type: 'domain_email',
+          url: 'https://example.com/proof/domain-email',
+          note: 'Can receive email at the official domain',
+        },
+        {
+          type: 'backend_screenshot',
+          imageKey: `claim-proofs/${userId}/${brandId}/pending.webp`,
+        },
+      ],
     })
 
     expect(request.status).toBe('pending')
     expect(request.brandId).toBe(brandId)
     expect(request.userId).toBe(userId)
-    expect(request.proofType).toBe('domain_email')
+    expect(request.proofEvidence[0]?.type).toBe('domain_email')
   })
 
   it('createClaimRequest stores the MIT Smile cert when provided', async () => {
     const request = await createClaimRequest({
       userId,
       brandId,
-      proofType: 'domain_email',
+      proofEvidence: [
+        { type: 'domain_email', url: 'mailto:owner@brand.com' },
+        {
+          type: 'backend_screenshot',
+          imageKey: `claim-proofs/${userId}/${brandId}/mit.webp`,
+        },
+      ],
       mitSmileCert: '01200024-02134',
     })
 
@@ -154,19 +168,63 @@ describeWithDb('claim requests service (integration)', () => {
     const request = await createClaimRequest({
       userId,
       brandId,
-      proofType: 'domain_email',
+      proofEvidence: [
+        { type: 'domain_email', url: 'mailto:owner@brand.com' },
+        {
+          type: 'backend_screenshot',
+          imageKey: `claim-proofs/${userId}/${brandId}/no-mit.webp`,
+        },
+      ],
     })
 
     expect(request.mitSmileCert).toBeNull()
+  })
+
+  it('persists proof_evidence array and maps it back to proofEvidence', async () => {
+    const claim = await createClaimRequest({
+      brandId,
+      userId,
+      proofEvidence: [
+        { type: 'domain_email', url: 'mailto:owner@brand.com', note: 'owner mailbox' },
+        { type: 'backend_screenshot', imageKey: `claim-proofs/${userId}/${brandId}/a.webp` },
+      ],
+      mitSmileCert: '01200024-02134',
+    })
+
+    expect(claim.proofEvidence).toHaveLength(2)
+    expect(claim.proofEvidence[0]).toMatchObject({
+      type: 'domain_email',
+      url: 'mailto:owner@brand.com',
+    })
+    expect(claim.proofEvidence[1]).toMatchObject({
+      type: 'backend_screenshot',
+      imageKey: expect.stringContaining('claim-proofs/'),
+    })
+    expect(claim.mitSmileCert).toBe('01200024-02134')
+  })
+
+  it('rejects fewer than 2 proofs', async () => {
+    await expect(
+      createClaimRequest({
+        brandId,
+        userId,
+        proofEvidence: [{ type: 'domain_email', url: 'mailto:x@y.com' }],
+      })
+    ).rejects.toThrow(/at least 2|2 proofs/i)
   })
 
   it('approveClaimRequest claims the brand and marks the request approved', async () => {
     const request = await createClaimRequest({
       userId,
       brandId,
-      proofType: 'social_post',
-      proofUrl: 'https://example.com/proof/social-post',
-      proofNotes: 'Posted ownership proof on the brand account',
+      proofEvidence: [
+        { type: 'social_dm', url: 'https://example.com/proof/social-dm' },
+        {
+          type: 'backend_screenshot',
+          imageKey: `claim-proofs/${userId}/${brandId}/approve.webp`,
+          note: 'Posted ownership proof on the brand account',
+        },
+      ],
     })
 
     await approveClaimRequest(request.id, reviewerId)
@@ -183,8 +241,14 @@ describeWithDb('claim requests service (integration)', () => {
     const request = await createClaimRequest({
       userId,
       brandId,
-      proofType: 'business_registration',
-      proofNotes: 'Initial filing attached separately',
+      proofEvidence: [
+        { type: 'business_doc', imageKey: `claim-proofs/${userId}/${brandId}/doc.webp` },
+        {
+          type: 'backend_screenshot',
+          imageKey: `claim-proofs/${userId}/${brandId}/reject.webp`,
+          note: 'Initial filing attached separately',
+        },
+      ],
     })
 
     await rejectClaimRequest(request.id, reviewerId, 'Proof does not establish ownership yet')
