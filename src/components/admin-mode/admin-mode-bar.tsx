@@ -33,13 +33,13 @@ export function AdminModeBar({ mode: serverMode, labels }: AdminModeBarProps) {
       className={cn(
         'border-b px-3 py-1.5',
         isViewer
-          ? 'border-destructive/30 bg-destructive/10 text-destructive'
-          : 'border-border bg-secondary text-foreground'
+          ? 'border-border bg-secondary text-foreground'
+          : 'border-destructive/30 bg-destructive/10 text-destructive'
       )}
     >
       <div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <Badge variant={isViewer ? 'destructive' : 'outline'}>
+          <Badge variant={isViewer ? 'outline' : 'destructive'}>
             {isViewer ? labels.viewer : labels.god}
           </Badge>
           {isViewer ? (
@@ -49,7 +49,7 @@ export function AdminModeBar({ mode: serverMode, labels }: AdminModeBarProps) {
         <Button
           type="button"
           size="sm"
-          variant={isViewer ? 'destructive' : 'secondary'}
+          variant={isViewer ? 'secondary' : 'destructive'}
           disabled={isPending}
           onClick={() => {
             setMode(next)

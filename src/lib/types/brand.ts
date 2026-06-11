@@ -31,6 +31,28 @@ export type MitEvidence = {
   verified_by?: string
 }
 
+export type SiteTokens = {
+  accent: string
+  accentForeground?: string
+}
+
+export type SiteProduct = {
+  name: string
+  imageUrl?: string
+  url?: string
+  caption?: string
+}
+
+export type SiteContent = {
+  template: string
+  tokens: SiteTokens
+  tagline?: string
+  story?: string
+  products: SiteProduct[]
+  ctaType: 'mailto'
+  ctaValue?: string
+}
+
 export type Brand = {
   id: string
   name: string
@@ -53,6 +75,7 @@ export type Brand = {
   productPhotos: string[]
   contactEmail: string | null
   brandHighlights: string | null
+  siteContent: SiteContent | null
   tags: TaxonomyTag[]
   submittedAt: string
   approvedAt: string | null

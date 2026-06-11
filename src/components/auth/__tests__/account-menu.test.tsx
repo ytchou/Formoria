@@ -24,6 +24,7 @@ vi.mock('@/i18n/navigation', () => ({
 }))
 vi.mock('@/lib/auth/use-user', () => ({ useUser: vi.fn() }))
 vi.mock('@/app/auth/actions', () => ({ signOut: vi.fn() }))
+vi.mock('next/navigation', () => ({ usePathname: () => '/brands/test' }))
 
 import { useUser } from '@/lib/auth/use-user'
 
@@ -38,14 +39,14 @@ function renderWithIntl(ui: React.ReactNode) {
 describe('AccountMenu', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('shows a Sign in link to /auth/sign-in when logged out', () => {
+  it('shows a Sign in link that returns to the current page when logged out', () => {
     ;(useUser as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       user: null,
       loading: false,
     })
     renderWithIntl(<AccountMenu />)
     const link = screen.getByRole('link', { name: 'Sign in' })
-    expect(link).toHaveAttribute('href', '/auth/sign-in')
+    expect(link).toHaveAttribute('href', '/auth/sign-in?next=%2Fbrands%2Ftest')
   })
 
   it('shows a circular account trigger with the email initial when logged in', () => {

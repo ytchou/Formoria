@@ -85,7 +85,7 @@ export function submissionToDomain(row: SubmissionRowInput): BrandSubmission {
     suggestedTags: (row.suggested_tags as string[]) ?? [],
     status: row.status as BrandSubmission['status'],
     reviewerNotes: row.reviewer_notes ?? null,
-    submittedAt: row.submitted_at,
+    submittedAt: row.submitted_at ?? '',
     reviewedAt: row.reviewed_at ?? null,
     reviewedBy: row.reviewed_by ?? null,
     pdpaConsentAt: row.pdpa_consent_at ?? null,

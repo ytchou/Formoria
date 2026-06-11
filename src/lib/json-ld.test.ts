@@ -27,6 +27,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     },
     retailLocations: [{ name: 'Nanzhuang Store', address: '苗栗縣南庄鄉', latitude: 24.59, longitude: 120.99 }],
     productPhotos: [], brandHighlights: null,
+    siteContent: null,
     contactEmail: 'hello@chatzutang.com',
     tags: [],
     submittedAt: '2026-01-01T00:00:00Z', approvedAt: '2026-01-02T00:00:00Z',

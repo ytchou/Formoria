@@ -29,6 +29,7 @@ const liveBrand: Brand = {
   productPhotos: ['https://x.supabase.co/p-live-1.png'],
   contactEmail: 'live@brand.tw',
   brandHighlights: 'live highlights',
+    siteContent: null,
   tags: [{ id: 't1', name: 'Apparel', nameZh: '服飾', productType: true } as never],
   submittedAt: '2026-01-01T00:00:00Z',
   approvedAt: '2026-01-02T00:00:00Z',

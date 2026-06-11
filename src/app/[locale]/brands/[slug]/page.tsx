@@ -5,7 +5,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import {
   getBrandBySlug,
   getRelatedBrands,
-  getBrandCountByCategory,
+  getBrands,
   getAllBrandSlugs,
   getBrandDraft,
   mergeDraftOverBrand,
@@ -139,13 +139,27 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
     (url): url is string => Boolean(url),
   )
 
-  // Parallel fetch: related brands + category count
-  const [relatedBrands, categoryCount] = displayBrand.category
-    ? await Promise.all([
-        getRelatedBrands(displayBrand.category, displayBrand.slug, 4),
-        getBrandCountByCategory(displayBrand.category, displayBrand.slug),
-      ])
-    : [[], 0]
+  // The "more in category" card links to /categories/[slug], which is keyed by the
+  // product_type TAG slug — not the legacy free-text brand.category column. Derive the
+  // brand's product_type tag so the link resolves and the count matches that route.
+  const categoryTag =
+    displayBrand.tags.find(
+      (tag) =>
+        tag.category === 'product_type' &&
+        (tag.name === displayBrand.category || tag.nameZh === displayBrand.category),
+    ) ?? displayBrand.tags.find((tag) => tag.category === 'product_type')
+
+  // Parallel fetch: related brands (legacy free-text category) + category count (by tag slug)
+  const [relatedBrands, categoryCount] = await Promise.all([
+    displayBrand.category
+      ? getRelatedBrands(displayBrand.category, displayBrand.slug, 4)
+      : Promise.resolve<Brand[]>([]),
+    categoryTag
+      ? getBrands({ tags: [categoryTag.slug], status: 'approved', limit: 1 }).then((result) =>
+          Math.max(0, result.totalCount - 1),
+        )
+      : Promise.resolve(0),
+  ])
 
   // Visit Website URL
   const visitUrl = displayBrand.socialLinks.officialWebsite ?? displayBrand.purchaseLinks[0]?.url
@@ -157,8 +171,8 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
 
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: directoryLabel, href: '/brands' },
-    ...(categoryLabel
-      ? [{ label: categoryLabel, href: `/brands?category=${encodeURIComponent(displayBrand.category ?? '')}` }]
+    ...(categoryTag
+      ? [{ label: categoryLabel || categoryTag.name, href: `/categories/${categoryTag.slug}` }]
       : []),
     { label: displayBrand.name },
   ]
@@ -231,9 +245,9 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
             <BrandLinks brand={displayBrand} />
             <BrandLocations brand={displayBrand} />
 
-            {displayBrand.category && (
+            {categoryTag && (
               <MoreInCategory
-                category={displayBrand.category}
+                category={categoryTag.slug}
                 categoryLabel={categoryLabel || null}
                 count={categoryCount}
               />

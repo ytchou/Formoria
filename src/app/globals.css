@@ -181,6 +181,10 @@
   }
 }
 
+@utility inline-link {
+  @apply text-primary underline-offset-4 hover:underline;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -192,4 +196,3 @@
     @apply font-sans;
   }
 }
-

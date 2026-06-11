@@ -67,9 +67,9 @@ export function tagToDomain(row: TaxonomyTagRow): TaxonomyTag {
     slug: row.slug,
     // taxonomy_tags.category is text in DB — cast to TagCategory at the boundary
     category: row.category as TagCategory,
-    isActive: row.is_active,
+    isActive: row.is_active ?? true,
     suggestedBy: row.suggested_by ?? null,
-    createdAt: row.created_at,
+    createdAt: row.created_at ?? '',
   }
 }
 

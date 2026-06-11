@@ -50,6 +50,9 @@ const ALLOWLIST = [
   // Transitional: real messages come from the i18n factory; static fallback map
   // here is test-only. TODO remove the static fallback and drop this entry.
   'lib/validations/submission.ts',
+  // Microsite is intentionally ZH-TW-only (v1 single-locale surface, DEV-767).
+  'components/microsite/',
+  'app/(microsite)/',
 ]
 
 function isAllowlisted(relPath: string): boolean {

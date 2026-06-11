@@ -89,6 +89,7 @@ export async function submitBrand(
       productPhotos: parsed.productPhotos,
       contactEmail: user.email ?? null,
       brandHighlights: parsed.brandHighlights?.trim() || null,
+      siteContent: null,
     })
 
     // Create submission audit record

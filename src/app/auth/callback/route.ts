@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { isRelativeUrl } from "@/lib/auth/validations";
 import { verifyClaimToken } from "@/lib/auth/claim-token";
@@ -8,8 +9,16 @@ import { completeBrandClaim, getBrandById } from "@/lib/services/brands";
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const code = searchParams.get("code");
-  const next = searchParams.get("next");
-  const claimToken = searchParams.get("claim");
+
+  // Post-auth intent is carried via short-lived cookies for the OAuth flow
+  // (see signInWithGoogle), with query params as the fallback for the
+  // email-link flows (sign-up confirmation / email+password claim).
+  const cookieStore = await cookies();
+  const next = cookieStore.get("post_auth_next")?.value ?? searchParams.get("next");
+  const claimToken =
+    cookieStore.get("post_auth_claim")?.value ?? searchParams.get("claim");
+  cookieStore.delete("post_auth_next");
+  cookieStore.delete("post_auth_claim");
 
   if (!code && !claimToken) {
     return NextResponse.redirect(
