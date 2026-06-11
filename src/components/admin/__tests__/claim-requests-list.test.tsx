@@ -28,12 +28,12 @@ const FAKE_PENDING_CLAIM: ClaimRequestWithSignedProof = {
   id: 'claim-1',
   brandId: 'brand-1',
   userId: 'user-1',
-  proofType: 'social_dm',
+  proofType: 'business_doc',
   proofUrl: 'https://instagram.com/p/abc123',
   proofNotes: 'Posted the studio walkthrough on our official account.',
   proofEvidence: [
     {
-      type: 'social_dm',
+      type: 'business_doc',
       url: 'https://instagram.com/p/abc123',
       note: 'Posted the studio walkthrough on our official account.',
     },
@@ -117,16 +117,16 @@ describe('ClaimRequestsList', () => {
     expect(verifyMitAction).toHaveBeenCalledWith('brand-1', 'MIT-2023-12345')
   })
 
-  it('renders each submitted proof with its type, link, thumbnail and note', () => {
+  it('renders each submitted proof with its type, email, thumbnail and note', () => {
     renderList([{ id: 'c1', brandName: 'Wuxiang', status: 'pending',
       proofEvidence: [
-        { type: 'domain_email', url: 'mailto:owner@wuxiang.com', note: 'mailbox' },
+        { type: 'domain_email', url: 'owner@wuxiang.com', note: 'mailbox' },
         { type: 'backend_screenshot', imageKey: 'claim-proofs/u1/b1/a.webp', signedUrl: 'https://x.supabase.co/sign/a' },
       ], mitSmileCert: 'MIT-2023-12345' }])
     fireEvent.click(screen.getByText('Wuxiang'))
     expect(screen.getByText('品牌網域信箱')).toBeInTheDocument()
     expect(screen.getByText('後台截圖')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /owner@wuxiang.com/ })).toBeInTheDocument()
+    expect(screen.getByText('owner@wuxiang.com')).toBeInTheDocument()
     expect(screen.getByRole('img')).toHaveAttribute('src', expect.stringContaining('sign/a'))
   })
 })

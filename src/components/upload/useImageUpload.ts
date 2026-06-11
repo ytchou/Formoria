@@ -10,6 +10,9 @@ type UploadStatus = 'idle' | 'uploading' | 'success' | 'error'
 type UseImageUploadConfig = {
   bucket: string
   path: string
+  acceptedTypes?: string[]
+  uploadFields?: Record<string, string>
+  invalidTypeMessage?: string
 }
 
 type UploadResponse = {
@@ -41,9 +44,10 @@ export function useImageUpload(config: UseImageUploadConfig): UseImageUploadRetu
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     async (file: File, _filename: string) => {
       // Client-side pre-filter: validate file type and size before hitting server
-      if (!ACCEPTED_TYPES.includes(file.type)) {
+      const acceptedTypes = config.acceptedTypes ?? ACCEPTED_TYPES
+      if (!acceptedTypes.includes(file.type)) {
         setStatus('error')
-        setError('Please upload an image file (JPEG, PNG, or WebP)')
+        setError(config.invalidTypeMessage ?? 'Please upload an image file (JPEG, PNG, or WebP)')
         setUrl(null)
         setKey(null)
         return null
@@ -67,6 +71,9 @@ export function useImageUpload(config: UseImageUploadConfig): UseImageUploadRetu
         formData.append('file', file)
         formData.append('path', config.path)
         formData.append('bucket', config.bucket)
+        Object.entries(config.uploadFields ?? {}).forEach(([key, value]) => {
+          formData.append(key, value)
+        })
 
         const response = await fetch('/api/upload', {
           method: 'POST',
@@ -95,7 +102,7 @@ export function useImageUpload(config: UseImageUploadConfig): UseImageUploadRetu
         return null
       }
     },
-    [config.bucket, config.path]
+    [config.acceptedTypes, config.bucket, config.invalidTypeMessage, config.path, config.uploadFields]
   )
 
   const reset = useCallback(() => {

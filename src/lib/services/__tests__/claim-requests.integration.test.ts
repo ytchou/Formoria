@@ -48,11 +48,31 @@ it('createClaimRequest rejects image keys outside the user namespace before writ
       userId: 'user-a',
       brandId: 'brand-a',
       proofEvidence: [
-        { type: 'domain_email', url: 'mailto:owner@brand.com' },
+        { type: 'domain_email', url: 'owner@brand.com' },
         { type: 'backend_screenshot', imageKey: 'claim-proofs/user-b/brand-a/proof.webp' },
       ],
     })
   ).rejects.toThrow(/invalid image key/i)
+})
+
+it('createClaimRequest rejects invalid domain email proof before writing', async () => {
+  await expect(
+    createClaimRequest({
+      userId: 'user-a',
+      brandId: 'brand-a',
+      proofEvidence: [{ type: 'domain_email', url: 'https://brand.example/proof' }],
+    })
+  ).rejects.toThrow(/valid email/i)
+})
+
+it('createClaimRequest rejects upload-backed proof without an image key before writing', async () => {
+  await expect(
+    createClaimRequest({
+      userId: 'user-a',
+      brandId: 'brand-a',
+      proofEvidence: [{ type: 'business_doc' }],
+    })
+  ).rejects.toThrow(/image key/i)
 })
 
 describeWithDb('claim requests service (integration)', () => {
@@ -165,7 +185,7 @@ describeWithDb('claim requests service (integration)', () => {
       userId,
       brandId,
       proofEvidence: [
-        { type: 'domain_email', url: 'mailto:owner@brand.com' },
+        { type: 'domain_email', url: 'owner@brand.com' },
         {
           type: 'backend_screenshot',
           imageKey: `claim-proofs/${userId}/${brandId}/mit.webp`,
@@ -182,7 +202,7 @@ describeWithDb('claim requests service (integration)', () => {
       userId,
       brandId,
       proofEvidence: [
-        { type: 'domain_email', url: 'mailto:owner@brand.com' },
+        { type: 'domain_email', url: 'owner@brand.com' },
         {
           type: 'backend_screenshot',
           imageKey: `claim-proofs/${userId}/${brandId}/no-mit.webp`,
@@ -198,7 +218,7 @@ describeWithDb('claim requests service (integration)', () => {
       brandId,
       userId,
       proofEvidence: [
-        { type: 'domain_email', url: 'mailto:owner@brand.com', note: 'owner mailbox' },
+        { type: 'domain_email', url: 'owner@brand.com', note: 'owner mailbox' },
         { type: 'backend_screenshot', imageKey: `claim-proofs/${userId}/${brandId}/a.webp` },
       ],
       mitSmileCert: '01200024-02134',
@@ -207,7 +227,7 @@ describeWithDb('claim requests service (integration)', () => {
     expect(claim.proofEvidence).toHaveLength(2)
     expect(claim.proofEvidence[0]).toMatchObject({
       type: 'domain_email',
-      url: 'mailto:owner@brand.com',
+      url: 'owner@brand.com',
     })
     expect(claim.proofEvidence[1]).toMatchObject({
       type: 'backend_screenshot',
@@ -216,14 +236,14 @@ describeWithDb('claim requests service (integration)', () => {
     expect(claim.mitSmileCert).toBe('01200024-02134')
   })
 
-  it('rejects fewer than 2 proofs', async () => {
+  it('rejects when no proofs are provided', async () => {
     await expect(
       createClaimRequest({
         brandId,
         userId,
-        proofEvidence: [{ type: 'domain_email', url: 'mailto:x@y.com' }],
+        proofEvidence: [],
       })
-    ).rejects.toThrow(/at least 2|2 proofs/i)
+    ).rejects.toThrow(/at least 1|1 proof/i)
   })
 
   it('approveClaimRequest claims the brand and marks the request approved', async () => {
@@ -231,7 +251,6 @@ describeWithDb('claim requests service (integration)', () => {
       userId,
       brandId,
       proofEvidence: [
-        { type: 'social_dm', url: 'https://example.com/proof/social-dm' },
         {
           type: 'backend_screenshot',
           imageKey: `claim-proofs/${userId}/${brandId}/approve.webp`,

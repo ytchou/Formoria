@@ -1,7 +1,6 @@
-// NOTE: This spec covers the link-only claim path (domain_email + business_doc).
-// The upload-based proof path is deferred until two ops preconditions are met:
-//   1. The private `claim-proofs` Supabase Storage bucket is created.
-//   2. FORMORIA_SOCIALS is populated (social_dm proof type is currently disabled).
+// NOTE: This spec covers the link-only claim path (domain_email).
+// The upload-based proof path is deferred until the private `claim-proofs`
+// Supabase Storage bucket is created.
 import { test, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
@@ -89,17 +88,11 @@ test.describe('Claim smoke', () => {
     // Open the claim form
     await userPage.getByRole('button', { name: '認領這個品牌' }).click();
 
-    // Select proof 1: domain_email — check the checkbox, then fill its link input
+    // Select proof: domain_email — check the checkbox, then fill its link input
     await userPage.locator('#claim-proof-domain_email').check();
     await userPage
       .locator('#claim-domain_email-url')
       .fill(`https://example.com/proof-domain/${brandSlug}`);
-
-    // Select proof 2: business_doc — check the checkbox, then fill its link input
-    await userPage.locator('#claim-proof-business_doc').check();
-    await userPage
-      .locator('#claim-business_doc-url')
-      .fill(`https://example.com/proof-biz/${brandSlug}`);
 
     // Submit — button reads "送出認領申請" when idle
     await userPage.getByRole('button', { name: '送出認領申請' }).click();
@@ -110,7 +103,7 @@ test.describe('Claim smoke', () => {
       timeout: 5_000,
     });
 
-    // DB: claim_request row exists with proof_evidence array of length >= 2
+    // DB: claim_request row exists with proof_evidence array of length >= 1
     await expect
       .poll(
         async () => {
@@ -126,7 +119,7 @@ test.describe('Claim smoke', () => {
         },
         { timeout: 15_000, intervals: [500, 1_000, 2_000] }
       )
-      .toBeGreaterThanOrEqual(2);
+      .toBeGreaterThanOrEqual(1);
 
     // Admin: approve the claim
     await adminPage.goto('/admin/claim-requests');

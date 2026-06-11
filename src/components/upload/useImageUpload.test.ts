@@ -75,6 +75,35 @@ describe('useImageUpload', () => {
     expect(result.current.url).toBe('https://storage.example.com/test/logo.webp')
   })
 
+  it('allows caller-provided file types and upload fields', async () => {
+    const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ key: 'claim-proofs/user-1/brand-1/doc.pdf' }),
+        { status: 200 }
+      )
+    )
+
+    const { result } = renderHook(() =>
+      useImageUpload({
+        bucket: 'claim-proofs',
+        path: 'user-1/brand-1',
+        acceptedTypes: ['application/pdf'],
+        uploadFields: { proofType: 'business_doc' },
+      })
+    )
+    const file = createMockFile('doc.pdf', 1024, 'application/pdf')
+
+    await act(async () => {
+      await result.current.upload(file, 'doc.pdf')
+    })
+
+    expect(result.current.status).toBe('success')
+    expect(result.current.key).toBe('claim-proofs/user-1/brand-1/doc.pdf')
+    const body = fetchMock.mock.calls[0]?.[1]?.body
+    expect(body).toBeInstanceOf(FormData)
+    expect((body as FormData).get('proofType')).toBe('business_doc')
+  })
+
   it('handles upload errors gracefully', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValueOnce(
       new Response(JSON.stringify({ error: 'Bucket not found' }), { status: 500 })

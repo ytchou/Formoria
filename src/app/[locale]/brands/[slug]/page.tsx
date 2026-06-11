@@ -10,6 +10,7 @@ import {
   getBrandDraft,
   mergeDraftOverBrand,
 } from '@/lib/services/brands'
+import { hasPendingClaim } from '@/lib/services/claim-requests'
 import { buildBrandJsonLd, buildBreadcrumbJsonLd } from '@/lib/json-ld'
 import type { BreadcrumbItem } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
@@ -116,11 +117,16 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
 
   let displayBrand: Brand = brand
   let previewMode = false
+  let supabase: Awaited<ReturnType<typeof createClient>> | null = null
+  const getSupabase = async () => {
+    supabase ??= await createClient()
+    return supabase
+  }
 
   if (previewRequested) {
     const {
       data: { user },
-    } = await (await createClient()).auth.getUser()
+    } = await (await getSupabase()).auth.getUser()
     const allowed = !!user && await canManageBrand(user.id, user.email, brand.id)
 
     if (allowed) {
@@ -132,6 +138,14 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
   // Non-approved brands should 404
   if (!previewMode && brand.status !== 'approved') {
     notFound()
+  }
+
+  let userHasPendingClaim = false
+  if (!displayBrand.isVerified) {
+    const {
+      data: { user },
+    } = await (await getSupabase()).auth.getUser()
+    userHasPendingClaim = user ? await hasPendingClaim(user.id, displayBrand.id) : false
   }
 
   // Gallery images: hero + product photos
@@ -226,6 +240,7 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
             {!displayBrand.isVerified && (
               <ClaimBrandCta
                 brandId={displayBrand.id}
+                hasPendingClaim={userHasPendingClaim}
                 removalSlot={<RequestRemoval brandName={displayBrand.name} brandSlug={displayBrand.slug} />}
               />
             )}

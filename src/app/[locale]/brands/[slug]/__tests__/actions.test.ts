@@ -20,7 +20,7 @@ vi.mock('@/lib/services/reports', () => ({
 
 vi.mock('@/lib/services/claim-requests', () => ({
   createClaimRequest: (...a: unknown[]) => createClaimRequest(...a),
-  CLAIM_PROOF_TYPES: ['domain_email', 'social_dm', 'backend_screenshot', 'business_doc'],
+  CLAIM_PROOF_TYPES: ['domain_email', 'backend_screenshot', 'business_doc'],
 }))
 
 vi.mock('@/lib/auth/claim-user', () => ({
@@ -42,10 +42,10 @@ describe('submitClaimAction', () => {
     createClaimRequest.mockResolvedValue({ id: 'c1' })
   })
 
-  it('rejects when fewer than 2 proofs are provided', async () => {
+  it('rejects when no proofs are provided', async () => {
     const res = await submitClaimAction({
       brandId: 'b1',
-      proofs: [{ type: 'domain_email', url: 'mailto:a@b.com' }],
+      proofs: [],
     })
 
     expect(res).toMatchObject({ error: expect.any(String) })
@@ -55,29 +55,57 @@ describe('submitClaimAction', () => {
   it('rejects an imageKey outside the user namespace', async () => {
     const res = await submitClaimAction({
       brandId: 'b1',
-      proofs: [
-        { type: 'domain_email', url: 'mailto:a@b.com' },
-        { type: 'backend_screenshot', imageKey: 'claim-proofs/OTHER/b1/x.webp' },
-      ],
+      proofs: [{ type: 'backend_screenshot', imageKey: 'claim-proofs/OTHER/b1/x.webp' }],
     })
 
     expect(res).toMatchObject({ error: expect.any(String) })
     expect(createClaimRequest).not.toHaveBeenCalled()
   })
 
-  it('forwards 2 valid proofs to the service', async () => {
+  it('rejects domain email proof without a valid email', async () => {
     const res = await submitClaimAction({
       brandId: 'b1',
-      proofs: [
-        { type: 'domain_email', url: 'mailto:a@b.com' },
-        { type: 'backend_screenshot', imageKey: 'claim-proofs/u1/b1/x.webp' },
-      ],
+      proofs: [{ type: 'domain_email', url: 'https://brand.example/proof' }],
+    })
+
+    expect(res).toMatchObject({ error: expect.any(String) })
+    expect(createClaimRequest).not.toHaveBeenCalled()
+  })
+
+  it('rejects upload-backed proof without an image key', async () => {
+    const res = await submitClaimAction({
+      brandId: 'b1',
+      proofs: [{ type: 'business_doc' }],
+    })
+
+    expect(res).toMatchObject({ error: expect.any(String) })
+    expect(createClaimRequest).not.toHaveBeenCalled()
+  })
+
+  it('forwards 1 valid proof to the service', async () => {
+    const res = await submitClaimAction({
+      brandId: 'b1',
+      proofs: [{ type: 'backend_screenshot', imageKey: 'claim-proofs/u1/b1/x.webp' }],
       mitSmileCert: '01200024-02134',
     })
 
     expect(res).toEqual({ ok: true })
     expect(createClaimRequest).toHaveBeenCalledWith(
       expect.objectContaining({ brandId: 'b1', userId: 'u1' })
+    )
+  })
+
+  it('forwards a valid domain email proof to the service', async () => {
+    const res = await submitClaimAction({
+      brandId: 'b1',
+      proofs: [{ type: 'domain_email', url: 'owner@brand.example' }],
+    })
+
+    expect(res).toEqual({ ok: true })
+    expect(createClaimRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        proofEvidence: [{ type: 'domain_email', url: 'owner@brand.example' }],
+      })
     )
   })
 })

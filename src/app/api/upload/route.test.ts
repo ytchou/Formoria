@@ -21,11 +21,13 @@ vi.mock('@/lib/security/image-processor', () => ({
 
 const mockUploadPublicImage = vi.fn()
 const mockUploadPrivateImage = vi.fn()
+const mockUploadPrivateFile = vi.fn()
 const mockGetUploadImageProcessingConfig = vi.fn().mockReturnValue({})
 vi.mock('@/lib/services/image-upload', () => ({
   ALLOWED_UPLOAD_BUCKETS: ['brand-images', 'claim-proofs'],
   uploadPublicImage: mockUploadPublicImage,
   uploadPrivateImage: mockUploadPrivateImage,
+  uploadPrivateFile: mockUploadPrivateFile,
   getUploadImageProcessingConfig: mockGetUploadImageProcessingConfig,
 }))
 
@@ -41,6 +43,7 @@ function makeFormData(
     file?: File | null
     path?: string | null
     bucket?: string | null
+    proofType?: string | null
     omitFile?: boolean
   } = {}
 ): FormData {
@@ -54,6 +57,9 @@ function makeFormData(
   }
   if (options.bucket !== undefined && options.bucket !== null) {
     fd.append('bucket', options.bucket)
+  }
+  if (options.proofType !== undefined && options.proofType !== null) {
+    fd.append('proofType', options.proofType)
   }
   return fd
 }
@@ -236,5 +242,55 @@ describe('POST /api/upload', () => {
       data: Buffer.from('processed-webp'),
       contentType: 'image/webp',
     })
+  })
+
+  it('stores business document PDFs as raw private files without image processing', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-pdf', email: 'test@example.com' } },
+      error: null,
+    })
+    mockUploadPrivateFile.mockResolvedValue({
+      key: 'claim-proofs/user-pdf/brand-1/123-uuid.pdf',
+    })
+
+    const fd = makeFormData({
+      file: new File([Buffer.from('%PDF-1.7\nbody')], 'business.pdf', { type: 'application/pdf' }),
+      path: 'user-pdf/brand-1',
+      bucket: 'claim-proofs',
+      proofType: 'business_doc',
+    })
+    const res = await POST(makeRequest(fd))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body).toEqual({ key: 'claim-proofs/user-pdf/brand-1/123-uuid.pdf' })
+    expect(mockProcessImage).not.toHaveBeenCalled()
+    expect(mockUploadPrivateFile).toHaveBeenCalledWith({
+      bucket: 'claim-proofs',
+      path: expect.stringMatching(/^user-pdf\/brand-1\/\d+-[0-9a-f-]+\.pdf$/),
+      data: Buffer.from('%PDF-1.7\nbody'),
+      contentType: 'application/pdf',
+    })
+  })
+
+  it('rejects PDFs for non-business document proof uploads', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-pdf-reject', email: 'test@example.com' } },
+      error: null,
+    })
+
+    const fd = makeFormData({
+      file: new File([Buffer.from('%PDF-1.7\nbody')], 'business.pdf', { type: 'application/pdf' }),
+      path: 'user-pdf-reject/brand-1',
+      bucket: 'claim-proofs',
+      proofType: 'backend_screenshot',
+    })
+    const res = await POST(makeRequest(fd))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/business documents/i)
+    expect(mockProcessImage).not.toHaveBeenCalled()
+    expect(mockUploadPrivateFile).not.toHaveBeenCalled()
   })
 })

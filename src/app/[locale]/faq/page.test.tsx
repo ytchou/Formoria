@@ -72,18 +72,18 @@ describe('FaqPage (zh-TW)', () => {
     expect(screen.getByRole('heading', { name: '常見問題' })).toBeInTheDocument()
   })
 
-  it('renders exactly 7 accordion items', async () => {
+  it('renders exactly 8 accordion items', async () => {
     const { container } = render(
       await FaqPage({ params: Promise.resolve({ locale: 'zh-TW' }) })
     )
-    expect(container.querySelectorAll('details')).toHaveLength(7)
+    expect(container.querySelectorAll('details')).toHaveLength(8)
   })
 
   it('each item has a summary child element', async () => {
     const { container } = render(
       await FaqPage({ params: Promise.resolve({ locale: 'zh-TW' }) })
     )
-    expect(container.querySelectorAll('details > summary')).toHaveLength(7)
+    expect(container.querySelectorAll('details > summary')).toHaveLength(8)
   })
 
   it('includes the 什麼是 Formoria question', async () => {

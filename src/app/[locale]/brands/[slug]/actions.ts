@@ -35,17 +35,35 @@ function buildFieldSchemas(t: Translator) {
       type: z.enum(CLAIM_PROOF_TYPES, {
         errorMap: () => ({ message: t('invalidProofType') }),
       }),
-      url: z.string().trim().url(t('invalidProofUrl')).optional(),
+      url: z.string().trim().optional(),
       imageKey: z.string().trim().optional(),
       note: z.string().trim().optional(),
     })
-    .refine((proof) => Boolean(proof.url || proof.imageKey), {
-      message: t('proofEvidenceRequired'),
+    .superRefine((proof, ctx) => {
+      if (proof.type === 'domain_email') {
+        const emailResult = z.string().email().safeParse(proof.url)
+        if (!emailResult.success) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['url'],
+            message: t('invalidProofEmail'),
+          })
+        }
+        return
+      }
+
+      if ((proof.type === 'backend_screenshot' || proof.type === 'business_doc') && !proof.imageKey) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['imageKey'],
+          message: t('proofEvidenceRequired'),
+        })
+      }
     })
 
   return {
     brandId: z.string().trim().min(1, t('missingBrandId')),
-    proofs: z.array(proofSchema).min(2, t('proofsMin')),
+    proofs: z.array(proofSchema).min(1, t('proofsMin')),
     mitSmileCert: z.string().trim().optional(),
   }
 }
