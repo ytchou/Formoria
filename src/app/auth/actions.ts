@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -102,17 +103,27 @@ export async function signInWithGoogle(
   const supabase = await createClient();
   const siteUrl = getSiteUrl();
 
-  const params = new URLSearchParams();
+  // Carry post-auth intent in short-lived cookies rather than query params on
+  // redirectTo: Supabase rejects redirect URLs whose query string isn't covered
+  // by the allowlist and silently falls back to the Site URL, stranding the user
+  // on the wrong page. Keeping redirectTo bare matches the allowlisted
+  // /auth/callback entry; the callback reads these cookies back.
+  const cookieStore = await cookies();
+  const intentCookie = {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 600,
+  };
   if (claimToken) {
-    params.set("claim", claimToken);
+    cookieStore.set("post_auth_claim", claimToken, intentCookie);
   }
   if (next && isRelativeUrl(next)) {
-    params.set("next", next);
+    cookieStore.set("post_auth_next", next, intentCookie);
   }
 
-  const redirectTo = `${siteUrl}/auth/callback${
-    params.size > 0 ? `?${params.toString()}` : ""
-  }`;
+  const redirectTo = `${siteUrl}/auth/callback`;
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
@@ -128,8 +139,8 @@ export async function signInWithGoogle(
   redirect(data.url);
 }
 
-export async function signOut(): Promise<void> {
+export async function signOut(returnTo?: string): Promise<void> {
   const supabase = await createClient();
   await supabase.auth.signOut();
-  redirect("/");
+  redirect(returnTo && isRelativeUrl(returnTo) ? returnTo : "/");
 }

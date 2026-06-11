@@ -179,7 +179,7 @@ export default async function BrandDashboardPage({ params }: Props) {
       <div className="mt-6">
         <Link
           href="/dashboard"
-          className="text-sm text-muted-foreground hover:underline"
+          className="text-sm inline-link"
         >
           {t("backToDashboard")}
         </Link>

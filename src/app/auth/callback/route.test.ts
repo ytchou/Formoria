@@ -11,6 +11,13 @@ vi.mock('@/lib/supabase/server', () => ({
   }),
 }))
 
+vi.mock('next/headers', () => ({
+  cookies: vi.fn().mockResolvedValue({
+    get: vi.fn().mockReturnValue(undefined),
+    delete: vi.fn(),
+  }),
+}))
+
 vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://app.example.com')
 
 const { GET } = await import('./route')

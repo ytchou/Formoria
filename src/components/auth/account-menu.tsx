@@ -1,6 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
+import { usePathname } from 'next/navigation'
 import { Link } from '@/i18n/navigation'
 
 import { signOut } from '@/app/auth/actions'
@@ -22,6 +23,7 @@ function getUserInitial(email?: string | null): string {
 export function AccountMenu() {
   const { user, loading } = useUser()
   const t = useTranslations()
+  const pathname = usePathname()
 
   if (loading) {
     return <div data-account-menu-placeholder className="h-9 w-12" aria-hidden />
@@ -30,7 +32,7 @@ export function AccountMenu() {
   if (!user) {
     return (
       <Link
-        href="/auth/sign-in"
+        href={`/auth/sign-in?next=${encodeURIComponent(pathname)}`}
         className="inline-flex h-9 items-center justify-center rounded-md px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         {t('nav.signIn')}
@@ -61,7 +63,7 @@ export function AccountMenu() {
           {t('account.dashboard')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <form action={signOut}>
+        <form action={signOut.bind(null, pathname)}>
           <DropdownMenuItem
             variant="destructive"
             render={<button type="submit" className="w-full text-left" />}
