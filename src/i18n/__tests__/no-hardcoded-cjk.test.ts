@@ -44,10 +44,9 @@ const ALLOWLIST = [
   'app/auth/sign-up/page.tsx',
   // Owner mailto subject — locale-branched template.
   'app/[locale]/(protected)/dashboard/brands/[slug]/mit-status-card.tsx',
-  // Non-display Chinese: a comment, scraper keyword regex, login-link detection.
+  // Non-display Chinese: a comment and scraper keyword regex.
   'lib/constants.ts',
   'lib/services/scraper/strategies/crawl.ts',
-  'components/brands/claim-brand-cta.tsx',
   // Transitional: real messages come from the i18n factory; static fallback map
   // here is test-only. TODO remove the static fallback and drop this entry.
   'lib/validations/submission.ts',

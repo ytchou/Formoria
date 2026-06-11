@@ -1,3 +1,7 @@
+// NOTE: This spec covers the link-only claim path (domain_email + business_doc).
+// The upload-based proof path is deferred until two ops preconditions are met:
+//   1. The private `claim-proofs` Supabase Storage bucket is created.
+//   2. FORMORIA_SOCIALS is populated (social_dm proof type is currently disabled).
 import { test, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
@@ -82,35 +86,49 @@ test.describe('Claim smoke', () => {
     });
     await expect(userPage.getByTitle('由品牌方經營管理')).toHaveCount(0);
 
+    // Open the claim form
     await userPage.getByRole('button', { name: '認領這個品牌' }).click();
-    await userPage.locator('#claim-proof-type').selectOption('domain_email');
-    await userPage.locator('#claim-proof-url').fill(`https://example.com/proof/${brandSlug}`);
+
+    // Select proof 1: domain_email — check the checkbox, then fill its link input
+    await userPage.locator('#claim-proof-domain_email').check();
     await userPage
-      .locator('#claim-proof-notes')
-      .fill('Smoke-test claim submitted by the seeded non-owner user fixture.');
-    await userPage.getByRole('button', { name: '提交認領' }).click();
+      .locator('#claim-domain_email-url')
+      .fill(`https://example.com/proof-domain/${brandSlug}`);
 
-    await expect(
-      userPage.getByText(/我們已收到你的認領申請|your claim has been submitted/i)
-    ).toBeVisible({ timeout: 10_000 });
+    // Select proof 2: business_doc — check the checkbox, then fill its link input
+    await userPage.locator('#claim-proof-business_doc').check();
+    await userPage
+      .locator('#claim-business_doc-url')
+      .fill(`https://example.com/proof-biz/${brandSlug}`);
 
+    // Submit — button reads "送出認領申請" when idle
+    await userPage.getByRole('button', { name: '送出認領申請' }).click();
+
+    // Success state: inline pending section (not a toast)
+    await expect(userPage.getByText('認領申請已送出')).toBeVisible({ timeout: 10_000 });
+    await expect(userPage.getByText('我們會盡快審核你的證明並通知你')).toBeVisible({
+      timeout: 5_000,
+    });
+
+    // DB: claim_request row exists with proof_evidence array of length >= 2
     await expect
       .poll(
         async () => {
           const { data, error } = await supabaseAdmin
             .from('claim_requests')
-            .select('id')
+            .select('proof_evidence')
             .eq('brand_id', brandId)
             .eq('user_id', userId)
-            .maybeSingle<{ id: string }>();
+            .maybeSingle<{ proof_evidence: unknown[] | null }>();
 
           if (error) throw error;
-          return data?.id ?? null;
+          return Array.isArray(data?.proof_evidence) ? data.proof_evidence.length : 0;
         },
         { timeout: 15_000, intervals: [500, 1_000, 2_000] }
       )
-      .not.toBeNull();
+      .toBeGreaterThanOrEqual(2);
 
+    // Admin: approve the claim
     await adminPage.goto('/admin/claim-requests');
     await expect(
       adminPage.getByRole('heading', { name: /claim requests/i })
@@ -125,6 +143,7 @@ test.describe('Claim smoke', () => {
     await approveBtn.click();
     await expect(approveBtn).toBeHidden({ timeout: 15_000 });
 
+    // DB: brand_owners row created for this user
     await expect
       .poll(
         async () => {
@@ -142,8 +161,7 @@ test.describe('Claim smoke', () => {
       )
       .toBe(userId);
 
-    // Verified badge is eventually consistent: the brand detail page is ISR-cached,
-    // so poll-reload until the regenerated page reflects the approved ownership.
+    // Brand-managed badge is eventually consistent (ISR-cached page): poll-reload
     await expect(async () => {
       await userPage.goto(brandPath);
       await expect(

@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { processImage } from '@/lib/security/image-processor'
+import { createInMemoryRateLimiter } from '@/lib/security/rate-limiter'
 import {
-  uploadProcessedImage,
+  uploadPrivateImage,
+  uploadPublicImage,
   ALLOWED_UPLOAD_BUCKETS,
+  getUploadImageProcessingConfig,
   type AllowedUploadBucket,
 } from '@/lib/services/image-upload'
+
+const uploadRateLimiter = createInMemoryRateLimiter()
+const UPLOAD_RATE_LIMIT_WINDOW_MS = 60_000
+const UPLOAD_RATE_LIMIT_MAX_REQUESTS = 10
+const PRIVATE_UPLOAD_BUCKET = 'claim-proofs'
 
 export async function POST(request: Request) {
   try {
@@ -18,6 +26,15 @@ export async function POST(request: Request) {
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    const rateResult = uploadRateLimiter.check(
+      user.id,
+      UPLOAD_RATE_LIMIT_WINDOW_MS,
+      UPLOAD_RATE_LIMIT_MAX_REQUESTS
+    )
+    if (!rateResult.allowed) {
+      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
     }
 
     // Parse form data
@@ -45,12 +62,16 @@ export async function POST(request: Request) {
     }
     const bucket = rawBucket as AllowedUploadBucket
 
+    if (bucket === PRIVATE_UPLOAD_BUCKET && !path.startsWith(`${user.id}/`)) {
+      return NextResponse.json({ error: 'Invalid path' }, { status: 403 })
+    }
+
     // Convert file to Buffer and process server-side
     const buffer = Buffer.from(await file.arrayBuffer())
 
     let processed
     try {
-      processed = await processImage(buffer)
+      processed = await processImage(buffer, getUploadImageProcessingConfig(bucket))
     } catch (err) {
       return NextResponse.json(
         { error: err instanceof Error ? err.message : 'Image processing failed' },
@@ -59,19 +80,39 @@ export async function POST(request: Request) {
     }
 
     // Upload via service layer
-    let result
+    const objectPath = `${path}/${Date.now()}-${crypto.randomUUID()}.webp`
     try {
-      result = await uploadProcessedImage(processed, path, bucket)
+      if (bucket === PRIVATE_UPLOAD_BUCKET) {
+        const result = await uploadPrivateImage({
+          bucket,
+          path: objectPath,
+          data: processed.buffer,
+          contentType: 'image/webp',
+        })
+
+        return NextResponse.json({
+          key: result.key,
+          width: processed.width,
+          height: processed.height,
+        })
+      }
+
+      const result = await uploadPublicImage({
+        bucket,
+        path: objectPath,
+        data: processed.buffer,
+        contentType: 'image/webp',
+      })
+
+      return NextResponse.json({
+        url: result.url,
+        width: processed.width,
+        height: processed.height,
+      })
     } catch (err) {
       console.error('Storage upload error:', err)
       return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
     }
-
-    return NextResponse.json({
-      url: result.url,
-      width: result.width,
-      height: result.height,
-    })
   } catch (error) {
     console.error('Upload API error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -153,12 +153,42 @@
         "socialPost": "Social post",
         "businessRegistration": "Business registration"
       },
+      "pickTwoInstruction": "Provide at least 2 ways you can prove ownership",
+      "stillNeed": "{n} more to go",
+      "readyToSubmit": "Ready to submit",
+      "linkLabel": "Link",
+      "uploadLabel": "Upload screenshot",
+      "uploadHint": "JPG / PNG, max 5MB",
+      "noteLabel": "Note (optional)",
+      "uploadingLabel": "Uploading…",
+      "pendingTitle": "Claim submitted",
+      "pendingBody": "We'll review your proof and get back to you soon",
+      "mitCertLabel": "MIT Smile Mark number (optional)",
+      "socialDisabledHint": "Official social DMs are not available yet.",
+      "proofTypes": {
+        "domainEmail": {
+          "label": "Brand domain email",
+          "description": "An email on the brand's own domain (e.g. you@yourbrand.com)"
+        },
+        "socialDm": {
+          "label": "Official social account DM",
+          "description": "DM us from the official account."
+        },
+        "backendScreenshot": {
+          "label": "Admin/backend screenshot",
+          "description": "A screenshot of the brand's store or social admin panel"
+        },
+        "businessDoc": {
+          "label": "Business registration document",
+          "description": "A registration document showing the responsible person's name"
+        }
+      },
       "proofUrlLabel": "Proof URL (optional)",
       "notesLabel": "Notes (optional)",
       "notesPlaceholder": "Add any helpful context.",
       "signIn": "Sign in",
       "submitting": "Submitting claim...",
-      "submit": "Submit claim",
+      "submit": "Submit claim request",
       "cancel": "Cancel",
       "whyClaim": "Why claim? See the benefits"
     },
@@ -251,6 +281,10 @@
         "notLoggedIn": "Please sign in to submit a claim",
         "missingBrandId": "Missing brand ID",
         "invalidProofType": "Please choose a valid proof type",
+        "invalidProofUrl": "Please enter a valid proof URL",
+        "proofEvidenceRequired": "Each proof needs a link or uploaded image",
+        "proofsMin": "Please provide at least 2 proofs",
+        "invalidImageKey": "Uploaded proof image is not valid for this user",
         "duplicate": "You have already submitted a claim for this brand",
         "unknown": "Something went wrong. Please try again."
       }
@@ -888,7 +922,6 @@
       "brandDescriptionHint": "Write a specific, factual description (at least 40 characters) — what you make, your materials, and what makes the brand Taiwanese.",
       "mitSmileMarkNumber": "MIT Smile mark number (optional)",
       "mitSmileMarkNumberPlaceholder": "e.g. 01200024-02134",
-      "mitSmileMarkNumberHelper": "Already certified by MIT Smile? Email <mail>{email}</mail> to request verification.",
       "charCount": "{count} / {max} max characters",
       "photos": "Photos",
       "photosDragHint": "Drag to reorder. The first photo becomes the hero image.",
@@ -986,6 +1019,17 @@
       "rateLimit": "Too many submissions, please try again later.",
       "validation": "Validation failed, please try again.",
       "unexpected": "An unexpected error occurred, please try again."
+    }
+  },
+  "admin": {
+    "claimRequests": {
+      "adminProofLabel": "Ownership proof",
+      "proofTypes": {
+        "domainEmail": "Brand domain email",
+        "socialDm": "Official social account DM",
+        "backendScreenshot": "Admin/backend screenshot",
+        "businessDoc": "Business registration document"
+      }
     }
   },
   "adminMode": {

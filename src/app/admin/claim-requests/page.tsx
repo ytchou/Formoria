@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
+import { NextIntlClientProvider } from 'next-intl'
 import { ClaimRequestsList } from '@/components/admin/claim-requests-list'
 import { isActingAsAdmin } from '@/lib/auth/admin-mode'
-import { listClaimRequests } from '@/lib/services/claim-requests'
+import { attachSignedProofUrls, listClaimRequests } from '@/lib/services/claim-requests'
 import { createClient } from '@/lib/supabase/server'
+import messages from '../../../../messages/zh-TW.json'
 
 export const metadata: Metadata = {
   title: 'Claim Requests | Admin',
@@ -26,7 +28,7 @@ async function requireAdmin() {
 
 export default async function ClaimRequestsPage() {
   await requireAdmin()
-  const claimRequests = await listClaimRequests()
+  const claimRequests = await attachSignedProofUrls(await listClaimRequests())
 
   return (
     <div>
@@ -38,7 +40,9 @@ export default async function ClaimRequestsPage() {
       </p>
 
       <div className="mt-8">
-        <ClaimRequestsList claimRequests={claimRequests} />
+        <NextIntlClientProvider locale="zh-TW" messages={messages}>
+          <ClaimRequestsList claimRequests={claimRequests} />
+        </NextIntlClientProvider>
       </div>
     </div>
   )

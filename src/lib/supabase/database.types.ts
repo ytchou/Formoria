@@ -402,8 +402,9 @@ export type Database = {
           created_at: string
           id: string
           mit_smile_cert: string | null
+          proof_evidence: Json
           proof_notes: string | null
-          proof_type: string
+          proof_type: string | null
           proof_url: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -416,8 +417,9 @@ export type Database = {
           created_at?: string
           id?: string
           mit_smile_cert?: string | null
+          proof_evidence?: Json
           proof_notes?: string | null
-          proof_type: string
+          proof_type?: string | null
           proof_url?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -430,8 +432,9 @@ export type Database = {
           created_at?: string
           id?: string
           mit_smile_cert?: string | null
+          proof_evidence?: Json
           proof_notes?: string | null
-          proof_type?: string
+          proof_type?: string | null
           proof_url?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null

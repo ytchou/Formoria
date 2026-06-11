@@ -1,20 +1,35 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import type { ProcessedImage } from '@/lib/security/image-processor'
+import type { ImageProcessorConfig } from '@/lib/security/image-processor'
 
-export const ALLOWED_UPLOAD_BUCKETS = ['brand-images'] as const
+export const ALLOWED_UPLOAD_BUCKETS = ['brand-images', 'claim-proofs'] as const
 export type AllowedUploadBucket = (typeof ALLOWED_UPLOAD_BUCKETS)[number]
 const BRAND_IMAGES_BUCKET = ALLOWED_UPLOAD_BUCKETS[0]
 const BRAND_IMAGES_PUBLIC_SEGMENT = `/storage/v1/object/public/${BRAND_IMAGES_BUCKET}/`
 const BRAND_IMAGES_KEY_PREFIX = 'brands/'
+const CLAIM_PROOF_IMAGE_CONFIG: Partial<ImageProcessorConfig> = {
+  maxWidth: 2400,
+  maxHeight: 2400,
+  quality: 92,
+}
 
 function getBrandImagesPublicPrefix(): string {
   return `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''}${BRAND_IMAGES_PUBLIC_SEGMENT}`
 }
 
-export interface UploadResult {
-  url: string
-  width: number
-  height: number
+interface UploadImageInput {
+  bucket: AllowedUploadBucket
+  path: string
+  data: Buffer
+  contentType: string
+}
+
+type PublicUploadImageInput = UploadImageInput & { bucket: 'brand-images' }
+type PrivateUploadImageInput = UploadImageInput & { bucket: 'claim-proofs' }
+
+export function getUploadImageProcessingConfig(
+  bucket: AllowedUploadBucket
+): Partial<ImageProcessorConfig> {
+  return bucket === 'claim-proofs' ? CLAIM_PROOF_IMAGE_CONFIG : {}
 }
 
 export function storageKeyFromPublicUrl(url: string): string | null {
@@ -60,18 +75,13 @@ export async function deleteBrandImages(urls: string[]): Promise<void> {
   }
 }
 
-export async function uploadProcessedImage(
-  processed: ProcessedImage,
-  path: string,
-  bucket: AllowedUploadBucket
-): Promise<UploadResult> {
+async function uploadStorageObject(input: UploadImageInput): Promise<string> {
   const supabase = createServiceClient()
-  const filename = `${path}/${Date.now()}-${crypto.randomUUID()}.webp`
 
-  const { error: uploadError } = await supabase.storage
-    .from(bucket)
-    .upload(filename, processed.buffer, {
-      contentType: 'image/webp',
+  const { data, error: uploadError } = await supabase.storage
+    .from(input.bucket)
+    .upload(input.path, input.data, {
+      contentType: input.contentType,
       upsert: false,
     })
 
@@ -79,13 +89,24 @@ export async function uploadProcessedImage(
     throw uploadError
   }
 
+  return data.path
+}
+
+export async function uploadPrivateImage(input: PrivateUploadImageInput): Promise<{ key: string }> {
+  const path = await uploadStorageObject(input)
+
+  return { key: `${input.bucket}/${path}` }
+}
+
+export async function uploadPublicImage(input: PublicUploadImageInput): Promise<{ url: string }> {
+  await uploadStorageObject(input)
+  const supabase = createServiceClient()
+
   const {
     data: { publicUrl },
-  } = supabase.storage.from(bucket).getPublicUrl(filename)
+  } = supabase.storage.from(input.bucket).getPublicUrl(input.path)
 
   return {
     url: publicUrl,
-    width: processed.width,
-    height: processed.height,
   }
 }

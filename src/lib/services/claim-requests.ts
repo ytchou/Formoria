@@ -1,27 +1,35 @@
-import type { Database } from '@/lib/supabase/database.types'
+import type { Database, Json } from '@/lib/supabase/database.types'
 import { NotFoundError, ValidationError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
+import { CLAIM_PROOF_TYPES } from './claim-proofs'
+import type { ClaimProofType, ProofEvidence } from './claim-proofs'
+
+export { CLAIM_PROOF_TYPES, PROOF_TYPE_I18N_KEYS } from './claim-proofs'
+export type { ClaimProofType, ProofEvidence } from './claim-proofs'
 
 type BrandRow = Database['public']['Tables']['brands']['Row']
 type BrandOwnerRow = Database['public']['Tables']['brand_owners']['Row']
 
 type ClaimRequestStatus = 'pending' | 'approved' | 'rejected'
-type ClaimProofType = 'domain_email' | 'social_post' | 'business_registration'
 const MAX_PROOF_URL_LENGTH = 2048
+const CLAIM_PROOF_BUCKET = 'claim-proofs'
+const CLAIM_PROOF_BUCKET_PREFIX = `${CLAIM_PROOF_BUCKET}/`
+const CLAIM_PROOF_SIGNED_URL_EXPIRES_IN_SECONDS = 300
 const DUPLICATE_PENDING_CLAIM_ERROR = 'a pending claim already exists for this brand'
 const CLAIM_ALREADY_REVIEWED_ERROR = 'claim already reviewed'
 const CLAIM_REQUESTER_EMAIL_NOT_FOUND_ERROR = 'Claim requester email not found'
 const CLAIM_REQUEST_SELECT =
-  'id, brand_id, user_id, proof_type, proof_url, proof_notes, mit_smile_cert, status, reviewer_notes, reviewed_at, reviewed_by, created_at'
+  'id, brand_id, user_id, proof_type, proof_url, proof_notes, proof_evidence, mit_smile_cert, status, reviewer_notes, reviewed_at, reviewed_by, created_at'
 const CLAIM_REQUEST_WITH_BRAND_SELECT = `${CLAIM_REQUEST_SELECT}, brands(name, slug)`
 
 type ClaimRequestRow = {
   id: string
   brand_id: string
   user_id: string
-  proof_type: string
+  proof_type: string | null
   proof_url: string | null
   proof_notes: string | null
+  proof_evidence?: Json | null
   mit_smile_cert: string | null
   status: string
   reviewer_notes: string | null
@@ -94,6 +102,7 @@ export type ClaimRequest = {
   proofType: ClaimProofType
   proofUrl: string | null
   proofNotes: string | null
+  proofEvidence: ProofEvidence[]
   mitSmileCert: string | null
   status: ClaimRequestStatus
   reviewerNotes: string | null
@@ -105,14 +114,22 @@ export type ClaimRequest = {
   requesterEmail: string | null
 }
 
+export type ClaimRequestWithSignedProofs = Omit<ClaimRequest, 'proofEvidence'> & {
+  proofEvidence: Array<ProofEvidence & { signedUrl?: string }>
+}
+
 export function rowToClaimRequest(row: ClaimRequestRowWithJoins): ClaimRequest {
+  const proofEvidence = parseProofEvidence(row.proof_evidence)
+  const firstProof = proofEvidence[0]
+
   return {
     id: row.id,
     brandId: row.brand_id,
     userId: row.user_id,
-    proofType: row.proof_type as ClaimProofType,
-    proofUrl: row.proof_url ?? null,
-    proofNotes: row.proof_notes ?? null,
+    proofType: (firstProof?.type ?? row.proof_type ?? 'domain_email') as ClaimProofType,
+    proofUrl: firstProof?.url ?? row.proof_url ?? null,
+    proofNotes: firstProof?.note ?? row.proof_notes ?? null,
+    proofEvidence,
     mitSmileCert: row.mit_smile_cert ?? null,
     status: row.status as ClaimRequestStatus,
     reviewerNotes: row.reviewer_notes ?? null,
@@ -145,19 +162,80 @@ function normalizeProofUrl(proofUrl?: string): string | null {
   try {
     parsed = new URL(trimmed)
   } catch {
-    throw new ValidationError('proofUrl must be a valid http/https URL')
+    throw new ValidationError('proofUrl must be a valid URL')
   }
 
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    throw new ValidationError('proofUrl must be a valid http/https URL')
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:' && parsed.protocol !== 'mailto:') {
+    throw new ValidationError('proofUrl must be a valid URL')
   }
 
   return parsed.toString()
 }
 
+function isClaimProofType(value: unknown): value is ClaimProofType {
+  return typeof value === 'string' && CLAIM_PROOF_TYPES.includes(value as ClaimProofType)
+}
+
+function parseProofEvidence(value: Json | null | undefined): ProofEvidence[] {
+  if (!Array.isArray(value)) return []
+
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return []
+
+    const record = item as Record<string, Json | undefined>
+    if (!isClaimProofType(record.type)) return []
+
+    const proof: ProofEvidence = { type: record.type }
+    if (typeof record.url === 'string') proof.url = record.url
+    if (typeof record.imageKey === 'string') proof.imageKey = record.imageKey
+    if (typeof record.note === 'string') proof.note = record.note
+    return [proof]
+  })
+}
+
+export function normalizeProofEvidence(input: ProofEvidence[], userId: string): ProofEvidence[] {
+  const imageNamespace = `${CLAIM_PROOF_BUCKET}/${userId}/`
+  const normalized = input.map((proof) => {
+    if (!isClaimProofType(proof.type)) {
+      throw new ValidationError('proofEvidence contains an invalid proof type')
+    }
+
+    const url = normalizeProofUrl(proof.url) ?? undefined
+    const imageKey = proof.imageKey?.trim() || undefined
+    const note = proof.note?.trim() || undefined
+
+    if (!url && !imageKey) {
+      throw new ValidationError('Each proof must include a URL or image key')
+    }
+
+    if (imageKey && !imageKey.startsWith(imageNamespace)) {
+      throw new ValidationError('proofEvidence contains an invalid image key')
+    }
+
+    return {
+      type: proof.type,
+      ...(url ? { url } : {}),
+      ...(imageKey ? { imageKey } : {}),
+      ...(note ? { note } : {}),
+    }
+  })
+
+  if (normalized.length < 2) {
+    throw new ValidationError('Please provide at least 2 proofs')
+  }
+
+  return normalized
+}
+
 function normalizeMitSmileCert(mitSmileCert?: string | null): string | null {
   const trimmed = mitSmileCert?.trim()
   return trimmed ? trimmed : null
+}
+
+function toClaimProofBucketPath(imageKey: string): string {
+  return imageKey.startsWith(CLAIM_PROOF_BUCKET_PREFIX)
+    ? imageKey.slice(CLAIM_PROOF_BUCKET_PREFIX.length)
+    : imageKey
 }
 
 async function attachRequesterEmails(rows: ClaimRequestRowWithJoins[]): Promise<ClaimRequest[]> {
@@ -181,16 +259,56 @@ async function attachRequesterEmails(rows: ClaimRequestRowWithJoins[]): Promise<
   )
 }
 
+export async function attachSignedProofUrls(
+  claims: ClaimRequest[]
+): Promise<ClaimRequestWithSignedProofs[]> {
+  const imageKeys = [
+    ...new Set(
+      claims.flatMap((claim) =>
+        claim.proofEvidence.flatMap((proof) => (proof.imageKey ? [proof.imageKey] : []))
+      )
+    ),
+  ]
+
+  if (imageKeys.length === 0) {
+    return claims
+  }
+
+  const bucketPaths = imageKeys.map(toClaimProofBucketPath)
+  const supabase = createServiceClient()
+  const { data, error } = await supabase.storage
+    .from(CLAIM_PROOF_BUCKET)
+    .createSignedUrls(bucketPaths, CLAIM_PROOF_SIGNED_URL_EXPIRES_IN_SECONDS)
+
+  if (error) {
+    return claims
+  }
+
+  const signedUrlByImageKey = new Map<string, string | undefined>()
+  data?.forEach((signedUrlResult, index) => {
+    signedUrlByImageKey.set(
+      imageKeys[index],
+      signedUrlResult.error ? undefined : signedUrlResult.signedUrl ?? undefined
+    )
+  })
+
+  return claims.map((claim) => ({
+    ...claim,
+    proofEvidence: claim.proofEvidence.map((proof) => ({
+      ...proof,
+      ...(proof.imageKey ? { signedUrl: signedUrlByImageKey.get(proof.imageKey) } : {}),
+    })),
+  }))
+}
+
 export async function createClaimRequest(input: {
   userId: string
   brandId: string
-  proofType: ClaimProofType
-  proofUrl?: string
-  proofNotes?: string
+  proofEvidence: ProofEvidence[]
   mitSmileCert?: string | null
 }): Promise<ClaimRequest> {
+  const proofEvidence = normalizeProofEvidence(input.proofEvidence, input.userId)
   const supabase = createServiceClient()
-  const proofUrl = normalizeProofUrl(input.proofUrl)
   const mitSmileCert = normalizeMitSmileCert(input.mitSmileCert)
 
   const { data: brand, error: brandError } = await supabase
@@ -233,9 +351,7 @@ export async function createClaimRequest(input: {
     .insert({
       user_id: input.userId,
       brand_id: input.brandId,
-      proof_type: input.proofType,
-      proof_url: proofUrl,
-      proof_notes: input.proofNotes ?? null,
+      proof_evidence: proofEvidence as Json,
       mit_smile_cert: mitSmileCert,
     })
     .select(CLAIM_REQUEST_SELECT)

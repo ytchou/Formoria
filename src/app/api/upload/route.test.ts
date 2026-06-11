@@ -19,10 +19,14 @@ vi.mock('@/lib/security/image-processor', () => ({
   processImage: mockProcessImage,
 }))
 
-const mockUploadProcessedImage = vi.fn()
+const mockUploadPublicImage = vi.fn()
+const mockUploadPrivateImage = vi.fn()
+const mockGetUploadImageProcessingConfig = vi.fn().mockReturnValue({})
 vi.mock('@/lib/services/image-upload', () => ({
-  ALLOWED_UPLOAD_BUCKETS: ['brand-images'],
-  uploadProcessedImage: mockUploadProcessedImage,
+  ALLOWED_UPLOAD_BUCKETS: ['brand-images', 'claim-proofs'],
+  uploadPublicImage: mockUploadPublicImage,
+  uploadPrivateImage: mockUploadPrivateImage,
+  getUploadImageProcessingConfig: mockGetUploadImageProcessingConfig,
 }))
 
 // Import route AFTER mocks are registered
@@ -126,6 +130,22 @@ describe('POST /api/upload', () => {
     expect(body.error).toMatch(/invalid bucket/i)
   })
 
+  it('returns 403 when a claim-proof path is outside the authenticated user namespace', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'test@example.com' } },
+      error: null,
+    })
+
+    const fd = makeFormData({ path: 'other-user/brand-1', bucket: 'claim-proofs' })
+    const res = await POST(makeRequest(fd))
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body.error).toMatch(/invalid path/i)
+    expect(mockProcessImage).not.toHaveBeenCalled()
+    expect(mockUploadPrivateImage).not.toHaveBeenCalled()
+  })
+
   it('returns 400 when no file is provided', async () => {
     mockGetUser.mockResolvedValue({
       data: { user: { id: 'user-1', email: 'test@example.com' } },
@@ -165,10 +185,8 @@ describe('POST /api/upload', () => {
       width: 800,
       height: 600,
     })
-    mockUploadProcessedImage.mockResolvedValue({
+    mockUploadPublicImage.mockResolvedValue({
       url: 'https://cdn.example.com/brand-images/logos/brand-1/123-uuid.webp',
-      width: 800,
-      height: 600,
     })
 
     const fd = makeFormData({ path: 'logos/brand-1', bucket: 'brand-images' })
@@ -179,10 +197,44 @@ describe('POST /api/upload', () => {
     expect(body.url).toBe('https://cdn.example.com/brand-images/logos/brand-1/123-uuid.webp')
     expect(body.width).toBe(800)
     expect(body.height).toBe(600)
-    expect(mockUploadProcessedImage).toHaveBeenCalledWith(
-      expect.objectContaining({ width: 800, height: 600 }),
-      'logos/brand-1',
-      'brand-images'
-    )
+    expect(body.key).toBeUndefined()
+    expect(mockUploadPublicImage).toHaveBeenCalledWith({
+      bucket: 'brand-images',
+      path: expect.stringMatching(/^logos\/brand-1\/\d+-[0-9a-f-]+\.webp$/),
+      data: Buffer.from('processed-webp'),
+      contentType: 'image/webp',
+    })
+  })
+
+  it('returns only the bucket-prefixed server key for claim-proof uploads', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'test@example.com' } },
+      error: null,
+    })
+    mockProcessImage.mockResolvedValue({
+      buffer: Buffer.from('processed-webp'),
+      width: 1200,
+      height: 900,
+    })
+    mockUploadPrivateImage.mockResolvedValue({
+      key: 'claim-proofs/user-1/brand-1/123-uuid.webp',
+    })
+
+    const fd = makeFormData({ path: 'user-1/brand-1', bucket: 'claim-proofs' })
+    const res = await POST(makeRequest(fd))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body).toEqual({
+      key: 'claim-proofs/user-1/brand-1/123-uuid.webp',
+      width: 1200,
+      height: 900,
+    })
+    expect(mockUploadPrivateImage).toHaveBeenCalledWith({
+      bucket: 'claim-proofs',
+      path: expect.stringMatching(/^user-1\/brand-1\/\d+-[0-9a-f-]+\.webp$/),
+      data: Buffer.from('processed-webp'),
+      contentType: 'image/webp',
+    })
   })
 })
