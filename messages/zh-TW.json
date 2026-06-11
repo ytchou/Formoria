@@ -153,6 +153,35 @@
         "socialPost": "社群帳號發文",
         "businessRegistration": "商業登記資料"
       },
+      "pickTwoInstruction": "請提供至少 2 種你能證明的擁有方式",
+      "stillNeed": "需再選 {n} 項",
+      "readyToSubmit": "可以送出申請了",
+      "linkLabel": "連結",
+      "uploadLabel": "上傳截圖",
+      "uploadHint": "JPG / PNG，最大 5MB",
+      "noteLabel": "備註（選填）",
+      "uploadingLabel": "上傳中…",
+      "pendingTitle": "認領申請已送出",
+      "pendingBody": "我們會盡快審核你的證明並通知你",
+      "mitCertLabel": "MIT 微笑標章編號（選填）",
+      "proofTypes": {
+        "domainEmail": {
+          "label": "品牌網域信箱",
+          "description": "使用品牌網域的信箱（例如 you@yourbrand.com）"
+        },
+        "socialDm": {
+          "label": "官方社群帳號私訊",
+          "description": "從官方帳號私訊我們"
+        },
+        "backendScreenshot": {
+          "label": "後台截圖",
+          "description": "品牌商店或社群後台的截圖"
+        },
+        "businessDoc": {
+          "label": "商業登記文件",
+          "description": "顯示負責人姓名的登記文件"
+        }
+      },
       "proofUrlLabel": "證明連結（選填）",
       "notesLabel": "備註（選填）",
       "notesPlaceholder": "可補充品牌身份、角色或相關說明",
@@ -888,7 +917,6 @@
       "brandDescriptionHint": "請寫下具體、可查證的介紹（至少 40 個字元）——你做什麼、使用的材料，以及品牌的台灣特色。",
       "mitSmileMarkNumber": "MIT 微笑標章編號（選填）",
       "mitSmileMarkNumberPlaceholder": "例如 01200024-02134",
-      "mitSmileMarkNumberHelper": "已通過 MIT 微笑標章？來信 <mail>{email}</mail> 申請驗證。",
       "charCount": "{count} / {max} 個字元上限",
       "photos": "照片",
       "photosDragHint": "拖曳以排序。第一張照片將成為主圖。",
@@ -986,6 +1014,17 @@
       "rateLimit": "提交次數過多，請稍後再試。",
       "validation": "驗證失敗，請再試一次。",
       "unexpected": "發生預期外的錯誤，請再試一次。"
+    }
+  },
+  "admin": {
+    "claimRequests": {
+      "adminProofLabel": "擁有權證明",
+      "proofTypes": {
+        "domainEmail": "品牌網域信箱",
+        "socialDm": "官方社群帳號私訊",
+        "backendScreenshot": "後台截圖",
+        "businessDoc": "商業登記文件"
+      }
     }
   },
   "adminMode": {
