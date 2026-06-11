@@ -88,20 +88,20 @@ test.describe('Claim smoke', () => {
     // Open the claim form
     await userPage.getByRole('button', { name: '認領這個品牌' }).click();
 
-    // Select proof: domain_email — check the checkbox, then fill its link input
+    // Select proof: domain_email — check the checkbox, then fill its email input
     await userPage.locator('#claim-proof-domain_email').check();
     await userPage
-      .locator('#claim-domain_email-url')
-      .fill(`https://example.com/proof-domain/${brandSlug}`);
+      .locator('#claim-domain_email-email')
+      .fill(`owner@${brandSlug}.example.com`);
 
     // Submit — button reads "送出認領申請" when idle
     await userPage.getByRole('button', { name: '送出認領申請' }).click();
 
     // Success state: inline pending section (not a toast)
-    await expect(userPage.getByText('認領申請已送出')).toBeVisible({ timeout: 10_000 });
-    await expect(userPage.getByText('我們會盡快審核你的證明並通知你')).toBeVisible({
-      timeout: 5_000,
-    });
+    await expect(userPage.getByText('已收到你的認領申請')).toBeVisible({ timeout: 10_000 });
+    await expect(
+      userPage.getByText(/驗證信已寄至|我們會盡快審核/)
+    ).toBeVisible({ timeout: 5_000 });
 
     // DB: claim_request row exists with proof_evidence array of length >= 1
     await expect

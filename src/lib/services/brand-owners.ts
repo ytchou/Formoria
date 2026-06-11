@@ -31,6 +31,7 @@ export async function getUserBrands(userId: string): Promise<OwnedBrand[]> {
     .from('brand_owners')
     .select('brand_id, claimed_at, brands(id, name, slug, logo_url)')
     .eq('user_id', userId)
+    .order('claimed_at', { ascending: true })
 
   if (error) throw error
 

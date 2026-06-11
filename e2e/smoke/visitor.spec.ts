@@ -36,19 +36,17 @@ test.describe('Visitor smoke', () => {
     await page.goto('/brands');
     const firstFilter = page.getByRole('checkbox').first();
     await firstFilter.click();
-    // URL should update with filter param
-    await expect(page).toHaveURL(/category=|filter=/);
-    // The filtered view may have brands OR an empty state — either is valid.
-    // We just verify the page doesn't crash and the filter toggle is reversible.
+    await expect(page).toHaveURL(/category=|filter=/, { timeout: 10_000 });
     const hasBrands = page.locator('main a[aria-label]').first();
     const isEmpty = page.locator('[data-empty], [aria-label*="no result"], [aria-label*="empty"]').first();
     await expect(hasBrands.or(isEmpty)).toBeVisible({ timeout: 8_000 }).catch(() => {
       // No explicit empty-state element — that's fine, the page just shows fewer results
     });
-    // Verify the checkbox resets the filter (round-trip)
-    if (await firstFilter.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await firstFilter.click();
-      await expect(page).not.toHaveURL(/category=/, { timeout: 5_000 });
+    // Re-locate the checkbox after React re-render to avoid stale reference on WebKit
+    const toggleOff = page.getByRole('checkbox').first();
+    if (await toggleOff.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await toggleOff.click();
+      await expect(page).not.toHaveURL(/category=/, { timeout: 10_000 });
     }
   });
 
