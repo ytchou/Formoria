@@ -14,6 +14,7 @@ vi.mock('@/i18n/navigation', () => ({
   Link: ({ href, children, ...rest }: { href: string; children: React.ReactNode; [key: string]: unknown }) => (
     <a href={href} {...rest}>{children}</a>
   ),
+  usePathname: () => '/brands/test-brand',
 }))
 vi.mock('@/components/upload/useImageUpload', () => ({
   useImageUpload: (config: { bucket: string; path: string }) => {

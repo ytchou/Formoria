@@ -42,6 +42,19 @@ let brandId = ''
 let userId = ''
 let reviewerId = ''
 
+it('createClaimRequest rejects image keys outside the user namespace before writing', async () => {
+  await expect(
+    createClaimRequest({
+      userId: 'user-a',
+      brandId: 'brand-a',
+      proofEvidence: [
+        { type: 'domain_email', url: 'mailto:owner@brand.com' },
+        { type: 'backend_screenshot', imageKey: 'claim-proofs/user-b/brand-a/proof.webp' },
+      ],
+    })
+  ).rejects.toThrow(/invalid image key/i)
+})
+
 describeWithDb('claim requests service (integration)', () => {
   beforeAll(async () => {
     const client = createTestClient()

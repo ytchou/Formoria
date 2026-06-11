@@ -8,10 +8,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useImageUpload } from '@/components/upload/useImageUpload'
-import { Link } from '@/i18n/navigation'
+import { Link, usePathname } from '@/i18n/navigation'
 import { useUser } from '@/lib/auth/use-user'
 import { FORMORIA_SOCIALS } from '@/lib/constants'
-import { CLAIM_PROOF_TYPES, type ClaimProofType } from '@/lib/services/claim-requests'
+import {
+  CLAIM_PROOF_TYPES,
+  PROOF_TYPE_I18N_KEYS,
+  type ClaimProofType,
+} from '@/lib/services/claim-requests'
 import { cn } from '@/lib/utils'
 
 type ClaimBrandCtaProps = {
@@ -39,13 +43,6 @@ type UploadHookState = {
   url?: string | null
   key?: string | null
   error?: string | null
-}
-
-const PROOF_TYPE_KEYS: Record<ClaimProofType, 'domainEmail' | 'socialDm' | 'backendScreenshot' | 'businessDoc'> = {
-  domain_email: 'domainEmail',
-  social_dm: 'socialDm',
-  backend_screenshot: 'backendScreenshot',
-  business_doc: 'businessDoc',
 }
 
 const INITIAL_PROOFS = CLAIM_PROOF_TYPES.reduce(
@@ -132,6 +129,7 @@ function ClaimProofUpload({
 
 export function ClaimBrandCta({ brandId, removalSlot }: ClaimBrandCtaProps) {
   const t = useTranslations('brands.claimCta')
+  const pathname = usePathname()
   const { user } = useUser()
   const [isOpen, setIsOpen] = useState(false)
   const [proofs, setProofs] = useState<Record<ClaimProofType, ProofState>>(INITIAL_PROOFS)
@@ -254,7 +252,7 @@ export function ClaimBrandCta({ brandId, removalSlot }: ClaimBrandCtaProps) {
               stillNeedCount > 0
                 ? 'border-border bg-muted text-muted-foreground'
                 : canSubmit
-                  ? 'border-verified-green bg-verified-green-bg text-verified-green'
+                  ? 'border-primary bg-primary/10 text-primary'
                   : 'border-border bg-muted text-muted-foreground',
             )}
             aria-live="polite"
@@ -265,8 +263,8 @@ export function ClaimBrandCta({ brandId, removalSlot }: ClaimBrandCtaProps) {
           <div className="space-y-3">
             {CLAIM_PROOF_TYPES.map((type) => {
               const proof = proofs[type]
-              const label = t(`proofTypes.${PROOF_TYPE_KEYS[type]}.label`)
-              const description = t(`proofTypes.${PROOF_TYPE_KEYS[type]}.description`)
+              const label = t(`proofTypes.${PROOF_TYPE_I18N_KEYS[type]}.label`)
+              const description = t(`proofTypes.${PROOF_TYPE_I18N_KEYS[type]}.description`)
               const disabled = type === 'social_dm' && FORMORIA_SOCIALS.length === 0
 
               return (
@@ -356,7 +354,7 @@ export function ClaimBrandCta({ brandId, removalSlot }: ClaimBrandCtaProps) {
             <div aria-live="polite" className="space-y-2 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
               <p>{feedback.message}</p>
               {feedback.authRequired && (
-                <Link href="/auth/sign-in" className="inline-flex font-medium underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <Link href={`/auth/sign-in?next=${encodeURIComponent(pathname)}`} className="inline-flex font-medium underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   {t('signIn')}
                 </Link>
               )}

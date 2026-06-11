@@ -21,11 +21,16 @@ export function createInMemoryRateLimiter(): RateLimitStore {
 
       // Filter to only timestamps within the current window (sliding window)
       const recent = timestamps.filter((t) => t > windowStart)
+      if (recent.length === 0) {
+        store.delete(key)
+      }
 
       if (recent.length >= maxRequests) {
-        store.set(key, recent)
+        if (recent.length > 0) {
+          store.set(key, recent)
+        }
         // Reset time is when the oldest timestamp in the window expires
-        const resetAt = recent[0] + windowMs
+        const resetAt = (recent[0] ?? now) + windowMs
         return { allowed: false, remaining: 0, resetAt }
       }
 

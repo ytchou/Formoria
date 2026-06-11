@@ -20,7 +20,11 @@ import {
 } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import type { ClaimProofType, ClaimRequest, ProofEvidence } from '@/lib/services/claim-requests'
+import {
+  PROOF_TYPE_I18N_KEYS,
+  type ClaimRequest,
+  type ProofEvidence,
+} from '@/lib/services/claim-requests'
 
 type TabValue = 'all' | ClaimRequest['status']
 type SignedProofEvidence = ProofEvidence & { signedUrl?: string }
@@ -32,11 +36,13 @@ type RejectActionTarget =
   | { kind: 'mit'; id: string }
   | null
 
-const PROOF_TYPE_KEYS: Record<ClaimProofType, string> = {
-  domain_email: 'domainEmail',
-  social_dm: 'socialDm',
-  backend_screenshot: 'backendScreenshot',
-  business_doc: 'businessDoc',
+function isClickableProofUrl(url: string) {
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'mailto:'
+  } catch {
+    return false
+  }
 }
 
 export function ClaimRequestsList({
@@ -218,24 +224,29 @@ export function ClaimRequestsList({
                                 >
                                   <div className="space-y-3">
                                     <p className="text-sm font-medium text-foreground">
-                                      {proofTypesT(`${PROOF_TYPE_KEYS[proof.type]}.label`)}
+                                      {proofTypesT(`${PROOF_TYPE_I18N_KEYS[proof.type]}.label`)}
                                     </p>
-                                    {proof.url && (
+                                    {proof.url && isClickableProofUrl(proof.url) && (
                                       <a
                                         href={proof.url}
                                         target="_blank"
                                         rel="noreferrer noopener"
-                                        className="inline-block break-all text-sm text-cta underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        className="inline-block break-all text-sm text-primary underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                         onClick={(event) => event.stopPropagation()}
                                       >
                                         {proof.url}
                                       </a>
                                     )}
+                                    {proof.url && !isClickableProofUrl(proof.url) && (
+                                      <p className="break-all text-sm text-muted-foreground">
+                                        {proof.url}
+                                      </p>
+                                    )}
                                     {proof.signedUrl && (
                                       // eslint-disable-next-line @next/next/no-img-element -- Private signed proof URLs are short-lived review thumbnails.
                                       <img
                                         src={proof.signedUrl}
-                                        alt={proofTypesT(`${PROOF_TYPE_KEYS[proof.type]}.label`)}
+                                        alt={proofTypesT(`${PROOF_TYPE_I18N_KEYS[proof.type]}.label`)}
                                         className="h-20 w-20 rounded-md border border-border object-cover"
                                       />
                                     )}

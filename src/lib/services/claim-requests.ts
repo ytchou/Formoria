@@ -19,6 +19,12 @@ export type ProofEvidence = {
   imageKey?: string
   note?: string
 }
+export const PROOF_TYPE_I18N_KEYS: Record<ClaimProofType, string> = {
+  domain_email: 'domainEmail',
+  social_dm: 'socialDm',
+  backend_screenshot: 'backendScreenshot',
+  business_doc: 'businessDoc',
+}
 const MAX_PROOF_URL_LENGTH = 2048
 const CLAIM_PROOF_BUCKET = 'claim-proofs'
 const CLAIM_PROOF_BUCKET_PREFIX = `${CLAIM_PROOF_BUCKET}/`
@@ -201,7 +207,8 @@ function parseProofEvidence(value: Json | null | undefined): ProofEvidence[] {
   })
 }
 
-export function normalizeProofEvidence(input: ProofEvidence[]): ProofEvidence[] {
+export function normalizeProofEvidence(input: ProofEvidence[], userId: string): ProofEvidence[] {
+  const imageNamespace = `${CLAIM_PROOF_BUCKET}/${userId}/`
   const normalized = input.map((proof) => {
     if (!isClaimProofType(proof.type)) {
       throw new ValidationError('proofEvidence contains an invalid proof type')
@@ -213,6 +220,10 @@ export function normalizeProofEvidence(input: ProofEvidence[]): ProofEvidence[] 
 
     if (!url && !imageKey) {
       throw new ValidationError('Each proof must include a URL or image key')
+    }
+
+    if (imageKey && !imageKey.startsWith(imageNamespace)) {
+      throw new ValidationError('proofEvidence contains an invalid image key')
     }
 
     return {
@@ -310,8 +321,8 @@ export async function createClaimRequest(input: {
   proofEvidence: ProofEvidence[]
   mitSmileCert?: string | null
 }): Promise<ClaimRequest> {
+  const proofEvidence = normalizeProofEvidence(input.proofEvidence, input.userId)
   const supabase = createServiceClient()
-  const proofEvidence = normalizeProofEvidence(input.proofEvidence)
   const mitSmileCert = normalizeMitSmileCert(input.mitSmileCert)
 
   const { data: brand, error: brandError } = await supabase
