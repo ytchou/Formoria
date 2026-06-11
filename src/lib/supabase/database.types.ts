@@ -259,9 +259,10 @@ export type Database = {
           id: string
           brand_id: string
           user_id: string
-          proof_type: string
-          proof_url: string | null
+          proof_evidence: Json
           proof_notes: string | null
+          proof_type: string | null
+          proof_url: string | null
           status: string
           reviewer_notes: string | null
           reviewed_at: string | null
@@ -273,9 +274,10 @@ export type Database = {
           id?: string
           brand_id: string
           user_id: string
-          proof_type: string
-          proof_url?: string | null
+          proof_evidence?: Json
           proof_notes?: string | null
+          proof_type?: string | null
+          proof_url?: string | null
           status?: string
           reviewer_notes?: string | null
           reviewed_at?: string | null
@@ -287,9 +289,10 @@ export type Database = {
           id?: string
           brand_id?: string
           user_id?: string
-          proof_type?: string
-          proof_url?: string | null
+          proof_evidence?: Json
           proof_notes?: string | null
+          proof_type?: string | null
+          proof_url?: string | null
           status?: string
           reviewer_notes?: string | null
           reviewed_at?: string | null
