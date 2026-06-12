@@ -208,6 +208,5 @@ export function getFullSubmissionSchema(t: Translator) {
 type FullSubmissionSchemaData = z.infer<typeof fullSubmissionSchema>
 
 export type SubmissionFormData = Omit<FullSubmissionSchemaData, 'valueTags'> & {
-  tags?: string[]
   valueTags?: string[]
 }
