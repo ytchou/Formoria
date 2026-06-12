@@ -1,9 +1,17 @@
 // @vitest-environment jsdom
+import React from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { BrandHealthCard } from '@/components/dashboard/brand-health-card'
 import type { BrandHealthScore } from '@/lib/services/brand-health'
 import type { BrandCompleteness } from '@/lib/services/brand-completeness'
+
+// Mock next-intl Link (requires intl context at runtime)
+vi.mock('@/i18n/navigation', () => ({
+  Link: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
+    <a href={href} {...props}>{children}</a>
+  ),
+}))
 
 // Mock next-intl
 vi.mock('next-intl', () => ({
@@ -81,7 +89,7 @@ describe('BrandHealthCard', () => {
 
   it('shows cold-start badge for dimensions with coldStart=true', async () => {
     render(await BrandHealthCard(defaultProps))
-    const coldStartBadges = screen.getAllByText(/dashboard\.health\.coldStart/)
+    const coldStartBadges = screen.getAllByText('dashboard.health.coldStart')
     expect(coldStartBadges).toHaveLength(2)
   })
 

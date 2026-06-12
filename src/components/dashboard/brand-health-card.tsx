@@ -8,12 +8,21 @@ import {
   Circle,
   CircleUser,
   Image,
+  MousePointerClick,
   PencilLine,
   Share2,
+  ShoppingBag,
+  TrendingUp,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import { Link } from '@/i18n/navigation'
 import type { BrandCompleteness, CompletenessItem } from '@/lib/services/brand-completeness'
 import type {
   ActionNudge,
@@ -30,12 +39,12 @@ type BrandHealthCardProps = {
 
 const dimensionIcons: Record<DimensionKey, typeof CircleUser> = {
   profileCompleteness: CircleUser,
-  engagementHealth: Image,
+  engagementHealth: TrendingUp,
   brandStory: BookOpen,
   photoQuality: Camera,
   socialPresence: Share2,
-  purchaseAccessibility: PencilLine,
-  clickThroughRate: ChevronDown,
+  purchaseAccessibility: ShoppingBag,
+  clickThroughRate: MousePointerClick,
 }
 
 const actionIcons: Record<string, typeof CircleUser> = {
@@ -67,7 +76,7 @@ export function BrandHealthCard({ health, completeness, slug }: BrandHealthCardP
     <Card className="border-[#E5E0D8] bg-[#FFFFFF] shadow-none">
       <CardHeader className="gap-4 pb-4">
         <div className="flex items-start gap-4">
-          <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-full bg-primary text-[28px] font-bold leading-none text-white">
+          <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-full bg-primary text-[1.75rem] font-bold leading-none text-white">
             {health.overall}
           </div>
           <div className="min-w-0 flex-1 space-y-2 text-left">
@@ -101,7 +110,7 @@ export function BrandHealthCard({ health, completeness, slug }: BrandHealthCardP
                   const Icon = actionIcon(action)
 
                   return (
-                    <a
+                    <Link
                       className="flex items-center justify-between gap-3 rounded-md border border-[#E5E0D8] px-3 py-2 hover:bg-[#F5F4F1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F5D50] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FFFFFF]"
                       href={`${editHref}${action.anchor}`}
                       key={`${action.dimension}-${action.anchor}`}
@@ -117,7 +126,7 @@ export function BrandHealthCard({ health, completeness, slug }: BrandHealthCardP
                       <span className="shrink-0 text-xs font-semibold text-[#2F5D50]">
                         +{action.points} pts
                       </span>
-                    </a>
+                    </Link>
                   )
                 })}
               </div>
@@ -153,7 +162,12 @@ export function BrandHealthCard({ health, completeness, slug }: BrandHealthCardP
                         {formatWeight(dimension.weight)}
                       </span>
                       {dimension.coldStart ? (
-                        <Badge variant="outline">{t('coldStart')}</Badge>
+                        <div className="text-right">
+                          <Badge variant="outline">{t('coldStart')}</Badge>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {t('coldStartHint')}
+                          </p>
+                        </div>
                       ) : (
                         <span className="w-8 text-right text-sm font-semibold text-[#1C1C1C]">
                           {dimension.score}
@@ -180,48 +194,50 @@ export function BrandHealthCard({ health, completeness, slug }: BrandHealthCardP
 
         <div className="h-px w-full bg-[#E5E0D8]" />
 
-        <section className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <h4 className="text-sm font-semibold text-[#1C1C1C]">
-              {t('drillDown.title')}
-            </h4>
-            <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          </div>
-          <div className="space-y-2">
-            {completeness.items.map((item: CompletenessItem) => (
-              <div
-                className="flex items-center gap-3"
-                data-testid="completeness-checklist-item"
-                key={item.key}
-              >
-                {item.complete ? (
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-[#2F5D50]" aria-hidden="true" />
-                ) : (
-                  <Circle className="h-4 w-4 shrink-0 text-[#A8A098]" aria-hidden="true" />
-                )}
-                <span
-                  className={
-                    item.complete
-                      ? 'text-sm font-medium text-muted-foreground'
-                      : 'text-sm font-semibold text-[#1C1C1C]'
-                  }
+        <Collapsible defaultOpen>
+          <section className="space-y-3">
+            <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 text-left">
+              <h4 className="text-sm font-semibold text-[#1C1C1C]">
+                {t('drillDown.title')}
+              </h4>
+              <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-2">
+              {completeness.items.map((item: CompletenessItem) => (
+                <div
+                  className="flex items-center gap-3"
+                  data-testid="completeness-checklist-item"
+                  key={item.key}
                 >
-                  {tCompleteness(`${item.key}.label`)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
+                  {item.complete ? (
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-[#2F5D50]" aria-hidden="true" />
+                  ) : (
+                    <Circle className="h-4 w-4 shrink-0 text-[#A8A098]" aria-hidden="true" />
+                  )}
+                  <span
+                    className={
+                      item.complete
+                        ? 'text-sm font-medium text-muted-foreground'
+                        : 'text-sm font-semibold text-[#1C1C1C]'
+                    }
+                  >
+                    {tCompleteness(`${item.key}.label`)}
+                  </span>
+                </div>
+              ))}
+            </CollapsibleContent>
+          </section>
+        </Collapsible>
 
         <div className="h-px w-full bg-[#E5E0D8]" />
 
-        <a
+        <Link
           className="inline-flex min-h-[48px] items-center gap-2 text-sm font-semibold text-[#2F5D50] hover:text-[#1F3F36] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F5D50] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FFFFFF]"
           href={editHref}
         >
           <PencilLine className="h-4 w-4" aria-hidden="true" />
           {t('editProfile')}
-        </a>
+        </Link>
       </CardContent>
     </Card>
   )
