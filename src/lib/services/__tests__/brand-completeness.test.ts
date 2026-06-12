@@ -54,7 +54,7 @@ describe('computeBrandCompleteness', () => {
   it('returns items in fixed impact-priority order with correct anchors', () => {
     const r = computeBrandCompleteness(EMPTY)
     expect(r.items.map((i) => i.key)).toEqual([
-      'heroImage', 'logo', 'description', 'purchaseLinks', 'productPhotos',
+      'heroImage', 'description', 'logo', 'purchaseLinks', 'productPhotos',
       'socialLinks', 'brandHighlights', 'foundingYear', 'retailLocations',
     ])
     const anchorFor = (k: string) => r.items.find((i) => i.key === k)!.anchor
@@ -94,5 +94,52 @@ describe('computeBrandCompleteness', () => {
       .items.find((i) => i.key === 'foundingYear')!.complete).toBe(true)
     expect(computeBrandCompleteness(makeBrand({ foundingYear: null }))
       .items.find((i) => i.key === 'foundingYear')!.complete).toBe(false)
+  })
+
+  describe('priority tiers', () => {
+    it('returns items in visibility-first priority order', () => {
+      const r = computeBrandCompleteness(EMPTY)
+      expect(r.items.map((i) => i.key)).toEqual([
+        'heroImage',
+        'description',
+        'logo',
+        'purchaseLinks',
+        'productPhotos',
+        'socialLinks',
+        'brandHighlights',
+        'foundingYear',
+        'retailLocations',
+      ])
+    })
+
+    it('splits items into tier1 (high impact) and tier2 (good to have)', () => {
+      const r = computeBrandCompleteness(EMPTY)
+      expect(r.tier1Items).toHaveLength(5)
+      expect(r.tier2Items).toHaveLength(4)
+      expect(r.tier1Items.map((i) => i.key)).toEqual([
+        'heroImage',
+        'description',
+        'logo',
+        'purchaseLinks',
+        'productPhotos',
+      ])
+      expect(r.tier2Items.map((i) => i.key)).toEqual([
+        'socialLinks',
+        'brandHighlights',
+        'foundingYear',
+        'retailLocations',
+      ])
+    })
+
+    it('tier items reflect completion state', () => {
+      const brand = makeBrand({
+        heroImageUrl: 'https://img/hero.png',
+        description: 'A brand',
+        logoUrl: 'https://img/logo.png',
+      })
+      const r = computeBrandCompleteness(brand)
+      expect(r.tier1Items.filter((i) => i.complete)).toHaveLength(3)
+      expect(r.tier2Items.filter((i) => i.complete)).toHaveLength(0)
+    })
   })
 })

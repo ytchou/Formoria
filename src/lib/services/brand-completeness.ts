@@ -2,8 +2,8 @@ import type { Brand } from '@/lib/types/brand'
 
 export type CompletenessKey =
   | 'heroImage'
-  | 'logo'
   | 'description'
+  | 'logo'
   | 'purchaseLinks'
   | 'productPhotos'
   | 'socialLinks'
@@ -22,7 +22,16 @@ export type BrandCompleteness = {
   completed: number
   fraction: number
   items: CompletenessItem[]
+  tier1Items?: CompletenessItem[]
+  tier2Items?: CompletenessItem[]
 }
+
+export type ComputedBrandCompleteness = BrandCompleteness & {
+  tier1Items: CompletenessItem[]
+  tier2Items: CompletenessItem[]
+}
+
+const TIER_1_COUNT = 5
 
 const FIELD_ORDER: {
   key: CompletenessKey
@@ -30,8 +39,8 @@ const FIELD_ORDER: {
   isComplete: (b: Brand) => boolean
 }[] = [
   { key: 'heroImage', anchor: '#media', isComplete: (b) => !!b.heroImageUrl },
-  { key: 'logo', anchor: '#media', isComplete: (b) => !!b.logoUrl },
   { key: 'description', anchor: '#description', isComplete: (b) => !!b.description?.trim() },
+  { key: 'logo', anchor: '#media', isComplete: (b) => !!b.logoUrl },
   { key: 'purchaseLinks', anchor: '#links', isComplete: (b) => (b.purchaseLinks?.length ?? 0) > 0 },
   { key: 'productPhotos', anchor: '#media', isComplete: (b) => (b.productPhotos?.length ?? 0) > 0 },
   {
@@ -49,7 +58,7 @@ const FIELD_ORDER: {
   { key: 'retailLocations', anchor: '#locations', isComplete: (b) => (b.retailLocations?.length ?? 0) > 0 },
 ]
 
-export function computeBrandCompleteness(brand: Brand): BrandCompleteness {
+export function computeBrandCompleteness(brand: Brand): ComputedBrandCompleteness {
   const items = FIELD_ORDER.map(({ key, anchor, isComplete }) => ({
     key,
     complete: isComplete(brand),
@@ -58,11 +67,15 @@ export function computeBrandCompleteness(brand: Brand): BrandCompleteness {
   const total = items.length
   const completed = items.filter((item) => item.complete).length
   const fraction = total ? completed / total : 0
+  const tier1Items = items.slice(0, TIER_1_COUNT)
+  const tier2Items = items.slice(TIER_1_COUNT)
 
   return {
     total,
     completed,
     fraction,
     items,
+    tier1Items,
+    tier2Items,
   }
 }
