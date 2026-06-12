@@ -73,15 +73,15 @@ export function AnalyticsCards({
 
   return (
     <div className="grid grid-cols-2 gap-4">
-      <Card className="bg-white border-[#E5E4E1]">
+      <Card className="bg-white border-[#E5E0D8]">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-[#7C7570]">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
             {t('pageViews')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold text-[#1A1918]">
+            <span className="text-2xl font-bold text-foreground">
               {totalViews}
             </span>
             <TrendIcon trend={viewTrend} label={getTrendLabel(viewTrend)} />
@@ -89,19 +89,19 @@ export function AnalyticsCards({
           <p className="text-xs text-muted-foreground mt-1">
             {t(`benchmark.views.${viewsBenchmark}`)}
           </p>
-          <p className="mt-1 text-xs text-[#857E79]">{t('last30Days')}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t('last30Days')}</p>
         </CardContent>
       </Card>
 
-      <Card className="bg-white border-[#E5E4E1]">
+      <Card className="bg-white border-[#E5E0D8]">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-[#7C7570]">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
             {t('outboundClicks')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold text-[#1A1918]">
+            <span className="text-2xl font-bold text-foreground">
               {totalClicks}
             </span>
             <TrendIcon trend={clickTrend} label={getTrendLabel(clickTrend)} />
@@ -109,7 +109,7 @@ export function AnalyticsCards({
           <p className="text-xs text-muted-foreground mt-1">
             {t(`benchmark.ctr.${ctrBenchmark}`)}
           </p>
-          <p className="mt-1 text-xs text-[#857E79]">{t('last30Days')}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t('last30Days')}</p>
         </CardContent>
       </Card>
     </div>
