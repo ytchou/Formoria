@@ -92,23 +92,11 @@ test.describe('Dashboard brand edit', () => {
     // Submit the form
     await userPage.getByRole('button', { name: '儲存變更' }).click();
 
-    // Success indicator: redirected to the dashboard tab for this brand
-    await userPage.waitForURL(
-      (u) => new URL(u).searchParams.get('tab') === brandSlug,
-      { timeout: 15_000 }
-    );
-
-    // Verify the inline BrandManagementPanel rendered (h2 brand heading + updated description)
-    await expect(userPage.locator('h2').first()).toBeVisible({ timeout: 5_000 });
-    await expect(userPage.getByText(updatedDescription)).toBeVisible({
-      timeout: 5_000,
-    });
-
-    // Persistence assertion: reload the edit form and confirm the value is pre-filled
-    await userPage.goto(`/dashboard/brands/${brandSlug}/edit`);
+    // Non-admin owner edit now goes to review queue — expect confirmation, no redirect
     await expect(
-      userPage.locator('textarea[name="description"]')
-    ).toHaveValue(updatedDescription, { timeout: 5_000 });
+      userPage.getByText(/submitted for review|提交審核|審核中/i)
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(userPage).toHaveURL(/\/dashboard\/brands\/.+\/edit/);
   });
 
   test('owner can edit brand highlights and change persists', async ({ userPage }) => {
@@ -121,14 +109,11 @@ test.describe('Dashboard brand edit', () => {
     await field.fill(highlight);
 
     await userPage.getByRole('button', { name: '儲存變更' }).click();
-    await userPage.waitForURL(
-      (u) => new URL(u).searchParams.get('tab') === brandSlug,
-      { timeout: 15_000 }
-    );
 
-    await userPage.goto(`/dashboard/brands/${brandSlug}/edit`);
+    // Non-admin owner edit now goes to review queue — expect confirmation, no redirect
     await expect(
-      userPage.locator('textarea[name="brandHighlights"]')
-    ).toHaveValue(highlight, { timeout: 5_000 });
+      userPage.getByText(/submitted for review|提交審核|審核中/i)
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(userPage).toHaveURL(/\/dashboard\/brands\/.+\/edit/);
   });
 });
