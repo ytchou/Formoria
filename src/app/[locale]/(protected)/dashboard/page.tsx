@@ -75,6 +75,8 @@ export default async function DashboardPage({ params, searchParams }: Props) {
       : requestedTab === SUBMISSIONS_TAB
         ? SUBMISSIONS_TAB
         : defaultTab;
+  const selectedBrand =
+    brands.find((brand) => brand.brandSlug === selectedTab) ?? null;
 
   const submissionsSection = (
     <div>
@@ -235,8 +237,13 @@ export default async function DashboardPage({ params, searchParams }: Props) {
               submissionsSection
             ) : selectedTab === SAVED_TAB ? (
               savedBrandsSection
+            ) : selectedBrand ? (
+              <BrandManagementPanel
+                slug={selectedBrand.brandSlug}
+                claimedAt={selectedBrand.claimedAt}
+              />
             ) : (
-              <BrandManagementPanel slug={selectedTab} />
+              submissionsSection
             )}
           </div>
         </>
