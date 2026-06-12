@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og'
+import { getTranslations } from 'next-intl/server'
 import { getOgFonts, getOgMarkDataUri } from '@/lib/brand/og-fonts'
 
 export const runtime = 'edge'
@@ -6,7 +7,9 @@ export const alt = 'Formoria — trust'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
-export default async function OgImage() {
+export default async function OgImage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params
+  const t = await getTranslations({ locale, namespace: 'about.trust' })
   const [fonts, markDataUri] = await Promise.all([getOgFonts(), getOgMarkDataUri()])
 
   return new ImageResponse(
@@ -75,22 +78,10 @@ export default async function OgImage() {
               color: '#1C1C1C',
               lineHeight: 1.22,
               marginBottom: 28,
-              fontFamily: 'Noto Sans TC',
+              fontFamily: locale === 'en' ? 'Bricolage Grotesque' : 'Noto Sans TC',
             }}
           >
-            社群精選。品牌認領。實證審核。
-          </div>
-
-          <div
-            style={{
-              fontSize: 34,
-              fontWeight: 700,
-              color: '#1C1C1C',
-              lineHeight: 1.25,
-              fontFamily: 'Bricolage Grotesque',
-            }}
-          >
-            Community-curated. Owner-claimed. Proof-reviewed.
+            {t('tagline')}
           </div>
         </div>
       </div>
