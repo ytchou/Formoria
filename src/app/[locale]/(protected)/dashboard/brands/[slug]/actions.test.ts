@@ -30,6 +30,8 @@ const publishDraft = vi.fn().mockResolvedValue({ slug: 'test-brand' })
 const discardDraft = vi.fn().mockResolvedValue({ snapshot: null })
 const diffRemovedImageUrls = vi.fn((): string[] => [])
 const deleteBrandImages = vi.fn().mockResolvedValue(undefined)
+const getTagBySlug = vi.fn()
+const updateBrandCategoryTags = vi.fn().mockResolvedValue(undefined)
 const cookieGet = vi.fn()
 
 vi.mock('next/headers', () => ({
@@ -67,6 +69,11 @@ vi.mock('@/lib/services/brands', () => ({
 
 vi.mock('@/lib/services/image-upload', () => ({
   deleteBrandImages,
+}))
+
+vi.mock('@/lib/services/taxonomy', () => ({
+  getTagBySlug,
+  updateBrandCategoryTags,
 }))
 
 vi.mock('next/cache', () => ({
@@ -125,6 +132,11 @@ describe('updateBrandAction', () => {
       brandHighlights: null,
     })
     diffRemovedImageUrls.mockReturnValue([])
+    getTagBySlug.mockImplementation(async (slug: string) => (
+      slug === 'taipei'
+        ? { id: 'tag-region-taipei', slug, category: 'region' }
+        : { id: `tag-value-${slug}`, slug, category: 'value' }
+    ))
   })
 
   it('updates brand', async () => {
@@ -283,6 +295,33 @@ describe('updateBrandAction', () => {
     expect(arg).not.toHaveProperty('founderName')
   })
 
+  it('updates submitted region and value taxonomy tags by category', async () => {
+    const { updateBrandAction } = await import('./actions')
+
+    try {
+      await updateBrandAction(undefined, form({
+        brandSlug: 'test-brand',
+        region: 'taipei',
+        valueTags: '["sustainability"]',
+      }))
+    } catch {
+      // redirect throws
+    }
+
+    expect(getTagBySlug).toHaveBeenCalledWith('taipei')
+    expect(getTagBySlug).toHaveBeenCalledWith('sustainability')
+    expect(updateBrandCategoryTags).toHaveBeenCalledWith(
+      'brand-1',
+      'region',
+      ['tag-region-taipei']
+    )
+    expect(updateBrandCategoryTags).toHaveBeenCalledWith(
+      'brand-1',
+      'value',
+      ['tag-value-sustainability']
+    )
+  })
+
   it('returns an error when productPhotos is malformed JSON', async () => {
     const { updateBrandAction } = await import('./actions')
 
@@ -364,6 +403,11 @@ describe('updateBrandAction — admin bypass', () => {
       brandHighlights: null,
     })
     diffRemovedImageUrls.mockReturnValue([])
+    getTagBySlug.mockImplementation(async (slug: string) => (
+      slug === 'taipei'
+        ? { id: 'tag-region-taipei', slug, category: 'region' }
+        : { id: `tag-value-${slug}`, slug, category: 'value' }
+    ))
   })
 
   it('lets a god-mode admin edit a brand they do not own', async () => {
