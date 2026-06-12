@@ -510,11 +510,11 @@
       },
       "claimBenefits": {
         "question": "Why claim a brand? What are the benefits?",
-        "answer": "Once your claim is approved, you can manage this brand page: edit and update your brand info, photos, and links. The page shows a managed by the brand badge that builds visitor trust, and you can use draft & preview to check changes before publishing."
+        "answer": "Every listing on Formoria starts as a community label — accurate as far as the community knows, but unmanaged and often incomplete. Claiming is free and gives you direct control: edit your brand info, photos, and links, and your page earns a \"managed by the brand\" badge that builds visitor trust. Once you're established, upgrading unlocks a richer microsite, page analytics so you can see how shoppers find you, and featured placement in the directory."
       },
       "claimOrUpdate": {
         "question": "I'm the brand owner — how do I claim or update my brand page?",
-        "answer": "Claiming your brand lets you manage and update your brand information directly, earn an owner badge to show authentic representation, represent your brand to the community, and get early access to brand insights (coming soon). To claim, click \"Claim this brand\" on the brand page and submit proof of ownership — our team will review it promptly."
+        "answer": "On the brand page, click \"Claim this brand\" and submit one proof of ownership (brand domain email, backend screenshot, or business registration document). Our team reviews claims promptly and emails you the result. Once approved, you can edit and publish changes from the Owner Dashboard at any time."
       },
       "dataAccuracy": {
         "question": "How is the accuracy of brand information ensured?",
