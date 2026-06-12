@@ -12,6 +12,7 @@ const navLinks = [
   { label: '分類管理', href: '/admin/taxonomy' },
   { label: '已標記', href: '/admin/flagged' },
   { label: '檢舉', href: '/admin/reports' },
+  { label: 'Feedback', href: '/admin/feedback' },
 ]
 
 export function AdminNav() {
