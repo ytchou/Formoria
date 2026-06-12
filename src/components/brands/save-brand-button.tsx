@@ -2,24 +2,27 @@
 
 import { Heart } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { useRouter } from 'next/navigation'
 import type { MouseEvent } from 'react'
 
 import { useSavedBrands } from '@/hooks/use-saved-brands'
+import { usePathname, useRouter } from '@/i18n/navigation'
 import { useUser } from '@/lib/auth/use-user'
 import { cn } from '@/lib/utils'
 
 type SaveBrandButtonProps = {
   brandId: string
   variant?: 'overlay' | 'inline'
+  className?: string
 }
 
 export function SaveBrandButton({
   brandId,
   variant = 'overlay',
+  className,
 }: SaveBrandButtonProps) {
   const t = useTranslations('saveBrand')
   const router = useRouter()
+  const pathname = usePathname()
   const { user, loading: userLoading } = useUser()
   const { savedIds, toggle, loading: savedBrandsLoading } = useSavedBrands()
   const isSaved = savedIds.has(brandId)
@@ -35,7 +38,10 @@ export function SaveBrandButton({
     }
 
     if (!user) {
-      router.push('/auth/login')
+      document.cookie = `post_auth_next=${encodeURIComponent(
+        pathname
+      )}; path=/; max-age=600; SameSite=Lax`
+      router.push('/auth/sign-in')
       return
     }
 
@@ -49,16 +55,17 @@ export function SaveBrandButton({
       title={!user ? t('loginToSave') : label}
       disabled={isLoading}
       className={cn(
-        'inline-flex shrink-0 items-center justify-center border border-border bg-white text-[#2F5D50] transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
+        'inline-flex shrink-0 items-center justify-center border border-border bg-white text-primary transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
         variant === 'overlay'
-          ? 'absolute right-2 top-2 h-10 w-10 rounded-full shadow-md'
-          : 'gap-2 rounded-md px-3 py-2 text-sm font-medium'
+          ? 'absolute right-2 top-2 h-11 w-11 rounded-full shadow-md'
+          : 'h-11 gap-2 rounded-md px-3 text-sm font-medium',
+        className
       )}
       onClick={handleClick}
     >
       <Heart
         className="h-5 w-5"
-        fill={isSaved ? '#2F5D50' : 'none'}
+        fill={isSaved ? 'currentColor' : 'none'}
         strokeWidth={2}
         aria-hidden
       />

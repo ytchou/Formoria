@@ -11,7 +11,7 @@ vi.mock('@/lib/auth/use-user', () => ({
   useUser: vi.fn(() => ({ user: mockUser, loading: false })),
 }))
 
-vi.mock('next/navigation', () => ({
+vi.mock('@/i18n/navigation', () => ({
   useRouter: vi.fn(() => ({ push: mockPush })),
   usePathname: vi.fn(() => '/brands/test-brand'),
 }))
@@ -86,6 +86,6 @@ describe('SaveBrandButton', () => {
     renderWithProviders(<SaveBrandButton brandId="brand-1" />)
     const button = screen.getByRole('button', { name: '收藏這個品牌' })
     fireEvent.click(button)
-    expect(mockPush).toHaveBeenCalledWith('/auth/login')
+    expect(mockPush).toHaveBeenCalledWith('/auth/sign-in')
   })
 })

@@ -38,7 +38,7 @@ export function BrandActions({ websiteUrl, brandSlug = '', brandId }: BrandActio
             href={websiteUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex h-[42px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-cta text-sm font-semibold text-cta-foreground transition-colors hover:bg-cta/90"
+            className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-cta text-sm font-semibold text-cta-foreground transition-colors hover:bg-cta/90"
             onClick={handleWebsiteClick}
           >
             <ExternalLink className="size-[15px]" />
@@ -47,17 +47,13 @@ export function BrandActions({ websiteUrl, brandSlug = '', brandId }: BrandActio
         )}
         <button
           type="button"
-          className="flex size-[42px] shrink-0 items-center justify-center rounded-xl bg-secondary text-foreground transition-colors hover:bg-secondary/80"
+          className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-secondary text-foreground transition-colors hover:bg-secondary/80"
           aria-label={t('actions.share')}
           onClick={() => trackBrandPageShared(brandSlug)}
         >
           <Share2 className="size-[17px]" />
         </button>
-        {brandId && (
-          <div className="[&>button]:h-[42px] [&>button]:rounded-xl">
-            <SaveBrandButton brandId={brandId} variant="inline" />
-          </div>
-        )}
+        {brandId && <SaveBrandButton brandId={brandId} variant="inline" className="rounded-xl" />}
         {brandId && <ReportDialog brandId={brandId} brandSlug={brandSlug} />}
       </div>
       {websiteUrl && (

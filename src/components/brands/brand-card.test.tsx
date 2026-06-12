@@ -27,6 +27,8 @@ vi.mock('@/i18n/navigation', () => ({
   Link: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
     <a href={href} {...props}>{children}</a>
   ),
+  useRouter: vi.fn(() => ({ push: vi.fn() })),
+  usePathname: vi.fn(() => '/'),
 }))
 
 import { BrandCard } from './brand-card'
