@@ -27,13 +27,8 @@ const SOURCE_ATTRIBUTION_LABELS: Record<SourceAttribution, string> = {
 }
 
 type StructuredSuggestedTags = {
-  region?: {
-    slug: string
-    nameZh?: string
-  }
-  values?: Array<{
-    slug: string
-  }>
+  region?: string
+  values?: string[]
 }
 
 function isStructuredSuggestedTags(value: unknown): value is StructuredSuggestedTags {
@@ -41,16 +36,9 @@ function isStructuredSuggestedTags(value: unknown): value is StructuredSuggested
 }
 
 function getStructuredSuggestedTagSections(tags: StructuredSuggestedTags) {
-  const region =
-    tags.region && typeof tags.region === 'object'
-      ? tags.region.nameZh || tags.region.slug
-      : undefined
+  const region = typeof tags.region === 'string' ? tags.region : undefined
   const values = Array.isArray(tags.values)
-    ? tags.values
-        .map((value) =>
-          value && typeof value === 'object' ? value.slug : undefined
-        )
-        .filter((slug): slug is string => Boolean(slug))
+    ? tags.values.filter((v): v is string => typeof v === 'string')
     : []
 
   return { region, values }
