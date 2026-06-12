@@ -28,7 +28,7 @@ type DenoGlobal = {
 
 declare const Deno: DenoGlobal | undefined
 
-const FROM_ADDRESS = 'ops@formoria.com'
+const FROM_ADDRESS = 'Formoria <noreply@formoria.com>'
 const SITE_URL = getEnv('SITE_URL') ?? 'https://formoria.com'
 const MICROSITE_HOST = getEnv('MICROSITE_HOST') ?? 'brand.formoria.com'
 
@@ -150,10 +150,6 @@ function cutoffForDrip(dripType: string): string {
   return daysAgo(1)
 }
 
-function notFilterForDrip(dripType: string): string {
-  return `owner_email_preferences.unsubscribed_at.is.null,email_sends.template_key.eq.${dripType}`
-}
-
 async function sendDripEmail(owner: OwnerRow, message: EmailMessage): Promise<void> {
   const apiKey = getEnv('RESEND_API_KEY') ?? ''
 
@@ -191,36 +187,66 @@ export async function evaluateDrips(
     throw new Error(`Unknown drip type: ${dripType}`)
   }
 
-  const { data, error } = await supabase
+  let ownerQuery = supabase
     .from('brand_owners')
     .select(`
       user_id,
       claimed_at,
-      brands!inner(name, slug, microsite_enabled),
-      owner_email_preferences!inner(unsubscribe_token, unsubscribed_at),
-      email_sends(template_key),
+      brands!inner(name, slug, site_content),
+      owner_email_preferences!inner(unsubscribe_token),
       email:users!brand_owners_user_id_fkey(email)
     `)
-    .gt('claimed_at', cutoffForDrip(dripType))
-    .not('or', 'cs', notFilterForDrip(dripType))
+    .lt('claimed_at', cutoffForDrip(dripType))
+
+  if (dripType === 'microsite_spotlight') {
+    ownerQuery = ownerQuery.eq('brands.site_content->>enabled', 'true')
+  }
+
+  const { data, error } = await ownerQuery
 
   if (error) {
+    console.error('Failed to query drip owners', { dripType, error })
     return { sent: 0, errors: 1 }
   }
+
+  const { data: sentRows, error: sentError } = await supabase
+    .from('email_sends')
+    .select('user_id')
+    .eq('template_key', dripType)
+
+  if (sentError) {
+    console.error('Failed to query prior email sends', { dripType, error: sentError })
+    return { sent: 0, errors: 1 }
+  }
+
+  const { data: unsubscribedRows, error: preferencesError } = await supabase
+    .from('owner_email_preferences')
+    .select('user_id')
+    .not('unsubscribed_at', 'is', null)
+
+  if (preferencesError) {
+    console.error('Failed to query owner email preferences', { dripType, error: preferencesError })
+    return { sent: 0, errors: 1 }
+  }
+
+  const alreadySentUserIds = new Set((sentRows ?? []).map((row) => row.user_id))
+  const unsubscribedUserIds = new Set((unsubscribedRows ?? []).map((row) => row.user_id))
+  const owners = (data ?? []).filter((row) => {
+    const userId = row.user_id
+    return !alreadySentUserIds.has(userId) && !unsubscribedUserIds.has(userId)
+  })
 
   let sent = 0
   let errors = 0
 
-  for (const row of data ?? []) {
+  for (const row of owners) {
     try {
       const owner = normalizeOwnerRow(row)
       const message = buildDripEmail(dripType, owner)
       await sendDripEmail(owner, message)
       const { error: insertError } = await supabase.from('email_sends').insert({
         user_id: owner.user_id,
-        email_type: dripType,
         template_key: dripType,
-        brand_slug: owner.brand_slug,
       })
 
       if (insertError) {
@@ -237,19 +263,29 @@ export async function evaluateDrips(
 }
 
 function normalizeOwnerRow(row: Record<string, unknown>): OwnerRow {
-  const brand = Array.isArray(row.brands) ? row.brands[0] : row.brands
+  const brand = objectValue(Array.isArray(row.brands) ? row.brands[0] : row.brands)
   const preferences = Array.isArray(row.owner_email_preferences)
     ? row.owner_email_preferences[0]
     : row.owner_email_preferences
-  const user = Array.isArray(row.email) ? row.email[0] : row.email
+  const preference = objectValue(preferences)
+  const user = objectValue(Array.isArray(row.email) ? row.email[0] : row.email)
+  const email = typeof row.email === 'string' ? row.email : stringValue(user?.email)
 
   return {
-    user_id: row.user_id,
-    email: row.email ?? user?.email,
-    brand_name: row.brand_name ?? brand?.name,
-    brand_slug: row.brand_slug ?? brand?.slug,
-    unsubscribe_token: row.unsubscribe_token ?? preferences?.unsubscribe_token,
+    user_id: stringValue(row.user_id),
+    email,
+    brand_name: stringValue(row.brand_name ?? brand?.name),
+    brand_slug: stringValue(row.brand_slug ?? brand?.slug),
+    unsubscribe_token: stringValue(row.unsubscribe_token ?? preference?.unsubscribe_token),
   }
+}
+
+function objectValue(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' ? value as Record<string, unknown> : undefined
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === 'string' ? value : ''
 }
 
 async function createSupabaseClient() {
