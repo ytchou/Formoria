@@ -438,7 +438,7 @@ export function BrandInfoStep({
                         )
                       }}
                       className="ml-0.5 text-muted-foreground hover:text-foreground"
-                      aria-label={t('removeTag', { tag: label })}
+                      aria-label={t('removeValue', { value: label })}
                     >
                       &times;
                     </button>
