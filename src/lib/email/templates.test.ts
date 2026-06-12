@@ -7,6 +7,13 @@ import {
   buildClaimApprovedEmail,
   buildClaimRejectedEmail,
   buildIncompleteSubmissionEmail,
+  buildMitVerificationSubmittedEmail,
+  buildMitVerificationApprovedEmail,
+  buildMitVerificationNeedsDocsEmail,
+  buildWelcomeEmail,
+  buildProfileNudgeEmail,
+  buildMicrositeSpotlightEmail,
+  buildReEngagementEmail,
 } from './templates'
 
 describe('buildApprovalEmail', () => {
@@ -178,5 +185,85 @@ describe('buildClaimRejectedEmail', () => {
     })
     expect(msg.html).toContain('島嶼工坊')
     expect(msg.html).not.toMatch(/undefined|null/)
+  })
+})
+
+describe('buildMitVerificationSubmittedEmail', () => {
+  it('includes brand name and bilingual content', () => {
+    const email = buildMitVerificationSubmittedEmail({ to: 'owner@example.com', brandName: 'Tea Co' })
+    expect(email.to).toBe('owner@example.com')
+    expect(email.subject).toContain('MIT')
+    expect(email.html).toContain('Tea Co')
+    expect(email.html).toContain('已收到')
+    expect(email.html).toContain('received')
+    expect(email.replyTo).toBe('ops@formoria.com')
+  })
+})
+
+describe('buildMitVerificationApprovedEmail', () => {
+  it('includes brand name and verified badge mention', () => {
+    const email = buildMitVerificationApprovedEmail({ to: 'owner@example.com', brandName: 'Tea Co' })
+    expect(email.to).toBe('owner@example.com')
+    expect(email.html).toContain('Tea Co')
+    expect(email.html).toContain('已驗證')
+    expect(email.html).toContain('verified')
+    expect(email.replyTo).toBe('ops@formoria.com')
+  })
+})
+
+describe('buildMitVerificationNeedsDocsEmail', () => {
+  it('includes brand name and admin notes', () => {
+    const email = buildMitVerificationNeedsDocsEmail({ to: 'owner@example.com', brandName: 'Tea Co', notes: 'Please provide company registration certificate' })
+    expect(email.to).toBe('owner@example.com')
+    expect(email.html).toContain('Tea Co')
+    expect(email.html).toContain('company registration certificate')
+    expect(email.html).toContain('補充文件')
+    expect(email.replyTo).toBe('ops@formoria.com')
+  })
+})
+
+describe('buildWelcomeEmail', () => {
+  it('includes brand name, dashboard link, and microsite link', () => {
+    const email = buildWelcomeEmail({ to: 'owner@example.com', brandName: 'Tea Co', brandSlug: 'tea-co', unsubscribeToken: 'token-abc' })
+    expect(email.to).toBe('owner@example.com')
+    expect(email.html).toContain('Tea Co')
+    expect(email.html).toContain('/dashboard')
+    expect(email.html).toContain('tea-co')
+    expect(email.html).toContain('歡迎')
+    expect(email.html).toContain('unsubscribe')
+    expect(email.html).toContain('token-abc')
+    expect(email.headers?.['List-Unsubscribe']).toBeDefined()
+  })
+})
+
+describe('buildProfileNudgeEmail', () => {
+  it('includes completeness percentage and missing fields', () => {
+    const email = buildProfileNudgeEmail({ to: 'owner@example.com', brandName: 'Tea Co', completenessPercent: 50, missingFields: ['story', 'website'], unsubscribeToken: 'token-abc' })
+    expect(email.html).toContain('Tea Co')
+    expect(email.html).toContain('50%')
+    expect(email.html).toContain('story')
+    expect(email.html).toContain('unsubscribe')
+    expect(email.headers?.['List-Unsubscribe']).toBeDefined()
+  })
+})
+
+describe('buildMicrositeSpotlightEmail', () => {
+  it('includes microsite URL', () => {
+    const email = buildMicrositeSpotlightEmail({ to: 'owner@example.com', brandName: 'Tea Co', brandSlug: 'tea-co', unsubscribeToken: 'token-abc' })
+    expect(email.html).toContain('Tea Co')
+    expect(email.html).toContain('tea-co')
+    expect(email.html).toContain('官網')
+    expect(email.html).toContain('unsubscribe')
+    expect(email.headers?.['List-Unsubscribe']).toBeDefined()
+  })
+})
+
+describe('buildReEngagementEmail', () => {
+  it('includes brand name and encouragement to complete profile', () => {
+    const email = buildReEngagementEmail({ to: 'owner@example.com', brandName: 'Tea Co', brandSlug: 'tea-co', unsubscribeToken: 'token-abc' })
+    expect(email.html).toContain('Tea Co')
+    expect(email.html).toContain('完善')
+    expect(email.html).toContain('unsubscribe')
+    expect(email.headers?.['List-Unsubscribe']).toBeDefined()
   })
 })
