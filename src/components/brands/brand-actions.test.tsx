@@ -11,6 +11,19 @@ vi.mock('@/lib/analytics', () => ({
   trackDbClick: vi.fn(),
 }));
 
+vi.mock('@/lib/auth/use-user', () => ({
+  useUser: vi.fn(() => ({ user: null, loading: false })),
+}));
+
+vi.mock('@/hooks/use-saved-brands', () => ({
+  useSavedBrands: vi.fn(() => ({ savedIds: new Set(), toggle: vi.fn(), loading: false })),
+}));
+
+vi.mock('@/i18n/navigation', () => ({
+  useRouter: vi.fn(() => ({ push: vi.fn() })),
+  usePathname: vi.fn(() => '/'),
+}));
+
 vi.mock('@/components/brands/report-dialog', () => ({
   ReportDialog: () => <button aria-label="檢舉">mock-report</button>,
 }));

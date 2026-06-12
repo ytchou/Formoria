@@ -1058,5 +1058,16 @@
     "enter": "Switch to viewer",
     "exit": "Exit viewer mode",
     "banner": "plain-user view"
+  },
+  "saveBrand": {
+    "save": "Save",
+    "unsave": "Unsave",
+    "saveAriaLabel": "Save this brand",
+    "unsaveAriaLabel": "Unsave this brand",
+    "savedTab": "Saved Brands",
+    "emptyTitle": "No saved brands yet",
+    "emptyDescription": "Start exploring the brand directory!",
+    "exploreBrands": "Browse Brands",
+    "loginToSave": "Log in to save brands"
   }
 }

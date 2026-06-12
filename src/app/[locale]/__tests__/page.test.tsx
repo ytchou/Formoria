@@ -50,6 +50,11 @@ vi.mock('@/components/landing/filterable-brand-showcase', () => ({
   default: () => <div data-testid="filterable-brand-showcase" />,
 }))
 
+vi.mock('@/hooks/use-saved-brands', () => ({
+  SavedBrandsProvider: ({ children }: { children: React.ReactNode }) => children,
+  useSavedBrands: vi.fn(() => ({ savedIds: new Set(), toggle: vi.fn(), loading: false })),
+}))
+
 vi.mock('@/components/shared/brand-showcase', () => ({
   default: ({
     heading,

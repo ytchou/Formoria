@@ -9,6 +9,7 @@ import SubmitBand from '@/components/landing/submit-band'
 import ValueChips from '@/components/landing/value-chips'
 import { getBrands, getNewBrands } from '@/lib/services/brands'
 import { getActiveCategories, getValueTagsWithCoverage } from '@/lib/services/taxonomy'
+import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 
@@ -75,41 +76,43 @@ export default async function LandingPage({ params }: PageProps) {
       <main>
         <HeroSection />
 
-        <div className="py-6 md:py-8">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <FilterableBrandShowcase brands={allBrands} categories={categories} />
+        <SavedBrandsProvider>
+          <div className="py-6 md:py-8">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6">
+              <FilterableBrandShowcase brands={allBrands} categories={categories} />
+            </div>
           </div>
-        </div>
 
-        <div className="py-6 md:py-8">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <BrandShowcase
-              brands={verifiedBrands}
-              heading={t('verifiedRail.heading')}
-              linkText={t('newBrands.linkText')}
-              linkHref="/brands?verification=mit-verified"
-            />
+          <div className="py-6 md:py-8">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6">
+              <BrandShowcase
+                brands={verifiedBrands}
+                heading={t('verifiedRail.heading')}
+                linkText={t('newBrands.linkText')}
+                linkHref="/brands?verification=mit-verified"
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="py-6 md:py-8">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <ValueChips tags={valueTags} />
+          <div className="py-6 md:py-8">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6">
+              <ValueChips tags={valueTags} />
+            </div>
           </div>
-        </div>
 
-        <Manifesto />
+          <Manifesto />
 
-        <div className="py-6 md:py-8">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <BrandShowcase
-              brands={newBrands}
-              heading={t('newBrands.heading')}
-              linkText={t('newBrands.linkText')}
-              linkHref="/brands"
-            />
+          <div className="py-6 md:py-8">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6">
+              <BrandShowcase
+                brands={newBrands}
+                heading={t('newBrands.heading')}
+                linkText={t('newBrands.linkText')}
+                linkHref="/brands"
+              />
+            </div>
           </div>
-        </div>
+        </SavedBrandsProvider>
 
         <SubmitBand />
       </main>

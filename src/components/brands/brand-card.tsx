@@ -9,6 +9,7 @@ import type { Brand } from '@/lib/types'
 import { trackBrandCardClicked } from '@/lib/analytics'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
+import { SaveBrandButton } from './save-brand-button'
 
 interface BrandCardProps {
   brand: Brand
@@ -91,6 +92,7 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
             </span>
           </div>
         )}
+        <SaveBrandButton brandId={brand.id} variant="overlay" />
       </div>
 
       {/* Content */}

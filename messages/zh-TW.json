@@ -1058,5 +1058,16 @@
     "enter": "切換為訪客檢視",
     "exit": "離開訪客檢視",
     "banner": "一般使用者檢視"
+  },
+  "saveBrand": {
+    "save": "收藏",
+    "unsave": "取消收藏",
+    "saveAriaLabel": "收藏這個品牌",
+    "unsaveAriaLabel": "取消收藏這個品牌",
+    "savedTab": "收藏品牌",
+    "emptyTitle": "還沒有收藏品牌",
+    "emptyDescription": "去探索品牌目錄吧！",
+    "exploreBrands": "探索品牌目錄",
+    "loginToSave": "登入後即可收藏品牌"
   }
 }

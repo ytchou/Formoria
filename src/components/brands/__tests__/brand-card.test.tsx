@@ -16,6 +16,12 @@ vi.mock('@/i18n/navigation', () => ({
   ),
 }))
 
+vi.mock('../save-brand-button', () => ({
+  SaveBrandButton: ({ brandId, variant }: { brandId: string; variant: 'overlay' | 'inline' }) => (
+    <button type="button" aria-label="收藏品牌" data-brand-id={brandId} data-variant={variant} />
+  ),
+}))
+
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
   return {
     id: 'brand-1',
@@ -86,5 +92,11 @@ describe('BrandCard badges', () => {
 
     expect(screen.queryByTitle('由品牌方經營管理')).toBeNull()
     expect(screen.queryByTitle('MIT 已驗證')).toBeNull()
+  })
+
+  it('renders a save button overlay on the card image', () => {
+    renderWithProvider(<BrandCard brand={makeBrand()} />)
+
+    expect(screen.getByRole('button', { name: /收藏/ })).toBeInTheDocument()
   })
 })

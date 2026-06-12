@@ -10,10 +10,25 @@ vi.mock('@/lib/analytics', () => ({
   trackBrandCardClicked: vi.fn(),
 }))
 
+vi.mock('@/lib/auth/use-user', () => ({
+  useUser: vi.fn(() => ({ user: null, loading: false })),
+}))
+
+vi.mock('@/hooks/use-saved-brands', () => ({
+  useSavedBrands: vi.fn(() => ({ savedIds: new Set(), toggle: vi.fn(), loading: false })),
+}))
+
+vi.mock('next/navigation', () => ({
+  useRouter: vi.fn(() => ({ push: vi.fn() })),
+  usePathname: vi.fn(() => '/'),
+}))
+
 vi.mock('@/i18n/navigation', () => ({
   Link: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
     <a href={href} {...props}>{children}</a>
   ),
+  useRouter: vi.fn(() => ({ push: vi.fn() })),
+  usePathname: vi.fn(() => '/'),
 }))
 
 const fixtureBrand: Brand = {

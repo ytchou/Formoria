@@ -35,6 +35,7 @@ import { BrandLinks } from '@/components/brands/brand-links'
 import { BrandLocations } from '@/components/brands/brand-locations'
 import { MoreInCategory } from '@/components/brands/more-in-category'
 import { RelatedBrands } from '@/components/brands/related-brands'
+import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
 
@@ -233,7 +234,9 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
               brand={displayBrand}
               categoryLabel={categoryLabel || null}
               actionsSlot={
-                <BrandActions websiteUrl={visitUrl ?? null} brandSlug={displayBrand.slug} brandId={displayBrand.id} />
+                <SavedBrandsProvider>
+                  <BrandActions websiteUrl={visitUrl ?? null} brandSlug={displayBrand.slug} brandId={displayBrand.id} />
+                </SavedBrandsProvider>
               }
             />
 
