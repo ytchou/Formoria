@@ -31,7 +31,7 @@ export type ComputedBrandCompleteness = BrandCompleteness & {
   tier2Items: CompletenessItem[]
 }
 
-const TIER_1_COUNT = 5
+export const TIER_1_COUNT = 5
 
 const FIELD_ORDER: {
   key: CompletenessKey

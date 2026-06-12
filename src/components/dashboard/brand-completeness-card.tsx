@@ -1,10 +1,12 @@
 import { Check, PartyPopper } from 'lucide-react'
 import { getTranslations } from 'next-intl/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { MilestoneTracker } from '@/components/dashboard/milestone-tracker'
 import type {
   BrandCompleteness,
   CompletenessItem,
 } from '@/lib/services/brand-completeness'
+import { TIER_1_COUNT } from '@/lib/services/brand-completeness'
 
 type BrandCompletenessCardProps = {
   completeness: BrandCompleteness
@@ -16,7 +18,7 @@ function getMilestoneKey(completeness: BrandCompleteness) {
     return 'dashboard.onboarding.milestone.complete'
   }
 
-  if (completeness.completed >= 5) {
+  if (completeness.completed >= TIER_1_COUNT) {
     return 'dashboard.onboarding.milestone.halfway'
   }
 
@@ -48,8 +50,8 @@ export async function BrandCompletenessCard({
 }: BrandCompletenessCardProps) {
   const t = await getTranslations()
   const { incomplete, complete } = sortItems(completeness.items)
-  const tier1Items = completeness.tier1Items ?? completeness.items.slice(0, 5)
-  const tier2Items = completeness.tier2Items ?? completeness.items.slice(5)
+  const tier1Items = completeness.tier1Items ?? completeness.items.slice(0, TIER_1_COUNT)
+  const tier2Items = completeness.tier2Items ?? completeness.items.slice(TIER_1_COUNT)
   const isComplete = completeness.completed === completeness.total
   const milestoneKey = getMilestoneKey(completeness)
   const progressWidth = `${Math.round(completeness.fraction * 100)}%`
@@ -88,7 +90,7 @@ export async function BrandCompletenessCard({
                 </div>
               </div>
               <a
-                className="inline-flex min-h-[48px] shrink-0 items-center px-2 text-sm font-semibold text-[#C4693B] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F5D50] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FFFFFF]"
+                className="inline-flex min-h-[48px] shrink-0 items-center px-2 text-sm font-semibold text-[#2F5D50] hover:text-[#1F3F36] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F5D50] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FFFFFF]"
                 href={`/dashboard/brands/${slug}/edit${item.anchor}`}
               >
                 {t('dashboard.completeness.editCta')}
@@ -102,6 +104,7 @@ export async function BrandCompletenessCard({
 
   return (
     <Card className="border-[#E5E0D8] bg-[#FFFFFF] shadow-none">
+      <MilestoneTracker milestone={milestoneKey} slug={slug} />
       <CardHeader className="gap-3 pb-4">
         <div className="space-y-1 text-left">
           <CardTitle className="text-base font-bold text-[#1C1C1C]">
