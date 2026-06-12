@@ -26,7 +26,11 @@ export async function getUserSavedBrandIds(
     .select('brand_id')
     .eq('user_id', userId)
 
-  if (error) throw error
+  // PGRST205 = table not in PostgREST schema cache (migration pending or schema cache stale)
+  if (error) {
+    if (error.code === 'PGRST205') return []
+    throw error
+  }
 
   const rows = (data ?? []) as BrandSaveRow[]
   return rows.map((row) => row.brand_id)
@@ -41,7 +45,10 @@ export async function getUserSavedBrands(
     .select('brand_id, created_at, brands(id, name, slug, logo_url, status)')
     .eq('user_id', userId)
 
-  if (error) throw error
+  if (error) {
+    if (error.code === 'PGRST205') return []
+    throw error
+  }
 
   const rows = (data ?? []) as unknown as BrandSaveWithBrandRow[]
   return rows
