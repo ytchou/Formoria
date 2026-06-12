@@ -31,6 +31,7 @@ const discardDraft = vi.fn().mockResolvedValue({ snapshot: null })
 const diffRemovedImageUrls = vi.fn((): string[] => [])
 const deleteBrandImages = vi.fn().mockResolvedValue(undefined)
 const cookieGet = vi.fn()
+const isActingAsAdmin = vi.fn().mockResolvedValue(false)
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn(async () => ({
@@ -55,6 +56,10 @@ vi.mock('@/lib/services/brand-owners', () => ({
   isOwnerOf: vi.fn().mockResolvedValue(true),
 }))
 
+vi.mock('@/lib/auth/admin-mode', () => ({
+  isActingAsAdmin,
+}))
+
 vi.mock('@/lib/services/brands', () => ({
   getBrandBySlug,
   saveDraft,
@@ -68,6 +73,12 @@ vi.mock('@/lib/services/brands', () => ({
 vi.mock('@/lib/services/image-upload', () => ({
   deleteBrandImages,
 }))
+
+vi.mock('@/lib/services/pending-edits', () => ({
+  createPendingEdit: vi.fn().mockResolvedValue({ id: 'edit-1', status: 'pending' }),
+}))
+
+import { createPendingEdit } from '@/lib/services/pending-edits'
 
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
@@ -113,6 +124,7 @@ describe('updateBrandAction', () => {
     process.env.ADMIN_EMAILS = 'admin@formoria.com'
     mockCookie('god')
     mockUser('owner@example.com')
+    isActingAsAdmin.mockResolvedValue(true)
     getBrandBySlug.mockResolvedValue({
       id: 'brand-1',
       slug: 'test-brand',
@@ -148,6 +160,7 @@ describe('updateBrandAction', () => {
   it('rejects update when user is not owner', async () => {
     const { isOwnerOf } = await import('@/lib/services/brand-owners')
     vi.mocked(isOwnerOf).mockResolvedValueOnce(false)
+    isActingAsAdmin.mockResolvedValueOnce(false)
 
     const { updateBrandAction } = await import('./actions')
 
@@ -352,6 +365,7 @@ describe('updateBrandAction — admin bypass', () => {
     process.env.ADMIN_EMAILS = 'admin@formoria.com'
     mockCookie('god')
     mockUser('owner@example.com')
+    isActingAsAdmin.mockResolvedValue(true)
     getBrandBySlug.mockResolvedValue({
       id: 'brand-1',
       slug: 'test-brand',
@@ -369,6 +383,7 @@ describe('updateBrandAction — admin bypass', () => {
   it('lets a god-mode admin edit a brand they do not own', async () => {
     const { isOwnerOf } = await import('@/lib/services/brand-owners')
     vi.mocked(isOwnerOf).mockResolvedValueOnce(false)
+    isActingAsAdmin.mockResolvedValue(true)
     mockCookie('god')
     mockUser('admin@formoria.com', 'admin-1')
 
@@ -389,6 +404,7 @@ describe('updateBrandAction — admin bypass', () => {
   it('forbids an admin in viewer mode from editing an un-owned brand', async () => {
     const { isOwnerOf } = await import('@/lib/services/brand-owners')
     vi.mocked(isOwnerOf).mockResolvedValueOnce(false)
+    isActingAsAdmin.mockResolvedValueOnce(false)
     mockCookie('viewer')
     mockUser('admin@formoria.com', 'admin-1')
 
@@ -401,5 +417,131 @@ describe('updateBrandAction — admin bypass', () => {
 
     expect(result).toMatchObject({ error: expect.any(String) })
     expect(updateBrand).not.toHaveBeenCalled()
+  })
+})
+
+describe('updateBrandAction — edit gating', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    process.env.ADMIN_EMAILS = 'admin@formoria.com'
+    mockCookie('god')
+    mockUser('owner@example.com')
+    getBrandBySlug.mockResolvedValue({
+      id: 'brand-1',
+      slug: 'test-brand',
+      name: 'Test Brand',
+      description: 'Original description before edit',
+      socialLinks: {},
+      logoUrl: null,
+      heroImageUrl: null,
+      productPhotos: [],
+      brandHighlights: null,
+    })
+    diffRemovedImageUrls.mockReturnValue([])
+  })
+
+  it('routes non-admin owner to review queue instead of direct update', async () => {
+    isActingAsAdmin.mockResolvedValueOnce(false)
+
+    const { updateBrandAction } = await import('./actions')
+
+    const result = await updateBrandAction(undefined, form({
+      brandSlug: 'test-brand',
+      name: 'Queued Name',
+      description: 'Queued description',
+    }))
+
+    expect(createPendingEdit).toHaveBeenCalledWith(
+      'brand-1',
+      'user-1',
+      expect.objectContaining({
+        name: 'Queued Name',
+        description: 'Queued description',
+      })
+    )
+    expect(updateBrand).not.toHaveBeenCalled()
+    expect(result?.message).toBe('brandEditSubmittedForReview')
+  })
+
+  it('allows admin to bypass queue and update directly', async () => {
+    isActingAsAdmin.mockResolvedValue(true)
+
+    const { updateBrandAction } = await import('./actions')
+
+    try {
+      await updateBrandAction(undefined, form({
+        brandSlug: 'test-brand',
+        name: 'Direct Name',
+      }))
+    } catch {
+      // redirect throws
+    }
+
+    expect(createPendingEdit).not.toHaveBeenCalled()
+    expect(updateBrand).toHaveBeenCalled()
+  })
+})
+
+describe('publishDraftAction — edit gating', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    process.env.ADMIN_EMAILS = 'admin@formoria.com'
+    mockCookie('god')
+    mockUser('owner@example.com')
+    getBrandBySlug.mockResolvedValue({
+      id: 'brand-1',
+      slug: 'test-brand',
+      name: 'Test Brand',
+      description: 'Original description before edit',
+      socialLinks: {},
+      logoUrl: null,
+      heroImageUrl: null,
+      productPhotos: [],
+      brandHighlights: null,
+    })
+    getBrandDraft.mockResolvedValue({
+      name: 'Draft Name',
+      description: 'Draft description',
+    })
+    diffRemovedImageUrls.mockReturnValue([])
+  })
+
+  it('routes non-admin owner to review queue instead of direct publish', async () => {
+    isActingAsAdmin.mockResolvedValueOnce(false)
+
+    const { publishDraftAction } = await import('./actions')
+
+    const result = await publishDraftAction(undefined, form({
+      brandSlug: 'test-brand',
+    }))
+
+    expect(createPendingEdit).toHaveBeenCalledWith(
+      'brand-1',
+      'user-1',
+      expect.objectContaining({
+        name: 'Draft Name',
+        description: 'Draft description',
+      })
+    )
+    expect(discardDraft).toHaveBeenCalledWith('brand-1')
+    expect(publishDraft).not.toHaveBeenCalled()
+    expect(result?.message).toBe('brandEditSubmittedForReview')
+  })
+
+  it('allows admin to bypass queue and publish directly', async () => {
+    isActingAsAdmin.mockResolvedValue(true)
+
+    const { publishDraftAction } = await import('./actions')
+
+    try {
+      await publishDraftAction(undefined, form({
+        brandSlug: 'test-brand',
+      }))
+    } catch {
+      // redirect throws
+    }
+
+    expect(createPendingEdit).not.toHaveBeenCalled()
+    expect(publishDraft).toHaveBeenCalledWith('brand-1')
   })
 })
