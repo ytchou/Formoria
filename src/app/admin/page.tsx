@@ -4,6 +4,7 @@ import { getSubmissions } from "@/lib/services/submissions";
 import { getBrands } from "@/lib/services/brands";
 import { getTags } from "@/lib/services/taxonomy";
 import { getPendingReports } from "@/lib/services/reports";
+import { getPendingEditCount } from "@/lib/services/pending-edits";
 import {
   Card,
   CardContent,
@@ -16,13 +17,19 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminPage() {
-  const [pendingSubmissions, { totalCount: brandCount }, tags, pendingReports] =
-    await Promise.all([
-      getSubmissions("pending"),
-      getBrands({ includeTestBrands: true }),
-      getTags(),
-      getPendingReports().catch(() => [] as Awaited<ReturnType<typeof getPendingReports>>),
-    ]);
+  const [
+    pendingSubmissions,
+    { totalCount: brandCount },
+    tags,
+    pendingReports,
+    pendingEditCount,
+  ] = await Promise.all([
+    getSubmissions("pending"),
+    getBrands({ includeTestBrands: true }),
+    getTags(),
+    getPendingReports().catch(() => [] as Awaited<ReturnType<typeof getPendingReports>>),
+    getPendingEditCount(),
+  ]);
 
   const stats = [
     {
@@ -44,6 +51,11 @@ export default async function AdminPage() {
       label: "待審核檢舉",
       count: pendingReports.length,
       href: "/admin/reports",
+    },
+    {
+      label: "待審核編輯",
+      count: pendingEditCount,
+      href: "/admin/pending-edits",
     },
   ];
 

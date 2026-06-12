@@ -38,4 +38,10 @@ describe('AdminNav', () => {
     expect(screen.getByText('品牌').closest('a')?.getAttribute('href')).toBe('/admin/brands')
     expect(screen.getByText('分類管理').closest('a')?.getAttribute('href')).toBe('/admin/taxonomy')
   })
+
+  it('renders the 品牌編輯審核 tab with link to /admin/pending-edits', () => {
+    render(<AdminNav />)
+    const link = screen.getByRole('link', { name: /品牌編輯審核/ })
+    expect(link).toHaveAttribute('href', '/admin/pending-edits')
+  })
 })
