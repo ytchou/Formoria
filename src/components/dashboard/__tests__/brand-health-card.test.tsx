@@ -72,47 +72,47 @@ describe('BrandHealthCard', () => {
   }
 
   it('renders the overall score', async () => {
-    render(await BrandHealthCard(defaultProps))
+    render(BrandHealthCard(defaultProps))
     expect(screen.getByText('58')).toBeInTheDocument()
   })
 
   it('renders the benchmark tier label', async () => {
-    render(await BrandHealthCard(defaultProps))
+    render(BrandHealthCard(defaultProps))
     expect(screen.getByText(/dashboard\.health\.tier\.growing/)).toBeInTheDocument()
   })
 
   it('renders 7 dimension rows', async () => {
-    render(await BrandHealthCard(defaultProps))
+    render(BrandHealthCard(defaultProps))
     const rows = screen.getAllByTestId('health-dimension')
     expect(rows).toHaveLength(7)
   })
 
   it('shows cold-start badge for dimensions with coldStart=true', async () => {
-    render(await BrandHealthCard(defaultProps))
+    render(BrandHealthCard(defaultProps))
     const coldStartBadges = screen.getAllByText('dashboard.health.coldStart')
     expect(coldStartBadges).toHaveLength(2)
   })
 
   it('renders action nudges', async () => {
-    render(await BrandHealthCard(defaultProps))
+    render(BrandHealthCard(defaultProps))
     expect(screen.getByText('Add 2 more product photos')).toBeInTheDocument()
     expect(screen.getByText('Link a social account')).toBeInTheDocument()
   })
 
   it('renders the profile drill-down with 9 checklist items', async () => {
-    render(await BrandHealthCard(defaultProps))
+    render(BrandHealthCard(defaultProps))
     const items = screen.getAllByTestId('completeness-checklist-item')
     expect(items).toHaveLength(9)
   })
 
   it('renders Edit Profile link with correct href', async () => {
-    render(await BrandHealthCard(defaultProps))
+    render(BrandHealthCard(defaultProps))
     const editLink = screen.getByRole('link', { name: /dashboard\.health\.editProfile/ })
     expect(editLink).toHaveAttribute('href', '/dashboard/brands/test-brand/edit')
   })
 
   it('renders progress bars with role=progressbar and aria attributes', async () => {
-    render(await BrandHealthCard(defaultProps))
+    render(BrandHealthCard(defaultProps))
     const bars = screen.getAllByRole('progressbar')
     expect(bars.length).toBeGreaterThanOrEqual(7)
     const first = bars[0]
@@ -121,7 +121,7 @@ describe('BrandHealthCard', () => {
   })
 
   it('does not render action queue when no nudges available', async () => {
-    render(await BrandHealthCard({ ...defaultProps, health: makeHealthScore({ topActions: [] }) }))
+    render(BrandHealthCard({ ...defaultProps, health: makeHealthScore({ topActions: [] }) }))
     expect(screen.queryByText(/dashboard\.health\.actionQueue\.title/)).not.toBeInTheDocument()
   })
 })
