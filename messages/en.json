@@ -738,7 +738,18 @@
       "last30Days": "Last 30 days",
       "trendUp": "Trending up",
       "trendDown": "Trending down",
-      "trendFlat": "No change"
+      "trendFlat": "No change",
+      "benchmark": {
+        "ctr": {
+          "good": "Good · ≥3% CTR",
+          "roomToGrow": "Room to grow · <3% CTR"
+        },
+        "views": {
+          "trendingUp": "Trending up",
+          "stable": "Stable",
+          "needsAttention": "Needs attention"
+        }
+      }
     },
     "onboarding": {
       "banner": {
@@ -750,6 +761,7 @@
         "action2Hint": "Help shoppers discover your brand story",
         "action3": "Add purchase links",
         "action3Hint": "Let interested shoppers buy directly",
+        "topPick": "Top pick",
         "cta": "Start editing",
         "dismiss": "Maybe later"
       },
@@ -814,6 +826,51 @@
           "hint": "Help nearby shoppers find your physical store",
           "nudge": "Help local shoppers find you in person."
         }
+      }
+    },
+    "health": {
+      "title": "Brand Health Score",
+      "subtitle": "How your brand is performing across 7 dimensions",
+      "tier": {
+        "gettingStarted": "Getting Started",
+        "growing": "Growing",
+        "thriving": "Thriving",
+        "exemplary": "Exemplary"
+      },
+      "tierRange": {
+        "gettingStarted": "0–39 · Profile needs attention",
+        "growing": "40–69 · Good foundation, room to optimize",
+        "thriving": "70–89 · Strong presence",
+        "exemplary": "90–100 · Best-in-class"
+      },
+      "actionQueue": {
+        "title": "Ready to grow? Here's what moves the needle",
+        "label": {
+          "profileCompleteness": "Complete your brand profile",
+          "engagementHealth": "Boost your engagement",
+          "brandStory": "Strengthen your brand story",
+          "photoQuality": "Add more product photos",
+          "socialPresence": "Link a social account",
+          "purchaseAccessibility": "Add a purchase link",
+          "clickThroughRate": "Improve your click-through rate"
+        }
+      },
+      "scoreBreakdown": "Score Breakdown",
+      "coldStart": "Collecting data...",
+      "coldStartHint": "Needs 7 days of data · check back soon",
+      "drillDown": {
+        "title": "Profile Completeness · 9-field checklist"
+      },
+      "editProfile": "Edit Profile",
+      "lastUpdated": "Last updated: {date}",
+      "dimension": {
+        "profileCompleteness": "Profile Completeness",
+        "engagementHealth": "Engagement Health",
+        "brandStory": "Brand Story",
+        "photoQuality": "Photo Quality",
+        "socialPresence": "Social Presence",
+        "purchaseAccessibility": "Purchase Accessibility",
+        "clickThroughRate": "Click-Through Rate"
       }
     },
     "mit": {

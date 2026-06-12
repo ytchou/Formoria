@@ -738,7 +738,18 @@
       "last30Days": "過去 30 天",
       "trendUp": "上升趨勢",
       "trendDown": "下降趨勢",
-      "trendFlat": "持平"
+      "trendFlat": "持平",
+      "benchmark": {
+        "ctr": {
+          "good": "良好 · CTR ≥3%",
+          "roomToGrow": "有改善空間 · CTR <3%"
+        },
+        "views": {
+          "trendingUp": "上升趨勢",
+          "stable": "穩定",
+          "needsAttention": "需要關注"
+        }
+      }
     },
     "onboarding": {
       "banner": {
@@ -750,6 +761,7 @@
         "action2Hint": "幫助消費者認識你的品牌故事",
         "action3": "新增購買連結",
         "action3Hint": "讓有興趣的人直接下單",
+        "topPick": "首選",
         "cta": "開始編輯",
         "dismiss": "稍後再說"
       },
@@ -814,6 +826,51 @@
           "hint": "讓附近的消費者找到你的實體店面",
           "nudge": "讓在地顧客找到實體據點。"
         }
+      }
+    },
+    "health": {
+      "title": "品牌健康分數",
+      "subtitle": "您的品牌在 7 個維度上的表現",
+      "tier": {
+        "gettingStarted": "起步中",
+        "growing": "成長中",
+        "thriving": "蓬勃發展",
+        "exemplary": "卓越典範"
+      },
+      "tierRange": {
+        "gettingStarted": "0–39 · 資料需要補充",
+        "growing": "40–69 · 基礎良好，還有優化空間",
+        "thriving": "70–89 · 品牌形象強烈",
+        "exemplary": "90–100 · 業界最佳"
+      },
+      "actionQueue": {
+        "title": "準備好成長了嗎？這些改變最有效",
+        "label": {
+          "profileCompleteness": "完善您的品牌資料",
+          "engagementHealth": "提升品牌互動",
+          "brandStory": "強化品牌故事",
+          "photoQuality": "新增更多產品照片",
+          "socialPresence": "連結社群帳號",
+          "purchaseAccessibility": "新增購買連結",
+          "clickThroughRate": "提升點擊率"
+        }
+      },
+      "scoreBreakdown": "分數明細",
+      "coldStart": "資料收集中...",
+      "coldStartHint": "需要 7 天資料 · 請稍後回來查看",
+      "drillDown": {
+        "title": "品牌完整度 · 9 項檢核"
+      },
+      "editProfile": "編輯品牌",
+      "lastUpdated": "最後更新：{date}",
+      "dimension": {
+        "profileCompleteness": "品牌完整度",
+        "engagementHealth": "互動健康度",
+        "brandStory": "品牌故事",
+        "photoQuality": "照片品質",
+        "socialPresence": "社群存在感",
+        "purchaseAccessibility": "購買管道",
+        "clickThroughRate": "點擊率"
       }
     },
     "mit": {

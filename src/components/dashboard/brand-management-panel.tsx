@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { getBrandBySlug } from "@/lib/services/brands";
 import { computeBrandCompleteness } from "@/lib/services/brand-completeness";
+import { computeBrandHealth } from "@/lib/services/brand-health";
 import {
   getAnalytics,
   getDailySeries,
@@ -19,8 +20,8 @@ import { AnalyticsCards } from "@/components/dashboard/analytics-cards";
 import { AnalyticsChart } from "@/components/dashboard/analytics-chart";
 import { LinkBreakdown } from "@/components/dashboard/link-breakdown";
 import { SourcesBreakdownCard } from "@/components/dashboard/sources-breakdown-card";
-import { BrandCompletenessCard } from "@/components/dashboard/brand-completeness-card";
 import { MitStatusCard } from "@/components/dashboard/mit-status-card";
+import { BrandHealthCard } from "./brand-health-card";
 import { WelcomeBanner } from "./welcome-banner";
 
 type Props = {
@@ -38,6 +39,7 @@ export async function BrandManagementPanel({ slug, claimedAt }: Props) {
     getLinkClickBreakdown(brand.id, 90),
     getSourceBreakdown(brand.id, 30),
   ]);
+  const health = computeBrandHealth(brand, analytics, new Date(brand.createdAt));
 
   const t = await getTranslations("dashboard.manage");
 
@@ -60,6 +62,7 @@ export async function BrandManagementPanel({ slug, claimedAt }: Props) {
           claimedAt={claimedAt}
           completionFraction={completeness.fraction}
           slug={brand.slug}
+          topAction={health.topActions[0]}
         />
         <h3 className="mb-4 text-sm font-semibold text-muted-foreground">
           {t("analyticsHeading")}
@@ -74,7 +77,11 @@ export async function BrandManagementPanel({ slug, claimedAt }: Props) {
       </div>
 
       <div className="mt-8">
-        <BrandCompletenessCard completeness={completeness} slug={brand.slug} />
+        <BrandHealthCard
+          health={health}
+          completeness={completeness}
+          slug={brand.slug}
+        />
       </div>
 
       <div className="mt-8">

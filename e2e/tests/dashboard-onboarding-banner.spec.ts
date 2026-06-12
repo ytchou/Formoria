@@ -14,10 +14,10 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
  * Journey 2: Owner dismisses WelcomeBanner
  *   - Clicking the dismiss button hides the banner (useState, no localStorage)
  *
- * Journey 3: BrandCompletenessCard shows tier1 and tier2 sections
- *   - Both tier labels visible; edit links present for incomplete items
+ * Journey 3: BrandHealthCard shows score breakdown dimensions and profile drill-down
+ *   - At least one health-dimension row visible; single edit-profile link present
  */
-test.describe('Dashboard — onboarding banner and completeness card', () => {
+test.describe('Dashboard — onboarding banner and health card', () => {
   let supabase: AnySupabaseClient;
   let brandId: string;
   let brandSlug: string;
@@ -142,7 +142,7 @@ test.describe('Dashboard — onboarding banner and completeness card', () => {
     ).toBeVisible({ timeout: 5_000 });
   });
 
-  test('Journey 3 — BrandCompletenessCard renders tier1 and tier2 sections with edit links', async ({ userPage }) => {
+  test('Journey 3 — BrandHealthCard renders score breakdown dimensions and edit-profile link', async ({ userPage }) => {
     const resp = await userPage.goto(`/dashboard?tab=${brandSlug}`);
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — onboarding tests skipped');
@@ -154,26 +154,21 @@ test.describe('Dashboard — onboarding banner and completeness card', () => {
       { timeout: 10_000 }
     );
 
-    // Tier 1 label: dashboard.onboarding.tier1Label = "重要項目"
-    await expect(
-      userPage.getByText('重要項目', { exact: true })
-    ).toBeVisible({ timeout: 10_000 });
+    // At least one dimension row in the score breakdown section
+    // dashboard.health.scoreBreakdown — each row carries data-testid="health-dimension"
+    const dimensionRows = userPage.locator('[data-testid="health-dimension"]');
+    await expect(dimensionRows.first()).toBeVisible({ timeout: 10_000 });
+    const dimCount = await dimensionRows.count();
+    expect(dimCount).toBeGreaterThanOrEqual(1);
 
-    // Tier 2 label: dashboard.onboarding.tier2Label = "加分項目"
-    await expect(
-      userPage.getByText('加分項目', { exact: true })
-    ).toBeVisible({ timeout: 5_000 });
+    // Profile drill-down checklist items (read-only) carry data-testid="completeness-checklist-item"
+    const checklistItems = userPage.locator('[data-testid="completeness-checklist-item"]');
+    await expect(checklistItems.first()).toBeVisible({ timeout: 5_000 });
 
-    // At least one edit CTA per tier: dashboard.completeness.editCta = "編輯"
-    // Tier 1 items for this brand: heroImage, logo, purchaseLinks, productPhotos are incomplete
-    // (description is the only complete tier1 item)
-    const editLinks = userPage.locator('[data-testid="completeness-item"] a', {
-      hasText: '編輯',
-    });
-    await expect(editLinks.first()).toBeVisible({ timeout: 5_000 });
-
-    // Confirm multiple edit links exist (at least 2 — one from tier1, one from tier2)
-    const count = await editLinks.count();
-    expect(count).toBeGreaterThanOrEqual(2);
+    // Single edit-profile CTA at card bottom: dashboard.health.editProfile = "編輯品牌"
+    const editProfileLink = userPage.getByRole('link', { name: '編輯品牌' });
+    await expect(editProfileLink).toBeVisible({ timeout: 5_000 });
+    const href = await editProfileLink.getAttribute('href');
+    expect(href).toContain(`/dashboard/brands/${brandSlug}/edit`);
   });
 });
