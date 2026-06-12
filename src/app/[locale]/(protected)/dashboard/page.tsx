@@ -241,6 +241,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
               <BrandManagementPanel
                 slug={selectedBrand.brandSlug}
                 claimedAt={selectedBrand.claimedAt}
+                userId={user?.id ?? ""}
               />
             ) : (
               submissionsSection

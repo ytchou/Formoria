@@ -9,6 +9,7 @@ import {
   getLinkClickBreakdown,
   getSourceBreakdown,
 } from "@/lib/services/brand-analytics";
+import { getLatestEditReview } from "@/lib/services/pending-edits";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -23,21 +24,24 @@ import { SourcesBreakdownCard } from "@/components/dashboard/sources-breakdown-c
 import { MitStatusCard } from "@/components/dashboard/mit-status-card";
 import { BrandHealthCard } from "./brand-health-card";
 import { WelcomeBanner } from "./welcome-banner";
+import { EditReviewBanner } from "@/components/brands/edit-review-banner";
 
 type Props = {
   slug: string;
   claimedAt: string | null;
+  userId: string;
 };
 
-export async function BrandManagementPanel({ slug, claimedAt }: Props) {
+export async function BrandManagementPanel({ slug, claimedAt, userId }: Props) {
   const brand = await getBrandBySlug(slug);
   const completeness = computeBrandCompleteness(brand);
 
-  const [analytics, series, breakdown, sources] = await Promise.all([
+  const [analytics, series, breakdown, sources, latestReview] = await Promise.all([
     getAnalytics(brand.id, 30),
     getDailySeries(brand.id, 90),
     getLinkClickBreakdown(brand.id, 90),
     getSourceBreakdown(brand.id, 30),
+    getLatestEditReview(brand.id, userId),
   ]);
   const health = computeBrandHealth(brand, analytics, new Date(brand.createdAt));
 
@@ -64,6 +68,7 @@ export async function BrandManagementPanel({ slug, claimedAt }: Props) {
           slug={brand.slug}
           topAction={health.topActions[0]}
         />
+        <EditReviewBanner edit={latestReview ?? null} brandSlug={brand.slug} />
         <h3 className="mb-4 text-sm font-semibold text-muted-foreground">
           {t("analyticsHeading")}
         </h3>

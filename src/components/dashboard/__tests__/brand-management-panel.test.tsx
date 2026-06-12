@@ -71,6 +71,14 @@ vi.mock('../welcome-banner', () => ({
   WelcomeBanner: () => <div data-testid="welcome-banner" />,
 }))
 
+vi.mock('@/lib/services/pending-edits', () => ({
+  getLatestEditReview: vi.fn(async () => null),
+}))
+
+vi.mock('@/components/brands/edit-review-banner', () => ({
+  EditReviewBanner: () => <div data-testid="edit-review-banner" />,
+}))
+
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
   return {
     id: 'brand-1',
@@ -105,7 +113,7 @@ describe('BrandManagementPanel', () => {
     const brand = makeBrand()
     vi.mocked(getBrandBySlug).mockResolvedValue(brand)
 
-    render(await BrandManagementPanel({ slug: 'test-brand', claimedAt: null }))
+    render(await BrandManagementPanel({ slug: 'test-brand', claimedAt: null, userId: 'user-1' }))
 
     expect(computeBrandHealth).toHaveBeenCalledWith(
       brand,
