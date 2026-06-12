@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
-import { NextIntlClientProvider } from 'next-intl'
 import zhMessages from '../../../messages/zh-TW.json'
 
 vi.mock('next/image', () => ({
@@ -11,29 +10,28 @@ vi.mock('next/image', () => ({
   ),
 }))
 
-vi.mock('next/link', () => ({
-  default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => <a href={href} {...props}>{children}</a>,
+vi.mock('@/i18n/navigation', () => ({
+  Link: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => <a href={href} {...props}>{children}</a>,
+}))
+
+vi.mock('next-intl/server', () => ({
+  getTranslations: vi.fn().mockResolvedValue((key: string) => {
+    const messages = zhMessages.landing.hero as Record<string, string>
+    return messages[key] ?? key
+  }),
 }))
 
 import HeroSection from './hero-section'
 
-function renderWithZhTW(ui: React.ReactElement) {
-  return render(
-    <NextIntlClientProvider locale="zh-TW" messages={zhMessages}>
-      {ui}
-    </NextIntlClientProvider>
-  )
-}
-
 describe('HeroSection', () => {
-  it('renders the main heading', () => {
-    renderWithZhTW(<HeroSection />)
+  it('renders the main heading', async () => {
+    render(await HeroSection({ brandCount: 100, categoryCount: 20 }))
     const heading = screen.getByRole('heading', { level: 1 })
     expect(heading).toBeInTheDocument()
   })
 
-  it('renders CTA link to /brands', () => {
-    renderWithZhTW(<HeroSection />)
+  it('renders CTA link to /brands', async () => {
+    render(await HeroSection({ brandCount: 100, categoryCount: 20 }))
     const link = screen.getByRole('link', { name: /探索所有品牌/ })
     expect(link).toHaveAttribute('href', '/brands')
   })

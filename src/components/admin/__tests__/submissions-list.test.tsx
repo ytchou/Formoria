@@ -166,10 +166,11 @@ describe('sourceAttribution in expanded row', () => {
 })
 
 describe('admin helper text', () => {
-  it('renders community review guidance above the table', () => {
+  it('renders the submissions table without helper text', () => {
     render(<SubmissionsList submissions={[]} />)
+    // Helper text was removed from submissions-list in admin UI cleanup
     expect(
-      screen.getByText(/Community submissions may have incomplete info/i)
-    ).toBeInTheDocument()
+      screen.queryByText(/Community submissions may have incomplete info/i)
+    ).not.toBeInTheDocument()
   })
 })

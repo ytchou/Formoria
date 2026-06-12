@@ -21,9 +21,9 @@ const mockTags = [
 describe('TagManager', () => {
   it('renders tags grouped by category', () => {
     render(<TagManager tags={mockTags} />)
-    // Use getAllByText since category names appear in both card headers and select
-    expect(screen.getAllByText('region').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('product_type').length).toBeGreaterThanOrEqual(1)
+    // Category labels are now in Mandarin
+    expect(screen.getAllByText('所在地區').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('產品類型').length).toBeGreaterThanOrEqual(1)
   })
 
   it('renders tag names', () => {
