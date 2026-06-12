@@ -8,6 +8,7 @@ import OriginStory from '@/components/about/origin-story'
 import TaiwanStats from '@/components/about/taiwan-stats'
 import MissionPillars from '@/components/about/mission-pillars'
 import HowItWorks from '@/components/about/how-it-works'
+import { TrustModel } from '@/components/about/trust-model'
 import { getBrandStats } from '@/lib/services/brands'
 
 export const revalidate = 3600
@@ -127,6 +128,8 @@ export default async function AboutPage({ params }: PageProps) {
           ]}
           cta={t('howItWorks.cta')}
         />
+
+        <TrustModel />
       </main>
     </>
   )
