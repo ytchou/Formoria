@@ -35,7 +35,17 @@ export default async function SubmitPage({ params }: SubmitPageProps) {
     return <SubmitOverview nextPath={locale === 'en' ? '/en/submit' : '/submit'} />
   }
 
-  const categories = await getTags('product_type')
+  const [categories, regionTags, valueTags] = await Promise.all([
+    getTags('product_type'),
+    getTags('region'),
+    getTags('value'),
+  ])
 
-  return <SubmitWizard categories={categories} />
+  return (
+    <SubmitWizard
+      categories={categories}
+      regionTags={regionTags}
+      valueTags={valueTags}
+    />
+  )
 }

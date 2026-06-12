@@ -29,6 +29,7 @@ import {
   SUBMISSION_STEP_NAMES,
   type SubmissionStepName,
 } from '@/lib/analytics'
+import type { TaxonomyTag } from '@/lib/types'
 import type { ScrapedBrandData, PhotoItem } from '@/lib/types/scraper'
 import type { SourceAttribution } from '@/lib/types/submission'
 
@@ -57,6 +58,8 @@ type Category = {
 
 type SubmitWizardProps = {
   categories: Category[]
+  regionTags?: TaxonomyTag[]
+  valueTags?: TaxonomyTag[]
   source?: 'header_cta' | 'hero_cta' | 'footer_link'
 }
 
