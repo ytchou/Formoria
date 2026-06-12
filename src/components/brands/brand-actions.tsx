@@ -8,6 +8,7 @@ import {
   trackExternalLinkClicked,
 } from '@/lib/analytics'
 import { ReportDialog } from '@/components/brands/report-dialog'
+import { SaveBrandButton } from './save-brand-button'
 
 interface BrandActionsProps {
   websiteUrl: string | null
@@ -52,6 +53,11 @@ export function BrandActions({ websiteUrl, brandSlug = '', brandId }: BrandActio
         >
           <Share2 className="size-[17px]" />
         </button>
+        {brandId && (
+          <div className="[&>button]:h-[42px] [&>button]:rounded-xl">
+            <SaveBrandButton brandId={brandId} variant="inline" />
+          </div>
+        )}
         {brandId && <ReportDialog brandId={brandId} brandSlug={brandSlug} />}
       </div>
       {websiteUrl && (
