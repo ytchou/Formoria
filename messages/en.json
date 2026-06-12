@@ -142,7 +142,7 @@
       "submitSuccess": "Your claim has been submitted.",
       "submitError": "Something went wrong. Please try again.",
       "communityTitle": "Is this your brand?",
-      "communityListing": "If you represent this brand, you can submit proof to claim and manage it — or, if you would prefer it not appear in the directory, you can request removal.",
+      "communityListing": "Claim your listing with business proof — domain email, backend access, or an official document. Once reviewed, you manage your brand's presence directly: update details, add products, and build trust with customers.",
       "claimButton": "Claim this brand",
       "proofHeading": "Submit claim proof",
       "proofPrompt": "Submit proof of ownership so we can review your claim request.",
@@ -592,6 +592,23 @@
         "description": "Approved brands join the directory with clear context so more people can discover, compare, and support them."
       },
       "cta": "Submit a Brand →"
+    },
+    "trust": {
+      "heading": "How We Build Trust",
+      "subtitle": "Listings start as community contributions — and when an owner steps forward with proof, they manage their brand directly.",
+      "tagline": "Community-curated. Owner-claimed. Proof-reviewed.",
+      "pillar1": {
+        "title": "Community-curated",
+        "desc": "Brands are discovered and shared by people who care about Taiwanese makers — real contributors, not automated bots."
+      },
+      "pillar2": {
+        "title": "Owner-claimed",
+        "desc": "Brand owners submit business proof — domain email, backend access, or official documents — to take ownership of their listing."
+      },
+      "pillar3": {
+        "title": "Proof-reviewed",
+        "desc": "Every claim is reviewed by our team before the brand-managed badge is granted. No self-certification."
+      }
     }
   },
   "mySubmissions": {
