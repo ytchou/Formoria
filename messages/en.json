@@ -721,7 +721,18 @@
       "last30Days": "Last 30 days",
       "trendUp": "Trending up",
       "trendDown": "Trending down",
-      "trendFlat": "No change"
+      "trendFlat": "No change",
+      "benchmark": {
+        "ctr": {
+          "good": "Good · ≥3% CTR",
+          "roomToGrow": "Room to grow · <3% CTR"
+        },
+        "views": {
+          "trendingUp": "Trending up",
+          "stable": "Stable",
+          "needsAttention": "Needs attention"
+        }
+      }
     },
     "onboarding": {
       "banner": {

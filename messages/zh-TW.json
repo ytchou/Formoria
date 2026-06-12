@@ -721,7 +721,18 @@
       "last30Days": "過去 30 天",
       "trendUp": "上升趨勢",
       "trendDown": "下降趨勢",
-      "trendFlat": "持平"
+      "trendFlat": "持平",
+      "benchmark": {
+        "ctr": {
+          "good": "良好 · CTR ≥3%",
+          "roomToGrow": "有改善空間 · CTR <3%"
+        },
+        "views": {
+          "trendingUp": "上升趨勢",
+          "stable": "穩定",
+          "needsAttention": "需要關注"
+        }
+      }
     },
     "onboarding": {
       "banner": {

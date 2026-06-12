@@ -72,4 +72,49 @@ describe('AnalyticsCards', () => {
     expect(screen.getByText('Outbound Clicks')).toBeInTheDocument()
     expect(screen.getAllByText('Last 30 days')).toHaveLength(2)
   })
+
+  it('shows a good CTR benchmark when CTR is at least 3%', () => {
+    render(
+      wrap(
+        <AnalyticsCards
+          totalViews={100}
+          totalClicks={6}
+          viewTrend="flat"
+          clickTrend="flat"
+        />
+      )
+    )
+
+    expect(screen.getByText('Good · ≥3% CTR')).toBeInTheDocument()
+  })
+
+  it('shows a room to grow CTR benchmark when CTR is below 3%', () => {
+    render(
+      wrap(
+        <AnalyticsCards
+          totalViews={100}
+          totalClicks={2}
+          viewTrend="flat"
+          clickTrend="flat"
+        />
+      )
+    )
+
+    expect(screen.getByText('Room to grow · <3% CTR')).toBeInTheDocument()
+  })
+
+  it('shows a trending up benchmark when views are trending up', () => {
+    render(
+      wrap(
+        <AnalyticsCards
+          totalViews={100}
+          totalClicks={2}
+          viewTrend="up"
+          clickTrend="flat"
+        />
+      )
+    )
+
+    expect(screen.getByText('Trending up')).toBeInTheDocument()
+  })
 })
