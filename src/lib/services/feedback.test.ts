@@ -45,7 +45,7 @@ afterEach(() => {
 // ---- createFeedbackFromTally ----
 
 describe('createFeedbackFromTally', () => {
-  it('inserts tally feedback with correct snake_case shape', async () => {
+  it('upserts tally feedback with correct snake_case shape', async () => {
     const { createFeedbackFromTally } = await import('./feedback')
 
     await createFeedbackFromTally({
@@ -59,7 +59,7 @@ describe('createFeedbackFromTally', () => {
     })
 
     expect(mockFrom).toHaveBeenCalledWith('feedback')
-    expect(mockInsert).toHaveBeenCalledWith(
+    expect(mockUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         source: 'tally',
         type: 'feedback',
@@ -68,7 +68,8 @@ describe('createFeedbackFromTally', () => {
         tally_response_id: 'resp_001',
         user_email: 'user@example.com',
         metadata: { rating: 5 },
-      })
+      }),
+      { onConflict: 'tally_response_id', ignoreDuplicates: true }
     )
   })
 })
@@ -116,13 +117,16 @@ describe('syncSentryFeedback', () => {
       })
     )
     expect(mockUpsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        source: 'sentry',
-        type: 'bug',
-        sentry_feedback_id: 'sentry_fb_1',
-        sentry_event_id: 'event_abc123',
-        user_email: 'tester@example.com',
-      }),
+      [
+        expect.objectContaining({
+          source: 'sentry',
+          type: 'bug',
+          title: null,
+          sentry_feedback_id: 'sentry_fb_1',
+          sentry_event_id: 'event_abc123',
+          user_email: 'tester@example.com',
+        }),
+      ],
       { onConflict: 'sentry_feedback_id' }
     )
     expect(result).toEqual({ synced: 1, errors: 0 })

@@ -29,7 +29,7 @@ type SentryFeedback = {
   name?: string | null
   email?: string | null
   comments?: string | null
-  dateCreated?: string | null
+  dateCreated: string
 }
 
 function normalizeMetadata(metadata: FeedbackRow['metadata']): Record<string, unknown> {
@@ -110,11 +110,12 @@ export async function createFeedbackFromTally(input: {
 
   const { error } = await supabase
     .from('feedback')
-    .insert(record)
-    .select()
-    .single()
+    .upsert(record, {
+      onConflict: 'tally_response_id',
+      ignoreDuplicates: true,
+    })
 
-  if (error) throw error
+  if (error) throw new Error(error.message)
 }
 
 export async function syncSentryFeedback(): Promise<{ synced: number; errors: number }> {
@@ -152,38 +153,28 @@ export async function syncSentryFeedback(): Promise<{ synced: number; errors: nu
   const { createServiceClient } = await import('@/lib/supabase/server')
   const supabase = createServiceClient()
 
-  let synced = 0
-  let errors = 0
+  const rows: FeedbackInsert[] = items.map((item) => ({
+    source: 'sentry',
+    type: 'bug',
+    title: null,
+    body: item.comments,
+    status: 'open',
+    user_email: item.email || null,
+    sentry_event_id: item.eventID || null,
+    sentry_feedback_id: item.id,
+    metadata: {},
+    created_at: item.dateCreated,
+  }))
 
-  for (const item of items) {
-    const record: FeedbackInsert = {
-      source: 'sentry',
-      type: 'bug',
-      title: item.name || null,
-      body: item.comments ?? null,
-      status: 'open',
-      user_email: item.email || null,
-      sentry_event_id: item.eventID ?? null,
-      sentry_feedback_id: item.id,
-      metadata: {
-        dateCreated: item.dateCreated ?? null,
-        name: item.name ?? null,
-      },
-      created_at: item.dateCreated ?? new Date().toISOString(),
-    }
+  const { error } = await supabase
+    .from('feedback')
+    .upsert(rows, { onConflict: 'sentry_feedback_id' })
 
-    const { error } = await supabase
-      .from('feedback')
-      .upsert(record, { onConflict: 'sentry_feedback_id' })
-
-    if (error) {
-      errors += 1
-    } else {
-      synced += 1
-    }
+  if (error) {
+    return { synced: 0, errors: rows.length }
   }
 
-  return { synced, errors }
+  return { synced: rows.length, errors: 0 }
 }
 
 export async function updateFeedbackStatus(
