@@ -13,6 +13,7 @@ import { MasonryGrid } from '@/components/brands/masonry-grid'
 import { BrandCard } from '@/components/brands/brand-card'
 import { Pagination } from '@/components/brands/pagination'
 import { SortSelect } from '@/components/brands/sort-select'
+import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import type { BrandFilters } from '@/lib/types'
@@ -169,22 +170,24 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
             </div>
           }
         >
-          {displayBrands.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 text-center">
-              <p className="text-base font-semibold text-foreground">
-                {t('emptyTitle')}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {t('emptyDescription')}
-              </p>
-            </div>
-          ) : (
-            <MasonryGrid>
-              {displayBrands.map((brand, index) => (
-                <BrandCard key={brand.id} brand={brand} priority={index < 4} />
-              ))}
-            </MasonryGrid>
-          )}
+          <SavedBrandsProvider>
+            {displayBrands.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <p className="text-base font-semibold text-foreground">
+                  {t('emptyTitle')}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t('emptyDescription')}
+                </p>
+              </div>
+            ) : (
+              <MasonryGrid>
+                {displayBrands.map((brand, index) => (
+                  <BrandCard key={brand.id} brand={brand} priority={index < 4} />
+                ))}
+              </MasonryGrid>
+            )}
+          </SavedBrandsProvider>
         </Suspense>
 
         <Pagination
