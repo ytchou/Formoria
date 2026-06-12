@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  computeBrandHealth,
-  type BrandHealthScore,
-  type DimensionKey,
-} from '../brand-health'
+import { computeBrandHealth } from '../brand-health'
 import { computeBrandCompleteness } from '../brand-completeness'
 import type { AnalyticsResult } from '../brand-analytics'
 import type { Brand } from '@/lib/database.types'
