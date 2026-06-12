@@ -28,6 +28,8 @@ import { createEmailPreferences } from '@/lib/services/email-lifecycle'
 import { generateClaimToken } from '@/lib/auth/claim-token'
 import { updateFlagStatus, getModerationFlag } from '@/lib/services/moderation'
 import { updateReportStatus } from '@/lib/services/reports'
+import { updateFeedbackStatus, syncSentryFeedback } from '@/lib/services/feedback'
+import type { FeedbackStatus } from '@/lib/services/feedback'
 import type { TagCategory, Brand } from '@/lib/types'
 
 async function requireAdmin(): Promise<{ userId: string; email: string } | { error: string }> {
@@ -825,6 +827,39 @@ export async function reviewReportAction(
     return {
       error: err instanceof Error ? err.message : 'An unexpected error occurred',
     }
+  }
+}
+
+export async function reviewFeedbackAction(
+  feedbackId: string,
+  decision: FeedbackStatus
+): Promise<{ error: string } | undefined> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth
+
+    await updateFeedbackStatus(feedbackId, decision)
+    revalidatePath('/admin/feedback')
+    return undefined
+  } catch (err) {
+    console.error('[admin:reviewFeedback]', err)
+    return { error: err instanceof Error ? err.message : 'An unexpected error occurred' }
+  }
+}
+
+export async function syncSentryFeedbackAction(): Promise<
+  { synced: number } | { error: string }
+> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return { error: auth.error }
+
+    const { synced } = await syncSentryFeedback()
+    revalidatePath('/admin/feedback')
+    return { synced }
+  } catch (err) {
+    console.error('[admin:syncSentry]', err)
+    return { error: err instanceof Error ? err.message : 'An unexpected error occurred' }
   }
 }
 
