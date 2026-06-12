@@ -40,7 +40,8 @@ const STEP_FIELDS: (keyof SubmissionFormData)[][] = [
     'name',
     'description',
     'category',
-    'tags',
+    'region',
+    'valueTags',
     'logoUrl',
   ],
   ['productPhotos', 'brandHighlights'],
@@ -89,7 +90,12 @@ function mapScrapedToPhotos(data: ScrapedBrandData): PhotoItem[] {
   return photos
 }
 
-export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardProps) {
+export function SubmitWizard({
+  categories,
+  regionTags = [],
+  valueTags = [],
+  source = 'hero_cta',
+}: SubmitWizardProps) {
   const t = useTranslations('submit')
   const router = useRouter()
 
@@ -148,7 +154,9 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
       name: '',
       description: '',
       category: '',
+      region: '',
       tags: [],
+      valueTags: [],
       logoUrl: '',
       productPhotos: [],
       brandHighlights: '',
@@ -289,6 +297,8 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
                 {currentStep === 0 && (
                   <BrandInfoStep
                     categories={categories}
+                    regionTags={regionTags}
+                    valueTags={valueTags}
                     uploadPath={uploadPath}
                     photos={photos}
                     onPhotosChange={setPhotos}

@@ -7,6 +7,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import zhMessages from '../../../messages/zh-TW.json'
 import { BrandInfoStep } from './BrandInfoStep'
 import type { PhotoItem } from '@/lib/types/scraper'
+import type { TaxonomyTag } from '@/lib/types/taxonomy'
 
 vi.mock('../upload/ImageUploader', () => ({
   ImageUploader: ({ onUpload }: { onUpload: (url: string) => void }) => (
@@ -22,7 +23,9 @@ function Wrapper({ children }: { children: React.ReactNode }) {
       name: '',
       description: '',
       category: '',
+      region: '',
       tags: [] as string[],
+      valueTags: [] as string[],
       logoUrl: '',
       brandHighlights: '',
     },
@@ -39,12 +42,40 @@ const mockCategories = [
   { slug: 'home', label: 'Lifestyle & Home', labelZh: '居家生活' },
 ]
 
+const mockRegionTags: TaxonomyTag[] = [
+  {
+    id: 'region-1',
+    name: 'Taipei',
+    nameZh: '台北',
+    slug: 'taipei',
+    category: 'region',
+    isActive: true,
+    suggestedBy: null,
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+]
+
+const mockValueTags: TaxonomyTag[] = [
+  {
+    id: 'value-1',
+    name: 'Sustainable',
+    nameZh: '永續',
+    slug: 'sustainable',
+    category: 'value',
+    isActive: true,
+    suggestedBy: null,
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+]
+
 describe('BrandInfoStep', () => {
   it('renders all form fields', () => {
     render(
       <Wrapper>
         <BrandInfoStep
           categories={mockCategories}
+          regionTags={mockRegionTags}
+          valueTags={mockValueTags}
           uploadPath="brands/test-uuid"
         />
       </Wrapper>
@@ -62,6 +93,8 @@ describe('BrandInfoStep', () => {
       <Wrapper>
         <BrandInfoStep
           categories={mockCategories}
+          regionTags={mockRegionTags}
+          valueTags={mockValueTags}
           uploadPath="brands/test-uuid"
         />
       </Wrapper>
@@ -77,6 +110,8 @@ describe('BrandInfoStep', () => {
       <Wrapper>
         <BrandInfoStep
           categories={mockCategories}
+          regionTags={mockRegionTags}
+          valueTags={mockValueTags}
           uploadPath="brands/test-uuid"
         />
       </Wrapper>
@@ -98,6 +133,8 @@ describe('BrandInfoStep photo gallery', () => {
       <Wrapper>
         <BrandInfoStep
           categories={mockCategories}
+          regionTags={mockRegionTags}
+          valueTags={mockValueTags}
           uploadPath="brands/test-uuid"
           photos={scrapedPhotos}
           onPhotosChange={vi.fn()}
@@ -116,6 +153,8 @@ describe('BrandInfoStep photo gallery', () => {
       <Wrapper>
         <BrandInfoStep
           categories={mockCategories}
+          regionTags={mockRegionTags}
+          valueTags={mockValueTags}
           uploadPath="brands/test-uuid"
           photos={scrapedPhotos}
           onPhotosChange={vi.fn()}
@@ -134,6 +173,8 @@ describe('BrandInfoStep photo gallery', () => {
       <Wrapper>
         <BrandInfoStep
           categories={mockCategories}
+          regionTags={mockRegionTags}
+          valueTags={mockValueTags}
           uploadPath="brands/test-uuid"
           photos={scrapedPhotos}
           onPhotosChange={onChange}
@@ -154,6 +195,8 @@ describe('BrandInfoStep photo gallery', () => {
       <Wrapper>
         <BrandInfoStep
           categories={mockCategories}
+          regionTags={mockRegionTags}
+          valueTags={mockValueTags}
           uploadPath="brands/test-uuid"
           photos={[]}
           onPhotosChange={vi.fn()}
@@ -173,6 +216,8 @@ describe('BrandInfoStep photo gallery', () => {
       <Wrapper>
         <BrandInfoStep
           categories={mockCategories}
+          regionTags={mockRegionTags}
+          valueTags={mockValueTags}
           uploadPath="brands/test-uuid"
           photos={scrapedPhotos}
           onPhotosChange={vi.fn()}
