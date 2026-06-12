@@ -219,4 +219,31 @@ describe('server action schema routing', () => {
     const payload = mockCreateBrand.mock.calls[0][0]
     expect('founder' in payload).toBe(false)
   })
+
+  it('stores structured suggestedTags with region and values', async () => {
+    await submitBrand({
+      name: 'Test Brand',
+      description: 'A'.repeat(40),
+      category: 'fashion',
+      region: 'taipei',
+      valueTags: ['sustainability'],
+      tags: [],
+      logoUrl: 'https://example.com/logo.png',
+      isOwner: false,
+      purchaseLinks: [],
+      pdpaConsent: true,
+      socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
+      sourceAttribution: 'found_online',
+      productPhotos: [],
+      brandHighlights: '',
+      retailLocations: [],
+      turnstileToken: 'test-token',
+    })
+
+    expect(mockCreateSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({
+        suggestedTags: { region: 'taipei', values: ['sustainability'] },
+      })
+    )
+  })
 })
