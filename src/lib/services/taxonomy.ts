@@ -322,6 +322,47 @@ export async function removeTagFromBrand(brandId: string, tagId: string): Promis
   if (error) throw error
 }
 
+export async function getTagBySlug(slug: string): Promise<TaxonomyTag | null> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('taxonomy_tags')
+    .select('*')
+    .eq('slug', slug)
+    .maybeSingle()
+  if (error) throw error
+  return data ? tagToDomain(data) : null
+}
+
+export async function updateBrandCategoryTags(
+  brandId: string,
+  category: TagCategory,
+  tagIds: string[]
+): Promise<void> {
+  const supabase = createServiceClient()
+  const { data: existingRows, error: fetchErr } = await supabase
+    .from('brand_taxonomy')
+    .select('tag_id, taxonomy_tags!inner(category)')
+    .eq('brand_id', brandId)
+    .eq('taxonomy_tags.category', category)
+  if (fetchErr) throw fetchErr
+
+  const existingTagIds = (existingRows ?? []).map((r) => r.tag_id)
+  if (existingTagIds.length > 0) {
+    const { error: deleteErr } = await supabase
+      .from('brand_taxonomy')
+      .delete()
+      .eq('brand_id', brandId)
+      .in('tag_id', existingTagIds)
+    if (deleteErr) throw deleteErr
+  }
+  if (tagIds.length > 0) {
+    const { error: insertErr } = await supabase
+      .from('brand_taxonomy')
+      .insert(tagIds.map((tagId) => ({ brand_id: brandId, tag_id: tagId })))
+    if (insertErr) throw insertErr
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Review queries
 // ---------------------------------------------------------------------------
