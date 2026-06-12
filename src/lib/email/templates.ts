@@ -14,6 +14,23 @@ function escapeHtml(str: string): string {
 }
 
 const FROM_ADDRESS = `Formoria <${CONTACT_EMAILS.noreply}>`
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://formoria.com'
+const MICROSITE_HOST = process.env.MICROSITE_HOST ?? 'brand.formoria.com'
+
+function unsubscribeUrl(token: string): string {
+  return SITE_URL + '/api/email/unsubscribe?token=' + token
+}
+
+function unsubscribeFooter(token: string): string {
+  return '<p style="color:#888;font-size:12px;margin-top:32px;">如不希望收到此類郵件，請<a href="' + unsubscribeUrl(token) + '">點此取消訂閱</a>。<br>To unsubscribe from lifecycle emails, <a href="' + unsubscribeUrl(token) + '">click here</a>.</p>'
+}
+
+function listUnsubscribeHeaders(token: string): Record<string, string> {
+  return {
+    'List-Unsubscribe': '<' + unsubscribeUrl(token) + '>',
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+  }
+}
 
 const ERROR_LABELS: Record<ValidationErrorCode, { 'zh-TW': string; en: string }> = {
   brand_name_empty: { 'zh-TW': '品牌名稱為必填', en: 'Brand name is required' },
@@ -392,6 +409,194 @@ export function buildIncompleteSubmissionEmail(params: {
         <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
         <p style="color: #6b7280; font-size: 14px;">Formoria — 台灣品牌目錄</p>
       </div>
+    `.trim(),
+  }
+}
+
+export function buildMitVerificationSubmittedEmail(params: {
+  to: string
+  brandName: string
+}): EmailMessage {
+  const brandName = escapeHtml(params.brandName)
+
+  return {
+    to: params.to,
+    from: FROM_ADDRESS,
+    subject: `MIT verification submitted — ${brandName}`,
+    replyTo: 'ops@formoria.com',
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>MIT 驗證已收到</h2>
+        <p>我們已收到 <strong>${brandName}</strong> 的 MIT 驗證申請，團隊將開始審核。</p>
+        <p>We received your MIT verification submission for <strong>${brandName}</strong> and will review it shortly.</p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+        <p style="color: #6b7280; font-size: 14px;">Formoria — 台灣品牌目錄</p>
+      </div>
+    `.trim(),
+  }
+}
+
+export function buildMitVerificationApprovedEmail(params: {
+  to: string
+  brandName: string
+}): EmailMessage {
+  const brandName = escapeHtml(params.brandName)
+
+  return {
+    to: params.to,
+    from: FROM_ADDRESS,
+    subject: `MIT verification approved — ${brandName}`,
+    replyTo: 'ops@formoria.com',
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>MIT 品牌已驗證</h2>
+        <p><strong>${brandName}</strong> 的 MIT 驗證已通過，品牌頁面將顯示已驗證標章。</p>
+        <p><strong>${brandName}</strong> is now verified and will show the verified badge on Formoria.</p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+        <p style="color: #6b7280; font-size: 14px;">Formoria — 台灣品牌目錄</p>
+      </div>
+    `.trim(),
+  }
+}
+
+export function buildMitVerificationNeedsDocsEmail(params: {
+  to: string
+  brandName: string
+  notes: string
+}): EmailMessage {
+  const brandName = escapeHtml(params.brandName)
+  const notes = escapeHtml(params.notes)
+
+  return {
+    to: params.to,
+    from: FROM_ADDRESS,
+    subject: `MIT verification needs additional documents — ${brandName}`,
+    replyTo: 'ops@formoria.com',
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>MIT 驗證需要補充文件</h2>
+        <p><strong>${brandName}</strong> 的 MIT 驗證需要補充文件後才能繼續審核。</p>
+        <p>Please provide the additional documents requested below so we can continue the MIT verification review.</p>
+        <blockquote style="border-left: 3px solid #d1d5db; padding-left: 12px; color: #374151;">
+          ${notes}
+        </blockquote>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+        <p style="color: #6b7280; font-size: 14px;">Formoria — 台灣品牌目錄</p>
+      </div>
+    `.trim(),
+  }
+}
+
+export function buildWelcomeEmail(params: {
+  to: string
+  brandName: string
+  brandSlug: string
+  unsubscribeToken: string
+}): EmailMessage {
+  const brandName = escapeHtml(params.brandName)
+  const brandSlug = escapeHtml(params.brandSlug)
+  const dashboardUrl = `${SITE_URL}/dashboard`
+  const micrositeUrl = `https://${MICROSITE_HOST}/${brandSlug}`
+
+  return {
+    to: params.to,
+    from: FROM_ADDRESS,
+    subject: `歡迎加入 Formoria — ${brandName}`,
+    replyTo: 'ops@formoria.com',
+    headers: listUnsubscribeHeaders(params.unsubscribeToken),
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>歡迎，${brandName}</h2>
+        <p>您的品牌工作區已準備好。您可以前往後台管理品牌資料：</p>
+        <p><a href="${dashboardUrl}" style="color: #2563eb;">${dashboardUrl}</a></p>
+        <p>品牌微官網連結：</p>
+        <p><a href="${micrositeUrl}" style="color: #2563eb;">${micrositeUrl}</a></p>
+      </div>
+      ${unsubscribeFooter(params.unsubscribeToken)}
+    `.trim(),
+  }
+}
+
+export function buildProfileNudgeEmail(params: {
+  to: string
+  brandName: string
+  completenessPercent: number
+  missingFields: string[]
+  unsubscribeToken: string
+}): EmailMessage {
+  const brandName = escapeHtml(params.brandName)
+  const missingFields = params.missingFields
+    .map((field) => `<li>${escapeHtml(field)}</li>`)
+    .join('\n')
+
+  return {
+    to: params.to,
+    from: FROM_ADDRESS,
+    subject: `完善 ${brandName} 的品牌資料 — Formoria`,
+    replyTo: 'ops@formoria.com',
+    headers: listUnsubscribeHeaders(params.unsubscribeToken),
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>讓 ${brandName} 的品牌頁更完整</h2>
+        <p>目前資料完整度為 <strong>${params.completenessPercent}%</strong>。</p>
+        <p>建議補齊以下欄位：</p>
+        <ul>${missingFields}</ul>
+      </div>
+      ${unsubscribeFooter(params.unsubscribeToken)}
+    `.trim(),
+  }
+}
+
+export function buildMicrositeSpotlightEmail(params: {
+  to: string
+  brandName: string
+  brandSlug: string
+  unsubscribeToken: string
+}): EmailMessage {
+  const brandName = escapeHtml(params.brandName)
+  const brandSlug = escapeHtml(params.brandSlug)
+  const micrositeUrl = `https://${MICROSITE_HOST}/${brandSlug}`
+
+  return {
+    to: params.to,
+    from: FROM_ADDRESS,
+    subject: `${brandName} 的品牌官網已就緒 — Formoria`,
+    replyTo: 'ops@formoria.com',
+    headers: listUnsubscribeHeaders(params.unsubscribeToken),
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>${brandName} 的品牌官網</h2>
+        <p>您可以分享這個 Formoria 品牌官網，讓買家更快認識您的品牌：</p>
+        <p><a href="${micrositeUrl}" style="color: #2563eb;">${micrositeUrl}</a></p>
+      </div>
+      ${unsubscribeFooter(params.unsubscribeToken)}
+    `.trim(),
+  }
+}
+
+export function buildReEngagementEmail(params: {
+  to: string
+  brandName: string
+  brandSlug: string
+  unsubscribeToken: string
+}): EmailMessage {
+  const brandName = escapeHtml(params.brandName)
+  const brandSlug = escapeHtml(params.brandSlug)
+  const dashboardUrl = `${SITE_URL}/dashboard?tab=${brandSlug}`
+
+  return {
+    to: params.to,
+    from: FROM_ADDRESS,
+    subject: `回來完善 ${brandName} 的品牌頁 — Formoria`,
+    replyTo: 'ops@formoria.com',
+    headers: listUnsubscribeHeaders(params.unsubscribeToken),
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>繼續完善 ${brandName}</h2>
+        <p>您的品牌代稱是 <strong>${brandSlug}</strong>。完成品牌資料後，買家能更清楚了解您的產品與故事。</p>
+        <p><a href="${dashboardUrl}" style="color: #2563eb;">回到品牌後台</a></p>
+      </div>
+      ${unsubscribeFooter(params.unsubscribeToken)}
     `.trim(),
   }
 }

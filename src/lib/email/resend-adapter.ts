@@ -16,6 +16,10 @@ export function createResendProvider(apiKey: string): EmailProvider {
         body.reply_to = message.replyTo
       }
 
+      if (message.headers) {
+        body.headers = message.headers
+      }
+
       const response = await fetch(RESEND_API_URL, {
         method: 'POST',
         headers: {

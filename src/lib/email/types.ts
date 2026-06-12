@@ -4,6 +4,7 @@ export type EmailMessage = {
   subject: string
   html: string
   replyTo?: string
+  headers?: Record<string, string>
 }
 
 export type EmailSendResult = {
