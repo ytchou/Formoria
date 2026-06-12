@@ -16,13 +16,6 @@ describe('microsite host rewrite', () => {
     expect(res.headers.get('x-middleware-rewrite')).toContain('/site/warmwood-living')
   })
 
-  it('stays public under PREVIEW_MODE (no under-construction 503)', async () => {
-    process.env.PREVIEW_MODE = 'true'
-    const res = await middleware(req('brand.formoria.com', '/warmwood-living'))
-    expect(res.headers.get('x-middleware-rewrite')).toContain('/site/warmwood-living')
-    expect(res.status).not.toBe(503)
-  })
-
   it('does NOT rewrite the main host', async () => {
     const res = await middleware(req('formoria.com', '/warmwood-living'))
     expect(res.headers.get('x-middleware-rewrite') ?? '').not.toContain('/site/')

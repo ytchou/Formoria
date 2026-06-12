@@ -3,7 +3,6 @@ import createMiddleware from 'next-intl/middleware'
 import { NextResponse, type NextRequest } from "next/server";
 import { routing } from '@/i18n/routing'
 import { resolveAdminModeCookie } from '@/lib/auth/admin-mode-cookie'
-import { underConstructionHtml } from "@/lib/preview/under-construction";
 import { checkRateLimit } from "@/lib/security/rate-limiter";
 
 /**
@@ -59,20 +58,6 @@ export function isLocalizedPublicPath(pathname: string) {
   }
 
   return PUBLIC_INTL_SEGMENTS.has(firstSegment)
-}
-
-function previewAllowedEmails(): Set<string> {
-  const emails = [
-    process.env.ADMIN_EMAILS,
-    process.env.PREVIEW_ALLOWED_EMAILS,
-  ]
-
-  return new Set(
-    emails
-      .flatMap((value) => value?.split(',') ?? [])
-      .map((email) => email.trim().toLowerCase())
-      .filter((email) => email.length > 0)
-  )
 }
 
 async function refreshSupabaseSession(request: NextRequest, response: NextResponse) {
@@ -139,53 +124,6 @@ export async function middleware(request: NextRequest) {
   }
 
   const { pathname } = request.nextUrl
-
-  if (
-    process.env.PREVIEW_MODE === 'true' &&
-    !pathname.startsWith('/auth/') &&
-    pathname !== '/api/health' &&
-    pathname !== '/api/claim/verify-email' &&
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  ) {
-    const supabaseResponse = NextResponse.next({ request })
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return request.cookies.getAll();
-          },
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value }) =>
-              request.cookies.set(name, value)
-            );
-            cookiesToSet.forEach(({ name, value, options }) =>
-              supabaseResponse.cookies.set(name, value, options)
-            );
-          },
-        },
-      }
-    );
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    const allowedEmails = previewAllowedEmails()
-    const userEmail = user?.email?.toLowerCase()
-    const isPreviewAllowed = userEmail ? allowedEmails.has(userEmail) : false
-
-    if (!isPreviewAllowed) {
-      return new NextResponse(underConstructionHtml, {
-        status: 503,
-        headers: {
-          'content-type': 'text/html; charset=utf-8',
-          'retry-after': '86400',
-          'cache-control': 'no-store',
-        },
-      })
-    }
-  }
 
   // Check rate limit before regular request processing
   const rateLimitResponse = checkRateLimit(request)
