@@ -5,10 +5,13 @@ import { useFormContext, Controller } from 'react-hook-form'
 import { useTranslations } from 'next-intl'
 import { Pencil } from 'lucide-react'
 import type { SubmissionFormData } from '@/lib/validations/submission'
+import type { TaxonomyTag } from '@/lib/types'
 import { TurnstileWidget } from './TurnstileWidget'
 
 type ReviewStepProps = {
   onEditStep: (stepIndex: number) => void
+  regionTags?: TaxonomyTag[]
+  valueTags?: TaxonomyTag[]
 }
 
 function SectionHeader({

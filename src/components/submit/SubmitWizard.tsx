@@ -155,7 +155,6 @@ export function SubmitWizard({
       description: '',
       category: '',
       region: '',
-      tags: [],
       valueTags: [],
       logoUrl: '',
       productPhotos: [],
@@ -185,10 +184,6 @@ export function SubmitWizard({
         facebook: data.socialLinks.facebook ?? '',
         website: data.websiteUrl,
       })
-
-      if (data.categoryHints.length > 0) {
-        methods.setValue('tags', data.categoryHints.slice(0, 5))
-      }
 
       setPhotos(mapScrapedToPhotos(data))
       setPhase('form')
@@ -310,7 +305,11 @@ export function SubmitWizard({
                 )}
                 {currentStep === 2 && <LinksStep isOwner={isOwner} />}
                 {currentStep === 3 && (
-                  <ReviewStep onEditStep={handleEditStep} />
+                  <ReviewStep
+                    onEditStep={handleEditStep}
+                    regionTags={regionTags}
+                    valueTags={valueTags}
+                  />
                 )}
 
                 {submitError && (
