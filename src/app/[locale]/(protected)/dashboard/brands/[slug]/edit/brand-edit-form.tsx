@@ -10,10 +10,12 @@ import { Label } from "@/components/ui/label";
 import { ImageUploadField } from "@/components/forms/image-upload-field";
 import { DynamicArrayField } from "@/components/forms/dynamic-array-field";
 import { ProductPhotosField } from "@/components/forms/product-photos-field";
-import type { Brand } from "@/lib/types";
+import type { Brand, TaxonomyTag } from "@/lib/types";
 
 type BrandEditFormProps = {
   brand: Brand;
+  regionTags?: TaxonomyTag[];
+  valueTags?: TaxonomyTag[];
 };
 
 export function BrandEditForm({ brand }: BrandEditFormProps) {
