@@ -77,7 +77,12 @@ describe('previewBulkImportAction', () => {
 
   it('returns preview rows with status for valid CSV', async () => {
     vi.mocked(parseBrandCSV).mockReturnValue([
-      { name: 'Taiwan Tea', description: 'A wonderful tea brand that meets the minimum length requirement here.', category: 'Food' },
+      {
+        name: 'Taiwan Tea',
+        description: 'A wonderful tea brand that meets the minimum length requirement here.',
+        category: 'Food',
+        productTypes: ['fashion'],
+      },
     ])
     vi.mocked(findSimilarBrands).mockResolvedValue([])
     const result = await previewBulkImportAction('name,description,category\n...')
@@ -87,7 +92,12 @@ describe('previewBulkImportAction', () => {
 
   it('marks row as potential-duplicate when similarity match found', async () => {
     vi.mocked(parseBrandCSV).mockReturnValue([
-      { name: 'Taiwan Tea', description: 'A wonderful tea brand that meets the minimum length requirement here.', category: 'Food' },
+      {
+        name: 'Taiwan Tea',
+        description: 'A wonderful tea brand that meets the minimum length requirement here.',
+        category: 'Food',
+        productTypes: ['fashion'],
+      },
     ])
     vi.mocked(findSimilarBrands).mockResolvedValue([
       { inputName: 'Taiwan Tea', brandName: 'Taiwan Tea Co', brandSlug: 'taiwan-tea-co', score: 0.75 },

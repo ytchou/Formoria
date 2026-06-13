@@ -272,6 +272,8 @@ export function normalizeRow(rawRow: RawSeedRow): CuratedSubmissionInput {
     valueTags: parseStringArray(rawRow.valueTags ?? rawRow.tags, 'valueTags'),
     logoUrl: getString(rawRow.logoUrl),
     productPhotos: parseStringArray(rawRow.productPhotos, 'productPhotos'),
+    productTypes: parseStringArray(rawRow.productTypes ?? rawRow.product_type, 'productTypes'),
+    productTypeNote: getString(rawRow.productTypeNote ?? rawRow.product_type_note),
     brandHighlights: getString(rawRow.brandHighlights),
     purchaseLinks: parseObjectArray(rawRow.purchaseLinks, 'purchaseLinks'),
     socialLinks: {
