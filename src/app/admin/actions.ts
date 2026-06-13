@@ -74,7 +74,7 @@ export type PreviewRow = {
 
 export type ImportResult = {
   name: string
-  status: 'imported' | 'error'
+  status: 'imported' | 'skipped' | 'error'
   error?: string
 }
 
@@ -998,7 +998,7 @@ export async function executeBulkImportAction(
       status: 'imported',
     }))
 
-    const preparedRows: Array<{ index: number; insert: Record<string, unknown> }> = []
+    const preparedRows: Array<{ index: number; slug: string; insert: Record<string, unknown> }> = []
     selectedRows.forEach((row, index) => {
       try {
         const brand = curatedSubmissionToBrand(
@@ -1006,6 +1006,7 @@ export async function executeBulkImportAction(
         )
         preparedRows.push({
           index,
+          slug: row.slug,
           insert: {
             ...brandToInsert(brand),
             approved_at: new Date().toISOString(),
@@ -1022,9 +1023,10 @@ export async function executeBulkImportAction(
 
     for (let index = 0; index < preparedRows.length; index += 100) {
       const batch = preparedRows.slice(index, index + 100)
-      const { error } = await supabase
+      const { data: insertedRows, error } = await supabase
         .from('brands')
         .upsert(batch.map((row) => row.insert), { onConflict: 'slug', ignoreDuplicates: true })
+        .select('slug')
 
       if (error) {
         for (const row of batch) {
@@ -1032,6 +1034,15 @@ export async function executeBulkImportAction(
             name: selectedRows[row.index].name,
             status: 'error',
             error: error.message,
+          }
+        }
+      } else {
+        const insertedSlugs = new Set((insertedRows ?? []).map((r: { slug: string }) => r.slug))
+        for (const row of batch) {
+          const wasInserted = insertedSlugs.has(row.slug)
+          results[row.index] = {
+            name: selectedRows[row.index].name,
+            status: wasInserted ? 'imported' : 'skipped',
           }
         }
       }

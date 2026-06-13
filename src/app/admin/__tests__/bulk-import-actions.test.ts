@@ -1,10 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const authState = vi.hoisted(() => ({
-  user: { id: 'admin-1', email: 'admin@formoria.com' },
-  isAdmin: true,
-  upsert: vi.fn(() => Promise.resolve({ error: null })),
-}))
+const authState = vi.hoisted(() => {
+  const state = {
+    user: { id: 'admin-1', email: 'admin@formoria.com' },
+    isAdmin: true,
+    select: vi.fn(() => Promise.resolve({ data: [], error: null })),
+  }
+
+  return {
+    ...state,
+    upsert: vi.fn(() => ({
+      select: state.select,
+    })),
+  }
+})
 
 vi.mock('@/lib/auth/admin-mode', () => ({
   isActingAsAdmin: vi.fn(() => authState.isAdmin),
@@ -51,7 +60,7 @@ describe('previewBulkImportAction', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     authState.isAdmin = true
-    authState.upsert.mockResolvedValue({ error: null })
+    authState.select.mockResolvedValue({ data: [], error: null })
   })
 
   it('returns error when not admin', async () => {
@@ -93,7 +102,7 @@ describe('executeBulkImportAction', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     authState.isAdmin = true
-    authState.upsert.mockResolvedValue({ error: null })
+    authState.select.mockResolvedValue({ data: [], error: null })
   })
 
   it('returns error when not admin', async () => {

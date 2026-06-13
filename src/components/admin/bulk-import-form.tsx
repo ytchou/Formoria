@@ -46,6 +46,10 @@ function resultStatusBadge(result: ImportResult) {
     return <Badge variant="destructive">Error</Badge>
   }
 
+  if (result.status === 'skipped') {
+    return <Badge className="bg-yellow-50 text-yellow-800">Skipped</Badge>
+  }
+
   return <Badge className="bg-[#EAF3E8] text-[#2D5A27]">Imported</Badge>
 }
 
@@ -65,6 +69,7 @@ export function BulkImportForm() {
     selectableIndices.length > 0 &&
     selectableIndices.every((index) => selectedIndices.has(index))
   const importedCount = results.filter((result) => result.status === 'imported').length
+  const skippedCount = results.filter((result) => result.status === 'skipped').length
   const errorCount = results.filter((result) => result.status === 'error').length
 
   async function handlePreview() {
@@ -246,7 +251,7 @@ export function BulkImportForm() {
       {phase === 'results' && (
         <div className="space-y-4">
           <p className="text-sm font-medium text-foreground">
-            {importedCount} imported, {errorCount} errors
+            {importedCount} imported, {skippedCount} skipped, {errorCount} errors
           </p>
           <div className="rounded-xl border border-border bg-card p-4">
             <Table>
