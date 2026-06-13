@@ -186,3 +186,104 @@ test.describe('Admin pending-edits review queue', () => {
     await expect(adminPage.getByRole('button', { name: '確認退回' })).toBeHidden({ timeout: 15_000 });
   });
 });
+
+test.describe('Admin pending-edits — risk badge visibility', () => {
+  test.beforeEach(() => {
+    const adminEmail = process.env.E2E_ADMIN_EMAIL;
+    const list = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim());
+    test.skip(
+      !adminEmail || !list.includes(adminEmail),
+      'E2E_ADMIN_EMAIL not in ADMIN_EMAILS — admin tests require matching env',
+    );
+  });
+
+  let supabase: AnySupabaseClient;
+  let riskBrandId: string;
+
+  test.beforeAll(async () => {
+    supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+
+    const { data: usersData, error: usersError } = await supabase.auth.admin.listUsers();
+    if (usersError) throw new Error(`Failed to list users: ${usersError.message}`);
+    const testUser = usersData.users.find((u) => u.email === process.env.E2E_USER_EMAIL);
+    if (!testUser) throw new Error(`E2E test user not found: ${process.env.E2E_USER_EMAIL}`);
+
+    const ts = Date.now();
+    const brandSlug = `e2e-pending-edit-risk-${ts}`;
+
+    // Seed brand
+    const { data: brandData, error: brandErr } = await supabase
+      .from('brands')
+      .insert({
+        name: `[E2E-TEST] PendingEdit Risk ${ts}`,
+        slug: brandSlug,
+        status: 'approved',
+        description: '[E2E-TEST] Original description for risk badge test',
+        purchase_links: [],
+        social_links: {},
+        retail_locations: [],
+        product_photos: [],
+      })
+      .select('id')
+      .single();
+    if (brandErr || !brandData) throw new Error(`seed risk brand: ${brandErr?.message}`);
+    riskBrandId = brandData.id;
+
+    await supabase.from('brand_owners').insert({ user_id: testUser.id, brand_id: riskBrandId });
+
+    // Seed pending_brand_edit (status: 'pending')
+    const { data: editData, error: editErr } = await supabase
+      .from('pending_brand_edits')
+      .insert({
+        brand_id: riskBrandId,
+        submitted_by: testUser.id,
+        proposed_data: { description: '[E2E-TEST] Proposed description with phone 0912-345-678' },
+        status: 'pending',
+      })
+      .select('id')
+      .single();
+    if (editErr || !editData) throw new Error(`seed pending_brand_edit: ${editErr?.message}`);
+
+    // Seed a medium-risk moderation flag (tier2) for this brand
+    const { error: flagErr } = await supabase.from('moderation_flags').insert({
+      brand_id: riskBrandId,
+      user_id: testUser.id,
+      field_name: 'description',
+      flag_reason: 'Taiwan phone number detected',
+      flagged_content: '[E2E-TEST] Proposed description with phone 0912-345-678',
+      tier: 'flag',
+      status: 'pending',
+    });
+    if (flagErr) throw new Error(`seed moderation_flag: ${flagErr.message}`);
+  });
+
+  test.afterAll(async () => {
+    const ids = [riskBrandId].filter(Boolean);
+    if (ids.length) {
+      await supabase.from('moderation_flags').delete().in('brand_id', ids);
+      await supabase.from('pending_brand_edits').delete().in('brand_id', ids);
+      await supabase.from('brand_owners').delete().in('brand_id', ids);
+      await supabase.from('brands').delete().in('id', ids);
+    }
+  });
+
+  test('pending edit row with medium-risk moderation flag shows 中風險 badge', async ({
+    adminPage,
+  }) => {
+    test.setTimeout(60_000);
+
+    await adminPage.goto('/admin/pending-edits');
+    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 15_000 });
+    await expect(adminPage.getByRole('heading', { name: '品牌編輯審核' })).toBeVisible({ timeout: 10_000 });
+
+    // Seeded brand row is visible
+    await expect(adminPage.getByText(/\[E2E-TEST\] PendingEdit Risk/)).toBeVisible({ timeout: 10_000 });
+
+    // Medium-risk badge ("中風險") is rendered next to the pending edit row
+    const row = adminPage.locator('div', { has: adminPage.getByText(/\[E2E-TEST\] PendingEdit Risk/) });
+    await expect(row.getByText('中風險')).toBeVisible({ timeout: 5_000 });
+  });
+});

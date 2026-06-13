@@ -36,14 +36,18 @@ test.describe('Submit flow deep', () => {
     await expect(userPage.locator('p.text-red-600').first()).toBeVisible({ timeout: 3_000 });
   });
 
-  test('Tier 1 keyword blocks submission', async () => {
-    // Tier 1 keyword moderation (e.g. "casino") is enforced server-side inside the
-    // brand-edit dashboard flow (saveBrandDraft action). The submit wizard's BrandInfoStep
-    // "next" button only runs client-side react-hook-form validation (required fields,
-    // format) and does NOT call the moderation service. There is no inline error for
-    // blocked keywords at the wizard's step navigation level.
-    // This test is skipped until the submit wizard surface a client-visible moderation error.
-    test.skip(true, 'Tier 1 keyword block is server-side in the dashboard edit flow only, not in the submit wizard BrandInfoStep.');
+  test('Tier 1 suspicious TLD in website URL blocks submission with visible error', async () => {
+    // Tier 1 content moderation (e.g. suspicious TLD like .tk) is enforced server-side
+    // inside the brand-edit dashboard flow (saveBrandDraft action), NOT in the submit
+    // wizard. The submit wizard's BrandInfoStep "next" button runs only client-side
+    // react-hook-form validation (required fields, format) and does not call the
+    // moderation service. Consequently there is no inline error visible at the wizard
+    // step level for .tk domains, and submission proceeds to the confirmation page
+    // (the brand_submission row is created as pending; moderation happens post-submission).
+    //
+    // This test is skipped until the submit wizard surfaces a client-visible moderation
+    // rejection when a tier-1 rule triggers (blocked before confirmation page).
+    test.skip(true, 'Tier 1 hard block is not wired into the submit wizard BrandInfoStep — moderation runs server-side in the dashboard edit flow only.');
   });
 
   test('unauthenticated user sees submit overview page (not redirected)', async ({ anonPage }) => {
