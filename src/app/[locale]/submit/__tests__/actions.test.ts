@@ -263,6 +263,34 @@ describe('server action schema routing', () => {
     )
   })
 
+  it('passes productTypeNote to createSubmission', async () => {
+    mockCreateSubmission.mockResolvedValue({ id: 'sub-1' })
+
+    await submitBrand({
+      name: 'Test Brand',
+      description: 'A'.repeat(40),
+      category: 'fashion',
+      logoUrl: 'https://example.com/logo.png',
+      productTypes: [],
+      productTypeNote: '手工皮件',
+      isOwner: false,
+      purchaseLinks: [],
+      pdpaConsent: true,
+      socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
+      sourceAttribution: 'found_online',
+      productPhotos: [],
+      brandHighlights: '',
+      retailLocations: [],
+      turnstileToken: 'test-token',
+    })
+
+    expect(mockCreateSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({
+        productTypeNote: '手工皮件',
+      })
+    )
+  })
+
   it('scans brand fields after schema validation passes', async () => {
     await submitBrand({
       name: 'Test Brand',

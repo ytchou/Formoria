@@ -137,6 +137,7 @@ export async function submitBrand(
       pdpaConsentAt: new Date().toISOString(),
       isBrandOwner: isOwner,
       sourceAttribution: data.sourceAttribution ?? undefined,
+      productTypeNote: parsed.productTypeNote ?? null,
     })
 
     return undefined // Success — no error
