@@ -53,6 +53,8 @@ const ALLOWLIST = [
   // Microsite is intentionally ZH-TW-only (v1 single-locale surface, DEV-767).
   'components/microsite/',
   'app/(microsite)/',
+  // Sentry feedback widget: static SDK config outside next-intl (zh-TW default).
+  'instrumentation-client.ts',
 ]
 
 function isAllowlisted(relPath: string): boolean {

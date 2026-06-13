@@ -260,9 +260,9 @@ export function TagManager({ tags }: TagManagerProps) {
                             {tag.isActive && (
                               <>
                                 <Button
-                                  variant="ghost"
+                                  variant="outline"
                                   size="sm"
-                                  className="h-7 text-xs"
+                                  className="rounded-full"
                                   onClick={() => {
                                     setEditingTagId(tag.id)
                                     setEditingName(tag.name)
@@ -271,9 +271,9 @@ export function TagManager({ tags }: TagManagerProps) {
                                   Rename
                                 </Button>
                                 <Button
-                                  variant="ghost"
+                                  variant="outline"
                                   size="sm"
-                                  className="h-7 text-xs"
+                                  className="rounded-full"
                                   onClick={() => {
                                     setMergingTagId(tag.id)
                                     setMergeTargetId('')
@@ -282,9 +282,9 @@ export function TagManager({ tags }: TagManagerProps) {
                                   Merge
                                 </Button>
                                 <Button
-                                  variant="ghost"
+                                  variant="outline"
                                   size="sm"
-                                  className="h-7 text-xs text-[#D94F3D]"
+                                  className="rounded-full text-[#D94F3D] hover:text-[#D94F3D]"
                                   onClick={() => handleDeactivate(tag.id)}
                                   disabled={isPending}
                                 >

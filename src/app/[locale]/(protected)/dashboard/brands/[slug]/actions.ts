@@ -18,7 +18,6 @@ import {
   updateBrand,
 } from '@/lib/services/brands'
 import { deleteBrandImages } from '@/lib/services/image-upload'
-import { getTagBySlug, updateBrandCategoryTags } from '@/lib/services/taxonomy'
 import type { Brand, PurchaseLink, RetailLocation } from '@/lib/types'
 import type { ContentPayload, ModerationResult } from '@/lib/services/moderation'
 
@@ -222,7 +221,6 @@ async function saveModerationFlagsQuietly(
 
 async function applyBrandUpdate(
   brand: Brand,
-  formData: FormData,
   updateData: Partial<Brand>
 ): Promise<void> {
   const previousImageUrls = imageUrlsFromBrand(brand)
@@ -230,28 +228,6 @@ async function applyBrandUpdate(
   const orphans = diffRemovedImageUrls(previousImageUrls, nextImageUrls)
 
   const updatedBrand = await updateBrand(brand.id, updateData)
-
-  // Handle region tag
-  const regionSlug = formData.get('region') as string | null
-  if (regionSlug !== null) {
-    const tag = regionSlug ? await getTagBySlug(regionSlug) : null
-    await updateBrandCategoryTags(brand.id, 'region', tag ? [tag.id] : [])
-  }
-
-  // Handle value tags
-  const valueTagsRaw = formData.get('valueTags') as string | null
-  if (valueTagsRaw !== null) {
-    let slugs: string[] = []
-    try {
-      slugs = JSON.parse(valueTagsRaw || '[]')
-      if (!Array.isArray(slugs)) slugs = []
-    } catch {
-      slugs = []
-    }
-    const tags = await Promise.all(slugs.map(slug => getTagBySlug(slug)))
-    const ids = tags.filter(Boolean).map(t => t!.id)
-    await updateBrandCategoryTags(brand.id, 'value', ids)
-  }
 
   await deleteBrandImages(orphans)
 
@@ -308,7 +284,7 @@ export async function updateBrandAction(
         : false
 
       if (autoApprove) {
-        await applyBrandUpdate(brand, formData, updateData)
+        await applyBrandUpdate(brand, updateData)
         redirect(`/dashboard?tab=${brandSlug}`)
       }
 
@@ -317,7 +293,7 @@ export async function updateBrandAction(
       return { success: true, message: 'brandEditSubmittedForReview' }
     }
 
-    await applyBrandUpdate(brand, formData, updateData)
+    await applyBrandUpdate(brand, updateData)
   } catch (err) {
     if (err instanceof InvalidBrandEditFormError) {
       return { error: err.message }

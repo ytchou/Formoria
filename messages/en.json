@@ -64,7 +64,11 @@
       "emptyCategory": "No brands in this category yet"
     },
     "valueChips": {
-      "heading": "Browse by Brand Values"
+      "heading": "Browse by Brand Values",
+      "all": "All",
+      "browseAll": "Browse all brands →",
+      "browseAllValue": "Browse all {value} brands →",
+      "emptyValue": "No brands tagged with this value yet"
     },
     "categoryGrid": {
       "heading": "Explore Categories"
@@ -568,9 +572,21 @@
       "heading": "Taiwan's economy is built by small brands.",
       "intro": "Behind every brand in our directory is a small or medium business. In Taiwan, those businesses were never a side act.",
       "items": {
-        "count": { "value": "1.67M+", "label": "small & medium enterprises", "detail": "An all-time high in 2023" },
-        "share": { "value": "98%", "label": "of all Taiwan businesses", "detail": "Taiwan's economy is essentially SMEs" },
-        "employment": { "value": "~80%", "label": "of the national workforce", "detail": "Employed by SMEs — over 9.16 million people" }
+        "count": {
+          "value": "1.67M+",
+          "label": "small & medium enterprises",
+          "detail": "An all-time high in 2023"
+        },
+        "share": {
+          "value": "98%",
+          "label": "of all Taiwan businesses",
+          "detail": "Taiwan's economy is essentially SMEs"
+        },
+        "employment": {
+          "value": "~80%",
+          "label": "of the national workforce",
+          "detail": "Employed by SMEs — over 9.16 million people"
+        }
       },
       "note": "Together they generate over NT$28 trillion in annual sales — more than half of all enterprise revenue. Backing one Taiwan brand backs the everyday life of the island.",
       "sourceLabel": "Source",

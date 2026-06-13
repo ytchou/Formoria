@@ -10,9 +10,6 @@ import {
   hideBrandAction,
   unhideBrandAction,
   deleteBrandAction,
-  resyncBrandImagesAction,
-  rejectMitAction,
-  verifyMitAction,
 } from '@/app/admin/actions'
 import {
   Table,
@@ -24,7 +21,7 @@ import {
 } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
 import { routing } from '@/i18n/routing'
 import { cn } from '@/lib/utils'
 
@@ -72,18 +69,23 @@ function MitStatusBadge({ status }: { status: MitStatus }) {
 
 export function BrandList({ brands }: { brands: Brand[] }) {
   const [activeTab, setActiveTab] = useState<TabValue>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [mitFilter, setMitFilter] = useState<'all' | MitStatus>('all')
+  const [categoryFilter, setCategoryFilter] = useState('all')
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null)
   const [deletingBrand, setDeletingBrand] = useState<Brand | null>(null)
-  const [mitRejectingBrandId, setMitRejectingBrandId] = useState<string | null>(null)
-  const [mitRejectNotes, setMitRejectNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  const filtered =
-    activeTab === 'all'
-      ? brands
-      : brands.filter((b) => b.status === activeTab)
+  const categories = Array.from(
+    new Set(brands.map((b) => b.category).filter(Boolean) as string[])
+  ).sort()
+
+  const filtered = brands
+    .filter((b) => activeTab === 'all' || b.status === activeTab)
+    .filter((b) => !searchQuery || b.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .filter((b) => mitFilter === 'all' || getMitStatus(b) === mitFilter)
+    .filter((b) => categoryFilter === 'all' || b.category === categoryFilter)
 
   function handleHide(brand: Brand) {
     startTransition(async () => {
@@ -108,49 +110,6 @@ export function BrandList({ brands }: { brands: Brand[] }) {
       const result = await deleteBrandAction(deletingBrand.id)
       if (result?.error) setError(result.error)
       else setDeletingBrand(null)
-    })
-  }
-
-  function handleResyncImages(brand: Brand) {
-    startTransition(async () => {
-      setError(null)
-      setNotice(null)
-      const result = await resyncBrandImagesAction(brand.id)
-      if (result.error) setError(result.error)
-      else setNotice(`${brand.name}: synced ${result.synced ?? 0} image(s)${result.failed ? `, ${result.failed} failed` : ''}`)
-    })
-  }
-
-  function handleVerifyMit(brand: Brand) {
-    startTransition(async () => {
-      setError(null)
-      const result = await verifyMitAction(brand.id, brand.mitEvidence?.mit_smile_cert)
-      if (result?.error) setError(result.error)
-    })
-  }
-
-  function handleRejectMit(brand: Brand) {
-    if (mitRejectingBrandId !== brand.id) {
-      setMitRejectingBrandId(brand.id)
-      setMitRejectNotes('')
-      setError(null)
-      return
-    }
-
-    const notes = mitRejectNotes.trim()
-    if (!notes) {
-      setError('Rejection notes are required.')
-      return
-    }
-
-    startTransition(async () => {
-      setError(null)
-      const result = await rejectMitAction(brand.id, notes)
-      if (result?.error) setError(result.error)
-      else {
-        setMitRejectingBrandId(null)
-        setMitRejectNotes('')
-      }
     })
   }
 
@@ -185,9 +144,36 @@ export function BrandList({ brands }: { brands: Brand[] }) {
       {error && (
         <p className="mt-2 text-sm text-[#D94F3D]">{error}</p>
       )}
-      {notice && (
-        <p className="mt-2 text-sm text-amber-600">{notice}</p>
-      )}
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Input
+          placeholder="搜尋品牌名稱..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="h-8 w-56 text-sm"
+        />
+        <select
+          value={mitFilter}
+          onChange={(e) => setMitFilter(e.target.value as typeof mitFilter)}
+          className="h-8 rounded-md border border-input bg-white px-2 text-sm text-foreground"
+        >
+          <option value="all">全部 MIT 狀態</option>
+          <option value="unverified">MIT 未驗證</option>
+          <option value="claimed">MIT 待審核</option>
+          <option value="verified">MIT 已驗證</option>
+          <option value="rejected">MIT 已拒絕</option>
+        </select>
+        <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          className="h-8 rounded-md border border-input bg-white px-2 text-sm text-foreground"
+        >
+          <option value="all">全部分類</option>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>{cat}</option>
+          ))}
+        </select>
+      </div>
 
       <div className="mt-4 rounded-lg border bg-white">
         <Table>
@@ -198,15 +184,15 @@ export function BrandList({ brands }: { brands: Brand[] }) {
               <TableHead>MIT</TableHead>
               <TableHead>分類</TableHead>
               <TableHead>建立日期</TableHead>
-              <TableHead className="text-right">操作</TableHead>
+              <TableHead className="min-w-[300px] text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.map((brand) => (
               <Fragment key={brand.id}>
                 <TableRow>
-                  <TableCell className="font-medium">
-                    {brand.name}
+                  <TableCell className="max-w-[180px] font-medium">
+                    <span className="block truncate">{brand.name}</span>
                     {brand.isDemo && (
                       <span className="ml-1.5 inline-flex items-center rounded-full bg-[#EDE8F5] px-2 py-0.5 text-[11px] font-medium text-[#6B47B8]">
                         Demo
@@ -229,91 +215,51 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                   <TableCell>{brand.category ?? '-'}</TableCell>
                   <TableCell>{formatDate(brand.createdAt)}</TableCell>
                   <TableCell className="text-right">
-                    <div className="flex flex-col items-end gap-2">
-                      <div className="flex flex-wrap items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-full"
+                        onClick={() => setEditingBrand(brand)}
+                      >
+                        編輯
+                      </Button>
+                      <Link
+                        href={`/${routing.defaultLocale}/dashboard?tab=${brand.slug}`}
+                        className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'rounded-full')}
+                      >
+                        在 Dashboard 查看
+                      </Link>
+                      {brand.status === 'approved' && (
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
-                          onClick={() => setEditingBrand(brand)}
-                        >
-                          編輯
-                        </Button>
-                        <Link
-                          href={`/${routing.defaultLocale}/dashboard?tab=${brand.slug}`}
-                          className={buttonVariants({ variant: 'ghost', size: 'sm' })}
-                        >
-                          以擁有者身分檢視
-                        </Link>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleVerifyMit(brand)}
+                          className="rounded-full"
+                          onClick={() => handleHide(brand)}
                           disabled={isPending}
                         >
-                          Verify MIT
+                          隱藏
                         </Button>
-                        <Button
-                          variant={mitRejectingBrandId === brand.id ? 'destructive' : 'ghost'}
-                          size="sm"
-                          className={
-                            mitRejectingBrandId === brand.id
-                              ? undefined
-                              : 'text-[#D94F3D] hover:text-[#D94F3D]'
-                          }
-                          onClick={() => handleRejectMit(brand)}
-                          disabled={isPending}
-                        >
-                          {mitRejectingBrandId === brand.id
-                            ? 'Confirm reject MIT'
-                            : 'Reject MIT'}
-                        </Button>
-                        {brand.status === 'approved' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleHide(brand)}
-                            disabled={isPending}
-                          >
-                            隱藏
-                          </Button>
-                        )}
-                        {brand.status === 'hidden' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleUnhide(brand)}
-                            disabled={isPending}
-                          >
-                            取消隱藏
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleResyncImages(brand)}
-                          disabled={isPending}
-                        >
-                          Re-sync images
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-[#D94F3D] hover:text-[#D94F3D]"
-                          onClick={() => setDeletingBrand(brand)}
-                        >
-                          刪除
-                        </Button>
-                      </div>
-                      {mitRejectingBrandId === brand.id && (
-                        <div className="w-full max-w-sm">
-                          <Textarea
-                            autoFocus
-                            placeholder="Why are you rejecting this MIT verification?"
-                            value={mitRejectNotes}
-                            onChange={(event) => setMitRejectNotes(event.target.value)}
-                          />
-                        </div>
                       )}
+                      {brand.status === 'hidden' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-full"
+                          onClick={() => handleUnhide(brand)}
+                          disabled={isPending}
+                        >
+                          取消隱藏
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-full text-[#D94F3D] hover:text-[#D94F3D]"
+                        onClick={() => setDeletingBrand(brand)}
+                      >
+                        刪除
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>

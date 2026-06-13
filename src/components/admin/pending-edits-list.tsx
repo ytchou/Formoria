@@ -2,7 +2,6 @@
 
 import { Fragment, useState, useTransition } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
-import { useTranslations } from 'next-intl'
 import type { PendingBrandEditWithBrand } from '@/lib/types/brand'
 import { approvePendingEditAction, rejectPendingEditAction } from '@/app/admin/actions'
 import { EditDiffView, computeDiffFields } from './edit-diff-view'
@@ -15,7 +14,6 @@ type PendingBrandEditWithRisk = PendingBrandEditWithBrand & {
 }
 
 export function PendingEditsList({ edits }: { edits: PendingBrandEditWithRisk[] }) {
-  const moderationT = useTranslations('admin.moderation')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [rejectNoteId, setRejectNoteId] = useState<string | null>(null)
   const [rejectNote, setRejectNote] = useState('')
@@ -54,10 +52,10 @@ export function PendingEditsList({ edits }: { edits: PendingBrandEditWithRisk[] 
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-semibold">{edit.brand.name}</p>
                   {edit.moderationRiskLevel === 'high' && (
-                    <Badge className="bg-destructive text-white text-xs">{moderationT('riskHigh')}</Badge>
+                    <Badge className="bg-destructive text-white text-xs">高風險</Badge>
                   )}
                   {edit.moderationRiskLevel === 'medium' && (
-                    <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-xs">{moderationT('riskMedium')}</Badge>
+                    <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-xs">中風險</Badge>
                   )}
                 </div>
                 <p className="text-sm text-muted-foreground">{edit.submittedBy}</p>

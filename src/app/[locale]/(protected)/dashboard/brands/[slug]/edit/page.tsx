@@ -4,7 +4,6 @@ import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { canManageBrand } from "@/lib/auth/admin-mode";
 import { getBrandBySlug, getBrandDraft } from "@/lib/services/brands";
-import { getTags } from "@/lib/services/taxonomy";
 import { DraftBanner } from "../draft-banner";
 import { BrandEditForm } from "./brand-edit-form";
 
@@ -32,11 +31,7 @@ export default async function BrandEditPage({ params }: Props) {
 
   if (!owner) redirect("/dashboard");
 
-  const [draft, regionTags, valueTags] = await Promise.all([
-    getBrandDraft(brand.id),
-    getTags("region"),
-    getTags("value"),
-  ]);
+  const draft = await getBrandDraft(brand.id);
   const t = await getTranslations("dashboard.edit");
 
   return (
@@ -54,11 +49,7 @@ export default async function BrandEditPage({ params }: Props) {
             <DraftBanner slug={brand.slug} draftUpdatedAt={null} />
           </div>
         ) : null}
-        <BrandEditForm
-          brand={brand}
-          regionTags={regionTags}
-          valueTags={valueTags}
-        />
+        <BrandEditForm brand={brand} />
       </div>
     </div>
   );

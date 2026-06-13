@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { Link as IntlLink } from "@/i18n/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Heart } from "lucide-react";
+import { isActingAsAdmin } from "@/lib/auth/admin-mode";
 import { createClient } from "@/lib/supabase/server";
-import { getUserBrands } from "@/lib/services/brand-owners";
+import { getBrandBySlugForAdmin, getUserBrands } from "@/lib/services/brand-owners";
 import { getUserSubmissions } from "@/lib/services/submissions";
 import { getUserSavedBrands } from "@/lib/services/saved-brands";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +54,22 @@ export default async function DashboardPage({ params, searchParams }: Props) {
       ])
     : [[], [], []];
 
+  // God mode: if admin requests a brand they don't own, fetch it and prepend
+  let allBrands = brands
+  const requestedTab = resolvedSearchParams.tab
+  if (
+    user &&
+    requestedTab &&
+    requestedTab !== SAVED_TAB &&
+    requestedTab !== SUBMISSIONS_TAB &&
+    !brands.some((b) => b.brandSlug === requestedTab)
+  ) {
+    if (await isActingAsAdmin(user.email)) {
+      const godBrand = await getBrandBySlugForAdmin(requestedTab)
+      if (godBrand) allBrands = [godBrand, ...brands]
+    }
+  }
+
   const ERROR_KEYS: Record<string, "errors.invalidClaim" | "errors.emailMismatch" | "errors.claimFailed"> = {
     "invalid-claim": "errors.invalidClaim",
     "email-mismatch": "errors.emailMismatch",
@@ -62,13 +79,12 @@ export default async function DashboardPage({ params, searchParams }: Props) {
   const errorKey = resolvedSearchParams.error ? ERROR_KEYS[resolvedSearchParams.error] : undefined;
   const errorMessage = errorKey ? t(errorKey) : null;
 
-  const hasBrands = brands.length > 0;
-  const requestedTab = resolvedSearchParams.tab;
+  const hasBrands = allBrands.length > 0;
   const showSavedTab = savedBrands.length > 0 || requestedTab === SAVED_TAB;
   const hasTabbedContent = hasBrands || showSavedTab;
-  const defaultTab = brands.at(0)?.brandSlug ?? (showSavedTab ? SAVED_TAB : SUBMISSIONS_TAB);
+  const defaultTab = allBrands.at(0)?.brandSlug ?? (showSavedTab ? SAVED_TAB : SUBMISSIONS_TAB);
   const selectedTab =
-    requestedTab && brands.some((brand) => brand.brandSlug === requestedTab)
+    requestedTab && allBrands.some((brand) => brand.brandSlug === requestedTab)
       ? requestedTab
       : requestedTab === SAVED_TAB && showSavedTab
         ? SAVED_TAB
@@ -76,7 +92,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
         ? SUBMISSIONS_TAB
         : defaultTab;
   const selectedBrand =
-    brands.find((brand) => brand.brandSlug === selectedTab) ?? null;
+    allBrands.find((brand) => brand.brandSlug === selectedTab) ?? null;
 
   const submissionsSection = (
     <div>
@@ -195,7 +211,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
       {hasTabbedContent ? (
         <>
           <div className="mt-8 flex flex-wrap gap-1 border-b border-border">
-            {brands.map((brand) => (
+            {allBrands.map((brand) => (
               <IntlLink
                 key={brand.brandId}
                 href={`/dashboard?tab=${brand.brandSlug}`}

@@ -8,12 +8,21 @@ import FilterableBrandShowcase from '@/components/landing/filterable-brand-showc
 import SubmitBand from '@/components/landing/submit-band'
 import ValueChips from '@/components/landing/value-chips'
 import { getBrands, getNewBrands } from '@/lib/services/brands'
-import { getActiveCategories, getValueTagsWithCoverage } from '@/lib/services/taxonomy'
+import { getActiveCategories, getTags } from '@/lib/services/taxonomy'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 
 export const revalidate = 3600
+
+function shuffle<T>(arr: T[]): T[] {
+  const copy = [...arr]
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[copy[i], copy[j]] = [copy[j]!, copy[i]!]
+  }
+  return copy
+}
 
 type PageProps = {
   params: Promise<{ locale: string }>
@@ -55,12 +64,15 @@ export default async function LandingPage({ params }: PageProps) {
   const jsonLd = buildWebSiteJsonLd(safeLocale)
   const organizationJsonLd = buildOrganizationJsonLd(safeLocale)
 
-  const [categories, { brands: allBrands, totalCount: totalBrandCount }, newBrands, valueTags] = await Promise.all([
+  const [categories, { brands: fetchedBrands, totalCount: totalBrandCount }, newBrands, valueTags] = await Promise.all([
     getActiveCategories(),
     getBrands({ status: 'approved', limit: 60 }),
     getNewBrands(4),
-    getValueTagsWithCoverage(1),
+    getTags('value'),
   ])
+
+  const allBrands = shuffle(fetchedBrands)
+  const valueBrands = shuffle(fetchedBrands)
   const verifiedBrands = allBrands.filter((brand) => brand.isVerified)
 
   return (
@@ -94,13 +106,15 @@ export default async function LandingPage({ params }: PageProps) {
             </div>
           </div>
 
+          <Manifesto />
+
           <div className="py-6 md:py-8">
             <div className="max-w-6xl mx-auto px-4 sm:px-6">
-              <ValueChips tags={valueTags} />
+              <ValueChips brands={valueBrands} tags={valueTags} />
             </div>
           </div>
 
-          <Manifesto />
+          <SubmitBand />
 
           <div className="py-6 md:py-8">
             <div className="max-w-6xl mx-auto px-4 sm:px-6">
@@ -113,8 +127,6 @@ export default async function LandingPage({ params }: PageProps) {
             </div>
           </div>
         </SavedBrandsProvider>
-
-        <SubmitBand />
       </main>
     </>
   )

@@ -64,7 +64,11 @@
       "emptyCategory": "目前此分類尚無品牌"
     },
     "valueChips": {
-      "heading": "依品牌價值瀏覽"
+      "heading": "依品牌價值瀏覽",
+      "all": "全部",
+      "browseAll": "瀏覽全部品牌 →",
+      "browseAllValue": "瀏覽全部{value}品牌 →",
+      "emptyValue": "目前沒有標記此價值的品牌"
     },
     "categoryGrid": {
       "heading": "探索分類"
@@ -145,7 +149,7 @@
       "submitSuccess": "我們已收到你的認領申請，會盡快審核。",
       "submitError": "提交失敗，請稍後再試。",
       "communityTitle": "這是你的品牌嗎？",
-      "communityListing": "以商業證明認領您的品牌頁面——網域信箱、後台截圖或官方文件。審核通過後，您可以直接管理品牌資訊：更新細節、新增產品、建立顧客信任。",
+      "communityListing": "認領後即可管理品牌頁面、更新資訊並建立顧客信任。",
       "claimButton": "認領這個品牌",
       "proofHeading": "提交認領證明",
       "proofPrompt": "請提交所有權證明，以便我們審核你的認領申請。",
@@ -568,9 +572,21 @@
       "heading": "台灣的經濟，是由小品牌撐起來的",
       "intro": "我們收錄的每一個品牌，背後都是一家中小企業。而在台灣，中小企業從來不是配角。",
       "items": {
-        "count": { "value": "167.4 萬+", "label": "家台灣中小企業", "detail": "2023 年家數創歷年新高" },
-        "share": { "value": "98%", "label": "占全體企業比例", "detail": "台灣經濟，幾乎就是中小企業" },
-        "employment": { "value": "近 8 成", "label": "全國就業人口", "detail": "由中小企業所雇用，逾 916 萬人" }
+        "count": {
+          "value": "167.4 萬+",
+          "label": "家台灣中小企業",
+          "detail": "2023 年家數創歷年新高"
+        },
+        "share": {
+          "value": "98%",
+          "label": "占全體企業比例",
+          "detail": "台灣經濟，幾乎就是中小企業"
+        },
+        "employment": {
+          "value": "近 8 成",
+          "label": "全國就業人口",
+          "detail": "由中小企業所雇用，逾 916 萬人"
+        }
       },
       "note": "這些品牌每年合計創造超過 28 兆元銷售額，占全體企業逾五成——支持一個台灣小品牌，就是支持這座島的日常",
       "sourceLabel": "資料來源",

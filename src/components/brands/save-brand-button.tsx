@@ -55,7 +55,7 @@ export function SaveBrandButton({
       title={!user ? t('loginToSave') : label}
       disabled={isLoading}
       className={cn(
-        'inline-flex shrink-0 items-center justify-center border border-border bg-white text-primary transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
+        'inline-flex shrink-0 items-center justify-center border border-border bg-white text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
         variant === 'overlay'
           ? 'absolute right-2 top-2 h-8 w-8 rounded-full shadow-sm'
           : 'h-11 gap-2 rounded-md px-3 text-sm font-medium',

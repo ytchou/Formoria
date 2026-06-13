@@ -161,10 +161,13 @@ export async function submitReportAction(_prevState: ReportState, formData: Form
     const brandId = formData.get('brandId') as string | null
     if (!brandId) return { error: t('missingBrandId') }
 
-    const reason = formData.get('reason') as string | null
-    if (!reason || !REPORT_REASONS.includes(reason as SubmitReportReason)) {
+    const reasonRaw = formData.get('reason') as string | null
+    const reasons = reasonRaw?.split(',').filter(Boolean) ?? []
+    if (reasons.length === 0 || reasons.some((r) => !REPORT_REASONS.includes(r as SubmitReportReason))) {
       return { error: t('invalidReason') }
     }
+    const reason = reasons.join(',')
+
 
     const notesRaw = formData.get('notes') as string | null
     const notes = notesRaw?.trim() || null
