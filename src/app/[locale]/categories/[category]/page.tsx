@@ -6,7 +6,7 @@ import { getBrands } from '@/lib/services/brands'
 import { getTags, getActiveCategories } from '@/lib/services/taxonomy'
 import { buildCategoryItemListJsonLd, buildBreadcrumbJsonLd } from '@/lib/json-ld'
 import type { BreadcrumbItem } from '@/lib/json-ld'
-import { parentGroupForSlug } from '@/lib/taxonomy/ontology'
+import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { parsePageParam, parseSortParam, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
@@ -35,13 +35,6 @@ type CategoriesTranslator = Awaited<ReturnType<typeof getTranslations>>
 function resolveEditorialDescription(t: CategoriesTranslator, slug: string, fallbackDescription: string) {
   const descriptionKey = `descriptions.${slug}`
   return t.has(descriptionKey) ? t(descriptionKey) : fallbackDescription
-}
-
-function titleCaseSlug(slug: string) {
-  return slug
-    .split('-')
-    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
-    .join(' ')
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -146,8 +139,12 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
 
   // JSON-LD data for brands on the current page
   const brandSummaries = displayBrands.map((b) => ({ name: b.name, slug: b.slug }))
-  const parentGroup = parentGroupForSlug(slug)
-  const parentGroupName = parentGroup ? titleCaseSlug(parentGroup) : undefined
+  const productTypeCategory = PRODUCT_TYPE_CATEGORIES.find((category) => category.slug === slug)
+  const parentGroupName = productTypeCategory
+    ? safeLocale === 'en'
+      ? productTypeCategory.name
+      : productTypeCategory.nameZh
+    : undefined
 
   return (
     <main className="mx-auto w-full max-w-screen-xl px-6 py-10 md:px-10">
