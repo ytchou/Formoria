@@ -9,10 +9,12 @@ import {
 } from '@/app/admin/actions'
 import { DashboardQueueItem } from '@/components/admin/dashboard-queue-item'
 import { QueueSummaryCard } from '@/components/admin/queue-summary-card'
+import { SystemStatusCard } from '@/components/admin/system-status-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { getBrands } from '@/lib/services/brands'
 import { listClaimRequests } from '@/lib/services/claim-requests'
 import { getFeedbackItems } from '@/lib/services/feedback'
+import { checkAllServices, type ServiceHealthResult } from '@/lib/services/health-checks'
 import { getFlaggedContent } from '@/lib/services/moderation'
 import { getPendingEdits } from '@/lib/services/pending-edits'
 import { getPendingReports } from '@/lib/services/reports'
@@ -56,6 +58,7 @@ export default async function AdminPage() {
     flaggedContentResult,
     brandResult,
     tags,
+    healthResults,
   ] = await Promise.all([
     getSubmissions('pending', { limit: 5 }).catch(() => []),
     getPendingEdits('pending', { limit: 5 }).catch(() => []),
@@ -71,6 +74,7 @@ export default async function AdminPage() {
       totalCount: 0,
     })),
     getTags().catch(() => []),
+    checkAllServices().catch((): ServiceHealthResult[] => []),
   ])
 
   const flaggedContent = flaggedContentResult.items
@@ -244,6 +248,11 @@ export default async function AdminPage() {
             </Card>
           ))}
         </div>
+      </section>
+
+      <section>
+        <h2 className="mb-4 text-lg font-semibold">系統狀態</h2>
+        <SystemStatusCard initialResults={healthResults} />
       </section>
     </div>
   )
