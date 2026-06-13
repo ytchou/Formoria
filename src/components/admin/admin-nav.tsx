@@ -21,7 +21,7 @@ export function AdminNav() {
   }
 
   return (
-    <nav className="bg-[#2C1810]">
+    <nav className="bg-accent">
       <div className="mx-auto flex h-16 max-w-screen-xl items-center gap-8 px-10">
         <span className="font-heading text-lg font-bold text-white">
           管理後台
@@ -36,7 +36,7 @@ export function AdminNav() {
                 className={cn(
                   'flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                   isActive(link.href)
-                    ? 'border-b-2 border-[#E06B3F] text-white'
+                    ? 'border-b-2 border-cta text-white'
                     : 'text-white/70 hover:text-white'
                 )}
               >

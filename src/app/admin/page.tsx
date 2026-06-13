@@ -29,7 +29,7 @@ type QueueItem = {
   sublabel?: string
   date: string
   riskLevel?: 'high' | 'medium' | 'clean'
-  action: () => void
+  action: () => Promise<unknown>
 }
 
 type ReviewQueue = {
@@ -38,7 +38,6 @@ type ReviewQueue = {
   count: number
   href: string
   emptyMessage: string
-  accentColor: string
   items: QueueItem[]
 }
 
@@ -84,7 +83,6 @@ export default async function AdminPage() {
       count: submissions.length,
       href: '/admin/review-queue/submissions',
       emptyMessage: '目前沒有待審核的新品牌提交。',
-      accentColor: '#2563eb',
       items: submissions.map((submission) => ({
         id: submission.id,
         label: submission.brandName,
@@ -100,7 +98,6 @@ export default async function AdminPage() {
       count: pendingEdits.length,
       href: '/admin/review-queue/edits',
       emptyMessage: '目前沒有待審核的品牌編輯。',
-      accentColor: '#7c3aed',
       items: pendingEdits.map((edit) => ({
         id: edit.id,
         label: edit.brand.name || edit.brandId,
@@ -113,9 +110,8 @@ export default async function AdminPage() {
       key: 'claims',
       title: '品牌認領',
       count: claimRequests.length,
-      href: '/admin/claim-requests',
+      href: '/admin/claims',
       emptyMessage: '目前沒有待審核的品牌認領。',
-      accentColor: '#0f766e',
       items: claimRequests.map((claim) => ({
         id: claim.id,
         label: claim.brandName ?? claim.brandId,
@@ -128,9 +124,8 @@ export default async function AdminPage() {
       key: 'reports',
       title: '品牌檢舉',
       count: reports.length,
-      href: '/admin/reports',
+      href: '/admin/signals/reports',
       emptyMessage: '目前沒有待審核的品牌檢舉。',
-      accentColor: '#dc2626',
       items: reports.map((report) => ({
         id: report.id,
         label: report.brandName ?? report.brandId,
@@ -144,9 +139,8 @@ export default async function AdminPage() {
       key: 'feedback',
       title: '使用者回饋',
       count: feedbackItems.length,
-      href: '/admin/feedback',
+      href: '/admin/signals/feedback',
       emptyMessage: '目前沒有待處理的使用者回饋。',
-      accentColor: '#ca8a04',
       items: feedbackItems.map((feedback) => ({
         id: feedback.id,
         label: feedback.title ?? feedback.body ?? '未命名回饋',
@@ -206,7 +200,6 @@ export default async function AdminPage() {
                 count={queue.count}
                 href={queue.href}
                 emptyMessage={queue.emptyMessage}
-                accentColor={queue.accentColor}
               >
                 {queue.items.map((item) => (
                   <DashboardQueueItem

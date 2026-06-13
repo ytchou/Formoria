@@ -9,7 +9,6 @@ type QueueSummaryCardProps = {
   count: number
   href: string
   emptyMessage: string
-  accentColor?: string
   children?: ReactNode
 }
 
@@ -18,20 +17,12 @@ export function QueueSummaryCard({
   count,
   href,
   emptyMessage,
-  accentColor,
   children,
 }: QueueSummaryCardProps) {
   return (
     <Card className="overflow-hidden">
       <CardHeader className="flex-row items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-2">
-          {accentColor ? (
-            <span
-              className="size-2 shrink-0 rounded-full"
-              style={{ backgroundColor: accentColor }}
-              aria-hidden="true"
-            />
-          ) : null}
           <h3 className="truncate text-base font-semibold">{title}</h3>
         </div>
         <span className="rounded-full bg-muted px-2.5 py-1 text-sm font-semibold text-muted-foreground">

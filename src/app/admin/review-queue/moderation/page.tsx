@@ -40,7 +40,7 @@ async function requireAdmin() {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect('/auth/sign-in?next=/admin/moderation')
+    redirect('/auth/sign-in?next=/admin/review-queue/moderation')
   }
 
   if (!(await isActingAsAdmin(user.email))) {

@@ -1,5 +1,7 @@
 'use client'
 
+import { useTransition } from 'react'
+
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -9,15 +11,21 @@ type DashboardQueueItemProps = {
   sublabel?: string
   date: string
   riskLevel?: 'high' | 'medium' | 'clean'
-  onApprove: () => void
+  onApprove: () => Promise<unknown>
   isPending?: boolean
 }
 
 const riskClassNames = {
   high: 'bg-destructive/10 text-destructive border-destructive/20',
-  medium: 'bg-amber-50 text-amber-700 border-amber-200',
-  clean: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  medium: 'bg-muted text-muted-foreground border-border',
+  clean: 'bg-verified-green-bg text-verified-green border-verified-green',
 } satisfies Record<NonNullable<DashboardQueueItemProps['riskLevel']>, string>
+
+const riskLabels = {
+  high: '高風險',
+  medium: '中風險',
+  clean: '通過',
+} as const
 
 export function DashboardQueueItem({
   label,
@@ -27,6 +35,9 @@ export function DashboardQueueItem({
   onApprove,
   isPending = false,
 }: DashboardQueueItemProps) {
+  const [internalPending, startTransition] = useTransition()
+  const isDisabled = isPending || internalPending
+
   return (
     <div className="flex items-center gap-3 border-b px-4 py-3 last:border-b-0">
       <div className="min-w-0 flex-1">
@@ -38,10 +49,18 @@ export function DashboardQueueItem({
       <time className="shrink-0 text-sm text-muted-foreground">{date}</time>
       {riskLevel ? (
         <Badge className={cn('border text-xs', riskClassNames[riskLevel])}>
-          {riskLevel}
+          {riskLabels[riskLevel]}
         </Badge>
       ) : null}
-      <Button size="sm" onClick={onApprove} disabled={isPending}>
+      <Button
+        size="default"
+        onClick={() => {
+          startTransition(() => {
+            onApprove()
+          })
+        }}
+        disabled={isDisabled}
+      >
         核准
       </Button>
     </div>
