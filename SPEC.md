@@ -50,6 +50,7 @@ Content management and moderation.
 - Taxonomy tag management (add, merge, rename)
 - New tag suggestion review
 - Content moderation dashboard (`/admin/moderation`) — pending flags with risk badges
+- System health monitoring — real-time service status card showing health of all 7 integrated services (Supabase, Sentry, Resend, Turnstile, Tally, Browserless, Railway)
 
 #### Admin god-mode ⇄ viewer-mode (DEV-764)
 By default an admin operates in **god mode**: they may act as the **owner of any brand** through the owner dashboard UI, managing any listing without owning it. This is gated by auth primitives backed by an `fm_mode` cookie:
@@ -167,6 +168,7 @@ See `docs/strategy/brand-success-playbook.md` for full specification.
 - PostHog: page views, filter usage, brand detail visits, submission funnel
 - Sentry: error tracking with source maps
 - Railway: built-in request metrics and logs
+- In-app: Admin dashboard system status card — server-side health checks on demand (not a replacement for external dashboards)
 
 ## Performance Targets
 - Initial page load: < 2s (LCP)
