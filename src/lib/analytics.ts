@@ -227,12 +227,15 @@ export function trackSubmissionCompleted(
   hasLogo: boolean,
   timeSpentSeconds: number
 ) {
+  const utmParams =
+    typeof window !== 'undefined' ? getUtmParams(window.location.search) : {}
+
   safeGAEvent('event', 'submission_completed', {
     brand_name: brandName,
     category,
     has_logo: hasLogo,
     time_spent_seconds: timeSpentSeconds,
-    ...getUtmParams(window.location.search),
+    ...utmParams,
   })
 }
 
@@ -313,9 +316,12 @@ export function trackOnboardingMilestoneReached(
 }
 
 export function trackSignUp(method: string) {
+  const utmParams =
+    typeof window !== 'undefined' ? getUtmParams(window.location.search) : {}
+
   safeGAEvent('event', 'sign_up', {
     method,
-    ...getUtmParams(window.location.search),
+    ...utmParams,
   })
 }
 

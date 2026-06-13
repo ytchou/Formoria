@@ -4,10 +4,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockUseUser = vi.fn()
 const mockUsePathname = vi.fn()
+const mockTrackLogin = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/auth/use-user', () => ({
   useUser: () => mockUseUser(),
 }))
+
+vi.mock('@/lib/analytics', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/analytics')>()
+
+  return {
+    ...actual,
+    trackLogin: mockTrackLogin,
+  }
+})
 
 vi.mock('next/navigation', () => ({
   usePathname: () => mockUsePathname(),
@@ -60,6 +70,23 @@ describe('GaUserSync', () => {
         preferred_locale: 'en',
       },
     })
+  })
+
+  it('tracks login when user transitions from unauthenticated to authenticated', async () => {
+    const { GaUserSync } = await import('./ga-user-sync')
+
+    const { rerender } = render(<GaUserSync />)
+
+    expect(mockTrackLogin).not.toHaveBeenCalled()
+
+    mockUseUser.mockReturnValue({
+      user: { id: 'user-1', email: 'owner@example.com' },
+      loading: false,
+    })
+
+    rerender(<GaUserSync />)
+
+    expect(mockTrackLogin).toHaveBeenCalledWith('google')
   })
 
   it('sets content_group based on pathname', async () => {
