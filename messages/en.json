@@ -1168,6 +1168,16 @@
       "resubmit": "Edit again",
       "close": "Dismiss"
     },
+    "moderation": {
+      "riskHigh": "High Risk",
+      "riskMedium": "Medium Risk",
+      "riskClean": "Clean",
+      "flagCount": "{count} flags",
+      "dashboard": "Content Moderation",
+      "filterByRisk": "Filter by risk",
+      "filterByTier": "Filter by tier",
+      "noFlaggedContent": "No flagged content"
+    },
     "claimRequests": {
       "adminProofLabel": "Ownership proof",
       "domainEmailVerified": "✓ Verified",

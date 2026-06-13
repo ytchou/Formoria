@@ -1168,6 +1168,16 @@
       "resubmit": "重新編輯",
       "close": "關閉"
     },
+    "moderation": {
+      "riskHigh": "高風險",
+      "riskMedium": "中風險",
+      "riskClean": "無風險",
+      "flagCount": "{count} 個標記",
+      "dashboard": "內容審核",
+      "filterByRisk": "按風險篩選",
+      "filterByTier": "按類型篩選",
+      "noFlaggedContent": "無待審內容"
+    },
     "claimRequests": {
       "adminProofLabel": "擁有權證明",
       "domainEmailVerified": "✓ 已驗證",
