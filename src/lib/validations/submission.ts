@@ -65,10 +65,14 @@ export function getBrandInfoSchema(t: Translator) {
   })
 }
 
-export function getProductsSchema(_t: Translator) {
+export function getProductsSchema(t: Translator) {
+  void t
+
   return z.object({
     productPhotos: z.array(z.string()).max(6),
     brandHighlights: z.string().max(300).optional().default(''),
+    productTypes: z.array(z.string()).default([]),
+    productTypeNote: z.string().max(200).optional().default(''),
   })
 }
 
@@ -136,6 +140,26 @@ const ownerFields = z.object({
   sourceAttribution: sourceAttributionEnum.optional(),
 })
 
+type ProductTypeFields = {
+  productTypeNote: string
+  productTypes: string[]
+}
+
+function requireProductType<
+  Output extends ProductTypeFields,
+  Def extends z.ZodTypeDef,
+  Input,
+>(schema: z.ZodType<Output, Def, Input>) {
+  return schema.refine(
+    (data) =>
+      data.productTypes.length > 0 || (data.productTypeNote?.trim().length ?? 0) > 0,
+    {
+      message: '請選擇至少一項產品類型，或說明你的產品類型',
+      path: ['productTypes'],
+    }
+  )
+}
+
 /**
  * Schema factory for brand submission validation.
  * - isOwner=true: logoUrl and at least one purchaseLink are required
@@ -191,22 +215,31 @@ export function createSubmissionSchema(isOwner: boolean, t: Translator = zhT) {
 
 export { SOURCE_ATTRIBUTION_VALUES }
 
-export const fullSubmissionSchema = brandInfoSchema
-  .merge(productsSchema)
-  .merge(linksSchema)
-  .merge(reviewSchema)
-  .merge(botDetectionSchema)
+export const fullSubmissionSchema = requireProductType(
+  brandInfoSchema
+    .merge(productsSchema)
+    .merge(linksSchema)
+    .merge(reviewSchema)
+    .merge(botDetectionSchema)
+)
 
 export function getFullSubmissionSchema(t: Translator) {
-  return getBrandInfoSchema(t)
-    .merge(getProductsSchema(t))
-    .merge(getLinksSchema(t))
-    .merge(getReviewSchema(t))
-    .merge(getBotDetectionSchema(t))
+  return requireProductType(
+    getBrandInfoSchema(t)
+      .merge(getProductsSchema(t))
+      .merge(getLinksSchema(t))
+      .merge(getReviewSchema(t))
+      .merge(getBotDetectionSchema(t))
+  )
 }
 
 type FullSubmissionSchemaData = z.infer<typeof fullSubmissionSchema>
 
-export type SubmissionFormData = Omit<FullSubmissionSchemaData, 'valueTags'> & {
+export type SubmissionFormData = Omit<
+  FullSubmissionSchemaData,
+  'productTypeNote' | 'productTypes' | 'valueTags'
+> & {
+  productTypeNote?: string
+  productTypes?: string[]
   valueTags?: string[]
 }
