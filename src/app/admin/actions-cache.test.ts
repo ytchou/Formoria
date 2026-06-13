@@ -92,7 +92,10 @@ vi.mock('@/lib/auth/claim-token', () => ({
 }))
 
 vi.mock('@/lib/services/moderation', () => ({
-  updateFlagStatus: vi.fn(),
+  scanContent: vi.fn().mockReturnValue({ riskLevel: 'clean', flags: [] }),
+  saveModerationFlags: vi.fn().mockResolvedValue(undefined),
+  markFlagsReviewed: vi.fn().mockResolvedValue(undefined),
+  shouldAutoApprove: vi.fn().mockResolvedValue(false),
 }))
 
 const {

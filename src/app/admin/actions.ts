@@ -17,6 +17,7 @@ import {
 import { verifyMitStatus, rejectMitStatus } from '@/lib/services/mit-verification'
 import { createBrand, updateBrand, getBrandById, deleteBrand, generateSlug, syncBrandImages } from '@/lib/services/brands'
 import { getBrandOwnerEmail } from '@/lib/services/brand-owners'
+import { scanContent, saveModerationFlags, markFlagsReviewed } from '@/lib/services/moderation'
 import {
   createTag,
   updateTag,
@@ -133,6 +134,12 @@ export async function approveSubmissionAction(
     }
 
     await approveSubmission(submissionId, auth.userId)
+
+    try {
+      await markFlagsReviewed(brand.id, auth.userId)
+    } catch (err) {
+      console.error('[admin] markFlagsReviewed failed:', err)
+    }
 
     try {
       const { suggestedTags } = submission
@@ -319,6 +326,12 @@ export async function approvePendingEditAction(
 
     const edit = await getPendingEditEmailContext(editId)
     await approvePendingEdit(editId, auth.userId)
+
+    try {
+      await markFlagsReviewed(edit.brandId, auth.userId)
+    } catch (err) {
+      console.error('[admin] markFlagsReviewed failed:', err)
+    }
 
     try {
       if (edit.ownerEmail && edit.brandName) {
@@ -508,13 +521,36 @@ export async function acknowledgeMitVerificationSubmissionAction(
 
 export async function updateBrandAction(
   brandId: string,
-  data: { name?: string; description?: string; category?: string; status?: string }
+  data: {
+    name?: string
+    description?: string
+    category?: string
+    status?: string
+    brandHighlights?: string
+    website?: string
+    purchaseUrl?: string
+  }
 ): Promise<{ error: string } | undefined> {
   try {
     const auth = await requireAdmin()
     if ('error' in auth) return auth
 
     await updateBrand(brandId, data as Parameters<typeof updateBrand>[1])
+
+    const { name, description, brandHighlights, website, purchaseUrl } = data
+    const moderationPayload = {
+      fields: { name, description, brandHighlights, website, purchaseUrl },
+      brandName: name ?? '',
+    }
+    const moderationResult = scanContent(moderationPayload)
+    if (moderationResult.flags.length > 0) {
+      try {
+        await saveModerationFlags(brandId, auth.userId, moderationResult.flags)
+        await markFlagsReviewed(brandId, auth.userId)
+      } catch (err) {
+        console.error('[admin] god-mode moderation audit failed:', err)
+      }
+    }
 
     revalidatePath('/admin/brands')
     revalidatePath('/admin')

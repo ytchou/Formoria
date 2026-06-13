@@ -75,6 +75,12 @@ vi.mock('@/lib/services/submissions', () => ({
   rejectSubmission: vi.fn(),
 }))
 
+vi.mock('@/lib/services/moderation', () => ({
+  scanContent: vi.fn().mockReturnValue({ riskLevel: 'clean', flags: [] }),
+  saveModerationFlags: vi.fn().mockResolvedValue(undefined),
+  markFlagsReviewed: vi.fn().mockResolvedValue(undefined),
+}))
+
 vi.mock('@/lib/services/claim-requests', () => ({
   getClaimRequest: vi.fn(),
   approveClaimRequest: vi.fn().mockResolvedValue(undefined),
@@ -239,6 +245,16 @@ describe('pending edit admin actions', () => {
     expect(sendEmail).toHaveBeenCalledWith(message)
   })
 
+  it('approvePendingEditAction calls markFlagsReviewed with brandId and adminId', async () => {
+    const { markFlagsReviewed } = await import('@/lib/services/moderation')
+
+    const { approvePendingEditAction } = await import('./actions')
+    const result = await approvePendingEditAction('edit-1')
+
+    expect(result).toBeUndefined()
+    expect(markFlagsReviewed).toHaveBeenCalledWith('brand-1', 'admin-1')
+  })
+
   it('rejects a pending edit with the admin id and notes', async () => {
     const { rejectPendingEdit, getPendingEditForReview } = await import('@/lib/services/pending-edits')
     const { sendEmail } = await import('@/lib/email/send')
@@ -361,6 +377,84 @@ describe('approveSubmissionAction - taxonomy tag application', () => {
 
     expect(result).toBeUndefined()
     expect(addTagToBrand).not.toHaveBeenCalled()
+  })
+
+  it('approveSubmissionAction calls markFlagsReviewed', async () => {
+    const { getSubmission, approveSubmission } = await import('@/lib/services/submissions')
+    const { updateBrand } = await import('@/lib/services/brands')
+    const { markFlagsReviewed } = await import('@/lib/services/moderation')
+    const submission = {
+      id: 'sub-1',
+      brandId: 'brand-1',
+      brandName: 'Test Brand',
+      description: 'Test description',
+      submitterName: null,
+      submitterEmail: 'submitter@example.com',
+      websiteUrl: null,
+      isBrandOwner: false,
+      socialLinks: [],
+      suggestedTags: null,
+      status: 'pending',
+      reviewerNotes: null,
+      submittedAt: '2026-01-01T00:00:00Z',
+      reviewedAt: null,
+      reviewedBy: null,
+      pdpaConsentAt: null,
+      validationStatus: null,
+      validationErrors: null,
+      notifiedAt: null,
+    } as unknown as Awaited<ReturnType<typeof getSubmission>>
+    vi.mocked(getSubmission).mockResolvedValue(submission)
+    vi.mocked(updateBrand).mockResolvedValue({ id: 'brand-1', slug: 'test-brand' } as Awaited<ReturnType<typeof updateBrand>>)
+    vi.mocked(approveSubmission).mockResolvedValue(submission)
+
+    const { approveSubmissionAction } = await import('./actions')
+    const result = await approveSubmissionAction('sub-1')
+
+    expect(result).toBeUndefined()
+    expect(markFlagsReviewed).toHaveBeenCalledWith('brand-1', 'admin-1')
+  })
+})
+
+describe('updateBrandAction moderation audit', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockCookie('god')
+  })
+
+  it('updateBrandAction (god-mode admin edit) calls scanContent and saveModerationFlags when flags exist, then markFlagsReviewed', async () => {
+    const { updateBrand } = await import('@/lib/services/brands')
+    const { scanContent, saveModerationFlags, markFlagsReviewed } = await import('@/lib/services/moderation')
+    const flags = [
+      { type: 'profanity', severity: 'medium', field: 'description', value: 'bad word' },
+    ] as unknown as ReturnType<typeof scanContent>['flags']
+    vi.mocked(scanContent).mockReturnValue({ riskLevel: 'medium', flags })
+
+    const { updateBrandAction } = await import('./actions')
+    const result = await updateBrandAction('brand-1', {
+      name: 'Test Brand',
+      description: 'bad word',
+      category: 'apparel',
+    })
+
+    expect(result).toBeUndefined()
+    expect(updateBrand).toHaveBeenCalledWith('brand-1', {
+      name: 'Test Brand',
+      description: 'bad word',
+      category: 'apparel',
+    })
+    expect(scanContent).toHaveBeenCalledWith({
+      fields: {
+        name: 'Test Brand',
+        description: 'bad word',
+        brandHighlights: undefined,
+        website: undefined,
+        purchaseUrl: undefined,
+      },
+      brandName: 'Test Brand',
+    })
+    expect(saveModerationFlags).toHaveBeenCalledWith('brand-1', 'admin-1', flags)
+    expect(markFlagsReviewed).toHaveBeenCalledWith('brand-1', 'admin-1')
   })
 })
 
