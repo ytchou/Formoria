@@ -26,6 +26,24 @@ const SOURCE_ATTRIBUTION_LABELS: Record<SourceAttribution, string> = {
   work_there: 'I work there or know the team',
 }
 
+type StructuredSuggestedTags = {
+  region?: string
+  values?: string[]
+}
+
+function isStructuredSuggestedTags(value: unknown): value is StructuredSuggestedTags {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function getStructuredSuggestedTagSections(tags: StructuredSuggestedTags) {
+  const region = typeof tags.region === 'string' ? tags.region : undefined
+  const values = Array.isArray(tags.values)
+    ? tags.values.filter((v): v is string => typeof v === 'string')
+    : []
+
+  return { region, values }
+}
+
 export function SubmissionsList({
   submissions,
 }: {
@@ -180,23 +198,50 @@ export function SubmissionsList({
                           </div>
                         )}
 
-                        {submission.suggestedTags.length > 0 && (
-                          <div>
-                            <p className="text-sm font-medium text-[#7C7570]">
-                              Suggested Tags
-                            </p>
-                            <div className="mt-1 flex flex-wrap gap-2">
-                              {submission.suggestedTags.map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="inline-flex rounded-full bg-[#F5F4F1] px-2.5 py-0.5 text-xs font-medium text-[#7C7570]"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                        {(() => {
+                          const suggestedTags = submission.suggestedTags as unknown
+
+                          if (Array.isArray(suggestedTags)) {
+                            return suggestedTags.length > 0 && (
+                              <div>
+                                <p className="text-sm font-medium text-[#7C7570]">
+                                  Suggested Tags
+                                </p>
+                                <div className="mt-1 flex flex-wrap gap-2">
+                                  {suggestedTags.map((tag) => (
+                                    <span
+                                      key={tag}
+                                      className="inline-flex rounded-full bg-[#F5F4F1] px-2.5 py-0.5 text-xs font-medium text-[#7C7570]"
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          }
+
+                          if (isStructuredSuggestedTags(suggestedTags)) {
+                            const { region, values } =
+                              getStructuredSuggestedTagSections(suggestedTags)
+
+                            return (region || values.length > 0) && (
+                              <div>
+                                <p className="text-sm font-medium text-[#7C7570]">
+                                  Suggested Tags
+                                </p>
+                                <div className="mt-1 space-y-1 text-sm">
+                                  {region && <p>Region: {region}</p>}
+                                  {values.length > 0 && (
+                                    <p>Values: {values.join(', ')}</p>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          }
+
+                          return null
+                        })()}
 
                         {Object.keys(submission.socialLinks).length > 0 && (
                           <div>

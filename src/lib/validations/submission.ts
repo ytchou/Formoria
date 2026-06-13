@@ -20,7 +20,8 @@ function buildFieldSchemas(t: Translator) {
     .min(40, t('validation.descriptionMinLength'))
     .max(2000)
   const categoryField = z.string().min(1, t('validation.categoryRequired'))
-  const tagsField = z.array(z.string()).max(5, t('validation.tagsMax'))
+  const regionField = z.string().optional()
+  const valueTagsField = z.array(z.string()).max(3, t('validation.valueTagsMax')).optional().default([])
 
   const purchaseLinkSchema = z.object({
     platform: z.string().min(1, t('validation.platformRequired')),
@@ -43,7 +44,8 @@ function buildFieldSchemas(t: Translator) {
     nameField,
     descriptionField,
     categoryField,
-    tagsField,
+    regionField,
+    valueTagsField,
     purchaseLinkSchema,
     socialLinksSchema,
     retailLocationSchema,
@@ -51,13 +53,14 @@ function buildFieldSchemas(t: Translator) {
 }
 
 export function getBrandInfoSchema(t: Translator) {
-  const { nameField, descriptionField, categoryField, tagsField } =
+  const { nameField, descriptionField, categoryField, regionField, valueTagsField } =
     buildFieldSchemas(t)
   return z.object({
     name: nameField,
     description: descriptionField,
     category: categoryField,
-    tags: tagsField,
+    region: regionField,
+    valueTags: valueTagsField,
     logoUrl: z.string().url(t('validation.logoRequired')).min(1, t('validation.logoRequired')),
   })
 }
@@ -105,6 +108,7 @@ const zhT = (key: string): string => {
     'validation.descriptionMinLength': '品牌介紹至少需要 40 個字元',
     'validation.categoryRequired': '請選擇分類',
     'validation.tagsMax': '最多可選擇 5 個標籤',
+    'validation.valueTagsMax': '最多可選擇 3 個品牌價值',
     'validation.logoRequired': '請上傳品牌標誌',
     'validation.photosMax': '最多可上傳 6 張照片',
     'validation.platformRequired': '請選擇平台',
@@ -142,14 +146,15 @@ const ownerFields = z.object({
  * that call getTranslations should pass the result here).
  */
 export function createSubmissionSchema(isOwner: boolean, t: Translator = zhT) {
-  const { nameField, descriptionField: descField, categoryField, tagsField, purchaseLinkSchema, socialLinksSchema, retailLocationSchema } =
+  const { nameField, descriptionField: descField, categoryField, regionField, valueTagsField, purchaseLinkSchema, socialLinksSchema, retailLocationSchema } =
     buildFieldSchemas(t)
 
   const brandInfoBase = z.object({
     name: nameField,
     description: descField,
     category: categoryField,
-    tags: tagsField,
+    region: regionField,
+    valueTags: valueTagsField,
     logoUrl: isOwner
       ? z.string().url(t('validation.logoRequired')).min(1, t('validation.logoRequired'))
       : z.string().url().optional().or(z.literal('')),
@@ -174,12 +179,14 @@ export function createSubmissionSchema(isOwner: boolean, t: Translator = zhT) {
     _honeypot: z.string().max(0).optional(),
   })
 
-  return brandInfoBase
+  const schema = brandInfoBase
     .merge(getProductsSchema(t))
     .merge(linksBase)
     .merge(reviewBase)
     .merge(botDetectionBase)
     .merge(ownerFields)
+
+  return schema
 }
 
 export { SOURCE_ATTRIBUTION_VALUES }
@@ -198,4 +205,8 @@ export function getFullSubmissionSchema(t: Translator) {
     .merge(getBotDetectionSchema(t))
 }
 
-export type SubmissionFormData = z.infer<typeof fullSubmissionSchema>
+type FullSubmissionSchemaData = z.infer<typeof fullSubmissionSchema>
+
+export type SubmissionFormData = Omit<FullSubmissionSchemaData, 'valueTags'> & {
+  valueTags?: string[]
+}

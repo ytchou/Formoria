@@ -26,7 +26,7 @@ export type BrandSubmission = {
   description: string | null
   websiteUrl: string | null
   socialLinks: SocialLinks
-  suggestedTags: string[]
+  suggestedTags: string[] | { region?: string; values?: string[] }
   status: SubmissionStatus
   reviewerNotes: string | null
   submittedAt: string

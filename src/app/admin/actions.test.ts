@@ -88,6 +88,9 @@ vi.mock('@/lib/services/taxonomy', () => ({
   mergeTag: vi.fn(),
   deactivateTag: vi.fn(),
   setBrandTags: vi.fn().mockResolvedValue(undefined),
+  getBrandsForReview: vi.fn().mockResolvedValue([]),
+  getTagBySlug: vi.fn(),
+  addTagToBrand: vi.fn(),
 }))
 
 vi.mock('@/lib/services/reports', () => ({
@@ -190,6 +193,91 @@ describe('approveClaimAction', () => {
   })
 })
 
+describe('approveSubmissionAction - taxonomy tag application', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockCookie('god')
+  })
+
+  it('applies structured region + value tags on approval', async () => {
+    const { getSubmission, approveSubmission } = await import('@/lib/services/submissions')
+    const { updateBrand } = await import('@/lib/services/brands')
+    const { getTagBySlug, addTagToBrand } = await import('@/lib/services/taxonomy')
+    const submission = {
+      id: 'sub-1',
+      brandId: 'brand-1',
+      brandName: 'Test Brand',
+      description: 'Test description',
+      submitterName: null,
+      submitterEmail: 'submitter@example.com',
+      websiteUrl: null,
+      isBrandOwner: false,
+      socialLinks: [],
+      suggestedTags: { region: 'north-taiwan', values: ['eco-friendly', 'handmade'] },
+      status: 'pending',
+      reviewerNotes: null,
+      submittedAt: '2026-01-01T00:00:00Z',
+      reviewedAt: null,
+      reviewedBy: null,
+      pdpaConsentAt: null,
+      validationStatus: null,
+      validationErrors: null,
+      notifiedAt: null,
+    } as unknown as Awaited<ReturnType<typeof getSubmission>>
+    vi.mocked(getSubmission).mockResolvedValue(submission)
+    vi.mocked(updateBrand).mockResolvedValue({ id: 'brand-1', slug: 'test-brand' } as Awaited<ReturnType<typeof updateBrand>>)
+    vi.mocked(approveSubmission).mockResolvedValue(submission)
+    vi.mocked(getTagBySlug).mockImplementation(async (slug: string) => ({ id: `tag-${slug}`, slug }) as unknown as Awaited<ReturnType<typeof getTagBySlug>>)
+    vi.mocked(addTagToBrand).mockResolvedValue(undefined)
+
+    const { approveSubmissionAction } = await import('./actions')
+    const result = await approveSubmissionAction('sub-1')
+
+    expect(result).toBeUndefined()
+    expect(addTagToBrand).toHaveBeenCalledTimes(3)
+    expect(addTagToBrand).toHaveBeenCalledWith('brand-1', 'tag-north-taiwan')
+    expect(addTagToBrand).toHaveBeenCalledWith('brand-1', 'tag-eco-friendly')
+    expect(addTagToBrand).toHaveBeenCalledWith('brand-1', 'tag-handmade')
+  })
+
+  it('skips old string[] suggestedTags gracefully', async () => {
+    const { getSubmission, approveSubmission } = await import('@/lib/services/submissions')
+    const { updateBrand } = await import('@/lib/services/brands')
+    const { addTagToBrand } = await import('@/lib/services/taxonomy')
+    const submission = {
+      id: 'sub-1',
+      brandId: 'brand-1',
+      brandName: 'Test Brand',
+      description: 'Test description',
+      submitterName: null,
+      submitterEmail: 'submitter@example.com',
+      websiteUrl: null,
+      isBrandOwner: false,
+      socialLinks: [],
+      suggestedTags: ['eco-friendly', 'handmade'],
+      status: 'pending',
+      reviewerNotes: null,
+      submittedAt: '2026-01-01T00:00:00Z',
+      reviewedAt: null,
+      reviewedBy: null,
+      pdpaConsentAt: null,
+      validationStatus: null,
+      validationErrors: null,
+      notifiedAt: null,
+    } as Awaited<ReturnType<typeof getSubmission>>
+    vi.mocked(getSubmission).mockResolvedValue(submission)
+    vi.mocked(updateBrand).mockResolvedValue({ id: 'brand-1', slug: 'test-brand' } as Awaited<ReturnType<typeof updateBrand>>)
+    vi.mocked(approveSubmission).mockResolvedValue(submission)
+    vi.mocked(addTagToBrand).mockResolvedValue(undefined)
+
+    const { approveSubmissionAction } = await import('./actions')
+    const result = await approveSubmissionAction('sub-1')
+
+    expect(result).toBeUndefined()
+    expect(addTagToBrand).not.toHaveBeenCalled()
+  })
+})
+
 describe('MIT verification email actions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -276,7 +364,7 @@ describe('resyncBrandImagesAction', () => {
 })
 
 describe('setBrandTagsAction', () => {
-  it('calls setBrandTags with tag ids', async () => {
+  it('calls setBrandTags with manual source', async () => {
     const { setBrandTags } = await import('@/lib/services/taxonomy')
     vi.mocked(setBrandTags).mockResolvedValue(undefined)
 
@@ -303,7 +391,7 @@ describe('setBrandTagsAction', () => {
 })
 
 describe('confirmBrandTagsAction', () => {
-  it('calls setBrandTags with confirmed tag ids', async () => {
+  it('calls setBrandTags to upgrade source from auto to manual', async () => {
     const { setBrandTags } = await import('@/lib/services/taxonomy')
     vi.mocked(setBrandTags).mockResolvedValue(undefined)
 

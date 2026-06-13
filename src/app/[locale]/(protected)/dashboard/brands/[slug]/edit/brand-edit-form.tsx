@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { saveDraftAction, updateBrandAction } from "../actions";
@@ -10,13 +10,30 @@ import { Label } from "@/components/ui/label";
 import { ImageUploadField } from "@/components/forms/image-upload-field";
 import { DynamicArrayField } from "@/components/forms/dynamic-array-field";
 import { ProductPhotosField } from "@/components/forms/product-photos-field";
-import type { Brand } from "@/lib/types";
+import type { Brand, TaxonomyTag } from "@/lib/types";
 
 type BrandEditFormProps = {
   brand: Brand;
+  regionTags?: TaxonomyTag[];
+  valueTags?: TaxonomyTag[];
 };
 
-export function BrandEditForm({ brand }: BrandEditFormProps) {
+export function BrandEditForm({
+  brand,
+  regionTags = [],
+  valueTags = [],
+}: BrandEditFormProps) {
+  const currentRegion =
+    brand.tags?.find((tag) => tag.category === "region")?.slug ?? "";
+  const currentValueTags =
+    brand.tags
+      ?.filter((tag) => tag.category === "value")
+      .map((tag) => tag.slug) ?? [];
+  const [selectedValues, setSelectedValues] = useState(currentValueTags);
+  const orderedRegionTags = [
+    ...regionTags.filter((tag) => tag.slug === "nationwide"),
+    ...regionTags.filter((tag) => tag.slug !== "nationwide"),
+  ];
   const [publishState, publishFormAction, publishPending] = useActionState(
     updateBrandAction,
     undefined
@@ -104,6 +121,86 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
               max={new Date().getFullYear()}
               defaultValue={brand.foundingYear ?? ""}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="region">{t("fieldRegion")}</Label>
+            <p className="text-xs text-muted-foreground">
+              {t("fieldRegionHint")}
+            </p>
+            <select
+              id="region"
+              name="region"
+              defaultValue={currentRegion}
+              className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm"
+            >
+              <option value="" disabled>
+                {t("fieldRegionPlaceholder")}
+              </option>
+              {orderedRegionTags.map((tag) => (
+                <option key={tag.id} value={tag.slug}>
+                  {tag.nameZh} ({tag.name})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <Label>{t("fieldValueTags")}</Label>
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                  selectedValues.length > 0
+                    ? "bg-[#2F5D50] text-white"
+                    : "bg-[#E5E0D8] text-foreground"
+                }`}
+              >
+                {selectedValues.length} / 3
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t("fieldValueTagsHint")}
+            </p>
+            <input
+              type="hidden"
+              name="valueTags"
+              value={JSON.stringify(selectedValues)}
+            />
+            <div className="flex flex-col gap-0.5">
+              {valueTags.map((tag) => {
+                const checked = selectedValues.includes(tag.slug);
+                const disabled = selectedValues.length >= 3 && !checked;
+
+                return (
+                  <label
+                    key={tag.id}
+                    className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground ${
+                      disabled ? "pointer-events-none opacity-50" : ""
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(event) => {
+                        if (event.target.checked) {
+                          if (selectedValues.length >= 3) return;
+                          setSelectedValues([...selectedValues, tag.slug]);
+                          return;
+                        }
+
+                        setSelectedValues(
+                          selectedValues.filter((value) => value !== tag.slug)
+                        );
+                      }}
+                      className="h-4 w-4 rounded border-border text-[#2F5D50] focus:ring-[#2F5D50]"
+                    />
+                    <span>
+                      {tag.nameZh} ({tag.name})
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
           </div>
         </section>
 

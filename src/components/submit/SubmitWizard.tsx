@@ -29,6 +29,7 @@ import {
   SUBMISSION_STEP_NAMES,
   type SubmissionStepName,
 } from '@/lib/analytics'
+import type { TaxonomyTag } from '@/lib/types'
 import type { ScrapedBrandData, PhotoItem } from '@/lib/types/scraper'
 import type { SourceAttribution } from '@/lib/types/submission'
 
@@ -39,7 +40,8 @@ const STEP_FIELDS: (keyof SubmissionFormData)[][] = [
     'name',
     'description',
     'category',
-    'tags',
+    'region',
+    'valueTags',
     'logoUrl',
   ],
   ['productPhotos', 'brandHighlights'],
@@ -57,6 +59,8 @@ type Category = {
 
 type SubmitWizardProps = {
   categories: Category[]
+  regionTags?: TaxonomyTag[]
+  valueTags?: TaxonomyTag[]
   source?: 'header_cta' | 'hero_cta' | 'footer_link'
 }
 
@@ -86,7 +90,12 @@ function mapScrapedToPhotos(data: ScrapedBrandData): PhotoItem[] {
   return photos
 }
 
-export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardProps) {
+export function SubmitWizard({
+  categories,
+  regionTags = [],
+  valueTags = [],
+  source = 'hero_cta',
+}: SubmitWizardProps) {
   const t = useTranslations('submit')
   const router = useRouter()
 
@@ -145,7 +154,8 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
       name: '',
       description: '',
       category: '',
-      tags: [],
+      region: '',
+      valueTags: [],
       logoUrl: '',
       productPhotos: [],
       brandHighlights: '',
@@ -174,10 +184,6 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
         facebook: data.socialLinks.facebook ?? '',
         website: data.websiteUrl,
       })
-
-      if (data.categoryHints.length > 0) {
-        methods.setValue('tags', data.categoryHints.slice(0, 5))
-      }
 
       setPhotos(mapScrapedToPhotos(data))
       setPhase('form')
@@ -286,6 +292,8 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
                 {currentStep === 0 && (
                   <BrandInfoStep
                     categories={categories}
+                    regionTags={regionTags}
+                    valueTags={valueTags}
                     uploadPath={uploadPath}
                     photos={photos}
                     onPhotosChange={setPhotos}
@@ -297,7 +305,11 @@ export function SubmitWizard({ categories, source = 'hero_cta' }: SubmitWizardPr
                 )}
                 {currentStep === 2 && <LinksStep isOwner={isOwner} />}
                 {currentStep === 3 && (
-                  <ReviewStep onEditStep={handleEditStep} />
+                  <ReviewStep
+                    onEditStep={handleEditStep}
+                    regionTags={regionTags}
+                    valueTags={valueTags}
+                  />
                 )}
 
                 {submitError && (

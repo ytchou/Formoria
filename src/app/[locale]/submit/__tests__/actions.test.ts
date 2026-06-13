@@ -164,7 +164,6 @@ describe('server action schema routing', () => {
       name: 'Test Brand',
       description: 'Long enough description for the test',
       category: 'fashion',
-      tags: [],
       isOwner: true,
       purchaseLinks: [{ platform: 'shopify', url: 'https://shop.com' }],
       pdpaConsent: true,
@@ -184,7 +183,6 @@ describe('server action schema routing', () => {
       name: 'Test Brand',
       description: 'Long enough description for the community submission test',
       category: 'fashion',
-      tags: [],
       isOwner: false,
       purchaseLinks: [],
       pdpaConsent: true,
@@ -203,7 +201,6 @@ describe('server action schema routing', () => {
       name: 'Test Brand',
       description: 'Long enough description for the brand insert payload test',
       category: 'fashion',
-      tags: [],
       logoUrl: 'https://example.com/logo.webp',
       isOwner: true,
       purchaseLinks: [{ platform: 'shopify', url: 'https://shop.com' }],
@@ -218,5 +215,31 @@ describe('server action schema routing', () => {
     expect(mockCreateBrand).toHaveBeenCalledTimes(1)
     const payload = mockCreateBrand.mock.calls[0][0]
     expect('founder' in payload).toBe(false)
+  })
+
+  it('stores structured suggestedTags with region and values', async () => {
+    await submitBrand({
+      name: 'Test Brand',
+      description: 'A'.repeat(40),
+      category: 'fashion',
+      region: 'taipei',
+      valueTags: ['sustainability'],
+      logoUrl: 'https://example.com/logo.png',
+      isOwner: false,
+      purchaseLinks: [],
+      pdpaConsent: true,
+      socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
+      sourceAttribution: 'found_online',
+      productPhotos: [],
+      brandHighlights: '',
+      retailLocations: [],
+      turnstileToken: 'test-token',
+    })
+
+    expect(mockCreateSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({
+        suggestedTags: { region: 'taipei', values: ['sustainability'] },
+      })
+    )
   })
 })

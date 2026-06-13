@@ -16,6 +16,7 @@ import {
   updateBrand,
 } from '@/lib/services/brands'
 import { deleteBrandImages } from '@/lib/services/image-upload'
+import { getTagBySlug, updateBrandCategoryTags } from '@/lib/services/taxonomy'
 import type { Brand, PurchaseLink, RetailLocation } from '@/lib/types'
 
 type ActionState = {
@@ -188,6 +189,29 @@ export async function updateBrandAction(
     const orphans = diffRemovedImageUrls(previousImageUrls, nextImageUrls)
 
     const updatedBrand = await updateBrand(brand.id, updateData)
+
+    // Handle region tag
+    const regionSlug = formData.get('region') as string | null
+    if (regionSlug !== null) {
+      const tag = regionSlug ? await getTagBySlug(regionSlug) : null
+      await updateBrandCategoryTags(brand.id, 'region', tag ? [tag.id] : [])
+    }
+
+    // Handle value tags
+    const valueTagsRaw = formData.get('valueTags') as string | null
+    if (valueTagsRaw !== null) {
+      let slugs: string[] = []
+      try {
+        slugs = JSON.parse(valueTagsRaw || '[]')
+        if (!Array.isArray(slugs)) slugs = []
+      } catch {
+        slugs = []
+      }
+      const tags = await Promise.all(slugs.map(slug => getTagBySlug(slug)))
+      const ids = tags.filter(Boolean).map(t => t!.id)
+      await updateBrandCategoryTags(brand.id, 'value', ids)
+    }
+
     await deleteBrandImages(orphans)
 
     const { snapshot } = await discardDraft(brand.id)

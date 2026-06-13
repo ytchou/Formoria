@@ -12,7 +12,16 @@ import {
 import { verifyMitStatus, rejectMitStatus } from '@/lib/services/mit-verification'
 import { createBrand, updateBrand, getBrandById, deleteBrand, generateSlug, syncBrandImages } from '@/lib/services/brands'
 import { getBrandOwnerEmail } from '@/lib/services/brand-owners'
-import { createTag, updateTag, mergeTag, deactivateTag, activateTag, setBrandTags } from '@/lib/services/taxonomy'
+import {
+  createTag,
+  updateTag,
+  mergeTag,
+  deactivateTag,
+  activateTag,
+  setBrandTags,
+  getTagBySlug,
+  addTagToBrand,
+} from '@/lib/services/taxonomy'
 import { sendEmail } from '@/lib/email/send'
 import {
   buildApprovalEmail,
@@ -28,6 +37,11 @@ import { createEmailPreferences } from '@/lib/services/email-lifecycle'
 import { generateClaimToken } from '@/lib/auth/claim-token'
 import { updateReportStatus } from '@/lib/services/reports'
 import type { TagCategory } from '@/lib/types'
+
+function isStructuredTags(v: unknown): v is { region?: string; values?: string[] } {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
 
 async function requireAdmin(): Promise<{ userId: string; email: string } | { error: string }> {
   const supabase = await createClient()
@@ -98,6 +112,29 @@ export async function approveSubmissionAction(
     }
 
     await approveSubmission(submissionId, auth.userId)
+
+    try {
+      const { suggestedTags } = submission
+      if (isStructuredTags(suggestedTags)) {
+        const structuredTags = suggestedTags
+
+        if (structuredTags.region) {
+          const tag = await getTagBySlug(structuredTags.region)
+          if (tag) await addTagToBrand(brand.id, tag.id)
+        }
+
+        if (Array.isArray(structuredTags.values)) {
+          await Promise.all(
+            structuredTags.values.map(async (slug) => {
+              const tag = await getTagBySlug(slug)
+              if (tag) await addTagToBrand(brand.id, tag.id)
+            })
+          )
+        }
+      }
+    } catch (err) {
+      console.error('[admin:approveSubmission] tag application failed:', err)
+    }
 
     if (submission.isBrandOwner) {
       const token = await generateClaimToken(brand.id, submission.submitterEmail, submission.brandName)
