@@ -1,0 +1,231 @@
+import { createServiceClient } from '@/lib/supabase/server'
+
+export type HealthStatus = 'healthy' | 'degraded' | 'down' | 'unconfigured'
+
+export interface ServiceHealthResult {
+  service: string
+  status: HealthStatus
+  message: string
+  checkedAt: string
+}
+
+type TallySubmission = {
+  created_at: string | null
+}
+
+const checkedAt = () => new Date().toISOString()
+
+const result = (
+  service: string,
+  status: HealthStatus,
+  message: string
+): ServiceHealthResult => ({
+  service,
+  status,
+  message,
+  checkedAt: checkedAt(),
+})
+
+export async function checkSupabase(): Promise<ServiceHealthResult> {
+  try {
+    const supabase = createServiceClient()
+    const { error } = await supabase.from('brands').select('id').limit(1)
+
+    if (error) {
+      return result('Supabase', 'down', error.message)
+    }
+
+    return result('Supabase', 'healthy', 'Connection healthy')
+  } catch (error) {
+    return result('Supabase', 'down', error instanceof Error ? error.message : 'Unknown error')
+  }
+}
+
+export async function checkSentry(): Promise<ServiceHealthResult> {
+  const { SENTRY_ORG, SENTRY_PROJECT, SENTRY_API_TOKEN } = process.env
+
+  if (!SENTRY_ORG || !SENTRY_PROJECT || !SENTRY_API_TOKEN) {
+    return result('Sentry', 'unconfigured', 'Sentry credentials are not configured')
+  }
+
+  try {
+    const response = await fetch(
+      `https://sentry.io/api/0/projects/${SENTRY_ORG}/${SENTRY_PROJECT}/user-feedback/?limit=1`,
+      {
+        headers: {
+          Authorization: `Bearer ${SENTRY_API_TOKEN}`,
+        },
+        signal: AbortSignal.timeout(3000),
+      }
+    )
+
+    return response.ok
+      ? result('Sentry', 'healthy', 'API reachable')
+      : result('Sentry', 'down', `API returned ${response.status}`)
+  } catch (error) {
+    return result('Sentry', 'down', error instanceof Error ? error.message : 'Unknown error')
+  }
+}
+
+export async function checkResend(): Promise<ServiceHealthResult> {
+  const { RESEND_API_KEY } = process.env
+
+  if (!RESEND_API_KEY) {
+    return result('Resend', 'unconfigured', 'Resend API key is not configured')
+  }
+
+  try {
+    const response = await fetch('https://api.resend.com/domains', {
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+      },
+      signal: AbortSignal.timeout(3000),
+    })
+
+    return response.ok
+      ? result('Resend', 'healthy', 'API reachable')
+      : result('Resend', 'down', `API returned ${response.status}`)
+  } catch (error) {
+    return result('Resend', 'down', error instanceof Error ? error.message : 'Unknown error')
+  }
+}
+
+export async function checkTurnstile(): Promise<ServiceHealthResult> {
+  const { TURNSTILE_SECRET_KEY } = process.env
+
+  if (!TURNSTILE_SECRET_KEY) {
+    return result('Turnstile', 'unconfigured', 'Turnstile secret key is not configured')
+  }
+
+  try {
+    const formData = new FormData()
+    formData.append('secret', TURNSTILE_SECRET_KEY)
+    formData.append('response', '')
+
+    await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      body: formData,
+      signal: AbortSignal.timeout(3000),
+    })
+
+    return result('Turnstile', 'healthy', 'API reachable')
+  } catch (error) {
+    return result('Turnstile', 'down', error instanceof Error ? error.message : 'Unknown error')
+  }
+}
+
+export async function checkTally(): Promise<ServiceHealthResult> {
+  try {
+    const supabase = createServiceClient()
+    const query = supabase
+      .from('feedback')
+      .select('created_at')
+      .not('tally_response_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    const { data, error } = (await query) as {
+      data: TallySubmission[] | null
+      error: { message: string } | null
+    }
+
+    if (error) {
+      return result('Tally', 'down', error.message)
+    }
+
+    const latestSubmission = data?.[0]
+
+    if (!latestSubmission?.created_at) {
+      return result('Tally', 'healthy', 'No submissions yet')
+    }
+
+    const ageMs = Date.now() - new Date(latestSubmission.created_at).getTime()
+    const ageDays = ageMs / (1000 * 60 * 60 * 24)
+
+    if (ageDays < 30) {
+      return result('Tally', 'healthy', 'Recent submissions found')
+    }
+
+    if (ageDays <= 90) {
+      return result('Tally', 'degraded', 'No submissions in the last 30 days')
+    }
+
+    return result('Tally', 'down', 'No submissions in the last 90 days')
+  } catch (error) {
+    return result('Tally', 'down', error instanceof Error ? error.message : 'Unknown error')
+  }
+}
+
+export async function checkBrowserless(): Promise<ServiceHealthResult> {
+  const { RENDER_API_KEY, BROWSERLESS_URL } = process.env
+
+  if (!RENDER_API_KEY || !BROWSERLESS_URL) {
+    return result('Browserless', 'unconfigured', 'Browserless configuration is missing')
+  }
+
+  try {
+    const response = await fetch(BROWSERLESS_URL, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(3000),
+    })
+
+    return response.ok
+      ? result('Browserless', 'healthy', 'Endpoint reachable')
+      : result('Browserless', 'down', `Endpoint returned ${response.status}`)
+  } catch (error) {
+    return result('Browserless', 'down', error instanceof Error ? error.message : 'Unknown error')
+  }
+}
+
+export async function checkRailway(): Promise<ServiceHealthResult> {
+  const { NEXT_PUBLIC_SITE_URL } = process.env
+
+  if (!NEXT_PUBLIC_SITE_URL) {
+    return result('Railway', 'unconfigured', 'Site URL is not configured')
+  }
+
+  try {
+    const response = await fetch(NEXT_PUBLIC_SITE_URL, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(3000),
+    })
+
+    return response.ok
+      ? result('Railway', 'healthy', 'Site reachable')
+      : result('Railway', 'down', `Site returned ${response.status}`)
+  } catch (error) {
+    return result('Railway', 'down', error instanceof Error ? error.message : 'Unknown error')
+  }
+}
+
+const serviceNames = [
+  'Supabase',
+  'Sentry',
+  'Resend',
+  'Turnstile',
+  'Tally',
+  'Browserless',
+  'Railway',
+] as const
+
+export async function checkAllServices(): Promise<ServiceHealthResult[]> {
+  const checks = await Promise.allSettled([
+    checkSupabase(),
+    checkSentry(),
+    checkResend(),
+    checkTurnstile(),
+    checkTally(),
+    checkBrowserless(),
+    checkRailway(),
+  ])
+
+  return checks.map((check, index) =>
+    check.status === 'fulfilled'
+      ? check.value
+      : result(
+          serviceNames[index] ?? 'Unknown',
+          'down',
+          check.reason instanceof Error ? check.reason.message : 'Unknown error'
+        )
+  )
+}
