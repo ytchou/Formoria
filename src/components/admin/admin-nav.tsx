@@ -11,6 +11,7 @@ const navLinks = [
   { label: '品牌', href: '/admin/brands' },
   { label: '分類管理', href: '/admin/taxonomy' },
   { label: '檢舉', href: '/admin/reports' },
+  { label: 'Feedback', href: '/admin/feedback' },
 ]
 
 export function AdminNav() {
