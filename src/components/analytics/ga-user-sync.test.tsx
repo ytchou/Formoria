@@ -30,7 +30,7 @@ describe('GaUserSync', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('sets user_id on authenticated user', async () => {
+  it('sets user properties for authenticated user', async () => {
     mockUseUser.mockReturnValue({
       user: { id: 'user-1', email: 'owner@example.com' },
       loading: false,
@@ -40,14 +40,26 @@ describe('GaUserSync', () => {
     render(<GaUserSync />)
 
     expect(window.gtag).toHaveBeenCalledWith('set', { user_id: 'user-1' })
+    expect(window.gtag).toHaveBeenCalledWith('set', {
+      user_properties: {
+        user_type: 'authenticated',
+        preferred_locale: 'en',
+      },
+    })
   })
 
-  it('sets user_id to null when unauthenticated', async () => {
+  it('sets user properties for unauthenticated visitor', async () => {
     const { GaUserSync } = await import('./ga-user-sync')
 
     render(<GaUserSync />)
 
     expect(window.gtag).toHaveBeenCalledWith('set', { user_id: null })
+    expect(window.gtag).toHaveBeenCalledWith('set', {
+      user_properties: {
+        user_type: 'visitor',
+        preferred_locale: 'en',
+      },
+    })
   })
 
   it('sets content_group based on pathname', async () => {

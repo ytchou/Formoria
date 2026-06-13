@@ -147,6 +147,20 @@ describe('persistUtmTouchPoints', () => {
   it('returns null when empty params and no stored data', () => {
     expect(persistUtmTouchPoints({})).toBeNull()
   })
+
+  it('handles corrupted localStorage gracefully without losing first touch', () => {
+    // Store valid first touch
+    persistUtmTouchPoints({ utm_source: 'google', utm_medium: 'cpc' })
+    // Corrupt the first touch entry
+    localStorage.setItem('formoria_utm_first_touch', 'not-json')
+    // Should still work - treat corrupted first touch as missing but don't crash
+    const result = persistUtmTouchPoints({
+      utm_source: 'twitter',
+      utm_medium: 'social',
+    })
+    expect(result).not.toBeNull()
+    expect(result!.last_touch_source).toBe('twitter')
+  })
 })
 
 describe('GA4 standard event names', () => {

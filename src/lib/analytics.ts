@@ -95,7 +95,11 @@ function readStoredUtmParams(key: string): Record<string, string> | null {
   const value = localStorage.getItem(key)
   if (!value) return null
 
-  return JSON.parse(value) as Record<string, string>
+  try {
+    return JSON.parse(value) as Record<string, string>
+  } catch {
+    return null
+  }
 }
 
 export function persistUtmTouchPoints(

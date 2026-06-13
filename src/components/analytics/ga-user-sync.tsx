@@ -8,7 +8,6 @@ import {
   getUtmParams,
   persistUtmTouchPoints,
 } from '@/lib/analytics'
-import { isAdmin } from '@/lib/auth/admin'
 import { useUser } from '@/lib/auth/use-user'
 
 type GtagSetArgs = ['set', Record<string, unknown>]
@@ -31,11 +30,7 @@ export function GaUserSync() {
   const pathname = usePathname()
 
   useEffect(() => {
-    const userType = user?.email
-      ? isAdmin(user.email)
-        ? 'admin'
-        : 'authenticated'
-      : 'visitor'
+    const userType = user ? 'authenticated' : 'visitor'
 
     safeGtag('set', { user_id: user?.id ?? null })
     safeGtag('set', {
