@@ -9,10 +9,12 @@ vi.mock('@/lib/supabase/server', () => ({
 const fetchMock = vi.fn()
 vi.stubGlobal('fetch', fetchMock)
 
-const mockSupabase = (error: Error | null = null) => ({
+const mockSupabase = (error: Error | null = null, data: Record<string, unknown>[] | null = null) => ({
   from: vi.fn().mockReturnValue({
     select: vi.fn().mockReturnValue({
-      limit: vi.fn().mockResolvedValue({ error }),
+      not: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue({ error, data }),
     }),
   }),
 })
@@ -132,5 +134,57 @@ describe('checkAllServices', () => {
     for (const svc of fetchServices) {
       expect(svc.status).toBe('down')
     }
+  })
+
+  describe('checkTally age thresholds', () => {
+    const makeRow = (daysAgo: number) => ({
+      created_at: new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toISOString(),
+    })
+
+    it('returns healthy when latest Tally submission is less than 30 days old', async () => {
+      const { createServiceClient } = await import('@/lib/supabase/server')
+      vi.mocked(createServiceClient).mockReturnValue(
+        asMockServiceClient(mockSupabase(null, [makeRow(10)]))
+      )
+      fetchMock.mockResolvedValue({ ok: true })
+
+      const results = await checkAllServices()
+      const tally = results.find((r) => r.service === 'Tally')
+      expect(tally?.status).toBe('healthy')
+    })
+
+    it('returns degraded when latest Tally submission is 30-90 days old', async () => {
+      const { createServiceClient } = await import('@/lib/supabase/server')
+      vi.mocked(createServiceClient).mockReturnValue(
+        asMockServiceClient(mockSupabase(null, [makeRow(60)]))
+      )
+      fetchMock.mockResolvedValue({ ok: true })
+
+      const results = await checkAllServices()
+      const tally = results.find((r) => r.service === 'Tally')
+      expect(tally?.status).toBe('degraded')
+    })
+
+    it('returns down when latest Tally submission is older than 90 days', async () => {
+      const { createServiceClient } = await import('@/lib/supabase/server')
+      vi.mocked(createServiceClient).mockReturnValue(
+        asMockServiceClient(mockSupabase(null, [makeRow(100)]))
+      )
+      fetchMock.mockResolvedValue({ ok: true })
+
+      const results = await checkAllServices()
+      const tally = results.find((r) => r.service === 'Tally')
+      expect(tally?.status).toBe('down')
+    })
+
+    it('returns healthy when no Tally submissions exist (no rows)', async () => {
+      const { createServiceClient } = await import('@/lib/supabase/server')
+      vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase(null, [])))
+      fetchMock.mockResolvedValue({ ok: true })
+
+      const results = await checkAllServices()
+      const tally = results.find((r) => r.service === 'Tally')
+      expect(tally?.status).toBe('healthy')
+    })
   })
 })
