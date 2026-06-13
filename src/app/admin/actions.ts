@@ -1134,6 +1134,7 @@ export async function bulkUpdateReportsAction(
 }
 
 export async function refreshHealthChecks(): Promise<void> {
+  await requireAdmin()
   try {
     await checkAllServices()
   } catch (err) {
