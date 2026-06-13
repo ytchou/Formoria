@@ -538,7 +538,7 @@ describe('resyncBrandImagesAction', () => {
     const result = await resyncBrandImagesAction('brand-1')
 
     expect(syncBrandImages).toHaveBeenCalledWith('brand-1')
-    expect(revalidatePath).toHaveBeenCalledWith('/admin/brands')
+    expect(revalidatePath).toHaveBeenCalledWith('/admin/catalog/brands')
     expect(result).toEqual({ synced: 2, failed: 1 })
   })
 })
@@ -631,14 +631,14 @@ describe('bulkUpdateReportsAction', () => {
 })
 
 describe('reviewFeedbackAction', () => {
-  it('calls updateFeedbackStatus and revalidates /admin/feedback', async () => {
+  it('calls updateFeedbackStatus and revalidates /admin/signals/feedback', async () => {
     const { reviewFeedbackAction } = await import('./actions')
     const { updateFeedbackStatus } = await import('@/lib/services/feedback')
 
     const result = await reviewFeedbackAction('feedback-id-1', 'reviewed')
 
     expect(updateFeedbackStatus).toHaveBeenCalledWith('feedback-id-1', 'reviewed')
-    expect(revalidatePath).toHaveBeenCalledWith('/admin/feedback')
+    expect(revalidatePath).toHaveBeenCalledWith('/admin/signals/feedback')
     expect(result).toBeUndefined()
   })
 

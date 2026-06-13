@@ -64,6 +64,51 @@ const nextConfig: NextConfig = {
         destination: '/categories/:category',
         permanent: true,
       },
+      {
+        source: '/admin/submissions',
+        destination: '/admin/review-queue/submissions',
+        permanent: true,
+      },
+      {
+        source: '/admin/moderation',
+        destination: '/admin/review-queue/moderation',
+        permanent: true,
+      },
+      {
+        source: '/admin/pending-edits',
+        destination: '/admin/review-queue/edits',
+        permanent: true,
+      },
+      {
+        source: '/admin/claim-requests',
+        destination: '/admin/claims',
+        permanent: true,
+      },
+      {
+        source: '/admin/reports',
+        destination: '/admin/signals/reports',
+        permanent: true,
+      },
+      {
+        source: '/admin/feedback',
+        destination: '/admin/signals/feedback',
+        permanent: true,
+      },
+      {
+        source: '/admin/brands',
+        destination: '/admin/catalog/brands',
+        permanent: true,
+      },
+      {
+        source: '/admin/taxonomy',
+        destination: '/admin/catalog/taxonomy',
+        permanent: true,
+      },
+      {
+        source: '/admin/bulk-import',
+        destination: '/admin/catalog/import',
+        permanent: true,
+      },
     ]
   },
 };
