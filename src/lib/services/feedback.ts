@@ -62,6 +62,7 @@ function mapFeedbackRow(row: FeedbackRow): FeedbackItem {
 export async function getFeedbackItems(filters?: {
   status?: FeedbackStatus
   source?: 'sentry' | 'tally'
+  limit?: number
 }): Promise<FeedbackItem[]> {
   const { createServiceClient } = await import('@/lib/supabase/server')
   const supabase = createServiceClient()
@@ -78,7 +79,12 @@ export async function getFeedbackItems(filters?: {
     query = query.eq('source', filters.source)
   }
 
-  const { data, error } = await query.order('created_at', { ascending: false })
+  query = query.order('created_at', { ascending: false })
+  if (filters?.limit) {
+    query = query.limit(filters.limit)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
 

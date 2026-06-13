@@ -135,7 +135,7 @@ export async function submitClaimAction(input: SubmitClaimInput): Promise<Submit
     }
 
     revalidatePath('/admin')
-    revalidatePath('/admin/claim-requests')
+    revalidatePath('/admin/claims')
     return {
       ok: true,
       ...(claimRequest.emailVerificationTokens[0]
@@ -184,7 +184,7 @@ export async function submitReportAction(_prevState: ReportState, formData: Form
     }
 
     await createReport({ brandId, reason: reason as SubmitReportReason, notes })
-    revalidatePath('/admin/reports')
+    revalidatePath('/admin/signals/reports')
     revalidatePath('/admin')
     return { success: true }
   } catch (err: unknown) {

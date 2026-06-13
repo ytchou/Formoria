@@ -72,11 +72,11 @@ test.describe('Admin dashboard deep', () => {
   });
 
   test('approve submission makes brand visible in directory', async ({ adminPage }) => {
-    // DEV-762: /admin/submissions cold-compiles in CI; give the page and the
+    // DEV-762: /admin/review-queue/submissions cold-compiles in CI; give the page and the
     // approve action generous budgets.
     test.setTimeout(60_000);
     if (!testSubmissionId) test.skip();
-    await adminPage.goto('/admin/submissions');
+    await adminPage.goto('/admin/review-queue/submissions');
     // Wait for the page to be interactive before looking for the seeded row.
     await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 15_000 });
     // Click the row text to expand the detail section (approve button is inside it)
@@ -102,7 +102,7 @@ test.describe('Admin dashboard deep', () => {
       .select('id')
       .single();
 
-    await adminPage.goto('/admin/submissions');
+    await adminPage.goto('/admin/review-queue/submissions');
     // Click the row text to expand the detail section (reject button is inside it)
     await adminPage.getByText(rejectBrandName).click();
     const rejectBtn = adminPage.getByRole('button', { name: /^reject$|^拒絕$/i });

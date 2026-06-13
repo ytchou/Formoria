@@ -1,47 +1,63 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('next/navigation', () => ({
   usePathname: vi.fn(() => '/admin'),
 }))
 
-import { AdminNav } from '../admin-nav'
+async function renderAdminNav() {
+  const { AdminNav } = await import('../admin-nav')
+  render(<AdminNav />)
+}
 
 describe('AdminNav', () => {
-  it('renders all navigation links', () => {
-    render(<AdminNav />)
-    expect(screen.getByText('管理後台', { selector: 'a' })).toBeDefined()
-    expect(screen.getByText('待審核提交')).toBeDefined()
-    expect(screen.getByText('品牌')).toBeDefined()
-    expect(screen.getByText('分類管理')).toBeDefined()
+  it('renders exactly 5 navigation links', async () => {
+    await renderAdminNav()
+
+    expect(screen.getAllByRole('link')).toHaveLength(5)
   })
 
-  it('renders Admin wordmark', () => {
-    render(<AdminNav />)
-    expect(screen.getByText('管理後台', { selector: 'span' })).toBeDefined()
+  it('renders correct labels', async () => {
+    await renderAdminNav()
+
+    expect(screen.getByRole('link', { name: '總覽' })).toBeDefined()
+    expect(screen.getByRole('link', { name: '審核佇列' })).toBeDefined()
+    expect(screen.getByRole('link', { name: '認領申請' })).toBeDefined()
+    expect(screen.getByRole('link', { name: '信號' })).toBeDefined()
+    expect(screen.getByRole('link', { name: '目錄管理' })).toBeDefined()
   })
 
-  it('highlights active link based on pathname', async () => {
-    const { usePathname } = vi.mocked(await import('next/navigation'))
-    usePathname.mockReturnValue('/admin/submissions')
+  it('renders correct hrefs', async () => {
+    await renderAdminNav()
 
-    render(<AdminNav />)
-    const submissionsLink = screen.getByText('待審核提交').closest('a')
-    expect(submissionsLink?.className).toContain('border-b')
+    expect(screen.getByRole('link', { name: '總覽' })).toHaveAttribute(
+      'href',
+      '/admin'
+    )
+    expect(screen.getByRole('link', { name: '審核佇列' })).toHaveAttribute(
+      'href',
+      '/admin/review-queue'
+    )
+    expect(screen.getByRole('link', { name: '認領申請' })).toHaveAttribute(
+      'href',
+      '/admin/claims'
+    )
+    expect(screen.getByRole('link', { name: '信號' })).toHaveAttribute(
+      'href',
+      '/admin/signals'
+    )
+    expect(screen.getByRole('link', { name: '目錄管理' })).toHaveAttribute(
+      'href',
+      '/admin/catalog'
+    )
   })
 
-  it('links to correct paths', () => {
-    render(<AdminNav />)
-    expect(screen.getByText('管理後台', { selector: 'a' }).getAttribute('href')).toBe('/admin')
-    expect(screen.getByText('待審核提交').closest('a')?.getAttribute('href')).toBe('/admin/submissions')
-    expect(screen.getByText('品牌').closest('a')?.getAttribute('href')).toBe('/admin/brands')
-    expect(screen.getByText('分類管理').closest('a')?.getAttribute('href')).toBe('/admin/taxonomy')
-  })
+  it('does not render old tab labels', async () => {
+    await renderAdminNav()
 
-  it('renders the 品牌編輯審核 tab with link to /admin/pending-edits', () => {
-    render(<AdminNav />)
-    const link = screen.getByRole('link', { name: /品牌編輯審核/ })
-    expect(link).toHaveAttribute('href', '/admin/pending-edits')
+    expect(screen.queryByRole('link', { name: '待審核提交' })).toBeNull()
+    expect(screen.queryByRole('link', { name: '品牌編輯審核' })).toBeNull()
+    expect(screen.queryByRole('link', { name: '內容審核' })).toBeNull()
   })
 })

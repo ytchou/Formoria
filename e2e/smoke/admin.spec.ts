@@ -65,14 +65,14 @@ test.describe('Admin smoke', () => {
 
   test('submissions review queue shows pending items', async ({ adminPage }) => {
     if (!testSubmissionId) test.skip();
-    await adminPage.goto('/admin/submissions');
+    await adminPage.goto('/admin/review-queue/submissions');
     await expect(adminPage.getByRole('heading', { name: /submission/i })).toBeVisible();
     await expect(adminPage.getByText(testBrandName)).toBeVisible({ timeout: 10_000 });
   });
 
   test('admin can approve a submission', async ({ adminPage }) => {
     if (!testSubmissionId) test.skip();
-    await adminPage.goto('/admin/submissions');
+    await adminPage.goto('/admin/review-queue/submissions');
     // Click the row to expand the detail section (approve button is inside it)
     await adminPage.getByText(testBrandName).click();
     const approveBtn = adminPage.getByRole('button', { name: /^approve$|^核准$/i });

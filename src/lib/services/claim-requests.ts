@@ -68,14 +68,17 @@ type ClaimRequestManyResult<T> = Promise<{
   error: ClaimRequestError | null
 }>
 
+type ClaimRequestManyResponse<T> = Awaited<ClaimRequestManyResult<T>>
+
 type ClaimRequestUpdateSelectResult<T> = Promise<{
   data: T | null
   error: ClaimRequestError | null
 }>
 
-type ClaimRequestSelectBuilder = {
+type ClaimRequestSelectBuilder = PromiseLike<ClaimRequestManyResponse<ClaimRequestRowWithJoins>> & {
   eq(column: string, value: string): ClaimRequestSelectBuilder
-  order(column: string, options: { ascending: boolean }): ClaimRequestManyResult<ClaimRequestRowWithJoins>
+  order(column: string, options: { ascending: boolean }): ClaimRequestSelectBuilder
+  limit(count: number): ClaimRequestSelectBuilder
   single(): ClaimRequestSingleResult<ClaimRequestRowWithJoins>
   maybeSingle(): ClaimRequestSingleResult<ClaimRequestRowWithJoins>
 }
@@ -540,7 +543,10 @@ export async function hasPendingClaim(userId: string, brandId: string): Promise<
   return Boolean(data)
 }
 
-export async function listClaimRequests(status?: ClaimRequestStatus): Promise<ClaimRequest[]> {
+export async function listClaimRequests(
+  status?: ClaimRequestStatus,
+  options?: { limit?: number }
+): Promise<ClaimRequest[]> {
   const supabase = createServiceClient()
   let query = claimRequestsTable(supabase).select(CLAIM_REQUEST_WITH_BRAND_SELECT)
 
@@ -548,7 +554,12 @@ export async function listClaimRequests(status?: ClaimRequestStatus): Promise<Cl
     query = query.eq('status', status)
   }
 
-  const { data, error } = await query.order('created_at', { ascending: false })
+  query = query.order('created_at', { ascending: false })
+  if (options?.limit) {
+    query = query.limit(options.limit)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
   return attachRequesterEmails((data ?? []) as ClaimRequestRowWithJoins[])

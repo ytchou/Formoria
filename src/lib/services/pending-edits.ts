@@ -139,7 +139,8 @@ export async function createPendingEdit(
 }
 
 export async function getPendingEdits(
-  status?: PendingBrandEditStatus
+  status?: PendingBrandEditStatus,
+  options?: { limit?: number }
 ): Promise<PendingBrandEditWithBrand[]> {
   const supabase = createServiceClient()
   let query = supabase.from('pending_brand_edits').select(PENDING_EDIT_WITH_BRAND_SELECT)
@@ -148,7 +149,12 @@ export async function getPendingEdits(
     query = query.eq('status', status)
   }
 
-  const { data, error } = await query.order('created_at', { ascending: false })
+  query = query.order('created_at', { ascending: false })
+  if (options?.limit) {
+    query = query.limit(options.limit)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
   return ((data ?? []) as PendingBrandEditWithBrandRowInput[]).map(pendingEditWithBrandToDomain)

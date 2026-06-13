@@ -214,7 +214,7 @@ export async function approveSubmissionAction(
       }))
     }
 
-    revalidatePath('/admin/submissions')
+    revalidatePath('/admin/review-queue/submissions')
     revalidatePath('/admin')
     revalidatePath('/')
     revalidatePath('/brands')
@@ -244,7 +244,7 @@ export async function rejectSubmissionAction(
       reviewerNotes: notes,
     }))
 
-    revalidatePath('/admin/submissions')
+    revalidatePath('/admin/review-queue/submissions')
     revalidatePath('/admin')
     revalidatePath('/')
     revalidatePath('/brands')
@@ -275,7 +275,7 @@ export async function approveClaimAction(
       console.error('[claim-approved-email-preferences] create failed', err)
     }
 
-    revalidatePath('/admin/claim-requests')
+    revalidatePath('/admin/claims')
     revalidatePath('/admin')
     revalidatePath('/[locale]', 'page')
     revalidatePath('/[locale]/brands', 'page')
@@ -318,7 +318,7 @@ export async function rejectClaimAction(
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://formoria.com'
     await rejectClaimRequest(claimRequestId, auth.userId, notes)
 
-    revalidatePath('/admin/claim-requests')
+    revalidatePath('/admin/claims')
     revalidatePath('/admin')
     revalidatePath('/[locale]', 'page')
     revalidatePath('/[locale]/brands', 'page')
@@ -373,7 +373,7 @@ export async function approvePendingEditAction(
       console.error('[edit-approved-email] send failed', err)
     }
 
-    revalidatePath('/admin/pending-edits')
+    revalidatePath('/admin/review-queue/edits')
     revalidatePath('/admin')
     revalidatePath('/[locale]', 'page')
     revalidatePath('/[locale]/brands', 'page')
@@ -407,7 +407,7 @@ export async function rejectPendingEditAction(
       console.error('[edit-rejected-email] send failed', err)
     }
 
-    revalidatePath('/admin/pending-edits')
+    revalidatePath('/admin/review-queue/edits')
     revalidatePath('/admin')
     revalidatePath('/[locale]', 'page')
     revalidatePath('/[locale]/brands', 'page')
@@ -461,8 +461,8 @@ export async function verifyMitAction(
       console.error('[mit-verification-approved-email] send failed', err)
     }
 
-    revalidatePath('/admin/claim-requests')
-    revalidatePath('/admin/brands')
+    revalidatePath('/admin/claims')
+    revalidatePath('/admin/catalog/brands')
     revalidatePath('/admin')
     revalidatePath('/[locale]', 'page')
     revalidatePath('/[locale]/brands', 'page')
@@ -505,8 +505,8 @@ export async function rejectMitAction(
       console.error('[mit-verification-needs-docs-email] send failed', err)
     }
 
-    revalidatePath('/admin/claim-requests')
-    revalidatePath('/admin/brands')
+    revalidatePath('/admin/claims')
+    revalidatePath('/admin/catalog/brands')
     revalidatePath('/admin')
     revalidatePath('/[locale]', 'page')
     revalidatePath('/[locale]/brands', 'page')
@@ -584,7 +584,7 @@ export async function updateBrandAction(
       }
     }
 
-    revalidatePath('/admin/brands')
+    revalidatePath('/admin/catalog/brands')
     revalidatePath('/admin')
     revalidatePath('/')
     revalidatePath('/brands')
@@ -606,7 +606,7 @@ export async function hideBrandAction(
 
     await updateBrand(brandId, { status: 'hidden' })
 
-    revalidatePath('/admin/brands')
+    revalidatePath('/admin/catalog/brands')
     revalidatePath('/admin')
     revalidatePath('/')
     revalidatePath('/brands')
@@ -628,7 +628,7 @@ export async function unhideBrandAction(
 
     await updateBrand(brandId, { status: 'approved' })
 
-    revalidatePath('/admin/brands')
+    revalidatePath('/admin/catalog/brands')
     revalidatePath('/admin')
     revalidatePath('/')
     revalidatePath('/brands')
@@ -650,7 +650,7 @@ export async function deleteBrandAction(
 
     await deleteBrand(brandId)
 
-    revalidatePath('/admin/brands')
+    revalidatePath('/admin/catalog/brands')
     revalidatePath('/admin')
     revalidatePath('/')
     revalidatePath('/brands')
@@ -673,7 +673,7 @@ export async function resyncBrandImagesAction(
     const brand = await getBrandById(brandId)
     const result = await syncBrandImages(brandId)
 
-    revalidatePath('/admin/brands')
+    revalidatePath('/admin/catalog/brands')
     revalidatePath('/admin')
     revalidatePath('/')
     revalidatePath('/brands')
@@ -698,7 +698,7 @@ export async function createTagAction(
       nameZh: data.nameZh,
     })
 
-    revalidatePath('/admin/taxonomy')
+    revalidatePath('/admin/catalog/taxonomy')
     revalidatePath('/admin')
     return undefined
   } catch (err) {
@@ -720,7 +720,8 @@ export async function renameTagAction(
 
     await updateTag(tagId, { name, nameZh })
 
-    revalidatePath('/admin/taxonomy')
+    revalidatePath('/admin/catalog/taxonomy')
+    revalidatePath('/admin')
     return undefined
   } catch (err) {
     console.error('[admin:renameTag]', err)
@@ -740,7 +741,7 @@ export async function mergeTagAction(
 
     await mergeTag(sourceId, targetId)
 
-    revalidatePath('/admin/taxonomy')
+    revalidatePath('/admin/catalog/taxonomy')
     revalidatePath('/admin')
     return undefined
   } catch (err) {
@@ -760,7 +761,7 @@ export async function deactivateTagAction(
 
     await deactivateTag(tagId)
 
-    revalidatePath('/admin/taxonomy')
+    revalidatePath('/admin/catalog/taxonomy')
     revalidatePath('/admin')
     return undefined
   } catch (err) {
@@ -780,7 +781,7 @@ export async function approveSuggestedTagAction(
 
     await activateTag(tagId)
 
-    revalidatePath('/admin/taxonomy')
+    revalidatePath('/admin/catalog/taxonomy')
     revalidatePath('/admin')
     return undefined
   } catch (err) {
@@ -809,8 +810,9 @@ export async function setBrandTagsAction(
 
     await setBrandTags(brandId, tagIds)
 
-    revalidatePath('/admin/brands')
-    revalidatePath('/admin/taxonomy')
+    revalidatePath('/admin/catalog/brands')
+    revalidatePath('/admin/catalog/taxonomy')
+    revalidatePath('/admin')
     return { success: true }
   } catch (err) {
     console.error('[admin:setBrandTags]', err)
@@ -838,8 +840,9 @@ export async function confirmBrandTagsAction(
 
     await setBrandTags(brandId, tagIds)
 
-    revalidatePath('/admin/brands')
-    revalidatePath('/admin/taxonomy')
+    revalidatePath('/admin/catalog/brands')
+    revalidatePath('/admin/catalog/taxonomy')
+    revalidatePath('/admin')
     return { success: true }
   } catch (err) {
     console.error('[admin:confirmBrandTags]', err)
@@ -859,7 +862,7 @@ export async function reviewReportAction(
 
     await updateReportStatus(reportId, decision)
 
-    revalidatePath('/admin/reports')
+    revalidatePath('/admin/signals/reports')
     revalidatePath('/admin')
     return undefined
   } catch (err) {
@@ -879,7 +882,8 @@ export async function reviewFeedbackAction(
     if ('error' in auth) return auth
 
     await updateFeedbackStatus(feedbackId, decision)
-    revalidatePath('/admin/feedback')
+    revalidatePath('/admin/signals/feedback')
+    revalidatePath('/admin')
     return undefined
   } catch (err) {
     console.error('[admin:reviewFeedback]', err)
@@ -895,7 +899,8 @@ export async function syncSentryFeedbackAction(): Promise<
     if ('error' in auth) return { error: auth.error }
 
     const { synced } = await syncSentryFeedback()
-    revalidatePath('/admin/feedback')
+    revalidatePath('/admin/signals/feedback')
+    revalidatePath('/admin')
     return { synced }
   } catch (err) {
     console.error('[admin:syncSentry]', err)
@@ -1085,7 +1090,8 @@ export async function executeBulkImportAction(
       }
     }
 
-    revalidatePath('/admin/brands')
+    revalidatePath('/admin/catalog/brands')
+    revalidatePath('/admin')
     return { results }
   } catch (err) {
     console.error('[admin:executeBulkImport]', err)
@@ -1119,7 +1125,7 @@ export async function bulkUpdateReportsAction(
   }
 
   if (updated > 0) {
-    revalidatePath('/admin/reports')
+    revalidatePath('/admin/signals/reports')
     revalidatePath('/admin')
   }
 

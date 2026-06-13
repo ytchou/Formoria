@@ -63,15 +63,21 @@ export async function createReport(input: {
   if (error) throw error
 }
 
-export async function getPendingReports(): Promise<BrandReport[]> {
+export async function getPendingReports(options?: { limit?: number }): Promise<BrandReport[]> {
   const { createServiceClient } = await import('@/lib/supabase/server')
   const supabase = createServiceClient()
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('brand_reports')
     .select('*, brands(name, slug)')
     .eq('status', 'pending')
     .order('created_at', { ascending: false })
+
+  if (options?.limit) {
+    query = query.limit(options.limit)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
 
