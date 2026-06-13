@@ -17,7 +17,7 @@ export default async function PendingEditsPage() {
       <h1 className="font-heading text-3xl font-bold tracking-tight">
         品牌編輯審核
       </h1>
-      <p className="mt-2 text-[#7C7570]">
+      <p className="mt-2 text-warm-caption">
         待審核：{count} 件
       </p>
 
