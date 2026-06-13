@@ -15,7 +15,20 @@ import {
   rejectPendingEdit,
 } from '@/lib/services/pending-edits'
 import { verifyMitStatus, rejectMitStatus } from '@/lib/services/mit-verification'
-import { createBrand, updateBrand, getBrandById, deleteBrand, generateSlug, syncBrandImages } from '@/lib/services/brands'
+import {
+  brandToInsert,
+  createBrand,
+  curatedSubmissionToBrand,
+  deleteBrand,
+  findSimilarBrands,
+  generateSlug,
+  getBrandById,
+  isReservedSlug,
+  parseBrandCSV,
+  syncBrandImages,
+  updateBrand,
+} from '@/lib/services/brands'
+import type { SimilarBrand } from '@/lib/services/brands'
 import { getBrandOwnerEmail } from '@/lib/services/brand-owners'
 import {
   createTag,
@@ -46,6 +59,23 @@ import { updateReportStatus } from '@/lib/services/reports'
 import { updateFeedbackStatus, syncSentryFeedback } from '@/lib/services/feedback'
 import type { FeedbackStatus } from '@/lib/services/feedback'
 import type { TagCategory } from '@/lib/types'
+import { createSubmissionSchema } from '@/lib/validations/submission'
+
+export type PreviewRow = {
+  rowIndex: number
+  name: string
+  slug: string
+  validatedData: Record<string, unknown>
+  status: 'new' | 'potential-duplicate' | 'error'
+  match?: SimilarBrand
+  error?: string
+}
+
+export type ImportResult = {
+  name: string
+  status: 'imported' | 'error'
+  error?: string
+}
 
 function isStructuredTags(v: unknown): v is { region?: string; values?: string[] } {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -832,6 +862,220 @@ export async function syncSentryFeedbackAction(): Promise<
   } catch (err) {
     console.error('[admin:syncSentry]', err)
     return { error: err instanceof Error ? err.message : 'An unexpected error occurred' }
+  }
+}
+
+const bulkImportSubmissionSchema = createSubmissionSchema(false).omit({
+  _honeypot: true,
+  isOwner: true,
+  pdpaConsent: true,
+  sourceAttribution: true,
+  turnstileToken: true,
+})
+
+function csvStringValue(value: unknown): string {
+  if (typeof value === 'string') return value.trim()
+  if (value == null) return ''
+  return String(value).trim()
+}
+
+function csvStringArrayValue(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => csvStringValue(item))
+      .filter(Boolean)
+  }
+
+  const raw = csvStringValue(value)
+  return raw ? [raw] : []
+}
+
+function normalizeBulkImportRow(rawRow: Record<string, unknown>): Record<string, unknown> {
+  const socialLinks =
+    rawRow.socialLinks && typeof rawRow.socialLinks === 'object' && !Array.isArray(rawRow.socialLinks)
+      ? rawRow.socialLinks as Record<string, unknown>
+      : {}
+
+  return {
+    ...rawRow,
+    name: csvStringValue(rawRow.name),
+    description: csvStringValue(rawRow.description),
+    category: csvStringValue(rawRow.category),
+    region: csvStringValue(rawRow.region) || undefined,
+    valueTags: csvStringArrayValue(rawRow.valueTags ?? rawRow.tags),
+    logoUrl: csvStringValue(rawRow.logoUrl),
+    productPhotos: csvStringArrayValue(rawRow.productPhotos),
+    brandHighlights: csvStringValue(rawRow.brandHighlights),
+    purchaseLinks: Array.isArray(rawRow.purchaseLinks) ? rawRow.purchaseLinks : [],
+    socialLinks: {
+      instagram: csvStringValue(socialLinks.instagram ?? rawRow.instagram),
+      threads: csvStringValue(socialLinks.threads ?? rawRow.threads),
+      facebook: csvStringValue(socialLinks.facebook ?? rawRow.facebook),
+      website: csvStringValue(
+        socialLinks.website ?? socialLinks.officialWebsite ?? rawRow.website ?? rawRow.officialWebsite
+      ),
+    },
+    retailLocations: Array.isArray(rawRow.retailLocations) ? rawRow.retailLocations : [],
+  }
+}
+
+export async function previewBulkImportAction(
+  csvText: string
+): Promise<{ error?: string; rows: PreviewRow[] }> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return { error: auth.error, rows: [] }
+
+    const rawRows = parseBrandCSV(csvText)
+    if (rawRows.length === 0) {
+      return { error: 'No rows found in CSV', rows: [] }
+    }
+
+    const rows: PreviewRow[] = []
+    const validRows: PreviewRow[] = []
+
+    rawRows.forEach((rawRow, index) => {
+      const parsed = bulkImportSubmissionSchema.safeParse(normalizeBulkImportRow(rawRow))
+      if (!parsed.success) {
+        rows.push({
+          rowIndex: index + 1,
+          name: csvStringValue(rawRow.name),
+          slug: '',
+          validatedData: {},
+          status: 'error',
+          error: parsed.error.issues.map((issue) => issue.message).join('; '),
+        })
+        return
+      }
+
+      const slug = generateSlug(parsed.data.name)
+      if (!slug) {
+        rows.push({
+          rowIndex: index + 1,
+          name: parsed.data.name,
+          slug,
+          validatedData: parsed.data,
+          status: 'error',
+          error: 'Unable to generate slug',
+        })
+        return
+      }
+
+      if (isReservedSlug(slug)) {
+        rows.push({
+          rowIndex: index + 1,
+          name: parsed.data.name,
+          slug,
+          validatedData: parsed.data,
+          status: 'error',
+          error: `Slug conflicts with reserved route: ${slug}`,
+        })
+        return
+      }
+
+      const previewRow: PreviewRow = {
+        rowIndex: index + 1,
+        name: parsed.data.name,
+        slug,
+        validatedData: { ...parsed.data, slug },
+        status: 'new',
+      }
+      rows.push(previewRow)
+      validRows.push(previewRow)
+    })
+
+    const similarBrands = await findSimilarBrands(validRows.map((row) => row.name))
+    const bestMatches = new Map<string, SimilarBrand>()
+
+    for (const match of similarBrands) {
+      const current = bestMatches.get(match.inputName)
+      if (!current || match.score > current.score) {
+        bestMatches.set(match.inputName, match)
+      }
+    }
+
+    for (const row of validRows) {
+      const match = bestMatches.get(row.name)
+      if (match) {
+        row.status = 'potential-duplicate'
+        row.match = match
+      }
+    }
+
+    return { rows }
+  } catch (err) {
+    console.error('[admin:previewBulkImport]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      rows: [],
+    }
+  }
+}
+
+export async function executeBulkImportAction(
+  selectedRows: PreviewRow[]
+): Promise<{ error?: string; results: ImportResult[] }> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return { error: auth.error, results: [] }
+
+    if (selectedRows.length === 0) {
+      return { results: [] }
+    }
+
+    const supabase = createServiceClient()
+    const results: ImportResult[] = selectedRows.map((row) => ({
+      name: row.name,
+      status: 'imported',
+    }))
+
+    const preparedRows: Array<{ index: number; insert: Record<string, unknown> }> = []
+    selectedRows.forEach((row, index) => {
+      try {
+        const brand = curatedSubmissionToBrand(
+          row.validatedData as Parameters<typeof curatedSubmissionToBrand>[0]
+        )
+        preparedRows.push({
+          index,
+          insert: {
+            ...brandToInsert(brand),
+            approved_at: new Date().toISOString(),
+          },
+        })
+      } catch (err) {
+        results[index] = {
+          name: row.name,
+          status: 'error',
+          error: err instanceof Error ? err.message : 'Unknown import error',
+        }
+      }
+    })
+
+    for (let index = 0; index < preparedRows.length; index += 100) {
+      const batch = preparedRows.slice(index, index + 100)
+      const { error } = await supabase
+        .from('brands')
+        .upsert(batch.map((row) => row.insert), { onConflict: 'slug', ignoreDuplicates: true })
+
+      if (error) {
+        for (const row of batch) {
+          results[row.index] = {
+            name: selectedRows[row.index].name,
+            status: 'error',
+            error: error.message,
+          }
+        }
+      }
+    }
+
+    revalidatePath('/admin/brands')
+    return { results }
+  } catch (err) {
+    console.error('[admin:executeBulkImport]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      results: [],
+    }
   }
 }
 
