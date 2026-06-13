@@ -43,9 +43,21 @@ vi.mock('../ReviewStep', () => ({
   ReviewStep: () => <div data-testid="review-step">Review</div>,
 }))
 vi.mock('../UrlStep', () => ({
-  UrlStep: ({ onSkip }: { onSkip: () => void }) => (
+  UrlStep: ({ onSkip }: { onSkip: (links: Record<string, unknown>) => void }) => (
     <div data-testid="url-step">
-      <button onClick={onSkip}>Skip and fill manually</button>
+      <button
+        onClick={() =>
+          onSkip({
+            websiteUrl: '',
+            instagram: '',
+            threads: '',
+            facebook: '',
+            purchaseLinks: [],
+          })
+        }
+      >
+        Skip and fill manually
+      </button>
     </div>
   ),
 }))

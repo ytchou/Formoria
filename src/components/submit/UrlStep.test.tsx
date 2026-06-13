@@ -91,7 +91,13 @@ describe('UrlStep', () => {
     await user.click(screen.getByRole('button', { name: /自動填入/ }))
 
     await waitFor(() => {
-      expect(defaultProps.onSuccess).toHaveBeenCalledWith(mockData)
+      expect(defaultProps.onSuccess).toHaveBeenCalledWith(mockData, expect.objectContaining({
+        websiteUrl: expect.any(String),
+        instagram: expect.any(String),
+        threads: expect.any(String),
+        facebook: expect.any(String),
+        purchaseLinks: expect.any(Array),
+      }))
     })
   })
 
