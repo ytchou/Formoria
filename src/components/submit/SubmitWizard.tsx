@@ -157,6 +157,8 @@ export function SubmitWizard({
       region: '',
       valueTags: [],
       logoUrl: '',
+      productTypes: [],
+      productTypeNote: '',
       productPhotos: [],
       brandHighlights: '',
       purchaseLinks: [{ platform: '', url: '' }],
@@ -228,6 +230,8 @@ export function SubmitWizard({
     const photoUrls = photos.map((p) => p.url)
     const mergedData = {
       ...(data as SubmissionFormData),
+      productTypes: (data as SubmissionFormData).productTypes ?? [],
+      productTypeNote: (data as SubmissionFormData).productTypeNote ?? '',
       productPhotos: [...photoUrls, ...(data as SubmissionFormData).productPhotos.filter((url: string) => !photoUrls.includes(url))],
       isOwner,
       sourceAttribution,
