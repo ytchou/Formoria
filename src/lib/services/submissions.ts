@@ -1,4 +1,5 @@
 import type { BrandSubmission, SubmissionStatus, SourceAttribution } from '@/lib/types'
+import type { DuplicateCheckResult } from '@/lib/types/submission'
 import type { Database } from '@/lib/supabase/database.types'
 import { NotFoundError } from '@/lib/errors'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
@@ -235,4 +236,26 @@ export async function getUserSubmissions(userEmail: string): Promise<UserSubmiss
     status: (row.status as 'pending' | 'approved' | 'rejected') ?? 'pending',
     createdAt: row.submitted_at,
   }))
+}
+
+export async function checkBrandDuplicates(
+  name: string,
+  ubn?: string
+): Promise<DuplicateCheckResult> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase.rpc('check_brand_duplicates', {
+    p_name: name,
+    p_ubn: ubn ?? null,
+  })
+
+  if (error) {
+    console.error('[checkBrandDuplicates] RPC error:', error.message)
+    return { ubnMatch: null, nameMatches: [] }
+  }
+
+  return {
+    ubnMatch: data?.ubn_match ?? null,
+    nameMatches: data?.name_matches ?? [],
+  }
 }
