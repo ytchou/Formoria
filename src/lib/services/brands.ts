@@ -8,6 +8,7 @@ import { getActiveCategories } from '@/lib/services/taxonomy'
 import { BRAND_SORT_CONFIG } from '@/lib/pagination'
 import { isNonImageHost } from '@/lib/images/allowed-image-hosts'
 import { RESERVED_ROUTES } from '@/middleware'
+import { createSubmissionSchema } from '@/lib/validations/submission'
 import { downloadAndStoreImages } from './image-download'
 
 // ---------------------------------------------------------------------------
@@ -17,6 +18,42 @@ import { downloadAndStoreImages } from './image-download'
 type BrandRow = Database['public']['Tables']['brands']['Row']
 type BrandDraftData = BrandRow['draft_data']
 type TaxonomyTagRow = Database['public']['Tables']['taxonomy_tags']['Row']
+type RawSeedRow = Record<string, unknown>
+
+const curatedSubmissionSchema = createSubmissionSchema(false).omit({
+  _honeypot: true,
+  isOwner: true,
+  pdpaConsent: true,
+  sourceAttribution: true,
+  turnstileToken: true,
+})
+
+export type CuratedSubmissionInput = {
+  name: string
+  slug: string
+  description: string
+  category: string
+  logoUrl?: string | null
+  productPhotos: string[]
+  purchaseLinks: Array<{ platform: string; url: string }>
+  socialLinks: { instagram: string; threads: string; facebook: string; website: string }
+  retailLocations: Array<{ name: string; address: string }>
+  brandHighlights: string | null
+  region?: string | null
+  valueTags?: string[]
+}
+
+type CuratedBrand = Partial<Brand> &
+  Pick<
+    Brand,
+    | 'purchaseLinks'
+    | 'socialLinks'
+    | 'status'
+    | 'heroImageUrl'
+    | 'contactEmail'
+    | 'foundingYear'
+    | 'brandHighlights'
+  >
 
 /** Shape returned by: brand_taxonomy(taxonomy_tags(*)) — only the nested tag is used by the mapper */
 type BrandTaxonomyWithTag = {
@@ -61,6 +98,225 @@ export function generateSlug(name: string): string {
 
 export function isReservedSlug(slug: string): boolean {
   return RESERVED_ROUTES.has(slug)
+}
+
+function getObject(value: unknown, fieldName: string): Record<string, unknown> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`${fieldName} must be an object`)
+  }
+
+  return value as Record<string, unknown>
+}
+
+function getString(value: unknown): string {
+  if (typeof value === 'string') {
+    return value.trim()
+  }
+
+  if (value == null) {
+    return ''
+  }
+
+  return String(value).trim()
+}
+
+function parseJsonString(value: string, fieldName: string): unknown {
+  try {
+    return JSON.parse(value)
+  } catch (error) {
+    throw new Error(`Invalid JSON in ${fieldName}: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
+function parseMaybeJson(value: unknown, fieldName: string): unknown {
+  if (typeof value !== 'string') {
+    return value
+  }
+
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return value
+  }
+
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+    return value
+  }
+
+  return parseJsonString(trimmed, fieldName)
+}
+
+function parseStringArray(value: unknown, fieldName: string): string[] {
+  const parsedValue = parseMaybeJson(value, fieldName)
+
+  if (Array.isArray(parsedValue)) {
+    return parsedValue
+      .map((item) => getString(item))
+      .filter(Boolean)
+  }
+
+  const raw = getString(parsedValue)
+  if (!raw) {
+    return []
+  }
+
+  return raw
+    .split('|')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function parseObjectArray(value: unknown, fieldName: string): Record<string, unknown>[] {
+  const parsedValue = parseMaybeJson(value, fieldName)
+
+  if (parsedValue == null || parsedValue === '') {
+    return []
+  }
+
+  if (!Array.isArray(parsedValue)) {
+    throw new Error(`${fieldName} must be a JSON array`)
+  }
+
+  return parsedValue.map((item, index) => getObject(item, `${fieldName}[${index}]`))
+}
+
+function parseSocialLinks(value: unknown): Record<string, unknown> {
+  const parsedValue = parseMaybeJson(value, 'socialLinks')
+
+  if (parsedValue == null || parsedValue === '') {
+    return {}
+  }
+
+  return getObject(parsedValue, 'socialLinks')
+}
+
+export function parseBrandCSV(csvText: string): Record<string, string | string[]>[] {
+  const rows: string[][] = []
+  let currentCell = ''
+  let currentRow: string[] = []
+  let inQuotes = false
+
+  for (let index = 0; index < csvText.length; index += 1) {
+    const char = csvText[index]
+    const nextChar = csvText[index + 1]
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        currentCell += '"'
+        index += 1
+      } else {
+        inQuotes = !inQuotes
+      }
+      continue
+    }
+
+    if (char === ',' && !inQuotes) {
+      currentRow.push(currentCell)
+      currentCell = ''
+      continue
+    }
+
+    if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && nextChar === '\n') {
+        index += 1
+      }
+      currentRow.push(currentCell)
+      if (currentRow.some((cell) => cell.length > 0)) {
+        rows.push(currentRow)
+      }
+      currentCell = ''
+      currentRow = []
+      continue
+    }
+
+    currentCell += char
+  }
+
+  currentRow.push(currentCell)
+  if (currentRow.some((cell) => cell.length > 0)) {
+    rows.push(currentRow)
+  }
+
+  if (rows.length === 0) {
+    return []
+  }
+
+  const [headerRow, ...dataRows] = rows
+  const headers = headerRow.map((header) => header.trim())
+
+  return dataRows.map((cells) => {
+    const row: Record<string, string | string[]> = {}
+    headers.forEach((header, index) => {
+      const value = cells[index] ?? ''
+      row[header] = value.includes('|') ? parseStringArray(value, header) : value
+    })
+    return row
+  })
+}
+
+export function normalizeRow(rawRow: RawSeedRow): CuratedSubmissionInput {
+  const socialLinks =
+    'socialLinks' in rawRow ? parseSocialLinks(rawRow.socialLinks) : {}
+
+  const normalized = curatedSubmissionSchema.parse({
+    name: getString(rawRow.name),
+    description: getString(rawRow.description),
+    category: getString(rawRow.category),
+    tags: parseStringArray(rawRow.tags, 'tags'),
+    logoUrl: getString(rawRow.logoUrl),
+    productPhotos: parseStringArray(rawRow.productPhotos, 'productPhotos'),
+    brandHighlights: getString(rawRow.brandHighlights),
+    purchaseLinks: parseObjectArray(rawRow.purchaseLinks, 'purchaseLinks'),
+    socialLinks: {
+      instagram: getString(socialLinks.instagram ?? rawRow.instagram),
+      threads: getString(socialLinks.threads ?? rawRow.threads),
+      facebook: getString(socialLinks.facebook ?? rawRow.facebook),
+      website: getString(
+        socialLinks.website ?? socialLinks.officialWebsite ?? rawRow.website ?? rawRow.officialWebsite
+      ),
+    },
+    retailLocations: parseObjectArray(rawRow.retailLocations, 'retailLocations'),
+  })
+
+  const slug = getString(rawRow.slug) || generateSlug(normalized.name)
+  if (!slug) {
+    throw new Error(`Unable to generate slug for brand: ${normalized.name}`)
+  }
+  if (isReservedSlug(slug)) {
+    throw new Error(`Slug conflicts with reserved route: ${slug}`)
+  }
+
+  return { ...normalized, slug }
+}
+
+export function curatedSubmissionToBrand(input: CuratedSubmissionInput): CuratedBrand {
+  return {
+    name: input.name,
+    slug: input.slug,
+    description: input.description,
+    logoUrl: input.logoUrl || null,
+    heroImageUrl: null,
+    status: 'approved',
+    category: input.category,
+    foundingYear: null,
+    purchaseLinks: input.purchaseLinks.map((link) => ({
+      ...link,
+      label: link.platform,
+    })),
+    socialLinks: {
+      instagram: input.socialLinks.instagram || undefined,
+      threads: input.socialLinks.threads || undefined,
+      facebook: input.socialLinks.facebook || undefined,
+      officialWebsite: input.socialLinks.website || undefined,
+    },
+    retailLocations: input.retailLocations.map((location) => ({
+      ...location,
+      latitude: 0,
+      longitude: 0,
+    })),
+    productPhotos: input.productPhotos,
+    contactEmail: null,
+    brandHighlights: input.brandHighlights?.trim() || null,
+  }
 }
 
 // ---------------------------------------------------------------------------
