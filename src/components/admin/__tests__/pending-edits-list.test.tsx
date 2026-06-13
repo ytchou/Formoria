@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { NextIntlClientProvider } from 'next-intl'
 import { PendingEditsList } from '../pending-edits-list'
+import messages from '../../../../messages/zh-TW.json'
 
 vi.mock('@/app/admin/actions', () => ({
   approvePendingEditAction: vi.fn().mockResolvedValue(undefined),
@@ -37,19 +39,31 @@ const EDITS = [{
 }]
 
 it('renders a row per pending edit', () => {
-  render(<PendingEditsList edits={EDITS} />)
+  render(
+    <NextIntlClientProvider locale="zh-TW" messages={messages}>
+      <PendingEditsList edits={EDITS} />
+    </NextIntlClientProvider>
+  )
   expect(screen.getByText('暖木家居')).toBeInTheDocument()
 })
 
 it('expands to show diff view on 展開 click', async () => {
-  render(<PendingEditsList edits={EDITS} />)
+  render(
+    <NextIntlClientProvider locale="zh-TW" messages={messages}>
+      <PendingEditsList edits={EDITS} />
+    </NextIntlClientProvider>
+  )
   fireEvent.click(screen.getByText('展開'))
   expect(await screen.findByText('目前版本')).toBeInTheDocument()
   expect(await screen.findByText('提案修改')).toBeInTheDocument()
 })
 
 it('shows reject note input when 退回 is clicked', async () => {
-  render(<PendingEditsList edits={EDITS} />)
+  render(
+    <NextIntlClientProvider locale="zh-TW" messages={messages}>
+      <PendingEditsList edits={EDITS} />
+    </NextIntlClientProvider>
+  )
   fireEvent.click(screen.getByText('展開'))
   fireEvent.click(await screen.findByText('退回'))
   expect(await screen.findByPlaceholderText(/退回原因/)).toBeInTheDocument()
@@ -57,12 +71,20 @@ it('shows reject note input when 退回 is clicked', async () => {
 
 describe('PendingEditsList', () => {
   it('shows empty state when no edits', () => {
-    render(<PendingEditsList edits={[]} />)
+    render(
+      <NextIntlClientProvider locale="zh-TW" messages={messages}>
+        <PendingEditsList edits={[]} />
+      </NextIntlClientProvider>
+    )
     expect(screen.getByText('目前沒有待審核的編輯申請。')).toBeInTheDocument()
   })
 
   it('shows cancel button after clicking 退回', async () => {
-    render(<PendingEditsList edits={EDITS} />)
+    render(
+      <NextIntlClientProvider locale="zh-TW" messages={messages}>
+        <PendingEditsList edits={EDITS} />
+      </NextIntlClientProvider>
+    )
     fireEvent.click(screen.getByText('展開'))
     fireEvent.click(await screen.findByText('退回'))
     expect(await screen.findByText('取消')).toBeInTheDocument()
@@ -70,7 +92,11 @@ describe('PendingEditsList', () => {
   })
 
   it('collapses reject note on 取消 click', async () => {
-    render(<PendingEditsList edits={EDITS} />)
+    render(
+      <NextIntlClientProvider locale="zh-TW" messages={messages}>
+        <PendingEditsList edits={EDITS} />
+      </NextIntlClientProvider>
+    )
     fireEvent.click(screen.getByText('展開'))
     fireEvent.click(await screen.findByText('退回'))
     fireEvent.click(await screen.findByText('取消'))
