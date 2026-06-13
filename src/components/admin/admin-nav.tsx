@@ -13,6 +13,7 @@ const navLinks = [
   { label: '檢舉', href: '/admin/reports' },
   { label: '品牌編輯審核', href: '/admin/pending-edits' },
   { label: 'Feedback', href: '/admin/feedback' },
+  { label: '批量匯入', href: '/admin/bulk-import' },
 ]
 
 export function AdminNav() {
