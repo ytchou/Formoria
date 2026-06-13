@@ -1087,7 +1087,14 @@
       "valueTagsOptionalHint": "optional",
       "valueTagsCounter": "{count} / {max}",
       "valueTagsCounterLabel": "{count} of {max} selected",
-      "removeValue": "Remove {value}"
+      "removeValue": "Remove {value}",
+      "productTypes": "Product Types",
+      "productTypesMultiSelect": "multi-select",
+      "productTypesHint": "Select the product types that best describe your brand (multi-select)",
+      "productTypesFreeTextToggle": "None of the above?",
+      "productTypesFreeTextToggleHint": "— Enter product type manually",
+      "productTypeNoteLabel": "Describe your product type",
+      "productTypeNotePlaceholder": "e.g. handcrafted leather goods, organic tea, bamboo furniture..."
     },
     "review": {
       "brandInfo": "Brand Info",

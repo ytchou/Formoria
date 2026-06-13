@@ -192,6 +192,7 @@ describe('fullSubmissionSchema', () => {
       logoUrl: 'https://example.com/logo.webp',
       productPhotos: ['https://example.com/photo.webp'],
       brandHighlights: 'Cedar wood soles.',
+      productTypes: ['fashion'],
       purchaseLinks: [{ platform: 'shopee', url: 'https://shopee.tw/store' }],
       socialLinks: {
         instagram: '@brand',

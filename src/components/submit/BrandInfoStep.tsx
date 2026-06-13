@@ -279,18 +279,18 @@ export function BrandInfoStep({
       </div>
 
       {/* Product Types */}
-      <fieldset className="space-y-3" aria-label="產品類型">
+      <fieldset className="space-y-3" aria-label={t('productTypes')}>
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <span className="block text-sm font-semibold text-foreground">
-              產品類型
+              {t('productTypes')}
             </span>
             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
-              可複選
+              {t('productTypesMultiSelect')}
             </span>
           </div>
           <p className="text-sm text-muted-foreground">
-            選擇最符合你品牌的產品類型（可複選）
+            {t('productTypesHint')}
           </p>
         </div>
 
@@ -375,10 +375,10 @@ export function BrandInfoStep({
               />
             </button>
             <span id="product-type-free-text-label" className="text-sm font-medium">
-              以上都不適合？
+              {t('productTypesFreeTextToggle')}
             </span>
             <span className="text-xs text-muted-foreground">
-              — 改為手動輸入產品類型
+              {t('productTypesFreeTextToggleHint')}
             </span>
           </div>
         </div>
@@ -389,12 +389,12 @@ export function BrandInfoStep({
               htmlFor="product-type-note"
               className="block text-sm font-semibold text-foreground"
             >
-              請描述你的產品類型
+              {t('productTypeNoteLabel')}
             </label>
             <Textarea
               id="product-type-note"
               maxLength={200}
-              placeholder="例如：手工皮件、有機茶葉、竹製傢俱......"
+              placeholder={t('productTypeNotePlaceholder')}
               className="min-h-24 border-border bg-white text-sm text-foreground focus-visible:border-muted-foreground focus-visible:ring-muted-foreground/20"
               {...register('productTypeNote')}
             />
