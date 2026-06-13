@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/lib/supabase/database.types'
 import type { ModerationResult } from './moderation'
 import { scanContent, shouldAutoApprove } from './moderation'
 
@@ -177,7 +179,7 @@ describe('shouldAutoApprove', () => {
           }),
         }),
       }),
-    } as any)
+    } as unknown as SupabaseClient<Database>)
     const cleanResult: ModerationResult = { riskLevel: 'clean', flags: [] }
     expect(await shouldAutoApprove(cleanResult, 'user-123')).toBe(false)
   })
@@ -192,7 +194,7 @@ describe('shouldAutoApprove', () => {
           }),
         }),
       }),
-    } as any)
+    } as unknown as SupabaseClient<Database>)
     const cleanResult: ModerationResult = { riskLevel: 'clean', flags: [] }
     expect(await shouldAutoApprove(cleanResult, 'user-456')).toBe(true)
   })
@@ -207,7 +209,7 @@ describe('shouldAutoApprove', () => {
           }),
         }),
       }),
-    } as any)
+    } as unknown as SupabaseClient<Database>)
     const cleanResult: ModerationResult = { riskLevel: 'clean', flags: [] }
     expect(await shouldAutoApprove(cleanResult, 'user-789')).toBe(false)
   })

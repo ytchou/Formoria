@@ -40,7 +40,7 @@ const URL_REGEX = /https?:\/\/[^\s]+/gi
 const TAIWAN_PHONE_REGEX = /09\d{2}[-.]?\d{3}[-.]?\d{3}/
 const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
 const EMOJI_REGEX = /\p{Emoji_Presentation}/gu
-const CJK_REGEX = /[一-鿿]/g
+const CJK_REGEX = /[\u4E00-\u9FFF]/g
 
 function createFlag(
   fieldName: string,
