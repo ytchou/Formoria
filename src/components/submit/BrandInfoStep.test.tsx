@@ -49,7 +49,7 @@ const mockRegionTags: TaxonomyTag[] = [
     slug: 'taipei',
     category: 'region',
     isActive: true,
-    suggestedBy: null,
+
     createdAt: '2026-01-01T00:00:00Z',
   },
 ]
@@ -62,7 +62,7 @@ const mockValueTags: TaxonomyTag[] = [
     slug: 'sustainable',
     category: 'value',
     isActive: true,
-    suggestedBy: null,
+
     createdAt: '2026-01-01T00:00:00Z',
   },
 ]
