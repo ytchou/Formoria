@@ -4,11 +4,11 @@ import { getTranslations } from 'next-intl/server'
 import { createSubmissionSchema, type SubmissionFormData } from '@/lib/validations/submission'
 import { createBrand } from '@/lib/services/brands'
 import { scanContent, saveModerationFlags } from '@/lib/services/moderation'
-import { createSubmission } from '@/lib/services/submissions'
+import { checkBrandDuplicates, createSubmission } from '@/lib/services/submissions'
 import { createClient } from '@/lib/supabase/server'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
 import { createInMemoryRateLimiter } from '@/lib/security/rate-limiter'
-import type { SourceAttribution } from '@/lib/types/submission'
+import type { DuplicateCheckResult, SourceAttribution } from '@/lib/types/submission'
 
 // Per-user in-action rate limiter for brand submissions (5 per 60s)
 const submissionRateLimiter = createInMemoryRateLimiter()
@@ -16,6 +16,13 @@ const submissionRateLimiter = createInMemoryRateLimiter()
 type SubmitBrandInput = SubmissionFormData & {
   isOwner?: boolean
   sourceAttribution?: SourceAttribution
+}
+
+export async function checkDuplicates(
+  name: string,
+  ubn?: string
+): Promise<DuplicateCheckResult> {
+  return checkBrandDuplicates(name, ubn)
 }
 
 export async function submitBrand(
@@ -106,6 +113,7 @@ export async function submitBrand(
       contactEmail: user.email ?? null,
       brandHighlights: parsed.brandHighlights?.trim() || null,
       siteContent: null,
+      unifiedBusinessNumber: parsed.unifiedBusinessNumber ?? null,
     })
 
     if (moderationResult.flags.length > 0) {
@@ -137,6 +145,7 @@ export async function submitBrand(
       pdpaConsentAt: new Date().toISOString(),
       isBrandOwner: isOwner,
       sourceAttribution: data.sourceAttribution ?? undefined,
+      unifiedBusinessNumber: parsed.unifiedBusinessNumber,
     })
 
     return undefined // Success — no error

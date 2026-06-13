@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
+import { NextIntlClientProvider } from "next-intl";
+import { getMessages } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import type { AdminMode } from "@/lib/auth/admin-mode";
 import { isActingAsAdmin } from "@/lib/auth/admin-mode";
@@ -27,21 +29,24 @@ export default async function AdminLayout({
   const cookieStore = await cookies();
   const fmMode = cookieStore.get("fm_mode")?.value;
   const adminBarMode: AdminMode = fmMode === "viewer" ? "viewer" : "god";
+  const messages = await getMessages();
 
   return (
-    <div className="min-h-screen bg-background">
-      <AdminModeBar
-        mode={adminBarMode}
-        labels={{
-          god: "管理者模式",
-          viewer: "訪客檢視",
-          enter: "切換為訪客檢視",
-          exit: "離開訪客檢視",
-          banner: "一般使用者檢視",
-        }}
-      />
-      <AdminNav />
-      <main className="mx-auto max-w-screen-xl px-10 pb-8 pt-12">{children}</main>
-    </div>
+    <NextIntlClientProvider locale="zh-TW" messages={messages}>
+      <div className="min-h-screen bg-background">
+        <AdminModeBar
+          mode={adminBarMode}
+          labels={{
+            god: "管理者模式",
+            viewer: "訪客檢視",
+            enter: "切換為訪客檢視",
+            exit: "離開訪客檢視",
+            banner: "一般使用者檢視",
+          }}
+        />
+        <AdminNav />
+        <main className="mx-auto max-w-screen-xl px-10 pb-8 pt-12">{children}</main>
+      </div>
+    </NextIntlClientProvider>
   );
 }

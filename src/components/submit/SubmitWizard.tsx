@@ -298,6 +298,7 @@ export function SubmitWizard({
                     photos={photos}
                     onPhotosChange={setPhotos}
                     isOwner={isOwner}
+                    onNext={handleNext}
                   />
                 )}
                 {currentStep === 1 && (
@@ -331,7 +332,7 @@ export function SubmitWizard({
                     <span />
                   )}
 
-                  {currentStep < STEP_COUNT - 1 ? (
+                  {currentStep > 0 && currentStep < STEP_COUNT - 1 ? (
                     <button
                       type="button"
                       onClick={handleNext}

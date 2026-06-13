@@ -187,6 +187,35 @@ export type Database = {
           },
         ]
       }
+      brand_saves: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_saves_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_submissions: {
         Row: {
           brand_id: string | null
@@ -206,6 +235,7 @@ export type Database = {
           submitter_email: string
           submitter_name: string | null
           suggested_tags: Json | null
+          unified_business_number: string | null
           validation_errors: Json | null
           validation_status: string | null
           website_url: string | null
@@ -228,6 +258,7 @@ export type Database = {
           submitter_email: string
           submitter_name?: string | null
           suggested_tags?: Json | null
+          unified_business_number?: string | null
           validation_errors?: Json | null
           validation_status?: string | null
           website_url?: string | null
@@ -250,6 +281,7 @@ export type Database = {
           submitter_email?: string
           submitter_name?: string | null
           suggested_tags?: Json | null
+          unified_business_number?: string | null
           validation_errors?: Json | null
           validation_status?: string | null
           website_url?: string | null
@@ -267,17 +299,14 @@ export type Database = {
       brand_taxonomy: {
         Row: {
           brand_id: string
-          source: string
           tag_id: string
         }
         Insert: {
           brand_id: string
-          source?: string
           tag_id: string
         }
         Update: {
           brand_id?: string
-          source?: string
           tag_id?: string
         }
         Relationships: [
@@ -328,6 +357,7 @@ export type Database = {
           status: string
           submitted_at: string | null
           tag_slugs: string[]
+          unified_business_number: string | null
           updated_at: string | null
         }
         Insert: {
@@ -360,6 +390,7 @@ export type Database = {
           status?: string
           submitted_at?: string | null
           tag_slugs?: string[]
+          unified_business_number?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -392,6 +423,7 @@ export type Database = {
           status?: string
           submitted_at?: string | null
           tag_slugs?: string[]
+          unified_business_number?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -473,6 +505,107 @@ export type Database = {
         }
         Relationships: []
       }
+      feedback: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          reviewed_at: string | null
+          sentry_event_id: string | null
+          sentry_feedback_id: string | null
+          source: string
+          status: string
+          tally_response_id: string | null
+          title: string | null
+          type: string
+          url: string | null
+          user_email: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          reviewed_at?: string | null
+          sentry_event_id?: string | null
+          sentry_feedback_id?: string | null
+          source: string
+          status?: string
+          tally_response_id?: string | null
+          title?: string | null
+          type: string
+          url?: string | null
+          user_email?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          reviewed_at?: string | null
+          sentry_event_id?: string | null
+          sentry_feedback_id?: string | null
+          source?: string
+          status?: string
+          tally_response_id?: string | null
+          title?: string | null
+          type?: string
+          url?: string | null
+          user_email?: string | null
+        }
+        Relationships: []
+      }
+      moderation_flags: {
+        Row: {
+          brand_id: string
+          created_at: string
+          field_name: string
+          flag_reason: string
+          flagged_content: string
+          id: string
+          previous_content: string | null
+          reviewed_at: string | null
+          status: string
+          tier: string
+          user_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          field_name: string
+          flag_reason: string
+          flagged_content: string
+          id?: string
+          previous_content?: string | null
+          reviewed_at?: string | null
+          status?: string
+          tier: string
+          user_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          field_name?: string
+          flag_reason?: string
+          flagged_content?: string
+          id?: string
+          previous_content?: string | null
+          reviewed_at?: string | null
+          status?: string
+          tier?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "moderation_flags_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       owner_email_preferences: {
         Row: {
           created_at: string
@@ -493,6 +626,53 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      pending_brand_edits: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          proposed_data: Json
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewer_notes: string | null
+          status: string
+          submitted_by: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          proposed_data: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
+          status?: string
+          submitted_by: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          proposed_data?: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
+          status?: string
+          submitted_by?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_brand_edits_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       taxonomy_tags: {
         Row: {
@@ -543,6 +723,10 @@ export type Database = {
       approve_claim_request: {
         Args: { p_claim_id: string; p_reviewer_id: string }
         Returns: undefined
+      }
+      check_brand_duplicates: {
+        Args: { p_name: string; p_ubn?: string }
+        Returns: Json
       }
       increment_brand_click: {
         Args: { p_brand_id: string }

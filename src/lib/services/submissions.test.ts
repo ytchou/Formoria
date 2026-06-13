@@ -1,5 +1,11 @@
-import { describe, it, expect } from 'vitest'
-import { submissionToDomain, submissionToInsert, getSubmission } from './submissions'
+import { describe, it, test, expect, vi, beforeEach } from 'vitest'
+import { submissionToDomain, submissionToInsert, getSubmission, checkBrandDuplicates } from './submissions'
+
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn(),
+}))
+
+import { createClient } from '@/lib/supabase/server'
 
 describe('submissionToDomain', () => {
   it('transforms snake_case DB row to camelCase BrandSubmission', () => {
@@ -103,5 +109,68 @@ describe('submissionToInsert', () => {
     expect(row.suggested_tags).toEqual(['eco-friendly'])
     expect(row).not.toHaveProperty('brandName')
     expect(row).not.toHaveProperty('submitterEmail')
+  })
+})
+
+describe('checkBrandDuplicates', () => {
+  const mockRpc = vi.fn()
+
+  beforeEach(() => {
+    vi.mocked(createClient).mockResolvedValue(
+      { rpc: mockRpc } as unknown as Awaited<ReturnType<typeof createClient>>
+    )
+    mockRpc.mockReset()
+  })
+
+  test('returns ubn_match when exact UBN found', async () => {
+    mockRpc.mockResolvedValue({
+      data: {
+        ubn_match: { id: 'brand-1', name: '品牌 A', slug: 'brand-a' },
+        name_matches: [],
+      },
+      error: null,
+    })
+
+    const result = await checkBrandDuplicates('品牌 A', '12345678')
+    expect(result.ubnMatch).toEqual({ id: 'brand-1', name: '品牌 A', slug: 'brand-a' })
+    expect(result.nameMatches).toEqual([])
+    expect(mockRpc).toHaveBeenCalledWith('check_brand_duplicates', {
+      p_name: '品牌 A',
+      p_ubn: '12345678',
+    })
+  })
+
+  test('returns name_matches when similar brands found', async () => {
+    const candidate = { id: 'brand-2', name: '品牌B', slug: 'brand-b', similarity: 0.85 }
+    mockRpc.mockResolvedValue({
+      data: { ubn_match: null, name_matches: [candidate] },
+      error: null,
+    })
+
+    const result = await checkBrandDuplicates('品牌 B')
+    expect(result.ubnMatch).toBeNull()
+    expect(result.nameMatches).toHaveLength(1)
+    expect(result.nameMatches[0].similarity).toBe(0.85)
+  })
+
+  test('passes null for ubn when not provided', async () => {
+    mockRpc.mockResolvedValue({
+      data: { ubn_match: null, name_matches: [] },
+      error: null,
+    })
+
+    await checkBrandDuplicates('Some Brand')
+    expect(mockRpc).toHaveBeenCalledWith('check_brand_duplicates', {
+      p_name: 'Some Brand',
+      p_ubn: null,
+    })
+  })
+
+  test('returns empty result on RPC error (fail open)', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'DB error' } })
+
+    const result = await checkBrandDuplicates('品牌 C', '99999999')
+    expect(result.ubnMatch).toBeNull()
+    expect(result.nameMatches).toEqual([])
   })
 })

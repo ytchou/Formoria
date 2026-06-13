@@ -38,6 +38,7 @@ export type BrandSubmission = {
   notifiedAt: string | null
   isBrandOwner: boolean
   sourceAttribution?: SourceAttribution | null
+  unifiedBusinessNumber?: string
 }
 
 /** Form-level purchase link (no label field required) */
@@ -58,4 +59,16 @@ export type FormSocialLinks = {
 export type FormRetailLocation = {
   name: string
   address: string
+}
+
+export type DuplicateCandidate = {
+  id: string
+  name: string
+  slug: string
+  similarity: number
+}
+
+export type DuplicateCheckResult = {
+  ubnMatch: { id: string; name: string; slug: string } | null
+  nameMatches: DuplicateCandidate[]
 }

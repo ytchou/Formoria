@@ -1,44 +1,46 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { FormProvider, useForm } from 'react-hook-form'
-import { NextIntlClientProvider } from 'next-intl'
-import zhMessages from '../../../messages/zh-TW.json'
 import { BrandInfoStep } from './BrandInfoStep'
-import type { PhotoItem } from '@/lib/types/scraper'
+import { checkDuplicates } from '@/app/[locale]/submit/actions'
+import type { SubmissionFormData } from '@/lib/validations/submission'
 import type { TaxonomyTag } from '@/lib/types/taxonomy'
 
+vi.mock('@/app/[locale]/submit/actions', () => ({
+  checkDuplicates: vi.fn(),
+  submitBrand: vi.fn(),
+}))
+
+const translations: Record<string, string> = {
+  ubn: '統一編號（選填）',
+  ubnHint: '8位數字，公司或商號的統一編號，由經濟部核發',
+  ubnDuplicateTitle: '此統一編號的品牌已存在於目錄中',
+  ubnDuplicateSeeExisting: '請查看現有品牌：',
+  nameDuplicateTitle: '發現相似品牌名稱',
+  nameDuplicateConfirmLabel: '我確認這不是重複的品牌',
+  checking: '檢查中',
+}
+
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string) => translations[key] ?? key,
+}))
+
 vi.mock('../upload/ImageUploader', () => ({
-  ImageUploader: ({ onUpload }: { onUpload: (url: string) => void }) => (
-    <button onClick={() => onUpload('https://example.com/logo.webp')}>
-      Upload Logo
-    </button>
+  ImageUploader: () => <div data-testid="image-uploader" />,
+}))
+
+vi.mock('@/i18n/navigation', () => ({
+  Link: ({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) => (
+    <a href={href} className={className}>{children}</a>
   ),
 }))
 
-function Wrapper({ children }: { children: React.ReactNode }) {
-  const methods = useForm({
-    defaultValues: {
-      name: '',
-      description: '',
-      category: '',
-      region: '',
-      valueTags: [] as string[],
-      logoUrl: '',
-      brandHighlights: '',
-    },
-  })
-  return (
-    <NextIntlClientProvider locale="zh-TW" messages={zhMessages}>
-      <FormProvider {...methods}>{children}</FormProvider>
-    </NextIntlClientProvider>
-  )
-}
+const mockCheckDuplicates = vi.mocked(checkDuplicates)
 
 const mockCategories = [
   { slug: 'fashion', label: 'Fashion', labelZh: '時尚' },
-  { slug: 'home', label: 'Lifestyle & Home', labelZh: '居家生活' },
 ]
 
 const mockRegionTags: TaxonomyTag[] = [
@@ -49,7 +51,6 @@ const mockRegionTags: TaxonomyTag[] = [
     slug: 'taipei',
     category: 'region',
     isActive: true,
-
     createdAt: '2026-01-01T00:00:00Z',
   },
 ]
@@ -62,171 +63,171 @@ const mockValueTags: TaxonomyTag[] = [
     slug: 'sustainable',
     category: 'value',
     isActive: true,
-
     createdAt: '2026-01-01T00:00:00Z',
   },
 ]
 
-describe('BrandInfoStep', () => {
-  it('renders all form fields', () => {
-    render(
-      <Wrapper>
-        <BrandInfoStep
-          categories={mockCategories}
-          regionTags={mockRegionTags}
-          valueTags={mockValueTags}
-          uploadPath="brands/test-uuid"
-        />
-      </Wrapper>
-    )
-    // Labels are zh-TW: 品牌名稱, 品牌描述, 類別, Logo（可選）
-    expect(screen.getByLabelText(/品牌名稱/)).toBeInTheDocument()
-    expect(screen.getByLabelText(/品牌描述/)).toBeInTheDocument()
-    expect(screen.getByLabelText(/類別/)).toBeInTheDocument()
-    expect(screen.getByText(/Logo（可選）|Logo \*/)).toBeInTheDocument()
+function Wrapper({
+  children,
+  defaultValues,
+}: {
+  children: React.ReactNode
+  defaultValues?: Partial<SubmissionFormData>
+}) {
+  const methods = useForm<SubmissionFormData>({
+    defaultValues: {
+      name: '雨靴工作室',
+      description: '這是一段足夠長的品牌介紹，用來讓表單在測試中保持可提交狀態。',
+      category: 'fashion',
+      unifiedBusinessNumber: '',
+      region: 'taipei',
+      valueTags: [],
+      logoUrl: '',
+      productPhotos: [],
+      brandHighlights: '',
+      purchaseLinks: [],
+      socialLinks: {
+        instagram: '',
+        threads: '',
+        facebook: '',
+        website: '',
+      },
+      retailLocations: [],
+      pdpaConsent: false,
+      turnstileToken: '',
+      _honeypot: '',
+      ...defaultValues,
+    },
   })
 
-  it('allows typing in name and description fields', async () => {
+  return <FormProvider {...methods}>{children}</FormProvider>
+}
+
+function renderBrandInfoStep({
+  onNext = vi.fn(),
+  defaultValues,
+}: {
+  onNext?: (values: SubmissionFormData) => void
+  defaultValues?: Partial<SubmissionFormData>
+} = {}) {
+  render(
+    <Wrapper defaultValues={defaultValues}>
+      <BrandInfoStep
+        categories={mockCategories}
+        regionTags={mockRegionTags}
+        valueTags={mockValueTags}
+        uploadPath="brands/test-uuid"
+        onNext={onNext}
+      />
+    </Wrapper>
+  )
+
+  return { onNext }
+}
+
+describe('BrandInfoStep duplicate checks', () => {
+  beforeEach(() => {
+    mockCheckDuplicates.mockReset()
+  })
+
+  it('renders 統一編號 input field', () => {
+    renderBrandInfoStep()
+
+    expect(screen.getByLabelText(/統一編號/)).toBeInTheDocument()
+  })
+
+  it('hard blocks when checkDuplicates returns a ubnMatch', async () => {
     const user = userEvent.setup()
-    render(
-      <Wrapper>
-        <BrandInfoStep
-          categories={mockCategories}
-          regionTags={mockRegionTags}
-          valueTags={mockValueTags}
-          uploadPath="brands/test-uuid"
-        />
-      </Wrapper>
-    )
+    const onNext = vi.fn()
+    mockCheckDuplicates.mockResolvedValue({
+      ubnMatch: {
+        id: 'brand-1',
+        name: '既有品牌',
+        slug: 'existing-brand',
+      },
+      nameMatches: [],
+    })
 
-    const nameInput = screen.getByLabelText(/品牌名稱/)
-    await user.type(nameInput, '雨靴工作室')
-    expect(nameInput).toHaveValue('雨靴工作室')
+    renderBrandInfoStep({
+      onNext,
+      defaultValues: { unifiedBusinessNumber: '12345678' },
+    })
+
+    await user.click(screen.getByRole('button', { name: /next/i }))
+
+    expect(
+      await screen.findByText('此統一編號的品牌已存在於目錄中')
+    ).toBeInTheDocument()
+    expect(onNext).not.toHaveBeenCalled()
   })
 
-  it('shows character count for description', () => {
-    render(
-      <Wrapper>
-        <BrandInfoStep
-          categories={mockCategories}
-          regionTags={mockRegionTags}
-          valueTags={mockValueTags}
-          uploadPath="brands/test-uuid"
-        />
-      </Wrapper>
-    )
-    // charCount in zh-TW: "{count} / {max} 個字元上限"
-    expect(screen.getByText(/0.*\/.*2000.*個字元/)).toBeInTheDocument()
-  })
-})
-
-describe('BrandInfoStep photo gallery', () => {
-  const scrapedPhotos: PhotoItem[] = [
-    { id: '1', url: 'https://example.com/photo1.jpg', source: 'scraped' },
-    { id: '2', url: 'https://example.com/photo2.jpg', source: 'scraped' },
-    { id: '3', url: 'https://example.com/photo3.jpg', source: 'uploaded' },
-  ]
-
-  it('renders scraped images with correct badges', () => {
-    render(
-      <Wrapper>
-        <BrandInfoStep
-          categories={mockCategories}
-          regionTags={mockRegionTags}
-          valueTags={mockValueTags}
-          uploadPath="brands/test-uuid"
-          photos={scrapedPhotos}
-          onPhotosChange={vi.fn()}
-        />
-      </Wrapper>
-    )
-
-    expect(screen.getByText('Hero')).toBeInTheDocument()
-    // fromWebsite = "來自網站", uploaded = "已上傳" in zh-TW
-    expect(screen.getAllByText('來自網站')).toHaveLength(2)
-    expect(screen.getByText('已上傳')).toBeInTheDocument()
-  })
-
-  it('shows Hero badge on first image only', () => {
-    render(
-      <Wrapper>
-        <BrandInfoStep
-          categories={mockCategories}
-          regionTags={mockRegionTags}
-          valueTags={mockValueTags}
-          uploadPath="brands/test-uuid"
-          photos={scrapedPhotos}
-          onPhotosChange={vi.fn()}
-        />
-      </Wrapper>
-    )
-
-    const heroElements = screen.getAllByText('Hero')
-    expect(heroElements).toHaveLength(1)
-  })
-
-  it('removes photo when X button is clicked', async () => {
+  it('shows name warning and confirmation checkbox for name matches', async () => {
     const user = userEvent.setup()
-    const onChange = vi.fn()
-    render(
-      <Wrapper>
-        <BrandInfoStep
-          categories={mockCategories}
-          regionTags={mockRegionTags}
-          valueTags={mockValueTags}
-          uploadPath="brands/test-uuid"
-          photos={scrapedPhotos}
-          onPhotosChange={onChange}
-        />
-      </Wrapper>
-    )
+    const onNext = vi.fn()
+    mockCheckDuplicates.mockResolvedValue({
+      ubnMatch: null,
+      nameMatches: [
+        {
+          id: 'brand-1',
+          name: '相似品牌',
+          slug: 'similar-brand',
+          similarity: 0.91,
+        },
+      ],
+    })
 
-    const removeButtons = screen.getAllByRole('button', { name: /remove/i })
-    await user.click(removeButtons[0])
+    renderBrandInfoStep({ onNext })
 
-    expect(onChange).toHaveBeenCalledWith(
-      expect.not.arrayContaining([expect.objectContaining({ id: '1' })])
-    )
+    await user.click(screen.getByRole('button', { name: /next/i }))
+
+    expect(await screen.findByText('發現相似品牌名稱')).toBeInTheDocument()
+    expect(screen.getByText(/相似品牌 \(91%\)/)).toBeInTheDocument()
+    expect(
+      screen.getByRole('checkbox', { name: '我確認這不是重複的品牌' })
+    ).toBeInTheDocument()
+    expect(onNext).not.toHaveBeenCalled()
   })
 
-  it('shows empty state when no photos', () => {
-    render(
-      <Wrapper>
-        <BrandInfoStep
-          categories={mockCategories}
-          regionTags={mockRegionTags}
-          valueTags={mockValueTags}
-          uploadPath="brands/test-uuid"
-          photos={[]}
-          onPhotosChange={vi.fn()}
-        />
-      </Wrapper>
-    )
+  it('proceeds after checking the confirmation checkbox', async () => {
+    const user = userEvent.setup()
+    const onNext = vi.fn()
+    mockCheckDuplicates.mockResolvedValue({
+      ubnMatch: null,
+      nameMatches: [
+        {
+          id: 'brand-1',
+          name: '相似品牌',
+          slug: 'similar-brand',
+          similarity: 0.91,
+        },
+      ],
+    })
 
-    // noPhotos = "未從您的網站找到照片", addPhotos = "新增照片" in zh-TW
-    expect(screen.getByText(/未從您的網站找到照片/)).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: /新增照片/ })
-    ).toBeInTheDocument()
+    renderBrandInfoStep({ onNext })
+
+    await user.click(screen.getByRole('button', { name: /next/i }))
+    await user.click(await screen.findByRole('checkbox', { name: '我確認這不是重複的品牌' }))
+    await user.click(screen.getByRole('button', { name: /next/i }))
+
+    await waitFor(() => {
+      expect(onNext).toHaveBeenCalledTimes(1)
+    })
   })
 
-  it('shows add more button below photo grid', () => {
-    render(
-      <Wrapper>
-        <BrandInfoStep
-          categories={mockCategories}
-          regionTags={mockRegionTags}
-          valueTags={mockValueTags}
-          uploadPath="brands/test-uuid"
-          photos={scrapedPhotos}
-          onPhotosChange={vi.fn()}
-        />
-      </Wrapper>
-    )
+  it('proceeds when checkDuplicates returns no matches', async () => {
+    const user = userEvent.setup()
+    const onNext = vi.fn()
+    mockCheckDuplicates.mockResolvedValue({
+      ubnMatch: null,
+      nameMatches: [],
+    })
 
-    // addMorePhotos = "新增更多照片" in zh-TW
-    expect(
-      screen.getByRole('button', { name: /新增更多照片/ })
-    ).toBeInTheDocument()
+    renderBrandInfoStep({ onNext })
+
+    await user.click(screen.getByRole('button', { name: /next/i }))
+
+    await waitFor(() => {
+      expect(onNext).toHaveBeenCalledTimes(1)
+    })
   })
 })

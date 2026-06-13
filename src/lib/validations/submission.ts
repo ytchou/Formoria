@@ -59,13 +59,22 @@ export function getBrandInfoSchema(t: Translator) {
     name: nameField,
     description: descriptionField,
     category: categoryField,
+    unifiedBusinessNumber: z.string()
+      .regex(/^\d{8}$/, t('validation.ubn_format'))
+      .or(z.literal(''))
+      .optional()
+      .transform((v) => (v === '' ? undefined : v)),
     region: regionField,
     valueTags: valueTagsField,
     logoUrl: z.string().url(t('validation.logoRequired')).min(1, t('validation.logoRequired')),
   })
 }
 
+export const BrandInfoSchema = getBrandInfoSchema
+
 export function getProductsSchema(_t: Translator) {
+  void _t
+
   return z.object({
     productPhotos: z.array(z.string()).max(6),
     brandHighlights: z.string().max(300).optional().default(''),
@@ -118,6 +127,7 @@ const zhT = (key: string): string => {
     'validation.purchaseLinksMin': '請提供至少一個購買連結',
     'validation.pdpaRequired': '請同意隱私政策',
     'validation.turnstileRequired': '請完成驗證',
+    'validation.ubn_format': '統一編號須為8位數字',
   }
   return map[key] ?? key
 }
@@ -153,6 +163,11 @@ export function createSubmissionSchema(isOwner: boolean, t: Translator = zhT) {
     name: nameField,
     description: descField,
     category: categoryField,
+    unifiedBusinessNumber: z.string()
+      .regex(/^\d{8}$/, t('validation.ubn_format'))
+      .or(z.literal(''))
+      .optional()
+      .transform((v) => (v === '' ? undefined : v)),
     region: regionField,
     valueTags: valueTagsField,
     logoUrl: isOwner

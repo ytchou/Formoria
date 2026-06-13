@@ -1,8 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { useFormContext, Controller } from 'react-hook-form'
 import { useTranslations } from 'next-intl'
-import { X, Plus, Star, Globe, Upload } from 'lucide-react'
+import { X, Plus, Star, Globe, Upload, ArrowRight } from 'lucide-react'
 import {
   DndContext,
   closestCenter,
@@ -15,9 +16,14 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { ImageUploader } from '../upload/ImageUploader'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
+import { checkDuplicates } from '@/app/[locale]/submit/actions'
+import { Link } from '@/i18n/navigation'
 import type { SubmissionFormData } from '@/lib/validations/submission'
 import type { PhotoItem } from '@/lib/types/scraper'
 import type { TaxonomyTag } from '@/lib/types/taxonomy'
+import type { DuplicateCheckResult } from '@/lib/types/submission'
 
 type Category = {
   slug: string
@@ -35,6 +41,36 @@ type BrandInfoStepProps = {
   photos?: PhotoItem[]
   onPhotosChange?: (photos: PhotoItem[]) => void
   isOwner?: boolean
+  onNext?: (values: SubmissionFormData) => void
+}
+
+function Alert({
+  variant,
+  children,
+}: {
+  variant?: 'destructive'
+  children: React.ReactNode
+}) {
+  return (
+    <div
+      role="alert"
+      className={`rounded-lg border bg-white p-4 text-sm ${
+        variant === 'destructive'
+          ? 'border-red-200 text-red-800'
+          : 'border-border text-foreground'
+      }`}
+    >
+      {children}
+    </div>
+  )
+}
+
+function AlertTitle({ children }: { children: React.ReactNode }) {
+  return <div className="font-semibold">{children}</div>
+}
+
+function AlertDescription({ children }: { children: React.ReactNode }) {
+  return <div className="mt-1 text-sm">{children}</div>
 }
 
 function SortablePhoto({
@@ -208,16 +244,70 @@ export function BrandInfoStep({
   photos,
   onPhotosChange,
   isOwner = false,
+  onNext,
 }: BrandInfoStepProps) {
   const t = useTranslations('submit.fields')
   const {
     register,
     control,
     watch,
+    getValues,
     formState: { errors },
   } = useFormContext<SubmissionFormData>()
 
   const description = watch('description') ?? ''
+  const name = watch('name') ?? ''
+  const unifiedBusinessNumber = watch('unifiedBusinessNumber') ?? ''
+  const [dedupResult, setDedupResult] = useState<DuplicateCheckResult | null>(
+    null
+  )
+  const [dedupCheckedName, setDedupCheckedName] = useState('')
+  const [dedupCheckedUbn, setDedupCheckedUbn] = useState('')
+  const [dedupConfirmed, setDedupConfirmed] = useState(false)
+  const [dedupError, setDedupError] = useState<string | null>(null)
+  const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false)
+  const activeDedupResult =
+    dedupResult &&
+    dedupCheckedName === name &&
+    dedupCheckedUbn === unifiedBusinessNumber
+      ? dedupResult
+      : null
+
+  const handleNext = async () => {
+    setDedupError(null)
+    if (!onNext || activeDedupResult?.ubnMatch) return
+
+    const formValues = getValues()
+    const formUbn = formValues.unifiedBusinessNumber ?? ''
+    const hasConfirmedCurrentDuplicate =
+      dedupConfirmed &&
+      dedupCheckedName === formValues.name &&
+      dedupCheckedUbn === formUbn
+
+    setIsCheckingDuplicates(true)
+    try {
+      const result = await checkDuplicates(
+        formValues.name,
+        formValues.unifiedBusinessNumber
+      )
+      setDedupCheckedName(formValues.name)
+      setDedupCheckedUbn(formUbn)
+      setDedupResult(result)
+
+      if (result.ubnMatch) return
+      if (result.nameMatches.length > 0 && !hasConfirmedCurrentDuplicate) {
+        setDedupConfirmed(false)
+        return
+      }
+
+      onNext(formValues)
+    } catch (err) {
+      console.error("[handleNext] checkDuplicates failed:", err)
+      setDedupError(t("dedup_check_failed"))
+    } finally {
+      setIsCheckingDuplicates(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -238,6 +328,32 @@ export function BrandInfoStep({
         />
         {errors.name && (
           <p className="text-xs text-red-600">{errors.name.message}</p>
+        )}
+      </div>
+
+      {/* Unified Business Number */}
+      <div className="space-y-1.5">
+        <label
+          htmlFor="brand-ubn"
+          className="block text-sm font-semibold text-foreground"
+        >
+          {t('ubn')}
+        </label>
+        <Input
+          id="brand-ubn"
+          placeholder="12345678"
+          inputMode="numeric"
+          maxLength={8}
+          className="h-auto rounded-lg border-border bg-white px-[14px] py-2.5"
+          {...register('unifiedBusinessNumber')}
+        />
+        <p className="text-xs text-muted-foreground">
+          {t('ubnHint')}
+        </p>
+        {errors.unifiedBusinessNumber && (
+          <p className="text-xs text-red-600">
+            {errors.unifiedBusinessNumber.message}
+          </p>
         )}
       </div>
 
@@ -480,6 +596,68 @@ export function BrandInfoStep({
         )}
       </div>
 
+      {activeDedupResult?.ubnMatch && (
+        <Alert variant="destructive">
+          <AlertTitle>{t('ubnDuplicateTitle')}</AlertTitle>
+          <AlertDescription>
+            {t('ubnDuplicateSeeExisting')}
+            <Link
+              href={`/brands/${activeDedupResult.ubnMatch.slug}`}
+              className="ml-1 underline"
+            >
+              {activeDedupResult.ubnMatch.name}
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {activeDedupResult &&
+        !activeDedupResult.ubnMatch &&
+        activeDedupResult.nameMatches.length > 0 && (
+          <Alert>
+            <AlertTitle>{t('nameDuplicateTitle')}</AlertTitle>
+            <AlertDescription>
+              <ul className="mb-2 mt-1 list-inside list-disc">
+                {activeDedupResult.nameMatches.map((m) => (
+                  <li key={m.id}>
+                    {m.name} ({Math.round(m.similarity * 100)}%)
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-2 flex items-center gap-2">
+                <Checkbox
+                  id="dedup-confirm"
+                  checked={dedupConfirmed}
+                  onCheckedChange={(checked) => setDedupConfirmed(!!checked)}
+                  className="data-[checked]:border-[#2F5D50] data-[checked]:bg-[#2F5D50] focus-visible:ring-[#2F5D50]/40"
+                />
+                <label
+                  htmlFor="dedup-confirm"
+                  className="cursor-pointer text-sm"
+                >
+                  {t('nameDuplicateConfirmLabel')}
+                </label>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+      {onNext && (
+        <div className="flex flex-col items-end">
+          <button
+            type="button"
+            onClick={handleNext}
+            disabled={isCheckingDuplicates || !!activeDedupResult?.ubnMatch}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#2F5D50] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#2F5D50]/90 disabled:opacity-50"
+          >
+            {isCheckingDuplicates ? t('checking') : t('next')}
+            <ArrowRight className="h-4 w-4" />
+          </button>
+          {dedupError && (
+            <p className="text-sm text-destructive mt-1">{dedupError}</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

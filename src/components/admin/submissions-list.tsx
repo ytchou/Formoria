@@ -202,6 +202,17 @@ export function SubmissionsList({
                           </div>
                         )}
 
+                        {submission.unifiedBusinessNumber && (
+                          <div className="text-sm text-muted-foreground">
+                            <span className="font-medium text-foreground">
+                              統一編號：
+                            </span>
+                            <span className="font-mono">
+                              {submission.unifiedBusinessNumber}
+                            </span>
+                          </div>
+                        )}
+
                         {!submission.isBrandOwner && submission.sourceAttribution && (
                           <div>
                             <p className="text-sm font-medium text-[#7C7570]">
