@@ -219,6 +219,7 @@ export function BrandInfoStep({
     register,
     control,
     watch,
+    setValue,
     formState: { errors },
   } = useFormContext<SubmissionFormData>()
 
@@ -285,7 +286,7 @@ export function BrandInfoStep({
             <span className="block text-sm font-semibold text-foreground">
               {t('productTypes')}
             </span>
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
+            <span className="rounded-full bg-[#F5F4F1] px-2 py-0.5 text-xs text-muted-foreground">
               {t('productTypesMultiSelect')}
             </span>
           </div>
@@ -359,7 +360,13 @@ export function BrandInfoStep({
               role="switch"
               aria-checked={freeTextMode}
               aria-labelledby="product-type-free-text-label"
-              onClick={() => setFreeTextMode((current) => !current)}
+              onClick={() => {
+                if (!freeTextMode) {
+                  setValue('productTypes', [])
+                }
+
+                setFreeTextMode((current) => !current)
+              }}
               className={`relative h-6 w-11 rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-[#2F5D50]/30 ${
                 freeTextMode
                   ? 'border-[#2F5D50] bg-[#F0F5F3]'
@@ -395,7 +402,7 @@ export function BrandInfoStep({
               id="product-type-note"
               maxLength={200}
               placeholder={t('productTypeNotePlaceholder')}
-              className="min-h-24 border-border bg-white text-sm text-foreground focus-visible:border-muted-foreground focus-visible:ring-muted-foreground/20"
+              className="min-h-24 border-border bg-white text-sm text-foreground focus-visible:border-muted-foreground focus-visible:ring-[#C4693B]"
               {...register('productTypeNote')}
             />
             <p className="text-right text-xs text-muted-foreground">
