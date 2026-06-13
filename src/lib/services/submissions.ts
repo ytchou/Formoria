@@ -31,6 +31,8 @@ type SubmissionRowInput = Pick<
   | 'status'
 >>
 
+type SuggestedTagsInput = string[] | { region?: string; values?: string[] }
+
 // ---------------------------------------------------------------------------
 // Pure record builder (no DB calls — testable in isolation)
 // ---------------------------------------------------------------------------
@@ -44,7 +46,7 @@ export type CreateSubmissionInput = {
   websiteUrl?: string
   logoUrl?: string
   socialLinks?: Record<string, string>
-  suggestedTags?: string[]
+  suggestedTags?: string[] | { region?: string; values?: string[] }
   pdpaConsentAt?: string
   isOwner?: boolean
   sourceAttribution?: SourceAttribution | null
@@ -97,7 +99,11 @@ export function submissionToDomain(row: SubmissionRowInput): BrandSubmission {
   }
 }
 
-export function submissionToInsert(data: Partial<BrandSubmission>): Record<string, unknown> {
+export function submissionToInsert(
+  data: Partial<Omit<BrandSubmission, 'suggestedTags'>> & {
+    suggestedTags?: SuggestedTagsInput
+  }
+): Record<string, unknown> {
   const row: Record<string, unknown> = {}
   if (data.brandId !== undefined) row.brand_id = data.brandId
   if (data.brandName !== undefined) row.brand_name = data.brandName
@@ -124,7 +130,9 @@ export function submissionToInsert(data: Partial<BrandSubmission>): Record<strin
 
 export async function createSubmission(
   data: Pick<BrandSubmission, 'brandName' | 'submitterEmail'> &
-    Partial<Pick<BrandSubmission, 'brandId' | 'submitterName' | 'description' | 'websiteUrl' | 'socialLinks' | 'suggestedTags' | 'pdpaConsentAt' | 'isBrandOwner' | 'sourceAttribution'>>
+    Partial<Pick<BrandSubmission, 'brandId' | 'submitterName' | 'description' | 'websiteUrl' | 'socialLinks' | 'pdpaConsentAt' | 'isBrandOwner' | 'sourceAttribution'>> & {
+      suggestedTags?: SuggestedTagsInput
+    }
 ): Promise<BrandSubmission> {
   // Authenticated insert: RLS requires a signed-in user, and the submit action authenticates first.
   const supabase = await createClient()

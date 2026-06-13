@@ -958,7 +958,14 @@
         "forbidden": "您沒有權限編輯此品牌",
         "noDraft": "沒有可發布的草稿。",
         "unknown": "發生預期外的錯誤，請再試一次。"
-      }
+      },
+      "fieldRegion": "品牌所在地區",
+      "fieldRegionHint": "品牌總部或主要營運的城市",
+      "fieldRegionPlaceholder": "選擇地區",
+      "fieldRegionOptionalHint": "選填",
+      "fieldValueTags": "品牌價值",
+      "fieldValueTagsHint": "選擇最多 3 個品牌價值",
+      "fieldValueTagsOptionalHint": "選填"
     }
   },
   "errors": {
@@ -1070,7 +1077,17 @@
       "retailLocationsHint": "販售產品的實體地點（可選）",
       "storeName": "店名",
       "address": "地址",
-      "addLocation": "新增地點"
+      "addLocation": "新增地點",
+      "region": "品牌所在地區",
+      "regionPlaceholder": "選擇地區",
+      "regionHint": "品牌總部或主要營運的城市",
+      "regionOptionalHint": "選填",
+      "valueTags": "品牌價值",
+      "valueTagsHint": "選擇最多 3 個品牌價值",
+      "valueTagsOptionalHint": "選填",
+      "valueTagsCounter": "{count} / {max}",
+      "valueTagsCounterLabel": "已選擇 {count} 個，最多 {max} 個",
+      "removeValue": "移除 {value}"
     },
     "review": {
       "brandInfo": "品牌資訊",
@@ -1086,7 +1103,9 @@
       "photoCount": "{count} 張照片已上傳",
       "photoCountSingular": "1 張照片已上傳",
       "brandLogoAlt": "品牌標誌",
-      "pdpaConsent": "我同意依據<privacyPolicy>隱私政策</privacyPolicy>收集和使用我的個人資料（PDPA 合規）。"
+      "pdpaConsent": "我同意依據<privacyPolicy>隱私政策</privacyPolicy>收集和使用我的個人資料（PDPA 合規）。",
+      "region": "地區",
+      "valueTags": "品牌價值"
     },
     "confirmation": {
       "metadata": {
@@ -1127,7 +1146,8 @@
       "addressRequired": "請輸入地址",
       "purchaseLinksMin": "請提供至少一個購買連結",
       "pdpaRequired": "請同意隱私政策",
-      "turnstileRequired": "請完成驗證"
+      "turnstileRequired": "請完成驗證",
+      "valueTagsMax": "最多可選擇 3 個品牌價值"
     },
     "errors": {
       "notAuthenticated": "請先登入才能提交品牌",

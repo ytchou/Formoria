@@ -48,6 +48,7 @@ const rateLimiter = createInMemoryRateLimiter()
 export const RATE_LIMIT_RULES: Record<string, { windowMs: number; maxRequests: number }> = {
   '/api/scrape': { windowMs: 60_000, maxRequests: 5 },
   '/api/upload': { windowMs: 60_000, maxRequests: 20 },
+  '/api/webhooks/tally': { windowMs: 60_000, maxRequests: 30 },
   '/api/': { windowMs: 60_000, maxRequests: 60 },
 }
 

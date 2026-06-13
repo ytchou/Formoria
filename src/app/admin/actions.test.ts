@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers'
+import { revalidatePath } from 'next/cache'
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 
 // Mocks must be at top-level for vitest hoisting
@@ -101,10 +102,18 @@ vi.mock('@/lib/services/taxonomy', () => ({
   mergeTag: vi.fn(),
   deactivateTag: vi.fn(),
   setBrandTags: vi.fn().mockResolvedValue(undefined),
+  getBrandsForReview: vi.fn().mockResolvedValue([]),
+  getTagBySlug: vi.fn(),
+  addTagToBrand: vi.fn(),
 }))
 
 vi.mock('@/lib/services/reports', () => ({
   updateReportStatus: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('@/lib/services/feedback', () => ({
+  updateFeedbackStatus: vi.fn().mockResolvedValue(undefined),
+  syncSentryFeedback: vi.fn().mockResolvedValue({ synced: 3, errors: 0 }),
 }))
 
 vi.mock('@/lib/email/resend-adapter', () => ({
@@ -140,7 +149,7 @@ vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }))
 
-const mockCookie = (value?: string) =>
+const mockCookie = (value?: string | null) =>
   (cookies as Mock).mockResolvedValue({
     get: (name: string) => (name === 'fm_mode' && value ? { value } : undefined),
   })
@@ -270,6 +279,91 @@ describe('pending edit email templates', () => {
   })
 })
 
+describe('approveSubmissionAction - taxonomy tag application', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockCookie('god')
+  })
+
+  it('applies structured region + value tags on approval', async () => {
+    const { getSubmission, approveSubmission } = await import('@/lib/services/submissions')
+    const { updateBrand } = await import('@/lib/services/brands')
+    const { getTagBySlug, addTagToBrand } = await import('@/lib/services/taxonomy')
+    const submission = {
+      id: 'sub-1',
+      brandId: 'brand-1',
+      brandName: 'Test Brand',
+      description: 'Test description',
+      submitterName: null,
+      submitterEmail: 'submitter@example.com',
+      websiteUrl: null,
+      isBrandOwner: false,
+      socialLinks: [],
+      suggestedTags: { region: 'north-taiwan', values: ['eco-friendly', 'handmade'] },
+      status: 'pending',
+      reviewerNotes: null,
+      submittedAt: '2026-01-01T00:00:00Z',
+      reviewedAt: null,
+      reviewedBy: null,
+      pdpaConsentAt: null,
+      validationStatus: null,
+      validationErrors: null,
+      notifiedAt: null,
+    } as unknown as Awaited<ReturnType<typeof getSubmission>>
+    vi.mocked(getSubmission).mockResolvedValue(submission)
+    vi.mocked(updateBrand).mockResolvedValue({ id: 'brand-1', slug: 'test-brand' } as Awaited<ReturnType<typeof updateBrand>>)
+    vi.mocked(approveSubmission).mockResolvedValue(submission)
+    vi.mocked(getTagBySlug).mockImplementation(async (slug: string) => ({ id: `tag-${slug}`, slug }) as unknown as Awaited<ReturnType<typeof getTagBySlug>>)
+    vi.mocked(addTagToBrand).mockResolvedValue(undefined)
+
+    const { approveSubmissionAction } = await import('./actions')
+    const result = await approveSubmissionAction('sub-1')
+
+    expect(result).toBeUndefined()
+    expect(addTagToBrand).toHaveBeenCalledTimes(3)
+    expect(addTagToBrand).toHaveBeenCalledWith('brand-1', 'tag-north-taiwan')
+    expect(addTagToBrand).toHaveBeenCalledWith('brand-1', 'tag-eco-friendly')
+    expect(addTagToBrand).toHaveBeenCalledWith('brand-1', 'tag-handmade')
+  })
+
+  it('skips old string[] suggestedTags gracefully', async () => {
+    const { getSubmission, approveSubmission } = await import('@/lib/services/submissions')
+    const { updateBrand } = await import('@/lib/services/brands')
+    const { addTagToBrand } = await import('@/lib/services/taxonomy')
+    const submission = {
+      id: 'sub-1',
+      brandId: 'brand-1',
+      brandName: 'Test Brand',
+      description: 'Test description',
+      submitterName: null,
+      submitterEmail: 'submitter@example.com',
+      websiteUrl: null,
+      isBrandOwner: false,
+      socialLinks: [],
+      suggestedTags: ['eco-friendly', 'handmade'],
+      status: 'pending',
+      reviewerNotes: null,
+      submittedAt: '2026-01-01T00:00:00Z',
+      reviewedAt: null,
+      reviewedBy: null,
+      pdpaConsentAt: null,
+      validationStatus: null,
+      validationErrors: null,
+      notifiedAt: null,
+    } as Awaited<ReturnType<typeof getSubmission>>
+    vi.mocked(getSubmission).mockResolvedValue(submission)
+    vi.mocked(updateBrand).mockResolvedValue({ id: 'brand-1', slug: 'test-brand' } as Awaited<ReturnType<typeof updateBrand>>)
+    vi.mocked(approveSubmission).mockResolvedValue(submission)
+    vi.mocked(addTagToBrand).mockResolvedValue(undefined)
+
+    const { approveSubmissionAction } = await import('./actions')
+    const result = await approveSubmissionAction('sub-1')
+
+    expect(result).toBeUndefined()
+    expect(addTagToBrand).not.toHaveBeenCalled()
+  })
+})
+
 describe('MIT verification email actions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -356,7 +450,7 @@ describe('resyncBrandImagesAction', () => {
 })
 
 describe('setBrandTagsAction', () => {
-  it('calls setBrandTags with tag ids', async () => {
+  it('calls setBrandTags with manual source', async () => {
     const { setBrandTags } = await import('@/lib/services/taxonomy')
     vi.mocked(setBrandTags).mockResolvedValue(undefined)
 
@@ -383,7 +477,7 @@ describe('setBrandTagsAction', () => {
 })
 
 describe('confirmBrandTagsAction', () => {
-  it('calls setBrandTags with confirmed tag ids', async () => {
+  it('calls setBrandTags to upgrade source from auto to manual', async () => {
     const { setBrandTags } = await import('@/lib/services/taxonomy')
     vi.mocked(setBrandTags).mockResolvedValue(undefined)
 
@@ -439,5 +533,56 @@ describe('bulkUpdateReportsAction', () => {
     const result = await bulkUpdateReportsAction(['r1', 'r2'], 'dismissed')
     expect(result.updated).toBe(2)
     expect(result.errors).toHaveLength(0)
+  })
+})
+
+describe('reviewFeedbackAction', () => {
+  it('calls updateFeedbackStatus and revalidates /admin/feedback', async () => {
+    const { reviewFeedbackAction } = await import('./actions')
+    const { updateFeedbackStatus } = await import('@/lib/services/feedback')
+
+    const result = await reviewFeedbackAction('feedback-id-1', 'reviewed')
+
+    expect(updateFeedbackStatus).toHaveBeenCalledWith('feedback-id-1', 'reviewed')
+    expect(revalidatePath).toHaveBeenCalledWith('/admin/feedback')
+    expect(result).toBeUndefined()
+  })
+
+  it('returns error when user is not admin', async () => {
+    const { isAdmin } = await import('@/lib/auth/admin')
+    vi.mocked(isAdmin).mockReturnValueOnce(false)
+    const { reviewFeedbackAction } = await import('./actions')
+    const result = await reviewFeedbackAction('feedback-id-1', 'reviewed')
+
+    expect(result).toEqual({ error: expect.any(String) })
+  })
+
+  it('returns error when service throws', async () => {
+    const { updateFeedbackStatus } = await import('@/lib/services/feedback')
+    vi.mocked(updateFeedbackStatus).mockRejectedValueOnce(new Error('db unavailable'))
+
+    const { reviewFeedbackAction } = await import('./actions')
+    const result = await reviewFeedbackAction('feedback-id-1', 'reviewed')
+
+    expect(result).toEqual({ error: 'db unavailable' })
+  })
+})
+
+describe('syncSentryFeedbackAction', () => {
+  it('returns synced count on success', async () => {
+    const { syncSentryFeedbackAction } = await import('./actions')
+    const result = await syncSentryFeedbackAction()
+
+    expect(result).toEqual({ synced: 3 })
+  })
+
+  it('returns error when sync throws', async () => {
+    const { syncSentryFeedback } = await import('@/lib/services/feedback')
+    vi.mocked(syncSentryFeedback).mockRejectedValueOnce(new Error('Sentry API unreachable'))
+
+    const { syncSentryFeedbackAction } = await import('./actions')
+    const result = await syncSentryFeedbackAction()
+
+    expect(result).toEqual({ error: 'Sentry API unreachable' })
   })
 })

@@ -5,10 +5,13 @@ import { useFormContext, Controller } from 'react-hook-form'
 import { useTranslations } from 'next-intl'
 import { Pencil } from 'lucide-react'
 import type { SubmissionFormData } from '@/lib/validations/submission'
+import type { TaxonomyTag } from '@/lib/types'
 import { TurnstileWidget } from './TurnstileWidget'
 
 type ReviewStepProps = {
   onEditStep: (stepIndex: number) => void
+  regionTags?: TaxonomyTag[]
+  valueTags?: TaxonomyTag[]
 }
 
 function SectionHeader({
@@ -56,13 +59,21 @@ function ReviewRow({
   )
 }
 
-export function ReviewStep({ onEditStep }: ReviewStepProps) {
+export function ReviewStep({
+  onEditStep,
+  regionTags = [],
+  valueTags = [],
+}: ReviewStepProps) {
   const t = useTranslations('submit.review')
   const { control, watch, setValue, register } = useFormContext<SubmissionFormData>()
 
   const formData = watch()
 
   const photoCount = formData.productPhotos?.length ?? 0
+  const selectedRegion = regionTags.find((tag) => tag.slug === formData.region)
+  const selectedValueTags = formData.valueTags
+    ?.map((slug) => valueTags.find((tag) => tag.slug === slug))
+    .filter((tag): tag is TaxonomyTag => Boolean(tag))
 
   const handleTurnstileSuccess = useCallback(
     (token: string) => setValue('turnstileToken', token),
@@ -84,10 +95,20 @@ export function ReviewStep({ onEditStep }: ReviewStepProps) {
           <ReviewRow label={t('description')} value={formData.description} />
           <ReviewRow label={t('category')} value={formData.category} />
           <ReviewRow
-            label={t('tags')}
+            label={t('region')}
             value={
-              formData.tags?.length
-                ? formData.tags.join(', ')
+              selectedRegion
+                ? `${selectedRegion.nameZh} (${selectedRegion.name})`
+                : null
+            }
+          />
+          <ReviewRow
+            label={t('valueTags')}
+            value={
+              selectedValueTags?.length
+                ? selectedValueTags
+                    .map((tag) => `${tag.nameZh} (${tag.name})`)
+                    .join(', ')
                 : null
             }
           />

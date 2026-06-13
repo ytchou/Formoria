@@ -17,7 +17,16 @@ import {
 import { verifyMitStatus, rejectMitStatus } from '@/lib/services/mit-verification'
 import { createBrand, updateBrand, getBrandById, deleteBrand, generateSlug, syncBrandImages } from '@/lib/services/brands'
 import { getBrandOwnerEmail } from '@/lib/services/brand-owners'
-import { createTag, updateTag, mergeTag, deactivateTag, activateTag, setBrandTags } from '@/lib/services/taxonomy'
+import {
+  createTag,
+  updateTag,
+  mergeTag,
+  deactivateTag,
+  activateTag,
+  setBrandTags,
+  getTagBySlug,
+  addTagToBrand,
+} from '@/lib/services/taxonomy'
 import { sendEmail } from '@/lib/email/send'
 import {
   buildApprovalEmail,
@@ -34,7 +43,14 @@ import {
 import { createEmailPreferences } from '@/lib/services/email-lifecycle'
 import { generateClaimToken } from '@/lib/auth/claim-token'
 import { updateReportStatus } from '@/lib/services/reports'
+import { updateFeedbackStatus, syncSentryFeedback } from '@/lib/services/feedback'
+import type { FeedbackStatus } from '@/lib/services/feedback'
 import type { TagCategory } from '@/lib/types'
+
+function isStructuredTags(v: unknown): v is { region?: string; values?: string[] } {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
 
 async function requireAdmin(): Promise<{ userId: string; email: string } | { error: string }> {
   const supabase = await createClient()
@@ -117,6 +133,29 @@ export async function approveSubmissionAction(
     }
 
     await approveSubmission(submissionId, auth.userId)
+
+    try {
+      const { suggestedTags } = submission
+      if (isStructuredTags(suggestedTags)) {
+        const structuredTags = suggestedTags
+
+        if (structuredTags.region) {
+          const tag = await getTagBySlug(structuredTags.region)
+          if (tag) await addTagToBrand(brand.id, tag.id)
+        }
+
+        if (Array.isArray(structuredTags.values)) {
+          await Promise.all(
+            structuredTags.values.map(async (slug) => {
+              const tag = await getTagBySlug(slug)
+              if (tag) await addTagToBrand(brand.id, tag.id)
+            })
+          )
+        }
+      }
+    } catch (err) {
+      console.error('[admin:approveSubmission] tag application failed:', err)
+    }
 
     if (submission.isBrandOwner) {
       const token = await generateClaimToken(brand.id, submission.submitterEmail, submission.brandName)
@@ -760,6 +799,39 @@ export async function reviewReportAction(
     return {
       error: err instanceof Error ? err.message : 'An unexpected error occurred',
     }
+  }
+}
+
+export async function reviewFeedbackAction(
+  feedbackId: string,
+  decision: FeedbackStatus
+): Promise<{ error: string } | undefined> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth
+
+    await updateFeedbackStatus(feedbackId, decision)
+    revalidatePath('/admin/feedback')
+    return undefined
+  } catch (err) {
+    console.error('[admin:reviewFeedback]', err)
+    return { error: err instanceof Error ? err.message : 'An unexpected error occurred' }
+  }
+}
+
+export async function syncSentryFeedbackAction(): Promise<
+  { synced: number } | { error: string }
+> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return { error: auth.error }
+
+    const { synced } = await syncSentryFeedback()
+    revalidatePath('/admin/feedback')
+    return { synced }
+  } catch (err) {
+    console.error('[admin:syncSentry]', err)
+    return { error: err instanceof Error ? err.message : 'An unexpected error occurred' }
   }
 }
 

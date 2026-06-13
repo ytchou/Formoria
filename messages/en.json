@@ -958,7 +958,14 @@
         "forbidden": "You do not have permission to edit this brand",
         "noDraft": "No draft to publish.",
         "unknown": "An unexpected error occurred. Please try again."
-      }
+      },
+      "fieldRegion": "Region",
+      "fieldRegionHint": "The brand's headquarters or main city of operations",
+      "fieldRegionPlaceholder": "Select a region",
+      "fieldRegionOptionalHint": "optional",
+      "fieldValueTags": "Brand Values",
+      "fieldValueTagsHint": "Select up to 3 values that describe the brand",
+      "fieldValueTagsOptionalHint": "optional"
     }
   },
   "errors": {
@@ -1070,7 +1077,17 @@
       "retailLocationsHint": "Physical locations where your products are sold (optional)",
       "storeName": "Store name",
       "address": "Address",
-      "addLocation": "Add location"
+      "addLocation": "Add location",
+      "region": "Region",
+      "regionPlaceholder": "Select a region",
+      "regionHint": "The brand's headquarters or main city of operations",
+      "regionOptionalHint": "optional",
+      "valueTags": "Brand Values",
+      "valueTagsHint": "Select up to 3 values that describe the brand",
+      "valueTagsOptionalHint": "optional",
+      "valueTagsCounter": "{count} / {max}",
+      "valueTagsCounterLabel": "{count} of {max} selected",
+      "removeValue": "Remove {value}"
     },
     "review": {
       "brandInfo": "Brand Info",
@@ -1086,7 +1103,9 @@
       "photoCount": "{count} photos uploaded",
       "photoCountSingular": "1 photo uploaded",
       "brandLogoAlt": "Brand logo",
-      "pdpaConsent": "I agree to the collection and use of my personal data in accordance with the <privacyPolicy>Privacy Policy</privacyPolicy> (PDPA compliance)."
+      "pdpaConsent": "I agree to the collection and use of my personal data in accordance with the <privacyPolicy>Privacy Policy</privacyPolicy> (PDPA compliance).",
+      "region": "Region",
+      "valueTags": "Brand Values"
     },
     "confirmation": {
       "metadata": {
@@ -1127,7 +1146,8 @@
       "addressRequired": "Please enter an address",
       "purchaseLinksMin": "Please provide at least one purchase link",
       "pdpaRequired": "Please agree to the privacy policy",
-      "turnstileRequired": "Please complete verification"
+      "turnstileRequired": "Please complete verification",
+      "valueTagsMax": "You can select up to 3 brand values"
     },
     "errors": {
       "notAuthenticated": "Please sign in before submitting a brand",

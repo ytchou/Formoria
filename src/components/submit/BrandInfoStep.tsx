@@ -17,6 +17,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { ImageUploader } from '../upload/ImageUploader'
 import type { SubmissionFormData } from '@/lib/validations/submission'
 import type { PhotoItem } from '@/lib/types/scraper'
+import type { TaxonomyTag } from '@/lib/types/taxonomy'
 
 type Category = {
   slug: string
@@ -28,6 +29,8 @@ type Category = {
 
 type BrandInfoStepProps = {
   categories: Category[]
+  regionTags: TaxonomyTag[]
+  valueTags: TaxonomyTag[]
   uploadPath: string
   photos?: PhotoItem[]
   onPhotosChange?: (photos: PhotoItem[]) => void
@@ -199,6 +202,8 @@ function PhotoGallery({
 
 export function BrandInfoStep({
   categories,
+  regionTags,
+  valueTags,
   uploadPath,
   photos,
   onPhotosChange,
@@ -314,63 +319,138 @@ export function BrandInfoStep({
         )}
       </div>
 
-      {/* Tags */}
+      {/* Region */}
       <div className="space-y-1.5">
-        <label className="block text-sm font-semibold text-foreground">
-          {t('tags')}
+        <label
+          htmlFor="brand-region"
+          className="block text-sm font-semibold text-foreground"
+        >
+          {t('region')}
         </label>
         <p className="text-xs text-muted-foreground">
-          {t('tagsHint')}
+          {t('regionHint')}
+        </p>
+        <select
+          id="brand-region"
+          className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
+          {...register('region')}
+        >
+          <option value="" disabled>
+            {t('regionPlaceholder')}
+          </option>
+          {regionTags.map((tag) => (
+            <option key={tag.id} value={tag.slug}>
+              {tag.nameZh} ({tag.name})
+            </option>
+          ))}
+        </select>
+        {errors.region && (
+          <p className="text-xs text-red-600">{errors.region.message}</p>
+        )}
+      </div>
+
+      {/* Value Tags */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-3">
+          <label className="block text-sm font-semibold text-foreground">
+            {t('valueTags')}
+          </label>
+          <Controller
+            name="valueTags"
+            control={control}
+            render={({ field }) => {
+              const count = field.value?.length ?? 0
+
+              return (
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    count > 0
+                      ? 'bg-[#2F5D50] text-white'
+                      : 'bg-[#E5E0D8] text-foreground'
+                  }`}
+                >
+                  {count} / 3
+                </span>
+              )
+            }}
+          />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {t('valueTagsHint')}
         </p>
         <Controller
-          name="tags"
+          name="valueTags"
           control={control}
           render={({ field }) => (
             <div className="space-y-2">
+              <div className="flex flex-col gap-0.5">
+                {valueTags.map((tag) => {
+                  const selectedValues = field.value ?? []
+                  const checked = selectedValues.includes(tag.slug)
+                  const disabled = selectedValues.length >= 3 && !checked
+
+                  return (
+                    <label
+                      key={tag.id}
+                      className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground ${
+                        disabled ? 'pointer-events-none opacity-50' : ''
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            if (selectedValues.length >= 3) return
+                            field.onChange([...selectedValues, tag.slug])
+                            return
+                          }
+
+                          field.onChange(
+                            selectedValues.filter((value) => value !== tag.slug)
+                          )
+                        }}
+                        className="h-4 w-4 rounded border-border text-[#2F5D50] focus:ring-[#2F5D50]"
+                      />
+                      <span>
+                        {tag.nameZh} ({tag.name})
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
               <div className="flex flex-wrap gap-1.5">
-                {(field.value ?? []).map((tag: string, i: number) => (
+                {(field.value ?? []).map((slug: string) => {
+                  const tag = valueTags.find((valueTag) => valueTag.slug === slug)
+                  const label = tag ? `${tag.nameZh} (${tag.name})` : slug
+
+                  return (
                   <span
-                    key={i}
+                    key={slug}
                     className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs text-foreground"
                   >
-                    {tag}
+                    {label}
                     <button
                       type="button"
                       onClick={() => {
-                        const next = [...field.value]
-                        next.splice(i, 1)
-                        field.onChange(next)
+                        field.onChange(
+                          (field.value ?? []).filter((value) => value !== slug)
+                        )
                       }}
                       className="ml-0.5 text-muted-foreground hover:text-foreground"
-                      aria-label={t('removeTag', { tag })}
+                      aria-label={t('removeValue', { value: label })}
                     >
                       &times;
                     </button>
                   </span>
-                ))}
+                  )
+                })}
               </div>
-              {(field.value?.length ?? 0) < 5 && (
-                <input
-                  type="text"
-                  placeholder={t('tagsInputPlaceholder')}
-                  className="h-9 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      const val = e.currentTarget.value.trim()
-                      if (val && !(field.value ?? []).includes(val)) {
-                        field.onChange([...(field.value ?? []), val])
-                        e.currentTarget.value = ''
-                      }
-                    }
-                  }}
-                />
-              )}
             </div>
           )}
         />
-        {errors.tags && (
-          <p className="text-xs text-red-600">{errors.tags.message}</p>
+        {errors.valueTags && (
+          <p className="text-xs text-red-600">{errors.valueTags.message}</p>
         )}
       </div>
 

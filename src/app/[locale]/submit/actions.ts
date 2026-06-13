@@ -106,7 +106,10 @@ export async function submitBrand(
         facebook: parsed.socialLinks.facebook || undefined,
         officialWebsite: parsed.socialLinks.website || undefined,
       },
-      suggestedTags: parsed.tags,
+      suggestedTags: {
+        ...(parsed.region ? { region: parsed.region } : {}),
+        ...(parsed.valueTags?.length ? { values: parsed.valueTags } : {}),
+      },
       pdpaConsentAt: new Date().toISOString(),
       isBrandOwner: isOwner,
       sourceAttribution: data.sourceAttribution ?? undefined,
