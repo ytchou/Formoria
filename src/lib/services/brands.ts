@@ -84,6 +84,13 @@ export type SearchResult = {
   similarity: number
 }
 
+export type SimilarBrand = {
+  inputName: string
+  brandName: string
+  brandSlug: string
+  score: number
+}
+
 // ---------------------------------------------------------------------------
 // Slug generation
 // ---------------------------------------------------------------------------
@@ -1097,6 +1104,29 @@ export async function searchBrands(query: string, limit: number = 5): Promise<Se
     logoUrl: row.logo_url,
     category: row.primary_category_name,
     similarity: row.similarity_score,
+  }))
+}
+
+export async function findSimilarBrands(names: string[]): Promise<SimilarBrand[]> {
+  if (names.length === 0) return []
+
+  const supabase = createServiceClient()
+  const { data, error } = await supabase.rpc('find_similar_brands', {
+    p_names: names,
+    p_threshold: 0.3,
+  })
+  if (error) throw new Error(`findSimilarBrands: ${error.message}`)
+
+  return (data ?? []).map((row: {
+    input_name: string
+    brand_name: string
+    brand_slug: string
+    similarity_score: number
+  }) => ({
+    inputName: row.input_name,
+    brandName: row.brand_name,
+    brandSlug: row.brand_slug,
+    score: row.similarity_score,
   }))
 }
 
