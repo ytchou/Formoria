@@ -12,8 +12,3 @@ export const PRODUCT_TYPE_CATEGORIES = [
 ] as const
 
 export type ProductTypeSlug = typeof PRODUCT_TYPE_CATEGORIES[number]['slug']
-
-export function getProductTypeName(slug: string, locale: 'zh-TW' | 'en' = 'zh-TW'): string | undefined {
-  const cat = PRODUCT_TYPE_CATEGORIES.find(c => c.slug === slug)
-  return cat ? (locale === 'zh-TW' ? cat.nameZh : cat.name) : undefined
-}

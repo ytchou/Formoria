@@ -35,7 +35,7 @@ describe('fullSubmissionSchema product type validation', () => {
   it('passes with at least one productType selected', () => {
     const result = fullSubmissionSchema.safeParse({
       ...baseValid,
-      productTypes: ['leather-goods'],
+      productTypes: ['fashion'],
       productTypeNote: '',
     })
 
@@ -75,7 +75,7 @@ describe('fullSubmissionSchema product type validation', () => {
   it('passes with both productTypes and productTypeNote', () => {
     const result = fullSubmissionSchema.safeParse({
       ...baseValid,
-      productTypes: ['leather-goods'],
+      productTypes: ['fashion'],
       productTypeNote: '手工皮件',
     })
 
