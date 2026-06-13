@@ -1,3 +1,7 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/lib/supabase/database.types'
+import * as supabaseServer from '@/lib/supabase/server'
+
 export const SUSPICIOUS_TLDS = ['.tk', '.ml', '.ga', '.cf', '.gq']
 export const MAX_URLS_IN_TEXT = 3
 export const MAX_EMOJI_COUNT = 10
@@ -25,6 +29,13 @@ export interface ContentPayload {
   brandName: string
 }
 
+type SupabaseServerModule = typeof supabaseServer & {
+  createServerClient?: () => SupabaseClient<Database>
+}
+
+type ModerationFlagRow = Database['public']['Tables']['moderation_flags']['Row']
+type ModerationFlagInsert = Database['public']['Tables']['moderation_flags']['Insert']
+
 const URL_REGEX = /https?:\/\/[^\s]+/gi
 const TAIWAN_PHONE_REGEX = /09\d{2}[-.]?\d{3}[-.]?\d{3}/
 const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
@@ -47,6 +58,11 @@ function createFlag(
 
 function extractUrls(value: string): string[] {
   return value.match(URL_REGEX) ?? []
+}
+
+function createModerationClient(): SupabaseClient<Database> {
+  const serverModule = supabaseServer as SupabaseServerModule
+  return serverModule.createServerClient?.() ?? supabaseServer.createServiceClient()
 }
 
 export function checkSuspiciousTlds(fields: Record<string, string | undefined>): ModerationFlag[] {
@@ -251,6 +267,136 @@ export function scanContent(payload: ContentPayload): ModerationResult {
   return { riskLevel, flags: allFlags }
 }
 
-export async function shouldAutoApprove(_result: ModerationResult, _userId: string): Promise<boolean> {
-  return false
+export async function shouldAutoApprove(result: ModerationResult, userId: string): Promise<boolean> {
+  if (result.flags.length > 0) return false
+
+  try {
+    const supabase = createModerationClient()
+    const { count, error } = await supabase
+      .from('pending_brand_edits')
+      .select('*', { count: 'exact', head: true })
+      .eq('submitted_by', userId)
+      .eq('status', 'approved')
+
+    if (error || count === null) return false
+    return count >= TRUSTED_OWNER_THRESHOLD
+  } catch {
+    return false
+  }
+}
+
+export async function saveModerationFlags(
+  brandId: string,
+  userId: string,
+  flags: ModerationFlag[]
+): Promise<void> {
+  const supabase = createModerationClient()
+  const rows: ModerationFlagInsert[] = flags.map(flag => ({
+    brand_id: brandId,
+    user_id: userId,
+    field_name: flag.fieldName,
+    flag_reason: flag.reason,
+    flagged_content: flag.flaggedContent,
+    tier: flag.tier,
+    status: 'pending',
+  }))
+  const { error } = await supabase.from('moderation_flags').upsert(rows)
+  if (error) throw error
+}
+
+export async function getModerationFlags(brandId: string): Promise<ModerationFlag[]> {
+  const supabase = createModerationClient()
+  const { data, error } = await supabase
+    .from('moderation_flags')
+    .select('*')
+    .eq('brand_id', brandId)
+    .neq('status', 'reviewed')
+    .order('created_at', { ascending: false })
+
+  if (error || !data) return []
+  return data.map(row => ({
+    fieldName: row.field_name,
+    tier: row.tier as ModerationTier,
+    reason: row.flag_reason,
+    flaggedContent: row.flagged_content,
+  }))
+}
+
+export interface FlaggedContentFilters {
+  riskLevel?: string
+  tier?: string
+  status?: string
+  cursor?: string
+  limit?: number
+}
+
+export interface FlaggedContentItem {
+  id: string
+  brandId: string
+  brandName: string
+  fieldName: string
+  tier: ModerationTier
+  reason: string
+  flaggedContent: string
+  status: string
+  createdAt: string
+}
+
+type FlaggedContentRow = ModerationFlagRow & {
+  brands: { name: string | null } | { name: string | null }[] | null
+}
+
+function getJoinedBrandName(brands: FlaggedContentRow['brands']): string {
+  const brand = Array.isArray(brands) ? brands[0] : brands
+  return brand?.name ?? ''
+}
+
+export async function getFlaggedContent(filters: FlaggedContentFilters = {}): Promise<{
+  items: FlaggedContentItem[]
+  nextCursor: string | null
+}> {
+  const supabase = createModerationClient()
+  const limit = filters.limit ?? 20
+  let query = supabase
+    .from('moderation_flags')
+    .select('*, brands(name)')
+    .order('created_at', { ascending: false })
+    .limit(limit + 1)
+
+  if (filters.status) query = query.eq('status', filters.status)
+  if (filters.tier) query = query.eq('tier', filters.tier)
+  if (filters.cursor) query = query.lt('created_at', filters.cursor)
+
+  const { data, error } = await query
+  if (error || !data) return { items: [], nextCursor: null }
+
+  const hasMore = data.length > limit
+  const rows = (hasMore ? data.slice(0, limit) : data) as FlaggedContentRow[]
+  const items: FlaggedContentItem[] = rows.map(row => ({
+    id: row.id,
+    brandId: row.brand_id,
+    brandName: getJoinedBrandName(row.brands),
+    fieldName: row.field_name,
+    tier: row.tier as ModerationTier,
+    reason: row.flag_reason,
+    flaggedContent: row.flagged_content,
+    status: row.status,
+    createdAt: row.created_at,
+  }))
+  return {
+    items,
+    nextCursor: hasMore ? rows[rows.length - 1].created_at : null,
+  }
+}
+
+export async function markFlagsReviewed(brandId: string, reviewerId: string): Promise<void> {
+  void reviewerId
+  const supabase = createModerationClient()
+  const { error } = await supabase
+    .from('moderation_flags')
+    .update({ status: 'reviewed', reviewed_at: new Date().toISOString() })
+    .eq('brand_id', brandId)
+    .eq('status', 'pending')
+
+  if (error) console.error('[moderation] markFlagsReviewed failed:', error)
 }

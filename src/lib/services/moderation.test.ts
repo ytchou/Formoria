@@ -1,5 +1,10 @@
-import { describe, it, expect } from 'vitest'
-import { scanContent } from './moderation'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { ModerationResult } from './moderation'
+import { scanContent, shouldAutoApprove } from './moderation'
+
+type MockedSupabaseServerModule = typeof import('@/lib/supabase/server') & {
+  createServerClient: ReturnType<typeof vi.fn>
+}
 
 const cleanPayload = {
   fields: {
@@ -141,5 +146,69 @@ describe('scanContent — risk level calculation', () => {
       },
     })
     expect(result.riskLevel).toBe('high')
+  })
+})
+
+vi.mock('@/lib/supabase/server', () => ({
+  createServerClient: vi.fn(),
+}))
+
+describe('shouldAutoApprove', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('returns false immediately when scan has flags', async () => {
+    const flaggedResult: ModerationResult = {
+      riskLevel: 'medium',
+      flags: [{ fieldName: 'description', tier: 'tier2', reason: 'short', flaggedContent: '好' }],
+    }
+    const result = await shouldAutoApprove(flaggedResult, 'user-123')
+    expect(result).toBe(false)
+  })
+
+  it('returns false when owner has fewer than threshold approved edits', async () => {
+    const { createServerClient } = await import('@/lib/supabase/server') as MockedSupabaseServerModule
+    vi.mocked(createServerClient).mockReturnValue({
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => Promise.resolve({ count: 2, error: null }),
+          }),
+        }),
+      }),
+    } as any)
+    const cleanResult: ModerationResult = { riskLevel: 'clean', flags: [] }
+    expect(await shouldAutoApprove(cleanResult, 'user-123')).toBe(false)
+  })
+
+  it('returns true when scan is clean and owner meets threshold', async () => {
+    const { createServerClient } = await import('@/lib/supabase/server') as MockedSupabaseServerModule
+    vi.mocked(createServerClient).mockReturnValue({
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => Promise.resolve({ count: 5, error: null }),
+          }),
+        }),
+      }),
+    } as any)
+    const cleanResult: ModerationResult = { riskLevel: 'clean', flags: [] }
+    expect(await shouldAutoApprove(cleanResult, 'user-456')).toBe(true)
+  })
+
+  it('returns false on Supabase error (safe default)', async () => {
+    const { createServerClient } = await import('@/lib/supabase/server') as MockedSupabaseServerModule
+    vi.mocked(createServerClient).mockReturnValue({
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => Promise.resolve({ count: null, error: new Error('DB error') }),
+          }),
+        }),
+      }),
+    } as any)
+    const cleanResult: ModerationResult = { riskLevel: 'clean', flags: [] }
+    expect(await shouldAutoApprove(cleanResult, 'user-789')).toBe(false)
   })
 })
