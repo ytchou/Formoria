@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { NextIntlClientProvider } from 'next-intl'
 import { PendingEditsList } from './pending-edits-list'
 import type { PendingBrandEditWithBrand } from '@/lib/types/brand'
+import messages from '../../../messages/zh-TW.json'
 
 vi.mock('@/app/admin/actions', () => ({
   approvePendingEditAction: vi.fn().mockResolvedValue(undefined),
@@ -48,23 +50,33 @@ function makeEdit(overrides: Partial<PendingEditWithRisk> = {}): PendingEditWith
 
 describe('PendingEditsList moderation risk badges', () => {
   it('renders a high risk badge', () => {
-    render(<PendingEditsList edits={[makeEdit({ moderationRiskLevel: 'high' })]} />)
+    render(
+      <NextIntlClientProvider locale="zh-TW" messages={messages}>
+        <PendingEditsList edits={[makeEdit({ moderationRiskLevel: 'high' })]} />
+      </NextIntlClientProvider>
+    )
     expect(screen.getByText('高風險')).toBeInTheDocument()
   })
 
   it('renders a medium risk badge', () => {
-    render(<PendingEditsList edits={[makeEdit({ moderationRiskLevel: 'medium' })]} />)
+    render(
+      <NextIntlClientProvider locale="zh-TW" messages={messages}>
+        <PendingEditsList edits={[makeEdit({ moderationRiskLevel: 'medium' })]} />
+      </NextIntlClientProvider>
+    )
     expect(screen.getByText('中風險')).toBeInTheDocument()
   })
 
   it('does not render a risk badge for clean or absent risk', () => {
     render(
-      <PendingEditsList
-        edits={[
-          makeEdit({ id: 'clean-edit', moderationRiskLevel: 'clean' }),
-          makeEdit({ id: 'absent-edit', brandId: 'brand-2' }),
-        ]}
-      />
+      <NextIntlClientProvider locale="zh-TW" messages={messages}>
+        <PendingEditsList
+          edits={[
+            makeEdit({ id: 'clean-edit', moderationRiskLevel: 'clean' }),
+            makeEdit({ id: 'absent-edit', brandId: 'brand-2' }),
+          ]}
+        />
+      </NextIntlClientProvider>
     )
 
     expect(screen.queryByText('高風險')).not.toBeInTheDocument()

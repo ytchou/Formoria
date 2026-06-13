@@ -2,8 +2,18 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { NextIntlClientProvider } from 'next-intl'
 import { SubmissionsList } from '../submissions-list'
 import type { BrandSubmission } from '@/lib/types'
+import messages from '../../../../messages/zh-TW.json'
+
+function renderWithIntl(ui: Parameters<typeof render>[0]) {
+  return render(
+    <NextIntlClientProvider locale="zh-TW" messages={messages}>
+      {ui}
+    </NextIntlClientProvider>
+  )
+}
 
 vi.mock('@/app/admin/actions', () => ({
   approveSubmissionAction: vi.fn(),
@@ -83,13 +93,13 @@ const mockSubmissions = [
 
 describe('SubmissionsList', () => {
   it('renders submission rows', () => {
-    render(<SubmissionsList submissions={mockSubmissions} />)
+    renderWithIntl(<SubmissionsList submissions={mockSubmissions} />)
     expect(screen.getByText('Pottery Studio')).toBeDefined()
     expect(screen.getByText('Tea House')).toBeDefined()
   })
 
   it('renders status filter tabs', () => {
-    render(<SubmissionsList submissions={mockSubmissions} />)
+    renderWithIntl(<SubmissionsList submissions={mockSubmissions} />)
     expect(screen.getByRole('tab', { name: /全部/ })).toBeDefined()
     expect(screen.getByRole('tab', { name: /待審核/ })).toBeDefined()
     expect(screen.getByRole('tab', { name: /已核准/ })).toBeDefined()
@@ -97,7 +107,7 @@ describe('SubmissionsList', () => {
   })
 
   it('filters submissions by status tab', () => {
-    render(<SubmissionsList submissions={mockSubmissions} />)
+    renderWithIntl(<SubmissionsList submissions={mockSubmissions} />)
     const pendingTab = screen.getByRole('tab', { name: /待審核/ })
     fireEvent.click(pendingTab)
     expect(screen.getByText('Pottery Studio')).toBeDefined()
@@ -105,27 +115,27 @@ describe('SubmissionsList', () => {
   })
 
   it('expands a row when clicked', () => {
-    render(<SubmissionsList submissions={mockSubmissions} />)
+    renderWithIntl(<SubmissionsList submissions={mockSubmissions} />)
     fireEvent.click(screen.getByText('Pottery Studio'))
     expect(screen.getByText('Handmade ceramics from Yingge')).toBeDefined()
   })
 
   it('shows approve and reject buttons in expanded pending row', () => {
-    render(<SubmissionsList submissions={mockSubmissions} />)
+    renderWithIntl(<SubmissionsList submissions={mockSubmissions} />)
     fireEvent.click(screen.getByText('Pottery Studio'))
     expect(screen.getByRole('button', { name: '核准' })).toBeDefined()
     expect(screen.getByRole('button', { name: '拒絕' })).toBeDefined()
   })
 
   it('shows suggested tags in expanded row', () => {
-    render(<SubmissionsList submissions={mockSubmissions} />)
+    renderWithIntl(<SubmissionsList submissions={mockSubmissions} />)
     fireEvent.click(screen.getByText('Pottery Studio'))
     expect(screen.getByText('ceramics')).toBeDefined()
     expect(screen.getByText('handmade')).toBeDefined()
   })
 
   it('collapses previously expanded row when another is clicked (accordion)', () => {
-    render(<SubmissionsList submissions={mockSubmissions} />)
+    renderWithIntl(<SubmissionsList submissions={mockSubmissions} />)
     fireEvent.click(screen.getByText('Pottery Studio'))
     expect(screen.getByText('Handmade ceramics from Yingge')).toBeDefined()
 
@@ -137,13 +147,13 @@ describe('SubmissionsList', () => {
 
 describe('source badge', () => {
   it('renders "Owner" badge when isBrandOwner is true', () => {
-    render(<SubmissionsList submissions={[makeSubmission({ isBrandOwner: true })]} />)
+    renderWithIntl(<SubmissionsList submissions={[makeSubmission({ isBrandOwner: true })]} />)
     expect(screen.getByText('Owner')).toBeInTheDocument()
     expect(screen.queryByText('Community')).not.toBeInTheDocument()
   })
 
   it('renders "Community" badge when isBrandOwner is false', () => {
-    render(<SubmissionsList submissions={[makeSubmission({ isBrandOwner: false })]} />)
+    renderWithIntl(<SubmissionsList submissions={[makeSubmission({ isBrandOwner: false })]} />)
     expect(screen.getByText('Community')).toBeInTheDocument()
     expect(screen.queryByText('Owner')).not.toBeInTheDocument()
   })
@@ -152,14 +162,14 @@ describe('source badge', () => {
 describe('sourceAttribution in expanded row', () => {
   it('shows attribution label when isBrandOwner is false and sourceAttribution is set', async () => {
     const submission = makeSubmission({ isBrandOwner: false, sourceAttribution: 'bought_product' })
-    render(<SubmissionsList submissions={[submission]} />)
+    renderWithIntl(<SubmissionsList submissions={[submission]} />)
     await userEvent.click(screen.getByText(submission.brandName))
     expect(screen.getByText('How do you know this brand?')).toBeInTheDocument()
   })
 
   it('does not show attribution label when isBrandOwner is true', async () => {
     const submission = makeSubmission({ isBrandOwner: true, sourceAttribution: null })
-    render(<SubmissionsList submissions={[submission]} />)
+    renderWithIntl(<SubmissionsList submissions={[submission]} />)
     await userEvent.click(screen.getByText(submission.brandName))
     expect(screen.queryByText('How do you know this brand?')).not.toBeInTheDocument()
   })
@@ -167,7 +177,7 @@ describe('sourceAttribution in expanded row', () => {
 
 describe('admin helper text', () => {
   it('renders the submissions table without helper text', () => {
-    render(<SubmissionsList submissions={[]} />)
+    renderWithIntl(<SubmissionsList submissions={[]} />)
     // Helper text was removed from submissions-list in admin UI cleanup
     expect(
       screen.queryByText(/Community submissions may have incomplete info/i)
