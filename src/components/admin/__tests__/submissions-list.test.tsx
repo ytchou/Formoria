@@ -7,6 +7,10 @@ import { SubmissionsList } from '../submissions-list'
 import type { BrandSubmission } from '@/lib/types'
 import messages from '../../../../messages/zh-TW.json'
 
+type AdminSubmission = BrandSubmission & {
+  productTypeNote: string | null
+}
+
 function renderWithIntl(ui: Parameters<typeof render>[0]) {
   return render(
     <NextIntlClientProvider locale="zh-TW" messages={messages}>
@@ -20,7 +24,7 @@ vi.mock('@/app/admin/actions', () => ({
   rejectSubmissionAction: vi.fn(),
 }))
 
-function makeSubmission(overrides: Partial<BrandSubmission> = {}): BrandSubmission {
+function makeSubmission(overrides: Partial<AdminSubmission> = {}): AdminSubmission {
   return {
     id: 'sub-1',
     brandId: null,
@@ -42,6 +46,7 @@ function makeSubmission(overrides: Partial<BrandSubmission> = {}): BrandSubmissi
     notifiedAt: null,
     isBrandOwner: false,
     sourceAttribution: null,
+    productTypeNote: null,
     ...overrides,
   }
 }
@@ -67,6 +72,7 @@ const mockSubmissions = [
     validationErrors: null,
     notifiedAt: null,
     isBrandOwner: false,
+    productTypeNote: null,
   },
   {
     id: 'sub-2',
@@ -88,8 +94,9 @@ const mockSubmissions = [
     validationErrors: null,
     notifiedAt: null,
     isBrandOwner: false,
+    productTypeNote: null,
   },
-]
+] satisfies AdminSubmission[]
 
 describe('SubmissionsList', () => {
   it('renders submission rows', () => {
@@ -182,5 +189,28 @@ describe('admin helper text', () => {
     expect(
       screen.queryByText(/Community submissions may have incomplete info/i)
     ).not.toBeInTheDocument()
+  })
+})
+
+describe('taxonomy gap badge', () => {
+  it('shows no taxonomy gap badge when productTypeNote is null', async () => {
+    const submission = makeSubmission({ productTypeNote: null })
+    renderWithIntl(<SubmissionsList submissions={[submission]} />)
+    await userEvent.click(screen.getByText(submission.brandName))
+    expect(screen.queryByText(/Taxonomy gap|taxonomy gap|分類缺口/i)).not.toBeInTheDocument()
+  })
+
+  it('shows taxonomy gap badge when productTypeNote is present', async () => {
+    const submission = makeSubmission({ productTypeNote: '手工皮件' })
+    renderWithIntl(<SubmissionsList submissions={[submission]} />)
+    await userEvent.click(screen.getByText(submission.brandName))
+    expect(screen.getByText(/Taxonomy gap|分類缺口/i)).toBeInTheDocument()
+  })
+
+  it('displays the free-text note content alongside the badge', async () => {
+    const submission = makeSubmission({ productTypeNote: '手工皮件' })
+    renderWithIntl(<SubmissionsList submissions={[submission]} />)
+    await userEvent.click(screen.getByText(submission.brandName))
+    expect(screen.getByText('手工皮件')).toBeInTheDocument()
   })
 })
