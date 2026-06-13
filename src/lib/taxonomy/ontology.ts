@@ -1,17 +1,14 @@
-export const CATEGORY_ONTOLOGY: Record<string, string[]> = {
-  fashion: ['clothing', 'footwear', 'bags', 'jewelry', 'accessories'],
-  'food-drink': ['food', 'beverages', 'agriculture'],
-  beauty: ['beauty', 'bath-body', 'fragrance'],
-  home: ['home', 'kitchen', 'furniture', 'gardening'],
-  lifestyle: ['stationery', 'art', 'outdoor', 'tech', 'pets', 'baby-kids', 'crafts', 'experiences'],
-}
+export const PRODUCT_TYPE_CATEGORIES = [
+  { slug: 'fashion', name: 'Fashion & Apparel', nameZh: '服飾鞋履' },
+  { slug: 'bags-accessories', name: 'Bags & Accessories', nameZh: '包袋配件' },
+  { slug: 'jewelry', name: 'Jewelry', nameZh: '飾品珠寶' },
+  { slug: 'beauty', name: 'Beauty & Personal Care', nameZh: '美妝保養' },
+  { slug: 'home', name: 'Home & Living', nameZh: '居家生活' },
+  { slug: 'food-drink', name: 'Food & Beverage', nameZh: '食品飲料' },
+  { slug: 'crafts', name: 'Crafts, Art & Stationery', nameZh: '工藝文創' },
+  { slug: 'tech', name: 'Tech & Electronics', nameZh: '3C科技' },
+  { slug: 'outdoor', name: 'Outdoor, Sports & Health', nameZh: '戶外運動保健' },
+  { slug: 'kids-pets', name: 'Kids, Baby & Pets', nameZh: '母嬰寵物' },
+] as const
 
-export function parentGroupForSlug(slug: string): string | null {
-  for (const [parentGroup, slugs] of Object.entries(CATEGORY_ONTOLOGY)) {
-    if (slugs.includes(slug)) {
-      return parentGroup
-    }
-  }
-
-  return null
-}
+export type ProductTypeSlug = typeof PRODUCT_TYPE_CATEGORIES[number]['slug']

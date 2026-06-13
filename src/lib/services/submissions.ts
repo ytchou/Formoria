@@ -9,6 +9,12 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 // ---------------------------------------------------------------------------
 
 type SubmissionRow = Database['public']['Tables']['brand_submissions']['Row']
+type SubmissionRowWithProductTypeNote = SubmissionRow & {
+  product_type_note?: string | null
+}
+export type BrandSubmissionWithProductTypeNote = BrandSubmission & {
+  productTypeNote: string | null
+}
 
 /**
  * Mapper input: the required core fields are mandatory; columns added in later
@@ -16,7 +22,7 @@ type SubmissionRow = Database['public']['Tables']['brand_submissions']['Row']
  * unit test fixtures can omit them without casts.
  */
 type SubmissionRowInput = Pick<
-  SubmissionRow,
+  SubmissionRowWithProductTypeNote,
   | 'id'
   | 'brand_id'
   | 'brand_name'
@@ -25,17 +31,14 @@ type SubmissionRowInput = Pick<
   | 'status'
 > & {
   unified_business_number?: string | null
-} & Partial<
-  Omit<
-    SubmissionRow,
-    | 'id'
-    | 'brand_id'
-    | 'brand_name'
-    | 'submitter_email'
-    | 'submitted_at'
-    | 'status'
-  >
->
+} & Partial<Omit<SubmissionRowWithProductTypeNote,
+  | 'id'
+  | 'brand_id'
+  | 'brand_name'
+  | 'submitter_email'
+  | 'submitted_at'
+  | 'status'
+>>
 
 type SuggestedTagsInput = string[] | { region?: string; values?: string[] }
 
@@ -56,6 +59,7 @@ export type CreateSubmissionInput = {
   pdpaConsentAt?: string
   isOwner?: boolean
   sourceAttribution?: SourceAttribution | null
+  productTypeNote?: string | null
   unifiedBusinessNumber?: string
 }
 
@@ -73,6 +77,7 @@ export function buildSubmissionRecord(input: CreateSubmissionInput): Record<stri
     pdpa_consent_at: input.pdpaConsentAt ?? null,
     is_brand_owner: input.isOwner ?? false,
     source_attribution: input.sourceAttribution ?? null,
+    product_type_note: input.productTypeNote ?? null,
     unified_business_number: input.unifiedBusinessNumber ?? null,
   }
 }
@@ -81,7 +86,7 @@ export function buildSubmissionRecord(input: CreateSubmissionInput): Record<stri
 // Mappers
 // ---------------------------------------------------------------------------
 
-export function submissionToDomain(row: SubmissionRowInput): BrandSubmission {
+export function submissionToDomain(row: SubmissionRowInput): BrandSubmissionWithProductTypeNote {
   return {
     id: row.id,
     brandId: row.brand_id ?? null,
@@ -104,6 +109,7 @@ export function submissionToDomain(row: SubmissionRowInput): BrandSubmission {
     notifiedAt: row.notified_at ?? null,
     isBrandOwner: row.is_brand_owner ?? false,
     sourceAttribution: (row.source_attribution as BrandSubmission['sourceAttribution']) ?? null,
+    productTypeNote: row.product_type_note ?? null,
     unifiedBusinessNumber: row.unified_business_number ?? undefined,
   }
 }
@@ -111,6 +117,7 @@ export function submissionToDomain(row: SubmissionRowInput): BrandSubmission {
 export function submissionToInsert(
   data: Partial<Omit<BrandSubmission, 'suggestedTags'>> & {
     suggestedTags?: SuggestedTagsInput
+    productTypeNote?: string | null
   }
 ): Record<string, unknown> {
   const row: Record<string, unknown> = {}
@@ -130,6 +137,7 @@ export function submissionToInsert(
   if (data.notifiedAt !== undefined) row.notified_at = data.notifiedAt
   if (data.isBrandOwner !== undefined) row.is_brand_owner = data.isBrandOwner
   if (data.sourceAttribution !== undefined) row.source_attribution = data.sourceAttribution
+  row.product_type_note = data.productTypeNote ?? null
   if (data.unifiedBusinessNumber !== undefined) {
     row.unified_business_number = data.unifiedBusinessNumber ?? null
   }
@@ -144,8 +152,9 @@ export async function createSubmission(
   data: Pick<BrandSubmission, 'brandName' | 'submitterEmail'> &
     Partial<Pick<BrandSubmission, 'brandId' | 'submitterName' | 'description' | 'websiteUrl' | 'socialLinks' | 'pdpaConsentAt' | 'isBrandOwner' | 'sourceAttribution' | 'unifiedBusinessNumber'>> & {
       suggestedTags?: SuggestedTagsInput
+      productTypeNote?: string | null
     }
-): Promise<BrandSubmission> {
+): Promise<BrandSubmissionWithProductTypeNote> {
   // Authenticated insert: RLS requires a signed-in user, and the submit action authenticates first.
   const supabase = await createClient()
   const row = submissionToInsert(data)
@@ -157,6 +166,41 @@ export async function createSubmission(
 
   if (error) throw error
   return submissionToDomain(inserted)
+}
+
+const ADMIN_SUBMISSIONS_SELECT = `
+  id,
+  brand_id,
+  brand_name,
+  submitter_email,
+  submitter_name,
+  description,
+  website_url,
+  social_links,
+  suggested_tags,
+  status,
+  reviewer_notes,
+  submitted_at,
+  reviewed_at,
+  reviewed_by,
+  pdpa_consent_at,
+  validation_status,
+  validation_errors,
+  notified_at,
+  is_brand_owner,
+  source_attribution,
+  product_type_note
+`
+
+export async function getAdminSubmissions(): Promise<BrandSubmissionWithProductTypeNote[]> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brand_submissions')
+    .select(ADMIN_SUBMISSIONS_SELECT)
+    .order('submitted_at', { ascending: false })
+
+  if (error) throw error
+  return ((data ?? []) as SubmissionRowWithProductTypeNote[]).map(submissionToDomain)
 }
 
 export async function getSubmission(id: string): Promise<BrandSubmission> {

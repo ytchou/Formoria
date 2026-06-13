@@ -178,6 +178,9 @@ test.describe('Submission happy path', () => {
     await tagInput.fill('characterization');
     await tagInput.press('Enter');
 
+    // Select a product type — required by validation (productTypes.length > 0)
+    await userPage.getByText('服飾鞋履').click();
+
     const logoUploadInput = userPage.locator('input[type="file"]');
     await Promise.all([
       userPage.waitForResponse(

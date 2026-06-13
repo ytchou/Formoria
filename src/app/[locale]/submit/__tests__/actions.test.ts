@@ -209,6 +209,7 @@ describe('server action schema routing', () => {
       socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
       sourceAttribution: 'found_online',
       productPhotos: [],
+      productTypes: ['fashion'],
       brandHighlights: '',
       retailLocations: [],
       turnstileToken: 'test-token',
@@ -222,6 +223,7 @@ describe('server action schema routing', () => {
       description: 'Long enough description for the brand insert payload test',
       category: 'fashion',
       logoUrl: 'https://example.com/logo.webp',
+      productTypes: ['fashion'],
       isOwner: true,
       purchaseLinks: [{ platform: 'shopify', url: 'https://shop.com' }],
       pdpaConsent: true,
@@ -245,6 +247,7 @@ describe('server action schema routing', () => {
       region: 'taipei',
       valueTags: ['sustainability'],
       logoUrl: 'https://example.com/logo.png',
+      productTypes: ['fashion'],
       isOwner: false,
       purchaseLinks: [],
       pdpaConsent: true,
@@ -263,6 +266,34 @@ describe('server action schema routing', () => {
     )
   })
 
+  it('passes productTypeNote to createSubmission', async () => {
+    mockCreateSubmission.mockResolvedValue({ id: 'sub-1' })
+
+    await submitBrand({
+      name: 'Test Brand',
+      description: 'A'.repeat(40),
+      category: 'fashion',
+      logoUrl: 'https://example.com/logo.png',
+      productTypes: [],
+      productTypeNote: '手工皮件',
+      isOwner: false,
+      purchaseLinks: [],
+      pdpaConsent: true,
+      socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
+      sourceAttribution: 'found_online',
+      productPhotos: [],
+      brandHighlights: '',
+      retailLocations: [],
+      turnstileToken: 'test-token',
+    })
+
+    expect(mockCreateSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({
+        productTypeNote: '手工皮件',
+      })
+    )
+  })
+
   it('scans brand fields after schema validation passes', async () => {
     await submitBrand({
       name: 'Test Brand',
@@ -275,6 +306,7 @@ describe('server action schema routing', () => {
       socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
       sourceAttribution: 'found_online',
       productPhotos: [],
+      productTypes: ['fashion'],
       brandHighlights: 'Handmade in Taipei',
       retailLocations: [],
       turnstileToken: 'test-token',
@@ -314,6 +346,7 @@ describe('server action schema routing', () => {
       socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
       sourceAttribution: 'found_online',
       productPhotos: [],
+      productTypes: ['fashion'],
       brandHighlights: '',
       retailLocations: [],
       turnstileToken: 'test-token',
@@ -340,6 +373,7 @@ describe('server action schema routing', () => {
       socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
       sourceAttribution: 'found_online',
       productPhotos: [],
+      productTypes: ['fashion'],
       brandHighlights: '',
       retailLocations: [],
       turnstileToken: 'test-token',
@@ -370,6 +404,7 @@ describe('server action schema routing', () => {
       socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
       sourceAttribution: 'found_online',
       productPhotos: [],
+      productTypes: ['fashion'],
       brandHighlights: '',
       retailLocations: [],
       turnstileToken: 'test-token',

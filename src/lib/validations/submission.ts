@@ -1,4 +1,5 @@
 import { z } from 'zod/v3'
+import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
 
 type Translator = (key: string) => string
@@ -78,6 +79,15 @@ export function getProductsSchema(_t: Translator) {
   return z.object({
     productPhotos: z.array(z.string()).max(6),
     brandHighlights: z.string().max(300).optional().default(''),
+    productTypes: z
+      .array(
+        z.string().refine(
+          (slug) => PRODUCT_TYPE_CATEGORIES.some((category) => category.slug === slug),
+          'Invalid product type slug'
+        )
+      )
+      .default([]),
+    productTypeNote: z.string().max(200).optional().default(''),
   })
 }
 
@@ -146,6 +156,61 @@ const ownerFields = z.object({
   sourceAttribution: sourceAttributionEnum.optional(),
 })
 
+type ProductTypeFields = {
+  productTypeNote: string
+  productTypes: string[]
+}
+
+function requireProductType<Schema extends z.ZodType>(
+  schema: Schema
+): z.ZodEffects<Schema>
+function requireProductType<Schema extends z.AnyZodObject>(
+  schema: Schema,
+  preserveObjectMethods: true
+): z.ZodEffects<Schema> & Schema
+function requireProductType<Schema extends z.ZodType>(
+  schema: Schema,
+  preserveObjectMethods = false
+) {
+  const refined = schema.refine(
+    (data: ProductTypeFields) =>
+      data.productTypes.length > 0 || (data.productTypeNote?.trim().length ?? 0) > 0,
+    {
+      message: '請選擇至少一項產品類型，或說明你的產品類型',
+      path: ['productTypes'],
+    }
+  )
+
+  if (!preserveObjectMethods) {
+    return refined
+  }
+
+  return new Proxy(refined, {
+    get(target, property, receiver) {
+      if (property in target) {
+        return Reflect.get(target, property, receiver)
+      }
+
+      const value = Reflect.get(schema, property, schema)
+      if (typeof value !== 'function') {
+        return value
+      }
+
+      return (...args: unknown[]) => {
+        const result = Reflect.apply(value, schema, args)
+        if (
+          result instanceof z.ZodObject &&
+          'productTypes' in result.shape &&
+          'productTypeNote' in result.shape
+        ) {
+          return requireProductType(result, true)
+        }
+        return result
+      }
+    },
+  }) as z.ZodEffects<Schema> & Schema
+}
+
 /**
  * Schema factory for brand submission validation.
  * - isOwner=true: logoUrl and at least one purchaseLink are required
@@ -201,27 +266,36 @@ export function createSubmissionSchema(isOwner: boolean, t: Translator = zhT) {
     .merge(botDetectionBase)
     .merge(ownerFields)
 
-  return schema
+  return requireProductType(schema, true)
 }
 
 export { SOURCE_ATTRIBUTION_VALUES }
 
-export const fullSubmissionSchema = brandInfoSchema
-  .merge(productsSchema)
-  .merge(linksSchema)
-  .merge(reviewSchema)
-  .merge(botDetectionSchema)
+export const fullSubmissionSchema = requireProductType(
+  brandInfoSchema
+    .merge(productsSchema)
+    .merge(linksSchema)
+    .merge(reviewSchema)
+    .merge(botDetectionSchema)
+)
 
 export function getFullSubmissionSchema(t: Translator) {
-  return getBrandInfoSchema(t)
-    .merge(getProductsSchema(t))
-    .merge(getLinksSchema(t))
-    .merge(getReviewSchema(t))
-    .merge(getBotDetectionSchema(t))
+  return requireProductType(
+    getBrandInfoSchema(t)
+      .merge(getProductsSchema(t))
+      .merge(getLinksSchema(t))
+      .merge(getReviewSchema(t))
+      .merge(getBotDetectionSchema(t))
+  )
 }
 
 type FullSubmissionSchemaData = z.infer<typeof fullSubmissionSchema>
 
-export type SubmissionFormData = Omit<FullSubmissionSchemaData, 'valueTags'> & {
+export type SubmissionFormData = Omit<
+  FullSubmissionSchemaData,
+  'productTypeNote' | 'productTypes' | 'valueTags'
+> & {
+  productTypeNote?: string
+  productTypes?: string[]
   valueTags?: string[]
 }

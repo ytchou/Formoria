@@ -47,6 +47,8 @@ const ALLOWLIST = [
   // Non-display Chinese: a comment and scraper keyword regex.
   'lib/constants.ts',
   'lib/services/scraper/strategies/crawl.ts',
+  // Taxonomy ontology: nameZh is structural data (bilingual label in data layer, not UI copy).
+  'lib/taxonomy/ontology.ts',
   // Transitional: real messages come from the i18n factory; static fallback map
   // here is test-only. TODO remove the static fallback and drop this entry.
   'lib/validations/submission.ts',

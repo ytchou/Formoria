@@ -1,21 +1,47 @@
 import { describe, expect, it } from 'vitest'
-import { CATEGORY_ONTOLOGY, parentGroupForSlug } from '../ontology'
+import { PRODUCT_TYPE_CATEGORIES } from '../ontology'
 
-describe('taxonomy ontology', () => {
-  it('groups product_type slugs under parent groups', () => {
-    expect(Object.keys(CATEGORY_ONTOLOGY).length).toBeGreaterThan(0)
-    for (const [parent, slugs] of Object.entries(CATEGORY_ONTOLOGY)) {
-      expect(parent).toMatch(/^[a-z-]+$/)
-      expect(Array.isArray(slugs)).toBe(true)
+describe('PRODUCT_TYPE_CATEGORIES', () => {
+  it('has exactly 10 entries', () => {
+    expect(PRODUCT_TYPE_CATEGORIES).toHaveLength(10)
+  })
+
+  it('each entry has slug, name, nameZh', () => {
+    for (const cat of PRODUCT_TYPE_CATEGORIES) {
+      expect(cat.slug).toBeTruthy()
+      expect(cat.name).toBeTruthy()
+      expect(cat.nameZh).toBeTruthy()
     }
   })
 
-  it('resolves a known slug to its parent group', () => {
-    const [parent, slugs] = Object.entries(CATEGORY_ONTOLOGY)[0]
-    expect(parentGroupForSlug(slugs[0])).toBe(parent)
+  it('contains all expected slugs', () => {
+    const slugs = PRODUCT_TYPE_CATEGORIES.map(c => c.slug)
+    expect(slugs).toContain('fashion')
+    expect(slugs).toContain('bags-accessories')
+    expect(slugs).toContain('jewelry')
+    expect(slugs).toContain('beauty')
+    expect(slugs).toContain('home')
+    expect(slugs).toContain('food-drink')
+    expect(slugs).toContain('crafts')
+    expect(slugs).toContain('tech')
+    expect(slugs).toContain('outdoor')
+    expect(slugs).toContain('kids-pets')
   })
 
-  it('returns null for an unknown slug', () => {
-    expect(parentGroupForSlug('__not-a-real-slug__')).toBeNull()
+  it('does not contain old sub-category slugs', () => {
+    const slugs = PRODUCT_TYPE_CATEGORIES.map(c => c.slug)
+    expect(slugs).not.toContain('clothing')
+    expect(slugs).not.toContain('footwear')
+    expect(slugs).not.toContain('others')
+    expect(slugs).not.toContain('baby-kids')
+  })
+})
+
+describe('parentGroupForSlug (removed)', () => {
+  it('is not exported', async () => {
+    const mod = await import('../ontology')
+    const exports = mod as Record<string, unknown>
+    expect(exports.parentGroupForSlug).toBeUndefined()
+    expect(exports.CATEGORY_ONTOLOGY).toBeUndefined()
   })
 })

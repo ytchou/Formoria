@@ -22,6 +22,7 @@ type TabValue = 'all' | SubmissionStatus
 
 type BrandSubmissionWithRisk = BrandSubmission & {
   moderationRiskLevel?: 'high' | 'medium' | 'clean'
+  productTypeNote?: string | null
 }
 
 const SOURCE_ATTRIBUTION_LABELS: Record<SourceAttribution, string> = {
@@ -220,6 +221,17 @@ export function SubmissionsList({
                             </p>
                             <p className="mt-1 text-sm">
                               {SOURCE_ATTRIBUTION_LABELS[submission.sourceAttribution]}
+                            </p>
+                          </div>
+                        )}
+
+                        {submission.productTypeNote?.trim() && (
+                          <div>
+                            <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+                              Taxonomy gap
+                            </span>
+                            <p className="mt-1 text-sm text-[#7C7570]">
+                              {submission.productTypeNote}
                             </p>
                           </div>
                         )}

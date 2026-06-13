@@ -51,6 +51,11 @@ test.describe('Community submit flow', () => {
     await expect(userPage.locator('#brand-name')).toBeVisible({ timeout: 3_000 })
     await expect(userPage.locator('#brand-description')).toBeVisible({ timeout: 3_000 })
 
+    // Product type section is visible with at least one option and the free-text fallback toggle
+    await expect(userPage.getByRole('group', { name: /產品類型/ })).toBeVisible({ timeout: 3_000 })
+    await expect(userPage.getByText(/服飾鞋履/)).toBeVisible({ timeout: 3_000 })
+    await expect(userPage.getByText(/以上都不適合/)).toBeVisible({ timeout: 3_000 })
+
     const categoryTrigger = userPage.getByRole('combobox', { name: 'Category', exact: true })
     if (await categoryTrigger.isVisible({ timeout: 2_000 }).catch(() => false)) {
       await categoryTrigger.selectOption({ index: 1 })
