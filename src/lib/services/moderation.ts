@@ -225,7 +225,7 @@ export function checkShortOrIdenticalDescription(
   const flags: ModerationFlag[] = []
   const cjkCount = description.match(CJK_REGEX)?.length ?? 0
 
-  if (cjkCount < MIN_CJK_DESCRIPTION_CHARS) {
+  if (cjkCount >= 3 && cjkCount < MIN_CJK_DESCRIPTION_CHARS) {
     flags.push(
       createFlag(
         'description',
@@ -300,7 +300,7 @@ export async function saveModerationFlags(
     tier: flag.tier,
     status: 'pending',
   }))
-  const { error } = await supabase.from('moderation_flags').upsert(rows)
+  const { error } = await supabase.from('moderation_flags').insert(rows)
   if (error) throw error
 }
 
@@ -389,8 +389,7 @@ export async function getFlaggedContent(filters: FlaggedContentFilters = {}): Pr
   }
 }
 
-export async function markFlagsReviewed(brandId: string, reviewerId: string): Promise<void> {
-  void reviewerId
+export async function markFlagsReviewed(brandId: string): Promise<void> {
   const supabase = createModerationClient()
   const { error } = await supabase
     .from('moderation_flags')

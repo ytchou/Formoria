@@ -245,14 +245,14 @@ describe('pending edit admin actions', () => {
     expect(sendEmail).toHaveBeenCalledWith(message)
   })
 
-  it('approvePendingEditAction calls markFlagsReviewed with brandId and adminId', async () => {
+  it('approvePendingEditAction calls markFlagsReviewed with brandId', async () => {
     const { markFlagsReviewed } = await import('@/lib/services/moderation')
 
     const { approvePendingEditAction } = await import('./actions')
     const result = await approvePendingEditAction('edit-1')
 
     expect(result).toBeUndefined()
-    expect(markFlagsReviewed).toHaveBeenCalledWith('brand-1', 'admin-1')
+    expect(markFlagsReviewed).toHaveBeenCalledWith('brand-1')
   })
 
   it('rejects a pending edit with the admin id and notes', async () => {
@@ -412,7 +412,7 @@ describe('approveSubmissionAction - taxonomy tag application', () => {
     const result = await approveSubmissionAction('sub-1')
 
     expect(result).toBeUndefined()
-    expect(markFlagsReviewed).toHaveBeenCalledWith('brand-1', 'admin-1')
+    expect(markFlagsReviewed).toHaveBeenCalledWith('brand-1')
   })
 })
 
@@ -454,7 +454,7 @@ describe('updateBrandAction moderation audit', () => {
       brandName: 'Test Brand',
     })
     expect(saveModerationFlags).toHaveBeenCalledWith('brand-1', 'admin-1', flags)
-    expect(markFlagsReviewed).toHaveBeenCalledWith('brand-1', 'admin-1')
+    expect(markFlagsReviewed).toHaveBeenCalledWith('brand-1')
   })
 })
 

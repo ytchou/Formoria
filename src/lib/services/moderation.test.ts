@@ -100,10 +100,18 @@ describe('scanContent — Tier 2 zh-TW flagging', () => {
     expect(result.flags.some(f => f.tier === 'tier2')).toBe(true)
   })
 
-  it('flags description shorter than 10 CJK characters', () => {
+  it('does not flag short English-style descriptions with fewer than 3 CJK chars', () => {
     const result = scanContent({
       ...cleanPayload,
       fields: { ...cleanPayload.fields, description: '好皂' },
+    })
+    expect(result.flags.some(f => f.tier === 'tier2' && f.fieldName === 'description')).toBe(false)
+  })
+
+  it('flags description with 3+ CJK characters but fewer than 10', () => {
+    const result = scanContent({
+      ...cleanPayload,
+      fields: { ...cleanPayload.fields, description: '好皂品' },
     })
     expect(result.flags.some(f => f.tier === 'tier2' && f.fieldName === 'description')).toBe(true)
   })
@@ -127,9 +135,10 @@ describe('scanContent — risk level calculation', () => {
   })
 
   it('returns medium for tier-2 flags only', () => {
+    // 3+ CJK chars but under MIN_CJK_DESCRIPTION_CHARS triggers tier-2
     const result = scanContent({
       ...cleanPayload,
-      fields: { ...cleanPayload.fields, description: '好' },
+      fields: { ...cleanPayload.fields, description: '好皂品' },
     })
     expect(result.riskLevel).toBe('medium')
   })

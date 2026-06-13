@@ -136,7 +136,7 @@ export async function approveSubmissionAction(
     await approveSubmission(submissionId, auth.userId)
 
     try {
-      await markFlagsReviewed(brand.id, auth.userId)
+      await markFlagsReviewed(brand.id)
     } catch (err) {
       console.error('[admin] markFlagsReviewed failed:', err)
     }
@@ -328,7 +328,7 @@ export async function approvePendingEditAction(
     await approvePendingEdit(editId, auth.userId)
 
     try {
-      await markFlagsReviewed(edit.brandId, auth.userId)
+      await markFlagsReviewed(edit.brandId)
     } catch (err) {
       console.error('[admin] markFlagsReviewed failed:', err)
     }
@@ -546,7 +546,7 @@ export async function updateBrandAction(
     if (moderationResult.flags.length > 0) {
       try {
         await saveModerationFlags(brandId, auth.userId, moderationResult.flags)
-        await markFlagsReviewed(brandId, auth.userId)
+        await markFlagsReviewed(brandId)
       } catch (err) {
         console.error('[admin] god-mode moderation audit failed:', err)
       }
