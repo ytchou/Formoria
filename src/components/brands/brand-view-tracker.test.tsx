@@ -16,10 +16,10 @@ describe('BrandViewTracker', () => {
     vi.clearAllMocks()
   })
 
-  it('fires brand_view event on mount with brand slug', () => {
+  it('fires view_item event on mount with item id', () => {
     render(<BrandViewTracker brandSlug="awesome-tea" />)
-    expect(sendGAEvent).toHaveBeenCalledWith('event', 'brand_detail_viewed', {
-      brand_slug: 'awesome-tea',
+    expect(sendGAEvent).toHaveBeenCalledWith('event', 'view_item', {
+      item_id: 'awesome-tea',
       source: 'direct',
     })
   })

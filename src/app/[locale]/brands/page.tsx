@@ -13,6 +13,7 @@ import { MasonryGrid } from '@/components/brands/masonry-grid'
 import { BrandCard } from '@/components/brands/brand-card'
 import { Pagination } from '@/components/brands/pagination'
 import { SortSelect } from '@/components/brands/sort-select'
+import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
@@ -126,6 +127,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(buildWebSiteJsonLd(safeLocale)) }}
       />
+      <ViewItemListTracker listName="directory" itemCount={displayBrands.length} />
 
       <aside className="hidden lg:block" aria-label={t('filters.title')}>
         <div className="sticky top-24">

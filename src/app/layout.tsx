@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Bricolage_Grotesque, Geist_Mono, Inter, Noto_Sans_TC } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { Agentation } from "agentation";
+import { GaUserSync } from "@/components/analytics/ga-user-sync";
 import { SessionTracker } from "@/components/analytics/session-tracker";
 import { getSiteUrl } from "@/lib/seo/site-url";
 import "./globals.css";
@@ -62,7 +63,10 @@ export default function RootLayout({
         {children}
         {process.env.NODE_ENV === "development" && <Agentation />}
         {process.env.NEXT_PUBLIC_GA_ID && (
-          <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />
+          <>
+            <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />
+            <GaUserSync />
+          </>
         )}
       </body>
     </html>

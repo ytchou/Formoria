@@ -12,6 +12,7 @@ import type { Locale } from '@/lib/seo/alternates'
 import { parsePageParam, parseSortParam, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import { BrandGrid } from '@/components/brands/brand-grid'
 import { Pagination } from '@/components/brands/pagination'
+import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
 
 // ISR: revalidate every hour
 export const revalidate = 3600
@@ -164,6 +165,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
           ),
         }}
       />
+      <ViewItemListTracker listName={`category:${slug}`} itemCount={displayBrands.length} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
