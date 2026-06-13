@@ -159,7 +159,10 @@ export async function getSubmission(id: string): Promise<BrandSubmission> {
   return submissionToDomain(data)
 }
 
-export async function getSubmissions(status?: SubmissionStatus): Promise<BrandSubmission[]> {
+export async function getSubmissions(
+  status?: SubmissionStatus,
+  options?: { limit?: number }
+): Promise<BrandSubmission[]> {
   const supabase = createServiceClient()
   let query = supabase.from('brand_submissions').select('*')
 
@@ -167,7 +170,12 @@ export async function getSubmissions(status?: SubmissionStatus): Promise<BrandSu
     query = query.eq('status', status)
   }
 
-  const { data, error } = await query.order('submitted_at', { ascending: false })
+  query = query.order('submitted_at', { ascending: false })
+  if (options?.limit) {
+    query = query.limit(options.limit)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
   return (data ?? []).map(submissionToDomain)
