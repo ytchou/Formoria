@@ -13,7 +13,7 @@ export default defineConfig({
   reporter: 'html',
   timeout: 30_000,
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: process.env.BASE_URL ?? 'http://localhost:3000',
     trace: 'on-first-retry',
     locale: 'en-US',
   },
@@ -56,8 +56,8 @@ export default defineConfig({
   globalSetup: './e2e/global-setup.ts',
   globalTeardown: './e2e/global-teardown.ts',
   webServer: {
-    command: 'pnpm dev',
-    url: 'http://localhost:3000',
+    command: process.env.BASE_URL ? `PORT=${new URL(process.env.BASE_URL).port} pnpm dev` : 'pnpm dev',
+    url: process.env.BASE_URL ?? 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

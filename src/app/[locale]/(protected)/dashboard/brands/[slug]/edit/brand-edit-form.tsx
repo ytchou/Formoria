@@ -43,11 +43,15 @@ export function BrandEditForm({
     undefined
   );
   const t = useTranslations("dashboard.edit");
+  const pendingEditsT = useTranslations("admin.pendingEdits");
   const fieldErrors = {
     ...publishState?.fieldErrors,
     ...draftState?.fieldErrors,
   };
   const error = publishState?.error ?? draftState?.error;
+  const showSubmittedForReviewNotice =
+    publishState?.success === true &&
+    publishState.message === "brandEditSubmittedForReview";
 
   return (
     <div className="space-y-10">
@@ -344,6 +348,12 @@ export function BrandEditForm({
             )}
           />
         </section>
+
+        {showSubmittedForReviewNotice && (
+          <div className="rounded-lg border border-[var(--verified-green)] bg-[var(--verified-green-bg)] px-4 py-3 text-sm font-medium text-[var(--verified-green)]">
+            {pendingEditsT("brandEditSubmittedForReview")}
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-4">
           <Button

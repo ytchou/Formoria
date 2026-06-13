@@ -1157,6 +1157,17 @@
     }
   },
   "admin": {
+    "pendingEdits": {
+      "title": "Brand Edit Review",
+      "submittedForReview": "Your edit has been submitted for review",
+      "brandEditSubmittedForReview": "Your edit has been submitted for review",
+      "pending": "Under review",
+      "pendingMessage": "Your edit is under review",
+      "approved": "Edit approved and live",
+      "rejected": "Edit needs revision",
+      "resubmit": "Edit again",
+      "close": "Dismiss"
+    },
     "claimRequests": {
       "adminProofLabel": "Ownership proof",
       "domainEmailVerified": "✓ Verified",

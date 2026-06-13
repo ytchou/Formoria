@@ -13,7 +13,10 @@ vi.mock('@/lib/supabase/server', () => ({
     from: vi.fn(() => ({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          single: vi.fn().mockResolvedValue({
+            data: { brand_id: 'brand-1', brands: { name: 'Test Brand' } },
+            error: null,
+          }),
         }),
       }),
       update: vi.fn().mockReturnValue({
@@ -78,6 +81,16 @@ vi.mock('@/lib/services/claim-requests', () => ({
   rejectClaimRequest: vi.fn().mockResolvedValue(undefined),
 }))
 
+vi.mock('@/lib/services/pending-edits', () => ({
+  getPendingEdit: vi.fn(),
+  getPendingEditForReview: vi.fn().mockResolvedValue({
+    brandId: 'brand-1',
+    brandName: 'Test Brand',
+  }),
+  approvePendingEdit: vi.fn().mockResolvedValue(undefined),
+  rejectPendingEdit: vi.fn().mockResolvedValue(undefined),
+}))
+
 vi.mock('@/lib/services/mit-verification', () => ({
   verifyMitStatus: vi.fn().mockResolvedValue({ id: 'brand-1', name: 'Test Brand' }),
   rejectMitStatus: vi.fn().mockResolvedValue({ id: 'brand-1', name: 'Test Brand' }),
@@ -117,6 +130,8 @@ vi.mock('@/lib/email/templates', () => ({
   buildClaimEmail: vi.fn(),
   buildClaimApprovedEmail: vi.fn(),
   buildClaimRejectedEmail: vi.fn(),
+  buildEditApprovedEmail: vi.fn(),
+  buildEditRejectedEmail: vi.fn(),
   buildMitVerificationSubmittedEmail: vi.fn(),
   buildMitVerificationApprovedEmail: vi.fn(),
   buildMitVerificationNeedsDocsEmail: vi.fn(),
@@ -159,6 +174,8 @@ describe('admin actions module', () => {
     expect(typeof mod.mergeTagAction).toBe('function')
     expect(typeof mod.deactivateTagAction).toBe('function')
     expect(typeof mod.acknowledgeMitVerificationSubmissionAction).toBe('function')
+    expect(typeof mod.approvePendingEditAction).toBe('function')
+    expect(typeof mod.rejectPendingEditAction).toBe('function')
   })
 })
 
@@ -196,6 +213,69 @@ describe('approveClaimAction', () => {
     expect(result).toBeUndefined()
     expect(approveClaimRequest).toHaveBeenCalledWith('claim-1', 'admin-1')
     expect(createEmailPreferences).toHaveBeenCalledWith(expect.anything(), 'owner-1')
+  })
+})
+
+describe('pending edit admin actions', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockCookie('god')
+  })
+
+  it('approves a pending edit with the admin id', async () => {
+    const { approvePendingEdit, getPendingEditForReview } = await import('@/lib/services/pending-edits')
+    const { sendEmail } = await import('@/lib/email/send')
+    const { buildEditApprovedEmail } = await import('@/lib/email/templates')
+    const message = { to: 'owner@example.com', from: 'ops@formoria.com', subject: 'approved', html: '' }
+    vi.mocked(buildEditApprovedEmail).mockReturnValue(message)
+
+    const { approvePendingEditAction } = await import('./actions')
+    const result = await approvePendingEditAction('edit-1')
+
+    expect(result).toBeUndefined()
+    expect(getPendingEditForReview).toHaveBeenCalledWith('edit-1')
+    expect(approvePendingEdit).toHaveBeenCalledWith('edit-1', 'admin-1')
+    expect(buildEditApprovedEmail).toHaveBeenCalledWith('Test Brand', 'owner@example.com')
+    expect(sendEmail).toHaveBeenCalledWith(message)
+  })
+
+  it('rejects a pending edit with the admin id and notes', async () => {
+    const { rejectPendingEdit, getPendingEditForReview } = await import('@/lib/services/pending-edits')
+    const { sendEmail } = await import('@/lib/email/send')
+    const { buildEditRejectedEmail } = await import('@/lib/email/templates')
+    const message = { to: 'owner@example.com', from: 'ops@formoria.com', subject: 'rejected', html: '' }
+    vi.mocked(buildEditRejectedEmail).mockReturnValue(message)
+
+    const { rejectPendingEditAction } = await import('./actions')
+    const result = await rejectPendingEditAction('edit-1', 'Please add clearer product details')
+
+    expect(result).toBeUndefined()
+    expect(getPendingEditForReview).toHaveBeenCalledWith('edit-1')
+    expect(rejectPendingEdit).toHaveBeenCalledWith('edit-1', 'admin-1', 'Please add clearer product details')
+    expect(buildEditRejectedEmail).toHaveBeenCalledWith('Test Brand', 'owner@example.com', 'Please add clearer product details')
+    expect(sendEmail).toHaveBeenCalledWith(message)
+  })
+})
+
+describe('pending edit email templates', () => {
+  it('builds an approved email with the brand name in the subject and html', async () => {
+    const { buildEditApprovedEmail } =
+      await vi.importActual<typeof import('@/lib/email/templates')>('@/lib/email/templates')
+
+    const email = buildEditApprovedEmail('Formosa Bikes', 'owner@example.com')
+
+    expect(email.to).toBe('owner@example.com')
+    expect(email.subject).toContain('Formosa Bikes')
+    expect(email.html).toContain('Formosa Bikes')
+  })
+
+  it('builds a rejected email with reviewer notes in the html', async () => {
+    const { buildEditRejectedEmail } =
+      await vi.importActual<typeof import('@/lib/email/templates')>('@/lib/email/templates')
+
+    const email = buildEditRejectedEmail('Formosa Bikes', 'owner@example.com', 'Please clarify factory location')
+
+    expect(email.html).toContain('Please clarify factory location')
   })
 })
 

@@ -364,6 +364,61 @@ export function buildClaimRejectedEmail(params: {
   }
 }
 
+export function buildEditApprovedEmail(brandName: string, ownerEmail: string): EmailMessage {
+  const escapedBrandName = escapeHtml(brandName)
+
+  return {
+    to: ownerEmail,
+    from: FROM_ADDRESS,
+    subject: `您的品牌編輯「${escapedBrandName}」已通過審核 / Your brand edit has been approved — Formoria`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>您的品牌編輯已通過審核！</h2>
+        <p><strong>${escapedBrandName}</strong> 的品牌資料更新已通過審核，變更已正式刊登於 Formoria。</p>
+        <p>Your edits for <strong>${escapedBrandName}</strong> have been approved and are now live on Formoria.</p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+        <p style="color: #6b7280; font-size: 14px;">Formoria — 台灣品牌目錄 / Made in Taiwan Brand Directory</p>
+      </div>
+    `.trim(),
+  }
+}
+
+export function buildEditRejectedEmail(
+  brandName: string,
+  ownerEmail: string,
+  notes?: string
+): EmailMessage {
+  const escapedBrandName = escapeHtml(brandName)
+  const reviewerNotes = notes?.trim() ?? ''
+  const notesSection =
+    reviewerNotes !== ''
+      ? `
+        <p><strong>審核意見 / Reviewer notes:</strong></p>
+        <blockquote style="border-left: 3px solid #d1d5db; padding-left: 12px; color: #374151;">
+          ${escapeHtml(reviewerNotes)}
+        </blockquote>`
+      : ''
+
+  return {
+    to: ownerEmail,
+    from: FROM_ADDRESS,
+    subject: `您的品牌編輯「${escapedBrandName}」未通過審核 / Your brand edit was not approved — Formoria`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>您的品牌編輯未通過審核</h2>
+        <p>感謝您提交 <strong>${escapedBrandName}</strong> 的品牌資料更新。</p>
+        <p>經審核後，我們目前無法批准此次編輯。</p>
+        <p>Thank you for submitting updates for <strong>${escapedBrandName}</strong>.</p>
+        <p>After review, we are unable to approve this edit at this time.</p>
+        ${notesSection}
+        <p>您可以依照審核意見調整後再次提交。You are welcome to revise and submit again.</p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+        <p style="color: #6b7280; font-size: 14px;">Formoria — 台灣品牌目錄 / Made in Taiwan Brand Directory</p>
+      </div>
+    `.trim(),
+  }
+}
+
 export function buildIncompleteSubmissionEmail(params: {
   submitterEmail: string
   brandName: string

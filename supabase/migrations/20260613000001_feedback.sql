@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS feedback (
 );
 
 ALTER TABLE feedback ENABLE ROW LEVEL SECURITY;
+
 -- service_role bypasses RLS by default — matches brand_reports convention
 
 CREATE INDEX idx_feedback_status     ON feedback (status) WHERE status = 'open';

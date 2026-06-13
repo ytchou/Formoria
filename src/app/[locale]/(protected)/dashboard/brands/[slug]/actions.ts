@@ -6,6 +6,7 @@ import { getTranslations } from 'next-intl/server'
 import { createClient } from '@/lib/supabase/server'
 import { isActingAsAdmin } from '@/lib/auth/admin-mode'
 import { isOwnerOf } from '@/lib/services/brand-owners'
+import { createPendingEdit } from '@/lib/services/pending-edits'
 import {
   diffRemovedImageUrls,
   discardDraft,
@@ -20,6 +21,8 @@ import { getTagBySlug, updateBrandCategoryTags } from '@/lib/services/taxonomy'
 import type { Brand, PurchaseLink, RetailLocation } from '@/lib/types'
 
 type ActionState = {
+  success?: boolean
+  message?: string
   error?: string
   fieldErrors?: Record<string, string>
 } | undefined
@@ -183,6 +186,11 @@ export async function updateBrandAction(
     }
 
     const updateData = parseBrandEditForm(formData, brand)
+    const isAdmin = await isActingAsAdmin(user.email)
+    if (!isAdmin) {
+      await createPendingEdit(brand.id, user.id, updateData as Record<string, unknown>)
+      return { success: true, message: 'brandEditSubmittedForReview' }
+    }
 
     const previousImageUrls = imageUrlsFromBrand(brand)
     const nextImageUrls = imageUrlsFromBrand({ ...brand, ...updateData })
@@ -312,6 +320,14 @@ export async function publishDraftAction(
     const snapshot = await getBrandDraft(brand.id)
     if (!snapshot) {
       return { error: t('noDraft') }
+    }
+
+    const draftPartial = snapshot
+    const isAdmin = await isActingAsAdmin(user.email)
+    if (!isAdmin) {
+      await createPendingEdit(brand.id, user.id, draftPartial)
+      await discardDraft(brand.id)
+      return { success: true, message: 'brandEditSubmittedForReview' }
     }
 
     const nextImageUrls = imageUrlsFromBrand({

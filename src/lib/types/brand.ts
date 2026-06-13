@@ -94,3 +94,37 @@ export type BrandFilters = {
   offset?: number
   includeTestBrands?: boolean
 }
+
+export type PendingBrandEdit = {
+  id: string
+  brandId: string
+  submittedBy: string
+  proposedData: Record<string, unknown>
+  status: 'pending' | 'approved' | 'rejected'
+  reviewerNotes: string | null
+  reviewedAt: string | null
+  reviewedBy: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type PendingBrandEditWithBrand = PendingBrandEdit & {
+  brand: Pick<
+    Brand,
+    | 'id'
+    | 'name'
+    | 'slug'
+    | 'description'
+    | 'logoUrl'
+    | 'heroImageUrl'
+    | 'category'
+    | 'contactEmail'
+    | 'brandHighlights'
+    | 'foundingYear'
+    | 'purchaseLinks'
+    | 'socialLinks'
+    | 'retailLocations'
+    | 'productPhotos'
+    | 'siteContent'
+  >
+}

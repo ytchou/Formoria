@@ -119,7 +119,7 @@ test.describe.serial('Dashboard brand draft preview', () => {
     await expect(anonPage.getByText('預覽模式 — 尚未發布')).toHaveCount(0);
   });
 
-  test('step 5 — owner publishes draft and public page eventually shows NEW description', async ({ userPage, anonPage }) => {
+  test('step 5 — owner submits draft for review and sees confirmation (non-admin goes to review queue)', async ({ userPage, anonPage }) => {
     test.skip(previewGateActive, 'PREVIEW_MODE active — public brand page returns 503');
 
     // Navigate to the edit page to find the draft-pending banner with the publish button
@@ -128,14 +128,14 @@ test.describe.serial('Dashboard brand draft preview', () => {
 
     await userPage.getByRole('button', { name: '發布' }).click();
 
-    // Poll-reload the public page until ISR/revalidation serves the new content
-    await expect(async () => {
-      await anonPage.goto(`/brands/${brandSlug}`);
-      await expect(anonPage.getByText(newDescription)).toBeVisible();
-    }).toPass({ timeout: 20_000, intervals: [1_000, 2_000, 3_000, 5_000] });
+    // Non-admin owner publish now goes to review queue — expect confirmation, no immediate live update
+    await expect(
+      userPage.getByText(/submitted for review|提交審核|審核中/i)
+    ).toBeVisible({ timeout: 15_000 });
 
-    // Draft-pending banner should be gone from the edit page
-    await userPage.goto(`/dashboard/brands/${brandSlug}/edit`);
-    await expect(userPage.getByText('草稿待發布')).toHaveCount(0);
+    // Public page should still show the OLD description — change is pending review
+    await anonPage.goto(`/brands/${brandSlug}`);
+    await expect(anonPage.getByText(oldDescription)).toBeVisible({ timeout: 10_000 });
+    await expect(anonPage.getByText(newDescription)).toHaveCount(0);
   });
 });

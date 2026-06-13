@@ -1157,6 +1157,17 @@
     }
   },
   "admin": {
+    "pendingEdits": {
+      "title": "品牌編輯審核",
+      "submittedForReview": "您的編輯已提交審核",
+      "brandEditSubmittedForReview": "您的編輯已提交審核",
+      "pending": "審核中",
+      "pendingMessage": "您的編輯正在審核中",
+      "approved": "編輯已通過並上線",
+      "rejected": "編輯需要修改",
+      "resubmit": "重新編輯",
+      "close": "關閉"
+    },
     "claimRequests": {
       "adminProofLabel": "擁有權證明",
       "domainEmailVerified": "✓ 已驗證",

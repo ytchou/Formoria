@@ -9,6 +9,11 @@ import {
   getClaimRequest,
   rejectClaimRequest,
 } from '@/lib/services/claim-requests'
+import {
+  approvePendingEdit,
+  getPendingEditForReview,
+  rejectPendingEdit,
+} from '@/lib/services/pending-edits'
 import { verifyMitStatus, rejectMitStatus } from '@/lib/services/mit-verification'
 import { createBrand, updateBrand, getBrandById, deleteBrand, generateSlug, syncBrandImages } from '@/lib/services/brands'
 import { getBrandOwnerEmail } from '@/lib/services/brand-owners'
@@ -29,6 +34,8 @@ import {
   buildClaimEmail,
   buildClaimApprovedEmail,
   buildClaimRejectedEmail,
+  buildEditApprovedEmail,
+  buildEditRejectedEmail,
   buildMitVerificationSubmittedEmail,
   buildMitVerificationApprovedEmail,
   buildMitVerificationNeedsDocsEmail,
@@ -61,6 +68,18 @@ async function requireAdmin(): Promise<{ userId: string; email: string } | { err
   }
 
   return { userId: user.id, email: user.email ?? '' }
+}
+
+async function getPendingEditEmailContext(
+  editId: string
+): Promise<{ brandId: string; brandName: string; ownerEmail: string | null }> {
+  const edit = await getPendingEditForReview(editId)
+
+  return {
+    brandId: edit.brandId,
+    brandName: edit.brandName,
+    ownerEmail: await getBrandOwnerEmail(edit.brandId),
+  }
 }
 
 export async function approveSubmissionAction(
@@ -285,6 +304,73 @@ export async function rejectClaimAction(
     return undefined
   } catch (err) {
     console.error('[admin:rejectClaimAction]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
+}
+
+export async function approvePendingEditAction(
+  editId: string
+): Promise<{ error: string } | undefined> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth
+
+    const edit = await getPendingEditEmailContext(editId)
+    await approvePendingEdit(editId, auth.userId)
+
+    try {
+      if (edit.ownerEmail && edit.brandName) {
+        await sendEmail(buildEditApprovedEmail(edit.brandName, edit.ownerEmail))
+      }
+    } catch (err) {
+      console.error('[edit-approved-email] send failed', err)
+    }
+
+    revalidatePath('/admin/pending-edits')
+    revalidatePath('/admin')
+    revalidatePath('/[locale]', 'page')
+    revalidatePath('/[locale]/brands', 'page')
+    revalidatePath('/[locale]/brands/[slug]', 'page')
+
+    return undefined
+  } catch (err) {
+    console.error('[admin:approvePendingEditAction]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
+}
+
+export async function rejectPendingEditAction(
+  editId: string,
+  notes?: string
+): Promise<{ error: string } | undefined> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth
+
+    const edit = await getPendingEditEmailContext(editId)
+    await rejectPendingEdit(editId, auth.userId, notes)
+
+    try {
+      if (edit.ownerEmail && edit.brandName) {
+        await sendEmail(buildEditRejectedEmail(edit.brandName, edit.ownerEmail, notes))
+      }
+    } catch (err) {
+      console.error('[edit-rejected-email] send failed', err)
+    }
+
+    revalidatePath('/admin/pending-edits')
+    revalidatePath('/admin')
+    revalidatePath('/[locale]', 'page')
+    revalidatePath('/[locale]/brands', 'page')
+    revalidatePath('/[locale]/brands/[slug]', 'page')
+
+    return undefined
+  } catch (err) {
+    console.error('[admin:rejectPendingEditAction]', err)
     return {
       error: err instanceof Error ? err.message : 'An unexpected error occurred',
     }
