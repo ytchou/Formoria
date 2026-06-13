@@ -82,6 +82,10 @@ vi.mock('@/lib/services/claim-requests', () => ({
 
 vi.mock('@/lib/services/pending-edits', () => ({
   getPendingEdit: vi.fn(),
+  getPendingEditForReview: vi.fn().mockResolvedValue({
+    brandId: 'brand-1',
+    brandName: 'Test Brand',
+  }),
   approvePendingEdit: vi.fn().mockResolvedValue(undefined),
   rejectPendingEdit: vi.fn().mockResolvedValue(undefined),
 }))
@@ -210,7 +214,7 @@ describe('pending edit admin actions', () => {
   })
 
   it('approves a pending edit with the admin id', async () => {
-    const { approvePendingEdit } = await import('@/lib/services/pending-edits')
+    const { approvePendingEdit, getPendingEditForReview } = await import('@/lib/services/pending-edits')
     const { sendEmail } = await import('@/lib/email/send')
     const { buildEditApprovedEmail } = await import('@/lib/email/templates')
     const message = { to: 'owner@example.com', from: 'ops@formoria.com', subject: 'approved', html: '' }
@@ -220,13 +224,14 @@ describe('pending edit admin actions', () => {
     const result = await approvePendingEditAction('edit-1')
 
     expect(result).toBeUndefined()
+    expect(getPendingEditForReview).toHaveBeenCalledWith('edit-1')
     expect(approvePendingEdit).toHaveBeenCalledWith('edit-1', 'admin-1')
     expect(buildEditApprovedEmail).toHaveBeenCalledWith('Test Brand', 'owner@example.com')
     expect(sendEmail).toHaveBeenCalledWith(message)
   })
 
   it('rejects a pending edit with the admin id and notes', async () => {
-    const { rejectPendingEdit } = await import('@/lib/services/pending-edits')
+    const { rejectPendingEdit, getPendingEditForReview } = await import('@/lib/services/pending-edits')
     const { sendEmail } = await import('@/lib/email/send')
     const { buildEditRejectedEmail } = await import('@/lib/email/templates')
     const message = { to: 'owner@example.com', from: 'ops@formoria.com', subject: 'rejected', html: '' }
@@ -236,6 +241,7 @@ describe('pending edit admin actions', () => {
     const result = await rejectPendingEditAction('edit-1', 'Please add clearer product details')
 
     expect(result).toBeUndefined()
+    expect(getPendingEditForReview).toHaveBeenCalledWith('edit-1')
     expect(rejectPendingEdit).toHaveBeenCalledWith('edit-1', 'admin-1', 'Please add clearer product details')
     expect(buildEditRejectedEmail).toHaveBeenCalledWith('Test Brand', 'owner@example.com', 'Please add clearer product details')
     expect(sendEmail).toHaveBeenCalledWith(message)

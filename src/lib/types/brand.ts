@@ -109,5 +109,22 @@ export type PendingBrandEdit = {
 }
 
 export type PendingBrandEditWithBrand = PendingBrandEdit & {
-  brand: { id: string; name: string; slug: string }
+  brand: Pick<
+    Brand,
+    | 'id'
+    | 'name'
+    | 'slug'
+    | 'description'
+    | 'logoUrl'
+    | 'heroImageUrl'
+    | 'category'
+    | 'contactEmail'
+    | 'brandHighlights'
+    | 'foundingYear'
+    | 'purchaseLinks'
+    | 'socialLinks'
+    | 'retailLocations'
+    | 'productPhotos'
+    | 'siteContent'
+  >
 }

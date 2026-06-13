@@ -26,13 +26,15 @@ it('shows both unchanged and changed fields', () => {
 describe('computeDiffFields', () => {
   it('flags changed fields correctly', () => {
     const result = computeDiffFields(
-      { name: 'Old Name', description: 'Same' },
-      { name: 'New Name', description: 'Same' }
+      { name: 'Old Name', description: 'Same', brandHighlights: 'Current highlights' },
+      { name: 'New Name', description: 'Same', brandHighlights: 'Current highlights' }
     )
     const name = result.find((f: DiffField) => f.fieldKey === 'name')
     const desc = result.find((f: DiffField) => f.fieldKey === 'description')
+    const highlights = result.find((f: DiffField) => f.fieldKey === 'brandHighlights')
     expect(name?.changed).toBe(true)
     expect(desc?.changed).toBe(false)
+    expect(highlights?.changed).toBe(false)
   })
 
   it('marks image fields', () => {

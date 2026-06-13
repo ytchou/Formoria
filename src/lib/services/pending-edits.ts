@@ -1,43 +1,47 @@
 import type { Brand, PendingBrandEdit, PendingBrandEditWithBrand } from '@/lib/types/brand'
 import type { Database } from '@/lib/supabase/database.types'
-import { NotFoundError } from '@/lib/errors'
-import * as supabaseServer from '@/lib/supabase/server'
-import { updateBrand } from './brands'
+import { createServiceClient } from '@/lib/supabase/server'
+import { deleteBrandImages } from '@/lib/services/image-upload'
+import { diffRemovedImageUrls, updateBrand } from './brands'
 
 // ---------------------------------------------------------------------------
 // Row types
 // ---------------------------------------------------------------------------
 
 type PendingBrandEditRow = Database['public']['Tables']['pending_brand_edits']['Row']
+type BrandRow = Database['public']['Tables']['brands']['Row']
 type PendingBrandEditStatus = PendingBrandEdit['status']
 
 type PendingBrandEditRowInput = Pick<PendingBrandEditRow, 'id'> &
   Partial<Omit<PendingBrandEditRow, 'id'>>
 
 type PendingBrandEditWithBrandRowInput = PendingBrandEditRowInput & {
-  brands?: {
-    id?: string
-    name?: string
-    slug?: string
-  } | null
+  brands?: Partial<BrandRow> | Partial<BrandRow>[] | null
 }
 
-type PendingEditSupabaseClient = Awaited<ReturnType<typeof supabaseServer.createClient>>
-type SupabaseServerModule = typeof supabaseServer & {
-  createServerClient?: () => PendingEditSupabaseClient | Promise<PendingEditSupabaseClient>
+type ApprovedPendingEditWithBrandRow = PendingBrandEditWithBrandRowInput &
+  Pick<PendingBrandEditRow, 'brand_id' | 'proposed_data'>
+
+type PendingEditReviewRow = {
+  brand_id: string
+  brands: { name: string | null } | { name: string | null }[] | null
 }
 
-async function createServerClient(): Promise<PendingEditSupabaseClient> {
-  const serverModule = supabaseServer as SupabaseServerModule
-  const createClient = serverModule.createServerClient ?? serverModule.createClient
-  return createClient()
+const PENDING_EDIT_WITH_BRAND_SELECT =
+  '*, brands(id, name, slug, description, logo_url, hero_image_url, category, contact_email, brand_highlights, founding_year, purchase_links, social_links, retail_locations, product_photos, site_content)'
+
+function asSingleBrand(
+  brand: Partial<BrandRow> | Partial<BrandRow>[] | null | undefined
+): Partial<BrandRow> | null {
+  if (Array.isArray(brand)) return brand[0] ?? null
+  return brand ?? null
 }
 
 // ---------------------------------------------------------------------------
 // Mappers
 // ---------------------------------------------------------------------------
 
-export function pendingEditToDomain(row: PendingBrandEditRowInput): PendingBrandEdit {
+function pendingEditToDomain(row: PendingBrandEditRowInput): PendingBrandEdit {
   return {
     id: row.id,
     brandId: row.brand_id ?? '',
@@ -52,16 +56,33 @@ export function pendingEditToDomain(row: PendingBrandEditRowInput): PendingBrand
   }
 }
 
-export function pendingEditWithBrandToDomain(
+function pendingEditWithBrandToDomain(
   row: PendingBrandEditWithBrandRowInput
 ): PendingBrandEditWithBrand {
   const edit = pendingEditToDomain(row)
+  const brand = asSingleBrand(row.brands)
   return {
     ...edit,
     brand: {
-      id: row.brands?.id ?? edit.brandId,
-      name: row.brands?.name ?? '',
-      slug: row.brands?.slug ?? '',
+      id: brand?.id ?? edit.brandId,
+      name: brand?.name ?? '',
+      slug: brand?.slug ?? '',
+      description: brand?.description ?? null,
+      logoUrl: brand?.logo_url ?? null,
+      heroImageUrl: brand?.hero_image_url ?? null,
+      category: brand?.category ?? null,
+      contactEmail: brand?.contact_email ?? null,
+      brandHighlights: brand?.brand_highlights ?? null,
+      foundingYear: brand?.founding_year ?? null,
+      purchaseLinks: Array.isArray(brand?.purchase_links) ? brand.purchase_links as Brand['purchaseLinks'] : [],
+      socialLinks: brand?.social_links && typeof brand.social_links === 'object' && !Array.isArray(brand.social_links)
+        ? brand.social_links as Brand['socialLinks']
+        : {},
+      retailLocations: Array.isArray(brand?.retail_locations) ? brand.retail_locations as Brand['retailLocations'] : [],
+      productPhotos: Array.isArray(brand?.product_photos) ? brand.product_photos.filter((url): url is string => typeof url === 'string') : [],
+      siteContent: brand?.site_content && typeof brand.site_content === 'object' && !Array.isArray(brand.site_content)
+        ? brand.site_content as Brand['siteContent']
+        : null,
     },
   }
 }
@@ -86,6 +107,14 @@ function isNoRowsError(error: { code?: string } | null | undefined): boolean {
   return error?.code === 'PGRST116'
 }
 
+function imageUrlsFromBrand(brand: Pick<Brand, 'logoUrl' | 'heroImageUrl' | 'productPhotos'>): string[] {
+  return [
+    brand.logoUrl,
+    brand.heroImageUrl,
+    ...(brand.productPhotos ?? []),
+  ].filter((url): url is string => Boolean(url))
+}
+
 // ---------------------------------------------------------------------------
 // Service functions
 // ---------------------------------------------------------------------------
@@ -95,7 +124,7 @@ export async function createPendingEdit(
   userId: string,
   proposedData: Record<string, unknown>
 ): Promise<PendingBrandEdit> {
-  const supabase = await createServerClient()
+  const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('pending_brand_edits')
     .upsert(pendingEditToUpsert(brandId, userId, proposedData), {
@@ -112,8 +141,8 @@ export async function createPendingEdit(
 export async function getPendingEdits(
   status?: PendingBrandEditStatus
 ): Promise<PendingBrandEditWithBrand[]> {
-  const supabase = await createServerClient()
-  let query = supabase.from('pending_brand_edits').select('*, brands(id,name,slug)')
+  const supabase = createServiceClient()
+  let query = supabase.from('pending_brand_edits').select(PENDING_EDIT_WITH_BRAND_SELECT)
 
   if (status) {
     query = query.eq('status', status)
@@ -122,11 +151,11 @@ export async function getPendingEdits(
   const { data, error } = await query.order('created_at', { ascending: false })
 
   if (error) throw error
-  return (data ?? []).map(pendingEditWithBrandToDomain)
+  return ((data ?? []) as PendingBrandEditWithBrandRowInput[]).map(pendingEditWithBrandToDomain)
 }
 
 export async function getPendingEdit(brandId: string): Promise<PendingBrandEdit | null> {
-  const supabase = await createServerClient()
+  const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('pending_brand_edits')
     .select('*')
@@ -140,7 +169,7 @@ export async function getPendingEdit(brandId: string): Promise<PendingBrandEdit 
 }
 
 export async function getPendingEditCount(): Promise<number> {
-  const supabase = await createServerClient()
+  const supabase = createServiceClient()
   const { count, error } = await supabase
     .from('pending_brand_edits')
     .select('id', { count: 'exact', head: true })
@@ -151,27 +180,42 @@ export async function getPendingEditCount(): Promise<number> {
 }
 
 export async function approvePendingEdit(id: string, reviewerId: string): Promise<void> {
-  const supabase = await createServerClient()
-  const { data, error } = await supabase
+  const supabase = createServiceClient()
+  const { data, error, count } = await supabase
     .from('pending_brand_edits')
-    .select('*')
+    .update(
+      {
+        status: 'approved',
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: reviewerId,
+      },
+      { count: 'exact' }
+    )
     .eq('id', id)
+    .eq('status', 'pending')
+    .select(PENDING_EDIT_WITH_BRAND_SELECT)
     .single()
 
-  if (error || !data) throw new NotFoundError('PendingBrandEdit', id)
+  if (isNoRowsError(error) || count === 0 || !data) {
+    throw new Error('Pending edit already processed')
+  }
+  if (error) throw error
 
-  await updateBrand(data.brand_id, data.proposed_data as Partial<Brand>)
+  const approvedEdit = data as ApprovedPendingEditWithBrandRow
+  let updatedBrand: Brand | null = null
+  try {
+    updatedBrand = await updateBrand(approvedEdit.brand_id, approvedEdit.proposed_data as Partial<Brand>)
+  } catch (updateError) {
+    console.error('[pending-edits:approvePendingEdit] updateBrand failed after approval:', updateError)
+    return
+  }
 
-  const { error: updateError } = await supabase
-    .from('pending_brand_edits')
-    .update({
-      status: 'approved',
-      reviewed_at: new Date().toISOString(),
-      reviewed_by: reviewerId,
-    })
-    .eq('id', id)
-
-  if (updateError) throw updateError
+  const previousBrand = pendingEditWithBrandToDomain(approvedEdit).brand
+  const removedImageUrls = diffRemovedImageUrls(
+    imageUrlsFromBrand(previousBrand),
+    imageUrlsFromBrand(updatedBrand)
+  )
+  await deleteBrandImages(removedImageUrls)
 }
 
 export async function rejectPendingEdit(
@@ -179,7 +223,7 @@ export async function rejectPendingEdit(
   reviewerId: string,
   notes?: string
 ): Promise<void> {
-  const supabase = await createServerClient()
+  const supabase = createServiceClient()
   const { error } = await supabase
     .from('pending_brand_edits')
     .update({
@@ -207,7 +251,7 @@ export async function getLatestEditReview(
   brandId: string,
   submittedBy: string
 ): Promise<PendingBrandEdit | null> {
-  const supabase = await createServerClient()
+  const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('pending_brand_edits')
     .select('*')
@@ -220,4 +264,25 @@ export async function getLatestEditReview(
   if (isNoRowsError(error)) return null
   if (error) throw error
   return data ? pendingEditToDomain(data) : null
+}
+
+export async function getPendingEditForReview(
+  editId: string
+): Promise<{ brandId: string; brandName: string }> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('pending_brand_edits')
+    .select('brand_id, brands(name)')
+    .eq('id', editId)
+    .single()
+
+  if (error) throw error
+
+  const row = data as PendingEditReviewRow
+  const brand = Array.isArray(row.brands) ? row.brands[0] : row.brands
+
+  return {
+    brandId: row.brand_id,
+    brandName: brand?.name ?? '',
+  }
 }

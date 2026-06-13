@@ -54,7 +54,7 @@ function ValueBox({
 }) {
   const base = 'rounded-lg border p-3'
   const style = highlighted
-    ? `${base} bg-[#F0FBF5] border-[#6F9B8C]`
+    ? `${base} bg-[var(--verified-green-bg)] border-[var(--primary-light)]`
     : `${base} border-[var(--border)] bg-white`
 
   if (isImage) {

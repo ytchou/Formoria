@@ -11,6 +11,7 @@ import {
 } from '@/lib/services/claim-requests'
 import {
   approvePendingEdit,
+  getPendingEditForReview,
   rejectPendingEdit,
 } from '@/lib/services/pending-edits'
 import { verifyMitStatus, rejectMitStatus } from '@/lib/services/mit-verification'
@@ -56,25 +57,12 @@ async function requireAdmin(): Promise<{ userId: string; email: string } | { err
 async function getPendingEditEmailContext(
   editId: string
 ): Promise<{ brandId: string; brandName: string; ownerEmail: string | null }> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('pending_brand_edits')
-    .select('brand_id, brands(name)')
-    .eq('id', editId)
-    .single()
-
-  if (error) throw error
-
-  const row = data as {
-    brand_id: string
-    brands: { name: string | null } | { name: string | null }[] | null
-  }
-  const brand = Array.isArray(row.brands) ? row.brands[0] : row.brands
+  const edit = await getPendingEditForReview(editId)
 
   return {
-    brandId: row.brand_id,
-    brandName: brand?.name ?? '',
-    ownerEmail: await getBrandOwnerEmail(row.brand_id),
+    brandId: edit.brandId,
+    brandName: edit.brandName,
+    ownerEmail: await getBrandOwnerEmail(edit.brandId),
   }
 }
 

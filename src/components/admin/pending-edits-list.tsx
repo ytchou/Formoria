@@ -71,7 +71,7 @@ export function PendingEditsList({ edits }: { edits: PendingBrandEditWithBrand[]
             </div>
 
             {isExpanded && (
-              <div className="border-b bg-[#FAF7F4] p-6 last:border-b-0">
+              <div className="border-b bg-background p-6 last:border-b-0">
                 <EditDiffView
                   fields={computeDiffFields(
                     edit.brand as Record<string, unknown>,
