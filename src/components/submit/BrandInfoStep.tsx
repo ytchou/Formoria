@@ -642,7 +642,7 @@ export function BrandInfoStep({
             disabled={isCheckingDuplicates || !!activeDedupResult?.ubnMatch}
             className="inline-flex items-center gap-1.5 rounded-lg bg-[#2F5D50] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#2F5D50]/90 disabled:opacity-50"
           >
-            {isCheckingDuplicates ? t('checking') : 'Next'}
+            {isCheckingDuplicates ? t('checking') : t('next')}
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>
