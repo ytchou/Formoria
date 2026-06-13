@@ -235,9 +235,9 @@ describe('approveSubmissionAction - taxonomy tag application', () => {
 
     expect(result).toBeUndefined()
     expect(addTagToBrand).toHaveBeenCalledTimes(3)
-    expect(addTagToBrand).toHaveBeenCalledWith('brand-1', 'tag-north-taiwan', 'auto')
-    expect(addTagToBrand).toHaveBeenCalledWith('brand-1', 'tag-eco-friendly', 'auto')
-    expect(addTagToBrand).toHaveBeenCalledWith('brand-1', 'tag-handmade', 'auto')
+    expect(addTagToBrand).toHaveBeenCalledWith('brand-1', 'tag-north-taiwan')
+    expect(addTagToBrand).toHaveBeenCalledWith('brand-1', 'tag-eco-friendly')
+    expect(addTagToBrand).toHaveBeenCalledWith('brand-1', 'tag-handmade')
   })
 
   it('skips old string[] suggestedTags gracefully', async () => {
