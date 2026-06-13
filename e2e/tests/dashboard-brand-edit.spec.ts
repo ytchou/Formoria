@@ -92,7 +92,8 @@ test.describe('Dashboard brand edit', () => {
     // Submit the form
     await userPage.getByRole('button', { name: '儲存變更' }).click();
 
-    // Non-admin owner edit now goes to review queue — expect confirmation, no redirect
+    // Non-admin owner edit goes to review queue unless owner is trusted (≥3 approved edits).
+    // E2E test brands have 0 approved edits, so always queued.
     await expect(
       userPage.getByText(/submitted for review|提交審核|審核中/i)
     ).toBeVisible({ timeout: 15_000 });
@@ -110,7 +111,8 @@ test.describe('Dashboard brand edit', () => {
 
     await userPage.getByRole('button', { name: '儲存變更' }).click();
 
-    // Non-admin owner edit now goes to review queue — expect confirmation, no redirect
+    // Non-admin owner edit goes to review queue unless owner is trusted (≥3 approved edits).
+    // E2E test brands have 0 approved edits, so always queued.
     await expect(
       userPage.getByText(/submitted for review|提交審核|審核中/i)
     ).toBeVisible({ timeout: 15_000 });
