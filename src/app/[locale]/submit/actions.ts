@@ -71,6 +71,9 @@ export async function submitBrand(
       brandName: parsed.name,
     }
     const moderationResult = scanContent(moderationPayload)
+    if (moderationResult.riskLevel === 'high') {
+      return { error: t('validation') }
+    }
 
     // Create brand with pending status
     const brand = await createBrand({

@@ -348,8 +348,7 @@ describe('server action schema routing', () => {
     expect(mockSaveModerationFlags).not.toHaveBeenCalled()
   })
 
-  it('continues submission when saving moderation flags fails', async () => {
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+  it('blocks submission immediately when scan returns high risk (tier-1 hard block)', async () => {
     const flags = [
       {
         fieldName: 'name',
@@ -359,7 +358,6 @@ describe('server action schema routing', () => {
       },
     ]
     mockScanContent.mockReturnValue({ riskLevel: 'high', flags })
-    mockSaveModerationFlags.mockRejectedValue(new Error('moderation insert failed'))
 
     const result = await submitBrand({
       name: 'Buy Now Brand',
@@ -377,11 +375,8 @@ describe('server action schema routing', () => {
       turnstileToken: 'test-token',
     })
 
-    expect(result).toBeUndefined()
-    expect(mockCreateSubmission).toHaveBeenCalledTimes(1)
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Save moderation flags error:',
-      expect.any(Error)
-    )
+    expect(result).toEqual({ error: expect.any(String) })
+    expect(mockCreateBrand).not.toHaveBeenCalled()
+    expect(mockCreateSubmission).not.toHaveBeenCalled()
   })
 })

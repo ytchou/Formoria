@@ -220,6 +220,52 @@ async function saveModerationFlagsQuietly(
   }
 }
 
+async function applyBrandUpdate(
+  brand: Brand,
+  formData: FormData,
+  updateData: Partial<Brand>
+): Promise<void> {
+  const previousImageUrls = imageUrlsFromBrand(brand)
+  const nextImageUrls = imageUrlsFromBrand({ ...brand, ...updateData })
+  const orphans = diffRemovedImageUrls(previousImageUrls, nextImageUrls)
+
+  const updatedBrand = await updateBrand(brand.id, updateData)
+
+  // Handle region tag
+  const regionSlug = formData.get('region') as string | null
+  if (regionSlug !== null) {
+    const tag = regionSlug ? await getTagBySlug(regionSlug) : null
+    await updateBrandCategoryTags(brand.id, 'region', tag ? [tag.id] : [])
+  }
+
+  // Handle value tags
+  const valueTagsRaw = formData.get('valueTags') as string | null
+  if (valueTagsRaw !== null) {
+    let slugs: string[] = []
+    try {
+      slugs = JSON.parse(valueTagsRaw || '[]')
+      if (!Array.isArray(slugs)) slugs = []
+    } catch {
+      slugs = []
+    }
+    const tags = await Promise.all(slugs.map(slug => getTagBySlug(slug)))
+    const ids = tags.filter(Boolean).map(t => t!.id)
+    await updateBrandCategoryTags(brand.id, 'value', ids)
+  }
+
+  await deleteBrandImages(orphans)
+
+  const { snapshot } = await discardDraft(brand.id)
+  const draftOnlyImages = diffRemovedImageUrls(
+    imageUrlsFromSnapshot(snapshot),
+    imageUrlsFromBrand(updatedBrand)
+  )
+  await deleteBrandImages(draftOnlyImages)
+
+  revalidatePath('/[locale]/brands/[slug]', 'page')
+  revalidatePath('/dashboard')
+}
+
 export async function updateBrandAction(
   _prevState: ActionState,
   formData: FormData
@@ -249,52 +295,20 @@ export async function updateBrandAction(
     }
 
     const updateData = parseBrandEditForm(formData, brand)
+    const proposedData = updateData as Record<string, unknown>
+    const moderationResult = scanContent(buildModerationPayload(proposedData, brand.name))
+    if (moderationResult.riskLevel === 'high') {
+      return { error: t('unknown') }
+    }
+
     const isAdmin = await isActingAsAdmin(user.email)
     if (!isAdmin) {
-      const proposedData = updateData as Record<string, unknown>
-      const moderationResult = scanContent(buildModerationPayload(proposedData, brand.name))
       const autoApprove = moderationResult.flags.length === 0
         ? await shouldAutoApprove(moderationResult, user.id)
         : false
 
       if (autoApprove) {
-        const previousImageUrls = imageUrlsFromBrand(brand)
-        const nextImageUrls = imageUrlsFromBrand({ ...brand, ...updateData })
-        const orphans = diffRemovedImageUrls(previousImageUrls, nextImageUrls)
-
-        const updatedBrand = await updateBrand(brand.id, updateData)
-
-        const regionSlug = formData.get('region') as string | null
-        if (regionSlug !== null) {
-          const tag = regionSlug ? await getTagBySlug(regionSlug) : null
-          await updateBrandCategoryTags(brand.id, 'region', tag ? [tag.id] : [])
-        }
-
-        const valueTagsRaw = formData.get('valueTags') as string | null
-        if (valueTagsRaw !== null) {
-          let slugs: string[] = []
-          try {
-            slugs = JSON.parse(valueTagsRaw || '[]')
-            if (!Array.isArray(slugs)) slugs = []
-          } catch {
-            slugs = []
-          }
-          const tags = await Promise.all(slugs.map(slug => getTagBySlug(slug)))
-          const ids = tags.filter(Boolean).map(t => t!.id)
-          await updateBrandCategoryTags(brand.id, 'value', ids)
-        }
-
-        await deleteBrandImages(orphans)
-
-        const { snapshot } = await discardDraft(brand.id)
-        const draftOnlyImages = diffRemovedImageUrls(
-          imageUrlsFromSnapshot(snapshot),
-          imageUrlsFromBrand(updatedBrand)
-        )
-        await deleteBrandImages(draftOnlyImages)
-
-        revalidatePath('/[locale]/brands/[slug]', 'page')
-        revalidatePath('/dashboard')
+        await applyBrandUpdate(brand, formData, updateData)
         redirect(`/dashboard?tab=${brandSlug}`)
       }
 
@@ -303,45 +317,7 @@ export async function updateBrandAction(
       return { success: true, message: 'brandEditSubmittedForReview' }
     }
 
-    const previousImageUrls = imageUrlsFromBrand(brand)
-    const nextImageUrls = imageUrlsFromBrand({ ...brand, ...updateData })
-    const orphans = diffRemovedImageUrls(previousImageUrls, nextImageUrls)
-
-    const updatedBrand = await updateBrand(brand.id, updateData)
-
-    // Handle region tag
-    const regionSlug = formData.get('region') as string | null
-    if (regionSlug !== null) {
-      const tag = regionSlug ? await getTagBySlug(regionSlug) : null
-      await updateBrandCategoryTags(brand.id, 'region', tag ? [tag.id] : [])
-    }
-
-    // Handle value tags
-    const valueTagsRaw = formData.get('valueTags') as string | null
-    if (valueTagsRaw !== null) {
-      let slugs: string[] = []
-      try {
-        slugs = JSON.parse(valueTagsRaw || '[]')
-        if (!Array.isArray(slugs)) slugs = []
-      } catch {
-        slugs = []
-      }
-      const tags = await Promise.all(slugs.map(slug => getTagBySlug(slug)))
-      const ids = tags.filter(Boolean).map(t => t!.id)
-      await updateBrandCategoryTags(brand.id, 'value', ids)
-    }
-
-    await deleteBrandImages(orphans)
-
-    const { snapshot } = await discardDraft(brand.id)
-    const draftOnlyImages = diffRemovedImageUrls(
-      imageUrlsFromSnapshot(snapshot),
-      imageUrlsFromBrand(updatedBrand)
-    )
-    await deleteBrandImages(draftOnlyImages)
-
-    revalidatePath('/[locale]/brands/[slug]', 'page')
-    revalidatePath('/dashboard')
+    await applyBrandUpdate(brand, formData, updateData)
   } catch (err) {
     if (err instanceof InvalidBrandEditFormError) {
       return { error: err.message }
@@ -434,9 +410,13 @@ export async function publishDraftAction(
     }
 
     const draftPartial = snapshot
+    const moderationResult = scanContent(buildModerationPayload(draftPartial, brand.name))
+    if (moderationResult.riskLevel === 'high') {
+      return { error: t('unknown') }
+    }
+
     const isAdmin = await isActingAsAdmin(user.email)
     if (!isAdmin) {
-      const moderationResult = scanContent(buildModerationPayload(draftPartial, brand.name))
       const autoApprove = moderationResult.flags.length === 0
         ? await shouldAutoApprove(moderationResult, user.id)
         : false

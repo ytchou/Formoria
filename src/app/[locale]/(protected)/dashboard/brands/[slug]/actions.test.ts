@@ -162,6 +162,7 @@ describe('updateBrandAction', () => {
       brandHighlights: null,
     })
     diffRemovedImageUrls.mockReturnValue([])
+    scanContent.mockReturnValue({ riskLevel: 'clean', flags: [] })
     getTagBySlug.mockImplementation(async (slug: string) => (
       slug === 'taipei'
         ? { id: 'tag-region-taipei', slug, category: 'region' }
@@ -435,6 +436,7 @@ describe('updateBrandAction — admin bypass', () => {
       brandHighlights: null,
     })
     diffRemovedImageUrls.mockReturnValue([])
+    scanContent.mockReturnValue({ riskLevel: 'clean', flags: [] })
     getTagBySlug.mockImplementation(async (slug: string) => (
       slug === 'taipei'
         ? { id: 'tag-region-taipei', slug, category: 'region' }
@@ -643,6 +645,24 @@ describe('updateBrandAction — edit gating', () => {
     expect(createPendingEdit).not.toHaveBeenCalled()
     expect(updateBrand).toHaveBeenCalled()
   })
+
+  it('blocks non-admin update immediately when scan returns high risk (tier-1 hard block)', async () => {
+    isActingAsAdmin.mockResolvedValue(false)
+    scanContent.mockReturnValue({ riskLevel: 'high', flags: [
+      { fieldName: 'name', tier: 'tier1', reason: 'spam', flaggedContent: 'Buy Now Brand' },
+    ] })
+
+    const { updateBrandAction } = await import('./actions')
+
+    const result = await updateBrandAction(undefined, form({
+      brandSlug: 'test-brand',
+      name: 'Buy Now Brand',
+    }))
+
+    expect(result).toEqual({ error: expect.any(String) })
+    expect(updateBrand).not.toHaveBeenCalled()
+    expect(createPendingEdit).not.toHaveBeenCalled()
+  })
 })
 
 describe('publishDraftAction — edit gating', () => {
@@ -667,6 +687,8 @@ describe('publishDraftAction — edit gating', () => {
       description: 'Draft description',
     })
     diffRemovedImageUrls.mockReturnValue([])
+    scanContent.mockReturnValue({ riskLevel: 'clean', flags: [] })
+    shouldAutoApprove.mockResolvedValue(false)
   })
 
   it('routes non-admin owner to review queue instead of direct publish', async () => {
@@ -706,5 +728,22 @@ describe('publishDraftAction — edit gating', () => {
 
     expect(createPendingEdit).not.toHaveBeenCalled()
     expect(publishDraft).toHaveBeenCalledWith('brand-1')
+  })
+
+  it('blocks non-admin publish immediately when draft scan returns high risk (tier-1 hard block)', async () => {
+    isActingAsAdmin.mockResolvedValue(false)
+    scanContent.mockReturnValue({ riskLevel: 'high', flags: [
+      { fieldName: 'description', tier: 'tier1', reason: 'spam', flaggedContent: 'Buy Now' },
+    ] })
+
+    const { publishDraftAction } = await import('./actions')
+
+    const result = await publishDraftAction(undefined, form({
+      brandSlug: 'test-brand',
+    }))
+
+    expect(result).toEqual({ error: expect.any(String) })
+    expect(publishDraft).not.toHaveBeenCalled()
+    expect(createPendingEdit).not.toHaveBeenCalled()
   })
 })
