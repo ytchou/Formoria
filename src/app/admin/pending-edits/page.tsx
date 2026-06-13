@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { getPendingEditCount, getPendingEdits } from '@/lib/services/pending-edits'
-import { getModerationFlags } from '@/lib/services/moderation'
+import { getModerationFlagsBatch } from '@/lib/services/moderation'
 import type { ModerationFlag, RiskLevel } from '@/lib/services/moderation'
 import { PendingEditsList } from '@/components/admin/pending-edits-list'
 
@@ -19,12 +19,12 @@ export default async function PendingEditsPage() {
     getPendingEdits('pending'),
     getPendingEditCount(),
   ])
-  const moderationFlags = await Promise.all(
-    edits.map((edit) => getModerationFlags(edit.brandId))
+  const moderationFlagsByBrandId = await getModerationFlagsBatch(
+    edits.map((edit) => edit.brandId)
   )
-  const editsWithRisk = edits.map((edit, index) => ({
+  const editsWithRisk = edits.map((edit) => ({
     ...edit,
-    moderationRiskLevel: getRiskLevel(moderationFlags[index] ?? []),
+    moderationRiskLevel: getRiskLevel(moderationFlagsByBrandId.get(edit.brandId) ?? []),
   }))
 
   return (

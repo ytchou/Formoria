@@ -322,6 +322,44 @@ export async function getModerationFlags(brandId: string): Promise<ModerationFla
   }))
 }
 
+export async function getModerationFlagsBatch(
+  brandIds: string[]
+): Promise<Map<string, ModerationFlag[]>> {
+  const uniqueBrandIds = Array.from(new Set(brandIds.filter(Boolean)))
+  const flagsByBrandId = new Map<string, ModerationFlag[]>()
+
+  for (const brandId of uniqueBrandIds) {
+    flagsByBrandId.set(brandId, [])
+  }
+
+  if (uniqueBrandIds.length === 0) {
+    return flagsByBrandId
+  }
+
+  const supabase = createModerationClient()
+  const { data, error } = await supabase
+    .from('moderation_flags')
+    .select('*')
+    .in('brand_id', uniqueBrandIds)
+    .neq('status', 'reviewed')
+    .order('created_at', { ascending: false })
+
+  if (error || !data) return flagsByBrandId
+
+  for (const row of data) {
+    const flags = flagsByBrandId.get(row.brand_id) ?? []
+    flags.push({
+      fieldName: row.field_name,
+      tier: row.tier as ModerationTier,
+      reason: row.flag_reason,
+      flaggedContent: row.flagged_content,
+    })
+    flagsByBrandId.set(row.brand_id, flags)
+  }
+
+  return flagsByBrandId
+}
+
 export interface FlaggedContentFilters {
   riskLevel?: string
   tier?: string
