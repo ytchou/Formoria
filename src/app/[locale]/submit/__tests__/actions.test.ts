@@ -9,14 +9,23 @@ const {
   mockCreateBrand,
   mockCreateSubmission,
   mockVerifyTurnstileToken,
-} = vi.hoisted(() => ({
-  mockUpload: vi.fn(),
-  mockGetPublicUrl: vi.fn(),
-  mockGetUser: vi.fn(),
-  mockCreateBrand: vi.fn(),
-  mockCreateSubmission: vi.fn(),
-  mockVerifyTurnstileToken: vi.fn(),
-}))
+  mockScanContent,
+  mockSaveModerationFlags,
+  mockRateLimiterCheck,
+} = vi.hoisted(() => {
+  const mockRateLimiterCheck = vi.fn().mockReturnValue({ allowed: true })
+  return {
+    mockUpload: vi.fn(),
+    mockGetPublicUrl: vi.fn(),
+    mockGetUser: vi.fn(),
+    mockCreateBrand: vi.fn(),
+    mockCreateSubmission: vi.fn(),
+    mockVerifyTurnstileToken: vi.fn(),
+    mockScanContent: vi.fn(),
+    mockSaveModerationFlags: vi.fn(),
+    mockRateLimiterCheck,
+  }
+})
 
 // Resolve dot-delimited key paths in a nested messages object
 function makeT(messages: Record<string, unknown>, namespace: string) {
@@ -68,6 +77,15 @@ vi.mock('@/lib/services/submissions', () => ({
 
 vi.mock('@/lib/security/turnstile', () => ({
   verifyTurnstileToken: mockVerifyTurnstileToken,
+}))
+
+vi.mock('@/lib/services/moderation', () => ({
+  scanContent: mockScanContent,
+  saveModerationFlags: mockSaveModerationFlags,
+}))
+
+vi.mock('@/lib/security/rate-limiter', () => ({
+  createInMemoryRateLimiter: () => ({ check: mockRateLimiterCheck }),
 }))
 
 import { getTranslations } from 'next-intl/server'
@@ -156,6 +174,8 @@ describe('server action schema routing', () => {
     mockVerifyTurnstileToken.mockResolvedValue({ success: true })
     mockCreateBrand.mockResolvedValue({ id: 'brand-123' })
     mockCreateSubmission.mockResolvedValue({ id: 'submission-123' })
+    mockScanContent.mockReturnValue({ riskLevel: 'clean', flags: [] })
+    mockSaveModerationFlags.mockResolvedValue(undefined)
   })
 
   it('owner payload without logoUrl fails owner schema', () => {
@@ -240,6 +260,128 @@ describe('server action schema routing', () => {
       expect.objectContaining({
         suggestedTags: { region: 'taipei', values: ['sustainability'] },
       })
+    )
+  })
+
+  it('scans brand fields after schema validation passes', async () => {
+    await submitBrand({
+      name: 'Test Brand',
+      description: 'Long enough description for moderation scanning',
+      category: 'fashion',
+      logoUrl: 'https://example.com/logo.png',
+      isOwner: false,
+      purchaseLinks: [{ platform: 'shopify', url: 'https://shop.com/product' }],
+      pdpaConsent: true,
+      socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
+      sourceAttribution: 'found_online',
+      productPhotos: [],
+      brandHighlights: 'Handmade in Taipei',
+      retailLocations: [],
+      turnstileToken: 'test-token',
+    })
+
+    expect(mockScanContent).toHaveBeenCalledWith({
+      fields: {
+        name: 'Test Brand',
+        description: 'Long enough description for moderation scanning',
+        brandHighlights: 'Handmade in Taipei',
+        website: 'https://test.com',
+        purchaseUrl: 'https://shop.com/product',
+      },
+      brandName: 'Test Brand',
+    })
+  })
+
+  it('saves moderation flags after creating the brand when flags exist', async () => {
+    const flags = [
+      {
+        fieldName: 'description',
+        tier: 'tier2',
+        reason: 'Email address detected',
+        flaggedContent: 'Email us at spam@example.com',
+      },
+    ]
+    mockScanContent.mockReturnValue({ riskLevel: 'medium', flags })
+
+    await submitBrand({
+      name: 'Test Brand',
+      description: 'Email us at spam@example.com for a long enough test',
+      category: 'fashion',
+      logoUrl: 'https://example.com/logo.png',
+      isOwner: false,
+      purchaseLinks: [],
+      pdpaConsent: true,
+      socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
+      sourceAttribution: 'found_online',
+      productPhotos: [],
+      brandHighlights: '',
+      retailLocations: [],
+      turnstileToken: 'test-token',
+    })
+
+    expect(mockCreateBrand).toHaveBeenCalledTimes(1)
+    expect(mockSaveModerationFlags).toHaveBeenCalledWith('brand-123', 'user-123', flags)
+    expect(mockSaveModerationFlags.mock.invocationCallOrder[0]).toBeGreaterThan(
+      mockCreateBrand.mock.invocationCallOrder[0]
+    )
+  })
+
+  it('does not save moderation flags when scan returns clean', async () => {
+    mockScanContent.mockReturnValue({ riskLevel: 'clean', flags: [] })
+
+    await submitBrand({
+      name: 'Test Brand',
+      description: 'Long enough clean description for moderation',
+      category: 'fashion',
+      logoUrl: 'https://example.com/logo.png',
+      isOwner: false,
+      purchaseLinks: [],
+      pdpaConsent: true,
+      socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
+      sourceAttribution: 'found_online',
+      productPhotos: [],
+      brandHighlights: '',
+      retailLocations: [],
+      turnstileToken: 'test-token',
+    })
+
+    expect(mockSaveModerationFlags).not.toHaveBeenCalled()
+  })
+
+  it('continues submission when saving moderation flags fails', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const flags = [
+      {
+        fieldName: 'name',
+        tier: 'tier1',
+        reason: 'English spam phrase detected: buy now',
+        flaggedContent: 'Buy Now Brand',
+      },
+    ]
+    mockScanContent.mockReturnValue({ riskLevel: 'high', flags })
+    mockSaveModerationFlags.mockRejectedValue(new Error('moderation insert failed'))
+
+    const result = await submitBrand({
+      name: 'Buy Now Brand',
+      description: 'Long enough description for moderation failure test',
+      category: 'fashion',
+      logoUrl: 'https://example.com/logo.png',
+      isOwner: false,
+      purchaseLinks: [],
+      pdpaConsent: true,
+      socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
+      sourceAttribution: 'found_online',
+      productPhotos: [],
+      brandHighlights: '',
+      retailLocations: [],
+      turnstileToken: 'test-token',
+    })
+
+    expect(result).toBeUndefined()
+    expect(mockCreateSubmission).toHaveBeenCalledTimes(1)
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Save moderation flags error:',
+      expect.any(Error)
     )
   })
 })
