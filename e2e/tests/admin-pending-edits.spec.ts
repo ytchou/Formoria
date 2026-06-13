@@ -108,8 +108,8 @@ test.describe('Admin pending-edits review queue', () => {
       userPage.getByText(/submitted for review|提交審核|審核中/i),
     ).toBeVisible({ timeout: 15_000 });
 
-    // Step 2: Admin navigates to pending-edits queue
-    await adminPage.goto('/admin/pending-edits');
+    // Step 2: Admin navigates to review-queue edits queue
+    await adminPage.goto('/admin/review-queue/edits');
     await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 15_000 });
     await expect(adminPage.getByRole('heading', { name: '品牌編輯審核' })).toBeVisible({ timeout: 10_000 });
 
@@ -161,8 +161,8 @@ test.describe('Admin pending-edits review queue', () => {
       userPage.getByText(/submitted for review|提交審核|審核中/i),
     ).toBeVisible({ timeout: 15_000 });
 
-    // Step 2: Admin navigates to pending-edits queue
-    await adminPage.goto('/admin/pending-edits');
+    // Step 2: Admin navigates to review-queue edits queue
+    await adminPage.goto('/admin/review-queue/edits');
     await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 15_000 });
 
     // Step 3: Pending edit row is visible
@@ -275,7 +275,7 @@ test.describe('Admin pending-edits — risk badge visibility', () => {
   }) => {
     test.setTimeout(60_000);
 
-    await adminPage.goto('/admin/pending-edits');
+    await adminPage.goto('/admin/review-queue/edits');
     await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 15_000 });
     await expect(adminPage.getByRole('heading', { name: '品牌編輯審核' })).toBeVisible({ timeout: 10_000 });
 

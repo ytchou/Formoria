@@ -87,7 +87,7 @@ test.describe('Admin content moderation dashboard', () => {
   }) => {
     test.setTimeout(60_000);
 
-    await adminPage.goto('/admin/moderation');
+    await adminPage.goto('/admin/review-queue/moderation');
     await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 15_000 });
 
     // Page heading: t('dashboard') = "內容審核"
@@ -108,7 +108,7 @@ test.describe('Admin content moderation dashboard', () => {
   }) => {
     test.setTimeout(60_000);
 
-    await adminPage.goto('/admin/moderation?risk=high');
+    await adminPage.goto('/admin/review-queue/moderation?risk=high');
     await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 15_000 });
 
     // Only high-risk rows shown — tier1 flag for seeded brand visible

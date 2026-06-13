@@ -122,7 +122,7 @@ test.describe('Claim smoke', () => {
       .toBeGreaterThanOrEqual(1);
 
     // Admin: approve the claim
-    await adminPage.goto('/admin/claim-requests');
+    await adminPage.goto('/admin/claims');
     await expect(
       adminPage.getByRole('heading', { name: /claim requests/i })
     ).toBeVisible({ timeout: 10_000 });
