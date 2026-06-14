@@ -23,7 +23,7 @@ export function AdminSubNav({ tabs }: AdminSubNavProps) {
 
   return (
     <nav className="border-b bg-white">
-      <div className="mx-auto flex max-w-screen-xl items-center gap-1 px-10">
+      <div className="mx-auto flex max-w-screen-2xl items-center gap-1 px-10">
         {tabs.map((tab) => (
           <Link
             key={tab.href}

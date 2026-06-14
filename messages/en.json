@@ -684,7 +684,28 @@
   "account": {
     "menuLabel": "Account",
     "dashboard": "Owner Dashboard",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "settings": "Settings"
+  },
+  "settings": {
+    "metadata": {
+      "title": "Account Settings"
+    },
+    "heading": "Account Settings",
+    "subheading": "Manage your profile and preferences",
+    "displayNameLabel": "Display Name",
+    "displayNamePlaceholder": "Enter your name",
+    "emailLabel": "Email",
+    "localePreferenceLabel": "Language Preference",
+    "emailNotificationsLabel": "Email Notifications",
+    "emailNotificationsDescription": "Receive updates about brand status, claims, and more",
+    "submit": "Save Settings",
+    "submitting": "Saving…",
+    "saved": "Settings saved",
+    "validation": {
+      "displayNameMaxLength": "Display name cannot exceed 50 characters",
+      "invalidLocale": "Please select a valid language"
+    }
   },
   "forms": {
     "imageUpload": {
@@ -732,7 +753,7 @@
       "title": "Owner Dashboard"
     },
     "heading": "Owner Dashboard",
-    "welcome": "Welcome, {email}",
+    "welcome": "Welcome, {name}",
     "yourBrands": "Your Brands",
     "empty": "You haven't claimed any brands yet. Once you claim a brand, it will appear here.",
     "claimedAt": "Claimed {date}",
@@ -1015,7 +1036,8 @@
       "step2": "Upload brand photos and product images",
       "step3": "Submit for review and wait for community notification",
       "timeEstimate": "Takes about 10 minutes to complete",
-      "cta": "Sign in and start submitting"
+      "cta": "Sign in and start submitting",
+      "ctaLoggedIn": "Start submitting"
     },
     "wizard": {
       "heading": "Submit a Brand",
@@ -1026,6 +1048,7 @@
       "submitBrand": "Submit Brand",
       "steps": {
         "brandInfo": "Brand Info",
+        "tags": "Categories & Values",
         "products": "Products",
         "links": "Locations",
         "review": "Review"
@@ -1074,7 +1097,7 @@
       "mitSmileMarkNumber": "MIT Smile mark number (optional)",
       "mitSmileMarkNumberPlaceholder": "e.g. 01200024-02134",
       "charCount": "{count} / {max} max characters",
-      "photos": "Photos",
+      "photos": "Brand Photos",
       "photosDragHint": "Drag to reorder. The first photo becomes the hero image.",
       "noPhotos": "No photos found from your website",
       "addPhotos": "Add photos",
@@ -1117,13 +1140,14 @@
       "valueTagsCounter": "{count} / {max}",
       "valueTagsCounterLabel": "{count} of {max} selected",
       "removeValue": "Remove {value}",
-      "productTypes": "Product Types",
-      "productTypesMultiSelect": "multi-select",
-      "productTypesHint": "Select the product types that best describe your brand (multi-select)",
+      "productTypes": "Product Type",
+      "productTypesMultiSelect": "",
+      "productTypesHint": "Select the product type that best describes your brand",
       "productTypesFreeTextToggle": "None of the above?",
       "productTypesFreeTextToggleHint": "— Enter product type manually",
       "productTypeNoteLabel": "Describe your product type",
-      "productTypeNotePlaceholder": "e.g. handcrafted leather goods, organic tea, bamboo furniture...",
+      "productTypeNoteHint": "We'll review this suggestion",
+      "productTypeNotePlaceholder": "e.g. leather goods",
       "ubn": "Unified Business Number (optional)",
       "ubnHint": "8-digit number issued by the Ministry of Economic Affairs",
       "ubnDuplicateTitle": "A brand with this UBN already exists in the directory",

@@ -5,6 +5,7 @@ import { Heart } from "lucide-react";
 import { isActingAsAdmin } from "@/lib/auth/admin-mode";
 import { createClient } from "@/lib/supabase/server";
 import { getBrandBySlugForAdmin, getUserBrands } from "@/lib/services/brand-owners";
+import { getProfile } from "@/lib/services/profiles";
 import { getUserSubmissions } from "@/lib/services/submissions";
 import { getUserSavedBrands } from "@/lib/services/saved-brands";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +46,9 @@ export default async function DashboardPage({ params, searchParams }: Props) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const profile = user ? await getProfile(user.id) : null;
+  const displayName = profile?.displayName ?? user?.email?.split("@")[0] ?? "";
 
   const [brands, submissions, savedBrands] = user
     ? await Promise.all([
@@ -199,7 +203,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
         {t("heading")}
       </h1>
       <p className="mt-2 text-muted-foreground">
-        {t("welcome", { email: user?.email ?? "" })}
+        {t("welcome", { name: displayName })}
       </p>
 
       {errorMessage && (

@@ -21,55 +21,95 @@ INSERT INTO taxonomy_tags (slug, name, name_zh, category)
 VALUES ('kids-pets', 'Kids, Baby & Pets', '母嬰寵物', 'product_type')
 ON CONFLICT (slug) DO NOTHING;
 
+-- Delete brand_taxonomy rows that would conflict (brand already has the target tag)
+DELETE FROM brand_taxonomy
+WHERE tag_id IN (SELECT id FROM taxonomy_tags WHERE slug IN ('baby-kids', 'pets') AND category = 'product_type')
+  AND brand_id IN (
+    SELECT brand_id FROM brand_taxonomy
+    WHERE tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'kids-pets')
+  );
+
 UPDATE brand_taxonomy
 SET tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'kids-pets')
 WHERE tag_id IN (
   SELECT id FROM taxonomy_tags WHERE slug IN ('baby-kids', 'pets') AND category = 'product_type'
-)
-ON CONFLICT (brand_id, tag_id) DO NOTHING;
+);
 
 -- ============================================================
 -- Step 3: Migrate absorbed sub-tags → new parent slugs
+-- For each merge: delete rows that would conflict, then update the rest.
 -- ============================================================
 -- footwear → fashion
-UPDATE brand_taxonomy SET tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'fashion')
+DELETE FROM brand_taxonomy
 WHERE tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'footwear' AND category = 'product_type')
-ON CONFLICT (brand_id, tag_id) DO NOTHING;
+  AND brand_id IN (
+    SELECT brand_id FROM brand_taxonomy WHERE tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'fashion')
+  );
+UPDATE brand_taxonomy SET tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'fashion')
+WHERE tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'footwear' AND category = 'product_type');
 
 -- accessories → bags-accessories
-UPDATE brand_taxonomy SET tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'bags-accessories')
+DELETE FROM brand_taxonomy
 WHERE tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'accessories' AND category = 'product_type')
-ON CONFLICT (brand_id, tag_id) DO NOTHING;
+  AND brand_id IN (
+    SELECT brand_id FROM brand_taxonomy WHERE tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'bags-accessories')
+  );
+UPDATE brand_taxonomy SET tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'bags-accessories')
+WHERE tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'accessories' AND category = 'product_type');
 
 -- beverages, agriculture → food-drink
-UPDATE brand_taxonomy SET tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'food-drink')
+DELETE FROM brand_taxonomy
 WHERE tag_id IN (SELECT id FROM taxonomy_tags WHERE slug IN ('beverages', 'agriculture') AND category = 'product_type')
-ON CONFLICT (brand_id, tag_id) DO NOTHING;
+  AND brand_id IN (
+    SELECT brand_id FROM brand_taxonomy WHERE tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'food-drink')
+  );
+UPDATE brand_taxonomy SET tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'food-drink')
+WHERE tag_id IN (SELECT id FROM taxonomy_tags WHERE slug IN ('beverages', 'agriculture') AND category = 'product_type');
 
 -- bath-body, fragrance, cleaning → beauty
-UPDATE brand_taxonomy SET tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'beauty')
+DELETE FROM brand_taxonomy
 WHERE tag_id IN (SELECT id FROM taxonomy_tags WHERE slug IN ('bath-body', 'fragrance', 'cleaning') AND category = 'product_type')
-ON CONFLICT (brand_id, tag_id) DO NOTHING;
+  AND brand_id IN (
+    SELECT brand_id FROM brand_taxonomy WHERE tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'beauty')
+  );
+UPDATE brand_taxonomy SET tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'beauty')
+WHERE tag_id IN (SELECT id FROM taxonomy_tags WHERE slug IN ('bath-body', 'fragrance', 'cleaning') AND category = 'product_type');
 
 -- kitchen, furniture, gardening, tools-hardware → home
-UPDATE brand_taxonomy SET tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'home')
+DELETE FROM brand_taxonomy
 WHERE tag_id IN (SELECT id FROM taxonomy_tags WHERE slug IN ('kitchen', 'furniture', 'gardening', 'tools-hardware') AND category = 'product_type')
-ON CONFLICT (brand_id, tag_id) DO NOTHING;
+  AND brand_id IN (
+    SELECT brand_id FROM brand_taxonomy WHERE tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'home')
+  );
+UPDATE brand_taxonomy SET tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'home')
+WHERE tag_id IN (SELECT id FROM taxonomy_tags WHERE slug IN ('kitchen', 'furniture', 'gardening', 'tools-hardware') AND category = 'product_type');
 
 -- art, stationery → crafts
-UPDATE brand_taxonomy SET tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'crafts')
+DELETE FROM brand_taxonomy
 WHERE tag_id IN (SELECT id FROM taxonomy_tags WHERE slug IN ('art', 'stationery') AND category = 'product_type')
-ON CONFLICT (brand_id, tag_id) DO NOTHING;
+  AND brand_id IN (
+    SELECT brand_id FROM brand_taxonomy WHERE tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'crafts')
+  );
+UPDATE brand_taxonomy SET tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'crafts')
+WHERE tag_id IN (SELECT id FROM taxonomy_tags WHERE slug IN ('art', 'stationery') AND category = 'product_type');
 
 -- tech-accessories → tech
-UPDATE brand_taxonomy SET tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'tech')
+DELETE FROM brand_taxonomy
 WHERE tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'tech-accessories' AND category = 'product_type')
-ON CONFLICT (brand_id, tag_id) DO NOTHING;
+  AND brand_id IN (
+    SELECT brand_id FROM brand_taxonomy WHERE tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'tech')
+  );
+UPDATE brand_taxonomy SET tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'tech')
+WHERE tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'tech-accessories' AND category = 'product_type');
 
 -- health-wellness → outdoor
-UPDATE brand_taxonomy SET tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'outdoor')
+DELETE FROM brand_taxonomy
 WHERE tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'health-wellness' AND category = 'product_type')
-ON CONFLICT (brand_id, tag_id) DO NOTHING;
+  AND brand_id IN (
+    SELECT brand_id FROM brand_taxonomy WHERE tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'outdoor')
+  );
+UPDATE brand_taxonomy SET tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'outdoor')
+WHERE tag_id = (SELECT id FROM taxonomy_tags WHERE slug = 'health-wellness' AND category = 'product_type');
 
 -- others, experiences → delete brand_taxonomy records (no replacement)
 DELETE FROM brand_taxonomy

@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { useFormContext, Controller } from 'react-hook-form'
+import { useFormContext, Controller, useFieldArray } from 'react-hook-form'
 import { useTranslations } from 'next-intl'
-import { X, Plus, Star, Globe, Upload, ArrowRight } from 'lucide-react'
+import { X, Plus, Star, Globe, Upload, ArrowRight, Trash2 } from 'lucide-react'
 import {
   DndContext,
   closestCenter,
@@ -17,9 +17,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { ImageUploader } from '../upload/ImageUploader'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
-import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { checkDuplicates } from '@/app/[locale]/submit/actions'
 import { Link } from '@/i18n/navigation'
 import type { SubmissionFormData } from '@/lib/validations/submission'
@@ -27,22 +25,12 @@ import type { PhotoItem } from '@/lib/types/scraper'
 import type { TaxonomyTag } from '@/lib/types/taxonomy'
 import type { DuplicateCheckResult } from '@/lib/types/submission'
 
-type Category = {
-  slug: string
-  label?: string
-  name?: string
-  labelZh?: string
-  nameZh?: string | null
-}
-
 type BrandInfoStepProps = {
-  categories: Category[]
   regionTags: TaxonomyTag[]
-  valueTags: TaxonomyTag[]
   uploadPath: string
   photos?: PhotoItem[]
   onPhotosChange?: (photos: PhotoItem[]) => void
-  isOwner?: boolean
+
   onNext?: (values: SubmissionFormData) => void
 }
 
@@ -239,28 +227,24 @@ function PhotoGallery({
 }
 
 export function BrandInfoStep({
-  categories,
   regionTags,
-  valueTags,
   uploadPath,
   photos,
   onPhotosChange,
-  isOwner = false,
+
   onNext,
 }: BrandInfoStepProps) {
   const t = useTranslations('submit.fields')
-  const [freeTextMode, setFreeTextMode] = useState(false)
   const {
     register,
     control,
     watch,
-    setValue,
     getValues,
     formState: { errors },
   } = useFormContext<SubmissionFormData>()
+  const { fields: locationFields, append: appendLocation, remove: removeLocation } = useFieldArray({ control, name: 'retailLocations' })
 
   const description = watch('description') ?? ''
-  const productTypeNote = watch('productTypeNote') ?? ''
   const name = watch('name') ?? ''
   const unifiedBusinessNumber = watch('unifiedBusinessNumber') ?? ''
   const [dedupResult, setDedupResult] = useState<DuplicateCheckResult | null>(
@@ -336,6 +320,32 @@ export function BrandInfoStep({
         )}
       </div>
 
+      {/* Brand Logo */}
+      <div className="space-y-1.5">
+        <label className="block text-sm font-semibold text-foreground">
+          {t('logoOptional')}
+        </label>
+        <p className="text-xs text-muted-foreground">
+          {t('logoHint')}
+        </p>
+        <Controller
+          name="logoUrl"
+          control={control}
+          render={({ field }) => (
+            <ImageUploader
+              mode="single"
+              bucket="brand-images"
+              path={uploadPath}
+              value={field.value}
+              onUpload={(url) => field.onChange(url)}
+            />
+          )}
+        />
+        {errors.logoUrl && (
+          <p className="text-xs text-red-600">{errors.logoUrl.message}</p>
+        )}
+      </div>
+
       {/* Unified Business Number */}
       <div className="space-y-1.5">
         <label
@@ -344,6 +354,9 @@ export function BrandInfoStep({
         >
           {t('ubn')}
         </label>
+        <p className="text-xs text-muted-foreground">
+          {t('ubnHint')}
+        </p>
         <Input
           id="brand-ubn"
           placeholder="12345678"
@@ -352,9 +365,6 @@ export function BrandInfoStep({
           className="h-auto rounded-lg border-border bg-white px-[14px] py-2.5"
           {...register('unifiedBusinessNumber')}
         />
-        <p className="text-xs text-muted-foreground">
-          {t('ubnHint')}
-        </p>
         {errors.unifiedBusinessNumber && (
           <p className="text-xs text-red-600">
             {errors.unifiedBusinessNumber.message}
@@ -373,14 +383,11 @@ export function BrandInfoStep({
         <textarea
           id="brand-description"
           rows={4}
-          maxLength={2000}
+          maxLength={500}
           placeholder={t('brandDescriptionPlaceholder')}
           className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
           {...register('description')}
         />
-        <p className="text-xs text-muted-foreground">
-          {t('brandDescriptionHint')}
-        </p>
         <div className="flex justify-between">
           {errors.description ? (
             <p className="text-xs text-red-600">{errors.description.message}</p>
@@ -388,147 +395,10 @@ export function BrandInfoStep({
             <span />
           )}
           <span className="text-xs text-muted-foreground">
-            {t('charCount', { count: description.length, max: 2000 })}
+            {t('charCount', { count: description.length, max: 500 })}
           </span>
         </div>
       </div>
-
-      {/* Product Types */}
-      <fieldset className="space-y-3" aria-label={t('productTypes')}>
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <span className="block text-sm font-semibold text-foreground">
-              {t('productTypes')}
-            </span>
-            <span className="rounded-full bg-[#F5F4F1] px-2 py-0.5 text-xs text-muted-foreground">
-              {t('productTypesMultiSelect')}
-            </span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {t('productTypesHint')}
-          </p>
-        </div>
-
-        <Controller
-          name="productTypes"
-          control={control}
-          render={({ field }) => (
-            <div className="grid grid-cols-2 gap-2">
-              {PRODUCT_TYPE_CATEGORIES.map((category) => {
-                const selectedValues = field.value ?? []
-                const checked = selectedValues.includes(category.slug)
-
-                return (
-                  <label
-                    key={category.slug}
-                    htmlFor={`product-type-${category.slug}`}
-                    className={`flex items-center gap-2 rounded-xl border p-3 ${
-                      freeTextMode
-                        ? 'cursor-not-allowed opacity-60'
-                        : 'cursor-pointer'
-                    } ${
-                      checked
-                        ? 'border-[#2F5D50] bg-[#F0F5F3]'
-                        : 'border-border bg-white hover:border-[#E5E0D8] hover:bg-[#F5F4F1]'
-                    }`}
-                  >
-                    <Checkbox
-                      id={`product-type-${category.slug}`}
-                      checked={checked}
-                      disabled={freeTextMode}
-                      onCheckedChange={(nextChecked) => {
-                        if (nextChecked) {
-                          field.onChange([...selectedValues, category.slug])
-                          return
-                        }
-
-                        field.onChange(
-                          selectedValues.filter((value) => value !== category.slug)
-                        )
-                      }}
-                      className="data-[checked]:border-[#2F5D50] data-[checked]:bg-[#2F5D50] data-[state=checked]:border-[#2F5D50] data-[state=checked]:bg-[#2F5D50]"
-                    />
-                    <span className="min-w-0">
-                      <span
-                        className={`block text-sm text-[#1C1C1C] ${
-                          checked ? 'font-semibold' : 'font-normal'
-                        }`}
-                      >
-                        {category.nameZh}
-                      </span>
-                      <span className="block text-xs text-muted-foreground">
-                        {category.name}
-                      </span>
-                    </span>
-                  </label>
-                )
-              })}
-            </div>
-          )}
-        />
-
-        <div className="border-t border-[#E5E0D8] pt-3">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={freeTextMode}
-              aria-labelledby="product-type-free-text-label"
-              onClick={() => {
-                if (!freeTextMode) {
-                  setValue('productTypes', [])
-                }
-
-                setFreeTextMode((current) => !current)
-              }}
-              className={`relative h-6 w-11 rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-[#2F5D50]/30 ${
-                freeTextMode
-                  ? 'border-[#2F5D50] bg-[#F0F5F3]'
-                  : 'border-[#E5E0D8] bg-white'
-              }`}
-            >
-              <span
-                className={`absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full transition-all ${
-                  freeTextMode
-                    ? 'left-6 bg-[#2F5D50]'
-                    : 'left-1 bg-[#E5E0D8]'
-                }`}
-              />
-            </button>
-            <span id="product-type-free-text-label" className="text-sm font-medium">
-              {t('productTypesFreeTextToggle')}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {t('productTypesFreeTextToggleHint')}
-            </span>
-          </div>
-        </div>
-
-        {freeTextMode && (
-          <div className="space-y-1.5">
-            <label
-              htmlFor="product-type-note"
-              className="block text-sm font-semibold text-foreground"
-            >
-              {t('productTypeNoteLabel')}
-            </label>
-            <Textarea
-              id="product-type-note"
-              maxLength={200}
-              placeholder={t('productTypeNotePlaceholder')}
-              className="min-h-24 border-border bg-white text-sm text-foreground focus-visible:border-muted-foreground focus-visible:ring-[#C4693B]"
-              {...register('productTypeNote')}
-            />
-            <p className="text-right text-xs text-muted-foreground">
-              {productTypeNote.length} / 200
-            </p>
-          </div>
-        )}
-
-        {errors.productTypes && (
-          <p className="text-xs text-red-600">{errors.productTypes.message}</p>
-        )}
-      </fieldset>
 
       {/* Photo Gallery (from scraping) */}
       {photos && onPhotosChange && (
@@ -550,32 +420,6 @@ export function BrandInfoStep({
           />
         </div>
       )}
-
-      {/* Category */}
-      <div className="space-y-1.5">
-        <label
-          htmlFor="brand-category"
-          className="block text-sm font-semibold text-foreground"
-        >
-          {t('category')}
-        </label>
-        <select
-          id="brand-category"
-          className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
-          {...register('category')}
-        >
-          <option value="">{t('categoryPlaceholder')}</option>
-          {categories.map((cat) => (
-            <option key={cat.slug} value={cat.slug}>
-              {cat.label ?? cat.name}
-              {(cat.labelZh ?? cat.nameZh) ? ` (${cat.labelZh ?? cat.nameZh})` : ''}
-            </option>
-          ))}
-        </select>
-        {errors.category && (
-          <p className="text-xs text-red-600">{errors.category.message}</p>
-        )}
-      </div>
 
       {/* Region */}
       <div className="space-y-1.5">
@@ -607,135 +451,29 @@ export function BrandInfoStep({
         )}
       </div>
 
-      {/* Value Tags */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between gap-3">
-          <label className="block text-sm font-semibold text-foreground">
-            {t('valueTags')}
-          </label>
-          <Controller
-            name="valueTags"
-            control={control}
-            render={({ field }) => {
-              const count = field.value?.length ?? 0
-
-              return (
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    count > 0
-                      ? 'bg-[#2F5D50] text-white'
-                      : 'bg-[#E5E0D8] text-foreground'
-                  }`}
-                >
-                  {count} / 3
-                </span>
-              )
-            }}
-          />
+      {/* Retail Locations */}
+      <div className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">{t('retailLocations')}</h3>
+          <p className="text-xs text-muted-foreground">{t('retailLocationsHint')}</p>
         </div>
-        <p className="text-xs text-muted-foreground">
-          {t('valueTagsHint')}
-        </p>
-        <Controller
-          name="valueTags"
-          control={control}
-          render={({ field }) => (
-            <div className="space-y-2">
-              <div className="flex flex-col gap-0.5">
-                {valueTags.map((tag) => {
-                  const selectedValues = field.value ?? []
-                  const checked = selectedValues.includes(tag.slug)
-                  const disabled = selectedValues.length >= 3 && !checked
-
-                  return (
-                    <label
-                      key={tag.id}
-                      className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground ${
-                        disabled ? 'pointer-events-none opacity-50' : ''
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            if (selectedValues.length >= 3) return
-                            field.onChange([...selectedValues, tag.slug])
-                            return
-                          }
-
-                          field.onChange(
-                            selectedValues.filter((value) => value !== tag.slug)
-                          )
-                        }}
-                        className="h-4 w-4 rounded border-border text-[#2F5D50] focus:ring-[#2F5D50]"
-                      />
-                      <span>
-                        {tag.nameZh} ({tag.name})
-                      </span>
-                    </label>
-                  )
-                })}
+        {locationFields.length > 0 && (
+          <div className="space-y-2">
+            {locationFields.map((field, index) => (
+              <div key={field.id} className="flex items-start gap-2">
+                <input type="text" placeholder={t('storeName')} className="h-11 w-40 shrink-0 rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20" {...register(`retailLocations.${index}.name`)} />
+                <input type="text" placeholder={t('address')} className="h-11 flex-1 rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20" {...register(`retailLocations.${index}.address`)} />
+                <button type="button" onClick={() => removeLocation(index)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label={`Remove location ${index + 1}`}>
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {(field.value ?? []).map((slug: string) => {
-                  const tag = valueTags.find((valueTag) => valueTag.slug === slug)
-                  const label = tag ? `${tag.nameZh} (${tag.name})` : slug
-
-                  return (
-                  <span
-                    key={slug}
-                    className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs text-foreground"
-                  >
-                    {label}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        field.onChange(
-                          (field.value ?? []).filter((value) => value !== slug)
-                        )
-                      }}
-                      className="ml-0.5 text-muted-foreground hover:text-foreground"
-                      aria-label={t('removeValue', { value: label })}
-                    >
-                      &times;
-                    </button>
-                  </span>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-        />
-        {errors.valueTags && (
-          <p className="text-xs text-red-600">{errors.valueTags.message}</p>
+            ))}
+          </div>
         )}
-      </div>
-
-      {/* Brand Logo */}
-      <div className="space-y-1.5">
-        <label className="block text-sm font-semibold text-foreground">
-          {isOwner ? t('logoRequired') : t('logoOptional')}
-        </label>
-        <p className="text-xs text-muted-foreground">
-          {t('logoHint')}
-        </p>
-        <Controller
-          name="logoUrl"
-          control={control}
-          render={({ field }) => (
-            <ImageUploader
-              mode="single"
-              bucket="brand-images"
-              path={uploadPath}
-              value={field.value}
-              onUpload={(url) => field.onChange(url)}
-            />
-          )}
-        />
-        {errors.logoUrl && (
-          <p className="text-xs text-red-600">{errors.logoUrl.message}</p>
-        )}
+        <button type="button" onClick={() => appendLocation({ name: '', address: '' })} className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground/80">
+          <Plus className="h-4 w-4" />
+          {t('addLocation')}
+        </button>
       </div>
 
       {activeDedupResult?.ubnMatch && (

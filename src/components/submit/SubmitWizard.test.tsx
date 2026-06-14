@@ -100,10 +100,6 @@ vi.mock('@/i18n/navigation', () => ({
   }),
 }))
 
-const mockCategories = [
-  { slug: 'fashion', label: 'Fashion', labelZh: '時尚' },
-]
-
 function renderWithZhTW(ui: React.ReactElement) {
   return render(
     <NextIntlClientProvider locale="zh-TW" messages={zhMessages}>
@@ -114,19 +110,19 @@ function renderWithZhTW(ui: React.ReactElement) {
 
 describe('SubmitWizard', () => {
   it('renders step indicator and first step by default', () => {
-    renderWithZhTW(<SubmitWizard categories={mockCategories} />)
+    renderWithZhTW(<SubmitWizard />)
     expect(screen.getByTestId('url-step')).toBeInTheDocument()
   })
 
   it('shows Next button is not visible on UrlStep', () => {
-    renderWithZhTW(<SubmitWizard categories={mockCategories} />)
+    renderWithZhTW(<SubmitWizard />)
     expect(screen.queryByRole('button', { name: /^next$/i })).not.toBeInTheDocument()
   })
 })
 
 describe('SubmitWizard with UrlStep', () => {
   it('shows UrlStep as first step', () => {
-    renderWithZhTW(<SubmitWizard categories={mockCategories} />)
+    renderWithZhTW(<SubmitWizard />)
 
     expect(screen.getByText(/提交品牌/)).toBeInTheDocument()
     expect(screen.getByTestId('url-step')).toBeInTheDocument()
@@ -134,7 +130,7 @@ describe('SubmitWizard with UrlStep', () => {
 
   it('transitions to BrandInfoStep after skip', async () => {
     const user = userEvent.setup()
-    renderWithZhTW(<SubmitWizard categories={mockCategories} />)
+    renderWithZhTW(<SubmitWizard />)
 
     await user.click(screen.getByText(/skip and fill manually/i))
 
@@ -145,7 +141,7 @@ describe('SubmitWizard with UrlStep', () => {
 
   it('transitions to BrandInfoStep after successful scrape', async () => {
     const user = userEvent.setup()
-    renderWithZhTW(<SubmitWizard categories={mockCategories} />)
+    renderWithZhTW(<SubmitWizard />)
 
     await user.click(screen.getByRole('button', { name: /fetch brand info/i }))
 
@@ -161,14 +157,14 @@ describe('SubmitWizard — analytics', () => {
   })
 
   it('fires submission_form_opened with source on mount', () => {
-    renderWithZhTW(<SubmitWizard categories={mockCategories} source="hero_cta" />)
+    renderWithZhTW(<SubmitWizard source="hero_cta" />)
     expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'submission_form_opened', {
       source: 'hero_cta',
     })
   })
 
   it('fires submission_form_opened with default source when none provided', () => {
-    renderWithZhTW(<SubmitWizard categories={mockCategories} />)
+    renderWithZhTW(<SubmitWizard />)
     expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'submission_form_opened', {
       source: 'hero_cta',
     })

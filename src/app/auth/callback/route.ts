@@ -5,6 +5,7 @@ import { isRelativeUrl } from "@/lib/auth/validations";
 import { verifyClaimToken } from "@/lib/auth/claim-token";
 import { getSiteUrl } from "@/lib/auth/site-url";
 import { completeBrandClaim, getBrandById } from "@/lib/services/brands";
+import { getProfileAdmin } from "@/lib/services/profiles";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -79,6 +80,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(
         new URL("/dashboard?error=claim-failed", getSiteUrl())
       );
+    }
+  }
+
+  // Sync locale preference cookie on login
+  if (userId) {
+    const profile = await getProfileAdmin(userId);
+    if (profile?.localePreference) {
+      cookieStore.set("NEXT_LOCALE", profile.localePreference, {
+        sameSite: "lax",
+        httpOnly: false,
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: 365 * 24 * 60 * 60,
+      });
     }
   }
 

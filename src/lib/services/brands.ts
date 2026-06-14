@@ -4,7 +4,7 @@ import type { TaxonomyTag } from '@/lib/types'
 import type { Database } from '@/lib/supabase/database.types'
 import { NotFoundError, ValidationError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
-import { getActiveCategories } from '@/lib/services/taxonomy'
+import { getActiveCategories, getTagBySlug } from '@/lib/services/taxonomy'
 import { BRAND_SORT_CONFIG } from '@/lib/pagination'
 import { isNonImageHost } from '@/lib/images/allowed-image-hosts'
 import { RESERVED_ROUTES } from '@/middleware'
@@ -876,33 +876,35 @@ export async function hideBrand(id: string): Promise<Brand> {
 }
 
 export async function getRelatedBrands(
-  category: string,
+  tagSlug: string,
   excludeSlug: string,
   limit = 4,
 ): Promise<Brand[]> {
-  const supabase = createServiceClient()
-  const { data, error } = await supabase
-    .from('brands')
-    .select(BRAND_SELECT)
-    .eq('status', 'approved')
-    .eq('category', category)
-    .neq('slug', excludeSlug)
-    .limit(limit)
+  const tag = await getTagBySlug(tagSlug)
+  if (!tag) return []
 
-  if (error) throw error
-  return (data ?? []).map(brandToDomain)
+  const { brands } = await getBrands({
+    category: [tag.slug],
+    status: 'approved',
+    limit: limit + 1,
+  })
+
+  return brands.filter((brand) => brand.slug !== excludeSlug).slice(0, limit)
 }
 
 export async function getBrandCountByCategory(
-  category: string,
+  tagSlug: string,
   excludeSlug: string,
 ): Promise<number> {
+  const tag = await getTagBySlug(tagSlug)
+  if (!tag) return 0
+
   const supabase = createServiceClient()
   const { count, error } = await supabase
     .from('brands')
     .select('*', { count: 'exact', head: true })
     .eq('status', 'approved')
-    .eq('category', category)
+    .overlaps('tag_slugs', [tag.slug])
     .neq('slug', excludeSlug)
 
   if (error) throw error

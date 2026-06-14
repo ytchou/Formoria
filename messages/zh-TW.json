@@ -684,7 +684,28 @@
   "account": {
     "menuLabel": "帳號",
     "dashboard": "經營者主控台",
-    "signOut": "登出"
+    "signOut": "登出",
+    "settings": "帳號設定"
+  },
+  "settings": {
+    "metadata": {
+      "title": "帳號設定"
+    },
+    "heading": "帳號設定",
+    "subheading": "管理您的個人資料與偏好設定",
+    "displayNameLabel": "顯示名稱",
+    "displayNamePlaceholder": "輸入您的名稱",
+    "emailLabel": "電子郵件",
+    "localePreferenceLabel": "語言偏好",
+    "emailNotificationsLabel": "接收電子郵件通知",
+    "emailNotificationsDescription": "接收品牌更新、認領狀態等相關通知",
+    "submit": "儲存設定",
+    "submitting": "儲存中…",
+    "saved": "設定已儲存",
+    "validation": {
+      "displayNameMaxLength": "顯示名稱不能超過 50 個字元",
+      "invalidLocale": "請選擇有效的語言"
+    }
   },
   "forms": {
     "imageUpload": {
@@ -732,7 +753,7 @@
       "title": "經營者主控台"
     },
     "heading": "經營者主控台",
-    "welcome": "歡迎，{email}",
+    "welcome": "歡迎，{name}",
     "yourBrands": "您的品牌",
     "empty": "尚未認領任何品牌。認領品牌後，它將顯示在此處。",
     "claimedAt": "認領於 {date}",
@@ -1010,12 +1031,13 @@
     },
     "overview": {
       "heading": "提交你的台灣品牌",
-      "description": "Formoria 收錄台灣在地製造與設計品牌，讓更多人發現你的故事。",
+      "description": "收錄台灣在地品牌，讓更多人發現你的故事",
       "step1": "填寫品牌基本資訊",
       "step2": "上傳品牌照片與產品圖",
       "step3": "提交審核，等待社群通知",
       "timeEstimate": "大約 10 分鐘即可完成",
-      "cta": "登入並開始提交"
+      "cta": "登入並開始提交",
+      "ctaLoggedIn": "開始提交"
     },
     "wizard": {
       "heading": "提交品牌",
@@ -1026,6 +1048,7 @@
       "submitBrand": "提交品牌",
       "steps": {
         "brandInfo": "品牌資訊",
+        "tags": "分類與特色",
         "products": "產品",
         "links": "販售據點",
         "review": "確認"
@@ -1074,7 +1097,7 @@
       "mitSmileMarkNumber": "MIT 微笑標章編號（選填）",
       "mitSmileMarkNumberPlaceholder": "例如 01200024-02134",
       "charCount": "{count} / {max} 個字元上限",
-      "photos": "照片",
+      "photos": "品牌照片",
       "photosDragHint": "拖曳以排序。第一張照片將成為主圖。",
       "noPhotos": "未從您的網站找到照片",
       "addPhotos": "新增照片",
@@ -1088,7 +1111,7 @@
       "tagsInputPlaceholder": "輸入後按 Enter 新增標籤",
       "removeTag": "移除標籤 {tag}",
       "logoRequired": "Logo *",
-      "logoOptional": "Logo（可選）",
+      "logoOptional": "Logo（選填）",
       "logoHint": "上傳您的品牌 Logo（最大 5MB，將調整至最大 1200px）",
       "productPhotos": "產品照片",
       "productPhotosHint": "上傳最多 6 張照片展示您的產品",
@@ -1118,12 +1141,13 @@
       "valueTagsCounterLabel": "已選擇 {count} 個，最多 {max} 個",
       "removeValue": "移除 {value}",
       "productTypes": "產品類型",
-      "productTypesMultiSelect": "可複選",
-      "productTypesHint": "選擇最符合你品牌的產品類型（可複選）",
+      "productTypesMultiSelect": "",
+      "productTypesHint": "選擇最符合你品牌的產品類型",
       "productTypesFreeTextToggle": "以上都不適合？",
       "productTypesFreeTextToggleHint": "— 改為手動輸入產品類型",
       "productTypeNoteLabel": "請描述你的產品類型",
-      "productTypeNotePlaceholder": "例如：手工皮件、有機茶葉、竹製傢俱......",
+      "productTypeNoteHint": "我們將審核此建議",
+      "productTypeNotePlaceholder": "例如：手工皮件",
       "ubn": "統一編號（選填）",
       "ubnHint": "8位數字，公司或商號的統一編號，由經濟部核發",
       "ubnDuplicateTitle": "此統一編號的品牌已存在於目錄中",

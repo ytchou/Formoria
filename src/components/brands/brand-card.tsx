@@ -30,7 +30,7 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
   const tDetail = useTranslations('brandDetail')
   const [imgError, setImgError] = useState(false)
   const imageSrc =
-    [brand.heroImageUrl, ...brand.productPhotos, brand.logoUrl]
+    [brand.logoUrl, brand.heroImageUrl, ...brand.productPhotos]
       .map((url) => safeImageSrc(url))
       .find((src): src is string => src !== null) ?? null
   const showImage = imageSrc !== null && !imgError

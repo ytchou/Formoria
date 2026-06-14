@@ -30,7 +30,6 @@ describe('UrlStep', () => {
     expect(
       screen.getByRole('button', { name: /自動填入/ })
     ).toBeInTheDocument()
-    expect(screen.getByText(/跳過/)).toBeInTheDocument()
   })
 
   it('disables fetch button when URL is empty', () => {
@@ -127,11 +126,30 @@ describe('UrlStep', () => {
     expect(screen.getByRole('button', { name: /再試一次/ })).toBeInTheDocument()
   })
 
-  it('calls onSkip when skip link is clicked', async () => {
+  it('calls onSkip when manual fill button is clicked in error state', async () => {
     const user = userEvent.setup()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve({ error: 'Internal error' }),
+      })
+    )
+
     renderWithZhTW(<UrlStep {...defaultProps} />)
 
-    await user.click(screen.getByText(/跳過/))
+    await user.type(
+      screen.getByLabelText(/品牌網站/),
+      'https://mybrand.com'
+    )
+    await user.click(screen.getByRole('button', { name: /自動填入/ }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/改為手動填寫/)).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByText(/改為手動填寫/))
 
     expect(defaultProps.onSkip).toHaveBeenCalled()
   })

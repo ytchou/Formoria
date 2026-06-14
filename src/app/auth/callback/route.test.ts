@@ -3,11 +3,22 @@ import { NextRequest } from 'next/server'
 
 const mockExchangeCodeForSession = vi.fn()
 
+const mockFrom = vi.fn().mockReturnValue({
+  select: vi.fn().mockReturnValue({
+    eq: vi.fn().mockReturnValue({
+      single: vi.fn().mockResolvedValue({ data: null }),
+    }),
+  }),
+})
+
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn().mockResolvedValue({
     auth: {
       exchangeCodeForSession: mockExchangeCodeForSession,
     },
+  }),
+  createServiceClient: vi.fn().mockReturnValue({
+    from: mockFrom,
   }),
 }))
 
@@ -15,6 +26,7 @@ vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({
     get: vi.fn().mockReturnValue(undefined),
     delete: vi.fn(),
+    set: vi.fn(),
   }),
 }))
 

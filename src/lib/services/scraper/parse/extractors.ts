@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import { resolveUrl } from '../fetch-guards'
 
-const MAX_GALLERY_IMAGES = 10
+const MAX_GALLERY_IMAGES = 5
 const MIN_IMAGE_DIMENSION = 200
 
 export const NON_PRODUCT_IMAGE_PATH_RE =

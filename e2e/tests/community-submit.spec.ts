@@ -5,7 +5,7 @@ import { gotoSubmitWizard } from '../utils/submit-wizard'
 test.describe('Community submit flow', () => {
   const ownerCheckboxName = '我是品牌所有者'
   const attributionFieldName = '你如何認識這個品牌？'
-  const manualEntryButtonName = '跳過，手動填寫'
+  const manualEntryButtonName = '改為手動填寫'
 
   test.afterAll(async () => {
     const supabase = createClient(
@@ -51,15 +51,7 @@ test.describe('Community submit flow', () => {
     await expect(userPage.locator('#brand-name')).toBeVisible({ timeout: 3_000 })
     await expect(userPage.locator('#brand-description')).toBeVisible({ timeout: 3_000 })
 
-    // Product type section is visible with at least one option and the free-text fallback toggle
-    await expect(userPage.getByRole('group', { name: /產品類型/ })).toBeVisible({ timeout: 3_000 })
-    await expect(userPage.getByText(/服飾鞋履/)).toBeVisible({ timeout: 3_000 })
-    await expect(userPage.getByText(/以上都不適合/)).toBeVisible({ timeout: 3_000 })
-
-    const categoryTrigger = userPage.getByRole('combobox', { name: 'Category', exact: true })
-    if (await categoryTrigger.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await categoryTrigger.selectOption({ index: 1 })
-    }
+    // Product type UI moved to TagsStep (step 2) — BrandInfoStep no longer has it
   })
 
   test('my-submissions page shows authenticated user submissions', async ({ userPage }) => {

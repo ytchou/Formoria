@@ -44,8 +44,11 @@ export default async function AdminLayout({
             banner: "一般使用者檢視",
           }}
         />
-        <AdminNav />
-        <main className="mx-auto max-w-screen-xl px-10 pb-8 pt-12">{children}</main>
+        <main className="mx-auto max-w-screen-2xl px-10 pb-8 pt-8">
+          <h1 className="font-heading text-3xl font-bold tracking-tight">管理後台</h1>
+          <AdminNav />
+          <div className="mt-8">{children}</div>
+        </main>
       </div>
     </NextIntlClientProvider>
   );

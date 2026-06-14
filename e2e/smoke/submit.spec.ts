@@ -1,26 +1,14 @@
 import { test, expect } from '../fixtures/auth';
 
 test.describe('Submit smoke', () => {
-  test('wizard loads and skip-to-form works', async ({ userPage }) => {
-    await userPage.goto('/submit');
+  test('wizard loads at /submit/form and URL step is visible', async ({ userPage }) => {
+    await userPage.goto('/submit/form');
 
     // URL step renders with heading and URL input
     await expect(userPage.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 5_000 });
     await expect(userPage.locator('#website-url')).toBeVisible();
 
-    // Skip URL scraping to enter the multi-step form
-    await userPage.getByRole('button', { name: /skip|跳過/i }).click();
-
-    // Step 1 (Brand Info) loads with form fields
-    await expect(userPage.locator('#brand-name')).toBeVisible({ timeout: 5_000 });
-    await expect(userPage.locator('#brand-description')).toBeVisible();
-
-    // Fill fields to verify form interactivity
-    await userPage.locator('#brand-name').fill('[E2E-TEST] Smoke Brand');
-    await userPage.locator('#brand-description').fill('Smoke test brand description with enough detail');
-    await expect(userPage.locator('#brand-name')).toHaveValue('[E2E-TEST] Smoke Brand');
-    await expect(userPage.locator('#brand-description')).toHaveValue(
-      'Smoke test brand description with enough detail',
-    );
+    // Auto-fill button is the primary CTA on the URL step (no skip in idle state)
+    await expect(userPage.getByRole('button', { name: /自動填入|autoFill/i })).toBeVisible();
   });
 });

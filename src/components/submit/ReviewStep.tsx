@@ -69,7 +69,6 @@ export function ReviewStep({
 
   const formData = watch()
 
-  const photoCount = formData.productPhotos?.length ?? 0
   const selectedRegion = regionTags.find((tag) => tag.slug === formData.region)
   const selectedValueTags = formData.valueTags
     ?.map((slug) => valueTags.find((tag) => tag.slug === slug))
@@ -128,48 +127,12 @@ export function ReviewStep({
         </div>
       </div>
 
-      {/* Product Photos Panel */}
-      <div className="space-y-3">
-        <SectionHeader
-          title={t('productPhotos')}
-          editLabel={t('edit')}
-          stepIndex={1}
-          onEdit={onEditStep}
-        />
-        <div className="space-y-2 rounded-lg bg-background p-4">
-          <p className="text-[13px] text-foreground">
-            {photoCount === 1
-              ? t('photoCountSingular')
-              : t('photoCount', { count: photoCount })}
-          </p>
-          {photoCount > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {formData.productPhotos?.map((url, i) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={i}
-                  src={url}
-                  alt={`Product ${i + 1}`}
-                  className="h-16 w-16 rounded-lg object-cover"
-                />
-              ))}
-            </div>
-          )}
-          {formData.brandHighlights && (
-            <ReviewRow
-              label={t('highlights')}
-              value={formData.brandHighlights}
-            />
-          )}
-        </div>
-      </div>
-
       {/* Links Panel */}
       <div className="space-y-3">
         <SectionHeader
           title={t('linksAndSocial')}
           editLabel={t('edit')}
-          stepIndex={2}
+          stepIndex={0}
           onEdit={onEditStep}
         />
         <div className="space-y-2 rounded-lg bg-background p-4">

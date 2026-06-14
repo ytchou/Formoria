@@ -3,7 +3,7 @@ import { gotoSubmitWizard } from '../utils/submit-wizard';
 
 const TINY_PNG_BASE64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEUlEQVR4nGP4z8AARwgWXg4ArpMP8aaUSCMAAAAASUVORK5CYII=';
-const manualEntryButtonName = '跳過，手動填寫';
+const manualEntryButtonName = '改為手動填寫';
 const nextButtonName = '下一步';
 
 test.describe('UrlStep link pre-fill', () => {
@@ -13,7 +13,7 @@ test.describe('UrlStep link pre-fill', () => {
       test.setTimeout(120_000);
 
       // PREVIEW_MODE guard — probe before spending time on the wizard
-      const probe = await userPage.goto('/submit');
+      const probe = await userPage.goto('/submit/form');
       if (probe?.status() === 503) {
         test.skip(true, 'PREVIEW_MODE active — submit route returns 503');
         return;
@@ -63,19 +63,10 @@ test.describe('UrlStep link pre-fill', () => {
       await expect(userPage.getByAltText('上傳 1')).toBeVisible({ timeout: 10_000 });
       await userPage.getByRole('button', { name: nextButtonName, exact: true }).click();
 
-      // --- Step 1: ProductsStep (optional highlights; just advance) ---
-      await expect(userPage.getByLabel('品牌亮點', { exact: true })).toBeVisible({
-        timeout: 5_000,
-      });
+      // --- Step 1: TagsStep (product types + value tags; just advance) ---
       await userPage.getByRole('button', { name: nextButtonName, exact: true }).click();
 
-      // --- Step 2: LinksStep (retail locations only since PR #132; advance without adding) ---
-      await expect(userPage.getByText('實體零售地點', { exact: true })).toBeVisible({
-        timeout: 5_000,
-      });
-      await userPage.getByRole('button', { name: nextButtonName, exact: true }).click();
-
-      // --- Step 3: ReviewStep — assert the pre-filled links are rendered ---
+      // --- Step 2: ReviewStep — assert the pre-filled links are rendered ---
       // The panel heading for the links section is "連結與社群" (submit.review.linksAndSocial).
       await expect(userPage.getByText('連結與社群', { exact: true })).toBeVisible({
         timeout: 5_000,
@@ -94,11 +85,11 @@ test.describe('UrlStep link pre-fill', () => {
   );
 
   test(
-    'wizard step 2 label is "販售據點" (not "連結")',
+    'wizard step indicator labels are visible',
     async ({ userPage }) => {
       test.setTimeout(90_000);
 
-      const probe = await userPage.goto('/submit');
+      const probe = await userPage.goto('/submit/form');
       if (probe?.status() === 503) {
         test.skip(true, 'PREVIEW_MODE active — submit route returns 503');
         return;
@@ -112,9 +103,9 @@ test.describe('UrlStep link pre-fill', () => {
         timeout: 5_000,
       });
 
-      // The step-indicator tab for the third wizard step (index 2) should read "販售據點"
+      // The step-indicator tab for the second wizard step (index 1) should read "分類與特色"
       // (StepIndicator renders "{index}  {label}" so exact match won't work).
-      await expect(userPage.getByText('販售據點')).toBeVisible();
+      await expect(userPage.getByText('分類與特色')).toBeVisible();
     }
   );
 });

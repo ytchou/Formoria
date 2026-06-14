@@ -64,12 +64,27 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
 
   const isValidUrl = websiteUrl.trim().startsWith('https://')
 
+  const stripParams = (raw: string): string => {
+    const trimmed = raw.trim()
+    if (!trimmed) return trimmed
+    try {
+      const u = new URL(trimmed)
+      u.search = ''
+      return u.toString()
+    } catch {
+      return trimmed
+    }
+  }
+
   const getLinks = (): UrlStepLinks => ({
-    websiteUrl,
+    websiteUrl: stripParams(websiteUrl),
     instagram,
     threads,
-    facebook,
-    purchaseLinks,
+    facebook: stripParams(facebook),
+    purchaseLinks: purchaseLinks.map((l) => ({
+      ...l,
+      url: stripParams(l.url),
+    })),
   })
 
   const addPurchaseLink = () => {
@@ -99,15 +114,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
 
     abortRef.current = new AbortController()
 
-    const trimmedUrl = websiteUrl.trim()
-    let cleanUrl = trimmedUrl
-    try {
-      const url = new URL(trimmedUrl)
-      url.search = ''
-      cleanUrl = url.toString()
-    } catch {
-      cleanUrl = trimmedUrl
-    }
+    const cleanUrl = stripParams(websiteUrl)
 
     try {
       const response = await fetch('/api/scrape', {
@@ -185,29 +192,35 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
             <label htmlFor="url-instagram" className="w-28 shrink-0 text-sm text-muted-foreground">
               Instagram
             </label>
-            <Input
-              id="url-instagram"
-              type="text"
-              placeholder="@yourbrand"
-              value={instagram}
-              onChange={(e) => setInstagram(e.target.value)}
-              disabled={status === 'loading'}
-              className="h-11 bg-background focus-visible:ring-2 focus-visible:ring-ring"
-            />
+            <div className="relative flex-1">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">@</span>
+              <Input
+                id="url-instagram"
+                type="text"
+                placeholder="yourbrand"
+                value={instagram}
+                onChange={(e) => setInstagram(e.target.value.replace(/^@/, ''))}
+                disabled={status === 'loading'}
+                className="h-11 bg-background pl-7 focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <label htmlFor="url-threads" className="w-28 shrink-0 text-sm text-muted-foreground">
               Threads
             </label>
-            <Input
-              id="url-threads"
-              type="text"
-              placeholder="@yourbrand"
-              value={threads}
-              onChange={(e) => setThreads(e.target.value)}
-              disabled={status === 'loading'}
-              className="h-11 bg-background focus-visible:ring-2 focus-visible:ring-ring"
-            />
+            <div className="relative flex-1">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">@</span>
+              <Input
+                id="url-threads"
+                type="text"
+                placeholder="yourbrand"
+                value={threads}
+                onChange={(e) => setThreads(e.target.value.replace(/^@/, ''))}
+                disabled={status === 'loading'}
+                className="h-11 bg-background pl-7 focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <label htmlFor="url-facebook" className="w-28 shrink-0 text-sm text-muted-foreground">
@@ -300,7 +313,9 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
               aria-label={t('url.howKnowBrand')}
               className="h-11 w-full border-border text-sm text-foreground"
             >
-              <SelectValue placeholder={t('url.howKnowPlaceholder')} />
+              <SelectValue placeholder={t('url.howKnowPlaceholder')}>
+                {(val) => (val ? t(`attribution.${val}`) : null)}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {SOURCE_ATTRIBUTION_VALUES.map((value) => (
@@ -384,24 +399,14 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
             </Button>
           </>
         ) : (
-          <>
-            <Button
-              type="button"
-              onClick={handleFetch}
-              disabled={!isValidUrl}
-              className="focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {t('url.autoFill')}
-            </Button>
-            <Button
-              type="button"
-              onClick={() => onSkip(getLinks())}
-              variant="ghost"
-              className="h-12 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {t('url.skip')}
-            </Button>
-          </>
+          <Button
+            type="button"
+            onClick={handleFetch}
+            disabled={!isValidUrl}
+            className="focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {t('url.autoFill')}
+          </Button>
         )}
       </div>
     </div>

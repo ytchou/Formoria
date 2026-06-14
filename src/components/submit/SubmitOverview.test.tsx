@@ -35,11 +35,11 @@ describe('SubmitOverview', () => {
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
   });
 
-  it('renders 登入並開始提交 CTA linking to sign-in with ?next=/submit', () => {
+  it('renders 登入並開始提交 CTA linking to sign-in with ?next=/submit/form', () => {
     renderWithZhTW(<SubmitOverview />);
     const cta = screen.getByRole('link', { name: /登入並開始提交/i });
     expect(cta).toBeInTheDocument();
-    expect(cta).toHaveAttribute('href', '/auth/sign-in?next=/submit');
+    expect(cta).toHaveAttribute('href', '/auth/sign-in?next=/submit/form');
   });
 
   it('includes a step count or time estimate', () => {

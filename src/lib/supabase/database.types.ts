@@ -668,6 +668,33 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          id: string
+          display_name: string | null
+          locale_preference: string
+          email_notifications: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          display_name?: string | null
+          locale_preference?: string
+          email_notifications?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          display_name?: string | null
+          locale_preference?: string
+          email_notifications?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       taxonomy_tags: {
         Row: {
           category: string
