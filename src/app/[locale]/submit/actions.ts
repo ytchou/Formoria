@@ -2,6 +2,7 @@
 
 import { getTranslations } from 'next-intl/server'
 import { createSubmissionSchema, type SubmissionFormData } from '@/lib/validations/submission'
+import { deriveCategoryFromProductTypes } from '@/lib/taxonomy/ontology'
 import { createBrand } from '@/lib/services/brands'
 import { scanContent, saveModerationFlags } from '@/lib/services/moderation'
 import { checkBrandDuplicates, createSubmission } from '@/lib/services/submissions'
@@ -38,6 +39,10 @@ export async function submitBrand(
     const isOwner = data.isOwner ?? false
     const schema = createSubmissionSchema(isOwner, tValidation)
     const parsed = schema.parse(data)
+    const derivedCategory = deriveCategoryFromProductTypes(
+      parsed.productTypes ?? [],
+      parsed.productTypeNote,
+    )
 
     // Get authenticated user
     const supabase = await createClient()
@@ -71,7 +76,6 @@ export async function submitBrand(
       fields: {
         name: parsed.name,
         description: parsed.description,
-        brandHighlights: parsed.brandHighlights,
         website: parsed.socialLinks.website,
         purchaseUrl: parsed.purchaseLinks[0]?.url,
       },
@@ -92,7 +96,7 @@ export async function submitBrand(
       status: 'pending',
       isVerified: false,
       isDemo: false,
-      category: parsed.category,
+      category: derivedCategory,
       foundingYear: null,
       purchaseLinks: parsed.purchaseLinks.map((l) => ({
         ...l,
@@ -111,7 +115,7 @@ export async function submitBrand(
       })),
       productPhotos: parsed.productPhotos,
       contactEmail: user.email ?? null,
-      brandHighlights: parsed.brandHighlights?.trim() || null,
+      brandHighlights: null,
       siteContent: null,
       unifiedBusinessNumber: parsed.unifiedBusinessNumber ?? null,
     })
@@ -141,6 +145,7 @@ export async function submitBrand(
       suggestedTags: {
         ...(parsed.region ? { region: parsed.region } : {}),
         ...(parsed.valueTags?.length ? { values: parsed.valueTags } : {}),
+        ...(parsed.productTypes?.length ? { productTypes: parsed.productTypes } : {}),
       },
       pdpaConsentAt: new Date().toISOString(),
       isBrandOwner: isOwner,

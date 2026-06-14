@@ -39,10 +39,6 @@ vi.mock('@/i18n/navigation', () => ({
 
 const mockCheckDuplicates = vi.mocked(checkDuplicates)
 
-const mockCategories = [
-  { slug: 'fashion', label: 'Fashion', labelZh: '時尚' },
-]
-
 const mockRegionTags: TaxonomyTag[] = [
   {
     id: 'region-1',
@@ -50,18 +46,6 @@ const mockRegionTags: TaxonomyTag[] = [
     nameZh: '台北',
     slug: 'taipei',
     category: 'region',
-    isActive: true,
-    createdAt: '2026-01-01T00:00:00Z',
-  },
-]
-
-const mockValueTags: TaxonomyTag[] = [
-  {
-    id: 'value-1',
-    name: 'Sustainable',
-    nameZh: '永續',
-    slug: 'sustainable',
-    category: 'value',
     isActive: true,
     createdAt: '2026-01-01T00:00:00Z',
   },
@@ -84,7 +68,6 @@ function Wrapper({
       valueTags: [],
       logoUrl: '',
       productPhotos: [],
-      brandHighlights: '',
       purchaseLinks: [],
       socialLinks: {
         instagram: '',
@@ -113,9 +96,7 @@ function renderBrandInfoStep({
   render(
     <Wrapper defaultValues={defaultValues}>
       <BrandInfoStep
-        categories={mockCategories}
         regionTags={mockRegionTags}
-        valueTags={mockValueTags}
         uploadPath="brands/test-uuid"
         onNext={onNext}
       />

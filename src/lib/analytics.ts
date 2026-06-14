@@ -25,9 +25,7 @@ function safeGAEvent(...args: Parameters<typeof sendGAEvent>) {
 
 export const SUBMISSION_STEP_NAMES = {
   0: 'brand_info',
-  1: 'category_select',
-  2: 'links',
-  3: 'review',
+  1: 'review',
 } as const
 
 export type SubmissionStepName = (typeof SUBMISSION_STEP_NAMES)[keyof typeof SUBMISSION_STEP_NAMES]

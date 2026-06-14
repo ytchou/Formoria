@@ -72,10 +72,6 @@ vi.mock('@/i18n/navigation', () => ({
   }),
 }))
 
-const mockCategories = [
-  { slug: 'fashion', label: 'Fashion', labelZh: '時尚' },
-]
-
 function renderWithZhTW(ui: React.ReactElement) {
   return render(
     <NextIntlClientProvider locale="zh-TW" messages={zhMessages}>
@@ -87,7 +83,7 @@ function renderWithZhTW(ui: React.ReactElement) {
 describe('SubmitWizard product type defaults', () => {
   it('mounts the form when productTypes and productTypeNote are in defaultValues', async () => {
     const user = userEvent.setup()
-    const { container } = renderWithZhTW(<SubmitWizard categories={mockCategories} />)
+    const { container } = renderWithZhTW(<SubmitWizard />)
 
     await user.click(screen.getByText(/skip and fill manually/i))
 

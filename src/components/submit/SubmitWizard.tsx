@@ -9,8 +9,7 @@ import { StepIndicator } from './StepIndicator'
 import { UrlStep } from './UrlStep'
 import type { UrlStepLinks } from './UrlStep'
 import { BrandInfoStep } from './BrandInfoStep'
-import { ProductsStep } from './ProductsStep'
-import { LinksStep } from './LinksStep'
+import { TagsStep } from './TagsStep'
 import { ReviewStep } from './ReviewStep'
 import {
   getBrandInfoSchema,
@@ -22,6 +21,7 @@ import {
 } from '@/lib/validations/submission'
 import { useRouter } from '@/i18n/navigation'
 import { submitBrand } from '@/app/[locale]/submit/actions'
+import { deriveCategoryFromProductTypes } from '@/lib/taxonomy/ontology'
 import {
   trackSubmissionFormOpened,
   trackSubmissionFormStepCompleted,
@@ -34,32 +34,15 @@ import type { TaxonomyTag } from '@/lib/types'
 import type { ScrapedBrandData, PhotoItem } from '@/lib/types/scraper'
 import type { SourceAttribution } from '@/lib/types/submission'
 
-const STEP_COUNT = 4
+const STEP_COUNT = 3
 
 const STEP_FIELDS: (keyof SubmissionFormData)[][] = [
-  [
-    'name',
-    'description',
-    'category',
-    'region',
-    'valueTags',
-    'logoUrl',
-  ],
-  ['productPhotos', 'brandHighlights'],
-  ['retailLocations'],
+  ['name', 'description', 'region', 'logoUrl', 'retailLocations'],
+  ['productTypes', 'productTypeNote', 'valueTags'],
   ['pdpaConsent'],
 ]
 
-type Category = {
-  slug: string
-  label?: string
-  name?: string
-  labelZh?: string
-  nameZh?: string | null
-}
-
 type SubmitWizardProps = {
-  categories: Category[]
   regionTags?: TaxonomyTag[]
   valueTags?: TaxonomyTag[]
   source?: 'header_cta' | 'hero_cta' | 'footer_link'
@@ -92,7 +75,6 @@ function mapScrapedToPhotos(data: ScrapedBrandData): PhotoItem[] {
 }
 
 export function SubmitWizard({
-  categories,
   regionTags = [],
   valueTags = [],
   source = 'hero_cta',
@@ -106,15 +88,27 @@ export function SubmitWizard({
     [t]
   )
 
-  const stepSchemas = useMemo(
-    () => [
-      getBrandInfoSchema(tSchema),
-      getProductsSchema(tSchema),
-      getLinksSchema(tSchema),
+  const stepSchemas = useMemo(() => {
+    const allFields = getBrandInfoSchema(tSchema)
+      .merge(getProductsSchema(tSchema))
+      .merge(getLinksSchema(tSchema))
+    return [
+      allFields.pick({
+        name: true,
+        description: true,
+        region: true,
+        logoUrl: true,
+        retailLocations: true,
+        unifiedBusinessNumber: true,
+      }),
+      allFields.pick({
+        productTypes: true,
+        productTypeNote: true,
+        valueTags: true,
+      }),
       getReviewSchema(tSchema),
-    ],
-    [tSchema]
-  )
+    ]
+  }, [tSchema])
   const [phase, setPhase] = useState<WizardPhase>('url')
   const [currentStep, setCurrentStep] = useState(0)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -154,14 +148,12 @@ export function SubmitWizard({
     defaultValues: {
       name: '',
       description: '',
-      category: '',
       region: '',
       valueTags: [],
       logoUrl: '',
       productTypes: [],
       productTypeNote: '',
       productPhotos: [],
-      brandHighlights: '',
       purchaseLinks: [{ platform: '', url: '' }],
       socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
       retailLocations: [],
@@ -222,6 +214,10 @@ export function SubmitWizard({
     const result = schema.safeParse(currentValues)
     if (!result.success) {
       await methods.trigger(STEP_FIELDS[currentStep])
+      setTimeout(() => {
+        const firstError = document.querySelector('.text-red-600')
+        firstError?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 50)
       return
     }
 
@@ -264,7 +260,7 @@ export function SubmitWizard({
         const elapsed = Math.round((Date.now() - mountTimeRef.current) / 1000)
         trackSubmissionCompleted(
           data.name,
-          data.category,
+          deriveCategoryFromProductTypes(mergedData.productTypes ?? [], mergedData.productTypeNote) ?? data.category,
           Boolean(data.logoUrl),
           elapsed
         )
@@ -301,8 +297,7 @@ export function SubmitWizard({
           <StepIndicator
             steps={[
               t('wizard.steps.brandInfo'),
-              t('wizard.steps.products'),
-              t('wizard.steps.links'),
+              t('wizard.steps.tags'),
               t('wizard.steps.review'),
             ]}
             currentStep={currentStep}
@@ -313,21 +308,17 @@ export function SubmitWizard({
               <div className="rounded-xl border border-border bg-white p-8 shadow-sm">
                 {currentStep === 0 && (
                   <BrandInfoStep
-                    categories={categories}
                     regionTags={regionTags}
-                    valueTags={valueTags}
                     uploadPath={uploadPath}
                     photos={photos}
                     onPhotosChange={setPhotos}
-                    isOwner={isOwner}
                     onNext={handleNext}
                   />
                 )}
                 {currentStep === 1 && (
-                  <ProductsStep uploadPath={uploadPath} />
+                  <TagsStep valueTags={valueTags} />
                 )}
-                {currentStep === 2 && <LinksStep />}
-                {currentStep === 3 && (
+                {currentStep === 2 && (
                   <ReviewStep
                     onEditStep={handleEditStep}
                     regionTags={regionTags}
@@ -354,7 +345,9 @@ export function SubmitWizard({
                     <span />
                   )}
 
-                  {currentStep > 0 && currentStep < STEP_COUNT - 1 ? (
+                  {currentStep === 0 ? (
+                    <span />
+                  ) : currentStep < STEP_COUNT - 1 ? (
                     <button
                       type="button"
                       onClick={handleNext}

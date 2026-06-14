@@ -189,7 +189,6 @@ describe('server action schema routing', () => {
       pdpaConsent: true,
       socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
       productPhotos: [],
-      brandHighlights: '',
       retailLocations: [],
       turnstileToken: 'test-token',
     }
@@ -210,7 +209,6 @@ describe('server action schema routing', () => {
       sourceAttribution: 'found_online',
       productPhotos: [],
       productTypes: ['fashion'],
-      brandHighlights: '',
       retailLocations: [],
       turnstileToken: 'test-token',
     }
@@ -229,7 +227,6 @@ describe('server action schema routing', () => {
       pdpaConsent: true,
       socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
       productPhotos: [],
-      brandHighlights: '',
       retailLocations: [],
       turnstileToken: 'test-token',
     })
@@ -254,7 +251,6 @@ describe('server action schema routing', () => {
       socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
       sourceAttribution: 'found_online',
       productPhotos: [],
-      brandHighlights: '',
       retailLocations: [],
       turnstileToken: 'test-token',
     })
@@ -282,7 +278,6 @@ describe('server action schema routing', () => {
       socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
       sourceAttribution: 'found_online',
       productPhotos: [],
-      brandHighlights: '',
       retailLocations: [],
       turnstileToken: 'test-token',
     })
@@ -307,7 +302,6 @@ describe('server action schema routing', () => {
       sourceAttribution: 'found_online',
       productPhotos: [],
       productTypes: ['fashion'],
-      brandHighlights: 'Handmade in Taipei',
       retailLocations: [],
       turnstileToken: 'test-token',
     })
@@ -316,7 +310,6 @@ describe('server action schema routing', () => {
       fields: {
         name: 'Test Brand',
         description: 'Long enough description for moderation scanning',
-        brandHighlights: 'Handmade in Taipei',
         website: 'https://test.com',
         purchaseUrl: 'https://shop.com/product',
       },
@@ -347,7 +340,7 @@ describe('server action schema routing', () => {
       sourceAttribution: 'found_online',
       productPhotos: [],
       productTypes: ['fashion'],
-      brandHighlights: '',
+
       retailLocations: [],
       turnstileToken: 'test-token',
     })
@@ -374,7 +367,7 @@ describe('server action schema routing', () => {
       sourceAttribution: 'found_online',
       productPhotos: [],
       productTypes: ['fashion'],
-      brandHighlights: '',
+
       retailLocations: [],
       turnstileToken: 'test-token',
     })
@@ -405,7 +398,7 @@ describe('server action schema routing', () => {
       sourceAttribution: 'found_online',
       productPhotos: [],
       productTypes: ['fashion'],
-      brandHighlights: '',
+
       retailLocations: [],
       turnstileToken: 'test-token',
     })

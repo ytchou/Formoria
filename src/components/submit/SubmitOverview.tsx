@@ -9,9 +9,10 @@ const HERO_IMAGE_SRC = '/images/submit-hero.png'
 
 type SubmitOverviewProps = {
   nextPath?: string
+  isLoggedIn?: boolean
 }
 
-export default function SubmitOverview({ nextPath = '/submit' }: SubmitOverviewProps) {
+export default function SubmitOverview({ nextPath = '/submit/form', isLoggedIn = false }: SubmitOverviewProps) {
   const t = useTranslations('submit.overview')
   const [imageFailed, setImageFailed] = useState(false)
 
@@ -39,10 +40,10 @@ export default function SubmitOverview({ nextPath = '/submit' }: SubmitOverviewP
       </ul>
       <p className="mt-6 text-sm text-muted-foreground">{t('timeEstimate')}</p>
       <Link
-        href={`/auth/sign-in?next=${nextPath}`}
+        href={isLoggedIn ? nextPath : `/auth/sign-in?next=${nextPath}`}
         className="mt-8 inline-flex items-center justify-center rounded-lg bg-cta px-8 py-3 text-base font-semibold text-cta-foreground transition-colors hover:bg-cta/90"
       >
-        {t('cta')}
+        {isLoggedIn ? t('ctaLoggedIn') : t('cta')}
       </Link>
     </div>
   )

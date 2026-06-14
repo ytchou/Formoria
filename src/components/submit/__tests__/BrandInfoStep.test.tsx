@@ -39,11 +39,6 @@ function Wrapper({ children }: { children: ReactNode }) {
   )
 }
 
-const mockCategories = [
-  { slug: 'fashion', label: 'Fashion', labelZh: '時尚' },
-  { slug: 'home', label: 'Lifestyle & Home', labelZh: '居家生活' },
-]
-
 const mockRegionTags: TaxonomyTag[] = [
   {
     id: 'region-1',
@@ -56,25 +51,11 @@ const mockRegionTags: TaxonomyTag[] = [
   },
 ]
 
-const mockValueTags: TaxonomyTag[] = [
-  {
-    id: 'value-1',
-    name: 'Sustainable',
-    nameZh: '永續',
-    slug: 'sustainable',
-    category: 'value',
-    isActive: true,
-    createdAt: '2026-01-01T00:00:00Z',
-  },
-]
-
 function renderBrandInfoStep() {
   return render(
     <Wrapper>
       <BrandInfoStep
-        categories={mockCategories}
         regionTags={mockRegionTags}
-        valueTags={mockValueTags}
         uploadPath="brands/test-uuid"
       />
     </Wrapper>

@@ -84,7 +84,7 @@ function DropdownMenuItem({
 }) {
   return (
     <MenuPrimitive.Item
-      nativeButton
+      nativeButton={!props.render || (React.isValidElement(props.render) && props.render.type === 'button')}
       data-slot="dropdown-menu-item"
       data-inset={inset}
       data-variant={variant}

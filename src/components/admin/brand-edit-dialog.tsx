@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { PRODUCT_TYPE_CATEGORIES, deriveCategoryFromProductTypes } from '@/lib/taxonomy/ontology'
 
 type BrandEditDialogProps = {
   brand: Brand | null
@@ -29,7 +30,10 @@ export function BrandEditDialog({
 }: BrandEditDialogProps) {
   const [name, setName] = useState(brand?.name ?? '')
   const [description, setDescription] = useState(brand?.description ?? '')
-  const [category, setCategory] = useState(brand?.category ?? '')
+  const [categorySlug, setCategorySlug] = useState(() => {
+    const match = PRODUCT_TYPE_CATEGORIES.find((c) => c.nameZh === brand?.category)
+    return match?.slug ?? ''
+  })
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
@@ -40,7 +44,7 @@ export function BrandEditDialog({
       const result = await updateBrandAction(brand.id, {
         name,
         description,
-        category: category || undefined,
+        category: categorySlug ? deriveCategoryFromProductTypes([categorySlug]) ?? undefined : undefined,
       })
       if (result?.error) {
         setError(result.error)
@@ -79,11 +83,19 @@ export function BrandEditDialog({
 
           <div className="space-y-2">
             <Label htmlFor="brand-category">Category</Label>
-            <Input
+            <select
               id="brand-category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-            />
+              value={categorySlug}
+              onChange={(e) => setCategorySlug(e.target.value)}
+              className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
+            >
+              <option value="">—</option>
+              {PRODUCT_TYPE_CATEGORIES.map((cat) => (
+                <option key={cat.slug} value={cat.slug}>
+                  {cat.nameZh} ({cat.name})
+                </option>
+              ))}
+            </select>
           </div>
 
           {error && <p className="text-sm text-[#D94F3D]">{error}</p>}

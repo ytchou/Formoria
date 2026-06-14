@@ -19,8 +19,8 @@ function buildFieldSchemas(t: Translator) {
   const descriptionField = z
     .string()
     .min(40, t('validation.descriptionMinLength'))
-    .max(2000)
-  const categoryField = z.string().min(1, t('validation.categoryRequired'))
+    .max(500)
+  const categoryField = z.string().optional().default('')
   const regionField = z.string().optional()
   const valueTagsField = z.array(z.string()).max(3, t('validation.valueTagsMax')).optional().default([])
 
@@ -67,7 +67,7 @@ export function getBrandInfoSchema(t: Translator) {
       .transform((v) => (v === '' ? undefined : v)),
     region: regionField,
     valueTags: valueTagsField,
-    logoUrl: z.string().url(t('validation.logoRequired')).min(1, t('validation.logoRequired')),
+    logoUrl: z.string().url().optional().or(z.literal('')),
   })
 }
 
@@ -143,7 +143,7 @@ const zhT = (key: string): string => {
 }
 
 export const brandInfoSchema = getBrandInfoSchema(zhT)
-export const descriptionField = z.string().min(40, zhT('validation.descriptionMinLength')).max(2000)
+export const descriptionField = z.string().min(40, zhT('validation.descriptionMinLength')).max(500)
 export const productsSchema = getProductsSchema(zhT)
 export const linksSchema = getLinksSchema(zhT)
 export const reviewSchema = getReviewSchema(zhT)
@@ -213,8 +213,8 @@ function requireProductType<Schema extends z.ZodType>(
 
 /**
  * Schema factory for brand submission validation.
- * - isOwner=true: logoUrl and at least one purchaseLink are required
- * - isOwner=false: logoUrl and purchaseLinks are optional; sourceAttribution accepted
+ * - isOwner=true: at least one purchaseLink is required
+ * - isOwner=false: purchaseLinks are optional; sourceAttribution accepted
  *
  * Accepts an optional translator so Zod error messages can be localised.
  * Falls back to zh-TW strings when no translator is provided (server actions
@@ -235,9 +235,7 @@ export function createSubmissionSchema(isOwner: boolean, t: Translator = zhT) {
       .transform((v) => (v === '' ? undefined : v)),
     region: regionField,
     valueTags: valueTagsField,
-    logoUrl: isOwner
-      ? z.string().url(t('validation.logoRequired')).min(1, t('validation.logoRequired'))
-      : z.string().url().optional().or(z.literal('')),
+    logoUrl: z.string().url().optional().or(z.literal('')),
   })
 
   const linksBase = z.object({
@@ -293,9 +291,10 @@ type FullSubmissionSchemaData = z.infer<typeof fullSubmissionSchema>
 
 export type SubmissionFormData = Omit<
   FullSubmissionSchemaData,
-  'productTypeNote' | 'productTypes' | 'valueTags'
+  'productTypeNote' | 'productTypes' | 'valueTags' | 'brandHighlights'
 > & {
   productTypeNote?: string
   productTypes?: string[]
   valueTags?: string[]
+  brandHighlights?: string
 }

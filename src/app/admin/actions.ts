@@ -63,6 +63,7 @@ import { updateFeedbackStatus, syncSentryFeedback } from '@/lib/services/feedbac
 import type { FeedbackStatus } from '@/lib/services/feedback'
 import { checkAllServices } from '@/lib/services/health-checks'
 import type { TagCategory } from '@/lib/types'
+import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 export type PreviewRow = {
   rowIndex: number
@@ -80,7 +81,7 @@ export type ImportResult = {
   error?: string
 }
 
-function isStructuredTags(v: unknown): v is { region?: string; values?: string[] } {
+function isStructuredTags(v: unknown): v is { region?: string; values?: string[]; productTypes?: string[] } {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
@@ -187,6 +188,15 @@ export async function approveSubmissionAction(
         if (Array.isArray(structuredTags.values)) {
           await Promise.all(
             structuredTags.values.map(async (slug) => {
+              const tag = await getTagBySlug(slug)
+              if (tag) await addTagToBrand(brand.id, tag.id)
+            })
+          )
+        }
+
+        if (Array.isArray(structuredTags.productTypes)) {
+          await Promise.all(
+            structuredTags.productTypes.map(async (slug: string) => {
               const tag = await getTagBySlug(slug)
               if (tag) await addTagToBrand(brand.id, tag.id)
             })
@@ -569,6 +579,14 @@ export async function updateBrandAction(
     if ('error' in auth) return auth
 
     await updateBrand(brandId, data as Parameters<typeof updateBrand>[1])
+
+    if (data.category !== undefined) {
+      const category = PRODUCT_TYPE_CATEGORIES.find((c) => c.nameZh === data.category)
+      if (category) {
+        const tag = await getTagBySlug(category.slug)
+        if (tag) await addTagToBrand(brandId, tag.id)
+      }
+    }
 
     const { name, description, brandHighlights, website, purchaseUrl } = data
     const moderationPayload = {

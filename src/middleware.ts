@@ -24,6 +24,7 @@ export const RESERVED_ROUTES = new Set([
   'about',
   'terms',
   'my-submissions',
+  'settings',
   'global-error',
   'sitemap.xml',
   'robots.txt',
@@ -46,6 +47,7 @@ const PUBLIC_INTL_SEGMENTS = new Set([
   'submit',
   'my-submissions',
   'dashboard',
+  'settings',
 ])
 
 export function isLocalizedPublicPath(pathname: string) {

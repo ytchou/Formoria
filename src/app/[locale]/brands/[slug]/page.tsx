@@ -5,7 +5,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import {
   getBrandBySlug,
   getRelatedBrands,
-  getBrands,
+  getBrandCountByCategory,
   getAllBrandSlugs,
   getBrandDraft,
   mergeDraftOverBrand,
@@ -64,7 +64,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   try {
     const brand = await getBrandBySlug(slug)
-    const heroImageUrl = safeImageSrc(brand.heroImageUrl)
+    const heroImageUrl = safeImageSrc(brand.logoUrl) ?? safeImageSrc(brand.heroImageUrl)
     const { canonical, languages } = buildAlternates(`/brands/${brand.slug}`, safeLocale)
     const ogLocale = safeLocale === 'zh-TW' ? 'zh_TW' : 'en_US'
     const ogAlternateLocale = safeLocale === 'zh-TW' ? 'en_US' : 'zh_TW'
@@ -150,7 +150,7 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
   }
 
   // Gallery images: hero + product photos
-  const galleryImages = [displayBrand.heroImageUrl, ...displayBrand.productPhotos].filter(
+  const galleryImages = [displayBrand.logoUrl, displayBrand.heroImageUrl, ...displayBrand.productPhotos].filter(
     (url): url is string => Boolean(url),
   )
 
@@ -164,15 +164,13 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
         (tag.name === displayBrand.category || tag.nameZh === displayBrand.category),
     ) ?? displayBrand.tags.find((tag) => tag.category === 'product_type')
 
-  // Parallel fetch: related brands (legacy free-text category) + category count (by tag slug)
+  // Parallel fetch: related brands + category count by product_type tag slug.
   const [relatedBrands, categoryCount] = await Promise.all([
-    displayBrand.category
-      ? getRelatedBrands(displayBrand.category, displayBrand.slug, 4)
+    categoryTag
+      ? getRelatedBrands(categoryTag.slug, displayBrand.slug, 4)
       : Promise.resolve<Brand[]>([]),
     categoryTag
-      ? getBrands({ tags: [categoryTag.slug], status: 'approved', limit: 1 }).then((result) =>
-          Math.max(0, result.totalCount - 1),
-        )
+      ? getBrandCountByCategory(categoryTag.slug, displayBrand.slug)
       : Promise.resolve(0),
   ])
 
@@ -214,7 +212,7 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
 
         {/* Breadcrumb */}
         <BrandBreadcrumb
-          category={displayBrand.category}
+          categorySlug={categoryTag?.slug ?? null}
           categoryLabel={categoryLabel || null}
           brandName={displayBrand.name}
         />
@@ -274,10 +272,10 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
         </div>
 
         {/* Related brands */}
-        {displayBrand.category && (
+        {categoryTag && (
           <RelatedBrands
             brands={relatedBrands}
-            categoryName={displayBrand.category}
+            categoryName={categoryLabel || categoryTag.name}
             categoryLabel={categoryLabel || null}
           />
         )}

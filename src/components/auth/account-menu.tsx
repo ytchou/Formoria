@@ -56,6 +56,11 @@ export function AccountMenu() {
         >
           {t('account.dashboard')}
         </DropdownMenuItem>
+        <DropdownMenuItem
+          render={<Link href="/settings" />}
+        >
+          {t('account.settings')}
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <form action={signOut.bind(null, pathname)}>
           <DropdownMenuItem

@@ -3,12 +3,12 @@ import { Link } from '@/i18n/navigation'
 import { ChevronRight } from 'lucide-react'
 
 interface BrandBreadcrumbProps {
-  category: string | null
+  categorySlug: string | null
   categoryLabel: string | null
   brandName: string
 }
 
-export async function BrandBreadcrumb({ category, categoryLabel, brandName }: BrandBreadcrumbProps) {
+export async function BrandBreadcrumb({ categorySlug, categoryLabel, brandName }: BrandBreadcrumbProps) {
   const t = await getTranslations('brandDetail')
 
   return (
@@ -22,14 +22,14 @@ export async function BrandBreadcrumb({ category, categoryLabel, brandName }: Br
             {t('breadcrumb.directory')}
           </Link>
         </li>
-        {category && categoryLabel && (
+        {categorySlug && categoryLabel && (
           <>
             <li aria-hidden="true">
               <ChevronRight className="size-3.5" />
             </li>
             <li>
               <Link
-                href={`/brands?category=${encodeURIComponent(category)}`}
+                href={`/brands?category=${encodeURIComponent(categorySlug)}`}
                 className="transition-colors hover:text-foreground"
               >
                 {categoryLabel}
