@@ -1176,6 +1176,26 @@
       "cta": {
         "explore": "探索 Formoria 目錄",
         "submitAnother": "再提交一個品牌"
+      },
+      "whatNext": {
+        "heading": "接下來會發生什麼",
+        "reviewTime": {
+          "question": "審核需要多久？",
+          "answer": "我們的團隊通常會在 3 個工作天內完成審核。"
+        },
+        "contact": {
+          "question": "你們會如何聯繫我？",
+          "answer": "我們會透過您提供的電子郵件地址與您聯繫。"
+        },
+        "afterApproval": {
+          "question": "審核通過後會怎樣？",
+          "answer": "您的品牌將出現在 Formoria 目錄中，供訪客探索。"
+        },
+        "learnMore": {
+          "question": "想了解更多？",
+          "answer": "請前往我們的{link}查看完整介紹。",
+          "linkText": "入門指南"
+        }
       }
     },
     "validation": {
@@ -1200,6 +1220,96 @@
       "rateLimit": "提交次數過多，請稍後再試。",
       "validation": "驗證失敗，請再試一次。",
       "unexpected": "發生預期外的錯誤，請再試一次。"
+    }
+  },
+  "gettingStarted": {
+    "metadata": {
+      "title": "入門指南 — Formoria",
+      "description": "了解 Formoria 的運作方式、如何提交品牌，以及品牌主可以做什麼。"
+    },
+    "hero": {
+      "heading": "歡迎來到 Formoria",
+      "subtitle": "探索並支持台灣製造的品牌",
+      "cta": "提交您的品牌"
+    },
+    "howItWorks": {
+      "heading": "如何運作",
+      "browse": {
+        "title": "瀏覽",
+        "description": "探索我們精心策劃的台灣品牌目錄"
+      },
+      "submit": {
+        "title": "提交",
+        "description": "新增您喜愛的品牌或提交自己的品牌"
+      },
+      "goLive": {
+        "title": "上線",
+        "description": "審核通過後，品牌將出現在目錄中"
+      }
+    },
+    "submitting": {
+      "heading": "提交品牌",
+      "body1": "任何人都可以向 Formoria 目錄提交品牌。無論您是品牌主還是想分享發現的社群成員，流程都很簡單，大約只需 5 分鐘。",
+      "body2": "我們的團隊會審核每一筆提交，以確保品質和相關性。如果需要任何額外資訊，我們會與您聯繫。",
+      "checklist": {
+        "heading": "您需要準備",
+        "brandName": "品牌名稱",
+        "website": "品牌網站網址",
+        "categories": "產品類別",
+        "social": "社群媒體連結（選填）"
+      }
+    },
+    "brandDetail": {
+      "heading": "品牌列表呈現",
+      "brandName": "品牌名稱",
+      "category": "類別",
+      "description": "品牌的簡要介紹、故事與獨特之處。訪客可以探索產品、社群連結等資訊。",
+      "tagMIT": "台灣製造",
+      "tagVerified": "已驗證",
+      "caption": "每個品牌列表都包含必要資訊，幫助訪客探索並與品牌建立連結。"
+    },
+    "forOwners": {
+      "heading": "品牌主專區",
+      "claim": {
+        "title": "認領品牌",
+        "description": "驗證您的所有權，獲得完整的列表編輯權限"
+      },
+      "manage": {
+        "title": "管理列表",
+        "description": "隨時更新您的產品、連結和說明"
+      },
+      "track": {
+        "title": "追蹤表現",
+        "description": "了解訪客如何探索並與您的品牌互動"
+      }
+    },
+    "faq": {
+      "heading": "常見問題",
+      "free": {
+        "question": "上架品牌需要付費嗎？",
+        "answer": "不需要——在 Formoria 目錄中提交和上架品牌完全免費。我們致力於讓台灣品牌能被更多人看見。"
+      },
+      "reviewTime": {
+        "question": "審核流程需要多久？",
+        "answer": "我們的團隊通常會在 3 個工作天內完成審核。如果需要額外資訊，我們會與您聯繫。"
+      },
+      "whoCanSubmit": {
+        "question": "誰可以提交品牌？",
+        "answer": "任何人都可以提交品牌——您不需要是品牌主。我們鼓勵社群成員提交他們發現的優秀台灣品牌。"
+      },
+      "howToClaim": {
+        "question": "如何認領我的品牌？",
+        "answer": "品牌審核通過並上架後，您可以透過帳號設定認領所有權。這將讓您獲得編輯權限來管理列表。"
+      },
+      "updateListing": {
+        "question": "審核通過後可以更新列表嗎？",
+        "answer": "可以——已認領列表的品牌主可以隨時透過儀表板更新資訊、產品和連結。"
+      }
+    },
+    "ctaFooter": {
+      "heading": "準備好開始了嗎？",
+      "subtitle": "加入台灣品牌社群",
+      "cta": "提交您的品牌"
     }
   },
   "admin": {
