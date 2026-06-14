@@ -1373,11 +1373,29 @@
       "photos": "Upload clear photos that show the product or brand experience.",
       "links": "Include official links so reviewers can verify the submission."
     },
+    "forOwners": {
+      "heading": "For Brand Owners",
+      "claim": {
+        "title": "Claim Your Brand",
+        "description": "Verify your ownership and get full edit access to your listing"
+      },
+      "manage": {
+        "title": "Manage Your Listing",
+        "description": "Update your products, links, and descriptions anytime"
+      },
+      "track": {
+        "title": "Track Performance",
+        "description": "See how visitors discover and interact with your brand"
+      }
+    },
     "cta": {
       "heading": "Ready to add a Taiwan-made brand?",
       "body": "Start with the submission form, or review the FAQ if you need more detail.",
       "submit": "Submit a brand",
       "faq": "Read the FAQ"
+    },
+    "ctaFooter": {
+      "cta": "Submit Your Brand"
     }
   },
   "admin": {

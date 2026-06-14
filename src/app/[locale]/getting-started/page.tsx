@@ -9,6 +9,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { OwnerBenefitsSection } from '@/components/getting-started/OwnerBenefitsSection'
+import { buildFaqPageJsonLd } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 
@@ -33,14 +34,23 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function GettingStartedPage({ params }: PageProps) {
   const { locale } = await params
   setRequestLocale(locale)
+  const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const t = await getTranslations('gettingStarted')
 
   const steps = ['discover', 'submit', 'review', 'manage'] as const
   const questions = ['eligibility', 'details', 'review', 'approval', 'claim'] as const
   const tips = ['accurate', 'photos', 'links'] as const
+  const faqItems = questions.map((question) => ({
+    question: t(`questions.${question}.question`),
+    answer: t(`questions.${question}.answer`),
+  }))
 
   return (
     <main className="mx-auto w-full max-w-screen-xl px-6 py-10 md:px-10">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildFaqPageJsonLd(faqItems, safeLocale)) }}
+      />
       <section className="grid gap-8 border-b border-border pb-10 md:grid-cols-[minmax(0,1fr)_18rem] md:items-end">
         <div className="max-w-3xl">
           <p className="text-sm font-semibold text-primary">{t('hero.eyebrow')}</p>
@@ -54,7 +64,7 @@ export default async function GettingStartedPage({ params }: PageProps) {
         <div className="flex flex-col gap-3 sm:flex-row md:flex-col">
           <Link
             href="/submit"
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-cta px-5 py-3 text-sm font-medium text-white hover:bg-cta/90"
           >
             {t('hero.primaryCta')}
             <ArrowRight className="size-4" />
@@ -125,7 +135,7 @@ export default async function GettingStartedPage({ params }: PageProps) {
 
       <section className="grid gap-8 border-t border-border py-10 md:grid-cols-[18rem_minmax(0,1fr)]">
         <h2 className="font-heading text-2xl font-bold text-foreground">
-          For Brand Owners
+          {t('forOwners.heading')}
         </h2>
         <OwnerBenefitsSection />
       </section>
@@ -142,7 +152,7 @@ export default async function GettingStartedPage({ params }: PageProps) {
         <div className="mt-5 flex flex-col gap-3 sm:flex-row md:mt-0">
           <Link
             href="/submit"
-            className="inline-flex items-center justify-center rounded-lg bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="inline-flex items-center justify-center rounded-lg bg-cta px-5 py-3 text-sm font-medium text-white hover:bg-cta/90"
           >
             {t('cta.submit')}
           </Link>

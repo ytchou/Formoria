@@ -98,7 +98,7 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
             {faqs.map((faq, index) => (
               <div
                 key={faq}
-                className={index === 0 ? 'py-4 first:pt-0' : 'border-t border-border py-4'}
+                className={index === 0 ? 'py-4' : 'border-t border-border py-4'}
               >
                 <h3 className="text-sm font-semibold text-foreground">
                   {t(`whatNext.${faq}.question`)}
