@@ -24,6 +24,16 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
   const { locale } = await params
   setRequestLocale(locale)
   const t = await getTranslations('submit.confirmation')
+  const faqs = [
+    'reviewTime',
+    'contact',
+    'afterApproval',
+    'learnMore',
+  ] as const
+  const learnMoreLinkText = t('whatNext.learnMore.linkText')
+  const [learnMoreBefore, learnMoreAfter] = t('whatNext.learnMore.answer', {
+    link: learnMoreLinkText,
+  }).split(learnMoreLinkText)
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
@@ -78,6 +88,38 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
             ))}
           </div>
         </div>
+
+        {/* What Happens Next */}
+        <section className="mt-8 rounded-xl border border-border bg-card p-5">
+          <h2 className="font-heading text-base font-bold text-foreground">
+            {t('whatNext.heading')}
+          </h2>
+          <div className="mt-4">
+            {faqs.map((faq, index) => (
+              <div
+                key={faq}
+                className={index === 0 ? 'py-4' : 'border-t border-border py-4'}
+              >
+                <h3 className="text-sm font-semibold text-foreground">
+                  {t(`whatNext.${faq}.question`)}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {faq === 'learnMore' ? (
+                    <>
+                      {learnMoreBefore}
+                      <Link href="/getting-started" className="text-primary">
+                        {learnMoreLinkText}
+                      </Link>
+                      {learnMoreAfter}
+                    </>
+                  ) : (
+                    t(`whatNext.${faq}.answer`)
+                  )}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
 
         {/* CTAs */}
         <div className="mt-8 space-y-3">

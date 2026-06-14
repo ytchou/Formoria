@@ -15,6 +15,7 @@ vi.mock('next-intl', () => ({
       discoverHeading: '探索',
       directory: '品牌目錄',
       categories: '分類瀏覽',
+      gettingStarted: '開始使用',
       submit: '提交品牌',
       companyHeading: '關於',
       about: '關於我們',
@@ -40,6 +41,11 @@ describe('Footer', () => {
   it('renders 關於我們 link pointing to /about', () => {
     render(<Footer />)
     expect(screen.getByRole('link', { name: '關於我們' })).toHaveAttribute('href', '/about')
+  })
+
+  it('renders 開始使用 link pointing to /getting-started', () => {
+    render(<Footer />)
+    expect(screen.getByRole('link', { name: '開始使用' })).toHaveAttribute('href', '/getting-started')
   })
 
   it('renders 服務條款 link pointing to /terms', () => {

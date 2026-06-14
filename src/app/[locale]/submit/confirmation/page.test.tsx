@@ -1,16 +1,15 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest'
+import type { ReactNode } from 'react'
 import { render, screen } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
-import zh from '../../../../../messages/zh-TW.json'
+import { describe, expect, it, vi } from 'vitest'
+import messages from '../../../../../messages/en.json'
 
-// Mock next-intl/server before importing the page
 vi.mock('next-intl/server', () => ({
   getTranslations: vi.fn(),
   setRequestLocale: vi.fn(),
 }))
 
-// Mock localized Link to a simple anchor
 vi.mock('@/i18n/navigation', () => ({
   Link: ({
     href,
@@ -18,7 +17,7 @@ vi.mock('@/i18n/navigation', () => ({
     className,
   }: {
     href: string
-    children: React.ReactNode
+    children: ReactNode
     className?: string
   }) => (
     <a href={href} className={className}>
@@ -30,63 +29,84 @@ vi.mock('@/i18n/navigation', () => ({
 import { getTranslations } from 'next-intl/server'
 import ConfirmationPage from './page'
 
-type Messages = typeof zh
+type Messages = typeof messages
 
-function makeT(messages: Messages, namespace: string) {
-  return (key: string) => {
+function makeT(translations: Messages, namespace: string) {
+  const translate = (key: string, values: Record<string, unknown> = {}) => {
     const parts = `${namespace}.${key}`.split('.')
-    let current: unknown = messages
+    let current: unknown = translations
+
     for (const part of parts) {
       if (typeof current !== 'object' || current === null) return key
       current = (current as Record<string, unknown>)[part]
     }
-    return typeof current === 'string' ? current : key
+
+    if (typeof current !== 'string') return key
+
+    return current.replace(/\{(\w+)\}/g, (_match, name: string) =>
+      String(values[name] ?? `{${name}}`)
+    )
   }
+
+  const rich = (key: string, values: Record<string, unknown> = {}) => {
+    const raw = translate(key)
+    const segments: ReactNode[] = []
+    let remaining = raw
+
+    while (remaining.includes('{link}')) {
+      const [before, after] = remaining.split('{link}', 2)
+      if (before) segments.push(before)
+      const link = values.link
+      segments.push(typeof link === 'function' ? (link as () => ReactNode)() : (link as ReactNode))
+      remaining = after
+    }
+
+    if (remaining) segments.push(remaining)
+    return segments.length === 1 ? segments[0] : segments
+  }
+
+  return Object.assign((key: string, values?: Record<string, unknown>) => translate(key, values), { rich })
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 vi.mocked(getTranslations).mockImplementation(async (namespace: any) => {
-  const t = makeT(zh as Messages, typeof namespace === 'string' ? namespace : '')
+  const t = makeT(messages, typeof namespace === 'string' ? namespace : '')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return t as any
 })
 
 async function renderConfirmationPage() {
-  const ui = await ConfirmationPage({ params: Promise.resolve({ locale: 'zh-TW' }) })
+  const ui = await ConfirmationPage({ params: Promise.resolve({ locale: 'en' }) })
+
   return render(
-    <NextIntlClientProvider locale="zh-TW" messages={zh}>
+    <NextIntlClientProvider locale="en" messages={messages}>
       {ui}
     </NextIntlClientProvider>
   )
 }
 
 describe('ConfirmationPage', () => {
-  it('renders thank you heading', async () => {
+  it('renders the what happens next FAQ section', async () => {
     await renderConfirmationPage()
-    expect(screen.getByText(/感謝您/)).toBeInTheDocument()
-  })
 
-  it('explains the review process', async () => {
-    await renderConfirmationPage()
-    // timeline.review.label = "審核中", timeline.review.description mentions "3 個工作天"
-    expect(screen.getByText(/審核中/)).toBeInTheDocument()
-    expect(screen.getByText(/3 個工作天/)).toBeInTheDocument()
-  })
+    expect(screen.getByRole('heading', { name: 'What Happens Next' })).toBeInTheDocument()
 
-  it('has a link to the directory', async () => {
-    await renderConfirmationPage()
-    // cta.explore = "探索 Formoria 目錄"
-    const link = screen.getByRole('link', {
-      name: /探索 Formoria 目錄/,
-    })
-    expect(link).toHaveAttribute('href', '/')
-  })
+    expect(screen.getByText('How long does review take?')).toBeInTheDocument()
+    expect(screen.getByText('How will I be contacted?')).toBeInTheDocument()
+    expect(screen.getByText('What happens after approval?')).toBeInTheDocument()
+    expect(screen.getByText('Want to learn more?')).toBeInTheDocument()
 
-  it('shows a 3-step timeline', async () => {
-    await renderConfirmationPage()
-    // timeline labels: "審核中", "如有需要，我們會與您聯繫", "您的品牌上線"
-    expect(screen.getByText(/審核中/)).toBeInTheDocument()
-    expect(screen.getByText(/聯繫/)).toBeInTheDocument()
-    expect(screen.getByText(/品牌上線/)).toBeInTheDocument()
+    expect(
+      screen.getByText('Our team typically completes reviews within 3 business days.')
+    ).toBeInTheDocument()
+    expect(screen.getByText("We'll reach out via the email address you provided.")).toBeInTheDocument()
+    expect(
+      screen.getByText('Your brand will appear in the Formoria directory for visitors to discover.')
+    ).toBeInTheDocument()
+    expect(screen.getByText('Visit our', { exact: false })).toBeInTheDocument()
+    expect(screen.getByText('for a complete overview.', { exact: false })).toBeInTheDocument()
+
+    const link = screen.getByRole('link', { name: 'Getting Started guide' })
+    expect(link).toHaveAttribute('href', expect.stringContaining('/getting-started'))
   })
 })
