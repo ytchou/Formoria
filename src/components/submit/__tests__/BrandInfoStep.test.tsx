@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { render, screen } from '@testing-library/react'
 import { FormProvider, useForm } from 'react-hook-form'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
@@ -62,49 +61,12 @@ function renderBrandInfoStep() {
   )
 }
 
-describe('BrandInfoStep product types', () => {
-  it('renders at least 10 product type checkboxes with expected labels', () => {
+describe('BrandInfoStep', () => {
+  it('does not render product type UI (moved to TagsStep)', () => {
     renderBrandInfoStep()
 
-    const productTypeGroup = screen.getByRole('group', { name: '產品類型' })
-
-    expect(within(productTypeGroup).getAllByRole('checkbox').length).toBeGreaterThanOrEqual(10)
-    expect(screen.getByText('服飾鞋履')).toBeInTheDocument()
-    expect(screen.getByText('母嬰寵物')).toBeInTheDocument()
-  })
-
-  it('shows the free-text mode toggle as a switch', () => {
-    renderBrandInfoStep()
-
-    expect(screen.getByRole('switch', { name: /以上都不適合？/ })).toBeInTheDocument()
-  })
-
-  it('hides the product type textarea by default', () => {
-    renderBrandInfoStep()
-
+    // Product types were moved to TagsStep — verify they're not here
     expect(screen.queryByPlaceholderText(/手工皮件/)).toBeNull()
-  })
-
-  it('reveals the product type textarea after clicking the toggle', async () => {
-    const user = userEvent.setup()
-    renderBrandInfoStep()
-
-    await user.click(screen.getByRole('switch', { name: /以上都不適合？/ }))
-
-    expect(screen.getByText('請描述你的產品類型')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText(/手工皮件/)).toBeInTheDocument()
-  })
-
-  it('disables all product type checkboxes after clicking the toggle', async () => {
-    const user = userEvent.setup()
-    renderBrandInfoStep()
-
-    const productTypeGroup = screen.getByRole('group', { name: '產品類型' })
-    const checkboxes = within(productTypeGroup).getAllByRole('checkbox')
-    await user.click(screen.getByRole('switch', { name: /以上都不適合？/ }))
-
-    checkboxes.forEach((checkbox) => {
-      expect(checkbox).toHaveAttribute('aria-disabled', 'true')
-    })
+    expect(screen.queryByRole('group', { name: '產品類型' })).toBeNull()
   })
 })

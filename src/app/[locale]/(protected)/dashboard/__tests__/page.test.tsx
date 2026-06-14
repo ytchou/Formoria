@@ -43,6 +43,10 @@ vi.mock('@/lib/services/saved-brands', () => ({
   getUserSavedBrands: vi.fn(),
 }))
 
+vi.mock('@/lib/services/profiles', () => ({
+  getProfile: vi.fn(),
+}))
+
 vi.mock('@/components/dashboard/brand-management-panel', () => ({
   BrandManagementPanel: ({ slug }: { slug: string }) => (
     <div>Brand management panel: {slug}</div>
@@ -53,6 +57,7 @@ import { getTranslations } from 'next-intl/server'
 import { getUserBrands } from '@/lib/services/brand-owners'
 import { getUserSubmissions } from '@/lib/services/submissions'
 import { getUserSavedBrands } from '@/lib/services/saved-brands'
+import { getProfile } from '@/lib/services/profiles'
 import DashboardPage from '../page'
 
 type Messages = typeof zh
@@ -93,6 +98,7 @@ beforeEach(() => {
   vi.mocked(getUserBrands).mockResolvedValue([])
   vi.mocked(getUserSubmissions).mockResolvedValue([])
   vi.mocked(getUserSavedBrands).mockResolvedValue([])
+  vi.mocked(getProfile).mockResolvedValue(null)
 })
 
 describe('saved brands tab', () => {

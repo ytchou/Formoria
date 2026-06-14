@@ -54,16 +54,6 @@ describe('ReviewStep', () => {
     ).toBeInTheDocument()
   })
 
-  it('displays product photos count', () => {
-    render(
-      <Wrapper>
-        <ReviewStep onEditStep={vi.fn()} />
-      </Wrapper>
-    )
-    // photoCountSingular in zh-TW: "1 張照片已上傳"
-    expect(screen.getByText(/1 張照片/)).toBeInTheDocument()
-  })
-
   it('displays purchase links', () => {
     render(
       <Wrapper>

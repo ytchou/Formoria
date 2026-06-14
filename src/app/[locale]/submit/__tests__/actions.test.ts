@@ -257,7 +257,7 @@ describe('server action schema routing', () => {
 
     expect(mockCreateSubmission).toHaveBeenCalledWith(
       expect.objectContaining({
-        suggestedTags: { region: 'taipei', values: ['sustainability'] },
+        suggestedTags: { region: 'taipei', values: ['sustainability'], productTypes: ['fashion'] },
       })
     )
   })
