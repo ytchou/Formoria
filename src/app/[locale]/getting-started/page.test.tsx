@@ -33,6 +33,10 @@ vi.mock('@/components/ui/accordion', () => ({
   AccordionTrigger: ({ children }: { children: ReactNode }) => <button>{children}</button>,
 }))
 
+vi.mock('@/lib/auth/use-user', () => ({
+  useUser: vi.fn(() => ({ user: null, loading: false })),
+}))
+
 import { getTranslations } from 'next-intl/server'
 import GettingStartedPage from './page'
 

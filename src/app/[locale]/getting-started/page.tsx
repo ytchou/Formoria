@@ -8,6 +8,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
+import { OwnerBenefitsSection } from '@/components/getting-started/OwnerBenefitsSection'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 
@@ -120,6 +121,13 @@ export default async function GettingStartedPage({ params }: PageProps) {
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className="grid gap-8 border-t border-border py-10 md:grid-cols-[18rem_minmax(0,1fr)]">
+        <h2 className="font-heading text-2xl font-bold text-foreground">
+          For Brand Owners
+        </h2>
+        <OwnerBenefitsSection />
       </section>
 
       <section className="rounded-xl border border-border bg-card p-6 md:flex md:items-center md:justify-between md:gap-8">
