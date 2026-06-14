@@ -1,6 +1,6 @@
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
-import { CONTACT_EMAILS } from '@/lib/constants'
+import { CONTACT_EMAILS, FEEDBACK_FORM_URL } from '@/lib/constants'
 
 export function Footer() {
   const t = useTranslations('footer')
@@ -108,6 +108,16 @@ export function Footer() {
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {t('contact')}
+                </a>
+              </li>
+              <li>
+                <a
+                  href={FEEDBACK_FORM_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {t('feedback')}
                 </a>
               </li>
             </ul>

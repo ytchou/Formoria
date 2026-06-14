@@ -1,9 +1,10 @@
 'use client'
 
-import { useTransition } from 'react'
+import { Fragment, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { reviewReportAction } from '@/app/admin/actions'
 import type { BrandReport, ReportReason } from '@/lib/services/reports'
+import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -25,32 +26,13 @@ const REASON_LABELS: Record<ReportReason, string> = {
   removal_request: '要求移除',
 }
 
-function ActionPill({
-  label,
-  onClick,
-  variant = 'default',
-}: {
-  label: string
-  onClick: () => void
-  variant?: 'default' | 'destructive'
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={
-        variant === 'destructive'
-          ? 'inline-flex items-center rounded-full bg-[#F5F4F1] px-3 py-1 text-xs font-medium text-[#7C7570] transition-colors hover:bg-[#EAE7E2]'
-          : 'inline-flex items-center rounded-full bg-[#F5F4F1] px-3 py-1 text-xs font-medium text-[#3D3531] transition-colors hover:bg-[#EAE7E2]'
-      }
-    >
-      {label}
-    </button>
-  )
-}
-
 export function ReportsTable({ reports }: ReportsTableProps) {
-  const [, startTransition] = useTransition()
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+
+  function handleRowClick(id: string) {
+    setExpandedId((prev) => (prev === id ? null : id))
+  }
 
   function handleReview(id: string, decision: 'reviewed' | 'dismissed') {
     startTransition(async () => {
@@ -58,45 +40,103 @@ export function ReportsTable({ reports }: ReportsTableProps) {
     })
   }
 
+  function formatDate(dateStr: string) {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+  }
+
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>品牌</TableHead>
-          <TableHead>原因</TableHead>
-          <TableHead>補充</TableHead>
-          <TableHead>日期</TableHead>
-          <TableHead>操作</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {reports.length === 0 ? (
+    <div className="mt-4 rounded-lg border bg-white">
+      <Table>
+        <TableHeader>
           <TableRow>
-            <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
-              目前沒有待處理的檢舉。
-            </TableCell>
+            <TableHead>品牌</TableHead>
+            <TableHead>原因</TableHead>
+            <TableHead>日期</TableHead>
+            <TableHead>狀態</TableHead>
           </TableRow>
-        ) : (
-          reports.map((r) => (
-            <TableRow key={r.id}>
-              <TableCell className="font-medium">
-                <Link href={`/brands/${r.brandSlug}`} className="underline">
-                  {r.brandName}
-                </Link>
-              </TableCell>
-              <TableCell>{REASON_LABELS[r.reason]}</TableCell>
-              <TableCell className="max-w-xs truncate">{r.notes ?? '—'}</TableCell>
-              <TableCell>{new Date(r.createdAt).toLocaleDateString('zh-TW')}</TableCell>
-              <TableCell>
-                <div className="flex gap-1.5">
-                  <ActionPill label="審核" onClick={() => handleReview(r.id, 'reviewed')} />
-                  <ActionPill label="忽略" onClick={() => handleReview(r.id, 'dismissed')} variant="destructive" />
-                </div>
+        </TableHeader>
+        <TableBody>
+          {reports.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={4} className="py-8 text-center text-[#7C7570]">
+                目前沒有待處理的檢舉。
               </TableCell>
             </TableRow>
-          ))
-        )}
-      </TableBody>
-    </Table>
+          ) : (
+            reports.map((r) => (
+              <Fragment key={r.id}>
+                <TableRow
+                  className="cursor-pointer hover:bg-[#F5F4F1]"
+                  onClick={() => handleRowClick(r.id)}
+                >
+                  <TableCell className="font-medium">
+                    <Link
+                      href={`/brands/${r.brandSlug}`}
+                      className="underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {r.brandName}
+                    </Link>
+                  </TableCell>
+                  <TableCell>{REASON_LABELS[r.reason]}</TableCell>
+                  <TableCell>{formatDate(r.createdAt)}</TableCell>
+                  <TableCell>
+                    <span className="inline-flex items-center rounded-full bg-[#FAF8F3] px-2 py-0.5 text-xs font-semibold text-[#C4693B] border border-[#C4693B]">
+                      待處理
+                    </span>
+                  </TableCell>
+                </TableRow>
+
+                {expandedId === r.id && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="bg-[#FAF7F4] p-6">
+                      <div className="space-y-4">
+                        {r.notes && (
+                          <div>
+                            <p className="text-sm font-medium text-[#7C7570]">
+                              補充說明
+                            </p>
+                            <p className="mt-1 text-sm">
+                              {r.notes}
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="flex items-start gap-3">
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleReview(r.id, 'reviewed')
+                            }}
+                            disabled={isPending}
+                            className="bg-[#E06B3F] hover:bg-[#c95d36]"
+                          >
+                            審核
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleReview(r.id, 'dismissed')
+                            }}
+                            disabled={isPending}
+                          >
+                            忽略
+                          </Button>
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </Fragment>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </div>
   )
 }

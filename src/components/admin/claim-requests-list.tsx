@@ -190,28 +190,28 @@ export function ClaimRequestsList({
         onValueChange={(value) => setActiveTab(value as TabValue)}
       >
         <TabsList>
+          <TabsTrigger value="all">全部 ({tabCounts.all})</TabsTrigger>
           <TabsTrigger value="pending">
-            Pending ({tabCounts.pending})
+            待審核 ({tabCounts.pending})
           </TabsTrigger>
           <TabsTrigger value="approved">
-            Approved ({tabCounts.approved})
+            已核准 ({tabCounts.approved})
           </TabsTrigger>
           <TabsTrigger value="rejected">
-            Rejected ({tabCounts.rejected})
+            已拒絕 ({tabCounts.rejected})
           </TabsTrigger>
-          <TabsTrigger value="all">All ({tabCounts.all})</TabsTrigger>
         </TabsList>
       </Tabs>
 
-      <div className="mt-4 rounded-lg border bg-background">
+      <div className="mt-4 rounded-lg border bg-white">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Brand</TableHead>
-              <TableHead>Requester email</TableHead>
-              <TableHead>Proofs</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>品牌</TableHead>
+              <TableHead>申請者</TableHead>
+              <TableHead>證明</TableHead>
+              <TableHead>日期</TableHead>
+              <TableHead>狀態</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -219,7 +219,7 @@ export function ClaimRequestsList({
               <Fragment key={claimRequest.id}>
                 <TableRow
                   aria-expanded={expandedId === claimRequest.id}
-                  className="cursor-pointer"
+                  className="cursor-pointer hover:bg-[#F5F4F1]"
                   onClick={() => handleRowClick(claimRequest.id)}
                 >
                   <TableCell className="font-medium">
@@ -235,7 +235,7 @@ export function ClaimRequestsList({
 
                 {expandedId === claimRequest.id && (
                   <TableRow>
-                    <TableCell colSpan={5} className="bg-secondary p-6 whitespace-normal">
+                    <TableCell colSpan={5} className="bg-[#FAF7F4] p-6 whitespace-normal">
                       <div className="space-y-4">
                         <div className="space-y-3">
                           <p className="text-sm font-medium text-muted-foreground">
@@ -466,8 +466,8 @@ export function ClaimRequestsList({
 
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                  No claim requests found.
+                <TableCell colSpan={5} className="py-8 text-center text-[#7C7570]">
+                  找不到認領申請。
                 </TableCell>
               </TableRow>
             )}

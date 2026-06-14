@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
-import { BulkImportForm } from '@/components/admin/bulk-import-form'
+import { BulkImportV2 } from '@/components/admin/bulk-import-v2'
 
 vi.mock('@/app/admin/actions', () => ({
   previewBulkImportAction: vi.fn(),
@@ -10,55 +10,56 @@ vi.mock('@/app/admin/actions', () => ({
 
 const { previewBulkImportAction, executeBulkImportAction } = await import('@/app/admin/actions')
 
-describe('BulkImportForm', () => {
-  it('renders textarea and preview button', () => {
-    render(<BulkImportForm />)
-    expect(screen.getByRole('textbox')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /preview/i })).toBeInTheDocument()
+describe('BulkImportV2', () => {
+  it('renders file input and preview button', () => {
+    render(<BulkImportV2 />)
+    expect(screen.getByText('建議每次匯入不超過 200 筆')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '預覽' })).toBeInTheDocument()
   })
 
   it('shows error message when previewBulkImportAction returns error', async () => {
     vi.mocked(previewBulkImportAction).mockResolvedValue({ error: 'No rows found in CSV', rows: [] })
-    render(<BulkImportForm />)
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: '' } })
-    fireEvent.click(screen.getByRole('button', { name: /preview/i }))
+    render(<BulkImportV2 />)
+    const file = new File([''], 'brands.csv', { type: 'text/csv' })
+    fireEvent.change(document.querySelector('input[type="file"]')!, { target: { files: [file] } })
+    fireEvent.click(screen.getByRole('button', { name: '預覽' }))
     await waitFor(() => expect(screen.getByText(/no rows found/i)).toBeInTheDocument())
   })
 
   it('shows preview table with rows after successful preview', async () => {
     vi.mocked(previewBulkImportAction).mockResolvedValue({
       rows: [
-        { rowIndex: 0, name: 'Taiwan Tea', slug: 'taiwan-tea', status: 'new', validatedData: {} as never },
-        { rowIndex: 1, name: 'Old Brand', slug: 'old-brand', status: 'potential-duplicate', match: { brandName: 'Old Brand Co', brandSlug: 'old-brand-co', score: 0.8, inputName: 'Old Brand' }, validatedData: {} as never },
+        { rowIndex: 1, name: 'Taiwan Tea', slug: 'taiwan-tea', status: 'valid', validatedData: {} as never },
+        { rowIndex: 2, name: 'Old Brand', slug: 'old-brand', status: 'duplicate', reason: '可能與「Old Brand Co」重複', validatedData: {} as never },
       ],
     })
-    render(<BulkImportForm />)
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'name,description\n...' } })
-    fireEvent.click(screen.getByRole('button', { name: /preview/i }))
+    render(<BulkImportV2 />)
+    const file = new File(['name,description\n...'], 'brands.csv', { type: 'text/csv' })
+    fireEvent.change(document.querySelector('input[type="file"]')!, { target: { files: [file] } })
+    fireEvent.click(screen.getByRole('button', { name: '預覽' }))
     await waitFor(() => {
       expect(screen.getByText('Taiwan Tea')).toBeInTheDocument()
       expect(screen.getByText('Old Brand')).toBeInTheDocument()
-      // New rows pre-selected, duplicates deselected
-      // checkboxes[0] is the "Select all rows" header checkbox
       const checkboxes = screen.getAllByRole('checkbox')
-      expect(checkboxes[1]).toBeChecked()    // Taiwan Tea (new) — pre-selected
-      expect(checkboxes[2]).not.toBeChecked() // Old Brand (duplicate) — deselected
+      expect(checkboxes[1]).toBeChecked()
+      expect(checkboxes[2]).not.toBeChecked()
     })
-    expect(screen.getByRole('button', { name: /import selected/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '匯入已選' })).toBeInTheDocument()
   })
 
   it('shows results table after import', async () => {
     vi.mocked(previewBulkImportAction).mockResolvedValue({
-      rows: [{ rowIndex: 0, name: 'Taiwan Tea', slug: 'taiwan-tea', status: 'new', validatedData: {} as never }],
+      rows: [{ rowIndex: 1, name: 'Taiwan Tea', slug: 'taiwan-tea', status: 'valid', validatedData: {} as never }],
     })
     vi.mocked(executeBulkImportAction).mockResolvedValue({
-      results: [{ name: 'Taiwan Tea', status: 'imported' }],
+      results: [{ rowIndex: 1, name: 'Taiwan Tea', status: 'created' }],
     })
-    render(<BulkImportForm />)
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'name\nTaiwan Tea' } })
-    fireEvent.click(screen.getByRole('button', { name: /preview/i }))
-    await waitFor(() => screen.getByRole('button', { name: /import selected/i }))
-    fireEvent.click(screen.getByRole('button', { name: /import selected/i }))
-    await waitFor(() => expect(screen.getAllByText(/imported/i).length).toBeGreaterThan(0))
+    render(<BulkImportV2 />)
+    const file = new File(['name\nTaiwan Tea'], 'brands.csv', { type: 'text/csv' })
+    fireEvent.change(document.querySelector('input[type="file"]')!, { target: { files: [file] } })
+    fireEvent.click(screen.getByRole('button', { name: '預覽' }))
+    await waitFor(() => screen.getByRole('button', { name: '匯入已選' }))
+    fireEvent.click(screen.getByRole('button', { name: '匯入已選' }))
+    await waitFor(() => expect(screen.getAllByText('已建立').length).toBeGreaterThan(0))
   })
 })

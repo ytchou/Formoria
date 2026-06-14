@@ -49,14 +49,16 @@ export async function POST(request: Request): Promise<Response> {
     const { data } = payload
     const fields = data.fields ?? []
 
-    const typeField = fields.find((f) => f.label === 'type')
-    const messageField = fields.find((f) => f.label === 'message')
-    const titleField = fields.find((f) => f.label === 'title')
+    const typeField = fields.find((f) => f.label === '回饋類型')
+    const messageField = fields.find((f) => f.label === '詳細說明')
+    const titleField = fields.find((f) => f.label === '標題')
+    const emailField = fields.find((f) => f.label === '電子信箱')
 
     const type = typeField?.value === 'bug' ? 'bug' : 'feedback'
     const body = typeof messageField?.value === 'string' ? messageField.value : undefined
     const title = typeof titleField?.value === 'string' ? titleField.value : undefined
     const url = data.pageContext?.url ?? undefined
+    const userEmail = typeof emailField?.value === 'string' ? emailField.value : undefined
 
     await createFeedbackFromTally({
       tallyResponseId: data.responseId,
@@ -64,6 +66,7 @@ export async function POST(request: Request): Promise<Response> {
       title,
       body,
       url,
+      userEmail,
     })
 
     return new Response(null, { status: 200 })

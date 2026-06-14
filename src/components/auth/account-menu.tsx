@@ -6,6 +6,7 @@ import { Link } from '@/i18n/navigation'
 
 import { signOut } from '@/app/auth/actions'
 import { useUser } from '@/lib/auth/use-user'
+import { FEEDBACK_FORM_URL } from '@/lib/constants'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,6 +61,11 @@ export function AccountMenu() {
           render={<Link href="/settings" />}
         >
           {t('account.settings')}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          render={<a href={FEEDBACK_FORM_URL} target="_blank" rel="noopener noreferrer" />}
+        >
+          {t('account.feedback')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <form action={signOut.bind(null, pathname)}>

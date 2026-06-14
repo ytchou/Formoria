@@ -42,7 +42,8 @@
     "faq": "FAQ",
     "support": "Support",
     "legalHeading": "Legal",
-    "connectHeading": "Connect"
+    "connectHeading": "Connect",
+    "feedback": "Feedback"
   },
   "landing": {
     "metadata": {
@@ -686,7 +687,8 @@
     "menuLabel": "Account",
     "dashboard": "Owner Dashboard",
     "signOut": "Sign out",
-    "settings": "Settings"
+    "settings": "Settings",
+    "feedback": "Feedback"
   },
   "settings": {
     "metadata": {

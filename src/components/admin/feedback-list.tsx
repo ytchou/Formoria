@@ -15,32 +15,28 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 
 type Tab = 'all' | FeedbackStatus
-type SourceFilter = 'all' | 'sentry' | 'tally'
 
 const STATUS_LABELS: Record<FeedbackStatus, string> = {
-  open: 'Open',
-  reviewed: 'Reviewed',
-  closed: 'Closed',
+  open: '待處理',
+  reviewed: '已審閱',
+  closed: '已關閉',
 }
 
-const SOURCE_LABELS: Record<SourceFilter, string> = {
-  all: 'All',
+const SOURCE_LABELS: Record<FeedbackItem['source'], string> = {
   sentry: 'Sentry',
   tally: 'Tally',
 }
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString()
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
 }
 
 function getTitlePreview(item: FeedbackItem) {
   return item.title ?? item.body?.slice(0, 60) ?? '—'
-}
-
-function getSourceBadgeClass(source: FeedbackItem['source']) {
-  return source === 'sentry'
-    ? 'bg-[#F5F4F1] text-[#7C7570]'
-    : 'bg-[#E5E0D8] text-[#7C7570]'
 }
 
 function getStatusBadgeClass(status: FeedbackStatus) {
@@ -51,19 +47,16 @@ function getStatusBadgeClass(status: FeedbackStatus) {
 
 export function FeedbackList({ items }: { items: FeedbackItem[] }) {
   const [activeTab, setActiveTab] = useState<Tab>('all')
-  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  const filtered = items.filter((item) => {
-    const statusMatches = activeTab === 'all' || item.status === activeTab
-    const sourceMatches = sourceFilter === 'all' || item.source === sourceFilter
-
-    return statusMatches && sourceMatches
-  })
+  const filtered =
+    activeTab === 'all'
+      ? items
+      : items.filter((item) => item.status === activeTab)
 
   const tabCounts = {
     all: items.length,
@@ -95,7 +88,7 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
         if ('error' in result) {
           setSyncMessage(result.error)
         } else {
-          setSyncMessage(`Synced ${result.synced} feedback item(s).`)
+          setSyncMessage(`已同步 ${result.synced} 筆回饋。`)
         }
       } finally {
         setSyncing(false)
@@ -105,32 +98,29 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
 
   return (
     <div>
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap gap-2">
-          {(['all', 'sentry', 'tally'] as SourceFilter[]).map((source) => (
-            <button
-              key={source}
-              type="button"
-              aria-pressed={sourceFilter === source}
-              onClick={() => setSourceFilter(source)}
-              className={
-                sourceFilter === source
-                  ? 'rounded-full border border-[#2F5D50] bg-[#2F5D50] px-3 py-1 text-sm font-medium text-white'
-                  : 'rounded-full border border-[#E5E0D8] bg-white px-3 py-1 text-sm font-medium text-[#7C7570] hover:border-[#2F5D50]'
-              }
-            >
-              {SOURCE_LABELS[source]}
-            </button>
-          ))}
-        </div>
+      <div className="flex items-center justify-between">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as Tab)}
+        >
+          <TabsList>
+            <TabsTrigger value="all">全部 ({tabCounts.all})</TabsTrigger>
+            <TabsTrigger value="open">待處理 ({tabCounts.open})</TabsTrigger>
+            <TabsTrigger value="reviewed">
+              已審閱 ({tabCounts.reviewed})
+            </TabsTrigger>
+            <TabsTrigger value="closed">已關閉 ({tabCounts.closed})</TabsTrigger>
+          </TabsList>
+        </Tabs>
 
-        <div className="flex flex-col gap-2 sm:items-end">
+        <div className="flex items-center gap-2">
           <Button
+            size="sm"
+            variant="outline"
             onClick={handleSync}
             disabled={syncing}
-            className="bg-[#2F5D50] text-white hover:bg-[#1F3F36]"
           >
-            {syncing ? 'Syncing...' : 'Sync Sentry'}
+            {syncing ? '同步中...' : '同步 Sentry'}
           </Button>
           {syncMessage && (
             <p className="text-sm text-[#7C7570]">{syncMessage}</p>
@@ -138,34 +128,18 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
         </div>
       </div>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) => setActiveTab(value as Tab)}
-      >
-        <TabsList>
-          <TabsTrigger value="all">All ({tabCounts.all})</TabsTrigger>
-          <TabsTrigger value="open">Open ({tabCounts.open})</TabsTrigger>
-          <TabsTrigger value="reviewed">
-            Reviewed ({tabCounts.reviewed})
-          </TabsTrigger>
-          <TabsTrigger value="closed">Closed ({tabCounts.closed})</TabsTrigger>
-        </TabsList>
-      </Tabs>
-
       {actionError && (
         <p className="mt-4 text-sm text-[#D94F3D]">{actionError}</p>
       )}
 
-      <div className="mt-4 rounded-lg border border-[#E5E0D8] bg-white">
+      <div className="mt-4 rounded-lg border bg-white">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Source</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Title/Preview</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead>來源</TableHead>
+              <TableHead>標題</TableHead>
+              <TableHead>日期</TableHead>
+              <TableHead>狀態</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -176,16 +150,14 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
                   onClick={() => handleRowClick(item.id)}
                 >
                   <TableCell>
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${getSourceBadgeClass(item.source)}`}
-                    >
+                    <span className="inline-flex items-center rounded-full bg-[#F5F4F1] px-2 py-0.5 text-xs font-semibold text-[#7C7570]">
                       {SOURCE_LABELS[item.source]}
                     </span>
                   </TableCell>
-                  <TableCell className="capitalize">{item.type}</TableCell>
-                  <TableCell className="max-w-xs truncate font-medium text-[#1C1C1C]">
+                  <TableCell className="max-w-xs truncate font-medium">
                     {getTitlePreview(item)}
                   </TableCell>
+                  <TableCell>{formatDate(item.createdAt)}</TableCell>
                   <TableCell>
                     <span
                       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${getStatusBadgeClass(item.status)}`}
@@ -193,91 +165,85 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
                       {STATUS_LABELS[item.status]}
                     </span>
                   </TableCell>
-                  <TableCell>{formatDate(item.createdAt)}</TableCell>
-                  <TableCell
-                    onClick={(event) => event.stopPropagation()}
-                    className="space-x-2"
-                  >
-                    {item.status !== 'reviewed' && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleStatusChange(item.id, 'reviewed')}
-                        disabled={isPending}
-                        className="bg-[#2F5D50] text-white hover:bg-[#1F3F36]"
-                      >
-                        Mark Reviewed
-                      </Button>
-                    )}
-                    {item.status !== 'closed' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleStatusChange(item.id, 'closed')}
-                        disabled={isPending}
-                      >
-                        Close
-                      </Button>
-                    )}
-                  </TableCell>
                 </TableRow>
 
                 {expandedId === item.id && (
-                  <TableRow className="bg-[#FAF7F4]">
-                    <TableCell colSpan={6} className="p-6">
+                  <TableRow>
+                    <TableCell colSpan={4} className="bg-[#FAF7F4] p-6">
                       <div className="space-y-4">
-                        <div>
-                          <p className="text-sm font-medium text-[#7C7570]">
-                            Body
-                          </p>
-                          <p className="mt-1 whitespace-pre-wrap text-sm text-[#1C1C1C]">
-                            {item.body ?? '—'}
-                          </p>
-                        </div>
+                        {item.body && (
+                          <div>
+                            <p className="text-sm font-medium text-[#7C7570]">
+                              內容
+                            </p>
+                            <p className="mt-1 whitespace-pre-wrap text-sm">
+                              {item.body}
+                            </p>
+                          </div>
+                        )}
 
-                        <div>
-                          <p className="text-sm font-medium text-[#7C7570]">
-                            URL
-                          </p>
-                          {item.url ? (
+                        {item.url && (
+                          <div>
+                            <p className="text-sm font-medium text-[#7C7570]">
+                              頁面 URL
+                            </p>
                             <a
                               href={item.url}
                               target="_blank"
                               rel="noreferrer"
-                              className="mt-1 block break-all text-sm text-[#2F5D50] underline"
-                              onClick={(event) => event.stopPropagation()}
+                              className="mt-1 block break-all text-sm text-[#C4693B] underline"
+                              onClick={(e) => e.stopPropagation()}
                             >
                               {item.url}
                             </a>
-                          ) : (
-                            <p className="mt-1 text-sm text-[#1C1C1C]">—</p>
+                          </div>
+                        )}
+
+                        {item.userEmail && (
+                          <div>
+                            <p className="text-sm font-medium text-[#7C7570]">
+                              使用者信箱
+                            </p>
+                            <p className="mt-1 text-sm">{item.userEmail}</p>
+                          </div>
+                        )}
+
+                        {item.sentryEventId && (
+                          <div>
+                            <p className="text-sm font-medium text-[#7C7570]">
+                              Sentry Event ID
+                            </p>
+                            <p className="mt-1 font-mono text-sm">
+                              {item.sentryEventId}
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="flex items-start gap-3">
+                          {item.status !== 'reviewed' && (
+                            <Button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleStatusChange(item.id, 'reviewed')
+                              }}
+                              disabled={isPending}
+                              className="bg-[#E06B3F] hover:bg-[#c95d36]"
+                            >
+                              標記已審閱
+                            </Button>
                           )}
-                        </div>
-
-                        <div>
-                          <p className="text-sm font-medium text-[#7C7570]">
-                            User Email
-                          </p>
-                          <p className="mt-1 text-sm text-[#1C1C1C]">
-                            {item.userEmail ?? '—'}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-sm font-medium text-[#7C7570]">
-                            Sentry Event ID
-                          </p>
-                          <p className="mt-1 font-mono text-sm text-[#1C1C1C]">
-                            {item.sentryEventId ?? '—'}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-sm font-medium text-[#7C7570]">
-                            Reviewed At
-                          </p>
-                          <p className="mt-1 text-sm text-[#1C1C1C]">
-                            {item.reviewedAt ? formatDate(item.reviewedAt) : '—'}
-                          </p>
+                          {item.status !== 'closed' && (
+                            <Button
+                              variant="destructive"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleStatusChange(item.id, 'closed')
+                              }}
+                              disabled={isPending}
+                            >
+                              關閉
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </TableCell>
@@ -288,10 +254,10 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={4}
                   className="py-8 text-center text-[#7C7570]"
                 >
-                  No feedback items.
+                  找不到回饋記錄。
                 </TableCell>
               </TableRow>
             )}
