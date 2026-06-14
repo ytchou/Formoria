@@ -161,6 +161,14 @@ test.describe('Submission happy path', () => {
     // may still pay a residual compile cost.
     await gotoSubmitWizard(userPage, { timeout: 90_000 });
 
+    // UrlStep: fill official website, Instagram, and a purchase link BEFORE skipping.
+    // (PR #132 moved social + purchase links from LinksStep to UrlStep.)
+    await userPage.locator('#website-url').fill(websiteUrl);
+    await userPage.locator('#url-instagram').fill('@e2e_happy_path');
+    // Purchase link — native <select> followed by the url input in the same row
+    await userPage.locator('select[role="combobox"]').first().selectOption('official');
+    await userPage.locator('input[type="url"]').nth(1).fill(purchaseUrl);
+
     await userPage.getByRole('checkbox', { name: ownerCheckboxName, exact: true }).check();
     await userPage.getByRole('button', { name: manualEntryButtonName, exact: true }).click();
 
@@ -174,12 +182,8 @@ test.describe('Submission happy path', () => {
       .fill('A handcrafted Taiwanese brand used to characterize the full submission wizard.');
     await userPage.getByLabel('類別', { exact: true }).selectOption({ index: 1 });
 
-    const tagInput = userPage.getByPlaceholder('輸入後按 Enter 新增標籤');
-    await tagInput.fill('characterization');
-    await tagInput.press('Enter');
-
     // Select a product type — required by validation (productTypes.length > 0)
-    await userPage.getByText('服飾鞋履').click();
+    await userPage.getByText('服飾鞋履', { exact: true }).click();
 
     const logoUploadInput = userPage.locator('input[type="file"]');
     await Promise.all([
@@ -205,11 +209,9 @@ test.describe('Submission happy path', () => {
       .fill('Small-batch production with a clear Taiwan-made story.');
     await userPage.getByRole('button', { name: nextButtonName, exact: true }).click();
 
-    await expect(userPage.getByText('購買連結 *', { exact: true })).toBeVisible({ timeout: 5_000 });
-    await userPage.locator('select').first().selectOption('official');
-    await userPage.getByPlaceholder('https://...').fill(purchaseUrl);
-    await userPage.getByLabel('Instagram', { exact: true }).fill('@e2e_happy_path');
-    await userPage.getByLabel('Website', { exact: true }).fill(websiteUrl);
+    // LinksStep (step 2) now only shows retail locations — social + purchase links moved to
+    // UrlStep. Assert the retail locations heading is visible and advance without adding any.
+    await expect(userPage.getByText('實體零售地點', { exact: true })).toBeVisible({ timeout: 5_000 });
     await userPage.getByRole('button', { name: nextButtonName, exact: true }).click();
 
     await expect(userPage.getByRole('heading', { name: '品牌資訊', exact: true })).toBeVisible({

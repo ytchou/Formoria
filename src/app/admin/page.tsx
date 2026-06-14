@@ -184,35 +184,6 @@ export default async function AdminPage() {
         </p>
       </div>
 
-      <section aria-labelledby="overview">
-        <div className="mb-4">
-          <h2 id="overview" className="text-xl font-semibold">
-            總覽
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            站台資料與治理範圍的快速指標。
-          </p>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          {overviewStats.map((stat) => (
-            <Card key={stat.label}>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {stat.label}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="font-heading text-4xl font-bold">{stat.value}</p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {stat.description}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
-
       <section aria-labelledby="review-queues">
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>

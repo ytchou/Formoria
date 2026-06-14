@@ -6,7 +6,7 @@ test.describe('Submit smoke', () => {
 
     // URL step renders with heading and URL input
     await expect(userPage.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 5_000 });
-    await expect(userPage.locator('input[type="url"]')).toBeVisible();
+    await expect(userPage.locator('#website-url')).toBeVisible();
 
     // Skip URL scraping to enter the multi-step form
     await userPage.getByRole('button', { name: /skip|跳過/i }).click();
