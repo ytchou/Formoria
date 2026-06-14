@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowLeft, ArrowRight, Send } from 'lucide-react'
 import { StepIndicator } from './StepIndicator'
 import { UrlStep } from './UrlStep'
+import type { UrlStepLinks } from './UrlStep'
 import { BrandInfoStep } from './BrandInfoStep'
 import { ProductsStep } from './ProductsStep'
 import { LinksStep } from './LinksStep'
@@ -45,7 +46,7 @@ const STEP_FIELDS: (keyof SubmissionFormData)[][] = [
     'logoUrl',
   ],
   ['productPhotos', 'brandHighlights'],
-  ['purchaseLinks', 'socialLinks', 'retailLocations'],
+  ['retailLocations'],
   ['pdpaConsent'],
 ]
 
@@ -172,7 +173,7 @@ export function SubmitWizard({
   })
 
   const handleUrlSuccess = useCallback(
-    (data: ScrapedBrandData) => {
+    (data: ScrapedBrandData, links: UrlStepLinks) => {
       if (data.brandName) {
         methods.setValue('name', data.brandName)
       }
@@ -181,11 +182,16 @@ export function SubmitWizard({
       }
 
       methods.setValue('socialLinks', {
-        instagram: data.socialLinks.instagram ?? '',
-        threads: data.socialLinks.threads ?? '',
-        facebook: data.socialLinks.facebook ?? '',
-        website: data.websiteUrl,
+        instagram: links.instagram || data.socialLinks.instagram || '',
+        threads: links.threads || data.socialLinks.threads || '',
+        facebook: links.facebook || data.socialLinks.facebook || '',
+        website: links.websiteUrl || data.websiteUrl,
       })
+
+      const validPurchaseLinks = links.purchaseLinks.filter(l => l.platform || l.url)
+      if (validPurchaseLinks.length > 0) {
+        methods.setValue('purchaseLinks', validPurchaseLinks)
+      }
 
       setPhotos(mapScrapedToPhotos(data))
       setPhase('form')
@@ -193,9 +199,21 @@ export function SubmitWizard({
     [methods]
   )
 
-  const handleUrlSkip = useCallback(() => {
+  const handleUrlSkip = useCallback((links: UrlStepLinks) => {
+    if (links.websiteUrl || links.instagram || links.threads || links.facebook) {
+      methods.setValue('socialLinks', {
+        instagram: links.instagram,
+        threads: links.threads,
+        facebook: links.facebook,
+        website: links.websiteUrl,
+      })
+    }
+    const validPurchaseLinks = links.purchaseLinks.filter(l => l.platform || l.url)
+    if (validPurchaseLinks.length > 0) {
+      methods.setValue('purchaseLinks', validPurchaseLinks)
+    }
     setPhase('form')
-  }, [])
+  }, [methods])
 
   const handleNext = async () => {
     const schema = stepSchemas[currentStep]
@@ -308,7 +326,7 @@ export function SubmitWizard({
                 {currentStep === 1 && (
                   <ProductsStep uploadPath={uploadPath} />
                 )}
-                {currentStep === 2 && <LinksStep isOwner={isOwner} />}
+                {currentStep === 2 && <LinksStep />}
                 {currentStep === 3 && (
                   <ReviewStep
                     onEditStep={handleEditStep}

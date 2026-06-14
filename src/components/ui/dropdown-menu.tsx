@@ -84,6 +84,7 @@ function DropdownMenuItem({
 }) {
   return (
     <MenuPrimitive.Item
+      nativeButton
       data-slot="dropdown-menu-item"
       data-inset={inset}
       data-variant={variant}

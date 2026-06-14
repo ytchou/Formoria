@@ -120,14 +120,14 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
 
           <ImageUploadField
             name="logoUrl"
-            label="Logo"
+            label={t("fieldLogo")}
             brandId={brand.id}
             currentUrl={brand.logoUrl}
           />
 
           <ImageUploadField
             name="heroImageUrl"
-            label="Hero Image"
+            label={t("fieldHeroImage")}
             brandId={brand.id}
             currentUrl={brand.heroImageUrl}
           />
@@ -160,7 +160,7 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="instagram">Instagram</Label>
+            <Label htmlFor="instagram">{t("fieldInstagram")}</Label>
             <Input
               id="instagram"
               name="instagram"
@@ -170,7 +170,7 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="threads">Threads</Label>
+            <Label htmlFor="threads">{t("fieldThreads")}</Label>
             <Input
               id="threads"
               name="threads"
@@ -180,7 +180,7 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="facebook">Facebook</Label>
+            <Label htmlFor="facebook">{t("fieldFacebook")}</Label>
             <Input
               id="facebook"
               name="facebook"

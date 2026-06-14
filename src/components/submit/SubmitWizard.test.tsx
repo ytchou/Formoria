@@ -38,33 +38,54 @@ vi.mock('./UrlStep', () => ({
     onSuccess,
     onSkip,
   }: {
-    onSuccess: (data: Record<string, unknown>) => void
-    onSkip: () => void
+    onSuccess: (data: Record<string, unknown>, links: Record<string, unknown>) => void
+    onSkip: (links: Record<string, unknown>) => void
   }) => (
     <div data-testid="url-step">
       <label htmlFor="test-url">Website URL</label>
       <input id="test-url" />
       <button
         onClick={() =>
-          onSuccess({
-            brandName: 'Scraped Brand',
-            description: 'From the web',
-            heroImageUrl: null,
-            galleryImageUrls: [],
-            socialLinks: {
-              instagram: 'https://instagram.com/test',
-              threads: null,
-              facebook: null,
+          onSuccess(
+            {
+              brandName: 'Scraped Brand',
+              description: 'From the web',
+              heroImageUrl: null,
+              galleryImageUrls: [],
+              socialLinks: {
+                instagram: 'https://instagram.com/test',
+                threads: null,
+                facebook: null,
+              },
+              categoryHints: [],
+              websiteUrl: 'https://test.com',
+              rawJsonLd: null,
             },
-            categoryHints: [],
-            websiteUrl: 'https://test.com',
-            rawJsonLd: null,
-          })
+            {
+              websiteUrl: 'https://test.com',
+              instagram: '',
+              threads: '',
+              facebook: '',
+              purchaseLinks: [],
+            }
+          )
         }
       >
         Fetch Brand Info
       </button>
-      <button onClick={onSkip}>Skip and fill manually</button>
+      <button
+        onClick={() =>
+          onSkip({
+            websiteUrl: '',
+            instagram: '',
+            threads: '',
+            facebook: '',
+            purchaseLinks: [],
+          })
+        }
+      >
+        Skip and fill manually
+      </button>
     </div>
   ),
 }))

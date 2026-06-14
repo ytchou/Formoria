@@ -21,15 +21,21 @@ function renderWithZhTW(ui: React.ReactElement) {
   )
 }
 
-describe('UrlStep multi-URL', () => {
-  it('adds rows up to 3 then hides the add button', () => {
+describe('UrlStep purchase links', () => {
+  it('renders one purchase link platform select by default', () => {
     renderWithZhTW(<UrlStep {...defaultProps} />)
-    // addLink = "新增連結" in zh-TW
-    const add = screen.getByRole('button', { name: /新增連結|add another link/i })
-    fireEvent.click(add)
-    fireEvent.click(screen.getByRole('button', { name: /新增連結|add another link/i }))
-    expect(screen.queryByRole('button', { name: /新增連結|add another link/i })).toBeNull()
-    expect(screen.getAllByRole('textbox').length).toBe(3)
+    // The native <select role="combobox"> is the platform select
+    // There is one per purchase link row
+    const selects = document.querySelectorAll('select[role="combobox"]')
+    expect(selects.length).toBe(1)
+  })
+
+  it('adds a purchase link row when clicking the add button', () => {
+    renderWithZhTW(<UrlStep {...defaultProps} />)
+    const addButton = screen.getByRole('button', { name: /新增購買連結/i })
+    fireEvent.click(addButton)
+    const selects = document.querySelectorAll('select[role="combobox"]')
+    expect(selects.length).toBe(2)
   })
 
   it('keeps a url-typed first input for e2e selectors', () => {

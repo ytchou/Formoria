@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Link2, Loader2, Plus, X } from 'lucide-react'
+import { Link2, Loader2, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import { Link } from '@/i18n/navigation'
 import {
   Select,
   SelectContent,
@@ -14,60 +15,80 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
-import type { SourceAttribution } from '@/lib/types/submission'
+import type { FormPurchaseLink, SourceAttribution } from '@/lib/types/submission'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 
 type UrlStepStatus = 'idle' | 'loading' | 'error'
-
-type UrlRow = {
-  id: string
-  value: string
-}
 
 type ScrapeStatus = {
   ok: boolean
 }
 
+export type UrlStepLinks = {
+  websiteUrl: string
+  instagram: string
+  threads: string
+  facebook: string
+  purchaseLinks: Array<{ platform: string; url: string }>
+}
+
 type UrlStepProps = {
-  onSuccess: (data: ScrapedBrandData) => void
-  onSkip: () => void
+  onSuccess: (data: ScrapedBrandData, links: UrlStepLinks) => void
+  onSkip: (links: UrlStepLinks) => void
   isOwner: boolean
   onOwnerChange: (isOwner: boolean) => void
   onAttributionChange: (attribution: SourceAttribution | undefined) => void
 }
 
+const PLATFORM_OPTIONS = [
+  { value: 'shopee', label: 'Shopee' },
+  { value: 'pchome', label: 'PChome' },
+  { value: 'momo', label: 'Momo' },
+  { value: 'pinkoi', label: 'Pinkoi' },
+  { value: 'official', label: 'Official Site' },
+  { value: 'other', label: 'Other' },
+]
+
 export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributionChange }: UrlStepProps) {
   const t = useTranslations('submit')
-  const [urlRows, setUrlRows] = useState<UrlRow[]>([
-    { id: 'website-url', value: '' },
+  const [websiteUrl, setWebsiteUrl] = useState('')
+  const [instagram, setInstagram] = useState('')
+  const [threads, setThreads] = useState('')
+  const [facebook, setFacebook] = useState('')
+  const [purchaseLinks, setPurchaseLinks] = useState<FormPurchaseLink[]>([
+    { platform: '', url: '' },
   ])
   const [status, setStatus] = useState<UrlStepStatus>('idle')
   const [loadedBanner, setLoadedBanner] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
-  const filledUrls = urlRows
-    .map((row) => row.value.trim())
-    .filter(Boolean)
-  const isValidUrl = filledUrls.length > 0 && filledUrls.every((url) => url.startsWith('https://'))
+  const isValidUrl = websiteUrl.trim().startsWith('https://')
 
-  const updateUrlRow = (id: string, value: string) => {
-    setUrlRows((rows) =>
-      rows.map((row) => (row.id === id ? { ...row, value } : row))
+  const getLinks = (): UrlStepLinks => ({
+    websiteUrl,
+    instagram,
+    threads,
+    facebook,
+    purchaseLinks,
+  })
+
+  const addPurchaseLink = () => {
+    setPurchaseLinks((links) => [...links, { platform: '', url: '' }])
+  }
+
+  const removePurchaseLink = (index: number) => {
+    setPurchaseLinks((links) => {
+      if (links.length === 1) return links
+      return links.filter((_, linkIndex) => linkIndex !== index)
+    })
+  }
+
+  const updatePurchaseLink = (index: number, key: keyof FormPurchaseLink, value: string) => {
+    setPurchaseLinks((links) =>
+      links.map((link, linkIndex) =>
+        linkIndex === index ? { ...link, [key]: value } : link
+      )
     )
-  }
-
-  const addUrlRow = () => {
-    setUrlRows((rows) => {
-      if (rows.length >= 3) return rows
-      return [...rows, { id: `website-url-${Date.now()}`, value: '' }]
-    })
-  }
-
-  const removeUrlRow = (id: string) => {
-    setUrlRows((rows) => {
-      if (rows.length === 1) return rows
-      return rows.filter((row) => row.id !== id)
-    })
   }
 
   const handleFetch = async () => {
@@ -78,11 +99,21 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
 
     abortRef.current = new AbortController()
 
+    const trimmedUrl = websiteUrl.trim()
+    let cleanUrl = trimmedUrl
+    try {
+      const url = new URL(trimmedUrl)
+      url.search = ''
+      cleanUrl = url.toString()
+    } catch {
+      cleanUrl = trimmedUrl
+    }
+
     try {
       const response = await fetch('/api/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls: filledUrls }),
+        body: JSON.stringify({ urls: [cleanUrl] }),
         signal: abortRef.current.signal,
       })
 
@@ -100,7 +131,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
         setLoadedBanner(t('url.loadedStatus', { loaded: loadedCount, total: statuses.length }))
       }
       setStatus('idle')
-      onSuccess(data)
+      onSuccess(data, getLinks())
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         setStatus('idle')
@@ -117,14 +148,9 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
-      <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-foreground">
-          {t('url.heading')}
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          {t('url.subheading')}
-        </p>
-      </div>
+      <h2 className="text-lg font-semibold text-foreground">
+        {t('url.heading')}
+      </h2>
 
       <div className="space-y-1.5">
         <label
@@ -136,71 +162,134 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
         <p className="text-xs text-muted-foreground">
           {t('url.hint')}
         </p>
-        <div className="space-y-2">
-          {urlRows.map((row, index) => {
-            const inputId = index === 0 ? 'website-url' : row.id
-            return (
-              <div key={row.id} className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Link2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id={inputId}
-                    type="url"
-                    aria-label={index === 0 ? undefined : t('url.urlAriaLabel', { index: index + 1 })}
-                    placeholder="https://yourbrand.com"
-                    value={row.value}
-                    onChange={(e) => updateUrlRow(row.id, e.target.value)}
-                    disabled={status === 'loading'}
-                    className="h-11 bg-background pl-10 pr-3 focus-visible:ring-2 focus-visible:ring-ring"
-                  />
-                </div>
-                {urlRows.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={t('url.removeLink')}
-                    onClick={() => removeUrlRow(row.id)}
-                    disabled={status === 'loading'}
-                    className="h-12 w-12 rounded-lg p-2 text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            )
-          })}
-        </div>
-        {urlRows.length < 3 && (
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={addUrlRow}
+        <div className="relative">
+          <Link2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            id="website-url"
+            type="url"
+            placeholder="https://yourbrand.com"
+            value={websiteUrl}
+            onChange={(e) => setWebsiteUrl(e.target.value)}
             disabled={status === 'loading'}
-            className="h-12 rounded-lg px-2 text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <Plus className="h-4 w-4" />
-            {t('url.addLink')}
-          </Button>
-        )}
+            className="h-11 bg-background pl-10 pr-3 focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </div>
       </div>
 
-      {/* Brand owner checkbox */}
-      <div className="flex items-center gap-2">
-        <Checkbox
-          id="is-brand-owner"
-          checked={isOwner}
-          onCheckedChange={(checked: boolean) => onOwnerChange(checked)}
-        />
-        <label
-          htmlFor="is-brand-owner"
-          className="cursor-pointer select-none text-sm font-medium text-foreground"
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-foreground">
+          {t('url.socialLinksLabel')}
+        </h3>
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <label htmlFor="url-instagram" className="w-28 shrink-0 text-sm text-muted-foreground">
+              Instagram
+            </label>
+            <Input
+              id="url-instagram"
+              type="text"
+              placeholder="@yourbrand"
+              value={instagram}
+              onChange={(e) => setInstagram(e.target.value)}
+              disabled={status === 'loading'}
+              className="h-11 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <label htmlFor="url-threads" className="w-28 shrink-0 text-sm text-muted-foreground">
+              Threads
+            </label>
+            <Input
+              id="url-threads"
+              type="text"
+              placeholder="@yourbrand"
+              value={threads}
+              onChange={(e) => setThreads(e.target.value)}
+              disabled={status === 'loading'}
+              className="h-11 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <label htmlFor="url-facebook" className="w-28 shrink-0 text-sm text-muted-foreground">
+              Facebook
+            </label>
+            <Input
+              id="url-facebook"
+              type="text"
+              placeholder="https://facebook.com/yourbrand"
+              value={facebook}
+              onChange={(e) => setFacebook(e.target.value)}
+              disabled={status === 'loading'}
+              className="h-11 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">
+            {t('url.purchaseLinksLabel')}
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            {t('url.purchaseLinksHint')}
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          {purchaseLinks.map((link, index) => (
+            <div key={index} className="flex items-start gap-2">
+              <select
+                role="combobox"
+                value={link.platform}
+                onChange={(e) => updatePurchaseLink(index, 'platform', e.target.value)}
+                disabled={status === 'loading'}
+                className="h-11 w-40 shrink-0 rounded-lg border border-border bg-white px-3 text-sm text-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">{t('url.platformPlaceholder')}</option>
+                {PLATFORM_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <Input
+                type="url"
+                placeholder="https://..."
+                value={link.url}
+                onChange={(e) => updatePurchaseLink(index, 'url', e.target.value)}
+                disabled={status === 'loading'}
+                className="h-11 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+              />
+              {purchaseLinks.length > 1 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t('url.removeLink')}
+                  onClick={() => removePurchaseLink(index)}
+                  disabled={status === 'loading'}
+                  className="h-11 w-11 shrink-0 rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={addPurchaseLink}
+          disabled={status === 'loading'}
+          className="h-12 rounded-lg px-2 text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {t('url.isBrandOwner')}
-        </label>
+          <Plus className="h-4 w-4" />
+          {t('url.addPurchaseLink')}
+        </Button>
       </div>
 
-      {/* Source attribution — shown only when not owner */}
       {!isOwner && (
         <div className="space-y-1.5">
           <label className="block text-sm font-semibold text-foreground">
@@ -223,6 +312,28 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
           </Select>
         </div>
       )}
+
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="is-brand-owner"
+            checked={isOwner}
+            onCheckedChange={(checked: boolean) => onOwnerChange(checked)}
+          />
+          <label
+            htmlFor="is-brand-owner"
+            className="cursor-pointer select-none text-sm font-medium text-foreground"
+          >
+            {t('url.isBrandOwner')}
+          </label>
+        </div>
+        <p className="pl-6 text-xs text-muted-foreground">
+          {t('url.ownerHint')}{' '}
+          <Link href="/faq#claimBenefits" className="underline hover:text-foreground">
+            {t('url.ownerLearnMore')}
+          </Link>
+        </p>
+      </div>
 
       {status === 'error' && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3">
@@ -265,7 +376,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
             </Button>
             <Button
               type="button"
-              onClick={onSkip}
+              onClick={() => onSkip(getLinks())}
               variant="ghost"
               className="h-12 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             >
@@ -284,7 +395,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
             </Button>
             <Button
               type="button"
-              onClick={onSkip}
+              onClick={() => onSkip(getLinks())}
               variant="ghost"
               className="h-12 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             >
