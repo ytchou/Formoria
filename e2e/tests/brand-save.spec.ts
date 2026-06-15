@@ -123,7 +123,7 @@ test.describe('Brand save/unsave — card overlay', () => {
     });
 
     // The active tab has the terracotta bottom border
-    await expect(savedTab).toHaveClass(/border-\[#E06B3F\]/);
+    await expect(savedTab).toHaveClass(/border-cta/);
   });
 
   test('Journey 3: unsave from brand page — heart returns to unfilled state', async ({ userPage }) => {

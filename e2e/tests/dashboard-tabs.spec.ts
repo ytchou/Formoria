@@ -104,7 +104,7 @@ test.describe('Dashboard — tab navigation', () => {
     await expect(userPage.locator('h2').filter({ hasText: brandName })).toBeVisible({
       timeout: 10_000,
     });
-    await expect(ownTab).toHaveClass(/border-\[#E06B3F\]/);
+    await expect(ownTab).toHaveClass(/border-cta/);
   });
 
   test('clicking Submissions tab shows submissions content and updates URL', async ({ userPage }) => {
@@ -134,7 +134,7 @@ test.describe('Dashboard — tab navigation', () => {
     });
 
     // The submissions tab link is now active
-    await expect(submissionsTab).toHaveClass(/border-\[#E06B3F\]/);
+    await expect(submissionsTab).toHaveClass(/border-cta/);
   });
 
   test('deep-linking ?tab=<slug> renders that brand panel directly', async ({ userPage }) => {
@@ -151,7 +151,7 @@ test.describe('Dashboard — tab navigation', () => {
 
     // The correct tab link is active
     const activeTab = userPage.locator(`a[href*="tab=${brandSlug}"]`);
-    await expect(activeTab).toHaveClass(/border-\[#E06B3F\]/);
+    await expect(activeTab).toHaveClass(/border-cta/);
   });
 
   test('bogus unowned tab slug falls back to default brand panel (IDOR guard)', async ({ userPage }) => {

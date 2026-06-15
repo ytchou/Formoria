@@ -399,14 +399,24 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
             </Button>
           </>
         ) : (
-          <Button
-            type="button"
-            onClick={handleFetch}
-            disabled={!isValidUrl}
-            className="focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {t('url.autoFill')}
-          </Button>
+          <>
+            <Button
+              type="button"
+              onClick={handleFetch}
+              disabled={!isValidUrl}
+              className="focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {t('url.autoFill')}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => onSkip(getLinks())}
+              variant="ghost"
+              className="h-12 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {t('url.skip')}
+            </Button>
+          </>
         )}
       </div>
     </div>

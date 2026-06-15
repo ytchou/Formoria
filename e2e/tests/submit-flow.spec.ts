@@ -4,7 +4,7 @@ import { gotoSubmitWizard } from '../utils/submit-wizard';
 
 test.describe('Submit flow deep', () => {
   const createdSubmissions: string[] = [];
-  const manualEntryButtonName = '改為手動填寫';
+  const manualEntryButtonName = '跳過，手動填寫';
   const nextButtonName = '下一步';
 
   test.afterAll(async () => {

@@ -5,7 +5,7 @@ import { gotoSubmitWizard } from '../utils/submit-wizard'
 test.describe('Community submit flow', () => {
   const ownerCheckboxName = '我是品牌所有者'
   const attributionFieldName = '你如何認識這個品牌？'
-  const manualEntryButtonName = '改為手動填寫'
+  const manualEntryButtonName = '跳過，手動填寫'
 
   test.afterAll(async () => {
     const supabase = createClient(

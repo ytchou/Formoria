@@ -3,7 +3,7 @@ import { gotoSubmitWizard } from '../utils/submit-wizard';
 
 const TINY_PNG_BASE64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEUlEQVR4nGP4z8AARwgWXg4ArpMP8aaUSCMAAAAASUVORK5CYII=';
-const manualEntryButtonName = '改為手動填寫';
+const manualEntryButtonName = '跳過，手動填寫';
 const nextButtonName = '下一步';
 
 test.describe('UrlStep link pre-fill', () => {

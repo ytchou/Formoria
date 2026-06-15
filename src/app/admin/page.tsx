@@ -1,5 +1,3 @@
-import type { Metadata } from 'next'
-
 import {
   approveClaimAction,
   approvePendingEditAction,
@@ -20,10 +18,6 @@ import { getPendingEdits } from '@/lib/services/pending-edits'
 import { getPendingReports } from '@/lib/services/reports'
 import { getSubmissions } from '@/lib/services/submissions'
 import { getTags } from '@/lib/services/taxonomy'
-
-export const metadata: Metadata = {
-  title: '管理後台',
-}
 
 type QueueItem = {
   id: string
@@ -176,10 +170,7 @@ export default async function AdminPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-heading text-3xl font-bold tracking-tight">
-          管理後台
-        </h1>
-        <p className="mt-2 text-warm-caption">
+        <p className="text-warm-caption">
           檢視需要處理的審核佇列、品牌資料與分類狀態。
         </p>
       </div>
