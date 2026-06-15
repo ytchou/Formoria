@@ -1,3 +1,4 @@
+import { resolveSentryProject } from '@/lib/services/sentry'
 import type { Database, Json } from '@/lib/supabase/database.types'
 
 type FeedbackRow = Database['public']['Tables']['feedback']['Row']
@@ -125,21 +126,13 @@ export async function createFeedbackFromTally(input: {
 }
 
 export async function syncSentryFeedback(): Promise<{ synced: number; errors: number }> {
-  const org = process.env.SENTRY_ORG
-  const project = process.env.SENTRY_PROJECT
-  const token = process.env.SENTRY_API_TOKEN
+  const token = process.env.SENTRY_AUTH_TOKEN
 
-  const missing = [
-    ['SENTRY_ORG', org],
-    ['SENTRY_PROJECT', project],
-    ['SENTRY_API_TOKEN', token],
-  ]
-    .filter(([, value]) => !value)
-    .map(([name]) => name)
-
-  if (missing.length > 0) {
-    throw new Error(`Sentry not configured: missing ${missing.join(', ')}`)
+  if (!token) {
+    throw new Error('Sentry not configured: missing SENTRY_AUTH_TOKEN')
   }
+
+  const { org, project } = await resolveSentryProject(token)
 
   const response = await fetch(
     `https://sentry.io/api/0/projects/${org}/${project}/user-feedback/?limit=100`,

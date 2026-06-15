@@ -15,6 +15,10 @@ vi.mock('@/lib/supabase/server', () => ({
   createServiceClient: () => ({ from: mockFrom }),
 }))
 
+vi.mock('@/lib/services/sentry', () => ({
+  resolveSentryProject: vi.fn().mockResolvedValue({ org: 'test-org', project: 'test-project' }),
+}))
+
 beforeEach(() => {
   vi.clearAllMocks()
 
@@ -37,9 +41,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
-  delete process.env.SENTRY_ORG
-  delete process.env.SENTRY_PROJECT
-  delete process.env.SENTRY_API_TOKEN
+  delete process.env.SENTRY_AUTH_TOKEN
 })
 
 // ---- createFeedbackFromTally ----
@@ -83,9 +85,7 @@ describe('syncSentryFeedback', () => {
   })
 
   it('calls Sentry API and upserts feedback with correct shape', async () => {
-    process.env.SENTRY_ORG = 'test-org'
-    process.env.SENTRY_PROJECT = 'test-project'
-    process.env.SENTRY_API_TOKEN = 'sntrys_test'
+    process.env.SENTRY_AUTH_TOKEN = 'sntrys_test'
 
     const sentryResponse = [
       {
@@ -133,9 +133,7 @@ describe('syncSentryFeedback', () => {
   })
 
   it('returns error count when upsert fails', async () => {
-    process.env.SENTRY_ORG = 'org'
-    process.env.SENTRY_PROJECT = 'proj'
-    process.env.SENTRY_API_TOKEN = 'token'
+    process.env.SENTRY_AUTH_TOKEN = 'token'
 
     vi.stubGlobal(
       'fetch',

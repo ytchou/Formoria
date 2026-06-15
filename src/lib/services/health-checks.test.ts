@@ -6,6 +6,10 @@ vi.mock('@/lib/supabase/server', () => ({
   createServiceClient: vi.fn(),
 }))
 
+vi.mock('@/lib/services/sentry', () => ({
+  resolveSentryProject: vi.fn().mockResolvedValue({ org: 'test-org', project: 'test-project' }),
+}))
+
 const fetchMock = vi.fn()
 vi.stubGlobal('fetch', fetchMock)
 
@@ -28,13 +32,9 @@ describe('checkAllServices', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.SENTRY_ORG = 'test-org'
-    process.env.SENTRY_PROJECT = 'test-project'
-    process.env.SENTRY_API_TOKEN = 'test-token'
+    process.env.SENTRY_AUTH_TOKEN = 'test-token'
     process.env.RESEND_API_KEY = 're_test'
     process.env.TURNSTILE_SECRET_KEY = 'test-secret'
-    process.env.RENDER_API_KEY = 'test-render-key'
-    process.env.BROWSERLESS_URL = 'https://chrome.browserless.io'
     process.env.NEXT_PUBLIC_SITE_URL = 'https://test.formoria.com'
   })
 
@@ -42,21 +42,20 @@ describe('checkAllServices', () => {
     process.env = { ...originalEnv }
   })
 
-  it('returns an array of 7 ServiceHealthResults', async () => {
+  it('returns an array of 6 ServiceHealthResults', async () => {
     const { createServiceClient } = await import('@/lib/supabase/server')
     vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
     fetchMock.mockResolvedValue({ ok: true, json: async () => ({}) })
 
     const results: ServiceHealthResult[] = await checkAllServices()
 
-    expect(results).toHaveLength(7)
+    expect(results).toHaveLength(6)
     const services = results.map((r) => r.service)
     expect(services).toContain('Supabase')
     expect(services).toContain('Sentry')
     expect(services).toContain('Resend')
     expect(services).toContain('Turnstile')
     expect(services).toContain('Tally')
-    expect(services).toContain('Browserless')
     expect(services).toContain('Railway')
   })
 
@@ -88,8 +87,8 @@ describe('checkAllServices', () => {
     expect(supabase?.status).toBe('down')
   })
 
-  it('returns unconfigured for Sentry when SENTRY_API_TOKEN is missing', async () => {
-    delete process.env.SENTRY_API_TOKEN
+  it('returns unconfigured for Sentry when SENTRY_AUTH_TOKEN is missing', async () => {
+    delete process.env.SENTRY_AUTH_TOKEN
     const { createServiceClient } = await import('@/lib/supabase/server')
     vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
     fetchMock.mockResolvedValue({ ok: true })
@@ -97,17 +96,6 @@ describe('checkAllServices', () => {
     const results = await checkAllServices()
     const sentry = results.find((r) => r.service === 'Sentry')
     expect(sentry?.status).toBe('unconfigured')
-  })
-
-  it('returns unconfigured for Browserless when RENDER_API_KEY is missing', async () => {
-    delete process.env.RENDER_API_KEY
-    const { createServiceClient } = await import('@/lib/supabase/server')
-    vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
-    fetchMock.mockResolvedValue({ ok: true })
-
-    const results = await checkAllServices()
-    const browserless = results.find((r) => r.service === 'Browserless')
-    expect(browserless?.status).toBe('unconfigured')
   })
 
   it('returns down for Resend when fetch returns non-ok response', async () => {
@@ -129,7 +117,7 @@ describe('checkAllServices', () => {
 
     const results = await checkAllServices()
     const fetchServices = results.filter((r) =>
-      ['Sentry', 'Resend', 'Turnstile', 'Browserless', 'Railway'].includes(r.service)
+      ['Sentry', 'Resend', 'Turnstile', 'Railway'].includes(r.service)
     )
     for (const svc of fetchServices) {
       expect(svc.status).toBe('down')

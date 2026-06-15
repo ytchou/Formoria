@@ -3,7 +3,8 @@
 import { useTransition } from 'react'
 import { refreshHealthChecks } from '@/app/admin/actions'
 import type { ServiceHealthResult } from '@/lib/services/health-checks'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 
 const STATUS_DOT: Record<ServiceHealthResult['status'], string> = {
   healthy: 'bg-[#2D5A27]',
@@ -29,34 +30,40 @@ export function SystemStatusCard({ initialResults }: { initialResults: ServiceHe
   }
 
   return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between">
+    <section>
+      <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className={`h-2 w-2 rounded-full ${STATUS_DOT[overallStatus]}`} />
-          <CardTitle className="text-base font-semibold">系統狀態</CardTitle>
+          <h2 className="text-xl font-semibold">系統狀態</h2>
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={isPending}
-          className="text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
-        >
-          {isPending ? '更新中…' : '重新整理'}
-        </button>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {initialResults.length === 0 && (
-          <p className="text-center text-sm text-muted-foreground">無資料</p>
-        )}
-        {initialResults.map((result) => (
-          <div key={result.service} className="flex items-center justify-between text-sm">
-            <span className="font-medium">{result.service}</span>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <span className={`h-2 w-2 rounded-full ${STATUS_DOT[result.status]}`} />
-              <span>{result.message}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">載入頁面時自動更新</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isPending}
+          >
+            {isPending ? '更新中…' : '重新整理'}
+          </Button>
+        </div>
+      </div>
+      <Card>
+        <CardContent className="space-y-2 pt-6">
+          {initialResults.length === 0 && (
+            <p className="text-center text-sm text-muted-foreground">無資料</p>
+          )}
+          {initialResults.map((result) => (
+            <div key={result.service} className="flex items-center justify-between text-sm">
+              <span className="font-medium">{result.service}</span>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <span className={`h-2 w-2 rounded-full ${STATUS_DOT[result.status]}`} />
+                <span>{result.message}</span>
+              </div>
             </div>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
+          ))}
+        </CardContent>
+      </Card>
+    </section>
   )
 }

@@ -184,6 +184,8 @@ export default async function AdminPage() {
         </p>
       </div>
 
+      <SystemStatusCard initialResults={healthResults} />
+
       <section aria-labelledby="review-queues">
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
@@ -250,10 +252,6 @@ export default async function AdminPage() {
         </div>
       </section>
 
-      <section>
-        <h2 className="mb-4 text-lg font-semibold">系統狀態</h2>
-        <SystemStatusCard initialResults={healthResults} />
-      </section>
     </div>
   )
 }

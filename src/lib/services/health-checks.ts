@@ -1,3 +1,4 @@
+import { resolveSentryProject } from '@/lib/services/sentry'
 import { createServiceClient } from '@/lib/supabase/server'
 
 export type HealthStatus = 'healthy' | 'degraded' | 'down' | 'unconfigured'
@@ -42,18 +43,19 @@ export async function checkSupabase(): Promise<ServiceHealthResult> {
 }
 
 export async function checkSentry(): Promise<ServiceHealthResult> {
-  const { SENTRY_ORG, SENTRY_PROJECT, SENTRY_API_TOKEN } = process.env
+  const token = process.env.SENTRY_AUTH_TOKEN
 
-  if (!SENTRY_ORG || !SENTRY_PROJECT || !SENTRY_API_TOKEN) {
-    return result('Sentry', 'unconfigured', 'Sentry credentials are not configured')
+  if (!token) {
+    return result('Sentry', 'unconfigured', 'SENTRY_AUTH_TOKEN is not configured')
   }
 
   try {
+    const { org, project } = await resolveSentryProject(token)
     const response = await fetch(
-      `https://sentry.io/api/0/projects/${SENTRY_ORG}/${SENTRY_PROJECT}/user-feedback/?limit=1`,
+      `https://sentry.io/api/0/projects/${org}/${project}/user-feedback/?limit=1`,
       {
         headers: {
-          Authorization: `Bearer ${SENTRY_API_TOKEN}`,
+          Authorization: `Bearer ${token}`,
         },
         signal: AbortSignal.timeout(3000),
       }
@@ -156,27 +158,6 @@ export async function checkTally(): Promise<ServiceHealthResult> {
   }
 }
 
-export async function checkBrowserless(): Promise<ServiceHealthResult> {
-  const { RENDER_API_KEY, BROWSERLESS_URL } = process.env
-
-  if (!RENDER_API_KEY || !BROWSERLESS_URL) {
-    return result('Browserless', 'unconfigured', 'Browserless configuration is missing')
-  }
-
-  try {
-    const response = await fetch(BROWSERLESS_URL, {
-      method: 'HEAD',
-      signal: AbortSignal.timeout(3000),
-    })
-
-    return response.ok
-      ? result('Browserless', 'healthy', 'Endpoint reachable')
-      : result('Browserless', 'down', `Endpoint returned ${response.status}`)
-  } catch (error) {
-    return result('Browserless', 'down', error instanceof Error ? error.message : 'Unknown error')
-  }
-}
-
 export async function checkRailway(): Promise<ServiceHealthResult> {
   const { NEXT_PUBLIC_SITE_URL } = process.env
 
@@ -204,7 +185,6 @@ const serviceNames = [
   'Resend',
   'Turnstile',
   'Tally',
-  'Browserless',
   'Railway',
 ] as const
 
@@ -215,7 +195,6 @@ export async function checkAllServices(): Promise<ServiceHealthResult[]> {
     checkResend(),
     checkTurnstile(),
     checkTally(),
-    checkBrowserless(),
     checkRailway(),
   ])
 
