@@ -85,16 +85,16 @@ test.describe('Admin content moderation dashboard', () => {
   test('moderation dashboard shows page heading and flagged brand rows with risk badges', async ({
     adminPage,
   }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(120_000);
 
-    await adminPage.goto('/admin/review-queue/moderation');
-    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 15_000 });
+    await adminPage.goto('/admin/review-queue/moderation', { timeout: 60_000 });
+    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
 
     // Page heading: t('dashboard') = "內容審核"
-    await expect(adminPage.getByRole('heading', { name: '內容審核' })).toBeVisible({ timeout: 10_000 });
+    await expect(adminPage.getByRole('heading', { name: '內容審核' })).toBeVisible({ timeout: 60_000 });
 
     // The seeded brand's flag rows appear in the table
-    await expect(adminPage.getByText(/\[E2E-TEST\] Moderation/)).toBeVisible({ timeout: 10_000 });
+    await expect(adminPage.getByText(/\[E2E-TEST\] Moderation/).first()).toBeVisible({ timeout: 10_000 });
 
     // High-risk badge (tier1 → riskHigh → "高風險") is visible
     await expect(adminPage.getByText('高風險').first()).toBeVisible({ timeout: 5_000 });
@@ -106,13 +106,13 @@ test.describe('Admin content moderation dashboard', () => {
   test('moderation dashboard filter by risk shows correct subset', async ({
     adminPage,
   }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(120_000);
 
-    await adminPage.goto('/admin/review-queue/moderation?risk=high');
-    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 15_000 });
+    await adminPage.goto('/admin/review-queue/moderation?risk=high', { timeout: 60_000 });
+    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
 
     // Only high-risk rows shown — tier1 flag for seeded brand visible
-    await expect(adminPage.getByText(/\[E2E-TEST\] Moderation/)).toBeVisible({ timeout: 10_000 });
+    await expect(adminPage.getByText(/\[E2E-TEST\] Moderation/).first()).toBeVisible({ timeout: 10_000 });
     await expect(adminPage.getByText('高風險').first()).toBeVisible({ timeout: 5_000 });
   });
 });

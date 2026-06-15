@@ -46,10 +46,10 @@ test.describe('Admin dashboard deep', () => {
   });
 
   test('admin dashboard shows accurate stats', async ({ adminPage }) => {
-    test.setTimeout(60_000);
-    await adminPage.goto('/admin');
+    test.setTimeout(120_000);
+    await adminPage.goto('/admin', { timeout: 60_000 });
     // At minimum: page loads with headings and some stat indicators
-    await expect(adminPage.getByRole('heading', { name: /管理後台/i })).toBeVisible({ timeout: 15_000 });
+    await expect(adminPage.getByRole('heading', { name: /管理後台/i })).toBeVisible({ timeout: 60_000 });
     // No broken layout: check there's no React error boundary text
     await expect(adminPage.getByText(/something went wrong|minified react error/i)).not.toBeVisible();
   });
@@ -57,15 +57,15 @@ test.describe('Admin dashboard deep', () => {
   test('admin nav links all work', async ({ adminPage }) => {
     // DEV-762: admin sub-routes also cold-compile in CI dev mode; bump per-link
     // <main> wait to 15s and add a 60s test budget.
-    test.setTimeout(60_000);
-    await adminPage.goto('/admin');
+    test.setTimeout(120_000);
+    await adminPage.goto('/admin', { timeout: 60_000 });
     const navLinks = adminPage.locator('nav a, [data-testid="admin-nav"] a');
     const count = await navLinks.count();
     for (let i = 0; i < count; i++) {
       const href = await navLinks.nth(i).getAttribute('href');
       if (href?.startsWith('/admin')) {
-        await adminPage.goto(href);
-        await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 15_000 });
+        await adminPage.goto(href, { timeout: 60_000 });
+        await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
         await expect(adminPage.getByText(/something went wrong/i)).not.toBeVisible();
       }
     }
@@ -74,11 +74,11 @@ test.describe('Admin dashboard deep', () => {
   test('approve submission makes brand visible in directory', async ({ adminPage }) => {
     // DEV-762: /admin/review-queue/submissions cold-compiles in CI; give the page and the
     // approve action generous budgets.
-    test.setTimeout(60_000);
+    test.setTimeout(120_000);
     if (!testSubmissionId) test.skip();
-    await adminPage.goto('/admin/review-queue/submissions');
+    await adminPage.goto('/admin/review-queue/submissions', { timeout: 60_000 });
     // Wait for the page to be interactive before looking for the seeded row.
-    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 15_000 });
+    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
     // Click the row text to expand the detail section (approve button is inside it)
     await adminPage.getByText(testBrandName).click();
     const approveBtn = adminPage.getByRole('button', { name: /^approve$|^核准$/i });
@@ -89,6 +89,8 @@ test.describe('Admin dashboard deep', () => {
   });
 
   test('reject submission keeps brand out of directory', async ({ adminPage }) => {
+    test.setTimeout(120_000);
+
     // Create a separate submission for rejection test
     const rejectBrandName = `[E2E-TEST] Rejected Brand ${Date.now()}`;
     const { data } = await supabase
@@ -102,7 +104,7 @@ test.describe('Admin dashboard deep', () => {
       .select('id')
       .single();
 
-    await adminPage.goto('/admin/review-queue/submissions');
+    await adminPage.goto('/admin/review-queue/submissions', { timeout: 60_000 });
     // Click the row text to expand the detail section (reject button is inside it)
     await adminPage.getByText(rejectBrandName).click();
     const rejectBtn = adminPage.getByRole('button', { name: /^reject$|^拒絕$/i });

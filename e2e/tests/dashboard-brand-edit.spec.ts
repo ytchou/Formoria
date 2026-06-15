@@ -74,13 +74,15 @@ test.describe('Dashboard brand edit', () => {
   });
 
   test('owner can edit description and change persists', async ({ userPage }) => {
+    test.setTimeout(120_000);
+
     // Navigate to the edit page
-    await userPage.goto(`/dashboard/brands/${brandSlug}/edit`);
+    await userPage.goto(`/dashboard/brands/${brandSlug}/edit`, { timeout: 60_000 });
 
     // Confirm the edit form is loaded
     await expect(
       userPage.getByRole('heading', { name: /edit/i })
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: 60_000 });
 
     // Wait for the seeded value to be hydrated, then clear and fill
     const descriptionField = userPage.locator('textarea[name="description"]');
@@ -101,12 +103,14 @@ test.describe('Dashboard brand edit', () => {
   });
 
   test('owner can edit brand highlights and change persists', async ({ userPage }) => {
+    test.setTimeout(120_000);
+
     const highlight = `[E2E-TEST] 亮點 ${Date.now()}`;
 
-    await userPage.goto(`/dashboard/brands/${brandSlug}/edit`);
+    await userPage.goto(`/dashboard/brands/${brandSlug}/edit`, { timeout: 60_000 });
 
     const field = userPage.locator('textarea[name="brandHighlights"]');
-    await expect(field).toBeVisible({ timeout: 10_000 });
+    await expect(field).toBeVisible({ timeout: 60_000 });
     await field.fill(highlight);
 
     await userPage.getByRole('button', { name: '儲存變更' }).click();

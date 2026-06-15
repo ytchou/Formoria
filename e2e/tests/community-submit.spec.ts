@@ -57,7 +57,7 @@ test.describe('Community submit flow', () => {
   test('my-submissions page shows authenticated user submissions', async ({ userPage }) => {
     test.setTimeout(60_000)
     await userPage.goto('/my-submissions')
-    await expect(userPage.getByRole('heading', { name: /經營者主控台|我的提交/i }))
+    await expect(userPage.getByRole('heading', { name: /經營者主控台/i, level: 1 }))
       .toBeVisible({ timeout: 15_000 })
   })
 

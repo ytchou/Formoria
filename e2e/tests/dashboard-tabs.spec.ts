@@ -78,7 +78,9 @@ test.describe('Dashboard — tab navigation', () => {
   });
 
   test('default tab shows owned brand panel with brand name heading and Edit CTA', async ({ userPage }) => {
-    const resp = await userPage.goto('/dashboard');
+    test.setTimeout(120_000);
+
+    const resp = await userPage.goto('/dashboard', { timeout: 60_000 });
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
@@ -88,27 +90,29 @@ test.describe('Dashboard — tab navigation', () => {
     // tab is not deterministically this brand. Assert this brand appears as a tab,
     // that the default view is a brand panel (Edit CTA present), then select it.
     const ownTab = userPage.locator(`a[href*="tab=${brandSlug}"]`);
-    await expect(ownTab).toBeVisible({ timeout: 10_000 });
+    await expect(ownTab).toBeVisible({ timeout: 60_000 });
 
     // Default landing renders a brand management panel (not submissions)
     await expect(userPage.getByRole('link', { name: '編輯品牌' }).first()).toBeVisible({
-      timeout: 10_000,
+      timeout: 60_000,
     });
 
     // Selecting this brand's tab renders its panel with the active border styling
     await ownTab.click();
     await userPage.waitForURL(
       (u) => new URL(u).searchParams.get('tab') === brandSlug,
-      { timeout: 10_000 }
+      { timeout: 60_000 }
     );
     await expect(userPage.locator('h2').filter({ hasText: brandName })).toBeVisible({
-      timeout: 10_000,
+      timeout: 60_000,
     });
     await expect(ownTab).toHaveClass(/border-cta/);
   });
 
   test('clicking Submissions tab shows submissions content and updates URL', async ({ userPage }) => {
-    const resp = await userPage.goto('/dashboard');
+    test.setTimeout(120_000);
+
+    const resp = await userPage.goto('/dashboard', { timeout: 60_000 });
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
@@ -117,7 +121,7 @@ test.describe('Dashboard — tab navigation', () => {
     // The tab strip renders for owners; wait for the Submissions tab to be present
     // (do not depend on which brand is the default — the user owns several).
     const submissionsTab = userPage.locator('a[href*="tab=submissions"]');
-    await expect(submissionsTab).toBeVisible({ timeout: 10_000 });
+    await expect(submissionsTab).toBeVisible({ timeout: 60_000 });
 
     // Click the Submissions tab (t("tabs.submissions") = "提交紀錄")
     await userPage.getByRole('link', { name: '提交紀錄' }).click();
@@ -125,12 +129,12 @@ test.describe('Dashboard — tab navigation', () => {
     // URL must reflect ?tab=submissions
     await userPage.waitForURL(
       (u) => new URL(u).searchParams.get('tab') === 'submissions',
-      { timeout: 10_000 }
+      { timeout: 60_000 }
     );
 
     // Submissions section heading (t("mySubmissions.heading") = "我的提交")
     await expect(userPage.getByRole('heading', { name: '我的提交' })).toBeVisible({
-      timeout: 5_000,
+      timeout: 60_000,
     });
 
     // The submissions tab link is now active
@@ -138,7 +142,9 @@ test.describe('Dashboard — tab navigation', () => {
   });
 
   test('deep-linking ?tab=<slug> renders that brand panel directly', async ({ userPage }) => {
-    const resp = await userPage.goto(`/dashboard?tab=${brandSlug}`);
+    test.setTimeout(120_000);
+
+    const resp = await userPage.goto(`/dashboard?tab=${brandSlug}`, { timeout: 60_000 });
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
@@ -146,7 +152,7 @@ test.describe('Dashboard — tab navigation', () => {
 
     // The brand panel must be rendered — no redirect, no fallback
     await expect(userPage.locator('h2').filter({ hasText: brandName })).toBeVisible({
-      timeout: 10_000,
+      timeout: 60_000,
     });
 
     // The correct tab link is active
@@ -155,7 +161,9 @@ test.describe('Dashboard — tab navigation', () => {
   });
 
   test('bogus unowned tab slug falls back to default brand panel (IDOR guard)', async ({ userPage }) => {
-    const resp = await userPage.goto('/dashboard?tab=totally-bogus-brand-that-does-not-exist');
+    test.setTimeout(120_000);
+
+    const resp = await userPage.goto('/dashboard?tab=totally-bogus-brand-that-does-not-exist', { timeout: 60_000 });
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
@@ -166,7 +174,7 @@ test.describe('Dashboard — tab navigation', () => {
     // deterministic across many owned brands, so assert on the owned prefix.
     await expect(
       userPage.locator('h2').filter({ hasText: '[E2E-TEST]' }).first()
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: 60_000 });
 
     // The bogus slug is never rendered as a tab (IDOR: no foreign brand exposed)
     await expect(
@@ -175,7 +183,7 @@ test.describe('Dashboard — tab navigation', () => {
 
     // A brand management panel rendered (Edit CTA), not an error page
     await expect(userPage.getByRole('link', { name: '編輯品牌' }).first()).toBeVisible({
-      timeout: 5_000,
+      timeout: 60_000,
     });
 
     // No 5xx error messaging on screen
@@ -246,7 +254,9 @@ test.describe('Dashboard — legacy brand route redirect', () => {
   });
 
   test('navigating to /dashboard/brands/<slug> redirects to /dashboard?tab=<slug> and renders panel', async ({ userPage }) => {
-    const resp = await userPage.goto(`/dashboard/brands/${brandSlug}`);
+    test.setTimeout(120_000);
+
+    const resp = await userPage.goto(`/dashboard/brands/${brandSlug}`, { timeout: 60_000 });
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
@@ -255,12 +265,12 @@ test.describe('Dashboard — legacy brand route redirect', () => {
     // Must land on /dashboard?tab=<slug> after the server-side redirect
     await userPage.waitForURL(
       (u) => new URL(u).searchParams.get('tab') === brandSlug,
-      { timeout: 10_000 }
+      { timeout: 60_000 }
     );
 
     // The brand panel must be rendered at the final URL
     await expect(userPage.locator('h2').filter({ hasText: brandName })).toBeVisible({
-      timeout: 10_000,
+      timeout: 60_000,
     });
   });
 });

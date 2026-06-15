@@ -69,7 +69,7 @@ test.describe('Dashboard — brand image upload', () => {
     test.setTimeout(120_000);
 
     const editPath = `/dashboard/brands/${brandSlug}/edit`;
-    const editResp = await userPage.goto(editPath);
+    const editResp = await userPage.goto(editPath, { timeout: 60_000 });
     if (editResp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
@@ -116,12 +116,12 @@ test.describe('Dashboard — brand image upload', () => {
     // After save, we are redirected to the dashboard tab for this brand
     await userPage.waitForURL(
       (u) => new URL(u).searchParams.get('tab') === brandSlug,
-      { timeout: 15_000 }
+      { timeout: 60_000 }
     );
 
     // Navigate back to edit to confirm persistence
-    await userPage.goto(editPath);
-    await expect(userPage.getByRole('heading', { name: /edit/i })).toBeVisible({ timeout: 10_000 });
+    await userPage.goto(editPath, { timeout: 60_000 });
+    await expect(userPage.getByRole('heading', { name: /edit/i })).toBeVisible({ timeout: 60_000 });
 
     // The hidden logoUrl input should contain the uploaded URL
     const hiddenInput = userPage.locator('input[type="hidden"][name="logoUrl"]');

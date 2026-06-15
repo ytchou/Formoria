@@ -41,8 +41,20 @@ async function globalSetup() {
       browser = await chromium.launch({ headless: true });
       const context = await browser.newContext({ storageState: tmpStorePath });
       const page = await context.newPage();
-      await page.goto(`${baseURL}/submit/form`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${baseURL}/submit/form`, { waitUntil: 'networkidle', timeout: 60000 });
       await page.locator('input[type="url"]').first().waitFor({ state: 'visible', timeout: 120_000 });
+      try {
+        await page.goto(baseURL + '/dashboard', { waitUntil: 'networkidle', timeout: 60000 });
+        console.log('[global-setup] /dashboard warm-up complete');
+      } catch (err) {
+        console.warn('[global-setup] /dashboard warm-up failed (non-fatal):', err instanceof Error ? err.message : String(err));
+      }
+      try {
+        await page.goto(baseURL + '/admin', { waitUntil: 'networkidle', timeout: 60000 });
+        console.log('[global-setup] /admin warm-up complete');
+      } catch (err) {
+        console.warn('[global-setup] /admin warm-up failed (non-fatal):', err instanceof Error ? err.message : String(err));
+      }
       await context.close();
       console.log('[global-setup] /submit/form warm-up complete — client bundle compiled');
     } catch (err) {
