@@ -86,7 +86,9 @@ test.describe('Dashboard — onboarding banner and health card', () => {
   });
 
   test('Journey 1 — newly claimed owner sees WelcomeBanner with correct heading and CTA', async ({ userPage }) => {
-    const resp = await userPage.goto(`/dashboard?tab=${brandSlug}`);
+    test.setTimeout(120_000);
+
+    const resp = await userPage.goto(`/dashboard?tab=${brandSlug}`, { timeout: 60_000 });
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — onboarding tests skipped');
       return;
@@ -95,13 +97,13 @@ test.describe('Dashboard — onboarding banner and health card', () => {
     // Wait for the specific brand tab to be rendered
     await userPage.waitForURL(
       (u) => new URL(u).searchParams.get('tab') === brandSlug,
-      { timeout: 10_000 }
+      { timeout: 60_000 }
     );
 
     // Banner heading: dashboard.onboarding.banner.title = "歡迎加入 Formoria！"
     await expect(
       userPage.getByRole('heading', { name: '歡迎加入 Formoria！' })
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: 60_000 });
 
     // CTA link: dashboard.onboarding.banner.cta = "開始編輯"
     // href must point to /dashboard/brands/<slug>/edit#media
@@ -112,7 +114,9 @@ test.describe('Dashboard — onboarding banner and health card', () => {
   });
 
   test('Journey 2 — owner dismisses WelcomeBanner and it disappears', async ({ userPage }) => {
-    const resp = await userPage.goto(`/dashboard?tab=${brandSlug}`);
+    test.setTimeout(120_000);
+
+    const resp = await userPage.goto(`/dashboard?tab=${brandSlug}`, { timeout: 60_000 });
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — onboarding tests skipped');
       return;
@@ -120,13 +124,13 @@ test.describe('Dashboard — onboarding banner and health card', () => {
 
     await userPage.waitForURL(
       (u) => new URL(u).searchParams.get('tab') === brandSlug,
-      { timeout: 10_000 }
+      { timeout: 60_000 }
     );
 
     // Assert banner is visible before dismissal
     await expect(
       userPage.getByRole('heading', { name: '歡迎加入 Formoria！' })
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: 60_000 });
 
     // Dismiss: dashboard.onboarding.banner.dismiss = "稍後再說"
     await userPage.getByRole('button', { name: '稍後再說' }).click();
@@ -143,7 +147,9 @@ test.describe('Dashboard — onboarding banner and health card', () => {
   });
 
   test('Journey 3 — BrandHealthCard renders score breakdown dimensions and edit-profile link', async ({ userPage }) => {
-    const resp = await userPage.goto(`/dashboard?tab=${brandSlug}`);
+    test.setTimeout(120_000);
+
+    const resp = await userPage.goto(`/dashboard?tab=${brandSlug}`, { timeout: 60_000 });
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — onboarding tests skipped');
       return;
@@ -151,13 +157,13 @@ test.describe('Dashboard — onboarding banner and health card', () => {
 
     await userPage.waitForURL(
       (u) => new URL(u).searchParams.get('tab') === brandSlug,
-      { timeout: 10_000 }
+      { timeout: 60_000 }
     );
 
     // At least one dimension row in the score breakdown section
     // dashboard.health.scoreBreakdown — each row carries data-testid="health-dimension"
     const dimensionRows = userPage.locator('[data-testid="health-dimension"]');
-    await expect(dimensionRows.first()).toBeVisible({ timeout: 10_000 });
+    await expect(dimensionRows.first()).toBeVisible({ timeout: 60_000 });
     const dimCount = await dimensionRows.count();
     expect(dimCount).toBeGreaterThanOrEqual(1);
 

@@ -18,7 +18,7 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
  * Journey 4: Dashboard "收藏品牌" tab shows empty state after unsave
  *   - Navigating to /dashboard?tab=saved shows "還沒有收藏品牌"
  *
- * Journey 5: Unauthenticated user clicks heart → redirected to login
+ * Journey 5: Unauthenticated user clicks heart → redirected to sign-in
  */
 test.describe('Brand save/unsave — card overlay', () => {
   let supabase: AnySupabaseClient;
@@ -100,13 +100,15 @@ test.describe('Brand save/unsave — card overlay', () => {
   });
 
   test('Journey 2: saved brand appears in dashboard "收藏品牌" tab', async ({ userPage }) => {
+    test.setTimeout(120_000);
+
     // Ensure the brand is saved in DB before navigating to dashboard
     await supabase.from('brand_saves').upsert(
       { user_id: testUserId, brand_id: brandId },
       { onConflict: 'user_id,brand_id' }
     );
 
-    const resp = await userPage.goto('/dashboard?tab=saved');
+    const resp = await userPage.goto('/dashboard?tab=saved', { timeout: 60_000 });
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
@@ -152,6 +154,8 @@ test.describe('Brand save/unsave — card overlay', () => {
   });
 
   test('Journey 4: dashboard "收藏品牌" tab shows empty state when no saves', async ({ userPage }) => {
+    test.setTimeout(120_000);
+
     // Ensure no brand_saves rows for this test user's seeded brand
     await supabase
       .from('brand_saves')
@@ -160,7 +164,7 @@ test.describe('Brand save/unsave — card overlay', () => {
       .eq('brand_id', brandId);
 
     // Navigate with explicit ?tab=saved — showSavedTab is true when requestedTab === 'saved'
-    const resp = await userPage.goto('/dashboard?tab=saved');
+    const resp = await userPage.goto('/dashboard?tab=saved', { timeout: 60_000 });
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
@@ -177,7 +181,7 @@ test.describe('Brand save/unsave — card overlay', () => {
     ).toBeVisible({ timeout: 5_000 });
   });
 
-  test('Journey 5: unauthenticated user clicking heart redirects to /auth/login', async ({ anonPage }) => {
+  test('Journey 5: unauthenticated user clicking heart redirects to /auth/sign-in', async ({ anonPage }) => {
     const resp = await anonPage.goto(`/brands/${brandSlug}`);
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
@@ -189,8 +193,8 @@ test.describe('Brand save/unsave — card overlay', () => {
 
     await saveBtn.click();
 
-    // SaveBrandButton pushes to /auth/login when no user session
-    await anonPage.waitForURL((u) => u.pathname.includes('/auth/login'), {
+    // SaveBrandButton pushes to /auth/sign-in when no user session
+    await anonPage.waitForURL((u) => u.pathname.includes('/auth/sign-in'), {
       timeout: 10_000,
     });
   });

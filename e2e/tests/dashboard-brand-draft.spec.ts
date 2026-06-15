@@ -79,11 +79,11 @@ test.describe.serial('Dashboard brand draft preview', () => {
 
   test('step 1 — owner saves a draft and sees the draft-pending banner', async ({ userPage }) => {
     // DEV-762: dashboard/brands/[slug]/edit cold-compiles in CI dev mode; give generous budget
-    test.setTimeout(60_000);
-    await userPage.goto(`/dashboard/brands/${brandSlug}/edit`);
+    test.setTimeout(120_000);
+    await userPage.goto(`/dashboard/brands/${brandSlug}/edit`, { timeout: 60_000 });
 
     const descriptionField = userPage.locator('textarea[name="description"]');
-    await expect(descriptionField).toBeVisible({ timeout: 30_000 });
+    await expect(descriptionField).toBeVisible({ timeout: 60_000 });
     await expect(descriptionField).toHaveValue(oldDescription, { timeout: 5_000 });
 
     await descriptionField.fill('');
@@ -120,11 +120,13 @@ test.describe.serial('Dashboard brand draft preview', () => {
   });
 
   test('step 5 — owner submits draft for review and sees confirmation (non-admin goes to review queue)', async ({ userPage, anonPage }) => {
+    test.setTimeout(120_000);
+
     test.skip(previewGateActive, 'PREVIEW_MODE active — public brand page returns 503');
 
     // Navigate to the edit page to find the draft-pending banner with the publish button
-    await userPage.goto(`/dashboard/brands/${brandSlug}/edit`);
-    await expect(userPage.getByText('草稿待發布')).toBeVisible({ timeout: 10_000 });
+    await userPage.goto(`/dashboard/brands/${brandSlug}/edit`, { timeout: 60_000 });
+    await expect(userPage.getByText('草稿待發布')).toBeVisible({ timeout: 60_000 });
 
     await userPage.getByRole('button', { name: '發布' }).click();
 

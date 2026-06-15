@@ -83,6 +83,8 @@ test.describe('Dashboard — governed field integrity', () => {
    * falls back to ownership-only, triggering the server-side redirect.
    */
   test('non-manager navigating to edit page is redirected to /dashboard', async ({ adminPage }) => {
+    test.setTimeout(120_000);
+
     // Downgrade the admin context to viewer mode so isActingAsAdmin = false.
     // Without this, a god-mode admin would reach the edit page via canManageBrand.
     await adminPage.context().addCookies([
@@ -93,13 +95,13 @@ test.describe('Dashboard — governed field integrity', () => {
       },
     ]);
 
-    const resp = await adminPage.goto(`/dashboard/brands/${brandSlug}/edit`);
+    const resp = await adminPage.goto(`/dashboard/brands/${brandSlug}/edit`, { timeout: 60_000 });
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
     }
     // Server-side redirect: should land on /dashboard (not the edit page)
-    await expect(adminPage).toHaveURL(/\/dashboard(?:\/)?$/, { timeout: 10_000 });
+    await expect(adminPage).toHaveURL(/\/dashboard(?:\/)?$/, { timeout: 60_000 });
     // Confirm the brand edit form is NOT present
     await expect(adminPage.locator('textarea[name="description"]')).toHaveCount(0);
   });
@@ -108,16 +110,16 @@ test.describe('Dashboard — governed field integrity', () => {
    * Case (b): Owner saves description; governed columns (mit_status, status) are unchanged.
    */
   test('owner save does not mutate governed columns (mit_status, status)', async ({ userPage }) => {
-    test.setTimeout(30_000);
+    test.setTimeout(120_000);
 
     const editPath = `/dashboard/brands/${brandSlug}/edit`;
-    const editResp = await userPage.goto(editPath);
+    const editResp = await userPage.goto(editPath, { timeout: 60_000 });
     if (editResp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
     }
 
-    await expect(userPage.getByRole('heading', { name: /edit/i })).toBeVisible({ timeout: 10_000 });
+    await expect(userPage.getByRole('heading', { name: /edit/i })).toBeVisible({ timeout: 60_000 });
 
     // Change the description (an owner-editable field)
     const descField = userPage.locator('textarea[name="description"]');
@@ -130,7 +132,7 @@ test.describe('Dashboard — governed field integrity', () => {
     await userPage.getByRole('button', { name: '儲存變更' }).click();
     await userPage.waitForURL(
       (u) => new URL(u).searchParams.get('tab') === brandSlug,
-      { timeout: 15_000 }
+      { timeout: 60_000 }
     );
 
     // Verify via service-role DB read that governed columns were not mutated

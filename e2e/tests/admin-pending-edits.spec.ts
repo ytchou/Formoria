@@ -96,8 +96,8 @@ test.describe('Admin pending-edits review queue', () => {
     const newDescription = `[E2E-TEST] Approved description ${Date.now()}`;
 
     // Step 1: Owner submits an edit via the dashboard edit form
-    await userPage.goto(`/dashboard/brands/${approveBrandSlug}/edit`);
-    await expect(userPage.getByRole('main')).toBeVisible({ timeout: 15_000 });
+    await userPage.goto(`/dashboard/brands/${approveBrandSlug}/edit`, { timeout: 60_000 });
+    await expect(userPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
 
     const descField = userPage.locator('textarea[name="description"]');
     await expect(descField).toBeVisible({ timeout: 10_000 });
@@ -109,9 +109,9 @@ test.describe('Admin pending-edits review queue', () => {
     ).toBeVisible({ timeout: 15_000 });
 
     // Step 2: Admin navigates to review-queue edits queue
-    await adminPage.goto('/admin/review-queue/edits');
-    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 15_000 });
-    await expect(adminPage.getByRole('heading', { name: '品牌編輯審核' })).toBeVisible({ timeout: 10_000 });
+    await adminPage.goto('/admin/review-queue/edits', { timeout: 60_000 });
+    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
+    await expect(adminPage.getByRole('heading', { name: '品牌編輯審核' })).toBeVisible({ timeout: 60_000 });
 
     // Step 3: Pending edit row is visible
     await expect(adminPage.getByText(/\[E2E-TEST\] Pending Edit Approve/)).toBeVisible({ timeout: 10_000 });
@@ -134,7 +134,7 @@ test.describe('Admin pending-edits review queue', () => {
     // Step 8: Brand page eventually shows updated description (ISR revalidation)
     const brandPath = `/zh-TW/brands/${approveBrandSlug}`;
     await expect(async () => {
-      await adminPage.goto(brandPath);
+      await adminPage.goto(brandPath, { timeout: 60_000 });
       await expect(adminPage.getByText(newDescription)).toBeVisible({ timeout: 5_000 });
     }).toPass({ timeout: 120_000, intervals: [2_000, 3_000, 5_000, 10_000] });
   });
@@ -143,14 +143,14 @@ test.describe('Admin pending-edits review queue', () => {
     adminPage,
     userPage,
   }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(120_000);
 
     const editDescription = `[E2E-TEST] Rejected description ${Date.now()}`;
     const rejectionReason = 'Test rejection reason';
 
     // Step 1: Owner submits edit for the reject brand
-    await userPage.goto(`/dashboard/brands/${rejectBrandSlug}/edit`);
-    await expect(userPage.getByRole('main')).toBeVisible({ timeout: 15_000 });
+    await userPage.goto(`/dashboard/brands/${rejectBrandSlug}/edit`, { timeout: 60_000 });
+    await expect(userPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
 
     const descField = userPage.locator('textarea[name="description"]');
     await expect(descField).toBeVisible({ timeout: 10_000 });
@@ -162,8 +162,8 @@ test.describe('Admin pending-edits review queue', () => {
     ).toBeVisible({ timeout: 15_000 });
 
     // Step 2: Admin navigates to review-queue edits queue
-    await adminPage.goto('/admin/review-queue/edits');
-    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 15_000 });
+    await adminPage.goto('/admin/review-queue/edits', { timeout: 60_000 });
+    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
 
     // Step 3: Pending edit row is visible
     await expect(adminPage.getByText(/\[E2E-TEST\] Pending Edit Reject/)).toBeVisible({ timeout: 10_000 });
@@ -273,11 +273,11 @@ test.describe('Admin pending-edits — risk badge visibility', () => {
   test('pending edit row with medium-risk moderation flag shows 中風險 badge', async ({
     adminPage,
   }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(120_000);
 
-    await adminPage.goto('/admin/review-queue/edits');
-    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 15_000 });
-    await expect(adminPage.getByRole('heading', { name: '品牌編輯審核' })).toBeVisible({ timeout: 10_000 });
+    await adminPage.goto('/admin/review-queue/edits', { timeout: 60_000 });
+    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
+    await expect(adminPage.getByRole('heading', { name: '品牌編輯審核' })).toBeVisible({ timeout: 60_000 });
 
     // Seeded brand row is visible
     await expect(adminPage.getByText(/\[E2E-TEST\] PendingEdit Risk/)).toBeVisible({ timeout: 10_000 });

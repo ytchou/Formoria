@@ -12,6 +12,7 @@ test.describe('Admin reports deep', () => {
   let supabase: ReturnType<typeof createClient> | null = null;
   let seededReportId: string | null = null;
   let seededReportNote: string | null = null;
+  let seededReportBrandName: string | null = null;
 
   test.beforeAll(async () => {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -22,11 +23,12 @@ test.describe('Admin reports deep', () => {
 
     const { data: brand, error: brandError } = await supabase
       .from('brands')
-      .select('id')
+      .select('id, name')
       .limit(1)
       .maybeSingle();
 
     if (brandError || !brand?.id) return;
+    seededReportBrandName = brand.name;
 
     seededReportNote = `[E2E-TEST] reports ${Date.now()}`;
 
@@ -57,12 +59,12 @@ test.describe('Admin reports deep', () => {
 
   test('reports page renders heading and table columns or empty state', async ({ adminPage }) => {
     // DEV-762: admin sub-routes cold-compile in CI dev mode; give generous budget
-    test.setTimeout(60_000);
-    await adminPage.goto('/admin/signals/reports');
+    test.setTimeout(120_000);
+    await adminPage.goto('/admin/signals/reports', { timeout: 60_000 });
 
     await expect(
       adminPage.getByRole('heading', { name: '品牌檢舉' })
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: 60_000 });
 
     const table = adminPage.locator('table').first();
     const emptyState = adminPage.getByText('目前沒有待處理的檢舉。');
@@ -72,9 +74,8 @@ test.describe('Admin reports deep', () => {
     if (await table.isVisible()) {
       await expect(adminPage.getByRole('columnheader', { name: '品牌' })).toBeVisible();
       await expect(adminPage.getByRole('columnheader', { name: '原因' })).toBeVisible();
-      await expect(adminPage.getByRole('columnheader', { name: '補充' })).toBeVisible();
       await expect(adminPage.getByRole('columnheader', { name: '日期' })).toBeVisible();
-      await expect(adminPage.getByRole('columnheader', { name: '操作' })).toBeVisible();
+      await expect(adminPage.getByRole('columnheader', { name: '狀態' })).toBeVisible();
     }
 
     await expect(
@@ -84,21 +85,29 @@ test.describe('Admin reports deep', () => {
 
   test('seeded pending report appears when safe seeding succeeds', async ({ adminPage }) => {
     test.skip(
-      !seededReportId || !seededReportNote,
+      !seededReportId || !seededReportNote || !seededReportBrandName,
       'Skipped because no existing brand was available for safe report seeding.'
     );
     // DEV-762: admin sub-routes cold-compile in CI dev mode; give generous budget
-    test.setTimeout(60_000);
+    test.setTimeout(120_000);
 
-    await adminPage.goto('/admin/signals/reports');
+    await adminPage.goto('/admin/signals/reports', { timeout: 60_000 });
     // Wait for main to confirm the page loaded before looking for the seeded row
-    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 15_000 });
+    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
 
-    const seededRow = adminPage.locator('tbody tr', { hasText: seededReportNote! });
+    const seededRow = adminPage.locator('tbody tr', { hasText: seededReportBrandName! }).filter({
+      hasText: '資訊有誤',
+    }).first();
 
     await expect(seededRow).toBeVisible({ timeout: 15_000 });
     await expect(seededRow.getByText('資訊有誤')).toBeVisible();
-    await expect(seededRow.getByRole('button', { name: '審核' })).toBeVisible();
-    await expect(seededRow.getByRole('button', { name: '忽略' })).toBeVisible();
+    await expect(seededRow.getByText('待處理')).toBeVisible();
+
+    await seededRow.click();
+
+    const expandedRow = adminPage.locator('tbody tr', { hasText: seededReportNote! });
+    await expect(expandedRow).toBeVisible({ timeout: 10_000 });
+    await expect(expandedRow.getByRole('button', { name: '審核' })).toBeVisible();
+    await expect(expandedRow.getByRole('button', { name: '忽略' })).toBeVisible();
   });
 });

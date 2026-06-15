@@ -56,22 +56,28 @@ test.describe('Admin smoke', () => {
   });
 
   test('admin dashboard loads', async ({ adminPage }) => {
-    await adminPage.goto('/admin');
-    await expect(adminPage.getByRole('heading', { name: '管理後台' }).first()).toBeVisible({ timeout: 10_000 });
+    test.setTimeout(120_000);
+
+    await adminPage.goto('/admin', { timeout: 60_000 });
+    await expect(adminPage.getByRole('heading', { name: '管理後台' }).first()).toBeVisible({ timeout: 60_000 });
     // Stats should be visible — use stable text labels rather than fragile CSS class selectors
     await expect(adminPage.getByText('品牌總數').first()).toBeVisible();
   });
 
   test('submissions review queue shows pending items', async ({ adminPage }) => {
+    test.setTimeout(120_000);
+
     if (!testSubmissionId) test.skip();
-    await adminPage.goto('/admin/review-queue/submissions');
+    await adminPage.goto('/admin/review-queue/submissions', { timeout: 60_000 });
     await expect(adminPage.getByRole('heading', { name: /submission/i })).toBeVisible();
     await expect(adminPage.getByText(testBrandName)).toBeVisible({ timeout: 10_000 });
   });
 
   test('admin can approve a submission', async ({ adminPage }) => {
+    test.setTimeout(120_000);
+
     if (!testSubmissionId) test.skip();
-    await adminPage.goto('/admin/review-queue/submissions');
+    await adminPage.goto('/admin/review-queue/submissions', { timeout: 60_000 });
     // Click the row to expand the detail section (approve button is inside it)
     await adminPage.getByText(testBrandName).click();
     const approveBtn = adminPage.getByRole('button', { name: /^approve$|^核准$/i });

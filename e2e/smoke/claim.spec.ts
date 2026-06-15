@@ -122,12 +122,12 @@ test.describe('Claim smoke', () => {
       .toBeGreaterThanOrEqual(1);
 
     // Admin: approve the claim
-    await adminPage.goto('/admin/claims');
+    await adminPage.goto('/admin/claims', { timeout: 60_000 });
     await expect(
       adminPage.getByRole('heading', { name: /claim requests/i })
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: 60_000 });
     await expect(adminPage.getByText(brandName, { exact: true })).toBeVisible({
-      timeout: 10_000,
+      timeout: 60_000,
     });
 
     await adminPage.getByText(brandName, { exact: true }).click();
