@@ -339,6 +339,7 @@ export async function saveDraftAction(
     const updateData = parseBrandEditForm(formData, brand)
 
     await saveDraft(brand.id, updateData)
+    revalidatePath(`/dashboard/brands/${brandSlug}/edit`)
     return {}
   } catch (err) {
     if (err instanceof InvalidBrandEditFormError) {

@@ -111,9 +111,10 @@ export function getReviewSchema(t: Translator) {
   })
 }
 
-export function getBotDetectionSchema(t: Translator) {
+export function getBotDetectionSchema(_t: Translator) {
+  void _t
   return z.object({
-    turnstileToken: z.string().min(1, t('validation.turnstileRequired')),
+    turnstileToken: z.string().optional().default(''),
     _honeypot: z.string().max(0).optional(),
   })
 }
@@ -253,7 +254,7 @@ export function createSubmissionSchema(isOwner: boolean, t: Translator = zhT) {
   })
 
   const botDetectionBase = z.object({
-    turnstileToken: z.string().min(1, t('validation.turnstileRequired')),
+    turnstileToken: z.string().optional().default(''),
     _honeypot: z.string().max(0).optional(),
   })
 

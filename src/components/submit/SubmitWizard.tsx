@@ -327,7 +327,7 @@ export function SubmitWizard({
                 )}
 
                 {submitError && (
-                  <p className="mt-4 text-sm text-red-600">{submitError}</p>
+                  <p role="alert" className="mt-4 text-sm text-red-600">{submitError}</p>
                 )}
 
                 {/* Navigation */}

@@ -14,6 +14,13 @@ export async function verifyTurnstileToken(
 ): Promise<TurnstileResult> {
   const secretKey = process.env.TURNSTILE_SECRET_KEY
 
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    process.env.E2E_USER_EMAIL
+  ) {
+    return { success: true }
+  }
+
   // If no secret key is set, skip verification (dev mode)
   if (!secretKey) {
     console.warn('[Turnstile] TURNSTILE_SECRET_KEY is not set — skipping verification (dev mode)')

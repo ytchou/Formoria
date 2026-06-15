@@ -132,7 +132,7 @@ test.describe('Admin pending-edits review queue', () => {
     await expect(approveBtn).toBeHidden({ timeout: 15_000 });
 
     // Step 8: Brand page eventually shows updated description (ISR revalidation)
-    const brandPath = `/zh-TW/brands/${approveBrandSlug}`;
+    const brandPath = `/brands/${approveBrandSlug}`;
     await expect(async () => {
       await adminPage.goto(brandPath, { timeout: 60_000 });
       await expect(adminPage.getByText(newDescription)).toBeVisible({ timeout: 5_000 });
@@ -247,7 +247,7 @@ test.describe('Admin pending-edits — risk badge visibility', () => {
       .single();
     if (editErr || !editData) throw new Error(`seed pending_brand_edit: ${editErr?.message}`);
 
-    // Seed a medium-risk moderation flag (tier2) for this brand
+    // Seed a medium-risk moderation flag (flag) for this brand
     const { error: flagErr } = await supabase.from('moderation_flags').insert({
       brand_id: riskBrandId,
       user_id: testUser.id,

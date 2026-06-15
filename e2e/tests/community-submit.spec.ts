@@ -65,7 +65,7 @@ test.describe('Community submit flow', () => {
     test.setTimeout(60_000)
     const res = await userPage.goto('/en/my-submissions')
     expect(res?.status()).toBeLessThan(400)
-    await expect(userPage.getByRole('heading', { name: /Owner Dashboard|My Submissions|經營者主控台|我的提交/i })).toBeVisible({
+    await expect(userPage.getByRole('heading', { name: /Owner Dashboard|My Submissions|經營者主控台|我的提交/i }).first()).toBeVisible({
       timeout: 15_000,
     })
   })

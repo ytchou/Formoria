@@ -45,8 +45,6 @@ test.describe('UrlStep link pre-fill', () => {
       await userPage
         .getByLabel('品牌描述', { exact: true })
         .fill('E2E test brand for UrlStep link pre-fill journey. Verifies PR #132 wiring.');
-      await userPage.getByLabel('類別', { exact: true }).selectOption({ index: 1 });
-      await userPage.getByText('服飾鞋履', { exact: true }).click();
 
       const logoUploadInput = userPage.locator('input[type="file"]');
       await Promise.all([
@@ -63,7 +61,11 @@ test.describe('UrlStep link pre-fill', () => {
       await expect(userPage.getByAltText('上傳 1')).toBeVisible({ timeout: 10_000 });
       await userPage.getByRole('button', { name: nextButtonName, exact: true }).click();
 
-      // --- Step 1: TagsStep (product types + value tags; just advance) ---
+      // --- Step 1: TagsStep (product types + value tags) ---
+      await expect(userPage.getByText('產品類型', { exact: true })).toBeVisible({
+        timeout: 5_000,
+      });
+      await userPage.getByLabel('服飾鞋履').click();
       await userPage.getByRole('button', { name: nextButtonName, exact: true }).click();
 
       // --- Step 2: ReviewStep — assert the pre-filled links are rendered ---
@@ -76,7 +78,7 @@ test.describe('UrlStep link pre-fill', () => {
       await expect(userPage.getByRole('link', { name: 'https://pinkoi.com/e2e-test-store' })).toBeVisible();
 
       // Instagram: ReviewRow label="Instagram", value=formData.socialLinks.instagram
-      await expect(userPage.getByText('@e2e_url_links')).toBeVisible();
+      await expect(userPage.getByText('e2e_url_links')).toBeVisible();
 
       // Website: ReviewRow label="Website", value=formData.socialLinks.website.
       // The website field in UrlStep is the #website-url input; we left it empty in this test

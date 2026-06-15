@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { gotoSubmitWizard } from '../utils/submit-wizard';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
@@ -56,15 +57,7 @@ test.describe('Submit dedup — UBN hard-block', () => {
   }) => {
     test.setTimeout(60_000);
 
-    // Single navigation — check 503 and wait for wizard URL input in one shot.
-    // Avoids a double-navigation (goto + gotoSubmitWizard) that can cause
-    // the page context to close mid-test.
-    const res = await userPage.goto('/zh-TW/submit');
-    if (res?.status() === 503) {
-      test.skip(true, 'PREVIEW_MODE active');
-    }
-    // Wait for the URL input — the dependable hydration signal (mirrors gotoSubmitWizard).
-    await expect(userPage.locator('input[type="url"]').first()).toBeVisible({ timeout: 30_000 });
+    await gotoSubmitWizard(userPage);
 
     // Skip URL scraping, go to BrandInfoStep
     const skipBtn = userPage.getByRole('button', {
@@ -159,15 +152,7 @@ test.describe('Submit dedup — fuzzy name warning', () => {
   }) => {
     test.setTimeout(60_000);
 
-    // Single navigation — check 503 and wait for wizard URL input in one shot.
-    // Avoids a double-navigation (goto + gotoSubmitWizard) that can cause
-    // the page context to close mid-test.
-    const res = await userPage.goto('/zh-TW/submit');
-    if (res?.status() === 503) {
-      test.skip(true, 'PREVIEW_MODE active');
-    }
-    // Wait for the URL input — the dependable hydration signal (mirrors gotoSubmitWizard).
-    await expect(userPage.locator('input[type="url"]').first()).toBeVisible({ timeout: 30_000 });
+    await gotoSubmitWizard(userPage);
 
     // Skip URL scraping, go to BrandInfoStep
     const skipBtn = userPage.getByRole('button', {
@@ -189,7 +174,6 @@ test.describe('Submit dedup — fuzzy name warning', () => {
       .fill(
         '這是一個用於 E2E 重複品牌檢測測試的台灣本地品牌，描述至少須達四十個字元以滿足驗證需求。'
       );
-    await userPage.locator('#brand-category').selectOption({ index: 1 });
 
     // Click 下一步 — dedup check should surface warning
     await userPage

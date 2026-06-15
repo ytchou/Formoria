@@ -5,9 +5,12 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
 test.describe('Dashboard brand edit', () => {
-  let brandId: string;
-  let brandSlug: string;
+  let descriptionBrandId: string;
+  let descriptionBrandSlug: string;
+  let highlightsBrandId: string;
+  let highlightsBrandSlug: string;
   let supabase: AnySupabaseClient;
+  let testUserId: string;
 
   const descriptionSuffix = Date.now();
   const initialDescription = `[E2E-TEST] Initial description for edit test ${descriptionSuffix}`;
@@ -32,44 +35,58 @@ test.describe('Dashboard brand edit', () => {
         `E2E test user not found: ${process.env.E2E_USER_EMAIL}. Run global-setup first.`
       );
     }
+    testUserId = testUser.id;
 
-    // Insert the test brand
-    brandSlug = `e2e-edit-test-${Date.now()}`;
-    const { data: brandData, error: brandError } = await supabase
-      .from('brands')
-      .insert({
-        name: `[E2E-TEST] Brand Edit ${Date.now()}`,
-        slug: brandSlug,
-        status: 'approved',
-        description: initialDescription,
-        purchase_links: [],
-        social_links: {},
-        retail_locations: [],
-        product_photos: [],
-      })
-      .select('id')
-      .single();
+    // One brand per journey to avoid unique-pending-per-brand constraint.
+    const ts = Date.now();
 
-    if (brandError || !brandData) {
-      throw new Error(`Failed to seed brand: ${brandError?.message}`);
+    async function seedBrand(label: string, slug: string) {
+      const { data, error } = await supabase
+        .from('brands')
+        .insert({
+          name: `[E2E-TEST] Brand Edit ${label} ${ts}`,
+          slug,
+          status: 'approved',
+          description: initialDescription,
+          purchase_links: [],
+          social_links: {},
+          retail_locations: [],
+          product_photos: [],
+        })
+        .select('id')
+        .single();
+
+      if (error || !data) {
+        throw new Error(`Failed to seed brand ${label}: ${error?.message}`);
+      }
+
+      const { error: ownerError } = await supabase.from('brand_owners').insert({
+        user_id: testUserId,
+        brand_id: data.id,
+      });
+
+      if (ownerError) {
+        throw new Error(`Failed to seed brand_owners ${label}: ${ownerError.message}`);
+      }
+
+      return data.id as string;
     }
-    brandId = brandData.id;
 
-    // Link the test user as owner via brand_owners table
-    const { error: ownerError } = await supabase.from('brand_owners').insert({
-      user_id: testUser.id,
-      brand_id: brandId,
-    });
+    descriptionBrandSlug = `e2e-edit-description-${ts}`;
+    highlightsBrandSlug = `e2e-edit-highlights-${ts}`;
 
-    if (ownerError) {
-      throw new Error(`Failed to seed brand_owners: ${ownerError.message}`);
-    }
+    [descriptionBrandId, highlightsBrandId] = await Promise.all([
+      seedBrand('Description', descriptionBrandSlug),
+      seedBrand('Highlights', highlightsBrandSlug),
+    ]);
   });
 
   test.afterAll(async () => {
-    if (brandId) {
-      await supabase.from('brand_owners').delete().eq('brand_id', brandId);
-      await supabase.from('brands').delete().eq('id', brandId);
+    const ids = [descriptionBrandId, highlightsBrandId].filter(Boolean);
+    if (ids.length) {
+      await supabase.from('pending_brand_edits').delete().in('brand_id', ids);
+      await supabase.from('brand_owners').delete().in('brand_id', ids);
+      await supabase.from('brands').delete().in('id', ids);
     }
   });
 
@@ -77,7 +94,7 @@ test.describe('Dashboard brand edit', () => {
     test.setTimeout(120_000);
 
     // Navigate to the edit page
-    await userPage.goto(`/dashboard/brands/${brandSlug}/edit`, { timeout: 60_000 });
+    await userPage.goto(`/dashboard/brands/${descriptionBrandSlug}/edit`, { timeout: 60_000 });
 
     // Confirm the edit form is loaded
     await expect(
@@ -107,7 +124,7 @@ test.describe('Dashboard brand edit', () => {
 
     const highlight = `[E2E-TEST] 亮點 ${Date.now()}`;
 
-    await userPage.goto(`/dashboard/brands/${brandSlug}/edit`, { timeout: 60_000 });
+    await userPage.goto(`/dashboard/brands/${highlightsBrandSlug}/edit`, { timeout: 60_000 });
 
     const field = userPage.locator('textarea[name="brandHighlights"]');
     await expect(field).toBeVisible({ timeout: 60_000 });

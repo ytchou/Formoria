@@ -72,6 +72,9 @@ test.describe.serial('Dashboard brand draft preview', () => {
 
   test.afterAll(async () => {
     if (brandId) {
+      // This serial suite has one pending-edit-producing publish journey for this brand;
+      // no per-test brand split is needed, but queued edits must be removed before cleanup.
+      await supabase.from('pending_brand_edits').delete().eq('brand_id', brandId);
       await supabase.from('brand_owners').delete().eq('brand_id', brandId);
       await supabase.from('brands').delete().eq('id', brandId);
     }
@@ -132,7 +135,7 @@ test.describe.serial('Dashboard brand draft preview', () => {
 
     // Non-admin owner publish now goes to review queue — expect confirmation, no immediate live update
     await expect(
-      userPage.getByText(/submitted for review|提交審核|審核中/i)
+      userPage.getByText(/submitted for review|提交審核|審核中|您的編輯已提交審核|已提交/i)
     ).toBeVisible({ timeout: 15_000 });
 
     // Public page should still show the OLD description — change is pending review

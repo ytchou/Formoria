@@ -69,8 +69,12 @@ export default async function DashboardPage({ params, searchParams }: Props) {
     !brands.some((b) => b.brandSlug === requestedTab)
   ) {
     if (await isActingAsAdmin(user.email)) {
-      const godBrand = await getBrandBySlugForAdmin(requestedTab)
-      if (godBrand) allBrands = [godBrand, ...brands]
+      try {
+        const godBrand = await getBrandBySlugForAdmin(requestedTab)
+        if (godBrand) allBrands = [godBrand, ...brands]
+      } catch {
+        // Invalid slug — fall through to default tab
+      }
     }
   }
 
@@ -96,7 +100,9 @@ export default async function DashboardPage({ params, searchParams }: Props) {
         ? SUBMISSIONS_TAB
         : defaultTab;
   const selectedBrand =
-    allBrands.find((brand) => brand.brandSlug === selectedTab) ?? null;
+    selectedTab !== SAVED_TAB && selectedTab !== SUBMISSIONS_TAB
+      ? allBrands.find((brand) => brand.brandSlug === selectedTab) ?? null
+      : null;
 
   const submissionsSection = (
     <div>
