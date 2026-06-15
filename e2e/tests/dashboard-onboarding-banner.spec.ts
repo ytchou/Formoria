@@ -172,7 +172,7 @@ test.describe('Dashboard — onboarding banner and health card', () => {
     await expect(checklistItems.first()).toBeVisible({ timeout: 5_000 });
 
     // Single edit-profile CTA at card bottom: dashboard.health.editProfile = "編輯品牌"
-    const editProfileLink = userPage.getByRole('link', { name: '編輯品牌' });
+    const editProfileLink = userPage.getByRole('link', { name: '編輯品牌' }).first();
     await expect(editProfileLink).toBeVisible({ timeout: 5_000 });
     const href = await editProfileLink.getAttribute('href');
     expect(href).toContain(`/dashboard/brands/${brandSlug}/edit`);

@@ -71,6 +71,10 @@ test.describe('Dashboard — governed field integrity', () => {
   test.afterAll(async () => {
     if (!supabase) return;
     if (brandId) {
+      // Only the owner-save test creates a pending edit for this brand; the non-manager
+      // redirect test never submits, so no per-test brand split is needed here.
+      await supabase.from('moderation_flags').delete().eq('brand_id', brandId);
+      await supabase.from('pending_brand_edits').delete().eq('brand_id', brandId);
       await supabase.from('brand_owners').delete().eq('brand_id', brandId);
       await supabase.from('brands').delete().eq('id', brandId);
     }
@@ -119,7 +123,7 @@ test.describe('Dashboard — governed field integrity', () => {
       return;
     }
 
-    await expect(userPage.getByRole('heading', { name: /edit/i })).toBeVisible({ timeout: 60_000 });
+    await expect(userPage.getByRole('heading', { name: /edit|編輯/i })).toBeVisible({ timeout: 60_000 });
 
     // Change the description (an owner-editable field)
     const descField = userPage.locator('textarea[name="description"]');
@@ -130,15 +134,21 @@ test.describe('Dashboard — governed field integrity', () => {
 
     // Save
     await userPage.getByRole('button', { name: '儲存變更' }).click();
-    await userPage.waitForURL(
-      (u) => new URL(u).searchParams.get('tab') === brandSlug,
-      { timeout: 60_000 }
-    );
+    await expect(userPage.getByText(/submitted for review|提交審核|審核中/i)).toBeVisible({ timeout: 15_000 });
+
+    const { data: pendingEdit } = await supabase
+      .from('pending_brand_edits')
+      .select('proposed_data')
+      .eq('brand_id', brandId)
+      .eq('status', 'pending')
+      .single();
+
+    expect((pendingEdit?.proposed_data as Record<string, unknown>)?.description).toBe(updatedDescription);
 
     // Verify via service-role DB read that governed columns were not mutated
     const { data: row, error } = await supabase
       .from('brands')
-      .select('mit_status, status, description')
+      .select('mit_status, status')
       .eq('id', brandId)
       .single();
 
@@ -146,7 +156,5 @@ test.describe('Dashboard — governed field integrity', () => {
     // Governed columns are unchanged
     expect(row?.mit_status).toBe('unverified');
     expect(row?.status).toBe('approved');
-    // Owner-editable field was updated
-    expect(row?.description).toBe(updatedDescription);
   });
 });

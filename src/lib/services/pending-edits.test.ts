@@ -37,29 +37,57 @@ beforeEach(() => {
 })
 
 describe('createPendingEdit', () => {
-  it('upserts a pending edit row for the brand', async () => {
-    const mockChain = {
-      upsert: vi.fn().mockReturnThis(),
+  it('inserts a new pending edit when none exists', async () => {
+    const checkChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null }),
+    }
+    const insertChain = {
+      insert: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),
       single: vi.fn().mockResolvedValue({
         data: { id: EDIT_ID, brand_id: BRAND_ID, status: 'pending' },
         error: null,
       }),
     }
-    mockFrom.mockReturnValue(mockChain)
+    mockFrom.mockReturnValueOnce(checkChain).mockReturnValueOnce(insertChain)
 
     const result = await createPendingEdit(BRAND_ID, USER_ID, PROPOSED_DATA)
 
-    expect(mockFrom).toHaveBeenCalledWith('pending_brand_edits')
-    expect(mockChain.upsert).toHaveBeenCalledWith(
+    expect(mockFrom).toHaveBeenCalledTimes(2)
+    expect(insertChain.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         brand_id: BRAND_ID,
         submitted_by: USER_ID,
         proposed_data: PROPOSED_DATA,
         status: 'pending',
-      }),
-      expect.objectContaining({ onConflict: expect.any(String) })
+      })
     )
+    expect(result.status).toBe('pending')
+  })
+
+  it('updates the existing pending edit when one exists', async () => {
+    const checkChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { id: EDIT_ID } }),
+    }
+    const updateChain = {
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: { id: EDIT_ID, brand_id: BRAND_ID, status: 'pending' },
+        error: null,
+      }),
+    }
+    mockFrom.mockReturnValueOnce(checkChain).mockReturnValueOnce(updateChain)
+
+    const result = await createPendingEdit(BRAND_ID, USER_ID, PROPOSED_DATA)
+
+    expect(mockFrom).toHaveBeenCalledTimes(2)
+    expect(updateChain.update).toHaveBeenCalled()
     expect(result.status).toBe('pending')
   })
 })

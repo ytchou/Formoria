@@ -60,6 +60,10 @@ test.describe('Dashboard — brand image upload', () => {
   test.afterAll(async () => {
     if (!supabase) return;
     if (brandId) {
+      // This suite has one save journey for its brand, so it cannot hit the
+      // unique-pending-per-brand constraint across tests; cleanup still removes queued edits.
+      await supabase.from('moderation_flags').delete().eq('brand_id', brandId);
+      await supabase.from('pending_brand_edits').delete().eq('brand_id', brandId);
       await supabase.from('brand_owners').delete().eq('brand_id', brandId);
       await supabase.from('brands').delete().eq('id', brandId);
     }
@@ -77,7 +81,7 @@ test.describe('Dashboard — brand image upload', () => {
 
     // Confirm the form loaded
     await expect(
-      userPage.getByRole('heading', { name: /edit/i })
+      userPage.getByRole('heading', { name: /edit|編輯/i })
     ).toBeVisible({ timeout: 60_000 });
 
     // The logo upload field input id is 'image-upload-logoUrl' (sr-only)
@@ -113,34 +117,15 @@ test.describe('Dashboard — brand image upload', () => {
     // Save the form
     await userPage.getByRole('button', { name: '儲存變更' }).click();
 
-    // After save, we are redirected to the dashboard tab for this brand
-    await userPage.waitForURL(
-      (u) => new URL(u).searchParams.get('tab') === brandSlug,
-      { timeout: 60_000 }
-    );
+    await expect(userPage.getByText(/submitted for review|提交審核|審核中/i)).toBeVisible({ timeout: 15_000 });
 
-    // Navigate back to edit to confirm persistence
-    await userPage.goto(editPath, { timeout: 60_000 });
-    await expect(userPage.getByRole('heading', { name: /edit/i })).toBeVisible({ timeout: 60_000 });
-
-    // The hidden logoUrl input should contain the uploaded URL
-    const hiddenInput = userPage.locator('input[type="hidden"][name="logoUrl"]');
-    await expect(hiddenInput).toHaveAttribute('value', uploadedUrl, { timeout: 5_000 });
-
-    // Confirm DB record holds the uploaded URL (immediate, no ISR delay)
-    const { data: row, error: dbErr } = await supabase
-      .from('brands')
-      .select('logo_url')
-      .eq('id', brandId)
+    const { data: pendingEdit } = await supabase
+      .from('pending_brand_edits')
+      .select('proposed_data')
+      .eq('brand_id', brandId)
+      .eq('status', 'pending')
       .single();
-    expect(dbErr).toBeNull();
-    expect(row?.logo_url).toBeTruthy();
-    // The stored URL must reference Supabase storage
-    expect(row!.logo_url).toContain('supabase.co');
 
-    // NOTE: logo_url is NOT rendered as an <img> on the public brand detail page
-    // (/brands/[slug]) — only heroImageUrl and productPhotos appear in the gallery.
-    // Persistence is fully proven by the edit-page hidden input check above (lines
-    // 124-125) plus the direct DB assertion here. No ISR public-page poll needed.
+    expect((pendingEdit?.proposed_data as Record<string, unknown>)?.logoUrl).toBe(uploadedUrl);
   });
 });

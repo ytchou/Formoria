@@ -207,6 +207,7 @@ export function ReviewStep({
       </div>
 
       {/* Bot detection */}
+      <input type="hidden" {...register('turnstileToken')} />
       <TurnstileWidget
         onSuccess={handleTurnstileSuccess}
       />

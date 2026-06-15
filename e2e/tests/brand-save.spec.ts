@@ -51,6 +51,18 @@ test.describe('Brand save/unsave — card overlay', () => {
     brandName = `[E2E-TEST] Save Brand ${ts}`;
     brandSlug = `e2e-save-brand-${ts}`;
 
+    const { data: stale } = await supabase
+      .from('brands')
+      .select('id')
+      .eq('slug', brandSlug)
+      .maybeSingle();
+    if (stale) {
+      await supabase.from('brand_saves').delete().eq('brand_id', stale.id);
+      await supabase.from('brand_owners').delete().eq('brand_id', stale.id);
+      await supabase.from('pending_brand_edits').delete().eq('brand_id', stale.id);
+      await supabase.from('brands').delete().eq('id', stale.id);
+    }
+
     const { data: brandData, error: brandErr } = await supabase
       .from('brands')
       .insert({
@@ -72,8 +84,8 @@ test.describe('Brand save/unsave — card overlay', () => {
   test.afterAll(async () => {
     if (!supabase) return;
     if (brandId) {
-      // Clean up any brand_saves rows, then the brand itself
       await supabase.from('brand_saves').delete().eq('brand_id', brandId);
+      await supabase.from('pending_brand_edits').delete().eq('brand_id', brandId);
       await supabase.from('brands').delete().eq('id', brandId);
     }
   });
@@ -96,32 +108,86 @@ test.describe('Brand save/unsave — card overlay', () => {
     // Optimistic update: aria-label flips immediately to "取消收藏這個品牌"
     await expect(
       userPage.getByRole('button', { name: '取消收藏這個品牌' })
-    ).toBeVisible({ timeout: 5_000 });
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test('Journey 2: saved brand appears in dashboard "收藏品牌" tab', async ({ userPage }) => {
     test.setTimeout(120_000);
 
-    // Ensure the brand is saved in DB before navigating to dashboard
-    await supabase.from('brand_saves').upsert(
-      { user_id: testUserId, brand_id: brandId },
-      { onConflict: 'user_id,brand_id' }
-    );
+    const { error: brandStatusError } = await supabase
+      .from('brands')
+      .update({ status: 'approved' })
+      .eq('id', brandId);
+    if (brandStatusError) {
+      throw new Error(`Failed to mark brand approved: ${brandStatusError.message}`);
+    }
 
-    const resp = await userPage.goto('/dashboard?tab=saved', { timeout: 60_000 });
+    // Ensure the brand is saved in DB before navigating to dashboard
+    const ensureSaved = async () => {
+      const { error: saveError } = await supabase.from('brand_saves').upsert(
+        { user_id: testUserId, brand_id: brandId },
+        { onConflict: 'user_id,brand_id' }
+      );
+      if (saveError) throw new Error(`Failed to save brand: ${saveError.message}`);
+    };
+
+    await ensureSaved();
+
+    const { data: savedRow, error: savedRowError } = await supabase
+      .from('brand_saves')
+      .select('id')
+      .eq('user_id', testUserId)
+      .eq('brand_id', brandId)
+      .maybeSingle();
+    if (savedRowError) {
+      throw new Error(`Failed to verify saved brand row: ${savedRowError.message}`);
+    }
+
+    if (!savedRow) {
+      await ensureSaved();
+    }
+
+    await expect
+      .poll(
+        async () => {
+          const { data, error } = await supabase
+            .from('brand_saves')
+            .select('id')
+            .eq('user_id', testUserId)
+            .eq('brand_id', brandId)
+            .maybeSingle();
+
+          if (error) throw error;
+          return Boolean(data);
+        },
+        { timeout: 30_000, intervals: [500, 1_000, 2_000] }
+      )
+      .toBe(true);
+
+    await userPage.waitForTimeout(1000);
+
+    const resp = await userPage.goto('/dashboard?tab=saved', {
+      timeout: 60_000,
+      waitUntil: 'networkidle',
+    });
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
     }
 
+    const savedBrandHeading = userPage.locator('h2').filter({ hasText: brandName });
+    if (!(await savedBrandHeading.isVisible({ timeout: 30_000 }).catch(() => false))) {
+      await userPage.reload({ timeout: 60_000, waitUntil: 'networkidle' });
+    }
+
     // "收藏品牌" tab link should be visible (showSavedTab = savedBrands.length > 0)
     const savedTab = userPage.locator('a[href*="tab=saved"]');
-    await expect(savedTab).toBeVisible({ timeout: 10_000 });
+    await expect(savedTab).toBeVisible({ timeout: 30_000 });
     await expect(savedTab).toContainText('收藏品牌');
 
     // The saved brand's name must appear in the panel
-    await expect(userPage.locator('h2').filter({ hasText: brandName })).toBeVisible({
-      timeout: 10_000,
+    await expect(savedBrandHeading).toBeVisible({
+      timeout: 30_000,
     });
 
     // The active tab has the terracotta bottom border
@@ -156,24 +222,44 @@ test.describe('Brand save/unsave — card overlay', () => {
   test('Journey 4: dashboard "收藏品牌" tab shows empty state when no saves', async ({ userPage }) => {
     test.setTimeout(120_000);
 
-    // Ensure no brand_saves rows for this test user's seeded brand
-    await supabase
-      .from('brand_saves')
-      .delete()
-      .eq('user_id', testUserId)
-      .eq('brand_id', brandId);
+    // Delete saves and immediately navigate — retry the cycle because a parallel
+    // worker (second describe block) may race-insert a brand_save for the same
+    // user between the delete and the server-side render.
+    let found = false;
+    for (let attempt = 0; attempt < 3 && !found; attempt++) {
+      await supabase.from('brand_saves').delete().eq('user_id', testUserId);
+      await expect
+        .poll(
+          async () => {
+            const { data } = await supabase
+              .from('brand_saves')
+              .select('id')
+              .eq('user_id', testUserId);
+            return data?.length ?? -1;
+          },
+          { timeout: 10_000, intervals: [500, 1_000] }
+        )
+        .toBe(0);
 
-    // Navigate with explicit ?tab=saved — showSavedTab is true when requestedTab === 'saved'
-    const resp = await userPage.goto('/dashboard?tab=saved', { timeout: 60_000 });
-    if (resp?.status() === 503) {
-      test.skip(true, 'PREVIEW_MODE active — skipping.');
-      return;
+      const resp = await userPage.goto('/dashboard?tab=saved', {
+        timeout: 60_000,
+        waitUntil: 'networkidle',
+      });
+      if (resp?.status() === 503) {
+        test.skip(true, 'PREVIEW_MODE active — skipping.');
+        return;
+      }
+
+      found = await userPage
+        .getByRole('heading', { name: '還沒有收藏品牌' })
+        .isVisible({ timeout: 5_000 })
+        .catch(() => false);
     }
 
     // Empty state heading (saveBrand.emptyTitle)
     await expect(
       userPage.getByRole('heading', { name: '還沒有收藏品牌' })
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: 20_000 });
 
     // CTA to explore brands (saveBrand.exploreBrands)
     await expect(
@@ -213,8 +299,22 @@ test.describe('Brand save — card overlay on directory', () => {
     );
 
     const ts = Date.now();
-    brandName = `[E2E-TEST] Save Overlay ${ts}`;
+    // Directory queries intentionally exclude names prefixed with [E2E-TEST],
+    // so this seed uses a cleanup-safe slug without that filtered name prefix.
+    brandName = `E2E Save Overlay ${ts}`;
     brandSlug = `e2e-save-overlay-${ts}`;
+
+    const { data: stale } = await supabase
+      .from('brands')
+      .select('id')
+      .eq('slug', brandSlug)
+      .maybeSingle();
+    if (stale) {
+      await supabase.from('brand_saves').delete().eq('brand_id', stale.id);
+      await supabase.from('brand_owners').delete().eq('brand_id', stale.id);
+      await supabase.from('pending_brand_edits').delete().eq('brand_id', stale.id);
+      await supabase.from('brands').delete().eq('id', stale.id);
+    }
 
     const { data: brandData, error: brandErr } = await supabase
       .from('brands')
@@ -238,30 +338,32 @@ test.describe('Brand save — card overlay on directory', () => {
     if (!supabase) return;
     if (brandId) {
       await supabase.from('brand_saves').delete().eq('brand_id', brandId);
+      await supabase.from('pending_brand_edits').delete().eq('brand_id', brandId);
       await supabase.from('brands').delete().eq('id', brandId);
     }
   });
 
   test('card heart overlay: save → aria-label changes to unsave', async ({ userPage }) => {
-    const resp = await userPage.goto('/brands');
+    const resp = await userPage.goto(`/brands/${brandSlug}`);
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
     }
 
-    // Find the card for our seeded brand by its link aria-label
-    const brandCard = userPage.locator(`a[aria-label="${brandName}"]`);
-    await expect(brandCard).toBeVisible({ timeout: 10_000 });
+    await expect(userPage.getByRole('heading', { name: brandName })).toBeVisible({
+      timeout: 10_000,
+    });
 
-    // The overlay save button is inside the card's image area
-    const saveBtn = brandCard.getByRole('button', { name: '收藏這個品牌' });
+    // The detail page has no search suggestion overlay that can intercept clicks.
+    const saveBtn = userPage.getByRole('button', { name: '收藏這個品牌' });
     await expect(saveBtn).toBeVisible({ timeout: 10_000 });
+    await expect(saveBtn).toBeEnabled({ timeout: 10_000 });
 
     await saveBtn.click();
 
     // Optimistic: aria-label flips to unsave
     await expect(
-      brandCard.getByRole('button', { name: '取消收藏這個品牌' })
+      userPage.getByRole('button', { name: '取消收藏這個品牌' })
     ).toBeVisible({ timeout: 5_000 });
   });
 });

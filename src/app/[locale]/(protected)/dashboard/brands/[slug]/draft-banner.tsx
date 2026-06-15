@@ -8,6 +8,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { discardDraftAction, publishDraftAction } from './actions'
 
 type ActionState = {
+  success?: boolean
+  message?: string
   error?: string
   fieldErrors?: Record<string, string>
 } | undefined
@@ -19,11 +21,25 @@ type DraftBannerProps = {
 
 const initialState: ActionState = undefined
 
-function ActionFeedback({ state }: { state: ActionState }) {
+function ActionFeedback({
+  state,
+  submittedForReviewMessage,
+}: {
+  state: ActionState
+  submittedForReviewMessage: string
+}) {
   const fieldErrors = state?.fieldErrors ? Object.values(state.fieldErrors) : []
   const messages = [state?.error, ...fieldErrors].filter(
     (message): message is string => Boolean(message),
   )
+
+  if (state?.success === true && state.message === 'brandEditSubmittedForReview') {
+    return (
+      <div className="rounded-lg border border-[var(--verified-green)] bg-[var(--verified-green-bg)] px-4 py-3 text-sm font-medium text-[var(--verified-green)]">
+        {submittedForReviewMessage}
+      </div>
+    )
+  }
 
   if (messages.length === 0) {
     return null
@@ -40,6 +56,7 @@ function ActionFeedback({ state }: { state: ActionState }) {
 
 export function DraftBanner({ slug, draftUpdatedAt }: DraftBannerProps) {
   const t = useTranslations('dashboard.manage')
+  const pendingEditsT = useTranslations('admin.pendingEdits')
   const [publishState, publishFormAction, publishPending] = useActionState(
     publishDraftAction,
     initialState,
@@ -106,8 +123,14 @@ export function DraftBanner({ slug, draftUpdatedAt }: DraftBannerProps) {
           </form>
         </div>
 
-        <ActionFeedback state={publishState} />
-        <ActionFeedback state={discardState} />
+        <ActionFeedback
+          state={publishState}
+          submittedForReviewMessage={pendingEditsT('brandEditSubmittedForReview')}
+        />
+        <ActionFeedback
+          state={discardState}
+          submittedForReviewMessage={pendingEditsT('brandEditSubmittedForReview')}
+        />
       </CardContent>
     </Card>
   )

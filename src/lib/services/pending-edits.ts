@@ -125,15 +125,30 @@ export async function createPendingEdit(
   proposedData: Record<string, unknown>
 ): Promise<PendingBrandEdit> {
   const supabase = createServiceClient()
+
+  const { data: existing } = await supabase
+    .from('pending_brand_edits')
+    .select('id')
+    .eq('brand_id', brandId)
+    .eq('status', 'pending')
+    .maybeSingle()
+
+  if (existing) {
+    const { data, error } = await supabase
+      .from('pending_brand_edits')
+      .update({ proposed_data: proposedData, updated_at: new Date().toISOString() })
+      .eq('id', existing.id)
+      .select('*')
+      .single()
+    if (error) throw error
+    return pendingEditToDomain(data)
+  }
+
   const { data, error } = await supabase
     .from('pending_brand_edits')
-    .upsert(pendingEditToUpsert(brandId, userId, proposedData), {
-      onConflict: 'brand_id',
-      ignoreDuplicates: false,
-    })
+    .insert(pendingEditToUpsert(brandId, userId, proposedData))
     .select('*')
     .single()
-
   if (error) throw error
   return pendingEditToDomain(data)
 }

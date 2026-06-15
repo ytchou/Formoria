@@ -187,8 +187,7 @@ test.describe('Dashboard — tab navigation', () => {
     });
 
     // No 5xx error messaging on screen
-    await expect(userPage.locator('text=500')).toHaveCount(0);
-    await expect(userPage.locator('text=Internal Server Error')).toHaveCount(0);
+    await expect(userPage.getByText(/Internal Server Error|伺服器錯誤/i)).toHaveCount(0);
   });
 });
 

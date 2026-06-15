@@ -49,6 +49,8 @@ const PLATFORM_OPTIONS = [
   { value: 'other', label: 'Other' },
 ]
 
+const MAX_PURCHASE_LINKS = 3
+
 export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributionChange }: UrlStepProps) {
   const t = useTranslations('submit')
   const [websiteUrl, setWebsiteUrl] = useState('')
@@ -88,7 +90,9 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
   })
 
   const addPurchaseLink = () => {
-    setPurchaseLinks((links) => [...links, { platform: '', url: '' }])
+    setPurchaseLinks((links) => (
+      links.length >= MAX_PURCHASE_LINKS ? links : [...links, { platform: '', url: '' }]
+    ))
   }
 
   const removePurchaseLink = (index: number) => {
@@ -291,16 +295,18 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
           ))}
         </div>
 
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={addPurchaseLink}
-          disabled={status === 'loading'}
-          className="h-12 rounded-lg px-2 text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <Plus className="h-4 w-4" />
-          {t('url.addPurchaseLink')}
-        </Button>
+        {purchaseLinks.length < MAX_PURCHASE_LINKS && (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={addPurchaseLink}
+            disabled={status === 'loading'}
+            className="h-12 rounded-lg px-2 text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Plus className="h-4 w-4" />
+            {t('url.addPurchaseLink')}
+          </Button>
+        )}
       </div>
 
       {!isOwner && (

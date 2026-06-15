@@ -82,7 +82,7 @@ test.describe('Auth — sign-in flow', () => {
     await expect(anonPage.getByRole('heading', { name: '經營者主控台', exact: true })).toBeVisible({
       timeout: 60_000,
     });
-    await expect(anonPage.getByText(`歡迎，${email}`, { exact: true })).toBeVisible({
+    await expect(anonPage.getByText(`歡迎，${email.split('@')[0]}`, { exact: true })).toBeVisible({
       timeout: 60_000,
     });
   });

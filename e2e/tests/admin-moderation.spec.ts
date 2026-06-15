@@ -51,7 +51,8 @@ test.describe('Admin content moderation dashboard', () => {
     if (brandErr || !brandData) throw new Error(`seed brand: ${brandErr?.message}`);
     brandId = brandData.id;
 
-    // Seed one high-risk flag (tier1) and one medium-risk flag (tier2)
+    // Seed one high-risk flag (block) and one medium-risk flag (flag).
+    // The page maps block -> 高風險 and flag -> 中風險.
     const { error: flagErr } = await supabase.from('moderation_flags').insert([
       {
         brand_id: brandId,
