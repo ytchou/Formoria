@@ -3,7 +3,8 @@ import createMiddleware from 'next-intl/middleware'
 import { NextResponse, type NextRequest } from "next/server";
 import { routing } from '@/i18n/routing'
 import { resolveAdminModeCookie } from '@/lib/auth/admin-mode-cookie'
-import { checkRateLimit } from "@/lib/security/rate-limiter";
+import { verifyChallengeToken, CHALLENGE_COOKIE_NAME } from '@/lib/security/challenge'
+import { checkRateLimit, checkSoftRateLimit, getClientIp } from "@/lib/security/rate-limiter";
 
 /**
  * Routes that are reserved for static pages and cannot be used as brand slugs.
@@ -14,6 +15,7 @@ export const RESERVED_ROUTES = new Set([
   'api',
   '_next',
   'auth',
+  'challenge',
   'submit',
   'categories',
   'category',
@@ -49,6 +51,23 @@ const PUBLIC_INTL_SEGMENTS = new Set([
   'dashboard',
   'settings',
 ])
+const SOFT_LIMIT_PREFIXES = ['/brands/', '/categories/']
+
+function isSoftLimitPath(pathname: string) {
+  let normalizedPathname = pathname
+  for (const locale of KNOWN_LOCALES) {
+    if (pathname === `/${locale}`) {
+      normalizedPathname = '/'
+      break
+    }
+    if (pathname.startsWith(`/${locale}/`)) {
+      normalizedPathname = pathname.slice(locale.length + 1)
+      break
+    }
+  }
+
+  return SOFT_LIMIT_PREFIXES.some((prefix) => normalizedPathname.startsWith(prefix))
+}
 
 export function isLocalizedPublicPath(pathname: string) {
   const segments = pathname.split('/').filter(Boolean)
@@ -133,8 +152,30 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Check rate limit before regular request processing
-  const rateLimitResponse = checkRateLimit(request)
+  const rateLimitResponse = await checkRateLimit(request)
   if (rateLimitResponse) return rateLimitResponse
+
+  if (isSoftLimitPath(pathname)) {
+    const challengeCookie = request.cookies.get(CHALLENGE_COOKIE_NAME)?.value
+    let isVerified = false
+    if (challengeCookie) {
+      try {
+        isVerified = await verifyChallengeToken(challengeCookie, getClientIp(request))
+      } catch {
+        isVerified = false
+      }
+    }
+
+    if (!isVerified) {
+      const shouldChallenge = await checkSoftRateLimit(request)
+      if (shouldChallenge) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/challenge'
+        url.searchParams.set('returnTo', pathname + request.nextUrl.search)
+        return NextResponse.redirect(url)
+      }
+    }
+  }
 
   // Redirect top-level brand slugs: /:slug → /brands/:slug (301 for SEO continuity)
   // Only applies to single-segment paths that match the brand slug format
