@@ -27,6 +27,7 @@ const allHealthy: ServiceHealthResult[] = [
   makeResult('Tally'),
   makeResult('Browserless'),
   makeResult('Railway'),
+  makeResult('Upstash Redis', 'healthy', '已連線 (42ms)'),
 ]
 
 describe('SystemStatusCard', () => {
@@ -35,9 +36,9 @@ describe('SystemStatusCard', () => {
     expect(screen.getByText(/系統狀態|System Status/i)).toBeInTheDocument()
   })
 
-  it('renders all 7 service names', () => {
+  it('renders all 8 service names', () => {
     render(<SystemStatusCard initialResults={allHealthy} />)
-    for (const svc of ['Supabase', 'Sentry', 'Resend', 'Turnstile', 'Tally', 'Browserless', 'Railway']) {
+    for (const svc of ['Supabase', 'Sentry', 'Resend', 'Turnstile', 'Tally', 'Browserless', 'Railway', 'Upstash Redis']) {
       expect(screen.getByText(svc)).toBeInTheDocument()
     }
   })
