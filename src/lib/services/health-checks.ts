@@ -92,6 +92,39 @@ export async function checkResend(): Promise<ServiceHealthResult> {
   }
 }
 
+export async function checkUpstashRedis(): Promise<ServiceHealthResult> {
+  const { UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN } = process.env
+
+  if (!UPSTASH_REDIS_REST_URL || !UPSTASH_REDIS_REST_TOKEN) {
+    return result('Upstash Redis', 'unconfigured', 'Upstash Redis is not configured')
+  }
+
+  try {
+    const start = performance.now()
+    const response = await fetch(`${UPSTASH_REDIS_REST_URL}/ping`, {
+      headers: {
+        Authorization: `Bearer ${UPSTASH_REDIS_REST_TOKEN}`,
+      },
+      signal: AbortSignal.timeout(3000),
+    })
+    const latencyMs = Math.round(performance.now() - start)
+
+    if (!response.ok) {
+      return result('Upstash Redis', 'down', `Connection failed: ${response.statusText}`)
+    }
+
+    return latencyMs < 500
+      ? result('Upstash Redis', 'healthy', `Connected (${latencyMs}ms)`)
+      : result('Upstash Redis', 'degraded', `Connected, high latency (${latencyMs}ms)`)
+  } catch (error) {
+    return result(
+      'Upstash Redis',
+      'down',
+      `Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`
+    )
+  }
+}
+
 export async function checkTurnstile(): Promise<ServiceHealthResult> {
   const { TURNSTILE_SECRET_KEY } = process.env
 
@@ -183,6 +216,7 @@ const serviceNames = [
   'Supabase',
   'Sentry',
   'Resend',
+  'Upstash Redis',
   'Turnstile',
   'Tally',
   'Railway',
@@ -193,6 +227,7 @@ export async function checkAllServices(): Promise<ServiceHealthResult[]> {
     checkSupabase(),
     checkSentry(),
     checkResend(),
+    checkUpstashRedis(),
     checkTurnstile(),
     checkTally(),
     checkRailway(),

@@ -36,20 +36,22 @@ describe('checkAllServices', () => {
     process.env.RESEND_API_KEY = 're_test'
     process.env.TURNSTILE_SECRET_KEY = 'test-secret'
     process.env.NEXT_PUBLIC_SITE_URL = 'https://test.formoria.com'
+    process.env.UPSTASH_REDIS_REST_URL = 'https://test-upstash.upstash.io'
+    process.env.UPSTASH_REDIS_REST_TOKEN = 'test-upstash-token'
   })
 
   afterEach(() => {
     process.env = { ...originalEnv }
   })
 
-  it('returns an array of 6 ServiceHealthResults', async () => {
+  it('returns an array of 7 ServiceHealthResults', async () => {
     const { createServiceClient } = await import('@/lib/supabase/server')
     vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
     fetchMock.mockResolvedValue({ ok: true, json: async () => ({}) })
 
     const results: ServiceHealthResult[] = await checkAllServices()
 
-    expect(results).toHaveLength(6)
+    expect(results).toHaveLength(7)
     const services = results.map((r) => r.service)
     expect(services).toContain('Supabase')
     expect(services).toContain('Sentry')
@@ -57,6 +59,7 @@ describe('checkAllServices', () => {
     expect(services).toContain('Turnstile')
     expect(services).toContain('Tally')
     expect(services).toContain('Railway')
+    expect(services).toContain('Upstash Redis')
   })
 
   it('each result has the required ServiceHealthResult shape', async () => {
@@ -117,11 +120,74 @@ describe('checkAllServices', () => {
 
     const results = await checkAllServices()
     const fetchServices = results.filter((r) =>
-      ['Sentry', 'Resend', 'Turnstile', 'Railway'].includes(r.service)
+      ['Sentry', 'Resend', 'Turnstile', 'Railway', 'Upstash Redis'].includes(r.service)
     )
     for (const svc of fetchServices) {
       expect(svc.status).toBe('down')
     }
+  })
+
+  describe('checkUpstashRedis', () => {
+    it('returns unconfigured when UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN env vars missing', async () => {
+      const { createServiceClient } = await import('@/lib/supabase/server')
+      vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
+      fetchMock.mockResolvedValue({ ok: true })
+
+      delete process.env.UPSTASH_REDIS_REST_URL
+      const results = await checkAllServices()
+      const upstashRedis = results.find((r) => r.service === 'Upstash Redis')
+      expect(upstashRedis?.status).toBe('unconfigured')
+
+      process.env.UPSTASH_REDIS_REST_URL = 'https://test-upstash.upstash.io'
+      delete process.env.UPSTASH_REDIS_REST_TOKEN
+      const tokenResults = await checkAllServices()
+      const tokenUpstashRedis = tokenResults.find((r) => r.service === 'Upstash Redis')
+      expect(tokenUpstashRedis?.status).toBe('unconfigured')
+    })
+
+    it('returns healthy when PING succeeds under 500ms', async () => {
+      const { createServiceClient } = await import('@/lib/supabase/server')
+      vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
+      fetchMock.mockImplementation((url: string) =>
+        url.includes('upstash.io') ? Promise.resolve({ ok: true }) : Promise.resolve({ ok: true })
+      )
+
+      const results = await checkAllServices()
+      const upstashRedis = results.find((r) => r.service === 'Upstash Redis')
+      expect(upstashRedis?.status).toBe('healthy')
+      expect(upstashRedis?.message).toMatch(/Connected \(\d+ms\)/)
+    })
+
+    it('returns degraded when latency is >=500ms', async () => {
+      const nowSpy = vi.spyOn(performance, 'now')
+      nowSpy.mockReturnValueOnce(0).mockReturnValueOnce(600)
+      const { createServiceClient } = await import('@/lib/supabase/server')
+      vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
+      fetchMock.mockImplementation((url: string) =>
+        url.includes('upstash.io') ? Promise.resolve({ ok: true }) : Promise.resolve({ ok: true })
+      )
+
+      const results = await checkAllServices()
+      const upstashRedis = results.find((r) => r.service === 'Upstash Redis')
+      expect(upstashRedis?.status).toBe('degraded')
+      expect(upstashRedis?.message).toMatch(/Connected, high latency \(\d+ms\)/)
+      nowSpy.mockRestore()
+    })
+
+    it('returns down when fetch throws', async () => {
+      const { createServiceClient } = await import('@/lib/supabase/server')
+      vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
+      fetchMock.mockImplementation((url: string) =>
+        url.includes('upstash.io')
+          ? Promise.reject(new Error('Network error'))
+          : Promise.resolve({ ok: true })
+      )
+
+      const results = await checkAllServices()
+      const upstashRedis = results.find((r) => r.service === 'Upstash Redis')
+      expect(upstashRedis?.status).toBe('down')
+      expect(upstashRedis?.message).toMatch(/Connection error/)
+    })
   })
 
   describe('checkTally age thresholds', () => {
