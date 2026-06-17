@@ -139,7 +139,12 @@ function isLikelyCrawler(request: NextRequest): boolean {
   return CRAWLER_RE.test(userAgent)
 }
 
-export function getClientIp(request: NextRequest): string {
+export function getClientIp(request: Request): string {
+  const cfConnectingIp = request.headers.get('cf-connecting-ip')
+  if (cfConnectingIp) {
+    return cfConnectingIp
+  }
+
   const forwarded = request.headers.get('x-forwarded-for')
   if (forwarded) {
     return forwarded.split(',')[0].trim()

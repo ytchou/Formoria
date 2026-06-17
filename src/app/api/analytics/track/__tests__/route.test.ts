@@ -14,6 +14,7 @@ function makeRequest(body: object, ip = '127.0.0.1') {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
+      'cf-connecting-ip': ip,
       'x-forwarded-for': ip,
     },
     body: JSON.stringify(body),

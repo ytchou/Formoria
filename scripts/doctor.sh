@@ -70,6 +70,9 @@ check_env() {
     if ! grep -q "UPSTASH_REDIS_REST_URL=https://" .env.local 2>/dev/null; then
       echo "WARN: UPSTASH_REDIS_REST_URL not set — rate limiter will use in-memory fallback (not distributed)"
     fi
+    if ! grep -q "CF_ORIGIN_SECRET=." .env.local; then
+      echo "⚠ CF_ORIGIN_SECRET not set (optional — needed for Cloudflare origin protection)"
+    fi
     if ! grep -q "CHALLENGE_SECRET=." .env.local; then
       echo "WARN: CHALLENGE_SECRET not set — progressive CAPTCHA challenge will fail in production"
     fi

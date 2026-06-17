@@ -4,7 +4,7 @@ const createClaimRequest = vi.hoisted(() => vi.fn())
 
 vi.mock('next/headers', () => ({
   headers: vi.fn().mockResolvedValue(
-    new Map([['x-forwarded-for', '127.0.0.1']])
+    new Map([['cf-connecting-ip', '127.0.0.1'], ['x-forwarded-for', '127.0.0.1']])
   ),
 }))
 
@@ -165,7 +165,7 @@ describe('submitReportAction', () => {
     const { headers } = await import('next/headers')
     vi.mocked(headers).mockResolvedValue(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      new Map([['x-forwarded-for', '10.9.9.9']]) as any
+      new Map([['cf-connecting-ip', '10.9.9.9'], ['x-forwarded-for', '10.9.9.9']]) as any
     )
     const fd = makeFormData({ brandId: 'b1', reason: 'not_mit' })
     await submitReportAction({}, fd)

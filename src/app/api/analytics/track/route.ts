@@ -1,5 +1,6 @@
 import { incrementView, incrementClick, incrementLinkClick } from '@/lib/services/brand-analytics'
 import { normalizeSource } from '@/lib/analytics/source-bucket'
+import { getClientIp } from '@/lib/security/rate-limiter'
 
 export const runtime = 'nodejs'
 
@@ -45,7 +46,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   // Rate limiting
-  const ip = request.headers.get('x-forwarded-for') ?? 'unknown'
+  const ip = getClientIp(request)
   const destinationKey = typeof destination === 'string' ? destination : ''
   const rateLimitKey =
     event === 'click' ? `${ip}:${brandId}:click:${destinationKey}` : `${ip}:${brandId}:${event}`
