@@ -31,6 +31,13 @@ vi.mock('@/i18n/routing', () => ({
 
 vi.mock('@/lib/security/rate-limiter', () => ({
   checkRateLimit: vi.fn(() => null),
+  checkSoftRateLimit: vi.fn().mockReturnValue({ allowed: true, remaining: 29 }),
+  getClientIp: vi.fn().mockReturnValue('127.0.0.1'),
+}))
+
+vi.mock('@/lib/security/challenge', () => ({
+  verifyChallengeToken: vi.fn().mockReturnValue(false),
+  CHALLENGE_COOKIE_NAME: 'fm_verified',
 }))
 
 import { RESERVED_ROUTES } from './middleware'
