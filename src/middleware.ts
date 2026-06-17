@@ -151,6 +151,14 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  const cfOriginSecret = process.env.CF_ORIGIN_SECRET
+  if (process.env.NODE_ENV === 'production' && cfOriginSecret) {
+    const cfSecret = request.headers.get('x-cf-secret')
+    if (cfSecret !== cfOriginSecret && request.nextUrl.pathname !== '/api/health') {
+      return new NextResponse('Forbidden', { status: 403 })
+    }
+  }
+
   // Check rate limit before regular request processing
   const rateLimitResponse = await checkRateLimit(request)
   if (rateLimitResponse) return rateLimitResponse

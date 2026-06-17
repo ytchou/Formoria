@@ -176,7 +176,7 @@ export async function submitReportAction(_prevState: ReportState, formData: Form
     }
 
     const h = await headers()
-    const ip = h.get('x-forwarded-for')?.split(',')[0].trim() ?? h.get('x-real-ip') ?? 'unknown'
+    const ip = h.get('cf-connecting-ip') ?? h.get('x-forwarded-for')?.split(',')[0].trim() ?? h.get('x-real-ip') ?? 'unknown'
 
     const rl = reportRateLimiter.check(`report:${ip}`, 60_000, 3)
     if (!rl.allowed) {
