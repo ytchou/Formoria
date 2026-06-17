@@ -153,7 +153,7 @@ export async function middleware(request: NextRequest) {
 
   const cfOriginSecret = process.env.CF_ORIGIN_SECRET
   if (process.env.NODE_ENV === 'production' && cfOriginSecret) {
-    const cfSecret = request.headers.get('x-cf-secret')
+    const cfSecret = request.headers.get('x-origin-verify')
     if (cfSecret !== cfOriginSecret && request.nextUrl.pathname !== '/api/health') {
       return new NextResponse('Forbidden', { status: 403 })
     }
