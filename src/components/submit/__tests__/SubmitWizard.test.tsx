@@ -21,8 +21,8 @@ vi.mock('../BrandInfoStep', async () => {
     BrandInfoStep: () => {
       const { getValues } = useFormContext()
 
-      if (!Array.isArray(getValues('productTypes'))) {
-        throw new Error('productTypes default value is required')
+      if (typeof getValues('productType') !== 'string') {
+        throw new Error('productType default value is required')
       }
 
       if (getValues('productTypeNote') !== '') {
@@ -81,7 +81,7 @@ function renderWithZhTW(ui: React.ReactElement) {
 }
 
 describe('SubmitWizard product type defaults', () => {
-  it('mounts the form when productTypes and productTypeNote are in defaultValues', async () => {
+  it('mounts the form when productType and productTypeNote are in defaultValues', async () => {
     const user = userEvent.setup()
     const { container } = renderWithZhTW(<SubmitWizard />)
 

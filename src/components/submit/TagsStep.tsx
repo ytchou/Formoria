@@ -36,10 +36,10 @@ export function TagsStep({ valueTags }: TagsStepProps) {
         </div>
 
         <Controller
-          name="productTypes"
+          name="productType"
           control={control}
           render={({ field }) => {
-            const selected = (field.value ?? [])[0] ?? ''
+            const selected = field.value ?? ''
 
             return (
               <div className="grid grid-cols-2 gap-2">
@@ -67,7 +67,7 @@ export function TagsStep({ valueTags }: TagsStepProps) {
                         checked={checked}
                         disabled={freeTextMode}
                         onChange={() => {
-                          field.onChange([category.slug])
+                          field.onChange(category.slug)
                         }}
                         className="size-4 accent-[#2F5D50]"
                       />
@@ -100,7 +100,7 @@ export function TagsStep({ valueTags }: TagsStepProps) {
               aria-labelledby="product-type-free-text-label"
               onClick={() => {
                 if (!freeTextMode) {
-                  setValue('productTypes', [])
+                  setValue('productType', '')
                 }
                 setFreeTextMode((current) => !current)
               }}
@@ -150,9 +150,9 @@ export function TagsStep({ valueTags }: TagsStepProps) {
           </div>
         )}
 
-        {errors.productTypes && (
+        {errors.productType && (
           <p className="text-xs text-red-600">
-            {errors.productTypes.message}
+            {errors.productType.message}
           </p>
         )}
       </fieldset>

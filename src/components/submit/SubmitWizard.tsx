@@ -21,7 +21,7 @@ import {
 } from '@/lib/validations/submission'
 import { useRouter } from '@/i18n/navigation'
 import { submitBrand } from '@/app/[locale]/submit/actions'
-import { deriveCategoryFromProductTypes } from '@/lib/taxonomy/ontology'
+import { deriveCategoryFromProductType } from '@/lib/taxonomy/ontology'
 import {
   trackSubmissionFormOpened,
   trackSubmissionFormStepCompleted,
@@ -38,7 +38,7 @@ const STEP_COUNT = 3
 
 const STEP_FIELDS: (keyof SubmissionFormData)[][] = [
   ['name', 'description', 'region', 'logoUrl', 'retailLocations'],
-  ['productTypes', 'productTypeNote', 'valueTags'],
+  ['productType', 'productTypeNote', 'valueTags'],
   ['pdpaConsent'],
 ]
 
@@ -102,7 +102,7 @@ export function SubmitWizard({
         unifiedBusinessNumber: true,
       }),
       allFields.pick({
-        productTypes: true,
+        productType: true,
         productTypeNote: true,
         valueTags: true,
       }),
@@ -151,7 +151,7 @@ export function SubmitWizard({
       region: '',
       valueTags: [],
       logoUrl: '',
-      productTypes: [],
+      productType: '',
       productTypeNote: '',
       productPhotos: [],
       purchaseLinks: [{ platform: '', url: '' }],
@@ -244,7 +244,7 @@ export function SubmitWizard({
     const photoUrls = photos.map((p) => p.url)
     const mergedData = {
       ...(data as SubmissionFormData),
-      productTypes: (data as SubmissionFormData).productTypes ?? [],
+      productType: (data as SubmissionFormData).productType ?? '',
       productTypeNote: (data as SubmissionFormData).productTypeNote ?? '',
       productPhotos: [...photoUrls, ...(data as SubmissionFormData).productPhotos.filter((url: string) => !photoUrls.includes(url))],
       isOwner,
@@ -260,7 +260,7 @@ export function SubmitWizard({
         const elapsed = Math.round((Date.now() - mountTimeRef.current) / 1000)
         trackSubmissionCompleted(
           data.name,
-          deriveCategoryFromProductTypes(mergedData.productTypes ?? [], mergedData.productTypeNote) ?? data.category,
+          deriveCategoryFromProductType(mergedData.productType ?? '', mergedData.productTypeNote) ?? data.category,
           Boolean(data.logoUrl),
           elapsed
         )

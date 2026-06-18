@@ -36,7 +36,7 @@ const csvColumns = [
   ['name', '品牌名稱，必填'],
   ['description', '品牌介紹，必填'],
   ['category', '既有分類欄位'],
-  ['productTypes', '產品類型，多值以 | 分隔'],
+  ['productType', '產品類型'],
   ['productTypeNote', '產品類型補充'],
   ['region', '地區標籤'],
   ['valueTags', '價值標籤，多值以 | 分隔'],
