@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseSubscribeForm, isHoneypotFilled } from '../newsletter'
+import { parseSubscribeForm, isHoneypotFilled } from '../newsletter-helpers'
 
 describe('newsletter server action — pure helpers', () => {
   describe('parseSubscribeForm', () => {

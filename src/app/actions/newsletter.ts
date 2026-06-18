@@ -10,6 +10,7 @@ import {
   validateEmail,
 } from '@/lib/services/newsletter'
 import { createServiceClient } from '@/lib/supabase/server'
+import { isHoneypotFilled, parseSubscribeForm } from './newsletter-helpers'
 
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX_REQUESTS = 5
@@ -18,20 +19,6 @@ const rateLimitBuckets = new Map<string, number[]>()
 export type SubscribeNewsletterState = {
   success?: true
   error?: string
-}
-
-export function parseSubscribeForm(fd: FormData): { email: string; interests: string[] } {
-  const email = String(fd.get('email') ?? '')
-  const interests = fd
-    .getAll('interests')
-    .filter((interest): interest is string => typeof interest === 'string')
-
-  return { email, interests }
-}
-
-export function isHoneypotFilled(fd: FormData): boolean {
-  const value = fd.get('website')
-  return typeof value === 'string' && value.trim().length > 0
 }
 
 function checkRateLimit(ip: string): boolean {
