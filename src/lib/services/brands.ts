@@ -588,7 +588,7 @@ export function brandToInsert(data: BrandWriteInput): Record<string, unknown> {
   if (data.status !== undefined) row.status = data.status
   if (data.productType !== undefined) {
     row.product_type = data.productType
-  } else if (data.category !== undefined) {
+  } else if (data.category != null) {
     row.product_type = data.category
   }
   if (data.foundingYear !== undefined) row.founding_year = data.foundingYear

@@ -146,6 +146,7 @@ export async function approveSubmissionAction(
         isVerified: false,
         isDemo: false,
         category: null,
+        productType: 'crafts',
         foundingYear: null,
         purchaseLinks: [],
         socialLinks: submission.socialLinks,

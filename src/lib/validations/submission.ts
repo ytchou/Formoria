@@ -1,6 +1,6 @@
 import { z } from 'zod/v3'
 import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
-import { PRODUCT_TYPE_CATEGORIES } from '../taxonomy/ontology'
+import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 type Translator = (key: string) => string
 
