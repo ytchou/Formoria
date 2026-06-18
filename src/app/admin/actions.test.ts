@@ -239,7 +239,7 @@ describe('pending edit admin actions', () => {
     const { sendEmail } = await import('@/lib/email/send')
     const { buildEditApprovedEmail } = await import('@/lib/email/templates')
     const message = { to: 'owner@example.com', from: 'ops@formoria.com', subject: 'approved', html: '' }
-    vi.mocked(buildEditApprovedEmail).mockReturnValue(message)
+    vi.mocked(buildEditApprovedEmail).mockResolvedValue(message)
 
     const { approvePendingEditAction } = await import('./actions')
     const result = await approvePendingEditAction('edit-1')
@@ -266,7 +266,7 @@ describe('pending edit admin actions', () => {
     const { sendEmail } = await import('@/lib/email/send')
     const { buildEditRejectedEmail } = await import('@/lib/email/templates')
     const message = { to: 'owner@example.com', from: 'ops@formoria.com', subject: 'rejected', html: '' }
-    vi.mocked(buildEditRejectedEmail).mockReturnValue(message)
+    vi.mocked(buildEditRejectedEmail).mockResolvedValue(message)
 
     const { rejectPendingEditAction } = await import('./actions')
     const result = await rejectPendingEditAction('edit-1', 'Please add clearer product details')
@@ -284,7 +284,7 @@ describe('pending edit email templates', () => {
     const { buildEditApprovedEmail } =
       await vi.importActual<typeof import('@/lib/email/templates')>('@/lib/email/templates')
 
-    const email = buildEditApprovedEmail('Formosa Bikes', 'owner@example.com')
+    const email = await buildEditApprovedEmail('Formosa Bikes', 'owner@example.com')
 
     expect(email.to).toBe('owner@example.com')
     expect(email.subject).toContain('Formosa Bikes')
@@ -295,7 +295,7 @@ describe('pending edit email templates', () => {
     const { buildEditRejectedEmail } =
       await vi.importActual<typeof import('@/lib/email/templates')>('@/lib/email/templates')
 
-    const email = buildEditRejectedEmail('Formosa Bikes', 'owner@example.com', 'Please clarify factory location')
+    const email = await buildEditRejectedEmail('Formosa Bikes', 'owner@example.com', 'Please clarify factory location')
 
     expect(email.html).toContain('Please clarify factory location')
   })
@@ -476,7 +476,7 @@ describe('MIT verification email actions', () => {
     const { buildMitVerificationSubmittedEmail } = await import('@/lib/email/templates')
     const message = { to: 'owner@example.com', from: 'ops@formoria.com', subject: 'submitted', html: '' }
     vi.mocked(getBrandById).mockResolvedValue({ id: 'brand-1', name: 'Test Brand' } as Awaited<ReturnType<typeof getBrandById>>)
-    vi.mocked(buildMitVerificationSubmittedEmail).mockReturnValue(message)
+    vi.mocked(buildMitVerificationSubmittedEmail).mockResolvedValue(message)
 
     const { acknowledgeMitVerificationSubmissionAction } = await import('./actions')
     const result = await acknowledgeMitVerificationSubmissionAction('brand-1')
@@ -495,7 +495,7 @@ describe('MIT verification email actions', () => {
     const { buildMitVerificationApprovedEmail } = await import('@/lib/email/templates')
     const message = { to: 'owner@example.com', from: 'ops@formoria.com', subject: 'approved', html: '' }
     vi.mocked(verifyMitStatus).mockResolvedValue({ id: 'brand-1', name: 'Test Brand' } as Awaited<ReturnType<typeof verifyMitStatus>>)
-    vi.mocked(buildMitVerificationApprovedEmail).mockReturnValue(message)
+    vi.mocked(buildMitVerificationApprovedEmail).mockResolvedValue(message)
 
     const { verifyMitAction } = await import('./actions')
     const result = await verifyMitAction('brand-1', '01200024-02134')
@@ -514,7 +514,7 @@ describe('MIT verification email actions', () => {
     const { buildMitVerificationNeedsDocsEmail } = await import('@/lib/email/templates')
     const message = { to: 'owner@example.com', from: 'ops@formoria.com', subject: 'needs docs', html: '' }
     vi.mocked(rejectMitStatus).mockResolvedValue({ id: 'brand-1', name: 'Test Brand' } as Awaited<ReturnType<typeof rejectMitStatus>>)
-    vi.mocked(buildMitVerificationNeedsDocsEmail).mockReturnValue(message)
+    vi.mocked(buildMitVerificationNeedsDocsEmail).mockResolvedValue(message)
 
     const { rejectMitAction } = await import('./actions')
     const result = await rejectMitAction('brand-1', 'Please upload factory docs')

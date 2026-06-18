@@ -82,9 +82,9 @@ vi.mock('@/lib/email/resend-adapter', () => ({
 }))
 
 vi.mock('@/lib/email/templates', () => ({
-  buildApprovalEmail: vi.fn().mockReturnValue({}),
-  buildRejectionEmail: vi.fn().mockReturnValue({}),
-  buildClaimEmail: vi.fn().mockReturnValue({}),
+  buildApprovalEmail: vi.fn().mockResolvedValue({}),
+  buildRejectionEmail: vi.fn().mockResolvedValue({}),
+  buildClaimEmail: vi.fn().mockResolvedValue({}),
 }))
 
 vi.mock('@/lib/auth/claim-token', () => ({

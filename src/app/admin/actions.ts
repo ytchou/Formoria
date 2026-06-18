@@ -209,14 +209,14 @@ export async function approveSubmissionAction(
     if (submission.isBrandOwner) {
       const token = await generateClaimToken(brand.id, submission.submitterEmail, submission.brandName)
       const claimUrl = `${siteUrl}/auth/sign-up?claim=${token}`
-      sendEmail(buildClaimEmail({
+      sendEmail(await buildClaimEmail({
         submitterEmail: submission.submitterEmail,
         brandName: submission.brandName,
         claimUrl,
         siteUrl,
       }))
     } else {
-      sendEmail(buildApprovalEmail({
+      sendEmail(await buildApprovalEmail({
         submitterEmail: submission.submitterEmail,
         brandName: submission.brandName,
         brandSlug: slug,
@@ -248,7 +248,7 @@ export async function rejectSubmissionAction(
     const submission = await getSubmission(submissionId)
     await rejectSubmission(submissionId, auth.userId, notes)
 
-    sendEmail(buildRejectionEmail({
+    sendEmail(await buildRejectionEmail({
       submitterEmail: submission.submitterEmail,
       brandName: submission.brandName,
       reviewerNotes: notes,
@@ -296,7 +296,7 @@ export async function approveClaimAction(
 
     try {
       if (claimRequest.requesterEmail && claimRequest.brandName && claimRequest.brandSlug) {
-        await sendEmail(buildClaimApprovedEmail({
+        await sendEmail(await buildClaimApprovedEmail({
           ownerEmail: claimRequest.requesterEmail,
           brandName: claimRequest.brandName,
           brandSlug: claimRequest.brandSlug,
@@ -339,7 +339,7 @@ export async function rejectClaimAction(
 
     try {
       if (claimRequest.requesterEmail && claimRequest.brandName) {
-        await sendEmail(buildClaimRejectedEmail({
+        await sendEmail(await buildClaimRejectedEmail({
           ownerEmail: claimRequest.requesterEmail,
           brandName: claimRequest.brandName,
           reviewerNotes: notes,
@@ -377,7 +377,7 @@ export async function approvePendingEditAction(
 
     try {
       if (edit.ownerEmail && edit.brandName) {
-        await sendEmail(buildEditApprovedEmail(edit.brandName, edit.ownerEmail))
+        await sendEmail(await buildEditApprovedEmail(edit.brandName, edit.ownerEmail))
       }
     } catch (err) {
       console.error('[edit-approved-email] send failed', err)
@@ -411,7 +411,7 @@ export async function rejectPendingEditAction(
 
     try {
       if (edit.ownerEmail && edit.brandName) {
-        await sendEmail(buildEditRejectedEmail(edit.brandName, edit.ownerEmail, notes))
+        await sendEmail(await buildEditRejectedEmail(edit.brandName, edit.ownerEmail, notes))
       }
     } catch (err) {
       console.error('[edit-rejected-email] send failed', err)
@@ -462,7 +462,7 @@ export async function verifyMitAction(
     try {
       const ownerEmail = await getBrandOwnerEmail(brandId)
       if (ownerEmail) {
-        sendEmail(buildMitVerificationApprovedEmail({
+        sendEmail(await buildMitVerificationApprovedEmail({
           to: ownerEmail,
           brandName: brand.name,
         }))
@@ -505,7 +505,7 @@ export async function rejectMitAction(
     try {
       const ownerEmail = await getBrandOwnerEmail(brandId)
       if (ownerEmail) {
-        sendEmail(buildMitVerificationNeedsDocsEmail({
+        sendEmail(await buildMitVerificationNeedsDocsEmail({
           to: ownerEmail,
           brandName: brand.name,
           notes: trimmedNotes,
@@ -543,7 +543,7 @@ export async function acknowledgeMitVerificationSubmissionAction(
     try {
       const ownerEmail = await getBrandOwnerEmail(brandId)
       if (ownerEmail) {
-        sendEmail(buildMitVerificationSubmittedEmail({
+        sendEmail(await buildMitVerificationSubmittedEmail({
           to: ownerEmail,
           brandName: brand.name,
         }))

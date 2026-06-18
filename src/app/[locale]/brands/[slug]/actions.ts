@@ -125,7 +125,7 @@ export async function submitClaimAction(input: SubmitClaimInput): Promise<Submit
         console.log('[claim-email-verification]', verifyUrl)
       }
 
-      sendEmail(buildClaimEmailVerificationEmail({
+      sendEmail(await buildClaimEmailVerificationEmail({
         recipientEmail: verification.email,
         brandName: brand.name,
         verifyUrl,
