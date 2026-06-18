@@ -1,5 +1,5 @@
 -- 1. Add product_type column (nullable initially)
-ALTER TABLE brands ADD COLUMN product_type text;
+ALTER TABLE brands ADD COLUMN IF NOT EXISTS product_type text;
 
 -- 2. Populate from brand_taxonomy (first product_type tag alphabetically per brand)
 WITH ranked AS (
@@ -41,11 +41,14 @@ UPDATE brands SET product_type = 'crafts' WHERE product_type IS NULL;
 ALTER TABLE brands ALTER COLUMN product_type SET NOT NULL;
 
 -- 6. Add CHECK constraint
-ALTER TABLE brands ADD CONSTRAINT brands_product_type_check
-  CHECK (product_type IN ('fashion', 'bags-accessories', 'jewelry', 'beauty', 'home', 'food-drink', 'crafts', 'tech', 'outdoor', 'kids-pets'));
+DO $$ BEGIN
+  ALTER TABLE brands ADD CONSTRAINT brands_product_type_check
+    CHECK (product_type IN ('fashion', 'bags-accessories', 'jewelry', 'beauty', 'home', 'food-drink', 'crafts', 'tech', 'outdoor', 'kids-pets'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- 7. Add index
-CREATE INDEX idx_brands_product_type ON brands (product_type);
+CREATE INDEX IF NOT EXISTS idx_brands_product_type ON brands (product_type);
 
 -- 8. Drop legacy category column
 ALTER TABLE brands DROP COLUMN IF EXISTS category;
