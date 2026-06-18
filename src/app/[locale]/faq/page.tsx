@@ -54,6 +54,11 @@ export default async function FaqPage({ params }: PageProps) {
     'claimBenefits',
     'claimOrUpdate',
     'dataAccuracy',
+    'isBrandFree',
+    'editBrand',
+    'whatCategories',
+    'languageSupport',
+    'howVerified',
   ] as const
 
   const faqItems = [
