@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mockUseUser = vi.fn()
 const mockUsePathname = vi.fn()
 const mockTrackLogin = vi.hoisted(() => vi.fn())
+const mockTrackSignUp = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/auth/use-user', () => ({
   useUser: () => mockUseUser(),
@@ -16,6 +17,7 @@ vi.mock('@/lib/analytics', async (importOriginal) => {
   return {
     ...actual,
     trackLogin: mockTrackLogin,
+    trackSignUp: mockTrackSignUp,
   }
 })
 
@@ -80,13 +82,118 @@ describe('GaUserSync', () => {
     expect(mockTrackLogin).not.toHaveBeenCalled()
 
     mockUseUser.mockReturnValue({
-      user: { id: 'user-1', email: 'owner@example.com' },
+      user: {
+        id: 'user-1',
+        email: 'owner@example.com',
+        app_metadata: { provider: 'google' },
+      },
       loading: false,
     })
 
     rerender(<GaUserSync />)
 
     expect(mockTrackLogin).toHaveBeenCalledWith('google')
+  })
+
+  it('tracks sign_up when is_new_user=1 is in the URL', async () => {
+    window.history.replaceState({}, '', '/en/brands?is_new_user=1')
+    const { GaUserSync } = await import('./ga-user-sync')
+
+    const { rerender } = render(<GaUserSync />)
+
+    mockUseUser.mockReturnValue({
+      user: {
+        id: 'user-1',
+        email: 'owner@example.com',
+        app_metadata: { provider: 'google' },
+      },
+      loading: false,
+    })
+
+    rerender(<GaUserSync />)
+
+    expect(mockTrackSignUp).toHaveBeenCalledWith('google')
+    expect(mockTrackLogin).not.toHaveBeenCalled()
+  })
+
+  it('tracks login when is_new_user is absent from the URL', async () => {
+    window.history.replaceState({}, '', '/en/brands')
+    const { GaUserSync } = await import('./ga-user-sync')
+
+    const { rerender } = render(<GaUserSync />)
+
+    mockUseUser.mockReturnValue({
+      user: {
+        id: 'user-1',
+        email: 'owner@example.com',
+        app_metadata: { provider: 'google' },
+      },
+      loading: false,
+    })
+
+    rerender(<GaUserSync />)
+
+    expect(mockTrackLogin).toHaveBeenCalledWith('google')
+    expect(mockTrackSignUp).not.toHaveBeenCalled()
+  })
+
+  it('detects email auth method when provider is not google', async () => {
+    const { GaUserSync } = await import('./ga-user-sync')
+
+    const { rerender } = render(<GaUserSync />)
+
+    mockUseUser.mockReturnValue({
+      user: {
+        id: 'user-1',
+        email: 'owner@example.com',
+        app_metadata: { provider: 'email' },
+      },
+      loading: false,
+    })
+
+    rerender(<GaUserSync />)
+
+    expect(mockTrackLogin).toHaveBeenCalledWith('email')
+  })
+
+  it('defaults to email method when app_metadata is absent', async () => {
+    const { GaUserSync } = await import('./ga-user-sync')
+
+    const { rerender } = render(<GaUserSync />)
+
+    mockUseUser.mockReturnValue({
+      user: { id: 'user-1', email: 'owner@example.com' },
+      loading: false,
+    })
+
+    rerender(<GaUserSync />)
+
+    expect(mockTrackLogin).toHaveBeenCalledWith('email')
+  })
+
+  it('cleans is_new_user param from URL after firing sign_up', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/en/brands?is_new_user=1&utm_source=test',
+    )
+    const { GaUserSync } = await import('./ga-user-sync')
+
+    const { rerender } = render(<GaUserSync />)
+
+    mockUseUser.mockReturnValue({
+      user: {
+        id: 'user-1',
+        email: 'owner@example.com',
+        app_metadata: { provider: 'google' },
+      },
+      loading: false,
+    })
+
+    rerender(<GaUserSync />)
+
+    expect(window.location.search).not.toContain('is_new_user')
+    expect(window.location.search).toContain('utm_source=test')
   })
 
   it('sets content_group based on pathname', async () => {
