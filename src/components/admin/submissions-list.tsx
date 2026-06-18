@@ -281,22 +281,20 @@ export function SubmissionsList({
                           return null
                         })()}
 
-                        {Object.keys(submission.socialLinks).length > 0 && (
+                        {(submission.socialInstagram || submission.socialThreads || submission.socialFacebook) && (
                           <div>
                             <p className="text-sm font-medium text-[#7C7570]">
                               Social Links
                             </p>
                             <div className="mt-1 space-y-1 text-sm">
-                              {Object.entries(submission.socialLinks).map(
-                                ([platform, value]) =>
-                                  value && (
-                                    <p key={platform}>
-                                      <span className="capitalize">
-                                        {platform}:
-                                      </span>{' '}
-                                      {value}
-                                    </p>
-                                  )
+                              {submission.socialInstagram && (
+                                <p><span className="capitalize">instagram:</span> {submission.socialInstagram}</p>
+                              )}
+                              {submission.socialThreads && (
+                                <p><span className="capitalize">threads:</span> {submission.socialThreads}</p>
+                              )}
+                              {submission.socialFacebook && (
+                                <p><span className="capitalize">facebook:</span> {submission.socialFacebook}</p>
                               )}
                             </div>
                           </div>

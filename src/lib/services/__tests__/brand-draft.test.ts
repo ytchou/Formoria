@@ -23,8 +23,13 @@ const liveBrand: Brand = {
   mitVerified: true,
   isDemo: false,
   foundingYear: 2019,
-  purchaseLinks: [{ platform: 'shopee', url: 'https://shopee.tw/live', label: 'Shopee' }],
-  socialLinks: { officialWebsite: 'https://live.tw', instagram: 'live_ig' },
+  socialInstagram: 'live_ig',
+  socialThreads: null,
+  socialFacebook: null,
+  purchaseWebsite: 'https://live.tw',
+  purchasePinkoi: null,
+  purchaseShopee: 'https://shopee.tw/live',
+  otherUrls: [],
   retailLocations: [{ name: 'Live Store', address: 'Taipei', latitude: 25.0330, longitude: 121.5654 }],
   productPhotos: ['https://x.supabase.co/p-live-1.png'],
   contactEmail: 'live@brand.tw',
@@ -79,13 +84,13 @@ describe('mergeDraftOverBrand', () => {
 });
 
 describe('draftSnapshotToDomain', () => {
-  it('normalizes socialLinks shape', () => {
+  it('normalizes flat social link fields', () => {
     const partial = draftSnapshotToDomain(
-      { socialLinks: { officialWebsite: 'https://d.tw', instagram: 'd_ig', threads: null, facebook: null } },
+      { purchaseWebsite: 'https://d.tw', socialInstagram: 'd_ig' },
       liveBrand,
     );
-    expect(partial.socialLinks?.officialWebsite).toBe('https://d.tw');
-    expect(partial.socialLinks?.instagram).toBe('d_ig');
+    expect(partial.purchaseWebsite).toBe('https://d.tw');
+    expect(partial.socialInstagram).toBe('d_ig');
   });
 });
 

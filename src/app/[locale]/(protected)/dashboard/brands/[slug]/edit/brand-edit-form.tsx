@@ -52,7 +52,7 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
       ? [{ platform: "pinkoi", url: purchasePinkoi.trim(), label: "Pinkoi" }]
       : []),
     ...(purchaseShopee.trim()
-      ? [{ platform: "shopee", url: purchaseShopee.trim(), label: tx("fieldShopee", "蝦皮購物") }]
+      ? [{ platform: "shopee", url: purchaseShopee.trim(), label: tx("fieldShopee", "Shopee") }]
       : []),
     ...otherUrls
       .filter((link) => link.label.trim() || link.url.trim())
@@ -269,7 +269,7 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
               </div>
               <div className="grid gap-1.5 sm:grid-cols-[140px_1fr] sm:items-center">
                 <Label htmlFor="purchaseShopee" className="text-sm font-semibold text-foreground">
-                  {tx("fieldShopee", "蝦皮購物")}
+                  {tx("fieldShopee", "Shopee")}
                 </Label>
                 <Input
                   id="purchaseShopee"
@@ -327,7 +327,7 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
                 className="h-12 px-3 text-foreground hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Plus className="h-4 w-4" />
-                {tx("addLink", "+ 新增連結")}
+                {tx("addLink", "+ Add link")}
               </Button>
             )}
           </div>

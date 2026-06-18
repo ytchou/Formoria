@@ -224,14 +224,12 @@ describe('updateBrandAction', () => {
     )
   })
 
-  it('extracts purchaseLinks array from FormData', async () => {
+  it('extracts purchaseShopee flat field from FormData', async () => {
     const { updateBrandAction } = await import('./actions')
 
     const formData = form({
       brandSlug: 'test-brand',
-      'purchaseLinks[0].platform': 'shopee',
-      'purchaseLinks[0].url': 'https://shopee.tw/example',
-      'purchaseLinks[0].label': 'Buy on Shopee',
+      purchaseShopee: 'https://shopee.tw/example',
     })
 
     try {
@@ -243,7 +241,7 @@ describe('updateBrandAction', () => {
     expect(updateBrand).toHaveBeenCalledWith(
       'brand-1',
       expect.objectContaining({
-        purchaseLinks: [{ platform: 'shopee', url: 'https://shopee.tw/example', label: 'Buy on Shopee' }],
+        purchaseShopee: 'https://shopee.tw/example',
       })
     )
   })
@@ -492,10 +490,8 @@ describe('updateBrandAction — edit gating', () => {
         name: 'Trusted Name',
         description: 'Clean trusted description',
         brandHighlights: 'Clean trusted highlight',
-        websiteUrl: 'https://example.com',
-        'purchaseLinks[0].platform': 'shop',
-        'purchaseLinks[0].url': 'https://shop.example.com/product',
-        'purchaseLinks[0].label': 'Shop',
+        purchaseWebsite: 'https://example.com',
+        purchaseShopee: 'https://shop.example.com/product',
       }))
     } catch {
       // redirect throws

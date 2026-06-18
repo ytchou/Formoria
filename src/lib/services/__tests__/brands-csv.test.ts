@@ -64,22 +64,22 @@ describe('curatedSubmissionToBrand', () => {
     expect(result.foundingYear).toBeNull()
   })
 
-  it('converts purchase link platform to label', () => {
+  it('converts purchase link platform to purchaseShopee flat field', () => {
     const input = {
       ...baseInput,
       purchaseLinks: [{ platform: 'Shopee', url: 'https://shopee.tw/test' }],
     }
     const result = curatedSubmissionToBrand(input)
-    expect(result.purchaseLinks[0]).toMatchObject({ label: 'Shopee', url: 'https://shopee.tw/test' })
+    expect(result.purchaseShopee).toBe('https://shopee.tw/test')
   })
 
-  it('maps socialLinks.website to officialWebsite', () => {
+  it('maps socialLinks.website to purchaseWebsite flat field', () => {
     const input = {
       ...baseInput,
       socialLinks: { instagram: '@test', threads: '', facebook: '', website: 'https://test.com' },
     }
     const result = curatedSubmissionToBrand(input)
-    expect(result.socialLinks.officialWebsite).toBe('https://test.com')
+    expect(result.purchaseWebsite).toBe('https://test.com')
   })
 
   it('trims brandHighlights and preserves null when empty', () => {

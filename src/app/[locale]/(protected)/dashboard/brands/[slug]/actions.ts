@@ -18,7 +18,7 @@ import {
   updateBrand,
 } from '@/lib/services/brands'
 import { deleteBrandImages } from '@/lib/services/image-upload'
-import type { Brand, PurchaseLink, RetailLocation } from '@/lib/types'
+import type { Brand, RetailLocation } from '@/lib/types'
 import type { ContentPayload, ModerationResult } from '@/lib/services/moderation'
 
 type ActionState = {
@@ -58,8 +58,7 @@ function parseOptionalString(value: FormDataEntryValue | null): string | null {
 }
 
 function parseBrandEditForm(
-  formData: FormData,
-  brand: Brand
+  formData: FormData
 ): Partial<Brand> {
   // Extract basic fields
   const name = formData.get('name') as string | null
@@ -96,12 +95,10 @@ function parseBrandEditForm(
     throw new InvalidBrandEditFormError('Invalid productPhotos payload')
   }
 
-  // Parse array fields
-  const purchaseLinks = parseArrayField<{ platform: string; url: string; label: string }>(
-    formData,
-    'purchaseLinks',
-    ['platform', 'url', 'label']
-  )
+  // Parse purchase URL fields
+  const purchaseWebsite = parseOptionalString(formData.get('purchaseWebsite'))
+  const purchasePinkoi = parseOptionalString(formData.get('purchasePinkoi'))
+  const purchaseShopee = parseOptionalString(formData.get('purchaseShopee'))
   const retailLocations = parseArrayField<{ name: string; address: string }>(
     formData,
     'retailLocations',
@@ -113,21 +110,16 @@ function parseBrandEditForm(
   if (name) updateData.name = name
   if (description !== null) updateData.description = description
   if (foundingYear !== null && !isNaN(foundingYear)) updateData.foundingYear = foundingYear
-  if (purchaseLinks.length > 0) {
-    updateData.purchaseLinks = purchaseLinks as PurchaseLink[]
-  }
+  if (formData.has('purchaseWebsite')) updateData.purchaseWebsite = purchaseWebsite
+  if (formData.has('purchasePinkoi')) updateData.purchasePinkoi = purchasePinkoi
+  if (formData.has('purchaseShopee')) updateData.purchaseShopee = purchaseShopee
   if (retailLocations.length > 0) {
     updateData.retailLocations = retailLocations as RetailLocation[]
   }
-  if (websiteUrl !== null || instagram !== null || threads !== null || facebook !== null) {
-    updateData.socialLinks = {
-      ...brand.socialLinks,
-      ...(websiteUrl !== null ? { officialWebsite: websiteUrl || undefined } : {}),
-      ...(instagram !== null ? { instagram: instagram || undefined } : {}),
-      ...(threads !== null ? { threads: threads || undefined } : {}),
-      ...(facebook !== null ? { facebook: facebook || undefined } : {}),
-    }
-  }
+  if (websiteUrl !== null) updateData.purchaseWebsite = websiteUrl || null
+  if (instagram !== null) updateData.socialInstagram = instagram || null
+  if (threads !== null) updateData.socialThreads = threads || null
+  if (facebook !== null) updateData.socialFacebook = facebook || null
   if (formData.has('logoUrl')) updateData.logoUrl = logoUrl
   if (formData.has('heroImageUrl')) updateData.heroImageUrl = heroImageUrl
   if (formData.has('productPhotos')) updateData.productPhotos = productPhotos
@@ -162,29 +154,6 @@ function getString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined
 }
 
-function getPurchaseUrl(value: unknown): string | undefined {
-  if (!Array.isArray(value)) {
-    return undefined
-  }
-
-  const firstLink = value.find((item): item is { url: string } => (
-    typeof item === 'object' &&
-    item !== null &&
-    'url' in item &&
-    typeof item.url === 'string' &&
-    item.url.length > 0
-  ))
-  return firstLink?.url
-}
-
-function getWebsite(value: unknown): string | undefined {
-  if (typeof value !== 'object' || value === null || !('officialWebsite' in value)) {
-    return undefined
-  }
-
-  return getString(value.officialWebsite)
-}
-
 function buildModerationPayload(
   proposedData: Record<string, unknown>,
   brandName: string
@@ -197,8 +166,8 @@ function buildModerationPayload(
       name: proposedName,
       description: getString(proposedData.description),
       brandHighlights: getString(proposedData.brandHighlights),
-      website: getWebsite(proposedData.socialLinks),
-      purchaseUrl: getPurchaseUrl(proposedData.purchaseLinks),
+      website: getString(proposedData.purchaseWebsite),
+      purchaseUrl: getString(proposedData.purchasePinkoi) ?? getString(proposedData.purchaseShopee),
     },
   }
 }
@@ -270,7 +239,7 @@ export async function updateBrandAction(
       return { error: t('forbidden') }
     }
 
-    const updateData = parseBrandEditForm(formData, brand)
+    const updateData = parseBrandEditForm(formData)
     const proposedData = updateData as Record<string, unknown>
     const moderationResult = scanContent(buildModerationPayload(proposedData, brand.name))
     if (moderationResult.riskLevel === 'high') {
@@ -336,7 +305,7 @@ export async function saveDraftAction(
       return { error: t('forbidden') }
     }
 
-    const updateData = parseBrandEditForm(formData, brand)
+    const updateData = parseBrandEditForm(formData)
 
     await saveDraft(brand.id, updateData)
     revalidatePath(`/dashboard/brands/${brandSlug}/edit`)

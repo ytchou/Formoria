@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { computeBrandHealth } from '../brand-health'
 import { computeBrandCompleteness } from '../brand-completeness'
 import type { AnalyticsResult } from '../brand-analytics'
-import type { Brand } from '@/lib/database.types'
+import type { Brand } from '@/lib/types/brand'
 
 // -- factories --
 
@@ -11,34 +11,43 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     id: 'test-id',
     name: 'Test Brand',
     slug: 'test-brand',
-    name_en: 'Test Brand',
-    name_zh: '測試品牌',
     description:
       'A compelling brand story that is well over two hundred characters. We make beautiful handcrafted goods from sustainable materials sourced in Taiwan. Our mission is to share Taiwanese craftsmanship with the world.',
-    hero_image_url: 'https://example.com/hero.jpg',
-    logo_url: 'https://example.com/logo.png',
-    purchase_links: [
-      { url: 'https://shop.com', label: 'Shop' },
-      { url: 'https://amazon.com', label: 'Amazon' },
+    heroImageUrl: 'https://example.com/hero.jpg',
+    logoUrl: 'https://example.com/logo.png',
+    status: 'approved',
+    category: 'crafts',
+    isVerified: false,
+    isDemo: false,
+    foundingYear: 2020,
+    socialInstagram: 'https://ig.com/brand',
+    socialThreads: 'https://threads.net/brand',
+    socialFacebook: 'https://fb.com/brand',
+    purchaseWebsite: 'https://shop.com',
+    purchasePinkoi: null,
+    purchaseShopee: null,
+    otherUrls: [],
+    retailLocations: [
+      { name: 'Taipei Store', address: 'Taipei', latitude: 25.03, longitude: 121.56 },
+      { name: 'Kaohsiung Store', address: 'Kaohsiung', latitude: 22.63, longitude: 120.27 },
     ],
-    product_photos: [
+    productPhotos: [
       'https://example.com/p1.jpg',
       'https://example.com/p2.jpg',
       'https://example.com/p3.jpg',
       'https://example.com/p4.jpg',
       'https://example.com/p5.jpg',
     ],
-    social_links: {
-      instagram: 'https://ig.com/brand',
-      facebook: 'https://fb.com/brand',
-      line: 'https://line.me/brand',
-    },
-    brand_highlights: ['Highlight 1', 'Highlight 2', 'Highlight 3'],
-    founding_year: 2020,
-    retail_locations: ['Taipei', 'Kaohsiung'],
-    created_at: '2026-01-01T00:00:00Z',
+    brandHighlights: 'Highlight 1, Highlight 2, Highlight 3',
+    siteContent: null,
+    tags: [],
+    contactEmail: null,
+    submittedAt: '2026-01-01T00:00:00Z',
+    approvedAt: '2026-01-02T00:00:00Z',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-02T00:00:00Z',
     ...overrides,
-  } as unknown as Brand
+  }
 }
 
 function makeAnalytics(overrides: Partial<AnalyticsResult> = {}): AnalyticsResult {
@@ -72,14 +81,19 @@ describe('computeBrandHealth', () => {
     it('returns a low score for an empty brand with no analytics', () => {
       const emptyBrand = makeBrand({
         description: '',
-        hero_image_url: null,
-        logo_url: null,
-        purchase_links: [],
-        product_photos: [],
-        social_links: {},
-        brand_highlights: [],
-        founding_year: null,
-        retail_locations: [],
+        heroImageUrl: null,
+        logoUrl: null,
+        purchaseWebsite: null,
+        purchasePinkoi: null,
+        purchaseShopee: null,
+        otherUrls: [],
+        productPhotos: [],
+        socialInstagram: null,
+        socialThreads: null,
+        socialFacebook: null,
+        brandHighlights: null,
+        foundingYear: null,
+        retailLocations: [],
       })
       const result = computeBrandHealth(emptyBrand, null, SEVEN_DAYS_AGO)
       expect(result.overall).toBeLessThanOrEqual(10)
@@ -95,14 +109,19 @@ describe('computeBrandHealth', () => {
     it('returns "gettingStarted" for score 0-39', () => {
       const emptyBrand = makeBrand({
         description: '',
-        hero_image_url: null,
-        logo_url: null,
-        purchase_links: [],
-        product_photos: [],
-        social_links: {},
-        brand_highlights: [],
-        founding_year: null,
-        retail_locations: [],
+        heroImageUrl: null,
+        logoUrl: null,
+        purchaseWebsite: null,
+        purchasePinkoi: null,
+        purchaseShopee: null,
+        otherUrls: [],
+        productPhotos: [],
+        socialInstagram: null,
+        socialThreads: null,
+        socialFacebook: null,
+        brandHighlights: null,
+        foundingYear: null,
+        retailLocations: [],
       })
       const result = computeBrandHealth(emptyBrand, null, SEVEN_DAYS_AGO)
       expect(result.tier).toBe('gettingStarted')
@@ -110,10 +129,15 @@ describe('computeBrandHealth', () => {
 
     it('returns "growing" for score 40-69', () => {
       const partialBrand = makeBrand({
-        product_photos: ['p1.jpg'],
-        social_links: { instagram: 'https://ig.com/x' },
-        brand_highlights: [],
-        retail_locations: [],
+        productPhotos: ['p1.jpg'],
+        socialInstagram: 'https://ig.com/x',
+        socialThreads: null,
+        socialFacebook: null,
+        purchaseWebsite: null,
+        purchasePinkoi: null,
+        purchaseShopee: null,
+        brandHighlights: null,
+        retailLocations: [],
       })
       const result = computeBrandHealth(
         partialBrand,
@@ -148,7 +172,7 @@ describe('computeBrandHealth', () => {
     })
 
     it('photoQuality scores 0 for no photos', () => {
-      const brand = makeBrand({ product_photos: [] })
+      const brand = makeBrand({ productPhotos: [] })
       const result = computeBrandHealth(brand, makeAnalytics(), SEVEN_DAYS_AGO)
       const dim = result.dimensions.find((d) => d.key === 'photoQuality')!
       expect(dim.score).toBe(0)
@@ -161,7 +185,11 @@ describe('computeBrandHealth', () => {
     })
 
     it('socialPresence scores based on count of filled social links', () => {
-      const brand = makeBrand({ social_links: { instagram: 'https://ig.com/x' } })
+      const brand = makeBrand({
+        socialInstagram: 'https://ig.com/x',
+        socialThreads: null,
+        socialFacebook: null,
+      })
       const result = computeBrandHealth(brand, makeAnalytics(), SEVEN_DAYS_AGO)
       const dim = result.dimensions.find((d) => d.key === 'socialPresence')!
       expect(dim.score).toBe(50)
@@ -174,7 +202,12 @@ describe('computeBrandHealth', () => {
     })
 
     it('purchaseAccessibility scores 0 when no purchase links', () => {
-      const brand = makeBrand({ purchase_links: [] })
+      const brand = makeBrand({
+        purchaseWebsite: null,
+        purchasePinkoi: null,
+        purchaseShopee: null,
+        otherUrls: [],
+      })
       const result = computeBrandHealth(brand, makeAnalytics(), SEVEN_DAYS_AGO)
       const dim = result.dimensions.find((d) => d.key === 'purchaseAccessibility')!
       expect(dim.score).toBe(0)
@@ -219,16 +252,23 @@ describe('computeBrandHealth', () => {
 
   describe('nudges', () => {
     it('generates nudges for incomplete dimensions', () => {
-      const brand = makeBrand({ product_photos: [], social_links: {} })
+      const brand = makeBrand({
+        productPhotos: [],
+        socialInstagram: null,
+        socialThreads: null,
+        socialFacebook: null,
+      })
       const result = computeBrandHealth(brand, makeAnalytics(), SEVEN_DAYS_AGO)
       expect(result.topActions.length).toBeGreaterThan(0)
     })
 
     it('ranks nudges by point impact descending', () => {
       const brand = makeBrand({
-        product_photos: [],
-        social_links: {},
-        brand_highlights: [],
+        productPhotos: [],
+        socialInstagram: null,
+        socialThreads: null,
+        socialFacebook: null,
+        brandHighlights: null,
       })
       const result = computeBrandHealth(brand, makeAnalytics(), SEVEN_DAYS_AGO)
       for (let i = 1; i < result.topActions.length; i++) {
@@ -241,12 +281,17 @@ describe('computeBrandHealth', () => {
     it('returns at most 3 nudges', () => {
       const emptyBrand = makeBrand({
         description: '',
-        hero_image_url: null,
-        logo_url: null,
-        purchase_links: [],
-        product_photos: [],
-        social_links: {},
-        brand_highlights: [],
+        heroImageUrl: null,
+        logoUrl: null,
+        purchaseWebsite: null,
+        purchasePinkoi: null,
+        purchaseShopee: null,
+        otherUrls: [],
+        productPhotos: [],
+        socialInstagram: null,
+        socialThreads: null,
+        socialFacebook: null,
+        brandHighlights: null,
       })
       const result = computeBrandHealth(emptyBrand, null, SEVEN_DAYS_AGO)
       expect(result.topActions.length).toBeLessThanOrEqual(3)
@@ -262,7 +307,7 @@ describe('computeBrandHealth', () => {
     })
 
     it('each nudge includes an anchor for the edit page', () => {
-      const brand = makeBrand({ product_photos: [] })
+      const brand = makeBrand({ productPhotos: [] })
       const result = computeBrandHealth(brand, makeAnalytics(), SEVEN_DAYS_AGO)
       for (const nudge of result.topActions) {
         expect(nudge.anchor).toBeTruthy()

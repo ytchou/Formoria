@@ -119,10 +119,25 @@ function getProductPhotos(brand: Brand): unknown[] {
 }
 
 function getPurchaseLinks(brand: Brand): unknown[] {
+  // New flat schema: check flat fields first
+  const source = brand as Record<string, unknown>
+  const flatUrls = [source.purchaseWebsite, source.purchasePinkoi, source.purchaseShopee].filter(Boolean)
+  if (flatUrls.length > 0) return flatUrls
+  // Legacy JSONB schema fallback
   return toArray(getField<unknown>(brand, 'purchaseLinks', 'purchase_links'))
 }
 
 function getSocialLinks(brand: Brand): Record<string, unknown> {
+  // New flat schema: check flat fields first
+  const source = brand as Record<string, unknown>
+  if (source.socialInstagram !== undefined || source.socialThreads !== undefined || source.socialFacebook !== undefined) {
+    const result: Record<string, unknown> = {}
+    if (source.socialInstagram) result.instagram = source.socialInstagram
+    if (source.socialThreads) result.threads = source.socialThreads
+    if (source.socialFacebook) result.facebook = source.socialFacebook
+    return result
+  }
+  // Legacy JSONB schema fallback
   const socialLinks = getField<unknown>(brand, 'socialLinks', 'social_links')
   return socialLinks && !Array.isArray(socialLinks) && typeof socialLinks === 'object'
     ? (socialLinks as Record<string, unknown>)

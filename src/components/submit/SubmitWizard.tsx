@@ -174,9 +174,9 @@ export function SubmitWizard({
       }
 
       methods.setValue('socialLinks', {
-        instagram: links.instagram || data.socialLinks.instagram || '',
-        threads: links.threads || data.socialLinks.threads || '',
-        facebook: links.facebook || data.socialLinks.facebook || '',
+        instagram: links.instagram || data.socialInstagram || '',
+        threads: links.threads || data.socialThreads || '',
+        facebook: links.facebook || data.socialFacebook || '',
         website: links.websiteUrl || data.websiteUrl,
       })
 

@@ -308,7 +308,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
         <div className="space-y-3">
           <div className="grid gap-1.5 sm:grid-cols-[112px_1fr] sm:items-center">
             <label htmlFor="purchase-website" className="text-sm font-semibold text-foreground">
-              {tx('url.purchaseWebsite', '品牌官網')}
+              {tx('url.purchaseWebsite', 'Official Website')}
             </label>
             <Input
               id="purchase-website"
@@ -340,7 +340,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
           </div>
           <div className="grid gap-1.5 sm:grid-cols-[112px_1fr] sm:items-center">
             <label htmlFor="purchase-shopee" className="text-sm font-semibold text-foreground">
-              {tx('url.purchaseShopee', '蝦皮購物')}
+              {tx('url.purchaseShopee', 'Shopee')}
             </label>
             <Input
               id="purchase-shopee"
@@ -413,7 +413,7 @@ export function UrlStep({ onSuccess, onSkip, isOwner, onOwnerChange, onAttributi
             className="h-12 rounded-lg px-3 text-foreground hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Plus className="h-4 w-4" />
-            {tx('url.addLink', '+ 新增連結')}
+            {tx('url.addLink', '+ Add link')}
           </Button>
         )}
       </div>

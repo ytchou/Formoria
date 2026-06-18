@@ -15,8 +15,13 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     isDemo: false,
     category: null,
     foundingYear: null,
-    purchaseLinks: [],
-    socialLinks: {},
+    socialInstagram: null,
+    socialThreads: null,
+    socialFacebook: null,
+    purchaseWebsite: null,
+    purchasePinkoi: null,
+    purchaseShopee: null,
+    otherUrls: [],
     retailLocations: [],
     productPhotos: [],
     contactEmail: null,
@@ -48,15 +53,10 @@ describe('scoreBrand', () => {
         'https://example.com/1.jpg',
         'https://example.com/2.jpg',
       ],
-      socialLinks: {
-        instagram: 'https://instagram.com/test',
-        officialWebsite: 'https://example.com',
-      },
-      purchaseLinks: [
-        { platform: 'website', url: 'https://example.com', label: 'Shop' },
-      ],
+      socialInstagram: 'https://instagram.com/test',
+      purchaseWebsite: 'https://example.com',
       brandHighlights: 'Product A — Great',
-    siteContent: null,
+      siteContent: null,
       category: 'Accessories',
     })
     const result = scoreBrand(brand)
@@ -76,28 +76,16 @@ describe('scoreBrand', () => {
 
   it('extracts websiteUrl from officialWebsite first', () => {
     const brand = makeBrand({
-      socialLinks: { officialWebsite: 'https://brand.com' },
-      purchaseLinks: [
-        {
-          platform: 'pinkoi',
-          url: 'https://pinkoi.com/store/x',
-          label: 'Pinkoi',
-        },
-      ],
+      purchaseWebsite: 'https://brand.com',
+      purchasePinkoi: 'https://pinkoi.com/store/x',
     })
     const result = scoreBrand(brand)
     expect(result.websiteUrl).toBe('https://brand.com')
   })
 
-  it('falls back to first purchaseLink URL when no officialWebsite', () => {
+  it('falls back to pinkoi URL when no purchaseWebsite', () => {
     const brand = makeBrand({
-      purchaseLinks: [
-        {
-          platform: 'pinkoi',
-          url: 'https://pinkoi.com/store/x',
-          label: 'Pinkoi',
-        },
-      ],
+      purchasePinkoi: 'https://pinkoi.com/store/x',
     })
     const result = scoreBrand(brand)
     expect(result.websiteUrl).toBe('https://pinkoi.com/store/x')
@@ -111,7 +99,9 @@ describe('buildEnrichPatch', () => {
     story: null,
     heroImageUrl: null,
     galleryImageUrls: [],
-    socialLinks: { instagram: null, threads: null, facebook: null },
+    socialInstagram: null,
+    socialThreads: null,
+    socialFacebook: null,
     categoryHints: [],
     websiteUrl: 'https://example.com',
     rawJsonLd: null,
@@ -147,40 +137,35 @@ describe('buildEnrichPatch', () => {
 
   it('merges missing social links without overwriting existing', () => {
     const brand = makeBrand({
-      socialLinks: { instagram: 'https://instagram.com/existing' },
+      socialInstagram: 'https://instagram.com/existing',
     })
     const scraped = {
       ...emptyScraped,
-      socialLinks: {
-        instagram: 'https://instagram.com/new',
-        threads: 'https://threads.net/new',
-        facebook: null,
-      },
+      socialInstagram: 'https://instagram.com/new',
+      socialThreads: 'https://threads.net/new',
     }
     const patch = buildEnrichPatch(brand, scraped)
-    expect(patch.socialLinks?.instagram).toBe(
-      'https://instagram.com/existing'
-    )
-    expect(patch.socialLinks?.threads).toBe('https://threads.net/new')
+    expect(patch.socialInstagram).toBeUndefined() // existing instagram should not be overwritten
+    expect(patch.socialThreads).toBe('https://threads.net/new')
   })
 
   it('returns empty patch when nothing to fill', () => {
     const brand = makeBrand({
       description: 'Has everything',
-      socialLinks: {
-        instagram: 'https://instagram.com/x',
-        threads: 'https://threads.net/x',
-        facebook: 'https://facebook.com/x',
-      },
+      socialInstagram: 'https://instagram.com/x',
+      socialThreads: 'https://threads.net/x',
+      socialFacebook: 'https://facebook.com/x',
     })
     const patch = buildEnrichPatch(brand, emptyScraped)
     expect(Object.keys(patch)).toHaveLength(0)
   })
 
-  it('does not include socialLinks in patch when no new links found', () => {
-    const brand = makeBrand({ socialLinks: {} })
+  it('does not include social fields in patch when no new links found', () => {
+    const brand = makeBrand()
     const patch = buildEnrichPatch(brand, emptyScraped)
-    expect(patch.socialLinks).toBeUndefined()
+    expect(patch.socialInstagram).toBeUndefined()
+    expect(patch.socialThreads).toBeUndefined()
+    expect(patch.socialFacebook).toBeUndefined()
   })
 })
 

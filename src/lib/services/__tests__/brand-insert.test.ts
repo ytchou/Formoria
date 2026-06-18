@@ -11,19 +11,11 @@ describe('brandToInsert', () => {
       category: 'food',
       logoUrl: 'https://example.com/logo.png',
       productPhotos: ['https://example.com/product-1.png'],
-      purchaseLinks: [
-        {
-          platform: 'official',
-          url: 'https://example.com/shop',
-          label: 'Official Store',
-        },
-      ],
-      socialLinks: {
-        instagram: 'https://instagram.com/testmaker',
-        threads: '',
-        facebook: '',
-        officialWebsite: 'https://example.com',
-      },
+      purchaseWebsite: 'https://example.com/shop',
+      socialInstagram: 'https://instagram.com/testmaker',
+      socialThreads: null,
+      socialFacebook: null,
+      otherUrls: [],
       retailLocations: [],
       brandHighlights: 'Community-seeded brand profile.',
     })

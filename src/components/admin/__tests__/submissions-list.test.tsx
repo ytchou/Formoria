@@ -8,7 +8,7 @@ import type { BrandSubmission } from '@/lib/types'
 import messages from '../../../../messages/zh-TW.json'
 
 type AdminSubmission = BrandSubmission & {
-  productTypeNote: string | null
+  productTypeNote?: string | null
 }
 
 function renderWithIntl(ui: Parameters<typeof render>[0]) {
@@ -32,10 +32,15 @@ function makeSubmission(overrides: Partial<AdminSubmission> = {}): AdminSubmissi
     submitterEmail: 'potter@test.com',
     submitterName: 'Potter',
     description: 'Handmade ceramics from Yingge',
-    websiteUrl: null,
+    socialInstagram: null,
+    socialThreads: null,
+    socialFacebook: null,
+    purchaseWebsite: null,
+    purchasePinkoi: null,
+    purchaseShopee: null,
+    otherUrls: [],
     status: 'pending',
     suggestedTags: ['ceramics'],
-    socialLinks: {},
     submittedAt: '2026-05-18T10:00:00Z',
     reviewedAt: null,
     reviewedBy: null,
@@ -59,10 +64,15 @@ const mockSubmissions = [
     submitterEmail: 'potter@test.com',
     submitterName: 'Potter',
     description: 'Handmade ceramics from Yingge',
-    websiteUrl: null,
+    socialInstagram: '@pottery',
+    socialThreads: null,
+    socialFacebook: null,
+    purchaseWebsite: null,
+    purchasePinkoi: null,
+    purchaseShopee: null,
+    otherUrls: [],
     status: 'pending' as const,
     suggestedTags: ['ceramics', 'handmade'],
-    socialLinks: { instagram: '@pottery' },
     submittedAt: '2026-05-18T10:00:00Z',
     reviewedAt: null,
     reviewedBy: null,
@@ -81,10 +91,15 @@ const mockSubmissions = [
     submitterEmail: 'tea@test.com',
     submitterName: null,
     description: 'Premium oolong tea',
-    websiteUrl: null,
+    socialInstagram: null,
+    socialThreads: null,
+    socialFacebook: null,
+    purchaseWebsite: null,
+    purchasePinkoi: null,
+    purchaseShopee: null,
+    otherUrls: [],
     status: 'approved' as const,
     suggestedTags: ['tea'],
-    socialLinks: {},
     submittedAt: '2026-05-17T10:00:00Z',
     reviewedAt: '2026-05-18T10:00:00Z',
     reviewedBy: 'admin-1',

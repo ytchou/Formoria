@@ -19,12 +19,13 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     logoUrl: 'https://example.com/logo.png',
     heroImageUrl: 'https://example.com/hero.jpg',
     status: 'approved', isVerified: false, isDemo: false, category: 'Food & Beverage', foundingYear: 2004,
-    purchaseLinks: [{ platform: 'Pinkoi', url: 'https://pinkoi.com/chatzutang', label: 'Pinkoi' }],
-    socialLinks: {
-      officialWebsite: 'https://chatzutang.com',
-      instagram: 'https://instagram.com/chatzutang',
-      facebook: 'https://facebook.com/chatzutang',
-    },
+    purchaseWebsite: 'https://chatzutang.com',
+    purchasePinkoi: 'https://pinkoi.com/chatzutang',
+    purchaseShopee: null,
+    socialInstagram: 'https://instagram.com/chatzutang',
+    socialThreads: null,
+    socialFacebook: 'https://facebook.com/chatzutang',
+    otherUrls: [],
     retailLocations: [{ name: 'Nanzhuang Store', address: '苗栗縣南庄鄉', latitude: 24.59, longitude: 120.99 }],
     productPhotos: [], brandHighlights: null,
     siteContent: null,
@@ -101,10 +102,8 @@ describe('buildBrandJsonLd', () => {
 
   it('includes purchase link URLs in sameAs alongside social links', () => {
     const jsonLd = buildBrandJsonLd(makeBrand({
-      purchaseLinks: [
-        { platform: 'Pinkoi', url: 'https://pinkoi.com/chatzutang', label: 'Pinkoi' },
-        { platform: 'Shopee', url: 'https://shopee.tw/chatzutang', label: 'Shopee' },
-      ],
+      purchasePinkoi: 'https://pinkoi.com/chatzutang',
+      purchaseShopee: 'https://shopee.tw/chatzutang',
     }))
     expect(jsonLd.sameAs).toContain('https://instagram.com/chatzutang')
     expect(jsonLd.sameAs).toContain('https://facebook.com/chatzutang')
@@ -156,7 +155,9 @@ describe('buildBrandJsonLd', () => {
   it('omits optional fields when null', () => {
     const jsonLd = buildBrandJsonLd(makeBrand({
       logoUrl: null, heroImageUrl: null, foundingYear: null,
-      contactEmail: null, socialLinks: {}, retailLocations: [], purchaseLinks: [],
+      contactEmail: null, socialInstagram: null, socialThreads: null, socialFacebook: null,
+      purchaseWebsite: null, purchasePinkoi: null, purchaseShopee: null, otherUrls: [],
+      retailLocations: [],
     }))
     expect(jsonLd.logo).toBeUndefined()
     expect(jsonLd.image).toBeUndefined()

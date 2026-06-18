@@ -1,4 +1,4 @@
-import type { Brand, SocialLinks } from '@/lib/types'
+import type { Brand } from '@/lib/types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import { getBrands, updateBrand } from '@/lib/services/brands'
 import { getTags } from '@/lib/services/taxonomy'
@@ -36,23 +36,25 @@ export function scoreBrand(brand: Brand): {
   }
 
   // socialLinks: 10 pts — >= 1 link
-  const socialValues = Object.values(brand.socialLinks).filter(Boolean)
-  if (socialValues.length >= 1) {
+  const hasSocial = brand.socialInstagram || brand.socialThreads || brand.socialFacebook
+  if (hasSocial) {
     score += 10
   }
 
   // officialWebsite: 10 pts — has scrapeable URL
   const websiteUrl =
-    brand.socialLinks.officialWebsite ||
-    (brand.purchaseLinks.length > 0 ? brand.purchaseLinks[0].url : null) ||
+    brand.purchaseWebsite ||
+    brand.purchasePinkoi ||
+    brand.purchaseShopee ||
     null
 
-  if (brand.socialLinks.officialWebsite) {
+  if (brand.purchaseWebsite) {
     score += 10
   }
 
   // purchaseLinks: 10 pts — length >= 1
-  if (brand.purchaseLinks.length >= 1) {
+  const hasPurchaseLink = brand.purchaseWebsite || brand.purchasePinkoi || brand.purchaseShopee
+  if (hasPurchaseLink) {
     score += 10
   }
 
@@ -90,22 +92,23 @@ export function buildEnrichPatch(
   }
 
   // Merge social links: preserve existing, fill missing
-  const existingLinks = brand.socialLinks
-  const scrapedLinks = scraped.socialLinks
-  const mergedLinks: SocialLinks = { ...existingLinks }
   let hasNewLink = false
 
-  const linkKeys = ['instagram', 'threads', 'facebook'] as const
-  for (const key of linkKeys) {
-    if (!existingLinks[key] && scrapedLinks[key]) {
-      mergedLinks[key] = scrapedLinks[key]!
-      hasNewLink = true
-    }
+  if (!brand.socialInstagram && scraped.socialInstagram) {
+    patch.socialInstagram = scraped.socialInstagram
+    hasNewLink = true
+  }
+  if (!brand.socialThreads && scraped.socialThreads) {
+    patch.socialThreads = scraped.socialThreads
+    hasNewLink = true
+  }
+  if (!brand.socialFacebook && scraped.socialFacebook) {
+    patch.socialFacebook = scraped.socialFacebook
+    hasNewLink = true
   }
 
-  if (hasNewLink) {
-    patch.socialLinks = mergedLinks
-  }
+  // suppress unused variable warning
+  void hasNewLink
 
   // Fill brandHighlights from scraped story if brand has none
   if (!brand.brandHighlights && scraped.story) {
@@ -128,7 +131,7 @@ function isShowcaseReady(brand: Brand): boolean {
     brand.description && brand.description.length > 20 &&
     brand.heroImageUrl &&
     brand.category &&
-    Object.values(brand.socialLinks).some(Boolean) &&
+    (brand.socialInstagram || brand.socialThreads || brand.socialFacebook) &&
     brand.productPhotos.length >= 2
   )
 }

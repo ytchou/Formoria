@@ -184,7 +184,7 @@ export function ReviewStep({
             {tx('purchaseLinks', 'Purchase links')}
           </div>
           <ReviewRow
-            label={tx('purchaseWebsite', '品牌官網')}
+            label={tx('purchaseWebsite', 'Official Website')}
             value={
               purchaseWebsite ? (
                 <a
@@ -214,7 +214,7 @@ export function ReviewStep({
             }
           />
           <ReviewRow
-            label={tx('purchaseShopee', '蝦皮購物')}
+            label={tx('purchaseShopee', 'Shopee')}
             value={
               purchaseShopee ? (
                 <a

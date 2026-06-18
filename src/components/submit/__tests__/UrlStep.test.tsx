@@ -22,20 +22,22 @@ function renderWithZhTW(ui: React.ReactElement) {
 }
 
 describe('UrlStep purchase links', () => {
-  it('renders one purchase link platform select by default', () => {
+  it('renders fixed purchase link fields (website, pinkoi, shopee) by default', () => {
     renderWithZhTW(<UrlStep {...defaultProps} />)
-    // The native <select role="combobox"> is the platform select
-    // There is one per purchase link row
-    const selects = document.querySelectorAll('select[role="combobox"]')
-    expect(selects.length).toBe(1)
+    // The new flat-field design has fixed inputs instead of a dynamic platform select
+    expect(document.querySelector('#purchase-website')).not.toBeNull()
+    expect(document.querySelector('#purchase-pinkoi')).not.toBeNull()
+    expect(document.querySelector('#purchase-shopee')).not.toBeNull()
   })
 
-  it('adds a purchase link row when clicking the add button', () => {
+  it('adds an other-url row when clicking the add link button', () => {
     renderWithZhTW(<UrlStep {...defaultProps} />)
-    const addButton = screen.getByRole('button', { name: /新增購買連結/i })
+    // "新增連結" is the add button for other/custom URLs
+    const addButton = screen.getByRole('button', { name: /新增連結/i })
+    const urlInputsBefore = document.querySelectorAll('input[type="url"]').length
     fireEvent.click(addButton)
-    const selects = document.querySelectorAll('select[role="combobox"]')
-    expect(selects.length).toBe(2)
+    const urlInputsAfter = document.querySelectorAll('input[type="url"]').length
+    expect(urlInputsAfter).toBeGreaterThan(urlInputsBefore)
   })
 
   it('keeps a url-typed first input for e2e selectors', () => {

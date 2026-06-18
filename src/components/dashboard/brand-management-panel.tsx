@@ -100,7 +100,7 @@ export async function BrandManagementPanel({ slug, claimedAt, userId }: Props) {
                 {t("websiteLabel")}
               </p>
               <p className="mt-1 text-sm">
-                {brand.socialLinks.officialWebsite ?? t("noWebsite")}
+                {brand.purchaseWebsite ?? t("noWebsite")}
               </p>
             </div>
 
@@ -109,18 +109,18 @@ export async function BrandManagementPanel({ slug, claimedAt, userId }: Props) {
                 {t("socialLinksLabel")}
               </p>
               <div className="mt-1 space-y-1 text-sm">
-                {brand.socialLinks.instagram && (
-                  <p>Instagram: {brand.socialLinks.instagram}</p>
+                {brand.socialInstagram && (
+                  <p>Instagram: {brand.socialInstagram}</p>
                 )}
-                {brand.socialLinks.threads && (
-                  <p>Threads: {brand.socialLinks.threads}</p>
+                {brand.socialThreads && (
+                  <p>Threads: {brand.socialThreads}</p>
                 )}
-                {brand.socialLinks.facebook && (
-                  <p>Facebook: {brand.socialLinks.facebook}</p>
+                {brand.socialFacebook && (
+                  <p>Facebook: {brand.socialFacebook}</p>
                 )}
-                {!brand.socialLinks.instagram &&
-                  !brand.socialLinks.threads &&
-                  !brand.socialLinks.facebook && <p>{t("socialLinksNone")}</p>}
+                {!brand.socialInstagram &&
+                  !brand.socialThreads &&
+                  !brand.socialFacebook && <p>{t("socialLinksNone")}</p>}
               </div>
             </div>
           </CardContent>

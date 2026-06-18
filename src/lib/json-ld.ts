@@ -27,13 +27,8 @@ function toInLanguage(locale: JsonLdLocale = 'zh-TW'): string {
  * Build Organization JSON-LD structured data for a brand detail page.
  */
 export function buildBrandJsonLd(brand: Brand, locale: Locale = 'zh-TW'): JsonLdObject {
-  const socialUrls = Object.entries(brand.socialLinks)
-    .filter(([key]) => key !== 'officialWebsite')
-    .map(([, url]) => url)
-    .filter(Boolean)
-  const purchaseUrls = brand.purchaseLinks
-    .map((purchaseLink) => purchaseLink.url)
-    .filter(Boolean)
+  const socialUrls = [brand.socialInstagram, brand.socialThreads, brand.socialFacebook].filter(Boolean) as string[]
+  const purchaseUrls = [brand.purchaseWebsite, brand.purchasePinkoi, brand.purchaseShopee].filter(Boolean) as string[]
   const allSameAs = [...socialUrls, ...purchaseUrls]
 
   const jsonLd: JsonLdObject = {
@@ -44,7 +39,7 @@ export function buildBrandJsonLd(brand: Brand, locale: Locale = 'zh-TW'): JsonLd
     inLanguage: toInLanguage(locale),
   }
 
-  const url = brand.socialLinks.officialWebsite ?? brand.purchaseLinks[0]?.url
+  const url = brand.purchaseWebsite ?? brand.purchasePinkoi ?? brand.purchaseShopee ?? null
   if (url) jsonLd.url = url
   if (brand.logoUrl) jsonLd.logo = brand.logoUrl
   if (brand.heroImageUrl) jsonLd.image = brand.heroImageUrl

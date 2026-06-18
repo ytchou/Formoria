@@ -55,8 +55,9 @@ describe('brandToDomain', () => {
       status: 'approved',
       category: 'food',
       founding_year: 2020,
-      purchase_links: [{ platform: 'shopee', url: 'https://shopee.tw/test', label: 'Shopee' }],
-      social_links: { instagram: '@test', official_website: 'https://test.com' },
+      social_instagram: '@test',
+      purchase_website: 'https://test.com',
+      purchase_shopee: 'https://shopee.tw/test',
       retail_locations: [],
       product_photos: ['photo1.jpg'],
       contact_email: 'test@example.com',
@@ -75,8 +76,9 @@ describe('brandToDomain', () => {
     expect(brand.logoUrl).toBe('https://example.com/logo.png')
     expect(brand.heroImageUrl).toBeNull()
     expect(brand.foundingYear).toBe(2020)
-    expect(brand.purchaseLinks).toEqual([{ platform: 'shopee', url: 'https://shopee.tw/test', label: 'Shopee' }])
-    expect(brand.socialLinks).toEqual({ instagram: '@test', officialWebsite: 'https://test.com' })
+    expect(brand.purchaseShopee).toBe('https://shopee.tw/test')
+    expect(brand.purchaseWebsite).toBe('https://test.com')
+    expect(brand.socialInstagram).toBe('@test')
     expect(brand.productPhotos).toEqual(['photo1.jpg'])
     expect(brand.contactEmail).toBe('test@example.com')
     expect(brand.submittedAt).toBe('2026-01-01T00:00:00Z')
@@ -90,8 +92,8 @@ describe('brandToDomain', () => {
     const dbRow = {
       id: '123', name: 'Test', slug: 'test', description: null,
       logo_url: null, hero_image_url: null, status: 'pending',
-      category: null, founding_year: null, purchase_links: [],
-      social_links: {}, retail_locations: [], product_photos: [],
+      category: null, founding_year: null,
+      retail_locations: [], product_photos: [],
       contact_email: null, submitted_at: '2026-01-01T00:00:00Z',
       approved_at: null, created_at: '2026-01-01T00:00:00Z',
       updated_at: '2026-01-01T00:00:00Z',
@@ -110,8 +112,8 @@ describe('brandToInsert', () => {
       description: 'A new brand',
       logoUrl: 'https://example.com/logo.png',
       category: 'food',
-      purchaseLinks: [{ platform: 'official', url: 'https://brand.com', label: 'Official' }],
-      socialLinks: { instagram: '@brand', officialWebsite: 'https://brand.com' },
+      purchaseWebsite: 'https://brand.com',
+      socialInstagram: '@brand',
       contactEmail: 'brand@example.com',
     }
 
@@ -120,11 +122,11 @@ describe('brandToInsert', () => {
     expect(row.name).toBe('New Brand')
     expect(row.slug).toBe('new-brand')
     expect(row.logo_url).toBe('https://example.com/logo.png')
-    expect(row.purchase_links).toEqual([{ platform: 'official', url: 'https://brand.com', label: 'Official' }])
-    expect(row.social_links).toEqual({ instagram: '@brand', official_website: 'https://brand.com' })
+    expect(row.purchase_website).toBe('https://brand.com')
+    expect(row.social_instagram).toBe('@brand')
     expect(row.contact_email).toBe('brand@example.com')
     expect(row).not.toHaveProperty('logoUrl')
-    expect(row).not.toHaveProperty('purchaseLinks')
+    expect(row).not.toHaveProperty('purchaseWebsite')
   })
 })
 
@@ -133,7 +135,7 @@ describe('brandToDomain — brandHighlights', () => {
     id: 'test-id', name: 'Test Brand', slug: 'test-brand',
     description: 'A test brand', logo_url: null, hero_image_url: null,
     status: 'approved', category: 'Food & Beverage', founding_year: 2004,
-    purchase_links: [], social_links: {}, retail_locations: [],
+    retail_locations: [],
     product_photos: [], contact_email: null, brand_taxonomy: [],
     submitted_at: '2026-01-01T00:00:00Z', approved_at: null,
     created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',

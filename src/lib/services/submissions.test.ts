@@ -17,7 +17,7 @@ describe('submissionToDomain', () => {
       submitter_name: 'John Doe',
       description: 'A cool brand from Taiwan',
       website_url: 'https://coolbrand.tw',
-      social_links: { instagram: '@coolbrand' },
+      social_instagram: '@coolbrand',
       suggested_tags: ['artisan', 'organic'],
       status: 'pending',
       reviewer_notes: null,
@@ -38,7 +38,7 @@ describe('submissionToDomain', () => {
     expect(submission.submitterEmail).toBe('submitter@example.com')
     expect(submission.submitterName).toBe('John Doe')
     expect(submission.websiteUrl).toBe('https://coolbrand.tw')
-    expect(submission.socialLinks).toEqual({ instagram: '@coolbrand' })
+    expect(submission.socialInstagram).toBe('@coolbrand')
     expect(submission.suggestedTags).toEqual(['artisan', 'organic'])
     expect(submission.status).toBe('pending')
     expect(submission.reviewerNotes).toBeNull()
@@ -59,7 +59,7 @@ describe('submissionToDomain', () => {
       submitter_name: null,
       description: 'A test brand description that is long enough',
       website_url: 'https://test.com',
-      social_links: {},
+      social_instagram: null,
       suggested_tags: [],
       status: 'pending',
       reviewer_notes: null,
@@ -95,7 +95,7 @@ describe('submissionToInsert', () => {
       submitterName: 'Jane Doe',
       description: 'Brand description',
       websiteUrl: 'https://newbrand.tw',
-      socialLinks: { instagram: '@new' },
+      socialInstagram: '@new',
       suggestedTags: ['eco-friendly'],
     }
 
@@ -105,7 +105,7 @@ describe('submissionToInsert', () => {
     expect(row.submitter_email).toBe('new@example.com')
     expect(row.submitter_name).toBe('Jane Doe')
     expect(row.website_url).toBe('https://newbrand.tw')
-    expect(row.social_links).toEqual({ instagram: '@new' })
+    expect(row.social_instagram).toBe('@new')
     expect(row.suggested_tags).toEqual(['eco-friendly'])
     expect(row).not.toHaveProperty('brandName')
     expect(row).not.toHaveProperty('submitterEmail')
