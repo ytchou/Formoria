@@ -29,14 +29,17 @@ const mockBrand = {
   foundingYear: null,
   tags: [],
   productPhotos: [],
-  socialLinks: {
-    officialWebsite: 'https://example.com',
-  },
-  purchaseLinks: [],
+  socialInstagram: null,
+  socialThreads: null,
+  socialFacebook: null,
+  purchaseWebsite: 'https://example.com',
+  purchasePinkoi: null,
+  purchaseShopee: null,
+  otherUrls: [],
   retailLocations: [],
   contactEmail: null,
   brandHighlights: null,
-    siteContent: null,
+  siteContent: null,
   submittedAt: '2024-01-01',
   approvedAt: null,
   createdAt: '2024-01-01',
@@ -60,7 +63,7 @@ describe('BrandLinks', () => {
   it('calls trackExternalLinkClicked when an outbound link is clicked', async () => {
     const user = userEvent.setup()
     renderWithIntl(<BrandLinks brand={mockBrand} />)
-    await user.click(screen.getByRole('link', { name: /Website/i }))
+    await user.click(screen.getByRole('link', { name: /品牌官網/i }))
     expect(mockTrackExternalLinkClicked).toHaveBeenCalledWith(
       'test-brand',
       expect.any(String),
@@ -71,7 +74,7 @@ describe('BrandLinks', () => {
   it('passes the brand slug as first argument', async () => {
     const user = userEvent.setup()
     renderWithIntl(<BrandLinks brand={mockBrand} />)
-    await user.click(screen.getByRole('link', { name: /Website/i }))
+    await user.click(screen.getByRole('link', { name: /品牌官網/i }))
     expect(mockTrackExternalLinkClicked.mock.calls[0][0]).toBe('test-brand')
   })
 })

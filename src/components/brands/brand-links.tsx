@@ -1,8 +1,16 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { Globe } from 'lucide-react'
-import { ThreadsIcon } from '@/components/icons/threads-icon'
+import type { ReactNode } from 'react'
+import {
+  AtSign,
+  Globe,
+  Link,
+  ShoppingBag,
+  ShoppingCart,
+  Store,
+  Users,
+} from 'lucide-react'
 import { InstagramIcon } from '@/components/icons/instagram-icon'
 import type { Brand } from '@/lib/types'
 import {
@@ -29,7 +37,7 @@ function normalizeThreadsUrl(value: string | undefined | null): string | null {
   if (!trimmed) return null
   if (/^https?:\/\//i.test(trimmed)) return trimmed
   const handle = trimmed.startsWith('@') ? trimmed.slice(1) : trimmed
-  return `https://www.threads.net/@${handle}`
+  return `https://threads.net/@${handle}`
 }
 
 function normalizeWebsiteUrl(value: string | undefined | null): string | null {
@@ -40,53 +48,76 @@ function normalizeWebsiteUrl(value: string | undefined | null): string | null {
   return `https://${trimmed}`
 }
 
-type SlotDef = {
-  label: string
-  url: string | null
-  icon: 'instagram' | 'threads' | 'globe'
-  type: 'instagram' | 'threads' | 'officialWebsite'
+function normalizeDirectUrl(value: string | undefined | null): string | null {
+  if (!value) return null
+  const trimmed = value.trim()
+  return trimmed || null
 }
 
-export function BrandLinks({ brand }: BrandLinksProps) {
-  const t = useTranslations('brandDetail')
+function FacebookIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M14 8h3V4h-3c-3.31 0-5 1.96-5 5v2H6v4h3v7h4v-7h3.24L17 11h-4V9c0-.68.32-1 1-1z" />
+    </svg>
+  )
+}
 
-  const slots: SlotDef[] = [
-    {
-      label: 'Instagram',
-      url: normalizeInstagramUrl(brand.socialLinks.instagram),
-      icon: 'instagram',
-      type: 'instagram',
-    },
-    {
-      label: 'Threads',
-      url: normalizeThreadsUrl(brand.socialLinks.threads),
-      icon: 'threads',
-      type: 'threads',
-    },
-    {
-      label: 'Website',
-      url: normalizeWebsiteUrl(brand.socialLinks.officialWebsite),
-      icon: 'globe',
-      type: 'officialWebsite',
-    },
-  ]
+type LinkDestination =
+  | 'instagram'
+  | 'threads'
+  | 'facebook'
+  | 'website'
+  | 'pinkoi'
+  | 'shopee'
 
+type LinkSlot = {
+  label: string
+  url: string | null
+  linkType: LinkDestination | 'other'
+  dbDestination?: LinkDestination
+  icon: ReactNode
+}
+
+type LinkSectionProps = {
+  label: string
+  icon: ReactNode
+  slots: LinkSlot[]
+  brand: Brand
+}
+
+const chipClassName =
+  'inline-flex min-h-12 items-center gap-2 rounded-full bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+
+const disabledChipClassName =
+  'inline-flex min-h-12 items-center gap-2 rounded-full bg-secondary px-4 py-2 text-sm font-medium text-foreground opacity-45'
+
+function SectionLabel({
+  icon,
+  children,
+}: {
+  icon: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <h3 className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase leading-none text-warm-caption">
+      {icon}
+      {children}
+    </h3>
+  )
+}
+
+function LinkSection({ label, icon, slots, brand }: LinkSectionProps) {
   return (
     <section>
-      <h2 className="mb-3 font-heading text-base font-bold text-foreground">
-        {t('links.purchaseChannels')}
-      </h2>
+      <SectionLabel icon={icon}>{label}</SectionLabel>
       <div className="flex flex-wrap gap-3">
         {slots.map((slot) => {
-          const iconEl =
-            slot.icon === 'instagram' ? (
-              <InstagramIcon className="size-3.5" />
-            ) : slot.icon === 'threads' ? (
-              <ThreadsIcon className="size-3.5 text-foreground" />
-            ) : (
-              <Globe className="size-3.5 text-foreground" />
-            )
-
           if (slot.url) {
             return (
               <a
@@ -94,17 +125,19 @@ export function BrandLinks({ brand }: BrandLinksProps) {
                 href={slot.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80"
+                className={chipClassName}
                 onClick={() => {
                   trackExternalLinkClicked(
                     brand.slug,
-                    slot.label.toLowerCase(),
+                    slot.linkType,
                     typeof window !== 'undefined' ? window.location.pathname : '',
                   )
-                  trackDbClick(brand.id, slot.type === 'officialWebsite' ? 'official_website' : slot.type)
+                  if (slot.dbDestination) {
+                    trackDbClick(brand.id, slot.dbDestination)
+                  }
                 }}
               >
-                {iconEl}
+                {slot.icon}
                 {slot.label}
               </a>
             )
@@ -114,14 +147,104 @@ export function BrandLinks({ brand }: BrandLinksProps) {
             <span
               key={slot.label}
               aria-disabled="true"
-              className="inline-flex items-center gap-1.5 rounded-full bg-muted/40 px-3.5 py-2 text-sm font-medium text-muted-foreground cursor-not-allowed"
+              className={disabledChipClassName}
             >
-              {iconEl}
-              <span className="line-through decoration-muted-foreground/60">{slot.label}</span>
+              {slot.icon}
+              <span className="line-through">{slot.label}</span>
             </span>
           )
         })}
       </div>
     </section>
+  )
+}
+
+export function BrandLinks({ brand }: BrandLinksProps) {
+  const t = useTranslations('brandDetail')
+
+  const socialSlots: LinkSlot[] = [
+    {
+      label: t('links.instagram'),
+      url: normalizeInstagramUrl(brand.socialInstagram),
+      linkType: 'instagram',
+      dbDestination: 'instagram',
+      icon: <InstagramIcon className="size-4 text-foreground" />,
+    },
+    {
+      label: t('links.threads'),
+      url: normalizeThreadsUrl(brand.socialThreads),
+      linkType: 'threads',
+      dbDestination: 'threads',
+      icon: <AtSign className="size-4 text-foreground" />,
+    },
+    {
+      label: t('links.facebook'),
+      url: normalizeDirectUrl(brand.socialFacebook),
+      linkType: 'facebook',
+      dbDestination: 'facebook',
+      icon: <FacebookIcon className="size-4 text-foreground" />,
+    },
+  ]
+
+  const purchaseSlots: LinkSlot[] = [
+    {
+      label: t('links.website'),
+      url: normalizeWebsiteUrl(brand.purchaseWebsite),
+      linkType: 'website',
+      dbDestination: 'website',
+      icon: <Globe className="size-4 text-foreground" />,
+    },
+    {
+      label: t('links.pinkoi'),
+      url: normalizeDirectUrl(brand.purchasePinkoi),
+      linkType: 'pinkoi',
+      dbDestination: 'pinkoi',
+      icon: <Store className="size-4 text-[#E05B6F]" />,
+    },
+    {
+      label: t('links.shopee'),
+      url: normalizeDirectUrl(brand.purchaseShopee),
+      linkType: 'shopee',
+      dbDestination: 'shopee',
+      icon: <ShoppingCart className="size-4 text-[#EE4D2D]" />,
+    },
+  ]
+
+  const otherSlots: LinkSlot[] = brand.otherUrls.map((otherUrl) => ({
+    label: otherUrl.label,
+    url: normalizeDirectUrl(otherUrl.url),
+    linkType: 'other',
+    icon: <Link className="size-4 text-foreground" />,
+  }))
+
+  return (
+    <div className="space-y-5">
+      <LinkSection
+        label={t('links.socialPlatforms')}
+        icon={<Users className="size-3.5 text-warm-caption" />}
+        slots={socialSlots}
+        brand={brand}
+      />
+
+      <div className="border-t border-border pt-5">
+        <LinkSection
+          label={t('links.purchaseChannels')}
+          icon={<ShoppingBag className="size-3.5 text-warm-caption" />}
+          slots={purchaseSlots}
+          brand={brand}
+        />
+      </div>
+
+      {brand.otherUrls.length > 0 && (
+        <div className="border-t border-border pt-5">
+          <LinkSection
+            label={t('links.otherLinks')}
+            icon={<Link className="size-3.5 text-warm-caption" />}
+            slots={otherSlots}
+            brand={brand}
+          />
+        </div>
+      )}
+    </div>
   )
 }

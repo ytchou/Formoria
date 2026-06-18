@@ -223,7 +223,15 @@
       "visitOfficialWebsiteAria": "前往品牌官網"
     },
     "links": {
-      "purchaseChannels": "購買管道"
+      "socialPlatforms": "社群平台",
+      "purchaseChannels": "購買管道",
+      "otherLinks": "其他連結",
+      "instagram": "Instagram",
+      "threads": "Threads",
+      "facebook": "Facebook",
+      "website": "品牌官網",
+      "pinkoi": "Pinkoi",
+      "shopee": "蝦皮購物"
     },
     "notFound": {
       "title": "找不到品牌",

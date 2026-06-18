@@ -223,7 +223,15 @@
       "visitOfficialWebsiteAria": "Visit the brand's official website"
     },
     "links": {
-      "purchaseChannels": "Where to Buy"
+      "socialPlatforms": "Social Platforms",
+      "purchaseChannels": "Where to Buy",
+      "otherLinks": "Other Links",
+      "instagram": "Instagram",
+      "threads": "Threads",
+      "facebook": "Facebook",
+      "website": "Official Website",
+      "pinkoi": "Pinkoi",
+      "shopee": "Shopee"
     },
     "notFound": {
       "title": "Brand Not Found",
