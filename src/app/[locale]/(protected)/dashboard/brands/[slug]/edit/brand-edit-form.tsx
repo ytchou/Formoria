@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useTranslations } from "next-intl";
+import { Plus, Trash2 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { saveDraftAction, updateBrandAction } from "../actions";
 import { Button } from "@/components/ui/button";
@@ -10,13 +11,20 @@ import { Label } from "@/components/ui/label";
 import { ImageUploadField } from "@/components/forms/image-upload-field";
 import { DynamicArrayField } from "@/components/forms/dynamic-array-field";
 import { ProductPhotosField } from "@/components/forms/product-photos-field";
-import type { Brand } from "@/lib/types";
+import type { Brand, OtherUrl } from "@/lib/types";
 
 type BrandEditFormProps = {
   brand: Brand;
 };
 
 export function BrandEditForm({ brand }: BrandEditFormProps) {
+  const [socialInstagram, setSocialInstagram] = useState(brand.socialInstagram ?? "");
+  const [socialThreads, setSocialThreads] = useState(brand.socialThreads ?? "");
+  const [socialFacebook, setSocialFacebook] = useState(brand.socialFacebook ?? "");
+  const [purchaseWebsite, setPurchaseWebsite] = useState(brand.purchaseWebsite ?? "");
+  const [purchasePinkoi, setPurchasePinkoi] = useState(brand.purchasePinkoi ?? "");
+  const [purchaseShopee, setPurchaseShopee] = useState(brand.purchaseShopee ?? "");
+  const [otherUrls, setOtherUrls] = useState<OtherUrl[]>(brand.otherUrls ?? []);
   const [publishState, publishFormAction, publishPending] = useActionState(
     updateBrandAction,
     undefined
@@ -26,6 +34,7 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
     undefined
   );
   const t = useTranslations("dashboard.edit");
+  const tx = (key: string, fallback: string) => (t.has(key) ? t(key) : fallback);
   const pendingEditsT = useTranslations("admin.pendingEdits");
   const fieldErrors = {
     ...publishState?.fieldErrors,
@@ -35,11 +44,40 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
   const showSubmittedForReviewNotice =
     publishState?.success === true &&
     publishState.message === "brandEditSubmittedForReview";
+  const purchaseLinks = [
+    ...(purchaseWebsite.trim()
+      ? [{ platform: "official", url: purchaseWebsite.trim(), label: tx("fieldOfficialWebsite", "Official Website") }]
+      : []),
+    ...(purchasePinkoi.trim()
+      ? [{ platform: "pinkoi", url: purchasePinkoi.trim(), label: "Pinkoi" }]
+      : []),
+    ...(purchaseShopee.trim()
+      ? [{ platform: "shopee", url: purchaseShopee.trim(), label: tx("fieldShopee", "蝦皮購物") }]
+      : []),
+    ...otherUrls
+      .filter((link) => link.label.trim() || link.url.trim())
+      .map((link) => ({ platform: link.label.trim() || "other", url: link.url.trim(), label: link.label.trim() })),
+  ];
+  const addOtherUrl = () => {
+    setOtherUrls((links) => (
+      links.length >= 3 ? links : [...links, { label: "", url: "" }]
+    ));
+  };
+  const updateOtherUrl = (index: number, key: keyof OtherUrl, value: string) => {
+    setOtherUrls((links) =>
+      links.map((link, linkIndex) =>
+        linkIndex === index ? { ...link, [key]: value } : link
+      )
+    );
+  };
+  const removeOtherUrl = (index: number) => {
+    setOtherUrls((links) => links.filter((_, linkIndex) => linkIndex !== index));
+  };
 
   return (
     <div className="space-y-10">
       {error && (
-        <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div className="rounded-lg border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground">
           {error}
         </div>
       )}
@@ -62,7 +100,7 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
               required
             />
             {fieldErrors.name && (
-              <p className="text-xs text-destructive">{fieldErrors.name}</p>
+              <p className="text-xs font-semibold text-foreground">{fieldErrors.name}</p>
             )}
           </div>
 
@@ -71,11 +109,11 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
             <textarea
               id="description"
               name="description"
-              className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="flex min-h-[120px] w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               defaultValue={brand.description ?? ""}
             />
             {fieldErrors.description && (
-              <p className="text-xs text-destructive">
+              <p className="text-xs font-semibold text-foreground">
                 {fieldErrors.description}
               </p>
             )}
@@ -87,12 +125,12 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
               id="brandHighlights"
               name="brandHighlights"
               maxLength={300}
-              className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="flex min-h-[120px] w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               defaultValue={brand.brandHighlights ?? ""}
             />
-            <p className="text-xs text-muted-foreground">{t("fieldHighlightsHint")}</p>
+            <p className="text-xs font-semibold text-foreground">{t("fieldHighlightsHint")}</p>
             {fieldErrors.brandHighlights && (
-              <p className="text-xs text-destructive">
+              <p className="text-xs font-semibold text-foreground">
                 {fieldErrors.brandHighlights}
               </p>
             )}
@@ -148,78 +186,164 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
             {t("sectionLinks")}
           </h2>
 
-          <div className="space-y-2">
-            <Label htmlFor="websiteUrl">{t("fieldOfficialWebsite")}</Label>
-            <Input
-              id="websiteUrl"
-              name="websiteUrl"
-              type="url"
-              placeholder="https://yourbrand.com"
-              defaultValue={brand.socialLinks.officialWebsite ?? ""}
-            />
+          <div className="space-y-4 rounded-lg border border-border bg-background p-4">
+            <div className="inline-flex min-h-12 items-center rounded-lg bg-primary px-4 text-[11px] font-semibold uppercase tracking-wide text-primary-foreground">
+              {tx("socialLinksLabel", "Social links")}
+            </div>
+            <div className="grid gap-3">
+              <div className="grid gap-1.5 sm:grid-cols-[140px_1fr] sm:items-center">
+                <Label htmlFor="socialInstagram" className="text-sm font-semibold text-foreground">
+                  {t("fieldInstagram")}
+                </Label>
+                <Input
+                  id="socialInstagram"
+                  name="socialInstagram"
+                  placeholder="@yourbrand"
+                  value={socialInstagram}
+                  onChange={(event) => setSocialInstagram(event.target.value.replace(/^@+/, ""))}
+                  className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+              <div className="grid gap-1.5 sm:grid-cols-[140px_1fr] sm:items-center">
+                <Label htmlFor="socialThreads" className="text-sm font-semibold text-foreground">
+                  {t("fieldThreads")}
+                </Label>
+                <Input
+                  id="socialThreads"
+                  name="socialThreads"
+                  placeholder="@yourbrand"
+                  value={socialThreads}
+                  onChange={(event) => setSocialThreads(event.target.value.replace(/^@+/, ""))}
+                  className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+              <div className="grid gap-1.5 sm:grid-cols-[140px_1fr] sm:items-center">
+                <Label htmlFor="socialFacebook" className="text-sm font-semibold text-foreground">
+                  {t("fieldFacebook")}
+                </Label>
+                <Input
+                  id="socialFacebook"
+                  name="socialFacebook"
+                  type="url"
+                  placeholder="https://facebook.com/yourbrand"
+                  value={socialFacebook}
+                  onChange={(event) => setSocialFacebook(event.target.value)}
+                  className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="instagram">{t("fieldInstagram")}</Label>
-            <Input
-              id="instagram"
-              name="instagram"
-              placeholder="@yourbrand"
-              defaultValue={brand.socialLinks.instagram ?? ""}
-            />
+          <div className="space-y-4 rounded-lg border border-border bg-background p-4">
+            <div className="inline-flex min-h-12 items-center rounded-lg bg-cta px-4 text-[11px] font-semibold uppercase tracking-wide text-cta-foreground">
+              {t("fieldPurchaseLinks")}
+            </div>
+            <div className="grid gap-3">
+              <div className="grid gap-1.5 sm:grid-cols-[140px_1fr] sm:items-center">
+                <Label htmlFor="purchaseWebsite" className="text-sm font-semibold text-foreground">
+                  {t("fieldOfficialWebsite")}
+                </Label>
+                <Input
+                  id="purchaseWebsite"
+                  name="purchaseWebsite"
+                  type="url"
+                  placeholder="https://yourbrand.com"
+                  value={purchaseWebsite}
+                  onChange={(event) => setPurchaseWebsite(event.target.value)}
+                  className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+              <div className="grid gap-1.5 sm:grid-cols-[140px_1fr] sm:items-center">
+                <Label htmlFor="purchasePinkoi" className="text-sm font-semibold text-foreground">
+                  Pinkoi
+                </Label>
+                <Input
+                  id="purchasePinkoi"
+                  name="purchasePinkoi"
+                  type="url"
+                  placeholder="https://pinkoi.com/..."
+                  value={purchasePinkoi}
+                  onChange={(event) => setPurchasePinkoi(event.target.value)}
+                  className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+              <div className="grid gap-1.5 sm:grid-cols-[140px_1fr] sm:items-center">
+                <Label htmlFor="purchaseShopee" className="text-sm font-semibold text-foreground">
+                  {tx("fieldShopee", "蝦皮購物")}
+                </Label>
+                <Input
+                  id="purchaseShopee"
+                  name="purchaseShopee"
+                  type="url"
+                  placeholder="https://shopee.tw/..."
+                  value={purchaseShopee}
+                  onChange={(event) => setPurchaseShopee(event.target.value)}
+                  className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="threads">{t("fieldThreads")}</Label>
-            <Input
-              id="threads"
-              name="threads"
-              placeholder="@yourbrand"
-              defaultValue={brand.socialLinks.threads ?? ""}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="facebook">{t("fieldFacebook")}</Label>
-            <Input
-              id="facebook"
-              name="facebook"
-              placeholder="https://facebook.com/yourbrand"
-              defaultValue={brand.socialLinks.facebook ?? ""}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>{t("fieldPurchaseLinks")}</Label>
-            <DynamicArrayField
-              initialItems={brand.purchaseLinks}
-              createItem={() => ({ platform: "", url: "", label: "" })}
-              addLabel={t("addPurchaseLink")}
-              renderItem={(item, index, onRemove) => (
-                <div key={index} className="flex items-center gap-2">
+          <div className="space-y-4 rounded-lg border border-border bg-background p-4">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
+              {tx("fieldOtherLinks", "Other links")}
+            </div>
+            <div className="space-y-3">
+              {otherUrls.map((link, index) => (
+                <div key={index} className="grid gap-2 sm:grid-cols-[minmax(0,0.45fr)_minmax(0,1fr)_48px]">
                   <Input
-                    name={`purchaseLinks[${index}].platform`}
-                    placeholder={t("fieldPlatformPlaceholder")}
-                    defaultValue={(item as { platform: string }).platform}
-                    className="w-32"
-                  />
-                  <Input
-                    name={`purchaseLinks[${index}].url`}
-                    placeholder={t("fieldUrlPlaceholder")}
-                    defaultValue={(item as { url: string }).url}
-                  />
-                  <Input
-                    name={`purchaseLinks[${index}].label`}
+                    name={`otherUrls[${index}].label`}
                     placeholder={t("fieldLabelPlaceholder")}
-                    defaultValue={(item as { label?: string }).label ?? ""}
-                    className="w-32"
+                    value={link.label}
+                    onChange={(event) => updateOtherUrl(index, "label", event.target.value)}
+                    className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
                   />
-                  <Button type="button" variant="ghost" size="sm" onClick={onRemove}>
-                    {t("removeItem")}
+                  <Input
+                    name={`otherUrls[${index}].url`}
+                    type="url"
+                    placeholder={t("fieldUrlPlaceholder")}
+                    value={link.url}
+                    onChange={(event) => updateOtherUrl(index, "url", event.target.value)}
+                    className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={t("removeItem")}
+                    onClick={() => removeOtherUrl(index)}
+                    className="h-12 w-12 text-foreground hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-              )}
-            />
+              ))}
+            </div>
+            {otherUrls.length < 3 && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={addOtherUrl}
+                className="h-12 px-3 text-foreground hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Plus className="h-4 w-4" />
+                {tx("addLink", "+ 新增連結")}
+              </Button>
+            )}
+          </div>
+
+          <div className="hidden" aria-hidden="true">
+            <input type="hidden" name="websiteUrl" value={purchaseWebsite} />
+            <input type="hidden" name="instagram" value={socialInstagram} />
+            <input type="hidden" name="threads" value={socialThreads} />
+            <input type="hidden" name="facebook" value={socialFacebook} />
+            {purchaseLinks.map((link, index) => (
+              <span key={`${link.platform}-${index}`}>
+                <input type="hidden" name={`purchaseLinks[${index}].platform`} value={link.platform} />
+                <input type="hidden" name={`purchaseLinks[${index}].url`} value={link.url} />
+                <input type="hidden" name={`purchaseLinks[${index}].label`} value={link.label} />
+              </span>
+            ))}
           </div>
         </section>
 
@@ -264,6 +388,7 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
             type="submit"
             formAction={publishFormAction}
             disabled={publishPending}
+            className="h-12"
           >
             {publishPending ? t("saving") : t("save")}
           </Button>
@@ -272,11 +397,12 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
             variant="outline"
             formAction={draftFormAction}
             disabled={draftPending}
+            className="h-12"
           >
             {draftPending ? t("savingDraft") : t("saveDraft")}
           </Button>
           <Link href={`/dashboard?tab=${brand.slug}`}>
-            <Button type="button" variant="outline">
+            <Button type="button" variant="outline" className="h-12">
               {t("cancel")}
             </Button>
           </Link>
@@ -284,7 +410,7 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
             href={`/brands/${brand.slug}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="inline-flex min-h-12 items-center text-sm font-semibold text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {t("viewAsVisitor")}
           </Link>

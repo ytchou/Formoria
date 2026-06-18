@@ -27,11 +27,11 @@ function SectionHeader({
 }) {
   return (
     <div className="flex items-center justify-between">
-      <h3 className="text-[13px] font-semibold text-foreground/80">{title}</h3>
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
       <button
         type="button"
         onClick={() => onEdit(stepIndex)}
-        className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-secondary"
+        className="inline-flex min-h-12 items-center gap-1 rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Pencil className="h-3 w-3" />
         {editLabel}
@@ -49,11 +49,11 @@ function ReviewRow({
 }) {
   return (
     <div className="flex gap-3">
-      <span className="w-[140px] shrink-0 text-xs text-muted-foreground">
+      <span className="w-[140px] shrink-0 text-xs font-semibold text-foreground">
         {label}
       </span>
       <span className="text-[13px] font-semibold text-foreground">
-        {value || <span className="font-normal text-muted-foreground">--</span>}
+        {value || <span className="font-normal text-foreground">--</span>}
       </span>
     </div>
   )
@@ -65,9 +65,32 @@ export function ReviewStep({
   valueTags = [],
 }: ReviewStepProps) {
   const t = useTranslations('submit.review')
+  const tx = (key: string, fallback: string) => (t.has(key) ? t(key) : fallback)
   const { control, watch, setValue, register } = useFormContext<SubmissionFormData>()
 
   const formData = watch()
+  const flatLinks = formData as SubmissionFormData & {
+    socialInstagram?: string
+    socialThreads?: string
+    socialFacebook?: string
+    purchaseWebsite?: string
+    purchasePinkoi?: string
+    purchaseShopee?: string
+    otherUrls?: Array<{ label: string; url: string }>
+  }
+  const socialInstagram = flatLinks.socialInstagram || formData.socialLinks?.instagram || ''
+  const socialThreads = flatLinks.socialThreads || formData.socialLinks?.threads || ''
+  const socialFacebook = flatLinks.socialFacebook || formData.socialLinks?.facebook || ''
+  const purchaseWebsite = flatLinks.purchaseWebsite || formData.socialLinks?.website || ''
+  const purchasePinkoi =
+    flatLinks.purchasePinkoi ||
+    formData.purchaseLinks?.find((link) => link.platform.toLowerCase() === 'pinkoi')?.url ||
+    ''
+  const purchaseShopee =
+    flatLinks.purchaseShopee ||
+    formData.purchaseLinks?.find((link) => link.platform.toLowerCase() === 'shopee')?.url ||
+    ''
+  const otherUrls = flatLinks.otherUrls ?? []
 
   const selectedRegion = regionTags.find((tag) => tag.slug === formData.region)
   const selectedValueTags = formData.valueTags
@@ -113,7 +136,7 @@ export function ReviewStep({
           />
           {formData.logoUrl && (
             <div className="flex gap-3">
-              <span className="w-[140px] shrink-0 text-xs text-muted-foreground">
+              <span className="w-[140px] shrink-0 text-xs font-semibold text-foreground">
                 {t('logo')}
               </span>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -136,34 +159,93 @@ export function ReviewStep({
           onEdit={onEditStep}
         />
         <div className="space-y-2 rounded-lg bg-background p-4">
-          {formData.purchaseLinks?.map((link, i) => (
-            <ReviewRow
-              key={i}
-              label={link.platform || 'Link'}
-              value={
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
+            {tx('socialLinks', 'Social links')}
+          </div>
+          <ReviewRow label="Instagram" value={socialInstagram} />
+          <ReviewRow label="Threads" value={socialThreads} />
+          <ReviewRow
+            label="Facebook"
+            value={
+              socialFacebook ? (
                 <a
-                  href={link.url}
+                  href={socialFacebook}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-muted-foreground underline"
+                  className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  {link.url}
+                  {socialFacebook}
                 </a>
+              ) : null
+            }
+          />
+
+          <div className="pt-3 text-[11px] font-semibold uppercase tracking-wide text-foreground">
+            {tx('purchaseLinks', 'Purchase links')}
+          </div>
+          <ReviewRow
+            label={tx('purchaseWebsite', '品牌官網')}
+            value={
+              purchaseWebsite ? (
+                <a
+                  href={purchaseWebsite}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {purchaseWebsite}
+                </a>
+              ) : null
+            }
+          />
+          <ReviewRow
+            label="Pinkoi"
+            value={
+              purchasePinkoi ? (
+                <a
+                  href={purchasePinkoi}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {purchasePinkoi}
+                </a>
+              ) : null
+            }
+          />
+          <ReviewRow
+            label={tx('purchaseShopee', '蝦皮購物')}
+            value={
+              purchaseShopee ? (
+                <a
+                  href={purchaseShopee}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {purchaseShopee}
+                </a>
+              ) : null
+            }
+          />
+          {otherUrls.map((link, i) => (
+            <ReviewRow
+              key={`${link.label}-${i}`}
+              label={link.label || tx('otherLink', 'Other link')}
+              value={
+                link.url ? (
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {link.url}
+                  </a>
+                ) : null
               }
             />
           ))}
-          {formData.socialLinks?.instagram && (
-            <ReviewRow
-              label="Instagram"
-              value={formData.socialLinks.instagram}
-            />
-          )}
-          {formData.socialLinks?.website && (
-            <ReviewRow
-              label="Website"
-              value={formData.socialLinks.website}
-            />
-          )}
         </div>
       </div>
 
@@ -174,7 +256,7 @@ export function ReviewStep({
           control={control}
           render={({ field, fieldState }) => (
             <div className="space-y-1">
-              <label className="flex items-start gap-3 cursor-pointer">
+              <label className="flex min-h-12 cursor-pointer items-start gap-3">
                 <input
                   type="checkbox"
                   checked={field.value}
@@ -188,7 +270,7 @@ export function ReviewStep({
                         href="/privacy"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-muted-foreground underline"
+                        className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         {chunks}
                       </a>
@@ -197,7 +279,7 @@ export function ReviewStep({
                 </span>
               </label>
               {fieldState.error && (
-                <p className="text-xs text-red-600">
+                <p className="text-xs font-semibold text-foreground">
                   {fieldState.error.message}
                 </p>
               )}
