@@ -1,9 +1,9 @@
 /**
- * Unit test: getBrands() query construction for tag_slugs array-operator filtering.
+ * Unit test: getBrands() query construction for category and tag filtering.
  *
- * Verifies that getBrands() calls .overlaps() on the
- * denormalized tag_slugs column instead of the old embedded-relation path, and that
- * no !inner join appears in the select string.
+ * Verifies that getBrands() uses .in('product_type', ...) for category filtering
+ * and .overlaps('tag_slugs', ...) for tag filtering, and that no !inner join
+ * appears in the select string.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -32,12 +32,12 @@ function createMockChain(options?: { count?: number }) {
   return chain
 }
 
-describe('getBrands — tag_slugs array-operator filtering', () => {
+describe('getBrands — category and tag filtering', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('calls .overlaps() on tag_slugs when category + tags are combined', async () => {
+  it('uses .in(product_type) for category and .overlaps(tag_slugs) for tags when combined', async () => {
     const chain = createMockChain()
     vi.mocked(createServiceClient).mockReturnValue({
       from: vi.fn(() => chain),
@@ -45,7 +45,7 @@ describe('getBrands — tag_slugs array-operator filtering', () => {
 
     await getBrands({ status: 'approved', category: ['food'], tags: ['handmade'] })
 
-    expect(chain.overlaps).toHaveBeenCalledWith('tag_slugs', ['food'])
+    expect(chain.in).toHaveBeenCalledWith('product_type', ['food'])
     expect(chain.overlaps).toHaveBeenCalledWith('tag_slugs', ['handmade'])
   })
 
@@ -63,7 +63,7 @@ describe('getBrands — tag_slugs array-operator filtering', () => {
     )
   })
 
-  it('calls .overlaps() when only category is provided', async () => {
+  it('uses .in(product_type) when only category is provided', async () => {
     const chain = createMockChain()
     vi.mocked(createServiceClient).mockReturnValue({
       from: vi.fn(() => chain),
@@ -71,7 +71,8 @@ describe('getBrands — tag_slugs array-operator filtering', () => {
 
     await getBrands({ status: 'approved', category: ['food'] })
 
-    expect(chain.overlaps).toHaveBeenCalledWith('tag_slugs', ['food'])
+    expect(chain.in).toHaveBeenCalledWith('product_type', ['food'])
+    expect(chain.overlaps).not.toHaveBeenCalled()
   })
 
   it('calls .overlaps() but not .contains() when only tags are provided', async () => {
