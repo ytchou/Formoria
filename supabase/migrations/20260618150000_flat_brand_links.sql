@@ -35,20 +35,20 @@ WHERE social_links IS NOT NULL AND social_links != '{}'::jsonb;
 -- Extract Pinkoi URLs
 UPDATE brands SET purchase_pinkoi = sub.url
 FROM (
-  SELECT b.id, (elem->>'url') AS url
+  SELECT DISTINCT ON (b.id) b.id, (elem->>'url') AS url
   FROM brands b, jsonb_array_elements(b.purchase_links) AS elem
   WHERE lower(elem->>'url') LIKE '%pinkoi.com%'
-  LIMIT 1
+  ORDER BY b.id
 ) sub
 WHERE brands.id = sub.id AND brands.purchase_pinkoi IS NULL;
 
 -- Extract Shopee URLs
 UPDATE brands SET purchase_shopee = sub.url
 FROM (
-  SELECT b.id, (elem->>'url') AS url
+  SELECT DISTINCT ON (b.id) b.id, (elem->>'url') AS url
   FROM brands b, jsonb_array_elements(b.purchase_links) AS elem
   WHERE lower(elem->>'url') LIKE '%shopee.tw%'
-  LIMIT 1
+  ORDER BY b.id
 ) sub
 WHERE brands.id = sub.id AND brands.purchase_shopee IS NULL;
 
@@ -106,12 +106,72 @@ UPDATE brands SET draft_data = draft_data
     'socialThreads',   draft_data->'socialLinks'->>'threads',
     'socialFacebook',  draft_data->'socialLinks'->>'facebook',
     'purchaseWebsite', COALESCE(
+      sub.purchase_website,
       draft_data->'socialLinks'->>'officialWebsite',
       draft_data->'socialLinks'->>'official_website'
     ),
-    'otherUrls', COALESCE(draft_data->'purchaseLinks', '[]'::jsonb)
+    'purchasePinkoi', sub.purchase_pinkoi,
+    'purchaseShopee', sub.purchase_shopee,
+    'otherUrls', COALESCE(sub.other_urls, '[]'::jsonb)
   )
-WHERE draft_data ? 'socialLinks' OR draft_data ? 'purchaseLinks';
+FROM (
+  SELECT b.id, links.purchase_pinkoi, links.purchase_shopee, links.purchase_website, links.other_urls
+  FROM brands b
+  LEFT JOIN LATERAL (
+    SELECT
+      (
+        SELECT elem->>'url'
+        FROM jsonb_array_elements(COALESCE(b.draft_data->'purchaseLinks', '[]'::jsonb)) AS elem
+        WHERE lower(elem->>'url') LIKE '%pinkoi.com%'
+        LIMIT 1
+      ) AS purchase_pinkoi,
+      (
+        SELECT elem->>'url'
+        FROM jsonb_array_elements(COALESCE(b.draft_data->'purchaseLinks', '[]'::jsonb)) AS elem
+        WHERE lower(elem->>'url') LIKE '%shopee.tw%'
+        LIMIT 1
+      ) AS purchase_shopee,
+      (
+        SELECT elem->>'url'
+        FROM jsonb_array_elements(COALESCE(b.draft_data->'purchaseLinks', '[]'::jsonb)) AS elem
+        WHERE lower(elem->>'url') NOT LIKE '%pinkoi.com%'
+          AND lower(elem->>'url') NOT LIKE '%shopee.tw%'
+        LIMIT 1
+      ) AS purchase_website,
+      (
+        SELECT jsonb_agg(item)
+        FROM (
+          SELECT jsonb_build_object(
+            'label', COALESCE(elem->>'label', elem->>'platform', 'Link'),
+            'url', elem->>'url'
+          ) AS item
+          FROM jsonb_array_elements(COALESCE(b.draft_data->'purchaseLinks', '[]'::jsonb)) AS elem
+          WHERE (elem->>'url') IS DISTINCT FROM (
+              SELECT elem->>'url'
+              FROM jsonb_array_elements(COALESCE(b.draft_data->'purchaseLinks', '[]'::jsonb)) AS elem
+              WHERE lower(elem->>'url') LIKE '%pinkoi.com%'
+              LIMIT 1
+            )
+            AND (elem->>'url') IS DISTINCT FROM (
+              SELECT elem->>'url'
+              FROM jsonb_array_elements(COALESCE(b.draft_data->'purchaseLinks', '[]'::jsonb)) AS elem
+              WHERE lower(elem->>'url') LIKE '%shopee.tw%'
+              LIMIT 1
+            )
+            AND (elem->>'url') IS DISTINCT FROM (
+              SELECT elem->>'url'
+              FROM jsonb_array_elements(COALESCE(b.draft_data->'purchaseLinks', '[]'::jsonb)) AS elem
+              WHERE lower(elem->>'url') NOT LIKE '%pinkoi.com%'
+                AND lower(elem->>'url') NOT LIKE '%shopee.tw%'
+              LIMIT 1
+            )
+          LIMIT 3
+        ) t
+      ) AS other_urls
+  ) links ON true
+) sub
+WHERE brands.id = sub.id
+  AND (draft_data ? 'socialLinks' OR draft_data ? 'purchaseLinks');
 
 -- 7. Drop old columns
 ALTER TABLE brands DROP COLUMN IF EXISTS social_links;

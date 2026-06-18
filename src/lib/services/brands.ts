@@ -117,7 +117,7 @@ export type SimilarBrand = {
 export function generateSlug(name: string): string {
   return name
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/[^a-z0-9\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
 }

@@ -18,7 +18,7 @@ import {
   updateBrand,
 } from '@/lib/services/brands'
 import { deleteBrandImages } from '@/lib/services/image-upload'
-import type { Brand, RetailLocation } from '@/lib/types'
+import type { Brand, OtherUrl, RetailLocation } from '@/lib/types'
 import type { ContentPayload, ModerationResult } from '@/lib/services/moderation'
 
 type ActionState = {
@@ -63,7 +63,6 @@ function parseBrandEditForm(
   // Extract basic fields
   const name = formData.get('name') as string | null
   const description = formData.get('description') as string | null
-  const websiteUrl = formData.get('websiteUrl') as string | null
   const instagram = formData.get('instagram') as string | null
   const threads = formData.get('threads') as string | null
   const facebook = formData.get('facebook') as string | null
@@ -99,6 +98,15 @@ function parseBrandEditForm(
   const purchaseWebsite = parseOptionalString(formData.get('purchaseWebsite'))
   const purchasePinkoi = parseOptionalString(formData.get('purchasePinkoi'))
   const purchaseShopee = parseOptionalString(formData.get('purchaseShopee'))
+  const hasOtherUrls = formData.has('otherUrls[0].label') || formData.has('otherUrls[0].url')
+  const otherUrls: OtherUrl[] = []
+  for (let i = 0; i < 3; i++) {
+    const label = formData.get(`otherUrls[${i}].label`) as string | null
+    const url = formData.get(`otherUrls[${i}].url`) as string | null
+    if (label && url) {
+      otherUrls.push({ label, url })
+    }
+  }
   const retailLocations = parseArrayField<{ name: string; address: string }>(
     formData,
     'retailLocations',
@@ -113,10 +121,12 @@ function parseBrandEditForm(
   if (formData.has('purchaseWebsite')) updateData.purchaseWebsite = purchaseWebsite
   if (formData.has('purchasePinkoi')) updateData.purchasePinkoi = purchasePinkoi
   if (formData.has('purchaseShopee')) updateData.purchaseShopee = purchaseShopee
+  if (hasOtherUrls) {
+    updateData.otherUrls = otherUrls
+  }
   if (retailLocations.length > 0) {
     updateData.retailLocations = retailLocations as RetailLocation[]
   }
-  if (websiteUrl !== null) updateData.purchaseWebsite = websiteUrl || null
   if (instagram !== null) updateData.socialInstagram = instagram || null
   if (threads !== null) updateData.socialThreads = threads || null
   if (facebook !== null) updateData.socialFacebook = facebook || null
