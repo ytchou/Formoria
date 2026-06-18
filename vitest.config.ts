@@ -14,6 +14,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      "@emails": path.resolve(__dirname, "./emails"),
       "@": path.resolve(__dirname, "./src"),
       "next/server": path.resolve(__dirname, "./node_modules/next/server.js"),
       "next/navigation": path.resolve(
