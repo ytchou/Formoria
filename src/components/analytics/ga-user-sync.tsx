@@ -8,6 +8,7 @@ import {
   getUtmParams,
   persistUtmTouchPoints,
   trackLogin,
+  trackSignUp,
 } from '@/lib/analytics'
 import { useUser } from '@/lib/auth/use-user'
 
@@ -36,9 +37,23 @@ export function GaUserSync() {
     const previousUserWasNull = previousUserWasNullRef.current
 
     if (previousUserWasNull === true && user) {
-      // We cannot reliably distinguish sign_up from login on the client side with Supabase useUser.
-      // sign_up should ideally fire from the auth callback route where Supabase provides is_new_user — out of scope for this fix.
-      trackLogin('google')
+      const params = new URLSearchParams(window.location.search)
+      const isNewUser = params.get('is_new_user') === '1'
+      const method = user.app_metadata?.provider ?? 'email'
+
+      if (isNewUser) {
+        trackSignUp(method)
+        params.delete('is_new_user')
+        window.history.replaceState(
+          {},
+          '',
+          params.toString()
+            ? `${window.location.pathname}?${params.toString()}`
+            : window.location.pathname,
+        )
+      } else {
+        trackLogin(method)
+      }
     }
 
     previousUserWasNullRef.current = user === null
