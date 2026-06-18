@@ -11,6 +11,15 @@ import { deriveCategoryFromProductType } from '@/lib/taxonomy/ontology'
 
 type PendingBrandEditRow = Database['public']['Tables']['pending_brand_edits']['Row']
 type BrandRow = Database['public']['Tables']['brands']['Row']
+type BrandFlatLinkColumns = {
+  social_instagram?: string | null
+  social_threads?: string | null
+  social_facebook?: string | null
+  purchase_website?: string | null
+  purchase_pinkoi?: string | null
+  purchase_shopee?: string | null
+  other_urls?: unknown
+}
 type PendingBrandEditStatus = PendingBrandEdit['status']
 
 type PendingBrandEditRowInput = Pick<PendingBrandEditRow, 'id'> &
@@ -29,11 +38,11 @@ type PendingEditReviewRow = {
 }
 
 const PENDING_EDIT_WITH_BRAND_SELECT =
-  '*, brands(id, name, slug, description, logo_url, hero_image_url, product_type, contact_email, brand_highlights, founding_year, purchase_links, social_links, retail_locations, product_photos, site_content)'
+  '*, brands(id, name, slug, description, logo_url, hero_image_url, product_type, contact_email, brand_highlights, founding_year, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, other_urls, retail_locations, product_photos, site_content)'
 
 function asSingleBrand(
   brand: Partial<BrandRow> | Partial<BrandRow>[] | null | undefined
-): Partial<BrandRow> | null {
+): (Partial<BrandRow> & BrandFlatLinkColumns) | null {
   if (Array.isArray(brand)) return brand[0] ?? null
   return brand ?? null
 }
@@ -57,11 +66,40 @@ function pendingEditToDomain(row: PendingBrandEditRowInput): PendingBrandEdit {
   }
 }
 
-function pendingEditWithBrandToDomain(
+function proposedStringOrNull(
+  proposedData: Record<string, unknown>,
+  key: keyof Pick<
+    Brand,
+    | 'socialInstagram'
+    | 'socialThreads'
+    | 'socialFacebook'
+    | 'purchaseWebsite'
+    | 'purchasePinkoi'
+    | 'purchaseShopee'
+  >,
+  current: string | null | undefined
+): string | null {
+  if (!(key in proposedData)) return current ?? null
+  const value = proposedData[key]
+  return typeof value === 'string' ? value : null
+}
+
+function proposedOtherUrls(
+  proposedData: Record<string, unknown>,
+  current: unknown
+): Brand['otherUrls'] {
+  if ('otherUrls' in proposedData) {
+    return Array.isArray(proposedData.otherUrls) ? proposedData.otherUrls as Brand['otherUrls'] : []
+  }
+  return Array.isArray(current) ? current as Brand['otherUrls'] : []
+}
+
+export function pendingEditWithBrandToDomain(
   row: PendingBrandEditWithBrandRowInput
 ): PendingBrandEditWithBrand {
   const edit = pendingEditToDomain(row)
   const brand = asSingleBrand(row.brands)
+  const proposedData = edit.proposedData
   return {
     ...edit,
     brand: {
@@ -75,10 +113,13 @@ function pendingEditWithBrandToDomain(
       contactEmail: brand?.contact_email ?? null,
       brandHighlights: brand?.brand_highlights ?? null,
       foundingYear: brand?.founding_year ?? null,
-      purchaseLinks: Array.isArray(brand?.purchase_links) ? brand.purchase_links as Brand['purchaseLinks'] : [],
-      socialLinks: brand?.social_links && typeof brand.social_links === 'object' && !Array.isArray(brand.social_links)
-        ? brand.social_links as Brand['socialLinks']
-        : {},
+      socialInstagram: proposedStringOrNull(proposedData, 'socialInstagram', brand?.social_instagram),
+      socialThreads: proposedStringOrNull(proposedData, 'socialThreads', brand?.social_threads),
+      socialFacebook: proposedStringOrNull(proposedData, 'socialFacebook', brand?.social_facebook),
+      purchaseWebsite: proposedStringOrNull(proposedData, 'purchaseWebsite', brand?.purchase_website),
+      purchasePinkoi: proposedStringOrNull(proposedData, 'purchasePinkoi', brand?.purchase_pinkoi),
+      purchaseShopee: proposedStringOrNull(proposedData, 'purchaseShopee', brand?.purchase_shopee),
+      otherUrls: proposedOtherUrls(proposedData, brand?.other_urls),
       retailLocations: Array.isArray(brand?.retail_locations) ? brand.retail_locations as Brand['retailLocations'] : [],
       productPhotos: Array.isArray(brand?.product_photos) ? brand.product_photos.filter((url): url is string => typeof url === 'string') : [],
       siteContent: brand?.site_content && typeof brand.site_content === 'object' && !Array.isArray(brand.site_content)
