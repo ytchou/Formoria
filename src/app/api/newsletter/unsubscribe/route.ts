@@ -46,8 +46,5 @@ export async function GET(request: NextRequest) {
     return htmlResponse(result.error ?? 'Token not found', 404)
   }
 
-  return htmlResponse(
-    '您已成功取消訂閱 / You have been unsubscribed from Formoria newsletter',
-    200
-  )
+  return htmlResponse('You have been unsubscribed from Formoria newsletter.', 200)
 }
