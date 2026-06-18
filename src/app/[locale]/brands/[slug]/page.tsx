@@ -40,8 +40,8 @@ import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
-// 60s ISR: ownership/verified-state changes propagate within ~a minute; route still statically served between regenerations
-export const revalidate = 60
+// 1h ISR: ownership/verified-state changes propagate within ~an hour; route still statically served between regenerations
+export const revalidate = 3600
 
 export async function generateStaticParams() {
   try {
