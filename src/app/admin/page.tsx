@@ -6,6 +6,7 @@ import {
   reviewReportAction,
 } from '@/app/admin/actions'
 import { DashboardQueueItem } from '@/components/admin/dashboard-queue-item'
+import { NewsletterSubscribersList } from '@/components/admin/newsletter-subscribers'
 import { QueueSummaryCard } from '@/components/admin/queue-summary-card'
 import { SystemStatusCard } from '@/components/admin/system-status-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,10 +15,12 @@ import { listClaimRequests } from '@/lib/services/claim-requests'
 import { getFeedbackItems } from '@/lib/services/feedback'
 import { checkAllServices, type ServiceHealthResult } from '@/lib/services/health-checks'
 import { getFlaggedContent } from '@/lib/services/moderation'
+import { getSubscribers, getSubscriberStats } from '@/lib/services/newsletter'
 import { getPendingEdits } from '@/lib/services/pending-edits'
 import { getPendingReports } from '@/lib/services/reports'
 import { getSubmissions } from '@/lib/services/submissions'
 import { getTags } from '@/lib/services/taxonomy'
+import { createServiceClient } from '@/lib/supabase/server'
 
 type QueueItem = {
   id: string
@@ -42,6 +45,27 @@ function formatQueueDate(value: string | null | undefined): string {
   return value.slice(0, 10)
 }
 
+async function getNewsletterDashboardData() {
+  try {
+    const supabase = createServiceClient()
+    const [subscribers, subscriberStats] = await Promise.all([
+      getSubscribers(supabase),
+      getSubscriberStats(supabase),
+    ])
+
+    return { subscribers, subscriberStats }
+  } catch {
+    return {
+      subscribers: [],
+      subscriberStats: {
+        total: 0,
+        confirmed: 0,
+        unsubscribed: 0,
+      },
+    }
+  }
+}
+
 export default async function AdminPage() {
   const [
     submissions,
@@ -53,6 +77,7 @@ export default async function AdminPage() {
     brandResult,
     tags,
     healthResults,
+    newsletterData,
   ] = await Promise.all([
     getSubmissions('pending', { limit: 5 }).catch(() => []),
     getPendingEdits('pending', { limit: 5 }).catch(() => []),
@@ -69,9 +94,11 @@ export default async function AdminPage() {
     })),
     getTags().catch(() => []),
     checkAllServices().catch((): ServiceHealthResult[] => []),
+    getNewsletterDashboardData(),
   ])
 
   const flaggedContent = flaggedContentResult.items
+  const { subscribers, subscriberStats } = newsletterData
   const activeTagCount = tags.filter((tag) => tag.isActive).length
 
   const queues: ReviewQueue[] = [
@@ -241,6 +268,22 @@ export default async function AdminPage() {
             </Card>
           ))}
         </div>
+      </section>
+
+      <section aria-labelledby="newsletter-subscribers">
+        <div className="mb-4">
+          <h2 id="newsletter-subscribers" className="text-xl font-semibold">
+            Newsletter Subscribers
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Email capture list and subscription confirmation status.
+          </p>
+        </div>
+
+        <NewsletterSubscribersList
+          subscribers={subscribers}
+          stats={subscriberStats}
+        />
       </section>
 
     </div>

@@ -95,6 +95,26 @@
       "linkText": "瀏覽全部品牌 →"
     }
   },
+  "newsletter": {
+    "heading": "掌握最新動態",
+    "subtext": "Get the latest on Made in Taiwan brands — stories, launches, and curated picks delivered to your inbox.",
+    "emailPlaceholder": "your@email.com",
+    "subscribe": "訂閱 Subscribe",
+    "interestsLabel": "選擇您感興趣的內容 Choose what interests you",
+    "interests": {
+      "brand-stories": "品牌故事 Brand Stories",
+      "new-brands": "新品牌 New Brands",
+      "curated-picks": "選物推薦 Curated Picks",
+      "mit-trends": "台灣製造趨勢 MIT Trends"
+    },
+    "success": "請查看您的收件匣以確認訂閱 / Check your inbox to confirm your subscription",
+    "error": {
+      "invalidEmail": "請輸入有效的電子郵件地址",
+      "tooManyRequests": "請求過於頻繁，請稍後再試",
+      "generic": "發生錯誤，請再試一次"
+    },
+    "alreadySubscribed": "您已經訂閱了！"
+  },
   "brands": {
     "metadata": {
       "title": "Formoria — Made in Taiwan Brand Directory",
