@@ -1,5 +1,9 @@
 # SPEC Changelog
 
+## 2026-06-18
+
+Refactored productTypes from array (via brand_taxonomy) to single product_type column on brands table.
+
 ## 2026-06-13
 
 ### DEV-807 — product_type governance changed from AI-only to submitter-selected

@@ -2,6 +2,7 @@ import type { TagCategory, TaxonomyTag } from '@/lib/types'
 import type { Database } from '@/lib/supabase/database.types'
 import { NotFoundError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
+import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { generateSlug } from './brands'
 
 // ---------------------------------------------------------------------------
@@ -12,7 +13,7 @@ type TaxonomyTagRow = Database['public']['Tables']['taxonomy_tags']['Row']
 type BrandRow = Database['public']['Tables']['brands']['Row']
 
 /** Partial brand row (only the columns selected in getUntaggedBrands) */
-type BrandWithTaxonomyLeft = Pick<BrandRow, 'id' | 'name' | 'slug' | 'category'> & {
+type BrandWithTaxonomyLeft = Pick<BrandRow, 'id' | 'name' | 'slug' | 'product_type'> & {
   brand_taxonomy: Array<{ brand_id: string }> | null
 }
 
@@ -89,25 +90,24 @@ export async function getActiveCategories(): Promise<
 > {
   const supabase = createServiceClient()
 
-  // Find product_type tags that have at least one approved brand
   const { data, error } = await supabase
-    .from('taxonomy_tags')
-    .select('*, brand_taxonomy!inner(brands!inner(status))')
-    .eq('category', 'product_type')
-    .eq('is_active', true)
-    .eq('brand_taxonomy.brands.status', 'approved')
+    .from('brands')
+    .select('product_type')
+    .eq('status', 'approved')
 
   if (error) throw error
 
-  // Deduplicate by slug (multiple brands may produce repeated rows)
   const seen = new Set<string>()
   const result: { slug: string; name: string; nameZh: string | null }[] = []
 
   for (const row of data ?? []) {
-    const tag = tagToDomain(row)
-    if (!seen.has(tag.slug)) {
-      seen.add(tag.slug)
-      result.push({ slug: tag.slug, name: tag.name, nameZh: tag.nameZh })
+    const slug = row.product_type
+    if (seen.has(slug)) continue
+
+    const category = PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === slug)
+    if (category) {
+      seen.add(slug)
+      result.push({ slug: category.slug, name: category.name, nameZh: category.nameZh })
     }
   }
 
@@ -372,7 +372,7 @@ export async function getUntaggedBrands(): Promise<UntaggedBrand[]> {
 
   const { data, error } = await supabase
     .from('brands')
-    .select('id, name, slug, category, brand_taxonomy!left(brand_id)')
+    .select('id, name, slug, product_type, brand_taxonomy!left(brand_id)')
     .eq('status', 'approved')
 
   if (error) throw error
@@ -385,6 +385,6 @@ export async function getUntaggedBrands(): Promise<UntaggedBrand[]> {
       id: row.id,
       name: row.name,
       slug: row.slug,
-      category: row.category ?? '',
+      category: row.product_type,
     }))
 }

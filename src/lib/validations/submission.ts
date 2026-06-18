@@ -1,6 +1,6 @@
 import { z } from 'zod/v3'
-import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
+import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 type Translator = (key: string) => string
 
@@ -79,14 +79,14 @@ export function getProductsSchema(_t: Translator) {
   return z.object({
     productPhotos: z.array(z.string()).max(6),
     brandHighlights: z.string().max(300).optional().default(''),
-    productTypes: z
-      .array(
-        z.string().refine(
-          (slug) => PRODUCT_TYPE_CATEGORIES.some((category) => category.slug === slug),
-          'Invalid product type slug'
-        )
-      )
-      .default([]),
+    productType: z
+      .string()
+      .default('')
+      .refine(
+        (slug) =>
+          slug === '' || PRODUCT_TYPE_CATEGORIES.some((category) => category.slug === slug),
+        'Invalid product type slug'
+      ),
     productTypeNote: z.string().max(200).optional().default(''),
   })
 }
@@ -159,7 +159,7 @@ const ownerFields = z.object({
 
 type ProductTypeFields = {
   productTypeNote: string
-  productTypes: string[]
+  productType: string
 }
 
 function requireProductType<Schema extends z.ZodType>(
@@ -175,10 +175,10 @@ function requireProductType<Schema extends z.ZodType>(
 ) {
   const refined = schema.refine(
     (data: ProductTypeFields) =>
-      data.productTypes.length > 0 || (data.productTypeNote?.trim().length ?? 0) > 0,
+      data.productType !== '' || (data.productTypeNote?.trim().length ?? 0) > 0,
     {
       message: '請選擇至少一項產品類型，或說明你的產品類型',
-      path: ['productTypes'],
+      path: ['productType'],
     }
   )
 
@@ -201,7 +201,7 @@ function requireProductType<Schema extends z.ZodType>(
         const result = Reflect.apply(value, schema, args)
         if (
           result instanceof z.ZodObject &&
-          'productTypes' in result.shape &&
+          'productType' in result.shape &&
           'productTypeNote' in result.shape
         ) {
           return requireProductType(result, true)
@@ -292,10 +292,10 @@ type FullSubmissionSchemaData = z.infer<typeof fullSubmissionSchema>
 
 export type SubmissionFormData = Omit<
   FullSubmissionSchemaData,
-  'productTypeNote' | 'productTypes' | 'valueTags' | 'brandHighlights'
+  'productTypeNote' | 'productType' | 'valueTags' | 'brandHighlights'
 > & {
   productTypeNote?: string
-  productTypes?: string[]
+  productType?: string
   valueTags?: string[]
   brandHighlights?: string
 }

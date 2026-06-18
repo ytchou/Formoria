@@ -3,6 +3,7 @@ import type { Database } from '@/lib/supabase/database.types'
 import { createServiceClient } from '@/lib/supabase/server'
 import { deleteBrandImages } from '@/lib/services/image-upload'
 import { diffRemovedImageUrls, updateBrand } from './brands'
+import { deriveCategoryFromProductType } from '@/lib/taxonomy/ontology'
 
 // ---------------------------------------------------------------------------
 // Row types
@@ -28,7 +29,7 @@ type PendingEditReviewRow = {
 }
 
 const PENDING_EDIT_WITH_BRAND_SELECT =
-  '*, brands(id, name, slug, description, logo_url, hero_image_url, category, contact_email, brand_highlights, founding_year, purchase_links, social_links, retail_locations, product_photos, site_content)'
+  '*, brands(id, name, slug, description, logo_url, hero_image_url, product_type, contact_email, brand_highlights, founding_year, purchase_links, social_links, retail_locations, product_photos, site_content)'
 
 function asSingleBrand(
   brand: Partial<BrandRow> | Partial<BrandRow>[] | null | undefined
@@ -70,7 +71,7 @@ function pendingEditWithBrandToDomain(
       description: brand?.description ?? null,
       logoUrl: brand?.logo_url ?? null,
       heroImageUrl: brand?.hero_image_url ?? null,
-      category: brand?.category ?? null,
+      category: deriveCategoryFromProductType(brand?.product_type ?? '') ?? null,
       contactEmail: brand?.contact_email ?? null,
       brandHighlights: brand?.brand_highlights ?? null,
       foundingYear: brand?.founding_year ?? null,

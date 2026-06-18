@@ -208,7 +208,7 @@ describe('server action schema routing', () => {
       socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
       sourceAttribution: 'found_online',
       productPhotos: [],
-      productTypes: ['fashion'],
+      productType: 'fashion',
       retailLocations: [],
       turnstileToken: 'test-token',
     }
@@ -221,7 +221,7 @@ describe('server action schema routing', () => {
       description: 'Long enough description for the brand insert payload test',
       category: 'fashion',
       logoUrl: 'https://example.com/logo.webp',
-      productTypes: ['fashion'],
+      productType: 'fashion',
       isOwner: true,
       purchaseLinks: [{ platform: 'shopify', url: 'https://shop.com' }],
       pdpaConsent: true,
@@ -244,7 +244,7 @@ describe('server action schema routing', () => {
       region: 'taipei',
       valueTags: ['sustainability'],
       logoUrl: 'https://example.com/logo.png',
-      productTypes: ['fashion'],
+      productType: 'fashion',
       isOwner: false,
       purchaseLinks: [],
       pdpaConsent: true,
@@ -257,7 +257,7 @@ describe('server action schema routing', () => {
 
     expect(mockCreateSubmission).toHaveBeenCalledWith(
       expect.objectContaining({
-        suggestedTags: { region: 'taipei', values: ['sustainability'], productTypes: ['fashion'] },
+        suggestedTags: { region: 'taipei', values: ['sustainability'], productType: 'fashion' },
       })
     )
   })
@@ -270,7 +270,7 @@ describe('server action schema routing', () => {
       description: 'A'.repeat(40),
       category: 'fashion',
       logoUrl: 'https://example.com/logo.png',
-      productTypes: [],
+      productType: '',
       productTypeNote: '手工皮件',
       isOwner: false,
       purchaseLinks: [],
@@ -301,7 +301,7 @@ describe('server action schema routing', () => {
       socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
       sourceAttribution: 'found_online',
       productPhotos: [],
-      productTypes: ['fashion'],
+      productType: 'fashion',
       retailLocations: [],
       turnstileToken: 'test-token',
     })
@@ -339,7 +339,7 @@ describe('server action schema routing', () => {
       socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
       sourceAttribution: 'found_online',
       productPhotos: [],
-      productTypes: ['fashion'],
+      productType: 'fashion',
 
       retailLocations: [],
       turnstileToken: 'test-token',
@@ -366,7 +366,7 @@ describe('server action schema routing', () => {
       socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
       sourceAttribution: 'found_online',
       productPhotos: [],
-      productTypes: ['fashion'],
+      productType: 'fashion',
 
       retailLocations: [],
       turnstileToken: 'test-token',
@@ -397,7 +397,7 @@ describe('server action schema routing', () => {
       socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
       sourceAttribution: 'found_online',
       productPhotos: [],
-      productTypes: ['fashion'],
+      productType: 'fashion',
 
       retailLocations: [],
       turnstileToken: 'test-token',

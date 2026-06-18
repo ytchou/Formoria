@@ -11,12 +11,12 @@ export const PRODUCT_TYPE_CATEGORIES = [
   { slug: 'kids-pets', name: 'Kids, Baby & Pets', nameZh: '母嬰寵物' },
 ] as const
 
-export function deriveCategoryFromProductTypes(
-  productTypes: string[],
+export function deriveCategoryFromProductType(
+  productType: string,
   productTypeNote?: string | null,
 ): string | null {
-  if (productTypes.length > 0) {
-    const match = PRODUCT_TYPE_CATEGORIES.find(c => c.slug === productTypes[0])
+  if (productType) {
+    const match = PRODUCT_TYPE_CATEGORIES.find(c => c.slug === productType)
     return match?.nameZh ?? null
   }
   if (productTypeNote?.trim()) {

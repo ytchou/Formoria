@@ -149,7 +149,7 @@ function buildParams(
     pdpaConsentAt: '2026-06-15T00:00:00.000Z',
     region: 'taipei',
     valueTags: ['eco'],
-    productTypes: ['skincare'],
+    productType: 'skincare',
     productTypeNote: 'Other type',
     moderationFlags,
     moderatorUserId: 'user-1',
@@ -173,7 +173,7 @@ function buildSubmitInput() {
     productPhotos: [],
     region: 'taipei',
     valueTags: ['eco'],
-    productTypes: ['skincare'],
+    productType: 'skincare',
     unifiedBusinessNumber: '12345678',
     isOwner: true,
     pdpaConsent: true,
@@ -237,7 +237,7 @@ describe('submitBrandForReview', () => {
         suggestedTags: {
           region: 'taipei',
           values: ['eco'],
-          productTypes: ['skincare'],
+          productType: 'skincare',
         },
       })
     )
@@ -282,7 +282,7 @@ describe('brand submission callers', () => {
       brandHighlights: null,
       region: 'taipei',
       valueTags: ['eco'],
-      productTypes: ['skincare'],
+      productType: 'skincare',
       productTypeNote: null,
       unifiedBusinessNumber: '12345678',
     }

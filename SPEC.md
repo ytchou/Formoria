@@ -76,10 +76,10 @@ Middleware provisions `fm_mode=god` for real admins and deletes the cookie for n
 ### Taxonomy Closed Vocabularies (DEV-802)
 - `region`: closed vocabulary of Taiwan's 22 cities/counties plus `全台灣`; max 1 per brand.
 - `value`: closed vocabulary of admin-curated tags; max 3 per brand.
-- `product_type`: Submitter-selected from 10 flat categories (see `PRODUCT_TYPE_CATEGORIES` in `ontology.ts`). Free-text fallback via `product_type_note` when no category fits. Admin reviews taxonomy gaps in the submission queue.
+- `product_type`: Each brand has exactly one product type, submitter-selected from 10 flat categories (see `PRODUCT_TYPE_CATEGORIES` in `ontology.ts`). Stored as a column on the `brands` table (NOT via `brand_taxonomy` junction table) and validated via a CHECK constraint on the `brands` table. Free-text fallback via `product_type_note` when no category fits. Admin reviews taxonomy gaps in the submission queue.
 - `brand_submissions.suggested_tags` accepts the legacy `string[]` `suggestedTags` format for backwards compatibility.
 - New structured submission format is `{ region?: string, values?: string[] }`, stored in the `brand_submissions.suggested_tags` JSONB column.
-- On admin approval, accepted structured taxonomy is auto-applied to `brand_taxonomy`.
+- On admin approval, accepted structured region/value taxonomy is auto-applied to `brand_taxonomy`.
 
 ## Trust & Verification Model
 
@@ -135,7 +135,7 @@ See `docs/strategy/brand-success-playbook.md` for full specification.
 - id, slug, name, description, logoUrl
 - status: pending | approved | rejected | hidden (listing/approval signal)
 - mitStatus: unverified | claimed | verified | rejected (MIT 微笑標章 verification signal — orthogonal to status)
-- category (primary taxonomy tag)
+- product_type (single product category, validated against PRODUCT_TYPE_CATEGORIES — one of: fashion, bags-accessories, jewelry, beauty, home, food-drink, crafts, tech, outdoor, kids-pets)
 - tags[] (additional taxonomy tags)
 - purchaseLinks[] (platform, url, label)
 - socialLinks (instagram, threads, facebook, officialWebsite)

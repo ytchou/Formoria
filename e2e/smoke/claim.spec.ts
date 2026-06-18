@@ -41,6 +41,7 @@ test.describe('Claim smoke', () => {
         name: brandName,
         slug: brandSlug,
         status: 'approved',
+        product_type: 'crafts',
         description: 'Throwaway community brand for claim smoke coverage.',
         purchase_links: [],
         social_links: {},

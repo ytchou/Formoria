@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { PRODUCT_TYPE_CATEGORIES, deriveCategoryFromProductTypes } from '@/lib/taxonomy/ontology'
+import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 type BrandEditDialogProps = {
   brand: Brand | null
@@ -30,8 +30,15 @@ export function BrandEditDialog({
 }: BrandEditDialogProps) {
   const [name, setName] = useState(brand?.name ?? '')
   const [description, setDescription] = useState(brand?.description ?? '')
-  const [categorySlug, setCategorySlug] = useState(() => {
-    const match = PRODUCT_TYPE_CATEGORIES.find((c) => c.nameZh === brand?.category)
+  const [productType, setProductType] = useState(() => {
+    const productTypeSlug = (brand as (Brand & { product_type?: string | null }) | null)?.product_type
+    const match = PRODUCT_TYPE_CATEGORIES.find(
+      (c) =>
+        c.slug === productTypeSlug ||
+        c.slug === brand?.category ||
+        c.nameZh === brand?.category ||
+        c.name === brand?.category
+    )
     return match?.slug ?? ''
   })
   const [error, setError] = useState<string | null>(null)
@@ -41,11 +48,12 @@ export function BrandEditDialog({
     if (!brand) return
     startTransition(async () => {
       setError(null)
-      const result = await updateBrandAction(brand.id, {
+      const data: Parameters<typeof updateBrandAction>[1] = {
         name,
         description,
-        category: categorySlug ? deriveCategoryFromProductTypes([categorySlug]) ?? undefined : undefined,
-      })
+        productType: productType || undefined,
+      }
+      const result = await updateBrandAction(brand.id, data)
       if (result?.error) {
         setError(result.error)
       } else {
@@ -82,11 +90,11 @@ export function BrandEditDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="brand-category">Category</Label>
+            <Label htmlFor="brand-product-type">Product Type</Label>
             <select
-              id="brand-category"
-              value={categorySlug}
-              onChange={(e) => setCategorySlug(e.target.value)}
+              id="brand-product-type"
+              value={productType}
+              onChange={(e) => setProductType(e.target.value)}
               className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
             >
               <option value="">—</option>

@@ -26,7 +26,7 @@ function Wrapper({ children }: { children: ReactNode }) {
       region: '',
       valueTags: [],
       logoUrl: '',
-      productTypes: [],
+      productType: '',
       productTypeNote: '',
     },
   })

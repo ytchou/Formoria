@@ -30,32 +30,33 @@ describe('fullSubmissionSchema product type validation', () => {
     retailLocations: [],
     pdpaConsent: true,
     turnstileToken: 'valid-token',
+    productType: 'fashion',
   }
 
-  it('passes with at least one productType selected', () => {
+  it('accepts a valid single productType', () => {
     const result = fullSubmissionSchema.safeParse({
       ...baseValid,
-      productTypes: ['fashion'],
+      productType: 'fashion',
       productTypeNote: '',
     })
 
     expect(result.success).toBe(true)
   })
 
-  it('fails when productTypes is empty and no productTypeNote', () => {
+  it('rejects empty productType with no note', () => {
     const result = fullSubmissionSchema.safeParse({
       ...baseValid,
-      productTypes: [],
+      productType: '',
       productTypeNote: '',
     })
 
     expect(result.success).toBe(false)
   })
 
-  it("passes when productTypes is empty but productTypeNote is provided ('手工皮件')", () => {
+  it("passes when productType is empty but productTypeNote is provided ('手工皮件')", () => {
     const result = fullSubmissionSchema.safeParse({
       ...baseValid,
-      productTypes: [],
+      productType: '',
       productTypeNote: '手工皮件',
     })
 
@@ -65,17 +66,17 @@ describe('fullSubmissionSchema product type validation', () => {
   it('fails when productTypeNote exceeds 200 chars', () => {
     const result = fullSubmissionSchema.safeParse({
       ...baseValid,
-      productTypes: [],
+      productType: '',
       productTypeNote: '字'.repeat(201),
     })
 
     expect(result.success).toBe(false)
   })
 
-  it('passes with both productTypes and productTypeNote', () => {
+  it('passes with both productType and productTypeNote', () => {
     const result = fullSubmissionSchema.safeParse({
       ...baseValid,
-      productTypes: ['fashion'],
+      productType: 'fashion',
       productTypeNote: '手工皮件',
     })
 

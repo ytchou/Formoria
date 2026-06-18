@@ -225,6 +225,7 @@ export type Database = {
           is_brand_owner: boolean | null
           notified_at: string | null
           pdpa_consent_at: string | null
+          product_type_note: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           reviewer_notes: string | null
@@ -235,6 +236,7 @@ export type Database = {
           submitter_email: string
           submitter_name: string | null
           suggested_tags: Json | null
+          unified_business_number: string | null
           validation_errors: Json | null
           validation_status: string | null
           website_url: string | null
@@ -247,6 +249,7 @@ export type Database = {
           is_brand_owner?: boolean | null
           notified_at?: string | null
           pdpa_consent_at?: string | null
+          product_type_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           reviewer_notes?: string | null
@@ -257,6 +260,7 @@ export type Database = {
           submitter_email: string
           submitter_name?: string | null
           suggested_tags?: Json | null
+          unified_business_number?: string | null
           validation_errors?: Json | null
           validation_status?: string | null
           website_url?: string | null
@@ -269,6 +273,7 @@ export type Database = {
           is_brand_owner?: boolean | null
           notified_at?: string | null
           pdpa_consent_at?: string | null
+          product_type_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           reviewer_notes?: string | null
@@ -279,6 +284,7 @@ export type Database = {
           submitter_email?: string
           submitter_name?: string | null
           suggested_tags?: Json | null
+          unified_business_number?: string | null
           validation_errors?: Json | null
           validation_status?: string | null
           website_url?: string | null
@@ -327,7 +333,6 @@ export type Database = {
         Row: {
           approved_at: string | null
           brand_highlights: string | null
-          category: string | null
           contact_email: string | null
           created_at: string | null
           description: string | null
@@ -345,6 +350,7 @@ export type Database = {
           mit_verified_at: string | null
           name: string
           product_photos: Json | null
+          product_type: string
           purchase_links: Json | null
           retail_locations: Json | null
           site_content: Json | null
@@ -354,12 +360,12 @@ export type Database = {
           status: string
           submitted_at: string | null
           tag_slugs: string[]
+          unified_business_number: string | null
           updated_at: string | null
         }
         Insert: {
           approved_at?: string | null
           brand_highlights?: string | null
-          category?: string | null
           contact_email?: string | null
           created_at?: string | null
           description?: string | null
@@ -377,6 +383,7 @@ export type Database = {
           mit_verified_at?: string | null
           name: string
           product_photos?: Json | null
+          product_type: string
           purchase_links?: Json | null
           retail_locations?: Json | null
           site_content?: Json | null
@@ -386,12 +393,12 @@ export type Database = {
           status?: string
           submitted_at?: string | null
           tag_slugs?: string[]
+          unified_business_number?: string | null
           updated_at?: string | null
         }
         Update: {
           approved_at?: string | null
           brand_highlights?: string | null
-          category?: string | null
           contact_email?: string | null
           created_at?: string | null
           description?: string | null
@@ -409,6 +416,7 @@ export type Database = {
           mit_verified_at?: string | null
           name?: string
           product_photos?: Json | null
+          product_type?: string
           purchase_links?: Json | null
           retail_locations?: Json | null
           site_content?: Json | null
@@ -418,6 +426,7 @@ export type Database = {
           status?: string
           submitted_at?: string | null
           tag_slugs?: string[]
+          unified_business_number?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -670,27 +679,27 @@ export type Database = {
       }
       profiles: {
         Row: {
-          id: string
-          display_name: string | null
-          locale_preference: string
-          email_notifications: boolean
           created_at: string
+          display_name: string | null
+          email_notifications: boolean
+          id: string
+          locale_preference: string
           updated_at: string
         }
         Insert: {
-          id: string
-          display_name?: string | null
-          locale_preference?: string
-          email_notifications?: boolean
           created_at?: string
+          display_name?: string | null
+          email_notifications?: boolean
+          id: string
+          locale_preference?: string
           updated_at?: string
         }
         Update: {
-          id?: string
-          display_name?: string | null
-          locale_preference?: string
-          email_notifications?: boolean
           created_at?: string
+          display_name?: string | null
+          email_notifications?: boolean
+          id?: string
+          locale_preference?: string
           updated_at?: string
         }
         Relationships: []
@@ -744,6 +753,19 @@ export type Database = {
       approve_claim_request: {
         Args: { p_claim_id: string; p_reviewer_id: string }
         Returns: undefined
+      }
+      check_brand_duplicates: {
+        Args: { p_name: string; p_ubn?: string }
+        Returns: Json
+      }
+      find_similar_brands: {
+        Args: { p_names: string[]; p_threshold?: number }
+        Returns: {
+          brand_name: string
+          brand_slug: string
+          input_name: string
+          similarity_score: number
+        }[]
       }
       increment_brand_click: {
         Args: { p_brand_id: string }

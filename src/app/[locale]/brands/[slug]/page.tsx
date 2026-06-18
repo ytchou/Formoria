@@ -38,6 +38,7 @@ import { RelatedBrands } from '@/components/brands/related-brands'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
+import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 // 60s ISR: ownership/verified-state changes propagate within ~a minute; route still statically served between regenerations
 export const revalidate = 60
@@ -154,17 +155,17 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
     (url): url is string => Boolean(url),
   )
 
-  // The "more in category" card links to /categories/[slug], which is keyed by the
-  // product_type TAG slug — not the legacy free-text brand.category column. Derive the
-  // brand's product_type tag so the link resolves and the count matches that route.
-  const categoryTag =
-    displayBrand.tags.find(
-      (tag) =>
-        tag.category === 'product_type' &&
-        (tag.name === displayBrand.category || tag.nameZh === displayBrand.category),
-    ) ?? displayBrand.tags.find((tag) => tag.category === 'product_type')
+  const productTypeSlug = (displayBrand as Brand & { product_type?: string | null }).product_type ?? null
+  const productTypeCategory = PRODUCT_TYPE_CATEGORIES.find((category) => category.slug === productTypeSlug)
+  const categoryTag = productTypeCategory
+    ? {
+      slug: productTypeCategory.slug,
+      name: productTypeCategory.name,
+      nameZh: productTypeCategory.nameZh,
+    }
+    : null
 
-  // Parallel fetch: related brands + category count by product_type tag slug.
+  // Parallel fetch: related brands + category count by product_type slug.
   const [relatedBrands, categoryCount] = await Promise.all([
     categoryTag
       ? getRelatedBrands(categoryTag.slug, displayBrand.slug, 4)
@@ -180,7 +181,7 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
   // Breadcrumb items for JSON-LD
   const tBrandDetail = await getTranslations('brandDetail')
   const directoryLabel = tBrandDetail('breadcrumb.directory')
-  const categoryLabel = getBrandCategoryLabel(displayBrand)
+  const categoryLabel = productTypeCategory?.nameZh ?? getBrandCategoryLabel(displayBrand)
 
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: directoryLabel, href: '/brands' },

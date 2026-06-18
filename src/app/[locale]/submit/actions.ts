@@ -2,7 +2,7 @@
 
 import { getTranslations } from 'next-intl/server'
 import { createSubmissionSchema, type SubmissionFormData } from '@/lib/validations/submission'
-import { deriveCategoryFromProductTypes } from '@/lib/taxonomy/ontology'
+import { deriveCategoryFromProductType } from '@/lib/taxonomy/ontology'
 import { scanContent } from '@/lib/services/moderation'
 import { submitBrandForReview } from '@/lib/services/submission-pipeline'
 import { checkBrandDuplicates } from '@/lib/services/submissions'
@@ -39,8 +39,8 @@ export async function submitBrand(
     const isOwner = data.isOwner ?? false
     const schema = createSubmissionSchema(isOwner, tValidation)
     const parsed = schema.parse(data)
-    const derivedCategory = deriveCategoryFromProductTypes(
-      parsed.productTypes ?? [],
+    const derivedCategory = deriveCategoryFromProductType(
+      parsed.productType ?? '',
       parsed.productTypeNote,
     )
 
@@ -118,14 +118,14 @@ export async function submitBrand(
       pdpaConsentAt: new Date().toISOString(),
       region: parsed.region,
       valueTags: parsed.valueTags,
-      productTypes: parsed.productTypes,
+      productType: parsed.productType,
       productTypeNote: parsed.productTypeNote ?? null,
       moderationFlags: moderationResult.flags,
       moderatorUserId: user.id,
       onModerationFlagsError: (err) => {
         console.error('Save moderation flags error:', err)
       },
-    })
+    } as Parameters<typeof submitBrandForReview>[0])
 
     return undefined // Success — no error
   } catch (err) {
