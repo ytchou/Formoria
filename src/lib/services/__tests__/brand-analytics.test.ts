@@ -372,6 +372,28 @@ describe('incrementLinkClick', () => {
   })
 })
 
+describe('link click destinations', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-05-20T12:00:00'))
+  })
+
+  it('accepts new platform destination values', async () => {
+    const brandId = seedBrand()
+    const destinations = ['pinkoi', 'shopee', 'facebook', 'website']
+
+    for (const destination of destinations) {
+      await incrementLinkClick(brandId, destination)
+    }
+
+    const rows = await getLinkClickBreakdown(brandId, 1)
+
+    expect(rows.map((row) => row.destination).sort()).toEqual(
+      [...destinations].sort()
+    )
+  })
+})
+
 describe('getSourceBreakdown', () => {
   beforeEach(() => {
     vi.useFakeTimers()

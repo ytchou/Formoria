@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { scrapeBrandUrl } from '../scraper'
+import { mergeSocialLinks } from '../scraper/merge'
 
 const HTML_FULL = `
 <!DOCTYPE html>
@@ -69,9 +70,9 @@ describe('scrapeBrandUrl', () => {
       'Handcrafted goods from Taiwan since 2010.'
     )
     expect(result.heroImageUrl).toBe('https://mybrand.com.tw/hero.jpg')
-    expect(result.socialLinks.instagram).toContain('instagram.com/mybrand')
-    expect(result.socialLinks.threads).toContain('threads.net/@mybrand')
-    expect(result.socialLinks.facebook).toContain('facebook.com/mybrand')
+    expect(result.socialInstagram).toContain('instagram.com/mybrand')
+    expect(result.socialThreads).toContain('threads.net/@mybrand')
+    expect(result.socialFacebook).toContain('facebook.com/mybrand')
     expect(result.galleryImageUrls).toContain(
       'https://mybrand.com.tw/product1.jpg'
     )
@@ -119,7 +120,7 @@ describe('scrapeBrandUrl', () => {
     expect(result.description).toBeNull()
     expect(result.heroImageUrl).toBeNull()
     expect(result.galleryImageUrls).toHaveLength(0)
-    expect(result.socialLinks.instagram).toBeNull()
+    expect(result.socialInstagram).toBeNull()
   })
 
   it('handles fetch timeout gracefully', async () => {
@@ -149,5 +150,26 @@ describe('scrapeBrandUrl', () => {
 
     expect(result.brandName).toBeNull()
     expect(result.websiteUrl).toBe('https://blocked.com')
+  })
+})
+
+describe('mergeSocialLinks (flat output)', () => {
+  it('merges two scraped data objects with flat field names', () => {
+    const base = {
+      socialInstagram: 'base_ig',
+      socialThreads: null,
+      socialFacebook: null,
+    }
+    const next = {
+      socialInstagram: null,
+      socialThreads: '@next_threads',
+      socialFacebook: 'https://fb.com/next',
+    }
+
+    const result = mergeSocialLinks(base, next)
+
+    expect(result.socialInstagram).toBe('base_ig')
+    expect(result.socialThreads).toBe('@next_threads')
+    expect(result.socialFacebook).toBe('https://fb.com/next')
   })
 })

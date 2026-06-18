@@ -38,7 +38,7 @@ export const instagramAdapter: PlatformAdapter = {
     const result = emptyResult(url)
     const rawJsonLd = extractJsonLd($)
     const galleryImageUrls = extractGalleryImages($, url)
-    const socialLinks = extractSocialLinks($)
+    const { socialThreads, socialFacebook } = extractSocialLinks($)
     const heroCandidate =
       metaContent($, 'meta[property="og:image"]') ||
       metaContent($, 'meta[name="twitter:image"]')
@@ -53,11 +53,9 @@ export const instagramAdapter: PlatformAdapter = {
         ? filterHeroImage(heroCandidate, url) ?? galleryImageUrls[0] ?? null
         : galleryImageUrls[0] ?? null,
       galleryImageUrls,
-      socialLinks: {
-        instagram: url,
-        threads: socialLinks.threads,
-        facebook: socialLinks.facebook,
-      },
+      socialInstagram: url,
+      socialThreads,
+      socialFacebook,
       rawJsonLd,
     }
   },

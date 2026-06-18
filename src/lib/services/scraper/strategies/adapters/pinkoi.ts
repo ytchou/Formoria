@@ -161,7 +161,7 @@ export const pinkoiAdapter: PlatformAdapter = {
         ? filterHeroImage(heroCandidate, url) ?? galleryImageUrls[0] ?? null
         : galleryImageUrls[0] ?? null,
       galleryImageUrls,
-      socialLinks: extractSocialLinks($),
+      ...extractSocialLinks($),
       categoryHints: unique([
         ...extractCategoryHints($),
         ...domBreadcrumbs($),

@@ -17,9 +17,9 @@ describe('PlatformAdapterStrategy', () => {
     const r = await new PlatformAdapterStrategy().scrape('https://shopee.tw/shop/123', { render })
     expect(r.brandName).toBeNull()
   })
-  it('sets socialLinks.instagram for an IG url even when sparse', async () => {
+  it('sets socialInstagram for an IG url even when sparse', async () => {
     const render = mockRender('<html><head><meta property="og:title" content="@brand"></head><body></body></html>')
     const r = await new PlatformAdapterStrategy().scrape('https://instagram.com/brand', { render })
-    expect(r.socialLinks.instagram).toContain('instagram.com/brand')
+    expect(r.socialInstagram).toContain('instagram.com/brand')
   })
 })

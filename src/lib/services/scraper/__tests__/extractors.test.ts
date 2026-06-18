@@ -13,8 +13,8 @@ describe('extractSocialLinks', () => {
   it('pulls instagram + facebook hrefs', () => {
     const $ = cheerio.load('<a href="https://instagram.com/brand">ig</a><a href="https://facebook.com/brand">fb</a>')
     const links = extractSocialLinks($)
-    expect(links.instagram).toContain('instagram.com/brand')
-    expect(links.facebook).toContain('facebook.com/brand')
+    expect(links.socialInstagram).toContain('instagram.com/brand')
+    expect(links.socialFacebook).toContain('facebook.com/brand')
   })
 })
 

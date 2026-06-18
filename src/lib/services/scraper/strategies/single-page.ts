@@ -51,13 +51,17 @@ export class SinglePageStrategy implements ScrapeStrategy {
         ? filterHeroImage(heroCandidate, url) ?? galleryImageUrls[0] ?? null
         : galleryImageUrls[0] ?? null
 
+      const { socialInstagram, socialThreads, socialFacebook } = extractSocialLinks($)
+
       return {
         brandName,
         description,
         story: null,
         heroImageUrl,
         galleryImageUrls,
-        socialLinks: extractSocialLinks($),
+        socialInstagram,
+        socialThreads,
+        socialFacebook,
         categoryHints: extractCategoryHints($),
         websiteUrl: url,
         rawJsonLd,

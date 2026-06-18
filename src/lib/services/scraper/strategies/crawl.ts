@@ -10,7 +10,7 @@ import type { ScrapedBrandData } from '@/lib/types/scraper'
 import type { ScrapeContext, ScrapeStrategy } from './types'
 
 type CandidateKind = 'about' | 'products' | 'contact' | 'other'
-type SocialLinks = ScrapedBrandData['socialLinks']
+type SocialLinkFields = Pick<ScrapedBrandData, 'socialInstagram' | 'socialThreads' | 'socialFacebook'>
 
 interface CrawlCandidate {
   url: string
@@ -199,13 +199,13 @@ function getPageText($: cheerio.CheerioAPI): string | null {
 }
 
 function mergeSocialLinks(
-  base: SocialLinks,
-  next: SocialLinks
-) {
+  base: SocialLinkFields,
+  next: SocialLinkFields
+): SocialLinkFields {
   return {
-    instagram: base.instagram ?? next.instagram,
-    threads: base.threads ?? next.threads,
-    facebook: base.facebook ?? next.facebook,
+    socialInstagram: base.socialInstagram ?? next.socialInstagram,
+    socialThreads: base.socialThreads ?? next.socialThreads,
+    socialFacebook: base.socialFacebook ?? next.socialFacebook,
   }
 }
 
@@ -236,7 +236,11 @@ export class CrawlStrategy implements ScrapeStrategy {
         candidates.slice(0, ctx.maxCrawlPages ?? MAX_CRAWL_PAGES)
       )
 
-      let socialLinks = result.socialLinks
+      let socialLinks: SocialLinkFields = {
+        socialInstagram: result.socialInstagram,
+        socialThreads: result.socialThreads,
+        socialFacebook: result.socialFacebook,
+      }
       let categoryHints = result.categoryHints
       let description = result.description
       let story = result.story
@@ -268,7 +272,7 @@ export class CrawlStrategy implements ScrapeStrategy {
         ...result,
         description,
         story,
-        socialLinks,
+        ...socialLinks,
         categoryHints,
       }
     } catch {

@@ -23,9 +23,9 @@ function hasContent(data: ScrapedBrandData): boolean {
       data.story ||
       data.heroImageUrl ||
       data.galleryImageUrls.length > 0 ||
-      data.socialLinks.instagram ||
-      data.socialLinks.threads ||
-      data.socialLinks.facebook ||
+      data.socialInstagram ||
+      data.socialThreads ||
+      data.socialFacebook ||
       data.categoryHints.length > 0 ||
       data.rawJsonLd
   )

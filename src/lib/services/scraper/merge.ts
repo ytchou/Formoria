@@ -2,6 +2,10 @@ import type { ScrapedBrandData } from '@/lib/types/scraper'
 import type { InputType } from './strategies/types'
 
 type ScrapeResult = { type: InputType; data: ScrapedBrandData }
+type SocialLinkFields = Pick<
+  ScrapedBrandData,
+  'socialInstagram' | 'socialThreads' | 'socialFacebook'
+>
 
 const MAX_CATEGORY_HINTS = 5
 
@@ -26,7 +30,9 @@ function emptyMergedResult(): ScrapedBrandData {
     story: null,
     heroImageUrl: null,
     galleryImageUrls: [],
-    socialLinks: { instagram: null, threads: null, facebook: null },
+    socialInstagram: null,
+    socialThreads: null,
+    socialFacebook: null,
     categoryHints: [],
     websiteUrl: '',
     rawJsonLd: null,
@@ -44,14 +50,14 @@ function mergeCategoryHints(base: string[], next: string[]): string[] {
   return [...seen].slice(0, MAX_CATEGORY_HINTS)
 }
 
-function mergeSocialLinks(
-  base: ScrapedBrandData['socialLinks'],
-  next: ScrapedBrandData['socialLinks']
-): ScrapedBrandData['socialLinks'] {
+export function mergeSocialLinks(
+  base: SocialLinkFields,
+  next: SocialLinkFields
+): SocialLinkFields {
   return {
-    instagram: base.instagram ?? next.instagram,
-    threads: base.threads ?? next.threads,
-    facebook: base.facebook ?? next.facebook,
+    socialInstagram: base.socialInstagram ?? next.socialInstagram,
+    socialThreads: base.socialThreads ?? next.socialThreads,
+    socialFacebook: base.socialFacebook ?? next.socialFacebook,
   }
 }
 
@@ -84,7 +90,10 @@ export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
       merged.rawJsonLd = data.rawJsonLd
     }
 
-    merged.socialLinks = mergeSocialLinks(merged.socialLinks, data.socialLinks)
+    const socialLinks = mergeSocialLinks(merged, data)
+    merged.socialInstagram = socialLinks.socialInstagram
+    merged.socialThreads = socialLinks.socialThreads
+    merged.socialFacebook = socialLinks.socialFacebook
     merged.categoryHints = mergeCategoryHints(
       merged.categoryHints,
       data.categoryHints

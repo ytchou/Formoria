@@ -26,7 +26,7 @@ export function extractSocialLinks($: cheerio.CheerioAPI) {
     }
   })
 
-  return { instagram, threads, facebook }
+  return { socialInstagram: instagram, socialThreads: threads, socialFacebook: facebook }
 }
 
 export function extractGalleryImages(
@@ -118,7 +118,9 @@ export function emptyResult(websiteUrl: string): ScrapedBrandData {
     story: null,
     heroImageUrl: null,
     galleryImageUrls: [],
-    socialLinks: { instagram: null, threads: null, facebook: null },
+    socialInstagram: null,
+    socialThreads: null,
+    socialFacebook: null,
     categoryHints: [],
     websiteUrl,
     rawJsonLd: null,
