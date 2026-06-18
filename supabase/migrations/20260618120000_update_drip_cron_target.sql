@@ -1,7 +1,12 @@
 -- Update pg_cron job to call Next.js cron route instead of Supabase Edge Function
 -- The Next.js route uses x-origin-verify header for auth (matching other cron routes)
 
-SELECT cron.unschedule('process-drips-daily');
+-- [Important 1] Safely unschedule: tolerate the job not existing (e.g. fresh DB)
+DO $$ BEGIN
+  PERFORM cron.unschedule('process-drips-daily');
+EXCEPTION WHEN others THEN
+  NULL;
+END $$;
 
 SELECT cron.schedule(
     'process-drips-daily',
