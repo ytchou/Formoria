@@ -110,6 +110,22 @@ describe('FaqPage (zh-TW)', () => {
     const jsonLd = JSON.parse(script!.textContent!)
     expect(jsonLd['@type']).toBe('FAQPage')
   })
+
+  it('generateMetadata includes openGraph and twitter properties', async () => {
+    const { generateMetadata } = await import('./page')
+    const metadata = await generateMetadata({ params: Promise.resolve({ locale: 'zh-TW' }) })
+    expect(metadata.openGraph).toBeDefined()
+    expect(metadata.openGraph).toMatchObject({
+      title: expect.any(String),
+      description: expect.any(String),
+      locale: 'zh_TW',
+    })
+    expect(metadata.twitter).toBeDefined()
+    expect(metadata.twitter).toMatchObject({
+      card: 'summary_large_image',
+      title: expect.any(String),
+    })
+  })
 })
 
 describe('FaqPage (en)', () => {

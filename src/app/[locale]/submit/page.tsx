@@ -14,11 +14,28 @@ export async function generateMetadata({
 }: SubmitPageProps): Promise<Metadata> {
   const { locale } = await params
   setRequestLocale(locale)
+  const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const t = await getTranslations('submit.metadata')
+  const title = t('title')
+  const description = t('description')
+  const ogLocale = safeLocale === 'en' ? 'en_US' : 'zh_TW'
+  const ogAlternateLocale = safeLocale === 'en' ? 'zh_TW' : 'en_US'
+
   return {
-    title: t('title'),
-    description: t('description'),
-    alternates: buildAlternates('/submit', locale as Locale),
+    title,
+    description,
+    alternates: buildAlternates('/submit', safeLocale),
+    openGraph: {
+      title,
+      description,
+      locale: ogLocale,
+      alternateLocale: [ogAlternateLocale],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+    },
   }
 }
 

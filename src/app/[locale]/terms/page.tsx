@@ -12,11 +12,27 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const t = await getTranslations('legal.terms.metadata')
+  const title = t('title')
+  const description = t('description')
   const { canonical, languages } = buildAlternates('/terms', safeLocale)
+  const ogLocale = safeLocale === 'en' ? 'en_US' : 'zh_TW'
+  const ogAlternateLocale = safeLocale === 'en' ? 'zh_TW' : 'en_US'
+
   return {
-    title: t('title'),
-    description: t('description'),
+    title,
+    description,
     alternates: { canonical, languages },
+    openGraph: {
+      title,
+      description,
+      locale: ogLocale,
+      alternateLocale: [ogAlternateLocale],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+    },
   }
 }
 
