@@ -238,11 +238,17 @@ describe('getBrands — search uses search_brands RPC', () => {
       is_demo: false,
     }
 
+    const resolvedData = { data: [fakeBrandRow], error: null, count: 1 }
+    // When sort is 'random' (the new default), .order() is skipped, so each
+    // terminal in the chain must be thenable (i.e. also a resolved promise).
+    const mockEqResult = {
+      order: vi.fn().mockResolvedValue(resolvedData),
+      then: (resolve: (v: unknown) => void) => Promise.resolve(resolvedData).then(resolve),
+    }
     const mockInChain: Record<string, unknown> = {
-      eq: vi.fn().mockReturnValue({
-        order: vi.fn().mockResolvedValue({ data: [fakeBrandRow], error: null, count: 1 }),
-      }),
-      order: vi.fn().mockResolvedValue({ data: [fakeBrandRow], error: null, count: 1 }),
+      eq: vi.fn().mockReturnValue(mockEqResult),
+      order: vi.fn().mockResolvedValue(resolvedData),
+      then: (resolve: (v: unknown) => void) => Promise.resolve(resolvedData).then(resolve),
     }
     mockInChain.not = vi.fn(() => mockInChain)
     const mockIn = vi.fn().mockReturnValue(mockInChain)
