@@ -9,6 +9,7 @@ import { BRAND_SORT_CONFIG } from '@/lib/pagination'
 import { isNonImageHost } from '@/lib/images/allowed-image-hosts'
 import { RESERVED_ROUTES } from '@/middleware'
 import { createSubmissionSchema } from '@/lib/validations/submission'
+import { deriveCategoryFromProductType } from '@/lib/taxonomy/ontology'
 import { downloadAndStoreImages } from './image-download'
 
 // ---------------------------------------------------------------------------
@@ -33,6 +34,7 @@ export type CuratedSubmissionInput = {
   slug: string
   description: string
   category: string
+  productType?: string
   logoUrl?: string | null
   productPhotos: string[]
   purchaseLinks: Array<{ platform: string; url: string }>
@@ -53,7 +55,9 @@ type CuratedBrand = Partial<Brand> &
     | 'contactEmail'
     | 'foundingYear'
     | 'brandHighlights'
-  >
+  > & { productType: string }
+
+type BrandWriteInput = Partial<Brand> & { productType?: string }
 
 /** Shape returned by: brand_taxonomy(taxonomy_tags(*)) — only the nested tag is used by the mapper */
 type BrandTaxonomyWithTag = {
@@ -272,7 +276,7 @@ export function normalizeRow(rawRow: RawSeedRow): CuratedSubmissionInput {
     valueTags: parseStringArray(rawRow.valueTags ?? rawRow.tags, 'valueTags'),
     logoUrl: getString(rawRow.logoUrl),
     productPhotos: parseStringArray(rawRow.productPhotos, 'productPhotos'),
-    productTypes: parseStringArray(rawRow.productTypes ?? rawRow.product_type, 'productTypes'),
+    productType: getString(rawRow.productType ?? rawRow.product_type).toLowerCase(),
     productTypeNote: getString(rawRow.productTypeNote ?? rawRow.product_type_note),
     brandHighlights: getString(rawRow.brandHighlights),
     purchaseLinks: parseObjectArray(rawRow.purchaseLinks, 'purchaseLinks'),
@@ -307,6 +311,7 @@ export function curatedSubmissionToBrand(input: CuratedSubmissionInput): Curated
     heroImageUrl: null,
     status: 'approved',
     category: input.category,
+    productType: input.productType ?? input.category,
     foundingYear: null,
     purchaseLinks: input.purchaseLinks.map((link) => ({
       ...link,
@@ -547,7 +552,7 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     heroImageUrl: row.hero_image_url ?? null,
     // status is text in the DB — cast to BrandStatus at the boundary
     status: row.status as Brand['status'],
-    category: row.category ?? null,
+    category: deriveCategoryFromProductType(row.product_type ?? '') ?? row.product_type ?? null,
     isVerified: owners.length > 0,
     mitStatus: (row.mit_status as Brand['mitStatus']) ?? 'unverified',
     mitVerifiedAt: row.mit_verified_at ?? null,
@@ -571,7 +576,7 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
   }
 }
 
-export function brandToInsert(data: Partial<Brand>): Record<string, unknown> {
+export function brandToInsert(data: BrandWriteInput): Record<string, unknown> {
   const row: Record<string, unknown> = {}
   if (data.name !== undefined) row.name = data.name
   if (data.slug !== undefined) row.slug = data.slug
@@ -579,7 +584,11 @@ export function brandToInsert(data: Partial<Brand>): Record<string, unknown> {
   if (data.logoUrl !== undefined) row.logo_url = data.logoUrl
   if (data.heroImageUrl !== undefined) row.hero_image_url = data.heroImageUrl
   if (data.status !== undefined) row.status = data.status
-  if (data.category !== undefined) row.category = data.category
+  if (data.productType !== undefined) {
+    row.product_type = data.productType
+  } else if (data.category !== undefined) {
+    row.product_type = data.category
+  }
   if (data.foundingYear !== undefined) row.founding_year = data.foundingYear
   if (data.purchaseLinks !== undefined) row.purchase_links = data.purchaseLinks
   if (data.socialLinks !== undefined) row.social_links = mapSocialLinksToDb(data.socialLinks)
@@ -591,7 +600,7 @@ export function brandToInsert(data: Partial<Brand>): Record<string, unknown> {
   return row
 }
 
-function brandToUpdate(data: Partial<Brand>): Record<string, unknown> {
+function brandToUpdate(data: BrandWriteInput): Record<string, unknown> {
   const row = brandToInsert(data)
 
   if (data.brandHighlights !== undefined) {
@@ -656,7 +665,7 @@ export async function getBrands(
       query = query.eq('status', filters.status)
     }
     if (filters.category && filters.category.length > 0) {
-      query = query.overlaps('tag_slugs', filters.category)
+      query = query.in('product_type', filters.category)
     }
     if (filters.tags && filters.tags.length > 0) {
       query = query.overlaps('tag_slugs', filters.tags)
@@ -694,8 +703,7 @@ export async function getBrands(
     query = query.eq('status', filters.status)
   }
   if (filters?.category && filters.category.length > 0) {
-    // brand has at least one of these category (product_type) tag slugs
-    query = query.overlaps('tag_slugs', filters.category)
+    query = query.in('product_type', filters.category)
   }
   if (filters?.tags && filters.tags.length > 0) {
     // brand has at least one of these value tags
@@ -734,6 +742,7 @@ export async function getBrandBySlug(slug: string): Promise<Brand> {
 export async function createBrand(
   data: Omit<Brand, 'id' | 'tags' | 'submittedAt' | 'approvedAt' | 'createdAt' | 'updatedAt'> & {
     unifiedBusinessNumber?: string | null
+    productType?: string
   }
 ): Promise<Brand> {
   const supabase = createServiceClient()
@@ -904,7 +913,7 @@ export async function getBrandCountByCategory(
     .from('brands')
     .select('*', { count: 'exact', head: true })
     .eq('status', 'approved')
-    .overlaps('tag_slugs', [tag.slug])
+    .eq('product_type', tag.slug)
     .neq('slug', excludeSlug)
 
   if (error) throw error

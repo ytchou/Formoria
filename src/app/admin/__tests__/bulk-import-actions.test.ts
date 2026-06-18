@@ -53,7 +53,7 @@ vi.mock('@/lib/supabase/server', () => ({
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
-const { parseBrandCSV, findSimilarBrands } = await import('@/lib/services/brands')
+const { parseBrandCSV, findSimilarBrands, normalizeRow } = await import('@/lib/services/brands')
 const { previewBulkImportAction, executeBulkImportAction } = await import('@/app/admin/actions')
 
 describe('previewBulkImportAction', () => {
@@ -81,7 +81,7 @@ describe('previewBulkImportAction', () => {
         name: 'Taiwan Tea',
         description: 'A wonderful tea brand that meets the minimum length requirement here.',
         category: 'Food',
-        productTypes: ['fashion'],
+        productType: 'fashion',
       },
     ])
     vi.mocked(findSimilarBrands).mockResolvedValue([])
@@ -96,7 +96,7 @@ describe('previewBulkImportAction', () => {
         name: 'Taiwan Tea',
         description: 'A wonderful tea brand that meets the minimum length requirement here.',
         category: 'Food',
-        productTypes: ['fashion'],
+        productType: 'fashion',
       },
     ])
     vi.mocked(findSimilarBrands).mockResolvedValue([
@@ -105,6 +105,18 @@ describe('previewBulkImportAction', () => {
     const result = await previewBulkImportAction('...')
     expect(result?.rows[0].status).toBe('duplicate')
     expect(result?.rows[0].reason).toContain('Taiwan Tea Co')
+  })
+
+  it('normalizes product type as a single lowercase string', () => {
+    const result = normalizeRow({
+      name: 'Taiwan Tea',
+      description: 'A wonderful tea brand that meets the minimum length requirement here.',
+      category: 'Food',
+      productType: ' Fashion ',
+    })
+
+    expect(result.productType).toBe('fashion')
+    expect(result).not.toHaveProperty('productTypes')
   })
 })
 

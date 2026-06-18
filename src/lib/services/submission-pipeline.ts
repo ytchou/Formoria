@@ -32,7 +32,7 @@ export interface SubmitBrandForReviewParams {
 
   region?: string | null
   valueTags?: string[]
-  productTypes?: string[]
+  productType?: string
   productTypeNote?: string | null
 
   moderationFlags?: ModerationFlag[]
@@ -45,9 +45,26 @@ export interface SubmitBrandForReviewResult {
   submissionId: string
 }
 
+function getSubmittedProductType(params: SubmitBrandForReviewParams): string | undefined {
+  if (params.productType) {
+    return params.productType
+  }
+
+  const legacyProductTypes = (params as SubmitBrandForReviewParams & { productTypes?: unknown })
+    .productTypes
+  if (!Array.isArray(legacyProductTypes)) {
+    return undefined
+  }
+
+  const productType = legacyProductTypes.find((item): item is string => typeof item === 'string')
+  return productType || undefined
+}
+
 export async function submitBrandForReview(
   params: SubmitBrandForReviewParams
 ): Promise<SubmitBrandForReviewResult> {
+  const productType = getSubmittedProductType(params)
+
   const brand = await createBrand({
     name: params.name,
     slug: params.slug,
@@ -67,6 +84,7 @@ export async function submitBrandForReview(
     brandHighlights: params.brandHighlights,
     siteContent: null,
     unifiedBusinessNumber: params.unifiedBusinessNumber,
+    productType,
   })
 
   if (params.moderationFlags?.length) {
@@ -83,7 +101,7 @@ export async function submitBrandForReview(
   const suggestedTags = {
     ...(params.region ? { region: params.region } : {}),
     ...(params.valueTags?.length ? { values: params.valueTags } : {}),
-    ...(params.productTypes?.length ? { productTypes: params.productTypes } : {}),
+    ...(productType ? { productType } : {}),
   } as unknown as Parameters<typeof createSubmission>[0]['suggestedTags']
 
   const submission = await createSubmission({
