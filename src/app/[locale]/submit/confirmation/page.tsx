@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Check, Home, Plus } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
+import { buildFaqPageJsonLd } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 
@@ -40,6 +41,7 @@ export async function generateMetadata({ params }: ConfirmationPageProps): Promi
 export default async function ConfirmationPage({ params }: ConfirmationPageProps) {
   const { locale } = await params
   setRequestLocale(locale)
+  const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const t = await getTranslations('submit.confirmation')
   const faqs = [
     'reviewTime',
@@ -51,9 +53,19 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
   const [learnMoreBefore, learnMoreAfter] = t('whatNext.learnMore.answer', {
     link: learnMoreLinkText,
   }).split(learnMoreLinkText)
+  const faqItems = faqs.map((faq) => ({
+    question: t(`whatNext.${faq}.question`),
+    answer: faq === 'learnMore'
+      ? t('whatNext.learnMore.answer', { link: learnMoreLinkText })
+      : t(`whatNext.${faq}.answer`),
+  }))
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildFaqPageJsonLd(faqItems, safeLocale)) }}
+      />
       <div className="w-full max-w-[560px] rounded-2xl border border-[#E8E5E0] bg-white p-10 shadow-sm">
         {/* Success badge */}
         <div className="flex justify-center">

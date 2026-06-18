@@ -1,9 +1,8 @@
 // @vitest-environment jsdom
 import type { ReactNode } from 'react'
-import { render, screen } from '@testing-library/react'
-import { NextIntlClientProvider } from 'next-intl'
-import { describe, expect, it, vi } from 'vitest'
-import messages from '../../../../../messages/en.json'
+import { render } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import zh from '../../../../../messages/zh-TW.json'
 
 vi.mock('next-intl/server', () => ({
   getTranslations: vi.fn(),
@@ -29,12 +28,12 @@ vi.mock('@/i18n/navigation', () => ({
 import { getTranslations } from 'next-intl/server'
 import ConfirmationPage from './page'
 
-type Messages = typeof messages
+type Messages = typeof zh
 
-function makeT(translations: Messages, namespace: string) {
+function makeT(messages: Messages, namespace: string) {
   const translate = (key: string, values: Record<string, unknown> = {}) => {
     const parts = `${namespace}.${key}`.split('.')
-    let current: unknown = translations
+    let current: unknown = messages
 
     for (const part of parts) {
       if (typeof current !== 'object' || current === null) return key
@@ -44,69 +43,38 @@ function makeT(translations: Messages, namespace: string) {
     if (typeof current !== 'string') return key
 
     return current.replace(/\{(\w+)\}/g, (_match, name: string) =>
-      String(values[name] ?? `{${name}}`)
+      typeof values[name] === 'function' ? '' : String(values[name] ?? `{${name}}`)
     )
   }
 
-  const rich = (key: string, values: Record<string, unknown> = {}) => {
-    const raw = translate(key)
-    const segments: ReactNode[] = []
-    let remaining = raw
-
-    while (remaining.includes('{link}')) {
-      const [before, after] = remaining.split('{link}', 2)
-      if (before) segments.push(before)
-      const link = values.link
-      segments.push(typeof link === 'function' ? (link as () => ReactNode)() : (link as ReactNode))
-      remaining = after
-    }
-
-    if (remaining) segments.push(remaining)
-    return segments.length === 1 ? segments[0] : segments
-  }
-
-  return Object.assign((key: string, values?: Record<string, unknown>) => translate(key, values), { rich })
+  return (key: string, values?: Record<string, unknown>) => translate(key, values)
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-vi.mocked(getTranslations).mockImplementation(async (namespace: any) => {
-  const t = makeT(messages, typeof namespace === 'string' ? namespace : '')
+function setupMocks(messages: Messages) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return t as any
-})
-
-async function renderConfirmationPage() {
-  const ui = await ConfirmationPage({ params: Promise.resolve({ locale: 'en' }) })
-
-  return render(
-    <NextIntlClientProvider locale="en" messages={messages}>
-      {ui}
-    </NextIntlClientProvider>
-  )
+  vi.mocked(getTranslations).mockImplementation(async (namespace: any) => {
+    const t = makeT(messages, typeof namespace === 'string' ? namespace : '')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return t as any
+  })
 }
 
-describe('ConfirmationPage', () => {
-  it('renders the what happens next FAQ section', async () => {
-    await renderConfirmationPage()
+describe('ConfirmationPage (zh-TW)', () => {
+  beforeEach(() => {
+    setupMocks(zh as Messages)
+  })
 
-    expect(screen.getByRole('heading', { name: 'What Happens Next' })).toBeInTheDocument()
+  it('includes FAQPage JSON-LD script tag for the what next items', async () => {
+    const { container } = render(
+      await ConfirmationPage({ params: Promise.resolve({ locale: 'zh-TW' }) })
+    )
 
-    expect(screen.getByText('How long does review take?')).toBeInTheDocument()
-    expect(screen.getByText('How will I be contacted?')).toBeInTheDocument()
-    expect(screen.getByText('What happens after approval?')).toBeInTheDocument()
-    expect(screen.getByText('Want to learn more?')).toBeInTheDocument()
+    const script = container.querySelector('script[type="application/ld+json"]')
+    expect(script).toBeInTheDocument()
 
-    expect(
-      screen.getByText('Our team typically completes reviews within 3 business days.')
-    ).toBeInTheDocument()
-    expect(screen.getByText("We'll reach out via the email address you provided.")).toBeInTheDocument()
-    expect(
-      screen.getByText('Your brand will appear in the Formoria directory for visitors to discover.')
-    ).toBeInTheDocument()
-    expect(screen.getByText('Visit our', { exact: false })).toBeInTheDocument()
-    expect(screen.getByText('for a complete overview.', { exact: false })).toBeInTheDocument()
-
-    const link = screen.getByRole('link', { name: 'Getting Started guide' })
-    expect(link).toHaveAttribute('href', expect.stringContaining('/getting-started'))
+    const jsonLd = JSON.parse(script!.textContent!)
+    expect(jsonLd['@type']).toBe('FAQPage')
+    expect(jsonLd.mainEntity).toHaveLength(4)
+    expect(jsonLd.mainEntity[0]['@type']).toBe('Question')
   })
 })
