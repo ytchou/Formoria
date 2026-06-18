@@ -41,13 +41,17 @@ const FIELD_ORDER: {
   { key: 'heroImage', anchor: '#media', isComplete: (b) => !!b.heroImageUrl },
   { key: 'description', anchor: '#description', isComplete: (b) => !!b.description?.trim() },
   { key: 'logo', anchor: '#media', isComplete: (b) => !!b.logoUrl },
-  { key: 'purchaseLinks', anchor: '#links', isComplete: (b) => (b.purchaseLinks?.length ?? 0) > 0 },
+  {
+    key: 'purchaseLinks',
+    anchor: '#links',
+    isComplete: (b) =>
+      [b.purchaseWebsite, b.purchasePinkoi, b.purchaseShopee].some((v) => !!v) || b.otherUrls.length > 0,
+  },
   { key: 'productPhotos', anchor: '#media', isComplete: (b) => (b.productPhotos?.length ?? 0) > 0 },
   {
     key: 'socialLinks',
     anchor: '#links',
-    isComplete: (b) =>
-      Object.values(b.socialLinks ?? {}).some((v) => !!(typeof v === 'string' ? v.trim() : v)),
+    isComplete: (b) => [b.socialInstagram, b.socialThreads, b.socialFacebook].some((v) => !!v),
   },
   {
     key: 'brandHighlights',

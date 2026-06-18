@@ -12,8 +12,13 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     logoUrl: null,
     heroImageUrl: null,
     foundingYear: null,
-    purchaseLinks: [],
-    socialLinks: {},
+    socialInstagram: null,
+    socialThreads: null,
+    socialFacebook: null,
+    purchaseWebsite: null,
+    purchasePinkoi: null,
+    purchaseShopee: null,
+    otherUrls: [],
     retailLocations: [],
     productPhotos: [],
     brandHighlights: null,
@@ -27,8 +32,8 @@ const FULL = makeBrand({
   logoUrl: 'https://img/logo.png',
   heroImageUrl: 'https://img/hero.png',
   foundingYear: 2015,
-  purchaseLinks: [{ platform: 'shopee', url: 'https://shopee', label: 'Shop' }],
-  socialLinks: { instagram: 'https://ig/x' },
+  purchaseShopee: 'https://shopee',
+  socialInstagram: 'https://ig/x',
   retailLocations: [{ name: 'Store', address: 'Taipei', latitude: 0, longitude: 0 }],
   productPhotos: ['https://img/p1.png'],
   brandHighlights: 'Handmade in Taiwan',
@@ -75,16 +80,9 @@ describe('computeBrandCompleteness', () => {
     expect(r.items.find((i) => i.key === 'brandHighlights')!.complete).toBe(false)
   })
 
-  it('treats an empty socialLinks object as incomplete and any one link as complete', () => {
-    expect(computeBrandCompleteness(makeBrand({ socialLinks: {} }))
-      .items.find((i) => i.key === 'socialLinks')!.complete).toBe(false)
-    expect(computeBrandCompleteness(makeBrand({ socialLinks: { threads: 'https://t/x' } }))
-      .items.find((i) => i.key === 'socialLinks')!.complete).toBe(true)
-  })
-
   it('treats empty arrays as incomplete', () => {
-    const r = computeBrandCompleteness(makeBrand({ purchaseLinks: [], productPhotos: [], retailLocations: [] }))
-    for (const k of ['purchaseLinks', 'productPhotos', 'retailLocations']) {
+    const r = computeBrandCompleteness(makeBrand({ otherUrls: [], productPhotos: [], retailLocations: [] }))
+    for (const k of ['productPhotos', 'retailLocations']) {
       expect(r.items.find((i) => i.key === k)!.complete).toBe(false)
     }
   })
@@ -140,6 +138,45 @@ describe('computeBrandCompleteness', () => {
       const r = computeBrandCompleteness(brand)
       expect(r.tier1Items.filter((i) => i.complete)).toHaveLength(3)
       expect(r.tier2Items.filter((i) => i.complete)).toHaveLength(0)
+    })
+  })
+
+  describe('completeness with flat link fields', () => {
+    it('socialLinks complete when any social field is non-empty', () => {
+      const brand = makeBrand({ socialInstagram: 'test_brand' })
+      const result = computeBrandCompleteness(brand)
+      const socialItem = result.items.find((i) => i.key === 'socialLinks')
+      expect(socialItem?.complete).toBe(true)
+    })
+
+    it('socialLinks incomplete when all social fields are null', () => {
+      const brand = makeBrand()
+      const result = computeBrandCompleteness(brand)
+      const socialItem = result.items.find((i) => i.key === 'socialLinks')
+      expect(socialItem?.complete).toBe(false)
+    })
+
+    it('purchaseLinks complete when any purchase field is non-empty', () => {
+      const brand = makeBrand({ purchasePinkoi: 'https://pinkoi.com/store/test' })
+      const result = computeBrandCompleteness(brand)
+      const purchaseItem = result.items.find((i) => i.key === 'purchaseLinks')
+      expect(purchaseItem?.complete).toBe(true)
+    })
+
+    it('purchaseLinks complete when otherUrls is non-empty', () => {
+      const brand = makeBrand({
+        otherUrls: [{ label: 'Blog', url: 'https://blog.test.com' }],
+      })
+      const result = computeBrandCompleteness(brand)
+      const purchaseItem = result.items.find((i) => i.key === 'purchaseLinks')
+      expect(purchaseItem?.complete).toBe(true)
+    })
+
+    it('purchaseLinks incomplete when all purchase fields and otherUrls are empty', () => {
+      const brand = makeBrand()
+      const result = computeBrandCompleteness(brand)
+      const purchaseItem = result.items.find((i) => i.key === 'purchaseLinks')
+      expect(purchaseItem?.complete).toBe(false)
     })
   })
 })
