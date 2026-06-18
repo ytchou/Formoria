@@ -119,6 +119,7 @@
       "showResults": "顯示 {count} 個結果"
     },
     "sort": {
+      "random": "探索",
       "name": "A-Z",
       "newest": "最新",
       "year": "創立年份"

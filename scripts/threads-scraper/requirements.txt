@@ -1,0 +1,2 @@
+playwright>=1.40
+nested-lookup>=0.2.25

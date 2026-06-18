@@ -119,6 +119,7 @@
       "showResults": "Show {count} results"
     },
     "sort": {
+      "random": "Discover",
       "name": "A-Z",
       "newest": "Newest",
       "year": "Founding Year"

@@ -9,8 +9,8 @@ import {
   type ImportPreviewRow,
   type ImportPreviewStatus,
 } from '@/app/admin/actions'
+import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table,
   TableBody,
@@ -21,6 +21,46 @@ import {
 } from '@/components/ui/table'
 
 type Phase = 'upload' | 'preview' | 'results'
+
+function humanizeReason(reason: string | undefined | null): string | null {
+  if (!reason) return null
+  if (reason.includes('Unable to generate slug')) {
+    return '無法產生網址代碼（品牌名稱可能包含特殊字元）'
+  }
+  try {
+    const parsed = JSON.parse(reason) as unknown
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const first = parsed[0] as Record<string, unknown>
+      if (first.code === 'too_big') {
+        const field = (first.path as string[])?.[0] ?? '欄位'
+        const max = (first.maximum as number) ?? '?'
+        const fieldLabel: Record<string, string> = {
+          description: '說明文字',
+          brandHighlights: '品牌亮點',
+          productTypeNote: '產品類型備註',
+          name: '品牌名稱',
+        }
+        return `${fieldLabel[field] ?? field} 超過 ${max} 字上限`
+      }
+      if (first.code === 'too_small') {
+        const field = (first.path as string[])?.[0] ?? '欄位'
+        const min = (first.minimum as number) ?? '?'
+        const fieldLabel: Record<string, string> = {
+          description: '說明文字',
+          name: '品牌名稱',
+        }
+        return `${fieldLabel[field] ?? field} 不足 ${min} 字下限`
+      }
+      if (first.code === 'invalid_string' && first.validation === 'url') {
+        const field = (first.path as string[])?.[0] ?? 'URL'
+        return `${field} 格式不正確（需為有效網址）`
+      }
+    }
+  } catch {
+    // not JSON — return original below
+  }
+  return reason
+}
 
 const statusMeta: Record<ImportPreviewStatus, { label: string; className: string }> = {
   valid: { label: '可匯入', className: 'bg-[#EAF3E8] text-[#2D5A27]' },
@@ -48,6 +88,24 @@ const csvColumns = [
   ['brandHighlights', '品牌亮點'],
   ['unifiedBusinessNumber', '統一編號'],
 ]
+
+function getRowWebsite(row: ImportPreviewRow): string | null {
+  const data = row.validatedData as Record<string, unknown>
+  const social = data?.socialLinks as Record<string, string> | undefined
+  return social?.website || (data?.website as string) || null
+}
+
+const productTypeZhMap = Object.fromEntries(
+  PRODUCT_TYPE_CATEGORIES.map((c) => [c.slug, c.nameZh])
+)
+
+function getRowProductTypes(row: ImportPreviewRow): string[] {
+  const data = row.validatedData as Record<string, unknown>
+  const types = data?.productTypes
+  if (Array.isArray(types)) return types as string[]
+  return []
+}
+
 
 function StatusBadge({ status }: { status: ImportPreviewStatus }) {
   const meta = statusMeta[status]
@@ -87,6 +145,7 @@ export function BulkImportV2() {
   const [results, setResults] = useState<ImportExecuteResult[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [statusFilter, setStatusFilter] = useState<ImportPreviewStatus | 'all'>('all')
 
   const counts = useMemo(
     () => ({
@@ -98,7 +157,8 @@ export function BulkImportV2() {
     }),
     [rows],
   )
-  const selectableRows = rows.filter((row) => row.status !== 'error').map((row) => row.rowIndex)
+  const filteredRows = statusFilter === 'all' ? rows : rows.filter((row) => row.status === statusFilter)
+  const selectableRows = rows.filter((row) => row.status === 'valid' || row.status === 'needs-review').map((row) => row.rowIndex)
   const selectedImportRows = rows.filter((row) => selectedRows.has(row.rowIndex))
   const createdCount = results.filter((result) => result.status === 'created').length
   const failedCount = results.filter((result) => result.status === 'error').length
@@ -146,6 +206,21 @@ export function BulkImportV2() {
     })
   }
 
+  function updateRowProductType(rowIndex: number, slug: string) {
+    setRows((current) =>
+      current.map((row) => {
+        if (row.rowIndex !== rowIndex) return row
+        return {
+          ...row,
+          validatedData: {
+            ...row.validatedData,
+            productTypes: slug ? [slug] : [],
+          },
+        }
+      })
+    )
+  }
+
   function toggleRow(rowIndex: number, checked: boolean) {
     setSelectedRows((current) => {
       const next = new Set(current)
@@ -165,6 +240,7 @@ export function BulkImportV2() {
     setSelectedRows(new Set())
     setResults([])
     setError(null)
+    setStatusFilter('all')
   }
 
   return (
@@ -177,7 +253,10 @@ export function BulkImportV2() {
 
       {phase === 'upload' && (
         <div className="space-y-5">
-          <div className="rounded-lg border bg-white">
+          <details className="rounded-lg border bg-white">
+            <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-foreground hover:bg-[#F5F4F1]">
+              CSV 欄位說明
+            </summary>
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -194,7 +273,7 @@ export function BulkImportV2() {
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </details>
 
           <div className="rounded-lg border bg-white p-4">
             <div className="space-y-3">
@@ -216,47 +295,130 @@ export function BulkImportV2() {
       {phase === 'preview' && (
         <div className="space-y-4">
           <div className="rounded-lg border bg-white px-4 py-3 text-sm font-medium text-foreground">
-            shared {counts.total} 筆：{counts.valid} 可匯入 / {counts.duplicate} 可能重複 /{' '}
+            共 {counts.total} 筆：{counts.valid} 可匯入 / {counts.duplicate} 可能重複 /{' '}
             {counts.needsReview} 需審核 / {counts.error} 錯誤
           </div>
 
+          <div className="flex flex-wrap gap-2">
+            {([
+              ['all', '全部', counts.total],
+              ['valid', '可匯入', counts.valid],
+              ['duplicate', '可能重複', counts.duplicate],
+              ['needs-review', '需審核', counts.needsReview],
+              ['error', '錯誤', counts.error],
+            ] as const).map(([value, label, count]) => {
+              const isActive = statusFilter === value
+              const meta = value === 'all' ? null : statusMeta[value]
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setStatusFilter(value)}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                    isActive
+                      ? (meta ? meta.className + ' border-transparent' : 'border-foreground bg-foreground text-background')
+                      : 'border-border bg-white text-muted-foreground hover:bg-[#F5F4F1]'
+                  }`}
+                >
+                  {label}
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${isActive ? 'bg-white/30' : 'bg-muted'}`}>
+                    {count}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
           <div className="rounded-lg border bg-white">
-            <Table>
+            <Table className="table-fixed">
+              <colgroup>
+                <col style={{ width: 48 }} />
+                <col style={{ width: 48 }} />
+                <col />
+                <col style={{ width: 48 }} />
+                <col style={{ width: 140 }} />
+                <col style={{ width: 88 }} />
+                <col style={{ width: 280 }} />
+              </colgroup>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-12">
-                    <Checkbox
+                  <TableHead>
+                    <input
+                      type="checkbox"
                       aria-label="選取全部可匯入資料"
+                      className="h-4 w-4 cursor-pointer accent-[#E06B3F]"
                       checked={selectableRows.length > 0 && selectableRows.every((id) => selectedRows.has(id))}
                       disabled={selectableRows.length === 0 || isPending}
-                      onCheckedChange={(checked) => {
-                        setSelectedRows(checked === true ? new Set(selectableRows) : new Set())
+                      onChange={(e) => {
+                        setSelectedRows(e.target.checked ? new Set(selectableRows) : new Set())
                       }}
                     />
                   </TableHead>
-                  <TableHead className="w-16">#</TableHead>
+                  <TableHead>#</TableHead>
                   <TableHead>品牌名稱</TableHead>
-                  <TableHead className="w-32">狀態</TableHead>
+                  <TableHead>網址</TableHead>
+                  <TableHead>產品分類</TableHead>
+                  <TableHead>狀態</TableHead>
                   <TableHead>說明</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((row) => (
+                {filteredRows.map((row) => (
                   <TableRow key={`${row.rowIndex}-${row.name}`} className="hover:bg-[#F5F4F1]">
                     <TableCell>
-                      <Checkbox
+                      <input
+                        type="checkbox"
                         aria-label={`選取 ${row.name}`}
+                        className="h-4 w-4 cursor-pointer accent-[#E06B3F]"
                         checked={row.status !== 'error' && selectedRows.has(row.rowIndex)}
                         disabled={row.status === 'error' || isPending}
-                        onCheckedChange={(checked) => toggleRow(row.rowIndex, checked === true)}
+                        onChange={(e) => toggleRow(row.rowIndex, e.target.checked)}
                       />
                     </TableCell>
                     <TableCell>{row.rowIndex}</TableCell>
-                    <TableCell className="font-medium text-foreground">{row.name}</TableCell>
+                    <TableCell className="truncate font-medium text-foreground" title={row.name}>
+                      {row.name}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const url = getRowWebsite(row)
+                        return url ? (
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#C4693B] hover:text-[#E06B3F]"
+                            title={url}
+                          >
+                            ↗
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground/40">—</span>
+                        )
+                      })()}
+                    </TableCell>
+                    <TableCell>
+                      <select
+                        value={getRowProductTypes(row)[0] ?? ''}
+                        onChange={(e) => updateRowProductType(row.rowIndex, e.target.value)}
+                        disabled={row.status === 'error' || isPending}
+                        className="w-full rounded border border-border bg-transparent px-1.5 py-0.5 text-xs text-muted-foreground disabled:opacity-50"
+                      >
+                        <option value="">—</option>
+                        {PRODUCT_TYPE_CATEGORIES.map((cat) => (
+                          <option key={cat.slug} value={cat.slug}>{cat.nameZh}</option>
+                        ))}
+                      </select>
+                    </TableCell>
                     <TableCell>
                       <StatusBadge status={row.status} />
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{row.reason ?? '資料格式正確'}</TableCell>
+                    <TableCell
+                      className="max-w-[350px] truncate text-muted-foreground"
+                      title={humanizeReason(row.reason) ?? '資料格式正確'}
+                    >
+                      {humanizeReason(row.reason) ?? '資料格式正確'}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

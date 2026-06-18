@@ -58,7 +58,8 @@ type PageProps = {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { locale, slug } = await params
+  const { locale, slug: rawSlug } = await params
+  const slug = decodeURIComponent(rawSlug)
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const t = await getTranslations('brandDetail')
@@ -92,7 +93,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function BrandDetailPage({ params, searchParams }: PageProps) {
-  const { locale, slug } = await params
+  const { locale, slug: rawSlug } = await params
+  const slug = decodeURIComponent(rawSlug)
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const { source: sourceParam, preview } = await searchParams

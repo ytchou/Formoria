@@ -1,8 +1,9 @@
 'use client'
 
-import { Fragment, useState, useTransition } from 'react'
+import { Fragment, useMemo, useState, useTransition } from 'react'
 import { useTranslations } from 'next-intl'
 import type { BrandSubmission, SourceAttribution, SubmissionStatus } from '@/lib/types'
+import type { BrandEnrichment } from '@/lib/services/brands'
 import { StatusBadge } from './status-badge'
 import { approveSubmissionAction, rejectSubmissionAction } from '@/app/admin/actions'
 import { Badge } from '@/components/ui/badge'
@@ -23,6 +24,14 @@ type TabValue = 'all' | SubmissionStatus
 type BrandSubmissionWithRisk = BrandSubmission & {
   moderationRiskLevel?: 'high' | 'medium' | 'clean'
   productTypeNote?: string | null
+  brandEnrichment?: BrandEnrichment | null
+}
+
+type ReviewTaxonomyTag = {
+  name: string
+  nameZh: string | null
+  slug: string
+  category: string
 }
 
 const SOURCE_ATTRIBUTION_LABELS: Record<SourceAttribution, string> = {
@@ -31,6 +40,43 @@ const SOURCE_ATTRIBUTION_LABELS: Record<SourceAttribution, string> = {
   found_online: 'I found them online',
   friend_recommended: 'A friend recommended them',
   work_there: 'I work there or know the team',
+}
+
+const TAG_CATEGORIES = ['product_type', 'region', 'value', 'material', 'price_range']
+
+function readinessBadgeClass(tone: 'green' | 'amber' | 'red' | 'grey') {
+  switch (tone) {
+    case 'green':
+      return 'bg-[#EAF3E8] text-[#2D5A27]'
+    case 'amber':
+      return 'bg-amber-100 text-amber-800'
+    case 'red':
+      return 'bg-red-50 text-[#D94F3D]'
+    case 'grey':
+      return 'bg-[#F5F4F1] text-[#7C7570]'
+  }
+}
+
+function ReadinessBadge({
+  children,
+  tone,
+}: {
+  children: React.ReactNode
+  tone: 'green' | 'amber' | 'red' | 'grey'
+}) {
+  return (
+    <span className={`inline-flex min-w-6 items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold ${readinessBadgeClass(tone)}`}>
+      {children}
+    </span>
+  )
+}
+
+function getImageCount(enrichment: BrandEnrichment) {
+  return (
+    (enrichment.logoUrl ? 1 : 0) +
+    (enrichment.heroImageUrl ? 1 : 0) +
+    enrichment.productPhotos.length
+  )
 }
 
 type StructuredSuggestedTags = {
@@ -53,8 +99,10 @@ function getStructuredSuggestedTagSections(tags: StructuredSuggestedTags) {
 
 export function SubmissionsList({
   submissions,
+  taxonomyTags,
 }: {
   submissions: BrandSubmissionWithRisk[]
+  taxonomyTags: ReviewTaxonomyTag[]
 }) {
   const moderationT = useTranslations('admin.moderation')
   const [activeTab, setActiveTab] = useState<TabValue>('all')
@@ -64,6 +112,11 @@ export function SubmissionsList({
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  const tagsBySlug = useMemo(
+    () => new Map(taxonomyTags.map((tag) => [tag.slug, tag])),
+    [taxonomyTags]
+  )
 
   const filtered =
     activeTab === 'all'
@@ -146,6 +199,9 @@ export function SubmissionsList({
           <TableHeader>
             <TableRow>
               <TableHead>品牌</TableHead>
+              <TableHead className="w-16">分類</TableHead>
+              <TableHead className="w-16">圖片</TableHead>
+              <TableHead className="w-16">標籤</TableHead>
               <TableHead>提交者</TableHead>
               <TableHead>日期</TableHead>
               <TableHead>來源</TableHead>
@@ -170,6 +226,41 @@ export function SubmissionsList({
                       )}
                     </div>
                   </TableCell>
+                  <TableCell>
+                    {submission.brandEnrichment ? (
+                      submission.brandEnrichment.productType.trim() ? (
+                        <ReadinessBadge tone="green">✓</ReadinessBadge>
+                      ) : (
+                        <ReadinessBadge tone="amber">!</ReadinessBadge>
+                      )
+                    ) : (
+                      <ReadinessBadge tone="grey">-</ReadinessBadge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {submission.brandEnrichment ? (
+                      (() => {
+                        const count = getImageCount(submission.brandEnrichment)
+                        const tone = count >= 2 ? 'green' : count === 1 ? 'amber' : 'red'
+
+                        return <ReadinessBadge tone={tone}>{count}</ReadinessBadge>
+                      })()
+                    ) : (
+                      <ReadinessBadge tone="grey">-</ReadinessBadge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {submission.brandEnrichment ? (
+                      (() => {
+                        const count = submission.brandEnrichment.tagSlugs.length
+                        const tone = count >= 3 ? 'green' : count >= 1 ? 'amber' : 'red'
+
+                        return <ReadinessBadge tone={tone}>{count}</ReadinessBadge>
+                      })()
+                    ) : (
+                      <ReadinessBadge tone="grey">-</ReadinessBadge>
+                    )}
+                  </TableCell>
                   <TableCell>{submission.submitterEmail}</TableCell>
                   <TableCell>{formatDate(submission.submittedAt)}</TableCell>
                   <TableCell>
@@ -190,8 +281,76 @@ export function SubmissionsList({
 
                 {expandedId === submission.id && (
                   <TableRow key={`${submission.id}-expanded`}>
-                    <TableCell colSpan={5} className="bg-[#FAF7F4] p-6">
+                    <TableCell colSpan={8} className="bg-[#FAF7F4] p-6">
                       <div className="space-y-4">
+                        <div>
+                          <p className="text-sm font-medium text-[#7C7570]">
+                            Review Readiness
+                          </p>
+                          {submission.brandEnrichment ? (
+                            <div className="mt-2 space-y-2 text-sm">
+                              <p>
+                                <span className="font-medium">Product Type: </span>
+                                {submission.brandEnrichment.productType.trim() ? (
+                                  submission.brandEnrichment.productType
+                                ) : (
+                                  <span className="text-[#7C7570]">Not set</span>
+                                )}
+                              </p>
+                              <p>
+                                <span className="font-medium">Images: </span>
+                                Logo {submission.brandEnrichment.logoUrl ? '✓' : '✗'} · Hero{' '}
+                                {submission.brandEnrichment.heroImageUrl ? '✓' : '✗'} · Photos:{' '}
+                                {submission.brandEnrichment.productPhotos.length}
+                              </p>
+                              <div>
+                                <p className="font-medium">Tags:</p>
+                                <div className="mt-1 space-y-1">
+                                  {(() => {
+                                    const groupedTags = new Map<string, string[]>()
+
+                                    for (const category of TAG_CATEGORIES) {
+                                      groupedTags.set(category, [])
+                                    }
+
+                                    for (const slug of submission.brandEnrichment.tagSlugs) {
+                                      const tag = tagsBySlug.get(slug)
+                                      if (tag) {
+                                        const list = groupedTags.get(tag.category) ?? []
+                                        list.push(tag.nameZh ?? tag.name)
+                                        groupedTags.set(tag.category, list)
+                                      }
+                                    }
+
+                                    const entries = Array.from(groupedTags.entries()).filter(
+                                      ([, tags]) => tags.length > 0
+                                    )
+
+                                    if (entries.length === 0) {
+                                      return (
+                                        <p className="text-[#7C7570]">No tags assigned</p>
+                                      )
+                                    }
+
+                                    return entries.map(([category, tags]) => (
+                                      <p key={category}>
+                                        <span className="capitalize">
+                                          {category.replace('_', ' ')}:
+                                        </span>{' '}
+                                        {tags.join(', ')}
+                                      </p>
+                                    ))
+                                  })()}
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="mt-2 text-sm text-[#7C7570]">
+                              No brand record linked (legacy submission)
+                            </p>
+                          )}
+                        </div>
+
                         {submission.description && (
                           <div>
                             <p className="text-sm font-medium text-[#7C7570]">
@@ -357,7 +516,7 @@ export function SubmissionsList({
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={8}
                   className="py-8 text-center text-[#7C7570]"
                 >
                   找不到提交記錄。

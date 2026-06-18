@@ -81,3 +81,9 @@ supabase/.branches/
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Scraper
+scripts/threads-scraper/
+
+# seed data (local-only)
+scripts/seeds/

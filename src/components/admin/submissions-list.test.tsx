@@ -56,6 +56,7 @@ describe('SubmissionsList', () => {
         submissions={[
           makeSubmission({ unifiedBusinessNumber: '12345678' }),
         ]}
+        taxonomyTags={[]}
       />
     )
 
@@ -68,7 +69,7 @@ describe('SubmissionsList', () => {
   it('does not show unified business number label when omitted', async () => {
     const user = userEvent.setup()
 
-    renderWithIntl(<SubmissionsList submissions={[makeSubmission()]} />)
+    renderWithIntl(<SubmissionsList submissions={[makeSubmission()]} taxonomyTags={[]} />)
 
     await user.click(screen.getByText('Test Brand'))
 

@@ -21,7 +21,7 @@ export function ImageCarousel({ images, alt }: ImageCarouselProps) {
   const [brokenImages, setBrokenImages] = useState<Set<number>>(new Set())
   const total = validImages.length
 
-  const initial = alt.charAt(0)
+  const initial = [...alt][0]
 
   if (total === 0) {
     return (

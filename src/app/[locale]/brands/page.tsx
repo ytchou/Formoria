@@ -196,6 +196,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
           totalCount={totalCount}
           currentPage={clampedPage}
           pageSize={DEFAULT_PAGE_SIZE}
+          basePath="/brands"
           searchParams={paginationParams}
         />
       </div>
