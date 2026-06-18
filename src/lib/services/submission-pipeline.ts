@@ -1,4 +1,4 @@
-import type { Brand } from '@/lib/types'
+import type { Brand, OtherUrl } from '@/lib/types'
 import type { SourceAttribution } from '@/lib/types/submission'
 import type { ModerationFlag } from '@/lib/services/moderation'
 import { createBrand } from '@/lib/services/brands'
@@ -18,6 +18,13 @@ export interface SubmitBrandForReviewParams {
     facebook?: string
     officialWebsite?: string
   }
+  socialInstagram?: string | null
+  socialThreads?: string | null
+  socialFacebook?: string | null
+  purchaseWebsite?: string | null
+  purchasePinkoi?: string | null
+  purchaseShopee?: string | null
+  otherUrls?: OtherUrl[]
   retailLocations: Array<{ name: string; address: string; latitude: number; longitude: number }>
   productPhotos: string[]
   contactEmail: string | null
@@ -71,6 +78,16 @@ export async function submitBrandForReview(
   params: SubmitBrandForReviewParams
 ): Promise<SubmitBrandForReviewResult> {
   const productType = getSubmittedProductType(params)
+  const purchaseWebsite = params.purchaseWebsite ?? params.socialLinks.officialWebsite ?? null
+  const purchasePinkoi =
+    params.purchasePinkoi ??
+    params.purchaseLinks.find((link) => link.platform.toLowerCase() === 'pinkoi')?.url ??
+    null
+  const purchaseShopee =
+    params.purchaseShopee ??
+    params.purchaseLinks.find((link) => link.platform.toLowerCase() === 'shopee')?.url ??
+    null
+  const otherUrls = params.otherUrls ?? []
 
   const brand = await createBrand({
     name: params.name,
@@ -83,8 +100,13 @@ export async function submitBrandForReview(
     isDemo: false,
     category: params.category,
     foundingYear: null,
-    purchaseLinks: params.purchaseLinks,
-    socialLinks: params.socialLinks,
+    socialInstagram: params.socialInstagram ?? params.socialLinks.instagram ?? null,
+    socialThreads: params.socialThreads ?? params.socialLinks.threads ?? null,
+    socialFacebook: params.socialFacebook ?? params.socialLinks.facebook ?? null,
+    purchaseWebsite,
+    purchasePinkoi,
+    purchaseShopee,
+    otherUrls,
     retailLocations: params.retailLocations,
     productPhotos: params.productPhotos,
     contactEmail: params.contactEmail,
@@ -117,8 +139,14 @@ export async function submitBrandForReview(
     submitterEmail: params.submitterEmail,
     submitterName: params.submitterName ?? undefined,
     description: params.description,
-    websiteUrl: params.socialLinks.officialWebsite ?? null,
-    socialLinks: params.socialLinks,
+    websiteUrl: purchaseWebsite,
+    socialInstagram: params.socialInstagram ?? params.socialLinks.instagram ?? null,
+    socialThreads: params.socialThreads ?? params.socialLinks.threads ?? null,
+    socialFacebook: params.socialFacebook ?? params.socialLinks.facebook ?? null,
+    purchaseWebsite,
+    purchasePinkoi,
+    purchaseShopee,
+    otherUrls,
     suggestedTags,
     isBrandOwner: params.isBrandOwner,
     sourceAttribution: params.sourceAttribution ?? null,

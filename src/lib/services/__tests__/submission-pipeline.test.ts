@@ -103,8 +103,13 @@ const brand = {
   isVerified: false,
   isDemo: false,
   foundingYear: null,
-  purchaseLinks: [],
-  socialLinks: {},
+  socialInstagram: null,
+  socialThreads: null,
+  socialFacebook: null,
+  purchaseWebsite: null,
+  purchasePinkoi: null,
+  purchaseShopee: null,
+  otherUrls: [],
   retailLocations: [],
   productPhotos: [],
   contactEmail: null,
@@ -142,6 +147,13 @@ function buildParams(
     contactEmail: 'owner@example.com',
     brandHighlights: 'Highlights',
     unifiedBusinessNumber: '12345678',
+    socialInstagram: 'brand_ig',
+    socialThreads: '@brand_threads',
+    socialFacebook: 'https://fb.com/brand',
+    purchaseWebsite: 'https://brand.com',
+    purchasePinkoi: 'https://pinkoi.com/store/brand',
+    purchaseShopee: null,
+    otherUrls: [{ label: 'Wholesale', url: 'https://brand.com/wholesale' }],
     submitterEmail: 'submitter@example.com',
     submitterName: 'Submitter',
     isBrandOwner: true,
@@ -194,8 +206,14 @@ describe('submitBrandForReview', () => {
       submitterEmail: 'submitter@example.com',
       submitterName: 'Submitter',
       description: brand.description,
-      websiteUrl: 'https://example.com',
-      socialLinks: { officialWebsite: 'https://example.com' },
+      websiteUrl: null,
+      socialInstagram: null,
+      socialThreads: null,
+      socialFacebook: null,
+      purchaseWebsite: null,
+      purchasePinkoi: null,
+      purchaseShopee: null,
+      otherUrls: [],
       suggestedTags: {},
       status: 'pending',
       reviewerNotes: null,
@@ -233,12 +251,39 @@ describe('submitBrandForReview', () => {
       expect.objectContaining({
         brandId: 'brand-1',
         brandName: 'Test Brand',
-        websiteUrl: 'https://example.com',
+        websiteUrl: 'https://brand.com',
         suggestedTags: {
           region: 'taipei',
           values: ['eco'],
           productType: 'skincare',
         },
+      })
+    )
+  })
+
+  it('carries flat link fields from submission params to the pending brand and submission', async () => {
+    await pipeline.submitBrandForReview(buildParams())
+
+    expect(createBrand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        socialInstagram: 'brand_ig',
+        socialThreads: '@brand_threads',
+        socialFacebook: 'https://fb.com/brand',
+        purchaseWebsite: 'https://brand.com',
+        purchasePinkoi: 'https://pinkoi.com/store/brand',
+        purchaseShopee: null,
+        otherUrls: [{ label: 'Wholesale', url: 'https://brand.com/wholesale' }],
+      })
+    )
+    expect(createSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({
+        socialInstagram: 'brand_ig',
+        socialThreads: '@brand_threads',
+        socialFacebook: 'https://fb.com/brand',
+        purchaseWebsite: 'https://brand.com',
+        purchasePinkoi: 'https://pinkoi.com/store/brand',
+        purchaseShopee: null,
+        otherUrls: [{ label: 'Wholesale', url: 'https://brand.com/wholesale' }],
       })
     )
   })

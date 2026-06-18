@@ -1,4 +1,4 @@
-import type { BrandSubmission, SubmissionStatus, SourceAttribution } from '@/lib/types'
+import type { BrandSubmission, OtherUrl, SubmissionStatus, SourceAttribution } from '@/lib/types'
 import type { DuplicateCheckResult } from '@/lib/types/submission'
 import type { Database } from '@/lib/supabase/database.types'
 import { NotFoundError } from '@/lib/errors'
@@ -11,8 +11,16 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 type SubmissionRow = Database['public']['Tables']['brand_submissions']['Row']
 type SubmissionRowWithProductTypeNote = SubmissionRow & {
   product_type_note?: string | null
+  social_instagram?: string | null
+  social_threads?: string | null
+  social_facebook?: string | null
+  purchase_website?: string | null
+  purchase_pinkoi?: string | null
+  purchase_shopee?: string | null
+  other_urls?: OtherUrl[] | null
 }
 export type BrandSubmissionWithProductTypeNote = BrandSubmission & {
+  websiteUrl: string | null
   productTypeNote: string | null
 }
 
@@ -54,7 +62,13 @@ export type CreateSubmissionInput = {
   description?: string
   websiteUrl?: string
   logoUrl?: string
-  socialLinks?: Record<string, string>
+  socialInstagram?: string | null
+  socialThreads?: string | null
+  socialFacebook?: string | null
+  purchaseWebsite?: string | null
+  purchasePinkoi?: string | null
+  purchaseShopee?: string | null
+  otherUrls?: OtherUrl[]
   suggestedTags?: string[] | { region?: string; values?: string[] }
   pdpaConsentAt?: string
   isOwner?: boolean
@@ -72,7 +86,13 @@ export function buildSubmissionRecord(input: CreateSubmissionInput): Record<stri
     description: input.description ?? null,
     website_url: input.websiteUrl ?? null,
     logo_url: input.logoUrl ?? null,
-    social_links: input.socialLinks ?? {},
+    social_instagram: input.socialInstagram ?? null,
+    social_threads: input.socialThreads ?? null,
+    social_facebook: input.socialFacebook ?? null,
+    purchase_website: input.purchaseWebsite ?? null,
+    purchase_pinkoi: input.purchasePinkoi ?? null,
+    purchase_shopee: input.purchaseShopee ?? null,
+    other_urls: input.otherUrls ?? [],
     suggested_tags: input.suggestedTags ?? [],
     pdpa_consent_at: input.pdpaConsentAt ?? null,
     is_brand_owner: input.isOwner ?? false,
@@ -95,8 +115,13 @@ export function submissionToDomain(row: SubmissionRowInput): BrandSubmissionWith
     submitterName: row.submitter_name ?? null,
     description: row.description ?? null,
     websiteUrl: row.website_url ?? null,
-    // Json columns cast to domain types at the service boundary
-    socialLinks: (row.social_links as Record<string, string>) ?? {},
+    socialInstagram: row.social_instagram ?? null,
+    socialThreads: row.social_threads ?? null,
+    socialFacebook: row.social_facebook ?? null,
+    purchaseWebsite: row.purchase_website ?? null,
+    purchasePinkoi: row.purchase_pinkoi ?? null,
+    purchaseShopee: row.purchase_shopee ?? null,
+    otherUrls: (row.other_urls as OtherUrl[]) ?? [],
     suggestedTags: (row.suggested_tags as string[]) ?? [],
     status: row.status as BrandSubmission['status'],
     reviewerNotes: row.reviewer_notes ?? null,
@@ -116,6 +141,7 @@ export function submissionToDomain(row: SubmissionRowInput): BrandSubmissionWith
 
 export function submissionToInsert(
   data: Partial<Omit<BrandSubmission, 'suggestedTags'>> & {
+    websiteUrl?: string | null
     suggestedTags?: SuggestedTagsInput
     productTypeNote?: string | null
   }
@@ -127,7 +153,13 @@ export function submissionToInsert(
   if (data.submitterName !== undefined) row.submitter_name = data.submitterName
   if (data.description !== undefined) row.description = data.description
   if (data.websiteUrl !== undefined) row.website_url = data.websiteUrl
-  if (data.socialLinks !== undefined) row.social_links = data.socialLinks
+  if (data.socialInstagram !== undefined) row.social_instagram = data.socialInstagram
+  if (data.socialThreads !== undefined) row.social_threads = data.socialThreads
+  if (data.socialFacebook !== undefined) row.social_facebook = data.socialFacebook
+  if (data.purchaseWebsite !== undefined) row.purchase_website = data.purchaseWebsite
+  if (data.purchasePinkoi !== undefined) row.purchase_pinkoi = data.purchasePinkoi
+  if (data.purchaseShopee !== undefined) row.purchase_shopee = data.purchaseShopee
+  if (data.otherUrls !== undefined) row.other_urls = data.otherUrls
   if (data.suggestedTags !== undefined) row.suggested_tags = data.suggestedTags
   if (data.status !== undefined) row.status = data.status
   if (data.reviewerNotes !== undefined) row.reviewer_notes = data.reviewerNotes
@@ -150,7 +182,8 @@ export function submissionToInsert(
 
 export async function createSubmission(
   data: Pick<BrandSubmission, 'brandName' | 'submitterEmail'> &
-    Partial<Pick<BrandSubmission, 'brandId' | 'submitterName' | 'description' | 'websiteUrl' | 'socialLinks' | 'pdpaConsentAt' | 'isBrandOwner' | 'sourceAttribution' | 'unifiedBusinessNumber'>> & {
+    Partial<Pick<BrandSubmission, 'brandId' | 'submitterName' | 'description' | 'socialInstagram' | 'socialThreads' | 'socialFacebook' | 'purchaseWebsite' | 'purchasePinkoi' | 'purchaseShopee' | 'otherUrls' | 'pdpaConsentAt' | 'isBrandOwner' | 'sourceAttribution' | 'unifiedBusinessNumber'>> & {
+      websiteUrl?: string | null
       suggestedTags?: SuggestedTagsInput
       productTypeNote?: string | null
     }
@@ -176,7 +209,13 @@ const ADMIN_SUBMISSIONS_SELECT = `
   submitter_name,
   description,
   website_url,
-  social_links,
+  social_instagram,
+  social_threads,
+  social_facebook,
+  purchase_website,
+  purchase_pinkoi,
+  purchase_shopee,
+  other_urls,
   suggested_tags,
   status,
   reviewer_notes,

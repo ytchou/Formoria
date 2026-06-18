@@ -118,6 +118,72 @@ describe('buildSubmissionRecord', () => {
   })
 })
 
+describe('submissionToDomain (flat link columns)', () => {
+  it('maps flat social and purchase columns from DB row', async () => {
+    const { submissionToDomain } = await import('../submissions')
+
+    const submission = submissionToDomain({
+      id: 'submission-1',
+      brand_id: 'brand-123',
+      brand_name: 'Test Brand',
+      submitter_email: 'test@example.com',
+      submitter_name: 'Test User',
+      description: 'Test description',
+      website_url: 'https://legacy.example.com',
+      social_instagram: 'brand_ig',
+      social_threads: '@brand_threads',
+      social_facebook: 'https://fb.com/brand',
+      purchase_website: 'https://brand.com',
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+      other_urls: [],
+      suggested_tags: [],
+      status: 'pending',
+      reviewer_notes: null,
+      submitted_at: '2026-06-13T00:00:00.000Z',
+      reviewed_at: null,
+      reviewed_by: null,
+      pdpa_consent_at: '2026-06-13T00:00:00.000Z',
+      validation_status: null,
+      validation_errors: null,
+      notified_at: null,
+      is_brand_owner: false,
+      source_attribution: null,
+      product_type_note: null,
+    })
+
+    expect(submission.socialInstagram).toBe('brand_ig')
+    expect(submission.socialThreads).toBe('@brand_threads')
+    expect(submission.socialFacebook).toBe('https://fb.com/brand')
+    expect(submission.purchaseWebsite).toBe('https://brand.com')
+    expect(submission.purchasePinkoi).toBeNull()
+    expect(submission.purchaseShopee).toBeNull()
+    expect(submission.otherUrls).toEqual([])
+  })
+})
+
+describe('submissionToInsert (flat link columns)', () => {
+  it('serializes flat link fields to snake_case columns', async () => {
+    const { submissionToInsert } = await import('../submissions')
+
+    const row = submissionToInsert({
+      brandName: 'Test Brand',
+      submitterEmail: 'test@example.com',
+      socialInstagram: 'brand_ig',
+      socialFacebook: null,
+      purchaseWebsite: 'https://brand.com',
+      purchasePinkoi: 'https://pinkoi.com/store/brand',
+      otherUrls: [],
+    })
+
+    expect(row.social_instagram).toBe('brand_ig')
+    expect(row.social_facebook).toBeNull()
+    expect(row.purchase_website).toBe('https://brand.com')
+    expect(row.purchase_pinkoi).toBe('https://pinkoi.com/store/brand')
+    expect(row.other_urls).toEqual([])
+  })
+})
+
 describe('createSubmission — product_type_note', () => {
   it('persists product_type_note when provided', async () => {
     const { createSubmission } = await import('../submissions')
