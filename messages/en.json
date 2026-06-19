@@ -243,6 +243,15 @@
       "share": "Share",
       "visitOfficialWebsiteAria": "Visit the brand's official website"
     },
+    "share": {
+      "trigger": "Share",
+      "dialogTitle": "Share",
+      "copyLink": "Copy Link",
+      "copied": "Copied!",
+      "line": "LINE",
+      "facebook": "Facebook",
+      "x": "X"
+    },
     "links": {
       "socialPlatforms": "Social Platforms",
       "purchaseChannels": "Where to Buy",

@@ -243,6 +243,15 @@
       "share": "分享",
       "visitOfficialWebsiteAria": "前往品牌官網"
     },
+    "share": {
+      "trigger": "分享",
+      "dialogTitle": "分享",
+      "copyLink": "複製連結",
+      "copied": "已複製！",
+      "line": "LINE",
+      "facebook": "Facebook",
+      "x": "X"
+    },
     "links": {
       "socialPlatforms": "社群平台",
       "purchaseChannels": "購買管道",
