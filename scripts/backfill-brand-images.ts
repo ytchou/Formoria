@@ -2,14 +2,13 @@ import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { Brand } from '@/lib/types'
 import {
-  collectSyncableImageUrls,
   getBrands,
   syncBrandImages,
   updateBrand,
 } from '@/lib/services/brands'
 import { isNonImageHost } from '@/lib/images/allowed-image-hosts'
 
-type BackupBrand = Pick<Brand, 'id' | 'heroImageUrl' | 'logoUrl' | 'productPhotos'> & {
+type BackupBrand = Pick<Brand, 'id' | 'heroImageUrl' | 'productPhotos'> & {
   slug?: string
 }
 
@@ -83,6 +82,32 @@ function getHostname(url: string): string {
   }
 }
 
+function isSupabaseStorageUrl(url: string): boolean {
+  try {
+    const parsedUrl = new URL(url)
+    const normalizedHostname = parsedUrl.hostname.toLowerCase()
+
+    return (
+      normalizedHostname.endsWith('.supabase.co') &&
+      parsedUrl.pathname.startsWith('/storage/')
+    )
+  } catch {
+    return false
+  }
+}
+
+function collectBackupSyncableImageUrls(brand: Brand): string[] {
+  const urls = [brand.heroImageUrl, ...brand.productPhotos]
+
+  return urls.filter((url): url is string => {
+    if (!url) {
+      return false
+    }
+
+    return !isSupabaseStorageUrl(url) && !isNonImageHost(url)
+  })
+}
+
 async function dryRun(slug: string | null): Promise<void> {
   const brands = await getTargetBrands(slug)
   const hostCounts = new Map<string, number>()
@@ -91,11 +116,7 @@ async function dryRun(slug: string | null): Promise<void> {
   let totalSyncableImages = 0
 
   for (const brand of brands) {
-    const syncableUrls = collectSyncableImageUrls({
-      heroImageUrl: brand.heroImageUrl,
-      logoUrl: brand.logoUrl,
-      productPhotos: brand.productPhotos,
-    })
+    const syncableUrls = collectBackupSyncableImageUrls(brand)
 
     if (syncableUrls.length > 0) {
       brandsWithSyncableUrls++
@@ -152,7 +173,6 @@ async function writeBackup(brands: Brand[]): Promise<string> {
     id: brand.id,
     slug: brand.slug,
     heroImageUrl: brand.heroImageUrl,
-    logoUrl: brand.logoUrl,
     productPhotos: brand.productPhotos,
   }))
   const outputPath = backupPath()
@@ -178,12 +198,8 @@ function parseBackupJson(raw: string): BackupBrand[] {
     }
 
     const heroImageUrl = record.heroImageUrl ?? null
-    const logoUrl = record.logoUrl ?? null
     if (heroImageUrl !== null && typeof heroImageUrl !== 'string') {
       throw new Error(`Invalid heroImageUrl at index ${index}`)
-    }
-    if (logoUrl !== null && typeof logoUrl !== 'string') {
-      throw new Error(`Invalid logoUrl at index ${index}`)
     }
     if (!record.productPhotos.every((url) => typeof url === 'string')) {
       throw new Error(`Invalid productPhotos at index ${index}`)
@@ -192,7 +208,6 @@ function parseBackupJson(raw: string): BackupBrand[] {
     return {
       id: record.id,
       heroImageUrl,
-      logoUrl,
       productPhotos: record.productPhotos,
     }
   })
@@ -205,7 +220,6 @@ async function restoreBackup(restorePath: string): Promise<void> {
   for (const brand of backup) {
     await updateBrand(brand.id, {
       heroImageUrl: brand.heroImageUrl,
-      logoUrl: brand.logoUrl,
       productPhotos: brand.productPhotos,
     })
     restored++
