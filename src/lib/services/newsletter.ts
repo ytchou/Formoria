@@ -19,6 +19,7 @@ export type NewsletterSubscriber = {
   confirm_token: string
   unsubscribe_token: string
   unsubscribed_at: string | null
+  locale: string | null
   created_at: string
 }
 
@@ -37,6 +38,7 @@ type NewsletterSubscriberUpdate = Partial<{
   unsubscribe_token: string
   unsubscribed_at: string | null
   subscribed_at: string
+  locale: string
 }>
 
 type NewsletterError = {
@@ -92,6 +94,7 @@ type NewsletterClient = {
 export type CreateSubscriberInput = {
   email: string
   name?: string
+  locale?: string | null
   interests: string[]
 }
 
@@ -155,7 +158,7 @@ export function normalizeInterests(interests: string[]): NewsletterInterest[] {
 
 export async function createSubscriber(
   supabase: SupabaseClient,
-  { email, name, interests }: CreateSubscriberInput
+  { email, name, locale, interests }: CreateSubscriberInput
 ): Promise<CreateSubscriberResult> {
   const normalizedEmail = normalizeEmail(email)
 
@@ -208,6 +211,7 @@ export async function createSubscriber(
     const { data, error } = await table
       .update({
         name: name ?? existingSubscriber.name,
+        locale: locale ?? existingSubscriber.locale ?? 'zh-TW',
         interests: normalizedInterests,
         confirm_token: newToken(),
         unsubscribe_token: newToken(),

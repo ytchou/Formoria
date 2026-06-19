@@ -178,7 +178,7 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
   ])
 
   // Visit Website URL
-  const visitUrl = displayBrand.purchaseWebsite ?? displayBrand.purchasePinkoi ?? displayBrand.purchaseShopee ?? null
+  const visitUrl = displayBrand.purchaseWebsite || displayBrand.purchasePinkoi || displayBrand.purchaseShopee || null
 
   // Breadcrumb items for JSON-LD
   const tBrandDetail = await getTranslations('brandDetail')
