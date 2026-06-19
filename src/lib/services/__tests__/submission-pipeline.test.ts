@@ -88,7 +88,6 @@ const { createBrand } = await import('@/lib/services/brands')
 const { createSubmission } = await import('@/lib/services/submissions')
 const { scanContent, saveModerationFlags } = await import('@/lib/services/moderation')
 const pipeline = await import('@/lib/services/submission-pipeline')
-const { executeBulkImportAction } = await import('@/app/admin/actions')
 const { submitBrand } = await import('@/app/[locale]/submit/actions')
 
 const brand = {
@@ -309,53 +308,19 @@ describe('brand submission callers', () => {
     vi.mocked(scanContent).mockReturnValue({ riskLevel: 'clean', flags: moderationFlags })
   })
 
-  it('bulk import and user submission use the same pipeline', async () => {
+  it('user submission uses the shared pipeline', async () => {
     const pipelineSpy = vi
       .spyOn(pipeline, 'submitBrandForReview')
       .mockResolvedValue({ brand, submissionId: 'submission-1' })
 
-    const validatedData = {
-      name: 'Bulk Brand',
-      slug: 'bulk-brand',
-      description: 'A bulk imported brand description.',
-      category: 'Lifestyle',
-      logoUrl: null,
-      productPhotos: [],
-      purchaseLinks: [{ platform: 'Official', url: 'https://bulk.example.com/shop' }],
-      socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://bulk.example.com' },
-      retailLocations: [{ name: 'Store', address: 'Taipei' }],
-      brandHighlights: null,
-      region: 'taipei',
-      valueTags: ['eco'],
-      productType: 'skincare',
-      productTypeNote: null,
-      unifiedBusinessNumber: '12345678',
-    }
-
-    await executeBulkImportAction([
-      {
-        rowIndex: 1,
-        name: 'Bulk Brand',
-        slug: 'bulk-brand',
-        validatedData,
-        status: 'valid',
-        moderationFlags,
-      },
-    ])
     await submitBrand(buildSubmitInput())
 
-    expect(pipelineSpy).toHaveBeenCalledWith(expect.objectContaining({
-      name: 'Bulk Brand',
-      slug: 'bulk-brand',
-      submitterName: 'Bulk Import',
-      isBrandOwner: false,
-    }))
     expect(pipelineSpy).toHaveBeenCalledWith(expect.objectContaining({
       name: 'User Brand',
       slug: '',
       submitterName: 'Test User',
       isBrandOwner: true,
     }))
-    expect(pipelineSpy).toHaveBeenCalledTimes(2)
+    expect(pipelineSpy).toHaveBeenCalledTimes(1)
   })
 })

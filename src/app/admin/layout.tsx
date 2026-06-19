@@ -58,7 +58,6 @@ export default async function AdminLayout({
       ],
     },
     { label: "認領申請", href: "/admin/claims" },
-    { label: "批量匯入", href: "/admin/import" },
     {
       label: "信號",
       href: "/admin/signals",

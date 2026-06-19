@@ -109,11 +109,6 @@ const nextConfig: NextConfig = {
         destination: '/admin/catalog/taxonomy',
         permanent: true,
       },
-      {
-        source: '/admin/bulk-import',
-        destination: '/admin/catalog/import',
-        permanent: true,
-      },
     ]
   },
 };

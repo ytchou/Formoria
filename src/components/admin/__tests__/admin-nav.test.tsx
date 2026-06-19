@@ -28,7 +28,6 @@ const items: NavItem[] = [
       { label: 'Feedback', href: '/admin/signals/feedback', count: 0 },
     ],
   },
-  { label: '批量匯入', href: '/admin/import' },
   {
     label: '目錄管理',
     href: '/admin/catalog',
@@ -45,9 +44,9 @@ async function renderAdminNav() {
 }
 
 describe('AdminNav', () => {
-  it('renders 6 top-level navigation links', async () => {
+  it('renders 5 top-level navigation links', async () => {
     await renderAdminNav()
-    expect(screen.getAllByRole('link')).toHaveLength(6)
+    expect(screen.getAllByRole('link')).toHaveLength(5)
   })
 
   it('does not show dropdown children by default', async () => {
