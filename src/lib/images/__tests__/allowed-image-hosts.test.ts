@@ -75,6 +75,20 @@ describe('isNonImageHost', () => {
     )
   })
 
+  it('flags Instagram profile hosts', () => {
+    expect(isNonImageHost('https://www.instagram.com/brand_name')).toBe(true)
+    expect(isNonImageHost('https://instagram.com/brand_name')).toBe(true)
+  })
+
+  it('flags Instagram CDN hosts (URLs expire)', () => {
+    expect(
+      isNonImageHost('https://scontent-tpe1-1.cdninstagram.com/v/t51.2885-15/image.jpg'),
+    ).toBe(true)
+    expect(isNonImageHost('https://scontent.cdninstagram.com/v/image.jpg')).toBe(
+      true,
+    )
+  })
+
   it('allows real image CDNs (even those not in ALLOWED_IMAGE_HOSTS)', () => {
     expect(isNonImageHost('https://cdn01.pinkoi.com/product/x/1/800x0.jpg')).toBe(
       false,

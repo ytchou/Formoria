@@ -11,7 +11,12 @@ export const ALLOWED_IMAGE_HOSTS = [
   'www.sobdeall.com.tw',
 ] as const satisfies string[]
 
-export const NON_IMAGE_HOSTS = ['facebook.com', 'line.me'] as const
+export const NON_IMAGE_HOSTS = [
+  'facebook.com',
+  'line.me',
+  'instagram.com',
+  'cdninstagram.com',
+] as const
 
 export function isAllowedImageHost(hostname: string): boolean {
   const normalizedHostname = hostname.toLowerCase()
