@@ -32,6 +32,7 @@ const nextConfig: NextConfig = {
               "font-src 'self'",
               "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://www.google-analytics.com https://challenges.cloudflare.com",
               "frame-src https://challenges.cloudflare.com",
+              "frame-ancestors 'none'",
               "form-action 'self'",
               "base-uri 'self'",
               "object-src 'none'",
