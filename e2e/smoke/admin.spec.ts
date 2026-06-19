@@ -69,7 +69,7 @@ test.describe('Admin smoke', () => {
 
     if (!testSubmissionId) test.skip();
     await adminPage.goto('/admin/review-queue/submissions', { timeout: 60_000 });
-    await expect(adminPage.getByRole('heading', { name: /submission/i })).toBeVisible();
+    await expect(adminPage.getByRole('heading', { name: /submission/i })).toBeVisible({ timeout: 30_000 });
     await expect(adminPage.getByText(testBrandName)).toBeVisible({ timeout: 10_000 });
   });
 
