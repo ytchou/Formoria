@@ -111,7 +111,7 @@ export function useFilterParams() {
   const setSort = useCallback(
     (sort: BrandSortOption) => {
       const params = new URLSearchParams(searchParams.toString())
-      if (sort === 'name') {
+      if (sort === 'random') {
         params.delete('sort')
       } else {
         params.set('sort', sort)

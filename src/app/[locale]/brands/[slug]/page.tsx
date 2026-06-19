@@ -40,8 +40,8 @@ import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
-// 60s ISR: ownership/verified-state changes propagate within ~a minute; route still statically served between regenerations
-export const revalidate = 60
+// 1h ISR: ownership/verified-state changes propagate within ~an hour; route still statically served between regenerations
+export const revalidate = 3600
 
 export async function generateStaticParams() {
   try {
@@ -58,7 +58,8 @@ type PageProps = {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { locale, slug } = await params
+  const { locale, slug: rawSlug } = await params
+  const slug = decodeURIComponent(rawSlug)
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const t = await getTranslations('brandDetail')
@@ -92,7 +93,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function BrandDetailPage({ params, searchParams }: PageProps) {
-  const { locale, slug } = await params
+  const { locale, slug: rawSlug } = await params
+  const slug = decodeURIComponent(rawSlug)
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const { source: sourceParam, preview } = await searchParams

@@ -95,6 +95,26 @@
       "linkText": "Browse All Brands →"
     }
   },
+  "newsletter": {
+    "heading": "Stay in the loop",
+    "subtext": "Get the latest on Made in Taiwan brands — stories, launches, and curated picks delivered to your inbox.",
+    "emailPlaceholder": "your@email.com",
+    "subscribe": "Subscribe",
+    "interestsLabel": "Choose what interests you",
+    "interests": {
+      "brand-stories": "Brand Stories",
+      "new-brands": "New Brands",
+      "curated-picks": "Curated Picks",
+      "mit-trends": "MIT Trends"
+    },
+    "success": "Check your inbox to confirm your subscription",
+    "error": {
+      "invalidEmail": "Please enter a valid email address",
+      "tooManyRequests": "Too many requests, please try again later",
+      "generic": "Something went wrong, please try again"
+    },
+    "alreadySubscribed": "You are already subscribed!"
+  },
   "brands": {
     "metadata": {
       "title": "Formoria — Made in Taiwan Brand Directory",
@@ -119,6 +139,7 @@
       "showResults": "Show {count} results"
     },
     "sort": {
+      "random": "Discover",
       "name": "A-Z",
       "newest": "Newest",
       "year": "Founding Year"

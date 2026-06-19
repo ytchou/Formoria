@@ -46,6 +46,10 @@ vi.mock('@/components/landing/submit-band', () => ({
   default: () => <div data-testid="submit-band" />,
 }))
 
+vi.mock('@/components/landing/newsletter-section', () => ({
+  NewsletterSection: () => <div data-testid="newsletter-section" />,
+}))
+
 vi.mock('@/components/landing/filterable-brand-showcase', () => ({
   default: () => <div data-testid="filterable-brand-showcase" />,
 }))

@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
   // Exchange code for session if present (email confirmation flow)
   let userId: string | undefined;
   let userEmail: string | undefined;
+  let isNewUser = false;
 
   if (code) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
@@ -42,6 +43,15 @@ export async function GET(request: NextRequest) {
     }
     userId = data.user?.id;
     userEmail = data.user?.email;
+
+    try {
+      const createdAt = data.user?.created_at;
+      if (createdAt && Date.now() - new Date(createdAt).getTime() < 60_000) {
+        isNewUser = true;
+      }
+    } catch {
+      isNewUser = false;
+    }
   } else {
     // Sign-in flow (no code) — get existing session
     const { data: { user } } = await supabase.auth.getUser();
@@ -73,9 +83,11 @@ export async function GET(request: NextRequest) {
       });
 
       const brand = await getBrandById(claim.brandId);
-      return NextResponse.redirect(
-        new URL(`/dashboard?tab=${brand.slug}`, getSiteUrl())
-      );
+      const url = new URL(`/dashboard?tab=${brand.slug}`, getSiteUrl());
+      if (isNewUser) {
+        url.searchParams.set("is_new_user", "1");
+      }
+      return NextResponse.redirect(url);
     } catch {
       return NextResponse.redirect(
         new URL("/dashboard?error=claim-failed", getSiteUrl())
@@ -98,5 +110,9 @@ export async function GET(request: NextRequest) {
   }
 
   const redirectTo = next && isRelativeUrl(next) ? next : "/dashboard";
-  return NextResponse.redirect(new URL(redirectTo, getSiteUrl()));
+  const url = new URL(redirectTo, getSiteUrl());
+  if (isNewUser) {
+    url.searchParams.set("is_new_user", "1");
+  }
+  return NextResponse.redirect(url);
 }

@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildOrganizationJsonLd, buildWebSiteJsonLd } from '@/lib/json-ld'
 import HeroSection from '@/components/landing/hero-section'
 import Manifesto from '@/components/landing/manifesto'
+import { NewsletterSection } from '@/components/landing/newsletter-section'
 import BrandShowcase from '@/components/shared/brand-showcase'
 import FilterableBrandShowcase from '@/components/landing/filterable-brand-showcase'
 import SubmitBand from '@/components/landing/submit-band'
@@ -87,6 +88,7 @@ export default async function LandingPage({ params }: PageProps) {
       />
       <main>
         <HeroSection brandCount={totalBrandCount} categoryCount={categories.length} />
+        <NewsletterSection />
 
         <SavedBrandsProvider>
           <div className="py-6 md:py-8">

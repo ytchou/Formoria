@@ -12,6 +12,13 @@ import { createSubmissionSchema } from '@/lib/validations/submission'
 import { deriveCategoryFromProductType } from '@/lib/taxonomy/ontology'
 import { downloadAndStoreImages } from './image-download'
 
+function shuffleArray<T>(arr: T[]): void {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Row types
 // ---------------------------------------------------------------------------
@@ -110,12 +117,22 @@ export type SimilarBrand = {
   score: number
 }
 
+export type BrandEnrichment = {
+  productType: string
+  logoUrl: string | null
+  heroImageUrl: string | null
+  productPhotos: string[]
+  tagSlugs: string[]
+}
+
 // ---------------------------------------------------------------------------
 // Slug generation
 // ---------------------------------------------------------------------------
 
 export function generateSlug(name: string): string {
   return name
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]+/g, '-')
     .replace(/-+/g, '-')
@@ -636,6 +653,33 @@ export const BRAND_SELECT =
 const VERIFIED_BRAND_SELECT =
   '*, brand_taxonomy(taxonomy_tags(*)), brand_owners!inner(user_id)'
 
+export async function getBrandEnrichmentBatch(brandIds: string[]): Promise<Map<string, BrandEnrichment>> {
+  if (brandIds.length === 0) {
+    return new Map()
+  }
+
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brands')
+    .select('id, product_type, logo_url, hero_image_url, product_photos, tag_slugs')
+    .in('id', brandIds)
+
+  if (error) throw error
+
+  return new Map(
+    (data ?? []).map((row) => [
+      row.id,
+      {
+        productType: row.product_type ?? '',
+        logoUrl: row.logo_url ?? null,
+        heroImageUrl: row.hero_image_url ?? null,
+        productPhotos: parseStringArray(row.product_photos, 'product_photos'),
+        tagSlugs: row.tag_slugs ?? [],
+      },
+    ])
+  )
+}
+
 export async function getBrands(
   filters?: BrandFilters
 ): Promise<{ brands: Brand[]; totalCount: number }> {
@@ -689,9 +733,11 @@ export async function getBrands(
     }
 
     // Sorting
-    const sortKey = filters.sort ?? 'name'
-    const sortConfig = BRAND_SORT_CONFIG[sortKey]
-    query = query.order(sortConfig.column, { ascending: sortConfig.ascending })
+    const sortKey = filters.sort ?? 'random'
+    if (sortKey !== 'random') {
+      const sortConfig = BRAND_SORT_CONFIG[sortKey]
+      query = query.order(sortConfig.column, { ascending: sortConfig.ascending })
+    }
 
     // Pagination
     if (filters.limit !== undefined) {
@@ -701,7 +747,9 @@ export async function getBrands(
 
     const { data, error, count } = await query
     if (error) throw error
-    return { brands: (data ?? []).map(brandToDomain), totalCount: count ?? 0 }
+    const brands = (data ?? []).map(brandToDomain)
+    if (sortKey === 'random') shuffleArray(brands)
+    return { brands, totalCount: count ?? 0 }
   }
 
   const verificationFilter = filters?.verificationFilter
@@ -728,9 +776,11 @@ export async function getBrands(
   }
 
   // Sorting
-  const sortKey = filters?.sort ?? 'name'
-  const sortConfig = BRAND_SORT_CONFIG[sortKey]
-  query = query.order(sortConfig.column, { ascending: sortConfig.ascending })
+  const sortKey = filters?.sort ?? 'random'
+  if (sortKey !== 'random') {
+    const sortConfig = BRAND_SORT_CONFIG[sortKey]
+    query = query.order(sortConfig.column, { ascending: sortConfig.ascending })
+  }
 
   // Pagination
   if (filters?.limit !== undefined) {
@@ -741,7 +791,9 @@ export async function getBrands(
   const { data, error, count } = await query
 
   if (error) throw error
-  return { brands: (data ?? []).map(brandToDomain), totalCount: count ?? 0 }
+  const brands = (data ?? []).map(brandToDomain)
+  if (sortKey === 'random') shuffleArray(brands)
+  return { brands, totalCount: count ?? 0 }
 }
 
 export async function getBrandBySlug(slug: string): Promise<Brand> {

@@ -33,12 +33,12 @@ describe('parsePageParam', () => {
 })
 
 describe('parseSortParam', () => {
-  it('returns "name" for undefined', () => {
-    expect(parseSortParam(undefined)).toBe('name')
+  it('returns "random" for undefined', () => {
+    expect(parseSortParam(undefined)).toBe('random')
   })
 
-  it('returns "name" for invalid sort value', () => {
-    expect(parseSortParam('invalid')).toBe('name')
+  it('returns "random" for invalid sort value', () => {
+    expect(parseSortParam('invalid')).toBe('random')
   })
 
   it('returns valid sort option', () => {
@@ -47,8 +47,8 @@ describe('parseSortParam', () => {
     expect(parseSortParam('name')).toBe('name')
   })
 
-  it('returns "name" for array input', () => {
-    expect(parseSortParam(['name', 'newest'])).toBe('name')
+  it('returns "random" for array input', () => {
+    expect(parseSortParam(['name', 'newest'])).toBe('random')
   })
 })
 
@@ -58,6 +58,11 @@ describe('constants', () => {
   })
 
   it('BRAND_SORT_CONFIG has entries for all sort options', () => {
+    expect(BRAND_SORT_CONFIG.random).toEqual({
+      column: '',
+      ascending: true,
+      label: 'random',
+    })
     expect(BRAND_SORT_CONFIG.name).toEqual({
       column: 'name',
       ascending: true,

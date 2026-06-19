@@ -88,30 +88,11 @@ export async function getTags(category?: TagCategory, includeInactive?: boolean)
 export async function getActiveCategories(): Promise<
   { slug: string; name: string; nameZh: string | null }[]
 > {
-  const supabase = createServiceClient()
-
-  const { data, error } = await supabase
-    .from('brands')
-    .select('product_type')
-    .eq('status', 'approved')
-
-  if (error) throw error
-
-  const seen = new Set<string>()
-  const result: { slug: string; name: string; nameZh: string | null }[] = []
-
-  for (const row of data ?? []) {
-    const slug = row.product_type
-    if (seen.has(slug)) continue
-
-    const category = PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === slug)
-    if (category) {
-      seen.add(slug)
-      result.push({ slug: category.slug, name: category.name, nameZh: category.nameZh })
-    }
-  }
-
-  return result
+  return PRODUCT_TYPE_CATEGORIES.map((c) => ({
+    slug: c.slug,
+    name: c.name,
+    nameZh: c.nameZh,
+  }))
 }
 
 export async function getValueTagsWithCoverage(minBrands = 1): Promise<TaxonomyTag[]> {

@@ -44,9 +44,9 @@ describe('useFilterParams', () => {
   })
 
   describe('sort management', () => {
-    it('returns "name" when no sort param', () => {
+    it('returns "random" when no sort param', () => {
       const { result } = renderHook(() => useFilterParams())
-      expect(result.current.currentSort).toBe('name')
+      expect(result.current.currentSort).toBe('random')
     })
 
     it('parses sort from URL params', () => {

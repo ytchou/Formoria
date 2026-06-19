@@ -186,7 +186,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
               className="group flex items-center gap-4 rounded-xl border border-border bg-white p-4 transition-colors hover:border-primary"
             >
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted font-heading text-lg font-semibold text-primary">
-                {brand.brandName.charAt(0)}
+                {[...brand.brandName][0]}
               </div>
               <div className="min-w-0">
                 <h2 className="truncate font-heading text-base font-semibold tracking-tight text-foreground">

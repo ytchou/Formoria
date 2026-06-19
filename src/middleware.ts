@@ -198,9 +198,24 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  const response = isLocalizedPublicPath(pathname)
+  const isPublicPath = isLocalizedPublicPath(pathname)
+  const response = isPublicPath
     ? intlMiddleware(request)
     : NextResponse.next({ request })
+
+  // Skip Supabase auth refresh for truly public content paths to reduce egress.
+  // dashboard, settings, and my-submissions still need auth even though
+  // isLocalizedPublicPath returns true for them (they're in PUBLIC_INTL_SEGMENTS).
+  if (isPublicPath) {
+    const segments = pathname.split('/').filter(Boolean)
+    const segment = segments.length > 0 && KNOWN_LOCALES.has(segments[0])
+      ? segments[1]
+      : segments[0]
+    const AUTH_REQUIRED_SEGMENTS = new Set(['dashboard', 'settings', 'my-submissions'])
+    if (!AUTH_REQUIRED_SEGMENTS.has(segment)) {
+      return response
+    }
+  }
 
   return refreshSupabaseSession(request, response)
 }

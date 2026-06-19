@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { getSubmissions } from '@/lib/services/submissions'
 import { getModerationFlagsBatch } from '@/lib/services/moderation'
 import type { ModerationFlag, RiskLevel } from '@/lib/services/moderation'
+import { getBrandEnrichmentBatch } from '@/lib/services/brands'
+import { getTags } from '@/lib/services/taxonomy'
 import { SubmissionsList } from '@/components/admin/submissions-list'
 
 export const metadata: Metadata = {
@@ -16,16 +18,24 @@ function getRiskLevel(flags: ModerationFlag[]): RiskLevel {
 
 export default async function ReviewQueueSubmissionsPage() {
   const submissions = await getSubmissions()
-  const moderationFlagsByBrandId = await getModerationFlagsBatch(
-    submissions
-      .map((submission) => submission.brandId)
-      .filter((brandId): brandId is string => Boolean(brandId))
-  )
+  const brandIds = submissions
+    .map((submission) => submission.brandId)
+    .filter((brandId): brandId is string => Boolean(brandId))
+
+  const moderationFlagsByBrandId = await getModerationFlagsBatch(brandIds)
+  const [brandEnrichmentById, taxonomyTags] = await Promise.all([
+    getBrandEnrichmentBatch(brandIds),
+    getTags(),
+  ])
+
   const submissionsWithRisk = submissions.map((submission) => ({
     ...submission,
     moderationRiskLevel: getRiskLevel(
       submission.brandId ? moderationFlagsByBrandId.get(submission.brandId) ?? [] : []
     ),
+    brandEnrichment: submission.brandId
+      ? brandEnrichmentById.get(submission.brandId) ?? null
+      : null,
   }))
 
   return (
@@ -38,7 +48,10 @@ export default async function ReviewQueueSubmissionsPage() {
       </p>
 
       <div className="mt-8">
-        <SubmissionsList submissions={submissionsWithRisk} />
+        <SubmissionsList
+          submissions={submissionsWithRisk}
+          taxonomyTags={taxonomyTags}
+        />
       </div>
     </div>
   )

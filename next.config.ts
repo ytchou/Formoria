@@ -6,6 +6,11 @@ import { ALLOWED_IMAGE_HOSTS } from './src/lib/images/allowed-image-hosts'
 const imgSrcHosts = ALLOWED_IMAGE_HOSTS.map((hostname) => `https://${hostname}`).join(' ')
 
 const nextConfig: NextConfig = {
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '5mb',
+    },
+  },
   images: {
     remotePatterns: ALLOWED_IMAGE_HOSTS.map((hostname) => ({
       protocol: 'https',

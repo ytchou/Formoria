@@ -88,7 +88,7 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
             className="flex h-full items-center justify-center bg-secondary"
           >
             <span className="text-2xl font-bold text-muted-foreground">
-              {brand.name.charAt(0)}
+              {[...brand.name][0]}
             </span>
           </div>
         )}
@@ -124,10 +124,10 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
         <p className="mt-1.5 min-h-[2.625rem] text-[13px] leading-relaxed text-muted-foreground line-clamp-2">
           {brand.description ?? ' '}
         </p>
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
           {/* Category — primary classification (filled) */}
           {categoryLabel && (
-            <span className="inline-block rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-foreground">
+            <span className="shrink-0 rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-foreground whitespace-nowrap">
               {categoryLabel}
             </span>
           )}
@@ -135,7 +135,7 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
           {valueTags.map((tag) => (
             <span
               key={tag.id}
-              className="inline-block rounded-full border border-border bg-transparent px-3 py-1 text-[11px] font-medium text-warm-caption"
+              className="shrink-0 rounded-full border border-border bg-transparent px-3 py-1 text-[11px] font-medium text-warm-caption whitespace-nowrap"
             >
               {tag.nameZh ?? tag.name}
             </span>
