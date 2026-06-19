@@ -1,8 +1,37 @@
 import { isAdmin } from './admin'
+import { signCookieValue, verifyCookieValue } from '../security/cookie-signing'
 
 export const VIEWER_MODE_COOKIE = 'fm_mode'
+export const ADMIN_MODE_COOKIE_OPTIONS = {
+  httpOnly: true,
+  sameSite: 'strict' as const,
+  secure: process.env.NODE_ENV === 'production',
+  maxAge: 86400,
+  path: '/',
+}
 
 export type AdminMode = 'god' | 'viewer'
+
+function getAdminModeCookieSecret(): string | null {
+  return process.env.CHALLENGE_SECRET || null
+}
+
+export function signAdminModeCookieValue(value: AdminMode): string {
+  const secret = getAdminModeCookieSecret()
+  if (!secret) {
+    throw new Error('CHALLENGE_SECRET is required')
+  }
+
+  return signCookieValue(value, secret)
+}
+
+export function readAdminModeCookie(value: string | null | undefined): AdminMode | null {
+  const secret = getAdminModeCookieSecret()
+  if (!value || !secret) return null
+
+  const verified = verifyCookieValue(value, secret)
+  return verified === 'god' || verified === 'viewer' ? verified : null
+}
 
 export function resolveAdminModeCookie({
   email,
@@ -10,9 +39,11 @@ export function resolveAdminModeCookie({
 }: {
   email: string | null
   currentCookie: string | undefined
-}): { action: 'set'; value: AdminMode } | { action: 'none' } | { action: 'delete' } {
+}): { action: 'set'; value: string } | { action: 'none' } | { action: 'delete' } {
+  const currentMode = readAdminModeCookie(currentCookie)
+
   if (email && isAdmin(email)) {
-    return currentCookie ? { action: 'none' } : { action: 'set', value: 'god' }
+    return currentMode ? { action: 'none' } : { action: 'set', value: signAdminModeCookieValue('god') }
   }
 
   return currentCookie ? { action: 'delete' } : { action: 'none' }
