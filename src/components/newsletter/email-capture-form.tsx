@@ -9,10 +9,10 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
 const INTEREST_CHIPS = [
-  { slug: 'brand-stories', labelKey: 'brand stories' },
-  { slug: 'new-brands', labelKey: 'new brands' },
-  { slug: 'curated-picks', labelKey: 'curated picks' },
-  { slug: 'mit-trends', labelKey: 'mit trends' },
+  { slug: 'brand-stories', labelKey: 'interests.brand-stories' },
+  { slug: 'new-brands', labelKey: 'interests.new-brands' },
+  { slug: 'curated-picks', labelKey: 'interests.curated-picks' },
+  { slug: 'mit-trends', labelKey: 'interests.mit-trends' },
 ] as const
 
 export function EmailCaptureForm() {
@@ -53,7 +53,7 @@ export function EmailCaptureForm() {
             aria-invalid={state.error ? 'true' : undefined}
             className="h-12 rounded-lg border-[#D4D4D4] bg-white focus-visible:border-[color:var(--cta)] focus-visible:ring-[color:var(--cta)]/20 sm:h-11"
             name="email"
-            placeholder={t('email placeholder')}
+            placeholder={t('emailPlaceholder')}
             required
             type="email"
           />
@@ -81,7 +81,7 @@ export function EmailCaptureForm() {
 
       <div className="space-y-2">
         <p className="text-sm font-medium text-[#6B6B6B]">
-          {t('choose what interests you')}
+          {t('interestsLabel')}
         </p>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap">
           {INTEREST_CHIPS.map((chip) => {

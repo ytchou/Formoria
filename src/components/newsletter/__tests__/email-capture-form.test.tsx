@@ -24,13 +24,13 @@ describe('EmailCaptureForm', () => {
 
   it('pre-selects new-brands chip', () => {
     render(<EmailCaptureForm />)
-    const newBrandsChip = screen.getByRole('button', { name: /new brands/i })
+    const newBrandsChip = screen.getByRole('button', { name: /interests\.new-brands/i })
     expect(newBrandsChip).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('renders interest label text', () => {
     render(<EmailCaptureForm />)
-    expect(screen.getByText(/choose what interests you/i)).toBeInTheDocument()
+    expect(screen.getByText(/interestsLabel/i)).toBeInTheDocument()
   })
 
   it('renders honeypot field that is visually hidden', () => {
@@ -42,7 +42,7 @@ describe('EmailCaptureForm', () => {
   it('toggles chip selection on click', async () => {
     const user = userEvent.setup()
     render(<EmailCaptureForm />)
-    const brandStoriesChip = screen.getByRole('button', { name: /brand stories/i })
+    const brandStoriesChip = screen.getByRole('button', { name: /interests\.brand-stories/i })
     expect(brandStoriesChip).toHaveAttribute('aria-pressed', 'false')
 
     await user.click(brandStoriesChip)
