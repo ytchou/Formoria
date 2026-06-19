@@ -118,9 +118,7 @@ vi.mock('next/navigation', () => ({
 const SUPA = 'https://abc.supabase.co'
 const heroUrl = `${SUPA}/storage/v1/object/public/brand-images/brands/brand-1/hero-new.webp`
 const oldHeroUrl = `${SUPA}/storage/v1/object/public/brand-images/brands/brand-1/hero-old.webp`
-const oldLogoUrl = `${SUPA}/storage/v1/object/public/brand-images/brands/brand-1/logo-old.webp`
 const oldProductUrl = `${SUPA}/storage/v1/object/public/brand-images/brands/brand-1/product-old.webp`
-const newLogoUrl = `${SUPA}/storage/v1/object/public/brand-images/brands/brand-1/logo-new.webp`
 const newProductUrl = `${SUPA}/storage/v1/object/public/brand-images/brands/brand-1/product-new.webp`
 
 function form(fields: Record<string, string>) {

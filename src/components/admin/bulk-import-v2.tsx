@@ -95,10 +95,6 @@ function getRowWebsite(row: ImportPreviewRow): string | null {
   return social?.website || (data?.website as string) || null
 }
 
-const productTypeZhMap = Object.fromEntries(
-  PRODUCT_TYPE_CATEGORIES.map((c) => [c.slug, c.nameZh])
-)
-
 function getRowProductTypes(row: ImportPreviewRow): string[] {
   const data = row.validatedData as Record<string, unknown>
   const types = data?.productTypes
