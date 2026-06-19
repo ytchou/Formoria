@@ -236,7 +236,12 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
               categoryLabel={categoryLabel || null}
               actionsSlot={
                 <SavedBrandsProvider>
-                  <BrandActions websiteUrl={visitUrl ?? null} brandSlug={displayBrand.slug} brandId={displayBrand.id} />
+                  <BrandActions
+                    websiteUrl={visitUrl ?? null}
+                    brandSlug={displayBrand.slug}
+                    brandId={displayBrand.id}
+                    brandName={displayBrand.name}
+                  />
                 </SavedBrandsProvider>
               }
             />

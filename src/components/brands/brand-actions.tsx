@@ -1,22 +1,23 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { ExternalLink, Share2 } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 import {
-  trackBrandPageShared,
   trackDbClick,
   trackExternalLinkClicked,
 } from '@/lib/analytics'
 import { ReportDialog } from '@/components/brands/report-dialog'
 import { SaveBrandButton } from './save-brand-button'
+import { ShareDialog } from './share-dialog'
 
 interface BrandActionsProps {
   websiteUrl: string | null
   brandSlug?: string
   brandId?: string
+  brandName: string
 }
 
-export function BrandActions({ websiteUrl, brandSlug = '', brandId }: BrandActionsProps) {
+export function BrandActions({ websiteUrl, brandSlug = '', brandId, brandName }: BrandActionsProps) {
   const t = useTranslations('brandDetail')
   const handleWebsiteClick = () => {
     trackExternalLinkClicked(
@@ -45,14 +46,7 @@ export function BrandActions({ websiteUrl, brandSlug = '', brandId }: BrandActio
             {t('actions.visitWebsite')}
           </a>
         )}
-        <button
-          type="button"
-          className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-secondary text-foreground transition-colors hover:bg-secondary/80"
-          aria-label={t('actions.share')}
-          onClick={() => trackBrandPageShared(brandSlug)}
-        >
-          <Share2 className="size-[17px]" />
-        </button>
+        <ShareDialog brandSlug={brandSlug} brandName={brandName} />
         {brandId && <SaveBrandButton brandId={brandId} variant="inline" className="rounded-xl" />}
         {brandId && <ReportDialog brandId={brandId} brandSlug={brandSlug} />}
       </div>
