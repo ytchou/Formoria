@@ -648,10 +648,21 @@ function brandToUpdate(data: BrandWriteInput): Record<string, unknown> {
 // Service functions
 // ---------------------------------------------------------------------------
 
+const BRAND_COLUMNS = [
+  'id', 'name', 'slug', 'description', 'logo_url', 'hero_image_url',
+  'product_type', 'contact_email', 'purchase_website', 'purchase_pinkoi',
+  'purchase_shopee', 'social_instagram', 'social_threads', 'social_facebook',
+  'other_urls', 'retail_locations', 'product_photos', 'site_content',
+  'status', 'submitted_at', 'approved_at', 'created_at', 'updated_at',
+  'draft_data', 'draft_updated_at', 'founder', 'founding_year',
+  'brand_highlights', 'mit_status', 'mit_claimed_at', 'mit_verified_at',
+  'mit_evidence', 'source', 'tag_slugs', 'unified_business_number', 'is_demo',
+].join(', ')
+
 export const BRAND_SELECT =
-  '*, brand_taxonomy(taxonomy_tags(*)), brand_owners(user_id)'
+  `${BRAND_COLUMNS}, brand_taxonomy(taxonomy_tags(*)), brand_owners(user_id)` as unknown as '*'
 const VERIFIED_BRAND_SELECT =
-  '*, brand_taxonomy(taxonomy_tags(*)), brand_owners!inner(user_id)'
+  `${BRAND_COLUMNS}, brand_taxonomy(taxonomy_tags(*)), brand_owners!inner(user_id)` as unknown as '*'
 
 export async function getBrandEnrichmentBatch(brandIds: string[]): Promise<Map<string, BrandEnrichment>> {
   if (brandIds.length === 0) {
@@ -1255,7 +1266,7 @@ export async function getBrandStats(): Promise<{ brandCount: number; categoryCou
   const [{ count, error }, categories] = await Promise.all([
     supabase
       .from('brands')
-      .select('*', { count: 'exact', head: true })
+      .select(BRAND_COLUMNS as '*', { count: 'exact', head: true })
       .eq('status', 'approved'),
     getActiveCategories(),
   ])
