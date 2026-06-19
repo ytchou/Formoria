@@ -73,7 +73,6 @@ function ReadinessBadge({
 
 function getImageCount(enrichment: BrandEnrichment) {
   return (
-    (enrichment.logoUrl ? 1 : 0) +
     (enrichment.heroImageUrl ? 1 : 0) +
     enrichment.productPhotos.length
   )
@@ -299,7 +298,7 @@ export function SubmissionsList({
                               </p>
                               <p>
                                 <span className="font-medium">Images: </span>
-                                Logo {submission.brandEnrichment.logoUrl ? '✓' : '✗'} · Hero{' '}
+                                Hero{' '}
                                 {submission.brandEnrichment.heroImageUrl ? '✓' : '✗'} · Photos:{' '}
                                 {submission.brandEnrichment.productPhotos.length}
                               </p>

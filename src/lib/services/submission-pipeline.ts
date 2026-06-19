@@ -9,7 +9,7 @@ export interface SubmitBrandForReviewParams {
   name: string
   slug: string
   description: string
-  logoUrl: string | null
+  heroImageUrl: string | null
   category: string | null
   purchaseLinks: Array<{ url: string; platform: string; label: string }>
   socialLinks: {
@@ -93,8 +93,7 @@ export async function submitBrandForReview(
     name: params.name,
     slug: params.slug,
     description: params.description,
-    logoUrl: params.logoUrl,
-    heroImageUrl: null,
+    heroImageUrl: params.heroImageUrl,
     status: 'pending',
     isVerified: false,
     isDemo: false,

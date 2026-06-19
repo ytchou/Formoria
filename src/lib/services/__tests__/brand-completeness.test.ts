@@ -2,14 +2,13 @@ import { describe, it, expect } from 'vitest'
 import type { Brand } from '@/lib/types/brand'
 import { computeBrandCompleteness } from '@/lib/services/brand-completeness'
 
-// Minimal Brand builder — computeBrandCompleteness only reads the 9 scored fields.
+// Minimal Brand builder — computeBrandCompleteness only reads the 8 scored fields.
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
   const base = {
     id: 'b1',
     slug: 'test-brand',
     name: 'Test Brand',
     description: null,
-    logoUrl: null,
     heroImageUrl: null,
     foundingYear: null,
     socialInstagram: null,
@@ -29,7 +28,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
 const EMPTY = makeBrand()
 const FULL = makeBrand({
   description: 'A made-in-Taiwan brand',
-  logoUrl: 'https://img/logo.png',
   heroImageUrl: 'https://img/hero.png',
   foundingYear: 2015,
   purchaseShopee: 'https://shopee',
@@ -40,18 +38,18 @@ const FULL = makeBrand({
 })
 
 describe('computeBrandCompleteness', () => {
-  it('scores an empty brand as 0 of 9', () => {
+  it('scores an empty brand as 0 of 8', () => {
     const r = computeBrandCompleteness(EMPTY)
-    expect(r.total).toBe(9)
+    expect(r.total).toBe(8)
     expect(r.completed).toBe(0)
     expect(r.fraction).toBe(0)
-    expect(r.items).toHaveLength(9)
+    expect(r.items).toHaveLength(8)
     expect(r.items.every((i) => !i.complete)).toBe(true)
   })
 
-  it('scores a fully-filled brand as 9 of 9', () => {
+  it('scores a fully-filled brand as 8 of 8', () => {
     const r = computeBrandCompleteness(FULL)
-    expect(r.completed).toBe(9)
+    expect(r.completed).toBe(8)
     expect(r.fraction).toBe(1)
     expect(r.items.every((i) => i.complete)).toBe(true)
   })
@@ -59,12 +57,11 @@ describe('computeBrandCompleteness', () => {
   it('returns items in fixed impact-priority order with correct anchors', () => {
     const r = computeBrandCompleteness(EMPTY)
     expect(r.items.map((i) => i.key)).toEqual([
-      'heroImage', 'description', 'logo', 'purchaseLinks', 'productPhotos',
+      'heroImage', 'description', 'purchaseLinks', 'productPhotos',
       'socialLinks', 'brandHighlights', 'foundingYear', 'retailLocations',
     ])
     const anchorFor = (k: string) => r.items.find((i) => i.key === k)!.anchor
     expect(anchorFor('heroImage')).toBe('#media')
-    expect(anchorFor('logo')).toBe('#media')
     expect(anchorFor('productPhotos')).toBe('#media')
     expect(anchorFor('description')).toBe('#description')
     expect(anchorFor('brandHighlights')).toBe('#brandHighlights')
@@ -100,7 +97,6 @@ describe('computeBrandCompleteness', () => {
       expect(r.items.map((i) => i.key)).toEqual([
         'heroImage',
         'description',
-        'logo',
         'purchaseLinks',
         'productPhotos',
         'socialLinks',
@@ -113,16 +109,15 @@ describe('computeBrandCompleteness', () => {
     it('splits items into tier1 (high impact) and tier2 (good to have)', () => {
       const r = computeBrandCompleteness(EMPTY)
       expect(r.tier1Items).toHaveLength(5)
-      expect(r.tier2Items).toHaveLength(4)
+      expect(r.tier2Items).toHaveLength(3)
       expect(r.tier1Items.map((i) => i.key)).toEqual([
         'heroImage',
         'description',
-        'logo',
         'purchaseLinks',
         'productPhotos',
+        'socialLinks',
       ])
       expect(r.tier2Items.map((i) => i.key)).toEqual([
-        'socialLinks',
         'brandHighlights',
         'foundingYear',
         'retailLocations',
@@ -133,10 +128,9 @@ describe('computeBrandCompleteness', () => {
       const brand = makeBrand({
         heroImageUrl: 'https://img/hero.png',
         description: 'A brand',
-        logoUrl: 'https://img/logo.png',
       })
       const r = computeBrandCompleteness(brand)
-      expect(r.tier1Items.filter((i) => i.complete)).toHaveLength(3)
+      expect(r.tier1Items.filter((i) => i.complete)).toHaveLength(2)
       expect(r.tier2Items.filter((i) => i.complete)).toHaveLength(0)
     })
   })

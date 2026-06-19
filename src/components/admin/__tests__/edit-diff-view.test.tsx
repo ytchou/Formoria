@@ -39,10 +39,10 @@ describe('computeDiffFields', () => {
 
   it('marks image fields', () => {
     const result = computeDiffFields(
-      { logoUrl: 'http://a.com/logo.png' },
-      { logoUrl: 'http://b.com/logo.png' }
+      { heroImageUrl: 'http://a.com/hero.png' },
+      { heroImageUrl: 'http://b.com/hero.png' }
     )
-    const logo = result.find((f: DiffField) => f.fieldKey === 'logoUrl')
-    expect(logo?.isImage).toBe(true)
+    const hero = result.find((f: DiffField) => f.fieldKey === 'heroImageUrl')
+    expect(hero?.isImage).toBe(true)
   })
 })

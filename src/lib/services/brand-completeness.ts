@@ -3,7 +3,6 @@ import type { Brand } from '@/lib/types/brand'
 export type CompletenessKey =
   | 'heroImage'
   | 'description'
-  | 'logo'
   | 'purchaseLinks'
   | 'productPhotos'
   | 'socialLinks'
@@ -40,7 +39,6 @@ const FIELD_ORDER: {
 }[] = [
   { key: 'heroImage', anchor: '#media', isComplete: (b) => !!b.heroImageUrl },
   { key: 'description', anchor: '#description', isComplete: (b) => !!b.description?.trim() },
-  { key: 'logo', anchor: '#media', isComplete: (b) => !!b.logoUrl },
   {
     key: 'purchaseLinks',
     anchor: '#links',

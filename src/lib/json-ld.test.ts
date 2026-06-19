@@ -16,7 +16,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
   return {
     id: '123', name: '茶籽堂 Chatzutang', slug: 'chatzutang',
     description: 'Natural body care with camellia seed oil',
-    logoUrl: 'https://example.com/logo.png',
     heroImageUrl: 'https://example.com/hero.jpg',
     status: 'approved', isVerified: false, isDemo: false, category: 'Food & Beverage', foundingYear: 2004,
     purchaseWebsite: 'https://chatzutang.com',
@@ -44,7 +43,7 @@ describe('buildBrandJsonLd', () => {
     expect(jsonLd['@type']).toBe('Organization')
     expect(jsonLd.name).toBe('茶籽堂 Chatzutang')
     expect(jsonLd.url).toBe('https://chatzutang.com')
-    expect(jsonLd.logo).toBe('https://example.com/logo.png')
+    expect(jsonLd.image).toBe('https://example.com/hero.jpg')
     expect(jsonLd.foundingDate).toBe('2004')
   })
 
@@ -154,10 +153,9 @@ describe('buildBrandJsonLd', () => {
 
   it('omits optional fields when null', () => {
     const jsonLd = buildBrandJsonLd(makeBrand({
-      logoUrl: null, heroImageUrl: null, foundingYear: null,
       contactEmail: null, socialInstagram: null, socialThreads: null, socialFacebook: null,
       purchaseWebsite: null, purchasePinkoi: null, purchaseShopee: null, otherUrls: [],
-      retailLocations: [],
+      retailLocations: [], heroImageUrl: null, foundingYear: null,
     }))
     expect(jsonLd.logo).toBeUndefined()
     expect(jsonLd.image).toBeUndefined()

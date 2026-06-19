@@ -114,7 +114,6 @@ function createBrand(overrides: Partial<Brand>): Brand {
     name: 'Brand',
     slug: 'brand',
     description: null,
-    logoUrl: null,
     heroImageUrl: null,
     status: 'approved',
     category: null,

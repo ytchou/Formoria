@@ -7,7 +7,6 @@ const validBase = {
   name: 'Test Brand',
   description: 'A'.repeat(40),
   category: 'fashion',
-  logoUrl: 'https://example.com/logo.png',
 };
 
 describe('BrandInfoSchema — unifiedBusinessNumber', () => {

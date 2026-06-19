@@ -60,7 +60,6 @@ export type Brand = {
   name: string
   slug: string
   description: string | null
-  logoUrl: string | null
   heroImageUrl: string | null
   status: BrandStatus
   category: string | null
@@ -122,7 +121,6 @@ export type PendingBrandEditWithBrand = PendingBrandEdit & {
     | 'name'
     | 'slug'
     | 'description'
-    | 'logoUrl'
     | 'heroImageUrl'
     | 'category'
     | 'contactEmail'

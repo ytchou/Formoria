@@ -9,7 +9,7 @@ import {
 } from '@/lib/services/brands'
 import { isNonImageHost } from '@/lib/images/allowed-image-hosts'
 
-type BackupBrand = Pick<Brand, 'id' | 'heroImageUrl' | 'logoUrl' | 'productPhotos'> & {
+type BackupBrand = Pick<Brand, 'id' | 'heroImageUrl' | 'productPhotos'> & {
   slug?: string
 }
 
@@ -93,7 +93,6 @@ async function dryRun(slug: string | null): Promise<void> {
   for (const brand of brands) {
     const syncableUrls = collectSyncableImageUrls({
       heroImageUrl: brand.heroImageUrl,
-      logoUrl: brand.logoUrl,
       productPhotos: brand.productPhotos,
     })
 
@@ -152,7 +151,6 @@ async function writeBackup(brands: Brand[]): Promise<string> {
     id: brand.id,
     slug: brand.slug,
     heroImageUrl: brand.heroImageUrl,
-    logoUrl: brand.logoUrl,
     productPhotos: brand.productPhotos,
   }))
   const outputPath = backupPath()
@@ -178,12 +176,8 @@ function parseBackupJson(raw: string): BackupBrand[] {
     }
 
     const heroImageUrl = record.heroImageUrl ?? null
-    const logoUrl = record.logoUrl ?? null
     if (heroImageUrl !== null && typeof heroImageUrl !== 'string') {
       throw new Error(`Invalid heroImageUrl at index ${index}`)
-    }
-    if (logoUrl !== null && typeof logoUrl !== 'string') {
-      throw new Error(`Invalid logoUrl at index ${index}`)
     }
     if (!record.productPhotos.every((url) => typeof url === 'string')) {
       throw new Error(`Invalid productPhotos at index ${index}`)
@@ -192,7 +186,6 @@ function parseBackupJson(raw: string): BackupBrand[] {
     return {
       id: record.id,
       heroImageUrl,
-      logoUrl,
       productPhotos: record.productPhotos,
     }
   })
@@ -205,7 +198,6 @@ async function restoreBackup(restorePath: string): Promise<void> {
   for (const brand of backup) {
     await updateBrand(brand.id, {
       heroImageUrl: brand.heroImageUrl,
-      logoUrl: brand.logoUrl,
       productPhotos: brand.productPhotos,
     })
     restored++

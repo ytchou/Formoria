@@ -46,7 +46,6 @@ describe('curatedSubmissionToBrand', () => {
     slug: 'taiwan-tea-co',
     description: MIN_DESCRIPTION,
     category: 'Food & Beverage',
-    logoUrl: null,
     productPhotos: [],
     purchaseLinks: [],
     socialLinks: { instagram: '', threads: '', facebook: '', website: '' },

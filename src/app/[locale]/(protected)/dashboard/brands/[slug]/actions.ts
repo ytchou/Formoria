@@ -66,7 +66,6 @@ function parseBrandEditForm(
   const instagram = formData.get('instagram') as string | null
   const threads = formData.get('threads') as string | null
   const facebook = formData.get('facebook') as string | null
-  const logoUrl = parseOptionalString(formData.get('logoUrl'))
   const heroImageUrl = parseOptionalString(formData.get('heroImageUrl'))
   const brandHighlightsRaw = parseOptionalString(formData.get('brandHighlights'))
   const brandHighlights = brandHighlightsRaw?.slice(0, BRAND_HIGHLIGHTS_MAX_LENGTH) ?? null
@@ -130,7 +129,6 @@ function parseBrandEditForm(
   if (instagram !== null) updateData.socialInstagram = instagram || null
   if (threads !== null) updateData.socialThreads = threads || null
   if (facebook !== null) updateData.socialFacebook = facebook || null
-  if (formData.has('logoUrl')) updateData.logoUrl = logoUrl
   if (formData.has('heroImageUrl')) updateData.heroImageUrl = heroImageUrl
   if (formData.has('productPhotos')) updateData.productPhotos = productPhotos
   if (formData.has('brandHighlights')) updateData.brandHighlights = brandHighlights
@@ -138,9 +136,8 @@ function parseBrandEditForm(
   return updateData
 }
 
-function imageUrlsFromBrand(brand: Pick<Brand, 'logoUrl' | 'heroImageUrl' | 'productPhotos'>): string[] {
+function imageUrlsFromBrand(brand: Pick<Brand, 'heroImageUrl' | 'productPhotos'>): string[] {
   return [
-    brand.logoUrl,
     brand.heroImageUrl,
     ...(brand.productPhotos ?? []),
   ].filter((url): url is string => Boolean(url))
@@ -379,9 +376,6 @@ export async function publishDraftAction(
 
       if (autoApprove) {
         const nextImageUrls = imageUrlsFromBrand({
-          logoUrl: 'logoUrl' in snapshot
-            ? (typeof snapshot.logoUrl === 'string' ? snapshot.logoUrl : null)
-            : brand.logoUrl,
           heroImageUrl: 'heroImageUrl' in snapshot
             ? (typeof snapshot.heroImageUrl === 'string' ? snapshot.heroImageUrl : null)
             : brand.heroImageUrl,
@@ -407,9 +401,6 @@ export async function publishDraftAction(
     }
 
     const nextImageUrls = imageUrlsFromBrand({
-      logoUrl: 'logoUrl' in snapshot
-        ? (typeof snapshot.logoUrl === 'string' ? snapshot.logoUrl : null)
-        : brand.logoUrl,
       heroImageUrl: 'heroImageUrl' in snapshot
         ? (typeof snapshot.heroImageUrl === 'string' ? snapshot.heroImageUrl : null)
         : brand.heroImageUrl,

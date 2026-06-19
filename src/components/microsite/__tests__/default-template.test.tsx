@@ -7,7 +7,6 @@ import type { Brand, SiteContent } from '@/lib/types/brand'
 const brand = {
   name: 'Warmwood 溫木',
   slug: 'warmwood-living',
-  logoUrl: 'https://x.supabase.co/logo.png',
   heroImageUrl: 'https://x.supabase.co/hero.jpg',
   mitVerified: true,
   contactEmail: 'hi@warmwood.tw',

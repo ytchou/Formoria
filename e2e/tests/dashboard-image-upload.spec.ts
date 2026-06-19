@@ -69,7 +69,7 @@ test.describe('Dashboard — brand image upload', () => {
     }
   });
 
-  test('owner can upload a logo and the URL persists after save', async ({ userPage }) => {
+  test('owner can upload a hero image and the URL persists after save', async ({ userPage }) => {
     test.setTimeout(120_000);
 
     const editPath = `/dashboard/brands/${brandSlug}/edit`;
@@ -84,8 +84,7 @@ test.describe('Dashboard — brand image upload', () => {
       userPage.getByRole('heading', { name: /edit|編輯/i })
     ).toBeVisible({ timeout: 60_000 });
 
-    // The logo upload field input id is 'image-upload-logoUrl' (sr-only)
-    const logoInput = userPage.locator('#image-upload-logoUrl');
+    const heroInput = userPage.locator('#image-upload-heroImageUrl');
 
     // Intercept the upload API call BEFORE triggering the file-select
     const uploadResponsePromise = userPage.waitForResponse(
@@ -94,8 +93,8 @@ test.describe('Dashboard — brand image upload', () => {
     );
 
     // Attach the tiny PNG buffer as a File via setInputFiles (works on sr-only inputs)
-    await logoInput.setInputFiles({
-      name: 'test-logo.png',
+    await heroInput.setInputFiles({
+      name: 'test-hero.png',
       mimeType: 'image/png',
       buffer: TINY_PNG,
     });
@@ -126,6 +125,6 @@ test.describe('Dashboard — brand image upload', () => {
       .eq('status', 'pending')
       .single();
 
-    expect((pendingEdit?.proposed_data as Record<string, unknown>)?.logoUrl).toBe(uploadedUrl);
+    expect((pendingEdit?.proposed_data as Record<string, unknown>)?.heroImageUrl).toBe(uploadedUrl);
   });
 });

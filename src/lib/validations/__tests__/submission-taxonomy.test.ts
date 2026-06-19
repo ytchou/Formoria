@@ -12,7 +12,6 @@ describe('submission schema — taxonomy fields', () => {
       category: 'fashion',
       region: 'taipei',
       valueTags: [],
-      logoUrl: 'https://example.com/logo.png',
     })
     expect(result.success).toBe(true)
   })
@@ -23,7 +22,6 @@ describe('submission schema — taxonomy fields', () => {
       name: 'Test Brand',
       description: 'A'.repeat(40),
       category: 'fashion',
-      logoUrl: 'https://example.com/logo.png',
     })
     expect(result.success).toBe(true)
   })
@@ -35,7 +33,6 @@ describe('submission schema — taxonomy fields', () => {
       description: 'A'.repeat(40),
       category: 'fashion',
       valueTags: ['a', 'b', 'c', 'd'],
-      logoUrl: 'https://example.com/logo.png',
     })
     expect(result.success).toBe(false)
   })
@@ -47,7 +44,6 @@ describe('submission schema — taxonomy fields', () => {
       description: 'A'.repeat(40),
       category: 'fashion',
       valueTags: ['sustainability', 'fair-trade', 'organic'],
-      logoUrl: 'https://example.com/logo.png',
     })
     expect(result.success).toBe(true)
   })

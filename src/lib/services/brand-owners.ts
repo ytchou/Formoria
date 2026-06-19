@@ -7,13 +7,13 @@ import { createServiceClient } from '@/lib/supabase/server'
 
 type BrandOwnerRow = Database['public']['Tables']['brand_owners']['Row']
 
-/** Shape returned by: brand_owners.select('brand_id, claimed_at, brands(id, name, slug, logo_url)') */
+/** Shape returned by: brand_owners.select('brand_id, claimed_at, brands(id, name, slug, hero_image_url)') */
 type BrandOwnerRowWithBrand = Pick<BrandOwnerRow, 'brand_id' | 'claimed_at'> & {
   brands: {
     id: string
     name: string
     slug: string
-    logo_url: string | null
+    hero_image_url: string | null
   }
 }
 
@@ -21,7 +21,7 @@ export type OwnedBrand = {
   brandId: string
   brandName: string
   brandSlug: string
-  logoUrl: string | null
+  heroImageUrl: string | null
   claimedAt: string
 }
 
@@ -29,7 +29,7 @@ export async function getUserBrands(userId: string): Promise<OwnedBrand[]> {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('brand_owners')
-    .select('brand_id, claimed_at, brands(id, name, slug, logo_url)')
+    .select('brand_id, claimed_at, brands(id, name, slug, hero_image_url)')
     .eq('user_id', userId)
     .order('claimed_at', { ascending: true })
 
@@ -41,7 +41,7 @@ export async function getUserBrands(userId: string): Promise<OwnedBrand[]> {
     brandId: row.brand_id,
     brandName: row.brands.name,
     brandSlug: row.brands.slug,
-    logoUrl: row.brands.logo_url ?? null,
+    heroImageUrl: row.brands.hero_image_url ?? null,
     claimedAt: row.claimed_at,
   }))
 }
@@ -83,7 +83,7 @@ export async function getBrandBySlugForAdmin(slug: string): Promise<OwnedBrand |
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('brands')
-    .select('id, name, slug, logo_url, brand_owners(claimed_at)')
+    .select('id, name, slug, hero_image_url, brand_owners(claimed_at)')
     .eq('slug', slug)
     .maybeSingle()
 
@@ -96,7 +96,7 @@ export async function getBrandBySlugForAdmin(slug: string): Promise<OwnedBrand |
     brandId: data.id,
     brandName: data.name,
     brandSlug: data.slug,
-    logoUrl: data.logo_url ?? null,
+    heroImageUrl: data.hero_image_url ?? null,
     claimedAt: owners[0]?.claimed_at ?? new Date().toISOString(),
   }
 }

@@ -86,7 +86,7 @@ describe('saved-brands service', () => {
               id: 'brand-1',
               name: 'Dachun Soap',
               slug: 'dachun-soap',
-              logo_url: null,
+              hero_image_url: null,
               status: 'approved',
             },
           },
@@ -97,7 +97,7 @@ describe('saved-brands service', () => {
               id: 'brand-2',
               name: 'Pending Brand',
               slug: 'pending-brand',
-              logo_url: 'https://example.com/logo.png',
+              hero_image_url: null,
               status: 'pending',
             },
           },
@@ -110,13 +110,13 @@ describe('saved-brands service', () => {
           brandId: 'brand-1',
           brandName: 'Dachun Soap',
           brandSlug: 'dachun-soap',
-          logoUrl: null,
+          heroImageUrl: null,
           savedAt: '2026-06-12T00:00:00Z',
         },
       ])
       expect(builder.from).toHaveBeenCalledWith('brand_saves')
       expect(builder.select).toHaveBeenCalledWith(
-        'brand_id, created_at, brands(id, name, slug, logo_url, status)'
+        'brand_id, created_at, brands(id, name, slug, hero_image_url, status)'
       )
       expect(builder.eq).toHaveBeenCalledWith('user_id', 'user-1')
     })

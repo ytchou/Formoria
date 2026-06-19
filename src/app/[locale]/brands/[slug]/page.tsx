@@ -66,7 +66,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   try {
     const brand = await getBrandBySlug(slug)
-    const heroImageUrl = safeImageSrc(brand.logoUrl) ?? safeImageSrc(brand.heroImageUrl)
+    const heroImageUrl = safeImageSrc(brand.heroImageUrl)
     const { canonical, languages } = buildAlternates(`/brands/${brand.slug}`, safeLocale)
     const ogLocale = safeLocale === 'zh-TW' ? 'zh_TW' : 'en_US'
     const ogAlternateLocale = safeLocale === 'zh-TW' ? 'en_US' : 'zh_TW'
@@ -153,7 +153,7 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
   }
 
   // Gallery images: hero + product photos
-  const galleryImages = [displayBrand.logoUrl, displayBrand.heroImageUrl, ...displayBrand.productPhotos].filter(
+  const galleryImages = [displayBrand.heroImageUrl, ...displayBrand.productPhotos].filter(
     (url): url is string => Boolean(url),
   )
 

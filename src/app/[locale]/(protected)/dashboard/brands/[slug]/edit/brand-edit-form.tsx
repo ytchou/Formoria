@@ -143,13 +143,6 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
           </h2>
 
           <ImageUploadField
-            name="logoUrl"
-            label={t("fieldLogo")}
-            brandId={brand.id}
-            currentUrl={brand.logoUrl}
-          />
-
-          <ImageUploadField
             name="heroImageUrl"
             label={t("fieldHeroImage")}
             brandId={brand.id}

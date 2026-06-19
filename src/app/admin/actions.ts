@@ -140,7 +140,6 @@ export async function approveSubmissionAction(
         name: submission.brandName,
         slug,
         description: submission.description,
-        logoUrl: null,
         heroImageUrl: null,
         status: 'approved',
         isVerified: false,
@@ -1133,7 +1132,7 @@ export async function executeBulkImportAction(
           name: data.name,
           slug: row.slug,
           description: data.description,
-          logoUrl: data.logoUrl ?? null,
+          heroImageUrl: data.heroImageUrl ?? null,
           category,
           purchaseLinks: data.purchaseLinks.map((link) => ({
             ...link,

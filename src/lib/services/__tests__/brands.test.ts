@@ -9,7 +9,6 @@ function makeBrandRow(overrides: Record<string, unknown> = {}) {
     name: 'Test Brand',
     slug: 'test-brand',
     description: 'A test brand',
-    logo_url: null,
     hero_image_url: null,
     status: 'approved',
     category: 'fashion',

@@ -113,17 +113,16 @@ describe('getPendingEdits', () => {
 
 describe('approvePendingEdit', () => {
   it('sets status to approved with CAS before updating the brand', async () => {
-    const currentLogo = 'https://example.test/storage/v1/object/public/brand-images/brands/old-logo.png'
-    const updatedLogo = 'https://example.test/storage/v1/object/public/brand-images/brands/new-logo.png'
+    const currentHero = 'https://example.test/storage/v1/object/public/brand-images/brands/old-hero.png'
+    const updatedHero = 'https://example.test/storage/v1/object/public/brand-images/brands/new-hero.png'
     vi.mocked(updateBrand).mockResolvedValueOnce({
       id: BRAND_ID,
       name: 'Updated Name',
       slug: 'test-brand',
-      logoUrl: updatedLogo,
-      heroImageUrl: null,
+      heroImageUrl: updatedHero,
       productPhotos: [],
     } as unknown as Awaited<ReturnType<typeof updateBrand>>)
-    vi.mocked(diffRemovedImageUrls).mockReturnValueOnce([currentLogo])
+    vi.mocked(diffRemovedImageUrls).mockReturnValueOnce([currentHero])
 
     const mockUpdate = {
       update: vi.fn().mockReturnThis(),
@@ -133,14 +132,13 @@ describe('approvePendingEdit', () => {
         data: {
           id: EDIT_ID,
           brand_id: BRAND_ID,
-          proposed_data: { ...PROPOSED_DATA, logoUrl: updatedLogo },
+          proposed_data: { ...PROPOSED_DATA, heroImageUrl: updatedHero },
           status: 'approved',
           brands: {
             id: BRAND_ID,
             name: 'Test Brand',
             slug: 'test-brand',
-            logo_url: currentLogo,
-            hero_image_url: null,
+            hero_image_url: currentHero,
             product_photos: [],
           },
         },
@@ -160,10 +158,10 @@ describe('approvePendingEdit', () => {
     expect(mockUpdate.eq).toHaveBeenCalledWith('status', 'pending')
     expect(updateBrand).toHaveBeenCalledWith(
       BRAND_ID,
-      expect.objectContaining({ ...PROPOSED_DATA, logoUrl: updatedLogo })
+      expect.objectContaining({ ...PROPOSED_DATA, heroImageUrl: updatedHero })
     )
-    expect(diffRemovedImageUrls).toHaveBeenCalledWith([currentLogo], [updatedLogo])
-    expect(deleteBrandImages).toHaveBeenCalledWith([currentLogo])
+    expect(diffRemovedImageUrls).toHaveBeenCalledWith([currentHero], [updatedHero])
+    expect(deleteBrandImages).toHaveBeenCalledWith([currentHero])
   })
 
   it('throws when the edit was already processed', async () => {

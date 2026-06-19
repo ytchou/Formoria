@@ -90,7 +90,7 @@ export async function submitBrand(
       name: parsed.name,
       slug: '',
       description: parsed.description,
-      logoUrl: parsed.logoUrl ?? null,
+      heroImageUrl: null,
       category: derivedCategory,
       purchaseLinks: parsed.purchaseLinks.map((l) => ({
         ...l,

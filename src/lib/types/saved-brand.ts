@@ -2,6 +2,6 @@ export interface SavedBrand {
   brandId: string
   brandName: string
   brandSlug: string
-  logoUrl: string | null
+  heroImageUrl: string | null
   savedAt: string
 }

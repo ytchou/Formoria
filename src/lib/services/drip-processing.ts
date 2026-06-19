@@ -21,7 +21,7 @@ type OwnerRow = {
   brand_slug: string
   unsubscribe_token: string
   description?: string
-  logo_url?: string
+  hero_image_url?: string
   social_links?: Record<string, unknown>
   founding_year?: number
   site_enabled?: boolean
@@ -205,7 +205,7 @@ function queryEligibleOwners(
     .select(`
       user_id,
       claimed_at,
-      brands!inner(name, slug, description, logo_url, social_links, founding_year, site_content),
+      brands!inner(name, slug, description, hero_image_url, social_links, founding_year, site_content),
       owner_email_preferences!inner(unsubscribe_token),
       email:users!brand_owners_user_id_fkey(email)
     `)
@@ -245,7 +245,7 @@ function normalizeOwnerRow(row: Record<string, unknown>): OwnerRow {
     brand_slug: stringValue(row.brand_slug ?? brand?.slug),
     unsubscribe_token: stringValue(row.unsubscribe_token ?? preference?.unsubscribe_token),
     description: typeof brand?.description === 'string' ? brand.description : undefined,
-    logo_url: typeof brand?.logo_url === 'string' ? brand.logo_url : undefined,
+    hero_image_url: typeof brand?.hero_image_url === 'string' ? brand.hero_image_url : undefined,
     social_links: parsedSocialLinks,
     founding_year: typeof brand?.founding_year === 'number' ? brand.founding_year : undefined,
     site_enabled: objectValue(brand?.site_content)?.enabled === true,
@@ -258,10 +258,10 @@ function profileCompleteness(owner: OwnerRow): {
 } {
   // [Critical 1] Check actual brand columns, not site_content.
   // Matches the DB function profile_completeness() which scores:
-  // description, logo_url, social_links (non-empty object), founding_year
+  // description, hero_image_url, social_links (non-empty object), founding_year
   const checks: [string, boolean][] = [
     ['description', Boolean(owner.description)],
-    ['logo_url', Boolean(owner.logo_url)],
+    ['hero_image_url', Boolean(owner.hero_image_url)],
     [
       'social_links',
       Boolean(owner.social_links && Object.keys(owner.social_links).length > 0),

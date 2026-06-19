@@ -156,7 +156,6 @@ describe('updateBrandAction', () => {
       name: 'Test Brand',
       description: 'Original description before edit',
       socialLinks: {},
-      logoUrl: null,
       heroImageUrl: null,
       productPhotos: [],
       brandHighlights: null,
@@ -253,7 +252,6 @@ describe('updateBrandAction', () => {
       await updateBrandAction(undefined, form({
         brandSlug: 'test-brand',
         name: 'Acme',
-        logoUrl: newLogoUrl,
         heroImageUrl: heroUrl,
         productPhotos: JSON.stringify([newProductUrl]),
         brandHighlights: 'Hand-finished in Taichung',
@@ -265,7 +263,6 @@ describe('updateBrandAction', () => {
     expect(updateBrand).toHaveBeenCalledWith(
       'brand-1',
       expect.objectContaining({
-        logoUrl: newLogoUrl,
         heroImageUrl: heroUrl,
         productPhotos: [newProductUrl],
         brandHighlights: 'Hand-finished in Taichung',
@@ -344,7 +341,6 @@ describe('updateBrandAction', () => {
       name: 'Test Brand',
       description: 'Original description before edit',
       socialLinks: {},
-      logoUrl: oldLogoUrl,
       heroImageUrl: oldHeroUrl,
       productPhotos: [oldProductUrl],
       brandHighlights: null,
@@ -356,7 +352,6 @@ describe('updateBrandAction', () => {
     try {
       await updateBrandAction(undefined, form({
         brandSlug: 'test-brand',
-        logoUrl: newLogoUrl,
         heroImageUrl: '',
         productPhotos: '[]',
       }))
@@ -365,8 +360,8 @@ describe('updateBrandAction', () => {
     }
 
     expect(diffRemovedImageUrls).toHaveBeenCalledWith(
-      [oldLogoUrl, oldHeroUrl, oldProductUrl],
-      [newLogoUrl]
+      [oldHeroUrl, oldProductUrl],
+      []
     )
     expect(deleteBrandImages).toHaveBeenCalledWith([oldHeroUrl, oldProductUrl])
   })
@@ -401,7 +396,6 @@ describe('updateBrandAction — admin bypass', () => {
       name: 'Test Brand',
       description: 'Original description before edit',
       socialLinks: {},
-      logoUrl: null,
       heroImageUrl: null,
       productPhotos: [],
       brandHighlights: null,
@@ -467,7 +461,6 @@ describe('updateBrandAction — edit gating', () => {
       name: 'Test Brand',
       description: 'Original description before edit',
       socialLinks: {},
-      logoUrl: null,
       heroImageUrl: null,
       productPhotos: [],
       brandHighlights: null,
@@ -646,7 +639,6 @@ describe('publishDraftAction — edit gating', () => {
       name: 'Test Brand',
       description: 'Original description before edit',
       socialLinks: {},
-      logoUrl: null,
       heroImageUrl: null,
       productPhotos: [],
       brandHighlights: null,

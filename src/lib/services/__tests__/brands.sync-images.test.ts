@@ -5,7 +5,6 @@ describe('collectSyncableImageUrls', () => {
   it('excludes tracking/non-image hosts from sync candidates', () => {
     const urls = collectSyncableImageUrls({
       heroImageUrl: 'https://www.facebook.com/tr?id=1&ev=PageView',
-      logoUrl: null,
       productPhotos: [
         'https://cdn01.pinkoi.com/product/x/1/800x0.jpg',
         'https://tr.line.me/tag.gif?e=pv',
@@ -17,7 +16,6 @@ describe('collectSyncableImageUrls', () => {
   it('skips URLs already hosted on Supabase', () => {
     const urls = collectSyncableImageUrls({
       heroImageUrl: 'https://project.supabase.co/storage/v1/object/public/brand/x.webp',
-      logoUrl: null,
       productPhotos: [],
     })
     expect(urls).toEqual([])
@@ -61,19 +59,17 @@ describe('buildSyncedImagePatch', () => {
     ])
   })
 
-  it('skips failed hero while syncing successful logo and photo downloads', () => {
+  it('skips failed hero while syncing successful photo downloads', () => {
     const patch = buildSyncedImagePatch(
       [
         { url: 'https://example.com/hero.jpg', field: 'hero' },
-        { url: 'https://example.com/logo.jpg', field: 'logo' },
         { url: 'https://example.com/photo-0.jpg', field: 'photo', index: 0 },
       ],
-      [null, 'https://cdn.supabase.co/logo.jpg', 'https://cdn.supabase.co/photo-0.jpg'],
+      [null, 'https://cdn.supabase.co/photo-0.jpg'],
       ['originalPhoto0'],
     )
 
     expect(patch.heroImageUrl).toBeUndefined()
-    expect(patch.logoUrl).toBe('https://cdn.supabase.co/logo.jpg')
     expect(patch.productPhotos).toEqual(['https://cdn.supabase.co/photo-0.jpg'])
   })
 })

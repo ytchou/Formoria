@@ -41,7 +41,7 @@ interface EnrichedBrand {
   instagram: string
   threads: string
   facebook: string
-  logoUrl: string
+  heroImageUrl: string
   productPhotos: string
   brandHighlights: string
   categoryHints: string
@@ -133,7 +133,7 @@ function buildCSVRow(brand: EnrichedBrand): string {
     'instagram',
     'threads',
     'facebook',
-    'logoUrl',
+    'heroImageUrl',
     'productPhotos',
     'brandHighlights',
     'categoryHints',
@@ -228,7 +228,7 @@ function mergeToEnriched(input: BrandInput, scraped: ScrapedBrandData | null): E
     instagram: s?.socialInstagram || input.instagram || '',
     threads: s?.socialThreads || input.threads || '',
     facebook: s?.socialFacebook || input.facebook || '',
-    logoUrl: '',
+    heroImageUrl: s?.heroImageUrl || '',
     productPhotos: s?.galleryImageUrls.join(' | ') || '',
     brandHighlights: input.context || '',
     categoryHints: s?.categoryHints.join(' | ') || '',
@@ -303,7 +303,7 @@ async function main() {
     }
   }
 
-  const header = 'name,description,productTypes,productTypeNote,website,instagram,threads,facebook,logoUrl,productPhotos,brandHighlights,categoryHints,scrapeStatus'
+  const header = 'name,description,productTypes,productTypeNote,website,instagram,threads,facebook,heroImageUrl,productPhotos,brandHighlights,categoryHints,scrapeStatus'
   const rows = results.map(buildCSVRow)
   const csv = [header, ...rows].join('\n')
 

@@ -18,7 +18,6 @@ function Wrapper({ children }: { children: React.ReactNode }) {
       description: 'Handcrafted rain boots from Tainan.',
       category: 'fashion',
       tags: ['handmade'],
-      logoUrl: 'https://example.com/logo.webp',
       productPhotos: ['https://example.com/p1.webp'],
       brandHighlights: 'Cedar wood soles.',
       purchaseLinks: [

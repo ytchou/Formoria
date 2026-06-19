@@ -23,7 +23,6 @@ describe('GET /api/search', () => {
         id: '1',
         name: 'Tea Brand',
         slug: 'tea-brand',
-        logoUrl: null,
         category: 'Food',
         similarity: 0.9,
       },

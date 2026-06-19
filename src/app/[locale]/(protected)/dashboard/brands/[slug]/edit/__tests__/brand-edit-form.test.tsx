@@ -22,7 +22,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     name: 'Test Brand',
     slug: 'test-brand',
     description: 'Original description',
-    logoUrl: null,
     heroImageUrl: null,
     status: 'approved',
     category: 'fashion',
@@ -59,9 +58,8 @@ describe('BrandEditForm — sections', () => {
     expect(screen.getByLabelText(/founding year/i)).toBeInTheDocument()
   })
 
-  it('renders Media section with logo and hero upload fields', () => {
+  it('renders Media section with hero upload field', () => {
     render(<BrandEditForm brand={mockBrand} />)
-    expect(screen.getByLabelText(/logo/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/hero image/i)).toBeInTheDocument()
   })
 

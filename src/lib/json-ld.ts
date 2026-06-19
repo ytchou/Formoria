@@ -41,7 +41,6 @@ export function buildBrandJsonLd(brand: Brand, locale: Locale = 'zh-TW'): JsonLd
 
   const url = brand.purchaseWebsite ?? brand.purchasePinkoi ?? brand.purchaseShopee ?? null
   if (url) jsonLd.url = url
-  if (brand.logoUrl) jsonLd.logo = brand.logoUrl
   if (brand.heroImageUrl) jsonLd.image = brand.heroImageUrl
   if (brand.foundingYear) jsonLd.foundingDate = String(brand.foundingYear)
   if (brand.contactEmail) jsonLd.email = brand.contactEmail

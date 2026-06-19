@@ -15,8 +15,8 @@ vi.mock('next/link', () => ({
 import BrandShowcase from './brand-showcase'
 
 const mockBrands = [
-  { id: '1', name: '茶籽堂', slug: 'cha-zi-tang', description: '苦茶籽品牌', category: 'beauty', heroImageUrl: null, logoUrl: null, website: 'https://example.com', foundedYear: 2004, approvedAt: '2026-01-15', verifiedAt: null, tags: [], socialLinks: {}, isApproved: true, isHidden: false },
-  { id: '2', name: '春一枝', slug: 'chun-yi-zhi', description: '天然水果冰棒', category: 'food', heroImageUrl: null, logoUrl: null, website: null, foundedYear: 2008, approvedAt: '2026-02-20', verifiedAt: null, tags: [], socialLinks: {}, isApproved: true, isHidden: false },
+  { id: '1', name: '茶籽堂', slug: 'cha-zi-tang', description: '苦茶籽品牌', category: 'beauty', heroImageUrl: null, website: 'https://example.com', foundedYear: 2004, approvedAt: '2026-01-15', verifiedAt: null, tags: [], socialLinks: {}, isApproved: true, isHidden: false },
+  { id: '2', name: '春一枝', slug: 'chun-yi-zhi', description: '天然水果冰棒', category: 'food', heroImageUrl: null, website: null, foundedYear: 2008, approvedAt: '2026-02-20', verifiedAt: null, tags: [], socialLinks: {}, isApproved: true, isHidden: false },
 ]
 
 describe('BrandShowcase', () => {
