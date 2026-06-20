@@ -38,7 +38,6 @@ const VARIATION_SELECTOR_REGEX = /\uFE0F/g
 const DECORATIVE_SYMBOL_REGEX = /[◜◌☼✧◆★●•*♡♥❖✦✩✪✫✬✭✮✯✰]+/gu
 const BRACKET_NOISE_REGEX = /^【\s*([^】]+?)\s*】.*$/u
 const CJK_REGEX = /[\u4E00-\u9FFF\u3400-\u4DBF]/
-const CJK_SLUG_REGEX = /[\u4E00-\u9FFF\u3400-\u4DBF]/
 const ASCII_LATIN_REGEX = /^[\u0000-\u007F]+$/
 const STYLIZED_RUN_REGEX = /[\u{1D400}-\u{1D7FF}\u{1D00}-\u{1D22}][\u{1D400}-\u{1D7FF}\u{1D00}-\u{1D22}\s.'-]*[\u{1D400}-\u{1D7FF}\u{1D00}-\u{1D22}]|[\u{1D400}-\u{1D7FF}\u{1D00}-\u{1D22}]/gu
 const DECORATIVE_SPACING_REGEX = /^(?:[A-Za-z0-9]\s+){2,}[A-Za-z0-9]$/u
@@ -111,7 +110,7 @@ const SMALL_CAPS_MAP = new Map<string, string>([
   ['ᴜ', 'U'],
   ['ᴠ', 'V'],
   ['ᴡ', 'W'],
-  ['x', 'X'],
+  ['ˣ', 'X'],
   ['ʏ', 'Y'],
   ['ᴢ', 'Z'],
 ])
@@ -343,7 +342,7 @@ export function normalizeSlug(
   slug: string,
   scrapedBrandName: string | null
 ): SlugNormalizationResult {
-  if (!CJK_SLUG_REGEX.test(slug) || !scrapedBrandName || !ASCII_LATIN_REGEX.test(scrapedBrandName)) {
+  if (!CJK_REGEX.test(slug) || !scrapedBrandName || !ASCII_LATIN_REGEX.test(scrapedBrandName)) {
     return {
       newSlug: null,
       source: 'unchanged',
