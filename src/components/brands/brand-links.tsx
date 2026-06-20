@@ -184,9 +184,6 @@ export function BrandSocialLinks({ brand }: BrandLinksProps) {
     },
   ]
 
-  const hasAny = socialSlots.some((s) => s.url)
-  if (!hasAny) return null
-
   return (
     <LinkSection
       label={t('links.socialPlatforms')}
@@ -223,9 +220,6 @@ export function BrandPurchaseLinks({ brand }: BrandLinksProps) {
       icon: <ShoppingCart className="size-4 text-[#EE4D2D]" />,
     },
   ]
-
-  const hasAny = purchaseSlots.some((s) => s.url)
-  if (!hasAny) return null
 
   return (
     <LinkSection

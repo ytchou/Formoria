@@ -20,8 +20,8 @@ export default function HowItWorks({ heading, steps, cta }: HowItWorksProps) {
         </h2>
         <ol className="mt-12 grid gap-8 md:grid-cols-3">
           {steps.map(({ label, description }, index) => (
-            <li key={label}>
-              <p className="font-heading text-3xl font-bold text-primary/30">
+            <li key={label} className="border-t border-border pt-5">
+              <p className="text-sm font-semibold text-cta">
                 {String(index + 1).padStart(2, '0')}
               </p>
               <h3 className="mt-4 font-heading text-lg font-bold text-foreground">

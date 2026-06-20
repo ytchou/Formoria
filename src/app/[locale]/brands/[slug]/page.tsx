@@ -28,9 +28,6 @@ import { BrandActions } from '@/components/brands/brand-actions'
 import { ClaimBrandCta } from '@/components/brands/claim-brand-cta'
 import { RequestRemoval } from '@/components/brands/request-removal'
 import { BrandAbout } from '@/components/brands/brand-about'
-import { BrandTags } from '@/components/brands/brand-tags'
-import { BrandHighlights } from '@/components/brands/brand-highlights'
-import { BrandPhotoGallery } from '@/components/brands/brand-photo-gallery'
 import { BrandLinks } from '@/components/brands/brand-links'
 import { BrandLocations } from '@/components/brands/brand-locations'
 import { MoreInCategory } from '@/components/brands/more-in-category'
@@ -246,6 +243,18 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
               }
             />
 
+            <hr className="border-border" />
+
+            <BrandAbout brand={displayBrand} />
+
+            <hr className="border-border" />
+
+            <BrandLinks brand={displayBrand} />
+
+            <hr className="border-border" />
+
+            <BrandLocations brand={displayBrand} />
+
             {!displayBrand.isVerified && (
               <ClaimBrandCta
                 brandId={displayBrand.id}
@@ -253,21 +262,6 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
                 removalSlot={<RequestRemoval brandName={displayBrand.name} brandSlug={displayBrand.slug} />}
               />
             )}
-
-            <hr className="border-border" />
-
-            <BrandAbout brand={displayBrand} />
-
-            <hr className="border-border" />
-
-            <BrandTags brand={displayBrand} />
-            <BrandHighlights brand={displayBrand} />
-            <BrandPhotoGallery photos={displayBrand.productPhotos} brandSlug={displayBrand.slug} />
-
-            <hr className="border-border" />
-
-            <BrandLinks brand={displayBrand} />
-            <BrandLocations brand={displayBrand} />
 
             {categoryTag && (
               <MoreInCategory

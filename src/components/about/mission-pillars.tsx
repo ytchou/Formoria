@@ -5,20 +5,16 @@ interface Pillar {
 
 interface MissionPillarsProps {
   heading: string
-  statement: string
   pillars: [Pillar, Pillar, Pillar]
 }
 
-export default function MissionPillars({ heading, statement, pillars }: MissionPillarsProps) {
+export default function MissionPillars({ heading, pillars }: MissionPillarsProps) {
   return (
     <section className="border-t border-border py-16 md:py-24">
       <div className="mx-auto max-w-5xl px-6 md:px-8">
         <h2 className="font-heading text-3xl font-bold leading-tight text-foreground md:text-4xl">
           {heading}
         </h2>
-        <p className="mt-5 max-w-3xl font-heading text-xl font-medium leading-snug text-foreground md:text-2xl">
-          {statement}
-        </p>
         <div className="mt-12 grid gap-8 md:grid-cols-3">
           {pillars.map((pillar, index) => (
             <div key={pillar.heading} className="border-t border-border pt-5">
