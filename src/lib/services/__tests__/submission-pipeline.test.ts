@@ -80,6 +80,7 @@ vi.mock('@/lib/services/moderation', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/services/moderation')>()
   return {
     ...actual,
+    EMOJI_REGEX: /\p{Emoji_Presentation}/gu,
     scanContent: vi.fn(() => ({ riskLevel: 'clean', flags: [] })),
     saveModerationFlags: vi.fn(),
   }

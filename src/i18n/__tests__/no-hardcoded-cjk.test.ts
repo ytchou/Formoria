@@ -52,6 +52,8 @@ const ALLOWLIST = [
   'lib/taxonomy/ontology.ts',
   // Slug generation regex uses CJK character ranges (not UI copy).
   'lib/services/brands.ts',
+  // Brand cleanup uses Chinese keyword arrays and regex patterns (not UI copy).
+  'lib/services/brand-cleanup.ts',
   // Transitional: real messages come from the i18n factory; static fallback map
   // here is test-only. TODO remove the static fallback and drop this entry.
   'lib/validations/submission.ts',

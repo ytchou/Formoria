@@ -80,6 +80,7 @@ vi.mock('@/lib/security/turnstile', () => ({
 }))
 
 vi.mock('@/lib/services/moderation', () => ({
+  EMOJI_REGEX: /\p{Emoji_Presentation}/gu,
   scanContent: mockScanContent,
   saveModerationFlags: mockSaveModerationFlags,
 }))
