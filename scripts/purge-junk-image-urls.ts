@@ -1,16 +1,10 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import type { Brand } from '@/lib/types'
-import {
-  getBrands,
-  syncBrandImages,
-  updateBrand,
-} from '@/lib/services/brands'
 import { isNonImageHost } from '@/lib/images/allowed-image-hosts'
+import { getBrands, updateBrand } from '@/lib/services/brands'
+import type { Brand } from '@/lib/types'
 
-type BackupBrand = Pick<Brand, 'id' | 'heroImageUrl' | 'productPhotos'> & {
-  slug?: string
-}
+type BackupBrand = Pick<Brand, 'id' | 'slug' | 'heroImageUrl' | 'productPhotos'>
 
 type CliOptions = {
   dryRun: boolean
@@ -74,6 +68,26 @@ async function getTargetBrands(slug: string | null): Promise<Brand[]> {
   return [brand]
 }
 
+function isPurgeable(url: string): boolean {
+  return isNonImageHost(url)
+}
+
+function purgeableUrls(brand: Brand): string[] {
+  const urls: string[] = []
+
+  if (brand.heroImageUrl && isPurgeable(brand.heroImageUrl)) {
+    urls.push(brand.heroImageUrl)
+  }
+
+  for (const url of brand.productPhotos) {
+    if (isPurgeable(url)) {
+      urls.push(url)
+    }
+  }
+
+  return urls
+}
+
 function getHostname(url: string): string {
   try {
     return new URL(url).hostname.toLowerCase()
@@ -82,64 +96,30 @@ function getHostname(url: string): string {
   }
 }
 
-function isSupabaseStorageUrl(url: string): boolean {
-  try {
-    const parsedUrl = new URL(url)
-    const normalizedHostname = parsedUrl.hostname.toLowerCase()
-
-    return (
-      normalizedHostname.endsWith('.supabase.co') &&
-      parsedUrl.pathname.startsWith('/storage/')
-    )
-  } catch {
-    return false
-  }
-}
-
-function collectBackupSyncableImageUrls(brand: Brand): string[] {
-  const urls = [brand.heroImageUrl, ...brand.productPhotos]
-
-  return urls.filter((url): url is string => {
-    if (!url) {
-      return false
-    }
-
-    return !isSupabaseStorageUrl(url) && !isNonImageHost(url)
-  })
-}
-
 async function dryRun(slug: string | null): Promise<void> {
   const brands = await getTargetBrands(slug)
   const hostCounts = new Map<string, number>()
-  const flaggedHeroBrands: { slug: string; heroImageUrl: string }[] = []
-  let brandsWithSyncableUrls = 0
-  let totalSyncableImages = 0
+  let brandsAffected = 0
+  let totalUrlsToPurge = 0
 
   for (const brand of brands) {
-    const syncableUrls = collectBackupSyncableImageUrls(brand)
+    const urls = purgeableUrls(brand)
 
-    if (syncableUrls.length > 0) {
-      brandsWithSyncableUrls++
-      totalSyncableImages += syncableUrls.length
+    if (urls.length > 0) {
+      brandsAffected++
+      totalUrlsToPurge += urls.length
     }
 
-    for (const url of syncableUrls) {
+    for (const url of urls) {
       const hostname = getHostname(url)
       hostCounts.set(hostname, (hostCounts.get(hostname) ?? 0) + 1)
-    }
-
-    if (brand.heroImageUrl && isNonImageHost(brand.heroImageUrl)) {
-      flaggedHeroBrands.push({
-        slug: brand.slug,
-        heroImageUrl: brand.heroImageUrl,
-      })
     }
   }
 
   console.log('--- Dry Run Summary ---')
   console.log(`Approved brands scanned: ${brands.length}`)
-  console.log(`Brands with syncable URLs: ${brandsWithSyncableUrls}`)
-  console.log(`Total syncable images: ${totalSyncableImages}`)
+  console.log(`Brands affected: ${brandsAffected}`)
+  console.log(`Total URLs to purge: ${totalUrlsToPurge}`)
 
   console.log('\nHost histogram:')
   const sortedHosts = [...hostCounts.entries()].sort((a, b) => b[1] - a[1])
@@ -151,21 +131,12 @@ async function dryRun(slug: string | null): Promise<void> {
     }
   }
 
-  console.log('\nBrands with non-image hero URLs:')
-  if (flaggedHeroBrands.length === 0) {
-    console.log('  (none)')
-  } else {
-    for (const brand of flaggedHeroBrands) {
-      console.log(`  ${brand.slug}: ${brand.heroImageUrl}`)
-    }
-  }
-
   console.log('\nDry run complete. No changes made.')
 }
 
 function backupPath(): string {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-  return path.join('scripts', `.backfill-backup-${timestamp}.json`)
+  return path.join('scripts', `.purge-backup-${timestamp}.json`)
 }
 
 async function writeBackup(brands: Brand[]): Promise<string> {
@@ -192,6 +163,7 @@ function parseBackupJson(raw: string): BackupBrand[] {
       typeof item !== 'object' ||
       item === null ||
       typeof record.id !== 'string' ||
+      typeof record.slug !== 'string' ||
       !Array.isArray(record.productPhotos)
     ) {
       throw new Error(`Invalid backup entry at index ${index}`)
@@ -207,6 +179,7 @@ function parseBackupJson(raw: string): BackupBrand[] {
 
     return {
       id: record.id,
+      slug: record.slug,
       heroImageUrl,
       productPhotos: record.productPhotos,
     }
@@ -216,49 +189,72 @@ function parseBackupJson(raw: string): BackupBrand[] {
 async function restoreBackup(restorePath: string): Promise<void> {
   const backup = parseBackupJson(await readFile(restorePath, 'utf8'))
   let restored = 0
-
-  for (const brand of backup) {
-    await updateBrand(brand.id, {
-      heroImageUrl: brand.heroImageUrl,
-      productPhotos: brand.productPhotos,
-    })
-    restored++
-  }
-
-  console.log(`Restored ${restored} brand(s) from ${restorePath}`)
-}
-
-async function runBackfill(slug: string | null): Promise<void> {
-  const brands = await getTargetBrands(slug)
-  const outputPath = await writeBackup(brands)
-
-  console.log(`Backup written before mutation: ${outputPath}`)
-  console.log(`Syncing ${brands.length} brand(s) sequentially...`)
-
-  let synced = 0
   let failed = 0
 
-  for (let i = 0; i < brands.length; i++) {
-    const brand = brands[i]
+  for (let i = 0; i < backup.length; i++) {
+    const brand = backup[i]
 
     try {
-      await syncBrandImages(brand.id)
-      synced++
+      await updateBrand(brand.id, {
+        heroImageUrl: brand.heroImageUrl,
+        productPhotos: brand.productPhotos,
+      })
+      restored++
     } catch (err) {
       failed++
       console.error(`${brand.slug}:`, err)
     }
 
-    const processed = i + 1
-    if (processed % 10 === 0 || processed === brands.length) {
-      console.log(`Progress: ${processed}/${brands.length}`)
+    console.log(`[${i + 1}/${backup.length}] ${brand.slug} — restored original values`)
+  }
+
+  console.log(`Restored ${restored} brand(s) from ${restorePath}`)
+  console.log(`Failed: ${failed}`)
+}
+
+async function runPurge(slug: string | null): Promise<void> {
+  const brands = await getTargetBrands(slug)
+  const outputPath = await writeBackup(brands)
+
+  console.log(`Backup written before mutation: ${outputPath}`)
+  console.log(`Purging junk image URLs from ${brands.length} brand(s) sequentially...`)
+
+  let brandsPurged = 0
+  let urlsPurged = 0
+  let failed = 0
+
+  for (let i = 0; i < brands.length; i++) {
+    const brand = brands[i]
+    const urls = purgeableUrls(brand)
+
+    if (urls.length === 0) {
+      console.log(`[${i + 1}/${brands.length}] ${brand.slug} — no purgeable URLs`)
+      continue
+    }
+
+    try {
+      await updateBrand(brand.id, {
+        heroImageUrl:
+          brand.heroImageUrl && isPurgeable(brand.heroImageUrl)
+            ? null
+            : brand.heroImageUrl,
+        productPhotos: brand.productPhotos.filter((url) => !isPurgeable(url)),
+      })
+      brandsPurged++
+      urlsPurged += urls.length
+      console.log(`[${i + 1}/${brands.length}] ${brand.slug} — purged ${urls.length} URLs`)
+    } catch (err) {
+      failed++
+      console.error(`${brand.slug}:`, err)
+      console.log(`[${i + 1}/${brands.length}] ${brand.slug} — failed`)
     }
   }
 
-  console.log('\n--- Backfill Summary ---')
-  console.log(`Total: ${brands.length}`)
-  console.log(`Synced: ${synced}`)
-  console.log(`Failed: ${failed}`)
+  console.log('\n--- Purge Summary ---')
+  console.log(`Brands processed: ${brands.length}`)
+  console.log(`Brands purged: ${brandsPurged}`)
+  console.log(`URLs purged: ${urlsPurged}`)
+  console.log(`Failures: ${failed}`)
   console.log(`Backup path: ${outputPath}`)
 }
 
@@ -275,7 +271,7 @@ async function main(): Promise<void> {
     return
   }
 
-  await runBackfill(options.slug)
+  await runPurge(options.slug)
 }
 
 main().catch((err) => {
