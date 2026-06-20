@@ -57,7 +57,7 @@ export default async function CategoriesIndexPage({ params }: PageProps) {
   // Fetch per-category brand counts in parallel (limit:1 minimises data transfer)
   const countResults = await Promise.all(
     categories.map((cat) =>
-      getBrands({ tags: [cat.slug], status: 'approved', limit: 1 }).then((r) => r.totalCount),
+      getBrands({ category: [cat.slug], status: 'approved', limit: 1 }).then((r) => r.totalCount),
     ),
   )
 

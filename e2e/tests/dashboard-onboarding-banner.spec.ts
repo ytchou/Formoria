@@ -59,9 +59,8 @@ test.describe('Dashboard — onboarding banner and health card', () => {
         name: brandName,
         slug: brandSlug,
         status: 'approved',
+        product_type: 'crafts',
         description: '[E2E-TEST] Onboarding banner test brand.',
-        purchase_links: [],
-        social_links: {},
         retail_locations: [],
         product_photos: [],
       })

@@ -39,9 +39,8 @@ test.describe('Dashboard — brand image upload', () => {
         name: brandName,
         slug: brandSlug,
         status: 'approved',
+        product_type: 'crafts',
         description: 'E2E throwaway — image upload test.',
-        purchase_links: [],
-        social_links: {},
         retail_locations: [],
         product_photos: [],
       })

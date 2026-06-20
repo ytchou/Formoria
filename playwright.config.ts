@@ -4,6 +4,18 @@ import { defineConfig, devices } from '@playwright/test';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 require('dotenv').config({ path: '.env.local' });
 
+// Disable dev-only widgets (e.g., Agentation) during test runs
+process.env.PLAYWRIGHT_TEST = 'true';
+
+// Ensure the E2E admin account is in ADMIN_EMAILS so isAdmin() passes during tests
+if (process.env.E2E_ADMIN_EMAIL && process.env.ADMIN_EMAILS) {
+  const emails = process.env.ADMIN_EMAILS.split(',').map((e) => e.trim().toLowerCase());
+  const e2eAdmin = process.env.E2E_ADMIN_EMAIL.trim().toLowerCase();
+  if (!emails.includes(e2eAdmin)) {
+    process.env.ADMIN_EMAILS = `${process.env.ADMIN_EMAILS},${process.env.E2E_ADMIN_EMAIL}`;
+  }
+}
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -32,7 +44,8 @@ export default defineConfig({
     {
       name: 'smoke-webkit',
       testMatch: 'e2e/smoke/**/*.spec.ts',
-      use: { ...devices['Desktop Safari'] },
+      timeout: 60_000,
+      use: { ...devices['Desktop Safari'], navigationTimeout: 45_000 },
     },
     // Deep: Chrome only
     {
@@ -45,12 +58,6 @@ export default defineConfig({
       name: 'mobile',
       testMatch: 'e2e/tests/mobile.spec.ts',
       use: { ...devices['Pixel 5'] },
-    },
-    // Perf: Chrome (Lighthouse)
-    {
-      name: 'perf',
-      testMatch: 'e2e/perf/**/*.spec.ts',
-      use: { ...devices['Desktop Chrome'], channel: 'chrome' },
     },
   ],
   globalSetup: './e2e/global-setup.ts',

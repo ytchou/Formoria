@@ -37,7 +37,7 @@ test.describe('Submit name suggestion', () => {
 
     // Suggestion alert must appear — locate by unique content rather than
     // bare role="alert" (avoids collision with route announcer / other alerts)
-    const suggestionAlert = userPage.getByText('Suggested name:');
+    const suggestionAlert = userPage.getByText('建議名稱：');
     await expect(suggestionAlert).toBeVisible({ timeout: 15_000 });
 
     // Alert body contains the cleaned name
@@ -46,7 +46,7 @@ test.describe('Submit name suggestion', () => {
 
     // Apply button is present
     const applyBtn = userPage.getByRole('button', {
-      name: 'Apply',
+      name: '套用',
       exact: true,
     });
     await expect(applyBtn).toBeVisible();
@@ -81,7 +81,7 @@ test.describe('Submit name suggestion', () => {
     await nameInput.fill('TestBrand🥑');
     await nameInput.press('Tab');
 
-    const suggestionAlert = userPage.getByText('Suggested name:');
+    const suggestionAlert = userPage.getByText('建議名稱：');
     await expect(suggestionAlert).toBeVisible({ timeout: 15_000 });
 
     // User resumes typing — onChange clears the suggestion

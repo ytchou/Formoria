@@ -11,7 +11,7 @@ import { createClient } from '@supabase/supabase-js';
  * Cleanup: afterAll deletes the [E2E-TEST] subscriber row via service-role client.
  */
 
-const TEST_EMAIL_PREFIX = '[e2e-test]-newsletter';
+const TEST_EMAIL_PREFIX = 'e2e-test-newsletter';
 
 test.describe('Newsletter subscribe flow', () => {
   let testEmail: string;
@@ -35,18 +35,18 @@ test.describe('Newsletter subscribe flow', () => {
   test('anonymous visitor can subscribe from the homepage', async ({ page }) => {
     test.setTimeout(60_000);
 
-    await page.goto('/zh-TW');
+    await page.goto('/');
 
     // --- Newsletter section heading ---
     const heading = page.getByRole('heading', { name: '掌握最新動態' });
     await heading.scrollIntoViewIfNeeded();
     await expect(heading).toBeVisible({ timeout: 15_000 });
 
-    // --- "New Brands" chip is pre-selected (aria-pressed="true") ---
-    // zh-TW label: "新品牌 New Brands"
-    const newBrandsChip = page.getByRole('button', { name: /新品牌/ });
-    await expect(newBrandsChip).toBeVisible({ timeout: 5_000 });
-    await expect(newBrandsChip).toHaveAttribute('aria-pressed', 'true');
+    // --- "Curated Picks" chip is pre-selected (aria-pressed="true") ---
+    // zh-TW label: "選物推薦"
+    const curatedPicksChip = page.getByRole('button', { name: /選物推薦/ });
+    await expect(curatedPicksChip).toBeVisible({ timeout: 5_000 });
+    await expect(curatedPicksChip).toHaveAttribute('aria-pressed', 'true');
 
     // --- Toggle "Brand Stories" chip on ---
     // zh-TW label: "品牌故事 Brand Stories"
@@ -68,9 +68,7 @@ test.describe('Newsletter subscribe flow', () => {
     // --- Success banner replaces the form ---
     // The success div has a green background and contains the confirmation text.
     // zh-TW: "請查看您的收件匣以確認訂閱 / Check your inbox to confirm your subscription"
-    const successBanner = page.locator('div').filter({
-      hasText: /請查看您的收件匣以確認訂閱/,
-    });
+    const successBanner = page.getByText('請查看您的收件匣以確認訂閱');
     await expect(successBanner).toBeVisible({ timeout: 20_000 });
 
     // The form itself must no longer be present

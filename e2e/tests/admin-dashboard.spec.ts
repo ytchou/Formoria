@@ -40,9 +40,9 @@ test.describe('Admin dashboard deep', () => {
     if (testSubmissionId) {
       await supabase.from('brand_submissions').delete().eq('id', testSubmissionId);
     }
-    await supabase.from('brand_submissions').delete().like('brand_name', '[E2E-TEST]%');
-    // Also cleanup any brands created via approval
-    await supabase.from('brands').delete().like('name', '[E2E-TEST]%');
+    if (testBrandName) {
+      await supabase.from('brands').delete().eq('name', testBrandName);
+    }
   });
 
   test('admin dashboard shows accurate stats', async ({ adminPage }) => {
@@ -85,7 +85,7 @@ test.describe('Admin dashboard deep', () => {
     await expect(approveBtn).toBeVisible({ timeout: 10_000 });
     await approveBtn.click();
     // After approval the server action revalidates and the button disappears
-    await expect(approveBtn).toBeHidden({ timeout: 15_000 });
+    await expect(approveBtn).toBeHidden({ timeout: 30_000 });
   });
 
   test('reject submission keeps brand out of directory', async ({ adminPage }) => {

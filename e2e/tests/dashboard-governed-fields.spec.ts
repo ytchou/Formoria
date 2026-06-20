@@ -49,10 +49,9 @@ test.describe('Dashboard — governed field integrity', () => {
         name: brandName,
         slug: brandSlug,
         status: 'approved',
+        product_type: 'crafts',
         mit_status: 'unverified',
         description: '[E2E-TEST] Initial description.',
-        purchase_links: [],
-        social_links: {},
         retail_locations: [],
         product_photos: [],
       })

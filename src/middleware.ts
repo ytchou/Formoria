@@ -206,7 +206,7 @@ export async function middleware(request: NextRequest) {
     const segment = segments.length > 0 && KNOWN_LOCALES.has(segments[0])
       ? segments[1]
       : segments[0]
-    const AUTH_REQUIRED_SEGMENTS = new Set(['dashboard', 'settings', 'my-submissions'])
+    const AUTH_REQUIRED_SEGMENTS = new Set(['dashboard', 'settings', 'my-submissions', 'submit', 'admin'])
     if (!AUTH_REQUIRED_SEGMENTS.has(segment)) {
       return response
     }

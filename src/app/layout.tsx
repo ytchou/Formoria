@@ -61,7 +61,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <SessionTracker />
         {children}
-        {process.env.NODE_ENV === "development" && <Agentation />}
+        {process.env.NODE_ENV === "development" && !process.env.PLAYWRIGHT_TEST && <Agentation />}
         {process.env.NEXT_PUBLIC_GA_ID && (
           <>
             <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />

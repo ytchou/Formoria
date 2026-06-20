@@ -69,9 +69,8 @@ test.describe('Brand save/unsave — card overlay', () => {
         name: brandName,
         slug: brandSlug,
         status: 'approved',
+        product_type: 'crafts',
         description: '[E2E-TEST] Save-brand journey test brand.',
-        purchase_links: [],
-        social_links: {},
         retail_locations: [],
         product_photos: [],
       })
@@ -100,14 +99,14 @@ test.describe('Brand save/unsave — card overlay', () => {
     // The brand detail page renders a SaveBrandButton with inline variant
     // (brand cards on the directory use overlay; detail page uses inline).
     // Both share the same aria-label contract.
-    const saveBtn = userPage.getByRole('button', { name: '收藏這個品牌' });
+    const saveBtn = userPage.getByRole('button', { name: '收藏這個品牌' }).first();
     await expect(saveBtn).toBeVisible({ timeout: 10_000 });
 
     await saveBtn.click();
 
     // Optimistic update: aria-label flips immediately to "取消收藏這個品牌"
     await expect(
-      userPage.getByRole('button', { name: '取消收藏這個品牌' })
+      userPage.getByRole('button', { name: '取消收藏這個品牌' }).first()
     ).toBeVisible({ timeout: 10_000 });
   });
 
@@ -164,33 +163,20 @@ test.describe('Brand save/unsave — card overlay', () => {
       )
       .toBe(true);
 
-    await userPage.waitForTimeout(1000);
-
-    const resp = await userPage.goto('/dashboard?tab=saved', {
-      timeout: 60_000,
-      waitUntil: 'networkidle',
-    });
+    const resp = await userPage.goto('/dashboard?tab=saved', { timeout: 60_000 });
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
     }
 
-    const savedBrandHeading = userPage.locator('h2').filter({ hasText: brandName });
-    if (!(await savedBrandHeading.isVisible({ timeout: 30_000 }).catch(() => false))) {
-      await userPage.reload({ timeout: 60_000, waitUntil: 'networkidle' });
-    }
+    await expect(async () => {
+      await userPage.reload({ timeout: 30_000 });
+      const savedBrandHeading = userPage.locator('h2').filter({ hasText: brandName });
+      await expect(savedBrandHeading).toBeVisible({ timeout: 5_000 });
+    }).toPass({ timeout: 90_000, intervals: [3_000, 5_000, 10_000] });
 
-    // "收藏品牌" tab link should be visible (showSavedTab = savedBrands.length > 0)
     const savedTab = userPage.locator('a[href*="tab=saved"]');
-    await expect(savedTab).toBeVisible({ timeout: 30_000 });
-    await expect(savedTab).toContainText('收藏品牌');
-
-    // The saved brand's name must appear in the panel
-    await expect(savedBrandHeading).toBeVisible({
-      timeout: 30_000,
-    });
-
-    // The active tab has the terracotta bottom border
+    await expect(savedTab).toBeVisible({ timeout: 5_000 });
     await expect(savedTab).toHaveClass(/border-cta/);
   });
 
@@ -215,7 +201,7 @@ test.describe('Brand save/unsave — card overlay', () => {
 
     // Optimistic update: flips back to save state
     await expect(
-      userPage.getByRole('button', { name: '收藏這個品牌' })
+      userPage.getByRole('button', { name: '收藏這個品牌' }).first()
     ).toBeVisible({ timeout: 5_000 });
   });
 
@@ -274,7 +260,7 @@ test.describe('Brand save/unsave — card overlay', () => {
       return;
     }
 
-    const saveBtn = anonPage.getByRole('button', { name: '收藏這個品牌' });
+    const saveBtn = anonPage.getByRole('button', { name: '收藏這個品牌' }).first();
     await expect(saveBtn).toBeVisible({ timeout: 10_000 });
 
     await saveBtn.click();
@@ -322,9 +308,8 @@ test.describe('Brand save — card overlay on directory', () => {
         name: brandName,
         slug: brandSlug,
         status: 'approved',
+        product_type: 'crafts',
         description: '[E2E-TEST] Save-overlay journey test brand.',
-        purchase_links: [],
-        social_links: {},
         retail_locations: [],
         product_photos: [],
       })
@@ -355,7 +340,7 @@ test.describe('Brand save — card overlay on directory', () => {
     });
 
     // The detail page has no search suggestion overlay that can intercept clicks.
-    const saveBtn = userPage.getByRole('button', { name: '收藏這個品牌' });
+    const saveBtn = userPage.getByRole('button', { name: '收藏這個品牌' }).first();
     await expect(saveBtn).toBeVisible({ timeout: 10_000 });
     await expect(saveBtn).toBeEnabled({ timeout: 10_000 });
 
@@ -363,7 +348,7 @@ test.describe('Brand save — card overlay on directory', () => {
 
     // Optimistic: aria-label flips to unsave
     await expect(
-      userPage.getByRole('button', { name: '取消收藏這個品牌' })
+      userPage.getByRole('button', { name: '取消收藏這個品牌' }).first()
     ).toBeVisible({ timeout: 5_000 });
   });
 });

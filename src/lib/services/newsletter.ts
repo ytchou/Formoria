@@ -264,10 +264,13 @@ export async function confirmSubscriber(
     return { success: false, error: 'Token not found' }
   }
 
+  if (existingSubscriber.confirmed_at) {
+    return { success: true, subscriber: existingSubscriber as NewsletterSubscriber }
+  }
+
   const { data, error } = await table
     .update({
       confirmed_at: new Date().toISOString(),
-      confirm_token: newToken(),
     })
     .eq('confirm_token', confirmToken)
     .select()

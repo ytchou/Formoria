@@ -842,7 +842,7 @@ export async function findBrandByOldSlug(oldSlug: string): Promise<string | null
     .single()
 
   if (error) {
-    if (error.code === 'PGRST116') return null
+    if (error.code === 'PGRST116' || error.code === 'PGRST205') return null
     throw error
   }
 
