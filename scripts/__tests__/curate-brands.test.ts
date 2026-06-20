@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { Brand } from '@/lib/types'
-import { scoreBrand, buildEnrichPatch, matchCategory } from '../curate-brands'
+import { scoreBrand, buildEnrichPatch, matchCategory, cleanNames, detectNonBrands } from '../curate-brands'
 
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
   return {
@@ -165,6 +165,52 @@ describe('buildEnrichPatch', () => {
     expect(patch.socialInstagram).toBeUndefined()
     expect(patch.socialThreads).toBeUndefined()
     expect(patch.socialFacebook).toBeUndefined()
+  })
+})
+
+describe('cleanNames', () => {
+  it('returns only changed brands', () => {
+    const brands = [
+      makeBrand({ slug: 'dirty', name: '梨大爺🥑' }),
+      makeBrand({ slug: 'clean', name: 'AROMASE 艾瑪絲' }),
+    ]
+    const results = cleanNames(brands)
+    expect(results).toHaveLength(1)
+    expect(results[0].slug).toBe('dirty')
+    expect(results[0].cleanedName).toBe('梨大爺')
+    expect(results[0].originalName).toBe('梨大爺🥑')
+    expect(results[0].patternsMatched).toContain('emoji')
+    expect(results[0].confidence).toBe('high')
+  })
+
+  it('returns empty array when all names are clean', () => {
+    const brands = [
+      makeBrand({ name: 'AROMASE 艾瑪絲' }),
+      makeBrand({ name: "O'right 歐萊德" }),
+    ]
+    expect(cleanNames(brands)).toHaveLength(0)
+  })
+})
+
+describe('detectNonBrands', () => {
+  it('returns only non-brand entries', () => {
+    const brands = [
+      makeBrand({ slug: 'reseller', name: 'JLab 台灣獨家代理' }),
+      makeBrand({ slug: 'normal', name: 'AROMASE 艾瑪絲' }),
+      makeBrand({ slug: 'charity', name: '某某基金會' }),
+    ]
+    const results = detectNonBrands(brands)
+    expect(results).toHaveLength(2)
+    expect(results.map(r => r.slug)).toContain('reseller')
+    expect(results.map(r => r.slug)).toContain('charity')
+  })
+
+  it('returns empty array when all are real brands', () => {
+    const brands = [
+      makeBrand({ name: 'AROMASE 艾瑪絲' }),
+      makeBrand({ name: "O'right 歐萊德" }),
+    ]
+    expect(detectNonBrands(brands)).toHaveLength(0)
   })
 })
 

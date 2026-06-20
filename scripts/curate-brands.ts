@@ -1,10 +1,12 @@
 import type { Brand } from '@/lib/types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
+import { writeFile } from 'node:fs/promises'
 import { getBrands, updateBrand } from '@/lib/services/brands'
 import { getTags } from '@/lib/services/taxonomy'
 import { scrapeBrandUrl } from '@/lib/services/scraper'
 import { downloadAndStoreImages } from '@/lib/services/image-download'
 import { createServiceClient } from '@/lib/supabase/server'
+import { cleanBrandName, detectNonBrand } from '@/lib/services/brand-cleanup'
 
 const TOP_N = 30
 const SCRAPE_DELAY_MS = 2_000
@@ -116,6 +118,46 @@ export function buildEnrichPatch(
   }
 
   return patch
+}
+
+// ---------------------------------------------------------------------------
+// Cleanup helpers
+// ---------------------------------------------------------------------------
+
+export function cleanNames(brands: Brand[]): Array<{
+  slug: string
+  originalName: string
+  cleanedName: string
+  patternsMatched: ReturnType<typeof cleanBrandName>['patternsMatched']
+  confidence: ReturnType<typeof cleanBrandName>['confidence']
+}> {
+  return brands
+    .map((brand) => ({ brand, cleanup: cleanBrandName(brand.name) }))
+    .filter(({ cleanup }) => cleanup.changed)
+    .map(({ brand, cleanup }) => ({
+      slug: brand.slug,
+      originalName: cleanup.originalName,
+      cleanedName: cleanup.cleanedName,
+      patternsMatched: cleanup.patternsMatched,
+      confidence: cleanup.confidence,
+    }))
+}
+
+export function detectNonBrands(brands: Brand[]): Array<{
+  slug: string
+  name: string
+  reason: string | null
+  confidence: ReturnType<typeof detectNonBrand>['confidence']
+}> {
+  return brands
+    .map((brand) => ({ brand, detection: detectNonBrand(brand) }))
+    .filter(({ detection }) => detection.isNonBrand)
+    .map(({ brand, detection }) => ({
+      slug: brand.slug,
+      name: brand.name,
+      reason: detection.reason,
+      confidence: detection.confidence,
+    }))
 }
 
 // ---------------------------------------------------------------------------
@@ -289,6 +331,89 @@ async function scoreAndScrape(dryRun: boolean, targetSlugs?: string[], stopAfter
   }
 
   console.log(`\nDone. Enriched ${summary.filter((s) => s.fields.length > 0).length} of ${summary.length} brands.`)
+}
+
+// ---------------------------------------------------------------------------
+// clean-names
+// ---------------------------------------------------------------------------
+
+async function cleanNamesCommand(dryRun: boolean): Promise<void> {
+  console.log('Fetching approved brands...')
+  const { brands } = await getBrands({ limit: 1000, status: 'approved' })
+  console.log(`Found ${brands.length} approved brands`)
+
+  const results = cleanNames(brands)
+  console.log(`Found ${results.length} name(s) to clean\n`)
+
+  console.log('Slug                          | Original                       | Cleaned                        | Patterns                  | Confidence')
+  console.log('------------------------------|--------------------------------|--------------------------------|---------------------------|-----------')
+  for (const result of results) {
+    const slug = result.slug.padEnd(30).slice(0, 30)
+    const original = result.originalName.padEnd(31).slice(0, 31)
+    const cleaned = result.cleanedName.padEnd(31).slice(0, 31)
+    const patterns = result.patternsMatched.join(', ').padEnd(26).slice(0, 26)
+    const confidence = result.confidence.padStart(10)
+    console.log(`${slug}| ${original}| ${cleaned}| ${patterns}| ${confidence}`)
+  }
+
+  if (dryRun) {
+    console.log('\nDry run — no changes made.')
+    return
+  }
+
+  const brandBySlug = new Map(brands.map((brand) => [brand.slug, brand]))
+  let updated = 0
+
+  for (const result of results) {
+    const brand = brandBySlug.get(result.slug)
+
+    if (!brand) continue
+
+    await updateBrand(brand.id, { name: result.cleanedName })
+    updated++
+    console.log(`  [OK] ${result.slug} → ${result.cleanedName}`)
+  }
+
+  console.log(`\nDone. Cleaned ${updated} brand name(s).`)
+}
+
+// ---------------------------------------------------------------------------
+// detect-non-brands
+// ---------------------------------------------------------------------------
+
+async function detectNonBrandsCommand(dryRun: boolean, outputFile?: string): Promise<void> {
+  console.log('Fetching approved brands...')
+  const { brands } = await getBrands({ limit: 1000, status: 'approved' })
+  console.log(`Found ${brands.length} approved brands`)
+
+  const results = detectNonBrands(brands)
+  console.log(`Found ${results.length} potential non-brand entr${results.length === 1 ? 'y' : 'ies'}\n`)
+
+  console.log('Slug                          | Name                           | Reason                    | Confidence')
+  console.log('------------------------------|--------------------------------|---------------------------|-----------')
+  for (const result of results) {
+    const slug = result.slug.padEnd(30).slice(0, 30)
+    const name = result.name.padEnd(31).slice(0, 31)
+    const reason = (result.reason ?? '(unknown)').padEnd(26).slice(0, 26)
+    const confidence = result.confidence.padStart(10)
+    console.log(`${slug}| ${name}| ${reason}| ${confidence}`)
+  }
+
+  if (outputFile) {
+    await writeFile(outputFile, `${results.map((result) => result.slug).join('\n')}${results.length > 0 ? '\n' : ''}`)
+    console.log(`\nWrote ${results.length} slug(s) to ${outputFile}`)
+  }
+
+  if (dryRun) {
+    console.log('\nDry run — no changes made.')
+    return
+  }
+
+  if (outputFile) {
+    console.log(`\nReview the output, then run: pnpm remove-brand --file=${outputFile}`)
+  } else {
+    console.log('\nNo brands were deleted. Re-run with --output-file=<path>, review the file, then run pnpm remove-brand --file=<output>.')
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -467,6 +592,8 @@ function printUsage(): void {
   console.log('  score-and-scrape [--dry-run] [--slugs=a,b,c] [--stop-after=N]  Score and scrape')
   console.log('  set-visibility <slug1> ...                     Hide all, approve selected')
   console.log('  auto-tag [--dry-run]                           Assign product_type categories via keyword matching')
+  console.log('  clean-names [--dry-run]                        Clean noisy brand names')
+  console.log('  detect-non-brands [--dry-run] [--output-file=path]  Detect likely non-brand entries')
 }
 
 async function main() {
@@ -492,6 +619,18 @@ async function main() {
       const slugsArg = args.find((a) => a.startsWith('--slugs='))
       const targetSlugs = slugsArg ? slugsArg.replace('--slugs=', '').split(',') : undefined
       await autoTag(dryRun, targetSlugs)
+      break
+    }
+    case 'clean-names': {
+      const dryRun = args.includes('--dry-run')
+      await cleanNamesCommand(dryRun)
+      break
+    }
+    case 'detect-non-brands': {
+      const dryRun = args.includes('--dry-run')
+      const outputArg = args.find((a) => a.startsWith('--output-file='))
+      const outputFile = outputArg ? outputArg.replace('--output-file=', '') : undefined
+      await detectNonBrandsCommand(dryRun, outputFile)
       break
     }
     default:
