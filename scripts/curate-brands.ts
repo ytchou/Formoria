@@ -180,21 +180,29 @@ export function findSlugsNeedingNormalization(brands: Brand[]): Array<{
   source: ReturnType<typeof normalizeSlug>['source']
 }> {
   const existingSlugs = new Set(brands.map((brand) => brand.slug))
+  const assignedSlugs = new Set<string>()
+  const results: Array<{
+    slug: string
+    newSlug: string
+    name: string
+    source: ReturnType<typeof normalizeSlug>['source']
+  }> = []
 
-  return brands.flatMap((brand) => {
+  for (const brand of brands) {
     const result = normalizeSlug(brand.slug, brand.name)
 
-    if (!result.newSlug || existingSlugs.has(result.newSlug)) {
-      return []
+    if (result.newSlug && !existingSlugs.has(result.newSlug) && !assignedSlugs.has(result.newSlug)) {
+      results.push({
+        slug: brand.slug,
+        newSlug: result.newSlug,
+        name: brand.name,
+        source: result.source,
+      })
+      assignedSlugs.add(result.newSlug)
     }
+  }
 
-    return [{
-      slug: brand.slug,
-      newSlug: result.newSlug,
-      name: brand.name,
-      source: result.source,
-    }]
-  })
+  return results
 }
 
 // ---------------------------------------------------------------------------

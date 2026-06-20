@@ -1,5 +1,3 @@
-import * as moderation from './moderation'
-
 export type CleanupPattern =
   | 'emoji'
   | 'decorative-unicode'
@@ -35,11 +33,7 @@ interface BrandLike {
   purchaseWebsite?: string | null
 }
 
-type EmojiRegexModule = typeof moderation & {
-  EMOJI_REGEX?: RegExp
-}
-
-const EMOJI_REGEX = (moderation as EmojiRegexModule).EMOJI_REGEX ?? new RegExp('\\p{Extended_Pictographic}', 'gu')
+const EMOJI_REGEX = /\p{Extended_Pictographic}/gu
 const VARIATION_SELECTOR_REGEX = /\uFE0F/g
 const DECORATIVE_SYMBOL_REGEX = /[◜◌☼✧◆★●•*♡♥❖✦✩✪✫✬✭✮✯✰]+/gu
 const BRACKET_NOISE_REGEX = /^【\s*([^】]+?)\s*】.*$/u

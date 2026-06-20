@@ -295,6 +295,18 @@ describe('normalizeSlugs', () => {
 
     expect(findSlugsNeedingNormalization(brands)).toHaveLength(0)
   })
+
+  it('prevents duplicate newSlug assignments within a single run', () => {
+    const brands = [
+      makeBrand({ slug: '品牌一', name: 'Same Name' }),
+      makeBrand({ slug: '品牌二', name: 'Same Name' }),
+    ]
+
+    const results = findSlugsNeedingNormalization(brands)
+
+    expect(results).toHaveLength(1)
+    expect(results[0].slug).toBe('品牌一')
+  })
 })
 
 describe('matchCategory', () => {
