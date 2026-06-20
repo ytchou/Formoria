@@ -11,13 +11,25 @@ import {
   matchCategory,
   cleanNames,
   detectNonBrands,
+  collectPurchaseLinks,
   findBrandsNeedingEnrichment,
+  findBrandsNeedingImages,
   findBrandsNeedingLinks,
   findSlugsNeedingNormalization,
   validateLink,
 } from '../curate-brands'
 
 type BrandWithLinkColumns = Brand & BrandFlatLinkColumns
+type ImageBrandFixture = {
+  id: string
+  heroImageUrl: string | null
+  productPhotos: string[] | null
+}
+type PurchaseLinkFixture = {
+  purchasePinkoi: string | null
+  purchaseShopee: string | null
+  purchaseWebsite: string | null
+}
 
 function makeBrand(overrides: Partial<BrandWithLinkColumns> = {}): BrandWithLinkColumns {
   return {
@@ -597,5 +609,65 @@ describe('validateLink', () => {
       new Response('<html><body>HANCHOR brand page</body></html>')
     ))
     expect(await validateLink('https://example.com', 'hanchor')).toBe(true)
+  })
+})
+
+describe('findBrandsNeedingImages', () => {
+  it('includes brands with no heroImageUrl', () => {
+    const brands: ImageBrandFixture[] = [
+      { id: '1', heroImageUrl: null, productPhotos: null },
+      { id: '2', heroImageUrl: 'https://supabase.co/hero.webp', productPhotos: ['a.webp', 'b.webp', 'c.webp'] },
+    ]
+    const result = findBrandsNeedingImages(brands as unknown as Brand[])
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('1')
+  })
+
+  it('includes brands with fewer than 2 productPhotos', () => {
+    const brands: ImageBrandFixture[] = [
+      { id: '1', heroImageUrl: 'https://supabase.co/hero.webp', productPhotos: null },
+      { id: '2', heroImageUrl: 'https://supabase.co/hero.webp', productPhotos: ['a.webp'] },
+      { id: '3', heroImageUrl: 'https://supabase.co/hero.webp', productPhotos: ['a.webp', 'b.webp'] },
+    ]
+    const result = findBrandsNeedingImages(brands as unknown as Brand[])
+    expect(result).toHaveLength(2)
+    expect(result.map((brand) => brand.id)).toEqual(['1', '2'])
+  })
+})
+
+describe('collectPurchaseLinks', () => {
+  it('collects non-null purchase links from brand', () => {
+    const brand: PurchaseLinkFixture = {
+      purchasePinkoi: 'https://www.pinkoi.com/store/abc',
+      purchaseShopee: null,
+      purchaseWebsite: 'https://brand.com',
+    }
+    const links = collectPurchaseLinks(brand as unknown as Brand)
+    expect(links).toEqual([
+      'https://www.pinkoi.com/store/abc',
+      'https://brand.com',
+    ])
+  })
+
+  it('returns empty array when no purchase links exist', () => {
+    const brand: PurchaseLinkFixture = {
+      purchasePinkoi: null,
+      purchaseShopee: null,
+      purchaseWebsite: null,
+    }
+    const links = collectPurchaseLinks(brand as unknown as Brand)
+    expect(links).toEqual([])
+  })
+
+  it('prioritizes Pinkoi first, then Shopee, then website', () => {
+    const brand: PurchaseLinkFixture = {
+      purchasePinkoi: 'https://pinkoi.com/store/abc',
+      purchaseShopee: 'https://shopee.tw/shop/123',
+      purchaseWebsite: 'https://brand.com',
+    }
+    const links = collectPurchaseLinks(brand as unknown as Brand)
+    expect(links[0]).toContain('pinkoi.com')
+    expect(links[1]).toContain('shopee.tw')
+    expect(links[2]).toContain('brand.com')
   })
 })
