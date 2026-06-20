@@ -1,4 +1,4 @@
-import type { Brand } from '@/lib/types'
+import type { Brand, BrandFlatLinkColumns } from '@/lib/types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import { writeFile } from 'node:fs/promises'
 import { getBrands, hideVisibleBrands, insertSlugRedirect, updateBrand } from '@/lib/services/brands'
@@ -13,6 +13,36 @@ const TOP_N = 30
 const SCRAPE_DELAY_MS = 2_000
 const MAX_PRODUCT_PHOTOS = 5
 const BRAND_FETCH_LIMIT = 10_000
+
+const LINK_FIELDS = [
+  'socialInstagram',
+  'socialThreads',
+  'socialFacebook',
+  'purchaseWebsite',
+  'purchasePinkoi',
+  'purchaseShopee',
+] as const
+
+const LINK_FIELD_TO_COLUMN: Record<string, string> = {
+  socialInstagram: 'social_instagram',
+  socialThreads: 'social_threads',
+  socialFacebook: 'social_facebook',
+  purchaseWebsite: 'purchase_website',
+  purchasePinkoi: 'purchase_pinkoi',
+  purchaseShopee: 'purchase_shopee',
+}
+
+type LinkField = (typeof LINK_FIELDS)[number]
+type LinkColumn = Exclude<keyof BrandFlatLinkColumns, 'other_urls'>
+type BrandWithLinkColumns = Brand & BrandFlatLinkColumns
+
+function linkColumnFor(field: LinkField): LinkColumn {
+  return LINK_FIELD_TO_COLUMN[field] as LinkColumn
+}
+
+function hasLinkValue(value: string | null | undefined): value is string {
+  return value != null && value.trim() !== ''
+}
 
 // ---------------------------------------------------------------------------
 // Scoring
@@ -113,6 +143,25 @@ export function buildEnrichPatch(
   return patch
 }
 
+export function buildLinkEnrichPatch(
+  brand: BrandWithLinkColumns,
+  scraped: ScrapedBrandData
+): Partial<BrandFlatLinkColumns> {
+  const patch: Partial<BrandFlatLinkColumns> = {}
+
+  for (const field of LINK_FIELDS) {
+    const column = linkColumnFor(field)
+    const existingValue = brand[column]
+    const scrapedValue = scraped[field]
+
+    if (!hasLinkValue(existingValue) && scrapedValue) {
+      patch[column] = scrapedValue
+    }
+  }
+
+  return patch
+}
+
 // ---------------------------------------------------------------------------
 // Cleanup helpers
 // ---------------------------------------------------------------------------
@@ -163,6 +212,18 @@ export function findBrandsNeedingEnrichment(brands: Brand[]): Brand[] {
       description.length < 20 ||
       description === brand.name
     )
+  })
+}
+
+export function findBrandsNeedingLinks(brands: BrandWithLinkColumns[]): BrandWithLinkColumns[] {
+  return brands.filter((brand) => {
+    if (brand.status !== 'approved') {
+      return false
+    }
+
+    const filledLinkCount = LINK_FIELDS.filter((field) => hasLinkValue(brand[linkColumnFor(field)])).length
+
+    return filledLinkCount < LINK_FIELDS.length
   })
 }
 

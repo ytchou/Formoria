@@ -1,16 +1,21 @@
 import { describe, it, expect } from 'vitest'
-import type { Brand } from '@/lib/types'
+import type { Brand, BrandFlatLinkColumns } from '@/lib/types'
+import type { ScrapedBrandData } from '@/lib/types/scraper'
 import {
   scoreBrand,
   buildEnrichPatch,
+  buildLinkEnrichPatch,
   matchCategory,
   cleanNames,
   detectNonBrands,
   findBrandsNeedingEnrichment,
+  findBrandsNeedingLinks,
   findSlugsNeedingNormalization,
 } from '../curate-brands'
 
-function makeBrand(overrides: Partial<Brand> = {}): Brand {
+type BrandWithLinkColumns = Brand & BrandFlatLinkColumns
+
+function makeBrand(overrides: Partial<BrandWithLinkColumns> = {}): BrandWithLinkColumns {
   return {
     id: 'test-id',
     name: 'Test Brand',
@@ -40,6 +45,25 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
     ...overrides,
+  }
+}
+
+function emptyScraped(): ScrapedBrandData {
+  return {
+    brandName: null,
+    description: null,
+    story: null,
+    heroImageUrl: null,
+    galleryImageUrls: [],
+    socialInstagram: null,
+    socialThreads: null,
+    socialFacebook: null,
+    purchaseWebsite: null,
+    purchasePinkoi: null,
+    purchaseShopee: null,
+    categoryHints: [],
+    websiteUrl: 'https://example.com',
+    rawJsonLd: null,
   }
 }
 
@@ -100,44 +124,30 @@ describe('scoreBrand', () => {
 })
 
 describe('buildEnrichPatch', () => {
-  const emptyScraped = {
-    brandName: null,
-    description: null,
-    story: null,
-    heroImageUrl: null,
-    galleryImageUrls: [],
-    socialInstagram: null,
-    socialThreads: null,
-    socialFacebook: null,
-    categoryHints: [],
-    websiteUrl: 'https://example.com',
-    rawJsonLd: null,
-  }
-
   it('fills description when brand has none', () => {
     const brand = makeBrand({ description: null })
-    const scraped = { ...emptyScraped, description: 'Scraped description text here.' }
+    const scraped = { ...emptyScraped(), description: 'Scraped description text here.' }
     const patch = buildEnrichPatch(brand, scraped)
     expect(patch.description).toBe('Scraped description text here.')
   })
 
   it('fills description when brand description is too short (< 20 chars)', () => {
     const brand = makeBrand({ description: 'Short' })
-    const scraped = { ...emptyScraped, description: 'A much longer scraped description.' }
+    const scraped = { ...emptyScraped(), description: 'A much longer scraped description.' }
     const patch = buildEnrichPatch(brand, scraped)
     expect(patch.description).toBe('A much longer scraped description.')
   })
 
   it('does NOT overwrite existing description when it is >= 20 chars', () => {
     const brand = makeBrand({ description: 'Existing description' })
-    const scraped = { ...emptyScraped, description: 'Scraped description text here.' }
+    const scraped = { ...emptyScraped(), description: 'Scraped description text here.' }
     const patch = buildEnrichPatch(brand, scraped)
     expect(patch.description).toBeUndefined()
   })
 
   it('does NOT fill description when scraped description is too short (< 20 chars)', () => {
     const brand = makeBrand({ description: null })
-    const scraped = { ...emptyScraped, description: 'Too short.' }
+    const scraped = { ...emptyScraped(), description: 'Too short.' }
     const patch = buildEnrichPatch(brand, scraped)
     expect(patch.description).toBeUndefined()
   })
@@ -147,7 +157,7 @@ describe('buildEnrichPatch', () => {
       socialInstagram: 'https://instagram.com/existing',
     })
     const scraped = {
-      ...emptyScraped,
+      ...emptyScraped(),
       socialInstagram: 'https://instagram.com/new',
       socialThreads: 'https://threads.net/new',
     }
@@ -163,16 +173,146 @@ describe('buildEnrichPatch', () => {
       socialThreads: 'https://threads.net/x',
       socialFacebook: 'https://facebook.com/x',
     })
-    const patch = buildEnrichPatch(brand, emptyScraped)
+    const patch = buildEnrichPatch(brand, emptyScraped())
     expect(Object.keys(patch)).toHaveLength(0)
   })
 
   it('does not include social fields in patch when no new links found', () => {
     const brand = makeBrand()
-    const patch = buildEnrichPatch(brand, emptyScraped)
+    const patch = buildEnrichPatch(brand, emptyScraped())
     expect(patch.socialInstagram).toBeUndefined()
     expect(patch.socialThreads).toBeUndefined()
     expect(patch.socialFacebook).toBeUndefined()
+  })
+})
+
+describe('buildLinkEnrichPatch', () => {
+  it('fills missing purchase links from scraped data', () => {
+    const brand = makeBrand({
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+    })
+    const scraped = {
+      ...emptyScraped(),
+      purchasePinkoi: 'https://pinkoi.com/store/test',
+      purchaseShopee: 'https://shopee.tw/test',
+    }
+
+    const patch = buildLinkEnrichPatch(brand, scraped)
+
+    expect(patch).toEqual({
+      purchase_pinkoi: 'https://pinkoi.com/store/test',
+      purchase_shopee: 'https://shopee.tw/test',
+    })
+  })
+
+  it('fills missing social links from scraped data', () => {
+    const brand = makeBrand({
+      social_instagram: null,
+      social_threads: 'https://threads.net/existing',
+    })
+    const scraped = {
+      ...emptyScraped(),
+      socialInstagram: 'https://instagram.com/test',
+      socialThreads: 'https://threads.net/new',
+    }
+
+    const patch = buildLinkEnrichPatch(brand, scraped)
+
+    expect(patch).toEqual({
+      social_instagram: 'https://instagram.com/test',
+    })
+  })
+
+  it('does not overwrite existing links', () => {
+    const brand = makeBrand({
+      purchase_pinkoi: 'https://pinkoi.com/store/existing',
+    })
+    const scraped = {
+      ...emptyScraped(),
+      purchasePinkoi: 'https://pinkoi.com/store/new',
+    }
+
+    const patch = buildLinkEnrichPatch(brand, scraped)
+
+    expect(patch.purchase_pinkoi).toBeUndefined()
+  })
+
+  it('returns empty patch when brand has all links', () => {
+    const brand = makeBrand({
+      social_instagram: 'https://instagram.com/test',
+      social_threads: 'https://threads.net/test',
+      social_facebook: 'https://facebook.com/test',
+      purchase_website: 'https://example.com',
+      purchase_pinkoi: 'https://pinkoi.com/store/test',
+      purchase_shopee: 'https://shopee.tw/test',
+    })
+    const scraped = {
+      ...emptyScraped(),
+      socialInstagram: 'https://instagram.com/new',
+      socialThreads: 'https://threads.net/new',
+      socialFacebook: 'https://facebook.com/new',
+      purchaseWebsite: 'https://new.example.com',
+      purchasePinkoi: 'https://pinkoi.com/store/new',
+      purchaseShopee: 'https://shopee.tw/new',
+    }
+
+    const patch = buildLinkEnrichPatch(brand, scraped)
+
+    expect(patch).toEqual({})
+  })
+
+  it('returns empty patch when scraped has no links', () => {
+    const brand = makeBrand({ purchase_pinkoi: null })
+
+    const patch = buildLinkEnrichPatch(brand, emptyScraped())
+
+    expect(patch).toEqual({})
+  })
+})
+
+describe('findBrandsNeedingLinks', () => {
+  it('excludes brands with all 6 links filled', () => {
+    const brands = [
+      makeBrand({
+        status: 'approved',
+        social_instagram: 'https://instagram.com/test',
+        social_threads: 'https://threads.net/test',
+        social_facebook: 'https://facebook.com/test',
+        purchase_website: 'https://example.com',
+        purchase_pinkoi: 'https://pinkoi.com/store/test',
+        purchase_shopee: 'https://shopee.tw/test',
+      }),
+    ]
+
+    expect(findBrandsNeedingLinks(brands)).toHaveLength(0)
+  })
+
+  it('includes approved brands with at least one missing link', () => {
+    const brands = [
+      makeBrand({
+        status: 'approved',
+        social_instagram: 'https://instagram.com/test',
+        social_threads: null,
+        social_facebook: 'https://facebook.com/test',
+        purchase_website: 'https://example.com',
+        purchase_pinkoi: 'https://pinkoi.com/store/test',
+        purchase_shopee: 'https://shopee.tw/test',
+      }),
+    ]
+
+    expect(findBrandsNeedingLinks(brands)).toHaveLength(1)
+  })
+
+  it('excludes non-approved brands', () => {
+    const brands = [
+      makeBrand({
+        status: 'pending',
+        social_instagram: null,
+      }),
+    ]
+
+    expect(findBrandsNeedingLinks(brands)).toHaveLength(0)
   })
 })
 
