@@ -1,14 +1,18 @@
 import type { Brand } from '@/lib/types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
-import { getBrands, updateBrand } from '@/lib/services/brands'
-import { getTags } from '@/lib/services/taxonomy'
-import { scrapeBrandUrl } from '@/lib/services/scraper'
+import { writeFile } from 'node:fs/promises'
+import { getBrands, hideVisibleBrands, insertSlugRedirect, updateBrand } from '@/lib/services/brands'
+import { addTagToBrandIgnoringDuplicates, getTags } from '@/lib/services/taxonomy'
+import { scrapeBrandUrl, scrapeBrandUrls } from '@/lib/services/scraper'
 import { downloadAndStoreImages } from '@/lib/services/image-download'
-import { createServiceClient } from '@/lib/supabase/server'
+import { cleanBrandName, detectNonBrand, matchCategory, normalizeSlug } from '@/lib/services/brand-cleanup'
+
+export { matchCategory }
 
 const TOP_N = 30
 const SCRAPE_DELAY_MS = 2_000
 const MAX_PRODUCT_PHOTOS = 5
+const BRAND_FETCH_LIMIT = 10_000
 
 // ---------------------------------------------------------------------------
 // Scoring
@@ -91,24 +95,15 @@ export function buildEnrichPatch(
     patch.description = scraped.description
   }
 
-  // Merge social links: preserve existing, fill missing
-  let hasNewLink = false
-
   if (!brand.socialInstagram && scraped.socialInstagram) {
     patch.socialInstagram = scraped.socialInstagram
-    hasNewLink = true
   }
   if (!brand.socialThreads && scraped.socialThreads) {
     patch.socialThreads = scraped.socialThreads
-    hasNewLink = true
   }
   if (!brand.socialFacebook && scraped.socialFacebook) {
     patch.socialFacebook = scraped.socialFacebook
-    hasNewLink = true
   }
-
-  // suppress unused variable warning
-  void hasNewLink
 
   // Fill brandHighlights from scraped story if brand has none
   if (!brand.brandHighlights && scraped.story) {
@@ -116,6 +111,91 @@ export function buildEnrichPatch(
   }
 
   return patch
+}
+
+// ---------------------------------------------------------------------------
+// Cleanup helpers
+// ---------------------------------------------------------------------------
+
+export function cleanNames(brands: Brand[]): Array<{
+  slug: string
+  originalName: string
+  cleanedName: string
+  patternsMatched: ReturnType<typeof cleanBrandName>['patternsMatched']
+  confidence: ReturnType<typeof cleanBrandName>['confidence']
+}> {
+  return brands
+    .map((brand) => ({ brand, cleanup: cleanBrandName(brand.name) }))
+    .filter(({ cleanup }) => cleanup.changed)
+    .map(({ brand, cleanup }) => ({
+      slug: brand.slug,
+      originalName: cleanup.originalName,
+      cleanedName: cleanup.cleanedName,
+      patternsMatched: cleanup.patternsMatched,
+      confidence: cleanup.confidence,
+    }))
+}
+
+export function detectNonBrands(brands: Brand[]): Array<{
+  slug: string
+  name: string
+  reason: string | null
+  confidence: ReturnType<typeof detectNonBrand>['confidence']
+}> {
+  return brands
+    .map((brand) => ({ brand, detection: detectNonBrand(brand) }))
+    .filter(({ detection }) => detection.isNonBrand)
+    .map(({ brand, detection }) => ({
+      slug: brand.slug,
+      name: brand.name,
+      reason: detection.reason,
+      confidence: detection.confidence,
+    }))
+}
+
+export function findBrandsNeedingEnrichment(brands: Brand[]): Brand[] {
+  return brands.filter((brand) => {
+    const description = brand.description
+
+    return (
+      description === null ||
+      description.trim() === '' ||
+      description.length < 20 ||
+      description === brand.name
+    )
+  })
+}
+
+export function findSlugsNeedingNormalization(brands: Brand[]): Array<{
+  slug: string
+  newSlug: string
+  name: string
+  source: ReturnType<typeof normalizeSlug>['source']
+}> {
+  const existingSlugs = new Set(brands.map((brand) => brand.slug))
+  const assignedSlugs = new Set<string>()
+  const results: Array<{
+    slug: string
+    newSlug: string
+    name: string
+    source: ReturnType<typeof normalizeSlug>['source']
+  }> = []
+
+  for (const brand of brands) {
+    const result = normalizeSlug(brand.slug, brand.name)
+
+    if (result.newSlug && !existingSlugs.has(result.newSlug) && !assignedSlugs.has(result.newSlug)) {
+      results.push({
+        slug: brand.slug,
+        newSlug: result.newSlug,
+        name: brand.name,
+        source: result.source,
+      })
+      assignedSlugs.add(result.newSlug)
+    }
+  }
+
+  return results
 }
 
 // ---------------------------------------------------------------------------
@@ -138,7 +218,7 @@ function isShowcaseReady(brand: Brand): boolean {
 
 async function scoreAndScrape(dryRun: boolean, targetSlugs?: string[], stopAfter?: number): Promise<void> {
   console.log('Fetching all brands...')
-  const { brands } = await getBrands({ limit: 1000 })
+  const { brands } = await getBrands({ limit: BRAND_FETCH_LIMIT })
   console.log(`Found ${brands.length} brands`)
 
   // Score and rank — optionally filter to target slugs
@@ -292,6 +372,236 @@ async function scoreAndScrape(dryRun: boolean, targetSlugs?: string[], stopAfter
 }
 
 // ---------------------------------------------------------------------------
+// clean-names
+// ---------------------------------------------------------------------------
+
+async function cleanNamesCommand(dryRun: boolean): Promise<void> {
+  console.log('Fetching approved brands...')
+  const { brands } = await getBrands({ limit: BRAND_FETCH_LIMIT, status: 'approved' })
+  console.log(`Found ${brands.length} approved brands`)
+
+  const results = cleanNames(brands)
+  console.log(`Found ${results.length} name(s) to clean\n`)
+
+  console.log('Slug                          | Original                       | Cleaned                        | Patterns                  | Confidence')
+  console.log('------------------------------|--------------------------------|--------------------------------|---------------------------|-----------')
+  for (const result of results) {
+    const slug = result.slug.padEnd(30).slice(0, 30)
+    const original = result.originalName.padEnd(31).slice(0, 31)
+    const cleaned = result.cleanedName.padEnd(31).slice(0, 31)
+    const patterns = result.patternsMatched.join(', ').padEnd(26).slice(0, 26)
+    const confidence = result.confidence.padStart(10)
+    console.log(`${slug}| ${original}| ${cleaned}| ${patterns}| ${confidence}`)
+  }
+
+  if (dryRun) {
+    console.log('\nDry run — no changes made. Re-run with --apply to write these name changes.')
+    return
+  }
+
+  const brandBySlug = new Map(brands.map((brand) => [brand.slug, brand]))
+  let updated = 0
+
+  for (const result of results) {
+    const brand = brandBySlug.get(result.slug)
+
+    if (!brand) continue
+
+    await updateBrand(brand.id, { name: result.cleanedName })
+    updated++
+    console.log(`  [OK] ${result.slug} → ${result.cleanedName}`)
+  }
+
+  console.log(`\nDone. Cleaned ${updated} brand name(s).`)
+}
+
+// ---------------------------------------------------------------------------
+// detect-non-brands
+// ---------------------------------------------------------------------------
+
+async function detectNonBrandsCommand(dryRun: boolean, outputFile?: string): Promise<void> {
+  console.log('Fetching approved brands...')
+  const { brands } = await getBrands({ limit: BRAND_FETCH_LIMIT, status: 'approved' })
+  console.log(`Found ${brands.length} approved brands`)
+
+  const results = detectNonBrands(brands)
+  console.log(`Found ${results.length} potential non-brand entr${results.length === 1 ? 'y' : 'ies'}\n`)
+
+  console.log('Slug                          | Name                           | Reason                    | Confidence')
+  console.log('------------------------------|--------------------------------|---------------------------|-----------')
+  for (const result of results) {
+    const slug = result.slug.padEnd(30).slice(0, 30)
+    const name = result.name.padEnd(31).slice(0, 31)
+    const reason = (result.reason ?? '(unknown)').padEnd(26).slice(0, 26)
+    const confidence = result.confidence.padStart(10)
+    console.log(`${slug}| ${name}| ${reason}| ${confidence}`)
+  }
+
+  if (outputFile) {
+    await writeFile(outputFile, `${results.map((result) => result.slug).join('\n')}${results.length > 0 ? '\n' : ''}`)
+    console.log(`\nWrote ${results.length} slug(s) to ${outputFile}`)
+  }
+
+  if (dryRun) {
+    console.log('\nDry run — no changes made.')
+    return
+  }
+
+  if (outputFile) {
+    console.log(`\nReview the output, then run: pnpm remove-brand --file=${outputFile}`)
+  } else {
+    console.log('\nNo brands were deleted. Re-run with --output-file=<path>, review the file, then run pnpm remove-brand --file=<output>.')
+  }
+}
+
+// ---------------------------------------------------------------------------
+// enrich-descriptions
+// ---------------------------------------------------------------------------
+
+async function enrichDescriptions(dryRun: boolean, stopAfter?: number): Promise<void> {
+  console.log('Fetching approved brands...')
+  const { brands } = await getBrands({ limit: BRAND_FETCH_LIMIT, status: 'approved' })
+  console.log(`Found ${brands.length} approved brands`)
+
+  const needingEnrichment = findBrandsNeedingEnrichment(brands)
+  const ranked = needingEnrichment
+    .map((brand) => ({ brand, ...scoreBrand(brand) }))
+    .filter(({ brand }) => brand.purchaseWebsite)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, stopAfter)
+
+  console.log(`Found ${needingEnrichment.length} brand(s) needing description enrichment`)
+  console.log(`Found ${ranked.length} brand(s) with scrapeable URLs\n`)
+
+  console.log('  #  | Score | Slug                          | Website URL')
+  console.log('-----|-------|-------------------------------|-----------------------------')
+  ranked.forEach(({ brand, score }, i) => {
+    const idx = String(i + 1).padStart(3)
+    const sc = String(score).padStart(5)
+    const slug = brand.slug.padEnd(30).slice(0, 30)
+    const url = brand.purchaseWebsite ?? '(none)'
+    console.log(`${idx}  | ${sc} | ${slug}| ${url}`)
+  })
+
+  if (dryRun) {
+    console.log('\nDry run — no changes made.')
+    return
+  }
+
+  let updated = 0
+
+  for (const { brand } of ranked) {
+    const urls = [
+      brand.purchaseWebsite,
+      brand.purchasePinkoi,
+      brand.purchaseShopee,
+    ].filter((url): url is string => Boolean(url))
+
+    console.log(`  [SCRAPE] ${brand.slug} → ${urls.join(', ')}`)
+
+    try {
+      const { data: scraped } = await scrapeBrandUrls(urls)
+      const patch = buildEnrichPatch(brand, scraped)
+
+      if (!patch.description) {
+        console.log(`  [OK] ${brand.slug} — no description found`)
+        await sleep(SCRAPE_DELAY_MS)
+        continue
+      }
+
+      await updateBrand(brand.id, { description: patch.description })
+      updated++
+      console.log(`  [OK] ${brand.slug} — enriched: description`)
+    } catch (err) {
+      console.warn(`  [ERROR] ${brand.slug}:`, err)
+    }
+
+    await sleep(SCRAPE_DELAY_MS)
+  }
+
+  console.log(`\nDone. Enriched ${updated} brand description(s).`)
+}
+
+// ---------------------------------------------------------------------------
+// normalize-slugs
+// ---------------------------------------------------------------------------
+
+async function normalizeSlugs(dryRun: boolean, scrapeFirst: boolean, stopAfter?: number): Promise<void> {
+  console.log('Fetching approved brands...')
+  const { brands } = await getBrands({ limit: BRAND_FETCH_LIMIT, status: 'approved' })
+  console.log(`Found ${brands.length} approved brands`)
+
+  let workingBrands = brands
+
+  if (scrapeFirst) {
+    const existingSlugs = new Set(brands.map((brand) => brand.slug))
+    const scrapedBrands: Brand[] = []
+
+    for (const brand of brands) {
+      if (!brand.purchaseWebsite) {
+        scrapedBrands.push(brand)
+        continue
+      }
+
+      try {
+        console.log(`  [SCRAPE] ${brand.slug} → ${brand.purchaseWebsite}`)
+        const { data: scraped } = await scrapeBrandUrls([brand.purchaseWebsite])
+        const scrapedName = scraped.brandName ?? brand.name
+        const result = normalizeSlug(brand.slug, scrapedName)
+        const normalizedName = result.newSlug && !existingSlugs.has(result.newSlug)
+          ? scrapedName
+          : brand.name
+
+        scrapedBrands.push({ ...brand, name: normalizedName })
+      } catch (err) {
+        console.warn(`  [ERROR] Scrape failed for ${brand.slug}:`, err)
+        scrapedBrands.push(brand)
+      }
+
+      await sleep(SCRAPE_DELAY_MS)
+    }
+
+    workingBrands = scrapedBrands
+  }
+
+  const results = findSlugsNeedingNormalization(workingBrands).slice(0, stopAfter)
+  console.log(`\nFound ${results.length} slug(s) to normalize\n`)
+  if (results.length === 0) {
+    console.warn('No slugs need normalization. If brands have CJK names, try running with --scrape to use English names for slug generation.')
+  }
+
+  console.log('Slug                          | New Slug                      | Name                           | Source')
+  console.log('------------------------------|-------------------------------|--------------------------------|--------------------------')
+  for (const result of results) {
+    const slug = result.slug.padEnd(30).slice(0, 30)
+    const newSlug = result.newSlug.padEnd(30).slice(0, 30)
+    const name = result.name.padEnd(31).slice(0, 31)
+    console.log(`${slug}| ${newSlug}| ${name}| ${result.source}`)
+  }
+
+  if (dryRun) {
+    console.log('\nDry run — no changes made.')
+    return
+  }
+
+  const brandBySlug = new Map(brands.map((brand) => [brand.slug, brand]))
+  let updated = 0
+
+  for (const result of results) {
+    const brand = brandBySlug.get(result.slug)
+
+    if (!brand) continue
+
+    await updateBrand(brand.id, { slug: result.newSlug })
+    await insertSlugRedirect(result.slug, result.newSlug)
+    updated++
+    console.log(`  [OK] ${result.slug} → ${result.newSlug}`)
+  }
+
+  console.log(`\nDone. Normalized ${updated} slug(s).`)
+}
+
+// ---------------------------------------------------------------------------
 // set-visibility
 // ---------------------------------------------------------------------------
 
@@ -303,7 +613,7 @@ async function setVisibility(slugs: string[]): Promise<void> {
   }
 
   console.log(`Validating ${slugs.length} slug(s)...`)
-  const { brands } = await getBrands({ limit: 1000 })
+  const { brands } = await getBrands({ limit: BRAND_FETCH_LIMIT })
   const slugMap = new Map(brands.map((b) => [b.slug, b]))
 
   // Fail fast if any slug is missing
@@ -315,14 +625,8 @@ async function setVisibility(slugs: string[]): Promise<void> {
 
   // Bulk-hide all brands
   console.log('Hiding all brands...')
-  const supabase = createServiceClient()
-  const { count, error } = await supabase
-    .from('brands')
-    .update({ status: 'hidden' }, { count: 'exact' })
-    .neq('status', 'hidden')
-
-  if (error) throw error
-  console.log(`  Hidden ${count ?? 0} brand(s)`)
+  const count = await hideVisibleBrands()
+  console.log(`  Hidden ${count} brand(s)`)
 
   // Approve selected
   console.log(`Approving ${slugs.length} brand(s)...`)
@@ -339,52 +643,15 @@ async function setVisibility(slugs: string[]): Promise<void> {
 // auto-tag
 // ---------------------------------------------------------------------------
 
-const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  clothing: ['衣', '服飾', '服裝', '上衣', '褲', '裙', '外套', '洋裝', '襯衫', 'T恤', '背心', '襪', 'apparel', 'fashion', 'wear'],
-  footwear: ['鞋', '拖鞋', '涼鞋', '靴', '球鞋', 'shoes', 'sneakers', 'boots'],
-  bags: ['皮包', '手提包', '後背包', '包包', '背包包', '包', '背包', '手提', '側背', '托特', '帆布袋', '皮件', '卡夾', '錢包', 'bag', 'tote', 'backpack', 'pouch', 'wallet'],
-  jewelry: ['耳環', '耳夾', '項鍊', '手環', '手鍊', '戒指', '胸針', '飾品', '珠寶', '銀飾', 'jewelry', 'jewellery', 'necklace', 'bracelet'],
-  accessories: ['帽子', '圍巾', '絲巾', '眼鏡', '墨鏡', '腰帶', '領帶', '配件', '髮夾', '髮圈', 'accessory', 'accessories', 'scarf'],
-  food: ['餅乾', '巧克力', '甜點', '零食', '糕點', '蛋糕', '食品', '醬', '麵條', '麵', '乾麵', '拌麵', '滷味', 'snack', 'pastry', 'food'],
-  beverages: ['茶', '咖啡', '茶葉', '茶包', '鮮乳', '牛奶', '乳品', '果汁', '啤酒', '酒', '飲品', '飲料', 'coffee', 'tea', 'drink', 'beverage'],
-  agriculture: ['農', '米', '蜂蜜', '果乾', '堅果', '農產', '牧場', '養殖', '漁', '牧', '在地農', '小農', '有機', '契作'],
-  beauty: ['保養', '美妝', '面膜', '精華液', '乳液', '化妝', '護膚', '口紅', '彩妝', 'skincare', 'cosmetic', 'serum', 'moisturizer'],
-  'bath-body': ['洗髮', '沐浴', '香皂', '肥皂', '洗手', '護手', '清潔', '洗衣', '洗碗', 'soap', 'shampoo', 'body wash'],
-  home: ['居家', '碗', '杯', '盤', '馬克杯', '餐具', '地墊', '掛鐘', '花瓶', '器皿', '陶', '瓷', 'ceramic', 'pottery', 'tableware', 'homeware'],
-  kitchen: ['刀具', '砧板', '鍋', '茶具', '廚', '鍋具', '烹飪', 'kitchenware', 'cookware'],
-  furniture: ['家具', '桌', '椅', '燈', '沙發', '書架', '層架', 'furniture', 'chair', 'table', 'lamp'],
-  stationery: ['文具', '筆記本', '手帳', '貼紙', '明信片', '紙品', '筆', 'stationery', 'notebook', 'journal'],
-  art: ['插畫', '版畫', '攝影', '畫作', '藝術', '創作', 'illustration', 'print', 'artwork', 'art'],
-  outdoor: ['戶外', '運動', '登山', '野營', '露營', '跑步', '健身', '瑜珈', '單車', '自行車', 'outdoor', 'hiking', 'camping', 'yoga'],
-  tech: ['手機', '充電', '耳機', '電腦', '3C', '科技', '鍵盤', 'tech', 'gadget', 'electronic'],
-  pets: ['寵物', '毛孩', '貓', '狗', '貓砂', '飼料', 'pet', 'dog', 'cat'],
-  'baby-kids': ['兒童', '寶寶', '親子', '嬰兒', '嬰幼兒', '母嬰', '彌月', '玩具', 'kids', 'baby', 'children', 'toy'],
-  crafts: ['手作', '手工', '布料', '毛線', '皮革', 'DIY', '材料包', 'handmade', 'handcraft', 'artisan', 'craft', 'workshop', 'leather', '工藝'],
-  fragrance: ['香氛', '蠟燭', '擴香', '精油', '線香', '香薰', 'candle', 'fragrance', 'aroma', 'diffuser'],
-  gardening: ['植栽', '盆栽', '花器', '園藝', '多肉', 'plant', 'garden', 'succulent'],
-  experiences: ['體驗', '導覽', '工作坊', '旅遊', '觀光', '行程', '遊程', '地方創生', '在地', '社區', '永續', '友善環境', '環保', 'sustainable', 'eco', 'local', 'green', 'community'],
-}
-
-export function matchCategory(text: string): string | null {
-  for (const [categorySlug, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
-    if (keywords.some((kw) => text.includes(kw))) {
-      return categorySlug
-    }
-  }
-  return null
-}
-
 async function autoTag(dryRun: boolean, targetSlugs?: string[]): Promise<void> {
   console.log('Fetching all brands...')
-  const { brands } = await getBrands({ limit: 1000 })
+  const { brands } = await getBrands({ limit: BRAND_FETCH_LIMIT })
   console.log(`Found ${brands.length} brands`)
 
   console.log('Fetching product_type tags...')
   const tags = await getTags('product_type')
   const tagBySlug = new Map(tags.map((t) => [t.slug, t]))
   console.log(`Found ${tags.length} product_type tags\n`)
-
-  const supabase = dryRun ? null : createServiceClient()
 
   let untagged = brands.filter((b) => b.category === null)
   if (targetSlugs) {
@@ -417,11 +684,7 @@ async function autoTag(dryRun: boolean, targetSlugs?: string[]): Promise<void> {
         await updateBrand(brand.id, { category: categoryLabel })
 
         if (tag) {
-          const { error } = await supabase!
-            .from('brand_taxonomy')
-            .upsert({ brand_id: brand.id, tag_id: tag.id }, { onConflict: 'brand_id,tag_id', ignoreDuplicates: true })
-
-          if (error) throw error
+          await addTagToBrandIgnoringDuplicates(brand.id, tag.id)
         }
 
         console.log(`  [OK] ${brand.slug} → ${matched} (${categoryLabel})`)
@@ -467,6 +730,10 @@ function printUsage(): void {
   console.log('  score-and-scrape [--dry-run] [--slugs=a,b,c] [--stop-after=N]  Score and scrape')
   console.log('  set-visibility <slug1> ...                     Hide all, approve selected')
   console.log('  auto-tag [--dry-run]                           Assign product_type categories via keyword matching')
+  console.log('  clean-names [--apply]                          Clean noisy brand names (dry-run by default)')
+  console.log('  detect-non-brands [--dry-run] [--output-file=path]  Detect likely non-brand entries')
+  console.log('  enrich-descriptions [--dry-run] [--stop-after=N]  Fill missing or weak descriptions from scraped URLs')
+  console.log('  normalize-slugs [--dry-run] [--scrape] [--stop-after=N]  Normalize CJK slugs from English names')
 }
 
 async function main() {
@@ -492,6 +759,33 @@ async function main() {
       const slugsArg = args.find((a) => a.startsWith('--slugs='))
       const targetSlugs = slugsArg ? slugsArg.replace('--slugs=', '').split(',') : undefined
       await autoTag(dryRun, targetSlugs)
+      break
+    }
+    case 'clean-names': {
+      const dryRun = !args.includes('--apply')
+      await cleanNamesCommand(dryRun)
+      break
+    }
+    case 'detect-non-brands': {
+      const dryRun = args.includes('--dry-run')
+      const outputArg = args.find((a) => a.startsWith('--output-file='))
+      const outputFile = outputArg ? outputArg.replace('--output-file=', '') : undefined
+      await detectNonBrandsCommand(dryRun, outputFile)
+      break
+    }
+    case 'enrich-descriptions': {
+      const dryRun = args.includes('--dry-run')
+      const stopArg = args.find((a) => a.startsWith('--stop-after='))
+      const stopAfter = stopArg ? parseInt(stopArg.replace('--stop-after=', ''), 10) : undefined
+      await enrichDescriptions(dryRun, stopAfter)
+      break
+    }
+    case 'normalize-slugs': {
+      const dryRun = args.includes('--dry-run')
+      const scrapeFirst = args.includes('--scrape')
+      const stopArg = args.find((a) => a.startsWith('--stop-after='))
+      const stopAfter = stopArg ? parseInt(stopArg.replace('--stop-after=', ''), 10) : undefined
+      await normalizeSlugs(dryRun, scrapeFirst, stopAfter)
       break
     }
     default:

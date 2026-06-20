@@ -1,9 +1,10 @@
-import { notFound } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import { connection } from 'next/server'
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import {
   getBrandBySlug,
+  findBrandByOldSlug,
   getRelatedBrands,
   getBrandCountByCategory,
   getAllBrandSlugs,
@@ -85,6 +86,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       },
     }
   } catch {
+    const redirectSlug = await findBrandByOldSlug(slug)
+    if (redirectSlug) {
+      permanentRedirect(`/${locale}/brands/${encodeURIComponent(redirectSlug)}`)
+    }
+
     return { title: t('metadata.notFoundTitle') }
   }
 }
@@ -113,6 +119,11 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
   try {
     brand = await getBrandBySlug(slug)
   } catch {
+    const redirectSlug = await findBrandByOldSlug(slug)
+    if (redirectSlug) {
+      permanentRedirect(`/${locale}/brands/${encodeURIComponent(redirectSlug)}`)
+    }
+
     notFound()
   }
 

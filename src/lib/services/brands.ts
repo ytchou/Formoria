@@ -27,6 +27,20 @@ type BrandRow = Database['public']['Tables']['brands']['Row']
 type BrandDraftData = BrandRow['draft_data']
 type TaxonomyTagRow = Database['public']['Tables']['taxonomy_tags']['Row']
 type RawSeedRow = Record<string, unknown>
+type BrandSlugRedirectRow = { new_slug: string }
+type BrandSlugRedirectTable = {
+  select: (columns: 'new_slug') => {
+    eq: (column: 'old_slug', value: string) => {
+      single: () => Promise<{
+        data: BrandSlugRedirectRow | null
+        error: { code?: string; message?: string } | null
+      }>
+    }
+  }
+  upsert: (row: { old_slug: string; new_slug: string }) => Promise<{
+    error: { code?: string; message?: string } | null
+  }>
+}
 type BrandFlatLinkColumns = {
   social_instagram?: string | null
   social_threads?: string | null
@@ -816,6 +830,32 @@ export async function getBrandBySlug(slug: string): Promise<Brand> {
   return brandToDomain(data)
 }
 
+function brandSlugRedirectsTable(client: unknown): BrandSlugRedirectTable {
+  return (client as { from: (table: 'brand_slug_redirects') => BrandSlugRedirectTable }).from('brand_slug_redirects')
+}
+
+export async function findBrandByOldSlug(oldSlug: string): Promise<string | null> {
+  const supabase = createServiceClient()
+  const { data, error } = await brandSlugRedirectsTable(supabase)
+    .select('new_slug')
+    .eq('old_slug', oldSlug)
+    .single()
+
+  if (error) {
+    if (error.code === 'PGRST116') return null
+    throw error
+  }
+
+  return data?.new_slug ?? null
+}
+
+export async function insertSlugRedirect(oldSlug: string, newSlug: string): Promise<void> {
+  const supabase = createServiceClient()
+  const { error } = await brandSlugRedirectsTable(supabase).upsert({ old_slug: oldSlug, new_slug: newSlug })
+
+  if (error) throw error
+}
+
 export async function createBrand(
   data: Omit<Brand, 'id' | 'tags' | 'submittedAt' | 'approvedAt' | 'createdAt' | 'updatedAt'> & {
     unifiedBusinessNumber?: string | null
@@ -958,6 +998,17 @@ export async function deleteBrand(id: string): Promise<void> {
 
 export async function hideBrand(id: string): Promise<Brand> {
   return updateBrand(id, { status: 'hidden' })
+}
+
+export async function hideVisibleBrands(): Promise<number> {
+  const supabase = createServiceClient()
+  const { count, error } = await supabase
+    .from('brands')
+    .update({ status: 'hidden' }, { count: 'exact' })
+    .neq('status', 'hidden')
+
+  if (error) throw error
+  return count ?? 0
 }
 
 export async function getRelatedBrands(

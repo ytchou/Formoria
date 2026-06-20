@@ -80,6 +80,7 @@ vi.mock('@/lib/services/moderation', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/services/moderation')>()
   return {
     ...actual,
+    EMOJI_REGEX: /\p{Emoji_Presentation}/gu,
     scanContent: vi.fn(() => ({ riskLevel: 'clean', flags: [] })),
     saveModerationFlags: vi.fn(),
   }
@@ -305,23 +306,74 @@ describe('brand submission callers', () => {
     vi.clearAllMocks()
     testState.isAdmin = true
     testState.rateAllowed = true
+    vi.mocked(createBrand).mockResolvedValue(brand)
+    vi.mocked(createSubmission).mockResolvedValue({
+      id: 'submission-1',
+      brandId: brand.id,
+      brandName: brand.name,
+      submitterEmail: 'user@example.com',
+      submitterName: 'Test User',
+      description: brand.description,
+      websiteUrl: null,
+      socialInstagram: null,
+      socialThreads: null,
+      socialFacebook: null,
+      purchaseWebsite: null,
+      purchasePinkoi: null,
+      purchaseShopee: null,
+      otherUrls: [],
+      suggestedTags: {},
+      status: 'pending',
+      reviewerNotes: null,
+      submittedAt: '',
+      reviewedAt: null,
+      reviewedBy: null,
+      pdpaConsentAt: null,
+      validationStatus: null,
+      validationErrors: null,
+      notifiedAt: null,
+      isBrandOwner: true,
+      sourceAttribution: 'found_online',
+      productTypeNote: null,
+    })
+    vi.mocked(saveModerationFlags).mockResolvedValue(undefined)
     vi.mocked(scanContent).mockReturnValue({ riskLevel: 'clean', flags: moderationFlags })
   })
 
-  it('user submission uses the shared pipeline', async () => {
-    const pipelineSpy = vi
-      .spyOn(pipeline, 'submitBrandForReview')
-      .mockResolvedValue({ brand, submissionId: 'submission-1' })
+  it('user submission creates a pending brand and submission', async () => {
+    const result = await submitBrand(buildSubmitInput())
 
-    await submitBrand(buildSubmitInput())
-
-    expect(pipelineSpy).toHaveBeenCalledWith(expect.objectContaining({
+    expect(result).toBeUndefined()
+    expect(createBrand).toHaveBeenCalledWith(expect.objectContaining({
       name: 'User Brand',
       slug: '',
-      submitterName: 'Test User',
-      isBrandOwner: true,
-      onModerationFlagsError: expect.any(Function),
+      description: 'A submitted brand description.',
+      status: 'pending',
+      isVerified: false,
+      isDemo: false,
+      contactEmail: 'user@example.com',
+      unifiedBusinessNumber: '12345678',
+      productType: 'skincare',
     }))
-    expect(pipelineSpy).toHaveBeenCalledTimes(1)
+    expect(createSubmission).toHaveBeenCalledWith(expect.objectContaining({
+      brandId: 'brand-1',
+      brandName: 'User Brand',
+      submitterEmail: 'user@example.com',
+      submitterName: 'Test User',
+      description: 'A submitted brand description.',
+      websiteUrl: 'https://user.example.com',
+      isBrandOwner: true,
+      sourceAttribution: 'found_online',
+      suggestedTags: {
+        region: 'taipei',
+        values: ['eco'],
+        productType: 'skincare',
+      },
+      unifiedBusinessNumber: '12345678',
+    }))
+    expect(saveModerationFlags).toHaveBeenCalledWith('brand-1', 'user-1', moderationFlags)
+
+    expect(createBrand).toHaveBeenCalledTimes(1)
+    expect(createSubmission).toHaveBeenCalledTimes(1)
   })
 })

@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import type { Brand } from '@/lib/types'
-import { scoreBrand, buildEnrichPatch, matchCategory } from '../curate-brands'
+import {
+  scoreBrand,
+  buildEnrichPatch,
+  matchCategory,
+  cleanNames,
+  detectNonBrands,
+  findBrandsNeedingEnrichment,
+  findSlugsNeedingNormalization,
+} from '../curate-brands'
 
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
   return {
@@ -165,6 +173,139 @@ describe('buildEnrichPatch', () => {
     expect(patch.socialInstagram).toBeUndefined()
     expect(patch.socialThreads).toBeUndefined()
     expect(patch.socialFacebook).toBeUndefined()
+  })
+})
+
+describe('cleanNames', () => {
+  it('returns only changed brands', () => {
+    const brands = [
+      makeBrand({ slug: 'dirty', name: '梨大爺🥑' }),
+      makeBrand({ slug: 'clean', name: 'AROMASE 艾瑪絲' }),
+    ]
+    const results = cleanNames(brands)
+    expect(results).toHaveLength(1)
+    expect(results[0].slug).toBe('dirty')
+    expect(results[0].cleanedName).toBe('梨大爺')
+    expect(results[0].originalName).toBe('梨大爺🥑')
+    expect(results[0].patternsMatched).toContain('emoji')
+    expect(results[0].confidence).toBe('high')
+  })
+
+  it('returns empty array when all names are clean', () => {
+    const brands = [
+      makeBrand({ name: 'AROMASE 艾瑪絲' }),
+      makeBrand({ name: "O'right 歐萊德" }),
+    ]
+    expect(cleanNames(brands)).toHaveLength(0)
+  })
+})
+
+describe('detectNonBrands', () => {
+  it('returns only non-brand entries', () => {
+    const brands = [
+      makeBrand({ slug: 'reseller', name: 'JLab 台灣獨家代理' }),
+      makeBrand({ slug: 'normal', name: 'AROMASE 艾瑪絲' }),
+      makeBrand({ slug: 'charity', name: '某某基金會' }),
+    ]
+    const results = detectNonBrands(brands)
+    expect(results).toHaveLength(2)
+    expect(results.map(r => r.slug)).toContain('reseller')
+    expect(results.map(r => r.slug)).toContain('charity')
+  })
+
+  it('returns empty array when all are real brands', () => {
+    const brands = [
+      makeBrand({ name: 'AROMASE 艾瑪絲' }),
+      makeBrand({ name: "O'right 歐萊德" }),
+    ]
+    expect(detectNonBrands(brands)).toHaveLength(0)
+  })
+})
+
+describe('enrichDescriptions', () => {
+  it('filters to brands needing enrichment', () => {
+    const brands = [
+      makeBrand({ slug: 'missing', description: null }),
+      makeBrand({ slug: 'short', description: 'Too short' }),
+      makeBrand({
+        slug: 'adequate',
+        description: 'This description already has enough useful detail.',
+      }),
+    ]
+
+    const results = findBrandsNeedingEnrichment(brands)
+
+    expect(results.map((brand) => brand.slug)).toEqual(['missing', 'short'])
+  })
+
+  it('treats description equal to brand name as missing', () => {
+    const brands = [
+      makeBrand({ slug: 'same-as-name', name: 'Same Brand', description: 'Same Brand' }),
+    ]
+
+    const results = findBrandsNeedingEnrichment(brands)
+
+    expect(results.map((brand) => brand.slug)).toEqual(['same-as-name'])
+  })
+
+  it('includes empty string descriptions', () => {
+    const brands = [
+      makeBrand({ slug: 'empty-description', description: '' }),
+    ]
+
+    const results = findBrandsNeedingEnrichment(brands)
+
+    expect(results.map((brand) => brand.slug)).toEqual(['empty-description'])
+  })
+})
+
+describe('normalizeSlugs', () => {
+  it('identifies CJK slugs needing normalization', () => {
+    const brands = [
+      makeBrand({ slug: '慢慢挑', name: 'Man Man Tiao' }),
+      makeBrand({ slug: 'aromase', name: 'AROMASE 艾瑪絲' }),
+      makeBrand({ slug: '採花女孩', name: '採花女孩' }),
+    ]
+
+    const results = findSlugsNeedingNormalization(brands)
+
+    expect(results).toEqual([
+      {
+        slug: '慢慢挑',
+        newSlug: 'man-man-tiao',
+        name: 'Man Man Tiao',
+        source: 'scraped-english-name',
+      },
+    ])
+  })
+
+  it('skips already-English slugs', () => {
+    const brands = [
+      makeBrand({ slug: 'man-man-tiao', name: 'Man Man Tiao' }),
+    ]
+
+    expect(findSlugsNeedingNormalization(brands)).toHaveLength(0)
+  })
+
+  it('checks slug uniqueness', () => {
+    const brands = [
+      makeBrand({ slug: '慢慢挑', name: 'Man Man Tiao' }),
+      makeBrand({ slug: 'man-man-tiao', name: 'Existing Brand' }),
+    ]
+
+    expect(findSlugsNeedingNormalization(brands)).toHaveLength(0)
+  })
+
+  it('prevents duplicate newSlug assignments within a single run', () => {
+    const brands = [
+      makeBrand({ slug: '品牌一', name: 'Same Name' }),
+      makeBrand({ slug: '品牌二', name: 'Same Name' }),
+    ]
+
+    const results = findSlugsNeedingNormalization(brands)
+
+    expect(results).toHaveLength(1)
+    expect(results[0].slug).toBe('品牌一')
   })
 })
 
