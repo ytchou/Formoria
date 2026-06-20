@@ -11,6 +11,7 @@ import { cleanBrandName, detectNonBrand, normalizeSlug } from '@/lib/services/br
 const TOP_N = 30
 const SCRAPE_DELAY_MS = 2_000
 const MAX_PRODUCT_PHOTOS = 5
+const BRAND_FETCH_LIMIT = 10_000
 
 // ---------------------------------------------------------------------------
 // Scoring
@@ -93,24 +94,15 @@ export function buildEnrichPatch(
     patch.description = scraped.description
   }
 
-  // Merge social links: preserve existing, fill missing
-  let hasNewLink = false
-
   if (!brand.socialInstagram && scraped.socialInstagram) {
     patch.socialInstagram = scraped.socialInstagram
-    hasNewLink = true
   }
   if (!brand.socialThreads && scraped.socialThreads) {
     patch.socialThreads = scraped.socialThreads
-    hasNewLink = true
   }
   if (!brand.socialFacebook && scraped.socialFacebook) {
     patch.socialFacebook = scraped.socialFacebook
-    hasNewLink = true
   }
-
-  // suppress unused variable warning
-  void hasNewLink
 
   // Fill brandHighlights from scraped story if brand has none
   if (!brand.brandHighlights && scraped.story) {
@@ -225,7 +217,7 @@ function isShowcaseReady(brand: Brand): boolean {
 
 async function scoreAndScrape(dryRun: boolean, targetSlugs?: string[], stopAfter?: number): Promise<void> {
   console.log('Fetching all brands...')
-  const { brands } = await getBrands({ limit: 1000 })
+  const { brands } = await getBrands({ limit: BRAND_FETCH_LIMIT })
   console.log(`Found ${brands.length} brands`)
 
   // Score and rank — optionally filter to target slugs
@@ -384,7 +376,7 @@ async function scoreAndScrape(dryRun: boolean, targetSlugs?: string[], stopAfter
 
 async function cleanNamesCommand(dryRun: boolean): Promise<void> {
   console.log('Fetching approved brands...')
-  const { brands } = await getBrands({ limit: 1000, status: 'approved' })
+  const { brands } = await getBrands({ limit: BRAND_FETCH_LIMIT, status: 'approved' })
   console.log(`Found ${brands.length} approved brands`)
 
   const results = cleanNames(brands)
@@ -402,7 +394,7 @@ async function cleanNamesCommand(dryRun: boolean): Promise<void> {
   }
 
   if (dryRun) {
-    console.log('\nDry run — no changes made.')
+    console.log('\nDry run — no changes made. Re-run with --apply to write these name changes.')
     return
   }
 
@@ -428,7 +420,7 @@ async function cleanNamesCommand(dryRun: boolean): Promise<void> {
 
 async function detectNonBrandsCommand(dryRun: boolean, outputFile?: string): Promise<void> {
   console.log('Fetching approved brands...')
-  const { brands } = await getBrands({ limit: 1000, status: 'approved' })
+  const { brands } = await getBrands({ limit: BRAND_FETCH_LIMIT, status: 'approved' })
   console.log(`Found ${brands.length} approved brands`)
 
   const results = detectNonBrands(brands)
@@ -467,7 +459,7 @@ async function detectNonBrandsCommand(dryRun: boolean, outputFile?: string): Pro
 
 async function enrichDescriptions(dryRun: boolean, stopAfter?: number): Promise<void> {
   console.log('Fetching approved brands...')
-  const { brands } = await getBrands({ limit: 1000, status: 'approved' })
+  const { brands } = await getBrands({ limit: BRAND_FETCH_LIMIT, status: 'approved' })
   console.log(`Found ${brands.length} approved brands`)
 
   const needingEnrichment = findBrandsNeedingEnrichment(brands)
@@ -535,7 +527,7 @@ async function enrichDescriptions(dryRun: boolean, stopAfter?: number): Promise<
 
 async function normalizeSlugs(dryRun: boolean, scrapeFirst: boolean, stopAfter?: number): Promise<void> {
   console.log('Fetching approved brands...')
-  const { brands } = await getBrands({ limit: 1000, status: 'approved' })
+  const { brands } = await getBrands({ limit: BRAND_FETCH_LIMIT, status: 'approved' })
   console.log(`Found ${brands.length} approved brands`)
 
   let workingBrands = brands
@@ -573,6 +565,9 @@ async function normalizeSlugs(dryRun: boolean, scrapeFirst: boolean, stopAfter?:
 
   const results = findSlugsNeedingNormalization(workingBrands).slice(0, stopAfter)
   console.log(`\nFound ${results.length} slug(s) to normalize\n`)
+  if (results.length === 0) {
+    console.warn('No slugs need normalization. If brands have CJK names, try running with --scrape to use English names for slug generation.')
+  }
 
   console.log('Slug                          | New Slug                      | Name                           | Source')
   console.log('------------------------------|-------------------------------|--------------------------------|--------------------------')
@@ -616,7 +611,7 @@ async function setVisibility(slugs: string[]): Promise<void> {
   }
 
   console.log(`Validating ${slugs.length} slug(s)...`)
-  const { brands } = await getBrands({ limit: 1000 })
+  const { brands } = await getBrands({ limit: BRAND_FETCH_LIMIT })
   const slugMap = new Map(brands.map((b) => [b.slug, b]))
 
   // Fail fast if any slug is missing
@@ -689,7 +684,7 @@ export function matchCategory(text: string): string | null {
 
 async function autoTag(dryRun: boolean, targetSlugs?: string[]): Promise<void> {
   console.log('Fetching all brands...')
-  const { brands } = await getBrands({ limit: 1000 })
+  const { brands } = await getBrands({ limit: BRAND_FETCH_LIMIT })
   console.log(`Found ${brands.length} brands`)
 
   console.log('Fetching product_type tags...')
@@ -780,7 +775,7 @@ function printUsage(): void {
   console.log('  score-and-scrape [--dry-run] [--slugs=a,b,c] [--stop-after=N]  Score and scrape')
   console.log('  set-visibility <slug1> ...                     Hide all, approve selected')
   console.log('  auto-tag [--dry-run]                           Assign product_type categories via keyword matching')
-  console.log('  clean-names [--dry-run]                        Clean noisy brand names')
+  console.log('  clean-names [--apply]                          Clean noisy brand names (dry-run by default)')
   console.log('  detect-non-brands [--dry-run] [--output-file=path]  Detect likely non-brand entries')
   console.log('  enrich-descriptions [--dry-run] [--stop-after=N]  Fill missing or weak descriptions from scraped URLs')
   console.log('  normalize-slugs [--dry-run] [--scrape] [--stop-after=N]  Normalize CJK slugs from English names')
@@ -812,7 +807,7 @@ async function main() {
       break
     }
     case 'clean-names': {
-      const dryRun = args.includes('--dry-run')
+      const dryRun = !args.includes('--apply')
       await cleanNamesCommand(dryRun)
       break
     }
