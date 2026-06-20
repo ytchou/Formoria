@@ -244,6 +244,58 @@ export function buildLinkEnrichPatch(
   return patch
 }
 
+export function buildImageEnrichPatch(
+  brand: Brand,
+  scraped: ScrapedBrandData,
+  storedUrls: Array<string | null>
+): Partial<Brand> {
+  const patch: Partial<Brand> = {}
+  const galleryImageUrls = scraped.galleryImageUrls.filter(hasLinkValue)
+  const hasScrapedHero = hasLinkValue(scraped.heroImageUrl)
+  const imageUrls = [
+    scraped.heroImageUrl,
+    ...galleryImageUrls,
+  ].filter(hasLinkValue)
+
+  if (imageUrls.length === 0) {
+    return patch
+  }
+
+  const galleryStoredUrlOffset = hasScrapedHero ? 1 : (storedUrls.length > galleryImageUrls.length ? 1 : 0)
+  const storedImageEntries = [
+    ...(hasScrapedHero
+      ? [{ storedUrl: storedUrls[0], isHeroImage: true }]
+      : []),
+    ...galleryImageUrls.map((_, index) => ({
+      storedUrl: storedUrls[galleryStoredUrlOffset + index],
+      isHeroImage: false,
+    })),
+  ].filter((entry): entry is { storedUrl: string; isHeroImage: boolean } => hasLinkValue(entry.storedUrl))
+
+  if (storedImageEntries.length === 0) {
+    return patch
+  }
+
+  if (!brand.heroImageUrl) {
+    patch.heroImageUrl = storedImageEntries[0].storedUrl
+  }
+
+  const existingProductPhotos = Array.isArray(brand.productPhotos) ? brand.productPhotos : []
+  const newProductPhotos = storedImageEntries
+    .filter((entry) => !entry.isHeroImage)
+    .map((entry) => entry.storedUrl)
+  const mergedProductPhotos = [
+    ...existingProductPhotos,
+    ...newProductPhotos,
+  ].slice(0, MAX_PRODUCT_PHOTOS)
+
+  if (newProductPhotos.length > 0 && mergedProductPhotos.length > existingProductPhotos.length) {
+    patch.productPhotos = mergedProductPhotos
+  }
+
+  return patch
+}
+
 // ---------------------------------------------------------------------------
 // Cleanup helpers
 // ---------------------------------------------------------------------------

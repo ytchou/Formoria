@@ -6,6 +6,7 @@ import type { ScrapedBrandData } from '@/lib/types/scraper'
 import {
   scoreBrand,
   buildEnrichPatch,
+  buildImageEnrichPatch,
   buildLinkEnrichPatch,
   matchCategory,
   cleanNames,
@@ -271,6 +272,88 @@ describe('buildLinkEnrichPatch', () => {
     const patch = buildLinkEnrichPatch(brand, emptyScraped())
 
     expect(patch).toEqual({})
+  })
+})
+
+describe('buildImageEnrichPatch', () => {
+  const baseBrand = {
+    id: 'brand-1',
+    heroImageUrl: null,
+    productPhotos: null,
+  }
+
+  it('sets heroImageUrl from scraped heroImageUrl when brand has none', () => {
+    const patch = buildImageEnrichPatch(
+      baseBrand as unknown as Brand,
+      { heroImageUrl: 'https://cdn01.pinkoi.com/product/hero.jpg', galleryImageUrls: [] } as unknown as ScrapedBrandData,
+      ['https://supabase.co/storage/hero-stored.webp']
+    )
+    expect(patch.heroImageUrl).toBe('https://supabase.co/storage/hero-stored.webp')
+  })
+
+  it('does not overwrite existing heroImageUrl', () => {
+    const patch = buildImageEnrichPatch(
+      { ...baseBrand, heroImageUrl: 'https://existing.com/hero.jpg' } as unknown as Brand,
+      { heroImageUrl: 'https://cdn01.pinkoi.com/product/new-hero.jpg', galleryImageUrls: [] } as unknown as ScrapedBrandData,
+      ['https://supabase.co/storage/new-hero-stored.webp']
+    )
+    expect(patch.heroImageUrl).toBeUndefined()
+  })
+
+  it('sets productPhotos from gallery images when brand has none', () => {
+    const patch = buildImageEnrichPatch(
+      baseBrand as unknown as Brand,
+      {
+        heroImageUrl: null,
+        galleryImageUrls: ['https://cdn01.pinkoi.com/product/1.jpg', 'https://cdn01.pinkoi.com/product/2.jpg'],
+      } as unknown as ScrapedBrandData,
+      [null, 'https://supabase.co/storage/photo1.webp', 'https://supabase.co/storage/photo2.webp']
+    )
+    expect(patch.productPhotos).toEqual([
+      'https://supabase.co/storage/photo1.webp',
+      'https://supabase.co/storage/photo2.webp',
+    ])
+  })
+
+  it('appends to existing productPhotos without exceeding MAX_PRODUCT_PHOTOS', () => {
+    const existing = [
+      'https://supabase.co/storage/existing1.webp',
+      'https://supabase.co/storage/existing2.webp',
+      'https://supabase.co/storage/existing3.webp',
+      'https://supabase.co/storage/existing4.webp',
+    ]
+    const patch = buildImageEnrichPatch(
+      { ...baseBrand, productPhotos: existing } as unknown as Brand,
+      {
+        heroImageUrl: null,
+        galleryImageUrls: ['https://cdn01.pinkoi.com/product/new1.jpg', 'https://cdn01.pinkoi.com/product/new2.jpg'],
+      } as unknown as ScrapedBrandData,
+      [null, 'https://supabase.co/storage/new1.webp', 'https://supabase.co/storage/new2.webp']
+    )
+    expect(patch.productPhotos).toHaveLength(5)
+    expect(patch.productPhotos![0]).toBe('https://supabase.co/storage/existing1.webp')
+    expect(patch.productPhotos![4]).toBe('https://supabase.co/storage/new1.webp')
+  })
+
+  it('returns empty patch when no images scraped', () => {
+    const patch = buildImageEnrichPatch(
+      baseBrand as unknown as Brand,
+      { heroImageUrl: null, galleryImageUrls: [] } as unknown as ScrapedBrandData,
+      []
+    )
+    expect(Object.keys(patch)).toHaveLength(0)
+  })
+
+  it('uses first gallery image as hero fallback when heroImageUrl is null but gallery has images', () => {
+    const patch = buildImageEnrichPatch(
+      baseBrand as unknown as Brand,
+      {
+        heroImageUrl: null,
+        galleryImageUrls: ['https://cdn01.pinkoi.com/product/1.jpg'],
+      } as unknown as ScrapedBrandData,
+      ['https://supabase.co/storage/photo1.webp']
+    )
+    expect(patch.heroImageUrl).toBe('https://supabase.co/storage/photo1.webp')
   })
 })
 
