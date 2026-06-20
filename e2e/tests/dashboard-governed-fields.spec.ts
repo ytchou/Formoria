@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { getSignedAdminModeCookie } from '../helpers/admin-mode-cookie';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
@@ -94,7 +95,7 @@ test.describe('Dashboard — governed field integrity', () => {
     await adminPage.context().addCookies([
       {
         name: 'fm_mode',
-        value: 'viewer',
+        value: await getSignedAdminModeCookie('viewer'),
         url: 'http://localhost:3000',
       },
     ]);

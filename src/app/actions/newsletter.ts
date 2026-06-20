@@ -9,31 +9,16 @@ import {
   normalizeInterests,
   validateEmail,
 } from '@/lib/services/newsletter'
+import { rateLimit } from '@/lib/security/rate-limiter'
 import { createServiceClient } from '@/lib/supabase/server'
 import { isHoneypotFilled, parseSubscribeForm } from './newsletter-helpers'
 
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX_REQUESTS = 5
-const rateLimitBuckets = new Map<string, number[]>()
 
 export type SubscribeNewsletterState = {
   success?: true
   error?: string
-}
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now()
-  const windowStart = now - RATE_LIMIT_WINDOW_MS
-  const recent = (rateLimitBuckets.get(ip) ?? []).filter((timestamp) => timestamp > windowStart)
-
-  if (recent.length >= RATE_LIMIT_MAX_REQUESTS) {
-    rateLimitBuckets.set(ip, recent)
-    return false
-  }
-
-  recent.push(now)
-  rateLimitBuckets.set(ip, recent)
-  return true
 }
 
 async function getRequestIp(): Promise<string> {
@@ -49,13 +34,19 @@ export async function subscribeToNewsletter(
     return { success: true }
   }
 
-  const ip = await getRequestIp()
-  if (!checkRateLimit(ip)) {
-    return { error: 'Too many requests' }
-  }
-
   const { email, interests, locale } = parseSubscribeForm(formData)
   const normalizedEmail = normalizeEmail(email)
+  const ip = await getRequestIp()
+  const identifier = validateEmail(normalizedEmail) ? normalizedEmail : ip
+  const limit = await rateLimit(identifier, {
+    windowMs: RATE_LIMIT_WINDOW_MS,
+    maxRequests: RATE_LIMIT_MAX_REQUESTS,
+    prefix: 'newsletter:subscribe',
+  })
+
+  if (!limit.allowed) {
+    return { error: 'Too many requests' }
+  }
 
   if (!validateEmail(normalizedEmail)) {
     return { error: 'Invalid email' }

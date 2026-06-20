@@ -28,8 +28,9 @@ vi.mock('@/lib/security/turnstile', () => ({
 }))
 
 vi.mock('@/lib/security/rate-limiter', () => ({
+  rateLimit: vi.fn(async () => ({ allowed: testState.rateAllowed, remaining: 10, resetAt: 0 })),
   createInMemoryRateLimiter: vi.fn(() => ({
-    check: vi.fn(() => ({ allowed: testState.rateAllowed })),
+    check: vi.fn(() => ({ allowed: testState.rateAllowed, remaining: 10, resetAt: 0 })),
   })),
 }))
 
@@ -319,6 +320,7 @@ describe('brand submission callers', () => {
       slug: '',
       submitterName: 'Test User',
       isBrandOwner: true,
+      onModerationFlagsError: expect.any(Function),
     }))
     expect(pipelineSpy).toHaveBeenCalledTimes(1)
   })

@@ -6,6 +6,22 @@ type Translator = (key: string) => string
 
 const httpsUrl = z.string().url().max(2048).startsWith('https://')
 
+function hasHttpScheme(value: string): boolean {
+  try {
+    const protocol = new URL(value).protocol
+    return protocol === 'http:' || protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+function httpUrl(message?: string) {
+  return z
+    .string()
+    .url(message)
+    .refine(hasHttpScheme, message ?? 'Invalid URL scheme')
+}
+
 export const scrapeUrlSchema = z.object({
   urls: z
     .array(httpsUrl)
@@ -26,14 +42,14 @@ function buildFieldSchemas(t: Translator) {
 
   const purchaseLinkSchema = z.object({
     platform: z.string().min(1, t('validation.platformRequired')),
-    url: z.string().url(t('validation.urlInvalid')),
+    url: httpUrl(t('validation.urlInvalid')),
   })
 
   const socialLinksSchema = z.object({
     instagram: z.string(),
     threads: z.string(),
     facebook: z.string(),
-    website: z.string(),
+    website: httpUrl(t('validation.urlInvalid')).or(z.literal('')),
   })
 
   const retailLocationSchema = z.object({
@@ -67,7 +83,7 @@ export function getBrandInfoSchema(t: Translator) {
       .transform((v) => (v === '' ? undefined : v)),
     region: regionField,
     valueTags: valueTagsField,
-    heroImageUrl: z.string().url().optional().or(z.literal('')),
+    heroImageUrl: httpUrl().optional().or(z.literal('')),
   })
 }
 
@@ -236,7 +252,7 @@ export function createSubmissionSchema(isOwner: boolean, t: Translator = zhT) {
       .transform((v) => (v === '' ? undefined : v)),
     region: regionField,
     valueTags: valueTagsField,
-    heroImageUrl: z.string().url().optional().or(z.literal('')),
+    heroImageUrl: httpUrl().optional().or(z.literal('')),
   })
 
   const linksBase = z.object({

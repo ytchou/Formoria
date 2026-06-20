@@ -12,6 +12,12 @@ export interface RateLimitStore {
   check(key: string, windowMs: number, maxRequests: number): RateLimitResult
 }
 
+export interface RateLimitOptions {
+  windowMs: number
+  maxRequests: number
+  prefix?: string
+}
+
 interface AsyncRateLimitStore {
   check(key: string, windowMs: number, maxRequests: number): Promise<RateLimitResult>
 }
@@ -103,6 +109,14 @@ function createRateLimiter(): AsyncRateLimitStore {
 }
 
 const rateLimiter = createRateLimiter()
+
+export async function rateLimit(
+  identifier: string,
+  options: RateLimitOptions
+): Promise<RateLimitResult> {
+  const key = options.prefix ? `${options.prefix}:${identifier}` : identifier
+  return rateLimiter.check(key, options.windowMs, options.maxRequests)
+}
 
 // Rate limit rules per path prefix
 export const RATE_LIMIT_RULES: Record<string, { windowMs: number; maxRequests: number }> = {

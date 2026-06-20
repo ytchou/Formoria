@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extractToken } from '../route'
+import { extractToken } from '../helpers'
 
 describe('newsletter unsubscribe route — helpers', () => {
   describe('extractToken', () => {

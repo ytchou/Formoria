@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { confirmSubscriber } from '@/lib/services/newsletter'
 import { createServiceClient } from '@/lib/supabase/server'
+import { buildConfirmRedirectUrl, extractToken } from './helpers'
 
 const htmlHeaders = {
   'Content-Type': 'text/html; charset=utf-8',
@@ -26,14 +27,6 @@ function htmlResponse(message: string, status: number) {
       headers: htmlHeaders,
     }
   )
-}
-
-export function extractToken(url: URL): string | null {
-  return url.searchParams.get('token')
-}
-
-export function buildConfirmRedirectUrl(origin: string): string {
-  return `${origin}/?subscribed=true`
 }
 
 export async function GET(request: NextRequest) {

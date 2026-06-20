@@ -53,6 +53,14 @@ vi.mock('@/lib/auth/admin', () => ({
   isAdmin: vi.fn().mockReturnValue(true),
 }))
 
+vi.mock('@/lib/auth/admin-mode', () => ({
+  isActingAsAdmin: vi.fn().mockResolvedValue(true),
+}))
+
+vi.mock('@/lib/security/rate-limiter', () => ({
+  rateLimit: vi.fn().mockResolvedValue({ success: true, remaining: 10 }),
+}))
+
 vi.mock('next/headers', () => ({
   cookies: vi.fn(),
 }))
@@ -611,15 +619,16 @@ describe('reviewReportAction', () => {
   })
 
   it('returns error when not admin', async () => {
-    const { isAdmin } = await import('@/lib/auth/admin')
-    vi.mocked(isAdmin).mockReturnValueOnce(false)
+    const { isActingAsAdmin } = await import('@/lib/auth/admin-mode')
+    vi.mocked(isActingAsAdmin).mockResolvedValueOnce(false)
     const { reviewReportAction } = await import('./actions')
     const result = await reviewReportAction('report-uuid-1', 'reviewed')
     expect(result?.error).toBeTruthy()
   })
 
   it('requireAdmin denies an admin in viewer mode', async () => {
-    mockCookie('viewer')
+    const { isActingAsAdmin } = await import('@/lib/auth/admin-mode')
+    vi.mocked(isActingAsAdmin).mockResolvedValueOnce(false)
     const { reviewReportAction } = await import('./actions')
     const result = await reviewReportAction('report-uuid-1', 'reviewed')
     expect(result).toMatchObject({ error: expect.any(String) })
@@ -655,8 +664,8 @@ describe('reviewFeedbackAction', () => {
   })
 
   it('returns error when user is not admin', async () => {
-    const { isAdmin } = await import('@/lib/auth/admin')
-    vi.mocked(isAdmin).mockReturnValueOnce(false)
+    const { isActingAsAdmin } = await import('@/lib/auth/admin-mode')
+    vi.mocked(isActingAsAdmin).mockResolvedValueOnce(false)
     const { reviewFeedbackAction } = await import('./actions')
     const result = await reviewFeedbackAction('feedback-id-1', 'reviewed')
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { signChallengeToken, CHALLENGE_COOKIE_NAME } from '@/lib/security/challenge'
-import { getClientIp } from '@/lib/security/rate-limiter'
+import { getClientIp, rateLimit } from '@/lib/security/rate-limiter'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
 
 type ChallengeVerifyBody = {
@@ -17,13 +17,23 @@ function getSafeRedirectPath(returnTo: unknown): string {
 }
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request)
+  const limit = await rateLimit(ip, {
+    windowMs: 60_000,
+    maxRequests: 10,
+    prefix: 'challenge:verify',
+  })
+
+  if (!limit.allowed) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
   const body = (await request.json().catch(() => ({}))) as ChallengeVerifyBody
 
   if (typeof body.token !== 'string' || body.token.length === 0) {
     return NextResponse.json({ error: 'Missing token' }, { status: 400 })
   }
 
-  const ip = getClientIp(request)
   const turnstileResult = await verifyTurnstileToken(body.token, ip)
 
   if (!turnstileResult.success) {

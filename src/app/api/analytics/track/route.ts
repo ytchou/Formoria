@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs'
 import { incrementView, incrementClick, incrementLinkClick } from '@/lib/services/brand-analytics'
 import { normalizeSource } from '@/lib/analytics/source-bucket'
 import { getClientIp } from '@/lib/security/rate-limiter'
@@ -69,7 +70,7 @@ export async function POST(request: Request): Promise<Response> {
       }
     }
   } catch (err) {
-    console.error('[analytics:track]', err)
+    Sentry.captureException(err)
     // silent failure — analytics are non-critical
   }
 

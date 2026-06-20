@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import * as Sentry from '@sentry/nextjs'
 import { createFeedbackFromTally } from '@/lib/services/feedback'
 
 export const runtime = 'nodejs'
@@ -7,7 +8,7 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const secret = process.env.TALLY_WEBHOOK_SIGNING_SECRET
     if (!secret) {
-      console.error('[webhook:tally] TALLY_WEBHOOK_SIGNING_SECRET not set')
+      Sentry.captureMessage('[webhook:tally] TALLY_WEBHOOK_SIGNING_SECRET not set')
       return new Response(null, { status: 500 })
     }
 
@@ -71,7 +72,7 @@ export async function POST(request: Request): Promise<Response> {
 
     return new Response(null, { status: 200 })
   } catch (err) {
-    console.error('[webhook:tally]', err)
+    Sentry.captureException(err)
     return new Response(null, { status: 500 })
   }
 }

@@ -16,9 +16,7 @@ export default function Error({
   const t = useTranslations('errors')
 
   useEffect(() => {
-    // Surface the error to the console (and any attached error reporter).
     Sentry.captureException(error)
-    console.error(error)
   }, [error])
 
   return (

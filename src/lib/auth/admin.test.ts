@@ -22,6 +22,14 @@ describe("isAdmin", () => {
     expect(isAdmin("admin@example.com")).toBe(true);
   });
 
+  it("matches uppercase and mixed-case input against lowercase ADMIN_EMAILS", () => {
+    process.env.ADMIN_EMAILS = "admin@example.com";
+
+    expect(isAdmin("Admin@Example.COM")).toBe(true);
+    expect(isAdmin("ADMIN@EXAMPLE.COM")).toBe(true);
+    expect(isAdmin("admin@example.com")).toBe(true);
+  });
+
   it("returns false for a non-admin email", () => {
     process.env.ADMIN_EMAILS = "admin@example.com";
     expect(isAdmin("user@example.com")).toBe(false);

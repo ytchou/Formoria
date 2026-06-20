@@ -5,4 +5,13 @@ Sentry.init({
   tracesSampleRate: 0.1,
   replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: 0,
+  sendDefaultPii: false,
+  beforeSend(event) {
+    if (event.user) {
+      delete event.user.email
+      delete event.user.ip_address
+    }
+
+    return event
+  },
 })

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extractToken, buildConfirmRedirectUrl } from '../route'
+import { extractToken, buildConfirmRedirectUrl } from '../helpers'
 
 describe('newsletter confirm route — helpers', () => {
   describe('extractToken', () => {

@@ -178,7 +178,7 @@ describe('POST /api/upload', () => {
     const body = await res.json()
 
     expect(res.status).toBe(400)
-    expect(body.error).toBe('Unsupported format')
+    expect(body.error).toBe('An unexpected error occurred')
   })
 
   it('returns 200 with url, width, height on happy path', async () => {

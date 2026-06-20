@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { unsubscribeNewsletter } from '@/lib/services/newsletter'
 import { createServiceClient } from '@/lib/supabase/server'
+import { extractToken } from './helpers'
 
 const htmlHeaders = {
   'Content-Type': 'text/html; charset=utf-8',
@@ -28,10 +29,6 @@ function htmlResponse(message: string, status: number) {
   )
 }
 
-export function extractToken(url: URL): string | null {
-  return url.searchParams.get('token')
-}
-
 export async function GET(request: NextRequest) {
   const token = extractToken(new URL(request.url))
 
@@ -43,7 +40,7 @@ export async function GET(request: NextRequest) {
   const result = await unsubscribeNewsletter(supabase, token)
 
   if (!result.success) {
-    return htmlResponse(result.error ?? 'Token not found', 404)
+    return htmlResponse('Token not found', 404)
   }
 
   return htmlResponse('You have been unsubscribed from Formoria newsletter.', 200)

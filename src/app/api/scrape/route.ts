@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import * as Sentry from '@sentry/nextjs'
+import { sanitizeErrorResponse } from '@/lib/errors'
 import { scrapeUrlSchema } from '@/lib/validations/submission'
 import { scrapeBrandUrls } from '@/lib/services/scraper'
 import { createClient } from '@/lib/supabase/server'
@@ -50,9 +52,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ data, statuses })
   } catch (error) {
-    console.error('Scrape API error:', error)
+    Sentry.captureException(error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      sanitizeErrorResponse(error),
       { status: 500 }
     )
   }

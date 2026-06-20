@@ -21,3 +21,10 @@ export class ValidationError extends ServiceError {
     this.name = 'ValidationError'
   }
 }
+
+export function sanitizeErrorResponse(
+  _error: unknown,
+  digest?: string
+): { error: string; digest?: string } {
+  return { error: 'An unexpected error occurred', ...(digest && { digest }) }
+}

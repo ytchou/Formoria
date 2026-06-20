@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
   const result = await unsubscribeByToken(supabase, token)
 
   if (!result.success) {
-    return htmlResponse(result.error ?? 'Token not found', 404)
+    return htmlResponse('Token not found', 404)
   }
 
   return htmlResponse(

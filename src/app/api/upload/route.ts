@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
+import * as Sentry from '@sentry/nextjs'
 import { createClient } from '@/lib/supabase/server'
+import { sanitizeErrorResponse } from '@/lib/errors'
 import { processImage } from '@/lib/security/image-processor'
 import { createInMemoryRateLimiter } from '@/lib/security/rate-limiter'
 import {
@@ -103,8 +105,8 @@ export async function POST(request: Request) {
           key: result.key,
         })
       } catch (err) {
-        console.error('Storage upload error:', err)
-        return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
+        Sentry.captureException(err)
+        return NextResponse.json(sanitizeErrorResponse(err), { status: 500 })
       }
     }
 
@@ -116,10 +118,8 @@ export async function POST(request: Request) {
     try {
       processed = await processImage(buffer, getUploadImageProcessingConfig(bucket))
     } catch (err) {
-      return NextResponse.json(
-        { error: err instanceof Error ? err.message : 'Image processing failed' },
-        { status: 400 }
-      )
+      Sentry.captureException(err)
+      return NextResponse.json(sanitizeErrorResponse(err), { status: 400 })
     }
 
     // Upload via service layer
@@ -153,11 +153,11 @@ export async function POST(request: Request) {
         height: processed.height,
       })
     } catch (err) {
-      console.error('Storage upload error:', err)
-      return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
+      Sentry.captureException(err)
+      return NextResponse.json(sanitizeErrorResponse(err), { status: 500 })
     }
   } catch (error) {
-    console.error('Upload API error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    Sentry.captureException(error)
+    return NextResponse.json(sanitizeErrorResponse(error), { status: 500 })
   }
 }

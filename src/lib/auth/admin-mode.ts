@@ -1,13 +1,20 @@
 import { cookies } from 'next/headers'
 import { isOwnerOf } from '@/lib/services/brand-owners'
 import { isAdmin } from './admin'
-import { VIEWER_MODE_COOKIE, type AdminMode } from './admin-mode-cookie'
+import { readAdminModeCookie, VIEWER_MODE_COOKIE, type AdminMode } from './admin-mode-cookie'
 
-export { VIEWER_MODE_COOKIE, resolveAdminModeCookie, type AdminMode } from './admin-mode-cookie'
+export {
+  ADMIN_MODE_COOKIE_OPTIONS,
+  readAdminModeCookie,
+  resolveAdminModeCookie,
+  signAdminModeCookieValue,
+  VIEWER_MODE_COOKIE,
+  type AdminMode,
+} from './admin-mode-cookie'
 
 export async function getAdminMode(): Promise<AdminMode> {
   const c = await cookies()
-  return c.get(VIEWER_MODE_COOKIE)?.value === 'viewer' ? 'viewer' : 'god'
+  return (await readAdminModeCookie(c.get(VIEWER_MODE_COOKIE)?.value)) ?? 'god'
 }
 
 export async function isViewerMode(): Promise<boolean> {
