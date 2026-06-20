@@ -29,6 +29,27 @@ export function extractSocialLinks($: cheerio.CheerioAPI) {
   return { socialInstagram: instagram, socialThreads: threads, socialFacebook: facebook }
 }
 
+export function extractPurchaseLinks($: cheerio.CheerioAPI): {
+  purchaseWebsite: string | null
+  purchasePinkoi: string | null
+  purchaseShopee: string | null
+} {
+  let pinkoi: string | null = null
+  let shopee: string | null = null
+
+  $('a[href]').each((_, el) => {
+    const href = $(el).attr('href') ?? ''
+    if (!pinkoi && /pinkoi\.com\//i.test(href)) {
+      pinkoi = href
+    }
+    if (!shopee && /shopee\.tw\//i.test(href)) {
+      shopee = href
+    }
+  })
+
+  return { purchaseWebsite: null, purchasePinkoi: pinkoi, purchaseShopee: shopee }
+}
+
 export function extractGalleryImages(
   $: cheerio.CheerioAPI,
   pageUrl: string
