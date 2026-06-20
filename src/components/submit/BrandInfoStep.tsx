@@ -18,7 +18,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { ImageUploader } from '../upload/ImageUploader'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
-import { checkDuplicates } from '@/app/[locale]/submit/actions'
+import { checkDuplicates, suggestCleanName } from '@/app/[locale]/submit/actions'
 import { Link } from '@/i18n/navigation'
 import type { SubmissionFormData } from '@/lib/validations/submission'
 import type { PhotoItem } from '@/lib/types/scraper'
@@ -240,6 +240,7 @@ export function BrandInfoStep({
     control,
     watch,
     getValues,
+    setValue,
     formState: { errors },
   } = useFormContext<SubmissionFormData>()
   const { fields: locationFields, append: appendLocation, remove: removeLocation } = useFieldArray({ control, name: 'retailLocations' })
@@ -255,6 +256,8 @@ export function BrandInfoStep({
   const [dedupConfirmed, setDedupConfirmed] = useState(false)
   const [dedupError, setDedupError] = useState<string | null>(null)
   const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false)
+  const [nameSuggestion, setNameSuggestion] = useState<string | null>(null)
+  const nameRegistration = register('name')
   const activeDedupResult =
     dedupResult &&
     dedupCheckedName === name &&
@@ -298,6 +301,18 @@ export function BrandInfoStep({
     }
   }
 
+  const handleNameBlur = async () => {
+    const currentName = getValues('name')
+    if (!currentName || currentName.length < 2) return
+
+    const result = await suggestCleanName(currentName)
+    if (result.changed && result.suggestion) {
+      setNameSuggestion(result.suggestion)
+    } else {
+      setNameSuggestion(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Brand Name */}
@@ -313,8 +328,37 @@ export function BrandInfoStep({
           type="text"
           placeholder={t('brandNamePlaceholder')}
           className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
-          {...register('name')}
+          {...nameRegistration}
+          onBlur={async (event) => {
+            nameRegistration.onBlur(event)
+            await handleNameBlur()
+          }}
+          onChange={(event) => {
+            setNameSuggestion(null)
+            nameRegistration.onChange(event)
+          }}
         />
+        {nameSuggestion && (
+          <Alert>
+            <AlertDescription>
+              <div className="flex items-center justify-between gap-3">
+                <span>
+                  Suggested name: <strong>{nameSuggestion}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setValue('name', nameSuggestion)
+                    setNameSuggestion(null)
+                  }}
+                  className="inline-flex items-center rounded-lg border border-border px-3 py-1 text-xs font-medium hover:bg-secondary"
+                >
+                  Apply
+                </button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
         {errors.name && (
           <p className="text-xs text-red-600">{errors.name.message}</p>
         )}

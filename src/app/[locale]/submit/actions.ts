@@ -6,6 +6,7 @@ import { deriveCategoryFromProductType } from '@/lib/taxonomy/ontology'
 import { scanContent } from '@/lib/services/moderation'
 import { submitBrandForReview } from '@/lib/services/submission-pipeline'
 import { checkBrandDuplicates } from '@/lib/services/submissions'
+import { cleanBrandName } from '@/lib/services/brand-cleanup'
 import { createClient } from '@/lib/supabase/server'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
 import { createInMemoryRateLimiter } from '@/lib/security/rate-limiter'
@@ -24,6 +25,20 @@ export async function checkDuplicates(
   ubn?: string
 ): Promise<DuplicateCheckResult> {
   return checkBrandDuplicates(name, ubn)
+}
+
+export async function suggestCleanName(name: string) {
+  const result = cleanBrandName(name)
+
+  if (result.changed && result.confidence !== 'low') {
+    return {
+      suggestion: result.cleanedName,
+      changed: true,
+      patterns: result.patternsMatched,
+    }
+  }
+
+  return { suggestion: null, changed: false, patterns: [] as string[] }
 }
 
 export async function submitBrand(
