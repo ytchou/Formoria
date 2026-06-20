@@ -277,7 +277,7 @@ function escapeCSV(value: string): string {
 const FINAL_COLUMNS = [
   'name', 'description', 'productTypes', 'productTypeNote',
   'website', 'instagram', 'threads', 'facebook',
-  'logoUrl', 'productPhotos', 'brandHighlights',
+  'heroImageUrl', 'productPhotos', 'brandHighlights',
 ] as const
 
 function main() {
@@ -335,7 +335,7 @@ function main() {
       instagram: row.instagram || '',
       threads: row.threads || '',
       facebook: row.facebook || '',
-      logoUrl: row.logoUrl || '',
+      heroImageUrl: row.heroImageUrl || '',
       productPhotos: row.productPhotos || '',
       brandHighlights: row.brandHighlights || '',
     }

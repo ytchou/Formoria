@@ -14,7 +14,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     description:
       'A compelling brand story that is well over two hundred characters. We make beautiful handcrafted goods from sustainable materials sourced in Taiwan. Our mission is to share Taiwanese craftsmanship with the world.',
     heroImageUrl: 'https://example.com/hero.jpg',
-    logoUrl: 'https://example.com/logo.png',
     status: 'approved',
     category: 'crafts',
     isVerified: false,
@@ -82,7 +81,6 @@ describe('computeBrandHealth', () => {
       const emptyBrand = makeBrand({
         description: '',
         heroImageUrl: null,
-        logoUrl: null,
         purchaseWebsite: null,
         purchasePinkoi: null,
         purchaseShopee: null,
@@ -110,7 +108,6 @@ describe('computeBrandHealth', () => {
       const emptyBrand = makeBrand({
         description: '',
         heroImageUrl: null,
-        logoUrl: null,
         purchaseWebsite: null,
         purchasePinkoi: null,
         purchaseShopee: null,
@@ -282,7 +279,6 @@ describe('computeBrandHealth', () => {
       const emptyBrand = makeBrand({
         description: '',
         heroImageUrl: null,
-        logoUrl: null,
         purchaseWebsite: null,
         purchasePinkoi: null,
         purchaseShopee: null,

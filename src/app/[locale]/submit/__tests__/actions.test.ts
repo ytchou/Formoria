@@ -178,7 +178,7 @@ describe('server action schema routing', () => {
     mockSaveModerationFlags.mockResolvedValue(undefined)
   })
 
-  it('owner payload without logoUrl fails owner schema', () => {
+  it('owner payload without required owner fields fails owner schema', () => {
     const schema = createSubmissionSchema(true)
     const ownerPayload = {
       name: 'Test Brand',
@@ -192,11 +192,10 @@ describe('server action schema routing', () => {
       retailLocations: [],
       turnstileToken: 'test-token',
     }
-    // Missing logoUrl — should fail
     expect(schema.safeParse(ownerPayload).success).toBe(false)
   })
 
-  it('community payload without logoUrl passes community schema', () => {
+  it('community payload without owner-only fields passes community schema', () => {
     const schema = createSubmissionSchema(false)
     const communityPayload = {
       name: 'Test Brand',
@@ -220,7 +219,6 @@ describe('server action schema routing', () => {
       name: 'Test Brand',
       description: 'Long enough description for the brand insert payload test',
       category: 'fashion',
-      logoUrl: 'https://example.com/logo.webp',
       productType: 'fashion',
       isOwner: true,
       purchaseLinks: [{ platform: 'shopify', url: 'https://shop.com' }],
@@ -243,7 +241,6 @@ describe('server action schema routing', () => {
       category: 'fashion',
       region: 'taipei',
       valueTags: ['sustainability'],
-      logoUrl: 'https://example.com/logo.png',
       productType: 'fashion',
       isOwner: false,
       purchaseLinks: [],
@@ -269,7 +266,6 @@ describe('server action schema routing', () => {
       name: 'Test Brand',
       description: 'A'.repeat(40),
       category: 'fashion',
-      logoUrl: 'https://example.com/logo.png',
       productType: '',
       productTypeNote: '手工皮件',
       isOwner: false,
@@ -294,7 +290,6 @@ describe('server action schema routing', () => {
       name: 'Test Brand',
       description: 'Long enough description for moderation scanning',
       category: 'fashion',
-      logoUrl: 'https://example.com/logo.png',
       isOwner: false,
       purchaseLinks: [{ platform: 'shopify', url: 'https://shop.com/product' }],
       pdpaConsent: true,
@@ -332,7 +327,6 @@ describe('server action schema routing', () => {
       name: 'Test Brand',
       description: 'Email us at spam@example.com for a long enough test',
       category: 'fashion',
-      logoUrl: 'https://example.com/logo.png',
       isOwner: false,
       purchaseLinks: [],
       pdpaConsent: true,
@@ -359,7 +353,6 @@ describe('server action schema routing', () => {
       name: 'Test Brand',
       description: 'Long enough clean description for moderation',
       category: 'fashion',
-      logoUrl: 'https://example.com/logo.png',
       isOwner: false,
       purchaseLinks: [],
       pdpaConsent: true,
@@ -390,7 +383,6 @@ describe('server action schema routing', () => {
       name: 'Buy Now Brand',
       description: 'Long enough description for moderation failure test',
       category: 'fashion',
-      logoUrl: 'https://example.com/logo.png',
       isOwner: false,
       purchaseLinks: [],
       pdpaConsent: true,

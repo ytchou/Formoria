@@ -113,7 +113,6 @@ export async function approveSubmissionAction(
         name: submission.brandName,
         slug,
         description: submission.description,
-        logoUrl: null,
         heroImageUrl: null,
         status: 'approved',
         isVerified: false,

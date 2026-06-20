@@ -12,7 +12,6 @@ const liveBrand: Brand = {
   name: 'Live Name',
   slug: 'live-name',
   description: 'live desc',
-  logoUrl: 'https://x.supabase.co/logo-live.png',
   heroImageUrl: 'https://x.supabase.co/hero-live.png',
   status: 'approved',
   category: 'apparel',
@@ -47,11 +46,9 @@ describe('brandToDraftSnapshot', () => {
     const snap = brandToDraftSnapshot({
       name: 'New Name',
       description: 'new desc',
-      logoUrl: 'https://x.supabase.co/logo-new.png',
     } as Partial<Brand>);
     expect(snap.name).toBe('New Name');
     expect(snap.description).toBe('new desc');
-    expect(snap.logoUrl).toBe('https://x.supabase.co/logo-new.png');
     expect(snap).not.toHaveProperty('id');
     expect(snap).not.toHaveProperty('slug');
     expect(snap).not.toHaveProperty('status');

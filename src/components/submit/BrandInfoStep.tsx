@@ -320,7 +320,7 @@ export function BrandInfoStep({
         )}
       </div>
 
-      {/* Brand Logo */}
+      {/* Brand Image */}
       <div className="space-y-1.5">
         <label className="block text-sm font-semibold text-foreground">
           {t('logoOptional')}
@@ -329,7 +329,7 @@ export function BrandInfoStep({
           {t('logoHint')}
         </p>
         <Controller
-          name="logoUrl"
+          name="heroImageUrl"
           control={control}
           render={({ field }) => (
             <ImageUploader
@@ -341,8 +341,8 @@ export function BrandInfoStep({
             />
           )}
         />
-        {errors.logoUrl && (
-          <p className="text-xs text-red-600">{errors.logoUrl.message}</p>
+        {errors.heroImageUrl && (
+          <p className="text-xs text-red-600">{errors.heroImageUrl.message}</p>
         )}
       </div>
 

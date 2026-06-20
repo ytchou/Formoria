@@ -26,7 +26,7 @@ export type BrandSubmissionWithProductTypeNote = BrandSubmission & {
 
 /**
  * Mapper input: the required core fields are mandatory; columns added in later
- * migrations (pdpa_consent_at, logo_url, source_attribution) are optional so that
+ * migrations (pdpa_consent_at, hero_image_url, source_attribution) are optional so that
  * unit test fixtures can omit them without casts.
  */
 type SubmissionRowInput = Pick<
@@ -61,7 +61,7 @@ export type CreateSubmissionInput = {
   submitterName?: string
   description?: string
   websiteUrl?: string
-  logoUrl?: string
+  heroImageUrl?: string
   socialInstagram?: string | null
   socialThreads?: string | null
   socialFacebook?: string | null
@@ -85,7 +85,7 @@ export function buildSubmissionRecord(input: CreateSubmissionInput): Record<stri
     submitter_name: input.submitterName ?? null,
     description: input.description ?? null,
     website_url: input.websiteUrl ?? null,
-    logo_url: input.logoUrl ?? null,
+    hero_image_url: input.heroImageUrl ?? null,
     social_instagram: input.socialInstagram ?? null,
     social_threads: input.socialThreads ?? null,
     social_facebook: input.socialFacebook ?? null,

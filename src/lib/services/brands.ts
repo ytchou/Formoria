@@ -51,7 +51,7 @@ export type CuratedSubmissionInput = {
   description: string
   category: string
   productType?: string
-  logoUrl?: string | null
+  heroImageUrl?: string | null
   productPhotos: string[]
   purchaseLinks: Array<{ platform: string; url: string }>
   socialLinks: { instagram: string; threads: string; facebook: string; website: string }
@@ -105,7 +105,6 @@ export type SearchResult = {
   id: string
   name: string
   slug: string
-  logoUrl: string | null
   category: string
   similarity: number
 }
@@ -119,7 +118,6 @@ export type SimilarBrand = {
 
 export type BrandEnrichment = {
   productType: string
-  logoUrl: string | null
   heroImageUrl: string | null
   productPhotos: string[]
   tagSlugs: string[]
@@ -306,7 +304,7 @@ export function normalizeRow(rawRow: RawSeedRow): CuratedSubmissionInput {
     category: getString(rawRow.category),
     region: getString(rawRow.region) || undefined,
     valueTags: parseStringArray(rawRow.valueTags ?? rawRow.tags, 'valueTags'),
-    logoUrl: getString(rawRow.logoUrl),
+    heroImageUrl: getString(rawRow.heroImageUrl ?? rawRow.hero_image_url ?? rawRow.logoUrl),
     productPhotos: parseStringArray(rawRow.productPhotos, 'productPhotos'),
     productType: getString(rawRow.productType ?? rawRow.product_type).toLowerCase(),
     productTypeNote: getString(rawRow.productTypeNote ?? rawRow.product_type_note),
@@ -351,8 +349,7 @@ export function curatedSubmissionToBrand(input: CuratedSubmissionInput): Curated
     name: input.name,
     slug: input.slug,
     description: input.description,
-    logoUrl: input.logoUrl || null,
-    heroImageUrl: null,
+    heroImageUrl: input.heroImageUrl || null,
     status: 'approved',
     category: input.category,
     productType: input.productType ?? input.category,
@@ -386,7 +383,6 @@ const BRAND_DRAFT_EDITABLE_KEYS = [
   'socialInstagram',
   'socialThreads',
   'socialFacebook',
-  'logoUrl',
   'heroImageUrl',
   'productPhotos',
   'brandHighlights',
@@ -498,9 +494,6 @@ export function draftSnapshotToDomain(
       case 'socialFacebook':
         partial.socialFacebook = snapshot.socialFacebook as Brand['socialFacebook']
         break
-      case 'logoUrl':
-        partial.logoUrl = snapshot.logoUrl as Brand['logoUrl']
-        break
       case 'heroImageUrl':
         partial.heroImageUrl = snapshot.heroImageUrl as Brand['heroImageUrl']
         break
@@ -571,7 +564,6 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     name: row.name,
     slug: row.slug,
     description: row.description ?? null,
-    logoUrl: row.logo_url ?? null,
     heroImageUrl: row.hero_image_url ?? null,
     // status is text in the DB — cast to BrandStatus at the boundary
     status: row.status as Brand['status'],
@@ -610,7 +602,6 @@ export function brandToInsert(data: BrandWriteInput): Record<string, unknown> {
   if (data.name !== undefined) row.name = data.name
   if (data.slug !== undefined) row.slug = data.slug
   if (data.description !== undefined) row.description = data.description
-  if (data.logoUrl !== undefined) row.logo_url = data.logoUrl
   if (data.heroImageUrl !== undefined) row.hero_image_url = data.heroImageUrl
   if (data.status !== undefined) row.status = data.status
   if (data.productType !== undefined) {
@@ -649,7 +640,7 @@ function brandToUpdate(data: BrandWriteInput): Record<string, unknown> {
 // ---------------------------------------------------------------------------
 
 const BRAND_COLUMNS = [
-  'id', 'name', 'slug', 'description', 'logo_url', 'hero_image_url',
+  'id', 'name', 'slug', 'description', 'hero_image_url',
   'product_type', 'contact_email', 'purchase_website', 'purchase_pinkoi',
   'purchase_shopee', 'social_instagram', 'social_threads', 'social_facebook',
   'other_urls', 'retail_locations', 'product_photos', 'site_content',
@@ -672,13 +663,13 @@ export async function getBrandEnrichmentBatch(brandIds: string[]): Promise<Map<s
   const supabase = createServiceClient()
   const BATCH_SIZE = 100
   const uniqueIds = Array.from(new Set(brandIds))
-  const allRows: { id: string; product_type: string | null; logo_url: string | null; hero_image_url: string | null; product_photos: unknown; tag_slugs: string[] | null }[] = []
+  const allRows: { id: string; product_type: string | null; hero_image_url: string | null; product_photos: unknown; tag_slugs: string[] | null }[] = []
 
   for (let i = 0; i < uniqueIds.length; i += BATCH_SIZE) {
     const chunk = uniqueIds.slice(i, i + BATCH_SIZE)
     const { data, error } = await supabase
       .from('brands')
-      .select('id, product_type, logo_url, hero_image_url, product_photos, tag_slugs')
+      .select('id, product_type, hero_image_url, product_photos, tag_slugs')
       .in('id', chunk)
     if (error) throw error
     if (data) allRows.push(...data)
@@ -689,7 +680,6 @@ export async function getBrandEnrichmentBatch(brandIds: string[]): Promise<Map<s
       row.id,
       {
         productType: row.product_type ?? '',
-        logoUrl: row.logo_url ?? null,
         heroImageUrl: row.hero_image_url ?? null,
         productPhotos: parseStringArray(row.product_photos, 'product_photos'),
         tagSlugs: row.tag_slugs ?? [],
@@ -981,6 +971,7 @@ export async function getRelatedBrands(
   const { brands } = await getBrands({
     category: [tag.slug],
     status: 'approved',
+    sort: 'random',
     limit: limit + 1,
   })
 
@@ -1064,10 +1055,9 @@ function isSupabaseStorageUrl(url: string): boolean {
 
 export function collectSyncableImageUrls(input: {
   heroImageUrl: string | null
-  logoUrl: string | null
   productPhotos: string[]
 }): string[] {
-  const urls = [input.heroImageUrl, input.logoUrl, ...input.productPhotos]
+  const urls = [input.heroImageUrl, ...input.productPhotos]
 
   return urls.filter((url): url is string => {
     if (!url) {
@@ -1080,7 +1070,7 @@ export function collectSyncableImageUrls(input: {
 
 export type ImageRef = {
   url: string
-  field: 'hero' | 'logo' | 'photo'
+  field: 'hero' | 'photo'
   index?: number
 }
 
@@ -1088,8 +1078,8 @@ export function buildSyncedImagePatch(
   refs: ImageRef[],
   storedUrls: (string | null)[],
   productPhotos: string[],
-): Partial<{ heroImageUrl: string; logoUrl: string; productPhotos: string[] }> {
-  const patch: Partial<{ heroImageUrl: string; logoUrl: string; productPhotos: string[] }> = {}
+): Partial<{ heroImageUrl: string; productPhotos: string[] }> {
+  const patch: Partial<{ heroImageUrl: string; productPhotos: string[] }> = {}
   const updatedPhotos = [...productPhotos]
 
   for (let i = 0; i < refs.length; i++) {
@@ -1100,7 +1090,6 @@ export function buildSyncedImagePatch(
 
     const ref = refs[i]
     if (ref.field === 'hero') patch.heroImageUrl = stored
-    else if (ref.field === 'logo') patch.logoUrl = stored
     else if (ref.field === 'photo' && ref.index !== undefined) updatedPhotos[ref.index] = stored
   }
 
@@ -1113,7 +1102,6 @@ export async function syncBrandImages(brandId: string): Promise<{ synced: number
 
   const syncableUrls = collectSyncableImageUrls({
     heroImageUrl: brand.heroImageUrl,
-    logoUrl: brand.logoUrl,
     productPhotos: brand.productPhotos,
   })
 
@@ -1123,9 +1111,6 @@ export async function syncBrandImages(brandId: string): Promise<{ synced: number
 
   if (brand.heroImageUrl && syncableUrls.includes(brand.heroImageUrl)) {
     refs.push({ url: brand.heroImageUrl, field: 'hero' })
-  }
-  if (brand.logoUrl && syncableUrls.includes(brand.logoUrl)) {
-    refs.push({ url: brand.logoUrl, field: 'logo' })
   }
   for (let i = 0; i < brand.productPhotos.length; i++) {
     const url = brand.productPhotos[i]
@@ -1197,14 +1182,12 @@ export async function searchBrands(query: string, limit: number = 5): Promise<Se
     id: string
     name: string
     slug: string
-    logo_url: string | null
     primary_category_name: string
     similarity_score: number
   }) => ({
     id: row.id,
     name: row.name,
     slug: row.slug,
-    logoUrl: row.logo_url,
     category: row.primary_category_name,
     similarity: row.similarity_score,
   }))
@@ -1266,6 +1249,35 @@ export async function getNewBrands(limit = 4): Promise<Brand[]> {
 
   if (error) throw error
   return (data ?? []).map(brandToDomain)
+}
+
+export async function getRecentBrandCount(): Promise<{ count: number; period: '7d' | '30d' }> {
+  const supabase = createServiceClient()
+  const now = new Date()
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+
+  const { count: weekCount, error: weekError } = await supabase
+    .from('brands')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'approved')
+    .gte('approved_at', sevenDaysAgo)
+
+  if (weekError) throw weekError
+
+  if ((weekCount ?? 0) > 0) {
+    return { count: weekCount ?? 0, period: '7d' }
+  }
+
+  const { count: monthCount, error: monthError } = await supabase
+    .from('brands')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'approved')
+    .gte('approved_at', thirtyDaysAgo)
+
+  if (monthError) throw monthError
+
+  return { count: monthCount ?? 0, period: '30d' }
 }
 
 export async function getBrandStats(): Promise<{ brandCount: number; categoryCount: number }> {

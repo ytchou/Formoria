@@ -8,7 +8,7 @@ import BrandShowcase from '@/components/shared/brand-showcase'
 import FilterableBrandShowcase from '@/components/landing/filterable-brand-showcase'
 import SubmitBand from '@/components/landing/submit-band'
 import ValueChips from '@/components/landing/value-chips'
-import { getBrands, getNewBrands } from '@/lib/services/brands'
+import { getBrands, getNewBrands, getRecentBrandCount } from '@/lib/services/brands'
 import { getActiveCategories, getTags } from '@/lib/services/taxonomy'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { buildAlternates } from '@/lib/seo/alternates'
@@ -65,11 +65,12 @@ export default async function LandingPage({ params }: PageProps) {
   const jsonLd = buildWebSiteJsonLd(safeLocale)
   const organizationJsonLd = buildOrganizationJsonLd(safeLocale)
 
-  const [categories, { brands: fetchedBrands, totalCount: totalBrandCount }, newBrands, valueTags] = await Promise.all([
+  const [categories, { brands: fetchedBrands, totalCount: totalBrandCount }, newBrands, valueTags, recentBrands] = await Promise.all([
     getActiveCategories(),
     getBrands({ status: 'approved', limit: 60 }),
     getNewBrands(4),
     getTags('value'),
+    getRecentBrandCount(),
   ])
 
   const allBrands = shuffle(fetchedBrands)
@@ -87,8 +88,7 @@ export default async function LandingPage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
       />
       <main>
-        <HeroSection brandCount={totalBrandCount} categoryCount={categories.length} />
-        <NewsletterSection />
+        <HeroSection brandCount={totalBrandCount} categoryCount={categories.length} recentBrands={recentBrands} />
 
         <SavedBrandsProvider>
           <div className="py-6 md:py-8">
@@ -129,6 +129,8 @@ export default async function LandingPage({ params }: PageProps) {
             </div>
           </div>
         </SavedBrandsProvider>
+
+        <NewsletterSection />
       </main>
     </>
   )

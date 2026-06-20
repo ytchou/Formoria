@@ -47,10 +47,10 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
   return (
     <Dialog>
       <DialogTrigger
-        className="flex size-[42px] shrink-0 items-center justify-center rounded-xl bg-secondary text-foreground transition-colors hover:bg-secondary/80"
-        aria-label={t('trigger')}
+        className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-secondary px-3 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80"
       >
         <Flag className="size-4" />
+        {t('trigger')}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

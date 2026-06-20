@@ -9,7 +9,6 @@ describe('brandToInsert', () => {
       description: 'A founder-curated Made-in-Taiwan brand with a valid public profile.',
       status: 'approved',
       category: 'food',
-      logoUrl: 'https://example.com/logo.png',
       productPhotos: ['https://example.com/product-1.png'],
       purchaseWebsite: 'https://example.com/shop',
       socialInstagram: 'https://instagram.com/testmaker',

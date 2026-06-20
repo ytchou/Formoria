@@ -9,9 +9,13 @@ describe('NewsletterConfirmEmail', () => {
     interests: ['brand-stories', 'new-brands'],
   }
 
-  it('renders without error', async () => {
+  it('renders without error (zh-TW default)', async () => {
     const html = await render(NewsletterConfirmEmail(defaultProps))
     expect(html).toContain('確認訂閱')
+  })
+
+  it('renders English when locale is en', async () => {
+    const html = await render(NewsletterConfirmEmail({ ...defaultProps, locale: 'en' }))
     expect(html).toContain('Confirm')
   })
 
@@ -25,14 +29,16 @@ describe('NewsletterConfirmEmail', () => {
     expect(html).toContain('/api/newsletter/unsubscribe')
   })
 
-  it('is bilingual (zh-TW + en)', async () => {
+  it('renders locale-specific content for zh-TW', async () => {
     const html = await render(NewsletterConfirmEmail(defaultProps))
     expect(html).toContain('確認訂閱')
-    expect(html).toContain('Confirm your subscription')
+    expect(html).toContain('品牌故事')
+    expect(html).toContain('新品牌')
   })
 
-  it('lists selected interests', async () => {
-    const html = await render(NewsletterConfirmEmail(defaultProps))
+  it('renders locale-specific content for en', async () => {
+    const html = await render(NewsletterConfirmEmail({ ...defaultProps, locale: 'en' }))
+    expect(html).toContain('Confirm your subscription')
     expect(html).toContain('Brand Stories')
     expect(html).toContain('New Brands')
   })

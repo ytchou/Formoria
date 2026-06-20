@@ -17,7 +17,6 @@ describe('fullSubmissionSchema product type validation', () => {
     category: 'fashion',
     region: 'taipei',
     valueTags: [],
-    logoUrl: 'https://example.com/logo.webp',
     productPhotos: [],
     brandHighlights: '',
     purchaseLinks: [{ platform: 'website', url: 'https://example.com/shop' }],

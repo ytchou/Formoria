@@ -38,14 +38,14 @@ function renderWithIntl(ui: React.ReactElement) {
 
 describe('BrandActions', () => {
   it('renders 前往官網 link with bg-cta class when websiteUrl is provided', () => {
-    renderWithIntl(<BrandActions websiteUrl='https://example.com' brandSlug='test-brand' />);
+    renderWithIntl(<BrandActions websiteUrl='https://example.com' brandSlug='test-brand' brandName="測試品牌" />);
     const ctaLink = screen.getByRole('link', { name: /前往官網/i });
     expect(ctaLink).toBeInTheDocument();
     expect(ctaLink.className).toContain('bg-cta');
     expect(ctaLink.className).not.toContain('bg-terracotta');
   });
   it('does NOT render bookmark button', () => {
-    renderWithIntl(<BrandActions websiteUrl='https://example.com' brandSlug='test-brand' />);
+    renderWithIntl(<BrandActions websiteUrl='https://example.com' brandSlug='test-brand' brandName="測試品牌" />);
     expect(screen.queryByRole('button', { name: /收藏/i })).not.toBeInTheDocument();
   });
   it('renders report button when brandId is provided', () => {
@@ -54,26 +54,27 @@ describe('BrandActions', () => {
         websiteUrl="https://example.com"
         brandSlug="test-brand"
         brandId="brand-uuid-123"
+        brandName="測試品牌"
       />
     )
     expect(screen.getByRole('button', { name: /檢舉/i })).toBeInTheDocument()
   })
   it('does not render report button when brandId is absent', () => {
-    renderWithIntl(<BrandActions websiteUrl="https://example.com" brandSlug="test-brand" />)
+    renderWithIntl(<BrandActions websiteUrl="https://example.com" brandSlug="test-brand" brandName="測試品牌" />)
     expect(screen.queryByRole('button', { name: /檢舉/i })).not.toBeInTheDocument()
   })
   it('renders share button', () => {
-    renderWithIntl(<BrandActions websiteUrl='https://example.com' brandSlug='test-brand' />);
+    renderWithIntl(<BrandActions websiteUrl='https://example.com' brandSlug='test-brand' brandName="測試品牌" />);
     expect(screen.getByRole('button', { name: /分享/i })).toBeInTheDocument();
   });
   it('renders mobile sticky bar with 前往官網 when websiteUrl is provided', () => {
-    renderWithIntl(<BrandActions websiteUrl='https://example.com' brandSlug='test-brand' />);
+    renderWithIntl(<BrandActions websiteUrl='https://example.com' brandSlug='test-brand' brandName="測試品牌" />);
     expect(screen.getByTestId('mobile-cta-bar')).toBeInTheDocument();
     const stickyLink = screen.getByTestId('mobile-cta-bar').querySelector('a');
     expect(stickyLink).toHaveAttribute('href', 'https://example.com');
   });
   it('does NOT render 前往官網 link when websiteUrl is null', () => {
-    renderWithIntl(<BrandActions websiteUrl={null} brandSlug='test-brand' />);
+    renderWithIntl(<BrandActions websiteUrl={null} brandSlug='test-brand' brandName="測試品牌" />);
     expect(screen.queryByRole('link', { name: /前往官網/i })).not.toBeInTheDocument();
   });
 });

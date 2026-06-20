@@ -25,13 +25,13 @@ import HeroSection from './hero-section'
 
 describe('HeroSection', () => {
   it('renders the main heading', async () => {
-    render(await HeroSection({ brandCount: 100, categoryCount: 20 }))
+    render(await HeroSection({ brandCount: 100, categoryCount: 20, recentBrands: { count: 5, period: '7d' } }))
     const heading = screen.getByRole('heading', { level: 1 })
     expect(heading).toBeInTheDocument()
   })
 
   it('renders CTA link to /brands', async () => {
-    render(await HeroSection({ brandCount: 100, categoryCount: 20 }))
+    render(await HeroSection({ brandCount: 100, categoryCount: 20, recentBrands: { count: 5, period: '7d' } }))
     const link = screen.getByRole('link', { name: /探索所有品牌/ })
     expect(link).toHaveAttribute('href', '/brands')
   })

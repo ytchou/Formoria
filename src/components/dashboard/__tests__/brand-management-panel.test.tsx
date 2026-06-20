@@ -85,7 +85,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     name: 'Test Brand',
     slug: 'test-brand',
     description: 'Test description',
-    logoUrl: null,
     heroImageUrl: null,
     status: 'approved',
     category: 'food',

@@ -16,7 +16,6 @@ export function computeDiffFields(
   const FIELD_LABELS: Record<string, string> = {
     name: '品牌名稱',
     description: '品牌描述',
-    logoUrl: '品牌標誌',
     heroImageUrl: '封面圖片',
     category: '類別',
     contactEmail: '聯絡信箱',
@@ -24,7 +23,7 @@ export function computeDiffFields(
     foundingYear: '創立年份',
   }
 
-  const IMAGE_FIELDS = new Set(['logoUrl', 'heroImageUrl'])
+  const IMAGE_FIELDS = new Set(['heroImageUrl'])
 
   return Object.keys(proposedData).map((key) => {
     const currentValue =

@@ -36,7 +36,6 @@ const fixtureBrand: Brand = {
   name: 'Sunrise Tea',
   slug: 'sunrise-tea',
   description: 'A premium Taiwanese tea brand.',
-  logoUrl: null,
   heroImageUrl: null,
   status: 'approved',
   category: 'food-beverage',

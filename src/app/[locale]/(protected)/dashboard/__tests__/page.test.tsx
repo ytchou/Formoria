@@ -108,7 +108,7 @@ describe('saved brands tab', () => {
         brandId: 'brand-1',
         brandName: '收藏品牌一',
         brandSlug: 'saved-brand-one',
-        logoUrl: null,
+        heroImageUrl: null,
         savedAt: '2026-06-01T00:00:00Z',
       },
     ])

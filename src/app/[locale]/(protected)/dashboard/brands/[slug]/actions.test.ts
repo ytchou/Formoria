@@ -118,9 +118,7 @@ vi.mock('next/navigation', () => ({
 const SUPA = 'https://abc.supabase.co'
 const heroUrl = `${SUPA}/storage/v1/object/public/brand-images/brands/brand-1/hero-new.webp`
 const oldHeroUrl = `${SUPA}/storage/v1/object/public/brand-images/brands/brand-1/hero-old.webp`
-const oldLogoUrl = `${SUPA}/storage/v1/object/public/brand-images/brands/brand-1/logo-old.webp`
 const oldProductUrl = `${SUPA}/storage/v1/object/public/brand-images/brands/brand-1/product-old.webp`
-const newLogoUrl = `${SUPA}/storage/v1/object/public/brand-images/brands/brand-1/logo-new.webp`
 const newProductUrl = `${SUPA}/storage/v1/object/public/brand-images/brands/brand-1/product-new.webp`
 
 function form(fields: Record<string, string>) {
@@ -156,7 +154,6 @@ describe('updateBrandAction', () => {
       name: 'Test Brand',
       description: 'Original description before edit',
       socialLinks: {},
-      logoUrl: null,
       heroImageUrl: null,
       productPhotos: [],
       brandHighlights: null,
@@ -253,7 +250,6 @@ describe('updateBrandAction', () => {
       await updateBrandAction(undefined, form({
         brandSlug: 'test-brand',
         name: 'Acme',
-        logoUrl: newLogoUrl,
         heroImageUrl: heroUrl,
         productPhotos: JSON.stringify([newProductUrl]),
         brandHighlights: 'Hand-finished in Taichung',
@@ -265,7 +261,6 @@ describe('updateBrandAction', () => {
     expect(updateBrand).toHaveBeenCalledWith(
       'brand-1',
       expect.objectContaining({
-        logoUrl: newLogoUrl,
         heroImageUrl: heroUrl,
         productPhotos: [newProductUrl],
         brandHighlights: 'Hand-finished in Taichung',
@@ -337,14 +332,13 @@ describe('updateBrandAction', () => {
     expect(result?.error).toContain('productPhotos')
   })
 
-  it('diffs and deletes orphaned brand images after update', async () => {
+  it('diffs and deletes orphaned hero and product images after update', async () => {
     vi.mocked(getBrandBySlug).mockResolvedValueOnce({
       id: 'brand-1',
       slug: 'test-brand',
       name: 'Test Brand',
       description: 'Original description before edit',
       socialLinks: {},
-      logoUrl: oldLogoUrl,
       heroImageUrl: oldHeroUrl,
       productPhotos: [oldProductUrl],
       brandHighlights: null,
@@ -356,7 +350,6 @@ describe('updateBrandAction', () => {
     try {
       await updateBrandAction(undefined, form({
         brandSlug: 'test-brand',
-        logoUrl: newLogoUrl,
         heroImageUrl: '',
         productPhotos: '[]',
       }))
@@ -365,8 +358,8 @@ describe('updateBrandAction', () => {
     }
 
     expect(diffRemovedImageUrls).toHaveBeenCalledWith(
-      [oldLogoUrl, oldHeroUrl, oldProductUrl],
-      [newLogoUrl]
+      [oldHeroUrl, oldProductUrl],
+      []
     )
     expect(deleteBrandImages).toHaveBeenCalledWith([oldHeroUrl, oldProductUrl])
   })
@@ -401,7 +394,6 @@ describe('updateBrandAction — admin bypass', () => {
       name: 'Test Brand',
       description: 'Original description before edit',
       socialLinks: {},
-      logoUrl: null,
       heroImageUrl: null,
       productPhotos: [],
       brandHighlights: null,
@@ -467,7 +459,6 @@ describe('updateBrandAction — edit gating', () => {
       name: 'Test Brand',
       description: 'Original description before edit',
       socialLinks: {},
-      logoUrl: null,
       heroImageUrl: null,
       productPhotos: [],
       brandHighlights: null,
@@ -646,7 +637,6 @@ describe('publishDraftAction — edit gating', () => {
       name: 'Test Brand',
       description: 'Original description before edit',
       socialLinks: {},
-      logoUrl: null,
       heroImageUrl: null,
       productPhotos: [],
       brandHighlights: null,

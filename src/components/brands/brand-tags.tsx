@@ -12,7 +12,7 @@ export async function BrandTags({ brand }: BrandTagsProps) {
 
   return (
     <section>
-      <h2 className="mb-3 font-[family-name:var(--font-heading)] text-sm font-semibold text-foreground">
+      <h2 className="mb-3 font-heading text-base font-bold text-foreground">
         {t('sections.tags')}
       </h2>
       <div className="flex flex-wrap gap-2">

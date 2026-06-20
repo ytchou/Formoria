@@ -26,7 +26,6 @@ describe('brand-owners service', () => {
                     id: 'brand-1',
                     name: 'Dachun Soap',
                     slug: 'dachun-soap',
-                    logo_url: null,
                   },
                 },
               ],

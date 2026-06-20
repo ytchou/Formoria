@@ -18,7 +18,6 @@ import { getRandomBrands, getNewBrands, getBrandStats } from './brands'
 const mockBrandRows = [
   {
     id: '1', name: '茶籽堂', slug: 'cha-zi-tang', description: '苦茶籽品牌',
-    category: 'beauty', hero_image_url: null, logo_url: null, website: 'https://example.com',
     status: 'approved', founding_year: 2004, approved_at: '2026-01-15T00:00:00Z',
     submitted_at: '2026-01-01T00:00:00Z',
     social_links: {}, brand_taxonomy: [], brand_owners: [],
@@ -28,7 +27,6 @@ const mockBrandRows = [
   },
   {
     id: '2', name: '春一枝', slug: 'chun-yi-zhi', description: '天然水果冰棒',
-    category: 'food', hero_image_url: null, logo_url: null, website: null,
     status: 'approved', founding_year: 2008, approved_at: '2026-02-20T00:00:00Z',
     submitted_at: '2026-01-02T00:00:00Z',
     social_links: {}, brand_taxonomy: [], brand_owners: [],
@@ -38,7 +36,6 @@ const mockBrandRows = [
   },
   {
     id: '3', name: '印花樂', slug: 'inblooom', description: '台灣花布設計',
-    category: 'design', hero_image_url: null, logo_url: null, website: null,
     status: 'approved', founding_year: 2008, approved_at: '2026-03-10T00:00:00Z',
     submitted_at: '2026-01-03T00:00:00Z',
     social_links: {}, brand_taxonomy: [], brand_owners: [],

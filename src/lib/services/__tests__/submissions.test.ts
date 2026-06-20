@@ -78,21 +78,6 @@ describe('buildSubmissionRecord', () => {
     isOwner: false,
   }
 
-  it('stores null logo_url when logoUrl is undefined', async () => {
-    const { buildSubmissionRecord } = await import('../submissions')
-    const record = buildSubmissionRecord({ ...base, logoUrl: undefined })
-    expect(record.logo_url).toBeNull()
-  })
-
-  it('stores valid logo_url when provided', async () => {
-    const { buildSubmissionRecord } = await import('../submissions')
-    const record = buildSubmissionRecord({
-      ...base,
-      logoUrl: 'https://cdn.example.com/logo.png',
-    })
-    expect(record.logo_url).toBe('https://cdn.example.com/logo.png')
-  })
-
   it('stores source_attribution when provided', async () => {
     const { buildSubmissionRecord } = await import('../submissions')
     const record = buildSubmissionRecord({

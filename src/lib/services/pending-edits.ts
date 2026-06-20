@@ -29,7 +29,7 @@ type PendingEditReviewRow = {
 }
 
 const PENDING_EDIT_WITH_BRAND_SELECT =
-  '*, brands(id, name, slug, description, logo_url, hero_image_url, product_type, contact_email, brand_highlights, founding_year, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, other_urls, retail_locations, product_photos, site_content)'
+  '*, brands(id, name, slug, description, hero_image_url, product_type, contact_email, brand_highlights, founding_year, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, other_urls, retail_locations, product_photos, site_content)'
 
 function asSingleBrand(
   brand: Partial<BrandRow> | Partial<BrandRow>[] | null | undefined
@@ -98,7 +98,6 @@ export function pendingEditWithBrandToDomain(
       name: brand?.name ?? '',
       slug: brand?.slug ?? '',
       description: brand?.description ?? null,
-      logoUrl: brand?.logo_url ?? null,
       heroImageUrl: brand?.hero_image_url ?? null,
       category: deriveCategoryFromProductType(brand?.product_type ?? '') ?? null,
       contactEmail: brand?.contact_email ?? null,
@@ -140,9 +139,8 @@ function isNoRowsError(error: { code?: string } | null | undefined): boolean {
   return error?.code === 'PGRST116'
 }
 
-function imageUrlsFromBrand(brand: Pick<Brand, 'logoUrl' | 'heroImageUrl' | 'productPhotos'>): string[] {
+function imageUrlsFromBrand(brand: Pick<Brand, 'heroImageUrl' | 'productPhotos'>): string[] {
   return [
-    brand.logoUrl,
     brand.heroImageUrl,
     ...(brand.productPhotos ?? []),
   ].filter((url): url is string => Boolean(url))

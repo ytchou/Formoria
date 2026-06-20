@@ -83,7 +83,7 @@ export function getBrandInfoSchema(t: Translator) {
       .transform((v) => (v === '' ? undefined : v)),
     region: regionField,
     valueTags: valueTagsField,
-    logoUrl: httpUrl().optional().or(z.literal('')),
+    heroImageUrl: httpUrl().optional().or(z.literal('')),
   })
 }
 
@@ -252,7 +252,7 @@ export function createSubmissionSchema(isOwner: boolean, t: Translator = zhT) {
       .transform((v) => (v === '' ? undefined : v)),
     region: regionField,
     valueTags: valueTagsField,
-    logoUrl: httpUrl().optional().or(z.literal('')),
+    heroImageUrl: httpUrl().optional().or(z.literal('')),
   })
 
   const linksBase = z.object({

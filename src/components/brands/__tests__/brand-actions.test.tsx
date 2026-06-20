@@ -38,11 +38,25 @@ describe('BrandActions', () => {
     renderWithIntl(
       <BrandActions
         brandId="brand-1"
+        brandName="測試品牌"
         brandSlug="test-brand"
         websiteUrl="https://example.com"
       />
     )
 
     expect(screen.getByRole('button', { name: /收藏/ })).toBeInTheDocument()
+  })
+
+  it('renders ShareDialog trigger instead of inline share button', () => {
+    renderWithIntl(
+      <BrandActions
+        brandId="brand-1"
+        brandName="測試品牌"
+        brandSlug="test-brand"
+        websiteUrl={null}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: /分享/i })).toBeInTheDocument()
   })
 })

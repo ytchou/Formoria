@@ -50,7 +50,6 @@ describe('brandToDomain', () => {
       name: 'Test Brand',
       slug: 'test-brand',
       description: 'A test brand',
-      logo_url: 'https://example.com/logo.png',
       hero_image_url: null,
       status: 'approved',
       category: 'food',
@@ -73,7 +72,6 @@ describe('brandToDomain', () => {
     const brand = brandToDomain(dbRow)
 
     expect(brand.id).toBe('123')
-    expect(brand.logoUrl).toBe('https://example.com/logo.png')
     expect(brand.heroImageUrl).toBeNull()
     expect(brand.foundingYear).toBe(2020)
     expect(brand.purchaseShopee).toBe('https://shopee.tw/test')
@@ -91,7 +89,7 @@ describe('brandToDomain', () => {
   it('handles missing nested tags gracefully', () => {
     const dbRow = {
       id: '123', name: 'Test', slug: 'test', description: null,
-      logo_url: null, hero_image_url: null, status: 'pending',
+      hero_image_url: null, status: 'pending',
       category: null, founding_year: null,
       retail_locations: [], product_photos: [],
       contact_email: null, submitted_at: '2026-01-01T00:00:00Z',
@@ -110,7 +108,6 @@ describe('brandToInsert', () => {
       name: 'New Brand',
       slug: 'new-brand',
       description: 'A new brand',
-      logoUrl: 'https://example.com/logo.png',
       category: 'food',
       purchaseWebsite: 'https://brand.com',
       socialInstagram: '@brand',
@@ -121,11 +118,9 @@ describe('brandToInsert', () => {
 
     expect(row.name).toBe('New Brand')
     expect(row.slug).toBe('new-brand')
-    expect(row.logo_url).toBe('https://example.com/logo.png')
     expect(row.purchase_website).toBe('https://brand.com')
     expect(row.social_instagram).toBe('@brand')
     expect(row.contact_email).toBe('brand@example.com')
-    expect(row).not.toHaveProperty('logoUrl')
     expect(row).not.toHaveProperty('purchaseWebsite')
   })
 })
@@ -133,7 +128,7 @@ describe('brandToInsert', () => {
 describe('brandToDomain — brandHighlights', () => {
   const baseRow = {
     id: 'test-id', name: 'Test Brand', slug: 'test-brand',
-    description: 'A test brand', logo_url: null, hero_image_url: null,
+    description: 'A test brand', hero_image_url: null,
     status: 'approved', category: 'Food & Beverage', founding_year: 2004,
     retail_locations: [],
     product_photos: [], contact_email: null, brand_taxonomy: [],
@@ -210,7 +205,7 @@ describe('getBrands — search uses search_brands RPC', () => {
 
     // RPC returns a matched brand ID (simulate pg_trgm fuzzy match for "茶" partial)
     mockRpc.mockResolvedValue({
-      data: [{ id: 'brand-tea', name: 'Sun Tea', slug: 'sun-tea', logo_url: null, primary_category_name: 'Food', similarity_score: 0.8 }],
+      data: [{ id: 'brand-tea', name: 'Sun Tea', slug: 'sun-tea', primary_category_name: 'Food', similarity_score: 0.8 }],
       error: null,
     })
 
@@ -220,7 +215,6 @@ describe('getBrands — search uses search_brands RPC', () => {
       name: 'Sun Tea',
       slug: 'sun-tea',
       description: 'Premium loose-leaf tea from Nantou.',
-      logo_url: null,
       hero_image_url: null,
       status: 'approved',
       category: 'food',

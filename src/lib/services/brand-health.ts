@@ -9,7 +9,6 @@ declare module '@/lib/database.types' {
     brand_highlights?: unknown
     created_at?: string | null
     hero_image_url?: string | null
-    logo_url?: string | null
     product_photos?: unknown
     purchase_links?: unknown
     retail_locations?: unknown

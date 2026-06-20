@@ -12,7 +12,7 @@ type BrandSaveWithBrandRow = {
     id: string
     name: string
     slug: string
-    logo_url: string | null
+    hero_image_url: string | null
     status: string
   } | null
 }
@@ -42,7 +42,7 @@ export async function getUserSavedBrands(
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('brand_saves')
-    .select('brand_id, created_at, brands(id, name, slug, logo_url, status)')
+    .select('brand_id, created_at, brands(id, name, slug, hero_image_url, status)')
     .eq('user_id', userId)
 
   if (error) {
@@ -57,7 +57,7 @@ export async function getUserSavedBrands(
       brandId: row.brand_id,
       brandName: row.brands!.name,
       brandSlug: row.brands!.slug,
-      logoUrl: row.brands!.logo_url ?? null,
+      heroImageUrl: row.brands!.hero_image_url ?? null,
       savedAt: row.created_at,
     }))
 }

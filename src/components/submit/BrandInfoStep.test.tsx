@@ -66,7 +66,6 @@ function Wrapper({
       unifiedBusinessNumber: '',
       region: 'taipei',
       valueTags: [],
-      logoUrl: '',
       productPhotos: [],
       purchaseLinks: [],
       socialLinks: {

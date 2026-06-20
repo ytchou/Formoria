@@ -24,7 +24,6 @@ const mockBrand = {
   status: 'approved' as const,
   isVerified: false,
   isDemo: false,
-  logoUrl: null,
   heroImageUrl: null,
   foundingYear: null,
   tags: [],
