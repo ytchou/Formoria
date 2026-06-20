@@ -1167,6 +1167,8 @@
     "fields": {
       "brandName": "Brand Name",
       "brandNamePlaceholder": "e.g. Rain Boot Studio",
+      "suggestedName": "Suggested name:",
+      "applySuggestion": "Apply",
       "brandDescription": "Brand Description",
       "brandDescriptionPlaceholder": "Tell us about your brand...",
       "brandDescriptionHint": "Write a specific, factual description (at least 40 characters) — what you make, your materials, and what makes the brand Taiwanese.",

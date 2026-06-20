@@ -1167,6 +1167,8 @@
     "fields": {
       "brandName": "品牌名稱",
       "brandNamePlaceholder": "例：雨靴工作室",
+      "suggestedName": "建議名稱：",
+      "applySuggestion": "套用",
       "brandDescription": "品牌描述",
       "brandDescriptionPlaceholder": "告訴我們關於您的品牌...",
       "brandDescriptionHint": "請寫下具體、可查證的介紹（至少 40 個字元）——你做什麼、使用的材料，以及品牌的台灣特色。",

@@ -28,6 +28,10 @@ export async function checkDuplicates(
 }
 
 export async function suggestCleanName(name: string) {
+  if (!name || name.length > 200) {
+    return { suggestion: null, changed: false, patterns: [] as string[] }
+  }
+
   const result = cleanBrandName(name)
 
   if (result.changed && result.confidence !== 'low') {

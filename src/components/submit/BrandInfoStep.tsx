@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useFormContext, Controller, useFieldArray } from 'react-hook-form'
 import { useTranslations } from 'next-intl'
 import { X, Plus, Star, Globe, Upload, ArrowRight, Trash2 } from 'lucide-react'
@@ -257,6 +257,7 @@ export function BrandInfoStep({
   const [dedupError, setDedupError] = useState<string | null>(null)
   const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false)
   const [nameSuggestion, setNameSuggestion] = useState<string | null>(null)
+  const nameBlurRequestRef = useRef(0)
   const nameRegistration = register('name')
   const activeDedupResult =
     dedupResult &&
@@ -305,11 +306,21 @@ export function BrandInfoStep({
     const currentName = getValues('name')
     if (!currentName || currentName.length < 2) return
 
-    const result = await suggestCleanName(currentName)
-    if (result.changed && result.suggestion) {
-      setNameSuggestion(result.suggestion)
-    } else {
-      setNameSuggestion(null)
+    const requestId = ++nameBlurRequestRef.current
+    try {
+      const result = await suggestCleanName(currentName)
+      if (requestId !== nameBlurRequestRef.current) return
+
+      if (result.changed && result.suggestion) {
+        setNameSuggestion(result.suggestion)
+      } else {
+        setNameSuggestion(null)
+      }
+    } catch (error) {
+      if (requestId === nameBlurRequestRef.current) {
+        setNameSuggestion(null)
+      }
+      console.error('Failed to suggest clean name:', error)
     }
   }
 
@@ -343,7 +354,7 @@ export function BrandInfoStep({
             <AlertDescription>
               <div className="flex items-center justify-between gap-3">
                 <span>
-                  Suggested name: <strong>{nameSuggestion}</strong>
+                  {t('suggestedName')} <strong>{nameSuggestion}</strong>
                 </span>
                 <button
                   type="button"
@@ -351,9 +362,9 @@ export function BrandInfoStep({
                     setValue('name', nameSuggestion)
                     setNameSuggestion(null)
                   }}
-                  className="inline-flex items-center rounded-lg border border-border px-3 py-1 text-xs font-medium hover:bg-secondary"
+                  className="inline-flex items-center rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-secondary active:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
                 >
-                  Apply
+                  {t('applySuggestion')}
                 </button>
               </div>
             </AlertDescription>
