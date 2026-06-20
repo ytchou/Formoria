@@ -19,8 +19,9 @@ describe('TrustModel', () => {
     expect(pillarHeadings).toHaveLength(3)
   })
 
-  it('renders the trust tagline', () => {
+  it('renders all three pillar descriptions', () => {
     render(<TrustModel />)
-    expect(screen.getByText('tagline')).toBeInTheDocument()
+    const descriptions = screen.getAllByText(/\.desc$/)
+    expect(descriptions).toHaveLength(3)
   })
 })

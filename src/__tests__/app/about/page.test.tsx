@@ -9,6 +9,7 @@ vi.mock('next-intl/server', () => ({
 
 vi.mock('@/lib/services/brands', () => ({
   getBrandStats: vi.fn(async () => ({ brandCount: 12, categoryCount: 4 })),
+  getRecentBrandCount: vi.fn(async () => 5),
 }))
 
 vi.mock('@/components/about/how-it-works', () => ({

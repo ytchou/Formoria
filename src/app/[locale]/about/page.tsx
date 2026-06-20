@@ -9,7 +9,7 @@ import TaiwanStats from '@/components/about/taiwan-stats'
 import MissionPillars from '@/components/about/mission-pillars'
 import HowItWorks from '@/components/about/how-it-works'
 import { TrustModel } from '@/components/about/trust-model'
-import { getBrandStats } from '@/lib/services/brands'
+import { getBrandStats, getRecentBrandCount } from '@/lib/services/brands'
 
 export const revalidate = 3600
 
@@ -58,7 +58,10 @@ export default async function AboutPage({ params }: PageProps) {
   const organizationJsonLd = buildOrganizationJsonLd(safeLocale)
   const articleJsonLd = buildArticleJsonLd({ title, description, path: '/about', locale: safeLocale })
 
-  const stats = await getBrandStats()
+  const [stats, recentBrands] = await Promise.all([
+    getBrandStats(),
+    getRecentBrandCount(),
+  ])
 
   return (
     <>
@@ -74,6 +77,7 @@ export default async function AboutPage({ params }: PageProps) {
         <AboutHero
           brandCount={stats.brandCount}
           categoryCount={stats.categoryCount}
+          recentBrands={recentBrands}
         />
 
         <OriginStory
@@ -104,14 +108,12 @@ export default async function AboutPage({ params }: PageProps) {
               detail: t('taiwanStats.items.employment.detail'),
             },
           ]}
-          note={t('taiwanStats.note')}
           sourceLabel={t('taiwanStats.sourceLabel')}
           sourceName={t('taiwanStats.sourceName')}
         />
 
         <MissionPillars
           heading={t('mission.heading')}
-          statement={t('mission.statement')}
           pillars={[
             { heading: t('mission.promote.heading'), body: t('mission.promote.body') },
             { heading: t('mission.smallBusiness.heading'), body: t('mission.smallBusiness.body') },

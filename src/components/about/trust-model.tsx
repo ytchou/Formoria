@@ -30,13 +30,10 @@ export function TrustModel() {
         <h2 className="font-heading text-3xl font-bold leading-tight text-foreground md:text-4xl">
           {t('heading')}
         </h2>
-        <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
-          {t('subtitle')}
-        </p>
-        <div className="mt-10 grid grid-cols-1 gap-8 md:grid-cols-3">
+        <div className="mt-12 grid grid-cols-1 gap-8 md:grid-cols-3">
           {trustPillars.map(({ key, icon: Icon }) => (
-            <div key={key}>
-              <Icon className="text-primary" size={24} aria-hidden="true" />
+            <div key={key} className="border-t border-border pt-5">
+              <Icon className="text-cta" size={24} aria-hidden="true" />
               <h3 className="mt-5 font-heading text-lg font-bold text-foreground">
                 {t(`${key}.title`)}
               </h3>
@@ -46,9 +43,6 @@ export function TrustModel() {
             </div>
           ))}
         </div>
-        <p className="mt-10 max-w-3xl text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          {t('tagline')}
-        </p>
       </div>
     </section>
   )

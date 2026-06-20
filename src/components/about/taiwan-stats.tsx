@@ -9,7 +9,6 @@ interface TaiwanStatsProps {
   heading: string
   intro: string
   items: [TaiwanStatItem, TaiwanStatItem, TaiwanStatItem]
-  note: string
   sourceLabel: string
   sourceName: string
 }
@@ -19,7 +18,6 @@ export default function TaiwanStats({
   heading,
   intro,
   items,
-  note,
   sourceLabel,
   sourceName,
 }: TaiwanStatsProps) {
@@ -37,7 +35,7 @@ export default function TaiwanStats({
         </p>
         <dl className="mt-12 grid gap-10 sm:grid-cols-3">
           {items.map((item) => (
-            <div key={item.label} className="border-t-2 border-primary pt-4">
+            <div key={item.label} className="border-t border-border pt-4">
               <dd className="font-heading text-5xl font-bold leading-none text-primary md:text-6xl">
                 {item.value}
               </dd>
@@ -48,10 +46,7 @@ export default function TaiwanStats({
             </div>
           ))}
         </dl>
-        <p className="mt-12 max-w-prose text-base leading-relaxed text-muted-foreground md:text-lg">
-          {note}
-        </p>
-        <p className="mt-8 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border pt-6 text-xs text-muted-foreground">
+        <p className="mt-12 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border pt-6 text-xs text-muted-foreground">
           <span className="font-semibold uppercase tracking-wider">{sourceLabel}</span>
           <a
             href="https://www.sme.gov.tw/article-tw-2853-13097"
