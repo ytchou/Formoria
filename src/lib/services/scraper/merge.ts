@@ -6,6 +6,10 @@ type SocialLinkFields = Pick<
   ScrapedBrandData,
   'socialInstagram' | 'socialThreads' | 'socialFacebook'
 >
+type PurchaseLinkFields = Pick<
+  ScrapedBrandData,
+  'purchaseWebsite' | 'purchasePinkoi' | 'purchaseShopee'
+>
 
 const MAX_CATEGORY_HINTS = 5
 
@@ -64,6 +68,17 @@ export function mergeSocialLinks(
   }
 }
 
+export function mergePurchaseLinks(
+  base: PurchaseLinkFields,
+  next: PurchaseLinkFields
+): PurchaseLinkFields {
+  return {
+    purchaseWebsite: base.purchaseWebsite ?? next.purchaseWebsite,
+    purchasePinkoi: base.purchasePinkoi ?? next.purchasePinkoi,
+    purchaseShopee: base.purchaseShopee ?? next.purchaseShopee,
+  }
+}
+
 export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
   const sortedResults = [...results].sort(
     (a, b) => PRECEDENCE[a.type] - PRECEDENCE[b.type]
@@ -97,6 +112,10 @@ export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
     merged.socialInstagram = socialLinks.socialInstagram
     merged.socialThreads = socialLinks.socialThreads
     merged.socialFacebook = socialLinks.socialFacebook
+    const purchaseLinks = mergePurchaseLinks(merged, data)
+    merged.purchaseWebsite = purchaseLinks.purchaseWebsite
+    merged.purchasePinkoi = purchaseLinks.purchasePinkoi
+    merged.purchaseShopee = purchaseLinks.purchaseShopee
     merged.categoryHints = mergeCategoryHints(
       merged.categoryHints,
       data.categoryHints
