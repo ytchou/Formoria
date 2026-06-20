@@ -26,6 +26,9 @@ function hasContent(data: ScrapedBrandData): boolean {
       data.socialInstagram ||
       data.socialThreads ||
       data.socialFacebook ||
+      data.purchaseWebsite ||
+      data.purchasePinkoi ||
+      data.purchaseShopee ||
       data.categoryHints.length > 0 ||
       data.rawJsonLd
   )

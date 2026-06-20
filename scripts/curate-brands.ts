@@ -1,18 +1,130 @@
-import type { Brand } from '@/lib/types'
+import type { Brand, BrandFlatLinkColumns } from '@/lib/types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import { writeFile } from 'node:fs/promises'
 import { getBrands, hideVisibleBrands, insertSlugRedirect, updateBrand } from '@/lib/services/brands'
 import { addTagToBrandIgnoringDuplicates, getTags } from '@/lib/services/taxonomy'
 import { scrapeBrandUrl, scrapeBrandUrls } from '@/lib/services/scraper'
+import { searchBrandWebsite, SEARCH_DELAY_MS } from '@/lib/services/scraper/search'
+import { classifyByDomain } from '@/lib/services/scraper/input-detector'
 import { downloadAndStoreImages } from '@/lib/services/image-download'
 import { cleanBrandName, detectNonBrand, matchCategory, normalizeSlug } from '@/lib/services/brand-cleanup'
 
 export { matchCategory }
 
 const TOP_N = 30
-const SCRAPE_DELAY_MS = 2_000
+const SCRAPE_DELAY_MS = 1_000
 const MAX_PRODUCT_PHOTOS = 5
 const BRAND_FETCH_LIMIT = 10_000
+
+const LINK_FIELDS = [
+  'socialInstagram',
+  'socialThreads',
+  'socialFacebook',
+  'purchaseWebsite',
+  'purchasePinkoi',
+  'purchaseShopee',
+] as const
+
+type LinkField = (typeof LINK_FIELDS)[number]
+type LinkColumn = Exclude<keyof BrandFlatLinkColumns, 'other_urls'>
+
+const LINK_FIELD_TO_COLUMN: Record<LinkField, LinkColumn> = {
+  socialInstagram: 'social_instagram',
+  socialThreads: 'social_threads',
+  socialFacebook: 'social_facebook',
+  purchaseWebsite: 'purchase_website',
+  purchasePinkoi: 'purchase_pinkoi',
+  purchaseShopee: 'purchase_shopee',
+} as const satisfies Record<LinkField, LinkColumn>
+type BrandWithLinkColumns = Brand & BrandFlatLinkColumns
+
+function linkColumnFor(field: LinkField): LinkColumn {
+  return LINK_FIELD_TO_COLUMN[field]
+}
+
+function hasLinkValue(value: string | null | undefined): value is string {
+  return value != null && value.trim() !== ''
+}
+
+function withFlatLinkColumns(brand: Brand): BrandWithLinkColumns {
+  return {
+    ...brand,
+    social_instagram: brand.socialInstagram,
+    social_threads: brand.socialThreads,
+    social_facebook: brand.socialFacebook,
+    purchase_website: brand.purchaseWebsite,
+    purchase_pinkoi: brand.purchasePinkoi,
+    purchase_shopee: brand.purchaseShopee,
+    other_urls: brand.otherUrls,
+  }
+}
+
+function collectKnownUrls(brand: BrandWithLinkColumns): string[] {
+  return LINK_FIELDS
+    .map((field) => brand[linkColumnFor(field)])
+    .filter((url): url is string => hasLinkValue(url))
+}
+
+function getMissingLinkFields(brand: BrandWithLinkColumns): LinkColumn[] {
+  return LINK_FIELDS
+    .map((field) => linkColumnFor(field))
+    .filter((column) => !hasLinkValue(brand[column]))
+}
+
+function getAverageLinkCoverage(brands: BrandWithLinkColumns[]): number {
+  if (brands.length === 0) return 0
+
+  const filled = brands.reduce((sum, brand) => {
+    return sum + LINK_FIELDS.filter((field) => hasLinkValue(brand[linkColumnFor(field)])).length
+  }, 0)
+
+  return filled / (brands.length * LINK_FIELDS.length)
+}
+
+function deriveOfficialWebsite(urls: string[]): string | null {
+  return urls.find((url) => classifyByDomain(url) === null) ?? null
+}
+
+function displayBrandName(brand: Brand): string {
+  return (brand as Brand & { name_en?: string | null }).name_en || brand.name
+}
+
+function linkPatchToBrandPatch(patch: Partial<BrandFlatLinkColumns>): Partial<Brand> {
+  const brandPatch: Partial<Brand> = {}
+
+  if (patch.social_instagram !== undefined) brandPatch.socialInstagram = patch.social_instagram
+  if (patch.social_threads !== undefined) brandPatch.socialThreads = patch.social_threads
+  if (patch.social_facebook !== undefined) brandPatch.socialFacebook = patch.social_facebook
+  if (patch.purchase_website !== undefined) brandPatch.purchaseWebsite = patch.purchase_website
+  if (patch.purchase_pinkoi !== undefined) brandPatch.purchasePinkoi = patch.purchase_pinkoi
+  if (patch.purchase_shopee !== undefined) brandPatch.purchaseShopee = patch.purchase_shopee
+
+  return brandPatch
+}
+
+export async function validateLink(url: string, brandName: string): Promise<boolean> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 10_000)
+
+  try {
+    const response = await fetch(url, { signal: controller.signal })
+    const contentType = response.headers.get('content-type')
+    if (!contentType?.startsWith('text/')) return false
+
+    const contentLength = response.headers.get('content-length')
+    if (contentLength != null && Number(contentLength) > 1_000_000) return false
+
+    const html = await response.text()
+    const normalizedHtml = html.toLowerCase().replace(/\s+/g, ' ')
+    const normalizedName = brandName.toLowerCase().replace(/\s+/g, ' ')
+
+    return normalizedHtml.includes(normalizedName)
+  } catch {
+    return false
+  } finally {
+    clearTimeout(timeout)
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Scoring
@@ -113,6 +225,25 @@ export function buildEnrichPatch(
   return patch
 }
 
+export function buildLinkEnrichPatch(
+  brand: BrandWithLinkColumns,
+  scraped: ScrapedBrandData
+): Partial<BrandFlatLinkColumns> {
+  const patch: Partial<BrandFlatLinkColumns> = {}
+
+  for (const field of LINK_FIELDS) {
+    const column = linkColumnFor(field)
+    const existingValue = brand[column]
+    const scrapedValue = scraped[field]
+
+    if (!hasLinkValue(existingValue) && scrapedValue) {
+      patch[column] = scrapedValue
+    }
+  }
+
+  return patch
+}
+
 // ---------------------------------------------------------------------------
 // Cleanup helpers
 // ---------------------------------------------------------------------------
@@ -163,6 +294,18 @@ export function findBrandsNeedingEnrichment(brands: Brand[]): Brand[] {
       description.length < 20 ||
       description === brand.name
     )
+  })
+}
+
+export function findBrandsNeedingLinks(brands: BrandWithLinkColumns[]): BrandWithLinkColumns[] {
+  return brands.filter((brand) => {
+    if (brand.status !== 'approved') {
+      return false
+    }
+
+    const filledLinkCount = LINK_FIELDS.filter((field) => hasLinkValue(brand[linkColumnFor(field)])).length
+
+    return filledLinkCount < LINK_FIELDS.length
   })
 }
 
@@ -523,6 +666,138 @@ async function enrichDescriptions(dryRun: boolean, stopAfter?: number): Promise<
 }
 
 // ---------------------------------------------------------------------------
+// enrich-links
+// ---------------------------------------------------------------------------
+
+async function enrichLinks(
+  dryRun: boolean,
+  targetSlugs?: string[],
+  stopAfter?: number,
+  validate?: boolean
+): Promise<void> {
+  console.log('Fetching approved brands...')
+  const { brands } = await getBrands({ limit: BRAND_FETCH_LIMIT, status: 'approved' })
+  console.log(`Found ${brands.length} approved brands`)
+
+  const brandsWithLinks = brands.map(withFlatLinkColumns)
+  const needingLinks = findBrandsNeedingLinks(brandsWithLinks)
+  const ranked = targetSlugs
+    ? needingLinks.filter((brand) => targetSlugs.includes(brand.slug))
+    : needingLinks
+
+  if (targetSlugs) {
+    const found = ranked.map((brand) => brand.slug)
+    const missing = targetSlugs.filter((s) => !found.includes(s))
+    if (missing.length > 0) {
+      console.error(`Missing slugs: ${missing.join(', ')}`)
+      process.exit(1)
+    }
+  }
+
+  const averageCoverage = getAverageLinkCoverage(needingLinks)
+  console.log(`Found ${needingLinks.length} brand(s) needing link enrichment`)
+  console.log(`Average link coverage: ${(averageCoverage * 100).toFixed(1)}%\n`)
+
+  console.log('Slug                          | Missing Links')
+  console.log('------------------------------|------------------------------------------------------------')
+  for (const brand of ranked) {
+    const slug = brand.slug.padEnd(30).slice(0, 30)
+    const missing = getMissingLinkFields(brand).join(', ')
+    console.log(`${slug}| ${missing}`)
+  }
+
+  if (dryRun) {
+    console.log('\nDry run — no changes made.')
+    return
+  }
+
+  const summary = {
+    processed: 0,
+    filledByType: Object.fromEntries(LINK_FIELDS.map((field) => [linkColumnFor(field), 0])) as Record<LinkColumn, number>,
+    errors: [] as Array<{ slug: string; message: string }>,
+  }
+
+  for (const brand of ranked) {
+    if (stopAfter && summary.processed >= stopAfter) {
+      console.log(`\nReached ${stopAfter} processed brands — stopping early.`)
+      break
+    }
+
+    summary.processed++
+    let urls = collectKnownUrls(brand)
+
+    if (urls.length === 0) {
+      const brandName = displayBrandName(brand)
+      console.log(`  [SEARCH] ${brand.slug} → ${brandName}`)
+      const foundUrl = await searchBrandWebsite(brandName)
+      await sleep(SEARCH_DELAY_MS)
+      urls = foundUrl ? [foundUrl] : []
+    }
+
+    if (urls.length === 0) {
+      console.log(`  [SKIP] ${brand.slug}: no known URLs`)
+      await sleep(SCRAPE_DELAY_MS)
+      continue
+    }
+
+    console.log(`  [SCRAPE] ${brand.slug} → ${urls.join(', ')}`)
+
+    try {
+      const { data: scraped } = await scrapeBrandUrls(urls)
+      const derivedWebsite = scraped.purchaseWebsite ?? deriveOfficialWebsite(urls)
+      const enrichedScraped = {
+        ...scraped,
+        purchaseWebsite: derivedWebsite,
+      }
+      const patch = buildLinkEnrichPatch(brand, enrichedScraped)
+
+      if (validate) {
+        const brandName = displayBrandName(brand)
+        for (const [column, url] of Object.entries(patch) as Array<[LinkColumn, string | null | undefined]>) {
+          if (url && !(await validateLink(url, brandName))) {
+            delete patch[column]
+          }
+        }
+      }
+
+      const enrichedFields = Object.keys(patch) as LinkColumn[]
+
+      if (enrichedFields.length === 0) {
+        console.log(`  [SKIP] ${brand.slug}: no new links`)
+        await sleep(SCRAPE_DELAY_MS)
+        continue
+      }
+
+      await updateBrand(brand.id, linkPatchToBrandPatch(patch))
+
+      for (const field of enrichedFields) {
+        summary.filledByType[field]++
+      }
+
+      console.log(`  [OK] ${brand.slug}: filled ${enrichedFields.length} fields`)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      summary.errors.push({ slug: brand.slug, message })
+      console.warn(`  [ERROR] ${brand.slug}: ${message}`)
+    }
+
+    await sleep(SCRAPE_DELAY_MS)
+  }
+
+  console.log('\n--- Summary ---')
+  console.log(`Brands processed: ${summary.processed}`)
+  console.log('Links filled by type:')
+  for (const field of LINK_FIELDS) {
+    const column = linkColumnFor(field)
+    console.log(`  ${column.padEnd(18)} ${summary.filledByType[column]}`)
+  }
+  console.log(`Errors: ${summary.errors.length}`)
+  for (const error of summary.errors) {
+    console.log(`  ${error.slug}: ${error.message}`)
+  }
+}
+
+// ---------------------------------------------------------------------------
 // normalize-slugs
 // ---------------------------------------------------------------------------
 
@@ -733,6 +1008,7 @@ function printUsage(): void {
   console.log('  clean-names [--apply]                          Clean noisy brand names (dry-run by default)')
   console.log('  detect-non-brands [--dry-run] [--output-file=path]  Detect likely non-brand entries')
   console.log('  enrich-descriptions [--dry-run] [--stop-after=N]  Fill missing or weak descriptions from scraped URLs')
+  console.log('  enrich-links [--dry-run] [--slugs=a,b,c] [--stop-after=N] [--validate]  Fill missing social & purchase links')
   console.log('  normalize-slugs [--dry-run] [--scrape] [--stop-after=N]  Normalize CJK slugs from English names')
 }
 
@@ -778,6 +1054,16 @@ async function main() {
       const stopArg = args.find((a) => a.startsWith('--stop-after='))
       const stopAfter = stopArg ? parseInt(stopArg.replace('--stop-after=', ''), 10) : undefined
       await enrichDescriptions(dryRun, stopAfter)
+      break
+    }
+    case 'enrich-links': {
+      const dryRun = args.includes('--dry-run')
+      const slugsArg = args.find((a) => a.startsWith('--slugs='))
+      const targetSlugs = slugsArg ? slugsArg.replace('--slugs=', '').split(',') : undefined
+      const stopArg = args.find((a) => a.startsWith('--stop-after='))
+      const stopAfter = stopArg ? parseInt(stopArg.replace('--stop-after=', ''), 10) : undefined
+      const validate = args.includes('--validate')
+      await enrichLinks(dryRun, targetSlugs, stopAfter, validate)
       break
     }
     case 'normalize-slugs': {

@@ -3,14 +3,20 @@ import { fetchHtml, fetchXml, resolveUrl } from '../fetch-guards'
 import {
   emptyResult,
   extractCategoryHints,
+  extractPurchaseLinks,
   extractSocialLinks,
 } from '../parse/extractors'
+import { mergePurchaseLinks } from '../merge'
 import { SinglePageStrategy } from './single-page'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import type { ScrapeContext, ScrapeStrategy } from './types'
 
 type CandidateKind = 'about' | 'products' | 'contact' | 'other'
 type SocialLinkFields = Pick<ScrapedBrandData, 'socialInstagram' | 'socialThreads' | 'socialFacebook'>
+type PurchaseLinkFields = Pick<
+  ScrapedBrandData,
+  'purchaseWebsite' | 'purchasePinkoi' | 'purchaseShopee'
+>
 
 interface CrawlCandidate {
   url: string
@@ -241,6 +247,12 @@ export class CrawlStrategy implements ScrapeStrategy {
         socialThreads: result.socialThreads,
         socialFacebook: result.socialFacebook,
       }
+      let purchaseLinks: PurchaseLinkFields = {
+        purchaseWebsite: null,
+        purchasePinkoi: null,
+        purchaseShopee: null,
+      }
+      purchaseLinks = mergePurchaseLinks(purchaseLinks, result)
       let categoryHints = result.categoryHints
       let description = result.description
       let story = result.story
@@ -253,6 +265,7 @@ export class CrawlStrategy implements ScrapeStrategy {
         })
 
         socialLinks = mergeSocialLinks(socialLinks, extractSocialLinks($))
+        purchaseLinks = mergePurchaseLinks(purchaseLinks, extractPurchaseLinks($))
         categoryHints = mergeCategoryHints(
           categoryHints,
           extractCategoryHints($)
@@ -273,6 +286,7 @@ export class CrawlStrategy implements ScrapeStrategy {
         description,
         story,
         ...socialLinks,
+        ...purchaseLinks,
         categoryHints,
       }
     } catch {

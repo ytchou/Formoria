@@ -4,6 +4,7 @@ import {
   extractCategoryHints,
   extractGalleryImages,
   extractJsonLd,
+  extractPurchaseLinks,
   extractSocialLinks,
   filterHeroImage,
 } from '../../parse/extractors'
@@ -162,6 +163,8 @@ export const pinkoiAdapter: PlatformAdapter = {
         : galleryImageUrls[0] ?? null,
       galleryImageUrls,
       ...extractSocialLinks($),
+      ...extractPurchaseLinks($),
+      purchasePinkoi: url,
       categoryHints: unique([
         ...extractCategoryHints($),
         ...domBreadcrumbs($),

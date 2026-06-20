@@ -5,6 +5,7 @@ import {
   extractCategoryHints,
   extractGalleryImages,
   extractJsonLd,
+  extractPurchaseLinks,
   extractSocialLinks,
   filterHeroImage,
 } from '../parse/extractors'
@@ -52,6 +53,7 @@ export class SinglePageStrategy implements ScrapeStrategy {
         : galleryImageUrls[0] ?? null
 
       const { socialInstagram, socialThreads, socialFacebook } = extractSocialLinks($)
+      const { purchaseWebsite, purchasePinkoi, purchaseShopee } = extractPurchaseLinks($)
 
       return {
         brandName,
@@ -62,6 +64,9 @@ export class SinglePageStrategy implements ScrapeStrategy {
         socialInstagram,
         socialThreads,
         socialFacebook,
+        purchaseWebsite,
+        purchasePinkoi,
+        purchaseShopee,
         categoryHints: extractCategoryHints($),
         websiteUrl: url,
         rawJsonLd,

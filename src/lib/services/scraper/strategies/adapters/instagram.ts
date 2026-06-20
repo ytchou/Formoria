@@ -3,6 +3,7 @@ import {
   emptyResult,
   extractGalleryImages,
   extractJsonLd,
+  extractPurchaseLinks,
   extractSocialLinks,
   filterHeroImage,
 } from '../../parse/extractors'
@@ -39,6 +40,7 @@ export const instagramAdapter: PlatformAdapter = {
     const rawJsonLd = extractJsonLd($)
     const galleryImageUrls = extractGalleryImages($, url)
     const { socialThreads, socialFacebook } = extractSocialLinks($)
+    const { purchaseWebsite, purchasePinkoi, purchaseShopee } = extractPurchaseLinks($)
     const heroCandidate =
       metaContent($, 'meta[property="og:image"]') ||
       metaContent($, 'meta[name="twitter:image"]')
@@ -56,6 +58,9 @@ export const instagramAdapter: PlatformAdapter = {
       socialInstagram: url,
       socialThreads,
       socialFacebook,
+      purchaseWebsite,
+      purchasePinkoi,
+      purchaseShopee,
       rawJsonLd,
     }
   },

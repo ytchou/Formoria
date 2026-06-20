@@ -48,6 +48,8 @@ const ALLOWLIST = [
   // Non-display Chinese: a comment and scraper keyword regex.
   'lib/constants.ts',
   'lib/services/scraper/strategies/crawl.ts',
+  // Scraper search query uses Chinese keywords to find Taiwan brand websites (not UI copy).
+  'lib/services/scraper/search.ts',
   // Taxonomy ontology: nameZh is structural data (bilingual label in data layer, not UI copy).
   'lib/taxonomy/ontology.ts',
   // Slug generation regex uses CJK character ranges (not UI copy).
