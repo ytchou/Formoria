@@ -56,6 +56,8 @@
       "subheadline": "Formoria 收錄經過嚴格驗證的台灣本土品牌，從文具、家居到食品飲料，讓您輕鬆探索真正的台灣製造。",
       "statsBrands": "品牌",
       "statsCategories": "分類",
+      "recentWeek": "新品牌",
+      "recentMonth": "新品牌",
       "cta": "探索所有品牌"
     },
     "showcase": {
@@ -97,17 +99,17 @@
   },
   "newsletter": {
     "heading": "掌握最新動態",
-    "subtext": "Get the latest on Made in Taiwan brands — stories, launches, and curated picks delivered to your inbox.",
+    "subtext": "台灣品牌的最新動態 — 品牌故事、新品上架與精選推薦，直送你的信箱。",
     "emailPlaceholder": "your@email.com",
-    "subscribe": "訂閱 Subscribe",
-    "interestsLabel": "選擇您感興趣的內容 Choose what interests you",
+    "subscribe": "訂閱",
+    "interestsLabel": "選擇您感興趣的內容",
     "interests": {
-      "brand-stories": "品牌故事 Brand Stories",
-      "new-brands": "新品牌 New Brands",
-      "curated-picks": "選物推薦 Curated Picks",
-      "mit-trends": "台灣製造趨勢 MIT Trends"
+      "brand-stories": "品牌故事",
+      "new-brands": "新品牌",
+      "curated-picks": "選物推薦",
+      "mit-trends": "台灣製造趨勢"
     },
-    "success": "請查看您的收件匣以確認訂閱 / Check your inbox to confirm your subscription",
+    "success": "請查看您的收件匣以確認訂閱",
     "error": {
       "invalidEmail": "請輸入有效的電子郵件地址",
       "tooManyRequests": "請求過於頻繁，請稍後再試",
@@ -241,6 +243,7 @@
     "actions": {
       "visitWebsite": "前往官網",
       "share": "分享",
+      "copied": "已複製",
       "visitOfficialWebsiteAria": "前往品牌官網"
     },
     "share": {
@@ -294,7 +297,7 @@
       "directory": "品牌目錄"
     },
     "sections": {
-      "about": "關於",
+      "about": "品牌簡介",
       "tags": "標籤",
       "highlights": "品牌亮點",
       "photos": "照片",

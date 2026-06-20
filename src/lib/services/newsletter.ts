@@ -14,12 +14,12 @@ export type NewsletterSubscriber = {
   email: string
   name: string | null
   interests: string[] | null
+  locale: string
   subscribed_at: string
   confirmed_at: string | null
   confirm_token: string
   unsubscribe_token: string
   unsubscribed_at: string | null
-  locale: string | null
   created_at: string
 }
 
@@ -27,18 +27,19 @@ type NewsletterSubscriberInsert = {
   email: string
   name?: string | null
   interests: NewsletterInterest[]
+  locale?: string
   confirmed_at: null
 }
 
 type NewsletterSubscriberUpdate = Partial<{
   name: string | null
   interests: NewsletterInterest[]
+  locale: string
   confirmed_at: string | null
   confirm_token: string
   unsubscribe_token: string
   unsubscribed_at: string | null
   subscribed_at: string
-  locale: string
 }>
 
 type NewsletterError = {
@@ -94,8 +95,8 @@ type NewsletterClient = {
 export type CreateSubscriberInput = {
   email: string
   name?: string
-  locale?: string | null
   interests: string[]
+  locale?: string
 }
 
 export type CreateSubscriberResult = {
@@ -158,7 +159,7 @@ export function normalizeInterests(interests: string[]): NewsletterInterest[] {
 
 export async function createSubscriber(
   supabase: SupabaseClient,
-  { email, name, locale, interests }: CreateSubscriberInput
+  { email, name, interests, locale }: CreateSubscriberInput
 ): Promise<CreateSubscriberResult> {
   const normalizedEmail = normalizeEmail(email)
 
@@ -181,6 +182,7 @@ export async function createSubscriber(
         .update({
           name: name ?? existingSubscriber.name,
           interests: normalizedInterests,
+          locale: locale ?? existingSubscriber.locale ?? 'zh-TW',
           confirmed_at: null,
           confirm_token: newToken(),
           unsubscribe_token: newToken(),
@@ -211,7 +213,6 @@ export async function createSubscriber(
     const { data, error } = await table
       .update({
         name: name ?? existingSubscriber.name,
-        locale: locale ?? existingSubscriber.locale ?? 'zh-TW',
         interests: normalizedInterests,
         confirm_token: newToken(),
         unsubscribe_token: newToken(),
@@ -234,6 +235,7 @@ export async function createSubscriber(
       email: normalizedEmail,
       name: name ?? null,
       interests: normalizedInterests,
+      locale: locale ?? 'zh-TW',
       confirmed_at: null,
     })
     .select()

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { createSubmissionSchema } from '@/lib/validations/submission'
 import zhMessages from '../../../../../messages/zh-TW.json'
 
 const {
@@ -177,7 +178,41 @@ describe('server action schema routing', () => {
     mockSaveModerationFlags.mockResolvedValue(undefined)
   })
 
+  it('owner payload without required owner fields fails owner schema', () => {
+    const schema = createSubmissionSchema(true)
+    const ownerPayload = {
+      name: 'Test Brand',
+      description: 'Long enough description for the test',
+      category: 'fashion',
+      isOwner: true,
+      purchaseLinks: [{ platform: 'shopify', url: 'https://shop.com' }],
+      pdpaConsent: true,
+      socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
+      productPhotos: [],
+      retailLocations: [],
+      turnstileToken: 'test-token',
+    }
+    expect(schema.safeParse(ownerPayload).success).toBe(false)
+  })
 
+  it('community payload without owner-only fields passes community schema', () => {
+    const schema = createSubmissionSchema(false)
+    const communityPayload = {
+      name: 'Test Brand',
+      description: 'Long enough description for the community submission test',
+      category: 'fashion',
+      isOwner: false,
+      purchaseLinks: [],
+      pdpaConsent: true,
+      socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
+      sourceAttribution: 'found_online',
+      productPhotos: [],
+      productType: 'fashion',
+      retailLocations: [],
+      turnstileToken: 'test-token',
+    }
+    expect(schema.safeParse(communityPayload).success).toBe(true)
+  })
 
   it('omits the dormant brand column from the brand insert payload', async () => {
     await submitBrand({

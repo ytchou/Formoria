@@ -7,6 +7,11 @@ vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
 }))
 
+vi.mock('next/image', () => ({
+  // eslint-disable-next-line jsx-a11y/alt-text, @next/next/no-img-element
+  default: (props: Record<string, unknown>) => <img {...props} />,
+}))
+
 vi.mock('../../newsletter/email-capture-form', () => ({
   EmailCaptureForm: () => <div data-testid="email-capture-form" />,
 }))
@@ -22,9 +27,9 @@ describe('NewsletterSection', () => {
     expect(screen.getByTestId('email-capture-form')).toBeInTheDocument()
   })
 
-  it('has warm surface background', () => {
+  it('has background overlay', () => {
     const { container } = render(<NewsletterSection />)
-    const section = container.querySelector('section')
-    expect(section?.className).toContain('bg-')
+    const overlay = container.querySelector('.bg-black\\/55')
+    expect(overlay).toBeInTheDocument()
   })
 })

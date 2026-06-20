@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState, useState } from 'react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 
 import { subscribeToNewsletter } from '@/app/actions/newsletter'
 import { Button } from '@/components/ui/button'
@@ -9,16 +9,17 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
 const INTEREST_CHIPS = [
+  { slug: 'curated-picks', labelKey: 'interests.curated-picks' },
   { slug: 'brand-stories', labelKey: 'interests.brand-stories' },
   { slug: 'new-brands', labelKey: 'interests.new-brands' },
-  { slug: 'curated-picks', labelKey: 'interests.curated-picks' },
   { slug: 'mit-trends', labelKey: 'interests.mit-trends' },
 ] as const
 
 export function EmailCaptureForm() {
+  const locale = useLocale()
   const t = useTranslations('newsletter')
   const [state, formAction, isPending] = useActionState(subscribeToNewsletter, {})
-  const [selectedChips, setSelectedChips] = useState<string[]>(['new-brands'])
+  const [selectedChips, setSelectedChips] = useState<string[]>(['curated-picks'])
 
   function toggleChip(slug: string) {
     setSelectedChips((current) =>
@@ -37,7 +38,7 @@ export function EmailCaptureForm() {
   }
 
   return (
-    <form action={formAction} className="space-y-4 bg-[#F5F4F1] text-[#1C1C1C]">
+    <form action={formAction} className="space-y-4 text-white">
       <input
         aria-hidden="true"
         autoComplete="off"
@@ -46,12 +47,13 @@ export function EmailCaptureForm() {
         tabIndex={-1}
         type="text"
       />
+      <input type="hidden" name="locale" value={locale} />
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <div className="min-w-0 flex-1">
           <Input
             aria-invalid={state.error ? 'true' : undefined}
-            className="h-12 rounded-lg border-[#D4D4D4] bg-white focus-visible:border-[color:var(--cta)] focus-visible:ring-[color:var(--cta)]/20 sm:h-11"
+            className="h-12 rounded-lg border-white/30 bg-white/10 text-white placeholder:text-white/50 focus-visible:border-white focus-visible:ring-white/20 sm:h-11"
             name="email"
             placeholder={t('emailPlaceholder')}
             required
@@ -80,10 +82,10 @@ export function EmailCaptureForm() {
       </div>
 
       <div className="space-y-2">
-        <p className="text-sm font-medium text-[#6B6B6B]">
+        <p className="text-sm font-medium text-white/70">
           {t('interestsLabel')}
         </p>
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap">
+        <div className="flex flex-row gap-2 overflow-x-auto">
           {INTEREST_CHIPS.map((chip) => {
             const isSelected = selectedChips.includes(chip.slug)
 
@@ -92,10 +94,10 @@ export function EmailCaptureForm() {
                 key={chip.slug}
                 aria-pressed={isSelected}
                 className={cn(
-                  'h-9 rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[color:var(--cta)]/20',
+                  'h-9 shrink-0 whitespace-nowrap rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-white/20',
                   isSelected
-                    ? 'border-[#1C1C1C] bg-[#1C1C1C] text-white'
-                    : 'border-foreground bg-transparent text-foreground hover:bg-white/60'
+                    ? 'border-white bg-white text-black'
+                    : 'border-white/40 bg-transparent text-white hover:bg-white/10'
                 )}
                 type="button"
                 onClick={() => toggleChip(chip.slug)}

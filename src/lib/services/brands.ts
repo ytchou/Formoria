@@ -971,6 +971,7 @@ export async function getRelatedBrands(
   const { brands } = await getBrands({
     category: [tag.slug],
     status: 'approved',
+    sort: 'random',
     limit: limit + 1,
   })
 
@@ -1248,6 +1249,35 @@ export async function getNewBrands(limit = 4): Promise<Brand[]> {
 
   if (error) throw error
   return (data ?? []).map(brandToDomain)
+}
+
+export async function getRecentBrandCount(): Promise<{ count: number; period: '7d' | '30d' }> {
+  const supabase = createServiceClient()
+  const now = new Date()
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+
+  const { count: weekCount, error: weekError } = await supabase
+    .from('brands')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'approved')
+    .gte('approved_at', sevenDaysAgo)
+
+  if (weekError) throw weekError
+
+  if ((weekCount ?? 0) > 0) {
+    return { count: weekCount ?? 0, period: '7d' }
+  }
+
+  const { count: monthCount, error: monthError } = await supabase
+    .from('brands')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'approved')
+    .gte('approved_at', thirtyDaysAgo)
+
+  if (monthError) throw monthError
+
+  return { count: monthCount ?? 0, period: '30d' }
 }
 
 export async function getBrandStats(): Promise<{ brandCount: number; categoryCount: number }> {

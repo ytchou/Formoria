@@ -78,8 +78,6 @@ describe('buildSubmissionRecord', () => {
     isOwner: false,
   }
 
-
-
   it('stores source_attribution when provided', async () => {
     const { buildSubmissionRecord } = await import('../submissions')
     const record = buildSubmissionRecord({

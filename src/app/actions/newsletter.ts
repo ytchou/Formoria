@@ -54,7 +54,7 @@ export async function subscribeToNewsletter(
     return { error: 'Too many requests' }
   }
 
-  const { email, interests } = parseSubscribeForm(formData)
+  const { email, interests, locale } = parseSubscribeForm(formData)
   const normalizedEmail = normalizeEmail(email)
 
   if (!validateEmail(normalizedEmail)) {
@@ -67,6 +67,7 @@ export async function subscribeToNewsletter(
     const result = await createSubscriber(supabase, {
       email: normalizedEmail,
       interests: normalizedInterests,
+      locale,
     })
 
     if (result.needsConfirmation) {
@@ -74,6 +75,7 @@ export async function subscribeToNewsletter(
         to: result.subscriber.email,
         confirmToken: result.subscriber.confirm_token,
         interests: result.subscriber.interests ?? normalizedInterests,
+        locale: result.subscriber.locale,
       }))
     }
 

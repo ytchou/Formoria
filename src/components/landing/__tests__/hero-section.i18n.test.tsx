@@ -28,7 +28,7 @@ describe('HeroSection (English)', () => {
       return messages[key] ?? key
     })
 
-    render(await HeroSection({ brandCount: 100, categoryCount: 20 }))
+    render(await HeroSection({ brandCount: 100, categoryCount: 20, recentBrands: { count: 5, period: '7d' } }))
 
     expect(screen.getByText(enMessages.landing.hero.headline)).toBeInTheDocument()
   })
@@ -39,7 +39,7 @@ describe('HeroSection (English)', () => {
       return messages[key] ?? key
     })
 
-    render(await HeroSection({ brandCount: 100, categoryCount: 20 }))
+    render(await HeroSection({ brandCount: 100, categoryCount: 20, recentBrands: { count: 5, period: '7d' } }))
 
     expect(screen.queryByText(enMessages.landing.hero.subheadline)).not.toBeInTheDocument()
   })

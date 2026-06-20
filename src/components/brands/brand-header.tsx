@@ -43,6 +43,16 @@ export function BrandHeader({ brand, categoryLabel, actionsSlot }: BrandHeaderPr
           </span>
         )}
 
+        {/* Brand tags */}
+        {brand.tags.map((tag) => (
+          <span
+            key={tag.id}
+            className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-secondary-foreground"
+          >
+            {tag.nameZh ?? tag.name}
+          </span>
+        ))}
+
         {(hasMitVerifiedBadge || hasOwnerVerifiedBadge) && (
           <div className="flex items-center gap-2">
             {hasMitVerifiedBadge && (
