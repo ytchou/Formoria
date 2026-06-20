@@ -116,7 +116,7 @@ async function refreshSupabaseSession(request: NextRequest, response: NextRespon
   }
 
   const currentCookie = request.cookies.get(VIEWER_MODE_COOKIE)?.value
-  const decision = resolveAdminModeCookie({ email: user?.email ?? null, currentCookie })
+  const decision = await resolveAdminModeCookie({ email: user?.email ?? null, currentCookie })
   if (decision.action === 'set') {
     response.cookies.set(VIEWER_MODE_COOKIE, decision.value, ADMIN_MODE_COOKIE_OPTIONS)
   } else if (decision.action === 'delete') {

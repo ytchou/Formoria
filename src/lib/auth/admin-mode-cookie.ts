@@ -16,7 +16,7 @@ function getAdminModeCookieSecret(): string | null {
   return process.env.CHALLENGE_SECRET || null
 }
 
-export function signAdminModeCookieValue(value: AdminMode): string {
+export async function signAdminModeCookieValue(value: AdminMode): Promise<string> {
   const secret = getAdminModeCookieSecret()
   if (!secret) {
     throw new Error('CHALLENGE_SECRET is required')
@@ -25,25 +25,25 @@ export function signAdminModeCookieValue(value: AdminMode): string {
   return signCookieValue(value, secret)
 }
 
-export function readAdminModeCookie(value: string | null | undefined): AdminMode | null {
+export async function readAdminModeCookie(value: string | null | undefined): Promise<AdminMode | null> {
   const secret = getAdminModeCookieSecret()
   if (!value || !secret) return null
 
-  const verified = verifyCookieValue(value, secret)
+  const verified = await verifyCookieValue(value, secret)
   return verified === 'god' || verified === 'viewer' ? verified : null
 }
 
-export function resolveAdminModeCookie({
+export async function resolveAdminModeCookie({
   email,
   currentCookie,
 }: {
   email: string | null
   currentCookie: string | undefined
-}): { action: 'set'; value: string } | { action: 'none' } | { action: 'delete' } {
-  const currentMode = readAdminModeCookie(currentCookie)
+}): Promise<{ action: 'set'; value: string } | { action: 'none' } | { action: 'delete' }> {
+  const currentMode = await readAdminModeCookie(currentCookie)
 
   if (email && isAdmin(email)) {
-    return currentMode ? { action: 'none' } : { action: 'set', value: signAdminModeCookieValue('god') }
+    return currentMode ? { action: 'none' } : { action: 'set', value: await signAdminModeCookieValue('god') }
   }
 
   return currentCookie ? { action: 'delete' } : { action: 'none' }

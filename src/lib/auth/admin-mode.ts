@@ -14,7 +14,7 @@ export {
 
 export async function getAdminMode(): Promise<AdminMode> {
   const c = await cookies()
-  return readAdminModeCookie(c.get(VIEWER_MODE_COOKIE)?.value) ?? 'god'
+  return (await readAdminModeCookie(c.get(VIEWER_MODE_COOKIE)?.value)) ?? 'god'
 }
 
 export async function isViewerMode(): Promise<boolean> {

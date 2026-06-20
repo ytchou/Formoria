@@ -95,7 +95,7 @@ test.describe('Dashboard — governed field integrity', () => {
     await adminPage.context().addCookies([
       {
         name: 'fm_mode',
-        value: getSignedAdminModeCookie('viewer'),
+        value: await getSignedAdminModeCookie('viewer'),
         url: 'http://localhost:3000',
       },
     ]);
