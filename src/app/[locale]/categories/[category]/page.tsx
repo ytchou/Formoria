@@ -94,7 +94,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
   // Parallel fetch: brands for this category + all product_type tags (to find display name)
   const [{ brands, totalCount }, allTags] = await Promise.all([
     getBrands({
-      tags: [slug],
+      category: [slug],
       status: 'approved',
       sort,
       limit: DEFAULT_PAGE_SIZE,

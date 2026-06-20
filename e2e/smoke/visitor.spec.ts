@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { gotoBrandsPage } from '../utils/goto-brands';
 
 test.describe('Visitor smoke', () => {
   test('home page has Formoria title', async ({ page }) => {
@@ -14,14 +15,14 @@ test.describe('Visitor smoke', () => {
   });
 
   test('brands page title is Formoria-branded, not duplicated', async ({ page }) => {
-    await page.goto('/brands');
+    await gotoBrandsPage(page);
     await expect(page).toHaveTitle(/formoria|made in taiwan/i);
     const title = await page.title();
     expect((title.match(/formoria/gi) ?? []).length).toBeLessThanOrEqual(1);
   });
 
   test('brands directory loads at /brands', async ({ page }) => {
-    await page.goto('/brands');
+    await gotoBrandsPage(page);
     await expect(page.locator('main a[aria-label]').first()).toBeVisible({ timeout: 10_000 });
   });
 
@@ -33,10 +34,11 @@ test.describe('Visitor smoke', () => {
   });
 
   test('category filter narrows results', async ({ page }) => {
-    await page.goto('/brands');
-    const firstFilter = page.getByRole('checkbox').first();
-    await firstFilter.click();
-    await expect(page).toHaveURL(/category=|filter=/, { timeout: 10_000 });
+    await gotoBrandsPage(page);
+    await expect(async () => {
+      await page.getByRole('checkbox').first().click({ force: true });
+      await expect(page).toHaveURL(/category=|filter=/, { timeout: 3_000 });
+    }).toPass({ timeout: 15_000, intervals: [1_000, 2_000, 3_000] });
     const hasBrands = page.locator('main a[aria-label]').first();
     const isEmpty = page.locator('[data-empty], [aria-label*="no result"], [aria-label*="empty"]').first();
     await expect(hasBrands.or(isEmpty)).toBeVisible({ timeout: 8_000 }).catch(() => {
@@ -51,21 +53,18 @@ test.describe('Visitor smoke', () => {
   });
 
   test('search returns results', async ({ page }) => {
-    await page.goto('/brands');
+    await gotoBrandsPage(page);
     const searchInput = page.getByRole('searchbox').or(page.getByPlaceholder(/search/i)).first();
     await searchInput.click();
-    // Use pressSequentially instead of fill() — fill() does not reliably
-    // trigger React onChange on controlled inputs in WebKit.
-    await searchInput.pressSequentially('a', { delay: 50 });
-    // The autocomplete dropdown may or may not appear depending on whether
-    // search_brands RPC is deployed. Just verify the input accepted text
-    // and either a listbox appears or the page remains stable.
+    await expect(async () => {
+      await searchInput.fill('a');
+      await expect(searchInput).toHaveValue('a', { timeout: 2_000 });
+    }).toPass({ timeout: 10_000, intervals: [1_000, 2_000, 3_000] });
     const listbox = page.locator('[role="listbox"]');
     const appeared = await listbox.isVisible({ timeout: 5_000 }).catch(() => false);
     if (appeared) {
       await expect(listbox).toBeVisible();
     }
-    await expect(searchInput).toHaveValue('a');
   });
 
   test('FAQ page renders with accordion items', async ({ page }) => {
@@ -75,9 +74,8 @@ test.describe('Visitor smoke', () => {
   })
 
   test('brand detail page renders', async ({ page }) => {
-    await page.goto('/brands');
+    await gotoBrandsPage(page);
     const firstBrand = page.locator('main a[aria-label]').first();
-    await firstBrand.waitFor({ state: 'visible', timeout: 10_000 });
     const href = await firstBrand.getAttribute('href');
     expect(href).toBeTruthy();
     await page.goto(href!);

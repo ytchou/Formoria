@@ -37,9 +37,8 @@ test.describe('Dashboard EditReviewBanner', () => {
           name: `[E2E-TEST] ${label} ${ts}`,
           slug,
           status: 'approved',
+          product_type: 'crafts',
           description: `[E2E-TEST] ${label} initial description`,
-          purchase_links: [],
-          social_links: {},
           retail_locations: [],
           product_photos: [],
         })

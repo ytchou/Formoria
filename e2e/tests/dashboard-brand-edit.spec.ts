@@ -47,9 +47,8 @@ test.describe('Dashboard brand edit', () => {
           name: `[E2E-TEST] Brand Edit ${label} ${ts}`,
           slug,
           status: 'approved',
+          product_type: 'crafts',
           description: initialDescription,
-          purchase_links: [],
-          social_links: {},
           retail_locations: [],
           product_photos: [],
         })

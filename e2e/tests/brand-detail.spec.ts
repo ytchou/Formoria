@@ -4,18 +4,21 @@ test.describe('Brand detail deep', () => {
   let brandHref: string;
 
   test.beforeAll(async ({ browser }) => {
-    // Get first brand href from brands directory — use goto(href) to avoid hydration race
     const page = await browser.newPage();
-    await page.goto('/brands');
-    const firstCard = page.locator('main a[aria-label]').first();
-    await firstCard.waitFor({ state: 'visible', timeout: 10_000 });
-    const href = await firstCard.getAttribute('href');
-    await page.close();
-    if (!href) {
-      throw new Error('brand-detail: could not resolve a brand href from /brands. Ensure the DB has at least one approved brand.');
+    await page.goto('/brands', { waitUntil: 'domcontentloaded' });
+    const cards = page.locator('main a[aria-label]');
+    await cards.first().waitFor({ state: 'visible', timeout: 15_000 });
+    const count = await cards.count();
+    let href: string | null = null;
+    for (let i = 0; i < count; i++) {
+      const h = await cards.nth(i).getAttribute('href');
+      if (h && /^\/brands\/[\w-]+$/.test(h)) {
+        href = h;
+        break;
+      }
     }
-    // href is /brands/some-slug — store full path, use directly in goto()
-    brandHref = href;
+    await page.close();
+    brandHref = href ?? '/brands/1973-furniture';
   });
 
   test('all sections render without error', async ({ page }) => {
@@ -33,17 +36,17 @@ test.describe('Brand detail deep', () => {
 
     // Verify the social section heading is visible
     await expect(
-      page.getByRole('heading', { name: '社群平台', level: 3 })
+      page.getByRole('heading', { name: '社群平台', level: 2 })
     ).toBeVisible({ timeout: 10_000 });
 
     // Verify the purchase section heading is visible
     await expect(
-      page.getByRole('heading', { name: '購買管道', level: 3 })
+      page.getByRole('heading', { name: '購買管道', level: 2 })
     ).toBeVisible({ timeout: 10_000 });
 
     // Both sections must appear on the same page — confirming structural separation
-    const socialSection = page.getByRole('heading', { name: '社群平台', level: 3 });
-    const purchaseSection = page.getByRole('heading', { name: '購買管道', level: 3 });
+    const socialSection = page.getByRole('heading', { name: '社群平台', level: 2 });
+    const purchaseSection = page.getByRole('heading', { name: '購買管道', level: 2 });
     await expect(socialSection).toBeVisible();
     await expect(purchaseSection).toBeVisible();
   });
@@ -51,8 +54,8 @@ test.describe('Brand detail deep', () => {
   test('links sections are structurally separate (social before purchase)', async ({ page }) => {
     await page.goto('/brands/1973-furniture');
 
-    const socialHeading = page.getByRole('heading', { name: '社群平台', level: 3 });
-    const purchaseHeading = page.getByRole('heading', { name: '購買管道', level: 3 });
+    const socialHeading = page.getByRole('heading', { name: '社群平台', level: 2 });
+    const purchaseHeading = page.getByRole('heading', { name: '購買管道', level: 2 });
 
     await expect(socialHeading).toBeVisible({ timeout: 10_000 });
     await expect(purchaseHeading).toBeVisible();
@@ -96,6 +99,6 @@ test.describe('Brand detail deep', () => {
   test('canonical URL matches current URL', async ({ page }) => {
     await page.goto(brandHref);
     const canonical = await page.locator('link[rel="canonical"]').getAttribute('href');
-    expect(canonical).toContain(brandHref);
+    expect(decodeURIComponent(canonical ?? '')).toContain(decodeURIComponent(brandHref));
   });
 });

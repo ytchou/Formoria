@@ -51,9 +51,8 @@ test.describe('Dashboard — tab navigation', () => {
         name: brandName,
         slug: brandSlug,
         status: 'approved',
+        product_type: 'crafts',
         description: '[E2E-TEST] Tab navigation test brand.',
-        purchase_links: [],
-        social_links: {},
         retail_locations: [],
         product_photos: [],
       })
@@ -226,9 +225,8 @@ test.describe('Dashboard — legacy brand route redirect', () => {
         name: brandName,
         slug: brandSlug,
         status: 'approved',
+        product_type: 'crafts',
         description: '[E2E-TEST] Legacy redirect test brand.',
-        purchase_links: [],
-        social_links: {},
         retail_locations: [],
         product_photos: [],
       })

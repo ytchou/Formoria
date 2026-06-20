@@ -5,6 +5,14 @@ import { cleanupTestData } from './helpers/cleanup';
 import { writeAuthStorageState } from './helpers/auth-session';
 
 async function globalSetup() {
+  // Purge stale auth session files so every worker gets a fresh Supabase token
+  const authDir = path.join(__dirname, '.auth');
+  if (fs.existsSync(authDir)) {
+    for (const file of fs.readdirSync(authDir)) {
+      fs.unlinkSync(path.join(authDir, file));
+    }
+  }
+
   // Sweep orphaned test data from previous runs (runs once, globally)
   await cleanupTestData();
 

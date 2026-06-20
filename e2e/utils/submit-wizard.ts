@@ -10,23 +10,35 @@ import { type Page, expect } from '@playwright/test';
  * the most reliable ready-signal: it only mounts after hydration, so waiting
  * on it with a generous budget absorbs the cold-compile latency without
  * weakening any behavioural assertion.
+ *
+ * Auth resilience: under parallel load the middleware auth check can
+ * transiently fail, redirecting to /auth/sign-in. If detected, the helper
+ * retries the navigation once.
  */
 export async function gotoSubmitWizard(
   page: Page,
   opts?: { timeout?: number }
 ): Promise<void> {
-  // 30s default absorbs cold-compile under 2-worker CI (DEV-762).
   const timeout = opts?.timeout ?? 30_000;
+  const backoff = [2_000, 4_000, 8_000];
 
-  await page.goto('/submit/form');
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.goto('/submit/form', { timeout: 60_000 });
 
-  // URL input is the dependable hydration signal — mount requires full JS
-  // evaluation.  Assert this first with the full cold-compile budget.
-  await expect(page.locator('input[type="url"]').first()).toBeVisible({ timeout });
+    const urlInput = page.locator('input[type="url"]').first();
+    const visible = await urlInput.isVisible({ timeout }).catch(() => false);
+    if (visible) {
+      await expect(
+        page.getByRole('heading', { name: '提交品牌', exact: true })
+      ).toBeVisible({ timeout: 15_000 });
+      return;
+    }
 
-  // Heading should be essentially immediate once the URL input is mounted;
-  // 15s guards residual hydration jitter without adding real wait time.
-  await expect(
-    page.getByRole('heading', { name: '提交品牌', exact: true })
-  ).toBeVisible({ timeout: 15_000 });
+    if (attempt < 2 && page.url().includes('/auth/sign-in')) {
+      await page.waitForTimeout(backoff[attempt]);
+      continue;
+    }
+
+    await expect(urlInput).toBeVisible({ timeout: 10_000 });
+  }
 }

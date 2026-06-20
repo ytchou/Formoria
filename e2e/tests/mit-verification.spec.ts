@@ -38,11 +38,10 @@ test.describe('MIT verification badges', () => {
         name: mitBrandName,
         slug: mitBrandSlug,
         status: 'approved',
+        product_type: 'crafts',
         description: 'E2E throwaway — MIT verified brand.',
         mit_status: 'verified',
         mit_verified_at: new Date().toISOString(),
-        purchase_links: [],
-        social_links: {},
         retail_locations: [],
         product_photos: [],
       })
@@ -60,9 +59,8 @@ test.describe('MIT verification badges', () => {
         name: ownerBrandName,
         slug: ownerBrandSlug,
         status: 'approved',
+        product_type: 'crafts',
         description: 'E2E throwaway — owner-managed brand.',
-        purchase_links: [],
-        social_links: {},
         retail_locations: [],
         product_photos: [],
       })
