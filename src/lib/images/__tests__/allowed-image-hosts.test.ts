@@ -7,9 +7,8 @@ import {
 } from '@/lib/images/allowed-image-hosts'
 
 describe('isAllowedImageHost', () => {
-  it('matches exact hosts', () => {
-    expect(isAllowedImageHost('cdn01.pinkoi.com')).toBe(true)
-    expect(isAllowedImageHost('img.shoplineapp.com')).toBe(true)
+  it('contains only the Supabase wildcard', () => {
+    expect(ALLOWED_IMAGE_HOSTS).toEqual(['*.supabase.co'])
   })
 
   it('matches wildcard hosts at any subdomain depth', () => {
@@ -17,29 +16,37 @@ describe('isAllowedImageHost', () => {
     expect(isAllowedImageHost('project.storage.supabase.co')).toBe(true)
   })
 
+  it('rejects previously-allowed external hosts', () => {
+    expect(isAllowedImageHost('cdn01.pinkoi.com')).toBe(false)
+    expect(isAllowedImageHost('cdn02.pinkoi.com')).toBe(false)
+    expect(isAllowedImageHost('img.shoplineapp.com')).toBe(false)
+    expect(isAllowedImageHost('1973home.myshopify.com')).toBe(false)
+    expect(isAllowedImageHost('shoplineimg.com')).toBe(false)
+  })
+
   it('rejects non-allowlisted hosts', () => {
     expect(isAllowedImageHost('www.facebook.com')).toBe(false)
     expect(isAllowedImageHost('static.wixstatic.com')).toBe(false)
     expect(isAllowedImageHost('supabase.co.evil.com')).toBe(false)
   })
-
-  it('keeps next.config remotePatterns in sync (no host added/dropped silently)', () => {
-    expect(ALLOWED_IMAGE_HOSTS).toContain('cdn01.pinkoi.com')
-    expect(ALLOWED_IMAGE_HOSTS).not.toContain('www.facebook.com')
-  })
 })
 
 describe('safeImageSrc', () => {
   it('upgrades http to https for allowed hosts (next/image is https-only)', () => {
-    expect(safeImageSrc('http://cdn01.pinkoi.com/store/x/logo/original.jpg')).toBe(
-      'https://cdn01.pinkoi.com/store/x/logo/original.jpg',
-    )
+    expect(
+      safeImageSrc('http://project.supabase.co/storage/v1/object/public/brand/logo.jpg'),
+    ).toBe('https://project.supabase.co/storage/v1/object/public/brand/logo.jpg')
   })
 
   it('returns https URLs on allowed hosts unchanged', () => {
-    expect(safeImageSrc('https://img.shoplineapp.com/a/b.png')).toBe(
-      'https://img.shoplineapp.com/a/b.png',
-    )
+    expect(
+      safeImageSrc('https://project.supabase.co/storage/v1/object/public/brand/logo.png'),
+    ).toBe('https://project.supabase.co/storage/v1/object/public/brand/logo.png')
+  })
+
+  it('returns null for external CDN URLs (post-migration)', () => {
+    expect(safeImageSrc('https://cdn01.pinkoi.com/product/image.jpg')).toBeNull()
+    expect(safeImageSrc('https://img.shoplineapp.com/media/image.webp')).toBeNull()
   })
 
   it('returns null for non-allowlisted hosts (e.g. tracking pixels)', () => {
@@ -71,6 +78,20 @@ describe('isNonImageHost', () => {
   it('flags LINE tracking and link hosts (host-based, any path)', () => {
     expect(isNonImageHost('https://tr.line.me/tag.gif?c_t=lap&e=pv')).toBe(true)
     expect(isNonImageHost('https://page.line.me/hellome?openQrModal=true')).toBe(
+      true,
+    )
+  })
+
+  it('flags Instagram profile hosts', () => {
+    expect(isNonImageHost('https://www.instagram.com/brand_name')).toBe(true)
+    expect(isNonImageHost('https://instagram.com/brand_name')).toBe(true)
+  })
+
+  it('flags Instagram CDN hosts (URLs expire)', () => {
+    expect(
+      isNonImageHost('https://scontent-tpe1-1.cdninstagram.com/v/t51.2885-15/image.jpg'),
+    ).toBe(true)
+    expect(isNonImageHost('https://scontent.cdninstagram.com/v/image.jpg')).toBe(
       true,
     )
   })
