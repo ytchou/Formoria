@@ -90,7 +90,7 @@ export async function submitBrand(
       name: parsed.name,
       slug: '',
       description: parsed.description,
-      heroImageUrl: null,
+      heroImageUrl: parsed.heroImageUrl ?? null,
       category: derivedCategory,
       purchaseLinks: parsed.purchaseLinks.map((l) => ({
         ...l,
@@ -122,10 +122,10 @@ export async function submitBrand(
       productTypeNote: parsed.productTypeNote ?? null,
       moderationFlags: moderationResult.flags,
       moderatorUserId: user.id,
-      onModerationFlagsError: (err) => {
+      onModerationFlagsError: (err: unknown) => {
         console.error('Save moderation flags error:', err)
       },
-    } as Parameters<typeof submitBrandForReview>[0])
+    } as unknown as Parameters<typeof submitBrandForReview>[0])
 
     return undefined // Success — no error
   } catch (err) {

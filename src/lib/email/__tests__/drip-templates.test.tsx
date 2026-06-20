@@ -30,7 +30,7 @@ describe('buildProfileNudgeEmail', () => {
       to: 'owner@example.com',
       brandName: 'Test Brand',
       completenessPercent: 60,
-      missingFields: ['description', 'logo'],
+      missingFields: ['description'],
       unsubscribeToken: 'token456',
     })
     expect(email.to).toBe('owner@example.com')

@@ -298,8 +298,7 @@ export function SubmissionsList({
                               </p>
                               <p>
                                 <span className="font-medium">Images: </span>
-                                Hero{' '}
-                                {submission.brandEnrichment.heroImageUrl ? '✓' : '✗'} · Photos:{' '}
+                                Hero {submission.brandEnrichment.heroImageUrl ? '✓' : '✗'} · Photos:{' '}
                                 {submission.brandEnrichment.productPhotos.length}
                               </p>
                               <div>

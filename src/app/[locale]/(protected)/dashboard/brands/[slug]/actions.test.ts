@@ -332,7 +332,7 @@ describe('updateBrandAction', () => {
     expect(result?.error).toContain('productPhotos')
   })
 
-  it('diffs and deletes orphaned brand images after update', async () => {
+  it('diffs and deletes orphaned hero and product images after update', async () => {
     vi.mocked(getBrandBySlug).mockResolvedValueOnce({
       id: 'brand-1',
       slug: 'test-brand',

@@ -134,14 +134,14 @@ export function ReviewStep({
                 : null
             }
           />
-          {formData.logoUrl && (
+          {formData.heroImageUrl && (
             <div className="flex gap-3">
               <span className="w-[140px] shrink-0 text-xs font-semibold text-foreground">
                 {t('logo')}
               </span>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={formData.logoUrl}
+                src={formData.heroImageUrl}
                 alt={t('brandLogoAlt')}
                 className="h-16 w-16 rounded-lg object-cover"
               />

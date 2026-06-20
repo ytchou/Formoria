@@ -37,7 +37,7 @@ import type { SourceAttribution } from '@/lib/types/submission'
 const STEP_COUNT = 3
 
 const STEP_FIELDS: (keyof SubmissionFormData)[][] = [
-  ['name', 'description', 'region', 'logoUrl', 'retailLocations'],
+  ['name', 'description', 'region', 'heroImageUrl', 'retailLocations'],
   ['productType', 'productTypeNote', 'valueTags'],
   ['pdpaConsent'],
 ]
@@ -97,7 +97,7 @@ export function SubmitWizard({
         name: true,
         description: true,
         region: true,
-        logoUrl: true,
+        heroImageUrl: true,
         retailLocations: true,
         unifiedBusinessNumber: true,
       }),
@@ -150,7 +150,7 @@ export function SubmitWizard({
       description: '',
       region: '',
       valueTags: [],
-      logoUrl: '',
+      heroImageUrl: '',
       productType: '',
       productTypeNote: '',
       productPhotos: [],
@@ -261,7 +261,7 @@ export function SubmitWizard({
         trackSubmissionCompleted(
           data.name,
           deriveCategoryFromProductType(mergedData.productType ?? '', mergedData.productTypeNote) ?? data.category,
-          Boolean(data.logoUrl),
+          Boolean(data.heroImageUrl),
           elapsed
         )
         router.push('/submit/confirmation')

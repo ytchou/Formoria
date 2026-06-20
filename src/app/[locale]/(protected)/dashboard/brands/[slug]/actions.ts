@@ -149,7 +149,6 @@ function imageUrlsFromSnapshot(snapshot: Record<string, unknown> | null): string
   }
 
   return [
-    typeof snapshot.logoUrl === 'string' ? snapshot.logoUrl : null,
     typeof snapshot.heroImageUrl === 'string' ? snapshot.heroImageUrl : null,
     ...(Array.isArray(snapshot.productPhotos)
       ? snapshot.productPhotos.filter((url): url is string => typeof url === 'string')

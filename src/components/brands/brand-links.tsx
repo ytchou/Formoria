@@ -98,17 +98,15 @@ const disabledChipClassName =
   'inline-flex min-h-12 items-center gap-2 rounded-full bg-secondary px-4 py-2 text-sm font-medium text-foreground opacity-45'
 
 function SectionLabel({
-  icon,
   children,
 }: {
-  icon: ReactNode
+  icon?: ReactNode
   children: ReactNode
 }) {
   return (
-    <h3 className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase leading-none text-warm-caption">
-      {icon}
+    <h2 className="mb-3 font-heading text-base font-bold text-foreground">
       {children}
-    </h3>
+    </h2>
   )
 }
 
@@ -159,7 +157,7 @@ function LinkSection({ label, icon, slots, brand }: LinkSectionProps) {
   )
 }
 
-export function BrandLinks({ brand }: BrandLinksProps) {
+export function BrandSocialLinks({ brand }: BrandLinksProps) {
   const t = useTranslations('brandDetail')
 
   const socialSlots: LinkSlot[] = [
@@ -186,6 +184,22 @@ export function BrandLinks({ brand }: BrandLinksProps) {
     },
   ]
 
+  const hasAny = socialSlots.some((s) => s.url)
+  if (!hasAny) return null
+
+  return (
+    <LinkSection
+      label={t('links.socialPlatforms')}
+      icon={<Users className="size-3.5 text-warm-caption" />}
+      slots={socialSlots}
+      brand={brand}
+    />
+  )
+}
+
+export function BrandPurchaseLinks({ brand }: BrandLinksProps) {
+  const t = useTranslations('brandDetail')
+
   const purchaseSlots: LinkSlot[] = [
     {
       label: t('links.website'),
@@ -210,6 +224,22 @@ export function BrandLinks({ brand }: BrandLinksProps) {
     },
   ]
 
+  const hasAny = purchaseSlots.some((s) => s.url)
+  if (!hasAny) return null
+
+  return (
+    <LinkSection
+      label={t('links.purchaseChannels')}
+      icon={<ShoppingBag className="size-3.5 text-warm-caption" />}
+      slots={purchaseSlots}
+      brand={brand}
+    />
+  )
+}
+
+export function BrandOtherLinks({ brand }: BrandLinksProps) {
+  const t = useTranslations('brandDetail')
+
   const otherSlots: LinkSlot[] = brand.otherUrls.map((otherUrl) => ({
     label: otherUrl.label,
     url: normalizeDirectUrl(otherUrl.url),
@@ -217,34 +247,24 @@ export function BrandLinks({ brand }: BrandLinksProps) {
     icon: <Link className="size-4 text-foreground" />,
   }))
 
+  if (otherSlots.length === 0) return null
+
+  return (
+    <LinkSection
+      label={t('links.otherLinks')}
+      icon={<Link className="size-3.5 text-warm-caption" />}
+      slots={otherSlots}
+      brand={brand}
+    />
+  )
+}
+
+export function BrandLinks({ brand }: BrandLinksProps) {
   return (
     <div className="space-y-5">
-      <LinkSection
-        label={t('links.socialPlatforms')}
-        icon={<Users className="size-3.5 text-warm-caption" />}
-        slots={socialSlots}
-        brand={brand}
-      />
-
-      <div className="border-t border-border pt-5">
-        <LinkSection
-          label={t('links.purchaseChannels')}
-          icon={<ShoppingBag className="size-3.5 text-warm-caption" />}
-          slots={purchaseSlots}
-          brand={brand}
-        />
-      </div>
-
-      {brand.otherUrls.length > 0 && (
-        <div className="border-t border-border pt-5">
-          <LinkSection
-            label={t('links.otherLinks')}
-            icon={<Link className="size-3.5 text-warm-caption" />}
-            slots={otherSlots}
-            brand={brand}
-          />
-        </div>
-      )}
+      <BrandSocialLinks brand={brand} />
+      <BrandPurchaseLinks brand={brand} />
+      <BrandOtherLinks brand={brand} />
     </div>
   )
 }

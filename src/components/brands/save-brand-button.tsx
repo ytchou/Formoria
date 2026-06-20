@@ -55,16 +55,16 @@ export function SaveBrandButton({
       title={!user ? t('loginToSave') : label}
       disabled={isLoading}
       className={cn(
-        'inline-flex shrink-0 items-center justify-center border border-border bg-white text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
+        'inline-flex shrink-0 items-center justify-center text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
         variant === 'overlay'
-          ? 'absolute right-2 top-2 h-8 w-8 rounded-full shadow-sm'
-          : 'h-11 gap-2 rounded-md px-3 text-sm font-medium',
+          ? 'absolute right-2 top-2 h-8 w-8 rounded-full border border-border bg-white shadow-sm'
+          : 'h-11 gap-1.5 rounded-xl bg-secondary px-3 text-sm font-medium hover:bg-secondary/80',
         className
       )}
       onClick={handleClick}
     >
       <Heart
-        className={variant === 'overlay' ? 'h-4 w-4' : 'h-5 w-5'}
+        className={variant === 'overlay' ? 'h-4 w-4' : 'h-4 w-4'}
         fill={isSaved ? 'currentColor' : 'none'}
         strokeWidth={2}
         aria-hidden
