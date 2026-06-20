@@ -4,6 +4,7 @@ import {
   extractCategoryHints,
   extractGalleryImages,
   extractJsonLd,
+  extractPurchaseLinks,
   extractSocialLinks,
   filterHeroImage,
 } from '../../parse/extractors'
@@ -161,6 +162,8 @@ export const shopeeAdapter: PlatformAdapter = {
         : galleryImageUrls[0] ?? null,
       galleryImageUrls,
       ...extractSocialLinks($),
+      ...extractPurchaseLinks($),
+      purchaseShopee: url,
       categoryHints: unique([
         ...extractCategoryHints($),
         ...domBreadcrumbs($),

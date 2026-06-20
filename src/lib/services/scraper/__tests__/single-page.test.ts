@@ -4,7 +4,7 @@ import { scrapeBrandUrl } from '../index'
 afterEach(() => vi.unstubAllGlobals())
 
 function page(body: string) {
-  return new Response(`<html><head>${body}</head><body></body></html>`, {
+  return new Response(`<html><head></head><body>${body}</body></html>`, {
     status: 200, headers: { 'content-type': 'text/html' },
   })
 }
@@ -12,11 +12,14 @@ function page(body: string) {
 describe('SinglePageStrategy via scrapeBrandUrl', () => {
   it('extracts name + description from OG tags', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(page(
-      '<meta property=\"og:title\" content=\"Acme\"><meta property=\"og:description\" content=\"Made in Taiwan\">'
+      '<meta property=\"og:title\" content=\"Acme\"><meta property=\"og:description\" content=\"Made in Taiwan\"><a href=\"https://www.pinkoi.com/store/mybrand\">Pinkoi</a>'
     )))
     const r = await scrapeBrandUrl('https://acme.tw')
     expect(r.brandName).toBe('Acme')
     expect(r.description).toBe('Made in Taiwan')
+    expect(r.purchasePinkoi).toBe('https://www.pinkoi.com/store/mybrand')
+    expect(r.purchaseShopee).toBeNull()
+    expect(r.purchaseWebsite).toBeNull()
   })
   it('rejects a logo og:image as the hero', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(page(
