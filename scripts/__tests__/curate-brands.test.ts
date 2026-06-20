@@ -22,6 +22,7 @@ import {
 type BrandWithLinkColumns = Brand & BrandFlatLinkColumns
 type ImageBrandFixture = {
   id: string
+  status: string
   heroImageUrl: string | null
   productPhotos: string[] | null
 }
@@ -312,17 +313,17 @@ describe('buildImageEnrichPatch', () => {
     expect(patch.heroImageUrl).toBeUndefined()
   })
 
-  it('sets productPhotos from gallery images when brand has none', () => {
+  it('uses first gallery image as hero fallback and excludes it from productPhotos', () => {
     const patch = buildImageEnrichPatch(
       baseBrand as unknown as Brand,
       {
         heroImageUrl: null,
         galleryImageUrls: ['https://cdn01.pinkoi.com/product/1.jpg', 'https://cdn01.pinkoi.com/product/2.jpg'],
       } as unknown as ScrapedBrandData,
-      [null, 'https://supabase.co/storage/photo1.webp', 'https://supabase.co/storage/photo2.webp']
+      ['https://supabase.co/storage/photo1.webp', 'https://supabase.co/storage/photo2.webp']
     )
+    expect(patch.heroImageUrl).toBe('https://supabase.co/storage/photo1.webp')
     expect(patch.productPhotos).toEqual([
-      'https://supabase.co/storage/photo1.webp',
       'https://supabase.co/storage/photo2.webp',
     ])
   })
@@ -335,12 +336,12 @@ describe('buildImageEnrichPatch', () => {
       'https://supabase.co/storage/existing4.webp',
     ]
     const patch = buildImageEnrichPatch(
-      { ...baseBrand, productPhotos: existing } as unknown as Brand,
+      { ...baseBrand, heroImageUrl: 'https://existing.com/hero.jpg', productPhotos: existing } as unknown as Brand,
       {
         heroImageUrl: null,
         galleryImageUrls: ['https://cdn01.pinkoi.com/product/new1.jpg', 'https://cdn01.pinkoi.com/product/new2.jpg'],
       } as unknown as ScrapedBrandData,
-      [null, 'https://supabase.co/storage/new1.webp', 'https://supabase.co/storage/new2.webp']
+      ['https://supabase.co/storage/new1.webp', 'https://supabase.co/storage/new2.webp']
     )
     expect(patch.productPhotos).toHaveLength(5)
     expect(patch.productPhotos![0]).toBe('https://supabase.co/storage/existing1.webp')
@@ -615,8 +616,8 @@ describe('validateLink', () => {
 describe('findBrandsNeedingImages', () => {
   it('includes brands with no heroImageUrl', () => {
     const brands: ImageBrandFixture[] = [
-      { id: '1', heroImageUrl: null, productPhotos: null },
-      { id: '2', heroImageUrl: 'https://supabase.co/hero.webp', productPhotos: ['a.webp', 'b.webp', 'c.webp'] },
+      { id: '1', status: 'approved', heroImageUrl: null, productPhotos: null },
+      { id: '2', status: 'approved', heroImageUrl: 'https://supabase.co/hero.webp', productPhotos: ['a.webp', 'b.webp', 'c.webp'] },
     ]
     const result = findBrandsNeedingImages(brands as unknown as Brand[])
     expect(result).toHaveLength(1)
@@ -625,9 +626,9 @@ describe('findBrandsNeedingImages', () => {
 
   it('includes brands with fewer than 2 productPhotos', () => {
     const brands: ImageBrandFixture[] = [
-      { id: '1', heroImageUrl: 'https://supabase.co/hero.webp', productPhotos: null },
-      { id: '2', heroImageUrl: 'https://supabase.co/hero.webp', productPhotos: ['a.webp'] },
-      { id: '3', heroImageUrl: 'https://supabase.co/hero.webp', productPhotos: ['a.webp', 'b.webp'] },
+      { id: '1', status: 'approved', heroImageUrl: 'https://supabase.co/hero.webp', productPhotos: null },
+      { id: '2', status: 'approved', heroImageUrl: 'https://supabase.co/hero.webp', productPhotos: ['a.webp'] },
+      { id: '3', status: 'approved', heroImageUrl: 'https://supabase.co/hero.webp', productPhotos: ['a.webp', 'b.webp'] },
     ]
     const result = findBrandsNeedingImages(brands as unknown as Brand[])
     expect(result).toHaveLength(2)

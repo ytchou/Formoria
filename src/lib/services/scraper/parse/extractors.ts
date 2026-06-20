@@ -5,7 +5,7 @@ import { resolveUrl } from '../fetch-guards'
 export const MAX_GALLERY_IMAGES = 5
 const MIN_IMAGE_DIMENSION = 200
 
-export const NON_PRODUCT_IMAGE_PATH_RE =
+const NON_PRODUCT_IMAGE_PATH_RE =
   /\/(logo|avatar|profile|banner|icon|favicon|placeholder|default|sprite|pixel)/i
 
 export function extractSocialLinks($: cheerio.CheerioAPI) {
@@ -118,7 +118,6 @@ export function extractPinkoiProductImages($: cheerio.CheerioAPI): string[] {
       if (parsed.hostname.toLowerCase() !== 'cdn01.pinkoi.com') continue
       if (!parsed.pathname.toLowerCase().startsWith('/product/')) continue
       if (/(\/store\/|\/avatar\/|\/banner\/)/i.test(parsed.pathname)) continue
-      if (urls.includes(raw)) continue
 
       urls.push(raw)
       break
@@ -150,7 +149,6 @@ export function extractShopeeProductImages($: cheerio.CheerioAPI): string[] {
       if (hostname !== 'susercontent.com' && !hostname.endsWith('.susercontent.com')) continue
       if (!parsed.pathname.toLowerCase().startsWith('/file/')) continue
       if (/(avatar|icon|logo|banner)/i.test(raw)) continue
-      if (urls.includes(raw)) continue
 
       urls.push(raw)
       break

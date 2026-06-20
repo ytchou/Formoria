@@ -261,7 +261,7 @@ export function buildImageEnrichPatch(
     return patch
   }
 
-  const galleryStoredUrlOffset = hasScrapedHero ? 1 : (storedUrls.length > galleryImageUrls.length ? 1 : 0)
+  const galleryStoredUrlOffset = hasScrapedHero ? 1 : 0
   const storedImageEntries = [
     ...(hasScrapedHero
       ? [{ storedUrl: storedUrls[0], isHeroImage: true }]
@@ -276,13 +276,14 @@ export function buildImageEnrichPatch(
     return patch
   }
 
-  if (!brand.heroImageUrl) {
-    patch.heroImageUrl = storedImageEntries[0].storedUrl
+  const promotedHeroUrl = !brand.heroImageUrl ? storedImageEntries[0].storedUrl : null
+  if (promotedHeroUrl) {
+    patch.heroImageUrl = promotedHeroUrl
   }
 
   const existingProductPhotos = Array.isArray(brand.productPhotos) ? brand.productPhotos : []
   const newProductPhotos = storedImageEntries
-    .filter((entry) => !entry.isHeroImage)
+    .filter((entry) => !entry.isHeroImage && entry.storedUrl !== promotedHeroUrl)
     .map((entry) => entry.storedUrl)
   const mergedProductPhotos = [
     ...existingProductPhotos,
@@ -363,6 +364,10 @@ export function findBrandsNeedingLinks(brands: BrandWithLinkColumns[]): BrandWit
 
 export function findBrandsNeedingImages(brands: Brand[]): Brand[] {
   return brands.filter((brand) => {
+    if (brand.status !== 'approved') {
+      return false
+    }
+
     const productPhotos = Array.isArray(brand.productPhotos) ? brand.productPhotos : []
 
     return !brand.heroImageUrl || productPhotos.length < 2
@@ -915,7 +920,11 @@ async function enrichImages(dryRun: boolean, targetSlugs?: string[], stopAfter?:
     if (purchaseLinks.length === 0) {
       summary.skipped++
       console.log(`  [SKIP] ${brand.slug}: no purchase links`)
-      await sleep(SCRAPE_DELAY_MS)
+      continue
+    }
+
+    if (dryRun) {
+      console.log(`  [DRY RUN] ${brand.slug}: would scrape ${purchaseLinks.join(', ')}`)
       continue
     }
 
@@ -931,12 +940,6 @@ async function enrichImages(dryRun: boolean, targetSlugs?: string[], stopAfter?:
       if (imageUrls.length === 0) {
         summary.skipped++
         console.log(`  [SKIP] ${brand.slug}: no images found`)
-        await sleep(SCRAPE_DELAY_MS)
-        continue
-      }
-
-      if (dryRun) {
-        console.log(`  [DRY RUN] ${brand.slug}: ${imageUrls.join(', ')}`)
         await sleep(SCRAPE_DELAY_MS)
         continue
       }
