@@ -292,6 +292,15 @@ export async function addTagToBrand(brandId: string, tagId: string): Promise<voi
   if (error) throw error
 }
 
+export async function addTagToBrandIgnoringDuplicates(brandId: string, tagId: string): Promise<void> {
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('brand_taxonomy')
+    .upsert({ brand_id: brandId, tag_id: tagId }, { onConflict: 'brand_id,tag_id', ignoreDuplicates: true })
+
+  if (error) throw error
+}
+
 export async function removeTagFromBrand(brandId: string, tagId: string): Promise<void> {
   const supabase = createServiceClient()
   const { error } = await supabase

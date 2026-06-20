@@ -960,6 +960,17 @@ export async function hideBrand(id: string): Promise<Brand> {
   return updateBrand(id, { status: 'hidden' })
 }
 
+export async function hideVisibleBrands(): Promise<number> {
+  const supabase = createServiceClient()
+  const { count, error } = await supabase
+    .from('brands')
+    .update({ status: 'hidden' }, { count: 'exact' })
+    .neq('status', 'hidden')
+
+  if (error) throw error
+  return count ?? 0
+}
+
 export async function getRelatedBrands(
   tagSlug: string,
   excludeSlug: string,
