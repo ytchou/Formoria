@@ -7,6 +7,7 @@ import { EmailCaptureForm } from '../email-capture-form'
 // Mock next-intl
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
+  useLocale: () => 'zh-TW',
 }))
 
 describe('EmailCaptureForm', () => {
@@ -22,10 +23,10 @@ describe('EmailCaptureForm', () => {
     expect(chips.length).toBe(4)
   })
 
-  it('pre-selects new-brands chip', () => {
+  it('pre-selects curated-picks chip', () => {
     render(<EmailCaptureForm />)
-    const newBrandsChip = screen.getByRole('button', { name: /interests\.new-brands/i })
-    expect(newBrandsChip).toHaveAttribute('aria-pressed', 'true')
+    const curatedPicksChip = screen.getByRole('button', { name: /interests\.curated-picks/i })
+    expect(curatedPicksChip).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('renders interest label text', () => {

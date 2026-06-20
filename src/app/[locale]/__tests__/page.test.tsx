@@ -23,6 +23,7 @@ vi.mock('@/lib/seo/alternates', () => ({
 vi.mock('@/lib/services/brands', () => ({
   getBrands: vi.fn(),
   getNewBrands: vi.fn(),
+  getRecentBrandCount: vi.fn(),
 }))
 
 vi.mock('@/lib/services/taxonomy', () => ({
@@ -85,7 +86,7 @@ vi.mock('@/components/shared/brand-showcase', () => ({
 }))
 
 import { getTranslations } from 'next-intl/server'
-import { getBrands, getNewBrands } from '@/lib/services/brands'
+import { getBrands, getNewBrands, getRecentBrandCount } from '@/lib/services/brands'
 import { getActiveCategories, getTags } from '@/lib/services/taxonomy'
 import type { Brand } from '@/lib/types'
 import LandingPage from '../page'
@@ -167,6 +168,7 @@ describe('LandingPage', () => {
     })
     vi.mocked(getNewBrands).mockResolvedValue([])
     vi.mocked(getTags).mockResolvedValue([])
+    vi.mocked(getRecentBrandCount).mockResolvedValue({ count: 3, period: '7d' })
   })
 
   it('renders the verified rail from the single approved brands result', async () => {
