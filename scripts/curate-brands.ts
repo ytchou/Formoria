@@ -25,21 +25,21 @@ const LINK_FIELDS = [
   'purchaseShopee',
 ] as const
 
-const LINK_FIELD_TO_COLUMN: Record<string, string> = {
+type LinkField = (typeof LINK_FIELDS)[number]
+type LinkColumn = Exclude<keyof BrandFlatLinkColumns, 'other_urls'>
+
+const LINK_FIELD_TO_COLUMN: Record<LinkField, LinkColumn> = {
   socialInstagram: 'social_instagram',
   socialThreads: 'social_threads',
   socialFacebook: 'social_facebook',
   purchaseWebsite: 'purchase_website',
   purchasePinkoi: 'purchase_pinkoi',
   purchaseShopee: 'purchase_shopee',
-}
-
-type LinkField = (typeof LINK_FIELDS)[number]
-type LinkColumn = Exclude<keyof BrandFlatLinkColumns, 'other_urls'>
+} as const satisfies Record<LinkField, LinkColumn>
 type BrandWithLinkColumns = Brand & BrandFlatLinkColumns
 
 function linkColumnFor(field: LinkField): LinkColumn {
-  return LINK_FIELD_TO_COLUMN[field] as LinkColumn
+  return LINK_FIELD_TO_COLUMN[field]
 }
 
 function hasLinkValue(value: string | null | undefined): value is string {
@@ -108,6 +108,12 @@ export async function validateLink(url: string, brandName: string): Promise<bool
 
   try {
     const response = await fetch(url, { signal: controller.signal })
+    const contentType = response.headers.get('content-type')
+    if (!contentType?.startsWith('text/')) return false
+
+    const contentLength = response.headers.get('content-length')
+    if (contentLength != null && Number(contentLength) > 1_000_000) return false
+
     const html = await response.text()
     const normalizedHtml = html.toLowerCase().replace(/\s+/g, ' ')
     const normalizedName = brandName.toLowerCase().replace(/\s+/g, ' ')
