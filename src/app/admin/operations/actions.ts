@@ -98,6 +98,7 @@ export async function startCurationJobAction(
     const origin = await getRequestOrigin()
     fetch(`${origin}/api/admin/run-job`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jobId: job.id }),
     }).catch((err) => {
       console.error('[admin:startCurationJobAction] run-job request failed:', err)
