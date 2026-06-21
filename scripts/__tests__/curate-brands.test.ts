@@ -238,10 +238,25 @@ describe('buildLinkEnrichPatch', () => {
 
     expect(patch).toEqual({
       social_instagram: 'https://instagram.com/test',
+      social_threads: 'https://threads.net/new',
     })
   })
 
-  it('does not overwrite existing links', () => {
+  it('keeps existing links when scraped value matches', () => {
+    const brand = makeBrand({
+      purchase_pinkoi: 'https://pinkoi.com/store/existing',
+    })
+    const scraped = {
+      ...emptyScraped(),
+      purchasePinkoi: 'https://pinkoi.com/store/existing',
+    }
+
+    const patch = buildLinkEnrichPatch(brand, scraped)
+
+    expect(patch.purchase_pinkoi).toBeUndefined()
+  })
+
+  it('updates existing links when scraped value differs', () => {
     const brand = makeBrand({
       purchase_pinkoi: 'https://pinkoi.com/store/existing',
     })
@@ -252,10 +267,10 @@ describe('buildLinkEnrichPatch', () => {
 
     const patch = buildLinkEnrichPatch(brand, scraped)
 
-    expect(patch.purchase_pinkoi).toBeUndefined()
+    expect(patch.purchase_pinkoi).toBe('https://pinkoi.com/store/new')
   })
 
-  it('returns empty patch when brand has all links', () => {
+  it('returns empty patch when brand links match scraped data', () => {
     const brand = makeBrand({
       social_instagram: 'https://instagram.com/test',
       social_threads: 'https://threads.net/test',
@@ -266,12 +281,12 @@ describe('buildLinkEnrichPatch', () => {
     })
     const scraped = {
       ...emptyScraped(),
-      socialInstagram: 'https://instagram.com/new',
-      socialThreads: 'https://threads.net/new',
-      socialFacebook: 'https://facebook.com/new',
-      purchaseWebsite: 'https://new.example.com',
-      purchasePinkoi: 'https://pinkoi.com/store/new',
-      purchaseShopee: 'https://shopee.tw/new',
+      socialInstagram: 'https://instagram.com/test',
+      socialThreads: 'https://threads.net/test',
+      socialFacebook: 'https://facebook.com/test',
+      purchaseWebsite: 'https://example.com',
+      purchasePinkoi: 'https://pinkoi.com/store/test',
+      purchaseShopee: 'https://shopee.tw/test',
     }
 
     const patch = buildLinkEnrichPatch(brand, scraped)
@@ -304,13 +319,13 @@ describe('buildImageEnrichPatch', () => {
     expect(patch.heroImageUrl).toBe('https://supabase.co/storage/hero-stored.webp')
   })
 
-  it('does not overwrite existing heroImageUrl', () => {
+  it('overwrites existing heroImageUrl with scraped hero', () => {
     const patch = buildImageEnrichPatch(
       { ...baseBrand, heroImageUrl: 'https://existing.com/hero.jpg' } as unknown as Brand,
       { heroImageUrl: 'https://cdn01.pinkoi.com/product/new-hero.jpg', galleryImageUrls: [] } as unknown as ScrapedBrandData,
       ['https://supabase.co/storage/new-hero-stored.webp']
     )
-    expect(patch.heroImageUrl).toBeUndefined()
+    expect(patch.heroImageUrl).toBe('https://supabase.co/storage/new-hero-stored.webp')
   })
 
   it('uses first gallery image as hero fallback and excludes it from productPhotos', () => {
@@ -343,9 +358,10 @@ describe('buildImageEnrichPatch', () => {
       } as unknown as ScrapedBrandData,
       ['https://supabase.co/storage/new1.webp', 'https://supabase.co/storage/new2.webp']
     )
+    expect(patch.heroImageUrl).toBe('https://supabase.co/storage/new1.webp')
     expect(patch.productPhotos).toHaveLength(5)
     expect(patch.productPhotos![0]).toBe('https://supabase.co/storage/existing1.webp')
-    expect(patch.productPhotos![4]).toBe('https://supabase.co/storage/new1.webp')
+    expect(patch.productPhotos![4]).toBe('https://supabase.co/storage/new2.webp')
   })
 
   it('returns empty patch when no images scraped', () => {

@@ -70,6 +70,28 @@ function deriveOfficialWebsite(urls: string[]): string | null {
   return urls.find((url) => classifyByDomain(url) === null) ?? null
 }
 
+const URL_TO_LINK_FIELD: Array<{ pattern: RegExp; field: keyof Pick<ScrapedBrandData, 'socialInstagram' | 'socialThreads' | 'socialFacebook' | 'purchasePinkoi' | 'purchaseShopee'> }> = [
+  { pattern: /instagram\.com\/[^/?#]+\/?$/i, field: 'socialInstagram' },
+  { pattern: /threads\.net\/@[^/?#]+\/?$/i, field: 'socialThreads' },
+  { pattern: /facebook\.com\/[^/?#]+\/?$/i, field: 'socialFacebook' },
+  { pattern: /pinkoi\.com\/store\/[^/?#]+/i, field: 'purchasePinkoi' },
+  { pattern: /shopee\.tw\/[^/?#]+$/i, field: 'purchaseShopee' },
+]
+
+function extractLinksFromUrls(urls: string[]): Partial<Pick<ScrapedBrandData, 'socialInstagram' | 'socialThreads' | 'socialFacebook' | 'purchasePinkoi' | 'purchaseShopee'>> {
+  const result: Partial<Pick<ScrapedBrandData, 'socialInstagram' | 'socialThreads' | 'socialFacebook' | 'purchasePinkoi' | 'purchaseShopee'>> = {}
+
+  for (const url of urls) {
+    for (const { pattern, field } of URL_TO_LINK_FIELD) {
+      if (!result[field] && pattern.test(url)) {
+        result[field] = url
+      }
+    }
+  }
+
+  return result
+}
+
 function uniqueUrls(urls: string[]): string[] {
   const seen = new Set<string>()
   const unique: string[] = []
@@ -618,9 +640,13 @@ async function enrich(options: EnrichOptions): Promise<void> {
     try {
       const result = await scrapeBrandUrls(urls)
       const scraped = result.data
+      const urlExtracted = extractLinksFromUrls(discoveredUrls)
       const derivedWebsite = scraped.purchaseWebsite ?? deriveOfficialWebsite(urls)
       const enrichedScraped = {
         ...scraped,
+        ...Object.fromEntries(
+          Object.entries(urlExtracted).filter(([key]) => !hasLinkValue(scraped[key as keyof typeof scraped] as string | null))
+        ),
         purchaseWebsite: derivedWebsite,
       }
       const patch = buildLinkEnrichPatch(brand, enrichedScraped)
