@@ -54,7 +54,7 @@ import { updateReportStatus } from '@/lib/services/reports'
 import { updateFeedbackStatus, syncSentryFeedback } from '@/lib/services/feedback'
 import type { FeedbackStatus } from '@/lib/services/feedback'
 import { checkAllServices } from '@/lib/services/health-checks'
-import type { TagCategory } from '@/lib/types'
+import type { OtherUrl, TagCategory } from '@/lib/types'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 function isStructuredTags(v: unknown): v is { region?: string; values?: string[]; productType?: string } {
@@ -549,6 +549,13 @@ export async function updateBrandAction(
     website?: string
     purchaseUrl?: string
     productType?: string
+    socialInstagram?: string | null
+    socialThreads?: string | null
+    socialFacebook?: string | null
+    purchaseWebsite?: string | null
+    purchasePinkoi?: string | null
+    purchaseShopee?: string | null
+    otherUrls?: OtherUrl[]
   }
 ): Promise<{ error: string } | undefined> {
   try {
@@ -565,9 +572,33 @@ export async function updateBrandAction(
       }
     }
 
-    const { name, description, brandHighlights, website, purchaseUrl } = data
+    const {
+      name,
+      description,
+      brandHighlights,
+      website,
+      purchaseUrl,
+      socialInstagram,
+      socialThreads,
+      socialFacebook,
+      purchaseWebsite,
+      purchasePinkoi,
+      purchaseShopee,
+    } = data
     const moderationPayload = {
-      fields: { name, description, brandHighlights, website, purchaseUrl },
+      fields: {
+        name,
+        description,
+        brandHighlights,
+        website,
+        purchaseUrl,
+        socialInstagram: socialInstagram ?? undefined,
+        socialThreads: socialThreads ?? undefined,
+        socialFacebook: socialFacebook ?? undefined,
+        purchaseWebsite: purchaseWebsite ?? undefined,
+        purchasePinkoi: purchasePinkoi ?? undefined,
+        purchaseShopee: purchaseShopee ?? undefined,
+      },
       brandName: name ?? '',
     }
     const moderationResult = scanContent(moderationPayload)

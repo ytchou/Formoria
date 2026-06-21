@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { Plus, X } from 'lucide-react'
 import type { Brand } from '@/lib/types'
 import { updateBrandAction } from '@/app/admin/actions'
 import {
@@ -30,6 +31,13 @@ export function BrandEditDialog({
 }: BrandEditDialogProps) {
   const [name, setName] = useState(brand?.name ?? '')
   const [description, setDescription] = useState(brand?.description ?? '')
+  const [socialInstagram, setSocialInstagram] = useState(brand?.socialInstagram ?? '')
+  const [socialThreads, setSocialThreads] = useState(brand?.socialThreads ?? '')
+  const [socialFacebook, setSocialFacebook] = useState(brand?.socialFacebook ?? '')
+  const [purchaseWebsite, setPurchaseWebsite] = useState(brand?.purchaseWebsite ?? '')
+  const [purchasePinkoi, setPurchasePinkoi] = useState(brand?.purchasePinkoi ?? '')
+  const [purchaseShopee, setPurchaseShopee] = useState(brand?.purchaseShopee ?? '')
+  const [otherUrls, setOtherUrls] = useState<Brand['otherUrls']>(brand?.otherUrls ?? [])
   const [productType, setProductType] = useState(() => {
     const productTypeSlug = (brand as (Brand & { product_type?: string | null }) | null)?.product_type
     const match = PRODUCT_TYPE_CATEGORIES.find(
@@ -44,6 +52,25 @@ export function BrandEditDialog({
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
+  function emptyToNull(value: string) {
+    const trimmed = value.trim()
+    return trimmed === '' ? null : trimmed
+  }
+
+  function addOtherUrl() {
+    setOtherUrls((current) => [...current, { label: '', url: '' }])
+  }
+
+  function updateOtherUrl(index: number, url: string) {
+    setOtherUrls((current) =>
+      current.map((link, linkIndex) => (linkIndex === index ? { ...link, url } : link))
+    )
+  }
+
+  function removeOtherUrl(index: number) {
+    setOtherUrls((current) => current.filter((_, linkIndex) => linkIndex !== index))
+  }
+
   function handleSave() {
     if (!brand) return
     startTransition(async () => {
@@ -52,6 +79,15 @@ export function BrandEditDialog({
         name,
         description,
         productType: productType || undefined,
+        socialInstagram: emptyToNull(socialInstagram),
+        socialThreads: emptyToNull(socialThreads),
+        socialFacebook: emptyToNull(socialFacebook),
+        purchaseWebsite: emptyToNull(purchaseWebsite),
+        purchasePinkoi: emptyToNull(purchasePinkoi),
+        purchaseShopee: emptyToNull(purchaseShopee),
+        otherUrls: otherUrls
+          .map((link) => ({ ...link, url: link.url.trim() }))
+          .filter((link) => link.url !== ''),
       }
       const result = await updateBrandAction(brand.id, data)
       if (result?.error) {
@@ -64,7 +100,7 @@ export function BrandEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Brand</DialogTitle>
         </DialogHeader>
@@ -76,6 +112,7 @@ export function BrandEditDialog({
               id="brand-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              className="h-12 focus-visible:ring-2 focus-visible:ring-primary"
             />
           </div>
 
@@ -86,6 +123,7 @@ export function BrandEditDialog({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
+              className="focus-visible:ring-2 focus-visible:ring-primary"
             />
           </div>
 
@@ -95,7 +133,7 @@ export function BrandEditDialog({
               id="brand-product-type"
               value={productType}
               onChange={(e) => setProductType(e.target.value)}
-              className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
+              className="h-12 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">—</option>
               {PRODUCT_TYPE_CATEGORIES.map((cat) => (
@@ -106,7 +144,134 @@ export function BrandEditDialog({
             </select>
           </div>
 
-          {error && <p className="text-sm text-[#D94F3D]">{error}</p>}
+          <div className="space-y-4 border-t border-border pt-4">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-foreground">Links</h3>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Social
+              </h4>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="brand-social-instagram">Instagram</Label>
+                  <Input
+                    id="brand-social-instagram"
+                    type="url"
+                    placeholder="Instagram URL"
+                    value={socialInstagram}
+                    onChange={(e) => setSocialInstagram(e.target.value)}
+                    className="h-12 focus-visible:ring-2 focus-visible:ring-primary"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="brand-social-threads">Threads</Label>
+                  <Input
+                    id="brand-social-threads"
+                    type="url"
+                    placeholder="Threads URL"
+                    value={socialThreads}
+                    onChange={(e) => setSocialThreads(e.target.value)}
+                    className="h-12 focus-visible:ring-2 focus-visible:ring-primary"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="brand-social-facebook">Facebook</Label>
+                  <Input
+                    id="brand-social-facebook"
+                    type="url"
+                    placeholder="Facebook URL"
+                    value={socialFacebook}
+                    onChange={(e) => setSocialFacebook(e.target.value)}
+                    className="h-12 focus-visible:ring-2 focus-visible:ring-primary"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Purchase
+              </h4>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="brand-purchase-website">Website</Label>
+                  <Input
+                    id="brand-purchase-website"
+                    type="url"
+                    placeholder="Website URL"
+                    value={purchaseWebsite}
+                    onChange={(e) => setPurchaseWebsite(e.target.value)}
+                    className="h-12 focus-visible:ring-2 focus-visible:ring-primary"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="brand-purchase-pinkoi">Pinkoi</Label>
+                  <Input
+                    id="brand-purchase-pinkoi"
+                    type="url"
+                    placeholder="Pinkoi URL"
+                    value={purchasePinkoi}
+                    onChange={(e) => setPurchasePinkoi(e.target.value)}
+                    className="h-12 focus-visible:ring-2 focus-visible:ring-primary"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="brand-purchase-shopee">Shopee</Label>
+                  <Input
+                    id="brand-purchase-shopee"
+                    type="url"
+                    placeholder="Shopee URL"
+                    value={purchaseShopee}
+                    onChange={(e) => setPurchaseShopee(e.target.value)}
+                    className="h-12 focus-visible:ring-2 focus-visible:ring-primary"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Other URLs
+              </h4>
+              <div className="space-y-2">
+                {otherUrls.map((link, index) => (
+                  <div key={index} className="grid gap-2 sm:grid-cols-[1fr_48px]">
+                    <Input
+                      type="url"
+                      aria-label={`Other URL ${index + 1}`}
+                      placeholder="URL"
+                      value={link.url}
+                      onChange={(e) => updateOtherUrl(index, e.target.value)}
+                      className="h-12 focus-visible:ring-2 focus-visible:ring-primary"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Remove URL ${index + 1}`}
+                      onClick={() => removeOtherUrl(index)}
+                      className="h-12 w-12 rounded-lg focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addOtherUrl}
+                className="h-12 focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <Plus className="h-4 w-4" />
+                Add URL
+              </Button>
+            </div>
+          </div>
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
 
         <DialogFooter>
