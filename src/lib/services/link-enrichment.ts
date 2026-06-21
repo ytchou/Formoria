@@ -38,8 +38,20 @@ export function linkColumnFor(field: LinkField): LinkColumn {
   return LINK_FIELD_TO_COLUMN[field]
 }
 
+const CORPORATE_ACCOUNT_PATTERNS = [
+  /instagram\.com\/ilovepinkoi/i,
+  /facebook\.com\/ilovepinkoi/i,
+  /threads\.net\/@ilovepinkoi/i,
+  /instagram\.com\/shopee_tw/i,
+  /facebook\.com\/shopee\.tw/i,
+]
+
 export function hasLinkValue(value: string | null | undefined): value is string {
   return value != null && value.trim() !== ''
+}
+
+function isCorporateAccount(url: string): boolean {
+  return CORPORATE_ACCOUNT_PATTERNS.some((pattern) => pattern.test(url))
 }
 
 export function buildLinkEnrichPatch(
@@ -53,7 +65,18 @@ export function buildLinkEnrichPatch(
     const existingValue = brand[column]
     const scrapedValue = scraped[field]
 
-    if (!hasLinkValue(existingValue) && hasLinkValue(scrapedValue)) {
+    if (hasLinkValue(existingValue) && isCorporateAccount(existingValue)) {
+      patch[column] = hasLinkValue(scrapedValue) && !isCorporateAccount(scrapedValue)
+        ? scrapedValue
+        : null
+      continue
+    }
+
+    if (!hasLinkValue(scrapedValue) || isCorporateAccount(scrapedValue)) {
+      continue
+    }
+
+    if (!hasLinkValue(existingValue) || existingValue !== scrapedValue) {
       patch[column] = scrapedValue
     }
   }
@@ -85,7 +108,7 @@ export function buildImageEnrichPatch(
     return patch
   }
 
-  const promotedHeroUrl = !brand.heroImageUrl ? storedImageEntries[0].storedUrl : null
+  const promotedHeroUrl = storedImageEntries[0].storedUrl
   if (promotedHeroUrl) {
     patch.heroImageUrl = promotedHeroUrl
   }
