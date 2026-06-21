@@ -5,16 +5,18 @@ import { isActingAsAdmin } from '@/lib/auth/admin-mode'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
 
-export type CurationJobParams = {
+export type CurationJobParams = Record<string, Json | undefined> & {
   slugs?: string[]
   stopAfter?: number
-  validate?: boolean
   phases?: string[]
 }
 
+export type CurationOperation = 'cleanup' | 'enrich' | 'auto-tag' | 'set-visibility'
+type StartCurationOperation = CurationOperation | 'clean-names'
+
 export type CurationJob = {
   id: string
-  operation: string
+  operation: CurationOperation
   status: 'pending' | 'running' | 'completed' | 'failed'
   params: Json | null
   dry_run: boolean
@@ -57,7 +59,7 @@ async function getRequestOrigin(): Promise<string> {
 }
 
 export async function startCurationJobAction(
-  operation: string,
+  operation: StartCurationOperation,
   params: CurationJobParams,
   dryRun: boolean
 ): Promise<{ jobId: string } | { error: string }> {

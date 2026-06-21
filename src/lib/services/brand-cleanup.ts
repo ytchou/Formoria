@@ -1,4 +1,4 @@
-export type CleanupPattern =
+type CleanupPattern =
   | 'emoji'
   | 'decorative-unicode'
   | 'stylized-text'
@@ -54,7 +54,7 @@ const NON_BRAND_KEYWORDS = [
   ...NOISE_NAMES,
 ]
 
-export const CATEGORY_KEYWORDS: Record<string, string[]> = {
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
   clothing: ['衣', '服飾', '服裝', '上衣', '褲', '裙', '外套', '洋裝', '襯衫', 'T恤', '背心', '襪', 'apparel', 'fashion', 'wear'],
   footwear: ['鞋', '拖鞋', '涼鞋', '靴', '球鞋', 'shoes', 'sneakers', 'boots'],
   bags: ['皮包', '手提包', '後背包', '包包', '背包包', '包', '背包', '手提', '側背', '托特', '帆布袋', '皮件', '卡夾', '錢包', 'bag', 'tote', 'backpack', 'pouch', 'wallet'],
@@ -78,6 +78,32 @@ export const CATEGORY_KEYWORDS: Record<string, string[]> = {
   fragrance: ['香氛', '蠟燭', '擴香', '精油', '線香', '香薰', 'candle', 'fragrance', 'aroma', 'diffuser'],
   gardening: ['植栽', '盆栽', '花器', '園藝', '多肉', 'plant', 'garden', 'succulent'],
   experiences: ['體驗', '導覽', '工作坊', '旅遊', '觀光', '行程', '遊程', '地方創生', '在地', '社區', '永續', '友善環境', '環保', 'sustainable', 'eco', 'local', 'green', 'community'],
+}
+
+const PRODUCT_TYPE_BY_LEGACY_CATEGORY: Record<string, string | null> = {
+  clothing: 'fashion',
+  footwear: 'fashion',
+  bags: 'bags-accessories',
+  jewelry: 'jewelry',
+  accessories: 'bags-accessories',
+  food: 'food-drink',
+  beverages: 'food-drink',
+  agriculture: 'food-drink',
+  beauty: 'beauty',
+  'bath-body': 'beauty',
+  home: 'home',
+  kitchen: 'home',
+  furniture: 'home',
+  stationery: 'crafts',
+  art: 'crafts',
+  outdoor: 'outdoor',
+  tech: 'tech',
+  pets: 'kids-pets',
+  'baby-kids': 'kids-pets',
+  crafts: 'crafts',
+  fragrance: 'beauty',
+  gardening: 'home',
+  experiences: null,
 }
 
 const MATH_LETTER_RANGES: Array<{ start: number; chars: string }> = [
@@ -367,7 +393,7 @@ export function detectNonBrand(brand: BrandLike): NonBrandDetectionResult {
 export function matchCategory(text: string): string | null {
   for (const [categorySlug, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
     if (keywords.some((kw) => text.includes(kw))) {
-      return categorySlug
+      return PRODUCT_TYPE_BY_LEGACY_CATEGORY[categorySlug] ?? null
     }
   }
   return null

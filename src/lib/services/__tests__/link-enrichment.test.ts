@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   buildImageEnrichPatch,
   buildLinkEnrichPatch,
+  buildTextEnrichPatch,
+  extractLinksFromUrls,
   hasLinkValue,
   LINK_FIELDS,
   linkColumnFor,
@@ -125,6 +127,146 @@ describe('buildLinkEnrichPatch', () => {
     }
     const patch = buildLinkEnrichPatch(brand, scraped)
     expect(patch.social_instagram).toBeUndefined()
+  })
+})
+
+describe('extractLinksFromUrls', () => {
+  it('maps Instagram URL to social_instagram', () => {
+    const result = extractLinksFromUrls(['https://www.instagram.com/mybrand/'])
+    expect(result.social_instagram).toBe('https://www.instagram.com/mybrand/')
+  })
+
+  it('maps Threads URL to social_threads', () => {
+    const result = extractLinksFromUrls(['https://www.threads.net/@mybrand'])
+    expect(result.social_threads).toBe('https://www.threads.net/@mybrand')
+  })
+
+  it('maps Facebook URL to social_facebook', () => {
+    const result = extractLinksFromUrls(['https://www.facebook.com/mybrand'])
+    expect(result.social_facebook).toBe('https://www.facebook.com/mybrand')
+  })
+
+  it('maps Pinkoi URL to purchase_pinkoi', () => {
+    const result = extractLinksFromUrls(['https://www.pinkoi.com/store/mybrand'])
+    expect(result.purchase_pinkoi).toBe('https://www.pinkoi.com/store/mybrand')
+  })
+
+  it('maps Shopee URL to purchase_shopee', () => {
+    const result = extractLinksFromUrls(['https://shopee.tw/mybrand'])
+    expect(result.purchase_shopee).toBe('https://shopee.tw/mybrand')
+  })
+
+  it('ignores unrecognized URLs', () => {
+    const result = extractLinksFromUrls(['https://example.com/page'])
+    expect(Object.keys(result)).toHaveLength(0)
+  })
+
+  it('handles multiple URLs from different platforms', () => {
+    const result = extractLinksFromUrls([
+      'https://www.instagram.com/mybrand/',
+      'https://www.pinkoi.com/store/mybrand',
+      'https://example.com',
+    ])
+    expect(result.social_instagram).toBe('https://www.instagram.com/mybrand/')
+    expect(result.purchase_pinkoi).toBe('https://www.pinkoi.com/store/mybrand')
+    expect(Object.keys(result)).toHaveLength(2)
+  })
+
+  it('rejects corporate account URLs', () => {
+    const result = extractLinksFromUrls([
+      'https://www.instagram.com/ilovepinkoi/',
+      'https://www.facebook.com/shopee.tw',
+    ])
+    expect(Object.keys(result)).toHaveLength(0)
+  })
+})
+
+describe('buildLinkEnrichPatch — overwrite-with-validation', () => {
+  const baseBrand = {
+    social_instagram: null, social_threads: null, social_facebook: null,
+    purchase_pinkoi: null, purchase_shopee: null, website_url: null,
+  }
+
+  it('fills empty fields', () => {
+    const patch = buildLinkEnrichPatch(
+      { ...baseBrand },
+      { social_instagram: 'https://www.instagram.com/mybrand/' }
+    )
+    expect(patch.social_instagram).toBe('https://www.instagram.com/mybrand/')
+  })
+
+  it('overwrites existing values with new scraped values', () => {
+    const patch = buildLinkEnrichPatch(
+      { ...baseBrand, social_instagram: 'https://www.instagram.com/oldbrand/' },
+      { social_instagram: 'https://www.instagram.com/newbrand/' }
+    )
+    expect(patch.social_instagram).toBe('https://www.instagram.com/newbrand/')
+  })
+
+  it('skips when new value equals existing (no unnecessary write)', () => {
+    const patch = buildLinkEnrichPatch(
+      { ...baseBrand, social_instagram: 'https://www.instagram.com/mybrand/' },
+      { social_instagram: 'https://www.instagram.com/mybrand/' }
+    )
+    expect(patch.social_instagram).toBeUndefined()
+  })
+
+  it('rejects scraped corporate account values', () => {
+    const patch = buildLinkEnrichPatch(
+      { ...baseBrand },
+      { social_instagram: 'https://www.instagram.com/ilovepinkoi/' }
+    )
+    expect(patch.social_instagram).toBeUndefined()
+  })
+
+  it('clears existing corporate value even when no scraped replacement', () => {
+    const patch = buildLinkEnrichPatch(
+      { ...baseBrand, social_instagram: 'https://www.instagram.com/ilovepinkoi/' },
+      {}
+    )
+    expect(patch.social_instagram).toBeNull()
+  })
+})
+
+describe('buildTextEnrichPatch (unified)', () => {
+  it('fills description when brand has none', () => {
+    const patch = buildTextEnrichPatch(
+      { description: null, brand_highlights: null },
+      { description: 'A premium handcrafted leather goods brand from Taiwan' }
+    )
+    expect(patch.description).toBe('A premium handcrafted leather goods brand from Taiwan')
+  })
+
+  it('fills description when existing is too short (<20 chars)', () => {
+    const patch = buildTextEnrichPatch(
+      { description: 'Short desc', brand_highlights: null },
+      { description: 'A premium handcrafted leather goods brand from Taiwan' }
+    )
+    expect(patch.description).toBe('A premium handcrafted leather goods brand from Taiwan')
+  })
+
+  it('does not overwrite valid existing description', () => {
+    const patch = buildTextEnrichPatch(
+      { description: 'An existing description that is longer than 20 characters', brand_highlights: null },
+      { description: 'A different scraped description from the website' }
+    )
+    expect(patch.description).toBeUndefined()
+  })
+
+  it('rejects scraped description shorter than 20 chars', () => {
+    const patch = buildTextEnrichPatch(
+      { description: null, brand_highlights: null },
+      { description: 'Too short' }
+    )
+    expect(patch.description).toBeUndefined()
+  })
+
+  it('fills brand_highlights from scraped story', () => {
+    const patch = buildTextEnrichPatch(
+      { description: 'Existing desc over twenty chars long', brand_highlights: null },
+      { description: null, story: 'Founded in 2015 by artisans in Tainan' }
+    )
+    expect(patch.brand_highlights).toBe('Founded in 2015 by artisans in Tainan')
   })
 })
 

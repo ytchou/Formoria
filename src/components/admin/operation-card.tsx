@@ -8,6 +8,7 @@ import {
   startCurationJobAction,
   type CurationJob,
   type CurationJobParams,
+  type CurationOperation,
 } from '@/app/admin/operations/actions'
 import {
   AlertDialog,
@@ -20,20 +21,32 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import type { Json } from '@/lib/supabase/database.types'
 
 interface OperationCardProps {
-  operation: string
+  operation: CurationOperation
   title: string
   description: string
   children?: ReactNode
   showValidateToggle?: boolean
+  showPhasePicker?: boolean
 }
 
 type Scope = 'all' | 'specific'
+type EnrichPhase = 'discover' | 'links' | 'images' | 'descriptions'
+
+const enrichPhaseOptions: Array<{ value: EnrichPhase; label: string }> = [
+  { value: 'discover', label: 'Discover URLs' },
+  { value: 'links', label: 'Fill links' },
+  { value: 'images', label: 'Download images' },
+  { value: 'descriptions', label: 'Fill descriptions' },
+]
+
+const defaultEnrichPhases = enrichPhaseOptions.map((phase) => phase.value)
 
 type JobProgress = {
   processed: number
@@ -96,11 +109,13 @@ export function OperationCard({
   description,
   children,
   showValidateToggle = false,
+  showPhasePicker = false,
 }: OperationCardProps) {
   const [scope, setScope] = useState<Scope>('all')
   const [slugInput, setSlugInput] = useState('')
   const [stopAfterInput, setStopAfterInput] = useState('')
   const [validateLinks, setValidateLinks] = useState(false)
+  const [selectedPhases, setSelectedPhases] = useState<EnrichPhase[]>(defaultEnrichPhases)
   const [job, setJob] = useState<CurationJob | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -123,14 +138,40 @@ export function OperationCard({
       nextParams.validate = validateLinks
     }
 
+    if (showPhasePicker) {
+      nextParams.phases = selectedPhases
+    }
+
     return nextParams
-  }, [scope, slugInput, stopAfterInput, showValidateToggle, validateLinks])
+  }, [
+    scope,
+    selectedPhases,
+    showPhasePicker,
+    showValidateToggle,
+    slugInput,
+    stopAfterInput,
+    validateLinks,
+  ])
 
   const progress = readProgress(job?.progress ?? null)
   const result = readResult(job?.result ?? null)
   const progressValue = progress.total > 0 ? (progress.processed / progress.total) * 100 : 0
   const isJobActive = job?.status === 'pending' || job?.status === 'running'
   const isActionDisabled = isPending || isJobActive
+
+  function togglePhase(phase: EnrichPhase, checked: boolean) {
+    setSelectedPhases((currentPhases) => {
+      if (checked) {
+        return currentPhases.includes(phase) ? currentPhases : [...currentPhases, phase]
+      }
+
+      if (currentPhases.length === 1) {
+        return currentPhases
+      }
+
+      return currentPhases.filter((currentPhase) => currentPhase !== phase)
+    })
+  }
 
   useEffect(() => {
     if (!job?.id || !isJobActive) {
@@ -260,6 +301,31 @@ export function OperationCard({
             />
             <span>Validate links</span>
           </Label>
+        )}
+
+        {showPhasePicker && (
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-foreground">Phases</p>
+            <div className="grid gap-2">
+              {enrichPhaseOptions.map((phase) => {
+                const checked = selectedPhases.includes(phase.value)
+
+                return (
+                  <Label
+                    key={phase.value}
+                    className="min-h-12 cursor-pointer justify-between rounded-lg border border-border px-3 py-2 focus-within:ring-2 focus-within:ring-primary"
+                  >
+                    <span>{phase.label}</span>
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={(value: boolean) => togglePhase(phase.value, value)}
+                      aria-label={phase.label}
+                    />
+                  </Label>
+                )
+              })}
+            </div>
+          </div>
         )}
 
         {children}

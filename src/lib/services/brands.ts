@@ -8,7 +8,6 @@ import { getActiveCategories, getTagBySlug } from '@/lib/services/taxonomy'
 import { BRAND_SORT_CONFIG } from '@/lib/pagination'
 import { isNonImageHost } from '@/lib/images/allowed-image-hosts'
 import { RESERVED_ROUTES } from '@/middleware'
-import { createSubmissionSchema } from '@/lib/validations/submission'
 import { deriveCategoryFromProductType } from '@/lib/taxonomy/ontology'
 import { downloadAndStoreImages } from './image-download'
 
@@ -26,7 +25,6 @@ function shuffleArray<T>(arr: T[]): void {
 type BrandRow = Database['public']['Tables']['brands']['Row']
 type BrandDraftData = BrandRow['draft_data']
 type TaxonomyTagRow = Database['public']['Tables']['taxonomy_tags']['Row']
-type RawSeedRow = Record<string, unknown>
 type BrandSlugRedirectRow = { new_slug: string }
 type BrandSlugRedirectTable = {
   select: (columns: 'new_slug') => {
@@ -50,14 +48,6 @@ type BrandFlatLinkColumns = {
   purchase_shopee?: string | null
   other_urls?: unknown
 }
-
-export const curatedSubmissionSchema = createSubmissionSchema(false).omit({
-  _honeypot: true,
-  isOwner: true,
-  pdpaConsent: true,
-  sourceAttribution: true,
-  turnstileToken: true,
-})
 
 export type CuratedSubmissionInput = {
   name: string
@@ -155,14 +145,6 @@ export function isReservedSlug(slug: string): boolean {
   return RESERVED_ROUTES.has(slug)
 }
 
-function getObject(value: unknown, fieldName: string): Record<string, unknown> {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error(`${fieldName} must be an object`)
-  }
-
-  return value as Record<string, unknown>
-}
-
 function getString(value: unknown): string {
   if (typeof value === 'string') {
     return value.trim()
@@ -218,30 +200,6 @@ function parseStringArray(value: unknown, fieldName: string): string[] {
     .split('|')
     .map((item) => item.trim())
     .filter(Boolean)
-}
-
-function parseObjectArray(value: unknown, fieldName: string): Record<string, unknown>[] {
-  const parsedValue = parseMaybeJson(value, fieldName)
-
-  if (parsedValue == null || parsedValue === '') {
-    return []
-  }
-
-  if (!Array.isArray(parsedValue)) {
-    throw new Error(`${fieldName} must be a JSON array`)
-  }
-
-  return parsedValue.map((item, index) => getObject(item, `${fieldName}[${index}]`))
-}
-
-function parseSocialLinks(value: unknown): Record<string, unknown> {
-  const parsedValue = parseMaybeJson(value, 'socialLinks')
-
-  if (parsedValue == null || parsedValue === '') {
-    return {}
-  }
-
-  return getObject(parsedValue, 'socialLinks')
 }
 
 export function parseBrandCSV(csvText: string): Record<string, string | string[]>[] {
@@ -306,44 +264,6 @@ export function parseBrandCSV(csvText: string): Record<string, string | string[]
     })
     return row
   })
-}
-
-export function normalizeRow(rawRow: RawSeedRow): CuratedSubmissionInput {
-  const socialLinks =
-    'socialLinks' in rawRow ? parseSocialLinks(rawRow.socialLinks) : {}
-
-  const normalized = curatedSubmissionSchema.parse({
-    name: getString(rawRow.name),
-    description: getString(rawRow.description),
-    category: getString(rawRow.category),
-    region: getString(rawRow.region) || undefined,
-    valueTags: parseStringArray(rawRow.valueTags ?? rawRow.tags, 'valueTags'),
-    heroImageUrl: getString(rawRow.heroImageUrl ?? rawRow.hero_image_url ?? rawRow.logoUrl),
-    productPhotos: parseStringArray(rawRow.productPhotos, 'productPhotos'),
-    productType: getString(rawRow.productType ?? rawRow.product_type).toLowerCase(),
-    productTypeNote: getString(rawRow.productTypeNote ?? rawRow.product_type_note),
-    brandHighlights: getString(rawRow.brandHighlights),
-    purchaseLinks: parseObjectArray(rawRow.purchaseLinks, 'purchaseLinks'),
-    socialLinks: {
-      instagram: getString(socialLinks.instagram ?? rawRow.instagram),
-      threads: getString(socialLinks.threads ?? rawRow.threads),
-      facebook: getString(socialLinks.facebook ?? rawRow.facebook),
-      website: getString(
-        socialLinks.website ?? socialLinks.officialWebsite ?? rawRow.website ?? rawRow.officialWebsite
-      ),
-    },
-    retailLocations: parseObjectArray(rawRow.retailLocations, 'retailLocations'),
-  })
-
-  const slug = getString(rawRow.slug) || generateSlug(normalized.name)
-  if (!slug) {
-    throw new Error(`Unable to generate slug for brand: ${normalized.name}`)
-  }
-  if (isReservedSlug(slug)) {
-    throw new Error(`Slug conflicts with reserved route: ${slug}`)
-  }
-
-  return { ...normalized, slug }
 }
 
 export function curatedSubmissionToBrand(input: CuratedSubmissionInput): CuratedBrand {
@@ -994,21 +914,6 @@ export async function deleteBrand(id: string): Promise<void> {
 
   if (error) throw error
   if (count === 0) throw new NotFoundError('Brand', id)
-}
-
-export async function hideBrand(id: string): Promise<Brand> {
-  return updateBrand(id, { status: 'hidden' })
-}
-
-export async function hideVisibleBrands(): Promise<number> {
-  const supabase = createServiceClient()
-  const { count, error } = await supabase
-    .from('brands')
-    .update({ status: 'hidden' }, { count: 'exact' })
-    .neq('status', 'hidden')
-
-  if (error) throw error
-  return count ?? 0
 }
 
 export async function getRelatedBrands(

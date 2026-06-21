@@ -46,6 +46,64 @@ const CORPORATE_ACCOUNT_PATTERNS = [
   /facebook\.com\/shopee\.tw/i,
 ]
 
+const FACEBOOK_SYSTEM_PATHS = [
+  'about',
+  'ads',
+  'business',
+  'commerce',
+  'events',
+  'friends',
+  'gaming',
+  'groups',
+  'help',
+  'home',
+  'login',
+  'marketplace',
+  'messages',
+  'notifications',
+  'pages',
+  'policies',
+  'privacy',
+  'public',
+  'reels',
+  'search',
+  'settings',
+  'share',
+  'sharer',
+  'stories',
+  'terms',
+  'watch',
+]
+
+const FACEBOOK_PROFILE_URL_PATTERN = new RegExp(
+  `facebook\\.com\\/(?!${FACEBOOK_SYSTEM_PATHS.join('|')}(?:[/?#]|$))[^/?#]+\\/?$`,
+  'i'
+)
+
+const URL_TO_LINK_COLUMN: Array<{ pattern: RegExp; column: LinkColumn }> = [
+  { pattern: /instagram\.com\/[^/?#]+\/?$/i, column: 'social_instagram' },
+  { pattern: /threads\.net\/@[^/?#]+\/?$/i, column: 'social_threads' },
+  { pattern: FACEBOOK_PROFILE_URL_PATTERN, column: 'social_facebook' },
+  { pattern: /pinkoi\.com\/store\/[^/?#]+/i, column: 'purchase_pinkoi' },
+  { pattern: /shopee\.tw\/[^/?#]+$/i, column: 'purchase_shopee' },
+]
+
+type LinkEnrichScraped =
+  | Partial<Pick<ScrapedBrandData, LinkField>>
+  | Partial<BrandFlatLinkColumns>
+
+type TextEnrichBrand = {
+  description?: string | null
+  brand_highlights?: string | null
+}
+
+type TextEnrichScraped = Partial<Pick<ScrapedBrandData, 'description' | 'story'>>
+
+type TextEnrichPatch = {
+  description?: string
+  brand_highlights?: string
+}
+
 export function hasLinkValue(value: string | null | undefined): value is string {
   return value != null && value.trim() !== ''
 }
@@ -54,16 +112,34 @@ function isCorporateAccount(url: string): boolean {
   return CORPORATE_ACCOUNT_PATTERNS.some((pattern) => pattern.test(url))
 }
 
+export function extractLinksFromUrls(urls: string[]): Partial<BrandFlatLinkColumns> {
+  const result: Partial<BrandFlatLinkColumns> = {}
+
+  for (const url of urls) {
+    if (isCorporateAccount(url)) {
+      continue
+    }
+
+    for (const { pattern, column } of URL_TO_LINK_COLUMN) {
+      if (!result[column] && pattern.test(url)) {
+        result[column] = url
+      }
+    }
+  }
+
+  return result
+}
+
 export function buildLinkEnrichPatch(
   brand: BrandFlatLinkColumns,
-  scraped: Pick<ScrapedBrandData, LinkField>
+  scraped: LinkEnrichScraped
 ): Partial<BrandFlatLinkColumns> {
   const patch: Partial<BrandFlatLinkColumns> = {}
 
   for (const field of LINK_FIELDS) {
     const column = linkColumnFor(field)
     const existingValue = brand[column]
-    const scrapedValue = scraped[field]
+    const scrapedValue = getScrapedLinkValue(scraped, field, column)
 
     if (hasLinkValue(existingValue) && isCorporateAccount(existingValue)) {
       patch[column] = hasLinkValue(scrapedValue) && !isCorporateAccount(scrapedValue)
@@ -79,6 +155,27 @@ export function buildLinkEnrichPatch(
     if (!hasLinkValue(existingValue) || existingValue !== scrapedValue) {
       patch[column] = scrapedValue
     }
+  }
+
+  return patch
+}
+
+export function buildTextEnrichPatch(
+  brand: TextEnrichBrand,
+  scraped: TextEnrichScraped
+): TextEnrichPatch {
+  const patch: TextEnrichPatch = {}
+
+  if (
+    (!brand.description || brand.description.length < 20)
+    && scraped.description
+    && scraped.description.length >= 20
+  ) {
+    patch.description = scraped.description
+  }
+
+  if (brand.brand_highlights == null && scraped.story) {
+    patch.brand_highlights = scraped.story
   }
 
   return patch
@@ -163,4 +260,17 @@ function buildScrapedImageEntries(
       isHeroImage: false,
     })),
   ].filter((entry): entry is StoredImageEntry => hasLinkValue(entry.storedUrl))
+}
+
+function getScrapedLinkValue(
+  scraped: LinkEnrichScraped,
+  field: LinkField,
+  column: LinkColumn
+): string | null | undefined {
+  const flatScraped = scraped as Partial<BrandFlatLinkColumns>
+  if (column in flatScraped) {
+    return flatScraped[column]
+  }
+
+  return (scraped as Partial<Pick<ScrapedBrandData, LinkField>>)[field]
 }
