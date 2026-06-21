@@ -1,4 +1,4 @@
-import { cleanBrandName, detectNonBrand, normalizeSlug } from './brand-cleanup'
+import { cleanBrandName, detectNonBrand, matchCategory, normalizeSlug } from './brand-cleanup'
 
 export interface CurationConfig {
   dryRun: boolean
@@ -20,11 +20,17 @@ type CurationBrand = {
   display_brand_name: string
   status?: string | null
   description?: string | null
+  product_type?: string | null
+  website_url?: string | null
+  is_visible?: boolean | null
   purchase_website?: string | null
   purchaseWebsite?: string | null
 }
 
 type CleanupPatch = Partial<Pick<CurationBrand, 'display_brand_name' | 'slug'>>
+type AutoTagPatch = Partial<Pick<CurationBrand, 'product_type'>>
+type SetVisibilityPatch = Partial<Pick<CurationBrand, 'is_visible'>>
+type CurationPatch = CleanupPatch & AutoTagPatch & SetVisibilityPatch
 
 type CleanNamesPhase = {
   changed: boolean
@@ -58,6 +64,29 @@ type ProcessCleanupResult = {
   patch: CleanupPatch
 }
 
+type AutoTagBrand = Pick<CurationBrand, 'id'> &
+  Partial<Pick<CurationBrand, 'display_brand_name' | 'description' | 'product_type'>>
+
+type ProcessAutoTagResult = {
+  changed: boolean
+  category: string | null
+  patch?: Pick<AutoTagPatch, 'product_type'>
+}
+
+type SetVisibilityBrand = Pick<CurationBrand, 'id'> &
+  Partial<
+    Pick<
+      CurationBrand,
+      'status' | 'display_brand_name' | 'website_url' | 'description' | 'is_visible'
+    >
+  >
+
+type ProcessSetVisibilityResult = {
+  visible: boolean
+  changed: boolean
+  patch?: Pick<SetVisibilityPatch, 'is_visible'>
+}
+
 type SupabaseError = {
   message?: string
 }
@@ -81,7 +110,7 @@ type BrandsUpdateQuery = {
 
 type BrandsTable = {
   select: (columns: string) => BrandsSelectQuery
-  update: (patch: CleanupPatch) => BrandsUpdateQuery
+  update: (patch: CurationPatch) => BrandsUpdateQuery
 }
 
 type SupabaseLike = {
@@ -140,6 +169,54 @@ export function processCleanupBrand(
   }
 }
 
+export function processAutoTagBrand(brand: AutoTagBrand): ProcessAutoTagResult {
+  if (brand.product_type) {
+    return {
+      changed: false,
+      category: brand.product_type,
+    }
+  }
+
+  const text = `${brand.display_brand_name ?? ''} ${brand.description ?? ''}`
+  const category = matchCategory(text)
+
+  if (!category) {
+    return {
+      changed: false,
+      category: null,
+    }
+  }
+
+  return {
+    changed: true,
+    category,
+    patch: { product_type: category },
+  }
+}
+
+export function processSetVisibilityBrand(
+  brand: SetVisibilityBrand
+): ProcessSetVisibilityResult {
+  const visible =
+    brand.status === 'approved' &&
+    Boolean(brand.website_url?.trim()) &&
+    Boolean(brand.description && brand.description.length >= 20) &&
+    Boolean(brand.display_brand_name?.trim())
+
+  if (brand.is_visible === visible) {
+    return {
+      visible,
+      changed: false,
+    }
+  }
+
+  return {
+    visible,
+    changed: true,
+    patch: { is_visible: visible },
+  }
+}
+
 export async function runCleanup(
   config: CurationConfig,
   supabase: SupabaseLike
@@ -186,6 +263,136 @@ export async function runCleanup(
         const { error: updateError } = await supabase
           .from('brands')
           .update(cleanup.patch)
+          .eq('id', brand.id)
+
+        if (updateError) {
+          result.errors.push(`${brand.slug}: ${updateError.message ?? 'Failed to update brand'}`)
+          result.skipped += 1
+          continue
+        }
+      }
+
+      result.updated += 1
+    } catch (err) {
+      result.errors.push(`${brand.slug}: ${errorMessage(err)}`)
+      result.skipped += 1
+    }
+  }
+
+  return result
+}
+
+export async function runAutoTag(
+  config: CurationConfig,
+  supabase: SupabaseLike
+): Promise<OperationResult> {
+  const result: OperationResult = {
+    processed: 0,
+    updated: 0,
+    skipped: 0,
+    errors: [],
+  }
+
+  let query = supabase
+    .from('brands')
+    .select('id, slug, display_brand_name, description, product_type')
+
+  if (config.slugs && config.slugs.length > 0) {
+    query = query.in('slug', config.slugs)
+  }
+
+  if (config.limit !== undefined) {
+    query = query.limit(config.limit)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    result.errors.push(error.message ?? 'Failed to fetch brands')
+    return result
+  }
+
+  for (const brand of data ?? []) {
+    result.processed += 1
+    config.onProgress?.(`Processing ${brand.slug}`)
+
+    try {
+      const autoTag = processAutoTagBrand(brand)
+
+      if (!autoTag.changed || !autoTag.patch) {
+        result.skipped += 1
+        continue
+      }
+
+      if (!config.dryRun) {
+        const { error: updateError } = await supabase
+          .from('brands')
+          .update(autoTag.patch)
+          .eq('id', brand.id)
+
+        if (updateError) {
+          result.errors.push(`${brand.slug}: ${updateError.message ?? 'Failed to update brand'}`)
+          result.skipped += 1
+          continue
+        }
+      }
+
+      result.updated += 1
+    } catch (err) {
+      result.errors.push(`${brand.slug}: ${errorMessage(err)}`)
+      result.skipped += 1
+    }
+  }
+
+  return result
+}
+
+export async function runSetVisibility(
+  config: CurationConfig,
+  supabase: SupabaseLike
+): Promise<OperationResult> {
+  const result: OperationResult = {
+    processed: 0,
+    updated: 0,
+    skipped: 0,
+    errors: [],
+  }
+
+  let query = supabase
+    .from('brands')
+    .select('id, slug, status, display_brand_name, website_url, description, is_visible')
+
+  if (config.slugs && config.slugs.length > 0) {
+    query = query.in('slug', config.slugs)
+  }
+
+  if (config.limit !== undefined) {
+    query = query.limit(config.limit)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    result.errors.push(error.message ?? 'Failed to fetch brands')
+    return result
+  }
+
+  for (const brand of data ?? []) {
+    result.processed += 1
+    config.onProgress?.(`Processing ${brand.slug}`)
+
+    try {
+      const visibility = processSetVisibilityBrand(brand)
+
+      if (!visibility.changed || !visibility.patch) {
+        result.skipped += 1
+        continue
+      }
+
+      if (!config.dryRun) {
+        const { error: updateError } = await supabase
+          .from('brands')
+          .update(visibility.patch)
           .eq('id', brand.id)
 
         if (updateError) {
