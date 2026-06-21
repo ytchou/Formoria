@@ -1,4 +1,4 @@
-export type CleanupPattern =
+type CleanupPattern =
   | 'emoji'
   | 'decorative-unicode'
   | 'stylized-text'
@@ -54,7 +54,7 @@ const NON_BRAND_KEYWORDS = [
   ...NOISE_NAMES,
 ]
 
-export const CATEGORY_KEYWORDS: Record<string, string[]> = {
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
   clothing: ['衣', '服飾', '服裝', '上衣', '褲', '裙', '外套', '洋裝', '襯衫', 'T恤', '背心', '襪', 'apparel', 'fashion', 'wear'],
   footwear: ['鞋', '拖鞋', '涼鞋', '靴', '球鞋', 'shoes', 'sneakers', 'boots'],
   bags: ['皮包', '手提包', '後背包', '包包', '背包包', '包', '背包', '手提', '側背', '托特', '帆布袋', '皮件', '卡夾', '錢包', 'bag', 'tote', 'backpack', 'pouch', 'wallet'],

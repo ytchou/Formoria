@@ -5,10 +5,9 @@ import { isActingAsAdmin } from '@/lib/auth/admin-mode'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
 
-export type CurationJobParams = {
+export type CurationJobParams = Record<string, Json | undefined> & {
   slugs?: string[]
   stopAfter?: number
-  validate?: boolean
   phases?: string[]
 }
 
