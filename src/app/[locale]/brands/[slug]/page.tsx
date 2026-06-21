@@ -37,6 +37,7 @@ import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { NotFoundError } from '@/lib/errors'
 
 // 1h ISR: ownership/verified-state changes propagate within ~an hour; route still statically served between regenerations
 export const revalidate = 3600
@@ -85,13 +86,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         images: heroImageUrl ?? undefined,
       },
     }
-  } catch {
+  } catch (error) {
     const redirectSlug = await findBrandByOldSlug(slug)
     if (redirectSlug) {
       permanentRedirect(`/${locale}/brands/${encodeURIComponent(redirectSlug)}`)
     }
 
-    return { title: t('metadata.notFoundTitle') }
+    if (error instanceof NotFoundError) {
+      return { title: t('metadata.notFoundTitle') }
+    }
+
+    throw error
   }
 }
 
@@ -118,13 +123,17 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
   let brand
   try {
     brand = await getBrandBySlug(slug)
-  } catch {
+  } catch (error) {
     const redirectSlug = await findBrandByOldSlug(slug)
     if (redirectSlug) {
       permanentRedirect(`/${locale}/brands/${encodeURIComponent(redirectSlug)}`)
     }
 
-    notFound()
+    if (error instanceof NotFoundError) {
+      notFound()
+    }
+
+    throw error
   }
 
   let displayBrand: Brand = brand
