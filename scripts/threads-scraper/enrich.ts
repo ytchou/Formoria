@@ -20,7 +20,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve, dirname, basename } from 'node:path'
-import { searchBrandWebsite, SEARCH_DELAY_MS } from '@/lib/services/scraper/search'
+import { searchBrandUrls, SEARCH_DELAY_MS } from '@/lib/services/scraper/search'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 
 interface BrandInput {
@@ -209,10 +209,10 @@ async function main() {
 
     if (!brand.url && !brand.instagram && !brand.facebook) {
       console.error('  → no URL, searching for official website...')
-      const found = await searchBrandWebsite(brand.name)
-      if (found) {
-        console.error(`  → found: ${found}`)
-        brand.url = found
+      const found = await searchBrandUrls(brand.name)
+      if (found.length > 0) {
+        console.error(`  → found: ${found.join(', ')}`)
+        brand.url = found[0]
       } else {
         console.error('  → no official website found')
       }
