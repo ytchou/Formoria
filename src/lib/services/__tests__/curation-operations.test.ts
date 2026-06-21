@@ -18,7 +18,7 @@ describe('processCleanupBrand', () => {
     const result = processCleanupBrand(baseBrand)
 
     expect(result.phases.cleanNames.changed).toBe(true)
-    expect(result.phases.cleanNames.patch.display_brand_name).toBe('My Brand')
+    expect(result.phases.cleanNames.patch.name).toBe('My Brand')
   })
 
   it('normalizes CJK slug when scraped name is ASCII', () => {

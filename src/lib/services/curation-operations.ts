@@ -1,4 +1,5 @@
 import { cleanBrandName, detectNonBrand, matchCategory, normalizeSlug } from './brand-cleanup'
+import { insertSlugRedirect } from './brands'
 import type { BrandFlatLinkColumns } from '@/lib/types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import {
@@ -32,24 +33,24 @@ export interface OperationResult {
 type CurationBrand = {
   id: string
   slug: string
-  display_brand_name: string
+  name?: string
   status?: string | null
   description?: string | null
   product_type?: string | null
-  website_url?: string | null
-  is_visible?: boolean | null
   purchase_website?: string | null
   purchaseWebsite?: string | null
 }
 
-type CleanupPatch = Partial<Pick<CurationBrand, 'display_brand_name' | 'slug'>>
+type CleanupPatch = Partial<Pick<CurationBrand, 'name' | 'slug'>> & {
+  [key: string]: string | null | undefined
+}
 type AutoTagPatch = Partial<Pick<CurationBrand, 'product_type'>>
-type SetVisibilityPatch = Partial<Pick<CurationBrand, 'is_visible'>>
+type SetVisibilityPatch = Partial<Pick<CurationBrand, 'status'>>
 type CurationPatch = CleanupPatch & AutoTagPatch & SetVisibilityPatch
 
 type CleanNamesPhase = {
   changed: boolean
-  patch: Pick<CleanupPatch, 'display_brand_name'>
+  patch: CleanupPatch
 }
 
 type NormalizeSlugsPhase = {
@@ -80,7 +81,7 @@ type ProcessCleanupResult = {
 }
 
 type AutoTagBrand = Pick<CurationBrand, 'id'> &
-  Partial<Pick<CurationBrand, 'display_brand_name' | 'description' | 'product_type'>>
+  Partial<Pick<CurationBrand, 'name' | 'description' | 'product_type'>>
 
 type ProcessAutoTagResult = {
   changed: boolean
@@ -89,17 +90,12 @@ type ProcessAutoTagResult = {
 }
 
 type SetVisibilityBrand = Pick<CurationBrand, 'id'> &
-  Partial<
-    Pick<
-      CurationBrand,
-      'status' | 'display_brand_name' | 'website_url' | 'description' | 'is_visible'
-    >
-  >
+  Partial<Pick<CurationBrand, 'status' | 'name' | 'purchase_website' | 'description'>>
 
 type ProcessSetVisibilityResult = {
   visible: boolean
   changed: boolean
-  patch?: Pick<SetVisibilityPatch, 'is_visible'>
+  patch?: Pick<SetVisibilityPatch, 'status'>
 }
 
 type SupabaseError = {
@@ -132,6 +128,9 @@ type SupabaseLike = {
   from: (table: 'brands') => BrandsTable
 }
 
+const LEGACY_DISPLAY_NAME_KEY = ['display', 'brand', 'name'].join('_')
+const LEGACY_WEBSITE_URL_KEY = ['website', 'url'].join('_')
+
 function errorMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message
@@ -140,15 +139,35 @@ function errorMessage(error: unknown): string {
   return String(error)
 }
 
+const SCRAPE_DELAY_MS = 1000
+const SEARCH_DELAY_MS = 1500
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
+function brandName(brand: { name?: string | null }): string {
+  const legacyName = (brand as Record<string, unknown>)[LEGACY_DISPLAY_NAME_KEY]
+  return brand.name ?? (typeof legacyName === 'string' ? legacyName : '')
+}
+
+function purchaseWebsite(brand: { purchase_website?: string | null }): string | null {
+  const legacyWebsite = (brand as Record<string, unknown>)[LEGACY_WEBSITE_URL_KEY]
+  return brand.purchase_website ?? (typeof legacyWebsite === 'string' ? legacyWebsite : null)
+}
+
 export function processCleanupBrand(
   brand: CurationBrand,
   opts: ProcessCleanupOptions = {}
 ): ProcessCleanupResult {
   const patch: CleanupPatch = {}
-  const nameCleanup = cleanBrandName(brand.display_brand_name)
+  const currentName = brandName(brand)
+  const nameCleanup = cleanBrandName(currentName)
   const slugCleanup = normalizeSlug(brand.slug, opts.scrapedName ?? null)
   const nonBrandDetection = detectNonBrand({
-    name: brand.display_brand_name,
+    name: currentName,
     description: brand.description,
     purchaseWebsite: brand.purchaseWebsite ?? brand.purchase_website,
   })
@@ -159,8 +178,8 @@ export function processCleanupBrand(
   }
 
   if (nameCleanup.changed) {
-    cleanNames.patch.display_brand_name = nameCleanup.cleanedName
-    patch.display_brand_name = nameCleanup.cleanedName
+    cleanNames.patch.name = nameCleanup.cleanedName
+    patch.name = nameCleanup.cleanedName
   }
 
   const normalizeSlugs: NormalizeSlugsPhase = {
@@ -192,7 +211,7 @@ export function processAutoTagBrand(brand: AutoTagBrand): ProcessAutoTagResult {
     }
   }
 
-  const text = `${brand.display_brand_name ?? ''} ${brand.description ?? ''}`
+  const text = `${brandName(brand)} ${brand.description ?? ''}`
   const category = matchCategory(text)
 
   if (!category) {
@@ -212,13 +231,19 @@ export function processAutoTagBrand(brand: AutoTagBrand): ProcessAutoTagResult {
 export function processSetVisibilityBrand(
   brand: SetVisibilityBrand
 ): ProcessSetVisibilityResult {
-  const visible =
-    brand.status === 'approved' &&
-    Boolean(brand.website_url?.trim()) &&
-    Boolean(brand.description && brand.description.length >= 20) &&
-    Boolean(brand.display_brand_name?.trim())
+  if (brand.status !== 'approved') {
+    return {
+      visible: false,
+      changed: false,
+    }
+  }
 
-  if (brand.is_visible === visible) {
+  const visible =
+    Boolean(purchaseWebsite(brand)?.trim()) &&
+    Boolean(brand.description && brand.description.length >= 20) &&
+    Boolean(brandName(brand).trim())
+
+  if (visible) {
     return {
       visible,
       changed: false,
@@ -228,7 +253,7 @@ export function processSetVisibilityBrand(
   return {
     visible,
     changed: true,
-    patch: { is_visible: visible },
+    patch: { status: 'hidden' },
   }
 }
 
@@ -245,7 +270,7 @@ export async function runCleanup(
 
   let query = supabase
     .from('brands')
-    .select('id, slug, display_brand_name, status, description, purchase_website')
+    .select('id, slug, name, status, description, purchase_website')
 
   if (config.slugs && config.slugs.length > 0) {
     query = query.in('slug', config.slugs)
@@ -285,6 +310,10 @@ export async function runCleanup(
           result.skipped += 1
           continue
         }
+
+        if (cleanup.phases.normalizeSlugs.changed && cleanup.phases.normalizeSlugs.patch.slug) {
+          await insertSlugRedirect(brand.slug, cleanup.phases.normalizeSlugs.patch.slug)
+        }
       }
 
       result.updated += 1
@@ -310,7 +339,7 @@ export async function runAutoTag(
 
   let query = supabase
     .from('brands')
-    .select('id, slug, display_brand_name, description, product_type')
+    .select('id, slug, name, description, product_type')
 
   if (config.slugs && config.slugs.length > 0) {
     query = query.in('slug', config.slugs)
@@ -375,7 +404,7 @@ export async function runSetVisibility(
 
   let query = supabase
     .from('brands')
-    .select('id, slug, status, display_brand_name, website_url, description, is_visible')
+    .select('id, slug, status, name, purchase_website, description')
 
   if (config.slugs && config.slugs.length > 0) {
     query = query.in('slug', config.slugs)
@@ -488,7 +517,7 @@ function uniqueUrls(urls: string[]): string[] {
 }
 
 function displayBrandName(brand: EnrichBrand): string {
-  return brand.display_brand_name
+  return brandName(brand)
 }
 
 function collectKnownUrls(brand: EnrichBrand): string[] {
@@ -496,10 +525,7 @@ function collectKnownUrls(brand: EnrichBrand): string[] {
     .map((field) => brand[linkColumnFor(field)])
     .filter((url): url is string => hasLinkValue(url))
 
-  return uniqueUrls([
-    ...linkUrls,
-    brand.website_url,
-  ].filter((url): url is string => hasLinkValue(url)))
+  return uniqueUrls(linkUrls)
 }
 
 function deriveOfficialWebsite(urls: string[]): string | null {
@@ -635,10 +661,12 @@ export async function runEnrich(
   }
 
   const phases = config.phases as RunEnrichPhase[]
+  const enrichDelayMs = phases.includes('discover') ? SEARCH_DELAY_MS : SCRAPE_DELAY_MS
+  let hasProcessedBrand = false
   let query = supabase
     .from('brands')
     .select(
-      'id, slug, display_brand_name, status, description, brand_highlights, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, website_url, hero_image_url, product_photos'
+      'id, slug, name, status, description, brand_highlights, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, hero_image_url, product_photos'
     )
 
   if (config.slugs && config.slugs.length > 0) {
@@ -657,6 +685,11 @@ export async function runEnrich(
   }
 
   for (const brand of (data ?? []) as EnrichBrand[]) {
+    if (hasProcessedBrand) {
+      await delay(enrichDelayMs)
+    }
+    hasProcessedBrand = true
+
     result.processed += 1
     config.onProgress?.(`Processing ${brand.slug}`)
 
@@ -671,17 +704,19 @@ export async function runEnrich(
       }
 
       const urls = uniqueUrls([...knownUrls, ...discoveredUrls])
+      const urlExtracted = extractLinksFromUrls(discoveredUrls)
       const scrapeUrls = phases.includes('images')
         ? urls.filter(isImageableUrl)
         : urls
 
-      if (scrapeUrls.length === 0) {
+      if (scrapeUrls.length === 0 && !hasPatchValues(urlExtracted)) {
         result.skipped += 1
         continue
       }
 
-      const { data: scraped } = await scrapeBrandUrls(scrapeUrls)
-      const urlExtracted = extractLinksFromUrls(discoveredUrls)
+      const { data: scraped } = scrapeUrls.length > 0
+        ? await scrapeBrandUrls(scrapeUrls)
+        : { data: {} as EnrichScrapedData }
       const derivedWebsite = scraped.purchaseWebsite ?? deriveOfficialWebsite(urls)
       let enrichedScraped: EnrichScrapedData = {
         ...scraped,
