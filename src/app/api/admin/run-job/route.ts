@@ -643,9 +643,16 @@ function withFlatLinkColumns(brand: Brand): BrandWithLinkColumns {
 }
 
 function collectKnownUrls(brand: BrandWithLinkColumns): string[] {
-  return LINK_FIELDS
+  const linkUrls = LINK_FIELDS
     .map((field) => brand[linkColumnFor(field)])
     .filter(hasLinkValue)
+  const otherUrls = Array.isArray(brand.otherUrls)
+    ? brand.otherUrls
+        .map((entry) => entry.url)
+        .filter((url): url is string => hasLinkValue(url))
+    : []
+
+  return uniqueUrls([...linkUrls, ...otherUrls])
 }
 
 function collectPurchaseLinks(brand: Brand): string[] {
