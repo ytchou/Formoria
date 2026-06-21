@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { brandToDomain, brandToInsert, generateSlug, deleteBrand } from './brands'
+import { NotFoundError } from '@/lib/errors'
 import { RESERVED_ROUTES } from '@/middleware'
 
 vi.mock('@supabase/ssr', () => ({
@@ -379,6 +380,120 @@ describe('getBrands — search uses search_brands RPC', () => {
     expect(result.brands).toEqual([])
     expect(result.totalCount).toBe(0)
     consoleSpy.mockRestore()
+  })
+})
+
+describe('brand slug redirects', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  function mockOldSlugLookup(error: { code: string; message: string }) {
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: null, error }),
+        }),
+      }),
+    })
+  }
+
+  it('findBrandByOldSlug returns null for PGRST116 errors', async () => {
+    const { findBrandByOldSlug } = await import('./brands')
+    const error = { code: 'PGRST116', message: 'No rows found' }
+    mockOldSlugLookup(error)
+
+    await expect(findBrandByOldSlug('old-slug')).resolves.toBeNull()
+  })
+
+  it('findBrandByOldSlug returns null for PGRST205 errors', async () => {
+    const { findBrandByOldSlug } = await import('./brands')
+    const error = { code: 'PGRST205', message: 'Schema cache stale' }
+    mockOldSlugLookup(error)
+
+    await expect(findBrandByOldSlug('old-slug')).resolves.toBeNull()
+  })
+
+  it('findBrandByOldSlug re-throws unknown PostgREST errors', async () => {
+    const { findBrandByOldSlug } = await import('./brands')
+    const error = { code: 'PGRST301', message: 'Unknown PostgREST error' }
+    mockOldSlugLookup(error)
+
+    await expect(findBrandByOldSlug('old-slug')).rejects.toEqual(error)
+  })
+})
+
+describe('brand not found errors preserve Supabase cause', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  async function expectNotFoundCause(action: () => Promise<unknown>, cause: unknown) {
+    try {
+      await action()
+      throw new Error('Expected action to throw')
+    } catch (error) {
+      expect(error).toBeInstanceOf(NotFoundError)
+      expect((error as Error).cause).toBe(cause)
+    }
+  }
+
+  it('getBrandBySlug wraps original error as the NotFoundError cause', async () => {
+    const { getBrandBySlug } = await import('./brands')
+    const supabaseError = { code: 'PGRST301', message: 'Database error' }
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: supabaseError }),
+        }),
+      }),
+    })
+
+    await expectNotFoundCause(() => getBrandBySlug('missing-brand'), supabaseError)
+  })
+
+  it('updateBrand wraps original error as the NotFoundError cause', async () => {
+    const { updateBrand } = await import('./brands')
+    const supabaseError = { code: 'PGRST301', message: 'Database error' }
+    mockFrom.mockReturnValue({
+      update: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: null, error: supabaseError }),
+          }),
+        }),
+      }),
+    })
+
+    await expectNotFoundCause(() => updateBrand('brand-1', { name: 'Updated Brand' }), supabaseError)
+  })
+
+  it('publishDraft wraps original error as the NotFoundError cause', async () => {
+    const { publishDraft } = await import('./brands')
+    const supabaseError = { code: 'PGRST301', message: 'Database error' }
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: null, error: supabaseError }),
+        }),
+      }),
+    })
+
+    await expectNotFoundCause(() => publishDraft('brand-1'), supabaseError)
+  })
+
+  it('getBrandById wraps original error as the NotFoundError cause', async () => {
+    const { getBrandById } = await import('./brands')
+    const supabaseError = { code: 'PGRST301', message: 'Database error' }
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: null, error: supabaseError }),
+        }),
+      }),
+    })
+
+    await expectNotFoundCause(() => getBrandById('brand-1'), supabaseError)
   })
 })
 
