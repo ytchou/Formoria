@@ -688,7 +688,10 @@ export async function getBrands(
     }
 
     const { data, error, count } = await query
-    if (error) throw error
+    if (error) {
+      if (error.code === 'PGRST103') return { brands: [], totalCount: count ?? 0 }
+      throw error
+    }
     const brands = (data ?? []).map(brandToDomain)
     if (sortKey === 'random') shuffleArray(brands)
     return { brands, totalCount: count ?? 0 }
@@ -732,7 +735,10 @@ export async function getBrands(
 
   const { data, error, count } = await query
 
-  if (error) throw error
+  if (error) {
+    if (error.code === 'PGRST103') return { brands: [], totalCount: count ?? 0 }
+    throw error
+  }
   const brands = (data ?? []).map(brandToDomain)
   if (sortKey === 'random') shuffleArray(brands)
   return { brands, totalCount: count ?? 0 }
