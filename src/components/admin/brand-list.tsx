@@ -13,6 +13,7 @@ import {
   deleteBrandAction,
 } from '@/app/admin/actions'
 import { startCurationJobAction } from '@/app/admin/operations/actions'
+import type { CurationJobParams } from '@/app/admin/operations/actions'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,12 +36,16 @@ import { cn } from '@/lib/utils'
 
 type TabValue = 'all' | BrandStatus
 type MitStatus = NonNullable<Brand['mitStatus']>
-type CurationOperation = 'score-and-scrape' | 'enrich-links' | 'enrich-images' | 'clean-names'
+type CurationOperation = 'enrich' | 'clean-names'
 
-const CURATION_ACTIONS: Array<{ label: string; operation: CurationOperation }> = [
-  { label: 'Enrich Brand', operation: 'score-and-scrape' },
-  { label: 'Enrich Links', operation: 'enrich-links' },
-  { label: 'Enrich Images', operation: 'enrich-images' },
+const CURATION_ACTIONS: Array<{
+  label: string
+  operation: CurationOperation
+  phases?: CurationJobParams['phases']
+}> = [
+  { label: 'Enrich Brand', operation: 'enrich' },
+  { label: 'Enrich Links', operation: 'enrich', phases: ['discover', 'links'] },
+  { label: 'Enrich Images', operation: 'enrich', phases: ['images'] },
   { label: 'Clean Name', operation: 'clean-names' },
 ]
 
@@ -139,10 +144,20 @@ export function BrandList({ brands }: { brands: Brand[] }) {
     })
   }
 
-  function handleStartCurationJob(brand: Brand, operation: CurationOperation) {
+  function handleStartCurationJob(
+    brand: Brand,
+    operation: CurationOperation,
+    phases?: CurationJobParams['phases']
+  ) {
     startTransition(async () => {
       setError(null)
-      const result = await startCurationJobAction(operation, { slugs: [brand.slug] }, false)
+      const params: CurationJobParams = { slugs: [brand.slug] }
+
+      if (phases) {
+        params.phases = phases
+      }
+
+      const result = await startCurationJobAction(operation, params, false)
 
       if ('error' in result) {
         setError(result.error)
@@ -314,10 +329,14 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                         >
                           {CURATION_ACTIONS.map((action) => (
                             <DropdownMenuItem
-                              key={action.operation}
+                              key={action.label}
                               disabled={isPending}
                               className="text-foreground hover:bg-muted focus:bg-muted"
-                              onClick={() => handleStartCurationJob(brand, action.operation)}
+                              onClick={() => handleStartCurationJob(
+                                brand,
+                                action.operation,
+                                action.phases
+                              )}
                             >
                               {action.label}
                             </DropdownMenuItem>

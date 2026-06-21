@@ -76,6 +76,11 @@ check_env() {
     if ! grep -q "CHALLENGE_SECRET=." .env.local; then
       echo "WARN: CHALLENGE_SECRET not set — progressive CAPTCHA challenge will fail in production"
     fi
+    if grep -q "APIFY_TOKEN=." .env.local; then
+      echo "OK: APIFY_TOKEN"
+    else
+      echo "WARN: APIFY_TOKEN not set (enrichment commands will fail)"
+    fi
   fi
 }
 

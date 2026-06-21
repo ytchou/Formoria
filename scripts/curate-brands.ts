@@ -4,8 +4,8 @@ import type { LinkColumn } from '@/lib/services/link-enrichment'
 import { writeFile } from 'node:fs/promises'
 import { getBrands, hideVisibleBrands, insertSlugRedirect, updateBrand } from '@/lib/services/brands'
 import { addTagToBrandIgnoringDuplicates, getTags } from '@/lib/services/taxonomy'
-import { scrapeBrandUrl, scrapeBrandUrls } from '@/lib/services/scraper'
-import { searchBrandWebsite, SEARCH_DELAY_MS } from '@/lib/services/scraper/search'
+import { scrapeBrandUrls } from '@/lib/services/scraper'
+import { SEARCH_DELAY_MS, searchBrandUrls } from '../src/lib/services/scraper/search'
 import { classifyByDomain } from '@/lib/services/scraper/input-detector'
 import { downloadAndStoreImages } from '@/lib/services/image-download'
 import { cleanBrandName, detectNonBrand, matchCategory, normalizeSlug } from '@/lib/services/brand-cleanup'
@@ -19,9 +19,7 @@ import {
 
 export { buildImageEnrichPatch, buildLinkEnrichPatch, matchCategory }
 
-const TOP_N = 30
 const SCRAPE_DELAY_MS = 1_000
-const MAX_PRODUCT_PHOTOS = 5
 const BRAND_FETCH_LIMIT = 10_000
 
 type BrandWithLinkColumns = Brand & BrandFlatLinkColumns
@@ -40,9 +38,16 @@ function withFlatLinkColumns(brand: Brand): BrandWithLinkColumns {
 }
 
 function collectKnownUrls(brand: BrandWithLinkColumns): string[] {
-  return LINK_FIELDS
+  const linkUrls = LINK_FIELDS
     .map((field) => brand[linkColumnFor(field)])
     .filter((url): url is string => hasLinkValue(url))
+  const otherUrls = Array.isArray(brand.otherUrls)
+    ? brand.otherUrls
+        .map((entry) => entry.url)
+        .filter((url): url is string => hasLinkValue(url))
+    : []
+
+  return uniqueUrls([...linkUrls, ...otherUrls])
 }
 
 function getMissingLinkFields(brand: BrandWithLinkColumns): LinkColumn[] {
@@ -63,6 +68,24 @@ function getAverageLinkCoverage(brands: BrandWithLinkColumns[]): number {
 
 function deriveOfficialWebsite(urls: string[]): string | null {
   return urls.find((url) => classifyByDomain(url) === null) ?? null
+}
+
+function uniqueUrls(urls: string[]): string[] {
+  const seen = new Set<string>()
+  const unique: string[] = []
+
+  for (const url of urls) {
+    const normalized = url.trim()
+    if (!normalized || seen.has(normalized)) continue
+    seen.add(normalized)
+    unique.push(normalized)
+  }
+
+  return unique
+}
+
+function isImageableUrl(url: string): boolean {
+  return classifyByDomain(url) !== 'social'
 }
 
 function displayBrandName(brand: Brand): string {
@@ -331,171 +354,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function isShowcaseReady(brand: Brand): boolean {
-  return Boolean(
-    brand.description && brand.description.length > 20 &&
-    brand.heroImageUrl &&
-    brand.category &&
-    (brand.socialInstagram || brand.socialThreads || brand.socialFacebook) &&
-    brand.productPhotos.length >= 2
-  )
-}
-
-async function scoreAndScrape(dryRun: boolean, targetSlugs?: string[], stopAfter?: number): Promise<void> {
-  console.log('Fetching all brands...')
-  const { brands } = await getBrands({ limit: BRAND_FETCH_LIMIT })
-  console.log(`Found ${brands.length} brands`)
-
-  // Score and rank — optionally filter to target slugs
-  const scored = brands.map((brand) => ({ brand, ...scoreBrand(brand) }))
-  const ranked = targetSlugs
-    ? scored.filter(({ brand }) => targetSlugs.includes(brand.slug))
-    : scored.sort((a, b) => b.score - a.score).slice(0, TOP_N)
-
-  if (targetSlugs) {
-    const found = ranked.map(({ brand }) => brand.slug)
-    const missing = targetSlugs.filter((s) => !found.includes(s))
-    if (missing.length > 0) {
-      console.error(`Missing slugs: ${missing.join(', ')}`)
-      process.exit(1)
-    }
-  }
-
-  // Print ranked table
-  console.log('\n  #  | Score | Slug                          | Website URL')
-  console.log('-----|-------|-------------------------------|-----------------------------')
-  ranked.forEach(({ brand, score, websiteUrl }, i) => {
-    const idx = String(i + 1).padStart(3)
-    const sc = String(score).padStart(5)
-    const slug = brand.slug.padEnd(30).slice(0, 30)
-    const url = websiteUrl ?? '(none)'
-    console.log(`${idx}  | ${sc} | ${slug}| ${url}`)
-  })
-
-  if (dryRun) {
-    console.log('\nDry run — no changes made.')
-    return
-  }
-
-  console.log(`\nEnriching top ${ranked.length} brands...`)
-  if (stopAfter) console.log(`  (will stop after ${stopAfter} showcase-ready brands)\n`)
-
-  const summary: { slug: string; fields: string[]; images: number; showcaseReady: boolean }[] = []
-  let goodCount = 0
-
-  for (const { brand, websiteUrl } of ranked) {
-    if (!websiteUrl) {
-      console.log(`  [SKIP] ${brand.slug} — no scrapeable URL`)
-      summary.push({ slug: brand.slug, fields: [], images: 0, showcaseReady: false })
-      continue
-    }
-
-    console.log(`  [SCRAPE] ${brand.slug} → ${websiteUrl}`)
-
-    let scraped: ScrapedBrandData
-    try {
-      scraped = await scrapeBrandUrl(websiteUrl)
-    } catch (err) {
-      console.warn(`  [ERROR] Scrape failed for ${brand.slug}:`, err)
-      summary.push({ slug: brand.slug, fields: ['scrape-error'], images: 0, showcaseReady: false })
-      await sleep(SCRAPE_DELAY_MS)
-      continue
-    }
-
-    // Build text patch
-    const patch = buildEnrichPatch(brand, scraped)
-    const enrichedFields = Object.keys(patch)
-
-    // Handle images
-    const imageUrls: string[] = []
-    if (!brand.heroImageUrl && scraped.heroImageUrl) {
-      imageUrls.push(scraped.heroImageUrl)
-    }
-    const currentPhotoCount = brand.productPhotos.length
-    if (currentPhotoCount < 3 && scraped.galleryImageUrls.length > 0) {
-      const slotsAvailable = MAX_PRODUCT_PHOTOS - currentPhotoCount
-      // Skip the first gallery image if we're also using it as hero
-      const galleryStart = imageUrls.length > 0 ? 1 : 0
-      imageUrls.push(
-        ...scraped.galleryImageUrls.slice(galleryStart, galleryStart + slotsAvailable)
-      )
-    }
-
-    let downloadedImages: string[] = []
-    if (imageUrls.length > 0) {
-      try {
-        downloadedImages = (await downloadAndStoreImages(imageUrls, brand.id))
-          .filter((url): url is string => url !== null)
-      } catch (err) {
-        console.warn(`  [ERROR] Image download failed for ${brand.slug}:`, err)
-      }
-    }
-
-    // Merge downloaded image URLs into patch
-    let imageIdx = 0
-    if (!brand.heroImageUrl && scraped.heroImageUrl && downloadedImages.length > 0) {
-      patch.heroImageUrl = downloadedImages[imageIdx]
-      imageIdx++
-      enrichedFields.push('heroImageUrl')
-    }
-
-    const newPhotos = downloadedImages.slice(imageIdx)
-    if (newPhotos.length > 0) {
-      patch.productPhotos = [
-        ...brand.productPhotos,
-        ...newPhotos,
-      ].slice(0, MAX_PRODUCT_PHOTOS)
-      enrichedFields.push('productPhotos')
-    }
-
-    // Apply patch
-    if (Object.keys(patch).length > 0) {
-      try {
-        await updateBrand(brand.id, patch)
-        console.log(`  [OK] ${brand.slug} — enriched: ${enrichedFields.join(', ')}`)
-      } catch (err) {
-        console.warn(`  [ERROR] Update failed for ${brand.slug}:`, err)
-      }
-    } else {
-      console.log(`  [OK] ${brand.slug} — no gaps to fill`)
-    }
-
-    const updatedBrand = { ...brand, ...patch }
-    const ready = isShowcaseReady(updatedBrand)
-    if (ready) {
-      goodCount++
-      console.log(`  [SHOWCASE] ${brand.slug} is showcase-ready (${goodCount}${stopAfter ? `/${stopAfter}` : ''})`)
-    }
-
-    summary.push({
-      slug: brand.slug,
-      fields: enrichedFields,
-      images: downloadedImages.length,
-      showcaseReady: ready,
-    })
-
-    if (stopAfter && goodCount >= stopAfter) {
-      console.log(`\nReached ${stopAfter} showcase-ready brands — stopping early.`)
-      break
-    }
-
-    await sleep(SCRAPE_DELAY_MS)
-  }
-
-  // Print summary
-  console.log('\n--- Summary ---')
-  console.log('Slug                          | Fields Enriched            | Images | Ready')
-  console.log('------------------------------|----------------------------|--------|------')
-  for (const { slug, fields, images, showcaseReady } of summary) {
-    const s = slug.padEnd(30).slice(0, 30)
-    const f = (fields.length > 0 ? fields.join(', ') : '(none)').padEnd(27).slice(0, 27)
-    const r = showcaseReady ? 'YES' : ' - '
-    console.log(`${s}| ${f}| ${String(images).padStart(6)} | ${r}`)
-  }
-
-  console.log(`\nDone. Enriched ${summary.filter((s) => s.fields.length > 0).length} of ${summary.length} brands.`)
-}
-
 // ---------------------------------------------------------------------------
 // clean-names
 // ---------------------------------------------------------------------------
@@ -648,84 +506,118 @@ async function enrichDescriptions(dryRun: boolean, stopAfter?: number): Promise<
 }
 
 // ---------------------------------------------------------------------------
-// enrich-links
+// enrich
 // ---------------------------------------------------------------------------
 
-async function enrichLinks(
-  dryRun: boolean,
-  targetSlugs?: string[],
-  stopAfter?: number,
-  validate?: boolean
-): Promise<void> {
+type EnrichOptions = {
+  dryRun: boolean
+  limit?: number
+  targetSlugs?: string[]
+  skipSearch: boolean
+  validate: boolean
+}
+
+async function validateDiscoveredUrls(urls: string[], brandName: string): Promise<string[]> {
+  const validUrls: string[] = []
+
+  for (const url of urls) {
+    if (await validateLink(url, brandName)) {
+      validUrls.push(url)
+    }
+  }
+
+  return validUrls
+}
+
+async function enrich(options: EnrichOptions): Promise<void> {
   console.log('Fetching approved brands...')
   const { brands } = await getBrands({ limit: BRAND_FETCH_LIMIT, status: 'approved' })
   console.log(`Found ${brands.length} approved brands`)
 
   const brandsWithLinks = brands.map(withFlatLinkColumns)
   const needingLinks = findBrandsNeedingLinks(brandsWithLinks)
-  const ranked = targetSlugs
-    ? needingLinks.filter((brand) => targetSlugs.includes(brand.slug))
-    : needingLinks
+  const needingImages = new Set(findBrandsNeedingImages(brands).map((brand) => brand.slug))
+  const candidates = brandsWithLinks.filter((brand) => {
+    return needingLinks.some((linkBrand) => linkBrand.slug === brand.slug) || needingImages.has(brand.slug)
+  })
+  const filtered = options.targetSlugs
+    ? brandsWithLinks.filter((brand) => options.targetSlugs?.includes(brand.slug))
+    : candidates
 
-  if (targetSlugs) {
-    const found = ranked.map((brand) => brand.slug)
-    const missing = targetSlugs.filter((s) => !found.includes(s))
+  if (options.targetSlugs) {
+    const found = filtered.map((brand) => brand.slug)
+    const missing = options.targetSlugs.filter((s) => !found.includes(s))
     if (missing.length > 0) {
       console.error(`Missing slugs: ${missing.join(', ')}`)
       process.exit(1)
     }
   }
 
+  const ranked = options.limit ? filtered.slice(0, options.limit) : filtered
+
   const averageCoverage = getAverageLinkCoverage(needingLinks)
   console.log(`Found ${needingLinks.length} brand(s) needing link enrichment`)
-  console.log(`Average link coverage: ${(averageCoverage * 100).toFixed(1)}%\n`)
+  console.log(`Found ${needingImages.size} brand(s) needing image enrichment`)
+  console.log(`Average link coverage: ${(averageCoverage * 100).toFixed(1)}%`)
+  console.log(`Processing ${ranked.length} brand(s)\n`)
 
-  console.log('Slug                          | Missing Links')
-  console.log('------------------------------|------------------------------------------------------------')
+  console.log('Slug                          | Missing Links                 | Known URLs')
+  console.log('------------------------------|-------------------------------|-----------')
   for (const brand of ranked) {
     const slug = brand.slug.padEnd(30).slice(0, 30)
-    const missing = getMissingLinkFields(brand).join(', ')
-    console.log(`${slug}| ${missing}`)
-  }
-
-  if (dryRun) {
-    console.log('\nDry run — no changes made.')
-    return
+    const missing = getMissingLinkFields(brand).join(', ').padEnd(30).slice(0, 30)
+    const urlCount = String(collectKnownUrls(brand).length).padStart(9)
+    console.log(`${slug}| ${missing}| ${urlCount}`)
   }
 
   const summary = {
     processed: 0,
+    discovered: 0,
     filledByType: Object.fromEntries(LINK_FIELDS.map((field) => [linkColumnFor(field), 0])) as Record<LinkColumn, number>,
+    heroesFilled: 0,
+    photosAdded: 0,
+    skipped: 0,
     errors: [] as Array<{ slug: string; message: string }>,
   }
 
   for (const brand of ranked) {
-    if (stopAfter && summary.processed >= stopAfter) {
-      console.log(`\nReached ${stopAfter} processed brands — stopping early.`)
-      break
-    }
-
     summary.processed++
-    let urls = collectKnownUrls(brand)
+    const brandName = displayBrandName(brand)
+    const knownUrls = collectKnownUrls(brand)
+    let discoveredUrls: string[] = []
 
-    if (urls.length === 0) {
-      const brandName = displayBrandName(brand)
-      console.log(`  [SEARCH] ${brand.slug} → ${brandName}`)
-      const foundUrl = await searchBrandWebsite(brandName)
+    if (!options.skipSearch && getMissingLinkFields(brand).length > 0) {
+      console.log(`  [DISCOVER] ${brand.slug} → ${brandName}`)
+      try {
+        const searchUrls = await searchBrandUrls(brandName)
+        const newUrls = uniqueUrls(searchUrls.filter((url) => !knownUrls.includes(url)))
+        discoveredUrls = options.validate
+          ? await validateDiscoveredUrls(newUrls, brandName)
+          : newUrls
+        summary.discovered += discoveredUrls.length
+        console.log(`  [DISCOVER] ${brand.slug}: ${discoveredUrls.length} new URL(s)`)
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        summary.errors.push({ slug: brand.slug, message: `discover: ${message}` })
+        console.warn(`  [ERROR] ${brand.slug}: discover failed: ${message}`)
+      }
       await sleep(SEARCH_DELAY_MS)
-      urls = foundUrl ? [foundUrl] : []
     }
+
+    const urls = uniqueUrls([...knownUrls, ...discoveredUrls])
 
     if (urls.length === 0) {
       console.log(`  [SKIP] ${brand.slug}: no known URLs`)
+      summary.skipped++
       await sleep(SCRAPE_DELAY_MS)
       continue
     }
 
-    console.log(`  [SCRAPE] ${brand.slug} → ${urls.join(', ')}`)
+    console.log(`  [LINKS] ${brand.slug} → ${urls.join(', ')}`)
 
     try {
-      const { data: scraped } = await scrapeBrandUrls(urls)
+      const result = await scrapeBrandUrls(urls)
+      const scraped = result.data
       const derivedWebsite = scraped.purchaseWebsite ?? deriveOfficialWebsite(urls)
       const enrichedScraped = {
         ...scraped,
@@ -733,8 +625,7 @@ async function enrichLinks(
       }
       const patch = buildLinkEnrichPatch(brand, enrichedScraped)
 
-      if (validate) {
-        const brandName = displayBrandName(brand)
+      if (options.validate) {
         for (const [column, url] of Object.entries(patch) as Array<[LinkColumn, string | null | undefined]>) {
           if (url && !(await validateLink(url, brandName))) {
             delete patch[column]
@@ -745,102 +636,39 @@ async function enrichLinks(
       const enrichedFields = Object.keys(patch) as LinkColumn[]
 
       if (enrichedFields.length === 0) {
-        console.log(`  [SKIP] ${brand.slug}: no new links`)
-        await sleep(SCRAPE_DELAY_MS)
-        continue
+        console.log(`  [LINKS] ${brand.slug}: no new links`)
+      } else if (options.dryRun) {
+        console.log(`  [DRY RUN] ${brand.slug}: would fill ${enrichedFields.join(', ')}`)
+        for (const field of enrichedFields) {
+          summary.filledByType[field]++
+        }
+      } else {
+        await updateBrand(brand.id, linkPatchToBrandPatch(patch))
+
+        for (const field of enrichedFields) {
+          summary.filledByType[field]++
+        }
+
+        console.log(`  [OK] ${brand.slug}: filled ${enrichedFields.length} link field(s)`)
       }
-
-      await updateBrand(brand.id, linkPatchToBrandPatch(patch))
-
-      for (const field of enrichedFields) {
-        summary.filledByType[field]++
-      }
-
-      console.log(`  [OK] ${brand.slug}: filled ${enrichedFields.length} fields`)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      summary.errors.push({ slug: brand.slug, message })
-      console.warn(`  [ERROR] ${brand.slug}: ${message}`)
+      summary.errors.push({ slug: brand.slug, message: `links: ${message}` })
+      console.warn(`  [ERROR] ${brand.slug}: links failed: ${message}`)
     }
 
-    await sleep(SCRAPE_DELAY_MS)
-  }
-
-  console.log('\n--- Summary ---')
-  console.log(`Brands processed: ${summary.processed}`)
-  console.log('Links filled by type:')
-  for (const field of LINK_FIELDS) {
-    const column = linkColumnFor(field)
-    console.log(`  ${column.padEnd(18)} ${summary.filledByType[column]}`)
-  }
-  console.log(`Errors: ${summary.errors.length}`)
-  for (const error of summary.errors) {
-    console.log(`  ${error.slug}: ${error.message}`)
-  }
-}
-
-// ---------------------------------------------------------------------------
-// enrich-images
-// ---------------------------------------------------------------------------
-
-async function enrichImages(dryRun: boolean, targetSlugs?: string[], stopAfter?: number): Promise<void> {
-  console.log('Fetching approved brands...')
-  const { brands } = await getBrands({ limit: BRAND_FETCH_LIMIT, status: 'approved' })
-  console.log(`Found ${brands.length} approved brands`)
-
-  const needingImages = findBrandsNeedingImages(brands)
-  const filtered = targetSlugs
-    ? needingImages.filter((brand) => targetSlugs.includes(brand.slug))
-    : needingImages
-
-  if (targetSlugs) {
-    const found = filtered.map((brand) => brand.slug)
-    const missing = targetSlugs.filter((s) => !found.includes(s))
-    if (missing.length > 0) {
-      console.error(`Missing slugs: ${missing.join(', ')}`)
-      process.exit(1)
-    }
-  }
-
-  const ranked = filtered.slice(0, stopAfter)
-
-  console.log(`Found ${needingImages.length} brand(s) needing image enrichment\n`)
-
-  console.log('Slug                          | Purchase Links')
-  console.log('------------------------------|------------------------------------------------------------')
-  for (const brand of ranked) {
-    const slug = brand.slug.padEnd(30).slice(0, 30)
-    const purchaseLinks = collectPurchaseLinks(brand)
-    console.log(`${slug}| ${purchaseLinks.length > 0 ? purchaseLinks.join(', ') : '(none)'}`)
-  }
-
-  const summary = {
-    processed: 0,
-    heroesFilled: 0,
-    photosAdded: 0,
-    skipped: 0,
-    errors: [] as Array<{ slug: string; message: string }>,
-  }
-
-  for (const brand of ranked) {
-    summary.processed++
-
-    const purchaseLinks = collectPurchaseLinks(brand)
-    if (purchaseLinks.length === 0) {
+    const imageableUrls = urls.filter(isImageableUrl)
+    if (imageableUrls.length === 0) {
+      console.log(`  [IMAGES] ${brand.slug}: no scrapeable image URLs`)
       summary.skipped++
-      console.log(`  [SKIP] ${brand.slug}: no purchase links`)
+      await sleep(SCRAPE_DELAY_MS)
       continue
     }
 
-    if (dryRun) {
-      console.log(`  [DRY RUN] ${brand.slug}: would scrape ${purchaseLinks.join(', ')}`)
-      continue
-    }
-
-    console.log(`  [SCRAPE] ${brand.slug} → ${purchaseLinks.join(', ')}`)
+    console.log(`  [IMAGES] ${brand.slug} → ${imageableUrls.join(', ')}`)
 
     try {
-      const { data: scraped } = await scrapeBrandUrls(purchaseLinks)
+      const { data: scraped } = await scrapeBrandUrls(imageableUrls)
       const imageUrls = [
         scraped.heroImageUrl,
         ...scraped.galleryImageUrls,
@@ -853,7 +681,9 @@ async function enrichImages(dryRun: boolean, targetSlugs?: string[], stopAfter?:
         continue
       }
 
-      const storedUrls = await downloadAndStoreImages(imageUrls, brand.id)
+      const storedUrls = options.dryRun
+        ? imageUrls
+        : await downloadAndStoreImages(imageUrls, brand.id)
       const patch = buildImageEnrichPatch(brand, scraped, storedUrls)
       const enrichedFields = Object.keys(patch)
 
@@ -865,7 +695,12 @@ async function enrichImages(dryRun: boolean, targetSlugs?: string[], stopAfter?:
       }
 
       const existingProductPhotos = Array.isArray(brand.productPhotos) ? brand.productPhotos : []
-      await updateBrand(brand.id, patch)
+      if (options.dryRun) {
+        console.log(`  [DRY RUN] ${brand.slug}: would enrich ${enrichedFields.join(', ')}`)
+      } else {
+        await updateBrand(brand.id, patch)
+        console.log(`  [OK] ${brand.slug}: enriched ${enrichedFields.join(', ')}`)
+      }
 
       if (patch.heroImageUrl) {
         summary.heroesFilled++
@@ -873,12 +708,10 @@ async function enrichImages(dryRun: boolean, targetSlugs?: string[], stopAfter?:
       if (patch.productPhotos) {
         summary.photosAdded += Math.max(0, patch.productPhotos.length - existingProductPhotos.length)
       }
-
-      console.log(`  [OK] ${brand.slug}: enriched ${enrichedFields.join(', ')}`)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      summary.errors.push({ slug: brand.slug, message })
-      console.warn(`  [ERROR] ${brand.slug}: ${message}`)
+      summary.errors.push({ slug: brand.slug, message: `images: ${message}` })
+      console.warn(`  [ERROR] ${brand.slug}: images failed: ${message}`)
     }
 
     await sleep(SCRAPE_DELAY_MS)
@@ -886,6 +719,12 @@ async function enrichImages(dryRun: boolean, targetSlugs?: string[], stopAfter?:
 
   console.log('\n--- Summary ---')
   console.log(`Brands processed: ${summary.processed}`)
+  console.log(`Discovered URLs: ${summary.discovered}`)
+  console.log('Links filled by type:')
+  for (const field of LINK_FIELDS) {
+    const column = linkColumnFor(field)
+    console.log(`  ${column.padEnd(18)} ${summary.filledByType[column]}`)
+  }
   console.log(`Heroes filled: ${summary.heroesFilled}`)
   console.log(`Product photos added: ${summary.photosAdded}`)
   console.log(`Skipped: ${summary.skipped}`)
@@ -894,7 +733,7 @@ async function enrichImages(dryRun: boolean, targetSlugs?: string[], stopAfter?:
     console.log(`  ${error.slug}: ${error.message}`)
   }
 
-  if (dryRun) {
+  if (options.dryRun) {
     console.log('\nDry run — no changes made.')
   }
 }
@@ -1104,15 +943,30 @@ async function autoTag(dryRun: boolean, targetSlugs?: string[]): Promise<void> {
 function printUsage(): void {
   console.log('Usage: pnpm curate <command>')
   console.log('Commands:')
-  console.log('  score-and-scrape [--dry-run] [--slugs=a,b,c] [--stop-after=N]  Score and scrape')
+  console.log('  enrich [--dry-run] [--limit N] [--slugs=a,b,c] [--skip-search] [--validate]  Discover links, enrich links, and fill images')
   console.log('  set-visibility <slug1> ...                     Hide all, approve selected')
   console.log('  auto-tag [--dry-run]                           Assign product_type categories via keyword matching')
   console.log('  clean-names [--apply]                          Clean noisy brand names (dry-run by default)')
   console.log('  detect-non-brands [--dry-run] [--output-file=path]  Detect likely non-brand entries')
   console.log('  enrich-descriptions [--dry-run] [--stop-after=N]  Fill missing or weak descriptions from scraped URLs')
-  console.log('  enrich-links [--dry-run] [--slugs=a,b,c] [--stop-after=N] [--validate]  Fill missing social & purchase links')
-  console.log('  enrich-images [--dry-run] [--slugs=a,b,c] [--stop-after=N]  Fill missing hero and product images')
   console.log('  normalize-slugs [--dry-run] [--scrape] [--stop-after=N]  Normalize CJK slugs from English names')
+}
+
+function parseNumberFlag(args: string[], name: string): number | undefined {
+  const equalsArg = args.find((arg) => arg.startsWith(`--${name}=`))
+  const flagIndex = args.indexOf(`--${name}`)
+  const rawValue = equalsArg
+    ? equalsArg.replace(`--${name}=`, '')
+    : flagIndex >= 0
+      ? args[flagIndex + 1]
+      : undefined
+
+  if (!rawValue || rawValue.startsWith('--')) {
+    return undefined
+  }
+
+  const value = Number.parseInt(rawValue, 10)
+  return Number.isNaN(value) ? undefined : value
 }
 
 async function main() {
@@ -1120,15 +974,6 @@ async function main() {
   const args = process.argv.slice(3)
 
   switch (command) {
-    case 'score-and-scrape': {
-      const dryRun = args.includes('--dry-run')
-      const slugsArg = args.find((a) => a.startsWith('--slugs='))
-      const targetSlugs = slugsArg ? slugsArg.replace('--slugs=', '').split(',') : undefined
-      const stopArg = args.find((a) => a.startsWith('--stop-after='))
-      const stopAfter = stopArg ? parseInt(stopArg.replace('--stop-after=', ''), 10) : undefined
-      await scoreAndScrape(dryRun, targetSlugs, stopAfter)
-      break
-    }
     case 'set-visibility': {
       await setVisibility(args)
       break
@@ -1159,23 +1004,14 @@ async function main() {
       await enrichDescriptions(dryRun, stopAfter)
       break
     }
-    case 'enrich-links': {
+    case 'enrich': {
       const dryRun = args.includes('--dry-run')
       const slugsArg = args.find((a) => a.startsWith('--slugs='))
       const targetSlugs = slugsArg ? slugsArg.replace('--slugs=', '').split(',') : undefined
-      const stopArg = args.find((a) => a.startsWith('--stop-after='))
-      const stopAfter = stopArg ? parseInt(stopArg.replace('--stop-after=', ''), 10) : undefined
+      const limit = parseNumberFlag(args, 'limit')
       const validate = args.includes('--validate')
-      await enrichLinks(dryRun, targetSlugs, stopAfter, validate)
-      break
-    }
-    case 'enrich-images': {
-      const dryRun = args.includes('--dry-run')
-      const slugsArg = args.find((a) => a.startsWith('--slugs='))
-      const targetSlugs = slugsArg ? slugsArg.replace('--slugs=', '').split(',') : undefined
-      const stopArg = args.find((a) => a.startsWith('--stop-after='))
-      const stopAfter = stopArg ? parseInt(stopArg.replace('--stop-after=', ''), 10) : undefined
-      await enrichImages(dryRun, targetSlugs, stopAfter)
+      const skipSearch = args.includes('--skip-search')
+      await enrich({ dryRun, limit, targetSlugs, skipSearch, validate })
       break
     }
     case 'normalize-slugs': {

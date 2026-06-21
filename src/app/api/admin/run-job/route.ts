@@ -12,9 +12,9 @@ import {
   linkColumnFor,
   type LinkColumn,
 } from '@/lib/services/link-enrichment'
-import { scrapeBrandUrl, scrapeBrandUrls } from '@/lib/services/scraper'
+import { scrapeBrandUrls } from '@/lib/services/scraper'
 import { classifyByDomain } from '@/lib/services/scraper/input-detector'
-import { searchBrandWebsite, SEARCH_DELAY_MS } from '@/lib/services/scraper/search'
+import { searchBrandUrls, SEARCH_DELAY_MS } from '@/lib/services/scraper/search'
 import { addTagToBrandIgnoringDuplicates, getTags } from '@/lib/services/taxonomy'
 import { createServiceClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
@@ -22,14 +22,14 @@ import type { Brand, BrandFlatLinkColumns } from '@/lib/types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 
 const BRAND_FETCH_LIMIT = 10_000
-const MAX_PRODUCT_PHOTOS = 5
 const SCRAPE_DELAY_MS = 1_000
-const TOP_N = 30
 const STALE_JOB_MINUTES = 30
 const VALIDATE_LINK_READ_LIMIT_BYTES = 50 * 1024
+const ENRICH_PHASES = ['discover', 'links', 'images'] as const
 
 type Supabase = ReturnType<typeof createServiceClient>
 type CurationJobStatus = 'pending' | 'running' | 'completed' | 'failed'
+type EnrichPhase = (typeof ENRICH_PHASES)[number]
 type CurationJob = {
   id: string
   operation: string
@@ -49,6 +49,7 @@ type JobParams = {
   stopAfter?: number
   validate?: boolean
   scrape?: boolean
+  phases?: EnrichPhase[]
 }
 type Progress = {
   processed: number
@@ -158,12 +159,13 @@ async function runOperation(supabase: Supabase, job: CurationJob): Promise<Opera
       return runEnrichDescriptions(supabase, job.id, job.dry_run, params)
     case 'auto-tag':
       return runAutoTag(supabase, job.id, job.dry_run, params)
+    case 'enrich':
+      return runEnrich(supabase, job.id, job.dry_run, params)
     case 'enrich-links':
-      return runEnrichLinks(supabase, job.id, job.dry_run, params)
     case 'enrich-images':
-      return runEnrichImages(supabase, job.id, job.dry_run, params)
     case 'score-and-scrape':
-      return runScoreAndScrape(supabase, job.id, job.dry_run, params)
+      console.warn(`[admin:run-job] Removed operation requested: ${job.operation}`)
+      throw new Error('Operation removed — use enrich instead')
     case 'set-visibility':
       return runSetVisibility(supabase, job.id, job.dry_run, params)
     default:
@@ -360,148 +362,101 @@ async function runAutoTag(supabase: Supabase, jobId: string, dryRun: boolean, pa
   return result
 }
 
-async function runEnrichLinks(supabase: Supabase, jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
+async function runEnrich(supabase: Supabase, jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
+  const phases = params.phases ?? [...ENRICH_PHASES]
+  const phaseSet = new Set<EnrichPhase>(phases)
   const brands = limitBrands(
     (await fetchBrands(params, 'approved'))
-      .map(withFlatLinkColumns)
-      .filter((brand) => LINK_FIELDS.some((field) => !hasLinkValue(brand[linkColumnFor(field)]))),
+      .filter((brand) => shouldRunEnrichForBrand(brand, phaseSet))
+      .map(withFlatLinkColumns),
     params
   )
   const result = makeResult(brands.length)
 
   for (const brand of brands) {
     await processBrand(supabase, jobId, result, brand.slug, async () => {
-      let urls = collectKnownUrls(brand)
+      const existingUrls = collectKnownUrls(brand)
+      const discoveredUrls = phaseSet.has('discover')
+        ? subtractUrls(await searchBrandUrls(displayBrandName(brand)), existingUrls)
+        : []
 
-      if (urls.length === 0) {
-        const foundUrl = await searchBrandWebsite(displayBrandName(brand))
+      if (phaseSet.has('discover')) {
         await sleep(SEARCH_DELAY_MS)
-        urls = foundUrl ? [foundUrl] : []
       }
 
-      if (urls.length === 0) {
-        result.skipped++
-        return null
-      }
-
-      const { data: scraped } = await scrapeBrandUrls(urls)
-      const patch = buildLinkEnrichPatch(brand, {
-        ...scraped,
-        purchaseWebsite: scraped.purchaseWebsite ?? deriveOfficialWebsite(urls),
-      })
-
-      if (params.validate) {
-        await removeInvalidLinks(patch, displayBrandName(brand))
-      }
-
-      const fields = Object.keys(patch)
-      await sleep(SCRAPE_DELAY_MS)
-
-      if (fields.length === 0) {
-        result.skipped++
-        return null
-      }
-
-      if (!dryRun) {
-        await updateBrand(brand.id, linkPatchToBrandPatch(patch))
-      }
-
-      result.changed++
-      return { slug: brand.slug, fields, patch }
-    })
-  }
-
-  return result
-}
-
-async function runEnrichImages(supabase: Supabase, jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
-  const brands = limitBrands(
-    (await fetchBrands(params, 'approved')).filter((brand) => !brand.heroImageUrl || brand.productPhotos.length < 2),
-    params
-  )
-  const result = makeResult(brands.length)
-
-  for (const brand of brands) {
-    await processBrand(supabase, jobId, result, brand.slug, async () => {
-      const urls = collectPurchaseLinks(brand)
-      if (urls.length === 0) {
-        result.skipped++
-        return null
-      }
-
-      const { data: scraped } = await scrapeBrandUrls(urls)
-      const imageUrls = [scraped.heroImageUrl, ...scraped.galleryImageUrls].filter(hasLinkValue)
-
-      if (imageUrls.length === 0) {
-        await sleep(SCRAPE_DELAY_MS)
-        result.skipped++
-        return null
-      }
-
-      const storedUrls = dryRun ? imageUrls : await downloadAndStoreImages(imageUrls, brand.id)
-      const patch = buildImageEnrichPatch(brand, scraped, storedUrls)
-      const fields = Object.keys(patch)
-      await sleep(SCRAPE_DELAY_MS)
-
-      if (fields.length === 0) {
-        result.skipped++
-        return null
-      }
-
-      if (!dryRun) {
-        await updateBrand(brand.id, patch)
-      }
-
-      result.changed++
-      return { slug: brand.slug, fields, patch }
-    })
-  }
-
-  return result
-}
-
-async function runScoreAndScrape(supabase: Supabase, jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
-  const brands = await fetchBrands(params)
-  const scored = brands.map((brand) => ({ brand, ...scoreBrand(brand) }))
-  const ranked = params.slugs
-    ? scored.filter(({ brand }) => params.slugs?.includes(brand.slug))
-    : scored.sort((a, b) => b.score - a.score).slice(0, TOP_N)
-  const limited = limitBrands(ranked, params)
-  const result = makeResult(limited.length)
-
-  for (const { brand, score, websiteUrl } of limited) {
-    await processBrand(supabase, jobId, result, brand.slug, async () => {
-      if (!websiteUrl) {
-        result.skipped++
-        return null
-      }
-
-      const scraped = await scrapeBrandUrl(websiteUrl)
-      const textPatch = buildTextEnrichPatch(brand, scraped)
-      const imageUrls = collectImageUrlsForBrand(brand, scraped)
-      const storedUrls = dryRun || imageUrls.length === 0 ? imageUrls : await downloadAndStoreImages(imageUrls, brand.id)
-      const imagePatch = buildImageEnrichPatch(brand, storedUrls)
-      const patch = { ...textPatch, ...imagePatch }
-      const fields = Object.keys(patch)
-      await sleep(SCRAPE_DELAY_MS)
-
-      if (fields.length === 0) {
-        result.skipped++
-        return null
-      }
-
-      if (!dryRun) {
-        await updateBrand(brand.id, patch)
-      }
-
-      result.changed++
-      return {
+      const candidateUrls = uniqueUrls([...discoveredUrls, ...existingUrls])
+      const change: Record<string, unknown> = {
         slug: brand.slug,
-        score,
-        fields,
-        patch,
-        showcaseReady: isShowcaseReady({ ...brand, ...patch }),
+        phases,
       }
+      const changedFields = new Set<string>()
+      let currentBrand: BrandWithLinkColumns = brand
+
+      if (discoveredUrls.length > 0) {
+        change.discoveredUrls = discoveredUrls
+      }
+
+      if (phaseSet.has('links') && candidateUrls.length > 0) {
+        const { data: scraped } = await scrapeBrandUrls(candidateUrls)
+        const linkPatch = buildLinkEnrichPatch(currentBrand, {
+          ...scraped,
+          purchaseWebsite: scraped.purchaseWebsite ?? deriveOfficialWebsite(candidateUrls),
+        })
+
+        if (params.validate) {
+          await removeInvalidLinks(linkPatch, displayBrandName(currentBrand))
+        }
+
+        const fields = Object.keys(linkPatch)
+        if (fields.length > 0) {
+          const brandPatch = linkPatchToBrandPatch(linkPatch)
+
+          if (!dryRun) {
+            await updateBrand(currentBrand.id, brandPatch)
+          }
+
+          currentBrand = withFlatLinkColumns({ ...currentBrand, ...brandPatch })
+          fields.forEach((field) => changedFields.add(field))
+          change.linkPatch = linkPatch
+        }
+
+        await sleep(SCRAPE_DELAY_MS)
+      }
+
+      if (phaseSet.has('images')) {
+        const imageSourceUrls = filterScrapeableUrls(uniqueUrls([...candidateUrls, ...collectKnownUrls(currentBrand)]))
+
+        if (imageSourceUrls.length > 0) {
+          const { data: scraped } = await scrapeBrandUrls(imageSourceUrls)
+          const imageUrls = [scraped.heroImageUrl, ...scraped.galleryImageUrls].filter(hasLinkValue)
+
+          if (imageUrls.length > 0) {
+            const storedUrls = dryRun ? imageUrls : await downloadAndStoreImages(imageUrls, currentBrand.id)
+            const imagePatch = buildImageEnrichPatch(currentBrand, scraped, storedUrls)
+            const fields = Object.keys(imagePatch)
+
+            if (fields.length > 0) {
+              if (!dryRun) {
+                await updateBrand(currentBrand.id, imagePatch)
+              }
+
+              fields.forEach((field) => changedFields.add(field))
+              change.imagePatch = imagePatch
+            }
+          }
+        }
+
+        await sleep(SCRAPE_DELAY_MS)
+      }
+
+      if (changedFields.size === 0 && discoveredUrls.length === 0) {
+        result.skipped++
+        return null
+      }
+
+      result.changed++
+      change.fields = [...changedFields]
+      return change
     })
   }
 
@@ -608,6 +563,7 @@ function parseParams(params: Json | null): JobParams {
     stopAfter,
     validate: raw.validate === true,
     scrape: raw.scrape === true,
+    phases: parseEnrichPhases(raw.phases),
   }
 }
 
@@ -687,13 +643,35 @@ function withFlatLinkColumns(brand: Brand): BrandWithLinkColumns {
 }
 
 function collectKnownUrls(brand: BrandWithLinkColumns): string[] {
-  return LINK_FIELDS
+  const linkUrls = LINK_FIELDS
     .map((field) => brand[linkColumnFor(field)])
     .filter(hasLinkValue)
+  const otherUrls = Array.isArray(brand.otherUrls)
+    ? brand.otherUrls
+        .map((entry) => entry.url)
+        .filter((url): url is string => hasLinkValue(url))
+    : []
+
+  return uniqueUrls([...linkUrls, ...otherUrls])
 }
 
 function collectPurchaseLinks(brand: Brand): string[] {
   return [brand.purchaseWebsite, brand.purchasePinkoi, brand.purchaseShopee].filter(hasLinkValue)
+}
+
+function shouldRunEnrichForBrand(brand: Brand, phases: Set<EnrichPhase>): boolean {
+  if (phases.has('discover')) {
+    return true
+  }
+
+  if (phases.has('links')) {
+    const brandWithLinks = withFlatLinkColumns(brand)
+    if (LINK_FIELDS.some((field) => !hasLinkValue(brandWithLinks[linkColumnFor(field)]))) {
+      return true
+    }
+  }
+
+  return phases.has('images') && (!brand.heroImageUrl || brand.productPhotos.length < 2)
 }
 
 function deriveOfficialWebsite(urls: string[]): string | null {
@@ -779,24 +757,6 @@ async function readResponseText(response: Response, byteLimit: number): Promise<
   }
 }
 
-function scoreBrand(brand: Brand): { score: number; websiteUrl: string | null } {
-  let score = 0
-
-  if (brand.description && brand.description.length > 20) score += 15
-  if (brand.heroImageUrl) score += 15
-  if (brand.productPhotos.length >= 2) score += 15
-  if (brand.socialInstagram || brand.socialThreads || brand.socialFacebook) score += 10
-  if (brand.purchaseWebsite) score += 10
-  if (brand.purchaseWebsite || brand.purchasePinkoi || brand.purchaseShopee) score += 10
-  if (brand.brandHighlights != null && brand.brandHighlights.length > 0) score += 10
-  if (brand.category) score += 5
-
-  const websiteUrl = brand.purchaseWebsite || brand.purchasePinkoi || brand.purchaseShopee || null
-  if (!websiteUrl) score -= 50
-
-  return { score, websiteUrl }
-}
-
 function buildTextEnrichPatch(brand: Brand, scraped: ScrapedBrandData): Partial<Brand> {
   const patch: Partial<Brand> = {}
 
@@ -812,33 +772,68 @@ function buildTextEnrichPatch(brand: Brand, scraped: ScrapedBrandData): Partial<
   return patch
 }
 
-function collectImageUrlsForBrand(brand: Brand, scraped: ScrapedBrandData): string[] {
-  const imageUrls: string[] = []
-
-  if (!brand.heroImageUrl && scraped.heroImageUrl) {
-    imageUrls.push(scraped.heroImageUrl)
-  }
-
-  const currentPhotoCount = brand.productPhotos.length
-  if (currentPhotoCount < 3 && scraped.galleryImageUrls.length > 0) {
-    const slotsAvailable = MAX_PRODUCT_PHOTOS - currentPhotoCount
-    const galleryStart = imageUrls.length > 0 ? 1 : 0
-    imageUrls.push(...scraped.galleryImageUrls.slice(galleryStart, galleryStart + slotsAvailable))
-  }
-
-  return imageUrls
-}
-
-function isShowcaseReady(brand: Brand): boolean {
-  return Boolean(
-    brand.description && brand.description.length > 20 &&
-    brand.heroImageUrl &&
-    brand.category &&
-    (brand.socialInstagram || brand.socialThreads || brand.socialFacebook) &&
-    brand.productPhotos.length >= 2
-  )
-}
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function parseEnrichPhases(value: unknown): EnrichPhase[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+
+  const phases = value.filter((phase): phase is EnrichPhase =>
+    typeof phase === 'string' && (ENRICH_PHASES as readonly string[]).includes(phase)
+  )
+
+  return phases.length > 0 ? [...new Set(phases)] : undefined
+}
+
+function uniqueUrls(urls: string[]): string[] {
+  const seen = new Set<string>()
+  const unique: string[] = []
+
+  for (const url of urls) {
+    const key = normalizeUrlKey(url)
+    if (!key || seen.has(key)) {
+      continue
+    }
+
+    seen.add(key)
+    unique.push(url)
+  }
+
+  return unique
+}
+
+function subtractUrls(urls: string[], existingUrls: string[]): string[] {
+  const existing = new Set(existingUrls.map(normalizeUrlKey).filter(hasLinkValue))
+  return uniqueUrls(urls).filter((url) => {
+    const key = normalizeUrlKey(url)
+    return key !== null && !existing.has(key)
+  })
+}
+
+function filterScrapeableUrls(urls: string[]): string[] {
+  return urls.filter((url) => {
+    try {
+      const parsed = new URL(url)
+      return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && classifyByDomain(url) !== 'social'
+    } catch {
+      return false
+    }
+  })
+}
+
+function normalizeUrlKey(url: string): string | null {
+  try {
+    const parsed = new URL(url)
+    parsed.hash = ''
+    parsed.hostname = parsed.hostname.toLowerCase()
+    if (parsed.pathname !== '/') {
+      parsed.pathname = parsed.pathname.replace(/\/+$/, '')
+    }
+    return parsed.toString()
+  } catch {
+    return null
+  }
 }

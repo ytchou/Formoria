@@ -56,34 +56,13 @@ const sections: OperationSection[] = [
     ],
   },
   {
-    title: '連結探索',
+    title: '品牌充實 (Brand Enrichment)',
     operations: [
       {
-        operation: 'enrich-links',
-        title: 'Enrich Links',
-        description: 'Discover missing links from existing URLs and web search',
+        operation: 'enrich',
+        title: 'Enrich',
+        description: 'Discover brand URLs via Google search, fill links, scrape product images',
         showValidateToggle: true,
-      },
-    ],
-  },
-  {
-    title: '圖片處理',
-    operations: [
-      {
-        operation: 'enrich-images',
-        title: 'Enrich Images',
-        description: 'Scrape product images from purchase links, download to storage',
-      },
-    ],
-  },
-  {
-    title: '綜合評估',
-    operations: [
-      {
-        operation: 'score-and-scrape',
-        title: 'Score & Scrape',
-        description:
-          'Combined text + image enrichment — scores brands on completeness, enriches by priority',
       },
     ],
   },
