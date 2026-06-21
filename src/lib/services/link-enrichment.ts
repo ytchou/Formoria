@@ -46,10 +46,44 @@ const CORPORATE_ACCOUNT_PATTERNS = [
   /facebook\.com\/shopee\.tw/i,
 ]
 
+const FACEBOOK_SYSTEM_PATHS = [
+  'about',
+  'ads',
+  'business',
+  'commerce',
+  'events',
+  'friends',
+  'gaming',
+  'groups',
+  'help',
+  'home',
+  'login',
+  'marketplace',
+  'messages',
+  'notifications',
+  'pages',
+  'policies',
+  'privacy',
+  'public',
+  'reels',
+  'search',
+  'settings',
+  'share',
+  'sharer',
+  'stories',
+  'terms',
+  'watch',
+]
+
+const FACEBOOK_PROFILE_URL_PATTERN = new RegExp(
+  `facebook\\.com\\/(?!${FACEBOOK_SYSTEM_PATHS.join('|')}(?:[/?#]|$))[^/?#]+\\/?$`,
+  'i'
+)
+
 const URL_TO_LINK_COLUMN: Array<{ pattern: RegExp; column: LinkColumn }> = [
   { pattern: /instagram\.com\/[^/?#]+\/?$/i, column: 'social_instagram' },
   { pattern: /threads\.net\/@[^/?#]+\/?$/i, column: 'social_threads' },
-  { pattern: /facebook\.com\/[^/?#]+\/?$/i, column: 'social_facebook' },
+  { pattern: FACEBOOK_PROFILE_URL_PATTERN, column: 'social_facebook' },
   { pattern: /pinkoi\.com\/store\/[^/?#]+/i, column: 'purchase_pinkoi' },
   { pattern: /shopee\.tw\/[^/?#]+$/i, column: 'purchase_shopee' },
 ]

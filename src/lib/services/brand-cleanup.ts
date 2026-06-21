@@ -80,6 +80,32 @@ export const CATEGORY_KEYWORDS: Record<string, string[]> = {
   experiences: ['體驗', '導覽', '工作坊', '旅遊', '觀光', '行程', '遊程', '地方創生', '在地', '社區', '永續', '友善環境', '環保', 'sustainable', 'eco', 'local', 'green', 'community'],
 }
 
+const PRODUCT_TYPE_BY_LEGACY_CATEGORY: Record<string, string | null> = {
+  clothing: 'fashion',
+  footwear: 'fashion',
+  bags: 'bags-accessories',
+  jewelry: 'jewelry',
+  accessories: 'bags-accessories',
+  food: 'food-drink',
+  beverages: 'food-drink',
+  agriculture: 'food-drink',
+  beauty: 'beauty',
+  'bath-body': 'beauty',
+  home: 'home',
+  kitchen: 'home',
+  furniture: 'home',
+  stationery: 'crafts',
+  art: 'crafts',
+  outdoor: 'outdoor',
+  tech: 'tech',
+  pets: 'kids-pets',
+  'baby-kids': 'kids-pets',
+  crafts: 'crafts',
+  fragrance: 'beauty',
+  gardening: 'home',
+  experiences: null,
+}
+
 const MATH_LETTER_RANGES: Array<{ start: number; chars: string }> = [
   range(0x1D400, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'),
   range(0x1D41A, 'abcdefghijklmnopqrstuvwxyz'),
@@ -367,7 +393,7 @@ export function detectNonBrand(brand: BrandLike): NonBrandDetectionResult {
 export function matchCategory(text: string): string | null {
   for (const [categorySlug, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
     if (keywords.some((kw) => text.includes(kw))) {
-      return categorySlug
+      return PRODUCT_TYPE_BY_LEGACY_CATEGORY[categorySlug] ?? null
     }
   }
   return null
