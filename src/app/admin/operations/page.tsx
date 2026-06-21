@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 
+import type { CurationOperation } from '@/app/admin/operations/actions'
 import { OperationCard } from '@/components/admin/operation-card'
 
 export const metadata: Metadata = {
@@ -7,10 +8,10 @@ export const metadata: Metadata = {
 }
 
 type OperationConfig = {
-  operation: string
+  operation: CurationOperation
   title: string
   description: string
-  showValidateToggle?: boolean
+  showPhasePicker?: boolean
   warning?: string
 }
 
@@ -24,45 +25,30 @@ const sections: OperationSection[] = [
     title: '資料清理',
     operations: [
       {
-        operation: 'clean-names',
-        title: 'Clean Names',
-        description: 'Strip emojis, decorative Unicode, marketing suffixes from brand names',
-      },
-      {
-        operation: 'detect-non-brands',
-        title: 'Detect Non-Brands',
-        description: 'Flag resellers, charities, government entities, placeholder names',
-      },
-      {
-        operation: 'normalize-slugs',
-        title: 'Normalize Slugs',
-        description: 'Convert CJK slugs to ASCII kebab-case, create redirects',
+        operation: 'cleanup',
+        title: 'Cleanup',
+        description: 'Clean names, normalize slugs, detect non-brands',
       },
     ],
   },
   {
-    title: '內容充實',
-    operations: [
-      {
-        operation: 'enrich-descriptions',
-        title: 'Enrich Descriptions',
-        description: 'Fill missing or thin descriptions by scraping brand websites',
-      },
-      {
-        operation: 'auto-tag',
-        title: 'Auto-Tag Categories',
-        description: 'Auto-assign product categories via keyword matching',
-      },
-    ],
-  },
-  {
-    title: '品牌充實 (Brand Enrichment)',
+    title: '品牌充實',
     operations: [
       {
         operation: 'enrich',
         title: 'Enrich',
-        description: 'Discover brand URLs via Google search, fill links, scrape product images',
-        showValidateToggle: true,
+        description: 'Discover URLs, fill links, download images, fill descriptions',
+        showPhasePicker: true,
+      },
+    ],
+  },
+  {
+    title: '自動分類',
+    operations: [
+      {
+        operation: 'auto-tag',
+        title: 'Auto-Tag',
+        description: 'Keyword-based category assignment',
       },
     ],
   },
@@ -72,7 +58,7 @@ const sections: OperationSection[] = [
       {
         operation: 'set-visibility',
         title: 'Set Visibility',
-        description: 'Bulk approve/hide — hide all brands, then approve specified slugs',
+        description: 'Final visibility approval',
         warning: '⚠ This will hide ALL brands first, then approve only the specified slugs',
       },
     ],
@@ -107,7 +93,7 @@ export default function AdminOperationsPage() {
                   operation={operation.operation}
                   title={operation.title}
                   description={operation.description}
-                  showValidateToggle={operation.showValidateToggle}
+                  showPhasePicker={operation.showPhasePicker}
                 >
                   {operation.warning && (
                     <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm font-medium text-destructive">
