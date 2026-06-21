@@ -9,6 +9,7 @@ export type CurationJobParams = {
   slugs?: string[]
   stopAfter?: number
   validate?: boolean
+  phases?: string[]
 }
 
 export type CurationJob = {
