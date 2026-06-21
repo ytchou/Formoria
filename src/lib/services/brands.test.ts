@@ -195,6 +195,98 @@ vi.mock('@/lib/supabase/server', () => ({
   })),
 }))
 
+// ---------------------------------------------------------------------------
+// getBrands — PGRST103 offset overflow
+// ---------------------------------------------------------------------------
+
+describe('getBrands — PGRST103 offset overflow', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('returns empty brands array (not throw) when normal path gets PGRST103', async () => {
+    const { getBrands } = await import('./brands')
+
+    const pgrst103Error = { code: 'PGRST103', message: 'An offset of 96 was requested, but there are only 90 rows' }
+    const resolvedData = { data: null, error: pgrst103Error, count: 90 }
+
+    // Build a chainable mock where every method returns the same chainable object
+    // and the terminal await resolves to the PGRST103 error response
+    const chainable: Record<string, unknown> = {}
+    const chainFn = () => chainable
+    chainable.select = chainFn
+    chainable.in = chainFn
+    chainable.not = chainFn
+    chainable.eq = chainFn
+    chainable.overlaps = chainFn
+    chainable.order = chainFn
+    chainable.range = chainFn
+    // Make it thenable so `await query` resolves to our error response
+    chainable.then = (resolve: (v: unknown) => void) => Promise.resolve(resolvedData).then(resolve)
+
+    mockFrom.mockReturnValue(chainable)
+
+    const result = await getBrands({ limit: 6, offset: 96 })
+
+    expect(result.brands).toEqual([])
+    expect(result.totalCount).toBe(90)
+  })
+
+  it('returns empty brands array (not throw) when search path gets PGRST103', async () => {
+    const { getBrands } = await import('./brands')
+
+    const pgrst103Error = { code: 'PGRST103', message: 'An offset of 96 was requested, but there are only 90 rows' }
+    const resolvedData = { data: null, error: pgrst103Error, count: 90 }
+
+    // RPC returns matched IDs so we proceed to the pagination query
+    mockRpc.mockResolvedValue({
+      data: [{ id: 'brand-1' }],
+      error: null,
+    })
+
+    // Build a chainable mock for the follow-up .from('brands') query
+    const chainable: Record<string, unknown> = {}
+    const chainFn = () => chainable
+    chainable.select = vi.fn().mockReturnValue({ in: () => chainable })
+    chainable.in = chainFn
+    chainable.not = chainFn
+    chainable.eq = chainFn
+    chainable.overlaps = chainFn
+    chainable.order = chainFn
+    chainable.range = chainFn
+    chainable.then = (resolve: (v: unknown) => void) => Promise.resolve(resolvedData).then(resolve)
+
+    mockFrom.mockReturnValue(chainable)
+
+    const result = await getBrands({ search: 'tea', limit: 6, offset: 96 })
+
+    expect(result.brands).toEqual([])
+    expect(result.totalCount).toBe(90)
+  })
+
+  it('still throws for non-PGRST103 errors in the normal path', async () => {
+    const { getBrands } = await import('./brands')
+
+    const otherError = { code: 'PGRST301', message: 'Some other database error' }
+    const resolvedData = { data: null, error: otherError, count: null }
+
+    const chainable: Record<string, unknown> = {}
+    const chainFn = () => chainable
+    chainable.select = chainFn
+    chainable.in = chainFn
+    chainable.not = chainFn
+    chainable.eq = chainFn
+    chainable.overlaps = chainFn
+    chainable.order = chainFn
+    chainable.range = chainFn
+    chainable.then = (resolve: (v: unknown) => void) => Promise.resolve(resolvedData).then(resolve)
+
+    mockFrom.mockReturnValue(chainable)
+
+    await expect(getBrands({ limit: 6, offset: 10 })).rejects.toEqual(otherError)
+  })
+})
+
 describe('getBrands — search uses search_brands RPC', () => {
   beforeEach(() => {
     vi.clearAllMocks()
