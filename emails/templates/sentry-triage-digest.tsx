@@ -80,25 +80,34 @@ export function SentryTriageDigestEmail({
 
       <Section style={summarySection}>
         <p style={summaryTitle}>Summary</p>
-        <div style={summaryGrid}>
-          <SummaryStat label="Total" value={summary.total} color={BRAND_GREEN} />
-          <SummaryStat
-            label="Critical"
-            value={summary.critical}
-            color={severityColors.critical}
-          />
-          <SummaryStat
-            label="Moderate"
-            value={summary.moderate}
-            color={severityColors.moderate}
-          />
-          <SummaryStat
-            label="Trivial"
-            value={summary.trivial}
-            color={severityColors.trivial}
-          />
-          <SummaryStat label="Noise" value={summary.noise} color={TEXT_SECONDARY} />
-        </div>
+        <table role="presentation" cellPadding="0" cellSpacing="0" style={summaryTable}>
+          <tbody>
+            <tr>
+              <SummaryStat label="Total" value={summary.total} color={BRAND_GREEN} />
+              <SummaryStat
+                label="Critical"
+                value={summary.critical}
+                color={severityColors.critical}
+              />
+              <SummaryStat
+                label="Moderate"
+                value={summary.moderate}
+                color={severityColors.moderate}
+              />
+              <SummaryStat
+                label="Trivial"
+                value={summary.trivial}
+                color={severityColors.trivial}
+              />
+              <SummaryStat
+                label="Noise"
+                value={summary.noise}
+                color={TEXT_SECONDARY}
+                isLast
+              />
+            </tr>
+          </tbody>
+        </table>
       </Section>
 
       <EmailDivider />
@@ -134,16 +143,20 @@ function SummaryStat({
   label,
   value,
   color,
+  isLast = false,
 }: {
   label: string
   value: number
   color: string
+  isLast?: boolean
 }) {
   return (
-    <div style={summaryItem}>
-      <p style={{ ...summaryValue, color }}>{value}</p>
-      <p style={summaryLabel}>{label}</p>
-    </div>
+    <td style={isLast ? summaryCellLast : summaryCell}>
+      <div style={summaryItem}>
+        <p style={{ ...summaryValue, color }}>{value}</p>
+        <p style={summaryLabel}>{label}</p>
+      </div>
+    </td>
   )
 }
 
@@ -242,10 +255,18 @@ const summaryTitle = {
   margin: '0 0 16px',
 }
 
-const summaryGrid = {
-  display: 'grid',
-  gap: '12px',
-  gridTemplateColumns: 'repeat(5, 1fr)',
+const summaryTable = {
+  width: '100%',
+}
+
+const summaryCell = {
+  padding: '0 12px 0 0',
+  width: '20%',
+}
+
+const summaryCellLast = {
+  padding: '0',
+  width: '20%',
 }
 
 const summaryItem = {
