@@ -45,7 +45,7 @@ describe('buildLinkEnrichPatch', () => {
     }
     const patch = buildLinkEnrichPatch(brand, scraped)
     expect(patch.social_instagram).toBe('https://instagram.com/brand')
-    expect(patch.social_facebook).toBeUndefined()
+    expect(patch.social_facebook).toBe('https://facebook.com/scraped')
     expect(patch.purchase_website).toBe('https://brand.com')
     expect(patch.purchase_shopee).toBe('https://shopee.tw/brand')
     expect(patch.social_threads).toBeUndefined()
