@@ -26,6 +26,7 @@ const MAX_PRODUCT_PHOTOS = 5
 const SCRAPE_DELAY_MS = 1_000
 const TOP_N = 30
 const STALE_JOB_MINUTES = 30
+const VALIDATE_LINK_READ_LIMIT_BYTES = 50 * 1024
 
 type Supabase = ReturnType<typeof createServiceClient>
 type CurationJobStatus = 'pending' | 'running' | 'completed' | 'failed'
@@ -61,6 +62,22 @@ type OperationResult = Progress & {
   errors: Array<{ slug: string; error: string }>
 }
 type BrandWithLinkColumns = Brand & BrandFlatLinkColumns
+type CurationJobsTable = {
+  select: (columns: string) => {
+    eq: (column: string, value: string) => {
+      single: () => Promise<{ data: CurationJob | null; error: { message: string } | null }>
+    }
+  }
+  update: (patch: CurationJobUpdate) => {
+    eq: (column: string, value: string) => {
+      neq: (column: string, value: string) => {
+        lt: (column: string, value: string) => Promise<{ error: { message: string } | null }>
+      }
+    } & PromiseLike<{ error: { message: string } | null }>
+  }
+}
+type RevalidateTagOneArg = (tag: string) => void
+type CurationJobsFrom = (table: 'curation_jobs') => CurationJobsTable
 
 export async function POST(request: Request) {
   let jobId: unknown
@@ -107,16 +124,16 @@ async function runJob(job: CurationJob): Promise<void> {
       started_at: new Date().toISOString(),
       progress: progressJson({ processed: 0, total: 0, skipped: 0, failed: 0 }),
     })
-    await recoverStaleJobs(supabase, job.id)
 
-    const result = await runOperation(job)
+    const result = await runOperation(supabase, job)
     await updateJob(supabase, job.id, {
       status: 'completed',
       completed_at: new Date().toISOString(),
       progress: progressJson(result),
       result: result as unknown as Json,
     })
-    revalidateTag('quality-metrics', 'max')
+    const revalidateTagOneArg = revalidateTag as RevalidateTagOneArg
+    revalidateTagOneArg('quality-metrics')
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     await updateJob(supabase, job.id, {
@@ -127,39 +144,39 @@ async function runJob(job: CurationJob): Promise<void> {
   }
 }
 
-async function runOperation(job: CurationJob): Promise<OperationResult> {
+async function runOperation(supabase: Supabase, job: CurationJob): Promise<OperationResult> {
   const params = parseParams(job.params)
 
   switch (job.operation) {
     case 'clean-names':
-      return runCleanNames(job.id, job.dry_run, params)
+      return runCleanNames(supabase, job.id, job.dry_run, params)
     case 'detect-non-brands':
-      return runDetectNonBrands(job.id, job.dry_run, params)
+      return runDetectNonBrands(supabase, job.id, job.dry_run, params)
     case 'normalize-slugs':
-      return runNormalizeSlugs(job.id, job.dry_run, params)
+      return runNormalizeSlugs(supabase, job.id, job.dry_run, params)
     case 'enrich-descriptions':
-      return runEnrichDescriptions(job.id, job.dry_run, params)
+      return runEnrichDescriptions(supabase, job.id, job.dry_run, params)
     case 'auto-tag':
-      return runAutoTag(job.id, job.dry_run, params)
+      return runAutoTag(supabase, job.id, job.dry_run, params)
     case 'enrich-links':
-      return runEnrichLinks(job.id, job.dry_run, params)
+      return runEnrichLinks(supabase, job.id, job.dry_run, params)
     case 'enrich-images':
-      return runEnrichImages(job.id, job.dry_run, params)
+      return runEnrichImages(supabase, job.id, job.dry_run, params)
     case 'score-and-scrape':
-      return runScoreAndScrape(job.id, job.dry_run, params)
+      return runScoreAndScrape(supabase, job.id, job.dry_run, params)
     case 'set-visibility':
-      return runSetVisibility(job.id, job.dry_run, params)
+      return runSetVisibility(supabase, job.id, job.dry_run, params)
     default:
       throw new Error(`Unsupported operation: ${job.operation}`)
   }
 }
 
-async function runCleanNames(jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
+async function runCleanNames(supabase: Supabase, jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
   const brands = limitBrands(await fetchBrands(params, 'approved'), params)
   const result = makeResult(brands.length)
 
   for (const brand of brands) {
-    await processBrand(jobId, result, brand.slug, async () => {
+    await processBrand(supabase, jobId, result, brand.slug, async () => {
       const cleanup = cleanBrandName(brand.name)
 
       if (!cleanup.changed) {
@@ -187,12 +204,12 @@ async function runCleanNames(jobId: string, dryRun: boolean, params: JobParams):
   return result
 }
 
-async function runDetectNonBrands(jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
+async function runDetectNonBrands(supabase: Supabase, jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
   const brands = limitBrands(await fetchBrands(params, 'approved'), params)
   const result = makeResult(brands.length)
 
   for (const brand of brands) {
-    await processBrand(jobId, result, brand.slug, async () => {
+    await processBrand(supabase, jobId, result, brand.slug, async () => {
       const detection = detectNonBrand(brand)
 
       if (!detection.isNonBrand) {
@@ -220,7 +237,7 @@ async function runDetectNonBrands(jobId: string, dryRun: boolean, params: JobPar
   return result
 }
 
-async function runNormalizeSlugs(jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
+async function runNormalizeSlugs(supabase: Supabase, jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
   const allBrands = await fetchBrands(params, 'approved')
   const brands = limitBrands(allBrands, params)
   const existingSlugs = new Set(allBrands.map((brand) => brand.slug))
@@ -228,7 +245,7 @@ async function runNormalizeSlugs(jobId: string, dryRun: boolean, params: JobPara
   const result = makeResult(brands.length)
 
   for (const brand of brands) {
-    await processBrand(jobId, result, brand.slug, async () => {
+    await processBrand(supabase, jobId, result, brand.slug, async () => {
       let sourceName: string | null = brand.name
 
       if (params.scrape && brand.purchaseWebsite) {
@@ -269,7 +286,7 @@ async function runNormalizeSlugs(jobId: string, dryRun: boolean, params: JobPara
   return result
 }
 
-async function runEnrichDescriptions(jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
+async function runEnrichDescriptions(supabase: Supabase, jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
   const brands = limitBrands(
     (await fetchBrands(params, 'approved')).filter((brand) =>
       !brand.description || brand.description.trim() === '' || brand.description.length < 20 || brand.description === brand.name
@@ -279,7 +296,7 @@ async function runEnrichDescriptions(jobId: string, dryRun: boolean, params: Job
   const result = makeResult(brands.length)
 
   for (const brand of brands) {
-    await processBrand(jobId, result, brand.slug, async () => {
+    await processBrand(supabase, jobId, result, brand.slug, async () => {
       const urls = collectPurchaseLinks(brand)
       if (urls.length === 0) {
         result.skipped++
@@ -307,7 +324,7 @@ async function runEnrichDescriptions(jobId: string, dryRun: boolean, params: Job
   return result
 }
 
-async function runAutoTag(jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
+async function runAutoTag(supabase: Supabase, jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
   const brands = limitBrands(
     (await fetchBrands(params)).filter((brand) => !brand.category),
     params
@@ -317,7 +334,7 @@ async function runAutoTag(jobId: string, dryRun: boolean, params: JobParams): Pr
   const result = makeResult(brands.length)
 
   for (const brand of brands) {
-    await processBrand(jobId, result, brand.slug, async () => {
+    await processBrand(supabase, jobId, result, brand.slug, async () => {
       const matched = matchCategory(`${brand.name} ${brand.description ?? ''} ${brand.brandHighlights ?? ''}`)
 
       if (!matched) {
@@ -343,7 +360,7 @@ async function runAutoTag(jobId: string, dryRun: boolean, params: JobParams): Pr
   return result
 }
 
-async function runEnrichLinks(jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
+async function runEnrichLinks(supabase: Supabase, jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
   const brands = limitBrands(
     (await fetchBrands(params, 'approved'))
       .map(withFlatLinkColumns)
@@ -353,7 +370,7 @@ async function runEnrichLinks(jobId: string, dryRun: boolean, params: JobParams)
   const result = makeResult(brands.length)
 
   for (const brand of brands) {
-    await processBrand(jobId, result, brand.slug, async () => {
+    await processBrand(supabase, jobId, result, brand.slug, async () => {
       let urls = collectKnownUrls(brand)
 
       if (urls.length === 0) {
@@ -397,7 +414,7 @@ async function runEnrichLinks(jobId: string, dryRun: boolean, params: JobParams)
   return result
 }
 
-async function runEnrichImages(jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
+async function runEnrichImages(supabase: Supabase, jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
   const brands = limitBrands(
     (await fetchBrands(params, 'approved')).filter((brand) => !brand.heroImageUrl || brand.productPhotos.length < 2),
     params
@@ -405,7 +422,7 @@ async function runEnrichImages(jobId: string, dryRun: boolean, params: JobParams
   const result = makeResult(brands.length)
 
   for (const brand of brands) {
-    await processBrand(jobId, result, brand.slug, async () => {
+    await processBrand(supabase, jobId, result, brand.slug, async () => {
       const urls = collectPurchaseLinks(brand)
       if (urls.length === 0) {
         result.skipped++
@@ -443,7 +460,7 @@ async function runEnrichImages(jobId: string, dryRun: boolean, params: JobParams
   return result
 }
 
-async function runScoreAndScrape(jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
+async function runScoreAndScrape(supabase: Supabase, jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
   const brands = await fetchBrands(params)
   const scored = brands.map((brand) => ({ brand, ...scoreBrand(brand) }))
   const ranked = params.slugs
@@ -452,8 +469,8 @@ async function runScoreAndScrape(jobId: string, dryRun: boolean, params: JobPara
   const limited = limitBrands(ranked, params)
   const result = makeResult(limited.length)
 
-  for (const { brand, websiteUrl } of limited) {
-    await processBrand(jobId, result, brand.slug, async () => {
+  for (const { brand, score, websiteUrl } of limited) {
+    await processBrand(supabase, jobId, result, brand.slug, async () => {
       if (!websiteUrl) {
         result.skipped++
         return null
@@ -480,7 +497,7 @@ async function runScoreAndScrape(jobId: string, dryRun: boolean, params: JobPara
       result.changed++
       return {
         slug: brand.slug,
-        score: scoreBrand(brand).score,
+        score,
         fields,
         patch,
         showcaseReady: isShowcaseReady({ ...brand, ...patch }),
@@ -491,7 +508,7 @@ async function runScoreAndScrape(jobId: string, dryRun: boolean, params: JobPara
   return result
 }
 
-async function runSetVisibility(jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
+async function runSetVisibility(supabase: Supabase, jobId: string, dryRun: boolean, params: JobParams): Promise<OperationResult> {
   const slugs = params.slugs ?? []
 
   if (slugs.length === 0) {
@@ -506,7 +523,7 @@ async function runSetVisibility(jobId: string, dryRun: boolean, params: JobParam
     throw new Error(`Missing slugs: ${missing.join(', ')}`)
   }
 
-  const result = makeResult(brands.length + slugs.length)
+  const result = makeResult(brands.length)
 
   if (!dryRun) {
     const hidden = await hideVisibleBrands()
@@ -516,10 +533,10 @@ async function runSetVisibility(jobId: string, dryRun: boolean, params: JobParam
   }
 
   result.processed = brands.length
-  await updateProgress(jobId, result)
+  await updateProgress(supabase, jobId, result)
 
   for (const slug of slugs) {
-    await processBrand(jobId, result, slug, async () => {
+    await processBrand(supabase, jobId, result, slug, async () => {
       const brand = slugMap.get(slug)
 
       if (!brand) {
@@ -540,6 +557,7 @@ async function runSetVisibility(jobId: string, dryRun: boolean, params: JobParam
 }
 
 async function processBrand(
+  supabase: Supabase,
   jobId: string,
   result: OperationResult,
   slug: string,
@@ -558,7 +576,7 @@ async function processBrand(
     })
   } finally {
     result.processed++
-    await updateProgress(jobId, result)
+    await updateProgress(supabase, jobId, result)
   }
 }
 
@@ -618,8 +636,8 @@ function progressJson(progress: Progress): Json {
   } as Json
 }
 
-async function updateProgress(jobId: string, progress: Progress): Promise<void> {
-  await updateJob(createServiceClient(), jobId, { progress: progressJson(progress) })
+async function updateProgress(supabase: Supabase, jobId: string, progress: Progress): Promise<void> {
+  await updateJob(supabase, jobId, { progress: progressJson(progress) })
 }
 
 async function updateJob(supabase: Supabase, jobId: string, patch: CurationJobUpdate): Promise<void> {
@@ -649,21 +667,10 @@ async function recoverStaleJobs(supabase: Supabase, currentJobId: string): Promi
   }
 }
 
-function curationJobs(supabase: Supabase) {
-  return supabase.from('curation_jobs' as never) as unknown as {
-    select: (columns: string) => {
-      eq: (column: string, value: string) => {
-        single: () => Promise<{ data: CurationJob | null; error: { message: string } | null }>
-      }
-    }
-    update: (patch: CurationJobUpdate) => {
-      eq: (column: string, value: string) => {
-        neq: (column: string, value: string) => {
-          lt: (column: string, value: string) => Promise<{ error: { message: string } | null }>
-        }
-      } & PromiseLike<{ error: { message: string } | null }>
-    }
-  }
+function curationJobs(supabase: Supabase): CurationJobsTable {
+  const from = supabase.from.bind(supabase) as unknown
+  const fromCurationJobs = from as CurationJobsFrom
+  return fromCurationJobs('curation_jobs')
 }
 
 function withFlatLinkColumns(brand: Brand): BrandWithLinkColumns {
@@ -730,7 +737,7 @@ async function validateLink(url: string, brandName: string): Promise<boolean> {
     const contentLength = response.headers.get('content-length')
     if (contentLength != null && Number(contentLength) > 1_000_000) return false
 
-    const html = await response.text()
+    const html = await readResponseText(response, VALIDATE_LINK_READ_LIMIT_BYTES)
     const normalizedHtml = html.toLowerCase().replace(/\s+/g, ' ')
     const normalizedName = brandName.toLowerCase().replace(/\s+/g, ' ')
 
@@ -739,6 +746,36 @@ async function validateLink(url: string, brandName: string): Promise<boolean> {
     return false
   } finally {
     clearTimeout(timeout)
+  }
+}
+
+async function readResponseText(response: Response, byteLimit: number): Promise<string> {
+  if (!response.body) {
+    return ''
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let bytesRead = 0
+  let text = ''
+
+  try {
+    while (bytesRead < byteLimit) {
+      const { done, value } = await reader.read()
+
+      if (done) {
+        break
+      }
+
+      const chunk = value.subarray(0, Math.max(byteLimit - bytesRead, 0))
+      bytesRead += chunk.byteLength
+      text += decoder.decode(chunk, { stream: bytesRead < byteLimit })
+    }
+
+    text += decoder.decode()
+    return text
+  } finally {
+    reader.cancel().catch(() => undefined)
   }
 }
 
