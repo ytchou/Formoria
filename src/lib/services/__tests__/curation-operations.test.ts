@@ -4,6 +4,7 @@ import {
   processCleanupBrand,
   processSetVisibilityBrand,
 } from '../curation-operations'
+import { processEnrichBrand, mergeEnrichPatches } from '../curation-operations'
 
 describe('processCleanupBrand', () => {
   const baseBrand = {
@@ -104,5 +105,68 @@ describe('processSetVisibilityBrand', () => {
     }
     const result = processSetVisibilityBrand(brand)
     expect(result.visible).toBe(true)
+  })
+})
+
+describe('processEnrichBrand', () => {
+  const baseBrand = {
+    id: '1',
+    slug: 'mybrand',
+    display_brand_name: 'My Brand',
+    social_instagram: null,
+    social_threads: null,
+    social_facebook: null,
+    purchase_pinkoi: null,
+    purchase_shopee: null,
+    website_url: null,
+    description: null,
+    brand_highlights: null,
+    hero_image_url: null,
+    product_images: [],
+  }
+
+  const scrapedData = {
+    social_instagram: 'https://www.instagram.com/mybrand/',
+    social_facebook: 'https://www.facebook.com/mybrand',
+    description: 'A premium handcrafted brand from Taiwan specializing in leather goods',
+    story: 'Founded in 2015 by artisans in Tainan',
+  }
+
+  it('produces link patch from scraped data', () => {
+    const result = processEnrichBrand(baseBrand, scrapedData, ['links'])
+    expect(result.patches.links?.social_instagram).toBe('https://www.instagram.com/mybrand/')
+  })
+
+  it('produces description patch when description phase enabled', () => {
+    const result = processEnrichBrand(baseBrand, scrapedData, ['descriptions'])
+    expect(result.patches.descriptions?.description).toBe(scrapedData.description)
+  })
+
+  it('fills brand_highlights from story', () => {
+    const brandWithDesc = { ...baseBrand, description: 'Already has a valid description over twenty chars' }
+    const result = processEnrichBrand(brandWithDesc, scrapedData, ['descriptions'])
+    expect(result.patches.descriptions?.brand_highlights).toBe(scrapedData.story)
+  })
+
+  it('skips description phase when not in requested phases', () => {
+    const result = processEnrichBrand(baseBrand, scrapedData, ['links'])
+    expect(result.patches.descriptions).toBeUndefined()
+  })
+})
+
+describe('mergeEnrichPatches', () => {
+  it('merges link and description patches into single update', () => {
+    const patches = {
+      links: { social_instagram: 'https://www.instagram.com/mybrand/' },
+      descriptions: { description: 'A new description for the brand' },
+    }
+    const merged = mergeEnrichPatches(patches)
+    expect(merged.social_instagram).toBe('https://www.instagram.com/mybrand/')
+    expect(merged.description).toBe('A new description for the brand')
+  })
+
+  it('returns empty object when no patches', () => {
+    const merged = mergeEnrichPatches({})
+    expect(Object.keys(merged)).toHaveLength(0)
   })
 })
