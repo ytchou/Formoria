@@ -281,10 +281,10 @@ describe('buildImageEnrichPatch', () => {
 
   it('does not overwrite hero when brand already has one', () => {
     const brand = { heroImageUrl: 'https://existing-hero.jpg', productPhotos: [] }
-    const storedUrls = ['https://storage.supabase.co/img1.jpg']
+    const storedUrls = ['https://storage.supabase.co/img1.jpg', 'https://storage.supabase.co/img2.jpg']
     const patch = buildImageEnrichPatch(brand, storedUrls)
     expect(patch.heroImageUrl).toBeUndefined()
-    expect(patch.productPhotos).toContain('https://storage.supabase.co/img1.jpg')
+    expect(patch.productPhotos).toContain('https://storage.supabase.co/img2.jpg')
   })
 
   it('returns empty patch when no stored images', () => {
