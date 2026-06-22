@@ -12,7 +12,7 @@ import {
   linkColumnFor,
 } from './link-enrichment'
 import { downloadAndStoreImages } from './image-download'
-import { rewriteAndClassifyBrand, rewriteBrandDescription } from './description-rewrite'
+import { rewriteBrandDescription } from './description-rewrite'
 import {
   classifyProductTypeBatch,
   triageBrandsBatch,
@@ -29,6 +29,7 @@ export interface CurationConfig {
   dryRun: boolean
   overwrite?: boolean
   slugs?: string[]
+  status?: string
   limit?: number
   onProgress?: (msg: string) => void
 }
@@ -114,6 +115,7 @@ type BrandsSelectQuery = PromiseLike<{
   error: SupabaseError | null
 }> & {
   in: (column: 'slug', values: string[]) => BrandsSelectQuery
+  eq: (column: 'status', value: string) => BrandsSelectQuery
   is: (column: string, value: null) => BrandsSelectQuery
   or: (filter: string) => BrandsSelectQuery
   limit: (count: number) => BrandsSelectQuery
@@ -400,7 +402,9 @@ type EnrichBrand = CurationBrand &
     productPhotos?: string[] | null
   }
 
-type EnrichScrapedData = Partial<ScrapedBrandData> & Partial<BrandFlatLinkColumns>
+type EnrichScrapedData = Partial<ScrapedBrandData> & Partial<BrandFlatLinkColumns> & {
+  snippets?: string[]
+}
 
 type EnrichImagePatch = Partial<{
   hero_image_url: string | null
@@ -413,8 +417,13 @@ type EnrichCleanPhase = {
   cleaned?: string
 }
 
+type EnrichDescriptionsPhase = {
+  changed: boolean
+}
+
 type EnrichProcessPhases = {
   clean?: EnrichCleanPhase
+  descriptions?: EnrichDescriptionsPhase
 }
 
 type EnrichPatches = {
@@ -592,6 +601,7 @@ export function processEnrichBrand(
 
   if (isRequestedPhase(phases, 'descriptions')) {
     const descriptions = buildTextEnrichPatch(brand, normalizedScrapedData)
+    phaseResults.descriptions = { changed: hasPatchValues(descriptions) }
     if (hasPatchValues(descriptions)) {
       patches.descriptions = descriptions
     }
@@ -640,6 +650,10 @@ export async function runEnrich(
 
   if (config.slugs && config.slugs.length > 0) {
     query = query.in('slug', config.slugs)
+  }
+
+  if (config.status) {
+    query = query.eq('status', config.status)
   }
 
   if (!config.overwrite) {
@@ -833,11 +847,7 @@ export async function runEnrich(
 
         let descriptionRewrite: string | null = null
         let classification: ClassificationResult | null = null
-        if (phases.includes('descriptions') && phases.includes('tags') && serpSnippets.length > 0) {
-          const combined = await rewriteAndClassifyBrand(displayBrandName(brand), brand.description ?? null, serpSnippets)
-          descriptionRewrite = combined.description
-          classification = combined.classification
-        } else if (phases.includes('descriptions') && serpSnippets.length > 0) {
+        if (phases.includes('descriptions') && serpSnippets.length > 0) {
           descriptionRewrite = await rewriteBrandDescription(displayBrandName(brand), brand.description ?? null, serpSnippets)
         } else if (phases.includes('tags')) {
           classification = batchClassifications.get(brand.slug) ?? null

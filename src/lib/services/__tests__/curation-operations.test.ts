@@ -4,6 +4,7 @@ import {
   processSetVisibilityBrand,
 } from '../curation-operations'
 import { processEnrichBrand, mergeEnrichPatches } from '../curation-operations'
+import type { CurationConfig } from '../curation-operations'
 
 vi.mock('../product-type-classifier', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../product-type-classifier')>()
@@ -153,6 +154,43 @@ describe('processEnrichBrand with cleanup phases', () => {
     const result = processEnrichBrand(cleanBrand, {}, ['clean'])
     expect(result.phases.clean?.changed).toBe(false)
     expect(result.patch).toEqual({})
+  })
+})
+
+describe('descriptions phase standalone', () => {
+  const baseBrand = {
+    id: '1',
+    slug: 'mybrand',
+    display_brand_name: 'My Brand',
+    social_instagram: null,
+    social_threads: null,
+    social_facebook: null,
+    purchase_pinkoi: null,
+    purchase_shopee: null,
+    website_url: null,
+    description: null,
+    brand_highlights: null,
+    hero_image_url: null,
+    product_images: [],
+  }
+
+  it('runs descriptions phase without setting product_type', () => {
+    const result = processEnrichBrand(baseBrand, { snippets: ['A great brand making handmade soap'] }, ['descriptions'])
+    expect(result.phases).toHaveProperty('descriptions')
+    expect(result.patch).not.toHaveProperty('product_type')
+  })
+
+  it('runs descriptions phase without tags when tags is not in phases', () => {
+    const result = processEnrichBrand(baseBrand, { snippets: ['A great brand making handmade soap'] }, ['descriptions'])
+    expect(result.phases).toHaveProperty('descriptions')
+    expect(result.phases).not.toHaveProperty('tags')
+  })
+})
+
+describe('CurationConfig status filter', () => {
+  it('accepts status option in CurationConfig type', () => {
+    const config: CurationConfig = { dryRun: true, status: 'pending' }
+    expect(config.status).toBe('pending')
   })
 })
 
