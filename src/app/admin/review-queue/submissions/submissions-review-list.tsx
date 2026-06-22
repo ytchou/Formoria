@@ -1,0 +1,825 @@
+'use client'
+
+import { Fragment, useMemo, useState, useTransition } from 'react'
+import { useTranslations } from 'next-intl'
+import type { BrandSubmission, OtherUrl, SourceAttribution, SubmissionStatus } from '@/lib/types'
+import type { BrandEnrichment } from '@/lib/services/brands'
+import { StatusBadge } from '@/components/admin/status-badge'
+import { rejectSubmissionAction } from '@/app/admin/actions'
+import {
+  approveSubmissionWithOverridesAction,
+  type SubmissionApprovalOverrides,
+} from './actions'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
+
+type TabValue = 'all' | SubmissionStatus
+
+type BrandSubmissionWithRisk = BrandSubmission & {
+  moderationRiskLevel?: 'high' | 'medium' | 'clean'
+  productTypeNote?: string | null
+  brandEnrichment?: BrandEnrichment | null
+}
+
+type ReviewTaxonomyTag = {
+  name: string
+  nameZh: string | null
+  slug: string
+  category: string
+}
+
+type OverrideForm = Required<Omit<SubmissionApprovalOverrides, 'otherUrls'>> & {
+  otherUrls: OtherUrl[]
+}
+
+const SOURCE_ATTRIBUTION_LABELS: Record<SourceAttribution, string> = {
+  bought_product: 'I bought their product',
+  saw_at_market: 'I saw them at a market or event',
+  found_online: 'I found them online',
+  friend_recommended: 'A friend recommended them',
+  work_there: 'I work there or know the team',
+}
+
+const TAG_CATEGORIES = ['product_type', 'region', 'value', 'material', 'price_range']
+const PRODUCT_TYPE_EMPTY = '__none'
+
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+function readinessBadgeClass(tone: 'green' | 'amber' | 'red' | 'grey') {
+  switch (tone) {
+    case 'green':
+      return 'bg-[#EAF3E8] text-[#2D5A27]'
+    case 'amber':
+      return 'bg-amber-50 text-amber-700'
+    case 'red':
+      return 'bg-red-50 text-destructive'
+    case 'grey':
+      return 'bg-[#F5F4F1] text-muted-foreground'
+  }
+}
+
+function ReadinessBadge({
+  children,
+  tone,
+}: {
+  children: React.ReactNode
+  tone: 'green' | 'amber' | 'red' | 'grey'
+}) {
+  return (
+    <span className={`inline-flex min-w-6 items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold ${readinessBadgeClass(tone)}`}>
+      {children}
+    </span>
+  )
+}
+
+function AutoBadge() {
+  return (
+    <Badge variant="outline" className="border-dashed bg-background text-[10px] uppercase tracking-wide text-muted-foreground">
+      auto
+    </Badge>
+  )
+}
+
+function FieldLabel({
+  children,
+  auto,
+}: {
+  children: React.ReactNode
+  auto?: boolean
+}) {
+  return (
+    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+      <span>{children}</span>
+      {auto && <AutoBadge />}
+    </div>
+  )
+}
+
+function EnrichedCard({
+  children,
+  auto,
+}: {
+  children: React.ReactNode
+  auto?: boolean
+}) {
+  return (
+    <Card className={auto ? 'border-dashed bg-background shadow-none' : 'bg-white shadow-none'}>
+      <CardContent className="p-4">{children}</CardContent>
+    </Card>
+  )
+}
+
+function getImageCount(enrichment: BrandEnrichment) {
+  return (enrichment.heroImageUrl ? 1 : 0) + enrichment.productPhotos.length
+}
+
+function createOverrideForm(submission: BrandSubmissionWithRisk): OverrideForm {
+  return {
+    description: submission.description ?? '',
+    productType: submission.brandEnrichment?.productType ?? '',
+    purchaseWebsite: submission.purchaseWebsite ?? '',
+    purchasePinkoi: submission.purchasePinkoi ?? '',
+    purchaseShopee: submission.purchaseShopee ?? '',
+    socialInstagram: submission.socialInstagram ?? '',
+    socialThreads: submission.socialThreads ?? '',
+    socialFacebook: submission.socialFacebook ?? '',
+    otherUrls: submission.otherUrls ?? [],
+  }
+}
+
+type StructuredSuggestedTags = {
+  region?: string
+  values?: string[]
+}
+
+function isStructuredSuggestedTags(value: unknown): value is StructuredSuggestedTags {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function getStructuredSuggestedTagSections(tags: StructuredSuggestedTags) {
+  const region = typeof tags.region === 'string' ? tags.region : undefined
+  const values = Array.isArray(tags.values)
+    ? tags.values.filter((v): v is string => typeof v === 'string')
+    : []
+
+  return { region, values }
+}
+
+export function SubmissionsReviewList({
+  submissions,
+  taxonomyTags,
+}: {
+  submissions: BrandSubmissionWithRisk[]
+  taxonomyTags: ReviewTaxonomyTag[]
+}) {
+  const moderationT = useTranslations('admin.moderation')
+  const [activeTab, setActiveTab] = useState<TabValue>('all')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [rejectingId, setRejectingId] = useState<string | null>(null)
+  const [rejectNotes, setRejectNotes] = useState('')
+  const [overridesById, setOverridesById] = useState<Record<string, OverrideForm>>({})
+  const [error, setError] = useState<string | null>(null)
+  const [warning, setWarning] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+
+  const tagsBySlug = useMemo(
+    () => new Map(taxonomyTags.map((tag) => [tag.slug, tag])),
+    [taxonomyTags]
+  )
+
+  const productTypeTags = useMemo(
+    () => taxonomyTags.filter((tag) => tag.category === 'product_type'),
+    [taxonomyTags]
+  )
+
+  const filtered =
+    activeTab === 'all'
+      ? submissions
+      : submissions.filter((s) => s.status === activeTab)
+
+  function handleRowClick(submission: BrandSubmissionWithRisk) {
+    setExpandedId((prev) => (prev === submission.id ? null : submission.id))
+    setOverridesById((prev) => (
+      prev[submission.id]
+        ? prev
+        : { ...prev, [submission.id]: createOverrideForm(submission) }
+    ))
+    setRejectingId(null)
+    setRejectNotes('')
+    setError(null)
+  }
+
+  function updateOverride<K extends keyof OverrideForm>(
+    id: string,
+    key: K,
+    value: OverrideForm[K]
+  ) {
+    setOverridesById((prev) => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
+        [key]: value,
+      },
+    }))
+  }
+
+  function updateOtherUrl(id: string, index: number, key: keyof OtherUrl, value: string) {
+    const current = overridesById[id]?.otherUrls ?? []
+    updateOverride(
+      id,
+      'otherUrls',
+      current.map((link, linkIndex) => (
+        linkIndex === index ? { ...link, [key]: value } : link
+      ))
+    )
+  }
+
+  function addOtherUrl(id: string) {
+    updateOverride(id, 'otherUrls', [...(overridesById[id]?.otherUrls ?? []), { label: '', url: '' }])
+  }
+
+  function removeOtherUrl(id: string, index: number) {
+    updateOverride(
+      id,
+      'otherUrls',
+      (overridesById[id]?.otherUrls ?? []).filter((_, linkIndex) => linkIndex !== index)
+    )
+  }
+
+  function handleApprove(submission: BrandSubmissionWithRisk) {
+    startTransition(async () => {
+      setError(null)
+      setWarning(null)
+      const result = await approveSubmissionWithOverridesAction(
+        submission.id,
+        overridesById[submission.id] ?? createOverrideForm(submission)
+      )
+      if (result?.error) setError(result.error)
+      else if (result?.imageSyncWarning) {
+        const { synced, failed } = result.imageSyncWarning
+        setWarning(`Approved, but ${failed} of ${synced + failed} image(s) couldn't be downloaded and kept their source URL. Use "Re-sync images" in Brands after fixing the source.`)
+      }
+    })
+  }
+
+  function handleReject(id: string) {
+    if (rejectingId !== id) {
+      setRejectingId(id)
+      return
+    }
+    startTransition(async () => {
+      setError(null)
+      const result = await rejectSubmissionAction(id, rejectNotes)
+      if (result?.error) setError(result.error)
+      else {
+        setRejectingId(null)
+        setRejectNotes('')
+      }
+    })
+  }
+
+  const tabCounts = useMemo(() => ({
+    all: submissions.length,
+    pending: submissions.filter((s) => s.status === 'pending').length,
+    approved: submissions.filter((s) => s.status === 'approved').length,
+    rejected: submissions.filter((s) => s.status === 'rejected').length,
+  }), [submissions])
+
+  return (
+    <div>
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as TabValue)}
+      >
+        <TabsList>
+          <TabsTrigger value="all">全部 ({tabCounts.all})</TabsTrigger>
+          <TabsTrigger value="pending">
+            待審核 ({tabCounts.pending})
+          </TabsTrigger>
+          <TabsTrigger value="approved">
+            已核准 ({tabCounts.approved})
+          </TabsTrigger>
+          <TabsTrigger value="rejected">
+            已拒絕 ({tabCounts.rejected})
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      <div className="mt-4 rounded-lg border bg-white">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>品牌</TableHead>
+              <TableHead className="w-16">分類</TableHead>
+              <TableHead className="w-16">圖片</TableHead>
+              <TableHead className="w-16">標籤</TableHead>
+              <TableHead>提交者</TableHead>
+              <TableHead>日期</TableHead>
+              <TableHead>來源</TableHead>
+              <TableHead>狀態</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.map((submission) => {
+              const form = overridesById[submission.id] ?? createOverrideForm(submission)
+              const hasEnrichment = Boolean(submission.brandEnrichment)
+
+              return (
+                <Fragment key={submission.id}>
+                  <TableRow
+                    className="cursor-pointer hover:bg-[#F5F4F1]"
+                    onClick={() => handleRowClick(submission)}
+                  >
+                    <TableCell className="font-medium">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>{submission.brandName}</span>
+                        {submission.moderationRiskLevel === 'high' && (
+                          <Badge className="bg-destructive text-xs text-white">{moderationT('riskHigh')}</Badge>
+                        )}
+                        {submission.moderationRiskLevel === 'medium' && (
+                          <Badge className="border border-amber-200 bg-amber-50 text-xs text-amber-700">{moderationT('riskMedium')}</Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {submission.brandEnrichment ? (
+                        submission.brandEnrichment.productType.trim() ? (
+                          <ReadinessBadge tone="green">✓</ReadinessBadge>
+                        ) : (
+                          <ReadinessBadge tone="amber">!</ReadinessBadge>
+                        )
+                      ) : (
+                        <ReadinessBadge tone="grey">-</ReadinessBadge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {submission.brandEnrichment ? (
+                        (() => {
+                          const count = getImageCount(submission.brandEnrichment)
+                          const tone = count >= 2 ? 'green' : count === 1 ? 'amber' : 'red'
+
+                          return <ReadinessBadge tone={tone}>{count}</ReadinessBadge>
+                        })()
+                      ) : (
+                        <ReadinessBadge tone="grey">-</ReadinessBadge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {submission.brandEnrichment ? (
+                        (() => {
+                          const count = submission.brandEnrichment.tagSlugs.length
+                          const tone = count >= 3 ? 'green' : count >= 1 ? 'amber' : 'red'
+
+                          return <ReadinessBadge tone={tone}>{count}</ReadinessBadge>
+                        })()
+                      ) : (
+                        <ReadinessBadge tone="grey">-</ReadinessBadge>
+                      )}
+                    </TableCell>
+                    <TableCell>{submission.submitterEmail}</TableCell>
+                    <TableCell>{formatDate(submission.submittedAt)}</TableCell>
+                    <TableCell>
+                      {submission.isBrandOwner ? (
+                        <span className="inline-flex items-center rounded-full bg-foreground px-2 py-0.5 text-xs font-semibold text-white">
+                          Owner
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-[#EAF3E8] px-2 py-0.5 text-xs font-semibold text-[#2D5A27]">
+                          Community
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={submission.status} />
+                    </TableCell>
+                  </TableRow>
+
+                  {expandedId === submission.id && (
+                    <TableRow key={`${submission.id}-expanded`}>
+                      <TableCell colSpan={8} className="bg-background p-6">
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">
+                              Review Readiness
+                            </p>
+                            {submission.brandEnrichment ? (
+                              <div className="mt-2 space-y-2 text-sm">
+                                <p>
+                                  <span className="font-medium">Product Type: </span>
+                                  {submission.brandEnrichment.productType.trim() ? (
+                                    submission.brandEnrichment.productType
+                                  ) : (
+                                    <span className="text-muted-foreground">Not set</span>
+                                  )}
+                                </p>
+                                <p>
+                                  <span className="font-medium">Images: </span>
+                                  Hero {submission.brandEnrichment.heroImageUrl ? '✓' : '✗'} · Photos:{' '}
+                                  {submission.brandEnrichment.productPhotos.length}
+                                </p>
+                                <div>
+                                  <p className="font-medium">Tags:</p>
+                                  <div className="mt-1 space-y-1">
+                                    {(() => {
+                                      const groupedTags = new Map<string, string[]>()
+
+                                      for (const category of TAG_CATEGORIES) {
+                                        groupedTags.set(category, [])
+                                      }
+
+                                      for (const slug of submission.brandEnrichment.tagSlugs) {
+                                        const tag = tagsBySlug.get(slug)
+                                        if (tag) {
+                                          const list = groupedTags.get(tag.category) ?? []
+                                          list.push(tag.nameZh ?? tag.name)
+                                          groupedTags.set(tag.category, list)
+                                        }
+                                      }
+
+                                      const entries = Array.from(groupedTags.entries()).filter(
+                                        ([, tags]) => tags.length > 0
+                                      )
+
+                                      if (entries.length === 0) {
+                                        return (
+                                          <p className="text-muted-foreground">No tags assigned</p>
+                                        )
+                                      }
+
+                                      return entries.map(([category, tags]) => (
+                                        <p key={category}>
+                                          <span className="capitalize">
+                                            {category.replace('_', ' ')}:
+                                          </span>{' '}
+                                          {tags.join(', ')}
+                                        </p>
+                                      ))
+                                    })()}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="mt-2 text-sm text-muted-foreground">
+                                No brand record linked (legacy submission)
+                              </p>
+                            )}
+                          </div>
+
+                          <EnrichedCard auto={hasEnrichment}>
+                            <div className="space-y-3">
+                              <FieldLabel auto={hasEnrichment}>Description</FieldLabel>
+                              <Textarea
+                                value={form.description ?? ''}
+                                onChange={(e) => updateOverride(submission.id, 'description', e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                placeholder="Brand description"
+                                className={hasEnrichment ? 'border-dashed bg-white/80' : undefined}
+                              />
+                            </div>
+                          </EnrichedCard>
+
+                          <EnrichedCard auto={hasEnrichment}>
+                            <div className="space-y-3">
+                              <FieldLabel auto={hasEnrichment}>Product type</FieldLabel>
+                              <Select
+                                value={form.productType || PRODUCT_TYPE_EMPTY}
+                                onValueChange={(value) =>
+                                  updateOverride(
+                                    submission.id,
+                                    'productType',
+                                    value === PRODUCT_TYPE_EMPTY ? '' : value
+                                  )
+                                }
+                              >
+                                <SelectTrigger
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={hasEnrichment ? 'border-dashed bg-white/80' : undefined}
+                                >
+                                  <SelectValue placeholder="Select product type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value={PRODUCT_TYPE_EMPTY}>Not set</SelectItem>
+                                  {form.productType &&
+                                    !productTypeTags.some((tag) => tag.slug === form.productType) && (
+                                      <SelectItem value={form.productType}>
+                                        {form.productType}
+                                      </SelectItem>
+                                    )}
+                                  {productTypeTags.map((tag) => (
+                                    <SelectItem key={tag.slug} value={tag.slug}>
+                                      {tag.nameZh ? `${tag.nameZh} (${tag.name})` : tag.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </EnrichedCard>
+
+                          <EnrichedCard auto={hasEnrichment}>
+                            <div className="space-y-3">
+                              <FieldLabel auto={hasEnrichment}>Purchase links</FieldLabel>
+                              <div className="grid gap-3 sm:grid-cols-3">
+                                <Input
+                                  type="url"
+                                  placeholder="Website URL"
+                                  value={form.purchaseWebsite ?? ''}
+                                  onChange={(e) => updateOverride(submission.id, 'purchaseWebsite', e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={hasEnrichment ? 'border-dashed bg-white/80' : undefined}
+                                />
+                                <Input
+                                  type="url"
+                                  placeholder="Pinkoi URL"
+                                  value={form.purchasePinkoi ?? ''}
+                                  onChange={(e) => updateOverride(submission.id, 'purchasePinkoi', e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={hasEnrichment ? 'border-dashed bg-white/80' : undefined}
+                                />
+                                <Input
+                                  type="url"
+                                  placeholder="Shopee URL"
+                                  value={form.purchaseShopee ?? ''}
+                                  onChange={(e) => updateOverride(submission.id, 'purchaseShopee', e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={hasEnrichment ? 'border-dashed bg-white/80' : undefined}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                {form.otherUrls.map((link, index) => (
+                                  <div key={`${index}-${link.label}`} className="grid gap-2 sm:grid-cols-[160px_1fr_auto]">
+                                    <Input
+                                      placeholder="Label"
+                                      value={link.label}
+                                      onChange={(e) => updateOtherUrl(submission.id, index, 'label', e.target.value)}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className={hasEnrichment ? 'border-dashed bg-white/80' : undefined}
+                                    />
+                                    <Input
+                                      type="url"
+                                      placeholder="URL"
+                                      value={link.url}
+                                      onChange={(e) => updateOtherUrl(submission.id, index, 'url', e.target.value)}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className={hasEnrichment ? 'border-dashed bg-white/80' : undefined}
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        removeOtherUrl(submission.id, index)
+                                      }}
+                                    >
+                                      Remove
+                                    </Button>
+                                  </div>
+                                ))}
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    addOtherUrl(submission.id)
+                                  }}
+                                >
+                                  Add link
+                                </Button>
+                              </div>
+                            </div>
+                          </EnrichedCard>
+
+                          <EnrichedCard auto={hasEnrichment}>
+                            <div className="space-y-3">
+                              <FieldLabel auto={hasEnrichment}>Social links</FieldLabel>
+                              <div className="grid gap-3 sm:grid-cols-3">
+                                <Input
+                                  type="url"
+                                  placeholder="Instagram URL"
+                                  value={form.socialInstagram ?? ''}
+                                  onChange={(e) => updateOverride(submission.id, 'socialInstagram', e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={hasEnrichment ? 'border-dashed bg-white/80' : undefined}
+                                />
+                                <Input
+                                  type="url"
+                                  placeholder="Threads URL"
+                                  value={form.socialThreads ?? ''}
+                                  onChange={(e) => updateOverride(submission.id, 'socialThreads', e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={hasEnrichment ? 'border-dashed bg-white/80' : undefined}
+                                />
+                                <Input
+                                  type="url"
+                                  placeholder="Facebook URL"
+                                  value={form.socialFacebook ?? ''}
+                                  onChange={(e) => updateOverride(submission.id, 'socialFacebook', e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={hasEnrichment ? 'border-dashed bg-white/80' : undefined}
+                                />
+                              </div>
+                            </div>
+                          </EnrichedCard>
+
+                          {submission.brandEnrichment && (
+                            <EnrichedCard auto>
+                              <div className="space-y-3">
+                                <FieldLabel auto>Hero image / product images</FieldLabel>
+                                <div className="grid gap-3 sm:grid-cols-4">
+                                  {submission.brandEnrichment.heroImageUrl && (
+                                    <a
+                                      href={submission.brandEnrichment.heroImageUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="block overflow-hidden rounded-md border border-dashed bg-white"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={submission.brandEnrichment.heroImageUrl}
+                                        alt={`${submission.brandName} hero`}
+                                        className="aspect-square w-full object-cover"
+                                      />
+                                      <span className="block px-2 py-1 text-xs text-muted-foreground">Hero</span>
+                                    </a>
+                                  )}
+                                  {submission.brandEnrichment.productPhotos.map((url, index) => (
+                                    <a
+                                      key={url}
+                                      href={url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="block overflow-hidden rounded-md border border-dashed bg-white"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={url}
+                                        alt={`${submission.brandName} product ${index + 1}`}
+                                        className="aspect-square w-full object-cover"
+                                      />
+                                      <span className="block px-2 py-1 text-xs text-muted-foreground">
+                                        Product {index + 1}
+                                      </span>
+                                    </a>
+                                  ))}
+                                </div>
+                                {!submission.brandEnrichment.heroImageUrl &&
+                                  submission.brandEnrichment.productPhotos.length === 0 && (
+                                    <p className="text-sm text-muted-foreground">No images enriched</p>
+                                  )}
+                              </div>
+                            </EnrichedCard>
+                          )}
+
+                          {submission.unifiedBusinessNumber && (
+                            <div className="text-sm text-muted-foreground">
+                              <span className="font-medium text-foreground">
+                                統一編號：
+                              </span>
+                              <span className="font-mono">
+                                {submission.unifiedBusinessNumber}
+                              </span>
+                            </div>
+                          )}
+
+                          {!submission.isBrandOwner && submission.sourceAttribution && (
+                            <div>
+                              <p className="text-sm font-medium text-muted-foreground">
+                                How do you know this brand?
+                              </p>
+                              <p className="mt-1 text-sm">
+                                {SOURCE_ATTRIBUTION_LABELS[submission.sourceAttribution]}
+                              </p>
+                            </div>
+                          )}
+
+                          {submission.productTypeNote?.trim() && (
+                            <div>
+                              <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                                Taxonomy gap
+                              </span>
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                {submission.productTypeNote}
+                              </p>
+                            </div>
+                          )}
+
+                          {(() => {
+                            const suggestedTags = submission.suggestedTags as unknown
+
+                            if (Array.isArray(suggestedTags)) {
+                              return suggestedTags.length > 0 && (
+                                <div>
+                                  <p className="text-sm font-medium text-muted-foreground">
+                                    Suggested Tags
+                                  </p>
+                                  <div className="mt-1 flex flex-wrap gap-2">
+                                    {suggestedTags.map((tag) => (
+                                      <span
+                                        key={tag}
+                                        className="inline-flex rounded-full bg-[#F5F4F1] px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+                                      >
+                                        {tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )
+                            }
+
+                            if (isStructuredSuggestedTags(suggestedTags)) {
+                              const { region, values } =
+                                getStructuredSuggestedTagSections(suggestedTags)
+
+                              return (region || values.length > 0) && (
+                                <div>
+                                  <p className="text-sm font-medium text-muted-foreground">
+                                    Suggested Tags
+                                  </p>
+                                  <div className="mt-1 space-y-1 text-sm">
+                                    {region && <p>Region: {region}</p>}
+                                    {values.length > 0 && (
+                                      <p>Values: {values.join(', ')}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            }
+
+                            return null
+                          })()}
+
+                          {error && (
+                            <p className="text-sm text-destructive">{error}</p>
+                          )}
+                          {warning && (
+                            <p className="text-sm text-amber-700">{warning}</p>
+                          )}
+
+                          {submission.status === 'pending' && (
+                            <div className="flex items-start gap-3">
+                              <Button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleApprove(submission)
+                                }}
+                                disabled={isPending}
+                                className="bg-[#E06B3F] hover:bg-[#c95d36]"
+                              >
+                                核准
+                              </Button>
+                              <div className="flex-1">
+                                {rejectingId === submission.id && (
+                                  <Textarea
+                                    placeholder="退件原因（選填）"
+                                    value={rejectNotes}
+                                    onChange={(e) =>
+                                      setRejectNotes(e.target.value)
+                                    }
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="mb-2"
+                                  />
+                                )}
+                                <Button
+                                  variant="destructive"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleReject(submission.id)
+                                  }}
+                                  disabled={isPending}
+                                >
+                                  {rejectingId === submission.id
+                                    ? '確認拒絕'
+                                    : '拒絕'}
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
+              )
+            })}
+            {filtered.length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={8}
+                  className="py-8 text-center text-muted-foreground"
+                >
+                  找不到提交記錄。
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  )
+}

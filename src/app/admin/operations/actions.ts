@@ -3,15 +3,19 @@
 import { headers } from 'next/headers'
 import { isActingAsAdmin } from '@/lib/auth/admin-mode'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { ENRICH_PHASES } from '@/lib/services/curation-operations'
 import type { Json } from '@/lib/supabase/database.types'
+
+export { ENRICH_PHASES }
 
 export type CurationJobParams = Record<string, Json | undefined> & {
   slugs?: string[]
   stopAfter?: number
   phases?: string[]
+  status?: string
 }
 
-export type CurationOperation = 'cleanup' | 'enrich' | 'auto-tag' | 'set-visibility'
+export type CurationOperation = 'enrich' | 'auto-tag' | 'set-visibility'
 type StartCurationOperation = CurationOperation | 'clean-names'
 
 export type CurationJob = {

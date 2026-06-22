@@ -1,13 +1,14 @@
 import { test, expect } from '../fixtures/auth';
 import { gotoSubmitWizard } from '../utils/submit-wizard';
 
-const manualEntryButtonName = '跳過，手動填寫';
+const skipButtonName = '跳過，手動填寫';
 
 // ---------------------------------------------------------------------------
 // Journey: Name cleanup suggestion
-// After the user types a dirty brand name and blurs the field, a suggestion
-// alert appears with the cleaned name and an Apply button. Clicking Apply
-// replaces the field value and dismisses the alert.
+// After the user skips the URL step and enters a dirty brand name then blurs
+// the field, a suggestion alert appears with the cleaned name and an Apply
+// button. Clicking Apply replaces the field value and dismisses the alert.
+// The form is now a single screen (no step indicator or Next/Back buttons).
 // ---------------------------------------------------------------------------
 test.describe('Submit name suggestion', () => {
   test('dirty name with emoji shows suggestion alert; Apply updates field and dismisses alert', async ({
@@ -17,9 +18,9 @@ test.describe('Submit name suggestion', () => {
 
     await gotoSubmitWizard(userPage);
 
-    // Skip URL scraping step → land on BrandInfoStep
+    // Skip URL phase → land on single-screen brand form
     const skipBtn = userPage.getByRole('button', {
-      name: manualEntryButtonName,
+      name: skipButtonName,
       exact: true,
     });
     await expect(skipBtn).toBeVisible({ timeout: 5_000 });
@@ -69,7 +70,7 @@ test.describe('Submit name suggestion', () => {
     await gotoSubmitWizard(userPage);
 
     const skipBtn = userPage.getByRole('button', {
-      name: manualEntryButtonName,
+      name: skipButtonName,
       exact: true,
     });
     await expect(skipBtn).toBeVisible({ timeout: 5_000 });

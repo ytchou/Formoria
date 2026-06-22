@@ -4,27 +4,16 @@ import { useState, useMemo, useTransition, useEffect, useCallback, useRef } from
 import { useTranslations } from 'next-intl'
 import { useForm, FormProvider, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ArrowLeft, ArrowRight, Send } from 'lucide-react'
-import { StepIndicator } from './StepIndicator'
+import { Send } from 'lucide-react'
 import { UrlStep } from './UrlStep'
 import type { UrlStepLinks } from './UrlStep'
 import { BrandInfoStep } from './BrandInfoStep'
-import { TagsStep } from './TagsStep'
-import { ReviewStep } from './ReviewStep'
-import {
-  getBrandInfoSchema,
-  getProductsSchema,
-  getLinksSchema,
-  getReviewSchema,
-  getFullSubmissionSchema,
-  type SubmissionFormData,
-} from '@/lib/validations/submission'
+import { getFullSubmissionSchema, type SubmissionFormData } from '@/lib/validations/submission'
 import { useRouter } from '@/i18n/navigation'
 import { submitBrand } from '@/app/[locale]/submit/actions'
 import { deriveCategoryFromProductType } from '@/lib/taxonomy/ontology'
 import {
   trackSubmissionFormOpened,
-  trackSubmissionFormStepCompleted,
   trackSubmissionCompleted,
   trackSubmissionFormAbandoned,
   SUBMISSION_STEP_NAMES,
@@ -33,14 +22,6 @@ import {
 import type { TaxonomyTag } from '@/lib/types'
 import type { ScrapedBrandData, PhotoItem } from '@/lib/types/scraper'
 import type { SourceAttribution } from '@/lib/types/submission'
-
-const STEP_COUNT = 3
-
-const STEP_FIELDS: (keyof SubmissionFormData)[][] = [
-  ['name', 'description', 'region', 'heroImageUrl', 'retailLocations'],
-  ['productType', 'productTypeNote', 'valueTags'],
-  ['pdpaConsent'],
-]
 
 type SubmitWizardProps = {
   regionTags?: TaxonomyTag[]
@@ -76,7 +57,6 @@ function mapScrapedToPhotos(data: ScrapedBrandData): PhotoItem[] {
 
 export function SubmitWizard({
   regionTags = [],
-  valueTags = [],
   source = 'hero_cta',
 }: SubmitWizardProps) {
   const t = useTranslations('submit')
@@ -88,29 +68,7 @@ export function SubmitWizard({
     [t]
   )
 
-  const stepSchemas = useMemo(() => {
-    const allFields = getBrandInfoSchema(tSchema)
-      .merge(getProductsSchema(tSchema))
-      .merge(getLinksSchema(tSchema))
-    return [
-      allFields.pick({
-        name: true,
-        description: true,
-        region: true,
-        heroImageUrl: true,
-        retailLocations: true,
-        unifiedBusinessNumber: true,
-      }),
-      allFields.pick({
-        productType: true,
-        productTypeNote: true,
-        valueTags: true,
-      }),
-      getReviewSchema(tSchema),
-    ]
-  }, [tSchema])
   const [phase, setPhase] = useState<WizardPhase>('url')
-  const [currentStep, setCurrentStep] = useState(0)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [photos, setPhotos] = useState<PhotoItem[]>([])
@@ -120,8 +78,6 @@ export function SubmitWizard({
 
   const mountTimeRef = useRef<number>(0)
   const lastStepRef = useRef<SubmissionStepName>(SUBMISSION_STEP_NAMES[0])
-
-  const sessionId = useMemo(() => crypto.randomUUID(), [])
 
   useEffect(() => {
     mountTimeRef.current = Date.now()
@@ -148,21 +104,38 @@ export function SubmitWizard({
     defaultValues: {
       name: '',
       description: '',
+      website: '',
       region: '',
       valueTags: [],
       heroImageUrl: '',
       productType: '',
       productTypeNote: '',
       productPhotos: [],
-      purchaseLinks: [{ platform: '', url: '' }],
+      purchaseLinks: [],
       socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
       retailLocations: [],
       pdpaConsent: false,
       turnstileToken: '',
       _honeypot: '',
+      isOwner: false,
+      sourceAttribution: undefined,
     },
     mode: 'onTouched',
   })
+
+  const handleOwnerChange = useCallback((nextIsOwner: boolean) => {
+    setIsOwner(nextIsOwner)
+    methods.setValue('isOwner', nextIsOwner, { shouldValidate: phase === 'form' })
+    if (nextIsOwner) {
+      setSourceAttribution(undefined)
+      methods.setValue('sourceAttribution', undefined, { shouldValidate: phase === 'form' })
+    }
+  }, [methods, phase])
+
+  const handleAttributionChange = useCallback((attribution: SourceAttribution | undefined) => {
+    setSourceAttribution(attribution)
+    methods.setValue('sourceAttribution', attribution, { shouldValidate: phase === 'form' })
+  }, [methods, phase])
 
   const handleUrlSuccess = useCallback(
     (data: ScrapedBrandData, links: UrlStepLinks) => {
@@ -172,12 +145,14 @@ export function SubmitWizard({
       if (data.description) {
         methods.setValue('description', data.description)
       }
+      const website = links.websiteUrl || data.websiteUrl
+      methods.setValue('website', website)
 
       methods.setValue('socialLinks', {
         instagram: links.instagram || data.socialInstagram || '',
         threads: links.threads || data.socialThreads || '',
         facebook: links.facebook || data.socialFacebook || '',
-        website: links.websiteUrl || data.websiteUrl,
+        website,
       })
 
       const validPurchaseLinks = links.purchaseLinks.filter(l => l.platform || l.url)
@@ -193,6 +168,7 @@ export function SubmitWizard({
 
   const handleUrlSkip = useCallback((links: UrlStepLinks) => {
     if (links.websiteUrl || links.instagram || links.threads || links.facebook) {
+      methods.setValue('website', links.websiteUrl)
       methods.setValue('socialLinks', {
         instagram: links.instagram,
         threads: links.threads,
@@ -207,43 +183,22 @@ export function SubmitWizard({
     setPhase('form')
   }, [methods])
 
-  const handleNext = async () => {
-    const schema = stepSchemas[currentStep]
-    const currentValues = methods.getValues()
-
-    const result = schema.safeParse(currentValues)
-    if (!result.success) {
-      await methods.trigger(STEP_FIELDS[currentStep])
-      setTimeout(() => {
-        const firstError = document.querySelector('.text-red-600')
-        firstError?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }, 50)
-      return
-    }
-
-    const nextStep = Math.min(currentStep + 1, STEP_COUNT - 1)
-    setCurrentStep(nextStep)
-
-    const stepName = SUBMISSION_STEP_NAMES[currentStep as keyof typeof SUBMISSION_STEP_NAMES]
-    lastStepRef.current = stepName
-    trackSubmissionFormStepCompleted(stepName)
-  }
-
-  const handleBack = () => {
-    setCurrentStep((prev) => Math.max(prev - 1, 0))
-  }
-
-  const handleEditStep = (stepIndex: number) => {
-    setCurrentStep(stepIndex)
-  }
-
   // eslint-disable-next-line react-hooks/refs
   const handleSubmit = methods.handleSubmit((data) => {
     setSubmitError(null)
+    lastStepRef.current = SUBMISSION_STEP_NAMES[1]
 
     const photoUrls = photos.map((p) => p.url)
+    const website = data.website ?? data.socialLinks?.website ?? ''
     const mergedData = {
       ...(data as SubmissionFormData),
+      website,
+      socialLinks: {
+        instagram: data.socialLinks?.instagram ?? '',
+        threads: data.socialLinks?.threads ?? '',
+        facebook: data.socialLinks?.facebook ?? '',
+        website,
+      },
       productType: (data as SubmissionFormData).productType ?? '',
       productTypeNote: (data as SubmissionFormData).productTypeNote ?? '',
       productPhotos: [...photoUrls, ...(data as SubmissionFormData).productPhotos.filter((url: string) => !photoUrls.includes(url))],
@@ -269,8 +224,6 @@ export function SubmitWizard({
     })
   })
 
-  const uploadPath = `brands/${sessionId}`
-
   return (
     <div className="mx-auto max-w-3xl space-y-8 px-4 py-12">
       <div className="text-center">
@@ -288,95 +241,45 @@ export function SubmitWizard({
             onSuccess={handleUrlSuccess}
             onSkip={handleUrlSkip}
             isOwner={isOwner}
-            onOwnerChange={setIsOwner}
-            onAttributionChange={setSourceAttribution}
+            onOwnerChange={handleOwnerChange}
+            onAttributionChange={handleAttributionChange}
           />
         </div>
       ) : (
-        <>
-          <StepIndicator
-            steps={[
-              t('wizard.steps.brandInfo'),
-              t('wizard.steps.tags'),
-              t('wizard.steps.review'),
-            ]}
-            currentStep={currentStep}
-          />
+        <FormProvider {...methods}>
+          <form onSubmit={handleSubmit}>
+            <div className="rounded-xl border border-border bg-white p-8 shadow-sm">
+              <BrandInfoStep
+                regionTags={regionTags}
+                isOwner={isOwner}
+                onOwnerChange={handleOwnerChange}
+                sourceAttribution={sourceAttribution}
+                onAttributionChange={handleAttributionChange}
+              />
 
-          <FormProvider {...methods}>
-            <form onSubmit={handleSubmit}>
-              <div className="rounded-xl border border-border bg-white p-8 shadow-sm">
-                {currentStep === 0 && (
-                  <BrandInfoStep
-                    regionTags={regionTags}
-                    uploadPath={uploadPath}
-                    photos={photos}
-                    onPhotosChange={setPhotos}
-                    onNext={handleNext}
-                  />
-                )}
-                {currentStep === 1 && (
-                  <TagsStep valueTags={valueTags} />
-                )}
-                {currentStep === 2 && (
-                  <ReviewStep
-                    onEditStep={handleEditStep}
-                    regionTags={regionTags}
-                    valueTags={valueTags}
-                  />
-                )}
+              {submitError && (
+                <p role="alert" className="mt-4 text-sm text-red-600">{submitError}</p>
+              )}
 
-                {submitError && (
-                  <p role="alert" className="mt-4 text-sm text-red-600">{submitError}</p>
-                )}
-
-                {/* Navigation */}
-                <div className="mt-8 flex items-center justify-between">
-                  {currentStep > 0 ? (
-                    <button
-                      type="button"
-                      onClick={handleBack}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-5 py-2.5 text-sm font-medium text-foreground hover:bg-secondary"
-                    >
-                      <ArrowLeft className="h-4 w-4" />
-                      {t('wizard.back')}
-                    </button>
+              <div className="mt-8 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-cta px-5 py-2.5 text-sm font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-50"
+                >
+                  {isPending ? (
+                    t('wizard.submitting')
                   ) : (
-                    <span />
+                    <>
+                      <Send className="h-4 w-4" />
+                      {t('wizard.submitBrand')}
+                    </>
                   )}
-
-                  {currentStep === 0 ? (
-                    <span />
-                  ) : currentStep < STEP_COUNT - 1 ? (
-                    <button
-                      type="button"
-                      onClick={handleNext}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-cta px-5 py-2.5 text-sm font-medium text-cta-foreground hover:bg-cta/90"
-                    >
-                      {t('wizard.next')}
-                      <ArrowRight className="h-4 w-4" />
-                    </button>
-                  ) : (
-                    <button
-                      type="submit"
-                      disabled={isPending}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-cta px-5 py-2.5 text-sm font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-50"
-                    >
-                      {isPending ? (
-                        t('wizard.submitting')
-                      ) : (
-                        <>
-                          <Send className="h-4 w-4" />
-                          {t('wizard.submitBrand')}
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
+                </button>
               </div>
-            </form>
-          </FormProvider>
-        </>
+            </div>
+          </form>
+        </FormProvider>
       )}
     </div>
   )

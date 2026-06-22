@@ -1,50 +1,19 @@
-import type { Brand, OtherUrl } from '@/lib/types'
+import type { Brand } from '@/lib/types'
 import type { SourceAttribution } from '@/lib/types/submission'
-import type { ModerationFlag } from '@/lib/services/moderation'
-import { createBrand } from '@/lib/services/brands'
-import { saveModerationFlags } from '@/lib/services/moderation'
+import { createBrand, generateSlug } from '@/lib/services/brands'
 import { createSubmission } from '@/lib/services/submissions'
 
 export interface SubmitBrandForReviewParams {
   name: string
-  slug: string
-  description: string
-  heroImageUrl: string | null
-  category: string | null
-  purchaseLinks: Array<{ url: string; platform: string; label: string }>
-  socialLinks: {
-    instagram?: string
-    threads?: string
-    facebook?: string
-    officialWebsite?: string
-  }
-  socialInstagram?: string | null
-  socialThreads?: string | null
-  socialFacebook?: string | null
-  purchaseWebsite?: string | null
-  purchasePinkoi?: string | null
-  purchaseShopee?: string | null
-  otherUrls?: OtherUrl[]
-  retailLocations: Array<{ name: string; address: string; latitude: number; longitude: number }>
-  productPhotos: string[]
-  contactEmail: string | null
-  brandHighlights: string | null
-  unifiedBusinessNumber: string | null
-
-  submitterEmail: string
-  submitterName: string | null
-  isBrandOwner: boolean
+  website?: string
+  region: string
+  isOwner?: boolean
+  pdpaConsent?: boolean
   sourceAttribution?: SourceAttribution | null
-  pdpaConsentAt: string
-
-  region?: string | null
-  valueTags?: string[]
-  productType?: string
-  productTypeNote?: string | null
-
-  moderationFlags?: ModerationFlag[]
-  moderatorUserId: string
-  onModerationFlagsError?: (error: unknown) => void
+  ubn?: string | null
+  retailLocations?: Array<{ name: string; address: string; latitude?: number; longitude?: number }>
+  submitterEmail: string
+  submitterName?: string
 }
 
 export interface SubmitBrandForReviewResult {
@@ -52,106 +21,62 @@ export interface SubmitBrandForReviewResult {
   submissionId: string
 }
 
-function getSubmittedProductType(params: SubmitBrandForReviewParams): string | undefined {
-  if (params.productType) {
-    return params.productType
-  }
-
-  const legacyProductTypes = (params as SubmitBrandForReviewParams & { productTypes?: unknown })
-    .productTypes
-  const productType = Array.isArray(legacyProductTypes)
-    ? legacyProductTypes.find((item): item is string => typeof item === 'string')
-    : undefined
-
-  if (productType) {
-    return productType
-  }
-
-  if (params.productTypeNote?.trim()) {
-    return 'crafts'
-  }
-
-  return undefined
-}
-
 export async function submitBrandForReview(
   params: SubmitBrandForReviewParams
 ): Promise<SubmitBrandForReviewResult> {
-  const productType = getSubmittedProductType(params)
-  const purchaseWebsite = params.purchaseWebsite ?? params.socialLinks.officialWebsite ?? null
-  const purchasePinkoi =
-    params.purchasePinkoi ??
-    params.purchaseLinks.find((link) => link.platform.toLowerCase() === 'pinkoi')?.url ??
-    null
-  const purchaseShopee =
-    params.purchaseShopee ??
-    params.purchaseLinks.find((link) => link.platform.toLowerCase() === 'shopee')?.url ??
-    null
-  const otherUrls = params.otherUrls ?? []
+  const retailLocations = (params.retailLocations ?? []).map((location) => ({
+    ...location,
+    latitude: 0,
+    longitude: 0,
+  }))
+  const unifiedBusinessNumber = params.ubn ?? null
 
   const brand = await createBrand({
     name: params.name,
-    slug: params.slug,
-    description: params.description,
-    heroImageUrl: params.heroImageUrl,
+    slug: generateSlug(params.name),
+    description: null,
+    heroImageUrl: null,
     status: 'pending',
     isVerified: false,
     isDemo: false,
-    category: params.category,
+    category: null,
     foundingYear: null,
-    socialInstagram: params.socialInstagram ?? params.socialLinks.instagram ?? null,
-    socialThreads: params.socialThreads ?? params.socialLinks.threads ?? null,
-    socialFacebook: params.socialFacebook ?? params.socialLinks.facebook ?? null,
-    purchaseWebsite,
-    purchasePinkoi,
-    purchaseShopee,
-    otherUrls,
-    retailLocations: params.retailLocations,
-    productPhotos: params.productPhotos,
-    contactEmail: params.contactEmail,
-    brandHighlights: params.brandHighlights,
+    socialInstagram: null,
+    socialThreads: null,
+    socialFacebook: null,
+    purchaseWebsite: params.website ?? null,
+    purchasePinkoi: null,
+    purchaseShopee: null,
+    otherUrls: [],
+    retailLocations,
+    productPhotos: [],
+    contactEmail: params.submitterEmail,
+    brandHighlights: null,
     siteContent: null,
-    unifiedBusinessNumber: params.unifiedBusinessNumber,
-    productType,
+    unifiedBusinessNumber,
+    productType: '',
   })
-
-  if (params.moderationFlags?.length) {
-    try {
-      await saveModerationFlags(brand.id, params.moderatorUserId, params.moderationFlags)
-    } catch (error) {
-      if (!params.onModerationFlagsError) {
-        throw error
-      }
-      params.onModerationFlagsError(error)
-    }
-  }
-
-  const suggestedTags = {
-    ...(params.region ? { region: params.region } : {}),
-    ...(params.valueTags?.length ? { values: params.valueTags } : {}),
-    ...(productType ? { productType } : {}),
-  } as unknown as Parameters<typeof createSubmission>[0]['suggestedTags']
 
   const submission = await createSubmission({
     brandId: brand.id,
     brandName: params.name,
     submitterEmail: params.submitterEmail,
-    submitterName: params.submitterName ?? undefined,
-    description: params.description,
-    websiteUrl: purchaseWebsite,
-    socialInstagram: params.socialInstagram ?? params.socialLinks.instagram ?? null,
-    socialThreads: params.socialThreads ?? params.socialLinks.threads ?? null,
-    socialFacebook: params.socialFacebook ?? params.socialLinks.facebook ?? null,
-    purchaseWebsite,
-    purchasePinkoi,
-    purchaseShopee,
-    otherUrls,
-    suggestedTags,
-    isBrandOwner: params.isBrandOwner,
+    submitterName: params.submitterName,
+    description: null,
+    websiteUrl: params.website,
+    socialInstagram: null,
+    socialThreads: null,
+    socialFacebook: null,
+    purchaseWebsite: params.website,
+    purchasePinkoi: null,
+    purchaseShopee: null,
+    otherUrls: [],
+    suggestedTags: { region: params.region },
+    isBrandOwner: params.isOwner ?? false,
     sourceAttribution: params.sourceAttribution ?? null,
-    pdpaConsentAt: params.pdpaConsentAt,
-    productTypeNote: params.productTypeNote ?? null,
-    unifiedBusinessNumber: params.unifiedBusinessNumber ?? undefined,
+    pdpaConsentAt: params.pdpaConsent ? new Date().toISOString() : undefined,
+    productTypeNote: null,
+    unifiedBusinessNumber: unifiedBusinessNumber ?? undefined,
   })
 
   return { brand, submissionId: submission.id }

@@ -1,4 +1,4 @@
-import { cleanBrandName, detectNonBrand, normalizeSlug } from './brand-cleanup'
+import { cleanBrandName } from './brand-cleanup'
 import { insertSlugRedirect } from './brands'
 import type { BrandFlatLinkColumns } from '@/lib/types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
@@ -12,11 +12,14 @@ import {
   linkColumnFor,
 } from './link-enrichment'
 import { downloadAndStoreImages } from './image-download'
-import { rewriteAndClassifyBrand, rewriteBrandDescription } from './description-rewrite'
+import { rewriteBrandDescription } from './description-rewrite'
 import {
   classifyProductTypeBatch,
+  triageBrandsBatch,
   type BatchClassificationItem,
   type ClassificationResult,
+  type TriageBatchItem,
+  type TriageResult,
 } from './product-type-classifier'
 import { scrapeBrandUrls } from './scraper'
 import { classifyByDomain } from './scraper/input-detector'
@@ -26,6 +29,7 @@ export interface CurationConfig {
   dryRun: boolean
   overwrite?: boolean
   slugs?: string[]
+  status?: 'pending' | 'approved' | 'rejected' | 'hidden'
   limit?: number
   onProgress?: (msg: string) => void
 }
@@ -46,46 +50,16 @@ type CurationBrand = {
   product_type?: string | null
   purchase_website?: string | null
   purchaseWebsite?: string | null
+  is_non_brand?: boolean | null
+  non_brand_reason?: string | null
+  value_tags?: string[] | null
 }
 
-type CleanupPatch = Partial<Pick<CurationBrand, 'name' | 'slug'>> & {
-  [key: string]: string | null | undefined
-}
 type AutoTagPatch = Partial<Pick<CurationBrand, 'product_type'>>
 type SetVisibilityPatch = Partial<Pick<CurationBrand, 'status'>>
-type CurationPatch = CleanupPatch & AutoTagPatch & SetVisibilityPatch
-
-type CleanNamesPhase = {
-  changed: boolean
-  patch: CleanupPatch
-}
-
-type NormalizeSlugsPhase = {
-  changed: boolean
-  patch: Pick<CleanupPatch, 'slug'>
-}
-
-type DetectNonBrandsPhase = {
-  isNonBrand: boolean
-  reason: string | null
-  confidence: 'high' | 'medium' | 'low'
-}
-
-type CleanupPhases = {
-  cleanNames: CleanNamesPhase
-  normalizeSlugs: NormalizeSlugsPhase
-  detectNonBrands: DetectNonBrandsPhase
-}
-
-type ProcessCleanupOptions = {
-  scrapedName?: string | null
-}
-
-type ProcessCleanupResult = {
-  phases: CleanupPhases
-  hasChanges: boolean
-  patch: CleanupPatch
-}
+type TriagePatch = Partial<Pick<CurationBrand, 'slug' | 'product_type' | 'is_non_brand' | 'non_brand_reason' | 'value_tags'>>
+type NamePatch = Partial<Pick<CurationBrand, 'name'>>
+type CurationPatch = NamePatch & AutoTagPatch & SetVisibilityPatch & TriagePatch
 
 type SetVisibilityBrand = Pick<CurationBrand, 'id'> &
   Partial<Pick<CurationBrand, 'status' | 'name' | 'purchase_website' | 'description'>>
@@ -110,6 +84,7 @@ type BrandsSelectQuery = PromiseLike<{
   error: SupabaseError | null
 }> & {
   in: (column: 'slug', values: string[]) => BrandsSelectQuery
+  eq: (column: 'status', value: string) => BrandsSelectQuery
   is: (column: string, value: null) => BrandsSelectQuery
   or: (filter: string) => BrandsSelectQuery
   limit: (count: number) => BrandsSelectQuery
@@ -157,51 +132,6 @@ function purchaseWebsite(brand: { purchase_website?: string | null }): string | 
   return brand.purchase_website ?? (typeof legacyWebsite === 'string' ? legacyWebsite : null)
 }
 
-export function processCleanupBrand(
-  brand: CurationBrand,
-  opts: ProcessCleanupOptions = {}
-): ProcessCleanupResult {
-  const patch: CleanupPatch = {}
-  const currentName = brandName(brand)
-  const nameCleanup = cleanBrandName(currentName)
-  const slugCleanup = normalizeSlug(brand.slug, opts.scrapedName ?? null)
-  const nonBrandDetection = detectNonBrand({
-    name: currentName,
-    description: brand.description,
-    purchaseWebsite: brand.purchaseWebsite ?? brand.purchase_website,
-  })
-
-  const cleanNames: CleanNamesPhase = {
-    changed: nameCleanup.changed,
-    patch: {},
-  }
-
-  if (nameCleanup.changed) {
-    cleanNames.patch.name = nameCleanup.cleanedName
-    patch.name = nameCleanup.cleanedName
-  }
-
-  const normalizeSlugs: NormalizeSlugsPhase = {
-    changed: slugCleanup.newSlug !== null && slugCleanup.newSlug !== brand.slug,
-    patch: {},
-  }
-
-  if (normalizeSlugs.changed && slugCleanup.newSlug) {
-    normalizeSlugs.patch.slug = slugCleanup.newSlug
-    patch.slug = slugCleanup.newSlug
-  }
-
-  return {
-    phases: {
-      cleanNames,
-      normalizeSlugs,
-      detectNonBrands: nonBrandDetection,
-    },
-    hasChanges: Object.keys(patch).length > 0,
-    patch,
-  }
-}
-
 export function processSetVisibilityBrand(
   brand: SetVisibilityBrand
 ): ProcessSetVisibilityResult {
@@ -229,87 +159,6 @@ export function processSetVisibilityBrand(
     changed: true,
     patch: { status: 'hidden' },
   }
-}
-
-export async function runCleanup(
-  config: CurationConfig,
-  supabase: SupabaseLike
-): Promise<OperationResult> {
-  const result: OperationResult = {
-    processed: 0,
-    updated: 0,
-    skipped: 0,
-    errors: [],
-  }
-
-  let query = supabase
-    .from('brands')
-    .select('id, slug, name, status, description, purchase_website')
-
-  if (config.slugs && config.slugs.length > 0) {
-    query = query.in('slug', config.slugs)
-  }
-
-  if (config.limit !== undefined) {
-    query = query.limit(config.limit)
-  }
-
-  const { data, error } = await query
-
-  if (error) {
-    result.errors.push(error.message ?? 'Failed to fetch brands')
-    return result
-  }
-
-  for (const brand of data ?? []) {
-    result.processed += 1
-    config.onProgress?.(`Processing ${brand.slug}`)
-
-    try {
-      const cleanup = processCleanupBrand(brand)
-
-      if (cleanup.phases.detectNonBrands.isNonBrand) {
-        config.onProgress?.(`  [NON-BRAND] ${brand.slug}: ${cleanup.phases.detectNonBrands.reason} (${cleanup.phases.detectNonBrands.confidence})`)
-      }
-
-      if (!cleanup.hasChanges) {
-        result.skipped += 1
-        continue
-      }
-
-      if (cleanup.phases.cleanNames.changed) {
-        config.onProgress?.(`  [CLEAN] ${brand.slug}: "${brandName(brand)}" → "${cleanup.patch.name}"`)
-      }
-
-      if (cleanup.phases.normalizeSlugs.changed) {
-        config.onProgress?.(`  [SLUG] ${brand.slug} → ${cleanup.patch.slug}`)
-      }
-
-      if (!config.dryRun) {
-        const { error: updateError } = await supabase
-          .from('brands')
-          .update(cleanup.patch)
-          .eq('id', brand.id)
-
-        if (updateError) {
-          result.errors.push(`${brand.slug}: ${updateError.message ?? 'Failed to update brand'}`)
-          result.skipped += 1
-          continue
-        }
-
-        if (cleanup.phases.normalizeSlugs.changed && cleanup.phases.normalizeSlugs.patch.slug) {
-          await insertSlugRedirect(brand.slug, cleanup.phases.normalizeSlugs.patch.slug)
-        }
-      }
-
-      result.updated += 1
-    } catch (err) {
-      result.errors.push(`${brand.slug}: ${errorMessage(err)}`)
-      result.skipped += 1
-    }
-  }
-
-  return result
 }
 
 export async function runSetVisibility(
@@ -383,8 +232,19 @@ export async function runSetVisibility(
   return result
 }
 
-type EnrichPhase = 'links' | 'images' | 'descriptions' | 'tags'
-type RunEnrichPhase = EnrichPhase | 'discover'
+export const ENRICH_PHASES = [
+  'clean',
+  'detect',
+  'slugs',
+  'tags',
+  'discover',
+  'links',
+  'images',
+  'descriptions',
+] as const
+
+type EnrichPhase = 'clean' | 'links' | 'images' | 'descriptions' | 'tags'
+type RunEnrichPhase = EnrichPhase | 'discover' | 'detect' | 'slugs'
 
 type EnrichBrand = CurationBrand &
   Partial<BrandFlatLinkColumns> & {
@@ -396,14 +256,32 @@ type EnrichBrand = CurationBrand &
     productPhotos?: string[] | null
   }
 
-type EnrichScrapedData = Partial<ScrapedBrandData> & Partial<BrandFlatLinkColumns>
+type EnrichScrapedData = Partial<ScrapedBrandData> & Partial<BrandFlatLinkColumns> & {
+  snippets?: string[]
+}
 
 type EnrichImagePatch = Partial<{
   hero_image_url: string | null
   product_photos: string[]
 }>
 
+type EnrichCleanPhase = {
+  changed: boolean
+  original?: string
+  cleaned?: string
+}
+
+type EnrichDescriptionsPhase = {
+  changed: boolean
+}
+
+type EnrichProcessPhases = {
+  clean?: EnrichCleanPhase
+  descriptions?: EnrichDescriptionsPhase
+}
+
 type EnrichPatches = {
+  clean?: Partial<Pick<CurationBrand, 'name'>>
   links?: Partial<BrandFlatLinkColumns>
   images?: EnrichImagePatch
   descriptions?: Partial<Pick<EnrichBrand, 'description' | 'brand_highlights'>>
@@ -412,10 +290,12 @@ type EnrichPatches = {
 
 type EnrichPatch = Partial<BrandFlatLinkColumns> &
   EnrichImagePatch &
-  Partial<Pick<EnrichBrand, 'description' | 'brand_highlights' | 'product_type'>>
+  Partial<Pick<EnrichBrand, 'description' | 'brand_highlights' | 'product_type' | 'name'>>
 
 type ProcessEnrichResult = {
+  phases: EnrichProcessPhases
   patches: EnrichPatches
+  patch: EnrichPatch
   hasChanges: boolean
 }
 
@@ -508,13 +388,67 @@ function imagePatchToDbPatch(
   return dbPatch
 }
 
+export function shouldSkipForNonBrand(triageResult: TriageResult | undefined): boolean {
+  return Boolean(
+    triageResult?.isNonBrand === true &&
+    triageResult.confidence === 'high'
+  )
+}
+
+function buildTriagePatch(
+  brand: EnrichBrand,
+  triageResult: TriageResult | undefined,
+  phases: RunEnrichPhase[]
+): TriagePatch {
+  const patch: TriagePatch = {}
+
+  if (!triageResult) {
+    return patch
+  }
+
+  if (phases.includes('detect') && triageResult.isNonBrand) {
+    patch.is_non_brand = true
+    patch.non_brand_reason = triageResult.nonBrandReason
+  }
+
+  if (phases.includes('slugs') && triageResult.slugGenerated && triageResult.slugGenerated !== brand.slug) {
+    patch.slug = triageResult.slugGenerated
+  }
+
+  if (phases.includes('tags') && triageResult.productType !== null) {
+    patch.product_type = triageResult.productType
+  }
+
+  if (phases.includes('tags') && triageResult.valueTags.length > 0) {
+    patch.value_tags = triageResult.valueTags
+  }
+
+  return patch
+}
+
 export function processEnrichBrand(
   brand: EnrichBrand,
   scrapedData: EnrichScrapedData,
   phases: string[]
 ): ProcessEnrichResult {
+  const phaseResults: EnrichProcessPhases = {}
   const patches: EnrichPatches = {}
   const normalizedScrapedData = normalizeScrapedData(scrapedData)
+
+  if (isRequestedPhase(phases, 'clean')) {
+    const nameCleanup = cleanBrandName(brand.name ?? '')
+    phaseResults.clean = nameCleanup.changed
+      ? {
+          changed: true,
+          original: nameCleanup.originalName,
+          cleaned: nameCleanup.cleanedName,
+        }
+      : { changed: false }
+
+    if (nameCleanup.changed) {
+      patches.clean = { name: nameCleanup.cleanedName }
+    }
+  }
 
   if (isRequestedPhase(phases, 'links')) {
     const links = buildLinkEnrichPatch(brand, normalizedScrapedData)
@@ -525,19 +459,25 @@ export function processEnrichBrand(
 
   if (isRequestedPhase(phases, 'descriptions')) {
     const descriptions = buildTextEnrichPatch(brand, normalizedScrapedData)
+    phaseResults.descriptions = { changed: hasPatchValues(descriptions) }
     if (hasPatchValues(descriptions)) {
       patches.descriptions = descriptions
     }
   }
 
+  const patch = mergeEnrichPatches(patches)
+
   return {
+    phases: phaseResults,
     patches,
-    hasChanges: Object.values(patches).some((patch) => patch && hasPatchValues(patch)),
+    patch,
+    hasChanges: hasPatchValues(patch),
   }
 }
 
 export function mergeEnrichPatches(patches: EnrichPatches): EnrichPatch {
   return {
+    ...patches.clean,
     ...patches.links,
     ...patches.images,
     ...patches.descriptions,
@@ -570,6 +510,10 @@ export async function runEnrich(
     query = query.in('slug', config.slugs)
   }
 
+  if (config.status) {
+    query = query.eq('status', config.status)
+  }
+
   if (!config.overwrite) {
     query = query.or('serp_enriched_at.is.null,images_enriched_at.is.null,tags_enriched_at.is.null')
   }
@@ -596,8 +540,9 @@ export async function runEnrich(
     }
 
     const chunk = brandChunks[chunkIndex]
-    const chunkBrandNames = chunk.map(displayBrandName)
+    const hasTriagePhases = phases.includes('detect') || phases.includes('slugs') || phases.includes('tags')
     const activeSteps = [
+      hasTriagePhases && 'triage',
       phases.includes('discover') && 'SERP',
       phases.includes('images') && 'images',
       phases.includes('tags') && !phases.includes('descriptions') && 'tags',
@@ -610,8 +555,25 @@ export async function runEnrich(
     let imageSearchResults = new Map<string, string[]>()
     let batchClassifications = new Map<string, ClassificationResult>()
     let searchError: string | null = null
+    let triageResults = new Map<string, TriageResult>()
 
-    if (phases.includes('discover')) {
+    if (hasTriagePhases) {
+      const triageItems: TriageBatchItem[] = chunk.map((brand) => ({
+        slug: brand.slug,
+        name: displayBrandName(brand),
+        description: brand.description ?? null,
+        website: brand.purchase_website ?? null,
+      }))
+      triageResults = await triageBrandsBatch(triageItems)
+      const nonBrandCount = [...triageResults.values()].filter((result) => result.isNonBrand).length
+      console.log(`Triage: ${triageResults.size} brands processed, ${nonBrandCount} non-brands detected`)
+      config.onProgress?.(`  [TRIAGE] OK — ${triageResults.size} results, ${nonBrandCount} non-brands`)
+    }
+
+    const enrichmentChunk = chunk.filter((brand) => !shouldSkipForNonBrand(triageResults.get(brand.slug)))
+    const chunkBrandNames = enrichmentChunk.map(displayBrandName)
+
+    if (phases.includes('discover') && enrichmentChunk.length > 0) {
       try {
         searchResults = await batchSearchBrandsWithSnippets(chunkBrandNames)
         config.onProgress?.(`  [SERP] OK — ${searchResults.size} results`)
@@ -621,14 +583,14 @@ export async function runEnrich(
       }
     }
 
-    if (phases.includes('images')) {
+    if (phases.includes('images') && enrichmentChunk.length > 0) {
       imageSearchResults = await batchSearchBrandImages(chunkBrandNames, 5)
       const totalImages = [...imageSearchResults.values()].reduce((sum, urls) => sum + urls.length, 0)
       config.onProgress?.(`  [IMAGES] OK — ${totalImages} images across ${imageSearchResults.size} brands`)
     }
 
-    if (phases.includes('tags') && !phases.includes('descriptions')) {
-      const classifyItems: BatchClassificationItem[] = chunk.map((brand) => ({
+    if (phases.includes('tags') && !phases.includes('descriptions') && !hasTriagePhases && enrichmentChunk.length > 0) {
+      const classifyItems: BatchClassificationItem[] = enrichmentChunk.map((brand) => ({
         slug: brand.slug,
         name: displayBrandName(brand),
         description: brand.description ?? null,
@@ -642,6 +604,38 @@ export async function runEnrich(
       config.onProgress?.(`Processing ${brand.slug} (${result.processed}/${totalBrands})`)
 
       try {
+        const triageResult = triageResults.get(brand.slug)
+        const triagePatch = buildTriagePatch(brand, triageResult, phases)
+        const triageSlug = triagePatch.slug
+
+        if (shouldSkipForNonBrand(triageResult)) {
+          config.onProgress?.(`  [NON-BRAND] ${brand.slug}: ${triageResult?.nonBrandReason ?? 'non-brand'} (${triageResult?.confidence})`)
+
+          if (hasPatchValues(triagePatch)) {
+            if (!config.dryRun) {
+              const { error: updateError } = await supabase
+                .from('brands')
+                .update(triagePatch)
+                .eq('id', brand.id)
+
+              if (updateError) {
+                result.errors.push(`${brand.slug}: ${updateError.message ?? 'Failed to update brand'}`)
+                result.skipped += 1
+                continue
+              }
+
+              if (triageSlug) {
+                await insertSlugRedirect(brand.slug, triageSlug)
+              }
+            }
+
+            result.updated += 1
+          }
+
+          result.skipped += 1
+          continue
+        }
+
         if (searchError) {
           throw new Error(searchError)
         }
@@ -704,11 +698,7 @@ export async function runEnrich(
 
         let descriptionRewrite: string | null = null
         let classification: ClassificationResult | null = null
-        if (phases.includes('descriptions') && phases.includes('tags') && serpSnippets.length > 0) {
-          const combined = await rewriteAndClassifyBrand(displayBrandName(brand), brand.description ?? null, serpSnippets)
-          descriptionRewrite = combined.description
-          classification = combined.classification
-        } else if (phases.includes('descriptions') && serpSnippets.length > 0) {
+        if (phases.includes('descriptions') && serpSnippets.length > 0) {
           descriptionRewrite = await rewriteBrandDescription(displayBrandName(brand), brand.description ?? null, serpSnippets)
         } else if (phases.includes('tags')) {
           classification = batchClassifications.get(brand.slug) ?? null
@@ -726,6 +716,7 @@ export async function runEnrich(
         }
 
         const patch = {
+          ...triagePatch,
           ...mergeEnrichPatches(enrich.patches),
           ...imagePatch,
           ...(descriptionRewrite ? { description: descriptionRewrite } : {}),
@@ -775,6 +766,10 @@ export async function runEnrich(
             result.errors.push(`${brand.slug}: ${updateError.message ?? 'Failed to update brand'}`)
             result.skipped += 1
             continue
+          }
+
+          if (triageSlug) {
+            await insertSlugRedirect(brand.slug, triageSlug)
           }
         }
 

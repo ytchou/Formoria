@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { useEffect, useMemo, useState, useTransition } from 'react'
 
 import {
+  ENRICH_PHASES,
   getCurationJobAction,
   startCurationJobAction,
   type CurationJob,
@@ -24,8 +25,15 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { cn } from '@/lib/utils'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import type { Json } from '@/lib/supabase/database.types'
+import { cn } from '@/lib/utils'
 
 interface OperationCardProps {
   operation: CurationOperation
@@ -34,19 +42,25 @@ interface OperationCardProps {
   children?: ReactNode
   showValidateToggle?: boolean
   showPhasePicker?: boolean
+  showStatusFilter?: boolean
 }
 
 type Scope = 'all' | 'specific'
-type EnrichPhase = 'discover' | 'links' | 'images' | 'descriptions'
+type EnrichPhase = (typeof ENRICH_PHASES)[number]
+type StatusFilter = 'all' | 'pending'
 
 const enrichPhaseOptions: Array<{ value: EnrichPhase; label: string }> = [
+  { value: 'clean', label: 'Clean names' },
+  { value: 'detect', label: 'Detect non-brands' },
+  { value: 'slugs', label: 'Normalize slugs' },
+  { value: 'tags', label: 'Assign tags' },
   { value: 'discover', label: 'Discover URLs' },
   { value: 'links', label: 'Fill links' },
   { value: 'images', label: 'Download images' },
   { value: 'descriptions', label: 'Fill descriptions' },
 ]
 
-const defaultEnrichPhases = enrichPhaseOptions.map((phase) => phase.value)
+const defaultEnrichPhases = [...ENRICH_PHASES]
 
 type JobProgress = {
   processed: number
@@ -110,12 +124,14 @@ export function OperationCard({
   children,
   showValidateToggle = false,
   showPhasePicker = false,
+  showStatusFilter = false,
 }: OperationCardProps) {
   const [scope, setScope] = useState<Scope>('all')
   const [slugInput, setSlugInput] = useState('')
   const [stopAfterInput, setStopAfterInput] = useState('')
   const [validateLinks, setValidateLinks] = useState(false)
   const [selectedPhases, setSelectedPhases] = useState<EnrichPhase[]>(defaultEnrichPhases)
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [job, setJob] = useState<CurationJob | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -142,13 +158,19 @@ export function OperationCard({
       nextParams.phases = selectedPhases
     }
 
+    if (showStatusFilter && statusFilter === 'pending') {
+      nextParams.status = 'pending'
+    }
+
     return nextParams
   }, [
     scope,
     selectedPhases,
     showPhasePicker,
+    showStatusFilter,
     showValidateToggle,
     slugInput,
+    statusFilter,
     stopAfterInput,
     validateLinks,
   ])
@@ -277,6 +299,27 @@ export function OperationCard({
           )}
         </div>
 
+        {showStatusFilter && (
+          <div className="space-y-2">
+            <Label htmlFor={`${operation}-status`}>Status</Label>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value as StatusFilter)}
+            >
+              <SelectTrigger
+                id={`${operation}-status`}
+                className="min-h-12 w-full focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="start">
+                <SelectItem value="all">All brands</SelectItem>
+                <SelectItem value="pending">Pending only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label htmlFor={`${operation}-stop-after`}>Stop after N brands</Label>
           <Input
@@ -391,7 +434,7 @@ export function OperationCard({
             type="button"
             onClick={() => setConfirmOpen(true)}
             disabled={isActionDisabled}
-            className="min-h-12 bg-[var(--cta)] px-5 text-white hover:bg-[var(--cta)]/90 focus-visible:ring-2 focus-visible:ring-primary"
+            className="min-h-12 bg-cta px-5 text-white hover:bg-cta/90 focus-visible:ring-2 focus-visible:ring-primary"
           >
             Execute
           </Button>
@@ -402,9 +445,7 @@ export function OperationCard({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will modify brand data.
-            </AlertDialogDescription>
+            <AlertDialogDescription>This will modify brand data.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -416,7 +457,7 @@ export function OperationCard({
               }}
               disabled={isPending}
               className={cn(
-                'min-h-12 bg-[var(--cta)] px-5 text-white hover:bg-[var(--cta)]/90',
+                'min-h-12 bg-cta px-5 text-white hover:bg-cta/90',
                 'focus-visible:ring-2 focus-visible:ring-primary'
               )}
             >

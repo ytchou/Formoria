@@ -12,6 +12,7 @@ type OperationConfig = {
   title: string
   description: string
   showPhasePicker?: boolean
+  showStatusFilter?: boolean
   warning?: string
 }
 
@@ -22,16 +23,6 @@ type OperationSection = {
 
 const sections: OperationSection[] = [
   {
-    title: '資料清理',
-    operations: [
-      {
-        operation: 'cleanup',
-        title: 'Cleanup',
-        description: 'Clean names, normalize slugs, detect non-brands',
-      },
-    ],
-  },
-  {
     title: '品牌充實',
     operations: [
       {
@@ -39,6 +30,7 @@ const sections: OperationSection[] = [
         title: 'Enrich',
         description: 'Discover URLs, fill links, download images, fill descriptions',
         showPhasePicker: true,
+        showStatusFilter: true,
       },
     ],
   },
@@ -95,6 +87,7 @@ export default function AdminOperationsPage() {
                   title={operation.title}
                   description={operation.description}
                   showPhasePicker={operation.showPhasePicker}
+                  showStatusFilter={operation.showStatusFilter}
                 >
                   {operation.warning && (
                     <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm font-medium text-destructive">

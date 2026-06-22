@@ -10,20 +10,22 @@ describe('submission schema — taxonomy fields', () => {
       name: 'Test Brand',
       description: 'A'.repeat(40),
       category: 'fashion',
+      website: 'https://example.com',
       region: 'taipei',
       valueTags: [],
     })
     expect(result.success).toBe(true)
   })
 
-  it('accepts empty region (optional)', () => {
+  it('rejects missing region (required)', () => {
     const schema = getBrandInfoSchema(t)
     const result = schema.safeParse({
       name: 'Test Brand',
       description: 'A'.repeat(40),
       category: 'fashion',
+      website: 'https://example.com',
     })
-    expect(result.success).toBe(true)
+    expect(result.success).toBe(false)
   })
 
   it('rejects more than 3 valueTags', () => {
@@ -32,6 +34,8 @@ describe('submission schema — taxonomy fields', () => {
       name: 'Test Brand',
       description: 'A'.repeat(40),
       category: 'fashion',
+      website: 'https://example.com',
+      region: 'taipei',
       valueTags: ['a', 'b', 'c', 'd'],
     })
     expect(result.success).toBe(false)
@@ -43,6 +47,8 @@ describe('submission schema — taxonomy fields', () => {
       name: 'Test Brand',
       description: 'A'.repeat(40),
       category: 'fashion',
+      website: 'https://example.com',
+      region: 'taipei',
       valueTags: ['sustainability', 'fair-trade', 'organic'],
     })
     expect(result.success).toBe(true)

@@ -1,43 +1,10 @@
+import { DESCRIPTION_AND_CLASSIFY_SYSTEM_PROMPT, DESCRIPTION_SYSTEM_PROMPT } from '@/lib/prompts'
 import { type ClassificationResult, VALID_PRODUCT_TYPES } from './product-type-classifier'
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions'
 const DEEPSEEK_MODEL = 'deepseek-chat'
 const DEEPSEEK_TIMEOUT_MS = 30_000
 
-const SYSTEM_PROMPT = `你是台灣品牌文案撰寫者。請根據提供的資料，撰寫一段品牌簡介（繁體中文）。
-
-要求：
-- 2-3 句，總字數 60-120 字
-- 第一句說明品牌創立背景或核心產品
-- 第二句突出品牌特色、工藝或台灣元素
-- 第三句（選填）說明產品線或品牌願景
-- 語氣客觀、簡潔，不使用行銷誇大用語
-- 只輸出品牌簡介本身，不加標題或前綴`
-
-const COMBINED_SYSTEM_PROMPT = `你是台灣品牌文案撰寫者與分類專家。請根據提供的資料完成兩項任務：
-
-任務一：品牌簡介
-- 2-3 句，總字數 60-120 字
-- 第一句說明品牌創立背景或核心產品
-- 第二句突出品牌特色、工藝或台灣元素
-- 第三句（選填）說明產品線或品牌願景
-- 語氣客觀、簡潔，不使用行銷誇大用語
-
-任務二：產品分類
-將品牌分類到最適合的類別：
-- fashion: 服飾、鞋履、穿戴服裝
-- bags-accessories: 包袋、皮件、配件
-- jewelry: 飾品、珠寶
-- beauty: 美妝、保養、清潔、香氛
-- home: 居家用品、餐具、家具、廚具、園藝
-- food-drink: 食品、飲料、茶、咖啡、農產品
-- crafts: 手作工藝、文具、文創、藝術
-- tech: 3C科技、電子產品
-- outdoor: 戶外運動、健身
-- kids-pets: 兒童、嬰兒、寵物用品
-
-回傳 JSON 格式：{"description":"品牌簡介文字","productType":"類別","confidence":"high|medium|low"}
-不要加任何其他文字。`
 
 export async function rewriteBrandDescription(
   brandName: string,
@@ -67,7 +34,7 @@ export async function rewriteBrandDescription(
       body: JSON.stringify({
         model: DEEPSEEK_MODEL,
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: DESCRIPTION_SYSTEM_PROMPT },
           { role: 'user', content: userContent },
         ],
         max_tokens: 300,
@@ -131,11 +98,12 @@ export async function rewriteAndClassifyBrand(
       body: JSON.stringify({
         model: DEEPSEEK_MODEL,
         messages: [
-          { role: 'system', content: COMBINED_SYSTEM_PROMPT },
+          { role: 'system', content: DESCRIPTION_AND_CLASSIFY_SYSTEM_PROMPT },
           { role: 'user', content: userContent },
         ],
         max_tokens: 400,
         temperature: 0.3,
+        response_format: { type: 'json_object' },
       }),
       signal: controller.signal,
     })

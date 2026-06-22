@@ -36,7 +36,7 @@ import { cn } from '@/lib/utils'
 
 type TabValue = 'all' | BrandStatus
 type MitStatus = NonNullable<Brand['mitStatus']>
-type CurationOperation = 'enrich' | 'clean-names'
+type CurationOperation = 'enrich'
 
 const CURATION_ACTIONS: Array<{
   label: string
@@ -46,7 +46,6 @@ const CURATION_ACTIONS: Array<{
   { label: 'Enrich Brand', operation: 'enrich' },
   { label: 'Enrich Links', operation: 'enrich', phases: ['discover', 'links'] },
   { label: 'Enrich Images', operation: 'enrich', phases: ['images'] },
-  { label: 'Clean Name', operation: 'clean-names' },
 ]
 
 const MIT_STATUS_CONFIG: Record<MitStatus, { label: string; className: string }> = {

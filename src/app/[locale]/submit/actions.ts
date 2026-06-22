@@ -2,8 +2,6 @@
 
 import { getTranslations } from 'next-intl/server'
 import { createSubmissionSchema, type SubmissionFormData } from '@/lib/validations/submission'
-import { deriveCategoryFromProductType } from '@/lib/taxonomy/ontology'
-import { scanContent } from '@/lib/services/moderation'
 import { submitBrandForReview } from '@/lib/services/submission-pipeline'
 import { checkBrandDuplicates } from '@/lib/services/submissions'
 import { cleanBrandName } from '@/lib/services/brand-cleanup'
@@ -58,10 +56,6 @@ export async function submitBrand(
     const isOwner = data.isOwner ?? false
     const schema = createSubmissionSchema(isOwner, tValidation)
     const parsed = schema.parse(data)
-    const derivedCategory = deriveCategoryFromProductType(
-      parsed.productType ?? '',
-      parsed.productTypeNote,
-    )
 
     // Get authenticated user
     const supabase = await createClient()
@@ -91,69 +85,22 @@ export async function submitBrand(
       return { error: t('validation') }
     }
 
-    const moderationPayload = {
-      fields: {
-        name: parsed.name,
-        description: parsed.description,
-        website: parsed.socialLinks.website,
-        purchaseUrl: parsed.purchaseLinks[0]?.url,
-      },
-      brandName: parsed.name,
-    }
-    const moderationResult = scanContent(moderationPayload)
-    if (moderationResult.riskLevel === 'high') {
-      return { error: t('validation') }
-    }
-
     await submitBrandForReview({
       name: parsed.name,
-      slug: '',
-      description: parsed.description,
-      heroImageUrl: parsed.heroImageUrl ?? null,
-      category: derivedCategory,
-      purchaseLinks: parsed.purchaseLinks.map((l) => ({
-        ...l,
-        label: l.platform,
-      })),
-      socialLinks: {
-        instagram: parsed.socialLinks.instagram || undefined,
-        threads: parsed.socialLinks.threads || undefined,
-        facebook: parsed.socialLinks.facebook || undefined,
-        officialWebsite: parsed.socialLinks.website || undefined,
-      },
-      retailLocations: parsed.retailLocations.map((loc) => ({
-        ...loc,
-        latitude: 0,
-        longitude: 0,
-      })),
-      productPhotos: parsed.productPhotos,
-      contactEmail: user.email ?? null,
-      brandHighlights: null,
-      unifiedBusinessNumber: parsed.unifiedBusinessNumber ?? null,
-      submitterEmail: user.email ?? '',
-      submitterName: user.user_metadata?.full_name ?? null,
-      isBrandOwner: isOwner,
-      sourceAttribution: data.sourceAttribution ?? null,
-      pdpaConsentAt: new Date().toISOString(),
+      website: parsed.website,
       region: parsed.region,
-      valueTags: parsed.valueTags,
-      productType: parsed.productType,
-      productTypeNote: parsed.productTypeNote ?? null,
-      moderationFlags: moderationResult.flags,
-      moderatorUserId: user.id,
-      onModerationFlagsError: (err: unknown) => {
-        console.error('Save moderation flags error:', err)
-      },
-    } as unknown as Parameters<typeof submitBrandForReview>[0])
+      isOwner,
+      pdpaConsent: parsed.pdpaConsent,
+      sourceAttribution: data.sourceAttribution ?? null,
+      ubn: parsed.unifiedBusinessNumber ?? null,
+      retailLocations: parsed.retailLocations,
+      submitterEmail: user.email ?? '',
+      submitterName: user.user_metadata?.full_name ?? undefined,
+    })
 
     return undefined // Success — no error
   } catch (err) {
     console.error('Submit brand error:', err)
-    return {
-      error:
-        err instanceof Error
-          ? err.message
-          : t('unexpected'),
-    }
+    return { error: t('unexpected') }
   }
 }

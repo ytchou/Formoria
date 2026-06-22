@@ -2,7 +2,7 @@ import { revalidateTag } from 'next/cache'
 import { NextResponse } from 'next/server'
 import { isAdmin } from '@/lib/auth/admin'
 import {
-  runCleanup,
+  ENRICH_PHASES,
   runEnrich,
   runSetVisibility,
   type OperationResult as CurationOperationResult,
@@ -10,7 +10,7 @@ import {
 import { createServiceClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
 
-export const VALID_OPERATIONS = ['cleanup', 'enrich', 'set-visibility'] as const
+export const VALID_OPERATIONS = ['enrich', 'set-visibility'] as const
 export const DEPRECATED_OPERATIONS = [
   'clean-names',
   'normalize-slugs',
@@ -22,10 +22,9 @@ export const DEPRECATED_OPERATIONS = [
 ] as const
 
 const STALE_JOB_MINUTES = 30
-const ENRICH_PHASES = ['discover', 'links', 'images', 'descriptions', 'tags'] as const
 
 type Supabase = ReturnType<typeof createServiceClient>
-type OperationSupabase = Parameters<typeof runCleanup>[1]
+type OperationSupabase = Parameters<typeof runEnrich>[1]
 type ValidOperation = (typeof VALID_OPERATIONS)[number]
 type CurationJobStatus = 'pending' | 'running' | 'completed' | 'failed'
 type EnrichPhase = (typeof ENRICH_PHASES)[number]
@@ -45,10 +44,13 @@ type CurationJob = {
 type CurationJobUpdate = Partial<
   Pick<CurationJob, 'status' | 'progress' | 'result' | 'started_at' | 'completed_at'>
 >
+type BrandStatus = 'pending' | 'approved' | 'rejected' | 'hidden'
+
 type JobParams = {
   slugs?: string[]
   stopAfter?: number
   phases?: EnrichPhase[]
+  status?: BrandStatus
 }
 type Progress = {
   processed: number
@@ -168,15 +170,14 @@ async function runOperation(supabase: Supabase, job: CurationJob): Promise<Opera
     },
   }
   let result: CurationOperationResult
+  const status = params.status
 
   switch (operation) {
-    case 'cleanup':
-      result = await runCleanup(config, operationSupabase(supabase))
-      break
     case 'enrich':
       result = await runEnrich(
         {
           ...config,
+          status,
           phases: params.phases ?? [...ENRICH_PHASES],
         },
         operationSupabase(supabase)
@@ -224,7 +225,15 @@ function parseParams(params: Json | null): JobParams {
     slugs,
     stopAfter,
     phases: parseEnrichPhases(raw.phases),
+    status: parseStatus(raw.status),
   }
+}
+
+const BRAND_STATUSES: readonly BrandStatus[] = ['pending', 'approved', 'rejected', 'hidden']
+
+function parseStatus(value: unknown): BrandStatus | undefined {
+  const trimmed = typeof value === 'string' ? value.trim() : ''
+  return BRAND_STATUSES.includes(trimmed as BrandStatus) ? (trimmed as BrandStatus) : undefined
 }
 
 function parseEnrichPhases(value: unknown): EnrichPhase[] | undefined {

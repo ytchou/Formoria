@@ -1,37 +1,33 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useFormContext, Controller, useFieldArray } from 'react-hook-form'
 import { useTranslations } from 'next-intl'
-import { X, Plus, Star, Globe, Upload, ArrowRight, Trash2 } from 'lucide-react'
-import {
-  DndContext,
-  closestCenter,
-  type DragEndEvent,
-} from '@dnd-kit/core'
-import {
-  SortableContext,
-  useSortable,
-  rectSortingStrategy,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { ImageUploader } from '../upload/ImageUploader'
+import { Plus, Trash2 } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { checkDuplicates, suggestCleanName } from '@/app/[locale]/submit/actions'
 import { Link } from '@/i18n/navigation'
+import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
 import type { SubmissionFormData } from '@/lib/validations/submission'
-import type { PhotoItem } from '@/lib/types/scraper'
 import type { TaxonomyTag } from '@/lib/types/taxonomy'
-import type { DuplicateCheckResult } from '@/lib/types/submission'
+import type { DuplicateCheckResult, SourceAttribution } from '@/lib/types/submission'
+import { TurnstileWidget } from './TurnstileWidget'
 
 type BrandInfoStepProps = {
   regionTags: TaxonomyTag[]
-  uploadPath: string
-  photos?: PhotoItem[]
-  onPhotosChange?: (photos: PhotoItem[]) => void
-
-  onNext?: (values: SubmissionFormData) => void
+  isOwner?: boolean
+  onOwnerChange?: (isOwner: boolean) => void
+  sourceAttribution?: SourceAttribution
+  onAttributionChange?: (attribution: SourceAttribution | undefined) => void
+  uploadPath?: string
 }
 
 function Alert({
@@ -63,178 +59,16 @@ function AlertDescription({ children }: { children: React.ReactNode }) {
   return <div className="mt-1 text-sm">{children}</div>
 }
 
-function SortablePhoto({
-  photo,
-  isHero,
-  onRemove,
-  tFromWebsite,
-  tUploaded,
-}: {
-  photo: PhotoItem
-  isHero: boolean
-  onRemove: () => void
-  tFromWebsite: string
-  tUploaded: string
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id: photo.id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="group relative aspect-[4/3] overflow-hidden rounded-lg border border-border"
-      {...attributes}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={photo.url}
-        alt=""
-        loading="lazy"
-        className="h-full w-full cursor-grab object-cover"
-        {...listeners}
-      />
-
-      {/* Badges */}
-      <div className="absolute left-1.5 top-1.5 flex flex-col gap-1">
-        {isHero && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-cta px-2 py-0.5 text-[10px] font-medium text-cta-foreground">
-            <Star className="h-3 w-3" />
-            Hero
-          </span>
-        )}
-
-        {photo.source === 'scraped' && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[10px] font-medium text-accent-foreground">
-            <Globe className="h-3 w-3" />
-            {tFromWebsite}
-          </span>
-        )}
-        {photo.source === 'uploaded' && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-medium text-white">
-            <Upload className="h-3 w-3" />
-            {tUploaded}
-          </span>
-        )}
-      </div>
-
-      {/* Remove button */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          onRemove()
-        }}
-        className="absolute right-1.5 top-1.5 flex h-[22px] w-[22px] items-center justify-center rounded-full bg-accent/80 text-accent-foreground hover:bg-accent"
-        aria-label={`Remove photo ${photo.id}`}
-      >
-        <X className="h-3 w-3" />
-      </button>
-    </div>
-  )
-}
-
-function PhotoGallery({
-  photos,
-  onPhotosChange,
-  tNoPhotos,
-  tAddPhotos,
-  tAddMorePhotos,
-  tFromWebsite,
-  tUploaded,
-}: {
-  photos: PhotoItem[]
-  onPhotosChange: (photos: PhotoItem[]) => void
-  tNoPhotos: string
-  tAddPhotos: string
-  tAddMorePhotos: string
-  tFromWebsite: string
-  tUploaded: string
-}) {
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
-    if (!over || active.id === over.id) return
-
-    const oldIndex = photos.findIndex((p) => p.id === active.id)
-    const newIndex = photos.findIndex((p) => p.id === over.id)
-
-    const reordered = [...photos]
-    const [moved] = reordered.splice(oldIndex, 1)
-    reordered.splice(newIndex, 0, moved)
-    onPhotosChange(reordered)
-  }
-
-  const handleRemove = (id: string) => {
-    onPhotosChange(photos.filter((p) => p.id !== id))
-  }
-
-  if (photos.length === 0) {
-    return (
-      <div className="space-y-3">
-        <p className="text-sm text-muted-foreground">
-          {tNoPhotos}
-        </p>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground/80"
-          aria-label={tAddPhotos}
-        >
-          <Plus className="h-4 w-4" />
-          {tAddPhotos}
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-3">
-      <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext
-          items={photos.map((p) => p.id)}
-          strategy={rectSortingStrategy}
-        >
-          <div className="grid grid-cols-4 gap-3">
-            {photos.map((photo, index) => (
-              <SortablePhoto
-                key={photo.id}
-                photo={photo}
-                isHero={index === 0}
-                onRemove={() => handleRemove(photo.id)}
-                tFromWebsite={tFromWebsite}
-                tUploaded={tUploaded}
-              />
-            ))}
-          </div>
-        </SortableContext>
-      </DndContext>
-
-      {photos.length < 6 && (
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground/80"
-        >
-          <Plus className="h-4 w-4" />
-          {tAddMorePhotos}
-        </button>
-      )}
-    </div>
-  )
-}
-
 export function BrandInfoStep({
   regionTags,
-  uploadPath,
-  photos,
-  onPhotosChange,
-
-  onNext,
+  isOwner = false,
+  onOwnerChange,
+  sourceAttribution,
+  onAttributionChange,
 }: BrandInfoStepProps) {
   const t = useTranslations('submit.fields')
+  const tSubmit = useTranslations('submit')
+  const tReview = useTranslations('submit.review')
   const {
     register,
     control,
@@ -245,7 +79,6 @@ export function BrandInfoStep({
   } = useFormContext<SubmissionFormData>()
   const { fields: locationFields, append: appendLocation, remove: removeLocation } = useFieldArray({ control, name: 'retailLocations' })
 
-  const description = watch('description') ?? ''
   const name = watch('name') ?? ''
   const unifiedBusinessNumber = watch('unifiedBusinessNumber') ?? ''
   const [dedupResult, setDedupResult] = useState<DuplicateCheckResult | null>(
@@ -266,9 +99,9 @@ export function BrandInfoStep({
       ? dedupResult
       : null
 
-  const handleNext = async () => {
+  const handleDuplicateCheck = async () => {
     setDedupError(null)
-    if (!onNext || activeDedupResult?.ubnMatch) return
+    if (activeDedupResult?.ubnMatch) return
 
     const formValues = getValues()
     const formUbn = formValues.unifiedBusinessNumber ?? ''
@@ -292,8 +125,6 @@ export function BrandInfoStep({
         setDedupConfirmed(false)
         return
       }
-
-      onNext(formValues)
     } catch (err) {
       console.error("[handleNext] checkDuplicates failed:", err)
       setDedupError(t("dedup_check_failed"))
@@ -324,6 +155,11 @@ export function BrandInfoStep({
     }
   }
 
+  const handleTurnstileSuccess = useCallback(
+    (token: string) => setValue('turnstileToken', token, { shouldValidate: true }),
+    [setValue]
+  )
+
   return (
     <div className="space-y-6">
       {/* Brand Name */}
@@ -338,7 +174,7 @@ export function BrandInfoStep({
           id="brand-name"
           type="text"
           placeholder={t('brandNamePlaceholder')}
-          className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
+          className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
           {...nameRegistration}
           onBlur={async (event) => {
             nameRegistration.onBlur(event)
@@ -375,32 +211,6 @@ export function BrandInfoStep({
         )}
       </div>
 
-      {/* Brand Image */}
-      <div className="space-y-1.5">
-        <label className="block text-sm font-semibold text-foreground">
-          {t('logoOptional')}
-        </label>
-        <p className="text-xs text-muted-foreground">
-          {t('logoHint')}
-        </p>
-        <Controller
-          name="heroImageUrl"
-          control={control}
-          render={({ field }) => (
-            <ImageUploader
-              mode="single"
-              bucket="brand-images"
-              path={uploadPath}
-              value={field.value}
-              onUpload={(url) => field.onChange(url)}
-            />
-          )}
-        />
-        {errors.heroImageUrl && (
-          <p className="text-xs text-red-600">{errors.heroImageUrl.message}</p>
-        )}
-      </div>
-
       {/* Unified Business Number */}
       <div className="space-y-1.5">
         <label
@@ -427,54 +237,36 @@ export function BrandInfoStep({
         )}
       </div>
 
-      {/* Brand Description */}
+      {/* Website URL */}
       <div className="space-y-1.5">
         <label
-          htmlFor="brand-description"
+          htmlFor="brand-website"
           className="block text-sm font-semibold text-foreground"
         >
-          {t('brandDescription')}
+          {tSubmit('url.label')}
         </label>
-        <textarea
-          id="brand-description"
-          rows={4}
-          maxLength={500}
-          placeholder={t('brandDescriptionPlaceholder')}
-          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
-          {...register('description')}
-        />
-        <div className="flex justify-between">
-          {errors.description ? (
-            <p className="text-xs text-red-600">{errors.description.message}</p>
-          ) : (
-            <span />
+        <Controller
+          name="website"
+          control={control}
+          render={({ field }) => (
+            <Input
+              id="brand-website"
+              type="url"
+              placeholder="https://yourbrand.com"
+              value={field.value ?? ''}
+              onChange={(event) => {
+                const website = event.target.value
+                field.onChange(website)
+                setValue('socialLinks.website', website, { shouldValidate: true })
+              }}
+              className="h-11 rounded-lg border-border bg-white px-[14px] py-2.5"
+            />
           )}
-          <span className="text-xs text-muted-foreground">
-            {t('charCount', { count: description.length, max: 500 })}
-          </span>
-        </div>
+        />
+        {errors.website && (
+          <p className="text-xs text-red-600">{errors.website.message}</p>
+        )}
       </div>
-
-      {/* Photo Gallery (from scraping) */}
-      {photos && onPhotosChange && (
-        <div className="space-y-1.5">
-          <label className="block text-sm font-semibold text-foreground">
-            {t('photos')}
-          </label>
-          <p className="text-xs text-muted-foreground">
-            {t('photosDragHint')}
-          </p>
-          <PhotoGallery
-            photos={photos}
-            onPhotosChange={onPhotosChange}
-            tNoPhotos={t('noPhotos')}
-            tAddPhotos={t('addPhotos')}
-            tAddMorePhotos={t('addMorePhotos')}
-            tFromWebsite={t('fromWebsite')}
-            tUploaded={t('uploaded')}
-          />
-        </div>
-      )}
 
       {/* Region */}
       <div className="space-y-1.5">
@@ -489,7 +281,7 @@ export function BrandInfoStep({
         </p>
         <select
           id="brand-region"
-          className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
+          className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground focus:border-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
           {...register('region')}
         >
           <option value="" disabled>
@@ -516,8 +308,8 @@ export function BrandInfoStep({
           <div className="space-y-2">
             {locationFields.map((field, index) => (
               <div key={field.id} className="flex items-start gap-2">
-                <input type="text" placeholder={t('storeName')} className="h-11 w-40 shrink-0 rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20" {...register(`retailLocations.${index}.name`)} />
-                <input type="text" placeholder={t('address')} className="h-11 flex-1 rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20" {...register(`retailLocations.${index}.address`)} />
+                <input type="text" placeholder={t('storeName')} className="h-11 w-40 shrink-0 rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20" {...register(`retailLocations.${index}.name`)} />
+                <input type="text" placeholder={t('address')} className="h-11 flex-1 rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20" {...register(`retailLocations.${index}.address`)} />
                 <button type="button" onClick={() => removeLocation(index)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label={`Remove location ${index + 1}`}>
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -529,6 +321,61 @@ export function BrandInfoStep({
           <Plus className="h-4 w-4" />
           {t('addLocation')}
         </button>
+      </div>
+
+      <div className="space-y-4 rounded-lg border border-border p-4">
+        {!isOwner && (
+          <div className="space-y-1.5">
+            <label className="block text-sm font-semibold text-foreground">
+              {tSubmit('url.howKnowBrand')}
+            </label>
+            <Select
+              value={sourceAttribution}
+              onValueChange={(val) => onAttributionChange?.(val as SourceAttribution)}
+            >
+              <SelectTrigger
+                aria-label={tSubmit('url.howKnowBrand')}
+                className="h-12 w-full border-border text-sm text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <SelectValue placeholder={tSubmit('url.howKnowPlaceholder')}>
+                  {(val) => (val ? tSubmit(`attribution.${val}`) : null)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {SOURCE_ATTRIBUTION_VALUES.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {tSubmit(`attribution.${value}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.sourceAttribution && (
+              <p className="text-xs text-red-600">{errors.sourceAttribution.message}</p>
+            )}
+          </div>
+        )}
+
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="is-brand-owner-form"
+              checked={isOwner}
+              onCheckedChange={(checked: boolean) => onOwnerChange?.(checked)}
+            />
+            <label
+              htmlFor="is-brand-owner-form"
+              className="cursor-pointer select-none text-sm font-medium text-foreground"
+            >
+              {tSubmit('url.isBrandOwner')}
+            </label>
+          </div>
+          <p className="pl-6 text-xs font-semibold text-foreground">
+            {tSubmit('url.ownerHint')}{' '}
+            <Link href="/faq#claimBenefits" className="underline hover:text-foreground">
+              {tSubmit('url.ownerLearnMore')}
+            </Link>
+          </p>
+        </div>
       </div>
 
       {activeDedupResult?.ubnMatch && (
@@ -577,22 +424,71 @@ export function BrandInfoStep({
           </Alert>
         )}
 
-      {onNext && (
-        <div className="flex flex-col items-end">
+      {(name.length >= 2 || unifiedBusinessNumber) && (
+        <div className="flex flex-col items-start">
           <button
             type="button"
-            onClick={handleNext}
+            onClick={handleDuplicateCheck}
             disabled={isCheckingDuplicates || !!activeDedupResult?.ubnMatch}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#2F5D50] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#2F5D50]/90 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary disabled:opacity-50"
           >
             {isCheckingDuplicates ? t('checking') : t('next')}
-            <ArrowRight className="h-4 w-4" />
           </button>
           {dedupError && (
             <p className="text-sm text-destructive mt-1">{dedupError}</p>
           )}
         </div>
       )}
+
+      <div className="space-y-2 rounded-lg border border-border p-4">
+        <Controller
+          name="pdpaConsent"
+          control={control}
+          render={({ field, fieldState }) => (
+            <div className="space-y-1">
+              <label className="flex min-h-12 cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={field.value}
+                  onChange={field.onChange}
+                  className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded border-border accent-cta"
+                />
+                <span className="text-[13px] text-foreground">
+                  {tReview.rich('pdpaConsent', {
+                    privacyPolicy: (chunks) => (
+                      <a
+                        href="/privacy"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {chunks}
+                      </a>
+                    ),
+                  })}
+                </span>
+              </label>
+              {fieldState.error && (
+                <p className="text-xs text-red-600">
+                  {fieldState.error.message}
+                </p>
+              )}
+            </div>
+          )}
+        />
+      </div>
+
+      <input type="hidden" {...register('turnstileToken')} />
+      <TurnstileWidget onSuccess={handleTurnstileSuccess} />
+
+      <input
+        type="text"
+        {...register('_honeypot')}
+        tabIndex={-1}
+        autoComplete="off"
+        className="pointer-events-none absolute -left-[9999px] h-0 w-0 opacity-0"
+        aria-hidden="true"
+      />
     </div>
   )
 }

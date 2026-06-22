@@ -4,7 +4,7 @@ import { getModerationFlagsBatch } from '@/lib/services/moderation'
 import type { ModerationFlag, RiskLevel } from '@/lib/services/moderation'
 import { getBrandEnrichmentBatch } from '@/lib/services/brands'
 import { getTags } from '@/lib/services/taxonomy'
-import { SubmissionsList } from '@/components/admin/submissions-list'
+import { SubmissionsReviewList } from './submissions-review-list'
 
 export const metadata: Metadata = {
   title: '待審核提交 | 管理後台',
@@ -48,7 +48,7 @@ export default async function ReviewQueueSubmissionsPage() {
       </p>
 
       <div className="mt-8">
-        <SubmissionsList
+        <SubmissionsReviewList
           submissions={submissionsWithRisk}
           taxonomyTags={taxonomyTags}
         />

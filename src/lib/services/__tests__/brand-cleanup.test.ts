@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cleanBrandName, detectNonBrand, normalizeSlug } from '../brand-cleanup'
+import { cleanBrandName } from '../brand-cleanup'
 
 describe('cleanBrandName', () => {
   it('leaves already clean names unchanged', () => {
@@ -118,56 +118,5 @@ describe('cleanBrandName', () => {
     ['Dasuit大適坐墊', 'Dasuit 大適坐墊'],
   ])('handles combined cleanup for %s', (input, expected) => {
     expect(cleanBrandName(input).cleanedName).toBe(expected)
-  })
-})
-
-describe('detectNonBrand', () => {
-  it('does not flag normal brands', () => {
-    expect(
-      detectNonBrand({ name: "O'right 歐萊德", description: null, purchaseWebsite: null })
-    ).toMatchObject({ isNonBrand: false, reason: null, confidence: 'high' })
-  })
-
-  it.each([
-    'JLab 台灣獨家代理',
-    '某某經銷商',
-    '批發大王',
-    '娃力小動物認養中心',
-    '台灣地方創生基金會',
-    '某某協會',
-    '社團法人某某',
-    '某某鄉公所',
-    '某某區公所',
-    '首頁',
-    '關於我們',
-  ])('flags non-brand names: %s', (name) => {
-    const result = detectNonBrand({ name, description: null, purchaseWebsite: null })
-
-    expect(result.isNonBrand).toBe(true)
-    expect(result.reason).toEqual(expect.any(String))
-    expect(result.confidence).toBe('high')
-  })
-
-  it('does not flag keywords that appear only in the description', () => {
-    expect(
-      detectNonBrand({
-        name: "O'right 歐萊德",
-        description: '我們與基金會合作推廣永續理念',
-        purchaseWebsite: null,
-      })
-    ).toMatchObject({ isNonBrand: false, reason: null })
-  })
-})
-
-describe('normalizeSlug', () => {
-  it.each([
-    ['aromase', null, { newSlug: null, source: 'unchanged' }],
-    ['慢慢挑', null, { newSlug: null, source: 'unchanged' }],
-    ['慢慢挑', 'Man Man Tiao', { newSlug: 'man-man-tiao', source: 'scraped-english-name' }],
-    ['採花女孩', '採花女孩', { newSlug: null, source: 'unchanged' }],
-    ['植茁', 'ZHI GROW', { newSlug: 'zhi-grow', source: 'scraped-english-name' }],
-    ['oright', "O'Right", { newSlug: null, source: 'unchanged' }],
-  ] as const)('normalizes %s with scraped name %s', (slug, scrapedBrandName, expected) => {
-    expect(normalizeSlug(slug, scrapedBrandName)).toEqual(expected)
   })
 })
