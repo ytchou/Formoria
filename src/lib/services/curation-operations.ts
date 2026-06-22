@@ -576,12 +576,12 @@ export async function runEnrich(
     }
 
     if (hasTriagePhases) {
-      const triageItems: TriageBatchItem[] = chunk.map((brand) => ({
+      const triageItems: TriageBatchItem[] = chunk.map((brand, index) => ({
         slug: brand.slug,
-        name: displayBrandName(brand),
+        name: chunkBrandNames[index],
         description: brand.description ?? null,
         website: brand.purchase_website ?? null,
-        snippets: searchResults.get(displayBrandName(brand))?.snippets ?? [],
+        snippets: searchResults.get(chunkBrandNames[index])?.snippets ?? [],
       }))
       triageResults = await triageBrandsBatch(triageItems)
       const nonBrandCount = [...triageResults.values()].filter((result) => result.isNonBrand).length
