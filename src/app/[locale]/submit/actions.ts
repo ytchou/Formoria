@@ -86,6 +86,8 @@ export async function submitBrand(
       sourceAttribution: data.sourceAttribution ?? null,
       submitterEmail: user.email ?? '',
       submitterName: user.user_metadata?.full_name ?? undefined,
+      socialLinks: parsed.socialLinks ?? null,
+      purchaseLinks: parsed.purchaseLinks ?? null,
     })
 
     return undefined // Success — no error
