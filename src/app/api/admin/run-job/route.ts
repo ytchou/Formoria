@@ -2,7 +2,6 @@ import { revalidateTag } from 'next/cache'
 import { NextResponse } from 'next/server'
 import { isAdmin } from '@/lib/auth/admin'
 import {
-  runCleanup,
   runEnrich,
   runSetVisibility,
   type OperationResult as CurationOperationResult,
@@ -10,7 +9,7 @@ import {
 import { createServiceClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
 
-export const VALID_OPERATIONS = ['cleanup', 'enrich', 'set-visibility'] as const
+export const VALID_OPERATIONS = ['enrich', 'set-visibility'] as const
 export const DEPRECATED_OPERATIONS = [
   'clean-names',
   'normalize-slugs',
@@ -22,10 +21,19 @@ export const DEPRECATED_OPERATIONS = [
 ] as const
 
 const STALE_JOB_MINUTES = 30
-const ENRICH_PHASES = ['discover', 'links', 'images', 'descriptions', 'tags'] as const
+const ENRICH_PHASES = [
+  'clean',
+  'detect',
+  'slugs',
+  'tags',
+  'discover',
+  'links',
+  'images',
+  'descriptions',
+] as const
 
 type Supabase = ReturnType<typeof createServiceClient>
-type OperationSupabase = Parameters<typeof runCleanup>[1]
+type OperationSupabase = Parameters<typeof runEnrich>[1]
 type ValidOperation = (typeof VALID_OPERATIONS)[number]
 type CurationJobStatus = 'pending' | 'running' | 'completed' | 'failed'
 type EnrichPhase = (typeof ENRICH_PHASES)[number]
@@ -49,6 +57,7 @@ type JobParams = {
   slugs?: string[]
   stopAfter?: number
   phases?: EnrichPhase[]
+  status?: string
 }
 type Progress = {
   processed: number
@@ -168,15 +177,14 @@ async function runOperation(supabase: Supabase, job: CurationJob): Promise<Opera
     },
   }
   let result: CurationOperationResult
+  const status = params.status
 
   switch (operation) {
-    case 'cleanup':
-      result = await runCleanup(config, operationSupabase(supabase))
-      break
     case 'enrich':
       result = await runEnrich(
         {
           ...config,
+          status,
           phases: params.phases ?? [...ENRICH_PHASES],
         },
         operationSupabase(supabase)
@@ -224,7 +232,12 @@ function parseParams(params: Json | null): JobParams {
     slugs,
     stopAfter,
     phases: parseEnrichPhases(raw.phases),
+    status: parseStatus(raw.status),
   }
+}
+
+function parseStatus(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined
 }
 
 function parseEnrichPhases(value: unknown): EnrichPhase[] | undefined {
