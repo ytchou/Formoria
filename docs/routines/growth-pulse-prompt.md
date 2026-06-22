@@ -108,21 +108,40 @@ Write 1–3 signals max. If nothing notable, write: "Steady day — all metrics 
 
 ## Ticket Creation
 
-Only for **Critical** severity signals. Before creating, search for duplicates:
+Create **one ticket per day** when critical or warning signals exist **and** at least one signal has a concrete, actionable fix (not just "monitor" or "wait and see").
+
+### Decision flow
+
+1. After analysis, review all critical and warning signals
+2. For each signal, determine if there is an actionable fix (e.g., investigate a broken page, block a spam referrer, fix a redirect). If the only action is "keep watching," it is **not** actionable
+3. If zero signals have actionable fixes → **skip ticket creation**, digest only
+4. If at least one signal is actionable → create one bundled ticket
+
+### Dedup check
 
 1. Call `mcp__linear__list_issues` with a filter for issues whose title starts with `[Growth Pulse]` and status is not `Done` or `Canceled`
-2. If an open ticket already covers the same signal (e.g., "sessions drop" ticket from yesterday), do NOT create a duplicate — instead note in the digest: "Existing ticket <ID> still open"
-3. If no duplicate exists, create via `mcp__linear__save_issue`:
+2. If an open ticket exists from the previous day covering the same signals, do NOT create a duplicate — note in the digest: "Existing ticket <ID> still open"
+
+### Ticket format
+
+Create via `mcp__linear__save_issue`:
 
 ```
 team: Use team named "Formoria" (fall back to first team from mcp__linear__list_teams)
-title: "[Growth Pulse] <concise issue description>"
+title: "[Growth Pulse] YYYY-MM-DD — <one-line summary of top issue>"
+priority: urgent (if any critical signal) or high (warning only)
 description: |
-  **Detected:** <metric>, <value>, <WoW comparison>
-  **Impact:** <why this matters>
-  **Investigate:** <specific steps>
+  **Signals detected:**
+
+  1. [CRITICAL/WARNING] <signal title>
+     - **What:** <metric change with numbers>
+     - **Action:** <specific fix or investigation step>
+
+  2. [WARNING] <signal title>
+     - **What:** <metric change>
+     - **Action:** <specific fix>
+
   **Dashboard:** https://analytics.google.com/analytics/web/#/p538232091/reports/
-priority: urgent
 ```
 
 ## Digest Generation
@@ -215,8 +234,9 @@ Build a Slack Block Kit JSON payload.
 
 ### Conditional sections
 
-- If tickets were created, add a section before the Actions block: `*Tickets Created*\n• <ID>: <title>`
+- If a ticket was created, add a section before the Actions block: `*Ticket Created*\n• <ID>: <title>`
 - If an existing ticket was found (dedup), note it there: `• <ID>: <title> (existing — still open)`
+- If signals exist but none are actionable, note: `No ticket — signals are informational only`
 - Always include all other sections — use "No notable changes" for Signals if the day was steady
 
 ### Formatting rules
@@ -282,6 +302,6 @@ Sessions: [N] (↑↓X% WoW)
 Users: [N]
 Page views: [N]
 Signals: [N] ([N] critical, [N] warning, [N] info)
-Tickets: [N] created, [N] existing
+Ticket: [created <ID> / existing <ID> / none]
 Digest delivered: [yes/no]
 ```
