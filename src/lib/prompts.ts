@@ -50,12 +50,15 @@ ${CATEGORY_LIST}
 分類規則：選擇最符合品牌核心產品的類別。跨類別品牌選主要產品線。
 
 ## Slug 生成規則
-- 格式：kebab-case，純小寫 ASCII 英文字母和數字
+- 格式：kebab-case，用連字號分隔單字（如 arsenal-tool-inc），純小寫 ASCII 英文字母和數字
+- 重要：每個單字之間必須用 - 連接，禁止直接拼接（❌ arsenaltoolinc → ✅ arsenal-tool-inc）
 - 中文品牌名：只在品牌有公開使用的英文名稱或官方羅馬拼音時才生成 slug
 - 若品牌無英文名稱或官方羅馬拼音，slug_generated 回傳 null（保留現有 slug，不要自行音譯）
 - 長度：最多 40 字元
-- 範例：「印花樂」→ "inblooom"（品牌官方英文名）
-- 範例：「小日子」→ "oneday"（取自官方英文名 One Day）
+- 範例：「Arsenal Tool Inc.」→ "arsenal-tool-inc"（❌ 非 "arsenaltoolinc"）
+- 範例：「Soar&Arrow」→ "soar-and-arrow"（❌ 非 "soarandarrow"）
+- 範例：「印花樂」→ "inblooom"（品牌官方英文名，單一單字不需連字號）
+- 範例：「小日子」→ "oneday"（取自官方英文名 One Day，單一單字不需連字號）
 - 範例：「Z研」→ null（無明確英文名，保留現有 slug）
 
 ## 品牌標籤（valueTags）
