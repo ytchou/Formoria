@@ -542,9 +542,9 @@ export async function runEnrich(
     const chunk = brandChunks[chunkIndex]
     const hasTriagePhases = phases.includes('detect') || phases.includes('slugs') || phases.includes('tags')
     const activeSteps = [
-      hasTriagePhases && 'triage',
       phases.includes('discover') && 'SERP',
       phases.includes('images') && 'images',
+      hasTriagePhases && 'triage',
       phases.includes('tags') && !phases.includes('descriptions') && 'tags',
       phases.includes('descriptions') && phases.includes('tags') && 'descriptions+tags',
       phases.includes('descriptions') && !phases.includes('tags') && 'descriptions',
@@ -557,23 +557,9 @@ export async function runEnrich(
     let searchError: string | null = null
     let triageResults = new Map<string, TriageResult>()
 
-    if (hasTriagePhases) {
-      const triageItems: TriageBatchItem[] = chunk.map((brand) => ({
-        slug: brand.slug,
-        name: displayBrandName(brand),
-        description: brand.description ?? null,
-        website: brand.purchase_website ?? null,
-      }))
-      triageResults = await triageBrandsBatch(triageItems)
-      const nonBrandCount = [...triageResults.values()].filter((result) => result.isNonBrand).length
-      console.log(`Triage: ${triageResults.size} brands processed, ${nonBrandCount} non-brands detected`)
-      config.onProgress?.(`  [TRIAGE] OK — ${triageResults.size} results, ${nonBrandCount} non-brands`)
-    }
+    const chunkBrandNames = chunk.map(displayBrandName)
 
-    const enrichmentChunk = chunk.filter((brand) => !shouldSkipForNonBrand(triageResults.get(brand.slug)))
-    const chunkBrandNames = enrichmentChunk.map(displayBrandName)
-
-    if (phases.includes('discover') && enrichmentChunk.length > 0) {
+    if (phases.includes('discover') && chunk.length > 0) {
       try {
         searchResults = await batchSearchBrandsWithSnippets(chunkBrandNames)
         config.onProgress?.(`  [SERP] OK — ${searchResults.size} results`)
@@ -583,11 +569,27 @@ export async function runEnrich(
       }
     }
 
-    if (phases.includes('images') && enrichmentChunk.length > 0) {
+    if (phases.includes('images') && chunk.length > 0) {
       imageSearchResults = await batchSearchBrandImages(chunkBrandNames, 5)
       const totalImages = [...imageSearchResults.values()].reduce((sum, urls) => sum + urls.length, 0)
       config.onProgress?.(`  [IMAGES] OK — ${totalImages} images across ${imageSearchResults.size} brands`)
     }
+
+    if (hasTriagePhases) {
+      const triageItems: TriageBatchItem[] = chunk.map((brand) => ({
+        slug: brand.slug,
+        name: displayBrandName(brand),
+        description: brand.description ?? null,
+        website: brand.purchase_website ?? null,
+        snippets: searchResults.get(displayBrandName(brand))?.snippets ?? [],
+      }))
+      triageResults = await triageBrandsBatch(triageItems)
+      const nonBrandCount = [...triageResults.values()].filter((result) => result.isNonBrand).length
+      console.log(`Triage: ${triageResults.size} brands processed, ${nonBrandCount} non-brands detected`)
+      config.onProgress?.(`  [TRIAGE] OK — ${triageResults.size} results, ${nonBrandCount} non-brands`)
+    }
+
+    const enrichmentChunk = chunk.filter((brand) => !shouldSkipForNonBrand(triageResults.get(brand.slug)))
 
     if (phases.includes('tags') && !phases.includes('descriptions') && !hasTriagePhases && enrichmentChunk.length > 0) {
       const classifyItems: BatchClassificationItem[] = enrichmentChunk.map((brand) => ({
