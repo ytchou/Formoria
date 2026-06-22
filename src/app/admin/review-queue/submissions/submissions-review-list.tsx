@@ -62,6 +62,14 @@ const SOURCE_ATTRIBUTION_LABELS: Record<SourceAttribution, string> = {
 const TAG_CATEGORIES = ['product_type', 'region', 'value', 'material', 'price_range']
 const PRODUCT_TYPE_EMPTY = '__none'
 
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
 function readinessBadgeClass(tone: 'green' | 'amber' | 'red' | 'grey') {
   switch (tone) {
     case 'green':
@@ -69,7 +77,7 @@ function readinessBadgeClass(tone: 'green' | 'amber' | 'red' | 'grey') {
     case 'amber':
       return 'bg-amber-50 text-amber-700'
     case 'red':
-      return 'bg-red-50 text-[#D94F3D]'
+      return 'bg-red-50 text-destructive'
     case 'grey':
       return 'bg-[#F5F4F1] text-muted-foreground'
   }
@@ -275,14 +283,6 @@ export function SubmissionsReviewList({
     })
   }
 
-  function formatDate(dateStr: string) {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    })
-  }
-
   const tabCounts = useMemo(() => ({
     all: submissions.length,
     pending: submissions.filter((s) => s.status === 'pending').length,
@@ -385,7 +385,7 @@ export function SubmissionsReviewList({
                     <TableCell>{formatDate(submission.submittedAt)}</TableCell>
                     <TableCell>
                       {submission.isBrandOwner ? (
-                        <span className="inline-flex items-center rounded-full bg-[#2C1810] px-2 py-0.5 text-xs font-semibold text-white">
+                        <span className="inline-flex items-center rounded-full bg-foreground px-2 py-0.5 text-xs font-semibold text-white">
                           Owner
                         </span>
                       ) : (
@@ -755,7 +755,7 @@ export function SubmissionsReviewList({
                           })()}
 
                           {error && (
-                            <p className="text-sm text-[#D94F3D]">{error}</p>
+                            <p className="text-sm text-destructive">{error}</p>
                           )}
                           {warning && (
                             <p className="text-sm text-amber-700">{warning}</p>

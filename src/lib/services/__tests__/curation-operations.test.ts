@@ -49,23 +49,23 @@ describe('processEnrichBrand', () => {
     story: 'Founded in 2015 by artisans in Tainan',
   }
 
-  it('produces link patch from scraped data', () => {
+  it('enriches brand with social links from scraped data', () => {
     const result = processEnrichBrand(baseBrand, scrapedData, ['links'])
     expect(result.patches.links?.social_instagram).toBe('https://www.instagram.com/mybrand/')
   })
 
-  it('produces description patch when description phase enabled', () => {
+  it('generates brand description when description phase is enabled', () => {
     const result = processEnrichBrand(baseBrand, scrapedData, ['descriptions'])
     expect(result.patches.descriptions?.description).toBe(scrapedData.description)
   })
 
-  it('fills brand_highlights from story', () => {
+  it('extracts brand highlights from company story', () => {
     const brandWithDesc = { ...baseBrand, description: 'Already has a valid description over twenty chars' }
     const result = processEnrichBrand(brandWithDesc, scrapedData, ['descriptions'])
     expect(result.patches.descriptions?.brand_highlights).toBe(scrapedData.story)
   })
 
-  it('skips description phase when not in requested phases', () => {
+  it('omits description when phase is not requested', () => {
     const result = processEnrichBrand(baseBrand, scrapedData, ['links'])
     expect(result.patches.descriptions).toBeUndefined()
   })
@@ -83,14 +83,14 @@ describe('processEnrichBrand with cleanup phases', () => {
     purchase_website: null,
   }
 
-  it('runs clean phase and produces name cleanup patch', () => {
+  it('cleans brand name and returns normalized result', () => {
     const result = processEnrichBrand(baseBrand, {}, ['clean'])
     expect(result.phases).toHaveProperty('clean')
     expect(result.phases.clean?.changed).toBe(true)
     expect(result.patch.name).toBe('My Brand')
   })
 
-  it('skips clean phase when not in phases list', () => {
+  it('preserves original name when clean phase is not requested', () => {
     const result = processEnrichBrand(baseBrand, {}, ['discover'])
     expect(result.phases).not.toHaveProperty('clean')
   })
@@ -134,9 +134,12 @@ describe('descriptions phase standalone', () => {
 })
 
 describe('CurationConfig status filter', () => {
-  it('accepts status option in CurationConfig type', () => {
+  it('constrains status to valid values', () => {
     const config: CurationConfig = { dryRun: true, status: 'pending' }
-    expect(config.status).toBe('pending')
+    expect(config).toHaveProperty('status', 'pending')
+
+    const approved: CurationConfig = { dryRun: false, status: 'approved' }
+    expect(approved).toHaveProperty('status', 'approved')
   })
 })
 

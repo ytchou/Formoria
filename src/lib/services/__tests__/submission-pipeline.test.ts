@@ -58,30 +58,16 @@ vi.mock('@/lib/validations/submission', () => ({
   }),
 }))
 
-vi.mock('@/lib/services/brands', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/services/brands')>()
+vi.mock('@/lib/services/brands', () => {
   return {
-    ...actual,
     createBrand: vi.fn(),
+    generateSlug: vi.fn((name: string) => name.toLowerCase().replace(/\s+/g, '-')),
   }
 })
 
-vi.mock('@/lib/services/submissions', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/services/submissions')>()
+vi.mock('@/lib/services/submissions', () => {
   return {
-    ...actual,
     createSubmission: vi.fn(),
-    checkBrandDuplicates: vi.fn(),
-  }
-})
-
-vi.mock('@/lib/services/moderation', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/services/moderation')>()
-  return {
-    ...actual,
-    EMOJI_REGEX: /\p{Emoji_Presentation}/gu,
-    scanContent: vi.fn(() => ({ riskLevel: 'clean', flags: [] })),
-    saveModerationFlags: vi.fn(),
   }
 })
 
@@ -158,7 +144,7 @@ function buildSubmitInput() {
     unifiedBusinessNumber: '12345678',
     isOwner: true,
     pdpaConsent: true,
-    turnstileToken: 'token',
+    turnstileToken: 'test-token',
     _honeypot: '',
     sourceAttribution: 'found_online' as const,
   }

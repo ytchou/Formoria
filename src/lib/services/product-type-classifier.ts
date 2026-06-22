@@ -12,10 +12,10 @@ export type TriageResult = {
   confidence: 'high' | 'medium' | 'low'
 }
 
-export const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions'
-export const DEEPSEEK_MODEL = 'deepseek-chat'
-export const CLASSIFY_TIMEOUT_MS = 30_000
-export const BATCH_CLASSIFY_TIMEOUT_MS = 60_000
+const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions'
+const DEEPSEEK_MODEL = 'deepseek-chat'
+const CLASSIFY_TIMEOUT_MS = 30_000
+const BATCH_CLASSIFY_TIMEOUT_MS = 60_000
 export const VALID_PRODUCT_TYPES = new Set<string>(PRODUCT_TYPE_CATEGORIES.map(category => category.slug))
 
 const SYSTEM_PROMPT = `你是台灣品牌分類專家。請根據品牌名稱和描述，將品牌分類到最適合的產品類別。
@@ -162,7 +162,7 @@ function parseSingleTriageResponse(content: string, slug: string): TriageResult 
   return parseTriageEntry(parsed as UnknownRecord, slug)
 }
 
-export async function classifyProductType(
+async function classifyProductType(
   brandName: string,
   description: string | null
 ): Promise<ClassificationResult | null> {

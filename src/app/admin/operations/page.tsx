@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
 import type { CurationOperation } from '@/app/admin/operations/actions'
-import { OperationCard } from '@/app/admin/operations/operation-card'
+import { OperationCard } from '@/components/admin/operation-card'
 
 export const metadata: Metadata = {
   title: '批次操作 | 管理後台',

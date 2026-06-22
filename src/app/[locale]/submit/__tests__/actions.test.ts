@@ -6,8 +6,7 @@ const {
   mockUpload,
   mockGetPublicUrl,
   mockGetUser,
-  mockCreateBrand,
-  mockCreateSubmission,
+  mockSubmitBrandForReview,
   mockVerifyTurnstileToken,
   mockRateLimiterCheck,
 } = vi.hoisted(() => {
@@ -16,8 +15,7 @@ const {
     mockUpload: vi.fn(),
     mockGetPublicUrl: vi.fn(),
     mockGetUser: vi.fn(),
-    mockCreateBrand: vi.fn(),
-    mockCreateSubmission: vi.fn(),
+    mockSubmitBrandForReview: vi.fn(),
     mockVerifyTurnstileToken: vi.fn(),
     mockRateLimiterCheck,
   }
@@ -63,13 +61,8 @@ vi.mock('@/lib/supabase/server', () => ({
   })),
 }))
 
-vi.mock('@/lib/services/brands', () => ({
-  createBrand: mockCreateBrand,
-  generateSlug: vi.fn((name: string) => name.toLowerCase().replace(/\s+/g, '-')),
-}))
-
-vi.mock('@/lib/services/submissions', () => ({
-  createSubmission: mockCreateSubmission,
+vi.mock('@/lib/services/submission-pipeline', () => ({
+  submitBrandForReview: mockSubmitBrandForReview,
 }))
 
 vi.mock('@/lib/security/turnstile', () => ({
@@ -170,8 +163,10 @@ describe('server action schema routing', () => {
       error: null,
     })
     mockVerifyTurnstileToken.mockResolvedValue({ success: true })
-    mockCreateBrand.mockResolvedValue({ id: 'brand-123' })
-    mockCreateSubmission.mockResolvedValue({ id: 'submission-123' })
+    mockSubmitBrandForReview.mockResolvedValue({
+      brand: { id: 'brand-123' },
+      submissionId: 'submission-123',
+    })
   })
 
   it('owner payload without required region field fails schema', () => {
@@ -231,8 +226,8 @@ describe('server action schema routing', () => {
       turnstileToken: 'test-token',
     })
 
-    expect(mockCreateBrand).toHaveBeenCalledTimes(1)
-    const payload = mockCreateBrand.mock.calls[0][0]
+    expect(mockSubmitBrandForReview).toHaveBeenCalledTimes(1)
+    const payload = mockSubmitBrandForReview.mock.calls[0][0]
     expect('founder' in payload).toBe(false)
   })
 
@@ -254,16 +249,14 @@ describe('server action schema routing', () => {
       turnstileToken: 'test-token',
     })
 
-    expect(mockCreateSubmission).toHaveBeenCalledWith(
+    expect(mockSubmitBrandForReview).toHaveBeenCalledWith(
       expect.objectContaining({
-        suggestedTags: { region: 'taipei' },
+        region: 'taipei',
       })
     )
   })
 
   it('passes unifiedBusinessNumber through the pipeline', async () => {
-    mockCreateSubmission.mockResolvedValue({ id: 'sub-1' })
-
     await submitBrand({
       name: 'Test Brand',
       description: 'A'.repeat(40),
@@ -281,9 +274,9 @@ describe('server action schema routing', () => {
       turnstileToken: 'test-token',
     })
 
-    expect(mockCreateSubmission).toHaveBeenCalledWith(
+    expect(mockSubmitBrandForReview).toHaveBeenCalledWith(
       expect.objectContaining({
-        unifiedBusinessNumber: '12345678',
+        ubn: '12345678',
       })
     )
   })
@@ -307,8 +300,7 @@ describe('server action schema routing', () => {
     })
 
     expect(result).toBeUndefined()
-    expect(mockCreateBrand).toHaveBeenCalledTimes(1)
-    expect(mockCreateSubmission).toHaveBeenCalledTimes(1)
+    expect(mockSubmitBrandForReview).toHaveBeenCalledTimes(1)
   })
 
   it('returns error when rate limited', async () => {
@@ -332,6 +324,6 @@ describe('server action schema routing', () => {
     })
 
     expect(result).toEqual({ error: expect.any(String) })
-    expect(mockCreateBrand).not.toHaveBeenCalled()
+    expect(mockSubmitBrandForReview).not.toHaveBeenCalled()
   })
 })

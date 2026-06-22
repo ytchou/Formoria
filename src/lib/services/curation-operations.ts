@@ -602,22 +602,15 @@ export async function runEnrich(
         const triageResult = triageResults.get(brand.slug)
         const triagePatch = buildTriagePatch(brand, triageResult, phases)
         const triageSlug = triagePatch.slug
-        const cleanPatch = phases.includes('clean')
-          ? processEnrichBrand(brand, {}, ['clean']).patch
-          : {}
-        const gatedPatch = {
-          ...cleanPatch,
-          ...triagePatch,
-        }
 
         if (shouldSkipForNonBrand(triageResult)) {
           config.onProgress?.(`  [NON-BRAND] ${brand.slug}: ${triageResult?.nonBrandReason ?? 'non-brand'} (${triageResult?.confidence})`)
 
-          if (hasPatchValues(gatedPatch)) {
+          if (hasPatchValues(triagePatch)) {
             if (!config.dryRun) {
               const { error: updateError } = await supabase
                 .from('brands')
-                .update(gatedPatch)
+                .update(triagePatch)
                 .eq('id', brand.id)
 
               if (updateError) {

@@ -54,7 +54,7 @@ export async function submitBrandForReview(
     brandHighlights: null,
     siteContent: null,
     unifiedBusinessNumber,
-    productType: 'uncategorized',
+    productType: '',
   })
 
   const submission = await createSubmission({

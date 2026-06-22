@@ -174,7 +174,7 @@ export function BrandInfoStep({
           id="brand-name"
           type="text"
           placeholder={t('brandNamePlaceholder')}
-          className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
+          className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
           {...nameRegistration}
           onBlur={async (event) => {
             nameRegistration.onBlur(event)
@@ -281,7 +281,7 @@ export function BrandInfoStep({
         </p>
         <select
           id="brand-region"
-          className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20"
+          className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground focus:border-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
           {...register('region')}
         >
           <option value="" disabled>
@@ -308,8 +308,8 @@ export function BrandInfoStep({
           <div className="space-y-2">
             {locationFields.map((field, index) => (
               <div key={field.id} className="flex items-start gap-2">
-                <input type="text" placeholder={t('storeName')} className="h-11 w-40 shrink-0 rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20" {...register(`retailLocations.${index}.name`)} />
-                <input type="text" placeholder={t('address')} className="h-11 flex-1 rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-2 focus:ring-muted-foreground/20" {...register(`retailLocations.${index}.address`)} />
+                <input type="text" placeholder={t('storeName')} className="h-11 w-40 shrink-0 rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20" {...register(`retailLocations.${index}.name`)} />
+                <input type="text" placeholder={t('address')} className="h-11 flex-1 rounded-lg border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20" {...register(`retailLocations.${index}.address`)} />
                 <button type="button" onClick={() => removeLocation(index)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label={`Remove location ${index + 1}`}>
                   <Trash2 className="h-4 w-4" />
                 </button>
