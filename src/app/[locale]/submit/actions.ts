@@ -61,7 +61,7 @@ export async function submitBrand(
     }
 
     // Honeypot check — silently succeed (don't reveal the trap to bots)
-    if (parsed._honeypot) {
+    if (parsed.honeypot) {
       return undefined
     }
 

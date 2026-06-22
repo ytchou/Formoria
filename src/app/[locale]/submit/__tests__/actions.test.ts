@@ -136,6 +136,7 @@ describe('server action schema routing', () => {
       pdpaConsent: true,
       socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
       turnstileToken: 'test-token',
+      honeypot: '',
     })
 
     expect(mockSubmitBrandForReview).toHaveBeenCalledTimes(1)
@@ -154,6 +155,7 @@ describe('server action schema routing', () => {
       socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
       sourceAttribution: 'found_online',
       turnstileToken: 'test-token',
+      honeypot: '',
     })
 
     expect(mockSubmitBrandForReview).toHaveBeenCalledWith(
@@ -174,6 +176,7 @@ describe('server action schema routing', () => {
       socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
       sourceAttribution: 'found_online',
       turnstileToken: 'test-token',
+      honeypot: '',
     })
 
     expect(result).toBeUndefined()
@@ -193,6 +196,7 @@ describe('server action schema routing', () => {
       socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
       sourceAttribution: 'found_online',
       turnstileToken: 'test-token',
+      honeypot: '',
     })
 
     expect(result).toEqual({ error: expect.any(String) })
