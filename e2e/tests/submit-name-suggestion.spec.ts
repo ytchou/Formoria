@@ -1,14 +1,14 @@
 import { test, expect } from '../fixtures/auth';
-import { gotoSubmitWizard } from '../utils/submit-wizard';
-
-const skipButtonName = '跳過，手動填寫';
+import { gotoSubmitForm } from '../utils/submit-form';
 
 // ---------------------------------------------------------------------------
 // Journey: Name cleanup suggestion
-// After the user skips the URL step and enters a dirty brand name then blurs
-// the field, a suggestion alert appears with the cleaned name and an Apply
-// button. Clicking Apply replaces the field value and dismisses the alert.
-// The form is now a single screen (no step indicator or Next/Back buttons).
+// When the user enters a dirty brand name and blurs the field, a suggestion
+// alert appears with the cleaned name and an Apply button.  Clicking Apply
+// replaces the field value and dismisses the alert.
+//
+// The form is now a single flat screen — the brand name field is visible
+// immediately after navigation with no wizard step or skip required.
 // ---------------------------------------------------------------------------
 test.describe('Submit name suggestion', () => {
   test('dirty name with emoji shows suggestion alert; Apply updates field and dismisses alert', async ({
@@ -16,18 +16,10 @@ test.describe('Submit name suggestion', () => {
   }) => {
     test.setTimeout(60_000);
 
-    await gotoSubmitWizard(userPage);
+    await gotoSubmitForm(userPage);
 
-    // Skip URL phase → land on single-screen brand form
-    const skipBtn = userPage.getByRole('button', {
-      name: skipButtonName,
-      exact: true,
-    });
-    await expect(skipBtn).toBeVisible({ timeout: 5_000 });
-    await skipBtn.click();
-
-    // Wait for the name field to mount
-    const nameInput = userPage.locator('#brand-name');
+    // Name field is immediately visible on the flat single-screen form
+    const nameInput = userPage.locator('#submit-name');
     await expect(nameInput).toBeVisible({ timeout: 5_000 });
 
     // Type a name that contains an emoji — triggers the emoji cleanup pattern
@@ -67,16 +59,10 @@ test.describe('Submit name suggestion', () => {
   }) => {
     test.setTimeout(60_000);
 
-    await gotoSubmitWizard(userPage);
+    await gotoSubmitForm(userPage);
 
-    const skipBtn = userPage.getByRole('button', {
-      name: skipButtonName,
-      exact: true,
-    });
-    await expect(skipBtn).toBeVisible({ timeout: 5_000 });
-    await skipBtn.click();
-
-    const nameInput = userPage.locator('#brand-name');
+    // Name field is immediately visible — no skip step needed
+    const nameInput = userPage.locator('#submit-name');
     await expect(nameInput).toBeVisible({ timeout: 5_000 });
 
     await nameInput.fill('TestBrand🥑');
