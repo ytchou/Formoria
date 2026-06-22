@@ -2,6 +2,7 @@ import { revalidateTag } from 'next/cache'
 import { NextResponse } from 'next/server'
 import { isAdmin } from '@/lib/auth/admin'
 import {
+  ENRICH_PHASES,
   runEnrich,
   runSetVisibility,
   type OperationResult as CurationOperationResult,
@@ -21,16 +22,6 @@ export const DEPRECATED_OPERATIONS = [
 ] as const
 
 const STALE_JOB_MINUTES = 30
-const ENRICH_PHASES = [
-  'clean',
-  'detect',
-  'slugs',
-  'tags',
-  'discover',
-  'links',
-  'images',
-  'descriptions',
-] as const
 
 type Supabase = ReturnType<typeof createServiceClient>
 type OperationSupabase = Parameters<typeof runEnrich>[1]
@@ -53,11 +44,13 @@ type CurationJob = {
 type CurationJobUpdate = Partial<
   Pick<CurationJob, 'status' | 'progress' | 'result' | 'started_at' | 'completed_at'>
 >
+type BrandStatus = 'pending' | 'approved' | 'rejected' | 'hidden'
+
 type JobParams = {
   slugs?: string[]
   stopAfter?: number
   phases?: EnrichPhase[]
-  status?: string
+  status?: BrandStatus
 }
 type Progress = {
   processed: number
@@ -236,8 +229,11 @@ function parseParams(params: Json | null): JobParams {
   }
 }
 
-function parseStatus(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined
+const BRAND_STATUSES: readonly BrandStatus[] = ['pending', 'approved', 'rejected', 'hidden']
+
+function parseStatus(value: unknown): BrandStatus | undefined {
+  const trimmed = typeof value === 'string' ? value.trim() : ''
+  return BRAND_STATUSES.includes(trimmed as BrandStatus) ? (trimmed as BrandStatus) : undefined
 }
 
 function parseEnrichPhases(value: unknown): EnrichPhase[] | undefined {

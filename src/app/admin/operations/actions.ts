@@ -3,7 +3,10 @@
 import { headers } from 'next/headers'
 import { isActingAsAdmin } from '@/lib/auth/admin-mode'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { ENRICH_PHASES } from '@/lib/services/curation-operations'
 import type { Json } from '@/lib/supabase/database.types'
+
+export { ENRICH_PHASES }
 
 export type CurationJobParams = Record<string, Json | undefined> & {
   slugs?: string[]
@@ -11,17 +14,6 @@ export type CurationJobParams = Record<string, Json | undefined> & {
   phases?: string[]
   status?: string
 }
-
-export const ENRICH_PHASES = [
-  'clean',
-  'detect',
-  'slugs',
-  'tags',
-  'discover',
-  'links',
-  'images',
-  'descriptions',
-] as const
 
 export type CurationOperation = 'enrich' | 'auto-tag' | 'set-visibility'
 type StartCurationOperation = CurationOperation | 'clean-names'

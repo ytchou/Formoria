@@ -94,6 +94,8 @@ export async function submitBrand(
       sourceAttribution: data.sourceAttribution ?? null,
       ubn: parsed.unifiedBusinessNumber ?? null,
       retailLocations: parsed.retailLocations,
+      submitterEmail: user.email ?? '',
+      submitterName: user.user_metadata?.full_name ?? undefined,
     })
 
     return undefined // Success — no error

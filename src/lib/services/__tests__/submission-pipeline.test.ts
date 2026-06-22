@@ -132,6 +132,8 @@ function buildParams(
     sourceAttribution: null,
     ubn: '12345678',
     retailLocations: [{ name: 'Store', address: 'Taipei', latitude: 0, longitude: 0 }],
+    submitterEmail: 'user@example.com',
+    submitterName: 'Test User',
     ...overrides,
   }
 }

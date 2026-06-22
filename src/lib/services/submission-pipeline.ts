@@ -2,10 +2,8 @@ import type { Brand } from '@/lib/types'
 import type { SourceAttribution } from '@/lib/types/submission'
 import { createBrand, generateSlug } from '@/lib/services/brands'
 import { createSubmission } from '@/lib/services/submissions'
-import { createClient } from '@/lib/supabase/server'
 
 export interface SubmitBrandForReviewParams {
-  [key: string]: unknown
   name: string
   website?: string
   region: string
@@ -14,6 +12,8 @@ export interface SubmitBrandForReviewParams {
   sourceAttribution?: SourceAttribution | null
   ubn?: string | null
   retailLocations?: Array<{ name: string; address: string; latitude?: number; longitude?: number }>
+  submitterEmail: string
+  submitterName?: string
 }
 
 export interface SubmitBrandForReviewResult {
@@ -24,16 +24,6 @@ export interface SubmitBrandForReviewResult {
 export async function submitBrandForReview(
   params: SubmitBrandForReviewParams
 ): Promise<SubmitBrandForReviewResult> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError || !user?.email) {
-    throw authError ?? new Error('Authenticated submitter email is required')
-  }
-
   const retailLocations = (params.retailLocations ?? []).map((location) => ({
     ...location,
     latitude: 0,
@@ -60,7 +50,7 @@ export async function submitBrandForReview(
     otherUrls: [],
     retailLocations,
     productPhotos: [],
-    contactEmail: user.email,
+    contactEmail: params.submitterEmail,
     brandHighlights: null,
     siteContent: null,
     unifiedBusinessNumber,
@@ -70,8 +60,8 @@ export async function submitBrandForReview(
   const submission = await createSubmission({
     brandId: brand.id,
     brandName: params.name,
-    submitterEmail: user.email,
-    submitterName: user.user_metadata?.full_name ?? undefined,
+    submitterEmail: params.submitterEmail,
+    submitterName: params.submitterName,
     description: null,
     websiteUrl: params.website,
     socialInstagram: null,

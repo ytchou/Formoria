@@ -29,7 +29,7 @@ export interface CurationConfig {
   dryRun: boolean
   overwrite?: boolean
   slugs?: string[]
-  status?: string
+  status?: 'pending' | 'approved' | 'rejected' | 'hidden'
   limit?: number
   onProgress?: (msg: string) => void
 }
@@ -231,6 +231,17 @@ export async function runSetVisibility(
   return result
 }
 
+export const ENRICH_PHASES = [
+  'clean',
+  'detect',
+  'slugs',
+  'tags',
+  'discover',
+  'links',
+  'images',
+  'descriptions',
+] as const
+
 type EnrichPhase = 'clean' | 'links' | 'images' | 'descriptions' | 'tags'
 type RunEnrichPhase = EnrichPhase | 'discover' | 'detect' | 'slugs'
 
@@ -379,7 +390,7 @@ function imagePatchToDbPatch(
 export function shouldSkipForNonBrand(triageResult: TriageResult | undefined): boolean {
   return Boolean(
     triageResult?.isNonBrand === true &&
-    (triageResult.confidence === 'high' || triageResult.confidence === 'medium')
+    triageResult.confidence === 'high'
   )
 }
 
