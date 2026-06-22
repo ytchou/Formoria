@@ -136,8 +136,8 @@ describe('BrandInfoStep duplicate checks', () => {
   it('shows the duplicate check button when name is filled', () => {
     renderBrandInfoStep()
 
-    // The "檢查中" button appears when name.length >= 2
-    expect(screen.getByRole('button', { name: /檢查中/i })).toBeInTheDocument()
+    // In idle state the button shows t('next') — the key is returned as-is since it's not in the translation stub
+    expect(screen.getByRole('button', { name: /next/i })).toBeInTheDocument()
   })
 
   it('hard blocks when checkDuplicates returns a ubnMatch', async () => {
@@ -155,7 +155,7 @@ describe('BrandInfoStep duplicate checks', () => {
       defaultValues: { unifiedBusinessNumber: '12345678' },
     })
 
-    await user.click(screen.getByRole('button', { name: /檢查中/i }))
+    await user.click(screen.getByRole('button', { name: /next/i }))
 
     expect(
       await screen.findByText('此統一編號的品牌已存在於目錄中')
@@ -178,7 +178,7 @@ describe('BrandInfoStep duplicate checks', () => {
 
     renderBrandInfoStep()
 
-    await user.click(screen.getByRole('button', { name: /檢查中/i }))
+    await user.click(screen.getByRole('button', { name: /next/i }))
 
     expect(await screen.findByText('發現相似品牌名稱')).toBeInTheDocument()
     expect(screen.getByText(/相似品牌 \(91%\)/)).toBeInTheDocument()
@@ -203,7 +203,7 @@ describe('BrandInfoStep duplicate checks', () => {
 
     renderBrandInfoStep()
 
-    await user.click(screen.getByRole('button', { name: /檢查中/i }))
+    await user.click(screen.getByRole('button', { name: /next/i }))
     const confirmCheckbox = await screen.findByRole('checkbox', { name: '我確認這不是重複的品牌' })
     await user.click(confirmCheckbox)
 
@@ -219,7 +219,7 @@ describe('BrandInfoStep duplicate checks', () => {
 
     renderBrandInfoStep()
 
-    await user.click(screen.getByRole('button', { name: /檢查中/i }))
+    await user.click(screen.getByRole('button', { name: /next/i }))
 
     await waitFor(() => {
       expect(screen.queryByText('發現相似品牌名稱')).not.toBeInTheDocument()
