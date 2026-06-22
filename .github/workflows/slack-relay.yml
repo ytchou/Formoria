@@ -17,6 +17,7 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_WEBHOOK_SENTRY_TRIAGE: ${{ secrets.SLACK_WEBHOOK_SENTRY_TRIAGE }}
           SLACK_WEBHOOK_DIRECTORY_HEALTH: ${{ secrets.SLACK_WEBHOOK_DIRECTORY_HEALTH }}
+          SLACK_WEBHOOK_GROWTH_PULSE: ${{ secrets.SLACK_WEBHOOK_GROWTH_PULSE }}
         run: |
           sent=0
           failed=0
