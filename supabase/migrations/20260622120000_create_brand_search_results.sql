@@ -9,4 +9,4 @@ CREATE TABLE brand_search_results (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX brand_search_results_brand_type_idx ON brand_search_results (brand_id, search_type);
+CREATE INDEX brand_search_results_brand_type_idx ON brand_search_results (brand_id, search_type, created_at DESC);

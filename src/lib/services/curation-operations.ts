@@ -24,7 +24,7 @@ import {
 import { scrapeBrandUrls } from './scraper'
 import { classifyByDomain } from './scraper/input-detector'
 import { SEARCH_DELAY_MS, batchSearchBrandImages, batchSearchBrandsWithSnippets } from './scraper/search'
-import { upsertSearchResult, getSearchResults } from './search-results'
+import { insertSearchResult, getLatestSearchResults } from './search-results'
 
 export interface CurationConfig {
   dryRun: boolean
@@ -577,7 +577,7 @@ export async function runEnrich(
             const brandName = displayBrandName(brand)
             const result = searchResults.get(brandName)
             if (result && (result.urls.length > 0 || result.snippets.length > 0)) {
-              await upsertSearchResult(brand.id, 'serp', `${brandName} 台灣`, result.urls, result.snippets)
+              await insertSearchResult(brand.id, 'serp', `${brandName} 台灣`, result.urls, result.snippets)
             }
           }
         }
@@ -596,7 +596,7 @@ export async function runEnrich(
           const brandName = displayBrandName(brand)
           const images = imageSearchResults.get(brandName)
           if (images && images.length > 0) {
-            await upsertSearchResult(brand.id, 'image', `${brandName} 台灣`, images, [])
+            await insertSearchResult(brand.id, 'image', `${brandName} 台灣`, images, [])
           }
         }
       }
@@ -604,7 +604,7 @@ export async function runEnrich(
 
     if (!phases.includes('discover') && hasTriagePhases) {
       const brandIds = chunk.map(b => b.id)
-      const cached = await getSearchResults(brandIds, 'serp')
+      const cached = await getLatestSearchResults(brandIds, 'serp')
       for (const brand of chunk) {
         const row = cached.get(brand.id)
         if (row) {

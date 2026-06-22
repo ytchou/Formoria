@@ -8,7 +8,7 @@ export type SearchResultRow = {
   snippets: string[]
 }
 
-export async function upsertSearchResult(
+export async function insertSearchResult(
   brandId: string,
   searchType: 'serp' | 'image',
   query: string,
@@ -17,20 +17,17 @@ export async function upsertSearchResult(
   rawResponse?: unknown
 ): Promise<void> {
   const supabase = createServiceClient()
-  await supabase.from('brand_search_results').upsert(
-    {
-      brand_id: brandId,
-      search_type: searchType,
-      query,
-      urls,
-      snippets,
-      raw_response: rawResponse ?? null,
-    },
-    { onConflict: 'brand_id,search_type' }
-  )
+  await supabase.from('brand_search_results').insert({
+    brand_id: brandId,
+    search_type: searchType,
+    query,
+    urls,
+    snippets,
+    raw_response: rawResponse ?? null,
+  })
 }
 
-export async function getSearchResults(
+export async function getLatestSearchResults(
   brandIds: string[],
   searchType: 'serp' | 'image'
 ): Promise<Map<string, SearchResultRow>> {
@@ -41,9 +38,11 @@ export async function getSearchResults(
     .select('brand_id, search_type, query, urls, snippets')
     .in('brand_id', brandIds)
     .eq('search_type', searchType)
+    .order('created_at', { ascending: false })
 
   const results = new Map<string, SearchResultRow>()
   for (const row of data ?? []) {
+    if (results.has(row.brand_id)) continue
     results.set(row.brand_id, {
       brandId: row.brand_id,
       searchType: row.search_type as 'serp' | 'image',
