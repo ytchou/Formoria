@@ -138,6 +138,17 @@ function getImageCount(enrichment: BrandEnrichment) {
   return (enrichment.heroImageUrl ? 1 : 0) + enrichment.productPhotos.length
 }
 
+export type EnrichmentStatus = 'not_enriched' | 'enriched' | 'partially_enriched'
+
+export function getEnrichmentStatus(enrichment: BrandEnrichment | null | undefined): EnrichmentStatus {
+  if (!enrichment) return 'not_enriched'
+  const hasProductType = (enrichment.productType ?? '').trim() !== ''
+  const hasHero = enrichment.heroImageUrl !== null && enrichment.heroImageUrl !== undefined
+  const hasTags = (enrichment.tagSlugs ?? []).length > 0
+  if (hasProductType && hasHero && hasTags) return 'enriched'
+  return 'partially_enriched'
+}
+
 function createOverrideForm(submission: BrandSubmissionWithRisk): OverrideForm {
   return {
     description: submission.description ?? '',
@@ -322,6 +333,7 @@ export function SubmissionsReviewList({
               <TableHead>日期</TableHead>
               <TableHead>來源</TableHead>
               <TableHead>狀態</TableHead>
+              <TableHead>Enrichment</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -397,11 +409,23 @@ export function SubmissionsReviewList({
                     <TableCell>
                       <StatusBadge status={submission.status} />
                     </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const status = getEnrichmentStatus(submission.brandEnrichment)
+                        if (status === 'enriched') {
+                          return <ReadinessBadge tone="green">Enriched</ReadinessBadge>
+                        }
+                        if (status === 'partially_enriched') {
+                          return <ReadinessBadge tone="amber">Partial</ReadinessBadge>
+                        }
+                        return <ReadinessBadge tone="grey">Not Enriched</ReadinessBadge>
+                      })()}
+                    </TableCell>
                   </TableRow>
 
                   {expandedId === submission.id && (
                     <TableRow key={`${submission.id}-expanded`}>
-                      <TableCell colSpan={8} className="bg-background p-6">
+                      <TableCell colSpan={9} className="bg-background p-6">
                         <div className="space-y-4">
                           <div>
                             <p className="text-sm font-medium text-muted-foreground">
@@ -810,7 +834,7 @@ export function SubmissionsReviewList({
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={9}
                   className="py-8 text-center text-muted-foreground"
                 >
                   找不到提交記錄。
