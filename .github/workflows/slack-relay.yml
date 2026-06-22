@@ -15,14 +15,21 @@ jobs:
       - name: Send to Slack
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_SENTRY_TRIAGE: ${{ secrets.SLACK_WEBHOOK_SENTRY_TRIAGE }}
+          SLACK_WEBHOOK_DIRECTORY_HEALTH: ${{ secrets.SLACK_WEBHOOK_DIRECTORY_HEALTH }}
         run: |
           sent=0
           failed=0
           for file in slack-messages/*.json; do
             [ -f "$file" ] || continue
+            basename="${file##*/}"
+            prefix="${basename%%-[0-9]*}"
+            var_name="SLACK_WEBHOOK_$(echo "$prefix" | tr 'a-z-' 'A-Z_')"
+            webhook_url="${!var_name:-$SLACK_WEBHOOK_URL}"
+            echo "Routing $basename via $var_name"
             status=$(curl -s -o /dev/null -w '%{http_code}' \
               -X POST -H 'Content-type: application/json' \
-              -d @"$file" "$SLACK_WEBHOOK_URL")
+              -d @"$file" "$webhook_url")
             if [ "$status" = "200" ]; then
               echo "Delivered: $file"
               rm "$file"
