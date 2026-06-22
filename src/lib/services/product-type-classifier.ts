@@ -1,3 +1,4 @@
+import { CLASSIFY_SYSTEM_PROMPT, TRIAGE_SYSTEM_PROMPT } from '@/lib/prompts'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 export type ClassificationResult = { productType: string; confidence: 'high' | 'medium' | 'low' }
@@ -18,29 +19,6 @@ const CLASSIFY_TIMEOUT_MS = 30_000
 const BATCH_CLASSIFY_TIMEOUT_MS = 60_000
 export const VALID_PRODUCT_TYPES = new Set<string>(PRODUCT_TYPE_CATEGORIES.map(category => category.slug))
 
-const SYSTEM_PROMPT = `你是台灣品牌分類專家。請根據品牌名稱和描述，將品牌分類到最適合的產品類別。
-
-類別定義：
-- fashion: 服飾、鞋履、上衣、褲子、洋裝等穿戴服裝
-- bags-accessories: 包袋、皮件、帽子、圍巾、配件
-- jewelry: 飾品、珠寶、耳環、項鍊、戒指、手鍊
-- beauty: 美妝、保養、清潔、沐浴、香氛、蠟燭
-- home: 居家用品、餐具、陶瓷、家具、廚具、園藝
-- food-drink: 食品、飲料、茶、咖啡、農產品
-- crafts: 手作工藝、文具、文創、藝術、插畫、皮革工藝
-- tech: 3C科技、電子產品、手機配件
-- outdoor: 戶外運動、健身、瑜珈、登山露營
-- kids-pets: 兒童、嬰兒、玩具、寵物用品
-
-規則：
-- 選擇最符合品牌「核心產品」的類別
-- 如果品牌跨多個類別，選擇主要產品線所屬類別
-- 回傳 JSON 格式，不要加任何其他文字`
-
-const TRIAGE_SYSTEM_PROMPT = `${SYSTEM_PROMPT}
-
-請同時判斷輸入是否不是實際品牌（例如代購、選物店、平台、媒體、活動、代理商、通路或其他非品牌實體）。
-每個品牌請回傳 isNonBrand、nonBrandReason、slug_generated、productType、confidence。`
 
 type DeepSeekResponse = {
   choices?: Array<{ message?: { content?: string } }>
@@ -184,7 +162,7 @@ async function classifyProductType(
       body: JSON.stringify({
         model: DEEPSEEK_MODEL,
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: CLASSIFY_SYSTEM_PROMPT },
           { role: 'user', content: userContent },
         ],
         max_tokens: 100,
@@ -246,7 +224,7 @@ async function classifyProductTypeBatchChunk(
       body: JSON.stringify({
         model: DEEPSEEK_MODEL,
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: CLASSIFY_SYSTEM_PROMPT },
           { role: 'user', content: userContent },
         ],
         max_tokens: 1500,
