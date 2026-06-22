@@ -15,6 +15,7 @@ describe('getEnrichmentStatus', () => {
       productType: 'food',
       heroImageUrl: 'https://example.com/img.jpg',
       tagSlugs: ['organic', 'local'],
+      productPhotos: [],
     }
     expect(getEnrichmentStatus(enrichment)).toBe('enriched')
   })
@@ -24,6 +25,7 @@ describe('getEnrichmentStatus', () => {
       productType: 'food',
       heroImageUrl: null,
       tagSlugs: ['organic'],
+      productPhotos: [],
     }
     expect(getEnrichmentStatus(enrichment)).toBe('partially_enriched')
   })
@@ -33,6 +35,7 @@ describe('getEnrichmentStatus', () => {
       productType: 'food',
       heroImageUrl: 'https://example.com/img.jpg',
       tagSlugs: [],
+      productPhotos: [],
     }
     expect(getEnrichmentStatus(enrichment)).toBe('partially_enriched')
   })
@@ -42,6 +45,7 @@ describe('getEnrichmentStatus', () => {
       productType: '',
       heroImageUrl: 'https://example.com/img.jpg',
       tagSlugs: ['organic'],
+      productPhotos: [],
     }
     expect(getEnrichmentStatus(enrichment)).toBe('partially_enriched')
   })
