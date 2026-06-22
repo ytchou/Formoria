@@ -3,8 +3,6 @@ import { createSubmissionSchema } from '@/lib/validations/submission'
 import zhMessages from '../../../../../messages/zh-TW.json'
 
 const {
-  mockUpload,
-  mockGetPublicUrl,
   mockGetUser,
   mockSubmitBrandForReview,
   mockVerifyTurnstileToken,
@@ -12,8 +10,6 @@ const {
 } = vi.hoisted(() => {
   const mockRateLimiterCheck = vi.fn().mockReturnValue({ allowed: true })
   return {
-    mockUpload: vi.fn(),
-    mockGetPublicUrl: vi.fn(),
     mockGetUser: vi.fn(),
     mockSubmitBrandForReview: vi.fn(),
     mockVerifyTurnstileToken: vi.fn(),
@@ -43,22 +39,8 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() =>
     Promise.resolve({
       auth: { getUser: mockGetUser },
-      storage: {
-        from: vi.fn(() => ({
-          upload: mockUpload,
-          getPublicUrl: mockGetPublicUrl,
-        })),
-      },
     })
   ),
-  createServiceClient: vi.fn(() => ({
-    storage: {
-      from: vi.fn(() => ({
-        upload: mockUpload,
-        getPublicUrl: mockGetPublicUrl,
-      })),
-    },
-  })),
 }))
 
 vi.mock('@/lib/services/submission-pipeline', () => ({
@@ -73,73 +55,17 @@ vi.mock('@/lib/security/rate-limiter', () => ({
   createInMemoryRateLimiter: () => ({ check: mockRateLimiterCheck }),
 }))
 
-vi.mock('sharp', () => ({
-  default: vi.fn(() => ({
-    metadata: vi.fn().mockResolvedValue({ width: 800, height: 600 }),
+vi.mock('@/lib/services/brand-cleanup', () => ({
+  cleanBrandName: vi.fn((name: string) => ({
+    cleanedName: name,
+    changed: false,
+    confidence: 'high',
+    patternsMatched: [],
   })),
 }))
 
 import { getTranslations } from 'next-intl/server'
-import { downloadAndStoreImages } from '@/lib/services/image-download'
 import { submitBrand } from '@/app/[locale]/submit/actions'
-
-describe('downloadAndStoreImages', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks()
-    mockUpload.mockResolvedValue({ error: null })
-    mockGetPublicUrl.mockReturnValue({
-      data: { publicUrl: 'https://supabase.co/storage/brand-images/photo.jpg' },
-    })
-  })
-
-  it('downloads external images and returns storage URLs', async () => {
-    const mockBlob = new Blob([new Uint8Array(6000)], { type: 'image/jpeg' })
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        blob: () => Promise.resolve(mockBlob),
-        headers: new Headers({ 'content-type': 'image/jpeg' }),
-      })
-    )
-
-    const result = await downloadAndStoreImages(
-      ['https://example.com/photo1.jpg', 'https://example.com/photo2.jpg'],
-      'brand-123'
-    )
-
-    expect(result).toHaveLength(2)
-    expect(fetch).toHaveBeenCalledTimes(2)
-  })
-
-  it('returns null in place for failed image downloads (index-aligned)', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi
-        .fn()
-        .mockResolvedValueOnce({
-          ok: true,
-          blob: () => Promise.resolve(new Blob([new Uint8Array(6000)])),
-          headers: new Headers({ 'content-type': 'image/jpeg' }),
-        })
-        .mockResolvedValueOnce({ ok: false, status: 404 })
-    )
-
-    const result = await downloadAndStoreImages(
-      ['https://example.com/good.jpg', 'https://example.com/missing.jpg'],
-      'brand-123'
-    )
-
-    expect(result).toHaveLength(2)
-    expect(result[0]).toBe('https://supabase.co/storage/brand-images/photo.jpg')
-    expect(result[1]).toBeNull()
-  })
-
-  it('returns empty array when no URLs provided', async () => {
-    const result = await downloadAndStoreImages([], 'brand-123')
-    expect(result).toEqual([])
-  })
-})
 
 // Test the schema selection logic in isolation — not the full action
 // (Full action involves Turnstile + Supabase; those are covered by E2E)
@@ -173,16 +99,12 @@ describe('server action schema routing', () => {
     const schema = createSubmissionSchema(true)
     const ownerPayload = {
       name: 'Test Brand',
-      description: 'Long enough description for the test',
-      category: 'fashion',
       website: 'https://test.com',
       // region intentionally omitted — it is required
       isOwner: true,
       purchaseLinks: [{ platform: 'shopify', url: 'https://shop.com' }],
       pdpaConsent: true,
       socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
-      productPhotos: [],
-      retailLocations: [],
       turnstileToken: 'test-token',
     }
     expect(schema.safeParse(ownerPayload).success).toBe(false)
@@ -192,8 +114,6 @@ describe('server action schema routing', () => {
     const schema = createSubmissionSchema(false)
     const communityPayload = {
       name: 'Test Brand',
-      description: 'Long enough description for the community submission test',
-      category: 'fashion',
       website: 'https://test.com',
       region: 'taipei',
       isOwner: false,
@@ -201,9 +121,6 @@ describe('server action schema routing', () => {
       pdpaConsent: true,
       socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
       sourceAttribution: 'found_online',
-      productPhotos: [],
-      productType: 'fashion',
-      retailLocations: [],
       turnstileToken: 'test-token',
     }
     expect(schema.safeParse(communityPayload).success).toBe(true)
@@ -212,17 +129,12 @@ describe('server action schema routing', () => {
   it('omits the dormant brand column from the brand insert payload', async () => {
     await submitBrand({
       name: 'Test Brand',
-      description: 'Long enough description for the brand insert payload test',
-      category: 'fashion',
       website: 'https://test.com',
       region: 'taipei',
-      productType: 'fashion',
       isOwner: true,
       purchaseLinks: [{ platform: 'shopify', url: 'https://shop.com' }],
       pdpaConsent: true,
       socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
-      productPhotos: [],
-      retailLocations: [],
       turnstileToken: 'test-token',
     })
 
@@ -234,18 +146,13 @@ describe('server action schema routing', () => {
   it('stores structured suggestedTags with region', async () => {
     await submitBrand({
       name: 'Test Brand',
-      description: 'A'.repeat(40),
-      category: 'fashion',
       website: 'https://test.com',
       region: 'taipei',
-      productType: 'fashion',
       isOwner: false,
       purchaseLinks: [],
       pdpaConsent: true,
       socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
       sourceAttribution: 'found_online',
-      productPhotos: [],
-      retailLocations: [],
       turnstileToken: 'test-token',
     })
 
@@ -256,36 +163,9 @@ describe('server action schema routing', () => {
     )
   })
 
-  it('passes unifiedBusinessNumber through the pipeline', async () => {
-    await submitBrand({
-      name: 'Test Brand',
-      description: 'A'.repeat(40),
-      category: 'fashion',
-      website: 'https://test.com',
-      region: 'taipei',
-      unifiedBusinessNumber: '12345678',
-      isOwner: false,
-      purchaseLinks: [],
-      pdpaConsent: true,
-      socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
-      sourceAttribution: 'found_online',
-      productPhotos: [],
-      retailLocations: [],
-      turnstileToken: 'test-token',
-    })
-
-    expect(mockSubmitBrandForReview).toHaveBeenCalledWith(
-      expect.objectContaining({
-        ubn: '12345678',
-      })
-    )
-  })
-
   it('returns undefined on successful submission', async () => {
     const result = await submitBrand({
       name: 'Test Brand',
-      description: 'Long enough description for success',
-      category: 'fashion',
       website: 'https://test.com',
       region: 'taipei',
       isOwner: false,
@@ -293,9 +173,6 @@ describe('server action schema routing', () => {
       pdpaConsent: true,
       socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
       sourceAttribution: 'found_online',
-      productPhotos: [],
-      productType: 'fashion',
-      retailLocations: [],
       turnstileToken: 'test-token',
     })
 
@@ -308,8 +185,6 @@ describe('server action schema routing', () => {
 
     const result = await submitBrand({
       name: 'Test Brand',
-      description: 'Long enough description for rate limit test',
-      category: 'fashion',
       website: 'https://test.com',
       region: 'taipei',
       isOwner: false,
@@ -317,9 +192,6 @@ describe('server action schema routing', () => {
       pdpaConsent: true,
       socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
       sourceAttribution: 'found_online',
-      productPhotos: [],
-      productType: 'fashion',
-      retailLocations: [],
       turnstileToken: 'test-token',
     })
 

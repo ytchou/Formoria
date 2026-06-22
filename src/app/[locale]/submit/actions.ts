@@ -3,12 +3,11 @@
 import { getTranslations } from 'next-intl/server'
 import { createSubmissionSchema, type SubmissionFormData } from '@/lib/validations/submission'
 import { submitBrandForReview } from '@/lib/services/submission-pipeline'
-import { checkBrandDuplicates } from '@/lib/services/submissions'
 import { cleanBrandName } from '@/lib/services/brand-cleanup'
 import { createClient } from '@/lib/supabase/server'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
 import { createInMemoryRateLimiter } from '@/lib/security/rate-limiter'
-import type { DuplicateCheckResult, SourceAttribution } from '@/lib/types/submission'
+import type { SourceAttribution } from '@/lib/types/submission'
 
 // Per-user in-action rate limiter for brand submissions (5 per 60s)
 const submissionRateLimiter = createInMemoryRateLimiter()
@@ -16,13 +15,6 @@ const submissionRateLimiter = createInMemoryRateLimiter()
 type SubmitBrandInput = SubmissionFormData & {
   isOwner?: boolean
   sourceAttribution?: SourceAttribution
-}
-
-export async function checkDuplicates(
-  name: string,
-  ubn?: string
-): Promise<DuplicateCheckResult> {
-  return checkBrandDuplicates(name, ubn)
 }
 
 export async function suggestCleanName(name: string) {
@@ -92,8 +84,6 @@ export async function submitBrand(
       isOwner,
       pdpaConsent: parsed.pdpaConsent,
       sourceAttribution: data.sourceAttribution ?? null,
-      ubn: parsed.unifiedBusinessNumber ?? null,
-      retailLocations: parsed.retailLocations,
       submitterEmail: user.email ?? '',
       submitterName: user.user_metadata?.full_name ?? undefined,
     })
