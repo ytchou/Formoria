@@ -2,7 +2,7 @@ import { DESCRIPTION_AND_CLASSIFY_SYSTEM_PROMPT, DESCRIPTION_SYSTEM_PROMPT } fro
 import { type ClassificationResult, VALID_PRODUCT_TYPES } from './product-type-classifier'
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions'
-const DEEPSEEK_MODEL = 'deepseek-chat'
+const DEEPSEEK_MODEL = 'deepseek-v4-flash'
 const DEEPSEEK_TIMEOUT_MS = 30_000
 
 
