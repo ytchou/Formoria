@@ -1,7 +1,12 @@
 import { type Page, expect } from '@playwright/test';
 
 /**
- * Navigate to /submit/form and wait until the wizard is fully interactive.
+ * Navigate to /submit/form and wait until the URL discovery phase is fully interactive.
+ *
+ * The form at /submit/form is a two-phase single-screen flow:
+ *   Phase 1 (url): UrlStep — enter brand URL, social/purchase links, skip to form.
+ *   Phase 2 (form): BrandInfoStep — single-screen with name, region, owner, PDPA, submit.
+ * There is no step indicator or wizard navigation; calling this helper lands you on Phase 1.
  *
  * DEV-762 / CI cold-compile: Next.js dev mode compiles routes on-demand.
  * Under 2-worker parallel CI the /submit/form route may not be compiled when

@@ -4,8 +4,8 @@ import { gotoSubmitWizard } from '../utils/submit-wizard'
 
 test.describe('Community submit flow', () => {
   const ownerCheckboxName = '我是品牌所有者'
-  const attributionFieldName = '你如何認識這個品牌？'
-  const manualEntryButtonName = '跳過，手動填寫'
+  const attributionLabelName = '你如何認識這個品牌？'
+  const skipButtonName = '跳過，手動填寫'
 
   test.afterAll(async () => {
     const supabase = createClient(
@@ -17,41 +17,41 @@ test.describe('Community submit flow', () => {
 
   test('community submitter sees owner checkbox on URL step', async ({ userPage }) => {
     test.setTimeout(60_000)
-    // Use gotoSubmitWizard to absorb cold-compile latency before asserting UI state
     await gotoSubmitWizard(userPage)
+    // UrlStep renders the owner checkbox without needing to fill in anything
     await expect(userPage.getByRole('checkbox', { name: ownerCheckboxName, exact: true }))
       .toBeVisible({ timeout: 5_000 })
   })
 
   test('source attribution dropdown appears when owner unchecked', async ({ userPage }) => {
     test.setTimeout(60_000)
-    // Use gotoSubmitWizard to ensure the wizard is hydrated before interacting
     await gotoSubmitWizard(userPage)
     const ownerCheckbox = userPage.getByRole('checkbox', { name: ownerCheckboxName, exact: true })
-    // isOwner defaults to false — attribution select is visible immediately
-    await expect(userPage.getByRole('combobox', { name: attributionFieldName, exact: true }))
+    // isOwner defaults to false — attribution select is visible immediately on URL step
+    await expect(userPage.getByRole('combobox', { name: attributionLabelName, exact: true }))
       .toBeVisible({ timeout: 5_000 })
     await ownerCheckbox.check()
-    await expect(userPage.getByRole('combobox', { name: attributionFieldName, exact: true }))
+    await expect(userPage.getByRole('combobox', { name: attributionLabelName, exact: true }))
       .not.toBeVisible()
   })
 
-  test('community submitter reaches brand info step and sees required fields', async ({ userPage }) => {
+  test('community submitter skips URL step and sees single-screen brand form', async ({ userPage }) => {
     test.setTimeout(60_000)
     await gotoSubmitWizard(userPage)
 
-    await userPage.getByRole('button', { name: manualEntryButtonName, exact: true }).click()
+    await userPage.getByRole('button', { name: skipButtonName, exact: true }).click()
 
-    // Brand Info step (step 1) should be active
-    await expect(
-      userPage.locator('[data-state="active"]').filter({ hasText: /^1\s+品牌資訊$/ })
-    ).toBeVisible({ timeout: 5_000 })
+    // Single-screen form — no step indicator, brand name field is present
+    await expect(userPage.locator('#brand-name')).toBeVisible({ timeout: 5_000 })
 
-    // Required fields are present
-    await expect(userPage.locator('#brand-name')).toBeVisible({ timeout: 3_000 })
-    await expect(userPage.locator('#brand-description')).toBeVisible({ timeout: 3_000 })
+    // PDPA consent is on the same single screen (visible by associated label text)
+    await expect(userPage.getByText(/我同意依據/)).toBeVisible({ timeout: 3_000 })
 
-    // Product type UI moved to TagsStep (step 2) — BrandInfoStep no longer has it
+    // Region select is present
+    await expect(userPage.locator('#brand-region')).toBeVisible({ timeout: 3_000 })
+
+    // No step indicator should exist in the simplified form
+    await expect(userPage.locator('[data-state="active"]')).not.toBeVisible()
   })
 
   test('my-submissions page shows authenticated user submissions', async ({ userPage }) => {
