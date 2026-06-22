@@ -1,6 +1,5 @@
 import { z } from 'zod/v3'
 import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
-import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 type Translator = (key: string) => string
 
@@ -32,11 +31,8 @@ export const scrapeUrlSchema = z.object({
 
 function buildFieldSchemas(t: Translator) {
   const nameField = z.string().min(2, t('validation.nameMinLength')).max(100)
-  const descriptionField = z.string().max(500).optional().or(z.literal(''))
-  const categoryField = z.string().optional().default('')
   const regionField = z.string().min(1, t('validation.regionRequired'))
   const websiteField = httpUrl(t('validation.urlInvalid'))
-  const valueTagsField = z.array(z.string()).max(3, t('validation.valueTagsMax')).optional().default([])
 
   const purchaseLinkSchema = z.object({
     platform: z.string().min(1, t('validation.platformRequired')),
@@ -44,79 +40,34 @@ function buildFieldSchemas(t: Translator) {
   })
 
   const socialLinksSchema = z.object({
-    instagram: z.string(),
-    threads: z.string(),
-    facebook: z.string(),
-    website: httpUrl(t('validation.urlInvalid')).or(z.literal('')),
-  })
-
-  const retailLocationSchema = z.object({
-    name: z.string().min(1, t('validation.locationNameRequired')),
-    address: z.string().min(1, t('validation.addressRequired')),
+    instagram: z.string().optional().default(''),
+    threads: z.string().optional().default(''),
+    facebook: z.string().optional().default(''),
+    website: httpUrl(t('validation.urlInvalid')).or(z.literal('')).optional().default(''),
   })
 
   return {
     nameField,
-    descriptionField,
-    categoryField,
     regionField,
     websiteField,
-    valueTagsField,
     purchaseLinkSchema,
     socialLinksSchema,
-    retailLocationSchema,
   }
 }
 
 export function getBrandInfoSchema(t: Translator) {
-  const {
-    nameField,
-    descriptionField,
-    categoryField,
-    regionField,
-    websiteField,
-    valueTagsField,
-  } = buildFieldSchemas(t)
+  const { nameField, regionField, websiteField } = buildFieldSchemas(t)
   return z.object({
     name: nameField,
-    description: descriptionField,
-    category: categoryField,
     website: websiteField,
-    unifiedBusinessNumber: z.string()
-      .regex(/^\d{8}$/, t('validation.ubn_format'))
-      .or(z.literal(''))
-      .optional()
-      .transform((v) => (v === '' ? undefined : v)),
     region: regionField,
-    valueTags: valueTagsField,
-    heroImageUrl: httpUrl().optional().or(z.literal('')),
   })
 }
 
 export const BrandInfoSchema = getBrandInfoSchema
 
-export function getProductsSchema(_t: Translator) {
-  void _t
-
-  return z.object({
-    productPhotos: z.array(z.string()).max(6).optional().default([]),
-    brandHighlights: z.string().max(300).optional().default(''),
-    productType: z
-      .string()
-      .optional()
-      .default('')
-      .refine(
-        (slug) =>
-          slug === '' || PRODUCT_TYPE_CATEGORIES.some((category) => category.slug === slug),
-        'Invalid product type slug'
-      ),
-    productTypeNote: z.string().max(200).optional().default(''),
-  })
-}
-
 export function getLinksSchema(t: Translator) {
-  const { purchaseLinkSchema, socialLinksSchema, retailLocationSchema } =
-    buildFieldSchemas(t)
+  const { purchaseLinkSchema, socialLinksSchema } = buildFieldSchemas(t)
   return z.object({
     purchaseLinks: z
       .array(purchaseLinkSchema)
@@ -128,7 +79,6 @@ export function getLinksSchema(t: Translator) {
       facebook: '',
       website: '',
     }),
-    retailLocations: z.array(retailLocationSchema).optional().default([]),
   })
 }
 
@@ -144,7 +94,7 @@ export function getBotDetectionSchema(_t: Translator) {
   void _t
   return z.object({
     turnstileToken: z.string().min(1),
-    _honeypot: z.string().max(0).optional(),
+    honeypot: z.string().max(0).optional().default(''),
   })
 }
 
@@ -154,28 +104,16 @@ export function getBotDetectionSchema(_t: Translator) {
 const zhT = (key: string): string => {
   const map: Record<string, string> = {
     'validation.nameMinLength': '品牌名稱至少需要 2 個字元',
-    'validation.descriptionMinLength': '品牌介紹至少需要 40 個字元',
-    'validation.categoryRequired': '請選擇分類',
     'validation.regionRequired': '請選擇地區',
-    'validation.tagsMax': '最多可選擇 5 個標籤',
-    'validation.valueTagsMax': '最多可選擇 3 個品牌價值',
-    'validation.logoRequired': '請上傳品牌標誌',
-    'validation.photosMax': '最多可上傳 6 張照片',
     'validation.platformRequired': '請選擇平台',
     'validation.urlInvalid': '請輸入有效的網址',
-    'validation.locationNameRequired': '請輸入地點名稱',
-    'validation.addressRequired': '請輸入地址',
-    'validation.purchaseLinksMin': '請提供至少一個購買連結',
     'validation.pdpaRequired': '請同意隱私政策',
     'validation.turnstileRequired': '請完成驗證',
-    'validation.ubn_format': '統一編號須為8位數字',
   }
   return map[key] ?? key
 }
 
 export const brandInfoSchema = getBrandInfoSchema(zhT)
-export const descriptionField = z.string().max(500).optional().or(z.literal(''))
-export const productsSchema = getProductsSchema(zhT)
 export const linksSchema = getLinksSchema(zhT)
 export const reviewSchema = getReviewSchema(zhT)
 export const botDetectionSchema = getBotDetectionSchema(zhT)
@@ -245,31 +183,13 @@ function requireSourceAttribution<Schema extends z.ZodType>(
  * that call getTranslations should pass the result here).
  */
 export function createSubmissionSchema(isOwner: boolean, t: Translator = zhT) {
-  const {
-    nameField,
-    descriptionField: descField,
-    categoryField,
-    regionField,
-    websiteField,
-    valueTagsField,
-    purchaseLinkSchema,
-    socialLinksSchema,
-    retailLocationSchema,
-  } = buildFieldSchemas(t)
+  const { nameField, regionField, websiteField, purchaseLinkSchema, socialLinksSchema } =
+    buildFieldSchemas(t)
 
   const brandInfoBase = z.object({
     name: nameField,
-    description: descField,
-    category: categoryField,
     website: websiteField,
-    unifiedBusinessNumber: z.string()
-      .regex(/^\d{8}$/, t('validation.ubn_format'))
-      .or(z.literal(''))
-      .optional()
-      .transform((v) => (v === '' ? undefined : v)),
     region: regionField,
-    valueTags: valueTagsField,
-    heroImageUrl: httpUrl().optional().or(z.literal('')),
   })
 
   const linksBase = z.object({
@@ -280,7 +200,6 @@ export function createSubmissionSchema(isOwner: boolean, t: Translator = zhT) {
       facebook: '',
       website: '',
     }),
-    retailLocations: z.array(retailLocationSchema).optional().default([]),
   })
 
   const reviewBase = z.object({
@@ -291,11 +210,10 @@ export function createSubmissionSchema(isOwner: boolean, t: Translator = zhT) {
 
   const botDetectionBase = z.object({
     turnstileToken: z.string().min(1),
-    _honeypot: z.string().max(0).optional(),
+    honeypot: z.string().max(0).optional().default(''),
   })
 
   const schema = brandInfoBase
-    .merge(getProductsSchema(t))
     .merge(linksBase)
     .merge(reviewBase)
     .merge(botDetectionBase)
@@ -312,7 +230,6 @@ export { SOURCE_ATTRIBUTION_VALUES }
 
 export const fullSubmissionSchema = requireSourceAttribution(
   brandInfoSchema
-    .merge(productsSchema)
     .merge(linksSchema)
     .merge(reviewSchema)
     .merge(botDetectionSchema)
@@ -323,7 +240,6 @@ export const fullSubmissionSchema = requireSourceAttribution(
 export function getFullSubmissionSchema(t: Translator) {
   return requireSourceAttribution(
     getBrandInfoSchema(t)
-      .merge(getProductsSchema(t))
       .merge(getLinksSchema(t))
       .merge(getReviewSchema(t))
       .merge(getBotDetectionSchema(t))
@@ -334,21 +250,7 @@ export function getFullSubmissionSchema(t: Translator) {
 
 type FullSubmissionSchemaData = z.infer<typeof fullSubmissionSchema>
 
-export type SubmissionFormData = Omit<
-  FullSubmissionSchemaData,
-  | 'productTypeNote'
-  | 'productType'
-  | 'valueTags'
-  | 'brandHighlights'
-  | 'purchaseLinks'
-  | 'socialLinks'
-  | 'heroImageUrl'
-> & {
-  productTypeNote?: string
-  productType?: string
-  valueTags?: string[]
-  brandHighlights?: string
+export type SubmissionFormData = FullSubmissionSchemaData & {
   purchaseLinks?: FullSubmissionSchemaData['purchaseLinks']
   socialLinks?: FullSubmissionSchemaData['socialLinks']
-  heroImageUrl?: string
 }

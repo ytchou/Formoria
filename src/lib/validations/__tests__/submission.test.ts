@@ -1,90 +1,75 @@
 import { describe, expect, it } from 'vitest'
-import { getFullSubmissionSchema } from '../submission'
-
-const t = (key: string) => key
+import { fullSubmissionSchema } from '../submission'
 
 describe('simplified submission schema', () => {
-  const schema = getFullSubmissionSchema(t)
-
-  it('accepts minimal submission with only required fields', () => {
-    const result = schema.safeParse({
-      name: 'My Brand',
-      website: 'https://mybrand.com',
-      region: 'taipei',
+  it('accepts minimal submission with URL, name, region, owner, PDPA, turnstile', () => {
+    const data = {
+      name: 'TestBrand',
+      website: 'https://example.com',
+      region: 'northern',
       isOwner: true,
       pdpaConsent: true,
       turnstileToken: 'test-token',
-    })
+      honeypot: '',
+    }
+    const result = fullSubmissionSchema.safeParse(data)
     expect(result.success).toBe(true)
   })
 
-  it('does not require description', () => {
-    const result = schema.safeParse({
-      name: 'My Brand',
-      website: 'https://mybrand.com',
-      region: 'taipei',
+  it('does not require UBN field', () => {
+    const data = {
+      name: 'TestBrand',
+      website: 'https://example.com',
+      region: 'northern',
       isOwner: true,
       pdpaConsent: true,
       turnstileToken: 'test-token',
-    })
+      honeypot: '',
+    }
+    const result = fullSubmissionSchema.safeParse(data)
     expect(result.success).toBe(true)
+    expect(fullSubmissionSchema.shape).not.toHaveProperty('unifiedBusinessNumber')
   })
 
-  it('does not require productType or productTypeNote', () => {
-    const result = schema.safeParse({
-      name: 'My Brand',
-      website: 'https://mybrand.com',
-      region: 'taipei',
+  it('does not require description, productType, productPhotos, heroImageUrl', () => {
+    const shape = Object.keys(fullSubmissionSchema.shape)
+    expect(shape).not.toContain('description')
+    expect(shape).not.toContain('productType')
+    expect(shape).not.toContain('productPhotos')
+    expect(shape).not.toContain('heroImageUrl')
+  })
+
+  it('does not include retailLocations', () => {
+    const shape = Object.keys(fullSubmissionSchema.shape)
+    expect(shape).not.toContain('retailLocations')
+  })
+
+  it('accepts optional social links as strings', () => {
+    const data = {
+      name: 'TestBrand',
+      website: 'https://example.com',
+      region: 'northern',
       isOwner: true,
       pdpaConsent: true,
       turnstileToken: 'test-token',
-    })
+      honeypot: '',
+      socialLinks: { instagram: 'https://instagram.com/test', threads: '', facebook: '' },
+    }
+    const result = fullSubmissionSchema.safeParse(data)
     expect(result.success).toBe(true)
-  })
-
-  it('does not require purchase links', () => {
-    const result = schema.safeParse({
-      name: 'My Brand',
-      website: 'https://mybrand.com',
-      region: 'taipei',
-      isOwner: true,
-      pdpaConsent: true,
-      turnstileToken: 'test-token',
-    })
-    expect(result.success).toBe(true)
-  })
-
-  it('still requires website URL', () => {
-    const result = schema.safeParse({
-      name: 'My Brand',
-      region: 'taipei',
-      isOwner: true,
-      pdpaConsent: true,
-      turnstileToken: 'test-token',
-    })
-    expect(result.success).toBe(false)
-  })
-
-  it('still requires region', () => {
-    const result = schema.safeParse({
-      name: 'My Brand',
-      website: 'https://mybrand.com',
-      isOwner: true,
-      pdpaConsent: true,
-      turnstileToken: 'test-token',
-    })
-    expect(result.success).toBe(false)
   })
 
   it('requires sourceAttribution when isOwner is false', () => {
-    const result = schema.safeParse({
-      name: 'My Brand',
-      website: 'https://mybrand.com',
-      region: 'taipei',
+    const data = {
+      name: 'TestBrand',
+      website: 'https://example.com',
+      region: 'northern',
       isOwner: false,
       pdpaConsent: true,
       turnstileToken: 'test-token',
-    })
+      honeypot: '',
+    }
+    const result = fullSubmissionSchema.safeParse(data)
     expect(result.success).toBe(false)
   })
 })
