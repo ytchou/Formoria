@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getEnrichmentStatus } from '../submissions-review-list'
+import { getEnrichmentStatus } from '@/lib/services/enrichment'
 
 describe('getEnrichmentStatus', () => {
   it('returns "not_enriched" when enrichment is null', () => {

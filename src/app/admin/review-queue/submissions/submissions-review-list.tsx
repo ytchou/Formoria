@@ -4,6 +4,7 @@ import { Fragment, useMemo, useState, useTransition } from 'react'
 import { useTranslations } from 'next-intl'
 import type { BrandSubmission, OtherUrl, SourceAttribution, SubmissionStatus } from '@/lib/types'
 import type { BrandEnrichment } from '@/lib/services/brands'
+import { getEnrichmentStatus } from '@/lib/services/enrichment'
 import { StatusBadge } from '@/components/admin/status-badge'
 import { rejectSubmissionAction } from '@/app/admin/actions'
 import {
@@ -138,16 +139,6 @@ function getImageCount(enrichment: BrandEnrichment) {
   return (enrichment.heroImageUrl ? 1 : 0) + enrichment.productPhotos.length
 }
 
-export type EnrichmentStatus = 'not_enriched' | 'enriched' | 'partially_enriched'
-
-export function getEnrichmentStatus(enrichment: BrandEnrichment | null | undefined): EnrichmentStatus {
-  if (!enrichment) return 'not_enriched'
-  const hasProductType = (enrichment.productType ?? '').trim() !== ''
-  const hasHero = enrichment.heroImageUrl !== null && enrichment.heroImageUrl !== undefined
-  const hasTags = (enrichment.tagSlugs ?? []).length > 0
-  if (hasProductType && hasHero && hasTags) return 'enriched'
-  return 'partially_enriched'
-}
 
 function createOverrideForm(submission: BrandSubmissionWithRisk): OverrideForm {
   return {
