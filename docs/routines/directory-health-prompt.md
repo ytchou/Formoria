@@ -72,22 +72,37 @@ curl -sI -o /dev/null -w "%{http_code}" --max-time 10 "<url>"
 
 ### Dedup check
 
-Before creating any ticket, search Linear for existing open issues to avoid duplicates:
-
-1. Use `mcp__linear__list_issues` to search for open issues with `[Health]` in the title.
-2. Build a set of already-tracked brand slugs from existing ticket titles.
+Before creating a ticket, search Linear for an existing open issue titled `[Health] Directory health audit YYYY-MM-DD` (same date as this run). If one already exists, skip ticket creation — this is a re-run.
 
 ### Ticket creation
 
-For each **NEW** broken link (not already in an open ticket):
-- Title: `[Health] {brand_name} — website URL broken ({status_code})`
-- Description: `Brand slug: {slug}\nURL: {url}\nHTTP status: {status_code}\nDetected: {date}`
-- Label: `Data Quality`
+If any broken links OR zero-content brands were found, create a **single** consolidated ticket:
 
-For each **NEW** zero-content brand (not already in an open ticket):
-- Title: `[Health] {brand_name} — missing description + image`
-- Description: `Brand slug: {slug}\nDetected: {date}\nBoth description and hero image are missing.`
+- Title: `[Health] Directory health audit YYYY-MM-DD`
 - Label: `Data Quality`
+- Priority: High (2) if any broken links, Normal (3) if zero-content only
+- Description (markdown):
+
+```markdown
+## Directory Health Audit — YYYY-MM-DD
+
+### Broken Links ({count})
+
+| Brand | Slug | URL | Status |
+|-------|------|-----|--------|
+| {brand_name} | {slug} | {url} | {status_code} |
+
+### Zero Content ({count})
+
+| Brand | Slug |
+|-------|------|
+| {brand_name} | {slug} |
+
+---
+Source: Directory Health routine
+```
+
+If zero issues found, do NOT create a ticket.
 
 ### Linear MCP unavailable
 
