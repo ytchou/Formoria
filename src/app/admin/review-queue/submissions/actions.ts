@@ -48,6 +48,11 @@ export async function approveSubmissionWithOverridesAction(
 
   const submission = await getSubmission(submissionId)
 
+  // Intentional ordering: approve first so that if approve fails, overrides are not written.
+  // Only apply overrides after a successful approval.
+  const approvalResult = await approveSubmissionAction(submissionId)
+  if (approvalResult?.error) return approvalResult
+
   if (submission.brandId) {
     await updateBrand(submission.brandId, {
       description: emptyToNull(overrides.description),
@@ -68,5 +73,5 @@ export async function approveSubmissionWithOverridesAction(
     })
   }
 
-  return approveSubmissionAction(submissionId)
+  return approvalResult
 }

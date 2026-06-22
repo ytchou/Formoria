@@ -67,11 +67,11 @@ function readinessBadgeClass(tone: 'green' | 'amber' | 'red' | 'grey') {
     case 'green':
       return 'bg-[#EAF3E8] text-[#2D5A27]'
     case 'amber':
-      return 'bg-amber-100 text-amber-800'
+      return 'bg-amber-50 text-amber-700'
     case 'red':
       return 'bg-red-50 text-[#D94F3D]'
     case 'grey':
-      return 'bg-[#F5F4F1] text-[#7C7570]'
+      return 'bg-[#F5F4F1] text-muted-foreground'
   }
 }
 
@@ -91,7 +91,7 @@ function ReadinessBadge({
 
 function AutoBadge() {
   return (
-    <Badge variant="outline" className="border-dashed bg-[#FAF7F4] text-[10px] uppercase tracking-wide text-[#7C7570]">
+    <Badge variant="outline" className="border-dashed bg-background text-[10px] uppercase tracking-wide text-muted-foreground">
       auto
     </Badge>
   )
@@ -105,7 +105,7 @@ function FieldLabel({
   auto?: boolean
 }) {
   return (
-    <div className="flex items-center gap-2 text-sm font-medium text-[#7C7570]">
+    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
       <span>{children}</span>
       {auto && <AutoBadge />}
     </div>
@@ -120,7 +120,7 @@ function EnrichedCard({
   auto?: boolean
 }) {
   return (
-    <Card className={auto ? 'border-dashed bg-[#FFFCF8] shadow-none' : 'bg-white shadow-none'}>
+    <Card className={auto ? 'border-dashed bg-background shadow-none' : 'bg-white shadow-none'}>
       <CardContent className="p-4">{children}</CardContent>
     </Card>
   )
@@ -283,12 +283,12 @@ export function SubmissionsReviewList({
     })
   }
 
-  const tabCounts = {
+  const tabCounts = useMemo(() => ({
     all: submissions.length,
     pending: submissions.filter((s) => s.status === 'pending').length,
     approved: submissions.filter((s) => s.status === 'approved').length,
     rejected: submissions.filter((s) => s.status === 'rejected').length,
-  }
+  }), [submissions])
 
   return (
     <div>
@@ -401,10 +401,10 @@ export function SubmissionsReviewList({
 
                   {expandedId === submission.id && (
                     <TableRow key={`${submission.id}-expanded`}>
-                      <TableCell colSpan={8} className="bg-[#FAF7F4] p-6">
+                      <TableCell colSpan={8} className="bg-background p-6">
                         <div className="space-y-4">
                           <div>
-                            <p className="text-sm font-medium text-[#7C7570]">
+                            <p className="text-sm font-medium text-muted-foreground">
                               Review Readiness
                             </p>
                             {submission.brandEnrichment ? (
@@ -414,7 +414,7 @@ export function SubmissionsReviewList({
                                   {submission.brandEnrichment.productType.trim() ? (
                                     submission.brandEnrichment.productType
                                   ) : (
-                                    <span className="text-[#7C7570]">Not set</span>
+                                    <span className="text-muted-foreground">Not set</span>
                                   )}
                                 </p>
                                 <p>
@@ -447,7 +447,7 @@ export function SubmissionsReviewList({
 
                                       if (entries.length === 0) {
                                         return (
-                                          <p className="text-[#7C7570]">No tags assigned</p>
+                                          <p className="text-muted-foreground">No tags assigned</p>
                                         )
                                       }
 
@@ -464,7 +464,7 @@ export function SubmissionsReviewList({
                                 </div>
                               </div>
                             ) : (
-                              <p className="mt-2 text-sm text-[#7C7570]">
+                              <p className="mt-2 text-sm text-muted-foreground">
                                 No brand record linked (legacy submission)
                               </p>
                             )}
@@ -644,7 +644,7 @@ export function SubmissionsReviewList({
                                         alt={`${submission.brandName} hero`}
                                         className="aspect-square w-full object-cover"
                                       />
-                                      <span className="block px-2 py-1 text-xs text-[#7C7570]">Hero</span>
+                                      <span className="block px-2 py-1 text-xs text-muted-foreground">Hero</span>
                                     </a>
                                   )}
                                   {submission.brandEnrichment.productPhotos.map((url, index) => (
@@ -662,7 +662,7 @@ export function SubmissionsReviewList({
                                         alt={`${submission.brandName} product ${index + 1}`}
                                         className="aspect-square w-full object-cover"
                                       />
-                                      <span className="block px-2 py-1 text-xs text-[#7C7570]">
+                                      <span className="block px-2 py-1 text-xs text-muted-foreground">
                                         Product {index + 1}
                                       </span>
                                     </a>
@@ -670,7 +670,7 @@ export function SubmissionsReviewList({
                                 </div>
                                 {!submission.brandEnrichment.heroImageUrl &&
                                   submission.brandEnrichment.productPhotos.length === 0 && (
-                                    <p className="text-sm text-[#7C7570]">No images enriched</p>
+                                    <p className="text-sm text-muted-foreground">No images enriched</p>
                                   )}
                               </div>
                             </EnrichedCard>
@@ -689,7 +689,7 @@ export function SubmissionsReviewList({
 
                           {!submission.isBrandOwner && submission.sourceAttribution && (
                             <div>
-                              <p className="text-sm font-medium text-[#7C7570]">
+                              <p className="text-sm font-medium text-muted-foreground">
                                 How do you know this brand?
                               </p>
                               <p className="mt-1 text-sm">
@@ -700,10 +700,10 @@ export function SubmissionsReviewList({
 
                           {submission.productTypeNote?.trim() && (
                             <div>
-                              <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+                              <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
                                 Taxonomy gap
                               </span>
-                              <p className="mt-1 text-sm text-[#7C7570]">
+                              <p className="mt-1 text-sm text-muted-foreground">
                                 {submission.productTypeNote}
                               </p>
                             </div>
@@ -715,14 +715,14 @@ export function SubmissionsReviewList({
                             if (Array.isArray(suggestedTags)) {
                               return suggestedTags.length > 0 && (
                                 <div>
-                                  <p className="text-sm font-medium text-[#7C7570]">
+                                  <p className="text-sm font-medium text-muted-foreground">
                                     Suggested Tags
                                   </p>
                                   <div className="mt-1 flex flex-wrap gap-2">
                                     {suggestedTags.map((tag) => (
                                       <span
                                         key={tag}
-                                        className="inline-flex rounded-full bg-[#F5F4F1] px-2.5 py-0.5 text-xs font-medium text-[#7C7570]"
+                                        className="inline-flex rounded-full bg-[#F5F4F1] px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
                                       >
                                         {tag}
                                       </span>
@@ -738,7 +738,7 @@ export function SubmissionsReviewList({
 
                               return (region || values.length > 0) && (
                                 <div>
-                                  <p className="text-sm font-medium text-[#7C7570]">
+                                  <p className="text-sm font-medium text-muted-foreground">
                                     Suggested Tags
                                   </p>
                                   <div className="mt-1 space-y-1 text-sm">
@@ -758,7 +758,7 @@ export function SubmissionsReviewList({
                             <p className="text-sm text-[#D94F3D]">{error}</p>
                           )}
                           {warning && (
-                            <p className="text-sm text-amber-600">{warning}</p>
+                            <p className="text-sm text-amber-700">{warning}</p>
                           )}
 
                           {submission.status === 'pending' && (
@@ -811,7 +811,7 @@ export function SubmissionsReviewList({
               <TableRow>
                 <TableCell
                   colSpan={8}
-                  className="py-8 text-center text-[#7C7570]"
+                  className="py-8 text-center text-muted-foreground"
                 >
                   找不到提交記錄。
                 </TableCell>
