@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
-import { useForm, useWatch, Controller } from 'react-hook-form'
+import { useForm, useWatch, Controller, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslations } from 'next-intl'
 import { ChevronDown } from 'lucide-react'
@@ -45,7 +45,7 @@ export default function SubmitForm({
     getValues,
     formState: { errors, isValid },
   } = useForm<SubmissionFormData>({
-    resolver: zodResolver(fullSchema) as Parameters<typeof useForm<SubmissionFormData>>[0]['resolver'],
+    resolver: zodResolver(fullSchema) as Resolver<SubmissionFormData>,
     defaultValues: {
       name: '',
       website: '',
