@@ -36,6 +36,7 @@ e2e/playwright-report/
 Thumbs.db
 *.csv
 scripts/.backfill-backup-*.json
+scripts/.quality-purge-backup-*.json
 scripts/backup/
 
 # local scratch / generated image output

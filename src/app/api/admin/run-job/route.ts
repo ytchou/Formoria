@@ -2,7 +2,6 @@ import { revalidateTag } from 'next/cache'
 import { NextResponse } from 'next/server'
 import { isAdmin } from '@/lib/auth/admin'
 import {
-  runAutoTag,
   runCleanup,
   runEnrich,
   runSetVisibility,
@@ -11,7 +10,7 @@ import {
 import { createServiceClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
 
-export const VALID_OPERATIONS = ['cleanup', 'enrich', 'auto-tag', 'set-visibility'] as const
+export const VALID_OPERATIONS = ['cleanup', 'enrich', 'set-visibility'] as const
 export const DEPRECATED_OPERATIONS = [
   'clean-names',
   'normalize-slugs',
@@ -23,7 +22,7 @@ export const DEPRECATED_OPERATIONS = [
 ] as const
 
 const STALE_JOB_MINUTES = 30
-const ENRICH_PHASES = ['discover', 'links', 'images', 'descriptions'] as const
+const ENRICH_PHASES = ['discover', 'links', 'images', 'descriptions', 'tags'] as const
 
 type Supabase = ReturnType<typeof createServiceClient>
 type OperationSupabase = Parameters<typeof runCleanup>[1]
@@ -182,9 +181,6 @@ async function runOperation(supabase: Supabase, job: CurationJob): Promise<Opera
         },
         operationSupabase(supabase)
       )
-      break
-    case 'auto-tag':
-      result = await runAutoTag(config, operationSupabase(supabase))
       break
     case 'set-visibility':
       result = await runSetVisibility(config, operationSupabase(supabase))

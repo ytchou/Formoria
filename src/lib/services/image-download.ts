@@ -1,6 +1,10 @@
+import sharp from 'sharp'
+
 import { createServiceClient } from '@/lib/supabase/server'
 
 const IMAGE_FETCH_TIMEOUT_MS = 10_000
+const MIN_IMAGE_SIZE_BYTES = 5_120
+const MIN_IMAGE_DIMENSION_PX = 400
 
 function getExtFromContentType(contentType: string): string {
   const map: Record<string, string> = {
@@ -37,6 +41,22 @@ export async function downloadAndStoreImages(
         }
 
         const blob = await response.blob()
+        if (blob.size < MIN_IMAGE_SIZE_BYTES) {
+          throw new Error(`Image too small (${blob.size} bytes), skipping`)
+        }
+
+        const buffer = Buffer.from(await blob.arrayBuffer())
+        const { width, height } = await sharp(buffer).metadata()
+        if (
+          !width ||
+          !height ||
+          Math.max(width, height) < MIN_IMAGE_DIMENSION_PX
+        ) {
+          throw new Error(
+            `Image resolution too low (${width ?? 0}x${height ?? 0}), skipping`
+          )
+        }
+
         const contentType =
           response.headers.get('content-type') ?? 'image/jpeg'
         const ext = getExtFromContentType(contentType)
@@ -44,7 +64,7 @@ export async function downloadAndStoreImages(
 
         const { error: uploadError } = await supabase.storage
           .from('brand-images')
-          .upload(filename, blob, { contentType })
+          .upload(filename, buffer, { contentType })
 
         if (uploadError) {
           throw uploadError

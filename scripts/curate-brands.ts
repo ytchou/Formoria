@@ -2,14 +2,13 @@ import { createServiceClient } from '@/lib/supabase/server'
 import {
   type CurationConfig,
   type OperationResult,
-  runAutoTag,
   runCleanup,
   runEnrich,
   runSetVisibility,
 } from '@/lib/services/curation-operations'
 
-const COMMANDS = ['cleanup', 'enrich', 'auto-tag', 'set-visibility'] as const
-const DEFAULT_ENRICH_PHASES = ['discover', 'links', 'images', 'descriptions'] as const
+const COMMANDS = ['cleanup', 'enrich', 'set-visibility'] as const
+const DEFAULT_ENRICH_PHASES = ['discover', 'links', 'images', 'descriptions', 'tags'] as const
 
 type CurationCommand = (typeof COMMANDS)[number]
 type EnrichPhase = (typeof DEFAULT_ENRICH_PHASES)[number]
@@ -72,6 +71,7 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
 
   const config: ParsedCurationConfig = {
     dryRun: args.includes('--dry-run'),
+    overwrite: args.includes('--overwrite'),
   }
   const slugs = parseCsvFlag(args, 'slugs')
   const limit = parseNumberFlag(args, 'limit')
@@ -101,15 +101,15 @@ function printUsage(): void {
   console.log('')
   console.log('Commands:')
   console.log('  cleanup          Clean names, normalize slugs, and detect non-brand signals')
-  console.log('  enrich           Discover links and enrich links, images, and descriptions')
-  console.log('  auto-tag         Assign product_type categories')
+  console.log('  enrich           Discover links, enrich images, descriptions, and classify tags')
   console.log('  set-visibility   Update visibility from approval/readiness fields')
   console.log('')
   console.log('Options:')
   console.log('  --dry-run')
   console.log('  --slugs=a,b')
   console.log('  --limit=10')
-  console.log('  --phases=discover,links,images,descriptions  enrich only')
+  console.log('  --phases=discover,links,images,descriptions,tags  enrich only')
+  console.log('  --overwrite                                  re-enrich already enriched brands')
 }
 
 function printResult(command: CurationCommand, result: OperationResult, dryRun: boolean): void {
@@ -145,8 +145,6 @@ async function runCommand({ command, config }: ParsedCliArgs): Promise<Operation
         },
         supabase
       )
-    case 'auto-tag':
-      return runAutoTag(runConfig, supabase)
     case 'set-visibility':
       return runSetVisibility(runConfig, supabase)
   }

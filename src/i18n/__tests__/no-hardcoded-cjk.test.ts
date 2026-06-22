@@ -56,6 +56,9 @@ const ALLOWLIST = [
   'lib/services/brands.ts',
   // Brand cleanup uses Chinese keyword arrays and regex patterns (not UI copy).
   'lib/services/brand-cleanup.ts',
+  // LLM prompts for brand description rewriting and classification (Chinese system prompts).
+  'lib/services/description-rewrite.ts',
+  'lib/services/product-type-classifier.ts',
   // Transitional: real messages come from the i18n factory; static fallback map
   // here is test-only. TODO remove the static fallback and drop this entry.
   'lib/validations/submission.ts',

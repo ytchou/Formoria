@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { checkAllServices, type ServiceHealthResult } from './health-checks'
+import {
+  checkAllServices,
+  checkApify,
+  checkDeepSeek,
+  type ServiceHealthResult,
+} from './health-checks'
 import type { createServiceClient as createServiceClientType } from '@/lib/supabase/server'
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -38,20 +43,41 @@ describe('checkAllServices', () => {
     process.env.NEXT_PUBLIC_SITE_URL = 'https://test.formoria.com'
     process.env.UPSTASH_REDIS_REST_URL = 'https://test-upstash.upstash.io'
     process.env.UPSTASH_REDIS_REST_TOKEN = 'test-upstash-token'
+    process.env.APIFY_TOKEN = 'test-apify-token'
+    process.env.DEEPSEEK_API_KEY = 'test-deepseek-key'
   })
 
   afterEach(() => {
     process.env = { ...originalEnv }
   })
 
-  it('returns an array of 7 ServiceHealthResults', async () => {
+  it('returns an array of 9 ServiceHealthResults', async () => {
     const { createServiceClient } = await import('@/lib/supabase/server')
     vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
-    fetchMock.mockResolvedValue({ ok: true, json: async () => ({}) })
+    fetchMock.mockImplementation((url: string) => {
+      if (url.includes('apify.com')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { totalUsageCreditsUsdAfterVolumeDiscount: 12.34 } }),
+        })
+      }
+
+      if (url.includes('deepseek.com')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            is_available: true,
+            balance_infos: [{ currency: 'USD', total_balance: '5.00' }],
+          }),
+        })
+      }
+
+      return Promise.resolve({ ok: true, json: async () => ({}) })
+    })
 
     const results: ServiceHealthResult[] = await checkAllServices()
 
-    expect(results).toHaveLength(7)
+    expect(results).toHaveLength(9)
     const services = results.map((r) => r.service)
     expect(services).toContain('Supabase')
     expect(services).toContain('Sentry')
@@ -60,12 +86,33 @@ describe('checkAllServices', () => {
     expect(services).toContain('Tally')
     expect(services).toContain('Railway')
     expect(services).toContain('Upstash Redis')
+    expect(services).toContain('Apify')
+    expect(services).toContain('DeepSeek')
   })
 
   it('each result has the required ServiceHealthResult shape', async () => {
     const { createServiceClient } = await import('@/lib/supabase/server')
     vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
-    fetchMock.mockResolvedValue({ ok: true, json: async () => ({}) })
+    fetchMock.mockImplementation((url: string) => {
+      if (url.includes('apify.com')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { totalUsageCreditsUsdAfterVolumeDiscount: 12.34 } }),
+        })
+      }
+
+      if (url.includes('deepseek.com')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            is_available: true,
+            balance_infos: [{ currency: 'USD', total_balance: '5.00' }],
+          }),
+        })
+      }
+
+      return Promise.resolve({ ok: true, json: async () => ({}) })
+    })
 
     const results = await checkAllServices()
 
@@ -187,6 +234,73 @@ describe('checkAllServices', () => {
       const upstashRedis = results.find((r) => r.service === 'Upstash Redis')
       expect(upstashRedis?.status).toBe('down')
       expect(upstashRedis?.message).toMatch(/Connection error/)
+    })
+  })
+
+  describe('checkApify', () => {
+    it('returns unconfigured when APIFY_TOKEN is missing', async () => {
+      delete process.env.APIFY_TOKEN
+
+      const apify = await checkApify()
+
+      expect(apify.status).toBe('unconfigured')
+      expect(apify.message).toBe('APIFY_TOKEN is not configured')
+    })
+
+    it('returns healthy with monthly usage spend when API succeeds', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => ({ data: { totalUsageCreditsUsdAfterVolumeDiscount: 12.34 } }),
+      })
+
+      const apify = await checkApify()
+
+      expect(apify.status).toBe('healthy')
+      expect(apify.message).toBe('$12.34 spent this cycle')
+    })
+
+    it('returns down when API returns non-ok response', async () => {
+      fetchMock.mockResolvedValue({ ok: false, status: 401 })
+
+      const apify = await checkApify()
+
+      expect(apify.status).toBe('down')
+      expect(apify.message).toBe('API returned 401')
+    })
+  })
+
+  describe('checkDeepSeek', () => {
+    it('returns unconfigured when DEEPSEEK_API_KEY is missing', async () => {
+      delete process.env.DEEPSEEK_API_KEY
+
+      const deepSeek = await checkDeepSeek()
+
+      expect(deepSeek.status).toBe('unconfigured')
+      expect(deepSeek.message).toBe('DEEPSEEK_API_KEY is not configured')
+    })
+
+    it('returns healthy with remaining USD balance when API succeeds', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          is_available: true,
+          balance_infos: [{ currency: 'USD', total_balance: '5.00' }],
+        }),
+      })
+
+      const deepSeek = await checkDeepSeek()
+
+      expect(deepSeek.status).toBe('healthy')
+      expect(deepSeek.message).toBe('$5.00 remaining')
+    })
+
+    it('returns down when API returns non-ok response', async () => {
+      fetchMock.mockResolvedValue({ ok: false, status: 401 })
+
+      const deepSeek = await checkDeepSeek()
+
+      expect(deepSeek.status).toBe('down')
+      expect(deepSeek.message).toBe('API returned 401')
     })
   })
 

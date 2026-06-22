@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  processAutoTagBrand,
   processCleanupBrand,
   processSetVisibilityBrand,
 } from '../curation-operations'
@@ -54,43 +53,6 @@ describe('processCleanupBrand', () => {
 
     expect(result.hasChanges).toBe(false)
     expect(result.patch).toEqual({})
-  })
-})
-
-describe('processAutoTagBrand', () => {
-  it('assigns category based on brand name keywords', () => {
-    const brand = {
-      id: '1',
-      display_brand_name: '台灣茶葉精選',
-      description: '精選台灣高山茶',
-      product_type: null,
-    }
-    const result = processAutoTagBrand(brand)
-    expect(result.category).not.toBeNull()
-    expect(result.changed).toBe(true)
-  })
-
-  it('skips brand that already has a category', () => {
-    const brand = {
-      id: '1',
-      display_brand_name: '台灣茶葉精選',
-      description: '精選台灣高山茶',
-      product_type: 'Food & Beverage',
-    }
-    const result = processAutoTagBrand(brand)
-    expect(result.changed).toBe(false)
-  })
-
-  it('returns null category when no keywords match', () => {
-    const brand = {
-      id: '1',
-      display_brand_name: 'Generic Brand',
-      description: 'A brand',
-      product_type: null,
-    }
-    const result = processAutoTagBrand(brand)
-    expect(result.category).toBeNull()
-    expect(result.changed).toBe(false)
   })
 })
 

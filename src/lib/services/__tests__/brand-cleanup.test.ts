@@ -80,10 +80,10 @@ describe('cleanBrandName', () => {
   })
 
   it.each([
-    ['A.MOUR 經典手工鞋', 'A.MOUR'],
-    ['2angels 質感矽膠嬰幼餐具', '2angels'],
-    ['Fartech翻頁鐘', 'Fartech'],
-    ['Aquamax 面膜', 'Aquamax'],
+    ['品牌工作室', '品牌'],
+    ['MOUR客製化', 'MOUR'],
+    ['Fartech.com.tw', 'Fartech'],
+    ['Handmade限量手作', 'Handmade'],
   ])('removes product descriptors from %s', (input, expected) => {
     const result = cleanBrandName(input)
 
@@ -113,9 +113,9 @@ describe('cleanBrandName', () => {
     ['☼ 椰子派•𝒄𝒐𝒄𝒐𝒏𝒖𝒕 𝒑𝒊𝒆', '椰子派 Coconut Pie'],
     ['*𝓑𝓾𝓲𝓵𝓭.𝓛𝓲𝓰𝓱𝓽 𝓬𝓪𝓷𝓭𝓵𝓮*', 'Build.Light Candle'],
     ['BoingBoing 故事鞋與童畫包', 'BoingBoing'],
-    ['Bonjour女人愛買鞋', 'Bonjour'],
-    ['FuSoap 台南手工皂', 'FuSoap'],
-    ['Dasuit大適坐墊', 'Dasuit 大適'],
+    ['Bonjour女人愛買鞋', 'Bonjour 女人愛買鞋'],
+    ['FuSoap 台南手工皂', 'FuSoap 台南手工皂'],
+    ['Dasuit大適坐墊', 'Dasuit 大適坐墊'],
   ])('handles combined cleanup for %s', (input, expected) => {
     expect(cleanBrandName(input).cleanedName).toBe(expected)
   })

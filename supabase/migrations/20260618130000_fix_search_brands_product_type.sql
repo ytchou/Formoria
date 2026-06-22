@@ -1,6 +1,6 @@
 -- Fix search_brands() to use product_type instead of dropped category column
 CREATE OR REPLACE FUNCTION public.search_brands(search_query text, result_limit integer DEFAULT 5)
- RETURNS TABLE(id uuid, name text, slug text, logo_url text, primary_category_name text, similarity_score real)
+ RETURNS TABLE(id uuid, name text, slug text, hero_image_url text, primary_category_name text, similarity_score real)
  LANGUAGE sql
  STABLE SECURITY DEFINER
 AS $function$
@@ -8,7 +8,7 @@ AS $function$
     b.id,
     b.name,
     b.slug,
-    b.logo_url,
+    b.hero_image_url,
     b.product_type AS primary_category_name,
     GREATEST(
       word_similarity(search_query, b.name),

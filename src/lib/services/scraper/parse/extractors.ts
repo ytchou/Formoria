@@ -6,7 +6,7 @@ export const MAX_GALLERY_IMAGES = 5
 const MIN_IMAGE_DIMENSION = 200
 
 const NON_PRODUCT_IMAGE_PATH_RE =
-  /\/(logo|avatar|profile|banner|icon|favicon|placeholder|default|sprite|pixel)/i
+  /\/(logo|avatar|profile|banner|icon|favicon|placeholder|default|sprite|pixel|shopfront_promotion)/i
 
 export function extractSocialLinks($: cheerio.CheerioAPI) {
   let instagram: string | null = null
@@ -21,7 +21,7 @@ export function extractSocialLinks($: cheerio.CheerioAPI) {
     if (!threads && /threads\.net\//i.test(href)) {
       threads = href
     }
-    if (!facebook && /facebook\.com\//i.test(href)) {
+    if (!facebook && /facebook\.com\/[^/?#]+\/?$/i.test(href) && !/developers\.facebook\.com/i.test(href) && !/facebook\.com\/(?:docs|share|sharer|help|policies|terms|privacy|login)\b/i.test(href)) {
       facebook = href
     }
   })

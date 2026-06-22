@@ -60,7 +60,7 @@ export function ImageCarousel({ images, alt }: ImageCarouselProps) {
             src={validImages[current]}
             alt={t('gallery.photoAlt', { n: current + 1 })}
             fill
-            className="object-cover"
+            className="object-contain"
             sizes="(max-width: 1024px) 100vw, 580px"
             priority={current === 0}
             onError={() => handleImageError(current)}

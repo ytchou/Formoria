@@ -73,6 +73,7 @@ const FACEBOOK_SYSTEM_PATHS = [
   'stories',
   'terms',
   'watch',
+  'docs',
 ]
 
 const FACEBOOK_PROFILE_URL_PATTERN = new RegExp(
@@ -196,7 +197,6 @@ export function buildImageEnrichPatch(
   maybeStoredUrls?: Array<string | null>
 ): Partial<Pick<Brand, 'heroImageUrl' | 'productPhotos'>> {
   const patch: Partial<Pick<Brand, 'heroImageUrl' | 'productPhotos'>> = {}
-  const existingProductPhotos = Array.isArray(brand.productPhotos) ? brand.productPhotos : []
   const storedImageEntries = Array.isArray(scrapedOrStoredUrls)
     ? buildStoredImageEntries(scrapedOrStoredUrls)
     : buildScrapedImageEntries(scrapedOrStoredUrls, maybeStoredUrls ?? [])
@@ -206,20 +206,18 @@ export function buildImageEnrichPatch(
   }
 
   const promotedHeroUrl = storedImageEntries[0].storedUrl
-  if (promotedHeroUrl) {
+  if (!brand.heroImageUrl && promotedHeroUrl) {
     patch.heroImageUrl = promotedHeroUrl
   }
 
   const newProductPhotos = storedImageEntries
     .filter((entry) => entry.storedUrl !== promotedHeroUrl)
     .map((entry) => entry.storedUrl)
-  const mergedProductPhotos = [
-    ...existingProductPhotos,
-    ...newProductPhotos,
-  ].slice(0, MAX_PRODUCT_PHOTOS)
 
-  if (newProductPhotos.length > 0 && mergedProductPhotos.length > existingProductPhotos.length) {
-    patch.productPhotos = mergedProductPhotos
+  if (newProductPhotos.length > 0) {
+    const existingPhotos = brand.productPhotos ?? []
+    const merged = [...existingPhotos, ...newProductPhotos]
+    patch.productPhotos = merged.slice(0, MAX_PRODUCT_PHOTOS)
   }
 
   return patch

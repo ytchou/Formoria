@@ -31,7 +31,7 @@ function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = 
   const router = useRouter()
 
   const fetchSuggestions = useCallback(async (q: string) => {
-    if (!q.trim() || redirectTo) {
+    if (!q.trim()) {
       setSuggestions([])
       setShowDropdown(false)
       return
@@ -56,7 +56,7 @@ function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = 
     } catch {
       // Ignore fetch errors; search filtering still works.
     }
-  }, [redirectTo])
+  }, [])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)

@@ -41,8 +41,8 @@ const CJK_REGEX = /[\u4E00-\u9FFF\u3400-\u4DBF]/
 const ASCII_LATIN_REGEX = /^[\u0000-\u007F]+$/
 const STYLIZED_RUN_REGEX = /[\u{1D400}-\u{1D7FF}\u{1D00}-\u{1D22}][\u{1D400}-\u{1D7FF}\u{1D00}-\u{1D22}\s.'-]*[\u{1D400}-\u{1D7FF}\u{1D00}-\u{1D22}]|[\u{1D400}-\u{1D7FF}\u{1D00}-\u{1D22}]/gu
 const DECORATIVE_SPACING_REGEX = /^(?:[A-Za-z0-9]\s+){2,}[A-Za-z0-9]$/u
-const ENGLISH_CJK_BOUNDARY_REGEX = /([A-Za-z0-9])([\u4E00-\u9FFF\u3400-\u4DBF])/gu
-const CJK_ENGLISH_BOUNDARY_REGEX = /([\u4E00-\u9FFF\u3400-\u4DBF])([A-Za-z0-9])/gu
+const ENGLISH_CJK_BOUNDARY_REGEX = /(?<=[A-Za-z0-9]{2,})(?=[\u4E00-\u9FFF\u3400-\u4DBF]{2,})/gu
+const CJK_ENGLISH_BOUNDARY_REGEX = /(?<=[\u4E00-\u9FFF\u3400-\u4DBF]{2,})(?=[A-Za-z0-9]{2,})/gu
 const RESELLER_KEYWORDS = ['代理', '經銷', '批發', '代購']
 const CHARITY_KEYWORDS = ['基金會', '協會', '社團法人', '認養']
 const GOVERNMENT_KEYWORDS = ['鄉公所', '區公所', '市政府']
@@ -53,58 +53,6 @@ const NON_BRAND_KEYWORDS = [
   ...GOVERNMENT_KEYWORDS,
   ...NOISE_NAMES,
 ]
-
-const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  clothing: ['衣', '服飾', '服裝', '上衣', '褲', '裙', '外套', '洋裝', '襯衫', 'T恤', '背心', '襪', 'apparel', 'fashion', 'wear'],
-  footwear: ['鞋', '拖鞋', '涼鞋', '靴', '球鞋', 'shoes', 'sneakers', 'boots'],
-  bags: ['皮包', '手提包', '後背包', '包包', '背包包', '包', '背包', '手提', '側背', '托特', '帆布袋', '皮件', '卡夾', '錢包', 'bag', 'tote', 'backpack', 'pouch', 'wallet'],
-  jewelry: ['耳環', '耳夾', '項鍊', '手環', '手鍊', '戒指', '胸針', '飾品', '珠寶', '銀飾', 'jewelry', 'jewellery', 'necklace', 'bracelet'],
-  accessories: ['帽子', '圍巾', '絲巾', '眼鏡', '墨鏡', '腰帶', '領帶', '配件', '髮夾', '髮圈', 'accessory', 'accessories', 'scarf'],
-  food: ['餅乾', '巧克力', '甜點', '零食', '糕點', '蛋糕', '食品', '醬', '麵條', '麵', '乾麵', '拌麵', '滷味', 'snack', 'pastry', 'food'],
-  beverages: ['茶', '咖啡', '茶葉', '茶包', '鮮乳', '牛奶', '乳品', '果汁', '啤酒', '酒', '飲品', '飲料', 'coffee', 'tea', 'drink', 'beverage'],
-  agriculture: ['農', '米', '蜂蜜', '果乾', '堅果', '農產', '牧場', '養殖', '漁', '牧', '在地農', '小農', '有機', '契作'],
-  beauty: ['保養', '美妝', '面膜', '精華液', '乳液', '化妝', '護膚', '口紅', '彩妝', 'skincare', 'cosmetic', 'serum', 'moisturizer'],
-  'bath-body': ['洗髮', '沐浴', '香皂', '肥皂', '洗手', '護手', '清潔', '洗衣', '洗碗', 'soap', 'shampoo', 'body wash'],
-  home: ['居家', '碗', '杯', '盤', '馬克杯', '餐具', '地墊', '掛鐘', '花瓶', '器皿', '陶', '瓷', 'ceramic', 'pottery', 'tableware', 'homeware'],
-  kitchen: ['刀具', '砧板', '鍋', '茶具', '廚', '鍋具', '烹飪', 'kitchenware', 'cookware'],
-  furniture: ['家具', '桌', '椅', '燈', '沙發', '書架', '層架', 'furniture', 'chair', 'table', 'lamp'],
-  stationery: ['文具', '筆記本', '手帳', '貼紙', '明信片', '紙品', '筆', 'stationery', 'notebook', 'journal'],
-  art: ['插畫', '版畫', '攝影', '畫作', '藝術', '創作', 'illustration', 'print', 'artwork', 'art'],
-  outdoor: ['戶外', '運動', '登山', '野營', '露營', '跑步', '健身', '瑜珈', '單車', '自行車', 'outdoor', 'hiking', 'camping', 'yoga'],
-  tech: ['手機', '充電', '耳機', '電腦', '3C', '科技', '鍵盤', 'tech', 'gadget', 'electronic'],
-  pets: ['寵物', '毛孩', '貓', '狗', '貓砂', '飼料', 'pet', 'dog', 'cat'],
-  'baby-kids': ['兒童', '寶寶', '親子', '嬰兒', '嬰幼兒', '母嬰', '彌月', '玩具', 'kids', 'baby', 'children', 'toy'],
-  crafts: ['手作', '手工', '布料', '毛線', '皮革', 'DIY', '材料包', 'handmade', 'handcraft', 'artisan', 'craft', 'workshop', 'leather', '工藝'],
-  fragrance: ['香氛', '蠟燭', '擴香', '精油', '線香', '香薰', 'candle', 'fragrance', 'aroma', 'diffuser'],
-  gardening: ['植栽', '盆栽', '花器', '園藝', '多肉', 'plant', 'garden', 'succulent'],
-  experiences: ['體驗', '導覽', '工作坊', '旅遊', '觀光', '行程', '遊程', '地方創生', '在地', '社區', '永續', '友善環境', '環保', 'sustainable', 'eco', 'local', 'green', 'community'],
-}
-
-const PRODUCT_TYPE_BY_LEGACY_CATEGORY: Record<string, string | null> = {
-  clothing: 'fashion',
-  footwear: 'fashion',
-  bags: 'bags-accessories',
-  jewelry: 'jewelry',
-  accessories: 'bags-accessories',
-  food: 'food-drink',
-  beverages: 'food-drink',
-  agriculture: 'food-drink',
-  beauty: 'beauty',
-  'bath-body': 'beauty',
-  home: 'home',
-  kitchen: 'home',
-  furniture: 'home',
-  stationery: 'crafts',
-  art: 'crafts',
-  outdoor: 'outdoor',
-  tech: 'tech',
-  pets: 'kids-pets',
-  'baby-kids': 'kids-pets',
-  crafts: 'crafts',
-  fragrance: 'beauty',
-  gardening: 'home',
-  experiences: null,
-}
 
 const MATH_LETTER_RANGES: Array<{ start: number; chars: string }> = [
   range(0x1D400, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'),
@@ -181,10 +129,23 @@ function compactWhitespace(value: string): string {
   return value.trim().replace(/\s+/gu, ' ')
 }
 
+function titleCaseAllLowercase(value: string): string {
+  if (!/[a-z]/u.test(value) || /[A-Z]/u.test(value)) {
+    return value
+  }
+  if (/[À-ɏ]/u.test(value)) {
+    return value
+  }
+  return value.replace(/\d+(?:st|nd|rd|th)\b|[a-z]+/gu, (word) => {
+    if (/\d/.test(word)) return word
+    return word.charAt(0).toUpperCase() + word.slice(1)
+  })
+}
+
 function ensureEnglishCjkSpacing(value: string): string {
   return value
-    .replace(ENGLISH_CJK_BOUNDARY_REGEX, '$1 $2')
-    .replace(CJK_ENGLISH_BOUNDARY_REGEX, '$1 $2')
+    .replace(ENGLISH_CJK_BOUNDARY_REGEX, ' ')
+    .replace(CJK_ENGLISH_BOUNDARY_REGEX, ' ')
 }
 
 function isStylizedCodePoint(codePoint: number): boolean {
@@ -246,7 +207,8 @@ function removeMarketingSuffixes(value: string): string {
 
 function removeProductDescriptors(value: string): string {
   return value
-    .replace(/\s*(?:與?童畫包|故事鞋與童畫包|女人愛買鞋|台南手工皂|質感矽膠嬰幼餐具|經典手工鞋|手工鞋|面膜|坐墊|翻頁鐘|餐具|手工皂|防水包|故事鞋|愛買鞋)\s*$/u, '')
+    .replace(/\.com(?:\.tw)?$/iu, '')
+    .replace(/\s*(?:可以客製|客製化|工作室|工坊|限量手作)\s*$/u, '')
 }
 
 function removeTaglines(value: string): string {
@@ -349,7 +311,9 @@ export function cleanBrandName(name: string): NameCleanupResult {
     addPattern(patternsMatched, 'decorative-spacing')
   }
 
+  cleanedName = cleanedName.replace(/^[_\s]+|[_\s]+$/gu, '')
   cleanedName = compactWhitespace(ensureEnglishCjkSpacing(cleanedName))
+  cleanedName = titleCaseAllLowercase(cleanedName)
 
   if (cleanedName.length === 0) {
     return {
@@ -388,15 +352,6 @@ export function detectNonBrand(brand: BrandLike): NonBrandDetectionResult {
     reason: null,
     confidence: 'high',
   }
-}
-
-export function matchCategory(text: string): string | null {
-  for (const [categorySlug, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
-    if (keywords.some((kw) => text.includes(kw))) {
-      return PRODUCT_TYPE_BY_LEGACY_CATEGORY[categorySlug] ?? null
-    }
-  }
-  return null
 }
 
 export function normalizeSlug(

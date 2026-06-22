@@ -212,6 +212,73 @@ export async function checkRailway(): Promise<ServiceHealthResult> {
   }
 }
 
+export async function checkApify(): Promise<ServiceHealthResult> {
+  const { APIFY_TOKEN } = process.env
+
+  if (!APIFY_TOKEN) {
+    return result('Apify', 'unconfigured', 'APIFY_TOKEN is not configured')
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.apify.com/v2/users/me/usage/monthly?token=${APIFY_TOKEN}`,
+      {
+        signal: AbortSignal.timeout(3000),
+      }
+    )
+
+    if (!response.ok) {
+      return result('Apify', 'down', `API returned ${response.status}`)
+    }
+
+    const usage = await response.json()
+    const spend = usage.data.totalUsageCreditsUsdAfterVolumeDiscount
+
+    return result('Apify', 'healthy', `$${spend.toFixed(2)} spent this cycle`)
+  } catch (error) {
+    return result('Apify', 'down', error instanceof Error ? error.message : 'Unknown error')
+  }
+}
+
+export async function checkDeepSeek(): Promise<ServiceHealthResult> {
+  const { DEEPSEEK_API_KEY } = process.env
+
+  if (!DEEPSEEK_API_KEY) {
+    return result('DeepSeek', 'unconfigured', 'DEEPSEEK_API_KEY is not configured')
+  }
+
+  try {
+    const response = await fetch('https://api.deepseek.com/user/balance', {
+      headers: {
+        Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+      },
+      signal: AbortSignal.timeout(3000),
+    })
+
+    if (!response.ok) {
+      return result('DeepSeek', 'down', `API returned ${response.status}`)
+    }
+
+    const balance = await response.json()
+    const balanceInfo =
+      balance.balance_infos.find((info: { currency: string }) => info.currency === 'USD') ??
+      balance.balance_infos[0]
+    const remaining = Number.parseFloat(balanceInfo.total_balance)
+
+    if (balance.is_available === false || remaining === 0) {
+      return result('DeepSeek', 'down', `$${remaining.toFixed(2)} remaining`)
+    }
+
+    if (remaining <= 1 && remaining > 0) {
+      return result('DeepSeek', 'degraded', `$${remaining.toFixed(2)} remaining`)
+    }
+
+    return result('DeepSeek', 'healthy', `$${remaining.toFixed(2)} remaining`)
+  } catch (error) {
+    return result('DeepSeek', 'down', error instanceof Error ? error.message : 'Unknown error')
+  }
+}
+
 const serviceNames = [
   'Supabase',
   'Sentry',
@@ -220,6 +287,8 @@ const serviceNames = [
   'Turnstile',
   'Tally',
   'Railway',
+  'Apify',
+  'DeepSeek',
 ] as const
 
 export async function checkAllServices(): Promise<ServiceHealthResult[]> {
@@ -231,6 +300,8 @@ export async function checkAllServices(): Promise<ServiceHealthResult[]> {
     checkTurnstile(),
     checkTally(),
     checkRailway(),
+    checkApify(),
+    checkDeepSeek(),
   ])
 
   return checks.map((check, index) =>

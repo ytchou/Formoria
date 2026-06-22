@@ -1,4 +1,4 @@
-import { cleanBrandName, detectNonBrand, matchCategory, normalizeSlug } from './brand-cleanup'
+import { cleanBrandName, detectNonBrand, normalizeSlug } from './brand-cleanup'
 import { insertSlugRedirect } from './brands'
 import type { BrandFlatLinkColumns } from '@/lib/types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
@@ -12,12 +12,19 @@ import {
   linkColumnFor,
 } from './link-enrichment'
 import { downloadAndStoreImages } from './image-download'
+import { rewriteAndClassifyBrand, rewriteBrandDescription } from './description-rewrite'
+import {
+  classifyProductTypeBatch,
+  type BatchClassificationItem,
+  type ClassificationResult,
+} from './product-type-classifier'
 import { scrapeBrandUrls } from './scraper'
 import { classifyByDomain } from './scraper/input-detector'
-import { searchBrandUrls } from './scraper/search'
+import { SEARCH_DELAY_MS, batchSearchBrandImages, batchSearchBrandsWithSnippets } from './scraper/search'
 
 export interface CurationConfig {
   dryRun: boolean
+  overwrite?: boolean
   slugs?: string[]
   limit?: number
   onProgress?: (msg: string) => void
@@ -80,15 +87,6 @@ type ProcessCleanupResult = {
   patch: CleanupPatch
 }
 
-type AutoTagBrand = Pick<CurationBrand, 'id'> &
-  Partial<Pick<CurationBrand, 'name' | 'description' | 'product_type'>>
-
-type ProcessAutoTagResult = {
-  changed: boolean
-  category: string | null
-  patch?: Pick<AutoTagPatch, 'product_type'>
-}
-
 type SetVisibilityBrand = Pick<CurationBrand, 'id'> &
   Partial<Pick<CurationBrand, 'status' | 'name' | 'purchase_website' | 'description'>>
 
@@ -112,6 +110,8 @@ type BrandsSelectQuery = PromiseLike<{
   error: SupabaseError | null
 }> & {
   in: (column: 'slug', values: string[]) => BrandsSelectQuery
+  is: (column: string, value: null) => BrandsSelectQuery
+  or: (filter: string) => BrandsSelectQuery
   limit: (count: number) => BrandsSelectQuery
 }
 
@@ -140,7 +140,6 @@ function errorMessage(error: unknown): string {
 }
 
 const SCRAPE_DELAY_MS = 1000
-const SEARCH_DELAY_MS = 1500
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -200,31 +199,6 @@ export function processCleanupBrand(
     },
     hasChanges: Object.keys(patch).length > 0,
     patch,
-  }
-}
-
-export function processAutoTagBrand(brand: AutoTagBrand): ProcessAutoTagResult {
-  if (brand.product_type) {
-    return {
-      changed: false,
-      category: brand.product_type,
-    }
-  }
-
-  const text = `${brandName(brand)} ${brand.description ?? ''}`
-  const category = matchCategory(text)
-
-  if (!category) {
-    return {
-      changed: false,
-      category: null,
-    }
-  }
-
-  return {
-    changed: true,
-    category,
-    patch: { product_type: category },
   }
 }
 
@@ -294,9 +268,21 @@ export async function runCleanup(
     try {
       const cleanup = processCleanupBrand(brand)
 
+      if (cleanup.phases.detectNonBrands.isNonBrand) {
+        config.onProgress?.(`  [NON-BRAND] ${brand.slug}: ${cleanup.phases.detectNonBrands.reason} (${cleanup.phases.detectNonBrands.confidence})`)
+      }
+
       if (!cleanup.hasChanges) {
         result.skipped += 1
         continue
+      }
+
+      if (cleanup.phases.cleanNames.changed) {
+        config.onProgress?.(`  [CLEAN] ${brand.slug}: "${brandName(brand)}" → "${cleanup.patch.name}"`)
+      }
+
+      if (cleanup.phases.normalizeSlugs.changed) {
+        config.onProgress?.(`  [SLUG] ${brand.slug} → ${cleanup.patch.slug}`)
       }
 
       if (!config.dryRun) {
@@ -313,71 +299,6 @@ export async function runCleanup(
 
         if (cleanup.phases.normalizeSlugs.changed && cleanup.phases.normalizeSlugs.patch.slug) {
           await insertSlugRedirect(brand.slug, cleanup.phases.normalizeSlugs.patch.slug)
-        }
-      }
-
-      result.updated += 1
-    } catch (err) {
-      result.errors.push(`${brand.slug}: ${errorMessage(err)}`)
-      result.skipped += 1
-    }
-  }
-
-  return result
-}
-
-export async function runAutoTag(
-  config: CurationConfig,
-  supabase: SupabaseLike
-): Promise<OperationResult> {
-  const result: OperationResult = {
-    processed: 0,
-    updated: 0,
-    skipped: 0,
-    errors: [],
-  }
-
-  let query = supabase
-    .from('brands')
-    .select('id, slug, name, description, product_type')
-
-  if (config.slugs && config.slugs.length > 0) {
-    query = query.in('slug', config.slugs)
-  }
-
-  if (config.limit !== undefined) {
-    query = query.limit(config.limit)
-  }
-
-  const { data, error } = await query
-
-  if (error) {
-    result.errors.push(error.message ?? 'Failed to fetch brands')
-    return result
-  }
-
-  for (const brand of data ?? []) {
-    result.processed += 1
-    config.onProgress?.(`Processing ${brand.slug}`)
-
-    try {
-      const autoTag = processAutoTagBrand(brand)
-
-      if (!autoTag.changed || !autoTag.patch) {
-        result.skipped += 1
-        continue
-      }
-
-      if (!config.dryRun) {
-        const { error: updateError } = await supabase
-          .from('brands')
-          .update(autoTag.patch)
-          .eq('id', brand.id)
-
-        if (updateError) {
-          result.errors.push(`${brand.slug}: ${updateError.message ?? 'Failed to update brand'}`)
-          result.skipped += 1
-          continue
         }
       }
 
@@ -433,6 +354,12 @@ export async function runSetVisibility(
         continue
       }
 
+      const reasons: string[] = []
+      if (!purchaseWebsite(brand)?.trim()) reasons.push('no website')
+      if (!brand.description || brand.description.length < 20) reasons.push('no/short description')
+      if (!brandName(brand).trim()) reasons.push('no name')
+      config.onProgress?.(`  [HIDE] ${brand.slug}: ${reasons.join(', ')}`)
+
       if (!config.dryRun) {
         const { error: updateError } = await supabase
           .from('brands')
@@ -456,7 +383,7 @@ export async function runSetVisibility(
   return result
 }
 
-type EnrichPhase = 'links' | 'images' | 'descriptions'
+type EnrichPhase = 'links' | 'images' | 'descriptions' | 'tags'
 type RunEnrichPhase = EnrichPhase | 'discover'
 
 type EnrichBrand = CurationBrand &
@@ -480,11 +407,12 @@ type EnrichPatches = {
   links?: Partial<BrandFlatLinkColumns>
   images?: EnrichImagePatch
   descriptions?: Partial<Pick<EnrichBrand, 'description' | 'brand_highlights'>>
+  tags?: Partial<Pick<CurationBrand, 'product_type'>>
 }
 
 type EnrichPatch = Partial<BrandFlatLinkColumns> &
   EnrichImagePatch &
-  Partial<Pick<EnrichBrand, 'description' | 'brand_highlights'>>
+  Partial<Pick<EnrichBrand, 'description' | 'brand_highlights' | 'product_type'>>
 
 type ProcessEnrichResult = {
   patches: EnrichPatches
@@ -520,6 +448,16 @@ function displayBrandName(brand: EnrichBrand): string {
   return brandName(brand)
 }
 
+function chunkItems<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = []
+
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size))
+  }
+
+  return chunks
+}
+
 function collectKnownUrls(brand: EnrichBrand): string[] {
   const linkUrls = LINK_FIELDS
     .map((field) => brand[linkColumnFor(field)])
@@ -530,10 +468,6 @@ function collectKnownUrls(brand: EnrichBrand): string[] {
 
 function deriveOfficialWebsite(urls: string[]): string | null {
   return urls.find((url) => classifyByDomain(url) === null) ?? null
-}
-
-function isImageableUrl(url: string): boolean {
-  return classifyByDomain(url) !== 'social'
 }
 
 function normalizeScrapedData(scrapedData: EnrichScrapedData): EnrichScrapedData {
@@ -555,31 +489,6 @@ function normalizeImageBrand(brand: EnrichBrand): {
   return {
     heroImageUrl: brand.heroImageUrl ?? brand.hero_image_url ?? null,
     productPhotos: brand.productPhotos ?? brand.product_photos ?? brand.product_images ?? [],
-  }
-}
-
-function imageScrapedData(scrapedData: EnrichScrapedData): Pick<ScrapedBrandData, 'heroImageUrl' | 'galleryImageUrls'> {
-  return {
-    heroImageUrl: scrapedData.heroImageUrl ?? null,
-    galleryImageUrls: scrapedData.galleryImageUrls ?? [],
-  }
-}
-
-function imageUrlsFromScraped(scrapedData: Pick<ScrapedBrandData, 'heroImageUrl' | 'galleryImageUrls'>): string[] {
-  return [
-    scrapedData.heroImageUrl,
-    ...scrapedData.galleryImageUrls,
-  ].filter((url): url is string => hasLinkValue(url))
-}
-
-function storedImageScrapedData(
-  scrapedData: EnrichScrapedData,
-  storedUrls: Array<string | null>
-): EnrichScrapedData {
-  return {
-    ...scrapedData,
-    heroImageUrl: storedUrls[0] ?? null,
-    galleryImageUrls: storedUrls.slice(1).filter(hasLinkValue),
   }
 }
 
@@ -614,20 +523,6 @@ export function processEnrichBrand(
     }
   }
 
-  if (isRequestedPhase(phases, 'images')) {
-    const scrapedImages = imageScrapedData(normalizedScrapedData)
-    const imagePatch = buildImageEnrichPatch(
-      normalizeImageBrand(brand),
-      scrapedImages,
-      imageUrlsFromScraped(scrapedImages)
-    )
-    const images = imagePatchToDbPatch(imagePatch)
-
-    if (hasPatchValues(images)) {
-      patches.images = images
-    }
-  }
-
   if (isRequestedPhase(phases, 'descriptions')) {
     const descriptions = buildTextEnrichPatch(brand, normalizedScrapedData)
     if (hasPatchValues(descriptions)) {
@@ -646,6 +541,7 @@ export function mergeEnrichPatches(patches: EnrichPatches): EnrichPatch {
     ...patches.links,
     ...patches.images,
     ...patches.descriptions,
+    ...patches.tags,
   }
 }
 
@@ -662,15 +558,20 @@ export async function runEnrich(
 
   const phases = config.phases as RunEnrichPhase[]
   const enrichDelayMs = phases.includes('discover') ? SEARCH_DELAY_MS : SCRAPE_DELAY_MS
-  let hasProcessedBrand = false
+  const includesDiscover = phases.includes('discover')
+  let weakBrandCount = 0
   let query = supabase
     .from('brands')
     .select(
-      'id, slug, name, status, description, brand_highlights, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, hero_image_url, product_photos'
+      'id, slug, name, status, description, product_type, brand_highlights, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, hero_image_url, product_photos'
     )
 
   if (config.slugs && config.slugs.length > 0) {
     query = query.in('slug', config.slugs)
+  }
+
+  if (!config.overwrite) {
+    query = query.or('serp_enriched_at.is.null,images_enriched_at.is.null,tags_enriched_at.is.null')
   }
 
   if (config.limit !== undefined) {
@@ -684,84 +585,211 @@ export async function runEnrich(
     return result
   }
 
-  for (const brand of (data ?? []) as EnrichBrand[]) {
-    if (hasProcessedBrand) {
+  const allBrands = (data ?? []) as EnrichBrand[]
+  const totalBrands = allBrands.length
+  config.onProgress?.(`[ENRICH] ${totalBrands} brands to process in ${Math.ceil(totalBrands / 20)} batches`)
+  const brandChunks = chunkItems(allBrands, 20)
+
+  for (let chunkIndex = 0; chunkIndex < brandChunks.length; chunkIndex += 1) {
+    if (chunkIndex > 0) {
       await delay(enrichDelayMs)
     }
-    hasProcessedBrand = true
 
-    result.processed += 1
-    config.onProgress?.(`Processing ${brand.slug}`)
+    const chunk = brandChunks[chunkIndex]
+    const chunkBrandNames = chunk.map(displayBrandName)
+    const activeSteps = [
+      phases.includes('discover') && 'SERP',
+      phases.includes('images') && 'images',
+      phases.includes('tags') && !phases.includes('descriptions') && 'tags',
+      phases.includes('descriptions') && phases.includes('tags') && 'descriptions+tags',
+      phases.includes('descriptions') && !phases.includes('tags') && 'descriptions',
+    ].filter(Boolean)
+    config.onProgress?.(`\n[BATCH ${chunkIndex + 1}/${brandChunks.length}] ${chunk.length} brands — fetching ${activeSteps.join(' + ')}...`)
 
-    try {
-      const knownUrls = collectKnownUrls(brand)
-      let discoveredUrls: string[] = []
+    let searchResults = new Map<string, { urls: string[], snippets: string[] }>()
+    let imageSearchResults = new Map<string, string[]>()
+    let batchClassifications = new Map<string, ClassificationResult>()
+    let searchError: string | null = null
 
-      if (phases.includes('discover')) {
-        discoveredUrls = uniqueUrls(
-          (await searchBrandUrls(displayBrandName(brand))).filter((url) => !knownUrls.includes(url))
-        )
+    if (phases.includes('discover')) {
+      try {
+        searchResults = await batchSearchBrandsWithSnippets(chunkBrandNames)
+        config.onProgress?.(`  [SERP] OK — ${searchResults.size} results`)
+      } catch (err) {
+        searchError = errorMessage(err)
+        config.onProgress?.(`  [SERP] FAILED — ${searchError}`)
       }
+    }
 
-      const urls = uniqueUrls([...knownUrls, ...discoveredUrls])
-      const urlExtracted = extractLinksFromUrls(discoveredUrls)
-      const scrapeUrls = phases.includes('images')
-        ? urls.filter(isImageableUrl)
-        : urls
+    if (phases.includes('images')) {
+      imageSearchResults = await batchSearchBrandImages(chunkBrandNames, 5)
+      const totalImages = [...imageSearchResults.values()].reduce((sum, urls) => sum + urls.length, 0)
+      config.onProgress?.(`  [IMAGES] OK — ${totalImages} images across ${imageSearchResults.size} brands`)
+    }
 
-      if (scrapeUrls.length === 0 && !hasPatchValues(urlExtracted)) {
-        result.skipped += 1
-        continue
-      }
+    if (phases.includes('tags') && !phases.includes('descriptions')) {
+      const classifyItems: BatchClassificationItem[] = chunk.map((brand) => ({
+        slug: brand.slug,
+        name: displayBrandName(brand),
+        description: brand.description ?? null,
+      }))
+      batchClassifications = await classifyProductTypeBatch(classifyItems)
+      config.onProgress?.(`  [TAGS] OK — ${batchClassifications.size} classifications`)
+    }
 
-      const { data: scraped } = scrapeUrls.length > 0
-        ? await scrapeBrandUrls(scrapeUrls)
-        : { data: {} as EnrichScrapedData }
-      const derivedWebsite = scraped.purchaseWebsite ?? deriveOfficialWebsite(urls)
-      let enrichedScraped: EnrichScrapedData = {
-        ...scraped,
-        ...urlExtracted,
-        purchaseWebsite: derivedWebsite,
-      }
+    for (const brand of chunk) {
+      result.processed += 1
+      config.onProgress?.(`Processing ${brand.slug} (${result.processed}/${totalBrands})`)
 
-      if (phases.includes('images')) {
-        const scrapedImages = imageScrapedData(enrichedScraped)
-        const imageUrls = imageUrlsFromScraped(scrapedImages)
-
-        if (imageUrls.length > 0 && !config.dryRun) {
-          enrichedScraped = storedImageScrapedData(
-            enrichedScraped,
-            await downloadAndStoreImages(imageUrls, brand.id)
-          )
+      try {
+        if (searchError) {
+          throw new Error(searchError)
         }
-      }
 
-      const enrich = processEnrichBrand(brand, enrichedScraped, config.phases)
-      const patch = mergeEnrichPatches(enrich.patches)
+        const knownUrls = collectKnownUrls(brand)
+        let discoveredUrls: string[] = []
+        let serpSnippets: string[] = []
 
-      if (!enrich.hasChanges || !hasPatchValues(patch)) {
-        result.skipped += 1
-        continue
-      }
+        if (phases.includes('discover')) {
+          const searchResult = searchResults.get(displayBrandName(brand)) ?? { urls: [], snippets: [] }
+          discoveredUrls = uniqueUrls(
+            searchResult.urls.filter((url) => !knownUrls.includes(url))
+          )
+          serpSnippets = searchResult.snippets
+        }
 
-      if (!config.dryRun) {
-        const { error: updateError } = await supabase
-          .from('brands')
-          .update(patch as CurationPatch)
-          .eq('id', brand.id)
+        const urls = uniqueUrls([...knownUrls, ...discoveredUrls])
+        const urlExtracted = extractLinksFromUrls(discoveredUrls)
+        let imageSearchUrls: string[] = []
+        if (phases.includes('images')) {
+          imageSearchUrls = imageSearchResults.get(displayBrandName(brand)) ?? []
+          config.onProgress?.(`  [IMAGE-SEARCH] ${imageSearchUrls.length} images found`)
+        }
 
-        if (updateError) {
-          result.errors.push(`${brand.slug}: ${updateError.message ?? 'Failed to update brand'}`)
+        if (
+          !phases.includes('tags') &&
+          urls.length === 0 &&
+          !hasPatchValues(urlExtracted) &&
+          imageSearchUrls.length === 0
+        ) {
+          if (includesDiscover && discoveredUrls.length <= 1) {
+            weakBrandCount += 1
+            config.onProgress?.(`  [WEAK-BRAND] ${brand.slug}: no useful data found (${discoveredUrls.length} search results, nothing to scrape)`)
+          }
           result.skipped += 1
           continue
         }
-      }
 
-      result.updated += 1
-    } catch (err) {
-      result.errors.push(`${brand.slug}: ${errorMessage(err)}`)
-      result.skipped += 1
+        const { data: scraped } = urls.length > 0
+          ? await scrapeBrandUrls(urls)
+          : { data: {} as EnrichScrapedData }
+        const derivedWebsite = scraped.purchaseWebsite ?? deriveOfficialWebsite(urls)
+        const enrichedScraped: EnrichScrapedData = {
+          ...scraped,
+          ...urlExtracted,
+          purchaseWebsite: derivedWebsite,
+        }
+
+        let imageStoredUrls: Array<string | null> = []
+        if (imageSearchUrls.length > 0) {
+          imageStoredUrls = config.dryRun
+            ? imageSearchUrls
+            : await downloadAndStoreImages(imageSearchUrls, brand.id)
+        }
+
+        const enrich = processEnrichBrand(brand, enrichedScraped, config.phases)
+        const imagePatch = imageStoredUrls.filter(hasLinkValue).length > 0
+          ? imagePatchToDbPatch(buildImageEnrichPatch(normalizeImageBrand(brand), imageStoredUrls))
+          : {}
+
+        let descriptionRewrite: string | null = null
+        let classification: ClassificationResult | null = null
+        if (phases.includes('descriptions') && phases.includes('tags') && serpSnippets.length > 0) {
+          const combined = await rewriteAndClassifyBrand(displayBrandName(brand), brand.description ?? null, serpSnippets)
+          descriptionRewrite = combined.description
+          classification = combined.classification
+        } else if (phases.includes('descriptions') && serpSnippets.length > 0) {
+          descriptionRewrite = await rewriteBrandDescription(displayBrandName(brand), brand.description ?? null, serpSnippets)
+        } else if (phases.includes('tags')) {
+          classification = batchClassifications.get(brand.slug) ?? null
+        }
+
+        if (classification && classification.productType !== brand.product_type) {
+          enrich.patches.tags = { product_type: classification.productType }
+          config.onProgress?.(`  [TAG] ${brand.slug}: ${brand.product_type ?? 'null'} → ${classification.productType} (${classification.confidence})`)
+        } else if (classification) {
+          config.onProgress?.(`  [TAG] ${brand.slug}: ${brand.product_type} (unchanged)`)
+        }
+
+        if (descriptionRewrite) {
+          config.onProgress?.(`  [REWRITE] description: ${descriptionRewrite}`)
+        }
+
+        const patch = {
+          ...mergeEnrichPatches(enrich.patches),
+          ...imagePatch,
+          ...(descriptionRewrite ? { description: descriptionRewrite } : {}),
+        }
+
+        if (includesDiscover) {
+          config.onProgress?.(`  [DISCOVER] ${discoveredUrls.length} new URLs found`)
+        }
+        const patchKeys = Object.keys(patch)
+        if (patchKeys.length > 0) {
+          for (const key of patchKeys) {
+            const val = (patch as Record<string, unknown>)[key]
+            const display = Array.isArray(val) ? `[${val.length} items]` : typeof val === 'string' && val.length > 60 ? `${val.slice(0, 60)}…` : val
+            config.onProgress?.(`  [ENRICH] ${key}: ${display}`)
+          }
+        }
+
+        const hasCompletedTagClassification = phases.includes('tags') && classification !== null
+
+        if (!hasPatchValues(patch) && !hasCompletedTagClassification) {
+          if (includesDiscover && discoveredUrls.length <= 1) {
+            weakBrandCount += 1
+            config.onProgress?.(`  [WEAK-BRAND] ${brand.slug}: no useful data found (${discoveredUrls.length} search results, no enrichment changes)`)
+          }
+          result.skipped += 1
+          continue
+        }
+
+        if (!config.dryRun) {
+          const now = new Date().toISOString()
+          const timestamps: Record<string, string> = {}
+          if (phases.includes('discover') || phases.includes('links') || phases.includes('descriptions')) {
+            timestamps.serp_enriched_at = now
+          }
+          if (phases.includes('images')) {
+            timestamps.images_enriched_at = now
+          }
+          if (phases.includes('tags')) {
+            timestamps.tags_enriched_at = now
+          }
+          const { error: updateError } = await supabase
+            .from('brands')
+            .update({ ...patch, ...timestamps } as unknown as CurationPatch)
+            .eq('id', brand.id)
+
+          if (updateError) {
+            result.errors.push(`${brand.slug}: ${updateError.message ?? 'Failed to update brand'}`)
+            result.skipped += 1
+            continue
+          }
+        }
+
+        result.updated += 1
+      } catch (err) {
+        result.errors.push(`${brand.slug}: ${errorMessage(err)}`)
+        result.skipped += 1
+      }
     }
+
+    config.onProgress?.(`[PROGRESS] ${result.processed}/${totalBrands} processed | ${result.updated} updated | ${result.skipped} skipped | ${result.errors.length} errors`)
+  }
+
+  if (weakBrandCount > 0) {
+    config.onProgress?.(`\n[WEAK-BRAND SUMMARY] ${weakBrandCount} brand(s) had no useful search results — review for potential non-brands`)
   }
 
   return result
