@@ -89,6 +89,12 @@ vi.mock('@/lib/security/rate-limiter', () => ({
   createInMemoryRateLimiter: () => ({ check: mockRateLimiterCheck }),
 }))
 
+vi.mock('sharp', () => ({
+  default: vi.fn(() => ({
+    metadata: vi.fn().mockResolvedValue({ width: 800, height: 600 }),
+  })),
+}))
+
 import { getTranslations } from 'next-intl/server'
 import { downloadAndStoreImages } from '@/lib/services/image-download'
 import { submitBrand } from '@/app/[locale]/submit/actions'
@@ -103,7 +109,7 @@ describe('downloadAndStoreImages', () => {
   })
 
   it('downloads external images and returns storage URLs', async () => {
-    const mockBlob = new Blob(['fake-image'], { type: 'image/jpeg' })
+    const mockBlob = new Blob([new Uint8Array(6000)], { type: 'image/jpeg' })
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -129,7 +135,7 @@ describe('downloadAndStoreImages', () => {
         .fn()
         .mockResolvedValueOnce({
           ok: true,
-          blob: () => Promise.resolve(new Blob(['img'])),
+          blob: () => Promise.resolve(new Blob([new Uint8Array(6000)])),
           headers: new Headers({ 'content-type': 'image/jpeg' }),
         })
         .mockResolvedValueOnce({ ok: false, status: 404 })

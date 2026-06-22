@@ -19,13 +19,7 @@ describe('parseCliArgs', () => {
   it('defaults enrich phases to all when not specified', () => {
     const args = parseCliArgs(['enrich'])
     expect(args.command).toBe('enrich')
-    expect(args.config.phases).toEqual(['discover', 'links', 'images', 'descriptions'])
-  })
-
-  it('parses auto-tag command', () => {
-    const args = parseCliArgs(['auto-tag', '--dry-run'])
-    expect(args.command).toBe('auto-tag')
-    expect(args.config.dryRun).toBe(true)
+    expect(args.config.phases).toEqual(['discover', 'links', 'images', 'descriptions', 'tags'])
   })
 
   it('parses set-visibility command', () => {
