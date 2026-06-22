@@ -1,17 +1,16 @@
 export const SEARCH_DELAY_MS = 1500
 
 const APIFY_SERP_ENDPOINT =
-  'https://api.apify.com/v2/acts/scraperlink~google-search-results-serp-scraper/run-sync-get-dataset-items'
+  'https://api.apify.com/v2/acts/apify~google-search-scraper/run-sync-get-dataset-items'
 const APIFY_IMAGE_SEARCH_ENDPOINT =
   'https://api.apify.com/v2/acts/devisty~google-image-search-ppr/run-sync-get-dataset-items'
 const SEARCH_TIMEOUT_MS = 60_000
 const BATCH_SEARCH_TIMEOUT_MS = 240_000
 
 type ApifySerpEntry = {
-  error?: unknown
-  search_term?: unknown
-  keyword?: unknown
-  results?: Array<{ url?: unknown; title?: unknown; description?: unknown }>
+  searchQuery?: { term?: string; url?: string }
+  organicResults?: Array<{ url?: string; title?: string; description?: string }>
+  error?: string
 }
 
 type ApifyImageSearchResult = {
@@ -50,11 +49,11 @@ export function parseApifySerpResults(data: unknown[]): string[] {
   const urls = new Set<string>()
 
   for (const entry of data) {
-    if (!isApifySerpEntry(entry) || 'error' in entry || !Array.isArray(entry.results)) {
+    if (!isApifySerpEntry(entry) || 'error' in entry || !Array.isArray(entry.organicResults)) {
       continue
     }
 
-    for (const result of entry.results) {
+    for (const result of entry.organicResults) {
       if (typeof result.url !== 'string' || isGoogleUrl(result.url)) {
         continue
       }
@@ -69,10 +68,10 @@ export function parseApifySerpResults(data: unknown[]): string[] {
 export function parseApifySerpSnippets(data: unknown[]): string[] {
   const snippets: string[] = []
   for (const entry of data) {
-    if (!isApifySerpEntry(entry) || 'error' in entry || !Array.isArray(entry.results)) {
+    if (!isApifySerpEntry(entry) || 'error' in entry || !Array.isArray(entry.organicResults)) {
       continue
     }
-    for (const result of entry.results) {
+    for (const result of entry.organicResults) {
       const parts: string[] = []
       if (typeof result.title === 'string' && result.title.trim()) {
         parts.push(result.title.trim())
@@ -105,10 +104,10 @@ async function fetchSerpData(brandName: string): Promise<unknown[]> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        keyword: `${brandName} 台灣`,
-        limit: '10',
-        country: 'TW',
-        include_merged: false,
+        queries: `${brandName} 台灣`,
+        maxPagesPerQuery: 1,
+        countryCode: 'tw',
+        languageCode: 'zh-TW',
       }),
       signal: controller.signal,
     })
@@ -176,10 +175,10 @@ export async function batchSearchBrandsWithSnippets(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        keyword: names.map((brandName) => `${brandName} 台灣`).join('\n'),
-        limit: '10',
-        country: 'TW',
-        include_merged: false,
+        queries: names.map((brandName) => `${brandName} 台灣`).join('\n'),
+        maxPagesPerQuery: 1,
+        countryCode: 'tw',
+        languageCode: 'zh-TW',
       }),
       signal: controller.signal,
     })
@@ -190,6 +189,13 @@ export async function batchSearchBrandsWithSnippets(
 
     const data: unknown = await res.json()
     const entries = Array.isArray(data) ? data : []
+
+    const errorEntries = entries.filter(e => isApifySerpEntry(e) && typeof e.error === 'string')
+    if (errorEntries.length > 0) {
+      const firstError = isApifySerpEntry(errorEntries[0]) ? errorEntries[0].error : undefined
+      console.error(`  [SERP] ${errorEntries.length}/${entries.length} entries have errors: ${firstError}`)
+    }
+
     const grouped = new Map<string, unknown[]>()
 
     for (const entry of entries) {
@@ -197,11 +203,9 @@ export async function batchSearchBrandsWithSnippets(
         continue
       }
 
-      const query = typeof entry.search_term === 'string'
-        ? entry.search_term.trim()
-        : typeof entry.keyword === 'string'
-          ? entry.keyword.trim()
-          : ''
+      const query = typeof entry.searchQuery?.term === 'string'
+        ? entry.searchQuery.term.trim()
+        : ''
       const brandName = queryToBrand.get(query)
 
       if (!brandName) {
@@ -218,6 +222,14 @@ export async function batchSearchBrandsWithSnippets(
         urls: parseApifySerpResults(group),
         snippets: parseApifySerpSnippets(group),
       })
+    }
+
+    const emptyBrands = names.filter(n => {
+      const r = results.get(n)
+      return !r || (r.urls.length === 0 && r.snippets.length === 0)
+    })
+    if (emptyBrands.length > 0) {
+      console.log(`  [SERP] ${emptyBrands.length} brand(s) with no results: ${emptyBrands.join(', ')}`)
     }
 
     return results

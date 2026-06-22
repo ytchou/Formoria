@@ -24,6 +24,7 @@ import {
 import { scrapeBrandUrls } from './scraper'
 import { classifyByDomain } from './scraper/input-detector'
 import { SEARCH_DELAY_MS, batchSearchBrandImages, batchSearchBrandsWithSnippets } from './scraper/search'
+import { insertSearchResult, getLatestSearchResults } from './search-results'
 
 export interface CurationConfig {
   dryRun: boolean
@@ -411,7 +412,13 @@ function buildTriagePatch(
     patch.non_brand_reason = triageResult.nonBrandReason
   }
 
-  if (phases.includes('slugs') && triageResult.slugGenerated && triageResult.slugGenerated !== brand.slug) {
+  const KEBAB_CASE_RE = /^[a-z0-9]+(-[a-z0-9]+)+$/
+  if (
+    phases.includes('slugs') &&
+    triageResult.slugGenerated &&
+    triageResult.slugGenerated !== brand.slug &&
+    KEBAB_CASE_RE.test(triageResult.slugGenerated)
+  ) {
     patch.slug = triageResult.slugGenerated
   }
 
@@ -562,7 +569,18 @@ export async function runEnrich(
     if (phases.includes('discover') && chunk.length > 0) {
       try {
         searchResults = await batchSearchBrandsWithSnippets(chunkBrandNames)
-        config.onProgress?.(`  [SERP] OK — ${searchResults.size} results`)
+        const serpHits = [...searchResults.values()].filter(r => r.snippets.length > 0 || r.urls.length > 0).length
+        const serpMisses = searchResults.size - serpHits
+        config.onProgress?.(`  [SERP] OK — ${serpHits}/${searchResults.size} brands with results${serpMisses > 0 ? ` (${serpMisses} empty)` : ''}`)
+        if (!config.dryRun) {
+          for (const brand of chunk) {
+            const brandName = displayBrandName(brand)
+            const result = searchResults.get(brandName)
+            if (result && (result.urls.length > 0 || result.snippets.length > 0)) {
+              await insertSearchResult(brand.id, 'serp', `${brandName} 台灣`, result.urls, result.snippets)
+            }
+          }
+        }
       } catch (err) {
         searchError = errorMessage(err)
         config.onProgress?.(`  [SERP] FAILED — ${searchError}`)
@@ -573,6 +591,30 @@ export async function runEnrich(
       imageSearchResults = await batchSearchBrandImages(chunkBrandNames, 5)
       const totalImages = [...imageSearchResults.values()].reduce((sum, urls) => sum + urls.length, 0)
       config.onProgress?.(`  [IMAGES] OK — ${totalImages} images across ${imageSearchResults.size} brands`)
+      if (!config.dryRun) {
+        for (const brand of chunk) {
+          const brandName = displayBrandName(brand)
+          const images = imageSearchResults.get(brandName)
+          if (images && images.length > 0) {
+            await insertSearchResult(brand.id, 'image', `${brandName} 台灣`, images, [])
+          }
+        }
+      }
+    }
+
+    if (!phases.includes('discover') && hasTriagePhases) {
+      const brandIds = chunk.map(b => b.id)
+      const cached = await getLatestSearchResults(brandIds, 'serp')
+      for (const brand of chunk) {
+        const row = cached.get(brand.id)
+        if (row) {
+          searchResults.set(displayBrandName(brand), { urls: row.urls, snippets: row.snippets })
+        }
+      }
+      const cachedCount = [...searchResults.values()].filter(r => r.snippets.length > 0).length
+      if (cachedCount > 0) {
+        config.onProgress?.(`  [SERP-CACHE] Loaded ${cachedCount} cached snippet sets`)
+      }
     }
 
     if (hasTriagePhases) {

@@ -5,9 +5,8 @@ afterEach(() => vi.unstubAllGlobals())
 
 const MOCK_APIFY_RESPONSE = [
   {
-    search_term: "茶籽堂 台灣",
-    page_number: 1,
-    results: [
+    searchQuery: { term: "茶籽堂 台灣", url: "https://www.google.com.tw/search?q=%E8%8C%B6%E7%B1%BD%E5%A0%82+%E5%8F%B0%E7%81%A3" },
+    organicResults: [
       { position: 1, title: "茶籽堂 Cha Tzu Tang", url: "https://www.chatzutang.com/", description: "..." },
       { position: 2, title: "茶籽堂 - Instagram", url: "https://www.instagram.com/chatzutang/", description: "..." },
       { position: 3, title: "茶籽堂 - Facebook", url: "https://www.facebook.com/chatzutang/", description: "..." },
@@ -32,7 +31,7 @@ describe("parseApifySerpResults", () => {
   it("deduplicates URLs", () => {
     const duped = [
       {
-        results: [
+        organicResults: [
           { position: 1, url: "https://www.example.com/" },
           { position: 2, url: "https://www.example.com/" },
         ],
@@ -45,19 +44,19 @@ describe("parseApifySerpResults", () => {
     expect(parseApifySerpResults([])).toEqual([])
   })
 
-  it("handles entries with missing results array", () => {
-    expect(parseApifySerpResults([{ search_term: "test" }])).toEqual([])
+  it("handles entries with missing organicResults array", () => {
+    expect(parseApifySerpResults([{ searchQuery: { term: "test" } }])).toEqual([])
   })
 
   it("skips entries with error field", () => {
-    const withError = [{ error: "CAPTCHA", results: [{ position: 1, url: "https://x.com" }] }]
+    const withError = [{ error: "CAPTCHA", organicResults: [{ position: 1, url: "https://x.com" }] }]
     expect(parseApifySerpResults(withError)).toEqual([])
   })
 
   it("filters out google.com URLs from results", () => {
     const results = [
       {
-        results: [
+        organicResults: [
           { position: 1, url: "https://www.example.com/" },
           { position: 2, url: "https://www.google.com/maps/place/..." },
           { position: 3, url: "https://translate.google.com/..." },
@@ -89,13 +88,13 @@ describe("searchBrandUrls", () => {
 
     const fetchCall = vi.mocked(fetch).mock.calls[0]
     const url = new URL(fetchCall[0] as string)
-    expect(url.pathname).toContain("scraperlink~google-search-results-serp-scraper")
+    expect(url.pathname).toContain("apify~google-search-scraper")
     expect(url.pathname).toContain("run-sync-get-dataset-items")
 
     const body = JSON.parse((fetchCall[1] as RequestInit).body as string)
-    expect(body.keyword).toBe("茶籽堂 台灣")
-    expect(body.country).toBe("TW")
-    expect(body.limit).toBe("10")
+    expect(body.queries).toBe("茶籽堂 台灣")
+    expect(body.countryCode).toBe("tw")
+    expect(body.maxPagesPerQuery).toBe(1)
   })
 
   it("returns empty array on fetch error", async () => {

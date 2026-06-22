@@ -39,6 +39,7 @@ export async function rewriteBrandDescription(
         ],
         max_tokens: 300,
         temperature: 0.3,
+        thinking: { type: 'disabled' },
       }),
       signal: controller.signal,
     })
@@ -103,6 +104,7 @@ export async function rewriteAndClassifyBrand(
         ],
         max_tokens: 400,
         temperature: 0.3,
+        thinking: { type: 'disabled' },
         response_format: { type: 'json_object' },
       }),
       signal: controller.signal,
