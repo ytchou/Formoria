@@ -865,7 +865,7 @@ export async function runEnrich(
             } as never).eq('id', brand.id)
           }
 
-          result.brandOutcomes.push({ slug: brand.slug, name: brandName(brand), status: 'skipped' })
+          result.brandOutcomes.push({ slug: brand.slug, name: brandName(brand), status: 'skipped', changedFields: [] })
           result.skipped += 1
           continue
         }
@@ -903,7 +903,7 @@ export async function runEnrich(
             weakBrandCount += 1
             config.onProgress?.(`  [WEAK-BRAND] ${brand.slug}: no useful data found (${discoveredUrls.length} search results, nothing to scrape)`)
           }
-          result.brandOutcomes.push({ slug: brand.slug, name: brandName(brand), status: 'skipped' })
+          result.brandOutcomes.push({ slug: brand.slug, name: brandName(brand), status: 'skipped', changedFields: [] })
           result.skipped += 1
           continue
         }
@@ -947,7 +947,7 @@ export async function runEnrich(
             weakBrandCount += 1
             config.onProgress?.(`  [WEAK-BRAND] ${brand.slug}: no useful data found (${discoveredUrls.length} search results, no enrichment changes)`)
           }
-          result.brandOutcomes.push({ slug: brand.slug, name: brandName(brand), status: 'skipped' })
+          result.brandOutcomes.push({ slug: brand.slug, name: brandName(brand), status: 'skipped', changedFields: [] })
           result.skipped += 1
           continue
         }
@@ -981,7 +981,7 @@ export async function runEnrich(
           } catch (err) {
             const errMsg = errorMessage(err)
             result.errors.push(`${brand.slug}: ${errMsg}`)
-            result.brandOutcomes.push({ slug: brand.slug, name: brandName(brand), status: 'failed', error: errMsg })
+            result.brandOutcomes.push({ slug: brand.slug, name: brandName(brand), status: 'failed', changedFields: [], error: errMsg })
             result.skipped += 1
             continue
           }
@@ -991,12 +991,12 @@ export async function runEnrich(
           }
         }
 
-        result.brandOutcomes.push({ slug: brand.slug, name: brandName(brand), status: 'changed' })
+        result.brandOutcomes.push({ slug: brand.slug, name: brandName(brand), status: 'succeeded', changedFields: patchKeys })
         result.updated += 1
       } catch (err) {
         const errMsg = errorMessage(err)
         result.errors.push(`${brand.slug}: ${errMsg}`)
-        result.brandOutcomes.push({ slug: brand.slug, name: brandName(brand), status: 'failed', error: errMsg })
+        result.brandOutcomes.push({ slug: brand.slug, name: brandName(brand), status: 'failed', changedFields: [], error: errMsg })
         result.skipped += 1
       }
     }

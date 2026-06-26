@@ -282,7 +282,8 @@ async function runSubmissionEnrichment(
       result.brandOutcomes.push({
         slug: `submission-${submission.id}`,
         name: submission.brand_name,
-        status: 'changed',
+        status: 'succeeded',
+        changedFields: [],
       })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
@@ -291,6 +292,7 @@ async function runSubmissionEnrichment(
         slug: `submission-${submission.id}`,
         name: submission.brand_name,
         status: 'failed',
+        changedFields: [],
         error: message,
       })
       result.skipped += 1

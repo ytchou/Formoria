@@ -12,7 +12,8 @@ export interface CurationConfig {
 export interface BrandOutcome {
   slug: string
   name: string
-  status: 'changed' | 'skipped' | 'failed'
+  status: 'succeeded' | 'skipped' | 'failed'
+  changedFields?: string[]
   error?: string
 }
 

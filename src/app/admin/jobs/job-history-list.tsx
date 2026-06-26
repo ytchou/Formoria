@@ -67,17 +67,19 @@ function asBrandOutcomes(v: Json | undefined): BrandOutcome[] | undefined {
     const slug = readString(item.slug)
     const name = readString(item.name)
     const status = readString(item.status)
+    const changedFields = readStringArray(item.changedFields)
     const error = readString(item.error) ?? undefined
 
     if (
       !slug ||
       !name ||
-      (status !== 'changed' && status !== 'skipped' && status !== 'failed')
+      (status !== 'succeeded' && status !== 'changed' && status !== 'skipped' && status !== 'failed')
     ) {
       return []
     }
 
-    return [{ slug, name, status, error }]
+    const normalizedStatus = status === 'changed' ? 'succeeded' : status
+    return [{ slug, name, status: normalizedStatus, changedFields, error }]
   })
 }
 
@@ -154,45 +156,12 @@ function JobStatusBadge({ status }: { status: CurationJob['status'] }) {
 
 function OutcomeBadge({ status }: { status: BrandOutcome['status'] }) {
   const config: Record<BrandOutcome['status'], { label: string; className: string }> = {
-    changed: { label: '變更', className: 'bg-[#EAF3E8] text-[#2D5A27]' },
+    succeeded: { label: '成功', className: 'bg-[#EAF3E8] text-[#2D5A27]' },
     skipped: { label: '略過', className: 'bg-[#F5F4F1] text-[#7C7570]' },
     failed: { label: '失敗', className: 'bg-[#FDF3EC] text-[#D94F3D]' },
   }
 
   return <Badge className={config[status].className}>{config[status].label}</Badge>
-}
-
-function ParamsSummary({ params }: { params: Json | null }) {
-  const record = isRecord(params) ? params : {}
-  const slugs = readStringArray(record.slugs)
-  const phases = readStringArray(record.phases)
-  const stopAfter = readNum(record.stopAfter)
-  const status = readString(record.status)
-
-  return (
-    <div className="grid gap-3 text-sm sm:grid-cols-4">
-      <div>
-        <div className="font-medium text-foreground">品牌</div>
-        <div className="mt-1 text-muted-foreground">
-          {slugs.length > 0 ? slugs.join(', ') : '全部'}
-        </div>
-      </div>
-      <div>
-        <div className="font-medium text-foreground">階段</div>
-        <div className="mt-1 text-muted-foreground">
-          {phases.length > 0 ? phases.join(', ') : '預設'}
-        </div>
-      </div>
-      <div>
-        <div className="font-medium text-foreground">上限</div>
-        <div className="mt-1 text-muted-foreground">{stopAfter > 0 ? stopAfter : '-'}</div>
-      </div>
-      <div>
-        <div className="font-medium text-foreground">狀態篩選</div>
-        <div className="mt-1 text-muted-foreground">{status ?? '-'}</div>
-      </div>
-    </div>
-  )
 }
 
 function ProgressBar({ progress }: { progress: JobProgress }) {
@@ -225,26 +194,48 @@ function ResultSummary({
 
   return (
     <span>
-      {changed} 變更 · {skipped} 略過 ·{' '}
+      {changed} 成功 · {skipped} 略過 ·{' '}
       <span className={failed > 0 ? 'text-destructive' : undefined}>{failed} 失敗</span>
     </span>
   )
 }
 
+const FIELD_LABELS: Record<string, string> = {
+  description: '描述',
+  brand_highlights: '品牌亮點',
+  social_instagram: 'IG',
+  social_threads: 'Threads',
+  social_facebook: 'FB',
+  purchase_website: '購買連結',
+  official_website: '官網',
+  hero_image_url: '主圖',
+  product_photos: '產品照片',
+  product_type: '產品類型',
+  tag_slugs: '標籤',
+  slug: '網址代稱',
+  brand_name_en: '英文名',
+}
+
+function formatChangedFields(fields: string[] | undefined): string {
+  if (!fields || fields.length === 0) return '-'
+  return fields.map((f) => FIELD_LABELS[f] ?? f).join(', ')
+}
+
 function BrandOutcomesTable({ outcomes }: { outcomes: BrandOutcome[] }) {
   return (
-    <div className="overflow-hidden rounded-md border bg-background">
+    <div className="rounded-lg border bg-white">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>品牌</TableHead>
             <TableHead>狀態</TableHead>
+            <TableHead>變更</TableHead>
             <TableHead>錯誤</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {outcomes.map((outcome) => (
-            <TableRow key={`${outcome.slug}-${outcome.status}`}>
+            <TableRow key={`${outcome.slug}-${outcome.status}`} className="hover:bg-[#F5F4F1]">
               <TableCell className="font-medium">
                 <Link href={`/brands/${outcome.slug}`} className="underline-offset-2 hover:underline">
                   {outcome.name}
@@ -253,6 +244,9 @@ function BrandOutcomesTable({ outcomes }: { outcomes: BrandOutcome[] }) {
               </TableCell>
               <TableCell>
                 <OutcomeBadge status={outcome.status} />
+              </TableCell>
+              <TableCell className="text-sm text-muted-foreground">
+                {formatChangedFields(outcome.changedFields)}
               </TableCell>
               <TableCell className="max-w-xl text-sm text-muted-foreground">
                 {outcome.error ?? '-'}
@@ -265,30 +259,6 @@ function BrandOutcomesTable({ outcomes }: { outcomes: BrandOutcome[] }) {
   )
 }
 
-function LegacyErrorsTable({ errors }: { errors: Array<{ slug: string; error: string }> }) {
-  if (errors.length === 0) return null
-
-  return (
-    <div className="overflow-hidden rounded-md border bg-background">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>品牌</TableHead>
-            <TableHead>錯誤</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {errors.map((error, index) => (
-            <TableRow key={`${error.slug}-${index}`}>
-              <TableCell className="font-medium">{error.slug || '-'}</TableCell>
-              <TableCell className="text-sm text-destructive">{error.error}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  )
-}
 
 function ExpandedJobDetails({
   job,
@@ -300,17 +270,9 @@ function ExpandedJobDetails({
   progress: JobProgress | null
 }) {
   const outcomes = result?.brandOutcomes ?? []
-  const errors = result?.errors ?? []
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-sm font-semibold text-foreground">參數</h2>
-        <div className="mt-3 rounded-md border bg-background p-4">
-          <ParamsSummary params={job.params} />
-        </div>
-      </div>
-
       {(job.status === 'pending' || job.status === 'running') && progress && (
         <div>
           <h2 className="text-sm font-semibold text-foreground">進度</h2>
@@ -321,22 +283,9 @@ function ExpandedJobDetails({
       )}
 
       {outcomes.length > 0 ? (
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">品牌結果</h2>
-          <div className="mt-3">
-            <BrandOutcomesTable outcomes={outcomes} />
-          </div>
-        </div>
+        <BrandOutcomesTable outcomes={outcomes} />
       ) : (
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">結果摘要</h2>
-          <div className="mt-3 space-y-3 rounded-md border bg-background p-4">
-            <p className="text-sm text-muted-foreground">
-              <ResultSummary result={result} progress={progress} />
-            </p>
-            <LegacyErrorsTable errors={errors} />
-          </div>
-        </div>
+        <p className="text-sm text-muted-foreground">無品牌結果</p>
       )}
     </div>
   )
