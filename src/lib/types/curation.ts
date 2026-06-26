@@ -1,8 +1,10 @@
+import type { BrandStatus } from './brand'
+
 export interface CurationConfig {
   dryRun: boolean
   overwrite?: boolean
   slugs?: string[]
-  status?: 'pending' | 'approved' | 'rejected' | 'hidden'
+  status?: BrandStatus
   limit?: number
   onProgress?: (msg: string) => void
 }

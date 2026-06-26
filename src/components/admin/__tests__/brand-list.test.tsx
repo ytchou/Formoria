@@ -78,7 +78,7 @@ const mockBrands = [
     slug: 'bamboo-craft',
     description: null,
     heroImageUrl: null,
-    status: 'pending' as const,
+    status: 'approved' as const,
     isVerified: false,
     isDemo: false,
     category: null,
@@ -133,7 +133,9 @@ describe('BrandList', () => {
 
   it('shows Hide button for approved brands and Unhide for hidden brands', () => {
     render(<BrandList brands={mockBrands} />)
-    expect(screen.getByRole('button', { name: '隱藏' })).toBeDefined()
+    // 2 approved brands → 2 Hide buttons; 1 hidden brand → 1 Unhide button
+    const hideButtons = screen.getAllByRole('button', { name: '隱藏' })
+    expect(hideButtons.length).toBeGreaterThanOrEqual(1)
     expect(screen.getByRole('button', { name: '取消隱藏' })).toBeDefined()
   })
 

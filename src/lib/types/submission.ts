@@ -1,6 +1,5 @@
-import type { OtherUrl } from './brand'
+import type { OtherUrl, SubmissionStatus } from './brand'
 
-export type SubmissionStatus = 'pending' | 'approved' | 'rejected'
 export type ValidationStatus = 'valid' | 'incomplete'
 export type SourceAttribution =
   | 'bought_product'

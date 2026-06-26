@@ -543,7 +543,7 @@ export async function rejectSubmission(
 export type UserSubmissionSummary = {
   id: string
   brandName: string
-  status: 'pending' | 'approved' | 'rejected'
+  status: SubmissionStatus
   createdAt: string
 }
 
@@ -560,7 +560,7 @@ export async function getUserSubmissions(userEmail: string): Promise<UserSubmiss
   return (data ?? []).map((row) => ({
     id: row.id,
     brandName: row.brand_name,
-    status: (row.status as 'pending' | 'approved' | 'rejected') ?? 'pending',
+    status: (row.status as SubmissionStatus) ?? 'pending',
     createdAt: row.submitted_at,
   }))
 }

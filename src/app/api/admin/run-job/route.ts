@@ -47,7 +47,7 @@ type CurationJob = {
 type CurationJobUpdate = Partial<
   Pick<CurationJob, 'status' | 'progress' | 'result' | 'started_at' | 'completed_at'>
 >
-type BrandStatus = 'pending' | 'approved' | 'rejected' | 'hidden'
+type BrandStatus = 'approved' | 'hidden'
 
 type JobParams = {
   slugs?: string[]
@@ -349,7 +349,7 @@ async function getBrandSlugsForIds(supabase: Supabase, brandIds: string[]): Prom
     .filter((slug): slug is string => typeof slug === 'string' && slug.trim() !== '')
 }
 
-const BRAND_STATUSES: readonly BrandStatus[] = ['pending', 'approved', 'rejected', 'hidden']
+const BRAND_STATUSES: readonly BrandStatus[] = ['approved', 'hidden']
 
 function parseStatus(value: unknown): BrandStatus | undefined {
   const trimmed = typeof value === 'string' ? value.trim() : ''

@@ -195,9 +195,6 @@ export function BrandList({ brands }: { brands: Brand[] }) {
           <TabsTrigger value="hidden">
             已隱藏 ({brands.filter((b) => b.status === 'hidden').length})
           </TabsTrigger>
-          <TabsTrigger value="pending">
-            待審核 ({brands.filter((b) => b.status === 'pending').length})
-          </TabsTrigger>
         </TabsList>
       </Tabs>
 

@@ -614,41 +614,6 @@ export async function persistEnrichmentResults(
   brandId: string,
   patch: Partial<EnrichedData>
 ): Promise<void> {
-  const { data: brand, error: brandError } = await supabase
-    .from('brands')
-    .select('status')
-    .eq('id', brandId)
-    .single()
-
-  if (brandError) {
-    throw new Error(brandError.message ?? 'Failed to fetch brand status')
-  }
-
-  if (brand?.status === 'pending') {
-    const { data: submission, error: submissionError } = await supabase
-      .from('brand_submissions')
-      .select('id, enriched_data')
-      .eq('brand_id', brandId)
-      .single()
-
-    if (submissionError) {
-      throw new Error(submissionError.message ?? 'Failed to fetch linked brand submission')
-    }
-
-    const existing = isPlainObject(submission?.enriched_data) ? submission.enriched_data : {}
-    const merged = deepMergeJsonObjects(existing, patch)
-    const { error: updateError } = await supabase
-      .from('brand_submissions')
-      .update({ enriched_data: merged })
-      .eq('id', submission.id)
-
-    if (updateError) {
-      throw new Error(updateError.message ?? 'Failed to update brand submission enrichment')
-    }
-
-    return
-  }
-
   const { error: updateError } = await supabase
     .from('brands')
     .update({

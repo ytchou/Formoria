@@ -383,7 +383,7 @@ export type Database = {
           social_instagram: string | null
           social_threads: string | null
           source: string | null
-          status: string
+          status: "approved" | "hidden"
           submitted_at: string | null
           tag_slugs: string[]
           unified_business_number: string | null
@@ -421,7 +421,7 @@ export type Database = {
           social_instagram?: string | null
           social_threads?: string | null
           source?: string | null
-          status?: string
+          status?: "approved" | "hidden"
           submitted_at?: string | null
           tag_slugs?: string[]
           unified_business_number?: string | null
@@ -459,7 +459,7 @@ export type Database = {
           social_instagram?: string | null
           social_threads?: string | null
           source?: string | null
-          status?: string
+          status?: "approved" | "hidden"
           submitted_at?: string | null
           tag_slugs?: string[]
           unified_business_number?: string | null

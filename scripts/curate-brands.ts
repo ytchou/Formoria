@@ -102,7 +102,7 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
   const slugs = parseCsvFlag(args, 'slugs')
   const limit = parseNumberFlag(args, 'limit')
   const statusRaw = parseStringFlag(args, 'status')
-  const VALID_BRAND_STATUSES = ['pending', 'approved', 'rejected', 'hidden'] as const
+  const VALID_BRAND_STATUSES = ['approved', 'hidden'] as const
   type BrandStatus = (typeof VALID_BRAND_STATUSES)[number]
   const status = VALID_BRAND_STATUSES.includes(statusRaw as BrandStatus) ? (statusRaw as BrandStatus) : undefined
 

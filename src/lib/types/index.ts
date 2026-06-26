@@ -5,6 +5,7 @@ export type {
   BrandStatus,
   OtherUrl,
   RetailLocation,
+  SubmissionStatus,
   SiteContent,
   SiteProduct,
   SiteTokens,
@@ -18,7 +19,6 @@ export type {
   FormRetailLocation,
   FormSocialLinks,
   SourceAttribution,
-  SubmissionStatus,
   ValidationStatus,
 } from './submission'
 

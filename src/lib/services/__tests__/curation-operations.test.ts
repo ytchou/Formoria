@@ -121,8 +121,8 @@ describe('descriptions phase standalone', () => {
 
 describe('CurationConfig status filter', () => {
   it('constrains status to valid values', () => {
-    const config: CurationConfig = { dryRun: true, status: 'pending' }
-    expect(config).toHaveProperty('status', 'pending')
+    const config: CurationConfig = { dryRun: true, status: 'hidden' }
+    expect(config).toHaveProperty('status', 'hidden')
 
     const approved: CurationConfig = { dryRun: false, status: 'approved' }
     expect(approved).toHaveProperty('status', 'approved')
@@ -226,37 +226,21 @@ const supabase = createClient(
 describe('enrichment write routing', () => {
   const testBrandName = '[TEST-ENRICH-ROUTE] Brand'
   let testBrandId: string | null = null
-  let testSubmissionId: string | null = null
 
   afterEach(async () => {
-    if (testSubmissionId) {
-      await supabase.from('brand_submissions').delete().eq('id', testSubmissionId)
-    }
     if (testBrandId) {
       await supabase.from('brands').delete().eq('id', testBrandId)
     }
   })
 
-  it('writes enrichment to brand_submissions.enriched_data for pending brands', async () => {
+  it('writes enrichment directly to brands table for hidden brands', async () => {
     const { data: brand } = await supabase
       .from('brands')
-      .insert({ name: testBrandName, slug: 'test-enrich-route', status: 'pending' })
+      .insert({ name: testBrandName, slug: 'test-enrich-route', status: 'hidden' })
       .select('id')
       .single()
     const brandId = brand!.id
     testBrandId = brandId
-
-    const { data: submission } = await supabase
-      .from('brand_submissions')
-      .insert({
-        brand_id: brandId,
-        brand_name: testBrandName,
-        submitter_email: 'test@example.com',
-        status: 'pending',
-      })
-      .select('id')
-      .single()
-    testSubmissionId = submission!.id
 
     const { persistEnrichmentResults } = await import('../curation-operations')
     await persistEnrichmentResults(supabase, brandId, {
@@ -265,24 +249,14 @@ describe('enrichment write routing', () => {
       product_type: 'crafts',
     })
 
-    const { data: updatedSubmission } = await supabase
-      .from('brand_submissions')
-      .select('enriched_data')
-      .eq('id', testSubmissionId)
-      .single()
-    expect(updatedSubmission!.enriched_data).toMatchObject({
-      description: 'Enriched description',
-      hero_image_url: 'https://example.com/hero.jpg',
-      product_type: 'crafts',
-    })
-
-    const { data: unchangedBrand } = await supabase
+    const { data: updatedBrand } = await supabase
       .from('brands')
-      .select('description, hero_image_url')
+      .select('description, hero_image_url, product_type')
       .eq('id', brandId)
       .single()
-    expect(unchangedBrand!.description).toBeNull()
-    expect(unchangedBrand!.hero_image_url).toBeNull()
+    expect(updatedBrand!.description).toBe('Enriched description')
+    expect(updatedBrand!.hero_image_url).toBe('https://example.com/hero.jpg')
+    expect(updatedBrand!.product_type).toBe('crafts')
   })
 
   it('writes enrichment directly to brands table for approved brands', async () => {
