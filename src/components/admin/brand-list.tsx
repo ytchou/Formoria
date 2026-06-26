@@ -4,7 +4,7 @@ import { Fragment, useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { MoreHorizontal } from 'lucide-react'
 import type { Brand, BrandStatus } from '@/lib/types'
-import { StatusBadge } from './status-badge'
+import { BrandStatusBadge } from './status-badge'
 import { BrandEditDialog } from './brand-edit-dialog'
 import { ConfirmDialog } from './confirm-dialog'
 import {
@@ -257,7 +257,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                     )}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge status={brand.status} />
+                    <BrandStatusBadge status={brand.status} />
                   </TableCell>
                   <TableCell>
                     <div className="space-y-1">

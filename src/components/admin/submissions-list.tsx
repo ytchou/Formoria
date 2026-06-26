@@ -4,7 +4,7 @@ import { Fragment, useMemo, useState, useTransition } from 'react'
 import { useTranslations } from 'next-intl'
 import type { BrandSubmission, SourceAttribution, SubmissionStatus } from '@/lib/types'
 import type { BrandEnrichment } from '@/lib/services/brands'
-import { StatusBadge } from './status-badge'
+import { SubmissionStatusBadge } from './status-badge'
 import { approveSubmissionAction, rejectSubmissionAction } from '@/app/admin/actions'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -274,7 +274,7 @@ export function SubmissionsList({
                     )}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge status={submission.status} />
+                    <SubmissionStatusBadge status={submission.status} />
                   </TableCell>
                 </TableRow>
 

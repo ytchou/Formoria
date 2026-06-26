@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import type { BrandSubmission, OtherUrl, SourceAttribution, SubmissionStatus } from '@/lib/types'
 import type { EnrichedData } from '@/lib/types/enriched-data'
-import { StatusBadge } from '@/components/admin/status-badge'
+import { SubmissionStatusBadge } from '@/components/admin/status-badge'
 import { rejectSubmissionAction } from '@/app/admin/actions'
 import {
   approveSubmissionWithOverridesAction,
@@ -556,7 +556,7 @@ export function SubmissionsReviewList({
                       )}
                     </TableCell>
                     <TableCell>
-                      <StatusBadge status={submission.status} />
+                      <SubmissionStatusBadge status={submission.status} />
                     </TableCell>
                     <TableCell>
                       {(() => {
