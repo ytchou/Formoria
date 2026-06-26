@@ -307,3 +307,35 @@ describe('enrichment write routing', () => {
     expect(updatedBrand!.description).toBe('Updated description')
   })
 })
+
+describe("enrichment for submissions without brand_id", () => {
+  it("enriches a submission directly using submission data as input", async () => {
+    const { data: submission } = await supabase
+      .from("brand_submissions")
+      .insert({
+        brand_name: "[TEST-ENRICH-SUB] Brand",
+        submitter_email: "owner@example.com",
+        website_url: "https://test-enrich-sub.example.com",
+        social_instagram: "https://instagram.com/testenrichsub",
+        status: "pending",
+        brand_id: null,
+      })
+      .select("id")
+      .single()
+    const testSubmissionId = submission!.id
+
+    const { enrichSubmission } = await import("../curation-operations")
+    await enrichSubmission(supabase, testSubmissionId)
+
+    const { data: updated } = await supabase
+      .from("brand_submissions")
+      .select("enriched_data")
+      .eq("id", testSubmissionId)
+      .single()
+
+    expect(updated!.enriched_data).toBeDefined()
+    expect(updated!.enriched_data).toHaveProperty("description")
+
+    await supabase.from("brand_submissions").delete().eq("id", testSubmissionId)
+  })
+})

@@ -334,7 +334,7 @@ export function SubmissionsReviewList({
   }
 
   function toggleSelectAll() {
-    const enrichable = filtered.filter(s => s.brandSlug)
+    const enrichable = filtered
     const allEnrichableSelected = enrichable.length > 0 && enrichable.every(s => selectedIds.has(s.id))
     if (allEnrichableSelected) {
       setSelectedIds(new Set())
@@ -345,14 +345,12 @@ export function SubmissionsReviewList({
 
   async function handleEnrichSelected() {
     if (isSubmitting) return
-    const slugs = [...selectedIds]
-      .map(id => filtered.find(s => s.id === id)?.brandSlug)
-      .filter((slug): slug is string => Boolean(slug))
-    if (slugs.length === 0) return
+    const submissionIds = [...selectedIds]
+    if (submissionIds.length === 0) return
     setIsSubmitting(true)
     try {
       setEnrichError(null)
-      const result = await startCurationJobAction('enrich', { slugs }, false)
+      const result = await startCurationJobAction('enrich', { submissionIds }, false)
       if ('error' in result) {
         setEnrichError(result.error)
         return
@@ -368,7 +366,7 @@ export function SubmissionsReviewList({
     }
   }
 
-  const enrichableFiltered = filtered.filter(s => s.brandSlug)
+  const enrichableFiltered = filtered
   const selectedCount = selectedIds.size
   const allSelected = enrichableFiltered.length > 0 && enrichableFiltered.every(s => selectedIds.has(s.id))
   const someSelected = selectedCount > 0 && !allSelected
@@ -497,7 +495,6 @@ export function SubmissionsReviewList({
                         <Checkbox
                           checked={selectedIds.has(submission.id)}
                           onCheckedChange={() => toggleSelection(submission.id)}
-                          disabled={!submission.brandSlug}
                         />
                       </div>
                     </TableCell>

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { isActingAsAdmin } from '@/lib/auth/admin-mode'
 import {
   ENRICH_PHASES,
+  enrichSubmission,
   runEnrich,
   type BrandOutcome,
   type OperationResult as CurationOperationResult,
@@ -50,6 +51,7 @@ type BrandStatus = 'pending' | 'approved' | 'rejected' | 'hidden'
 
 type JobParams = {
   slugs?: string[]
+  submissionIds?: string[]
   stopAfter?: number
   phases?: EnrichPhase[]
   status?: BrandStatus
@@ -154,7 +156,7 @@ async function runOperation(supabase: Supabase, job: CurationJob): Promise<Opera
   const params = parseParams(job.params)
   const progress: Progress = {
     processed: 0,
-    total: params.stopAfter ?? params.slugs?.length ?? 0,
+    total: params.stopAfter ?? params.slugs?.length ?? params.submissionIds?.length ?? 0,
     skipped: 0,
     failed: 0,
   }
@@ -184,6 +186,11 @@ async function runOperation(supabase: Supabase, job: CurationJob): Promise<Opera
 
   switch (operation) {
     case 'enrich':
+      if (params.submissionIds && params.submissionIds.length > 0) {
+        result = await runSubmissionEnrichment(supabase, params, config)
+        break
+      }
+
       result = await runEnrich(
         {
           ...config,
@@ -223,6 +230,9 @@ function parseParams(params: Json | null): JobParams {
   const slugs = Array.isArray(raw.slugs)
     ? raw.slugs.filter((slug): slug is string => typeof slug === 'string' && slug.trim() !== '')
     : undefined
+  const submissionIds = Array.isArray(raw.submissionIds)
+    ? raw.submissionIds.filter((id): id is string => typeof id === 'string' && id.trim() !== '')
+    : undefined
   const stopAfter =
     typeof raw.stopAfter === 'number' && Number.isFinite(raw.stopAfter) && raw.stopAfter > 0
       ? Math.floor(raw.stopAfter)
@@ -230,10 +240,113 @@ function parseParams(params: Json | null): JobParams {
 
   return {
     slugs,
+    submissionIds,
     stopAfter,
     phases: parseEnrichPhases(raw.phases),
     status: parseStatus(raw.status),
   }
+}
+
+async function runSubmissionEnrichment(
+  supabase: Supabase,
+  params: JobParams,
+  config: {
+    dryRun: boolean
+    slugs?: string[]
+    limit?: number
+    onProgress: (message: string) => void
+  }
+): Promise<CurationOperationResult> {
+  const submissionIds = params.submissionIds ?? []
+  const result: CurationOperationResult = {
+    processed: 0,
+    updated: 0,
+    skipped: 0,
+    errors: [],
+    brandOutcomes: [],
+  }
+  const { data, error } = await supabase
+    .from('brand_submissions')
+    .select('id, brand_id, brand_name')
+    .in('id', submissionIds)
+
+  if (error) {
+    result.errors.push(error.message)
+    return result
+  }
+
+  const submissions = (data ?? []) as Array<{ id: string; brand_id: string | null; brand_name: string }>
+  const linkedBrandIds = submissions
+    .map((submission) => submission.brand_id)
+    .filter((brandId): brandId is string => Boolean(brandId))
+  const directSubmissions = submissions.filter((submission) => !submission.brand_id)
+  const slugs = await getBrandSlugsForIds(supabase, linkedBrandIds)
+  const brandSlugs = [...new Set([...(params.slugs ?? []), ...slugs])]
+
+  if (brandSlugs.length > 0) {
+    const brandResult = await runEnrich(
+      {
+        ...config,
+        slugs: brandSlugs,
+        status: params.status,
+        phases: params.phases ?? [...ENRICH_PHASES],
+      },
+      operationSupabase(supabase)
+    )
+    result.processed += brandResult.processed
+    result.updated += brandResult.updated
+    result.skipped += brandResult.skipped
+    result.errors.push(...brandResult.errors)
+    result.brandOutcomes.push(...brandResult.brandOutcomes)
+  }
+
+  for (const submission of directSubmissions) {
+    result.processed += 1
+    config.onProgress(`Processing submission-${submission.id} (${result.processed}/${submissionIds.length})`)
+
+    try {
+      if (!config.dryRun) {
+        await enrichSubmission(supabase as unknown as Parameters<typeof enrichSubmission>[0], submission.id)
+      }
+      result.updated += 1
+      result.brandOutcomes.push({
+        slug: `submission-${submission.id}`,
+        name: submission.brand_name,
+        status: 'changed',
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      result.errors.push(`submission-${submission.id}: ${message}`)
+      result.brandOutcomes.push({
+        slug: `submission-${submission.id}`,
+        name: submission.brand_name,
+        status: 'failed',
+        error: message,
+      })
+      result.skipped += 1
+    }
+  }
+
+  return result
+}
+
+async function getBrandSlugsForIds(supabase: Supabase, brandIds: string[]): Promise<string[]> {
+  if (brandIds.length === 0) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('brands')
+    .select('slug')
+    .in('id', brandIds)
+
+  if (error) {
+    throw error
+  }
+
+  return ((data ?? []) as Array<{ slug: string | null }>)
+    .map((brand) => brand.slug)
+    .filter((slug): slug is string => typeof slug === 'string' && slug.trim() !== '')
 }
 
 const BRAND_STATUSES: readonly BrandStatus[] = ['pending', 'approved', 'rejected', 'hidden']

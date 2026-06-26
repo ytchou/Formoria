@@ -4,6 +4,7 @@ import { insertSlugRedirect } from './brands'
 import type { BrandFlatLinkColumns } from '@/lib/types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import type { EnrichedData } from '@/lib/types/enriched-data'
+import { ENRICH_PHASES } from '@/lib/constants/enrich-phases'
 import {
   buildImageEnrichPatch,
   buildLinkEnrichPatch,
@@ -108,7 +109,7 @@ function brandName(brand: { name?: string | null }): string {
   return brand.name ?? (typeof legacyName === 'string' ? legacyName : '')
 }
 
-export { ENRICH_PHASES } from '@/lib/constants/enrich-phases'
+export { ENRICH_PHASES }
 
 type EnrichPhase = 'clean' | 'links' | 'images' | 'descriptions' | 'tags'
 type RunEnrichPhase = EnrichPhase | 'discover' | 'detect' | 'slugs'
@@ -164,6 +165,36 @@ type ProcessEnrichResult = {
   patches: EnrichPatches
   patch: EnrichPatch
   hasChanges: boolean
+}
+
+type SubmissionEnrichmentRow = {
+  id: string
+  brand_name: string
+  description: string | null
+  website_url: string | null
+  social_instagram: string | null
+  social_threads: string | null
+  social_facebook: string | null
+  purchase_website: string | null
+  purchase_pinkoi: string | null
+  purchase_shopee: string | null
+  other_urls: unknown
+  enriched_data: unknown
+  status: string
+  brand_id: string | null
+}
+
+type BuildEnrichmentPatchOptions = {
+  brand: EnrichBrand
+  phases: RunEnrichPhase[]
+  knownUrls?: string[]
+  discoveredUrls?: string[]
+  serpSnippets?: string[]
+  imageSearchUrls?: string[]
+  classification?: ClassificationResult | null
+  dryRun: boolean
+  imageStorageId: string
+  onProgress?: (message: string) => void
 }
 
 function isRequestedPhase(phases: string[], phase: EnrichPhase): boolean {
@@ -228,6 +259,16 @@ function collectKnownUrls(brand: EnrichBrand): string[] {
     .filter((url): url is string => hasLinkValue(url))
 
   return uniqueUrls(linkUrls)
+}
+
+function collectOtherUrls(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value
+    .map((entry) => isPlainObject(entry) ? entry.url : null)
+    .filter((url): url is string => typeof url === 'string' && url.trim() !== '')
 }
 
 function deriveOfficialWebsite(urls: string[]): string | null {
@@ -368,6 +409,204 @@ export function mergeEnrichPatches(patches: EnrichPatches): EnrichPatch {
     ...patches.descriptions,
     ...patches.tags,
   }
+}
+
+async function buildEnrichmentPatchFromBrandInput({
+  brand,
+  phases,
+  knownUrls = collectKnownUrls(brand),
+  discoveredUrls = [],
+  serpSnippets = [],
+  imageSearchUrls = [],
+  classification = null,
+  dryRun,
+  imageStorageId,
+  onProgress,
+}: BuildEnrichmentPatchOptions): Promise<{
+  patch: EnrichPatch
+  hasCompletedTagClassification: boolean
+  descriptionRewrite: string | null
+}> {
+  const urls = uniqueUrls([...knownUrls, ...discoveredUrls])
+  const urlExtracted = extractLinksFromUrls(discoveredUrls)
+  const { data: scraped } = urls.length > 0
+    ? await scrapeBrandUrls(urls)
+    : { data: {} as EnrichScrapedData }
+  const derivedWebsite = scraped.purchaseWebsite ?? deriveOfficialWebsite(urls)
+  const enrichedScraped: EnrichScrapedData = {
+    ...scraped,
+    ...urlExtracted,
+    purchaseWebsite: derivedWebsite,
+  }
+
+  let imageStoredUrls: Array<string | null> = []
+  if (imageSearchUrls.length > 0) {
+    imageStoredUrls = dryRun
+      ? imageSearchUrls
+      : await downloadAndStoreImages(imageSearchUrls, imageStorageId)
+  }
+
+  const enrich = processEnrichBrand(brand, enrichedScraped, phases)
+  const imagePatch = imageStoredUrls.filter(hasLinkValue).length > 0
+    ? imagePatchToDbPatch(buildImageEnrichPatch(normalizeImageBrand(brand), imageStoredUrls))
+    : {}
+
+  let descriptionRewrite: string | null = null
+  if (phases.includes('descriptions') && serpSnippets.length > 0) {
+    descriptionRewrite = await rewriteBrandDescription(displayBrandName(brand), brand.description ?? null, serpSnippets)
+  }
+
+  if (classification && classification.productType !== brand.product_type) {
+    enrich.patches.tags = { product_type: classification.productType }
+    onProgress?.(`  [TAG] ${brand.slug}: ${brand.product_type ?? 'null'} → ${classification.productType} (${classification.confidence})`)
+  } else if (classification) {
+    onProgress?.(`  [TAG] ${brand.slug}: ${brand.product_type} (unchanged)`)
+  }
+
+  if (descriptionRewrite) {
+    onProgress?.(`  [REWRITE] description: ${descriptionRewrite}`)
+  }
+
+  return {
+    patch: {
+      ...mergeEnrichPatches(enrich.patches),
+      ...imagePatch,
+      ...(descriptionRewrite ? { description: descriptionRewrite } : {}),
+    },
+    hasCompletedTagClassification: phases.includes('tags') && classification !== null,
+    descriptionRewrite,
+  }
+}
+
+async function persistSubmissionEnrichmentResults(
+  supabase: SupabaseClient,
+  submissionId: string,
+  patch: Partial<EnrichedData>
+): Promise<void> {
+  const { data: submission, error: submissionError } = await supabase
+    .from('brand_submissions')
+    .select('enriched_data')
+    .eq('id', submissionId)
+    .single()
+
+  if (submissionError) {
+    throw new Error(submissionError.message ?? 'Failed to fetch brand submission enrichment')
+  }
+
+  const existing = isPlainObject(submission?.enriched_data) ? submission.enriched_data : {}
+  const merged = deepMergeJsonObjects(existing, patch)
+  const { error: updateError } = await supabase
+    .from('brand_submissions')
+    .update({ enriched_data: merged })
+    .eq('id', submissionId)
+
+  if (updateError) {
+    throw new Error(updateError.message ?? 'Failed to update brand submission enrichment')
+  }
+}
+
+function submissionToEnrichBrand(submission: SubmissionEnrichmentRow): EnrichBrand {
+  const existing = isPlainObject(submission.enriched_data) ? submission.enriched_data : {}
+
+  return {
+    id: submission.id,
+    slug: `submission-${submission.id}`,
+    name: typeof existing.name === 'string' ? existing.name : submission.brand_name,
+    status: submission.status,
+    description: typeof existing.description === 'string' ? existing.description : submission.description,
+    product_type: typeof existing.product_type === 'string' ? existing.product_type : null,
+    brand_highlights: typeof existing.brand_highlights === 'string' ? existing.brand_highlights : null,
+    social_instagram: typeof existing.social_instagram === 'string' ? existing.social_instagram : submission.social_instagram,
+    social_threads: typeof existing.social_threads === 'string' ? existing.social_threads : submission.social_threads,
+    social_facebook: typeof existing.social_facebook === 'string' ? existing.social_facebook : submission.social_facebook,
+    purchase_website: typeof existing.purchase_website === 'string'
+      ? existing.purchase_website
+      : submission.purchase_website ?? submission.website_url,
+    purchase_pinkoi: typeof existing.purchase_pinkoi === 'string' ? existing.purchase_pinkoi : submission.purchase_pinkoi,
+    purchase_shopee: typeof existing.purchase_shopee === 'string' ? existing.purchase_shopee : submission.purchase_shopee,
+    hero_image_url: typeof existing.hero_image_url === 'string' ? existing.hero_image_url : null,
+    product_photos: Array.isArray(existing.product_photos)
+      ? existing.product_photos.filter((url): url is string => typeof url === 'string')
+      : [],
+  }
+}
+
+export async function enrichSubmission(
+  supabase: SupabaseClient,
+  submissionId: string
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('brand_submissions')
+    .select(
+      'id, brand_id, brand_name, status, description, website_url, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, other_urls, enriched_data'
+    )
+    .eq('id', submissionId)
+    .single()
+
+  if (error || !data) {
+    throw new Error(error?.message ?? 'Failed to fetch brand submission')
+  }
+
+  const submission = data as SubmissionEnrichmentRow
+  const phases = [...ENRICH_PHASES] as RunEnrichPhase[]
+  const brand = submissionToEnrichBrand(submission)
+  const brandDisplayName = displayBrandName(brand)
+  const searchResults = await batchSearchBrandsWithSnippets([brandDisplayName])
+  const searchResult = searchResults.get(brandDisplayName) ?? { urls: [], snippets: [] }
+  const imageSearchResults = await batchSearchBrandImages([brandDisplayName], 5)
+  const triageResults = await triageBrandsBatch([{
+    slug: brand.slug,
+    name: brandDisplayName,
+    description: brand.description ?? null,
+    website: brand.purchase_website ?? null,
+    snippets: searchResult.snippets,
+  }])
+  const triageResult = triageResults.get(brand.slug)
+
+  if (shouldSkipForNonBrand(triageResult)) {
+    await persistSubmissionEnrichmentResults(supabase, submissionId, {
+      name: brandDisplayName,
+      tag_slugs: triageResult?.valueTags ?? [],
+    })
+    return
+  }
+
+  const knownUrls = uniqueUrls([
+    ...collectKnownUrls(brand),
+    ...collectOtherUrls(submission.other_urls),
+    ...(hasLinkValue(submission.website_url) ? [submission.website_url] : []),
+  ])
+  const discoveredUrls = uniqueUrls(searchResult.urls.filter((url) => !knownUrls.includes(url)))
+  const classification = triageResult?.productType
+    ? {
+        productType: triageResult.productType,
+        confidence: triageResult.confidence,
+      } as ClassificationResult
+    : null
+  const { patch } = await buildEnrichmentPatchFromBrandInput({
+    brand,
+    phases,
+    knownUrls,
+    discoveredUrls,
+    serpSnippets: searchResult.snippets,
+    imageSearchUrls: imageSearchResults.get(brandDisplayName) ?? [],
+    classification,
+    dryRun: false,
+    imageStorageId: submissionId,
+  })
+  const triagePatch = buildTriagePatch(brand, triageResult, phases)
+  const submissionPatch = {
+    name: brandDisplayName,
+    ...patch,
+    ...(triagePatch.product_type ? { product_type: triagePatch.product_type } : {}),
+    ...(triagePatch.tag_slugs ? { tag_slugs: triagePatch.tag_slugs } : {}),
+  }
+
+  await persistSubmissionEnrichmentResults(
+    supabase,
+    submissionId,
+    submissionPatch as Partial<EnrichedData>
+  )
 }
 
 export async function persistEnrichmentResults(
@@ -652,7 +891,6 @@ export async function runEnrich(
           serpSnippets = searchResult.snippets
         }
 
-        const urls = uniqueUrls([...knownUrls, ...discoveredUrls])
         const urlExtracted = extractLinksFromUrls(discoveredUrls)
         let imageSearchUrls: string[] = []
         if (phases.includes('images')) {
@@ -662,7 +900,7 @@ export async function runEnrich(
 
         if (
           !phases.includes('tags') &&
-          urls.length === 0 &&
+          uniqueUrls([...knownUrls, ...discoveredUrls]).length === 0 &&
           !hasPatchValues(urlExtracted) &&
           imageSearchUrls.length === 0
         ) {
@@ -675,52 +913,26 @@ export async function runEnrich(
           continue
         }
 
-        const { data: scraped } = urls.length > 0
-          ? await scrapeBrandUrls(urls)
-          : { data: {} as EnrichScrapedData }
-        const derivedWebsite = scraped.purchaseWebsite ?? deriveOfficialWebsite(urls)
-        const enrichedScraped: EnrichScrapedData = {
-          ...scraped,
-          ...urlExtracted,
-          purchaseWebsite: derivedWebsite,
-        }
-
-        let imageStoredUrls: Array<string | null> = []
-        if (imageSearchUrls.length > 0) {
-          imageStoredUrls = config.dryRun
-            ? imageSearchUrls
-            : await downloadAndStoreImages(imageSearchUrls, brand.id)
-        }
-
-        const enrich = processEnrichBrand(brand, enrichedScraped, config.phases)
-        const imagePatch = imageStoredUrls.filter(hasLinkValue).length > 0
-          ? imagePatchToDbPatch(buildImageEnrichPatch(normalizeImageBrand(brand), imageStoredUrls))
-          : {}
-
-        let descriptionRewrite: string | null = null
         let classification: ClassificationResult | null = null
-        if (phases.includes('descriptions') && serpSnippets.length > 0) {
-          descriptionRewrite = await rewriteBrandDescription(displayBrandName(brand), brand.description ?? null, serpSnippets)
-        } else if (phases.includes('tags')) {
+        if (!(phases.includes('descriptions') && serpSnippets.length > 0) && phases.includes('tags')) {
           classification = batchClassifications.get(brand.slug) ?? null
         }
 
-        if (classification && classification.productType !== brand.product_type) {
-          enrich.patches.tags = { product_type: classification.productType }
-          config.onProgress?.(`  [TAG] ${brand.slug}: ${brand.product_type ?? 'null'} → ${classification.productType} (${classification.confidence})`)
-        } else if (classification) {
-          config.onProgress?.(`  [TAG] ${brand.slug}: ${brand.product_type} (unchanged)`)
-        }
-
-        if (descriptionRewrite) {
-          config.onProgress?.(`  [REWRITE] description: ${descriptionRewrite}`)
-        }
-
+        const enrichment = await buildEnrichmentPatchFromBrandInput({
+          brand,
+          phases,
+          knownUrls,
+          discoveredUrls,
+          serpSnippets,
+          imageSearchUrls,
+          classification,
+          dryRun: config.dryRun,
+          imageStorageId: brand.id,
+          onProgress: config.onProgress,
+        })
         const patch = {
           ...triagePatch,
-          ...mergeEnrichPatches(enrich.patches),
-          ...imagePatch,
-          ...(descriptionRewrite ? { description: descriptionRewrite } : {}),
+          ...enrichment.patch,
         }
 
         if (includesDiscover) {
@@ -735,9 +947,7 @@ export async function runEnrich(
           }
         }
 
-        const hasCompletedTagClassification = phases.includes('tags') && classification !== null
-
-        if (!hasPatchValues(patch) && !hasCompletedTagClassification) {
+        if (!hasPatchValues(patch) && !enrichment.hasCompletedTagClassification) {
           if (includesDiscover && discoveredUrls.length <= 1) {
             weakBrandCount += 1
             config.onProgress?.(`  [WEAK-BRAND] ${brand.slug}: no useful data found (${discoveredUrls.length} search results, no enrichment changes)`)
@@ -760,11 +970,11 @@ export async function runEnrich(
               rawResponse: triageResult,
             })
           }
-          if (descriptionRewrite) {
+          if (enrichment.descriptionRewrite) {
             await insertDescriptionResult({
               brandId: brand.id,
-              description: descriptionRewrite,
-              rawResponse: { description: descriptionRewrite },
+              description: enrichment.descriptionRewrite,
+              rawResponse: { description: enrichment.descriptionRewrite },
             })
           }
           try {
