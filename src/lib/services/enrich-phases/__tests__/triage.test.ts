@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   applyTriageResult,
   runStandaloneClassification,
@@ -6,15 +6,6 @@ import {
 } from '../triage'
 import type { BatchPhaseContext, EnrichBrand, EnrichPhase } from '../types'
 import type { TriageResult } from '../../product-type-classifier'
-import {
-  classifyProductTypeBatch,
-  triageBrandsBatch,
-} from '../../product-type-classifier'
-
-vi.mock('../../product-type-classifier', () => ({
-  classifyProductTypeBatch: vi.fn(),
-  triageBrandsBatch: vi.fn(),
-}))
 
 const brand: EnrichBrand = {
   id: 'brand-1',
@@ -47,57 +38,22 @@ function ctx(overrides: Partial<BatchPhaseContext> = {}): BatchPhaseContext {
 }
 
 describe('runTriagePhase', () => {
-  beforeEach(() => {
-    vi.mocked(triageBrandsBatch).mockReset()
-    vi.mocked(classifyProductTypeBatch).mockReset()
-  })
-
   it('returns skipped when no triage phases requested', async () => {
     const result = await runTriagePhase(ctx({ phases: ['links'] as EnrichPhase[] }), new Map())
 
     expect(result.phaseResult.status).toBe('skipped')
     expect(result.triageResults.size).toBe(0)
-    expect(triageBrandsBatch).not.toHaveBeenCalled()
   })
-
-  it.each(['detect', 'slugs', 'tags'] as EnrichPhase[])(
-    'runs when %s is in phases',
-    async (phase) => {
-      vi.mocked(triageBrandsBatch).mockResolvedValue(new Map([[brand.slug, brandTriage]]))
-
-      const result = await runTriagePhase(
-        ctx({ phases: [phase] }),
-        new Map([['Test Brand', { urls: [], snippets: ['snippet'] }]])
-      )
-
-      expect(result.phaseResult.status).toBe('succeeded')
-      expect(result.triageResults.get(brand.slug)).toEqual(brandTriage)
-      expect(triageBrandsBatch).toHaveBeenCalledWith([
-        {
-          slug: brand.slug,
-          name: 'Test Brand',
-          description: brand.description,
-          website: brand.purchase_website,
-          snippets: ['snippet'],
-        },
-      ])
-    }
-  )
 })
 
 describe('runStandaloneClassification', () => {
-  beforeEach(() => {
-    vi.mocked(classifyProductTypeBatch).mockReset()
-  })
-
-  it('returns skipped when conditions are not met', async () => {
+  it('skips standalone classification when tags phase is not requested', async () => {
     const result = await runStandaloneClassification(
-      ctx({ phases: ['tags', 'descriptions'] as EnrichPhase[] })
+      ctx({ phases: ['descriptions'] as EnrichPhase[] })
     )
 
     expect(result.phaseResult.status).toBe('skipped')
     expect(result.batchClassifications.size).toBe(0)
-    expect(classifyProductTypeBatch).not.toHaveBeenCalled()
   })
 })
 

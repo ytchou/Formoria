@@ -9,7 +9,7 @@ const brand = (name: string): EnrichBrand => ({
 })
 
 describe('runCleanPhase', () => {
-  it('returns succeeded with changedFields when name is cleaned', async () => {
+  it('reports success and changed name when whitespace is trimmed', async () => {
     const result = await runCleanPhase(
       brand('  Test Brand  '),
       ['clean'] as EnrichPhase[]

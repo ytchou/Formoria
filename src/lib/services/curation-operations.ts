@@ -36,6 +36,7 @@ import {
   shouldSkipForNonBrand,
   type BrandEnrichState,
   type SearchPhaseResult,
+  hasPatchValues,
 } from './enrich-phases'
 
 export type { BrandOutcome, CurationConfig, OperationResult }
@@ -213,10 +214,6 @@ type BuildEnrichmentPatchOptions = {
 
 function isRequestedPhase(phases: string[], phase: EnrichPhase): boolean {
   return phases.includes(phase)
-}
-
-function hasPatchValues(patch: object): boolean {
-  return Object.keys(patch).length > 0
 }
 
 function isPlainObject(value: unknown): value is JsonObject {

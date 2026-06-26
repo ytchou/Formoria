@@ -7,7 +7,7 @@ import type { PhaseResult, PhaseStatus } from '@/lib/types/curation'
 import { Badge } from '@/components/ui/badge'
 
 const STATUS_CONFIG: Record<PhaseStatus, { label: string; className: string }> = {
-  succeeded: { label: '成功', className: 'bg-[#EAF3E8] text-[#2D5A27]' },
+  succeeded: { label: '成功', className: 'bg-verified-green-bg text-verified-green' },
   skipped: { label: '略過', className: 'bg-[#F5F4F1] text-[#6B6560]' },
   failed: { label: '失敗', className: 'bg-destructive/10 text-destructive' },
 }
@@ -75,9 +75,9 @@ export function PhaseBadges({ phaseResults }: { phaseResults?: PhaseResult[] }) 
 
   return (
     <div className="flex flex-wrap gap-1">
-      {phaseResults.map((phaseResult) => (
+      {phaseResults.map((phaseResult, index) => (
         <PhaseBadge
-          key={`${phaseResult.phase}-${phaseResult.status}`}
+          key={`${phaseResult.phase}-${phaseResult.status}-${index}`}
           phaseResult={phaseResult}
         />
       ))}

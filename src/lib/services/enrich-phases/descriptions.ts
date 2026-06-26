@@ -2,7 +2,7 @@ import { rewriteBrandDescription } from '../description-rewrite'
 import { buildTextEnrichPatch } from '../link-enrichment'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { EnrichScrapedData } from './types'
-import { buildPhaseResult, getDisplayBrandName, timePhase, type EnrichBrand, type EnrichPhase } from './types'
+import { buildPhaseResult, getDisplayBrandName, hasPatchValues, timePhase, type EnrichBrand, type EnrichPhase } from './types'
 
 type DescriptionsPhaseOptions = {
   brand: EnrichBrand
@@ -15,10 +15,6 @@ type DescriptionsPhaseOutput = {
   phaseResult: PhaseResult
   patch: Record<string, unknown>
   descriptionRewrite: string | null
-}
-
-function hasPatchValues(patch: object): boolean {
-  return Object.keys(patch).length > 0
 }
 
 function hasScrapedText(scrapedData: EnrichScrapedData | null): boolean {

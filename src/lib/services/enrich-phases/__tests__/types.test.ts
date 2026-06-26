@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { timePhase } from '../types'
 
 describe('timePhase', () => {
-  it('records duration and returns result for successful execution', async () => {
+  it('returns result and elapsed time for async operations', async () => {
     const { result, durationMs } = await timePhase(async () => {
       return { changed: true, value: 42 }
     })

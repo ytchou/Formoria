@@ -3,10 +3,6 @@ import type { ENRICH_PHASES } from '@/lib/constants/enrich-phases'
 import type { BrandFlatLinkColumns } from '@/lib/types'
 import type { CurationConfig, PhaseResult, PhaseStatus } from '@/lib/types/curation'
 import type { Database } from '@/lib/database.types'
-import type {
-  ClassificationResult,
-  TriageResult,
-} from '@/lib/services/product-type-classifier'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 
 export type EnrichPhase = (typeof ENRICH_PHASES)[number]
@@ -60,14 +56,6 @@ export type BatchPhaseContext = {
   supabase: SupabaseClient<Database>
 }
 
-export type BatchPhaseOutput = {
-  searchResults: Map<string, SearchPhaseResult>
-  imageSearchResults: Map<string, string[]>
-  triageResults: Map<string, TriageResult>
-  batchClassifications: Map<string, ClassificationResult>
-  searchError: string | null
-}
-
 export type BrandEnrichState = {
   patches: EnrichPatch
   phaseResults: PhaseResult[]
@@ -75,15 +63,6 @@ export type BrandEnrichState = {
   discoveredUrls: string[]
   serpSnippets: string[]
   scrapedData: EnrichScrapedData
-}
-
-export type BrandPhaseContext = {
-  brand: EnrichBrand
-  phases: EnrichPhase[]
-  batchData: BatchPhaseOutput
-  dryRun: boolean
-  onProgress?: CurationConfig['onProgress']
-  supabase: SupabaseClient<Database>
 }
 
 const LEGACY_DISPLAY_NAME_KEY = ['display', 'brand', 'name'].join('_')
@@ -122,4 +101,8 @@ export function buildPhaseResult(
     ...(error !== undefined ? { error } : {}),
     ...(detail !== undefined ? { detail } : {}),
   }
+}
+
+export function hasPatchValues(patch: object): boolean {
+  return Object.keys(patch).length > 0
 }

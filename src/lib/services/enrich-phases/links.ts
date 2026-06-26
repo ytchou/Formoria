@@ -6,7 +6,7 @@ import { scrapeBrandUrls } from '../scraper'
 import { classifyByDomain } from '../scraper/input-detector'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { EnrichScrapedData } from './types'
-import { buildPhaseResult, timePhase, type EnrichBrand, type EnrichPhase } from './types'
+import { buildPhaseResult, hasPatchValues, timePhase, type EnrichBrand, type EnrichPhase } from './types'
 
 type LinksPhaseOptions = {
   brand: EnrichBrand
@@ -36,10 +36,6 @@ function uniqueUrls(urls: string[]): string[] {
   }
 
   return unique
-}
-
-function hasPatchValues(patch: object): boolean {
-  return Object.keys(patch).length > 0
 }
 
 function deriveOfficialWebsite(urls: string[]): string | null {

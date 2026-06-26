@@ -23,18 +23,16 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
   searchError: string | null
 }> {
   if (!ctx.phases.includes('discover')) {
-    const { durationMs } = await timePhase(async () => null)
     return {
-      phaseResult: buildPhaseResult('discover', 'skipped', [], durationMs, undefined, 'discover not requested'),
+      phaseResult: buildPhaseResult('discover', 'skipped', [], 0, undefined, 'discover not requested'),
       searchResults: new Map(),
       searchError: null,
     }
   }
 
   if (ctx.chunk.length === 0) {
-    const { durationMs } = await timePhase(async () => null)
     return {
-      phaseResult: buildPhaseResult('discover', 'skipped', [], durationMs, undefined, 'empty batch'),
+      phaseResult: buildPhaseResult('discover', 'skipped', [], 0, undefined, 'empty batch'),
       searchResults: new Map(),
       searchError: null,
     }
@@ -70,9 +68,11 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
           }
         }
 
-        const serpNow = new Date().toISOString()
-        for (const id of serpBrandIds) {
-          await ctx.supabase.from('brands').update({ serp_enriched_at: serpNow } as never).eq('id', id)
+        if (serpBrandIds.length > 0) {
+          await ctx.supabase
+            .from('brands')
+            .update({ serp_enriched_at: new Date().toISOString() } as never)
+            .in('id', serpBrandIds)
         }
 
         if (serpBrandIds.length > 0) {

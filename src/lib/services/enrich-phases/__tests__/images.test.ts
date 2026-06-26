@@ -1,10 +1,6 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { runBrandImagePhase } from '../images'
 import type { EnrichBrand, EnrichPhase } from '../types'
-
-vi.mock('../../image-download', () => ({
-  downloadAndStoreImages: vi.fn(),
-}))
 
 const brand: EnrichBrand = {
   id: 'brand-1',

@@ -70,17 +70,15 @@ export async function runTriagePhase(
   triageResults: Map<string, TriageResult>
 }> {
   if (!hasTriagePhases(ctx.phases)) {
-    const { durationMs } = await timePhase(async () => null)
     return {
-      phaseResult: buildPhaseResult('triage', 'skipped', [], durationMs, undefined, 'no triage phases requested'),
+      phaseResult: buildPhaseResult('triage', 'skipped', [], 0, undefined, 'no triage phases requested'),
       triageResults: new Map(),
     }
   }
 
   if (ctx.chunk.length === 0) {
-    const { durationMs } = await timePhase(async () => null)
     return {
-      phaseResult: buildPhaseResult('triage', 'skipped', [], durationMs, undefined, 'empty batch'),
+      phaseResult: buildPhaseResult('triage', 'skipped', [], 0, undefined, 'empty batch'),
       triageResults: new Map(),
     }
   }
@@ -125,9 +123,8 @@ export async function runStandaloneClassification(
   )
 
   if (!shouldRun) {
-    const { durationMs } = await timePhase(async () => null)
     return {
-      phaseResult: buildPhaseResult('tags', 'skipped', [], durationMs, undefined, 'standalone classification not required'),
+      phaseResult: buildPhaseResult('tags', 'skipped', [], 0, undefined, 'standalone classification not required'),
       batchClassifications: new Map(),
     }
   }

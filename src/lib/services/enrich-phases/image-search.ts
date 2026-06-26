@@ -13,17 +13,15 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext): Promise<{
   imageSearchResults: Map<string, string[]>
 }> {
   if (!ctx.phases.includes('images')) {
-    const { durationMs } = await timePhase(async () => null)
     return {
-      phaseResult: buildPhaseResult('image-search', 'skipped', [], durationMs, undefined, 'images not requested'),
+      phaseResult: buildPhaseResult('image-search', 'skipped', [], 0, undefined, 'images not requested'),
       imageSearchResults: new Map(),
     }
   }
 
   if (ctx.chunk.length === 0) {
-    const { durationMs } = await timePhase(async () => null)
     return {
-      phaseResult: buildPhaseResult('image-search', 'skipped', [], durationMs, undefined, 'empty batch'),
+      phaseResult: buildPhaseResult('image-search', 'skipped', [], 0, undefined, 'empty batch'),
       imageSearchResults: new Map(),
     }
   }
@@ -45,9 +43,11 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext): Promise<{
         }
       }
 
-      const imgNow = new Date().toISOString()
-      for (const id of imageBrandIds) {
-        await ctx.supabase.from('brands').update({ images_enriched_at: imgNow } as never).eq('id', id)
+      if (imageBrandIds.length > 0) {
+        await ctx.supabase
+          .from('brands')
+          .update({ images_enriched_at: new Date().toISOString() } as never)
+          .in('id', imageBrandIds)
       }
 
       if (imageBrandIds.length > 0) {
