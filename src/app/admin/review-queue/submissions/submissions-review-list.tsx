@@ -157,23 +157,23 @@ export function getEnrichmentStatus(enriched_data: EnrichedData | null): Enrichm
 
   const hasAllKeyFields =
     hasText(enriched_data.description) &&
-    hasText(enriched_data.hero_image_url) &&
-    hasItems(enriched_data.product_photos) &&
-    hasText(enriched_data.product_type) &&
-    hasItems(enriched_data.tag_slugs)
+    hasText(enriched_data.heroImageUrl) &&
+    hasItems(enriched_data.productPhotos) &&
+    hasText(enriched_data.productType) &&
+    hasItems(enriched_data.tagSlugs)
 
   return hasAllKeyFields ? 'enriched' : 'partially_enriched'
 }
 
 function getImageCount(enrichedData: EnrichedData) {
-  return (hasText(enrichedData.hero_image_url) ? 1 : 0) + (enrichedData.product_photos ?? []).length
+  return (hasText(enrichedData.heroImageUrl) ? 1 : 0) + (enrichedData.productPhotos ?? []).length
 }
 
 
 function createOverrideForm(submission: BrandSubmissionWithRisk): OverrideForm {
   return {
     description: submission.description ?? '',
-    productType: submission.enriched_data?.product_type ?? '',
+    productType: submission.enriched_data?.productType ?? '',
     purchaseWebsite: submission.purchaseWebsite ?? '',
     purchasePinkoi: submission.purchasePinkoi ?? '',
     purchaseShopee: submission.purchaseShopee ?? '',
@@ -505,7 +505,7 @@ export function SubmissionsReviewList({
                     </TableCell>
                     <TableCell>
                       {submission.enriched_data ? (
-                        (submission.enriched_data.product_type ?? '').trim() ? (
+                        (submission.enriched_data.productType ?? '').trim() ? (
                           <ReadinessBadge tone="green">✓</ReadinessBadge>
                         ) : (
                           <ReadinessBadge tone="amber">!</ReadinessBadge>
@@ -529,7 +529,7 @@ export function SubmissionsReviewList({
                     <TableCell>
                       {submission.enriched_data ? (
                         (() => {
-                          const count = submission.enriched_data?.tag_slugs?.length ?? 0
+                          const count = submission.enriched_data?.tagSlugs?.length ?? 0
                           const tone = count >= 3 ? 'green' : count >= 1 ? 'amber' : 'red'
 
                           return <ReadinessBadge tone={tone}>{count}</ReadinessBadge>
@@ -732,9 +732,9 @@ export function SubmissionsReviewList({
                               <div className="space-y-3">
                                 <FieldLabel auto>主圖 / 產品圖片</FieldLabel>
                                 <div className="grid gap-3 sm:grid-cols-4">
-                                  {submission.enriched_data.hero_image_url && (
+                                  {submission.enriched_data.heroImageUrl && (
                                     <a
-                                      href={submission.enriched_data.hero_image_url}
+                                      href={submission.enriched_data.heroImageUrl}
                                       target="_blank"
                                       rel="noreferrer"
                                       className="block overflow-hidden rounded-md border border-dashed bg-white"
@@ -742,14 +742,14 @@ export function SubmissionsReviewList({
                                     >
                                       {/* eslint-disable-next-line @next/next/no-img-element */}
                                       <img
-                                        src={submission.enriched_data.hero_image_url}
+                                        src={submission.enriched_data.heroImageUrl}
                                         alt={`${submission.brandName} hero`}
                                         className="aspect-square w-full object-cover"
                                       />
                                       <span className="block px-2 py-1 text-xs text-muted-foreground">主圖</span>
                                     </a>
                                   )}
-                                  {(submission.enriched_data.product_photos ?? []).map((url, index) => (
+                                  {(submission.enriched_data.productPhotos ?? []).map((url, index) => (
                                     <a
                                       key={url}
                                       href={url}
@@ -770,8 +770,8 @@ export function SubmissionsReviewList({
                                     </a>
                                   ))}
                                 </div>
-                                {!submission.enriched_data.hero_image_url &&
-                                  (submission.enriched_data.product_photos ?? []).length === 0 && (
+                                {!submission.enriched_data.heroImageUrl &&
+                                  (submission.enriched_data.productPhotos ?? []).length === 0 && (
                                     <p className="text-sm text-muted-foreground">尚無圖片</p>
                                   )}
                               </div>

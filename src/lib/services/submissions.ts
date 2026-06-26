@@ -2,6 +2,7 @@ import type { Brand, BrandSubmission, OtherUrl, SubmissionStatus, SourceAttribut
 import type { DuplicateCheckResult } from '@/lib/types/submission'
 import type { Database } from '@/lib/supabase/database.types'
 import type { EnrichedData } from '@/lib/types/enriched-data'
+import { enrichedDataFromDb } from '@/lib/types/enriched-data'
 import { NotFoundError } from '@/lib/errors'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { generateSlug, isReservedSlug } from '@/lib/services/brands'
@@ -288,17 +289,17 @@ function enrichedDataToBrandInsert(enrichedData: EnrichedData | null): Partial<B
   return cleanRecord({
     name: normalizeString(enrichedData.name) ?? undefined,
     description: normalizeString(enrichedData.description) ?? undefined,
-    hero_image_url: normalizeString(enrichedData.hero_image_url) ?? undefined,
-    product_photos: enrichedData.product_photos,
-    product_type: normalizeString(enrichedData.product_type) ?? undefined,
-    brand_highlights: normalizeString(enrichedData.brand_highlights) ?? undefined,
-    social_instagram: normalizeString(enrichedData.social_instagram) ?? undefined,
-    social_threads: normalizeString(enrichedData.social_threads) ?? undefined,
-    social_facebook: normalizeString(enrichedData.social_facebook) ?? undefined,
-    purchase_website: normalizeString(enrichedData.purchase_website) ?? undefined,
-    purchase_pinkoi: normalizeString(enrichedData.purchase_pinkoi) ?? undefined,
-    purchase_shopee: normalizeString(enrichedData.purchase_shopee) ?? undefined,
-    other_urls: enrichedData.other_urls ? normalizeOtherUrls(enrichedData.other_urls) : undefined,
+    hero_image_url: normalizeString(enrichedData.heroImageUrl) ?? undefined,
+    product_photos: enrichedData.productPhotos,
+    product_type: normalizeString(enrichedData.productType) ?? undefined,
+    brand_highlights: normalizeString(enrichedData.brandHighlights) ?? undefined,
+    social_instagram: normalizeString(enrichedData.socialInstagram) ?? undefined,
+    social_threads: normalizeString(enrichedData.socialThreads) ?? undefined,
+    social_facebook: normalizeString(enrichedData.socialFacebook) ?? undefined,
+    purchase_website: normalizeString(enrichedData.purchaseWebsite) ?? undefined,
+    purchase_pinkoi: normalizeString(enrichedData.purchasePinkoi) ?? undefined,
+    purchase_shopee: normalizeString(enrichedData.purchaseShopee) ?? undefined,
+    other_urls: enrichedData.otherUrls ? normalizeOtherUrls(enrichedData.otherUrls) : undefined,
   })
 }
 
@@ -485,7 +486,9 @@ export async function getSubmissionsForReview(): Promise<BrandSubmissionForRevie
 
   return ((data ?? []) as SubmissionRow[]).map((row) => ({
     ...submissionToDomain(row as SubmissionRowWithProductTypeNote),
-    enriched_data: isEnrichedData(row.enriched_data) ? row.enriched_data : null,
+    enriched_data: isEnrichedData(row.enriched_data)
+      ? enrichedDataFromDb(row.enriched_data as Record<string, unknown>)
+      : null,
   }))
 }
 
@@ -559,7 +562,10 @@ export async function approveSubmission(
     throw new Error('Submission already processed')
   }
 
-  const enrichedData = (submission.enriched_data ?? null) as EnrichedData | null
+  const enrichedDataRaw = submission.enriched_data
+  const enrichedData: EnrichedData | null = isEnrichedData(enrichedDataRaw)
+    ? enrichedDataFromDb(enrichedDataRaw as Record<string, unknown>)
+    : null
   const overrideInsert = approvalOverridesToBrandInsert(overrides)
   const enrichedInsert = enrichedDataToBrandInsert(enrichedData)
   const brandName =
@@ -599,7 +605,7 @@ export async function approveSubmission(
 
   if (error || !data) throw new NotFoundError('BrandSubmission', id, { cause: error })
   await applySuggestedTags(supabase, brand.id, submission.suggested_tags, {
-    enrichedTagSlugs: enrichedData?.tag_slugs,
+    enrichedTagSlugs: enrichedData?.tagSlugs,
     applyProductType: !Object.prototype.hasOwnProperty.call(overrides ?? {}, 'productType'),
   })
   return {

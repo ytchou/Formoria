@@ -3,7 +3,6 @@ import { cleanBrandName } from './brand-cleanup'
 import { insertSlugRedirect } from './brands'
 import type { BrandFlatLinkColumns } from '@/lib/types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
-import type { EnrichedData } from '@/lib/types/enriched-data'
 import { ENRICH_PHASES } from '@/lib/constants/enrich-phases'
 import {
   buildImageEnrichPatch,
@@ -516,9 +515,9 @@ async function buildEnrichmentPatchFromBrandInput({
 async function persistSubmissionEnrichmentResults(
   supabase: SupabaseClient,
   submissionId: string,
-  patch: Partial<EnrichedData>
+  patch: JsonObject
 ): Promise<void> {
-  const normalizedPatch = deepMergeJsonObjects({}, patch as JsonObject)
+  const normalizedPatch = deepMergeJsonObjects({}, patch)
   const { error: updateError } = await (supabase as SubmissionEnrichmentMergeClient).rpc(
     'merge_brand_submission_enriched_data',
     {
@@ -636,14 +635,14 @@ export async function enrichSubmission(
   await persistSubmissionEnrichmentResults(
     supabase,
     submissionId,
-    submissionPatch as Partial<EnrichedData>
+    submissionPatch
   )
 }
 
 export async function persistEnrichmentResults(
   supabase: SupabaseClient,
   brandId: string,
-  patch: Partial<EnrichedData>
+  patch: JsonObject
 ): Promise<void> {
   const { error: updateError } = await supabase
     .from('brands')
@@ -977,7 +976,7 @@ export async function runEnrich(
             await persistEnrichmentResults(
               supabase as unknown as SupabaseClient,
               brand.id,
-              patch as Partial<EnrichedData>
+              patch as JsonObject
             )
           } catch (err) {
             const errMsg = errorMessage(err)
