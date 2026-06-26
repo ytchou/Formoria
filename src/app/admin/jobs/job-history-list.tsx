@@ -6,6 +6,7 @@ import {
   listCurationJobsAction,
   type CurationJob,
 } from '@/app/admin/operations/actions'
+import type { BrandOutcome } from '@/lib/services/curation-operations'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -22,13 +23,6 @@ type JobProgress = {
   total: number
   skipped: number
   failed: number
-}
-
-type BrandOutcome = {
-  slug: string
-  name: string
-  status: 'changed' | 'skipped' | 'failed'
-  error?: string
 }
 
 type JobResult = JobProgress & {

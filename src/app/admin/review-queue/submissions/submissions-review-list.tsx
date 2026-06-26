@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useEffect, useMemo, useState, useTransition } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
@@ -199,7 +199,9 @@ export function SubmissionsReviewList({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [enrichJobId, setEnrichJobId] = useState<string | null>(null)
   const [enrichJob, setEnrichJob] = useState<CurationJob | null>(null)
+  const enrichJobRef = useRef<CurationJob | null>(null)
   const [enrichError, setEnrichError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
   const router = useRouter()
 
   const productTypeTags = useMemo(
@@ -320,19 +322,28 @@ export function SubmissionsReviewList({
   }
 
   async function handleEnrichSelected() {
+    if (isSubmitting) return
     const slugs = [...selectedIds]
       .map(id => filtered.find(s => s.id === id)?.brandSlug)
       .filter((slug): slug is string => Boolean(slug))
     if (slugs.length === 0) return
-    setEnrichError(null)
-    const result = await startCurationJobAction('enrich', { slugs }, false)
-    if ('error' in result) {
-      setEnrichError(result.error)
-      return
+    setIsSubmitting(true)
+    try {
+      setEnrichError(null)
+      const result = await startCurationJobAction('enrich', { slugs }, false)
+      if ('error' in result) {
+        setEnrichError(result.error)
+        return
+      }
+      setEnrichJobId(result.jobId)
+      const jobResult = await getCurationJobAction(result.jobId)
+      if ('job' in jobResult && jobResult.job) {
+        enrichJobRef.current = jobResult.job
+        setEnrichJob(jobResult.job)
+      }
+    } finally {
+      setIsSubmitting(false)
     }
-    setEnrichJobId(result.jobId)
-    const jobResult = await getCurationJobAction(result.jobId)
-    if ('job' in jobResult && jobResult.job) setEnrichJob(jobResult.job)
   }
 
   const enrichableFiltered = filtered.filter(s => s.brandSlug)
@@ -342,15 +353,18 @@ export function SubmissionsReviewList({
   const isEnrichRunning = enrichJob?.status === 'pending' || enrichJob?.status === 'running'
 
   useEffect(() => {
-    if (!enrichJobId || !enrichJob) return
-    if (enrichJob.status !== 'pending' && enrichJob.status !== 'running') return
+    if (!enrichJobId) return
     const intervalId = window.setInterval(async () => {
+      const status = enrichJobRef.current?.status
+      if (status === 'completed' || status === 'failed') return
+
       const response = await getCurationJobAction(enrichJobId)
       if ('error' in response) {
         setEnrichError(response.error)
         return
       }
       if (response.job) {
+        enrichJobRef.current = response.job
         setEnrichJob(response.job)
         if (response.job.status === 'completed' || response.job.status === 'failed') {
           setSelectedIds(new Set())
@@ -360,7 +374,7 @@ export function SubmissionsReviewList({
       }
     }, 3000)
     return () => window.clearInterval(intervalId)
-  }, [enrichJobId, enrichJob, router])
+  }, [enrichJobId])
 
   return (
     <div>
@@ -407,7 +421,7 @@ export function SubmissionsReviewList({
             <Button
               size="sm"
               onClick={handleEnrichSelected}
-              disabled={selectedCount === 0 || isEnrichRunning}
+              disabled={selectedCount === 0 || isEnrichRunning || isSubmitting}
               className="bg-[#E06B3F] hover:bg-[#c95d36]"
             >
               {isEnrichRunning ? '抓取中...' : '抓取資料'}

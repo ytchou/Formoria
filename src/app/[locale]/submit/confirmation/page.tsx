@@ -47,7 +47,7 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
       <div className="w-full max-w-[560px] rounded-2xl border border-[#E8E5E0] bg-white p-10 shadow-sm">
         {/* Success badge */}
         <div className="flex justify-center">
-          <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-[#E06B3F]">
+          <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-cta">
             <Check className="h-8 w-8 text-white" strokeWidth={3} />
           </div>
         </div>
@@ -68,7 +68,7 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
                 <div className="flex flex-col items-center">
                   <div
                     className={`h-3 w-3 shrink-0 rounded-full ${
-                      step.active ? 'bg-[#E06B3F]' : 'bg-[#D4CFC9]'
+                      step.active ? 'bg-cta' : 'bg-[#D4CFC9]'
                     }`}
                   />
                   {i < 2 && (
@@ -92,7 +92,7 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
           </div>
         </div>
 
-        <p className="mt-4 text-center text-sm text-muted-foreground">
+        <p className="mt-4 text-sm text-muted-foreground">
           {t.rich('whatNext.learnMore.answer', {
             link: (chunks) => (
               <Link href="/getting-started" className="text-foreground underline">
@@ -106,7 +106,7 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
         <div className="mt-8 space-y-3">
           <Link
             href="/"
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#E06B3F] px-5 py-3 text-sm font-medium text-white hover:bg-[#C85A33]"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-cta px-5 py-3 text-sm font-medium text-white hover:bg-cta/90"
           >
             <Home className="h-4 w-4" />
             {t('cta.explore')}

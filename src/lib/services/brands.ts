@@ -592,10 +592,11 @@ const VERIFIED_BRAND_SELECT =
 export async function getBrandSlugsBatch(brandIds: string[]): Promise<Map<string, string>> {
   if (brandIds.length === 0) return new Map()
   const supabase = createServiceClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('brands')
     .select('id, slug')
     .in('id', brandIds)
+  if (error) throw new Error(`Failed to fetch brand slugs: ${error.message}`)
   return new Map((data ?? []).map(b => [b.id, b.slug]))
 }
 
@@ -806,12 +807,11 @@ export async function createBrand(
     throw new ValidationError(`Brand slug conflicts with a reserved route: ${slug}`)
   }
 
-  // Check slug uniqueness (only against non-rejected brands so re-submissions work)
+  // Check slug uniqueness
   const { data: existing } = await supabase
     .from('brands')
     .select('id')
     .eq('slug', slug)
-    .neq('status', 'rejected')
     .maybeSingle()
 
   if (existing) throw new ValidationError(`Brand slug already exists: ${slug}`)

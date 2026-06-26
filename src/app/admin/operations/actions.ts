@@ -3,6 +3,7 @@
 import { headers } from 'next/headers'
 import { isActingAsAdmin } from '@/lib/auth/admin-mode'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { listCurationJobs } from '@/lib/services/curation-jobs'
 import type { Json } from '@/lib/supabase/database.types'
 
 export type CurationJobParams = Record<string, Json | undefined> & {
@@ -72,7 +73,7 @@ export async function startCurationJobAction(
     const { data: runningJob, error: runningError } = await supabase
       .from('curation_jobs')
       .select('id')
-      .eq('status', 'running')
+      .in('status', ['pending', 'running'])
       .maybeSingle()
 
     if (runningError) {
@@ -151,18 +152,9 @@ export async function listCurationJobsAction(
     const auth = await requireAdmin()
     if ('error' in auth) return auth
 
-    const supabase = createServiceClient()
-    const { data: jobs, error } = await supabase
-      .from('curation_jobs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(options?.limit ?? 100)
+    const jobs = await listCurationJobs(options)
 
-    if (error) {
-      return { error: error.message }
-    }
-
-    return { jobs: (jobs ?? []) as CurationJob[] }
+    return { jobs }
   } catch (err) {
     console.error('[admin:listCurationJobsAction]', err)
     return {

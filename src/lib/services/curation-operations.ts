@@ -579,7 +579,6 @@ export async function runEnrich(
           }
 
           result.brandOutcomes.push({ slug: brand.slug, name: brandName(brand), status: 'skipped' })
-          result.updated += 1
           result.skipped += 1
           continue
         }

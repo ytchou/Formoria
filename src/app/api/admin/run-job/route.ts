@@ -1,13 +1,13 @@
 import { revalidateTag } from 'next/cache'
 import { NextResponse } from 'next/server'
-import { isAdmin } from '@/lib/auth/admin'
+import { isActingAsAdmin } from '@/lib/auth/admin-mode'
 import {
   ENRICH_PHASES,
   runEnrich,
   type BrandOutcome,
   type OperationResult as CurationOperationResult,
 } from '@/lib/services/curation-operations'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
 
 export const VALID_OPERATIONS = ['enrich'] as const
@@ -23,6 +23,7 @@ export const DEPRECATED_OPERATIONS = [
 ] as const
 
 const STALE_JOB_MINUTES = 30
+const STALE_PENDING_JOB_MINUTES = 10
 
 type Supabase = ReturnType<typeof createServiceClient>
 type OperationSupabase = Parameters<typeof runEnrich>[1]
@@ -65,24 +66,29 @@ type OperationResult = Progress & {
   errors: Array<{ slug: string; error: string }>
   brandOutcomes: BrandOutcome[]
 }
+type CurationJobsMutation = PromiseLike<{ error: { message: string } | null }> & {
+  eq: (column: string, value: string) => CurationJobsMutation
+  neq: (column: string, value: string) => CurationJobsMutation
+  lt: (column: string, value: string) => CurationJobsMutation
+  or: (filter: string) => CurationJobsMutation
+}
 type CurationJobsTable = {
   select: (columns: string) => {
     eq: (column: string, value: string) => {
       single: () => Promise<{ data: CurationJob | null; error: { message: string } | null }>
     }
   }
-  update: (patch: CurationJobUpdate) => {
-    eq: (column: string, value: string) => PromiseLike<{ error: { message: string } | null }> & {
-      neq: (column: string, value: string) => {
-        lt: (column: string, value: string) => Promise<{ error: { message: string } | null }>
-      }
-    }
-  }
+  update: (patch: CurationJobUpdate) => CurationJobsMutation
 }
 type CurationJobsFrom = (table: 'curation_jobs') => CurationJobsTable
 type RevalidateTagOneArg = (tag: string) => void
 
 export async function POST(request: Request) {
+  const auth = await requireAdmin()
+  if ('error' in auth) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status })
+  }
+
   let jobId: unknown
 
   try {
@@ -104,10 +110,6 @@ export async function POST(request: Request) {
 
   if (error || !job) {
     return NextResponse.json({ error: error?.message ?? 'Job not found' }, { status: 404 })
-  }
-
-  if (!isAdmin(job.started_by)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
   runJob(job).catch((err) => {
@@ -161,8 +163,14 @@ async function runOperation(supabase: Supabase, job: CurationJob): Promise<Opera
     dryRun: job.dry_run,
     slugs: params.slugs,
     limit: params.stopAfter,
-    onProgress: () => {
-      progress.processed += 1
+    onProgress: (message: string) => {
+      const processed = processedBrandCount(message)
+      if (processed === undefined) {
+        return
+      }
+
+      progress.processed = processed
+      progress.total = Math.max(progress.total, totalBrandCount(message) ?? progress.total)
       const nextProgress = { ...progress }
       progressUpdate = progressUpdate
         .then(() => updateProgress(supabase, job.id, nextProgress))
@@ -200,7 +208,7 @@ function parseOperation(operation: string): ValidOperation {
 
   if ((DEPRECATED_OPERATIONS as readonly string[]).includes(operation)) {
     console.warn(`[admin:run-job] Deprecated operation requested: ${operation}`)
-    throw new Error(`Operation deprecated: ${operation}`)
+    throw new Error('Operation removed — use enrich instead')
   }
 
   throw new Error(`Unsupported operation: ${operation}`)
@@ -253,7 +261,7 @@ function normalizeOperationResult(result: CurationOperationResult): OperationRes
 
   return {
     processed: result.processed,
-    total: result.processed,
+    total: operationResultTotal(result),
     skipped: result.skipped,
     failed: result.errors.length,
     changed: result.updated,
@@ -315,19 +323,58 @@ async function updateJob(supabase: Supabase, jobId: string, patch: CurationJobUp
 
 async function recoverStaleJobs(supabase: Supabase, currentJobId: string): Promise<void> {
   const staleBefore = new Date(Date.now() - STALE_JOB_MINUTES * 60 * 1000).toISOString()
+  const pendingStaleBefore = new Date(
+    Date.now() - STALE_PENDING_JOB_MINUTES * 60 * 1000
+  ).toISOString()
   const { error } = await curationJobs(supabase)
     .update({
       status: 'failed',
       completed_at: new Date().toISOString(),
       result: { error: 'Job timed out (stale recovery)' } as Json,
     })
-    .eq('status', 'running')
     .neq('id', currentJobId)
-    .lt('started_at', staleBefore)
+    .or(
+      `and(status.eq.running,started_at.lt.${staleBefore}),and(status.eq.pending,created_at.lt.${pendingStaleBefore})`
+    )
 
   if (error) {
     throw error
   }
+}
+
+async function requireAdmin(): Promise<
+  { userId: string; email: string } | { error: string; status: number }
+> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser()
+
+  if (error || !user) {
+    return { error: 'You must authenticate to perform this action', status: 401 }
+  }
+
+  if (!(await isActingAsAdmin(user.email))) {
+    return { error: 'You are not authorized to perform this action', status: 403 }
+  }
+
+  return { userId: user.id, email: user.email ?? '' }
+}
+
+function processedBrandCount(message: string): number | undefined {
+  const match = message.match(/^Processing\s+\S+\s+\((\d+)\/\d+\)$/)
+  return match ? Number(match[1]) : undefined
+}
+
+function totalBrandCount(message: string): number | undefined {
+  const match = message.match(/^Processing\s+\S+\s+\(\d+\/(\d+)\)$/)
+  return match ? Number(match[1]) : undefined
+}
+
+function operationResultTotal(result: CurationOperationResult): number {
+  const total = (result as CurationOperationResult & { total?: unknown }).total
+  return typeof total === 'number' && Number.isFinite(total) ? total : result.processed
 }
 
 function curationJobs(supabase: Supabase): CurationJobsTable {
