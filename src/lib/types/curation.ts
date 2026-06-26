@@ -9,11 +9,23 @@ export interface CurationConfig {
   onProgress?: (msg: string) => void
 }
 
+export type PhaseStatus = 'succeeded' | 'skipped' | 'failed'
+
+export interface PhaseResult {
+  phase: string
+  status: PhaseStatus
+  changedFields: string[]
+  durationMs: number
+  error?: string
+  detail?: string
+}
+
 export interface BrandOutcome {
   slug: string
   name: string
   status: 'succeeded' | 'skipped' | 'failed'
   changedFields?: string[]
+  phaseResults?: PhaseResult[]
   error?: string
 }
 
