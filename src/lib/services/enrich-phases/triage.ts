@@ -158,7 +158,8 @@ export async function runStandaloneClassification(
 
 export function applyTriageResult(
   triageResult: TriageResult | undefined,
-  brand: EnrichBrand
+  brand: EnrichBrand,
+  phases: readonly string[] = TRIAGE_PHASES
 ): {
   isNonBrand: boolean
   phaseResult: PhaseResult
@@ -179,7 +180,7 @@ export function applyTriageResult(
     }
   }
 
-  const patch = buildTriagePatch(brand, triageResult)
+  const patch = buildTriagePatch(brand, triageResult, phases)
   const changedFields = Object.keys(patch)
 
   return {

@@ -10,6 +10,8 @@ type BrandImagePhaseOptions = {
   phases: EnrichPhase[]
   imageSearchUrls: string[]
   supabase: SupabaseClient<Database> | null
+  dryRun?: boolean
+  imageStorageId?: string
 }
 
 type BrandImagePhaseOutput = {
@@ -53,6 +55,8 @@ export async function runBrandImagePhase({
   phases,
   imageSearchUrls,
   supabase,
+  dryRun = false,
+  imageStorageId,
 }: BrandImagePhaseOptions): Promise<BrandImagePhaseOutput> {
   void supabase
 
@@ -71,7 +75,9 @@ export async function runBrandImagePhase({
   }
 
   const { result, durationMs } = await timePhase(async () => {
-    const imageStoredUrls = await downloadAndStoreImages(imageSearchUrls, brand.id)
+    const imageStoredUrls = dryRun
+      ? imageSearchUrls
+      : await downloadAndStoreImages(imageSearchUrls, imageStorageId ?? brand.id)
     const patch = imageStoredUrls.filter(hasLinkValue).length > 0
       ? imagePatchToDbPatch(buildImageEnrichPatch(normalizeImageBrand(brand), imageStoredUrls))
       : {}

@@ -14,6 +14,7 @@ type DescriptionsPhaseOptions = {
 type DescriptionsPhaseOutput = {
   phaseResult: PhaseResult
   patch: Record<string, unknown>
+  descriptionRewrite: string | null
 }
 
 const LEGACY_DISPLAY_NAME_KEY = ['display', 'brand', 'name'].join('_')
@@ -55,6 +56,7 @@ export async function runDescriptionsPhase({
     return {
       phaseResult: buildPhaseResult('descriptions', 'skipped', [], 0, undefined, 'descriptions phase not requested'),
       patch: {},
+      descriptionRewrite: null,
     }
   }
 
@@ -62,6 +64,7 @@ export async function runDescriptionsPhase({
     return {
       phaseResult: buildPhaseResult('descriptions', 'skipped', [], 0, undefined, 'no description data available'),
       patch: {},
+      descriptionRewrite: null,
     }
   }
 
@@ -78,6 +81,7 @@ export async function runDescriptionsPhase({
         ...textPatch,
         ...(descriptionRewrite ? { description: descriptionRewrite } : {}),
       },
+      descriptionRewrite,
     }
   })
 
@@ -89,5 +93,6 @@ export async function runDescriptionsPhase({
       durationMs
     ),
     patch: result.patch,
+    descriptionRewrite: result.descriptionRewrite,
   }
 }
