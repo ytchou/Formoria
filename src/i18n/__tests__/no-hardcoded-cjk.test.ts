@@ -50,6 +50,11 @@ const ALLOWLIST = [
   'lib/services/scraper/strategies/crawl.ts',
   // Scraper search query uses Chinese keywords to find Taiwan brand websites (not UI copy).
   'lib/services/scraper/search.ts',
+  // Enrich-phase labels are admin-only display constants (not user-facing i18n copy).
+  'lib/constants/enrich-phases.ts',
+  // Enrich-phase search queries use Chinese keywords to find Taiwan brand data (not UI copy).
+  'lib/services/enrich-phases/discover.ts',
+  'lib/services/enrich-phases/image-search.ts',
   // Taxonomy ontology: nameZh is structural data (bilingual label in data layer, not UI copy).
   'lib/taxonomy/ontology.ts',
   // Slug generation regex uses CJK character ranges (not UI copy).
