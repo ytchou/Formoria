@@ -26,7 +26,7 @@ describe('PhaseBadges', () => {
   it('applies status color classes to succeeded, skipped, and failed badges', () => {
     render(<PhaseBadges phaseResults={mockPhaseResults} />)
 
-    expect(screen.getByText('清理')).toHaveClass('bg-[#EAF3E8]', 'text-[#2D5A27]')
+    expect(screen.getByText('清理')).toHaveClass('bg-verified-green-bg', 'text-verified-green')
     expect(screen.getByText('圖片')).toHaveClass('bg-[#F5F4F1]', 'text-[#6B6560]')
     expect(screen.getByText('描述')).toHaveClass('bg-destructive/10', 'text-destructive')
   })
@@ -35,7 +35,7 @@ describe('PhaseBadges', () => {
     const user = userEvent.setup()
     render(<PhaseBadges phaseResults={mockPhaseResults} />)
 
-    await user.hover(screen.getByText('描述'))
+    await user.click(screen.getByText('描述'))
 
     expect(await screen.findByText('AI rewrite timeout')).toBeInTheDocument()
   })
