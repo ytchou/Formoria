@@ -1,351 +1,62 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Brand } from '@/lib/types'
-import type { SubmitBrandForReviewParams } from '@/lib/services/submission-pipeline'
+import { describe, it, expect, afterEach } from 'vitest'
+import { createClient } from '@supabase/supabase-js'
+import { submitBrandForReview } from '../submission-pipeline'
 
-const testState = vi.hoisted(() => ({
-  user: {
-    id: 'user-1',
-    email: 'user@example.com',
-    user_metadata: { full_name: 'Test User' },
-  },
-  isAdmin: true,
-  rateAllowed: true,
-}))
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
+describe('submitBrandForReview (submission-first)', () => {
+  const testBrandName = '[TEST-SUBMIT] Pipeline Brand'
 
-vi.mock('next-intl/server', () => ({
-  getTranslations: vi.fn(async () => (key: string) => key),
-}))
+  afterEach(async () => {
+    await supabase.from('brand_submissions').delete().eq('brand_name', testBrandName)
+    await supabase.from('brands').delete().eq('name', testBrandName)
+  })
 
-vi.mock('@/lib/auth/admin-mode', () => ({
-  isActingAsAdmin: vi.fn(() => testState.isAdmin),
-}))
-
-vi.mock('@/lib/security/turnstile', () => ({
-  verifyTurnstileToken: vi.fn(async () => ({ success: true })),
-}))
-
-vi.mock('@/lib/security/rate-limiter', () => ({
-  rateLimit: vi.fn(async () => ({ allowed: testState.rateAllowed, remaining: 10, resetAt: 0 })),
-  createInMemoryRateLimiter: vi.fn(() => ({
-    check: vi.fn(() => ({ allowed: testState.rateAllowed, remaining: 10, resetAt: 0 })),
-  })),
-}))
-
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(async () => ({
-    auth: {
-      getUser: vi.fn(async () => ({
-        data: { user: testState.user },
-        error: null,
-      })),
-    },
-  })),
-  createServiceClient: vi.fn(() => ({
-    from: vi.fn(),
-  })),
-}))
-
-vi.mock('@/lib/validations/submission', () => ({
-  createSubmissionSchema: vi.fn(() => {
-    const schema = {
-      parse: vi.fn((data) => data),
-      safeParse: vi.fn((data) => ({ success: true, data })),
-      omit: vi.fn(() => schema),
-    }
-    return schema
-  }),
-}))
-
-vi.mock('@/lib/services/brands', () => {
-  return {
-    createBrand: vi.fn(),
-    generateSlug: vi.fn((name: string) => name.toLowerCase().replace(/\s+/g, '-')),
-  }
-})
-
-vi.mock('@/lib/services/submissions', () => {
-  return {
-    createSubmission: vi.fn(),
-  }
-})
-
-const { createBrand } = await import('@/lib/services/brands')
-const { createSubmission } = await import('@/lib/services/submissions')
-const pipeline = await import('@/lib/services/submission-pipeline')
-const { submitBrand } = await import('@/app/[locale]/submit/actions')
-
-const brand = {
-  id: 'brand-1',
-  name: 'Test Brand',
-  slug: 'test-brand',
-  description: 'A useful brand description.',
-  heroImageUrl: null,
-  status: 'pending',
-  category: 'Lifestyle',
-  isVerified: false,
-  isDemo: false,
-  foundingYear: null,
-  socialInstagram: null,
-  socialThreads: null,
-  socialFacebook: null,
-  purchaseWebsite: null,
-  purchasePinkoi: null,
-  purchaseShopee: null,
-  otherUrls: [],
-  retailLocations: [],
-  productPhotos: [],
-  contactEmail: null,
-  brandHighlights: null,
-  siteContent: null,
-  tags: [],
-  submittedAt: '',
-  approvedAt: null,
-  createdAt: '',
-  updatedAt: '',
-} satisfies Brand
-
-function buildParams(
-  overrides: Partial<SubmitBrandForReviewParams> = {}
-): SubmitBrandForReviewParams {
-  return {
-    name: 'Test Brand',
-    website: 'https://brand.com',
-    region: 'taipei',
-    isOwner: true,
-    pdpaConsent: true,
-    sourceAttribution: null,
-    ubn: '12345678',
-    retailLocations: [{ name: 'Store', address: 'Taipei', latitude: 0, longitude: 0 }],
-    submitterEmail: 'user@example.com',
-    submitterName: 'Test User',
-    ...overrides,
-  }
-}
-
-function buildSubmitInput() {
-  return {
-    name: 'User Brand',
-    description: 'A submitted brand description.',
-    category: 'Lifestyle',
-    website: 'https://user.example.com',
-    region: 'taipei',
-    purchaseLinks: [{ platform: 'Official', url: 'https://user.example.com/shop' }],
-    socialLinks: {
-      instagram: '',
-      threads: '',
-      facebook: '',
-      website: '',
-    },
-    retailLocations: [{ name: 'Store', address: 'Taipei' }],
-    productPhotos: [],
-    productType: 'skincare',
-    unifiedBusinessNumber: '12345678',
-    isOwner: true,
-    pdpaConsent: true,
-    turnstileToken: 'test-token',
-    honeypot: '',
-    sourceAttribution: 'found_online' as const,
-  }
-}
-
-describe('submitBrandForReview', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    vi.mocked(createBrand).mockResolvedValue(brand)
-    vi.mocked(createSubmission).mockResolvedValue({
-      id: 'submission-1',
-      brandId: brand.id,
-      brandName: brand.name,
-      submitterEmail: 'user@example.com',
-      submitterName: 'Test User',
-      description: null,
-      websiteUrl: 'https://brand.com',
-      socialInstagram: null,
-      socialThreads: null,
-      socialFacebook: null,
-      purchaseWebsite: null,
-      purchasePinkoi: null,
-      purchaseShopee: null,
-      otherUrls: [],
-      suggestedTags: { region: 'taipei' },
-      status: 'pending',
-      reviewerNotes: null,
-      submittedAt: '',
-      reviewedAt: null,
-      reviewedBy: null,
-      pdpaConsentAt: null,
-      validationStatus: null,
-      validationErrors: null,
-      notifiedAt: null,
-      isBrandOwner: true,
-      sourceAttribution: null,
-      productTypeNote: null,
+  it('creates only a brand_submissions record with brand_id=null', async () => {
+    const result = await submitBrandForReview({
+      brandName: testBrandName,
+      websiteUrl: 'https://test-submit.example.com',
+      submitterEmail: 'submitter@example.com',
+      submitterName: 'Test Submitter',
+      isBrandOwner: false,
+      pdpaConsent: true,
     })
+
+    expect(result.submissionId).toBeDefined()
+
+    const { data: submission } = await supabase
+      .from('brand_submissions')
+      .select('*')
+      .eq('id', result.submissionId)
+      .single()
+
+    expect(submission).toBeDefined()
+    expect(submission!.brand_id).toBeNull()
+    expect(submission!.status).toBe('pending')
+    expect(submission!.brand_name).toBe(testBrandName)
+
+    const { data: brands } = await supabase
+      .from('brands')
+      .select('id')
+      .eq('name', testBrandName)
+
+    expect(brands).toHaveLength(0)
   })
 
-  it('creates a pending brand and submission with region tag', async () => {
-    await pipeline.submitBrandForReview(buildParams())
-
-    expect(createBrand).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: 'Test Brand',
-        status: 'pending',
-        isVerified: false,
-        isDemo: false,
-        heroImageUrl: null,
-        foundingYear: null,
-        siteContent: null,
-        unifiedBusinessNumber: '12345678',
-        purchaseWebsite: 'https://brand.com',
-      })
-    )
-    expect(createSubmission).toHaveBeenCalledWith(
-      expect.objectContaining({
-        brandId: 'brand-1',
-        brandName: 'Test Brand',
-        websiteUrl: 'https://brand.com',
-        suggestedTags: { region: 'taipei' },
-      })
-    )
-  })
-
-  it('passes retailLocations from submission params to the pending brand', async () => {
-    await pipeline.submitBrandForReview(buildParams())
-
-    expect(createBrand).toHaveBeenCalledWith(
-      expect.objectContaining({
-        retailLocations: [{ name: 'Store', address: 'Taipei', latitude: 0, longitude: 0 }],
-      })
-    )
-  })
-
-  it('sets isBrandOwner and sourceAttribution on submission', async () => {
-    await pipeline.submitBrandForReview(buildParams({ isOwner: false, sourceAttribution: 'found_online' }))
-
-    expect(createSubmission).toHaveBeenCalledWith(
-      expect.objectContaining({
-        isBrandOwner: false,
-        sourceAttribution: 'found_online',
-      })
-    )
-  })
-
-  it('sets pdpaConsentAt when pdpaConsent is true', async () => {
-    await pipeline.submitBrandForReview(buildParams({ pdpaConsent: true }))
-
-    expect(createSubmission).toHaveBeenCalledWith(
-      expect.objectContaining({
-        pdpaConsentAt: expect.any(String),
-      })
-    )
-  })
-
-  it('classifies Instagram URL to socialInstagram instead of purchaseWebsite', async () => {
-    await pipeline.submitBrandForReview(buildParams({ website: 'https://www.instagram.com/mybrand/' }))
-
-    expect(createBrand).toHaveBeenCalledWith(
-      expect.objectContaining({
-        socialInstagram: 'https://www.instagram.com/mybrand/',
-        purchaseWebsite: null,
-      })
-    )
-    expect(createSubmission).toHaveBeenCalledWith(
-      expect.objectContaining({
-        websiteUrl: 'https://www.instagram.com/mybrand/',
-        socialInstagram: 'https://www.instagram.com/mybrand/',
-        purchaseWebsite: null,
-      })
-    )
-  })
-
-  it('explicit social link wins over classified website URL', async () => {
-    await pipeline.submitBrandForReview(buildParams({
-      website: 'https://www.instagram.com/brand_a/',
-      socialLinks: { instagram: 'https://www.instagram.com/brand_b/' },
-    }))
-
-    expect(createBrand).toHaveBeenCalledWith(
-      expect.objectContaining({
-        socialInstagram: 'https://www.instagram.com/brand_b/',
-        purchaseWebsite: null,
-      })
-    )
-  })
-
-  it('regular website URL goes to purchaseWebsite as before', async () => {
-    await pipeline.submitBrandForReview(buildParams({ website: 'https://mybrand.com' }))
-
-    expect(createBrand).toHaveBeenCalledWith(
-      expect.objectContaining({
-        purchaseWebsite: 'https://mybrand.com',
-      })
-    )
-  })
-})
-
-describe('brand submission callers', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    testState.isAdmin = true
-    testState.rateAllowed = true
-    vi.mocked(createBrand).mockResolvedValue(brand)
-    vi.mocked(createSubmission).mockResolvedValue({
-      id: 'submission-1',
-      brandId: brand.id,
-      brandName: brand.name,
-      submitterEmail: 'user@example.com',
-      submitterName: 'Test User',
-      description: null,
-      websiteUrl: 'https://user.example.com',
-      socialInstagram: null,
-      socialThreads: null,
-      socialFacebook: null,
-      purchaseWebsite: null,
-      purchasePinkoi: null,
-      purchaseShopee: null,
-      otherUrls: [],
-      suggestedTags: { region: 'taipei' },
-      status: 'pending',
-      reviewerNotes: null,
-      submittedAt: '',
-      reviewedAt: null,
-      reviewedBy: null,
-      pdpaConsentAt: null,
-      validationStatus: null,
-      validationErrors: null,
-      notifiedAt: null,
+  it('returns submission ID without a brand slug', async () => {
+    const result = await submitBrandForReview({
+      brandName: testBrandName,
+      websiteUrl: 'https://test-submit.example.com',
+      submitterEmail: 'submitter@example.com',
+      submitterName: 'Test Submitter',
       isBrandOwner: true,
-      sourceAttribution: 'found_online',
-      productTypeNote: null,
+      pdpaConsent: true,
     })
-  })
 
-  it('user submission creates a pending brand and submission', async () => {
-    const result = await submitBrand(buildSubmitInput())
-
-    expect(result).toBeUndefined()
-    expect(createBrand).toHaveBeenCalledWith(expect.objectContaining({
-      name: 'User Brand',
-      status: 'pending',
-      isVerified: false,
-      isDemo: false,
-      contactEmail: 'user@example.com',
-      purchaseWebsite: 'https://user.example.com',
-    }))
-    expect(createSubmission).toHaveBeenCalledWith(expect.objectContaining({
-      brandId: 'brand-1',
-      brandName: 'User Brand',
-      submitterEmail: 'user@example.com',
-      submitterName: 'Test User',
-      websiteUrl: 'https://user.example.com',
-      isBrandOwner: true,
-      sourceAttribution: 'found_online',
-      suggestedTags: { region: 'taipei' },
-    }))
-
-    expect(createBrand).toHaveBeenCalledTimes(1)
-    expect(createSubmission).toHaveBeenCalledTimes(1)
+    expect(result.submissionId).toBeDefined()
+    expect(result.brandSlug).toBeUndefined()
   })
 })
