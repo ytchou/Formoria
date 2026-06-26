@@ -6,7 +6,7 @@ import {
   listCurationJobsAction,
   type CurationJob,
 } from '@/app/admin/operations/actions'
-import type { BrandOutcome } from '@/lib/services/curation-operations'
+import type { BrandOutcome } from '@/lib/types/curation'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
