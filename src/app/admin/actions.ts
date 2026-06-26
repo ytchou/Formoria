@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isActingAsAdmin } from '@/lib/auth/admin-mode'
 import { getSubmission, approveSubmission, rejectSubmission } from '@/lib/services/submissions'
+import type { SubmissionApprovalOverrides } from '@/lib/services/submissions'
 import {
   approveClaimRequest,
   getClaimRequest,
@@ -16,9 +17,7 @@ import {
 } from '@/lib/services/pending-edits'
 import { verifyMitStatus, rejectMitStatus } from '@/lib/services/mit-verification'
 import {
-  createBrand,
   deleteBrand,
-  generateSlug,
   getBrandById,
   syncBrandImages,
   updateBrand,
@@ -57,11 +56,6 @@ import { checkAllServices } from '@/lib/services/health-checks'
 import type { OtherUrl, TagCategory } from '@/lib/types'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
-function isStructuredTags(v: unknown): v is { region?: string; values?: string[]; productType?: string } {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
-
-
 async function requireAdmin(): Promise<{ userId: string; email: string } | { error: string }> {
   const supabase = await createClient()
   const {
@@ -93,7 +87,8 @@ async function getPendingEditEmailContext(
 }
 
 export async function approveSubmissionAction(
-  submissionId: string
+  submissionId: string,
+  overrides?: SubmissionApprovalOverrides
 ): Promise<{ error?: string; imageSyncWarning?: { synced: number; failed: number } } | undefined> {
   try {
     const auth = await requireAdmin()
@@ -102,89 +97,17 @@ export async function approveSubmissionAction(
     const submission = await getSubmission(submissionId)
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://formoria.com'
 
-    let brand: Awaited<ReturnType<typeof createBrand>>
-    let slug: string
-    let imageSyncWarning: { synced: number; failed: number } | undefined
-
-    if (submission.brandId == null) {
-      // Legacy path: no linked brand — create a minimal one
-      slug = generateSlug(submission.brandName)
-      brand = await createBrand({
-        name: submission.brandName,
-        slug,
-        description: submission.description,
-        heroImageUrl: null,
-        status: 'approved',
-        isVerified: false,
-        isDemo: false,
-        category: null,
-        productType: 'crafts',
-        foundingYear: null,
-        socialInstagram: submission.socialInstagram,
-        socialThreads: submission.socialThreads,
-        socialFacebook: submission.socialFacebook,
-        purchaseWebsite: submission.purchaseWebsite,
-        purchasePinkoi: submission.purchasePinkoi,
-        purchaseShopee: submission.purchaseShopee,
-        otherUrls: submission.otherUrls,
-        retailLocations: [],
-        productPhotos: [],
-        contactEmail: submission.submitterEmail,
-        brandHighlights: null,
-        siteContent: null,
-        unifiedBusinessNumber: submission.unifiedBusinessNumber ?? null,
-      })
-      slug = brand.slug
-    } else {
-      // New path: brand already exists — approve it and sync images
-      brand = await updateBrand(submission.brandId, { status: 'approved' })
-      slug = brand.slug
-
-      try {
-        const syncResult = await syncBrandImages(submission.brandId)
-        if (syncResult.failed > 0) imageSyncWarning = syncResult
-      } catch (syncErr) {
-        console.error('[admin:approveSubmission] syncBrandImages failed:', syncErr)
-      }
-    }
-
-    await approveSubmission(submissionId, auth.userId)
+    const { brandId } = await approveSubmission(submissionId, auth.userId, overrides)
+    const brand = await getBrandById(brandId)
 
     try {
-      await markFlagsReviewed(brand.id)
+      await markFlagsReviewed(brandId)
     } catch (err) {
       console.error('[admin] markFlagsReviewed failed:', err)
     }
 
-    try {
-      const { suggestedTags } = submission
-      if (isStructuredTags(suggestedTags)) {
-        const structuredTags = suggestedTags
-
-        if (structuredTags.region) {
-          const tag = await getTagBySlug(structuredTags.region)
-          if (tag) await addTagToBrand(brand.id, tag.id)
-        }
-
-        if (Array.isArray(structuredTags.values)) {
-          await Promise.all(
-            structuredTags.values.map(async (slug) => {
-              const tag = await getTagBySlug(slug)
-              if (tag) await addTagToBrand(brand.id, tag.id)
-            })
-          )
-        }
-
-        if (structuredTags.productType) {
-          await updateBrand(brand.id, { productType: structuredTags.productType })
-        }
-      }
-    } catch (err) {
-      console.error('[admin:approveSubmission] tag application failed:', err)
-    }
-
     if (submission.isBrandOwner) {
-      const token = await generateClaimToken(brand.id, submission.submitterEmail, submission.brandName)
+      const token = await generateClaimToken(brandId, submission.submitterEmail, submission.brandName)
       const claimUrl = `${siteUrl}/auth/sign-up?claim=${token}`
       sendEmail(await buildClaimEmail({
         submitterEmail: submission.submitterEmail,
@@ -196,7 +119,7 @@ export async function approveSubmissionAction(
       sendEmail(await buildApprovalEmail({
         submitterEmail: submission.submitterEmail,
         brandName: submission.brandName,
-        brandSlug: slug,
+        brandSlug: brand.slug,
         siteUrl,
       }))
     }
@@ -205,7 +128,7 @@ export async function approveSubmissionAction(
     revalidatePath('/admin')
     revalidatePath('/')
     revalidatePath('/brands')
-    return imageSyncWarning ? { imageSyncWarning } : undefined
+    return undefined
   } catch (err) {
     console.error('[admin:approveSubmission]', err)
     return {

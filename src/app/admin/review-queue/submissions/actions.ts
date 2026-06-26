@@ -2,8 +2,6 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { isActingAsAdmin } from '@/lib/auth/admin-mode'
-import { getSubmission } from '@/lib/services/submissions'
-import { updateBrand } from '@/lib/services/brands'
 import { approveSubmissionAction } from '@/app/admin/actions'
 import type { OtherUrl } from '@/lib/types'
 
@@ -46,32 +44,21 @@ export async function approveSubmissionWithOverridesAction(
   const authError = await requireAdmin()
   if (authError) return authError
 
-  const submission = await getSubmission(submissionId)
-
-  // Intentional ordering: approve first so that if approve fails, overrides are not written.
-  // Only apply overrides after a successful approval.
-  const approvalResult = await approveSubmissionAction(submissionId)
-  if (approvalResult?.error) return approvalResult
-
-  if (submission.brandId) {
-    await updateBrand(submission.brandId, {
-      description: emptyToNull(overrides.description),
-      productType: emptyToNull(overrides.productType) ?? undefined,
-      purchaseWebsite: emptyToNull(overrides.purchaseWebsite),
-      purchasePinkoi: emptyToNull(overrides.purchasePinkoi),
-      purchaseShopee: emptyToNull(overrides.purchaseShopee),
-      socialInstagram: emptyToNull(overrides.socialInstagram),
-      socialThreads: emptyToNull(overrides.socialThreads),
-      socialFacebook: emptyToNull(overrides.socialFacebook),
-      otherUrls:
-        overrides.otherUrls
-          ?.map((link) => ({
-            label: link.label.trim(),
-            url: link.url.trim(),
-          }))
-          .filter((link) => link.label || link.url) ?? [],
-    })
-  }
-
-  return approvalResult
+  return approveSubmissionAction(submissionId, {
+    description: emptyToNull(overrides.description),
+    productType: emptyToNull(overrides.productType),
+    purchaseWebsite: emptyToNull(overrides.purchaseWebsite),
+    purchasePinkoi: emptyToNull(overrides.purchasePinkoi),
+    purchaseShopee: emptyToNull(overrides.purchaseShopee),
+    socialInstagram: emptyToNull(overrides.socialInstagram),
+    socialThreads: emptyToNull(overrides.socialThreads),
+    socialFacebook: emptyToNull(overrides.socialFacebook),
+    otherUrls:
+      overrides.otherUrls
+        ?.map((link) => ({
+          label: link.label.trim(),
+          url: link.url.trim(),
+        }))
+        .filter((link) => link.label || link.url) ?? [],
+  })
 }

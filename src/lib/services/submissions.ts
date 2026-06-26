@@ -1,8 +1,12 @@
-import type { BrandSubmission, OtherUrl, SubmissionStatus, SourceAttribution } from '@/lib/types'
+import type { Brand, BrandSubmission, OtherUrl, SubmissionStatus, SourceAttribution } from '@/lib/types'
 import type { DuplicateCheckResult } from '@/lib/types/submission'
 import type { Database } from '@/lib/supabase/database.types'
+import type { EnrichedData } from '@/lib/types/enriched-data'
 import { NotFoundError } from '@/lib/errors'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { generateSlug } from '@/lib/services/brands'
+import { addTagToBrand, getTagBySlug } from '@/lib/services/taxonomy'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 // ---------------------------------------------------------------------------
 // Row types
@@ -49,6 +53,32 @@ type SubmissionRowInput = Pick<
 >>
 
 type SuggestedTagsInput = string[] | { region?: string; values?: string[] }
+type ServiceClient = SupabaseClient<Database>
+type BrandInsert = Database['public']['Tables']['brands']['Insert']
+
+export type SubmissionApprovalOverrides = Partial<
+  Pick<
+    Brand,
+    | 'description'
+    | 'heroImageUrl'
+    | 'socialInstagram'
+    | 'socialThreads'
+    | 'socialFacebook'
+    | 'purchaseWebsite'
+    | 'purchasePinkoi'
+    | 'purchaseShopee'
+    | 'otherUrls'
+    | 'productPhotos'
+    | 'brandHighlights'
+  >
+> & {
+  name?: string | null
+  productType?: string | null
+}
+
+export type ApproveSubmissionResult = {
+  brandId: string
+}
 
 // ---------------------------------------------------------------------------
 // Pure record builder (no DB calls — testable in isolation)
@@ -176,6 +206,146 @@ export function submissionToInsert(
   return row
 }
 
+function isStructuredTags(v: unknown): v is { region?: string; values?: string[]; productType?: string } {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+function normalizeString(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? ''
+  return trimmed ? trimmed : null
+}
+
+function normalizeOtherUrls(value: unknown): OtherUrl[] {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .map((link) => {
+      if (typeof link === 'string') {
+        return { label: '', url: link.trim() }
+      }
+
+      if (link && typeof link === 'object') {
+        const candidate = link as Partial<OtherUrl>
+        return {
+          label: normalizeString(candidate.label) ?? '',
+          url: normalizeString(candidate.url) ?? '',
+        }
+      }
+
+      return { label: '', url: '' }
+    })
+    .filter((link) => link.label || link.url)
+}
+
+function cleanRecord<T extends Record<string, unknown>>(record: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(record).filter(([, value]) => value !== undefined)
+  ) as Partial<T>
+}
+
+export function submissionToBrandBase(row: SubmissionRow): BrandInsert {
+  return {
+    name: row.brand_name,
+    slug: generateSlug(row.brand_name),
+    description: row.description,
+    hero_image_url: null,
+    status: 'approved',
+    is_demo: false,
+    product_type: 'crafts',
+    founding_year: null,
+    social_instagram: row.social_instagram,
+    social_threads: row.social_threads,
+    social_facebook: row.social_facebook,
+    purchase_website: row.purchase_website ?? row.website_url,
+    purchase_pinkoi: row.purchase_pinkoi,
+    purchase_shopee: row.purchase_shopee,
+    other_urls: normalizeOtherUrls(row.other_urls),
+    retail_locations: [],
+    product_photos: [],
+    contact_email: row.submitter_email,
+    brand_highlights: null,
+    site_content: null,
+    unified_business_number: row.unified_business_number,
+    submitted_at: row.submitted_at,
+    approved_at: new Date().toISOString(),
+  }
+}
+
+function enrichedDataToBrandInsert(enrichedData: EnrichedData | null): Partial<BrandInsert> {
+  if (!enrichedData) return {}
+
+  return cleanRecord({
+    name: normalizeString(enrichedData.name) ?? undefined,
+    description: normalizeString(enrichedData.description) ?? undefined,
+    hero_image_url: normalizeString(enrichedData.hero_image_url) ?? undefined,
+    product_photos: enrichedData.product_photos,
+    product_type: normalizeString(enrichedData.product_type) ?? undefined,
+    brand_highlights: normalizeString(enrichedData.brand_highlights) ?? undefined,
+    social_instagram: normalizeString(enrichedData.social_instagram) ?? undefined,
+    social_threads: normalizeString(enrichedData.social_threads) ?? undefined,
+    social_facebook: normalizeString(enrichedData.social_facebook) ?? undefined,
+    purchase_website: normalizeString(enrichedData.purchase_website) ?? undefined,
+    purchase_pinkoi: normalizeString(enrichedData.purchase_pinkoi) ?? undefined,
+    purchase_shopee: normalizeString(enrichedData.purchase_shopee) ?? undefined,
+    other_urls: enrichedData.other_urls ? normalizeOtherUrls(enrichedData.other_urls) : undefined,
+  })
+}
+
+function approvalOverridesToBrandInsert(
+  overrides: SubmissionApprovalOverrides | undefined
+): Partial<BrandInsert> {
+  if (!overrides) return {}
+  const productType = normalizeString(overrides.productType)
+
+  return cleanRecord({
+    name: normalizeString(overrides.name) ?? undefined,
+    description: overrides.description === undefined ? undefined : normalizeString(overrides.description),
+    hero_image_url: overrides.heroImageUrl === undefined ? undefined : normalizeString(overrides.heroImageUrl),
+    product_type: productType ?? undefined,
+    product_photos: overrides.productPhotos,
+    brand_highlights:
+      overrides.brandHighlights === undefined ? undefined : normalizeString(overrides.brandHighlights),
+    social_instagram:
+      overrides.socialInstagram === undefined ? undefined : normalizeString(overrides.socialInstagram),
+    social_threads: overrides.socialThreads === undefined ? undefined : normalizeString(overrides.socialThreads),
+    social_facebook:
+      overrides.socialFacebook === undefined ? undefined : normalizeString(overrides.socialFacebook),
+    purchase_website:
+      overrides.purchaseWebsite === undefined ? undefined : normalizeString(overrides.purchaseWebsite),
+    purchase_pinkoi: overrides.purchasePinkoi === undefined ? undefined : normalizeString(overrides.purchasePinkoi),
+    purchase_shopee: overrides.purchaseShopee === undefined ? undefined : normalizeString(overrides.purchaseShopee),
+    other_urls: overrides.otherUrls === undefined ? undefined : normalizeOtherUrls(overrides.otherUrls),
+  })
+}
+
+async function applySuggestedTags(
+  supabase: ServiceClient,
+  brandId: string,
+  suggestedTags: SubmissionRow['suggested_tags']
+): Promise<void> {
+  if (!isStructuredTags(suggestedTags)) return
+
+  const tagSlugs = [
+    suggestedTags.region,
+    ...(Array.isArray(suggestedTags.values) ? suggestedTags.values : []),
+  ].filter((slug): slug is string => Boolean(slug))
+
+  await Promise.all(
+    tagSlugs.map(async (slug) => {
+      const tag = await getTagBySlug(slug)
+      if (tag) await addTagToBrand(brandId, tag.id)
+    })
+  )
+
+  if (suggestedTags.productType) {
+    const { error } = await supabase
+      .from('brands')
+      .update({ product_type: suggestedTags.productType })
+      .eq('id', brandId)
+    if (error) throw error
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Service functions
 // ---------------------------------------------------------------------------
@@ -276,11 +446,65 @@ export async function getSubmissions(
   return (data ?? []).map(submissionToDomain)
 }
 
-export async function approveSubmission(id: string, reviewerId: string): Promise<BrandSubmission> {
-  const supabase = createServiceClient()
+export async function approveSubmission(
+  id: string,
+  reviewerId: string,
+  overrides?: SubmissionApprovalOverrides
+): Promise<ApproveSubmissionResult>
+export async function approveSubmission(
+  supabase: ServiceClient,
+  id: string,
+  reviewerId: string,
+  overrides?: SubmissionApprovalOverrides
+): Promise<ApproveSubmissionResult>
+export async function approveSubmission(
+  first: string | ServiceClient,
+  second: string,
+  third?: string | SubmissionApprovalOverrides,
+  fourth?: SubmissionApprovalOverrides
+): Promise<ApproveSubmissionResult> {
+  const supabase = typeof first === 'string' ? createServiceClient() : first
+  const id = typeof first === 'string' ? first : second
+  const reviewerId = typeof first === 'string' ? second : (third as string)
+  const overrides = (typeof first === 'string' ? third : fourth) as SubmissionApprovalOverrides | undefined
+
+  const { data: submission, error: fetchError } = await supabase
+    .from('brand_submissions')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (fetchError || !submission) {
+    throw new NotFoundError('BrandSubmission', id, { cause: fetchError })
+  }
+
+  const enrichedData = (submission.enriched_data ?? null) as EnrichedData | null
+  const brandName =
+    approvalOverridesToBrandInsert(overrides).name ??
+    enrichedDataToBrandInsert(enrichedData).name ??
+    submission.brand_name
+
+  const brandInsert: BrandInsert = {
+    ...submissionToBrandBase(submission),
+    ...enrichedDataToBrandInsert(enrichedData),
+    ...approvalOverridesToBrandInsert(overrides),
+    name: brandName,
+    slug: generateSlug(brandName),
+    status: 'approved',
+  }
+
+  const { data: brand, error: brandError } = await supabase
+    .from('brands')
+    .insert(brandInsert)
+    .select('id')
+    .single()
+
+  if (brandError || !brand) throw brandError ?? new Error('Failed to create brand')
+
   const { data, error } = await supabase
     .from('brand_submissions')
     .update({
+      brand_id: brand.id,
       status: 'approved',
       reviewed_at: new Date().toISOString(),
       reviewed_by: reviewerId,
@@ -290,7 +514,8 @@ export async function approveSubmission(id: string, reviewerId: string): Promise
     .single()
 
   if (error || !data) throw new NotFoundError('BrandSubmission', id, { cause: error })
-  return submissionToDomain(data)
+  await applySuggestedTags(supabase, brand.id, submission.suggested_tags)
+  return { brandId: brand.id }
 }
 
 export async function rejectSubmission(
