@@ -190,7 +190,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
         <TabsList>
           <TabsTrigger value="all">全部 ({brands.length})</TabsTrigger>
           <TabsTrigger value="approved">
-            已核准 ({brands.filter((b) => b.status === 'approved').length})
+            已上架 ({brands.filter((b) => b.status === 'approved').length})
           </TabsTrigger>
           <TabsTrigger value="hidden">
             已隱藏 ({brands.filter((b) => b.status === 'hidden').length})
