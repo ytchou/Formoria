@@ -63,10 +63,7 @@ describe('loadCachedSearchResults', () => {
   it('returns empty map when no cached results exist', async () => {
     vi.mocked(getLatestSearchResults).mockResolvedValue(new Map())
 
-    const result = await loadCachedSearchResults(
-      ['brand-1'],
-      null as unknown as BatchPhaseContext['supabase']
-    )
+    const result = await loadCachedSearchResults(['brand-1'])
 
     expect(result.size).toBe(0)
     expect(getLatestSearchResults).toHaveBeenCalledWith(['brand-1'], 'serp')

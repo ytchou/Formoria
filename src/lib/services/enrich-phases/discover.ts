@@ -1,16 +1,13 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
 import type { PhaseResult } from '@/lib/types/curation'
-import type { Database } from '@/lib/database.types'
 import { batchSearchBrandsWithSnippets } from '../scraper/search'
 import { getLatestSearchResults, insertSearchResult } from '../search-results'
 import {
   buildPhaseResult,
+  getDisplayBrandName,
   timePhase,
   type BatchPhaseContext,
   type SearchPhaseResult,
 } from './types'
-
-const LEGACY_DISPLAY_NAME_KEY = ['display', 'brand', 'name'].join('_')
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -18,11 +15,6 @@ function errorMessage(error: unknown): string {
   }
 
   return String(error)
-}
-
-function displayBrandName(brand: { name?: string | null }): string {
-  const legacyName = (brand as Record<string, unknown>)[LEGACY_DISPLAY_NAME_KEY]
-  return brand.name ?? (typeof legacyName === 'string' ? legacyName : '')
 }
 
 export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
@@ -63,7 +55,7 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
       if (!ctx.dryRun) {
         const serpBrandIds: string[] = []
         for (const brand of ctx.chunk) {
-          const brandName = displayBrandName(brand)
+          const brandName = getDisplayBrandName(brand)
           const searchResult = searchResults.get(brandName)
           if (searchResult && (searchResult.urls.length > 0 || searchResult.snippets.length > 0)) {
             await insertSearchResult(
@@ -114,11 +106,8 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
 }
 
 export async function loadCachedSearchResults(
-  brandIds: string[],
-  supabase: SupabaseClient<Database>
+  brandIds: string[]
 ): Promise<Map<string, SearchPhaseResult>> {
-  void supabase
-
   const cached = await getLatestSearchResults(brandIds, 'serp')
   const searchResults = new Map<string, SearchPhaseResult>()
 

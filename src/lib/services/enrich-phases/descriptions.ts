@@ -2,7 +2,7 @@ import { rewriteBrandDescription } from '../description-rewrite'
 import { buildTextEnrichPatch } from '../link-enrichment'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { EnrichScrapedData } from './types'
-import { buildPhaseResult, timePhase, type EnrichBrand, type EnrichPhase } from './types'
+import { buildPhaseResult, getDisplayBrandName, timePhase, type EnrichBrand, type EnrichPhase } from './types'
 
 type DescriptionsPhaseOptions = {
   brand: EnrichBrand
@@ -15,13 +15,6 @@ type DescriptionsPhaseOutput = {
   phaseResult: PhaseResult
   patch: Record<string, unknown>
   descriptionRewrite: string | null
-}
-
-const LEGACY_DISPLAY_NAME_KEY = ['display', 'brand', 'name'].join('_')
-
-function brandName(brand: EnrichBrand): string {
-  const legacyName = (brand as Record<string, unknown>)[LEGACY_DISPLAY_NAME_KEY]
-  return brand.name ?? (typeof legacyName === 'string' ? legacyName : '')
 }
 
 function hasPatchValues(patch: object): boolean {
@@ -40,7 +33,7 @@ function changedFieldsForPatch(patch: Record<string, unknown>): string[] {
   }
 
   if (patch.brand_highlights !== undefined) {
-    changedFields.push('story')
+    changedFields.push('brand_highlights')
   }
 
   return changedFields
@@ -73,7 +66,7 @@ export async function runDescriptionsPhase({
       ? buildTextEnrichPatch(brand, scrapedData)
       : {}
     const descriptionRewrite = serpSnippets.length > 0
-      ? await rewriteBrandDescription(brandName(brand), brand.description ?? null, serpSnippets)
+      ? await rewriteBrandDescription(getDisplayBrandName(brand), brand.description ?? null, serpSnippets)
       : null
 
     return {

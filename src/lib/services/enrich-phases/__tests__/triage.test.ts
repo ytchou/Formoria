@@ -92,8 +92,7 @@ describe('runStandaloneClassification', () => {
 
   it('returns skipped when conditions are not met', async () => {
     const result = await runStandaloneClassification(
-      ctx({ phases: ['tags', 'descriptions'] as EnrichPhase[] }),
-      false
+      ctx({ phases: ['tags', 'descriptions'] as EnrichPhase[] })
     )
 
     expect(result.phaseResult.status).toBe('skipped')

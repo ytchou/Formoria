@@ -86,6 +86,13 @@ export type BrandPhaseContext = {
   supabase: SupabaseClient<Database>
 }
 
+const LEGACY_DISPLAY_NAME_KEY = ['display', 'brand', 'name'].join('_')
+
+export function getDisplayBrandName(brand: { name?: string | null }): string {
+  const legacyName = (brand as Record<string, unknown>)[LEGACY_DISPLAY_NAME_KEY]
+  return brand.name ?? (typeof legacyName === 'string' ? legacyName : '')
+}
+
 export async function timePhase<T>(
   fn: () => Promise<T>
 ): Promise<{ result: T; durationMs: number }> {

@@ -7,9 +7,9 @@ import {
   type TriageBatchItem,
   type TriageResult,
 } from '../product-type-classifier'
-import { shouldSkipForNonBrand } from '../curation-operations'
 import {
   buildPhaseResult,
+  getDisplayBrandName,
   timePhase,
   type BatchPhaseContext,
   type EnrichBrand,
@@ -17,12 +17,13 @@ import {
   type SearchPhaseResult,
 } from './types'
 
-const LEGACY_DISPLAY_NAME_KEY = ['display', 'brand', 'name'].join('_')
 const TRIAGE_PHASES = ['detect', 'slugs', 'tags'] as const
 
-function displayBrandName(brand: { name?: string | null }): string {
-  const legacyName = (brand as Record<string, unknown>)[LEGACY_DISPLAY_NAME_KEY]
-  return brand.name ?? (typeof legacyName === 'string' ? legacyName : '')
+export function shouldSkipForNonBrand(triageResult: TriageResult | undefined): boolean {
+  return Boolean(
+    triageResult?.isNonBrand === true &&
+    triageResult.confidence === 'high'
+  )
 }
 
 function hasTriagePhases(phases: BatchPhaseContext['phases']): boolean {
@@ -94,7 +95,6 @@ export async function runTriagePhase(
     }))
     const triageResults = await triageBrandsBatch(triageItems)
     const nonBrandCount = [...triageResults.values()].filter((triageResult) => triageResult.isNonBrand).length
-    console.log(`Triage: ${triageResults.size} brands processed, ${nonBrandCount} non-brands detected`)
     ctx.onProgress?.(`  [TRIAGE] OK — ${triageResults.size} results, ${nonBrandCount} non-brands`)
 
     return { triageResults, nonBrandCount }
@@ -112,8 +112,7 @@ export async function runTriagePhase(
 }
 
 export async function runStandaloneClassification(
-  ctx: BatchPhaseContext,
-  hasTriagePhasesValue: boolean
+  ctx: BatchPhaseContext
 ): Promise<{
   phaseResult: PhaseResult
   batchClassifications: Map<string, ClassificationResult>
@@ -121,7 +120,7 @@ export async function runStandaloneClassification(
   const shouldRun = (
     ctx.phases.includes('tags') &&
     !ctx.phases.includes('descriptions') &&
-    !hasTriagePhasesValue &&
+    !ctx.phases.includes('detect') &&
     ctx.chunk.length > 0
   )
 
@@ -136,7 +135,7 @@ export async function runStandaloneClassification(
   const { result, durationMs } = await timePhase(async () => {
     const classifyItems: BatchClassificationItem[] = ctx.chunk.map((brand) => ({
       slug: brand.slug,
-      name: displayBrandName(brand),
+      name: getDisplayBrandName(brand),
       description: brand.description ?? null,
     }))
     const batchClassifications = await classifyProductTypeBatch(classifyItems)

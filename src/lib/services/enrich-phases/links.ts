@@ -1,11 +1,9 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   buildLinkEnrichPatch,
   extractLinksFromUrls,
 } from '../link-enrichment'
 import { scrapeBrandUrls } from '../scraper'
 import { classifyByDomain } from '../scraper/input-detector'
-import type { Database } from '@/lib/database.types'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { EnrichScrapedData } from './types'
 import { buildPhaseResult, timePhase, type EnrichBrand, type EnrichPhase } from './types'
@@ -15,7 +13,6 @@ type LinksPhaseOptions = {
   phases: EnrichPhase[]
   discoveredUrls: string[]
   knownUrls: string[]
-  supabase: SupabaseClient<Database> | null
 }
 
 type LinksPhaseOutput = {
@@ -66,10 +63,7 @@ export async function runLinksPhase({
   phases,
   discoveredUrls,
   knownUrls,
-  supabase,
 }: LinksPhaseOptions): Promise<LinksPhaseOutput> {
-  void supabase
-
   if (!phases.includes('links')) {
     return {
       phaseResult: buildPhaseResult('links', 'skipped', [], 0, undefined, 'links phase not requested'),
@@ -96,7 +90,7 @@ export async function runLinksPhase({
   })
 
   const changedFields = Object.keys(result.patch)
-  const status = hasPatchValues(result.patch) ? 'succeeded' : 'succeeded'
+  const status = hasPatchValues(result.patch) ? 'succeeded' : 'skipped'
 
   return {
     phaseResult: buildPhaseResult('links', status, changedFields, durationMs),

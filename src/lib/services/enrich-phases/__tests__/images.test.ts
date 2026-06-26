@@ -20,7 +20,6 @@ describe('runBrandImagePhase', () => {
       brand,
       phases: ['links'] as EnrichPhase[],
       imageSearchUrls: ['https://example.com/image.jpg'],
-      supabase: null,
     })
 
     expect(result.phaseResult.status).toBe('skipped')
@@ -32,7 +31,6 @@ describe('runBrandImagePhase', () => {
       brand,
       phases: ['images'] as EnrichPhase[],
       imageSearchUrls: [],
-      supabase: null,
     })
 
     expect(result.phaseResult.status).toBe('skipped')

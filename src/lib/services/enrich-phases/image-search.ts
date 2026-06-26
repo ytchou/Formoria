@@ -3,16 +3,10 @@ import { batchSearchBrandImages } from '../scraper/search'
 import { insertSearchResult } from '../search-results'
 import {
   buildPhaseResult,
+  getDisplayBrandName,
   timePhase,
   type BatchPhaseContext,
 } from './types'
-
-const LEGACY_DISPLAY_NAME_KEY = ['display', 'brand', 'name'].join('_')
-
-function displayBrandName(brand: { name?: string | null }): string {
-  const legacyName = (brand as Record<string, unknown>)[LEGACY_DISPLAY_NAME_KEY]
-  return brand.name ?? (typeof legacyName === 'string' ? legacyName : '')
-}
 
 export async function runImageSearchPhase(ctx: BatchPhaseContext): Promise<{
   phaseResult: PhaseResult
@@ -43,7 +37,7 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext): Promise<{
     if (!ctx.dryRun) {
       const imageBrandIds: string[] = []
       for (const brand of ctx.chunk) {
-        const brandName = displayBrandName(brand)
+        const brandName = getDisplayBrandName(brand)
         const images = imageSearchResults.get(brandName)
         if (images && images.length > 0) {
           await insertSearchResult(brand.id, 'image', `${brandName} 台灣`, images, [])

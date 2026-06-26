@@ -12,6 +12,8 @@ describe('timePhase', () => {
   })
 
   it('records duration even when function throws', async () => {
+    expect.assertions(1)
+
     try {
       await timePhase(async () => { throw new Error('phase failed') })
     } catch (e) {

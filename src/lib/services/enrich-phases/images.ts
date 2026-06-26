@@ -1,7 +1,5 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { downloadAndStoreImages } from '../image-download'
 import { buildImageEnrichPatch, hasLinkValue } from '../link-enrichment'
-import type { Database } from '@/lib/database.types'
 import type { PhaseResult } from '@/lib/types/curation'
 import { buildPhaseResult, timePhase, type EnrichBrand, type EnrichPhase } from './types'
 
@@ -9,7 +7,6 @@ type BrandImagePhaseOptions = {
   brand: EnrichBrand
   phases: EnrichPhase[]
   imageSearchUrls: string[]
-  supabase: SupabaseClient<Database> | null
   dryRun?: boolean
   imageStorageId?: string
 }
@@ -54,12 +51,9 @@ export async function runBrandImagePhase({
   brand,
   phases,
   imageSearchUrls,
-  supabase,
   dryRun = false,
   imageStorageId,
 }: BrandImagePhaseOptions): Promise<BrandImagePhaseOutput> {
-  void supabase
-
   if (!phases.includes('images')) {
     return {
       phaseResult: buildPhaseResult('images', 'skipped', [], 0, undefined, 'images phase not requested'),

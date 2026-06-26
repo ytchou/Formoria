@@ -33,11 +33,13 @@ import {
   runLinksPhase,
   runStandaloneClassification,
   runTriagePhase,
+  shouldSkipForNonBrand,
   type BrandEnrichState,
   type SearchPhaseResult,
 } from './enrich-phases'
 
 export type { BrandOutcome, CurationConfig, OperationResult }
+export { shouldSkipForNonBrand } from './enrich-phases/triage'
 
 type CurationBrand = {
   id: string
@@ -323,13 +325,6 @@ function normalizeScrapedData(scrapedData: EnrichScrapedData): EnrichScrapedData
   }
 }
 
-export function shouldSkipForNonBrand(triageResult: TriageResult | undefined): boolean {
-  return Boolean(
-    triageResult?.isNonBrand === true &&
-    triageResult.confidence === 'high'
-  )
-}
-
 function buildTriagePatch(
   brand: EnrichBrand,
   triageResult: TriageResult | undefined,
@@ -450,13 +445,11 @@ async function buildEnrichmentPatchFromBrandInput({
     phases,
     discoveredUrls,
     knownUrls,
-    supabase: null,
   })
   const imageResult = await runBrandImagePhase({
     brand,
     phases,
     imageSearchUrls,
-    supabase: null,
     dryRun,
     imageStorageId,
   })
@@ -721,8 +714,7 @@ export async function runEnrich(
 
     if (!phases.includes('discover') && hasTriagePhases) {
       const cached = await loadCachedSearchResults(
-        chunk.map((brand) => brand.id),
-        supabase as unknown as SupabaseClient
+        chunk.map((brand) => brand.id)
       )
       const cachedByName = new Map<string, SearchPhaseResult>()
       for (const brand of chunk) {
@@ -740,7 +732,7 @@ export async function runEnrich(
 
     const triagePhaseResult = await runTriagePhase(batchContext, searchResults)
     const triageResults = triagePhaseResult.triageResults
-    const standaloneClassificationResult = await runStandaloneClassification(batchContext, hasTriagePhases)
+    const standaloneClassificationResult = await runStandaloneClassification(batchContext)
     const batchClassifications = standaloneClassificationResult.batchClassifications
 
     for (const brand of chunk) {
@@ -865,7 +857,6 @@ export async function runEnrich(
           phases,
           discoveredUrls: state.discoveredUrls,
           knownUrls: state.knownUrls,
-          supabase: supabase as unknown as SupabaseClient,
         })
         state.phaseResults.push(linksResult.phaseResult)
         state.scrapedData = linksResult.scrapedData ?? {}
@@ -875,7 +866,6 @@ export async function runEnrich(
           brand,
           phases,
           imageSearchUrls,
-          supabase: supabase as unknown as SupabaseClient,
           dryRun: config.dryRun,
           imageStorageId: brand.id,
         })

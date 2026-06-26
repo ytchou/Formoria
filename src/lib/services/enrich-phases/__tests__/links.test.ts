@@ -30,7 +30,6 @@ describe('runLinksPhase', () => {
       phases: ['clean'] as EnrichPhase[],
       discoveredUrls: ['https://www.instagram.com/testbrand/'],
       knownUrls: [],
-      supabase: null,
     })
 
     expect(result.phaseResult.status).toBe('skipped')
@@ -53,7 +52,6 @@ describe('runLinksPhase', () => {
       phases: ['links'] as EnrichPhase[],
       discoveredUrls: ['https://www.instagram.com/testbrand/'],
       knownUrls: ['https://testbrand.example'],
-      supabase: null,
     })
 
     expect(result.phaseResult.status).toBe('succeeded')
