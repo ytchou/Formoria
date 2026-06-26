@@ -49,7 +49,7 @@ function readinessBadgeClass(tone: 'green' | 'amber' | 'red' | 'grey') {
     case 'green':
       return 'bg-[#EAF3E8] text-[#2D5A27]'
     case 'amber':
-      return 'bg-amber-100 text-amber-800'
+      return 'bg-orange-100 text-orange-800'
     case 'red':
       return 'bg-red-50 text-[#D94F3D]'
     case 'grey':
@@ -221,7 +221,7 @@ export function SubmissionsList({
                         <Badge className="bg-destructive text-white text-xs">{moderationT('riskHigh')}</Badge>
                       )}
                       {submission.moderationRiskLevel === 'medium' && (
-                        <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-xs">{moderationT('riskMedium')}</Badge>
+                        <Badge className="bg-orange-50 text-orange-700 border border-orange-200 text-xs">{moderationT('riskMedium')}</Badge>
                       )}
                     </div>
                   </TableCell>
@@ -384,7 +384,7 @@ export function SubmissionsList({
 
                         {submission.productTypeNote?.trim() && (
                           <div>
-                            <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+                            <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-800">
                               Taxonomy gap
                             </span>
                             <p className="mt-1 text-sm text-[#7C7570]">
@@ -461,7 +461,7 @@ export function SubmissionsList({
                           <p className="text-sm text-[#D94F3D]">{error}</p>
                         )}
                         {warning && (
-                          <p className="text-sm text-amber-600">{warning}</p>
+                          <p className="text-sm text-orange-600">{warning}</p>
                         )}
 
                         {submission.status === 'pending' && (
