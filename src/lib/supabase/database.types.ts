@@ -221,6 +221,7 @@ export type Database = {
           brand_id: string | null
           brand_name: string
           description: string | null
+          enriched_data: Json | null
           id: string
           is_brand_owner: boolean | null
           notified_at: string | null
@@ -251,6 +252,7 @@ export type Database = {
           brand_id?: string | null
           brand_name: string
           description?: string | null
+          enriched_data?: Json | null
           id?: string
           is_brand_owner?: boolean | null
           notified_at?: string | null
@@ -281,6 +283,7 @@ export type Database = {
           brand_id?: string | null
           brand_name?: string
           description?: string | null
+          enriched_data?: Json | null
           id?: string
           is_brand_owner?: boolean | null
           notified_at?: string | null
