@@ -14,12 +14,8 @@ describe('parseCliArgs', () => {
     expect(args.config.phases).toEqual(['clean', 'detect', 'slugs', 'tags', 'discover', 'links', 'images', 'descriptions'])
   })
 
-  it('parses set-visibility command', () => {
-    const args = parseCliArgs(['set-visibility'])
-    expect(args.command).toBe('set-visibility')
-  })
-
   it('rejects old deprecated commands', () => {
+    expect(() => parseCliArgs(['set-visibility'])).toThrow(/unknown command/i)
     expect(() => parseCliArgs(['clean-names'])).toThrow(/unknown command/i)
     expect(() => parseCliArgs(['normalize-slugs'])).toThrow(/unknown command/i)
     expect(() => parseCliArgs(['detect-non-brands'])).toThrow(/unknown command/i)
