@@ -6,7 +6,8 @@ import {
   listCurationJobsAction,
   type CurationJob,
 } from '@/app/admin/operations/actions'
-import type { BrandOutcome } from '@/lib/types/curation'
+import type { BrandOutcome, PhaseResult } from '@/lib/types/curation'
+import { PhaseBadges } from './phase-badges'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -68,6 +69,7 @@ function asBrandOutcomes(v: Json | undefined): BrandOutcome[] | undefined {
     const name = readString(item.name)
     const status = readString(item.status)
     const changedFields = readStringArray(item.changedFields)
+    const phaseResults = asPhaseResults(item.phaseResults)
     const error = readString(item.error) ?? undefined
 
     if (
@@ -79,7 +81,34 @@ function asBrandOutcomes(v: Json | undefined): BrandOutcome[] | undefined {
     }
 
     const normalizedStatus = status === 'changed' ? 'succeeded' : status
-    return [{ slug, name, status: normalizedStatus, changedFields, error }]
+    return [{ slug, name, status: normalizedStatus, changedFields, phaseResults, error }]
+  })
+}
+
+function asPhaseResults(v: Json | undefined): PhaseResult[] | undefined {
+  if (!Array.isArray(v)) return undefined
+
+  return v.flatMap((item) => {
+    if (!isRecord(item)) return []
+
+    const phase = readString(item.phase)
+    const status = readString(item.status)
+    const changedFields = readStringArray(item.changedFields)
+    const durationMs = item.durationMs
+    const error = readString(item.error) ?? undefined
+    const detail = readString(item.detail) ?? undefined
+
+    if (
+      !phase ||
+      (status !== 'succeeded' && status !== 'skipped' && status !== 'failed') ||
+      !Array.isArray(item.changedFields) ||
+      typeof durationMs !== 'number' ||
+      !Number.isFinite(durationMs)
+    ) {
+      return []
+    }
+
+    return [{ phase, status, changedFields, durationMs, error, detail }]
   })
 }
 
@@ -200,7 +229,7 @@ function ResultSummary({
   )
 }
 
-const FIELD_LABELS: Record<string, string> = {
+export const FIELD_LABELS: Record<string, string> = {
   description: '描述',
   brand_highlights: '品牌亮點',
   social_instagram: 'IG',
@@ -229,6 +258,7 @@ function BrandOutcomesTable({ outcomes }: { outcomes: BrandOutcome[] }) {
           <TableRow>
             <TableHead>品牌</TableHead>
             <TableHead>狀態</TableHead>
+            <TableHead>階段</TableHead>
             <TableHead>變更</TableHead>
             <TableHead>錯誤</TableHead>
           </TableRow>
@@ -244,6 +274,9 @@ function BrandOutcomesTable({ outcomes }: { outcomes: BrandOutcome[] }) {
               </TableCell>
               <TableCell>
                 <OutcomeBadge status={outcome.status} />
+              </TableCell>
+              <TableCell>
+                <PhaseBadges phaseResults={outcome.phaseResults} />
               </TableCell>
               <TableCell className="text-sm text-muted-foreground">
                 {formatChangedFields(outcome.changedFields)}
