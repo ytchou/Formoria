@@ -280,7 +280,7 @@ export function SubmissionsList({
 
                 {expandedId === submission.id && (
                   <TableRow key={`${submission.id}-expanded`}>
-                    <TableCell colSpan={8} className="bg-[#FAF7F4] p-6">
+                    <TableCell colSpan={8} className="bg-background p-6">
                       <div className="space-y-4">
                         <div>
                           <p className="text-sm font-medium text-[#7C7570]">
@@ -472,7 +472,7 @@ export function SubmissionsList({
                                 handleApprove(submission.id)
                               }}
                               disabled={isPending}
-                              className="bg-[#E06B3F] hover:bg-[#c95d36]"
+                              className="bg-cta hover:bg-cta/90"
                             >
                               核准
                             </Button>

@@ -109,7 +109,7 @@ function ReadinessBadge({
 
 function AutoBadge() {
   return (
-    <Badge variant="outline" className="border-dashed bg-background text-[10px] uppercase tracking-wide text-muted-foreground">
+    <Badge variant="outline" className="border-dashed bg-background text-[11px] uppercase tracking-wide text-muted-foreground">
       auto
     </Badge>
   )
@@ -426,7 +426,7 @@ export function SubmissionsReviewList({
               <div className="flex items-center gap-2">
                 <div className="h-2 w-20 overflow-hidden rounded-full bg-muted">
                   <div
-                    className="h-full rounded-full bg-[#E06B3F] transition-all"
+                    className="h-full rounded-full bg-cta transition-all"
                     style={{ width: `${((enrichJob.progress as { processed?: number; total?: number })?.processed ?? 0) / Math.max((enrichJob.progress as { processed?: number; total?: number })?.total ?? 1, 1) * 100}%` }}
                   />
                 </div>
@@ -442,7 +442,7 @@ export function SubmissionsReviewList({
               size="sm"
               onClick={handleEnrichSelected}
               disabled={selectedCount === 0 || isEnrichRunning || isSubmitting}
-              className="bg-[#E06B3F] hover:bg-[#c95d36]"
+              className="bg-cta hover:bg-cta/90"
             >
               {isEnrichRunning ? '抓取中...' : '抓取資料'}
             </Button>
@@ -877,7 +877,7 @@ export function SubmissionsReviewList({
                                   handleApprove(submission)
                                 }}
                                 disabled={isPending}
-                                className="bg-[#E06B3F] hover:bg-[#c95d36]"
+                                className="bg-cta hover:bg-cta/90"
                               >
                                 核准
                               </Button>
