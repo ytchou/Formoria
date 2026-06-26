@@ -6,6 +6,7 @@ import {
   listCurationJobsAction,
   type CurationJob,
 } from '@/app/admin/operations/actions'
+import { FIELD_LABELS } from '@/lib/constants/field-labels'
 import type { BrandOutcome, PhaseResult } from '@/lib/types/curation'
 import { PhaseBadges } from './phase-badges'
 import { Badge } from '@/components/ui/badge'
@@ -227,22 +228,6 @@ function ResultSummary({
       <span className={failed > 0 ? 'text-destructive' : undefined}>{failed} 失敗</span>
     </span>
   )
-}
-
-export const FIELD_LABELS: Record<string, string> = {
-  description: '描述',
-  brand_highlights: '品牌亮點',
-  social_instagram: 'IG',
-  social_threads: 'Threads',
-  social_facebook: 'FB',
-  purchase_website: '購買連結',
-  official_website: '官網',
-  hero_image_url: '主圖',
-  product_photos: '產品照片',
-  product_type: '產品類型',
-  tag_slugs: '標籤',
-  slug: '網址代稱',
-  brand_name_en: '英文名',
 }
 
 function formatChangedFields(fields: string[] | undefined): string {

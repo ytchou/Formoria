@@ -1,30 +1,15 @@
 'use client'
 
 import { Popover } from '@base-ui/react/popover'
+import { FIELD_LABELS } from '@/lib/constants/field-labels'
 import { PHASE_LABELS } from '@/lib/constants/enrich-phases'
 import type { PhaseResult, PhaseStatus } from '@/lib/types/curation'
 import { Badge } from '@/components/ui/badge'
 
 const STATUS_CONFIG: Record<PhaseStatus, { label: string; className: string }> = {
   succeeded: { label: '成功', className: 'bg-[#EAF3E8] text-[#2D5A27]' },
-  skipped: { label: '略過', className: 'bg-[#F5F4F1] text-[#7C7570]' },
-  failed: { label: '失敗', className: 'bg-[#FDF3EC] text-[#D94F3D]' },
-}
-
-const FIELD_LABELS: Record<string, string> = {
-  description: '描述',
-  brand_highlights: '品牌亮點',
-  social_instagram: 'IG',
-  social_threads: 'Threads',
-  social_facebook: 'FB',
-  purchase_website: '購買連結',
-  official_website: '官網',
-  hero_image_url: '主圖',
-  product_photos: '產品照片',
-  product_type: '產品類型',
-  tag_slugs: '標籤',
-  slug: '網址代稱',
-  brand_name_en: '英文名',
+  skipped: { label: '略過', className: 'bg-[#F5F4F1] text-[#6B6560]' },
+  failed: { label: '失敗', className: 'bg-destructive/10 text-destructive' },
 }
 
 function formatDuration(durationMs: number): string {
@@ -45,13 +30,12 @@ function PhaseBadge({ phaseResult }: { phaseResult: PhaseResult }) {
   return (
     <Popover.Root>
       <Popover.Trigger
-        render={
-          <Badge
-            className={`${status.className} cursor-pointer text-[11px]`}
-          />
-        }
+        render={<button type="button" />}
+        className="inline-flex min-h-[44px] cursor-pointer items-center border-0 bg-transparent p-0"
       >
-        {phaseName}
+        <Badge className={`${status.className} text-[0.6875rem]`}>
+          {phaseName}
+        </Badge>
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner sideOffset={8}>
@@ -73,7 +57,7 @@ function PhaseBadge({ phaseResult }: { phaseResult: PhaseResult }) {
                 </div>
               </dl>
               {phaseResult.error && (
-                <div className="text-xs text-[#D94F3D]">{phaseResult.error}</div>
+                <div className="text-xs text-destructive">{phaseResult.error}</div>
               )}
               {phaseResult.detail && (
                 <div className="text-xs text-muted-foreground">{phaseResult.detail}</div>
