@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
-import { getTranslations, setRequestLocale } from 'next-intl/server'
+import { NextIntlClientProvider } from 'next-intl'
+import { getTranslations, setRequestLocale, getMessages } from 'next-intl/server'
 import { buildOrganizationJsonLd, buildWebSiteJsonLd } from '@/lib/json-ld'
 import HeroSection from '@/components/landing/hero-section'
 import Manifesto from '@/components/landing/manifesto'
@@ -65,12 +66,13 @@ export default async function LandingPage({ params }: PageProps) {
   const jsonLd = buildWebSiteJsonLd(safeLocale)
   const organizationJsonLd = buildOrganizationJsonLd(safeLocale)
 
-  const [categories, { brands: fetchedBrands, totalCount: totalBrandCount }, newBrands, valueTags, recentBrands] = await Promise.all([
+  const [categories, { brands: fetchedBrands, totalCount: totalBrandCount }, newBrands, valueTags, recentBrands, messages] = await Promise.all([
     getActiveCategories(),
     getBrands({ status: 'approved', limit: 60 }),
     getNewBrands(4),
     getTags('value'),
     getRecentBrandCount(),
+    getMessages(),
   ])
 
   const allBrands = shuffle(fetchedBrands)
@@ -93,7 +95,9 @@ export default async function LandingPage({ params }: PageProps) {
         <SavedBrandsProvider>
           <div className="py-6 md:py-8">
             <div className="max-w-6xl mx-auto px-4 sm:px-6">
-              <FilterableBrandShowcase brands={allBrands} categories={categories} />
+              <NextIntlClientProvider messages={messages}>
+                <FilterableBrandShowcase brands={allBrands} categories={categories} />
+              </NextIntlClientProvider>
             </div>
           </div>
 

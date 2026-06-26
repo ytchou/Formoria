@@ -6,6 +6,11 @@ import zh from '../../../../messages/zh-TW.json'
 vi.mock('next-intl/server', () => ({
   getTranslations: vi.fn(),
   setRequestLocale: vi.fn(),
+  getMessages: vi.fn().mockResolvedValue({}),
+}))
+
+vi.mock('next-intl', () => ({
+  NextIntlClientProvider: ({ children }: { children: React.ReactNode }) => children,
 }))
 
 vi.mock('@/lib/json-ld', () => ({
