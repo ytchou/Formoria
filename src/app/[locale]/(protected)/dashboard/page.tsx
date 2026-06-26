@@ -6,9 +6,7 @@ import { isActingAsAdmin } from "@/lib/auth/admin-mode";
 import { createClient } from "@/lib/supabase/server";
 import { getBrandBySlugForAdmin, getUserBrands } from "@/lib/services/brand-owners";
 import { getProfile } from "@/lib/services/profiles";
-import { getUserSubmissions } from "@/lib/services/submissions";
 import { getUserSavedBrands } from "@/lib/services/saved-brands";
-import { Badge } from "@/components/ui/badge";
 import { BrandManagementPanel } from "@/components/dashboard/brand-management-panel";
 
 type Props = {
@@ -16,14 +14,7 @@ type Props = {
   searchParams: Promise<{ error?: string; tab?: string }>;
 };
 
-const SUBMISSIONS_TAB = "submissions";
 const SAVED_TAB = "saved";
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-muted text-muted-foreground border-border",
-  approved: "bg-green-50 text-green-700 border-green-200",
-  rejected: "bg-red-50 text-red-700 border-red-200",
-};
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
@@ -38,7 +29,6 @@ export default async function DashboardPage({ params, searchParams }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("dashboard");
-  const submissionsT = await getTranslations("mySubmissions");
   const saveBrandT = await getTranslations("saveBrand");
 
   const resolvedSearchParams = await searchParams;
@@ -50,13 +40,12 @@ export default async function DashboardPage({ params, searchParams }: Props) {
   const profile = user ? await getProfile(user.id) : null;
   const displayName = profile?.displayName ?? user?.email?.split("@")[0] ?? "";
 
-  const [brands, submissions, savedBrands] = user
+  const [brands, savedBrands] = user
     ? await Promise.all([
         getUserBrands(user.id),
-        getUserSubmissions(user.email ?? ""),
         getUserSavedBrands(user.id),
       ])
-    : [[], [], []];
+    : [[], []];
 
   // God mode: if admin requests a brand they don't own, fetch it and prepend
   let allBrands = brands
@@ -65,7 +54,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
     user &&
     requestedTab &&
     requestedTab !== SAVED_TAB &&
-    requestedTab !== SUBMISSIONS_TAB &&
+    requestedTab !== "submissions" &&
     !brands.some((b) => b.brandSlug === requestedTab)
   ) {
     if (await isActingAsAdmin(user.email)) {
@@ -90,72 +79,17 @@ export default async function DashboardPage({ params, searchParams }: Props) {
   const hasBrands = allBrands.length > 0;
   const showSavedTab = savedBrands.length > 0 || requestedTab === SAVED_TAB;
   const hasTabbedContent = hasBrands || showSavedTab;
-  const defaultTab = allBrands.at(0)?.brandSlug ?? (showSavedTab ? SAVED_TAB : SUBMISSIONS_TAB);
+  const defaultTab = allBrands.at(0)?.brandSlug ?? (showSavedTab ? SAVED_TAB : undefined);
   const selectedTab =
     requestedTab && allBrands.some((brand) => brand.brandSlug === requestedTab)
       ? requestedTab
       : requestedTab === SAVED_TAB && showSavedTab
         ? SAVED_TAB
-      : requestedTab === SUBMISSIONS_TAB
-        ? SUBMISSIONS_TAB
         : defaultTab;
   const selectedBrand =
-    selectedTab !== SAVED_TAB && selectedTab !== SUBMISSIONS_TAB
+    selectedTab && selectedTab !== SAVED_TAB
       ? allBrands.find((brand) => brand.brandSlug === selectedTab) ?? null
       : null;
-
-  const submissionsSection = (
-    <div>
-      <h2 className="font-heading text-xl font-semibold tracking-tight">
-        {submissionsT("heading")}
-      </h2>
-      <p className="mt-2 text-sm text-muted-foreground">
-        {submissionsT("subheading")}
-      </p>
-
-      {submissions.length === 0 ? (
-        <div className="mt-8 rounded-xl border border-border bg-white p-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            {submissionsT("empty.message")}
-          </p>
-          <IntlLink
-            href="/submit"
-            className="mt-4 inline-flex rounded-full bg-cta px-5 py-2.5 text-sm font-medium text-cta-foreground hover:bg-cta/90"
-          >
-            {submissionsT("empty.cta")}
-          </IntlLink>
-        </div>
-      ) : (
-        <div className="mt-8 space-y-3">
-          {submissions.map((sub) => (
-            <div
-              key={sub.id}
-              className="flex items-center justify-between rounded-xl border border-border bg-white px-5 py-4"
-            >
-              <div>
-                <p className="font-medium text-foreground">{sub.brandName}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {new Date(sub.createdAt).toLocaleDateString(
-                    locale === "en" ? "en-US" : "zh-TW"
-                  )}
-                </p>
-              </div>
-              <Badge
-                variant="outline"
-                className={STATUS_COLORS[sub.status] ?? STATUS_COLORS.pending}
-              >
-                {sub.status === "approved"
-                  ? submissionsT("status.approved")
-                  : sub.status === "rejected"
-                    ? submissionsT("status.rejected")
-                    : submissionsT("status.pending")}
-              </Badge>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 
   const savedBrandsSection = (
     <div>
@@ -203,6 +137,18 @@ export default async function DashboardPage({ params, searchParams }: Props) {
     </div>
   );
 
+  const emptyState = (
+    <div className="mt-8 rounded-xl border border-border bg-white p-10 text-center">
+      <p className="text-sm text-muted-foreground">{t("empty")}</p>
+      <IntlLink
+        href="/brands"
+        className="mt-6 inline-flex rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-dark"
+      >
+        {saveBrandT("exploreBrands")}
+      </IntlLink>
+    </div>
+  );
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
       <h1 className="font-heading text-3xl font-bold tracking-tight">
@@ -246,22 +192,10 @@ export default async function DashboardPage({ params, searchParams }: Props) {
                 {saveBrandT("savedTab")}
               </IntlLink>
             )}
-            <IntlLink
-              href={`/dashboard?tab=${SUBMISSIONS_TAB}`}
-              className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                selectedTab === SUBMISSIONS_TAB
-                  ? "border-cta text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t("tabs.submissions")}
-            </IntlLink>
           </div>
 
           <div className="mt-8">
-            {selectedTab === SUBMISSIONS_TAB ? (
-              submissionsSection
-            ) : selectedTab === SAVED_TAB ? (
+            {selectedTab === SAVED_TAB ? (
               savedBrandsSection
             ) : selectedBrand ? (
               <BrandManagementPanel
@@ -270,15 +204,12 @@ export default async function DashboardPage({ params, searchParams }: Props) {
                 userId={user?.id ?? ""}
               />
             ) : (
-              submissionsSection
+              emptyState
             )}
           </div>
         </>
       ) : (
-        <div className="mt-8 space-y-12">
-          <p className="text-sm text-muted-foreground">{t("empty")}</p>
-          {submissionsSection}
-        </div>
+        emptyState
       )}
     </div>
   );

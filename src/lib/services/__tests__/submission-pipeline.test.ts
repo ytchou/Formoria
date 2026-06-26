@@ -241,6 +241,48 @@ describe('submitBrandForReview', () => {
       })
     )
   })
+
+  it('classifies Instagram URL to socialInstagram instead of purchaseWebsite', async () => {
+    await pipeline.submitBrandForReview(buildParams({ website: 'https://www.instagram.com/mybrand/' }))
+
+    expect(createBrand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        socialInstagram: 'https://www.instagram.com/mybrand/',
+        purchaseWebsite: null,
+      })
+    )
+    expect(createSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({
+        websiteUrl: 'https://www.instagram.com/mybrand/',
+        socialInstagram: 'https://www.instagram.com/mybrand/',
+        purchaseWebsite: null,
+      })
+    )
+  })
+
+  it('explicit social link wins over classified website URL', async () => {
+    await pipeline.submitBrandForReview(buildParams({
+      website: 'https://www.instagram.com/brand_a/',
+      socialLinks: { instagram: 'https://www.instagram.com/brand_b/' },
+    }))
+
+    expect(createBrand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        socialInstagram: 'https://www.instagram.com/brand_b/',
+        purchaseWebsite: null,
+      })
+    )
+  })
+
+  it('regular website URL goes to purchaseWebsite as before', async () => {
+    await pipeline.submitBrandForReview(buildParams({ website: 'https://mybrand.com' }))
+
+    expect(createBrand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        purchaseWebsite: 'https://mybrand.com',
+      })
+    )
+  })
 })
 
 describe('brand submission callers', () => {

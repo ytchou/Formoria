@@ -93,6 +93,14 @@ export function Footer() {
                   {t('terms')}
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/privacy"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {t('privacy')}
+                </Link>
+              </li>
             </ul>
           </div>
 

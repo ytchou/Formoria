@@ -1,6 +1,8 @@
 'use client'
 
-import { Fragment, useMemo, useState, useTransition } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import type { BrandSubmission, OtherUrl, SourceAttribution, SubmissionStatus } from '@/lib/types'
 import type { BrandEnrichment } from '@/lib/services/brands'
@@ -11,9 +13,15 @@ import {
   approveSubmissionWithOverridesAction,
   type SubmissionApprovalOverrides,
 } from './actions'
+import {
+  startCurationJobAction,
+  getCurationJobAction,
+  type CurationJob,
+} from '@/app/admin/operations/actions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -39,6 +47,7 @@ type BrandSubmissionWithRisk = BrandSubmission & {
   moderationRiskLevel?: 'high' | 'medium' | 'clean'
   productTypeNote?: string | null
   brandEnrichment?: BrandEnrichment | null
+  brandSlug?: string | null
 }
 
 type ReviewTaxonomyTag = {
@@ -53,21 +62,20 @@ type OverrideForm = Required<Omit<SubmissionApprovalOverrides, 'otherUrls'>> & {
 }
 
 const SOURCE_ATTRIBUTION_LABELS: Record<SourceAttribution, string> = {
-  bought_product: 'I bought their product',
-  saw_at_market: 'I saw them at a market or event',
-  found_online: 'I found them online',
-  friend_recommended: 'A friend recommended them',
-  work_there: 'I work there or know the team',
+  bought_product: '我買過他們的產品',
+  saw_at_market: '我在市集或活動看過',
+  found_online: '我在網路上發現的',
+  friend_recommended: '朋友推薦的',
+  work_there: '我在那裡工作或認識團隊',
 }
 
-const TAG_CATEGORIES = ['product_type', 'region', 'value', 'material', 'price_range']
 const PRODUCT_TYPE_EMPTY = '__none'
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-US', {
+  return new Date(dateStr).toLocaleDateString('zh-TW', {
+    year: 'numeric',
     month: 'short',
     day: 'numeric',
-    year: 'numeric',
   })
 }
 
@@ -180,7 +188,7 @@ export function SubmissionsReviewList({
   taxonomyTags: ReviewTaxonomyTag[]
 }) {
   const moderationT = useTranslations('admin.moderation')
-  const [activeTab, setActiveTab] = useState<TabValue>('all')
+  const [activeTab, setActiveTab] = useState<TabValue>('pending')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectNotes, setRejectNotes] = useState('')
@@ -188,11 +196,13 @@ export function SubmissionsReviewList({
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-
-  const tagsBySlug = useMemo(
-    () => new Map(taxonomyTags.map((tag) => [tag.slug, tag])),
-    [taxonomyTags]
-  )
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [enrichJobId, setEnrichJobId] = useState<string | null>(null)
+  const [enrichJob, setEnrichJob] = useState<CurationJob | null>(null)
+  const enrichJobRef = useRef<CurationJob | null>(null)
+  const [enrichError, setEnrichError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
+  const router = useRouter()
 
   const productTypeTags = useMemo(
     () => taxonomyTags.filter((tag) => tag.category === 'product_type'),
@@ -292,39 +302,161 @@ export function SubmissionsReviewList({
     rejected: submissions.filter((s) => s.status === 'rejected').length,
   }), [submissions])
 
+  function toggleSelection(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    const enrichable = filtered.filter(s => s.brandSlug)
+    const allEnrichableSelected = enrichable.length > 0 && enrichable.every(s => selectedIds.has(s.id))
+    if (allEnrichableSelected) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(enrichable.map(s => s.id)))
+    }
+  }
+
+  async function handleEnrichSelected() {
+    if (isSubmitting) return
+    const slugs = [...selectedIds]
+      .map(id => filtered.find(s => s.id === id)?.brandSlug)
+      .filter((slug): slug is string => Boolean(slug))
+    if (slugs.length === 0) return
+    setIsSubmitting(true)
+    try {
+      setEnrichError(null)
+      const result = await startCurationJobAction('enrich', { slugs }, false)
+      if ('error' in result) {
+        setEnrichError(result.error)
+        return
+      }
+      setEnrichJobId(result.jobId)
+      const jobResult = await getCurationJobAction(result.jobId)
+      if ('job' in jobResult && jobResult.job) {
+        enrichJobRef.current = jobResult.job
+        setEnrichJob(jobResult.job)
+      }
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const enrichableFiltered = filtered.filter(s => s.brandSlug)
+  const selectedCount = selectedIds.size
+  const allSelected = enrichableFiltered.length > 0 && enrichableFiltered.every(s => selectedIds.has(s.id))
+  const someSelected = selectedCount > 0 && !allSelected
+  const isEnrichRunning = enrichJob?.status === 'pending' || enrichJob?.status === 'running'
+
+  useEffect(() => {
+    if (!enrichJobId) return
+    const intervalId = window.setInterval(async () => {
+      const status = enrichJobRef.current?.status
+      if (status === 'completed' || status === 'failed') return
+
+      const response = await getCurationJobAction(enrichJobId)
+      if ('error' in response) {
+        setEnrichError(response.error)
+        return
+      }
+      if (response.job) {
+        enrichJobRef.current = response.job
+        setEnrichJob(response.job)
+        if (response.job.status === 'completed' || response.job.status === 'failed') {
+          setSelectedIds(new Set())
+          setEnrichJobId(null)
+          router.refresh()
+        }
+      }
+    }, 3000)
+    return () => window.clearInterval(intervalId)
+  }, [enrichJobId])
+
   return (
     <div>
       <Tabs
         value={activeTab}
-        onValueChange={(v) => setActiveTab(v as TabValue)}
+        onValueChange={(v) => { setActiveTab(v as TabValue); setSelectedIds(new Set()) }}
       >
-        <TabsList>
-          <TabsTrigger value="all">全部 ({tabCounts.all})</TabsTrigger>
-          <TabsTrigger value="pending">
-            待審核 ({tabCounts.pending})
-          </TabsTrigger>
-          <TabsTrigger value="approved">
-            已核准 ({tabCounts.approved})
-          </TabsTrigger>
-          <TabsTrigger value="rejected">
-            已拒絕 ({tabCounts.rejected})
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between gap-4">
+          <TabsList>
+            <TabsTrigger value="all">全部 ({tabCounts.all})</TabsTrigger>
+            <TabsTrigger value="pending">
+              待審核 ({tabCounts.pending})
+            </TabsTrigger>
+            <TabsTrigger value="approved">
+              已核准 ({tabCounts.approved})
+            </TabsTrigger>
+            <TabsTrigger value="rejected">
+              已拒絕 ({tabCounts.rejected})
+            </TabsTrigger>
+          </TabsList>
+
+          <div className="flex items-center gap-2">
+            {selectedCount > 0 && (
+              <span className="text-sm text-muted-foreground">
+                已選擇 {selectedCount} 筆
+              </span>
+            )}
+            {isEnrichRunning && enrichJob?.progress && (
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-20 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-[#E06B3F] transition-all"
+                    style={{ width: `${((enrichJob.progress as { processed?: number; total?: number })?.processed ?? 0) / Math.max((enrichJob.progress as { processed?: number; total?: number })?.total ?? 1, 1) * 100}%` }}
+                  />
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {(enrichJob.progress as { processed?: number })?.processed ?? 0}/{(enrichJob.progress as { total?: number })?.total ?? 0}
+                </span>
+              </div>
+            )}
+            {enrichError && (
+              <span className="text-sm text-destructive">{enrichError}</span>
+            )}
+            <Button
+              size="sm"
+              onClick={handleEnrichSelected}
+              disabled={selectedCount === 0 || isEnrichRunning || isSubmitting}
+              className="bg-[#E06B3F] hover:bg-[#c95d36]"
+            >
+              {isEnrichRunning ? '抓取中...' : '抓取資料'}
+            </Button>
+            {enrichJobId && (
+              <Link href="/admin/jobs" className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground">
+                查看工作紀錄 →
+              </Link>
+            )}
+          </div>
+        </div>
       </Tabs>
 
       <div className="mt-4 rounded-lg border bg-white">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">
+                <div onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={allSelected}
+                    indeterminate={someSelected}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </div>
+              </TableHead>
               <TableHead>品牌</TableHead>
               <TableHead className="w-16">分類</TableHead>
               <TableHead className="w-16">圖片</TableHead>
               <TableHead className="w-16">標籤</TableHead>
-              <TableHead>提交者</TableHead>
-              <TableHead>日期</TableHead>
               <TableHead>來源</TableHead>
               <TableHead>狀態</TableHead>
-              <TableHead>Enrichment</TableHead>
+              <TableHead>資料充實</TableHead>
+              <TableHead>提交者</TableHead>
+              <TableHead>日期</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -338,9 +470,18 @@ export function SubmissionsReviewList({
                     className="cursor-pointer hover:bg-[#F5F4F1]"
                     onClick={() => handleRowClick(submission)}
                   >
-                    <TableCell className="font-medium">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span>{submission.brandName}</span>
+                    <TableCell>
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedIds.has(submission.id)}
+                          onCheckedChange={() => toggleSelection(submission.id)}
+                          disabled={!submission.brandSlug}
+                        />
+                      </div>
+                    </TableCell>
+                    <TableCell className="max-w-[200px] font-medium">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate">{submission.brandName}</span>
                         {submission.moderationRiskLevel === 'high' && (
                           <Badge className="bg-destructive text-xs text-white">{moderationT('riskHigh')}</Badge>
                         )}
@@ -384,16 +525,14 @@ export function SubmissionsReviewList({
                         <ReadinessBadge tone="grey">-</ReadinessBadge>
                       )}
                     </TableCell>
-                    <TableCell>{submission.submitterEmail}</TableCell>
-                    <TableCell>{formatDate(submission.submittedAt)}</TableCell>
                     <TableCell>
                       {submission.isBrandOwner ? (
                         <span className="inline-flex items-center rounded-full bg-foreground px-2 py-0.5 text-xs font-semibold text-white">
-                          Owner
+                          品牌主
                         </span>
                       ) : (
                         <span className="inline-flex items-center rounded-full bg-[#EAF3E8] px-2 py-0.5 text-xs font-semibold text-[#2D5A27]">
-                          Community
+                          社群
                         </span>
                       )}
                     </TableCell>
@@ -404,95 +543,30 @@ export function SubmissionsReviewList({
                       {(() => {
                         const status = getEnrichmentStatus(submission.brandEnrichment)
                         if (status === 'enriched') {
-                          return <ReadinessBadge tone="green">Enriched</ReadinessBadge>
+                          return <ReadinessBadge tone="green">已完成</ReadinessBadge>
                         }
                         if (status === 'partially_enriched') {
-                          return <ReadinessBadge tone="amber">Partial</ReadinessBadge>
+                          return <ReadinessBadge tone="amber">部分</ReadinessBadge>
                         }
-                        return <ReadinessBadge tone="grey">Not Enriched</ReadinessBadge>
+                        return <ReadinessBadge tone="grey">未處理</ReadinessBadge>
                       })()}
                     </TableCell>
+                    <TableCell className="max-w-[160px] truncate">{submission.submitterEmail}</TableCell>
+                    <TableCell>{formatDate(submission.submittedAt)}</TableCell>
                   </TableRow>
 
                   {expandedId === submission.id && (
                     <TableRow key={`${submission.id}-expanded`}>
-                      <TableCell colSpan={9} className="bg-background p-6">
+                      <TableCell colSpan={10} className="bg-background p-6">
                         <div className="space-y-4">
-                          <div>
-                            <p className="text-sm font-medium text-muted-foreground">
-                              Review Readiness
-                            </p>
-                            {submission.brandEnrichment ? (
-                              <div className="mt-2 space-y-2 text-sm">
-                                <p>
-                                  <span className="font-medium">Product Type: </span>
-                                  {submission.brandEnrichment.productType.trim() ? (
-                                    submission.brandEnrichment.productType
-                                  ) : (
-                                    <span className="text-muted-foreground">Not set</span>
-                                  )}
-                                </p>
-                                <p>
-                                  <span className="font-medium">Images: </span>
-                                  Hero {submission.brandEnrichment.heroImageUrl ? '✓' : '✗'} · Photos:{' '}
-                                  {submission.brandEnrichment.productPhotos.length}
-                                </p>
-                                <div>
-                                  <p className="font-medium">Tags:</p>
-                                  <div className="mt-1 space-y-1">
-                                    {(() => {
-                                      const groupedTags = new Map<string, string[]>()
-
-                                      for (const category of TAG_CATEGORIES) {
-                                        groupedTags.set(category, [])
-                                      }
-
-                                      for (const slug of submission.brandEnrichment.tagSlugs) {
-                                        const tag = tagsBySlug.get(slug)
-                                        if (tag) {
-                                          const list = groupedTags.get(tag.category) ?? []
-                                          list.push(tag.nameZh ?? tag.name)
-                                          groupedTags.set(tag.category, list)
-                                        }
-                                      }
-
-                                      const entries = Array.from(groupedTags.entries()).filter(
-                                        ([, tags]) => tags.length > 0
-                                      )
-
-                                      if (entries.length === 0) {
-                                        return (
-                                          <p className="text-muted-foreground">No tags assigned</p>
-                                        )
-                                      }
-
-                                      return entries.map(([category, tags]) => (
-                                        <p key={category}>
-                                          <span className="capitalize">
-                                            {category.replace('_', ' ')}:
-                                          </span>{' '}
-                                          {tags.join(', ')}
-                                        </p>
-                                      ))
-                                    })()}
-                                  </div>
-                                </div>
-                              </div>
-                            ) : (
-                              <p className="mt-2 text-sm text-muted-foreground">
-                                No brand record linked (legacy submission)
-                              </p>
-                            )}
-                          </div>
-
                           <EnrichedCard auto={hasEnrichment}>
                             <div className="space-y-3">
-                              <FieldLabel auto={hasEnrichment}>Description</FieldLabel>
+                              <FieldLabel auto={hasEnrichment}>品牌描述</FieldLabel>
                               <Textarea
                                 value={form.description ?? ''}
                                 onChange={(e) => updateOverride(submission.id, 'description', e.target.value)}
                                 onClick={(e) => e.stopPropagation()}
-                                placeholder="Brand description"
+                                placeholder="品牌描述"
                                 className={hasEnrichment ? 'border-dashed bg-white/80' : undefined}
                               />
                             </div>
@@ -500,7 +574,7 @@ export function SubmissionsReviewList({
 
                           <EnrichedCard auto={hasEnrichment}>
                             <div className="space-y-3">
-                              <FieldLabel auto={hasEnrichment}>Product type</FieldLabel>
+                              <FieldLabel auto={hasEnrichment}>產品類型</FieldLabel>
                               <Select
                                 value={form.productType || PRODUCT_TYPE_EMPTY}
                                 onValueChange={(value) =>
@@ -515,10 +589,10 @@ export function SubmissionsReviewList({
                                   onClick={(e) => e.stopPropagation()}
                                   className={hasEnrichment ? 'border-dashed bg-white/80' : undefined}
                                 >
-                                  <SelectValue placeholder="Select product type" />
+                                  <SelectValue placeholder="選擇產品類型" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value={PRODUCT_TYPE_EMPTY}>Not set</SelectItem>
+                                  <SelectItem value={PRODUCT_TYPE_EMPTY}>未設定</SelectItem>
                                   {form.productType &&
                                     !productTypeTags.some((tag) => tag.slug === form.productType) && (
                                       <SelectItem value={form.productType}>
@@ -537,11 +611,11 @@ export function SubmissionsReviewList({
 
                           <EnrichedCard auto={hasEnrichment}>
                             <div className="space-y-3">
-                              <FieldLabel auto={hasEnrichment}>Purchase links</FieldLabel>
+                              <FieldLabel auto={hasEnrichment}>購買連結</FieldLabel>
                               <div className="grid gap-3 sm:grid-cols-3">
                                 <Input
                                   type="url"
-                                  placeholder="Website URL"
+                                  placeholder="官網連結"
                                   value={form.purchaseWebsite ?? ''}
                                   onChange={(e) => updateOverride(submission.id, 'purchaseWebsite', e.target.value)}
                                   onClick={(e) => e.stopPropagation()}
@@ -549,7 +623,7 @@ export function SubmissionsReviewList({
                                 />
                                 <Input
                                   type="url"
-                                  placeholder="Pinkoi URL"
+                                  placeholder="Pinkoi 連結"
                                   value={form.purchasePinkoi ?? ''}
                                   onChange={(e) => updateOverride(submission.id, 'purchasePinkoi', e.target.value)}
                                   onClick={(e) => e.stopPropagation()}
@@ -557,7 +631,7 @@ export function SubmissionsReviewList({
                                 />
                                 <Input
                                   type="url"
-                                  placeholder="Shopee URL"
+                                  placeholder="蝦皮連結"
                                   value={form.purchaseShopee ?? ''}
                                   onChange={(e) => updateOverride(submission.id, 'purchaseShopee', e.target.value)}
                                   onClick={(e) => e.stopPropagation()}
@@ -568,7 +642,7 @@ export function SubmissionsReviewList({
                                 {form.otherUrls.map((link, index) => (
                                   <div key={`${index}-${link.label}`} className="grid gap-2 sm:grid-cols-[160px_1fr_auto]">
                                     <Input
-                                      placeholder="Label"
+                                      placeholder="標籤"
                                       value={link.label}
                                       onChange={(e) => updateOtherUrl(submission.id, index, 'label', e.target.value)}
                                       onClick={(e) => e.stopPropagation()}
@@ -576,7 +650,7 @@ export function SubmissionsReviewList({
                                     />
                                     <Input
                                       type="url"
-                                      placeholder="URL"
+                                      placeholder="連結"
                                       value={link.url}
                                       onChange={(e) => updateOtherUrl(submission.id, index, 'url', e.target.value)}
                                       onClick={(e) => e.stopPropagation()}
@@ -590,7 +664,7 @@ export function SubmissionsReviewList({
                                         removeOtherUrl(submission.id, index)
                                       }}
                                     >
-                                      Remove
+                                      移除
                                     </Button>
                                   </div>
                                 ))}
@@ -602,7 +676,7 @@ export function SubmissionsReviewList({
                                     addOtherUrl(submission.id)
                                   }}
                                 >
-                                  Add link
+                                  新增連結
                                 </Button>
                               </div>
                             </div>
@@ -610,11 +684,11 @@ export function SubmissionsReviewList({
 
                           <EnrichedCard auto={hasEnrichment}>
                             <div className="space-y-3">
-                              <FieldLabel auto={hasEnrichment}>Social links</FieldLabel>
+                              <FieldLabel auto={hasEnrichment}>社群連結</FieldLabel>
                               <div className="grid gap-3 sm:grid-cols-3">
                                 <Input
                                   type="url"
-                                  placeholder="Instagram URL"
+                                  placeholder="Instagram 連結"
                                   value={form.socialInstagram ?? ''}
                                   onChange={(e) => updateOverride(submission.id, 'socialInstagram', e.target.value)}
                                   onClick={(e) => e.stopPropagation()}
@@ -622,7 +696,7 @@ export function SubmissionsReviewList({
                                 />
                                 <Input
                                   type="url"
-                                  placeholder="Threads URL"
+                                  placeholder="Threads 連結"
                                   value={form.socialThreads ?? ''}
                                   onChange={(e) => updateOverride(submission.id, 'socialThreads', e.target.value)}
                                   onClick={(e) => e.stopPropagation()}
@@ -630,7 +704,7 @@ export function SubmissionsReviewList({
                                 />
                                 <Input
                                   type="url"
-                                  placeholder="Facebook URL"
+                                  placeholder="Facebook 連結"
                                   value={form.socialFacebook ?? ''}
                                   onChange={(e) => updateOverride(submission.id, 'socialFacebook', e.target.value)}
                                   onClick={(e) => e.stopPropagation()}
@@ -643,7 +717,7 @@ export function SubmissionsReviewList({
                           {submission.brandEnrichment && (
                             <EnrichedCard auto>
                               <div className="space-y-3">
-                                <FieldLabel auto>Hero image / product images</FieldLabel>
+                                <FieldLabel auto>主圖 / 產品圖片</FieldLabel>
                                 <div className="grid gap-3 sm:grid-cols-4">
                                   {submission.brandEnrichment.heroImageUrl && (
                                     <a
@@ -659,7 +733,7 @@ export function SubmissionsReviewList({
                                         alt={`${submission.brandName} hero`}
                                         className="aspect-square w-full object-cover"
                                       />
-                                      <span className="block px-2 py-1 text-xs text-muted-foreground">Hero</span>
+                                      <span className="block px-2 py-1 text-xs text-muted-foreground">主圖</span>
                                     </a>
                                   )}
                                   {submission.brandEnrichment.productPhotos.map((url, index) => (
@@ -678,14 +752,14 @@ export function SubmissionsReviewList({
                                         className="aspect-square w-full object-cover"
                                       />
                                       <span className="block px-2 py-1 text-xs text-muted-foreground">
-                                        Product {index + 1}
+                                        {`產品 ${index + 1}`}
                                       </span>
                                     </a>
                                   ))}
                                 </div>
                                 {!submission.brandEnrichment.heroImageUrl &&
                                   submission.brandEnrichment.productPhotos.length === 0 && (
-                                    <p className="text-sm text-muted-foreground">No images enriched</p>
+                                    <p className="text-sm text-muted-foreground">尚無圖片</p>
                                   )}
                               </div>
                             </EnrichedCard>
@@ -705,7 +779,7 @@ export function SubmissionsReviewList({
                           {!submission.isBrandOwner && submission.sourceAttribution && (
                             <div>
                               <p className="text-sm font-medium text-muted-foreground">
-                                How do you know this brand?
+                                你怎麼知道這個品牌？
                               </p>
                               <p className="mt-1 text-sm">
                                 {SOURCE_ATTRIBUTION_LABELS[submission.sourceAttribution]}
@@ -716,7 +790,7 @@ export function SubmissionsReviewList({
                           {submission.productTypeNote?.trim() && (
                             <div>
                               <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
-                                Taxonomy gap
+                                分類缺口
                               </span>
                               <p className="mt-1 text-sm text-muted-foreground">
                                 {submission.productTypeNote}
@@ -731,7 +805,7 @@ export function SubmissionsReviewList({
                               return suggestedTags.length > 0 && (
                                 <div>
                                   <p className="text-sm font-medium text-muted-foreground">
-                                    Suggested Tags
+                                    建議標籤
                                   </p>
                                   <div className="mt-1 flex flex-wrap gap-2">
                                     {suggestedTags.map((tag) => (
@@ -754,12 +828,12 @@ export function SubmissionsReviewList({
                               return (region || values.length > 0) && (
                                 <div>
                                   <p className="text-sm font-medium text-muted-foreground">
-                                    Suggested Tags
+                                    建議標籤
                                   </p>
                                   <div className="mt-1 space-y-1 text-sm">
-                                    {region && <p>Region: {region}</p>}
+                                    {region && <p>地區：{region}</p>}
                                     {values.length > 0 && (
-                                      <p>Values: {values.join(', ')}</p>
+                                      <p>特色：{values.join(', ')}</p>
                                     )}
                                   </div>
                                 </div>
@@ -825,7 +899,7 @@ export function SubmissionsReviewList({
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={9}
+                  colSpan={10}
                   className="py-8 text-center text-muted-foreground"
                 >
                   找不到提交記錄。
@@ -835,6 +909,7 @@ export function SubmissionsReviewList({
           </TableBody>
         </Table>
       </div>
+
     </div>
   )
 }

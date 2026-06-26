@@ -74,14 +74,8 @@ export default async function AdminLayout({
         { label: "分類管理", href: "/admin/catalog/taxonomy" },
       ],
     },
-    {
-      label: "資料維護",
-      href: "/admin/operations",
-      children: [
-        { label: "批次操作", href: "/admin/operations" },
-        { label: "品質儀表板", href: "/admin/quality" },
-      ],
-    },
+    { label: "品質儀表板", href: "/admin/quality" },
+    { label: "工作紀錄", href: "/admin/jobs" },
   ];
 
   return (

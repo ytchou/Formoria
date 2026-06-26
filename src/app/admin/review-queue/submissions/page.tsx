@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { getSubmissions } from '@/lib/services/submissions'
 import { getModerationFlagsBatch } from '@/lib/services/moderation'
 import type { ModerationFlag, RiskLevel } from '@/lib/services/moderation'
-import { getBrandEnrichmentBatch } from '@/lib/services/brands'
+import { getBrandEnrichmentBatch, getBrandSlugsBatch } from '@/lib/services/brands'
 import { getTags } from '@/lib/services/taxonomy'
 import { SubmissionsReviewList } from './submissions-review-list'
 
@@ -23,9 +23,10 @@ export default async function ReviewQueueSubmissionsPage() {
     .filter((brandId): brandId is string => Boolean(brandId))
 
   const moderationFlagsByBrandId = await getModerationFlagsBatch(brandIds)
-  const [brandEnrichmentById, taxonomyTags] = await Promise.all([
+  const [brandEnrichmentById, taxonomyTags, slugMap] = await Promise.all([
     getBrandEnrichmentBatch(brandIds),
     getTags(),
+    getBrandSlugsBatch(brandIds),
   ])
 
   const submissionsWithRisk = submissions.map((submission) => ({
@@ -36,6 +37,7 @@ export default async function ReviewQueueSubmissionsPage() {
     brandEnrichment: submission.brandId
       ? brandEnrichmentById.get(submission.brandId) ?? null
       : null,
+    brandSlug: slugMap.get(submission.brandId ?? '') ?? null,
   }))
 
   return (

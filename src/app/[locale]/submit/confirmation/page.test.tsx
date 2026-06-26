@@ -47,7 +47,22 @@ function makeT(messages: Messages, namespace: string) {
     )
   }
 
-  return (key: string, values?: Record<string, unknown>) => translate(key, values)
+  const t = (key: string, values?: Record<string, unknown>) => translate(key, values)
+
+  t.rich = (key: string, values: Record<string, unknown> = {}) => {
+    const raw = translate(key)
+    // Strip XML-like tags to return plain text for testing
+    const stripped = raw.replace(/<[^>]+>/g, '')
+    // Apply any function values (like link wrappers) — just return text
+    for (const [, val] of Object.entries(values)) {
+      if (typeof val === 'function') {
+        // no-op for test: rich tags are stripped
+      }
+    }
+    return stripped
+  }
+
+  return t
 }
 
 function setupMocks(messages: Messages) {
@@ -64,17 +79,19 @@ describe('ConfirmationPage (zh-TW)', () => {
     setupMocks(zh as Messages)
   })
 
-  it('includes FAQPage JSON-LD script tag for the what next items', async () => {
+  it('renders confirmation content with timeline and CTAs', async () => {
     const { container } = render(
       await ConfirmationPage({ params: Promise.resolve({ locale: 'zh-TW' }) })
     )
 
-    const script = container.querySelector('script[type="application/ld+json"]')
-    expect(script).toBeInTheDocument()
+    // Renders the success heading
+    const heading = container.querySelector('h1')
+    expect(heading).toBeInTheDocument()
 
-    const jsonLd = JSON.parse(script!.textContent!)
-    expect(jsonLd['@type']).toBe('FAQPage')
-    expect(jsonLd.mainEntity).toHaveLength(4)
-    expect(jsonLd.mainEntity[0]['@type']).toBe('Question')
+    // Renders the two CTA links (explore + submit another)
+    const links = container.querySelectorAll('a[href]')
+    const hrefs = [...links].map((a) => a.getAttribute('href'))
+    expect(hrefs).toContain('/')
+    expect(hrefs).toContain('/submit')
   })
 })

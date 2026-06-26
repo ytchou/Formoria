@@ -29,6 +29,7 @@
   "footer": {
     "about": "關於我們",
     "terms": "服務條款",
+    "privacy": "隱私權政策",
     "contact": "聯絡我們",
     "copyright": "© {year} Formoria",
     "tagline": "讓台灣品牌被世界看見",
@@ -532,6 +533,47 @@
       "changes": {
         "heading": "條款變更",
         "body": "Formoria 保留隨時修改本服務條款的權利。重大變更將於平台公告，持續使用本服務即視為接受更新後的條款。如有任何疑問，請透過聯絡頁面與我們聯繫。"
+      }
+    },
+    "privacy": {
+      "metadata": {
+        "title": "隱私權政策 | Formoria",
+        "description": "了解 Formoria 如何依據《個人資料保護法》蒐集、處理及利用您的個人資料。"
+      },
+      "title": "隱私權政策",
+      "intro": "Formoria 重視您的隱私。本政策說明我們如何依據中華民國《個人資料保護法》蒐集、處理及利用您的個人資料。",
+      "lastUpdated": "最後更新：2026 年 6 月",
+      "dataCollection": {
+        "heading": "資料蒐集",
+        "body": "當您使用 Formoria 時，我們可能蒐集以下個人資料：提交品牌時提供的電子郵件地址、姓名（選填）、品牌名稱、品牌官方網站、品牌所在地區、社群連結（Instagram、Threads、Facebook）、購買連結、是否為品牌負責人、以及資料來源。註冊帳號時，我們透過 Supabase Auth 蒐集您的電子郵件與驗證資訊。此外，我們透過 Google Analytics 自動蒐集匿名化的瀏覽資料（頁面瀏覽、事件、匿名化 IP 位址）。"
+      },
+      "purpose": {
+        "heading": "使用目的",
+        "body": "我們蒐集個人資料的目的包括：建立及維護台灣品牌目錄、提供品牌探索與搜尋功能、透過資料豐富化提升品牌資訊品質、防止垃圾訊息與濫用、改善網站功能與使用體驗、以及處理您的品牌提交與帳號相關事宜。"
+      },
+      "thirdParty": {
+        "heading": "第三方服務",
+        "body": "為提供本服務，我們使用以下第三方服務商：Supabase（資料庫與身份驗證，伺服器位於美國）、Google Analytics 4（網站分析，資料處理於美國）、Sentry（錯誤監控，資料處理於美國）、Cloudflare Turnstile（機器人防護）、以及 Railway（網站託管，伺服器位於美國）。我們不會將您的個人資料出售予第三方。資料僅在提供服務所必要之範圍內共享。"
+      },
+      "userRights": {
+        "heading": "您的權利",
+        "body": "依據《個人資料保護法》第三條，您享有以下權利：查詢或請求閱覽您的個人資料、請求製給複製本、請求補充或更正、請求停止蒐集處理或利用、以及請求刪除。如欲行使上述權利，請來信 privacy@formoria.com，我們將於三十日內回覆您的請求。"
+      },
+      "dataProtection": {
+        "heading": "資料保護",
+        "body": "我們採取適當的安全措施保護您的個人資料，包括：全站使用 HTTPS 加密連線、實施存取控制以限制資料存取權限、以及定期檢視安全措施。您的品牌資料將於品牌列示於目錄期間保留，帳號資料將於帳號存續期間保留。您可隨時要求刪除您的資料。"
+      },
+      "cookies": {
+        "heading": "Cookie 與追蹤技術",
+        "body": "本網站使用 Google Analytics 4 的 Cookie 來記錄頁面瀏覽與使用事件，IP 位址已匿名化處理。我們也使用 Cloudflare Turnstile 的工作階段 Cookie 進行機器人偵測，以保護表單免受垃圾訊息攻擊。本網站不使用任何廣告 Cookie 或第三方追蹤 Cookie。"
+      },
+      "changes": {
+        "heading": "政策變更",
+        "body": "我們可能不定期更新本隱私權政策。重大變更將於本頁面公告並更新「最後更新」日期。您於變更後繼續使用本服務，即表示您同意更新後的政策內容。"
+      },
+      "contact": {
+        "heading": "聯絡我們",
+        "body": "如對本隱私權政策有任何疑問，或欲行使您的個人資料相關權利，請來信：privacy@formoria.com。我們將依據《個人資料保護法》規定，於三十日內回覆您的請求。"
       }
     }
   },
@@ -1250,7 +1292,7 @@
       "photoCount": "{count} 張照片已上傳",
       "photoCountSingular": "1 張照片已上傳",
       "brandLogoAlt": "品牌標誌",
-      "pdpaConsent": "我同意依據<privacyPolicy>隱私政策</privacyPolicy>收集和使用我的個人資料（PDPA 合規）。",
+      "pdpaConsent": "我同意依據<privacyPolicy>隱私權政策</privacyPolicy>收集和使用我的個人資料，並已了解依據《個人資料保護法》所賦予之各項權利。",
       "region": "地區",
       "valueTags": "品牌價值",
       "socialLinks": "社群連結",
@@ -1300,8 +1342,7 @@
         },
         "learnMore": {
           "question": "想了解更多？",
-          "answer": "請前往我們的{link}查看完整介紹。",
-          "linkText": "入門指南"
+          "answer": "請前往我們的<link>入門指南</link>查看完整介紹。"
         }
       }
     },
@@ -1320,7 +1361,8 @@
       "pdpaRequired": "請同意隱私政策",
       "turnstileRequired": "請完成驗證",
       "ubn_format": "統一編號須為8位數字",
-      "valueTagsMax": "最多可選擇 3 個品牌價值"
+      "valueTagsMax": "最多可選擇 3 個品牌價值",
+      "regionRequired": "請選擇地區"
     },
     "errors": {
       "notAuthenticated": "請先登入才能提交品牌",
@@ -1335,8 +1377,10 @@
       "websitePlaceholder": "https://yourbrand.com",
       "brandNameLabel": "品牌名稱",
       "brandNamePlaceholder": "例：雨靴工作室",
+      "brandNameHint": "品牌名稱將顯示於品牌頁面，也會作為搜尋品牌資訊的依據，請填寫正式名稱",
       "regionLabel": "品牌所在地區",
       "regionPlaceholder": "選擇地區",
+      "regionHint": "選擇品牌的發源地或主要據點所在地區",
       "isOwnerLabel": "我是品牌負責人",
       "isOwnerHint": "我們會請你提供品牌證明文件，認領後可管理品牌頁面與更新資訊。",
       "sourceLabel": "資料來源",
@@ -1349,6 +1393,7 @@
       "submitButton": "提交品牌",
       "submittingButton": "提交中...",
       "suggestedName": "建議名稱：",
+      "suggestedUrl": "建議網址：",
       "applySuggestion": "套用"
     }
   },

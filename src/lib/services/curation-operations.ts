@@ -37,11 +37,19 @@ export interface CurationConfig {
   onProgress?: (msg: string) => void
 }
 
+export interface BrandOutcome {
+  slug: string
+  name: string
+  status: 'changed' | 'skipped' | 'failed'
+  error?: string
+}
+
 export interface OperationResult {
   processed: number
   updated: number
   skipped: number
   errors: string[]
+  brandOutcomes: BrandOutcome[]
 }
 
 type CurationBrand = {
@@ -57,19 +65,9 @@ type CurationBrand = {
 }
 
 type AutoTagPatch = Partial<Pick<CurationBrand, 'product_type'>>
-type SetVisibilityPatch = Partial<Pick<CurationBrand, 'status'>>
 type TriagePatch = Partial<Pick<CurationBrand, 'slug' | 'product_type' | 'tag_slugs'>>
 type NamePatch = Partial<Pick<CurationBrand, 'name'>>
-type CurationPatch = NamePatch & AutoTagPatch & SetVisibilityPatch & TriagePatch
-
-type SetVisibilityBrand = Pick<CurationBrand, 'id'> &
-  Partial<Pick<CurationBrand, 'status' | 'name' | 'purchase_website' | 'description'>>
-
-type ProcessSetVisibilityResult = {
-  visible: boolean
-  changed: boolean
-  patch?: Pick<SetVisibilityPatch, 'status'>
-}
+type CurationPatch = NamePatch & AutoTagPatch & TriagePatch
 
 type SupabaseError = {
   message?: string
@@ -105,7 +103,6 @@ type SupabaseLike = {
 }
 
 const LEGACY_DISPLAY_NAME_KEY = ['display', 'brand', 'name'].join('_')
-const LEGACY_WEBSITE_URL_KEY = ['website', 'url'].join('_')
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -128,121 +125,7 @@ function brandName(brand: { name?: string | null }): string {
   return brand.name ?? (typeof legacyName === 'string' ? legacyName : '')
 }
 
-function purchaseWebsite(brand: { purchase_website?: string | null }): string | null {
-  const legacyWebsite = (brand as Record<string, unknown>)[LEGACY_WEBSITE_URL_KEY]
-  return brand.purchase_website ?? (typeof legacyWebsite === 'string' ? legacyWebsite : null)
-}
-
-export function processSetVisibilityBrand(
-  brand: SetVisibilityBrand
-): ProcessSetVisibilityResult {
-  if (brand.status !== 'approved') {
-    return {
-      visible: false,
-      changed: false,
-    }
-  }
-
-  const visible =
-    Boolean(purchaseWebsite(brand)?.trim()) &&
-    Boolean(brand.description && brand.description.length >= 20) &&
-    Boolean(brandName(brand).trim())
-
-  if (visible) {
-    return {
-      visible,
-      changed: false,
-    }
-  }
-
-  return {
-    visible,
-    changed: true,
-    patch: { status: 'hidden' },
-  }
-}
-
-export async function runSetVisibility(
-  config: CurationConfig,
-  supabase: SupabaseLike
-): Promise<OperationResult> {
-  const result: OperationResult = {
-    processed: 0,
-    updated: 0,
-    skipped: 0,
-    errors: [],
-  }
-
-  let query = supabase
-    .from('brands')
-    .select('id, slug, status, name, purchase_website, description')
-
-  if (config.slugs && config.slugs.length > 0) {
-    query = query.in('slug', config.slugs)
-  }
-
-  if (config.limit !== undefined) {
-    query = query.limit(config.limit)
-  }
-
-  const { data, error } = await query
-
-  if (error) {
-    result.errors.push(error.message ?? 'Failed to fetch brands')
-    return result
-  }
-
-  for (const brand of data ?? []) {
-    result.processed += 1
-    config.onProgress?.(`Processing ${brand.slug}`)
-
-    try {
-      const visibility = processSetVisibilityBrand(brand)
-
-      if (!visibility.changed || !visibility.patch) {
-        result.skipped += 1
-        continue
-      }
-
-      const reasons: string[] = []
-      if (!purchaseWebsite(brand)?.trim()) reasons.push('no website')
-      if (!brand.description || brand.description.length < 20) reasons.push('no/short description')
-      if (!brandName(brand).trim()) reasons.push('no name')
-      config.onProgress?.(`  [HIDE] ${brand.slug}: ${reasons.join(', ')}`)
-
-      if (!config.dryRun) {
-        const { error: updateError } = await supabase
-          .from('brands')
-          .update(visibility.patch)
-          .eq('id', brand.id)
-
-        if (updateError) {
-          result.errors.push(`${brand.slug}: ${updateError.message ?? 'Failed to update brand'}`)
-          result.skipped += 1
-          continue
-        }
-      }
-
-      result.updated += 1
-    } catch (err) {
-      result.errors.push(`${brand.slug}: ${errorMessage(err)}`)
-      result.skipped += 1
-    }
-  }
-
-  return result
-}
-
-export const ENRICH_PHASES = [
-  'clean',
-  'detect',
-  'slugs',
-  'tags',
-  'discover',
-  'links',
-  'images',
-  'descriptions',
-] as const
+export { ENRICH_PHASES } from '@/lib/constants/enrich-phases'
 
 type EnrichPhase = 'clean' | 'links' | 'images' | 'descriptions' | 'tags'
 type RunEnrichPhase = EnrichPhase | 'discover' | 'detect' | 'slugs'
@@ -496,6 +379,7 @@ export async function runEnrich(
     updated: 0,
     skipped: 0,
     errors: [],
+    brandOutcomes: [],
   }
 
   const phases = config.phases as RunEnrichPhase[]
@@ -694,7 +578,7 @@ export async function runEnrich(
             } as never).eq('id', brand.id)
           }
 
-          result.updated += 1
+          result.brandOutcomes.push({ slug: brand.slug, name: brandName(brand), status: 'skipped' })
           result.skipped += 1
           continue
         }
@@ -733,6 +617,7 @@ export async function runEnrich(
             weakBrandCount += 1
             config.onProgress?.(`  [WEAK-BRAND] ${brand.slug}: no useful data found (${discoveredUrls.length} search results, nothing to scrape)`)
           }
+          result.brandOutcomes.push({ slug: brand.slug, name: brandName(brand), status: 'skipped' })
           result.skipped += 1
           continue
         }
@@ -804,6 +689,7 @@ export async function runEnrich(
             weakBrandCount += 1
             config.onProgress?.(`  [WEAK-BRAND] ${brand.slug}: no useful data found (${discoveredUrls.length} search results, no enrichment changes)`)
           }
+          result.brandOutcomes.push({ slug: brand.slug, name: brandName(brand), status: 'skipped' })
           result.skipped += 1
           continue
         }
@@ -837,7 +723,9 @@ export async function runEnrich(
             .eq('id', brand.id)
 
           if (updateError) {
-            result.errors.push(`${brand.slug}: ${updateError.message ?? 'Failed to update brand'}`)
+            const errMsg = updateError.message ?? 'Failed to update brand'
+            result.errors.push(`${brand.slug}: ${errMsg}`)
+            result.brandOutcomes.push({ slug: brand.slug, name: brandName(brand), status: 'failed', error: errMsg })
             result.skipped += 1
             continue
           }
@@ -847,9 +735,12 @@ export async function runEnrich(
           }
         }
 
+        result.brandOutcomes.push({ slug: brand.slug, name: brandName(brand), status: 'changed' })
         result.updated += 1
       } catch (err) {
-        result.errors.push(`${brand.slug}: ${errorMessage(err)}`)
+        const errMsg = errorMessage(err)
+        result.errors.push(`${brand.slug}: ${errMsg}`)
+        result.brandOutcomes.push({ slug: brand.slug, name: brandName(brand), status: 'failed', error: errMsg })
         result.skipped += 1
       }
     }

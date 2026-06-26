@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Check, Home, Plus } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
-import { buildFaqPageJsonLd } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 
@@ -41,46 +40,21 @@ export async function generateMetadata({ params }: ConfirmationPageProps): Promi
 export default async function ConfirmationPage({ params }: ConfirmationPageProps) {
   const { locale } = await params
   setRequestLocale(locale)
-  const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const t = await getTranslations('submit.confirmation')
-  const faqs = [
-    'reviewTime',
-    'contact',
-    'afterApproval',
-    'learnMore',
-  ] as const
-  const learnMoreLinkText = t('whatNext.learnMore.linkText')
-  const [learnMoreBefore, learnMoreAfter] = t('whatNext.learnMore.answer', {
-    link: learnMoreLinkText,
-  }).split(learnMoreLinkText)
-  const faqItems = faqs.map((faq) => ({
-    question: t(`whatNext.${faq}.question`),
-    answer: faq === 'learnMore'
-      ? t('whatNext.learnMore.answer', { link: learnMoreLinkText })
-      : t(`whatNext.${faq}.answer`),
-  }))
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildFaqPageJsonLd(faqItems, safeLocale)) }}
-      />
       <div className="w-full max-w-[560px] rounded-2xl border border-[#E8E5E0] bg-white p-10 shadow-sm">
         {/* Success badge */}
         <div className="flex justify-center">
-          <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-[#E06B3F]">
+          <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-cta">
             <Check className="h-8 w-8 text-white" strokeWidth={3} />
           </div>
         </div>
 
-        {/* Heading */}
-        <h1 className="mt-6 text-center font-heading text-[26px] font-bold text-[#1A1918]">
-          {t('heading')}
-        </h1>
-        <p className="mt-2 text-center text-[15px] text-[#7C7570]">
+        <h1 className="mt-6 text-center font-heading text-[22px] font-bold text-foreground">
           {t('subheading')}
-        </p>
+        </h1>
 
         {/* Timeline */}
         <div className="mt-8 rounded-xl bg-[#FAFAF8] p-6">
@@ -94,7 +68,7 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
                 <div className="flex flex-col items-center">
                   <div
                     className={`h-3 w-3 shrink-0 rounded-full ${
-                      step.active ? 'bg-[#E06B3F]' : 'bg-[#D4CFC9]'
+                      step.active ? 'bg-cta' : 'bg-[#D4CFC9]'
                     }`}
                   />
                   {i < 2 && (
@@ -118,43 +92,21 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
           </div>
         </div>
 
-        {/* What Happens Next */}
-        <section className="mt-8 rounded-xl border border-border bg-card p-5">
-          <h2 className="font-heading text-base font-bold text-foreground">
-            {t('whatNext.heading')}
-          </h2>
-          <div className="mt-4">
-            {faqs.map((faq, index) => (
-              <div
-                key={faq}
-                className={index === 0 ? 'py-4' : 'border-t border-border py-4'}
-              >
-                <h3 className="text-sm font-semibold text-foreground">
-                  {t(`whatNext.${faq}.question`)}
-                </h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {faq === 'learnMore' ? (
-                    <>
-                      {learnMoreBefore}
-                      <Link href="/getting-started" className="text-primary">
-                        {learnMoreLinkText}
-                      </Link>
-                      {learnMoreAfter}
-                    </>
-                  ) : (
-                    t(`whatNext.${faq}.answer`)
-                  )}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
+        <p className="mt-4 text-sm text-muted-foreground">
+          {t.rich('whatNext.learnMore.answer', {
+            link: (chunks) => (
+              <Link href="/getting-started" className="text-foreground underline">
+                {chunks}
+              </Link>
+            ),
+          })}
+        </p>
 
         {/* CTAs */}
         <div className="mt-8 space-y-3">
           <Link
             href="/"
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#E06B3F] px-5 py-3 text-sm font-medium text-white hover:bg-[#C85A33]"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-cta px-5 py-3 text-sm font-medium text-white hover:bg-cta/90"
           >
             <Home className="h-4 w-4" />
             {t('cta.explore')}

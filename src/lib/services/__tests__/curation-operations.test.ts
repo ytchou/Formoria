@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest'
-import { processSetVisibilityBrand } from '../curation-operations'
 import { processEnrichBrand, mergeEnrichPatches } from '../curation-operations'
 import type { CurationConfig } from '../curation-operations'
 
@@ -9,20 +8,6 @@ vi.mock('../product-type-classifier', async (importOriginal) => {
     ...actual,
     triageBrandsBatch: vi.fn(),
   }
-})
-
-describe('processSetVisibilityBrand', () => {
-  it('marks approved brand with sufficient data as visible', () => {
-    const brand = {
-      id: '1',
-      status: 'approved',
-      display_brand_name: 'Good Brand',
-      website_url: 'https://example.com',
-      description: 'A valid description over twenty characters long',
-    }
-    const result = processSetVisibilityBrand(brand)
-    expect(result.visible).toBe(true)
-  })
 })
 
 describe('processEnrichBrand', () => {

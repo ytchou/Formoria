@@ -50,7 +50,7 @@ vi.mock('@/lib/auth/admin-mode', () => ({
 describe('curation server actions', () => {
   it('defines the consolidated curation operations', async () => {
     const mod = await import('../../api/admin/run-job/route')
-    expect(mod.VALID_OPERATIONS).toEqual(['enrich', 'set-visibility'])
+    expect(mod.VALID_OPERATIONS).toEqual(['enrich'])
   })
 
   it('keeps deprecated curation operations out of the valid set', async () => {
@@ -65,6 +65,7 @@ describe('curation server actions', () => {
       'enrich-links',
       'enrich-images',
       'score-and-scrape',
+      'set-visibility',
     ])
     expect(mod.DEPRECATED_OPERATIONS.every((operation) => !validOperations.has(operation))).toBe(true)
   })

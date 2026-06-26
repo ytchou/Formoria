@@ -9,7 +9,6 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
  *
  * Journey 1: Owner dashboard tab navigation
  *   - Default tab = first owned brand's panel (brand-name h2 + Edit button visible)
- *   - Clicking "提交紀錄" tab → URL ?tab=submissions + submissions content visible
  *   - Deep-linking ?tab=<slug> → that brand's panel renders
  *   - ?tab=<bogus-unowned-slug> → falls back to the default brand panel (IDOR guard)
  *
@@ -106,38 +105,6 @@ test.describe('Dashboard — tab navigation', () => {
       timeout: 60_000,
     });
     await expect(ownTab).toHaveClass(/border-cta/);
-  });
-
-  test('clicking Submissions tab shows submissions content and updates URL', async ({ userPage }) => {
-    test.setTimeout(120_000);
-
-    const resp = await userPage.goto('/dashboard', { timeout: 60_000 });
-    if (resp?.status() === 503) {
-      test.skip(true, 'PREVIEW_MODE active — skipping.');
-      return;
-    }
-
-    // The tab strip renders for owners; wait for the Submissions tab to be present
-    // (do not depend on which brand is the default — the user owns several).
-    const submissionsTab = userPage.locator('a[href*="tab=submissions"]');
-    await expect(submissionsTab).toBeVisible({ timeout: 60_000 });
-
-    // Click the Submissions tab (t("tabs.submissions") = "提交紀錄")
-    await userPage.getByRole('link', { name: '提交紀錄' }).click();
-
-    // URL must reflect ?tab=submissions
-    await userPage.waitForURL(
-      (u) => new URL(u).searchParams.get('tab') === 'submissions',
-      { timeout: 60_000 }
-    );
-
-    // Submissions section heading (t("mySubmissions.heading") = "我的提交")
-    await expect(userPage.getByRole('heading', { name: '我的提交' })).toBeVisible({
-      timeout: 60_000,
-    });
-
-    // The submissions tab link is now active
-    await expect(submissionsTab).toHaveClass(/border-cta/);
   });
 
   test('deep-linking ?tab=<slug> renders that brand panel directly', async ({ userPage }) => {

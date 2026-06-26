@@ -3,10 +3,8 @@
 import { headers } from 'next/headers'
 import { isActingAsAdmin } from '@/lib/auth/admin-mode'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { ENRICH_PHASES } from '@/lib/services/curation-operations'
+import { listCurationJobs } from '@/lib/services/curation-jobs'
 import type { Json } from '@/lib/supabase/database.types'
-
-export { ENRICH_PHASES }
 
 export type CurationJobParams = Record<string, Json | undefined> & {
   slugs?: string[]
@@ -15,7 +13,7 @@ export type CurationJobParams = Record<string, Json | undefined> & {
   status?: string
 }
 
-export type CurationOperation = 'enrich' | 'auto-tag' | 'set-visibility'
+export type CurationOperation = 'enrich'
 type StartCurationOperation = CurationOperation | 'clean-names'
 
 export type CurationJob = {
@@ -75,7 +73,7 @@ export async function startCurationJobAction(
     const { data: runningJob, error: runningError } = await supabase
       .from('curation_jobs')
       .select('id')
-      .eq('status', 'running')
+      .in('status', ['pending', 'running'])
       .maybeSingle()
 
     if (runningError) {
@@ -141,6 +139,24 @@ export async function getCurationJobAction(
     return { job: job as CurationJob }
   } catch (err) {
     console.error('[admin:getCurationJobAction]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
+}
+
+export async function listCurationJobsAction(
+  options?: { limit?: number }
+): Promise<{ jobs: CurationJob[] } | { error: string }> {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth
+
+    const jobs = await listCurationJobs(options)
+
+    return { jobs }
+  } catch (err) {
+    console.error('[admin:listCurationJobsAction]', err)
     return {
       error: err instanceof Error ? err.message : 'An unexpected error occurred',
     }

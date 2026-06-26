@@ -1,0 +1,1 @@
+ALTER TABLE brands ALTER COLUMN product_type DROP NOT NULL;

@@ -29,6 +29,7 @@
   "footer": {
     "about": "About",
     "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
     "contact": "Contact",
     "copyright": "© {year} Formoria",
     "tagline": "Putting Taiwanese brands on the world map.",
@@ -532,6 +533,47 @@
       "changes": {
         "heading": "Changes to Terms",
         "body": "Formoria reserves the right to modify these terms at any time. Significant changes will be announced on the platform. Continued use of the service constitutes acceptance of the updated terms. If you have questions, please contact us via the contact page."
+      }
+    },
+    "privacy": {
+      "metadata": {
+        "title": "Privacy Policy | Formoria",
+        "description": "Learn how Formoria collects, processes, and uses your personal data in compliance with Taiwan's Personal Data Protection Act."
+      },
+      "title": "Privacy Policy",
+      "intro": "Formoria values your privacy. This policy explains how we collect, process, and use your personal data in accordance with Taiwan's Personal Data Protection Act (個人資料保護法).",
+      "lastUpdated": "Last updated: June 2026",
+      "dataCollection": {
+        "heading": "Data Collection",
+        "body": "When you use Formoria, we may collect the following personal data: email address and name (optional) when submitting a brand, brand name, official website URL, brand region, social links (Instagram, Threads, Facebook), purchase links, brand ownership status, and source attribution. When you create an account, we collect your email and authentication details through Supabase Auth. Additionally, we automatically collect anonymized browsing data (page views, events, anonymized IP addresses) through Google Analytics."
+      },
+      "purpose": {
+        "heading": "Purpose of Use",
+        "body": "We collect personal data for the following purposes: building and maintaining the Taiwan brand directory, providing brand discovery and search functionality, improving brand information quality through data enrichment, preventing spam and abuse, improving website functionality and user experience, and processing your brand submissions and account-related matters."
+      },
+      "thirdParty": {
+        "heading": "Third-Party Services",
+        "body": "To provide our service, we use the following third-party providers: Supabase (database and authentication, servers in the US), Google Analytics 4 (website analytics, data processed in the US), Sentry (error monitoring, data processed in the US), Cloudflare Turnstile (bot protection), and Railway (web hosting, servers in the US). We do not sell your personal data to third parties. Data is shared only to the extent necessary to provide our services."
+      },
+      "userRights": {
+        "heading": "Your Rights",
+        "body": "Under Article 3 of the Personal Data Protection Act, you have the right to: query or request access to your personal data, request a copy, request corrections or supplements, request cessation of collection, processing, or use, and request deletion. To exercise any of these rights, please contact privacy@formoria.com. We will respond to your request within 30 days."
+      },
+      "dataProtection": {
+        "heading": "Data Protection",
+        "body": "We implement appropriate security measures to protect your personal data, including: HTTPS encryption across the entire site, access controls to restrict data access, and regular security reviews. Your brand data is retained for as long as the brand is listed in the directory. Account data is retained for the duration of your account. You may request deletion of your data at any time."
+      },
+      "cookies": {
+        "heading": "Cookies and Tracking",
+        "body": "This website uses Google Analytics 4 cookies to record page views and usage events, with IP addresses anonymized. We also use Cloudflare Turnstile session cookies for bot detection to protect forms from spam. This website does not use any advertising cookies or third-party tracking cookies."
+      },
+      "changes": {
+        "heading": "Policy Changes",
+        "body": "We may update this privacy policy from time to time. Material changes will be posted on this page with an updated \"Last updated\" date. Your continued use of the service after changes are posted constitutes acceptance of the updated policy."
+      },
+      "contact": {
+        "heading": "Contact Us",
+        "body": "If you have any questions about this privacy policy or wish to exercise your personal data rights, please contact: privacy@formoria.com. We will respond to your request within 30 days as required by the Personal Data Protection Act."
       }
     }
   },
@@ -1250,7 +1292,7 @@
       "photoCount": "{count} photos uploaded",
       "photoCountSingular": "1 photo uploaded",
       "brandLogoAlt": "Brand logo",
-      "pdpaConsent": "I agree to the collection and use of my personal data in accordance with the <privacyPolicy>Privacy Policy</privacyPolicy> (PDPA compliance).",
+      "pdpaConsent": "I agree to the collection and use of my personal data in accordance with the <privacyPolicy>Privacy Policy</privacyPolicy>, and understand my rights under the Personal Data Protection Act.",
       "region": "Region",
       "valueTags": "Brand Values",
       "socialLinks": "Social links",
@@ -1300,8 +1342,7 @@
         },
         "learnMore": {
           "question": "Want to learn more?",
-          "answer": "Visit our {link} for a complete overview.",
-          "linkText": "Getting Started guide"
+          "answer": "Visit our <link>Getting Started guide</link> for a complete overview."
         }
       }
     },
@@ -1320,7 +1361,8 @@
       "pdpaRequired": "Please agree to the privacy policy",
       "turnstileRequired": "Please complete verification",
       "ubn_format": "Business number must be 8 digits",
-      "valueTagsMax": "You can select up to 3 brand values"
+      "valueTagsMax": "You can select up to 3 brand values",
+      "regionRequired": "Please select a region"
     },
     "errors": {
       "notAuthenticated": "Please sign in before submitting a brand",
@@ -1335,8 +1377,10 @@
       "websitePlaceholder": "https://yourbrand.com",
       "brandNameLabel": "Brand Name",
       "brandNamePlaceholder": "e.g. Rain Boot Studio",
+      "brandNameHint": "This will be used as the brand name. We also use it to search for brand information online, so accuracy is important.",
       "regionLabel": "Brand Region",
       "regionPlaceholder": "Select a region",
+      "regionHint": "Select the brand's hometown or where it's primarily based.",
       "isOwnerLabel": "I am the brand owner",
       "isOwnerHint": "We'll ask you to verify ownership. Once claimed, you can manage your brand page and update information.",
       "sourceLabel": "How do you know this brand?",
@@ -1349,6 +1393,7 @@
       "submitButton": "Submit Brand",
       "submittingButton": "Submitting...",
       "suggestedName": "Suggested name:",
+      "suggestedUrl": "Suggested URL:",
       "applySuggestion": "Apply"
     }
   },

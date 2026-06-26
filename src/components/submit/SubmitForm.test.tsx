@@ -124,10 +124,10 @@ describe('SubmitForm', () => {
     expect(screen.getByLabelText(/資料來源/)).toBeVisible()
   })
 
-  it('hides source attribution when ownership is checked', () => {
+  it('always renders source attribution regardless of ownership', () => {
     renderForm()
-    // isOwner defaults to true, so source attribution should not be in DOM
-    expect(screen.queryByLabelText(/資料來源/)).not.toBeInTheDocument()
+    // Source attribution is always visible (not conditional on isOwner)
+    expect(screen.getByLabelText(/資料來源/)).toBeInTheDocument()
   })
 
   it('expands links accordion on click', async () => {
