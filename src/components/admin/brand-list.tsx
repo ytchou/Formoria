@@ -375,8 +375,8 @@ export function BrandList({ brands }: { brands: Brand[] }) {
           className="fixed right-4 bottom-4 z-50 rounded-lg border border-border bg-white px-4 py-3 text-sm text-foreground shadow-md"
         >
           Job started — view progress on{' '}
-          <Link href="/admin/operations" className="font-medium underline underline-offset-4">
-            Operations page
+          <Link href="/admin/review-queue/submissions" className="font-medium underline underline-offset-4">
+            提交審核頁
           </Link>
         </div>
       )}

@@ -2,6 +2,7 @@ import type { Brand } from '@/lib/types'
 import type { SourceAttribution } from '@/lib/types/submission'
 import { createBrand, generateSlug } from '@/lib/services/brands'
 import { createSubmission } from '@/lib/services/submissions'
+import { classifySubmittedUrl } from '@/lib/services/link-enrichment'
 
 export interface SubmitBrandForReviewParams {
   name: string
@@ -39,19 +40,31 @@ export async function submitBrandForReview(
   const unifiedBusinessNumber = params.ubn ?? null
 
   // Map social links
-  const socialInstagram = params.socialLinks?.instagram || null
-  const socialThreads = params.socialLinks?.threads || null
-  const socialFacebook = params.socialLinks?.facebook || null
+  let socialInstagram = params.socialLinks?.instagram || null
+  let socialThreads = params.socialLinks?.threads || null
+  let socialFacebook = params.socialLinks?.facebook || null
 
   // Map purchase links: known platforms get dedicated columns; others go to otherUrls
   const purchaseLinks = params.purchaseLinks ?? []
-  const purchasePinkoi =
+  let purchasePinkoi =
     purchaseLinks.find((l) => l.platform === 'pinkoi')?.url ?? null
-  const purchaseShopee =
+  let purchaseShopee =
     purchaseLinks.find((l) => l.platform === 'shopee')?.url ?? null
   const otherPurchaseUrls = purchaseLinks
     .filter((l) => l.platform !== 'pinkoi' && l.platform !== 'shopee')
     .map((l) => ({ label: l.platform, url: l.url }))
+
+  let purchaseWebsite: string | null = null
+
+  if (params.website) {
+    const classified = classifySubmittedUrl(params.website)
+    if (classified.socialInstagram && !socialInstagram) socialInstagram = classified.socialInstagram
+    if (classified.socialThreads && !socialThreads) socialThreads = classified.socialThreads
+    if (classified.socialFacebook && !socialFacebook) socialFacebook = classified.socialFacebook
+    if (classified.purchasePinkoi && !purchasePinkoi) purchasePinkoi = classified.purchasePinkoi
+    if (classified.purchaseShopee && !purchaseShopee) purchaseShopee = classified.purchaseShopee
+    if (classified.purchaseWebsite) purchaseWebsite = classified.purchaseWebsite
+  }
 
   const brand = await createBrand({
     name: params.name,
@@ -66,7 +79,7 @@ export async function submitBrandForReview(
     socialInstagram,
     socialThreads,
     socialFacebook,
-    purchaseWebsite: params.website ?? null,
+    purchaseWebsite,
     purchasePinkoi,
     purchaseShopee,
     otherUrls: otherPurchaseUrls,
@@ -76,7 +89,7 @@ export async function submitBrandForReview(
     brandHighlights: null,
     siteContent: null,
     unifiedBusinessNumber,
-    productType: '',
+    productType: undefined,
   })
 
   const submission = await createSubmission({
@@ -89,7 +102,7 @@ export async function submitBrandForReview(
     socialInstagram,
     socialThreads,
     socialFacebook,
-    purchaseWebsite: params.website,
+    purchaseWebsite,
     purchasePinkoi,
     purchaseShopee,
     otherUrls: otherPurchaseUrls,

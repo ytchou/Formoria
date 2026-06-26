@@ -3,6 +3,7 @@ import {
   buildImageEnrichPatch,
   buildLinkEnrichPatch,
   buildTextEnrichPatch,
+  classifySubmittedUrl,
   extractLinksFromUrls,
   hasLinkValue,
   LINK_FIELDS,
@@ -178,6 +179,43 @@ describe('extractLinksFromUrls', () => {
       'https://www.facebook.com/shopee.tw',
     ])
     expect(Object.keys(result)).toHaveLength(0)
+  })
+})
+
+describe('classifySubmittedUrl', () => {
+  it('classifies Instagram URL to socialInstagram', () => {
+    const result = classifySubmittedUrl('https://www.instagram.com/mybrand/')
+    expect(result).toEqual({ socialInstagram: 'https://www.instagram.com/mybrand/' })
+  })
+
+  it('classifies Threads URL to socialThreads', () => {
+    const result = classifySubmittedUrl('https://www.threads.net/@mybrand')
+    expect(result).toEqual({ socialThreads: 'https://www.threads.net/@mybrand' })
+  })
+
+  it('classifies Facebook profile to socialFacebook', () => {
+    const result = classifySubmittedUrl('https://www.facebook.com/mybrand')
+    expect(result).toEqual({ socialFacebook: 'https://www.facebook.com/mybrand' })
+  })
+
+  it('classifies Pinkoi URL to purchasePinkoi', () => {
+    const result = classifySubmittedUrl('https://www.pinkoi.com/store/mybrand')
+    expect(result).toEqual({ purchasePinkoi: 'https://www.pinkoi.com/store/mybrand' })
+  })
+
+  it('classifies Shopee URL to purchaseShopee', () => {
+    const result = classifySubmittedUrl('https://shopee.tw/mybrand')
+    expect(result).toEqual({ purchaseShopee: 'https://shopee.tw/mybrand' })
+  })
+
+  it('classifies regular website to purchaseWebsite', () => {
+    const result = classifySubmittedUrl('https://mybrand.com')
+    expect(result).toEqual({ purchaseWebsite: 'https://mybrand.com' })
+  })
+
+  it('discards corporate account URLs (returns empty)', () => {
+    const result = classifySubmittedUrl('https://www.instagram.com/ilovepinkoi/')
+    expect(result).toEqual({})
   })
 })
 

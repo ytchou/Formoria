@@ -4,13 +4,13 @@ import { isAdmin } from '@/lib/auth/admin'
 import {
   ENRICH_PHASES,
   runEnrich,
-  runSetVisibility,
+  type BrandOutcome,
   type OperationResult as CurationOperationResult,
 } from '@/lib/services/curation-operations'
 import { createServiceClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
 
-export const VALID_OPERATIONS = ['enrich', 'set-visibility'] as const
+export const VALID_OPERATIONS = ['enrich'] as const
 export const DEPRECATED_OPERATIONS = [
   'clean-names',
   'normalize-slugs',
@@ -19,6 +19,7 @@ export const DEPRECATED_OPERATIONS = [
   'enrich-links',
   'enrich-images',
   'score-and-scrape',
+  'set-visibility',
 ] as const
 
 const STALE_JOB_MINUTES = 30
@@ -62,6 +63,7 @@ type OperationResult = Progress & {
   changed: number
   changes: Array<Record<string, unknown>>
   errors: Array<{ slug: string; error: string }>
+  brandOutcomes: BrandOutcome[]
 }
 type CurationJobsTable = {
   select: (columns: string) => {
@@ -183,9 +185,6 @@ async function runOperation(supabase: Supabase, job: CurationJob): Promise<Opera
         operationSupabase(supabase)
       )
       break
-    case 'set-visibility':
-      result = await runSetVisibility(config, operationSupabase(supabase))
-      break
     default:
       throw new Error(`Unhandled operation: ${operation}`)
   }
@@ -249,6 +248,9 @@ function parseEnrichPhases(value: unknown): EnrichPhase[] | undefined {
 }
 
 function normalizeOperationResult(result: CurationOperationResult): OperationResult {
+  const errors = result.errors.map(parseOperationError)
+  const brandOutcomes = getBrandOutcomes(result, errors)
+
   return {
     processed: result.processed,
     total: result.processed,
@@ -256,8 +258,25 @@ function normalizeOperationResult(result: CurationOperationResult): OperationRes
     failed: result.errors.length,
     changed: result.updated,
     changes: [],
-    errors: result.errors.map(parseOperationError),
+    errors,
+    brandOutcomes,
   }
+}
+
+function getBrandOutcomes(
+  result: CurationOperationResult,
+  errors: Array<{ slug: string; error: string }>
+): BrandOutcome[] {
+  if (result.brandOutcomes.length > 0) {
+    return result.brandOutcomes
+  }
+
+  return errors.map((error) => ({
+    slug: error.slug,
+    name: error.slug,
+    status: 'failed' as const,
+    error: error.error,
+  }))
 }
 
 function parseOperationError(error: string): { slug: string; error: string } {

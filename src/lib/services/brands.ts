@@ -589,6 +589,16 @@ export const BRAND_SELECT =
 const VERIFIED_BRAND_SELECT =
   `${BRAND_COLUMNS}, brand_taxonomy(taxonomy_tags(*)), brand_owners!inner(user_id)` as unknown as '*'
 
+export async function getBrandSlugsBatch(brandIds: string[]): Promise<Map<string, string>> {
+  if (brandIds.length === 0) return new Map()
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('brands')
+    .select('id, slug')
+    .in('id', brandIds)
+  return new Map((data ?? []).map(b => [b.id, b.slug]))
+}
+
 export async function getBrandEnrichmentBatch(brandIds: string[]): Promise<Map<string, BrandEnrichment>> {
   if (brandIds.length === 0) {
     return new Map()
@@ -796,11 +806,12 @@ export async function createBrand(
     throw new ValidationError(`Brand slug conflicts with a reserved route: ${slug}`)
   }
 
-  // Check slug uniqueness
+  // Check slug uniqueness (only against non-rejected brands so re-submissions work)
   const { data: existing } = await supabase
     .from('brands')
     .select('id')
     .eq('slug', slug)
+    .neq('status', 'rejected')
     .maybeSingle()
 
   if (existing) throw new ValidationError(`Brand slug already exists: ${slug}`)

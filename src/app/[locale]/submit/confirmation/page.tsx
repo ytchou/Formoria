@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Check, Home, Plus } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
-import { buildFaqPageJsonLd } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 
@@ -41,31 +40,10 @@ export async function generateMetadata({ params }: ConfirmationPageProps): Promi
 export default async function ConfirmationPage({ params }: ConfirmationPageProps) {
   const { locale } = await params
   setRequestLocale(locale)
-  const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const t = await getTranslations('submit.confirmation')
-  const faqs = [
-    'reviewTime',
-    'contact',
-    'afterApproval',
-    'learnMore',
-  ] as const
-  const learnMoreLinkText = t('whatNext.learnMore.linkText')
-  const [learnMoreBefore, learnMoreAfter] = t('whatNext.learnMore.answer', {
-    link: learnMoreLinkText,
-  }).split(learnMoreLinkText)
-  const faqItems = faqs.map((faq) => ({
-    question: t(`whatNext.${faq}.question`),
-    answer: faq === 'learnMore'
-      ? t('whatNext.learnMore.answer', { link: learnMoreLinkText })
-      : t(`whatNext.${faq}.answer`),
-  }))
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildFaqPageJsonLd(faqItems, safeLocale)) }}
-      />
       <div className="w-full max-w-[560px] rounded-2xl border border-[#E8E5E0] bg-white p-10 shadow-sm">
         {/* Success badge */}
         <div className="flex justify-center">
@@ -74,13 +52,9 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
           </div>
         </div>
 
-        {/* Heading */}
-        <h1 className="mt-6 text-center font-heading text-[26px] font-bold text-[#1A1918]">
-          {t('heading')}
-        </h1>
-        <p className="mt-2 text-center text-[15px] text-[#7C7570]">
+        <h1 className="mt-6 text-center font-heading text-[22px] font-bold text-foreground">
           {t('subheading')}
-        </p>
+        </h1>
 
         {/* Timeline */}
         <div className="mt-8 rounded-xl bg-[#FAFAF8] p-6">
@@ -118,37 +92,15 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
           </div>
         </div>
 
-        {/* What Happens Next */}
-        <section className="mt-8 rounded-xl border border-border bg-card p-5">
-          <h2 className="font-heading text-base font-bold text-foreground">
-            {t('whatNext.heading')}
-          </h2>
-          <div className="mt-4">
-            {faqs.map((faq, index) => (
-              <div
-                key={faq}
-                className={index === 0 ? 'py-4' : 'border-t border-border py-4'}
-              >
-                <h3 className="text-sm font-semibold text-foreground">
-                  {t(`whatNext.${faq}.question`)}
-                </h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {faq === 'learnMore' ? (
-                    <>
-                      {learnMoreBefore}
-                      <Link href="/getting-started" className="text-primary">
-                        {learnMoreLinkText}
-                      </Link>
-                      {learnMoreAfter}
-                    </>
-                  ) : (
-                    t(`whatNext.${faq}.answer`)
-                  )}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
+        <p className="mt-4 text-center text-sm text-muted-foreground">
+          {t.rich('whatNext.learnMore.answer', {
+            link: (chunks) => (
+              <a href="/getting-started" className="text-foreground underline">
+                {chunks}
+              </a>
+            ),
+          })}
+        </p>
 
         {/* CTAs */}
         <div className="mt-8 space-y-3">

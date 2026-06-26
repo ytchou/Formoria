@@ -3,10 +3,9 @@ import {
   type CurationConfig,
   type OperationResult,
   runEnrich,
-  runSetVisibility,
 } from '@/lib/services/curation-operations'
 
-const COMMANDS = ['enrich', 'set-visibility'] as const
+const COMMANDS = ['enrich'] as const
 const DEFAULT_ENRICH_PHASES = [
   'clean',
   'detect',
@@ -136,7 +135,6 @@ function printUsage(): void {
   console.log('')
   console.log('Commands:')
   console.log('  enrich           Clean, detect, discover links, enrich images/descriptions, and classify tags')
-  console.log('  set-visibility   Update visibility from approval/readiness fields')
   console.log('')
   console.log('Options:')
   console.log('  --dry-run')
@@ -178,8 +176,6 @@ async function runCommand({ command, config }: ParsedCliArgs): Promise<Operation
         },
         supabase
       )
-    case 'set-visibility':
-      return runSetVisibility(runConfig, supabase)
   }
 }
 

@@ -65,6 +65,7 @@ export default function SubmitForm({
   const pdpaConsent = useWatch({ control, name: 'pdpaConsent' })
 
   const [nameSuggestion, setNameSuggestion] = useState<string | null>(null)
+  const [urlSuggestion, setUrlSuggestion] = useState<string | null>(null)
   const [linksOpen, setLinksOpen] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -103,6 +104,21 @@ export default function SubmitForm({
     [setValue]
   )
 
+  function handleWebsiteBlur(value: string) {
+    if (!value || !value.includes('?')) {
+      setUrlSuggestion(null)
+      return
+    }
+
+    const cleaned = value.split('?')[0]
+    if (cleaned !== value && cleaned.length > 0) {
+      setUrlSuggestion(cleaned)
+    } else {
+      setUrlSuggestion(null)
+    }
+  }
+
+  const websiteRegistration = register('website')
   const nameRegistration = register('name')
 
   // eslint-disable-next-line react-hooks/refs
@@ -148,15 +164,40 @@ export default function SubmitForm({
               htmlFor="submit-website"
               className="block text-sm font-semibold text-foreground"
             >
-              {tForm('websiteLabel')}
+              {tForm('websiteLabel')} <span className="text-red-500">*</span>
             </label>
             <input
               id="submit-website"
               type="url"
               placeholder={tForm('websitePlaceholder')}
               className="h-11 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-[#2F5D50] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F5D50]/20"
-              {...register('website')}
+              {...websiteRegistration}
+              onBlur={(event) => {
+                websiteRegistration.onBlur(event)
+                handleWebsiteBlur(event.target.value)
+              }}
+              onChange={(event) => {
+                websiteRegistration.onChange(event)
+                setUrlSuggestion(null)
+              }}
             />
+            {urlSuggestion && (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-white p-3 text-sm">
+                <span>
+                  {tForm('suggestedUrl')} <strong>{urlSuggestion}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setValue('website', urlSuggestion)
+                    setUrlSuggestion(null)
+                  }}
+                  className="inline-flex items-center rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
+                >
+                  {tForm('applySuggestion')}
+                </button>
+              </div>
+            )}
             {errors.website && (
               <p className="text-xs text-red-600">{errors.website.message}</p>
             )}
@@ -168,7 +209,7 @@ export default function SubmitForm({
               htmlFor="submit-name"
               className="block text-sm font-semibold text-foreground"
             >
-              {tForm('brandNameLabel')}
+              {tForm('brandNameLabel')} <span className="text-red-500">*</span>
             </label>
             <input
               id="submit-name"
@@ -185,6 +226,9 @@ export default function SubmitForm({
                 nameRegistration.onChange(event)
               }}
             />
+            <p className="text-xs text-muted-foreground">
+              {tForm('brandNameHint')}
+            </p>
             {nameSuggestion && (
               <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-white p-3 text-sm">
                 <span>
@@ -229,13 +273,55 @@ export default function SubmitForm({
                 </option>
               ))}
             </select>
+            <p className="text-xs text-muted-foreground">
+              {tForm('regionHint')}
+            </p>
             {errors.region && (
               <p className="text-xs text-red-600">{errors.region.message}</p>
             )}
           </div>
 
+          {/* Source attribution */}
+          <div className="space-y-1.5">
+            <label
+              htmlFor="submit-source"
+              className="block text-sm font-semibold text-foreground"
+            >
+              {tForm('sourceLabel')}
+            </label>
+            <Controller
+              name="sourceAttribution"
+              control={control}
+              render={({ field }) => (
+                <select
+                  id="submit-source"
+                  className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground focus:border-[#2F5D50] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F5D50]/20"
+                  value={field.value ?? ''}
+                  onChange={(e) => {
+                    field.onChange((e.target.value as SourceAttribution) || undefined)
+                  }}
+                >
+                  <option value="" disabled>
+                    {tForm('sourcePlaceholder')}
+                  </option>
+                  {SOURCE_ATTRIBUTION_VALUES.map((value) => (
+                    <option key={value} value={value}>
+                      {t(`attribution.${value}` as Parameters<typeof t>[0])}
+                    </option>
+                  ))}
+                </select>
+              )}
+            />
+            {errors.sourceAttribution && (
+              <p className="text-xs text-red-600">{errors.sourceAttribution.message}</p>
+            )}
+          </div>
+
           {/* Ownership card */}
-          <div className="space-y-3 rounded-lg border border-border bg-[#F5F4F1] p-4">
+          <div
+            className="space-y-3 rounded-lg border border-border bg-[#F5F4F1] p-4"
+            data-owner-selected={isOwner ? 'true' : 'false'}
+          >
             <Controller
               name="isOwner"
               control={control}
@@ -266,51 +352,13 @@ export default function SubmitForm({
             />
           </div>
 
-          {/* Conditional source attribution */}
-          {!isOwner && (
-            <div className="space-y-1.5">
-              <label
-                htmlFor="submit-source"
-                className="block text-sm font-semibold text-foreground"
-              >
-                {tForm('sourceLabel')}
-              </label>
-              <Controller
-                name="sourceAttribution"
-                control={control}
-                render={({ field }) => (
-                  <select
-                    id="submit-source"
-                    className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground focus:border-[#2F5D50] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F5D50]/20"
-                    value={field.value ?? ''}
-                    onChange={(e) => {
-                      field.onChange((e.target.value as SourceAttribution) || undefined)
-                    }}
-                  >
-                    <option value="" disabled>
-                      {tForm('sourcePlaceholder')}
-                    </option>
-                    {SOURCE_ATTRIBUTION_VALUES.map((value) => (
-                      <option key={value} value={value}>
-                        {t(`attribution.${value}` as Parameters<typeof t>[0])}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              />
-              {errors.sourceAttribution && (
-                <p className="text-xs text-red-600">{errors.sourceAttribution.message}</p>
-              )}
-            </div>
-          )}
-
           {/* Links accordion */}
-          <div className="rounded-lg border border-border">
+          <div>
             <button
               type="button"
               onClick={() => setLinksOpen((prev) => !prev)}
               aria-expanded={linksOpen}
-              className="flex min-h-[48px] w-full items-center justify-between px-4 py-3 text-sm font-semibold text-foreground hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F5D50]/20"
+              className="flex min-h-[48px] w-full items-center justify-between text-sm font-semibold text-foreground hover:text-foreground/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F5D50]/20"
             >
               <span>{tForm('linksAccordionLabel')}</span>
               <ChevronDown
@@ -318,7 +366,7 @@ export default function SubmitForm({
               />
             </button>
             {linksOpen && (
-              <div className="space-y-4 border-t border-border px-4 pb-4 pt-4">
+              <div className="space-y-4 pt-2">
                 <div className="space-y-1.5">
                   <label
                     htmlFor="submit-instagram"
@@ -369,7 +417,7 @@ export default function SubmitForm({
           </div>
 
           {/* PDPA consent */}
-          <div className="space-y-2 rounded-lg border border-border p-4">
+          <div className="space-y-2">
             <Controller
               name="pdpaConsent"
               control={control}

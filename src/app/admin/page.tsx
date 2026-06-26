@@ -113,7 +113,7 @@ export default async function AdminPage() {
         label: submission.brandName,
         sublabel: submission.submitterEmail,
         date: formatQueueDate(submission.submittedAt),
-        riskLevel: submission.validationStatus === 'incomplete' ? 'medium' as const : undefined,
+        riskLevel: undefined,
         action: approveSubmissionAction.bind(null, submission.id),
       })),
     },

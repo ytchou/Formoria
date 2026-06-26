@@ -131,6 +131,29 @@ export function extractLinksFromUrls(urls: string[]): Partial<BrandFlatLinkColum
   return result
 }
 
+const COLUMN_TO_FIELD = Object.fromEntries(
+  Object.entries(LINK_FIELD_TO_COLUMN).map(([field, column]) => [column, field])
+) as Record<LinkColumn, LinkField>
+
+export function classifySubmittedUrl(url: string): Partial<Record<LinkField, string>> {
+  const extracted = extractLinksFromUrls([url])
+  const columns = Object.keys(extracted) as LinkColumn[]
+
+  if (columns.length > 0) {
+    const column = columns[0]
+    const field = COLUMN_TO_FIELD[column]
+    return { [field]: extracted[column] }
+  }
+
+  const matchesPattern = URL_TO_LINK_COLUMN.some(({ pattern }) => pattern.test(url))
+  if (matchesPattern) {
+    // Matched a known platform pattern but was filtered (e.g. corporate account)
+    return {}
+  }
+
+  return { purchaseWebsite: url }
+}
+
 export function buildLinkEnrichPatch(
   brand: BrandFlatLinkColumns,
   scraped: LinkEnrichScraped

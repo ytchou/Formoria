@@ -93,9 +93,6 @@ function createUpstashRateLimiter(): AsyncRateLimitStore {
 
 function createRateLimiter(): AsyncRateLimitStore {
   if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-    if (process.env.NODE_ENV === 'development') {
-      console.info('Using Upstash Redis rate limiter')
-    }
     return createUpstashRateLimiter()
   }
 
