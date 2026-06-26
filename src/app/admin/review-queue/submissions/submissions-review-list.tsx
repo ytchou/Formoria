@@ -5,9 +5,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import type { BrandSubmission, OtherUrl, SourceAttribution, SubmissionStatus } from '@/lib/types'
-import type { BrandEnrichment } from '@/lib/services/brands'
-import { getEnrichmentStatus } from '@/lib/services/enrichment'
-import { StatusBadge } from '@/components/admin/status-badge'
+import type { EnrichedData } from '@/lib/types/enriched-data'
+import { SubmissionStatusBadge } from '@/components/admin/status-badge'
 import { rejectSubmissionAction } from '@/app/admin/actions'
 import {
   approveSubmissionWithOverridesAction,
@@ -46,7 +45,7 @@ type TabValue = 'all' | SubmissionStatus
 type BrandSubmissionWithRisk = BrandSubmission & {
   moderationRiskLevel?: 'high' | 'medium' | 'clean'
   productTypeNote?: string | null
-  brandEnrichment?: BrandEnrichment | null
+  enriched_data?: EnrichedData | null
   brandSlug?: string | null
 }
 
@@ -70,6 +69,8 @@ const SOURCE_ATTRIBUTION_LABELS: Record<SourceAttribution, string> = {
 }
 
 const PRODUCT_TYPE_EMPTY = '__none'
+
+type EnrichmentStatus = 'not_enriched' | 'enriched' | 'partially_enriched'
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('zh-TW', {
@@ -108,7 +109,7 @@ function ReadinessBadge({
 
 function AutoBadge() {
   return (
-    <Badge variant="outline" className="border-dashed bg-background text-[10px] uppercase tracking-wide text-muted-foreground">
+    <Badge variant="outline" className="border-dashed bg-background text-[11px] uppercase tracking-wide text-muted-foreground">
       auto
     </Badge>
   )
@@ -143,15 +144,36 @@ function EnrichedCard({
   )
 }
 
-function getImageCount(enrichment: BrandEnrichment) {
-  return (enrichment.heroImageUrl ? 1 : 0) + enrichment.productPhotos.length
+function hasText(value: string | undefined) {
+  return (value ?? '').trim() !== ''
+}
+
+function hasItems(value: string[] | undefined) {
+  return Array.isArray(value) && value.length > 0
+}
+
+export function getEnrichmentStatus(enriched_data: EnrichedData | null): EnrichmentStatus {
+  if (!enriched_data) return 'not_enriched'
+
+  const hasAllKeyFields =
+    hasText(enriched_data.description) &&
+    hasText(enriched_data.heroImageUrl) &&
+    hasItems(enriched_data.productPhotos) &&
+    hasText(enriched_data.productType) &&
+    hasItems(enriched_data.tagSlugs)
+
+  return hasAllKeyFields ? 'enriched' : 'partially_enriched'
+}
+
+function getImageCount(enrichedData: EnrichedData) {
+  return (hasText(enrichedData.heroImageUrl) ? 1 : 0) + (enrichedData.productPhotos ?? []).length
 }
 
 
 function createOverrideForm(submission: BrandSubmissionWithRisk): OverrideForm {
   return {
     description: submission.description ?? '',
-    productType: submission.brandEnrichment?.productType ?? '',
+    productType: submission.enriched_data?.productType ?? '',
     purchaseWebsite: submission.purchaseWebsite ?? '',
     purchasePinkoi: submission.purchasePinkoi ?? '',
     purchaseShopee: submission.purchaseShopee ?? '',
@@ -194,7 +216,6 @@ export function SubmissionsReviewList({
   const [rejectNotes, setRejectNotes] = useState('')
   const [overridesById, setOverridesById] = useState<Record<string, OverrideForm>>({})
   const [error, setError] = useState<string | null>(null)
-  const [warning, setWarning] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [enrichJobId, setEnrichJobId] = useState<string | null>(null)
@@ -266,16 +287,11 @@ export function SubmissionsReviewList({
   function handleApprove(submission: BrandSubmissionWithRisk) {
     startTransition(async () => {
       setError(null)
-      setWarning(null)
       const result = await approveSubmissionWithOverridesAction(
         submission.id,
         overridesById[submission.id] ?? createOverrideForm(submission)
       )
       if (result?.error) setError(result.error)
-      else if (result?.imageSyncWarning) {
-        const { synced, failed } = result.imageSyncWarning
-        setWarning(`Approved, but ${failed} of ${synced + failed} image(s) couldn't be downloaded and kept their source URL. Use "Re-sync images" in Brands after fixing the source.`)
-      }
     })
   }
 
@@ -312,7 +328,7 @@ export function SubmissionsReviewList({
   }
 
   function toggleSelectAll() {
-    const enrichable = filtered.filter(s => s.brandSlug)
+    const enrichable = filtered
     const allEnrichableSelected = enrichable.length > 0 && enrichable.every(s => selectedIds.has(s.id))
     if (allEnrichableSelected) {
       setSelectedIds(new Set())
@@ -323,14 +339,12 @@ export function SubmissionsReviewList({
 
   async function handleEnrichSelected() {
     if (isSubmitting) return
-    const slugs = [...selectedIds]
-      .map(id => filtered.find(s => s.id === id)?.brandSlug)
-      .filter((slug): slug is string => Boolean(slug))
-    if (slugs.length === 0) return
+    const submissionIds = [...selectedIds]
+    if (submissionIds.length === 0) return
     setIsSubmitting(true)
     try {
       setEnrichError(null)
-      const result = await startCurationJobAction('enrich', { slugs }, false)
+      const result = await startCurationJobAction('enrich', { submissionIds }, false)
       if ('error' in result) {
         setEnrichError(result.error)
         return
@@ -346,7 +360,7 @@ export function SubmissionsReviewList({
     }
   }
 
-  const enrichableFiltered = filtered.filter(s => s.brandSlug)
+  const enrichableFiltered = filtered
   const selectedCount = selectedIds.size
   const allSelected = enrichableFiltered.length > 0 && enrichableFiltered.every(s => selectedIds.has(s.id))
   const someSelected = selectedCount > 0 && !allSelected
@@ -374,7 +388,7 @@ export function SubmissionsReviewList({
       }
     }, 3000)
     return () => window.clearInterval(intervalId)
-  }, [enrichJobId])
+  }, [enrichJobId, router])
 
   return (
     <div>
@@ -406,7 +420,7 @@ export function SubmissionsReviewList({
               <div className="flex items-center gap-2">
                 <div className="h-2 w-20 overflow-hidden rounded-full bg-muted">
                   <div
-                    className="h-full rounded-full bg-[#E06B3F] transition-all"
+                    className="h-full rounded-full bg-cta transition-all"
                     style={{ width: `${((enrichJob.progress as { processed?: number; total?: number })?.processed ?? 0) / Math.max((enrichJob.progress as { processed?: number; total?: number })?.total ?? 1, 1) * 100}%` }}
                   />
                 </div>
@@ -422,7 +436,7 @@ export function SubmissionsReviewList({
               size="sm"
               onClick={handleEnrichSelected}
               disabled={selectedCount === 0 || isEnrichRunning || isSubmitting}
-              className="bg-[#E06B3F] hover:bg-[#c95d36]"
+              className="bg-cta hover:bg-cta/90"
             >
               {isEnrichRunning ? '抓取中...' : '抓取資料'}
             </Button>
@@ -462,7 +476,7 @@ export function SubmissionsReviewList({
           <TableBody>
             {filtered.map((submission) => {
               const form = overridesById[submission.id] ?? createOverrideForm(submission)
-              const hasEnrichment = Boolean(submission.brandEnrichment)
+              const hasEnrichment = Boolean(submission.enriched_data)
 
               return (
                 <Fragment key={submission.id}>
@@ -475,7 +489,6 @@ export function SubmissionsReviewList({
                         <Checkbox
                           checked={selectedIds.has(submission.id)}
                           onCheckedChange={() => toggleSelection(submission.id)}
-                          disabled={!submission.brandSlug}
                         />
                       </div>
                     </TableCell>
@@ -491,8 +504,8 @@ export function SubmissionsReviewList({
                       </div>
                     </TableCell>
                     <TableCell>
-                      {submission.brandEnrichment ? (
-                        submission.brandEnrichment.productType.trim() ? (
+                      {submission.enriched_data ? (
+                        (submission.enriched_data.productType ?? '').trim() ? (
                           <ReadinessBadge tone="green">✓</ReadinessBadge>
                         ) : (
                           <ReadinessBadge tone="amber">!</ReadinessBadge>
@@ -502,9 +515,9 @@ export function SubmissionsReviewList({
                       )}
                     </TableCell>
                     <TableCell>
-                      {submission.brandEnrichment ? (
+                      {submission.enriched_data ? (
                         (() => {
-                          const count = getImageCount(submission.brandEnrichment)
+                          const count = getImageCount(submission.enriched_data)
                           const tone = count >= 2 ? 'green' : count === 1 ? 'amber' : 'red'
 
                           return <ReadinessBadge tone={tone}>{count}</ReadinessBadge>
@@ -514,9 +527,9 @@ export function SubmissionsReviewList({
                       )}
                     </TableCell>
                     <TableCell>
-                      {submission.brandEnrichment ? (
+                      {submission.enriched_data ? (
                         (() => {
-                          const count = submission.brandEnrichment.tagSlugs.length
+                          const count = submission.enriched_data?.tagSlugs?.length ?? 0
                           const tone = count >= 3 ? 'green' : count >= 1 ? 'amber' : 'red'
 
                           return <ReadinessBadge tone={tone}>{count}</ReadinessBadge>
@@ -537,11 +550,11 @@ export function SubmissionsReviewList({
                       )}
                     </TableCell>
                     <TableCell>
-                      <StatusBadge status={submission.status} />
+                      <SubmissionStatusBadge status={submission.status} />
                     </TableCell>
                     <TableCell>
                       {(() => {
-                        const status = getEnrichmentStatus(submission.brandEnrichment)
+                        const status = getEnrichmentStatus(submission.enriched_data ?? null)
                         if (status === 'enriched') {
                           return <ReadinessBadge tone="green">已完成</ReadinessBadge>
                         }
@@ -714,14 +727,14 @@ export function SubmissionsReviewList({
                             </div>
                           </EnrichedCard>
 
-                          {submission.brandEnrichment && (
+                          {submission.enriched_data && (
                             <EnrichedCard auto>
                               <div className="space-y-3">
                                 <FieldLabel auto>主圖 / 產品圖片</FieldLabel>
                                 <div className="grid gap-3 sm:grid-cols-4">
-                                  {submission.brandEnrichment.heroImageUrl && (
+                                  {submission.enriched_data.heroImageUrl && (
                                     <a
-                                      href={submission.brandEnrichment.heroImageUrl}
+                                      href={submission.enriched_data.heroImageUrl}
                                       target="_blank"
                                       rel="noreferrer"
                                       className="block overflow-hidden rounded-md border border-dashed bg-white"
@@ -729,14 +742,14 @@ export function SubmissionsReviewList({
                                     >
                                       {/* eslint-disable-next-line @next/next/no-img-element */}
                                       <img
-                                        src={submission.brandEnrichment.heroImageUrl}
+                                        src={submission.enriched_data.heroImageUrl}
                                         alt={`${submission.brandName} hero`}
                                         className="aspect-square w-full object-cover"
                                       />
                                       <span className="block px-2 py-1 text-xs text-muted-foreground">主圖</span>
                                     </a>
                                   )}
-                                  {submission.brandEnrichment.productPhotos.map((url, index) => (
+                                  {(submission.enriched_data.productPhotos ?? []).map((url, index) => (
                                     <a
                                       key={url}
                                       href={url}
@@ -757,8 +770,8 @@ export function SubmissionsReviewList({
                                     </a>
                                   ))}
                                 </div>
-                                {!submission.brandEnrichment.heroImageUrl &&
-                                  submission.brandEnrichment.productPhotos.length === 0 && (
+                                {!submission.enriched_data.heroImageUrl &&
+                                  (submission.enriched_data.productPhotos ?? []).length === 0 && (
                                     <p className="text-sm text-muted-foreground">尚無圖片</p>
                                   )}
                               </div>
@@ -846,10 +859,6 @@ export function SubmissionsReviewList({
                           {error && (
                             <p className="text-sm text-destructive">{error}</p>
                           )}
-                          {warning && (
-                            <p className="text-sm text-amber-700">{warning}</p>
-                          )}
-
                           {submission.status === 'pending' && (
                             <div className="flex items-start gap-3">
                               <Button
@@ -858,7 +867,7 @@ export function SubmissionsReviewList({
                                   handleApprove(submission)
                                 }}
                                 disabled={isPending}
-                                className="bg-[#E06B3F] hover:bg-[#c95d36]"
+                                className="bg-cta hover:bg-cta/90"
                               >
                                 核准
                               </Button>

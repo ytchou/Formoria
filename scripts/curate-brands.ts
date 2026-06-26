@@ -102,7 +102,7 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
   const slugs = parseCsvFlag(args, 'slugs')
   const limit = parseNumberFlag(args, 'limit')
   const statusRaw = parseStringFlag(args, 'status')
-  const VALID_BRAND_STATUSES = ['pending', 'approved', 'rejected', 'hidden'] as const
+  const VALID_BRAND_STATUSES = ['approved', 'hidden'] as const
   type BrandStatus = (typeof VALID_BRAND_STATUSES)[number]
   const status = VALID_BRAND_STATUSES.includes(statusRaw as BrandStatus) ? (statusRaw as BrandStatus) : undefined
 
@@ -139,7 +139,7 @@ function printUsage(): void {
   console.log('Options:')
   console.log('  --dry-run')
   console.log('  --slugs=a,b')
-  console.log('  --status=pending')
+  console.log('  --status=approved')
   console.log('  --limit=10')
   console.log('  --phases=clean,detect,slugs,tags,discover,links,images,descriptions  enrich only')
   console.log('  --overwrite                                  re-enrich already enriched brands')

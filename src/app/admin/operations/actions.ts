@@ -8,6 +8,7 @@ import type { Json } from '@/lib/supabase/database.types'
 
 export type CurationJobParams = Record<string, Json | undefined> & {
   slugs?: string[]
+  submissionIds?: string[]
   stopAfter?: number
   phases?: string[]
   status?: string

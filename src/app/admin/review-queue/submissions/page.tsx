@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
-import { getSubmissions } from '@/lib/services/submissions'
+import { getSubmissionsForReview } from '@/lib/services/submissions'
 import { getModerationFlagsBatch } from '@/lib/services/moderation'
 import type { ModerationFlag, RiskLevel } from '@/lib/services/moderation'
-import { getBrandEnrichmentBatch, getBrandSlugsBatch } from '@/lib/services/brands'
+import { getBrandSlugsBatch } from '@/lib/services/brands'
 import { getTags } from '@/lib/services/taxonomy'
 import { SubmissionsReviewList } from './submissions-review-list'
 
@@ -17,14 +17,13 @@ function getRiskLevel(flags: ModerationFlag[]): RiskLevel {
 }
 
 export default async function ReviewQueueSubmissionsPage() {
-  const submissions = await getSubmissions()
+  const submissions = await getSubmissionsForReview()
   const brandIds = submissions
     .map((submission) => submission.brandId)
     .filter((brandId): brandId is string => Boolean(brandId))
 
   const moderationFlagsByBrandId = await getModerationFlagsBatch(brandIds)
-  const [brandEnrichmentById, taxonomyTags, slugMap] = await Promise.all([
-    getBrandEnrichmentBatch(brandIds),
+  const [taxonomyTags, slugMap] = await Promise.all([
     getTags(),
     getBrandSlugsBatch(brandIds),
   ])
@@ -34,9 +33,7 @@ export default async function ReviewQueueSubmissionsPage() {
     moderationRiskLevel: getRiskLevel(
       submission.brandId ? moderationFlagsByBrandId.get(submission.brandId) ?? [] : []
     ),
-    brandEnrichment: submission.brandId
-      ? brandEnrichmentById.get(submission.brandId) ?? null
-      : null,
+    enriched_data: submission.enriched_data,
     brandSlug: slugMap.get(submission.brandId ?? '') ?? null,
   }))
 

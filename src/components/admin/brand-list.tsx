@@ -4,7 +4,7 @@ import { Fragment, useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { MoreHorizontal } from 'lucide-react'
 import type { Brand, BrandStatus } from '@/lib/types'
-import { StatusBadge } from './status-badge'
+import { BrandStatusBadge } from './status-badge'
 import { BrandEditDialog } from './brand-edit-dialog'
 import { ConfirmDialog } from './confirm-dialog'
 import {
@@ -190,13 +190,10 @@ export function BrandList({ brands }: { brands: Brand[] }) {
         <TabsList>
           <TabsTrigger value="all">全部 ({brands.length})</TabsTrigger>
           <TabsTrigger value="approved">
-            已核准 ({brands.filter((b) => b.status === 'approved').length})
+            已上架 ({brands.filter((b) => b.status === 'approved').length})
           </TabsTrigger>
           <TabsTrigger value="hidden">
             已隱藏 ({brands.filter((b) => b.status === 'hidden').length})
-          </TabsTrigger>
-          <TabsTrigger value="pending">
-            待審核 ({brands.filter((b) => b.status === 'pending').length})
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -260,7 +257,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                     )}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge status={brand.status} />
+                    <BrandStatusBadge status={brand.status} />
                   </TableCell>
                   <TableCell>
                     <div className="space-y-1">

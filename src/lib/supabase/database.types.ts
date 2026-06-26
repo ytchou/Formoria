@@ -221,6 +221,7 @@ export type Database = {
           brand_id: string | null
           brand_name: string
           description: string | null
+          enriched_data: Json | null
           id: string
           is_brand_owner: boolean | null
           notified_at: string | null
@@ -251,6 +252,7 @@ export type Database = {
           brand_id?: string | null
           brand_name: string
           description?: string | null
+          enriched_data?: Json | null
           id?: string
           is_brand_owner?: boolean | null
           notified_at?: string | null
@@ -281,6 +283,7 @@ export type Database = {
           brand_id?: string | null
           brand_name?: string
           description?: string | null
+          enriched_data?: Json | null
           id?: string
           is_brand_owner?: boolean | null
           notified_at?: string | null
@@ -380,7 +383,7 @@ export type Database = {
           social_instagram: string | null
           social_threads: string | null
           source: string | null
-          status: string
+          status: "approved" | "hidden"
           submitted_at: string | null
           tag_slugs: string[]
           unified_business_number: string | null
@@ -418,7 +421,7 @@ export type Database = {
           social_instagram?: string | null
           social_threads?: string | null
           source?: string | null
-          status?: string
+          status?: "approved" | "hidden"
           submitted_at?: string | null
           tag_slugs?: string[]
           unified_business_number?: string | null
@@ -456,7 +459,7 @@ export type Database = {
           social_instagram?: string | null
           social_threads?: string | null
           source?: string | null
-          status?: string
+          status?: "approved" | "hidden"
           submitted_at?: string | null
           tag_slugs?: string[]
           unified_business_number?: string | null

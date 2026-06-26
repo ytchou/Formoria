@@ -46,7 +46,7 @@ vi.mock('@/lib/services/submissions', () => ({
     socialLinks: {},
     isBrandOwner: false,
   }),
-  approveSubmission: vi.fn().mockResolvedValue(undefined),
+  approveSubmission: vi.fn().mockResolvedValue({ brandId: 'brand-1' }),
   rejectSubmission: vi.fn().mockResolvedValue(undefined),
 }))
 
@@ -121,13 +121,10 @@ describe('admin actions cache invalidation', () => {
     expect(mockRevalidatePath).toHaveBeenCalledWith('/brands')
   })
 
-  it('approveSubmissionAction returns an image sync warning on partial failure', async () => {
-    const { syncBrandImages } = await import('@/lib/services/brands')
-    vi.mocked(syncBrandImages).mockResolvedValueOnce({ synced: 1, failed: 2 })
-
+  it('approveSubmissionAction returns undefined on success', async () => {
     const result = await approveSubmissionAction('sub-1')
 
-    expect(result).toEqual({ imageSyncWarning: { synced: 1, failed: 2 } })
+    expect(result).toBeUndefined()
   })
 
   it('rejectSubmissionAction revalidates public brand pages', async () => {

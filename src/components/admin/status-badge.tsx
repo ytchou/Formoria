@@ -1,29 +1,33 @@
 import { cn } from '@/lib/utils'
+import type { BrandStatus, SubmissionStatus } from '@/lib/types/brand'
 
-type Status = 'pending' | 'approved' | 'rejected' | 'hidden'
+type Status = BrandStatus | SubmissionStatus
+type StatusConfig = { label: string; className: string }
 
-const statusConfig: Record<Status, { label: string; className: string }> = {
+const submissionStatusConfig: Record<SubmissionStatus, StatusConfig> = {
   pending: {
     label: '待審核',
-    className: 'bg-[#F5F4F1] text-[#7C7570]',
+    className: 'bg-muted text-muted-foreground',
   },
   approved: {
     label: '已核准',
-    className: 'bg-[#EAF3E8] text-[#2D5A27]',
+    className: 'bg-verified-green-bg text-verified-green',
   },
   rejected: {
     label: '已拒絕',
-    className: 'bg-[#FDF3EC] text-[#D94F3D]',
-  },
-  hidden: {
-    label: '已隱藏',
-    className: 'bg-[#F5F4F1] text-[#7C7570]',
+    className: 'bg-cta/10 text-destructive',
   },
 }
 
-export function StatusBadge({ status }: { status: Status }) {
-  const config = statusConfig[status]
+const brandStatusConfig: Record<BrandStatus, StatusConfig> = {
+  approved: submissionStatusConfig.approved,
+  hidden: {
+    label: '已隱藏',
+    className: 'bg-muted text-muted-foreground',
+  },
+}
 
+function StatusBadgeBase({ config }: { config: StatusConfig }) {
   return (
     <span
       className={cn(
@@ -34,4 +38,21 @@ export function StatusBadge({ status }: { status: Status }) {
       {config.label}
     </span>
   )
+}
+
+export function BrandStatusBadge({ status }: { status: BrandStatus }) {
+  return <StatusBadgeBase config={brandStatusConfig[status]} />
+}
+
+export function SubmissionStatusBadge({ status }: { status: SubmissionStatus }) {
+  return <StatusBadgeBase config={submissionStatusConfig[status]} />
+}
+
+const statusConfig: Record<Status, StatusConfig> = {
+  ...submissionStatusConfig,
+  hidden: brandStatusConfig.hidden,
+}
+
+export function StatusBadge({ status }: { status: Status }) {
+  return <StatusBadgeBase config={statusConfig[status]} />
 }

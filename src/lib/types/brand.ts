@@ -1,7 +1,8 @@
 import type { TaxonomyTag } from './taxonomy'
 import type { BrandSortOption } from '@/lib/pagination'
 
-export type BrandStatus = 'pending' | 'approved' | 'rejected' | 'hidden'
+export type BrandStatus = 'approved' | 'hidden'
+export type SubmissionStatus = 'pending' | 'approved' | 'rejected'
 
 export type OtherUrl = {
   label: string
@@ -106,7 +107,7 @@ export type PendingBrandEdit = {
   brandId: string
   submittedBy: string
   proposedData: Record<string, unknown>
-  status: 'pending' | 'approved' | 'rejected'
+  status: SubmissionStatus
   reviewerNotes: string | null
   reviewedAt: string | null
   reviewedBy: string | null

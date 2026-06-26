@@ -95,10 +95,10 @@ describe('saved-brands service', () => {
             created_at: '2026-06-12T01:00:00Z',
             brands: {
               id: 'brand-2',
-              name: 'Pending Brand',
-              slug: 'pending-brand',
+              name: 'Hidden Brand',
+              slug: 'hidden-brand',
               hero_image_url: null,
-              status: 'pending',
+              status: 'hidden',
             },
           },
         ],

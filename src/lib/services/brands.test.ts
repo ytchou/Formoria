@@ -52,7 +52,7 @@ describe('brandToDomain', () => {
       slug: 'test-brand',
       description: 'A test brand',
       hero_image_url: null,
-      status: 'approved',
+      status: 'approved' as const,
       category: 'food',
       founding_year: 2020,
       social_instagram: '@test',
@@ -90,7 +90,7 @@ describe('brandToDomain', () => {
   it('handles missing nested tags gracefully', () => {
     const dbRow = {
       id: '123', name: 'Test', slug: 'test', description: null,
-      hero_image_url: null, status: 'pending',
+      hero_image_url: null, status: 'hidden' as const,
       category: null, founding_year: null,
       retail_locations: [], product_photos: [],
       contact_email: null, submitted_at: '2026-01-01T00:00:00Z',
@@ -130,7 +130,7 @@ describe('brandToDomain — brandHighlights', () => {
   const baseRow = {
     id: 'test-id', name: 'Test Brand', slug: 'test-brand',
     description: 'A test brand', hero_image_url: null,
-    status: 'approved', category: 'Food & Beverage', founding_year: 2004,
+    status: 'approved' as const, category: 'Food & Beverage', founding_year: 2004,
     retail_locations: [],
     product_photos: [], contact_email: null, brand_taxonomy: [],
     submitted_at: '2026-01-01T00:00:00Z', approved_at: null,

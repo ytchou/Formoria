@@ -8,7 +8,7 @@ describe('microsite helpers', () => {
   it('enables only approved brands that have site_content', () => {
     expect(isMicrositeEnabled({ status: 'approved', siteContent: { template: 'default' } } as Brand)).toBe(true)
     expect(isMicrositeEnabled({ status: 'approved', siteContent: null } as Brand)).toBe(false)
-    expect(isMicrositeEnabled({ status: 'pending', siteContent: { template: 'default' } } as Brand)).toBe(false)
+    expect(isMicrositeEnabled({ status: 'hidden', siteContent: { template: 'default' } } as Brand)).toBe(false)
   })
 
   it('builds canonical/OG URLs from MICROSITE_HOST, not formoria.com', () => {
