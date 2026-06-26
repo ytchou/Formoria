@@ -95,9 +95,9 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
         <p className="mt-4 text-center text-sm text-muted-foreground">
           {t.rich('whatNext.learnMore.answer', {
             link: (chunks) => (
-              <a href="/getting-started" className="text-foreground underline">
+              <Link href="/getting-started" className="text-foreground underline">
                 {chunks}
-              </a>
+              </Link>
             ),
           })}
         </p>

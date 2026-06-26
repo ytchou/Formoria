@@ -103,7 +103,6 @@ type SupabaseLike = {
 }
 
 const LEGACY_DISPLAY_NAME_KEY = ['display', 'brand', 'name'].join('_')
-const LEGACY_WEBSITE_URL_KEY = ['website', 'url'].join('_')
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -124,11 +123,6 @@ function delay(ms: number): Promise<void> {
 function brandName(brand: { name?: string | null }): string {
   const legacyName = (brand as Record<string, unknown>)[LEGACY_DISPLAY_NAME_KEY]
   return brand.name ?? (typeof legacyName === 'string' ? legacyName : '')
-}
-
-function purchaseWebsite(brand: { purchase_website?: string | null }): string | null {
-  const legacyWebsite = (brand as Record<string, unknown>)[LEGACY_WEBSITE_URL_KEY]
-  return brand.purchase_website ?? (typeof legacyWebsite === 'string' ? legacyWebsite : null)
 }
 
 export { ENRICH_PHASES } from '@/lib/constants/enrich-phases'

@@ -360,7 +360,7 @@ export function SubmissionsReviewList({
       }
     }, 3000)
     return () => window.clearInterval(intervalId)
-  }, [enrichJobId, enrichJob?.status, router])
+  }, [enrichJobId, enrichJob, router])
 
   return (
     <div>
