@@ -27,30 +27,9 @@ import { SEARCH_DELAY_MS, batchSearchBrandImages, batchSearchBrandsWithSnippets 
 import { insertSearchResult, getLatestSearchResults } from './search-results'
 import { insertTriageResult, insertDescriptionResult } from './ai-results'
 import { createServiceClient } from '@/lib/supabase/server'
+import type { BrandOutcome, CurationConfig, OperationResult } from '@/lib/types/curation'
 
-export interface CurationConfig {
-  dryRun: boolean
-  overwrite?: boolean
-  slugs?: string[]
-  status?: 'pending' | 'approved' | 'rejected' | 'hidden'
-  limit?: number
-  onProgress?: (msg: string) => void
-}
-
-export interface BrandOutcome {
-  slug: string
-  name: string
-  status: 'changed' | 'skipped' | 'failed'
-  error?: string
-}
-
-export interface OperationResult {
-  processed: number
-  updated: number
-  skipped: number
-  errors: string[]
-  brandOutcomes: BrandOutcome[]
-}
+export type { BrandOutcome, CurationConfig, OperationResult }
 
 type CurationBrand = {
   id: string

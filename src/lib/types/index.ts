@@ -21,3 +21,5 @@ export type {
   SubmissionStatus,
   ValidationStatus,
 } from './submission'
+
+export type { BrandOutcome, CurationConfig, OperationResult } from './curation'
