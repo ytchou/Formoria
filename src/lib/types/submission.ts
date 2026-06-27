@@ -7,6 +7,12 @@ export type SourceAttribution =
   | 'found_online'
   | 'friend_recommended'
   | 'work_there'
+export type DenialReason =
+  | 'not_mit'
+  | 'insufficient_info'
+  | 'duplicate'
+  | 'policy_violation'
+  | 'other'
 
 export const SOURCE_ATTRIBUTION_VALUES = [
   'bought_product',
@@ -15,6 +21,14 @@ export const SOURCE_ATTRIBUTION_VALUES = [
   'friend_recommended',
   'work_there',
 ] as const satisfies readonly SourceAttribution[]
+
+export const DENIAL_REASONS = [
+  'not_mit',
+  'insufficient_info',
+  'duplicate',
+  'policy_violation',
+  'other',
+] as const satisfies readonly DenialReason[]
 
 export type BrandSubmission = {
   id: string
@@ -42,6 +56,7 @@ export type BrandSubmission = {
   notifiedAt: string | null
   isBrandOwner: boolean
   sourceAttribution?: SourceAttribution | null
+  denialReason?: DenialReason | null
   unifiedBusinessNumber?: string
 }
 

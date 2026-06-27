@@ -220,6 +220,7 @@ export type Database = {
         Row: {
           brand_id: string | null
           brand_name: string
+          denial_reason: string | null
           description: string | null
           enriched_data: Json | null
           id: string
@@ -251,6 +252,7 @@ export type Database = {
         Insert: {
           brand_id?: string | null
           brand_name: string
+          denial_reason?: string | null
           description?: string | null
           enriched_data?: Json | null
           id?: string
@@ -282,6 +284,7 @@ export type Database = {
         Update: {
           brand_id?: string | null
           brand_name?: string
+          denial_reason?: string | null
           description?: string | null
           enriched_data?: Json | null
           id?: string

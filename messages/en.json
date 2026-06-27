@@ -1614,6 +1614,15 @@
         "proofInauthentic": "The proof provided appears to have been edited or is not authentic.",
         "needMoreEvidence": "The current proof is insufficient; please resubmit with additional supporting evidence."
       }
+    },
+    "submissions": {
+      "denialReasons": {
+        "not_mit": "Not Made in Taiwan",
+        "insufficient_info": "Insufficient Information",
+        "duplicate": "Duplicate Submission",
+        "policy_violation": "Policy Violation",
+        "other": "Other"
+      }
     }
   },
   "adminMode": {
