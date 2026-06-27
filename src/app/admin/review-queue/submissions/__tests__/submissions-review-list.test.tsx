@@ -73,6 +73,12 @@ function renderReviewList() {
   )
 }
 
+function renderReviewListWithSubmissions(submissions: BrandSubmission[]) {
+  return renderWithIntl(
+    <SubmissionsReviewList submissions={submissions} taxonomyTags={[]} />
+  )
+}
+
 async function expandAndStartReject() {
   const user = userEvent.setup()
   renderReviewList()
@@ -105,6 +111,50 @@ describe('getEnrichmentStatus from enriched_data', () => {
       tagSlugs: ['taiwan-crafts'],
     })
     expect(status).toBe('enriched')
+  })
+})
+
+describe('SubmissionsReviewList — bulk rejection', () => {
+  it('shows reason dropdown with 4 presets only (no Other) for bulk reject', async () => {
+    const user = userEvent.setup()
+    renderReviewListWithSubmissions([
+      makeSubmission({ id: 'submission-1', brandName: 'First Brand' }),
+      makeSubmission({ id: 'submission-2', brandName: 'Second Brand' }),
+    ])
+
+    const checkboxes = screen.getAllByRole('checkbox')
+    await user.click(checkboxes[1])
+    await user.click(checkboxes[2])
+    await user.click(screen.getByRole('button', { name: '批次拒絕' }))
+
+    const reasonSelect = screen.getByRole('combobox', {
+      name: /批次拒絕原因/,
+    })
+    expect(reasonSelect).toBeInTheDocument()
+
+    await user.click(reasonSelect)
+    expect(await screen.findByRole('option', { name: '非台灣製造' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: '資訊不足' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: '重複提交' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: '違反政策' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: '其他' })).not.toBeInTheDocument()
+  })
+
+  it('disables bulk reject confirm until reason is selected', async () => {
+    const user = userEvent.setup()
+    renderReviewListWithSubmissions([
+      makeSubmission({ id: 'submission-1', brandName: 'First Brand' }),
+      makeSubmission({ id: 'submission-2', brandName: 'Second Brand' }),
+    ])
+
+    const checkboxes = screen.getAllByRole('checkbox')
+    await user.click(checkboxes[1])
+    await user.click(checkboxes[2])
+    await user.click(screen.getByRole('button', { name: '批次拒絕' }))
+
+    expect(
+      screen.getByRole('button', { name: '確認批次拒絕' })
+    ).toBeDisabled()
   })
 })
 
