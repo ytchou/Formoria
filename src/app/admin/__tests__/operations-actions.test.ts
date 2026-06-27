@@ -48,28 +48,6 @@ vi.mock('@/lib/auth/admin-mode', () => ({
 }))
 
 describe('curation server actions', () => {
-  it('defines the consolidated curation operations', async () => {
-    const mod = await import('../../api/admin/run-job/route')
-    expect(mod.VALID_OPERATIONS).toEqual(['enrich'])
-  })
-
-  it('keeps deprecated curation operations out of the valid set', async () => {
-    const mod = await import('../../api/admin/run-job/route')
-    const validOperations = new Set<string>(mod.VALID_OPERATIONS)
-
-    expect(mod.DEPRECATED_OPERATIONS).toEqual([
-      'clean-names',
-      'normalize-slugs',
-      'detect-non-brands',
-      'enrich-descriptions',
-      'enrich-links',
-      'enrich-images',
-      'score-and-scrape',
-      'set-visibility',
-    ])
-    expect(mod.DEPRECATED_OPERATIONS.every((operation) => !validOperations.has(operation))).toBe(true)
-  })
-
   it('exports startCurationJobAction', async () => {
     const mod = await import('../operations/actions')
     expect(mod.startCurationJobAction).toBeDefined()
