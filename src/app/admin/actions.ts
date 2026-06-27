@@ -53,6 +53,8 @@ import { checkAllServices } from '@/lib/services/health-checks'
 import { DENIAL_REASONS, type DenialReason, type OtherUrl, type TagCategory } from '@/lib/types'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
+type OwnerLocale = 'zh-TW' | 'en'
+
 async function requireAdmin(): Promise<{ userId: string; email: string } | { error: string }> {
   const supabase = await createClient()
   const {
@@ -69,6 +71,36 @@ async function requireAdmin(): Promise<{ userId: string; email: string } | { err
   }
 
   return { userId: user.id, email: user.email ?? '' }
+}
+
+function normalizeOwnerLocale(locale: unknown): OwnerLocale {
+  return locale === 'en' ? 'en' : 'zh-TW'
+}
+
+async function getOwnerLocale(brandId: string): Promise<OwnerLocale> {
+  const supabase = createServiceClient()
+  const { data: owner, error: ownerError } = await supabase
+    .from('brand_owners')
+    .select('user_id')
+    .eq('brand_id', brandId)
+    .limit(1)
+    .maybeSingle()
+
+  if (ownerError || !owner?.user_id) {
+    return 'zh-TW'
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('locale_preference')
+    .eq('id', owner.user_id)
+    .maybeSingle()
+
+  if (profileError) {
+    return 'zh-TW'
+  }
+
+  return normalizeOwnerLocale(profile?.locale_preference)
 }
 
 async function getPendingEditEmailContext(
@@ -307,7 +339,12 @@ export async function approvePendingEditAction(
 
     try {
       if (edit.ownerEmail && edit.brandName) {
-        await sendEmail(await buildEditApprovedEmail(edit.brandName, edit.ownerEmail))
+        const locale = await getOwnerLocale(edit.brandId)
+        await sendEmail(await buildEditApprovedEmail({
+          brandName: edit.brandName,
+          ownerEmail: edit.ownerEmail,
+          locale,
+        }))
       }
     } catch (err) {
       console.error('[edit-approved-email] send failed', err)
@@ -341,7 +378,13 @@ export async function rejectPendingEditAction(
 
     try {
       if (edit.ownerEmail && edit.brandName) {
-        await sendEmail(await buildEditRejectedEmail(edit.brandName, edit.ownerEmail, notes))
+        const locale = await getOwnerLocale(edit.brandId)
+        await sendEmail(await buildEditRejectedEmail({
+          brandName: edit.brandName,
+          ownerEmail: edit.ownerEmail,
+          notes,
+          locale,
+        }))
       }
     } catch (err) {
       console.error('[edit-rejected-email] send failed', err)
