@@ -23,7 +23,7 @@ export default async function JobsPage() {
         <h1 className="text-xl font-bold text-foreground">工作紀錄</h1>
         <p className="mt-1 text-sm text-muted-foreground">查看所有工作的執行狀態與結果。</p>
       </div>
-      <JobHistoryList initialJobs={result.jobs} />
+      <JobHistoryList initialJobs={result.jobs} railwayLogsUrl={process.env.RAILWAY_LOGS_URL} />
     </div>
   )
 }
