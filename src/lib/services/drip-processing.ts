@@ -7,13 +7,13 @@ import {
 import { sendEmail } from '@/lib/email/send'
 import * as supabaseServer from '@/lib/supabase/server'
 import type { EmailMessage } from '@/lib/email/types'
+import { normalizeOwnerLocale, type OwnerLocale } from '@/lib/types'
 
 declare module '@/lib/supabase/server' {
   export function createAdminClient(): unknown
 }
 
 type DripKey = 'welcome' | 'profile_nudge' | 'microsite_spotlight' | 're_engagement'
-type OwnerLocale = 'zh-TW' | 'en'
 
 type OwnerRow = {
   user_id: string
@@ -317,8 +317,4 @@ function objectValue(value: unknown): Record<string, unknown> | undefined {
 
 function stringValue(value: unknown): string {
   return typeof value === 'string' ? value : ''
-}
-
-function normalizeOwnerLocale(locale: unknown): OwnerLocale {
-  return locale === 'en' ? 'en' : 'zh-TW'
 }

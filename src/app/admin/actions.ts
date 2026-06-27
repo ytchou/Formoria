@@ -5,6 +5,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isActingAsAdmin } from '@/lib/auth/admin-mode'
 import { getSubmission, approveSubmission, rejectSubmission } from '@/lib/services/submissions'
 import type { SubmissionApprovalOverrides } from '@/lib/services/submissions'
+import { getOwnerLocale } from '@/lib/services/profiles'
 import {
   approveClaimRequest,
   getClaimRequest,
@@ -53,8 +54,6 @@ import { checkAllServices } from '@/lib/services/health-checks'
 import { DENIAL_REASONS, type DenialReason, type OtherUrl, type TagCategory } from '@/lib/types'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
-type OwnerLocale = 'zh-TW' | 'en'
-
 async function requireAdmin(): Promise<{ userId: string; email: string } | { error: string }> {
   const supabase = await createClient()
   const {
@@ -71,36 +70,6 @@ async function requireAdmin(): Promise<{ userId: string; email: string } | { err
   }
 
   return { userId: user.id, email: user.email ?? '' }
-}
-
-function normalizeOwnerLocale(locale: unknown): OwnerLocale {
-  return locale === 'en' ? 'en' : 'zh-TW'
-}
-
-async function getOwnerLocale(brandId: string): Promise<OwnerLocale> {
-  const supabase = createServiceClient()
-  const { data: owner, error: ownerError } = await supabase
-    .from('brand_owners')
-    .select('user_id')
-    .eq('brand_id', brandId)
-    .limit(1)
-    .maybeSingle()
-
-  if (ownerError || !owner?.user_id) {
-    return 'zh-TW'
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('locale_preference')
-    .eq('id', owner.user_id)
-    .maybeSingle()
-
-  if (profileError) {
-    return 'zh-TW'
-  }
-
-  return normalizeOwnerLocale(profile?.locale_preference)
 }
 
 async function getPendingEditEmailContext(
@@ -181,39 +150,27 @@ export async function rejectSubmissionAction(
   submissionId: string,
   denialReason: DenialReason,
   notes: string
-): Promise<{ error: string } | undefined>
-export async function rejectSubmissionAction(
-  submissionId: string,
-  notes: string
-): Promise<{ error: string } | undefined>
-export async function rejectSubmissionAction(
-  submissionId: string,
-  denialReasonOrNotes: DenialReason | string,
-  notes?: string
 ): Promise<{ error: string } | undefined> {
   try {
-    const denialReason = notes === undefined ? 'other' : denialReasonOrNotes
-    const reviewerNotes = notes === undefined ? denialReasonOrNotes : notes
-
-    if (!DENIAL_REASONS.includes(denialReason as DenialReason)) {
-      return { error: 'Invalid denial reason' }
-    }
-
-    if (denialReason === 'other' && reviewerNotes.trim().length === 0) {
-      return { error: 'Notes are required when using "Other" reason' }
-    }
-
     const auth = await requireAdmin()
     if ('error' in auth) return auth
 
+    if (!DENIAL_REASONS.includes(denialReason)) {
+      return { error: 'Invalid denial reason' }
+    }
+
+    if (denialReason === 'other' && notes.trim().length === 0) {
+      return { error: 'Notes are required when using "Other" reason' }
+    }
+
     const submission = await getSubmission(submissionId)
-    await rejectSubmission(submissionId, auth.userId, denialReason as DenialReason, reviewerNotes)
+    await rejectSubmission(submissionId, auth.userId, denialReason, notes)
 
     sendEmail(await buildRejectionEmail({
       submitterEmail: submission.submitterEmail,
       brandName: submission.brandName,
-      denialReason: denialReason as DenialReason,
-      reviewerNotes,
+      denialReason,
+      reviewerNotes: notes,
     }))
 
     revalidatePath('/admin/review-queue/submissions')

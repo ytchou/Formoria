@@ -149,7 +149,7 @@ export function SubmissionsList({
     }
     startTransition(async () => {
       setError(null)
-      const result = await rejectSubmissionAction(id, rejectNotes)
+      const result = await rejectSubmissionAction(id, 'other', rejectNotes)
       if (result?.error) setError(result.error)
       else {
         setRejectingId(null)
