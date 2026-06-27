@@ -1,9 +1,9 @@
 'use client'
 
-import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from 'react'
-import Link from 'next/link'
+import { Fragment, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { toast } from 'sonner'
 import type { BrandSubmission, OtherUrl, SourceAttribution, SubmissionStatus } from '@/lib/types'
 import type { EnrichedData } from '@/lib/types/enriched-data'
 import { SubmissionStatusBadge } from '@/components/admin/status-badge'
@@ -12,11 +12,7 @@ import {
   approveSubmissionWithOverridesAction,
   type SubmissionApprovalOverrides,
 } from './actions'
-import {
-  startCurationJobAction,
-  getCurationJobAction,
-  type CurationJob,
-} from '@/app/admin/operations/actions'
+import { startCurationJobAction } from '@/app/admin/operations/actions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -218,11 +214,6 @@ export function SubmissionsReviewList({
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [enrichJobId, setEnrichJobId] = useState<string | null>(null)
-  const [enrichJob, setEnrichJob] = useState<CurationJob | null>(null)
-  const enrichJobRef = useRef<CurationJob | null>(null)
-  const [enrichError, setEnrichError] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
   const router = useRouter()
 
   const productTypeTags = useMemo(
@@ -337,58 +328,31 @@ export function SubmissionsReviewList({
     }
   }
 
-  async function handleEnrichSelected() {
-    if (isSubmitting) return
+  function handleEnrichSelected() {
+    if (isPending) return
     const submissionIds = [...selectedIds]
     if (submissionIds.length === 0) return
-    setIsSubmitting(true)
-    try {
-      setEnrichError(null)
+
+    startTransition(async () => {
       const result = await startCurationJobAction('enrich', { submissionIds }, false)
       if ('error' in result) {
-        setEnrichError(result.error)
+        toast.error(result.error)
         return
       }
-      setEnrichJobId(result.jobId)
-      const jobResult = await getCurationJobAction(result.jobId)
-      if ('job' in jobResult && jobResult.job) {
-        enrichJobRef.current = jobResult.job
-        setEnrichJob(jobResult.job)
-      }
-    } finally {
-      setIsSubmitting(false)
-    }
+
+      const { summary } = result
+      toast.success(
+        `Enrichment complete: ${summary.success} success, ${summary.skipped} skipped, ${summary.failed} failed`
+      )
+      setSelectedIds(new Set())
+      router.refresh()
+    })
   }
 
   const enrichableFiltered = filtered
   const selectedCount = selectedIds.size
   const allSelected = enrichableFiltered.length > 0 && enrichableFiltered.every(s => selectedIds.has(s.id))
   const someSelected = selectedCount > 0 && !allSelected
-  const isEnrichRunning = enrichJob?.status === 'pending' || enrichJob?.status === 'running'
-
-  useEffect(() => {
-    if (!enrichJobId) return
-    const intervalId = window.setInterval(async () => {
-      const status = enrichJobRef.current?.status
-      if (status === 'completed' || status === 'failed') return
-
-      const response = await getCurationJobAction(enrichJobId)
-      if ('error' in response) {
-        setEnrichError(response.error)
-        return
-      }
-      if (response.job) {
-        enrichJobRef.current = response.job
-        setEnrichJob(response.job)
-        if (response.job.status === 'completed' || response.job.status === 'failed') {
-          setSelectedIds(new Set())
-          setEnrichJobId(null)
-          router.refresh()
-        }
-      }
-    }, 3000)
-    return () => window.clearInterval(intervalId)
-  }, [enrichJobId, router])
 
   return (
     <div>
@@ -416,35 +380,14 @@ export function SubmissionsReviewList({
                 已選擇 {selectedCount} 筆
               </span>
             )}
-            {isEnrichRunning && enrichJob?.progress && (
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-20 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-cta transition-all"
-                    style={{ width: `${((enrichJob.progress as { processed?: number; total?: number })?.processed ?? 0) / Math.max((enrichJob.progress as { processed?: number; total?: number })?.total ?? 1, 1) * 100}%` }}
-                  />
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {(enrichJob.progress as { processed?: number })?.processed ?? 0}/{(enrichJob.progress as { total?: number })?.total ?? 0}
-                </span>
-              </div>
-            )}
-            {enrichError && (
-              <span className="text-sm text-destructive">{enrichError}</span>
-            )}
             <Button
               size="sm"
               onClick={handleEnrichSelected}
-              disabled={selectedCount === 0 || isEnrichRunning || isSubmitting}
+              disabled={selectedCount === 0 || isPending}
               className="bg-cta hover:bg-cta/90"
             >
-              {isEnrichRunning ? '抓取中...' : '抓取資料'}
+              {isPending ? '抓取中...' : '抓取資料'}
             </Button>
-            {enrichJobId && (
-              <Link href="/admin/jobs" className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground">
-                查看工作紀錄 →
-              </Link>
-            )}
           </div>
         </div>
       </Tabs>
