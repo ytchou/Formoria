@@ -180,6 +180,7 @@ export async function rejectSubmissionAction(
     sendEmail(await buildRejectionEmail({
       submitterEmail: submission.submitterEmail,
       brandName: submission.brandName,
+      denialReason: denialReason as DenialReason,
       reviewerNotes,
     }))
 

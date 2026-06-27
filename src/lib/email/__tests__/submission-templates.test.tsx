@@ -39,6 +39,7 @@ describe('buildRejectionEmail', () => {
     const email = await buildRejectionEmail({
       submitterEmail: 'test@example.com',
       brandName: 'Test Brand',
+      denialReason: 'not_mit',
       reviewerNotes: 'Not a Taiwan brand',
     })
     expect(email.to).toBe('test@example.com')
@@ -46,5 +47,81 @@ describe('buildRejectionEmail', () => {
     expect(email.html).toContain('Not a Taiwan brand')
     expect(email.html).toContain('Formoria')
     expect(email.html).not.toContain('<script>')
+  })
+
+  it('uses the English action-needed subject', async () => {
+    const email = await buildRejectionEmail({
+      submitterEmail: 'test@example.com',
+      brandName: 'Test Brand',
+      denialReason: 'not_mit',
+      reviewerNotes: null,
+      locale: 'en',
+    })
+
+    expect(email.subject).toBe('[Action Needed] Your Formoria submission needs attention')
+  })
+
+  it('uses the zh-TW revision subject with brand name', async () => {
+    const email = await buildRejectionEmail({
+      submitterEmail: 'test@example.com',
+      brandName: '測試品牌',
+      denialReason: 'not_mit',
+      reviewerNotes: null,
+      locale: 'zh-TW',
+    })
+
+    expect(email.subject).toBe('Formoria：您提交的「測試品牌」需要修改')
+  })
+
+  it('includes the denial reason label and appeal contact', async () => {
+    const email = await buildRejectionEmail({
+      submitterEmail: 'test@example.com',
+      brandName: 'Test Brand',
+      denialReason: 'not_mit',
+      reviewerNotes: null,
+      locale: 'en',
+    })
+
+    expect(email.html).toContain('Not Made in Taiwan')
+    expect(email.html).toContain('ops@formoria.com')
+  })
+
+  it('includes per-reason actionable guidance', async () => {
+    const email = await buildRejectionEmail({
+      submitterEmail: 'test@example.com',
+      brandName: 'Test Brand',
+      denialReason: 'insufficient_info',
+      reviewerNotes: null,
+      locale: 'en',
+    })
+
+    expect(email.html).toContain('complete description')
+    expect(email.html).toContain('product photos')
+  })
+
+  it('includes reviewer notes when provided', async () => {
+    const email = await buildRejectionEmail({
+      submitterEmail: 'test@example.com',
+      brandName: 'Test Brand',
+      denialReason: 'other',
+      reviewerNotes: 'Please clarify factory location',
+      locale: 'en',
+    })
+
+    expect(email.html).toContain('Please clarify factory location')
+  })
+
+  it('renders zh-TW guidance for zh-TW locale', async () => {
+    const email = await buildRejectionEmail({
+      submitterEmail: 'test@example.com',
+      brandName: '測試品牌',
+      denialReason: 'insufficient_info',
+      reviewerNotes: null,
+      locale: 'zh-TW',
+    })
+
+    expect(email.html).toContain('資訊不足')
+    expect(email.html).toContain('完整描述')
+    expect(email.html).toContain('產品照片')
   })
 })
