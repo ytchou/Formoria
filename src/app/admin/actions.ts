@@ -53,10 +53,8 @@ import { updateReportStatus } from '@/lib/services/reports'
 import { updateFeedbackStatus, syncSentryFeedback } from '@/lib/services/feedback'
 import type { FeedbackStatus } from '@/lib/services/feedback'
 import { checkAllServices } from '@/lib/services/health-checks'
-import type { DenialReason, OtherUrl, TagCategory } from '@/lib/types'
+import { DENIAL_REASONS, type DenialReason, type OtherUrl, type TagCategory } from '@/lib/types'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
-
-const DEFAULT_DENIAL_REASON: DenialReason = 'other'
 
 async function requireAdmin(): Promise<{ userId: string; email: string } | { error: string }> {
   const supabase = await createClient()
@@ -152,19 +150,40 @@ export async function approveSubmissionAction(
 
 export async function rejectSubmissionAction(
   submissionId: string,
+  denialReason: DenialReason,
   notes: string
+): Promise<{ error: string } | undefined>
+export async function rejectSubmissionAction(
+  submissionId: string,
+  notes: string
+): Promise<{ error: string } | undefined>
+export async function rejectSubmissionAction(
+  submissionId: string,
+  denialReasonOrNotes: DenialReason | string,
+  notes?: string
 ): Promise<{ error: string } | undefined> {
   try {
+    const denialReason = notes === undefined ? 'other' : denialReasonOrNotes
+    const reviewerNotes = notes === undefined ? denialReasonOrNotes : notes
+
+    if (!DENIAL_REASONS.includes(denialReason as DenialReason)) {
+      return { error: 'Invalid denial reason' }
+    }
+
+    if (denialReason === 'other' && reviewerNotes.trim().length === 0) {
+      return { error: 'Notes are required when using "Other" reason' }
+    }
+
     const auth = await requireAdmin()
     if ('error' in auth) return auth
 
     const submission = await getSubmission(submissionId)
-    await rejectSubmission(submissionId, auth.userId, DEFAULT_DENIAL_REASON, notes)
+    await rejectSubmission(submissionId, auth.userId, denialReason as DenialReason, reviewerNotes)
 
     sendEmail(await buildRejectionEmail({
       submitterEmail: submission.submitterEmail,
       brandName: submission.brandName,
-      reviewerNotes: notes,
+      reviewerNotes,
     }))
 
     revalidatePath('/admin/review-queue/submissions')

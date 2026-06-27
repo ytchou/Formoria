@@ -1,4 +1,4 @@
-import { it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/database.types'
 import { approveSubmission, rejectSubmission } from '@/lib/services/submissions'
@@ -61,6 +61,176 @@ describeWithDb('admin submission rejection', () => {
 
     expect(brandsError).toBeNull()
     expect(brands).toHaveLength(0)
+  })
+})
+
+describe('rejectSubmissionAction', () => {
+  const testSubmissionId = 'sub-1'
+  const mockedModules = [
+    'next/cache',
+    '@/lib/supabase/server',
+    '@/lib/auth/admin-mode',
+    '@/lib/services/submissions',
+    '@/lib/services/claim-requests',
+    '@/lib/services/pending-edits',
+    '@/lib/services/mit-verification',
+    '@/lib/services/brands',
+    '@/lib/services/brand-owners',
+    '@/lib/services/moderation',
+    '@/lib/services/taxonomy',
+    '@/lib/email/send',
+    '@/lib/email/templates',
+    '@/lib/services/email-lifecycle',
+    '@/lib/auth/claim-token',
+    '@/lib/services/reports',
+    '@/lib/services/feedback',
+    '@/lib/services/health-checks',
+  ]
+
+  beforeEach(() => {
+    vi.resetModules()
+
+    vi.doMock('next/cache', () => ({
+      revalidatePath: vi.fn(),
+    }))
+
+    vi.doMock('@/lib/supabase/server', () => ({
+      createClient: vi.fn(async () => ({
+        auth: {
+          getUser: vi.fn().mockResolvedValue({
+            data: { user: { id: 'admin-1', email: 'admin@formoria.com' } },
+            error: null,
+          }),
+        },
+      })),
+      createServiceClient: vi.fn(() => ({})),
+    }))
+
+    vi.doMock('@/lib/auth/admin-mode', () => ({
+      isActingAsAdmin: vi.fn().mockResolvedValue(true),
+    }))
+
+    vi.doMock('@/lib/services/submissions', () => ({
+      getSubmission: vi.fn().mockResolvedValue({
+        id: testSubmissionId,
+        brandName: 'Test Brand',
+        submitterEmail: 'submitter@example.com',
+      }),
+      approveSubmission: vi.fn(),
+      rejectSubmission: vi.fn().mockResolvedValue(undefined),
+    }))
+
+    vi.doMock('@/lib/services/claim-requests', () => ({
+      approveClaimRequest: vi.fn(),
+      getClaimRequest: vi.fn(),
+      rejectClaimRequest: vi.fn(),
+    }))
+
+    vi.doMock('@/lib/services/pending-edits', () => ({
+      approvePendingEdit: vi.fn(),
+      getPendingEditForReview: vi.fn(),
+      rejectPendingEdit: vi.fn(),
+    }))
+
+    vi.doMock('@/lib/services/mit-verification', () => ({
+      verifyMitStatus: vi.fn(),
+      rejectMitStatus: vi.fn(),
+    }))
+
+    vi.doMock('@/lib/services/brands', () => ({
+      deleteBrand: vi.fn(),
+      getBrandById: vi.fn(),
+      syncBrandImages: vi.fn(),
+      updateBrand: vi.fn(),
+    }))
+
+    vi.doMock('@/lib/services/brand-owners', () => ({
+      getBrandOwnerEmail: vi.fn(),
+    }))
+
+    vi.doMock('@/lib/services/moderation', () => ({
+      scanContent: vi.fn(),
+      saveModerationFlags: vi.fn(),
+      markFlagsReviewed: vi.fn(),
+    }))
+
+    vi.doMock('@/lib/services/taxonomy', () => ({
+      createTag: vi.fn(),
+      updateTag: vi.fn(),
+      mergeTag: vi.fn(),
+      deactivateTag: vi.fn(),
+      activateTag: vi.fn(),
+      setBrandTags: vi.fn(),
+      getTagBySlug: vi.fn(),
+      addTagToBrand: vi.fn(),
+    }))
+
+    vi.doMock('@/lib/email/send', () => ({
+      sendEmail: vi.fn(),
+    }))
+
+    vi.doMock('@/lib/email/templates', () => ({
+      buildApprovalEmail: vi.fn(),
+      buildRejectionEmail: vi.fn().mockResolvedValue({}),
+      buildClaimEmail: vi.fn(),
+      buildClaimApprovedEmail: vi.fn(),
+      buildClaimRejectedEmail: vi.fn(),
+      buildEditApprovedEmail: vi.fn(),
+      buildEditRejectedEmail: vi.fn(),
+      buildMitVerificationSubmittedEmail: vi.fn(),
+      buildMitVerificationApprovedEmail: vi.fn(),
+      buildMitVerificationNeedsDocsEmail: vi.fn(),
+    }))
+
+    vi.doMock('@/lib/services/email-lifecycle', () => ({
+      createEmailPreferences: vi.fn(),
+    }))
+
+    vi.doMock('@/lib/auth/claim-token', () => ({
+      generateClaimToken: vi.fn(),
+    }))
+
+    vi.doMock('@/lib/services/reports', () => ({
+      updateReportStatus: vi.fn(),
+    }))
+
+    vi.doMock('@/lib/services/feedback', () => ({
+      updateFeedbackStatus: vi.fn(),
+      syncSentryFeedback: vi.fn(),
+    }))
+
+    vi.doMock('@/lib/services/health-checks', () => ({
+      checkAllServices: vi.fn(),
+    }))
+  })
+
+  afterEach(() => {
+    mockedModules.forEach((moduleName) => vi.doUnmock(moduleName))
+    vi.resetModules()
+  })
+
+  it('rejects with valid denial reason', async () => {
+    const { rejectSubmissionAction } = await import('../actions')
+
+    const result = await rejectSubmissionAction(testSubmissionId, 'not_mit', 'Not made in Taiwan')
+
+    expect(result).toBeUndefined()
+  })
+
+  it('returns error when denial reason is other but notes are empty', async () => {
+    const { rejectSubmissionAction } = await import('../actions')
+
+    const result = await rejectSubmissionAction(testSubmissionId, 'other', '')
+
+    expect(result).toEqual({ error: expect.stringContaining('required') })
+  })
+
+  it('returns error for invalid denial reason', async () => {
+    const { rejectSubmissionAction } = await import('../actions')
+
+    const result = await rejectSubmissionAction(testSubmissionId, 'invalid_reason' as never, '')
+
+    expect(result).toEqual({ error: expect.stringContaining('Invalid') })
   })
 })
 

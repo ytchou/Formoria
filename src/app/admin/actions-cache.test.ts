@@ -128,7 +128,7 @@ describe('admin actions cache invalidation', () => {
   })
 
   it('rejectSubmissionAction revalidates public brand pages', async () => {
-    await rejectSubmissionAction('sub-1', 'not good')
+    await rejectSubmissionAction('sub-1', 'insufficient_info', 'not good')
 
     expect(mockRevalidatePath).toHaveBeenCalledWith('/')
     expect(mockRevalidatePath).toHaveBeenCalledWith('/brands')
