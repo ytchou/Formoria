@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { processEnrichBrand, mergeEnrichPatches } from '../curation-operations'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createServiceClient } from '@/lib/supabase/server'
+import { processEnrichBrand, mergeEnrichPatches, persistSubmissionEnrichmentResults } from '../curation-operations'
 import type { CurationConfig } from '../curation-operations'
 import { describeWithDb } from '@/test/setup'
 
@@ -227,6 +228,11 @@ const supabase =
       )
     : null
 
+const serviceSupabase =
+  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? createServiceClient()
+    : null
+
 describeWithDb('enrichment write routing', () => {
   const testBrandName = '[TEST-ENRICH-ROUTE] Brand'
   let testBrandId: string | null = null
@@ -315,5 +321,128 @@ describeWithDb("enrichment for submissions without brand_id", () => {
     expect(updated!.enriched_data).toHaveProperty("description")
 
     await supabase!.from("brand_submissions").delete().eq("id", testSubmissionId)
+  })
+})
+
+describeWithDb('persistSubmissionEnrichmentResults', () => {
+  let testSubmissionId: string | null = null
+
+  beforeEach(async () => {
+    const { data: submission, error } = await serviceSupabase!
+      .from('brand_submissions')
+      .insert({
+        brand_name: '[TEST] Persist Enrich',
+        submitter_email: 'persist-enrich@example.com',
+        website_url: 'https://test-persist.example.com',
+        social_instagram: 'https://instagram.com/testpersist',
+        status: 'pending',
+        brand_id: null,
+      })
+      .select('id')
+      .single()
+
+    if (error) {
+      throw error
+    }
+
+    testSubmissionId = submission!.id
+  })
+
+  afterEach(async () => {
+    if (testSubmissionId) {
+      await serviceSupabase!.from('brand_submissions').delete().eq('id', testSubmissionId)
+      testSubmissionId = null
+    }
+  })
+
+  it('should write patch to null enriched_data', async () => {
+    await persistSubmissionEnrichmentResults(serviceSupabase!, testSubmissionId!, {
+      description: 'Test brand description',
+      product_type: 'bags',
+    })
+
+    const { data: updated } = await serviceSupabase!
+      .from('brand_submissions')
+      .select('enriched_data')
+      .eq('id', testSubmissionId!)
+      .single()
+
+    expect(updated!.enriched_data).toEqual({
+      description: 'Test brand description',
+      product_type: 'bags',
+    })
+  })
+
+  it('should deep-merge with existing enriched_data', async () => {
+    await serviceSupabase!
+      .from('brand_submissions')
+      .update({
+        enriched_data: {
+          description: 'Old desc',
+          product_type: 'bags',
+        },
+      })
+      .eq('id', testSubmissionId!)
+
+    await persistSubmissionEnrichmentResults(serviceSupabase!, testSubmissionId!, {
+      description: 'New desc',
+      hero_image_url: 'https://img.example.com/hero.jpg',
+    })
+
+    const { data: updated } = await serviceSupabase!
+      .from('brand_submissions')
+      .select('enriched_data')
+      .eq('id', testSubmissionId!)
+      .single()
+
+    expect(updated!.enriched_data).toEqual({
+      description: 'New desc',
+      product_type: 'bags',
+      hero_image_url: 'https://img.example.com/hero.jpg',
+    })
+  })
+
+  it('should deduplicate product_photos arrays', async () => {
+    await serviceSupabase!
+      .from('brand_submissions')
+      .update({
+        enriched_data: {
+          product_photos: ['a.jpg', 'b.jpg'],
+        },
+      })
+      .eq('id', testSubmissionId!)
+
+    await persistSubmissionEnrichmentResults(serviceSupabase!, testSubmissionId!, {
+      product_photos: ['b.jpg', 'c.jpg'],
+    })
+
+    const { data: updated } = await serviceSupabase!
+      .from('brand_submissions')
+      .select('enriched_data')
+      .eq('id', testSubmissionId!)
+      .single()
+
+    expect(updated!.enriched_data).toEqual({
+      product_photos: ['a.jpg', 'b.jpg', 'c.jpg'],
+    })
+  })
+
+  it('should skip update when submission is no longer pending', async () => {
+    await serviceSupabase!
+      .from('brand_submissions')
+      .update({ status: 'approved' })
+      .eq('id', testSubmissionId!)
+
+    await persistSubmissionEnrichmentResults(serviceSupabase!, testSubmissionId!, {
+      description: 'Skipped description',
+    })
+
+    const { data: updated } = await serviceSupabase!
+      .from('brand_submissions')
+      .select('enriched_data')
+      .eq('id', testSubmissionId!)
+      .single()
+
+    expect(updated!.enriched_data).toBeNull()
   })
 })

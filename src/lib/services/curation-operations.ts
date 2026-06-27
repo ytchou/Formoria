@@ -216,9 +216,15 @@ function isPlainObject(value: unknown): value is JsonObject {
 function mergeProductPhotos(existing: unknown[], incoming: unknown[]): unknown[] {
   const merged: unknown[] = []
   const seenUrls = new Set<string>()
+  const seenValues = new Set<unknown>()
 
   for (const photo of [...existing, ...incoming]) {
     if (!isPlainObject(photo) || typeof photo.url !== 'string') {
+      if (seenValues.has(photo)) {
+        continue
+      }
+
+      seenValues.add(photo)
       merged.push(photo)
       continue
     }
@@ -473,19 +479,41 @@ async function buildEnrichmentPatchFromBrandInput({
   }
 }
 
-async function persistSubmissionEnrichmentResults(
+export async function persistSubmissionEnrichmentResults(
   supabase: SupabaseClient,
   submissionId: string,
   patch: JsonObject
 ): Promise<void> {
-  const normalizedPatch = deepMergeJsonObjects({}, patch)
-  const { error: updateError } = await supabase.rpc('merge_brand_submission_enriched_data', {
-    p_submission_id: submissionId,
-    p_patch: normalizedPatch,
-  })
+  const { data: row, error: selectError } = await supabase
+    .from('brand_submissions')
+    .select('enriched_data, status')
+    .eq('id', submissionId)
+    .single()
+
+  if (selectError || !row) {
+    console.warn(`Skipping enrichment persistence for missing submission ${submissionId}`)
+    return
+  }
+
+  if (row.status !== 'pending') {
+    console.warn(`Skipping enrichment persistence for non-pending submission ${submissionId}`)
+    return
+  }
+
+  const existing = (row.enriched_data ?? {}) as Record<string, unknown>
+  const merged = deepMergeJsonObjects(existing, patch as Record<string, unknown>)
+  const { error: updateError, count } = await supabase
+    .from('brand_submissions')
+    .update({ enriched_data: merged }, { count: 'exact' })
+    .eq('id', submissionId)
+    .eq('status', 'pending')
 
   if (updateError) {
     throw new Error(updateError.message ?? 'Failed to update brand submission enrichment')
+  }
+
+  if (count === 0) {
+    console.warn(`Skipping enrichment persistence after pending status changed for submission ${submissionId}`)
   }
 }
 
