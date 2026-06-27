@@ -1,6 +1,8 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 
 const mockInsert = vi.fn()
+const mockUpdate = vi.fn()
+const mockEq = vi.fn()
 const mockSelect = vi.fn()
 const mockOrder = vi.fn()
 const mockSingle = vi.fn()
@@ -28,6 +30,7 @@ beforeEach(() => {
       suggested_tags: [],
       status: 'pending',
       reviewer_notes: null,
+      denial_reason: null,
       submitted_at: '2026-06-13T00:00:00.000Z',
       reviewed_at: null,
       reviewed_by: null,
@@ -44,8 +47,11 @@ beforeEach(() => {
 
   mockSelect.mockReturnValue({ order: mockOrder, single: mockSingle })
   mockInsert.mockReturnValue({ select: vi.fn().mockReturnValue({ single: mockSingle }) })
+  mockEq.mockReturnValue({ select: mockSelect })
+  mockUpdate.mockReturnValue({ eq: mockEq })
   mockFrom.mockReturnValue({
     insert: mockInsert,
+    update: mockUpdate,
     select: mockSelect,
   })
 })
@@ -191,6 +197,99 @@ describe('createSubmission — product_type_note', () => {
     expect(mockInsert).toHaveBeenCalledWith(
       expect.objectContaining({ product_type_note: null })
     )
+  })
+})
+
+describe('rejectSubmission', () => {
+  const TEST_REVIEWER_ID = 'reviewer-123'
+
+  it('persists denial_reason alongside status and reviewer_notes', async () => {
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'submission-1',
+        brand_id: 'brand-123',
+        brand_name: 'Test Brand',
+        submitter_email: 'test@example.com',
+        submitter_name: 'Test User',
+        description: 'Test description',
+        website_url: 'https://testbrand.com',
+        social_links: {},
+        suggested_tags: [],
+        status: 'rejected',
+        reviewer_notes: 'Brand manufactures in China, not Taiwan',
+        denial_reason: 'not_mit',
+        submitted_at: '2026-06-13T00:00:00.000Z',
+        reviewed_at: '2026-06-14T00:00:00.000Z',
+        reviewed_by: TEST_REVIEWER_ID,
+        pdpa_consent_at: '2026-06-13T00:00:00.000Z',
+        validation_status: null,
+        validation_errors: null,
+        notified_at: null,
+        is_brand_owner: false,
+        source_attribution: null,
+        product_type_note: null,
+      },
+      error: null,
+    })
+    const { rejectSubmission } = await import('../submissions')
+
+    const result = await rejectSubmission(
+      'submission-1',
+      TEST_REVIEWER_ID,
+      'not_mit',
+      'Brand manufactures in China, not Taiwan'
+    )
+
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'rejected',
+      denial_reason: 'not_mit',
+      reviewer_notes: 'Brand manufactures in China, not Taiwan',
+    }))
+    expect(result.status).toBe('rejected')
+    expect(result.denialReason).toBe('not_mit')
+    expect(result.reviewerNotes).toBe('Brand manufactures in China, not Taiwan')
+  })
+
+  it('allows rejection without notes', async () => {
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'submission-1',
+        brand_id: 'brand-123',
+        brand_name: 'Test Brand',
+        submitter_email: 'test@example.com',
+        submitter_name: 'Test User',
+        description: 'Test description',
+        website_url: 'https://testbrand.com',
+        social_links: {},
+        suggested_tags: [],
+        status: 'rejected',
+        reviewer_notes: null,
+        denial_reason: 'duplicate',
+        submitted_at: '2026-06-13T00:00:00.000Z',
+        reviewed_at: '2026-06-14T00:00:00.000Z',
+        reviewed_by: TEST_REVIEWER_ID,
+        pdpa_consent_at: '2026-06-13T00:00:00.000Z',
+        validation_status: null,
+        validation_errors: null,
+        notified_at: null,
+        is_brand_owner: false,
+        source_attribution: null,
+        product_type_note: null,
+      },
+      error: null,
+    })
+    const { rejectSubmission } = await import('../submissions')
+
+    const result = await rejectSubmission('submission-1', TEST_REVIEWER_ID, 'duplicate')
+
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'rejected',
+      denial_reason: 'duplicate',
+      reviewer_notes: null,
+    }))
+    expect(result.status).toBe('rejected')
+    expect(result.denialReason).toBe('duplicate')
+    expect(result.reviewerNotes).toBeNull()
   })
 })
 

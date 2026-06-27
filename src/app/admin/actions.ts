@@ -53,8 +53,10 @@ import { updateReportStatus } from '@/lib/services/reports'
 import { updateFeedbackStatus, syncSentryFeedback } from '@/lib/services/feedback'
 import type { FeedbackStatus } from '@/lib/services/feedback'
 import { checkAllServices } from '@/lib/services/health-checks'
-import type { OtherUrl, TagCategory } from '@/lib/types'
+import type { DenialReason, OtherUrl, TagCategory } from '@/lib/types'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+
+const DEFAULT_DENIAL_REASON: DenialReason = 'other'
 
 async function requireAdmin(): Promise<{ userId: string; email: string } | { error: string }> {
   const supabase = await createClient()
@@ -157,7 +159,7 @@ export async function rejectSubmissionAction(
     if ('error' in auth) return auth
 
     const submission = await getSubmission(submissionId)
-    await rejectSubmission(submissionId, auth.userId, notes)
+    await rejectSubmission(submissionId, auth.userId, DEFAULT_DENIAL_REASON, notes)
 
     sendEmail(await buildRejectionEmail({
       submitterEmail: submission.submitterEmail,

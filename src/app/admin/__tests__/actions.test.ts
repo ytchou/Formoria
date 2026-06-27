@@ -38,7 +38,7 @@ describeWithDb('admin submission rejection', () => {
     expect(insertError).toBeNull()
     expect(inserted).not.toBeNull()
 
-    await rejectSubmission(inserted!.id, reviewerId, reviewerNotes)
+    await rejectSubmission(inserted!.id, reviewerId, 'insufficient_info', reviewerNotes)
 
     const { data: submission, error: submissionError } = await supabase!
       .from('brand_submissions')

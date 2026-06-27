@@ -1,4 +1,4 @@
-import type { Brand, BrandSubmission, OtherUrl, SubmissionStatus, SourceAttribution } from '@/lib/types'
+import type { Brand, BrandSubmission, DenialReason, OtherUrl, SubmissionStatus, SourceAttribution } from '@/lib/types'
 import type { DuplicateCheckResult } from '@/lib/types/submission'
 import type { Database } from '@/lib/supabase/database.types'
 import type { EnrichedData } from '@/lib/types/enriched-data'
@@ -163,6 +163,7 @@ export function submissionToDomain(row: SubmissionRowInput): BrandSubmissionWith
     suggestedTags: (row.suggested_tags as string[]) ?? [],
     status: row.status as BrandSubmission['status'],
     reviewerNotes: row.reviewer_notes ?? null,
+    denialReason: (row.denial_reason as DenialReason) ?? null,
     submittedAt: row.submitted_at ?? '',
     reviewedAt: row.reviewed_at ?? null,
     reviewedBy: row.reviewed_by ?? null,
@@ -620,6 +621,7 @@ export async function approveSubmission(
 export async function rejectSubmission(
   id: string,
   reviewerId: string,
+  denialReason: DenialReason,
   notes?: string
 ): Promise<BrandSubmission> {
   const supabase = createServiceClient()
@@ -629,6 +631,7 @@ export async function rejectSubmission(
       status: 'rejected',
       reviewed_at: new Date().toISOString(),
       reviewed_by: reviewerId,
+      denial_reason: denialReason,
       reviewer_notes: notes ?? null,
     })
     .eq('id', id)
