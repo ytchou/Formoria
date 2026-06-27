@@ -2,6 +2,8 @@ import type { BrandStatus } from './brand'
 
 export interface CurationConfig {
   dryRun: boolean
+  target?: 'submissions' | 'brands'
+  submissionIds?: string[]
   overwrite?: boolean
   slugs?: string[]
   status?: BrandStatus
@@ -23,6 +25,7 @@ export interface PhaseResult {
 export interface BrandOutcome {
   slug: string
   name: string
+  submissionId?: string
   status: 'succeeded' | 'skipped' | 'failed'
   changedFields?: string[]
   phaseResults?: PhaseResult[]

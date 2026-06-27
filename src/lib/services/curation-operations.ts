@@ -96,13 +96,6 @@ type JsonObject = Record<string, unknown>
 
 const LEGACY_DISPLAY_NAME_KEY = ['display', 'brand', 'name'].join('_')
 
-type SubmissionEnrichmentMergeClient = SupabaseClient & {
-  rpc: (
-    fn: 'merge_brand_submission_enriched_data',
-    args: { p_submission_id: string; p_patch: JsonObject }
-  ) => SupabaseResult<unknown>
-}
-
 function errorMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message
@@ -486,13 +479,10 @@ async function persistSubmissionEnrichmentResults(
   patch: JsonObject
 ): Promise<void> {
   const normalizedPatch = deepMergeJsonObjects({}, patch)
-  const { error: updateError } = await (supabase as SubmissionEnrichmentMergeClient).rpc(
-    'merge_brand_submission_enriched_data',
-    {
-      p_submission_id: submissionId,
-      p_patch: normalizedPatch,
-    }
-  )
+  const { error: updateError } = await supabase.rpc('merge_brand_submission_enriched_data', {
+    p_submission_id: submissionId,
+    p_patch: normalizedPatch,
+  })
 
   if (updateError) {
     throw new Error(updateError.message ?? 'Failed to update brand submission enrichment')
