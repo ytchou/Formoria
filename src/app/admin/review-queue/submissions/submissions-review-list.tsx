@@ -318,6 +318,47 @@ export function SubmissionsReviewList({
     rejected: submissions.filter((s) => s.status === 'rejected').length,
   }), [submissions])
 
+  function handleBulkApprove() {
+    const pendingSelected = filtered.filter(
+      (s) => s.status === 'pending' && selectedIds.has(s.id)
+    )
+    if (pendingSelected.length === 0) return
+    if (!confirm(`確定要核准 ${pendingSelected.length} 筆提交？`)) return
+    startTransition(async () => {
+      setError(null)
+      for (const submission of pendingSelected) {
+        const result = await approveSubmissionWithOverridesAction(
+          submission.id,
+          overridesById[submission.id] ?? createOverrideForm(submission)
+        )
+        if (result?.error) {
+          setError(`${submission.brandName}: ${result.error}`)
+          return
+        }
+      }
+      setSelectedIds(new Set())
+    })
+  }
+
+  function handleBulkReject() {
+    const pendingSelected = filtered.filter(
+      (s) => s.status === 'pending' && selectedIds.has(s.id)
+    )
+    if (pendingSelected.length === 0) return
+    if (!confirm(`確定要拒絕 ${pendingSelected.length} 筆提交？`)) return
+    startTransition(async () => {
+      setError(null)
+      for (const submission of pendingSelected) {
+        const result = await rejectSubmissionAction(submission.id, '')
+        if (result?.error) {
+          setError(`${submission.brandName}: ${result.error}`)
+          return
+        }
+      }
+      setSelectedIds(new Set())
+    })
+  }
+
   function toggleSelection(id: string) {
     setSelectedIds(prev => {
       const next = new Set(prev)
@@ -440,6 +481,22 @@ export function SubmissionsReviewList({
             >
               {isEnrichRunning ? '抓取中...' : '抓取資料'}
             </Button>
+            <Button
+              size="sm"
+              onClick={handleBulkApprove}
+              disabled={selectedCount === 0 || isPending}
+              className="bg-cta hover:bg-cta/90"
+            >
+              核准
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleBulkReject}
+              disabled={selectedCount === 0 || isPending}
+            >
+              拒絕
+            </Button>
             {enrichJobId && (
               <Link href="/admin/jobs" className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground">
                 查看工作紀錄 →
@@ -471,6 +528,7 @@ export function SubmissionsReviewList({
               <TableHead>資料充實</TableHead>
               <TableHead>提交者</TableHead>
               <TableHead>日期</TableHead>
+              <TableHead className="w-28 text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -566,11 +624,41 @@ export function SubmissionsReviewList({
                     </TableCell>
                     <TableCell className="max-w-[160px] truncate">{submission.submitterEmail}</TableCell>
                     <TableCell>{formatDate(submission.submittedAt)}</TableCell>
+                    <TableCell className="text-right">
+                      {submission.status === 'pending' && (
+                        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            size="sm"
+                            onClick={() => handleApprove(submission)}
+                            disabled={isPending}
+                            className="h-7 bg-cta px-2 text-xs hover:bg-cta/90"
+                          >
+                            核准
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={async () => {
+                              if (!confirm('確定要拒絕此提交？')) return
+                              startTransition(async () => {
+                                setError(null)
+                                const result = await rejectSubmissionAction(submission.id, '')
+                                if (result?.error) setError(result.error)
+                              })
+                            }}
+                            disabled={isPending}
+                            className="h-7 px-2 text-xs"
+                          >
+                            拒絕
+                          </Button>
+                        </div>
+                      )}
+                    </TableCell>
                   </TableRow>
 
                   {expandedId === submission.id && (
                     <TableRow key={`${submission.id}-expanded`}>
-                      <TableCell colSpan={10} className="bg-background p-6">
+                      <TableCell colSpan={11} className="bg-background p-6">
                         <div className="space-y-4">
                           <EnrichedCard auto={hasEnrichment}>
                             <div className="space-y-3">
@@ -908,7 +996,7 @@ export function SubmissionsReviewList({
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={10}
+                  colSpan={11}
                   className="py-8 text-center text-muted-foreground"
                 >
                   找不到提交記錄。

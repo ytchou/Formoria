@@ -1313,13 +1313,9 @@
           "label": "審核中",
           "description": "我們的團隊通常在 3 個工作天內完成審核"
         },
-        "contact": {
-          "label": "如有需要，我們會與您聯繫",
-          "description": "您可能會收到詢問後續問題的電子郵件"
-        },
-        "live": {
-          "label": "您的品牌上線",
-          "description": "通過審核後，您的品牌將出現在 Formoria 目錄中"
+        "result": {
+          "label": "結果通知",
+          "description": "審核完成後，您將收到電子郵件通知結果。通過審核的品牌將出現在 Formoria 目錄中"
         }
       },
       "cta": {
@@ -1342,7 +1338,7 @@
         },
         "learnMore": {
           "question": "想了解更多？",
-          "answer": "請前往我們的<link>入門指南</link>查看完整介紹。"
+          "answer": "想更了解 Formoria？請參閱我們的<link>入門指南</link>。"
         }
       }
     },

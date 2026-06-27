@@ -1313,13 +1313,9 @@
           "label": "Under Review",
           "description": "Our team typically completes the review within 3 business days"
         },
-        "contact": {
-          "label": "We'll reach out if needed",
-          "description": "You may receive an email asking follow-up questions"
-        },
-        "live": {
-          "label": "Your brand goes live",
-          "description": "Once approved, your brand will appear in the Formoria directory"
+        "result": {
+          "label": "Result Notification",
+          "description": "Once reviewed, you'll receive an email with the result. Approved brands will appear in the Formoria directory"
         }
       },
       "cta": {
@@ -1342,7 +1338,7 @@
         },
         "learnMore": {
           "question": "Want to learn more?",
-          "answer": "Visit our <link>Getting Started guide</link> for a complete overview."
+          "answer": "Want to learn more about Formoria? Check out our <link>Getting Started guide</link>."
         }
       }
     },

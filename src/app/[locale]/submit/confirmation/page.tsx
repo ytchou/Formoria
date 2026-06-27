@@ -61,8 +61,7 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
           <div className="space-y-4">
             {([
               { label: t('timeline.review.label'), description: t('timeline.review.description'), active: true },
-              { label: t('timeline.contact.label'), description: t('timeline.contact.description'), active: false },
-              { label: t('timeline.live.label'), description: t('timeline.live.description'), active: false },
+              { label: t('timeline.result.label'), description: t('timeline.result.description'), active: false },
             ] as const).map((step, i) => (
               <div key={i} className="flex gap-3">
                 <div className="flex flex-col items-center">
@@ -71,7 +70,7 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
                       step.active ? 'bg-cta' : 'bg-[#D4CFC9]'
                     }`}
                   />
-                  {i < 2 && (
+                  {i < 1 && (
                     <div className="mt-1 h-full w-px bg-[#D4CFC9]" />
                   )}
                 </div>
