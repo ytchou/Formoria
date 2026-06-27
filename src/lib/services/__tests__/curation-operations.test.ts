@@ -343,6 +343,83 @@ describeWithDb("runEnrich submissions mode", () => {
   })
 })
 
+describeWithDb('runEnrich persist routing', () => {
+  const testBrandName = '[TEST] Persist Routing'
+  let testSubmissionId: string | null = null
+
+  beforeEach(async () => {
+    const { data: submission, error } = await serviceSupabase!
+      .from('brand_submissions')
+      .insert({
+        brand_name: testBrandName,
+        website_url: 'https://test-persist-routing.example.com',
+        status: 'pending',
+        submitter_email: 'persist-routing@example.com',
+        submitter_name: 'Persist Routing Tester',
+        is_brand_owner: false,
+        brand_id: null,
+      })
+      .select('id')
+      .single()
+
+    if (error) {
+      throw error
+    }
+
+    testSubmissionId = submission!.id
+  })
+
+  afterEach(async () => {
+    if (testSubmissionId) {
+      await serviceSupabase!.from('brand_submissions').delete().eq('id', testSubmissionId)
+      testSubmissionId = null
+    }
+
+    await serviceSupabase!.from('brands').delete().eq('name', testBrandName)
+  })
+
+  it('should write enriched_data to submission, not brands table', async () => {
+    await runEnrich(
+      {
+        dryRun: false,
+        target: 'submissions',
+        submissionIds: [testSubmissionId!],
+        phases: ['clean'],
+      },
+      serviceSupabase!
+    )
+
+    const { data: submission } = await serviceSupabase!
+      .from('brand_submissions')
+      .select('enriched_data')
+      .eq('id', testSubmissionId!)
+      .single()
+
+    const { data: brand } = await serviceSupabase!
+      .from('brands')
+      .select('id')
+      .eq('name', testBrandName)
+      .maybeSingle()
+
+    expect(submission!.enriched_data).not.toBeNull()
+    expect(brand).toBeNull()
+  })
+
+  it('should record submissionId in BrandOutcome', async () => {
+    const result = await runEnrich(
+      {
+        dryRun: false,
+        target: 'submissions',
+        submissionIds: [testSubmissionId!],
+        phases: ['clean'],
+      },
+      serviceSupabase!
+    )
+
+    expect(result.brandOutcomes.some((outcome) => outcome.submissionId === testSubmissionId)).toBe(true)
+  })
+})
+
 describeWithDb('enrichment write routing', () => {
   const testBrandName = '[TEST-ENRICH-ROUTE] Brand'
   let testBrandId: string | null = null

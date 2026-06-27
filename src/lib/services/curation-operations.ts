@@ -773,7 +773,7 @@ export async function runEnrich(
 
         let triageSlug = state.patches.slug
 
-        if (triageSlug && !config.dryRun) {
+        if (target === 'brands' && triageSlug && !config.dryRun) {
           const svc = createServiceClient()
           const { data: slugOwner } = await svc
             .from('brands')
@@ -794,7 +794,7 @@ export async function runEnrich(
         if (triageApplication.isNonBrand) {
           config.onProgress?.(`  [NON-BRAND] ${brand.slug}: ${triageResult?.nonBrandReason ?? 'non-brand'} (${triageResult?.confidence})`)
 
-          if (!config.dryRun) {
+          if (target === 'brands' && !config.dryRun) {
             await insertTriageResult({
               brandId: brand.id,
               isNonBrand: true,
@@ -814,6 +814,7 @@ export async function runEnrich(
           result.brandOutcomes.push({
             slug: brand.slug,
             name: brandName(brand),
+            ...(target === 'submissions' ? { submissionId: brand.id } : {}),
             status: 'skipped',
             changedFields: changedFieldsFromPhaseResults(state.phaseResults),
             phaseResults: state.phaseResults,
@@ -854,6 +855,7 @@ export async function runEnrich(
           result.brandOutcomes.push({
             slug: brand.slug,
             name: brandName(brand),
+            ...(target === 'submissions' ? { submissionId: brand.id } : {}),
             status: 'skipped',
             changedFields: changedFieldsFromPhaseResults(state.phaseResults),
             phaseResults: state.phaseResults,
@@ -936,6 +938,7 @@ export async function runEnrich(
           result.brandOutcomes.push({
             slug: brand.slug,
             name: brandName(brand),
+            ...(target === 'submissions' ? { submissionId: brand.id } : {}),
             status: 'skipped',
             changedFields,
             phaseResults: state.phaseResults,
@@ -945,7 +948,7 @@ export async function runEnrich(
         }
 
         if (!config.dryRun) {
-          if (triageResult) {
+          if (target === 'brands' && triageResult) {
             await insertTriageResult({
               brandId: brand.id,
               isNonBrand: false,
@@ -957,7 +960,7 @@ export async function runEnrich(
               rawResponse: triageResult,
             })
           }
-          if (descriptionsResult.descriptionRewrite) {
+          if (target === 'brands' && descriptionsResult.descriptionRewrite) {
             await insertDescriptionResult({
               brandId: brand.id,
               description: descriptionsResult.descriptionRewrite,
@@ -965,17 +968,26 @@ export async function runEnrich(
             })
           }
           try {
-            await persistEnrichmentResults(
-              supabase as unknown as SupabaseClient,
-              brand.id,
-              patch as JsonObject
-            )
+            if (target === 'submissions') {
+              await persistSubmissionEnrichmentResults(
+                supabase as unknown as SupabaseClient,
+                brand.id,
+                patch as JsonObject
+              )
+            } else {
+              await persistEnrichmentResults(
+                supabase as unknown as SupabaseClient,
+                brand.id,
+                patch as JsonObject
+              )
+            }
           } catch (err) {
             const errMsg = errorMessage(err)
             result.errors.push(`${brand.slug}: ${errMsg}`)
             result.brandOutcomes.push({
               slug: brand.slug,
               name: brandName(brand),
+              ...(target === 'submissions' ? { submissionId: brand.id } : {}),
               status: 'failed',
               changedFields: changedFieldsFromPhaseResults(outcomePhaseResults),
               phaseResults: outcomePhaseResults,
@@ -985,7 +997,7 @@ export async function runEnrich(
             continue
           }
 
-          if (triageSlug) {
+          if (target === 'brands' && triageSlug) {
             await insertSlugRedirect(brand.slug, triageSlug)
           }
         }
@@ -993,6 +1005,7 @@ export async function runEnrich(
         result.brandOutcomes.push({
           slug: brand.slug,
           name: brandName(brand),
+          ...(target === 'submissions' ? { submissionId: brand.id } : {}),
           status: 'succeeded',
           changedFields,
           phaseResults: state.phaseResults,
@@ -1004,6 +1017,7 @@ export async function runEnrich(
         result.brandOutcomes.push({
           slug: brand.slug,
           name: brandName(brand),
+          ...(target === 'submissions' ? { submissionId: brand.id } : {}),
           status: 'failed',
           changedFields: changedFieldsFromPhaseResults(outcomePhaseResults),
           phaseResults: outcomePhaseResults,
