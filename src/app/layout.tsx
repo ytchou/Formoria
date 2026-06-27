@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Bricolage_Grotesque, Geist_Mono, Inter, Noto_Sans_TC } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { Agentation } from "agentation";
+import { Toaster } from "sonner";
 import { GaUserSync } from "@/components/analytics/ga-user-sync";
 import { SessionTracker } from "@/components/analytics/session-tracker";
 import { getSiteUrl } from "@/lib/seo/site-url";
@@ -68,6 +69,7 @@ export default function RootLayout({
             <GaUserSync />
           </>
         )}
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   )
