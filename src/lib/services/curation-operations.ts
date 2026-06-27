@@ -13,11 +13,9 @@ import {
   linkColumnFor,
 } from './link-enrichment'
 import {
-  triageBrandsBatch,
   type ClassificationResult,
-  type TriageResult,
 } from './product-type-classifier'
-import { SEARCH_DELAY_MS, batchSearchBrandImages, batchSearchBrandsWithSnippets } from './scraper/search'
+import { SEARCH_DELAY_MS } from './scraper/search'
 import { insertTriageResult, insertDescriptionResult } from './ai-results'
 import { createServiceClient } from '@/lib/supabase/server'
 import type { BrandOutcome, CurationConfig, OperationResult, PhaseResult } from '@/lib/types/curation'
@@ -33,7 +31,6 @@ import {
   runLinksPhase,
   runStandaloneClassification,
   runTriagePhase,
-  shouldSkipForNonBrand,
   type BrandEnrichState,
   type SearchPhaseResult,
   hasPatchValues,
@@ -53,8 +50,6 @@ type CurationBrand = {
   purchaseWebsite?: string | null
   tag_slugs?: string[] | null
 }
-
-type TriagePatch = Partial<Pick<CurationBrand, 'slug' | 'product_type' | 'tag_slugs'>>
 
 type SupabaseLike = Pick<SupabaseClient, 'from'>
 
@@ -158,19 +153,6 @@ type SubmissionEnrichmentRow = {
   brand_id: string | null
 }
 
-type BuildEnrichmentPatchOptions = {
-  brand: EnrichBrand
-  phases: RunEnrichPhase[]
-  knownUrls?: string[]
-  discoveredUrls?: string[]
-  serpSnippets?: string[]
-  imageSearchUrls?: string[]
-  classification?: ClassificationResult | null
-  dryRun: boolean
-  imageStorageId: string
-  onProgress?: (message: string) => void
-}
-
 function isRequestedPhase(phases: string[], phase: EnrichPhase): boolean {
   return phases.includes(phase)
 }
@@ -265,16 +247,6 @@ function collectKnownUrls(brand: EnrichBrand): string[] {
   return uniqueUrls(linkUrls)
 }
 
-function collectOtherUrls(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return []
-  }
-
-  return value
-    .map((entry) => isPlainObject(entry) ? entry.url : null)
-    .filter((url): url is string => typeof url === 'string' && url.trim() !== '')
-}
-
 function normalizeScrapedData(scrapedData: EnrichScrapedData): EnrichScrapedData {
   return {
     ...scrapedData,
@@ -285,38 +257,6 @@ function normalizeScrapedData(scrapedData: EnrichScrapedData): EnrichScrapedData
     purchase_pinkoi: scrapedData.purchase_pinkoi ?? scrapedData.purchasePinkoi,
     purchase_shopee: scrapedData.purchase_shopee ?? scrapedData.purchaseShopee,
   }
-}
-
-function buildTriagePatch(
-  brand: EnrichBrand,
-  triageResult: TriageResult | undefined,
-  phases: RunEnrichPhase[]
-): TriagePatch {
-  const patch: TriagePatch = {}
-
-  if (!triageResult) {
-    return patch
-  }
-
-  const KEBAB_CASE_RE = /^[a-z0-9]+(-[a-z0-9]+)+$/
-  if (
-    phases.includes('slugs') &&
-    triageResult.slugGenerated &&
-    triageResult.slugGenerated !== brand.slug &&
-    KEBAB_CASE_RE.test(triageResult.slugGenerated)
-  ) {
-    patch.slug = triageResult.slugGenerated
-  }
-
-  if (phases.includes('tags') && triageResult.productType !== null) {
-    patch.product_type = triageResult.productType
-  }
-
-  if (phases.includes('tags') && triageResult.valueTags.length > 0) {
-    patch.tag_slugs = triageResult.valueTags
-  }
-
-  return patch
 }
 
 export function processEnrichBrand(
@@ -386,65 +326,6 @@ function appendPatch(state: BrandEnrichState, patch: Record<string, unknown>): v
   Object.assign(state.patches, patch)
 }
 
-async function buildEnrichmentPatchFromBrandInput({
-  brand,
-  phases,
-  knownUrls = collectKnownUrls(brand),
-  discoveredUrls = [],
-  serpSnippets = [],
-  imageSearchUrls = [],
-  classification = null,
-  dryRun,
-  imageStorageId,
-  onProgress,
-}: BuildEnrichmentPatchOptions): Promise<{
-  patch: EnrichPatch
-  hasCompletedTagClassification: boolean
-  descriptionRewrite: string | null
-}> {
-  const linksResult = await runLinksPhase({
-    brand,
-    phases,
-    discoveredUrls,
-    knownUrls,
-  })
-  const imageResult = await runBrandImagePhase({
-    brand,
-    phases,
-    imageSearchUrls,
-    dryRun,
-    imageStorageId,
-  })
-  const descriptionsResult = await runDescriptionsPhase({
-    brand,
-    phases,
-    scrapedData: linksResult.scrapedData,
-    serpSnippets,
-  })
-  const patches: EnrichPatches = {
-    links: linksResult.patch as Partial<BrandFlatLinkColumns>,
-    images: imageResult.patch as EnrichImagePatch,
-    descriptions: descriptionsResult.patch as Partial<Pick<EnrichBrand, 'description' | 'brand_highlights'>>,
-  }
-
-  if (classification && classification.productType !== brand.product_type) {
-    patches.tags = { product_type: classification.productType }
-    onProgress?.(`  [TAG] ${brand.slug}: ${brand.product_type ?? 'null'} → ${classification.productType} (${classification.confidence})`)
-  } else if (classification) {
-    onProgress?.(`  [TAG] ${brand.slug}: ${brand.product_type} (unchanged)`)
-  }
-
-  if (descriptionsResult.descriptionRewrite) {
-    onProgress?.(`  [REWRITE] description: ${descriptionsResult.descriptionRewrite}`)
-  }
-
-  return {
-    patch: mergeEnrichPatches(patches),
-    hasCompletedTagClassification: phases.includes('tags') && classification !== null,
-    descriptionRewrite: descriptionsResult.descriptionRewrite,
-  }
-}
-
 export async function persistSubmissionEnrichmentResults(
   supabase: SupabaseClient,
   submissionId: string,
@@ -507,88 +388,6 @@ function submissionToEnrichBrand(submission: SubmissionEnrichmentRow): EnrichBra
       ? existing.product_photos.filter((url): url is string => typeof url === 'string')
       : [],
   }
-}
-
-export async function enrichSubmission(
-  supabase: SupabaseClient,
-  submissionId: string
-): Promise<void> {
-  const { data, error } = await supabase
-    .from('brand_submissions')
-    .select(
-      'id, brand_id, brand_name, status, description, website_url, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, other_urls, enriched_data'
-    )
-    .eq('id', submissionId)
-    .single()
-
-  if (error || !data) {
-    throw new Error(error?.message ?? 'Failed to fetch brand submission')
-  }
-
-  const submission = data as SubmissionEnrichmentRow
-  if (submission.status !== 'pending') {
-    throw new Error('Cannot enrich non-pending submission')
-  }
-
-  const phases = [...ENRICH_PHASES] as RunEnrichPhase[]
-  const brand = submissionToEnrichBrand(submission)
-  const brandDisplayName = displayBrandName(brand)
-  const searchResults = await batchSearchBrandsWithSnippets([brandDisplayName])
-  const searchResult = searchResults.get(brandDisplayName) ?? { urls: [], snippets: [] }
-  const imageSearchResults = await batchSearchBrandImages([brandDisplayName], 5)
-  const triageResults = await triageBrandsBatch([{
-    slug: brand.slug,
-    name: brandDisplayName,
-    description: brand.description ?? null,
-    website: brand.purchase_website ?? null,
-    snippets: searchResult.snippets,
-  }])
-  const triageResult = triageResults.get(brand.slug)
-
-  if (shouldSkipForNonBrand(triageResult)) {
-    await persistSubmissionEnrichmentResults(supabase, submissionId, {
-      name: brandDisplayName,
-      tag_slugs: triageResult?.valueTags ?? [],
-    })
-    return
-  }
-
-  const knownUrls = uniqueUrls([
-    ...collectKnownUrls(brand),
-    ...collectOtherUrls(submission.other_urls),
-    ...(hasLinkValue(submission.website_url) ? [submission.website_url] : []),
-  ])
-  const discoveredUrls = uniqueUrls(searchResult.urls.filter((url) => !knownUrls.includes(url)))
-  const classification = triageResult?.productType
-    ? {
-        productType: triageResult.productType,
-        confidence: triageResult.confidence,
-      } as ClassificationResult
-    : null
-  const { patch } = await buildEnrichmentPatchFromBrandInput({
-    brand,
-    phases,
-    knownUrls,
-    discoveredUrls,
-    serpSnippets: searchResult.snippets,
-    imageSearchUrls: imageSearchResults.get(brandDisplayName) ?? [],
-    classification,
-    dryRun: false,
-    imageStorageId: submissionId,
-  })
-  const triagePatch = buildTriagePatch(brand, triageResult, phases)
-  const submissionPatch = {
-    name: brandDisplayName,
-    ...patch,
-    ...(triagePatch.product_type ? { product_type: triagePatch.product_type } : {}),
-    ...(triagePatch.tag_slugs ? { tag_slugs: triagePatch.tag_slugs } : {}),
-  }
-
-  await persistSubmissionEnrichmentResults(
-    supabase,
-    submissionId,
-    submissionPatch
-  )
 }
 
 export async function persistEnrichmentResults(
