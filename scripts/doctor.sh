@@ -67,6 +67,9 @@ check_env() {
     if ! grep -q "SENTRY_AUTH_TOKEN=" .env.local 2>/dev/null; then
       echo "WARN: SENTRY_AUTH_TOKEN may not be set — Sentry source map upload will be skipped at build (check .env.local)"
     fi
+    if ! grep -q "RAILWAY_LOGS_URL=." .env.local 2>/dev/null; then
+      echo "WARN: RAILWAY_LOGS_URL not set (admin jobs page won't show logs link)"
+    fi
     if ! grep -q "UPSTASH_REDIS_REST_URL=https://" .env.local 2>/dev/null; then
       echo "WARN: UPSTASH_REDIS_REST_URL not set — rate limiter will use in-memory fallback (not distributed)"
     fi
