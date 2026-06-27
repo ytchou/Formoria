@@ -40,6 +40,9 @@ vi.mock('@/lib/supabase/server', () => ({
         eq: vi.fn().mockReturnValue({
           single: vi.fn().mockResolvedValue({ data: null, error: null }),
           maybeSingle: vi.fn().mockResolvedValue({ data: { user_id: 'owner-1' }, error: null }),
+          limit: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({ data: { user_id: 'owner-1' }, error: null }),
+          }),
         }),
       }),
       update: vi.fn().mockReturnValue({
@@ -252,7 +255,11 @@ describe('pending edit admin actions', () => {
     expect(result).toBeUndefined()
     expect(getPendingEditForReview).toHaveBeenCalledWith('edit-1')
     expect(approvePendingEdit).toHaveBeenCalledWith('edit-1', 'admin-1')
-    expect(buildEditApprovedEmail).toHaveBeenCalledWith('Test Brand', 'owner@example.com')
+    expect(buildEditApprovedEmail).toHaveBeenCalledWith({
+      brandName: 'Test Brand',
+      ownerEmail: 'owner@example.com',
+      locale: 'zh-TW',
+    })
     expect(sendEmail).toHaveBeenCalledWith(message)
   })
 
@@ -279,7 +286,12 @@ describe('pending edit admin actions', () => {
     expect(result).toBeUndefined()
     expect(getPendingEditForReview).toHaveBeenCalledWith('edit-1')
     expect(rejectPendingEdit).toHaveBeenCalledWith('edit-1', 'admin-1', 'Please add clearer product details')
-    expect(buildEditRejectedEmail).toHaveBeenCalledWith('Test Brand', 'owner@example.com', 'Please add clearer product details')
+    expect(buildEditRejectedEmail).toHaveBeenCalledWith({
+      brandName: 'Test Brand',
+      ownerEmail: 'owner@example.com',
+      notes: 'Please add clearer product details',
+      locale: 'zh-TW',
+    })
     expect(sendEmail).toHaveBeenCalledWith(message)
   })
 })
