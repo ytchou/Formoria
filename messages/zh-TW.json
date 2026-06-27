@@ -1580,6 +1580,9 @@
       "resubmit": "重新編輯",
       "close": "關閉"
     },
+    "enrichment": {
+      "complete": "資料抓取完成：{success} 筆成功、{skipped} 筆略過、{failed} 筆失敗"
+    },
     "moderation": {
       "riskHigh": "高風險",
       "riskMedium": "中風險",

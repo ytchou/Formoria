@@ -108,7 +108,7 @@ export function JobHistoryList({
             href={railwayLogsUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-md border border-border bg-white px-3 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="inline-flex items-center gap-2 rounded-md border border-border bg-white px-3 py-2.5 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             <ExternalLink className="h-4 w-4" aria-hidden="true" />
             View Railway Logs
@@ -116,7 +116,7 @@ export function JobHistoryList({
         </div>
       )}
 
-      <div className="overflow-hidden rounded-lg border border-[#E5E0D8] bg-white">
+      <div className="overflow-hidden rounded-lg border border-border bg-white">
         <Table>
           <TableHeader>
             <TableRow>

@@ -1,6 +1,7 @@
 import { revalidateTag } from 'next/cache'
 import {
   ENRICH_PHASES,
+  createEnrichmentSummary,
   runEnrich,
   type BrandOutcome,
   type OperationResult as CurationOperationResult,
@@ -412,24 +413,7 @@ function attachEnrichmentSummary(
 ): OperationWithSummary {
   return {
     ...result,
-    enrichmentSummary: {
-      success: result.brandOutcomes.filter((outcome) => outcome.status === 'succeeded').length,
-      skipped: result.brandOutcomes.filter((outcome) => outcome.status === 'skipped').length,
-      failed: result.brandOutcomes.filter((outcome) => outcome.status === 'failed').length,
-      failedBrands: result.brandOutcomes
-        .filter((outcome): outcome is BrandOutcome & { error: string } =>
-          outcome.status === 'failed' && typeof outcome.error === 'string'
-        )
-        .map((outcome) => {
-          const failedPhase = outcome.phaseResults?.find((phaseResult) => phaseResult.status === 'failed')
-          return {
-            slug: outcome.slug,
-            phase: failedPhase?.phase ?? 'brand',
-            error: failedPhase?.error ?? outcome.error,
-          }
-        }),
-      durationMs,
-    },
+    enrichmentSummary: createEnrichmentSummary(result, durationMs),
   }
 }
 

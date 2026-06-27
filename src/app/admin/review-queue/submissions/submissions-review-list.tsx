@@ -206,6 +206,7 @@ export function SubmissionsReviewList({
   taxonomyTags: ReviewTaxonomyTag[]
 }) {
   const moderationT = useTranslations('admin.moderation')
+  const enrichT = useTranslations('admin.enrichment')
   const [activeTab, setActiveTab] = useState<TabValue>('pending')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
@@ -384,7 +385,7 @@ export function SubmissionsReviewList({
 
       const { summary } = result
       toast.success(
-        `Enrichment complete: ${summary.success} success, ${summary.skipped} skipped, ${summary.failed} failed`
+        enrichT('complete', { success: summary.success, skipped: summary.skipped, failed: summary.failed })
       )
       setSelectedIds(new Set())
       router.refresh()

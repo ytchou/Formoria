@@ -1580,6 +1580,9 @@
       "resubmit": "Edit again",
       "close": "Dismiss"
     },
+    "enrichment": {
+      "complete": "Enrichment complete: {success} success, {skipped} skipped, {failed} failed"
+    },
     "moderation": {
       "riskHigh": "High Risk",
       "riskMedium": "Medium Risk",

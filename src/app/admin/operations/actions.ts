@@ -1,8 +1,13 @@
 'use server'
 
 import { isActingAsAdmin } from '@/lib/auth/admin-mode'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { listCurationJobs } from '@/lib/services/curation-jobs'
+import { createClient } from '@/lib/supabase/server'
+import {
+  checkForRunningJob,
+  createCurationJob,
+  listCurationJobs,
+  type CurationJob,
+} from '@/lib/services/curation-jobs'
 import { runJob, type CurationJob as RunnerCurationJob } from '@/lib/services/job-runner'
 import type { EnrichmentSummary } from '@/lib/services/enrichment-logger'
 import type { Json } from '@/lib/supabase/database.types'
@@ -16,21 +21,8 @@ export type CurationJobParams = Record<string, Json | undefined> & {
 }
 
 export type CurationOperation = 'enrich'
+export type { CurationJob }
 type StartCurationOperation = CurationOperation | 'clean-names'
-
-export type CurationJob = {
-  id: string
-  operation: CurationOperation
-  status: 'pending' | 'running' | 'completed' | 'failed'
-  params: Json | null
-  dry_run: boolean
-  progress: Json | null
-  result: Json | null
-  started_by: string
-  created_at: string | null
-  started_at: string | null
-  completed_at: string | null
-}
 
 async function requireAdmin(): Promise<{ userId: string; email: string } | { error: string }> {
   const supabase = await createClient()
@@ -59,40 +51,29 @@ export async function startCurationJobAction(
     const auth = await requireAdmin()
     if ('error' in auth) return auth
 
-    const supabase = createServiceClient()
-    const { data: runningJob, error: runningError } = await supabase
-      .from('curation_jobs')
-      .select('id')
-      .in('status', ['pending', 'running'])
-      .maybeSingle()
-
-    if (runningError) {
-      return { error: runningError.message }
+    const runningJob = await checkForRunningJob()
+    if (runningJob.error) {
+      return { error: runningJob.error }
     }
 
-    if (runningJob) {
+    if (runningJob.hasRunningJob) {
       return { error: 'A curation job is already running' }
     }
 
-    const { data: job, error: insertError } = await supabase
-      .from('curation_jobs')
-      .insert({
-        operation,
-        params,
-        dry_run: dryRun,
-        status: 'pending',
-        started_by: auth.email,
-      })
-      .select('*')
-      .single()
+    const createdJob = await createCurationJob({
+      operation,
+      params,
+      dryRun,
+      startedBy: auth.email,
+    })
 
-    if (insertError) {
-      return { error: insertError.message }
+    if ('error' in createdJob) {
+      return { error: createdJob.error }
     }
 
-    const summary = await runJob(job as RunnerCurationJob)
+    const summary = await runJob(createdJob.job as RunnerCurationJob)
 
-    return { jobId: job.id, summary }
+    return { jobId: createdJob.job.id, summary }
   } catch (err) {
     console.error('[admin:startCurationJobAction]', err)
     return {

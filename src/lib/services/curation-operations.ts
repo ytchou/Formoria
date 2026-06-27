@@ -376,7 +376,7 @@ function buildBrandPhaseOrder(phases: RunEnrichPhase[], hasTriagePhases: boolean
   ].filter((phase): phase is string => Boolean(phase))
 }
 
-function createEnrichmentSummary(result: OperationResult, durationMs: number): EnrichmentSummary {
+export function createEnrichmentSummary(result: OperationResult, durationMs: number): EnrichmentSummary {
   return {
     success: result.brandOutcomes.filter((outcome) => outcome.status === 'succeeded').length,
     skipped: result.brandOutcomes.filter((outcome) => outcome.status === 'skipped').length,
@@ -654,14 +654,15 @@ export async function runEnrich(
       const phaseOrder = buildBrandPhaseOrder(phases, hasTriagePhases)
       const totalPhases = phaseOrder.length
       const logCurrentPhase = (phaseResult: PhaseResult): void => {
-        const phaseIndex = phaseOrder.indexOf(phaseResult.phase) + 1
+        const rawIndex = phaseOrder.indexOf(phaseResult.phase)
+        const phaseIndex = rawIndex >= 0 ? rawIndex + 1 : totalPhases
         logPhaseResult(
           onProgress,
           brand,
           brandIndex,
           totalBrands,
           phaseResult,
-          phaseIndex > 0 ? phaseIndex : totalPhases,
+          phaseIndex,
           totalPhases,
         )
       }
