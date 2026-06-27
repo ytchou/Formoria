@@ -1,0 +1,62 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "🔍 Sentry Daily Triage — 2026-06-26 to 2026-06-27",
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Summary*\nTotal issues found: *2* · Critical: *2* · Moderate: *0* · Trivial: *0* · Noise: *0*\nTickets created: *1 new* · 1 grouped (same root cause, shared ticket) · 0 duplicates skipped\nIncident mode: *No*"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "🔴 *CRITICAL*"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*<https://yung-tang-chou.sentry.io/issues/MIT-MAP-1B|Error: column brand_submissions.enriched_data does not exist (42703)>*\n`Events: 3` · `New` · `Severity: Critical`\nAdmin submission review queue at `GET /admin/review-queue/submissions` is completely broken — no admin can access pending brand submissions.\n🎫 <https://linear.app/ytchou/issue/DEV-885/fix-missing-enriched_data-column-crashing-admin-submission-review|DEV-885> — Fix missing `enriched_data` column crashing admin submission review queue · Priority: Urgent · Labels: Bug, L"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*<https://yung-tang-chou.sentry.io/issues/MIT-MAP-1C|Error: {code: \"42703\", details: Null, hint: ..., message: ...}>*\n`Events: 1` · `New` · `Severity: Critical`\nSame underlying PostgreSQL 42703 error on the same admin route as MIT-MAP-1B — different Sentry grouping due to serialization difference, identical root cause.\n🎫 Existing: <https://linear.app/ytchou/issue/DEV-885/fix-missing-enriched_data-column-crashing-admin-submission-review|DEV-885> (same root cause, grouped under primary ticket)"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "🎫 *Tickets Created (1):*\n• <https://linear.app/ytchou/issue/DEV-885/fix-missing-enriched_data-column-crashing-admin-submission-review|DEV-885> — Fix missing `enriched_data` column crashing admin submission review queue (Priority: Urgent, L)\n\nGrouped 1 Sentry issue into DEV-885 (MIT-MAP-1C is same root cause as MIT-MAP-1B)"
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Sentry Daily Triage · Phase 2 · 2026-06-27T00:05 UTC · <https://yung-tang-chou.sentry.io/issues/?query=is%3Aunresolved+lastSeen%3A-24h|View all unresolved issues in Sentry>"
+        }
+      ]
+    }
+  ]
+}
