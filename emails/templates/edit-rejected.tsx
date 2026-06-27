@@ -9,15 +9,46 @@ import { FROM_ADDRESS, SITE_URL } from '@emails/styles'
 import type { EmailMessage } from '@emails/types'
 import { escapeHtml } from '@emails/utils'
 
+type Locale = 'zh-TW' | 'en'
+
+type EditRejectedEmailParams = {
+  brandName: string
+  ownerEmail: string
+  notes?: string
+  locale?: Locale
+}
+
 type EditRejectedTemplateProps = {
   brandNameHtml: string
   reviewerNotesHtml?: string
+  locale: Locale
 }
 
 export default function EditRejectedEmail({
   brandNameHtml,
   reviewerNotesHtml,
+  locale,
 }: EditRejectedTemplateProps) {
+  if (locale === 'en') {
+    return (
+      <Layout previewText="Your brand edit was not approved">
+        <EmailHeading>Your brand edit was not approved</EmailHeading>
+        <EmailText>
+          Thank you for submitting updates for <strong dangerouslySetInnerHTML={{ __html: brandNameHtml }} />.
+        </EmailText>
+        <EmailText>After review, we are unable to approve this edit at this time.</EmailText>
+        {reviewerNotesHtml ? (
+          <ReviewerNotes
+            label="Reviewer notes:"
+            notesHtml={reviewerNotesHtml}
+          />
+        ) : null}
+        <EmailText>You are welcome to revise and submit again.</EmailText>
+        <Button href={SITE_URL}>Visit Formoria</Button>
+      </Layout>
+    )
+  }
+
   return (
     <Layout previewText="您的品牌編輯未通過審核">
       <EmailHeading>您的品牌編輯未通過審核</EmailHeading>
@@ -25,22 +56,23 @@ export default function EditRejectedEmail({
         感謝您提交 <strong dangerouslySetInnerHTML={{ __html: brandNameHtml }} /> 的品牌資料更新。
       </EmailText>
       <EmailText>經審核後，我們目前無法批准此次編輯。</EmailText>
-      <EmailText>
-        Thank you for submitting updates for <strong dangerouslySetInnerHTML={{ __html: brandNameHtml }} />.
-      </EmailText>
-      <EmailText>After review, we are unable to approve this edit at this time.</EmailText>
-      {reviewerNotesHtml ? <ReviewerNotes notesHtml={reviewerNotesHtml} /> : null}
-      <EmailText>您可以依照審核意見調整後再次提交。You are welcome to revise and submit again.</EmailText>
-      <Button href={SITE_URL}>前往 Formoria / Visit Formoria</Button>
+      {reviewerNotesHtml ? (
+        <ReviewerNotes
+          label="審核意見："
+          notesHtml={reviewerNotesHtml}
+        />
+      ) : null}
+      <EmailText>您可以依照審核意見調整後再次提交。</EmailText>
+      <Button href={SITE_URL}>前往 Formoria</Button>
     </Layout>
   )
 }
 
-function ReviewerNotes({ notesHtml }: { notesHtml: string }) {
+function ReviewerNotes({ label, notesHtml }: { label: string; notesHtml: string }) {
   return (
     <>
       <EmailText>
-        <strong>審核意見 / Reviewer notes:</strong>
+        <strong>{label}</strong>
       </EmailText>
       <Text style={blockquote} dangerouslySetInnerHTML={{ __html: notesHtml }} />
     </>
@@ -54,22 +86,40 @@ const blockquote = {
   paddingLeft: '12px',
 }
 
-export async function buildEditRejectedEmail(
+export function buildEditRejectedEmail(params: EditRejectedEmailParams): Promise<EmailMessage>
+export function buildEditRejectedEmail(
   brandName: string,
   ownerEmail: string,
-  notes?: string
+  notes?: string,
+  locale?: Locale
+): Promise<EmailMessage>
+export async function buildEditRejectedEmail(
+  paramsOrBrandName: EditRejectedEmailParams | string,
+  ownerEmail?: string,
+  notes?: string,
+  locale?: Locale
 ): Promise<EmailMessage> {
-  const escapedBrandName = escapeHtml(brandName)
-  const reviewerNotes = notes?.trim() ?? ''
+  const params =
+    typeof paramsOrBrandName === 'string'
+      ? { brandName: paramsOrBrandName, ownerEmail: ownerEmail ?? '', notes, locale }
+      : paramsOrBrandName
+  const selectedLocale = params.locale ?? 'zh-TW'
+  const escapedBrandName = escapeHtml(params.brandName)
+  const reviewerNotes = params.notes?.trim() ?? ''
   const reviewerNotesHtml = reviewerNotes !== '' ? escapeHtml(reviewerNotes) : undefined
+  const subject =
+    selectedLocale === 'en'
+      ? `Your brand edit "${escapedBrandName}" was not approved — Formoria`
+      : `您的品牌編輯「${escapedBrandName}」未通過審核 — Formoria`
 
   return {
-    to: ownerEmail,
+    to: params.ownerEmail,
     from: FROM_ADDRESS,
-    subject: `您的品牌編輯「${escapedBrandName}」未通過審核 / Your brand edit was not approved — Formoria`,
+    subject,
     html: await render(
       <EditRejectedEmail
         brandNameHtml={escapedBrandName}
+        locale={selectedLocale}
         reviewerNotesHtml={reviewerNotesHtml}
       />
     ),

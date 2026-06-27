@@ -7,11 +7,14 @@ import { FROM_ADDRESS, SITE_URL } from '@emails/styles'
 import type { EmailMessage } from '@emails/types'
 import { listUnsubscribeHeaders } from '@emails/utils'
 
+type Locale = 'zh-TW' | 'en'
+
 type ReEngagementEmailProps = {
   to: string
   brandName: string
   brandSlug: string
   unsubscribeToken: string
+  locale?: Locale
 }
 
 export async function buildReEngagementEmail({
@@ -19,26 +22,44 @@ export async function buildReEngagementEmail({
   brandName,
   brandSlug,
   unsubscribeToken,
+  locale = 'zh-TW',
 }: ReEngagementEmailProps): Promise<EmailMessage> {
   const dashboardUrl = `${SITE_URL}/dashboard?tab=${brandSlug}`
   const unsubscribeUrl = `${SITE_URL}/api/unsubscribe?token=${unsubscribeToken}`
   const html = await render(
-    <Layout
-      previewText={`回到 Formoria 完善 ${brandName} 的品牌頁。`}
-      unsubscribeUrl={unsubscribeUrl}
-    >
-      <EmailHeading>繼續完善 {brandName}</EmailHeading>
-      <EmailText>
-        完成品牌資料後，買家能更清楚了解您的產品、品牌故事與合作方式。只需要幾分鐘，就能讓品牌頁更完整。
-      </EmailText>
-      <Button href={dashboardUrl}>回到品牌後台</Button>
-    </Layout>
+    locale === 'en' ? (
+      <Layout
+        previewText={`Come back to Formoria and complete ${brandName}'s brand page.`}
+        unsubscribeUrl={unsubscribeUrl}
+      >
+        <EmailHeading>Continue completing {brandName}</EmailHeading>
+        <EmailText>
+          Once your brand profile is complete, buyers can better understand your products, brand story, and partnership
+          options. A few minutes of updates can make your brand page much stronger.
+        </EmailText>
+        <Button href={dashboardUrl}>Return to brand dashboard</Button>
+      </Layout>
+    ) : (
+      <Layout
+        previewText={`回到 Formoria 完善 ${brandName} 的品牌頁。`}
+        unsubscribeUrl={unsubscribeUrl}
+      >
+        <EmailHeading>繼續完善 {brandName}</EmailHeading>
+        <EmailText>
+          完成品牌資料後，買家能更清楚了解您的產品、品牌故事與合作方式。只需要幾分鐘，就能讓品牌頁更完整。
+        </EmailText>
+        <Button href={dashboardUrl}>回到品牌後台</Button>
+      </Layout>
+    )
   )
 
   return {
     to,
     from: FROM_ADDRESS,
-    subject: `回來完善 ${brandName} 的品牌頁 — Formoria`,
+    subject:
+      locale === 'en'
+        ? `Come back and complete "${brandName}" — Formoria`
+        : `回來完善「${brandName}」的品牌頁 — Formoria`,
     html,
     headers: listUnsubscribeHeaders(unsubscribeToken),
   }

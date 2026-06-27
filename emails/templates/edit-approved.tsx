@@ -8,36 +8,75 @@ import { FROM_ADDRESS, SITE_URL } from '@emails/styles'
 import type { EmailMessage } from '@emails/types'
 import { escapeHtml } from '@emails/utils'
 
-type EditApprovedTemplateProps = {
-  brandNameHtml: string
+type Locale = 'zh-TW' | 'en'
+
+type EditApprovedEmailParams = {
+  brandName: string
+  ownerEmail: string
+  locale?: Locale
 }
 
-export default function EditApprovedEmail({ brandNameHtml }: EditApprovedTemplateProps) {
+type EditApprovedTemplateProps = {
+  brandNameHtml: string
+  locale: Locale
+}
+
+export default function EditApprovedEmail({ brandNameHtml, locale }: EditApprovedTemplateProps) {
+  if (locale === 'en') {
+    return (
+      <Layout previewText="Your brand edit has been approved!">
+        <EmailHeading>Your brand edit has been approved!</EmailHeading>
+        <EmailText>
+          Your edits for <strong dangerouslySetInnerHTML={{ __html: brandNameHtml }} /> have been approved and are now
+          live on Formoria.
+        </EmailText>
+        <Button href={SITE_URL}>Visit Formoria</Button>
+      </Layout>
+    )
+  }
+
   return (
     <Layout previewText="您的品牌編輯已通過審核！">
       <EmailHeading>您的品牌編輯已通過審核！</EmailHeading>
       <EmailText>
         <strong dangerouslySetInnerHTML={{ __html: brandNameHtml }} /> 的品牌資料更新已通過審核，變更已正式刊登於 Formoria。
       </EmailText>
-      <EmailText>
-        Your edits for <strong dangerouslySetInnerHTML={{ __html: brandNameHtml }} /> have been approved and are now
-        live on Formoria.
-      </EmailText>
-      <Button href={SITE_URL}>前往 Formoria / Visit Formoria</Button>
+      <Button href={SITE_URL}>前往 Formoria</Button>
     </Layout>
   )
 }
 
-export async function buildEditApprovedEmail(
+export function buildEditApprovedEmail(params: EditApprovedEmailParams): Promise<EmailMessage>
+export function buildEditApprovedEmail(
   brandName: string,
-  ownerEmail: string
+  ownerEmail: string,
+  locale?: Locale
+): Promise<EmailMessage>
+export async function buildEditApprovedEmail(
+  paramsOrBrandName: EditApprovedEmailParams | string,
+  ownerEmail?: string,
+  locale?: Locale
 ): Promise<EmailMessage> {
-  const escapedBrandName = escapeHtml(brandName)
+  const params =
+    typeof paramsOrBrandName === 'string'
+      ? { brandName: paramsOrBrandName, ownerEmail: ownerEmail ?? '', locale }
+      : paramsOrBrandName
+  const selectedLocale = params.locale ?? 'zh-TW'
+  const escapedBrandName = escapeHtml(params.brandName)
+  const subject =
+    selectedLocale === 'en'
+      ? `Your brand edit "${escapedBrandName}" has been approved — Formoria`
+      : `您的品牌編輯「${escapedBrandName}」已通過審核 — Formoria`
 
   return {
-    to: ownerEmail,
+    to: params.ownerEmail,
     from: FROM_ADDRESS,
-    subject: `您的品牌編輯「${escapedBrandName}」已通過審核 / Your brand edit has been approved — Formoria`,
-    html: await render(<EditApprovedEmail brandNameHtml={escapedBrandName} />),
+    subject,
+    html: await render(
+      <EditApprovedEmail
+        brandNameHtml={escapedBrandName}
+        locale={selectedLocale}
+      />
+    ),
   }
 }

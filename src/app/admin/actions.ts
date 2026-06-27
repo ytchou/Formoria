@@ -5,6 +5,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isActingAsAdmin } from '@/lib/auth/admin-mode'
 import { getSubmission, approveSubmission, rejectSubmission } from '@/lib/services/submissions'
 import type { SubmissionApprovalOverrides } from '@/lib/services/submissions'
+import { getOwnerLocale } from '@/lib/services/profiles'
 import {
   approveClaimRequest,
   getClaimRequest,
@@ -43,9 +44,6 @@ import {
   buildClaimRejectedEmail,
   buildEditApprovedEmail,
   buildEditRejectedEmail,
-  buildMitVerificationSubmittedEmail,
-  buildMitVerificationApprovedEmail,
-  buildMitVerificationNeedsDocsEmail,
 } from '@/lib/email/templates'
 import { createEmailPreferences } from '@/lib/services/email-lifecycle'
 import { generateClaimToken } from '@/lib/auth/claim-token'
@@ -53,7 +51,7 @@ import { updateReportStatus } from '@/lib/services/reports'
 import { updateFeedbackStatus, syncSentryFeedback } from '@/lib/services/feedback'
 import type { FeedbackStatus } from '@/lib/services/feedback'
 import { checkAllServices } from '@/lib/services/health-checks'
-import type { OtherUrl, TagCategory } from '@/lib/types'
+import { DENIAL_REASONS, type DenialReason, type OtherUrl, type TagCategory } from '@/lib/types'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 async function requireAdmin(): Promise<{ userId: string; email: string } | { error: string }> {
@@ -150,18 +148,28 @@ export async function approveSubmissionAction(
 
 export async function rejectSubmissionAction(
   submissionId: string,
+  denialReason: DenialReason,
   notes: string
 ): Promise<{ error: string } | undefined> {
   try {
     const auth = await requireAdmin()
     if ('error' in auth) return auth
 
+    if (!DENIAL_REASONS.includes(denialReason)) {
+      return { error: 'Invalid denial reason' }
+    }
+
+    if (denialReason === 'other' && notes.trim().length === 0) {
+      return { error: 'Notes are required when using "Other" reason' }
+    }
+
     const submission = await getSubmission(submissionId)
-    await rejectSubmission(submissionId, auth.userId, notes)
+    await rejectSubmission(submissionId, auth.userId, denialReason, notes)
 
     sendEmail(await buildRejectionEmail({
       submitterEmail: submission.submitterEmail,
       brandName: submission.brandName,
+      denialReason,
       reviewerNotes: notes,
     }))
 
@@ -288,7 +296,12 @@ export async function approvePendingEditAction(
 
     try {
       if (edit.ownerEmail && edit.brandName) {
-        await sendEmail(await buildEditApprovedEmail(edit.brandName, edit.ownerEmail))
+        const locale = await getOwnerLocale(edit.brandId)
+        await sendEmail(await buildEditApprovedEmail({
+          brandName: edit.brandName,
+          ownerEmail: edit.ownerEmail,
+          locale,
+        }))
       }
     } catch (err) {
       console.error('[edit-approved-email] send failed', err)
@@ -322,7 +335,13 @@ export async function rejectPendingEditAction(
 
     try {
       if (edit.ownerEmail && edit.brandName) {
-        await sendEmail(await buildEditRejectedEmail(edit.brandName, edit.ownerEmail, notes))
+        const locale = await getOwnerLocale(edit.brandId)
+        await sendEmail(await buildEditRejectedEmail({
+          brandName: edit.brandName,
+          ownerEmail: edit.ownerEmail,
+          notes,
+          locale,
+        }))
       }
     } catch (err) {
       console.error('[edit-rejected-email] send failed', err)
@@ -368,19 +387,7 @@ export async function verifyMitAction(
       resolvedCert = claimRequest?.mit_smile_cert ?? null
     }
 
-    const brand = await verifyMitStatus(brandId, resolvedCert, auth.userId)
-
-    try {
-      const ownerEmail = await getBrandOwnerEmail(brandId)
-      if (ownerEmail) {
-        sendEmail(await buildMitVerificationApprovedEmail({
-          to: ownerEmail,
-          brandName: brand.name,
-        }))
-      }
-    } catch (err) {
-      console.error('[mit-verification-approved-email] send failed', err)
-    }
+    await verifyMitStatus(brandId, resolvedCert, auth.userId)
 
     revalidatePath('/admin/claims')
     revalidatePath('/admin/catalog/brands')
@@ -411,20 +418,7 @@ export async function rejectMitAction(
       return { error: 'Rejection notes are required.' }
     }
 
-    const brand = await rejectMitStatus(brandId, auth.userId, trimmedNotes)
-
-    try {
-      const ownerEmail = await getBrandOwnerEmail(brandId)
-      if (ownerEmail) {
-        sendEmail(await buildMitVerificationNeedsDocsEmail({
-          to: ownerEmail,
-          brandName: brand.name,
-          notes: trimmedNotes,
-        }))
-      }
-    } catch (err) {
-      console.error('[mit-verification-needs-docs-email] send failed', err)
-    }
+    await rejectMitStatus(brandId, auth.userId, trimmedNotes)
 
     revalidatePath('/admin/claims')
     revalidatePath('/admin/catalog/brands')
@@ -449,19 +443,7 @@ export async function acknowledgeMitVerificationSubmissionAction(
     const auth = await requireAdmin()
     if ('error' in auth) return auth
 
-    const brand = await getBrandById(brandId)
-
-    try {
-      const ownerEmail = await getBrandOwnerEmail(brandId)
-      if (ownerEmail) {
-        sendEmail(await buildMitVerificationSubmittedEmail({
-          to: ownerEmail,
-          brandName: brand.name,
-        }))
-      }
-    } catch (err) {
-      console.error('[mit-verification-submitted-email] send failed', err)
-    }
+    await getBrandById(brandId)
 
     return { success: true }
   } catch (err) {

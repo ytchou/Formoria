@@ -7,6 +7,13 @@ export type SourceAttribution =
   | 'found_online'
   | 'friend_recommended'
   | 'work_there'
+export type DenialReason =
+  | 'not_mit'
+  | 'insufficient_info'
+  | 'duplicate'
+  | 'policy_violation'
+  | 'other'
+export type OwnerLocale = 'zh-TW' | 'en'
 
 export const SOURCE_ATTRIBUTION_VALUES = [
   'bought_product',
@@ -15,6 +22,18 @@ export const SOURCE_ATTRIBUTION_VALUES = [
   'friend_recommended',
   'work_there',
 ] as const satisfies readonly SourceAttribution[]
+
+export const DENIAL_REASONS = [
+  'not_mit',
+  'insufficient_info',
+  'duplicate',
+  'policy_violation',
+  'other',
+] as const satisfies readonly DenialReason[]
+
+export function normalizeOwnerLocale(locale: unknown): OwnerLocale {
+  return locale === 'en' ? 'en' : 'zh-TW'
+}
 
 export type BrandSubmission = {
   id: string
@@ -42,6 +61,7 @@ export type BrandSubmission = {
   notifiedAt: string | null
   isBrandOwner: boolean
   sourceAttribution?: SourceAttribution | null
+  denialReason?: DenialReason | null
   unifiedBusinessNumber?: string
 }
 

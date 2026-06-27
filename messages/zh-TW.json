@@ -1613,6 +1613,15 @@
         "proofInauthentic": "提供的證明疑似經過編輯或不實。",
         "needMoreEvidence": "現有證明不足，請補充其他佐證後再次申請。"
       }
+    },
+    "submissions": {
+      "denialReasons": {
+        "not_mit": "非台灣製造",
+        "insufficient_info": "資訊不足",
+        "duplicate": "重複提交",
+        "policy_violation": "違反政策",
+        "other": "其他"
+      }
     }
   },
   "adminMode": {

@@ -105,13 +105,30 @@ test.describe('Admin dashboard deep', () => {
       .single();
 
     await adminPage.goto('/admin/review-queue/submissions', { timeout: 60_000 });
+    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
     // Click the row text to expand the detail section (reject button is inside it)
     await adminPage.getByText(rejectBrandName).click();
-    const rejectBtn = adminPage.getByRole('button', { name: /^reject$|^拒絕$/i });
-    await expect(rejectBtn).toBeVisible({ timeout: 5_000 });
+
+    // Step 1: click "拒絕" to enter two-step rejection flow
+    const rejectBtn = adminPage.getByRole('button', { name: /^拒絕$/ });
+    await expect(rejectBtn).toBeVisible({ timeout: 10_000 });
     await rejectBtn.click();
-    // After rejection the server action revalidates and the button disappears
-    await expect(rejectBtn).toBeHidden({ timeout: 15_000 });
+
+    // Step 2: denial reason dropdown appears — select first reason "非台灣製造"
+    // The SelectTrigger renders as role=combobox with aria-label="拒絕原因"
+    const reasonCombobox = adminPage.getByRole('combobox', { name: '拒絕原因' });
+    await expect(reasonCombobox).toBeVisible({ timeout: 5_000 });
+    await reasonCombobox.click();
+    // Options render in a Radix UI portal — use page-level getByRole
+    await adminPage.getByRole('option', { name: '非台灣製造' }).click();
+
+    // Step 3: confirm rejection — button is enabled once a reason is selected
+    const confirmBtn = adminPage.getByRole('button', { name: '確認拒絕' });
+    await expect(confirmBtn).toBeEnabled({ timeout: 5_000 });
+    await confirmBtn.click();
+
+    // Rejection completes: confirm button text reverts (confirm locator becomes hidden)
+    await expect(confirmBtn).toBeHidden({ timeout: 15_000 });
 
     if (data?.id) {
       await supabase.from('brand_submissions').delete().eq('id', data.id);

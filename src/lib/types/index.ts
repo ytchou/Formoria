@@ -15,11 +15,18 @@ export type { TagCategory, TaxonomyTag } from './taxonomy'
 
 export type {
   BrandSubmission,
+  DenialReason,
   FormPurchaseLink,
   FormRetailLocation,
   FormSocialLinks,
+  OwnerLocale,
   SourceAttribution,
   ValidationStatus,
+} from './submission'
+
+export {
+  DENIAL_REASONS,
+  normalizeOwnerLocale,
 } from './submission'
 
 export type { BrandOutcome, CurationConfig, OperationResult } from './curation'

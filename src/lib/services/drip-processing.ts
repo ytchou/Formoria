@@ -7,6 +7,7 @@ import {
 import { sendEmail } from '@/lib/email/send'
 import * as supabaseServer from '@/lib/supabase/server'
 import type { EmailMessage } from '@/lib/email/types'
+import { normalizeOwnerLocale, type OwnerLocale } from '@/lib/types'
 
 declare module '@/lib/supabase/server' {
   export function createAdminClient(): unknown
@@ -25,6 +26,7 @@ type OwnerRow = {
   social_links?: Record<string, unknown>
   founding_year?: number
   site_enabled?: boolean
+  locale_preference: OwnerLocale
 }
 
 type QueryResult<T> = {
@@ -39,6 +41,7 @@ type QueryError = {
 type QueryBuilder<T> = PromiseLike<QueryResult<T>> & {
   eq?: (column: string, value: string) => QueryBuilder<T>
   is?: (column: string, value: null) => QueryBuilder<T>
+  in?: (column: string, value: string[]) => QueryBuilder<T>
   lt?: (column: string, value: string) => QueryBuilder<T>
   not?: (column: string, operator: string, value: unknown) => QueryBuilder<T>
 }
@@ -60,6 +63,7 @@ type DripBuilderProps = {
   unsubscribeToken: string
   completenessPercent: number
   missingFields: string[]
+  locale: OwnerLocale
 }
 
 type DripType = {
@@ -123,6 +127,7 @@ export async function evaluateDrips(
     (unsubscribedRows ?? []).map((row: { user_id: string }) => row.user_id)
   )
   const owners = ownerRows.map(normalizeOwnerRow)
+  const ownerLocales = await queryOwnerLocales(supabase, owners.map((owner) => owner.user_id))
   let sent = 0
   let skipped = 0
   let errors = 0
@@ -154,6 +159,7 @@ export async function evaluateDrips(
         brandName: owner.brand_name,
         brandSlug: owner.brand_slug,
         unsubscribeToken: owner.unsubscribe_token,
+        locale: ownerLocales.get(owner.user_id) ?? owner.locale_preference,
         ...profileCompleteness(owner),
       })
 
@@ -186,6 +192,33 @@ export async function evaluateDrips(
   }
 
   return { sent, skipped, errors }
+}
+
+async function queryOwnerLocales(
+  supabase: SupabaseClientLike,
+  userIds: string[]
+): Promise<Map<string, OwnerLocale>> {
+  const uniqueUserIds = Array.from(new Set(userIds.filter(Boolean)))
+  if (uniqueUserIds.length === 0) {
+    return new Map()
+  }
+
+  const query = supabase
+    .from<{ id: string; locale_preference: string | null }>('profiles')
+    .select('id, locale_preference')
+
+  const { data, error } = query.in
+    ? await query.in('id', uniqueUserIds)
+    : { data: null, error: { message: 'Supabase query builder is missing in()' } }
+
+  if (error) {
+    console.error('Failed to query owner locales', { error })
+    return new Map()
+  }
+
+  return new Map(
+    (data ?? []).map((row) => [row.id, normalizeOwnerLocale(row.locale_preference)])
+  )
 }
 
 function getAdminClient(): SupabaseClientLike {
@@ -249,6 +282,7 @@ function normalizeOwnerRow(row: Record<string, unknown>): OwnerRow {
     social_links: parsedSocialLinks,
     founding_year: typeof brand?.founding_year === 'number' ? brand.founding_year : undefined,
     site_enabled: objectValue(brand?.site_content)?.enabled === true,
+    locale_preference: normalizeOwnerLocale(row.locale_preference),
   }
 }
 

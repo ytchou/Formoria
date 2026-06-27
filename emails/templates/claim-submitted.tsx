@@ -67,8 +67,8 @@ export async function buildClaimEmail(props: ClaimSubmittedEmailProps): Promise<
     from: FROM_ADDRESS,
     subject:
       locale === 'en'
-        ? `Claim your brand page on Formoria — ${brandName}`
-        : `認領您在 Formoria 的品牌頁面 — ${brandName}`,
+        ? `Claim your brand page for "${brandName}" — Formoria`
+        : `認領「${brandName}」的品牌頁面 — Formoria`,
     html: await render(<ClaimSubmittedEmail {...props} siteUrl={props.siteUrl ?? SITE_URL} />),
   }
 }
