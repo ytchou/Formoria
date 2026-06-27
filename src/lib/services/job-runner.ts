@@ -99,7 +99,7 @@ export async function fetchJob(jobId: string): Promise<{ data: CurationJob | nul
     .single()
 }
 
-export async function runJob(job: CurationJob): Promise<void> {
+export async function runJob(job: CurationJob): Promise<EnrichmentSummary> {
   const supabase = createServiceClient()
 
   try {
@@ -119,6 +119,7 @@ export async function runJob(job: CurationJob): Promise<void> {
     })
     const revalidateTagOneArg = revalidateTag as RevalidateTagOneArg
     revalidateTagOneArg('quality-metrics')
+    return result.enrichmentSummary
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     await updateJob(supabase, job.id, {
@@ -129,6 +130,7 @@ export async function runJob(job: CurationJob): Promise<void> {
         error: message,
       } as Json,
     })
+    throw error
   }
 }
 

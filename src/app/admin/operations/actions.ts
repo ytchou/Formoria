@@ -1,9 +1,10 @@
 'use server'
 
-import { headers } from 'next/headers'
 import { isActingAsAdmin } from '@/lib/auth/admin-mode'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { listCurationJobs } from '@/lib/services/curation-jobs'
+import { runJob, type CurationJob as RunnerCurationJob } from '@/lib/services/job-runner'
+import type { EnrichmentSummary } from '@/lib/services/enrichment-logger'
 import type { Json } from '@/lib/supabase/database.types'
 
 export type CurationJobParams = Record<string, Json | undefined> & {
@@ -49,23 +50,11 @@ async function requireAdmin(): Promise<{ userId: string; email: string } | { err
   return { userId: user.id, email: user.email ?? '' }
 }
 
-async function getRequestOrigin(): Promise<string> {
-  const headerStore = await headers()
-  const host = headerStore.get('host')
-  const protocol = headerStore.get('x-forwarded-proto') ?? 'http'
-
-  if (!host) {
-    return process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-  }
-
-  return `${protocol}://${host}`
-}
-
 export async function startCurationJobAction(
   operation: StartCurationOperation,
   params: CurationJobParams,
   dryRun: boolean
-): Promise<{ jobId: string } | { error: string }> {
+): Promise<{ jobId: string; summary: EnrichmentSummary } | { error: string }> {
   try {
     const auth = await requireAdmin()
     if ('error' in auth) return auth
@@ -94,23 +83,16 @@ export async function startCurationJobAction(
         status: 'pending',
         started_by: auth.email,
       })
-      .select('id')
+      .select('*')
       .single()
 
     if (insertError) {
       return { error: insertError.message }
     }
 
-    const origin = await getRequestOrigin()
-    fetch(`${origin}/api/admin/run-job`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jobId: job.id }),
-    }).catch((err) => {
-      console.error('[admin:startCurationJobAction] run-job request failed:', err)
-    })
+    const summary = await runJob(job as RunnerCurationJob)
 
-    return { jobId: job.id }
+    return { jobId: job.id, summary }
   } catch (err) {
     console.error('[admin:startCurationJobAction]', err)
     return {
