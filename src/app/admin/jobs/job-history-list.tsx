@@ -1,5 +1,5 @@
 import { ExternalLink } from 'lucide-react'
-import type { CurationJob } from '@/app/admin/operations/actions'
+import type { CurationJob } from '@/lib/services/curation-jobs'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,

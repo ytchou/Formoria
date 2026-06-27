@@ -21,7 +21,6 @@ export type CurationJobParams = Record<string, Json | undefined> & {
 }
 
 export type CurationOperation = 'enrich'
-export type { CurationJob }
 type StartCurationOperation = CurationOperation | 'clean-names'
 
 async function requireAdmin(): Promise<{ userId: string; email: string } | { error: string }> {
