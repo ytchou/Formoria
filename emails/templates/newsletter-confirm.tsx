@@ -43,7 +43,7 @@ const COPY = {
     button: '確認訂閱',
     fallbackLink: '若按鈕無法使用，請開啟此連結：',
     disclaimer: '若您沒有訂閱 Formoria 電子報，可使用頁尾連結取消訂閱。',
-    subject: '確認您的 Formoria 訂閱',
+    subject: '確認您的 Formoria 訂閱 — Formoria',
   },
   en: {
     preview: 'Confirm your Formoria subscription',
@@ -53,7 +53,7 @@ const COPY = {
     button: 'Confirm Subscription',
     fallbackLink: 'If the button does not work, open this link:',
     disclaimer: 'If you did not request this subscription, you can unsubscribe from the footer link.',
-    subject: 'Confirm your Formoria subscription',
+    subject: 'Confirm your Formoria subscription — Formoria',
   },
 } as const
 

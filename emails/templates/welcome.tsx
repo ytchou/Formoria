@@ -72,8 +72,8 @@ export async function buildWelcomeEmail({
     from: FROM_ADDRESS,
     subject:
       locale === 'en'
-        ? `Welcome to Formoria — ${brandName} — Formoria`
-        : `歡迎加入 Formoria — ${brandName} — Formoria`,
+        ? `Welcome to "${brandName}" — Formoria`
+        : `歡迎加入「${brandName}」— Formoria`,
     html,
     headers: listUnsubscribeHeaders(unsubscribeToken),
   }

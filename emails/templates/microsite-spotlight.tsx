@@ -71,8 +71,8 @@ export async function buildMicrositeSpotlightEmail({
     from: FROM_ADDRESS,
     subject:
       locale === 'en'
-        ? `Your brand page is ready — ${brandName} — Formoria`
-        : `${brandName} 的品牌頁已就緒 — Formoria`,
+        ? `Your brand page is ready for "${brandName}" — Formoria`
+        : `「${brandName}」的品牌頁已就緒 — Formoria`,
     html,
     headers: listUnsubscribeHeaders(unsubscribeToken),
   }

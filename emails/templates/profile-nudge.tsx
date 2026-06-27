@@ -85,8 +85,8 @@ export async function buildProfileNudgeEmail({
     from: FROM_ADDRESS,
     subject:
       locale === 'en'
-        ? `Complete your brand profile — ${brandName} — Formoria`
-        : `完善 ${brandName} 的品牌資料 — Formoria`,
+        ? `Complete your brand profile for "${brandName}" — Formoria`
+        : `完善「${brandName}」的品牌資料 — Formoria`,
     html,
     headers: listUnsubscribeHeaders(unsubscribeToken),
   }

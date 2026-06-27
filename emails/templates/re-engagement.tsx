@@ -58,8 +58,8 @@ export async function buildReEngagementEmail({
     from: FROM_ADDRESS,
     subject:
       locale === 'en'
-        ? `Come back and complete ${brandName} — Formoria`
-        : `回來完善 ${brandName} 的品牌頁 — Formoria`,
+        ? `Come back and complete "${brandName}" — Formoria`
+        : `回來完善「${brandName}」的品牌頁 — Formoria`,
     html,
     headers: listUnsubscribeHeaders(unsubscribeToken),
   }
