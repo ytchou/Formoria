@@ -165,7 +165,7 @@ async function runOperation(supabase: Supabase, job: CurationJob): Promise<Opera
       result = await runEnrich(
         {
           ...config,
-          target: params.slugs?.length ? 'brands' : 'submissions',
+          target: params.target ?? (params.slugs?.length ? 'brands' : 'submissions'),
           status,
           phases: params.phases ?? [...ENRICH_PHASES],
         },
