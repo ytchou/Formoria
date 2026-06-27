@@ -79,12 +79,35 @@ function renderReviewListWithSubmissions(submissions: BrandSubmission[]) {
   )
 }
 
+function getSubmissionRow(brandName: string) {
+  const row = screen.getByText(brandName).closest('tr')
+  expect(row).not.toBeNull()
+  return row as HTMLElement
+}
+
+function getExpandedSubmissionRow(brandName: string) {
+  const expandedRow = getSubmissionRow(brandName).nextElementSibling
+  expect(expandedRow).not.toBeNull()
+  return expandedRow as HTMLElement
+}
+
+function getExpandedRowActionButton(brandName: string, name: string | RegExp) {
+  return within(getExpandedSubmissionRow(brandName)).getByRole('button', { name })
+}
+
+function getBulkRejectButton() {
+  const button = screen.getAllByRole('button', { name: '拒絕' })[0]
+  expect(button).toBeDefined()
+  return button as HTMLElement
+}
+
 async function expandAndStartReject() {
   const user = userEvent.setup()
   renderReviewList()
 
-  await user.click(screen.getByText('Test Brand'))
-  await user.click(screen.getByRole('button', { name: '拒絕' }))
+  const row = getSubmissionRow('Test Brand')
+  await user.click(within(row).getByText('Test Brand'))
+  await user.click(getExpandedRowActionButton('Test Brand', '拒絕'))
 
   return user
 }
@@ -125,7 +148,7 @@ describe('SubmissionsReviewList — bulk rejection', () => {
     const checkboxes = screen.getAllByRole('checkbox')
     await user.click(checkboxes[1])
     await user.click(checkboxes[2])
-    await user.click(screen.getByRole('button', { name: '批次拒絕' }))
+    await user.click(getBulkRejectButton())
 
     const reasonSelect = screen.getByRole('combobox', {
       name: /批次拒絕原因/,
@@ -150,7 +173,7 @@ describe('SubmissionsReviewList — bulk rejection', () => {
     const checkboxes = screen.getAllByRole('checkbox')
     await user.click(checkboxes[1])
     await user.click(checkboxes[2])
-    await user.click(screen.getByRole('button', { name: '批次拒絕' }))
+    await user.click(getBulkRejectButton())
 
     expect(
       screen.getByRole('button', { name: '確認批次拒絕' })
@@ -161,8 +184,11 @@ describe('SubmissionsReviewList — bulk rejection', () => {
 describe('SubmissionsReviewList rejection reasons', () => {
   it('shows denial reason dropdown when reject is clicked', async () => {
     const user = await expandAndStartReject()
+    const expandedRow = getExpandedSubmissionRow('Test Brand')
 
-    const reasonSelect = screen.getByRole('combobox', { name: /拒絕原因/ })
+    const reasonSelect = within(expandedRow).getByRole('combobox', {
+      name: /拒絕原因/,
+    })
     expect(reasonSelect).toBeInTheDocument()
 
     await user.click(reasonSelect)
@@ -177,12 +203,10 @@ describe('SubmissionsReviewList rejection reasons', () => {
 
   it('disables confirm button until reason is selected', async () => {
     await expandAndStartReject()
-
-    const expandedControls = screen.getByRole('button', { name: '確認拒絕' })
-      .closest('div')
+    const expandedRow = getExpandedSubmissionRow('Test Brand')
 
     expect(
-      within(expandedControls as HTMLElement).getByRole('button', {
+      within(expandedRow).getByRole('button', {
         name: '確認拒絕',
       })
     ).toBeDisabled()
@@ -190,10 +214,15 @@ describe('SubmissionsReviewList rejection reasons', () => {
 
   it('requires notes when Other reason is selected', async () => {
     const user = await expandAndStartReject()
+    const expandedRow = getExpandedSubmissionRow('Test Brand')
 
-    await user.click(screen.getByRole('combobox', { name: /拒絕原因/ }))
+    await user.click(
+      within(expandedRow).getByRole('combobox', { name: /拒絕原因/ })
+    )
     await user.click(await screen.findByRole('option', { name: '其他' }))
 
-    expect(screen.getByPlaceholderText('補充說明（必填）')).toBeInTheDocument()
+    expect(
+      within(expandedRow).getByPlaceholderText('補充說明（必填）')
+    ).toBeInTheDocument()
   })
 })
