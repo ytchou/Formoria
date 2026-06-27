@@ -638,7 +638,14 @@ export function SubmissionsReviewList({
                           <Button
                             size="sm"
                             variant="destructive"
-                            onClick={() => handleReject(submission.id)}
+                            onClick={async () => {
+                              if (!confirm('確定要拒絕此提交？')) return
+                              startTransition(async () => {
+                                setError(null)
+                                const result = await rejectSubmissionAction(submission.id, '')
+                                if (result?.error) setError(result.error)
+                              })
+                            }}
                             disabled={isPending}
                             className="h-7 px-2 text-xs"
                           >
