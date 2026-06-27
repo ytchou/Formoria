@@ -36,9 +36,9 @@ export async function checkSupabase(): Promise<ServiceHealthResult> {
       return result('Supabase', 'down', error.message)
     }
 
-    return result('Supabase', 'healthy', '連線正常')
+    return result('Supabase', 'healthy', 'Connection healthy')
   } catch (error) {
-    return result('Supabase', 'down', error instanceof Error ? error.message : '未知錯誤')
+    return result('Supabase', 'down', error instanceof Error ? error.message : 'Unknown error')
   }
 }
 
@@ -46,7 +46,7 @@ export async function checkSentry(): Promise<ServiceHealthResult> {
   const token = process.env.SENTRY_AUTH_TOKEN
 
   if (!token) {
-    return result('Sentry', 'unconfigured', '未設定 SENTRY_AUTH_TOKEN')
+    return result('Sentry', 'unconfigured', 'SENTRY_AUTH_TOKEN is not configured')
   }
 
   try {
@@ -62,10 +62,10 @@ export async function checkSentry(): Promise<ServiceHealthResult> {
     )
 
     return response.ok
-      ? result('Sentry', 'healthy', 'API 可連線')
-      : result('Sentry', 'down', `API 回傳 ${response.status}`)
+      ? result('Sentry', 'healthy', 'API reachable')
+      : result('Sentry', 'down', `API returned ${response.status}`)
   } catch (error) {
-    return result('Sentry', 'down', error instanceof Error ? error.message : '未知錯誤')
+    return result('Sentry', 'down', error instanceof Error ? error.message : 'Unknown error')
   }
 }
 
@@ -73,7 +73,7 @@ export async function checkResend(): Promise<ServiceHealthResult> {
   const { RESEND_API_KEY } = process.env
 
   if (!RESEND_API_KEY) {
-    return result('Resend', 'unconfigured', '未設定 Resend API 金鑰')
+    return result('Resend', 'unconfigured', 'Resend API key is not configured')
   }
 
   try {
@@ -85,10 +85,10 @@ export async function checkResend(): Promise<ServiceHealthResult> {
     })
 
     return response.ok
-      ? result('Resend', 'healthy', 'API 可連線')
-      : result('Resend', 'down', `API 回傳 ${response.status}`)
+      ? result('Resend', 'healthy', 'API reachable')
+      : result('Resend', 'down', `API returned ${response.status}`)
   } catch (error) {
-    return result('Resend', 'down', error instanceof Error ? error.message : '未知錯誤')
+    return result('Resend', 'down', error instanceof Error ? error.message : 'Unknown error')
   }
 }
 
@@ -96,7 +96,7 @@ export async function checkUpstashRedis(): Promise<ServiceHealthResult> {
   const { UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN } = process.env
 
   if (!UPSTASH_REDIS_REST_URL || !UPSTASH_REDIS_REST_TOKEN) {
-    return result('Upstash Redis', 'unconfigured', '未設定 Upstash Redis')
+    return result('Upstash Redis', 'unconfigured', 'Upstash Redis is not configured')
   }
 
   try {
@@ -110,17 +110,17 @@ export async function checkUpstashRedis(): Promise<ServiceHealthResult> {
     const latencyMs = Math.round(performance.now() - start)
 
     if (!response.ok) {
-      return result('Upstash Redis', 'down', `連線失敗：${response.statusText}`)
+      return result('Upstash Redis', 'down', `Connection failed: ${response.statusText}`)
     }
 
     return latencyMs < 500
-      ? result('Upstash Redis', 'healthy', `已連線（${latencyMs}ms）`)
-      : result('Upstash Redis', 'degraded', `已連線，延遲較高（${latencyMs}ms）`)
+      ? result('Upstash Redis', 'healthy', `Connected (${latencyMs}ms)`)
+      : result('Upstash Redis', 'degraded', `Connected, high latency (${latencyMs}ms)`)
   } catch (error) {
     return result(
       'Upstash Redis',
       'down',
-      `連線錯誤：${error instanceof Error ? error.message : '未知錯誤'}`
+      `Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`
     )
   }
 }
@@ -129,7 +129,7 @@ export async function checkTurnstile(): Promise<ServiceHealthResult> {
   const { TURNSTILE_SECRET_KEY } = process.env
 
   if (!TURNSTILE_SECRET_KEY) {
-    return result('Turnstile', 'unconfigured', '未設定 Turnstile 密鑰')
+    return result('Turnstile', 'unconfigured', 'Turnstile secret key is not configured')
   }
 
   try {
@@ -143,9 +143,9 @@ export async function checkTurnstile(): Promise<ServiceHealthResult> {
       signal: AbortSignal.timeout(3000),
     })
 
-    return result('Turnstile', 'healthy', 'API 可連線')
+    return result('Turnstile', 'healthy', 'API reachable')
   } catch (error) {
-    return result('Turnstile', 'down', error instanceof Error ? error.message : '未知錯誤')
+    return result('Turnstile', 'down', error instanceof Error ? error.message : 'Unknown error')
   }
 }
 
@@ -171,23 +171,23 @@ export async function checkTally(): Promise<ServiceHealthResult> {
     const latestSubmission = data?.[0]
 
     if (!latestSubmission?.created_at) {
-      return result('Tally', 'healthy', '尚無提交記錄')
+      return result('Tally', 'healthy', 'No submissions yet')
     }
 
     const ageMs = Date.now() - new Date(latestSubmission.created_at).getTime()
     const ageDays = ageMs / (1000 * 60 * 60 * 24)
 
     if (ageDays < 30) {
-      return result('Tally', 'healthy', '有近期提交記錄')
+      return result('Tally', 'healthy', 'Recent submissions found')
     }
 
     if (ageDays <= 90) {
-      return result('Tally', 'degraded', '過去 30 天無提交記錄')
+      return result('Tally', 'degraded', 'No submissions in the last 30 days')
     }
 
-    return result('Tally', 'down', '過去 90 天無提交記錄')
+    return result('Tally', 'down', 'No submissions in the last 90 days')
   } catch (error) {
-    return result('Tally', 'down', error instanceof Error ? error.message : '未知錯誤')
+    return result('Tally', 'down', error instanceof Error ? error.message : 'Unknown error')
   }
 }
 
@@ -195,7 +195,7 @@ export async function checkRailway(): Promise<ServiceHealthResult> {
   const { NEXT_PUBLIC_SITE_URL } = process.env
 
   if (!NEXT_PUBLIC_SITE_URL) {
-    return result('Railway', 'unconfigured', '未設定網站 URL')
+    return result('Railway', 'unconfigured', 'Site URL is not configured')
   }
 
   try {
@@ -205,10 +205,10 @@ export async function checkRailway(): Promise<ServiceHealthResult> {
     })
 
     return response.ok
-      ? result('Railway', 'healthy', '網站可連線')
-      : result('Railway', 'down', `網站回傳 ${response.status}`)
+      ? result('Railway', 'healthy', 'Site reachable')
+      : result('Railway', 'down', `Site returned ${response.status}`)
   } catch (error) {
-    return result('Railway', 'down', error instanceof Error ? error.message : '未知錯誤')
+    return result('Railway', 'down', error instanceof Error ? error.message : 'Unknown error')
   }
 }
 
@@ -216,7 +216,7 @@ export async function checkApify(): Promise<ServiceHealthResult> {
   const { APIFY_TOKEN } = process.env
 
   if (!APIFY_TOKEN) {
-    return result('Apify', 'unconfigured', '未設定 APIFY_TOKEN')
+    return result('Apify', 'unconfigured', 'APIFY_TOKEN is not configured')
   }
 
   try {
@@ -228,15 +228,15 @@ export async function checkApify(): Promise<ServiceHealthResult> {
     )
 
     if (!response.ok) {
-      return result('Apify', 'down', `API 回傳 ${response.status}`)
+      return result('Apify', 'down', `API returned ${response.status}`)
     }
 
     const usage = await response.json()
     const spend = usage.data.totalUsageCreditsUsdAfterVolumeDiscount
 
-    return result('Apify', 'healthy', `本週期已花費 $${spend.toFixed(2)}`)
+    return result('Apify', 'healthy', `$${spend.toFixed(2)} spent this cycle`)
   } catch (error) {
-    return result('Apify', 'down', error instanceof Error ? error.message : '未知錯誤')
+    return result('Apify', 'down', error instanceof Error ? error.message : 'Unknown error')
   }
 }
 
@@ -244,7 +244,7 @@ export async function checkDeepSeek(): Promise<ServiceHealthResult> {
   const { DEEPSEEK_API_KEY } = process.env
 
   if (!DEEPSEEK_API_KEY) {
-    return result('DeepSeek', 'unconfigured', '未設定 DEEPSEEK_API_KEY')
+    return result('DeepSeek', 'unconfigured', 'DEEPSEEK_API_KEY is not configured')
   }
 
   try {
@@ -256,7 +256,7 @@ export async function checkDeepSeek(): Promise<ServiceHealthResult> {
     })
 
     if (!response.ok) {
-      return result('DeepSeek', 'down', `API 回傳 ${response.status}`)
+      return result('DeepSeek', 'down', `API returned ${response.status}`)
     }
 
     const balance = await response.json()
@@ -266,16 +266,16 @@ export async function checkDeepSeek(): Promise<ServiceHealthResult> {
     const remaining = Number.parseFloat(balanceInfo.total_balance)
 
     if (balance.is_available === false || remaining === 0) {
-      return result('DeepSeek', 'down', `餘額 $${remaining.toFixed(2)}`)
+      return result('DeepSeek', 'down', `$${remaining.toFixed(2)} remaining`)
     }
 
     if (remaining <= 1 && remaining > 0) {
-      return result('DeepSeek', 'degraded', `餘額偏低 $${remaining.toFixed(2)}`)
+      return result('DeepSeek', 'degraded', `$${remaining.toFixed(2)} remaining`)
     }
 
-    return result('DeepSeek', 'healthy', `餘額 $${remaining.toFixed(2)}`)
+    return result('DeepSeek', 'healthy', `$${remaining.toFixed(2)} remaining`)
   } catch (error) {
-    return result('DeepSeek', 'down', error instanceof Error ? error.message : '未知錯誤')
+    return result('DeepSeek', 'down', error instanceof Error ? error.message : 'Unknown error')
   }
 }
 
@@ -310,7 +310,7 @@ export async function checkAllServices(): Promise<ServiceHealthResult[]> {
       : result(
           serviceNames[index] ?? 'Unknown',
           'down',
-          check.reason instanceof Error ? check.reason.message : '未知錯誤'
+          check.reason instanceof Error ? check.reason.message : 'Unknown error'
         )
   )
 }
