@@ -106,6 +106,12 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
   type BrandStatus = (typeof VALID_BRAND_STATUSES)[number]
   const status = VALID_BRAND_STATUSES.includes(statusRaw as BrandStatus) ? (statusRaw as BrandStatus) : undefined
 
+  if (status && !slugs?.length) {
+    console.warn(
+      '--status without --slugs is deprecated. Default enrichment now targets submissions. Use --slugs for brand re-enrichment.'
+    )
+  }
+
   if (slugs) {
     config.slugs = slugs
   }

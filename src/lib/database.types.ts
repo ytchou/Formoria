@@ -44,6 +44,62 @@ export type Database = {
         }
         Relationships: []
       }
+      brand_ai_results: {
+        Row: {
+          brand_id: string
+          confidence: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_non_brand: boolean | null
+          model: string
+          non_brand_reason: string | null
+          phase: string
+          product_type: string | null
+          raw_response: Json | null
+          slug_generated: string | null
+          value_tags: string[]
+        }
+        Insert: {
+          brand_id: string
+          confidence?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_non_brand?: boolean | null
+          model: string
+          non_brand_reason?: string | null
+          phase: string
+          product_type?: string | null
+          raw_response?: Json | null
+          slug_generated?: string | null
+          value_tags?: string[]
+        }
+        Update: {
+          brand_id?: string
+          confidence?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_non_brand?: boolean | null
+          model?: string
+          non_brand_reason?: string | null
+          phase?: string
+          product_type?: string | null
+          raw_response?: Json | null
+          slug_generated?: string | null
+          value_tags?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_ai_results_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_analytics: {
         Row: {
           brand_id: string
@@ -216,19 +272,94 @@ export type Database = {
           },
         ]
       }
+      brand_search_results: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          query: string
+          raw_response: Json | null
+          search_type: string
+          snippets: string[]
+          urls: string[]
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          query: string
+          raw_response?: Json | null
+          search_type: string
+          snippets?: string[]
+          urls?: string[]
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          query?: string
+          raw_response?: Json | null
+          search_type?: string
+          snippets?: string[]
+          urls?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_search_results_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_slug_redirects: {
+        Row: {
+          created_at: string
+          new_slug: string
+          old_slug: string
+        }
+        Insert: {
+          created_at?: string
+          new_slug: string
+          old_slug: string
+        }
+        Update: {
+          created_at?: string
+          new_slug?: string
+          old_slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_slug_redirects_new_slug_fkey"
+            columns: ["new_slug"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
       brand_submissions: {
         Row: {
           brand_id: string | null
           brand_name: string
           description: string | null
+          enriched_data: Json | null
           id: string
           is_brand_owner: boolean | null
           notified_at: string | null
+          other_urls: Json
           pdpa_consent_at: string | null
+          product_type_note: string | null
+          purchase_pinkoi: string | null
+          purchase_shopee: string | null
+          purchase_website: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           reviewer_notes: string | null
-          social_links: Json | null
+          social_facebook: string | null
+          social_instagram: string | null
+          social_threads: string | null
           source_attribution: string | null
           status: string
           submitted_at: string | null
@@ -244,14 +375,22 @@ export type Database = {
           brand_id?: string | null
           brand_name: string
           description?: string | null
+          enriched_data?: Json | null
           id?: string
           is_brand_owner?: boolean | null
           notified_at?: string | null
+          other_urls?: Json
           pdpa_consent_at?: string | null
+          product_type_note?: string | null
+          purchase_pinkoi?: string | null
+          purchase_shopee?: string | null
+          purchase_website?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           reviewer_notes?: string | null
-          social_links?: Json | null
+          social_facebook?: string | null
+          social_instagram?: string | null
+          social_threads?: string | null
           source_attribution?: string | null
           status?: string
           submitted_at?: string | null
@@ -267,14 +406,22 @@ export type Database = {
           brand_id?: string | null
           brand_name?: string
           description?: string | null
+          enriched_data?: Json | null
           id?: string
           is_brand_owner?: boolean | null
           notified_at?: string | null
+          other_urls?: Json
           pdpa_consent_at?: string | null
+          product_type_note?: string | null
+          purchase_pinkoi?: string | null
+          purchase_shopee?: string | null
+          purchase_website?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           reviewer_notes?: string | null
-          social_links?: Json | null
+          social_facebook?: string | null
+          social_instagram?: string | null
+          social_threads?: string | null
           source_attribution?: string | null
           status?: string
           submitted_at?: string | null
@@ -329,8 +476,8 @@ export type Database = {
       brands: {
         Row: {
           approved_at: string | null
+          brand_enriched_at: string | null
           brand_highlights: string | null
-          category: string | null
           contact_email: string | null
           created_at: string | null
           description: string | null
@@ -340,19 +487,26 @@ export type Database = {
           founding_year: number | null
           hero_image_url: string | null
           id: string
+          images_enriched_at: string | null
           is_demo: boolean
-          logo_url: string | null
           mit_claimed_at: string | null
           mit_evidence: Json | null
           mit_status: string
           mit_verified_at: string | null
           name: string
+          other_urls: Json
           product_photos: Json | null
-          purchase_links: Json | null
+          product_type: string | null
+          purchase_pinkoi: string | null
+          purchase_shopee: string | null
+          purchase_website: string | null
           retail_locations: Json | null
+          serp_enriched_at: string | null
           site_content: Json | null
           slug: string
-          social_links: Json | null
+          social_facebook: string | null
+          social_instagram: string | null
+          social_threads: string | null
           source: string | null
           status: string
           submitted_at: string | null
@@ -362,8 +516,8 @@ export type Database = {
         }
         Insert: {
           approved_at?: string | null
+          brand_enriched_at?: string | null
           brand_highlights?: string | null
-          category?: string | null
           contact_email?: string | null
           created_at?: string | null
           description?: string | null
@@ -373,19 +527,26 @@ export type Database = {
           founding_year?: number | null
           hero_image_url?: string | null
           id?: string
+          images_enriched_at?: string | null
           is_demo?: boolean
-          logo_url?: string | null
           mit_claimed_at?: string | null
           mit_evidence?: Json | null
           mit_status?: string
           mit_verified_at?: string | null
           name: string
+          other_urls?: Json
           product_photos?: Json | null
-          purchase_links?: Json | null
+          product_type?: string | null
+          purchase_pinkoi?: string | null
+          purchase_shopee?: string | null
+          purchase_website?: string | null
           retail_locations?: Json | null
+          serp_enriched_at?: string | null
           site_content?: Json | null
           slug: string
-          social_links?: Json | null
+          social_facebook?: string | null
+          social_instagram?: string | null
+          social_threads?: string | null
           source?: string | null
           status?: string
           submitted_at?: string | null
@@ -395,8 +556,8 @@ export type Database = {
         }
         Update: {
           approved_at?: string | null
+          brand_enriched_at?: string | null
           brand_highlights?: string | null
-          category?: string | null
           contact_email?: string | null
           created_at?: string | null
           description?: string | null
@@ -406,19 +567,26 @@ export type Database = {
           founding_year?: number | null
           hero_image_url?: string | null
           id?: string
+          images_enriched_at?: string | null
           is_demo?: boolean
-          logo_url?: string | null
           mit_claimed_at?: string | null
           mit_evidence?: Json | null
           mit_status?: string
           mit_verified_at?: string | null
           name?: string
+          other_urls?: Json
           product_photos?: Json | null
-          purchase_links?: Json | null
+          product_type?: string | null
+          purchase_pinkoi?: string | null
+          purchase_shopee?: string | null
+          purchase_website?: string | null
           retail_locations?: Json | null
+          serp_enriched_at?: string | null
           site_content?: Json | null
           slug?: string
-          social_links?: Json | null
+          social_facebook?: string | null
+          social_instagram?: string | null
+          social_threads?: string | null
           source?: string | null
           status?: string
           submitted_at?: string | null
@@ -483,6 +651,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      curation_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          dry_run: boolean
+          id: string
+          operation: string
+          params: Json | null
+          progress: Json | null
+          result: Json | null
+          started_at: string | null
+          started_by: string
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          dry_run?: boolean
+          id?: string
+          operation: string
+          params?: Json | null
+          progress?: Json | null
+          result?: Json | null
+          started_at?: string | null
+          started_by: string
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          dry_run?: boolean
+          id?: string
+          operation?: string
+          params?: Json | null
+          progress?: Json | null
+          result?: Json | null
+          started_at?: string | null
+          started_by?: string
+          status?: string
+        }
+        Relationships: []
       }
       email_sends: {
         Row: {
@@ -606,6 +816,48 @@ export type Database = {
           },
         ]
       }
+      newsletter_subscribers: {
+        Row: {
+          confirm_token: string
+          confirmed_at: string | null
+          created_at: string
+          email: string
+          id: string
+          interests: string[] | null
+          locale: string
+          name: string | null
+          subscribed_at: string
+          unsubscribe_token: string
+          unsubscribed_at: string | null
+        }
+        Insert: {
+          confirm_token?: string
+          confirmed_at?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          interests?: string[] | null
+          locale?: string
+          name?: string | null
+          subscribed_at?: string
+          unsubscribe_token?: string
+          unsubscribed_at?: string | null
+        }
+        Update: {
+          confirm_token?: string
+          confirmed_at?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          interests?: string[] | null
+          locale?: string
+          name?: string | null
+          subscribed_at?: string
+          unsubscribe_token?: string
+          unsubscribed_at?: string | null
+        }
+        Relationships: []
+      }
       owner_email_preferences: {
         Row: {
           created_at: string
@@ -674,6 +926,33 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          email_notifications: boolean
+          id: string
+          locale_preference: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          email_notifications?: boolean
+          id: string
+          locale_preference?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          email_notifications?: boolean
+          id?: string
+          locale_preference?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       taxonomy_tags: {
         Row: {
           category: string
@@ -728,6 +1007,15 @@ export type Database = {
         Args: { p_name: string; p_ubn?: string }
         Returns: Json
       }
+      find_similar_brands: {
+        Args: { p_names: string[]; p_threshold?: number }
+        Returns: {
+          brand_name: string
+          brand_slug: string
+          input_name: string
+          similarity_score: number
+        }[]
+      }
       increment_brand_click: {
         Args: { p_brand_id: string }
         Returns: undefined
@@ -748,8 +1036,8 @@ export type Database = {
       search_brands: {
         Args: { result_limit?: number; search_query: string }
         Returns: {
+          hero_image_url: string
           id: string
-          logo_url: string
           name: string
           primary_category_name: string
           similarity_score: number
