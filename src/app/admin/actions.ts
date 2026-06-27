@@ -43,9 +43,6 @@ import {
   buildClaimRejectedEmail,
   buildEditApprovedEmail,
   buildEditRejectedEmail,
-  buildMitVerificationSubmittedEmail,
-  buildMitVerificationApprovedEmail,
-  buildMitVerificationNeedsDocsEmail,
 } from '@/lib/email/templates'
 import { createEmailPreferences } from '@/lib/services/email-lifecycle'
 import { generateClaimToken } from '@/lib/auth/claim-token'
@@ -389,19 +386,7 @@ export async function verifyMitAction(
       resolvedCert = claimRequest?.mit_smile_cert ?? null
     }
 
-    const brand = await verifyMitStatus(brandId, resolvedCert, auth.userId)
-
-    try {
-      const ownerEmail = await getBrandOwnerEmail(brandId)
-      if (ownerEmail) {
-        sendEmail(await buildMitVerificationApprovedEmail({
-          to: ownerEmail,
-          brandName: brand.name,
-        }))
-      }
-    } catch (err) {
-      console.error('[mit-verification-approved-email] send failed', err)
-    }
+    await verifyMitStatus(brandId, resolvedCert, auth.userId)
 
     revalidatePath('/admin/claims')
     revalidatePath('/admin/catalog/brands')
@@ -432,20 +417,7 @@ export async function rejectMitAction(
       return { error: 'Rejection notes are required.' }
     }
 
-    const brand = await rejectMitStatus(brandId, auth.userId, trimmedNotes)
-
-    try {
-      const ownerEmail = await getBrandOwnerEmail(brandId)
-      if (ownerEmail) {
-        sendEmail(await buildMitVerificationNeedsDocsEmail({
-          to: ownerEmail,
-          brandName: brand.name,
-          notes: trimmedNotes,
-        }))
-      }
-    } catch (err) {
-      console.error('[mit-verification-needs-docs-email] send failed', err)
-    }
+    await rejectMitStatus(brandId, auth.userId, trimmedNotes)
 
     revalidatePath('/admin/claims')
     revalidatePath('/admin/catalog/brands')
@@ -470,19 +442,7 @@ export async function acknowledgeMitVerificationSubmissionAction(
     const auth = await requireAdmin()
     if ('error' in auth) return auth
 
-    const brand = await getBrandById(brandId)
-
-    try {
-      const ownerEmail = await getBrandOwnerEmail(brandId)
-      if (ownerEmail) {
-        sendEmail(await buildMitVerificationSubmittedEmail({
-          to: ownerEmail,
-          brandName: brand.name,
-        }))
-      }
-    } catch (err) {
-      console.error('[mit-verification-submitted-email] send failed', err)
-    }
+    await getBrandById(brandId)
 
     return { success: true }
   } catch (err) {

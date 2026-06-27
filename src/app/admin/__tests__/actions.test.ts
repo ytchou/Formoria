@@ -177,9 +177,6 @@ describe('rejectSubmissionAction', () => {
       buildClaimRejectedEmail: vi.fn(),
       buildEditApprovedEmail: vi.fn(),
       buildEditRejectedEmail: vi.fn(),
-      buildMitVerificationSubmittedEmail: vi.fn(),
-      buildMitVerificationApprovedEmail: vi.fn(),
-      buildMitVerificationNeedsDocsEmail: vi.fn(),
     }))
 
     vi.doMock('@/lib/services/email-lifecycle', () => ({

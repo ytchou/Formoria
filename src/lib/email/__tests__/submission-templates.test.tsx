@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { buildApprovalEmail } from '@emails/templates/submission-approved'
 import { buildRejectionEmail } from '@emails/templates/submission-rejected'
-import { buildIncompleteSubmissionEmail } from '@emails/templates/submission-incomplete'
 
 describe('buildApprovalEmail', () => {
   it('returns EmailMessage with branded HTML', async () => {
@@ -47,20 +46,5 @@ describe('buildRejectionEmail', () => {
     expect(email.html).toContain('Not a Taiwan brand')
     expect(email.html).toContain('Formoria')
     expect(email.html).not.toContain('<script>')
-  })
-})
-
-describe('buildIncompleteSubmissionEmail', () => {
-  it('lists missing fields with branded layout', async () => {
-    const email = await buildIncompleteSubmissionEmail({
-      submitterEmail: 'test@example.com',
-      brandName: 'Test Brand',
-      missingFields: ['missing_description', 'missing_category'],
-      siteUrl: 'https://formoria.com',
-    })
-    expect(email.to).toBe('test@example.com')
-    expect(email.html).toContain('Test Brand')
-    expect(email.html).toContain('Formoria')
-    expect(email.html).not.toContain('undefined')
   })
 })

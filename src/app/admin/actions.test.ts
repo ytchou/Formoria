@@ -152,9 +152,6 @@ vi.mock('@/lib/email/templates', () => ({
   buildClaimRejectedEmail: vi.fn(),
   buildEditApprovedEmail: vi.fn(),
   buildEditRejectedEmail: vi.fn(),
-  buildMitVerificationSubmittedEmail: vi.fn(),
-  buildMitVerificationApprovedEmail: vi.fn(),
-  buildMitVerificationNeedsDocsEmail: vi.fn(),
 }))
 
 vi.mock('@/lib/services/email-lifecycle', () => ({
@@ -475,68 +472,43 @@ describe('updateBrandAction moderation audit', () => {
   })
 })
 
-describe('MIT verification email actions', () => {
+describe('MIT verification actions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCookie('god')
   })
 
-  it('sends submitted email when MIT verification submission is acknowledged', async () => {
+  it('acknowledges MIT verification submission', async () => {
     const { getBrandById } = await import('@/lib/services/brands')
-    const { sendEmail } = await import('@/lib/email/send')
-    const { buildMitVerificationSubmittedEmail } = await import('@/lib/email/templates')
-    const message = { to: 'owner@example.com', from: 'ops@formoria.com', subject: 'submitted', html: '' }
     vi.mocked(getBrandById).mockResolvedValue({ id: 'brand-1', name: 'Test Brand' } as Awaited<ReturnType<typeof getBrandById>>)
-    vi.mocked(buildMitVerificationSubmittedEmail).mockResolvedValue(message)
 
     const { acknowledgeMitVerificationSubmissionAction } = await import('./actions')
     const result = await acknowledgeMitVerificationSubmissionAction('brand-1')
 
     expect(result).toEqual({ success: true })
-    expect(buildMitVerificationSubmittedEmail).toHaveBeenCalledWith({
-      to: 'owner@example.com',
-      brandName: 'Test Brand',
-    })
-    expect(sendEmail).toHaveBeenCalledWith(message)
+    expect(getBrandById).toHaveBeenCalledWith('brand-1')
   })
 
-  it('sends approved email after MIT verification is approved', async () => {
+  it('approves MIT verification status', async () => {
     const { verifyMitStatus } = await import('@/lib/services/mit-verification')
-    const { sendEmail } = await import('@/lib/email/send')
-    const { buildMitVerificationApprovedEmail } = await import('@/lib/email/templates')
-    const message = { to: 'owner@example.com', from: 'ops@formoria.com', subject: 'approved', html: '' }
     vi.mocked(verifyMitStatus).mockResolvedValue({ id: 'brand-1', name: 'Test Brand' } as Awaited<ReturnType<typeof verifyMitStatus>>)
-    vi.mocked(buildMitVerificationApprovedEmail).mockResolvedValue(message)
 
     const { verifyMitAction } = await import('./actions')
     const result = await verifyMitAction('brand-1', '01200024-02134')
 
     expect(result).toBeUndefined()
-    expect(buildMitVerificationApprovedEmail).toHaveBeenCalledWith({
-      to: 'owner@example.com',
-      brandName: 'Test Brand',
-    })
-    expect(sendEmail).toHaveBeenCalledWith(message)
+    expect(verifyMitStatus).toHaveBeenCalledWith('brand-1', '01200024-02134', 'admin-1')
   })
 
-  it('sends needs-docs email after MIT verification is rejected', async () => {
+  it('rejects MIT verification status with notes', async () => {
     const { rejectMitStatus } = await import('@/lib/services/mit-verification')
-    const { sendEmail } = await import('@/lib/email/send')
-    const { buildMitVerificationNeedsDocsEmail } = await import('@/lib/email/templates')
-    const message = { to: 'owner@example.com', from: 'ops@formoria.com', subject: 'needs docs', html: '' }
     vi.mocked(rejectMitStatus).mockResolvedValue({ id: 'brand-1', name: 'Test Brand' } as Awaited<ReturnType<typeof rejectMitStatus>>)
-    vi.mocked(buildMitVerificationNeedsDocsEmail).mockResolvedValue(message)
 
     const { rejectMitAction } = await import('./actions')
     const result = await rejectMitAction('brand-1', 'Please upload factory docs')
 
     expect(result).toBeUndefined()
-    expect(buildMitVerificationNeedsDocsEmail).toHaveBeenCalledWith({
-      to: 'owner@example.com',
-      brandName: 'Test Brand',
-      notes: 'Please upload factory docs',
-    })
-    expect(sendEmail).toHaveBeenCalledWith(message)
+    expect(rejectMitStatus).toHaveBeenCalledWith('brand-1', 'admin-1', 'Please upload factory docs')
   })
 })
 
