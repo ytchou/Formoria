@@ -2,11 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { fullSubmissionSchema } from '../submission'
 
 describe('simplified submission schema', () => {
-  it('accepts minimal submission with URL, name, region, owner, PDPA, turnstile', () => {
+  it('accepts minimal submission with URL, name, owner, PDPA, turnstile', () => {
     const data = {
       name: 'TestBrand',
       website: 'https://example.com',
-      region: 'northern',
       isOwner: true,
       pdpaConsent: true,
       turnstileToken: 'test-token',
@@ -20,7 +19,6 @@ describe('simplified submission schema', () => {
     const data = {
       name: 'TestBrand',
       website: 'https://example.com',
-      region: 'northern',
       isOwner: true,
       pdpaConsent: true,
       turnstileToken: 'test-token',
@@ -48,7 +46,6 @@ describe('simplified submission schema', () => {
     const data = {
       name: 'TestBrand',
       website: 'https://example.com',
-      region: 'northern',
       isOwner: true,
       pdpaConsent: true,
       turnstileToken: 'test-token',
@@ -63,7 +60,6 @@ describe('simplified submission schema', () => {
     const data = {
       name: 'TestBrand',
       website: 'https://example.com',
-      region: 'northern',
       isOwner: false,
       pdpaConsent: true,
       turnstileToken: 'test-token',

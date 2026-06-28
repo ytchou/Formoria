@@ -161,8 +161,8 @@ describe('updateBrandAction', () => {
     diffRemovedImageUrls.mockReturnValue([])
     scanContent.mockReturnValue({ riskLevel: 'clean', flags: [] })
     getTagBySlug.mockImplementation(async (slug: string) => (
-      slug === 'taipei'
-        ? { id: 'tag-region-taipei', slug, category: 'region' }
+      slug === 'eco-friendly'
+        ? { id: 'tag-value-eco-friendly', slug, category: 'value' }
         : { id: `tag-value-${slug}`, slug, category: 'value' }
     ))
   })
@@ -401,8 +401,8 @@ describe('updateBrandAction — admin bypass', () => {
     diffRemovedImageUrls.mockReturnValue([])
     scanContent.mockReturnValue({ riskLevel: 'clean', flags: [] })
     getTagBySlug.mockImplementation(async (slug: string) => (
-      slug === 'taipei'
-        ? { id: 'tag-region-taipei', slug, category: 'region' }
+      slug === 'eco-friendly'
+        ? { id: 'tag-value-eco-friendly', slug, category: 'value' }
         : { id: `tag-value-${slug}`, slug, category: 'value' }
     ))
   })

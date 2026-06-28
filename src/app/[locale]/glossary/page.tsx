@@ -65,13 +65,12 @@ type GlossaryMessages = {
   }
 }
 
-const SECTION_ORDER = ['core', 'verification', 'materials', 'priceRange', 'regions', 'values'] as const
+const SECTION_ORDER = ['core', 'verification', 'materials', 'priceRange', 'values'] as const
 const ANCHOR_IDS: Record<string, string> = {
   core: 'core',
   verification: 'verification',
   materials: 'materials',
   priceRange: 'price-range',
-  regions: 'regions',
   values: 'values',
 }
 

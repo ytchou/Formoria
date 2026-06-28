@@ -1,4 +1,4 @@
-export type TagCategory = 'product_type' | 'region' | 'value'
+export type TagCategory = 'product_type' | 'value'
 
 export type TaxonomyTag = {
   id: string

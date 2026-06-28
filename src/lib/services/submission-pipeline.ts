@@ -6,7 +6,6 @@ import { classifySubmittedUrl } from '@/lib/services/link-enrichment'
 export interface SubmitBrandForReviewParams {
   brandName: string
   websiteUrl?: string
-  region?: string
   isBrandOwner?: boolean
   pdpaConsent?: boolean
   sourceAttribution?: SourceAttribution | null
@@ -23,7 +22,7 @@ export interface SubmitBrandForReviewParams {
   } | null
   purchaseLinks?: Array<{ platform: string; url: string }> | null
   otherUrls?: OtherUrl[] | null
-  suggestedTags?: { region?: string; values?: string[]; productType?: string }
+  suggestedTags?: { values?: string[]; productType?: string }
   productType?: string | null
   productTypeNote?: string | null
 }
@@ -67,7 +66,6 @@ export async function submitBrandForReview(
 
   const suggestedTags = {
     ...(params.suggestedTags ?? {}),
-    ...(params.region ? { region: params.region } : {}),
     ...(params.productType ? { productType: params.productType } : {}),
   }
 

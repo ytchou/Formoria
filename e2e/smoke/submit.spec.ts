@@ -15,9 +15,6 @@ test.describe('Submit smoke', () => {
     // Brand name field is visible immediately (no wizard step)
     await expect(userPage.locator('#submit-name')).toBeVisible();
 
-    // Region select is visible immediately
-    await expect(userPage.locator('#submit-region')).toBeVisible();
-
     // Owner checkbox is visible immediately on the flat form
     await expect(userPage.locator('#submit-is-owner')).toBeVisible();
 

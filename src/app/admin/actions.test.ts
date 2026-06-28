@@ -340,7 +340,7 @@ describe('approveSubmissionAction - taxonomy tag application', () => {
       websiteUrl: null,
       isBrandOwner: false,
       socialLinks: [],
-      suggestedTags: { region: 'north-taiwan', values: ['eco-friendly', 'handmade'] },
+      suggestedTags: { values: ['eco-friendly', 'handmade'] },
       status: 'pending',
       reviewerNotes: null,
       submittedAt: '2026-01-01T00:00:00Z',

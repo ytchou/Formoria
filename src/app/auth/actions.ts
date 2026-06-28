@@ -9,7 +9,7 @@ import {
   getSignInSchema,
   getSignUpSchema,
 } from "@/lib/auth/validations";
-import { getSiteUrl } from "@/lib/auth/site-url";
+import { getRequestOrigin } from "@/lib/auth/site-url";
 
 export type AuthState = {
   error?: string;
@@ -74,7 +74,7 @@ export async function signUp(
   }
 
   const claimToken = formData.get("claimToken") as string | null;
-  const siteUrl = getSiteUrl();
+  const siteUrl = await getRequestOrigin();
 
   const emailRedirectTo = claimToken
     ? `${siteUrl}/auth/callback?claim=${claimToken}`
@@ -101,7 +101,7 @@ export async function signInWithGoogle(
   next?: string
 ): Promise<void> {
   const supabase = await createClient();
-  const siteUrl = getSiteUrl();
+  const siteUrl = await getRequestOrigin();
 
   // Carry post-auth intent in short-lived cookies rather than query params on
   // redirectTo: Supabase rejects redirect URLs whose query string isn't covered

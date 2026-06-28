@@ -11,8 +11,8 @@ describe('getTagBySlug', () => {
 
   it('returns a TaxonomyTag when slug exists', async () => {
     const mockRow = {
-      id: 'tag-1', name: 'Taipei', name_zh: '台北市',
-      slug: 'taipei', category: 'region', is_active: true,
+      id: 'tag-1', name: 'Eco-friendly', name_zh: '環保',
+      slug: 'eco-friendly', category: 'value', is_active: true,
       suggested_by: null, created_at: '2026-01-01T00:00:00Z',
     }
     mockSupabase.from.mockReturnValue({
@@ -24,9 +24,9 @@ describe('getTagBySlug', () => {
     })
 
     const { getTagBySlug } = await import('../taxonomy')
-    const result = await getTagBySlug('taipei')
+    const result = await getTagBySlug('eco-friendly')
     expect(result).not.toBeNull()
-    expect(result!.slug).toBe('taipei')
+    expect(result!.slug).toBe('eco-friendly')
   })
 
   it('returns null when slug does not exist', async () => {
@@ -58,7 +58,7 @@ describe('updateBrandCategoryTags', () => {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
               eq: vi.fn().mockResolvedValue({
-                data: [{ tag_id: 'old-region-tag' }], error: null,
+                data: [{ tag_id: 'old-value-tag' }], error: null,
               }),
             }),
           }),
@@ -70,9 +70,9 @@ describe('updateBrandCategoryTags', () => {
     })
 
     const { updateBrandCategoryTags } = await import('../taxonomy')
-    await updateBrandCategoryTags('brand-1', 'region', ['new-region-tag'])
+    await updateBrandCategoryTags('brand-1', 'value', ['new-value-tag'])
 
-    expect(mockDeleteIn).toHaveBeenCalledWith('tag_id', ['old-region-tag'])
-    expect(mockInsert).toHaveBeenCalledWith([{ brand_id: 'brand-1', tag_id: 'new-region-tag' }])
+    expect(mockDeleteIn).toHaveBeenCalledWith('tag_id', ['old-value-tag'])
+    expect(mockInsert).toHaveBeenCalledWith([{ brand_id: 'brand-1', tag_id: 'new-value-tag' }])
   })
 })

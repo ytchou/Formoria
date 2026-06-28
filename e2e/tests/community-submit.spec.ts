@@ -3,9 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { gotoSubmitForm } from '../utils/submit-form'
 
 test.describe('Community submit flow', () => {
-  // Label text in zh-TW for owner checkbox and source attribution
+  // Label text in zh-TW for owner checkbox
   const ownerCheckboxLabel = '我是品牌負責人'
-  const sourceLabelText = '資料來源'
 
   test.afterAll(async () => {
     const supabase = createClient(
@@ -25,37 +24,19 @@ test.describe('Community submit flow', () => {
       .toBeVisible({ timeout: 5_000 })
   })
 
-  test('source attribution select is hidden when isOwner is checked (default)', async ({ userPage }) => {
+  test('source attribution select is always visible on the flat form', async ({ userPage }) => {
     test.setTimeout(60_000)
     await gotoSubmitForm(userPage)
-    // isOwner defaults to true — source attribution select must not be visible
-    await expect(userPage.locator('#submit-source')).not.toBeVisible()
-  })
-
-  test('source attribution select appears when owner checkbox is unchecked', async ({ userPage }) => {
-    test.setTimeout(60_000)
-    await gotoSubmitForm(userPage)
-
-    const ownerCheckbox = userPage.locator('#submit-is-owner')
-    await expect(ownerCheckbox).toBeVisible({ timeout: 5_000 })
-
-    // Uncheck the owner box — attribution select should now appear
-    await ownerCheckbox.uncheck()
     await expect(userPage.locator('#submit-source')).toBeVisible({ timeout: 5_000 })
-
-    // Re-check owner — attribution select must disappear again
-    await ownerCheckbox.check()
-    await expect(userPage.locator('#submit-source')).not.toBeVisible()
   })
 
   test('all required fields are visible immediately (single-screen flat form)', async ({ userPage }) => {
     test.setTimeout(60_000)
     await gotoSubmitForm(userPage)
 
-    // Website URL, brand name, and region are all visible on the single screen
+    // Website URL and brand name are all visible on the single screen
     await expect(userPage.locator('#submit-website')).toBeVisible({ timeout: 5_000 })
     await expect(userPage.locator('#submit-name')).toBeVisible({ timeout: 5_000 })
-    await expect(userPage.locator('#submit-region')).toBeVisible({ timeout: 5_000 })
 
     // PDPA consent is on the same single screen
     await expect(userPage.locator('#submit-pdpa')).toBeVisible({ timeout: 3_000 })

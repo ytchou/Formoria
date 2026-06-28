@@ -6,7 +6,7 @@ import { type Page, expect } from '@playwright/test';
  *
  * The form at /submit/form is now a single-screen flat form — no wizard
  * phases, no URL discovery step, no step indicator.  All required fields
- * (website, brand name, region, owner checkbox) are visible immediately after
+ * (website, brand name, owner checkbox) are visible immediately after
  * the page hydrates.
  *
  * DEV-877 / DEV-762 / CI cold-compile: Next.js dev mode compiles routes on

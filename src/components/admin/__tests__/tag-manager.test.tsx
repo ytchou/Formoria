@@ -13,7 +13,7 @@ vi.mock('@/app/admin/actions', () => ({
 const mockTags = [
   { id: 'tag-1', name: 'Ceramics', nameZh: '陶瓷', slug: 'ceramics', category: 'product_type' as const, isActive: true, createdAt: '2026-05-01T00:00:00Z' },
   { id: 'tag-2', name: 'Wood', nameZh: '木材', slug: 'wood', category: 'product_type' as const, isActive: true, createdAt: '2026-05-01T00:00:00Z' },
-  { id: 'tag-3', name: 'Taipei', nameZh: '台北', slug: 'taipei', category: 'region' as const, isActive: true, createdAt: '2026-05-01T00:00:00Z' },
+  { id: 'tag-3', name: 'Eco-friendly', nameZh: '環保', slug: 'eco-friendly', category: 'value' as const, isActive: true, createdAt: '2026-05-01T00:00:00Z' },
   { id: 'tag-4', name: 'Handcraft', nameZh: null, slug: 'handcraft', category: 'product_type' as const, isActive: true, createdAt: '2026-05-15T00:00:00Z' },
   { id: 'tag-5', name: 'Old Tag', nameZh: null, slug: 'old-tag', category: 'product_type' as const, isActive: false, createdAt: '2026-04-01T00:00:00Z' },
 ]
@@ -22,7 +22,7 @@ describe('TagManager', () => {
   it('renders tags grouped by category', () => {
     render(<TagManager tags={mockTags} />)
     // Category labels are now in Mandarin
-    expect(screen.getAllByText('所在地區').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('品牌特色').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('產品類型').length).toBeGreaterThanOrEqual(1)
   })
 
@@ -30,7 +30,7 @@ describe('TagManager', () => {
     render(<TagManager tags={mockTags} />)
     expect(screen.getByText('Ceramics')).toBeDefined()
     expect(screen.getByText('Wood')).toBeDefined()
-    expect(screen.getByText('Taipei')).toBeDefined()
+    expect(screen.getByText('Eco-friendly')).toBeDefined()
   })
 
   it('renders Chinese names when present', () => {

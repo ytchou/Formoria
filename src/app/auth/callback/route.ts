@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { isRelativeUrl } from "@/lib/auth/validations";
 import { verifyClaimToken } from "@/lib/auth/claim-token";
-import { getSiteUrl } from "@/lib/auth/site-url";
+import { getRequestOrigin } from "@/lib/auth/site-url";
 import { completeBrandClaim, getBrandById } from "@/lib/services/brands";
 import { getProfileAdmin } from "@/lib/services/profiles";
 
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
   if (!code && !claimToken) {
     return NextResponse.redirect(
-      new URL("/auth/sign-in?error=missing-code", getSiteUrl())
+      new URL("/auth/sign-in?error=missing-code", await getRequestOrigin())
     );
   }
 
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
       return NextResponse.redirect(
-        new URL("/auth/sign-in?error=expired-code", getSiteUrl())
+        new URL("/auth/sign-in?error=expired-code", await getRequestOrigin())
       );
     }
     userId = data.user?.id;
@@ -65,13 +65,13 @@ export async function GET(request: NextRequest) {
 
     if (!claim) {
       return NextResponse.redirect(
-        new URL("/dashboard?error=invalid-claim", getSiteUrl())
+        new URL("/dashboard?error=invalid-claim", await getRequestOrigin())
       );
     }
 
     if (claim.email !== userEmail) {
       return NextResponse.redirect(
-        new URL("/dashboard?error=email-mismatch", getSiteUrl())
+        new URL("/dashboard?error=email-mismatch", await getRequestOrigin())
       );
     }
 
@@ -83,14 +83,14 @@ export async function GET(request: NextRequest) {
       });
 
       const brand = await getBrandById(claim.brandId);
-      const url = new URL(`/dashboard?tab=${brand.slug}`, getSiteUrl());
+      const url = new URL(`/dashboard?tab=${brand.slug}`, await getRequestOrigin());
       if (isNewUser) {
         url.searchParams.set("is_new_user", "1");
       }
       return NextResponse.redirect(url);
     } catch {
       return NextResponse.redirect(
-        new URL("/dashboard?error=claim-failed", getSiteUrl())
+        new URL("/dashboard?error=claim-failed", await getRequestOrigin())
       );
     }
   }
@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
   }
 
   const redirectTo = next && isRelativeUrl(next) ? next : "/dashboard";
-  const url = new URL(redirectTo, getSiteUrl());
+  const url = new URL(redirectTo, await getRequestOrigin());
   if (isNewUser) {
     url.searchParams.set("is_new_user", "1");
   }

@@ -4,7 +4,6 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { createClient } from '@/lib/supabase/server'
-import { getTags } from '@/lib/services/taxonomy'
 import SubmitForm from '@/components/submit/SubmitForm'
 
 type FormPageProps = {
@@ -38,7 +37,5 @@ export default async function SubmitFormPage({ params }: FormPageProps) {
     redirect(`/auth/sign-in?next=${formPath}`)
   }
 
-  const regionTags = await getTags('region')
-
-  return <SubmitForm regionTags={regionTags} />
+  return <SubmitForm />
 }

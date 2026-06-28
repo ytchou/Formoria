@@ -25,11 +25,10 @@ import {
 } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
-const CATEGORIES: TagCategory[] = ['product_type', 'region', 'value']
+const CATEGORIES: TagCategory[] = ['product_type', 'value']
 
 const CATEGORY_LABELS: Record<string, string> = {
   product_type: '產品類型',
-  region: '所在地區',
   value: '品牌特色',
 }
 

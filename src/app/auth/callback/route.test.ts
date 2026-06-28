@@ -28,6 +28,12 @@ vi.mock('next/headers', () => ({
     delete: vi.fn(),
     set: vi.fn(),
   }),
+  headers: vi.fn().mockResolvedValue(
+    new Map([
+      ['host', 'app.example.com'],
+      ['x-forwarded-proto', 'https'],
+    ])
+  ),
 }))
 
 vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://app.example.com')

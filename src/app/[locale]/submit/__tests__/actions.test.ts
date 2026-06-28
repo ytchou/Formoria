@@ -95,19 +95,18 @@ describe('server action schema routing', () => {
     })
   })
 
-  it('owner payload without required region field fails schema', () => {
+  it('owner payload with required fields passes schema', () => {
     const schema = createSubmissionSchema(true)
     const ownerPayload = {
       name: 'Test Brand',
       website: 'https://test.com',
-      // region intentionally omitted — it is required
       isOwner: true,
       purchaseLinks: [{ platform: 'shopify', url: 'https://shop.com' }],
       pdpaConsent: true,
       socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
       turnstileToken: 'test-token',
     }
-    expect(schema.safeParse(ownerPayload).success).toBe(false)
+    expect(schema.safeParse(ownerPayload).success).toBe(true)
   })
 
   it('community payload without owner-only fields passes community schema', () => {
@@ -115,7 +114,6 @@ describe('server action schema routing', () => {
     const communityPayload = {
       name: 'Test Brand',
       website: 'https://test.com',
-      region: 'taipei',
       isOwner: false,
       purchaseLinks: [],
       pdpaConsent: true,
@@ -130,7 +128,6 @@ describe('server action schema routing', () => {
     await submitBrand({
       name: 'Test Brand',
       website: 'https://test.com',
-      region: 'taipei',
       isOwner: true,
       purchaseLinks: [{ platform: 'shopify', url: 'https://shop.com' }],
       pdpaConsent: true,
@@ -144,11 +141,10 @@ describe('server action schema routing', () => {
     expect('founder' in payload).toBe(false)
   })
 
-  it('stores structured suggestedTags with region', async () => {
+  it('does not pass region to submitBrandForReview', async () => {
     await submitBrand({
       name: 'Test Brand',
       website: 'https://test.com',
-      region: 'taipei',
       isOwner: false,
       purchaseLinks: [],
       pdpaConsent: true,
@@ -159,8 +155,8 @@ describe('server action schema routing', () => {
     })
 
     expect(mockSubmitBrandForReview).toHaveBeenCalledWith(
-      expect.objectContaining({
-        region: 'taipei',
+      expect.not.objectContaining({
+        region: expect.anything(),
       })
     )
   })
@@ -169,7 +165,6 @@ describe('server action schema routing', () => {
     const result = await submitBrand({
       name: 'Test Brand',
       website: 'https://test.com',
-      region: 'taipei',
       isOwner: false,
       purchaseLinks: [{ platform: 'shopify', url: 'https://shop.com/product' }],
       pdpaConsent: true,
@@ -189,7 +184,6 @@ describe('server action schema routing', () => {
     const result = await submitBrand({
       name: 'Test Brand',
       website: 'https://test.com',
-      region: 'taipei',
       isOwner: false,
       purchaseLinks: [],
       pdpaConsent: true,

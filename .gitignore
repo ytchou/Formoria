@@ -89,3 +89,6 @@ scripts/threads-scraper/
 
 # seed data (local-only)
 scripts/seeds/
+
+# local data files
+data/

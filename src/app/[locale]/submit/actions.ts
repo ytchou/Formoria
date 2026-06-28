@@ -80,7 +80,6 @@ export async function submitBrand(
     await submitBrandForReview({
       brandName: parsed.name,
       websiteUrl: parsed.website,
-      region: parsed.region,
       isBrandOwner: isOwner,
       pdpaConsent: parsed.pdpaConsent,
       sourceAttribution: data.sourceAttribution ?? null,

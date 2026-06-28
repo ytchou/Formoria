@@ -463,26 +463,6 @@
           }
         }
       },
-      "regions": {
-        "title": "Regions",
-        "terms": {
-          "north": {
-            "zh": "North",
-            "en": "North Taiwan",
-            "definition": "Taipei, New Taipei, Taoyuan, Keelung — the island's design and fashion hub."
-          },
-          "central": {
-            "zh": "Central",
-            "en": "Central Taiwan",
-            "definition": "Taichung, Changhua, Nantou — known for ceramics, tea, and woodwork."
-          },
-          "south": {
-            "zh": "South",
-            "en": "South Taiwan",
-            "definition": "Tainan, Kaohsiung, Pingtung — artisan and food culture, the cultural capital."
-          }
-        }
-      },
       "values": {
         "title": "Values",
         "terms": {
@@ -1293,7 +1273,6 @@
       "photoCountSingular": "1 photo uploaded",
       "brandLogoAlt": "Brand logo",
       "pdpaConsent": "I agree to the collection and use of my personal data in accordance with the <privacyPolicy>Privacy Policy</privacyPolicy>, and understand my rights under the Personal Data Protection Act.",
-      "region": "Region",
       "valueTags": "Brand Values",
       "socialLinks": "Social links",
       "purchaseLinks": "Purchase links",
@@ -1374,9 +1353,6 @@
       "brandNameLabel": "Brand Name",
       "brandNamePlaceholder": "e.g. Rain Boot Studio",
       "brandNameHint": "This will be used as the brand name. We also use it to search for brand information online, so accuracy is important.",
-      "regionLabel": "Brand Region",
-      "regionPlaceholder": "Select a region",
-      "regionHint": "Select the brand's hometown or where it's primarily based.",
       "isOwnerLabel": "I am the brand owner",
       "isOwnerHint": "We'll ask you to verify ownership. Once claimed, you can manage your brand page and update information.",
       "sourceLabel": "How do you know this brand?",
@@ -1391,96 +1367,6 @@
       "suggestedName": "Suggested name:",
       "suggestedUrl": "Suggested URL:",
       "applySuggestion": "Apply"
-    }
-  },
-  "gettingStarted": {
-    "metadata": {
-      "title": "Getting Started — Formoria",
-      "description": "Learn how Formoria works, how to submit a brand, and what brand owners can do."
-    },
-    "hero": {
-      "heading": "Welcome to Formoria",
-      "subtitle": "Discover and support brands made in Taiwan",
-      "cta": "Submit Your Brand"
-    },
-    "howItWorks": {
-      "heading": "How It Works",
-      "browse": {
-        "title": "Browse",
-        "description": "Explore our curated directory of Taiwan-made brands"
-      },
-      "submit": {
-        "title": "Submit",
-        "description": "Add a brand you love or submit your own"
-      },
-      "goLive": {
-        "title": "Go Live",
-        "description": "After review, the brand appears in the directory"
-      }
-    },
-    "submitting": {
-      "heading": "Submitting a Brand",
-      "body1": "Anyone can submit a brand to the Formoria directory. Whether you're a brand owner or a community member who wants to share a discovery, the process is simple and takes about 5 minutes.",
-      "body2": "Our team reviews every submission to ensure quality and relevance. We'll reach out if we need any additional information.",
-      "checklist": {
-        "heading": "What you'll need",
-        "brandName": "Brand name",
-        "website": "Brand website URL",
-        "categories": "Product categories",
-        "social": "Social media links (optional)"
-      }
-    },
-    "brandDetail": {
-      "heading": "What a Brand Listing Looks Like",
-      "brandName": "Brand Name",
-      "category": "Category",
-      "description": "A brief description of the brand, its story, and what makes it unique. Visitors can discover products, social links, and more.",
-      "tagMIT": "Made in Taiwan",
-      "tagVerified": "Verified",
-      "caption": "Each brand listing includes essential information that helps visitors discover and connect with the brand."
-    },
-    "forOwners": {
-      "heading": "For Brand Owners",
-      "claim": {
-        "title": "Claim Your Brand",
-        "description": "Verify your ownership and get full edit access to your listing"
-      },
-      "manage": {
-        "title": "Manage Your Listing",
-        "description": "Update your products, links, and descriptions anytime"
-      },
-      "track": {
-        "title": "Track Performance",
-        "description": "See how visitors discover and interact with your brand"
-      }
-    },
-    "faq": {
-      "heading": "Frequently Asked Questions",
-      "free": {
-        "question": "Is it free to list my brand?",
-        "answer": "Yes — submitting and listing a brand in the Formoria directory is completely free. We believe in making Taiwan-made brands accessible to everyone."
-      },
-      "reviewTime": {
-        "question": "How long does the review process take?",
-        "answer": "Our team typically reviews submissions within 3 business days. We'll reach out if we need any additional information."
-      },
-      "whoCanSubmit": {
-        "question": "Who can submit a brand?",
-        "answer": "Anyone can submit a brand — you don't need to be the brand owner. Community members who discover great Taiwan-made brands are encouraged to submit them."
-      },
-      "howToClaim": {
-        "question": "How do I claim my brand?",
-        "answer": "Once your brand is approved and listed, you can claim ownership through your account settings. This gives you edit access to manage your listing."
-      },
-      "updateListing": {
-        "question": "Can I update my listing after it's approved?",
-        "answer": "Yes — brand owners who have claimed their listing can update their information, products, and links at any time from their dashboard."
-      }
-    },
-    "ctaFooter": {
-      "heading": "Ready to get started?",
-      "subtitle": "Join the community of Taiwan-made brands",
-      "cta": "Submit Your Brand"
     }
   },
   "gettingStarted": {

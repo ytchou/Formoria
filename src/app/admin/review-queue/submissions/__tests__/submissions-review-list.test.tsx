@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BrandSubmission } from '@/lib/types'
 import messages from '../../../../../../messages/zh-TW.json'
 import { getEnrichmentStatus, SubmissionsReviewList } from '../submissions-review-list'
+import { startCurationJobAction } from '@/app/admin/operations/actions'
+import { toast } from 'sonner'
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -25,6 +27,18 @@ vi.mock('@/app/admin/operations/actions', () => ({
   startCurationJobAction: vi.fn(),
   getCurationJobAction: vi.fn(),
 }))
+
+vi.mock('sonner', () => ({
+  toast: {
+    error: vi.fn(),
+    info: vi.fn(),
+    success: vi.fn(),
+  },
+}))
+
+beforeEach(() => {
+  vi.clearAllMocks()
+})
 
 function renderWithIntl(ui: Parameters<typeof render>[0]) {
   return render(
@@ -178,6 +192,27 @@ describe('SubmissionsReviewList — bulk rejection', () => {
     expect(
       screen.getByRole('button', { name: '確認批次拒絕' })
     ).toBeDisabled()
+  })
+})
+
+describe('SubmissionsReviewList — bulk enrichment', () => {
+  it('shows queued toast and clears selected submissions', async () => {
+    vi.mocked(startCurationJobAction).mockResolvedValueOnce({
+      queued: true,
+      jobIds: ['job-1'],
+      message: 'Queued 1 curation job.',
+    })
+    const user = userEvent.setup()
+    renderReviewList()
+
+    const checkboxes = screen.getAllByRole('checkbox')
+    await user.click(checkboxes[1])
+    await user.click(screen.getByRole('button', { name: '抓取資料' }))
+
+    await waitFor(() => {
+      expect(toast.info).toHaveBeenCalledWith('Queued 1 curation job.')
+    })
+    expect(checkboxes[1]).not.toBeChecked()
   })
 })
 

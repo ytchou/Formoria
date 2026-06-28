@@ -189,7 +189,6 @@ function createOverrideForm(submission: BrandSubmissionWithRisk): OverrideForm {
 }
 
 type StructuredSuggestedTags = {
-  region?: string
   values?: string[]
 }
 
@@ -198,12 +197,11 @@ function isStructuredSuggestedTags(value: unknown): value is StructuredSuggested
 }
 
 function getStructuredSuggestedTagSections(tags: StructuredSuggestedTags) {
-  const region = typeof tags.region === 'string' ? tags.region : undefined
   const values = Array.isArray(tags.values)
     ? tags.values.filter((v): v is string => typeof v === 'string')
     : []
 
-  return { region, values }
+  return { values }
 }
 
 export function SubmissionsReviewList({
@@ -431,6 +429,13 @@ export function SubmissionsReviewList({
       const result = await startCurationJobAction('enrich', { submissionIds }, false)
       if ('error' in result) {
         toast.error(result.error)
+        return
+      }
+
+      if ('queued' in result) {
+        toast.info(result.message)
+        setSelectedIds(new Set())
+        router.refresh()
         return
       }
 
@@ -961,16 +966,15 @@ export function SubmissionsReviewList({
                             }
 
                             if (isStructuredSuggestedTags(suggestedTags)) {
-                              const { region, values } =
+                              const { values } =
                                 getStructuredSuggestedTagSections(suggestedTags)
 
-                              return (region || values.length > 0) && (
+                              return values.length > 0 && (
                                 <div>
                                   <p className="text-sm font-medium text-muted-foreground">
                                     建議標籤
                                   </p>
                                   <div className="mt-1 space-y-1 text-sm">
-                                    {region && <p>地區：{region}</p>}
                                     {values.length > 0 && (
                                       <p>特色：{values.join(', ')}</p>
                                     )}
