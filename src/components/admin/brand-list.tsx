@@ -54,17 +54,9 @@ const MIT_STATUS_CONFIG: Record<MitStatus, { label: string; className: string }>
     label: 'MIT 未驗證',
     className: 'bg-[#F5F4F1] text-[#7C7570]',
   },
-  claimed: {
-    label: 'MIT 待審核',
-    className: 'bg-[#F5F4F1] text-[#7C7570]',
-  },
   verified: {
     label: 'MIT 已驗證',
     className: 'bg-[#EAF3E8] text-[#2D5A27]',
-  },
-  rejected: {
-    label: 'MIT 已拒絕',
-    className: 'bg-[#FDF3EC] text-[#D94F3D]',
   },
 }
 
@@ -222,9 +214,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
         >
           <option value="all">全部 MIT 狀態</option>
           <option value="unverified">MIT 未驗證</option>
-          <option value="claimed">MIT 待審核</option>
           <option value="verified">MIT 已驗證</option>
-          <option value="rejected">MIT 已拒絕</option>
         </select>
         <select
           value={categoryFilter}

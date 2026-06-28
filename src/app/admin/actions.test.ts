@@ -111,8 +111,7 @@ vi.mock('@/lib/services/pending-edits', () => ({
 }))
 
 vi.mock('@/lib/services/mit-verification', () => ({
-  verifyMitStatus: vi.fn().mockResolvedValue({ id: 'brand-1', name: 'Test Brand' }),
-  rejectMitStatus: vi.fn().mockResolvedValue({ id: 'brand-1', name: 'Test Brand' }),
+  verifyMitByCert: vi.fn().mockResolvedValue({ data: { id: 'brand-1', name: 'Test Brand' } }),
 }))
 
 vi.mock('@/lib/services/taxonomy', () => ({
@@ -501,26 +500,15 @@ describe('MIT verification actions', () => {
     expect(getBrandById).toHaveBeenCalledWith('brand-1')
   })
 
-  it('approves MIT verification status', async () => {
-    const { verifyMitStatus } = await import('@/lib/services/mit-verification')
-    vi.mocked(verifyMitStatus).mockResolvedValue({ id: 'brand-1', name: 'Test Brand' } as Awaited<ReturnType<typeof verifyMitStatus>>)
+  it('verifies MIT status by cert number', async () => {
+    const { verifyMitByCert } = await import('@/lib/services/mit-verification')
+    vi.mocked(verifyMitByCert).mockResolvedValue({ data: { id: 'brand-1', name: 'Test Brand' } })
 
     const { verifyMitAction } = await import('./actions')
     const result = await verifyMitAction('brand-1', '01200024-02134')
 
     expect(result).toBeUndefined()
-    expect(verifyMitStatus).toHaveBeenCalledWith('brand-1', '01200024-02134', 'admin-1')
-  })
-
-  it('rejects MIT verification status with notes', async () => {
-    const { rejectMitStatus } = await import('@/lib/services/mit-verification')
-    vi.mocked(rejectMitStatus).mockResolvedValue({ id: 'brand-1', name: 'Test Brand' } as Awaited<ReturnType<typeof rejectMitStatus>>)
-
-    const { rejectMitAction } = await import('./actions')
-    const result = await rejectMitAction('brand-1', 'Please upload factory docs')
-
-    expect(result).toBeUndefined()
-    expect(rejectMitStatus).toHaveBeenCalledWith('brand-1', 'admin-1', 'Please upload factory docs')
+    expect(verifyMitByCert).toHaveBeenCalledWith('brand-1', '01200024-02134')
   })
 })
 

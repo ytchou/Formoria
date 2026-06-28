@@ -65,7 +65,7 @@ export type Brand = {
   status: BrandStatus
   category: string | null
   isVerified: boolean
-  mitStatus?: 'unverified' | 'claimed' | 'verified' | 'rejected'
+  mitStatus?: 'unverified' | 'verified'
   mitVerifiedAt?: string | null
   mitEvidence?: MitEvidence | null
   mitVerified?: boolean

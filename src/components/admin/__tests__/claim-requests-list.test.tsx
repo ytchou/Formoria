@@ -7,8 +7,6 @@ import { ClaimRequestsList } from '../claim-requests-list'
 import {
   approveClaimAction,
   rejectClaimAction,
-  rejectMitAction,
-  verifyMitAction,
 } from '@/app/admin/actions'
 import type { ClaimRequest } from '@/lib/services/claim-requests'
 import messages from '../../../../messages/zh-TW.json'
@@ -16,8 +14,6 @@ import messages from '../../../../messages/zh-TW.json'
 vi.mock('@/app/admin/actions', () => ({
   approveClaimAction: vi.fn(),
   rejectClaimAction: vi.fn(),
-  rejectMitAction: vi.fn(),
-  verifyMitAction: vi.fn(),
 }))
 
 type ClaimRequestWithSignedProof = ClaimRequest & {
@@ -72,8 +68,6 @@ describe('ClaimRequestsList', () => {
   beforeEach(() => {
     vi.mocked(approveClaimAction).mockReset()
     vi.mocked(rejectClaimAction).mockReset()
-    vi.mocked(rejectMitAction).mockReset()
-    vi.mocked(verifyMitAction).mockReset()
   })
 
   it('clicking Approve calls approveClaimAction with the claim id', async () => {
@@ -104,17 +98,6 @@ describe('ClaimRequestsList', () => {
       FAKE_PENDING_CLAIM.id,
       'insufficient proof'
     )
-  })
-
-  it('clicking Verify MIT calls verifyMitAction with the brand id and cert', async () => {
-    const user = userEvent.setup()
-
-    renderList([{ mitSmileCert: 'MIT-2023-12345' }])
-
-    await user.click(screen.getByText('Sun Room Studio'))
-    await user.click(screen.getByRole('button', { name: 'Verify MIT' }))
-
-    expect(verifyMitAction).toHaveBeenCalledWith('brand-1', 'MIT-2023-12345')
   })
 
   it('renders each submitted proof with its type, email, thumbnail and note', () => {

@@ -16,7 +16,7 @@ import {
   getPendingEditForReview,
   rejectPendingEdit,
 } from '@/lib/services/pending-edits'
-import { verifyMitStatus, rejectMitStatus } from '@/lib/services/mit-verification'
+import { verifyMitByCert } from '@/lib/services/mit-verification'
 import {
   deleteBrand,
   getBrandById,
@@ -365,30 +365,16 @@ export async function rejectPendingEditAction(
 
 export async function verifyMitAction(
   brandId: string,
-  cert?: string
+  certNumber: string
 ): Promise<{ error: string } | undefined> {
   try {
     const auth = await requireAdmin()
     if ('error' in auth) return auth
 
-    let resolvedCert = cert ?? null
-
-    if (resolvedCert == null) {
-      const supabase = await createClient()
-      const { data: claimRequest, error: claimRequestError } = await supabase
-        .from('claim_requests')
-        .select('mit_smile_cert')
-        .eq('brand_id', brandId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (claimRequestError) throw claimRequestError
-
-      resolvedCert = claimRequest?.mit_smile_cert ?? null
+    const result = await verifyMitByCert(brandId, certNumber)
+    if (result.error) {
+      return { error: result.error }
     }
-
-    await verifyMitStatus(brandId, resolvedCert, auth.userId)
 
     revalidatePath('/admin/claims')
     revalidatePath('/admin/catalog/brands')
@@ -400,37 +386,6 @@ export async function verifyMitAction(
     return undefined
   } catch (err) {
     console.error('[admin:verifyMitAction]', err)
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
-    }
-  }
-}
-
-export async function rejectMitAction(
-  brandId: string,
-  notes: string
-): Promise<{ error: string } | undefined> {
-  try {
-    const auth = await requireAdmin()
-    if ('error' in auth) return auth
-
-    const trimmedNotes = notes.trim()
-    if (!trimmedNotes) {
-      return { error: 'Rejection notes are required.' }
-    }
-
-    await rejectMitStatus(brandId, auth.userId, trimmedNotes)
-
-    revalidatePath('/admin/claims')
-    revalidatePath('/admin/catalog/brands')
-    revalidatePath('/admin')
-    revalidatePath('/[locale]', 'page')
-    revalidatePath('/[locale]/brands', 'page')
-    revalidatePath('/[locale]/brands/[slug]', 'page')
-
-    return undefined
-  } catch (err) {
-    console.error('[admin:rejectMitAction]', err)
     return {
       error: err instanceof Error ? err.message : 'An unexpected error occurred',
     }

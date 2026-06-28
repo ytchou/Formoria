@@ -64,7 +64,6 @@ export type BrandSubmission = {
   isBrandOwner: boolean
   sourceAttribution?: SourceAttribution | null
   denialReason?: DenialReason | null
-  unifiedBusinessNumber?: string
 }
 
 type DuplicateCandidate = {
@@ -75,6 +74,5 @@ type DuplicateCandidate = {
 }
 
 export type DuplicateCheckResult = {
-  ubnMatch: { id: string; name: string; slug: string } | null
   nameMatches: DuplicateCandidate[]
 }

@@ -581,7 +581,7 @@ const BRAND_COLUMNS = [
   'status', 'submitted_at', 'approved_at', 'created_at', 'updated_at',
   'draft_data', 'draft_updated_at', 'founder', 'founding_year',
   'brand_highlights', 'mit_status', 'mit_claimed_at', 'mit_verified_at',
-  'mit_evidence', 'source', 'tag_slugs', 'unified_business_number', 'is_demo',
+  'mit_evidence', 'source', 'tag_slugs', 'is_demo',
 ].join(', ')
 
 export const BRAND_SELECT =
@@ -817,7 +817,6 @@ export async function createBrand(
   if (existing) throw new ValidationError(`Brand slug already exists: ${slug}`)
 
   const row = brandToInsert({ ...data, slug })
-  row.unified_business_number = data.unifiedBusinessNumber ?? null
   const { data: inserted, error } = await supabase
     .from('brands')
     .insert(row)

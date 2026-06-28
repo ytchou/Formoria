@@ -133,8 +133,7 @@ describe('rejectSubmissionAction', () => {
     }))
 
     vi.doMock('@/lib/services/mit-verification', () => ({
-      verifyMitStatus: vi.fn(),
-      rejectMitStatus: vi.fn(),
+      verifyMitByCert: vi.fn(),
     }))
 
     vi.doMock('@/lib/services/brands', () => ({

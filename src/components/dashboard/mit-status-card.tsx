@@ -7,9 +7,7 @@ type MitStatus = NonNullable<Brand['mitStatus']>
 
 const STATUS_CLASSES: Record<MitStatus, string> = {
   unverified: 'bg-[#F5F4F1] text-[#7C7570]',
-  claimed: 'bg-[#F5F4F1] text-[#7C7570]',
   verified: 'bg-[#EAF3E8] text-[#2D5A27]',
-  rejected: 'bg-[#FDF3EC] text-[#D94F3D]',
 }
 
 type Props = {
@@ -53,7 +51,7 @@ export async function MitStatusCard({ brand }: Props) {
           </div>
         ) : null}
 
-        {mitStatus === 'rejected' && mitEvidence?.notes ? (
+        {mitEvidence?.notes ? (
           <div className="rounded-md bg-[#FDF3EC] px-3 py-2">
             <p className="text-xs font-medium text-[#D94F3D]">
               {t('reviewNote')}

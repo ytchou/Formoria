@@ -53,25 +53,7 @@ function makeSubmission(
 }
 
 describe('SubmissionsList', () => {
-  it('shows unified business number in the expanded detail row when provided', async () => {
-    const user = userEvent.setup()
-
-    renderWithIntl(
-      <SubmissionsList
-        submissions={[
-          makeSubmission({ unifiedBusinessNumber: '12345678' }),
-        ]}
-        taxonomyTags={[]}
-      />
-    )
-
-    await user.click(screen.getByText('Test Brand'))
-
-    expect(screen.getByText('統一編號：')).toBeInTheDocument()
-    expect(screen.getByText('12345678')).toBeInTheDocument()
-  })
-
-  it('does not show unified business number label when omitted', async () => {
+  it('does not show unified business number label', async () => {
     const user = userEvent.setup()
 
     renderWithIntl(<SubmissionsList submissions={[makeSubmission()]} taxonomyTags={[]} />)

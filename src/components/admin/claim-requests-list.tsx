@@ -5,8 +5,6 @@ import { useTranslations } from 'next-intl'
 import {
   approveClaimAction,
   rejectClaimAction,
-  rejectMitAction,
-  verifyMitAction,
 } from '@/app/admin/actions'
 import { StatusBadge } from '@/components/admin/status-badge'
 import { Button } from '@/components/ui/button'
@@ -37,7 +35,6 @@ type ClaimRequestWithSignedProof = Omit<ClaimRequest, 'proofEvidence'> & {
 }
 type RejectActionTarget =
   | { kind: 'claim'; id: string }
-  | { kind: 'mit'; id: string }
   | null
 type RejectReasonKey =
   | 'insufficientProof'
@@ -134,38 +131,6 @@ export function ClaimRequestsList({
     startTransition(async () => {
       setError(null)
       const result = await rejectClaimAction(id, notes)
-      if (result?.error) setError(result.error)
-      else {
-        setRejectTarget(null)
-        setRejectNotes('')
-        setRejectReasonPreset('')
-      }
-    })
-  }
-
-  function handleVerifyMit(brandId: string, cert: string) {
-    startTransition(async () => {
-      setError(null)
-      const result = await verifyMitAction(brandId, cert)
-      if (result?.error) setError(result.error)
-    })
-  }
-
-  function handleRejectMit(brandId: string) {
-    if (rejectTarget?.kind !== 'mit' || rejectTarget.id !== brandId) {
-      beginReject('mit', brandId)
-      return
-    }
-
-    const notes = rejectNotes.trim()
-    if (!notes) {
-      setError('Rejection notes are required.')
-      return
-    }
-
-    startTransition(async () => {
-      setError(null)
-      const result = await rejectMitAction(brandId, notes)
       if (result?.error) setError(result.error)
       else {
         setRejectTarget(null)
@@ -400,63 +365,6 @@ export function ClaimRequestsList({
                           </div>
                         )}
 
-                        {claimRequest.mitSmileCert && (
-                          <div className="space-y-3 border-t pt-4">
-                            <p className="text-sm font-medium text-muted-foreground">
-                              MIT verification
-                            </p>
-                            <div className="flex flex-col items-start gap-3 sm:flex-row">
-                              <Button
-                                size="lg"
-                                className="min-h-12 px-4"
-                                onClick={(event) => {
-                                  event.stopPropagation()
-                                  handleVerifyMit(
-                                    claimRequest.brandId,
-                                    claimRequest.mitSmileCert as string
-                                  )
-                                }}
-                                disabled={isPending}
-                              >
-                                Verify MIT
-                              </Button>
-
-                              <div className="w-full max-w-xl">
-                                {rejectTarget?.kind === 'mit' &&
-                                  rejectTarget.id === claimRequest.brandId && (
-                                    <Textarea
-                                      autoFocus
-                                      placeholder="Why are you rejecting this MIT verification?"
-                                      value={rejectNotes}
-                                      onChange={(event) => setRejectNotes(event.target.value)}
-                                      onClick={(event) => event.stopPropagation()}
-                                      className="mb-2"
-                                    />
-                                  )}
-                                <Button
-                                  variant={
-                                    rejectTarget?.kind === 'mit' &&
-                                    rejectTarget.id === claimRequest.brandId
-                                      ? 'destructive'
-                                      : 'outline'
-                                  }
-                                  size="lg"
-                                  className="min-h-12 px-4"
-                                  onClick={(event) => {
-                                    event.stopPropagation()
-                                    handleRejectMit(claimRequest.brandId)
-                                  }}
-                                  disabled={isPending}
-                                >
-                                  {rejectTarget?.kind === 'mit' &&
-                                  rejectTarget.id === claimRequest.brandId
-                                    ? 'Confirm reject MIT'
-                                    : 'Reject MIT'}
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </TableCell>
                   </TableRow>

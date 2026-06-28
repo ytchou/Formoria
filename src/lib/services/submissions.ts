@@ -115,7 +115,6 @@ export type CreateSubmissionInput = {
   isOwner?: boolean
   sourceAttribution?: SourceAttribution | null
   productTypeNote?: string | null
-  unifiedBusinessNumber?: string
 }
 
 export function buildSubmissionRecord(input: CreateSubmissionInput): Record<string, unknown> {
@@ -140,7 +139,6 @@ export function buildSubmissionRecord(input: CreateSubmissionInput): Record<stri
     is_brand_owner: input.isOwner ?? false,
     source_attribution: input.sourceAttribution ?? null,
     product_type_note: input.productTypeNote ?? null,
-    unified_business_number: input.unifiedBusinessNumber ?? null,
   }
 }
 
@@ -182,7 +180,6 @@ export function submissionToDomain(row: SubmissionRowInput): BrandSubmissionWith
     isBrandOwner: row.is_brand_owner ?? false,
     sourceAttribution: (row.source_attribution as BrandSubmission['sourceAttribution']) ?? null,
     productTypeNote: row.product_type_note ?? null,
-    unifiedBusinessNumber: row.unified_business_number ?? undefined,
   }
 }
 
@@ -219,9 +216,6 @@ export function submissionToInsert(
   if (data.isBrandOwner !== undefined) row.is_brand_owner = data.isBrandOwner
   if (data.sourceAttribution !== undefined) row.source_attribution = data.sourceAttribution
   row.product_type_note = data.productTypeNote ?? null
-  if (data.unifiedBusinessNumber !== undefined) {
-    row.unified_business_number = data.unifiedBusinessNumber ?? null
-  }
   return row
 }
 
@@ -295,7 +289,6 @@ function submissionToBrandBase(row: SubmissionRow): BrandInsert {
     contact_email: row.submitter_email,
     brand_highlights: null,
     site_content: null,
-    unified_business_number: row.unified_business_number,
     submitted_at: row.submitted_at,
     approved_at: new Date().toISOString(),
   }
@@ -400,7 +393,7 @@ async function resolveUniqueSlug(supabase: ServiceClient, slug: string): Promise
 
 export async function createSubmission(
   data: Pick<BrandSubmission, 'brandName' | 'submitterEmail'> &
-    Partial<Pick<BrandSubmission, 'brandId' | 'submitterName' | 'description' | 'heroImageUrl' | 'productPhotos' | 'socialInstagram' | 'socialThreads' | 'socialFacebook' | 'purchaseWebsite' | 'purchasePinkoi' | 'purchaseShopee' | 'otherUrls' | 'pdpaConsentAt' | 'isBrandOwner' | 'sourceAttribution' | 'unifiedBusinessNumber'>> & {
+    Partial<Pick<BrandSubmission, 'brandId' | 'submitterName' | 'description' | 'heroImageUrl' | 'productPhotos' | 'socialInstagram' | 'socialThreads' | 'socialFacebook' | 'purchaseWebsite' | 'purchasePinkoi' | 'purchaseShopee' | 'otherUrls' | 'pdpaConsentAt' | 'isBrandOwner' | 'sourceAttribution'>> & {
       websiteUrl?: string | null
       suggestedTags?: SuggestedTagsInput
       productTypeNote?: string | null
@@ -688,23 +681,21 @@ export async function getUserSubmissions(userEmail: string): Promise<UserSubmiss
 }
 
 export async function checkBrandDuplicates(
-  name: string,
-  ubn?: string
+  name: string
 ): Promise<DuplicateCheckResult> {
   const supabase = await createClient()
 
   const { data, error } = await supabase.rpc('check_brand_duplicates', {
     p_name: name,
-    p_ubn: ubn ?? null,
+    p_ubn: null,
   })
 
   if (error) {
     console.error('[checkBrandDuplicates] RPC error:', error.message)
-    return { ubnMatch: null, nameMatches: [] }
+    return { nameMatches: [] }
   }
 
   return {
-    ubnMatch: data?.ubn_match ?? null,
     nameMatches: data?.name_matches ?? [],
   }
 }
