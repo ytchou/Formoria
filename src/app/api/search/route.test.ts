@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const mockSearchBrands = vi.fn()
+const mockRpc = vi.fn()
+const mockCreateClient = vi.fn().mockResolvedValue({ rpc: mockRpc })
 
-vi.mock('@/lib/services/brands', () => ({
-  searchBrands: mockSearchBrands,
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: mockCreateClient,
 }))
 
 const { GET } = await import('./route')
@@ -15,18 +16,22 @@ function makeRequest(url: string) {
 describe('GET /api/search', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockCreateClient.mockResolvedValue({ rpc: mockRpc })
   })
 
   it('returns search results with cache headers', async () => {
-    mockSearchBrands.mockResolvedValue([
-      {
-        id: '1',
-        name: 'Tea Brand',
-        slug: 'tea-brand',
-        category: 'Food',
-        similarity: 0.9,
-      },
-    ])
+    mockRpc.mockResolvedValue({
+      data: [
+        {
+          id: '1',
+          name: 'Tea Brand',
+          slug: 'tea-brand',
+          primary_category_name: 'Food',
+          rank_score: 0.9,
+        },
+      ],
+      error: null,
+    })
 
     const response = await GET(makeRequest('http://localhost/api/search?q=tea'))
     const body = await response.json()
@@ -37,7 +42,11 @@ describe('GET /api/search', () => {
     )
     expect(body.results).toHaveLength(1)
     expect(body.results[0].name).toBe('Tea Brand')
-    expect(mockSearchBrands).toHaveBeenCalledWith('tea', 5)
+    expect(mockRpc).toHaveBeenCalledWith('search_brands', {
+      search_query: 'tea',
+      result_limit: 5,
+      prefix_mode: true,
+    })
   })
 
   it('returns 400 when q param is missing', async () => {
@@ -51,23 +60,31 @@ describe('GET /api/search', () => {
   })
 
   it('respects custom limit param', async () => {
-    mockSearchBrands.mockResolvedValue([])
+    mockRpc.mockResolvedValue({ data: [], error: null })
 
     await GET(makeRequest('http://localhost/api/search?q=tea&limit=3'))
 
-    expect(mockSearchBrands).toHaveBeenCalledWith('tea', 3)
+    expect(mockRpc).toHaveBeenCalledWith('search_brands', {
+      search_query: 'tea',
+      result_limit: 3,
+      prefix_mode: true,
+    })
   })
 
   it('caps limit at 10', async () => {
-    mockSearchBrands.mockResolvedValue([])
+    mockRpc.mockResolvedValue({ data: [], error: null })
 
     await GET(makeRequest('http://localhost/api/search?q=tea&limit=50'))
 
-    expect(mockSearchBrands).toHaveBeenCalledWith('tea', 10)
+    expect(mockRpc).toHaveBeenCalledWith('search_brands', {
+      search_query: 'tea',
+      result_limit: 10,
+      prefix_mode: true,
+    })
   })
 
   it('returns empty results on service error', async () => {
-    mockSearchBrands.mockRejectedValue(new Error('DB down'))
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'DB down' } })
 
     const response = await GET(makeRequest('http://localhost/api/search?q=tea'))
     const body = await response.json()

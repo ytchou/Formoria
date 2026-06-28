@@ -5,7 +5,7 @@ import type { Database } from '@/lib/supabase/database.types'
 import { NotFoundError, ValidationError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getActiveCategories, getTagBySlug } from '@/lib/services/taxonomy'
-import { BRAND_SORT_CONFIG } from '@/lib/pagination'
+import { BRAND_SORT_CONFIG, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import { isNonImageHost } from '@/lib/images/allowed-image-hosts'
 import { RESERVED_ROUTES } from '@/middleware'
 import { deriveCategoryFromProductType } from '@/lib/taxonomy/ontology'
@@ -110,8 +110,38 @@ export type SearchResult = {
   name: string
   slug: string
   category: string
+  rankScore: number
+  searchSource: string
+  /** @deprecated Use rankScore. Kept for existing autocomplete consumers. */
   similarity: number
 }
+
+type SearchBrandsRpcRow = {
+  id: string
+  name: string
+  slug: string
+  hero_image_url: string | null
+  primary_category_name: string | null
+  rank_score: number
+  search_source: string
+}
+
+type SearchBrandsRpc = (
+  fn: 'search_brands',
+  args: {
+    search_query: string
+    result_limit: number | null
+    prefix_mode: boolean
+    filter_categories: string[] | null
+    filter_tags: string[] | null
+    filter_verification: string | null
+    filter_status: string
+    include_test_brands: boolean
+  },
+) => Promise<{
+  data: SearchBrandsRpcRow[] | null
+  error: { code?: string; message?: string } | null
+}>
 
 export type SimilarBrand = {
   inputName: string
@@ -633,22 +663,54 @@ export async function getBrandEnrichmentBatch(brandIds: string[]): Promise<Map<s
   )
 }
 
+type GetBrandsFilters = BrandFilters & { page?: number }
+
+function getSearchPagination(filters: GetBrandsFilters): { offset: number; limit?: number } {
+  if (filters.limit !== undefined) {
+    return {
+      offset: filters.offset ?? (filters.page ? (filters.page - 1) * filters.limit : 0),
+      limit: filters.limit,
+    }
+  }
+
+  if (filters.page !== undefined) {
+    return {
+      offset: (filters.page - 1) * DEFAULT_PAGE_SIZE,
+      limit: DEFAULT_PAGE_SIZE,
+    }
+  }
+
+  return { offset: filters.offset ?? 0 }
+}
+
 export async function getBrands(
-  filters?: BrandFilters
+  filters?: GetBrandsFilters
 ): Promise<{ brands: Brand[]; totalCount: number }> {
   const supabase = createServiceClient()
 
-  // When a search term is present, use the search_brands pg_trgm RPC for ranked/fuzzy results.
-  // Fetch a generous pool of ranked IDs, then apply all remaining filters + pagination over them.
-  if (filters?.search) {
+  // Search filtering is handled in search_brands; this branch only hydrates the matched IDs.
+  // Use typeof check so empty string '' still enters this branch and returns early (not fallthrough to browse).
+  if (typeof filters?.search === 'string') {
     const trimmed = filters.search.trim().slice(0, 100)
     if (!trimmed) {
       return { brands: [], totalCount: 0 }
     }
 
-    const { data: rpcData, error: rpcError } = await supabase.rpc('search_brands', {
+    const verificationFilter =
+      filters.verificationFilter && filters.verificationFilter !== 'all'
+        ? filters.verificationFilter
+        : null
+
+    const searchBrandsRpc = supabase.rpc as unknown as SearchBrandsRpc
+    const { data: rpcData, error: rpcError } = await searchBrandsRpc('search_brands', {
       search_query: trimmed,
-      result_limit: 500, // generous pool — filters + pagination narrow this down
+      result_limit: null,
+      prefix_mode: false,
+      filter_categories: filters.category?.length ? filters.category : null,
+      filter_tags: filters.tags?.length ? filters.tags : null,
+      filter_verification: verificationFilter,
+      filter_status: filters.status || 'approved',
+      include_test_brands: filters.includeTestBrands ?? false,
     })
 
     if (rpcError) {
@@ -656,56 +718,74 @@ export async function getBrands(
       return { brands: [], totalCount: 0 }
     }
 
-    const rankedIds: string[] = (rpcData ?? []).map((row: { id: string }) => row.id)
-    if (rankedIds.length === 0) {
+    const searchResults: SearchResult[] = (rpcData ?? []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      category: row.primary_category_name ?? '',
+      rankScore: row.rank_score,
+      searchSource: row.search_source,
+      similarity: row.rank_score,
+    }))
+    const allIds = searchResults.map((result) => result.id)
+    const totalCount = allIds.length
+    if (totalCount === 0) {
       return { brands: [], totalCount: 0 }
     }
 
-    // Apply remaining filters over the ranked ID set
-    const verificationFilter = filters.verificationFilter
     const selectClause =
       verificationFilter === 'owned' ? VERIFIED_BRAND_SELECT : BRAND_SELECT
+    const { offset, limit: pageLimit } = getSearchPagination(filters)
+    const pageEnd = pageLimit === undefined ? undefined : offset + pageLimit
 
-    let query = supabase.from('brands').select(selectClause, { count: 'exact' }).in('id', rankedIds)
+    async function hydrateByIds(ids: string[]): Promise<Brand[]> {
+      if (ids.length === 0) return []
 
-    if (verificationFilter === 'mit-verified') {
-      query = query.eq('mit_status', 'verified')
-    }
+      const { data, error } = await supabase
+        .from('brands')
+        .select(selectClause)
+        .in('id', ids)
 
-    if (!filters.includeTestBrands) {
-      query = query.not('name', 'like', '[E2E-TEST]%')
-    }
-    if (filters.status) {
-      query = query.eq('status', filters.status)
-    }
-    if (filters.category && filters.category.length > 0) {
-      query = query.in('product_type', filters.category)
-    }
-    if (filters.tags && filters.tags.length > 0) {
-      query = query.overlaps('tag_slugs', filters.tags)
+      if (error) throw error
+
+      return (data ?? []).map(brandToDomain)
     }
 
-    // Sorting
-    const sortKey = filters.sort ?? 'random'
-    if (sortKey !== 'random') {
-      const sortConfig = BRAND_SORT_CONFIG[sortKey]
-      query = query.order(sortConfig.column, { ascending: sortConfig.ascending })
+    const sortKey = filters.sort
+
+    if (!sortKey) {
+      const pageIds = allIds.slice(offset, pageEnd)
+      const rankById = new Map(pageIds.map((id, index) => [id, index]))
+      const brands = (await hydrateByIds(pageIds)).sort(
+        (left, right) => (rankById.get(left.id) ?? 0) - (rankById.get(right.id) ?? 0)
+      )
+      return { brands, totalCount }
     }
 
-    // Pagination
-    if (filters.limit !== undefined) {
-      const offset = filters.offset ?? 0
-      query = query.range(offset, offset + filters.limit - 1)
+    if (sortKey === 'random') {
+      const shuffledIds = [...allIds]
+      shuffleArray(shuffledIds)
+      const pageIds = shuffledIds.slice(offset, pageEnd)
+      const positionById = new Map(pageIds.map((id, index) => [id, index]))
+      const brands = (await hydrateByIds(pageIds)).sort(
+        (left, right) => (positionById.get(left.id) ?? 0) - (positionById.get(right.id) ?? 0)
+      )
+      return { brands, totalCount }
     }
 
-    const { data, error, count } = await query
-    if (error) {
-      if (error.code === 'PGRST103') return { brands: [], totalCount: count ?? 0 }
-      throw error
-    }
-    const brands = (data ?? []).map(brandToDomain)
-    if (sortKey === 'random') shuffleArray(brands)
-    return { brands, totalCount: count ?? 0 }
+    const sortConfig = BRAND_SORT_CONFIG[sortKey]
+    const { data, error } = await supabase
+      .from('brands')
+      .select(selectClause)
+      .in('id', allIds)
+      .order(sortConfig.column, { ascending: sortConfig.ascending })
+
+    if (error) throw error
+
+    const brands = (data ?? [])
+      .map(brandToDomain)
+      .slice(offset, pageEnd)
+    return { brands, totalCount }
   }
 
   const verificationFilter = filters?.verificationFilter
@@ -1134,36 +1214,6 @@ export async function completeBrandClaim({
     .eq('id', brandId)
 
   if (updateError) throw updateError
-}
-
-export async function searchBrands(query: string, limit: number = 5): Promise<SearchResult[]> {
-  const trimmed = query.trim().slice(0, 100)
-  if (!trimmed) return []
-
-  const supabase = createServiceClient()
-  const { data, error } = await supabase.rpc('search_brands', {
-    search_query: trimmed,
-    result_limit: limit,
-  })
-
-  if (error) {
-    console.error('searchBrands RPC error:', error)
-    return []
-  }
-
-  return (data ?? []).map((row: {
-    id: string
-    name: string
-    slug: string
-    primary_category_name: string
-    similarity_score: number
-  }) => ({
-    id: row.id,
-    name: row.name,
-    slug: row.slug,
-    category: row.primary_category_name,
-    similarity: row.similarity_score,
-  }))
 }
 
 export async function findSimilarBrands(names: string[]): Promise<SimilarBrand[]> {

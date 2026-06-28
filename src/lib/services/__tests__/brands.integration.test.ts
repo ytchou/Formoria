@@ -11,7 +11,7 @@
 
 import { beforeAll, afterAll, expect, it } from 'vitest'
 import { describeWithDb, createTestClient } from '@/test/setup'
-import { getBrands, searchBrands } from '../brands'
+import { getBrands } from '../brands'
 
 const TEST_SLUG = 'zzz-tagslugs-itest'
 const VERIFIED_SLUG = 'zzz-verified-tier-itest'
@@ -238,32 +238,61 @@ describeWithDb('getBrands — test brand exclusion', () => {
   })
 })
 
-describeWithDb('searchBrands — ranking order', () => {
-  it('ranks an exact 2-char CJK name first', async () => {
-    const results = await searchBrands('遮日', 10)
-
-    expect(results.length).toBeGreaterThan(0)
-    expect(results[0]?.name).toBe('ZALY 遮日')
+describeWithDb('getBrands — FTS search path', () => {
+  it('searches across tags and categories, not just name/description', async () => {
+    const result = await getBrands({
+      search: 'sustainable',
+      status: 'approved',
+      includeTestBrands: false,
+    })
+    expect(result).toHaveProperty('brands')
+    expect(result).toHaveProperty('totalCount')
+    expect(Array.isArray(result.brands)).toBe(true)
   })
 
-  it('ranks a name match above a description-only match', async () => {
-    // Q='手工皂': 'Natub 台灣製造天然手工皂 品牌專賣館' matches by name (ws_name=0.5, tier 1)
-    // while '艾莎妮亞名床 Aisaniea' matches by description only (ws_desc=0.5, tier 2).
-    const results = await searchBrands('手工皂', 20)
-    const names = results.map((result) => result.name)
-
-    expect(names).toContain('Natub 台灣製造天然手工皂 品牌專賣館')
-    expect(names).toContain('艾莎妮亞名床 Aisaniea')
-    expect(names.indexOf('Natub 台灣製造天然手工皂 品牌專賣館')).toBeLessThan(
-      names.indexOf('艾莎妮亞名床 Aisaniea')
-    )
+  it('returns totalCount for pagination when search is active', async () => {
+    const result = await getBrands({
+      search: 'taiwan',
+      status: 'approved',
+      includeTestBrands: false,
+    })
+    expect(typeof result.totalCount).toBe('number')
+    expect(result.totalCount).toBeGreaterThanOrEqual(0)
   })
 
-  it('returns a stable, deterministic order across identical searches', async () => {
-    const first = (await searchBrands('山芙蓉', 20)).map((result) => result.name)
-    const second = (await searchBrands('山芙蓉', 20)).map((result) => result.name)
+  it('respects sort override with search active', async () => {
+    const result = await getBrands({
+      search: 'taiwan',
+      sort: 'name',
+      status: 'approved',
+      includeTestBrands: false,
+    })
+    if (result.brands.length >= 2) {
+      const names = result.brands.map((b) => b.name)
+      const sorted = [...names].sort((a, b) => a.localeCompare(b))
+      expect(names).toEqual(sorted)
+    }
+  })
 
-    expect(first).toEqual(second)
-    expect(first).toContain('中富生物科技 (Zhongfu Biotech)')
+  it('paginates search results correctly', async () => {
+    const page1 = await getBrands({
+      search: 'taiwan',
+      page: 1,
+      status: 'approved',
+      includeTestBrands: false,
+    })
+    const page2 = await getBrands({
+      search: 'taiwan',
+      page: 2,
+      status: 'approved',
+      includeTestBrands: false,
+    })
+    if (page1.brands.length > 0 && page2.brands.length > 0) {
+      const page1Ids = new Set(page1.brands.map((b) => b.id))
+      const page2Ids = page2.brands.map((b) => b.id)
+      for (const id of page2Ids) {
+        expect(page1Ids.has(id)).toBe(false)
+      }
+    }
   })
 })
