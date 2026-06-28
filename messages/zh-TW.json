@@ -994,7 +994,11 @@
         "unverified": "您可以來信申請 MIT 微笑標章驗證，讓消費者更容易找到您的品牌。",
         "verified": "您的品牌已通過 MIT 微笑標章登錄驗證。"
       },
-      "certLabel": "微笑標章號碼",
+      "certLabel": "MIT 微笑標章編號",
+      "certPlaceholder": "例如 01900539-00001",
+      "verifyButton": "驗證",
+      "verifySuccess": "MIT 微笑標章驗證成功！",
+      "certNotFound": "在 MIT 微笑標章資料庫中找不到此標章編號",
       "reviewNote": "審核備註",
       "resubmitCta": "以 Email 申請驗證"
     },

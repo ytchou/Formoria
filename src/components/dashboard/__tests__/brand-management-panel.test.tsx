@@ -75,6 +75,10 @@ vi.mock('@/lib/services/pending-edits', () => ({
   getLatestEditReview: vi.fn(async () => null),
 }))
 
+vi.mock('@/lib/services/brand-owners', () => ({
+  isOwnerOf: vi.fn(async () => true),
+}))
+
 vi.mock('@/components/brands/edit-review-banner', () => ({
   EditReviewBanner: () => <div data-testid="edit-review-banner" />,
 }))

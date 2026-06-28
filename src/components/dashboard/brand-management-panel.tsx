@@ -10,6 +10,7 @@ import {
   getSourceBreakdown,
 } from "@/lib/services/brand-analytics";
 import { getLatestEditReview } from "@/lib/services/pending-edits";
+import { isOwnerOf } from "@/lib/services/brand-owners";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -36,12 +37,13 @@ export async function BrandManagementPanel({ slug, claimedAt, userId }: Props) {
   const brand = await getBrandBySlug(slug);
   const completeness = computeBrandCompleteness(brand);
 
-  const [analytics, series, breakdown, sources, latestReview] = await Promise.all([
+  const [analytics, series, breakdown, sources, latestReview, isOwner] = await Promise.all([
     getAnalytics(brand.id, 30),
     getDailySeries(brand.id, 90),
     getLinkClickBreakdown(brand.id, 90),
     getSourceBreakdown(brand.id, 30),
     getLatestEditReview(brand.id, userId),
+    isOwnerOf(userId, brand.id),
   ]);
   const health = computeBrandHealth(brand, analytics, new Date(brand.createdAt));
 
@@ -156,7 +158,14 @@ export async function BrandManagementPanel({ slug, claimedAt, userId }: Props) {
       </div>
 
       <div className="mt-8">
-        <MitStatusCard brand={brand} />
+        <MitStatusCard
+          brandId={brand.id}
+          brandName={brand.name}
+          brandSlug={brand.slug}
+          mitStatus={brand.mitStatus ?? 'unverified'}
+          mitEvidence={brand.mitEvidence ?? undefined}
+          isOwner={isOwner}
+        />
       </div>
 
       <div className="mt-8 grid gap-6">

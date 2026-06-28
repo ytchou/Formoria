@@ -994,7 +994,11 @@
         "unverified": "You can request MIT Smile mark verification by email to help shoppers find your brand.",
         "verified": "Your brand has been confirmed against the MIT Smile mark registry."
       },
-      "certLabel": "MIT Smile mark number",
+      "certLabel": "MIT Certificate Number",
+      "certPlaceholder": "e.g. 01900539-00001",
+      "verifyButton": "Verify",
+      "verifySuccess": "MIT certification verified!",
+      "certNotFound": "Certificate number not found in the MIT registry",
       "reviewNote": "Reviewer note",
       "resubmitCta": "Request verification by email"
     },
