@@ -11,17 +11,61 @@ export type MitRegistryRecord = {
   valid_until: string | null
 }
 
+/**
+ * Parse a single CSV line following RFC 4180: fields may be wrapped in double
+ * quotes, and a literal double-quote inside a quoted field is escaped as "".
+ */
+function parseCsvLine(line: string): string[] {
+  const fields: string[] = []
+  let current = ''
+  let inQuotes = false
+  let i = 0
+
+  while (i < line.length) {
+    const ch = line[i]
+    if (inQuotes) {
+      if (ch === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"'
+          i += 2
+        } else {
+          inQuotes = false
+          i++
+        }
+      } else {
+        current += ch
+        i++
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true
+        i++
+      } else if (ch === ',') {
+        fields.push(current)
+        current = ''
+        i++
+      } else {
+        current += ch
+        i++
+      }
+    }
+  }
+
+  fields.push(current)
+  return fields
+}
+
 export function parseMitCsv(csvContent: string): MitRegistryRecord[] {
   if (!csvContent.trim()) return []
 
   const lines = csvContent.split('\n').filter((line) => line.trim())
   if (lines.length < 2) return []
 
-  const headers = lines[0].split(',').map((h) => h.trim())
+  const headers = parseCsvLine(lines[0]).map((h) => h.trim())
   const records: MitRegistryRecord[] = []
 
   for (let i = 1; i < lines.length; i++) {
-    const cells = lines[i].split(',').map((c) => c.trim())
+    const cells = parseCsvLine(lines[i]).map((c) => c.trim())
     const row: Record<string, string> = {}
 
     headers.forEach((header, idx) => {
@@ -86,15 +130,30 @@ export async function syncMitRegistry(): Promise<{ recordCount: number; duration
   const records = parseMitCsv(csvContent)
 
   const supabase = createServiceClient()
+  const syncedAt = new Date(startMs).toISOString()
 
   for (let i = 0; i < records.length; i += BATCH_SIZE) {
-    const batch = records.slice(i, i + BATCH_SIZE)
+    const batch = records.slice(i, i + BATCH_SIZE).map((r) => ({
+      ...r,
+      synced_at: syncedAt,
+    }))
     const { error } = await supabase
       .from('mit_registry')
-      .upsert(batch, { onConflict: 'cert_number' })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .upsert(batch as any[], { onConflict: 'cert_number' })
 
     if (error) throw error
   }
+
+  // Remove records that were not part of this sync — they have been revoked
+  // or are no longer in the official dataset.
+  const { error: cleanupError } = await supabase
+    .from('mit_registry')
+    .delete()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .lt('synced_at' as any, syncedAt)
+
+  if (cleanupError) throw cleanupError
 
   return {
     recordCount: records.length,
