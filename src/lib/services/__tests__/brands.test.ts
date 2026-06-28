@@ -231,9 +231,9 @@ describe('brandToInsert — brand detail enrichment fields', () => {
     expect(result.product_tags).toEqual(['minimal', 'gift'])
   })
 
-  it('does not serialize empty productTags', () => {
+  it('serializes empty productTags as [] to allow clearing the field', () => {
     const result = brandToInsert({ productTags: [] })
-    expect(result).not.toHaveProperty('product_tags')
+    expect(result.product_tags).toEqual([])
   })
 })
 

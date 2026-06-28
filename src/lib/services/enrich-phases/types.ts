@@ -39,7 +39,9 @@ export type EnrichPatch = Partial<BrandFlatLinkColumns> &
     description: string | null
     hero_image_url: string | null
     name: string
+    price_range: number | null
     product_photos: string[]
+    product_tags: string[] | null
     product_type: string | null
     slug: string
     tag_slugs: string[]

@@ -560,8 +560,8 @@ export function brandToInsert(data: BrandWriteInput): Record<string, unknown> {
   if (data.retailLocations !== undefined) row.retail_locations = data.retailLocations
   if (data.productPhotos !== undefined) row.product_photos = data.productPhotos
   if (data.contactEmail !== undefined) row.contact_email = data.contactEmail
-  if (data.priceRange != null) row.price_range = data.priceRange
-  if (data.productTags?.length) row.product_tags = data.productTags
+  row.price_range = data.priceRange ?? null
+  row.product_tags = data.productTags ?? []
   if (data.isDemo) row.is_demo = data.isDemo
   return row
 }

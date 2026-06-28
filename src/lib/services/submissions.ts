@@ -308,6 +308,8 @@ function enrichedDataToBrandInsert(enrichedData: EnrichedData | null): Partial<B
     hero_image_url: normalizeString(enrichedData.heroImageUrl) ?? undefined,
     product_photos: enrichedData.productPhotos,
     product_type: normalizeString(enrichedData.productType) ?? undefined,
+    price_range: enrichedData.priceRange,
+    product_tags: enrichedData.productTags,
     social_instagram: normalizeString(enrichedData.socialInstagram) ?? undefined,
     social_threads: normalizeString(enrichedData.socialThreads) ?? undefined,
     social_facebook: normalizeString(enrichedData.socialFacebook) ?? undefined,
