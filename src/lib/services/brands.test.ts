@@ -126,7 +126,7 @@ describe('brandToInsert', () => {
   })
 })
 
-describe('brandToDomain — brandHighlights', () => {
+describe('brandToDomain — basic fields', () => {
   const baseRow = {
     id: 'test-id', name: 'Test Brand', slug: 'test-brand',
     description: 'A test brand', hero_image_url: null,
@@ -135,49 +135,15 @@ describe('brandToDomain — brandHighlights', () => {
     product_photos: [], contact_email: null, brand_taxonomy: [],
     submitted_at: '2026-01-01T00:00:00Z', approved_at: null,
     created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
-    brand_highlights: null,
   }
 
-  it('brandToDomain ignores the dormant founder column', () => {
+  it('maps description', () => {
     const row = {
       ...baseRow,
       description: '介紹',
-      founder: { name: 'X' },
     }
     const brand = brandToDomain(row)
-    expect((brand as { founder?: unknown }).founder).toBeUndefined()
     expect(brand.description).toBe('介紹')
-  })
-
-  it('maps brand_highlights string to brandHighlights', () => {
-    const row = { ...baseRow, brand_highlights: 'Handcrafted with Taiwanese cedar since 1992' }
-    const brand = brandToDomain(row)
-    expect(brand.brandHighlights).toBe('Handcrafted with Taiwanese cedar since 1992')
-  })
-
-  it('maps null brand_highlights to null', () => {
-    const row = { ...baseRow, brand_highlights: null }
-    const brand = brandToDomain(row)
-    expect(brand.brandHighlights).toBeNull()
-  })
-
-})
-
-describe('brandToInsert — brandHighlights', () => {
-  it('brandToInsert does not write a founder field', () => {
-    const input = {
-      description: '介紹',
-      brandHighlights: 'Eco-certified packaging',
-    }
-    const row = brandToInsert(input)
-    expect('founder' in row).toBe(false)
-    expect(row.description).toBe('介紹')
-  })
-
-  it('omits brand_highlights when brandHighlights is null', () => {
-    const data = { brandHighlights: null }
-    const row = brandToInsert(data)
-    expect(row).not.toHaveProperty('brand_highlights')
   })
 })
 
@@ -233,36 +199,32 @@ describe('getBrands — PGRST103 offset overflow', () => {
     expect(result.totalCount).toBe(90)
   })
 
-  it('returns empty brands array (not throw) when search path gets PGRST103', async () => {
+  it('returns empty brands array (not throw) when offset exceeds search result count', async () => {
+    // The search path uses in-memory slicing (not .range()), so PGRST103 cannot naturally
+    // occur in hydration. This test verifies that out-of-bounds offset is handled gracefully.
     const { getBrands } = await import('./brands')
 
-    const pgrst103Error = { code: 'PGRST103', message: 'An offset of 96 was requested, but there are only 90 rows' }
-    const resolvedData = { data: null, error: pgrst103Error, count: 90 }
-
-    // RPC returns matched IDs so we proceed to the pagination query
+    // RPC returns 1 brand, but client requests offset=96 — well past the result count
     mockRpc.mockResolvedValue({
-      data: [{ id: 'brand-1' }],
+      data: [{
+        id: 'brand-1',
+        name: 'Test Brand',
+        slug: 'test-brand',
+        hero_image_url: null,
+        primary_category_name: 'Food',
+        rank_score: 0.9,
+        search_source: 'fts',
+      }],
       error: null,
     })
 
-    // Build a chainable mock for the follow-up .from('brands') query
-    const chainable: Record<string, unknown> = {}
-    const chainFn = () => chainable
-    chainable.select = vi.fn().mockReturnValue({ in: () => chainable })
-    chainable.in = chainFn
-    chainable.not = chainFn
-    chainable.eq = chainFn
-    chainable.overlaps = chainFn
-    chainable.order = chainFn
-    chainable.range = chainFn
-    chainable.then = (resolve: (v: unknown) => void) => Promise.resolve(resolvedData).then(resolve)
-
-    mockFrom.mockReturnValue(chainable)
-
     const result = await getBrands({ search: 'tea', limit: 6, offset: 96 })
 
+    // offset > totalCount → empty page, no hydration attempted
     expect(result.brands).toEqual([])
-    expect(result.totalCount).toBe(90)
+    expect(result.totalCount).toBe(1)
+    // hydrateByIds was called with empty array → from() never called
+    expect(mockFrom).not.toHaveBeenCalled()
   })
 
   it('still throws for non-PGRST103 errors in the normal path', async () => {
@@ -298,7 +260,7 @@ describe('getBrands — search uses search_brands RPC', () => {
 
     // RPC returns a matched brand ID (simulate pg_trgm fuzzy match for "茶" partial)
     mockRpc.mockResolvedValue({
-      data: [{ id: 'brand-tea', name: 'Sun Tea', slug: 'sun-tea', primary_category_name: 'Food', similarity_score: 0.8 }],
+      data: [{ id: 'brand-tea', name: 'Sun Tea', slug: 'sun-tea', primary_category_name: 'Food', rank_score: 0.8, search_source: 'trgm' }],
       error: null,
     })
 
@@ -323,7 +285,6 @@ describe('getBrands — search uses search_brands RPC', () => {
       approved_at: '2026-01-02T00:00:00Z',
       created_at: '2026-01-01T00:00:00Z',
       updated_at: '2026-01-02T00:00:00Z',
-      brand_highlights: null,
       is_demo: false,
     }
 

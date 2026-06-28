@@ -218,6 +218,7 @@ function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = 
           suggestions={suggestions}
           selectedIndex={selectedIndex}
           onSelect={handleSelect}
+          query={value}
         />
       )}
     </form>

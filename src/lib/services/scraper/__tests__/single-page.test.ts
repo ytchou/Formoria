@@ -28,9 +28,4 @@ describe('SinglePageStrategy via scrapeBrandUrl', () => {
     const r = await scrapeBrandUrl('https://acme.tw')
     expect(r.heroImageUrl).toBeNull()
   })
-  it('no longer exposes brandHighlights', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(page('<title>X</title>')))
-    const r = await scrapeBrandUrl('https://acme.tw')
-    expect('brandHighlights' in r).toBe(false)
-  })
 })

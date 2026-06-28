@@ -483,13 +483,11 @@ export type Database = {
         Row: {
           approved_at: string | null
           brand_enriched_at: string | null
-          brand_highlights: string | null
           contact_email: string | null
           created_at: string | null
           description: string | null
           draft_data: Json | null
           draft_updated_at: string | null
-          founder: Json | null
           founding_year: number | null
           hero_image_url: string | null
           id: string
@@ -501,12 +499,15 @@ export type Database = {
           mit_verified_at: string | null
           name: string
           other_urls: Json
+          price_range: number | null
           product_photos: Json | null
+          product_tags: string[] | null
           product_type: string | null
           purchase_pinkoi: string | null
           purchase_shopee: string | null
           purchase_website: string | null
           retail_locations: Json | null
+          search_vector: unknown
           serp_enriched_at: string | null
           site_content: Json | null
           slug: string
@@ -523,13 +524,11 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           brand_enriched_at?: string | null
-          brand_highlights?: string | null
           contact_email?: string | null
           created_at?: string | null
           description?: string | null
           draft_data?: Json | null
           draft_updated_at?: string | null
-          founder?: Json | null
           founding_year?: number | null
           hero_image_url?: string | null
           id?: string
@@ -541,12 +540,15 @@ export type Database = {
           mit_verified_at?: string | null
           name: string
           other_urls?: Json
+          price_range?: number | null
           product_photos?: Json | null
+          product_tags?: string[] | null
           product_type?: string | null
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null
           purchase_website?: string | null
           retail_locations?: Json | null
+          search_vector?: unknown
           serp_enriched_at?: string | null
           site_content?: Json | null
           slug: string
@@ -563,13 +565,11 @@ export type Database = {
         Update: {
           approved_at?: string | null
           brand_enriched_at?: string | null
-          brand_highlights?: string | null
           contact_email?: string | null
           created_at?: string | null
           description?: string | null
           draft_data?: Json | null
           draft_updated_at?: string | null
-          founder?: Json | null
           founding_year?: number | null
           hero_image_url?: string | null
           id?: string
@@ -581,12 +581,15 @@ export type Database = {
           mit_verified_at?: string | null
           name?: string
           other_urls?: Json
+          price_range?: number | null
           product_photos?: Json | null
+          product_tags?: string[] | null
           product_type?: string | null
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null
           purchase_website?: string | null
           retail_locations?: Json | null
+          search_vector?: unknown
           serp_enriched_at?: string | null
           site_content?: Json | null
           slug?: string

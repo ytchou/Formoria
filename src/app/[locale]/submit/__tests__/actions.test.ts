@@ -137,8 +137,6 @@ describe('server action schema routing', () => {
     })
 
     expect(mockSubmitBrandForReview).toHaveBeenCalledTimes(1)
-    const payload = mockSubmitBrandForReview.mock.calls[0][0]
-    expect('founder' in payload).toBe(false)
   })
 
   it('does not pass region to submitBrandForReview', async () => {

@@ -1,6 +1,5 @@
 export const FIELD_LABELS: Record<string, string> = {
   description: '描述',
-  brand_highlights: '品牌亮點',
   social_instagram: 'IG',
   social_threads: 'Threads',
   social_facebook: 'FB',

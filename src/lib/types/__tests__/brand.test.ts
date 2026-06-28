@@ -12,5 +12,7 @@ describe('BrandStatus type', () => {
     const _pending: BrandStatus = 'pending'
     // @ts-expect-error — 'rejected' should not be assignable to BrandStatus
     const _rejected: BrandStatus = 'rejected'
+    void _pending
+    void _rejected
   })
 })

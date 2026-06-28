@@ -156,7 +156,6 @@ describe('updateBrandAction', () => {
       socialLinks: {},
       heroImageUrl: null,
       productPhotos: [],
-      brandHighlights: null,
     })
     diffRemovedImageUrls.mockReturnValue([])
     scanContent.mockReturnValue({ riskLevel: 'clean', flags: [] })
@@ -243,7 +242,7 @@ describe('updateBrandAction', () => {
     )
   })
 
-  it('persists submitted image URLs and brandHighlights', async () => {
+  it('persists submitted image URLs', async () => {
     const { updateBrandAction } = await import('./actions')
 
     try {
@@ -252,7 +251,6 @@ describe('updateBrandAction', () => {
         name: 'Acme',
         heroImageUrl: heroUrl,
         productPhotos: JSON.stringify([newProductUrl]),
-        brandHighlights: 'Hand-finished in Taichung',
       }))
     } catch {
       // redirect throws
@@ -263,7 +261,6 @@ describe('updateBrandAction', () => {
       expect.objectContaining({
         heroImageUrl: heroUrl,
         productPhotos: [newProductUrl],
-        brandHighlights: 'Hand-finished in Taichung',
       })
     )
   })
@@ -303,7 +300,6 @@ describe('updateBrandAction', () => {
         mit_status: 'approved',
         is_demo: 'true',
         source: 'admin',
-        founderName: 'bad write',
       }))
     } catch {
       // redirect throws
@@ -317,7 +313,6 @@ describe('updateBrandAction', () => {
     expect(arg).not.toHaveProperty('mit_status')
     expect(arg).not.toHaveProperty('is_demo')
     expect(arg).not.toHaveProperty('source')
-    expect(arg).not.toHaveProperty('founderName')
   })
 
   it('returns an error when productPhotos is malformed JSON', async () => {
@@ -341,7 +336,6 @@ describe('updateBrandAction', () => {
       socialLinks: {},
       heroImageUrl: oldHeroUrl,
       productPhotos: [oldProductUrl],
-      brandHighlights: null,
     })
     diffRemovedImageUrls.mockReturnValueOnce([oldHeroUrl, oldProductUrl])
 
@@ -396,7 +390,6 @@ describe('updateBrandAction — admin bypass', () => {
       socialLinks: {},
       heroImageUrl: null,
       productPhotos: [],
-      brandHighlights: null,
     })
     diffRemovedImageUrls.mockReturnValue([])
     scanContent.mockReturnValue({ riskLevel: 'clean', flags: [] })
@@ -461,7 +454,6 @@ describe('updateBrandAction — edit gating', () => {
       socialLinks: {},
       heroImageUrl: null,
       productPhotos: [],
-      brandHighlights: null,
     })
     diffRemovedImageUrls.mockReturnValue([])
     scanContent.mockReturnValue({ riskLevel: 'clean', flags: [] })
@@ -480,7 +472,6 @@ describe('updateBrandAction — edit gating', () => {
         brandSlug: 'test-brand',
         name: 'Trusted Name',
         description: 'Clean trusted description',
-        brandHighlights: 'Clean trusted highlight',
         purchaseWebsite: 'https://example.com',
         purchaseShopee: 'https://shop.example.com/product',
       }))
@@ -493,7 +484,6 @@ describe('updateBrandAction — edit gating', () => {
       fields: {
         name: 'Trusted Name',
         description: 'Clean trusted description',
-        brandHighlights: 'Clean trusted highlight',
         website: 'https://example.com',
         purchaseUrl: 'https://shop.example.com/product',
       },
@@ -565,7 +555,6 @@ describe('updateBrandAction — edit gating', () => {
       fields: {
         name: 'Queued Name',
         description: 'Queued description',
-        brandHighlights: undefined,
         website: undefined,
         purchaseUrl: undefined,
       },
@@ -639,7 +628,6 @@ describe('publishDraftAction — edit gating', () => {
       socialLinks: {},
       heroImageUrl: null,
       productPhotos: [],
-      brandHighlights: null,
     })
     getBrandDraft.mockResolvedValue({
       name: 'Draft Name',

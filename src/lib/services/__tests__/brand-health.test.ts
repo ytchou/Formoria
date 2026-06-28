@@ -38,8 +38,9 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
       'https://example.com/p4.jpg',
       'https://example.com/p5.jpg',
     ],
-    brandHighlights: 'Highlight 1, Highlight 2, Highlight 3',
     siteContent: null,
+    priceRange: null,
+    productTags: [],
     tags: [],
     contactEmail: null,
     submittedAt: '2026-01-01T00:00:00Z',
@@ -90,7 +91,6 @@ describe('computeBrandHealth', () => {
         socialInstagram: null,
         socialThreads: null,
         socialFacebook: null,
-        brandHighlights: null,
         foundingYear: null,
         retailLocations: [],
         customerVoices: [],
@@ -118,7 +118,6 @@ describe('computeBrandHealth', () => {
         socialInstagram: null,
         socialThreads: null,
         socialFacebook: null,
-        brandHighlights: null,
         foundingYear: null,
         retailLocations: [],
         customerVoices: [],
@@ -136,7 +135,6 @@ describe('computeBrandHealth', () => {
         purchaseWebsite: null,
         purchasePinkoi: null,
         purchaseShopee: null,
-        brandHighlights: null,
         retailLocations: [],
         customerVoices: [],
       })
@@ -269,7 +267,6 @@ describe('computeBrandHealth', () => {
         socialInstagram: null,
         socialThreads: null,
         socialFacebook: null,
-        brandHighlights: null,
       })
       const result = computeBrandHealth(brand, makeAnalytics(), SEVEN_DAYS_AGO)
       for (let i = 1; i < result.topActions.length; i++) {
@@ -291,7 +288,6 @@ describe('computeBrandHealth', () => {
         socialInstagram: null,
         socialThreads: null,
         socialFacebook: null,
-        brandHighlights: null,
       })
       const result = computeBrandHealth(emptyBrand, null, SEVEN_DAYS_AGO)
       expect(result.topActions.length).toBeLessThanOrEqual(3)

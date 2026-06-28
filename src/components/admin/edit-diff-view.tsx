@@ -19,7 +19,6 @@ export function computeDiffFields(
     heroImageUrl: '封面圖片',
     category: '類別',
     contactEmail: '聯絡信箱',
-    brandHighlights: '品牌特色',
     foundingYear: '創立年份',
     customerVoices: '顧客心聲',
   }

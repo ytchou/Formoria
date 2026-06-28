@@ -29,7 +29,7 @@ type PendingEditReviewRow = {
 }
 
 const PENDING_EDIT_WITH_BRAND_SELECT =
-  '*, brands(id, name, slug, description, hero_image_url, product_type, contact_email, brand_highlights, founding_year, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, other_urls, retail_locations, customer_voices, product_photos, site_content)'
+  '*, brands(id, name, slug, description, hero_image_url, product_type, contact_email, founding_year, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, other_urls, retail_locations, customer_voices, product_photos, site_content)'
 
 function asSingleBrand(
   brand: Partial<BrandRow> | Partial<BrandRow>[] | null | undefined
@@ -102,7 +102,6 @@ export function pendingEditWithBrandToDomain(
       heroImageUrl: brand?.hero_image_url ?? null,
       category: deriveCategoryFromProductType(brand?.product_type ?? '') ?? null,
       contactEmail: brand?.contact_email ?? null,
-      brandHighlights: brand?.brand_highlights ?? null,
       foundingYear: brand?.founding_year ?? null,
       socialInstagram: proposedStringOrNull(proposedData, 'socialInstagram', brand?.social_instagram),
       socialThreads: proposedStringOrNull(proposedData, 'socialThreads', brand?.social_threads),
@@ -114,6 +113,8 @@ export function pendingEditWithBrandToDomain(
       retailLocations: Array.isArray(brand?.retail_locations) ? brand.retail_locations as Brand['retailLocations'] : [],
       customerVoices: proposedArrayField<CustomerVoice>(proposedData, 'customerVoices', brand?.customer_voices),
       productPhotos: Array.isArray(brand?.product_photos) ? brand.product_photos.filter((url): url is string => typeof url === 'string') : [],
+      priceRange: brand?.price_range ?? null,
+      productTags: Array.isArray(brand?.product_tags) ? brand.product_tags : [],
       siteContent: brand?.site_content && typeof brand.site_content === 'object' && !Array.isArray(brand.site_content)
         ? brand.site_content as Brand['siteContent']
         : null,

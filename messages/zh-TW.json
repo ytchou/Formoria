@@ -1207,7 +1207,6 @@
       "logoRequired": "Logo *",
       "logoOptional": "Logo（選填）",
       "logoHint": "上傳您的品牌 Logo（最大 5MB，將調整至最大 1200px）",
-      "productPhotos": "產品照片",
       "productPhotosHint": "上傳最多 6 張照片展示您的產品",
       "brandHighlights": "品牌亮點",
       "brandHighlightsHint": "是什麼讓您的品牌與眾不同？",
@@ -1524,5 +1523,16 @@
     "emptyDescription": "去探索品牌目錄吧！",
     "exploreBrands": "探索品牌目錄",
     "loginToSave": "登入後即可收藏品牌"
+  },
+  "search": {
+    "emptyState": {
+      "title": "找不到「{query}」相關的品牌",
+      "description": "試試其他關鍵字或瀏覽分類",
+      "withFiltersTitle": "使用目前的篩選條件找不到「{query}」相關的品牌",
+      "withFiltersDescription": "試著移除部分篩選條件或搜尋其他內容",
+      "clearFilters": "清除所有篩選",
+      "browseCategories": "依分類瀏覽",
+      "featuredBrands": "MIT 認證品牌"
+    }
   }
 }

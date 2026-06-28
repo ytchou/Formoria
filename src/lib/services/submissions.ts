@@ -75,7 +75,6 @@ export type SubmissionApprovalOverrides = Partial<
     | 'purchaseShopee'
     | 'otherUrls'
     | 'productPhotos'
-    | 'brandHighlights'
   >
 > & {
   name?: string | null
@@ -293,7 +292,6 @@ function submissionToBrandBase(row: SubmissionRow): BrandInsert {
       ? rowWithSubmissionImages.product_photos.filter((url): url is string => typeof url === 'string')
       : [],
     contact_email: row.submitter_email,
-    brand_highlights: null,
     site_content: null,
     unified_business_number: row.unified_business_number,
     submitted_at: row.submitted_at,
@@ -310,7 +308,8 @@ function enrichedDataToBrandInsert(enrichedData: EnrichedData | null): Partial<B
     hero_image_url: normalizeString(enrichedData.heroImageUrl) ?? undefined,
     product_photos: enrichedData.productPhotos,
     product_type: normalizeString(enrichedData.productType) ?? undefined,
-    brand_highlights: normalizeString(enrichedData.brandHighlights) ?? undefined,
+    price_range: enrichedData.priceRange,
+    product_tags: enrichedData.productTags,
     social_instagram: normalizeString(enrichedData.socialInstagram) ?? undefined,
     social_threads: normalizeString(enrichedData.socialThreads) ?? undefined,
     social_facebook: normalizeString(enrichedData.socialFacebook) ?? undefined,
@@ -333,8 +332,6 @@ function approvalOverridesToBrandInsert(
     hero_image_url: overrides.heroImageUrl === undefined ? undefined : normalizeString(overrides.heroImageUrl),
     product_type: productType ?? undefined,
     product_photos: overrides.productPhotos,
-    brand_highlights:
-      overrides.brandHighlights === undefined ? undefined : normalizeString(overrides.brandHighlights),
     social_instagram:
       overrides.socialInstagram === undefined ? undefined : normalizeString(overrides.socialInstagram),
     social_threads: overrides.socialThreads === undefined ? undefined : normalizeString(overrides.socialThreads),
