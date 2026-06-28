@@ -121,6 +121,21 @@ export async function createCurationJob(
   return { job: job as CurationJob }
 }
 
+export async function cancelCurationJob(jobId: string): Promise<void> {
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('curation_jobs')
+    .update({
+      status: 'failed',
+      completed_at: new Date().toISOString(),
+    })
+    .eq('id', jobId)
+
+  if (error) {
+    throw error
+  }
+}
+
 export async function listCurationJobs(
   options?: { limit?: number }
 ): Promise<CurationJob[]> {

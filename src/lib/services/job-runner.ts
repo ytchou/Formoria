@@ -10,31 +10,18 @@ import {
   logEnrichmentProgress,
   type EnrichmentSummary,
 } from '@/lib/services/enrichment-logger'
+import {
+  recoverStaleJobs,
+  type CurationJob,
+} from '@/lib/services/curation-jobs'
 import { createServiceClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
-
-const STALE_JOB_MINUTES = 30
-const STALE_PENDING_JOB_MINUTES = 10
 
 type Supabase = ReturnType<typeof createServiceClient>
 type OperationSupabase = Parameters<typeof runEnrich>[1]
 type ValidOperation = 'enrich'
-type CurationJobStatus = 'pending' | 'running' | 'completed' | 'failed'
 type EnrichPhase = (typeof ENRICH_PHASES)[number]
 type EnrichTarget = 'brands' | 'submissions'
-export type CurationJob = {
-  id: string
-  operation: string
-  status: CurationJobStatus
-  params: Json | null
-  dry_run: boolean
-  progress: Json | null
-  result: Json | null
-  started_by: string
-  created_at: string | null
-  started_at: string | null
-  completed_at: string | null
-}
 type CurationJobUpdate = Partial<
   Pick<CurationJob, 'status' | 'progress' | 'result' | 'started_at' | 'completed_at'>
 >
@@ -65,9 +52,6 @@ type OperationWithSummary = CurationOperationResult & {
 }
 type CurationJobsMutation = PromiseLike<{ error: { message: string } | null }> & {
   eq: (column: string, value: string) => CurationJobsMutation
-  neq: (column: string, value: string) => CurationJobsMutation
-  lt: (column: string, value: string) => CurationJobsMutation
-  or: (filter: string) => CurationJobsMutation
 }
 type CurationJobsTable = {
   update: (patch: CurationJobUpdate) => CurationJobsMutation
@@ -77,9 +61,12 @@ type RevalidateTagOneArg = (tag: string) => void
 
 export async function runJob(job: CurationJob): Promise<EnrichmentSummary> {
   const supabase = createServiceClient()
+  await recoverStaleJobs()
+
+  const startedAt = Date.now()
+  let summary: EnrichmentSummary
 
   try {
-    await recoverStaleJobs(supabase, job.id)
     await updateJob(supabase, job.id, {
       status: 'running',
       started_at: new Date().toISOString(),
@@ -93,9 +80,7 @@ export async function runJob(job: CurationJob): Promise<EnrichmentSummary> {
       progress: progressJson(normalizeOperationResult(result)),
       result: result.enrichmentSummary as unknown as Json,
     })
-    const revalidateTagOneArg = revalidateTag as RevalidateTagOneArg
-    revalidateTagOneArg('quality-metrics')
-    return result.enrichmentSummary
+    summary = result.enrichmentSummary
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     await updateJob(supabase, job.id, {
@@ -106,8 +91,25 @@ export async function runJob(job: CurationJob): Promise<EnrichmentSummary> {
         error: message,
       } as Json,
     })
-    throw error
+    summary = failedJobSummary(job, message, Date.now() - startedAt)
   }
+
+  const revalidateTagOneArg = revalidateTag as RevalidateTagOneArg
+  revalidateTagOneArg('quality-metrics')
+  return summary
+}
+
+export function mergeSummaries(summaries: EnrichmentSummary[]): EnrichmentSummary {
+  return summaries.reduce<EnrichmentSummary>(
+    (merged, summary) => ({
+      success: merged.success + summary.success,
+      skipped: merged.skipped + summary.skipped,
+      failed: merged.failed + summary.failed,
+      failedBrands: [...merged.failedBrands, ...summary.failedBrands],
+      durationMs: merged.durationMs + summary.durationMs,
+    }),
+    { success: 0, skipped: 0, failed: 0, failedBrands: [], durationMs: 0 }
+  )
 }
 
 async function runOperation(supabase: Supabase, job: CurationJob): Promise<OperationWithSummary> {
@@ -381,30 +383,23 @@ async function updateJob(supabase: Supabase, jobId: string, patch: CurationJobUp
   }
 }
 
-async function recoverStaleJobs(supabase: Supabase, currentJobId: string): Promise<void> {
-  const staleBefore = new Date(Date.now() - STALE_JOB_MINUTES * 60 * 1000).toISOString()
-  const pendingStaleBefore = new Date(
-    Date.now() - STALE_PENDING_JOB_MINUTES * 60 * 1000
-  ).toISOString()
-  const { error } = await curationJobs(supabase)
-    .update({
-      status: 'failed',
-      completed_at: new Date().toISOString(),
-      result: { error: 'Job timed out (stale recovery)' } as Json,
-    })
-    .neq('id', currentJobId)
-    .or(
-      `and(status.eq.running,started_at.lt.${staleBefore}),and(status.eq.pending,created_at.lt.${pendingStaleBefore})`
-    )
-
-  if (error) {
-    throw error
-  }
-}
-
 function operationResultTotal(result: CurationOperationResult): number {
   const total = (result as CurationOperationResult & { total?: unknown }).total
   return typeof total === 'number' && Number.isFinite(total) ? total : result.processed
+}
+
+function failedJobSummary(
+  job: CurationJob,
+  error: string,
+  durationMs: number
+): EnrichmentSummary {
+  return {
+    success: 0,
+    skipped: 0,
+    failed: 1,
+    failedBrands: [{ slug: job.id, phase: 'job', error }],
+    durationMs,
+  }
 }
 
 function attachEnrichmentSummary(

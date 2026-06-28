@@ -6,6 +6,7 @@ const isActingAsAdmin = vi.fn()
 const recoverStaleJobs = vi.fn()
 const checkForRunningJob = vi.fn()
 const createCurationJob = vi.fn()
+const cancelCurationJob = vi.fn()
 const listCurationJobs = vi.fn()
 const runJob = vi.fn()
 
@@ -28,6 +29,7 @@ vi.mock('@/lib/services/curation-jobs', async (importOriginal) => {
     recoverStaleJobs,
     checkForRunningJob,
     createCurationJob,
+    cancelCurationJob,
     listCurationJobs,
   }
 })
@@ -45,6 +47,7 @@ describe('curation server actions', () => {
     })
     isActingAsAdmin.mockResolvedValue(true)
     recoverStaleJobs.mockResolvedValue(undefined)
+    cancelCurationJob.mockResolvedValue(undefined)
     checkForRunningJob.mockResolvedValue({ hasRunningJob: false })
     createCurationJob.mockImplementation(async ({ params }) => ({
       job: job({ id: `job-${createCurationJob.mock.calls.length}`, params }),
@@ -125,6 +128,40 @@ describe('curation server actions', () => {
       jobIds: ['job-1', 'job-2'],
     })
     expect(runJob).not.toHaveBeenCalled()
+  })
+
+  it('cancels orphaned jobs when a later batch creation fails', async () => {
+    createCurationJob
+      .mockResolvedValueOnce({ job: job({ id: 'job-1', params: {} }) })
+      .mockResolvedValueOnce({ error: 'DB write failed' })
+
+    const { startCurationJobAction } = await import('../operations/actions')
+    const submissionIds = Array.from(
+      { length: 23 },
+      (_, index) => `6ba7b810-9dad-11d1-80b4-${String(index + 1).padStart(12, '0')}`
+    )
+
+    const result = await startCurationJobAction('enrich', { submissionIds }, false)
+
+    expect(result).toMatchObject({ error: 'DB write failed' })
+    expect(cancelCurationJob).toHaveBeenCalledWith('job-1')
+    expect(cancelCurationJob).toHaveBeenCalledTimes(1)
+    expect(runJob).not.toHaveBeenCalled()
+  })
+
+  it('returns all job IDs in the non-queued path for multi-batch operations', async () => {
+    const { startCurationJobAction } = await import('../operations/actions')
+    const submissionIds = Array.from(
+      { length: 23 },
+      (_, index) => `6ba7b810-9dad-11d1-80b4-${String(index + 1).padStart(12, '0')}`
+    )
+
+    const result = await startCurationJobAction('enrich', { submissionIds }, false)
+
+    expect(result).toMatchObject({
+      jobId: 'job-1',
+      jobIds: ['job-1', 'job-2'],
+    })
   })
 })
 

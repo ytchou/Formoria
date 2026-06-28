@@ -79,35 +79,38 @@ describe('job-runner enrich routing', () => {
   })
 })
 
-describe('job-runner queue chaining', () => {
-  it('processes pending jobs until the queue is empty', async () => {
-    const nextJob = job({ id: 'job-2', params: { slugs: ['brand-b'] } })
-    const { getNextPendingJob, runEnrich, runJob } = await importRunnerWithMocks([], [nextJob, null])
+describe('job-runner single-job processing', () => {
+  it('processes exactly one job per call without draining the queue', async () => {
+    const { runEnrich, runJob } = await importRunnerWithMocks()
 
     const summary = await runJob(job({ id: 'job-1', params: { slugs: ['brand-a'] } }))
 
-    expect(runEnrich).toHaveBeenCalledTimes(2)
-    expect(getNextPendingJob).toHaveBeenCalledTimes(2)
-    expect(summary).toMatchObject({ success: 2, skipped: 0, failed: 0, durationMs: 20 })
+    expect(runEnrich).toHaveBeenCalledTimes(1)
+    expect(summary).toMatchObject({ success: 1, skipped: 0, failed: 0, durationMs: 10 })
   })
 
-  it('marks a failed job and continues to the next pending job', async () => {
-    const runEnrich = vi
-      .fn()
-      .mockRejectedValueOnce(new Error('first job failed'))
-      .mockResolvedValueOnce(operationResult)
-    const { runJob } = await importRunnerWithMocks([], [job({ id: 'job-2' }), null], runEnrich)
+  it('returns a failed summary when the job throws without processing further jobs', async () => {
+    const runEnrich = vi.fn().mockRejectedValueOnce(new Error('first job failed'))
+    const { runJob } = await importRunnerWithMocks([], runEnrich)
 
     const summary = await runJob(job({ id: 'job-1' }))
 
-    expect(runEnrich).toHaveBeenCalledTimes(2)
-    expect(summary.success).toBe(1)
+    expect(runEnrich).toHaveBeenCalledTimes(1)
+    expect(summary.success).toBe(0)
     expect(summary.failed).toBe(1)
     expect(summary.failedBrands[0]).toMatchObject({
       slug: 'job-1',
       phase: 'job',
       error: 'first job failed',
     })
+  })
+
+  it('calls recoverStaleJobs at the start of each run', async () => {
+    const { recoverStaleJobs, runJob } = await importRunnerWithMocks()
+
+    await runJob(job({ id: 'job-1' }))
+
+    expect(recoverStaleJobs).toHaveBeenCalledTimes(1)
   })
 
   it('merges enrichment summaries from multiple jobs', async () => {
@@ -185,15 +188,10 @@ describeWithDb('runSubmissionEnrichment direct submissions', () => {
 
 async function importRunnerWithMocks(
   submissions: MockSubmission[] = [],
-  pendingJobs: Array<CurationJob | null> = [null],
   runEnrich = vi.fn().mockResolvedValue(operationResult)
 ) {
   const createServiceClient = vi.fn(() => mockSupabase(submissions))
-  const getNextPendingJob = vi.fn()
-  for (const pendingJob of pendingJobs) {
-    getNextPendingJob.mockResolvedValueOnce(pendingJob)
-  }
-  getNextPendingJob.mockResolvedValue(null)
+  const recoverStaleJobs = vi.fn().mockResolvedValue(undefined)
 
   vi.doMock('next/cache', () => ({
     revalidateTag: vi.fn(),
@@ -201,9 +199,8 @@ async function importRunnerWithMocks(
   vi.doMock('@/lib/supabase/server', () => ({
     createServiceClient,
   }))
-  // Service mock follows importRunnerWithMocks pattern — tests runner coordination, not curation-jobs internals
   vi.doMock('@/lib/services/curation-jobs', () => ({
-    getNextPendingJob,
+    recoverStaleJobs,
   }))
   vi.doMock('../curation-operations', async (importOriginal) => {
     const actual = await importOriginal<typeof import('../curation-operations')>()
@@ -214,7 +211,7 @@ async function importRunnerWithMocks(
   })
 
   const runner = await import('../job-runner')
-  return { ...runner, createServiceClient, getNextPendingJob, runEnrich }
+  return { ...runner, createServiceClient, recoverStaleJobs, runEnrich }
 }
 
 function job(overrides: Partial<CurationJob> = {}): CurationJob {
