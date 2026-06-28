@@ -52,6 +52,7 @@ export default function SubmitForm({
       website: '',
       isOwner: false,
       sourceAttribution: undefined,
+      mitSmileCert: '',
       pdpaConsent: false,
       turnstileToken: '',
       honeypot: '',
@@ -485,6 +486,28 @@ export default function SubmitForm({
               )}
             />
           </div>
+
+          {/* MIT Smile Mark certificate — only shown when isOwner is checked */}
+          {isOwner && (
+            <div className="space-y-1.5">
+              <label
+                htmlFor="submit-mit-smile-cert"
+                className="block text-sm font-semibold text-foreground"
+              >
+                {t('fields.mitSmileMarkNumber')}
+              </label>
+              <input
+                id="submit-mit-smile-cert"
+                type="text"
+                placeholder={t('fields.mitSmileMarkNumberPlaceholder')}
+                className="h-11 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
+                {...register('mitSmileCert')}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t('fields.mitSmileMarkNumberHint')}
+              </p>
+            </div>
+          )}
 
           {/* PDPA consent */}
           <div className="space-y-2">

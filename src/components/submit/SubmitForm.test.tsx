@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 
@@ -115,5 +116,18 @@ describe('SubmitForm', () => {
     expect(honeypot).toBeInTheDocument()
     expect(honeypot).toHaveAttribute('tabindex', '-1')
     expect(honeypot).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('shows MIT cert field when isOwner is checked', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    const ownerCheckbox = screen.getByLabelText(/我是品牌負責人/)
+    await user.click(ownerCheckbox)
+    expect(screen.getByLabelText(/MIT 微笑標章/)).toBeInTheDocument()
+  })
+
+  it('hides MIT cert field when isOwner is unchecked', () => {
+    renderForm()
+    expect(screen.queryByLabelText(/MIT 微笑標章/)).not.toBeInTheDocument()
   })
 })

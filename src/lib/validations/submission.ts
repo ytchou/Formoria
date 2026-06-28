@@ -122,6 +122,7 @@ const sourceAttributionEnum = z.enum(SOURCE_ATTRIBUTION_VALUES)
 const ownerFields = z.object({
   isOwner: z.boolean(),
   sourceAttribution: sourceAttributionEnum.optional(),
+  mitSmileCert: z.string().optional().default(''),
 })
 
 type OwnerFields = z.infer<typeof ownerFields>

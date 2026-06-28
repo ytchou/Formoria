@@ -1183,6 +1183,7 @@
       "brandDescriptionHint": "請寫下具體、可查證的介紹（至少 40 個字元）——你做什麼、使用的材料，以及品牌的台灣特色。",
       "mitSmileMarkNumber": "MIT 微笑標章編號（選填）",
       "mitSmileMarkNumberPlaceholder": "例如 01200024-02134",
+      "mitSmileMarkNumberHint": "如果您的產品有 MIT 微笑標章認證，請輸入標章編號以自動驗證",
       "charCount": "{count} / {max} 個字元上限",
       "photos": "品牌照片",
       "photosDragHint": "拖曳以排序。第一張照片將成為主圖。",
