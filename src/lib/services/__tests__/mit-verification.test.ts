@@ -34,6 +34,10 @@ describe('mit-verification service', () => {
         cert_number: '01900539-00001',
         company_name: '台灣好茶有限公司',
         brand_name: '好茶品牌',
+        product_name: '烏龍茶',
+        product_model: 'TW-001',
+        industry_type: '食品',
+        valid_until: '2027-12-31',
       };
       vi.mocked(lookupCertNumber).mockResolvedValue(mockRegistryRecord);
       mockSingle.mockResolvedValue({ data: { id: 'brand-1' }, error: null });
