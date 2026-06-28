@@ -16,6 +16,7 @@ export function BrandHeader({ brand, categoryLabel, actionsSlot }: BrandHeaderPr
   const hasMitVerifiedBadge = brand.mitVerified === true
   const hasOwnerVerifiedBadge = brand.isVerified
   const mitSmileCert = hasMitVerifiedBadge ? brand.mitEvidence?.mit_smile_cert : undefined
+  const priceRangeLabel = brand.priceRange != null ? '$'.repeat(brand.priceRange) : null
 
   return (
     <div className="space-y-3">
@@ -43,6 +44,13 @@ export function BrandHeader({ brand, categoryLabel, actionsSlot }: BrandHeaderPr
           </span>
         )}
 
+        {/* Price range pill */}
+        {priceRangeLabel != null && (
+          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+            {priceRangeLabel}
+          </span>
+        )}
+
         {/* Brand tags */}
         {brand.tags.map((tag) => (
           <span
@@ -52,6 +60,17 @@ export function BrandHeader({ brand, categoryLabel, actionsSlot }: BrandHeaderPr
             {tag.nameZh ?? tag.name}
           </span>
         ))}
+
+        {/* Product tags */}
+        {brand.productTags.length > 0 &&
+          brand.productTags.map((tag, index) => (
+            <span
+              key={`${tag}-${index}`}
+              className="rounded-full border border-muted-foreground/30 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+            >
+              {tag}
+            </span>
+          ))}
 
         {(hasMitVerifiedBadge || hasOwnerVerifiedBadge) && (
           <div className="flex items-center gap-2">
