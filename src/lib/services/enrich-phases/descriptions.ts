@@ -28,8 +28,12 @@ function changedFieldsForPatch(patch: Record<string, unknown>): string[] {
     changedFields.push('description')
   }
 
-  if (patch.brand_highlights !== undefined) {
-    changedFields.push('brand_highlights')
+  if (patch.price_range != null) {
+    changedFields.push('price_range')
+  }
+
+  if (Array.isArray(patch.product_tags) && patch.product_tags.length > 0) {
+    changedFields.push('product_tags')
   }
 
   return changedFields
@@ -58,19 +62,29 @@ export async function runDescriptionsPhase({
   }
 
   const { result, durationMs } = await timePhase(async () => {
-    const textPatch = scrapedData
+    const textEnrichPatch = scrapedData
       ? buildTextEnrichPatch(brand, scrapedData)
+      : {}
+    const textPatch = textEnrichPatch.description !== undefined
+      ? { description: textEnrichPatch.description }
       : {}
     const descriptionRewrite = serpSnippets.length > 0
       ? await rewriteBrandDescription(getDisplayBrandName(brand), brand.description ?? null, serpSnippets)
       : null
+    const descriptionPatch = descriptionRewrite
+      ? {
+          ...(descriptionRewrite.description ? { description: descriptionRewrite.description } : {}),
+          ...(descriptionRewrite.priceRange != null ? { price_range: descriptionRewrite.priceRange } : {}),
+          ...(descriptionRewrite.productTags.length > 0 ? { product_tags: descriptionRewrite.productTags } : {}),
+        }
+      : {}
 
     return {
       patch: {
         ...textPatch,
-        ...(descriptionRewrite ? { description: descriptionRewrite } : {}),
+        ...descriptionPatch,
       },
-      descriptionRewrite,
+      descriptionRewrite: descriptionRewrite?.description ?? null,
     }
   })
 
