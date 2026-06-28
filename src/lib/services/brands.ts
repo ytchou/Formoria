@@ -95,7 +95,7 @@ type BrandOwnerRef = { user_id: string }
 /**
  * Full joined row from BRAND_SELECT. Extends Partial<BrandRow> so that
  * unit test fixtures can omit columns added in later migrations (is_demo,
- * tag_slugs, founder, brand_highlights) without a cast — the mapper uses
+ * tag_slugs, price_range, product_tags) without a cast — the mapper uses
  * ?? defaults for all optional fields.
  */
 export type BrandRowWithJoins = Partial<BrandRow> &
@@ -585,8 +585,8 @@ const BRAND_COLUMNS = [
   'purchase_shopee', 'social_instagram', 'social_threads', 'social_facebook',
   'other_urls', 'retail_locations', 'product_photos', 'site_content',
   'status', 'submitted_at', 'approved_at', 'created_at', 'updated_at',
-  'draft_data', 'draft_updated_at', 'founder', 'founding_year',
-  'brand_highlights', 'mit_status', 'mit_claimed_at', 'mit_verified_at',
+  'draft_data', 'draft_updated_at', 'founding_year', 'price_range',
+  'product_tags', 'mit_status', 'mit_claimed_at', 'mit_verified_at',
   'mit_evidence', 'source', 'tag_slugs', 'unified_business_number', 'is_demo',
 ].join(', ')
 
