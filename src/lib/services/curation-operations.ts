@@ -154,6 +154,8 @@ type SubmissionEnrichmentRow = {
   brand_name: string
   description: string | null
   website_url: string | null
+  hero_image_url: string | null
+  product_photos: string[] | null
   social_instagram: string | null
   social_threads: string | null
   social_facebook: string | null
@@ -474,10 +476,10 @@ function submissionToEnrichBrand(submission: SubmissionEnrichmentRow): EnrichBra
       : submission.purchase_website ?? submission.website_url,
     purchase_pinkoi: typeof existing.purchase_pinkoi === 'string' ? existing.purchase_pinkoi : submission.purchase_pinkoi,
     purchase_shopee: typeof existing.purchase_shopee === 'string' ? existing.purchase_shopee : submission.purchase_shopee,
-    hero_image_url: typeof existing.hero_image_url === 'string' ? existing.hero_image_url : null,
+    hero_image_url: typeof existing.hero_image_url === 'string' ? existing.hero_image_url : (submission.hero_image_url ?? null),
     product_photos: Array.isArray(existing.product_photos)
       ? existing.product_photos.filter((url): url is string => typeof url === 'string')
-      : [],
+      : (Array.isArray(submission.product_photos) ? (submission.product_photos as string[]).filter((url): url is string => typeof url === 'string') : []),
   }
 }
 

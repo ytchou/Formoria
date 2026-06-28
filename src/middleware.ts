@@ -17,8 +17,6 @@ export const RESERVED_ROUTES = new Set([
   'auth',
   'challenge',
   'submit',
-  'categories',
-  'category',
   'brands',
   'site',
   'dashboard',
@@ -43,7 +41,6 @@ const intlMiddleware = createMiddleware(routing)
 const KNOWN_LOCALES = new Set<string>(routing.locales)
 const PUBLIC_INTL_SEGMENTS = new Set([
   'brands',
-  'categories',
   'about',
   'faq',
   'getting-started',
@@ -53,7 +50,7 @@ const PUBLIC_INTL_SEGMENTS = new Set([
   'dashboard',
   'settings',
 ])
-const SOFT_LIMIT_PREFIXES = ['/brands/', '/categories/']
+const SOFT_LIMIT_PREFIXES = ['/brands/']
 
 function isSoftLimitPath(pathname: string) {
   let normalizedPathname = pathname

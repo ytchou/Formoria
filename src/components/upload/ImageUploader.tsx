@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useCallback, useEffect } from 'react'
+import { useRef, useCallback, useEffect, useState } from 'react'
 import { Upload, X, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useImageUpload } from './useImageUpload'
@@ -27,24 +27,60 @@ export function ImageUploader({
   const t = useTranslations('forms.uploader')
   const inputRef = useRef<HTMLInputElement>(null)
   const { status, url, error, upload, reset } = useImageUpload({ bucket, path })
+  const queueRef = useRef<Array<{ file: File; filename: string }>>([])
+  const currentFilenameRef = useRef<string | null>(null)
+  const [processingQueue, setProcessingQueue] = useState(false)
+  const [failedFiles, setFailedFiles] = useState<string[]>([])
 
-  // When a new URL is available from the hook, notify the parent
+  const processNext = useCallback(() => {
+    const next = queueRef.current.shift()
+    if (!next) {
+      setProcessingQueue(false)
+      return
+    }
+    setProcessingQueue(true)
+    currentFilenameRef.current = next.file.name
+    upload(next.file, next.filename)
+  }, [upload])
+
   useEffect(() => {
     if (url) {
       onUpload(url)
       reset()
+      processNext()
     }
-  }, [url, onUpload, reset])
+  }, [url, onUpload, reset, processNext])
+
+  useEffect(() => {
+    if (status === 'error' && processingQueue) {
+      if (currentFilenameRef.current) {
+        setFailedFiles(prev => [...prev, currentFilenameRef.current!])
+      }
+      processNext()
+    }
+  }, [status, processingQueue, processNext])
+
+  const enqueueFiles = useCallback(
+    (files: File[]) => {
+      const remaining = mode === 'multi' ? maxFiles - (Array.isArray(value) ? value.length : 0) : 1
+      const capped = files.slice(0, Math.max(0, remaining))
+      capped.forEach((file, i) => {
+        const filename = `${Date.now()}-${i}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}.webp`
+        queueRef.current.push({ file, filename })
+      })
+      if (!processingQueue) processNext()
+    },
+    [mode, maxFiles, value, processingQueue, processNext]
+  )
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault()
-      const file = e.dataTransfer.files[0]
-      if (!file) return
-      const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}.webp`
-      upload(file, filename)
+      const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'))
+      if (files.length === 0) return
+      enqueueFiles(files)
     },
-    [upload]
+    [enqueueFiles]
   )
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -53,14 +89,12 @@ export function ImageUploader({
 
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0]
-      if (!file) return
-      const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}.webp`
-      upload(file, filename)
-      // Reset input so same file can be selected again
+      const files = Array.from(e.target.files ?? [])
+      if (files.length === 0) return
+      enqueueFiles(files)
       e.target.value = ''
     },
-    [upload]
+    [enqueueFiles]
   )
 
   const urls =
@@ -114,14 +148,14 @@ export function ImageUploader({
           }}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
-          className="flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[#D4CFC9] bg-[#F5F4F1] p-6 transition-colors hover:border-[#E06B3F]"
+          className="flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted p-6 transition-colors hover:border-cta"
         >
           {status === 'uploading' ? (
-            <Loader2 className="h-6 w-6 animate-spin text-[#7C7570]" />
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           ) : (
-            <Upload className="h-6 w-6 text-[#7C7570]" />
+            <Upload className="h-6 w-6 text-muted-foreground" />
           )}
-          <span className="text-sm text-[#7C7570]">
+          <span className="text-sm text-muted-foreground">
             {status === 'uploading'
               ? t('uploading')
               : t('clickOrDrag')}
@@ -134,12 +168,16 @@ export function ImageUploader({
         ref={inputRef}
         type="file"
         accept="image/*"
+        multiple={mode === 'multi'}
         className="hidden"
         onChange={handleFileSelect}
       />
 
       {/* Error message */}
       {error && <p className="text-xs text-red-600">{error}</p>}
+      {failedFiles.length > 0 && (
+        <p className="text-xs text-red-600">{t('uploadFailed', { files: failedFiles.join(', ') })}</p>
+      )}
     </div>
   )
 }

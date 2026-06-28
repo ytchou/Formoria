@@ -345,11 +345,13 @@ export type Database = {
           brand_name: string
           description: string | null
           enriched_data: Json | null
+          hero_image_url: string | null
           id: string
           is_brand_owner: boolean | null
           notified_at: string | null
           other_urls: Json
           pdpa_consent_at: string | null
+          product_photos: Json | null
           product_type_note: string | null
           purchase_pinkoi: string | null
           purchase_shopee: string | null
@@ -376,11 +378,13 @@ export type Database = {
           brand_name: string
           description?: string | null
           enriched_data?: Json | null
+          hero_image_url?: string | null
           id?: string
           is_brand_owner?: boolean | null
           notified_at?: string | null
           other_urls?: Json
           pdpa_consent_at?: string | null
+          product_photos?: Json | null
           product_type_note?: string | null
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null
@@ -407,11 +411,13 @@ export type Database = {
           brand_name?: string
           description?: string | null
           enriched_data?: Json | null
+          hero_image_url?: string | null
           id?: string
           is_brand_owner?: boolean | null
           notified_at?: string | null
           other_urls?: Json
           pdpa_consent_at?: string | null
+          product_photos?: Json | null
           product_type_note?: string | null
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null

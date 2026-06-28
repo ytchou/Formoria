@@ -47,7 +47,7 @@ test.describe('Navbar auth smoke', () => {
       timeout: 10_000,
     });
     await expect(
-      anonPage.getByRole('button', { name: '使用 Google 繼續', exact: true })
+      anonPage.getByRole('button', { name: '使用 Google 登入', exact: true })
     ).toBeVisible({ timeout: 5_000 });
   });
 });

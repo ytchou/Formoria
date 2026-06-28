@@ -80,10 +80,6 @@ describe('getContentGroup', () => {
     expect(getContentGroup('/zh-TW/brands')).toBe('directory')
   })
 
-  it('maps /zh-TW/categories/food to directory', () => {
-    expect(getContentGroup('/zh-TW/categories/food')).toBe('directory')
-  })
-
   it('maps /zh-TW/brands/some-brand to brand_detail', () => {
     expect(getContentGroup('/zh-TW/brands/some-brand')).toBe('brand_detail')
   })

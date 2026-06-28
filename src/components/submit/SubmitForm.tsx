@@ -4,12 +4,15 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { useForm, useWatch, Controller, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslations } from 'next-intl'
-import { ChevronDown } from 'lucide-react'
+import { X } from 'lucide-react'
+
 import { useRouter } from '@/i18n/navigation'
 import { getFullSubmissionSchema, type SubmissionFormData } from '@/lib/validations/submission'
 import { submitBrand, suggestCleanName } from '@/app/[locale]/submit/actions'
 import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
 import type { SourceAttribution } from '@/lib/types/submission'
+import { ImageUploadField } from '@/components/forms/image-upload-field'
+import { ImageUploader } from '@/components/upload/ImageUploader'
 import { TurnstileWidget } from '@/components/submit/TurnstileWidget'
 import {
   trackSubmissionFormOpened,
@@ -27,6 +30,7 @@ export default function SubmitForm({
   const tForm = useTranslations('submit.form')
   const tReview = useTranslations('submit.review')
   const router = useRouter()
+  const sessionId = useMemo(() => crypto.randomUUID(), [])
 
   const tSchema = useMemo(
     () => (key: string) => t(key as Parameters<typeof t>[0]),
@@ -51,8 +55,10 @@ export default function SubmitForm({
       pdpaConsent: false,
       turnstileToken: '',
       honeypot: '',
-      socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
+      socialLinks: { instagram: '', threads: '', facebook: '', pinkoi: '', shopee: '', website: '' },
       purchaseLinks: [],
+      heroImageUrl: '',
+      productPhotos: [],
     },
     mode: 'onTouched',
   })
@@ -62,8 +68,8 @@ export default function SubmitForm({
 
   const [nameSuggestion, setNameSuggestion] = useState<string | null>(null)
   const [urlSuggestion, setUrlSuggestion] = useState<string | null>(null)
-  const [linksOpen, setLinksOpen] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [productPhotoUrls, setProductPhotoUrls] = useState<string[]>([])
   const [isPending, startTransition] = useTransition()
   const nameBlurRequestRef = useRef(0)
   const mountTimeRef = useRef<number | null>(null)
@@ -100,6 +106,22 @@ export default function SubmitForm({
     [setValue]
   )
 
+  const handleProductPhotoUpload = useCallback((url: string) => {
+    setProductPhotoUrls((prev) => {
+      const next = [...prev, url].slice(0, 5)
+      setValue('productPhotos', next, { shouldValidate: true })
+      return next
+    })
+  }, [setValue])
+
+  const handleProductPhotoRemove = useCallback((urlToRemove: string) => {
+    setProductPhotoUrls((prev) => {
+      const next = prev.filter((url) => url !== urlToRemove)
+      setValue('productPhotos', next, { shouldValidate: true })
+      return next
+    })
+  }, [setValue])
+
   function handleWebsiteBlur(value: string) {
     if (!value || !value.includes('?')) {
       setUrlSuggestion(null)
@@ -118,10 +140,21 @@ export default function SubmitForm({
   const nameRegistration = register('name')
 
   // eslint-disable-next-line react-hooks/refs
-  const onSubmit = handleSubmit((data) => {
+  const onSubmit = handleSubmit((data, event) => {
     setSubmitError(null)
+    const formData =
+      event?.currentTarget instanceof HTMLFormElement
+        ? new FormData(event.currentTarget)
+        : null
+    const heroImageUrl = formData?.get('heroImageUrl')
+    const productPhotos = formData?.get('productPhotos')
+
     startTransition(async () => {
-      const result = await submitBrand(data)
+      const result = await submitBrand({
+        ...data,
+        heroImageUrl: typeof heroImageUrl === 'string' ? heroImageUrl : data.heroImageUrl,
+        productPhotos: typeof productPhotos === 'string' ? productPhotos : data.productPhotos,
+      })
       if (result?.error) {
         setSubmitError(result.error)
       } else {
@@ -150,6 +183,9 @@ export default function SubmitForm({
         className="rounded-xl border border-border bg-white p-8 shadow-sm"
         noValidate
       >
+        <p className="mb-5 text-xs text-muted-foreground">
+          <span className="text-destructive">*</span> {tForm('requiredHint')}
+        </p>
         <div className="flex flex-col gap-5">
           {/* Brand Name */}
           <div className="space-y-1.5">
@@ -244,6 +280,60 @@ export default function SubmitForm({
             )}
           </div>
 
+          {/* Hero image */}
+          <div className="space-y-1.5">
+            <label className="block text-sm font-semibold text-foreground">
+              {t('fields.heroImage')}
+            </label>
+            <ImageUploadField
+              name="heroImageUrl"
+              label=""
+              uploadPath={`submissions/${sessionId}/hero`}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t('fields.heroImageHelper')}
+            </p>
+          </div>
+
+          {/* Product photos */}
+          <div className="space-y-1.5">
+            <label className="block text-sm font-semibold text-foreground">
+              {t('fields.productPhotos')}
+            </label>
+            {productPhotoUrls.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {productPhotoUrls.map((url, index) => (
+                  <div key={url} className="group relative aspect-square overflow-hidden rounded-md border">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="" className="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => handleProductPhotoRemove(url)}
+                      aria-label={`${t('fields.productPhotos')} ${index + 1}`}
+                      className="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {productPhotoUrls.length < 5 && (
+              <ImageUploader
+                mode="multi"
+                bucket="brand-images"
+                path={`submissions/${sessionId}/photos`}
+                value={[]}
+                onUpload={handleProductPhotoUpload}
+                maxFiles={Math.max(1, 5 - productPhotoUrls.length)}
+              />
+            )}
+            <input type="hidden" name="productPhotos" value={JSON.stringify(productPhotoUrls)} />
+            <p className="text-xs text-muted-foreground">
+              {t('fields.productPhotosHelper')}
+            </p>
+          </div>
+
 
           {/* Source attribution */}
           <div className="space-y-1.5">
@@ -281,6 +371,86 @@ export default function SubmitForm({
             )}
           </div>
 
+          {/* Social links */}
+          <div className="space-y-4">
+            <p className="text-sm font-semibold text-foreground">{tForm('linksAccordionLabel')}</p>
+            <div className="space-y-1.5">
+              <label
+                htmlFor="submit-instagram"
+                className="block text-sm font-semibold text-foreground"
+              >
+                {tForm('instagramLabel')}
+              </label>
+              <input
+                id="submit-instagram"
+                type="url"
+                placeholder="https://instagram.com/yourbrand"
+                className="h-11 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
+                {...register('socialLinks.instagram')}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label
+                htmlFor="submit-threads"
+                className="block text-sm font-semibold text-foreground"
+              >
+                {tForm('threadsLabel')}
+              </label>
+              <input
+                id="submit-threads"
+                type="url"
+                placeholder="https://threads.net/@yourbrand"
+                className="h-11 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
+                {...register('socialLinks.threads')}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label
+                htmlFor="submit-facebook"
+                className="block text-sm font-semibold text-foreground"
+              >
+                {tForm('facebookLabel')}
+              </label>
+              <input
+                id="submit-facebook"
+                type="url"
+                placeholder="https://facebook.com/yourbrand"
+                className="h-11 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
+                {...register('socialLinks.facebook')}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label
+                htmlFor="submit-pinkoi"
+                className="block text-sm font-semibold text-foreground"
+              >
+                {tForm('pinkoiLabel')}
+              </label>
+              <input
+                id="submit-pinkoi"
+                type="url"
+                placeholder="https://pinkoi.com/store/yourbrand"
+                className="h-11 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
+                {...register('socialLinks.pinkoi')}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label
+                htmlFor="submit-shopee"
+                className="block text-sm font-semibold text-foreground"
+              >
+                {tForm('shopeeLabel')}
+              </label>
+              <input
+                id="submit-shopee"
+                type="url"
+                placeholder="https://shopee.tw/yourbrand"
+                className="h-11 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
+                {...register('socialLinks.shopee')}
+              />
+            </div>
+          </div>
+
           {/* Ownership card */}
           <div
             className="space-y-3 rounded-lg border border-border bg-[#F5F4F1] p-4"
@@ -314,70 +484,6 @@ export default function SubmitForm({
                 </div>
               )}
             />
-          </div>
-
-          {/* Links accordion */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setLinksOpen((prev) => !prev)}
-              aria-expanded={linksOpen}
-              className="flex min-h-[48px] w-full items-center justify-between text-sm font-semibold text-foreground hover:text-foreground/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
-            >
-              <span>{tForm('linksAccordionLabel')}</span>
-              <ChevronDown
-                className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${linksOpen ? 'rotate-180' : ''}`}
-              />
-            </button>
-            {linksOpen && (
-              <div className="space-y-4 pt-2">
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="submit-instagram"
-                    className="block text-sm font-semibold text-foreground"
-                  >
-                    {tForm('instagramLabel')}
-                  </label>
-                  <input
-                    id="submit-instagram"
-                    type="url"
-                    placeholder="https://instagram.com/yourbrand"
-                    className="h-11 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
-                    {...register('socialLinks.instagram')}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="submit-threads"
-                    className="block text-sm font-semibold text-foreground"
-                  >
-                    {tForm('threadsLabel')}
-                  </label>
-                  <input
-                    id="submit-threads"
-                    type="url"
-                    placeholder="https://threads.net/@yourbrand"
-                    className="h-11 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
-                    {...register('socialLinks.threads')}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="submit-facebook"
-                    className="block text-sm font-semibold text-foreground"
-                  >
-                    {tForm('facebookLabel')}
-                  </label>
-                  <input
-                    id="submit-facebook"
-                    type="url"
-                    placeholder="https://facebook.com/yourbrand"
-                    className="h-11 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
-                    {...register('socialLinks.facebook')}
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
           {/* PDPA consent */}

@@ -4,8 +4,8 @@ import { test, expect } from '@playwright/test';
  * i18n: English browse journey
  *
  * Routing convention (next-intl, localePrefix: 'as-needed'):
- *   zh-TW (default) — prefix-free: /brands, /categories/…
- *   en               — under /en:   /en/brands, /en/categories/…
+ *   zh-TW (default) — prefix-free: /brands
+ *   en               — under /en:   /en/brands
  *
  * The LocaleSwitcher renders as a dropdown:
  *   button[aria-label="Switch language" | "切換語言"]

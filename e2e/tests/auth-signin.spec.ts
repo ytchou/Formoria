@@ -26,7 +26,7 @@ test.describe('Auth — Google OAuth offline guard', () => {
     await anonPage.goto('/auth/sign-in', { timeout: 60_000 });
 
     // Button must be visible before any click
-    const googleBtn = anonPage.getByRole('button', { name: '使用 Google 繼續', exact: true });
+    const googleBtn = anonPage.getByRole('button', { name: '使用 Google 登入', exact: true });
     await expect(googleBtn).toBeVisible({ timeout: 60_000 });
 
     // Click — the Server Action fires, and the browser is redirected to Supabase /authorize.
@@ -63,7 +63,7 @@ test.describe('Auth — sign-in flow', () => {
       timeout: 60_000,
     });
     await expect(
-      anonPage.getByRole('button', { name: '使用 Google 繼續', exact: true })
+      anonPage.getByRole('button', { name: '使用 Google 登入', exact: true })
     ).toBeVisible({
       timeout: 60_000,
     });

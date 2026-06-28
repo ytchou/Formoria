@@ -6,6 +6,8 @@ import { classifySubmittedUrl } from '@/lib/services/link-enrichment'
 export interface SubmitBrandForReviewParams {
   brandName: string
   websiteUrl?: string
+  heroImageUrl?: string
+  productPhotos?: string[]
   isBrandOwner?: boolean
   pdpaConsent?: boolean
   sourceAttribution?: SourceAttribution | null
@@ -18,6 +20,8 @@ export interface SubmitBrandForReviewParams {
     instagram?: string
     threads?: string
     facebook?: string
+    pinkoi?: string
+    shopee?: string
     website?: string
   } | null
   purchaseLinks?: Array<{ platform: string; url: string }> | null
@@ -45,9 +49,9 @@ export async function submitBrandForReview(
   // Map purchase links: known platforms get dedicated columns; others go to otherUrls
   const purchaseLinks = params.purchaseLinks ?? []
   let purchasePinkoi =
-    purchaseLinks.find((l) => l.platform === 'pinkoi')?.url ?? null
+    params.socialLinks?.pinkoi || (purchaseLinks.find((l) => l.platform === 'pinkoi')?.url ?? null)
   let purchaseShopee =
-    purchaseLinks.find((l) => l.platform === 'shopee')?.url ?? null
+    params.socialLinks?.shopee || (purchaseLinks.find((l) => l.platform === 'shopee')?.url ?? null)
   const otherPurchaseUrls = purchaseLinks
     .filter((l) => l.platform !== 'pinkoi' && l.platform !== 'shopee')
     .map((l) => ({ label: l.platform, url: l.url }))
@@ -76,6 +80,8 @@ export async function submitBrandForReview(
     submitterName: params.submitterName,
     description: params.description ?? null,
     websiteUrl: params.websiteUrl,
+    heroImageUrl: params.heroImageUrl,
+    productPhotos: params.productPhotos,
     socialInstagram,
     socialThreads,
     socialFacebook,

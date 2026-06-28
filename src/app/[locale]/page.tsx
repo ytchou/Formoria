@@ -77,7 +77,6 @@ export default async function LandingPage({ params }: PageProps) {
 
   const allBrands = shuffle(fetchedBrands)
   const valueBrands = shuffle(fetchedBrands)
-  const verifiedBrands = allBrands.filter((brand) => brand.isVerified)
 
   return (
     <>
@@ -98,17 +97,6 @@ export default async function LandingPage({ params }: PageProps) {
               <NextIntlClientProvider messages={messages}>
                 <FilterableBrandShowcase brands={allBrands} categories={categories} />
               </NextIntlClientProvider>
-            </div>
-          </div>
-
-          <div className="py-6 md:py-8">
-            <div className="max-w-6xl mx-auto px-4 sm:px-6">
-              <BrandShowcase
-                brands={verifiedBrands}
-                heading={t('verifiedRail.heading')}
-                linkText={t('newBrands.linkText')}
-                linkHref="/brands?verification=mit-verified"
-              />
             </div>
           </div>
 

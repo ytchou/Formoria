@@ -34,7 +34,7 @@ test.describe('SEO deep', () => {
 
   test('category page has unique title and description', async ({ page }) => {
     const categorySlug = process.env.E2E_CATEGORY_SLUG ?? 'clothing';
-    await page.goto(`/categories/${categorySlug}`);
+    await page.goto(`/brands?category=${categorySlug}`);
     const title = await page.title();
     expect(title.length).toBeGreaterThan(0);
     const desc = await page.locator('meta[name="description"]').getAttribute('content');
@@ -137,10 +137,4 @@ test.describe('SEO deep', () => {
     expect(await res.text()).toContain('/glossary');
   });
 
-  test('brand + categories OG/twitter image routes respond', async ({ request }) => {
-    for (const path of ['/categories/opengraph-image', '/categories/twitter-image']) {
-      const res = await request.get(path);
-      expect(res.status()).toBeLessThan(400);
-    }
-  });
 });

@@ -74,6 +74,6 @@ describe('BrandCard — English locale (i18n)', () => {
 
     // Owner badge uses updated English short label and ARIA/title text
     expect(screen.getByLabelText('Managed by the brand owner')).toBeInTheDocument()
-    expect(screen.getByText('Brand')).toBeInTheDocument()
+    expect(screen.getByText('Claimed')).toBeInTheDocument()
   })
 })

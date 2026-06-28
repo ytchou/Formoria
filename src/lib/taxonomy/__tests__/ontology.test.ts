@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PRODUCT_TYPE_CATEGORIES } from '../ontology'
+import { PRODUCT_TYPE_CATEGORIES, deriveCategoryFromProductType } from '../ontology'
 
 describe('PRODUCT_TYPE_CATEGORIES', () => {
   it('has exactly 10 entries', () => {
@@ -43,5 +43,19 @@ describe('parentGroupForSlug (removed)', () => {
     const exports = mod as Record<string, unknown>
     expect(exports.parentGroupForSlug).toBeUndefined()
     expect(exports.CATEGORY_ONTOLOGY).toBeUndefined()
+  })
+})
+
+describe('deriveCategoryFromProductType', () => {
+  it('returns the zh category name for a known product type slug', () => {
+    expect(deriveCategoryFromProductType('beauty')).toBe('美妝保養')
+  })
+
+  it('falls back to product type note when no slug is selected', () => {
+    expect(deriveCategoryFromProductType('', '香氛')).toBe('香氛')
+  })
+
+  it('returns null when neither product type nor note is available', () => {
+    expect(deriveCategoryFromProductType('', '   ')).toBeNull()
   })
 })

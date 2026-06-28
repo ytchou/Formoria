@@ -42,6 +42,8 @@ function buildFieldSchemas(t: Translator) {
     instagram: z.string().optional().default(''),
     threads: z.string().optional().default(''),
     facebook: z.string().optional().default(''),
+    pinkoi: z.string().optional().default(''),
+    shopee: z.string().optional().default(''),
     website: httpUrl(t('validation.urlInvalid')).or(z.literal('')).optional().default(''),
   })
 
@@ -73,6 +75,8 @@ export function getLinksSchema(t: Translator) {
       instagram: '',
       threads: '',
       facebook: '',
+      pinkoi: '',
+      shopee: '',
       website: '',
     }),
   })
@@ -187,11 +191,15 @@ export function createSubmissionSchema(isOwner: boolean, t: Translator = zhT) {
   })
 
   const linksBase = z.object({
+    heroImageUrl: z.string().url().optional().or(z.literal('')),
+    productPhotos: z.array(z.string().url()).max(5).optional().default([]),
     purchaseLinks: z.array(purchaseLinkSchema).optional().default([]),
     socialLinks: socialLinksSchema.optional().default({
       instagram: '',
       threads: '',
       facebook: '',
+      pinkoi: '',
+      shopee: '',
       website: '',
     }),
   })
@@ -233,6 +241,10 @@ export const fullSubmissionSchema = requireSourceAttribution(
 export function getFullSubmissionSchema(t: Translator) {
   return requireSourceAttribution(
     getBrandInfoSchema(t)
+      .merge(z.object({
+        heroImageUrl: z.string().url().optional().or(z.literal('')),
+        productPhotos: z.array(z.string().url()).max(5).optional().default([]),
+      }))
       .merge(getLinksSchema(t))
       .merge(getReviewSchema(t))
       .merge(getBotDetectionSchema(t))
@@ -243,7 +255,9 @@ export function getFullSubmissionSchema(t: Translator) {
 
 type FullSubmissionSchemaData = z.infer<typeof fullSubmissionSchema>
 
-export type SubmissionFormData = FullSubmissionSchemaData & {
+export type SubmissionFormData = Omit<FullSubmissionSchemaData, 'socialLinks'> & {
+  heroImageUrl?: string | null
+  productPhotos?: string[]
   purchaseLinks?: FullSubmissionSchemaData['purchaseLinks']
-  socialLinks?: FullSubmissionSchemaData['socialLinks']
+  socialLinks?: Partial<FullSubmissionSchemaData['socialLinks']>
 }

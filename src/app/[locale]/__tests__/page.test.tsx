@@ -176,18 +176,13 @@ describe('LandingPage', () => {
     vi.mocked(getRecentBrandCount).mockResolvedValue({ count: 3, period: '7d' })
   })
 
-  it('renders the verified rail from the single approved brands result', async () => {
+  it('renders the landing page and fetches approved brands', async () => {
     render(await LandingPage({ params: Promise.resolve({ locale: 'zh-TW' }) }))
 
-    expect(screen.getByRole('heading', { name: '認證品牌' })).toBeInTheDocument()
     expect(screen.getByTestId('submit-band')).toBeInTheDocument()
-    expect(screen.queryByText('Verified')).not.toBeInTheDocument()
-    expect(screen.getByText('Verified Brand')).toBeInTheDocument()
+    // Verified rail was removed — no longer rendered
+    expect(screen.queryByRole('heading', { name: '認證品牌' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '社群推薦' })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '/brands?verification=mit-verified' })).toHaveAttribute(
-      'href',
-      '/brands?verification=mit-verified'
-    )
     expect(getBrands).toHaveBeenCalledTimes(1)
     expect(getBrands).toHaveBeenCalledWith({ status: 'approved', limit: 60 })
   })

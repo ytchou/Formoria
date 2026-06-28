@@ -12,6 +12,7 @@ type ImageUploadFieldProps = {
   name: string
   label: string
   brandId?: string
+  uploadPath?: string
   currentUrl?: string | null
 }
 
@@ -19,6 +20,7 @@ export function ImageUploadField({
   name,
   label,
   brandId,
+  uploadPath,
   currentUrl,
 }: ImageUploadFieldProps) {
   const t = useTranslations('forms.imageUpload')
@@ -35,7 +37,7 @@ export function ImageUploadField({
   // Token that was active when the current upload started — needed for the effect guard
   const [pendingToken, setPendingToken] = useState(0)
 
-  const storagePath = brandId ? `brands/${brandId}/${name}` : `brands/tmp/${name}`
+  const storagePath = uploadPath ?? (brandId ? `brands/${brandId}/${name}` : `brands/tmp/${name}`)
   const { status, url, error, upload } = useImageUpload({
     bucket: 'brand-images',
     path: storagePath,

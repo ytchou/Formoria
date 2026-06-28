@@ -35,7 +35,6 @@
     "tagline": "Putting Taiwanese brands on the world map.",
     "discoverHeading": "Discover",
     "directory": "Brand Directory",
-    "categories": "Categories",
     "gettingStarted": "Getting Started",
     "glossary": "Glossary",
     "submit": "Submit a Brand",
@@ -89,9 +88,6 @@
       "headline": "Your brand deserves to be seen by the world",
       "body": "Submit for free and join the Formoria community directory.",
       "cta": "Submit Your Brand"
-    },
-    "verifiedRail": {
-      "heading": "Verified Brands"
     },
     "newBrands": {
       "heading": "Newest Brands",
@@ -161,7 +157,7 @@
     "card": {
       "foundingYear": "Est. {year}",
       "verifiedLabel": "Managed by the brand owner",
-      "verifiedBadge": "Brand",
+      "verifiedBadge": "Claimed",
       "mitVerifiedLabel": "MIT Verified",
       "mitVerifiedBadge": "MIT"
     },
@@ -347,10 +343,6 @@
       "title": "{displayName} Brands from Taiwan",
       "description": "Discover Made in Taiwan {name} brands."
     },
-    "notFoundTitle": "Category Not Found",
-    "breadcrumbHome": "Home",
-    "brandCount": "{count, plural, =0 {No brands} one {# brand} other {# brands}}",
-    "description": "Discover Made in Taiwan {category} brands.",
     "descriptions": {
       "clothing": "Taiwan clothing brands stand out for textile expertise built through decades of mills, dye houses, and technical fabric suppliers. Designers pair that manufacturing base with practical cuts, climate-aware materials, and a sharp contemporary point of view. You will find everyday essentials, outdoor-ready layers, and independent labels with global ambitions. Formoria highlights fashion shaped by both craft know-how and modern Taiwanese life.",
       "bags": "Taiwan bag brands often grow from a deep leather-working tradition and the island's practical manufacturing culture. Many workshops combine hand finishing, precise stitching, recycled fabrics, vegan leather, or other sustainable materials. The result is gear made for commuting, travel, and daily use without losing character. On Formoria, visitors can discover artisan studios, small-batch makers, and design-led labels refining how a bag should work.",
@@ -361,17 +353,6 @@
       "stationery": "Taiwan stationery brands benefit from precision engineering, print expertise, and a lively maker culture. Fountain pens, notebooks, planners, stamps, handmade paper, and desk tools often combine reliable function with expressive illustration or typography. Many makers work with local printers, paper mills, and independent artists. Formoria gathers writing and paper goods that show how Taiwan turns small tools into objects of care, creativity, and daily pleasure.",
       "crafts": "Taiwan craft brands preserve artisanal traditions while giving them practical contemporary forms. Letterpress studios, ceramicists, textile artists, woodworkers, metalworkers, and hand-bound journal makers keep slow processes alive through small-batch production. Their work often carries local stories, temple culture, regional materials, or memories of older trades. On Formoria, visitors can discover handmade objects that connect cultural preservation with design for modern use.",
       "tech": "Taiwan tech brands are shaped by the island's semiconductor ecosystem, engineering talent, and world-class hardware supply chains. Consumer electronics, creator tools, peripherals, smart home devices, and specialist components often show a strong balance of reliability, usability, and production quality. Many teams can move from prototype to manufacturing with unusual speed. Formoria helps visitors find technology brands that turn Taiwan's industrial depth into products for everyday users."
-    },
-    "relatedCategories": {
-      "heading": "Related Categories"
-    },
-    "index": {
-      "metadata": {
-        "title": "Browse by Category — Made in Taiwan Brands",
-        "description": "Explore all categories of Made in Taiwan brands on Formoria. Discover food, fashion, design, and more."
-      },
-      "heading": "Browse by Category",
-      "subheading": "Discover Made in Taiwan brands across all categories"
     }
   },
   "glossary": {
@@ -816,7 +797,8 @@
       "uploading": "Uploading...",
       "clickOrDrag": "Click to upload or drag and drop",
       "imageAlt": "Upload {n}",
-      "ariaRemove": "Remove image {n}"
+      "ariaRemove": "Remove image {n}",
+      "uploadFailed": "The following files could not be uploaded: {files}"
     }
   },
   "dashboard": {
@@ -1127,8 +1109,8 @@
       "description": "Formoria lists locally made and designed Taiwan brands so more people can discover your story.",
       "step1": "Fill in your brand's basic information",
       "step2": "Upload brand photos and product images",
-      "step3": "Submit for review and wait for community notification",
-      "timeEstimate": "Takes about 10 minutes to complete",
+      "step3": "Submit and get listed after review",
+      "timeEstimate": "Takes about 3 minutes to complete",
       "cta": "Sign in and start submitting",
       "ctaLoggedIn": "Start submitting"
     },
@@ -1189,6 +1171,11 @@
     "fields": {
       "brandName": "Brand Name",
       "brandNamePlaceholder": "e.g. Rain Boot Studio",
+      "heroImage": "Brand Hero Image",
+      "heroImageHelper": "Optional — if you provide an image we'll use it directly; if not, we'll search automatically (quality not guaranteed).",
+      "heroImageDescription": "Recommended: upload your brand logo or a representative product photo",
+      "productPhotos": "Product Photos",
+      "productPhotosHelper": "Optional — up to 5 product photos to help us understand your brand better.",
       "suggestedName": "Suggested name:",
       "applySuggestion": "Apply",
       "brandDescription": "Brand Description",
@@ -1346,7 +1333,7 @@
       "unexpected": "An unexpected error occurred, please try again."
     },
     "form": {
-      "heading": "Submit a Taiwan Brand",
+      "heading": "Submit a Brand",
       "subheading": "Share your Taiwan-made brand with the community",
       "websiteLabel": "Official Brand Website",
       "websitePlaceholder": "https://yourbrand.com",
@@ -1357,11 +1344,14 @@
       "isOwnerHint": "We'll ask you to verify ownership. Once claimed, you can manage your brand page and update information.",
       "sourceLabel": "How do you know this brand?",
       "sourcePlaceholder": "Select how you know this brand",
+      "requiredHint": "indicates a required field",
       "linksAccordionLabel": "Additional Links",
       "linksAccordionHint": "Social and purchase links (optional)",
       "instagramLabel": "Instagram",
       "threadsLabel": "Threads",
       "facebookLabel": "Facebook",
+      "pinkoiLabel": "Pinkoi",
+      "shopeeLabel": "Shopee",
       "submitButton": "Submit Brand",
       "submittingButton": "Submitting...",
       "suggestedName": "Suggested name:",

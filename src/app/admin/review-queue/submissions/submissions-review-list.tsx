@@ -156,12 +156,17 @@ function hasItems(value: string[] | undefined) {
   return Array.isArray(value) && value.length > 0
 }
 
-export function getEnrichmentStatus(enriched_data: EnrichedData | null): EnrichmentStatus {
-  if (!enriched_data) return 'not_enriched'
+export function getEnrichmentStatus(
+  enriched_data: EnrichedData | null,
+  heroImageUrl?: string | null
+): EnrichmentStatus {
+  if (!enriched_data) {
+    return hasText(heroImageUrl ?? undefined) ? 'partially_enriched' : 'not_enriched'
+  }
 
   const hasAllKeyFields =
     hasText(enriched_data.description) &&
-    hasText(enriched_data.heroImageUrl) &&
+    (hasText(enriched_data.heroImageUrl) || hasText(heroImageUrl ?? undefined)) &&
     hasItems(enriched_data.productPhotos) &&
     hasText(enriched_data.productType) &&
     hasItems(enriched_data.tagSlugs)
@@ -169,8 +174,15 @@ export function getEnrichmentStatus(enriched_data: EnrichedData | null): Enrichm
   return hasAllKeyFields ? 'enriched' : 'partially_enriched'
 }
 
-function getImageCount(enrichedData: EnrichedData) {
-  return (hasText(enrichedData.heroImageUrl) ? 1 : 0) + (enrichedData.productPhotos ?? []).length
+function getImageCount(
+  enrichedData: EnrichedData | null,
+  heroImageUrl?: string | null,
+  productPhotos?: string[]
+) {
+  const hasHeroImage = hasText(enrichedData?.heroImageUrl) || hasText(heroImageUrl ?? undefined)
+  const enrichedPhotoCount = enrichedData?.productPhotos?.length ?? 0
+  const submittedPhotoCount = productPhotos?.length ?? 0
+  return (hasHeroImage ? 1 : 0) + (enrichedPhotoCount > 0 ? enrichedPhotoCount : submittedPhotoCount)
 }
 
 
@@ -616,16 +628,16 @@ export function SubmissionsReviewList({
                       )}
                     </TableCell>
                     <TableCell>
-                      {submission.enriched_data ? (
-                        (() => {
-                          const count = getImageCount(submission.enriched_data)
-                          const tone = count >= 2 ? 'green' : count === 1 ? 'amber' : 'red'
+                      {(() => {
+                        const count = getImageCount(
+                          submission.enriched_data ?? null,
+                          submission.heroImageUrl,
+                          submission.productPhotos
+                        )
+                        const tone = count >= 2 ? 'green' : count === 1 ? 'amber' : submission.enriched_data ? 'red' : 'grey'
 
-                          return <ReadinessBadge tone={tone}>{count}</ReadinessBadge>
-                        })()
-                      ) : (
-                        <ReadinessBadge tone="grey">-</ReadinessBadge>
-                      )}
+                        return <ReadinessBadge tone={tone}>{submission.enriched_data || count > 0 ? count : '-'}</ReadinessBadge>
+                      })()}
                     </TableCell>
                     <TableCell>
                       {submission.enriched_data ? (
@@ -655,7 +667,7 @@ export function SubmissionsReviewList({
                     </TableCell>
                     <TableCell>
                       {(() => {
-                        const status = getEnrichmentStatus(submission.enriched_data ?? null)
+                        const status = getEnrichmentStatus(submission.enriched_data ?? null, submission.heroImageUrl)
                         if (status === 'enriched') {
                           return <ReadinessBadge tone="green">已完成</ReadinessBadge>
                         }
@@ -858,56 +870,69 @@ export function SubmissionsReviewList({
                             </div>
                           </EnrichedCard>
 
-                          {submission.enriched_data && (
-                            <EnrichedCard auto>
-                              <div className="space-y-3">
-                                <FieldLabel auto>主圖 / 產品圖片</FieldLabel>
-                                <div className="grid gap-3 sm:grid-cols-4">
-                                  {submission.enriched_data.heroImageUrl && (
-                                    <a
-                                      href={submission.enriched_data.heroImageUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="block overflow-hidden rounded-md border border-dashed bg-white"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img
-                                        src={submission.enriched_data.heroImageUrl}
-                                        alt={`${submission.brandName} hero`}
-                                        className="aspect-square w-full object-cover"
-                                      />
-                                      <span className="block px-2 py-1 text-xs text-muted-foreground">主圖</span>
-                                    </a>
-                                  )}
-                                  {(submission.enriched_data.productPhotos ?? []).map((url, index) => (
-                                    <a
-                                      key={url}
-                                      href={url}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="block overflow-hidden rounded-md border border-dashed bg-white"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img
-                                        src={url}
-                                        alt={`${submission.brandName} product ${index + 1}`}
-                                        className="aspect-square w-full object-cover"
-                                      />
-                                      <span className="block px-2 py-1 text-xs text-muted-foreground">
-                                        {`產品 ${index + 1}`}
-                                      </span>
-                                    </a>
-                                  ))}
+                          {(() => {
+                            const productPhotos =
+                              (submission.enriched_data?.productPhotos?.length ?? 0) > 0
+                                ? (submission.enriched_data?.productPhotos ?? [])
+                                : (submission.productPhotos ?? [])
+                            const hasImages = Boolean(
+                              submission.enriched_data ||
+                              submission.heroImageUrl ||
+                              productPhotos.length > 0
+                            )
+
+                            return hasImages ? (
+                              <EnrichedCard auto>
+                                <div className="space-y-3">
+                                  <FieldLabel auto>主圖 / 產品圖片</FieldLabel>
+                                  <div className="grid gap-3 sm:grid-cols-4">
+                                    {(submission.enriched_data?.heroImageUrl || submission.heroImageUrl) && (
+                                      <a
+                                        href={submission.enriched_data?.heroImageUrl || submission.heroImageUrl || ''}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="block overflow-hidden rounded-md border border-dashed bg-white"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                          src={submission.enriched_data?.heroImageUrl || submission.heroImageUrl || ''}
+                                          alt={`${submission.brandName} hero`}
+                                          className="aspect-square w-full object-cover"
+                                        />
+                                        <span className="block px-2 py-1 text-xs text-muted-foreground">主圖</span>
+                                      </a>
+                                    )}
+                                    {productPhotos.map((url, index) => (
+                                      <a
+                                        key={url}
+                                        href={url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="block overflow-hidden rounded-md border border-dashed bg-white"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                          src={url}
+                                          alt={`${submission.brandName} product ${index + 1}`}
+                                          className="aspect-square w-full object-cover"
+                                        />
+                                        <span className="block px-2 py-1 text-xs text-muted-foreground">
+                                          {`產品 ${index + 1}`}
+                                        </span>
+                                      </a>
+                                    ))}
+                                  </div>
+                                  {!submission.heroImageUrl &&
+                                    !submission.enriched_data?.heroImageUrl &&
+                                    productPhotos.length === 0 && (
+                                      <p className="text-sm text-muted-foreground">尚無圖片</p>
+                                    )}
                                 </div>
-                                {!submission.enriched_data.heroImageUrl &&
-                                  (submission.enriched_data.productPhotos ?? []).length === 0 && (
-                                    <p className="text-sm text-muted-foreground">尚無圖片</p>
-                                  )}
-                              </div>
-                            </EnrichedCard>
-                          )}
+                              </EnrichedCard>
+                            ) : null
+                          })()}
 
                           {submission.unifiedBusinessNumber && (
                             <div className="text-sm text-muted-foreground">

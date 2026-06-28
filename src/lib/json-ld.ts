@@ -113,7 +113,7 @@ export function buildCategoryItemListJsonLd(
     '@context': 'https://schema.org',
     '@type': 'ItemList',
     name: `${categoryName} — Made in Taiwan Brands`,
-    url: `${siteUrl}/categories/${categorySlug}`,
+    url: `${siteUrl}/brands?category=${categorySlug}`,
     inLanguage: toInLanguage(locale),
     numberOfItems: brands.length,
     itemListElement: brands.map((brand, index) => ({

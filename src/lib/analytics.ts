@@ -55,13 +55,6 @@ export function getContentGroup(pathname: string): string {
     return 'brand_detail'
   }
 
-  if (
-    pathWithoutLocale === '/categories' ||
-    pathWithoutLocale.startsWith('/categories/')
-  ) {
-    return 'directory'
-  }
-
   if (pathWithoutLocale === '/submit' || pathWithoutLocale.startsWith('/submit/')) {
     return 'submission'
   }

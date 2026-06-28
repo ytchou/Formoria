@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 
@@ -50,7 +49,7 @@ describe('SubmitForm', () => {
 
   it('renders page heading', () => {
     renderForm()
-    expect(screen.getByRole('heading', { name: /提交台灣品牌/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /提交品牌/ })).toBeInTheDocument()
   })
 
   it('renders website field', () => {
@@ -74,11 +73,10 @@ describe('SubmitForm', () => {
     expect(ownerCheckbox).not.toBeChecked()
   })
 
-  it('renders links accordion collapsed by default', () => {
+  it('renders social links section', () => {
     renderForm()
-    const accordionButton = screen.getByRole('button', { name: /其他連結/ })
-    expect(accordionButton).toBeInTheDocument()
-    expect(accordionButton).toHaveAttribute('aria-expanded', 'false')
+    // Social links are always visible (no accordion) — verify the section label exists
+    expect(screen.getByText(/其他連結/)).toBeInTheDocument()
   })
 
   it('renders submit button', () => {
@@ -105,11 +103,9 @@ describe('SubmitForm', () => {
     expect(screen.getByLabelText(/資料來源/)).toBeInTheDocument()
   })
 
-  it('expands links accordion on click', async () => {
+  it('renders social link fields directly without accordion interaction', () => {
     renderForm()
-    const accordionButton = screen.getByRole('button', { name: /其他連結/ })
-    await userEvent.click(accordionButton)
-    expect(accordionButton).toHaveAttribute('aria-expanded', 'true')
+    // Social links are always expanded (accordion removed) — fields are immediately accessible
     expect(screen.getByLabelText(/Instagram/)).toBeInTheDocument()
   })
 

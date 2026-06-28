@@ -33,8 +33,6 @@ const ALLOWLIST = [
   // OG images: rendered to PNG, locale-branched or zh default by design.
   'app/opengraph-image.tsx',
   'app/[locale]/brands/[slug]/opengraph-image.tsx',
-  'app/[locale]/categories/opengraph-image.tsx',
-  'app/[locale]/categories/[category]/opengraph-image.tsx',
   // Structured data + glossary: inline `locale === 'zh-TW' ? … : …` (locale-aware).
   'lib/json-ld.ts',
   'app/[locale]/glossary/page.tsx',

@@ -122,7 +122,6 @@ export const RATE_LIMIT_RULES: Record<string, { windowMs: number; maxRequests: n
   '/api/webhooks/tally': { windowMs: 60_000, maxRequests: 30 },
   '/api/': { windowMs: 60_000, maxRequests: 60 },
   '/brands/': { windowMs: 60_000, maxRequests: 40 },
-  '/categories/': { windowMs: 60_000, maxRequests: 40 },
   '/sitemap.xml': { windowMs: 60_000, maxRequests: 3 },
 }
 
@@ -164,7 +163,7 @@ export function getClientIp(request: Request): string {
 }
 
 const SOFT_LIMIT = { windowMs: 60_000, maxRequests: 30 }
-const SOFT_LIMIT_PREFIXES = ['/brands/', '/categories/']
+const SOFT_LIMIT_PREFIXES = ['/brands/']
 
 function getSoftRateLimitPathPrefix(pathname: string): string {
   const firstSegment = pathname.split('/').filter(Boolean)[0]

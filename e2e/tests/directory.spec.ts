@@ -47,7 +47,7 @@ test.describe('Directory deep', () => {
 
   test('category page loads with filtered brands', async ({ page }) => {
     const categorySlug = process.env.E2E_CATEGORY_SLUG ?? 'clothing';
-    const response = await page.goto(`/categories/${categorySlug}`);
+    const response = await page.goto(`/brands?category=${categorySlug}`);
     if (!response || response.status() === 404) {
       test.skip(true, `Category "${categorySlug}" not found — set E2E_CATEGORY_SLUG`);
       return;

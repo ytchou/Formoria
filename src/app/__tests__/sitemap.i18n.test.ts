@@ -53,11 +53,11 @@ describe('sitemap i18n alternates', () => {
 
   it('category entries include alternates for both locales', async () => {
     const entries = await sitemap()
-    const category = entries.find((e) => e.url.includes('/categories/food'))
+    const category = entries.find((e) => e.url.includes('/brands?category=food'))
 
     expect(category).toBeDefined()
-    expect(category?.alternates?.languages?.['zh-TW']).toBe(`${BASE}/categories/food`)
-    expect(category?.alternates?.languages?.['en']).toBe(`${BASE}/en/categories/food`)
+    expect(category?.alternates?.languages?.['zh-TW']).toBe(`${BASE}/brands?category=food`)
+    expect(category?.alternates?.languages?.['en']).toBe(`${BASE}/en/brands?category=food`)
   })
 
   it('no entry url contains operator/admin/auth/api routes', async () => {

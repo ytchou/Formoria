@@ -55,7 +55,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     )
 
     const categoryPages: MetadataRoute.Sitemap = categories.map(({ slug }) =>
-      makeEntry(`/categories/${slug}`, now, 'weekly', 0.9)
+      makeEntry(`/brands?category=${slug}`, now, 'weekly', 0.8)
     )
 
     return [...staticPages, ...brandPages, ...categoryPages]

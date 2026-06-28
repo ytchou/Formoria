@@ -45,8 +45,8 @@ import { RESERVED_ROUTES } from './middleware'
 describe('RESERVED_ROUTES', () => {
   it('includes all known static route prefixes', () => {
     const expected = [
-      'admin', 'api', 'auth', 'submit', 'categories',
-      'category', 'brands', 'dashboard', 'faq', 'about',
+      'admin', 'api', 'auth', 'submit',
+      'brands', 'dashboard', 'faq', 'about',
       'my-submissions', 'global-error',
       'sitemap.xml', 'robots.txt', 'favicon.ico',
     ]

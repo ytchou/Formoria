@@ -38,6 +38,7 @@ vi.mock('next/headers', () => ({
 
 vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://app.example.com')
 
+const { headers: headersMock } = await import('next/headers')
 const { GET } = await import('./route')
 
 describe('GET /auth/callback', () => {
@@ -121,5 +122,44 @@ describe('GET /auth/callback', () => {
 
     const loc = new URL(location!)
     expect(loc.searchParams.has('is_new_user')).toBe(false)
+  })
+})
+
+describe('GET /auth/callback — localhost redirect regression', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://formoria.com')
+
+    vi.mocked(headersMock).mockResolvedValue(
+      new Map([
+        ['host', 'localhost:3000'],
+      ]) as unknown as Awaited<ReturnType<typeof headersMock>>
+    )
+
+    mockExchangeCodeForSession.mockResolvedValue({
+      data: {
+        user: { id: 'u1', email: 'u@example.com' },
+        session: {},
+      },
+      error: null,
+    })
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('redirects to localhost when running on localhost, not to production', async () => {
+    const request = new NextRequest('http://localhost:3000/auth/callback?code=test-code')
+
+    const response = await GET(request)
+    const location = response.headers.get('location')
+
+    expect(location).toBeTruthy()
+
+    const loc = new URL(location!)
+    expect(loc.host).toBe('localhost:3000')
+    expect(loc.protocol).toBe('http:')
+    expect(loc.host).not.toBe('formoria.com')
   })
 })

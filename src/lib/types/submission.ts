@@ -39,6 +39,8 @@ export type BrandSubmission = {
   id: string
   brandId: string | null
   brandName: string
+  heroImageUrl?: string | null
+  productPhotos?: string[]
   submitterEmail: string
   submitterName: string | null
   description: string | null

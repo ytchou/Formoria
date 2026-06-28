@@ -26,19 +26,3 @@ export function deriveCategoryFromProductType(
 }
 
 export type ProductTypeSlug = typeof PRODUCT_TYPE_CATEGORIES[number]['slug']
-
-export const CATEGORY_GROUPS: readonly (readonly string[])[] = [
-  ["fashion", "bags-accessories", "jewelry"],
-  ["beauty", "home"],
-  ["food-drink", "crafts"],
-  ["tech", "outdoor", "kids-pets"],
-] as const
-
-export function getRelatedCategorySlugs(slug: string): string[] {
-  for (const group of CATEGORY_GROUPS) {
-    if (group.includes(slug)) {
-      return group.filter(s => s !== slug)
-    }
-  }
-  return []
-}

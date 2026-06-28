@@ -13,9 +13,8 @@ export async function GET() {
 
   const links = [
     `- [Brands](${base}/brands)`,
-    `- [Categories](${base}/categories)`,
     ...categories.map(
-      (category) => `- [${formatCategoryLabel(category)}](${base}/categories/${category.slug})`
+      (category) => `- [${formatCategoryLabel(category)}](${base}/brands?category=${category.slug})`
     ),
     `- [About](${base}/about)`,
     `- [Glossary](${base}/glossary)`,

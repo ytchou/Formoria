@@ -15,6 +15,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 type SubmissionRow = Database['public']['Tables']['brand_submissions']['Row']
 type SubmissionRowWithProductTypeNote = SubmissionRow & {
+  hero_image_url?: string | null
+  product_photos?: unknown
   product_type_note?: string | null
   social_instagram?: string | null
   social_threads?: string | null
@@ -100,6 +102,7 @@ export type CreateSubmissionInput = {
   description?: string
   websiteUrl?: string
   heroImageUrl?: string
+  productPhotos?: string[]
   socialInstagram?: string | null
   socialThreads?: string | null
   socialFacebook?: string | null
@@ -124,6 +127,7 @@ export function buildSubmissionRecord(input: CreateSubmissionInput): Record<stri
     description: input.description ?? null,
     website_url: input.websiteUrl ?? null,
     hero_image_url: input.heroImageUrl ?? null,
+    product_photos: input.productPhotos ?? [],
     social_instagram: input.socialInstagram ?? null,
     social_threads: input.socialThreads ?? null,
     social_facebook: input.socialFacebook ?? null,
@@ -153,6 +157,10 @@ export function submissionToDomain(row: SubmissionRowInput): BrandSubmissionWith
     submitterName: row.submitter_name ?? null,
     description: row.description ?? null,
     websiteUrl: row.website_url ?? null,
+    heroImageUrl: row.hero_image_url ?? null,
+    productPhotos: Array.isArray(row.product_photos)
+      ? row.product_photos.filter((url): url is string => typeof url === 'string')
+      : [],
     socialInstagram: row.social_instagram ?? null,
     socialThreads: row.social_threads ?? null,
     socialFacebook: row.social_facebook ?? null,
@@ -192,6 +200,8 @@ export function submissionToInsert(
   if (data.submitterName !== undefined) row.submitter_name = data.submitterName
   if (data.description !== undefined) row.description = data.description
   if (data.websiteUrl !== undefined) row.website_url = data.websiteUrl
+  if (data.heroImageUrl !== undefined) row.hero_image_url = data.heroImageUrl
+  if (data.productPhotos !== undefined) row.product_photos = data.productPhotos
   if (data.socialInstagram !== undefined) row.social_instagram = data.socialInstagram
   if (data.socialThreads !== undefined) row.social_threads = data.socialThreads
   if (data.socialFacebook !== undefined) row.social_facebook = data.socialFacebook
@@ -257,11 +267,16 @@ function cleanRecord<T extends Record<string, unknown>>(record: T): Partial<T> {
 }
 
 function submissionToBrandBase(row: SubmissionRow): BrandInsert {
+  const rowWithSubmissionImages = row as SubmissionRow & {
+    hero_image_url?: string | null
+    product_photos?: unknown
+  }
+
   return {
     name: row.brand_name,
     slug: generateSlug(row.brand_name),
     description: row.description,
-    hero_image_url: null,
+    hero_image_url: rowWithSubmissionImages.hero_image_url ?? null,
     status: 'approved',
     is_demo: false,
     product_type: null as unknown as string,
@@ -274,7 +289,9 @@ function submissionToBrandBase(row: SubmissionRow): BrandInsert {
     purchase_shopee: row.purchase_shopee,
     other_urls: normalizeOtherUrls(row.other_urls),
     retail_locations: [],
-    product_photos: [],
+    product_photos: Array.isArray(rowWithSubmissionImages.product_photos)
+      ? rowWithSubmissionImages.product_photos.filter((url): url is string => typeof url === 'string')
+      : [],
     contact_email: row.submitter_email,
     brand_highlights: null,
     site_content: null,
@@ -383,7 +400,7 @@ async function resolveUniqueSlug(supabase: ServiceClient, slug: string): Promise
 
 export async function createSubmission(
   data: Pick<BrandSubmission, 'brandName' | 'submitterEmail'> &
-    Partial<Pick<BrandSubmission, 'brandId' | 'submitterName' | 'description' | 'socialInstagram' | 'socialThreads' | 'socialFacebook' | 'purchaseWebsite' | 'purchasePinkoi' | 'purchaseShopee' | 'otherUrls' | 'pdpaConsentAt' | 'isBrandOwner' | 'sourceAttribution' | 'unifiedBusinessNumber'>> & {
+    Partial<Pick<BrandSubmission, 'brandId' | 'submitterName' | 'description' | 'heroImageUrl' | 'productPhotos' | 'socialInstagram' | 'socialThreads' | 'socialFacebook' | 'purchaseWebsite' | 'purchasePinkoi' | 'purchaseShopee' | 'otherUrls' | 'pdpaConsentAt' | 'isBrandOwner' | 'sourceAttribution' | 'unifiedBusinessNumber'>> & {
       websiteUrl?: string | null
       suggestedTags?: SuggestedTagsInput
       productTypeNote?: string | null
@@ -410,6 +427,8 @@ const ADMIN_SUBMISSIONS_SELECT = `
   submitter_name,
   description,
   website_url,
+  hero_image_url,
+  product_photos,
   social_instagram,
   social_threads,
   social_facebook,
@@ -441,6 +460,8 @@ const ADMIN_REVIEW_SUBMISSIONS_SELECT = `
   submitter_name,
   description,
   website_url,
+  hero_image_url,
+  product_photos,
   social_instagram,
   social_threads,
   social_facebook,
@@ -484,7 +505,7 @@ export async function getSubmissionsForReview(): Promise<BrandSubmissionForRevie
 
   if (error) throw error
 
-  return ((data ?? []) as SubmissionRow[]).map((row) => ({
+  return ((data ?? []) as unknown as SubmissionRowWithProductTypeNote[]).map((row) => ({
     ...submissionToDomain(row as SubmissionRowWithProductTypeNote),
     enriched_data: isEnrichedData(row.enriched_data)
       ? enrichedDataFromDb(row.enriched_data as Record<string, unknown>)

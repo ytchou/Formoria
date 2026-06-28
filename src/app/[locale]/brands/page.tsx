@@ -2,8 +2,8 @@ import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { getBrands } from '@/lib/services/brands'
-import { getActiveCategories, getValueTagsWithCoverage } from '@/lib/services/taxonomy'
-import { buildWebSiteJsonLd } from '@/lib/json-ld'
+import { getActiveCategories, getTags, getValueTagsWithCoverage } from '@/lib/services/taxonomy'
+import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildWebSiteJsonLd } from '@/lib/json-ld'
 import { parsePageParam, parseSortParam, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import {
   BrandFilterDrawer,
@@ -43,13 +43,58 @@ function parseCommaParam(value: string | string[] | undefined): string[] {
   )
 }
 
-export async function generateMetadata({ params }: BrandsPageProps): Promise<Metadata> {
+function appendCategoryQuery(url: string, categorySlug: string): string {
+  return `${url}${url.includes('?') ? '&' : '?'}category=${encodeURIComponent(categorySlug)}`
+}
+
+export async function generateMetadata({ params, searchParams }: BrandsPageProps): Promise<Metadata> {
   const { locale } = await params
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const { canonical, languages } = buildAlternates('/brands', safeLocale)
   const ogLocale = safeLocale === 'zh-TW' ? 'zh_TW' : 'en_US'
   const ogAlternateLocale = safeLocale === 'zh-TW' ? 'en_US' : 'zh_TW'
+  const sp = await searchParams
+
+  if (typeof sp.category === 'string' && sp.category.trim() && !sp.category.includes(',')) {
+    const categorySlug = sp.category.trim()
+    const categoryTags = await getTags('product_type')
+    const categoryTag = categoryTags.find((tag) => tag.slug === categorySlug)
+
+    if (categoryTag) {
+      const catT = await getTranslations('categories')
+      const displayName = safeLocale === 'zh-TW' ? categoryTag.nameZh ?? categoryTag.name : categoryTag.name
+      const description = catT.has(`descriptions.${categorySlug}`)
+        ? catT(`descriptions.${categorySlug}`)
+        : catT('metadata.description', { displayName, name: categoryTag.name })
+      const categoryCanonical = appendCategoryQuery(canonical, categorySlug)
+      const categoryLanguages = Object.fromEntries(
+        Object.entries(languages).map(([language, url]) => [
+          language,
+          appendCategoryQuery(url, categorySlug),
+        ])
+      )
+      const title = catT('metadata.title', { displayName })
+
+      return {
+        title,
+        description,
+        alternates: { canonical: categoryCanonical, languages: categoryLanguages },
+        openGraph: {
+          title,
+          description,
+          url: categoryCanonical,
+          locale: ogLocale,
+          alternateLocale: [ogAlternateLocale],
+        },
+        twitter: {
+          title,
+          description,
+        },
+      }
+    }
+  }
+
   return {
     title: { absolute: 'Formoria — Made in Taiwan Brand Directory' },
     description:
@@ -120,6 +165,33 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   if (categoryFilter.length > 0) paginationParams.category = categoryFilter.join(',')
   if (verificationFilter !== 'all') paginationParams.verification = verificationFilter
 
+  let categoryItemListJsonLd = null
+  let categoryBreadcrumbJsonLd = null
+  if (categoryFilter.length === 1) {
+    const categorySlug = categoryFilter[0]
+    const catT = await getTranslations('categories')
+    const categoryTags = await getTags('product_type')
+    const categoryTag = categoryTags.find((tag) => tag.slug === categorySlug)
+
+    if (categoryTag) {
+      const categoryName = safeLocale === 'zh-TW' ? categoryTag.nameZh ?? categoryTag.name : categoryTag.name
+      const editorialDescription = catT.has(`descriptions.${categorySlug}`)
+        ? catT(`descriptions.${categorySlug}`)
+        : undefined
+      categoryItemListJsonLd = buildCategoryItemListJsonLd(
+        categoryName,
+        categorySlug,
+        displayBrands,
+        safeLocale,
+        editorialDescription
+      )
+      categoryBreadcrumbJsonLd = buildBreadcrumbJsonLd(
+        [{ label: 'Brands', href: '/brands' }, { label: categoryName }],
+        safeLocale
+      )
+    }
+  }
+
   return (
     <main className="mx-auto grid w-full max-w-screen-xl gap-8 px-6 py-10 md:px-10 lg:grid-cols-[16rem_minmax(0,1fr)]">
       {/* JSON-LD structured data */}
@@ -127,6 +199,18 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(buildWebSiteJsonLd(safeLocale)) }}
       />
+      {categoryItemListJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(categoryItemListJsonLd) }}
+        />
+      ) : null}
+      {categoryBreadcrumbJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(categoryBreadcrumbJsonLd) }}
+        />
+      ) : null}
       <ViewItemListTracker listName="directory" itemCount={displayBrands.length} />
 
       <aside className="hidden lg:block" aria-label={t('filters.title')}>

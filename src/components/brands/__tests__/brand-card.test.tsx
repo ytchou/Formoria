@@ -81,7 +81,7 @@ describe('BrandCard badges', () => {
     renderWithProvider(<BrandCard brand={makeBrand({ isVerified: true })} />)
 
     expect(screen.getByTitle('由品牌方經營管理')).toBeInTheDocument()
-    expect(screen.getByTitle('由品牌方經營管理')).toHaveTextContent('品牌')
+    expect(screen.getByTitle('由品牌方經營管理')).toHaveTextContent('已認領')
   })
 
   it('renders community text without the owner badge for community brands', () => {

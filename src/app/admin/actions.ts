@@ -53,6 +53,7 @@ import type { FeedbackStatus } from '@/lib/services/feedback'
 import { checkAllServices } from '@/lib/services/health-checks'
 import { DENIAL_REASONS, type DenialReason, type OtherUrl, type TagCategory } from '@/lib/types'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { getSiteUrl } from '@/lib/site-url'
 
 async function requireAdmin(): Promise<{ userId: string; email: string } | { error: string }> {
   const supabase = await createClient()
@@ -92,7 +93,7 @@ export async function approveSubmissionAction(
     const auth = await requireAdmin()
     if ('error' in auth) return auth
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://formoria.com'
+    const siteUrl = getSiteUrl()
 
     const { brandId, submitterEmail, brandName, isBrandOwner } = await approveSubmission(submissionId, auth.userId, overrides)
     const brand = await getBrandById(brandId)
@@ -194,7 +195,7 @@ export async function approveClaimAction(
     if ('error' in auth) return auth
 
     const claimRequest = await getClaimRequest(claimRequestId)
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://formoria.com'
+    const siteUrl = getSiteUrl()
     await approveClaimRequest(claimRequestId, auth.userId)
 
     try {
@@ -244,7 +245,7 @@ export async function rejectClaimAction(
     if ('error' in auth) return auth
 
     const claimRequest = await getClaimRequest(claimRequestId)
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://formoria.com'
+    const siteUrl = getSiteUrl()
     await rejectClaimRequest(claimRequestId, auth.userId, notes)
 
     revalidatePath('/admin/claims')

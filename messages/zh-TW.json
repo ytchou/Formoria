@@ -35,7 +35,6 @@
     "tagline": "讓台灣品牌被世界看見",
     "discoverHeading": "探索",
     "directory": "品牌目錄",
-    "categories": "分類瀏覽",
     "gettingStarted": "開始使用",
     "glossary": "名詞解說",
     "submit": "提交品牌",
@@ -89,9 +88,6 @@
       "headline": "你的品牌，值得被世界看見",
       "body": "免費提交，加入 Formoria 社群目錄",
       "cta": "提交你的品牌"
-    },
-    "verifiedRail": {
-      "heading": "認證品牌"
     },
     "newBrands": {
       "heading": "最新品牌",
@@ -161,7 +157,7 @@
     "card": {
       "foundingYear": "創立於 {year}",
       "verifiedLabel": "由品牌方經營管理",
-      "verifiedBadge": "品牌",
+      "verifiedBadge": "已認領",
       "mitVerifiedLabel": "MIT 已驗證",
       "mitVerifiedBadge": "MIT"
     },
@@ -347,10 +343,6 @@
       "title": "{displayName} 台灣品牌",
       "description": "探索台灣製造的 {displayName} 品牌。"
     },
-    "notFoundTitle": "找不到此分類",
-    "breadcrumbHome": "首頁",
-    "brandCount": "{count, plural, =0 {尚無品牌} other {# 個品牌}}",
-    "description": "探索台灣製造的 {category} 品牌。",
     "descriptions": {
       "clothing": "台灣服飾品牌承襲紡織廠、布料開發與成衣製造累積的技術底子，擅長把機能布料、舒適剪裁與當代設計語彙結合。從日常基本款、戶外機能服到獨立設計品牌，都能看見材料運用與穿著場景的細膩思考。Formoria 收錄這些兼具製造實力與設計感的台灣服裝品牌。",
       "bags": "台灣包袋品牌常結合皮件工藝、車縫技術與務實的製造經驗，也有越來越多品牌投入回收布料、植物皮革等永續材質。無論是通勤包、旅行配件或手工皮件，都重視耐用度、收納邏輯與手感細節。Formoria 帶你認識職人工作室、小量製作品牌與設計導向的包款選擇。",
@@ -361,17 +353,6 @@
       "stationery": "台灣文具品牌受益於精密製造、印刷技術與活躍的創作者文化，從鋼筆、筆記本、紙膠帶、印章到手工紙品，都重視書寫手感與視覺細節。許多品牌與在地紙廠、印刷廠、插畫家合作，把小工具做成有個性的日常物件。Formoria 帶你發現兼具實用與收藏樂趣的台灣文具。",
       "crafts": "台灣工藝品牌延續陶作、織品、木工、金工、活版印刷與手工裝幀等技藝，也把廟宇文化、地方材料與舊產業記憶轉化為當代作品。這些創作者多以小批量、手工流程與長時間打磨建立作品質感。Formoria 收錄能保存文化脈絡，也能走進現代生活的手作與工藝品牌。",
       "tech": "台灣科技品牌背後有半導體供應鏈、硬體代工經驗與扎實工程人才作為支撐，因此特別擅長把原型快速落實為可靠產品。從消費電子、電腦周邊、創作者工具到智慧生活裝置，常能看見品質、穩定度與使用細節的平衡。Formoria 收錄把台灣產業深度轉化為日常科技體驗的品牌。"
-    },
-    "relatedCategories": {
-      "heading": "相關分類"
-    },
-    "index": {
-      "metadata": {
-        "title": "依類別瀏覽 — 台灣製造品牌",
-        "description": "在 Formoria 探索所有台灣製造品牌的類別，涵蓋食品、時尚、設計等多元品項。"
-      },
-      "heading": "依類別瀏覽",
-      "subheading": "探索各類別的台灣在地品牌"
     }
   },
   "glossary": {
@@ -742,7 +723,7 @@
       "passwordMismatch": "密碼不一致"
     },
     "signIn": {
-      "heading": "登入",
+      "heading": "登入 Formoria",
       "subheading": "請輸入您的電子郵件和密碼以繼續",
       "claimMessage": "登入以在 Formoria 認領 <strong>{brandName}</strong>。",
       "emailLabel": "電子郵件",
@@ -765,7 +746,7 @@
       "hasAccount": "已有帳號？",
       "signInLink": "登入"
     },
-    "continueWithGoogle": "使用 Google 繼續",
+    "continueWithGoogle": "使用 Google 登入",
     "orDivider": "或",
     "confirmEmail": "請確認您的電子郵件以完成帳號驗證"
   },
@@ -816,7 +797,8 @@
       "uploading": "上傳中…",
       "clickOrDrag": "點擊上傳或拖曳檔案",
       "imageAlt": "上傳 {n}",
-      "ariaRemove": "移除圖片 {n}"
+      "ariaRemove": "移除圖片 {n}",
+      "uploadFailed": "以下檔案上傳失敗：{files}"
     }
   },
   "dashboard": {
@@ -1127,8 +1109,8 @@
       "description": "收錄台灣在地品牌，讓更多人發現你的故事",
       "step1": "填寫品牌基本資訊",
       "step2": "上傳品牌照片與產品圖",
-      "step3": "提交審核，等待社群通知",
-      "timeEstimate": "大約 10 分鐘即可完成",
+      "step3": "提交後經審核即可上架",
+      "timeEstimate": "大約 3 分鐘即可完成",
       "cta": "登入並開始提交",
       "ctaLoggedIn": "開始提交"
     },
@@ -1189,6 +1171,11 @@
     "fields": {
       "brandName": "品牌名稱",
       "brandNamePlaceholder": "例：雨靴工作室",
+      "heroImage": "品牌主圖",
+      "heroImageHelper": "選填 — 如果您提供圖片，我們會直接使用；若未提供，系統會自動搜尋（品質不保證）。",
+      "heroImageDescription": "建議上傳品牌 Logo 或代表性產品照片",
+      "productPhotos": "產品照片",
+      "productPhotosHelper": "選填 — 最多 5 張產品照片，幫助我們更了解你的品牌。",
       "suggestedName": "建議名稱：",
       "applySuggestion": "套用",
       "brandDescription": "品牌描述",
@@ -1346,7 +1333,7 @@
       "unexpected": "發生預期外的錯誤，請再試一次。"
     },
     "form": {
-      "heading": "提交台灣品牌",
+      "heading": "提交品牌",
       "subheading": "將您的台灣製造品牌分享給社群",
       "websiteLabel": "品牌官方網站",
       "websitePlaceholder": "https://yourbrand.com",
@@ -1357,11 +1344,14 @@
       "isOwnerHint": "我們會請你提供品牌證明文件，認領後可管理品牌頁面與更新資訊。",
       "sourceLabel": "資料來源",
       "sourcePlaceholder": "選擇你認識這品牌的方式",
+      "requiredHint": "為必填欄位",
       "linksAccordionLabel": "其他連結",
       "linksAccordionHint": "社群與購買連結（可選）",
       "instagramLabel": "Instagram",
       "threadsLabel": "Threads",
       "facebookLabel": "Facebook",
+      "pinkoiLabel": "Pinkoi",
+      "shopeeLabel": "Shopee",
       "submitButton": "提交品牌",
       "submittingButton": "提交中...",
       "suggestedName": "建議名稱：",

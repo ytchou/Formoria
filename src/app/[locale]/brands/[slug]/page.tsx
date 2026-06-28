@@ -213,7 +213,7 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: directoryLabel, href: '/brands' },
     ...(categoryTag
-      ? [{ label: categoryLabel || categoryTag.name, href: `/categories/${categoryTag.slug}` }]
+      ? [{ label: categoryLabel || categoryTag.name, href: `/brands?category=${categoryTag.slug}` }]
       : []),
     { label: displayBrand.name },
   ]

@@ -26,15 +26,40 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext): Promise<{
     }
   }
 
+  const brandsNeedingImages: typeof ctx.chunk = []
+  const skippedCount = ctx.chunk.reduce((count, brand) => {
+    const hasImages =
+      !!brand.hero_image_url ||
+      (Array.isArray(brand.product_photos) && brand.product_photos.length > 0)
+    if (hasImages) return count + 1
+    brandsNeedingImages.push(brand)
+    return count
+  }, 0)
+
+  if (skippedCount > 0) {
+    ctx.onProgress?.(
+      `  [IMAGES] Skipping image search for ${skippedCount} brand(s) with user-provided images`
+    )
+  }
+
+  if (brandsNeedingImages.length === 0) {
+    return {
+      phaseResult: buildPhaseResult('image-search', 'skipped', [], 0, undefined, 'all brands have images'),
+      imageSearchResults: new Map(),
+    }
+  }
+
+  const filteredNames = brandsNeedingImages.map(getDisplayBrandName)
+
   const { result, durationMs } = await timePhase(async () => {
-    const imageSearchResults = await batchSearchBrandImages(ctx.chunkBrandNames, 5)
+    const imageSearchResults = await batchSearchBrandImages(filteredNames, 5)
     const totalImages = [...imageSearchResults.values()].reduce((sum, urls) => sum + urls.length, 0)
     ctx.onProgress?.(`  [IMAGES] OK — ${totalImages} images across ${imageSearchResults.size} brands`)
 
     const changedFields: string[] = []
     if (!ctx.dryRun) {
       const imageBrandIds: string[] = []
-      for (const brand of ctx.chunk) {
+      for (const brand of brandsNeedingImages) {
         const brandName = getDisplayBrandName(brand)
         const images = imageSearchResults.get(brandName)
         if (images && images.length > 0) {

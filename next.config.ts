@@ -64,10 +64,20 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
-      // Legacy /category/:category → /categories/:category (unchanged)
+      // Legacy category routes consolidate into the brands directory filter.
       {
         source: '/category/:category',
-        destination: '/categories/:category',
+        destination: '/brands?category=:category',
+        permanent: true,
+      },
+      {
+        source: '/categories',
+        destination: '/brands',
+        permanent: true,
+      },
+      {
+        source: '/categories/:category',
+        destination: '/brands?category=:category',
         permanent: true,
       },
       {
