@@ -80,6 +80,7 @@ export type SubmissionApprovalOverrides = Partial<
 > & {
   name?: string | null
   productType?: string | null
+  mitSmileCert?: string | null
 }
 
 export type ApproveSubmissionResult = {

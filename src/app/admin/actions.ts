@@ -115,6 +115,17 @@ export async function approveSubmissionAction(
       }
     }
 
+    if (overrides?.mitSmileCert) {
+      try {
+        const mitResult = await verifyMitByCert(brandId, overrides.mitSmileCert)
+        if (mitResult.error) {
+          console.warn('[admin:approveSubmission] MIT auto-verify skipped:', mitResult.error)
+        }
+      } catch (err) {
+        console.warn('[admin:approveSubmission] MIT auto-verify error:', err)
+      }
+    }
+
     if (isBrandOwner) {
       const token = await generateClaimToken(brandId, submitterEmail, brandName)
       const claimUrl = `${siteUrl}/auth/sign-up?claim=${token}`
@@ -203,6 +214,17 @@ export async function approveClaimAction(
       await createEmailPreferences(serviceSupabase, claimRequest.userId)
     } catch (err) {
       console.error('[claim-approved-email-preferences] create failed', err)
+    }
+
+    if (claimRequest.mitSmileCert) {
+      try {
+        const mitResult = await verifyMitByCert(claimRequest.brandId, claimRequest.mitSmileCert)
+        if (mitResult.error) {
+          console.warn('[admin:approveClaimAction] MIT auto-verify skipped:', mitResult.error)
+        }
+      } catch (err) {
+        console.warn('[admin:approveClaimAction] MIT auto-verify error:', err)
+      }
     }
 
     revalidatePath('/admin/claims')
