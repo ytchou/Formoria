@@ -50,7 +50,6 @@ describe('curatedSubmissionToBrand', () => {
     purchaseLinks: [],
     socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
     retailLocations: [],
-    brandHighlights: null,
     region: null,
     valueTags: [],
   }
@@ -81,11 +80,4 @@ describe('curatedSubmissionToBrand', () => {
     expect(result.purchaseWebsite).toBe('https://test.com')
   })
 
-  it('trims brandHighlights and preserves null when empty', () => {
-    const withHighlights = curatedSubmissionToBrand({ ...baseInput, brandHighlights: '  Great brand  ' })
-    expect(withHighlights.brandHighlights).toBe('Great brand')
-
-    const withNull = curatedSubmissionToBrand({ ...baseInput, brandHighlights: null })
-    expect(withNull.brandHighlights).toBeNull()
-  })
 })

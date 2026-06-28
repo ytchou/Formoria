@@ -375,6 +375,6 @@ export async function getUntaggedBrands(): Promise<UntaggedBrand[]> {
       id: row.id,
       name: row.name,
       slug: row.slug,
-      category: row.product_type,
+      category: row.product_type ?? '',
     }))
 }

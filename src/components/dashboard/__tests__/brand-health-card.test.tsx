@@ -45,16 +45,15 @@ function makeHealthScore(overrides: Partial<BrandHealthScore> = {}): BrandHealth
 
 function makeCompleteness(): BrandCompleteness {
   return {
-    total: 8,
-    completed: 6,
-    fraction: 6 / 8,
+    total: 7,
+    completed: 5,
+    fraction: 5 / 7,
     items: [
       { key: 'heroImage', complete: true, anchor: '#hero-image' },
       { key: 'description', complete: true, anchor: '#description' },
       { key: 'purchaseLinks', complete: true, anchor: '#purchase-links' },
       { key: 'productPhotos', complete: true, anchor: '#product-photos' },
       { key: 'socialLinks', complete: true, anchor: '#social-links' },
-      { key: 'brandHighlights', complete: true, anchor: '#brand-highlights' },
       { key: 'foundingYear', complete: false, anchor: '#founding-year' },
       { key: 'retailLocations', complete: false, anchor: '#retail-locations' },
     ],
@@ -98,10 +97,10 @@ describe('BrandHealthCard', () => {
     expect(screen.getByText('dashboard.health.actionQueue.label.socialPresence')).toBeInTheDocument()
   })
 
-  it('renders the profile drill-down with 8 checklist items', async () => {
+  it('renders the profile drill-down with 7 checklist items', async () => {
     render(BrandHealthCard(defaultProps))
     const items = screen.getAllByTestId('completeness-checklist-item')
-    expect(items).toHaveLength(8)
+    expect(items).toHaveLength(7)
   })
 
   it('renders Edit Profile link with correct href', async () => {

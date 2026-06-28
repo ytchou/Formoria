@@ -7,8 +7,6 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
 test.describe('Dashboard brand edit', () => {
   let descriptionBrandId: string;
   let descriptionBrandSlug: string;
-  let highlightsBrandId: string;
-  let highlightsBrandSlug: string;
   let supabase: AnySupabaseClient;
   let testUserId: string;
 
@@ -72,16 +70,12 @@ test.describe('Dashboard brand edit', () => {
     }
 
     descriptionBrandSlug = `e2e-edit-description-${ts}`;
-    highlightsBrandSlug = `e2e-edit-highlights-${ts}`;
 
-    [descriptionBrandId, highlightsBrandId] = await Promise.all([
-      seedBrand('Description', descriptionBrandSlug),
-      seedBrand('Highlights', highlightsBrandSlug),
-    ]);
+    descriptionBrandId = await seedBrand('Description', descriptionBrandSlug);
   });
 
   test.afterAll(async () => {
-    const ids = [descriptionBrandId, highlightsBrandId].filter(Boolean);
+    const ids = [descriptionBrandId].filter(Boolean);
     if (ids.length) {
       await supabase.from('pending_brand_edits').delete().in('brand_id', ids);
       await supabase.from('brand_owners').delete().in('brand_id', ids);
@@ -118,24 +112,4 @@ test.describe('Dashboard brand edit', () => {
     await expect(userPage).toHaveURL(/\/dashboard\/brands\/.+\/edit/);
   });
 
-  test('owner can edit brand highlights and change persists', async ({ userPage }) => {
-    test.setTimeout(120_000);
-
-    const highlight = `[E2E-TEST] 亮點 ${Date.now()}`;
-
-    await userPage.goto(`/dashboard/brands/${highlightsBrandSlug}/edit`, { timeout: 60_000 });
-
-    const field = userPage.locator('textarea[name="brandHighlights"]');
-    await expect(field).toBeVisible({ timeout: 60_000 });
-    await field.fill(highlight);
-
-    await userPage.getByRole('button', { name: '儲存變更' }).click();
-
-    // Non-admin owner edit goes to review queue unless owner is trusted (≥3 approved edits).
-    // E2E test brands have 0 approved edits, so always queued.
-    await expect(
-      userPage.getByText(/submitted for review|提交審核|審核中/i)
-    ).toBeVisible({ timeout: 15_000 });
-    await expect(userPage).toHaveURL(/\/dashboard\/brands\/.+\/edit/);
-  });
 });

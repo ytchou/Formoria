@@ -106,18 +106,39 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="brandHighlights">{t("fieldBrandHighlights")}</Label>
-            <textarea
-              id="brandHighlights"
-              name="brandHighlights"
-              maxLength={300}
-              className="flex min-h-[120px] w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              defaultValue={brand.brandHighlights ?? ""}
-            />
-            <p className="text-xs font-semibold text-foreground">{t("fieldHighlightsHint")}</p>
-            {fieldErrors.brandHighlights && (
+            <Label htmlFor="priceRange">{tx("fieldPriceRange", "Price Range")}</Label>
+            <select
+              id="priceRange"
+              name="priceRange"
+              className="flex h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              defaultValue={brand.priceRange ?? ""}
+            >
+              <option value="">{tx("fieldPriceRangeUnset", "Unset")}</option>
+              <option value="1">$</option>
+              <option value="2">$$</option>
+              <option value="3">$$$</option>
+            </select>
+            {fieldErrors.priceRange && (
               <p className="text-xs font-semibold text-foreground">
-                {fieldErrors.brandHighlights}
+                {fieldErrors.priceRange}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="productTags">{tx("fieldProductTags", "Product Tags")}</Label>
+            <Input
+              id="productTags"
+              name="productTags"
+              placeholder={tx(
+                "fieldProductTagsPlaceholder",
+                "Comma-separated specific product types"
+              )}
+              defaultValue={brand.productTags.join(", ")}
+            />
+            {fieldErrors.productTags && (
+              <p className="text-xs font-semibold text-foreground">
+                {fieldErrors.productTags}
               </p>
             )}
           </div>

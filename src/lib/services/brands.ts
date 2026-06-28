@@ -60,7 +60,6 @@ export type CuratedSubmissionInput = {
   purchaseLinks: Array<{ platform: string; url: string }>
   socialLinks: { instagram: string; threads: string; facebook: string; website: string }
   retailLocations: Array<{ name: string; address: string }>
-  brandHighlights: string | null
   region?: string | null
   valueTags?: string[]
 }
@@ -79,7 +78,6 @@ type CuratedBrand = Partial<Brand> &
     | 'heroImageUrl'
     | 'contactEmail'
     | 'foundingYear'
-    | 'brandHighlights'
   > & { productType: string }
 
 type BrandWriteInput = Partial<Brand> & { productType?: string }
@@ -95,11 +93,15 @@ type BrandOwnerRef = { user_id: string }
 /**
  * Full joined row from BRAND_SELECT. Extends Partial<BrandRow> so that
  * unit test fixtures can omit columns added in later migrations (is_demo,
- * tag_slugs, founder, brand_highlights) without a cast — the mapper uses
+ * tag_slugs, price_range, product_tags) without a cast — the mapper uses
  * ?? defaults for all optional fields.
  */
 export type BrandRowWithJoins = Partial<BrandRow> &
   BrandFlatLinkColumns &
+  {
+    price_range?: number | null
+    product_tags?: string[] | null
+  } &
   Pick<BrandRow, 'id' | 'name' | 'slug' | 'status' | 'submitted_at' | 'created_at' | 'updated_at'> & {
     brand_taxonomy?: BrandTaxonomyWithTag[] | null
     brand_owners?: BrandOwnerRef | BrandOwnerRef[] | null
@@ -327,7 +329,6 @@ export function curatedSubmissionToBrand(input: CuratedSubmissionInput): Curated
     })),
     productPhotos: input.productPhotos,
     contactEmail: null,
-    brandHighlights: input.brandHighlights?.trim() || null,
   }
 }
 
@@ -344,7 +345,8 @@ const BRAND_DRAFT_EDITABLE_KEYS = [
   'socialFacebook',
   'heroImageUrl',
   'productPhotos',
-  'brandHighlights',
+  'priceRange',
+  'productTags',
   'purchaseWebsite',
   'purchasePinkoi',
   'purchaseShopee',
@@ -459,8 +461,11 @@ export function draftSnapshotToDomain(
       case 'productPhotos':
         partial.productPhotos = snapshot.productPhotos as Brand['productPhotos']
         break
-      case 'brandHighlights':
-        partial.brandHighlights = snapshot.brandHighlights as Brand['brandHighlights']
+      case 'priceRange':
+        partial.priceRange = snapshot.priceRange as Brand['priceRange']
+        break
+      case 'productTags':
+        partial.productTags = snapshot.productTags as Brand['productTags']
         break
       case 'purchaseWebsite':
         partial.purchaseWebsite = snapshot.purchaseWebsite as Brand['purchaseWebsite']
@@ -545,7 +550,8 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     retailLocations: (row.retail_locations as Brand['retailLocations']) ?? [],
     productPhotos: (row.product_photos as string[]) ?? [],
     contactEmail: row.contact_email ?? null,
-    brandHighlights: row.brand_highlights ?? null,
+    priceRange: row.price_range ?? null,
+    productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
     siteContent: normalizeSiteContent(row.site_content as Brand['siteContent']),
     tags,
     submittedAt: row.submitted_at ?? '',
@@ -579,19 +585,14 @@ export function brandToInsert(data: BrandWriteInput): Record<string, unknown> {
   if (data.retailLocations !== undefined) row.retail_locations = data.retailLocations
   if (data.productPhotos !== undefined) row.product_photos = data.productPhotos
   if (data.contactEmail !== undefined) row.contact_email = data.contactEmail
-  if (data.brandHighlights != null) row.brand_highlights = data.brandHighlights
+  row.price_range = data.priceRange ?? null
+  row.product_tags = data.productTags ?? []
   if (data.isDemo) row.is_demo = data.isDemo
   return row
 }
 
 function brandToUpdate(data: BrandWriteInput): Record<string, unknown> {
-  const row = brandToInsert(data)
-
-  if (data.brandHighlights !== undefined) {
-    row.brand_highlights = data.brandHighlights === '' ? null : data.brandHighlights
-  }
-
-  return row
+  return brandToInsert(data)
 }
 
 // ---------------------------------------------------------------------------
@@ -604,8 +605,8 @@ const BRAND_COLUMNS = [
   'purchase_shopee', 'social_instagram', 'social_threads', 'social_facebook',
   'other_urls', 'retail_locations', 'product_photos', 'site_content',
   'status', 'submitted_at', 'approved_at', 'created_at', 'updated_at',
-  'draft_data', 'draft_updated_at', 'founder', 'founding_year',
-  'brand_highlights', 'mit_status', 'mit_claimed_at', 'mit_verified_at',
+  'draft_data', 'draft_updated_at', 'founding_year', 'price_range',
+  'product_tags', 'mit_status', 'mit_claimed_at', 'mit_verified_at',
   'mit_evidence', 'source', 'tag_slugs', 'unified_business_number', 'is_demo',
 ].join(', ')
 

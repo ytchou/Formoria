@@ -81,7 +81,8 @@ export type Brand = {
   retailLocations: RetailLocation[]
   productPhotos: string[]
   contactEmail: string | null
-  brandHighlights: string | null
+  priceRange: number | null
+  productTags: string[]
   siteContent: SiteContent | null
   tags: TaxonomyTag[]
   submittedAt: string
@@ -125,7 +126,8 @@ export type PendingBrandEditWithBrand = PendingBrandEdit & {
     | 'heroImageUrl'
     | 'category'
     | 'contactEmail'
-    | 'brandHighlights'
+    | 'priceRange'
+    | 'productTags'
     | 'foundingYear'
     | 'socialInstagram'
     | 'socialThreads'

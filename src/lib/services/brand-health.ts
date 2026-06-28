@@ -6,7 +6,6 @@ import type { Brand as AppBrand } from '@/lib/types/brand'
 declare module '@/lib/database.types' {
   export interface Brand extends AppBrand {
     [key: string]: unknown
-    brand_highlights?: unknown
     created_at?: string | null
     hero_image_url?: string | null
     product_photos?: unknown
@@ -99,20 +98,6 @@ function getDescription(brand: Brand): string {
   return getField<string | null>(brand, 'description', 'description')?.trim() ?? ''
 }
 
-function getHighlights(brand: Brand): unknown[] {
-  const value = getField<unknown>(brand, 'brandHighlights', 'brand_highlights')
-
-  if (Array.isArray(value)) {
-    return value.filter((item) => typeof item !== 'string' || item.trim())
-  }
-
-  if (typeof value === 'string') {
-    return value.trim() ? [value] : []
-  }
-
-  return []
-}
-
 function getProductPhotos(brand: Brand): unknown[] {
   return toArray(getField<unknown>(brand, 'productPhotos', 'product_photos'))
 }
@@ -165,10 +150,7 @@ function scoreBrandStory(brand: Brand): number {
     descriptionScore = 33
   }
 
-  const highlightCount = getHighlights(brand).length
-  const highlightScore = highlightCount >= 3 ? 34 : highlightCount === 2 ? 17 : 0
-
-  return Math.min(100, descriptionScore + highlightScore)
+  return Math.min(100, descriptionScore)
 }
 
 function scorePhotos(brand: Brand): number {

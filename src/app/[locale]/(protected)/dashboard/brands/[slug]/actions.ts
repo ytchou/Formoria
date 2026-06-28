@@ -28,8 +28,6 @@ type ActionState = {
   fieldErrors?: Record<string, string>
 } | undefined
 
-const BRAND_HIGHLIGHTS_MAX_LENGTH = 300
-
 class InvalidBrandEditFormError extends Error {}
 
 function parseArrayField<T extends Record<string, string>>(
@@ -57,6 +55,17 @@ function parseOptionalString(value: FormDataEntryValue | null): string | null {
   return typeof value === 'string' && value !== '' ? value : null
 }
 
+function parseProductTags(value: FormDataEntryValue | null): string[] {
+  if (typeof value !== 'string') {
+    return []
+  }
+
+  return value
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+}
+
 function parseBrandEditForm(
   formData: FormData
 ): Partial<Brand> {
@@ -67,12 +76,13 @@ function parseBrandEditForm(
   const threads = formData.get('threads') as string | null
   const facebook = formData.get('facebook') as string | null
   const heroImageUrl = parseOptionalString(formData.get('heroImageUrl'))
-  const brandHighlightsRaw = parseOptionalString(formData.get('brandHighlights'))
-  const brandHighlights = brandHighlightsRaw?.slice(0, BRAND_HIGHLIGHTS_MAX_LENGTH) ?? null
 
   // Extract new fields
   const foundingYearRaw = formData.get('foundingYear') as string | null
   const foundingYear = foundingYearRaw ? parseInt(foundingYearRaw, 10) : null
+  const priceRangeRaw = formData.get('priceRange') as string | null
+  const priceRange = priceRangeRaw ? parseInt(priceRangeRaw, 10) : null
+  const productTags = parseProductTags(formData.get('productTags'))
   let productPhotos: string[] = []
 
   try {
@@ -131,7 +141,10 @@ function parseBrandEditForm(
   if (facebook !== null) updateData.socialFacebook = facebook || null
   if (formData.has('heroImageUrl')) updateData.heroImageUrl = heroImageUrl
   if (formData.has('productPhotos')) updateData.productPhotos = productPhotos
-  if (formData.has('brandHighlights')) updateData.brandHighlights = brandHighlights
+  if (formData.has('priceRange')) {
+    updateData.priceRange = priceRange !== null && !isNaN(priceRange) ? priceRange : null
+  }
+  if (formData.has('productTags')) updateData.productTags = productTags
 
   return updateData
 }
@@ -165,13 +178,16 @@ function buildModerationPayload(
   brandName: string
 ): ContentPayload {
   const proposedName = getString(proposedData.name)
+  const productTags = Array.isArray(proposedData.productTags)
+    ? proposedData.productTags.filter((tag): tag is string => typeof tag === 'string').join(' ')
+    : undefined
 
   return {
     brandName: proposedName ?? brandName,
     fields: {
       name: proposedName,
       description: getString(proposedData.description),
-      brandHighlights: getString(proposedData.brandHighlights),
+      productTags,
       website: getString(proposedData.purchaseWebsite),
       purchaseUrl: getString(proposedData.purchasePinkoi) ?? getString(proposedData.purchaseShopee),
     },

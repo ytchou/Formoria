@@ -95,14 +95,12 @@ type LinkEnrichScraped =
 
 type TextEnrichBrand = {
   description?: string | null
-  brand_highlights?: string | null
 }
 
 type TextEnrichScraped = Partial<Pick<ScrapedBrandData, 'description' | 'story'>>
 
 type TextEnrichPatch = {
   description?: string
-  brand_highlights?: string
 }
 
 export function hasLinkValue(value: string | null | undefined): value is string {
@@ -196,10 +194,6 @@ export function buildTextEnrichPatch(
     && scraped.description.length >= 20
   ) {
     patch.description = scraped.description
-  }
-
-  if (brand.brand_highlights == null && scraped.story) {
-    patch.brand_highlights = scraped.story
   }
 
   return patch

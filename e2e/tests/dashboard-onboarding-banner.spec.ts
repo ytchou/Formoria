@@ -52,7 +52,7 @@ test.describe('Dashboard — onboarding banner and health card', () => {
     brandSlug = `e2e-onboarding-banner-${ts}-${wi}`;
 
     // Seed a brand with intentionally incomplete profile so completionFraction < 1.
-    // No heroImageUrl, brandHighlights, foundingYear — tier1 + tier2 items will render.
+    // No heroImageUrl, foundingYear — tier1 + tier2 items will render.
     const { data: brandData, error: brandErr } = await supabase
       .from('brands')
       .insert({
