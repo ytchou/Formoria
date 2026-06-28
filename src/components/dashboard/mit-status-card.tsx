@@ -97,23 +97,25 @@ export function MitStatusCard({
               <p className="text-sm font-medium text-[#2D5A27]">{t('verifySuccess')}</p>
             ) : (
               <>
-                <label className="text-xs font-medium uppercase text-muted-foreground">
+                <label htmlFor="mit-cert-input" className="text-xs font-medium uppercase text-muted-foreground">
                   {t('certLabel')}
                 </label>
                 <div className="flex gap-2">
                   <input
+                    id="mit-cert-input"
                     type="text"
                     value={certNumber}
                     onChange={(e) => setCertNumber(e.target.value)}
                     placeholder={t('certPlaceholder')}
                     disabled={isPending}
-                    className="flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-invalid={error ? true : undefined}
+                    className={`flex-1 rounded-md border bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${error ? 'border-red-500' : 'border-input'}`}
                   />
                   <button
                     type="button"
                     onClick={handleVerify}
                     disabled={isPending || !certNumber.trim()}
-                    className="inline-flex min-h-[36px] items-center rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex min-h-[44px] items-center rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {t('verifyButton')}
                   </button>
@@ -126,7 +128,7 @@ export function MitStatusCard({
           </div>
         ) : mitStatus !== 'verified' ? (
           <a
-            className="inline-flex min-h-[44px] items-center text-sm font-semibold text-[#C25B3F] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+            className="inline-flex min-h-[44px] items-center text-sm font-semibold text-[#C4693B] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-white"
             href={mailtoHref}
           >
             {t('resubmitCta')}

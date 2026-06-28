@@ -192,7 +192,6 @@ describe('admin actions module', () => {
     expect(typeof mod.renameTagAction).toBe('function')
     expect(typeof mod.mergeTagAction).toBe('function')
     expect(typeof mod.deactivateTagAction).toBe('function')
-    expect(typeof mod.acknowledgeMitVerificationSubmissionAction).toBe('function')
     expect(typeof mod.approvePendingEditAction).toBe('function')
     expect(typeof mod.rejectPendingEditAction).toBe('function')
   })
@@ -487,17 +486,6 @@ describe('MIT verification actions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCookie('god')
-  })
-
-  it('acknowledges MIT verification submission', async () => {
-    const { getBrandById } = await import('@/lib/services/brands')
-    vi.mocked(getBrandById).mockResolvedValue({ id: 'brand-1', name: 'Test Brand' } as Awaited<ReturnType<typeof getBrandById>>)
-
-    const { acknowledgeMitVerificationSubmissionAction } = await import('./actions')
-    const result = await acknowledgeMitVerificationSubmissionAction('brand-1')
-
-    expect(result).toEqual({ success: true })
-    expect(getBrandById).toHaveBeenCalledWith('brand-1')
   })
 
   it('verifies MIT status by cert number', async () => {

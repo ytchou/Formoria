@@ -414,24 +414,6 @@ export async function verifyMitAction(
   }
 }
 
-export async function acknowledgeMitVerificationSubmissionAction(
-  brandId: string
-): Promise<{ success: boolean } | { error: string }> {
-  try {
-    const auth = await requireAdmin()
-    if ('error' in auth) return auth
-
-    await getBrandById(brandId)
-
-    return { success: true }
-  } catch (err) {
-    console.error('[admin:acknowledgeMitVerificationSubmissionAction]', err)
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
-    }
-  }
-}
-
 export async function updateBrandAction(
   brandId: string,
   data: {

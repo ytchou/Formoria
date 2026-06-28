@@ -489,7 +489,7 @@ export default function SubmitForm({
 
           {/* MIT Smile Mark certificate — only shown when isOwner is checked */}
           {isOwner && (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <label
                 htmlFor="submit-mit-smile-cert"
                 className="block text-sm font-semibold text-foreground"
