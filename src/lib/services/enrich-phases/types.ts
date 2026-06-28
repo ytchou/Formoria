@@ -17,7 +17,6 @@ export type EnrichBrand = {
   purchase_website?: string | null
   purchaseWebsite?: string | null
   tag_slugs?: string[] | null
-  brand_highlights?: string | null
   hero_image_url?: string | null
   product_images?: string[] | null
   product_photos?: string[] | null
@@ -37,7 +36,6 @@ export type EnrichScrapedData = Partial<ScrapedBrandData> & Partial<BrandFlatLin
 
 export type EnrichPatch = Partial<BrandFlatLinkColumns> &
   Partial<{
-    brand_highlights: string | null
     description: string | null
     hero_image_url: string | null
     name: string

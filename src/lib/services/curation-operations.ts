@@ -98,7 +98,6 @@ type RunEnrichPhase = EnrichPhase | 'discover' | 'detect' | 'slugs'
 
 type EnrichBrand = CurationBrand &
   Partial<BrandFlatLinkColumns> & {
-    brand_highlights?: string | null
     hero_image_url?: string | null
     product_images?: string[] | null
     product_photos?: string[] | null
@@ -134,13 +133,13 @@ type EnrichPatches = {
   clean?: Partial<Pick<CurationBrand, 'name'>>
   links?: Partial<BrandFlatLinkColumns>
   images?: EnrichImagePatch
-  descriptions?: Partial<Pick<EnrichBrand, 'description' | 'brand_highlights'>>
+  descriptions?: Partial<Pick<EnrichBrand, 'description'>>
   tags?: Partial<Pick<CurationBrand, 'product_type'>>
 }
 
 type EnrichPatch = Partial<BrandFlatLinkColumns> &
   EnrichImagePatch &
-  Partial<Pick<EnrichBrand, 'description' | 'brand_highlights' | 'product_type' | 'name'>>
+  Partial<Pick<EnrichBrand, 'description' | 'product_type' | 'name'>>
 
 type ProcessEnrichResult = {
   phases: EnrichProcessPhases
@@ -467,7 +466,6 @@ function submissionToEnrichBrand(submission: SubmissionEnrichmentRow): EnrichBra
     status: submission.status,
     description: typeof existing.description === 'string' ? existing.description : submission.description,
     product_type: typeof existing.product_type === 'string' ? existing.product_type : null,
-    brand_highlights: typeof existing.brand_highlights === 'string' ? existing.brand_highlights : null,
     social_instagram: typeof existing.social_instagram === 'string' ? existing.social_instagram : submission.social_instagram,
     social_threads: typeof existing.social_threads === 'string' ? existing.social_threads : submission.social_threads,
     social_facebook: typeof existing.social_facebook === 'string' ? existing.social_facebook : submission.social_facebook,
@@ -555,7 +553,7 @@ export async function runEnrich(
     let query = supabase
       .from('brands')
       .select(
-        'id, slug, name, status, description, product_type, brand_highlights, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, hero_image_url, product_photos'
+        'id, slug, name, status, description, product_type, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, hero_image_url, product_photos'
       )
 
     if (config.slugs && config.slugs.length > 0) {

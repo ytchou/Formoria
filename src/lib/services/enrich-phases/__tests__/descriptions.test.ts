@@ -13,7 +13,6 @@ const brand: EnrichBrand = {
   slug: 'test-brand',
   name: 'Test Brand',
   description: null,
-  brand_highlights: null,
 }
 
 describe('runDescriptionsPhase', () => {
@@ -99,17 +98,4 @@ describe('runDescriptionsPhase', () => {
     expect(result.phaseResult.changedFields).toEqual(['description', 'price_range', 'product_tags'])
   })
 
-  it('does not patch brand_highlights from scraped story', async () => {
-    const result = await runDescriptionsPhase({
-      brand,
-      phases: ['descriptions'] as EnrichPhase[],
-      scrapedData: {
-        story: 'Founded in 2015 by artisans in Tainan',
-      },
-      serpSnippets: [],
-    })
-
-    expect(result.patch).not.toHaveProperty('brand_highlights')
-    expect(result.phaseResult.changedFields).not.toContain('brand_highlights')
-  })
 })

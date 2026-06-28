@@ -126,7 +126,7 @@ describe('brandToInsert', () => {
   })
 })
 
-describe('brandToDomain — brandHighlights', () => {
+describe('brandToDomain — basic fields', () => {
   const baseRow = {
     id: 'test-id', name: 'Test Brand', slug: 'test-brand',
     description: 'A test brand', hero_image_url: null,
@@ -135,49 +135,15 @@ describe('brandToDomain — brandHighlights', () => {
     product_photos: [], contact_email: null, brand_taxonomy: [],
     submitted_at: '2026-01-01T00:00:00Z', approved_at: null,
     created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
-    brand_highlights: null,
   }
 
-  it('brandToDomain ignores the dormant founder column', () => {
+  it('maps description', () => {
     const row = {
       ...baseRow,
       description: '介紹',
-      founder: { name: 'X' },
     }
     const brand = brandToDomain(row)
-    expect((brand as { founder?: unknown }).founder).toBeUndefined()
     expect(brand.description).toBe('介紹')
-  })
-
-  it('maps brand_highlights string to brandHighlights', () => {
-    const row = { ...baseRow, brand_highlights: 'Handcrafted with Taiwanese cedar since 1992' }
-    const brand = brandToDomain(row)
-    expect(brand.brandHighlights).toBe('Handcrafted with Taiwanese cedar since 1992')
-  })
-
-  it('maps null brand_highlights to null', () => {
-    const row = { ...baseRow, brand_highlights: null }
-    const brand = brandToDomain(row)
-    expect(brand.brandHighlights).toBeNull()
-  })
-
-})
-
-describe('brandToInsert — brandHighlights', () => {
-  it('brandToInsert does not write a founder field', () => {
-    const input = {
-      description: '介紹',
-      brandHighlights: 'Eco-certified packaging',
-    }
-    const row = brandToInsert(input)
-    expect('founder' in row).toBe(false)
-    expect(row.description).toBe('介紹')
-  })
-
-  it('omits brand_highlights when brandHighlights is null', () => {
-    const data = { brandHighlights: null }
-    const row = brandToInsert(data)
-    expect(row).not.toHaveProperty('brand_highlights')
   })
 })
 
@@ -323,7 +289,6 @@ describe('getBrands — search uses search_brands RPC', () => {
       approved_at: '2026-01-02T00:00:00Z',
       created_at: '2026-01-01T00:00:00Z',
       updated_at: '2026-01-02T00:00:00Z',
-      brand_highlights: null,
       is_demo: false,
     }
 

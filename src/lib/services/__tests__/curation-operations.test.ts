@@ -25,7 +25,6 @@ describe('processEnrichBrand', () => {
     purchase_shopee: null,
     website_url: null,
     description: null,
-    brand_highlights: null,
     hero_image_url: null,
     product_images: [],
   }
@@ -45,12 +44,6 @@ describe('processEnrichBrand', () => {
   it('generates brand description when description phase is enabled', () => {
     const result = processEnrichBrand(baseBrand, scrapedData, ['descriptions'])
     expect(result.patches.descriptions?.description).toBe(scrapedData.description)
-  })
-
-  it('extracts brand highlights from company story', () => {
-    const brandWithDesc = { ...baseBrand, description: 'Already has a valid description over twenty chars' }
-    const result = processEnrichBrand(brandWithDesc, scrapedData, ['descriptions'])
-    expect(result.patches.descriptions?.brand_highlights).toBe(scrapedData.story)
   })
 
   it('omits description when phase is not requested', () => {
@@ -103,7 +96,6 @@ describe('descriptions phase standalone', () => {
     purchase_shopee: null,
     website_url: null,
     description: null,
-    brand_highlights: null,
     hero_image_url: null,
     product_images: [],
   }

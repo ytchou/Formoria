@@ -12,11 +12,6 @@ describe('enrichedDataFromDb', () => {
     })
   })
 
-  it('does not include brandHighlights', () => {
-    expect(enrichedDataFromDb({ brand_highlights: 'Local materials' })).not.toHaveProperty(
-      'brandHighlights'
-    )
-  })
 })
 
 describe('enrichedDataToDb', () => {

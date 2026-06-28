@@ -48,14 +48,6 @@ export function buildBrandJsonLd(brand: Brand, locale: Locale = 'zh-TW'): JsonLd
   if (brand.tags.length > 0) {
     jsonLd.keywords = brand.tags.map((tag) => tag.name).join(', ')
   }
-  if (brand.brandHighlights) {
-    jsonLd.additionalProperty = {
-      '@type': 'PropertyValue',
-      name: 'highlights',
-      value: brand.brandHighlights,
-    }
-  }
-
   if (brand.retailLocations.length === 1) {
     jsonLd.address = {
       '@type': 'PostalAddress',

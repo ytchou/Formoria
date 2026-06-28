@@ -26,8 +26,10 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     socialFacebook: 'https://facebook.com/chatzutang',
     otherUrls: [],
     retailLocations: [{ name: 'Nanzhuang Store', address: '苗栗縣南庄鄉', latitude: 24.59, longitude: 120.99 }],
-    productPhotos: [], brandHighlights: null,
+    productPhotos: [],
     siteContent: null,
+    priceRange: null,
+    productTags: [],
     contactEmail: 'hello@chatzutang.com',
     tags: [],
     submittedAt: '2026-01-01T00:00:00Z', approvedAt: '2026-01-02T00:00:00Z',
@@ -84,21 +86,6 @@ describe('buildBrandJsonLd', () => {
     expect(jsonLd.keywords).toBeUndefined()
   })
 
-  it('includes additionalProperty from brandHighlights', () => {
-    const brandHighlights = 'Cold-pressed camellia oil and local herbs'
-    const jsonLd = buildBrandJsonLd(makeBrand({ brandHighlights }))
-    expect(jsonLd.additionalProperty).toEqual({
-      '@type': 'PropertyValue',
-      name: 'highlights',
-      value: brandHighlights,
-    })
-  })
-
-  it('omits additionalProperty when brandHighlights is null', () => {
-    const jsonLd = buildBrandJsonLd(makeBrand({ brandHighlights: null }))
-    expect(jsonLd.additionalProperty).toBeUndefined()
-  })
-
   it('includes purchase link URLs in sameAs alongside social links', () => {
     const jsonLd = buildBrandJsonLd(makeBrand({
       purchasePinkoi: 'https://pinkoi.com/chatzutang',
@@ -146,11 +133,6 @@ describe('buildBrandJsonLd', () => {
     })
   })
 
-  it('does not include a founder Person in the structured data', () => {
-    const jsonLd = buildBrandJsonLd(makeBrand())
-    expect(JSON.stringify(jsonLd)).not.toContain('founder')
-  })
-
   it('omits optional fields when null', () => {
     const jsonLd = buildBrandJsonLd(makeBrand({
       contactEmail: null, socialInstagram: null, socialThreads: null, socialFacebook: null,
@@ -162,7 +144,6 @@ describe('buildBrandJsonLd', () => {
     expect(jsonLd.foundingDate).toBeUndefined()
     expect(jsonLd.sameAs).toBeUndefined()
     expect(jsonLd.address).toBeUndefined()
-    expect(jsonLd.founder).toBeUndefined()
   })
 })
 

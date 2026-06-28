@@ -6,7 +6,6 @@ export type CompletenessKey =
   | 'purchaseLinks'
   | 'productPhotos'
   | 'socialLinks'
-  | 'brandHighlights'
   | 'foundingYear'
   | 'retailLocations'
 
@@ -50,11 +49,6 @@ const FIELD_ORDER: {
     key: 'socialLinks',
     anchor: '#links',
     isComplete: (b) => [b.socialInstagram, b.socialThreads, b.socialFacebook].some((v) => !!v),
-  },
-  {
-    key: 'brandHighlights',
-    anchor: '#brandHighlights',
-    isComplete: (b) => !!b.brandHighlights?.trim(),
   },
   { key: 'foundingYear', anchor: '#foundingYear', isComplete: (b) => b.foundingYear != null },
   { key: 'retailLocations', anchor: '#locations', isComplete: (b) => (b.retailLocations?.length ?? 0) > 0 },

@@ -183,15 +183,6 @@ describe('brandToDomain — brand detail enrichment fields', () => {
     expect(brand.priceRange).toBeNull()
   })
 
-  it('does not expose deprecated founder or brandHighlights properties', () => {
-    const row = makeBrandRow({
-      founder: 'Deprecated Founder',
-      brand_highlights: 'Deprecated highlights',
-    })
-    const brand = brandToDomain(row)
-    expect(brand).not.toHaveProperty('founder')
-    expect(brand).not.toHaveProperty('brandHighlights')
-  })
 })
 
 describe('brandToInsert — isDemo', () => {

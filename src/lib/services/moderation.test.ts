@@ -12,7 +12,6 @@ const cleanPayload = {
   fields: {
     name: '臺灣手工皂',
     description: '這是一個專注於天然原料的手工皂品牌，所有產品均在台灣製造。',
-    brandHighlights: '100% 天然成分，無化學添加物。',
     website: 'https://example.com',
   },
   brandName: '臺灣手工皂',
@@ -82,14 +81,6 @@ describe('scanContent — Tier 2 zh-TW flagging', () => {
         expect.objectContaining({ tier: 'flag', fieldName: 'description' }),
       ])
     )
-  })
-
-  it('flags email injection in brandHighlights', () => {
-    const result = scanContent({
-      ...cleanPayload,
-      fields: { ...cleanPayload.fields, brandHighlights: '聯繫我們：contact@spam.com 獲得優惠。' },
-    })
-    expect(result.flags.some(f => f.tier === 'flag' && f.fieldName === 'brandHighlights')).toBe(true)
   })
 
   it('flags excessive emoji (>10) in any field', () => {

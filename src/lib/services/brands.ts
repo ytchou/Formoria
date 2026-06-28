@@ -60,7 +60,6 @@ export type CuratedSubmissionInput = {
   purchaseLinks: Array<{ platform: string; url: string }>
   socialLinks: { instagram: string; threads: string; facebook: string; website: string }
   retailLocations: Array<{ name: string; address: string }>
-  brandHighlights: string | null
   region?: string | null
   valueTags?: string[]
 }

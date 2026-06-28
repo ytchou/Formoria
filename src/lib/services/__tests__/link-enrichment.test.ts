@@ -269,7 +269,7 @@ describe('buildLinkEnrichPatch — overwrite-with-validation', () => {
 describe('buildTextEnrichPatch (unified)', () => {
   it('fills description when brand has none', () => {
     const patch = buildTextEnrichPatch(
-      { description: null, brand_highlights: null },
+      { description: null },
       { description: 'A premium handcrafted leather goods brand from Taiwan' }
     )
     expect(patch.description).toBe('A premium handcrafted leather goods brand from Taiwan')
@@ -277,7 +277,7 @@ describe('buildTextEnrichPatch (unified)', () => {
 
   it('fills description when existing is too short (<20 chars)', () => {
     const patch = buildTextEnrichPatch(
-      { description: 'Short desc', brand_highlights: null },
+      { description: 'Short desc' },
       { description: 'A premium handcrafted leather goods brand from Taiwan' }
     )
     expect(patch.description).toBe('A premium handcrafted leather goods brand from Taiwan')
@@ -285,7 +285,7 @@ describe('buildTextEnrichPatch (unified)', () => {
 
   it('does not overwrite valid existing description', () => {
     const patch = buildTextEnrichPatch(
-      { description: 'An existing description that is longer than 20 characters', brand_highlights: null },
+      { description: 'An existing description that is longer than 20 characters' },
       { description: 'A different scraped description from the website' }
     )
     expect(patch.description).toBeUndefined()
@@ -293,19 +293,12 @@ describe('buildTextEnrichPatch (unified)', () => {
 
   it('rejects scraped description shorter than 20 chars', () => {
     const patch = buildTextEnrichPatch(
-      { description: null, brand_highlights: null },
+      { description: null },
       { description: 'Too short' }
     )
     expect(patch.description).toBeUndefined()
   })
 
-  it('fills brand_highlights from scraped story', () => {
-    const patch = buildTextEnrichPatch(
-      { description: 'Existing desc over twenty chars long', brand_highlights: null },
-      { description: null, story: 'Founded in 2015 by artisans in Tainan' }
-    )
-    expect(patch.brand_highlights).toBe('Founded in 2015 by artisans in Tainan')
-  })
 })
 
 describe('buildImageEnrichPatch', () => {

@@ -179,10 +179,9 @@ describe('extractShopeeProductImages', () => {
 })
 
 describe('emptyResult', () => {
-  it('returns a null-filled ScrapedBrandData with the source url and no brandHighlights', () => {
+  it('returns a null-filled ScrapedBrandData with the source url', () => {
     const r = emptyResult('https://site.com')
     expect(r.brandName).toBeNull()
-    expect('brandHighlights' in r).toBe(false)
     expect(r.story).toBeNull()
   })
 })

@@ -32,8 +32,9 @@ const liveBrand: Brand = {
   retailLocations: [{ name: 'Live Store', address: 'Taipei', latitude: 25.0330, longitude: 121.5654 }],
   productPhotos: ['https://x.supabase.co/p-live-1.png'],
   contactEmail: 'live@brand.tw',
-  brandHighlights: 'live highlights',
     siteContent: null,
+    priceRange: null,
+    productTags: [],
   tags: [{ id: 't1', name: 'Apparel', nameZh: '服飾', productType: true } as never],
   submittedAt: '2026-01-01T00:00:00Z',
   approvedAt: '2026-01-02T00:00:00Z',
@@ -58,10 +59,9 @@ describe('brandToDraftSnapshot', () => {
 
 describe('mergeDraftOverBrand', () => {
   it('overlays editable fields, preserves identity/status/mit/tags', () => {
-    const snap = brandToDraftSnapshot({ name: 'Draft Name', brandHighlights: 'draft hi' } as Partial<Brand>);
+    const snap = brandToDraftSnapshot({ name: 'Draft Name' } as Partial<Brand>);
     const merged = mergeDraftOverBrand(liveBrand, snap);
     expect(merged.name).toBe('Draft Name');
-    expect(merged.brandHighlights).toBe('draft hi');
     expect(merged.id).toBe('b1');
     expect(merged.slug).toBe('live-name');
     expect(merged.status).toBe('approved');
