@@ -27,6 +27,7 @@ export interface SubmitBrandForReviewParams {
   suggestedTags?: { values?: string[]; productType?: string }
   productType?: string | null
   productTypeNote?: string | null
+  mitSmileCert?: string
 }
 
 export interface SubmitBrandForReviewResult {
@@ -67,6 +68,7 @@ export async function submitBrandForReview(
   const suggestedTags = {
     ...(params.suggestedTags ?? {}),
     ...(params.productType ? { productType: params.productType } : {}),
+    ...(params.mitSmileCert ? { mitSmileCert: params.mitSmileCert } : {}),
   }
 
   const submission = await createSubmission({

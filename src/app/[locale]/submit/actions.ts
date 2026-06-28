@@ -110,6 +110,7 @@ export async function submitBrand(
       submitterName: user.user_metadata?.full_name ?? undefined,
       socialLinks: parsed.socialLinks ?? null,
       purchaseLinks: parsed.purchaseLinks ?? null,
+      mitSmileCert: parsed.mitSmileCert || undefined,
     })
 
     return undefined // Success — no error
