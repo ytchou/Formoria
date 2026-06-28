@@ -72,9 +72,14 @@ Order issues by severity (critical first), then by event count (descending) with
 
 Write the digest JSON to a file in the `slack-messages/` directory, then commit and push. The GitHub Actions Slack relay workflow routes by filename prefix — `sentry-triage-*.json` maps to the `SLACK_WEBHOOK_SENTRY_TRIAGE` secret, falling back to `SLACK_WEBHOOK_URL` if not set.
 
-1. Write the JSON payload to `slack-messages/sentry-triage-YYYY-MM-DD.json`
-2. Run `git add slack-messages/` and commit with message `chore(sentry-triage): daily digest YYYY-MM-DD`
-3. Push to the current branch
+1. Clean up stale files:
+   ```bash
+   git pull --rebase || true
+   git rm -f slack-messages/sentry-triage-*.json 2>/dev/null || true
+   ```
+2. Write the JSON payload to `slack-messages/sentry-triage-YYYY-MM-DD.json`
+3. Run `git add slack-messages/` and commit with message `chore(sentry-triage): daily digest YYYY-MM-DD`
+4. Push to the current branch
 
 ## Error Handling
 

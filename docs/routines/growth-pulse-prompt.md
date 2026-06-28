@@ -236,13 +236,15 @@ Build a Slack Block Kit JSON payload.
 
 **Important:** Before writing the new file, pull latest and remove any stale growth-pulse JSON files so the relay only sends today's digest.
 
-1. Pull latest: `git pull --rebase`
-2. Remove old growth-pulse files: `rm -f slack-messages/growth-pulse-*.json`
-3. Write the JSON payload to `slack-messages/growth-pulse-YYYY-MM-DD.json`
-4. Stage only the specific file: `git add slack-messages/growth-pulse-YYYY-MM-DD.json`
-5. Also stage any deletions from step 2: `git add -u slack-messages/`
-6. Commit with message `chore(growth-pulse): daily digest YYYY-MM-DD`
-7. Push to the current branch
+1. Clean up stale files:
+   ```bash
+   git pull --rebase || true
+   git rm -f slack-messages/growth-pulse-*.json 2>/dev/null || true
+   ```
+2. Write the JSON payload to `slack-messages/growth-pulse-YYYY-MM-DD.json`
+3. Stage the new file and any deletions: `git add slack-messages/`
+4. Commit with message `chore(growth-pulse): daily digest YYYY-MM-DD`
+5. Push to the current branch
 
 The GitHub Actions Slack relay workflow will deliver it.
 
