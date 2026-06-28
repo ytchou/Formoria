@@ -1200,7 +1200,6 @@
       "logoRequired": "Logo *",
       "logoOptional": "Logo (optional)",
       "logoHint": "Upload your brand logo (max 5MB, will be resized to max 1200px)",
-      "productPhotos": "Product Photos",
       "productPhotosHint": "Upload up to 6 photos to showcase your products",
       "brandHighlights": "Brand Highlights",
       "brandHighlightsHint": "What makes your brand special?",
@@ -1517,5 +1516,16 @@
     "emptyDescription": "Start exploring the brand directory!",
     "exploreBrands": "Browse Brands",
     "loginToSave": "Log in to save brands"
+  },
+  "search": {
+    "emptyState": {
+      "title": "No brands found for \"{query}\"",
+      "description": "Try a different search or browse by category",
+      "withFiltersTitle": "No brands found for \"{query}\" with the current filters",
+      "withFiltersDescription": "Try removing some filters or searching for something else",
+      "clearFilters": "Clear all filters",
+      "browseCategories": "Browse by category",
+      "featuredBrands": "Verified MIT brands"
+    }
   }
 }
