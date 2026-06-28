@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { getBrands } from '@/lib/services/brands'
+import { getBrands, getPopularCategories, getFeaturedBrands } from '@/lib/services/brands'
 import { getActiveCategories, getTags, getValueTagsWithCoverage } from '@/lib/services/taxonomy'
 import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildWebSiteJsonLd } from '@/lib/json-ld'
 import { parsePageParam, parseSortParam, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
@@ -13,6 +13,7 @@ import { MasonryGrid } from '@/components/brands/masonry-grid'
 import { BrandCard } from '@/components/brands/brand-card'
 import { Pagination } from '@/components/brands/pagination'
 import { SortSelect } from '@/components/brands/sort-select'
+import { SearchEmptyStateWrapper } from '@/components/brands/search-empty-state-wrapper'
 import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { buildAlternates } from '@/lib/seo/alternates'
@@ -157,6 +158,21 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
     displayBrands = refetched.brands
   }
 
+  // Fetch empty-state fallback data when search yields zero results
+  const hasActiveFilters =
+    categoryFilter.length > 0 || tags.length > 0 || verificationFilter !== 'all'
+  let emptyStateData: {
+    categories: { productType: string; count: number }[]
+    featured: { id: string; name: string; slug: string; heroImageUrl: string | null; category: string }[]
+  } | null = null
+  if (totalCount === 0 && search) {
+    const [categories, featured] = await Promise.all([
+      getPopularCategories(5),
+      getFeaturedBrands(6),
+    ])
+    emptyStateData = { categories, featured }
+  }
+
   // Build searchParams record for pagination links (excluding page)
   const paginationParams: Record<string, string> = {}
   if (search) paginationParams.search = search
@@ -258,14 +274,23 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
         >
           <SavedBrandsProvider>
             {displayBrands.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 text-center">
-                <p className="text-base font-semibold text-foreground">
-                  {t('emptyTitle')}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {t('emptyDescription')}
-                </p>
-              </div>
+              emptyStateData ? (
+                <SearchEmptyStateWrapper
+                  query={search}
+                  hasActiveFilters={hasActiveFilters}
+                  categories={emptyStateData.categories}
+                  featuredBrands={emptyStateData.featured}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center py-24 text-center">
+                  <p className="text-base font-semibold text-foreground">
+                    {t('emptyTitle')}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {t('emptyDescription')}
+                  </p>
+                </div>
+              )
             ) : (
               <MasonryGrid>
                 {displayBrands.map((brand, index) => (

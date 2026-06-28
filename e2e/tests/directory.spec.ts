@@ -11,7 +11,7 @@ test.describe('Directory deep', () => {
         page
           .locator('main [role="list"] [role="listitem"]')
           .first()
-          .or(page.getByText(/找不到品牌|no brands|no results/i))
+          .or(page.getByText(/No brands found for|找不到.*品牌/i))
       ).toBeVisible({ timeout: 5_000 });
       await filters.nth(i).click(); // deselect
     }
@@ -56,7 +56,7 @@ test.describe('Directory deep', () => {
       page
         .locator('main [role="list"] [role="listitem"]')
         .first()
-        .or(page.getByText(/找不到品牌|no brands|no results/i))
+        .or(page.getByText(/No brands found for|找不到.*品牌/i))
     ).toBeVisible({ timeout: 10_000 });
   });
 
@@ -66,7 +66,7 @@ test.describe('Directory deep', () => {
     await search.fill('zzzzzzzzzzzzz_nonexistent');
     await page.keyboard.press('Enter');
     await expect(
-      page.getByText(/找不到品牌|no results|no brands|nothing found/i).first()
+      page.getByText(/No brands found for|找不到.*品牌/i).first()
     ).toBeVisible({ timeout: 5_000 });
   });
 });

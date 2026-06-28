@@ -233,36 +233,32 @@ describe('getBrands — PGRST103 offset overflow', () => {
     expect(result.totalCount).toBe(90)
   })
 
-  it('returns empty brands array (not throw) when search path gets PGRST103', async () => {
+  it('returns empty brands array (not throw) when offset exceeds search result count', async () => {
+    // The search path uses in-memory slicing (not .range()), so PGRST103 cannot naturally
+    // occur in hydration. This test verifies that out-of-bounds offset is handled gracefully.
     const { getBrands } = await import('./brands')
 
-    const pgrst103Error = { code: 'PGRST103', message: 'An offset of 96 was requested, but there are only 90 rows' }
-    const resolvedData = { data: null, error: pgrst103Error, count: 90 }
-
-    // RPC returns matched IDs so we proceed to the pagination query
+    // RPC returns 1 brand, but client requests offset=96 — well past the result count
     mockRpc.mockResolvedValue({
-      data: [{ id: 'brand-1' }],
+      data: [{
+        id: 'brand-1',
+        name: 'Test Brand',
+        slug: 'test-brand',
+        hero_image_url: null,
+        primary_category_name: 'Food',
+        rank_score: 0.9,
+        search_source: 'fts',
+      }],
       error: null,
     })
 
-    // Build a chainable mock for the follow-up .from('brands') query
-    const chainable: Record<string, unknown> = {}
-    const chainFn = () => chainable
-    chainable.select = vi.fn().mockReturnValue({ in: () => chainable })
-    chainable.in = chainFn
-    chainable.not = chainFn
-    chainable.eq = chainFn
-    chainable.overlaps = chainFn
-    chainable.order = chainFn
-    chainable.range = chainFn
-    chainable.then = (resolve: (v: unknown) => void) => Promise.resolve(resolvedData).then(resolve)
-
-    mockFrom.mockReturnValue(chainable)
-
     const result = await getBrands({ search: 'tea', limit: 6, offset: 96 })
 
+    // offset > totalCount → empty page, no hydration attempted
     expect(result.brands).toEqual([])
-    expect(result.totalCount).toBe(90)
+    expect(result.totalCount).toBe(1)
+    // hydrateByIds was called with empty array → from() never called
+    expect(mockFrom).not.toHaveBeenCalled()
   })
 
   it('still throws for non-PGRST103 errors in the normal path', async () => {
@@ -298,7 +294,7 @@ describe('getBrands — search uses search_brands RPC', () => {
 
     // RPC returns a matched brand ID (simulate pg_trgm fuzzy match for "茶" partial)
     mockRpc.mockResolvedValue({
-      data: [{ id: 'brand-tea', name: 'Sun Tea', slug: 'sun-tea', primary_category_name: 'Food', similarity_score: 0.8 }],
+      data: [{ id: 'brand-tea', name: 'Sun Tea', slug: 'sun-tea', primary_category_name: 'Food', rank_score: 0.8, search_source: 'trgm' }],
       error: null,
     })
 

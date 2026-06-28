@@ -74,8 +74,9 @@ describe('SearchInput autocomplete', () => {
       expect(screen.getByRole('listbox')).toBeInTheDocument()
     })
 
-    expect(screen.getByText('Tea House')).toBeInTheDocument()
-    expect(screen.getByText('Tea Garden')).toBeInTheDocument()
+    const options = screen.getAllByRole('option')
+    expect(options[0]).toHaveTextContent('Tea House')
+    expect(options[1]).toHaveTextContent('Tea Garden')
   })
 
   it('navigates suggestions with arrow keys', async () => {

@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const mockSearchBrands = vi.fn()
+const mockSearchBrandsAutocomplete = vi.fn()
 
 vi.mock('@/lib/services/brands', () => ({
-  searchBrands: mockSearchBrands,
+  searchBrandsAutocomplete: mockSearchBrandsAutocomplete,
 }))
 
 const { GET } = await import('./route')
@@ -18,13 +18,12 @@ describe('GET /api/search', () => {
   })
 
   it('returns search results with cache headers', async () => {
-    mockSearchBrands.mockResolvedValue([
+    mockSearchBrandsAutocomplete.mockResolvedValue([
       {
         id: '1',
         name: 'Tea Brand',
         slug: 'tea-brand',
         category: 'Food',
-        similarity: 0.9,
       },
     ])
 
@@ -37,7 +36,7 @@ describe('GET /api/search', () => {
     )
     expect(body.results).toHaveLength(1)
     expect(body.results[0].name).toBe('Tea Brand')
-    expect(mockSearchBrands).toHaveBeenCalledWith('tea', 5)
+    expect(mockSearchBrandsAutocomplete).toHaveBeenCalledWith('tea', 5)
   })
 
   it('returns 400 when q param is missing', async () => {
@@ -51,23 +50,23 @@ describe('GET /api/search', () => {
   })
 
   it('respects custom limit param', async () => {
-    mockSearchBrands.mockResolvedValue([])
+    mockSearchBrandsAutocomplete.mockResolvedValue([])
 
     await GET(makeRequest('http://localhost/api/search?q=tea&limit=3'))
 
-    expect(mockSearchBrands).toHaveBeenCalledWith('tea', 3)
+    expect(mockSearchBrandsAutocomplete).toHaveBeenCalledWith('tea', 3)
   })
 
   it('caps limit at 10', async () => {
-    mockSearchBrands.mockResolvedValue([])
+    mockSearchBrandsAutocomplete.mockResolvedValue([])
 
     await GET(makeRequest('http://localhost/api/search?q=tea&limit=50'))
 
-    expect(mockSearchBrands).toHaveBeenCalledWith('tea', 10)
+    expect(mockSearchBrandsAutocomplete).toHaveBeenCalledWith('tea', 10)
   })
 
   it('returns empty results on service error', async () => {
-    mockSearchBrands.mockRejectedValue(new Error('DB down'))
+    mockSearchBrandsAutocomplete.mockRejectedValue(new Error('DB down'))
 
     const response = await GET(makeRequest('http://localhost/api/search?q=tea'))
     const body = await response.json()
