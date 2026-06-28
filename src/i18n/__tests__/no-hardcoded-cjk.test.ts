@@ -78,6 +78,8 @@ const ALLOWLIST = [
   'instrumentation-client.ts',
   // Tally webhook matches Chinese form field labels (external form, not UI copy).
   'app/api/webhooks/tally/route.ts',
+  // MIT registry parser uses Chinese column header keys from the government CSV dataset (not UI copy).
+  'lib/services/mit-registry.ts',
 ]
 
 function isAllowlisted(relPath: string): boolean {
