@@ -9,7 +9,6 @@ import { useRouter } from '@/i18n/navigation'
 import { getFullSubmissionSchema, type SubmissionFormData } from '@/lib/validations/submission'
 import { submitBrand, suggestCleanName } from '@/app/[locale]/submit/actions'
 import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
-import type { TaxonomyTag } from '@/lib/types/taxonomy'
 import type { SourceAttribution } from '@/lib/types/submission'
 import { TurnstileWidget } from '@/components/submit/TurnstileWidget'
 import {
@@ -18,12 +17,10 @@ import {
 } from '@/lib/analytics'
 
 type SubmitFormProps = {
-  regionTags?: TaxonomyTag[]
   source?: 'header_cta' | 'hero_cta' | 'footer_link'
 }
 
 export default function SubmitForm({
-  regionTags = [],
   source = 'hero_cta',
 }: SubmitFormProps) {
   const t = useTranslations('submit')
@@ -49,8 +46,7 @@ export default function SubmitForm({
     defaultValues: {
       name: '',
       website: '',
-      region: '',
-      isOwner: true,
+      isOwner: false,
       sourceAttribution: undefined,
       pdpaConsent: false,
       turnstileToken: '',
@@ -147,9 +143,6 @@ export default function SubmitForm({
         <h1 className="text-center font-heading text-[26px] font-bold text-foreground">
           {tForm('heading')}
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {tForm('subheading')}
-        </p>
       </div>
 
       <form
@@ -158,58 +151,13 @@ export default function SubmitForm({
         noValidate
       >
         <div className="flex flex-col gap-5">
-          {/* Website URL */}
-          <div className="space-y-1.5">
-            <label
-              htmlFor="submit-website"
-              className="block text-sm font-semibold text-foreground"
-            >
-              {tForm('websiteLabel')} <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="submit-website"
-              type="url"
-              placeholder={tForm('websitePlaceholder')}
-              className="h-11 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
-              {...websiteRegistration}
-              onBlur={(event) => {
-                websiteRegistration.onBlur(event)
-                handleWebsiteBlur(event.target.value)
-              }}
-              onChange={(event) => {
-                websiteRegistration.onChange(event)
-                setUrlSuggestion(null)
-              }}
-            />
-            {urlSuggestion && (
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-white p-3 text-sm">
-                <span>
-                  {tForm('suggestedUrl')} <strong>{urlSuggestion}</strong>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setValue('website', urlSuggestion)
-                    setUrlSuggestion(null)
-                  }}
-                  className="inline-flex items-center rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
-                >
-                  {tForm('applySuggestion')}
-                </button>
-              </div>
-            )}
-            {errors.website && (
-              <p className="text-xs text-red-600">{errors.website.message}</p>
-            )}
-          </div>
-
           {/* Brand Name */}
           <div className="space-y-1.5">
             <label
               htmlFor="submit-name"
               className="block text-sm font-semibold text-foreground"
             >
-              {tForm('brandNameLabel')} <span className="text-red-500">*</span>
+              {tForm('brandNameLabel')} <span className="text-destructive">*</span>
             </label>
             <input
               id="submit-name"
@@ -240,46 +188,62 @@ export default function SubmitForm({
                     setValue('name', nameSuggestion)
                     setNameSuggestion(null)
                   }}
-                  className="inline-flex items-center rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
+                  className="inline-flex min-h-[44px] items-center rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
                 >
                   {tForm('applySuggestion')}
                 </button>
               </div>
             )}
             {errors.name && (
-              <p className="text-xs text-red-600">{errors.name.message}</p>
+              <p className="text-xs text-destructive">{errors.name.message}</p>
             )}
           </div>
 
-          {/* Region */}
+          {/* Website URL */}
           <div className="space-y-1.5">
             <label
-              htmlFor="submit-region"
+              htmlFor="submit-website"
               className="block text-sm font-semibold text-foreground"
             >
-              {tForm('regionLabel')}
+              {tForm('websiteLabel')} <span className="text-destructive">*</span>
             </label>
-            <select
-              id="submit-region"
-              className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
-              {...register('region')}
-            >
-              <option value="" disabled>
-                {tForm('regionPlaceholder')}
-              </option>
-              {regionTags.map((tag) => (
-                <option key={tag.id} value={tag.slug}>
-                  {tag.nameZh ? `${tag.nameZh} (${tag.name})` : tag.name}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-muted-foreground">
-              {tForm('regionHint')}
-            </p>
-            {errors.region && (
-              <p className="text-xs text-red-600">{errors.region.message}</p>
+            <input
+              id="submit-website"
+              type="url"
+              placeholder={tForm('websitePlaceholder')}
+              className="h-11 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
+              {...websiteRegistration}
+              onBlur={(event) => {
+                websiteRegistration.onBlur(event)
+                handleWebsiteBlur(event.target.value)
+              }}
+              onChange={(event) => {
+                websiteRegistration.onChange(event)
+                setUrlSuggestion(null)
+              }}
+            />
+            {urlSuggestion && (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-white p-3 text-sm">
+                <span>
+                  {tForm('suggestedUrl')} <strong>{urlSuggestion}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setValue('website', urlSuggestion)
+                    setUrlSuggestion(null)
+                  }}
+                  className="inline-flex min-h-[44px] items-center rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
+                >
+                  {tForm('applySuggestion')}
+                </button>
+              </div>
+            )}
+            {errors.website && (
+              <p className="text-xs text-destructive">{errors.website.message}</p>
             )}
           </div>
+
 
           {/* Source attribution */}
           <div className="space-y-1.5">
@@ -295,7 +259,7 @@ export default function SubmitForm({
               render={({ field }) => (
                 <select
                   id="submit-source"
-                  className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
+                  className={`h-11 w-full rounded-lg border border-border bg-white px-3 text-sm focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 ${field.value ? 'text-foreground' : 'text-muted-foreground'}`}
                   value={field.value ?? ''}
                   onChange={(e) => {
                     field.onChange((e.target.value as SourceAttribution) || undefined)
@@ -313,7 +277,7 @@ export default function SubmitForm({
               )}
             />
             {errors.sourceAttribution && (
-              <p className="text-xs text-red-600">{errors.sourceAttribution.message}</p>
+              <p className="text-xs text-destructive">{errors.sourceAttribution.message}</p>
             )}
           </div>
 
@@ -330,7 +294,7 @@ export default function SubmitForm({
                   <input
                     id="submit-is-owner"
                     type="checkbox"
-                    checked={field.value ?? true}
+                    checked={field.value ?? false}
                     onChange={(e) => {
                       field.onChange(e.target.checked)
                     }}
@@ -447,7 +411,7 @@ export default function SubmitForm({
                     </span>
                   </label>
                   {fieldState.error && (
-                    <p className="text-xs text-red-600">{fieldState.error.message}</p>
+                    <p className="text-xs text-destructive">{fieldState.error.message}</p>
                   )}
                 </div>
               )}
@@ -470,7 +434,7 @@ export default function SubmitForm({
           </div>
 
           {submitError && (
-            <p role="alert" className="text-sm text-red-600">
+            <p role="alert" className="text-sm text-destructive">
               {submitError}
             </p>
           )}

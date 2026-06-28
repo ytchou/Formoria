@@ -34,24 +34,11 @@ vi.mock('@/lib/analytics', () => ({
 
 import SubmitForm from './SubmitForm'
 import messages from '@/../messages/zh-TW.json'
-import type { TaxonomyTag } from '@/lib/types/taxonomy'
 
-const mockRegionTags: TaxonomyTag[] = [
-  {
-    id: 'region-1',
-    name: 'Northern Taiwan',
-    nameZh: '北部',
-    slug: 'northern',
-    category: 'region',
-    isActive: true,
-    createdAt: '2024-01-01T00:00:00Z',
-  },
-]
-
-function renderForm(regionTags = mockRegionTags) {
+function renderForm() {
   return render(
     <NextIntlClientProvider locale="zh-TW" messages={messages}>
-      <SubmitForm regionTags={regionTags} />
+      <SubmitForm />
     </NextIntlClientProvider>
   )
 }
@@ -76,25 +63,15 @@ describe('SubmitForm', () => {
     expect(screen.getByLabelText(/品牌名稱/)).toBeInTheDocument()
   })
 
-  it('renders region select', () => {
-    renderForm()
-    expect(screen.getByLabelText(/品牌所在地區/)).toBeInTheDocument()
-  })
-
-  it('renders region options from props', () => {
-    renderForm()
-    expect(screen.getByRole('option', { name: /北部/ })).toBeInTheDocument()
-  })
-
   it('renders ownership checkbox', () => {
     renderForm()
     expect(screen.getByLabelText(/我是品牌負責人/)).toBeInTheDocument()
   })
 
-  it('ownership checkbox is checked by default', () => {
+  it('ownership checkbox is unchecked by default', () => {
     renderForm()
     const ownerCheckbox = screen.getByLabelText(/我是品牌負責人/)
-    expect(ownerCheckbox).toBeChecked()
+    expect(ownerCheckbox).not.toBeChecked()
   })
 
   it('renders links accordion collapsed by default', () => {
@@ -116,11 +93,9 @@ describe('SubmitForm', () => {
     expect(submitBtn).toBeDisabled()
   })
 
-  it('shows source attribution when ownership unchecked', async () => {
+  it('shows source attribution when ownership unchecked', () => {
     renderForm()
-    const ownerCheckbox = screen.getByLabelText(/我是品牌負責人/)
-    await userEvent.click(ownerCheckbox)
-    // Source attribution select should now be visible
+    // isOwner defaults to false (unchecked), so source attribution is already visible
     expect(screen.getByLabelText(/資料來源/)).toBeVisible()
   })
 
@@ -144,10 +119,5 @@ describe('SubmitForm', () => {
     expect(honeypot).toBeInTheDocument()
     expect(honeypot).toHaveAttribute('tabindex', '-1')
     expect(honeypot).toHaveAttribute('aria-hidden', 'true')
-  })
-
-  it('renders with empty regionTags', () => {
-    renderForm([])
-    expect(screen.getByLabelText(/品牌所在地區/)).toBeInTheDocument()
   })
 })
