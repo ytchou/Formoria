@@ -294,7 +294,7 @@ describe('getBrands — search uses search_brands RPC', () => {
 
     // RPC returns a matched brand ID (simulate pg_trgm fuzzy match for "茶" partial)
     mockRpc.mockResolvedValue({
-      data: [{ id: 'brand-tea', name: 'Sun Tea', slug: 'sun-tea', primary_category_name: 'Food', similarity_score: 0.8 }],
+      data: [{ id: 'brand-tea', name: 'Sun Tea', slug: 'sun-tea', primary_category_name: 'Food', rank_score: 0.8, search_source: 'trgm' }],
       error: null,
     })
 

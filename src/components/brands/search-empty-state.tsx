@@ -63,7 +63,7 @@ export function SearchEmptyState({
       {/* Browse by Category */}
       {categories.length > 0 && (
         <div className="mt-8 w-full">
-          <p className="text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <p className="text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {t('emptyState.browseCategories')}
           </p>
           <div className="scrollbar-hide mt-3 flex justify-center gap-2 overflow-x-auto flex-nowrap">
@@ -83,7 +83,7 @@ export function SearchEmptyState({
       {/* Featured Brands */}
       {featuredBrands.length > 0 && (
         <div className="mt-8 w-full">
-          <p className="text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <p className="text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {t('emptyState.featuredBrands')}
           </p>
           <div className="scrollbar-hide mt-3 flex justify-center gap-3 overflow-x-auto flex-nowrap">
@@ -104,10 +104,10 @@ export function SearchEmptyState({
                 ) : (
                   <div className="aspect-[4/3] w-full bg-muted" />
                 )}
-                <p className="truncate px-2 pt-1.5 text-[13px] font-medium text-foreground">
+                <p className="truncate px-2 pt-1.5 text-sm font-medium text-foreground">
                   {brand.name}
                 </p>
-                <p className="truncate px-2 pb-2 text-[11px] text-muted-foreground">
+                <p className="truncate px-2 pb-2 text-xs text-muted-foreground">
                   {brand.category}
                 </p>
               </Link>
