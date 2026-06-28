@@ -298,6 +298,7 @@
       "tags": "Tags",
       "highlights": "Brand Highlights",
       "photos": "Photos",
+      "customerVoices": "Customer Voices",
       "locations": "Locations"
     },
     "gallery": {
@@ -1039,6 +1040,7 @@
       "sectionBasicInfo": "Basic Info",
       "sectionMedia": "Media",
       "sectionLinks": "Links",
+      "sectionCustomerVoices": "Customer Voices",
       "sectionLocations": "Locations",
       "fieldBrandName": "Brand name",
       "fieldDescription": "Description",
@@ -1061,6 +1063,11 @@
       "socialLinksLabel": "Social links",
       "fieldOtherLinks": "Other links",
       "addLink": "Add link",
+      "customerVoicesLabel": "Customer quotes",
+      "fieldCustomerVoiceAuthor": "Customer name",
+      "fieldCustomerVoiceContent": "Quote",
+      "fieldCustomerVoiceSource": "Source (optional)",
+      "addCustomerVoice": "Add customer voice",
       "removeItem": "Remove",
       "addRetailLocation": "Add retail location",
       "fieldStoreName": "Store name",

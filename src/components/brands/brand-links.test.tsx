@@ -36,6 +36,7 @@ const mockBrand = {
   purchaseShopee: null,
   otherUrls: [],
   retailLocations: [],
+  customerVoices: [],
   contactEmail: null,
   brandHighlights: null,
   siteContent: null,

@@ -26,6 +26,12 @@ export type RetailLocation = {
   longitude: number
 }
 
+export type CustomerVoice = {
+  author: string
+  content: string
+  source?: string
+}
+
 export type MitEvidence = {
   mit_smile_listed?: boolean
   mit_smile_cert?: string
@@ -79,6 +85,7 @@ export type Brand = {
   purchaseShopee: string | null
   otherUrls: OtherUrl[]
   retailLocations: RetailLocation[]
+  customerVoices: CustomerVoice[]
   productPhotos: string[]
   contactEmail: string | null
   brandHighlights: string | null
@@ -135,6 +142,7 @@ export type PendingBrandEditWithBrand = PendingBrandEdit & {
     | 'purchaseShopee'
     | 'otherUrls'
     | 'retailLocations'
+    | 'customerVoices'
     | 'productPhotos'
     | 'siteContent'
   >

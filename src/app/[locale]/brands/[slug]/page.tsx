@@ -30,6 +30,7 @@ import { AdminBrandMenu } from '@/components/brands/admin-brand-menu'
 import { ClaimBrandCta } from '@/components/brands/claim-brand-cta'
 import { RequestRemoval } from '@/components/brands/request-removal'
 import { BrandAbout } from '@/components/brands/brand-about'
+import { BrandCustomerVoices } from '@/components/brands/brand-customer-voices'
 import { BrandLinks } from '@/components/brands/brand-links'
 import { BrandLocations } from '@/components/brands/brand-locations'
 import { MoreInCategory } from '@/components/brands/more-in-category'
@@ -281,6 +282,10 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
             <hr className="border-border" />
 
             <BrandAbout brand={displayBrand} />
+
+            {displayBrand.customerVoices.length > 0 && <hr className="border-border" />}
+
+            <BrandCustomerVoices brand={displayBrand} />
 
             <hr className="border-border" />
 

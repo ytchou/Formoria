@@ -30,6 +30,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
       { name: 'Taipei Store', address: 'Taipei', latitude: 25.03, longitude: 121.56 },
       { name: 'Kaohsiung Store', address: 'Kaohsiung', latitude: 22.63, longitude: 120.27 },
     ],
+    customerVoices: [],
     productPhotos: [
       'https://example.com/p1.jpg',
       'https://example.com/p2.jpg',
@@ -92,6 +93,7 @@ describe('computeBrandHealth', () => {
         brandHighlights: null,
         foundingYear: null,
         retailLocations: [],
+        customerVoices: [],
       })
       const result = computeBrandHealth(emptyBrand, null, SEVEN_DAYS_AGO)
       expect(result.overall).toBeLessThanOrEqual(10)
@@ -119,6 +121,7 @@ describe('computeBrandHealth', () => {
         brandHighlights: null,
         foundingYear: null,
         retailLocations: [],
+        customerVoices: [],
       })
       const result = computeBrandHealth(emptyBrand, null, SEVEN_DAYS_AGO)
       expect(result.tier).toBe('gettingStarted')
@@ -135,6 +138,7 @@ describe('computeBrandHealth', () => {
         purchaseShopee: null,
         brandHighlights: null,
         retailLocations: [],
+        customerVoices: [],
       })
       const result = computeBrandHealth(
         partialBrand,

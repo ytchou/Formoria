@@ -30,6 +30,7 @@ const EDITS = [{
     purchaseShopee: null,
     otherUrls: [],
     retailLocations: [],
+    customerVoices: [],
     productPhotos: [],
     siteContent: null,
   },

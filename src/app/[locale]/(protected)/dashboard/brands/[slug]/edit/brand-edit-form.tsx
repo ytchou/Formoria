@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Plus, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { saveDraftAction, updateBrandAction } from "../actions";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { ImageUploadField } from "@/components/forms/image-upload-field";
 import { DynamicArrayField } from "@/components/forms/dynamic-array-field";
 import { ProductPhotosField } from "@/components/forms/product-photos-field";
-import type { Brand, OtherUrl } from "@/lib/types";
+import type { Brand, CustomerVoice, OtherUrl } from "@/lib/types";
 
 type BrandEditFormProps = {
   brand: Brand;
@@ -24,7 +24,6 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
   const [purchaseWebsite, setPurchaseWebsite] = useState(brand.purchaseWebsite ?? "");
   const [purchasePinkoi, setPurchasePinkoi] = useState(brand.purchasePinkoi ?? "");
   const [purchaseShopee, setPurchaseShopee] = useState(brand.purchaseShopee ?? "");
-  const [otherUrls, setOtherUrls] = useState<OtherUrl[]>(brand.otherUrls ?? []);
   const [publishState, publishFormAction, publishPending] = useActionState(
     updateBrandAction,
     undefined
@@ -44,21 +43,6 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
   const showSubmittedForReviewNotice =
     publishState?.success === true &&
     publishState.message === "brandEditSubmittedForReview";
-  const addOtherUrl = () => {
-    setOtherUrls((links) => (
-      links.length >= 3 ? links : [...links, { label: "", url: "" }]
-    ));
-  };
-  const updateOtherUrl = (index: number, key: keyof OtherUrl, value: string) => {
-    setOtherUrls((links) =>
-      links.map((link, linkIndex) =>
-        linkIndex === index ? { ...link, [key]: value } : link
-      )
-    );
-  };
-  const removeOtherUrl = (index: number) => {
-    setOtherUrls((links) => links.filter((_, linkIndex) => linkIndex !== index));
-  };
 
   return (
     <div className="space-y-10">
@@ -267,22 +251,24 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
             <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
               {tx("fieldOtherLinks", "Other links")}
             </div>
-            <div className="space-y-3">
-              {otherUrls.map((link, index) => (
-                <div key={index} className="grid gap-2 sm:grid-cols-[minmax(0,0.45fr)_minmax(0,1fr)_48px]">
+            <DynamicArrayField<OtherUrl>
+              initialItems={brand.otherUrls ?? []}
+              createItem={() => ({ label: "", url: "" })}
+              addLabel={tx("addLink", "+ Add link")}
+              maxItems={3}
+              renderItem={(item, index, onRemove) => (
+                <div className="grid gap-2 sm:grid-cols-[minmax(0,0.45fr)_minmax(0,1fr)_48px]">
                   <Input
                     name={`otherUrls[${index}].label`}
                     placeholder={t("fieldLabelPlaceholder")}
-                    value={link.label}
-                    onChange={(event) => updateOtherUrl(index, "label", event.target.value)}
+                    defaultValue={item.label}
                     className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
                   />
                   <Input
                     name={`otherUrls[${index}].url`}
                     type="url"
                     placeholder={t("fieldUrlPlaceholder")}
-                    value={link.url}
-                    onChange={(event) => updateOtherUrl(index, "url", event.target.value)}
+                    defaultValue={item.url}
                     className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
                   />
                   <Button
@@ -290,32 +276,65 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
                     variant="ghost"
                     size="icon"
                     aria-label={t("removeItem")}
-                    onClick={() => removeOtherUrl(index)}
+                    onClick={onRemove}
                     className="h-12 w-12 text-foreground hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-              ))}
-            </div>
-            {otherUrls.length < 3 && (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={addOtherUrl}
-                className="h-12 px-3 text-foreground hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <Plus className="h-4 w-4" />
-                {tx("addLink", "+ Add link")}
-              </Button>
-            )}
+              )}
+            />
           </div>
+        </section>
 
-          <div className="hidden" aria-hidden="true">
-            <input type="hidden" name="websiteUrl" value={purchaseWebsite} />
-            <input type="hidden" name="instagram" value={socialInstagram} />
-            <input type="hidden" name="threads" value={socialThreads} />
-            <input type="hidden" name="facebook" value={socialFacebook} />
+        {/* Customer Voices */}
+        <section id="customer-voices" className="space-y-4">
+          <h2 className="font-heading text-base font-bold text-foreground border-b border-border pb-2">
+            {t("sectionCustomerVoices")}
+          </h2>
+
+          <div className="space-y-4 rounded-lg border border-border bg-background p-4">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
+              {t("customerVoicesLabel")}
+            </div>
+            <DynamicArrayField<CustomerVoice>
+              initialItems={brand.customerVoices}
+              createItem={() => ({ author: "", content: "", source: "" })}
+              addLabel={t("addCustomerVoice")}
+              maxItems={5}
+              renderItem={(item, index, onRemove) => (
+                <div className="grid gap-2 sm:grid-cols-[minmax(0,0.35fr)_minmax(0,1fr)_minmax(0,0.35fr)_48px]">
+                  <Input
+                    name={`customerVoices[${index}].author`}
+                    placeholder={t("fieldCustomerVoiceAuthor")}
+                    defaultValue={item.author}
+                    className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                  <Input
+                    name={`customerVoices[${index}].content`}
+                    placeholder={t("fieldCustomerVoiceContent")}
+                    defaultValue={item.content}
+                    className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                  <Input
+                    name={`customerVoices[${index}].source`}
+                    placeholder={t("fieldCustomerVoiceSource")}
+                    defaultValue={item.source ?? ""}
+                    className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={t("removeItem")}
+                    onClick={onRemove}
+                    className="h-12 w-12 text-foreground hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            />
           </div>
         </section>
 

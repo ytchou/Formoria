@@ -36,6 +36,7 @@ function makeEdit(overrides: Partial<PendingEditWithRisk> = {}): PendingEditWith
       purchaseShopee: null,
       otherUrls: [],
       retailLocations: [],
+      customerVoices: [],
       productPhotos: [],
       siteContent: null,
     },

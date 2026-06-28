@@ -18,7 +18,7 @@ import {
   updateBrand,
 } from '@/lib/services/brands'
 import { deleteBrandImages } from '@/lib/services/image-upload'
-import type { Brand, OtherUrl, RetailLocation } from '@/lib/types'
+import type { Brand, CustomerVoice, OtherUrl, RetailLocation } from '@/lib/types'
 import type { ContentPayload, ModerationResult } from '@/lib/services/moderation'
 
 type ActionState = {
@@ -32,7 +32,7 @@ const BRAND_HIGHLIGHTS_MAX_LENGTH = 300
 
 class InvalidBrandEditFormError extends Error {}
 
-function parseArrayField<T extends Record<string, string>>(
+function parseArrayField<T extends Record<string, string | undefined>>(
   formData: FormData,
   fieldName: string,
   keys: (keyof T)[]
@@ -63,9 +63,9 @@ function parseBrandEditForm(
   // Extract basic fields
   const name = formData.get('name') as string | null
   const description = formData.get('description') as string | null
-  const instagram = formData.get('instagram') as string | null
-  const threads = formData.get('threads') as string | null
-  const facebook = formData.get('facebook') as string | null
+  const instagram = formData.get('socialInstagram') as string | null
+  const threads = formData.get('socialThreads') as string | null
+  const facebook = formData.get('socialFacebook') as string | null
   const heroImageUrl = parseOptionalString(formData.get('heroImageUrl'))
   const brandHighlightsRaw = parseOptionalString(formData.get('brandHighlights'))
   const brandHighlights = brandHighlightsRaw?.slice(0, BRAND_HIGHLIGHTS_MAX_LENGTH) ?? null
@@ -98,14 +98,14 @@ function parseBrandEditForm(
   const purchasePinkoi = parseOptionalString(formData.get('purchasePinkoi'))
   const purchaseShopee = parseOptionalString(formData.get('purchaseShopee'))
   const hasOtherUrls = formData.has('otherUrls[0].label') || formData.has('otherUrls[0].url')
-  const otherUrls: OtherUrl[] = []
-  for (let i = 0; i < 3; i++) {
-    const label = formData.get(`otherUrls[${i}].label`) as string | null
-    const url = formData.get(`otherUrls[${i}].url`) as string | null
-    if (label && url) {
-      otherUrls.push({ label, url })
-    }
-  }
+  const otherUrls = parseArrayField<OtherUrl>(formData, 'otherUrls', ['label', 'url'])
+  const hasCustomerVoices =
+    formData.has('customerVoices[0].author') || formData.has('customerVoices[0].content')
+  const customerVoices = parseArrayField<CustomerVoice>(
+    formData,
+    'customerVoices',
+    ['author', 'content', 'source']
+  )
   const retailLocations = parseArrayField<{ name: string; address: string }>(
     formData,
     'retailLocations',
@@ -122,6 +122,9 @@ function parseBrandEditForm(
   if (formData.has('purchaseShopee')) updateData.purchaseShopee = purchaseShopee
   if (hasOtherUrls) {
     updateData.otherUrls = otherUrls
+  }
+  if (hasCustomerVoices) {
+    updateData.customerVoices = customerVoices
   }
   if (retailLocations.length > 0) {
     updateData.retailLocations = retailLocations as RetailLocation[]
@@ -172,6 +175,7 @@ function buildModerationPayload(
       name: proposedName,
       description: getString(proposedData.description),
       brandHighlights: getString(proposedData.brandHighlights),
+      customerVoices: proposedData.customerVoices ? JSON.stringify(proposedData.customerVoices) : undefined,
       website: getString(proposedData.purchaseWebsite),
       purchaseUrl: getString(proposedData.purchasePinkoi) ?? getString(proposedData.purchaseShopee),
     },

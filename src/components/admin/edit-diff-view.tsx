@@ -21,6 +21,7 @@ export function computeDiffFields(
     contactEmail: '聯絡信箱',
     brandHighlights: '品牌特色',
     foundingYear: '創立年份',
+    customerVoices: '顧客心聲',
   }
 
   const IMAGE_FIELDS = new Set(['heroImageUrl'])

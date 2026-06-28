@@ -30,6 +30,7 @@ const liveBrand: Brand = {
   purchaseShopee: 'https://shopee.tw/live',
   otherUrls: [],
   retailLocations: [{ name: 'Live Store', address: 'Taipei', latitude: 25.0330, longitude: 121.5654 }],
+  customerVoices: [],
   productPhotos: ['https://x.supabase.co/p-live-1.png'],
   contactEmail: 'live@brand.tw',
   brandHighlights: 'live highlights',

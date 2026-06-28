@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
-import type { AdminMode } from "@/lib/auth/admin-mode";
+import { readAdminModeCookie, type AdminMode } from "@/lib/auth/admin-mode";
 import { isActingAsAdmin } from "@/lib/auth/admin-mode";
 import { AdminModeBar } from "@/components/admin-mode/admin-mode-bar";
 import { AdminNav } from "@/components/admin/admin-nav";
@@ -43,8 +43,8 @@ export default async function AdminLayout({
       getFeedbackItems({ status: "open" }),
     ]);
 
-  const fmMode = cookieStore.get("fm_mode")?.value;
-  const adminBarMode: AdminMode = fmMode === "viewer" ? "viewer" : "god";
+  const adminBarMode: AdminMode =
+    (await readAdminModeCookie(cookieStore.get("fm_mode")?.value)) ?? "god";
 
   const navItems: NavItem[] = [
     { label: "總覽", href: "/admin" },

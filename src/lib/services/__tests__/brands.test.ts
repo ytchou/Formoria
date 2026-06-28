@@ -23,6 +23,7 @@ function makeBrandRow(overrides: Record<string, unknown> = {}) {
     purchase_shopee: null,
     other_urls: [],
     retail_locations: [],
+    customer_voices: [],
     product_photos: [],
     product_highlights: [],
     tags: [],

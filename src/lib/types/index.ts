@@ -3,6 +3,7 @@ export type {
   BrandFilters,
   BrandFlatLinkColumns,
   BrandStatus,
+  CustomerVoice,
   OtherUrl,
   RetailLocation,
   SubmissionStatus,

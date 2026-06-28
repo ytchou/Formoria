@@ -9,7 +9,7 @@ import { SyncHtmlLang } from '@/components/i18n/sync-html-lang'
 import { Footer } from '@/components/navigation/footer'
 import { MainNav } from '@/components/navigation/main-nav'
 import { routing } from '@/i18n/routing'
-import type { AdminMode } from '@/lib/auth/admin-mode'
+import { readAdminModeCookie, type AdminMode } from '@/lib/auth/admin-mode'
 import { getActiveCategories } from '@/lib/services/taxonomy'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
@@ -62,9 +62,8 @@ export default async function LocaleLayout({ children, params }: LayoutProps) {
     getTranslations('adminMode'),
   ])
   const cookieStore = await cookies()
-  const fmMode = cookieStore.get('fm_mode')?.value
   const adminBarMode: AdminMode | null =
-    fmMode === 'viewer' ? 'viewer' : fmMode === 'god' ? 'god' : null
+    await readAdminModeCookie(cookieStore.get('fm_mode')?.value)
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>

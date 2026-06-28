@@ -26,6 +26,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     socialFacebook: 'https://facebook.com/chatzutang',
     otherUrls: [],
     retailLocations: [{ name: 'Nanzhuang Store', address: '苗栗縣南庄鄉', latitude: 24.59, longitude: 120.99 }],
+    customerVoices: [],
     productPhotos: [], brandHighlights: null,
     siteContent: null,
     contactEmail: 'hello@chatzutang.com',

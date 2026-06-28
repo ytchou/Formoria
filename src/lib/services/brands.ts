@@ -1,4 +1,4 @@
-import type { Brand, BrandFilters, OtherUrl } from '@/lib/types'
+import type { Brand, BrandFilters, CustomerVoice, OtherUrl } from '@/lib/types'
 import type { SiteContent, SiteProduct, SiteTokens } from '@/lib/types/brand'
 import type { TaxonomyTag } from '@/lib/types'
 import type { Database } from '@/lib/supabase/database.types'
@@ -325,6 +325,7 @@ const BRAND_DRAFT_EDITABLE_KEYS = [
   'purchaseShopee',
   'otherUrls',
   'retailLocations',
+  'customerVoices',
 ] as const satisfies readonly (keyof Brand)[]
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -452,6 +453,9 @@ export function draftSnapshotToDomain(
       case 'retailLocations':
         partial.retailLocations = snapshot.retailLocations as Brand['retailLocations']
         break
+      case 'customerVoices':
+        partial.customerVoices = snapshot.customerVoices as Brand['customerVoices']
+        break
     }
   }
 
@@ -518,6 +522,7 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     purchaseShopee: row.purchase_shopee ?? null,
     otherUrls: (row.other_urls as OtherUrl[]) ?? [],
     retailLocations: (row.retail_locations as Brand['retailLocations']) ?? [],
+    customerVoices: (row.customer_voices as CustomerVoice[]) ?? [],
     productPhotos: (row.product_photos as string[]) ?? [],
     contactEmail: row.contact_email ?? null,
     brandHighlights: row.brand_highlights ?? null,
@@ -552,6 +557,7 @@ export function brandToInsert(data: BrandWriteInput): Record<string, unknown> {
   if (data.purchaseShopee !== undefined) row.purchase_shopee = data.purchaseShopee
   if (data.otherUrls !== undefined) row.other_urls = data.otherUrls
   if (data.retailLocations !== undefined) row.retail_locations = data.retailLocations
+  if (data.customerVoices !== undefined) row.customer_voices = data.customerVoices
   if (data.productPhotos !== undefined) row.product_photos = data.productPhotos
   if (data.contactEmail !== undefined) row.contact_email = data.contactEmail
   if (data.brandHighlights != null) row.brand_highlights = data.brandHighlights
@@ -575,7 +581,7 @@ function brandToUpdate(data: BrandWriteInput): Record<string, unknown> {
 
 const BRAND_COLUMNS = [
   'id', 'name', 'slug', 'description', 'hero_image_url',
-  'product_type', 'contact_email', 'purchase_website', 'purchase_pinkoi',
+  'product_type', 'contact_email', 'customer_voices', 'purchase_website', 'purchase_pinkoi',
   'purchase_shopee', 'social_instagram', 'social_threads', 'social_facebook',
   'other_urls', 'retail_locations', 'product_photos', 'site_content',
   'status', 'submitted_at', 'approved_at', 'created_at', 'updated_at',

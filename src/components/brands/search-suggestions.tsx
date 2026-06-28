@@ -2,6 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import type { SearchResult } from '@/lib/services/brands'
+import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 interface SearchSuggestionsProps {
   suggestions: SearchResult[]
@@ -40,7 +41,7 @@ export function SearchSuggestions({
             <span className="font-medium text-foreground">{item.name}</span>
             {item.category && (
               <span className="ml-2 text-xs text-muted-foreground">
-                {item.category}
+                {PRODUCT_TYPE_CATEGORIES.find((c) => c.slug === item.category)?.nameZh ?? item.category}
               </span>
             )}
           </li>

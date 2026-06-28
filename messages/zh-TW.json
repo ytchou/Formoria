@@ -298,6 +298,7 @@
       "tags": "標籤",
       "highlights": "品牌亮點",
       "photos": "照片",
+      "customerVoices": "顧客心聲",
       "locations": "據點"
     },
     "gallery": {
@@ -1039,6 +1040,7 @@
       "sectionBasicInfo": "基本資訊",
       "sectionMedia": "媒體素材",
       "sectionLinks": "連結",
+      "sectionCustomerVoices": "顧客心聲",
       "sectionLocations": "零售據點",
       "fieldBrandName": "品牌名稱",
       "fieldDescription": "品牌介紹",
@@ -1061,6 +1063,11 @@
       "socialLinksLabel": "社群連結",
       "fieldOtherLinks": "其他連結",
       "addLink": "新增連結",
+      "customerVoicesLabel": "顧客評語",
+      "fieldCustomerVoiceAuthor": "顧客名稱",
+      "fieldCustomerVoiceContent": "顧客評語",
+      "fieldCustomerVoiceSource": "來源（選填）",
+      "addCustomerVoice": "新增顧客心聲",
       "removeItem": "移除",
       "addRetailLocation": "新增零售據點",
       "fieldStoreName": "店名",
