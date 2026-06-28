@@ -21,7 +21,6 @@ type Props = {
   mitEvidence?: {
     mit_smile_cert?: string
     mit_smile_listed?: boolean
-    notes?: string
   }
   isOwner: boolean
 }
@@ -51,6 +50,8 @@ export function MitStatusCard({
       if (result?.error) {
         if (result.error === 'cert_not_found') {
           setError(t('certNotFound'))
+        } else if (result.error === 'cert_expired') {
+          setError(t('certExpired'))
         } else {
           setError(result.error)
         }
@@ -87,15 +88,6 @@ export function MitStatusCard({
               {t('certLabel')}
             </p>
             <p className="mt-1 text-sm">{mitEvidence.mit_smile_cert}</p>
-          </div>
-        ) : null}
-
-        {mitEvidence?.notes ? (
-          <div className="rounded-md bg-[#FDF3EC] px-3 py-2">
-            <p className="text-xs font-medium text-[#D94F3D]">
-              {t('reviewNote')}
-            </p>
-            <p className="mt-1 text-sm text-[#7C2D00]">{mitEvidence.notes}</p>
           </div>
         ) : null}
 

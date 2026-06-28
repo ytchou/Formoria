@@ -999,6 +999,7 @@
       "verifyButton": "Verify",
       "verifySuccess": "MIT certification verified!",
       "certNotFound": "Certificate number not found in the MIT registry",
+      "certExpired": "This MIT certificate has expired",
       "reviewNote": "Reviewer note",
       "resubmitCta": "Request verification by email"
     },

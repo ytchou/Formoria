@@ -999,6 +999,7 @@
       "verifyButton": "驗證",
       "verifySuccess": "MIT 微笑標章驗證成功！",
       "certNotFound": "在 MIT 微笑標章資料庫中找不到此標章編號",
+      "certExpired": "此 MIT 微笑標章已到期",
       "reviewNote": "審核備註",
       "resubmitCta": "以 Email 申請驗證"
     },
