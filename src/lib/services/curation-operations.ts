@@ -124,6 +124,12 @@ type EnrichDescriptionsPhase = {
   changed: boolean
 }
 
+type EnrichDescriptionPatch = Partial<{
+  description: string | null
+  price_range: number | null
+  product_tags: string[] | null
+}>
+
 type EnrichProcessPhases = {
   clean?: EnrichCleanPhase
   descriptions?: EnrichDescriptionsPhase
@@ -133,13 +139,14 @@ type EnrichPatches = {
   clean?: Partial<Pick<CurationBrand, 'name'>>
   links?: Partial<BrandFlatLinkColumns>
   images?: EnrichImagePatch
-  descriptions?: Partial<Pick<EnrichBrand, 'description'>>
+  descriptions?: EnrichDescriptionPatch
   tags?: Partial<Pick<CurationBrand, 'product_type'>>
 }
 
 type EnrichPatch = Partial<BrandFlatLinkColumns> &
   EnrichImagePatch &
-  Partial<Pick<EnrichBrand, 'description' | 'product_type' | 'name'>>
+  EnrichDescriptionPatch &
+  Partial<Pick<EnrichBrand, 'product_type' | 'name'>>
 
 type ProcessEnrichResult = {
   phases: EnrichProcessPhases
