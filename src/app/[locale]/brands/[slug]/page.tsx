@@ -17,7 +17,7 @@ import type { BreadcrumbItem } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import type { Brand } from '@/lib/types'
-import { canManageBrand } from '@/lib/auth/admin-mode'
+import { canManageBrand, isActingAsAdmin } from '@/lib/auth/admin-mode'
 import { createClient } from '@/lib/supabase/server'
 import { BrandViewTracker } from '@/components/brands/brand-view-tracker'
 import { PreviewBanner } from '@/components/brands/preview-banner'
@@ -26,6 +26,7 @@ import { BrandBreadcrumb } from '@/components/brands/brand-breadcrumb'
 import { ImageCarousel } from '@/components/brands/image-carousel'
 import { BrandHeader } from '@/components/brands/brand-header'
 import { BrandActions } from '@/components/brands/brand-actions'
+import { AdminBrandMenu } from '@/components/brands/admin-brand-menu'
 import { ClaimBrandCta } from '@/components/brands/claim-brand-cta'
 import { RequestRemoval } from '@/components/brands/request-removal'
 import { BrandAbout } from '@/components/brands/brand-about'
@@ -177,6 +178,11 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
     userHasPendingClaim = user ? await hasPendingClaim(user.id, displayBrand.id) : false
   }
 
+  const {
+    data: { user },
+  } = await (await getSupabase()).auth.getUser()
+  const isAdmin = await isActingAsAdmin(user?.email)
+
   // Gallery images: hero + product photos
   const galleryImages = [displayBrand.heroImageUrl, ...displayBrand.productPhotos].filter(
     (url): url is string => Boolean(url),
@@ -267,6 +273,7 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
                     brandId={displayBrand.id}
                     brandName={displayBrand.name}
                   />
+                  {isAdmin && <AdminBrandMenu brandSlug={displayBrand.slug} />}
                 </SavedBrandsProvider>
               }
             />
