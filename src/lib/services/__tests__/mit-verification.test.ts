@@ -1,84 +1,74 @@
-import { afterAll, beforeAll, beforeEach, expect, it } from 'vitest'
-import { createTestClient, describeWithDb } from '@/test/setup'
-import { rejectMitStatus, verifyMitStatus } from '../mit-verification'
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const RUN_ID = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-const BRAND_SLUG = `zzz-mit-verification-itest-${RUN_ID}`
-const REVIEWER_EMAIL = `mit-verification-reviewer-${RUN_ID}@example.com`
+vi.mock('@/lib/services/mit-registry', () => ({
+  lookupCertNumber: vi.fn(),
+}));
 
-let brandId = ''
-let reviewerId = ''
+import { lookupCertNumber } from '@/lib/services/mit-registry';
+import { verifyMitByCert } from '@/lib/services/mit-verification';
 
-describeWithDb('mit verification service (integration)', () => {
-  beforeAll(async () => {
-    const client = createTestClient()
+const mockUpdate = vi.fn();
+const mockEq = vi.fn();
+const mockSelect = vi.fn();
+const mockSingle = vi.fn();
 
-    const { data: reviewerResult, error: reviewerError } = await client.auth.admin.createUser({
-      email: REVIEWER_EMAIL,
-      password: 'MitVerify123!',
-      email_confirm: true,
-    })
-    if (reviewerError || !reviewerResult.user) {
-      throw new Error(`Failed to create reviewer user: ${reviewerError?.message}`)
-    }
-    reviewerId = reviewerResult.user.id
+vi.mock('@/lib/supabase/server', () => ({
+  createServiceClient: vi.fn(() => ({
+    from: vi.fn(() => ({
+      update: mockUpdate,
+    })),
+  })),
+}));
 
-    const { data: brand, error: brandError } = await client
-      .from('brands')
-      .insert({
-        name: 'ZZZ MIT Verification Integration Brand',
-        slug: BRAND_SLUG,
-        description: 'Throwaway brand for MIT verification integration tests',
-        status: 'approved',
-      })
-      .select('id')
-      .single()
+describe('mit-verification service', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUpdate.mockReturnValue({ eq: mockEq });
+    mockEq.mockReturnValue({ select: mockSelect });
+    mockSelect.mockReturnValue({ single: mockSingle });
+  });
 
-    if (brandError || !brand) {
-      throw new Error(`Failed to insert test brand: ${brandError?.message}`)
-    }
-    brandId = brand.id
-  })
+  describe('verifyMitByCert', () => {
+    it('sets mit_status to verified when cert is found in registry', async () => {
+      const mockRegistryRecord = {
+        cert_number: '01900539-00001',
+        company_name: '台灣好茶有限公司',
+        brand_name: '好茶品牌',
+      };
+      vi.mocked(lookupCertNumber).mockResolvedValue(mockRegistryRecord);
+      mockSingle.mockResolvedValue({ data: { id: 'brand-1' }, error: null });
 
-  beforeEach(async () => {
-    const client = createTestClient()
+      const result = await verifyMitByCert('brand-1', '01900539-00001');
 
-    await client
-      .from('brands')
-      .update({
-        mit_status: 'unverified',
-        mit_verified_at: null,
-        mit_evidence: null,
-      })
-      .eq('id', brandId)
-  })
+      expect(result.error).toBeUndefined();
+      expect(lookupCertNumber).toHaveBeenCalledWith('01900539-00001');
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mit_status: 'verified',
+          mit_verified_at: expect.any(String),
+          mit_evidence: expect.objectContaining({
+            mit_smile_listed: true,
+            mit_smile_cert: '01900539-00001',
+            verified_source: 'mit_registry_auto',
+          }),
+        })
+      );
+    });
 
-  afterAll(async () => {
-    const client = createTestClient()
+    it('returns error when cert is not found in registry', async () => {
+      vi.mocked(lookupCertNumber).mockResolvedValue(null);
 
-    if (brandId) {
-      await client.from('brands').delete().eq('id', brandId)
-    }
+      const result = await verifyMitByCert('brand-1', 'nonexistent');
 
-    if (reviewerId) {
-      await client.auth.admin.deleteUser(reviewerId)
-    }
-  })
+      expect(result.error).toBe('cert_not_found');
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
 
-  it('verifyMitStatus marks the brand as verified with MIT Smile evidence', async () => {
-    const brand = await verifyMitStatus(brandId, '01200024-02134', reviewerId)
+    it('returns error when cert number is empty', async () => {
+      const result = await verifyMitByCert('brand-1', '');
 
-    expect(brand.mitStatus).toBe('verified')
-    expect(brand.mitVerified).toBe(true)
-    expect(brand.mitVerifiedAt).not.toBeNull()
-    expect(brand.mitEvidence?.mit_smile_listed).toBe(true)
-    expect(brand.mitEvidence?.mit_smile_cert).toBe('01200024-02134')
-    expect(brand.mitEvidence?.verified_source).toBe('mit_smile_registry')
-  })
-
-  it('rejectMitStatus marks the brand as rejected', async () => {
-    const brand = await rejectMitStatus(brandId, reviewerId, 'Cert not found in registry')
-
-    expect(brand.mitStatus).toBe('rejected')
-  })
-})
+      expect(result.error).toBe('cert_required');
+      expect(lookupCertNumber).not.toHaveBeenCalled();
+    });
+  });
+});

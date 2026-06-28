@@ -8,6 +8,7 @@ import {
   brandToDomain as mapBrandRowToDomain,
   type BrandRowWithJoins,
 } from './brands'
+import { lookupCertNumber } from '@/lib/services/mit-registry'
 
 type BrandUpdate = Database['public']['Tables']['brands']['Update']
 
@@ -58,16 +59,38 @@ export async function verifyMitStatus(
   )
 }
 
-export async function rejectMitStatus(
+export async function verifyMitByCert(
   brandId: string,
-  reviewerId: string,
-  notes: string
-): Promise<Brand> {
-  return updateMitStatus(
-    brandId,
-    buildMitStatusUpdate('rejected', {
-      notes,
-      verified_by: reviewerId,
+  certNumber: string
+): Promise<{ data?: unknown; error?: string }> {
+  if (!certNumber) {
+    return { error: 'cert_required' }
+  }
+
+  const registryRecord = await lookupCertNumber(certNumber)
+  if (!registryRecord) {
+    return { error: 'cert_not_found' }
+  }
+
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brands')
+    .update({
+      mit_status: 'verified',
+      mit_verified_at: new Date().toISOString(),
+      mit_evidence: {
+        mit_smile_listed: true,
+        mit_smile_cert: certNumber,
+        verified_source: 'mit_registry_auto',
+      },
     })
-  )
+    .eq('id', brandId)
+    .select(BRAND_SELECT)
+    .single()
+
+  if (error || !data) {
+    throw new NotFoundError('Brand', brandId, { cause: error })
+  }
+
+  return { data }
 }
