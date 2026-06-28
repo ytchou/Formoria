@@ -9,6 +9,8 @@ const createCurationJob = vi.fn()
 const listCurationJobs = vi.fn()
 const runJob = vi.fn()
 
+// auth.getUser mock required — action validates admin role before proceeding
+// (intentional deviation from CLAUDE.md "no mocking Supabase": only the auth guard is mocked, not queries)
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => ({
     auth: { getUser },
@@ -38,7 +40,7 @@ describe('curation server actions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     getUser.mockResolvedValue({
-      data: { user: { id: 'user-1', email: 'admin@example.com' } },
+      data: { user: { id: '550e8400-e29b-41d4-a716-446655440000', email: 'admin@example.com' } },
       error: null,
     })
     isActingAsAdmin.mockResolvedValue(true)
@@ -56,7 +58,7 @@ describe('curation server actions', () => {
     })
   })
 
-  it('exports startCurationJobAction', async () => {
+  it('startCurationJobAction is a callable function', async () => {
     const mod = await import('../operations/actions')
     expect(mod.startCurationJobAction).toBeDefined()
     expect(typeof mod.startCurationJobAction).toBe('function')
@@ -73,14 +75,17 @@ describe('curation server actions', () => {
     })
 
     const { startCurationJobAction } = await import('../operations/actions')
-    await startCurationJobAction('enrich', { submissionIds: ['sub-1'] }, false)
+    await startCurationJobAction('enrich', { submissionIds: ['6ba7b810-9dad-11d1-80b4-00c04fd430c8'] }, false)
 
     expect(callOrder).toEqual(['recover', 'check'])
   })
 
   it('batches submission ids into pending curation jobs', async () => {
     const { startCurationJobAction } = await import('../operations/actions')
-    const submissionIds = Array.from({ length: 23 }, (_, index) => `sub-${index + 1}`)
+    const submissionIds = Array.from(
+      { length: 23 },
+      (_, index) => `6ba7b810-9dad-11d1-80b4-${String(index + 1).padStart(12, '0')}`
+    )
 
     await startCurationJobAction('enrich', { submissionIds }, false)
 
@@ -106,7 +111,12 @@ describe('curation server actions', () => {
 
     const result = await startCurationJobAction(
       'enrich',
-      { submissionIds: Array.from({ length: 23 }, (_, index) => `sub-${index + 1}`) },
+      {
+        submissionIds: Array.from(
+          { length: 23 },
+          (_, index) => `6ba7b810-9dad-11d1-80b4-${String(index + 1).padStart(12, '0')}`
+        ),
+      },
       false
     )
 
