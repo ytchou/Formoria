@@ -16,6 +16,20 @@ vi.mock('@/lib/supabase/server', () => ({
     },
   })),
 }))
+vi.mock('@/lib/auth/admin-mode', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/auth/admin-mode')>()
+  return {
+    ...actual,
+    signAdminModeCookieValue: vi.fn(async (v: string) => `signed:${v}`),
+    ADMIN_MODE_COOKIE_OPTIONS: {
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: false,
+      maxAge: 86400,
+      path: '/',
+    },
+  }
+})
 
 describe('setAdminModeAction', () => {
   it('sets fm_mode for a real admin', async () => {
@@ -29,8 +43,8 @@ describe('setAdminModeAction', () => {
 
     expect(set).toHaveBeenCalledWith(
       'fm_mode',
-      'viewer',
-      expect.objectContaining({ sameSite: 'lax', httpOnly: false })
+      'signed:viewer',
+      expect.objectContaining({ sameSite: 'strict', httpOnly: true })
     )
   })
 
