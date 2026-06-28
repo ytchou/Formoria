@@ -46,7 +46,7 @@ export function BrandHeader({ brand, categoryLabel, actionsSlot }: BrandHeaderPr
 
         {/* Price range pill */}
         {priceRangeLabel != null && (
-          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-secondary-foreground">
             {priceRangeLabel}
           </span>
         )}
@@ -66,7 +66,7 @@ export function BrandHeader({ brand, categoryLabel, actionsSlot }: BrandHeaderPr
           brand.productTags.map((tag, index) => (
             <span
               key={`${tag}-${index}`}
-              className="rounded-full border border-muted-foreground/30 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+              className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-foreground"
             >
               {tag}
             </span>

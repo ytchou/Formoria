@@ -178,12 +178,16 @@ function buildModerationPayload(
   brandName: string
 ): ContentPayload {
   const proposedName = getString(proposedData.name)
+  const productTags = Array.isArray(proposedData.productTags)
+    ? proposedData.productTags.filter((tag): tag is string => typeof tag === 'string').join(' ')
+    : undefined
 
   return {
     brandName: proposedName ?? brandName,
     fields: {
       name: proposedName,
       description: getString(proposedData.description),
+      productTags,
       website: getString(proposedData.purchaseWebsite),
       purchaseUrl: getString(proposedData.purchasePinkoi) ?? getString(proposedData.purchaseShopee),
     },
