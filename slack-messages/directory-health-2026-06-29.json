@@ -18,7 +18,28 @@
       "type": "section",
       "text": {
         "type": "mrkdwn",
-        "text": "*Link Check Skipped:*\n167 brands have purchase website URLs, but outbound HTTP is blocked by the execution environment's network policy. Link reachability could not be verified this run.\n_Action: Run link check from an environment with unrestricted outbound access, or configure the policy to allow brand domain requests._"
+        "text": "*Broken Links (2):*\n• MTSK 手工牙皮皮鞋 (`mtsk-手工牙皮皮鞋`) — `https://reurl.cc` — bare URL shortener root (no destination)\n• 京揚超細纖維 (`京揚超細纖維`) — `https://threads.com` — bare Threads homepage (no profile path)"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Possible Broken (1):*\n• 微醒農場 (`tipsy-farm`) — `https://www.peopo.org/news/404421` — PeoPo platform in maintenance"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Unknown / Unverified Domains (4):*\n• Journey of Sole — `journeyofsole.com`\n• JSwood 櫜樂花 — `jswood.com.tw`\n• MONOCEAN — `monocean.co`\n• Sammm._.Studio — `sammm.store`"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Suspicious — Third-party URLs (7):*\n• 婣神埔豆腐張, 月光下友善農場, 李家蜂蜜 — twrr.org.tw partner directory pages\n• 十甲有機農場 — third-party marketplace listing\n• 烏金報報 — domain belongs to 官田烏金 (name mismatch)\n• 艾營甸點 — food blogger review, not brand’s own site\n• 金旗山城 — community development association site"
       }
     },
     {
@@ -29,18 +50,11 @@
       }
     },
     {
-      "type": "section",
-      "text": {
-        "type": "mrkdwn",
-        "text": "*Missing Images (11):*\n11 brands have descriptions but no hero image. Run the completeness report for the full list."
-      }
-    },
-    {
       "type": "context",
       "elements": [
         {
           "type": "mrkdwn",
-          "text": "No Linear ticket created (no confirmed broken links or zero-content brands) | Link check skipped — network policy blocked outbound HTTP | Directory Health v1"
+          "text": "1 Linear ticket created (DEV-•••) | Link check via web search (outbound HTTP blocked in env) | Directory Health v1"
         }
       ]
     }
