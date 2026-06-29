@@ -3,7 +3,6 @@ import type { SiteContent, SiteProduct, SiteTokens } from '@/lib/types/brand'
 import type { Database } from '@/lib/supabase/database.types'
 import { NotFoundError, ValidationError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
-import { getActiveCategories } from '@/lib/services/taxonomy'
 import { BRAND_SORT_CONFIG, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import { isNonImageHost } from '@/lib/images/allowed-image-hosts'
 import { RESERVED_ROUTES } from '@/middleware'
@@ -606,38 +605,6 @@ export async function getBrandSlugsBatch(brandIds: string[]): Promise<Map<string
   return new Map((data ?? []).map(b => [b.id, b.slug]))
 }
 
-async function getBrandEnrichmentBatch(brandIds: string[]): Promise<Map<string, BrandEnrichment>> {
-  if (brandIds.length === 0) {
-    return new Map()
-  }
-
-  const supabase = createServiceClient()
-  const BATCH_SIZE = 100
-  const uniqueIds = Array.from(new Set(brandIds))
-  const allRows: { id: string; product_type: string | null; hero_image_url: string | null; product_photos: unknown }[] = []
-
-  for (let i = 0; i < uniqueIds.length; i += BATCH_SIZE) {
-    const chunk = uniqueIds.slice(i, i + BATCH_SIZE)
-    const { data, error } = await supabase
-      .from('brands')
-      .select('id, product_type, hero_image_url, product_photos')
-      .in('id', chunk)
-    if (error) throw error
-    if (data) allRows.push(...data)
-  }
-
-  return new Map(
-    allRows.map((row) => [
-      row.id,
-      {
-        productType: row.product_type ?? '',
-        heroImageUrl: row.hero_image_url ?? null,
-        productPhotos: parseStringArray(row.product_photos, 'product_photos'),
-      },
-    ])
-  )
-}
-
 type GetBrandsFilters = BrandFilters & { page?: number }
 
 function getSearchPagination(filters: GetBrandsFilters): { offset: number; limit?: number } {
@@ -863,40 +830,6 @@ export async function insertSlugRedirect(oldSlug: string, newSlug: string): Prom
   const { error } = await brandSlugRedirectsTable(supabase).upsert({ old_slug: oldSlug, new_slug: newSlug })
 
   if (error) throw error
-}
-
-async function createBrand(
-  data: Omit<Brand, 'id' | 'submittedAt' | 'approvedAt' | 'createdAt' | 'updatedAt'> & {
-    unifiedBusinessNumber?: string | null
-    productType?: string
-  }
-): Promise<Brand> {
-  const supabase = createServiceClient()
-  const slug = data.slug || generateSlug(data.name)
-
-  // Check slug against reserved routes
-  if (isReservedSlug(slug)) {
-    throw new ValidationError(`Brand slug conflicts with a reserved route: ${slug}`)
-  }
-
-  // Check slug uniqueness
-  const { data: existing } = await supabase
-    .from('brands')
-    .select('id')
-    .eq('slug', slug)
-    .maybeSingle()
-
-  if (existing) throw new ValidationError(`Brand slug already exists: ${slug}`)
-
-  const row = brandToInsert({ ...data, slug })
-  const { data: inserted, error } = await supabase
-    .from('brands')
-    .insert(row)
-    .select(BRAND_SELECT)
-    .single()
-
-  if (error) throw error
-  return brandToDomain(inserted)
 }
 
 export async function updateBrand(id: string, data: BrandWriteInput): Promise<Brand> {
@@ -1294,16 +1227,22 @@ export async function getRecentBrandCount(): Promise<{ count: number; period: '7
 
 export async function getBrandStats(): Promise<{ brandCount: number; categoryCount: number }> {
   const supabase = createServiceClient()
-  const [{ count, error }, categories] = await Promise.all([
+  const [{ count, error }, { data: categoryRows, error: categoryError }] = await Promise.all([
     supabase
       .from('brands')
       .select(BRAND_COLUMNS as '*', { count: 'exact', head: true })
       .eq('status', 'approved'),
-    getActiveCategories(),
+    supabase
+      .from('brands')
+      .select('product_type')
+      .eq('status', 'approved')
+      .not('product_type', 'is', null),
   ])
 
   if (error) throw error
-  return { brandCount: count ?? 0, categoryCount: categories.length }
+  if (categoryError) throw categoryError
+  const categoryCount = new Set((categoryRows ?? []).map((row) => row.product_type).filter(Boolean)).size
+  return { brandCount: count ?? 0, categoryCount }
 }
 
 export async function getPopularCategories(limit = 5): Promise<{ productType: string; count: number }[]> {

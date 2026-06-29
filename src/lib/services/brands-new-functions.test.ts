@@ -2,14 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/supabase/server')
 
-vi.mock('@/lib/services/taxonomy', () => ({
-  getActiveCategories: vi.fn().mockResolvedValue([
-    { slug: 'food', name: 'Food', nameZh: '食品' },
-    { slug: 'beauty', name: 'Beauty', nameZh: '美妝' },
-    { slug: 'design', name: 'Design', nameZh: '設計' },
-  ]),
-}))
-
 import { createServiceClient } from '@/lib/supabase/server'
 import { getRandomBrands, getNewBrands, getBrandStats, getPopularCategories, getFeaturedBrands } from './brands'
 
@@ -128,8 +120,18 @@ describe('getBrandStats', () => {
   })
 
   it('returns brandCount and categoryCount', async () => {
-    const chain = createMockChain(null, { count: 42 })
-    vi.mocked(createServiceClient).mockReturnValue({ from: vi.fn(() => chain) } as unknown as ReturnType<typeof createServiceClient>)
+    const countChain = createMockChain(null, { count: 42 })
+    const categoryChain = createMockChain([
+      { product_type: 'food' },
+      { product_type: 'beauty' },
+      { product_type: 'food' },
+      { product_type: 'design' },
+    ])
+    vi.mocked(createServiceClient).mockReturnValue({
+      from: vi.fn()
+        .mockReturnValueOnce(countChain)
+        .mockReturnValueOnce(categoryChain),
+    } as unknown as ReturnType<typeof createServiceClient>)
 
     const stats = await getBrandStats()
 

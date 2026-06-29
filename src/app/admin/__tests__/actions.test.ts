@@ -77,7 +77,6 @@ describe('rejectSubmissionAction', () => {
     '@/lib/services/brands',
     '@/lib/services/brand-owners',
     '@/lib/services/moderation',
-    '@/lib/services/taxonomy',
     '@/lib/email/send',
     '@/lib/email/templates',
     '@/lib/services/email-lifecycle',
@@ -151,10 +150,6 @@ describe('rejectSubmissionAction', () => {
       scanContent: vi.fn(),
       saveModerationFlags: vi.fn(),
       markFlagsReviewed: vi.fn(),
-    }))
-
-    vi.doMock('@/lib/services/taxonomy', () => ({
-      getActiveCategories: vi.fn(),
     }))
 
     vi.doMock('@/lib/email/send', () => ({

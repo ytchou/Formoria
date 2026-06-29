@@ -2,7 +2,6 @@ import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { getBrands, getPopularCategories, getFeaturedBrands } from '@/lib/services/brands'
-import { getActiveCategories } from '@/lib/services/taxonomy'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildWebSiteJsonLd } from '@/lib/json-ld'
 import { parsePageParam, parseSortParam, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
@@ -122,18 +121,15 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   const categoryFilter = parseCommaParam(sp.category)
   const verificationFilter = parseVerificationParam(sp.verification)
 
-  const [{ brands, totalCount }, categories] = await Promise.all([
-    getBrands({
-      status: 'approved',
-      search: search || undefined,
-      category: categoryFilter.length > 0 ? categoryFilter : undefined,
-      verificationFilter,
-      sort,
-      limit: DEFAULT_PAGE_SIZE,
-      offset: (page - 1) * DEFAULT_PAGE_SIZE,
-    }),
-    getActiveCategories(),
-  ])
+  const { brands, totalCount } = await getBrands({
+    status: 'approved',
+    search: search || undefined,
+    category: categoryFilter.length > 0 ? categoryFilter : undefined,
+    verificationFilter,
+    sort,
+    limit: DEFAULT_PAGE_SIZE,
+    offset: (page - 1) * DEFAULT_PAGE_SIZE,
+  })
 
   // Clamp page to last valid page if user navigated beyond
   const totalPages = Math.ceil(totalCount / DEFAULT_PAGE_SIZE)
@@ -225,7 +221,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
 
       <aside className="hidden lg:block" aria-label={t('filters.title')}>
         <div className="sticky top-24">
-          <BrandFilterSidebar categories={categories} />
+          <BrandFilterSidebar categories={[]} />
         </div>
       </aside>
 
@@ -234,7 +230,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <BrandFilterDrawer
-              categories={categories}
+              categories={[]}
               totalCount={totalCount}
             />
             <p className="text-sm text-muted-foreground">

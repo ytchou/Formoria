@@ -114,10 +114,6 @@ vi.mock('@/lib/services/mit-verification', () => ({
   verifyMitByCert: vi.fn().mockResolvedValue({ data: { id: 'brand-1', name: 'Test Brand' } }),
 }))
 
-vi.mock('@/lib/services/taxonomy', () => ({
-  getActiveCategories: vi.fn().mockResolvedValue([]),
-}))
-
 vi.mock('@/lib/services/reports', () => ({
   updateReportStatus: vi.fn().mockResolvedValue(undefined),
 }))

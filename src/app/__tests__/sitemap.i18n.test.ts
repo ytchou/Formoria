@@ -4,12 +4,6 @@ vi.mock('@/lib/services/brands', () => ({
   getAllBrandSlugs: vi.fn().mockResolvedValue(['cha-zi-tang', 'daylily']),
 }))
 
-vi.mock('@/lib/services/taxonomy', () => ({
-  getActiveCategories: vi.fn().mockResolvedValue([
-    { slug: 'food', name: 'Food', nameZh: '食品' },
-  ]),
-}))
-
 import sitemap from '../sitemap'
 
 const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
@@ -51,13 +45,11 @@ describe('sitemap i18n alternates', () => {
     expect(brand?.alternates?.languages?.['en']).toBe(`${BASE}/en/brands/cha-zi-tang`)
   })
 
-  it('category entries include alternates for both locales', async () => {
+  it('does not emit category entries', async () => {
     const entries = await sitemap()
     const category = entries.find((e) => e.url.includes('/brands?category=food'))
 
-    expect(category).toBeDefined()
-    expect(category?.alternates?.languages?.['zh-TW']).toBe(`${BASE}/brands?category=food`)
-    expect(category?.alternates?.languages?.['en']).toBe(`${BASE}/en/brands?category=food`)
+    expect(category).toBeUndefined()
   })
 
   it('no entry url contains operator/admin/auth/api routes', async () => {

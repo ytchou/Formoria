@@ -31,10 +31,6 @@ vi.mock('@/lib/services/brands', () => ({
   getRecentBrandCount: vi.fn(),
 }))
 
-vi.mock('@/lib/services/taxonomy', () => ({
-  getActiveCategories: vi.fn(),
-}))
-
 vi.mock('@/components/landing/hero-section', () => ({
   default: () => <div data-testid="hero-section" />,
 }))
@@ -87,7 +83,6 @@ vi.mock('@/components/shared/brand-showcase', () => ({
 
 import { getTranslations } from 'next-intl/server'
 import { getBrands, getNewBrands, getRecentBrandCount } from '@/lib/services/brands'
-import { getActiveCategories } from '@/lib/services/taxonomy'
 import type { Brand } from '@/lib/types'
 import LandingPage from '../page'
 
@@ -151,7 +146,6 @@ describe('LandingPage', () => {
       async (namespace: Parameters<typeof getTranslations>[0]) =>
         makeT(zh as Messages, typeof namespace === 'string' ? namespace : '') as ReturnType<typeof makeT> as unknown as Awaited<ReturnType<typeof getTranslations>>
     )
-    vi.mocked(getActiveCategories).mockResolvedValue([])
     vi.mocked(getBrands).mockResolvedValue({
       brands: [
         createBrand({

@@ -97,11 +97,6 @@ vi.mock('@/lib/services/moderation', () => ({
 
 import { approvePendingEdit, createPendingEdit } from '@/lib/services/pending-edits'
 
-vi.mock('@/lib/services/taxonomy', () => ({
-  getActiveCategories: vi.fn().mockResolvedValue([]),
-}))
-
-
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }))

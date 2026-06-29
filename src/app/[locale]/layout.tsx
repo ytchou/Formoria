@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { unstable_cache } from 'next/cache'
 import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { NextIntlClientProvider } from 'next-intl'
@@ -10,15 +9,8 @@ import { Footer } from '@/components/navigation/footer'
 import { MainNav } from '@/components/navigation/main-nav'
 import { routing } from '@/i18n/routing'
 import { readAdminModeCookie, type AdminMode } from '@/lib/auth/admin-mode'
-import { getActiveCategories } from '@/lib/services/taxonomy'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
-
-const getCachedCategories = unstable_cache(
-  () => getActiveCategories(),
-  ['active-categories'],
-  { revalidate: 3600 }
-)
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }))
@@ -56,9 +48,8 @@ export default async function LocaleLayout({ children, params }: LayoutProps) {
   }
 
   setRequestLocale(locale)
-  const [messages, categories, tAdmin] = await Promise.all([
+  const [messages, tAdmin] = await Promise.all([
     getMessages(),
-    getCachedCategories(),
     getTranslations('adminMode'),
   ])
   const cookieStore = await cookies()
@@ -81,7 +72,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps) {
             }}
           />
         ) : null}
-        <MainNav categories={categories} />
+        <MainNav categories={[]} />
       </div>
       <div className="flex-1">{children}</div>
       <Footer />

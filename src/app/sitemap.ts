@@ -1,6 +1,5 @@
 import type { MetadataRoute } from 'next'
 import { getAllBrandSlugs } from '@/lib/services/brands'
-import { getActiveCategories } from '@/lib/services/taxonomy'
 import { buildAlternates } from '@/lib/seo/alternates'
 import { getSiteUrl } from '@/lib/seo/site-url'
 
@@ -45,20 +44,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ]
 
   try {
-    const [brandSlugs, categories] = await Promise.all([
-      getAllBrandSlugs(),
-      getActiveCategories(),
-    ])
+    const brandSlugs = await getAllBrandSlugs()
 
     const brandPages: MetadataRoute.Sitemap = brandSlugs.map((slug) =>
       makeEntry(`/brands/${slug}`, now, 'weekly', 0.8)
     )
 
-    const categoryPages: MetadataRoute.Sitemap = categories.map(({ slug }) =>
-      makeEntry(`/brands?category=${slug}`, now, 'weekly', 0.8)
-    )
-
-    return [...staticPages, ...brandPages, ...categoryPages]
+    return [...staticPages, ...brandPages]
   } catch {
     // Fallback: static pages only (DB unavailable)
     return staticPages
