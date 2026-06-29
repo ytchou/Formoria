@@ -104,10 +104,11 @@ test.describe('Dashboard EditReviewBanner', () => {
   test('pending edit shows amber banner with 待審核 state', async ({ userPage }) => {
     test.setTimeout(120_000);
 
-    const resp = await userPage.goto(`/dashboard?tab=${pendingBrandSlug}`, { timeout: 60_000 });
+    const resp = await userPage.goto(`/dashboard?brand=${pendingBrandSlug}`, { timeout: 60_000 });
     if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
-    await expect(userPage.getByRole('heading', { name: '經營者主控台' })).toBeVisible({ timeout: 60_000 });
+    // Verify dashboard loaded — Edit CTA always present in layout header
+    await expect(userPage.getByRole('link', { name: '編輯品牌' }).first()).toBeVisible({ timeout: 60_000 });
 
     // EditReviewBanner for pending: amber bg, pendingMessage text, 審核中 badge
     await expect(userPage.getByText('您的編輯正在審核中')).toBeVisible({ timeout: 10_000 });
@@ -117,10 +118,11 @@ test.describe('Dashboard EditReviewBanner', () => {
   test('rejected edit shows rejection banner with notes and resubmit link', async ({ userPage }) => {
     test.setTimeout(120_000);
 
-    const resp = await userPage.goto(`/dashboard?tab=${rejectedBrandSlug}`, { timeout: 60_000 });
+    const resp = await userPage.goto(`/dashboard?brand=${rejectedBrandSlug}`, { timeout: 60_000 });
     if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
-    await expect(userPage.getByRole('heading', { name: '經營者主控台' })).toBeVisible({ timeout: 60_000 });
+    // Verify dashboard loaded — Edit CTA always present in layout header
+    await expect(userPage.getByRole('link', { name: '編輯品牌' }).first()).toBeVisible({ timeout: 60_000 });
 
     // EditReviewBanner for rejected: shows rejection label and reviewer notes
     await expect(userPage.getByText('編輯需要修改')).toBeVisible({ timeout: 10_000 });
@@ -136,10 +138,11 @@ test.describe('Dashboard EditReviewBanner', () => {
   test('approved edit shows green banner and can be dismissed', async ({ userPage }) => {
     test.setTimeout(120_000);
 
-    const resp = await userPage.goto(`/dashboard?tab=${approvedBrandSlug}`, { timeout: 60_000 });
+    const resp = await userPage.goto(`/dashboard?brand=${approvedBrandSlug}`, { timeout: 60_000 });
     if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
-    await expect(userPage.getByRole('heading', { name: '經營者主控台' })).toBeVisible({ timeout: 60_000 });
+    // Verify dashboard loaded — Edit CTA always present in layout header
+    await expect(userPage.getByRole('link', { name: '編輯品牌' }).first()).toBeVisible({ timeout: 60_000 });
 
     // EditReviewBanner for approved: shows approved label
     await expect(userPage.getByText('編輯已通過並上線')).toBeVisible({ timeout: 10_000 });
