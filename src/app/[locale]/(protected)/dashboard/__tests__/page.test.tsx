@@ -33,9 +33,9 @@ describe('DashboardPage (Brand Profile)', () => {
     expect(screen.getByText('A test brand')).toBeInTheDocument()
   })
 
-  it('renders edit CTA linking to edit page', async () => {
+  it('does not render a page-level edit link (edit CTA is in the layout header)', async () => {
     render(await DashboardPage({ params: Promise.resolve({ locale: 'en' }), searchParams: Promise.resolve({ brand: 'test-brand' }) }))
-    const editLink = screen.getByRole('link', { name: /edit/i })
-    expect(editLink).toHaveAttribute('href', expect.stringContaining('/dashboard/brands/test-brand/edit'))
+    const editLinks = screen.queryAllByRole('link', { name: /edit/i })
+    expect(editLinks).toHaveLength(0)
   })
 })

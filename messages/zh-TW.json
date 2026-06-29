@@ -1116,6 +1116,23 @@
       "fieldValueTags": "品牌價值",
       "fieldValueTagsHint": "選擇最多 3 個品牌價值",
       "fieldValueTagsOptionalHint": "選填"
+    },
+    "brandProfile": {
+      "customerVoices": "顧客心聲",
+      "productPhotos": "產品照片",
+      "retailLocations": "零售據點",
+      "priceRange": "價格範圍",
+      "purchaseLinks": "購買連結",
+      "socialLinks": "社群連結",
+      "verified": "已驗證",
+      "noLinksAdded": "尚未新增連結",
+      "founded": "創立於",
+      "notSet": "未設定",
+      "website": "網站",
+      "pinkoi": "Pinkoi",
+      "shopee": "Shopee",
+      "link": "連結",
+      "edit": "編輯"
     }
   },
   "errors": {

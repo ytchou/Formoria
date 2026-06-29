@@ -1115,6 +1115,23 @@
       "fieldValueTags": "Brand Values",
       "fieldValueTagsHint": "Select up to 3 values that describe the brand",
       "fieldValueTagsOptionalHint": "optional"
+    },
+    "brandProfile": {
+      "customerVoices": "Customer Voices",
+      "productPhotos": "Product Photos",
+      "retailLocations": "Retail Locations",
+      "priceRange": "Price Range",
+      "purchaseLinks": "Purchase Links",
+      "socialLinks": "Social Links",
+      "verified": "Verified",
+      "noLinksAdded": "No links added yet.",
+      "founded": "Founded",
+      "notSet": "Not set",
+      "website": "Website",
+      "pinkoi": "Pinkoi",
+      "shopee": "Shopee",
+      "link": "Link",
+      "edit": "Edit"
     }
   },
   "errors": {
