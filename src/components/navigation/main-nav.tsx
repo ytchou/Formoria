@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/sheet'
 import { Dialog as SheetPrimitive } from '@base-ui/react/dialog'
 import { AccountMenu } from '@/components/auth/account-menu'
+import { useUser } from '@/lib/auth/use-user'
 import { NavSearchInput } from './nav-search-input'
 import { NavCategoryTabs } from './nav-category-tabs'
 import { BrandMark } from '@/lib/brand/BrandMark'
@@ -23,6 +24,7 @@ interface MainNavProps {
 export function MainNav({ categories }: MainNavProps) {
   const [open, setOpen] = useState(false)
   const t = useTranslations('nav')
+  const { user } = useUser()
 
   return (
     <header className="border-b border-border bg-background">
@@ -55,6 +57,14 @@ export function MainNav({ categories }: MainNavProps) {
           >
             {t('submitBrand')}
           </Link>
+          {user && (
+            <Link
+              href="/dashboard"
+              className="rounded-full border border-border px-5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              {t('myBrands')}
+            </Link>
+          )}
           <LocaleSwitcher />
           <AccountMenu />
         </div>
@@ -94,6 +104,15 @@ export function MainNav({ categories }: MainNavProps) {
                 >
                   {t('submitBrand')}
                 </Link>
+                {user && (
+                  <Link
+                    href="/dashboard"
+                    className="block rounded-full border border-border px-5 py-3 text-center text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                    onClick={() => setOpen(false)}
+                  >
+                    {t('myBrands')}
+                  </Link>
+                )}
                 <div className="px-4">
                   <LocaleSwitcher />
                 </div>

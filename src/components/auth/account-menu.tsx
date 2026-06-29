@@ -53,11 +53,6 @@ export function AccountMenu() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40 min-w-40">
         <DropdownMenuItem
-          render={<Link href="/dashboard" />}
-        >
-          {t('account.dashboard')}
-        </DropdownMenuItem>
-        <DropdownMenuItem
           render={<Link href="/settings" />}
         >
           {t('account.settings')}
