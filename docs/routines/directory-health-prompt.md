@@ -17,7 +17,7 @@ DAY_OF_WEEK=$(date -u +%u)
 
 ## Data Collection Phase — Brand Data (daily)
 
-Use `mcp__plugin_supabase_supabase__execute_sql` for all queries. Query only `status = 'approved'` brands — not draft submissions.
+Use Supabase MCP `execute_sql` for all queries. Query only `status = 'approved'` brands — not draft submissions.
 
 1. **Total brand count and daily delta:**
    ```sql
@@ -224,6 +224,15 @@ After collecting all data, classify findings by severity:
 
 ## Linear Ticket Phase
 
+### Setup (run once at start of this phase)
+
+1. Call Linear MCP `list_teams` to find the available team.
+2. Call `list_projects` — find the project matching "Formoria" (case-insensitive).
+3. Call `list_milestones` for the Formoria project — pick the earliest open milestone.
+4. Call `list_users` to find "Yung-Tang (Patrick) Chou" — record the user ID for assignment.
+5. Call `list_issue_labels` — find label IDs for: "Data Quality" and "Ops".
+6. Call `list_issue_statuses` — find the status ID for "Todo".
+
 ### Dedup check
 
 Before creating any ticket, search Linear for an existing open issue with the same title prefix and today's date. If one already exists, skip — this is a re-run.
@@ -234,6 +243,9 @@ If any brand data issues OR DB health warnings were found:
 
 - Title: `[Health] Directory health audit YYYY-MM-DD`
 - Label: `Data Quality`
+- Assign to: Yung-Tang (Patrick) Chou
+- Status: Todo
+- Milestone: earliest open milestone
 - Priority: High (2) if broken links or critical DB issues, Normal (3) otherwise
 - Description (markdown):
 
@@ -264,6 +276,8 @@ Source: Directory Health routine v2
 
 - Title: `[Health] Stale branch cleanup YYYY-MM-DD`
 - Label: `Ops`
+- Assign to: Yung-Tang (Patrick) Chou
+- Status: Todo
 - Priority: Low (4)
 - Description: list of stale branches with last commit dates and ready-to-run deletion commands
 
@@ -273,6 +287,8 @@ For each critical or high Dependabot alert:
 
 - Title: `[Health] Dependency vulnerability — {package} ({severity})`
 - Label: `Ops`
+- Assign to: Yung-Tang (Patrick) Chou
+- Status: Todo
 - Priority: High (2) for critical, Normal (3) for high
 - Dedup: search for open `[Health] Dependency vulnerability — {package}` tickets
 
