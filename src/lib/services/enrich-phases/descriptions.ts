@@ -53,7 +53,7 @@ export async function runDescriptionsPhase({
     }
   }
 
-  if (!hasScrapedText(scrapedData) && serpSnippets.length === 0) {
+  if (!hasScrapedText(scrapedData) && serpSnippets.length === 0 && !brand.description) {
     return {
       phaseResult: buildPhaseResult('descriptions', 'skipped', [], 0, undefined, 'no description data available'),
       patch: {},
@@ -68,8 +68,11 @@ export async function runDescriptionsPhase({
     const textPatch = textEnrichPatch.description !== undefined
       ? { description: textEnrichPatch.description }
       : {}
-    const descriptionRewrite = serpSnippets.length > 0
-      ? await rewriteBrandDescription(getDisplayBrandName(brand), brand.description ?? null, serpSnippets)
+    const effectiveSnippets = serpSnippets.length > 0
+      ? serpSnippets
+      : brand.description ? [brand.description] : []
+    const descriptionRewrite = effectiveSnippets.length > 0
+      ? await rewriteBrandDescription(getDisplayBrandName(brand), brand.description ?? null, effectiveSnippets)
       : null
     const descriptionPatch = descriptionRewrite
       ? {
