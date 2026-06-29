@@ -756,9 +756,17 @@
   "account": {
     "menuLabel": "帳號",
     "dashboard": "經營者主控台",
+    "favorites": "收藏品牌",
     "signOut": "登出",
     "settings": "帳號設定",
     "feedback": "意見回饋"
+  },
+  "favorites": {
+    "heading": "收藏品牌",
+    "count": "{count} 個品牌",
+    "emptyTitle": "尚無收藏品牌",
+    "emptyDescription": "探索 MIT Map 上的台灣品牌，點擊愛心即可加入收藏。",
+    "exploreBrands": "探索品牌"
   },
   "settings": {
     "metadata": {
@@ -832,7 +840,21 @@
     "empty": "尚未認領任何品牌。認領品牌後，它將顯示在此處。",
     "claimedAt": "認領於 {date}",
     "tabs": {
+      "profile": "品牌資訊",
+      "analytics": "數據分析",
+      "health": "品牌健康",
+      "verification": "MIT 認證",
       "submissions": "提交紀錄"
+    },
+    "brandSelector": {
+      "label": "選擇品牌",
+      "placeholder": "選擇品牌"
+    },
+    "emptyState": {
+      "title": "此頁面為品牌經營者專屬主控台",
+      "description": "只有已登入的品牌帳號才能查看這個頁面。如果你是台灣在地品牌的主理人，歡迎提交你的品牌，加入 MIT Map 社群。",
+      "submitCta": "提交你的品牌",
+      "browseCta": "瀏覽品牌目錄"
     },
     "analytics": {
       "trendsLabel": "趨勢",
