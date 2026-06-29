@@ -413,7 +413,7 @@ export function BrandEditForm({ brand }: BrandEditFormProps) {
           >
             {draftPending ? t("savingDraft") : t("saveDraft")}
           </Button>
-          <Link href={`/dashboard?tab=${brand.slug}`}>
+          <Link href={`/dashboard?brand=${brand.slug}`}>
             <Button type="button" variant="outline" className="h-12">
               {t("cancel")}
             </Button>

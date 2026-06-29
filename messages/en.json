@@ -755,9 +755,17 @@
   "account": {
     "menuLabel": "Account",
     "dashboard": "Owner Dashboard",
+    "favorites": "Saved Brands",
     "signOut": "Sign out",
     "settings": "Settings",
     "feedback": "Feedback"
+  },
+  "favorites": {
+    "heading": "Saved Brands",
+    "count": "{count} brands",
+    "emptyTitle": "No saved brands yet",
+    "emptyDescription": "Explore brands on MIT Map and tap the heart to save your favorites.",
+    "exploreBrands": "Explore brands"
   },
   "settings": {
     "metadata": {
@@ -831,7 +839,21 @@
     "empty": "You haven't claimed any brands yet. Once you claim a brand, it will appear here.",
     "claimedAt": "Claimed {date}",
     "tabs": {
+      "profile": "Brand Profile",
+      "analytics": "Analytics",
+      "health": "Brand Health",
+      "verification": "MIT Verification",
       "submissions": "Submissions"
+    },
+    "brandSelector": {
+      "label": "Select brand",
+      "placeholder": "Choose a brand"
+    },
+    "emptyState": {
+      "title": "This page is for brand owners only",
+      "description": "Only logged-in brand accounts can view this page. If you are a brand owner in Taiwan, submit your brand to join the MIT Map community.",
+      "submitCta": "Submit your brand",
+      "browseCta": "Browse brands"
     },
     "analytics": {
       "trendsLabel": "TRENDS",
@@ -1093,6 +1115,23 @@
       "fieldValueTags": "Brand Values",
       "fieldValueTagsHint": "Select up to 3 values that describe the brand",
       "fieldValueTagsOptionalHint": "optional"
+    },
+    "brandProfile": {
+      "customerVoices": "Customer Voices",
+      "productPhotos": "Product Photos",
+      "retailLocations": "Retail Locations",
+      "priceRange": "Price Range",
+      "purchaseLinks": "Purchase Links",
+      "socialLinks": "Social Links",
+      "verified": "Verified",
+      "noLinksAdded": "No links added yet.",
+      "founded": "Founded",
+      "notSet": "Not set",
+      "website": "Website",
+      "pinkoi": "Pinkoi",
+      "shopee": "Shopee",
+      "link": "Link",
+      "edit": "Edit"
     }
   },
   "errors": {

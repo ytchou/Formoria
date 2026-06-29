@@ -10,13 +10,13 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
  * Journey 1: Authenticated user saves a brand via card heart overlay
  *   - Heart button aria-label = "收藏這個品牌" → after click → "取消收藏這個品牌"
  *
- * Journey 2: Dashboard "收藏品牌" tab shows saved brand
- *   - Navigate to /dashboard?tab=saved → saved brand name visible
+ * Journey 2: Favorites page shows saved brand
+ *   - Navigate to /favorites → saved brand name visible
  *
  * Journey 3: Unsave from card → heart returns to "收藏這個品牌"
  *
- * Journey 4: Dashboard "收藏品牌" tab shows empty state after unsave
- *   - Navigating to /dashboard?tab=saved shows "還沒有收藏品牌"
+ * Journey 4: Favorites page shows empty state after unsave
+ *   - Navigating to /favorites shows "尚無收藏品牌"
  *
  * Journey 5: Unauthenticated user clicks heart → redirected to sign-in
  */
@@ -163,7 +163,8 @@ test.describe('Brand save/unsave — card overlay', () => {
       )
       .toBe(true);
 
-    const resp = await userPage.goto('/dashboard?tab=saved', { timeout: 60_000 });
+    // Saved brands now live at /favorites (not the dashboard saved tab)
+    const resp = await userPage.goto('/favorites', { timeout: 60_000 });
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
@@ -174,10 +175,6 @@ test.describe('Brand save/unsave — card overlay', () => {
       const savedBrandHeading = userPage.locator('h2').filter({ hasText: brandName });
       await expect(savedBrandHeading).toBeVisible({ timeout: 5_000 });
     }).toPass({ timeout: 90_000, intervals: [3_000, 5_000, 10_000] });
-
-    const savedTab = userPage.locator('a[href*="tab=saved"]');
-    await expect(savedTab).toBeVisible({ timeout: 5_000 });
-    await expect(savedTab).toHaveClass(/border-cta/);
   });
 
   test('Journey 3: unsave from brand page — heart returns to unfilled state', async ({ userPage }) => {
@@ -227,7 +224,8 @@ test.describe('Brand save/unsave — card overlay', () => {
         )
         .toBe(0);
 
-      const resp = await userPage.goto('/dashboard?tab=saved', {
+      // Saved brands now live at /favorites
+      const resp = await userPage.goto('/favorites', {
         timeout: 60_000,
         waitUntil: 'networkidle',
       });
@@ -237,19 +235,19 @@ test.describe('Brand save/unsave — card overlay', () => {
       }
 
       found = await userPage
-        .getByRole('heading', { name: '還沒有收藏品牌' })
+        .getByRole('heading', { name: '尚無收藏品牌' })
         .isVisible({ timeout: 5_000 })
         .catch(() => false);
     }
 
-    // Empty state heading (saveBrand.emptyTitle)
+    // Empty state heading (favorites.emptyTitle = "尚無收藏品牌")
     await expect(
-      userPage.getByRole('heading', { name: '還沒有收藏品牌' })
+      userPage.getByRole('heading', { name: '尚無收藏品牌' })
     ).toBeVisible({ timeout: 20_000 });
 
-    // CTA to explore brands (saveBrand.exploreBrands)
+    // CTA to explore brands (favorites.exploreBrands = "探索品牌")
     await expect(
-      userPage.getByRole('link', { name: '探索品牌目錄' })
+      userPage.getByRole('link', { name: '探索品牌' })
     ).toBeVisible({ timeout: 5_000 });
   });
 

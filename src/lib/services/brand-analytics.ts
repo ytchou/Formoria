@@ -1,7 +1,7 @@
 import type { SourceBucket } from '@/lib/analytics/source-bucket'
 import { createServiceClient } from '@/lib/supabase/server'
 
-type Trend = 'up' | 'down' | 'flat'
+export type Trend = 'up' | 'down' | 'flat'
 type AnalyticsClient = ReturnType<typeof createServiceClient> & {
   from: (table: string) => {
     select: (columns: string) => {
@@ -25,8 +25,10 @@ type AnalyticsClient = ReturnType<typeof createServiceClient> & {
 export type AnalyticsResult = {
   totalViews: number
   totalClicks: number
+  ctr: number
   viewTrend: Trend
   clickTrend: Trend
+  ctrTrend: Trend
 }
 
 export type DailyPoint = {
@@ -51,6 +53,21 @@ function getDaysAgo(daysAgo: number): string {
   const date = new Date()
   date.setDate(date.getDate() - daysAgo)
   return formatLocalDate(date)
+}
+
+function calcTrend(current: number, prior: number): Trend {
+  if (prior === 0) return current > 0 ? 'up' : 'flat'
+  if (current > prior * 1.05) return 'up'
+  if (current < prior * 0.95) return 'down'
+  return 'flat'
+}
+
+export function computeCtr(clicks: number, views: number): number {
+  return views > 0 ? clicks / views : 0
+}
+
+export function computeCtrTrend(currentCtr: number, priorCtr: number): Trend {
+  return calcTrend(currentCtr, priorCtr)
 }
 
 export async function incrementView(brandId: string, source: SourceBucket = 'direct'): Promise<void> {
@@ -209,7 +226,7 @@ export async function getAnalytics(brandId: string, days = 30): Promise<Analytic
       .gte('date', since)
 
     if (error || !data || data.length === 0) {
-      return { totalViews: 0, totalClicks: 0, viewTrend: 'flat', clickTrend: 'flat' }
+      return { totalViews: 0, totalClicks: 0, ctr: 0, viewTrend: 'flat', clickTrend: 'flat', ctrTrend: 'flat' }
     }
 
     const cutoff = new Date()
@@ -231,20 +248,18 @@ export async function getAnalytics(brandId: string, days = 30): Promise<Analytic
       }
     }
 
-    function calcTrend(current: number, prior: number): Trend {
-      if (prior === 0) return current > 0 ? 'up' : 'flat'
-      if (current > prior * 1.05) return 'up'
-      if (current < prior * 0.95) return 'down'
-      return 'flat'
-    }
+    const currentCtr = computeCtr(currentClicks, currentViews)
+    const priorCtr = computeCtr(priorClicks, priorViews)
 
     return {
       totalViews: currentViews,
       totalClicks: currentClicks,
+      ctr: currentCtr,
       viewTrend: calcTrend(currentViews, priorViews),
       clickTrend: calcTrend(currentClicks, priorClicks),
+      ctrTrend: computeCtrTrend(currentCtr, priorCtr),
     }
   } catch {
-    return { totalViews: 0, totalClicks: 0, viewTrend: 'flat', clickTrend: 'flat' }
+    return { totalViews: 0, totalClicks: 0, ctr: 0, viewTrend: 'flat', clickTrend: 'flat', ctrTrend: 'flat' }
   }
 }

@@ -1,216 +1,293 @@
-import type { Metadata } from "next";
-import { Link as IntlLink } from "@/i18n/navigation";
-import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Heart } from "lucide-react";
-import { isActingAsAdmin } from "@/lib/auth/admin-mode";
-import { createClient } from "@/lib/supabase/server";
-import { getBrandBySlugForAdmin, getUserBrands } from "@/lib/services/brand-owners";
-import { getProfile } from "@/lib/services/profiles";
-import { getUserSavedBrands } from "@/lib/services/saved-brands";
-import { BrandManagementPanel } from "@/components/dashboard/brand-management-panel";
+import type { Metadata } from 'next'
+import Image from 'next/image'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
+import { CheckCircle2 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/server'
+import { getBrandBySlug } from '@/lib/services/brands'
+import { getUserBrands } from '@/lib/services/brand-owners'
+import type { Brand, CustomerVoice, OtherUrl, RetailLocation } from '@/lib/types/brand'
 
 type Props = {
-  params: Promise<{ locale: string }>;
-  searchParams: Promise<{ error?: string; tab?: string }>;
-};
+  params: Promise<{ locale: string }>
+  searchParams: Promise<{ brand?: string }>
+}
 
-const SAVED_TAB = "saved";
+type LinkItem = {
+  label: string
+  href: string
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { locale } = await params;
-  setRequestLocale(locale);
-  const t = await getTranslations("dashboard");
+  const { locale } = await params
+  setRequestLocale(locale)
+  const t = await getTranslations('dashboard')
+
   return {
-    title: t("metadata.title"),
-  };
+    title: t('metadata.title'),
+  }
+}
+
+type PurchaseLinkLabels = { website: string; pinkoi: string; shopee: string; link: string }
+
+function getPurchaseLinks(brand: Brand, labels: PurchaseLinkLabels): LinkItem[] {
+  const links: LinkItem[] = [
+    brand.purchaseWebsite ? { label: labels.website, href: brand.purchaseWebsite } : null,
+    brand.purchasePinkoi ? { label: labels.pinkoi, href: brand.purchasePinkoi } : null,
+    brand.purchaseShopee ? { label: labels.shopee, href: brand.purchaseShopee } : null,
+    ...brand.otherUrls.map((link: OtherUrl) =>
+      link.url ? { label: link.label || labels.link, href: link.url } : null
+    ),
+  ].filter((link): link is LinkItem => link !== null)
+
+  return links
+}
+
+function getSocialHref(platform: 'instagram' | 'threads' | 'facebook', value: string): string {
+  if (/^https?:\/\//i.test(value)) return value
+
+  const handle = value.replace(/^@/, '')
+  if (platform === 'instagram') return `https://www.instagram.com/${handle}`
+  if (platform === 'threads') return `https://www.threads.net/@${handle}`
+  return `https://www.facebook.com/${handle}`
+}
+
+function getSocialLinks(brand: Brand): LinkItem[] {
+  return [
+    brand.socialInstagram
+      ? { label: 'Instagram', href: getSocialHref('instagram', brand.socialInstagram) }
+      : null,
+    brand.socialThreads
+      ? { label: 'Threads', href: getSocialHref('threads', brand.socialThreads) }
+      : null,
+    brand.socialFacebook
+      ? { label: 'Facebook', href: getSocialHref('facebook', brand.socialFacebook) }
+      : null,
+  ].filter((link): link is LinkItem => link !== null)
+}
+
+function Section({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className="space-y-3">
+      <h2 className="font-heading text-base font-bold text-foreground">{title}</h2>
+      {children}
+    </section>
+  )
+}
+
+function Pill({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex rounded-full bg-muted px-3 py-1.5 text-[13px] font-medium text-foreground">
+      {children}
+    </span>
+  )
+}
+
+function LinkList({ links, emptyText }: { links: LinkItem[]; emptyText: string }) {
+  if (links.length === 0) {
+    return <p className="text-sm font-normal text-muted-foreground">{emptyText}</p>
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {links.map((link) => (
+        <a
+          key={`${link.label}-${link.href}`}
+          className="inline-flex rounded-full border border-border px-3 py-1.5 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
+          href={link.href}
+          rel="noreferrer"
+          target="_blank"
+        >
+          {link.label}
+        </a>
+      ))}
+    </div>
+  )
+}
+
+function CustomerVoices({ voices, title }: { voices: CustomerVoice[]; title: string }) {
+  if (voices.length === 0) return null
+
+  return (
+    <Section title={title}>
+      <div className="grid gap-3 md:grid-cols-3">
+        {voices.slice(0, 3).map((voice, index) => (
+          <article
+            key={`${voice.author}-${index}`}
+            className="rounded-xl border border-border bg-white p-5"
+          >
+            <p className="text-sm font-normal leading-6 text-foreground">{voice.content}</p>
+            <p className="mt-4 text-[13px] font-medium text-muted-foreground">
+              {voice.author}
+              {voice.source ? `, ${voice.source}` : ''}
+            </p>
+          </article>
+        ))}
+      </div>
+    </Section>
+  )
+}
+
+function ProductPhotos({
+  photos,
+  brandName,
+  title,
+}: {
+  photos: string[]
+  brandName: string
+  title: string
+}) {
+  if (photos.length === 0) return null
+
+  return (
+    <Section title={title}>
+      <div className="grid max-w-[400px] grid-cols-2 gap-3">
+        {photos.slice(0, 4).map((photo, index) => (
+          <div
+            key={`${photo}-${index}`}
+            className="relative aspect-square overflow-hidden rounded-xl border border-border bg-muted"
+          >
+            <Image
+              alt={`${brandName} product ${index + 1}`}
+              className="object-cover"
+              fill
+              sizes="200px"
+              src={photo}
+            />
+          </div>
+        ))}
+      </div>
+    </Section>
+  )
+}
+
+function RetailLocations({ locations, title }: { locations: RetailLocation[]; title: string }) {
+  if (locations.length === 0) return null
+
+  return (
+    <Section title={title}>
+      <div className="space-y-3">
+        {locations.map((location, index) => (
+          <div
+            key={`${location.name}-${location.address}-${index}`}
+            className="rounded-xl border border-border bg-white p-5"
+          >
+            <p className="text-sm font-semibold text-foreground">{location.name}</p>
+            <p className="mt-1 text-sm font-normal text-muted-foreground">{location.address}</p>
+          </div>
+        ))}
+      </div>
+    </Section>
+  )
 }
 
 export default async function DashboardPage({ params, searchParams }: Props) {
-  const { locale } = await params;
-  setRequestLocale(locale);
-  const t = await getTranslations("dashboard");
-  const saveBrandT = await getTranslations("saveBrand");
+  const { locale } = await params
+  setRequestLocale(locale)
+  const t = await getTranslations('dashboard.brandProfile')
 
-  const resolvedSearchParams = await searchParams;
-  const supabase = await createClient();
+  const resolvedSearchParams = await searchParams
+  const supabase = await createClient()
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await supabase.auth.getUser()
 
-  const profile = user ? await getProfile(user.id) : null;
-  const displayName = profile?.displayName ?? user?.email?.split("@")[0] ?? "";
+  const ownedBrands = user ? await getUserBrands(user.id) : []
+  const selectedOwnedBrand =
+    ownedBrands.find((brand) => brand.brandSlug === resolvedSearchParams.brand) ??
+    ownedBrands[0]
 
-  const [brands, savedBrands] = user
-    ? await Promise.all([
-        getUserBrands(user.id),
-        getUserSavedBrands(user.id),
-      ])
-    : [[], []];
-
-  // God mode: if admin requests a brand they don't own, fetch it and prepend
-  let allBrands = brands
-  const requestedTab = resolvedSearchParams.tab
-  if (
-    user &&
-    requestedTab &&
-    requestedTab !== SAVED_TAB &&
-    requestedTab !== "submissions" &&
-    !brands.some((b) => b.brandSlug === requestedTab)
-  ) {
-    if (await isActingAsAdmin(user.email)) {
-      try {
-        const godBrand = await getBrandBySlugForAdmin(requestedTab)
-        if (godBrand) allBrands = [godBrand, ...brands]
-      } catch {
-        // Invalid slug — fall through to default tab
-      }
-    }
+  if (!selectedOwnedBrand) {
+    return (
+      <div className="rounded-xl border border-border bg-white p-10 text-center">
+        <p className="text-sm font-normal text-muted-foreground">No brand profile found.</p>
+      </div>
+    )
   }
 
-  const ERROR_KEYS: Record<string, "errors.invalidClaim" | "errors.emailMismatch" | "errors.claimFailed"> = {
-    "invalid-claim": "errors.invalidClaim",
-    "email-mismatch": "errors.emailMismatch",
-    "claim-failed": "errors.claimFailed",
-  };
-
-  const errorKey = resolvedSearchParams.error ? ERROR_KEYS[resolvedSearchParams.error] : undefined;
-  const errorMessage = errorKey ? t(errorKey) : null;
-
-  const hasBrands = allBrands.length > 0;
-  const showSavedTab = savedBrands.length > 0 || requestedTab === SAVED_TAB;
-  const hasTabbedContent = hasBrands || showSavedTab;
-  const defaultTab = allBrands.at(0)?.brandSlug ?? (showSavedTab ? SAVED_TAB : undefined);
-  const selectedTab =
-    requestedTab && allBrands.some((brand) => brand.brandSlug === requestedTab)
-      ? requestedTab
-      : requestedTab === SAVED_TAB && showSavedTab
-        ? SAVED_TAB
-        : defaultTab;
-  const selectedBrand =
-    selectedTab && selectedTab !== SAVED_TAB
-      ? allBrands.find((brand) => brand.brandSlug === selectedTab) ?? null
-      : null;
-
-  const savedBrandsSection = (
-    <div>
-      {savedBrands.length === 0 ? (
-        <div className="rounded-xl border border-border bg-white p-10 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-border text-primary">
-            <Heart className="h-5 w-5" aria-hidden />
-          </div>
-          <h2 className="mt-5 font-heading text-xl font-semibold tracking-tight text-foreground">
-            {saveBrandT("emptyTitle")}
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {saveBrandT("emptyDescription")}
-          </p>
-          <IntlLink
-            href="/brands"
-            className="mt-6 inline-flex rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-dark"
-          >
-            {saveBrandT("exploreBrands")}
-          </IntlLink>
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {savedBrands.map((brand) => (
-            <IntlLink
-              key={brand.brandId}
-              href={`/brands/${brand.brandSlug}`}
-              className="group flex items-center gap-4 rounded-xl border border-border bg-white p-4 transition-colors hover:border-primary"
-            >
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted font-heading text-lg font-semibold text-primary">
-                {[...brand.brandName][0]}
-              </div>
-              <div className="min-w-0">
-                <h2 className="truncate font-heading text-base font-semibold tracking-tight text-foreground">
-                  {brand.brandName}
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  /brands/{brand.brandSlug}
-                </p>
-              </div>
-            </IntlLink>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  const emptyState = (
-    <div className="mt-8 rounded-xl border border-border bg-white p-10 text-center">
-      <p className="text-sm text-muted-foreground">{t("empty")}</p>
-      <IntlLink
-        href="/brands"
-        className="mt-6 inline-flex rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-dark"
-      >
-        {saveBrandT("exploreBrands")}
-      </IntlLink>
-    </div>
-  );
+  const brand = await getBrandBySlug(selectedOwnedBrand.brandSlug)
+  const purchaseLinks = getPurchaseLinks(brand, {
+    website: t('website'),
+    pinkoi: t('pinkoi'),
+    shopee: t('shopee'),
+    link: t('link'),
+  })
+  const socialLinks = getSocialLinks(brand)
+  const priceRange = brand.priceRange ? '$'.repeat(brand.priceRange) : t('notSet')
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-12">
-      <h1 className="font-heading text-3xl font-bold tracking-tight">
-        {t("heading")}
-      </h1>
-      <p className="mt-2 text-muted-foreground">
-        {t("welcome", { name: displayName })}
-      </p>
+    <div className="grid max-w-[1240px] gap-8 lg:grid-cols-[400px_minmax(0,1fr)]">
+      <div className="w-full lg:w-[400px]">
+        {brand.heroImageUrl ? (
+          <div className="relative h-[266px] w-full overflow-hidden rounded-xl bg-muted lg:w-[400px]">
+            <Image
+              alt={brand.name}
+              className="object-cover"
+              fill
+              priority
+              sizes="400px"
+              src={brand.heroImageUrl}
+            />
+          </div>
+        ) : null}
+      </div>
 
-      {errorMessage && (
-        <div className="mt-4 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {errorMessage}
+      <div className="min-w-0 space-y-8">
+        <section className="space-y-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="font-heading text-[26px] font-bold leading-tight text-foreground">
+                {brand.name}
+              </h1>
+              {brand.isVerified ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1.5 text-[13px] font-medium text-foreground">
+                  <CheckCircle2 className="h-4 w-4" aria-hidden />
+                  {t('verified')}
+                </span>
+              ) : null}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {brand.category ? <Pill>{brand.category}</Pill> : null}
+              {brand.foundingYear ? <Pill>{t('founded')} {brand.foundingYear}</Pill> : null}
+            </div>
+          </div>
+
+          {brand.description ? (
+            <p className="max-w-3xl text-sm font-normal leading-6 text-foreground">
+              {brand.description}
+            </p>
+          ) : null}
+
+          {brand.productTags.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {brand.productTags.map((tag) => (
+                <Pill key={tag}>{tag}</Pill>
+              ))}
+            </div>
+          ) : null}
+        </section>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <Section title={t('priceRange')}>
+            <p className="text-sm font-normal text-foreground">{priceRange}</p>
+          </Section>
+          <Section title={t('purchaseLinks')}>
+            <LinkList links={purchaseLinks} emptyText={t('noLinksAdded')} />
+          </Section>
+          <Section title={t('socialLinks')}>
+            <LinkList links={socialLinks} emptyText={t('noLinksAdded')} />
+          </Section>
         </div>
-      )}
 
-      {hasTabbedContent ? (
-        <>
-          <div className="mt-8 flex flex-wrap gap-1 border-b border-border">
-            {allBrands.map((brand) => (
-              <IntlLink
-                key={brand.brandId}
-                href={`/dashboard?tab=${brand.brandSlug}`}
-                className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                  selectedTab === brand.brandSlug
-                    ? "border-cta text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {brand.brandName}
-              </IntlLink>
-            ))}
-            {showSavedTab && (
-              <IntlLink
-                href={`/dashboard?tab=${SAVED_TAB}`}
-                className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                  selectedTab === SAVED_TAB
-                    ? "border-cta text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {saveBrandT("savedTab")}
-              </IntlLink>
-            )}
-          </div>
-
-          <div className="mt-8">
-            {selectedTab === SAVED_TAB ? (
-              savedBrandsSection
-            ) : selectedBrand ? (
-              <BrandManagementPanel
-                slug={selectedBrand.brandSlug}
-                claimedAt={selectedBrand.claimedAt}
-                userId={user?.id ?? ""}
-              />
-            ) : (
-              emptyState
-            )}
-          </div>
-        </>
-      ) : (
-        emptyState
-      )}
+        <CustomerVoices voices={brand.customerVoices} title={t('customerVoices')} />
+        <ProductPhotos photos={brand.productPhotos} brandName={brand.name} title={t('productPhotos')} />
+        <RetailLocations locations={brand.retailLocations} title={t('retailLocations')} />
+      </div>
     </div>
-  );
+  )
 }

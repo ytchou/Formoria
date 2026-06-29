@@ -278,7 +278,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                         編輯
                       </Button>
                       <Link
-                        href={`/${routing.defaultLocale}/dashboard?tab=${brand.slug}`}
+                        href={`/${routing.defaultLocale}/dashboard?brand=${brand.slug}`}
                         className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'rounded-full')}
                       >
                         在 Dashboard 查看

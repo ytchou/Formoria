@@ -8,7 +8,7 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
  * Dashboard onboarding UX tests (DEV-793).
  *
  * Journey 1: Newly claimed owner sees WelcomeBanner
- *   - Banner heading and CTA link visible on /dashboard?tab=<slug>
+ *   - Banner heading and CTA link visible on /dashboard?brand=<slug>
  *   - CTA href points to /dashboard/brands/<slug>/edit#media
  *
  * Journey 2: Owner dismisses WelcomeBanner
@@ -87,15 +87,15 @@ test.describe('Dashboard — onboarding banner and health card', () => {
   test('Journey 1 — newly claimed owner sees WelcomeBanner with correct heading and CTA', async ({ userPage }) => {
     test.setTimeout(120_000);
 
-    const resp = await userPage.goto(`/dashboard?tab=${brandSlug}`, { timeout: 60_000 });
+    const resp = await userPage.goto(`/dashboard?brand=${brandSlug}`, { timeout: 60_000 });
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — onboarding tests skipped');
       return;
     }
 
-    // Wait for the specific brand tab to be rendered
+    // Wait for the dashboard to load with the selected brand
     await userPage.waitForURL(
-      (u) => new URL(u).searchParams.get('tab') === brandSlug,
+      (u) => new URL(u).searchParams.get('brand') === brandSlug,
       { timeout: 60_000 }
     );
 
@@ -115,14 +115,14 @@ test.describe('Dashboard — onboarding banner and health card', () => {
   test('Journey 2 — owner dismisses WelcomeBanner and it disappears', async ({ userPage }) => {
     test.setTimeout(120_000);
 
-    const resp = await userPage.goto(`/dashboard?tab=${brandSlug}`, { timeout: 60_000 });
+    const resp = await userPage.goto(`/dashboard?brand=${brandSlug}`, { timeout: 60_000 });
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — onboarding tests skipped');
       return;
     }
 
     await userPage.waitForURL(
-      (u) => new URL(u).searchParams.get('tab') === brandSlug,
+      (u) => new URL(u).searchParams.get('brand') === brandSlug,
       { timeout: 60_000 }
     );
 
@@ -139,25 +139,21 @@ test.describe('Dashboard — onboarding banner and health card', () => {
       userPage.getByRole('heading', { name: '歡迎加入 Formoria！' })
     ).not.toBeVisible({ timeout: 5_000 });
 
-    // Page is still loaded — brand name heading still present
+    // Page is still loaded — brand name heading still present (h1 in new page layout)
     await expect(
-      userPage.locator('h2').filter({ hasText: brandName })
+      userPage.locator('h1').filter({ hasText: brandName })
     ).toBeVisible({ timeout: 5_000 });
   });
 
   test('Journey 3 — BrandHealthCard renders score breakdown dimensions and edit-profile link', async ({ userPage }) => {
     test.setTimeout(120_000);
 
-    const resp = await userPage.goto(`/dashboard?tab=${brandSlug}`, { timeout: 60_000 });
+    // BrandHealthCard now lives at the /dashboard/health sub-route (not the main dashboard page)
+    const resp = await userPage.goto(`/dashboard/health?brand=${brandSlug}`, { timeout: 60_000 });
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — onboarding tests skipped');
       return;
     }
-
-    await userPage.waitForURL(
-      (u) => new URL(u).searchParams.get('tab') === brandSlug,
-      { timeout: 60_000 }
-    );
 
     // At least one dimension row in the score breakdown section
     // dashboard.health.scoreBreakdown — each row carries data-testid="health-dimension"

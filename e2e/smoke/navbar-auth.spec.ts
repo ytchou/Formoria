@@ -36,6 +36,10 @@ test.describe('Navbar auth smoke', () => {
     const dashboardLink = accountMenu.locator('a[href="/dashboard"]');
     await expect(dashboardLink).toBeVisible({ timeout: 5_000 });
 
+    // Favorites link must be present in the menu (account.favorites = "收藏品牌")
+    const favoritesLink = accountMenu.locator('a[href*="favorites"]');
+    await expect(favoritesLink).toBeVisible({ timeout: 5_000 });
+
     // Sign-out item must be in the menu
     const signOutItem = accountMenu.getByText(/sign out|登出/i);
     await expect(signOutItem).toBeVisible({ timeout: 5_000 });

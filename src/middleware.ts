@@ -20,6 +20,7 @@ export const RESERVED_ROUTES = new Set([
   'brands',
   'site',
   'dashboard',
+  'favorites',
   'faq',
   'about',
   'terms',

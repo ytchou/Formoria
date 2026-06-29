@@ -27,6 +27,10 @@ vi.mock('@/i18n/navigation', () => ({
   usePathname: () => '/',
 }))
 
+vi.mock('@/lib/auth/use-user', () => ({
+  useUser: () => ({ user: null, loading: false }),
+}))
+
 vi.mock('@/components/auth/account-menu', () => ({
   AccountMenu: () => <span role="link">Sign in</span>,
 }))
