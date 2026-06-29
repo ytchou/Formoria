@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
+import type { ReactNode } from 'react'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
+vi.mock('@/i18n/navigation', () => ({
+  Link: ({ children, href, className }: { children: ReactNode; href: string; className?: string }) => (
+    <a href={href} className={className}>{children}</a>
+  ),
+}))
 vi.mock('next-intl/server', () => ({
   getTranslations: vi.fn(async () => (key: string) => key),
   setRequestLocale: vi.fn(),

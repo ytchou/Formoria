@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import type { Database } from '@/lib/supabase/database.types'
 import { createServiceClient } from '@/lib/supabase/server'
 
@@ -25,7 +26,7 @@ export type OwnedBrand = {
   claimedAt: string
 }
 
-export async function getUserBrands(userId: string): Promise<OwnedBrand[]> {
+export const getUserBrands = cache(async (userId: string): Promise<OwnedBrand[]> => {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('brand_owners')
@@ -44,7 +45,7 @@ export async function getUserBrands(userId: string): Promise<OwnedBrand[]> {
     heroImageUrl: row.brands.hero_image_url ?? null,
     claimedAt: row.claimed_at,
   }))
-}
+})
 
 export async function isOwnerOf(
   userId: string,

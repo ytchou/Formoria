@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import Link from 'next/link'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
+import { Link } from '@/i18n/navigation'
 import { createClient } from '@/lib/supabase/server'
 import * as brandOwners from '@/lib/services/brand-owners'
 import type { OwnedBrand } from '@/lib/services/brand-owners'
@@ -15,7 +15,7 @@ import { EditReviewBanner } from '@/components/brands/edit-review-banner'
 type DashboardLayoutProps = {
   children: ReactNode
   params: Promise<{ locale: string }>
-  searchParams: Promise<{ brand?: string }>
+  searchParams?: Promise<{ brand?: string }>
 }
 
 type User = {
@@ -28,7 +28,6 @@ type WelcomeBannerData = {
   topAction?: Pick<ActionNudge, 'labelKey' | 'anchor' | 'points'>
 }
 
-const SAVED_TAB = 'saved'
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
 
 function isWithinClaimWindow(claimedAt: string | null): boolean {
@@ -65,8 +64,6 @@ async function getBrandsForUser(
 
   if (
     requestedBrand &&
-    requestedBrand !== SAVED_TAB &&
-    requestedBrand !== 'submissions' &&
     !brands.some((brand) => brand.brandSlug === requestedBrand)
   ) {
     const godBrand = await getAdminBrand(requestedBrand, user)
@@ -124,7 +121,7 @@ export default async function DashboardLayout({
   setRequestLocale(locale)
 
   const t = await getTranslations('dashboard.manage')
-  const resolvedSearchParams = await searchParams
+  const resolvedSearchParams = searchParams ? await searchParams : {}
   const supabase = await createClient()
   const {
     data: { user },
@@ -150,7 +147,7 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
-        <div className="flex h-[72px] items-center justify-between gap-6 px-20">
+        <div className="flex h-[72px] items-center justify-between gap-6 px-5 lg:px-20">
           <BrandSelector
             brands={brands}
             selectedSlug={selectedBrand.brandSlug}
@@ -165,12 +162,12 @@ export default async function DashboardLayout({
       </header>
 
       <div className="border-b border-border bg-card [&_nav]:border-b-0">
-        <div className="flex h-12 items-center px-20">
+        <div className="flex h-12 items-center px-5 lg:px-20">
           <DashboardTabNav brandSlug={selectedBrand.brandSlug} />
         </div>
       </div>
 
-      <main className="px-20 py-8">
+      <main className="px-5 py-8 lg:px-20">
         <div className="space-y-6">
           {welcomeBannerData ? (
             <WelcomeBanner
