@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { scrapeBrandUrl } from '../index'
+import { scrapeBrandUrls } from '../index'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -9,12 +9,12 @@ function page(body: string) {
   })
 }
 
-describe('SinglePageStrategy via scrapeBrandUrl', () => {
+describe('SinglePageStrategy via scrapeBrandUrls', () => {
   it('extracts name + description from OG tags', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(page(
       '<meta property=\"og:title\" content=\"Acme\"><meta property=\"og:description\" content=\"Made in Taiwan\"><a href=\"https://www.pinkoi.com/store/mybrand\">Pinkoi</a>'
     )))
-    const r = await scrapeBrandUrl('https://acme.tw')
+    const { data: r } = await scrapeBrandUrls(['https://acme.tw'])
     expect(r.brandName).toBe('Acme')
     expect(r.description).toBe('Made in Taiwan')
     expect(r.purchasePinkoi).toBe('https://www.pinkoi.com/store/mybrand')
@@ -25,7 +25,7 @@ describe('SinglePageStrategy via scrapeBrandUrl', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(page(
       '<meta property=\"og:title\" content=\"Acme\"><meta property=\"og:image\" content=\"https://acme.tw/logo.png\">'
     )))
-    const r = await scrapeBrandUrl('https://acme.tw')
+    const { data: r } = await scrapeBrandUrls(['https://acme.tw'])
     expect(r.heroImageUrl).toBeNull()
   })
 })

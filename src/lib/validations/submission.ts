@@ -3,8 +3,6 @@ import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
 
 type Translator = (key: string) => string
 
-const httpsUrl = z.string().url().max(2048).startsWith('https://')
-
 function hasHttpScheme(value: string): boolean {
   try {
     const protocol = new URL(value).protocol
@@ -20,14 +18,6 @@ function httpUrl(message?: string) {
     .url(message)
     .refine(hasHttpScheme, message ?? 'Invalid URL scheme')
 }
-
-export const scrapeUrlSchema = z.object({
-  urls: z
-    .array(httpsUrl)
-    .min(1)
-    .transform((a) => [...new Set(a)])
-    .pipe(z.array(httpsUrl).max(3)),
-})
 
 function buildFieldSchemas(t: Translator) {
   const nameField = z.string().min(2, t('validation.nameMinLength')).max(100)

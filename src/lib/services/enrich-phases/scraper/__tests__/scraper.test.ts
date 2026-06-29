@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { scrapeBrandUrl } from '../scraper'
-import { mergeSocialLinks } from '../scraper/merge'
+import { scrapeBrandUrls } from '..'
+import { mergeSocialLinks } from '../merge'
 
 const HTML_FULL = `
 <!DOCTYPE html>
@@ -48,7 +48,7 @@ const HTML_NO_OG = `
 <body></body>
 </html>`
 
-describe('scrapeBrandUrl', () => {
+describe('scrapeBrandUrls', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
   })
@@ -63,7 +63,7 @@ describe('scrapeBrandUrl', () => {
       })
     )
 
-    const result = await scrapeBrandUrl('https://mybrand.com.tw')
+    const { data: result } = await scrapeBrandUrls(['https://mybrand.com.tw'])
 
     expect(result.brandName).toBe('My Brand | Official')
     expect(result.description).toBe(
@@ -98,13 +98,13 @@ describe('scrapeBrandUrl', () => {
       })
     )
 
-    const result = await scrapeBrandUrl('https://example.com')
+    const { data: result } = await scrapeBrandUrls(['https://example.com'])
 
     expect(result.brandName).toBe('Fallback Title')
     expect(result.description).toBe('Fallback meta description')
   })
 
-  it('returns nulls for minimal HTML with no metadata', async () => {
+  it('yields empty fields from minimal HTML without metadata', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -114,7 +114,7 @@ describe('scrapeBrandUrl', () => {
       })
     )
 
-    const result = await scrapeBrandUrl('https://bare.com')
+    const { data: result } = await scrapeBrandUrls(['https://bare.com'])
 
     expect(result.brandName).toBe('Bare Page')
     expect(result.description).toBeNull()
@@ -129,7 +129,7 @@ describe('scrapeBrandUrl', () => {
       vi.fn().mockRejectedValue(new DOMException('Aborted', 'AbortError'))
     )
 
-    const result = await scrapeBrandUrl('https://slow-site.com')
+    const { data: result } = await scrapeBrandUrls(['https://slow-site.com'])
 
     expect(result.brandName).toBeNull()
     expect(result.websiteUrl).toBe('https://slow-site.com')
@@ -146,7 +146,7 @@ describe('scrapeBrandUrl', () => {
       })
     )
 
-    const result = await scrapeBrandUrl('https://blocked.com')
+    const { data: result } = await scrapeBrandUrls(['https://blocked.com'])
 
     expect(result.brandName).toBeNull()
     expect(result.websiteUrl).toBe('https://blocked.com')
@@ -154,9 +154,9 @@ describe('scrapeBrandUrl', () => {
 })
 
 describe('mergeSocialLinks (flat output)', () => {
-  it('merges two scraped data objects with flat field names', () => {
+  it('later source wins for flat fields when merging scraped data', () => {
     const base = {
-      socialInstagram: 'base_ig',
+      socialInstagram: 'https://instagram.com/base.tw',
       socialThreads: null,
       socialFacebook: null,
     }
@@ -168,7 +168,7 @@ describe('mergeSocialLinks (flat output)', () => {
 
     const result = mergeSocialLinks(base, next)
 
-    expect(result.socialInstagram).toBe('base_ig')
+    expect(result.socialInstagram).toBe('https://instagram.com/base.tw')
     expect(result.socialThreads).toBe('@next_threads')
     expect(result.socialFacebook).toBe('https://fb.com/next')
   })

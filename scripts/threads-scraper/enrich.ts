@@ -20,7 +20,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve, dirname, basename } from 'node:path'
-import { searchBrandUrls, SEARCH_DELAY_MS } from '@/lib/services/scraper/search'
+import { searchBrandUrls, SEARCH_DELAY_MS } from '@/lib/services/enrich-phases/scraper/search'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 
 interface BrandInput {
@@ -226,7 +226,7 @@ async function main() {
 
     if (urls.length > 0) {
       try {
-        scraped = (await (await import('@/lib/services/scraper')).scrapeBrandUrls(urls)).data
+        scraped = (await (await import('@/lib/services/enrich-phases/scraper')).scrapeBrandUrls(urls)).data
         console.error(`  → scraped: ${scraped.brandName || '(no name)'}, ${scraped.galleryImageUrls.length} photos, hints: [${scraped.categoryHints.join(', ')}]`)
       } catch (err) {
         console.error(`  → scrape failed: ${err instanceof Error ? err.message : err}`)

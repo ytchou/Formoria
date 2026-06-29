@@ -1,5 +1,5 @@
 import type { PhaseResult } from '@/lib/types/curation'
-import { batchSearchBrandsWithSnippets } from '../scraper/search'
+import { batchSearchBrandsWithSnippets } from './scraper/search'
 import { getLatestSearchResults, insertSearchResult } from '../search-results'
 import {
   buildPhaseResult,

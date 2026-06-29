@@ -116,8 +116,8 @@ export async function rateLimit(
 }
 
 // Rate limit rules per path prefix
-export const RATE_LIMIT_RULES: Record<string, { windowMs: number; maxRequests: number }> = {
-  '/api/scrape': { windowMs: 60_000, maxRequests: 5 },
+const RATE_LIMIT_RULES: Record<string, { windowMs: number; maxRequests: number }> = {
+  '/admin/operations': { windowMs: 60_000, maxRequests: 3 },
   '/api/upload': { windowMs: 60_000, maxRequests: 20 },
   '/api/webhooks/tally': { windowMs: 60_000, maxRequests: 30 },
   '/api/': { windowMs: 60_000, maxRequests: 60 },
@@ -131,7 +131,7 @@ const CRAWLER_RE = /Googlebot|Bingbot|Applebot|DuckDuckBot|YandexBot|Slurp|faceb
 
 const RATE_LIMIT_HTML = `<!DOCTYPE html><html><head><title>Too Many Requests</title><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:system-ui;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0"><div style="text-align:center;max-width:400px;padding:2rem"><h1 style="font-size:1.5rem">Too Many Requests</h1><p style="color:#666">You're browsing too fast. Please wait a moment and try again.</p></div></body></html>`
 
-export function stripLocalePrefix(pathname: string): string {
+function stripLocalePrefix(pathname: string): string {
   for (const locale of KNOWN_LOCALES) {
     if (pathname === `/${locale}`) {
       return '/'
@@ -195,8 +195,8 @@ export async function checkRateLimit(request: NextRequest): Promise<NextResponse
 
   if (!ruleKey) return null
 
-  const isApiRoute = ruleKey.startsWith('/api/')
-  if (!isApiRoute && isLikelyCrawler(request)) {
+  const isProtectedRoute = ruleKey.startsWith('/api/') || ruleKey.startsWith('/admin/')
+  if (!isProtectedRoute && isLikelyCrawler(request)) {
     return null
   }
 
@@ -215,7 +215,7 @@ export async function checkRateLimit(request: NextRequest): Promise<NextResponse
       'X-RateLimit-Reset': String(result.resetAt),
     }
 
-    if (!isApiRoute) {
+    if (!isProtectedRoute) {
       return new NextResponse(RATE_LIMIT_HTML, {
         status: 429,
         headers: {

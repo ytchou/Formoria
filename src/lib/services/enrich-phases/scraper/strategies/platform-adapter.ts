@@ -27,4 +27,3 @@ export class PlatformAdapterStrategy implements ScrapeStrategy {
   }
 }
 
-export type { PlatformAdapter } from './adapters/types'

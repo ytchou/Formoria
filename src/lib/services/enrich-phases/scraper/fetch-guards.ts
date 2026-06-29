@@ -1,6 +1,6 @@
-export const FETCH_TIMEOUT_MS = 10_000
-export const MAX_RESPONSE_BYTES = 5 * 1024 * 1024
-export const SCRAPER_USER_AGENT = 'Formoria-Bot/1.0'
+const FETCH_TIMEOUT_MS = 10_000
+const MAX_RESPONSE_BYTES = 5 * 1024 * 1024
+const SCRAPER_USER_AGENT = 'Formoria-Bot/1.0'
 
 const BLOCKED_HOSTNAMES = new Set([
   'localhost',

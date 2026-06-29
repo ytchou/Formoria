@@ -65,7 +65,7 @@ export function parseApifySerpResults(data: unknown[]): string[] {
   return [...urls]
 }
 
-export function parseApifySerpSnippets(data: unknown[]): string[] {
+function parseApifySerpSnippets(data: unknown[]): string[] {
   const snippets: string[] = []
   for (const entry of data) {
     if (!isApifySerpEntry(entry) || 'error' in entry || !Array.isArray(entry.organicResults)) {
@@ -131,7 +131,7 @@ export async function searchBrandUrls(brandName: string): Promise<string[]> {
   return parseApifySerpResults(data)
 }
 
-export async function searchBrandWithSnippets(brandName: string): Promise<{ urls: string[], snippets: string[] }> {
+async function searchBrandWithSnippets(brandName: string): Promise<{ urls: string[], snippets: string[] }> {
   const data = await fetchSerpData(brandName)
   return {
     urls: parseApifySerpResults(data),
@@ -139,7 +139,7 @@ export async function searchBrandWithSnippets(brandName: string): Promise<{ urls
   }
 }
 
-export type BrandSearchResult = { urls: string[], snippets: string[], rawEntries?: unknown[] }
+type BrandSearchResult = { urls: string[], snippets: string[], rawEntries?: unknown[] }
 
 export async function batchSearchBrandsWithSnippets(
   brandNames: string[]
@@ -244,12 +244,7 @@ export async function batchSearchBrandsWithSnippets(
   }
 }
 
-export async function searchBrandWebsite(brandName: string): Promise<string | null> {
-  const urls = await searchBrandUrls(brandName)
-  return urls[0] ?? null
-}
-
-export async function searchBrandImages(brandName: string): Promise<string[]> {
+async function searchBrandImages(brandName: string): Promise<string[]> {
   const token = process.env.APIFY_TOKEN
 
   if (!token) {

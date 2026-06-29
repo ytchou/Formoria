@@ -1,4 +1,4 @@
-export interface RenderResult {
+interface RenderResult {
   html: string
   finalUrl: string
   status: number

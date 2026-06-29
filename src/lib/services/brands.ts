@@ -611,8 +611,8 @@ const BRAND_COLUMNS = [
   'purchase_shopee', 'social_instagram', 'social_threads', 'social_facebook',
   'other_urls', 'retail_locations', 'product_photos', 'site_content',
   'status', 'submitted_at', 'approved_at', 'created_at', 'updated_at',
-  'draft_data', 'draft_updated_at', 'founder', 'founding_year',
-  'brand_highlights', 'price_range', 'product_tags',
+  'draft_data', 'draft_updated_at', 'founding_year',
+  'price_range', 'product_tags',
   'mit_status', 'mit_verified_at',
   'mit_evidence', 'source', 'tag_slugs', 'is_demo',
 ].join(', ')
@@ -633,7 +633,7 @@ export async function getBrandSlugsBatch(brandIds: string[]): Promise<Map<string
   return new Map((data ?? []).map(b => [b.id, b.slug]))
 }
 
-export async function getBrandEnrichmentBatch(brandIds: string[]): Promise<Map<string, BrandEnrichment>> {
+async function getBrandEnrichmentBatch(brandIds: string[]): Promise<Map<string, BrandEnrichment>> {
   if (brandIds.length === 0) {
     return new Map()
   }
@@ -898,7 +898,7 @@ export async function insertSlugRedirect(oldSlug: string, newSlug: string): Prom
   if (error) throw error
 }
 
-export async function createBrand(
+async function createBrand(
   data: Omit<Brand, 'id' | 'tags' | 'submittedAt' | 'approvedAt' | 'createdAt' | 'updatedAt'> & {
     unifiedBusinessNumber?: string | null
     productType?: string

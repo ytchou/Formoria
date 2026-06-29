@@ -45,9 +45,9 @@ const ALLOWLIST = [
   'components/dashboard/mit-status-card.tsx',
   // Non-display Chinese: a comment and scraper keyword regex.
   'lib/constants.ts',
-  'lib/services/scraper/strategies/crawl.ts',
+  'lib/services/enrich-phases/scraper/strategies/crawl.ts',
   // Scraper search query uses Chinese keywords to find Taiwan brand websites (not UI copy).
-  'lib/services/scraper/search.ts',
+  'lib/services/enrich-phases/scraper/search.ts',
   // Enrich-phase labels are admin-only display constants (not user-facing i18n copy).
   'lib/constants/enrich-phases.ts',
   // Field labels are admin-only display constants (not user-facing i18n copy).

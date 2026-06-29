@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio'
 import { fetchHtml, fetchXml } from './fetch-guards'
 import type { InputType } from './strategies/types'
 
-export const SOCIAL_HOSTS = [
+const SOCIAL_HOSTS = [
   'instagram.com',
   'facebook.com',
   'threads.net',
@@ -14,7 +14,7 @@ export const SOCIAL_HOSTS = [
   'pinterest.com',
 ]
 
-export const ECOMMERCE_HOSTS = [
+const ECOMMERCE_HOSTS = [
   'pinkoi.com',
   'shopee.tw',
   'momo.com.tw',

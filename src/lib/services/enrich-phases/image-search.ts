@@ -1,14 +1,15 @@
 import type { PhaseResult } from '@/lib/types/curation'
-import { batchSearchBrandImages } from '../scraper/search'
+import { batchSearchBrandImages } from './scraper/search'
 import { insertSearchResult } from '../search-results'
 import {
   buildPhaseResult,
   getDisplayBrandName,
   timePhase,
   type BatchPhaseContext,
+  type SearchPhaseResult,
 } from './types'
 
-export async function runImageSearchPhase(ctx: BatchPhaseContext): Promise<{
+export async function runImageSearchPhase(ctx: BatchPhaseContext, serpResults?: Map<string, SearchPhaseResult>): Promise<{
   phaseResult: PhaseResult
   imageSearchResults: Map<string, string[]>
 }> {
@@ -27,18 +28,33 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext): Promise<{
   }
 
   const brandsNeedingImages: typeof ctx.chunk = []
-  const skippedCount = ctx.chunk.reduce((count, brand) => {
+  let skippedHasImages = 0
+  let skippedNoSerp = 0
+  for (const brand of ctx.chunk) {
     const hasImages =
       !!brand.hero_image_url ||
       (Array.isArray(brand.product_photos) && brand.product_photos.length > 0)
-    if (hasImages) return count + 1
+    if (hasImages) {
+      skippedHasImages++
+      continue
+    }
+    const brandName = getDisplayBrandName(brand)
+    const serp = serpResults?.get(brandName)
+    if (serpResults && serp && serp.urls.length === 0 && serp.snippets.length === 0) {
+      skippedNoSerp++
+      continue
+    }
     brandsNeedingImages.push(brand)
-    return count
-  }, 0)
+  }
 
-  if (skippedCount > 0) {
+  if (skippedHasImages > 0) {
     ctx.onProgress?.(
-      `  [IMAGES] Skipping image search for ${skippedCount} brand(s) with user-provided images`
+      `  [IMAGES] Skipping image search for ${skippedHasImages} brand(s) with user-provided images`
+    )
+  }
+  if (skippedNoSerp > 0) {
+    ctx.onProgress?.(
+      `  [IMAGES] Skipping image search for ${skippedNoSerp} brand(s) with no SERP results`
     )
   }
 

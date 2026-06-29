@@ -14,9 +14,3 @@ export interface ScrapedBrandData {
   websiteUrl: string
   rawJsonLd: Record<string, unknown> | null
 }
-
-export interface PhotoItem {
-  id: string
-  url: string
-  source: 'scraped' | 'uploaded'
-}

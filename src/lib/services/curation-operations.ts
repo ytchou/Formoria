@@ -15,7 +15,7 @@ import {
 import {
   type ClassificationResult,
 } from './product-type-classifier'
-import { SEARCH_DELAY_MS } from './scraper/search'
+import { SEARCH_DELAY_MS } from './enrich-phases/scraper/search'
 import { insertTriageResult, insertDescriptionResult } from './ai-results'
 import { createServiceClient } from '@/lib/supabase/server'
 import type { BrandOutcome, CurationConfig, OperationResult, PhaseResult } from '@/lib/types/curation'
@@ -628,9 +628,6 @@ export async function runEnrich(
     let searchResults = discoverResult.searchResults
     const searchError = discoverResult.searchError
 
-    const imageSearchResult = await runImageSearchPhase(batchContext)
-    const imageSearchResults = imageSearchResult.imageSearchResults
-
     if (!phases.includes('discover') && hasTriagePhases) {
       const cached = await loadCachedSearchResults(
         chunk.map((brand) => brand.id)
@@ -648,6 +645,9 @@ export async function runEnrich(
         onProgress(`  [SERP-CACHE] Loaded ${cachedCount} cached snippet sets`)
       }
     }
+
+    const imageSearchResult = await runImageSearchPhase(batchContext, searchResults)
+    const imageSearchResults = imageSearchResult.imageSearchResults
 
     const triagePhaseResult = await runTriagePhase(batchContext, searchResults)
     const triageResults = triagePhaseResult.triageResults

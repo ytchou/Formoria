@@ -2,8 +2,8 @@ import {
   buildLinkEnrichPatch,
   extractLinksFromUrls,
 } from '../link-enrichment'
-import { scrapeBrandUrls } from '../scraper'
-import { classifyByDomain } from '../scraper/input-detector'
+import { scrapeBrandUrls } from './scraper'
+import { classifyByDomain } from './scraper/input-detector'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { EnrichScrapedData } from './types'
 import { buildPhaseResult, hasPatchValues, timePhase, type EnrichBrand, type EnrichPhase } from './types'
