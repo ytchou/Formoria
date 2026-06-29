@@ -93,6 +93,24 @@ describe('AccountMenu', () => {
     expect((await screen.findAllByText('Sign out'))[0]).toBeInTheDocument()
   })
 
+  it('shows a Saved Brands link when logged in', async () => {
+    const user = userEvent.setup()
+
+    ;(useUser as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      user: { id: 'u1', email: 'patrick@example.com' },
+      loading: false,
+    })
+    renderWithIntl(<AccountMenu />)
+
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+
+    await screen.findAllByText('Saved Brands')
+    const favoritesLink = Array.from(document.querySelectorAll('a')).find((a) =>
+      a.textContent?.includes('Saved Brands'),
+    )
+    expect(favoritesLink).toHaveAttribute('href', '/favorites')
+  })
+
   it('renders a non-interactive placeholder while loading', () => {
     ;(useUser as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       user: null,
