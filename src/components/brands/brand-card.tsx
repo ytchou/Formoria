@@ -119,10 +119,19 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
           {brand.description ?? ' '}
         </p>
         <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
-          {/* Category — primary classification (filled) */}
           {categoryLabel && (
             <span className="shrink-0 rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-foreground whitespace-nowrap">
               {categoryLabel}
+            </span>
+          )}
+          {brand.priceRange != null && (
+            <span className="shrink-0 rounded-full bg-secondary px-2 py-1 text-[11px] font-medium text-foreground whitespace-nowrap">
+              {'$'.repeat(brand.priceRange)}
+            </span>
+          )}
+          {brand.productTags[0] && (
+            <span className="truncate rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-foreground whitespace-nowrap">
+              {brand.productTags[0]}
             </span>
           )}
         </div>

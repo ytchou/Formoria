@@ -43,14 +43,14 @@ export function BrandHeader({ brand, categoryLabel, actionsSlot, adminSlot }: Br
 
         {/* Category pill */}
         {(categoryLabel ?? brand.category) && (
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+          <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
             {categoryLabel ?? brand.category}
           </span>
         )}
 
         {/* Price range pill */}
         {priceRangeLabel != null && (
-          <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-secondary-foreground">
+          <span className="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
             {priceRangeLabel}
           </span>
         )}
@@ -60,7 +60,7 @@ export function BrandHeader({ brand, categoryLabel, actionsSlot, adminSlot }: Br
           brand.productTags.map((tag, index) => (
             <span
               key={`${tag}-${index}`}
-              className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-foreground"
+              className="rounded-full bg-secondary px-2 py-1 text-[11px] font-medium text-secondary-foreground"
             >
               {tag}
             </span>

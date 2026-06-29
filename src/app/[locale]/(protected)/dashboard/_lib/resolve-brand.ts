@@ -1,15 +1,11 @@
-import { getUserBrands } from '@/lib/services/brand-owners'
+import { resolveDashboardBrand } from '@/lib/services/resolve-dashboard-brand'
 import type { OwnedBrand } from '@/lib/services/brand-owners'
 
 export async function resolveBrand(
   searchParams: { brand?: string },
-  userId: string
+  userId: string,
+  email?: string | null
 ): Promise<OwnedBrand | null> {
-  const brands = await getUserBrands(userId)
-
-  return (
-    brands.find((brand) => brand.brandSlug === searchParams.brand) ??
-    brands[0] ??
-    null
-  )
+  const ctx = await resolveDashboardBrand(userId, email ?? null, searchParams.brand)
+  return ctx?.brand ?? null
 }

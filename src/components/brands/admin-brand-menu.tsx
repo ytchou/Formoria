@@ -1,6 +1,9 @@
 'use client'
 
+import { useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { Eye, Pencil, Settings } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import {
   DropdownMenu,
@@ -8,28 +11,42 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { startImpersonationAction } from '@/app/[locale]/(protected)/dashboard/_lib/impersonation-actions'
 
 interface AdminBrandMenuProps {
   brandSlug: string
 }
 
 export function AdminBrandMenu({ brandSlug }: AdminBrandMenuProps) {
+  const t = useTranslations('brandDetail.adminMenu')
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+
+  function handleViewAsOwner() {
+    startTransition(async () => {
+      const result = await startImpersonationAction(brandSlug)
+      if (result.ok) {
+        router.push(`/dashboard?brand=${brandSlug}`)
+      }
+    })
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label="Admin menu"
+        aria-label={t('label')}
         className="flex h-11 w-11 items-center justify-center rounded-xl bg-transparent text-muted-foreground transition-colors hover:bg-secondary"
       >
         <Settings className="size-4" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem render={<Link href={`/dashboard/brands/${brandSlug}`} />}>
+        <DropdownMenuItem disabled={isPending} onClick={handleViewAsOwner}>
           <Eye className="size-4" />
-          View as owner
+          {t('viewAsOwner')}
         </DropdownMenuItem>
         <DropdownMenuItem render={<Link href={`/dashboard/brands/${brandSlug}/edit`} />}>
           <Pencil className="size-4" />
-          Edit brand
+          {t('editBrand')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

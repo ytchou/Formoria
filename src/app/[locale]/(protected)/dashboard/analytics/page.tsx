@@ -30,7 +30,7 @@ export default async function AnalyticsPage({ params, searchParams }: Props) {
 
   if (!user) return null
 
-  const selectedBrand = await resolveBrand(resolvedSearchParams, user.id)
+  const selectedBrand = await resolveBrand(resolvedSearchParams, user.id, user.email)
   if (!selectedBrand) return null
 
   const brand = await getBrandBySlug(selectedBrand.brandSlug)

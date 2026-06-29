@@ -4,7 +4,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getBrandBySlug } from '@/lib/services/brands'
-import { getUserBrands } from '@/lib/services/brand-owners'
+import { resolveDashboardBrand } from '@/lib/services/resolve-dashboard-brand'
 import type { Brand, CustomerVoice, OtherUrl, RetailLocation } from '@/lib/types/brand'
 
 type Props = {
@@ -197,12 +197,11 @@ export default async function DashboardPage({ params, searchParams }: Props) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const ownedBrands = user ? await getUserBrands(user.id) : []
-  const selectedOwnedBrand =
-    ownedBrands.find((brand) => brand.brandSlug === resolvedSearchParams.brand) ??
-    ownedBrands[0]
+  const ctx = user
+    ? await resolveDashboardBrand(user.id, user.email ?? null, resolvedSearchParams.brand)
+    : null
 
-  if (!selectedOwnedBrand) {
+  if (!ctx) {
     return (
       <div className="rounded-xl border border-border bg-white p-10 text-center">
         <p className="text-sm font-normal text-muted-foreground">No brand profile found.</p>
@@ -210,7 +209,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
     )
   }
 
-  const brand = await getBrandBySlug(selectedOwnedBrand.brandSlug)
+  const brand = await getBrandBySlug(ctx.brand.brandSlug)
   const purchaseLinks = getPurchaseLinks(brand, {
     website: t('website'),
     pinkoi: t('pinkoi'),

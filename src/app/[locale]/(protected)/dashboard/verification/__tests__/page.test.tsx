@@ -6,7 +6,7 @@ import type { Brand } from "@/lib/types/brand"
 vi.mock("next-intl/server", () => ({ getTranslations: vi.fn(async () => (key: string) => key), setRequestLocale: vi.fn() }))
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn().mockResolvedValue({ auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "u1", email: "test@example.com" } }, error: null }) } }) }))
 vi.mock("@/lib/services/brands", () => ({ getBrandBySlug: vi.fn() }))
-vi.mock("@/lib/services/brand-owners", () => ({ getUserBrands: vi.fn() }))
+vi.mock("@/lib/services/brand-owners", () => ({ getUserBrands: vi.fn(), isOwnerOf: vi.fn().mockResolvedValue(true) }))
 vi.mock("@/components/dashboard/mit-status-card", () => ({ MitStatusCard: () => <div data-testid="mit-status-card" /> }))
 
 import { getBrandBySlug } from "@/lib/services/brands"
