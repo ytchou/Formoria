@@ -1,4 +1,4 @@
-import { rewriteBrandDescription } from '../description-rewrite'
+import { rewriteBrandDescription, type DescriptionRewriteResult } from '../description-rewrite'
 import { buildTextEnrichPatch } from '../link-enrichment'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { EnrichScrapedData } from './types'
@@ -14,7 +14,7 @@ type DescriptionsPhaseOptions = {
 type DescriptionsPhaseOutput = {
   phaseResult: PhaseResult
   patch: Record<string, unknown>
-  descriptionRewrite: string | null
+  descriptionRewrite: DescriptionRewriteResult | null
 }
 
 function hasScrapedText(scrapedData: EnrichScrapedData | null): boolean {
@@ -53,7 +53,7 @@ export async function runDescriptionsPhase({
     }
   }
 
-  if (!hasScrapedText(scrapedData) && serpSnippets.length === 0) {
+  if (!hasScrapedText(scrapedData) && serpSnippets.length === 0 && !brand.description) {
     return {
       phaseResult: buildPhaseResult('descriptions', 'skipped', [], 0, undefined, 'no description data available'),
       patch: {},
@@ -68,8 +68,11 @@ export async function runDescriptionsPhase({
     const textPatch = textEnrichPatch.description !== undefined
       ? { description: textEnrichPatch.description }
       : {}
-    const descriptionRewrite = serpSnippets.length > 0
-      ? await rewriteBrandDescription(getDisplayBrandName(brand), brand.description ?? null, serpSnippets)
+    const effectiveSnippets = serpSnippets.length > 0
+      ? serpSnippets
+      : brand.description ? [brand.description] : []
+    const descriptionRewrite = effectiveSnippets.length > 0
+      ? await rewriteBrandDescription(getDisplayBrandName(brand), brand.description ?? null, effectiveSnippets)
       : null
     const descriptionPatch = descriptionRewrite
       ? {
@@ -84,7 +87,7 @@ export async function runDescriptionsPhase({
         ...textPatch,
         ...descriptionPatch,
       },
-      descriptionRewrite: descriptionRewrite?.description ?? null,
+      descriptionRewrite: descriptionRewrite ?? null,
     }
   })
 

@@ -18,6 +18,8 @@ export type AiDescriptionInput = {
   description: string
   productType?: string | null
   confidence?: 'high' | 'medium' | 'low'
+  priceRange?: number | null
+  productTags?: string[]
   rawResponse?: unknown
 }
 
@@ -45,6 +47,27 @@ export async function insertDescriptionResult(input: AiDescriptionInput): Promis
     description: input.description,
     product_type: input.productType ?? null,
     confidence: input.confidence ?? null,
+    price_range: input.priceRange ?? null,
+    product_tags: input.productTags ?? [],
+    model: DEEPSEEK_MODEL,
+    raw_response: input.rawResponse ?? null,
+  } as never)
+}
+
+export type AiClassificationInput = {
+  brandId: string
+  productType: string
+  confidence: 'high' | 'medium' | 'low'
+  rawResponse?: unknown
+}
+
+export async function insertClassificationResult(input: AiClassificationInput): Promise<void> {
+  const supabase = createServiceClient()
+  await supabase.from('brand_ai_results').insert({
+    brand_id: input.brandId,
+    phase: 'classification',
+    product_type: input.productType,
+    confidence: input.confidence,
     model: DEEPSEEK_MODEL,
     raw_response: input.rawResponse ?? null,
   } as never)

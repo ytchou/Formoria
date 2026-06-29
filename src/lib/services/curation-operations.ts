@@ -16,12 +16,13 @@ import {
   type ClassificationResult,
 } from './product-type-classifier'
 import { SEARCH_DELAY_MS } from './enrich-phases/scraper/search'
-import { insertTriageResult, insertDescriptionResult } from './ai-results'
+import { insertTriageResult, insertDescriptionResult, insertClassificationResult } from './ai-results'
 import { createServiceClient } from '@/lib/supabase/server'
 import type { BrandOutcome, CurationConfig, OperationResult, PhaseResult } from '@/lib/types/curation'
 import {
   applyTriageResult,
   buildPhaseResult,
+  getDisplayBrandName,
   loadCachedSearchResults,
   runBrandImagePhase,
   runCleanPhase,
@@ -68,8 +69,6 @@ type SupabaseLike = Pick<SupabaseClient, 'from'>
 
 type JsonObject = Record<string, unknown>
 
-const LEGACY_DISPLAY_NAME_KEY = ['display', 'brand', 'name'].join('_')
-
 function errorMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message
@@ -84,11 +83,6 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms)
   })
-}
-
-function brandName(brand: { name?: string | null }): string {
-  const legacyName = (brand as Record<string, unknown>)[LEGACY_DISPLAY_NAME_KEY]
-  return brand.name ?? (typeof legacyName === 'string' ? legacyName : '')
 }
 
 export { ENRICH_PHASES }
@@ -244,10 +238,6 @@ function uniqueUrls(urls: string[]): string[] {
   }
 
   return unique
-}
-
-function displayBrandName(brand: EnrichBrand): string {
-  return brandName(brand)
 }
 
 function chunkItems<T>(items: T[], size: number): T[][] {
@@ -614,7 +604,7 @@ export async function runEnrich(
     ].filter(Boolean)
     onProgress(`\n[BATCH ${chunkIndex + 1}/${brandChunks.length}] ${chunk.length} brands — fetching ${activeSteps.join(' + ')}...`)
 
-    const chunkBrandNames = chunk.map(displayBrandName)
+    const chunkBrandNames = chunk.map(getDisplayBrandName)
     const batchContext = {
       chunk,
       chunkBrandNames,
@@ -628,7 +618,7 @@ export async function runEnrich(
     let searchResults = discoverResult.searchResults
     const searchError = discoverResult.searchError
 
-    if (!phases.includes('discover') && hasTriagePhases) {
+    if (!phases.includes('discover') && (hasTriagePhases || phases.includes('descriptions'))) {
       const cached = await loadCachedSearchResults(
         chunk.map((brand) => brand.id)
       )
@@ -636,7 +626,7 @@ export async function runEnrich(
       for (const brand of chunk) {
         const row = cached.get(brand.id)
         if (row) {
-          cachedByName.set(displayBrandName(brand), row)
+          cachedByName.set(getDisplayBrandName(brand), row)
         }
       }
       searchResults = cachedByName
@@ -735,7 +725,7 @@ export async function runEnrich(
 
           result.brandOutcomes.push({
             slug: brand.slug,
-            name: brandName(brand),
+            name: getDisplayBrandName(brand),
             ...(target === 'submissions' ? { submissionId: brand.id } : {}),
             status: 'skipped',
             changedFields: changedFieldsFromPhaseResults(state.phaseResults),
@@ -751,17 +741,20 @@ export async function runEnrich(
         }
 
         if (phases.includes('discover')) {
-          const searchResult = searchResults.get(displayBrandName(brand)) ?? { urls: [], snippets: [] }
+          const searchResult = searchResults.get(getDisplayBrandName(brand)) ?? { urls: [], snippets: [] }
           state.discoveredUrls = uniqueUrls(
             searchResult.urls.filter((url) => !state.knownUrls.includes(url))
           )
+          state.serpSnippets = searchResult.snippets
+        } else if (searchResults.size > 0) {
+          const searchResult = searchResults.get(getDisplayBrandName(brand)) ?? { urls: [], snippets: [] }
           state.serpSnippets = searchResult.snippets
         }
 
         const urlExtracted = extractLinksFromUrls(state.discoveredUrls)
         let imageSearchUrls: string[] = []
         if (phases.includes('images')) {
-          imageSearchUrls = imageSearchResults.get(displayBrandName(brand)) ?? []
+          imageSearchUrls = imageSearchResults.get(getDisplayBrandName(brand)) ?? []
           onProgress(`  [IMAGE-SEARCH] ${imageSearchUrls.length} images found`)
         }
 
@@ -777,7 +770,7 @@ export async function runEnrich(
           }
           result.brandOutcomes.push({
             slug: brand.slug,
-            name: brandName(brand),
+            name: getDisplayBrandName(brand),
             ...(target === 'submissions' ? { submissionId: brand.id } : {}),
             status: 'skipped',
             changedFields: changedFieldsFromPhaseResults(state.phaseResults),
@@ -870,7 +863,7 @@ export async function runEnrich(
           }
           result.brandOutcomes.push({
             slug: brand.slug,
-            name: brandName(brand),
+            name: getDisplayBrandName(brand),
             ...(target === 'submissions' ? { submissionId: brand.id } : {}),
             status: 'skipped',
             changedFields,
@@ -897,8 +890,18 @@ export async function runEnrich(
           if (target === 'brands' && descriptionsResult.descriptionRewrite) {
             await insertDescriptionResult({
               brandId: brand.id,
-              description: descriptionsResult.descriptionRewrite,
-              rawResponse: { description: descriptionsResult.descriptionRewrite },
+              description: descriptionsResult.descriptionRewrite.description!,
+              priceRange: descriptionsResult.descriptionRewrite.priceRange,
+              productTags: descriptionsResult.descriptionRewrite.productTags,
+              rawResponse: descriptionsResult.descriptionRewrite.rawResponse,
+            })
+          }
+          if (target === 'brands' && classification) {
+            await insertClassificationResult({
+              brandId: brand.id,
+              productType: classification.productType,
+              confidence: classification.confidence,
+              rawResponse: classification,
             })
           }
           try {
@@ -920,7 +923,7 @@ export async function runEnrich(
             result.errors.push(`${brand.slug}: ${errMsg}`)
             result.brandOutcomes.push({
               slug: brand.slug,
-              name: brandName(brand),
+              name: getDisplayBrandName(brand),
               ...(target === 'submissions' ? { submissionId: brand.id } : {}),
               status: 'failed',
               changedFields: changedFieldsFromPhaseResults(outcomePhaseResults),
@@ -939,7 +942,7 @@ export async function runEnrich(
 
         result.brandOutcomes.push({
           slug: brand.slug,
-          name: brandName(brand),
+          name: getDisplayBrandName(brand),
           ...(target === 'submissions' ? { submissionId: brand.id } : {}),
           status: 'succeeded',
           changedFields,
@@ -952,7 +955,7 @@ export async function runEnrich(
         result.errors.push(`${brand.slug}: ${errMsg}`)
         result.brandOutcomes.push({
           slug: brand.slug,
-          name: brandName(brand),
+          name: getDisplayBrandName(brand),
           ...(target === 'submissions' ? { submissionId: brand.id } : {}),
           status: 'failed',
           changedFields: changedFieldsFromPhaseResults(outcomePhaseResults),
