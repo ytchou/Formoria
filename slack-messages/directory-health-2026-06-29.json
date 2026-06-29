@@ -54,7 +54,7 @@
       "elements": [
         {
           "type": "mrkdwn",
-          "text": "1 Linear ticket created (DEV-•••) | Link check via web search (outbound HTTP blocked in env) | Directory Health v1"
+          "text": "1 Linear ticket created: DEV-906 | Link check via web search (outbound HTTP blocked in env) | Directory Health v1"
         }
       ]
     }
