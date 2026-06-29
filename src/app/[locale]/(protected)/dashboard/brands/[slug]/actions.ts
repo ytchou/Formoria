@@ -280,7 +280,7 @@ export async function updateBrandAction(
 
       if (autoApprove) {
         await applyBrandUpdate(brand, updateData)
-        redirect(`/dashboard?tab=${brandSlug}`)
+        redirect(`/dashboard?brand=${brandSlug}`)
       }
 
       await createPendingEdit(brand.id, user.id, updateData as Record<string, unknown>)
@@ -300,7 +300,7 @@ export async function updateBrandAction(
     }
   }
 
-  redirect(`/dashboard?tab=${brandSlug}`)
+  redirect(`/dashboard?brand=${brandSlug}`)
 }
 
 export async function saveDraftAction(
@@ -410,7 +410,7 @@ export async function publishDraftAction(
 
         revalidatePath('/[locale]/brands/[slug]', 'page')
         revalidatePath('/dashboard')
-        redirect(`/dashboard?tab=${brandSlug}`)
+        redirect(`/dashboard?brand=${brandSlug}`)
       }
 
       await createPendingEdit(brand.id, user.id, draftPartial)
@@ -442,7 +442,7 @@ export async function publishDraftAction(
     }
   }
 
-  redirect(`/dashboard?tab=${brandSlug}`)
+  redirect(`/dashboard?brand=${brandSlug}`)
 }
 
 export async function discardDraftAction(
