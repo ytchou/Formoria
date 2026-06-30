@@ -1,17 +1,16 @@
 'use client'
 
 import { useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { Eye, Pencil, Settings } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Link } from '@/i18n/navigation'
+import { Link, useRouter } from '@/i18n/navigation'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { startImpersonationAction } from '@/app/[locale]/(protected)/dashboard/_lib/impersonation-actions'
+import { startImpersonationAction } from '@/lib/actions/impersonation'
 
 interface AdminBrandMenuProps {
   brandSlug: string
