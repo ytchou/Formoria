@@ -1,6 +1,7 @@
 import { setRequestLocale } from 'next-intl/server'
 import { MitStatusCard } from '@/components/dashboard/mit-status-card'
 import { getBrandBySlug } from '@/lib/services/brands'
+import { isOwnerOf } from '@/lib/services/brand-owners'
 import { createClient } from '@/lib/supabase/server'
 import { resolveBrand } from '../_lib/resolve-brand'
 
@@ -21,10 +22,11 @@ export default async function VerificationPage({ params, searchParams }: Props) 
 
   if (!user) return null
 
-  const selectedBrand = await resolveBrand(resolvedSearchParams, user.id)
+  const selectedBrand = await resolveBrand(resolvedSearchParams, user.id, user.email)
   if (!selectedBrand) return null
 
   const brand = await getBrandBySlug(selectedBrand.brandSlug)
+  const ownerCheck = await isOwnerOf(user.id, brand.id)
 
   return (
     <MitStatusCard
@@ -33,7 +35,7 @@ export default async function VerificationPage({ params, searchParams }: Props) 
       brandSlug={brand.slug}
       mitStatus={brand.mitStatus ?? 'unverified'}
       mitEvidence={brand.mitEvidence ?? undefined}
-      isOwner={true}
+      isOwner={ownerCheck}
     />
   )
 }

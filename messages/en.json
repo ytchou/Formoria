@@ -291,6 +291,11 @@
         "unknown": "An unknown error occurred"
       }
     },
+    "adminMenu": {
+      "label": "Admin menu",
+      "viewAsOwner": "View as owner",
+      "editBrand": "Edit brand"
+    },
     "breadcrumb": {
       "directory": "Brands"
     },
@@ -1568,5 +1573,10 @@
       "browseCategories": "Browse by category",
       "featuredBrands": "Verified MIT brands"
     }
+  },
+  "impersonation": {
+    "banner": "Viewing as {brandName}",
+    "exit": "Exit",
+    "timeRemaining": "{minutes}m remaining"
   }
 }

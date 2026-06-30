@@ -12,6 +12,7 @@ import { getBrands, getNewBrands, getRecentBrandCount } from '@/lib/services/bra
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 export const revalidate = 3600
 
@@ -84,18 +85,18 @@ export default async function LandingPage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
       />
       <main>
-        <HeroSection brandCount={totalBrandCount} categoryCount={0} recentBrands={recentBrands} />
+        <HeroSection brandCount={totalBrandCount} categoryCount={PRODUCT_TYPE_CATEGORIES.length} recentBrands={recentBrands} />
 
         <SavedBrandsProvider>
+          <Manifesto />
+
           <div className="py-6 md:py-8">
             <div className="max-w-6xl mx-auto px-4 sm:px-6">
               <NextIntlClientProvider messages={messages}>
-                <FilterableBrandShowcase brands={allBrands} categories={[]} />
+                <FilterableBrandShowcase brands={allBrands} categories={[...PRODUCT_TYPE_CATEGORIES]} />
               </NextIntlClientProvider>
             </div>
           </div>
-
-          <Manifesto />
 
           <SubmitBand />
 

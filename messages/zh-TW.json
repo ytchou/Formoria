@@ -292,6 +292,11 @@
         "unknown": "發生未知錯誤"
       }
     },
+    "adminMenu": {
+      "label": "管理選單",
+      "viewAsOwner": "以品牌主身份檢視",
+      "editBrand": "編輯品牌"
+    },
     "breadcrumb": {
       "directory": "品牌目錄"
     },
@@ -1569,5 +1574,10 @@
       "browseCategories": "依分類瀏覽",
       "featuredBrands": "MIT 認證品牌"
     }
+  },
+  "impersonation": {
+    "banner": "正在以 {brandName} 身份檢視",
+    "exit": "結束",
+    "timeRemaining": "剩餘 {minutes} 分鐘"
   }
 }

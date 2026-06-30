@@ -11,6 +11,7 @@ import { routing } from '@/i18n/routing'
 import { readAdminModeCookie, type AdminMode } from '@/lib/auth/admin-mode'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }))
@@ -72,7 +73,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps) {
             }}
           />
         ) : null}
-        <MainNav categories={[]} />
+        <MainNav categories={[...PRODUCT_TYPE_CATEGORIES]} />
       </div>
       <div className="flex-1">{children}</div>
       <Footer />

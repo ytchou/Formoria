@@ -18,6 +18,7 @@ import {
   updateBrand,
 } from '@/lib/services/brands'
 import { deleteBrandImages } from '@/lib/services/image-upload'
+import { logAdminActionIfAdmin } from '@/lib/services/admin-audit'
 import type { Brand, CustomerVoice, OtherUrl, RetailLocation } from '@/lib/types'
 import type { ContentPayload, ModerationResult } from '@/lib/services/moderation'
 
@@ -289,6 +290,7 @@ export async function updateBrandAction(
     }
 
     await applyBrandUpdate(brand, updateData)
+    await logAdminActionIfAdmin(actingAdmin, { id: user.id, email: user.email ?? null }, 'brand_edit', brandSlug, brand.id)
   } catch (err) {
     if (err instanceof InvalidBrandEditFormError) {
       return { error: err.message }
@@ -334,6 +336,8 @@ export async function saveDraftAction(
     const updateData = parseBrandEditForm(formData)
 
     await saveDraft(brand.id, updateData)
+    await logAdminActionIfAdmin(actingAdmin, { id: user.id, email: user.email ?? null }, 'draft_save', brandSlug, brand.id)
+
     revalidatePath(`/dashboard/brands/${brandSlug}/edit`)
     return {}
   } catch (err) {
@@ -432,6 +436,7 @@ export async function publishDraftAction(
     const orphans = diffRemovedImageUrls(imageUrlsFromBrand(brand), nextImageUrls)
     await publishDraft(brand.id)
     await deleteBrandImages(orphans)
+    await logAdminActionIfAdmin(actingAdmin, { id: user.id, email: user.email ?? null }, 'draft_publish', brandSlug, brand.id)
 
     revalidatePath('/[locale]/brands/[slug]', 'page')
     revalidatePath('/dashboard')
@@ -476,6 +481,7 @@ export async function discardDraftAction(
     const { snapshot } = await discardDraft(brand.id)
     const draftOnlyImages = diffRemovedImageUrls(imageUrlsFromSnapshot(snapshot), imageUrlsFromBrand(brand))
     await deleteBrandImages(draftOnlyImages)
+    await logAdminActionIfAdmin(actingAdmin, { id: user.id, email: user.email ?? null }, 'draft_discard', brandSlug, brand.id)
 
     revalidatePath(`/dashboard/brands/${brand.slug}/edit`)
   } catch (err) {

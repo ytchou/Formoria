@@ -221,7 +221,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
 
       <aside className="hidden lg:block" aria-label={t('filters.title')}>
         <div className="sticky top-24">
-          <BrandFilterSidebar categories={[]} />
+          <BrandFilterSidebar categories={[...PRODUCT_TYPE_CATEGORIES]} />
         </div>
       </aside>
 
@@ -230,7 +230,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <BrandFilterDrawer
-              categories={[]}
+              categories={[...PRODUCT_TYPE_CATEGORIES]}
               totalCount={totalCount}
             />
             <p className="text-sm text-muted-foreground">
