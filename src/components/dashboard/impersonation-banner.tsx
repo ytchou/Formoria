@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { endImpersonationAction } from '@/app/[locale]/(protected)/dashboard/_lib/impersonation-actions'
+import { endImpersonationAction } from '@/lib/actions/impersonation'
 
 type ImpersonationBannerProps = {
   brandName: string

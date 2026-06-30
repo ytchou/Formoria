@@ -9,14 +9,14 @@ import { resolveBrand } from '../_lib/resolve-brand'
 
 type Props = {
   params: Promise<{ locale: string }>
-  searchParams: Promise<{ brand?: string }>
+  searchParams?: Promise<{ brand?: string }>
 }
 
 export default async function HealthPage({ params, searchParams }: Props) {
   const { locale } = await params
   setRequestLocale(locale)
 
-  const resolvedSearchParams = await searchParams
+  const resolvedSearchParams = searchParams ? await searchParams : {}
   const supabase = await createClient()
   const {
     data: { user },

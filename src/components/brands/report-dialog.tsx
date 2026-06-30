@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useActionState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Flag } from 'lucide-react'
@@ -29,13 +29,26 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
   const t = useTranslations('brandDetail.report')
   const [state, action, pending] = useActionState<ReportState, FormData>(submitReportAction, {})
   const [selectedReasons, setSelectedReasons] = useState<Set<string>>(new Set())
+  const [alreadyReported, setAlreadyReported] = useState(false)
 
-  const alreadyReported =
-    typeof window !== 'undefined' && !!localStorage.getItem(`report:${brandSlug}`)
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setAlreadyReported(!!localStorage.getItem(`report:${brandSlug}`))
+    }, 0)
 
-  if (state.success && typeof window !== 'undefined') {
-    localStorage.setItem(`report:${brandSlug}`, '1')
-  }
+    return () => window.clearTimeout(timeoutId)
+  }, [brandSlug])
+
+  useEffect(() => {
+    if (state.success) {
+      localStorage.setItem(`report:${brandSlug}`, '1')
+      const timeoutId = window.setTimeout(() => {
+        setAlreadyReported(true)
+      }, 0)
+
+      return () => window.clearTimeout(timeoutId)
+    }
+  }, [brandSlug, state.success])
 
   const reasons = [
     { value: 'not_mit', label: t('reasonNotMit') },

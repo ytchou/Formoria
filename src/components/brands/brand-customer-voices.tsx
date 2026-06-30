@@ -6,7 +6,7 @@ interface BrandCustomerVoicesProps {
 }
 
 export async function BrandCustomerVoices({ brand }: BrandCustomerVoicesProps) {
-  if (brand.customerVoices.length === 0) return null
+  if (brand.customerVoices?.length === 0) return null
   const t = await getTranslations('brandDetail')
 
   return (

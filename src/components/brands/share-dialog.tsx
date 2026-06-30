@@ -43,8 +43,17 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
   const t = useTranslations('brandDetail.share')
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [origin, setOrigin] = useState('')
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const shareUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/brands/${brandSlug}`
+  const shareUrl = `${origin}/brands/${brandSlug}`
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setOrigin(window.location.origin)
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [])
 
   useEffect(() => {
     return () => {
