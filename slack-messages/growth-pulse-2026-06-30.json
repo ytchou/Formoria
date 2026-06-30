@@ -1,0 +1,81 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Growth Pulse — Jun 30"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "✅ *Steady day — no new signals; ongoing GA4 blackout tracked in DEV-879*"
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        { "type": "mrkdwn", "text": "*Sessions*\n0 (flat WoW)" },
+        { "type": "mrkdwn", "text": "*Users*\n0 (flat WoW)" },
+        { "type": "mrkdwn", "text": "*Page Views*\n0 (flat WoW)" },
+        { "type": "mrkdwn", "text": "*Bounce Rate*\n0% (0 pp WoW)" },
+        { "type": "mrkdwn", "text": "*Avg Duration*\n0m 0s (flat WoW)" }
+      ]
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Top Pages* (vs last week)\nNo pages recorded yesterday"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Referral Sources* (vs last week)\nNo referral sources recorded yesterday"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Signals*\n• *What:* 0 sessions, 0 users, 0 page views for Jun 29 (Sun). Same weekday last week (Jun 22) also recorded 0. Blackout now in its 8th+ consecutive day.\n  *So what:* Site continues to receive zero organic traffic. Today's WoW comparison is flat (0 vs 0), below the 30-session noise floor — no new critical/warning signal generated for today's run.\n  *Now what:* Review status of DEV-879. If site availability and GA4 tracking have been confirmed, data should begin populating within 24–48h of a fix."
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Ticket*\n• <https://linear.app/ytchou/issue/DEV-879|DEV-879>: [Growth Pulse] 2026-06-23 — Zero-traffic day 3: complete GA4 blackout continues (existing — still open)\n\nNo new ticket — continuing signal covered by DEV-879."
+      }
+    },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "Open GA4 Dashboard" },
+          "url": "https://analytics.google.com/analytics/web/#/p538232091/reports/"
+        }
+      ]
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Compared against same weekday last week. GA4 data may lag 24–48h."
+        }
+      ]
+    }
+  ]
+}
