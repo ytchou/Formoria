@@ -42,6 +42,11 @@ const liveBrand: Brand = {
   updatedAt: '2026-01-02T00:00:00Z',
 };
 
+const createTestBrand = (overrides: Partial<Brand> = {}): Brand => ({
+  ...liveBrand,
+  ...overrides,
+});
+
 describe('brandToDraftSnapshot', () => {
   it('captures only allow-listed editable fields, never id/slug/status', () => {
     const snap = brandToDraftSnapshot({
@@ -77,6 +82,20 @@ describe('mergeDraftOverBrand', () => {
     expect(merged.name).toBe('D');
     expect(merged).not.toHaveProperty('legacyRemovedField');
   });
+
+  it('preserves brand array defaults when draft snapshot has null arrays', () => {
+    const brand = createTestBrand({ customerVoices: [{ author: 'A', content: 'B', source: 'C' }] });
+    const snapshot: Record<string, unknown> = { customerVoices: null };
+    const merged = mergeDraftOverBrand(brand, snapshot);
+    expect(merged.customerVoices).toEqual([]);
+  });
+
+  it('preserves brand array defaults when draft snapshot omits array fields', () => {
+    const brand = createTestBrand({ customerVoices: [{ author: 'A', content: 'B', source: 'C' }] });
+    const snapshot: Record<string, unknown> = { name: 'Updated Name' };
+    const merged = mergeDraftOverBrand(brand, snapshot);
+    expect(merged.customerVoices).toEqual(brand.customerVoices);
+  });
 });
 
 describe('draftSnapshotToDomain', () => {
@@ -87,6 +106,32 @@ describe('draftSnapshotToDomain', () => {
     );
     expect(partial.purchaseWebsite).toBe('https://d.tw');
     expect(partial.socialInstagram).toBe('d_ig');
+  });
+
+  it('defaults missing array fields to empty arrays', () => {
+    const snapshot: Record<string, unknown> = {
+      name: 'Test Brand',
+      // customerVoices, productPhotos, otherUrls, retailLocations, productTags all absent
+    };
+    const result = draftSnapshotToDomain(snapshot);
+    expect(result.customerVoices).toBeUndefined();
+    expect(result.productPhotos).toBeUndefined();
+  });
+
+  it('defaults null array fields to empty arrays when key is present', () => {
+    const snapshot: Record<string, unknown> = {
+      customerVoices: null,
+      productPhotos: null,
+      otherUrls: null,
+      retailLocations: null,
+      productTags: null,
+    };
+    const result = draftSnapshotToDomain(snapshot);
+    expect(result.customerVoices).toEqual([]);
+    expect(result.productPhotos).toEqual([]);
+    expect(result.otherUrls).toEqual([]);
+    expect(result.retailLocations).toEqual([]);
+    expect(result.productTags).toEqual([]);
   });
 });
 

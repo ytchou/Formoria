@@ -449,13 +449,13 @@ export function draftSnapshotToDomain(
         partial.heroImageUrl = snapshot.heroImageUrl as Brand['heroImageUrl']
         break
       case 'productPhotos':
-        partial.productPhotos = snapshot.productPhotos as Brand['productPhotos']
+        partial.productPhotos = (snapshot.productPhotos as Brand['productPhotos']) ?? []
         break
       case 'priceRange':
         partial.priceRange = snapshot.priceRange as Brand['priceRange']
         break
       case 'productTags':
-        partial.productTags = snapshot.productTags as Brand['productTags']
+        partial.productTags = (snapshot.productTags as Brand['productTags']) ?? []
         break
       case 'purchaseWebsite':
         partial.purchaseWebsite = snapshot.purchaseWebsite as Brand['purchaseWebsite']
@@ -467,13 +467,13 @@ export function draftSnapshotToDomain(
         partial.purchaseShopee = snapshot.purchaseShopee as Brand['purchaseShopee']
         break
       case 'otherUrls':
-        partial.otherUrls = snapshot.otherUrls as Brand['otherUrls']
+        partial.otherUrls = (snapshot.otherUrls as Brand['otherUrls']) ?? []
         break
       case 'retailLocations':
-        partial.retailLocations = snapshot.retailLocations as Brand['retailLocations']
+        partial.retailLocations = (snapshot.retailLocations as Brand['retailLocations']) ?? []
         break
       case 'customerVoices':
-        partial.customerVoices = snapshot.customerVoices as Brand['customerVoices']
+        partial.customerVoices = (snapshot.customerVoices as Brand['customerVoices']) ?? []
         break
     }
   }

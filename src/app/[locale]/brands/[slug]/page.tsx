@@ -283,7 +283,7 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
 
             <BrandAbout brand={displayBrand} />
 
-            {displayBrand.customerVoices.length > 0 && <hr className="border-border" />}
+            {displayBrand.customerVoices?.length > 0 && <hr className="border-border" />}
 
             <BrandCustomerVoices brand={displayBrand} />
 
