@@ -9,7 +9,7 @@ import type { Brand, CustomerVoice, OtherUrl, RetailLocation } from '@/lib/types
 
 type Props = {
   params: Promise<{ locale: string }>
-  searchParams: Promise<{ brand?: string }>
+  searchParams?: Promise<{ brand?: string }>
 }
 
 type LinkItem = {
@@ -191,7 +191,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
   setRequestLocale(locale)
   const t = await getTranslations('dashboard.brandProfile')
 
-  const resolvedSearchParams = await searchParams
+  const resolvedSearchParams = searchParams ? await searchParams : {}
   const supabase = await createClient()
   const {
     data: { user },
