@@ -1,0 +1,88 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Sentry Daily Triage — 2026-06-29 to 2026-06-30",
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Summary*\nTotal issues found: *15* — Critical: 3 · Moderate: 5 · Trivial: 5 · Noise: 2\nTickets created: *4 new* · 1 skipped (existing DEV-881) · 6 auto-resolved (validated fixed in codebase)\nIncident mode: No (≤20 issues)"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Auto-Resolved (6):*\nErrors that had Sentry events in the last 24 hours but no longer exist in the current codebase.\n- :white_check_mark: *MIT-MAP-1J · MIT-MAP-1B · MIT-MAP-1C* — `column brands.founder does not exist` (74 + 4 + 2 events) — `BRAND_COLUMNS` no longer includes `founder`; migration 20260628150002 already dropped the column. Code is fixed.\n- :white_check_mark: *MIT-MAP-S* — `Error: ./src/app/[locale]/layout.tsx:13:1` (74 events) — `src/lib/seo/alternates.ts` exists and exports `Locale`; the type import at line 13 resolves correctly.\n- :white_check_mark: *MIT-MAP-2W · MIT-MAP-2V* — `ReferenceError: getUserBrands is not defined` (1 + 1 events) — `getUserBrands` is defined in `src/lib/services/brand-owners.ts:29` and properly imported in the dashboard page."
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": ":red_circle: *CRITICAL*\n\n*<https://yung-tang-chou.sentry.io/issues/MIT-MAP-2R|TypeError: Cannot read properties of undefined (reading 'length')>*\nEvents: 24 (23 + 1 related MIT-MAP-2S) · New · Severity: Critical\nBrand detail page crashes when a brand has a draft snapshot that omits `customerVoices`. `draftSnapshotToDomain` sets `partial.customerVoices = undefined`, which then spreads over the brand, making `displayBrand.customerVoices.length` throw at brands/[slug]/page.tsx:286. Fix: add `?? []` guard in `draftSnapshotToDomain`.\nTicket: <https://linear.app/ytchou/issue/DEV-911/fix-typeerror-customervoiceslength-on-brand-detail-page-when-draft|DEV-911> — Fix TypeError: customerVoices.length on brand detail page · Priority: Urgent · Labels: Bug, L"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": ":large_yellow_circle: *MODERATE*\n\n*<https://yung-tang-chou.sentry.io/issues/MIT-MAP-2P|TypeError: Cannot read properties of undefined (reading 'brand')>*\nEvents: 21 combined (MIT-MAP-2P: 11 + MIT-MAP-2Q: 10, same route) · New · Severity: Moderate\nDashboard `/brands/[slug]` route triggers TypeError reading `.brand` — the page only redirects, so the error originates in the dashboard layout or a shared component. Likely `await searchParams` returning undefined in an edge case. Requires stack-trace investigation.\nTicket: <https://linear.app/ytchou/issue/DEV-912/investigate-typeerror-searchparamsbrand-undefined-on|DEV-912> — Investigate TypeError: searchParams.brand undefined · Priority: High · Labels: Bug, M\n\n*<https://yung-tang-chou.sentry.io/issues/MIT-MAP-9|Error: Failed to call useTranslations because NextIntlClientProvider was not found>*\nEvents: 1 · New · Severity: Moderate\nClient component using `useTranslations` rendered outside NextIntlClientProvider context on `GET /[locale]`. Layout wraps children correctly; likely a timing or SSR edge case.\nTicket: Existing: <https://linear.app/ytchou/issue/DEV-881/provide-nextintlclientprovider-context-for-homepage-when-server-render|DEV-881>"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": ":white_circle: *TRIVIAL*\n\n*<https://yung-tang-chou.sentry.io/issues/MIT-MAP-2T|Hydration failed — server/client HTML mismatch>*\nEvents: 1 · New · Severity: Trivial\nSSR/client mismatch on brand detail page — likely a client component (`SavedBrandsProvider`, `BrandViewTracker`) reading browser-only state during server render. Investigate `use-saved-brands` localStorage reads.\nTicket: <https://linear.app/ytchou/issue/DEV-913/fix-hydration-mismatch-on-brand-detail-page-brandsslug|DEV-913> — Fix hydration mismatch on brand detail page · Priority: Normal · Labels: Bug, S\n\n*<https://yung-tang-chou.sentry.io/issues/MIT-MAP-2X|Error: ./src/components/brands/admin-brand-menu.tsx:14:1>*\nEvents: 1 · New (45 min ago) · Severity: Trivial\nWebpack module resolution error on `/_error`. All imports in `admin-brand-menu.tsx` resolve correctly in the current codebase; could be a transient build cache issue or lucide-react@1.14.0 export change.\nTicket: <https://linear.app/ytchou/issue/DEV-914/investigate-build-error-in-admin-brand-menutsx-webpack|DEV-914> — Investigate build error in admin-brand-menu.tsx · Priority: Normal · Labels: Bug, S\n\n*<https://yung-tang-chou.sentry.io/issues/MIT-MAP-2S|TypeError: Cannot read properties of undefined (reading 'length')>* (same route, 1 event)\nGrouped with DEV-911 above — same root cause as MIT-MAP-2R."
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": ":mute: *NOISE (not ticketed)*\n- *MIT-MAP-23* — `Failed to find Server Action` (1 event) — Stale client hitting new deployment; expected during deploys.\n- *MIT-MAP-8* — `Error: aborted` (1 event) — HTTP connection abort at `node:_http_server`; expected edge case."
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Tickets Created (4):*\n- <https://linear.app/ytchou/issue/DEV-911/fix-typeerror-customervoiceslength-on-brand-detail-page-when-draft|DEV-911> — Fix TypeError: customerVoices.length on brand detail page (Priority: Urgent, L)\n- <https://linear.app/ytchou/issue/DEV-912/investigate-typeerror-searchparamsbrand-undefined-on|DEV-912> — Investigate TypeError: searchParams.brand undefined on dashboard (Priority: High, M)\n- <https://linear.app/ytchou/issue/DEV-913/fix-hydration-mismatch-on-brand-detail-page-brandsslug|DEV-913> — Fix hydration mismatch on brand detail page (Priority: Normal, S)\n- <https://linear.app/ytchou/issue/DEV-914/investigate-build-error-in-admin-brand-menutsx-webpack|DEV-914> — Investigate build error in admin-brand-menu.tsx (Priority: Normal, S)\n\nSkipped 1 duplicate (existing ticket): <https://linear.app/ytchou/issue/DEV-881/provide-nextintlclientprovider-context-for-homepage-when-server-render|DEV-881>\n6 issues auto-resolved (not ticketed — validated as fixed in codebase)"
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Sentry Daily Triage · Formoria · 2026-06-30T00:11 UTC · <https://yung-tang-chou.sentry.io/issues/|View in Sentry>"
+        }
+      ]
+    }
+  ]
+}
