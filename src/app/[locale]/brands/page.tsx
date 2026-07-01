@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
-import { getTranslations, setRequestLocale } from 'next-intl/server'
+import { NextIntlClientProvider } from 'next-intl'
+import { getTranslations, setRequestLocale, getMessages } from 'next-intl/server'
 import { getBrands, getPopularCategories, getFeaturedBrands } from '@/lib/services/brands'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildWebSiteJsonLd } from '@/lib/json-ld'
@@ -117,7 +118,10 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   const { locale } = await params
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const t = await getTranslations('brands')
+  const [t, messages] = await Promise.all([
+    getTranslations('brands'),
+    getMessages(),
+  ])
   const sp = await searchParams
 
   const page = parsePageParam(sp.page as string | undefined)
@@ -209,6 +213,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   }
 
   return (
+    <NextIntlClientProvider messages={messages}>
     <main className="mx-auto grid w-full max-w-screen-xl gap-8 px-6 py-10 md:px-10 lg:grid-cols-[16rem_minmax(0,1fr)]">
       {/* JSON-LD structured data */}
       <script
@@ -309,5 +314,6 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
         />
       </div>
     </main>
+    </NextIntlClientProvider>
   )
 }

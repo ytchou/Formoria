@@ -33,9 +33,11 @@ export default async function DashboardLayout({
     data: { user },
   } = await supabase.auth.getUser()
 
+  if (!user) return null
+
   const ctx = await resolveDashboardBrand(
-    user?.id ?? '',
-    user?.email ?? null,
+    user.id,
+    user.email ?? null,
     resolvedSearchParams.brand
   )
 
