@@ -128,6 +128,7 @@ jobs:
   # boundary, next/image config, route/metadata exports) before they break the deploy.
   # Runs in parallel with the jobs above; the .next/cache restore keeps it incremental.
   build:
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
