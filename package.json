@@ -71,6 +71,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "jsdom": "^29.1.1",
+    "knip": "^6.23.0",
     "react-email": "^6.6.3",
     "tailwindcss": "^4",
     "tsx": "^4",
