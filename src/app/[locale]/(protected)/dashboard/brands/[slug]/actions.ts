@@ -332,13 +332,12 @@ export async function updateBrandAction(
       if (autoApprove) {
         await applyBrandUpdate(brand, updateData)
         await completeOnboardingAfterOwnerSubmit(formData, brand.id, user.id, owner)
-        redirect(`/dashboard?brand=${brandSlug}`)
+      } else {
+        await createPendingEdit(brand.id, user.id, updateData as Record<string, unknown>)
+        await saveModerationFlagsQuietly(brand.id, user.id, moderationResult)
+        await completeOnboardingAfterOwnerSubmit(formData, brand.id, user.id, owner)
+        return { success: true, message: 'brandEditSubmittedForReview' }
       }
-
-      await createPendingEdit(brand.id, user.id, updateData as Record<string, unknown>)
-      await saveModerationFlagsQuietly(brand.id, user.id, moderationResult)
-      await completeOnboardingAfterOwnerSubmit(formData, brand.id, user.id, owner)
-      return { success: true, message: 'brandEditSubmittedForReview' }
     }
 
     await applyBrandUpdate(brand, updateData)
@@ -468,13 +467,12 @@ export async function publishDraftAction(
 
         revalidatePath('/[locale]/brands/[slug]', 'page')
         revalidatePath('/dashboard')
-        redirect(`/dashboard?brand=${brandSlug}`)
+      } else {
+        await createPendingEdit(brand.id, user.id, draftPartial)
+        await saveModerationFlagsQuietly(brand.id, user.id, moderationResult)
+        await discardDraft(brand.id)
+        return { success: true, message: 'brandEditSubmittedForReview' }
       }
-
-      await createPendingEdit(brand.id, user.id, draftPartial)
-      await saveModerationFlagsQuietly(brand.id, user.id, moderationResult)
-      await discardDraft(brand.id)
-      return { success: true, message: 'brandEditSubmittedForReview' }
     }
 
     const nextImageUrls = imageUrlsFromBrand({
