@@ -31,7 +31,7 @@ export function ProductTagField({
   function addTag(rawValue: string) {
     const tag = normalizeTag(rawValue)
     if (!tag || tag.length > 40 || tags.length >= MAX_TAGS) return
-    if (tags.some((current) => current.toLocaleLowerCase() === tag.toLocaleLowerCase())) return
+    if (tags.some((current) => current.toLowerCase() === tag.toLowerCase())) return
     setTags((current) => [...current, tag])
     setValue('')
   }
@@ -42,7 +42,7 @@ export function ProductTagField({
       <div className="flex min-h-11 flex-wrap gap-2 rounded-lg border border-border bg-background p-2">
         {tags.map((tag) => (
           <span
-            key={tag.toLocaleLowerCase()}
+            key={tag.toLowerCase()}
             className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary"
           >
             {tag}
@@ -50,6 +50,7 @@ export function ProductTagField({
               type="button"
               aria-label={`${removeLabel}: ${tag}`}
               className="rounded-full p-0.5 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onMouseDown={(event) => event.preventDefault()}
               onClick={() => setTags((current) => current.filter((item) => item !== tag))}
             >
               <X className="size-3.5" />
