@@ -61,6 +61,18 @@ CREATE POLICY owner_update_brand_onboarding_steps
     AND completed_by_user_id = auth.uid()
   );
 
+CREATE POLICY "Brand owners can delete their onboarding steps"
+  ON public.brand_onboarding_steps
+  FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.brands
+      WHERE brands.id = brand_onboarding_steps.brand_id
+        AND brands.owner_id = auth.uid()
+    )
+  );
+
 CREATE POLICY service_role_all_brand_onboarding_steps
   ON public.brand_onboarding_steps
   FOR ALL
@@ -69,3 +81,10 @@ CREATE POLICY service_role_all_brand_onboarding_steps
 
 CREATE INDEX brand_onboarding_steps_status_idx
   ON public.brand_onboarding_steps (brand_id, status);
+
+ALTER TABLE public.brand_onboarding_steps ADD CONSTRAINT check_step_data_integrity
+  CHECK (
+    (status = 'complete' AND completed_at IS NOT NULL AND completed_by_user_id IS NOT NULL)
+    OR
+    (status != 'complete' AND completed_at IS NULL)
+  );
