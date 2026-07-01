@@ -25,7 +25,6 @@ describe('WelcomeBanner', () => {
       <NextIntlClientProvider locale="en" messages={en}>
         <WelcomeBanner
           completedCount={1}
-          isComplete={false}
           nextStep="products"
           slug="test-brand"
           steps={[
@@ -49,19 +48,25 @@ describe('WelcomeBanner', () => {
     )
   })
 
-  it('does not render after all steps are reviewed', () => {
-    const { container } = render(
+  it('renders at 100% when all steps are completed', () => {
+    render(
       <NextIntlClientProvider locale="en" messages={en}>
         <WelcomeBanner
           completedCount={5}
-          isComplete
           nextStep={null}
           slug="test-brand"
-          steps={[]}
+          steps={[
+            { key: 'basics', status: 'complete' },
+            { key: 'products', status: 'complete' },
+            { key: 'story_media', status: 'complete' },
+            { key: 'purchase', status: 'complete' },
+            { key: 'social_proof', status: 'complete' },
+          ]}
         />
       </NextIntlClientProvider>
     )
 
-    expect(container).toBeEmptyDOMElement()
+    expect(screen.getByText('5 of 5 reviewed')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '5')
   })
 })

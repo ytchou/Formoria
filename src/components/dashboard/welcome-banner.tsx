@@ -4,11 +4,10 @@ import { ArrowRight, Check, Circle, ListChecks } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { startOnboardingStepAction } from '@/lib/actions/brand-onboarding'
-import type { OnboardingStep, OnboardingStepKey } from '@/lib/services/brand-onboarding'
+import { ONBOARDING_STEPS, type OnboardingStep, type OnboardingStepKey } from '@/lib/services/brand-onboarding'
 
 type WelcomeBannerProps = {
   completedCount: number
-  isComplete: boolean
   nextStep: OnboardingStepKey | null
   slug: string
   steps: OnboardingStep[]
@@ -16,18 +15,13 @@ type WelcomeBannerProps = {
 
 export function WelcomeBanner({
   completedCount,
-  isComplete,
   nextStep,
   slug,
   steps,
 }: WelcomeBannerProps) {
   const t = useTranslations('dashboard.onboarding')
 
-  if (isComplete || !nextStep) {
-    return null
-  }
-
-  const percentage = (completedCount / 5) * 100
+  const percentage = (completedCount / ONBOARDING_STEPS.length) * 100
 
   return (
     <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -40,7 +34,7 @@ export function WelcomeBanner({
             {t('card.title')}
           </h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {t('progress', { completed: completedCount, total: 5 })}
+            {t('progress', { completed: completedCount, total: ONBOARDING_STEPS.length })}
           </p>
         </div>
       </div>
@@ -50,7 +44,7 @@ export function WelcomeBanner({
         role="progressbar"
         aria-label={t('card.progressLabel')}
         aria-valuemin={0}
-        aria-valuemax={5}
+        aria-valuemax={ONBOARDING_STEPS.length}
         aria-valuenow={completedCount}
       >
         <div

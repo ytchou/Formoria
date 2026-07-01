@@ -1104,6 +1104,8 @@
       "fieldBrandHighlights": "Brand highlights",
       "fieldHighlightsHint": "Max 300 characters",
       "fieldFoundingYear": "Founding Year",
+      "fieldPriceRange": "Price Range",
+      "fieldPriceRangeUnset": "Unset",
       "fieldLogo": "Logo",
       "fieldHeroImage": "Hero Image",
       "fieldProductPhotos": "Product photos",

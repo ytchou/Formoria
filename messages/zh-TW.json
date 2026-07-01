@@ -1105,6 +1105,8 @@
       "fieldBrandHighlights": "品牌亮點",
       "fieldHighlightsHint": "最多 300 字",
       "fieldFoundingYear": "創立年份",
+      "fieldPriceRange": "價格範圍",
+      "fieldPriceRangeUnset": "未設定",
       "fieldLogo": "品牌 Logo",
       "fieldHeroImage": "主視覺圖片",
       "fieldProductPhotos": "產品照片",

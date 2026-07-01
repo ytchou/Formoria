@@ -196,7 +196,7 @@ export function BrandEditForm({ brand, onboardingStep }: BrandEditFormProps) {
           </h2>
 
           <div id="social-proof" className="scroll-mt-8 space-y-4 rounded-lg border border-border bg-background p-4">
-            <div className="inline-flex min-h-12 items-center rounded-lg bg-primary px-4 text-[11px] font-semibold uppercase tracking-wide text-primary-foreground">
+            <div className="inline-flex min-h-12 items-center rounded-lg bg-primary px-4 text-[11px] font-medium uppercase tracking-wide text-primary-foreground">
               {tx("socialLinksLabel", "Social links")}
             </div>
             <div className="grid gap-3">
@@ -244,7 +244,7 @@ export function BrandEditForm({ brand, onboardingStep }: BrandEditFormProps) {
           </div>
 
           <div className="space-y-4 rounded-lg border border-border bg-background p-4">
-            <div className="inline-flex min-h-12 items-center rounded-lg bg-cta px-4 text-[11px] font-semibold uppercase tracking-wide text-cta-foreground">
+            <div className="inline-flex min-h-12 items-center rounded-lg bg-primary px-4 text-[11px] font-medium uppercase tracking-wide text-primary-foreground">
               {t("fieldPurchaseLinks")}
             </div>
             <div className="grid gap-3">
@@ -294,7 +294,7 @@ export function BrandEditForm({ brand, onboardingStep }: BrandEditFormProps) {
           </div>
 
           <div className="space-y-4 rounded-lg border border-border bg-background p-4">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-foreground">
               {tx("fieldOtherLinks", "Other links")}
             </div>
             <DynamicArrayField<OtherUrl>
@@ -340,7 +340,7 @@ export function BrandEditForm({ brand, onboardingStep }: BrandEditFormProps) {
           </h2>
 
           <div className="space-y-4 rounded-lg border border-border bg-background p-4">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-foreground">
               {t("customerVoicesLabel")}
             </div>
             <DynamicArrayField<CustomerVoice>

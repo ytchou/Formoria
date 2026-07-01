@@ -74,7 +74,7 @@ function SortablePhoto({
         />
 
         {isCover && (
-          <span className="absolute left-3 top-3 inline-flex min-h-6 items-center rounded-full bg-cta px-2.5 py-1 text-[11px] font-semibold text-cta-foreground">
+          <span className="absolute left-3 top-3 inline-flex min-h-6 items-center rounded-full bg-cta px-2.5 py-1 text-[11px] font-medium text-cta-foreground">
             {t('cover')}
           </span>
         )}
