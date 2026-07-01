@@ -14,6 +14,8 @@ export const resolveDashboardBrand = cache(async (
   email: string | null,
   requestedSlug?: string
 ): Promise<DashboardBrandContext | null> => {
+  if (!userId) return null
+
   const ownedBrands = await getUserBrands(userId)
 
   const impersonatedSlug = await getImpersonatedBrandSlug()
