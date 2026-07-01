@@ -1,6 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
+import { sanitizeHref } from '@/lib/url'
 import type { ReactNode } from 'react'
 import {
   AtSign,
@@ -49,9 +50,7 @@ function normalizeWebsiteUrl(value: string | undefined | null): string | null {
 }
 
 function normalizeDirectUrl(value: string | undefined | null): string | null {
-  if (!value) return null
-  const trimmed = value.trim()
-  return trimmed || null
+  return sanitizeHref(value)
 }
 
 function FacebookIcon({ className }: { className?: string }) {

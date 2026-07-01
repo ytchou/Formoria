@@ -31,9 +31,9 @@ function buildFieldSchemas(t: Translator) {
   const socialLinksSchema = z.object({
     instagram: z.string().optional().default(''),
     threads: z.string().optional().default(''),
-    facebook: z.string().optional().default(''),
-    pinkoi: z.string().optional().default(''),
-    shopee: z.string().optional().default(''),
+    facebook: httpUrl(t('validation.urlInvalid')).or(z.literal('')).optional().default(''),
+    pinkoi: httpUrl(t('validation.urlInvalid')).or(z.literal('')).optional().default(''),
+    shopee: httpUrl(t('validation.urlInvalid')).or(z.literal('')).optional().default(''),
     website: httpUrl(t('validation.urlInvalid')).or(z.literal('')).optional().default(''),
   })
 

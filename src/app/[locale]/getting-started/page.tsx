@@ -9,7 +9,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { OwnerBenefitsSection } from '@/components/getting-started/OwnerBenefitsSection'
-import { buildFaqPageJsonLd } from '@/lib/json-ld'
+import { buildFaqPageJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 
@@ -64,7 +64,7 @@ export default async function GettingStartedPage({ params }: PageProps) {
     <main className="mx-auto w-full max-w-screen-xl px-6 py-10 md:px-10">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildFaqPageJsonLd(faqItems, safeLocale)) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(buildFaqPageJsonLd(faqItems, safeLocale)) }}
       />
       <section className="grid gap-8 border-b border-border pb-10 md:grid-cols-[minmax(0,1fr)_18rem] md:items-end">
         <div className="max-w-3xl">

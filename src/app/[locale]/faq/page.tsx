@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { ChevronDown } from 'lucide-react'
-import { buildFaqPageJsonLd } from '@/lib/json-ld'
+import { buildFaqPageJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { CONTACT_EMAILS } from '@/lib/constants'
@@ -79,7 +79,7 @@ export default async function FaqPage({ params }: PageProps) {
     <main className="mx-auto w-full max-w-screen-xl px-6 py-10 md:px-10">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildFaqPageJsonLd(faqItems, safeLocale)) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(buildFaqPageJsonLd(faqItems, safeLocale)) }}
       />
       <OpenTargetDetails />
       <div className="grid gap-10 md:grid-cols-[18rem_minmax(0,1fr)] md:gap-16">

@@ -8,6 +8,7 @@ import {
   buildFaqPageJsonLd,
   buildOrganizationJsonLd,
   buildWebSiteJsonLd,
+  safeJsonLdStringify,
   type JsonLdObject,
 } from '@/lib/json-ld'
 import type { Brand } from '@/lib/types'
@@ -318,5 +319,27 @@ describe('buildDefinedTermSetJsonLd', () => {
     expect(ld['@type']).toBe('DefinedTermSet')
     expect(ld.hasDefinedTerm[0]['@type']).toBe('DefinedTerm')
     expect(ld.hasDefinedTerm[0].name).toBe('台灣製造')
+  })
+})
+
+describe('safeJsonLdStringify', () => {
+  it('produces valid JSON', () => {
+    const data = { name: 'Test Brand', description: 'A brand' }
+    const result = safeJsonLdStringify(data)
+    expect(JSON.parse(result)).toEqual(data)
+  })
+
+  it('escapes script-closing sequences', () => {
+    const data = { name: '</script><script>alert(1)</script>' }
+    const result = safeJsonLdStringify(data)
+    expect(result).not.toContain('</script>')
+    expect(result).toContain('\\u003c')
+    expect(JSON.parse(result)).toEqual(data)
+  })
+
+  it('preserves CJK characters and emoji', () => {
+    const data = { name: '茶籽堂 🌿' }
+    const result = safeJsonLdStringify(data)
+    expect(JSON.parse(result)).toEqual(data)
   })
 })

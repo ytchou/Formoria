@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { getBrands, getPopularCategories, getFeaturedBrands } from '@/lib/services/brands'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
-import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildWebSiteJsonLd } from '@/lib/json-ld'
+import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildWebSiteJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { parsePageParam, parseSortParam, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import {
   BrandFilterDrawer,
@@ -213,18 +213,18 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
       {/* JSON-LD structured data */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildWebSiteJsonLd(safeLocale)) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(buildWebSiteJsonLd(safeLocale)) }}
       />
       {categoryItemListJsonLd ? (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(categoryItemListJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(categoryItemListJsonLd) }}
         />
       ) : null}
       {categoryBreadcrumbJsonLd ? (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(categoryBreadcrumbJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(categoryBreadcrumbJsonLd) }}
         />
       ) : null}
       <ViewItemListTracker listName="directory" itemCount={displayBrands.length} />

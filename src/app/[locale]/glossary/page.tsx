@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { getTranslations, getMessages, setRequestLocale } from 'next-intl/server'
-import { buildDefinedTermSetJsonLd, buildBreadcrumbJsonLd } from '@/lib/json-ld'
+import { buildDefinedTermSetJsonLd, buildBreadcrumbJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { MitVerifiedBadge, OwnerVerifiedBadge } from '@/components/brands/brand-verification-badges'
@@ -111,11 +111,11 @@ export default async function GlossaryPage({ params }: PageProps) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(definedTermSetJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(definedTermSetJsonLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbJsonLd) }}
       />
       <main>
         <div className="max-w-6xl mx-auto px-4 py-12 sm:px-6 md:py-16">

@@ -27,6 +27,7 @@ import {
 import type { Brand, CustomerVoice, OtherUrl, RetailLocation } from '@/lib/types'
 import type { ContentPayload, ModerationResult } from '@/lib/services/moderation'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { sanitizeHref } from '@/lib/url'
 
 type ActionState = {
   success?: boolean
@@ -179,10 +180,13 @@ function parseBrandEditForm(
   if (formData.has('productType')) updateData.productType = productType
   if (foundingYear !== null && !isNaN(foundingYear)) updateData.foundingYear = foundingYear
   if (formData.has('purchaseWebsite')) updateData.purchaseWebsite = purchaseWebsite
-  if (formData.has('purchasePinkoi')) updateData.purchasePinkoi = purchasePinkoi
-  if (formData.has('purchaseShopee')) updateData.purchaseShopee = purchaseShopee
+  if (formData.has('purchasePinkoi')) updateData.purchasePinkoi = sanitizeHref(purchasePinkoi) ?? null
+  if (formData.has('purchaseShopee')) updateData.purchaseShopee = sanitizeHref(purchaseShopee) ?? null
   if (hasOtherUrls) {
-    updateData.otherUrls = otherUrls
+    updateData.otherUrls = otherUrls.map((entry) => ({
+      ...entry,
+      url: sanitizeHref(entry.url) ?? '',
+    }))
   }
   if (hasCustomerVoices) {
     updateData.customerVoices = customerVoices
@@ -192,7 +196,7 @@ function parseBrandEditForm(
   }
   if (instagram !== null) updateData.socialInstagram = instagram || null
   if (threads !== null) updateData.socialThreads = threads || null
-  if (facebook !== null) updateData.socialFacebook = facebook || null
+  if (facebook !== null) updateData.socialFacebook = sanitizeHref(facebook) ?? null
   if (formData.has('heroImageUrl')) updateData.heroImageUrl = heroImageUrl
   if (formData.has('productPhotos')) updateData.productPhotos = productPhotos
   if (formData.has('priceRange')) {

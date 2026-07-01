@@ -12,7 +12,7 @@ import {
   mergeDraftOverBrand,
 } from '@/lib/services/brands'
 import { hasPendingClaim } from '@/lib/services/claim-requests'
-import { buildBrandJsonLd, buildBreadcrumbJsonLd } from '@/lib/json-ld'
+import { buildBrandJsonLd, buildBreadcrumbJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import type { BreadcrumbItem } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
@@ -40,6 +40,7 @@ import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { NotFoundError } from '@/lib/errors'
+import { sanitizeHref } from '@/lib/url'
 
 // 1h ISR: ownership/verified-state changes propagate within ~an hour; route still statically served between regenerations
 export const revalidate = 3600
@@ -210,7 +211,11 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
   ])
 
   // Visit Website URL — fallback: purchaseWebsite → facebook → pinkoi → shopee
-  const visitUrl = displayBrand.purchaseWebsite || displayBrand.socialFacebook || displayBrand.purchasePinkoi || displayBrand.purchaseShopee || null
+  const visitUrl = sanitizeHref(displayBrand.purchaseWebsite)
+    || sanitizeHref(displayBrand.socialFacebook)
+    || sanitizeHref(displayBrand.purchasePinkoi)
+    || sanitizeHref(displayBrand.purchaseShopee)
+    || null
 
   // Breadcrumb items for JSON-LD
   const tBrandDetail = await getTranslations('brandDetail')
@@ -238,11 +243,11 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
         {/* JSON-LD structured data */}
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(buildBrandJsonLd(displayBrand, safeLocale)) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(buildBrandJsonLd(displayBrand, safeLocale)) }}
         />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(buildBreadcrumbJsonLd(breadcrumbItems, safeLocale)) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(buildBreadcrumbJsonLd(breadcrumbItems, safeLocale)) }}
         />
 
         {/* Breadcrumb */}
