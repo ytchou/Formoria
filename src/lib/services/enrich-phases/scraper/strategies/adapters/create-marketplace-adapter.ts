@@ -52,7 +52,8 @@ export function createMarketplaceAdapter(config: MarketplaceAdapterConfig): Plat
         metaContent($, 'meta[property="og:title"]') ||
           firstString(structuredStore?.name) ||
           textContent($, 'h1') ||
-          textContent($, config.shopNameSelector),
+          textContent($, config.shopNameSelector) ||
+          textContent($, config.host === 'pinkoi.com' ? '[data-testid*="store"] h1' : '[data-testid*="shop"] h1'),
         config.titleSuffixPatterns
       )
 
@@ -60,8 +61,8 @@ export function createMarketplaceAdapter(config: MarketplaceAdapterConfig): Plat
         metaContent($, 'meta[property="og:description"]') ||
         metaContent($, 'meta[name="description"]') ||
         firstString(structuredStore?.description) ||
-        textContent($, config.shopDescriptionSelector) ||
-        textContent($, '[class*="description"]')
+        textContent($, config.host === 'pinkoi.com' ? '[class*="description"]' : config.shopDescriptionSelector) ||
+        textContent($, config.host === 'pinkoi.com' ? '[class*="story"]' : '[class*="description"]')
 
       const heroCandidate =
         metaContent($, 'meta[property="og:image"]') ||

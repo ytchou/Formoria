@@ -42,6 +42,45 @@ const shopeeHtml = `
 </html>
 `
 
+const pinkoiDataTestIdFallbackHtml = `
+<html>
+  <head>
+    <meta property="og:description" content="Pinkoi fallback story" />
+  </head>
+  <body>
+    <div data-testid="store-name">
+      <h1>粉紅設計 Pinkoi</h1>
+    </div>
+  </body>
+</html>
+`
+
+const shopeeDataTestIdFallbackHtml = `
+<html>
+  <head>
+    <meta property="og:description" content="Shopee fallback story" />
+  </head>
+  <body>
+    <div data-testid="shop-header">
+      <h1>蝦皮選物 Shopee</h1>
+    </div>
+  </body>
+</html>
+`
+
+const pinkoiDescriptionOrderHtml = `
+<html>
+  <head>
+    <meta property="og:title" content="手工皂 | Pinkoi 設計購物網站" />
+  </head>
+  <body>
+    <h1>手工皂 Pinkoi</h1>
+    <section class="product-description">Description wins</section>
+    <section class="brand-story">Story loses</section>
+  </body>
+</html>
+`
+
 describe('createMarketplaceAdapter', () => {
   it('matches expected hosts', () => {
     expect(pinkoiAdapter.matches('https://sub.pinkoi.com/store/xiaoqi')).toBe(true)
@@ -87,6 +126,17 @@ describe('createMarketplaceAdapter', () => {
       image: 'https://down-tw.img.susercontent.com/file/tw-11134207-7rasm-product1_tn',
       '@graph': [{ '@type': 'BreadcrumbList', itemListElement: [{ name: 'Home' }, { name: 'Shop' }] }],
     })
+  })
+
+  it('extracts brand names from adapter-specific data-testid fallbacks', () => {
+    expect(pinkoiAdapter.parse(pinkoiDataTestIdFallbackHtml, 'https://pinkoi.com/store/mybrand').brandName).toBe('粉紅設計')
+    expect(shopeeAdapter.parse(shopeeDataTestIdFallbackHtml, 'https://shopee.tw/shop/123').brandName).toBe('蝦皮選物')
+  })
+
+  it('prefers pinkoi description selector text over story text when both match', () => {
+    const result = pinkoiAdapter.parse(pinkoiDescriptionOrderHtml, 'https://pinkoi.com/store/mybrand')
+    expect(result.description).toBe('Description wins')
+    expect(result.story).toBe('Description wins')
   })
 
   it('cleanly strips pinkoi and shopee title suffixes', () => {
