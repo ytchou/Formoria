@@ -304,25 +304,6 @@ export async function saveModerationFlags(
   if (error) throw error
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function getModerationFlags(brandId: string): Promise<ModerationFlag[]> {
-  const supabase = createModerationClient()
-  const { data, error } = await supabase
-    .from('moderation_flags')
-    .select('*')
-    .eq('brand_id', brandId)
-    .neq('status', 'reviewed')
-    .order('created_at', { ascending: false })
-
-  if (error || !data) return []
-  return data.map(row => ({
-    fieldName: row.field_name,
-    tier: row.tier as ModerationTier,
-    reason: row.flag_reason,
-    flaggedContent: row.flagged_content,
-  }))
-}
-
 export async function getModerationFlagsBatch(
   brandIds: string[]
 ): Promise<Map<string, ModerationFlag[]>> {
