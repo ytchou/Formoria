@@ -84,6 +84,9 @@ check_env() {
     else
       echo "WARN: APIFY_TOKEN not set (enrichment commands will fail)"
     fi
+    # NOTE: MIT registry sync is scheduled via pg_cron (Sundays 2 AM UTC,
+    # job name: sync-mit-registry-weekly). Auth uses ORIGIN_SECRET (app.origin_secret).
+    # See supabase/migrations/20260702130000_schedule_mit_registry_sync.sql
   fi
 }
 

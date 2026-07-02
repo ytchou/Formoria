@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ENRICH_PHASES } from '@/lib/constants/enrich-phases'
 import type { BrandFlatLinkColumns } from '@/lib/types'
 import type { CurationConfig, PhaseResult, PhaseStatus } from '@/lib/types/curation'
-import type { Database } from '@/lib/database.types'
+import type { Database } from '@/lib/supabase/database.types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 
 export type EnrichPhase = (typeof ENRICH_PHASES)[number]

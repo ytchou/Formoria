@@ -11,6 +11,7 @@ import {
   TEXT_SECONDARY,
 } from '@emails/styles'
 import type { EmailMessage } from '@emails/types'
+import { listUnsubscribeHeaders } from '@emails/utils'
 
 type NewsletterConfirmEmailProps = {
   to: string
@@ -65,12 +66,6 @@ function unsubscribeUrl(token: string) {
   return `${SITE_URL}/api/newsletter/unsubscribe?token=${encodeURIComponent(token)}`
 }
 
-function listUnsubscribeHeaders(token: string): Record<string, string> {
-  return {
-    'List-Unsubscribe': `<${unsubscribeUrl(token)}>`,
-    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-  }
-}
 
 export function NewsletterConfirmEmail({
   confirmToken,
@@ -129,7 +124,7 @@ export async function buildNewsletterConfirmEmail(
     subject: COPY[lang].subject,
     html,
     replyTo: 'ops@formoria.com',
-    headers: listUnsubscribeHeaders(params.confirmToken),
+    headers: listUnsubscribeHeaders(unsubscribeUrl(params.confirmToken)),
   }
 }
 
