@@ -24,6 +24,8 @@ import type { BrandFilters } from '@/lib/types'
 // ISR: revalidate every hour
 export const revalidate = 3600
 
+const VALID_CATEGORY_SLUGS = new Set(PRODUCT_TYPE_CATEGORIES.map((c) => c.slug))
+
 interface BrandsPageProps {
   params: Promise<{ locale: string }>
   searchParams: Promise<Record<string, string | string[] | undefined>>
@@ -129,13 +131,14 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   const search =
     typeof sp.search === 'string' ? sp.search.trim() : ''
   const categoryFilter = parseCommaParam(sp.category)
+  const validCategoryFilter = categoryFilter.filter((slug) => VALID_CATEGORY_SLUGS.has(slug))
   const priceRanges = parsePriceRanges(sp.price)
   const verificationFilter = parseVerificationParam(sp.verification)
 
   const { brands, totalCount } = await getBrands({
     status: 'approved',
     search: search || undefined,
-    category: categoryFilter.length > 0 ? categoryFilter : undefined,
+    category: validCategoryFilter.length > 0 ? validCategoryFilter : undefined,
     priceRanges: priceRanges.length > 0 ? priceRanges : undefined,
     verificationFilter,
     sort,
@@ -153,7 +156,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
     const refetched = await getBrands({
       status: 'approved',
       search: search || undefined,
-      category: categoryFilter.length > 0 ? categoryFilter : undefined,
+      category: validCategoryFilter.length > 0 ? validCategoryFilter : undefined,
       priceRanges: priceRanges.length > 0 ? priceRanges : undefined,
       verificationFilter,
       sort,
@@ -165,7 +168,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
 
   // Fetch empty-state fallback data when search yields zero results
   const hasActiveFilters =
-    categoryFilter.length > 0 || priceRanges.length > 0 || verificationFilter !== 'all'
+    validCategoryFilter.length > 0 || priceRanges.length > 0 || verificationFilter !== 'all'
   let emptyStateData: {
     categories: { productType: string; count: number }[]
     featured: { id: string; name: string; slug: string; heroImageUrl: string | null; category: string }[]
@@ -182,14 +185,14 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   const paginationParams: Record<string, string> = {}
   if (search) paginationParams.search = search
   if (sort !== 'name') paginationParams.sort = sort
-  if (categoryFilter.length > 0) paginationParams.category = categoryFilter.join(',')
+  if (validCategoryFilter.length > 0) paginationParams.category = validCategoryFilter.join(',')
   if (priceRanges.length > 0) paginationParams.price = priceRanges.join(',')
   if (verificationFilter !== 'all') paginationParams.verification = verificationFilter
 
   let categoryItemListJsonLd = null
   let categoryBreadcrumbJsonLd = null
-  if (categoryFilter.length === 1) {
-    const categorySlug = categoryFilter[0]
+  if (validCategoryFilter.length === 1) {
+    const categorySlug = validCategoryFilter[0]
     const catT = await getTranslations('categories')
     const categoryTag = PRODUCT_TYPE_CATEGORIES.find((c) => c.slug === categorySlug)
 

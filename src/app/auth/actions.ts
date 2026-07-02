@@ -141,6 +141,6 @@ export async function signInWithGoogle(
 
 export async function signOut(returnTo?: string): Promise<void> {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: 'local' });
   redirect(returnTo && isRelativeUrl(returnTo) ? returnTo : "/");
 }

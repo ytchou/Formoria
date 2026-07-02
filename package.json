@@ -21,8 +21,7 @@
     "remove-brand": "tsx --env-file=.env.local scripts/remove-brand.ts",
     "test:e2e": "playwright test",
     "test:e2e:smoke": "playwright test --project=smoke-chromium --project=smoke-firefox --project=smoke-webkit",
-    "test:e2e:deep": "playwright test --project=deep",
-    "test:e2e:perf": "playwright test --project=perf"
+    "test:e2e:deep": "playwright test --project=deep"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
