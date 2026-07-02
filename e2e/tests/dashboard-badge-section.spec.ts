@@ -16,7 +16,7 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
  * Cleanup: afterAll cascade-deletes both brands.
  */
 test.describe('Dashboard — badge and share card section', () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   let supabase: AnySupabaseClient;
   let approvedBrandId: string;
   let approvedBrandSlug: string;
