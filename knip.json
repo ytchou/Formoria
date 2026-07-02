@@ -10,5 +10,6 @@
     "scripts/**/*.{ts,mjs}",
     "emails/**/*.{ts,tsx}"
   ],
-  "ignoreDependencies": ["tw-animate-css", "tailwindcss", "@react-email/ui"]
+  "ignoreDependencies": ["tw-animate-css", "tailwindcss", "@react-email/ui"],
+  "ignore": ["src/lib/supabase/database.types.ts"]
 }
