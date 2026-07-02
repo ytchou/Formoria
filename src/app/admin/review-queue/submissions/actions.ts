@@ -1,7 +1,6 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
-import { isActingAsAdmin } from '@/lib/auth/admin-mode'
+import { requireAdminAction } from '@/lib/auth/require-admin'
 import { approveSubmissionAction } from '@/app/admin/actions'
 import type { OtherUrl } from '@/lib/types'
 
@@ -22,27 +21,14 @@ function emptyToNull(value: string | null | undefined) {
   return trimmed ? trimmed : null
 }
 
-async function requireAdmin(): Promise<{ error: string } | undefined> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser()
-
-  if (error || !user) return { error: 'Unauthorized' }
-
-  const actingAsAdmin = await isActingAsAdmin(user.email)
-  if (!actingAsAdmin) return { error: 'Forbidden' }
-
-  return undefined
-}
-
 export async function approveSubmissionWithOverridesAction(
   submissionId: string,
   overrides: SubmissionApprovalOverrides
 ): ReturnType<typeof approveSubmissionAction> {
-  const authError = await requireAdmin()
-  if (authError) return authError
+  const auth = await requireAdminAction()
+  if ('error' in auth) {
+    return { error: auth.code === 'unauthenticated' ? 'Unauthorized' : 'Forbidden' }
+  }
 
   return approveSubmissionAction(submissionId, {
     description: emptyToNull(overrides.description),

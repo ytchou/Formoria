@@ -8,6 +8,108 @@ const MIN_IMAGE_DIMENSION = 200
 const NON_PRODUCT_IMAGE_PATH_RE =
   /\/(logo|avatar|profile|banner|icon|favicon|placeholder|default|sprite|pixel|shopfront_promotion)/i
 
+export function hostMatches(url: string, host: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase()
+    return hostname === host || hostname.endsWith(`.${host}`)
+  } catch {
+    return false
+  }
+}
+
+export function metaContent($: cheerio.CheerioAPI, selector: string): string | null {
+  return $(selector).attr('content')?.trim() || null
+}
+
+export function textContent($: cheerio.CheerioAPI, selector: string): string | null {
+  const text = $(selector).first().text().replace(/\s+/g, ' ').trim()
+  return text || null
+}
+
+export function firstString(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const candidate = firstString(item)
+      if (candidate) return candidate
+    }
+  }
+  if (value && typeof value === 'object') {
+    const object = value as Record<string, unknown>
+    return firstString(object.url) || firstString(object['@id'])
+  }
+
+  return null
+}
+
+export function findStructuredStore(value: unknown): Record<string, unknown> | null {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findStructuredStore(item)
+      if (found) return found
+    }
+    return null
+  }
+
+  if (!value || typeof value !== 'object') return null
+
+  const object = value as Record<string, unknown>
+  const type = object['@type']
+  const types = Array.isArray(type) ? type : [type]
+  if (types.some((item) => item === 'Organization' || item === 'Store')) {
+    return object
+  }
+
+  return findStructuredStore(object['@graph'])
+}
+
+export function jsonLdBreadcrumbs(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap(jsonLdBreadcrumbs)
+  }
+
+  if (!value || typeof value !== 'object') return []
+
+  const object = value as Record<string, unknown>
+  const type = object['@type']
+  const types = Array.isArray(type) ? type : [type]
+  const fromGraph = jsonLdBreadcrumbs(object['@graph'])
+
+  if (!types.includes('BreadcrumbList')) return fromGraph
+
+  const itemListElement = object.itemListElement
+  if (!Array.isArray(itemListElement)) return fromGraph
+
+  return [
+    ...fromGraph,
+    ...itemListElement
+      .map((item) => {
+        if (!item || typeof item !== 'object') return null
+        return firstString((item as Record<string, unknown>).name)
+      })
+      .filter((item): item is string => Boolean(item)),
+  ]
+}
+
+export function domBreadcrumbs($: cheerio.CheerioAPI): string[] {
+  return [
+    'nav[aria-label="breadcrumb"] a',
+    'nav[aria-label="Breadcrumb"] a',
+    '.breadcrumb a',
+    '[class*="breadcrumb"] a',
+    '[itemprop="itemListElement"]',
+  ].flatMap((selector) =>
+    $(selector)
+      .toArray()
+      .map((el) => $(el).text().replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+  )
+}
+
+export function unique(values: string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))]
+}
+
 export function extractSocialLinks($: cheerio.CheerioAPI) {
   let instagram: string | null = null
   let threads: string | null = null
