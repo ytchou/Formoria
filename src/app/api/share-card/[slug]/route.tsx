@@ -2,7 +2,7 @@ export const runtime = 'nodejs'
 
 import { ImageResponse } from 'next/og'
 import { NextResponse } from 'next/server'
-import { getBrandBySlug, findBrandByOldSlug } from '@/lib/services/brands'
+import { getApprovedBrandBySlug, findBrandByOldSlug } from '@/lib/services/brands'
 import { getOgFonts, getOgMarkDataUri } from '@/lib/brand/og-fonts'
 import { NotFoundError } from '@/lib/errors'
 import { renderShareCard } from '@/lib/growth/share-card'
@@ -20,26 +20,21 @@ export async function GET(
 
   let brand
   try {
-    brand = await getBrandBySlug(slug)
+    brand = await getApprovedBrandBySlug(slug)
   } catch (err) {
     if (err instanceof NotFoundError) {
       const newSlug = await findBrandByOldSlug(slug)
       if (newSlug) {
-        return NextResponse.redirect(
-          new URL(`/api/share-card/${newSlug}`, request.url),
-          {
-            status: 302,
-            headers: { 'Cache-Control': 'no-store' },
-          },
-        )
+        const redirectTarget = new URL(`/api/share-card/${newSlug}`, request.url)
+        redirectTarget.search = searchParams.toString()
+        return NextResponse.redirect(redirectTarget, {
+          status: 302,
+          headers: { 'Cache-Control': 'no-store' },
+        })
       }
       return new Response(null, { status: 404 })
     }
     return new Response(null, { status: 500 })
-  }
-
-  if (brand.status !== 'approved') {
-    return new Response(null, { status: 404 })
   }
 
   try {

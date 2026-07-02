@@ -55,6 +55,7 @@ export function renderShareCard(
       {/* Green accent bar */}
       <div
         style={{
+          display: 'flex',
           width: 80,
           height: 6,
           backgroundColor: brandColors.primary,
@@ -65,11 +66,12 @@ export function renderShareCard(
       {/* Headline */}
       <div
         style={{
+          display: 'flex',
           fontSize: 52,
           fontWeight: 700,
           color: brandColors.primary,
           fontFamily: 'Noto Sans TC',
-          lineHeight: 1.4,
+          lineHeight: 1.7,
           marginBottom: '48px',
         }}
       >
@@ -86,14 +88,13 @@ export function renderShareCard(
       >
         <div
           style={{
+            display: 'flex',
             fontSize: nameFontSize,
             fontWeight: 700,
             color: brandColors.fg,
             fontFamily: 'Noto Sans TC',
-            lineHeight: 1.3,
+            lineHeight: 1.7,
             overflow: 'hidden',
-            display: '-webkit-box',
-            WebkitBoxOrient: 'vertical',
             WebkitLineClamp: 2,
           }}
         >
@@ -104,6 +105,7 @@ export function renderShareCard(
       {/* Footer URL */}
       <div
         style={{
+          display: 'flex',
           fontSize: 28,
           fontWeight: 700,
           color: brandColors.primary,
