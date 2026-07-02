@@ -32,7 +32,7 @@ TMP="$(mktemp -d -t dev712-fonts.XXXXXX)"
 mkdir -p "$OUT_DIR"
 
 # Fixed brand strings that must ALWAYS be present, regardless of frequency list.
-BRAND_TEXT="Formoria台灣製造品牌目錄"
+BRAND_TEXT="Formoria台灣製造品牌目錄我們上架了"
 
 echo "==> temp dir: $TMP"
 echo "==> output:   $OUT_DIR"
