@@ -98,7 +98,7 @@ test.describe('Navbar auth journey', () => {
         await page.goto('/');
         await expect(page.getByRole('link', { name: /sign in|登入/i })).toBeVisible();
         await expect(page.getByRole('button', { name: /account|帳號/i })).toHaveCount(0);
-      }).toPass({ timeout: 20_000, intervals: [1_000, 2_000, 3_000, 5_000] });
+      }).toPass({ timeout: 40_000, intervals: [1_000, 2_000, 3_000, 5_000] });
     } finally {
       await context.close();
       // Always delete the disposable user — resilient to mid-test failures

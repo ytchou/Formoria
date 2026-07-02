@@ -102,8 +102,11 @@ test.describe('Dashboard — tab navigation', () => {
     // Navigate to the seeded brand explicitly via ?brand= param
     await userPage.goto(`/dashboard?brand=${brandSlug}`, { timeout: 60_000 });
 
-    // The seeded brand name renders as h1 in the page content area
-    await expect(userPage.locator('h1').filter({ hasText: brandName })).toBeVisible({
+    // The seeded brand name renders as h1 in the brand-profile panel
+    // Scope to [data-testid="brand-profile"] to avoid matching the layout-header h1
+    await expect(
+      userPage.locator('[data-testid="brand-profile"]').locator('h1').filter({ hasText: brandName })
+    ).toBeVisible({
       timeout: 60_000,
     });
   });
@@ -117,8 +120,11 @@ test.describe('Dashboard — tab navigation', () => {
       return;
     }
 
-    // The brand panel must be rendered — brand name in h1
-    await expect(userPage.locator('h1').filter({ hasText: brandName })).toBeVisible({
+    // The brand panel must be rendered — brand name in h1 inside the profile panel
+    // Scope to [data-testid="brand-profile"] to avoid matching the layout-header h1
+    await expect(
+      userPage.locator('[data-testid="brand-profile"]').locator('h1').filter({ hasText: brandName })
+    ).toBeVisible({
       timeout: 60_000,
     });
 

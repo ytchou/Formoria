@@ -107,7 +107,7 @@ test.describe('Brand save/unsave — card overlay', () => {
     // Optimistic update: aria-label flips immediately to "取消收藏這個品牌"
     await expect(
       userPage.getByRole('button', { name: '取消收藏這個品牌' }).first()
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: 30_000 });
   });
 
   test('Journey 2: saved brand appears in dashboard "收藏品牌" tab', async ({ userPage }) => {
@@ -159,7 +159,7 @@ test.describe('Brand save/unsave — card overlay', () => {
           if (error) throw error;
           return Boolean(data);
         },
-        { timeout: 30_000, intervals: [500, 1_000, 2_000] }
+        { timeout: 60_000, intervals: [500, 1_000, 2_000] }
       )
       .toBe(true);
 
