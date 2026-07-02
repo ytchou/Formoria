@@ -34,6 +34,7 @@ export const RESERVED_ROUTES = new Set([
   // Next.js metadata routes — single-segment paths that must not be treated as brand slugs
   'icon',
   'apple-icon',
+  'manifest',
   'opengraph-image',
   'twitter-image',
 ])
