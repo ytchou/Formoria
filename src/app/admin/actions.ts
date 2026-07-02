@@ -227,11 +227,13 @@ export async function approveClaimAction(
 
     try {
       if (claimRequest.requesterEmail && claimRequest.brandName && claimRequest.brandSlug) {
+        const locale = await getOwnerLocale(claimRequest.brandId)
         await sendEmail(await buildClaimApprovedEmail({
           ownerEmail: claimRequest.requesterEmail,
           brandName: claimRequest.brandName,
           brandSlug: claimRequest.brandSlug,
           siteUrl,
+          locale,
         }))
       }
     } catch (err) {

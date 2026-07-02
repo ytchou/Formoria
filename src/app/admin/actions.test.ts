@@ -144,6 +144,10 @@ vi.mock('@/lib/services/email-lifecycle', () => ({
   createEmailPreferences: vi.fn().mockResolvedValue({ data: {}, error: null }),
 }))
 
+vi.mock('@/lib/services/profiles', () => ({
+  getOwnerLocale: vi.fn().mockResolvedValue('zh-TW'),
+}))
+
 vi.mock('@/lib/auth/claim-token', () => ({
   generateClaimToken: vi.fn(),
 }))
@@ -201,6 +205,44 @@ describe('approveClaimAction', () => {
     expect(result).toBeUndefined()
     expect(approveClaimRequest).toHaveBeenCalledWith('claim-1', 'admin-1')
     expect(createEmailPreferences).toHaveBeenCalledWith(expect.anything(), 'owner-1')
+  })
+
+  it('passes the owner locale to the claim-approved email', async () => {
+    const { getClaimRequest } = await import('@/lib/services/claim-requests')
+    const { getOwnerLocale } = await import('@/lib/services/profiles')
+    const { buildClaimApprovedEmail } = await import('@/lib/email/templates')
+    vi.mocked(getOwnerLocale).mockResolvedValueOnce('en')
+    vi.mocked(buildClaimApprovedEmail).mockResolvedValue({
+      to: 'owner@example.com',
+      from: 'ops@formoria.com',
+      subject: 'claim approved',
+      html: '',
+    })
+    vi.mocked(getClaimRequest).mockResolvedValue({
+      id: 'claim-1',
+      brandId: 'brand-1',
+      userId: 'owner-1',
+      proofType: 'domain_email',
+      proofUrl: null,
+      proofNotes: null,
+      proofEvidence: [],
+      mitSmileCert: null,
+      status: 'pending',
+      reviewerNotes: null,
+      reviewedAt: null,
+      reviewedBy: null,
+      createdAt: '2026-01-01T00:00:00Z',
+      brandName: 'Test Brand',
+      brandSlug: 'test-brand',
+      requesterEmail: 'owner@example.com',
+    })
+
+    const { approveClaimAction } = await import('./actions')
+    await approveClaimAction('claim-1')
+
+    expect(buildClaimApprovedEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ locale: 'en' }),
+    )
   })
 })
 
