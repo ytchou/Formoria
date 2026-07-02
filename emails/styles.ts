@@ -1,3 +1,5 @@
+import { getSiteUrl } from '../src/lib/site-url'
+
 export const BG_WARM_WHITE = '#FAF8F3'
 export const BG_WHITE = '#FFFFFF'
 export const BRAND_GREEN = '#2F5D50'
@@ -7,4 +9,4 @@ export const TEXT_SECONDARY = '#6B7280'
 export const BORDER = '#E5E0D8'
 export const FONT_STACK = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
 export const FROM_ADDRESS = 'Formoria <noreply@formoria.com>'
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://formoria.com'
+export const SITE_URL = getSiteUrl()
