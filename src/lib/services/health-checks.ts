@@ -1,7 +1,7 @@
 import { resolveSentryProject } from '@/lib/services/sentry'
 import { createServiceClient } from '@/lib/supabase/server'
 
-export type HealthStatus = 'healthy' | 'degraded' | 'down' | 'unconfigured'
+type HealthStatus = 'healthy' | 'degraded' | 'down' | 'unconfigured'
 
 export interface ServiceHealthResult {
   service: string

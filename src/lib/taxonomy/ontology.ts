@@ -25,4 +25,3 @@ export function deriveCategoryFromProductType(
   return null
 }
 
-export type ProductTypeSlug = typeof PRODUCT_TYPE_CATEGORIES[number]['slug']

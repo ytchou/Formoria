@@ -43,7 +43,7 @@ export type ActionNudge = {
   points: number
 }
 
-export type HealthTier = 'gettingStarted' | 'growing' | 'thriving' | 'exemplary'
+type HealthTier = 'gettingStarted' | 'growing' | 'thriving' | 'exemplary'
 
 export type BrandHealthScore = {
   overall: number

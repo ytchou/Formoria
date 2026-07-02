@@ -1,6 +1,6 @@
 import type { Brand } from '@/lib/types/brand'
 
-export type CompletenessKey =
+type CompletenessKey =
   | 'heroImage'
   | 'description'
   | 'purchaseLinks'
@@ -29,7 +29,7 @@ export type ComputedBrandCompleteness = BrandCompleteness & {
   tier2Items: CompletenessItem[]
 }
 
-export const TIER_1_COUNT = 5
+const TIER_1_COUNT = 5
 
 const FIELD_ORDER: {
   key: CompletenessKey

@@ -6,8 +6,8 @@ import { generateVerificationToken, hashToken } from '@/lib/utils/token'
 import { CLAIM_PROOF_TYPES } from './claim-proofs'
 import type { ClaimProofType, ProofEvidence } from './claim-proofs'
 
-export { CLAIM_PROOF_TYPES, PROOF_TYPE_I18N_KEYS } from './claim-proofs'
-export type { ClaimProofType, ProofEvidence } from './claim-proofs'
+export { CLAIM_PROOF_TYPES } from './claim-proofs'
+export type { ProofEvidence } from './claim-proofs'
 
 type BrandRow = Database['public']['Tables']['brands']['Row']
 type BrandOwnerRow = Database['public']['Tables']['brand_owners']['Row']
@@ -142,7 +142,7 @@ export type VerifyClaimEmailProofResult = {
   reason?: string
 }
 
-export function rowToClaimRequest(row: ClaimRequestRowWithJoins): ClaimRequest {
+function rowToClaimRequest(row: ClaimRequestRowWithJoins): ClaimRequest {
   const proofEvidence = parseProofEvidence(row.proof_evidence)
   const firstProof = proofEvidence[0]
 
@@ -212,7 +212,7 @@ function parseProofEvidence(value: Json | null | undefined): ProofEvidence[] {
   })
 }
 
-export function normalizeProofEvidence(input: ProofEvidence[], userId: string): ProofEvidence[] {
+function normalizeProofEvidence(input: ProofEvidence[], userId: string): ProofEvidence[] {
   const imageNamespace = `${CLAIM_PROOF_BUCKET}/${userId}/`
   const normalized = input.map((proof) => {
     if (!isClaimProofType(proof.type)) {

@@ -156,7 +156,7 @@ function LinkSection({ label, icon, slots, brand }: LinkSectionProps) {
   )
 }
 
-export function BrandSocialLinks({ brand }: BrandLinksProps) {
+function BrandSocialLinks({ brand }: BrandLinksProps) {
   const t = useTranslations('brandDetail')
 
   const socialSlots: LinkSlot[] = [
@@ -193,7 +193,7 @@ export function BrandSocialLinks({ brand }: BrandLinksProps) {
   )
 }
 
-export function BrandPurchaseLinks({ brand }: BrandLinksProps) {
+function BrandPurchaseLinks({ brand }: BrandLinksProps) {
   const t = useTranslations('brandDetail')
 
   const purchaseSlots: LinkSlot[] = [
@@ -230,7 +230,7 @@ export function BrandPurchaseLinks({ brand }: BrandLinksProps) {
   )
 }
 
-export function BrandOtherLinks({ brand }: BrandLinksProps) {
+function BrandOtherLinks({ brand }: BrandLinksProps) {
   const t = useTranslations('brandDetail')
 
   const otherSlots: LinkSlot[] = brand.otherUrls.map((otherUrl) => ({

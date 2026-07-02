@@ -17,7 +17,7 @@ const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions'
 const DEEPSEEK_MODEL = 'deepseek-v4-flash'
 const CLASSIFY_TIMEOUT_MS = 30_000
 const BATCH_CLASSIFY_TIMEOUT_MS = 60_000
-export const VALID_PRODUCT_TYPES = new Set<string>(PRODUCT_TYPE_CATEGORIES.map(category => category.slug))
+const VALID_PRODUCT_TYPES = new Set<string>(PRODUCT_TYPE_CATEGORIES.map(category => category.slug))
 
 
 type DeepSeekResponse = {

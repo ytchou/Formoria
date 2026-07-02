@@ -13,16 +13,14 @@ type ReportRowWithBrand = ReportRow & {
   brands: { name: string; slug: string } | null
 }
 
-export const REMOVAL_REQUEST_REASON = 'removal_request' as const
-
 export type ReportReason =
   | 'not_mit'
   | 'incorrect_info'
   | 'broken_link'
   | 'inappropriate'
-  | typeof REMOVAL_REQUEST_REASON
+  | 'removal_request'
 
-export type ReportStatus = ReviewStatus
+type ReportStatus = ReviewStatus
 
 export type BrandReport = {
   id: string

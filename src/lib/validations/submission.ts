@@ -45,7 +45,7 @@ function buildFieldSchemas(t: Translator) {
   }
 }
 
-export function getBrandInfoSchema(t: Translator) {
+function getBrandInfoSchema(t: Translator) {
   const { nameField, websiteField } = buildFieldSchemas(t)
   return z.object({
     name: nameField,
