@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { buildBadgeEmbedSnippet, buildShareCardUrl } from '@/lib/growth/share-assets'
 import { trackListingSharedByOwner } from '@/lib/analytics'
 
@@ -8,6 +8,7 @@ type BadgeSectionLabels = {
   copy?: string
   copied?: string
   download?: string
+  description?: string
 }
 
 type BadgeSectionProps = {
@@ -20,6 +21,13 @@ type BadgeSectionProps = {
 export function BadgeSection({ brandSlug, brandUpdatedAt, siteUrl, labels }: BadgeSectionProps) {
   const [copied, setCopied] = useState(false)
   const [showFallback, setShowFallback] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [])
 
   const snippet = buildBadgeEmbedSnippet(siteUrl, brandSlug)
   const cardUrl = buildShareCardUrl(siteUrl, brandSlug)
@@ -30,6 +38,8 @@ export function BadgeSection({ brandSlug, brandUpdatedAt, siteUrl, labels }: Bad
     try {
       await navigator.clipboard.writeText(snippet)
       setCopied(true)
+      if (timerRef.current) clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => setCopied(false), 2000)
       trackListingSharedByOwner(brandSlug, 'badge_copied')
     } catch {
       setShowFallback(true)
@@ -42,6 +52,10 @@ export function BadgeSection({ brandSlug, brandUpdatedAt, siteUrl, labels }: Bad
 
   return (
     <div className="space-y-6">
+      {labels?.description ? (
+        <p className="text-sm text-muted-foreground">{labels.description}</p>
+      ) : null}
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -72,7 +86,7 @@ export function BadgeSection({ brandSlug, brandUpdatedAt, siteUrl, labels }: Bad
           data-testid="badge-copy-button"
           onClick={handleCopy}
           type="button"
-          className="inline-flex h-9 items-center rounded-lg border border-border bg-white px-4 text-sm font-semibold text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="inline-flex h-11 items-center rounded-lg border border-border bg-white px-4 text-sm font-semibold text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           {copied ? (labels?.copied ?? 'Copied!') : (labels?.copy ?? 'Copy embed code')}
         </button>
@@ -92,7 +106,7 @@ export function BadgeSection({ brandSlug, brandUpdatedAt, siteUrl, labels }: Bad
           href={cardDownloadHref}
           download
           onClick={handleDownload}
-          className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="inline-flex h-11 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           {labels?.download ?? 'Download share card'}
         </a>

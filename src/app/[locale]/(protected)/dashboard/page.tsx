@@ -144,6 +144,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
                 copy: tBadge('copy'),
                 copied: tBadge('copied'),
                 download: tBadge('download'),
+                description: tBadge('description'),
               }}
             />
           </Section>

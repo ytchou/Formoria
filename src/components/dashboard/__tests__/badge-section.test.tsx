@@ -16,7 +16,7 @@ const props = {
   siteUrl: 'https://formoria.com',
 };
 
-describe('BadgeSection', () => {
+describe('Brand owner badge embed and share card actions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -51,5 +51,11 @@ describe('BadgeSection', () => {
       'href',
       expect.stringContaining('download=1'),
     );
+  });
+
+  it('clicking the download link fires card_downloaded analytics event', async () => {
+    render(<BadgeSection {...props} />);
+    await userEvent.click(screen.getByTestId('card-download-link'));
+    expect(trackListingSharedByOwner).toHaveBeenCalledWith('yu-cha-ye', 'card_downloaded');
   });
 });
