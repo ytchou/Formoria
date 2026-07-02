@@ -33,12 +33,12 @@ describe("requireAdminAction", () => {
 
   it("returns error for a non-admin", async () => {
     asUser("someone@example.com");
-    expect(await requireAdminAction()).toMatchObject({ error: expect.any(String) });
+    expect(await requireAdminAction()).toMatchObject({ error: expect.any(String), code: "forbidden" });
   });
 
   it("returns error when unauthenticated", async () => {
     asUser(null);
-    expect(await requireAdminAction()).toMatchObject({ error: expect.any(String) });
+    expect(await requireAdminAction()).toMatchObject({ error: expect.any(String), code: "unauthenticated" });
   });
 
   it("ignores viewer-mode: admin-area access gates on pure isAdmin (SPEC §Admin)", async () => {

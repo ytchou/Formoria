@@ -554,7 +554,10 @@ export async function syncSentryFeedbackAction(): Promise<
 }
 
 export async function refreshHealthChecks(): Promise<void> {
-  await requireAdminAction()
+  const auth = await requireAdminAction()
+  if ('error' in auth) {
+    return
+  }
   try {
     await checkAllServices()
   } catch (err) {

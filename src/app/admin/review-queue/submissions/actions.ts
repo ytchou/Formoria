@@ -27,7 +27,7 @@ export async function approveSubmissionWithOverridesAction(
 ): ReturnType<typeof approveSubmissionAction> {
   const auth = await requireAdminAction()
   if ('error' in auth) {
-    return { error: auth.error === 'You must authenticate to perform this action' ? 'Unauthorized' : 'Forbidden' }
+    return { error: auth.code === 'unauthenticated' ? 'Unauthorized' : 'Forbidden' }
   }
 
   return approveSubmissionAction(submissionId, {

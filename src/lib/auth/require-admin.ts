@@ -3,8 +3,14 @@ import { isActingAsAdmin } from "@/lib/auth/admin-mode";
 import { createClient } from "@/lib/supabase/server";
 
 type AdminUser = { id: string; email: string | null };
+type AdminAuthErrorCode = 'unauthenticated' | 'forbidden';
 
-async function getAdminUser(): Promise<{ user: AdminUser } | { error: string }> {
+type AdminAuthError = {
+  error: string;
+  code: AdminAuthErrorCode;
+};
+
+async function getAdminUser(): Promise<{ user: AdminUser } | AdminAuthError> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -12,17 +18,17 @@ async function getAdminUser(): Promise<{ user: AdminUser } | { error: string }> 
   } = await supabase.auth.getUser();
 
   if (error || !user) {
-    return { error: "You must authenticate to perform this action" };
+    return { error: "You must authenticate to perform this action", code: "unauthenticated" };
   }
 
   if (!(await isActingAsAdmin(user.email))) {
-    return { error: "You are not authorized to perform this action" };
+    return { error: "You are not authorized to perform this action", code: "forbidden" };
   }
 
   return { user: { id: user.id, email: user.email ?? null } };
 }
 
-export async function requireAdminAction(): Promise<{ user: AdminUser } | { error: string }> {
+export async function requireAdminAction(): Promise<{ user: AdminUser } | AdminAuthError> {
   return getAdminUser();
 }
 

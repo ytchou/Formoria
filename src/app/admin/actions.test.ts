@@ -59,6 +59,12 @@ vi.mock('@/lib/auth/admin-mode', () => ({
   isActingAsAdmin: vi.fn().mockResolvedValue(true),
 }))
 
+vi.mock('@/lib/auth/require-admin', () => ({
+  requireAdminAction: vi.fn().mockResolvedValue({
+    user: { id: 'admin-1', email: 'admin@formoria.com' },
+  }),
+}))
+
 vi.mock('@/lib/security/rate-limiter', () => ({
   rateLimit: vi.fn().mockResolvedValue({ success: true, remaining: 10 }),
 }))
@@ -413,16 +419,22 @@ describe('reviewReportAction', () => {
   })
 
   it('returns error when not admin', async () => {
-    const { isActingAsAdmin } = await import('@/lib/auth/admin-mode')
-    vi.mocked(isActingAsAdmin).mockResolvedValueOnce(false)
+    const { requireAdminAction } = await import('@/lib/auth/require-admin')
+    vi.mocked(requireAdminAction).mockResolvedValueOnce({
+      error: 'You are not authorized to perform this action',
+      code: 'forbidden',
+    })
     const { reviewReportAction } = await import('./actions')
     const result = await reviewReportAction('report-uuid-1', 'reviewed')
     expect(result?.error).toBeTruthy()
   })
 
   it('requireAdmin denies a user without admin access', async () => {
-    const { isActingAsAdmin } = await import('@/lib/auth/admin-mode')
-    vi.mocked(isActingAsAdmin).mockResolvedValueOnce(false)
+    const { requireAdminAction } = await import('@/lib/auth/require-admin')
+    vi.mocked(requireAdminAction).mockResolvedValueOnce({
+      error: 'You are not authorized to perform this action',
+      code: 'forbidden',
+    })
     const { reviewReportAction } = await import('./actions')
     const result = await reviewReportAction('report-uuid-1', 'reviewed')
     expect(result).toMatchObject({ error: expect.any(String) })
@@ -442,12 +454,15 @@ describe('reviewFeedbackAction', () => {
   })
 
   it('returns error when user is not admin', async () => {
-    const { isActingAsAdmin } = await import('@/lib/auth/admin-mode')
-    vi.mocked(isActingAsAdmin).mockResolvedValueOnce(false)
+    const { requireAdminAction } = await import('@/lib/auth/require-admin')
+    vi.mocked(requireAdminAction).mockResolvedValueOnce({
+      error: 'You are not authorized to perform this action',
+      code: 'forbidden',
+    })
     const { reviewFeedbackAction } = await import('./actions')
     const result = await reviewFeedbackAction('feedback-id-1', 'reviewed')
 
-    expect(result).toEqual({ error: expect.any(String) })
+    expect(result).toMatchObject({ error: expect.any(String) })
   })
 
   it('returns error when service throws', async () => {
@@ -506,6 +521,19 @@ describe('refreshHealthChecks', () => {
 
     await expect(refreshHealthChecks()).resolves.not.toThrow()
     expect(revalidatePath).toHaveBeenCalledWith('/admin')
+  })
+
+  it('returns early for non-admin callers', async () => {
+    const { requireAdminAction } = await import('@/lib/auth/require-admin')
+    vi.mocked(requireAdminAction).mockResolvedValueOnce({
+      error: 'You must authenticate to perform this action',
+      code: 'unauthenticated',
+    })
+
+    await refreshHealthChecks()
+
+    expect(checkAllServices).not.toHaveBeenCalled()
+    expect(revalidatePath).not.toHaveBeenCalledWith('/admin')
   })
 })
 
