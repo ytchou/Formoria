@@ -36,6 +36,9 @@ export function ImageUploadField({
   const selectTokenRef = useRef(0)
   // Token that was active when the current upload started — needed for the effect guard
   const [pendingToken, setPendingToken] = useState(0)
+  // Reactive mirror of selectTokenRef.current; updated whenever the ref advances so the
+  // inline hiddenValue derivation can read it without touching a ref during render.
+  const [latestToken, setLatestToken] = useState(0)
 
   const storagePath = uploadPath ?? (brandId ? `brands/${brandId}/${name}` : `brands/tmp/${name}`)
   const { status, url, error, upload } = useImageUpload({
@@ -51,8 +54,12 @@ export function ImageUploadField({
     }
   }, [status, url, pendingToken])
 
-  // Derive the hidden URL value: confirmed uploaded URL > currentUrl (unless cleared)
-  const hiddenValue = cleared ? '' : (confirmedUrl ?? currentUrl ?? '')
+  // Derive the hidden URL value: use url directly when upload just completed (eliminates
+  // the one-render gap before the useEffect sets confirmedUrl); fall back to confirmedUrl,
+  // then currentUrl.
+  const immediateUrl =
+    status === 'success' && url && pendingToken === latestToken ? url : confirmedUrl
+  const hiddenValue = cleared ? '' : (immediateUrl ?? currentUrl ?? '')
 
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -73,6 +80,7 @@ export function ImageUploadField({
       selectTokenRef.current += 1
       const token = selectTokenRef.current
       setPendingToken(token)
+      setLatestToken(token)
 
       // Show local preview immediately; reset cleared flag
       const objectUrl = URL.createObjectURL(file)
@@ -96,6 +104,7 @@ export function ImageUploadField({
     setConfirmedUrl(null)
     // Invalidate any in-flight upload by advancing the token
     selectTokenRef.current += 1
+    setLatestToken(selectTokenRef.current)
   }, [])
 
   const displayError = sizeError ?? error
