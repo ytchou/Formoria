@@ -23,8 +23,6 @@ function safeGAEvent(...args: Parameters<typeof sendGAEvent>) {
   }
 }
 
-export type SubmissionStepName = 'brand_info' | 'review'
-
 export function getUtmParams(search: string): Record<string, string> {
   const params = new URLSearchParams(search)
   const utmParams: Record<string, string> = {}
@@ -195,7 +193,7 @@ export function trackSubmissionFormOpened(
   safeGAEvent('event', 'submission_form_opened', { source })
 }
 
-export function trackSubmissionFormStepCompleted(step: SubmissionStepName) {
+export function trackSubmissionFormStepCompleted(step: string) {
   safeGAEvent('event', 'submission_form_step_completed', { step })
 }
 
@@ -218,7 +216,7 @@ export function trackSubmissionCompleted(
 }
 
 export function trackSubmissionFormAbandoned(
-  lastStepCompleted: SubmissionStepName,
+  lastStepCompleted: string,
   timeSpentSeconds: number
 ) {
   safeGAEvent('event', 'submission_form_abandoned', {

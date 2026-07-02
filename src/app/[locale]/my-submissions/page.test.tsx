@@ -19,17 +19,6 @@ vi.mock('@/lib/supabase/server', () => ({
     }),
 }))
 
-vi.mock('@/lib/services/submissions', () => ({
-  getUserSubmissions: vi.fn().mockResolvedValue([
-    {
-      id: 'sub-1',
-      brandName: 'Test Brand',
-      status: 'pending',
-      createdAt: '2026-05-25T00:00:00Z',
-    },
-  ]),
-}))
-
 vi.mock('next/navigation', () => ({
   redirect: vi.fn(),
 }))

@@ -137,12 +137,6 @@ export type SimilarBrand = {
   score: number
 }
 
-export type BrandEnrichment = {
-  productType: string
-  heroImageUrl: string | null
-  productPhotos: string[]
-}
-
 // ---------------------------------------------------------------------------
 // Slug generation
 // ---------------------------------------------------------------------------

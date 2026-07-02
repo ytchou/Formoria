@@ -376,35 +376,6 @@ export async function rejectPendingEditAction(
   }
 }
 
-export async function verifyMitAction(
-  brandId: string,
-  certNumber: string
-): Promise<{ error: string } | undefined> {
-  try {
-    const auth = await requireAdmin()
-    if ('error' in auth) return auth
-
-    const result = await verifyMitByCert(brandId, certNumber)
-    if (result.error) {
-      return { error: result.error }
-    }
-
-    revalidatePath('/admin/claims')
-    revalidatePath('/admin/catalog/brands')
-    revalidatePath('/admin')
-    revalidatePath('/[locale]', 'page')
-    revalidatePath('/[locale]/brands', 'page')
-    revalidatePath('/[locale]/brands/[slug]', 'page')
-
-    return undefined
-  } catch (err) {
-    console.error('[admin:verifyMitAction]', err)
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
-    }
-  }
-}
-
 export async function updateBrandAction(
   brandId: string,
   data: {
@@ -546,28 +517,6 @@ export async function deleteBrandAction(
   }
 }
 
-export async function resyncBrandImagesAction(
-  brandId: string
-): Promise<{ error?: string; synced?: number; failed?: number }> {
-  try {
-    const auth = await requireAdmin()
-    if ('error' in auth) return auth
-
-    const brand = await getBrandById(brandId)
-    const result = await syncBrandImages(brandId)
-
-    revalidatePath('/admin/catalog/brands')
-    revalidatePath('/admin')
-    revalidatePath('/')
-    revalidatePath('/brands')
-    revalidatePath(`/brands/${brand.slug}`)
-    return result
-  } catch (err) {
-    console.error('[admin:resyncBrandImages]', err)
-    return { error: err instanceof Error ? err.message : 'An unexpected error occurred' }
-  }
-}
-
 export async function reviewReportAction(
   reportId: string,
   decision: 'reviewed' | 'dismissed'
@@ -622,36 +571,6 @@ export async function syncSentryFeedbackAction(): Promise<
     console.error('[admin:syncSentry]', err)
     return { error: err instanceof Error ? err.message : 'An unexpected error occurred' }
   }
-}
-
-export async function bulkUpdateReportsAction(
-  reportIds: string[],
-  decision: 'reviewed' | 'dismissed'
-): Promise<{ updated: number; errors: { id: string; error: string }[] }> {
-  const auth = await requireAdmin()
-  if ('error' in auth) throw new Error(auth.error)
-
-  const errors: { id: string; error: string }[] = []
-  let updated = 0
-
-  for (const id of reportIds) {
-    try {
-      await updateReportStatus(id, decision)
-      updated++
-    } catch (err) {
-      errors.push({
-        id,
-        error: err instanceof Error ? err.message : 'Unknown error',
-      })
-    }
-  }
-
-  if (updated > 0) {
-    revalidatePath('/admin/signals/reports')
-    revalidatePath('/admin')
-  }
-
-  return { updated, errors }
 }
 
 export async function refreshHealthChecks(): Promise<void> {

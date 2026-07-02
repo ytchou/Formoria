@@ -209,7 +209,7 @@ export async function getPendingEdits(
   return ((data ?? []) as PendingBrandEditWithBrandRowInput[]).map(pendingEditWithBrandToDomain)
 }
 
-export async function getPendingEdit(brandId: string): Promise<PendingBrandEdit | null> {
+async function getPendingEdit(brandId: string): Promise<PendingBrandEdit | null> {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('pending_brand_edits')

@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   checkAllServices,
-  checkApify,
-  checkDeepSeek,
   type ServiceHealthResult,
 } from './health-checks'
 import type { createServiceClient as createServiceClientType } from '@/lib/supabase/server'
@@ -240,67 +238,107 @@ describe('checkAllServices', () => {
   describe('checkApify', () => {
     it('returns unconfigured when APIFY_TOKEN is missing', async () => {
       delete process.env.APIFY_TOKEN
+      const { createServiceClient } = await import('@/lib/supabase/server')
+      vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({}) })
 
-      const apify = await checkApify()
+      const results = await checkAllServices()
+      const apify = results.find((r) => r.service === 'Apify')
 
-      expect(apify.status).toBe('unconfigured')
-      expect(apify.message).toBe('APIFY_TOKEN is not configured')
+      expect(apify?.status).toBe('unconfigured')
+      expect(apify?.message).toBe('APIFY_TOKEN is not configured')
     })
 
     it('returns healthy with monthly usage spend when API succeeds', async () => {
-      fetchMock.mockResolvedValue({
-        ok: true,
-        json: async () => ({ data: { totalUsageCreditsUsdAfterVolumeDiscount: 12.34 } }),
+      const { createServiceClient } = await import('@/lib/supabase/server')
+      vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
+      fetchMock.mockImplementation((url: string) => {
+        if (url.includes('apify.com')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ data: { totalUsageCreditsUsdAfterVolumeDiscount: 12.34 } }),
+          })
+        }
+        return Promise.resolve({ ok: true, json: async () => ({}) })
       })
 
-      const apify = await checkApify()
+      const results = await checkAllServices()
+      const apify = results.find((r) => r.service === 'Apify')
 
-      expect(apify.status).toBe('healthy')
-      expect(apify.message).toBe('$12.34 spent this cycle')
+      expect(apify?.status).toBe('healthy')
+      expect(apify?.message).toBe('$12.34 spent this cycle')
     })
 
     it('returns down when API returns non-ok response', async () => {
-      fetchMock.mockResolvedValue({ ok: false, status: 401 })
+      const { createServiceClient } = await import('@/lib/supabase/server')
+      vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
+      fetchMock.mockImplementation((url: string) => {
+        if (url.includes('apify.com')) {
+          return Promise.resolve({ ok: false, status: 401 })
+        }
+        return Promise.resolve({ ok: true, json: async () => ({}) })
+      })
 
-      const apify = await checkApify()
+      const results = await checkAllServices()
+      const apify = results.find((r) => r.service === 'Apify')
 
-      expect(apify.status).toBe('down')
-      expect(apify.message).toBe('API returned 401')
+      expect(apify?.status).toBe('down')
+      expect(apify?.message).toBe('API returned 401')
     })
   })
 
   describe('checkDeepSeek', () => {
     it('returns unconfigured when DEEPSEEK_API_KEY is missing', async () => {
       delete process.env.DEEPSEEK_API_KEY
+      const { createServiceClient } = await import('@/lib/supabase/server')
+      vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({}) })
 
-      const deepSeek = await checkDeepSeek()
+      const results = await checkAllServices()
+      const deepSeek = results.find((r) => r.service === 'DeepSeek')
 
-      expect(deepSeek.status).toBe('unconfigured')
-      expect(deepSeek.message).toBe('DEEPSEEK_API_KEY is not configured')
+      expect(deepSeek?.status).toBe('unconfigured')
+      expect(deepSeek?.message).toBe('DEEPSEEK_API_KEY is not configured')
     })
 
     it('returns healthy with remaining USD balance when API succeeds', async () => {
-      fetchMock.mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          is_available: true,
-          balance_infos: [{ currency: 'USD', total_balance: '5.00' }],
-        }),
+      const { createServiceClient } = await import('@/lib/supabase/server')
+      vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
+      fetchMock.mockImplementation((url: string) => {
+        if (url.includes('deepseek.com')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              is_available: true,
+              balance_infos: [{ currency: 'USD', total_balance: '5.00' }],
+            }),
+          })
+        }
+        return Promise.resolve({ ok: true, json: async () => ({}) })
       })
 
-      const deepSeek = await checkDeepSeek()
+      const results = await checkAllServices()
+      const deepSeek = results.find((r) => r.service === 'DeepSeek')
 
-      expect(deepSeek.status).toBe('healthy')
-      expect(deepSeek.message).toBe('$5.00 remaining')
+      expect(deepSeek?.status).toBe('healthy')
+      expect(deepSeek?.message).toBe('$5.00 remaining')
     })
 
     it('returns down when API returns non-ok response', async () => {
-      fetchMock.mockResolvedValue({ ok: false, status: 401 })
+      const { createServiceClient } = await import('@/lib/supabase/server')
+      vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
+      fetchMock.mockImplementation((url: string) => {
+        if (url.includes('deepseek.com')) {
+          return Promise.resolve({ ok: false, status: 401 })
+        }
+        return Promise.resolve({ ok: true, json: async () => ({}) })
+      })
 
-      const deepSeek = await checkDeepSeek()
+      const results = await checkAllServices()
+      const deepSeek = results.find((r) => r.service === 'DeepSeek')
 
-      expect(deepSeek.status).toBe('down')
-      expect(deepSeek.message).toBe('API returned 401')
+      expect(deepSeek?.status).toBe('down')
+      expect(deepSeek?.message).toBe('API returned 401')
     })
   })
 
