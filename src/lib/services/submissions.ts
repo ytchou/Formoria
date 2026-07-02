@@ -6,6 +6,7 @@ import { enrichedDataFromDb } from '@/lib/types/enriched-data'
 import { NotFoundError } from '@/lib/errors'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { generateSlug, isReservedSlug } from '@/lib/services/brands'
+import { toSubmissionRow } from './field-map'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 // ---------------------------------------------------------------------------
@@ -189,33 +190,7 @@ export function submissionToInsert(
     productTypeNote?: string | null
   }
 ): Record<string, unknown> {
-  const row: Record<string, unknown> = {}
-  if (data.brandId !== undefined) row.brand_id = data.brandId
-  if (data.brandName !== undefined) row.brand_name = data.brandName
-  if (data.submitterEmail !== undefined) row.submitter_email = data.submitterEmail
-  if (data.submitterName !== undefined) row.submitter_name = data.submitterName
-  if (data.description !== undefined) row.description = data.description
-  if (data.websiteUrl !== undefined) row.website_url = data.websiteUrl
-  if (data.heroImageUrl !== undefined) row.hero_image_url = data.heroImageUrl
-  if (data.productPhotos !== undefined) row.product_photos = data.productPhotos
-  if (data.socialInstagram !== undefined) row.social_instagram = data.socialInstagram
-  if (data.socialThreads !== undefined) row.social_threads = data.socialThreads
-  if (data.socialFacebook !== undefined) row.social_facebook = data.socialFacebook
-  if (data.purchaseWebsite !== undefined) row.purchase_website = data.purchaseWebsite
-  if (data.purchasePinkoi !== undefined) row.purchase_pinkoi = data.purchasePinkoi
-  if (data.purchaseShopee !== undefined) row.purchase_shopee = data.purchaseShopee
-  if (data.otherUrls !== undefined) row.other_urls = data.otherUrls
-  if (data.suggestedTags !== undefined) row.suggested_tags = data.suggestedTags
-  if (data.status !== undefined) row.status = data.status
-  if (data.reviewerNotes !== undefined) row.reviewer_notes = data.reviewerNotes
-  if (data.pdpaConsentAt !== undefined) row.pdpa_consent_at = data.pdpaConsentAt
-  if (data.validationStatus !== undefined) row.validation_status = data.validationStatus
-  if (data.validationErrors !== undefined) row.validation_errors = data.validationErrors
-  if (data.notifiedAt !== undefined) row.notified_at = data.notifiedAt
-  if (data.isBrandOwner !== undefined) row.is_brand_owner = data.isBrandOwner
-  if (data.sourceAttribution !== undefined) row.source_attribution = data.sourceAttribution
-  row.product_type_note = data.productTypeNote ?? null
-  return row
+  return toSubmissionRow(data)
 }
 
 function isStructuredTags(v: unknown): v is { values?: string[]; productType?: string } {

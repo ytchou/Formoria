@@ -1,6 +1,7 @@
 import type { Brand, BrandFilters, CustomerVoice, OtherUrl } from '@/lib/types'
 import type { SiteContent, SiteProduct, SiteTokens } from '@/lib/types/brand'
 import type { Database } from '@/lib/supabase/database.types'
+import { toBrandRow } from './field-map'
 import { NotFoundError, ValidationError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
 import { BRAND_SORT_CONFIG, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
@@ -544,33 +545,7 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
 }
 
 export function brandToInsert(data: BrandWriteInput): Record<string, unknown> {
-  const row: Record<string, unknown> = {}
-  if (data.name !== undefined) row.name = data.name
-  if (data.slug !== undefined) row.slug = data.slug
-  if (data.description !== undefined) row.description = data.description
-  if (data.heroImageUrl !== undefined) row.hero_image_url = data.heroImageUrl
-  if (data.status !== undefined) row.status = data.status
-  if (data.productType !== undefined) {
-    row.product_type = data.productType
-  } else if (data.category != null) {
-    row.product_type = data.category
-  }
-  if (data.foundingYear !== undefined) row.founding_year = data.foundingYear
-  if (data.socialInstagram !== undefined) row.social_instagram = data.socialInstagram
-  if (data.socialThreads !== undefined) row.social_threads = data.socialThreads
-  if (data.socialFacebook !== undefined) row.social_facebook = data.socialFacebook
-  if (data.purchaseWebsite !== undefined) row.purchase_website = data.purchaseWebsite
-  if (data.purchasePinkoi !== undefined) row.purchase_pinkoi = data.purchasePinkoi
-  if (data.purchaseShopee !== undefined) row.purchase_shopee = data.purchaseShopee
-  if (data.otherUrls !== undefined) row.other_urls = data.otherUrls
-  if (data.retailLocations !== undefined) row.retail_locations = data.retailLocations
-  if (data.customerVoices !== undefined) row.customer_voices = data.customerVoices
-  if (data.productPhotos !== undefined) row.product_photos = data.productPhotos
-  if (data.contactEmail !== undefined) row.contact_email = data.contactEmail
-  row.price_range = data.priceRange ?? null
-  row.product_tags = data.productTags ?? []
-  if (data.isDemo) row.is_demo = data.isDemo
-  return row
+  return toBrandRow(data)
 }
 
 function brandToUpdate(data: BrandWriteInput): Record<string, unknown> {
