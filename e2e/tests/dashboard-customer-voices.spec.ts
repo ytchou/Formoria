@@ -71,8 +71,10 @@ test.describe('Dashboard — customer voices editing', () => {
 
     await userPage.goto(`/dashboard/brands/${brandSlug}/edit`, { timeout: 60_000 });
     // Heading is "編輯 {name}" (dashboard.edit.pageHeading) — match both locales
+    // Use /^編輯 / to avoid strict-mode violation: the layout also renders a brand-name h1
+    // that contains "Edit" (English) in the seeded [E2E-TEST] name.
     await expect(
-      userPage.getByRole('heading', { name: /edit|編輯/i })
+      userPage.getByRole('heading', { name: /^編輯 / })
     ).toBeVisible({ timeout: 60_000 });
 
     const addButton = userPage.getByRole('button', { name: '新增顧客心聲' });
