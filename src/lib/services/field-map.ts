@@ -44,8 +44,6 @@ const BRAND_FIELD_MAP = [
   ['retailLocations', 'retail_locations'],
   ['customerVoices', 'customer_voices'],
   ['productPhotos', 'product_photos'],
-  ['priceRange', 'price_range'],
-  ['productTags', 'product_tags'],
 ] as const satisfies FieldMap<
   {
     contactEmail?: string | null
@@ -78,7 +76,6 @@ const SUBMISSION_FIELD_MAP = [
   ['notifiedAt', 'notified_at'],
   ['isBrandOwner', 'is_brand_owner'],
   ['sourceAttribution', 'source_attribution'],
-  ['productTypeNote', 'product_type_note'],
 ] as const satisfies FieldMap<
   {
     brandId?: string | null

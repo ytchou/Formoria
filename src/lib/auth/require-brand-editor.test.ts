@@ -6,6 +6,9 @@ const isOwnerOf = vi.fn()
 const isActingAsAdmin = vi.fn()
 const getImpersonatedBrandSlug = vi.fn()
 
+// These mocks intentionally cover internal branch dependencies so the guard
+// matrix can be controlled precisely; integration tests cover the real
+// boundaries exercised by the dashboard action.
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => ({
     auth: {
