@@ -35,6 +35,7 @@ export const RESERVED_ROUTES = new Set([
   'icon',
   'apple-icon',
   'opengraph-image',
+  'twitter-image',
 ])
 
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{2,79}$/
