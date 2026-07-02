@@ -307,8 +307,12 @@ describe('analytics', () => {
     expect(() => trackBrandPageShared('my-brand')).not.toThrow()
   })
 
-  it('trackListingSharedByOwner is a stub that does nothing', () => {
-    expect(() => trackListingSharedByOwner('my-brand')).not.toThrow()
+  it('trackListingSharedByOwner sends listing_shared_by_owner with badge_copied', () => {
+    trackListingSharedByOwner('yu-cha-ye', 'badge_copied')
+    expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'listing_shared_by_owner', {
+      brand_slug: 'yu-cha-ye',
+      method: 'badge_copied',
+    })
   })
 
   it('trackFilterSearch sends filter_search event', () => {
@@ -417,6 +421,24 @@ describe('trackViewItemList', () => {
     expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'view_item_list', {
       item_list_name: 'category:food',
       item_count: 5,
+    })
+  })
+})
+
+describe('trackListingSharedByOwner', () => {
+  it('sends listing_shared_by_owner with badge_copied method', () => {
+    trackListingSharedByOwner('yu-cha-ye', 'badge_copied')
+    expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'listing_shared_by_owner', {
+      brand_slug: 'yu-cha-ye',
+      method: 'badge_copied',
+    })
+  })
+
+  it('sends listing_shared_by_owner with card_downloaded method', () => {
+    trackListingSharedByOwner('yu-cha-ye', 'card_downloaded')
+    expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'listing_shared_by_owner', {
+      brand_slug: 'yu-cha-ye',
+      method: 'card_downloaded',
     })
   })
 })
