@@ -48,6 +48,45 @@ describe('buildClaimApprovedEmail', () => {
     expect(email.html).toContain('test-brand')
     expect(email.html).toContain('Formoria')
   })
+
+  it('includes the share-card image, download CTA, and badge deep link (zh-TW)', async () => {
+    const email = await buildClaimApprovedEmail({
+      ownerEmail: 'owner@example.com',
+      brandName: '鮮乳坊',
+      brandSlug: 'yu-cha-ye',
+      siteUrl: 'https://formoria.com',
+    })
+    const html = email.html
+    expect(html).toContain('https://formoria.com/api/share-card/yu-cha-ye')
+    expect(html).toContain('https://formoria.com/api/share-card/yu-cha-ye?download=1')
+    expect(html).toContain('https://formoria.com/dashboard?brand=yu-cha-ye#badge')
+    expect(html).not.toContain('?tab=')
+  })
+
+  it('escapes the brand name in the new copy', async () => {
+    const email = await buildClaimApprovedEmail({
+      ownerEmail: 'owner@example.com',
+      brandName: '<script>alert(1)</script>',
+      brandSlug: 'xss-brand',
+      siteUrl: 'https://formoria.com',
+    })
+    expect(email.html).not.toContain('<script>alert(1)</script>')
+  })
+
+  it('includes the share-card image, download CTA, and badge deep link (en)', async () => {
+    const email = await buildClaimApprovedEmail({
+      ownerEmail: 'owner@example.com',
+      brandName: 'Test Brand',
+      brandSlug: 'yu-cha-ye',
+      siteUrl: 'https://formoria.com',
+      locale: 'en',
+    })
+    const html = email.html
+    expect(html).toContain('https://formoria.com/api/share-card/yu-cha-ye')
+    expect(html).toContain('https://formoria.com/api/share-card/yu-cha-ye?download=1')
+    expect(html).toContain('https://formoria.com/dashboard?brand=yu-cha-ye#badge')
+    expect(html).not.toContain('?tab=')
+  })
 })
 
 describe('buildClaimRejectedEmail', () => {

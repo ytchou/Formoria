@@ -826,6 +826,16 @@ export async function getBrandBySlug(slug: string): Promise<Brand> {
   return brandToDomain(data)
 }
 
+/**
+ * Returns an approved brand by slug.
+ * Throws {@link NotFoundError} if the brand does not exist or is not approved.
+ */
+export async function getApprovedBrandBySlug(slug: string): Promise<Brand> {
+  const brand = await getBrandBySlug(slug)
+  if (brand.status !== 'approved') throw new NotFoundError('Brand', slug)
+  return brand
+}
+
 function brandSlugRedirectsTable(client: unknown): BrandSlugRedirectTable {
   return (client as { from: (table: 'brand_slug_redirects') => BrandSlugRedirectTable }).from('brand_slug_redirects')
 }

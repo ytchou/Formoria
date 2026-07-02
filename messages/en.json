@@ -1151,6 +1151,13 @@
       "fieldValueTagsHint": "Select up to 3 values that describe the brand",
       "fieldValueTagsOptionalHint": "optional"
     },
+    "badge": {
+      "title": "Share your brand",
+      "description": "Add the Featured on Formoria badge to your website, or download your share card.",
+      "copy": "Copy embed code",
+      "copied": "Copied!",
+      "download": "Download share card"
+    },
     "brandProfile": {
       "customerVoices": "Customer Voices",
       "productPhotos": "Product Photos",

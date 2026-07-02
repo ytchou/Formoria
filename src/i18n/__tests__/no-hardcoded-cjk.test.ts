@@ -78,6 +78,10 @@ const ALLOWLIST = [
   'app/api/webhooks/tally/route.ts',
   // MIT registry parser uses Chinese column header keys from the government CSV dataset (not UI copy).
   'lib/services/mit-registry.ts',
+  // Share card is a satori-rendered PNG image (same as OG images) — zh-TW headline by design.
+  'lib/growth/share-card.tsx',
+  // Badge embed snippet alt text is intentional zh-TW brand copy pasted into third-party sites.
+  'lib/growth/share-assets.ts',
 ]
 
 function isAllowlisted(relPath: string): boolean {
