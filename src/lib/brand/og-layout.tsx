@@ -35,6 +35,9 @@ export function OgLayout({
   headerStyle,
   contentStyle,
 }: OgLayoutProps) {
+  const isAbsoluteHeader = header && headerStyle?.position === 'absolute'
+  const isInContentHeader = header && headerStyle && headerStyle.position !== 'absolute'
+
   return (
     <div
       style={{
@@ -46,8 +49,11 @@ export function OgLayout({
       }}
     >
       {leftStripe}
-      {header && headerStyle ? <div style={headerStyle}>{header}</div> : null}
-      <div style={contentStyle}>{children}</div>
+      {isAbsoluteHeader ? <div style={headerStyle}>{header}</div> : null}
+      <div style={contentStyle}>
+        {isInContentHeader ? <div style={headerStyle}>{header}</div> : null}
+        {children}
+      </div>
     </div>
   )
 }
