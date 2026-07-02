@@ -44,8 +44,13 @@ test.describe('Submit name suggestion', () => {
     });
     await expect(applyBtn).toBeVisible();
 
-    // Click Apply
-    await applyBtn.click();
+    // Click Apply — the suggestion div can be re-rendered mid-interaction
+    // (React reconciliation / Turnstile onSuccess re-render); toPass retries the
+    // click if Playwright detects the element was replaced between resolution and
+    // event dispatch.
+    await expect(async () => {
+      await applyBtn.click({ timeout: 3_000 });
+    }).toPass({ timeout: 20_000, intervals: [500, 1_000, 2_000] });
 
     // Field now holds the cleaned name
     await expect(nameInput).toHaveValue('TestBrand');

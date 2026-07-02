@@ -70,8 +70,9 @@ test.describe('Dashboard — customer voices editing', () => {
     test.setTimeout(120_000);
 
     await userPage.goto(`/dashboard/brands/${brandSlug}/edit`, { timeout: 60_000 });
+    // Heading is "編輯 {name}" (dashboard.edit.pageHeading) — match both locales
     await expect(
-      userPage.getByRole('heading', { name: /edit/i })
+      userPage.getByRole('heading', { name: /edit|編輯/i })
     ).toBeVisible({ timeout: 60_000 });
 
     const addButton = userPage.getByRole('button', { name: '新增顧客心聲' });

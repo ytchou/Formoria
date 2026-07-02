@@ -45,19 +45,22 @@ test.describe('Community submit flow', () => {
     await expect(userPage.locator('[data-state="active"]')).not.toBeVisible()
   })
 
-  test('my-submissions page shows authenticated user submissions', async ({ userPage }) => {
+  test('my-submissions redirects authenticated users to /dashboard', async ({ userPage }) => {
+    // /my-submissions now server-redirects to /dashboard (no submissions list page).
     test.setTimeout(60_000)
     await userPage.goto('/my-submissions')
-    await expect(userPage.getByRole('heading', { name: /經營者主控台/i, level: 1 }))
-      .toBeVisible({ timeout: 15_000 })
+    await userPage.waitForURL(/\/dashboard/, { timeout: 15_000 })
+    // Dashboard renders: brand panel uses <main>; empty state (no brands) uses <section>.
+    await expect(userPage.locator('main, section').first()).toBeVisible({ timeout: 5_000 })
   })
 
-  test('my-submissions renders English copy under /en', async ({ userPage }) => {
+  test('my-submissions /en redirects to /dashboard', async ({ userPage }) => {
+    // /en/my-submissions also server-redirects to /dashboard.
     test.setTimeout(60_000)
     const res = await userPage.goto('/en/my-submissions')
     expect(res?.status()).toBeLessThan(400)
-    await expect(userPage.getByRole('heading', { name: /Owner Dashboard|My Submissions|經營者主控台|我的提交/i }).first()).toBeVisible({
-      timeout: 15_000,
-    })
+    await userPage.waitForURL(/\/dashboard/, { timeout: 15_000 })
+    // Dashboard renders: brand panel uses <main>; empty state (no brands) uses <section>.
+    await expect(userPage.locator('main, section').first()).toBeVisible({ timeout: 5_000 })
   })
 })

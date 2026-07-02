@@ -89,9 +89,11 @@ test.describe('Dashboard brand edit', () => {
     // Navigate to the edit page
     await userPage.goto(`/dashboard/brands/${descriptionBrandSlug}/edit`, { timeout: 60_000 });
 
-    // Confirm the edit form is loaded
+    // Confirm the edit form is loaded — heading is "編輯 {name}" (dashboard.edit.pageHeading)
+    // Use /^編輯 / to avoid strict-mode violation: the layout also renders a brand-name h1
+    // that contains "Edit" (English) in the seeded [E2E-TEST] name.
     await expect(
-      userPage.getByRole('heading', { name: /edit/i })
+      userPage.getByRole('heading', { name: /^編輯 / })
     ).toBeVisible({ timeout: 60_000 });
 
     // Wait for the seeded value to be hydrated, then clear and fill

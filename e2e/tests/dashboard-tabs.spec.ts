@@ -97,7 +97,7 @@ test.describe('Dashboard — tab navigation', () => {
 
     // Profile tab ('品牌資訊') is the active tab when pathname === '/dashboard'
     const profileTab = userPage.locator('a').filter({ hasText: '品牌資訊' });
-    await expect(profileTab).toHaveClass(/border-cta/, { timeout: 60_000 });
+    await expect(profileTab).toHaveClass(/border-primary/, { timeout: 60_000 });
 
     // Navigate to the seeded brand explicitly via ?brand= param
     await userPage.goto(`/dashboard?brand=${brandSlug}`, { timeout: 60_000 });
@@ -124,7 +124,7 @@ test.describe('Dashboard — tab navigation', () => {
 
     // Profile tab is active (pathname === '/dashboard', isActive = true)
     const profileTab = userPage.locator('a').filter({ hasText: '品牌資訊' });
-    await expect(profileTab).toHaveClass(/border-cta/, { timeout: 5_000 });
+    await expect(profileTab).toHaveClass(/border-primary/, { timeout: 5_000 });
   });
 
   test('bogus unowned brand slug falls back to default brand panel (IDOR guard)', async ({ userPage }) => {

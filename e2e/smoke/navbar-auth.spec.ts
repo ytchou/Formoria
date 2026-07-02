@@ -26,17 +26,21 @@ test.describe('Navbar auth smoke', () => {
     // Sign-in link must not appear for authenticated user
     await expect(userPage.getByRole('link', { name: /sign in|登入/i })).toHaveCount(0);
 
+    // Dashboard link moved to main nav header (nav.myBrands = "我的品牌") — not in dropdown
+    const dashboardNavLink = userPage.getByRole('link', { name: '我的品牌' });
+    await expect(dashboardNavLink).toBeVisible({ timeout: 10_000 });
+    await expect(dashboardNavLink).toHaveAttribute('href', '/dashboard');
+
     // Open the account dropdown — use click (works cross-browser including WebKit)
     await accountTrigger.click();
 
     const accountMenu = userPage.locator('[data-slot="dropdown-menu-content"]');
     await expect(accountMenu).toBeVisible({ timeout: 10_000 });
 
-    // Dashboard link must be present in the menu
-    const dashboardLink = accountMenu.locator('a[href="/dashboard"]');
-    await expect(dashboardLink).toBeVisible({ timeout: 5_000 });
+    // Dashboard link is NOT in the dropdown (moved to main nav)
+    await expect(accountMenu.locator('a[href="/dashboard"]')).toHaveCount(0);
 
-    // Favorites link must be present in the menu (account.favorites = "收藏品牌")
+    // Favorites link in the menu (account.favorites = "收藏品牌")
     const favoritesLink = accountMenu.locator('a[href*="favorites"]');
     await expect(favoritesLink).toBeVisible({ timeout: 5_000 });
 
@@ -47,7 +51,8 @@ test.describe('Navbar auth smoke', () => {
 
   test('sign-in page renders heading and Google OAuth button', async ({ anonPage }) => {
     await anonPage.goto('/auth/sign-in');
-    await expect(anonPage.getByRole('heading', { name: '登入', exact: true })).toBeVisible({
+    // Heading key: auth.signIn.heading = "登入 Formoria"
+    await expect(anonPage.getByRole('heading', { name: '登入 Formoria', exact: true })).toBeVisible({
       timeout: 10_000,
     });
     await expect(

@@ -52,11 +52,10 @@ test.describe('Directory deep', () => {
       test.skip(true, `Category "${categorySlug}" not found — set E2E_CATEGORY_SLUG`);
       return;
     }
+    // Brand cards render as `a[aria-label]` anchors; empty state shows 找不到品牌
     await expect(
-      page
-        .locator('main [role="list"] [role="listitem"]')
-        .first()
-        .or(page.getByText(/No brands found for|找不到.*品牌/i))
+      page.locator('main a[aria-label]').first()
+        .or(page.getByText(/No brands found for|找不到品牌/i).first())
     ).toBeVisible({ timeout: 10_000 });
   });
 

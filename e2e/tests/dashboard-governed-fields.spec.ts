@@ -1,6 +1,5 @@
 import { test, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { getSignedAdminModeCookie } from '../helpers/admin-mode-cookie';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
@@ -9,23 +8,32 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
  * Governed-field integrity tests.
  *
  * Two cases:
- * (a) Non-manager access: adminPage's user is NOT in brand_owners for the seeded brand →
- *     navigating to /dashboard/brands/[slug]/edit redirects to /dashboard (server-side guard).
- *     The edit gate is `canManageBrand = isOwnerOf || isActingAsAdmin`. A god-mode admin
- *     (the default) would reach the edit page, so this test forces `fm_mode=viewer` on the
- *     admin context to downgrade `isActingAsAdmin` to false, exercising the non-manager
- *     redirect path. The `您沒有權限編輯此品牌` error is only returned from the Server Action —
- *     it's unreachable via the UI without management rights; the page guard redirects first.
+ * (a) Non-manager access: a regular user (userPage) navigates to an edit page for a brand they
+ *     do NOT own (an admin-owned brand). The dashboard layout passes through because userPage
+ *     owns a separate brand (seeded for case b). The edit page's canManageDashboardBrand check:
+ *       isOwnerOf(userId, adminBrandId)       → false (user is not the owner)
+ *       isActingAsAdmin(userEmail)             → false (user is not in ADMIN_EMAILS)
+ *     returns false → server redirect to /dashboard.
+ *
+ *     Key constraint: the navigating user must own at least one brand for the dashboard layout
+ *     to render children rather than DashboardEmptyState. DashboardEmptyState renders at the
+ *     edit URL without redirecting — only the page-level guard issues redirect(). Hence the
+ *     two-brand setup: userPage owns brandId (passes the layout) but not adminBrandId (triggers
+ *     the page redirect).
  *
  * (b) Allow-list integrity: owner saves via the edit form and the admin-only governed columns
  *     (mit_status, status) remain untouched in the DB after the save.
  */
 test.describe('Dashboard — governed field integrity', () => {
   let supabase: AnySupabaseClient;
+  // Brand A (case b): owned by regular user — also gives userPage a brand so the layout renders
   let brandId: string;
   let brandSlug: string;
   let brandName: string;
   let ownerUserId: string;
+  // Brand B (case a): owned by admin — regular user navigating here is blocked and redirected
+  let adminBrandId: string;
+  let adminBrandSlug: string;
 
   test.beforeAll(async () => {
     supabase = createClient(
@@ -35,14 +43,20 @@ test.describe('Dashboard — governed field integrity', () => {
 
     const { data: usersData, error: usersError } = await supabase.auth.admin.listUsers();
     if (usersError) throw new Error(`Failed to list users: ${usersError.message}`);
+
     const testUser = usersData.users.find((u) => u.email === process.env.E2E_USER_EMAIL);
     if (!testUser) throw new Error(`E2E test user not found: ${process.env.E2E_USER_EMAIL}`);
     ownerUserId = testUser.id;
 
+    const adminUser = usersData.users.find((u) => u.email === process.env.E2E_ADMIN_EMAIL);
+    if (!adminUser) throw new Error(`E2E admin user not found: ${process.env.E2E_ADMIN_EMAIL}`);
+    const adminUserId = adminUser.id;
+
     const ts = Date.now();
+
+    // Brand A: owned by regular user (layout anchor + case b edit target)
     brandName = `[E2E-TEST] Governed Fields ${ts}`;
     brandSlug = `e2e-governed-fields-${ts}`;
-
     const { data: brandData, error: brandErr } = await supabase
       .from('brands')
       .insert({
@@ -57,19 +71,47 @@ test.describe('Dashboard — governed field integrity', () => {
       })
       .select('id')
       .single();
-    if (brandErr || !brandData) throw new Error(`Failed to seed brand: ${brandErr?.message}`);
+    if (brandErr || !brandData) throw new Error(`Failed to seed brand A: ${brandErr?.message}`);
     brandId = brandData.id;
-
-    // Link owner so the edit-form test (case b) can proceed
     const { error: boErr } = await supabase.from('brand_owners').insert({
       user_id: ownerUserId,
       brand_id: brandId,
     });
-    if (boErr) throw new Error(`Failed to seed brand_owners: ${boErr.message}`);
+    if (boErr) throw new Error(`Failed to seed brand_owners for brand A: ${boErr.message}`);
+
+    // Brand B: owned by admin (case a redirect target — regular user is not the owner)
+    adminBrandSlug = `e2e-governed-fields-admin-${ts}`;
+    const { data: adminBrandData, error: adminBrandErr } = await supabase
+      .from('brands')
+      .insert({
+        name: `[E2E-TEST] Governed Fields Admin ${ts}`,
+        slug: adminBrandSlug,
+        status: 'approved',
+        product_type: 'crafts',
+        mit_status: 'unverified',
+        description: '[E2E-TEST] Admin-owned brand for redirect guard test.',
+        retail_locations: [],
+        product_photos: [],
+      })
+      .select('id')
+      .single();
+    if (adminBrandErr || !adminBrandData)
+      throw new Error(`Failed to seed brand B: ${adminBrandErr?.message}`);
+    adminBrandId = adminBrandData.id;
+    const { error: adminBoErr } = await supabase.from('brand_owners').insert({
+      user_id: adminUserId,
+      brand_id: adminBrandId,
+    });
+    if (adminBoErr)
+      throw new Error(`Failed to seed brand_owners for brand B: ${adminBoErr.message}`);
   });
 
   test.afterAll(async () => {
     if (!supabase) return;
+    if (adminBrandId) {
+      await supabase.from('brand_owners').delete().eq('brand_id', adminBrandId);
+      await supabase.from('brands').delete().eq('id', adminBrandId);
+    }
     if (brandId) {
       // Only the owner-save test creates a pending edit for this brand; the non-manager
       // redirect test never submits, so no per-test brand split is needed here.
@@ -82,32 +124,24 @@ test.describe('Dashboard — governed field integrity', () => {
 
   /**
    * Case (a): Non-manager is blocked at the page level.
-   * adminPage is authenticated as the admin user (NOT in brand_owners for this brand).
-   * The fm_mode=viewer cookie downgrades isActingAsAdmin → false so canManageBrand
-   * falls back to ownership-only, triggering the server-side redirect.
+   *
+   * userPage owns Brand A (so the dashboard layout renders children rather than DashboardEmptyState).
+   * userPage navigates to Brand B's edit page (admin-owned — userPage is neither the owner nor admin).
+   * canManageDashboardBrand(userId, userEmail, adminBrandId, adminBrandSlug) returns false
+   * → server-side redirect("/dashboard").
    */
-  test('non-manager navigating to edit page is redirected to /dashboard', async ({ adminPage }) => {
+  test('non-manager navigating to edit page is redirected to /dashboard', async ({ userPage }) => {
     test.setTimeout(120_000);
 
-    // Downgrade the admin context to viewer mode so isActingAsAdmin = false.
-    // Without this, a god-mode admin would reach the edit page via canManageBrand.
-    await adminPage.context().addCookies([
-      {
-        name: 'fm_mode',
-        value: await getSignedAdminModeCookie('viewer'),
-        url: 'http://localhost:3000',
-      },
-    ]);
-
-    const resp = await adminPage.goto(`/dashboard/brands/${brandSlug}/edit`, { timeout: 60_000 });
+    const resp = await userPage.goto(`/dashboard/brands/${adminBrandSlug}/edit`, { timeout: 60_000 });
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
     }
     // Server-side redirect: should land on /dashboard (not the edit page)
-    await expect(adminPage).toHaveURL(/\/dashboard(?:\/)?$/, { timeout: 60_000 });
+    await expect(userPage).toHaveURL(/\/dashboard(?:\/)?$/, { timeout: 60_000 });
     // Confirm the brand edit form is NOT present
-    await expect(adminPage.locator('textarea[name="description"]')).toHaveCount(0);
+    await expect(userPage.locator('textarea[name="description"]')).toHaveCount(0);
   });
 
   /**

@@ -59,7 +59,7 @@ test.describe('Auth — sign-in flow', () => {
 
     await anonPage.goto('/auth/sign-in', { timeout: 60_000 });
 
-    await expect(anonPage.getByRole('heading', { name: '登入', exact: true })).toBeVisible({
+    await expect(anonPage.getByRole('heading', { name: '登入 Formoria', exact: true })).toBeVisible({
       timeout: 60_000,
     });
     await expect(
@@ -79,11 +79,10 @@ test.describe('Auth — sign-in flow', () => {
 
     await expect(anonPage).not.toHaveURL(/\/auth\/sign-in(?:[/?#]|$)/);
     await expect(anonPage).toHaveURL(/\/dashboard(?:[/?#]|$)/);
-    await expect(anonPage.getByRole('heading', { name: '經營者主控台', exact: true })).toBeVisible({
-      timeout: 60_000,
-    });
-    await expect(anonPage.getByText(`歡迎，${email.split('@')[0]}`, { exact: true })).toBeVisible({
-      timeout: 60_000,
+    // Dashboard redesigned in PR #221: no top-level 経営者主控台 h1 or 歡迎 welcome text.
+    // The account menu button in the main nav is always visible when authenticated.
+    await expect(anonPage.getByRole('button', { name: /account|帳號/i })).toBeVisible({
+      timeout: 10_000,
     });
   });
 });

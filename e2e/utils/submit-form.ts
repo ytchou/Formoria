@@ -29,7 +29,7 @@ export async function gotoSubmitForm(
   for (let attempt = 0; attempt < 3; attempt++) {
     await page.goto('/submit/form', { timeout: 60_000 });
 
-    const heading = page.getByRole('heading', { name: '提交台灣品牌', exact: true });
+    const heading = page.getByRole('heading', { name: '提交品牌', exact: true });
     const visible = await heading.isVisible({ timeout }).catch(() => false);
     if (visible) {
       return;

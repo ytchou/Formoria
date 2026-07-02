@@ -117,8 +117,9 @@ test.describe('MIT verification badges', () => {
       return;
     }
 
+    // Allow up to 30s: freshly seeded brand page may need ISR generation under parallel-worker load
     await expect(anonPage.getByRole('heading', { level: 1, name: ownerBrandName })).toBeVisible({
-      timeout: 10_000,
+      timeout: 30_000,
     });
 
     // Owner badge must appear

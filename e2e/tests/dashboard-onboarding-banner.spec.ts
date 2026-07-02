@@ -99,17 +99,18 @@ test.describe('Dashboard — onboarding banner and health card', () => {
       { timeout: 60_000 }
     );
 
-    // Banner heading: dashboard.onboarding.banner.title = "歡迎加入 Formoria！"
+    // WelcomeBanner redesigned (PR #221) → checklist-style card.
+    // Heading: dashboard.onboarding.card.title = "檢視你的品牌資料" (h2)
     await expect(
-      userPage.getByRole('heading', { name: '歡迎加入 Formoria！' })
+      userPage.getByRole('heading', { name: '檢視你的品牌資料' })
     ).toBeVisible({ timeout: 60_000 });
 
-    // CTA link: dashboard.onboarding.banner.cta = "開始編輯"
-    // href must point to /dashboard/brands/<slug>/edit#media
-    const ctaLink = userPage.getByRole('link', { name: '開始編輯' });
+    // View-all CTA link: dashboard.onboarding.card.viewAll = "查看檢查清單"
+    // href points to /dashboard/onboarding?brand=<slug>
+    const ctaLink = userPage.getByRole('link', { name: '查看檢查清單' });
     await expect(ctaLink).toBeVisible({ timeout: 5_000 });
     const href = await ctaLink.getAttribute('href');
-    expect(href).toContain(`/dashboard/brands/${brandSlug}/edit`);
+    expect(href).toContain(`/dashboard/onboarding`);
   });
 
   test('Journey 2 — owner dismisses WelcomeBanner and it disappears', async ({ userPage }) => {
@@ -126,23 +127,23 @@ test.describe('Dashboard — onboarding banner and health card', () => {
       { timeout: 60_000 }
     );
 
-    // Assert banner is visible before dismissal
+    // WelcomeBanner redesigned (PR #221): dismiss button removed.
+    // Journey now verifies the checklist card is visible and the view-all link
+    // navigates to the onboarding checklist page.
     await expect(
-      userPage.getByRole('heading', { name: '歡迎加入 Formoria！' })
+      userPage.getByRole('heading', { name: '檢視你的品牌資料' })
     ).toBeVisible({ timeout: 60_000 });
 
-    // Dismiss: dashboard.onboarding.banner.dismiss = "稍後再說"
-    await userPage.getByRole('button', { name: '稍後再說' }).click();
-
-    // Banner must disappear (useState-only dismiss — no localStorage involved)
+    // Progress bar is present
     await expect(
-      userPage.getByRole('heading', { name: '歡迎加入 Formoria！' })
-    ).not.toBeVisible({ timeout: 5_000 });
-
-    // Page is still loaded — brand name heading still present (h1 in new page layout)
-    await expect(
-      userPage.locator('h1').filter({ hasText: brandName })
+      userPage.getByRole('progressbar', { name: '新手任務進度' })
     ).toBeVisible({ timeout: 5_000 });
+
+    // Navigate via the view-all link → onboarding checklist page
+    const ctaLink = userPage.getByRole('link', { name: '查看檢查清單' });
+    await expect(ctaLink).toBeVisible({ timeout: 5_000 });
+    await ctaLink.click();
+    await expect(userPage).toHaveURL(new RegExp(`/dashboard/onboarding`), { timeout: 30_000 });
   });
 
   test('Journey 3 — BrandHealthCard renders score breakdown dimensions and edit-profile link', async ({ userPage }) => {
@@ -167,7 +168,10 @@ test.describe('Dashboard — onboarding banner and health card', () => {
     await expect(checklistItems.first()).toBeVisible({ timeout: 5_000 });
 
     // Single edit-profile CTA at card bottom: dashboard.health.editProfile = "編輯品牌"
-    const editProfileLink = userPage.getByRole('link', { name: '編輯品牌' }).first();
+    // Scope to <main> to target the BrandHealthCard's link, not the layout header's link
+    // (both say "編輯品牌" but the layout resolves allBrands[0] which may be a different brand
+    // when parallel tests are running; the health page resolves the correct brand via searchParams).
+    const editProfileLink = userPage.locator('main').getByRole('link', { name: '編輯品牌' });
     await expect(editProfileLink).toBeVisible({ timeout: 5_000 });
     const href = await editProfileLink.getAttribute('href');
     expect(href).toContain(`/dashboard/brands/${brandSlug}/edit`);

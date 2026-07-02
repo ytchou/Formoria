@@ -39,7 +39,7 @@ test.describe('Admin content moderation dashboard', () => {
       .insert({
         name: `[E2E-TEST] Moderation ${ts}`,
         slug: brandSlug,
-        status: 'pending',
+        status: 'hidden',
         product_type: 'crafts',
         description: '[E2E-TEST] Suspicious moderation test brand',
         retail_locations: [],
