@@ -4,6 +4,8 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { createClient } from '@/lib/supabase/server'
 import { getBrandBySlug } from '@/lib/services/brands'
 import { resolveDashboardBrand } from '@/lib/services/resolve-dashboard-brand'
+import { getSiteUrl } from '@/lib/site-url'
+import { BadgeSection } from '@/components/dashboard/badge-section'
 import { BrandAbout } from '@/components/brands/brand-about'
 import { BrandCustomerVoices } from '@/components/brands/brand-customer-voices'
 import { BrandHeader } from '@/components/brands/brand-header'
@@ -26,14 +28,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 function Section({
+  id,
   title,
   children,
 }: {
+  id?: string
   title: string
   children: React.ReactNode
 }) {
   return (
-    <section className="space-y-3">
+    <section id={id} className="space-y-3">
       <h2 className="font-heading text-base font-bold text-foreground">{title}</h2>
       {children}
     </section>
@@ -81,6 +85,8 @@ export default async function DashboardPage({ params, searchParams }: Props) {
   const { locale } = await params
   setRequestLocale(locale)
   const t = await getTranslations('dashboard.brandProfile')
+  const tBadge = await getTranslations('dashboard.badge')
+  const siteUrl = getSiteUrl()
 
   const resolvedSearchParams = searchParams ? await searchParams : {}
   const supabase = await createClient()
@@ -127,6 +133,21 @@ export default async function DashboardPage({ params, searchParams }: Props) {
         <BrandCustomerVoices brand={brand} />
         <ProductPhotos photos={brand.productPhotos} brandName={brand.name} title={t('productPhotos')} />
         <BrandLocations brand={brand} />
+
+        {brand.status === 'approved' ? (
+          <Section id="badge" title={tBadge('title')}>
+            <BadgeSection
+              brandSlug={brand.slug}
+              brandUpdatedAt={brand.updatedAt}
+              siteUrl={siteUrl}
+              labels={{
+                copy: tBadge('copy'),
+                copied: tBadge('copied'),
+                download: tBadge('download'),
+              }}
+            />
+          </Section>
+        ) : null}
       </div>
     </div>
   )

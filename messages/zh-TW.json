@@ -1152,6 +1152,13 @@
       "fieldValueTagsHint": "選擇最多 3 個品牌價值",
       "fieldValueTagsOptionalHint": "選填"
     },
+    "badge": {
+      "title": "推廣你的品牌",
+      "description": "將 Formoria 精選品牌徽章加入你的網站，或下載品牌分享卡。",
+      "copy": "複製嵌入程式碼",
+      "copied": "已複製！",
+      "download": "下載分享卡"
+    },
     "brandProfile": {
       "customerVoices": "顧客心聲",
       "productPhotos": "產品照片",
