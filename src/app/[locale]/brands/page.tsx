@@ -24,7 +24,7 @@ import type { BrandFilters } from '@/lib/types'
 // ISR: revalidate every hour
 export const revalidate = 3600
 
-const VALID_CATEGORY_SLUGS = new Set(PRODUCT_TYPE_CATEGORIES.map((c) => c.slug))
+const VALID_CATEGORY_SLUGS: Set<string> = new Set(PRODUCT_TYPE_CATEGORIES.map((c) => c.slug))
 
 interface BrandsPageProps {
   params: Promise<{ locale: string }>
