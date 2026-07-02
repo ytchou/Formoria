@@ -33,6 +33,14 @@ describe('buildBadgeEmbedSnippet', () => {
     expect(snippet).not.toContain('rel=');
     expect(snippet).not.toContain('target=');
   });
+
+  it('percent-encodes CJK slugs in both the href path and utm_content', () => {
+    const snippet = buildBadgeEmbedSnippet(SITE, '台灣茶葉');
+    const encoded = encodeURIComponent('台灣茶葉');
+    expect(snippet).toContain(
+      `href="${SITE}/brands/${encoded}?utm_source=badge&utm_medium=referral&utm_campaign=featured_badge&utm_content=${encoded}"`,
+    );
+  });
 });
 
 describe('scaleCardNameFontSize', () => {

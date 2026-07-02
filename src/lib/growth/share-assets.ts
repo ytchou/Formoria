@@ -15,7 +15,8 @@ export function buildShareCardUrl(
 }
 
 export function buildBadgeEmbedSnippet(siteUrl: string, slug: string): string {
-  const href = `${siteUrl}/brands/${slug}?utm_source=badge&utm_medium=referral&utm_campaign=featured_badge&utm_content=${slug}`
+  const encodedSlug = encodeURIComponent(slug)
+  const href = `${siteUrl}/brands/${encodedSlug}?utm_source=badge&utm_medium=referral&utm_campaign=featured_badge&utm_content=${encodedSlug}`
   const src = `${siteUrl}/badges/featured-on-formoria.svg`
   return (
     `<a href="${href}">` +

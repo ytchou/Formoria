@@ -23,12 +23,7 @@ function safeGAEvent(...args: Parameters<typeof sendGAEvent>) {
   }
 }
 
-export const SUBMISSION_STEP_NAMES = {
-  0: 'brand_info',
-  1: 'review',
-} as const
-
-export type SubmissionStepName = (typeof SUBMISSION_STEP_NAMES)[keyof typeof SUBMISSION_STEP_NAMES]
+export type SubmissionStepName = 'brand_info' | 'review'
 
 export function getUtmParams(search: string): Record<string, string> {
   const params = new URLSearchParams(search)
@@ -173,14 +168,6 @@ export function trackDbClick(brandId: string, destination: string): void {
   } catch {
     // Silently swallow — analytics must never break the app
   }
-}
-
-export function mapPurchaseDestination(platform: string): string {
-  return platform
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9_-]/g, '')
-    .slice(0, 32)
 }
 
 export function trackCategoryFilterApplied(category: string) {

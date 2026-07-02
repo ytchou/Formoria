@@ -207,7 +207,7 @@ describe('approveClaimAction', () => {
     expect(createEmailPreferences).toHaveBeenCalledWith(expect.anything(), 'owner-1')
   })
 
-  it('passes the owner locale to the claim-approved email', async () => {
+  it("claim-approved email is delivered in the owner's preferred language", async () => {
     const { getClaimRequest } = await import('@/lib/services/claim-requests')
     const { getOwnerLocale } = await import('@/lib/services/profiles')
     const { buildClaimApprovedEmail } = await import('@/lib/email/templates')
