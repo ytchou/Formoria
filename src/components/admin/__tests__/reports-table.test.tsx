@@ -4,7 +4,6 @@ import { render, screen, fireEvent } from '@testing-library/react'
 
 vi.mock('@/app/admin/actions', () => ({
   reviewReportAction: vi.fn(),
-  bulkUpdateReportsAction: vi.fn(),
 }))
 
 import { ReportsTable } from '../reports-table'

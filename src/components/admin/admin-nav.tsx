@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import { ChevronDownIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export type NavChild = {
+type NavChild = {
   label: string
   href: string
   count?: number

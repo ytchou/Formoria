@@ -22,9 +22,6 @@ export function getSignUpSchema(t: Translator) {
     });
 }
 
-export type SignInValues = z.infer<ReturnType<typeof getSignInSchema>>;
-export type SignUpValues = z.infer<ReturnType<typeof getSignUpSchema>>;
-
 export function isRelativeUrl(url: string): boolean {
   if (!url) return false;
   if (!url.startsWith("/")) return false;

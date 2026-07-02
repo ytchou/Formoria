@@ -122,6 +122,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm tsc --noEmit
+      - name: Dead code (knip)
+        run: pnpm knip
       - run: pnpm test -- --coverage
   # Production build gate. Nothing else in CI runs `next build`, and Railway builds on
   # merge — so this catches build-only failures (SSG/ISR generation, server/client

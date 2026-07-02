@@ -81,23 +81,6 @@ export async function recoverStaleJobs(excludeJobId?: string): Promise<void> {
   }
 }
 
-export async function getNextPendingJob(): Promise<CurationJob | null> {
-  const supabase = createServiceClient()
-  const { data: job, error } = await supabase
-    .from('curation_jobs')
-    .select('*')
-    .eq('status', 'pending')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
-
-  if (error) {
-    throw error
-  }
-
-  return job ? (job as CurationJob) : null
-}
-
 export async function createCurationJob(
   params: CreateCurationJobParams
 ): Promise<CreateCurationJobResult> {

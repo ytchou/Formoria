@@ -197,36 +197,3 @@ export async function updateFeedbackStatus(
   if (error) throw error
 }
 
-export async function getFeedbackStats(): Promise<{
-  open: number
-  reviewed: number
-  closed: number
-}> {
-  const { createServiceClient } = await import('@/lib/supabase/server')
-  const supabase = createServiceClient()
-
-  const [openResult, reviewedResult, closedResult] = await Promise.all([
-    supabase
-      .from('feedback')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'open'),
-    supabase
-      .from('feedback')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'reviewed'),
-    supabase
-      .from('feedback')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'closed'),
-  ])
-
-  if (openResult.error) throw openResult.error
-  if (reviewedResult.error) throw reviewedResult.error
-  if (closedResult.error) throw closedResult.error
-
-  return {
-    open: openResult.count ?? 0,
-    reviewed: reviewedResult.count ?? 0,
-    closed: closedResult.count ?? 0,
-  }
-}

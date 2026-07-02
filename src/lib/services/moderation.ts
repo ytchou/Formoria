@@ -2,12 +2,12 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/database.types'
 import * as supabaseServer from '@/lib/supabase/server'
 
-export const SUSPICIOUS_TLDS = ['.tk', '.ml', '.ga', '.cf', '.gq']
-export const MAX_URLS_IN_TEXT = 3
-export const MAX_EMOJI_COUNT = 10
-export const MIN_CJK_DESCRIPTION_CHARS = 10
-export const TRUSTED_OWNER_THRESHOLD = 3
-export const ENGLISH_SPAM_PHRASES = ['click here', 'buy now', 'free offer', 'limited time', 'act now']
+const SUSPICIOUS_TLDS = ['.tk', '.ml', '.ga', '.cf', '.gq']
+const MAX_URLS_IN_TEXT = 3
+const MAX_EMOJI_COUNT = 10
+const MIN_CJK_DESCRIPTION_CHARS = 10
+const TRUSTED_OWNER_THRESHOLD = 3
+const ENGLISH_SPAM_PHRASES = ['click here', 'buy now', 'free offer', 'limited time', 'act now']
 
 export type ModerationTier = 'block' | 'flag'
 export type RiskLevel = 'clean' | 'medium' | 'high'
@@ -65,7 +65,7 @@ function createModerationClient(): SupabaseClient<Database> {
   return serverModule.createServerClient?.() ?? supabaseServer.createServiceClient()
 }
 
-export function checkSuspiciousTlds(fields: Record<string, string | undefined>): ModerationFlag[] {
+function checkSuspiciousTlds(fields: Record<string, string | undefined>): ModerationFlag[] {
   const flags: ModerationFlag[] = []
 
   for (const [fieldName, value] of Object.entries(fields)) {
@@ -98,7 +98,7 @@ export function checkSuspiciousTlds(fields: Record<string, string | undefined>):
   return flags
 }
 
-export function checkExcessiveUrls(fields: Record<string, string | undefined>): ModerationFlag[] {
+function checkExcessiveUrls(fields: Record<string, string | undefined>): ModerationFlag[] {
   const flags: ModerationFlag[] = []
 
   for (const [fieldName, value] of Object.entries(fields)) {
@@ -123,7 +123,7 @@ export function checkExcessiveUrls(fields: Record<string, string | undefined>): 
   return flags
 }
 
-export function checkEnglishSpam(fields: Record<string, string | undefined>): ModerationFlag[] {
+function checkEnglishSpam(fields: Record<string, string | undefined>): ModerationFlag[] {
   const flags: ModerationFlag[] = []
 
   for (const fieldName of ['name', 'website', 'purchaseUrl']) {
@@ -151,7 +151,7 @@ export function checkEnglishSpam(fields: Record<string, string | undefined>): Mo
   return flags
 }
 
-export function checkContactInjection(fields: Record<string, string | undefined>): ModerationFlag[] {
+function checkContactInjection(fields: Record<string, string | undefined>): ModerationFlag[] {
   const flags: ModerationFlag[] = []
 
   for (const fieldName of ['description']) {
@@ -187,7 +187,7 @@ export function checkContactInjection(fields: Record<string, string | undefined>
   return flags
 }
 
-export function checkExcessiveEmoji(fields: Record<string, string | undefined>): ModerationFlag[] {
+function checkExcessiveEmoji(fields: Record<string, string | undefined>): ModerationFlag[] {
   const flags: ModerationFlag[] = []
 
   for (const [fieldName, value] of Object.entries(fields)) {
@@ -212,7 +212,7 @@ export function checkExcessiveEmoji(fields: Record<string, string | undefined>):
   return flags
 }
 
-export function checkShortOrIdenticalDescription(
+function checkShortOrIdenticalDescription(
   fields: Record<string, string | undefined>,
   brandName: string
 ): ModerationFlag[] {
@@ -302,24 +302,6 @@ export async function saveModerationFlags(
   }))
   const { error } = await supabase.from('moderation_flags').insert(rows)
   if (error) throw error
-}
-
-export async function getModerationFlags(brandId: string): Promise<ModerationFlag[]> {
-  const supabase = createModerationClient()
-  const { data, error } = await supabase
-    .from('moderation_flags')
-    .select('*')
-    .eq('brand_id', brandId)
-    .neq('status', 'reviewed')
-    .order('created_at', { ascending: false })
-
-  if (error || !data) return []
-  return data.map(row => ({
-    fieldName: row.field_name,
-    tier: row.tier as ModerationTier,
-    reason: row.flag_reason,
-    flaggedContent: row.flagged_content,
-  }))
 }
 
 export async function getModerationFlagsBatch(

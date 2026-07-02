@@ -31,7 +31,7 @@ export type CustomerVoice = {
   source?: string
 }
 
-export type MitEvidence = {
+type MitEvidence = {
   mit_smile_listed?: boolean
   mit_smile_cert?: string
   notes?: string
