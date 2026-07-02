@@ -95,7 +95,6 @@ export function renderShareCard(
             fontFamily: 'Noto Sans TC',
             lineHeight: 1.7,
             overflow: 'hidden',
-            WebkitLineClamp: 2,
           }}
         >
           {brandData.name}
