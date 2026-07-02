@@ -8,9 +8,7 @@ vi.mock('@/app/admin/actions', () => ({
   hideBrandAction: vi.fn(),
   unhideBrandAction: vi.fn(),
   deleteBrandAction: vi.fn(),
-  resyncBrandImagesAction: vi.fn(),
   rejectMitAction: vi.fn(),
-  verifyMitAction: vi.fn(),
 }))
 
 const mockBrands = [
