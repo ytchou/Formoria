@@ -3,16 +3,12 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
-import { createClient } from '@/lib/supabase/server'
-import { isActingAsAdmin } from '@/lib/auth/admin-mode'
-import { getImpersonatedBrandSlug } from '@/lib/auth/impersonation'
-import { isOwnerOf } from '@/lib/services/brand-owners'
+import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
 import { createPendingEdit } from '@/lib/services/pending-edits'
 import { scanContent, shouldAutoApprove, saveModerationFlags } from '@/lib/services/moderation'
 import {
   diffRemovedImageUrls,
   discardDraft,
-  getBrandBySlug,
   getBrandDraft,
   publishDraft,
   saveDraft,
@@ -103,10 +99,6 @@ async function completeOnboardingAfterOwnerSubmit(
   })
   revalidatePath('/dashboard')
   revalidatePath('/dashboard/onboarding')
-}
-
-async function hasMatchingImpersonation(brandSlug: string): Promise<boolean> {
-  return (await getImpersonatedBrandSlug()) === brandSlug
 }
 
 function parseBrandEditForm(
@@ -303,23 +295,17 @@ export async function updateBrandAction(
   }
 
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { error: t('notLoggedIn') }
+    const editor = await requireBrandEditor(brandSlug)
+    if ('error' in editor) {
+      if (editor.error === 'notLoggedIn') {
+        return { error: t('notLoggedIn') }
+      }
+      if (editor.error === 'forbidden') {
+        return { error: t('forbidden') }
+      }
+      return { error: `Brand not found: ${brandSlug}` }
     }
-
-    const brand = await getBrandBySlug(brandSlug)
-    const owner = await isOwnerOf(user.id, brand.id)
-    const configuredAdmin = await isActingAsAdmin(user.email)
-    const actingAdmin = !owner && configuredAdmin && (await hasMatchingImpersonation(brandSlug))
-
-    if (!owner && !actingAdmin) {
-      return { error: t('forbidden') }
-    }
+    const { user, brand, owner, actingAdmin, configuredAdmin } = editor
 
     const updateData = parseBrandEditForm(formData)
     const proposedData = updateData as Record<string, unknown>
@@ -372,23 +358,17 @@ export async function saveDraftAction(
   }
 
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { error: t('notLoggedIn') }
+    const editor = await requireBrandEditor(brandSlug)
+    if ('error' in editor) {
+      if (editor.error === 'notLoggedIn') {
+        return { error: t('notLoggedIn') }
+      }
+      if (editor.error === 'forbidden') {
+        return { error: t('forbidden') }
+      }
+      return { error: `Brand not found: ${brandSlug}` }
     }
-
-    const brand = await getBrandBySlug(brandSlug)
-    const owner = await isOwnerOf(user.id, brand.id)
-    const configuredAdmin = await isActingAsAdmin(user.email)
-    const actingAdmin = !owner && configuredAdmin && (await hasMatchingImpersonation(brandSlug))
-
-    if (!owner && !actingAdmin) {
-      return { error: t('forbidden') }
-    }
+    const { user, brand, actingAdmin } = editor
 
     const updateData = parseBrandEditForm(formData)
 
@@ -420,23 +400,17 @@ export async function publishDraftAction(
   }
 
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { error: t('notLoggedIn') }
+    const editor = await requireBrandEditor(brandSlug)
+    if ('error' in editor) {
+      if (editor.error === 'notLoggedIn') {
+        return { error: t('notLoggedIn') }
+      }
+      if (editor.error === 'forbidden') {
+        return { error: t('forbidden') }
+      }
+      return { error: `Brand not found: ${brandSlug}` }
     }
-
-    const brand = await getBrandBySlug(brandSlug)
-    const owner = await isOwnerOf(user.id, brand.id)
-    const configuredAdmin = await isActingAsAdmin(user.email)
-    const actingAdmin = !owner && configuredAdmin && (await hasMatchingImpersonation(brandSlug))
-
-    if (!owner && !actingAdmin) {
-      return { error: t('forbidden') }
-    }
+    const { user, brand, actingAdmin, configuredAdmin } = editor
 
     const snapshot = await getBrandDraft(brand.id)
     if (!snapshot) {
@@ -517,23 +491,17 @@ export async function discardDraftAction(
   }
 
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { error: t('notLoggedIn') }
+    const editor = await requireBrandEditor(brandSlug)
+    if ('error' in editor) {
+      if (editor.error === 'notLoggedIn') {
+        return { error: t('notLoggedIn') }
+      }
+      if (editor.error === 'forbidden') {
+        return { error: t('forbidden') }
+      }
+      return { error: `Brand not found: ${brandSlug}` }
     }
-
-    const brand = await getBrandBySlug(brandSlug)
-    const owner = await isOwnerOf(user.id, brand.id)
-    const configuredAdmin = await isActingAsAdmin(user.email)
-    const actingAdmin = !owner && configuredAdmin && (await hasMatchingImpersonation(brandSlug))
-
-    if (!owner && !actingAdmin) {
-      return { error: t('forbidden') }
-    }
+    const { user, brand, actingAdmin } = editor
 
     const { snapshot } = await discardDraft(brand.id)
     const draftOnlyImages = diffRemovedImageUrls(imageUrlsFromSnapshot(snapshot), imageUrlsFromBrand(brand))
