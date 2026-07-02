@@ -106,16 +106,19 @@ test.describe('Dashboard — brand image upload', () => {
     const uploadedUrl: string = uploadBody.url;
     expect(uploadedUrl).toBeTruthy();
 
-    // Wait for the upload to complete: the button aria-label changes from 'Upload image'
-    // to 'Replace image' (the visible text changes to '更換') once a preview is set.
-    await expect(userPage.getByRole('button', { name: '更換圖片' }).first()).toBeVisible({
-      timeout: 10_000,
-    });
+    // Wait for upload SUCCESS: the button's visible TEXT transitions '上傳中...' → '更換'
+    // (status-based, only after /api/upload resolves). Do NOT use getByRole(name:'更換圖片')
+    // — that matches the aria-label, which is set at file-select time (localPreview) before
+    // the upload completes. hasText matches rendered text content only ('更換', not the
+    // aria-label '更換圖片').
+    await expect(
+      userPage.locator('button').filter({ hasText: '更換' }).first()
+    ).toBeVisible({ timeout: 10_000 });
 
     // Save the form
     await userPage.getByRole('button', { name: '儲存變更' }).click();
 
-    await expect(userPage.getByText('您的編輯正在審核中')).toBeVisible({ timeout: 15_000 });
+    await expect(userPage.getByText('您的編輯已提交審核')).toBeVisible({ timeout: 15_000 });
 
     const { data: pendingEdit } = await supabase
       .from('pending_brand_edits')
