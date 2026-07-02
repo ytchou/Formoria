@@ -43,6 +43,7 @@ export function BadgeSection({ brandSlug, brandUpdatedAt, siteUrl, labels }: Bad
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/badges/featured-on-formoria.svg"
           alt="Featured on Formoria"
@@ -78,6 +79,7 @@ export function BadgeSection({ brandSlug, brandUpdatedAt, siteUrl, labels }: Bad
       </div>
 
       <div className="space-y-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           data-testid="share-card-preview"
           src={cardPreviewSrc}
