@@ -1,0 +1,89 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "🔍 Sentry Daily Triage — 2026-07-01 to 2026-07-02",
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Issues found:* 5   |   *Critical:* 0   |   *Moderate:* 3   |   *Trivial:* 0   |   *Noise:* 1   |   *Auto-resolved:* 2\n*Tickets created:* 2 new   |   *Duplicates skipped:* 0   |   *Auto-resolved (not ticketed):* 2\n_Incident mode: No — 5 issues total, under threshold of 20_"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Auto-Resolved (2):*\nThese issues had Sentry events in the last 24h but the error condition no longer exists in the current codebase.\n\n- :white_check_mark: *<https://yung-tang-chou.sentry.io/issues/MIT-MAP-1B|MIT-MAP-1B: Invalid UUID \"\" on /dashboard>* — DEV-918 was completed 2026-07-01; `resolveDashboardBrand` now guards `!userId`. Event at 00:12 was from an older E2E build (release `53f6cd3` predates fix commit `3bff21b`). Existing ticket: <https://linear.app/ytchou/issue/DEV-918/fix-invalid-empty-string-uuid-error-on-dashboard-page-load|DEV-918> (Done)\n- :white_check_mark: *<https://yung-tang-chou.sentry.io/issues/MIT-MAP-C|MIT-MAP-C: Share-card OG layout error (missing display:flex)>* — Current `src/lib/growth/share-card.tsx` (updated in DEV-925, commit `a1043e4`) has `display: flex` on all container divs; Satori constraint no longer triggered."
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Moderate Issues (3 — ticketed: 2, auto-resolved: 1)*"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": ":large_yellow_circle: *<https://yung-tang-chou.sentry.io/issues/MIT-MAP-31|MIT-MAP-31: Error: failed to pipe response @ /opengraph-image>*\nEvents: 5   ·   New   ·   Severity: Moderate\nRoot cause: `@vercel/og` crashes in `parseFvarAxis` reading index `256` as undefined — the `NotoSansTC-subset.ttf` font has a malformed `fvar` table. Investigate the subset font and regenerate or strip the fvar table.\nTicket: <https://linear.app/ytchou/issue/DEV-927/fix-og-image-crash-vercelog-fails-to-parse-notosanstc-subset-font-fvar|DEV-927> — Fix OG image crash: @vercel/og fails to parse NotoSansTC subset font   ·   Priority: High   ·   Labels: Bug, M"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": ":large_yellow_circle: *<https://yung-tang-chou.sentry.io/issues/MIT-MAP-C|MIT-MAP-C: Error: failed to pipe response @ /api/share-card/[slug]>*\nEvents: 2 (24h) / 9 total   ·   Recurring   ·   Severity: Moderate   ·   Validation: Auto-resolved\nRoot cause resolved in DEV-925 (`a1043e4`): all container divs in `share-card.tsx` now have `display: flex`. No ticket created.\nTicket: _Not ticketed — auto-resolved in current codebase_"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": ":large_yellow_circle: *<https://yung-tang-chou.sentry.io/issues/MIT-MAP-20|MIT-MAP-20: SyntaxError: Unexpected end of JSON input @ /_error>*\nEvents: 1 (24h) / 2 total   ·   Recurring   ·   Severity: Moderate\nRoot cause: Next.js manifest file (`.next/` build artifact) read as empty/truncated JSON during page load — likely a hot-reload race or E2E test startup timing issue. Inconclusive from source alone; investigate dev server + E2E startup sequencing.\nTicket: <https://linear.app/ytchou/issue/DEV-928/investigate-recurring-nextjs-manifest-json-parse-error-on-page-render|DEV-928> — Investigate recurring Next.js manifest JSON parse error on page render   ·   Priority: High   ·   Labels: Bug, M"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Noise (1 — not ticketed)*\n\n- :white_circle: *<https://yung-tang-chou.sentry.io/issues/MIT-MAP-8|MIT-MAP-8: Error: aborted @ abortIncoming(node:_http_server)>*   ·   1 event (24h) / 28 total   ·   Recurring   ·   Seer actionability: super_low\n  TCP-level client disconnect handled at Node.js internals level. Expected behavior when a client closes the connection before the response completes. No action needed."
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Tickets Created (2):*\n- <https://linear.app/ytchou/issue/DEV-927/fix-og-image-crash-vercelog-fails-to-parse-notosanstc-subset-font-fvar|DEV-927> — Fix OG image crash: @vercel/og fails to parse NotoSansTC subset font (fvar table)   (Priority: High, Bug, M)\n- <https://linear.app/ytchou/issue/DEV-928/investigate-recurring-nextjs-manifest-json-parse-error-on-page-render|DEV-928> — Investigate recurring Next.js manifest JSON parse error on page render   (Priority: High, Bug, M)\n\n_2 issues auto-resolved (not ticketed): MIT-MAP-1B (see DEV-918 ✓ Done), MIT-MAP-C (fixed in DEV-925)_\n_1 issue classified as Noise (not ticketed): MIT-MAP-8_"
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Sentry Daily Triage · Phase 2 · 2026-07-02T06:00:00+08:00 | <https://yung-tang-chou.sentry.io/issues/?query=is%3Aunresolved|View all in Sentry>"
+        }
+      ]
+    }
+  ]
+}
