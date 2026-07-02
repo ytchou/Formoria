@@ -162,7 +162,6 @@ describe('admin actions module', () => {
     expect(typeof mod.hideBrandAction).toBe('function')
     expect(typeof mod.unhideBrandAction).toBe('function')
     expect(typeof mod.deleteBrandAction).toBe('function')
-    expect(typeof mod.resyncBrandImagesAction).toBe('function')
     expect(typeof mod.approvePendingEditAction).toBe('function')
     expect(typeof mod.rejectPendingEditAction).toBe('function')
   })
@@ -402,43 +401,6 @@ describe('updateBrandAction moderation audit', () => {
   })
 })
 
-describe('MIT verification actions', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('verifies MIT status by cert number', async () => {
-    const { verifyMitByCert } = await import('@/lib/services/mit-verification')
-    vi.mocked(verifyMitByCert).mockResolvedValue({ data: { id: 'brand-1', name: 'Test Brand' } })
-
-    const { verifyMitAction } = await import('./actions')
-    const result = await verifyMitAction('brand-1', '01200024-02134')
-
-    expect(result).toBeUndefined()
-    expect(verifyMitByCert).toHaveBeenCalledWith('brand-1', '01200024-02134')
-  })
-})
-
-describe('resyncBrandImagesAction', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('returns sync counts and revalidates admin brands', async () => {
-    const { getBrandById, syncBrandImages } = await import('@/lib/services/brands')
-    const { revalidatePath } = await import('next/cache')
-    vi.mocked(getBrandById).mockResolvedValue({ id: 'brand-1', slug: 'test-brand' } as Awaited<ReturnType<typeof getBrandById>>)
-    vi.mocked(syncBrandImages).mockResolvedValue({ synced: 2, failed: 1 })
-
-    const { resyncBrandImagesAction } = await import('./actions')
-    const result = await resyncBrandImagesAction('brand-1')
-
-    expect(syncBrandImages).toHaveBeenCalledWith('brand-1')
-    expect(revalidatePath).toHaveBeenCalledWith('/admin/catalog/brands')
-    expect(result).toEqual({ synced: 2, failed: 1 })
-  })
-})
-
 describe('reviewReportAction', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -464,22 +426,6 @@ describe('reviewReportAction', () => {
     const { reviewReportAction } = await import('./actions')
     const result = await reviewReportAction('report-uuid-1', 'reviewed')
     expect(result).toMatchObject({ error: expect.any(String) })
-  })
-})
-
-describe('bulkUpdateReportsAction', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('returns updated count on success', async () => {
-    const { updateReportStatus } = await import('@/lib/services/reports')
-    vi.mocked(updateReportStatus).mockResolvedValue(undefined)
-
-    const { bulkUpdateReportsAction } = await import('./actions')
-    const result = await bulkUpdateReportsAction(['r1', 'r2'], 'dismissed')
-    expect(result.updated).toBe(2)
-    expect(result.errors).toHaveLength(0)
   })
 })
 

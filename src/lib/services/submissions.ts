@@ -629,31 +629,6 @@ export async function rejectSubmission(
   return submissionToDomain(data)
 }
 
-export type UserSubmissionSummary = {
-  id: string
-  brandName: string
-  status: SubmissionStatus
-  createdAt: string
-}
-
-export async function getUserSubmissions(userEmail: string): Promise<UserSubmissionSummary[]> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('brand_submissions')
-    .select('id, brand_name, status, submitted_at')
-    .eq('submitter_email', userEmail)
-    .order('submitted_at', { ascending: false })
-
-  if (error) throw error
-
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    brandName: row.brand_name,
-    status: (row.status as SubmissionStatus) ?? 'pending',
-    createdAt: row.submitted_at,
-  }))
-}
-
 export async function checkBrandDuplicates(
   name: string
 ): Promise<DuplicateCheckResult> {

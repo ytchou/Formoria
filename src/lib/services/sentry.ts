@@ -29,7 +29,3 @@ export async function resolveSentryProject(token: string): Promise<SentryProject
   cached = { org: projects[0].organization.slug, project: projects[0].slug }
   return cached
 }
-
-export function clearSentryProjectCache() {
-  cached = null
-}

@@ -93,7 +93,6 @@ const {
   hideBrandAction,
   unhideBrandAction,
   deleteBrandAction,
-  resyncBrandImagesAction,
 } = await import('./actions')
 
 describe('admin actions cache invalidation', () => {
@@ -152,13 +151,6 @@ describe('admin actions cache invalidation', () => {
 
   it('deleteBrandAction revalidates public brand pages', async () => {
     await deleteBrandAction('brand-1')
-
-    expect(mockRevalidatePath).toHaveBeenCalledWith('/')
-    expect(mockRevalidatePath).toHaveBeenCalledWith('/brands')
-  })
-
-  it('resyncBrandImagesAction revalidates public brand pages', async () => {
-    await resyncBrandImagesAction('brand-1')
 
     expect(mockRevalidatePath).toHaveBeenCalledWith('/')
     expect(mockRevalidatePath).toHaveBeenCalledWith('/brands')

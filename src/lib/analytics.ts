@@ -23,13 +23,6 @@ function safeGAEvent(...args: Parameters<typeof sendGAEvent>) {
   }
 }
 
-export const SUBMISSION_STEP_NAMES = {
-  0: 'brand_info',
-  1: 'review',
-} as const
-
-export type SubmissionStepName = (typeof SUBMISSION_STEP_NAMES)[keyof typeof SUBMISSION_STEP_NAMES]
-
 export function getUtmParams(search: string): Record<string, string> {
   const params = new URLSearchParams(search)
   const utmParams: Record<string, string> = {}
@@ -175,14 +168,6 @@ export function trackDbClick(brandId: string, destination: string): void {
   }
 }
 
-export function mapPurchaseDestination(platform: string): string {
-  return platform
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9_-]/g, '')
-    .slice(0, 32)
-}
-
 export function trackCategoryFilterApplied(category: string) {
   safeGAEvent('event', 'category_filter_applied', { category })
 }
@@ -208,7 +193,7 @@ export function trackSubmissionFormOpened(
   safeGAEvent('event', 'submission_form_opened', { source })
 }
 
-export function trackSubmissionFormStepCompleted(step: SubmissionStepName) {
+export function trackSubmissionFormStepCompleted(step: string) {
   safeGAEvent('event', 'submission_form_step_completed', { step })
 }
 
@@ -231,7 +216,7 @@ export function trackSubmissionCompleted(
 }
 
 export function trackSubmissionFormAbandoned(
-  lastStepCompleted: SubmissionStepName,
+  lastStepCompleted: string,
   timeSpentSeconds: number
 ) {
   safeGAEvent('event', 'submission_form_abandoned', {
