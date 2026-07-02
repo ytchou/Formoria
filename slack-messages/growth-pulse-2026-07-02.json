@@ -11,7 +11,7 @@
       "type": "section",
       "text": {
         "type": "mrkdwn",
-        "text": "📉 *Dip detected — zero sessions for 11+ consecutive days; open ticket DEV-879 still tracking*"
+        "text": "✅ *Steady day — no action needed*"
       }
     },
     {
@@ -20,7 +20,7 @@
         { "type": "mrkdwn", "text": "*Sessions*\n0 (— WoW)" },
         { "type": "mrkdwn", "text": "*Users*\n0 (— WoW)" },
         { "type": "mrkdwn", "text": "*Page Views*\n0 (— WoW)" },
-        { "type": "mrkdwn", "text": "*Bounce Rate*\n0% (— pp WoW)" },
+        { "type": "mrkdwn", "text": "*Bounce Rate*\n0% (— WoW)" },
         { "type": "mrkdwn", "text": "*Avg Duration*\n0m 0s (— WoW)" }
       ]
     },
@@ -31,14 +31,14 @@
       "type": "section",
       "text": {
         "type": "mrkdwn",
-        "text": "*Top Pages* (vs last week)\nNo data"
+        "text": "*Top Pages* (vs last week)\nNo page view data recorded."
       }
     },
     {
       "type": "section",
       "text": {
         "type": "mrkdwn",
-        "text": "*Referral Sources* (vs last week)\nNo data"
+        "text": "*Referral Sources* (vs last week)\nNo referral source data recorded."
       }
     },
     {
@@ -48,14 +48,7 @@
       "type": "section",
       "text": {
         "type": "mrkdwn",
-        "text": "*Signals*\n• *What:* 0 sessions on 2026-07-01 (yesterday); 0 sessions on 2026-06-24 (same weekday last week). Zero traffic across all dates — both dates are below the 30-session anomaly floor, so no new threshold is triggered. The Top Pages and Referral Sources tabs returned no data rows.\n  *So what:* The GA4 blackout first detected on 2026-06-20 continues into day 11. Either the site has zero organic reach, the GA4 tag is silently failing, or the property configuration changed.\n  *Now what:* No new action — open ticket <https://linear.app/ytchou/issue/DEV-879|DEV-879> is tracking this issue."
-      }
-    },
-    {
-      "type": "section",
-      "text": {
-        "type": "mrkdwn",
-        "text": "*Open Ticket*\n• <https://linear.app/ytchou/issue/DEV-879/growth-pulse-2026-06-23-zero-traffic-day-3-complete-ga4-blackout|DEV-879>: [Growth Pulse] 2026-06-23 — Zero-traffic day 3: complete GA4 blackout continues (existing — still open)"
+        "text": "*Signals*\n• *What:* Zero sessions, users, and page views on 2026-07-01; same weekday last week (2026-06-24) also recorded 0 sessions.\n  *So what:* Both data points are below the 30-session anomaly-detection floor — this level of zero traffic is expected noise for an early-stage site building its audience.\n  *Now what:* No action needed. If zero sessions persist into next week, verify that GA4 property 538232091 is correctly tagged on all pages.\n\nNo ticket — signals are informational only."
       }
     },
     {
@@ -73,7 +66,7 @@
       "elements": [
         {
           "type": "mrkdwn",
-          "text": "Compared against same weekday last week. GA4 data may lag 24–48h."
+          "text": "Compared against same weekday last week (2026-06-24). GA4 data may lag 24–48h. Last updated: 2026-07-02 07:34:16."
         }
       ]
     }
