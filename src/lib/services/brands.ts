@@ -535,6 +535,10 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     contactEmail: row.contact_email ?? null,
     priceRange: row.price_range ?? null,
     productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
+    reputationSummary: (row.reputation_summary as Brand['reputationSummary']) ?? null,
+    manufacturing: (row.manufacturing as Brand['manufacturing']) ?? null,
+    certifications: (row.certifications as Brand['certifications']) ?? null,
+    policies: (row.policies as Brand['policies']) ?? null,
     siteContent: normalizeSiteContent(row.site_content as Brand['siteContent']),
     submittedAt: row.submitted_at ?? '',
     approvedAt: row.approved_at ?? null,
@@ -564,6 +568,7 @@ const BRAND_COLUMNS = [
   'status', 'submitted_at', 'approved_at', 'created_at', 'updated_at',
   'draft_data', 'draft_updated_at', 'founding_year',
   'price_range', 'product_tags',
+  'reputation_summary', 'manufacturing', 'certifications', 'policies',
   'mit_status', 'mit_verified_at',
   'mit_evidence', 'source', 'is_demo',
 ].join(', ')
