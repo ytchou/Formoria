@@ -306,7 +306,8 @@
       "highlights": "品牌亮點",
       "photos": "照片",
       "customerVoices": "顧客心聲",
-      "locations": "據點"
+      "locations": "據點",
+      "faq": "常見問題"
     },
     "gallery": {
       "viewer": "照片檢視",
@@ -345,6 +346,53 @@
         "unknown": "提交失敗，請稍後再試。"
       }
     }
+  },
+  "brandFaq": {
+    "sectionTitle": "常見問題",
+    "questions": {
+      "isMadeInTaiwan": {
+        "question": "{brandName}是台灣製造嗎？",
+        "answer": "是的，{brandName}是經過驗證的台灣製造品牌。{evidence}"
+      },
+      "whereToBuy": {
+        "question": "{brandName}的產品在哪裡買？",
+        "answer": "您可以透過{channels}購買{brandName}的產品。"
+      },
+      "hasPhysicalStores": {
+        "question": "{brandName}有實體門市嗎？",
+        "answer": "{brandName}的實體據點包括{stores}。{moreText}"
+      },
+      "mainProducts": {
+        "question": "{brandName}主打什麼產品？",
+        "answer": "{brandName}專注於{category}{tags}。"
+      },
+      "priceRange": {
+        "question": "{brandName}的價位如何？",
+        "answer": "{brandName}的產品定位在{range}價位。"
+      },
+      "whenFounded": {
+        "question": "{brandName}是什麼時候創立的？",
+        "answer": "{brandName}創立於{year}年。"
+      },
+      "officialAccounts": {
+        "question": "{brandName}的官方帳號在哪裡？",
+        "answer": "您可以在{platforms}上追蹤{brandName}。"
+      }
+    },
+    "priceRanges": {
+      "budget": "平價",
+      "midRange": "中價位",
+      "premium": "高價位"
+    },
+    "moreText": "，以及其他 {count} 個據點"
+  },
+  "brandIntro": {
+    "identity": "{brandName}是台灣的{category}品牌。",
+    "identityNoCat": "{brandName}是來自台灣的品牌。",
+    "founded": "創立於{year}年，",
+    "mitVerified": "已通過台灣製造驗證。",
+    "price": "產品定位在{range}價位。",
+    "purchase": "可透過{channels}購買。"
   },
   "categories": {
     "metadata": {
