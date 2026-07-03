@@ -23,6 +23,29 @@ describe('guideFrontmatterSchema', () => {
     expect(guideFrontmatterSchema.safeParse(validFrontmatter).success).toBe(true)
   })
 
+  it('accepts draft field set to true', () => {
+    const result = guideFrontmatterSchema.safeParse({
+      ...validFrontmatter,
+      draft: true,
+    })
+
+    expect(result.success).toBe(true)
+    if (!result.success) {
+      throw new Error('Expected draft frontmatter to parse')
+    }
+    expect(result.data.draft).toBe(true)
+  })
+
+  it('defaults draft to false when omitted', () => {
+    const result = guideFrontmatterSchema.safeParse(validFrontmatter)
+
+    expect(result.success).toBe(true)
+    if (!result.success) {
+      throw new Error('Expected default draft frontmatter to parse')
+    }
+    expect(result.data.draft).toBe(false)
+  })
+
   it('validates frontmatter with optional fields', () => {
     const result = guideFrontmatterSchema.safeParse({
       ...validFrontmatter,
@@ -97,6 +120,13 @@ describe('getAllGuides', () => {
     expect(guides[1].frontmatter.slug).toBe('test-tea-brands')
   })
 
+  it('excludes draft guides from results', async () => {
+    const guides = await getAllGuides(FIXTURE_DIR)
+    const slugs = guides.map(guide => guide.frontmatter.slug)
+
+    expect(slugs).not.toContain('test-draft-guide')
+  })
+
   it('returns empty array for non-existent directory', async () => {
     const guides = await getAllGuides('/non/existent/path')
     expect(guides).toEqual([])
@@ -121,6 +151,13 @@ describe('getGuideBySlug', () => {
     const guide = await getGuideBySlug('non-existent', FIXTURE_DIR)
     expect(guide).toBeNull()
   })
+
+  it('returns draft guide by slug for preview', async () => {
+    const guide = await getGuideBySlug('test-draft-guide', FIXTURE_DIR)
+
+    expect(guide).not.toBeNull()
+    expect(guide!.frontmatter.draft).toBe(true)
+  })
 })
 
 describe('getGuidesByCategory', () => {
@@ -133,5 +170,12 @@ describe('getGuidesByCategory', () => {
   it('returns empty array for category with no guides', async () => {
     const guides = await getGuidesByCategory('tech', FIXTURE_DIR)
     expect(guides).toEqual([])
+  })
+
+  it('excludes draft guides from category results', async () => {
+    const guides = await getGuidesByCategory('home', FIXTURE_DIR)
+    const slugs = guides.map(guide => guide.frontmatter.slug)
+
+    expect(slugs).not.toContain('test-draft-guide')
   })
 })
