@@ -25,7 +25,8 @@
     "signIn": "Sign in",
     "languageLabel": "Switch language",
     "about": "About Formoria",
-    "myBrands": "My Brands"
+    "myBrands": "My Brands",
+    "guides": "Guides"
   },
   "footer": {
     "about": "About",
@@ -918,11 +919,26 @@
         "back": "Back to checklist"
       },
       "steps": {
-        "basics": { "title": "Confirm brand basics", "description": "Review the brand name, founding year, and price range." },
-        "products": { "title": "Confirm products", "description": "Review the specific product tags that help people discover the brand." },
-        "story_media": { "title": "Review story and visuals", "description": "Check the brand description, hero image, and product photos." },
-        "purchase": { "title": "Confirm purchase channels", "description": "Review marketplace links, other URLs, and retail locations." },
-        "social_proof": { "title": "Confirm social presence", "description": "Review social accounts and customer voices." }
+        "basics": {
+          "title": "Confirm brand basics",
+          "description": "Review the brand name, founding year, and price range."
+        },
+        "products": {
+          "title": "Confirm products",
+          "description": "Review the specific product tags that help people discover the brand."
+        },
+        "story_media": {
+          "title": "Review story and visuals",
+          "description": "Check the brand description, hero image, and product photos."
+        },
+        "purchase": {
+          "title": "Confirm purchase channels",
+          "description": "Review marketplace links, other URLs, and retail locations."
+        },
+        "social_proof": {
+          "title": "Confirm social presence",
+          "description": "Review social accounts and customer voices."
+        }
       },
       "milestone": {
         "gettingStarted": "Great start! Keep improving your brand page.",
@@ -1608,5 +1624,14 @@
     "banner": "Viewing as {brandName}",
     "exit": "Exit",
     "timeRemaining": "{minutes}m remaining"
+  },
+  "guides": {
+    "metaTitle": "Taiwan Brand Guides | Formoria",
+    "metaDescription": "Explore curated Taiwan brand guides, from skincare to food, and discover the best Made in Taiwan brands.",
+    "heading": "Taiwan Brand Guides",
+    "subheading": "Explore Taiwan brands, industries, and purchasing context. From daily skincare to local food, find the guides you are looking for.",
+    "badgeLabel": "Guide Hub",
+    "allCategories": "All",
+    "comingSoon": "coming soon"
   }
 }

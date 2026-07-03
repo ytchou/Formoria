@@ -69,7 +69,8 @@ describe('sitemap', () => {
     expect(guideEntries.length).toBeGreaterThanOrEqual(0)
 
     guideEntries.forEach((entry) => {
-      expect(entry.url).toContain('/zh-TW/guides/')
+      expect(entry.url).toContain('/guides/')
+      expect(entry.url).not.toContain('/zh-TW/guides/')
       expect(entry.lastModified).toBeDefined()
     })
   })

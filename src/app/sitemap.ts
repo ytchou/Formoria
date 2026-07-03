@@ -51,12 +51,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const brandPages: MetadataRoute.Sitemap = brandSlugs.map((slug) =>
       makeEntry(`/brands/${slug}`, now, 'weekly', 0.8)
     )
-    const guidePages: MetadataRoute.Sitemap = guides.map((guide) => ({
-      url: `${getSiteUrl()}/zh-TW/guides/${guide.frontmatter.slug}`,
-      lastModified: new Date(guide.frontmatter.updatedAt || guide.frontmatter.publishedAt),
-      changeFrequency: 'weekly',
-      priority: 0.7,
-    }))
+    const guidePages: MetadataRoute.Sitemap = guides.map((guide) =>
+      makeEntry(
+        `/guides/${guide.frontmatter.slug}`,
+        new Date(guide.frontmatter.updatedAt || guide.frontmatter.publishedAt),
+        'weekly',
+        0.7
+      )
+    )
 
     return [...staticPages, ...brandPages, ...guidePages]
   } catch {

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { setRequestLocale } from 'next-intl/server'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { getAllGuides, getGuidesByCategory } from '@/lib/services/guides'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
@@ -14,10 +14,11 @@ export const revalidate = 3600
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { locale } = await params
   setRequestLocale(locale)
+  const t = await getTranslations({ locale, namespace: 'guides' })
 
   return {
-    title: '台灣品牌指南 | Formoria',
-    description: '探索精選台灣品牌指南，從護膚到美食，深入了解台灣製造的優質品牌',
+    title: t('metaTitle'),
+    description: t('metaDescription'),
   }
 }
 
@@ -32,6 +33,7 @@ function formatGuideDate(date: string): string {
 export default async function GuidesHubPage({ params, searchParams }: PageProps) {
   const { locale } = await params
   setRequestLocale(locale)
+  const t = await getTranslations({ locale, namespace: 'guides' })
   const sp = await searchParams
   const category = typeof sp.category === 'string' && sp.category.trim() ? sp.category.trim() : null
   const activeCategory = category && PRODUCT_TYPE_CATEGORIES.some((item) => item.slug === category)
@@ -44,24 +46,24 @@ export default async function GuidesHubPage({ params, searchParams }: PageProps)
       <div className="space-y-8">
         <header className="space-y-3">
           <p className="font-sans text-sm uppercase tracking-[0.18em] text-muted-foreground">
-            Guide Hub
+            {t('badgeLabel')}
           </p>
-          <h1 className="font-heading text-[26px] font-bold text-foreground">台灣品牌指南</h1>
+          <h1 className="font-heading text-[26px] font-bold text-foreground">{t('heading')}</h1>
           <p className="max-w-2xl font-sans text-sm leading-[1.7] text-muted-foreground">
-            探索台灣品牌、產業與選購脈絡，從日常保養到在地飲食，快速找到你想看的指南。
+            {t('subheading')}
           </p>
         </header>
 
         <nav aria-label="Guide categories" className="flex flex-wrap gap-2">
           <Link
-            href="/zh-TW/guides"
+            href="/guides"
             className={`rounded-full border px-3.5 py-1.5 font-sans text-sm transition-colors ${
               activeCategory === null
                 ? 'border-stone-950 bg-stone-950 text-white'
                 : 'border-stone-200 text-stone-700 hover:bg-stone-100'
             }`}
           >
-            All
+            {t('allCategories')}
           </Link>
           {PRODUCT_TYPE_CATEGORIES.map((item) => {
             const isActive = activeCategory === item.slug
@@ -69,7 +71,7 @@ export default async function GuidesHubPage({ params, searchParams }: PageProps)
             return (
               <Link
                 key={item.slug}
-                href={`/zh-TW/guides?category=${encodeURIComponent(item.slug)}`}
+                href={`/guides?category=${encodeURIComponent(item.slug)}`}
                 className={`rounded-full border px-3.5 py-1.5 font-sans text-sm transition-colors ${
                   isActive
                     ? 'border-stone-950 bg-stone-950 text-white'
@@ -91,7 +93,7 @@ export default async function GuidesHubPage({ params, searchParams }: PageProps)
             {guides.map((guide) => (
               <Link
                 key={guide.slug}
-                href={`/zh-TW/guides/${guide.slug}`}
+                href={`/guides/${guide.slug}`}
                 className="group rounded-xl border border-stone-200 bg-stone-50 p-5 transition-colors hover:bg-stone-100"
               >
                 <div className="space-y-3">

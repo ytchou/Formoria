@@ -26,7 +26,7 @@
     "signIn": "登入",
     "languageLabel": "切換語言",
     "about": "關於 Formoria",
-    "myBrands": "我的品牌"
+    "guides": "指南"
   },
   "footer": {
     "about": "關於我們",
@@ -919,11 +919,26 @@
         "back": "返回檢查清單"
       },
       "steps": {
-        "basics": { "title": "確認品牌基本資料", "description": "檢視品牌名稱、創立年份與價格範圍。" },
-        "products": { "title": "確認產品內容", "description": "檢視協助使用者找到品牌的具體產品標籤。" },
-        "story_media": { "title": "檢視品牌故事與圖片", "description": "確認品牌介紹、主視覺與產品照片。" },
-        "purchase": { "title": "確認購買管道", "description": "檢視購物平台、其他連結與實體通路。" },
-        "social_proof": { "title": "確認社群資訊", "description": "檢視社群帳號與顧客評價。" }
+        "basics": {
+          "title": "確認品牌基本資料",
+          "description": "檢視品牌名稱、創立年份與價格範圍。"
+        },
+        "products": {
+          "title": "確認產品內容",
+          "description": "檢視協助使用者找到品牌的具體產品標籤。"
+        },
+        "story_media": {
+          "title": "檢視品牌故事與圖片",
+          "description": "確認品牌介紹、主視覺與產品照片。"
+        },
+        "purchase": {
+          "title": "確認購買管道",
+          "description": "檢視購物平台、其他連結與實體通路。"
+        },
+        "social_proof": {
+          "title": "確認社群資訊",
+          "description": "檢視社群帳號與顧客評價。"
+        }
       },
       "milestone": {
         "gettingStarted": "好的開始！繼續完善你的品牌頁面。",
@@ -1609,5 +1624,14 @@
     "banner": "正在以 {brandName} 身份檢視",
     "exit": "結束",
     "timeRemaining": "剩餘 {minutes} 分鐘"
+  },
+  "guides": {
+    "metaTitle": "台灣品牌指南 | Formoria",
+    "metaDescription": "探索精選台灣品牌指南，從護膚到美食，深入了解台灣製造的優質品牌",
+    "heading": "台灣品牌指南",
+    "subheading": "探索台灣品牌、產業與選購脈絡，從日常保養到在地飲食，快速找到你想看的指南。",
+    "badgeLabel": "Guide Hub",
+    "allCategories": "All",
+    "comingSoon": "coming soon"
   }
 }
