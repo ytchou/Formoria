@@ -414,6 +414,26 @@
       "officialAccounts": {
         "question": "{brandName} 的官方帳號在哪裡？",
         "answer": "您可以在{accounts}上追蹤{brandName}。"
+      },
+      "reputation": {
+        "question": "{brandName}評價如何？",
+        "answer": "{summary}"
+      },
+      "manufacturing": {
+        "question": "{brandName}在哪裡製造？",
+        "answer": "{details}"
+      },
+      "certifications": {
+        "question": "{brandName}有什麼認證？",
+        "answer": "{certList}"
+      },
+      "returnPolicy": {
+        "question": "{brandName}退換貨政策是什麼？",
+        "answer": "{details}"
+      },
+      "internationalShipping": {
+        "question": "{brandName}有寄海外嗎？",
+        "answer": "{details}"
       }
     }
   },

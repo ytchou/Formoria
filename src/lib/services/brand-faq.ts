@@ -110,6 +110,50 @@ function buildOfficialAccountsAnswer(brand: Brand, t: TFn): string {
   })
 }
 
+function buildReputationAnswer(brand: Brand, t: TFn): string {
+  return t('brandFaq.reputation.answer', {
+    brandName: brand.name,
+    summary: brand.reputationSummary?.text ?? '',
+  })
+}
+
+function buildManufacturingAnswer(brand: Brand, t: TFn): string {
+  const manufacturing = brand.manufacturing
+
+  return t('brandFaq.manufacturing.answer', {
+    brandName: brand.name,
+    details: [manufacturing?.factoryLocation, manufacturing?.productionModel].filter(Boolean).join(', '),
+  })
+}
+
+function buildCertificationsAnswer(brand: Brand, t: TFn): string {
+  return t('brandFaq.certifications.answer', {
+    brandName: brand.name,
+    certList: truncate((brand.certifications ?? []).map((cert) => cert.name)).join(', '),
+  })
+}
+
+function buildReturnPolicyAnswer(brand: Brand, t: TFn): string {
+  const policies = brand.policies
+
+  return t('brandFaq.returnPolicy.answer', {
+    brandName: brand.name,
+    details: [policies?.returns, policies?.warranty].filter(Boolean).join(' '),
+  })
+}
+
+function buildInternationalShippingAnswer(brand: Brand, t: TFn): string {
+  const shipsInternational = brand.policies?.shipsInternational
+
+  return t('brandFaq.internationalShipping.answer', {
+    brandName: brand.name,
+    details:
+      shipsInternational === true
+        ? 'Yes, this brand ships internationally.'
+        : 'No, this brand does not ship internationally.',
+  })
+}
+
 const FAQ_GENERATORS: FaqGenerator[] = [
   {
     condition: (brand) => brand.mitStatus === 'verified',
@@ -145,6 +189,31 @@ const FAQ_GENERATORS: FaqGenerator[] = [
     condition: (brand) => [brand.socialInstagram, brand.socialThreads, brand.socialFacebook].some(hasValue),
     questionKey: 'brandFaq.officialAccounts.question',
     buildAnswer: buildOfficialAccountsAnswer,
+  },
+  {
+    condition: (brand) => Boolean(brand.reputationSummary?.text),
+    questionKey: 'brandFaq.reputation.question',
+    buildAnswer: buildReputationAnswer,
+  },
+  {
+    condition: (brand) => Boolean(brand.manufacturing?.factoryLocation || brand.manufacturing?.productionModel),
+    questionKey: 'brandFaq.manufacturing.question',
+    buildAnswer: buildManufacturingAnswer,
+  },
+  {
+    condition: (brand) => (brand.certifications?.length ?? 0) > 0,
+    questionKey: 'brandFaq.certifications.question',
+    buildAnswer: buildCertificationsAnswer,
+  },
+  {
+    condition: (brand) => Boolean(brand.policies?.returns || brand.policies?.warranty),
+    questionKey: 'brandFaq.returnPolicy.question',
+    buildAnswer: buildReturnPolicyAnswer,
+  },
+  {
+    condition: (brand) => brand.policies?.shipsInternational != null,
+    questionKey: 'brandFaq.internationalShipping.question',
+    buildAnswer: buildInternationalShippingAnswer,
   },
 ]
 
