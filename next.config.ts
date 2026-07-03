@@ -21,6 +21,28 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: '/admin/content/:path*',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              "style-src 'self' 'unsafe-inline'",
+              "connect-src 'self' https://content.tinajs.io https://identity.tinajs.io",
+              "img-src 'self' data: blob: https://assets.tinajs.io",
+              "font-src 'self' data:",
+              "frame-src https://identity.tinajs.io",
+              "frame-ancestors 'self'",
+            ].join('; '),
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN',
+          },
+        ],
+      },
+      {
         source: '/(.*)',
         headers: [
           {
