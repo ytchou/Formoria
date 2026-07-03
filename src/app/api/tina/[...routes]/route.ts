@@ -1,60 +1,27 @@
-import { createRequire } from 'node:module'
 import { NextRequest, NextResponse } from 'next/server'
-
-type TinaDatabaseClient = {
-  request: (body: unknown) => Promise<unknown> | unknown
-}
-
-type TinaDatabaseClientModule = {
-  databaseClient?: TinaDatabaseClient
-  default?: TinaDatabaseClient
-}
-
-const require = createRequire(import.meta.url)
-
-function loadDatabaseClient(): TinaDatabaseClient | null {
-  try {
-    const generated = require('../../../../../tina/__generated__/databaseClient') as
-      | TinaDatabaseClient
-      | TinaDatabaseClientModule
-
-    if (typeof generated === 'object' && generated !== null && 'request' in generated) {
-      const client = generated as TinaDatabaseClient
-
-      if (typeof client.request === 'function') {
-        return client
-      }
-    }
-
-    if (
-      typeof generated === 'object' &&
-      generated !== null &&
-      'databaseClient' in generated &&
-      generated.databaseClient &&
-      typeof generated.databaseClient.request === 'function'
-    ) {
-      return generated.databaseClient
-    }
-
-    if (
-      typeof generated === 'object' &&
-      generated !== null &&
-      'default' in generated &&
-      generated.default &&
-      typeof generated.default.request === 'function'
-    ) {
-      return generated.default
-    }
-  } catch {
-    return null
-  }
-
-  return null
-}
+import { loadDatabaseClient } from '../../../../lib/tina/database-client'
 
 export async function GET() {
+  const databaseClient = loadDatabaseClient()
+
+  if (databaseClient) {
+    const client = databaseClient as {
+      get?: (request: Request) => Promise<Response> | Response
+      GET?: (request: Request) => Promise<Response> | Response
+      handleGet?: (request: Request) => Promise<Response> | Response
+    }
+
+    const getHandler = client.get ?? client.GET ?? client.handleGet
+
+    if (typeof getHandler === 'function') {
+      return await getHandler(new Request('http://localhost/api/tina'))
+    }
+  }
+
   return NextResponse.json({
-    message: 'TinaCMS API route is available',
+    status: 'ok',
+    service: 'tina',
+    databaseClientLoaded: Boolean(databaseClient),
   })
 }
 
@@ -68,8 +35,25 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const body = (await request.json()) as unknown
-  const result = await databaseClient.request(body)
+  let body: unknown
 
-  return NextResponse.json(result)
+  try {
+    body = (await request.json()) as unknown
+  } catch {
+    return NextResponse.json(
+      { error: 'Invalid JSON payload' },
+      { status: 400 },
+    )
+  }
+
+  try {
+    const result = await databaseClient.request(body)
+
+    return NextResponse.json(result)
+  } catch {
+    return NextResponse.json(
+      { error: 'TinaCMS database client request failed' },
+      { status: 502 },
+    )
+  }
 }
