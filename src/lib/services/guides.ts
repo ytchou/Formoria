@@ -1,110 +1,135 @@
-import { promises as fs } from 'fs'
-import matter from 'gray-matter'
-import path from 'path'
-import { z } from 'zod'
-import { PRODUCT_TYPE_CATEGORIES } from '../taxonomy/ontology'
+// @ts-expect-error Tina client is generated at build time.
+import { client } from '@tina/__generated__/client';
 
-const categorySlugs = PRODUCT_TYPE_CATEGORIES.map(c => c.slug) as [string, ...string[]]
-
-const dateField = z.union([z.string(), z.date()]).transform(v =>
-  v instanceof Date ? v.toISOString().split('T')[0] : v,
-)
-
-const faqItemSchema = z.object({
-  q: z.string(),
-  a: z.string(),
-})
-
-export const guideFrontmatterSchema = z.object({
-  title: z.string(),
-  description: z.string(),
-  slug: z.string(),
-  category: z.enum(categorySlugs),
-  locale: z.literal('zh-TW'),
-  publishedAt: dateField,
-  draft: z.boolean().default(false),
-  updatedAt: dateField.optional(),
-  sources: z.array(z.string()).optional(),
-  faq: z.array(faqItemSchema).optional(),
-})
-
-export type GuideFrontmatter = z.infer<typeof guideFrontmatterSchema>
 export type GuideEntry = {
-  frontmatter: GuideFrontmatter
-  slug: string
+  slug: string;
+  frontmatter: {
+    title: string;
+    description?: string;
+    slug: string;
+    category?: string;
+    locale: string;
+    publishedAt: string;
+    updatedAt?: string;
+    draft: boolean;
+    sources: string[];
+    faq: Array<{ q: string; a: string }>;
+  };
+};
+
+type TinaGuideNode = {
+  title?: string;
+  description?: string;
+  slug?: string;
+  category?: string;
+  locale?: string;
+  publishedAt?: string;
+  updatedAt?: string;
+  draft?: boolean;
+  sources?: string[];
+  faq?: Array<{ q: string; a: string }>;
+  body?: string | Record<string, unknown> | null;
+};
+
+type TinaGuideResult = {
+  data?: {
+    guide?: TinaGuideNode | null;
+  };
+  query?: string;
+  variables?: Record<string, unknown>;
+};
+
+export type GuideDetailResult = Omit<GuideEntry, 'frontmatter'> & {
+  frontmatter: GuideEntry['frontmatter'] & {
+    description: string;
+    updatedAt: string;
+  };
+  content: string;
+  entry: GuideEntry;
+  tina: TinaGuideResult;
+};
+
+type TinaGuideConnectionResult = {
+  data?: {
+    guideConnection?: {
+      edges?: Array<{
+        node?: TinaGuideNode | null;
+      } | null>;
+    } | null;
+  };
+};
+
+function toGuideEntry(node: TinaGuideNode): GuideEntry {
+  return {
+    slug: node.slug ?? '',
+    frontmatter: {
+      title: node.title ?? '',
+      description: node.description,
+      slug: node.slug ?? '',
+      category: node.category,
+      locale: node.locale ?? 'zh-TW',
+      publishedAt: node.publishedAt ?? '',
+      updatedAt: node.updatedAt,
+      draft: node.draft ?? false,
+      sources: node.sources ?? [],
+      faq: node.faq ?? [],
+    },
+  };
 }
-export type GuideWithContent = GuideEntry & { content: string }
 
-const GUIDES_DIR = path.join(process.cwd(), 'content/guides')
+export async function getAllGuides(): Promise<GuideEntry[]> {
+  const result = (await client.queries.guideConnection({
+    filter: { locale: { eq: 'zh-TW' }, draft: { eq: false } },
+  })) as TinaGuideConnectionResult;
 
-async function readGuideFile(filePath: string): Promise<GuideWithContent | null> {
-  const content = await fs.readFile(filePath, 'utf8')
-  const parsed = matter(content)
-  const result = guideFrontmatterSchema.safeParse(parsed.data)
+  const edges = result.data?.guideConnection?.edges ?? [];
 
-  if (!result.success) {
-    return null
+  return edges
+    .map(edge => edge?.node)
+    .filter((node): node is TinaGuideNode => Boolean(node))
+    .map(toGuideEntry);
+}
+
+export async function getGuideBySlug(slug: string): Promise<GuideDetailResult>;
+export async function getGuideBySlug(slug: string): Promise<GuideDetailResult | null> {
+  const relativePath = `${slug}.mdx`;
+  const tina = (await client.queries.guide({
+    relativePath,
+  })) as TinaGuideResult;
+
+  const node = tina.data?.guide;
+  if (!node) {
+    return null;
   }
+
+  const entry = toGuideEntry(node);
 
   return {
-    slug: result.data.slug,
-    frontmatter: result.data,
-    content: parsed.content,
-  }
+    ...entry,
+    frontmatter: {
+      ...entry.frontmatter,
+      description: node.description ?? '',
+      updatedAt: node.updatedAt ?? '',
+    },
+    content: typeof node.body === 'string' ? node.body : '',
+    entry,
+    tina,
+  };
 }
 
-export async function getAllGuides(contentDir = GUIDES_DIR): Promise<GuideEntry[]> {
-  let files: string[] = []
+export async function getGuidesByCategory(category: string): Promise<GuideEntry[]> {
+  const result = (await client.queries.guideConnection({
+    filter: {
+      category: { eq: category },
+      locale: { eq: 'zh-TW' },
+      draft: { eq: false },
+    },
+  })) as TinaGuideConnectionResult;
 
-  try {
-    files = await fs.readdir(contentDir)
-  } catch {
-    return []
-  }
+  const edges = result.data?.guideConnection?.edges ?? [];
 
-  const guides = await Promise.all(
-    files
-      .filter(file => file.endsWith('.mdx'))
-      .map(async file => readGuideFile(path.join(contentDir, file))),
-  )
-
-  return guides
-    .filter((guide): guide is GuideWithContent => guide !== null)
-    .sort(
-      (a, b) =>
-        new Date(b.frontmatter.publishedAt).getTime() -
-        new Date(a.frontmatter.publishedAt).getTime(),
-    )
-    .filter(g => !g.frontmatter.draft)
-    .map(({ frontmatter, slug }) => ({ frontmatter, slug }))
-}
-
-export async function getGuideBySlug(
-  slug: string,
-  contentDir = GUIDES_DIR,
-): Promise<GuideWithContent | null> {
-  try {
-    const files = await fs.readdir(contentDir)
-    const mdxFiles = files.filter(file => file.endsWith('.mdx'))
-
-    for (const file of mdxFiles) {
-      const fullPath = path.join(contentDir, file)
-      const guide = await readGuideFile(fullPath)
-      if (guide?.frontmatter.slug === slug) {
-        return guide
-      }
-    }
-
-    return null
-  } catch {
-    return null
-  }
-}
-
-export async function getGuidesByCategory(
-  category: GuideFrontmatter['category'],
-  contentDir = GUIDES_DIR,
-): Promise<GuideEntry[]> {
-  const guides = await getAllGuides(contentDir)
-  return guides.filter(guide => guide.frontmatter.category === category)
+  return edges
+    .map(edge => edge?.node)
+    .filter((node): node is TinaGuideNode => Boolean(node))
+    .map(toGuideEntry);
 }
