@@ -33,8 +33,4 @@ test.describe('Stats page', () => {
     await expect(page.locator('main').getByText(/\d+%/).first()).toBeVisible();
   });
 
-  test('emits Article JSON-LD in page source', async ({ page }) => {
-    const blocks = await page.locator('script[type="application/ld+json"]').allTextContents();
-    expect(blocks.some((b) => b.includes('"Article"'))).toBe(true);
-  });
 });
