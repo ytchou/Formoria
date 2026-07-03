@@ -305,7 +305,8 @@
       "highlights": "Brand Highlights",
       "photos": "Photos",
       "customerVoices": "Customer Voices",
-      "locations": "Locations"
+      "locations": "Locations",
+      "faq": "Frequently Asked Questions"
     },
     "gallery": {
       "viewer": "Photo viewer",
@@ -342,6 +343,51 @@
         "invalidImageKey": "Uploaded proof image is not valid for this user",
         "duplicate": "You have already submitted a claim for this brand",
         "unknown": "Something went wrong. Please try again."
+      }
+    },
+    "brandIntro": {
+      "identity": "{brandName} is a {category} brand from Taiwan.",
+      "identityNoCat": "{brandName} is a brand from Taiwan.",
+      "founded": "Founded in {year},",
+      "mitVerified": "it is verified as Made in Taiwan.",
+      "price": "Products are in the {range} price range.",
+      "purchase": "Available for purchase through {channels}."
+    },
+    "brandFaq": {
+      "priceRanges": {
+        "budget": "budget-friendly",
+        "midRange": "mid-range",
+        "premium": "premium"
+      },
+      "isMadeInTaiwan": {
+        "question": "Is {brandName} made in Taiwan?",
+        "answer": "Yes, {brandName} is a verified Made in Taiwan brand."
+      },
+      "whereToBuy": {
+        "question": "Where can I buy {brandName} products?",
+        "answer": "You can purchase {brandName} products through {channels}."
+      },
+      "hasPhysicalStores": {
+        "question": "Does {brandName} have physical stores?",
+        "answer": "{brandName} has physical locations including {locations}."
+      },
+      "mainProducts": {
+        "question": "What products does {brandName} make?",
+        "answerWithCategoryAndTags": "{brandName} specializes in {category}, including {productTags}.",
+        "answerWithCategory": "{brandName} specializes in {category}.",
+        "answerWithTags": "{brandName} specializes in products including {productTags}."
+      },
+      "priceRange": {
+        "question": "What is {brandName}'s price range?",
+        "answer": "{brandName} products are positioned in the {range} price range."
+      },
+      "whenFounded": {
+        "question": "When was {brandName} founded?",
+        "answer": "{brandName} was founded in {year}."
+      },
+      "officialAccounts": {
+        "question": "Where are {brandName}'s official social media accounts?",
+        "answer": "You can follow {brandName} on {accounts}."
       }
     }
   },
@@ -918,11 +964,26 @@
         "back": "Back to checklist"
       },
       "steps": {
-        "basics": { "title": "Confirm brand basics", "description": "Review the brand name, founding year, and price range." },
-        "products": { "title": "Confirm products", "description": "Review the specific product tags that help people discover the brand." },
-        "story_media": { "title": "Review story and visuals", "description": "Check the brand description, hero image, and product photos." },
-        "purchase": { "title": "Confirm purchase channels", "description": "Review marketplace links, other URLs, and retail locations." },
-        "social_proof": { "title": "Confirm social presence", "description": "Review social accounts and customer voices." }
+        "basics": {
+          "title": "Confirm brand basics",
+          "description": "Review the brand name, founding year, and price range."
+        },
+        "products": {
+          "title": "Confirm products",
+          "description": "Review the specific product tags that help people discover the brand."
+        },
+        "story_media": {
+          "title": "Review story and visuals",
+          "description": "Check the brand description, hero image, and product photos."
+        },
+        "purchase": {
+          "title": "Confirm purchase channels",
+          "description": "Review marketplace links, other URLs, and retail locations."
+        },
+        "social_proof": {
+          "title": "Confirm social presence",
+          "description": "Review social accounts and customer voices."
+        }
       },
       "milestone": {
         "gettingStarted": "Great start! Keep improving your brand page.",

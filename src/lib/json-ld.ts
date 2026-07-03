@@ -27,9 +27,15 @@ function toInLanguage(locale: JsonLdLocale = 'zh-TW'): string {
  * Build Organization JSON-LD structured data for a brand detail page.
  */
 export function buildBrandJsonLd(brand: Brand, locale: Locale = 'zh-TW'): JsonLdObject {
-  const socialUrls = [brand.socialInstagram, brand.socialThreads, brand.socialFacebook].filter(Boolean) as string[]
-  const purchaseUrls = [brand.purchaseWebsite, brand.purchasePinkoi, brand.purchaseShopee].filter(Boolean) as string[]
-  const allSameAs = [...socialUrls, ...purchaseUrls]
+  const allSameAs = [
+    brand.socialInstagram,
+    brand.socialThreads,
+    brand.socialFacebook,
+    brand.purchaseWebsite,
+    brand.purchasePinkoi,
+    brand.purchaseShopee,
+    ...(brand.otherUrls ?? []).map((link) => link.url),
+  ].filter((url): url is string => typeof url === 'string' && url.trim().length > 0)
 
   const jsonLd: JsonLdObject = {
     '@context': 'https://schema.org',
@@ -41,9 +47,8 @@ export function buildBrandJsonLd(brand: Brand, locale: Locale = 'zh-TW'): JsonLd
 
   const url = brand.purchaseWebsite ?? brand.purchasePinkoi ?? brand.purchaseShopee ?? null
   if (url) jsonLd.url = url
-  if (brand.heroImageUrl) jsonLd.image = brand.heroImageUrl
+  if (brand.heroImageUrl) jsonLd.logo = brand.heroImageUrl
   if (brand.foundingYear) jsonLd.foundingDate = String(brand.foundingYear)
-  if (brand.contactEmail) jsonLd.email = brand.contactEmail
   if (allSameAs.length > 0) jsonLd.sameAs = allSameAs
   if (brand.retailLocations.length === 1) {
     jsonLd.address = {
