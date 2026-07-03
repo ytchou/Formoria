@@ -7,5 +7,5 @@ export const ENRICH_PHASES = [
   'links',
   'images',
   'descriptions',
+  'expansion',
 ] as const
-

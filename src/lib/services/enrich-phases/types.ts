@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ENRICH_PHASES } from '@/lib/constants/enrich-phases'
 import type { BrandFlatLinkColumns } from '@/lib/types'
 import type { CurationConfig, PhaseResult, PhaseStatus } from '@/lib/types/curation'
+import type { SiteContent } from '@/lib/types/brand'
 import type { Database } from '@/lib/supabase/database.types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 
@@ -13,6 +14,7 @@ export type EnrichBrand = {
   name?: string
   status?: string | null
   description?: string | null
+  site_content?: SiteContent | null
   product_type?: string | null
   purchase_website?: string | null
   purchaseWebsite?: string | null
@@ -21,6 +23,10 @@ export type EnrichBrand = {
   product_photos?: string[] | null
   heroImageUrl?: string | null
   productPhotos?: string[] | null
+  reputation_summary?: unknown | null
+  manufacturing?: unknown | null
+  certifications?: unknown | null
+  policies?: unknown | null
 } & Partial<BrandFlatLinkColumns>
 
 export type SearchPhaseResult = {
@@ -38,6 +44,10 @@ export type EnrichPatch = Partial<BrandFlatLinkColumns> &
     description: string | null
     hero_image_url: string | null
     name: string
+    reputation_summary: unknown
+    manufacturing: unknown
+    certifications: unknown
+    policies: unknown
     price_range: number | null
     product_photos: string[]
     product_tags: string[] | null
