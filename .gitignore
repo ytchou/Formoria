@@ -93,6 +93,9 @@ scripts/seeds/
 # local data files
 data/
 
-# TinaCMS generated files — stubs committed until CLI/Vite 5+ compat is resolved
-# tina/__generated__/
+# TinaCMS generated files — track schema (Tina Cloud) + databaseClient stub
+tina/__generated__/*
+!tina/__generated__/_schema.json
+!tina/__generated__/_graphql.json
+!tina/__generated__/databaseClient.ts
 public/admin/content/
