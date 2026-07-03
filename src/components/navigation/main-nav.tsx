@@ -52,6 +52,12 @@ export function MainNav({ categories }: MainNavProps) {
             {t('about')}
           </Link>
           <Link
+            href="/zh-TW/guides"
+            className="text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
+          >
+            指南
+          </Link>
+          <Link
             href="/submit"
             className="rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
@@ -96,6 +102,13 @@ export function MainNav({ categories }: MainNavProps) {
                   onClick={() => setOpen(false)}
                 >
                   {t('about')}
+                </Link>
+                <Link
+                  href="/zh-TW/guides"
+                  className="block px-1 text-sm font-medium text-foreground"
+                  onClick={() => setOpen(false)}
+                >
+                  指南
                 </Link>
                 <Link
                   href="/submit"
