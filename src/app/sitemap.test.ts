@@ -4,6 +4,26 @@ vi.mock('@/lib/services/brands', () => ({
   getAllBrandSlugs: vi.fn().mockResolvedValue(['cha-zi-tang', 'daylily', 'inblooom']),
 }))
 
+vi.mock('@/lib/services/guides', () => ({
+  getAllGuides: vi.fn().mockResolvedValue([
+    {
+      slug: 'guide-one',
+      frontmatter: {
+        slug: 'guide-one',
+        updatedAt: '2026-01-01',
+        publishedAt: '2026-01-01',
+      },
+    },
+    {
+      slug: 'guide-two',
+      frontmatter: {
+        slug: 'guide-two',
+        publishedAt: '2026-01-02',
+      },
+    },
+  ]),
+}))
+
 import sitemap from './sitemap'
 
 describe('sitemap', () => {
@@ -40,5 +60,18 @@ describe('sitemap', () => {
 
     expect(brandEntry?.changeFrequency).toBe('weekly')
     expect(brandEntry?.priority).toBe(0.8)
+  })
+
+  it('includes guide urls', async () => {
+    const entries = await sitemap()
+    const guideEntries = entries.filter((entry) => entry.url.includes('/guides/'))
+
+    expect(guideEntries.length).toBeGreaterThanOrEqual(0)
+
+    guideEntries.forEach((entry) => {
+      expect(entry.url).toContain('/guides/')
+      expect(entry.url).not.toContain('/zh-TW/guides/')
+      expect(entry.lastModified).toBeDefined()
+    })
   })
 })

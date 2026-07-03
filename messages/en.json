@@ -25,7 +25,8 @@
     "signIn": "Sign in",
     "languageLabel": "Switch language",
     "about": "About Formoria",
-    "myBrands": "My Brands"
+    "myBrands": "My Brands",
+    "guides": "Guides"
   },
   "footer": {
     "about": "About",
@@ -1694,5 +1695,19 @@
     "banner": "Viewing as {brandName}",
     "exit": "Exit",
     "timeRemaining": "{minutes}m remaining"
+  },
+  "guides": {
+    "metaTitle": "Taiwan Brand Guides | Formoria",
+    "metaDescription": "Explore curated Taiwan brand guides, from skincare to food, and discover the best Made in Taiwan brands.",
+    "heading": "Taiwan Brand Guides",
+    "subheading": "Explore Taiwan brands, industries, and purchasing context. From daily skincare to local food, find the guides you are looking for.",
+    "badgeLabel": "Guide Hub",
+    "allCategories": "All",
+    "comingSoon": "coming soon"
+  },
+  "guideDetail": {
+    "metadata": {
+      "notFoundTitle": "Guide Not Found"
+    }
   }
 }

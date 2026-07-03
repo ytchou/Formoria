@@ -18,6 +18,7 @@ export const RESERVED_ROUTES = new Set([
   'challenge',
   'submit',
   'brands',
+  'guides',
   'site',
   'dashboard',
   'favorites',
@@ -47,6 +48,7 @@ const intlMiddleware = createMiddleware(routing)
 const KNOWN_LOCALES = new Set<string>(routing.locales)
 const PUBLIC_INTL_SEGMENTS = new Set([
   'brands',
+  'guides',
   'about',
   'faq',
   'getting-started',

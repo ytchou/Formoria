@@ -25,7 +25,8 @@
     "myBrands": "我的品牌",
     "signIn": "登入",
     "languageLabel": "切換語言",
-    "about": "關於 Formoria"
+    "about": "關於 Formoria",
+    "guides": "指南"
   },
   "footer": {
     "about": "關於我們",
@@ -1694,5 +1695,19 @@
     "banner": "正在以 {brandName} 身份檢視",
     "exit": "結束",
     "timeRemaining": "剩餘 {minutes} 分鐘"
+  },
+  "guides": {
+    "metaTitle": "台灣品牌指南 | Formoria",
+    "metaDescription": "探索精選台灣品牌指南，從護膚到美食，深入了解台灣製造的優質品牌",
+    "heading": "台灣品牌指南",
+    "subheading": "探索台灣品牌、產業與選購脈絡，從日常保養到在地飲食，快速找到你想看的指南。",
+    "badgeLabel": "指南中心",
+    "allCategories": "全部",
+    "comingSoon": "敬請期待"
+  },
+  "guideDetail": {
+    "metadata": {
+      "notFoundTitle": "找不到指南"
+    }
   }
 }
