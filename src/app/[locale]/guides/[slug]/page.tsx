@@ -5,6 +5,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import remarkGfm from 'remark-gfm'
 import { getAllGuides, getGuideBySlug } from '@/lib/services/guides'
 import { mdxComponents } from '@/lib/mdx/components'
+import { FaqBlock } from '@/components/guides/faq-block'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { buildArticleJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
@@ -103,6 +104,9 @@ export default async function GuidePage({ params }: PageProps) {
         <div className="prose prose-neutral max-w-none prose-headings:scroll-mt-24 prose-a:break-words dark:prose-invert">
           {content}
         </div>
+        {guide.frontmatter.faq && guide.frontmatter.faq.length > 0 && (
+          <FaqBlock questions={guide.frontmatter.faq} />
+        )}
       </article>
     </main>
   )

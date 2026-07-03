@@ -10,6 +10,13 @@ const dateField = z.union([z.string(), z.date()]).transform(v =>
   v instanceof Date ? v.toISOString().split('T')[0] : v,
 )
 
+const faqItemSchema = z.object({
+  q: z.string(),
+  a: z.string(),
+})
+
+export type FaqItem = z.infer<typeof faqItemSchema>
+
 export const guideFrontmatterSchema = z.object({
   title: z.string(),
   description: z.string(),
@@ -19,6 +26,7 @@ export const guideFrontmatterSchema = z.object({
   publishedAt: dateField,
   updatedAt: dateField.optional(),
   sources: z.array(z.string()).optional(),
+  faq: z.array(faqItemSchema).optional(),
 })
 
 export type GuideFrontmatter = z.infer<typeof guideFrontmatterSchema>
