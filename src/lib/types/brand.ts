@@ -8,7 +8,7 @@ export type OtherUrl = {
   url: string
 }
 
-export interface ProvenanceSource {
+interface ProvenanceSource {
   url: string
   title: string
   retrievedAt: string

@@ -140,7 +140,7 @@ export async function searchBrandUrls(
   return parseApifySerpResults(data)
 }
 
-export async function searchBrandWithSnippets(
+async function searchBrandWithSnippets(
   brandName: string,
   queryTemplate: QueryTemplate = DEFAULT_QUERY
 ): Promise<{ urls: string[], snippets: string[] }> {
