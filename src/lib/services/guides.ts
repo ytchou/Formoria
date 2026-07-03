@@ -1,5 +1,6 @@
 // @ts-expect-error Tina client is generated at build time.
 import { client } from '@tina/__generated__/client';
+import { notFound } from 'next/navigation';
 
 export type GuideEntry = {
   slug: string;
@@ -39,12 +40,7 @@ type TinaGuideResult = {
   variables?: Record<string, unknown>;
 };
 
-export type GuideDetailResult = Omit<GuideEntry, 'frontmatter'> & {
-  frontmatter: GuideEntry['frontmatter'] & {
-    description: string;
-    updatedAt: string;
-  };
-  content: string;
+export type GuideDetailResult = {
   entry: GuideEntry;
   tina: TinaGuideResult;
 };
@@ -79,6 +75,7 @@ function toGuideEntry(node: TinaGuideNode): GuideEntry {
 
 export async function getAllGuides(): Promise<GuideEntry[]> {
   const result = (await client.queries.guideConnection({
+    first: 200,
     filter: { locale: { eq: 'zh-TW' }, draft: { eq: false } },
   })) as TinaGuideConnectionResult;
 
@@ -91,7 +88,7 @@ export async function getAllGuides(): Promise<GuideEntry[]> {
 }
 
 export async function getGuideBySlug(slug: string): Promise<GuideDetailResult>;
-export async function getGuideBySlug(slug: string): Promise<GuideDetailResult | null> {
+export async function getGuideBySlug(slug: string): Promise<GuideDetailResult> {
   const relativePath = `${slug}.mdx`;
   const tina = (await client.queries.guide({
     relativePath,
@@ -99,19 +96,12 @@ export async function getGuideBySlug(slug: string): Promise<GuideDetailResult | 
 
   const node = tina.data?.guide;
   if (!node) {
-    return null;
+    notFound();
   }
 
   const entry = toGuideEntry(node);
 
   return {
-    ...entry,
-    frontmatter: {
-      ...entry.frontmatter,
-      description: node.description ?? '',
-      updatedAt: node.updatedAt ?? '',
-    },
-    content: typeof node.body === 'string' ? node.body : '',
     entry,
     tina,
   };
@@ -119,6 +109,7 @@ export async function getGuideBySlug(slug: string): Promise<GuideDetailResult | 
 
 export async function getGuidesByCategory(category: string): Promise<GuideEntry[]> {
   const result = (await client.queries.guideConnection({
+    first: 200,
     filter: {
       category: { eq: category },
       locale: { eq: 'zh-TW' },

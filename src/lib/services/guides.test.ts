@@ -10,9 +10,16 @@ vi.mock('@tina/__generated__/client', () => ({
   },
 }));
 
+vi.mock('next/navigation', () => ({
+  notFound: vi.fn(() => {
+    throw new Error('NEXT_NOT_FOUND');
+  }),
+}));
+
 import { getAllGuides, getGuideBySlug, getGuidesByCategory } from './guides';
 // @ts-expect-error Tina client is generated at build time.
 import { client } from '@tina/__generated__/client';
+import { notFound } from 'next/navigation';
 
 const mockGuideNode = {
   title: 'Taiwan Skincare Brands',
@@ -68,6 +75,7 @@ describe('guides service (Tina-backed)', () => {
       await getAllGuides();
 
       expect(client.queries.guideConnection).toHaveBeenCalledWith({
+        first: 200,
         filter: { locale: { eq: 'zh-TW' }, draft: { eq: false } },
       });
     });
@@ -109,6 +117,17 @@ describe('guides service (Tina-backed)', () => {
       expect(result.tina).toBe(tinaResult);
     });
 
+    it('throws notFound when the guide is missing', async () => {
+      vi.mocked(client.queries.guide).mockResolvedValue({
+        data: { guide: null },
+        query: '',
+        variables: {},
+      } as any);
+
+      await expect(getGuideBySlug('missing-guide')).rejects.toThrow('NEXT_NOT_FOUND');
+      expect(notFound).toHaveBeenCalled();
+    });
+
     it('queries by relativePath with .mdx extension', async () => {
       vi.mocked(client.queries.guide).mockResolvedValue({
         data: { guide: mockGuideNode },
@@ -133,6 +152,7 @@ describe('guides service (Tina-backed)', () => {
       await getGuidesByCategory('beauty');
 
       expect(client.queries.guideConnection).toHaveBeenCalledWith({
+        first: 200,
         filter: {
           category: { eq: 'beauty' },
           locale: { eq: 'zh-TW' },
