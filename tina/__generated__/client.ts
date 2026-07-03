@@ -1,5 +1,4 @@
-// Auto-generated stub — replace with real generated types when tinacms CLI/Vite compat is resolved
-// This file is gitignored and exists only to satisfy TypeScript imports during development
+// Stub — satisfies TypeScript imports; overwritten locally by `pnpm tina:build`
 
 type GuideQueryResult = {
   data: {
@@ -22,10 +21,10 @@ type GuideConnectionQueryResult = {
 export const client = {
   queries: {
     guide: async (args: { relativePath: string }): Promise<GuideQueryResult> => {
-      throw new Error(`Tina client not initialized — run tinacms build first. Args: ${JSON.stringify(args)}`);
+      throw new Error(`Tina client not initialized — run pnpm tina:build. Args: ${JSON.stringify(args)}`);
     },
     guideConnection: async (args?: { first?: number; filter?: Record<string, unknown> }): Promise<GuideConnectionQueryResult> => {
-      throw new Error(`Tina client not initialized — run tinacms build first. Args: ${JSON.stringify(args)}`);
+      throw new Error(`Tina client not initialized — run pnpm tina:build. Args: ${JSON.stringify(args)}`);
     },
   },
 };

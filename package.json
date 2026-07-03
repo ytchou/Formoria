@@ -9,7 +9,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "tina:dev": "tinacms dev -c 'next dev'",
+    "tina:dev": "dotenv -f .env.local -- tinacms dev -c 'next dev'",
+    "tina:build": "dotenv -f .env.local -- tinacms build --local --skip-cloud-checks",
     "check:favicon": "node scripts/check-favicon-rgba.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -89,6 +90,9 @@
       "vite": ">=8.1.2",
       "ws": ">=8.21.0",
       "undici": ">=7.28.0"
+    },
+    "patchedDependencies": {
+      "@tinacms/cli": "patches/@tinacms__cli.patch"
     }
   }
 }

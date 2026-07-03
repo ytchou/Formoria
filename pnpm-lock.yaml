@@ -9,6 +9,11 @@ overrides:
   ws: '>=8.21.0'
   undici: '>=7.28.0'
 
+patchedDependencies:
+  '@tinacms/cli':
+    hash: 788aea03d308ba1750d84ee9818d6cba0f10df2ffb7a19439311136d4e6fdcb9
+    path: patches/@tinacms__cli.patch
+
 importers:
 
   .:
@@ -130,7 +135,7 @@ importers:
         version: 14.6.1(@testing-library/dom@10.4.1)
       '@tinacms/cli':
         specifier: ^2.5.2
-        version: 2.5.2(@codemirror/language@6.0.0)(@types/node@26.1.0)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(abstract-level@1.0.4)(immer@11.1.8)(jiti@1.21.7)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rollup@4.60.3)(scheduler@0.27.0)(slate-dom@0.114.0(slate@0.114.0))(slate@0.114.0)(terser@5.48.0)(tsx@4.22.2)(use-sync-external-store@1.6.0(react@19.2.4))(yaml@2.9.0)
+        version: 2.5.2(patch_hash=788aea03d308ba1750d84ee9818d6cba0f10df2ffb7a19439311136d4e6fdcb9)(@codemirror/language@6.0.0)(@types/node@26.1.0)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(abstract-level@1.0.4)(immer@11.1.8)(jiti@1.21.7)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rollup@4.60.3)(scheduler@0.27.0)(slate-dom@0.114.0(slate@0.114.0))(slate@0.114.0)(terser@5.48.0)(tsx@4.22.2)(use-sync-external-store@1.6.0(react@19.2.4))(yaml@2.9.0)
       '@types/adm-zip':
         specifier: ^0.5.8
         version: 0.5.8
@@ -12965,7 +12970,7 @@ snapshots:
 
   '@tinacms/bridge@0.3.0': {}
 
-  '@tinacms/cli@2.5.2(@codemirror/language@6.0.0)(@types/node@26.1.0)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(abstract-level@1.0.4)(immer@11.1.8)(jiti@1.21.7)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rollup@4.60.3)(scheduler@0.27.0)(slate-dom@0.114.0(slate@0.114.0))(slate@0.114.0)(terser@5.48.0)(tsx@4.22.2)(use-sync-external-store@1.6.0(react@19.2.4))(yaml@2.9.0)':
+  '@tinacms/cli@2.5.2(patch_hash=788aea03d308ba1750d84ee9818d6cba0f10df2ffb7a19439311136d4e6fdcb9)(@codemirror/language@6.0.0)(@types/node@26.1.0)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(abstract-level@1.0.4)(immer@11.1.8)(jiti@1.21.7)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rollup@4.60.3)(scheduler@0.27.0)(slate-dom@0.114.0(slate@0.114.0))(slate@0.114.0)(terser@5.48.0)(tsx@4.22.2)(use-sync-external-store@1.6.0(react@19.2.4))(yaml@2.9.0)':
     dependencies:
       '@graphql-codegen/core': 2.6.8(graphql@15.8.0)
       '@graphql-codegen/plugin-helpers': 7.0.1(graphql@15.8.0)
