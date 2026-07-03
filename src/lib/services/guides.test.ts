@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@tina/__generated__/client', () => ({
+vi.mock('@tina/client', () => ({
   client: {
     queries: {
       guideConnection: vi.fn(),
@@ -17,8 +17,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import { getAllGuides, getGuideBySlug, getGuidesByCategory } from './guides';
-// @ts-expect-error Tina client is generated at build time.
-import { client } from '@tina/__generated__/client';
+import { client } from '@tina/client'
 import { notFound } from 'next/navigation';
 
 const mockGuideNode = {

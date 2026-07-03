@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { loadDatabaseClient } from '../../../../lib/tina/database-client'
+import { loadDatabaseClient } from '@/lib/tina/database-client'
 
 export async function GET() {
   const databaseClient = loadDatabaseClient()

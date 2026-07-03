@@ -24,7 +24,7 @@ export const client = {
     guide: async (args: { relativePath: string }): Promise<GuideQueryResult> => {
       throw new Error(`Tina client not initialized — run tinacms build first. Args: ${JSON.stringify(args)}`);
     },
-    guideConnection: async (args?: { filter?: Record<string, unknown> }): Promise<GuideConnectionQueryResult> => {
+    guideConnection: async (args?: { first?: number; filter?: Record<string, unknown> }): Promise<GuideConnectionQueryResult> => {
       throw new Error(`Tina client not initialized — run tinacms build first. Args: ${JSON.stringify(args)}`);
     },
   },

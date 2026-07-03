@@ -1,5 +1,4 @@
-// @ts-expect-error Tina client is generated at build time.
-import { client } from '@tina/__generated__/client';
+import { client } from '@tina/client'
 import { notFound } from 'next/navigation';
 
 export type GuideEntry = {
