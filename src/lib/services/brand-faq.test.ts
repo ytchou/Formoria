@@ -87,7 +87,13 @@ describe('buildBrandFaq', () => {
     const [withCategory] = buildBrandFaq(makeFaqBrand({ category: 'Food' }), mockT)
     const [withTags] = buildBrandFaq(makeFaqBrand({ productTags: ['soap'] }), mockT)
     expect(withCategory?.question).toContain('brandFaq.mainProducts.question')
+    expect(withCategory?.answer).toContain('brandFaq.mainProducts.answerWithCategory')
+    expect(withCategory?.answer).not.toContain('null')
+    expect(withCategory?.answer).not.toContain(', including .')
     expect(withTags?.question).toContain('brandFaq.mainProducts.question')
+    expect(withTags?.answer).toContain('brandFaq.mainProducts.answerWithTags')
+    expect(withTags?.answer).not.toContain('null')
+    expect(withTags?.answer).not.toContain(', including .')
   })
 
   it('includes priceRange only for valid values', () => {

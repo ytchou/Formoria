@@ -373,7 +373,9 @@
       },
       "mainProducts": {
         "question": "What products does {brandName} make?",
-        "answer": "{brandName} specializes in {category}, including {productTags}."
+        "answerWithCategoryAndTags": "{brandName} specializes in {category}, including {productTags}.",
+        "answerWithCategory": "{brandName} specializes in {category}.",
+        "answerWithTags": "{brandName} specializes in products including {productTags}."
       },
       "priceRange": {
         "question": "What is {brandName}'s price range?",
@@ -388,53 +390,6 @@
         "answer": "You can follow {brandName} on {accounts}."
       }
     }
-  },
-  "brandFaq": {
-    "sectionTitle": "Frequently Asked Questions",
-    "questions": {
-      "isMadeInTaiwan": {
-        "question": "Is {brandName} made in Taiwan?",
-        "answer": "Yes, {brandName} is a verified Made in Taiwan brand. {evidence}"
-      },
-      "whereToBuy": {
-        "question": "Where can I buy {brandName} products?",
-        "answer": "You can purchase {brandName} products through {channels}."
-      },
-      "hasPhysicalStores": {
-        "question": "Does {brandName} have physical stores?",
-        "answer": "{brandName} has physical locations including {stores}.{moreText}"
-      },
-      "mainProducts": {
-        "question": "What products does {brandName} make?",
-        "answer": "{brandName} specializes in {category}{tags}."
-      },
-      "priceRange": {
-        "question": "What is {brandName}'s price range?",
-        "answer": "{brandName} products are positioned in the {range} price range."
-      },
-      "whenFounded": {
-        "question": "When was {brandName} founded?",
-        "answer": "{brandName} was founded in {year}."
-      },
-      "officialAccounts": {
-        "question": "Where are {brandName}'s official social media accounts?",
-        "answer": "You can follow {brandName} on {platforms}."
-      }
-    },
-    "priceRanges": {
-      "budget": "budget-friendly",
-      "midRange": "mid-range",
-      "premium": "premium"
-    },
-    "moreText": " and {count} more"
-  },
-  "brandIntro": {
-    "identity": "{brandName} is a {category} brand from Taiwan.",
-    "identityNoCat": "{brandName} is a brand from Taiwan.",
-    "founded": "Founded in {year},",
-    "mitVerified": "it is verified as Made in Taiwan.",
-    "price": "Products are in the {range} price range.",
-    "purchase": "Available for purchase through {channels}."
   },
   "categories": {
     "metadata": {

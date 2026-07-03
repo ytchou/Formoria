@@ -64,10 +64,27 @@ function buildPhysicalStoresAnswer(brand: Brand, t: TFn): string {
 }
 
 function buildMainProductsAnswer(brand: Brand, t: TFn): string {
-  return t('brandFaq.mainProducts.answer', {
+  const category = brand.category
+  const productTags = truncate(brand.productTags ?? []).join(', ')
+
+  if (category && productTags) {
+    return t('brandFaq.mainProducts.answerWithCategoryAndTags', {
+      brandName: brand.name,
+      category,
+      productTags,
+    })
+  }
+
+  if (category) {
+    return t('brandFaq.mainProducts.answerWithCategory', {
+      brandName: brand.name,
+      category,
+    })
+  }
+
+  return t('brandFaq.mainProducts.answerWithTags', {
     brandName: brand.name,
-    category: brand.category,
-    productTags: truncate(brand.productTags ?? []).join(', '),
+    productTags,
   })
 }
 
