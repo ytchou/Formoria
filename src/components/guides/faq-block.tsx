@@ -6,10 +6,12 @@ type FaqItem = {
 }
 
 type FaqBlockProps = {
-  questions: FaqItem[]
+  questions?: FaqItem[]
 }
 
-export function FaqBlock({ questions }: FaqBlockProps) {
+export function FaqBlock({ questions = [] }: FaqBlockProps) {
+  if (questions.length === 0) return null
+
   const jsonLd = buildFaqPageJsonLd(
     questions.map((question) => ({
       question: question.q,
