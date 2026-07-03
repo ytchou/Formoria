@@ -4,6 +4,7 @@ import {
   buildBrandJsonLd,
   buildBreadcrumbJsonLd,
   buildCategoryItemListJsonLd,
+  buildBrandsItemListJsonLd,
   buildDefinedTermSetJsonLd,
   buildFaqPageJsonLd,
   buildOrganizationJsonLd,
@@ -256,6 +257,51 @@ describe('buildFaqPageJsonLd', () => {
   it('returns empty mainEntity for empty items array', () => {
     const result = buildFaqPageJsonLd([])
     expect(result.mainEntity).toEqual([])
+  })
+})
+
+describe('buildBrandsItemListJsonLd', () => {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://formoria.com'
+
+  it('returns valid ItemList schema with correct structure', () => {
+    expect(siteUrl).toBeTruthy()
+    const brands = [
+      { name: 'Brand Alpha', slug: 'brand-alpha' },
+      { name: 'Brand Beta', slug: 'brand-beta' },
+    ]
+    const result = buildBrandsItemListJsonLd(brands)
+
+    expect(result['@context']).toBe('https://schema.org')
+    expect(result['@type']).toBe('ItemList')
+    expect(result.itemListElement).toHaveLength(2)
+    expect(result.itemListElement[0]).toMatchObject({
+      '@type': 'ListItem',
+      position: 1,
+      name: 'Brand Alpha',
+    })
+    expect(result.itemListElement[0].url).toContain('/brands/brand-alpha')
+    expect(result.itemListElement[1].position).toBe(2)
+  })
+
+  it('returns empty itemListElement for empty brands array', () => {
+    const result = buildBrandsItemListJsonLd([])
+    expect(result['@type']).toBe('ItemList')
+    expect(result.itemListElement).toHaveLength(0)
+  })
+
+  it('defaults to zh-TW locale', () => {
+    const result = buildBrandsItemListJsonLd([{ name: 'X', slug: 'x' }])
+    expect(result.inLanguage).toBe('zh-TW')
+  })
+
+  it('respects explicit locale parameter', () => {
+    const result = buildBrandsItemListJsonLd([{ name: 'X', slug: 'x' }], 'en')
+    expect(result.inLanguage).toBe('en')
+  })
+
+  it('generates correct URLs with locale prefix for en', () => {
+    const result = buildBrandsItemListJsonLd([{ name: 'X', slug: 'x' }], 'en')
+    expect(result.itemListElement[0].url).toContain('/en/brands/x')
   })
 })
 
