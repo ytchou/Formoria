@@ -15,8 +15,6 @@ const faqItemSchema = z.object({
   a: z.string(),
 })
 
-type FaqItem = z.infer<typeof faqItemSchema>
-
 export const guideFrontmatterSchema = z.object({
   title: z.string(),
   description: z.string(),
@@ -24,6 +22,7 @@ export const guideFrontmatterSchema = z.object({
   category: z.enum(categorySlugs),
   locale: z.literal('zh-TW'),
   publishedAt: dateField,
+  draft: z.boolean().default(false),
   updatedAt: dateField.optional(),
   sources: z.array(z.string()).optional(),
   faq: z.array(faqItemSchema).optional(),
@@ -76,6 +75,7 @@ export async function getAllGuides(contentDir = GUIDES_DIR): Promise<GuideEntry[
         new Date(b.frontmatter.publishedAt).getTime() -
         new Date(a.frontmatter.publishedAt).getTime(),
     )
+    .filter(g => !g.frontmatter.draft)
     .map(({ frontmatter, slug }) => ({ frontmatter, slug }))
 }
 
