@@ -92,3 +92,7 @@ scripts/seeds/
 
 # local data files
 data/
+
+# TinaCMS generated files — stubs committed until CLI/Vite 5+ compat is resolved
+# tina/__generated__/
+public/admin/content/

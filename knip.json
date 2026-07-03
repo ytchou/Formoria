@@ -11,5 +11,8 @@
     "emails/**/*.{ts,tsx}"
   ],
   "ignoreDependencies": ["tw-animate-css", "tailwindcss", "shadcn", "@react-email/ui"],
-  "ignore": ["src/lib/supabase/database.types.ts"]
+  "ignore": ["src/lib/supabase/database.types.ts"],
+  "paths": {
+    "@tina/*": ["tina/__generated__/*"]
+  }
 }

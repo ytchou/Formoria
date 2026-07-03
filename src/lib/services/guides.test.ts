@@ -1,181 +1,163 @@
-import path from 'path'
-import { describe, expect, it } from 'vitest'
-import {
-  getAllGuides,
-  getGuideBySlug,
-  getGuidesByCategory,
-  guideFrontmatterSchema,
-} from './guides'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const FIXTURE_DIR = path.join(process.cwd(), 'content/guides/__fixtures__')
+vi.mock('@tina/client', () => ({
+  client: {
+    queries: {
+      guideConnection: vi.fn(),
+      guide: vi.fn(),
+    },
+  },
+}));
 
-describe('guideFrontmatterSchema', () => {
-  const validFrontmatter = {
-    title: '台灣護膚品牌推薦',
-    description: '精選台灣製造護膚品牌',
-    slug: 'skincare-brands',
-    category: 'beauty',
-    locale: 'zh-TW',
-    publishedAt: '2026-07-01',
-  }
+vi.mock('next/navigation', () => ({
+  notFound: vi.fn(() => {
+    throw new Error('NEXT_NOT_FOUND');
+  }),
+}));
 
-  it('validates correct frontmatter with all required fields', () => {
-    expect(guideFrontmatterSchema.safeParse(validFrontmatter).success).toBe(true)
-  })
+import { getAllGuides, getGuideBySlug, getGuidesByCategory } from './guides';
+import { client } from '@tina/client'
+import { notFound } from 'next/navigation';
 
-  it('accepts draft field set to true', () => {
-    const result = guideFrontmatterSchema.safeParse({
-      ...validFrontmatter,
-      draft: true,
-    })
+const mockGuideNode = {
+  title: 'Taiwan Skincare Brands',
+  description: 'Top skincare brands from Taiwan',
+  slug: 'taiwan-skincare-brands',
+  category: 'beauty',
+  locale: 'zh-TW',
+  publishedAt: '2026-06-15T00:00:00.000Z',
+  updatedAt: '2026-07-01T00:00:00.000Z',
+  draft: false,
+  sources: ['https://example.com/source'],
+  faq: [{ q: 'What makes Taiwan skincare special?', a: 'High-quality ingredients and innovation.' }],
+  body: { type: 'root', children: [] },
+  _sys: { filename: 'taiwan-skincare-brands.mdx', relativePath: 'taiwan-skincare-brands.mdx' },
+};
 
-    expect(result.success).toBe(true)
-    if (!result.success) {
-      throw new Error('Expected draft frontmatter to parse')
-    }
-    expect(result.data.draft).toBe(true)
-  })
+describe('guides service (Tina-backed)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
-  it('defaults draft to false when omitted', () => {
-    const result = guideFrontmatterSchema.safeParse(validFrontmatter)
+  describe('getAllGuides', () => {
+    it('returns guides with preserved nested frontmatter shape', async () => {
+      vi.mocked(client.queries.guideConnection).mockResolvedValue({
+        data: {
+          guideConnection: {
+            edges: [{ node: mockGuideNode }],
+          },
+        },
+      } as any);
 
-    expect(result.success).toBe(true)
-    if (!result.success) {
-      throw new Error('Expected default draft frontmatter to parse')
-    }
-    expect(result.data.draft).toBe(false)
-  })
+      const guides = await getAllGuides();
 
-  it('validates frontmatter with optional fields', () => {
-    const result = guideFrontmatterSchema.safeParse({
-      ...validFrontmatter,
-      updatedAt: '2026-07-02',
-      sources: ['https://example.com'],
-    })
-    expect(result.success).toBe(true)
-  })
+      expect(guides).toHaveLength(1);
+      expect(guides[0].slug).toBe('taiwan-skincare-brands');
+      expect(guides[0].frontmatter.title).toBe('Taiwan Skincare Brands');
+      expect(guides[0].frontmatter.description).toBe('Top skincare brands from Taiwan');
+      expect(guides[0].frontmatter.category).toBe('beauty');
+      expect(guides[0].frontmatter.locale).toBe('zh-TW');
+      expect(guides[0].frontmatter.publishedAt).toBe('2026-06-15T00:00:00.000Z');
+      expect(guides[0].frontmatter.faq).toEqual([
+        { q: 'What makes Taiwan skincare special?', a: 'High-quality ingredients and innovation.' },
+      ]);
+      expect(guides[0].frontmatter.sources).toEqual(['https://example.com/source']);
+      expect(guides[0].frontmatter.draft).toBe(false);
+    });
 
-  it('rejects missing title', () => {
-    expect(
-      guideFrontmatterSchema.safeParse({
-        description: validFrontmatter.description,
-        slug: validFrontmatter.slug,
-        category: validFrontmatter.category,
-        locale: validFrontmatter.locale,
-        publishedAt: validFrontmatter.publishedAt,
-      }).success,
-    ).toBe(false)
-  })
+    it('filters by locale zh-TW and non-draft', async () => {
+      vi.mocked(client.queries.guideConnection).mockResolvedValue({
+        data: { guideConnection: { edges: [] } },
+      } as any);
 
-  it('rejects missing slug', () => {
-    expect(
-      guideFrontmatterSchema.safeParse({
-        title: validFrontmatter.title,
-        description: validFrontmatter.description,
-        category: validFrontmatter.category,
-        locale: validFrontmatter.locale,
-        publishedAt: validFrontmatter.publishedAt,
-      }).success,
-    ).toBe(false)
-  })
+      await getAllGuides();
 
-  it('rejects invalid locale', () => {
-    expect(
-      guideFrontmatterSchema.safeParse({ ...validFrontmatter, locale: 'en' }).success,
-    ).toBe(false)
-  })
+      expect(client.queries.guideConnection).toHaveBeenCalledWith({
+        first: 200,
+        filter: { locale: { eq: 'zh-TW' }, draft: { eq: false } },
+      });
+    });
 
-  it('rejects invalid category', () => {
-    expect(
-      guideFrontmatterSchema.safeParse({ ...validFrontmatter, category: 'invalid-cat' })
-        .success,
-    ).toBe(false)
-  })
+    it('handles missing optional fields with defaults', async () => {
+      const nodeWithMissing = {
+        ...mockGuideNode,
+        updatedAt: undefined,
+        sources: undefined,
+        faq: undefined,
+        draft: undefined,
+      };
+      vi.mocked(client.queries.guideConnection).mockResolvedValue({
+        data: { guideConnection: { edges: [{ node: nodeWithMissing }] } },
+      } as any);
 
-  it('rejects missing publishedAt', () => {
-    expect(
-      guideFrontmatterSchema.safeParse({
-        title: validFrontmatter.title,
-        description: validFrontmatter.description,
-        slug: validFrontmatter.slug,
-        category: validFrontmatter.category,
-        locale: validFrontmatter.locale,
-      }).success,
-    ).toBe(false)
-  })
-})
+      const guides = await getAllGuides();
 
-describe('getAllGuides', () => {
-  it('returns all guides from the content directory', async () => {
-    const guides = await getAllGuides(FIXTURE_DIR)
-    expect(guides).toHaveLength(2)
-    expect(guides[0]).toHaveProperty('frontmatter')
-    expect(guides[0].frontmatter).toHaveProperty('title')
-    expect(guides[0].frontmatter).toHaveProperty('slug')
-  })
+      expect(guides[0].frontmatter.updatedAt).toBeUndefined();
+      expect(guides[0].frontmatter.sources).toEqual([]);
+      expect(guides[0].frontmatter.faq).toEqual([]);
+      expect(guides[0].frontmatter.draft).toBe(false);
+    });
+  });
 
-  it('sorts guides by publishedAt descending (newest first)', async () => {
-    const guides = await getAllGuides(FIXTURE_DIR)
-    expect(guides[0].frontmatter.slug).toBe('test-skincare-brands')
-    expect(guides[1].frontmatter.slug).toBe('test-tea-brands')
-  })
+  describe('getGuideBySlug', () => {
+    it('returns entry with preserved shape and raw tina result', async () => {
+      const tinaResult = {
+        data: { guide: mockGuideNode },
+        query: 'query { guide { ... } }',
+        variables: { relativePath: 'taiwan-skincare-brands.mdx' },
+      };
+      vi.mocked(client.queries.guide).mockResolvedValue(tinaResult as any);
 
-  it('excludes draft guides from results', async () => {
-    const guides = await getAllGuides(FIXTURE_DIR)
-    const slugs = guides.map(guide => guide.frontmatter.slug)
+      const result = await getGuideBySlug('taiwan-skincare-brands');
 
-    expect(slugs).not.toContain('test-draft-guide')
-  })
+      expect(result.entry.slug).toBe('taiwan-skincare-brands');
+      expect(result.entry.frontmatter.title).toBe('Taiwan Skincare Brands');
+      expect(result.tina).toBe(tinaResult);
+    });
 
-  it('returns empty array for non-existent directory', async () => {
-    const guides = await getAllGuides('/non/existent/path')
-    expect(guides).toEqual([])
-  })
-})
+    it('throws notFound when the guide is missing', async () => {
+      vi.mocked(client.queries.guide).mockResolvedValue({
+        data: { guide: null },
+        query: '',
+        variables: {},
+      } as any);
 
-describe('getGuideBySlug', () => {
-  it('returns guide with matching slug', async () => {
-    const guide = await getGuideBySlug('test-skincare-brands', FIXTURE_DIR)
-    expect(guide).not.toBeNull()
-    expect(guide!.frontmatter.slug).toBe('test-skincare-brands')
-    expect(guide!.frontmatter.title).toBe('台灣護膚品牌推薦')
-  })
+      await expect(getGuideBySlug('missing-guide')).rejects.toThrow('NEXT_NOT_FOUND');
+      expect(notFound).toHaveBeenCalled();
+    });
 
-  it('includes raw MDX content', async () => {
-    const guide = await getGuideBySlug('test-skincare-brands', FIXTURE_DIR)
-    expect(guide!.content).toContain('台灣護膚品牌推薦')
-    expect(guide!.content).toContain('<BrandCard')
-  })
+    it('queries by relativePath with .mdx extension', async () => {
+      vi.mocked(client.queries.guide).mockResolvedValue({
+        data: { guide: mockGuideNode },
+        query: '',
+        variables: {},
+      } as any);
 
-  it('returns null for non-existent slug', async () => {
-    const guide = await getGuideBySlug('non-existent', FIXTURE_DIR)
-    expect(guide).toBeNull()
-  })
+      await getGuideBySlug('taiwan-skincare-brands');
 
-  it('returns draft guide by slug for preview', async () => {
-    const guide = await getGuideBySlug('test-draft-guide', FIXTURE_DIR)
+      expect(client.queries.guide).toHaveBeenCalledWith({
+        relativePath: 'taiwan-skincare-brands.mdx',
+      });
+    });
+  });
 
-    expect(guide).not.toBeNull()
-    expect(guide!.frontmatter.draft).toBe(true)
-  })
-})
+  describe('getGuidesByCategory', () => {
+    it('filters by category, locale, and draft status', async () => {
+      vi.mocked(client.queries.guideConnection).mockResolvedValue({
+        data: { guideConnection: { edges: [] } },
+      } as any);
 
-describe('getGuidesByCategory', () => {
-  it('returns guides matching the category', async () => {
-    const guides = await getGuidesByCategory('beauty', FIXTURE_DIR)
-    expect(guides).toHaveLength(1)
-    expect(guides[0].frontmatter.category).toBe('beauty')
-  })
+      await getGuidesByCategory('beauty');
 
-  it('returns empty array for category with no guides', async () => {
-    const guides = await getGuidesByCategory('tech', FIXTURE_DIR)
-    expect(guides).toEqual([])
-  })
-
-  it('excludes draft guides from category results', async () => {
-    const guides = await getGuidesByCategory('home', FIXTURE_DIR)
-    const slugs = guides.map(guide => guide.frontmatter.slug)
-
-    expect(slugs).not.toContain('test-draft-guide')
-  })
-})
+      expect(client.queries.guideConnection).toHaveBeenCalledWith({
+        first: 200,
+        filter: {
+          category: { eq: 'beauty' },
+          locale: { eq: 'zh-TW' },
+          draft: { eq: false },
+        },
+      });
+    });
+  });
+});

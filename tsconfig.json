@@ -20,6 +20,7 @@
     ],
     "paths": {
       "@emails/*": ["./emails/*"],
+      "@tina/*": ["./tina/__generated__/*"],
       "@/*": ["./src/*"]
     }
   },

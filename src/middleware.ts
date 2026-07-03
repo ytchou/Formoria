@@ -139,9 +139,10 @@ async function refreshSupabaseSession(request: NextRequest, response: NextRespon
 }
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
   const host = request.headers.get('host') ?? ''
   if (host === (process.env.MICROSITE_HOST ?? 'brand.formoria.com')) {
-    const { pathname } = request.nextUrl
     const segments = pathname.split('/').filter(Boolean)
 
     if (segments.length === 1) {
@@ -156,14 +157,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  const { pathname } = request.nextUrl
-
   const cfOriginSecret = process.env.CF_ORIGIN_SECRET
   if (process.env.NODE_ENV === 'production' && cfOriginSecret) {
     const cfSecret = request.headers.get('x-origin-verify')
     if (cfSecret !== cfOriginSecret && !request.nextUrl.pathname.startsWith('/api/health') && !request.nextUrl.pathname.startsWith('/api/cron/')) {
       return new NextResponse('Forbidden', { status: 403 })
     }
+  }
+
+  if (pathname.startsWith('/admin/content')) {
+    return NextResponse.next()
   }
 
   // Check rate limit before regular request processing
