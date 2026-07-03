@@ -121,6 +121,11 @@ jobs:
         run: node scripts/check-favicon-rgba.mjs
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
+      - name: Generate TinaCMS types
+        run: pnpm tinacms build
+        env:
+          NEXT_PUBLIC_TINA_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_TINA_CLIENT_ID }}
+          TINA_TOKEN: ${{ secrets.TINA_TOKEN }}
       - run: pnpm tsc --noEmit
       - name: Dead code (knip)
         run: pnpm knip
@@ -160,3 +165,6 @@ jobs:
             ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
       - name: Production build
         run: pnpm build
+        env:
+          NEXT_PUBLIC_TINA_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_TINA_CLIENT_ID }}
+          TINA_TOKEN: ${{ secrets.TINA_TOKEN }}
