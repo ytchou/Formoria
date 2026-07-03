@@ -1630,8 +1630,13 @@
     "metaDescription": "探索精選台灣品牌指南，從護膚到美食，深入了解台灣製造的優質品牌",
     "heading": "台灣品牌指南",
     "subheading": "探索台灣品牌、產業與選購脈絡，從日常保養到在地飲食，快速找到你想看的指南。",
-    "badgeLabel": "Guide Hub",
-    "allCategories": "All",
-    "comingSoon": "coming soon"
+    "badgeLabel": "指南中心",
+    "allCategories": "全部",
+    "comingSoon": "敬請期待"
+  },
+  "guideDetail": {
+    "metadata": {
+      "notFoundTitle": "找不到指南"
+    }
   }
 }

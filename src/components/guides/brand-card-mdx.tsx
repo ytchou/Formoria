@@ -17,7 +17,7 @@ export async function BrandCardMdx({ slug }: BrandCardMdxProps) {
     if (!(error instanceof NotFoundError)) throw error
 
     return (
-      <div className="rounded-xl border border-dashed border-stone-300 bg-stone-100 p-4 text-sm text-stone-500">
+      <div className="rounded-xl border border-dashed border-stone-300 bg-stone-100 p-4 text-sm text-stone-600">
         {slug}
       </div>
     )
@@ -27,7 +27,7 @@ export async function BrandCardMdx({ slug }: BrandCardMdxProps) {
 
   return (
     <div className="overflow-hidden rounded-xl border border-stone-200 bg-stone-100">
-      <Link href={`/zh-TW/brands/${brand.slug}`} className="block p-4">
+      <Link href={`/brands/${brand.slug}`} className="block p-4">
         <div className="flex items-start gap-4">
           {imageUrl ? (
             <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-white">

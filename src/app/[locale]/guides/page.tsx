@@ -86,7 +86,7 @@ export default async function GuidesHubPage({ params, searchParams }: PageProps)
 
         {guides.length === 0 ? (
           <div className="flex min-h-[40vh] items-center justify-center rounded-2xl border border-stone-200 bg-stone-50 px-6 py-16 text-center">
-            <p className="font-sans text-sm text-stone-600">coming soon</p>
+            <p className="font-sans text-sm text-stone-600">{t('comingSoon')}</p>
           </div>
         ) : (
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

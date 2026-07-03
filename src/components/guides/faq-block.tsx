@@ -27,7 +27,7 @@ export function FaqBlock({ questions = [] }: FaqBlockProps) {
       />
       {questions.map((item) => (
         <details key={item.q} className="rounded-xl border border-stone-200 bg-white px-4 py-3">
-          <summary className="cursor-pointer list-none text-base font-semibold text-stone-900">
+          <summary className="cursor-pointer text-base font-semibold text-stone-900">
             {item.q}
           </summary>
           <div className="mt-3 text-base leading-7 text-stone-700">

@@ -1633,5 +1633,10 @@
     "badgeLabel": "Guide Hub",
     "allCategories": "All",
     "comingSoon": "coming soon"
+  },
+  "guideDetail": {
+    "metadata": {
+      "notFoundTitle": "Guide Not Found"
+    }
   }
 }

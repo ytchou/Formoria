@@ -85,14 +85,17 @@ export async function getGuideBySlug(
 ): Promise<GuideWithContent | null> {
   try {
     const files = await fs.readdir(contentDir)
-    const filePath = files.find(file => file.endsWith('.mdx') && path.parse(file).name === slug)
+    const mdxFiles = files.filter(file => file.endsWith('.mdx'))
 
-    if (!filePath) {
-      return null
+    for (const file of mdxFiles) {
+      const fullPath = path.join(contentDir, file)
+      const guide = await readGuideFile(fullPath)
+      if (guide?.frontmatter.slug === slug) {
+        return guide
+      }
     }
 
-    const fullPath = path.join(contentDir, filePath)
-    return await readGuideFile(fullPath)
+    return null
   } catch {
     return null
   }
