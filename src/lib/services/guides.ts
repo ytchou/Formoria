@@ -15,7 +15,7 @@ const faqItemSchema = z.object({
   a: z.string(),
 })
 
-export type FaqItem = z.infer<typeof faqItemSchema>
+type FaqItem = z.infer<typeof faqItemSchema>
 
 export const guideFrontmatterSchema = z.object({
   title: z.string(),
