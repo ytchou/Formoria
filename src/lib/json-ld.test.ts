@@ -46,7 +46,7 @@ describe('buildBrandJsonLd', () => {
     expect(jsonLd['@type']).toBe('Organization')
     expect(jsonLd.name).toBe('茶籽堂 Chatzutang')
     expect(jsonLd.url).toBe('https://chatzutang.com')
-    expect(jsonLd.image).toBe('https://example.com/hero.jpg')
+    expect(jsonLd.logo).toBe('https://example.com/hero.jpg')
     expect(jsonLd.foundingDate).toBe('2004')
   })
 
@@ -70,6 +70,60 @@ describe('buildBrandJsonLd', () => {
     expect(jsonLd.sameAs).toContain('https://facebook.com/chatzutang')
     expect(jsonLd.sameAs).toContain('https://pinkoi.com/chatzutang')
     expect(jsonLd.sameAs).toContain('https://shopee.tw/chatzutang')
+  })
+
+  describe('buildBrandJsonLd audit', () => {
+    it('never exposes contactEmail as email in the output', () => {
+      const withEmail = buildBrandJsonLd(makeBrand({ contactEmail: 'hello@chatzutang.com' }))
+      expect(withEmail.email).toBeUndefined()
+
+      const withoutEmail = buildBrandJsonLd(makeBrand({ contactEmail: null }))
+      expect(withoutEmail.email).toBeUndefined()
+    })
+
+    it('maps heroImageUrl to logo and omits it when null', () => {
+      const withHero = buildBrandJsonLd(makeBrand({ heroImageUrl: 'https://example.com/hero.jpg' }))
+      expect(withHero.logo).toBe('https://example.com/hero.jpg')
+
+      const withoutHero = buildBrandJsonLd(makeBrand({ heroImageUrl: null }))
+      expect(withoutHero.logo).toBeUndefined()
+    })
+
+    it('includes all non-null social and purchase URLs in sameAs', () => {
+      const jsonLd = buildBrandJsonLd(makeBrand({
+        socialInstagram: 'https://instagram.com/chatzutang',
+        socialThreads: 'https://threads.net/@chatzutang',
+        socialFacebook: 'https://facebook.com/chatzutang',
+        purchaseWebsite: 'https://chatzutang.com',
+        purchasePinkoi: 'https://pinkoi.com/chatzutang',
+        purchaseShopee: 'https://shopee.tw/chatzutang',
+        otherUrls: [{ label: 'Blog', url: 'https://example.com/brand' }],
+      }))
+
+      expect(jsonLd.sameAs).toEqual([
+        'https://instagram.com/chatzutang',
+        'https://threads.net/@chatzutang',
+        'https://facebook.com/chatzutang',
+        'https://chatzutang.com',
+        'https://pinkoi.com/chatzutang',
+        'https://shopee.tw/chatzutang',
+        'https://example.com/brand',
+      ])
+    })
+
+    it('excludes null and undefined values from sameAs', () => {
+      const jsonLd = buildBrandJsonLd(makeBrand({
+        socialInstagram: null,
+        socialThreads: undefined,
+        socialFacebook: null,
+        purchaseWebsite: null,
+        purchasePinkoi: undefined,
+        purchaseShopee: null,
+        otherUrls: [{ label: 'Blog', url: '' }, { label: 'Docs', url: 'https://docs.example.com' }],
+      } as unknown as Partial<Brand>))
+
+      expect(jsonLd.sameAs).toEqual(['https://docs.example.com'])
+    })
   })
 
   it('includes PostalAddress from first retail location', () => {
@@ -115,7 +169,6 @@ describe('buildBrandJsonLd', () => {
       retailLocations: [], heroImageUrl: null, foundingYear: null,
     }))
     expect(jsonLd.logo).toBeUndefined()
-    expect(jsonLd.image).toBeUndefined()
     expect(jsonLd.foundingDate).toBeUndefined()
     expect(jsonLd.sameAs).toBeUndefined()
     expect(jsonLd.address).toBeUndefined()
