@@ -21,6 +21,12 @@ import {
   setBrandOnboardingStepStatus,
 } from '@/lib/services/brand-onboarding'
 import type { Brand, CustomerVoice, OtherUrl, RetailLocation } from '@/lib/types'
+import type {
+  Certification,
+  Manufacturing,
+  Policies,
+  ReputationSummary,
+} from '@/lib/types/brand'
 import type { ContentPayload, ModerationResult } from '@/lib/services/moderation'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { sanitizeHref } from '@/lib/url'
@@ -57,6 +63,18 @@ function parseArrayField<T extends Record<string, string | undefined>>(
 
 function parseOptionalString(value: FormDataEntryValue | null): string | null {
   return typeof value === 'string' && value !== '' ? value : null
+}
+
+function parseOptionalBoolean(value: FormDataEntryValue | null): boolean | null {
+  if (value === null) return null
+  if (typeof value === 'string') return value === 'on' || value === 'true'
+  return null
+}
+
+type ProvenanceSourceForm = {
+  url: string
+  title: string
+  retrievedAt: string
 }
 
 function parseProductTags(value: FormDataEntryValue | null): string[] {
@@ -150,6 +168,24 @@ function parseBrandEditForm(
   const purchaseWebsite = parseOptionalString(formData.get('purchaseWebsite'))
   const purchasePinkoi = parseOptionalString(formData.get('purchasePinkoi'))
   const purchaseShopee = parseOptionalString(formData.get('purchaseShopee'))
+  const reputationSummaryText = parseOptionalString(formData.get('reputationSummary'))
+  const reputationSources = parseArrayField<ProvenanceSourceForm>(
+    formData,
+    'reputationSources',
+    ['url', 'title', 'retrievedAt']
+  )
+  const factoryLocation = parseOptionalString(formData.get('factoryLocation'))
+  const productionModel = parseOptionalString(formData.get('productionModel'))
+  const manufacturingNotes = parseOptionalString(formData.get('manufacturingNotes'))
+  const certifications = parseArrayField<{
+    name: string
+    issuer: string
+    year: string
+    sourceUrl: string
+  }>(formData, 'certifications', ['name', 'issuer', 'year', 'sourceUrl'])
+  const returnsPolicy = parseOptionalString(formData.get('returnsPolicy'))
+  const warranty = parseOptionalString(formData.get('warranty'))
+  const shipsInternational = parseOptionalBoolean(formData.get('shipsInternational'))
   const hasOtherUrls = formData.has('otherUrls[0].label') || formData.has('otherUrls[0].url')
   const otherUrls = parseArrayField<OtherUrl>(formData, 'otherUrls', ['label', 'url'])
   const hasCustomerVoices =
@@ -195,6 +231,63 @@ function parseBrandEditForm(
     updateData.priceRange = priceRange !== null && !isNaN(priceRange) ? priceRange : null
   }
   if (formData.has('productTags')) updateData.productTags = productTags
+  if (formData.has('reputationSummary') || reputationSources.length > 0) {
+    updateData.reputationSummary = {
+      text: reputationSummaryText ?? '',
+      sources: reputationSources.map((source) => ({
+        url: sanitizeHref(source.url) ?? '',
+        title: source.title,
+        retrievedAt: source.retrievedAt,
+      })),
+      retrievedAt: reputationSources[0]?.retrievedAt ?? '',
+    } satisfies ReputationSummary
+  }
+  if (
+    formData.has('factoryLocation') ||
+    formData.has('productionModel') ||
+    formData.has('manufacturingNotes')
+  ) {
+    updateData.manufacturing = {
+      factoryLocation,
+      productionModel:
+        productionModel === 'own' || productionModel === 'oem' || productionModel === 'mixed'
+          ? productionModel
+          : null,
+      notes: manufacturingNotes,
+      sources: [],
+    } satisfies Manufacturing
+  }
+  if (formData.has('certifications[0].name')) {
+    updateData.certifications = certifications
+      .map((entry) => {
+        const year = entry.year ? parseInt(entry.year, 10) : null
+        const sourceUrl = sanitizeHref(entry.sourceUrl)
+        if (!entry.name && !entry.issuer && !entry.year && !entry.sourceUrl) {
+          return null
+        }
+        return {
+          name: entry.name,
+          issuer: entry.issuer || null,
+          year: year !== null && !Number.isNaN(year) ? year : null,
+          source: sourceUrl
+            ? {
+                url: sourceUrl,
+                title: entry.name,
+                retrievedAt: '',
+              }
+            : null,
+        }
+      })
+      .filter((entry): entry is Certification => entry !== null)
+  }
+  if (formData.has('returnsPolicy') || formData.has('warranty') || formData.has('shipsInternational')) {
+    updateData.policies = {
+      returns: returnsPolicy,
+      warranty,
+      shipsInternational,
+      sources: [],
+    } satisfies Policies
+  }
 
   return updateData
 }
