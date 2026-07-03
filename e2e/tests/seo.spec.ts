@@ -137,4 +137,23 @@ test.describe('SEO deep', () => {
     expect(await res.text()).toContain('/glossary');
   });
 
+  test('/brands (unfiltered) emits ItemList JSON-LD with itemListElement', async ({ page }) => {
+    await page.goto('/brands');
+    const blocks = await page.locator('script[type="application/ld+json"]').allTextContents();
+    // The unfiltered /brands page emits an ItemList block alongside the WebSite block
+    const itemListBlock = blocks.find((b) => b.includes('"ItemList"'));
+    expect(itemListBlock).toBeTruthy();
+    // itemListElement array must be present (may be empty if no approved brands exist)
+    expect(itemListBlock).toContain('"itemListElement"');
+    // When approved brands exist, verify the first element has required fields
+    if (itemListBlock?.includes('"position"')) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const parsed = JSON.parse(itemListBlock) as any;
+      const first = parsed.itemListElement?.[0];
+      expect(typeof first?.position).toBe('number');
+      expect(typeof first?.name).toBe('string');
+      expect(String(first?.url)).toContain('/brands/');
+    }
+  });
+
 });

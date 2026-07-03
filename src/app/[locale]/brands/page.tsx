@@ -4,7 +4,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import { getTranslations, setRequestLocale, getMessages } from 'next-intl/server'
 import { getBrands, getPopularCategories, getFeaturedBrands } from '@/lib/services/brands'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
-import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildWebSiteJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
+import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildBrandsItemListJsonLd, buildWebSiteJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { parsePageParam, parseSortParam, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import {
   BrandFilterDrawer,
@@ -191,6 +191,20 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
 
   let categoryItemListJsonLd = null
   let categoryBreadcrumbJsonLd = null
+  let brandsItemListJsonLd = null
+  const hasNoCategoryFilter = validCategoryFilter.length === 0
+  const hasNoSearchQuery = !search
+  const hasNoPriceRangeFilter = priceRanges.length === 0
+  const hasNoVerificationFilter = verificationFilter === 'all'
+  if (
+    hasNoCategoryFilter &&
+    hasNoSearchQuery &&
+    hasNoPriceRangeFilter &&
+    hasNoVerificationFilter &&
+    page === 1
+  ) {
+    brandsItemListJsonLd = buildBrandsItemListJsonLd(displayBrands, safeLocale)
+  }
   if (validCategoryFilter.length === 1) {
     const categorySlug = validCategoryFilter[0]
     const catT = await getTranslations('categories')
@@ -223,6 +237,12 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(buildWebSiteJsonLd(safeLocale)) }}
       />
+      {brandsItemListJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(brandsItemListJsonLd) }}
+        />
+      ) : null}
       {categoryItemListJsonLd ? (
         <script
           type="application/ld+json"

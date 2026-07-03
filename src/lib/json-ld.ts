@@ -124,6 +124,26 @@ export function buildCategoryItemListJsonLd(
   return jsonLd
 }
 
+export function buildBrandsItemListJsonLd(
+  brands: Array<{ name: string; slug: string }>,
+  locale: Locale = 'zh-TW',
+): JsonLdObject {
+  const siteUrl = getSiteUrl()
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: locale === 'zh-TW' ? '台灣品牌目錄' : 'Taiwan Brands Directory',
+    inLanguage: toInLanguage(locale),
+    numberOfItems: brands.length,
+    itemListElement: brands.map((b, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: b.name,
+      url: `${siteUrl}${locale === 'en' ? '/en' : ''}/brands/${b.slug}`,
+    })),
+  }
+}
+
 /**
  * Build WebSite JSON-LD structured data for the home page.
  */

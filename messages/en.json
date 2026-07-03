@@ -226,6 +226,31 @@
     "loadingAria": "Loading brands...",
     "noResultsInSuggestions": "No results found"
   },
+  "stats": {
+    "metadata": {
+      "title": "Taiwan Brand Statistics | Formoria",
+      "description": "Live statistics on Taiwan's brand ecosystem — total brands, category breakdown, MIT-verified share, and founding decade distribution."
+    },
+    "hero": {
+      "title": "Taiwan Brand Statistics",
+      "subtitle": "Live data from the Formoria directory",
+      "totalBrands": "{count} brands tracked",
+      "asOf": "Data as of {date}"
+    },
+    "categories": {
+      "title": "Category Breakdown",
+      "description": "{count} brands across all categories",
+      "brandCount": "{count} brands"
+    },
+    "mitVerified": {
+      "title": "MIT Verified",
+      "description": "{verified} of {total} brands are MIT-verified ({percentage}%)"
+    },
+    "foundingDecade": {
+      "title": "Founding Decade Distribution",
+      "description": "When Taiwan's brands were established"
+    }
+  },
   "brandDetail": {
     "metadata": {
       "fallbackDescription": "Explore {name}, a Made in Taiwan brand.",

@@ -27,7 +27,10 @@ export const RESERVED_ROUTES = new Set([
   'my-submissions',
   'settings',
   'getting-started',
+  'glossary',
   'global-error',
+  'privacy',
+  'stats',
   'sitemap.xml',
   'robots.txt',
   'favicon.ico',
@@ -53,6 +56,9 @@ const PUBLIC_INTL_SEGMENTS = new Set([
   'dashboard',
   'settings',
   'favorites',
+  'glossary',
+  'privacy',
+  'stats',
 ])
 const SOFT_LIMIT_PREFIXES = ['/brands/']
 
