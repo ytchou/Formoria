@@ -92,3 +92,7 @@ scripts/seeds/
 
 # local data files
 data/
+
+# TinaCMS generated files
+tina/__generated__/
+public/admin/content/
