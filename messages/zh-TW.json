@@ -227,6 +227,31 @@
     "loadingAria": "載入品牌中...",
     "noResultsInSuggestions": "找不到結果"
   },
+  "stats": {
+    "metadata": {
+      "title": "台灣品牌數據 | Formoria",
+      "description": "台灣品牌生態系即時數據——品牌總數、類別分布、MIT 認證比例、創立年代分布。"
+    },
+    "hero": {
+      "title": "台灣品牌數據",
+      "subtitle": "來自 Formoria 目錄的即時數據",
+      "totalBrands": "追蹤 {count} 個品牌",
+      "asOf": "資料更新至 {date}"
+    },
+    "categories": {
+      "title": "類別分布",
+      "description": "共 {count} 個品牌橫跨所有類別",
+      "brandCount": "{count} 個品牌"
+    },
+    "mitVerified": {
+      "title": "MIT 認證",
+      "description": "{total} 個品牌中有 {verified} 個通過 MIT 認證（{percentage}%）"
+    },
+    "foundingDecade": {
+      "title": "創立年代分布",
+      "description": "台灣品牌的創立時間"
+    }
+  },
   "brandDetail": {
     "metadata": {
       "fallbackDescription": "探索 {name}，台灣製造品牌。",
