@@ -28,6 +28,7 @@ import {
   runCleanPhase,
   runDescriptionsPhase,
   runDiscoverPhase,
+  runExpansionPhase,
   runImageSearchPhase,
   runLinksPhase,
   runStandaloneClassification,
@@ -87,7 +88,7 @@ function delay(ms: number): Promise<void> {
 export { ENRICH_PHASES }
 
 type EnrichPhase = 'clean' | 'links' | 'images' | 'descriptions' | 'tags'
-type RunEnrichPhase = EnrichPhase | 'discover' | 'detect' | 'slugs'
+type RunEnrichPhase = EnrichPhase | 'discover' | 'detect' | 'slugs' | 'expansion'
 
 type EnrichBrand = CurationBrand &
   Partial<BrandFlatLinkColumns> & {
@@ -369,6 +370,7 @@ function buildBrandPhaseOrder(phases: RunEnrichPhase[], hasTriagePhases: boolean
     'links',
     'images',
     'descriptions',
+    'expansion',
     phases.includes('tags') && 'tags',
   ].filter((phase): phase is string => Boolean(phase))
 }
@@ -549,7 +551,7 @@ export async function runEnrich(
     let query = supabase
       .from('brands')
       .select(
-        'id, slug, name, status, description, product_type, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, hero_image_url, product_photos'
+        'id, slug, name, status, description, product_type, site_content, reputation_summary, manufacturing, certifications, policies, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, hero_image_url, product_photos'
       )
 
     if (config.slugs && config.slugs.length > 0) {
@@ -815,6 +817,16 @@ export async function runEnrich(
         state.phaseResults.push(descriptionsResult.phaseResult)
         logCurrentPhase(descriptionsResult.phaseResult)
         appendPatch(state, descriptionsResult.patch)
+
+        const expansionResult = await runExpansionPhase({
+          brand,
+          phases,
+          serpSnippets: state.serpSnippets,
+          scrapedData: state.scrapedData,
+        })
+        state.phaseResults.push(expansionResult.phaseResult)
+        logCurrentPhase(expansionResult.phaseResult)
+        appendPatch(state, expansionResult.patch)
 
         let classification: ClassificationResult | null = null
         let hasCompletedTagClassification = false
