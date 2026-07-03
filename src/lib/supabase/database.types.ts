@@ -456,13 +456,16 @@ export type Database = {
         Row: {
           approved_at: string | null
           brand_enriched_at: string | null
+          category_attributes: Json | null
           contact_email: string | null
           customer_voices: Json | null
           created_at: string | null
+          certifications: Json | null
           description: string | null
           draft_data: Json | null
           draft_updated_at: string | null
           founding_year: number | null
+          manufacturing: Json | null
           hero_image_url: string | null
           id: string
           images_enriched_at: string | null
@@ -473,6 +476,7 @@ export type Database = {
           mit_verified_at: string | null
           name: string
           other_urls: Json
+          policies: Json | null
           price_range: number | null
           product_photos: Json | null
           product_tags: string[] | null
@@ -484,6 +488,7 @@ export type Database = {
           search_vector: unknown
           serp_enriched_at: string | null
           site_content: Json | null
+          reputation_summary: Json | null
           slug: string
           social_facebook: string | null
           social_instagram: string | null
@@ -497,13 +502,16 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           brand_enriched_at?: string | null
+          category_attributes?: Json | null
           contact_email?: string | null
           customer_voices?: Json | null
           created_at?: string | null
+          certifications?: Json | null
           description?: string | null
           draft_data?: Json | null
           draft_updated_at?: string | null
           founding_year?: number | null
+          manufacturing?: Json | null
           hero_image_url?: string | null
           id?: string
           images_enriched_at?: string | null
@@ -514,6 +522,7 @@ export type Database = {
           mit_verified_at?: string | null
           name: string
           other_urls?: Json
+          policies?: Json | null
           price_range?: number | null
           product_photos?: Json | null
           product_tags?: string[] | null
@@ -525,6 +534,7 @@ export type Database = {
           search_vector?: unknown
           serp_enriched_at?: string | null
           site_content?: Json | null
+          reputation_summary?: Json | null
           slug: string
           social_facebook?: string | null
           social_instagram?: string | null
@@ -538,13 +548,16 @@ export type Database = {
         Update: {
           approved_at?: string | null
           brand_enriched_at?: string | null
+          category_attributes?: Json | null
           contact_email?: string | null
           customer_voices?: Json | null
           created_at?: string | null
+          certifications?: Json | null
           description?: string | null
           draft_data?: Json | null
           draft_updated_at?: string | null
           founding_year?: number | null
+          manufacturing?: Json | null
           hero_image_url?: string | null
           id?: string
           images_enriched_at?: string | null
@@ -555,6 +568,7 @@ export type Database = {
           mit_verified_at?: string | null
           name?: string
           other_urls?: Json
+          policies?: Json | null
           price_range?: number | null
           product_photos?: Json | null
           product_tags?: string[] | null
@@ -566,6 +580,7 @@ export type Database = {
           search_vector?: unknown
           serp_enriched_at?: string | null
           site_content?: Json | null
+          reputation_summary?: Json | null
           slug?: string
           social_facebook?: string | null
           social_instagram?: string | null
