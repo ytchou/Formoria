@@ -38,36 +38,51 @@ async function getStatsPageDataImpl(): Promise<StatsPageData> {
 
   const [totalResult, categoryResult, mitResult, foundingResult] = await Promise.all([
     (async () => {
-      try {
-        return await supabase.from('brands').select('*', { count: 'exact', head: true }).eq('status', 'approved')
-      } catch {
+      const { count, error } = await supabase
+        .from('brands')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'approved')
+      if (error) {
+        console.warn('Stats query failed:', error.message)
         return { count: 0 }
       }
+      return { count }
     })(),
     (async () => {
-      try {
-        return await supabase.from('brands').select('product_type').eq('status', 'approved').not('product_type', 'is', null)
-      } catch {
+      const { data, error } = await supabase
+        .from('brands')
+        .select('product_type')
+        .eq('status', 'approved')
+        .not('product_type', 'is', null)
+      if (error) {
+        console.warn('Stats query failed:', error.message)
         return { data: [] as BrandRow[] }
       }
+      return { data: data as BrandRow[] | null }
     })(),
     (async () => {
-      try {
-        return await supabase
-          .from('brands')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'approved')
-          .eq('mit_status', 'verified')
-      } catch {
+      const { count, error } = await supabase
+        .from('brands')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'approved')
+        .eq('mit_status', 'verified')
+      if (error) {
+        console.warn('Stats query failed:', error.message)
         return { count: 0 }
       }
+      return { count }
     })(),
     (async () => {
-      try {
-        return await supabase.from('brands').select('founding_year').eq('status', 'approved').not('founding_year', 'is', null)
-      } catch {
+      const { data, error } = await supabase
+        .from('brands')
+        .select('founding_year')
+        .eq('status', 'approved')
+        .not('founding_year', 'is', null)
+      if (error) {
+        console.warn('Stats query failed:', error.message)
         return { data: [] as BrandRow[] }
       }
+      return { data: data as BrandRow[] | null }
     })(),
   ])
 

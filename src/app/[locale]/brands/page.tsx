@@ -192,8 +192,17 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   let categoryItemListJsonLd = null
   let categoryBreadcrumbJsonLd = null
   let brandsItemListJsonLd = null
-  const hasActiveCategoryFilter = validCategoryFilter.length > 0
-  if (!hasActiveCategoryFilter) {
+  const hasNoCategoryFilter = validCategoryFilter.length === 0
+  const hasNoSearchQuery = !search
+  const hasNoPriceRangeFilter = priceRanges.length === 0
+  const hasNoVerificationFilter = verificationFilter === 'all'
+  if (
+    hasNoCategoryFilter &&
+    hasNoSearchQuery &&
+    hasNoPriceRangeFilter &&
+    hasNoVerificationFilter &&
+    page === 1
+  ) {
     brandsItemListJsonLd = buildBrandsItemListJsonLd(displayBrands, safeLocale)
   }
   if (validCategoryFilter.length === 1) {

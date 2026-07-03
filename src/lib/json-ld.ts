@@ -129,6 +129,7 @@ export function buildBrandsItemListJsonLd(
     '@type': 'ItemList',
     name: locale === 'zh-TW' ? '台灣品牌目錄' : 'Taiwan Brands Directory',
     inLanguage: toInLanguage(locale),
+    numberOfItems: brands.length,
     itemListElement: brands.map((b, i) => ({
       '@type': 'ListItem',
       position: i + 1,

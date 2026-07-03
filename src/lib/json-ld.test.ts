@@ -274,6 +274,7 @@ describe('buildBrandsItemListJsonLd', () => {
     expect(result['@context']).toBe('https://schema.org')
     expect(result['@type']).toBe('ItemList')
     expect(result.itemListElement).toHaveLength(2)
+    expect(result.numberOfItems).toBe(brands.length)
     expect(result.itemListElement[0]).toMatchObject({
       '@type': 'ListItem',
       position: 1,
