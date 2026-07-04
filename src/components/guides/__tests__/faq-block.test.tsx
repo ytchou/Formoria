@@ -10,8 +10,7 @@ vi.mock('@/lib/json-ld', () => ({
 
 describe('FaqBlock', () => {
   it('returns null when questions is null (crash case)', () => {
-    // Cast to any to bypass TS guard — this is exactly the runtime crash scenario
-    const { container } = render(<FaqBlock questions={null as unknown as undefined} />)
+    const { container } = render(<FaqBlock questions={null} />)
     expect(container.firstChild).toBeNull()
   })
 
