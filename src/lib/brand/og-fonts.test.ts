@@ -1,5 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 
 describe("getOgFonts", () => {
   beforeEach(() => vi.resetModules());
@@ -21,5 +23,20 @@ describe("getOgFonts", () => {
     const fonts = await getOgFonts();
     expect(fonts).toEqual([]);
     vi.doUnmock("node:fs/promises");
+  });
+});
+
+describe("NotoSansTC font file", () => {
+  it("has TrueType glyf outlines (not CFF) for @vercel/og compatibility", async () => {
+    const fontPath = path.resolve(
+      process.cwd(),
+      "src/assets/fonts/NotoSansTC-subset.ttf",
+    );
+    const buf = await readFile(fontPath);
+    // TrueType fonts: offset table starts with 0x00010000 or 0x74727565 ('true')
+    // CFF/OTF fonts: offset table starts with 0x4F54544F ('OTTO')
+    const magic = buf.readUInt32BE(0);
+    const isCFF = magic === 0x4f54544f; // 'OTTO'
+    expect(isCFF).toBe(false);
   });
 });

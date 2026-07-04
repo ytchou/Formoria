@@ -41,6 +41,19 @@ async function globalSetup() {
   // compile the full client bundle once before specs run.
   // Any failure is swallowed — this must NEVER break the suite.
   const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000';
+
+  // webServer 2xx fires before manifests are written; probe a static chunk to avoid loadManifestFromRelativePath SyntaxError
+  const manifestProbeUrl = `${baseURL}/_next/static/chunks/main.js`;
+  for (let attempt = 0; attempt < 30; attempt++) {
+    try {
+      const res = await fetch(manifestProbeUrl);
+      if (res.ok) break;
+    } catch {
+      // server not yet serving static assets
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, 2_000));
+  }
+
   const tmpStorePath = path.join(__dirname, '.auth', 'warmup-user.json');
   await (async () => {
     let browser: Browser | undefined;
