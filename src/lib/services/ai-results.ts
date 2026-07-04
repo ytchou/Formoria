@@ -22,6 +22,11 @@ export type AiDescriptionInput = {
   rawResponse?: unknown
 }
 
+export type AiExpansionInput = {
+  brandId: string
+  rawResponse?: unknown
+}
+
 export async function insertTriageResult(input: AiTriageInput): Promise<void> {
   const supabase = createServiceClient()
   await supabase.from('brand_ai_results').insert({
@@ -47,6 +52,16 @@ export async function insertDescriptionResult(input: AiDescriptionInput): Promis
     confidence: input.confidence ?? null,
     price_range: input.priceRange ?? null,
     product_tags: input.productTags ?? [],
+    model: DEEPSEEK_MODEL,
+    raw_response: input.rawResponse ?? null,
+  } as never)
+}
+
+export async function insertExpansionResult(input: AiExpansionInput): Promise<void> {
+  const supabase = createServiceClient()
+  await supabase.from('brand_ai_results').insert({
+    brand_id: input.brandId,
+    phase: 'expansion',
     model: DEEPSEEK_MODEL,
     raw_response: input.rawResponse ?? null,
   } as never)

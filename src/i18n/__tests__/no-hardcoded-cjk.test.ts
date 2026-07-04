@@ -64,6 +64,7 @@ const ALLOWLIST = [
   // LLM user message templates still contain Chinese field labels (not UI copy).
   'lib/services/description-rewrite.ts',
   'lib/services/product-type-classifier.ts',
+  'lib/services/expansion-research.ts',
   // SERP query string uses Chinese keyword '台灣' (not UI copy).
   'lib/services/curation-operations.ts',
   // Transitional: real messages come from the i18n factory; static fallback map

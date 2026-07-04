@@ -59,8 +59,8 @@ export default async function AboutPage({ params }: PageProps) {
   const articleJsonLd = buildArticleJsonLd({ title, description, path: '/about', locale: safeLocale })
 
   const [stats, recentBrands] = await Promise.all([
-    getBrandStats(),
-    getRecentBrandCount(),
+    getBrandStats().catch(() => ({ brandCount: 0, categoryCount: 0 })),
+    getRecentBrandCount().catch(() => ({ count: 0, period: '30d' as const })),
   ])
 
   return (

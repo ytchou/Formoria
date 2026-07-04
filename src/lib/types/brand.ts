@@ -8,6 +8,39 @@ export type OtherUrl = {
   url: string
 }
 
+interface ProvenanceSource {
+  url: string
+  title: string
+  retrievedAt: string
+}
+
+export interface ReputationSummary {
+  text: string
+  sources: ProvenanceSource[]
+  retrievedAt: string
+}
+
+export interface Manufacturing {
+  factoryLocation: string | null
+  productionModel: 'own' | 'oem' | 'mixed' | null
+  notes: string | null
+  sources: ProvenanceSource[]
+}
+
+export interface Certification {
+  name: string
+  issuer: string | null
+  year: number | null
+  source: ProvenanceSource | null
+}
+
+export interface Policies {
+  returns: string | null
+  warranty: string | null
+  shipsInternational: boolean | null
+  sources: ProvenanceSource[]
+}
+
 export type BrandFlatLinkColumns = {
   social_instagram?: string | null
   social_threads?: string | null
@@ -77,6 +110,10 @@ export type Brand = {
   mitVerified?: boolean
   isDemo: boolean
   foundingYear: number | null
+  reputationSummary?: ReputationSummary | null
+  manufacturing?: Manufacturing | null
+  certifications?: Certification[] | null
+  policies?: Policies | null
   socialInstagram: string | null
   socialThreads: string | null
   socialFacebook: string | null

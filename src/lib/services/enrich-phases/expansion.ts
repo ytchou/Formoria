@@ -1,0 +1,108 @@
+import { insertExpansionResult } from '../ai-results'
+import { runExpansionResearch } from '../expansion-research'
+import type { PhaseResult } from '@/lib/types/curation'
+import type { EnrichScrapedData } from './types'
+import { buildPhaseResult, hasPatchValues, timePhase, type EnrichBrand, type EnrichPhase } from './types'
+
+type ExpansionPhaseOptions = {
+  brand: EnrichBrand
+  phases: EnrichPhase[]
+  scrapedData: EnrichScrapedData | null
+  serpSnippets: string[]
+}
+
+type ExpansionPhaseOutput = {
+  phaseResult: PhaseResult
+  patch: Record<string, unknown>
+}
+
+function hasExpansionValues(brand: EnrichBrand): boolean {
+  return brand.reputation_summary != null &&
+    brand.manufacturing != null &&
+    brand.certifications != null &&
+    brand.policies != null
+}
+
+function truncateSiteContent(siteContent: unknown): string | null {
+  if (siteContent == null) return null
+  const content = typeof siteContent === 'string'
+    ? siteContent
+    : typeof siteContent === 'object'
+      ? JSON.stringify(siteContent)
+      : String(siteContent)
+
+  return content.length > 4000 ? content.slice(0, 4000) : content
+}
+
+function getBrandSiteContent(brand: EnrichBrand): string | null {
+  return truncateSiteContent(brand.site_content)
+}
+
+function getCategory(brand: EnrichBrand): string | null {
+  return brand.product_type ?? null
+}
+
+export async function runExpansionPhase({
+  brand,
+  phases,
+  scrapedData,
+  serpSnippets,
+}: ExpansionPhaseOptions): Promise<ExpansionPhaseOutput> {
+  void scrapedData
+
+  if (!phases.includes('expansion')) {
+    return {
+      phaseResult: buildPhaseResult('expansion', 'skipped', [], 0, undefined, 'expansion phase not requested'),
+      patch: {},
+    }
+  }
+
+  if (hasExpansionValues(brand)) {
+    return {
+      phaseResult: buildPhaseResult('expansion', 'skipped', [], 0, undefined, 'expansion fields already populated'),
+      patch: {},
+    }
+  }
+
+  const { result, durationMs } = await timePhase(async () => {
+    const expansionResearch = await runExpansionResearch({
+      name: brand.name ?? '',
+      description: brand.description ?? null,
+      category: getCategory(brand),
+      serpSnippets,
+      siteContent: getBrandSiteContent(brand),
+    })
+
+    if (!expansionResearch) {
+      return { patch: {} }
+    }
+
+    const patch = {
+      ...(expansionResearch.reputationSummary != null ? { reputation_summary: expansionResearch.reputationSummary } : {}),
+      ...(expansionResearch.manufacturing != null ? { manufacturing: expansionResearch.manufacturing } : {}),
+      ...(expansionResearch.certifications != null ? { certifications: expansionResearch.certifications } : {}),
+      ...(expansionResearch.policies != null ? { policies: expansionResearch.policies } : {}),
+    }
+
+    return { patch, rawResponse: expansionResearch }
+  })
+
+  if (hasPatchValues(result.patch)) {
+    await insertExpansionResult({
+      brandId: brand.id,
+      rawResponse: result.rawResponse,
+    })
+  }
+
+  return {
+    phaseResult: buildPhaseResult(
+      'expansion',
+      'succeeded',
+      hasPatchValues(result.patch)
+        ? ['reputation_summary', 'manufacturing', 'certifications', 'policies'].filter((field) => field in result.patch)
+        : [],
+      durationMs
+    ),
+    patch: result.patch,
+  }
+}

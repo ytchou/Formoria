@@ -18,6 +18,10 @@ function makeFaqBrand(overrides: Partial<Brand> = {}): Brand {
     mitVerified: false,
     isDemo: false,
     foundingYear: null,
+    reputationSummary: null,
+    manufacturing: null,
+    certifications: null,
+    policies: null,
     socialInstagram: null,
     socialThreads: null,
     socialFacebook: null,
@@ -121,6 +125,155 @@ describe('buildBrandFaq', () => {
     expect(item?.answer).toContain('Threads')
   })
 
+  it('includes reputation when reputationSummary has text', () => {
+    const faq = buildBrandFaq(
+      makeFaqBrand({
+        reputationSummary: {
+          text: 'Known for reliable quality.',
+          sources: [
+            {
+              url: 'https://example.com/reputation',
+              title: 'Reputation source',
+              retrievedAt: '2026-01-01T00:00:00Z',
+            },
+          ],
+          retrievedAt: '2026-01-01T00:00:00Z',
+        },
+      }),
+      mockT,
+    )
+
+    const [item] = faq
+    expect(item?.question).toContain('brandFaq.reputation.question')
+    expect(item?.answer).toContain('brandFaq.reputation.answer')
+    expect(item?.answer).toContain('Known for reliable quality.')
+  })
+
+  it('omits reputation when reputationSummary is null', () => {
+    expect(
+      buildBrandFaq(makeFaqBrand({ reputationSummary: null }), mockT).some((item) =>
+        item.question.includes('brandFaq.reputation.question'),
+      ),
+    ).toBe(false)
+  })
+
+  it('includes manufacturing when factoryLocation or productionModel exists', () => {
+    const faq = buildBrandFaq(
+      makeFaqBrand({
+        manufacturing: {
+          factoryLocation: 'Taichung, Taiwan',
+          productionModel: 'own',
+          notes: null,
+          sources: [],
+        },
+      }),
+      mockT,
+    )
+
+    const [item] = faq
+    expect(item?.question).toContain('brandFaq.manufacturing.question')
+    expect(item?.answer).toContain('brandFaq.manufacturing.answer')
+    expect(item?.answer).toContain('Taichung, Taiwan')
+    expect(item?.answer).toContain('own')
+  })
+
+  it('omits manufacturing when manufacturing is null', () => {
+    expect(
+      buildBrandFaq(makeFaqBrand({ manufacturing: null }), mockT).some((item) =>
+        item.question.includes('brandFaq.manufacturing.question'),
+      ),
+    ).toBe(false)
+  })
+
+  it('includes certifications when certifications has items', () => {
+    const faq = buildBrandFaq(
+      makeFaqBrand({
+        certifications: [
+          {
+            name: 'ISO 9001',
+            issuer: 'ISO',
+            year: 2024,
+            source: null,
+          },
+        ],
+      }),
+      mockT,
+    )
+
+    const [item] = faq
+    expect(item?.question).toContain('brandFaq.certifications.question')
+    expect(item?.answer).toContain('brandFaq.certifications.answer')
+    expect(item?.answer).toContain('ISO 9001')
+  })
+
+  it('omits certifications when certifications is null or empty', () => {
+    expect(
+      buildBrandFaq(makeFaqBrand({ certifications: null }), mockT).some((item) =>
+        item.question.includes('brandFaq.certifications.question'),
+      ),
+    ).toBe(false)
+    expect(
+      buildBrandFaq(makeFaqBrand({ certifications: [] }), mockT).some((item) =>
+        item.question.includes('brandFaq.certifications.question'),
+      ),
+    ).toBe(false)
+  })
+
+  it('includes returnPolicy when returns or warranty exists', () => {
+    const faq = buildBrandFaq(
+      makeFaqBrand({
+        policies: {
+          returns: '30-day returns available.',
+          warranty: '1-year warranty included.',
+          shipsInternational: null,
+          sources: [],
+        },
+      }),
+      mockT,
+    )
+
+    const [item] = faq
+    expect(item?.question).toContain('brandFaq.returnPolicy.question')
+    expect(item?.answer).toContain('brandFaq.returnPolicy.answer')
+    expect(item?.answer).toContain('30-day returns available.')
+    expect(item?.answer).toContain('1-year warranty included.')
+  })
+
+  it('omits returnPolicy when policies is null', () => {
+    expect(
+      buildBrandFaq(makeFaqBrand({ policies: null }), mockT).some((item) =>
+        item.question.includes('brandFaq.returnPolicy.question'),
+      ),
+    ).toBe(false)
+  })
+
+  it('includes internationalShipping when shipsInternational is not null', () => {
+    const faq = buildBrandFaq(
+      makeFaqBrand({
+        policies: {
+          returns: null,
+          warranty: null,
+          shipsInternational: true,
+          sources: [],
+        },
+      }),
+      mockT,
+    )
+
+    const [item] = faq
+    expect(item?.question).toContain('brandFaq.internationalShipping.question')
+    expect(item?.answer).toContain('brandFaq.internationalShipping.answer')
+    expect(item?.answer).toContain('internationally')
+  })
+
+  it('omits internationalShipping when policies is null', () => {
+    expect(
+      buildBrandFaq(makeFaqBrand({ policies: null }), mockT).some((item) =>
+        item.question.includes('brandFaq.internationalShipping.question'),
+      ),
+    ).toBe(false)
+  })
+
   it('returns all seven questions for a fully populated brand', () => {
     const faq = buildBrandFaq(
       makeFaqBrand({
@@ -137,6 +290,26 @@ describe('buildBrandFaq', () => {
         productTags: ['soap', 'lotion'],
         priceRange: 2,
         foundingYear: 2012,
+        reputationSummary: {
+          text: 'Well regarded.',
+          sources: [],
+          retrievedAt: '2026-01-01T00:00:00Z',
+        },
+        manufacturing: {
+          factoryLocation: 'Taichung, Taiwan',
+          productionModel: 'own',
+          notes: null,
+          sources: [],
+        },
+        certifications: [
+          { name: 'ISO 9001', issuer: 'ISO', year: 2024, source: null },
+        ],
+        policies: {
+          returns: '30-day returns.',
+          warranty: '1-year warranty.',
+          shipsInternational: true,
+          sources: [],
+        },
         socialInstagram: 'https://instagram.com/test',
         socialThreads: 'https://threads.net/@test',
         socialFacebook: 'https://facebook.com/test',
@@ -144,7 +317,7 @@ describe('buildBrandFaq', () => {
       mockT,
     )
 
-    expect(faq).toHaveLength(7)
+    expect(faq).toHaveLength(12)
     expect(faq.map((item) => item.question)).toEqual([
       'brandFaq.isMadeInTaiwan.question|{"brandName":"Test Brand"}',
       'brandFaq.whereToBuy.question|{"brandName":"Test Brand"}',
@@ -153,6 +326,11 @@ describe('buildBrandFaq', () => {
       'brandFaq.priceRange.question|{"brandName":"Test Brand"}',
       'brandFaq.whenFounded.question|{"brandName":"Test Brand"}',
       'brandFaq.officialAccounts.question|{"brandName":"Test Brand"}',
+      'brandFaq.reputation.question|{"brandName":"Test Brand"}',
+      'brandFaq.manufacturing.question|{"brandName":"Test Brand"}',
+      'brandFaq.certifications.question|{"brandName":"Test Brand"}',
+      'brandFaq.returnPolicy.question|{"brandName":"Test Brand"}',
+      'brandFaq.internationalShipping.question|{"brandName":"Test Brand"}',
     ])
   })
 

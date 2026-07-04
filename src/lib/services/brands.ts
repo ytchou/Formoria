@@ -1,7 +1,7 @@
 import type { Brand, BrandFilters, CustomerVoice, OtherUrl } from '@/lib/types'
 import type { SiteContent, SiteProduct, SiteTokens } from '@/lib/types/brand'
 import type { Database } from '@/lib/supabase/database.types'
-import { toBrandRow } from './field-map'
+import { toBrandRow as baseToBrandRow } from './field-map'
 import { NotFoundError, ValidationError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
 import { BRAND_SORT_CONFIG, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
@@ -338,6 +338,10 @@ const BRAND_DRAFT_EDITABLE_KEYS = [
   'otherUrls',
   'retailLocations',
   'customerVoices',
+  'reputationSummary',
+  'manufacturing',
+  'certifications',
+  'policies',
 ] as const satisfies readonly (keyof Brand)[]
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -479,6 +483,18 @@ export function draftSnapshotToDomain(
       case 'customerVoices':
         partial.customerVoices = (snapshot.customerVoices as Brand['customerVoices']) ?? []
         break
+      case 'reputationSummary':
+        partial.reputationSummary = snapshot.reputationSummary as Brand['reputationSummary']
+        break
+      case 'manufacturing':
+        partial.manufacturing = snapshot.manufacturing as Brand['manufacturing']
+        break
+      case 'certifications':
+        partial.certifications = (snapshot.certifications as Brand['certifications']) ?? []
+        break
+      case 'policies':
+        partial.policies = snapshot.policies as Brand['policies']
+        break
     }
   }
 
@@ -535,6 +551,10 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     contactEmail: row.contact_email ?? null,
     priceRange: row.price_range ?? null,
     productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
+    reputationSummary: (row.reputation_summary as Brand['reputationSummary']) ?? null,
+    manufacturing: (row.manufacturing as Brand['manufacturing']) ?? null,
+    certifications: (row.certifications as Brand['certifications']) ?? null,
+    policies: (row.policies as Brand['policies']) ?? null,
     siteContent: normalizeSiteContent(row.site_content as Brand['siteContent']),
     submittedAt: row.submitted_at ?? '',
     approvedAt: row.approved_at ?? null,
@@ -545,7 +565,20 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
 }
 
 export function brandToInsert(data: BrandWriteInput): Record<string, unknown> {
-  return toBrandRow(data)
+  const row = baseToBrandRow(data)
+  if (data.reputationSummary !== undefined) {
+    row.reputation_summary = data.reputationSummary as typeof row.reputation_summary
+  }
+  if (data.manufacturing !== undefined) {
+    row.manufacturing = data.manufacturing as typeof row.manufacturing
+  }
+  if (data.certifications !== undefined) {
+    row.certifications = data.certifications as typeof row.certifications
+  }
+  if (data.policies !== undefined) {
+    row.policies = data.policies as typeof row.policies
+  }
+  return row
 }
 
 function brandToUpdate(data: BrandWriteInput): Record<string, unknown> {
@@ -564,6 +597,7 @@ const BRAND_COLUMNS = [
   'status', 'submitted_at', 'approved_at', 'created_at', 'updated_at',
   'draft_data', 'draft_updated_at', 'founding_year',
   'price_range', 'product_tags',
+  'reputation_summary', 'manufacturing', 'certifications', 'policies',
   'mit_status', 'mit_verified_at',
   'mit_evidence', 'source', 'is_demo',
 ].join(', ')

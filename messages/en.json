@@ -414,6 +414,26 @@
       "officialAccounts": {
         "question": "Where are {brandName}'s official social media accounts?",
         "answer": "You can follow {brandName} on {accounts}."
+      },
+      "reputation": {
+        "question": "What is {brandName}'s reputation?",
+        "answer": "{summary}"
+      },
+      "manufacturing": {
+        "question": "Where is {brandName} manufactured?",
+        "answer": "{details}"
+      },
+      "certifications": {
+        "question": "What certifications does {brandName} have?",
+        "answer": "{certList}"
+      },
+      "returnPolicy": {
+        "question": "What is {brandName}'s return policy?",
+        "answer": "{details}"
+      },
+      "internationalShipping": {
+        "question": "Does {brandName} ship internationally?",
+        "answer": "{details}"
       }
     }
   },
