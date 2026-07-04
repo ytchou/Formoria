@@ -1,0 +1,74 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Growth Pulse — Jul 04"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "✅ *Steady day — no action needed*"
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        { "type": "mrkdwn", "text": "*Sessions*\n0 (↔ 0% WoW)" },
+        { "type": "mrkdwn", "text": "*Users*\n0 (↔ 0% WoW)" },
+        { "type": "mrkdwn", "text": "*Page Views*\n0 (↔ 0% WoW)" },
+        { "type": "mrkdwn", "text": "*Bounce Rate*\n0% (↔ 0 pp WoW)" },
+        { "type": "mrkdwn", "text": "*Avg Duration*\n0m 0s (↔ 0% WoW)" }
+      ]
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Top Pages* (vs last week)\nNo page data recorded."
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Referral Sources* (vs last week)\nNo referral source data recorded."
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Signals*\n• Steady day — all metrics within normal WoW range. Both Jul 3 and the same weekday last week (Jun 26) recorded 0 sessions. Traffic is at very early-stage levels; variance is expected noise below the 30-session monitoring floor."
+      }
+    },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "Open GA4 Dashboard" },
+          "url": "https://analytics.google.com/analytics/web/#/p538232091/reports/"
+        }
+      ]
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Compared against same weekday last week. GA4 data may lag 24–48h."
+        }
+      ]
+    }
+  ]
+}
