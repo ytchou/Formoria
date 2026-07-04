@@ -6,14 +6,15 @@ type FaqItem = {
 }
 
 type FaqBlockProps = {
-  questions?: FaqItem[]
+  questions?: FaqItem[] | null
 }
 
-export function FaqBlock({ questions = [] }: FaqBlockProps) {
-  if (questions.length === 0) return null
+export function FaqBlock({ questions }: FaqBlockProps) {
+  const items = questions ?? []
+  if (items.length === 0) return null
 
   const jsonLd = buildFaqPageJsonLd(
-    questions.map((question) => ({
+    items.map((question) => ({
       question: question.q,
       answer: question.a,
     })),
@@ -25,7 +26,7 @@ export function FaqBlock({ questions = [] }: FaqBlockProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(jsonLd) }}
       />
-      {questions.map((item) => (
+      {items.map((item) => (
         <details key={item.q} className="rounded-xl border border-stone-200 bg-white px-4 py-3">
           <summary className="cursor-pointer text-base font-semibold text-stone-900">
             {item.q}
