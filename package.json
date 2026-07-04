@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "email:dev": "email dev",
-    "build": "next build",
+    "build": "if [ -n \"$TINA_TOKEN\" ]; then tinacms build; fi && next build",
     "start": "next start",
     "lint": "eslint",
     "tina:dev": "dotenv -f .env.local -- tinacms dev -c 'next dev'",
