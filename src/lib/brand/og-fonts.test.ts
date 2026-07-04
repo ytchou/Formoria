@@ -33,10 +33,8 @@ describe("NotoSansTC font file", () => {
       "src/assets/fonts/NotoSansTC-subset.ttf",
     );
     const buf = await readFile(fontPath);
-    // TrueType fonts: offset table starts with 0x00010000 or 0x74727565 ('true')
-    // CFF/OTF fonts: offset table starts with 0x4F54544F ('OTTO')
     const magic = buf.readUInt32BE(0);
-    const isCFF = magic === 0x4f54544f; // 'OTTO'
+    const isCFF = magic === 0x4f54544f; // OTTO = CFF; Satori requires TrueType (0x00010000)
     expect(isCFF).toBe(false);
   });
 });
