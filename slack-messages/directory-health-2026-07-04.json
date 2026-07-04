@@ -1,0 +1,64 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Directory Health — 2026-07-04"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*355 brands total* (+0 today)\n96.9% have complete profiles (description + image) — 11 brands missing hero image only"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*:warning: Suspicious — Third-party (1)*\n• `1973 Furniture` — <https://1973home.myshopify.com|1973home.myshopify.com> — Raw Shopify subdomain; no custom domain detected"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*:large_orange_circle: Possible Broken (2)*\n• `Journey of Sole` — <https://journeyofsole.com|journeyofsole.com> — Zero search evidence; domain may be down or expired\n• `PS BUBU` — <https://psbubu-pet.com|psbubu-pet.com> — Root domain unindexed; live store found at shop.psbubu-pet.com"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*:white_circle: Unknown / Unverified (8)*\n• `BEST Ti` — <https://www.best-ti-shop.com|best-ti-shop.com> — No results for domain\n• `C.C.W.` — <https://www.ccw-official.com|ccw-official.com> — No results for domain\n• `JSwood 檜樂花` — <https://jswood.com.tw|jswood.com.tw> — No results; unrelated company at similar domain\n• `MONOCEAN` — <https://monocean.co|monocean.co> — .co domain unindexed; monocean.com listed for sale\n• `Re:Nrob Lab` — <https://shop.renroblab.com|shop.renroblab.com> — Zero web presence\n• `Robber 925 Silver` — <https://robber925silver.com|robber925silver.com> — Active on Pinkoi but domain unindexed\n• `Sammm._.Studio` — <https://sammm.store|sammm.store> — Zero web presence\n• `Sleepy Nest` — <https://sleepy-nest.com|sleepy-nest.com> — Zero search results"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*DB Health*\nTop tables: `brands` (9.4 MB), `storage.objects` (5.0 MB), `brand_search_results` (3.7 MB)\nConnections: 1 active / 9 idle / 0 idle-in-txn — :white_check_mark: healthy\nDead tuples: `brand_slug_redirects` 18.5%, `brand_analytics` 12.8% — below 20% warning threshold\nSlow queries: VACUUM + system catalog only — no application-level slow queries detected"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "1 Linear ticket created | Directory Health v2"
+        }
+      ]
+    }
+  ]
+}
