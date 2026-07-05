@@ -78,7 +78,8 @@ export async function seedBrand(opts: {
   }
 
   const cleanup = async () => {
-    await supabase.from('brands').delete().eq('id', brand.id);
+    const { error } = await supabase.from('brands').delete().eq('id', brand.id);
+    if (error) console.warn('[e2e-seed] cleanup failed:', error.message);
   };
 
   return { brand, slug, cleanup };
