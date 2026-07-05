@@ -140,8 +140,9 @@ test.describe('Dashboard — governed field integrity', () => {
     }
     // Server-side redirect: should land on /dashboard (not the edit page)
     await expect(userPage).toHaveURL(/\/dashboard(?:\/)?$/, { timeout: 60_000 });
-    // Confirm the brand edit form is NOT present
-    await expect(userPage.locator('textarea[name="description"]')).toHaveCount(0);
+    // Confirm the wizard edit sections are NOT present
+    // (section#basic-info is the first wizard section; absent means the wizard did not render)
+    await expect(userPage.locator('section#basic-info')).toHaveCount(0);
   });
 
   /**
@@ -166,9 +167,10 @@ test.describe('Dashboard — governed field integrity', () => {
     await descField.fill('');
     await descField.fill(updatedDescription);
 
-    // Save
-    await userPage.getByRole('button', { name: '儲存變更' }).click();
-    await expect(userPage.getByText(/submitted for review|提交審核|審核中/i).first()).toBeVisible({ timeout: 15_000 });
+    // Save & Continue at step 0 (Basic Info) — wizard replaced the old single-form "儲存變更".
+    // saveSectionDraftAction persists all field values (including description) to pending_brand_edits.
+    await userPage.getByRole('button', { name: '儲存並繼續' }).click();
+    await expect(userPage).toHaveURL(/\?step=1/, { timeout: 15_000 });
 
     const { data: pendingEdit } = await supabase
       .from('pending_brand_edits')

@@ -90,17 +90,20 @@ test.describe('Dashboard brand edit', () => {
       userPage.getByRole('heading', { name: /^編輯 / })
     ).toBeVisible({ timeout: 60_000 });
 
-    // City select is visible (native <select id="city" name="city">)
-    const citySelect = userPage.locator('#city');
-    await expect(citySelect).toBeVisible({ timeout: 10_000 });
+    // City select trigger is visible — wizard Basic Info section (step 0, default).
+    // The city field is a shadcn/ui <Select> whose <SelectTrigger> carries id="city".
+    const cityTrigger = userPage.locator('#city');
+    await expect(cityTrigger).toBeVisible({ timeout: 10_000 });
 
-    // Placeholder option (value="") is present
-    await expect(citySelect.locator('option[value=""]')).toHaveCount(1);
+    // Placeholder text is shown when no city is selected
+    await expect(cityTrigger).toContainText('請選擇縣市');
 
-    // Taipei option is present and labelled correctly in Traditional Chinese
-    const taipeiOption = citySelect.locator('option[value="taipei"]');
-    await expect(taipeiOption).toHaveCount(1);
-    await expect(taipeiOption).toHaveText('臺北市');
+    // Open the dropdown and verify Taipei option is present with correct label
+    await cityTrigger.click();
+    await expect(
+      userPage.getByRole('option', { name: '臺北市' })
+    ).toBeVisible({ timeout: 5_000 });
+    await userPage.keyboard.press('Escape');
   });
 
   test('owner can edit description and change persists', async ({ userPage }) => {
@@ -123,15 +126,12 @@ test.describe('Dashboard brand edit', () => {
     await descriptionField.fill('');
     await descriptionField.fill(updatedDescription);
 
-    // Submit the form
-    await userPage.getByRole('button', { name: '儲存變更' }).click();
+    // Save the current section (Basic Info, step 0) — wizard button is "儲存並繼續"
+    await userPage.getByRole('button', { name: '儲存並繼續' }).click();
 
-    // Non-admin owner edit goes to review queue unless owner is trusted (≥3 approved edits).
-    // E2E test brands have 0 approved edits, so always queued.
-    await expect(
-      userPage.getByText(/submitted for review|提交審核|審核中/i)
-    ).toBeVisible({ timeout: 15_000 });
-    await expect(userPage).toHaveURL(/\/dashboard\/brands\/.+\/edit/);
+    // Wizard navigates to step 1 after a successful save.
+    // saveSectionDraftAction persists the edit (to pending_brand_edits when no draft_data exists).
+    await expect(userPage).toHaveURL(/\/dashboard\/brands\/.+\/edit\?step=1/, { timeout: 15_000 });
   });
 
 });
