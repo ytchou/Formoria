@@ -10,21 +10,6 @@ export async function cleanupTestData() {
 
   const supabase = createClient(url, key);
 
-  // Must delete pending_brand_edits before brands (FK constraint)
-  const { data: testBrands } = await supabase
-    .from('brands')
-    .select('id')
-    .like('name', '[E2E-TEST]%');
-
-  if (testBrands && testBrands.length > 0) {
-    const brandIds = testBrands.map((b: { id: string }) => b.id);
-    const { error: editsErr } = await supabase
-      .from('pending_brand_edits')
-      .delete()
-      .in('brand_id', brandIds);
-    if (editsErr) console.warn('[e2e-cleanup] pending_brand_edits cleanup error:', editsErr.message);
-  }
-
   const { error: brandsErr } = await supabase
     .from('brands')
     .delete()

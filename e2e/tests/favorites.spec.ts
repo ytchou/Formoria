@@ -143,8 +143,9 @@ test.describe('Favorites page', () => {
     for (let attempt = 0; attempt < 3 && !found; attempt++) {
       const resp = await userPage.goto('/favorites', {
         timeout: 60_000,
-        waitUntil: 'networkidle',
+        waitUntil: 'domcontentloaded',
       });
+      await expect(userPage.getByRole('heading')).toBeVisible();
       if (resp?.status() === 503) {
         test.skip(true, 'PREVIEW_MODE active — skipping.');
         return;

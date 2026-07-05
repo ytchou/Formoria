@@ -1,29 +1,15 @@
 import { test, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { seedBrand, SeededBrand } from '../helpers/seed';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
-// Root cause for serial + beforeEach pattern:
-// DashboardLayout calls resolveDashboardBrand with no ?brand= param (layouts don't
-// receive searchParams in Next.js), so it always resolves allBrands[0] ordered by
-// claimed_at ASC.  With fullyParallel:true, all three tests would run concurrently
-// and each beforeEach would create a brand — all three brands exist simultaneously,
-// making allBrands[0] non-deterministic.
-//
-// test.describe.serial forces the three tests to run on one worker sequentially.
-// Each beforeEach seeds exactly ONE brand; afterEach deletes it (all FK constraints
-// from brands.id use ON DELETE CASCADE so a single brands delete is sufficient).
-// A pre-cleanup guard in beforeEach also removes stale [E2E-TEST] EditBanner brands
-// left by aborted previous runs so allBrands[0] is always the test-owned brand.
-
-test.describe.serial('Dashboard EditReviewBanner', () => {
+test.describe('Dashboard EditReviewBanner', () => {
   let supabase: AnySupabaseClient;
   let testUserId: string;
 
-  // Per-test state — reset by beforeEach/afterEach
-  let brandId: string;
-  let brandSlug: string;
+  let seeded: SeededBrand;
 
   test.beforeAll(async () => {
     supabase = createClient(
@@ -38,57 +24,16 @@ test.describe.serial('Dashboard EditReviewBanner', () => {
     testUserId = testUser.id;
   });
 
-  test.beforeEach(async () => {
-    // Pre-cleanup: remove any stale [E2E-TEST] EditBanner brands owned by the test
-    // user from aborted previous runs.  All FK constraints from brands.id use
-    // ON DELETE CASCADE so deleting from brands cascades everything.
-    const { data: ownedRows } = await supabase
-      .from('brand_owners')
-      .select('brand_id')
-      .eq('user_id', testUserId);
-    if (ownedRows?.length) {
-      const ownedIds = ownedRows.map((r: { brand_id: string }) => r.brand_id);
-      const { data: stale } = await supabase
-        .from('brands')
-        .select('id')
-        .in('id', ownedIds)
-        .like('name', '[E2E-TEST] EditBanner%');
-      if (stale?.length) {
-        const staleIds = stale.map((b: { id: string }) => b.id);
-        await supabase.from('brands').delete().in('id', staleIds);
-      }
-    }
-
-    const ts = Date.now();
-    brandSlug = `e2e-banner-${ts}`;
-
-    const { data, error } = await supabase
-      .from('brands')
-      .insert({
-        name: `[E2E-TEST] EditBanner ${ts}`,
-        slug: brandSlug,
-        status: 'approved',
-        product_type: 'crafts',
-        description: `[E2E-TEST] initial description`,
-        retail_locations: [],
-        product_photos: [],
-      })
-      .select('id')
-      .single();
-    if (error || !data) throw new Error(`seed brand: ${error?.message}`);
-    brandId = data.id as string;
-
-    // Use a deterministically old claimed_at so this brand is always allBrands[0]
-    // (dashboard layout orders owned brands by claimed_at ASC; parallel tests seed with NOW()).
-    await supabase.from('brand_owners').insert({ user_id: testUserId, brand_id: brandId, claimed_at: '1970-01-01T00:00:00.000Z' });
+  test.beforeEach(async ({}, workerInfo) => {
+    seeded = await seedBrand({
+      name: 'edit-banner',
+      workerIndex: workerInfo.workerIndex,
+      withOwner: true,
+    });
   });
 
   test.afterEach(async () => {
-    if (brandId) {
-      // All FK constraints from brands.id use ON DELETE CASCADE —
-      // deleting the brand row cascades to pending_brand_edits, brand_owners, etc.
-      await supabase.from('brands').delete().eq('id', brandId);
-    }
+    await seeded.cleanup();
   });
 
   test('pending edit shows amber banner with 待審核 state', async ({ userPage }) => {
@@ -96,14 +41,14 @@ test.describe.serial('Dashboard EditReviewBanner', () => {
 
     // Seed the pending edit for this test's brand
     const { error: editErr } = await supabase.from('pending_brand_edits').insert({
-      brand_id: brandId,
+      brand_id: seeded.brand.id,
       submitted_by: testUserId,
       proposed_data: { description: '[E2E-TEST] Proposed pending description' },
       status: 'pending',
     });
     if (editErr) throw new Error(`seed pending edit: ${editErr.message}`);
 
-    const resp = await userPage.goto(`/dashboard?brand=${brandSlug}`, { timeout: 60_000 });
+    const resp = await userPage.goto(`/dashboard?brand=${seeded.slug}`, { timeout: 60_000 });
     if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
     // Verify dashboard loaded — Edit CTA always present in layout header
@@ -119,7 +64,7 @@ test.describe.serial('Dashboard EditReviewBanner', () => {
 
     const now = new Date().toISOString();
     const { error: editErr } = await supabase.from('pending_brand_edits').insert({
-      brand_id: brandId,
+      brand_id: seeded.brand.id,
       submitted_by: testUserId,
       proposed_data: { description: '[E2E-TEST] Proposed rejected description' },
       status: 'rejected',
@@ -128,7 +73,7 @@ test.describe.serial('Dashboard EditReviewBanner', () => {
     });
     if (editErr) throw new Error(`seed rejected edit: ${editErr.message}`);
 
-    const resp = await userPage.goto(`/dashboard?brand=${brandSlug}`, { timeout: 60_000 });
+    const resp = await userPage.goto(`/dashboard?brand=${seeded.slug}`, { timeout: 60_000 });
     if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
     // Verify dashboard loaded — Edit CTA always present in layout header
@@ -142,7 +87,7 @@ test.describe.serial('Dashboard EditReviewBanner', () => {
     const resubmitLink = userPage.getByRole('link', { name: '重新編輯' });
     await expect(resubmitLink).toBeVisible({ timeout: 5_000 });
     await resubmitLink.click();
-    await expect(userPage).toHaveURL(new RegExp(`/dashboard/brands/${brandSlug}/edit`), { timeout: 60_000 });
+    await expect(userPage).toHaveURL(new RegExp(`/dashboard/brands/${seeded.slug}/edit`), { timeout: 60_000 });
   });
 
   test('approved edit shows green banner and can be dismissed', async ({ userPage }) => {
@@ -150,7 +95,7 @@ test.describe.serial('Dashboard EditReviewBanner', () => {
 
     const now = new Date().toISOString();
     const { error: editErr } = await supabase.from('pending_brand_edits').insert({
-      brand_id: brandId,
+      brand_id: seeded.brand.id,
       submitted_by: testUserId,
       proposed_data: { description: '[E2E-TEST] Proposed approved description' },
       status: 'approved',
@@ -158,7 +103,7 @@ test.describe.serial('Dashboard EditReviewBanner', () => {
     });
     if (editErr) throw new Error(`seed approved edit: ${editErr.message}`);
 
-    const resp = await userPage.goto(`/dashboard?brand=${brandSlug}`, { timeout: 60_000 });
+    const resp = await userPage.goto(`/dashboard?brand=${seeded.slug}`, { timeout: 60_000 });
     if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
     // Verify dashboard loaded — Edit CTA always present in layout header

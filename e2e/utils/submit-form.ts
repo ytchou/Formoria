@@ -21,26 +21,18 @@ import { type Page, expect } from '@playwright/test';
  */
 export async function gotoSubmitForm(
   page: Page,
-  opts?: { timeout?: number }
+  opts?: { timeout?: number },
 ): Promise<void> {
-  const timeout = opts?.timeout ?? 30_000;
-  const backoff = [2_000, 4_000, 8_000];
+  const timeout = opts?.timeout ?? 90_000;
 
-  for (let attempt = 0; attempt < 3; attempt++) {
+  await expect(async () => {
     await page.goto('/submit/form', { timeout: 60_000 });
-
-    const heading = page.getByRole('heading', { name: '提交品牌', exact: true });
-    const visible = await heading.isVisible({ timeout }).catch(() => false);
-    if (visible) {
-      return;
+    // Preserve auth-redirect detection — middleware can transiently redirect
+    if (page.url().includes('/auth/sign-in')) {
+      throw new Error('Auth redirect detected — middleware not ready, retrying');
     }
-
-    if (attempt < 2 && page.url().includes('/auth/sign-in')) {
-      await page.waitForTimeout(backoff[attempt]);
-      continue;
-    }
-
-    // Final attempt — assert so a helpful error surfaces
-    await expect(heading).toBeVisible({ timeout: 10_000 });
-  }
+    await expect(
+      page.getByRole('heading', { name: '提交品牌', exact: true }),
+    ).toBeVisible({ timeout: 5_000 });
+  }).toPass({ timeout, intervals: [2_000, 4_000, 8_000] });
 }
