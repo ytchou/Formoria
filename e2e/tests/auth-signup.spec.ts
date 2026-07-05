@@ -113,9 +113,7 @@ test.describe('Auth — sign-up flow', () => {
       // This is still a valid characterization: the app correctly surfaces the error.
       // The error div from sign-up-form.tsx: {state.error && <div>…{state.error}</div>}
       await expect(anonPage).toHaveURL(/\/auth\/sign-up/);
-      await expect(
-        anonPage.locator('div.bg-destructive\\/10')
-      ).toBeVisible({ timeout: 5_000 });
+      await expect(anonPage.getByRole('alert')).toBeVisible({ timeout: 5_000 });
     }
   });
 });
