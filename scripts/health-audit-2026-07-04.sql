@@ -1,5 +1,5 @@
 -- DEV-942: Directory health audit 2026-07-04
--- Fix PS BUBU purchase_website URL, flag 1 suspicious third-party + 2 broken + 8 unverified brands for manual review.
+-- Fix PS BUBU purchase_website URL, flag 1 suspicious third-party + 1 broken + 8 unverified brands for manual review.
 -- 1 URL corrected, 10 brands flagged (no automated change — manual spot-check required).
 
 BEGIN;
