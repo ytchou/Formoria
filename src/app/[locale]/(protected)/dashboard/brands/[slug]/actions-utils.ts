@@ -11,7 +11,7 @@ import { sanitizeHref } from '@/lib/url'
 
 export class InvalidBrandEditFormError extends Error {}
 
-export function parseArrayField<T extends Record<string, string | undefined>>(
+function parseArrayField<T extends Record<string, string | undefined>>(
   formData: FormData,
   fieldName: string,
   keys: (keyof T)[]
@@ -32,23 +32,23 @@ export function parseArrayField<T extends Record<string, string | undefined>>(
   return results
 }
 
-export function parseOptionalString(value: FormDataEntryValue | null): string | null {
+function parseOptionalString(value: FormDataEntryValue | null): string | null {
   return typeof value === 'string' && value !== '' ? value : null
 }
 
-export function parseOptionalBoolean(value: FormDataEntryValue | null): boolean | null {
+function parseOptionalBoolean(value: FormDataEntryValue | null): boolean | null {
   if (value === null) return null
   if (typeof value === 'string') return value === 'on' || value === 'true'
   return null
 }
 
-export type ProvenanceSourceForm = {
+type ProvenanceSourceForm = {
   url: string
   title: string
   retrievedAt: string
 }
 
-export function parseProductTags(value: FormDataEntryValue | null): string[] {
+function parseProductTags(value: FormDataEntryValue | null): string[] {
   if (typeof value !== 'string') {
     return []
   }
