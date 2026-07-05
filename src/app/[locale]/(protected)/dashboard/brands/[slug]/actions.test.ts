@@ -246,7 +246,7 @@ describe('updateBrandAction', () => {
   })
 
   it('extracts mitStory from FormData', async () => {
-    const { parseBrandEditForm } = await import('./actions')
+    const { parseBrandEditForm } = await import('./actions-utils')
 
     const formData = form({
       brandSlug: 'test-brand',
@@ -261,7 +261,7 @@ describe('updateBrandAction', () => {
   })
 
   it('sets mitStory to null when field is empty string', async () => {
-    const { parseBrandEditForm } = await import('./actions')
+    const { parseBrandEditForm } = await import('./actions-utils')
 
     const formData = form({
       brandSlug: 'test-brand',
@@ -276,7 +276,7 @@ describe('updateBrandAction', () => {
   })
 
   it('includes mitStory in moderation payload', async () => {
-    const { buildModerationPayload } = await import('./actions')
+    const { buildModerationPayload } = await import('./actions-utils')
 
     const proposedData = { mitStory: 'Contact factory@example.com' }
     const payload = buildModerationPayload(proposedData, 'Test Brand')
