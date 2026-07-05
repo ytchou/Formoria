@@ -167,23 +167,3 @@ async function getStatsPageDataImpl(): Promise<StatsPageData> {
 }
 
 export const getStatsPageData = cache(getStatsPageDataImpl)
-
-export const getCityCoverage = cache(async (): Promise<Array<{ city: string; count: number }>> => {
-  const supabase = createServiceClient()
-  const { data, error } = await supabase
-    .from('brands')
-    .select('city')
-    .eq('status', 'approved')
-    .not('city', 'is', null)
-
-  if (error) throw error
-
-  const counts = new Map<string, number>()
-  for (const row of (data as BrandRow[] | null) ?? []) {
-    if (row.city) counts.set(row.city, (counts.get(row.city) ?? 0) + 1)
-  }
-
-  return Array.from(counts.entries())
-    .map(([city, count]) => ({ city, count }))
-    .sort((a, b) => b.count - a.count)
-})

@@ -13,7 +13,7 @@ vi.mock('@/lib/supabase/server', () => ({
   createServiceClient: () => ({ from: mockFrom }),
 }))
 
-const { getCityCoverage, getStatsPageData } = await import('./stats')
+const { getStatsPageData } = await import('./stats')
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -64,18 +64,18 @@ function makeMockChains({
   const q2Eq = vi.fn().mockReturnValue({ not: q2Not })
   const q2Select = vi.fn().mockReturnValue({ eq: q2Eq })
 
-  // Q3: .select('*', head).eq('status', 'approved').eq('mit_status', 'verified')
-  const q3EqMit = vi.fn().mockResolvedValue({ count: mitCount })
-  const q3EqStatus = vi.fn().mockReturnValue({ eq: q3EqMit })
-  const q3Select = vi.fn().mockReturnValue({ eq: q3EqStatus })
+  // Q3: .select('city').eq(...).not(...)
+  const q3Not = vi.fn().mockResolvedValue({ data: cities })
+  const q3Eq = vi.fn().mockReturnValue({ not: q3Not })
+  const q3Select = vi.fn().mockReturnValue({ eq: q3Eq })
 
-  // Q4: .select('founding_year').eq(...).not(...)
-  const q4Not = vi.fn().mockResolvedValue({ data: foundingYears })
-  const q4Eq = vi.fn().mockReturnValue({ not: q4Not })
-  const q4Select = vi.fn().mockReturnValue({ eq: q4Eq })
+  // Q4: .select('*', head).eq('status', 'approved').eq('mit_status', 'verified')
+  const q4EqMit = vi.fn().mockResolvedValue({ count: mitCount })
+  const q4EqStatus = vi.fn().mockReturnValue({ eq: q4EqMit })
+  const q4Select = vi.fn().mockReturnValue({ eq: q4EqStatus })
 
-  // Q5: .select('city').eq(...).not(...)
-  const q5Not = vi.fn().mockResolvedValue({ data: cities })
+  // Q5: .select('founding_year').eq(...).not(...)
+  const q5Not = vi.fn().mockResolvedValue({ data: foundingYears })
   const q5Eq = vi.fn().mockReturnValue({ not: q5Not })
   const q5Select = vi.fn().mockReturnValue({ eq: q5Eq })
 
@@ -83,9 +83,9 @@ function makeMockChains({
   return [
     { select: q1Select },
     { select: q2Select },
-    { select: q5Select },
     { select: q3Select },
     { select: q4Select },
+    { select: q5Select },
   ]
 }
 
@@ -160,35 +160,6 @@ describe('getStatsPageData', () => {
       expect(data.categoryBreakdown[i - 1].count).toBeGreaterThanOrEqual(
         data.categoryBreakdown[i].count
       )
-    }
-  })
-})
-
-describe('getCityCoverage', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    const chains = makeMockChains()
-    mockFrom.mockReturnValueOnce(chains[2])
-  })
-
-  it('returns an array', async () => {
-    const data = await getCityCoverage()
-    expect(Array.isArray(data)).toBe(true)
-  })
-
-  it('each entry has city (string) and count (number)', async () => {
-    const data = await getCityCoverage()
-    for (const entry of data) {
-      expect(typeof entry.city).toBe('string')
-      expect(typeof entry.count).toBe('number')
-      expect(entry.count).toBeGreaterThan(0)
-    }
-  })
-
-  it('results are ordered by count descending', async () => {
-    const data = await getCityCoverage()
-    for (let i = 1; i < data.length; i++) {
-      expect(data[i].count).toBeLessThanOrEqual(data[i - 1].count)
     }
   })
 })

@@ -127,7 +127,6 @@ export function buildSubmissionRecord(input: CreateSubmissionInput): Record<stri
     description: input.description ?? null,
     website_url: input.websiteUrl ?? null,
     hero_image_url: input.heroImageUrl ?? null,
-    city: input.city ?? null,
     product_photos: input.productPhotos ?? [],
     social_instagram: input.socialInstagram ?? null,
     social_threads: input.socialThreads ?? null,

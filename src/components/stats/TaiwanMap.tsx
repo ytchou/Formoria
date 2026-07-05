@@ -33,10 +33,14 @@ export function TaiwanMap({ data }: Props) {
               const propVal = geo.properties[PROPERTY_KEY]
               const slug = typeof propVal === 'string' ? TOPO_NAME_TO_SLUG[propVal.trim()] : undefined
               const count = slug ? (countBySlug.get(slug) ?? 0) : 0
-              const opacity = count > 0 ? 0.2 + (count / maxCount) * 0.8 : 0.08
-              const fillColor = count > 0
-                ? `rgba(59, 130, 246, ${opacity})`
-                : 'rgba(200, 200, 200, 0.3)'
+              const fillColor =
+                count === 0
+                  ? 'rgba(47, 93, 80, 0.08)'
+                  : count / maxCount <= 0.33
+                    ? 'rgba(47, 93, 80, 0.25)'
+                    : count / maxCount <= 0.66
+                      ? 'rgba(47, 93, 80, 0.55)'
+                      : 'rgba(47, 93, 80, 0.85)'
 
               return (
                 <Geography
@@ -45,13 +49,13 @@ export function TaiwanMap({ data }: Props) {
                   style={{
                     default: {
                       fill: fillColor,
-                      stroke: 'hsl(var(--border))',
+                      stroke: '#E5E0D8',
                       strokeWidth: 0.5,
                       outline: 'none',
                     },
                     hover: {
                       fill: fillColor,
-                      stroke: 'hsl(var(--border))',
+                      stroke: '#E5E0D8',
                       strokeWidth: 0.5,
                       outline: 'none',
                     },
