@@ -1256,7 +1256,9 @@
       "fieldRegionOptionalHint": "選填",
       "fieldValueTags": "品牌價值",
       "fieldValueTagsHint": "選擇最多 3 個品牌價值",
-      "fieldValueTagsOptionalHint": "選填"
+      "fieldValueTagsOptionalHint": "選填",
+      "mitStoryLabel": "MIT 製造故事",
+      "mitStoryPlaceholder": "分享您的製造工藝、材料來源與工廠合作關係…"
     },
     "badge": {
       "title": "推廣你的品牌",

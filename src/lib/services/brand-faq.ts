@@ -156,9 +156,18 @@ function buildInternationalShippingAnswer(brand: Brand, t: TFn): string {
 
 const FAQ_GENERATORS: FaqGenerator[] = [
   {
-    condition: (brand) => brand.mitStatus === 'verified',
+    condition: (brand) => brand.mitStatus === 'verified' || !!brand.mitStory,
     questionKey: 'brandFaq.isMadeInTaiwan.question',
-    buildAnswer: (brand, t) => t('brandFaq.isMadeInTaiwan.answer', { brandName: brand.name }),
+    buildAnswer: (brand, t) => {
+      const stampsAnswer = t('brandFaq.isMadeInTaiwan.answer', { brandName: brand.name })
+      if (brand.mitStory && brand.mitStatus === 'verified') {
+        return `${brand.mitStory}\n\n${stampsAnswer}`
+      }
+      if (brand.mitStory) {
+        return brand.mitStory
+      }
+      return stampsAnswer
+    },
   },
   {
     condition: (brand) => [brand.purchaseWebsite, brand.purchasePinkoi, brand.purchaseShopee].some(hasValue),

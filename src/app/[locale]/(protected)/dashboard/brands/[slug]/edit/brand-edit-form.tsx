@@ -521,6 +521,18 @@ export function BrandEditForm({ brand, onboardingStep }: BrandEditFormProps) {
                 </Select>
               </div>
               <div className="space-y-2">
+                <Label htmlFor="mitStory">
+                  {t('mitStoryLabel')}
+                </Label>
+                <Textarea
+                  id="mitStory"
+                  name="mitStory"
+                  defaultValue={brand.mitStory ?? ''}
+                  placeholder={t('mitStoryPlaceholder')}
+                  rows={5}
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="manufacturingNotes" className="text-sm font-semibold text-foreground">
                   Notes
                 </Label>

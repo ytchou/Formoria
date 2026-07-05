@@ -154,7 +154,7 @@ function checkEnglishSpam(fields: Record<string, string | undefined>): Moderatio
 function checkContactInjection(fields: Record<string, string | undefined>): ModerationFlag[] {
   const flags: ModerationFlag[] = []
 
-  for (const fieldName of ['description']) {
+  for (const fieldName of ['description', 'mitStory']) {
     const value = fields[fieldName]
 
     if (!value) {

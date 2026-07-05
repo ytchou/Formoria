@@ -47,6 +47,7 @@ const BRAND_FIELD_MAP = [
 ] as const satisfies FieldMap<
   {
     contactEmail?: string | null
+    mitStory?: string | null
     otherUrls?: unknown
     retailLocations?: unknown
     customerVoices?: unknown
@@ -110,6 +111,7 @@ export function toBrandRow(input: {
   productType?: string | null
   category?: string | null
   foundingYear?: number | null
+  mitStory?: string | null
   socialInstagram?: string | null
   socialThreads?: string | null
   socialFacebook?: string | null
@@ -137,6 +139,7 @@ export function toBrandRow(input: {
     row.product_type = input.category
   }
   if (input.foundingYear !== undefined) row.founding_year = input.foundingYear
+  if (input.mitStory !== undefined) row.mit_story = input.mitStory
   copyMappedFields(input, row, SOCIAL_PURCHASE_FIELD_MAP)
   copyMappedFields(input, row, BRAND_FIELD_MAP)
   row.price_range = input.priceRange ?? null

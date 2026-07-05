@@ -1256,7 +1256,9 @@
       "fieldRegionOptionalHint": "optional",
       "fieldValueTags": "Brand Values",
       "fieldValueTagsHint": "Select up to 3 values that describe the brand",
-      "fieldValueTagsOptionalHint": "optional"
+      "fieldValueTagsOptionalHint": "optional",
+      "mitStoryLabel": "MIT Manufacturing Story",
+      "mitStoryPlaceholder": "Share your manufacturing craftsmanship, materials sourcing, and factory partnerships…"
     },
     "badge": {
       "title": "Share your brand",

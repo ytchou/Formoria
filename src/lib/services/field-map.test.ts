@@ -81,6 +81,21 @@ describe('field-map', () => {
     })
   })
 
+  it('maps mitStory to mit_story when present', () => {
+    const result = toBrandRow({ mitStory: 'Our fabrics come from Changhua weaving mills.' })
+    expect(result.mit_story).toBe('Our fabrics come from Changhua weaving mills.')
+  })
+
+  it('omits mit_story when mitStory is undefined', () => {
+    const result = toBrandRow({ name: 'Test Brand' })
+    expect('mit_story' in result).toBe(false)
+  })
+
+  it('sets mit_story to null when mitStory is null', () => {
+    const result = toBrandRow({ mitStory: null })
+    expect(result.mit_story).toBeNull()
+  })
+
   it('submissions mapper shares the social/purchase block with brands', () => {
     const b = toBrandRow({
       ...brandInput,
