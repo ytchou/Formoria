@@ -20,7 +20,7 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
  *
  * Journey 5: Unauthenticated user clicks heart → redirected to sign-in
  */
-test.describe('Brand save/unsave — card overlay', () => {
+test.describe.serial('Brand save/unsave — card overlay', () => {
   let supabase: AnySupabaseClient;
   let brandId: string;
   let brandSlug: string;

@@ -168,7 +168,7 @@ test.describe('Dashboard — governed field integrity', () => {
 
     // Save
     await userPage.getByRole('button', { name: '儲存變更' }).click();
-    await expect(userPage.getByText(/submitted for review|提交審核|審核中/i)).toBeVisible({ timeout: 15_000 });
+    await expect(userPage.getByText(/submitted for review|提交審核|審核中/i).first()).toBeVisible({ timeout: 15_000 });
 
     const { data: pendingEdit } = await supabase
       .from('pending_brand_edits')
