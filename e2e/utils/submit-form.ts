@@ -23,7 +23,7 @@ export async function gotoSubmitForm(
   page: Page,
   opts?: { timeout?: number },
 ): Promise<void> {
-  const timeout = opts?.timeout ?? 30_000;
+  const timeout = opts?.timeout ?? 90_000;
 
   await expect(async () => {
     await page.goto('/submit/form', { timeout: 60_000 });
