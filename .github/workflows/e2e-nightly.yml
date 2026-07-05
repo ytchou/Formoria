@@ -33,6 +33,7 @@ jobs:
           node-version: 22
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
+      - run: pnpm exec tinacms build --local --skip-cloud-checks
       - run: npx playwright install --with-deps chromium
       - run: pnpm exec playwright test --project=deep
       - uses: actions/upload-artifact@v4
