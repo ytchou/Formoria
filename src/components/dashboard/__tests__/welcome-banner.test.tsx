@@ -15,10 +15,6 @@ vi.mock('@/i18n/navigation', () => ({
   ),
 }))
 
-vi.mock('@/lib/actions/brand-onboarding', () => ({
-  startOnboardingStepAction: vi.fn(),
-}))
-
 describe('WelcomeBanner', () => {
   it('shows persisted progress and the next explicit review step', () => {
     render(
@@ -42,10 +38,13 @@ describe('WelcomeBanner', () => {
     expect(screen.getByText('Confirm products')).toBeInTheDocument()
     expect(screen.getByText('Review story and visuals')).toBeInTheDocument()
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1')
-    expect(screen.getByRole('link', { name: 'View checklist' })).toHaveAttribute(
-      'href',
-      '/dashboard/onboarding?brand=test-brand'
-    )
+
+    // Step CTAs link to the wizard with ?step=N, not to /dashboard/onboarding
+    const links = screen.getAllByRole('link')
+    expect(links.every(l => !l.getAttribute('href')?.includes('/dashboard/onboarding'))).toBe(true)
+    // 'products' maps to step 0 in the wizard
+    const productsLink = links.find(l => l.textContent?.includes('Confirm products'))
+    expect(productsLink?.getAttribute('href')).toContain('?step=0')
   })
 
   it('renders at 100% when all steps are completed', () => {

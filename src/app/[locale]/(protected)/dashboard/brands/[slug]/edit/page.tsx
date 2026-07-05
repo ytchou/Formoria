@@ -1,19 +1,18 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { Link } from "@/i18n/navigation";
-import { completeOnboardingStepAction } from "@/lib/actions/brand-onboarding";
-import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { canManageDashboardBrand } from "@/lib/auth/admin-mode";
 import { getBrandBySlug, getBrandDraft } from "@/lib/services/brands";
-import { DraftBanner } from "../draft-banner";
-import { BrandEditForm } from "./brand-edit-form";
+import type { BrandEditFormValues } from "@/lib/schemas/brand-edit";
+import { ONBOARDING_STEP_TO_WIZARD_STEP } from "@/lib/schemas/brand-edit";
 import { isOnboardingStepKey } from "@/lib/services/brand-onboarding";
+import { DraftBanner } from "../draft-banner";
+import { BrandEditWizard } from "./brand-edit-wizard";
 
 type Props = {
   params: Promise<{ slug: string; locale: string }>;
-  searchParams: Promise<{ onboardingStep?: string }>;
+  searchParams: Promise<{ onboardingStep?: string; step?: string }>;
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -24,10 +23,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function BrandEditPage({ params, searchParams }: Props) {
   const { slug } = await params;
-  const { onboardingStep: rawOnboardingStep } = await searchParams;
-  const onboardingStep = rawOnboardingStep && isOnboardingStepKey(rawOnboardingStep)
-    ? rawOnboardingStep
-    : undefined;
+  const { onboardingStep: rawOnboardingStep, step: rawStep } = await searchParams;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -40,7 +37,21 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
 
   if (!owner) redirect("/dashboard");
 
-  const draft = await getBrandDraft(brand.id);
+  const [draft] = await Promise.all([getBrandDraft(brand.id)]);
+
+  // Brand DB fields are string|null; form values use string|undefined. Cast at boundary.
+  const defaultValues: Partial<BrandEditFormValues> = {
+    ...(brand as unknown as Partial<BrandEditFormValues>),
+    ...(draft?.data ?? {}),
+  };
+
+  let initialStep = 0;
+  if (rawOnboardingStep && isOnboardingStepKey(rawOnboardingStep)) {
+    initialStep = ONBOARDING_STEP_TO_WIZARD_STEP[rawOnboardingStep] ?? 0;
+  } else if (rawStep) {
+    initialStep = Math.max(0, Math.min(parseInt(rawStep, 10), 8));
+  }
+
   const t = await getTranslations("dashboard.edit");
 
   return (
@@ -53,35 +64,16 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
       </p>
 
       <div className="mt-8">
-        {onboardingStep ? (
-          <div className="mb-8 rounded-xl border border-primary/20 bg-primary/5 p-4">
-            <h2 className="font-heading font-bold text-foreground">
-              {t("onboardingReviewTitle")}
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {t("onboardingReviewDescription")}
-            </p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <form action={completeOnboardingStepAction.bind(null, slug, onboardingStep)}>
-                <Button type="submit" variant="outline">
-                  {t("onboardingConfirm")}
-                </Button>
-              </form>
-              <Link
-                href={`/dashboard/onboarding?brand=${slug}`}
-                className="inline-flex min-h-10 items-center px-2 text-sm font-semibold text-foreground underline-offset-4 hover:underline"
-              >
-                {t("onboardingBack")}
-              </Link>
-            </div>
-          </div>
-        ) : null}
         {draft ? (
           <div className="mb-8">
             <DraftBanner slug={brand.slug} draftUpdatedAt={null} />
           </div>
         ) : null}
-        <BrandEditForm brand={brand} onboardingStep={onboardingStep} />
+        <BrandEditWizard
+          brand={brand}
+          defaultValues={defaultValues}
+          initialStep={initialStep}
+        />
       </div>
     </div>
   );

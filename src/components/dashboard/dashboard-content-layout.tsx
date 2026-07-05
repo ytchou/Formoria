@@ -1,7 +1,4 @@
-'use client'
-
 import type { ReactNode } from 'react'
-import { usePathname } from 'next/navigation'
 
 type DashboardContentLayoutProps = {
   children: ReactNode
@@ -14,10 +11,7 @@ export function DashboardContentLayout({
   onboarding,
   showOnboarding,
 }: DashboardContentLayoutProps) {
-  const pathname = usePathname()
-  const isChecklistPage = pathname.endsWith('/dashboard/onboarding')
-
-  if (!showOnboarding || isChecklistPage) {
+  if (!showOnboarding) {
     return <div className="space-y-6">{children}</div>
   }
 

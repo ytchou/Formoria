@@ -51,7 +51,6 @@ async function completeOnboardingAfterOwnerSubmit(
     status: 'complete',
   })
   revalidatePath('/dashboard')
-  revalidatePath('/dashboard/onboarding')
 }
 
 function imageUrlsFromBrand(brand: Pick<Brand, 'heroImageUrl' | 'productPhotos'>): string[] {

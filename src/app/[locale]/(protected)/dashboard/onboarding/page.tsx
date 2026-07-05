@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import { Check, ChevronRight } from 'lucide-react'
 import { redirect } from 'next/navigation'
+import { Link } from '@/i18n/navigation'
 import { getTranslations } from 'next-intl/server'
-import { startOnboardingStepAction } from '@/lib/actions/brand-onboarding'
 import { canManageDashboardBrand } from '@/lib/auth/admin-mode'
 import { createClient } from '@/lib/supabase/server'
 import { getBrandBySlug } from '@/lib/services/brands'
@@ -68,18 +68,12 @@ export default async function OnboardingPage({ searchParams }: Props) {
 
         <ol className="mt-8 divide-y divide-border border-y border-border">
           {progress.steps.map((step, index) => {
-            const startAction = startOnboardingStepAction.bind(
-              null,
-              brand.slug,
-              step.key
-            )
             return (
               <li key={step.key}>
-                <form action={startAction}>
-                  <button
-                    type="submit"
-                    className="group flex w-full items-center gap-4 px-1 py-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                  >
+                <Link
+                  href={`/dashboard/brands/${brand.slug}/edit`}
+                  className="group flex w-full items-center gap-4 px-1 py-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                >
                     <span
                       className={step.status === 'complete'
                         ? 'flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground'
@@ -99,8 +93,7 @@ export default async function OnboardingPage({ searchParams }: Props) {
                       {t(`status.${step.status}`)}
                     </span>
                     <ChevronRight className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                  </button>
-                </form>
+                </Link>
               </li>
             )
           })}

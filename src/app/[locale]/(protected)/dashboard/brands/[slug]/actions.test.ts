@@ -35,6 +35,8 @@ const getImpersonatedBrandSlug = vi.fn().mockResolvedValue('test-brand')
 const scanContent = vi.fn()
 const shouldAutoApprove = vi.fn()
 const saveModerationFlags = vi.fn().mockResolvedValue(undefined)
+const isOnboardingStepKey = vi.fn().mockReturnValue(true)
+const setBrandOnboardingStepStatus = vi.fn().mockResolvedValue(undefined)
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => ({
@@ -90,6 +92,11 @@ vi.mock('@/lib/services/moderation', () => ({
   scanContent,
   shouldAutoApprove,
   saveModerationFlags,
+}))
+
+vi.mock('@/lib/services/brand-onboarding', () => ({
+  isOnboardingStepKey,
+  setBrandOnboardingStepStatus,
 }))
 
 import { approvePendingEdit, createPendingEdit } from '@/lib/services/pending-edits'
@@ -741,5 +748,43 @@ describe('publishDraftAction — edit gating', () => {
     expect(result).toEqual({ error: expect.any(String) })
     expect(publishDraft).not.toHaveBeenCalled()
     expect(createPendingEdit).not.toHaveBeenCalled()
+  })
+})
+
+describe('updateBrandAction — onboarding revalidation removed', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    process.env.ADMIN_EMAILS = 'admin@formoria.com'
+    mockUser('owner@example.com')
+    isActingAsAdmin.mockResolvedValue(true)
+    getBrandBySlug.mockResolvedValue({
+      id: 'brand-1',
+      slug: 'test-brand',
+      name: 'Test Brand',
+      description: 'Original description',
+      socialLinks: {},
+      heroImageUrl: null,
+      productPhotos: [],
+    })
+    diffRemovedImageUrls.mockReturnValue([])
+    scanContent.mockReturnValue({ riskLevel: 'clean', flags: [] })
+    isOnboardingStepKey.mockReturnValue(true)
+    setBrandOnboardingStepStatus.mockResolvedValue(undefined)
+  })
+
+  it('does not revalidatePath /dashboard/onboarding', async () => {
+    const { revalidatePath } = await import('next/cache')
+    const { updateBrandAction } = await import('./actions')
+
+    try {
+      await updateBrandAction(undefined, form({
+        brandSlug: 'test-brand',
+        name: 'Test',
+        onboardingStep: 'basics',
+      }))
+    } catch {
+    }
+
+    expect(revalidatePath).not.toHaveBeenCalledWith('/dashboard/onboarding')
   })
 })
