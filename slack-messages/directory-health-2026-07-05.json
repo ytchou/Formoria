@@ -1,0 +1,50 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Directory Health — 2026-07-05"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*355 brands total* (+0 today)\n96.9% have complete profiles (description + image) — _11 brands are missing a hero image_"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Link Health* — 176 brands with URLs checked\n:white_check_mark: *OK (15 spot-checked):* 1973 Furniture, GO!TECHS, SMOK 製甜所, 張萬春陽傘, MedGear 美而輔具, Darker Than Black Bags, 洄遊吧 FISH BAR, MIIJON, Le Gusta, Sanly Joy, 望山穗 Tomu Wine, 好漢草 Hero Herb, 足渡蘭 Zudulan, 美膚娜娜 FRUSIRNANA, Pato Pato\n:grey_question: *Unknown / Unverified (1):* `MONOCEAN` — monocean.co — domain not confirmed via web search\n_161 additional brand URLs not individually verified this run_"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*DB Health* :warning:\nTop tables: `brands` (9.4 MB), `storage.objects` (5.0 MB), `brand_search_results` (3.7 MB), `brand_ai_results` (1.6 MB)\nConnections: 1 active / 6 idle / 0 idle-in-txn — healthy\n\n*Dead Tuple Warnings* — VACUUM ANALYZE recommended:\n• `brand_analytics` — 22.9% dead (75 dead / 327 live)\n• `brands` — 21.5% dead (89 dead / 414 live)\n• `brand_slug_redirects` — 18.5% dead — monitor\n• `profiles` — :fire: 475% (19 dead / 4 live) — urgent\n• `pending_brand_edits` — :fire: 1,700% (17 dead / 1 live) — urgent\n• `newsletter_subscribers` — :fire: 1,200% (12 dead / 1 live) — urgent\n• `brand_saves` — :fire: 4,600% (46 dead / 1 live) — urgent\n• `brand_owners` — :fire: 4,700% (47 dead / 1 live) — urgent\n• `claim_requests` — 200% (4 dead / 2 live)\n• `moderation_flags` — 32 dead, 0 live\n• `brand_reports` — 14 dead, 0 live\n\nSlow queries: No application-layer slow queries detected (top results are maintenance ops + Supabase system queries)"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "1 Linear ticket created — <https://linear.app/ytchou/issue/DEV-954/health-directory-health-audit-2026-07-05|DEV-954: [Health] Directory health audit 2026-07-05> | Directory Health v2"
+        }
+      ]
+    }
+  ]
+}
