@@ -39,11 +39,12 @@ import { RelatedBrands } from '@/components/brands/related-brands'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
-import { buildBrandFaq, buildBrandIntro } from '@/lib/services/brand-faq'
+import { buildBrandFaq } from '@/lib/services/brand-faq'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { MapPin } from 'lucide-react'
 import { NotFoundError } from '@/lib/errors'
 import { sanitizeHref } from '@/lib/url'
+import { getUserBrand } from '@/lib/services/brand-owners'
 
 // 1h ISR: ownership/verified-state changes propagate within ~an hour; route still statically served between regenerations
 export const revalidate = 3600
@@ -70,8 +71,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const t = await getTranslations('brandDetail')
-  const tBrandFaq = ((key: string, params?: Record<string, unknown>) =>
-    t(key, params as never)) as BrandFaqTranslateFn
 
   try {
     const brand = await getBrandBySlug(slug)
@@ -79,10 +78,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const { canonical, languages } = buildAlternates(`/brands/${brand.slug}`, safeLocale)
     const ogLocale = safeLocale === 'zh-TW' ? 'zh_TW' : 'en_US'
     const ogAlternateLocale = safeLocale === 'zh-TW' ? 'en_US' : 'zh_TW'
-    const intro = buildBrandIntro(brand, tBrandFaq)
     return {
       title: brand.name,
-      description: intro || brand.description || t('metadata.fallbackDescription', { name: brand.name }),
+      description: brand.description || t('metadata.fallbackDescription', { name: brand.name }),
       alternates: { canonical, languages },
       openGraph: {
         title: brand.name,
@@ -191,13 +189,13 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
   const {
     data: { user },
   } = await (await getSupabase()).auth.getUser()
+  const ownedBrand = user ? await getUserBrand(user.id) : null
   const isAdmin = await isActingAsAdmin(user?.email)
   const tBrandDetail = await getTranslations('brandDetail')
   const tCities = await getTranslations('cities')
   const tBrandFaq = ((key: string, params?: Record<string, unknown>) =>
     tBrandDetail(key, params as never)) as BrandFaqTranslateFn
   const faqItems = buildBrandFaq(displayBrand, tBrandFaq)
-  const introText = buildBrandIntro(displayBrand, tBrandFaq)
 
   // Gallery images: hero + product photos
   const galleryImages = [displayBrand.heroImageUrl, ...displayBrand.productPhotos].filter(
@@ -303,8 +301,6 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
               }
             />
 
-            {introText && <p className="text-sm text-muted-foreground">{introText}</p>}
-
             {displayBrand.city && (
               <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium">
                 <MapPin className="h-3 w-3" />
@@ -315,13 +311,6 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
             <hr className="border-border" />
 
             <BrandAbout brand={displayBrand} />
-
-            {faqItems.length > 0 && (
-              <>
-                <hr className="border-border" />
-                <BrandFaqAccordion items={faqItems} />
-              </>
-            )}
 
             {displayBrand.customerVoices?.length > 0 && <hr className="border-border" />}
 
@@ -335,10 +324,18 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
 
             <BrandLocations brand={displayBrand} />
 
+            {faqItems.length > 0 && (
+              <>
+                <hr className="border-border" />
+                <BrandFaqAccordion items={faqItems} />
+              </>
+            )}
+
             {!displayBrand.isVerified && (
               <ClaimBrandCta
                 brandId={displayBrand.id}
                 hasPendingClaim={userHasPendingClaim}
+                hasOwnedBrand={Boolean(ownedBrand)}
                 removalSlot={<RequestRemoval brandName={displayBrand.name} brandSlug={displayBrand.slug} />}
               />
             )}
