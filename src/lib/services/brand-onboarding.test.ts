@@ -1,19 +1,34 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   eq: vi.fn(),
+  maybeSingle: vi.fn(),
+  upsert: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
   createServiceClient: () => ({
-    from: () => ({
-      select: () => ({ eq: mocks.eq }),
-    }),
+    from: (table: string) => {
+      if (table === 'brand_owners') {
+        return {
+          select: () => ({
+            eq: () => ({ maybeSingle: mocks.maybeSingle }),
+          }),
+        }
+      }
+      if (table === 'brand_onboarding_steps') {
+        return { select: () => ({ eq: mocks.eq }), upsert: mocks.upsert }
+      }
+      return {
+        select: () => ({ eq: mocks.eq }),
+      }
+    },
   }),
 }))
 
 import {
   buildOnboardingProgress,
+  completeOnboardingStepsForSection,
   getBrandOnboardingProgress,
   ONBOARDING_STEPS,
 } from './brand-onboarding'
@@ -49,5 +64,41 @@ describe('buildOnboardingProgress', () => {
 
     expect(progress.nextStep).toBe('basics')
     expect(progress.completedCount).toBe(0)
+  })
+})
+
+describe('completeOnboardingStepsForSection', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.maybeSingle.mockResolvedValue({ data: { user_id: 'user-1' }, error: null })
+    mocks.upsert.mockResolvedValue({ error: null })
+  })
+
+  it('completes basics, products, story_media when sectionKey is basicInfo', async () => {
+    await completeOnboardingStepsForSection('test-brand-id', 'basicInfo')
+
+    expect(mocks.upsert).toHaveBeenCalledTimes(3)
+    const steps = mocks.upsert.mock.calls.map(
+      (call: unknown[]) => (call[0] as Record<string, unknown>).step_key
+    )
+    expect(steps).toContain('basics')
+    expect(steps).toContain('products')
+    expect(steps).toContain('story_media')
+  })
+
+  it('completes purchase, social_proof when sectionKey is links', async () => {
+    await completeOnboardingStepsForSection('test-brand-id', 'links')
+
+    expect(mocks.upsert).toHaveBeenCalledTimes(2)
+    const steps = mocks.upsert.mock.calls.map(
+      (call: unknown[]) => (call[0] as Record<string, unknown>).step_key
+    )
+    expect(steps).toContain('purchase')
+    expect(steps).toContain('social_proof')
+  })
+
+  it('does nothing for sections with no onboarding steps (e.g. media)', async () => {
+    await completeOnboardingStepsForSection('any-id', 'media')
+    expect(mocks.upsert).not.toHaveBeenCalled()
   })
 })

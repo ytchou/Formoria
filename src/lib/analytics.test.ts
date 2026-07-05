@@ -6,6 +6,7 @@ vi.mock('@next/third-parties/google', () => ({
   sendGAEvent: (...args: unknown[]) => mockSendGAEvent(...args),
 }))
 
+import * as analytics from './analytics'
 import {
   getContentGroup,
   getUtmParams,
@@ -34,6 +35,21 @@ import {
 
 beforeEach(() => {
   mockSendGAEvent.mockClear()
+})
+
+describe('analytics — onboarding events removed', () => {
+  it('does not export trackOnboardingBannerShown', () => {
+    expect(analytics).not.toHaveProperty('trackOnboardingBannerShown')
+  })
+  it('does not export trackOnboardingBannerCtaClick', () => {
+    expect(analytics).not.toHaveProperty('trackOnboardingBannerCtaClick')
+  })
+  it('does not export trackOnboardingBannerDismiss', () => {
+    expect(analytics).not.toHaveProperty('trackOnboardingBannerDismiss')
+  })
+  it('does not export trackOnboardingMilestoneReached', () => {
+    expect(analytics).not.toHaveProperty('trackOnboardingMilestoneReached')
+  })
 })
 
 describe('getUtmParams', () => {
