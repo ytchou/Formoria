@@ -74,7 +74,10 @@ test.describe('API — health + search', () => {
 
 // --- Newsletter subscribe / unsubscribe ---
 // retries: 0 — confirm consumes the token; a retry would fail on re-use.
-test.describe('API — newsletter', () => {
+// serial — fullyParallel:true causes multiple workers to run beforeAll
+// simultaneously, each deleting and re-inserting the owner_email_preferences
+// row (UNIQUE on user_id), overwriting the other worker's token.
+test.describe.serial('API — newsletter', () => {
   test.describe.configure({ retries: 0 })
 
   let supabase: AnySupabaseClient | undefined

@@ -27,9 +27,11 @@ export async function gotoSubmitForm(
 
   await expect(async () => {
     await page.goto('/submit/form', { timeout: 60_000 });
-    // Preserve auth-redirect detection — middleware can transiently redirect
-    if (page.url().includes('/auth/sign-in')) {
-      throw new Error('Auth redirect detected — middleware not ready, retrying');
+
+    const heading = page.getByRole('heading', { name: '提交品牌', exact: true });
+    const visible = await heading.isVisible({ timeout }).catch(() => false);
+    if (visible) {
+      return;
     }
     await expect(
       page.getByRole('heading', { name: '提交品牌', exact: true }),

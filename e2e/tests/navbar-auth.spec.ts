@@ -92,13 +92,18 @@ test.describe('Navbar auth journey', () => {
 
       await signOutItem.click();
 
+      // Wait for the sign-out server action POST to complete before polling.
+      // Without this, page.goto('/') inside the toPass loop cancels the in-flight
+      // POST and the Set-Cookie headers never arrive, leaving the session active.
+      await page.waitForLoadState('networkidle');
+
       // After sign-out, poll-reload home until the navbar reflects the logged-out state
       // (session-cookie clear + navbar re-render can lag the click).
       await expect(async () => {
         await page.goto('/');
         await expect(page.getByRole('link', { name: /sign in|登入/i })).toBeVisible();
         await expect(page.getByRole('button', { name: /account|帳號/i })).toHaveCount(0);
-      }).toPass({ timeout: 40_000, intervals: [1_000, 2_000, 3_000, 5_000] });
+      }).toPass({ timeout: 20_000, intervals: [1_000, 2_000, 3_000, 5_000] });
     } finally {
       await context.close();
       // Always delete the disposable user — resilient to mid-test failures
