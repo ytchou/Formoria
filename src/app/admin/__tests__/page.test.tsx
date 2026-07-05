@@ -102,6 +102,7 @@ function makePendingEdit(overrides: Partial<PendingBrandEditWithBrand> = {}): Pe
       name: 'Quiet Goods',
       slug: 'quiet-goods',
       description: null,
+      city: null,
       heroImageUrl: null,
       category: null,
       contactEmail: 'owner@example.com',

@@ -13,7 +13,7 @@ vi.mock('@/lib/supabase/server', () => ({
   createServiceClient: () => ({ from: mockFrom }),
 }))
 
-const { getStatsPageData } = await import('./stats')
+const { getCityCoverage, getStatsPageData } = await import('./stats')
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -23,16 +23,18 @@ type ChainOpts = {
   totalCount?: number
   mitCount?: number
   categories?: Array<{ product_type: string }>
+  cities?: Array<{ city: string }>
   foundingYears?: Array<{ founding_year: number }>
 }
 
 /**
- * Build 4 independent Supabase query-chain mocks that match the 4 parallel
- * calls in getStatsPageDataImpl:
+ * Build 5 independent Supabase query-chain mocks that match the 5 parallel
+ * calls in getStatsPageDataImpl (in Promise.all order):
  *   Q1: from('brands').select('*', head).eq('status','approved')          → { count }
  *   Q2: from('brands').select('product_type').eq(...).not(...)            → { data }
- *   Q3: from('brands').select('*', head).eq('status','approved').eq(...)  → { count }
- *   Q4: from('brands').select('founding_year').eq(...).not(...)           → { data }
+ *   Q3: from('brands').select('city').eq(...).not(...)                    → { data }
+ *   Q4: from('brands').select('*', head).eq('status','approved').eq(...)  → { count }
+ *   Q5: from('brands').select('founding_year').eq(...).not(...)           → { data }
  */
 function makeMockChains({
   totalCount = 10,
@@ -41,6 +43,11 @@ function makeMockChains({
     { product_type: 'fashion' },
     { product_type: 'fashion' },
     { product_type: 'food' },
+  ],
+  cities = [
+    { city: 'Taipei' },
+    { city: 'Taipei' },
+    { city: 'Taichung' },
   ],
   foundingYears = [
     { founding_year: 1985 },
@@ -67,9 +74,16 @@ function makeMockChains({
   const q4Eq = vi.fn().mockReturnValue({ not: q4Not })
   const q4Select = vi.fn().mockReturnValue({ eq: q4Eq })
 
+  // Q5: .select('city').eq(...).not(...)
+  const q5Not = vi.fn().mockResolvedValue({ data: cities })
+  const q5Eq = vi.fn().mockReturnValue({ not: q5Not })
+  const q5Select = vi.fn().mockReturnValue({ eq: q5Eq })
+
+  // Order matches Promise.all in getStatsPageDataImpl: total, categories, cities, mit, founding
   return [
     { select: q1Select },
     { select: q2Select },
+    { select: q5Select },
     { select: q3Select },
     { select: q4Select },
   ]
@@ -88,6 +102,7 @@ describe('getStatsPageData', () => {
       .mockReturnValueOnce(chains[1])
       .mockReturnValueOnce(chains[2])
       .mockReturnValueOnce(chains[3])
+      .mockReturnValueOnce(chains[4])
   })
 
   it('returns all stats dimensions with correct shape', async () => {
@@ -145,6 +160,35 @@ describe('getStatsPageData', () => {
       expect(data.categoryBreakdown[i - 1].count).toBeGreaterThanOrEqual(
         data.categoryBreakdown[i].count
       )
+    }
+  })
+})
+
+describe('getCityCoverage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    const chains = makeMockChains()
+    mockFrom.mockReturnValueOnce(chains[2])
+  })
+
+  it('returns an array', async () => {
+    const data = await getCityCoverage()
+    expect(Array.isArray(data)).toBe(true)
+  })
+
+  it('each entry has city (string) and count (number)', async () => {
+    const data = await getCityCoverage()
+    for (const entry of data) {
+      expect(typeof entry.city).toBe('string')
+      expect(typeof entry.count).toBe('number')
+      expect(entry.count).toBeGreaterThan(0)
+    }
+  })
+
+  it('results are ordered by count descending', async () => {
+    const data = await getCityCoverage()
+    for (let i = 1; i < data.length; i++) {
+      expect(data[i].count).toBeLessThanOrEqual(data[i - 1].count)
     }
   })
 })

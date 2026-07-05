@@ -102,6 +102,7 @@ export type CreateSubmissionInput = {
   description?: string
   websiteUrl?: string
   heroImageUrl?: string
+  city?: string | null
   productPhotos?: string[]
   socialInstagram?: string | null
   socialThreads?: string | null
@@ -126,6 +127,7 @@ export function buildSubmissionRecord(input: CreateSubmissionInput): Record<stri
     description: input.description ?? null,
     website_url: input.websiteUrl ?? null,
     hero_image_url: input.heroImageUrl ?? null,
+    city: input.city ?? null,
     product_photos: input.productPhotos ?? [],
     social_instagram: input.socialInstagram ?? null,
     social_threads: input.socialThreads ?? null,

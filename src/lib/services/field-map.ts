@@ -159,6 +159,7 @@ export function toSubmissionRow(input: {
   description?: string | null
   websiteUrl?: string | null
   heroImageUrl?: string | null
+  city?: string | null
   productPhotos?: unknown
   socialInstagram?: string | null
   socialThreads?: string | null

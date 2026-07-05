@@ -169,6 +169,7 @@ export type PendingBrandEditWithBrand = PendingBrandEdit & {
     | 'slug'
     | 'description'
     | 'heroImageUrl'
+    | 'city'
     | 'category'
     | 'contactEmail'
     | 'priceRange'
