@@ -1,4 +1,5 @@
 import { z } from 'zod/v3'
+import { CITY_SLUGS } from '@/lib/constants/taiwan-cities'
 import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
 
 type Translator = (key: string) => string
@@ -50,6 +51,7 @@ function getBrandInfoSchema(t: Translator) {
   return z.object({
     name: nameField,
     website: websiteField,
+    city: z.enum(CITY_SLUGS).optional(),
   })
 }
 
@@ -179,6 +181,7 @@ export function createSubmissionSchema(isOwner: boolean, t: Translator = zhT) {
   const brandInfoBase = z.object({
     name: nameField,
     website: websiteField,
+    city: z.enum(CITY_SLUGS).optional(),
   })
 
   const linksBase = z.object({

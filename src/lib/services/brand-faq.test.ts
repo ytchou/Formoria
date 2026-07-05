@@ -11,6 +11,7 @@ function makeFaqBrand(overrides: Partial<Brand> = {}): Brand {
     heroImageUrl: null,
     status: 'approved',
     category: null,
+    city: null,
     isVerified: false,
     mitStatus: 'unverified',
     mitVerifiedAt: null,

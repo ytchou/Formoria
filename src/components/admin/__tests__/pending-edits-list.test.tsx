@@ -17,6 +17,7 @@ const EDITS = [{
     name: '暖木家居',
     slug: 'wanjia',
     description: 'Original description',
+    city: null,
     heroImageUrl: null,
     category: null,
     contactEmail: 'owner@example.com',

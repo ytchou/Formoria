@@ -9,6 +9,10 @@ export type StatsPageData = {
     slug: string
     count: number
   }>
+  cityCoverage: Array<{
+    city: string
+    count: number
+  }>
   mitVerifiedShare: {
     verified: number
     total: number
@@ -23,6 +27,7 @@ export type StatsPageData = {
 type BrandRow = {
   product_type: string | null
   founding_year: number | null
+  city: string | null
 }
 
 function getProductTypeMeta(productType: string): { category: string; slug: string } {
@@ -36,7 +41,7 @@ function getProductTypeMeta(productType: string): { category: string; slug: stri
 async function getStatsPageDataImpl(): Promise<StatsPageData> {
   const supabase = createServiceClient()
 
-  const [totalResult, categoryResult, mitResult, foundingResult] = await Promise.all([
+  const [totalResult, categoryResult, cityResult, mitResult, foundingResult] = await Promise.all([
     (async () => {
       const { count, error } = await supabase
         .from('brands')
@@ -54,6 +59,18 @@ async function getStatsPageDataImpl(): Promise<StatsPageData> {
         .select('product_type')
         .eq('status', 'approved')
         .not('product_type', 'is', null)
+      if (error) {
+        console.warn('Stats query failed:', error.message)
+        return { data: [] as BrandRow[] }
+      }
+      return { data: data as BrandRow[] | null }
+    })(),
+    (async () => {
+      const { data, error } = await supabase
+        .from('brands')
+        .select('city')
+        .eq('status', 'approved')
+        .not('city', 'is', null)
       if (error) {
         console.warn('Stats query failed:', error.message)
         return { data: [] as BrandRow[] }
@@ -104,6 +121,19 @@ async function getStatsPageDataImpl(): Promise<StatsPageData> {
     })
     .sort((a, b) => b.count - a.count)
 
+  const cityCounts = new Map<string, number>()
+  for (const row of cityResult.data ?? []) {
+    if (!row.city) continue
+    cityCounts.set(row.city, (cityCounts.get(row.city) ?? 0) + 1)
+  }
+
+  const cityCoverage = Array.from(cityCounts.entries())
+    .map(([city, count]) => ({
+      city,
+      count,
+    }))
+    .sort((a, b) => b.count - a.count)
+
   const verified = mitResult.count ?? 0
   const percentage = totalBrands > 0 ? Math.round((verified / totalBrands) * 100) : 0
 
@@ -131,6 +161,7 @@ async function getStatsPageDataImpl(): Promise<StatsPageData> {
       total: totalBrands,
       percentage,
     },
+    cityCoverage,
     foundingDecadeDistribution,
   }
 }

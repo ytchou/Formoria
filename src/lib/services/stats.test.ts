@@ -23,16 +23,18 @@ type ChainOpts = {
   totalCount?: number
   mitCount?: number
   categories?: Array<{ product_type: string }>
+  cities?: Array<{ city: string }>
   foundingYears?: Array<{ founding_year: number }>
 }
 
 /**
- * Build 4 independent Supabase query-chain mocks that match the 4 parallel
- * calls in getStatsPageDataImpl:
+ * Build 5 independent Supabase query-chain mocks that match the 5 parallel
+ * calls in getStatsPageDataImpl (in Promise.all order):
  *   Q1: from('brands').select('*', head).eq('status','approved')          → { count }
  *   Q2: from('brands').select('product_type').eq(...).not(...)            → { data }
- *   Q3: from('brands').select('*', head).eq('status','approved').eq(...)  → { count }
- *   Q4: from('brands').select('founding_year').eq(...).not(...)           → { data }
+ *   Q3: from('brands').select('city').eq(...).not(...)                    → { data }
+ *   Q4: from('brands').select('*', head).eq('status','approved').eq(...)  → { count }
+ *   Q5: from('brands').select('founding_year').eq(...).not(...)           → { data }
  */
 function makeMockChains({
   totalCount = 10,
@@ -41,6 +43,11 @@ function makeMockChains({
     { product_type: 'fashion' },
     { product_type: 'fashion' },
     { product_type: 'food' },
+  ],
+  cities = [
+    { city: 'Taipei' },
+    { city: 'Taipei' },
+    { city: 'Taichung' },
   ],
   foundingYears = [
     { founding_year: 1985 },
@@ -57,21 +64,28 @@ function makeMockChains({
   const q2Eq = vi.fn().mockReturnValue({ not: q2Not })
   const q2Select = vi.fn().mockReturnValue({ eq: q2Eq })
 
-  // Q3: .select('*', head).eq('status', 'approved').eq('mit_status', 'verified')
-  const q3EqMit = vi.fn().mockResolvedValue({ count: mitCount })
-  const q3EqStatus = vi.fn().mockReturnValue({ eq: q3EqMit })
-  const q3Select = vi.fn().mockReturnValue({ eq: q3EqStatus })
+  // Q3: .select('city').eq(...).not(...)
+  const q3Not = vi.fn().mockResolvedValue({ data: cities })
+  const q3Eq = vi.fn().mockReturnValue({ not: q3Not })
+  const q3Select = vi.fn().mockReturnValue({ eq: q3Eq })
 
-  // Q4: .select('founding_year').eq(...).not(...)
-  const q4Not = vi.fn().mockResolvedValue({ data: foundingYears })
-  const q4Eq = vi.fn().mockReturnValue({ not: q4Not })
-  const q4Select = vi.fn().mockReturnValue({ eq: q4Eq })
+  // Q4: .select('*', head).eq('status', 'approved').eq('mit_status', 'verified')
+  const q4EqMit = vi.fn().mockResolvedValue({ count: mitCount })
+  const q4EqStatus = vi.fn().mockReturnValue({ eq: q4EqMit })
+  const q4Select = vi.fn().mockReturnValue({ eq: q4EqStatus })
 
+  // Q5: .select('founding_year').eq(...).not(...)
+  const q5Not = vi.fn().mockResolvedValue({ data: foundingYears })
+  const q5Eq = vi.fn().mockReturnValue({ not: q5Not })
+  const q5Select = vi.fn().mockReturnValue({ eq: q5Eq })
+
+  // Order matches Promise.all in getStatsPageDataImpl: total, categories, cities, mit, founding
   return [
     { select: q1Select },
     { select: q2Select },
     { select: q3Select },
     { select: q4Select },
+    { select: q5Select },
   ]
 }
 
@@ -88,6 +102,7 @@ describe('getStatsPageData', () => {
       .mockReturnValueOnce(chains[1])
       .mockReturnValueOnce(chains[2])
       .mockReturnValueOnce(chains[3])
+      .mockReturnValueOnce(chains[4])
   })
 
   it('returns all stats dimensions with correct shape', async () => {

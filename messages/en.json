@@ -218,6 +218,8 @@
       },
       "notesLabel": "Notes (optional)",
       "notesPlaceholder": "Add any helpful context.",
+      "city": "Brand City/County",
+      "cityPlaceholder": "Select city (optional)",
       "signIn": "Sign in",
       "submitting": "Submitting claim...",
       "submit": "Submit claim request",
@@ -247,10 +249,37 @@
       "title": "MIT Verified",
       "description": "{verified} of {total} brands are MIT-verified ({percentage}%)"
     },
+    "geographicDistribution": "Geographic Distribution",
+    "geographicDistributionDesc": "Brand distribution across Taiwan's cities and counties",
+    "noCityData": "No city data available yet",
     "foundingDecade": {
       "title": "Founding Decade Distribution",
       "description": "When Taiwan's brands were established"
     }
+  },
+  "cities": {
+    "taipei": "Taipei City",
+    "new_taipei": "New Taipei City",
+    "taoyuan": "Taoyuan City",
+    "taichung": "Taichung City",
+    "tainan": "Tainan City",
+    "kaohsiung": "Kaohsiung City",
+    "keelung": "Keelung City",
+    "hsinchu_city": "Hsinchu City",
+    "chiayi_city": "Chiayi City",
+    "hsinchu_county": "Hsinchu County",
+    "miaoli": "Miaoli County",
+    "changhua": "Changhua County",
+    "nantou": "Nantou County",
+    "yunlin": "Yunlin County",
+    "chiayi_county": "Chiayi County",
+    "pingtung": "Pingtung County",
+    "yilan": "Yilan County",
+    "hualien": "Hualien County",
+    "taitung": "Taitung County",
+    "penghu": "Penghu County",
+    "kinmen": "Kinmen County",
+    "lienchiang": "Lienchiang County"
   },
   "brandDetail": {
     "metadata": {
@@ -1216,6 +1245,8 @@
       "fieldLogo": "Logo",
       "fieldHeroImage": "Hero Image",
       "fieldProductPhotos": "Product photos",
+      "city": "City/County",
+      "cityPlaceholder": "Select city",
       "fieldOfficialWebsite": "Official Website",
       "fieldInstagram": "Instagram",
       "fieldThreads": "Threads",
@@ -1367,6 +1398,8 @@
       "friend_recommended": "Friend recommended",
       "work_there": "Work there"
     },
+    "city": "Brand City",
+    "cityPlaceholder": "Select a county/city (optional)",
     "fields": {
       "brandName": "Brand Name",
       "brandNamePlaceholder": "e.g. Rain Boot Studio",

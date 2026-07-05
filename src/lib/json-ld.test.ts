@@ -19,7 +19,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     id: '123', name: '茶籽堂 Chatzutang', slug: 'chatzutang',
     description: 'Natural body care with camellia seed oil',
     heroImageUrl: 'https://example.com/hero.jpg',
-    status: 'approved', isVerified: false, isDemo: false, category: 'Food & Beverage', foundingYear: 2004,
+    status: 'approved', isVerified: false, isDemo: false, category: 'Food & Beverage', foundingYear: 2004, city: null,
     purchaseWebsite: 'https://chatzutang.com',
     purchasePinkoi: 'https://pinkoi.com/chatzutang',
     purchaseShopee: null,

@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import { X } from 'lucide-react'
 
 import { useRouter } from '@/i18n/navigation'
+import { TAIWAN_CITIES } from '@/lib/constants/taiwan-cities'
 import { getFullSubmissionSchema, type SubmissionFormData } from '@/lib/validations/submission'
 import { submitBrand, suggestCleanName } from '@/app/[locale]/submit/actions'
 import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
@@ -28,6 +29,7 @@ export default function SubmitForm({
 }: SubmitFormProps) {
   const t = useTranslations('submit')
   const tForm = useTranslations('submit.form')
+  const tCities = useTranslations('cities')
   const tReview = useTranslations('submit.review')
   const router = useRouter()
   const sessionId = useMemo(() => crypto.randomUUID(), [])
@@ -52,6 +54,7 @@ export default function SubmitForm({
       website: '',
       isOwner: false,
       sourceAttribution: undefined,
+      city: undefined,
       mitSmileCert: '',
       pdpaConsent: false,
       turnstileToken: '',
@@ -141,7 +144,7 @@ export default function SubmitForm({
   const nameRegistration = register('name')
 
   // eslint-disable-next-line react-hooks/refs
-  const onSubmit = handleSubmit((data, event) => {
+  const onSubmit = handleSubmit((data: SubmissionFormData, event) => {
     setSubmitError(null)
     const formData =
       event?.currentTarget instanceof HTMLFormElement
@@ -149,13 +152,15 @@ export default function SubmitForm({
         : null
     const heroImageUrl = formData?.get('heroImageUrl')
     const productPhotos = formData?.get('productPhotos')
+    const submitPayload = {
+      ...data,
+      city: data.city ?? undefined,
+      heroImageUrl: typeof heroImageUrl === 'string' ? heroImageUrl : data.heroImageUrl,
+      productPhotos: typeof productPhotos === 'string' ? productPhotos : data.productPhotos,
+    } satisfies Parameters<typeof submitBrand>[0]
 
     startTransition(async () => {
-      const result = await submitBrand({
-        ...data,
-        heroImageUrl: typeof heroImageUrl === 'string' ? heroImageUrl : data.heroImageUrl,
-        productPhotos: typeof productPhotos === 'string' ? productPhotos : data.productPhotos,
-      })
+      const result = await submitBrand(submitPayload)
       if (result?.error) {
         setSubmitError(result.error)
       } else {
@@ -369,6 +374,33 @@ export default function SubmitForm({
             />
             {errors.sourceAttribution && (
               <p className="text-xs text-destructive">{errors.sourceAttribution.message}</p>
+            )}
+          </div>
+
+          {/* City */}
+          <div className="space-y-1.5">
+            <label
+              htmlFor="submit-city"
+              className="block text-sm font-semibold text-foreground"
+            >
+              {t('city')}
+            </label>
+            <select
+              id="submit-city"
+              className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
+              {...register('city', {
+                setValueAs: (value) => (value === '' ? undefined : value),
+              })}
+            >
+              <option value="">{t('cityPlaceholder')}</option>
+              {TAIWAN_CITIES.map((city) => (
+                <option key={city.slug} value={city.slug}>
+                  {tCities(city.slug)}
+                </option>
+              ))}
+            </select>
+            {errors.city && (
+              <p className="text-xs text-destructive">{errors.city.message}</p>
             )}
           </div>
 

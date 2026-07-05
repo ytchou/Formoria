@@ -22,6 +22,7 @@ import { ProductPhotosField } from "@/components/forms/product-photos-field";
 import { ProductTagField } from "@/components/forms/product-tag-field";
 import { Textarea } from "@/components/ui/textarea";
 import type { OnboardingStepKey } from "@/lib/services/brand-onboarding";
+import { TAIWAN_CITIES } from "@/lib/constants/taiwan-cities";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import type { Brand, CustomerVoice, OtherUrl } from "@/lib/types";
 
@@ -47,6 +48,7 @@ export function BrandEditForm({ brand, onboardingStep }: BrandEditFormProps) {
   );
   const t = useTranslations("dashboard.edit");
   const tx = (key: string, fallback: string) => (t.has(key) ? t(key) : fallback);
+  const tCities = useTranslations("cities");
   const pendingEditsT = useTranslations("admin.pendingEdits");
   const fieldErrors = {
     ...publishState?.fieldErrors,
@@ -117,6 +119,23 @@ export function BrandEditForm({ brand, onboardingStep }: BrandEditFormProps) {
               {PRODUCT_TYPE_CATEGORIES.map((category) => (
                 <option key={category.slug} value={category.slug}>
                   {category.nameZh} ({category.name})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="city">{t("city")}</Label>
+            <select
+              id="city"
+              name="city"
+              className="flex h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              defaultValue={brand.city ?? ""}
+            >
+              <option value="">{t("cityPlaceholder")}</option>
+              {TAIWAN_CITIES.map((city) => (
+                <option key={city.slug} value={city.slug}>
+                  {tCities(city.slug)}
                 </option>
               ))}
             </select>

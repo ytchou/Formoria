@@ -44,7 +44,7 @@ beforeEach(() => {
   vi.mocked(getUserBrands).mockResolvedValue([{ brandId: 'b1', brandName: 'Test Brand', brandSlug: 'test-brand', heroImageUrl: null, claimedAt: '2026-01-01' }])
   vi.mocked(getBrandBySlug).mockResolvedValue({
     id: 'b1', name: 'Test Brand', slug: 'test-brand', description: 'A test brand', category: 'food',
-    heroImageUrl: null, status: 'approved', isVerified: false, isDemo: false, foundingYear: 2020,
+    heroImageUrl: null, status: 'approved', isVerified: false, isDemo: false, foundingYear: 2020, city: null,
     socialInstagram: '@test', socialThreads: null, socialFacebook: null,
     purchaseWebsite: 'https://test.com', purchasePinkoi: null, purchaseShopee: null,
     otherUrls: [], retailLocations: [], customerVoices: [], productPhotos: [],

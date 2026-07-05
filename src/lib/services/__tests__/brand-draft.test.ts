@@ -15,6 +15,7 @@ const liveBrand: Brand = {
   heroImageUrl: 'https://x.supabase.co/hero-live.png',
   status: 'approved',
   category: 'apparel',
+  city: null,
   isVerified: true,
   mitStatus: 'verified',
   mitVerifiedAt: '2026-01-01T00:00:00Z',

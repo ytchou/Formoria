@@ -218,6 +218,8 @@
       },
       "notesLabel": "備註（選填）",
       "notesPlaceholder": "可補充品牌身份、角色或相關說明",
+      "city": "品牌所在縣市",
+      "cityPlaceholder": "請選擇縣市（選填）",
       "signIn": "立即登入",
       "submitting": "提交中…",
       "submit": "送出認領申請",
@@ -247,10 +249,37 @@
       "title": "MIT 認證",
       "description": "{total} 個品牌中有 {verified} 個通過 MIT 認證（{percentage}%）"
     },
+    "geographicDistribution": "地理分布",
+    "geographicDistributionDesc": "台灣各縣市品牌數量分布",
+    "noCityData": "尚無城市資料",
     "foundingDecade": {
       "title": "創立年代分布",
       "description": "台灣品牌的創立時間"
     }
+  },
+  "cities": {
+    "taipei": "臺北市",
+    "new_taipei": "新北市",
+    "taoyuan": "桃園市",
+    "taichung": "臺中市",
+    "tainan": "臺南市",
+    "kaohsiung": "高雄市",
+    "keelung": "基隆市",
+    "hsinchu_city": "新竹市",
+    "chiayi_city": "嘉義市",
+    "hsinchu_county": "新竹縣",
+    "miaoli": "苗栗縣",
+    "changhua": "彰化縣",
+    "nantou": "南投縣",
+    "yunlin": "雲林縣",
+    "chiayi_county": "嘉義縣",
+    "pingtung": "屏東縣",
+    "yilan": "宜蘭縣",
+    "hualien": "花蓮縣",
+    "taitung": "臺東縣",
+    "penghu": "澎湖縣",
+    "kinmen": "金門縣",
+    "lienchiang": "連江縣"
   },
   "brandDetail": {
     "metadata": {
@@ -1216,6 +1245,8 @@
       "fieldLogo": "品牌 Logo",
       "fieldHeroImage": "主視覺圖片",
       "fieldProductPhotos": "產品照片",
+      "city": "縣市",
+      "cityPlaceholder": "請選擇縣市",
       "fieldOfficialWebsite": "官方網站",
       "fieldInstagram": "Instagram",
       "fieldThreads": "Threads",
@@ -1367,6 +1398,8 @@
       "friend_recommended": "朋友推薦",
       "work_there": "在這裡工作"
     },
+    "city": "品牌所在縣市",
+    "cityPlaceholder": "請選擇縣市（選填）",
     "fields": {
       "brandName": "品牌名稱",
       "brandNamePlaceholder": "例：雨靴工作室",

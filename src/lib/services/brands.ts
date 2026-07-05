@@ -543,6 +543,7 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     mitStory: row.mit_story ?? null,
     isDemo: row.is_demo ?? false,
     foundingYear: row.founding_year ?? null,
+    city: row.city ?? null,
     socialInstagram: row.social_instagram ?? null,
     socialThreads: row.social_threads ?? null,
     socialFacebook: row.social_facebook ?? null,
@@ -596,7 +597,7 @@ function brandToUpdate(data: BrandWriteInput): Record<string, unknown> {
 
 const BRAND_COLUMNS = [
   'id', 'name', 'slug', 'description', 'hero_image_url',
-  'product_type', 'contact_email', 'customer_voices', 'purchase_website', 'purchase_pinkoi',
+  'product_type', 'contact_email', 'city', 'customer_voices', 'purchase_website', 'purchase_pinkoi',
   'purchase_shopee', 'social_instagram', 'social_threads', 'social_facebook',
   'other_urls', 'retail_locations', 'product_photos', 'site_content',
   'status', 'submitted_at', 'approved_at', 'created_at', 'updated_at',

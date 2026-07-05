@@ -102,6 +102,7 @@ export type CreateSubmissionInput = {
   description?: string
   websiteUrl?: string
   heroImageUrl?: string
+  city?: string | null
   productPhotos?: string[]
   socialInstagram?: string | null
   socialThreads?: string | null

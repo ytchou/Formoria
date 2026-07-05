@@ -33,4 +33,13 @@ test.describe('Stats page', () => {
     await expect(page.locator('main').getByText(/\d+%/).first()).toBeVisible();
   });
 
+  test('geographic distribution section does not crash existing sections', async ({ page }) => {
+    // The geographic section ("地理分布") is conditionally rendered — only when cityCoverage.length > 0.
+    // Either way, the page must not crash and existing sections must remain unaffected.
+    await expect(page.getByRole('heading', { level: 2, name: '類別分布' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'MIT 認證' })).toBeVisible();
+    // No error-boundary UI visible — confirms the TaiwanMap dynamic import did not crash the page
+    await expect(page.getByText(/something went wrong|error loading|頁面發生錯誤/i)).not.toBeVisible();
+  });
+
 });
