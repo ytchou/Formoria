@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { toast } from 'sonner'
 import { WizardSidebar } from '@/components/dashboard/wizard-sidebar'
 import { WizardFooter } from '@/components/dashboard/wizard-footer'
 import {
@@ -104,6 +105,7 @@ export function BrandEditWizard({
       const sectionData = form.getValues()
       await saveSectionDraftAction(
         brand.id,
+        brand.slug,
         currentStepKey,
         sectionData as Record<string, unknown>
       )
@@ -114,21 +116,25 @@ export function BrandEditWizard({
     } finally {
       setIsSaving(false)
     }
-  }, [form, currentSectionFields, currentStepKey, brand.id, activeStep, navigateTo])
+  }, [form, currentSectionFields, currentStepKey, brand.id, brand.slug, activeStep, navigateTo])
 
   const handleSidebarClick = useCallback(
     async (targetStep: number) => {
       if (targetStep === activeStep) return
-      // Auto-save current section before navigating (fire-and-forget)
       const sectionData = form.getValues()
-      saveSectionDraftAction(
+      const result = await saveSectionDraftAction(
         brand.id,
+        brand.slug,
         currentStepKey,
         sectionData as Record<string, unknown>
-      ).catch(() => {})
+      )
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
       navigateTo(targetStep)
     },
-    [activeStep, currentStepKey, brand.id, form, navigateTo]
+    [activeStep, currentStepKey, brand.id, brand.slug, form, navigateTo]
   )
 
   const handleBack = useCallback(() => {
@@ -141,13 +147,14 @@ export function BrandEditWizard({
       const sectionData = form.getValues()
       await saveSectionDraftAction(
         brand.id,
+        brand.slug,
         currentStepKey,
         sectionData as Record<string, unknown>
       )
     } finally {
       setIsSaving(false)
     }
-  }, [form, currentStepKey, brand.id])
+  }, [form, currentStepKey, brand.id, brand.slug])
 
   const handlePublish = useCallback(async () => {
     const valid = await form.trigger()
@@ -159,6 +166,7 @@ export function BrandEditWizard({
       const sectionData = form.getValues()
       await saveSectionDraftAction(
         brand.id,
+        brand.slug,
         currentStepKey,
         sectionData as Record<string, unknown>
       )

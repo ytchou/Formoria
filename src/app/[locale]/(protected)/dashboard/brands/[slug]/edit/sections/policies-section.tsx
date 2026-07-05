@@ -23,13 +23,13 @@ export function PoliciesSection({
       <div className="grid gap-4 rounded-lg border border-border bg-card p-4">
         <div className="space-y-2">
           <Label htmlFor="returnsPolicy" className="text-sm font-semibold text-foreground">
-            Returns policy
+            {t('fieldReturnsPolicy')}
           </Label>
           <Textarea id="returnsPolicy" className="min-h-28 bg-card" {...form.register('returnsPolicy')} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="warranty" className="text-sm font-semibold text-foreground">
-            Warranty
+            {t('fieldWarranty')}
           </Label>
           <Textarea id="warranty" className="min-h-28 bg-card" {...form.register('warranty')} />
         </div>
@@ -47,7 +47,7 @@ export function PoliciesSection({
             )}
           />
           <Label htmlFor="shipsInternational" className="text-sm font-semibold text-foreground">
-            Ships international
+            {t('fieldShipsInternational')}
           </Label>
         </div>
       </div>

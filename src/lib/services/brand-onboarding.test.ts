@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 const mocks = vi.hoisted(() => ({
   eq: vi.fn(),
   maybeSingle: vi.fn(),
+  onboardingMaybeSingle: vi.fn(),
   upsert: vi.fn(),
 }))
 
@@ -17,7 +18,21 @@ vi.mock('@/lib/supabase/server', () => ({
         }
       }
       if (table === 'brand_onboarding_steps') {
-        return { select: () => ({ eq: mocks.eq }), upsert: mocks.upsert }
+        return {
+          select: (cols: string) => {
+            if (cols === 'step_key, status') {
+              // getBrandOnboardingProgress: single .eq() awaited directly
+              return { eq: mocks.eq }
+            }
+            // setBrandOnboardingStepStatus: .eq().eq().maybeSingle() read chain
+            return {
+              eq: () => ({
+                eq: () => ({ maybeSingle: mocks.onboardingMaybeSingle }),
+              }),
+            }
+          },
+          upsert: mocks.upsert,
+        }
       }
       return {
         select: () => ({ eq: mocks.eq }),
@@ -71,6 +86,7 @@ describe('completeOnboardingStepsForSection', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.maybeSingle.mockResolvedValue({ data: { user_id: 'user-1' }, error: null })
+    mocks.onboardingMaybeSingle.mockResolvedValue({ data: null, error: null })
     mocks.upsert.mockResolvedValue({ error: null })
   })
 

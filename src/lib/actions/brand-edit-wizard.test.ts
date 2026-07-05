@@ -1,13 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn() }))
+vi.mock('@/lib/auth/require-brand-editor', () => ({ requireBrandEditor: vi.fn() }))
 vi.mock('@/lib/services/brands', () => ({
   getBrandDraft: vi.fn(),
   saveDraft: vi.fn(),
-}))
-vi.mock('@/lib/services/pending-edits', () => ({
-  createPendingEdit: vi.fn(),
-  updatePendingEdit: vi.fn(),
 }))
 vi.mock('@/lib/services/brand-onboarding', () => ({
   completeOnboardingStepsForSection: vi.fn(),
@@ -16,11 +13,9 @@ vi.mock('next/headers', () => ({ cookies: vi.fn(() => ({ getAll: () => [] })) })
 
 import { saveSectionDraftAction } from './brand-edit-wizard'
 import { createClient } from '@/lib/supabase/server'
+import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
 import { getBrandDraft, saveDraft } from '@/lib/services/brands'
-import { createPendingEdit } from '@/lib/services/pending-edits'
 import { completeOnboardingStepsForSection } from '@/lib/services/brand-onboarding'
-
-const pendingEdit = { id: 'edit-1' } as Awaited<ReturnType<typeof createPendingEdit>>
 
 describe('saveSectionDraftAction', () => {
   beforeEach(() => {
@@ -33,19 +28,23 @@ describe('saveSectionDraftAction', () => {
         }),
       },
     } as unknown as Awaited<ReturnType<typeof createClient>>)
+    vi.mocked(requireBrandEditor).mockResolvedValue({
+      brand: { id: 'brand-id', slug: 'brand-slug' },
+      user: { id: 'user-1' },
+    } as unknown as Awaited<ReturnType<typeof requireBrandEditor>>)
+    vi.mocked(saveDraft).mockResolvedValue(undefined)
   })
 
-  it('creates a new draft when none exists and returns success', async () => {
+  it('saves draft and returns success', async () => {
     vi.mocked(getBrandDraft).mockResolvedValue(null)
-    vi.mocked(createPendingEdit).mockResolvedValue(pendingEdit)
 
-    const result = await saveSectionDraftAction('brand-id', 'basicInfo', {
+    const result = await saveSectionDraftAction('brand-id', 'brand-slug', 'basicInfo', {
       name: 'Test Brand',
       productType: 'fashion',
     })
 
     expect(result).toEqual({ success: true })
-    expect(createPendingEdit).toHaveBeenCalled()
+    expect(saveDraft).toHaveBeenCalled()
   })
 
   it('merges section data into existing draft', async () => {
@@ -54,7 +53,7 @@ describe('saveSectionDraftAction', () => {
       heroImageUrl: 'http://example.com/img.jpg',
     })
 
-    const result = await saveSectionDraftAction('brand-id', 'basicInfo', {
+    const result = await saveSectionDraftAction('brand-id', 'brand-slug', 'basicInfo', {
       name: 'New Name',
       productType: 'food',
     })
@@ -72,27 +71,25 @@ describe('saveSectionDraftAction', () => {
 
   it('calls completeOnboardingStepsForSection for basicInfo', async () => {
     vi.mocked(getBrandDraft).mockResolvedValue(null)
-    vi.mocked(createPendingEdit).mockResolvedValue(pendingEdit)
 
-    await saveSectionDraftAction('brand-id', 'basicInfo', { name: 'X', productType: 'food' })
+    await saveSectionDraftAction('brand-id', 'brand-slug', 'basicInfo', { name: 'X', productType: 'food' })
 
     expect(completeOnboardingStepsForSection).toHaveBeenCalledWith('brand-id', 'basicInfo')
   })
 
   it('does not call completeOnboardingStepsForSection for media', async () => {
     vi.mocked(getBrandDraft).mockResolvedValue(null)
-    vi.mocked(createPendingEdit).mockResolvedValue(pendingEdit)
 
-    await saveSectionDraftAction('brand-id', 'media', { heroImageUrl: 'http://example.com/img.jpg' })
+    await saveSectionDraftAction('brand-id', 'brand-slug', 'media', { heroImageUrl: 'http://example.com/img.jpg' })
 
     expect(completeOnboardingStepsForSection).not.toHaveBeenCalled()
   })
 
   it('returns error when save fails', async () => {
     vi.mocked(getBrandDraft).mockResolvedValue(null)
-    vi.mocked(createPendingEdit).mockRejectedValue(new Error('DB error'))
+    vi.mocked(saveDraft).mockRejectedValue(new Error('DB error'))
 
-    const result = await saveSectionDraftAction('brand-id', 'basicInfo', { name: 'X', productType: 'food' })
+    const result = await saveSectionDraftAction('brand-id', 'brand-slug', 'basicInfo', { name: 'X', productType: 'food' })
 
     expect(result).toEqual({ error: expect.any(String) })
   })

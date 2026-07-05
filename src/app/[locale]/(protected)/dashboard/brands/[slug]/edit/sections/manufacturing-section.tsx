@@ -30,13 +30,13 @@ export function ManufacturingSection({
       <div className="grid gap-4 rounded-lg border border-border bg-card p-4">
         <div className="grid gap-1.5 sm:grid-cols-[140px_1fr] sm:items-center">
           <Label htmlFor="factoryLocation" className="text-sm font-semibold text-foreground">
-            Factory location
+            {t('fieldFactoryLocation')}
           </Label>
           <Input id="factoryLocation" className="min-h-12 bg-card" {...form.register('factoryLocation')} />
         </div>
         <div className="grid gap-1.5 sm:grid-cols-[140px_1fr] sm:items-center">
           <Label htmlFor="productionModel" className="text-sm font-semibold text-foreground">
-            Production model
+            {t('fieldProductionModel')}
           </Label>
           <Controller
             control={form.control}
@@ -44,12 +44,12 @@ export function ManufacturingSection({
             render={({ field }) => (
               <Select value={field.value ?? ''} onValueChange={field.onChange}>
                 <SelectTrigger id="productionModel" className="min-h-12 w-full bg-card">
-                  <SelectValue placeholder="Select model" />
+                  <SelectValue placeholder={t('fieldProductionModelPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="own">Own</SelectItem>
-                  <SelectItem value="oem">OEM</SelectItem>
-                  <SelectItem value="mixed">Mixed</SelectItem>
+                  <SelectItem value="own">{t('productionModelOwn')}</SelectItem>
+                  <SelectItem value="oem">{t('productionModelOem')}</SelectItem>
+                  <SelectItem value="mixed">{t('productionModelMixed')}</SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -57,7 +57,7 @@ export function ManufacturingSection({
         </div>
         <div className="space-y-2">
           <Label htmlFor="manufacturingNotes" className="text-sm font-semibold text-foreground">
-            Manufacturing notes
+            {t('fieldManufacturingNotes')}
           </Label>
           <Textarea id="manufacturingNotes" className="min-h-28 bg-card" {...form.register('manufacturingNotes')} />
         </div>

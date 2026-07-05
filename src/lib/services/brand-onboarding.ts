@@ -119,11 +119,10 @@ export async function setBrandOnboardingStepStatus({
   if (error) throw error
 }
 
-export async function markOnboardingStepCompleted(
+async function markOnboardingStepCompleted(
   brandId: string,
   step: OnboardingStepKey
 ): Promise<void> {
-  const now = new Date().toISOString()
   const supabase = createServiceClient()
   const { data: owner, error: ownerError } = await supabase
     .from('brand_owners')
@@ -134,19 +133,12 @@ export async function markOnboardingStepCompleted(
   if (ownerError) throw ownerError
   if (!owner?.user_id) throw new Error(`No owner found for brand ${brandId}`)
 
-  const { error } = await supabase
-    .from('brand_onboarding_steps')
-    .upsert({
-      brand_id: brandId,
-      step_key: step,
-      status: 'complete',
-      started_at: now,
-      completed_at: now,
-      completed_by_user_id: owner.user_id,
-      updated_at: now,
-    }, { onConflict: 'brand_id,step_key' })
-
-  if (error) throw error
+  await setBrandOnboardingStepStatus({
+    brandId,
+    userId: owner.user_id,
+    step,
+    status: 'complete',
+  })
 }
 
 export async function completeOnboardingStepsForSection(
