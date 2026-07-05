@@ -1,0 +1,31 @@
+{
+  "src/app/[locale]/brands/[slug]": [
+    "e2e/tests/brand-detail.spec.ts",
+    "e2e/tests/brand-share.spec.ts",
+    "e2e/tests/brand-customer-voices.spec.ts",
+    "e2e/tests/brand-save.spec.ts"
+  ],
+  "src/app/[locale]/brands": [
+    "e2e/tests/directory.spec.ts",
+    "e2e/tests/directory-sort.spec.ts"
+  ],
+  "src/app/[locale]/submit": [
+    "e2e/tests/community-submit.spec.ts",
+    "e2e/tests/submit-name-suggestion.spec.ts"
+  ],
+  "src/app/admin": [
+    "e2e/tests/admin-dashboard.spec.ts",
+    "e2e/tests/admin-moderation.spec.ts"
+  ],
+  "src/app/[locale]/guides": [
+    "e2e/tests/guide-detail.spec.ts",
+    "e2e/tests/glossary.spec.ts"
+  ],
+  "src/app/auth": [
+    "e2e/tests/auth-signin.spec.ts",
+    "e2e/tests/auth-signup.spec.ts"
+  ],
+  "src/app/[locale]/stats": [
+    "e2e/tests/stats.spec.ts"
+  ]
+}
