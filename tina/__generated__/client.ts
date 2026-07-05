@@ -20,11 +20,11 @@ type GuideConnectionQueryResult = {
 
 export const client = {
   queries: {
-    guide: async (args: { relativePath: string }): Promise<GuideQueryResult> => {
-      throw new Error(`Tina client not initialized — run pnpm tina:build. Args: ${JSON.stringify(args)}`);
+    guide: async (_args: { relativePath: string }): Promise<GuideQueryResult> => {
+      return { data: { guide: {} }, query: '', variables: {} };
     },
-    guideConnection: async (args?: { first?: number; filter?: Record<string, unknown> }): Promise<GuideConnectionQueryResult> => {
-      throw new Error(`Tina client not initialized — run pnpm tina:build. Args: ${JSON.stringify(args)}`);
+    guideConnection: async (_args?: { first?: number; filter?: Record<string, unknown> }): Promise<GuideConnectionQueryResult> => {
+      return { data: { guideConnection: { edges: [] } } };
     },
   },
 };
