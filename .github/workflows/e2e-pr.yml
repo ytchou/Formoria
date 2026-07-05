@@ -83,18 +83,30 @@ jobs:
         run: |
           SPECS="${{ steps.select-specs.outputs.route_specs }}"
 
-          # Try --only-changed combined with route-mapped specs
-          # If SPECS is empty, --only-changed alone runs; if no changed specs found either, exit 0
-          if pnpm exec playwright test --project=deep --only-changed=origin/main $SPECS; then
-            echo "E2E selective run passed"
+          # Pass 1: run --only-changed (catches changed spec files + their imports)
+          if pnpm exec playwright test --project=deep --only-changed=origin/main; then
+            echo "Pass 1 (--only-changed) passed"
           else
             EXIT_CODE=$?
-            # If no tests were selected (exit code 4 = no tests), treat as pass
-            if [ $EXIT_CODE -eq 4 ]; then
-              echo "No specs selected — skipping"
-              exit 0
+            if [ $EXIT_CODE -ne 4 ]; then
+              echo "Pass 1 (--only-changed) failed with exit $EXIT_CODE"
+            else
+              echo "Pass 1: no changed specs found"
             fi
-            exit $EXIT_CODE
+          fi
+
+          # Pass 2: run route-mapped specs (catches app-code-driven changes)
+          if [ -n "$SPECS" ]; then
+            if pnpm exec playwright test --project=deep $SPECS; then
+              echo "Pass 2 (route-mapped) passed"
+            else
+              EXIT_CODE=$?
+              if [ $EXIT_CODE -ne 4 ]; then
+                echo "Pass 2 (route-mapped) failed with exit $EXIT_CODE"
+              else
+                echo "Pass 2: no route-mapped specs found"
+              fi
+            fi
           fi
 
       - name: Upload test report
