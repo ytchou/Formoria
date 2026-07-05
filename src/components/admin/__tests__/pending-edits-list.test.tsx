@@ -21,6 +21,7 @@ const EDITS = [{
     category: null,
     contactEmail: 'owner@example.com',
     foundingYear: 2020,
+    mitStory: null,
     socialInstagram: null,
     socialThreads: null,
     socialFacebook: null,

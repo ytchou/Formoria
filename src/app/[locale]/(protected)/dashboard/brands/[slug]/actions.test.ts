@@ -245,6 +245,45 @@ describe('updateBrandAction', () => {
     )
   })
 
+  it('extracts mitStory from FormData', async () => {
+    const { parseBrandEditForm } = await import('./actions')
+
+    const formData = form({
+      brandSlug: 'test-brand',
+      name: 'Updated Name',
+      description: 'A nice description',
+      mitStory: 'Handcrafted in New Taipei since 1985.',
+    })
+
+    const result = parseBrandEditForm(formData)
+
+    expect(result.mitStory).toBe('Handcrafted in New Taipei since 1985.')
+  })
+
+  it('sets mitStory to null when field is empty string', async () => {
+    const { parseBrandEditForm } = await import('./actions')
+
+    const formData = form({
+      brandSlug: 'test-brand',
+      name: 'Updated Name',
+      description: 'A nice description',
+      mitStory: '',
+    })
+
+    const result = parseBrandEditForm(formData)
+
+    expect(result.mitStory).toBeNull()
+  })
+
+  it('includes mitStory in moderation payload', async () => {
+    const { buildModerationPayload } = await import('./actions')
+
+    const proposedData = { mitStory: 'Contact factory@example.com' }
+    const payload = buildModerationPayload(proposedData, 'Test Brand')
+
+    expect(payload.fields.mitStory).toBe('Contact factory@example.com')
+  })
+
   it('persists submitted image URLs', async () => {
     const { updateBrandAction } = await import('./actions')
 

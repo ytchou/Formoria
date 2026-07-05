@@ -21,6 +21,7 @@ export function computeDiffFields(
     contactEmail: '聯絡信箱',
     foundingYear: '創立年份',
     customerVoices: '顧客心聲',
+    mitStory: 'MIT 故事',
   }
 
   const IMAGE_FIELDS = new Set(['heroImageUrl'])

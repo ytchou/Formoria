@@ -119,7 +119,7 @@ async function completeOnboardingAfterOwnerSubmit(
   revalidatePath('/dashboard/onboarding')
 }
 
-function parseBrandEditForm(
+export function parseBrandEditForm(
   formData: FormData
 ): Partial<Brand> {
   // Extract basic fields
@@ -169,6 +169,7 @@ function parseBrandEditForm(
   const purchasePinkoi = parseOptionalString(formData.get('purchasePinkoi'))
   const purchaseShopee = parseOptionalString(formData.get('purchaseShopee'))
   const reputationSummaryText = parseOptionalString(formData.get('reputationSummary'))
+  const mitStory = parseOptionalString(formData.get('mitStory'))
   const reputationSources = parseArrayField<ProvenanceSourceForm>(
     formData,
     'reputationSources',
@@ -242,6 +243,7 @@ function parseBrandEditForm(
       retrievedAt: reputationSources[0]?.retrievedAt ?? '',
     } satisfies ReputationSummary
   }
+  if (formData.has('mitStory')) updateData.mitStory = mitStory
   if (
     formData.has('factoryLocation') ||
     formData.has('productionModel') ||
@@ -316,7 +318,7 @@ function getString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined
 }
 
-function buildModerationPayload(
+export function buildModerationPayload(
   proposedData: Record<string, unknown>,
   brandName: string
 ): ContentPayload {
@@ -330,6 +332,7 @@ function buildModerationPayload(
     fields: {
       name: proposedName,
       description: getString(proposedData.description),
+      mitStory: getString(proposedData.mitStory),
       customerVoices: proposedData.customerVoices ? JSON.stringify(proposedData.customerVoices) : undefined,
       productTags,
       website: getString(proposedData.purchaseWebsite),
