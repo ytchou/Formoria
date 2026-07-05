@@ -1,5 +1,6 @@
 import { ImageResponse } from 'next/og'
 import { brand } from '@/lib/brand/colors'
+import { OgLayout } from '@/lib/brand/og-layout'
 import { getOgFonts, getOgMarkDataUri } from '@/lib/brand/og-fonts'
 import { getBrandBySlug } from '@/lib/services/brands'
 
@@ -21,37 +22,21 @@ export default async function OgImage({
 
     return new ImageResponse(
       (
-        <div
-          style={{
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            backgroundColor: brand.bg,
-            position: 'relative',
-          }}
-        >
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: 8,
-              backgroundColor: brand.cta,
-            }}
-          />
-
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'flex-start',
-              width: '100%',
-              height: '100%',
-              padding: '72px 96px 72px 116px',
-            }}
-          >
+        <OgLayout
+          backgroundColor={brand.bg}
+          leftStripe={
+            <div
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 8,
+                backgroundColor: brand.cta,
+              }}
+            />
+          }
+          header={
             <div
               style={{
                 display: 'flex',
@@ -74,45 +59,60 @@ export default async function OgImage({
                 Formoria
               </div>
             </div>
-
-            <div
-              style={{
-                fontSize: 84,
-                fontWeight: 700,
-                color: brand.primary,
-                textAlign: 'left',
-                lineHeight: 1.1,
-                marginBottom: 28,
-                fontFamily: 'Noto Sans TC',
-              }}
-            >
-              {brandDetail.name}
-            </div>
-
-            <div
-              style={{
-                fontSize: 30,
-                fontWeight: 700,
-                color: brand.espresso,
-                marginBottom: 36,
-                fontFamily: 'Noto Sans TC',
-              }}
-            >
-              {categoryName}
-            </div>
-
-            <div
-              style={{
-                fontSize: 28,
-                fontWeight: 700,
-                color: brand.cta,
-                fontFamily: 'Bricolage Grotesque',
-              }}
-            >
-              {madeInTaiwan}
-            </div>
+          }
+          headerStyle={{
+            display: 'flex',
+            alignItems: 'center',
+            color: brand.primary,
+            fontFamily: 'Bricolage Grotesque',
+          }}
+          contentStyle={{
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'flex-start',
+            width: '100%',
+            height: '100%',
+            padding: '72px 96px 72px 116px',
+          }}
+        >
+          <div
+            style={{
+              fontSize: 84,
+              fontWeight: 700,
+              color: brand.primary,
+              textAlign: 'left',
+              lineHeight: 1.1,
+              marginBottom: 28,
+              fontFamily: 'Noto Sans TC',
+            }}
+          >
+            {brandDetail.name}
           </div>
-        </div>
+
+          <div
+            style={{
+              fontSize: 30,
+              fontWeight: 700,
+              color: brand.espresso,
+              marginBottom: 36,
+              fontFamily: 'Noto Sans TC',
+            }}
+          >
+            {categoryName}
+          </div>
+
+          <div
+            style={{
+              fontSize: 28,
+              fontWeight: 700,
+              color: brand.cta,
+              fontFamily: 'Bricolage Grotesque',
+            }}
+          >
+            {madeInTaiwan}
+          </div>
+        </OgLayout>
       ),
       {
         width: 1200,
@@ -123,37 +123,21 @@ export default async function OgImage({
   } catch {
     return new ImageResponse(
       (
-        <div
-          style={{
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            backgroundColor: brand.bg,
-            position: 'relative',
-          }}
-        >
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: 8,
-              backgroundColor: brand.cta,
-            }}
-          />
-
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'flex-start',
-              width: '100%',
-              height: '100%',
-              padding: '72px 96px 72px 116px',
-            }}
-          >
+        <OgLayout
+          backgroundColor={brand.bg}
+          leftStripe={
+            <div
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 8,
+                backgroundColor: brand.cta,
+              }}
+            />
+          }
+          header={
             <div
               style={{
                 display: 'flex',
@@ -176,45 +160,60 @@ export default async function OgImage({
                 Formoria
               </div>
             </div>
-
-            <div
-              style={{
-                fontSize: 84,
-                fontWeight: 700,
-                color: brand.primary,
-                textAlign: 'left',
-                lineHeight: 1.1,
-                marginBottom: 28,
-                fontFamily: 'Noto Sans TC',
-              }}
-            >
-              Formoria
-            </div>
-
-            <div
-              style={{
-                fontSize: 30,
-                fontWeight: 700,
-                color: brand.espresso,
-                marginBottom: 36,
-                fontFamily: 'Noto Sans TC',
-              }}
-            >
-              Made in Taiwan Brands
-            </div>
-
-            <div
-              style={{
-                fontSize: 28,
-                fontWeight: 700,
-                color: brand.cta,
-                fontFamily: 'Bricolage Grotesque',
-              }}
-            >
-              {locale === 'en' ? 'Made in Taiwan' : '台灣製造'}
-            </div>
+          }
+          headerStyle={{
+            display: 'flex',
+            alignItems: 'center',
+            color: brand.primary,
+            fontFamily: 'Bricolage Grotesque',
+          }}
+          contentStyle={{
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'flex-start',
+            width: '100%',
+            height: '100%',
+            padding: '72px 96px 72px 116px',
+          }}
+        >
+          <div
+            style={{
+              fontSize: 84,
+              fontWeight: 700,
+              color: brand.primary,
+              textAlign: 'left',
+              lineHeight: 1.1,
+              marginBottom: 28,
+              fontFamily: 'Noto Sans TC',
+            }}
+          >
+            Formoria
           </div>
-        </div>
+
+          <div
+            style={{
+              fontSize: 30,
+              fontWeight: 700,
+              color: brand.espresso,
+              marginBottom: 36,
+              fontFamily: 'Noto Sans TC',
+            }}
+          >
+            Made in Taiwan Brands
+          </div>
+
+          <div
+            style={{
+              fontSize: 28,
+              fontWeight: 700,
+              color: brand.cta,
+              fontFamily: 'Bricolage Grotesque',
+            }}
+          >
+            {locale === 'en' ? 'Made in Taiwan' : '台灣製造'}
+          </div>
+        </OgLayout>
       ),
       {
         width: 1200,

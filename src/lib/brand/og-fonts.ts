@@ -6,7 +6,6 @@ type ImageResponseOptions = NonNullable<
   ConstructorParameters<typeof ImageResponse>[1]
 >;
 
-export type OgFontFace = NonNullable<ImageResponseOptions["fonts"]>[number];
 type OgFonts = NonNullable<ImageResponseOptions["fonts"]>;
 
 export async function getOgMarkDataUri(): Promise<string> {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
+import { sanitizeHref } from '@/lib/url'
 import type { ReactNode } from 'react'
 import {
   AtSign,
@@ -49,9 +50,7 @@ function normalizeWebsiteUrl(value: string | undefined | null): string | null {
 }
 
 function normalizeDirectUrl(value: string | undefined | null): string | null {
-  if (!value) return null
-  const trimmed = value.trim()
-  return trimmed || null
+  return sanitizeHref(value)
 }
 
 function FacebookIcon({ className }: { className?: string }) {
@@ -157,7 +156,7 @@ function LinkSection({ label, icon, slots, brand }: LinkSectionProps) {
   )
 }
 
-export function BrandSocialLinks({ brand }: BrandLinksProps) {
+function BrandSocialLinks({ brand }: BrandLinksProps) {
   const t = useTranslations('brandDetail')
 
   const socialSlots: LinkSlot[] = [
@@ -194,7 +193,7 @@ export function BrandSocialLinks({ brand }: BrandLinksProps) {
   )
 }
 
-export function BrandPurchaseLinks({ brand }: BrandLinksProps) {
+function BrandPurchaseLinks({ brand }: BrandLinksProps) {
   const t = useTranslations('brandDetail')
 
   const purchaseSlots: LinkSlot[] = [
@@ -231,7 +230,7 @@ export function BrandPurchaseLinks({ brand }: BrandLinksProps) {
   )
 }
 
-export function BrandOtherLinks({ brand }: BrandLinksProps) {
+function BrandOtherLinks({ brand }: BrandLinksProps) {
   const t = useTranslations('brandDetail')
 
   const otherSlots: LinkSlot[] = brand.otherUrls.map((otherUrl) => ({

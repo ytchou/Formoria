@@ -4,6 +4,10 @@ vi.mock('@/lib/services/brands', () => ({
   getAllBrandSlugs: vi.fn().mockResolvedValue(['cha-zi-tang', 'daylily']),
 }))
 
+vi.mock('@/lib/services/guides', () => ({
+  getAllGuides: vi.fn().mockResolvedValue([]),
+}))
+
 import sitemap from '../sitemap'
 
 const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'

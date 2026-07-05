@@ -1,6 +1,7 @@
 import type { Brand, BrandFilters, CustomerVoice, OtherUrl } from '@/lib/types'
 import type { SiteContent, SiteProduct, SiteTokens } from '@/lib/types/brand'
 import type { Database } from '@/lib/supabase/database.types'
+import { toBrandRow as baseToBrandRow } from './field-map'
 import { NotFoundError, ValidationError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
 import { BRAND_SORT_CONFIG, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
@@ -135,12 +136,6 @@ export type SimilarBrand = {
   brandName: string
   brandSlug: string
   score: number
-}
-
-export type BrandEnrichment = {
-  productType: string
-  heroImageUrl: string | null
-  productPhotos: string[]
 }
 
 // ---------------------------------------------------------------------------
@@ -340,9 +335,14 @@ const BRAND_DRAFT_EDITABLE_KEYS = [
   'purchaseWebsite',
   'purchasePinkoi',
   'purchaseShopee',
+  'mitStory',
   'otherUrls',
   'retailLocations',
   'customerVoices',
+  'reputationSummary',
+  'manufacturing',
+  'certifications',
+  'policies',
 ] as const satisfies readonly (keyof Brand)[]
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -475,6 +475,9 @@ export function draftSnapshotToDomain(
       case 'purchaseShopee':
         partial.purchaseShopee = snapshot.purchaseShopee as Brand['purchaseShopee']
         break
+      case 'mitStory':
+        partial.mitStory = snapshot.mitStory as string | null
+        break
       case 'otherUrls':
         partial.otherUrls = (snapshot.otherUrls as Brand['otherUrls']) ?? []
         break
@@ -483,6 +486,18 @@ export function draftSnapshotToDomain(
         break
       case 'customerVoices':
         partial.customerVoices = (snapshot.customerVoices as Brand['customerVoices']) ?? []
+        break
+      case 'reputationSummary':
+        partial.reputationSummary = snapshot.reputationSummary as Brand['reputationSummary']
+        break
+      case 'manufacturing':
+        partial.manufacturing = snapshot.manufacturing as Brand['manufacturing']
+        break
+      case 'certifications':
+        partial.certifications = (snapshot.certifications as Brand['certifications']) ?? []
+        break
+      case 'policies':
+        partial.policies = snapshot.policies as Brand['policies']
         break
     }
   }
@@ -525,8 +540,10 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     mitVerifiedAt: row.mit_verified_at ?? null,
     mitEvidence: (row.mit_evidence as Brand['mitEvidence']) ?? null,
     mitVerified: row.mit_status === 'verified',
+    mitStory: row.mit_story ?? null,
     isDemo: row.is_demo ?? false,
     foundingYear: row.founding_year ?? null,
+    city: row.city ?? null,
     socialInstagram: row.social_instagram ?? null,
     socialThreads: row.social_threads ?? null,
     socialFacebook: row.social_facebook ?? null,
@@ -540,6 +557,10 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     contactEmail: row.contact_email ?? null,
     priceRange: row.price_range ?? null,
     productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
+    reputationSummary: (row.reputation_summary as Brand['reputationSummary']) ?? null,
+    manufacturing: (row.manufacturing as Brand['manufacturing']) ?? null,
+    certifications: (row.certifications as Brand['certifications']) ?? null,
+    policies: (row.policies as Brand['policies']) ?? null,
     siteContent: normalizeSiteContent(row.site_content as Brand['siteContent']),
     submittedAt: row.submitted_at ?? '',
     approvedAt: row.approved_at ?? null,
@@ -550,32 +571,19 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
 }
 
 export function brandToInsert(data: BrandWriteInput): Record<string, unknown> {
-  const row: Record<string, unknown> = {}
-  if (data.name !== undefined) row.name = data.name
-  if (data.slug !== undefined) row.slug = data.slug
-  if (data.description !== undefined) row.description = data.description
-  if (data.heroImageUrl !== undefined) row.hero_image_url = data.heroImageUrl
-  if (data.status !== undefined) row.status = data.status
-  if (data.productType !== undefined) {
-    row.product_type = data.productType
-  } else if (data.category != null) {
-    row.product_type = data.category
+  const row = baseToBrandRow(data)
+  if (data.reputationSummary !== undefined) {
+    row.reputation_summary = data.reputationSummary as typeof row.reputation_summary
   }
-  if (data.foundingYear !== undefined) row.founding_year = data.foundingYear
-  if (data.socialInstagram !== undefined) row.social_instagram = data.socialInstagram
-  if (data.socialThreads !== undefined) row.social_threads = data.socialThreads
-  if (data.socialFacebook !== undefined) row.social_facebook = data.socialFacebook
-  if (data.purchaseWebsite !== undefined) row.purchase_website = data.purchaseWebsite
-  if (data.purchasePinkoi !== undefined) row.purchase_pinkoi = data.purchasePinkoi
-  if (data.purchaseShopee !== undefined) row.purchase_shopee = data.purchaseShopee
-  if (data.otherUrls !== undefined) row.other_urls = data.otherUrls
-  if (data.retailLocations !== undefined) row.retail_locations = data.retailLocations
-  if (data.customerVoices !== undefined) row.customer_voices = data.customerVoices
-  if (data.productPhotos !== undefined) row.product_photos = data.productPhotos
-  if (data.contactEmail !== undefined) row.contact_email = data.contactEmail
-  row.price_range = data.priceRange ?? null
-  row.product_tags = data.productTags ?? []
-  if (data.isDemo) row.is_demo = data.isDemo
+  if (data.manufacturing !== undefined) {
+    row.manufacturing = data.manufacturing as typeof row.manufacturing
+  }
+  if (data.certifications !== undefined) {
+    row.certifications = data.certifications as typeof row.certifications
+  }
+  if (data.policies !== undefined) {
+    row.policies = data.policies as typeof row.policies
+  }
   return row
 }
 
@@ -589,13 +597,15 @@ function brandToUpdate(data: BrandWriteInput): Record<string, unknown> {
 
 const BRAND_COLUMNS = [
   'id', 'name', 'slug', 'description', 'hero_image_url',
-  'product_type', 'contact_email', 'customer_voices', 'purchase_website', 'purchase_pinkoi',
+  'product_type', 'contact_email', 'city', 'customer_voices', 'purchase_website', 'purchase_pinkoi',
   'purchase_shopee', 'social_instagram', 'social_threads', 'social_facebook',
   'other_urls', 'retail_locations', 'product_photos', 'site_content',
   'status', 'submitted_at', 'approved_at', 'created_at', 'updated_at',
   'draft_data', 'draft_updated_at', 'founding_year',
   'price_range', 'product_tags',
+  'reputation_summary', 'manufacturing', 'certifications', 'policies',
   'mit_status', 'mit_verified_at',
+  'mit_story',
   'mit_evidence', 'source', 'is_demo',
 ].join(', ')
 
@@ -830,6 +840,16 @@ export async function getBrandBySlug(slug: string): Promise<Brand> {
 
   if (error || !data) throw new NotFoundError('Brand', slug, { cause: error })
   return brandToDomain(data)
+}
+
+/**
+ * Returns an approved brand by slug.
+ * Throws {@link NotFoundError} if the brand does not exist or is not approved.
+ */
+export async function getApprovedBrandBySlug(slug: string): Promise<Brand> {
+  const brand = await getBrandBySlug(slug)
+  if (brand.status !== 'approved') throw new NotFoundError('Brand', slug)
+  return brand
 }
 
 function brandSlugRedirectsTable(client: unknown): BrandSlugRedirectTable {

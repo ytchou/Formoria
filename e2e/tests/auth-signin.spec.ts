@@ -36,8 +36,7 @@ test.describe('Auth — Google OAuth offline guard', () => {
       anonPage.waitForURL('**/auth/v1/authorize**', { timeout: 10_000 }).catch(() => {}),
     ]).catch(() => {});
 
-    // Give the intercepted request a moment to be captured
-    await anonPage.waitForTimeout(1_500);
+    await expect.poll(() => capturedAuthorizeUrl, { timeout: 10_000 }).toBeTruthy();
 
     // The intercepted URL must include provider=google
     expect(capturedAuthorizeUrl).not.toBeNull();

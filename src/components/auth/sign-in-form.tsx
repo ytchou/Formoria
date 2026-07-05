@@ -55,7 +55,7 @@ export function SignInForm({ claimToken, claimBrandName }: SignInFormProps) {
       )}
 
       {state.error && (
-        <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {state.error}
         </div>
       )}

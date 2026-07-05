@@ -1,7 +1,7 @@
 import { resolveSentryProject } from '@/lib/services/sentry'
 import { createServiceClient } from '@/lib/supabase/server'
 
-export type HealthStatus = 'healthy' | 'degraded' | 'down' | 'unconfigured'
+type HealthStatus = 'healthy' | 'degraded' | 'down' | 'unconfigured'
 
 export interface ServiceHealthResult {
   service: string
@@ -27,7 +27,7 @@ const result = (
   checkedAt: checkedAt(),
 })
 
-export async function checkSupabase(): Promise<ServiceHealthResult> {
+async function checkSupabase(): Promise<ServiceHealthResult> {
   try {
     const supabase = createServiceClient()
     const { error } = await supabase.from('brands').select('id').limit(1)
@@ -42,7 +42,7 @@ export async function checkSupabase(): Promise<ServiceHealthResult> {
   }
 }
 
-export async function checkSentry(): Promise<ServiceHealthResult> {
+async function checkSentry(): Promise<ServiceHealthResult> {
   const token = process.env.SENTRY_AUTH_TOKEN
 
   if (!token) {
@@ -69,7 +69,7 @@ export async function checkSentry(): Promise<ServiceHealthResult> {
   }
 }
 
-export async function checkResend(): Promise<ServiceHealthResult> {
+async function checkResend(): Promise<ServiceHealthResult> {
   const { RESEND_API_KEY } = process.env
 
   if (!RESEND_API_KEY) {
@@ -92,7 +92,7 @@ export async function checkResend(): Promise<ServiceHealthResult> {
   }
 }
 
-export async function checkUpstashRedis(): Promise<ServiceHealthResult> {
+async function checkUpstashRedis(): Promise<ServiceHealthResult> {
   const { UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN } = process.env
 
   if (!UPSTASH_REDIS_REST_URL || !UPSTASH_REDIS_REST_TOKEN) {
@@ -125,7 +125,7 @@ export async function checkUpstashRedis(): Promise<ServiceHealthResult> {
   }
 }
 
-export async function checkTurnstile(): Promise<ServiceHealthResult> {
+async function checkTurnstile(): Promise<ServiceHealthResult> {
   const { TURNSTILE_SECRET_KEY } = process.env
 
   if (!TURNSTILE_SECRET_KEY) {
@@ -149,7 +149,7 @@ export async function checkTurnstile(): Promise<ServiceHealthResult> {
   }
 }
 
-export async function checkTally(): Promise<ServiceHealthResult> {
+async function checkTally(): Promise<ServiceHealthResult> {
   try {
     const supabase = createServiceClient()
     const query = supabase
@@ -191,7 +191,7 @@ export async function checkTally(): Promise<ServiceHealthResult> {
   }
 }
 
-export async function checkRailway(): Promise<ServiceHealthResult> {
+async function checkRailway(): Promise<ServiceHealthResult> {
   const { NEXT_PUBLIC_SITE_URL } = process.env
 
   if (!NEXT_PUBLIC_SITE_URL) {
@@ -212,7 +212,7 @@ export async function checkRailway(): Promise<ServiceHealthResult> {
   }
 }
 
-export async function checkApify(): Promise<ServiceHealthResult> {
+async function checkApify(): Promise<ServiceHealthResult> {
   const { APIFY_TOKEN } = process.env
 
   if (!APIFY_TOKEN) {
@@ -240,7 +240,7 @@ export async function checkApify(): Promise<ServiceHealthResult> {
   }
 }
 
-export async function checkDeepSeek(): Promise<ServiceHealthResult> {
+async function checkDeepSeek(): Promise<ServiceHealthResult> {
   const { DEEPSEEK_API_KEY } = process.env
 
   if (!DEEPSEEK_API_KEY) {

@@ -81,7 +81,7 @@ test.describe('Admin dashboard deep', () => {
     await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
     // Click the row text to expand the detail section (approve button is inside it)
     await adminPage.getByText(testBrandName).click();
-    const approveBtn = adminPage.getByRole('button', { name: /^approve$|^核准$/i });
+    const approveBtn = adminPage.locator('td[colspan="11"]').getByRole('button', { name: '核准' });
     await expect(approveBtn).toBeVisible({ timeout: 10_000 });
     await approveBtn.click();
     // After approval the server action revalidates and the button disappears
@@ -110,7 +110,7 @@ test.describe('Admin dashboard deep', () => {
     await adminPage.getByText(rejectBrandName).click();
 
     // Step 1: click "拒絕" to enter two-step rejection flow
-    const rejectBtn = adminPage.getByRole('button', { name: /^拒絕$/ });
+    const rejectBtn = adminPage.locator('td[colspan="11"]').getByRole('button', { name: '拒絕' });
     await expect(rejectBtn).toBeVisible({ timeout: 10_000 });
     await rejectBtn.click();
 

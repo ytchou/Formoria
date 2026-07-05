@@ -1,8 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { isActingAsAdmin } from '@/lib/auth/admin-mode'
+import { createServiceClient } from '@/lib/supabase/server'
+import { requireAdminAction } from '@/lib/auth/require-admin'
 import { getSubmission, approveSubmission, rejectSubmission } from '@/lib/services/submissions'
 import type { SubmissionApprovalOverrides } from '@/lib/services/submissions'
 import { getOwnerLocale } from '@/lib/services/profiles'
@@ -44,24 +44,6 @@ import { checkAllServices } from '@/lib/services/health-checks'
 import { DENIAL_REASONS, type DenialReason, type OtherUrl } from '@/lib/types'
 import { getSiteUrl } from '@/lib/site-url'
 
-async function requireAdmin(): Promise<{ userId: string; email: string } | { error: string }> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser()
-
-  if (error || !user) {
-    return { error: 'You must authenticate to perform this action' }
-  }
-
-  if (!(await isActingAsAdmin(user.email))) {
-    return { error: 'You are not authorized to perform this action' }
-  }
-
-  return { userId: user.id, email: user.email ?? '' }
-}
-
 async function getPendingEditEmailContext(
   editId: string
 ): Promise<{ brandId: string; brandName: string; ownerEmail: string | null }> {
@@ -79,12 +61,12 @@ export async function approveSubmissionAction(
   overrides?: SubmissionApprovalOverrides
 ): Promise<{ error?: string; imageSyncWarning?: { synced: number; failed: number } } | undefined> {
   try {
-    const auth = await requireAdmin()
+    const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
     const siteUrl = getSiteUrl()
 
-    const { brandId, submitterEmail, brandName, isBrandOwner } = await approveSubmission(submissionId, auth.userId, overrides)
+    const { brandId, submitterEmail, brandName, isBrandOwner } = await approveSubmission(submissionId, auth.user.id, overrides)
     const brand = await getBrandById(brandId)
     let imageSyncWarning: { synced: number; failed: number } | undefined
 
@@ -153,7 +135,7 @@ export async function rejectSubmissionAction(
   notes: string
 ): Promise<{ error: string } | undefined> {
   try {
-    const auth = await requireAdmin()
+    const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
     if (!DENIAL_REASONS.includes(denialReason)) {
@@ -165,7 +147,7 @@ export async function rejectSubmissionAction(
     }
 
     const submission = await getSubmission(submissionId)
-    await rejectSubmission(submissionId, auth.userId, denialReason, notes)
+    await rejectSubmission(submissionId, auth.user.id, denialReason, notes)
 
     sendEmail(await buildRejectionEmail({
       submitterEmail: submission.submitterEmail,
@@ -191,12 +173,12 @@ export async function approveClaimAction(
   claimRequestId: string
 ): Promise<{ error: string } | undefined> {
   try {
-    const auth = await requireAdmin()
+    const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
     const claimRequest = await getClaimRequest(claimRequestId)
     const siteUrl = getSiteUrl()
-    await approveClaimRequest(claimRequestId, auth.userId)
+    await approveClaimRequest(claimRequestId, auth.user.id)
 
     try {
       const serviceSupabase = createServiceClient()
@@ -227,11 +209,13 @@ export async function approveClaimAction(
 
     try {
       if (claimRequest.requesterEmail && claimRequest.brandName && claimRequest.brandSlug) {
+        const locale = await getOwnerLocale(claimRequest.brandId)
         await sendEmail(await buildClaimApprovedEmail({
           ownerEmail: claimRequest.requesterEmail,
           brandName: claimRequest.brandName,
           brandSlug: claimRequest.brandSlug,
           siteUrl,
+          locale,
         }))
       }
     } catch (err) {
@@ -252,12 +236,12 @@ export async function rejectClaimAction(
   notes: string
 ): Promise<{ error: string } | undefined> {
   try {
-    const auth = await requireAdmin()
+    const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
     const claimRequest = await getClaimRequest(claimRequestId)
     const siteUrl = getSiteUrl()
-    await rejectClaimRequest(claimRequestId, auth.userId, notes)
+    await rejectClaimRequest(claimRequestId, auth.user.id, notes)
 
     revalidatePath('/admin/claims')
     revalidatePath('/admin')
@@ -294,11 +278,11 @@ export async function approvePendingEditAction(
   editId: string
 ): Promise<{ error: string } | undefined> {
   try {
-    const auth = await requireAdmin()
+    const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
     const edit = await getPendingEditEmailContext(editId)
-    await approvePendingEdit(editId, auth.userId)
+    await approvePendingEdit(editId, auth.user.id)
 
     try {
       await markFlagsReviewed(edit.brandId)
@@ -339,11 +323,11 @@ export async function rejectPendingEditAction(
   notes?: string
 ): Promise<{ error: string } | undefined> {
   try {
-    const auth = await requireAdmin()
+    const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
     const edit = await getPendingEditEmailContext(editId)
-    await rejectPendingEdit(editId, auth.userId, notes)
+    await rejectPendingEdit(editId, auth.user.id, notes)
 
     try {
       if (edit.ownerEmail && edit.brandName) {
@@ -374,35 +358,6 @@ export async function rejectPendingEditAction(
   }
 }
 
-export async function verifyMitAction(
-  brandId: string,
-  certNumber: string
-): Promise<{ error: string } | undefined> {
-  try {
-    const auth = await requireAdmin()
-    if ('error' in auth) return auth
-
-    const result = await verifyMitByCert(brandId, certNumber)
-    if (result.error) {
-      return { error: result.error }
-    }
-
-    revalidatePath('/admin/claims')
-    revalidatePath('/admin/catalog/brands')
-    revalidatePath('/admin')
-    revalidatePath('/[locale]', 'page')
-    revalidatePath('/[locale]/brands', 'page')
-    revalidatePath('/[locale]/brands/[slug]', 'page')
-
-    return undefined
-  } catch (err) {
-    console.error('[admin:verifyMitAction]', err)
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
-    }
-  }
-}
-
 export async function updateBrandAction(
   brandId: string,
   data: {
@@ -423,7 +378,7 @@ export async function updateBrandAction(
   }
 ): Promise<{ error: string } | undefined> {
   try {
-    const auth = await requireAdmin()
+    const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
     await updateBrand(brandId, data as Parameters<typeof updateBrand>[1])
@@ -458,7 +413,7 @@ export async function updateBrandAction(
     const moderationResult = scanContent(moderationPayload)
     if (moderationResult.flags.length > 0) {
       try {
-        await saveModerationFlags(brandId, auth.userId, moderationResult.flags)
+        await saveModerationFlags(brandId, auth.user.id, moderationResult.flags)
         await markFlagsReviewed(brandId)
       } catch (err) {
         console.error('[admin] moderation audit failed:', err)
@@ -482,7 +437,7 @@ export async function hideBrandAction(
   brandId: string
 ): Promise<{ error: string } | undefined> {
   try {
-    const auth = await requireAdmin()
+    const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
     await updateBrand(brandId, { status: 'hidden' })
@@ -504,7 +459,7 @@ export async function unhideBrandAction(
   brandId: string
 ): Promise<{ error: string } | undefined> {
   try {
-    const auth = await requireAdmin()
+    const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
     await updateBrand(brandId, { status: 'approved' })
@@ -526,7 +481,7 @@ export async function deleteBrandAction(
   brandId: string
 ): Promise<{ error: string } | undefined> {
   try {
-    const auth = await requireAdmin()
+    const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
     await deleteBrand(brandId)
@@ -544,34 +499,12 @@ export async function deleteBrandAction(
   }
 }
 
-export async function resyncBrandImagesAction(
-  brandId: string
-): Promise<{ error?: string; synced?: number; failed?: number }> {
-  try {
-    const auth = await requireAdmin()
-    if ('error' in auth) return auth
-
-    const brand = await getBrandById(brandId)
-    const result = await syncBrandImages(brandId)
-
-    revalidatePath('/admin/catalog/brands')
-    revalidatePath('/admin')
-    revalidatePath('/')
-    revalidatePath('/brands')
-    revalidatePath(`/brands/${brand.slug}`)
-    return result
-  } catch (err) {
-    console.error('[admin:resyncBrandImages]', err)
-    return { error: err instanceof Error ? err.message : 'An unexpected error occurred' }
-  }
-}
-
 export async function reviewReportAction(
   reportId: string,
   decision: 'reviewed' | 'dismissed'
 ): Promise<{ error: string } | undefined> {
   try {
-    const auth = await requireAdmin()
+    const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
     await updateReportStatus(reportId, decision)
@@ -592,7 +525,7 @@ export async function reviewFeedbackAction(
   decision: FeedbackStatus
 ): Promise<{ error: string } | undefined> {
   try {
-    const auth = await requireAdmin()
+    const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
     await updateFeedbackStatus(feedbackId, decision)
@@ -609,7 +542,7 @@ export async function syncSentryFeedbackAction(): Promise<
   { synced: number } | { error: string }
 > {
   try {
-    const auth = await requireAdmin()
+    const auth = await requireAdminAction()
     if ('error' in auth) return { error: auth.error }
 
     const { synced } = await syncSentryFeedback()
@@ -622,38 +555,11 @@ export async function syncSentryFeedbackAction(): Promise<
   }
 }
 
-export async function bulkUpdateReportsAction(
-  reportIds: string[],
-  decision: 'reviewed' | 'dismissed'
-): Promise<{ updated: number; errors: { id: string; error: string }[] }> {
-  const auth = await requireAdmin()
-  if ('error' in auth) throw new Error(auth.error)
-
-  const errors: { id: string; error: string }[] = []
-  let updated = 0
-
-  for (const id of reportIds) {
-    try {
-      await updateReportStatus(id, decision)
-      updated++
-    } catch (err) {
-      errors.push({
-        id,
-        error: err instanceof Error ? err.message : 'Unknown error',
-      })
-    }
-  }
-
-  if (updated > 0) {
-    revalidatePath('/admin/signals/reports')
-    revalidatePath('/admin')
-  }
-
-  return { updated, errors }
-}
-
 export async function refreshHealthChecks(): Promise<void> {
-  await requireAdmin()
+  const auth = await requireAdminAction()
+  if ('error' in auth) {
+    return
+  }
   try {
     await checkAllServices()
   } catch (err) {

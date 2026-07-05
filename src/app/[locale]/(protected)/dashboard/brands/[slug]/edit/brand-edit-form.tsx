@@ -6,13 +6,23 @@ import { Trash2 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { saveDraftAction, updateBrandAction } from "../actions";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ImageUploadField } from "@/components/forms/image-upload-field";
 import { DynamicArrayField } from "@/components/forms/dynamic-array-field";
 import { ProductPhotosField } from "@/components/forms/product-photos-field";
 import { ProductTagField } from "@/components/forms/product-tag-field";
+import { Textarea } from "@/components/ui/textarea";
 import type { OnboardingStepKey } from "@/lib/services/brand-onboarding";
+import { TAIWAN_CITIES } from "@/lib/constants/taiwan-cities";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import type { Brand, CustomerVoice, OtherUrl } from "@/lib/types";
 
@@ -38,6 +48,7 @@ export function BrandEditForm({ brand, onboardingStep }: BrandEditFormProps) {
   );
   const t = useTranslations("dashboard.edit");
   const tx = (key: string, fallback: string) => (t.has(key) ? t(key) : fallback);
+  const tCities = useTranslations("cities");
   const pendingEditsT = useTranslations("admin.pendingEdits");
   const fieldErrors = {
     ...publishState?.fieldErrors,
@@ -108,6 +119,23 @@ export function BrandEditForm({ brand, onboardingStep }: BrandEditFormProps) {
               {PRODUCT_TYPE_CATEGORIES.map((category) => (
                 <option key={category.slug} value={category.slug}>
                   {category.nameZh} ({category.name})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="city">{t("city")}</Label>
+            <select
+              id="city"
+              name="city"
+              className="flex h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              defaultValue={brand.city ?? ""}
+            >
+              <option value="">{t("cityPlaceholder")}</option>
+              {TAIWAN_CITIES.map((city) => (
+                <option key={city.slug} value={city.slug}>
+                  {tCities(city.slug)}
                 </option>
               ))}
             </select>
@@ -412,6 +440,231 @@ export function BrandEditForm({ brand, onboardingStep }: BrandEditFormProps) {
               </div>
             )}
           />
+        </section>
+
+        {/* Enrichment Expansion */}
+        <section id="enrichment-expansion" className="space-y-6">
+          <h2 className="font-heading text-base font-bold text-foreground border-b border-border pb-2">
+            Enrichment expansion
+          </h2>
+
+          <div className="space-y-4 rounded-lg border border-border bg-background p-4">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-foreground">
+              Reputation
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="reputationSummary">Summary</Label>
+                <Textarea
+                  id="reputationSummary"
+                  name="reputationSummary"
+                  defaultValue={brand.reputationSummary?.text ?? ""}
+                  className="min-h-28 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Provenance sources</Label>
+                <DynamicArrayField
+                  initialItems={brand.reputationSummary?.sources ?? []}
+                  createItem={() => ({ url: "", title: "", retrievedAt: "" })}
+                  addLabel="+ Add source"
+                  maxItems={5}
+                  renderItem={(item, index, onRemove) => (
+                    <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_48px]">
+                      <Input
+                        name={`reputationSources[${index}].url`}
+                        type="url"
+                        placeholder="Source URL"
+                        defaultValue={item.url}
+                        className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                      />
+                      <Input
+                        name={`reputationSources[${index}].title`}
+                        placeholder="Title"
+                        defaultValue={item.title}
+                        className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                      />
+                      <Input
+                        name={`reputationSources[${index}].retrievedAt`}
+                        type="date"
+                        placeholder="Retrieved date"
+                        defaultValue={item.retrievedAt}
+                        className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={t("removeItem")}
+                        onClick={onRemove}
+                        className="h-12 w-12 text-foreground hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4 rounded-lg border border-border bg-background p-4">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-foreground">
+              Manufacturing
+            </div>
+            <div className="grid gap-4">
+              <div className="grid gap-1.5 sm:grid-cols-[140px_1fr] sm:items-center">
+                <Label htmlFor="factoryLocation" className="text-sm font-semibold text-foreground">
+                  Factory location
+                </Label>
+                <Input
+                  id="factoryLocation"
+                  name="factoryLocation"
+                  defaultValue={brand.manufacturing?.factoryLocation ?? ""}
+                  className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+              <div className="grid gap-1.5 sm:grid-cols-[140px_1fr] sm:items-center">
+                <Label htmlFor="productionModel" className="text-sm font-semibold text-foreground">
+                  Production model
+                </Label>
+                <Select name="productionModel" defaultValue={brand.manufacturing?.productionModel ?? ""}>
+                  <SelectTrigger className="h-12 w-full bg-background focus-visible:ring-2 focus-visible:ring-ring">
+                    <SelectValue placeholder="Select model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="own">Own</SelectItem>
+                    <SelectItem value="oem">OEM</SelectItem>
+                    <SelectItem value="mixed">Mixed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="mitStory" className="text-sm font-semibold text-foreground">
+                  {t('mitStoryLabel')}
+                </Label>
+                <Textarea
+                  id="mitStory"
+                  name="mitStory"
+                  defaultValue={brand.mitStory ?? ''}
+                  placeholder={t('mitStoryPlaceholder')}
+                  rows={5}
+                  className="min-h-28 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="manufacturingNotes" className="text-sm font-semibold text-foreground">
+                  Notes
+                </Label>
+                <Textarea
+                  id="manufacturingNotes"
+                  name="manufacturingNotes"
+                  defaultValue={brand.manufacturing?.notes ?? ""}
+                  className="min-h-28 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4 rounded-lg border border-border bg-background p-4">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-foreground">
+              Certifications
+            </div>
+            <DynamicArrayField
+              initialItems={(brand.certifications ?? []).map((cert) => ({
+                name: cert.name,
+                issuer: cert.issuer ?? "",
+                year: cert.year != null ? String(cert.year) : "",
+                sourceUrl: cert.source?.url ?? "",
+              }))}
+              createItem={() => ({ name: "", issuer: "", year: "", sourceUrl: "" })}
+              addLabel="+ Add certification"
+              maxItems={10}
+              renderItem={(item, index, onRemove) => (
+                <div className="grid gap-2 rounded-lg border border-border p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.5fr)_minmax(0,1fr)_48px]">
+                  <Input
+                    name={`certifications[${index}].name`}
+                    placeholder="Certification name"
+                    defaultValue={item.name}
+                    className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                  <Input
+                    name={`certifications[${index}].issuer`}
+                    placeholder="Issuer"
+                    defaultValue={item.issuer ?? ""}
+                    className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                  <Input
+                    name={`certifications[${index}].year`}
+                    type="number"
+                    min={1900}
+                    max={new Date().getFullYear()}
+                    placeholder="Year"
+                    defaultValue={item.year || undefined}
+                    className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                  <Input
+                    name={`certifications[${index}].sourceUrl`}
+                    type="url"
+                    placeholder="Source URL"
+                    defaultValue={item.sourceUrl}
+                    className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={t("removeItem")}
+                    onClick={onRemove}
+                    className="h-12 w-12 text-foreground hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            />
+          </div>
+
+          <div className="space-y-4 rounded-lg border border-border bg-background p-4">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-foreground">
+              Policies
+            </div>
+            <div className="grid gap-4">
+              <div className="grid gap-1.5 sm:grid-cols-[140px_1fr] sm:items-center">
+                <Label htmlFor="returnsPolicy" className="text-sm font-semibold text-foreground">
+                  Returns policy
+                </Label>
+                <Input
+                  id="returnsPolicy"
+                  name="returnsPolicy"
+                  defaultValue={brand.policies?.returns ?? ""}
+                  className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+              <div className="grid gap-1.5 sm:grid-cols-[140px_1fr] sm:items-center">
+                <Label htmlFor="warranty" className="text-sm font-semibold text-foreground">
+                  Warranty
+                </Label>
+                <Input
+                  id="warranty"
+                  name="warranty"
+                  defaultValue={brand.policies?.warranty ?? ""}
+                  className="h-12 bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+              <div className="flex min-h-12 items-center gap-3">
+                <Checkbox
+                  id="shipsInternational"
+                  name="shipsInternational"
+                  defaultChecked={brand.policies?.shipsInternational ?? false}
+                  className="accent-primary"
+                />
+                <Label htmlFor="shipsInternational" className="text-sm font-semibold text-foreground">
+                  Ships international
+                </Label>
+              </div>
+            </div>
+          </div>
         </section>
 
         {showSubmittedForReviewNotice && (

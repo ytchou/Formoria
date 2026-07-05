@@ -55,10 +55,11 @@ export type Database = {
           model: string
           non_brand_reason: string | null
           phase: string
+          price_range: number | null
+          product_tags: string[] | null
           product_type: string | null
           raw_response: Json | null
           slug_generated: string | null
-          value_tags: string[]
         }
         Insert: {
           brand_id: string
@@ -70,10 +71,11 @@ export type Database = {
           model: string
           non_brand_reason?: string | null
           phase: string
+          price_range?: number | null
+          product_tags?: string[] | null
           product_type?: string | null
           raw_response?: Json | null
           slug_generated?: string | null
-          value_tags?: string[]
         }
         Update: {
           brand_id?: string
@@ -85,10 +87,11 @@ export type Database = {
           model?: string
           non_brand_reason?: string | null
           phase?: string
+          price_range?: number | null
+          product_tags?: string[] | null
           product_type?: string | null
           raw_response?: Json | null
           slug_generated?: string | null
-          value_tags?: string[]
         }
         Relationships: [
           {
@@ -369,7 +372,6 @@ export type Database = {
           submitter_email: string
           submitter_name: string | null
           suggested_tags: Json | null
-          unified_business_number: string | null
           validation_errors: Json | null
           validation_status: string | null
           website_url: string | null
@@ -403,7 +405,6 @@ export type Database = {
           submitter_email: string
           submitter_name?: string | null
           suggested_tags?: Json | null
-          unified_business_number?: string | null
           validation_errors?: Json | null
           validation_status?: string | null
           website_url?: string | null
@@ -437,7 +438,6 @@ export type Database = {
           submitter_email?: string
           submitter_name?: string | null
           suggested_tags?: Json | null
-          unified_business_number?: string | null
           validation_errors?: Json | null
           validation_status?: string | null
           website_url?: string | null
@@ -456,9 +456,12 @@ export type Database = {
         Row: {
           approved_at: string | null
           brand_enriched_at: string | null
+          category_attributes: Json | null
+          certifications: Json | null
+          city: string | null
           contact_email: string | null
-          customer_voices: Json | null
           created_at: string | null
+          customer_voices: Json | null
           description: string | null
           draft_data: Json | null
           draft_updated_at: string | null
@@ -467,12 +470,14 @@ export type Database = {
           id: string
           images_enriched_at: string | null
           is_demo: boolean
-          mit_claimed_at: string | null
+          manufacturing: Json | null
           mit_evidence: Json | null
           mit_status: string
+          mit_story: string | null
           mit_verified_at: string | null
           name: string
           other_urls: Json
+          policies: Json | null
           price_range: number | null
           product_photos: Json | null
           product_tags: string[] | null
@@ -480,6 +485,7 @@ export type Database = {
           purchase_pinkoi: string | null
           purchase_shopee: string | null
           purchase_website: string | null
+          reputation_summary: Json | null
           retail_locations: Json | null
           search_vector: unknown
           serp_enriched_at: string | null
@@ -491,15 +497,17 @@ export type Database = {
           source: string | null
           status: string
           submitted_at: string | null
-          unified_business_number: string | null
           updated_at: string | null
         }
         Insert: {
           approved_at?: string | null
           brand_enriched_at?: string | null
+          category_attributes?: Json | null
+          certifications?: Json | null
+          city?: string | null
           contact_email?: string | null
-          customer_voices?: Json | null
           created_at?: string | null
+          customer_voices?: Json | null
           description?: string | null
           draft_data?: Json | null
           draft_updated_at?: string | null
@@ -508,12 +516,14 @@ export type Database = {
           id?: string
           images_enriched_at?: string | null
           is_demo?: boolean
-          mit_claimed_at?: string | null
+          manufacturing?: Json | null
           mit_evidence?: Json | null
           mit_status?: string
+          mit_story?: string | null
           mit_verified_at?: string | null
           name: string
           other_urls?: Json
+          policies?: Json | null
           price_range?: number | null
           product_photos?: Json | null
           product_tags?: string[] | null
@@ -521,6 +531,7 @@ export type Database = {
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null
           purchase_website?: string | null
+          reputation_summary?: Json | null
           retail_locations?: Json | null
           search_vector?: unknown
           serp_enriched_at?: string | null
@@ -532,15 +543,17 @@ export type Database = {
           source?: string | null
           status?: string
           submitted_at?: string | null
-          unified_business_number?: string | null
           updated_at?: string | null
         }
         Update: {
           approved_at?: string | null
           brand_enriched_at?: string | null
+          category_attributes?: Json | null
+          certifications?: Json | null
+          city?: string | null
           contact_email?: string | null
-          customer_voices?: Json | null
           created_at?: string | null
+          customer_voices?: Json | null
           description?: string | null
           draft_data?: Json | null
           draft_updated_at?: string | null
@@ -549,12 +562,14 @@ export type Database = {
           id?: string
           images_enriched_at?: string | null
           is_demo?: boolean
-          mit_claimed_at?: string | null
+          manufacturing?: Json | null
           mit_evidence?: Json | null
           mit_status?: string
+          mit_story?: string | null
           mit_verified_at?: string | null
           name?: string
           other_urls?: Json
+          policies?: Json | null
           price_range?: number | null
           product_photos?: Json | null
           product_tags?: string[] | null
@@ -562,6 +577,7 @@ export type Database = {
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null
           purchase_website?: string | null
+          reputation_summary?: Json | null
           retail_locations?: Json | null
           search_vector?: unknown
           serp_enriched_at?: string | null
@@ -573,7 +589,6 @@ export type Database = {
           source?: string | null
           status?: string
           submitted_at?: string | null
-          unified_business_number?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -745,6 +760,42 @@ export type Database = {
           type?: string
           url?: string | null
           user_email?: string | null
+        }
+        Relationships: []
+      }
+      mit_registry: {
+        Row: {
+          brand_name: string | null
+          cert_number: string
+          company_name: string | null
+          id: number
+          industry_type: string | null
+          product_model: string | null
+          product_name: string | null
+          synced_at: string
+          valid_until: string | null
+        }
+        Insert: {
+          brand_name?: string | null
+          cert_number: string
+          company_name?: string | null
+          id?: number
+          industry_type?: string | null
+          product_model?: string | null
+          product_name?: string | null
+          synced_at?: string
+          valid_until?: string | null
+        }
+        Update: {
+          brand_name?: string | null
+          cert_number?: string
+          company_name?: string | null
+          id?: number
+          industry_type?: string | null
+          product_model?: string | null
+          product_name?: string | null
+          synced_at?: string
+          valid_until?: string | null
         }
         Relationships: []
       }
@@ -971,13 +1022,23 @@ export type Database = {
       }
       profile_completeness: { Args: { p_brand_id: string }; Returns: number }
       search_brands: {
-        Args: { result_limit?: number; search_query: string }
+        Args: {
+          filter_categories?: string[]
+          filter_status?: string
+          filter_tags?: string[]
+          filter_verification?: string
+          include_test_brands?: boolean
+          prefix_mode?: boolean
+          result_limit?: number
+          search_query: string
+        }
         Returns: {
           hero_image_url: string
           id: string
           name: string
           primary_category_name: string
-          similarity_score: number
+          rank_score: number
+          search_source: string
           slug: string
         }[]
       }

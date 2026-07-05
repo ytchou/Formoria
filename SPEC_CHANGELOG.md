@@ -1,5 +1,14 @@
 # SPEC Changelog
 
+## 2026-07-02
+
+- DEV-925 — Added Owner Dashboard module (previously undocumented), including the
+  Featured on Formoria growth section (embeddable badge + on-demand share card at
+  `/api/share-card/[slug]`). New business rule 9: share assets only for approved brands.
+  Observability: GA4 owner share events + badge referral UTM attribution.
+  Decisions: `docs/decisions/2026-07-02-share-card-on-demand-imageresponse.md`,
+  `docs/decisions/2026-07-02-share-card-email-via-remote-url.md`.
+
 ## 2026-06-28
 
 - DEV-889 (2026-06-28) — MIT verification automated: replaced manual admin verification with

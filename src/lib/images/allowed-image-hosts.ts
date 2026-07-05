@@ -2,7 +2,7 @@ export const ALLOWED_IMAGE_HOSTS = [
   '*.supabase.co',
 ] as const satisfies string[]
 
-export const NON_IMAGE_HOSTS = [
+const NON_IMAGE_HOSTS = [
   'facebook.com',
   'line.me',
   'instagram.com',

@@ -1,7 +1,6 @@
 'use server'
 
-import { isActingAsAdmin } from '@/lib/auth/admin-mode'
-import { createClient } from '@/lib/supabase/server'
+import { requireAdminAction } from '@/lib/auth/require-admin'
 import {
   cancelCurationJob,
   checkForRunningJob,
@@ -24,31 +23,13 @@ type StartCurationJobResult =
   | { jobIds: string[]; queued: true; message: string }
   | { error: string }
 
-async function requireAdmin(): Promise<{ userId: string; email: string } | { error: string }> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser()
-
-  if (error || !user) {
-    return { error: 'You must authenticate to perform this action' }
-  }
-
-  if (!(await isActingAsAdmin(user.email))) {
-    return { error: 'You are not authorized to perform this action' }
-  }
-
-  return { userId: user.id, email: user.email ?? '' }
-}
-
 export async function startCurationJobAction(
   operation: StartCurationOperation,
   params: CurationJobParams,
   dryRun: boolean
 ): Promise<StartCurationJobResult> {
   try {
-    const auth = await requireAdmin()
+    const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
     await recoverStaleJobs()
@@ -66,7 +47,7 @@ export async function startCurationJobAction(
         operation,
         params: batch,
         dryRun,
-        startedBy: auth.email,
+        startedBy: auth.user.email ?? '',
       })
 
       if ('error' in createdJob) {
@@ -100,7 +81,7 @@ export async function listCurationJobsAction(
   options?: { limit?: number }
 ): Promise<{ jobs: CurationJob[] } | { error: string }> {
   try {
-    const auth = await requireAdmin()
+    const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
     const jobs = await listCurationJobs(options)

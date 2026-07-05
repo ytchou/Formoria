@@ -27,7 +27,7 @@ export async function buildWelcomeEmail({
 }: WelcomeEmailProps): Promise<EmailMessage> {
   const dashboardUrl = `${SITE_URL}/dashboard`
   const micrositeUrl = `${SITE_URL}/brands/${brandSlug}`
-  const unsubscribeUrl = `${SITE_URL}/api/unsubscribe?token=${unsubscribeToken}`
+  const unsubscribeUrl = `${SITE_URL}/api/email/unsubscribe?token=${unsubscribeToken}`
   const html = await render(
     locale === 'en' ? (
       <Layout
@@ -75,7 +75,7 @@ export async function buildWelcomeEmail({
         ? `Welcome to "${brandName}" — Formoria`
         : `歡迎加入「${brandName}」— Formoria`,
     html,
-    headers: listUnsubscribeHeaders(unsubscribeToken),
+    headers: listUnsubscribeHeaders(unsubscribeUrl),
   }
 }
 

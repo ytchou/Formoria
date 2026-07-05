@@ -15,6 +15,7 @@ const liveBrand: Brand = {
   heroImageUrl: 'https://x.supabase.co/hero-live.png',
   status: 'approved',
   category: 'apparel',
+  city: null,
   isVerified: true,
   mitStatus: 'verified',
   mitVerifiedAt: '2026-01-01T00:00:00Z',
@@ -33,6 +34,7 @@ const liveBrand: Brand = {
   customerVoices: [],
   productPhotos: ['https://x.supabase.co/p-live-1.png'],
   contactEmail: 'live@brand.tw',
+  mitStory: 'Our fabrics come from Changhua.',
     siteContent: null,
     priceRange: null,
     productTags: [],
@@ -133,6 +135,19 @@ describe('draftSnapshotToDomain', () => {
     expect(result.retailLocations).toEqual([]);
     expect(result.productTags).toEqual([]);
   });
+
+  it('round-trips mitStory through draft snapshot', () => {
+    const snapshot = brandToDraftSnapshot(liveBrand)
+    const restored = draftSnapshotToDomain(snapshot, liveBrand)
+    expect(restored.mitStory).toBe('Our fabrics come from Changhua.')
+  })
+
+  it('handles null mitStory in draft snapshot', () => {
+    const brand = { ...liveBrand, mitStory: null }
+    const snapshot = brandToDraftSnapshot(brand)
+    const restored = draftSnapshotToDomain(snapshot, brand)
+    expect(restored.mitStory).toBeNull()
+  })
 });
 
 describe('diffRemovedImageUrls', () => {

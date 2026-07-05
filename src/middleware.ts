@@ -18,6 +18,7 @@ export const RESERVED_ROUTES = new Set([
   'challenge',
   'submit',
   'brands',
+  'guides',
   'site',
   'dashboard',
   'favorites',
@@ -27,14 +28,19 @@ export const RESERVED_ROUTES = new Set([
   'my-submissions',
   'settings',
   'getting-started',
+  'glossary',
   'global-error',
+  'privacy',
+  'stats',
   'sitemap.xml',
   'robots.txt',
   'favicon.ico',
   // Next.js metadata routes — single-segment paths that must not be treated as brand slugs
   'icon',
   'apple-icon',
+  'manifest',
   'opengraph-image',
+  'twitter-image',
 ])
 
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{2,79}$/
@@ -42,6 +48,7 @@ const intlMiddleware = createMiddleware(routing)
 const KNOWN_LOCALES = new Set<string>(routing.locales)
 const PUBLIC_INTL_SEGMENTS = new Set([
   'brands',
+  'guides',
   'about',
   'faq',
   'getting-started',
@@ -51,6 +58,9 @@ const PUBLIC_INTL_SEGMENTS = new Set([
   'dashboard',
   'settings',
   'favorites',
+  'glossary',
+  'privacy',
+  'stats',
 ])
 const SOFT_LIMIT_PREFIXES = ['/brands/']
 
@@ -129,9 +139,10 @@ async function refreshSupabaseSession(request: NextRequest, response: NextRespon
 }
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
   const host = request.headers.get('host') ?? ''
   if (host === (process.env.MICROSITE_HOST ?? 'brand.formoria.com')) {
-    const { pathname } = request.nextUrl
     const segments = pathname.split('/').filter(Boolean)
 
     if (segments.length === 1) {
@@ -146,14 +157,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  const { pathname } = request.nextUrl
-
   const cfOriginSecret = process.env.CF_ORIGIN_SECRET
   if (process.env.NODE_ENV === 'production' && cfOriginSecret) {
     const cfSecret = request.headers.get('x-origin-verify')
     if (cfSecret !== cfOriginSecret && !request.nextUrl.pathname.startsWith('/api/health') && !request.nextUrl.pathname.startsWith('/api/cron/')) {
       return new NextResponse('Forbidden', { status: 403 })
     }
+  }
+
+  if (pathname.startsWith('/admin/content')) {
+    return NextResponse.next()
   }
 
   // Check rate limit before regular request processing

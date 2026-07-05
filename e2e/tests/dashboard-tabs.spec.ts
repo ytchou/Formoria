@@ -27,7 +27,7 @@ test.describe('Dashboard — tab navigation', () => {
   let brandSlug: string;
   let brandName: string;
 
-  test.beforeAll(async () => {
+  test.beforeAll(async ({}, workerInfo) => {
     supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -47,8 +47,9 @@ test.describe('Dashboard — tab navigation', () => {
     }
 
     const ts = Date.now();
+    const wi = workerInfo.workerIndex;
     brandName = `[E2E-TEST] Tab Nav ${ts}`;
-    brandSlug = `e2e-tab-nav-${ts}`;
+    brandSlug = `e2e-tab-nav-${ts}-${wi}`;
 
     const { data: brandData, error: brandErr } = await supabase
       .from('brands')
@@ -102,8 +103,11 @@ test.describe('Dashboard — tab navigation', () => {
     // Navigate to the seeded brand explicitly via ?brand= param
     await userPage.goto(`/dashboard?brand=${brandSlug}`, { timeout: 60_000 });
 
-    // The seeded brand name renders as h1 in the page content area
-    await expect(userPage.locator('h1').filter({ hasText: brandName })).toBeVisible({
+    // The seeded brand name renders as h1 in the brand-profile panel
+    // Scope to [data-testid="brand-profile"] to avoid matching the layout-header h1
+    await expect(
+      userPage.locator('[data-testid="brand-profile"]').locator('h1').filter({ hasText: brandName })
+    ).toBeVisible({
       timeout: 60_000,
     });
   });
@@ -117,8 +121,11 @@ test.describe('Dashboard — tab navigation', () => {
       return;
     }
 
-    // The brand panel must be rendered — brand name in h1
-    await expect(userPage.locator('h1').filter({ hasText: brandName })).toBeVisible({
+    // The brand panel must be rendered — brand name in h1 inside the profile panel
+    // Scope to [data-testid="brand-profile"] to avoid matching the layout-header h1
+    await expect(
+      userPage.locator('[data-testid="brand-profile"]').locator('h1').filter({ hasText: brandName })
+    ).toBeVisible({
       timeout: 60_000,
     });
 
@@ -163,7 +170,7 @@ test.describe('Dashboard — legacy brand route redirect', () => {
   let brandSlug: string;
   let brandName: string;
 
-  test.beforeAll(async () => {
+  test.beforeAll(async ({}, workerInfo) => {
     supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -183,8 +190,9 @@ test.describe('Dashboard — legacy brand route redirect', () => {
     }
 
     const ts = Date.now();
+    const wi = workerInfo.workerIndex;
     brandName = `[E2E-TEST] Legacy Redirect ${ts}`;
-    brandSlug = `e2e-legacy-redirect-${ts}`;
+    brandSlug = `e2e-legacy-redirect-${ts}-${wi}`;
 
     const { data: brandData, error: brandErr } = await supabase
       .from('brands')
@@ -232,9 +240,9 @@ test.describe('Dashboard — legacy brand route redirect', () => {
       { timeout: 60_000 }
     );
 
-    // The brand panel must be rendered at the final URL — brand name in h1
-    await expect(userPage.locator('h1').filter({ hasText: brandName })).toBeVisible({
-      timeout: 60_000,
-    });
+    // The brand panel must be rendered at the final URL — brand name in h1 inside the profile panel
+    await expect(
+      userPage.locator('[data-testid="brand-profile"]').locator('h1').filter({ hasText: brandName })
+    ).toBeVisible({ timeout: 60_000 });
   });
 });

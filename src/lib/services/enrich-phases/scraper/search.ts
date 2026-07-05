@@ -1,4 +1,7 @@
 export const SEARCH_DELAY_MS = 1500
+type QueryTemplate = (brandName: string) => string
+
+const DEFAULT_QUERY: QueryTemplate = (name: string) => `${name} 台灣`
 
 const APIFY_SERP_ENDPOINT =
   'https://api.apify.com/v2/acts/apify~google-search-scraper/run-sync-get-dataset-items'
@@ -87,7 +90,10 @@ function parseApifySerpSnippets(data: unknown[]): string[] {
   return snippets
 }
 
-async function fetchSerpData(brandName: string): Promise<unknown[]> {
+async function fetchSerpData(
+  brandName: string,
+  queryTemplate: QueryTemplate = DEFAULT_QUERY
+): Promise<unknown[]> {
   const token = process.env.APIFY_TOKEN
 
   if (!token) {
@@ -104,7 +110,7 @@ async function fetchSerpData(brandName: string): Promise<unknown[]> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        queries: `${brandName} 台灣`,
+        queries: queryTemplate(brandName),
         maxPagesPerQuery: 1,
         countryCode: 'tw',
         languageCode: 'zh-TW',
@@ -126,13 +132,19 @@ async function fetchSerpData(brandName: string): Promise<unknown[]> {
   }
 }
 
-export async function searchBrandUrls(brandName: string): Promise<string[]> {
-  const data = await fetchSerpData(brandName)
+export async function searchBrandUrls(
+  brandName: string,
+  queryTemplate: QueryTemplate = DEFAULT_QUERY
+): Promise<string[]> {
+  const data = await fetchSerpData(brandName, queryTemplate)
   return parseApifySerpResults(data)
 }
 
-async function searchBrandWithSnippets(brandName: string): Promise<{ urls: string[], snippets: string[] }> {
-  const data = await fetchSerpData(brandName)
+async function searchBrandWithSnippets(
+  brandName: string,
+  queryTemplate: QueryTemplate = DEFAULT_QUERY
+): Promise<{ urls: string[], snippets: string[] }> {
+  const data = await fetchSerpData(brandName, queryTemplate)
   return {
     urls: parseApifySerpResults(data),
     snippets: parseApifySerpSnippets(data),
@@ -142,7 +154,8 @@ async function searchBrandWithSnippets(brandName: string): Promise<{ urls: strin
 type BrandSearchResult = { urls: string[], snippets: string[], rawEntries?: unknown[] }
 
 export async function batchSearchBrandsWithSnippets(
-  brandNames: string[]
+  brandNames: string[],
+  queryTemplate: QueryTemplate = DEFAULT_QUERY
 ): Promise<Map<string, BrandSearchResult>> {
   const names = brandNames.slice(0, 20)
   const results = new Map<string, BrandSearchResult>()
@@ -163,7 +176,7 @@ export async function batchSearchBrandsWithSnippets(
 
   const queryToBrand = new Map<string, string>()
   for (const brandName of names) {
-    queryToBrand.set(`${brandName} 台灣`, brandName)
+    queryToBrand.set(queryTemplate(brandName), brandName)
     queryToBrand.set(brandName, brandName)
   }
 
@@ -177,7 +190,7 @@ export async function batchSearchBrandsWithSnippets(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        queries: names.map((brandName) => `${brandName} 台灣`).join('\n'),
+        queries: names.map((brandName) => queryTemplate(brandName)).join('\n'),
         maxPagesPerQuery: 1,
         countryCode: 'tw',
         languageCode: 'zh-TW',
@@ -244,7 +257,10 @@ export async function batchSearchBrandsWithSnippets(
   }
 }
 
-async function searchBrandImages(brandName: string): Promise<string[]> {
+async function searchBrandImages(
+  brandName: string,
+  queryTemplate: QueryTemplate = DEFAULT_QUERY
+): Promise<string[]> {
   const token = process.env.APIFY_TOKEN
 
   if (!token) {
@@ -261,7 +277,7 @@ async function searchBrandImages(brandName: string): Promise<string[]> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        q: `${brandName} 台灣`,
+        q: queryTemplate(brandName),
         num: 5,
         page: 1,
       }),
@@ -298,7 +314,8 @@ async function searchBrandImages(brandName: string): Promise<string[]> {
 
 export async function batchSearchBrandImages(
   brandNames: string[],
-  concurrency: number = 5
+  concurrency: number = 5,
+  queryTemplate: QueryTemplate = DEFAULT_QUERY
 ): Promise<Map<string, string[]>> {
   const results = new Map<string, string[]>()
   const workerCount = Math.max(1, Math.min(concurrency, brandNames.length))
@@ -315,7 +332,7 @@ export async function batchSearchBrandImages(
       const brandName = brandNames[index]
 
       try {
-        results.set(brandName, await searchBrandImages(brandName))
+        results.set(brandName, await searchBrandImages(brandName, queryTemplate))
       } catch (err) {
         console.error(`  → image search failed: ${err instanceof Error ? err.message : err}`)
         results.set(brandName, [])

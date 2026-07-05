@@ -12,7 +12,7 @@ import {
   mergeDraftOverBrand,
 } from '@/lib/services/brands'
 import { hasPendingClaim } from '@/lib/services/claim-requests'
-import { buildBrandJsonLd, buildBreadcrumbJsonLd } from '@/lib/json-ld'
+import { buildBrandJsonLd, buildBreadcrumbJsonLd, buildFaqPageJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import type { BreadcrumbItem } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
@@ -31,6 +31,7 @@ import { ClaimBrandCta } from '@/components/brands/claim-brand-cta'
 import { RequestRemoval } from '@/components/brands/request-removal'
 import { BrandAbout } from '@/components/brands/brand-about'
 import { BrandCustomerVoices } from '@/components/brands/brand-customer-voices'
+import { BrandFaqAccordion } from '@/components/brands/brand-faq-accordion'
 import { BrandLinks } from '@/components/brands/brand-links'
 import { BrandLocations } from '@/components/brands/brand-locations'
 import { MoreInCategory } from '@/components/brands/more-in-category'
@@ -38,8 +39,11 @@ import { RelatedBrands } from '@/components/brands/related-brands'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
+import { buildBrandFaq, buildBrandIntro } from '@/lib/services/brand-faq'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { MapPin } from 'lucide-react'
 import { NotFoundError } from '@/lib/errors'
+import { sanitizeHref } from '@/lib/url'
 
 // 1h ISR: ownership/verified-state changes propagate within ~an hour; route still statically served between regenerations
 export const revalidate = 3600
@@ -58,12 +62,16 @@ type PageProps = {
   searchParams: Promise<{ source?: string; preview?: string }>
 }
 
+type BrandFaqTranslateFn = (key: string, params?: Record<string, unknown>) => string
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { locale, slug: rawSlug } = await params
   const slug = decodeURIComponent(rawSlug)
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const t = await getTranslations('brandDetail')
+  const tBrandFaq = ((key: string, params?: Record<string, unknown>) =>
+    t(key, params as never)) as BrandFaqTranslateFn
 
   try {
     const brand = await getBrandBySlug(slug)
@@ -71,9 +79,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const { canonical, languages } = buildAlternates(`/brands/${brand.slug}`, safeLocale)
     const ogLocale = safeLocale === 'zh-TW' ? 'zh_TW' : 'en_US'
     const ogAlternateLocale = safeLocale === 'zh-TW' ? 'en_US' : 'zh_TW'
+    const intro = buildBrandIntro(brand, tBrandFaq)
     return {
       title: brand.name,
-      description: brand.description ?? t('metadata.fallbackDescription', { name: brand.name }),
+      description: intro || brand.description || t('metadata.fallbackDescription', { name: brand.name }),
       alternates: { canonical, languages },
       openGraph: {
         title: brand.name,
@@ -183,6 +192,12 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
     data: { user },
   } = await (await getSupabase()).auth.getUser()
   const isAdmin = await isActingAsAdmin(user?.email)
+  const tBrandDetail = await getTranslations('brandDetail')
+  const tCities = await getTranslations('cities')
+  const tBrandFaq = ((key: string, params?: Record<string, unknown>) =>
+    tBrandDetail(key, params as never)) as BrandFaqTranslateFn
+  const faqItems = buildBrandFaq(displayBrand, tBrandFaq)
+  const introText = buildBrandIntro(displayBrand, tBrandFaq)
 
   // Gallery images: hero + product photos
   const galleryImages = [displayBrand.heroImageUrl, ...displayBrand.productPhotos].filter(
@@ -210,10 +225,13 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
   ])
 
   // Visit Website URL — fallback: purchaseWebsite → facebook → pinkoi → shopee
-  const visitUrl = displayBrand.purchaseWebsite || displayBrand.socialFacebook || displayBrand.purchasePinkoi || displayBrand.purchaseShopee || null
+  const visitUrl = sanitizeHref(displayBrand.purchaseWebsite)
+    || sanitizeHref(displayBrand.socialFacebook)
+    || sanitizeHref(displayBrand.purchasePinkoi)
+    || sanitizeHref(displayBrand.purchaseShopee)
+    || null
 
   // Breadcrumb items for JSON-LD
-  const tBrandDetail = await getTranslations('brandDetail')
   const directoryLabel = tBrandDetail('breadcrumb.directory')
   const categoryLabel = productTypeCategory?.nameZh ?? getBrandCategoryLabel(displayBrand)
 
@@ -238,12 +256,18 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
         {/* JSON-LD structured data */}
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(buildBrandJsonLd(displayBrand, safeLocale)) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(buildBrandJsonLd(displayBrand, safeLocale)) }}
         />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(buildBreadcrumbJsonLd(breadcrumbItems, safeLocale)) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(buildBreadcrumbJsonLd(breadcrumbItems, safeLocale)) }}
         />
+        {faqItems.length > 0 && (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(buildFaqPageJsonLd(faqItems, safeLocale)) }}
+          />
+        )}
 
         {/* Breadcrumb */}
         <BrandBreadcrumb
@@ -279,9 +303,25 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
               }
             />
 
+            {introText && <p className="text-sm text-muted-foreground">{introText}</p>}
+
+            {displayBrand.city && (
+              <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium">
+                <MapPin className="h-3 w-3" />
+                {tCities(displayBrand.city)}
+              </span>
+            )}
+
             <hr className="border-border" />
 
             <BrandAbout brand={displayBrand} />
+
+            {faqItems.length > 0 && (
+              <>
+                <hr className="border-border" />
+                <BrandFaqAccordion items={faqItems} />
+              </>
+            )}
 
             {displayBrand.customerVoices?.length > 0 && <hr className="border-border" />}
 

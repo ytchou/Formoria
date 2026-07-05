@@ -1,3 +1,5 @@
+import { getSiteUrl } from '../src/lib/site-url'
+
 export function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
@@ -7,10 +9,11 @@ export function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;')
 }
 
-export function listUnsubscribeHeaders(token: string): Record<string, string> {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://formoria.com'
+export function listUnsubscribeHeaders(url: string): Record<string, string> {
   return {
-    'List-Unsubscribe': `<${siteUrl}/api/unsubscribe?token=${token}>`,
+    'List-Unsubscribe': `<${url}>`,
     'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
   }
 }
+
+export const SITE_URL = getSiteUrl()

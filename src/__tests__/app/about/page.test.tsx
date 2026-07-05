@@ -39,6 +39,9 @@ vi.mock('@/components/about/mission-pillars', () => ({
 vi.mock('@/lib/json-ld', () => ({
   buildArticleJsonLd: vi.fn(() => ({ '@context': 'https://schema.org', '@type': 'Article' })),
   buildOrganizationJsonLd: vi.fn(() => ({ '@context': 'https://schema.org', '@type': 'Organization' })),
+  safeJsonLdStringify: vi.fn((data: Record<string, unknown>) =>
+    JSON.stringify(data).replace(/</g, '\\u003c'),
+  ),
 }))
 
 vi.mock('@/lib/seo/alternates', () => ({

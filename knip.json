@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/app/**/{page,layout,route,template,error,not-found,loading,opengraph-image,twitter-image,icon,apple-icon,global-error,robots,sitemap}.{ts,tsx}",
+    "scripts/**/*.{ts,mjs}",
+    "emails/**/*.{ts,tsx}"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "scripts/**/*.{ts,mjs}",
+    "emails/**/*.{ts,tsx}"
+  ],
+  "ignoreDependencies": ["tw-animate-css", "tailwindcss", "shadcn", "@react-email/ui"],
+  "ignoreBinaries": ["dotenv"],
+  "ignore": ["src/lib/supabase/database.types.ts"],
+  "paths": {
+    "@tina/*": ["tina/__generated__/*"]
+  }
+}

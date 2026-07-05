@@ -1,7 +1,19 @@
 import { test, expect } from '@playwright/test';
+import { seedBrand, SeededBrand } from "../helpers/seed";
 
 test.describe('Brand detail deep', () => {
   let brandHref: string;
+  let seeded: SeededBrand;
+
+  test.beforeAll(async ({}, workerInfo) => {
+    seeded = await seedBrand({
+      name: "detail",
+      status: "approved",
+      workerIndex: workerInfo.workerIndex,
+      withLinks: true,
+      withOwner: true,
+    });
+  });
 
   test.beforeAll(async ({ browser }) => {
     const page = await browser.newPage();
@@ -18,7 +30,11 @@ test.describe('Brand detail deep', () => {
       }
     }
     await page.close();
-    brandHref = href ?? '/brands/1973-furniture';
+    brandHref = href ?? `/brands/${seeded.slug}`;
+  });
+
+  test.afterAll(async () => {
+    await seeded.cleanup();
   });
 
   test('all sections render without error', async ({ page }) => {
@@ -31,8 +47,7 @@ test.describe('Brand detail deep', () => {
   test('brand detail shows social and purchase links in two separate sections', async ({ page }) => {
     // Use a known brand that has links data to verify two-section structure.
     // Fall back to the dynamically resolved href if the known brand is absent.
-    // 1973-furniture is in the seed data and has both sections populated.
-    await page.goto('/brands/1973-furniture');
+    await page.goto(`/brands/${seeded.slug}`);
 
     // Verify the social section heading is visible
     await expect(
@@ -52,7 +67,7 @@ test.describe('Brand detail deep', () => {
   });
 
   test('links sections are structurally separate (social before purchase)', async ({ page }) => {
-    await page.goto('/brands/1973-furniture');
+    await page.goto(`/brands/${seeded.slug}`);
 
     const socialHeading = page.getByRole('heading', { name: '社群平台', level: 2 });
     const purchaseHeading = page.getByRole('heading', { name: '購買管道', level: 2 });
@@ -100,5 +115,33 @@ test.describe('Brand detail deep', () => {
     await page.goto(brandHref);
     const canonical = await page.locator('link[rel="canonical"]').getAttribute('href');
     expect(decodeURIComponent(canonical ?? '')).toContain(decodeURIComponent(brandHref));
+  });
+
+  test('FAQ accordion and FAQPage JSON-LD render on a data-rich brand', async ({ page }) => {
+    // Seeded with purchase links and social accounts — FAQ conditions are met
+    // (verified by existing "social and purchase links" test which asserts both sections on this slug)
+    await page.goto(`/brands/${seeded.slug}`);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
+
+    // FAQ section heading is visible (zh-TW default locale — no prefix, brandFaq.sectionTitle = '常見問題')
+    await expect(
+      page.getByRole('heading', { name: '常見問題', level: 2 })
+    ).toBeVisible({ timeout: 10_000 });
+
+    // At least one accordion trigger (FAQ item) is present and visible
+    await expect(
+      page.locator('[data-slot="accordion-trigger"]').first()
+    ).toBeVisible();
+
+    // FAQPage JSON-LD block is appended after the Organization and Breadcrumb blocks
+    const jsonLdTexts = await page
+      .locator('script[type="application/ld+json"]')
+      .evaluateAll((els) => els.map((el) => el.textContent ?? ''));
+    const faqLdText = jsonLdTexts.find((t) => t.includes('"FAQPage"'));
+    expect(faqLdText).toBeDefined();
+    const faqLd = JSON.parse(faqLdText!);
+    expect(faqLd['@type']).toBe('FAQPage');
+    expect(Array.isArray(faqLd.mainEntity)).toBe(true);
+    expect(faqLd.mainEntity.length).toBeGreaterThan(0);
   });
 });

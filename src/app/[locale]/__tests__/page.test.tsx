@@ -16,6 +16,9 @@ vi.mock('next-intl', () => ({
 vi.mock('@/lib/json-ld', () => ({
   buildWebSiteJsonLd: vi.fn(() => ({ '@context': 'https://schema.org' })),
   buildOrganizationJsonLd: vi.fn(() => ({ '@context': 'https://schema.org', '@type': 'Organization' })),
+  safeJsonLdStringify: vi.fn((data: Record<string, unknown>) =>
+    JSON.stringify(data).replace(/</g, '\\u003c'),
+  ),
 }))
 
 vi.mock('@/lib/seo/alternates', () => ({
@@ -113,6 +116,7 @@ function createBrand(overrides: Partial<Brand>): Brand {
     heroImageUrl: null,
     status: 'approved',
     category: null,
+    city: null,
     isVerified: false,
     isDemo: false,
     foundingYear: null,

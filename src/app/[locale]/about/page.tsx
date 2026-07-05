@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { buildArticleJsonLd, buildOrganizationJsonLd } from '@/lib/json-ld'
+import { buildArticleJsonLd, buildOrganizationJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import AboutHero from '@/components/about/about-hero'
@@ -59,19 +59,19 @@ export default async function AboutPage({ params }: PageProps) {
   const articleJsonLd = buildArticleJsonLd({ title, description, path: '/about', locale: safeLocale })
 
   const [stats, recentBrands] = await Promise.all([
-    getBrandStats(),
-    getRecentBrandCount(),
+    getBrandStats().catch(() => ({ brandCount: 0, categoryCount: 0 })),
+    getRecentBrandCount().catch(() => ({ count: 0, period: '30d' as const })),
   ])
 
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(organizationJsonLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(articleJsonLd) }}
       />
       <main>
         <AboutHero

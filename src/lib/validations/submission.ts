@@ -1,4 +1,5 @@
 import { z } from 'zod/v3'
+import { CITY_SLUGS } from '@/lib/constants/taiwan-cities'
 import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
 
 type Translator = (key: string) => string
@@ -31,9 +32,9 @@ function buildFieldSchemas(t: Translator) {
   const socialLinksSchema = z.object({
     instagram: z.string().optional().default(''),
     threads: z.string().optional().default(''),
-    facebook: z.string().optional().default(''),
-    pinkoi: z.string().optional().default(''),
-    shopee: z.string().optional().default(''),
+    facebook: httpUrl(t('validation.urlInvalid')).or(z.literal('')).optional().default(''),
+    pinkoi: httpUrl(t('validation.urlInvalid')).or(z.literal('')).optional().default(''),
+    shopee: httpUrl(t('validation.urlInvalid')).or(z.literal('')).optional().default(''),
     website: httpUrl(t('validation.urlInvalid')).or(z.literal('')).optional().default(''),
   })
 
@@ -45,11 +46,12 @@ function buildFieldSchemas(t: Translator) {
   }
 }
 
-export function getBrandInfoSchema(t: Translator) {
+function getBrandInfoSchema(t: Translator) {
   const { nameField, websiteField } = buildFieldSchemas(t)
   return z.object({
     name: nameField,
     website: websiteField,
+    city: z.enum(CITY_SLUGS).optional(),
   })
 }
 
@@ -102,10 +104,10 @@ const zhT = (key: string): string => {
   return map[key] ?? key
 }
 
-export const brandInfoSchema = getBrandInfoSchema(zhT)
-export const linksSchema = getLinksSchema(zhT)
-export const reviewSchema = getReviewSchema(zhT)
-export const botDetectionSchema = getBotDetectionSchema(zhT)
+const brandInfoSchema = getBrandInfoSchema(zhT)
+const linksSchema = getLinksSchema(zhT)
+const reviewSchema = getReviewSchema(zhT)
+const botDetectionSchema = getBotDetectionSchema(zhT)
 
 const sourceAttributionEnum = z.enum(SOURCE_ATTRIBUTION_VALUES)
 
@@ -179,6 +181,7 @@ export function createSubmissionSchema(isOwner: boolean, t: Translator = zhT) {
   const brandInfoBase = z.object({
     name: nameField,
     website: websiteField,
+    city: z.enum(CITY_SLUGS).optional(),
   })
 
   const linksBase = z.object({

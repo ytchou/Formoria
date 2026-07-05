@@ -8,9 +8,7 @@ vi.mock('@/app/admin/actions', () => ({
   hideBrandAction: vi.fn(),
   unhideBrandAction: vi.fn(),
   deleteBrandAction: vi.fn(),
-  resyncBrandImagesAction: vi.fn(),
   rejectMitAction: vi.fn(),
-  verifyMitAction: vi.fn(),
 }))
 
 const mockBrands = [
@@ -24,6 +22,7 @@ const mockBrands = [
     isVerified: false,
     isDemo: false,
     category: 'Home & Living',
+    city: null,
     foundingYear: null,
     socialInstagram: null,
     socialThreads: null,
@@ -54,6 +53,7 @@ const mockBrands = [
     isVerified: false,
     isDemo: false,
     category: 'Food & Beverage',
+    city: null,
     foundingYear: null,
     socialInstagram: null,
     socialThreads: null,
@@ -84,6 +84,7 @@ const mockBrands = [
     isVerified: false,
     isDemo: false,
     category: null,
+    city: null,
     foundingYear: null,
     socialInstagram: null,
     socialThreads: null,

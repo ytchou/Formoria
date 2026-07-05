@@ -26,7 +26,7 @@ export async function buildMicrositeSpotlightEmail({
   locale = 'zh-TW',
 }: MicrositeSpotlightEmailProps): Promise<EmailMessage> {
   const micrositeUrl = `${SITE_URL}/brands/${brandSlug}`
-  const unsubscribeUrl = `${SITE_URL}/api/unsubscribe?token=${unsubscribeToken}`
+  const unsubscribeUrl = `${SITE_URL}/api/email/unsubscribe?token=${unsubscribeToken}`
   const html = await render(
     locale === 'en' ? (
       <Layout
@@ -74,7 +74,7 @@ export async function buildMicrositeSpotlightEmail({
         ? `Your brand page is ready for "${brandName}" — Formoria`
         : `「${brandName}」的品牌頁已就緒 — Formoria`,
     html,
-    headers: listUnsubscribeHeaders(unsubscribeToken),
+    headers: listUnsubscribeHeaders(unsubscribeUrl),
   }
 }
 

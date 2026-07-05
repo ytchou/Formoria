@@ -23,6 +23,7 @@ function makeEdit(overrides: Partial<PendingEditWithRisk> = {}): PendingEditWith
       name: '暖木家居',
       slug: 'warm-home',
       description: 'Original description',
+      city: null,
       heroImageUrl: null,
       category: null,
       contactEmail: 'owner@example.com',

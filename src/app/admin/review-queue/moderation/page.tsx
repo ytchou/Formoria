@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
-import { redirect } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -8,10 +7,9 @@ import {
   TableCell,
   TableRow,
 } from '@/components/ui/table'
-import { isActingAsAdmin } from '@/lib/auth/admin-mode'
+import { requireAdminPage } from '@/lib/auth/require-admin'
 import { getFlaggedContent } from '@/lib/services/moderation'
 import type { ModerationTier } from '@/lib/services/moderation'
-import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,21 +29,6 @@ interface ModerationPageProps {
     risk?: string
     tier?: string
   }>
-}
-
-async function requireAdmin() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/auth/sign-in?next=/admin/review-queue/moderation')
-  }
-
-  if (!(await isActingAsAdmin(user.email))) {
-    redirect('/')
-  }
 }
 
 function formatDate(value: string) {
@@ -95,7 +78,7 @@ function RiskBadge({
 }
 
 export default async function ReviewQueueModerationPage({ searchParams }: ModerationPageProps) {
-  await requireAdmin()
+  await requireAdminPage('/admin/review-queue/moderation')
   const t = await getTranslations('admin.moderation')
   const params = await searchParams
   const riskFilter = normalizeRiskFilter(params.risk)

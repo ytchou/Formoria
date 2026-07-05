@@ -59,6 +59,12 @@ vi.mock('@/lib/auth/admin-mode', () => ({
   isActingAsAdmin: vi.fn().mockResolvedValue(true),
 }))
 
+vi.mock('@/lib/auth/require-admin', () => ({
+  requireAdminAction: vi.fn().mockResolvedValue({
+    user: { id: 'admin-1', email: 'admin@formoria.com' },
+  }),
+}))
+
 vi.mock('@/lib/security/rate-limiter', () => ({
   rateLimit: vi.fn().mockResolvedValue({ success: true, remaining: 10 }),
 }))
@@ -144,6 +150,10 @@ vi.mock('@/lib/services/email-lifecycle', () => ({
   createEmailPreferences: vi.fn().mockResolvedValue({ data: {}, error: null }),
 }))
 
+vi.mock('@/lib/services/profiles', () => ({
+  getOwnerLocale: vi.fn().mockResolvedValue('zh-TW'),
+}))
+
 vi.mock('@/lib/auth/claim-token', () => ({
   generateClaimToken: vi.fn(),
 }))
@@ -162,7 +172,6 @@ describe('admin actions module', () => {
     expect(typeof mod.hideBrandAction).toBe('function')
     expect(typeof mod.unhideBrandAction).toBe('function')
     expect(typeof mod.deleteBrandAction).toBe('function')
-    expect(typeof mod.resyncBrandImagesAction).toBe('function')
     expect(typeof mod.approvePendingEditAction).toBe('function')
     expect(typeof mod.rejectPendingEditAction).toBe('function')
   })
@@ -201,6 +210,44 @@ describe('approveClaimAction', () => {
     expect(result).toBeUndefined()
     expect(approveClaimRequest).toHaveBeenCalledWith('claim-1', 'admin-1')
     expect(createEmailPreferences).toHaveBeenCalledWith(expect.anything(), 'owner-1')
+  })
+
+  it("claim-approved email is delivered in the owner's preferred language", async () => {
+    const { getClaimRequest } = await import('@/lib/services/claim-requests')
+    const { getOwnerLocale } = await import('@/lib/services/profiles')
+    const { buildClaimApprovedEmail } = await import('@/lib/email/templates')
+    vi.mocked(getOwnerLocale).mockResolvedValueOnce('en')
+    vi.mocked(buildClaimApprovedEmail).mockResolvedValue({
+      to: 'owner@example.com',
+      from: 'ops@formoria.com',
+      subject: 'claim approved',
+      html: '',
+    })
+    vi.mocked(getClaimRequest).mockResolvedValue({
+      id: 'claim-1',
+      brandId: 'brand-1',
+      userId: 'owner-1',
+      proofType: 'domain_email',
+      proofUrl: null,
+      proofNotes: null,
+      proofEvidence: [],
+      mitSmileCert: null,
+      status: 'pending',
+      reviewerNotes: null,
+      reviewedAt: null,
+      reviewedBy: null,
+      createdAt: '2026-01-01T00:00:00Z',
+      brandName: 'Test Brand',
+      brandSlug: 'test-brand',
+      requesterEmail: 'owner@example.com',
+    })
+
+    const { approveClaimAction } = await import('./actions')
+    await approveClaimAction('claim-1')
+
+    expect(buildClaimApprovedEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ locale: 'en' }),
+    )
   })
 })
 
@@ -402,43 +449,6 @@ describe('updateBrandAction moderation audit', () => {
   })
 })
 
-describe('MIT verification actions', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('verifies MIT status by cert number', async () => {
-    const { verifyMitByCert } = await import('@/lib/services/mit-verification')
-    vi.mocked(verifyMitByCert).mockResolvedValue({ data: { id: 'brand-1', name: 'Test Brand' } })
-
-    const { verifyMitAction } = await import('./actions')
-    const result = await verifyMitAction('brand-1', '01200024-02134')
-
-    expect(result).toBeUndefined()
-    expect(verifyMitByCert).toHaveBeenCalledWith('brand-1', '01200024-02134')
-  })
-})
-
-describe('resyncBrandImagesAction', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('returns sync counts and revalidates admin brands', async () => {
-    const { getBrandById, syncBrandImages } = await import('@/lib/services/brands')
-    const { revalidatePath } = await import('next/cache')
-    vi.mocked(getBrandById).mockResolvedValue({ id: 'brand-1', slug: 'test-brand' } as Awaited<ReturnType<typeof getBrandById>>)
-    vi.mocked(syncBrandImages).mockResolvedValue({ synced: 2, failed: 1 })
-
-    const { resyncBrandImagesAction } = await import('./actions')
-    const result = await resyncBrandImagesAction('brand-1')
-
-    expect(syncBrandImages).toHaveBeenCalledWith('brand-1')
-    expect(revalidatePath).toHaveBeenCalledWith('/admin/catalog/brands')
-    expect(result).toEqual({ synced: 2, failed: 1 })
-  })
-})
-
 describe('reviewReportAction', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -451,35 +461,25 @@ describe('reviewReportAction', () => {
   })
 
   it('returns error when not admin', async () => {
-    const { isActingAsAdmin } = await import('@/lib/auth/admin-mode')
-    vi.mocked(isActingAsAdmin).mockResolvedValueOnce(false)
+    const { requireAdminAction } = await import('@/lib/auth/require-admin')
+    vi.mocked(requireAdminAction).mockResolvedValueOnce({
+      error: 'You are not authorized to perform this action',
+      code: 'forbidden',
+    })
     const { reviewReportAction } = await import('./actions')
     const result = await reviewReportAction('report-uuid-1', 'reviewed')
     expect(result?.error).toBeTruthy()
   })
 
   it('requireAdmin denies a user without admin access', async () => {
-    const { isActingAsAdmin } = await import('@/lib/auth/admin-mode')
-    vi.mocked(isActingAsAdmin).mockResolvedValueOnce(false)
+    const { requireAdminAction } = await import('@/lib/auth/require-admin')
+    vi.mocked(requireAdminAction).mockResolvedValueOnce({
+      error: 'You are not authorized to perform this action',
+      code: 'forbidden',
+    })
     const { reviewReportAction } = await import('./actions')
     const result = await reviewReportAction('report-uuid-1', 'reviewed')
     expect(result).toMatchObject({ error: expect.any(String) })
-  })
-})
-
-describe('bulkUpdateReportsAction', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('returns updated count on success', async () => {
-    const { updateReportStatus } = await import('@/lib/services/reports')
-    vi.mocked(updateReportStatus).mockResolvedValue(undefined)
-
-    const { bulkUpdateReportsAction } = await import('./actions')
-    const result = await bulkUpdateReportsAction(['r1', 'r2'], 'dismissed')
-    expect(result.updated).toBe(2)
-    expect(result.errors).toHaveLength(0)
   })
 })
 
@@ -496,12 +496,15 @@ describe('reviewFeedbackAction', () => {
   })
 
   it('returns error when user is not admin', async () => {
-    const { isActingAsAdmin } = await import('@/lib/auth/admin-mode')
-    vi.mocked(isActingAsAdmin).mockResolvedValueOnce(false)
+    const { requireAdminAction } = await import('@/lib/auth/require-admin')
+    vi.mocked(requireAdminAction).mockResolvedValueOnce({
+      error: 'You are not authorized to perform this action',
+      code: 'forbidden',
+    })
     const { reviewFeedbackAction } = await import('./actions')
     const result = await reviewFeedbackAction('feedback-id-1', 'reviewed')
 
-    expect(result).toEqual({ error: expect.any(String) })
+    expect(result).toMatchObject({ error: expect.any(String) })
   })
 
   it('returns error when service throws', async () => {
@@ -560,6 +563,19 @@ describe('refreshHealthChecks', () => {
 
     await expect(refreshHealthChecks()).resolves.not.toThrow()
     expect(revalidatePath).toHaveBeenCalledWith('/admin')
+  })
+
+  it('returns early for non-admin callers', async () => {
+    const { requireAdminAction } = await import('@/lib/auth/require-admin')
+    vi.mocked(requireAdminAction).mockResolvedValueOnce({
+      error: 'You must authenticate to perform this action',
+      code: 'unauthenticated',
+    })
+
+    await refreshHealthChecks()
+
+    expect(checkAllServices).not.toHaveBeenCalled()
+    expect(revalidatePath).not.toHaveBeenCalledWith('/admin')
   })
 })
 

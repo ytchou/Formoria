@@ -85,6 +85,12 @@ A global client-island indicator/exit bar, **`AdminModeBar`**, renders on every 
 
 Middleware provisions `fm_mode=god` for real admins and deletes the cookie for non-admins. No DB migration is required.
 
+### Owner Dashboard
+Post-claim management surface at `/dashboard` (protected; Supabase Auth; brand owners + god-mode admins per DEV-764).
+- Feature-based tabs: Brand Profile (`/dashboard`), Analytics, Health, Verification; the active brand is selected via `?brand=<slug>` (ownership-guarded resolution, falls back to the first owned brand)
+- Brand Profile tab composes editable listing sections (header, about, links, customer voices, product photos, retail locations)
+- **Featured on Formoria growth loop (DEV-925):** approved brands get a share section with (a) an embeddable badge — static SVG plus a copy-paste dofollow snippet linking to the brand's public page with UTM params (`utm_source=badge&utm_medium=referral&utm_campaign=featured_badge&utm_content=<slug>`) — and (b) an auto-generated 1080×1350 share card served on demand at `/api/share-card/[slug]`. The claim-approved email surfaces both (card preview + download CTA + dashboard deep link)
+
 ## Business Rules
 1. A brand must be approved by admin before appearing publicly
 2. Only products manufactured in Taiwan qualify (not just Taiwanese-owned)
@@ -94,6 +100,7 @@ Middleware provisions `fm_mode=god` for real admins and deletes the cookie for n
 6. Brand owners authenticate via Supabase Auth to manage their listing post-approval
 7. Admin role is hardcoded (specific email addresses in env var)
 8. Auto-tagging assigns product categories via keyword matching as an automated supplement to admin-defined taxonomy. Admin can override auto-assigned categories.
+9. Share assets (badge snippet, share card) are exposed only for approved brands — hidden or pending brands never serve a share card (404) or show the badge section.
 
 ### Taxonomy Closed Vocabularies (DEV-802)
 - `region`: closed vocabulary of Taiwan's 22 cities/counties plus `全台灣`; max 1 per brand.
@@ -188,9 +195,11 @@ See `docs/strategy/brand-success-playbook.md` for full specification.
 
 ## Observability
 - PostHog: page views, filter usage, brand detail visits, submission funnel
+- GA4: owner share events (`badge_copied`, `card_downloaded` via `trackListingSharedByOwner`); badge referral sessions attributed through standard UTM extraction (first/last-touch, `utm_medium=badge`, per-brand `utm_content`)
 - Sentry: error tracking with source maps
 - Railway: built-in request metrics and logs
 - In-app: Admin dashboard system status card — server-side health checks on demand (not a replacement for external dashboards)
+- CI/CD alerting: Slack notification on nightly e2e failure via `SLACK_WEBHOOK_E2E_NIGHTLY`; GitHub Issues for audit trail
 
 ## Performance Targets
 - Initial page load: < 2s (LCP)

@@ -50,8 +50,6 @@ const ALLOWLIST = [
   'lib/services/enrich-phases/scraper/search.ts',
   // Enrich-phase labels are admin-only display constants (not user-facing i18n copy).
   'lib/constants/enrich-phases.ts',
-  // Field labels are admin-only display constants (not user-facing i18n copy).
-  'lib/constants/field-labels.ts',
   // Enrich-phase search queries use Chinese keywords to find Taiwan brand data (not UI copy).
   'lib/services/enrich-phases/discover.ts',
   'lib/services/enrich-phases/image-search.ts',
@@ -66,6 +64,7 @@ const ALLOWLIST = [
   // LLM user message templates still contain Chinese field labels (not UI copy).
   'lib/services/description-rewrite.ts',
   'lib/services/product-type-classifier.ts',
+  'lib/services/expansion-research.ts',
   // SERP query string uses Chinese keyword '台灣' (not UI copy).
   'lib/services/curation-operations.ts',
   // Transitional: real messages come from the i18n factory; static fallback map
@@ -80,6 +79,10 @@ const ALLOWLIST = [
   'app/api/webhooks/tally/route.ts',
   // MIT registry parser uses Chinese column header keys from the government CSV dataset (not UI copy).
   'lib/services/mit-registry.ts',
+  // Share card is a satori-rendered PNG image (same as OG images) — zh-TW headline by design.
+  'lib/growth/share-card.tsx',
+  // Badge embed snippet alt text is intentional zh-TW brand copy pasted into third-party sites.
+  'lib/growth/share-assets.ts',
 ]
 
 function isAllowlisted(relPath: string): boolean {

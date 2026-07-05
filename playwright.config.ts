@@ -63,9 +63,13 @@ export default defineConfig({
   globalSetup: './e2e/global-setup.ts',
   globalTeardown: './e2e/global-teardown.ts',
   webServer: {
-    command: process.env.BASE_URL ? `PORT=${new URL(process.env.BASE_URL).port} pnpm dev` : 'pnpm dev',
+    command: process.env.CI
+      ? 'pnpm start'
+      : process.env.BASE_URL
+        ? `PORT=${new URL(process.env.BASE_URL).port} pnpm dev`
+        : 'pnpm dev',
     url: process.env.BASE_URL ?? 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: process.env.CI ? 60_000 : 120_000,
   },
 });

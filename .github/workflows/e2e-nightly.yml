@@ -33,6 +33,17 @@ jobs:
           node-version: 22
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
+      - name: Restore Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('src/**/*.ts', 'src/**/*.tsx', 'src/**/*.js', 'src/**/*.jsx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
+            ${{ runner.os }}-nextjs-
+      - run: pnpm exec tinacms build --local --skip-cloud-checks
+      - name: Build Next.js (production)
+        run: pnpm build
       - run: npx playwright install --with-deps chromium
       - run: pnpm exec playwright test --project=deep
       - uses: actions/upload-artifact@v4
@@ -110,3 +121,16 @@ jobs:
               core.warning(`Unable to create or update nightly e2e alert issue: ${message}`);
               console.log(error);
             }
+      - name: Notify Slack on failure
+        if: failure()
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_E2E_NIGHTLY }}
+        run: |
+          curl -fsSL -X POST "$SLACK_WEBHOOK" \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -n \
+              --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+              --arg date "$(date -u +%Y-%m-%d)" \
+              '{text: ":red_circle: *E2E nightly failed* (\($date))\n<\($url)|View run>"}'
+            )"

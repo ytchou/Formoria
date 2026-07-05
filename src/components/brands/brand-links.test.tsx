@@ -10,7 +10,6 @@ const mockTrackDbClick = vi.fn()
 vi.mock('@/lib/analytics', () => ({
   trackExternalLinkClicked: (...args: unknown[]) => mockTrackExternalLinkClicked(...args),
   trackDbClick: (...args: unknown[]) => mockTrackDbClick(...args),
-  mapPurchaseDestination: vi.fn((platform: string) => platform),
 }))
 
 import { BrandLinks } from './brand-links'
@@ -25,6 +24,7 @@ const mockBrand = {
   isVerified: false,
   isDemo: false,
   heroImageUrl: null,
+  city: null,
   foundingYear: null,
   productPhotos: [],
   socialInstagram: null,

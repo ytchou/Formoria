@@ -9,9 +9,9 @@ import type { Brand } from '@/lib/types'
 
 vi.mock('../actions', () => ({ updateBrandAction: vi.fn() }))
 
-const render = (ui: ReactElement) =>
+const render = (ui: ReactElement, locale = 'en') =>
   rtlRender(
-    <NextIntlClientProvider locale="en" messages={enMessages}>
+    <NextIntlClientProvider locale={locale} messages={enMessages}>
       {ui}
     </NextIntlClientProvider>,
   )
@@ -26,6 +26,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     status: 'approved',
     productType: 'fashion',
     category: 'fashion',
+    city: null,
     isVerified: false,
     isDemo: false,
     socialInstagram: null,
@@ -34,6 +35,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     purchaseWebsite: null,
     purchasePinkoi: null,
     purchaseShopee: null,
+    mitStory: null,
     otherUrls: [],
     retailLocations: [],
     customerVoices: [],
@@ -58,7 +60,14 @@ describe('BrandEditForm — sections', () => {
     render(<BrandEditForm brand={mockBrand} />)
     expect(screen.getByLabelText(/description/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/category/i)).toHaveValue('fashion')
+    expect(screen.getByLabelText(/city\/county/i)).toHaveValue('')
     expect(screen.getByLabelText(/founding year/i)).toBeInTheDocument()
+  })
+
+  it('renders the city select with Taiwan cities', () => {
+    render(<BrandEditForm brand={makeBrand({ city: 'taipei' })} />)
+    expect(screen.getByLabelText(/city\/county/i)).toHaveValue('taipei')
+    expect(screen.getByRole('option', { name: 'Taipei City' })).toBeInTheDocument()
   })
 
   it('renders Media section with hero upload field', () => {
@@ -74,6 +83,22 @@ describe('BrandEditForm — sections', () => {
   it('renders Locations section with retail locations array', () => {
     render(<BrandEditForm brand={mockBrand} />)
     expect(screen.getByRole('button', { name: /add.*location/i })).toBeInTheDocument()
+  })
+
+  it('renders the MIT story textarea', () => {
+    const brand = makeBrand({ mitStory: 'Our looms have been running since 1960.' })
+    render(<BrandEditForm brand={brand} />)
+    const textarea = screen.getByRole('textbox', { name: /MIT Manufacturing Story/i })
+    expect(textarea).toBeInTheDocument()
+    expect(textarea).toHaveValue('Our looms have been running since 1960.')
+    expect(textarea).toHaveAttribute('name', 'mitStory')
+  })
+
+  it('renders empty MIT story textarea when brand has no story', () => {
+    const brand = makeBrand({ mitStory: null })
+    render(<BrandEditForm brand={brand} />)
+    const textarea = screen.getByRole('textbox', { name: /MIT Manufacturing Story/i })
+    expect(textarea).toHaveValue('')
   })
 
 })

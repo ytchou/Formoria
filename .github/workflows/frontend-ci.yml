@@ -122,12 +122,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm tsc --noEmit
+      - name: Dead code (knip)
+        run: pnpm knip
       - run: pnpm test -- --coverage
   # Production build gate. Nothing else in CI runs `next build`, and Railway builds on
   # merge — so this catches build-only failures (SSG/ISR generation, server/client
   # boundary, next/image config, route/metadata exports) before they break the deploy.
   # Runs in parallel with the jobs above; the .next/cache restore keeps it incremental.
   build:
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:

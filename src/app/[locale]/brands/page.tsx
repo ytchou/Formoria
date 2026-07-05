@@ -1,9 +1,10 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
-import { getTranslations, setRequestLocale } from 'next-intl/server'
+import { NextIntlClientProvider } from 'next-intl'
+import { getTranslations, setRequestLocale, getMessages } from 'next-intl/server'
 import { getBrands, getPopularCategories, getFeaturedBrands } from '@/lib/services/brands'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
-import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildWebSiteJsonLd } from '@/lib/json-ld'
+import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildBrandsItemListJsonLd, buildWebSiteJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { parsePageParam, parseSortParam, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import {
   BrandFilterDrawer,
@@ -22,6 +23,8 @@ import type { BrandFilters } from '@/lib/types'
 
 // ISR: revalidate every hour
 export const revalidate = 3600
+
+const VALID_CATEGORY_SLUGS: Set<string> = new Set(PRODUCT_TYPE_CATEGORIES.map((c) => c.slug))
 
 interface BrandsPageProps {
   params: Promise<{ locale: string }>
@@ -117,7 +120,10 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   const { locale } = await params
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const t = await getTranslations('brands')
+  const [t, messages] = await Promise.all([
+    getTranslations('brands'),
+    getMessages(),
+  ])
   const sp = await searchParams
 
   const page = parsePageParam(sp.page as string | undefined)
@@ -125,13 +131,14 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   const search =
     typeof sp.search === 'string' ? sp.search.trim() : ''
   const categoryFilter = parseCommaParam(sp.category)
+  const validCategoryFilter = categoryFilter.filter((slug) => VALID_CATEGORY_SLUGS.has(slug))
   const priceRanges = parsePriceRanges(sp.price)
   const verificationFilter = parseVerificationParam(sp.verification)
 
   const { brands, totalCount } = await getBrands({
     status: 'approved',
     search: search || undefined,
-    category: categoryFilter.length > 0 ? categoryFilter : undefined,
+    category: validCategoryFilter.length > 0 ? validCategoryFilter : undefined,
     priceRanges: priceRanges.length > 0 ? priceRanges : undefined,
     verificationFilter,
     sort,
@@ -149,7 +156,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
     const refetched = await getBrands({
       status: 'approved',
       search: search || undefined,
-      category: categoryFilter.length > 0 ? categoryFilter : undefined,
+      category: validCategoryFilter.length > 0 ? validCategoryFilter : undefined,
       priceRanges: priceRanges.length > 0 ? priceRanges : undefined,
       verificationFilter,
       sort,
@@ -161,7 +168,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
 
   // Fetch empty-state fallback data when search yields zero results
   const hasActiveFilters =
-    categoryFilter.length > 0 || priceRanges.length > 0 || verificationFilter !== 'all'
+    validCategoryFilter.length > 0 || priceRanges.length > 0 || verificationFilter !== 'all'
   let emptyStateData: {
     categories: { productType: string; count: number }[]
     featured: { id: string; name: string; slug: string; heroImageUrl: string | null; category: string }[]
@@ -178,14 +185,28 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   const paginationParams: Record<string, string> = {}
   if (search) paginationParams.search = search
   if (sort !== 'name') paginationParams.sort = sort
-  if (categoryFilter.length > 0) paginationParams.category = categoryFilter.join(',')
+  if (validCategoryFilter.length > 0) paginationParams.category = validCategoryFilter.join(',')
   if (priceRanges.length > 0) paginationParams.price = priceRanges.join(',')
   if (verificationFilter !== 'all') paginationParams.verification = verificationFilter
 
   let categoryItemListJsonLd = null
   let categoryBreadcrumbJsonLd = null
-  if (categoryFilter.length === 1) {
-    const categorySlug = categoryFilter[0]
+  let brandsItemListJsonLd = null
+  const hasNoCategoryFilter = validCategoryFilter.length === 0
+  const hasNoSearchQuery = !search
+  const hasNoPriceRangeFilter = priceRanges.length === 0
+  const hasNoVerificationFilter = verificationFilter === 'all'
+  if (
+    hasNoCategoryFilter &&
+    hasNoSearchQuery &&
+    hasNoPriceRangeFilter &&
+    hasNoVerificationFilter &&
+    page === 1
+  ) {
+    brandsItemListJsonLd = buildBrandsItemListJsonLd(displayBrands, safeLocale)
+  }
+  if (validCategoryFilter.length === 1) {
+    const categorySlug = validCategoryFilter[0]
     const catT = await getTranslations('categories')
     const categoryTag = PRODUCT_TYPE_CATEGORIES.find((c) => c.slug === categorySlug)
 
@@ -209,22 +230,29 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   }
 
   return (
+    <NextIntlClientProvider messages={messages}>
     <main className="mx-auto grid w-full max-w-screen-xl gap-8 px-6 py-10 md:px-10 lg:grid-cols-[16rem_minmax(0,1fr)]">
       {/* JSON-LD structured data */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildWebSiteJsonLd(safeLocale)) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(buildWebSiteJsonLd(safeLocale)) }}
       />
+      {brandsItemListJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(brandsItemListJsonLd) }}
+        />
+      ) : null}
       {categoryItemListJsonLd ? (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(categoryItemListJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(categoryItemListJsonLd) }}
         />
       ) : null}
       {categoryBreadcrumbJsonLd ? (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(categoryBreadcrumbJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(categoryBreadcrumbJsonLd) }}
         />
       ) : null}
       <ViewItemListTracker listName="directory" itemCount={displayBrands.length} />
@@ -309,5 +337,6 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
         />
       </div>
     </main>
+    </NextIntlClientProvider>
   )
 }

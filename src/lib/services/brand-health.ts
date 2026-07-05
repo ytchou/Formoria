@@ -1,9 +1,9 @@
 import type { AnalyticsResult } from './brand-analytics'
 import { computeBrandCompleteness } from './brand-completeness'
-import type { Database } from '@/lib/database.types'
+import type { Database } from '@/lib/supabase/database.types'
 import type { Brand as AppBrand } from '@/lib/types/brand'
 
-declare module '@/lib/database.types' {
+declare module '@/lib/supabase/database.types' {
   export interface Brand extends AppBrand {
     [key: string]: unknown
     created_at?: string | null
@@ -43,7 +43,7 @@ export type ActionNudge = {
   points: number
 }
 
-export type HealthTier = 'gettingStarted' | 'growing' | 'thriving' | 'exemplary'
+type HealthTier = 'gettingStarted' | 'growing' | 'thriving' | 'exemplary'
 
 export type BrandHealthScore = {
   overall: number

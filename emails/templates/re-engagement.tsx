@@ -25,7 +25,7 @@ export async function buildReEngagementEmail({
   locale = 'zh-TW',
 }: ReEngagementEmailProps): Promise<EmailMessage> {
   const dashboardUrl = `${SITE_URL}/dashboard?tab=${brandSlug}`
-  const unsubscribeUrl = `${SITE_URL}/api/unsubscribe?token=${unsubscribeToken}`
+  const unsubscribeUrl = `${SITE_URL}/api/email/unsubscribe?token=${unsubscribeToken}`
   const html = await render(
     locale === 'en' ? (
       <Layout
@@ -61,6 +61,6 @@ export async function buildReEngagementEmail({
         ? `Come back and complete "${brandName}" — Formoria`
         : `回來完善「${brandName}」的品牌頁 — Formoria`,
     html,
-    headers: listUnsubscribeHeaders(unsubscribeToken),
+    headers: listUnsubscribeHeaders(unsubscribeUrl),
   }
 }

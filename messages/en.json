@@ -25,7 +25,8 @@
     "signIn": "Sign in",
     "languageLabel": "Switch language",
     "about": "About Formoria",
-    "myBrands": "My Brands"
+    "myBrands": "My Brands",
+    "guides": "Guides"
   },
   "footer": {
     "about": "About",
@@ -217,6 +218,8 @@
       },
       "notesLabel": "Notes (optional)",
       "notesPlaceholder": "Add any helpful context.",
+      "city": "Brand City/County",
+      "cityPlaceholder": "Select city (optional)",
       "signIn": "Sign in",
       "submitting": "Submitting claim...",
       "submit": "Submit claim request",
@@ -225,6 +228,58 @@
     },
     "loadingAria": "Loading brands...",
     "noResultsInSuggestions": "No results found"
+  },
+  "stats": {
+    "metadata": {
+      "title": "Taiwan Brand Statistics | Formoria",
+      "description": "Live statistics on Taiwan's brand ecosystem — total brands, category breakdown, MIT-verified share, and founding decade distribution."
+    },
+    "hero": {
+      "title": "Taiwan Brand Statistics",
+      "subtitle": "Live data from the Formoria directory",
+      "totalBrands": "{count} brands tracked",
+      "asOf": "Data as of {date}"
+    },
+    "categories": {
+      "title": "Category Breakdown",
+      "description": "{count} brands across all categories",
+      "brandCount": "{count} brands"
+    },
+    "mitVerified": {
+      "title": "MIT Verified",
+      "description": "{verified} of {total} brands are MIT-verified ({percentage}%)"
+    },
+    "geographicDistribution": "Geographic Distribution",
+    "geographicDistributionDesc": "Brand distribution across Taiwan's cities and counties",
+    "noCityData": "No city data available yet",
+    "foundingDecade": {
+      "title": "Founding Decade Distribution",
+      "description": "When Taiwan's brands were established"
+    }
+  },
+  "cities": {
+    "taipei": "Taipei City",
+    "new_taipei": "New Taipei City",
+    "taoyuan": "Taoyuan City",
+    "taichung": "Taichung City",
+    "tainan": "Tainan City",
+    "kaohsiung": "Kaohsiung City",
+    "keelung": "Keelung City",
+    "hsinchu_city": "Hsinchu City",
+    "chiayi_city": "Chiayi City",
+    "hsinchu_county": "Hsinchu County",
+    "miaoli": "Miaoli County",
+    "changhua": "Changhua County",
+    "nantou": "Nantou County",
+    "yunlin": "Yunlin County",
+    "chiayi_county": "Chiayi County",
+    "pingtung": "Pingtung County",
+    "yilan": "Yilan County",
+    "hualien": "Hualien County",
+    "taitung": "Taitung County",
+    "penghu": "Penghu County",
+    "kinmen": "Kinmen County",
+    "lienchiang": "Lienchiang County"
   },
   "brandDetail": {
     "metadata": {
@@ -305,7 +360,8 @@
       "highlights": "Brand Highlights",
       "photos": "Photos",
       "customerVoices": "Customer Voices",
-      "locations": "Locations"
+      "locations": "Locations",
+      "faq": "Frequently Asked Questions"
     },
     "gallery": {
       "viewer": "Photo viewer",
@@ -342,6 +398,71 @@
         "invalidImageKey": "Uploaded proof image is not valid for this user",
         "duplicate": "You have already submitted a claim for this brand",
         "unknown": "Something went wrong. Please try again."
+      }
+    },
+    "brandIntro": {
+      "identity": "{brandName} is a {category} brand from Taiwan.",
+      "identityNoCat": "{brandName} is a brand from Taiwan.",
+      "founded": "Founded in {year},",
+      "mitVerified": "it is verified as Made in Taiwan.",
+      "price": "Products are in the {range} price range.",
+      "purchase": "Available for purchase through {channels}."
+    },
+    "brandFaq": {
+      "priceRanges": {
+        "budget": "budget-friendly",
+        "midRange": "mid-range",
+        "premium": "premium"
+      },
+      "isMadeInTaiwan": {
+        "question": "Is {brandName} made in Taiwan?",
+        "answer": "Yes, {brandName} is a verified Made in Taiwan brand."
+      },
+      "whereToBuy": {
+        "question": "Where can I buy {brandName} products?",
+        "answer": "You can purchase {brandName} products through {channels}."
+      },
+      "hasPhysicalStores": {
+        "question": "Does {brandName} have physical stores?",
+        "answer": "{brandName} has physical locations including {locations}."
+      },
+      "mainProducts": {
+        "question": "What products does {brandName} make?",
+        "answerWithCategoryAndTags": "{brandName} specializes in {category}, including {productTags}.",
+        "answerWithCategory": "{brandName} specializes in {category}.",
+        "answerWithTags": "{brandName} specializes in products including {productTags}."
+      },
+      "priceRange": {
+        "question": "What is {brandName}'s price range?",
+        "answer": "{brandName} products are positioned in the {range} price range."
+      },
+      "whenFounded": {
+        "question": "When was {brandName} founded?",
+        "answer": "{brandName} was founded in {year}."
+      },
+      "officialAccounts": {
+        "question": "Where are {brandName}'s official social media accounts?",
+        "answer": "You can follow {brandName} on {accounts}."
+      },
+      "reputation": {
+        "question": "What is {brandName}'s reputation?",
+        "answer": "{summary}"
+      },
+      "manufacturing": {
+        "question": "Where is {brandName} manufactured?",
+        "answer": "{details}"
+      },
+      "certifications": {
+        "question": "What certifications does {brandName} have?",
+        "answer": "{certList}"
+      },
+      "returnPolicy": {
+        "question": "What is {brandName}'s return policy?",
+        "answer": "{details}"
+      },
+      "internationalShipping": {
+        "question": "Does {brandName} ship internationally?",
+        "answer": "{details}"
       }
     }
   },
@@ -918,11 +1039,26 @@
         "back": "Back to checklist"
       },
       "steps": {
-        "basics": { "title": "Confirm brand basics", "description": "Review the brand name, founding year, and price range." },
-        "products": { "title": "Confirm products", "description": "Review the specific product tags that help people discover the brand." },
-        "story_media": { "title": "Review story and visuals", "description": "Check the brand description, hero image, and product photos." },
-        "purchase": { "title": "Confirm purchase channels", "description": "Review marketplace links, other URLs, and retail locations." },
-        "social_proof": { "title": "Confirm social presence", "description": "Review social accounts and customer voices." }
+        "basics": {
+          "title": "Confirm brand basics",
+          "description": "Review the brand name, founding year, and price range."
+        },
+        "products": {
+          "title": "Confirm products",
+          "description": "Review the specific product tags that help people discover the brand."
+        },
+        "story_media": {
+          "title": "Review story and visuals",
+          "description": "Check the brand description, hero image, and product photos."
+        },
+        "purchase": {
+          "title": "Confirm purchase channels",
+          "description": "Review marketplace links, other URLs, and retail locations."
+        },
+        "social_proof": {
+          "title": "Confirm social presence",
+          "description": "Review social accounts and customer voices."
+        }
       },
       "milestone": {
         "gettingStarted": "Great start! Keep improving your brand page.",
@@ -1109,6 +1245,8 @@
       "fieldLogo": "Logo",
       "fieldHeroImage": "Hero Image",
       "fieldProductPhotos": "Product photos",
+      "city": "City/County",
+      "cityPlaceholder": "Select city",
       "fieldOfficialWebsite": "Official Website",
       "fieldInstagram": "Instagram",
       "fieldThreads": "Threads",
@@ -1149,7 +1287,16 @@
       "fieldRegionOptionalHint": "optional",
       "fieldValueTags": "Brand Values",
       "fieldValueTagsHint": "Select up to 3 values that describe the brand",
-      "fieldValueTagsOptionalHint": "optional"
+      "fieldValueTagsOptionalHint": "optional",
+      "mitStoryLabel": "MIT Manufacturing Story",
+      "mitStoryPlaceholder": "Share your manufacturing craftsmanship, materials sourcing, and factory partnerships…"
+    },
+    "badge": {
+      "title": "Share your brand",
+      "description": "Add the Featured on Formoria badge to your website, or download your share card.",
+      "copy": "Copy embed code",
+      "copied": "Copied!",
+      "download": "Download share card"
     },
     "brandProfile": {
       "customerVoices": "Customer Voices",
@@ -1251,6 +1398,8 @@
       "friend_recommended": "Friend recommended",
       "work_there": "Work there"
     },
+    "city": "Brand City",
+    "cityPlaceholder": "Select a county/city (optional)",
     "fields": {
       "brandName": "Brand Name",
       "brandNamePlaceholder": "e.g. Rain Boot Studio",
@@ -1601,5 +1750,19 @@
     "banner": "Viewing as {brandName}",
     "exit": "Exit",
     "timeRemaining": "{minutes}m remaining"
+  },
+  "guides": {
+    "metaTitle": "Taiwan Brand Guides | Formoria",
+    "metaDescription": "Explore curated Taiwan brand guides, from skincare to food, and discover the best Made in Taiwan brands.",
+    "heading": "Taiwan Brand Guides",
+    "subheading": "Explore Taiwan brands, industries, and purchasing context. From daily skincare to local food, find the guides you are looking for.",
+    "badgeLabel": "Guide Hub",
+    "allCategories": "All",
+    "comingSoon": "coming soon"
+  },
+  "guideDetail": {
+    "metadata": {
+      "notFoundTitle": "Guide Not Found"
+    }
   }
 }

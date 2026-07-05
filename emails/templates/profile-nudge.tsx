@@ -44,7 +44,7 @@ export async function buildProfileNudgeEmail({
   locale = 'zh-TW',
 }: ProfileNudgeEmailProps): Promise<EmailMessage> {
   const dashboardUrl = `${SITE_URL}/dashboard`
-  const unsubscribeUrl = `${SITE_URL}/api/unsubscribe?token=${unsubscribeToken}`
+  const unsubscribeUrl = `${SITE_URL}/api/email/unsubscribe?token=${unsubscribeToken}`
   const fieldLabels = locale === 'en' ? FIELD_LABELS_EN : FIELD_LABELS_ZH
   const missingLabels = missingFields.map((field) => fieldLabels[field] ?? field)
   const html = await render(
@@ -88,7 +88,7 @@ export async function buildProfileNudgeEmail({
         ? `Complete your brand profile for "${brandName}" — Formoria`
         : `完善「${brandName}」的品牌資料 — Formoria`,
     html,
-    headers: listUnsubscribeHeaders(unsubscribeToken),
+    headers: listUnsubscribeHeaders(unsubscribeUrl),
   }
 }
 

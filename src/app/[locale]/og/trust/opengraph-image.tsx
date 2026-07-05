@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og'
 import { getTranslations } from 'next-intl/server'
 import { brand } from '@/lib/brand/colors'
+import { OgLayout } from '@/lib/brand/og-layout'
 import { getOgFonts, getOgMarkDataUri } from '@/lib/brand/og-fonts'
 
 export const alt = 'Formoria — trust'
@@ -16,77 +17,76 @@ export default async function OgImage({ params }: { params: Promise<{ locale: st
 
     return new ImageResponse(
       (
-        <div
-          style={{
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            backgroundColor: brand.bg,
-            position: 'relative',
-          }}
-        >
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: 4,
-              backgroundColor: brand.cta,
-            }}
-          />
-
-          <div
-            style={{
-              position: 'absolute',
-              top: 72,
-              left: 96,
-              display: 'flex',
-              alignItems: 'center',
-              color: brand.fg,
-              fontFamily: 'Bricolage Grotesque',
-            }}
-          >
-            <img alt="" width={36} height={36} src={markDataUri} />
+        <OgLayout
+          backgroundColor={brand.bg}
+          leftStripe={
             <div
               style={{
-                marginLeft: 14,
-                fontSize: 30,
-                fontWeight: 700,
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 4,
+                backgroundColor: brand.cta,
+              }}
+            />
+          }
+          header={
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
                 color: brand.fg,
                 fontFamily: 'Bricolage Grotesque',
               }}
             >
-              Formoria
+              <img alt="" width={36} height={36} src={markDataUri} />
+              <div
+                style={{
+                  marginLeft: 14,
+                  fontSize: 30,
+                  fontWeight: 700,
+                  color: brand.fg,
+                  fontFamily: 'Bricolage Grotesque',
+                }}
+              >
+                Formoria
+              </div>
             </div>
-          </div>
-
+          }
+          headerStyle={{
+            display: 'flex',
+            alignItems: 'center',
+            color: brand.fg,
+            fontFamily: 'Bricolage Grotesque',
+            position: 'absolute',
+            top: 72,
+            left: 96,
+          }}
+          contentStyle={{
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            width: '100%',
+            height: '100%',
+            padding: '120px 96px 96px',
+            textAlign: 'center',
+          }}
+        >
           <div
             style={{
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
-              width: '100%',
-              height: '100%',
-              padding: '120px 96px 96px',
-              textAlign: 'center',
+              fontSize: 68,
+              fontWeight: 700,
+              color: brand.fg,
+              lineHeight: 1.22,
+              marginBottom: 28,
+              fontFamily: locale === 'en' ? 'Bricolage Grotesque' : 'Noto Sans TC',
             }}
           >
-            <div
-              style={{
-                fontSize: 68,
-                fontWeight: 700,
-                color: brand.fg,
-                lineHeight: 1.22,
-                marginBottom: 28,
-                fontFamily: locale === 'en' ? 'Bricolage Grotesque' : 'Noto Sans TC',
-              }}
-            >
-              {t('tagline')}
-            </div>
+            {t('tagline')}
           </div>
-        </div>
+        </OgLayout>
       ),
       {
         width: 1200,
@@ -97,77 +97,76 @@ export default async function OgImage({ params }: { params: Promise<{ locale: st
   } catch {
     return new ImageResponse(
       (
-        <div
-          style={{
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            backgroundColor: brand.bg,
-            position: 'relative',
-          }}
-        >
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: 4,
-              backgroundColor: brand.cta,
-            }}
-          />
-
-          <div
-            style={{
-              position: 'absolute',
-              top: 72,
-              left: 96,
-              display: 'flex',
-              alignItems: 'center',
-              color: brand.fg,
-              fontFamily: 'Bricolage Grotesque',
-            }}
-          >
-            <img alt="" width={36} height={36} src={markDataUri} />
+        <OgLayout
+          backgroundColor={brand.bg}
+          leftStripe={
             <div
               style={{
-                marginLeft: 14,
-                fontSize: 30,
-                fontWeight: 700,
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 4,
+                backgroundColor: brand.cta,
+              }}
+            />
+          }
+          header={
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
                 color: brand.fg,
                 fontFamily: 'Bricolage Grotesque',
               }}
             >
-              Formoria
+              <img alt="" width={36} height={36} src={markDataUri} />
+              <div
+                style={{
+                  marginLeft: 14,
+                  fontSize: 30,
+                  fontWeight: 700,
+                  color: brand.fg,
+                  fontFamily: 'Bricolage Grotesque',
+                }}
+              >
+                Formoria
+              </div>
             </div>
-          </div>
-
+          }
+          headerStyle={{
+            display: 'flex',
+            alignItems: 'center',
+            color: brand.fg,
+            fontFamily: 'Bricolage Grotesque',
+            position: 'absolute',
+            top: 72,
+            left: 96,
+          }}
+          contentStyle={{
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            width: '100%',
+            height: '100%',
+            padding: '120px 96px 96px',
+            textAlign: 'center',
+          }}
+        >
           <div
             style={{
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
-              width: '100%',
-              height: '100%',
-              padding: '120px 96px 96px',
-              textAlign: 'center',
+              fontSize: 68,
+              fontWeight: 700,
+              color: brand.fg,
+              lineHeight: 1.22,
+              marginBottom: 28,
+              fontFamily: locale === 'en' ? 'Bricolage Grotesque' : 'Noto Sans TC',
             }}
           >
-            <div
-              style={{
-                fontSize: 68,
-                fontWeight: 700,
-                color: brand.fg,
-                lineHeight: 1.22,
-                marginBottom: 28,
-                fontFamily: locale === 'en' ? 'Bricolage Grotesque' : 'Noto Sans TC',
-              }}
-            >
-              Trust Made Visible
-            </div>
+            Trust Made Visible
           </div>
-        </div>
+        </OgLayout>
       ),
       {
         width: 1200,

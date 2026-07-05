@@ -84,6 +84,18 @@ check_env() {
     else
       echo "WARN: APIFY_TOKEN not set (enrichment commands will fail)"
     fi
+    if ! grep -q "INDEXNOW_KEY=." .env.local 2>/dev/null; then
+      echo "WARN: INDEXNOW_KEY not set (optional — needed for Bing IndexNow submission)"
+    fi
+    if ! grep -q "NEXT_PUBLIC_TINA_CLIENT_ID=." .env.local 2>/dev/null; then
+      echo "WARN: NEXT_PUBLIC_TINA_CLIENT_ID not set (TinaCMS admin will not connect to Tina Cloud)"
+    fi
+    if ! grep -q "TINA_TOKEN=." .env.local 2>/dev/null; then
+      echo "WARN: TINA_TOKEN not set (TinaCMS admin will not connect to Tina Cloud)"
+    fi
+    # NOTE: MIT registry sync is scheduled via pg_cron (Sundays 2 AM UTC,
+    # job name: sync-mit-registry-weekly). Auth uses ORIGIN_SECRET (app.origin_secret).
+    # See supabase/migrations/20260702130000_schedule_mit_registry_sync.sql
   fi
 }
 

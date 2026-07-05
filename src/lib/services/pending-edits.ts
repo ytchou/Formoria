@@ -29,7 +29,7 @@ type PendingEditReviewRow = {
 }
 
 const PENDING_EDIT_WITH_BRAND_SELECT =
-  '*, brands(id, name, slug, description, hero_image_url, product_type, contact_email, founding_year, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, other_urls, retail_locations, customer_voices, product_photos, site_content)'
+  '*, brands(id, name, slug, description, hero_image_url, product_type, city, contact_email, founding_year, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, other_urls, retail_locations, customer_voices, product_photos, site_content, mit_story)'
 
 function asSingleBrand(
   brand: Partial<BrandRow> | Partial<BrandRow>[] | null | undefined
@@ -100,6 +100,7 @@ export function pendingEditWithBrandToDomain(
       slug: brand?.slug ?? '',
       description: brand?.description ?? null,
       heroImageUrl: brand?.hero_image_url ?? null,
+      city: brand?.city ?? null,
       category: deriveCategoryFromProductType(brand?.product_type ?? '') ?? null,
       contactEmail: brand?.contact_email ?? null,
       foundingYear: brand?.founding_year ?? null,
@@ -115,6 +116,7 @@ export function pendingEditWithBrandToDomain(
       productPhotos: Array.isArray(brand?.product_photos) ? brand.product_photos.filter((url): url is string => typeof url === 'string') : [],
       priceRange: brand?.price_range ?? null,
       productTags: Array.isArray(brand?.product_tags) ? brand.product_tags : [],
+      mitStory: brand?.mit_story ?? null,
       siteContent: brand?.site_content && typeof brand.site_content === 'object' && !Array.isArray(brand.site_content)
         ? brand.site_content as Brand['siteContent']
         : null,
@@ -209,7 +211,7 @@ export async function getPendingEdits(
   return ((data ?? []) as PendingBrandEditWithBrandRowInput[]).map(pendingEditWithBrandToDomain)
 }
 
-export async function getPendingEdit(brandId: string): Promise<PendingBrandEdit | null> {
+async function getPendingEdit(brandId: string): Promise<PendingBrandEdit | null> {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('pending_brand_edits')

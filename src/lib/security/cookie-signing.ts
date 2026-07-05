@@ -1,6 +1,6 @@
 const encoder = new TextEncoder()
 
-export function arrayBufferToBase64url(buffer: ArrayBuffer): string {
+function arrayBufferToBase64url(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer)
   let binary = ''
 
@@ -11,7 +11,7 @@ export function arrayBufferToBase64url(buffer: ArrayBuffer): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
 }
 
-export function base64urlToArrayBuffer(value: string): ArrayBuffer {
+function base64urlToArrayBuffer(value: string): ArrayBuffer {
   if (!/^[A-Za-z0-9_-]*$/.test(value) || value.length % 4 === 1) {
     throw new Error('Invalid base64url value')
   }
@@ -28,7 +28,7 @@ export function base64urlToArrayBuffer(value: string): ArrayBuffer {
   return bytes.buffer
 }
 
-export function getHmacKey(secret: string): Promise<CryptoKey> {
+function getHmacKey(secret: string): Promise<CryptoKey> {
   return crypto.subtle.importKey(
     'raw',
     encoder.encode(secret),
