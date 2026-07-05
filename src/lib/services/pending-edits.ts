@@ -29,7 +29,7 @@ type PendingEditReviewRow = {
 }
 
 const PENDING_EDIT_WITH_BRAND_SELECT =
-  '*, brands(id, name, slug, description, hero_image_url, product_type, contact_email, founding_year, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, other_urls, retail_locations, customer_voices, product_photos, site_content)'
+  '*, brands(id, name, slug, description, hero_image_url, product_type, contact_email, founding_year, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, other_urls, retail_locations, customer_voices, product_photos, site_content, mit_story)'
 
 function asSingleBrand(
   brand: Partial<BrandRow> | Partial<BrandRow>[] | null | undefined
@@ -115,6 +115,7 @@ export function pendingEditWithBrandToDomain(
       productPhotos: Array.isArray(brand?.product_photos) ? brand.product_photos.filter((url): url is string => typeof url === 'string') : [],
       priceRange: brand?.price_range ?? null,
       productTags: Array.isArray(brand?.product_tags) ? brand.product_tags : [],
+      mitStory: brand?.mit_story ?? null,
       siteContent: brand?.site_content && typeof brand.site_content === 'object' && !Array.isArray(brand.site_content)
         ? brand.site_content as Brand['siteContent']
         : null,
