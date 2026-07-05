@@ -1,14 +1,12 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  eq: vi.fn(),
+  from: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
   createServiceClient: () => ({
-    from: () => ({
-      select: () => ({ eq: mocks.eq }),
-    }),
+    from: mocks.from,
   }),
 }))
 
@@ -16,7 +14,12 @@ import {
   buildOnboardingProgress,
   getBrandOnboardingProgress,
   ONBOARDING_STEPS,
+  setBrandOnboardingStepStatus,
 } from './brand-onboarding'
+
+beforeEach(() => {
+  vi.clearAllMocks()
+})
 
 describe('buildOnboardingProgress', () => {
   it('starts every step incomplete when no progress exists', () => {
@@ -40,14 +43,40 @@ describe('buildOnboardingProgress', () => {
   })
 
   it('shows step one when the onboarding migration has not been applied yet', async () => {
-    mocks.eq.mockResolvedValueOnce({
-      data: null,
-      error: { code: 'PGRST205' },
+    mocks.from.mockReturnValueOnce({
+      select: () => ({
+        eq: vi.fn().mockResolvedValue({
+          data: null,
+          error: { code: 'PGRST205' },
+        }),
+      }),
     })
 
     const progress = await getBrandOnboardingProgress('brand-1')
 
     expect(progress.nextStep).toBe('basics')
     expect(progress.completedCount).toBe(0)
+  })
+
+  it('skips progress persistence when the onboarding table is unavailable', async () => {
+    mocks.from.mockReturnValueOnce({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: null,
+              error: { code: 'PGRST205' },
+            }),
+          }),
+        }),
+      }),
+    })
+
+    await expect(setBrandOnboardingStepStatus({
+      brandId: 'brand-1',
+      userId: 'user-1',
+      step: 'basics',
+      status: 'in_progress',
+    })).resolves.toBeUndefined()
   })
 })

@@ -88,9 +88,12 @@ export async function GET(request: NextRequest) {
         url.searchParams.set("is_new_user", "1");
       }
       return NextResponse.redirect(url);
-    } catch {
+    } catch (error) {
+      const reason = error instanceof Error && error.message.includes('already manages a brand')
+        ? 'owner-limit'
+        : 'claim-failed'
       return NextResponse.redirect(
-        new URL("/dashboard?error=claim-failed", await getRequestOrigin())
+        new URL(`/dashboard?error=${reason}`, await getRequestOrigin())
       );
     }
   }

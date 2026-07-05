@@ -14,17 +14,6 @@ export function buildShareCardUrl(
   return base
 }
 
-export function buildBadgeEmbedSnippet(siteUrl: string, slug: string): string {
-  const encodedSlug = encodeURIComponent(slug)
-  const href = `${siteUrl}/brands/${encodedSlug}?utm_source=badge&utm_medium=referral&utm_campaign=featured_badge&utm_content=${encodedSlug}`
-  const src = `${siteUrl}/badges/featured-on-formoria.svg`
-  return (
-    `<a href="${href}">` +
-    `<img src="${src}" alt="Featured on Formoria — 台灣製造品牌目錄" width="200" height="56" style="border:0" />` +
-    `</a>`
-  )
-}
-
 export function scaleCardNameFontSize(name: string): number {
   const len = name.length
   if (len <= 8) return 96

@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils'
 type ClaimBrandCtaProps = {
   brandId: string
   hasPendingClaim?: boolean
+  hasOwnedBrand?: boolean
   removalSlot?: ReactNode
 }
 
@@ -151,6 +152,7 @@ function ClaimProofUpload({
 export function ClaimBrandCta({
   brandId,
   hasPendingClaim = false,
+  hasOwnedBrand = false,
   removalSlot,
 }: ClaimBrandCtaProps) {
   const t = useTranslations('brands.claimCta')
@@ -240,6 +242,21 @@ export function ClaimBrandCta({
         }
       })()
     })
+  }
+
+  if (hasOwnedBrand) {
+    return (
+      <section className="space-y-3 rounded-xl border border-border bg-card p-5 text-left">
+        <p className="text-base font-semibold text-foreground">{t('ownerLimitTitle')}</p>
+        <p className="text-sm leading-relaxed text-muted-foreground">{t('ownerLimitBody')}</p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <Link href="/dashboard" className="text-sm font-semibold text-primary underline underline-offset-4">
+            {t('manageBrand')}
+          </Link>
+          {removalSlot}
+        </div>
+      </section>
+    )
   }
 
   if (feedback.type === 'pending') {

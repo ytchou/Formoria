@@ -68,6 +68,14 @@ it('renders the pending state on load when the user already has a pending claim'
   expect(screen.queryByText('提交認領證明')).not.toBeInTheDocument()
 })
 
+it('replaces the claim form with the owner-limit message for existing owners', () => {
+  renderCta({ hasOwnedBrand: true })
+
+  expect(screen.getByText('你的帳號已管理一個品牌')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: '前往我的品牌' })).toHaveAttribute('href', '/dashboard')
+  expect(screen.queryByRole('button', { name: '認領這個品牌' })).not.toBeInTheDocument()
+})
+
 it('renders a domain email input without URL or upload controls', () => {
   renderCta()
   fireEvent.click(screen.getByText('認領這個品牌'))

@@ -195,7 +195,6 @@ See `docs/strategy/brand-success-playbook.md` for full specification.
 
 ## Observability
 - PostHog: page views, filter usage, brand detail visits, submission funnel
-- GA4: owner share events (`badge_copied`, `card_downloaded` via `trackListingSharedByOwner`); badge referral sessions attributed through standard UTM extraction (first/last-touch, `utm_medium=badge`, per-brand `utm_content`)
 - Sentry: error tracking with source maps
 - Railway: built-in request metrics and logs
 - In-app: Admin dashboard system status card — server-side health checks on demand (not a replacement for external dashboards)

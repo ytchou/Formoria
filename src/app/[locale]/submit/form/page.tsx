@@ -5,6 +5,7 @@ import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { createClient } from '@/lib/supabase/server'
 import SubmitForm from '@/components/submit/SubmitForm'
+import { getUserBrand } from '@/lib/services/brand-owners'
 
 type FormPageProps = {
   params: Promise<{ locale: string }>
@@ -37,5 +38,5 @@ export default async function SubmitFormPage({ params }: FormPageProps) {
     redirect(`/auth/sign-in?next=${formPath}`)
   }
 
-  return <SubmitForm />
+  return <SubmitForm hasOwnedBrand={Boolean(await getUserBrand(user.id))} />
 }

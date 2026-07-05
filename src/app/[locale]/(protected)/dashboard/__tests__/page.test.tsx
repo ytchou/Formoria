@@ -9,12 +9,6 @@ vi.mock('next-intl/server', () => ({ getTranslations: vi.fn(async () => (key: st
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn().mockResolvedValue({ auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'u1', email: 'test@example.com' } }, error: null }) } }) }))
 vi.mock('@/lib/services/brands', () => ({ getBrandBySlug: vi.fn() }))
 vi.mock('@/lib/services/brand-owners', () => ({ getUserBrands: vi.fn(), isOwnerOf: vi.fn(async () => true) }))
-vi.mock('@/components/dashboard/badge-section', () => ({
-  BadgeSection: () => <div data-testid="badge-section" />,
-}))
-vi.mock('@/lib/site-url', () => ({
-  getSiteUrl: () => 'https://formoria.com',
-}))
 vi.mock('@/components/brands/brand-about', () => ({
   BrandAbout: ({ brand }: { brand: Brand }) => <p>{brand.description}</p>,
 }))
@@ -109,17 +103,4 @@ describe('DashboardPage (Brand Profile)', () => {
     expect(screen.getByText('tea')).toHaveClass('bg-secondary', 'text-secondary-foreground')
   })
 
-  it('renders the badge section for an approved brand', async () => {
-    render(await DashboardPage({ params: Promise.resolve({ locale: 'en' }), searchParams: Promise.resolve({ brand: 'test-brand' }) }))
-    expect(screen.getByTestId('badge-section')).toBeInTheDocument()
-  })
-
-  it('does not render the badge section for a non-approved brand', async () => {
-    vi.mocked(getBrandBySlug).mockResolvedValue({
-      ...(await vi.mocked(getBrandBySlug)('test-brand')),
-      status: 'hidden',
-    })
-    render(await DashboardPage({ params: Promise.resolve({ locale: 'en' }), searchParams: Promise.resolve({ brand: 'test-brand' }) }))
-    expect(screen.queryByTestId('badge-section')).not.toBeInTheDocument()
-  })
 })

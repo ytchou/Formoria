@@ -7,6 +7,7 @@ import type { Locale } from '@/lib/seo/alternates'
 
 type ConfirmationPageProps = {
   params: Promise<{ locale: string }>
+  searchParams?: Promise<{ ownership?: string }>
 }
 
 export async function generateMetadata({ params }: ConfirmationPageProps): Promise<Metadata> {
@@ -37,10 +38,11 @@ export async function generateMetadata({ params }: ConfirmationPageProps): Promi
   }
 }
 
-export default async function ConfirmationPage({ params }: ConfirmationPageProps) {
+export default async function ConfirmationPage({ params, searchParams }: ConfirmationPageProps) {
   const { locale } = await params
   setRequestLocale(locale)
   const t = await getTranslations('submit.confirmation')
+  const ownershipAdjusted = (await searchParams)?.ownership === 'community'
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
@@ -55,6 +57,12 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
         <h1 className="mt-6 text-center font-heading text-[22px] font-bold text-foreground">
           {t('subheading')}
         </h1>
+
+        {ownershipAdjusted ? (
+          <p className="mt-4 rounded-lg border border-border bg-muted p-4 text-sm leading-6 text-muted-foreground">
+            {t('communityOwnershipNotice')}
+          </p>
+        ) : null}
 
         {/* Timeline */}
         <div className="mt-8 rounded-xl bg-[#FAFAF8] p-6">
