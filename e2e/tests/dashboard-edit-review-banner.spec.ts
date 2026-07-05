@@ -87,7 +87,7 @@ test.describe('Dashboard EditReviewBanner', () => {
     const resubmitLink = userPage.getByRole('link', { name: '重新編輯' });
     await expect(resubmitLink).toBeVisible({ timeout: 5_000 });
     await resubmitLink.click();
-    await expect(userPage).toHaveURL(new RegExp(`/dashboard/brands/${brandSlug}/edit`), { timeout: 60_000 });
+    await expect(userPage).toHaveURL(new RegExp(`/dashboard/brands/${seeded.slug}/edit`), { timeout: 60_000 });
   });
 
   test('approved edit shows green banner and can be dismissed', async ({ userPage }) => {
