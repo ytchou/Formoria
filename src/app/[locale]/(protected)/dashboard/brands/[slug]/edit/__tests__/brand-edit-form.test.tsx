@@ -67,7 +67,7 @@ describe('BrandEditForm — sections', () => {
   it('renders the city select with Taiwan cities', () => {
     render(<BrandEditForm brand={makeBrand({ city: 'taipei' })} />)
     expect(screen.getByLabelText(/city\/county/i)).toHaveValue('taipei')
-    expect(screen.getByRole('option', { name: '臺北市' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Taipei City' })).toBeInTheDocument()
   })
 
   it('renders Media section with hero upload field', () => {
