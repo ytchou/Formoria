@@ -473,8 +473,8 @@ export type Database = {
           manufacturing: Json | null
           mit_evidence: Json | null
           mit_status: string
-          mit_verified_at: string | null
           mit_story: string | null
+          mit_verified_at: string | null
           name: string
           other_urls: Json
           policies: Json | null
@@ -519,8 +519,8 @@ export type Database = {
           manufacturing?: Json | null
           mit_evidence?: Json | null
           mit_status?: string
-          mit_verified_at?: string | null
           mit_story?: string | null
+          mit_verified_at?: string | null
           name: string
           other_urls?: Json
           policies?: Json | null
@@ -565,8 +565,8 @@ export type Database = {
           manufacturing?: Json | null
           mit_evidence?: Json | null
           mit_status?: string
-          mit_verified_at?: string | null
           mit_story?: string | null
+          mit_verified_at?: string | null
           name?: string
           other_urls?: Json
           policies?: Json | null
