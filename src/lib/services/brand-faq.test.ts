@@ -16,6 +16,7 @@ function makeFaqBrand(overrides: Partial<Brand> = {}): Brand {
     mitVerifiedAt: null,
     mitEvidence: null,
     mitVerified: false,
+    mitStory: null,
     isDemo: false,
     foundingYear: null,
     reputationSummary: null,
@@ -63,6 +64,40 @@ describe('buildBrandFaq', () => {
 
     expect(buildBrandFaq(makeFaqBrand({ mitStatus: 'unverified' }), mockT)).toEqual([])
     expect(buildBrandFaq(makeFaqBrand({ mitStatus: undefined }), mockT)).toEqual([])
+  })
+
+  it('shows story only when mitStory exists and mitStatus is unverified', () => {
+    const brand = makeFaqBrand({ mitStory: 'Our fabrics from Changhua.', mitStatus: 'unverified' })
+    const faqs = buildBrandFaq(brand, mockT)
+    const mitFaq = faqs.find((f) => f.question.includes('isMadeInTaiwan'))
+    expect(mitFaq).toBeDefined()
+    expect(mitFaq!.answer).toContain('Our fabrics from Changhua.')
+    expect(mitFaq!.answer).not.toContain('brandFaq.isMadeInTaiwan.answer|{"brandName":"Test Brand"}')
+  })
+
+  it('shows story + stamps evidence when mitStory exists and mitStatus is verified', () => {
+    const brand = makeFaqBrand({ mitStory: 'Our fabrics from Changhua.', mitStatus: 'verified' })
+    const faqs = buildBrandFaq(brand, mockT)
+    const mitFaq = faqs.find((f) => f.question.includes('isMadeInTaiwan'))
+    expect(mitFaq).toBeDefined()
+    expect(mitFaq!.answer).toContain('Our fabrics from Changhua.')
+    expect(mitFaq!.answer).toContain('brandFaq.isMadeInTaiwan.answer|{"brandName":"Test Brand"}')
+  })
+
+  it('shows stamps answer only when no story and mitStatus is verified (backward compat)', () => {
+    const brand = makeFaqBrand({ mitStory: null, mitStatus: 'verified' })
+    const faqs = buildBrandFaq(brand, mockT)
+    const mitFaq = faqs.find((f) => f.question.includes('isMadeInTaiwan'))
+    expect(mitFaq).toBeDefined()
+    expect(mitFaq!.answer).toBe('brandFaq.isMadeInTaiwan.answer|{"brandName":"Test Brand"}')
+    expect(mitFaq!.answer).not.toContain('undefined')
+  })
+
+  it('shows no MIT FAQ when no story and mitStatus is unverified', () => {
+    const brand = makeFaqBrand({ mitStory: null, mitStatus: 'unverified' })
+    const faqs = buildBrandFaq(brand, mockT)
+    const mitFaq = faqs.find((f) => f.question.includes('isMadeInTaiwan'))
+    expect(mitFaq).toBeUndefined()
   })
 
   it('includes whereToBuy when any purchase link exists', () => {

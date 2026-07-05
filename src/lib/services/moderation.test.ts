@@ -91,6 +91,28 @@ describe('scanContent — Tier 2 zh-TW flagging', () => {
     expect(result.flags.some(f => f.tier === 'flag')).toBe(true)
   })
 
+  it('detects phone number injection in mitStory field', () => {
+    const payload: import('./moderation').ContentPayload = {
+      fields: {
+        mitStory: 'Call us at 0912-345-678 for orders.',
+      },
+      brandName: '臺灣手工皂',
+    }
+    const result = scanContent(payload)
+    expect(result.flags.some(f => f.tier === 'flag' && f.fieldName === 'mitStory')).toBe(true)
+  })
+
+  it('detects email injection in mitStory field', () => {
+    const payload: import('./moderation').ContentPayload = {
+      fields: {
+        mitStory: 'Email us: factory@example.com',
+      },
+      brandName: '臺灣手工皂',
+    }
+    const result = scanContent(payload)
+    expect(result.flags.some(f => f.tier === 'flag' && f.fieldName === 'mitStory')).toBe(true)
+  })
+
   it('does not flag short English-style descriptions with fewer than 3 CJK chars', () => {
     const result = scanContent({
       ...cleanPayload,

@@ -21,6 +21,7 @@ import {
   rejectPendingEdit,
   hasPendingEdit,
   getLatestEditReview,
+  pendingEditWithBrandToDomain,
 } from './pending-edits'
 import { diffRemovedImageUrls, updateBrand } from './brands'
 import { deleteBrandImages } from './image-upload'
@@ -29,6 +30,48 @@ const BRAND_ID = 'brand-uuid-1'
 const USER_ID = 'user-uuid-1'
 const EDIT_ID = 'edit-uuid-1'
 const PROPOSED_DATA = { name: 'Updated Name', description: 'New description' }
+
+function makePendingEditWithBrandRow(
+  overrides: Partial<Parameters<typeof pendingEditWithBrandToDomain>[0]> = {}
+): Parameters<typeof pendingEditWithBrandToDomain>[0] {
+  return {
+    id: EDIT_ID,
+    brand_id: BRAND_ID,
+    submitted_by: USER_ID,
+    proposed_data: {},
+    status: 'pending',
+    reviewer_notes: null,
+    reviewed_at: null,
+    reviewed_by: null,
+    created_at: '2024-01-01T00:00:00.000Z',
+    updated_at: '2024-01-01T00:00:00.000Z',
+    brands: {
+      id: BRAND_ID,
+      name: 'Test Brand',
+      slug: 'test-brand',
+      description: null,
+      hero_image_url: null,
+      product_type: null,
+      contact_email: null,
+      founding_year: null,
+      social_instagram: null,
+      social_threads: null,
+      social_facebook: null,
+      purchase_website: null,
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+      other_urls: null,
+      retail_locations: null,
+      customer_voices: null,
+      product_photos: null,
+      site_content: null,
+      price_range: null,
+      product_tags: null,
+      mit_story: null,
+    },
+    ...overrides,
+  }
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -108,6 +151,20 @@ describe('getPendingEdits', () => {
     expect(mockChain.select).toHaveBeenCalledWith(expect.stringContaining('description'))
     expect(result).toHaveLength(1)
     expect(result[0].status).toBe('pending')
+  })
+})
+
+describe('pendingEditWithBrandToDomain', () => {
+  it('includes mitStory on the brand field of the mapped pending edit', () => {
+    const rawEdit = makePendingEditWithBrandRow({ brands: { mit_story: 'Handcrafted in New Taipei.' } })
+    const mapped = pendingEditWithBrandToDomain(rawEdit)
+    expect(mapped.brand.mitStory).toBe('Handcrafted in New Taipei.')
+  })
+
+  it('defaults brand.mitStory to null when mit_story absent', () => {
+    const rawEdit = makePendingEditWithBrandRow({ brands: { mit_story: null } })
+    const mapped = pendingEditWithBrandToDomain(rawEdit)
+    expect(mapped.brand.mitStory).toBeNull()
   })
 })
 

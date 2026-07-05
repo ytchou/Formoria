@@ -113,6 +113,18 @@ describe('brandToDomain — MIT verification fields', () => {
     expect(brand.mitStatus).toBe('unverified')
     expect(brand.mitVerified).toBe(false)
   })
+
+  it('maps mit_story row column to mitStory domain field', () => {
+    const row = makeBrandRow({ mit_story: 'Founded in Taipei.' })
+    const brand = brandToDomain(row)
+    expect(brand.mitStory).toBe('Founded in Taipei.')
+  })
+
+  it('defaults mitStory to null when mit_story is absent', () => {
+    const row = makeBrandRow({ mit_story: null })
+    const brand = brandToDomain(row)
+    expect(brand.mitStory).toBeNull()
+  })
 })
 
 describe('brandToDomain (flat link columns)', () => {

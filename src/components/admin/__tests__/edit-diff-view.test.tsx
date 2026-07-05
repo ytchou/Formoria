@@ -23,6 +23,19 @@ it('shows both unchanged and changed fields', () => {
   expect(screen.getAllByText('品牌名稱').length).toBeGreaterThan(0)
 })
 
+it('labels mitStory as "MIT 故事" in the diff view', () => {
+  const proposed = { mitStory: 'Our story.' }
+  const current = { mitStory: null }
+  const fields = computeDiffFields(
+    current as Record<string, unknown>,
+    proposed as Record<string, unknown>
+  )
+
+  render(<EditDiffView fields={fields} />)
+
+  expect(screen.getByText('MIT 故事')).toBeInTheDocument()
+})
+
 describe('computeDiffFields', () => {
   it('flags changed fields correctly', () => {
     const result = computeDiffFields(

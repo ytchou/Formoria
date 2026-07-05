@@ -108,6 +108,7 @@ export type Brand = {
   mitVerifiedAt?: string | null
   mitEvidence?: MitEvidence | null
   mitVerified?: boolean
+  mitStory?: string | null
   isDemo: boolean
   foundingYear: number | null
   reputationSummary?: ReputationSummary | null
@@ -183,5 +184,6 @@ export type PendingBrandEditWithBrand = PendingBrandEdit & {
     | 'customerVoices'
     | 'productPhotos'
     | 'siteContent'
+    | 'mitStory'
   >
 }

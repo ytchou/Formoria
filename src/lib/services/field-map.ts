@@ -40,6 +40,7 @@ const SOCIAL_PURCHASE_FIELD_MAP = [
 
 const BRAND_FIELD_MAP = [
   ['contactEmail', 'contact_email'],
+  ['mitStory', 'mit_story'],
   ['otherUrls', 'other_urls'],
   ['retailLocations', 'retail_locations'],
   ['customerVoices', 'customer_voices'],
@@ -47,6 +48,7 @@ const BRAND_FIELD_MAP = [
 ] as const satisfies FieldMap<
   {
     contactEmail?: string | null
+    mitStory?: string | null
     otherUrls?: unknown
     retailLocations?: unknown
     customerVoices?: unknown
@@ -110,6 +112,7 @@ export function toBrandRow(input: {
   productType?: string | null
   category?: string | null
   foundingYear?: number | null
+  mitStory?: string | null
   socialInstagram?: string | null
   socialThreads?: string | null
   socialFacebook?: string | null
