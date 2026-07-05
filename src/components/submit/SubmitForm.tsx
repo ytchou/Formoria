@@ -29,6 +29,7 @@ export default function SubmitForm({
 }: SubmitFormProps) {
   const t = useTranslations('submit')
   const tForm = useTranslations('submit.form')
+  const tCities = useTranslations('cities')
   const tReview = useTranslations('submit.review')
   const router = useRouter()
   const sessionId = useMemo(() => crypto.randomUUID(), [])
@@ -394,7 +395,7 @@ export default function SubmitForm({
               <option value="">{t('cityPlaceholder')}</option>
               {TAIWAN_CITIES.map((city) => (
                 <option key={city.slug} value={city.slug}>
-                  {city.nameZh}
+                  {tCities(city.slug)}
                 </option>
               ))}
             </select>

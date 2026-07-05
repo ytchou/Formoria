@@ -9,7 +9,6 @@ describe('TAIWAN_CITIES', () => {
   it('every city has required fields with non-empty values', () => {
     for (const city of TAIWAN_CITIES) {
       expect(city.slug, `${city.slug} missing slug`).toBeTruthy()
-      expect(city.nameZh, `${city.slug} missing nameZh`).toBeTruthy()
       expect(city.nameEn, `${city.slug} missing nameEn`).toBeTruthy()
       expect(city.topoId, `${city.slug} missing topoId`).toBeTruthy()
     }

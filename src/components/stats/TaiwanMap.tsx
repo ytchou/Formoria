@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps'
 import { TAIWAN_CITIES } from '@/lib/constants/taiwan-cities'
 
@@ -10,13 +11,14 @@ interface Props {
 const PROPERTY_KEY = 'name'
 
 const TOPO_NAME_TO_SLUG: Record<string, string> = Object.fromEntries([
-  ...TAIWAN_CITIES.flatMap(({ slug, nameEn, nameZh }) => [[nameEn, slug], [nameZh, slug]]),
+  ...TAIWAN_CITIES.flatMap(({ slug, nameEn }) => [[nameEn, slug]]),
   // GeoJSON quirks: Taoyuan was upgraded from County→City in 2014; Taitung has trailing newline
   ['Taoyuan County', 'taoyuan'],
   ['Taitung County', 'taitung'],
 ])
 
 export function TaiwanMap({ data }: Props) {
+  const tCities = useTranslations('cities')
   const maxCount = Math.max(...data.map((item) => item.count), 1)
   const countBySlug = new Map(data.map((item) => [item.city, item.count]))
 
@@ -61,7 +63,7 @@ export function TaiwanMap({ data }: Props) {
                     },
                     pressed: { outline: 'none' },
                   }}
-                  aria-label={slug ? `${slug}: ${count} brands` : undefined}
+                  aria-label={slug ? `${tCities(slug as Parameters<typeof tCities>[0])}: ${count} brands` : undefined}
                 />
               )
             })

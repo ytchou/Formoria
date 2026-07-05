@@ -48,6 +48,7 @@ export function BrandEditForm({ brand, onboardingStep }: BrandEditFormProps) {
   );
   const t = useTranslations("dashboard.edit");
   const tx = (key: string, fallback: string) => (t.has(key) ? t(key) : fallback);
+  const tCities = useTranslations("cities");
   const pendingEditsT = useTranslations("admin.pendingEdits");
   const fieldErrors = {
     ...publishState?.fieldErrors,
@@ -134,7 +135,7 @@ export function BrandEditForm({ brand, onboardingStep }: BrandEditFormProps) {
               <option value="">{t("cityPlaceholder")}</option>
               {TAIWAN_CITIES.map((city) => (
                 <option key={city.slug} value={city.slug}>
-                  {city.nameZh}
+                  {tCities(city.slug)}
                 </option>
               ))}
             </select>
