@@ -27,10 +27,6 @@ vi.mock('@/i18n/navigation', () => ({
   usePathname: () => '/',
 }))
 
-vi.mock('@/lib/auth/use-user', () => ({
-  useUser: () => ({ user: null, loading: false }),
-}))
-
 vi.mock('@/components/auth/account-menu', () => ({
   AccountMenu: () => <span role="link">Sign in</span>,
 }))
@@ -66,5 +62,12 @@ describe('MainNav', () => {
     expect(
       screen.getAllByRole('button', { name: 'Switch language' }).length,
     ).toBeGreaterThan(0)
+  })
+
+  it('shows only My Brand when the account already owns a brand', () => {
+    renderWithIntl(<MainNav categories={[]} hasOwnedBrand />)
+
+    expect(screen.getByRole('link', { name: 'My Brand' })).toHaveAttribute('href', '/dashboard')
+    expect(screen.queryByRole('link', { name: 'Submit a Brand' })).not.toBeInTheDocument()
   })
 })

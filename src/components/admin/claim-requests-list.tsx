@@ -190,7 +190,14 @@ export function ClaimRequestsList({
                   <TableCell className="font-medium">
                     {claimRequest.brandName ?? 'Unknown brand'}
                   </TableCell>
-                  <TableCell>{claimRequest.requesterEmail ?? 'Unknown'}</TableCell>
+                  <TableCell>
+                    <span>{claimRequest.requesterEmail ?? 'Unknown'}</span>
+                    {claimRequest.existingOwnedBrand ? (
+                      <span className="mt-1 block text-xs font-semibold text-destructive">
+                        {adminClaimT('ownerAlreadyManagesShort')}
+                      </span>
+                    ) : null}
+                  </TableCell>
                   <TableCell>{claimRequest.proofEvidence.length}</TableCell>
                   <TableCell>{formatDate(claimRequest.createdAt)}</TableCell>
                   <TableCell>
@@ -202,6 +209,25 @@ export function ClaimRequestsList({
                   <TableRow>
                     <TableCell colSpan={5} className="bg-[#FAF7F4] p-6 whitespace-normal">
                       <div className="space-y-4">
+                        {claimRequest.existingOwnedBrand ? (
+                          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+                            <p className="text-sm font-semibold text-destructive">
+                              {adminClaimT('ownerAlreadyManagesTitle')}
+                            </p>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              {adminClaimT('ownerAlreadyManagesBody', {
+                                brandName: claimRequest.existingOwnedBrand.brandName,
+                              })}
+                            </p>
+                            <a
+                              href={`/brands/${claimRequest.existingOwnedBrand.brandSlug}`}
+                              className="mt-2 inline-block text-sm font-semibold text-primary underline underline-offset-4"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              {claimRequest.existingOwnedBrand.brandName}
+                            </a>
+                          </div>
+                        ) : null}
                         <div className="space-y-3">
                           <p className="text-sm font-medium text-muted-foreground">
                             Proof evidence
@@ -298,7 +324,7 @@ export function ClaimRequestsList({
                                 event.stopPropagation()
                                 handleApprove(claimRequest.id)
                               }}
-                              disabled={isPending}
+                              disabled={isPending || Boolean(claimRequest.existingOwnedBrand)}
                             >
                               Approve
                             </Button>

@@ -23,7 +23,7 @@ import {
   syncBrandImages,
   updateBrand,
 } from '@/lib/services/brands'
-import { getBrandOwnerEmail } from '@/lib/services/brand-owners'
+import { getBrandOwnerEmail, getUserBrandByEmail } from '@/lib/services/brand-owners'
 import { scanContent, saveModerationFlags, markFlagsReviewed } from '@/lib/services/moderation'
 import { sendEmail } from '@/lib/email/send'
 import {
@@ -97,7 +97,11 @@ export async function approveSubmissionAction(
       }
     }
 
-    if (isBrandOwner) {
+    const existingOwnedBrand = isBrandOwner
+      ? await getUserBrandByEmail(submitterEmail)
+      : null
+
+    if (isBrandOwner && !existingOwnedBrand) {
       const token = await generateClaimToken(brandId, submitterEmail, brandName)
       const claimUrl = `${siteUrl}/auth/sign-up?claim=${token}`
       sendEmail(await buildClaimEmail({

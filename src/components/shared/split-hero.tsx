@@ -18,6 +18,7 @@ export default function SplitHero({ imageSrc, eyebrow, headline, subheadline, ch
           alt=""
           fill
           priority
+          loading="eager"
           sizes="(max-width: 1024px) 100vw, 50vw"
           className="object-cover object-right"
         />

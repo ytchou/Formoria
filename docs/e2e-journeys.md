@@ -26,4 +26,5 @@ Running inventory of e2e-covered user journeys. Updated by `/e2e-author` runs.
 | **User settings** | `e2e/tests/settings.spec.ts` | 2026-07-05 |
 | **Static & compliance pages** | `e2e/tests/static-pages.spec.ts` | 2026-07-05 |
 | **API contracts** | `e2e/tests/api-contracts.spec.ts` | 2026-07-05 |
+| **Single-brand dashboard navigation** | `e2e/tests/dashboard-tabs.spec.ts` | 2026-07-05 |
 | _(30+ existing deep specs omitted — see e2e/tests/ for full inventory)_ | | |

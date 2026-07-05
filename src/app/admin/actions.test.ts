@@ -81,6 +81,7 @@ vi.mock('@/lib/services/brands', () => ({
 
 vi.mock('@/lib/services/brand-owners', () => ({
   getBrandOwnerEmail: vi.fn().mockResolvedValue('owner@example.com'),
+  getUserBrandByEmail: vi.fn().mockResolvedValue(null),
 }))
 
 vi.mock('@/lib/services/submissions', () => ({

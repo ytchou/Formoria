@@ -3,7 +3,6 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { resolveDashboardBrand } from '@/lib/services/resolve-dashboard-brand'
-import { BrandSelector } from '@/components/dashboard/brand-selector'
 import { DashboardTabNav } from '@/components/dashboard/dashboard-tab-nav'
 import { DashboardEmptyState } from '@/components/dashboard/dashboard-empty-state'
 import { DashboardContentLayout } from '@/components/dashboard/dashboard-content-layout'
@@ -45,7 +44,7 @@ export default async function DashboardLayout({
     return <DashboardEmptyState />
   }
 
-  const { brand: selectedBrand, allBrands } = ctx
+  const { brand: selectedBrand } = ctx
 
   const [welcomeBannerData, latestReview] = user
     ? await Promise.all([
@@ -58,16 +57,23 @@ export default async function DashboardLayout({
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
         <div className="flex h-[72px] items-center justify-between gap-6 px-5 lg:px-20">
-          <BrandSelector
-            brands={allBrands}
-            selectedSlug={selectedBrand.brandSlug}
-          />
-          <Link
-            className="inline-flex min-h-11 items-center justify-center rounded-[8px] border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            href={`/dashboard/brands/${selectedBrand.brandSlug}/edit`}
-          >
-            {t('editButton')}
-          </Link>
+          <h1 className="font-heading text-[22px] font-bold leading-tight text-foreground">
+            {selectedBrand.brandName}
+          </h1>
+          <div className="flex items-center gap-3">
+            <Link
+              className="inline-flex min-h-11 items-center justify-center rounded-[8px] px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              href="/submit"
+            >
+              {t('submitOtherBrand')}
+            </Link>
+            <Link
+              className="inline-flex min-h-11 items-center justify-center rounded-[8px] border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              href={`/dashboard/brands/${selectedBrand.brandSlug}/edit`}
+            >
+              {t('editButton')}
+            </Link>
+          </div>
         </div>
       </header>
 

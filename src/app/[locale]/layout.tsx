@@ -15,6 +15,8 @@ import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { getBrandBySlugForAdmin } from '@/lib/services/brand-owners'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { createClient } from '@/lib/supabase/server'
+import { getUserBrand } from '@/lib/services/brand-owners'
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }))
@@ -52,10 +54,13 @@ export default async function LocaleLayout({ children, params }: LayoutProps) {
   }
 
   setRequestLocale(locale)
-  const [messages, impersonatedBrandSlug, impersonationExpiresAt] = await Promise.all([
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const [messages, impersonatedBrandSlug, impersonationExpiresAt, ownedBrand] = await Promise.all([
     getMessages(),
     getImpersonatedBrandSlug(),
     getImpersonationExpiresAt(),
+    user ? getUserBrand(user.id) : Promise.resolve(null),
   ])
   const impersonatedBrand = impersonatedBrandSlug
     ? await getBrandBySlugForAdmin(impersonatedBrandSlug)
@@ -81,7 +86,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps) {
         />
       ) : null}
       <div className="relative z-50">
-        <MainNav categories={[...PRODUCT_TYPE_CATEGORIES]} />
+        <MainNav categories={[...PRODUCT_TYPE_CATEGORIES]} hasOwnedBrand={Boolean(ownedBrand)} />
       </div>
       <div className="flex-1">{children}</div>
       <Footer />

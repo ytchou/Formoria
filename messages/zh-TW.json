@@ -176,6 +176,9 @@
       "communityTitle": "這是你的品牌嗎？",
       "communityListing": "認領後即可管理品牌頁面、更新資訊並建立顧客信任。",
       "claimButton": "認領這個品牌",
+      "ownerLimitTitle": "你的帳號已管理一個品牌",
+      "ownerLimitBody": "每個帳號只能管理一個品牌。你仍可將此品牌作為社群品牌資料提交。",
+      "manageBrand": "前往我的品牌",
       "proofHeading": "提交認領證明",
       "proofPrompt": "請提交所有權證明，以便我們審核你的認領申請。",
       "proofTypeLabel": "證明類型",
@@ -400,15 +403,13 @@
         "unknown": "提交失敗，請稍後再試。"
       }
     },
-    "brandIntro": {
-      "identity": "{brandName} 是台灣的{category}品牌。",
-      "identityNoCat": "{brandName} 是來自台灣的品牌。",
-      "founded": "創立於{year}年，",
-      "mitVerified": "已通過台灣製造驗證。",
-      "price": "產品定位在{range}價位。",
-      "purchase": "可透過{channels}購買。"
-    },
     "brandFaq": {
+      "listSeparator": "、",
+      "channels": {
+        "website": "品牌官網",
+        "pinkoi": "Pinkoi",
+        "shopee": "蝦皮購物"
+      },
       "priceRanges": {
         "budget": "平價",
         "midRange": "中價位",
@@ -462,7 +463,8 @@
       },
       "internationalShipping": {
         "question": "{brandName}有寄海外嗎？",
-        "answer": "{details}"
+        "yes": "{brandName}有提供國際運送服務。",
+        "no": "{brandName}目前不提供國際運送。"
       }
     }
   },
@@ -971,12 +973,6 @@
       "verification": "MIT 認證",
       "submissions": "提交紀錄"
     },
-    "brandSelector": {
-      "title": "目前查看品牌",
-      "label": "選擇品牌",
-      "placeholder": "選擇品牌",
-      "description": "當此帳號可管理 {count} 個品牌時，會顯示這個切換選單。"
-    },
     "emptyState": {
       "title": "此頁面為品牌經營者專屬主控台",
       "description": "只有已登入的品牌帳號才能查看這個頁面。如果你是台灣在地品牌的主理人，歡迎提交你的品牌，加入 MIT Map 社群。",
@@ -1197,6 +1193,7 @@
       "subtitle": "管理您的品牌頁面",
       "viewButton": "查看品牌頁面",
       "editButton": "編輯品牌",
+      "submitOtherBrand": "提交其他品牌",
       "draftPendingTitle": "草稿待發布",
       "draftPendingHint": "您有尚未發布、已儲存為草稿的變更。",
       "draftPreview": "預覽",
@@ -1290,13 +1287,6 @@
       "fieldValueTagsOptionalHint": "選填",
       "mitStoryLabel": "MIT 製造故事",
       "mitStoryPlaceholder": "分享您的製造工藝、材料來源與工廠合作關係…"
-    },
-    "badge": {
-      "title": "推廣你的品牌",
-      "description": "將 Formoria 精選品牌徽章加入你的網站，或下載品牌分享卡。",
-      "copy": "複製嵌入程式碼",
-      "copied": "已複製！",
-      "download": "下載分享卡"
     },
     "brandProfile": {
       "customerVoices": "顧客心聲",
@@ -1498,7 +1488,8 @@
         "description": "我們已收到您的品牌提交，正在進行審核。"
       },
       "heading": "感謝您！",
-      "subheading": "我們已收到您的品牌提交",
+    "subheading": "我們已收到您的品牌提交",
+    "communityOwnershipNotice": "你的帳號已管理一個品牌，因此這次提交會以社群品牌資料受理，且無法由此帳號認領。",
       "timeline": {
         "review": {
           "label": "審核中",
@@ -1566,6 +1557,7 @@
       "brandNameHint": "品牌名稱將顯示於品牌頁面，也會作為搜尋品牌資訊的依據，請填寫正式名稱",
       "isOwnerLabel": "我是品牌負責人",
       "isOwnerHint": "我們會請你提供品牌證明文件，認領後可管理品牌頁面與更新資訊。",
+      "ownerLimitHint": "你的帳號已管理一個品牌。此提交將以社群品牌資料進行審核。",
       "sourceLabel": "資料來源",
       "sourcePlaceholder": "選擇你認識這品牌的方式",
       "requiredHint": "為必填欄位",
@@ -1697,6 +1689,9 @@
       "adminProofLabel": "擁有權證明",
       "domainEmailVerified": "✓ 已驗證",
       "domainEmailPending": "⏳ 待驗證",
+      "ownerAlreadyManagesShort": "已擁有品牌",
+      "ownerAlreadyManagesTitle": "無法核准：已達品牌管理上限",
+      "ownerAlreadyManagesBody": "此申請者已管理 {brandName}。請使用已有品牌的原因拒絕此申請。",
       "proofTypes": {
         "domainEmail": "品牌網域信箱",
         "backendScreenshot": "後台截圖",

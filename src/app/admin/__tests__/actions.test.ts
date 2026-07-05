@@ -144,6 +144,7 @@ describe('rejectSubmissionAction', () => {
 
     vi.doMock('@/lib/services/brand-owners', () => ({
       getBrandOwnerEmail: vi.fn(),
+      getUserBrandByEmail: vi.fn().mockResolvedValue(null),
     }))
 
     vi.doMock('@/lib/services/moderation', () => ({

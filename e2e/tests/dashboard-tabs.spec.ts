@@ -4,21 +4,21 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
+// All journeys share the single E2E owner account. The product invariant allows
+// one brand per account, so this file must seed and clean ownership serially.
+test.describe.configure({ mode: 'serial' });
+
 /**
  * Dashboard tab navigation tests.
  *
- * Journey 1: Owner dashboard landing and brand selection
+ * Journey 1: Single-brand owner dashboard landing
  *   - Default landing shows a brand panel (Edit CTA + active Profile tab)
- *   - Navigating to /dashboard?brand=<slug> → that brand's h1 heading renders
+ *   - Header shows the owned brand directly with no selector
+ *   - Navigation shows My Brand instead of Submit a Brand
  *   - Active tab is determined by URL pathname, not a query param value
  *
- * Journey 2: Deep-linking ?brand=<slug>
- *   - /dashboard?brand=<slug> → brand panel renders + Profile tab active
- *
- * Journey 3: IDOR guard
- *   - ?brand=<bogus-unowned-slug> → falls back to the default brand panel
- *
- * Journey 4: Legacy redirect
+ * Journey 2: Legacy query and route compatibility
+ *   - A stale ?brand=<slug> cannot switch away from the account's single brand
  *   - /dashboard/brands/<slug> → 302 → /dashboard?brand=<slug>
  */
 test.describe('Dashboard — tab navigation', () => {
@@ -82,7 +82,7 @@ test.describe('Dashboard — tab navigation', () => {
     }
   });
 
-  test('default dashboard landing shows brand panel with Edit CTA and active Profile tab', async ({ userPage }) => {
+  test('default dashboard landing shows the single brand with owner actions', async ({ userPage }) => {
     test.setTimeout(120_000);
 
     const resp = await userPage.goto('/dashboard', { timeout: 60_000 });
@@ -91,50 +91,24 @@ test.describe('Dashboard — tab navigation', () => {
       return;
     }
 
-    // Dashboard loads with some brand — Edit CTA always present in layout header
+    await expect(userPage.getByRole('heading', { level: 1, name: brandName }).first()).toBeVisible({
+      timeout: 60_000,
+    });
     await expect(userPage.getByRole('link', { name: '編輯品牌' }).first()).toBeVisible({
       timeout: 60_000,
     });
+    await expect(userPage.getByRole('link', { name: '提交其他品牌' })).toBeVisible();
+    const mainNav = userPage.locator('header').first();
+    await expect(mainNav.getByRole('link', { name: '我的品牌' })).toBeVisible();
+    await expect(mainNav.getByRole('link', { name: '提交品牌' })).toHaveCount(0);
 
     // Profile tab ('品牌資訊') is the active tab when pathname === '/dashboard'
     const profileTab = userPage.locator('a').filter({ hasText: '品牌資訊' });
     await expect(profileTab).toHaveClass(/border-primary/, { timeout: 60_000 });
 
-    // Navigate to the seeded brand explicitly via ?brand= param
-    await userPage.goto(`/dashboard?brand=${brandSlug}`, { timeout: 60_000 });
-
-    // The seeded brand name renders as h1 in the brand-profile panel
-    // Scope to [data-testid="brand-profile"] to avoid matching the layout-header h1
-    await expect(
-      userPage.locator('[data-testid="brand-profile"]').locator('h1').filter({ hasText: brandName })
-    ).toBeVisible({
-      timeout: 60_000,
-    });
   });
 
-  test('deep-linking ?brand=<slug> renders that brand panel directly', async ({ userPage }) => {
-    test.setTimeout(120_000);
-
-    const resp = await userPage.goto(`/dashboard?brand=${brandSlug}`, { timeout: 60_000 });
-    if (resp?.status() === 503) {
-      test.skip(true, 'PREVIEW_MODE active — skipping.');
-      return;
-    }
-
-    // The brand panel must be rendered — brand name in h1 inside the profile panel
-    // Scope to [data-testid="brand-profile"] to avoid matching the layout-header h1
-    await expect(
-      userPage.locator('[data-testid="brand-profile"]').locator('h1').filter({ hasText: brandName })
-    ).toBeVisible({
-      timeout: 60_000,
-    });
-
-    // Profile tab is active (pathname === '/dashboard', isActive = true)
-    const profileTab = userPage.locator('a').filter({ hasText: '品牌資訊' });
-    await expect(profileTab).toHaveClass(/border-primary/, { timeout: 5_000 });
-  });
-
-  test('bogus unowned brand slug falls back to default brand panel (IDOR guard)', async ({ userPage }) => {
+  test('a stale brand query cannot switch away from the account owner brand', async ({ userPage }) => {
     test.setTimeout(120_000);
 
     const resp = await userPage.goto('/dashboard?brand=totally-bogus-brand-that-does-not-exist', { timeout: 60_000 });
@@ -143,25 +117,13 @@ test.describe('Dashboard — tab navigation', () => {
       return;
     }
 
-    // Falls back to one of the user's OWNED brands (all owned test brands are
-    // "[E2E-TEST] …"), never the bogus/foreign slug.
-    await expect(
-      userPage.locator('h1').filter({ hasText: '[E2E-TEST]' }).first()
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(userPage.getByRole('heading', { level: 1, name: brandName }).first()).toBeVisible({ timeout: 60_000 });
 
-    // The bogus slug is never rendered as a link (IDOR: no foreign brand exposed)
-    await expect(
-      userPage.locator('a[href*="brand=totally-bogus-brand-that-does-not-exist"]')
-    ).toHaveCount(0);
-
-    // A brand management panel rendered (Edit CTA), not an error page
-    await expect(userPage.getByRole('link', { name: '編輯品牌' }).first()).toBeVisible({
-      timeout: 60_000,
-    });
-
-    // No 5xx error messaging on screen
-    await expect(userPage.getByText(/Internal Server Error|伺服器錯誤/i)).toHaveCount(0);
+    // Profile tab is active (pathname === '/dashboard', isActive = true)
+    const profileTab = userPage.locator('a').filter({ hasText: '品牌資訊' });
+    await expect(profileTab).toHaveClass(/border-primary/, { timeout: 5_000 });
   });
+
 });
 
 test.describe('Dashboard — legacy brand route redirect', () => {

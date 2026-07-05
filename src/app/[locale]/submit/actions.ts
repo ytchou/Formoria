@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/server'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
 import { createInMemoryRateLimiter } from '@/lib/security/rate-limiter'
 import type { SourceAttribution } from '@/lib/types/submission'
+import { getUserBrand } from '@/lib/services/brand-owners'
 
 // Per-user in-action rate limiter for brand submissions (5 per 60s)
 const submissionRateLimiter = createInMemoryRateLimiter()
@@ -55,7 +56,7 @@ export async function suggestCleanName(name: string) {
 
 export async function submitBrand(
   data: SubmitBrandInput
-): Promise<{ error: string } | undefined> {
+): Promise<{ error?: string; ownershipAdjusted?: boolean } | undefined> {
   const t = await getTranslations('submit.errors')
   const tSubmit = await getTranslations('submit')
   // Wrap to satisfy the plain (key: string) => string Translator contract
@@ -98,12 +99,14 @@ export async function submitBrand(
       return { error: t('validation') }
     }
 
+    const ownershipAdjusted = isOwner && Boolean(await getUserBrand(user.id))
+
     await submitBrandForReview({
       brandName: parsed.name,
       websiteUrl: parsed.website,
       heroImageUrl: parsed.heroImageUrl || undefined,
       productPhotos: parsed.productPhotos,
-      isBrandOwner: isOwner,
+      isBrandOwner: isOwner && !ownershipAdjusted,
       pdpaConsent: parsed.pdpaConsent,
       sourceAttribution: data.sourceAttribution ?? null,
       submitterEmail: user.email ?? '',
@@ -113,7 +116,7 @@ export async function submitBrand(
       mitSmileCert: parsed.mitSmileCert || undefined,
     })
 
-    return undefined // Success — no error
+    return ownershipAdjusted ? { ownershipAdjusted: true } : undefined
   } catch (err) {
     console.error('Submit brand error:', err)
     return { error: t('unexpected') }
