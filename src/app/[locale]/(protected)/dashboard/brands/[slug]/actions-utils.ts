@@ -86,6 +86,7 @@ export function parseBrandEditForm(
   const facebook = formData.get('socialFacebook') as string | null
   const heroImageUrl = parseOptionalString(formData.get('heroImageUrl'))
   const productType = parseOptionalString(formData.get('productType'))
+  const city = parseOptionalString(formData.get('city'))
 
   if (
     productType !== null &&
@@ -163,6 +164,7 @@ export function parseBrandEditForm(
   if (name) updateData.name = name
   if (description !== null) updateData.description = description
   if (formData.has('productType')) updateData.productType = productType
+  if (formData.has('city')) updateData.city = city
   if (foundingYear !== null && !isNaN(foundingYear)) updateData.foundingYear = foundingYear
   if (formData.has('purchaseWebsite')) updateData.purchaseWebsite = purchaseWebsite
   if (formData.has('purchasePinkoi')) updateData.purchasePinkoi = sanitizeHref(purchasePinkoi) ?? null

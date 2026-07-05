@@ -60,7 +60,14 @@ describe('BrandEditForm — sections', () => {
     render(<BrandEditForm brand={mockBrand} />)
     expect(screen.getByLabelText(/description/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/category/i)).toHaveValue('fashion')
+    expect(screen.getByLabelText(/city\/county/i)).toHaveValue('')
     expect(screen.getByLabelText(/founding year/i)).toBeInTheDocument()
+  })
+
+  it('renders the city select with Taiwan cities', () => {
+    render(<BrandEditForm brand={makeBrand({ city: 'taipei' })} />)
+    expect(screen.getByLabelText(/city\/county/i)).toHaveValue('taipei')
+    expect(screen.getByRole('option', { name: '臺北市' })).toBeInTheDocument()
   })
 
   it('renders Media section with hero upload field', () => {

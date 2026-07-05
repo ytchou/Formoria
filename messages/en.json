@@ -1398,6 +1398,8 @@
       "friend_recommended": "Friend recommended",
       "work_there": "Work there"
     },
+    "city": "Brand City",
+    "cityPlaceholder": "Select a county/city (optional)",
     "fields": {
       "brandName": "Brand Name",
       "brandNamePlaceholder": "e.g. Rain Boot Studio",

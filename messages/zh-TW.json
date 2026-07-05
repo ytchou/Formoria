@@ -1398,6 +1398,8 @@
       "friend_recommended": "朋友推薦",
       "work_there": "在這裡工作"
     },
+    "city": "品牌所在縣市",
+    "cityPlaceholder": "請選擇縣市（選填）",
     "fields": {
       "brandName": "品牌名稱",
       "brandNamePlaceholder": "例：雨靴工作室",

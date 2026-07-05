@@ -1,9 +1,15 @@
 import type { Metadata } from 'next'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { getStatsPageData } from '@/lib/services/stats'
+
+const TaiwanMap = dynamic(
+  () => import('@/components/stats/TaiwanMap').then((m) => m.TaiwanMap),
+  { ssr: false, loading: () => <div className="h-64 animate-pulse rounded-xl bg-muted" /> },
+)
 
 interface StatsPageProps {
   params: Promise<{ locale: string }>
@@ -50,8 +56,9 @@ export default async function StatsPage({ params }: StatsPageProps) {
   const { locale } = await params
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const [t, data] = await Promise.all([
+  const [t, tCities, data] = await Promise.all([
     getTranslations('stats'),
+    getTranslations('cities'),
     getStatsPageData(),
   ])
   const formattedDate = formatDate(new Date(), safeLocale)
@@ -120,6 +127,31 @@ export default async function StatsPage({ params }: StatsPageProps) {
             </p>
           </div>
         </section>
+
+        {data.cityCoverage.length > 0 ? (
+          <section className="space-y-4">
+            <div className="space-y-1">
+              <h2 className="font-heading text-base font-bold leading-[1.3] text-foreground">
+                {t('geographicDistribution')}
+              </h2>
+              <p className="text-sm text-muted-foreground">{t('geographicDistributionDesc')}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <TaiwanMap data={data.cityCoverage} />
+              <ol className="mt-4 space-y-1.5">
+                {data.cityCoverage.slice(0, 10).map(({ city, count }, index) => (
+                  <li key={city} className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2">
+                      <span className="w-5 text-right text-muted-foreground">{index + 1}.</span>
+                      <span>{tCities(city)}</span>
+                    </span>
+                    <span className="font-medium">{count}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </section>
+        ) : null}
 
         {data.foundingDecadeDistribution.length > 0 ? (
           <section className="space-y-4">

@@ -41,6 +41,7 @@ import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
 import { buildBrandFaq, buildBrandIntro } from '@/lib/services/brand-faq'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { MapPin } from 'lucide-react'
 import { NotFoundError } from '@/lib/errors'
 import { sanitizeHref } from '@/lib/url'
 
@@ -192,6 +193,7 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
   } = await (await getSupabase()).auth.getUser()
   const isAdmin = await isActingAsAdmin(user?.email)
   const tBrandDetail = await getTranslations('brandDetail')
+  const tCities = await getTranslations('cities')
   const tBrandFaq = ((key: string, params?: Record<string, unknown>) =>
     tBrandDetail(key, params as never)) as BrandFaqTranslateFn
   const faqItems = buildBrandFaq(displayBrand, tBrandFaq)
@@ -302,6 +304,13 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
             />
 
             {introText && <p className="text-sm text-muted-foreground">{introText}</p>}
+
+            {displayBrand.city && (
+              <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium">
+                <MapPin className="h-3 w-3" />
+                {tCities(displayBrand.city)}
+              </span>
+            )}
 
             <hr className="border-border" />
 
