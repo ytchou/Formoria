@@ -335,6 +335,7 @@ const BRAND_DRAFT_EDITABLE_KEYS = [
   'purchaseWebsite',
   'purchasePinkoi',
   'purchaseShopee',
+  'mitStory',
   'otherUrls',
   'retailLocations',
   'customerVoices',
@@ -474,6 +475,9 @@ export function draftSnapshotToDomain(
       case 'purchaseShopee':
         partial.purchaseShopee = snapshot.purchaseShopee as Brand['purchaseShopee']
         break
+      case 'mitStory':
+        partial.mitStory = snapshot.mitStory as string | null
+        break
       case 'otherUrls':
         partial.otherUrls = (snapshot.otherUrls as Brand['otherUrls']) ?? []
         break
@@ -536,6 +540,7 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     mitVerifiedAt: row.mit_verified_at ?? null,
     mitEvidence: (row.mit_evidence as Brand['mitEvidence']) ?? null,
     mitVerified: row.mit_status === 'verified',
+    mitStory: row.mit_story ?? null,
     isDemo: row.is_demo ?? false,
     foundingYear: row.founding_year ?? null,
     socialInstagram: row.social_instagram ?? null,
@@ -599,6 +604,7 @@ const BRAND_COLUMNS = [
   'price_range', 'product_tags',
   'reputation_summary', 'manufacturing', 'certifications', 'policies',
   'mit_status', 'mit_verified_at',
+  'mit_story',
   'mit_evidence', 'source', 'is_demo',
 ].join(', ')
 
