@@ -27,7 +27,7 @@ test.describe('Dashboard — tab navigation', () => {
   let brandSlug: string;
   let brandName: string;
 
-  test.beforeAll(async () => {
+  test.beforeAll(async ({}, workerInfo) => {
     supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -47,8 +47,9 @@ test.describe('Dashboard — tab navigation', () => {
     }
 
     const ts = Date.now();
+    const wi = workerInfo.workerIndex;
     brandName = `[E2E-TEST] Tab Nav ${ts}`;
-    brandSlug = `e2e-tab-nav-${ts}`;
+    brandSlug = `e2e-tab-nav-${ts}-${wi}`;
 
     const { data: brandData, error: brandErr } = await supabase
       .from('brands')
@@ -97,7 +98,7 @@ test.describe('Dashboard — tab navigation', () => {
 
     // Profile tab ('品牌資訊') is the active tab when pathname === '/dashboard'
     const profileTab = userPage.locator('a').filter({ hasText: '品牌資訊' });
-    await expect(profileTab).toHaveClass(/border-primary/, { timeout: 60_000 });
+    await expect(profileTab).toHaveAttribute('aria-current', 'page', { timeout: 60_000 });
 
     // Navigate to the seeded brand explicitly via ?brand= param
     await userPage.goto(`/dashboard?brand=${brandSlug}`, { timeout: 60_000 });
@@ -130,7 +131,7 @@ test.describe('Dashboard — tab navigation', () => {
 
     // Profile tab is active (pathname === '/dashboard', isActive = true)
     const profileTab = userPage.locator('a').filter({ hasText: '品牌資訊' });
-    await expect(profileTab).toHaveClass(/border-primary/, { timeout: 5_000 });
+    await expect(profileTab).toHaveAttribute('aria-current', 'page', { timeout: 5_000 });
   });
 
   test('bogus unowned brand slug falls back to default brand panel (IDOR guard)', async ({ userPage }) => {
@@ -169,7 +170,7 @@ test.describe('Dashboard — legacy brand route redirect', () => {
   let brandSlug: string;
   let brandName: string;
 
-  test.beforeAll(async () => {
+  test.beforeAll(async ({}, workerInfo) => {
     supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -189,8 +190,9 @@ test.describe('Dashboard — legacy brand route redirect', () => {
     }
 
     const ts = Date.now();
+    const wi = workerInfo.workerIndex;
     brandName = `[E2E-TEST] Legacy Redirect ${ts}`;
-    brandSlug = `e2e-legacy-redirect-${ts}`;
+    brandSlug = `e2e-legacy-redirect-${ts}-${wi}`;
 
     const { data: brandData, error: brandErr } = await supabase
       .from('brands')

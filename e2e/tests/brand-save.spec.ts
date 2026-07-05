@@ -227,8 +227,9 @@ test.describe('Brand save/unsave — card overlay', () => {
       // Saved brands now live at /favorites
       const resp = await userPage.goto('/favorites', {
         timeout: 60_000,
-        waitUntil: 'networkidle',
+        waitUntil: 'domcontentloaded',
       });
+      await expect(userPage.getByRole('heading')).toBeVisible();
       if (resp?.status() === 503) {
         test.skip(true, 'PREVIEW_MODE active — skipping.');
         return;

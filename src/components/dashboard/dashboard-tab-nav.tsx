@@ -30,6 +30,7 @@ export function DashboardTabNav({ brandSlug }: DashboardTabNavProps) {
         return (
           <Link
             key={tab.key}
+            aria-current={isActive ? 'page' : undefined}
             className={cn(
               'inline-flex min-h-12 items-center border-b-2 px-1 text-sm font-medium transition-colors',
               isActive
