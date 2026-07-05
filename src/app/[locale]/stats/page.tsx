@@ -1,15 +1,10 @@
 import type { Metadata } from 'next'
-import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { getStatsPageData } from '@/lib/services/stats'
-
-const TaiwanMap = dynamic(
-  () => import('@/components/stats/TaiwanMap').then((m) => m.TaiwanMap),
-  { ssr: false, loading: () => <div className="h-64 animate-pulse rounded-xl bg-muted" /> },
-)
+import { TaiwanMapDynamic } from '@/components/stats/TaiwanMapDynamic'
 
 interface StatsPageProps {
   params: Promise<{ locale: string }>
@@ -137,7 +132,7 @@ export default async function StatsPage({ params }: StatsPageProps) {
               <p className="text-sm text-muted-foreground">{t('geographicDistributionDesc')}</p>
             </div>
             <div className="rounded-xl border border-border bg-card p-4">
-              <TaiwanMap data={data.cityCoverage} />
+              <TaiwanMapDynamic data={data.cityCoverage} />
               <ol className="mt-4 space-y-1.5">
                 {data.cityCoverage.slice(0, 10).map(({ city, count }, index) => (
                   <li key={city} className="flex items-center justify-between text-sm">
