@@ -199,6 +199,7 @@ See `docs/strategy/brand-success-playbook.md` for full specification.
 - Sentry: error tracking with source maps
 - Railway: built-in request metrics and logs
 - In-app: Admin dashboard system status card — server-side health checks on demand (not a replacement for external dashboards)
+- CI/CD alerting: Slack notification on nightly e2e failure via `SLACK_WEBHOOK_E2E_NIGHTLY`; GitHub Issues for audit trail
 
 ## Performance Targets
 - Initial page load: < 2s (LCP)

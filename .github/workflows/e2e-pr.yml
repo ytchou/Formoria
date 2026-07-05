@@ -1,0 +1,116 @@
+name: E2E PR (selective)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/app/**'
+      - 'src/components/**'
+      - 'src/lib/**'
+      - 'e2e/**'
+      - 'playwright.config.ts'
+
+jobs:
+  e2e-selective:
+    name: e2e-selective
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CHALLENGE_SECRET: ${{ secrets.CHALLENGE_SECRET }}
+      ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
+      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+      E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+      E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
+      TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch origin/main for --only-changed
+        run: git fetch origin main
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('src/**/*.ts', 'src/**/*.tsx', 'src/**/*.js', 'src/**/*.jsx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
+            ${{ runner.os }}-nextjs-
+
+      - name: Build Tina content
+        run: pnpm exec tinacms build --local --skip-cloud-checks
+
+      - name: Build Next.js (production)
+        run: pnpm build
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Determine specs to run
+        id: select-specs
+        run: |
+          ROUTE_SPECS=$(node scripts/e2e-select-specs.mjs)
+          echo "route_specs=$ROUTE_SPECS" >> "$GITHUB_OUTPUT"
+          if [ -z "$ROUTE_SPECS" ]; then
+            echo "No route-mapped specs found"
+          else
+            echo "Route-mapped specs: $ROUTE_SPECS"
+          fi
+
+      - name: Run selective e2e tests
+        continue-on-error: true
+        run: |
+          SPECS="${{ steps.select-specs.outputs.route_specs }}"
+
+          # Pass 1: run --only-changed (catches changed spec files + their imports)
+          if pnpm exec playwright test --project=deep --only-changed=origin/main; then
+            echo "Pass 1 (--only-changed) passed"
+          else
+            EXIT_CODE=$?
+            if [ $EXIT_CODE -ne 4 ]; then
+              echo "Pass 1 (--only-changed) failed with exit $EXIT_CODE"
+            else
+              echo "Pass 1: no changed specs found"
+            fi
+          fi
+
+          # Pass 2: run route-mapped specs (catches app-code-driven changes)
+          if [ -n "$SPECS" ]; then
+            if pnpm exec playwright test --project=deep $SPECS; then
+              echo "Pass 2 (route-mapped) passed"
+            else
+              EXIT_CODE=$?
+              if [ $EXIT_CODE -ne 4 ]; then
+                echo "Pass 2 (route-mapped) failed with exit $EXIT_CODE"
+              else
+                echo "Pass 2: no route-mapped specs found"
+              fi
+            fi
+          fi
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-pr-${{ github.run_id }}
+          path: playwright-report/
+          retention-days: 7
