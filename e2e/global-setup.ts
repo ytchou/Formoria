@@ -24,6 +24,7 @@ async function globalSetup() {
     'E2E_USER_PASSWORD',
     'NEXT_PUBLIC_SUPABASE_URL',
     'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+    'SUPABASE_SERVICE_ROLE_KEY',
   ];
   const missing = requiredVars.filter((v) => !process.env[v]);
   if (missing.length > 0) {
@@ -32,7 +33,7 @@ async function globalSetup() {
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
 
   // Preflight: validate seed insert works — catches schema changes early
@@ -40,7 +41,7 @@ async function globalSetup() {
     .from('brands')
     .insert({
       name: '[E2E-TEST] Preflight Probe',
-      slug: 'e2e-preflight-probe',
+      slug: `e2e-preflight-probe-${Date.now()}`,
       status: 'approved',
     })
     .select('id')
