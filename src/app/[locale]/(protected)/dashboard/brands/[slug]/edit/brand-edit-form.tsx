@@ -521,7 +521,7 @@ export function BrandEditForm({ brand, onboardingStep }: BrandEditFormProps) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="mitStory">
+                <Label htmlFor="mitStory" className="text-sm font-semibold text-foreground">
                   {t('mitStoryLabel')}
                 </Label>
                 <Textarea
@@ -530,6 +530,7 @@ export function BrandEditForm({ brand, onboardingStep }: BrandEditFormProps) {
                   defaultValue={brand.mitStory ?? ''}
                   placeholder={t('mitStoryPlaceholder')}
                   rows={5}
+                  className="min-h-28 bg-background focus-visible:ring-2 focus-visible:ring-ring"
                 />
               </div>
               <div className="space-y-2">

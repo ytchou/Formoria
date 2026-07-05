@@ -156,14 +156,14 @@ function buildInternationalShippingAnswer(brand: Brand, t: TFn): string {
 
 const FAQ_GENERATORS: FaqGenerator[] = [
   {
-    condition: (brand) => brand.mitStatus === 'verified' || !!brand.mitStory,
+    condition: (brand) => brand.mitStatus === 'verified' || hasValue(brand.mitStory),
     questionKey: 'brandFaq.isMadeInTaiwan.question',
     buildAnswer: (brand, t) => {
       const stampsAnswer = t('brandFaq.isMadeInTaiwan.answer', { brandName: brand.name })
-      if (brand.mitStory && brand.mitStatus === 'verified') {
+      if (hasValue(brand.mitStory) && brand.mitStatus === 'verified') {
         return `${brand.mitStory}\n\n${stampsAnswer}`
       }
-      if (brand.mitStory) {
+      if (hasValue(brand.mitStory)) {
         return brand.mitStory
       }
       return stampsAnswer

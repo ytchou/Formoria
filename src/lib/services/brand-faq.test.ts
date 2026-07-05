@@ -72,7 +72,7 @@ describe('buildBrandFaq', () => {
     const mitFaq = faqs.find((f) => f.question.includes('isMadeInTaiwan'))
     expect(mitFaq).toBeDefined()
     expect(mitFaq!.answer).toContain('Our fabrics from Changhua.')
-    expect(mitFaq!.answer).not.toContain('[brandFaq.isMadeInTaiwan.answer]')
+    expect(mitFaq!.answer).not.toContain('brandFaq.isMadeInTaiwan.answer|{"brandName":"Test Brand"}')
   })
 
   it('shows story + stamps evidence when mitStory exists and mitStatus is verified', () => {
