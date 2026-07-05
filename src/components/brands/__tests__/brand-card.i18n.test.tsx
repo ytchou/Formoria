@@ -39,6 +39,7 @@ const fixtureBrand: Brand = {
   heroImageUrl: null,
   status: 'approved',
   category: 'food-beverage',
+  city: null,
   isVerified: true,
   isDemo: false,
   socialInstagram: null,

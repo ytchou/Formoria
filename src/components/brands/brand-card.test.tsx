@@ -43,6 +43,7 @@ const mockBrand = {
   isVerified: false,
   isDemo: false,
   heroImageUrl: null,
+  city: null,
   foundingYear: 2020,
   productPhotos: [],
   socialInstagram: null,

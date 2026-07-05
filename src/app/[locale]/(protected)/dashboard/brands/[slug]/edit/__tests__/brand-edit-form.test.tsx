@@ -26,6 +26,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     status: 'approved',
     productType: 'fashion',
     category: 'fashion',
+    city: null,
     isVerified: false,
     isDemo: false,
     socialInstagram: null,

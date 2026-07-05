@@ -16,6 +16,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     heroImageUrl: 'https://example.com/hero.jpg',
     status: 'approved',
     category: 'crafts',
+    city: null,
     isVerified: false,
     isDemo: false,
     foundingYear: 2020,

@@ -102,6 +102,7 @@ export type Brand = {
   heroImageUrl: string | null
   status: BrandStatus
   productType?: string | null
+  city: string | null
   category: string | null
   isVerified: boolean
   mitStatus?: 'unverified' | 'verified'

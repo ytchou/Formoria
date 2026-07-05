@@ -116,6 +116,7 @@ function createBrand(overrides: Partial<Brand>): Brand {
     heroImageUrl: null,
     status: 'approved',
     category: null,
+    city: null,
     isVerified: false,
     isDemo: false,
     foundingYear: null,
