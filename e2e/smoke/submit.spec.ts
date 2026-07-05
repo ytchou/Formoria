@@ -1,4 +1,5 @@
 import { test, expect } from '../fixtures/auth';
+import { gotoSubmitForm } from '../utils/submit-form';
 
 test.describe('Submit smoke', () => {
   test('submit form loads at /submit/form with all required fields visible', async ({ userPage }) => {
@@ -20,5 +21,22 @@ test.describe('Submit smoke', () => {
 
     // No step indicator — this is a single screen, not a wizard
     await expect(userPage.locator('[data-state="active"]')).not.toBeVisible();
+  });
+
+  test('city select is present with placeholder and at least one city option', async ({ userPage }) => {
+    test.setTimeout(60_000);
+    await gotoSubmitForm(userPage);
+
+    // City select must be visible (optional field on the flat form)
+    const citySelect = userPage.locator('#submit-city');
+    await expect(citySelect).toBeVisible({ timeout: 5_000 });
+
+    // Placeholder option (value="") is always first
+    await expect(citySelect.locator('option[value=""]')).toHaveCount(1);
+
+    // Taipei city option is present and correctly labelled in Traditional Chinese
+    const taipeiOption = citySelect.locator('option[value="taipei"]');
+    await expect(taipeiOption).toHaveCount(1);
+    await expect(taipeiOption).toHaveText('臺北市');
   });
 });

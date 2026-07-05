@@ -83,6 +83,26 @@ test.describe('Dashboard brand edit', () => {
     }
   });
 
+  test('edit form has city select with placeholder and city options', async ({ userPage }) => {
+    test.setTimeout(60_000);
+    await userPage.goto(`/dashboard/brands/${descriptionBrandSlug}/edit`, { timeout: 60_000 });
+    await expect(
+      userPage.getByRole('heading', { name: /^編輯 / })
+    ).toBeVisible({ timeout: 60_000 });
+
+    // City select is visible (native <select id="city" name="city">)
+    const citySelect = userPage.locator('#city');
+    await expect(citySelect).toBeVisible({ timeout: 10_000 });
+
+    // Placeholder option (value="") is present
+    await expect(citySelect.locator('option[value=""]')).toHaveCount(1);
+
+    // Taipei option is present and labelled correctly in Traditional Chinese
+    const taipeiOption = citySelect.locator('option[value="taipei"]');
+    await expect(taipeiOption).toHaveCount(1);
+    await expect(taipeiOption).toHaveText('臺北市');
+  });
+
   test('owner can edit description and change persists', async ({ userPage }) => {
     test.setTimeout(120_000);
 
