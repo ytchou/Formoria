@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createServiceClient } from '@/lib/supabase/server'
-import { processEnrichBrand, mergeEnrichPatches, persistSubmissionEnrichmentResults, runEnrich } from '../curation-operations'
+import * as brandWrites from '../brands'
+import { processEnrichBrand, mergeEnrichPatches, persistEnrichmentResults, persistSubmissionEnrichmentResults, runEnrich, needsPhase } from '../curation-operations'
 import type { CurationConfig } from '../curation-operations'
 import { describeWithDb } from '@/test/setup'
 
@@ -51,6 +52,24 @@ describe('processEnrichBrand', () => {
   it('omits description when phase is not requested', () => {
     const result = processEnrichBrand(baseBrand, scrapedData, ['links'])
     expect(result.patches.descriptions).toBeUndefined()
+  })
+})
+
+describe('enrichment write guards', () => {
+  it('persistEnrichmentResults routes through the guarded write path with source=enriched', async () => {
+    const spy = vi.spyOn(brandWrites, 'updateBrand').mockResolvedValue({ skipped: [] } as never)
+    await persistEnrichmentResults({} as never, [{ brandId: 'b1', patch: { city: '台南' } }], 'job-1')
+    expect(spy).toHaveBeenCalledWith(
+      'b1',
+      expect.objectContaining({ city: '台南' }),
+      expect.objectContaining({ source: 'enriched', jobId: 'job-1' }),
+    )
+    spy.mockRestore()
+  })
+
+  it('per-field gate: brand with enriched_at set but missing description is still selected for the descriptions phase', () => {
+    const brand = { brand_enriched_at: '2026-06-01', description: null, hero_image_url: 'x' }
+    expect(needsPhase(brand, 'descriptions')).toBe(true)
   })
 })
 

@@ -5,7 +5,7 @@ import type { EnrichedData } from '@/lib/types/enriched-data'
 import { enrichedDataFromDb } from '@/lib/types/enriched-data'
 import { NotFoundError } from '@/lib/errors'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { generateSlug, isReservedSlug } from '@/lib/services/brands'
+import { generateSlug, isReservedSlug, updateBrand } from '@/lib/services/brands'
 import { toSubmissionRow } from './field-map'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -61,6 +61,18 @@ type SubmissionRowInput = Pick<
 type SuggestedTagsInput = string[] | { values?: string[] }
 type ServiceClient = SupabaseClient<Database>
 type BrandInsert = Database['public']['Tables']['brands']['Insert']
+type FieldStateInsert = {
+  brand_id: string
+  field: string
+  source: 'enriched' | 'owner'
+  updated_by: string | null
+}
+type BrandFieldStateWriteTable = {
+  upsert: (
+    rows: FieldStateInsert[],
+    options: { onConflict: 'brand_id,field'; ignoreDuplicates: true }
+  ) => Promise<{ error: { message?: string } | null }>
+}
 
 export type SubmissionApprovalOverrides = Partial<
   Pick<
@@ -314,6 +326,42 @@ function approvalOverridesToBrandInsert(
   })
 }
 
+function brandFieldStateWriteTable(client: unknown): BrandFieldStateWriteTable {
+  return (client as { from: (table: 'brand_field_state') => BrandFieldStateWriteTable }).from('brand_field_state')
+}
+
+function isPopulatedFieldValue(value: unknown): boolean {
+  if (value == null) return false
+  if (typeof value === 'string') return value.trim().length > 0
+  if (Array.isArray(value)) return value.length > 0
+  return true
+}
+
+async function writeInitialBrandFieldState(
+  supabase: ServiceClient,
+  brandId: string,
+  brandInsert: BrandInsert,
+  source: 'enriched' | 'owner',
+): Promise<void> {
+  const rows = Object.entries(brandInsert)
+    .filter(([, value]) => isPopulatedFieldValue(value))
+    .map(([field]) => ({
+      brand_id: brandId,
+      field,
+      source,
+      updated_by: null,
+    }))
+
+  if (rows.length === 0) return
+
+  const { error } = await brandFieldStateWriteTable(supabase).upsert(rows, {
+    onConflict: 'brand_id,field',
+    ignoreDuplicates: true,
+  })
+
+  if (error) throw error
+}
+
 async function resolveUniqueSlug(supabase: ServiceClient, slug: string): Promise<string> {
   let candidate = slug
   let suffix = 2
@@ -550,6 +598,8 @@ export async function approveSubmission(
     .single()
 
   if (brandError || !brand) throw brandError ?? new Error('Failed to create brand')
+  const provenanceSource = submission.is_brand_owner ? 'owner' : 'enriched'
+  await writeInitialBrandFieldState(supabase, brand.id, brandInsert, provenanceSource)
 
   const { data, error } = await supabase
     .from('brand_submissions')
@@ -565,12 +615,11 @@ export async function approveSubmission(
 
   if (error || !data) throw new NotFoundError('BrandSubmission', id, { cause: error })
   if (isStructuredTags(submission.suggested_tags) && submission.suggested_tags.productType && !Object.prototype.hasOwnProperty.call(overrides ?? {}, 'productType')) {
-    const { error: updateError } = await supabase
-      .from('brands')
-      .update({ product_type: submission.suggested_tags.productType })
-      .eq('id', brand.id)
-
-    if (updateError) throw updateError
+    await updateBrand(
+      brand.id,
+      { product_type: submission.suggested_tags.productType } as never,
+      { source: provenanceSource },
+    )
   }
   return {
     brandId: brand.id,

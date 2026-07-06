@@ -413,12 +413,13 @@ describe('brand not found errors preserve Supabase cause', () => {
   it('updateBrand wraps original error as the NotFoundError cause', async () => {
     const { updateBrand } = await import('./brands')
     const supabaseError = { code: 'PGRST301', message: 'Database error' }
+    // New updateBrand calls apply_brand_patch RPC first, then re-fetches the brand.
+    // RPC succeeds; re-fetch fails with supabaseError → wrapped as NotFoundError.
+    mockRpc.mockResolvedValue({ error: null })
     mockFrom.mockReturnValue({
-      update: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          select: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({ data: null, error: supabaseError }),
-          }),
+          single: vi.fn().mockResolvedValue({ data: null, error: supabaseError }),
         }),
       }),
     })

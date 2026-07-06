@@ -9,6 +9,12 @@ import { isNonImageHost } from '@/lib/images/allowed-image-hosts'
 import { RESERVED_ROUTES } from '@/middleware'
 import { deriveCategoryFromProductType } from '@/lib/taxonomy/ontology'
 import { downloadAndStoreImages } from './image-download'
+import {
+  resolveWritablePatch,
+  type BrandFieldWriteState,
+  type BrandWriteActor,
+  type SkippedBrandField,
+} from './brand-write-policy'
 
 function shuffleArray<T>(arr: T[]): void {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -78,6 +84,32 @@ type CuratedBrand = Partial<Brand> &
   > & { productType: string }
 
 type BrandWriteInput = Partial<Brand> & { productType?: string | null }
+type BrandWriteResult = Brand & { skipped: SkippedBrandField[] }
+type ApplyBrandPatchArgs = {
+  p_brand_id: string
+  p_patch: Record<string, unknown>
+  p_source: BrandWriteActor['source']
+  p_actor: string | null
+  p_job_id: string | null
+}
+type BrandFieldStateRow = {
+  field: string
+  source: string
+  admin_locked: boolean | null
+}
+type BrandFieldStateTable = {
+  select: (columns: 'field, source, admin_locked') => {
+    eq: (column: 'brand_id', value: string) => Promise<{
+      data: BrandFieldStateRow[] | null
+      error: { message?: string } | null
+    }>
+  }
+}
+type BrandPatchRpcClient = {
+  rpc: (fn: 'apply_brand_patch', args: ApplyBrandPatchArgs) => Promise<{
+    error: { message?: string } | null
+  }>
+}
 
 /** Shape returned by: brand_owners(user_id) */
 type BrandOwnerRef = { user_id: string }
@@ -588,7 +620,52 @@ export function brandToInsert(data: BrandWriteInput): Record<string, unknown> {
 }
 
 function brandToUpdate(data: BrandWriteInput): Record<string, unknown> {
-  return brandToInsert(data)
+  const row = brandToInsert(data)
+  for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+    if (key.includes('_')) {
+      row[key] = value
+    }
+  }
+  if (data.priceRange === undefined) delete row.price_range
+  if (data.productTags === undefined) delete row.product_tags
+  return row
+}
+
+function brandFieldStateTable(client: unknown): BrandFieldStateTable {
+  return (client as { from: (table: 'brand_field_state') => BrandFieldStateTable }).from('brand_field_state')
+}
+
+function brandPatchRpc(client: unknown): BrandPatchRpcClient {
+  return client as BrandPatchRpcClient
+}
+
+async function loadBrandFieldState(
+  supabase: unknown,
+  brandId: string
+): Promise<Record<string, BrandFieldWriteState>> {
+  const { data, error } = await brandFieldStateTable(supabase)
+    .select('field, source, admin_locked')
+    .eq('brand_id', brandId)
+
+  if (error) throw error
+
+  return Object.fromEntries(
+    (data ?? []).map((row) => [
+      row.field,
+      {
+        source: row.source,
+        adminLocked: row.admin_locked ?? false,
+      },
+    ])
+  )
+}
+
+export function previewBrandPatch(
+  data: BrandWriteInput,
+  fieldState: Record<string, BrandFieldWriteState>,
+  actor: BrandWriteActor
+): ReturnType<typeof resolveWritablePatch> {
+  return resolveWritablePatch(brandToUpdate(data), fieldState, actor)
 }
 
 // ---------------------------------------------------------------------------
@@ -878,18 +955,39 @@ export async function insertSlugRedirect(oldSlug: string, newSlug: string): Prom
   if (error) throw error
 }
 
-export async function updateBrand(id: string, data: BrandWriteInput): Promise<Brand> {
+export async function updateBrand(
+  id: string,
+  data: BrandWriteInput,
+  actor: BrandWriteActor = { source: 'admin' }
+): Promise<BrandWriteResult> {
   const supabase = createServiceClient()
   const row = brandToUpdate(data)
+  const fieldState = actor.source === 'admin' ? {} : await loadBrandFieldState(supabase, id)
+  const { allowed, skipped } = resolveWritablePatch(row, fieldState, actor)
+
+  if (Object.keys(allowed).length > 0) {
+    const { error: patchError } = await brandPatchRpc(supabase).rpc('apply_brand_patch', {
+      p_brand_id: id,
+      p_patch: allowed,
+      p_source: actor.source,
+      p_actor: actor.userId ?? null,
+      p_job_id: actor.jobId ?? null,
+    })
+
+    if (patchError) throw patchError
+  }
+
   const { data: updated, error } = await supabase
     .from('brands')
-    .update(row)
-    .eq('id', id)
     .select(BRAND_SELECT)
+    .eq('id', id)
     .single()
 
   if (error || !updated) throw new NotFoundError('Brand', id, { cause: error })
-  return brandToDomain(updated)
+  return {
+    ...brandToDomain(updated),
+    skipped,
+  }
 }
 
 export async function saveDraft(brandId: string, data: Partial<Brand>): Promise<void> {

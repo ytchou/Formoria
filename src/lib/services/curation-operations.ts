@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { cleanBrandName } from './brand-cleanup'
-import { insertSlugRedirect } from './brands'
+import { insertSlugRedirect, updateBrand } from './brands'
 import type { BrandFlatLinkColumns } from '@/lib/types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import { ENRICH_PHASES } from '@/lib/constants/enrich-phases'
@@ -68,6 +68,10 @@ type CurationBrand = {
 type SupabaseLike = Pick<SupabaseClient, 'from'>
 
 type JsonObject = Record<string, unknown>
+type EnrichmentPatchInput = {
+  brandId: string
+  patch: JsonObject
+}
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -107,6 +111,45 @@ type EnrichImagePatch = Partial<{
   hero_image_url: string | null
   product_photos: string[]
 }>
+
+function isEmptyField(value: unknown): boolean {
+  if (value == null) return true
+  if (typeof value === 'string') return value.trim().length === 0
+  if (Array.isArray(value)) return value.length === 0
+  return false
+}
+
+export function needsPhase(brand: Record<string, unknown>, phase: RunEnrichPhase): boolean {
+  if (phase === 'descriptions') {
+    return isEmptyField(brand.description)
+  }
+
+  if (phase === 'images') {
+    return isEmptyField(brand.hero_image_url ?? brand.heroImageUrl)
+  }
+
+  if (phase === 'expansion') {
+    return (
+      isEmptyField(brand.reputation_summary ?? brand.reputationSummary) ||
+      isEmptyField(brand.manufacturing) ||
+      isEmptyField(brand.certifications) ||
+      isEmptyField(brand.policies)
+    )
+  }
+
+  return true
+}
+
+function shouldSelectForRequestedPhases(brand: Record<string, unknown>, phases: RunEnrichPhase[]): boolean {
+  const fillGapPhases = phases.filter((phase) => (
+    phase === 'descriptions' ||
+    phase === 'images' ||
+    phase === 'expansion'
+  ))
+
+  if (fillGapPhases.length === 0) return true
+  return fillGapPhases.some((phase) => needsPhase(brand, phase))
+}
 
 type EnrichCleanPhase = {
   changed: boolean
@@ -483,17 +526,35 @@ export async function persistEnrichmentResults(
   supabase: SupabaseClient,
   brandId: string,
   patch: JsonObject
+): Promise<void>
+export async function persistEnrichmentResults(
+  supabase: SupabaseClient,
+  patches: EnrichmentPatchInput[],
+  jobId?: string
+): Promise<void>
+export async function persistEnrichmentResults(
+  supabase: SupabaseClient,
+  brandIdOrPatches: string | EnrichmentPatchInput[],
+  patchOrJobId?: JsonObject | string,
 ): Promise<void> {
-  const { error: updateError } = await supabase
-    .from('brands')
-    .update({
-      ...patch,
-      brand_enriched_at: new Date().toISOString(),
-    } as never)
-    .eq('id', brandId)
+  void supabase
 
-  if (updateError) {
-    throw new Error(updateError.message ?? 'Failed to update brand')
+  const patches = Array.isArray(brandIdOrPatches)
+    ? brandIdOrPatches
+    : [{ brandId: brandIdOrPatches, patch: patchOrJobId as JsonObject }]
+  const jobId = Array.isArray(brandIdOrPatches) && typeof patchOrJobId === 'string'
+    ? patchOrJobId
+    : undefined
+
+  for (const item of patches) {
+    await updateBrand(
+      item.brandId,
+      {
+        ...item.patch,
+        brand_enriched_at: new Date().toISOString(),
+      } as never,
+      { source: 'enriched', jobId },
+    )
   }
 }
 
@@ -562,11 +623,7 @@ export async function runEnrich(
       query = query.eq('status', config.status)
     }
 
-    if (!config.overwrite) {
-      query = query.is('brand_enriched_at', null)
-    }
-
-    if (config.limit !== undefined) {
+    if (config.limit !== undefined && config.overwrite) {
       query = query.limit(config.limit)
     }
 
@@ -579,7 +636,13 @@ export async function runEnrich(
       throw error
     }
 
-    allBrands = (data ?? []) as EnrichBrand[]
+    const brands = (data ?? []) as EnrichBrand[]
+    const phaseEligibleBrands = config.overwrite
+      ? brands
+      : brands.filter((brand) => shouldSelectForRequestedPhases(brand as Record<string, unknown>, phases))
+    allBrands = config.limit === undefined
+      ? phaseEligibleBrands
+      : phaseEligibleBrands.slice(0, config.limit)
   }
 
   const totalBrands = allBrands.length
@@ -717,10 +780,14 @@ export async function runEnrich(
               confidence: triageResult?.confidence ?? 'high',
               rawResponse: triageResult,
             })
-            await supabase.from('brands').update({
-              status: 'hidden',
-              brand_enriched_at: new Date().toISOString(),
-            } as never).eq('id', brand.id)
+            await updateBrand(
+              brand.id,
+              {
+                status: 'hidden',
+                brand_enriched_at: new Date().toISOString(),
+              } as never,
+              { source: 'enriched' },
+            )
           }
 
           result.brandOutcomes.push({
