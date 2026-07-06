@@ -1,0 +1,57 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Directory Health — 2026-07-06"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*355 brands total* (+0 today)\n96.9% have complete profiles (description + image) — 11 brands missing hero image"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Link Health — 178 URLs audited*\n:white_check_mark: ~56 confirmed reachable via web search\n:question: 122 Unknown/Unverified — legitimate-looking domains, none flagged as broken\n:x: 0 Broken  |  :warning: 0 Possible Broken  |  :eyes: 0 Suspicious Third-party"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Incomplete Profiles — Missing Hero Image (11)*\n`Build.Light Candle`  `Candes Accessories`  `FuSoap`  `FYE`  `HANCHOR`  `Journey of Sole`  `MULTI`  `Snowbell Handmade Candle Cake`  `YUMOR Original`  `我吃壓克力 I Eat Acrylic`  `綠洲販賣所 Oasis Emporium`\n_All 11 have descriptions — only `hero_image_url` is missing._"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*DB Health*\nTop tables: `brands` (9.4 MB), `storage.objects` (5.0 MB), `brand_search_results` (3.7 MB)\nConnections: 1 active / 17 idle / 0 idle-in-txn — :white_check_mark: Healthy\n\n:warning: *Dead Tuples >20% — VACUUM recommended on 6 tables:*\n• `brand_owners` — 3600% dead (1 live, 36 dead)\n• `brand_submissions` — 1950% dead (2 live, 39 dead)\n• `brand_saves` — 1200% dead (1 live, 12 dead)\n• `newsletter_subscribers` — 900% dead (2 live, 18 dead)\n• `moderation_flags` — 400% dead (2 live, 8 dead)\n• `profiles` — 50% dead (4 live, 2 dead)\n_Absolute counts are small (2–39 rows); a single `VACUUM ANALYZE` will resolve._\n\nSlow queries: Top mean 1056ms (VACUUM ANALYZE, 1 call); all are maintenance/internal ops — no user-facing query concerns."
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "1 Linear ticket created (<https://linear.app/ytchou/issue/DEV-962|DEV-962>) | Directory Health v2 | Sunday daily scan"
+        }
+      ]
+    }
+  ]
+}
