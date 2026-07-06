@@ -30,9 +30,7 @@ type ProgressRow = {
 }
 
 function isOnboardingInfraError(error: { code?: string }): boolean {
-  // 42P01 = table doesn't exist, PGRST205 = PostgREST missing table,
-  // 23514 = CHECK constraint violation (step keys not yet migrated)
-  return error.code === '42P01' || error.code === 'PGRST205' || error.code === '23514'
+  return error.code === '42P01' || error.code === 'PGRST205'
 }
 
 export function isOnboardingStepKey(value: string): value is OnboardingStepKey {

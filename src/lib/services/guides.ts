@@ -73,25 +73,34 @@ function toGuideEntry(node: TinaGuideNode): GuideEntry {
 }
 
 export async function getAllGuides(): Promise<GuideEntry[]> {
-  const result = (await client.queries.guideConnection({
-    first: 200,
-    filter: { locale: { eq: 'zh-TW' }, draft: { eq: false } },
-  })) as TinaGuideConnectionResult;
+  try {
+    const result = (await client.queries.guideConnection({
+      first: 200,
+      filter: { locale: { eq: 'zh-TW' }, draft: { eq: false } },
+    })) as TinaGuideConnectionResult;
 
-  const edges = result.data?.guideConnection?.edges ?? [];
+    const edges = result.data?.guideConnection?.edges ?? [];
 
-  return edges
-    .map(edge => edge?.node)
-    .filter((node): node is TinaGuideNode => Boolean(node))
-    .map(toGuideEntry);
+    return edges
+      .map(edge => edge?.node)
+      .filter((node): node is TinaGuideNode => Boolean(node))
+      .map(toGuideEntry);
+  } catch {
+    return [];
+  }
 }
 
 export async function getGuideBySlug(slug: string): Promise<GuideDetailResult>;
 export async function getGuideBySlug(slug: string): Promise<GuideDetailResult> {
   const relativePath = `${slug}.mdx`;
-  const tina = (await client.queries.guide({
-    relativePath,
-  })) as TinaGuideResult;
+  let tina: TinaGuideResult;
+  try {
+    tina = (await client.queries.guide({
+      relativePath,
+    })) as TinaGuideResult;
+  } catch {
+    notFound();
+  }
 
   const node = tina.data?.guide;
   if (!node) {
@@ -107,19 +116,23 @@ export async function getGuideBySlug(slug: string): Promise<GuideDetailResult> {
 }
 
 export async function getGuidesByCategory(category: string): Promise<GuideEntry[]> {
-  const result = (await client.queries.guideConnection({
-    first: 200,
-    filter: {
-      category: { eq: category },
-      locale: { eq: 'zh-TW' },
-      draft: { eq: false },
-    },
-  })) as TinaGuideConnectionResult;
+  try {
+    const result = (await client.queries.guideConnection({
+      first: 200,
+      filter: {
+        category: { eq: category },
+        locale: { eq: 'zh-TW' },
+        draft: { eq: false },
+      },
+    })) as TinaGuideConnectionResult;
 
-  const edges = result.data?.guideConnection?.edges ?? [];
+    const edges = result.data?.guideConnection?.edges ?? [];
 
-  return edges
-    .map(edge => edge?.node)
-    .filter((node): node is TinaGuideNode => Boolean(node))
-    .map(toGuideEntry);
+    return edges
+      .map(edge => edge?.node)
+      .filter((node): node is TinaGuideNode => Boolean(node))
+      .map(toGuideEntry);
+  } catch {
+    return [];
+  }
 }

@@ -7,6 +7,7 @@ const imgSrcHosts = ALLOWED_IMAGE_HOSTS.map((hostname) => `https://${hostname}`)
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ['adm-zip'],
+  transpilePackages: ['react-simple-maps'],
   experimental: {
     serverActions: {
       bodySizeLimit: '5mb',
