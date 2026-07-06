@@ -122,7 +122,7 @@ test.describe('API — newsletter', () => {
     confirmToken = randomUUID()
     newsletterUnsubToken = randomUUID()
 
-    const { error: nsError } = await supabase
+    const { data: nsRow, error: nsError } = await supabase
       .from('newsletter_subscribers')
       .insert({
         email: testEmail,
@@ -132,14 +132,27 @@ test.describe('API — newsletter', () => {
         confirm_token: confirmToken,
         unsubscribe_token: newsletterUnsubToken,
       })
-    if (nsError) throw new Error(`newsletter seed failed: ${nsError.message}`)
+      .select('confirm_token, unsubscribe_token')
+      .single()
+    if (nsError || !nsRow) throw new Error(`newsletter seed failed: ${nsError?.message}`)
+    confirmToken = nsRow.confirm_token
+    newsletterUnsubToken = nsRow.unsubscribe_token
 
     // Seed owner_email_preferences
     if (testUserId) {
       const { error: oepError } = await supabase
         .from('owner_email_preferences')
-        .insert({ user_id: testUserId, unsubscribe_token: ownerUnsubToken })
+        .upsert(
+          { user_id: testUserId, unsubscribe_token: ownerUnsubToken },
+          { onConflict: 'user_id' },
+        )
       if (oepError) throw new Error(`owner_email_preferences seed failed: ${oepError.message}`)
+      const { data: oepRow } = await supabase
+        .from('owner_email_preferences')
+        .select('unsubscribe_token')
+        .eq('user_id', testUserId)
+        .single()
+      if (oepRow) ownerUnsubToken = oepRow.unsubscribe_token
     }
   })
 
