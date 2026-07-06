@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { SECTION_TO_ONBOARDING_STEPS } from '@/lib/schemas/brand-edit'
 
 export const ONBOARDING_STEPS = [
   'basics',
@@ -123,4 +124,35 @@ export async function setBrandOnboardingStepStatus({
     }, { onConflict: 'brand_id,step_key' })
 
   if (error && !isMissingOnboardingTable(error)) throw error
+}
+
+async function markOnboardingStepCompleted(
+  brandId: string,
+  step: OnboardingStepKey
+): Promise<void> {
+  const supabase = createServiceClient()
+  const { data: owner, error: ownerError } = await supabase
+    .from('brand_owners')
+    .select('user_id')
+    .eq('brand_id', brandId)
+    .maybeSingle()
+
+  if (ownerError) throw ownerError
+  if (!owner?.user_id) throw new Error(`No owner found for brand ${brandId}`)
+
+  await setBrandOnboardingStepStatus({
+    brandId,
+    userId: owner.user_id,
+    step,
+    status: 'complete',
+  })
+}
+
+export async function completeOnboardingStepsForSection(
+  brandId: string,
+  sectionKey: string
+): Promise<void> {
+  const steps = SECTION_TO_ONBOARDING_STEPS[sectionKey]
+  if (!steps || steps.length === 0) return
+  await Promise.all(steps.map(step => markOnboardingStepCompleted(brandId, step)))
 }

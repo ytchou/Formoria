@@ -71,7 +71,9 @@ test.describe('Dashboard — brand image upload', () => {
   test('owner can upload a hero image and the URL persists after save', async ({ userPage }) => {
     test.setTimeout(120_000);
 
-    const editPath = `/dashboard/brands/${brandSlug}/edit`;
+    // Image upload is in the Media section — step 1 of the wizard.
+    // Navigate directly to ?step=1 so the MediaSection (heroImageUrl) is visible.
+    const editPath = `/dashboard/brands/${brandSlug}/edit?step=1`;
     const editResp = await userPage.goto(editPath, { timeout: 60_000 });
     if (editResp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
@@ -115,10 +117,10 @@ test.describe('Dashboard — brand image upload', () => {
       userPage.locator('button').filter({ hasText: '更換' }).first()
     ).toBeVisible({ timeout: 10_000 });
 
-    // Save the form
-    await userPage.getByRole('button', { name: '儲存變更' }).click();
-
-    await expect(userPage.getByText('您的編輯已提交審核')).toBeVisible({ timeout: 15_000 });
+    // Save & Continue at step 1 — wizard button (not the old single-form "儲存變更").
+    // saveSectionDraftAction persists heroImageUrl to pending_brand_edits and navigates to step 2.
+    await userPage.getByRole('button', { name: '儲存並繼續' }).click();
+    await expect(userPage).toHaveURL(/\?step=2/, { timeout: 15_000 });
 
     const { data: pendingEdit } = await supabase
       .from('pending_brand_edits')

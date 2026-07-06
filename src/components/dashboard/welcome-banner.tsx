@@ -3,7 +3,7 @@
 import { ArrowRight, Check, Circle, ListChecks } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
-import { startOnboardingStepAction } from '@/lib/actions/brand-onboarding'
+import { ONBOARDING_STEP_TO_WIZARD_STEP } from '@/lib/schemas/brand-edit'
 import { ONBOARDING_STEPS, type OnboardingStep, type OnboardingStepKey } from '@/lib/services/brand-onboarding'
 
 type WelcomeBannerProps = {
@@ -56,63 +56,54 @@ export function WelcomeBanner({
       <ol className="mt-5 space-y-2">
         {steps.map((step, index) => {
           const isNext = step.key === nextStep
-          const startAction = startOnboardingStepAction.bind(null, slug, step.key)
+          const wizardStep = ONBOARDING_STEP_TO_WIZARD_STEP[step.key]
 
           return (
             <li key={step.key}>
-              <form action={startAction}>
-                <button
-                  type="submit"
-                  className={`group flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                    isNext
-                      ? 'border-primary/30 bg-primary/5 hover:bg-primary/10'
-                      : 'border-transparent hover:bg-muted'
+              <Link
+                href={`/dashboard/brands/${slug}/edit?step=${wizardStep}`}
+                className={`group flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                  isNext
+                    ? 'border-primary/30 bg-primary/5 hover:bg-primary/10'
+                    : 'border-transparent hover:bg-muted'
+                }`}
+              >
+                <span
+                  className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full ${
+                    step.status === 'complete'
+                      ? 'bg-primary text-primary-foreground'
+                      : isNext
+                        ? 'bg-primary/15 text-primary'
+                        : 'bg-muted text-muted-foreground'
                   }`}
                 >
-                  <span
-                    className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full ${
-                      step.status === 'complete'
-                        ? 'bg-primary text-primary-foreground'
-                        : isNext
-                          ? 'bg-primary/15 text-primary'
-                          : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    {step.status === 'complete' ? (
-                      <Check className="size-3.5" />
-                    ) : isNext ? (
-                      <span className="text-xs font-bold">{index + 1}</span>
-                    ) : (
-                      <Circle className="size-3" />
-                    )}
+                  {step.status === 'complete' ? (
+                    <Check className="size-3.5" />
+                  ) : isNext ? (
+                    <span className="text-xs font-bold">{index + 1}</span>
+                  ) : (
+                    <Circle className="size-3" />
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-foreground">
+                    {t(`steps.${step.key}.title`)}
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-foreground">
-                      {t(`steps.${step.key}.title`)}
-                    </span>
-                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                      {t(`steps.${step.key}.description`)}
-                    </span>
-                    <span className="mt-1.5 block text-xs font-medium text-primary">
-                      {t(`status.${step.status}`)}
-                    </span>
+                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                    {t(`steps.${step.key}.description`)}
                   </span>
-                  {isNext ? (
-                    <ArrowRight className="mt-1 size-4 shrink-0 text-primary transition-transform group-hover:translate-x-0.5" />
-                  ) : null}
-                </button>
-              </form>
+                  <span className="mt-1.5 block text-xs font-medium text-primary">
+                    {t(`status.${step.status}`)}
+                  </span>
+                </span>
+                {isNext ? (
+                  <ArrowRight className="mt-1 size-4 shrink-0 text-primary transition-transform group-hover:translate-x-0.5" />
+                ) : null}
+              </Link>
             </li>
           )
         })}
       </ol>
-
-      <Link
-        href={`/dashboard/onboarding?brand=${slug}`}
-        className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-border px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-      >
-        {t('card.viewAll')}
-      </Link>
     </section>
   )
 }

@@ -263,28 +263,6 @@ export function trackSearchNoResults(searchTerm: string) {
   safeGAEvent('event', 'search_no_results', { search_term: searchTerm })
 }
 
-export function trackOnboardingBannerShown(slug: string) {
-  safeGAEvent('event', 'onboarding_banner_shown', { brand_slug: slug })
-}
-
-export function trackOnboardingBannerCtaClick(slug: string) {
-  safeGAEvent('event', 'onboarding_banner_cta_click', { brand_slug: slug })
-}
-
-export function trackOnboardingBannerDismiss(slug: string) {
-  safeGAEvent('event', 'onboarding_banner_dismiss', { brand_slug: slug })
-}
-
-export function trackOnboardingMilestoneReached(
-  slug: string,
-  milestone: 'getting_started' | 'halfway' | 'complete'
-) {
-  safeGAEvent('event', 'onboarding_milestone_reached', {
-    brand_slug: slug,
-    milestone,
-  })
-}
-
 export function trackSignUp(method: string) {
   const utmParams =
     typeof window !== 'undefined' ? getUtmParams(window.location.search) : {}

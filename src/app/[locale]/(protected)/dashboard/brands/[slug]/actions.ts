@@ -11,7 +11,6 @@ import {
   discardDraft,
   getBrandDraft,
   publishDraft,
-  saveDraft,
   updateBrand,
 } from '@/lib/services/brands'
 import { deleteBrandImages } from '@/lib/services/image-upload'
@@ -51,7 +50,6 @@ async function completeOnboardingAfterOwnerSubmit(
     status: 'complete',
   })
   revalidatePath('/dashboard')
-  revalidatePath('/dashboard/onboarding')
 }
 
 function imageUrlsFromBrand(brand: Pick<Brand, 'heroImageUrl' | 'productPhotos'>): string[] {
@@ -174,48 +172,6 @@ export async function updateBrandAction(
   }
 
   redirect(`/dashboard?brand=${brandSlug}`)
-}
-
-export async function saveDraftAction(
-  _prevState: ActionState,
-  formData: FormData
-): Promise<ActionState> {
-  const t = await getTranslations('dashboard.edit.errors')
-  const brandSlug = formData.get('brandSlug') as string
-  if (!brandSlug) {
-    return { error: 'Missing brand slug' }
-  }
-
-  try {
-    const editor = await requireBrandEditor(brandSlug)
-    if ('error' in editor) {
-      if (editor.error === 'notLoggedIn') {
-        return { error: t('notLoggedIn') }
-      }
-      if (editor.error === 'forbidden') {
-        return { error: t('forbidden') }
-      }
-      return { error: `Brand not found: ${brandSlug}` }
-    }
-    const { user, brand, actingAdmin } = editor
-
-    const updateData = parseBrandEditForm(formData)
-
-    await saveDraft(brand.id, updateData)
-    await logAdminActionIfAdmin(actingAdmin, { id: user.id, email: user.email ?? null }, 'draft_save', brandSlug, brand.id)
-
-    revalidatePath(`/dashboard/brands/${brandSlug}/edit`)
-    return {}
-  } catch (err) {
-    if (err instanceof InvalidBrandEditFormError) {
-      return { error: err.message }
-    }
-
-    console.error('[brand:saveDraftAction]', err)
-    return {
-      error: err instanceof Error ? err.message : t('unknown'),
-    }
-  }
 }
 
 export async function publishDraftAction(

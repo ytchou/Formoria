@@ -1,17 +1,49 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  from: vi.fn(),
+  eq: vi.fn(),
+  maybeSingle: vi.fn(),
+  onboardingMaybeSingle: vi.fn(),
+  upsert: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
   createServiceClient: () => ({
-    from: mocks.from,
+    from: (table: string) => {
+      if (table === 'brand_owners') {
+        return {
+          select: () => ({
+            eq: () => ({ maybeSingle: mocks.maybeSingle }),
+          }),
+        }
+      }
+      if (table === 'brand_onboarding_steps') {
+        return {
+          select: (cols: string) => {
+            if (cols === 'step_key, status') {
+              // getBrandOnboardingProgress: single .eq() awaited directly
+              return { eq: mocks.eq }
+            }
+            // setBrandOnboardingStepStatus: .eq().eq().maybeSingle() read chain
+            return {
+              eq: () => ({
+                eq: () => ({ maybeSingle: mocks.onboardingMaybeSingle }),
+              }),
+            }
+          },
+          upsert: mocks.upsert,
+        }
+      }
+      return {
+        select: () => ({ eq: mocks.eq }),
+      }
+    },
   }),
 }))
 
 import {
   buildOnboardingProgress,
+  completeOnboardingStepsForSection,
   getBrandOnboardingProgress,
   ONBOARDING_STEPS,
   setBrandOnboardingStepStatus,
@@ -43,13 +75,9 @@ describe('buildOnboardingProgress', () => {
   })
 
   it('shows step one when the onboarding migration has not been applied yet', async () => {
-    mocks.from.mockReturnValueOnce({
-      select: () => ({
-        eq: vi.fn().mockResolvedValue({
-          data: null,
-          error: { code: 'PGRST205' },
-        }),
-      }),
+    mocks.eq.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'PGRST205' },
     })
 
     const progress = await getBrandOnboardingProgress('brand-1')
@@ -57,26 +85,54 @@ describe('buildOnboardingProgress', () => {
     expect(progress.nextStep).toBe('basics')
     expect(progress.completedCount).toBe(0)
   })
+})
 
-  it('skips progress persistence when the onboarding table is unavailable', async () => {
-    mocks.from.mockReturnValueOnce({
-      select: () => ({
-        eq: () => ({
-          eq: () => ({
-            maybeSingle: vi.fn().mockResolvedValue({
-              data: null,
-              error: { code: 'PGRST205' },
-            }),
-          }),
-        }),
-      }),
+describe('setBrandOnboardingStepStatus', () => {
+  it('skips persistence when the onboarding table is unavailable', async () => {
+    mocks.onboardingMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'PGRST205' },
     })
 
-    await expect(setBrandOnboardingStepStatus({
-      brandId: 'brand-1',
-      userId: 'user-1',
-      step: 'basics',
-      status: 'in_progress',
-    })).resolves.toBeUndefined()
+    await expect(
+      setBrandOnboardingStepStatus({ brandId: 'brand-1', userId: 'user-1', step: 'basics', status: 'in_progress' })
+    ).resolves.toBeUndefined()
+  })
+})
+
+describe('completeOnboardingStepsForSection', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.maybeSingle.mockResolvedValue({ data: { user_id: 'user-1' }, error: null })
+    mocks.onboardingMaybeSingle.mockResolvedValue({ data: null, error: null })
+    mocks.upsert.mockResolvedValue({ error: null })
+  })
+
+  it('completes basics, products, story_media when sectionKey is basicInfo', async () => {
+    await completeOnboardingStepsForSection('test-brand-id', 'basicInfo')
+
+    expect(mocks.upsert).toHaveBeenCalledTimes(3)
+    const steps = mocks.upsert.mock.calls.map(
+      (call: unknown[]) => (call[0] as Record<string, unknown>).step_key
+    )
+    expect(steps).toContain('basics')
+    expect(steps).toContain('products')
+    expect(steps).toContain('story_media')
+  })
+
+  it('completes purchase, social_proof when sectionKey is links', async () => {
+    await completeOnboardingStepsForSection('test-brand-id', 'links')
+
+    expect(mocks.upsert).toHaveBeenCalledTimes(2)
+    const steps = mocks.upsert.mock.calls.map(
+      (call: unknown[]) => (call[0] as Record<string, unknown>).step_key
+    )
+    expect(steps).toContain('purchase')
+    expect(steps).toContain('social_proof')
+  })
+
+  it('does nothing for sections with no onboarding steps (e.g. media)', async () => {
+    await completeOnboardingStepsForSection('any-id', 'media')
+    expect(mocks.upsert).not.toHaveBeenCalled()
   })
 })
