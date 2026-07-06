@@ -192,17 +192,6 @@ export async function searchBrandUrls(
   return parseApifySerpResults(data)
 }
 
-export async function searchBrandWithSnippets(
-  brandName: string,
-  queryTemplate: QueryTemplate = DEFAULT_QUERY
-): Promise<{ urls: string[], snippets: string[] }> {
-  const data = await fetchSerpData(brandName, queryTemplate)
-  return {
-    urls: parseApifySerpResults(data),
-    snippets: parseApifySerpSnippets(data),
-  }
-}
-
 type BrandSearchResult = { urls: string[], snippets: string[], rawEntries?: unknown[] }
 
 export async function batchSearchBrandsWithSnippets(

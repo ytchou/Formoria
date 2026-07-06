@@ -1,5 +1,5 @@
-export const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions'
-export const DEEPSEEK_BALANCE_API_URL = 'https://api.deepseek.com/user/balance'
+const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions'
+const DEEPSEEK_BALANCE_API_URL = 'https://api.deepseek.com/user/balance'
 
 const DEFAULT_DEEPSEEK_MODEL = 'deepseek-v4-flash'
 
@@ -24,7 +24,7 @@ type DeepSeekChatContentPart =
   | { type: 'text'; text: string }
   | { type: 'image_url'; image_url: { url: string } }
 
-export type DeepSeekChatResponse = {
+type DeepSeekChatResponse = {
   choices?: Array<{ message?: { content?: string } }>
 }
 

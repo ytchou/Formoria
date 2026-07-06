@@ -16,7 +16,7 @@ const VALID_TAGS = new Set([
 ])
 const JUNK_TAGS = new Set(['promo', 'text_banner', 'irrelevant', 'logo'])
 
-export type ImageClassificationTag =
+type ImageClassificationTag =
   | 'product'
   | 'lifestyle'
   | 'packaging'

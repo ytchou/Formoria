@@ -1,5 +1,5 @@
-export type BrandImageStatus = 'active' | 'rejected'
-export type BrandImageSource = 'scrape' | 'google_image' | 'owner' | 'admin' | 'legacy'
+type BrandImageStatus = 'active' | 'rejected'
+type BrandImageSource = 'scrape' | 'google_image' | 'owner' | 'admin' | 'legacy'
 
 export type BrandImageRow = {
   id?: string

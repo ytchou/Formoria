@@ -1,4 +1,4 @@
-import { CLASSIFY_SYSTEM_PROMPT, EXTRACTION_SYSTEM_PROMPT, TRIAGE_SYSTEM_PROMPT } from '@/lib/prompts'
+import { CLASSIFY_SYSTEM_PROMPT, TRIAGE_SYSTEM_PROMPT } from '@/lib/prompts'
 import { createDeepSeekClient } from '@/lib/services/deepseek-client'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
@@ -21,12 +21,6 @@ export type ExtractionResult = {
   signatureProducts: string[]
   whereToBuy: string | null
   categoryMismatch: boolean
-}
-export type ExtractionInput = {
-  brandName: string
-  description: string | null
-  snippets: string[]
-  siteContent?: string | null
 }
 
 const CLASSIFY_TIMEOUT_MS = 30_000
@@ -93,47 +87,6 @@ export function parseExtractionResult(content: string): ExtractionResult {
       whereToBuy: null,
       categoryMismatch: false,
     }
-  }
-}
-
-export async function extractBrandFacts(input: ExtractionInput): Promise<ExtractionResult | null> {
-  const token = process.env.DEEPSEEK_API_KEY
-  if (!token) return null
-  if (!input.description && input.snippets.length === 0 && !input.siteContent) return null
-
-  const userContent = [
-    `品牌名稱：${input.brandName}`,
-    input.description ? `描述：${input.description}` : '',
-    input.snippets.length > 0 ? `搜尋摘要：\n${input.snippets.slice(0, 5).join('\n')}` : '',
-    input.siteContent ? `網站內容：\n${input.siteContent}` : '',
-  ].filter(Boolean).join('\n\n')
-
-  const client = createDeepSeekClient({ apiKey: token })
-
-  try {
-    const { response, data, content } = await client.chat({
-      system: EXTRACTION_SYSTEM_PROMPT,
-      user: userContent,
-      json: true,
-      timeoutMs: CLASSIFY_TIMEOUT_MS,
-      maxTokens: 600,
-      temperature: 0,
-    })
-
-    if (!response.ok) {
-      console.error(`  → fact extraction failed: HTTP ${response.status}`)
-      return null
-    }
-
-    if (!content) {
-      console.error(`  → fact extraction: empty response, data=${JSON.stringify(data).slice(0, 200)}`)
-      return null
-    }
-
-    return parseExtractionResult(content)
-  } catch (err) {
-    console.error(`  → fact extraction failed: ${err instanceof Error ? err.message : err}`)
-    return null
   }
 }
 
