@@ -42,7 +42,6 @@ test.describe('Dashboard — brand image upload', () => {
         product_type: 'crafts',
         description: 'E2E throwaway — image upload test.',
         retail_locations: [],
-        product_photos: [],
       })
       .select('id')
       .single();

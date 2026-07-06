@@ -1,13 +1,28 @@
 import { DESCRIPTION_SYSTEM_PROMPT } from '@/lib/prompts'
+import { createDeepSeekClient, parseDeepSeekJson } from './deepseek-client'
+import { validateLocalizedText } from './enrich-validators'
+import { parseExtractionResult } from './product-type-classifier'
 
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions'
-const DEEPSEEK_MODEL = 'deepseek-v4-flash'
 const DEEPSEEK_TIMEOUT_MS = 30_000
+const ZH_DESCRIPTION_BAND = [300, 600] as const
+const EN_DESCRIPTION_BAND = [400, 900] as const
 
 export type DescriptionRewriteResult = {
+  description_zh: string | null
+  description_en: string | null
   description: string | null
   priceRange: 1 | 2 | 3 | null
   productTags: string[]
+  city: string | null
+  foundingYear: number | null
+  signatureProducts: string[]
+  whereToBuy: string | null
+  categoryMismatch: boolean
+  validationRejections: Array<{
+    field: 'description_zh' | 'description_en'
+    reasons: string[]
+    attempt: number
+  }>
   rawResponse?: unknown
 }
 
@@ -15,9 +30,15 @@ const DESCRIPTION_REWRITE_WITH_DETAILS_SYSTEM_PROMPT = `${DESCRIPTION_SYSTEM_PRO
 
 請只回傳 JSON 物件，不要加入 Markdown 或額外說明。格式：
 {
-  "description": "繁體中文品牌簡介",
-  "priceRange": 1 | 2 | 3 | null,
-  "productTags": ["具體商品類型"]
+  "description_zh": "300-600 字繁體中文品牌簡介",
+  "description_en": "400-900 characters English brand description",
+  "price_range": 1 | 2 | 3 | null,
+  "product_tags": ["具體商品類型"],
+  "city": "城市或 null",
+  "founding_year": 2015 | null,
+  "signature_products": ["代表商品"],
+  "where_to_buy": "通路摘要或 null",
+  "category_mismatch": true | false
 }
 
 priceRange 分級：
@@ -26,38 +47,88 @@ priceRange 分級：
 - 3：高價／精品，平均商品價格高於 NT$5,000
 - 若價格線索不足，回傳 null
 
-productTags 請擷取 2 到 5 個具體商品描述，例如「陶瓷馬克杯」、「亞麻圍裙」、「皮革托特包」。不要使用寬泛分類，例如「服飾」、「配件」、「家居」。若資料不清楚，回傳 []。`
+product_tags 請擷取 2 到 5 個具體商品描述，例如「陶瓷馬克杯」、「亞麻圍裙」、「皮革托特包」。不要使用寬泛分類，例如「服飾」、「配件」、「家居」。若資料不清楚，回傳 []。
 
-function parseDescriptionRewriteResult(content: string): DescriptionRewriteResult {
-  try {
-    const parsed = JSON.parse(content) as Record<string, unknown>
-    const rawDescription = parsed.description
-    const rawPriceRange = parsed.priceRange
-    const rawProductTags = parsed.productTags
-    const description = typeof rawDescription === 'string' && rawDescription.trim().length >= 20
-      ? rawDescription.trim()
-      : null
-    const priceRange = rawPriceRange === 1 || rawPriceRange === 2 || rawPriceRange === 3
-      ? rawPriceRange
-      : null
-    const productTags = Array.isArray(rawProductTags)
-      ? [...new Set(rawProductTags
-        .filter((tag): tag is string => typeof tag === 'string')
-        .map((tag) => tag.trim())
-        .filter(Boolean))]
-      : []
+所有欄位只能使用提供來源中的事實；沒有根據的欄位回傳 null、[] 或 false。`
 
+export function parseDescriptionRewriteResult(content: string): DescriptionRewriteResult {
+  const parsed = parseDeepSeekJson<Record<string, unknown>>(content)
+  const extraction = parseExtractionResult(content)
+
+  if (!parsed) {
     return {
-      description,
-      priceRange,
-      productTags: productTags.length >= 2 ? productTags.slice(0, 5) : [],
-    }
-  } catch {
-    return {
-      description: content.length >= 20 ? content : null,
+      description_zh: null,
+      description_en: null,
+      description: null,
       priceRange: null,
       productTags: [],
+      city: null,
+      foundingYear: null,
+      signatureProducts: [],
+      whereToBuy: null,
+      categoryMismatch: false,
+      validationRejections: [],
     }
+  }
+
+  const rawDescriptionZh = parsed.description_zh ?? parsed.description
+  const rawDescriptionEn = parsed.description_en
+  const descriptionZh = typeof rawDescriptionZh === 'string' && rawDescriptionZh.trim().length > 0
+    ? rawDescriptionZh.trim()
+    : null
+  const descriptionEn = typeof rawDescriptionEn === 'string' && rawDescriptionEn.trim().length > 0
+    ? rawDescriptionEn.trim()
+    : null
+
+  return {
+    description_zh: descriptionZh,
+    description_en: descriptionEn,
+    description: descriptionZh,
+    priceRange: extraction.priceRange,
+    productTags: extraction.productTags.length >= 2 ? extraction.productTags : [],
+    city: extraction.city,
+    foundingYear: extraction.foundingYear,
+    signatureProducts: extraction.signatureProducts,
+    whereToBuy: extraction.whereToBuy,
+    categoryMismatch: extraction.categoryMismatch,
+    validationRejections: [],
+  }
+}
+
+function validateDescriptionFields(
+  parsed: DescriptionRewriteResult,
+  attempt: number
+): DescriptionRewriteResult {
+  const validationRejections: DescriptionRewriteResult['validationRejections'] = []
+  let descriptionZh = parsed.description_zh
+  let descriptionEn = parsed.description_en
+
+  if (descriptionZh) {
+    const validation = validateLocalizedText(descriptionZh, 'zh', ZH_DESCRIPTION_BAND)
+    if (!validation.ok) {
+      validationRejections.push({ field: 'description_zh', reasons: validation.reasons, attempt })
+      descriptionZh = null
+    }
+  } else {
+    validationRejections.push({ field: 'description_zh', reasons: ['missing'], attempt })
+  }
+
+  if (descriptionEn) {
+    const validation = validateLocalizedText(descriptionEn, 'en', EN_DESCRIPTION_BAND)
+    if (!validation.ok) {
+      validationRejections.push({ field: 'description_en', reasons: validation.reasons, attempt })
+      descriptionEn = null
+    }
+  } else {
+    validationRejections.push({ field: 'description_en', reasons: ['missing'], attempt })
+  }
+
+  return {
+    ...parsed,
+    description_zh: descriptionZh,
+    description_en: descriptionEn,
+    description: descriptionZh,
+    validationRejections,
   }
 }
 
@@ -76,53 +147,94 @@ export async function rewriteBrandDescription(
     snippets.length > 0 ? `搜尋摘要：\n${snippets.slice(0, 5).join('\n')}` : '',
   ].filter(Boolean).join('\n\n')
 
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), DEEPSEEK_TIMEOUT_MS)
+  const client = createDeepSeekClient({ apiKey: token })
+  let bestResult: DescriptionRewriteResult | null = null
+  let acceptedDescriptionZh: string | null = null
+  let acceptedDescriptionEn: string | null = null
+  const validationRejections: DescriptionRewriteResult['validationRejections'] = []
 
   try {
-    const res = await fetch(DEEPSEEK_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        model: DEEPSEEK_MODEL,
-        messages: [
-          { role: 'system', content: DESCRIPTION_REWRITE_WITH_DETAILS_SYSTEM_PROMPT },
-          { role: 'user', content: userContent },
-        ],
-        max_tokens: 400,
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const retryInstruction = attempt === 0 || validationRejections.length === 0
+        ? ''
+        : `\n\n前一次輸出未通過品質檢查：${JSON.stringify(validationRejections)}。請只修正不合格欄位，仍然只使用提供來源中的事實。`
+      const { response, data, content } = await client.chat({
+        system: DESCRIPTION_REWRITE_WITH_DETAILS_SYSTEM_PROMPT,
+        user: `${userContent}${retryInstruction}`,
+        json: true,
+        timeoutMs: DEEPSEEK_TIMEOUT_MS,
+        maxTokens: 1800,
         temperature: 0.1,
-        thinking: { type: 'disabled' },
-        response_format: { type: 'json_object' },
-      }),
-      signal: controller.signal,
-    })
+      })
 
-    if (!res.ok) {
-      console.error(`  → description rewrite failed: HTTP ${res.status}`)
-      return null
+      if (!response.ok) {
+        console.error(`  → description rewrite failed: HTTP ${response.status}`)
+        return null
+      }
+
+      if (!content) {
+        console.error(`  → description rewrite: empty response, data=${JSON.stringify(data).slice(0, 200)}`)
+        return null
+      }
+
+      const parsed = parseDeepSeekJson<Record<string, unknown>>(content)
+      if (!parsed) {
+        if (attempt === 0) {
+          continue
+        }
+
+        return {
+          description_zh: null,
+          description_en: null,
+          description: null,
+          priceRange: null,
+          productTags: [],
+          city: null,
+          foundingYear: null,
+          signatureProducts: [],
+          whereToBuy: null,
+          categoryMismatch: false,
+          validationRejections: [],
+          rawResponse: data,
+        }
+      }
+
+      const validated = validateDescriptionFields(parseDescriptionRewriteResult(content), attempt + 1)
+      validationRejections.push(...validated.validationRejections)
+      acceptedDescriptionZh ??= validated.description_zh
+      acceptedDescriptionEn ??= validated.description_en
+      bestResult = {
+        ...validated,
+        description_zh: acceptedDescriptionZh,
+        description_en: acceptedDescriptionEn,
+        description: acceptedDescriptionZh,
+        validationRejections,
+        rawResponse: {
+          response: data,
+          validationRejections,
+        },
+      }
+
+      if (acceptedDescriptionZh && acceptedDescriptionEn) {
+        return bestResult
+      }
     }
 
-    const data = await res.json() as {
-      choices?: Array<{ message?: { content?: string } }>
+    return bestResult ?? {
+      description_zh: null,
+      description_en: null,
+      description: null,
+      priceRange: null,
+      productTags: [],
+      city: null,
+      foundingYear: null,
+      signatureProducts: [],
+      whereToBuy: null,
+      categoryMismatch: false,
+      validationRejections: [],
     }
-
-    const content = data.choices?.[0]?.message?.content?.trim()
-    if (!content) {
-      console.error(`  → description rewrite: empty response, data=${JSON.stringify(data).slice(0, 200)}`)
-      return null
-    }
-    if (content.length < 20) {
-      console.error(`  → description rewrite: too short (${content.length} chars): ${content}`)
-      return null
-    }
-    return { ...parseDescriptionRewriteResult(content), rawResponse: data }
   } catch (err) {
     console.error(`  → description rewrite failed: ${err instanceof Error ? err.message : err}`)
     return null
-  } finally {
-    clearTimeout(timeout)
   }
 }

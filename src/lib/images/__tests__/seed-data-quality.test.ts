@@ -3,10 +3,6 @@ import { describe, expect, it } from 'vitest'
 
 import { isNonImageHost } from '../allowed-image-hosts'
 
-function urlsIn(text: string): string[] {
-  return text.match(/https?:\/\/[^\s'"\\)]+/g) ?? []
-}
-
 function splitSqlTopLevel(input: string): string[] {
   const parts: string[] = []
   let current = ''
@@ -101,30 +97,6 @@ function sqlStringValue(token: string): string | null {
   return trimmed.slice(1, -1).replaceAll("''", "'")
 }
 
-function jsonStringArrayValue(token: string): string[] {
-  const trimmed = token.trim()
-
-  if (trimmed.toUpperCase() === 'NULL') {
-    return []
-  }
-
-  if (!trimmed.endsWith('::jsonb')) {
-    throw new Error(`Expected jsonb value, received: ${trimmed}`)
-  }
-
-  const jsonLiteral = sqlStringValue(trimmed.slice(0, -'::jsonb'.length))
-  if (jsonLiteral === null) {
-    return []
-  }
-
-  const parsed = JSON.parse(jsonLiteral) as unknown
-  if (!Array.isArray(parsed)) {
-    throw new Error('Expected JSON array for product_photos')
-  }
-
-  return parsed.filter((value): value is string => typeof value === 'string')
-}
-
 function imageFieldUrlsFromSql(sql: string): string[] {
   const insertMatch = /INSERT INTO brands\s*\(([\s\S]*?)\)\s*VALUES\s*/i.exec(sql)
 
@@ -142,10 +114,9 @@ function imageFieldUrlsFromSql(sql: string): string[] {
 
   const columns = splitSqlTopLevel(insertMatch[1]).map((column) => column.trim())
   const heroImageIndex = columns.indexOf('hero_image_url')
-  const productPhotosIndex = columns.indexOf('product_photos')
 
-  if (heroImageIndex === -1 || productPhotosIndex === -1) {
-    throw new Error('Expected hero_image_url and product_photos columns')
+  if (heroImageIndex === -1) {
+    throw new Error('Expected hero_image_url column')
   }
 
   const urls: string[] = []
@@ -164,8 +135,6 @@ function imageFieldUrlsFromSql(sql: string): string[] {
     if (heroImageUrl) {
       urls.push(heroImageUrl)
     }
-
-    urls.push(...jsonStringArrayValue(values[productPhotosIndex]).flatMap(urlsIn))
   }
 
   return urls

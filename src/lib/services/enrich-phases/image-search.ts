@@ -1,5 +1,5 @@
 import type { PhaseResult } from '@/lib/types/curation'
-import { batchSearchBrandImages } from './scraper/search'
+import { batchSearchBrandImages, type BrandImageSearchResult } from './scraper/search'
 import { insertSearchResult } from '../search-results'
 import {
   buildPhaseResult,
@@ -31,9 +31,7 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext, serpResults?: 
   let skippedHasImages = 0
   let skippedNoSerp = 0
   for (const brand of ctx.chunk) {
-    const hasImages =
-      !!brand.hero_image_url ||
-      (Array.isArray(brand.product_photos) && brand.product_photos.length > 0)
+    const hasImages = !!brand.hero_image_url
     if (hasImages) {
       skippedHasImages++
       continue
@@ -65,10 +63,19 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext, serpResults?: 
     }
   }
 
-  const filteredNames = brandsNeedingImages.map(getDisplayBrandName)
-
   const { result, durationMs } = await timePhase(async () => {
-    const imageSearchResults = await batchSearchBrandImages(filteredNames, 5)
+    const imageSearchRows = await batchSearchBrandImages(
+      brandsNeedingImages.map((brand) => ({
+        brandName: getDisplayBrandName(brand),
+        productType: brand.product_type,
+        purchaseWebsite: brand.purchaseWebsite ?? brand.purchase_website,
+      })),
+      5
+    )
+    const imageSearchResults = new Map<string, string[]>()
+    for (const [brandName, rows] of imageSearchRows.entries()) {
+      imageSearchResults.set(brandName, rows.map((row) => row.url))
+    }
     const totalImages = [...imageSearchResults.values()].reduce((sum, urls) => sum + urls.length, 0)
     ctx.onProgress?.(`  [IMAGES] OK — ${totalImages} images across ${imageSearchResults.size} brands`)
 
@@ -77,22 +84,22 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext, serpResults?: 
       const imageBrandIds: string[] = []
       for (const brand of brandsNeedingImages) {
         const brandName = getDisplayBrandName(brand)
-        const images = imageSearchResults.get(brandName)
-        if (images && images.length > 0) {
-          await insertSearchResult(brand.id, 'image', `${brandName} 台灣`, images, [])
+        const rows = imageSearchRows.get(brandName)
+        if (rows && rows.length > 0) {
+          await insertSearchResult(
+            brand.id,
+            'image',
+            rows.at(0)?.query ?? `${brandName} 台灣`,
+            rows.map((row: BrandImageSearchResult) => row.url),
+            [],
+            rows.map((row: BrandImageSearchResult) => ({ url: row.url, query: row.query }))
+          )
           imageBrandIds.push(brand.id)
         }
       }
 
       if (imageBrandIds.length > 0) {
-        await ctx.supabase
-          .from('brands')
-          .update({ images_enriched_at: new Date().toISOString() } as never)
-          .in('id', imageBrandIds)
-      }
-
-      if (imageBrandIds.length > 0) {
-        changedFields.push('images_enriched_at')
+        changedFields.push('image_search_results')
       }
     }
 

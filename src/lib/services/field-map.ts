@@ -45,7 +45,6 @@ const BRAND_FIELD_MAP = [
   ['otherUrls', 'other_urls'],
   ['retailLocations', 'retail_locations'],
   ['customerVoices', 'customer_voices'],
-  ['productPhotos', 'product_photos'],
 ] as const satisfies FieldMap<
   {
     contactEmail?: string | null
@@ -54,7 +53,6 @@ const BRAND_FIELD_MAP = [
     otherUrls?: unknown
     retailLocations?: unknown
     customerVoices?: unknown
-    productPhotos?: unknown
     priceRange?: number | null
     productTags?: string[] | null
   },
@@ -69,7 +67,6 @@ const SUBMISSION_FIELD_MAP = [
   ['description', 'description'],
   ['websiteUrl', 'website_url'],
   ['heroImageUrl', 'hero_image_url'],
-  ['productPhotos', 'product_photos'],
   ['otherUrls', 'other_urls'],
   ['suggestedTags', 'suggested_tags'],
   ['status', 'status'],
@@ -89,7 +86,6 @@ const SUBMISSION_FIELD_MAP = [
     description?: string | null
     websiteUrl?: string | null
     heroImageUrl?: string | null
-    productPhotos?: unknown
     otherUrls?: unknown
     suggestedTags?: unknown
     status?: string
@@ -125,7 +121,6 @@ export function toBrandRow(input: {
   otherUrls?: unknown
   retailLocations?: unknown
   customerVoices?: unknown
-  productPhotos?: unknown
   contactEmail?: string | null
   priceRange?: number | null
   productTags?: string[] | null
@@ -160,7 +155,6 @@ export function toSubmissionRow(input: {
   websiteUrl?: string | null
   heroImageUrl?: string | null
   city?: string | null
-  productPhotos?: unknown
   socialInstagram?: string | null
   socialThreads?: string | null
   socialFacebook?: string | null

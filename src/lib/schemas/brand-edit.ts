@@ -16,7 +16,6 @@ export const basicInfoSchema = z.object({
 
 export const mediaSchema = z.object({
   heroImageUrl: z.string().url().optional().or(z.literal('')),
-  productPhotos: z.array(z.string()).max(6).optional(),
 })
 
 export const linksSchema = z.object({
@@ -102,7 +101,7 @@ export const SECTION_FIELDS: Record<string, (keyof BrandEditFormValues)[]> = {
     'city',
     'priceRange',
   ],
-  media: ['heroImageUrl', 'productPhotos'],
+  media: ['heroImageUrl'],
   links: [
     'socialInstagram',
     'socialThreads',

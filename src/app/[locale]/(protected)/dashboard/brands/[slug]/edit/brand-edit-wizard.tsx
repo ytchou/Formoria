@@ -51,10 +51,7 @@ const SECTION_COMPONENTS = [
 function deriveCompletedSteps(defaultValues: Partial<BrandEditFormValues>): Set<number> {
   const completed = new Set<number>()
   if (defaultValues.name) completed.add(0)
-  if (
-    defaultValues.heroImageUrl ||
-    (defaultValues.productPhotos && defaultValues.productPhotos.length > 0)
-  ) {
+  if (defaultValues.heroImageUrl) {
     completed.add(1)
   }
   return completed

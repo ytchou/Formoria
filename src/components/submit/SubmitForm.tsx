@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { useForm, useWatch, Controller, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslations } from 'next-intl'
-import { X } from 'lucide-react'
 
 import { useRouter } from '@/i18n/navigation'
 import { TAIWAN_CITIES } from '@/lib/constants/taiwan-cities'
@@ -13,7 +12,6 @@ import { submitBrand, suggestCleanName } from '@/app/[locale]/submit/actions'
 import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
 import type { SourceAttribution } from '@/lib/types/submission'
 import { ImageUploadField } from '@/components/forms/image-upload-field'
-import { ImageUploader } from '@/components/upload/ImageUploader'
 import { TurnstileWidget } from '@/components/submit/TurnstileWidget'
 import {
   trackSubmissionFormOpened,
@@ -64,7 +62,6 @@ export default function SubmitForm({
       socialLinks: { instagram: '', threads: '', facebook: '', pinkoi: '', shopee: '', website: '' },
       purchaseLinks: [],
       heroImageUrl: '',
-      productPhotos: [],
     },
     mode: 'onTouched',
   })
@@ -75,7 +72,6 @@ export default function SubmitForm({
   const [nameSuggestion, setNameSuggestion] = useState<string | null>(null)
   const [urlSuggestion, setUrlSuggestion] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
-  const [productPhotoUrls, setProductPhotoUrls] = useState<string[]>([])
   const [isPending, startTransition] = useTransition()
   const nameBlurRequestRef = useRef(0)
   const mountTimeRef = useRef<number | null>(null)
@@ -112,22 +108,6 @@ export default function SubmitForm({
     [setValue]
   )
 
-  const handleProductPhotoUpload = useCallback((url: string) => {
-    setProductPhotoUrls((prev) => {
-      const next = [...prev, url].slice(0, 5)
-      setValue('productPhotos', next, { shouldValidate: true })
-      return next
-    })
-  }, [setValue])
-
-  const handleProductPhotoRemove = useCallback((urlToRemove: string) => {
-    setProductPhotoUrls((prev) => {
-      const next = prev.filter((url) => url !== urlToRemove)
-      setValue('productPhotos', next, { shouldValidate: true })
-      return next
-    })
-  }, [setValue])
-
   function handleWebsiteBlur(value: string) {
     if (!value || !value.includes('?')) {
       setUrlSuggestion(null)
@@ -153,12 +133,10 @@ export default function SubmitForm({
         ? new FormData(event.currentTarget)
         : null
     const heroImageUrl = formData?.get('heroImageUrl')
-    const productPhotos = formData?.get('productPhotos')
     const submitPayload = {
       ...data,
       city: data.city ?? undefined,
       heroImageUrl: typeof heroImageUrl === 'string' ? heroImageUrl : data.heroImageUrl,
-      productPhotos: typeof productPhotos === 'string' ? productPhotos : data.productPhotos,
     } satisfies Parameters<typeof submitBrand>[0]
 
     startTransition(async () => {
@@ -304,46 +282,6 @@ export default function SubmitForm({
               {t('fields.heroImageHelper')}
             </p>
           </div>
-
-          {/* Product photos */}
-          <div className="space-y-1.5">
-            <label className="block text-sm font-semibold text-foreground">
-              {t('fields.productPhotos')}
-            </label>
-            {productPhotoUrls.length > 0 && (
-              <div className="grid grid-cols-3 gap-2">
-                {productPhotoUrls.map((url, index) => (
-                  <div key={url} className="group relative aspect-square overflow-hidden rounded-md border">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt="" className="h-full w-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => handleProductPhotoRemove(url)}
-                      aria-label={`${t('fields.productPhotos')} ${index + 1}`}
-                      className="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {productPhotoUrls.length < 5 && (
-              <ImageUploader
-                mode="multi"
-                bucket="brand-images"
-                path={`submissions/${sessionId}/photos`}
-                value={[]}
-                onUpload={handleProductPhotoUpload}
-                maxFiles={Math.max(1, 5 - productPhotoUrls.length)}
-              />
-            )}
-            <input type="hidden" name="productPhotos" value={JSON.stringify(productPhotoUrls)} />
-            <p className="text-xs text-muted-foreground">
-              {t('fields.productPhotosHelper')}
-            </p>
-          </div>
-
 
           {/* Source attribution */}
           <div className="space-y-1.5">

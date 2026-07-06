@@ -146,10 +146,6 @@ function hasText(value: string | undefined) {
   return (value ?? '').trim() !== ''
 }
 
-function hasItems(value: string[] | undefined) {
-  return Array.isArray(value) && value.length > 0
-}
-
 export function getEnrichmentStatus(
   enriched_data: EnrichedData | null,
   heroImageUrl?: string | null
@@ -161,7 +157,6 @@ export function getEnrichmentStatus(
   const hasAllKeyFields =
     hasText(enriched_data.description) &&
     (hasText(enriched_data.heroImageUrl) || hasText(heroImageUrl ?? undefined)) &&
-    hasItems(enriched_data.productPhotos) &&
     hasText(enriched_data.productType)
 
   return hasAllKeyFields ? 'enriched' : 'partially_enriched'
@@ -169,13 +164,10 @@ export function getEnrichmentStatus(
 
 function getImageCount(
   enrichedData: EnrichedData | null,
-  heroImageUrl?: string | null,
-  productPhotos?: string[]
+  heroImageUrl?: string | null
 ) {
   const hasHeroImage = hasText(enrichedData?.heroImageUrl) || hasText(heroImageUrl ?? undefined)
-  const enrichedPhotoCount = enrichedData?.productPhotos?.length ?? 0
-  const submittedPhotoCount = productPhotos?.length ?? 0
-  return (hasHeroImage ? 1 : 0) + (enrichedPhotoCount > 0 ? enrichedPhotoCount : submittedPhotoCount)
+  return hasHeroImage ? 1 : 0
 }
 
 
@@ -616,8 +608,7 @@ export function SubmissionsReviewList({
                       {(() => {
                         const count = getImageCount(
                           submission.enriched_data ?? null,
-                          submission.heroImageUrl,
-                          submission.productPhotos
+                          submission.heroImageUrl
                         )
                         const tone = count >= 2 ? 'green' : count === 1 ? 'amber' : submission.enriched_data ? 'red' : 'grey'
 
@@ -844,14 +835,9 @@ export function SubmissionsReviewList({
                           </EnrichedCard>
 
                           {(() => {
-                            const productPhotos =
-                              (submission.enriched_data?.productPhotos?.length ?? 0) > 0
-                                ? (submission.enriched_data?.productPhotos ?? [])
-                                : (submission.productPhotos ?? [])
                             const hasImages = Boolean(
                               submission.enriched_data ||
-                              submission.heroImageUrl ||
-                              productPhotos.length > 0
+                              submission.heroImageUrl
                             )
 
                             return hasImages ? (
@@ -876,30 +862,9 @@ export function SubmissionsReviewList({
                                         <span className="block px-2 py-1 text-xs text-muted-foreground">主圖</span>
                                       </a>
                                     )}
-                                    {productPhotos.map((url, index) => (
-                                      <a
-                                        key={url}
-                                        href={url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="block overflow-hidden rounded-md border border-dashed bg-white"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img
-                                          src={url}
-                                          alt={`${submission.brandName} product ${index + 1}`}
-                                          className="aspect-square w-full object-cover"
-                                        />
-                                        <span className="block px-2 py-1 text-xs text-muted-foreground">
-                                          {`產品 ${index + 1}`}
-                                        </span>
-                                      </a>
-                                    ))}
                                   </div>
                                   {!submission.heroImageUrl &&
-                                    !submission.enriched_data?.heroImageUrl &&
-                                    productPhotos.length === 0 && (
+                                    !submission.enriched_data?.heroImageUrl && (
                                       <p className="text-sm text-muted-foreground">尚無圖片</p>
                                     )}
                                 </div>

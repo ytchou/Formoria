@@ -1,7 +1,6 @@
 export type EnrichedData = {
   description?: string
   heroImageUrl?: string
-  productPhotos?: string[]
   productType?: string
   priceRange?: number
   productTags?: string[]
@@ -25,7 +24,6 @@ export function enrichedDataFromDb(json: Record<string, unknown>): EnrichedData 
     ...(typeof json.description === 'string' ? { description: json.description } : {}),
     ...(typeof json.name === 'string' ? { name: json.name } : {}),
     ...(typeof json.hero_image_url === 'string' ? { heroImageUrl: json.hero_image_url } : {}),
-    ...(Array.isArray(json.product_photos) ? { productPhotos: json.product_photos as string[] } : {}),
     ...(typeof json.product_type === 'string' ? { productType: json.product_type } : {}),
     ...(typeof json.price_range === 'number' ? { priceRange: json.price_range } : {}),
     ...(Array.isArray(json.product_tags) ? { productTags: json.product_tags as string[] } : {}),
@@ -44,7 +42,6 @@ export function enrichedDataToDb(data: EnrichedData): Record<string, unknown> {
   if (data.description !== undefined) result.description = data.description
   if (data.name !== undefined) result.name = data.name
   if (data.heroImageUrl !== undefined) result.hero_image_url = data.heroImageUrl
-  if (data.productPhotos !== undefined) result.product_photos = data.productPhotos
   if (data.productType !== undefined) result.product_type = data.productType
   if (data.priceRange !== undefined) result.price_range = data.priceRange
   if (data.productTags !== undefined) result.product_tags = data.productTags

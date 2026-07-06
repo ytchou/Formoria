@@ -186,7 +186,6 @@ export function createSubmissionSchema(isOwner: boolean, t: Translator = zhT) {
 
   const linksBase = z.object({
     heroImageUrl: z.string().url().optional().or(z.literal('')),
-    productPhotos: z.array(z.string().url()).max(5).optional().default([]),
     purchaseLinks: z.array(purchaseLinkSchema).optional().default([]),
     socialLinks: socialLinksSchema.optional().default({
       instagram: '',
@@ -237,7 +236,6 @@ export function getFullSubmissionSchema(t: Translator) {
     getBrandInfoSchema(t)
       .merge(z.object({
         heroImageUrl: z.string().url().optional().or(z.literal('')),
-        productPhotos: z.array(z.string().url()).max(5).optional().default([]),
       }))
       .merge(getLinksSchema(t))
       .merge(getReviewSchema(t))
@@ -251,7 +249,6 @@ type FullSubmissionSchemaData = z.infer<typeof fullSubmissionSchema>
 
 export type SubmissionFormData = Omit<FullSubmissionSchemaData, 'socialLinks'> & {
   heroImageUrl?: string | null
-  productPhotos?: string[]
   purchaseLinks?: FullSubmissionSchemaData['purchaseLinks']
   socialLinks?: Partial<FullSubmissionSchemaData['socialLinks']>
 }

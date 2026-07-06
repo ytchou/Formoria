@@ -43,7 +43,6 @@ test.describe('Admin content moderation dashboard', () => {
         product_type: 'crafts',
         description: '[E2E-TEST] Suspicious moderation test brand',
         retail_locations: [],
-        product_photos: [],
       })
       .select('id')
       .single();

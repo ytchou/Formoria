@@ -186,15 +186,10 @@ export function buildTextEnrichPatch(
   brand: TextEnrichBrand,
   scraped: TextEnrichScraped
 ): TextEnrichPatch {
-  const patch: TextEnrichPatch = {}
+  void brand
+  void scraped
 
-  if (
-    (!brand.description || brand.description.length < 20)
-    && scraped.description
-    && scraped.description.length >= 20
-  ) {
-    patch.description = scraped.description
-  }
+  const patch: TextEnrichPatch = {}
 
   return patch
 }

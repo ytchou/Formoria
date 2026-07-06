@@ -8,7 +8,6 @@ declare module '@/lib/supabase/database.types' {
     [key: string]: unknown
     created_at?: string | null
     hero_image_url?: string | null
-    product_photos?: unknown
     purchase_links?: unknown
     retail_locations?: unknown
     social_links?: unknown
@@ -99,7 +98,7 @@ function getDescription(brand: Brand): string {
 }
 
 function getProductPhotos(brand: Brand): unknown[] {
-  return toArray(getField<unknown>(brand, 'productPhotos', 'product_photos'))
+  return toArray(getField<unknown>(brand, 'productPhotos', 'productPhotos'))
 }
 
 function getPurchaseLinks(brand: Brand): unknown[] {

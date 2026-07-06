@@ -9,6 +9,18 @@ import { isNonImageHost } from '@/lib/images/allowed-image-hosts'
 import { RESERVED_ROUTES } from '@/middleware'
 import { deriveCategoryFromProductType } from '@/lib/taxonomy/ontology'
 import { downloadAndStoreImages } from './image-download'
+import {
+  resolveWritablePatch,
+  type BrandFieldWriteState,
+  type BrandWriteActor,
+  type SkippedBrandField,
+} from './brand-write-policy'
+import {
+  getBrandImages,
+  insertBrandImage,
+  syncHeroDenormalized,
+  toImageFields,
+} from './brand-images'
 
 function shuffleArray<T>(arr: T[]): void {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -78,6 +90,32 @@ type CuratedBrand = Partial<Brand> &
   > & { productType: string }
 
 type BrandWriteInput = Partial<Brand> & { productType?: string | null }
+type BrandWriteResult = Brand & { skipped: SkippedBrandField[] }
+type ApplyBrandPatchArgs = {
+  p_brand_id: string
+  p_patch: Record<string, unknown>
+  p_source: BrandWriteActor['source']
+  p_actor: string | null
+  p_job_id: string | null
+}
+type BrandFieldStateRow = {
+  field: string
+  source: string
+  admin_locked: boolean | null
+}
+type BrandFieldStateTable = {
+  select: (columns: 'field, source, admin_locked') => {
+    eq: (column: 'brand_id', value: string) => Promise<{
+      data: BrandFieldStateRow[] | null
+      error: { message?: string } | null
+    }>
+  }
+}
+type BrandPatchRpcClient = {
+  rpc: (fn: 'apply_brand_patch', args: ApplyBrandPatchArgs) => Promise<{
+    error: { message?: string } | null
+  }>
+}
 
 /** Shape returned by: brand_owners(user_id) */
 type BrandOwnerRef = { user_id: string }
@@ -553,7 +591,7 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     otherUrls: (row.other_urls as OtherUrl[]) ?? [],
     retailLocations: (row.retail_locations as Brand['retailLocations']) ?? [],
     customerVoices: (row.customer_voices as CustomerVoice[]) ?? [],
-    productPhotos: (row.product_photos as string[]) ?? [],
+    productPhotos: [],
     contactEmail: row.contact_email ?? null,
     priceRange: row.price_range ?? null,
     productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
@@ -568,6 +606,16 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     updatedAt: row.updated_at ?? '',
   }
   return brand
+}
+
+async function brandToDomainWithImages(
+  supabase: unknown,
+  row: BrandRowWithJoins
+): Promise<Brand> {
+  const brand = brandToDomain(row)
+  const images = await getBrandImages(supabase, brand.id)
+  if (images.length === 0) return brand
+  return { ...brand, ...toImageFields(images) }
 }
 
 export function brandToInsert(data: BrandWriteInput): Record<string, unknown> {
@@ -588,7 +636,52 @@ export function brandToInsert(data: BrandWriteInput): Record<string, unknown> {
 }
 
 function brandToUpdate(data: BrandWriteInput): Record<string, unknown> {
-  return brandToInsert(data)
+  const row = brandToInsert(data)
+  for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+    if (key.includes('_')) {
+      row[key] = value
+    }
+  }
+  if (data.priceRange === undefined) delete row.price_range
+  if (data.productTags === undefined) delete row.product_tags
+  return row
+}
+
+function brandFieldStateTable(client: unknown): BrandFieldStateTable {
+  return (client as { from: (table: 'brand_field_state') => BrandFieldStateTable }).from('brand_field_state')
+}
+
+function brandPatchRpc(client: unknown): BrandPatchRpcClient {
+  return client as BrandPatchRpcClient
+}
+
+async function loadBrandFieldState(
+  supabase: unknown,
+  brandId: string
+): Promise<Record<string, BrandFieldWriteState>> {
+  const { data, error } = await brandFieldStateTable(supabase)
+    .select('field, source, admin_locked')
+    .eq('brand_id', brandId)
+
+  if (error) throw error
+
+  return Object.fromEntries(
+    (data ?? []).map((row) => [
+      row.field,
+      {
+        source: row.source,
+        adminLocked: row.admin_locked ?? false,
+      },
+    ])
+  )
+}
+
+export function previewBrandPatch(
+  data: BrandWriteInput,
+  fieldState: Record<string, BrandFieldWriteState>,
+  actor: BrandWriteActor
+): ReturnType<typeof resolveWritablePatch> {
+  return resolveWritablePatch(brandToUpdate(data), fieldState, actor)
 }
 
 // ---------------------------------------------------------------------------
@@ -599,7 +692,7 @@ const BRAND_COLUMNS = [
   'id', 'name', 'slug', 'description', 'hero_image_url',
   'product_type', 'contact_email', 'city', 'customer_voices', 'purchase_website', 'purchase_pinkoi',
   'purchase_shopee', 'social_instagram', 'social_threads', 'social_facebook',
-  'other_urls', 'retail_locations', 'product_photos', 'site_content',
+  'other_urls', 'retail_locations', 'site_content',
   'status', 'submitted_at', 'approved_at', 'created_at', 'updated_at',
   'draft_data', 'draft_updated_at', 'founding_year',
   'price_range', 'product_tags',
@@ -839,7 +932,7 @@ export async function getBrandBySlug(slug: string): Promise<Brand> {
     .maybeSingle()
 
   if (error || !data) throw new NotFoundError('Brand', slug, { cause: error })
-  return brandToDomain(data)
+  return brandToDomainWithImages(supabase, data)
 }
 
 /**
@@ -878,18 +971,39 @@ export async function insertSlugRedirect(oldSlug: string, newSlug: string): Prom
   if (error) throw error
 }
 
-export async function updateBrand(id: string, data: BrandWriteInput): Promise<Brand> {
+export async function updateBrand(
+  id: string,
+  data: BrandWriteInput,
+  actor: BrandWriteActor = { source: 'admin' }
+): Promise<BrandWriteResult> {
   const supabase = createServiceClient()
   const row = brandToUpdate(data)
+  const fieldState = actor.source === 'admin' ? {} : await loadBrandFieldState(supabase, id)
+  const { allowed, skipped } = resolveWritablePatch(row, fieldState, actor)
+
+  if (Object.keys(allowed).length > 0) {
+    const { error: patchError } = await brandPatchRpc(supabase).rpc('apply_brand_patch', {
+      p_brand_id: id,
+      p_patch: allowed,
+      p_source: actor.source,
+      p_actor: actor.userId ?? null,
+      p_job_id: actor.jobId ?? null,
+    })
+
+    if (patchError) throw patchError
+  }
+
   const { data: updated, error } = await supabase
     .from('brands')
-    .update(row)
-    .eq('id', id)
     .select(BRAND_SELECT)
+    .eq('id', id)
     .single()
 
   if (error || !updated) throw new NotFoundError('Brand', id, { cause: error })
-  return brandToDomain(updated)
+  return {
+    ...brandToDomain(updated),
+    skipped,
+  }
 }
 
 export async function saveDraft(brandId: string, data: Partial<Brand>): Promise<void> {
@@ -1050,7 +1164,7 @@ export async function getBrandById(id: string): Promise<Brand> {
     .single()
 
   if (error || !data) throw new NotFoundError('Brand', id, { cause: error })
-  return brandToDomain(data)
+  return brandToDomainWithImages(supabase, data)
 }
 
 function isSupabaseStorageUrl(url: string): boolean {
@@ -1119,6 +1233,7 @@ export function buildSyncedImagePatch(
 }
 
 export async function syncBrandImages(brandId: string): Promise<{ synced: number; failed: number }> {
+  const supabase = createServiceClient()
   const brand = await getBrandById(brandId)
 
   const syncableUrls = collectSyncableImageUrls({
@@ -1144,9 +1259,24 @@ export async function syncBrandImages(brandId: string): Promise<{ synced: number
 
   const externalUrls = refs.map((r) => r.url)
   const storedUrls = await downloadAndStoreImages(externalUrls, brandId)
+  for (let i = 0; i < refs.length; i++) {
+    const storedUrl = storedUrls.at(i)
+    if (storedUrl == null) continue
 
-  const patch = buildSyncedImagePatch(refs, storedUrls, brand.productPhotos)
-  await updateBrand(brandId, patch)
+    const ref = refs.at(i)
+    if (!ref) continue
+
+    await insertBrandImage(supabase, {
+      brand_id: brandId,
+      url: storedUrl,
+      source_url: ref.url,
+      source: 'admin',
+      sort_order: ref.field === 'hero' ? 0 : (ref.index ?? i) + 1,
+      tags: ref.field === 'hero' ? ['product'] : ['lifestyle'],
+    })
+  }
+
+  await syncHeroDenormalized(supabase, brandId)
 
   const failed = storedUrls.filter((u) => u == null).length
   return { synced: storedUrls.length - failed, failed }

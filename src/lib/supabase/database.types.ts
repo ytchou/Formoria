@@ -355,7 +355,6 @@ export type Database = {
           notified_at: string | null
           other_urls: Json
           pdpa_consent_at: string | null
-          product_photos: Json | null
           product_type_note: string | null
           purchase_pinkoi: string | null
           purchase_shopee: string | null
@@ -388,7 +387,6 @@ export type Database = {
           notified_at?: string | null
           other_urls?: Json
           pdpa_consent_at?: string | null
-          product_photos?: Json | null
           product_type_note?: string | null
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null
@@ -421,7 +419,6 @@ export type Database = {
           notified_at?: string | null
           other_urls?: Json
           pdpa_consent_at?: string | null
-          product_photos?: Json | null
           product_type_note?: string | null
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null
@@ -468,7 +465,6 @@ export type Database = {
           founding_year: number | null
           hero_image_url: string | null
           id: string
-          images_enriched_at: string | null
           is_demo: boolean
           manufacturing: Json | null
           mit_evidence: Json | null
@@ -479,7 +475,6 @@ export type Database = {
           other_urls: Json
           policies: Json | null
           price_range: number | null
-          product_photos: Json | null
           product_tags: string[] | null
           product_type: string | null
           purchase_pinkoi: string | null
@@ -488,7 +483,6 @@ export type Database = {
           reputation_summary: Json | null
           retail_locations: Json | null
           search_vector: unknown
-          serp_enriched_at: string | null
           site_content: Json | null
           slug: string
           social_facebook: string | null
@@ -514,7 +508,6 @@ export type Database = {
           founding_year?: number | null
           hero_image_url?: string | null
           id?: string
-          images_enriched_at?: string | null
           is_demo?: boolean
           manufacturing?: Json | null
           mit_evidence?: Json | null
@@ -525,7 +518,6 @@ export type Database = {
           other_urls?: Json
           policies?: Json | null
           price_range?: number | null
-          product_photos?: Json | null
           product_tags?: string[] | null
           product_type?: string | null
           purchase_pinkoi?: string | null
@@ -534,7 +526,6 @@ export type Database = {
           reputation_summary?: Json | null
           retail_locations?: Json | null
           search_vector?: unknown
-          serp_enriched_at?: string | null
           site_content?: Json | null
           slug: string
           social_facebook?: string | null
@@ -560,7 +551,6 @@ export type Database = {
           founding_year?: number | null
           hero_image_url?: string | null
           id?: string
-          images_enriched_at?: string | null
           is_demo?: boolean
           manufacturing?: Json | null
           mit_evidence?: Json | null
@@ -571,7 +561,6 @@ export type Database = {
           other_urls?: Json
           policies?: Json | null
           price_range?: number | null
-          product_photos?: Json | null
           product_tags?: string[] | null
           product_type?: string | null
           purchase_pinkoi?: string | null
@@ -580,7 +569,6 @@ export type Database = {
           reputation_summary?: Json | null
           retail_locations?: Json | null
           search_vector?: unknown
-          serp_enriched_at?: string | null
           site_content?: Json | null
           slug?: string
           social_facebook?: string | null

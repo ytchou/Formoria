@@ -415,6 +415,11 @@
         "midRange": "中價位",
         "premium": "高價位"
       },
+      "context": {
+        "city": "位於{city}",
+        "founded": "{year}年創立",
+        "suffix": " 這個品牌{details}。"
+      },
       "isMadeInTaiwan": {
         "question": "{brandName} 是台灣製造嗎？",
         "answer": "是的，{brandName} 是經過驗證的台灣製造品牌。"
@@ -429,9 +434,8 @@
       },
       "mainProducts": {
         "question": "{brandName} 主打什麼產品？",
-        "answerWithCategoryAndTags": "{brandName} 專注於{category}，包含{productTags}。",
-        "answerWithCategory": "{brandName} 專注於{category}。",
-        "answerWithTags": "{brandName} 的產品包含{productTags}。"
+        "answerWithCategoryAndTags": "{brandName} 以{category}為主要領域，代表產品包含{productTags}。{context}",
+        "answerWithTags": "{brandName} 的代表產品包含{productTags}。{context}"
       },
       "priceRange": {
         "question": "{brandName} 的價位如何？",
@@ -447,19 +451,19 @@
       },
       "reputation": {
         "question": "{brandName}評價如何？",
-        "answer": "{summary}"
+        "answer": "{brandName} 的評價重點包括：{summary}{context}"
       },
       "manufacturing": {
         "question": "{brandName}在哪裡製造？",
-        "answer": "{details}"
+        "answer": "{brandName} 的製造資訊顯示：{details}。{context}"
       },
       "certifications": {
         "question": "{brandName}有什麼認證？",
-        "answer": "{certList}"
+        "answer": "{brandName} 列出的認證或標準包含{certList}。{context}"
       },
       "returnPolicy": {
         "question": "{brandName}退換貨政策是什麼？",
-        "answer": "{details}"
+        "answer": "{brandName} 的退換貨與保固資訊為：{details}"
       },
       "internationalShipping": {
         "question": "{brandName}有寄海外嗎？",

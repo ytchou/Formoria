@@ -72,7 +72,6 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
         product_type: 'crafts',
         description: '[E2E-TEST] Save-brand journey test brand.',
         retail_locations: [],
-        product_photos: [],
       })
       .select('id')
       .single();
@@ -310,7 +309,6 @@ test.describe('Brand save — card overlay on directory', () => {
         product_type: 'crafts',
         description: '[E2E-TEST] Save-overlay journey test brand.',
         retail_locations: [],
-        product_photos: [],
       })
       .select('id')
       .single();

@@ -1,4 +1,5 @@
 import { CLASSIFY_SYSTEM_PROMPT, TRIAGE_SYSTEM_PROMPT } from '@/lib/prompts'
+import { createDeepSeekClient } from '@/lib/services/deepseek-client'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 export type ClassificationResult = { productType: string; confidence: 'high' | 'medium' | 'low' }
@@ -12,17 +13,20 @@ export type TriageResult = {
   productType: string | null
   confidence: 'high' | 'medium' | 'low'
 }
+export type ExtractionResult = {
+  priceRange: 1 | 2 | 3 | null
+  productTags: string[]
+  city: string | null
+  foundingYear: number | null
+  signatureProducts: string[]
+  whereToBuy: string | null
+  categoryMismatch: boolean
+}
 
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions'
-const DEEPSEEK_MODEL = 'deepseek-v4-flash'
 const CLASSIFY_TIMEOUT_MS = 30_000
 const BATCH_CLASSIFY_TIMEOUT_MS = 60_000
 const VALID_PRODUCT_TYPES = new Set<string>(PRODUCT_TYPE_CATEGORIES.map(category => category.slug))
 
-
-type DeepSeekResponse = {
-  choices?: Array<{ message?: { content?: string } }>
-}
 
 type UnknownRecord = Record<string, unknown>
 
@@ -40,6 +44,50 @@ function parseClassification(content: string): ClassificationResult | null {
   }
 
   return { productType, confidence }
+}
+
+function parseStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return [...new Set(value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean))]
+}
+
+function parseNullableString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
+}
+
+export function parseExtractionResult(content: string): ExtractionResult {
+  try {
+    const parsed = JSON.parse(content) as UnknownRecord
+    const priceRange = parsed.price_range === 1 || parsed.price_range === 2 || parsed.price_range === 3
+      ? parsed.price_range
+      : null
+    const foundingYear = typeof parsed.founding_year === 'number' && Number.isInteger(parsed.founding_year)
+      ? parsed.founding_year
+      : null
+
+    return {
+      priceRange,
+      productTags: parseStringArray(parsed.product_tags).slice(0, 5),
+      city: parseNullableString(parsed.city),
+      foundingYear,
+      signatureProducts: parseStringArray(parsed.signature_products).slice(0, 10),
+      whereToBuy: parseNullableString(parsed.where_to_buy),
+      categoryMismatch: parsed.category_mismatch === true,
+    }
+  } catch {
+    return {
+      priceRange: null,
+      productTags: [],
+      city: null,
+      foundingYear: null,
+      signatureProducts: [],
+      whereToBuy: null,
+      categoryMismatch: false,
+    }
+  }
 }
 
 function parseBatchClassification(content: string, validSlugs: Set<string>): Map<string, ClassificationResult> | null {
@@ -149,38 +197,23 @@ async function classifyProductType(
 
   const userContent = `品牌名稱：${brandName}\n描述：${description ?? '無'}`
 
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), CLASSIFY_TIMEOUT_MS)
+  const client = createDeepSeekClient({ apiKey: token })
 
   try {
-    const res = await fetch(DEEPSEEK_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        model: DEEPSEEK_MODEL,
-        messages: [
-          { role: 'system', content: CLASSIFY_SYSTEM_PROMPT },
-          { role: 'user', content: userContent },
-        ],
-        max_tokens: 100,
-        temperature: 0,
-        thinking: { type: 'disabled' },
-        response_format: { type: 'json_object' },
-      }),
-      signal: controller.signal,
+    const { response, data, content } = await client.chat({
+      system: CLASSIFY_SYSTEM_PROMPT,
+      user: userContent,
+      json: true,
+      timeoutMs: CLASSIFY_TIMEOUT_MS,
+      maxTokens: 100,
+      temperature: 0,
     })
 
-    if (!res.ok) {
-      console.error(`  → product type classification failed: HTTP ${res.status}`)
+    if (!response.ok) {
+      console.error(`  → product type classification failed: HTTP ${response.status}`)
       return null
     }
 
-    const data = await res.json() as DeepSeekResponse
-
-    const content = data.choices?.[0]?.message?.content?.trim()
     if (!content) {
       console.error(`  → product type classification: empty response, data=${JSON.stringify(data).slice(0, 200)}`)
       return null
@@ -196,8 +229,6 @@ async function classifyProductType(
   } catch (err) {
     console.error(`  → product type classification failed: ${err instanceof Error ? err.message : err}`)
     return null
-  } finally {
-    clearTimeout(timeout)
   }
 }
 
@@ -213,38 +244,23 @@ async function classifyProductTypeBatchChunk(
   }).join('\n')
   const userContent = `請將以下品牌分類：\n${list}`
 
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), BATCH_CLASSIFY_TIMEOUT_MS)
+  const client = createDeepSeekClient({ apiKey: token })
 
   try {
-    const res = await fetch(DEEPSEEK_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        model: DEEPSEEK_MODEL,
-        messages: [
-          { role: 'system', content: CLASSIFY_SYSTEM_PROMPT },
-          { role: 'user', content: userContent },
-        ],
-        max_tokens: 1500,
-        temperature: 0,
-        thinking: { type: 'disabled' },
-        response_format: { type: 'json_object' },
-      }),
-      signal: controller.signal,
+    const { response, data, content } = await client.chat({
+      system: CLASSIFY_SYSTEM_PROMPT,
+      user: userContent,
+      json: true,
+      timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
+      maxTokens: 1500,
+      temperature: 0,
     })
 
-    if (!res.ok) {
-      console.error(`  → product type batch classification failed: HTTP ${res.status}`)
+    if (!response.ok) {
+      console.error(`  → product type batch classification failed: HTTP ${response.status}`)
       return null
     }
 
-    const data = await res.json() as DeepSeekResponse
-
-    const content = data.choices?.[0]?.message?.content?.trim()
     if (!content) {
       console.error(`  → product type batch classification: empty response, data=${JSON.stringify(data).slice(0, 200)}`)
       return null
@@ -260,8 +276,6 @@ async function classifyProductTypeBatchChunk(
   } catch (err) {
     console.error(`  → product type batch classification failed: ${err instanceof Error ? err.message : err}`)
     return null
-  } finally {
-    clearTimeout(timeout)
   }
 }
 
@@ -299,38 +313,23 @@ async function triageBrand(brand: TriageBatchItem): Promise<TriageResult | null>
   const snippetLine = brand.snippets?.length ? `\n搜尋摘要：${brand.snippets.slice(0, 3).join('；')}` : ''
   const userContent = `品牌 slug：${brand.slug}\n品牌名稱：${brand.name}\n描述：${brand.description ?? '無'}\n網站：${brand.website ?? '無'}${snippetLine}`
 
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), CLASSIFY_TIMEOUT_MS)
+  const client = createDeepSeekClient({ apiKey: token })
 
   try {
-    const res = await fetch(DEEPSEEK_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        model: DEEPSEEK_MODEL,
-        messages: [
-          { role: 'system', content: TRIAGE_SYSTEM_PROMPT },
-          { role: 'user', content: userContent },
-        ],
-        max_tokens: 500,
-        temperature: 0,
-        thinking: { type: 'disabled' },
-        response_format: { type: 'json_object' },
-      }),
-      signal: controller.signal,
+    const { response, data, content } = await client.chat({
+      system: TRIAGE_SYSTEM_PROMPT,
+      user: userContent,
+      json: true,
+      timeoutMs: CLASSIFY_TIMEOUT_MS,
+      maxTokens: 500,
+      temperature: 0,
     })
 
-    if (!res.ok) {
-      console.error(`  → brand triage failed: HTTP ${res.status}`)
+    if (!response.ok) {
+      console.error(`  → brand triage failed: HTTP ${response.status}`)
       return null
     }
 
-    const data = await res.json() as DeepSeekResponse
-
-    const content = data.choices?.[0]?.message?.content?.trim()
     if (!content) {
       console.error(`  → brand triage: empty response, data=${JSON.stringify(data).slice(0, 200)}`)
       return null
@@ -346,8 +345,6 @@ async function triageBrand(brand: TriageBatchItem): Promise<TriageResult | null>
   } catch (err) {
     console.error(`  → brand triage failed: ${err instanceof Error ? err.message : err}`)
     return null
-  } finally {
-    clearTimeout(timeout)
   }
 }
 
@@ -364,38 +361,23 @@ async function triageBrandsBatchChunk(
   }).join('\n')
   const userContent = `請判斷以下項目是否為實際品牌，並為實際品牌分類：\n${list}`
 
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), BATCH_CLASSIFY_TIMEOUT_MS)
+  const client = createDeepSeekClient({ apiKey: token })
 
   try {
-    const res = await fetch(DEEPSEEK_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        model: DEEPSEEK_MODEL,
-        messages: [
-          { role: 'system', content: TRIAGE_SYSTEM_PROMPT },
-          { role: 'user', content: userContent },
-        ],
-        max_tokens: 4000,
-        temperature: 0,
-        thinking: { type: 'disabled' },
-        response_format: { type: 'json_object' },
-      }),
-      signal: controller.signal,
+    const { response, data, content } = await client.chat({
+      system: TRIAGE_SYSTEM_PROMPT,
+      user: userContent,
+      json: true,
+      timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
+      maxTokens: 4000,
+      temperature: 0,
     })
 
-    if (!res.ok) {
-      console.error(`  → brand triage batch failed: HTTP ${res.status}`)
+    if (!response.ok) {
+      console.error(`  → brand triage batch failed: HTTP ${response.status}`)
       return null
     }
 
-    const data = await res.json() as DeepSeekResponse
-
-    const content = data.choices?.[0]?.message?.content?.trim()
     if (!content) {
       console.error(`  → brand triage batch: empty response, data=${JSON.stringify(data).slice(0, 200)}`)
       return null
@@ -411,8 +393,6 @@ async function triageBrandsBatchChunk(
   } catch (err) {
     console.error(`  → brand triage batch failed: ${err instanceof Error ? err.message : err}`)
     return null
-  } finally {
-    clearTimeout(timeout)
   }
 }
 

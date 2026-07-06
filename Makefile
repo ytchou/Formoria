@@ -1,4 +1,4 @@
-.PHONY: dev-all doctor seed seed-qa-brand reset-qa-brand
+.PHONY: dev-all doctor seed seed-qa-brand reset-qa-brand eval
 
 dev-all:
 	pnpm dev
@@ -21,3 +21,6 @@ reset-qa-brand: ## Reset QA brand: remove owner+claims (re-claimable) and restor
 	npx supabase db query --linked --file supabase/reset-qa-brand.sql
 	npx supabase db query --linked --file supabase/seed-qa-brand.sql
 	@echo "Done. test-brand-qa is claimable again."
+
+eval: ## Run enrichment golden-set evaluation
+	pnpm curate eval

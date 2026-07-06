@@ -53,7 +53,6 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
         product_type: 'crafts',
         description: '[E2E-TEST] Sidebar wizard navigation test brand.',
         retail_locations: [],
-        product_photos: [],
       })
       .select('id')
       .single();

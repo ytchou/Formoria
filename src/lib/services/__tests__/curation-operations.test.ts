@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createServiceClient } from '@/lib/supabase/server'
-import { processEnrichBrand, mergeEnrichPatches, persistSubmissionEnrichmentResults, runEnrich } from '../curation-operations'
+import * as brandWrites from '../brands'
+import { processEnrichBrand, mergeEnrichPatches, persistEnrichmentResults, persistSubmissionEnrichmentResults, runEnrich, needsPhase } from '../curation-operations'
 import type { CurationConfig } from '../curation-operations'
 import { describeWithDb } from '@/test/setup'
 
@@ -41,14 +42,34 @@ describe('processEnrichBrand', () => {
     expect(result.patches.links?.social_instagram).toBe('https://www.instagram.com/mybrand/')
   })
 
-  it('generates brand description when description phase is enabled', () => {
+  it('does not write scraped description directly into patch (LLM rewrite path only)', () => {
     const result = processEnrichBrand(baseBrand, scrapedData, ['descriptions'])
-    expect(result.patches.descriptions?.description).toBe(scrapedData.description)
+    // Scraped text is junk — description is only populated via the LLM rewrite pipeline,
+    // so buildTextEnrichPatch returns empty and the patch key is absent.
+    expect(result.patches.descriptions).toBeUndefined()
   })
 
   it('omits description when phase is not requested', () => {
     const result = processEnrichBrand(baseBrand, scrapedData, ['links'])
     expect(result.patches.descriptions).toBeUndefined()
+  })
+})
+
+describe('enrichment write guards', () => {
+  it('persistEnrichmentResults routes through the guarded write path with source=enriched', async () => {
+    const spy = vi.spyOn(brandWrites, 'updateBrand').mockResolvedValue({ skipped: [] } as never)
+    await persistEnrichmentResults({} as never, [{ brandId: 'b1', patch: { city: '台南' } }], 'job-1')
+    expect(spy).toHaveBeenCalledWith(
+      'b1',
+      expect.objectContaining({ city: '台南' }),
+      expect.objectContaining({ source: 'enriched', jobId: 'job-1' }),
+    )
+    spy.mockRestore()
+  })
+
+  it('per-field gate: brand with enriched_at set but missing description is still selected for the descriptions phase', () => {
+    const brand = { brand_enriched_at: '2026-06-01', description: null, hero_image_url: 'x' }
+    expect(needsPhase(brand, 'descriptions')).toBe(true)
   })
 })
 
@@ -521,31 +542,6 @@ describeWithDb('persistSubmissionEnrichmentResults', () => {
       description: 'New desc',
       product_type: 'bags',
       hero_image_url: 'https://img.example.com/hero.jpg',
-    })
-  })
-
-  it('should deduplicate product_photos arrays', async () => {
-    await serviceSupabase!
-      .from('brand_submissions')
-      .update({
-        enriched_data: {
-          product_photos: ['a.jpg', 'b.jpg'],
-        },
-      })
-      .eq('id', testSubmissionId!)
-
-    await persistSubmissionEnrichmentResults(serviceSupabase!, testSubmissionId!, {
-      product_photos: ['b.jpg', 'c.jpg'],
-    })
-
-    const { data: updated } = await serviceSupabase!
-      .from('brand_submissions')
-      .select('enriched_data')
-      .eq('id', testSubmissionId!)
-      .single()
-
-    expect(updated!.enriched_data).toEqual({
-      product_photos: ['a.jpg', 'b.jpg', 'c.jpg'],
     })
   })
 

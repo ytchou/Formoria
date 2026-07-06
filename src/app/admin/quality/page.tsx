@@ -31,6 +31,13 @@ const distributionRows = [
   { label: 'Poor <40%', key: 'poor' },
 ] as const
 
+const enrichmentRows = [
+  { label: 'ZH language purity', key: 'languagePurityPct' },
+  { label: 'Hero classified', key: 'heroClassifiedPct' },
+  { label: 'ZH description coverage', key: 'descriptionCoveragePct' },
+  { label: 'EN description coverage', key: 'descriptionEnCoveragePct' },
+] as const
+
 type ProgressBarProps = {
   value: number
   label: string
@@ -181,6 +188,49 @@ export default async function AdminQualityPage() {
                 </div>
               )
             })}
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card shadow-none md:col-span-2">
+          <CardHeader className="p-4 pb-0">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Enrichment Quality
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 p-4">
+            {enrichmentRows.map((row) => {
+              const value = metrics.enrichment[row.key]
+
+              return (
+                <div key={row.key} className="space-y-2">
+                  <div className="flex min-h-6 items-center justify-between gap-4 text-sm">
+                    <span className="font-medium text-foreground">{row.label}</span>
+                    <span className="shrink-0 tabular-nums text-muted-foreground">
+                      {formatPercentage(value)}
+                    </span>
+                  </div>
+                  <ProgressBar
+                    label={`${row.label} enrichment quality`}
+                    value={value}
+                  />
+                </div>
+              )
+            })}
+
+            <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
+              <div>
+                <p className="text-sm font-medium text-foreground">Promo hero images</p>
+                <p className="mt-1 font-heading text-3xl font-bold text-foreground">
+                  {metrics.enrichment.promoHeroCount}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">Validation failures</p>
+                <p className="mt-1 font-heading text-3xl font-bold text-foreground">
+                  {metrics.enrichment.validationFailures}
+                </p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

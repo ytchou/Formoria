@@ -1,3 +1,4 @@
+import { createDeepSeekClient } from '@/lib/services/deepseek-client'
 import { resolveSentryProject } from '@/lib/services/sentry'
 import { createServiceClient } from '@/lib/supabase/server'
 
@@ -248,12 +249,8 @@ async function checkDeepSeek(): Promise<ServiceHealthResult> {
   }
 
   try {
-    const response = await fetch('https://api.deepseek.com/user/balance', {
-      headers: {
-        Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
-      },
-      signal: AbortSignal.timeout(3000),
-    })
+    const client = createDeepSeekClient({ apiKey: DEEPSEEK_API_KEY })
+    const response = await client.balance(3000)
 
     if (!response.ok) {
       return result('DeepSeek', 'down', `API returned ${response.status}`)

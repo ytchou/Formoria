@@ -48,7 +48,6 @@ test.describe('Share card API', () => {
         product_type: 'crafts',
         description: '[E2E-TEST] share card API approved brand',
         retail_locations: [],
-        product_photos: [],
       })
       .select('id')
       .single();
@@ -65,7 +64,6 @@ test.describe('Share card API', () => {
         product_type: 'crafts',
         description: '[E2E-TEST] share card API hidden brand',
         retail_locations: [],
-        product_photos: [],
       })
       .select('id')
       .single();

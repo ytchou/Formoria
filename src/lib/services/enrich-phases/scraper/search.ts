@@ -2,6 +2,7 @@ export const SEARCH_DELAY_MS = 1500
 type QueryTemplate = (brandName: string) => string
 
 const DEFAULT_QUERY: QueryTemplate = (name: string) => `${name} 台灣`
+const IMAGE_NEGATIVE_TERMS = ['-優惠', '-折扣', '-特價', '-coupon']
 
 const APIFY_SERP_ENDPOINT =
   'https://api.apify.com/v2/acts/apify~google-search-scraper/run-sync-get-dataset-items'
@@ -23,6 +24,57 @@ type ApifyImageSearchResult = {
   height?: number
   title?: string
   contextLink?: string
+}
+
+export type BrandImageSearchResult = {
+  url: string
+  query: string
+}
+
+type ImageQueryInput = {
+  brandName: string
+  productType?: string | null
+  purchaseWebsite?: string | null
+}
+
+type ImageSearchBrandInput = string | ImageQueryInput
+
+function extractSearchDomain(url: string | null | undefined): string | null {
+  const value = url?.trim()
+  if (!value) {
+    return null
+  }
+
+  try {
+    return new URL(value).hostname.replace(/^www\./, '')
+  } catch {
+    try {
+      return new URL(`https://${value}`).hostname.replace(/^www\./, '')
+    } catch {
+      return null
+    }
+  }
+}
+
+export function buildImageQueryVariants(input: ImageQueryInput): string[] {
+  const brandName = input.brandName.trim()
+  if (!brandName) {
+    return []
+  }
+
+  const productType = input.productType?.trim()
+  const productSegment = productType ? `${productType} ` : ''
+  const negatives = IMAGE_NEGATIVE_TERMS.join(' ')
+  const variants = [
+    `"${brandName}" ${productSegment}商品 ${negatives}`,
+  ]
+  const domain = extractSearchDomain(input.purchaseWebsite)
+  if (domain) {
+    variants.push(`site:${domain} "${brandName}" ${productSegment}商品 ${negatives}`)
+  }
+  variants.push(`"${brandName}" 台灣 ${negatives}`)
+
+  return [...new Set(variants)].slice(0, 3)
 }
 
 function isApifySerpEntry(value: unknown): value is ApifySerpEntry {
@@ -140,17 +192,6 @@ export async function searchBrandUrls(
   return parseApifySerpResults(data)
 }
 
-async function searchBrandWithSnippets(
-  brandName: string,
-  queryTemplate: QueryTemplate = DEFAULT_QUERY
-): Promise<{ urls: string[], snippets: string[] }> {
-  const data = await fetchSerpData(brandName, queryTemplate)
-  return {
-    urls: parseApifySerpResults(data),
-    snippets: parseApifySerpSnippets(data),
-  }
-}
-
 type BrandSearchResult = { urls: string[], snippets: string[], rawEntries?: unknown[] }
 
 export async function batchSearchBrandsWithSnippets(
@@ -257,10 +298,7 @@ export async function batchSearchBrandsWithSnippets(
   }
 }
 
-async function searchBrandImages(
-  brandName: string,
-  queryTemplate: QueryTemplate = DEFAULT_QUERY
-): Promise<string[]> {
+async function searchBrandImagesForQuery(query: string): Promise<BrandImageSearchResult[]> {
   const token = process.env.APIFY_TOKEN
 
   if (!token) {
@@ -277,9 +315,11 @@ async function searchBrandImages(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        q: queryTemplate(brandName),
+        q: query,
         num: 5,
         page: 1,
+        gl: 'tw',
+        hl: 'zh-TW',
       }),
       signal: controller.signal,
     })
@@ -304,6 +344,7 @@ async function searchBrandImages(
       })
       .map((item) => item.originalImageUrl!)
       .filter(Boolean)
+      .map((url) => ({ url, query }))
   } catch (err) {
     console.error(`  → image search failed: ${err instanceof Error ? err.message : err}`)
     return []
@@ -312,27 +353,51 @@ async function searchBrandImages(
   }
 }
 
+async function searchBrandImages(
+  input: ImageSearchBrandInput,
+  queryTemplate: QueryTemplate = DEFAULT_QUERY
+): Promise<BrandImageSearchResult[]> {
+  const brandName = typeof input === 'string' ? input : input.brandName
+  const queries = typeof input === 'string'
+    ? [queryTemplate(brandName)]
+    : buildImageQueryVariants(input)
+  const results = new Map<string, BrandImageSearchResult>()
+
+  for (const query of queries) {
+    const rows = await searchBrandImagesForQuery(query)
+    for (const row of rows) {
+      if (!results.has(row.url)) {
+        results.set(row.url, row)
+      }
+    }
+  }
+
+  return [...results.values()]
+}
+
 export async function batchSearchBrandImages(
-  brandNames: string[],
+  brandInputs: ImageSearchBrandInput[],
   concurrency: number = 5,
   queryTemplate: QueryTemplate = DEFAULT_QUERY
-): Promise<Map<string, string[]>> {
-  const results = new Map<string, string[]>()
-  const workerCount = Math.max(1, Math.min(concurrency, brandNames.length))
+): Promise<Map<string, BrandImageSearchResult[]>> {
+  const results = new Map<string, BrandImageSearchResult[]>()
+  const workerCount = Math.max(1, Math.min(concurrency, brandInputs.length))
   let nextIndex = 0
 
-  for (const brandName of brandNames) {
+  for (const input of brandInputs) {
+    const brandName = typeof input === 'string' ? input : input.brandName
     results.set(brandName, [])
   }
 
   async function worker(): Promise<void> {
-    while (nextIndex < brandNames.length) {
+    while (nextIndex < brandInputs.length) {
       const index = nextIndex
       nextIndex += 1
-      const brandName = brandNames[index]
+      const input = brandInputs[index]
+      const brandName = typeof input === 'string' ? input : input.brandName
 
       try {
-        results.set(brandName, await searchBrandImages(brandName, queryTemplate))
+        results.set(brandName, await searchBrandImages(input, queryTemplate))
       } catch (err) {
         console.error(`  → image search failed: ${err instanceof Error ? err.message : err}`)
         results.set(brandName, [])

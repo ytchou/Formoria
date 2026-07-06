@@ -14,13 +14,15 @@ export type EnrichBrand = {
   name?: string
   status?: string | null
   description?: string | null
+  description_en?: string | null
+  city?: string | null
   site_content?: SiteContent | null
+  category_attributes?: unknown | null
   product_type?: string | null
   purchase_website?: string | null
   purchaseWebsite?: string | null
   hero_image_url?: string | null
   product_images?: string[] | null
-  product_photos?: string[] | null
   heroImageUrl?: string | null
   productPhotos?: string[] | null
   reputation_summary?: unknown | null
@@ -42,6 +44,9 @@ export type EnrichScrapedData = Partial<ScrapedBrandData> & Partial<BrandFlatLin
 export type EnrichPatch = Partial<BrandFlatLinkColumns> &
   Partial<{
     description: string | null
+    description_en: string | null
+    city: string | null
+    category_attributes: unknown
     hero_image_url: string | null
     name: string
     reputation_summary: unknown
@@ -49,7 +54,6 @@ export type EnrichPatch = Partial<BrandFlatLinkColumns> &
     certifications: unknown
     policies: unknown
     price_range: number | null
-    product_photos: string[]
     product_tags: string[] | null
     product_type: string | null
     slug: string

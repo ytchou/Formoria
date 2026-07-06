@@ -69,14 +69,7 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
         }
 
         if (serpBrandIds.length > 0) {
-          await ctx.supabase
-            .from('brands')
-            .update({ serp_enriched_at: new Date().toISOString() } as never)
-            .in('id', serpBrandIds)
-        }
-
-        if (serpBrandIds.length > 0) {
-          changedFields.push('serp_enriched_at')
+          changedFields.push('serp_search_results')
         }
       }
 
