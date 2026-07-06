@@ -34,10 +34,10 @@ interface BrandEditWizardProps {
   brand: Brand
   defaultValues: Partial<BrandEditFormValues>
   initialStep?: number
+  productTagSuggestions?: string[]
 }
 
 const SECTION_COMPONENTS = [
-  BasicInfoSection,
   MediaSection,
   LinksSection,
   CustomerVoicesSection,
@@ -64,6 +64,7 @@ export function BrandEditWizard({
   brand,
   defaultValues,
   initialStep = 0,
+  productTagSuggestions = [],
 }: BrandEditWizardProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -178,7 +179,7 @@ export function BrandEditWizard({
     }
   }, [form, brand, currentStepKey])
 
-  const SectionComponent = SECTION_COMPONENTS[activeStep]
+  const SectionComponent = activeStep > 0 ? SECTION_COMPONENTS[activeStep - 1] : null
 
   return (
     <div className="flex gap-0 min-h-screen">
@@ -189,7 +190,11 @@ export function BrandEditWizard({
         onStepClick={handleSidebarClick}
       />
       <main className="flex-1 min-w-0 px-8 py-6">
-        {SectionComponent && <SectionComponent form={form} />}
+        {activeStep === 0 ? (
+          <BasicInfoSection form={form} productTagSuggestions={productTagSuggestions} />
+        ) : (
+          SectionComponent && <SectionComponent form={form} />
+        )}
         <WizardFooter
           activeStep={activeStep}
           totalSteps={WIZARD_STEPS.length}

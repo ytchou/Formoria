@@ -58,19 +58,19 @@ describe('buildOnboardingProgress', () => {
     const progress = buildOnboardingProgress([])
 
     expect(progress.completedCount).toBe(0)
-    expect(progress.nextStep).toBe('basics')
+    expect(progress.nextStep).toBe('brand_basics')
     expect(progress.steps.map((step) => step.key)).toEqual(ONBOARDING_STEPS)
     expect(progress.steps.every((step) => step.status === 'not_started')).toBe(true)
   })
 
   it('preserves explicit progress without inferring from brand fields', () => {
     const progress = buildOnboardingProgress([
-      { step_key: 'basics', status: 'complete' },
-      { step_key: 'products', status: 'in_progress' },
+      { step_key: 'brand_basics', status: 'complete' },
+      { step_key: 'media_links', status: 'in_progress' },
     ])
 
     expect(progress.completedCount).toBe(1)
-    expect(progress.nextStep).toBe('products')
+    expect(progress.nextStep).toBe('media_links')
     expect(progress.isComplete).toBe(false)
   })
 
@@ -82,7 +82,7 @@ describe('buildOnboardingProgress', () => {
 
     const progress = await getBrandOnboardingProgress('brand-1')
 
-    expect(progress.nextStep).toBe('basics')
+    expect(progress.nextStep).toBe('brand_basics')
     expect(progress.completedCount).toBe(0)
   })
 })
@@ -95,7 +95,7 @@ describe('setBrandOnboardingStepStatus', () => {
     })
 
     await expect(
-      setBrandOnboardingStepStatus({ brandId: 'brand-1', userId: 'user-1', step: 'basics', status: 'in_progress' })
+      setBrandOnboardingStepStatus({ brandId: 'brand-1', userId: 'user-1', step: 'brand_basics', status: 'in_progress' })
     ).resolves.toBeUndefined()
   })
 })
@@ -108,31 +108,38 @@ describe('completeOnboardingStepsForSection', () => {
     mocks.upsert.mockResolvedValue({ error: null })
   })
 
-  it('completes basics, products, story_media when sectionKey is basicInfo', async () => {
+  it('completes brand_basics when sectionKey is basicInfo', async () => {
     await completeOnboardingStepsForSection('test-brand-id', 'basicInfo')
 
-    expect(mocks.upsert).toHaveBeenCalledTimes(3)
+    expect(mocks.upsert).toHaveBeenCalledTimes(1)
     const steps = mocks.upsert.mock.calls.map(
       (call: unknown[]) => (call[0] as Record<string, unknown>).step_key
     )
-    expect(steps).toContain('basics')
-    expect(steps).toContain('products')
-    expect(steps).toContain('story_media')
+    expect(steps).toContain('brand_basics')
   })
 
-  it('completes purchase, social_proof when sectionKey is links', async () => {
+  it('completes media_links when sectionKey is links', async () => {
     await completeOnboardingStepsForSection('test-brand-id', 'links')
 
-    expect(mocks.upsert).toHaveBeenCalledTimes(2)
+    expect(mocks.upsert).toHaveBeenCalledTimes(1)
     const steps = mocks.upsert.mock.calls.map(
       (call: unknown[]) => (call[0] as Record<string, unknown>).step_key
     )
-    expect(steps).toContain('purchase')
-    expect(steps).toContain('social_proof')
+    expect(steps).toContain('media_links')
   })
 
-  it('does nothing for sections with no onboarding steps (e.g. media)', async () => {
-    await completeOnboardingStepsForSection('any-id', 'media')
+  it('completes media_links when sectionKey is media', async () => {
+    await completeOnboardingStepsForSection('test-brand-id', 'media')
+
+    expect(mocks.upsert).toHaveBeenCalledTimes(1)
+    const steps = mocks.upsert.mock.calls.map(
+      (call: unknown[]) => (call[0] as Record<string, unknown>).step_key
+    )
+    expect(steps).toContain('media_links')
+  })
+
+  it('does nothing for sections with no onboarding steps (e.g. customerVoices)', async () => {
+    await completeOnboardingStepsForSection('any-id', 'customerVoices')
     expect(mocks.upsert).not.toHaveBeenCalled()
   })
 })

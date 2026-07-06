@@ -121,34 +121,49 @@ export const SECTION_FIELDS: Record<string, (keyof BrandEditFormValues)[]> = {
 }
 
 // --- Wizard step definitions ---
-export type WizardStep = {
-  key: string
-  label: string
-  sublabel: string
-}
+type WizardStepKey =
+  | 'basicInfo'
+  | 'media'
+  | 'links'
+  | 'customerVoices'
+  | 'locations'
+  | 'reputation'
+  | 'manufacturing'
+  | 'certifications'
+  | 'policies'
+
+export type WizardStep = { key: WizardStepKey }
 
 export const WIZARD_STEPS: WizardStep[] = [
-  { key: 'basicInfo', label: 'Basic Info', sublabel: 'Brand identity & details' },
-  { key: 'media', label: 'Media', sublabel: 'Photos & hero image' },
-  { key: 'links', label: 'Links', sublabel: 'Social & purchase links' },
-  { key: 'customerVoices', label: 'Customer Voices', sublabel: 'Reviews & testimonials' },
-  { key: 'locations', label: 'Locations', sublabel: 'Physical locations' },
-  { key: 'reputation', label: 'Reputation', sublabel: 'Press & recognition' },
-  { key: 'manufacturing', label: 'Manufacturing', sublabel: 'Production details' },
-  { key: 'certifications', label: 'Certifications', sublabel: 'Awards & certifications' },
-  { key: 'policies', label: 'Policies', sublabel: 'Consumer policies' },
+  { key: 'basicInfo' },
+  { key: 'media' },
+  { key: 'links' },
+  { key: 'customerVoices' },
+  { key: 'locations' },
+  { key: 'reputation' },
+  { key: 'manufacturing' },
+  { key: 'certifications' },
+  { key: 'policies' },
 ]
 
 // --- Onboarding step mappings ---
-export const ONBOARDING_STEP_TO_WIZARD_STEP: Record<OnboardingStepKey, number> = {
-  basics: 0,
-  products: 0,
-  story_media: 0,
-  purchase: 2,
-  social_proof: 2,
+export function getOnboardingStepHref(key: OnboardingStepKey, slug: string): string {
+  switch (key) {
+    case 'brand_basics':
+      return `/dashboard/brands/${slug}/edit?step=0`
+    case 'media_links':
+      return `/dashboard/brands/${slug}/edit?step=1`
+    case 'analytics':
+      return `/dashboard/analytics?brand=${slug}`
+    case 'health':
+      return `/dashboard/health?brand=${slug}`
+    case 'verification':
+      return `/dashboard/verification?brand=${slug}`
+  }
 }
 
 export const SECTION_TO_ONBOARDING_STEPS: Record<string, OnboardingStepKey[]> = {
-  basicInfo: ['basics', 'products', 'story_media'],
-  links: ['purchase', 'social_proof'],
+  basicInfo: ['brand_basics'],
+  media: ['media_links'],
+  links: ['media_links'],
 }

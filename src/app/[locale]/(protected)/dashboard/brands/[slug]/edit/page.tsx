@@ -4,15 +4,14 @@ import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { canManageDashboardBrand } from "@/lib/auth/admin-mode";
 import { getBrandBySlug, getBrandDraft } from "@/lib/services/brands";
+import { getApprovedProductTagSuggestions } from "@/lib/services/product-tag-suggestions";
 import type { BrandEditFormValues } from "@/lib/schemas/brand-edit";
-import { ONBOARDING_STEP_TO_WIZARD_STEP } from "@/lib/schemas/brand-edit";
-import { isOnboardingStepKey } from "@/lib/services/brand-onboarding";
 import { DraftBanner } from "../draft-banner";
 import { BrandEditWizard } from "./brand-edit-wizard";
 
 type Props = {
   params: Promise<{ slug: string; locale: string }>;
-  searchParams: Promise<{ onboardingStep?: string; step?: string }>;
+  searchParams: Promise<{ step?: string }>;
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -23,7 +22,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function BrandEditPage({ params, searchParams }: Props) {
   const { slug } = await params;
-  const { onboardingStep: rawOnboardingStep, step: rawStep } = await searchParams;
+  const { step: rawStep } = await searchParams;
 
   const supabase = await createClient();
   const {
@@ -37,7 +36,10 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
 
   if (!owner) redirect("/dashboard");
 
-  const [draft] = await Promise.all([getBrandDraft(brand.id)]);
+  const [draft, productTagSuggestions] = await Promise.all([
+    getBrandDraft(brand.id),
+    getApprovedProductTagSuggestions(),
+  ]);
 
   // Brand DB fields are string|null; form values use string|undefined. Cast at boundary.
   const defaultValues: Partial<BrandEditFormValues> = {
@@ -46,9 +48,7 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
   };
 
   let initialStep = 0;
-  if (rawOnboardingStep && isOnboardingStepKey(rawOnboardingStep)) {
-    initialStep = ONBOARDING_STEP_TO_WIZARD_STEP[rawOnboardingStep] ?? 0;
-  } else if (rawStep) {
+  if (rawStep) {
     initialStep = Math.max(0, Math.min(parseInt(rawStep, 10), 8));
   }
 
@@ -73,6 +73,7 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
           brand={brand}
           defaultValues={defaultValues}
           initialStep={initialStep}
+          productTagSuggestions={productTagSuggestions}
         />
       </div>
     </div>

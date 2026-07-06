@@ -77,12 +77,12 @@ describe('saveSectionDraftAction', () => {
     expect(completeOnboardingStepsForSection).toHaveBeenCalledWith('brand-id', 'basicInfo')
   })
 
-  it('does not call completeOnboardingStepsForSection for media', async () => {
+  it('calls completeOnboardingStepsForSection for media', async () => {
     vi.mocked(getBrandDraft).mockResolvedValue(null)
 
     await saveSectionDraftAction('brand-id', 'brand-slug', 'media', { heroImageUrl: 'http://example.com/img.jpg' })
 
-    expect(completeOnboardingStepsForSection).not.toHaveBeenCalled()
+    expect(completeOnboardingStepsForSection).toHaveBeenCalledWith('brand-id', 'media')
   })
 
   it('returns error when save fails', async () => {

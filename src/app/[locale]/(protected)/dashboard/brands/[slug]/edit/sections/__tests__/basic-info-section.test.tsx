@@ -39,4 +39,29 @@ describe('BasicInfoSection', () => {
     render(<Wrapper defaultValues={{ name: 'Warmwood Living' }} />)
     expect(screen.getByDisplayValue('Warmwood Living')).toBeInTheDocument()
   })
+
+  it('shows meaningful labels for selected taxonomy values', () => {
+    render(
+      <Wrapper
+        defaultValues={{
+          productType: 'beauty',
+          city: 'taipei',
+          priceRange: 2,
+        }}
+      />
+    )
+
+    expect(screen.getByText('美妝保養 (Beauty & Personal Care)')).toBeInTheDocument()
+    expect(screen.getByText('Taipei City')).toBeInTheDocument()
+    expect(screen.getByText('$$ · Mid-range (NT$1,000–5,000)')).toBeInTheDocument()
+  })
+
+  it('places product-tag guidance before the tag input', () => {
+    render(<Wrapper />)
+
+    const guidance = screen.getByText('Up to 5 tags. Describe products, not promotional claims.')
+    const input = screen.getByRole('combobox', { name: 'Product tags' })
+    expect(guidance.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(input).toHaveAttribute('placeholder', 'Add product tag')
+  })
 })

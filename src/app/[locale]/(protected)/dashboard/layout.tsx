@@ -60,20 +60,12 @@ export default async function DashboardLayout({
           <h1 className="font-heading text-[22px] font-bold leading-tight text-foreground">
             {selectedBrand.brandName}
           </h1>
-          <div className="flex items-center gap-3">
-            <Link
-              className="inline-flex min-h-11 items-center justify-center rounded-[8px] px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              href="/submit"
-            >
-              {t('submitOtherBrand')}
-            </Link>
-            <Link
-              className="inline-flex min-h-11 items-center justify-center rounded-[8px] border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              href={`/dashboard/brands/${selectedBrand.brandSlug}/edit`}
-            >
-              {t('editButton')}
-            </Link>
-          </div>
+          <Link
+            className="inline-flex min-h-11 items-center justify-center rounded-[8px] border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            href={`/dashboard/brands/${selectedBrand.brandSlug}/edit`}
+          >
+            {t('editButton')}
+          </Link>
         </div>
       </header>
 

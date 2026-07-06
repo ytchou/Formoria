@@ -11,7 +11,7 @@ import {
   policiesSchema,
   brandEditSchema,
   SECTION_FIELDS,
-  ONBOARDING_STEP_TO_WIZARD_STEP,
+  getOnboardingStepHref,
 } from './brand-edit'
 
 describe('basicInfoSchema', () => {
@@ -65,12 +65,25 @@ describe('SECTION_FIELDS', () => {
   })
 })
 
-describe('ONBOARDING_STEP_TO_WIZARD_STEP', () => {
-  it('maps all 5 onboarding step keys to wizard step indices', () => {
-    expect(ONBOARDING_STEP_TO_WIZARD_STEP.basics).toBe(0)
-    expect(ONBOARDING_STEP_TO_WIZARD_STEP.products).toBe(0)
-    expect(ONBOARDING_STEP_TO_WIZARD_STEP.story_media).toBe(0)
-    expect(ONBOARDING_STEP_TO_WIZARD_STEP.purchase).toBe(2)
-    expect(ONBOARDING_STEP_TO_WIZARD_STEP.social_proof).toBe(2)
+describe('getOnboardingStepHref', () => {
+  it('maps brand_basics and media_links to edit wizard steps', () => {
+    expect(getOnboardingStepHref('brand_basics', 'test-brand')).toBe(
+      '/dashboard/brands/test-brand/edit?step=0'
+    )
+    expect(getOnboardingStepHref('media_links', 'test-brand')).toBe(
+      '/dashboard/brands/test-brand/edit?step=1'
+    )
+  })
+
+  it('maps analytics, health, verification to dashboard tabs', () => {
+    expect(getOnboardingStepHref('analytics', 'test-brand')).toBe(
+      '/dashboard/analytics?brand=test-brand'
+    )
+    expect(getOnboardingStepHref('health', 'test-brand')).toBe(
+      '/dashboard/health?brand=test-brand'
+    )
+    expect(getOnboardingStepHref('verification', 'test-brand')).toBe(
+      '/dashboard/verification?brand=test-brand'
+    )
   })
 })

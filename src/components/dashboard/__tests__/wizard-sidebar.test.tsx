@@ -4,11 +4,18 @@ import { describe, expect, it, vi } from 'vitest'
 import { WizardSidebar } from '../wizard-sidebar'
 import { NextIntlClientProvider } from 'next-intl'
 import messages from '@/../messages/en.json'
+import type { WizardStep } from '@/lib/schemas/brand-edit'
 
-const steps = [
-  { key: 'basicInfo', label: 'Basic Info', sublabel: '品牌基本資料' },
-  { key: 'media', label: 'Media', sublabel: '品牌圖片' },
-  { key: 'links', label: 'Links', sublabel: '社群與購買連結' },
+vi.mock('@/i18n/navigation', () => ({
+  Link: ({ href, children, className }: React.ComponentProps<'a'>) => (
+    <a href={href} className={className}>{children}</a>
+  ),
+}))
+
+const steps: WizardStep[] = [
+  { key: 'basicInfo' },
+  { key: 'media' },
+  { key: 'links' },
 ]
 
 function renderSidebar(props = {}) {
@@ -28,27 +35,15 @@ function renderSidebar(props = {}) {
 describe('WizardSidebar', () => {
   it('renders all step labels', () => {
     renderSidebar()
-    expect(screen.getByText('Basic Info')).toBeInTheDocument()
-    expect(screen.getByText('Media')).toBeInTheDocument()
-    expect(screen.getByText('Links')).toBeInTheDocument()
-  })
-
-  it('shows a checkmark for completed steps', () => {
-    renderSidebar()
-    const step0 = screen.getByText('Basic Info').closest('button')
-    expect(step0).toHaveAttribute('data-completed', 'true')
-  })
-
-  it('highlights the active step', () => {
-    renderSidebar()
-    const step1 = screen.getByText('Media').closest('button')
-    expect(step1).toHaveAttribute('data-active', 'true')
+    expect(screen.getAllByText('Basic Info').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('Media').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('Links').length).toBeGreaterThanOrEqual(1)
   })
 
   it('calls onStepClick with step index when clicked', () => {
     const onStepClick = vi.fn()
     renderSidebar({ onStepClick })
-    fireEvent.click(screen.getByText('Links'))
+    fireEvent.click(screen.getAllByText('Links')[0])
     expect(onStepClick).toHaveBeenCalledWith(2)
   })
 

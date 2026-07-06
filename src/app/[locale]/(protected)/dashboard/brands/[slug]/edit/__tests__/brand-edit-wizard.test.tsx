@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import messages from '@/../messages/en.json'
+import zhMessages from '@/../messages/zh-TW.json'
 import type { Brand } from '@/lib/types'
 import { BrandEditWizard } from '../brand-edit-wizard'
 
@@ -18,6 +19,11 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
   usePathname: () => '/dashboard/brands/test-brand/edit',
+}))
+vi.mock('@/i18n/navigation', () => ({
+  Link: ({ href, children, className }: React.ComponentProps<'a'>) => (
+    <a href={href} className={className}>{children}</a>
+  ),
 }))
 
 // Mock all 9 section components for isolation
@@ -56,6 +62,21 @@ describe('BrandEditWizard', () => {
     renderWizard()
     // Sidebar renders step buttons
     expect(screen.getAllByRole('button').length).toBeGreaterThan(0)
+  })
+
+  it('localizes wizard navigation labels', () => {
+    render(
+      <NextIntlClientProvider locale="zh-TW" messages={zhMessages}>
+        <BrandEditWizard
+          brand={mockBrand}
+          defaultValues={{ name: 'Test Brand', productType: 'fashion' }}
+          initialStep={0}
+        />
+      </NextIntlClientProvider>
+    )
+
+    expect(screen.getAllByText('基本資料').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByRole('progressbar', { name: '第 1 步，共 9 步' })).toBeInTheDocument()
   })
 
   it('shows the active section content at step 0', () => {

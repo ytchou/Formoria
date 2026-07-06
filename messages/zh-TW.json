@@ -557,20 +557,20 @@
           "accessible": {
             "zh": "親民",
             "en": "Accessible",
-            "definition": "日常價位，NT$0 至 NT$500。",
-            "range": "NT$0 – NT$500"
+            "definition": "日常價位，低於 NT$1,000。",
+            "range": "低於 NT$1,000"
           },
           "midRange": {
             "zh": "中價位",
             "en": "Mid-range",
-            "definition": "進階選擇，NT$500 至 NT$3,000。",
-            "range": "NT$500 – NT$3,000"
+            "definition": "進階選擇，NT$1,000 至 NT$5,000。",
+            "range": "NT$1,000 – NT$5,000"
           },
           "premium": {
             "zh": "精品",
             "en": "Premium",
-            "definition": "精品工藝，NT$3,000 以上。",
-            "range": "NT$3,000+"
+            "definition": "精品工藝，高於 NT$5,000。",
+            "range": "高於 NT$5,000"
           }
         }
       },
@@ -1011,9 +1011,9 @@
       }
     },
     "onboarding": {
-      "progress": "已檢視 {completed}/{total}",
+      "progress": "已完成 {completed}/{total}",
       "card": {
-        "title": "檢視你的品牌資料",
+        "title": "設定你的品牌後台",
         "progressLabel": "新手任務進度",
         "next": "下一步",
         "continue": "繼續檢視",
@@ -1035,25 +1035,25 @@
         "back": "返回檢查清單"
       },
       "steps": {
-        "basics": {
-          "title": "確認品牌基本資料",
-          "description": "檢視品牌名稱、創立年份與價格範圍。"
+        "brand_basics": {
+          "title": "完善品牌資料",
+          "description": "檢視品牌名稱、類型、簡介等基本資料。"
         },
-        "products": {
-          "title": "確認產品內容",
-          "description": "檢視協助使用者找到品牌的具體產品標籤。"
+        "media_links": {
+          "title": "新增媒體與連結",
+          "description": "上傳照片，並連結社群與購買管道。"
         },
-        "story_media": {
-          "title": "檢視品牌故事與圖片",
-          "description": "確認品牌介紹、主視覺與產品照片。"
+        "analytics": {
+          "title": "查看數據分析",
+          "description": "了解品牌頁面的瀏覽表現。"
         },
-        "purchase": {
-          "title": "確認購買管道",
-          "description": "檢視購物平台、其他連結與實體通路。"
+        "health": {
+          "title": "檢視品牌健康度",
+          "description": "查看品牌健康分數與改善建議。"
         },
-        "social_proof": {
-          "title": "確認社群資訊",
-          "description": "檢視社群帳號與顧客評價。"
+        "verification": {
+          "title": "開始品牌驗證",
+          "description": "驗證品牌所有權，取得信任徽章。"
         }
       },
       "milestone": {
@@ -1227,7 +1227,7 @@
       "fieldCategory": "分類",
       "fieldDescription": "品牌介紹",
       "fieldProductTags": "產品標籤",
-      "fieldProductTagsPlaceholder": "新增具體的產品類型",
+      "fieldProductTagsPlaceholder": "新增產品標籤",
       "removeProductTag": "移除標籤",
       "productTagsMax": "最多 5 個標籤。請描述產品，而非宣傳用語。",
       "fieldBrandHighlights": "品牌亮點",
@@ -1235,11 +1235,14 @@
       "fieldFoundingYear": "創立年份",
       "fieldPriceRange": "價格範圍",
       "fieldPriceRangeUnset": "未設定",
+      "fieldPriceRangeBudget": "平價（低於 NT$1,000）",
+      "fieldPriceRangeMidRange": "中價位（NT$1,000–5,000）",
+      "fieldPriceRangePremium": "高價位（高於 NT$5,000）",
       "fieldLogo": "品牌 Logo",
       "fieldHeroImage": "主視覺圖片",
       "fieldProductPhotos": "產品照片",
-      "city": "縣市",
-      "cityPlaceholder": "請選擇縣市",
+      "city": "品牌創立城市",
+      "cityPlaceholder": "請選擇品牌創立城市",
       "fieldOfficialWebsite": "官方網站",
       "fieldInstagram": "Instagram",
       "fieldThreads": "Threads",
@@ -1283,7 +1286,7 @@
       "fieldValueTagsOptionalHint": "選填",
       "mitStoryLabel": "MIT 製造故事",
       "mitStoryPlaceholder": "分享您的製造工藝、材料來源與工廠合作關係…",
-      "wizardProgress": "步驟 {current} / {total}",
+      "wizardProgress": "第 {current} 步，共 {total} 步",
       "wizardSaveAndContinue": "儲存並繼續",
       "wizardBack": "上一步",
       "wizardPublish": "發布",
