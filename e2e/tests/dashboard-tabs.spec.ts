@@ -101,8 +101,8 @@ test.describe('Dashboard — tab navigation', () => {
     await expect(mainNav.getByRole('link', { name: '我的品牌' })).toBeVisible();
     await expect(mainNav.getByRole('link', { name: '提交品牌' })).toHaveCount(0);
 
-    // Profile tab ('品牌資訊') is the active tab when pathname === '/dashboard'
-    const profileTab = userPage.locator('a').filter({ hasText: '品牌資訊' });
+    // Profile tab ('總覽') is the active tab when pathname === '/dashboard'
+    const profileTab = userPage.locator('a').filter({ hasText: '總覽' });
     await expect(profileTab).toHaveClass(/border-primary/, { timeout: 60_000 });
 
   });
@@ -119,7 +119,7 @@ test.describe('Dashboard — tab navigation', () => {
     await expect(userPage.getByRole('heading', { level: 1, name: brandName }).first()).toBeVisible({ timeout: 60_000 });
 
     // Profile tab is active (pathname === '/dashboard', isActive = true)
-    const profileTab = userPage.locator('a').filter({ hasText: '品牌資訊' });
+    const profileTab = userPage.locator('a').filter({ hasText: '總覽' });
     await expect(profileTab).toHaveClass(/border-primary/, { timeout: 5_000 });
   });
 
@@ -185,7 +185,7 @@ test.describe('Dashboard — legacy brand route redirect', () => {
     }
   });
 
-  test('navigating to /dashboard/brands/<slug> redirects to /dashboard?brand=<slug> and renders panel', async ({ userPage }) => {
+  test('navigating to /dashboard/brands/<slug> renders the brand overview directly', async ({ userPage }) => {
     test.setTimeout(120_000);
 
     const resp = await userPage.goto(`/dashboard/brands/${brandSlug}`, { timeout: 60_000 });
@@ -194,15 +194,9 @@ test.describe('Dashboard — legacy brand route redirect', () => {
       return;
     }
 
-    // Must land on /dashboard?brand=<slug> after the server-side redirect
-    await userPage.waitForURL(
-      (u) => new URL(u).searchParams.get('brand') === brandSlug,
-      { timeout: 60_000 }
-    );
-
-    // The brand panel must be rendered at the final URL — brand name in h1 inside the profile panel
+    // Page renders directly at the path-based URL (no redirect)
     await expect(
-      userPage.locator('[data-testid="brand-profile"]').locator('h1').filter({ hasText: brandName })
+      userPage.locator('[data-testid="brand-profile"]')
     ).toBeVisible({ timeout: 60_000 });
   });
 });

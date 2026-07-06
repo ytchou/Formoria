@@ -42,7 +42,7 @@ const ALLOWLIST = [
   'app/auth/sign-in/page.tsx',
   'app/auth/sign-up/page.tsx',
   // Owner mailto subject — locale-branched template.
-  'components/dashboard/mit-status-card.tsx',
+  'components/dashboard/inline-verification.tsx',
   // Non-display Chinese: a comment and scraper keyword regex.
   'lib/constants.ts',
   'lib/services/enrich-phases/scraper/strategies/crawl.ts',

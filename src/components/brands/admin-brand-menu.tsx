@@ -25,7 +25,7 @@ export function AdminBrandMenu({ brandSlug }: AdminBrandMenuProps) {
     startTransition(async () => {
       const result = await startImpersonationAction(brandSlug)
       if (result.ok) {
-        router.push(`/dashboard?brand=${brandSlug}`)
+        router.push(`/dashboard/brands/${brandSlug}`)
       }
     })
   }

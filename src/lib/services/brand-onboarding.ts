@@ -138,7 +138,7 @@ async function markOnboardingStepCompleted(
     .maybeSingle()
 
   if (ownerError) throw ownerError
-  if (!owner?.user_id) throw new Error(`No owner found for brand ${brandId}`)
+  if (!owner?.user_id) return
 
   await setBrandOnboardingStepStatus({
     brandId,

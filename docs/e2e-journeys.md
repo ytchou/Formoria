@@ -21,7 +21,6 @@ Running inventory of e2e-covered user journeys. Updated by `/e2e-author` runs.
 |---------|------|-------------|
 | **Guide detail rendering + SEO** | `e2e/tests/guide-detail.spec.ts` | 2026-07-03 |
 | **Submit funnel end-to-end** | `e2e/tests/submit-funnel.spec.ts` | 2026-07-05 |
-| **Dashboard MIT verification** | `e2e/tests/dashboard-verification.spec.ts` | 2026-07-05 |
 | **Dashboard analytics** | `e2e/tests/dashboard-analytics.spec.ts` | 2026-07-05 |
 | **User settings** | `e2e/tests/settings.spec.ts` | 2026-07-05 |
 | **Static & compliance pages** | `e2e/tests/static-pages.spec.ts` | 2026-07-05 |

@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { type UseFormReturn, Controller } from 'react-hook-form'
 import { ProductTagField } from '@/components/forms/product-tag-field'
@@ -13,9 +14,36 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
 import { TAIWAN_CITIES } from '@/lib/constants/taiwan-cities'
 import type { BrandEditFormValues } from '@/lib/schemas/brand-edit'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { useDirtyFields } from '../dirty-fields-context'
+
+function FieldHint({ text }: { text: string }) {
+  return <p className="text-xs text-muted-foreground">{text}</p>
+}
+
+function DirtyFieldWrapper({
+  fieldName,
+  children,
+}: {
+  fieldName: keyof BrandEditFormValues
+  children: ReactNode
+}) {
+  const dirtyFields = useDirtyFields()
+  const isDirty = Boolean(dirtyFields[fieldName])
+  return (
+    <div
+      className={cn(
+        'space-y-2 rounded-md border-l-2 pl-3 transition-colors',
+        isDirty ? 'border-l-amber-400' : 'border-l-transparent',
+      )}
+    >
+      {children}
+    </div>
+  )
+}
 
 export function BasicInfoSection({
   form,
@@ -49,12 +77,12 @@ export function BasicInfoSection({
         {t('sectionBasicInfo')}
       </h2>
 
-      <div className="space-y-2">
+      <DirtyFieldWrapper fieldName="name">
         <Label htmlFor="name">{t('fieldBrandName')}</Label>
         <Input id="name" className="min-h-12 bg-card" {...form.register('name')} />
-      </div>
+      </DirtyFieldWrapper>
 
-      <div className="space-y-2">
+      <DirtyFieldWrapper fieldName="productType">
         <Label htmlFor="productType">{t('fieldCategory')}</Label>
         <Controller
           control={form.control}
@@ -76,18 +104,20 @@ export function BasicInfoSection({
             </Select>
           )}
         />
-      </div>
+        <FieldHint text={tx('fieldCategoryHint', 'Used for navigation, search, and filtering')} />
+      </DirtyFieldWrapper>
 
-      <div className="space-y-2">
+      <DirtyFieldWrapper fieldName="description">
         <Label htmlFor="description">{t('fieldDescription')}</Label>
         <Textarea
           id="description"
           className="min-h-28 bg-card"
           {...form.register('description')}
         />
-      </div>
+        <FieldHint text={tx('fieldDescriptionHint', 'Public description shown on the brand page')} />
+      </DirtyFieldWrapper>
 
-      <div className="space-y-2">
+      <DirtyFieldWrapper fieldName="foundingYear">
         <Label htmlFor="foundingYear">{t('fieldFoundingYear')}</Label>
         <Input
           id="foundingYear"
@@ -97,9 +127,10 @@ export function BasicInfoSection({
           className="min-h-12 bg-card"
           {...form.register('foundingYear')}
         />
-      </div>
+        <FieldHint text={tx('fieldFoundingYearHint', 'Shown on the brand page')} />
+      </DirtyFieldWrapper>
 
-      <div className="space-y-2">
+      <DirtyFieldWrapper fieldName="mitStory">
         <Label htmlFor="mitStory">{t('mitStoryLabel')}</Label>
         <Textarea
           id="mitStory"
@@ -108,9 +139,10 @@ export function BasicInfoSection({
           className="min-h-28 bg-card"
           {...form.register('mitStory')}
         />
-      </div>
+        <FieldHint text={tx('mitStoryHint', 'Shown on the brand page if provided')} />
+      </DirtyFieldWrapper>
 
-      <div className="space-y-2">
+      <DirtyFieldWrapper fieldName="productTags">
         <Label>{tx('fieldProductTags', 'Product tags')}</Label>
         <p className="text-xs text-muted-foreground">
           {tx('productTagsMax', 'Up to 5 product tags')}
@@ -129,9 +161,9 @@ export function BasicInfoSection({
             />
           )}
         />
-      </div>
+      </DirtyFieldWrapper>
 
-      <div className="space-y-2">
+      <DirtyFieldWrapper fieldName="city">
         <Label htmlFor="city">{t('city')}</Label>
         <Controller
           control={form.control}
@@ -153,9 +185,10 @@ export function BasicInfoSection({
             </Select>
           )}
         />
-      </div>
+        <FieldHint text={tx('cityHint', 'Your brand will be shown on the map if provided')} />
+      </DirtyFieldWrapper>
 
-      <div className="space-y-2">
+      <DirtyFieldWrapper fieldName="priceRange">
         <Label htmlFor="priceRange">{tx('fieldPriceRange', 'Price Range')}</Label>
         <Controller
           control={form.control}
@@ -178,7 +211,8 @@ export function BasicInfoSection({
             </Select>
           )}
         />
-      </div>
+        <FieldHint text={tx('fieldPriceRangeHint', 'Used for filtering')} />
+      </DirtyFieldWrapper>
     </section>
   )
 }

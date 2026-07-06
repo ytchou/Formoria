@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
       });
 
       const brand = await getBrandById(claim.brandId);
-      const url = new URL(`/dashboard?brand=${brand.slug}`, await getRequestOrigin());
+      const url = new URL(`/dashboard/brands/${brand.slug}`, await getRequestOrigin());
       if (isNewUser) {
         url.searchParams.set("is_new_user", "1");
       }

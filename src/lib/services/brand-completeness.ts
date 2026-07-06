@@ -9,13 +9,13 @@ type CompletenessKey =
   | 'foundingYear'
   | 'retailLocations'
 
-export type CompletenessItem = {
+type CompletenessItem = {
   key: CompletenessKey
   complete: boolean
   anchor: string
 }
 
-export type BrandCompleteness = {
+type BrandCompleteness = {
   total: number
   completed: number
   fraction: number

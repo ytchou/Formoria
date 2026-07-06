@@ -123,16 +123,16 @@ export default async function StatsPage({ params }: StatsPageProps) {
           </div>
         </section>
 
-        {data.cityCoverage.length > 0 ? (
-          <section className="space-y-4">
-            <div className="space-y-1">
-              <h2 className="font-heading text-base font-bold leading-[1.3] text-foreground">
-                {t('geographicDistribution')}
-              </h2>
-              <p className="text-sm text-muted-foreground">{t('geographicDistributionDesc')}</p>
-            </div>
-            <div className="rounded-xl border border-border bg-card p-4">
-              <TaiwanMapDynamic data={data.cityCoverage} />
+        <section className="space-y-4">
+          <div className="space-y-1">
+            <h2 className="font-heading text-base font-bold leading-[1.3] text-foreground">
+              {t('geographicDistribution')}
+            </h2>
+            <p className="text-sm text-muted-foreground">{t('geographicDistributionDesc')}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-4">
+            <TaiwanMapDynamic data={data.cityCoverage} />
+            {data.cityCoverage.length > 0 && (
               <ol className="mt-4 space-y-1.5">
                 {data.cityCoverage.slice(0, 10).map(({ city, count }, index) => (
                   <li key={city} className="flex items-center justify-between text-sm">
@@ -144,9 +144,9 @@ export default async function StatsPage({ params }: StatsPageProps) {
                   </li>
                 ))}
               </ol>
-            </div>
-          </section>
-        ) : null}
+            )}
+          </div>
+        </section>
 
         {data.foundingDecadeDistribution.length > 0 ? (
           <section className="space-y-4">

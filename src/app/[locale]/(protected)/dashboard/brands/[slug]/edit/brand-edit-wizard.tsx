@@ -19,6 +19,8 @@ import {
 } from '@/app/[locale]/(protected)/dashboard/brands/[slug]/actions'
 import type { Brand } from '@/lib/types'
 
+import { DirtyFieldsContext } from './dirty-fields-context'
+
 // Section components
 import { BasicInfoSection } from './sections/basic-info-section'
 import { MediaSection } from './sections/media-section'
@@ -177,6 +179,8 @@ export function BrandEditWizard({
   }, [form, brand, currentStepKey])
 
   const SectionComponent = activeStep > 0 ? SECTION_COMPONENTS[activeStep - 1] : null
+  const isDirty = form.formState.isDirty
+  const dirtyFields = form.formState.dirtyFields
 
   return (
     <div className="flex gap-0 min-h-screen">
@@ -186,16 +190,19 @@ export function BrandEditWizard({
         completedSteps={completedSteps}
         onStepClick={handleSidebarClick}
       />
-      <main className="flex-1 min-w-0 px-8 py-6">
-        {activeStep === 0 ? (
-          <BasicInfoSection form={form} productTagSuggestions={productTagSuggestions} />
-        ) : (
-          SectionComponent && <SectionComponent form={form} />
-        )}
+      <main className="flex-1 min-w-0 px-8 py-6 pb-32">
+        <DirtyFieldsContext.Provider value={dirtyFields}>
+          {activeStep === 0 ? (
+            <BasicInfoSection form={form} productTagSuggestions={productTagSuggestions} />
+          ) : (
+            SectionComponent && <SectionComponent form={form} />
+          )}
+        </DirtyFieldsContext.Provider>
         <WizardFooter
           activeStep={activeStep}
           totalSteps={WIZARD_STEPS.length}
           isSaving={isSaving}
+          isDirty={isDirty}
           onBack={handleBack}
           onSaveAndContinue={handleSaveAndContinue}
           onSaveDraft={handleSaveDraft}

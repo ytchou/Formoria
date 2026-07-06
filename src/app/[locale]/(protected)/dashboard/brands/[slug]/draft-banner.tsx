@@ -81,6 +81,7 @@ export function DraftBanner({ slug, draftUpdatedAt }: DraftBannerProps) {
             type="button"
             variant="outline"
             className="h-12 sm:min-w-24"
+            nativeButton={false}
             render={
               <Link
                 href={`/brands/${slug}?preview=1`}

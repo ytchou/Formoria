@@ -200,7 +200,7 @@ export async function updateBrandAction(
     }
   }
 
-  redirect(`/dashboard?brand=${brandSlug}`)
+  redirect(`/dashboard/brands/${brandSlug}`)
 }
 
 export async function publishDraftAction(
@@ -297,7 +297,7 @@ export async function publishDraftAction(
     }
   }
 
-  redirect(`/dashboard?brand=${brandSlug}`)
+  redirect(`/dashboard/brands/${brandSlug}`)
 }
 
 export async function discardDraftAction(

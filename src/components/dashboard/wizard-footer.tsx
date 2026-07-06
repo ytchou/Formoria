@@ -1,13 +1,15 @@
 'use client'
 
-import { Loader2 } from 'lucide-react'
+import { CircleAlert, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
 type WizardFooterProps = {
   activeStep: number
   totalSteps: number
   isSaving: boolean
+  isDirty?: boolean
   onBack: () => void
   onSaveAndContinue: () => void
   onSaveDraft: () => void
@@ -18,6 +20,7 @@ export function WizardFooter({
   activeStep,
   totalSteps,
   isSaving,
+  isDirty = false,
   onBack,
   onSaveAndContinue,
   onSaveDraft,
@@ -29,7 +32,13 @@ export function WizardFooter({
     'min-h-12 bg-cta px-6 text-cta-foreground hover:bg-cta/90 focus-visible:ring-2 focus-visible:ring-primary'
 
   return (
-    <footer className="mt-8 flex items-center justify-between border-t border-border pt-6">
+    <footer
+      className={cn(
+        'mt-8 flex items-center justify-between border-t border-border pt-6',
+        isDirty &&
+          'sticky bottom-0 z-10 bg-background/95 backdrop-blur-sm px-8 pb-6 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]',
+      )}
+    >
       <div>
         {isFinalStep ? (
           <Button
@@ -53,6 +62,13 @@ export function WizardFooter({
           </Button>
         ) : null}
       </div>
+
+      {isDirty && (
+        <div className="flex items-center gap-1.5 text-xs text-amber-600">
+          <CircleAlert className="h-3.5 w-3.5" />
+          <span>{t('unsavedChanges')}</span>
+        </div>
+      )}
 
       {isFinalStep ? (
         <Button

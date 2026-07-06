@@ -102,7 +102,10 @@ export async function getBrandImages(
     .eq('status', 'active')
     .order('sort_order', { ascending: true })
 
-  if (error) throw error
+  if (error) {
+    if (error.code === 'PGRST205') return []
+    throw error
+  }
   return data ?? []
 }
 

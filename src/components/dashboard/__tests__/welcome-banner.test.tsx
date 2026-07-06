@@ -45,7 +45,7 @@ describe('WelcomeBanner', () => {
     expect(mediaLink?.getAttribute('href')).toContain('?step=1')
 
     const analyticsLink = links.find(l => l.textContent?.includes('Check your analytics'))
-    expect(analyticsLink?.getAttribute('href')).toContain('/dashboard/analytics')
+    expect(analyticsLink?.getAttribute('href')).toContain('/analytics')
   })
 
   it('renders at 100% when all steps are completed', () => {

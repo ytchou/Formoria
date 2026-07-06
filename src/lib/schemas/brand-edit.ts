@@ -153,11 +153,11 @@ export function getOnboardingStepHref(key: OnboardingStepKey, slug: string): str
     case 'media_links':
       return `/dashboard/brands/${slug}/edit?step=1`
     case 'analytics':
-      return `/dashboard/analytics?brand=${slug}`
+      return `/dashboard/brands/${slug}/analytics`
     case 'health':
-      return `/dashboard/health?brand=${slug}`
+      return `/dashboard/brands/${slug}#health`
     case 'verification':
-      return `/dashboard/verification?brand=${slug}`
+      return `/dashboard/brands/${slug}#verification`
   }
 }
 
