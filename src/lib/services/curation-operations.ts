@@ -122,7 +122,6 @@ type EnrichBrand = CurationBrand &
   Partial<BrandFlatLinkColumns> & {
     hero_image_url?: string | null
     product_images?: string[] | null
-    product_photos?: string[] | null
     heroImageUrl?: string | null
     productPhotos?: string[] | null
   }
@@ -133,7 +132,6 @@ type EnrichScrapedData = Partial<ScrapedBrandData> & Partial<BrandFlatLinkColumn
 
 type EnrichImagePatch = Partial<{
   hero_image_url: string | null
-  product_photos: string[]
 }>
 
 function isEmptyField(value: unknown): boolean {
@@ -225,7 +223,6 @@ type SubmissionEnrichmentRow = {
   description: string | null
   website_url: string | null
   hero_image_url: string | null
-  product_photos: string[] | null
   social_instagram: string | null
   social_threads: string | null
   social_facebook: string | null
@@ -246,42 +243,13 @@ function isPlainObject(value: unknown): value is JsonObject {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
-function mergeProductPhotos(existing: unknown[], incoming: unknown[]): unknown[] {
-  const merged: unknown[] = []
-  const seenUrls = new Set<string>()
-  const seenValues = new Set<unknown>()
-
-  for (const photo of [...existing, ...incoming]) {
-    if (!isPlainObject(photo) || typeof photo.url !== 'string') {
-      if (seenValues.has(photo)) {
-        continue
-      }
-
-      seenValues.add(photo)
-      merged.push(photo)
-      continue
-    }
-
-    if (seenUrls.has(photo.url)) {
-      continue
-    }
-
-    seenUrls.add(photo.url)
-    merged.push(photo)
-  }
-
-  return merged
-}
-
 function deepMergeJsonObjects(base: JsonObject, patch: JsonObject): JsonObject {
   const merged: JsonObject = { ...base }
 
   for (const [key, value] of Object.entries(patch)) {
     const existing = merged[key]
     if (Array.isArray(existing) && Array.isArray(value)) {
-      merged[key] = key === 'product_photos'
-        ? mergeProductPhotos(existing, value)
-        : [...new Set([...existing, ...value])]
+      merged[key] = [...new Set([...existing, ...value])]
       continue
     }
 
@@ -543,9 +511,6 @@ function submissionToEnrichBrand(submission: SubmissionEnrichmentRow): EnrichBra
     purchase_pinkoi: typeof existing.purchase_pinkoi === 'string' ? existing.purchase_pinkoi : submission.purchase_pinkoi,
     purchase_shopee: typeof existing.purchase_shopee === 'string' ? existing.purchase_shopee : submission.purchase_shopee,
     hero_image_url: typeof existing.hero_image_url === 'string' ? existing.hero_image_url : (submission.hero_image_url ?? null),
-    product_photos: Array.isArray(existing.product_photos)
-      ? existing.product_photos.filter((url): url is string => typeof url === 'string')
-      : (Array.isArray(submission.product_photos) ? (submission.product_photos as string[]).filter((url): url is string => typeof url === 'string') : []),
   }
 }
 
@@ -639,7 +604,7 @@ export async function runEnrich(
     let query = supabase
       .from('brands')
       .select(
-        'id, slug, name, status, description, description_en, product_type, category_attributes, site_content, reputation_summary, manufacturing, certifications, policies, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, hero_image_url, product_photos'
+        'id, slug, name, status, description, description_en, product_type, category_attributes, site_content, reputation_summary, manufacturing, certifications, policies, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, hero_image_url'
       )
 
     if (config.slugs && config.slugs.length > 0) {

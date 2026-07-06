@@ -55,7 +55,6 @@ type EvalBrandRow = {
   slug: string
   description: string | null
   hero_image_url: string | null
-  product_photos: unknown
 }
 type AiResultRow = {
   raw_response: unknown
@@ -235,14 +234,6 @@ async function loadGoldenFixture(): Promise<GoldenFixture> {
   return fixture
 }
 
-function normalizeProductPhotos(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return []
-  }
-
-  return value.filter((url): url is string => typeof url === 'string')
-}
-
 function extractUrlTagPairs(value: unknown): Array<readonly [string, string]> {
   if (Array.isArray(value)) {
     return value.flatMap(extractUrlTagPairs)
@@ -320,7 +311,7 @@ async function runEval(supabase: CurationSupabaseClient): Promise<OperationResul
   for (const goldenBrand of fixture.brands) {
     const brandResult = await supabase
       .from('brands')
-      .select('id, slug, description, hero_image_url, product_photos')
+      .select('id, slug, description, hero_image_url')
       .eq('slug', goldenBrand.slug)
       .maybeSingle()
 
@@ -349,7 +340,6 @@ async function runEval(supabase: CurationSupabaseClient): Promise<OperationResul
     const predicted = buildPredictedImageTags((aiResult.data ?? []) as AiResultRow[])
     const labeledImages = goldenBrand.labels.images
     const hasClassifications = labeledImages.some((image) => predicted.has(image.url))
-    const productPhotos = normalizeProductPhotos(brand.product_photos)
     const heroImages = brand.hero_image_url ? [brand.hero_image_url] : []
 
     scores.push({
@@ -363,7 +353,7 @@ async function runEval(supabase: CurationSupabaseClient): Promise<OperationResul
     })
 
     console.log(
-      `${goldenBrand.slug}: hero=${brand.hero_image_url ?? 'none'} images=${new Set([...heroImages, ...productPhotos]).size}`
+      `${goldenBrand.slug}: hero=${brand.hero_image_url ?? 'none'} images=${new Set(heroImages).size}`
     )
   }
 

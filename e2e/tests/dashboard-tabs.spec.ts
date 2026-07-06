@@ -60,7 +60,6 @@ test.describe('Dashboard — tab navigation', () => {
         product_type: 'crafts',
         description: '[E2E-TEST] Tab navigation test brand.',
         retail_locations: [],
-        product_photos: [],
       })
       .select('id')
       .single();
@@ -165,7 +164,6 @@ test.describe('Dashboard — legacy brand route redirect', () => {
         product_type: 'crafts',
         description: '[E2E-TEST] Legacy redirect test brand.',
         retail_locations: [],
-        product_photos: [],
       })
       .select('id')
       .single();

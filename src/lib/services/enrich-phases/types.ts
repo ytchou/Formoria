@@ -23,7 +23,6 @@ export type EnrichBrand = {
   purchaseWebsite?: string | null
   hero_image_url?: string | null
   product_images?: string[] | null
-  product_photos?: string[] | null
   heroImageUrl?: string | null
   productPhotos?: string[] | null
   reputation_summary?: unknown | null
@@ -55,7 +54,6 @@ export type EnrichPatch = Partial<BrandFlatLinkColumns> &
     certifications: unknown
     policies: unknown
     price_range: number | null
-    product_photos: string[]
     product_tags: string[] | null
     product_type: string | null
     slug: string

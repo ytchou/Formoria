@@ -20,7 +20,6 @@ type BrandImagePhaseOutput = {
 
 type ImagePatch = Partial<{
   hero_image_url: string | null
-  product_photos: string[]
 }>
 
 function normalizeImageBrand(brand: EnrichBrand): {
@@ -29,7 +28,7 @@ function normalizeImageBrand(brand: EnrichBrand): {
 } {
   return {
     heroImageUrl: brand.heroImageUrl ?? brand.hero_image_url ?? null,
-    productPhotos: brand.productPhotos ?? brand.product_photos ?? brand.product_images ?? [],
+    productPhotos: brand.productPhotos ?? brand.product_images ?? [],
   }
 }
 
@@ -40,10 +39,6 @@ function imagePatchToDbPatch(
 
   if (patch.heroImageUrl !== undefined) {
     dbPatch.hero_image_url = patch.heroImageUrl
-  }
-
-  if (patch.productPhotos !== undefined) {
-    dbPatch.product_photos = patch.productPhotos
   }
 
   return dbPatch

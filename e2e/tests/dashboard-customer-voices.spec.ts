@@ -42,7 +42,6 @@ test.describe('Dashboard — customer voices editing', () => {
         product_type: 'crafts',
         description: 'Brand for customer voices edit e2e',
         retail_locations: [],
-        product_photos: [],
       })
       .select('id')
       .single();

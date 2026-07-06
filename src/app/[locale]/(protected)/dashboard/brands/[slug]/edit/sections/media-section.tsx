@@ -3,8 +3,6 @@
 import { useTranslations } from 'next-intl'
 import { type UseFormReturn, Controller } from 'react-hook-form'
 import { ImageUploadField } from '@/components/forms/image-upload-field'
-import { ProductPhotosField } from '@/components/forms/product-photos-field'
-import { Label } from '@/components/ui/label'
 import type { BrandEditFormValues } from '@/lib/schemas/brand-edit'
 
 export function MediaSection({
@@ -32,21 +30,6 @@ export function MediaSection({
           />
         )}
       />
-
-      <div className="space-y-2">
-        <Label htmlFor="productPhotos">{t('fieldProductPhotos')}</Label>
-        <Controller
-          control={form.control}
-          name="productPhotos"
-          render={({ field }) => (
-            <ProductPhotosField
-              name={field.name}
-              brandId="tmp"
-              defaultPhotos={field.value ?? []}
-            />
-          )}
-        />
-      </div>
     </section>
   )
 }

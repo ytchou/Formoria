@@ -16,7 +16,6 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 type SubmissionRow = Database['public']['Tables']['brand_submissions']['Row']
 type SubmissionRowWithProductTypeNote = SubmissionRow & {
   hero_image_url?: string | null
-  product_photos?: unknown
   product_type_note?: string | null
   social_instagram?: string | null
   social_threads?: string | null
@@ -86,7 +85,6 @@ export type SubmissionApprovalOverrides = Partial<
     | 'purchasePinkoi'
     | 'purchaseShopee'
     | 'otherUrls'
-    | 'productPhotos'
   >
 > & {
   name?: string | null
@@ -115,7 +113,6 @@ export type CreateSubmissionInput = {
   websiteUrl?: string
   heroImageUrl?: string
   city?: string | null
-  productPhotos?: string[]
   socialInstagram?: string | null
   socialThreads?: string | null
   socialFacebook?: string | null
@@ -139,7 +136,6 @@ export function buildSubmissionRecord(input: CreateSubmissionInput): Record<stri
     description: input.description ?? null,
     website_url: input.websiteUrl ?? null,
     hero_image_url: input.heroImageUrl ?? null,
-    product_photos: input.productPhotos ?? [],
     social_instagram: input.socialInstagram ?? null,
     social_threads: input.socialThreads ?? null,
     social_facebook: input.socialFacebook ?? null,
@@ -169,9 +165,6 @@ export function submissionToDomain(row: SubmissionRowInput): BrandSubmissionWith
     description: row.description ?? null,
     websiteUrl: row.website_url ?? null,
     heroImageUrl: row.hero_image_url ?? null,
-    productPhotos: Array.isArray(row.product_photos)
-      ? row.product_photos.filter((url): url is string => typeof url === 'string')
-      : [],
     socialInstagram: row.social_instagram ?? null,
     socialThreads: row.social_threads ?? null,
     socialFacebook: row.social_facebook ?? null,
@@ -250,7 +243,6 @@ function cleanRecord<T extends Record<string, unknown>>(record: T): Partial<T> {
 function submissionToBrandBase(row: SubmissionRow): BrandInsert {
   const rowWithSubmissionImages = row as SubmissionRow & {
     hero_image_url?: string | null
-    product_photos?: unknown
   }
 
   return {
@@ -270,9 +262,6 @@ function submissionToBrandBase(row: SubmissionRow): BrandInsert {
     purchase_shopee: row.purchase_shopee,
     other_urls: normalizeOtherUrls(row.other_urls),
     retail_locations: [],
-    product_photos: Array.isArray(rowWithSubmissionImages.product_photos)
-      ? rowWithSubmissionImages.product_photos.filter((url): url is string => typeof url === 'string')
-      : [],
     contact_email: row.submitter_email,
     site_content: null,
     submitted_at: row.submitted_at,
@@ -287,7 +276,6 @@ function enrichedDataToBrandInsert(enrichedData: EnrichedData | null): Partial<B
     name: normalizeString(enrichedData.name) ?? undefined,
     description: normalizeString(enrichedData.description) ?? undefined,
     hero_image_url: normalizeString(enrichedData.heroImageUrl) ?? undefined,
-    product_photos: enrichedData.productPhotos,
     product_type: normalizeString(enrichedData.productType) ?? undefined,
     price_range: enrichedData.priceRange,
     product_tags: enrichedData.productTags,
@@ -312,7 +300,6 @@ function approvalOverridesToBrandInsert(
     description: overrides.description === undefined ? undefined : normalizeString(overrides.description),
     hero_image_url: overrides.heroImageUrl === undefined ? undefined : normalizeString(overrides.heroImageUrl),
     product_type: productType ?? undefined,
-    product_photos: overrides.productPhotos,
     social_instagram:
       overrides.socialInstagram === undefined ? undefined : normalizeString(overrides.socialInstagram),
     social_threads: overrides.socialThreads === undefined ? undefined : normalizeString(overrides.socialThreads),
@@ -387,7 +374,7 @@ async function resolveUniqueSlug(supabase: ServiceClient, slug: string): Promise
 
 export async function createSubmission(
   data: Pick<BrandSubmission, 'brandName' | 'submitterEmail'> &
-    Partial<Pick<BrandSubmission, 'brandId' | 'submitterName' | 'description' | 'heroImageUrl' | 'productPhotos' | 'socialInstagram' | 'socialThreads' | 'socialFacebook' | 'purchaseWebsite' | 'purchasePinkoi' | 'purchaseShopee' | 'otherUrls' | 'pdpaConsentAt' | 'isBrandOwner' | 'sourceAttribution'>> & {
+    Partial<Pick<BrandSubmission, 'brandId' | 'submitterName' | 'description' | 'heroImageUrl' | 'socialInstagram' | 'socialThreads' | 'socialFacebook' | 'purchaseWebsite' | 'purchasePinkoi' | 'purchaseShopee' | 'otherUrls' | 'pdpaConsentAt' | 'isBrandOwner' | 'sourceAttribution'>> & {
       websiteUrl?: string | null
       suggestedTags?: SuggestedTagsInput
       productTypeNote?: string | null
@@ -415,7 +402,6 @@ const ADMIN_SUBMISSIONS_SELECT = `
   description,
   website_url,
   hero_image_url,
-  product_photos,
   social_instagram,
   social_threads,
   social_facebook,
@@ -448,7 +434,6 @@ const ADMIN_REVIEW_SUBMISSIONS_SELECT = `
   description,
   website_url,
   hero_image_url,
-  product_photos,
   social_instagram,
   social_threads,
   social_facebook,

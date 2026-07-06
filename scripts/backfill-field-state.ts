@@ -44,7 +44,6 @@ const BRAND_FIELDS = [
   'social_facebook',
   'other_urls',
   'retail_locations',
-  'product_photos',
   'site_content',
   'status',
   'submitted_at',

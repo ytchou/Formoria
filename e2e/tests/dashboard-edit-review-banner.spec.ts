@@ -71,7 +71,6 @@ test.describe.serial('Dashboard EditReviewBanner', () => {
         product_type: 'crafts',
         description: `[E2E-TEST] initial description`,
         retail_locations: [],
-        product_photos: [],
       })
       .select('id')
       .single();

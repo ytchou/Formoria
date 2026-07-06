@@ -46,7 +46,7 @@ Self-serve brand submission flow.
 Content management and moderation.
 - Submission review queue (approve/reject with notes) — admins review submissions after enrichment, not before
 - Enrichment status badge on each submission: `Not Enriched` | `Partially Enriched` | `Enriched` — indicates how much AI-derived data has been populated before the admin makes a decision
-- Batch enrichment pipeline: a Railway cron service runs `pnpm curate enrich --status=pending` every 3 hours, automatically enriching pending submissions with AI-derived product type, description, tags, images, and links
+- Batch enrichment pipeline: admins run enrichment from the admin UI or CLI (`pnpm curate enrich ...`); enrichment is not Railway-cron-triggered
 - Brand listing management (edit, hide, delete)
 - Taxonomy tag management (add, merge, rename)
 - New tag suggestion review
@@ -161,7 +161,7 @@ See `docs/strategy/brand-success-playbook.md` for full specification.
 ## Data Model (Conceptual)
 
 ### Brand
-- id, slug, name, description, logoUrl
+- id, slug, name, description, description_en, logoUrl
 - status: pending | approved | rejected | hidden (listing/approval signal)
 - mitStatus: unverified | verified (MIT 微笑標章 verification signal — orthogonal to status)
 - product_type (single product category, validated against PRODUCT_TYPE_CATEGORIES — one of: fashion, bags-accessories, jewelry, beauty, home, food-drink, crafts, tech, outdoor, kids-pets)
@@ -169,9 +169,28 @@ See `docs/strategy/brand-success-playbook.md` for full specification.
 - purchaseLinks[] (platform, url, label)
 - socialLinks (instagram, threads, facebook, officialWebsite)
 - retailLocations[] (name, address, latitude, longitude) — optional
-- productPhotos[]
 - contactEmail (private, for admin communication)
 - submittedAt, approvedAt, updatedAt
+
+### BrandImage
+- id, brand_id
+- url, storage_path, source_url
+- source: scrape | google_image | owner | admin | legacy
+- status: active | rejected
+- tags[], score, sort_order
+- createdAt, updatedAt
+
+### BrandFieldState
+- brand_id, field
+- source: owner | enriched | admin
+- admin_locked
+- updated_by, updated_at
+
+### BrandFieldEvent
+- id, brand_id, field
+- old_value, new_value
+- source, actor, job_id
+- created_at
 
 ### TaxonomyTag
 - id, slug, label, labelZh

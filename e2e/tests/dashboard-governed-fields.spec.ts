@@ -67,7 +67,6 @@ test.describe('Dashboard — governed field integrity', () => {
         mit_status: 'unverified',
         description: '[E2E-TEST] Initial description.',
         retail_locations: [],
-        product_photos: [],
       })
       .select('id')
       .single();
@@ -91,7 +90,6 @@ test.describe('Dashboard — governed field integrity', () => {
         mit_status: 'unverified',
         description: '[E2E-TEST] Admin-owned brand for redirect guard test.',
         retail_locations: [],
-        product_photos: [],
       })
       .select('id')
       .single();

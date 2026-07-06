@@ -48,7 +48,6 @@ test.describe('Dashboard brand edit', () => {
           product_type: 'crafts',
           description: initialDescription,
           retail_locations: [],
-          product_photos: [],
         })
         .select('id')
         .single();

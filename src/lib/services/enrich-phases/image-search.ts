@@ -31,9 +31,7 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext, serpResults?: 
   let skippedHasImages = 0
   let skippedNoSerp = 0
   for (const brand of ctx.chunk) {
-    const hasImages =
-      !!brand.hero_image_url ||
-      (Array.isArray(brand.product_photos) && brand.product_photos.length > 0)
+    const hasImages = !!brand.hero_image_url
     if (hasImages) {
       skippedHasImages++
       continue
@@ -101,14 +99,7 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext, serpResults?: 
       }
 
       if (imageBrandIds.length > 0) {
-        await ctx.supabase
-          .from('brands')
-          .update({ images_enriched_at: new Date().toISOString() } as never)
-          .in('id', imageBrandIds)
-      }
-
-      if (imageBrandIds.length > 0) {
-        changedFields.push('images_enriched_at')
+        changedFields.push('image_search_results')
       }
     }
 

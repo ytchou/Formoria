@@ -7,7 +7,6 @@ export interface SubmitBrandForReviewParams {
   brandName: string
   websiteUrl?: string
   heroImageUrl?: string
-  productPhotos?: string[]
   isBrandOwner?: boolean
   pdpaConsent?: boolean
   sourceAttribution?: SourceAttribution | null
@@ -79,7 +78,6 @@ export async function submitBrandForReview(
     description: params.description ?? null,
     websiteUrl: params.websiteUrl,
     heroImageUrl: params.heroImageUrl,
-    productPhotos: params.productPhotos,
     socialInstagram,
     socialThreads,
     socialFacebook,

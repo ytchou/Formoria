@@ -143,7 +143,6 @@ describe('getEnrichmentStatus from enriched_data', () => {
     const status = getEnrichmentStatus({
       description: 'A brand',
       heroImageUrl: 'https://example.com/hero.jpg',
-      productPhotos: ['photo1.jpg'],
       productType: 'crafts',
     })
     expect(status).toBe('enriched')

@@ -13,27 +13,9 @@ import { getUserBrand } from '@/lib/services/brand-owners'
 // Per-user in-action rate limiter for brand submissions (5 per 60s)
 const submissionRateLimiter = createInMemoryRateLimiter()
 
-type SubmitBrandInput = Omit<SubmissionFormData, 'productPhotos'> & {
+type SubmitBrandInput = SubmissionFormData & {
   isOwner?: boolean
   sourceAttribution?: SourceAttribution
-  productPhotos?: string[] | string
-}
-
-function parseProductPhotos(value: string[] | string | undefined): string[] {
-  if (Array.isArray(value)) {
-    return value
-  }
-
-  if (!value) {
-    return []
-  }
-
-  try {
-    const parsed = JSON.parse(value)
-    return Array.isArray(parsed) ? parsed.filter((url): url is string => typeof url === 'string') : []
-  } catch {
-    return []
-  }
 }
 
 export async function suggestCleanName(name: string) {
@@ -66,10 +48,7 @@ export async function submitBrand(
     // Server-side validation — schema switches based on isOwner flag
     const isOwner = data.isOwner ?? false
     const schema = createSubmissionSchema(isOwner, tValidation)
-    const parsed = schema.parse({
-      ...data,
-      productPhotos: parseProductPhotos(data.productPhotos),
-    })
+    const parsed = schema.parse(data)
 
     // Get authenticated user
     const supabase = await createClient()
@@ -105,7 +84,6 @@ export async function submitBrand(
       brandName: parsed.name,
       websiteUrl: parsed.website,
       heroImageUrl: parsed.heroImageUrl || undefined,
-      productPhotos: parsed.productPhotos,
       isBrandOwner: isOwner && !ownershipAdjusted,
       pdpaConsent: parsed.pdpaConsent,
       sourceAttribution: data.sourceAttribution ?? null,

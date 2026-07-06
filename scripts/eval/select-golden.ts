@@ -6,7 +6,6 @@ type BrandRow = {
   name: string
   description: string | null
   hero_image_url: string | null
-  product_photos: unknown
   product_type: string | null
   purchase_website: string | null
   purchase_pinkoi: string | null
@@ -61,14 +60,6 @@ const COMMON_WORDS = new Set([
   'white',
 ])
 
-function asStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return []
-  }
-
-  return value.filter((item): item is string => typeof item === 'string')
-}
-
 function descriptionSnippet(description: string | null): string {
   const normalized = description?.replace(/\s+/g, ' ').trim() ?? ''
   return normalized.length > 160 ? `${normalized.slice(0, 157)}...` : normalized
@@ -101,7 +92,6 @@ function makeCandidate(
   aiPhases: Set<string>,
   ownerBrandIds: Set<string>
 ): Candidate {
-  const photos = asStringArray(brand.product_photos)
   const coverage = [
     `product:${brand.product_type ?? 'unknown'}`,
     `data:${dataRichness(brand)}`,
@@ -125,7 +115,7 @@ function makeCandidate(
       ownerBrandIds.has(brand.id) ? 'Owner-claimed brand' : 'Unclaimed brand',
       isAmbiguousName(brand.name) ? 'Ambiguous or short name' : 'Clear brand name',
     ],
-    images: [...new Set([brand.hero_image_url, ...photos].filter((url): url is string => Boolean(url)))]
+    images: [...new Set([brand.hero_image_url].filter((url): url is string => Boolean(url)))]
       .map((url) => ({ url, junk: false })),
   }
 }
@@ -165,7 +155,7 @@ async function main(): Promise<void> {
   const brandsResult = await supabase
     .from('brands')
     .select(
-      'id, slug, name, description, hero_image_url, product_photos, product_type, purchase_website, purchase_pinkoi, purchase_shopee, social_instagram'
+      'id, slug, name, description, hero_image_url, product_type, purchase_website, purchase_pinkoi, purchase_shopee, social_instagram'
     )
     .eq('status', 'approved')
     .order('updated_at', { ascending: false })

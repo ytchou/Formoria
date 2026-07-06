@@ -44,7 +44,6 @@ test.describe('Claim smoke', () => {
         product_type: 'crafts',
         description: 'Throwaway community brand for claim smoke coverage.',
         retail_locations: [],
-        product_photos: [],
       })
       .select('id')
       .single();

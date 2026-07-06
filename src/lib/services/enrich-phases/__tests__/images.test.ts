@@ -7,7 +7,6 @@ const brand: EnrichBrand = {
   slug: 'test-brand',
   name: 'Test Brand',
   hero_image_url: null,
-  product_photos: [],
 }
 
 describe('runBrandImagePhase', () => {

@@ -59,7 +59,6 @@ describe('brandToDomain', () => {
       purchase_website: 'https://test.com',
       purchase_shopee: 'https://shopee.tw/test',
       retail_locations: [],
-      product_photos: ['photo1.jpg'],
       contact_email: 'test@example.com',
       submitted_at: '2026-01-01T00:00:00Z',
       approved_at: '2026-01-02T00:00:00Z',
@@ -75,7 +74,7 @@ describe('brandToDomain', () => {
     expect(brand.purchaseShopee).toBe('https://shopee.tw/test')
     expect(brand.purchaseWebsite).toBe('https://test.com')
     expect(brand.socialInstagram).toBe('@test')
-    expect(brand.productPhotos).toEqual(['photo1.jpg'])
+    expect(brand.productPhotos).toEqual([])
     expect(brand.contactEmail).toBe('test@example.com')
     expect(brand.submittedAt).toBe('2026-01-01T00:00:00Z')
     expect(brand.approvedAt).toBe('2026-01-02T00:00:00Z')
@@ -111,7 +110,7 @@ describe('brandToDomain — basic fields', () => {
     description: 'A test brand', hero_image_url: null,
     status: 'approved' as const, category: 'Food & Beverage', founding_year: 2004,
     retail_locations: [],
-    product_photos: [], contact_email: null,
+    contact_email: null,
     submitted_at: '2026-01-01T00:00:00Z', approved_at: null,
     created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
   }
@@ -275,7 +274,6 @@ describe('getBrands — search uses search_brands RPC', () => {
       purchase_links: [],
       social_links: {},
       retail_locations: [],
-      product_photos: [],
       contact_email: null,
       brand_owners: [],
       submitted_at: '2026-01-01T00:00:00Z',

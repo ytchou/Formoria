@@ -359,7 +359,6 @@ describeWithDb('approveSubmissionAction (submission-first)', () => {
         enriched_data: {
           description: 'Enriched description',
           hero_image_url: 'https://cdn.example.com/hero.jpg',
-          product_photos: ['https://cdn.example.com/product-1.jpg'],
           product_type: 'crafts',
         },
       })
@@ -375,7 +374,7 @@ describeWithDb('approveSubmissionAction (submission-first)', () => {
 
     const { data: brand, error: brandError } = await supabase!
       .from('brands')
-      .select('id, name, status, description, hero_image_url, product_photos, product_type, purchase_website, social_instagram')
+      .select('id, name, status, description, hero_image_url, product_type, purchase_website, social_instagram')
       .eq('id', result.brandId)
       .single()
 
@@ -385,7 +384,6 @@ describeWithDb('approveSubmissionAction (submission-first)', () => {
     expect(brand!.status).toBe('approved')
     expect(brand!.description).toBe('Enriched description')
     expect(brand!.hero_image_url).toBe('https://cdn.example.com/hero.jpg')
-    expect(brand!.product_photos).toEqual(['https://cdn.example.com/product-1.jpg'])
     expect(brand!.product_type).toBe('crafts')
     expect(brand!.purchase_website).toBe('https://submission.example.com')
     expect(brand!.social_instagram).toBe('submission_ig')

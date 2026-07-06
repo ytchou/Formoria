@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { QualityMetrics } from '../brand-quality'
+import { computeQualityMetrics, type QualityMetrics } from '../brand-quality'
 
 describe('QualityMetrics type', () => {
   it('has the expected shape', () => {
@@ -18,11 +18,32 @@ describe('QualityMetrics type', () => {
         withCount: 80, withoutCount: 20, percentage: 80, avgLength: 145,
       },
       completeness: { excellent: 10, good: 30, fair: 40, poor: 20 },
+      enrichment: {
+        languagePurityPct: 90,
+        heroClassifiedPct: 85,
+        promoHeroCount: 2,
+        validationFailures: 3,
+        descriptionCoveragePct: 80,
+        descriptionEnCoveragePct: 70,
+      },
     }
     expect(metrics.totalBrands).toBe(100)
     expect(metrics.heroImage.percentage).toBe(60)
     expect(metrics.links.socialInstagram.count).toBe(50)
     expect(metrics.description.avgLength).toBe(145)
     expect(metrics.completeness.excellent).toBe(10)
+  })
+})
+
+describe('computeQualityMetrics', () => {
+  it('computes quality metrics: purity %, hero-classified %, promo-hero count, validation failures', () => {
+    const m = computeQualityMetrics({
+      brands: [{ description: '純中文描述'.repeat(20), descriptionEn: null }],
+      images: [{ role: 'hero', tag: 'promo' }, { role: 'hero', tag: 'product' }],
+      aiRejections: 3,
+    } as never)
+    expect(m.promoHeroCount).toBe(1)
+    expect(m.heroClassifiedPct).toBe(100)
+    expect(m.validationFailures).toBe(3)
   })
 })

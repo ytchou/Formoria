@@ -66,7 +66,6 @@ test.describe('Favorites page', () => {
         product_type: 'crafts',
         description: '[E2E-TEST] Favorites page test brand.',
         retail_locations: [],
-        product_photos: [],
       })
       .select('id')
       .single();

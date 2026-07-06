@@ -545,31 +545,6 @@ describeWithDb('persistSubmissionEnrichmentResults', () => {
     })
   })
 
-  it('should deduplicate product_photos arrays', async () => {
-    await serviceSupabase!
-      .from('brand_submissions')
-      .update({
-        enriched_data: {
-          product_photos: ['a.jpg', 'b.jpg'],
-        },
-      })
-      .eq('id', testSubmissionId!)
-
-    await persistSubmissionEnrichmentResults(serviceSupabase!, testSubmissionId!, {
-      product_photos: ['b.jpg', 'c.jpg'],
-    })
-
-    const { data: updated } = await serviceSupabase!
-      .from('brand_submissions')
-      .select('enriched_data')
-      .eq('id', testSubmissionId!)
-      .single()
-
-    expect(updated!.enriched_data).toEqual({
-      product_photos: ['a.jpg', 'b.jpg', 'c.jpg'],
-    })
-  })
-
   it('should skip update when submission is no longer pending', async () => {
     await serviceSupabase!
       .from('brand_submissions')

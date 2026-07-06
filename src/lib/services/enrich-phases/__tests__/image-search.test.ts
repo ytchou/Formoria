@@ -55,21 +55,4 @@ describe('runImageSearchPhase', () => {
     expect(progressMessages.some((m) => m.includes('Skipping image search'))).toBe(true)
   })
 
-  it('skips brands with user-provided product photos', async () => {
-    const brandWithPhotos: EnrichBrand = {
-      id: 'brand-with-photos',
-      slug: 'has-photos',
-      name: 'Has Photos',
-      product_photos: ['https://example.com/photo1.webp'],
-    }
-    const result = await runImageSearchPhase(
-      ctx({
-        chunk: [brandWithPhotos],
-        chunkBrandNames: ['Has Photos'],
-      })
-    )
-
-    expect(result.phaseResult.status).toBe('skipped')
-    expect(result.imageSearchResults.size).toBe(0)
-  })
 })

@@ -1,5 +1,13 @@
 # SPEC Changelog
 
+## 2026-07-06
+
+- Removed legacy `brands.product_photos`, `brands.images_enriched_at`,
+  `brands.serp_enriched_at`, and `brand_submissions.product_photos` columns from the
+  documented model. Added `brand_images`, `brand_field_state`, and `brand_field_events`;
+  documented `brands.description_en`; clarified enrichment is admin UI/CLI-triggered,
+  not Railway cron-triggered.
+
 ## 2026-07-02
 
 - DEV-925 — Added Owner Dashboard module (previously undocumented), including the

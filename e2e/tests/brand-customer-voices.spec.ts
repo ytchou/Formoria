@@ -30,7 +30,6 @@ test.describe('Brand detail — customer voices', () => {
         product_type: 'crafts',
         description: 'Brand with customer voices for e2e',
         retail_locations: [],
-        product_photos: [],
         customer_voices: [
           { author: 'Alice', content: 'Great quality!', source: 'Google' },
         ],
@@ -50,7 +49,6 @@ test.describe('Brand detail — customer voices', () => {
         product_type: 'crafts',
         description: 'Brand without customer voices for e2e',
         retail_locations: [],
-        product_photos: [],
       })
       .select('id')
       .single();
