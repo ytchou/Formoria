@@ -2,9 +2,9 @@ UPDATE public.brands
 SET reputation_summary = jsonb_build_object(
   'text', COALESCE(reputation_summary->>'text', ''),
   'sources', COALESCE((
-    SELECT jsonb_agg(jsonb_build_object('url', source->>'url'))
-    FROM jsonb_array_elements(COALESCE(reputation_summary->'sources', '[]'::jsonb)) AS source
-    WHERE NULLIF(BTRIM(source->>'url'), '') IS NOT NULL
+    SELECT jsonb_agg(jsonb_build_object('url', src->>'url'))
+    FROM jsonb_array_elements(COALESCE(reputation_summary->'sources', '[]'::jsonb)) AS src
+    WHERE NULLIF(BTRIM(src->>'url'), '') IS NOT NULL
   ), '[]'::jsonb)
 )
 WHERE reputation_summary IS NOT NULL;
@@ -20,9 +20,9 @@ SET draft_data = jsonb_set(
   jsonb_build_object(
     'text', COALESCE(draft_data->'reputationSummary'->>'text', ''),
     'sources', COALESCE((
-      SELECT jsonb_agg(jsonb_build_object('url', source->>'url'))
-      FROM jsonb_array_elements(COALESCE(draft_data->'reputationSummary'->'sources', '[]'::jsonb)) AS source
-      WHERE NULLIF(BTRIM(source->>'url'), '') IS NOT NULL
+      SELECT jsonb_agg(jsonb_build_object('url', src->>'url'))
+      FROM jsonb_array_elements(COALESCE(draft_data->'reputationSummary'->'sources', '[]'::jsonb)) AS src
+      WHERE NULLIF(BTRIM(src->>'url'), '') IS NOT NULL
     ), '[]'::jsonb)
   )
 )
@@ -38,9 +38,9 @@ SET proposed_data = jsonb_set(
   jsonb_build_object(
     'text', COALESCE(proposed_data->'reputationSummary'->>'text', ''),
     'sources', COALESCE((
-      SELECT jsonb_agg(jsonb_build_object('url', source->>'url'))
-      FROM jsonb_array_elements(COALESCE(proposed_data->'reputationSummary'->'sources', '[]'::jsonb)) AS source
-      WHERE NULLIF(BTRIM(source->>'url'), '') IS NOT NULL
+      SELECT jsonb_agg(jsonb_build_object('url', src->>'url'))
+      FROM jsonb_array_elements(COALESCE(proposed_data->'reputationSummary'->'sources', '[]'::jsonb)) AS src
+      WHERE NULLIF(BTRIM(src->>'url'), '') IS NOT NULL
     ), '[]'::jsonb)
   )
 )
