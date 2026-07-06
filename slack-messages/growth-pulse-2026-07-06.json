@@ -1,0 +1,74 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Growth Pulse — Jul 6"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "📈 *Traffic returning — first session recorded after zero-traffic period (DEV-879 still open)*"
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        { "type": "mrkdwn", "text": "*Sessions*\n1 (vs 0 last week)" },
+        { "type": "mrkdwn", "text": "*Users*\n1 (vs 0 last week)" },
+        { "type": "mrkdwn", "text": "*Page Views*\n1 (vs 0 last week)" },
+        { "type": "mrkdwn", "text": "*Bounce Rate*\n100% (n/a last week)" },
+        { "type": "mrkdwn", "text": "*Avg Duration*\n0s (vs 0s last week)" }
+      ]
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Top Pages* (vs last week)\n1. `/brands/fu-guan-fabric` — 1 view NEW"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Referral Sources* (vs last week)\n1. (not set) / (not set) — 1 session NEW\n2. google / organic — 1 session NEW"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Signals*\n• *What:* 1 session, 1 user, 1 page view on Jul 5 — up from 0 on the same weekday last week (Jun 28). `/brands/fu-guan-fabric` received its first recorded visit, sourced via google/organic.\n  *So what:* Volume is well below the 30-session anomaly floor so this is informational, but it signals the site and GA4 tag are functioning again after the blackout period.\n  *Now what:* No action needed — monitor whether traffic continues recovering. DEV-879 (traffic blackout ticket) remains open in Backlog.\n\n_No ticket — signals are informational only (below 30-session threshold). Existing ticket DEV-879 still open._"
+      }
+    },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "Open GA4 Dashboard" },
+          "url": "https://analytics.google.com/analytics/web/#/p538232091/reports/"
+        }
+      ]
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Compared against same weekday last week. GA4 data may lag 24–48h."
+        }
+      ]
+    }
+  ]
+}
