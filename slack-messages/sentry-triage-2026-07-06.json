@@ -1,0 +1,92 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "🔍 Sentry Daily Triage — 2026-07-05 to 2026-07-06",
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Summary:* 20 issues found · Critical: 6 · Moderate: 7 · Trivial: 5 · Noise: 2\n*Tickets:* 5 new created · 0 duplicates skipped · 0 auto-resolved\n*Incident mode:* No (20 issues, at cap)"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "🔴 *CRITICAL — brand_images table missing in production schema*\n<https://formoria.sentry.io/issues/FORMORIA-3J|FORMORIA-3J> · <https://formoria.sentry.io/issues/FORMORIA-1J|1J> · <https://formoria.sentry.io/issues/FORMORIA-2E|2E> · <https://formoria.sentry.io/issues/FORMORIA-1B|1B> · <https://formoria.sentry.io/issues/FORMORIA-W|W> · <https://formoria.sentry.io/issues/FORMORIA-1C|1C> · <https://formoria.sentry.io/issues/FORMORIA-2H|2H>\nEvents: 14 · New (first seen 18h ago) · Severity: Critical\nPGRST205: `brand_images` table not in Supabase schema cache — migration `20260708100000_brand_images.sql` from DEV-959/PR#276 has not been applied to production. Brand detail pages and dashboard throwing 500s.\nValidation: *still_present* — migration file exists in codebase, table absent from production DB\nTicket: <https://linear.app/ytchou/issue/DEV-963/apply-brand-images-migration-table-missing-in-production-schema-cache|DEV-963> — Apply brand_images migration · Priority: Urgent · Labels: Bug, L"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "🔴 *CRITICAL — ReferenceError: resolvedSearchParams not defined on dashboard*\n<https://formoria.sentry.io/issues/FORMORIA-3A|FORMORIA-3A> · <https://formoria.sentry.io/issues/FORMORIA-3B|FORMORIA-3B>\nEvents: 5 · New (first seen 17h ago) · Severity: Critical\n`ReferenceError: resolvedSearchParams is not defined` on `GET /[locale]/dashboard` — dashboard unavailable for affected users. Current code appears to guard correctly; may be from a deploy window before the fix landed.\nValidation: *inconclusive* — code defines variable at page.tsx:88 and layout.tsx:29 but runtime error still unresolved in Sentry\nTicket: <https://linear.app/ytchou/issue/DEV-964/fix-referenceerror-resolvedsearchparams-not-defined-on-dashboard|DEV-964> — Fix ReferenceError: resolvedSearchParams · Priority: Urgent · Labels: Bug, L"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "🟡 *MODERATE — Next.js/Turbopack build compilation errors in brand dashboard routes*\n<https://formoria.sentry.io/issues/FORMORIA-3H|FORMORIA-3H> (11 evt) · <https://formoria.sentry.io/issues/FORMORIA-3G|FORMORIA-3G> (4) · <https://formoria.sentry.io/issues/FORMORIA-38|FORMORIA-38> (4) · <https://formoria.sentry.io/issues/FORMORIA-3F|FORMORIA-3F> (1) · <https://formoria.sentry.io/issues/FORMORIA-N|FORMORIA-N> (1)\nEvents: 21 · New · Severity: Moderate\nModule compilation errors at `/_error` across brand dashboard routes — `zh-TW.json:1069:5`, `brands/[slug]/page.tsx:13:1`, `brands/[slug]/edit/page.tsx:9:1`, lucide-react CircleAlert, Next.js layout-router. All aligned with DEV-959 enrichment revamp deploy window. Errors subsiding — confirm they don't recur on next deploy.\nValidation: *inconclusive* — source files exist and appear structurally correct; Turbopack compile-window transients cannot be ruled out\nTicket: <https://linear.app/ytchou/issue/DEV-965/investigate-nextjsturbopack-build-compilation-errors-in-brand|DEV-965> — Investigate build compilation errors · Priority: High · Labels: Bug, M"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "⚪ *TRIVIAL — ReferenceError: DirtyFieldsContext not defined on brand edit page*\n<https://formoria.sentry.io/issues/FORMORIA-3E|FORMORIA-3E>\nEvents: 1 · New (first seen 16h ago) · Severity: Trivial\nBrand edit wizard crashes with `ReferenceError: DirtyFieldsContext is not defined`. Context is correctly defined and imported — likely a Turbopack SSR bundling transient from the same deploy window.\nValidation: *inconclusive* — context exported at dirty-fields-context.tsx:9 and imported at brand-edit-wizard.tsx:22; no structural code defect found\nTicket: <https://linear.app/ytchou/issue/DEV-966/fix-referenceerror-dirtyfieldscontext-not-defined-on-brand-edit-page|DEV-966> — Fix DirtyFieldsContext ReferenceError · Priority: Normal · Labels: Bug, S"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "⚪ *TRIVIAL — Hydration mismatches and hooks violation on dashboard brand pages*\n<https://formoria.sentry.io/issues/FORMORIA-3C|FORMORIA-3C> · <https://formoria.sentry.io/issues/FORMORIA-13|FORMORIA-13> · <https://formoria.sentry.io/issues/FORMORIA-3K|FORMORIA-3K>\nEvents: 3 · Mixed new/recurring · Severity: Trivial\nHydration mismatches on brand edit page and dashboard brand detail, plus one hooks-violation error (`Rendered more hooks than during the previous render`). Audit brand dashboard client components for browser-API reads outside `useEffect` and conditional hook calls in wizard step children.\nValidation: *inconclusive* — no obvious browser-API misuse found in wizard top-level code; child components not fully audited\nTicket: <https://linear.app/ytchou/issue/DEV-967/fix-hydration-mismatches-and-hooks-violation-on-dashboard-brand-pages|DEV-967> — Fix hydration mismatches and hooks violation · Priority: Normal · Labels: Bug, S"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*🔕 Noise — No ticket (2 issues):*\n- <https://formoria.sentry.io/issues/FORMORIA-3D|FORMORIA-3D>: Hydration Error — culprit is `http://localhost:3000/` (dev environment, not production)\n- <https://formoria.sentry.io/issues/FORMORIA-39|FORMORIA-39>: Internal Next.js Router action dispatched before initialization — 1 event, known framework race condition, no escalating trend"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Tickets Created (5):*\n- <https://linear.app/ytchou/issue/DEV-963/apply-brand-images-migration-table-missing-in-production-schema-cache|DEV-963> — Apply brand_images migration (Priority: Urgent, Bug, L)\n- <https://linear.app/ytchou/issue/DEV-964/fix-referenceerror-resolvedsearchparams-not-defined-on-dashboard|DEV-964> — Fix resolvedSearchParams ReferenceError (Priority: Urgent, Bug, L)\n- <https://linear.app/ytchou/issue/DEV-965/investigate-nextjsturbopack-build-compilation-errors-in-brand|DEV-965> — Investigate build compilation errors (Priority: High, Bug, M)\n- <https://linear.app/ytchou/issue/DEV-966/fix-referenceerror-dirtyfieldscontext-not-defined-on-brand-edit-page|DEV-966> — Fix DirtyFieldsContext ReferenceError (Priority: Normal, Bug, S)\n- <https://linear.app/ytchou/issue/DEV-967/fix-hydration-mismatches-and-hooks-violation-on-dashboard-brand-pages|DEV-967> — Fix hydration mismatches and hooks violation (Priority: Normal, Bug, S)\n\nSkipped 0 duplicates · 0 issues auto-resolved (not ticketed)"
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Sentry Daily Triage · Formoria · 2026-07-06T23:14 UTC"
+        }
+      ]
+    }
+  ]
+}
