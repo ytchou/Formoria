@@ -37,6 +37,14 @@ export function Footer() {
               </li>
               <li>
                 <Link
+                  href="/guides"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {t('guides')}
+                </Link>
+              </li>
+              <li>
+                <Link
                   href="/submit"
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >

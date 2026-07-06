@@ -75,15 +75,15 @@ describe('getOnboardingStepHref', () => {
     )
   })
 
-  it('maps analytics, health, verification to dashboard tabs', () => {
+  it('maps analytics, health, verification to dashboard routes', () => {
     expect(getOnboardingStepHref('analytics', 'test-brand')).toBe(
-      '/dashboard/analytics?brand=test-brand'
+      '/dashboard/brands/test-brand/analytics'
     )
     expect(getOnboardingStepHref('health', 'test-brand')).toBe(
-      '/dashboard/health?brand=test-brand'
+      '/dashboard/brands/test-brand#health'
     )
     expect(getOnboardingStepHref('verification', 'test-brand')).toBe(
-      '/dashboard/verification?brand=test-brand'
+      '/dashboard/brands/test-brand#verification'
     )
   })
 })

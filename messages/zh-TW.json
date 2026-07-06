@@ -38,6 +38,7 @@
     "discoverHeading": "探索",
     "directory": "品牌目錄",
     "gettingStarted": "開始使用",
+    "guides": "指南",
     "glossary": "名詞解說",
     "submit": "提交品牌",
     "companyHeading": "關於",
@@ -971,10 +972,8 @@
     "empty": "尚未認領任何品牌。認領品牌後，它將顯示在此處。",
     "claimedAt": "認領於 {date}",
     "tabs": {
-      "profile": "品牌資訊",
+      "profile": "總覽",
       "analytics": "數據分析",
-      "health": "品牌健康",
-      "verification": "MIT 認證",
       "submissions": "提交紀錄"
     },
     "emptyState": {
@@ -1068,61 +1067,6 @@
       "tier1Label": "重要項目",
       "tier2Label": "加分項目"
     },
-    "completeness": {
-      "title": "品牌資料完整度",
-      "summary": "已完成 {completed}/{total}",
-      "toComplete": "待補充",
-      "completed": "已完成",
-      "editCta": "編輯",
-      "complete": "品牌頁面資料完整！顧客能找到所需的一切資訊。",
-      "items": {
-        "heroImage": {
-          "label": "主視覺",
-          "hint": "品牌頁的第一印象，讓你的品牌一眼被記住",
-          "nudge": "顧客進入頁面第一眼看到的畫面。"
-        },
-        "logo": {
-          "label": "品牌標誌",
-          "hint": "品牌辨識度的核心，出現在目錄和分類頁",
-          "nudge": "建立品牌辨識度與信任感。"
-        },
-        "description": {
-          "label": "品牌介紹",
-          "hint": "幫助搜尋和探索，讓更多人發現你",
-          "nudge": "讓顧客了解你的品牌與台灣製造的故事。"
-        },
-        "purchaseLinks": {
-          "label": "購買連結",
-          "hint": "讓有興趣的消費者直接採取行動",
-          "nudge": "附上商店或電商連結，讓顧客直接購買。"
-        },
-        "productPhotos": {
-          "label": "產品照片",
-          "hint": "展示你的產品，增加頁面停留時間",
-          "nudge": "用最好的照片展示你的產品。"
-        },
-        "socialLinks": {
-          "label": "社群連結",
-          "hint": "建立信任感，讓消費者追蹤你的動態",
-          "nudge": "讓粉絲在各平台上追蹤你。"
-        },
-        "brandHighlights": {
-          "label": "品牌亮點",
-          "hint": "讓你的品牌特色一目了然",
-          "nudge": "一眼看見品牌的賣點特色。"
-        },
-        "foundingYear": {
-          "label": "創立年份",
-          "hint": "展現品牌歷史和經驗",
-          "nudge": "增添品牌歷史與可信度。"
-        },
-        "retailLocations": {
-          "label": "實體據點",
-          "hint": "讓附近的消費者找到你的實體店面",
-          "nudge": "讓在地顧客找到實體據點。"
-        }
-      }
-    },
     "health": {
       "title": "品牌健康分數",
       "subtitle": "您的品牌在 7 個維度上的表現",
@@ -1138,6 +1082,9 @@
         "thriving": "70–89 · 品牌形象強烈",
         "exemplary": "90–100 · 業界最佳"
       },
+      "suggestedActions": "建議改善項目",
+      "pointsToNextTier": "距離{tier}還差 {points} 分",
+      "atTopTier": "頂尖品牌",
       "actionQueue": {
         "title": "準備好成長了嗎？這些改變最有效",
         "label": {
@@ -1150,23 +1097,7 @@
           "clickThroughRate": "提升點擊率"
         }
       },
-      "scoreBreakdown": "分數明細",
-      "coldStart": "資料收集中...",
-      "coldStartHint": "需要 7 天資料 · 請稍後回來查看",
-      "drillDown": {
-        "title": "品牌完整度 · 9 項檢核"
-      },
-      "editProfile": "編輯品牌",
-      "lastUpdated": "最後更新：{date}",
-      "dimension": {
-        "profileCompleteness": "品牌完整度",
-        "engagementHealth": "互動健康度",
-        "brandStory": "品牌故事",
-        "photoQuality": "照片品質",
-        "socialPresence": "社群存在感",
-        "purchaseAccessibility": "購買管道",
-        "clickThroughRate": "點擊率"
-      }
+      "lastUpdated": "最後更新：{date}"
     },
     "mit": {
       "title": "MIT 驗證狀態",
@@ -1185,7 +1116,8 @@
       "certNotFound": "在 MIT 微笑標章資料庫中找不到此標章編號",
       "certExpired": "此 MIT 微笑標章已到期",
       "reviewNote": "審核備註",
-      "resubmitCta": "以 Email 申請驗證"
+      "resubmitCta": "以 Email 申請驗證",
+      "dismiss": "關閉"
     },
     "errors": {
       "invalidClaim": "認領連結無效或已過期，請聯繫客服。",
@@ -1222,7 +1154,7 @@
       "metaTitle": "編輯品牌",
       "pageHeading": "編輯 {name}",
       "pageSubheading": "更新您的品牌頁面資訊",
-      "sectionBasicInfo": "基本資訊",
+      "sectionBasicInfo": "品牌簡介",
       "sectionMedia": "媒體素材",
       "sectionLinks": "連結",
       "sectionCustomerVoices": "顧客心聲",
@@ -1336,7 +1268,14 @@
       "addCertification": "新增認證",
       "fieldReturnsPolicy": "退貨政策",
       "fieldWarranty": "保固",
-      "fieldShipsInternational": "提供國際配送"
+      "fieldShipsInternational": "提供國際配送",
+      "fieldCategoryHint": "用於導航、搜尋和篩選",
+      "fieldDescriptionHint": "顯示在品牌頁面上的公開介紹",
+      "fieldFoundingYearHint": "顯示在品牌頁面上",
+      "mitStoryHint": "若有填寫會顯示在品牌頁面上",
+      "cityHint": "填寫後品牌會顯示在地圖上",
+      "fieldPriceRangeHint": "用於篩選",
+      "unsavedChanges": "有未儲存的變更"
     },
     "brandProfile": {
       "customerVoices": "顧客心聲",

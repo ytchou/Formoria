@@ -1,21 +1,6 @@
 import type { AnalyticsResult } from './brand-analytics'
 import { computeBrandCompleteness } from './brand-completeness'
-import type { Database } from '@/lib/supabase/database.types'
-import type { Brand as AppBrand } from '@/lib/types/brand'
-
-declare module '@/lib/supabase/database.types' {
-  export interface Brand extends AppBrand {
-    [key: string]: unknown
-    created_at?: string | null
-    hero_image_url?: string | null
-    purchase_links?: unknown
-    retail_locations?: unknown
-    social_links?: unknown
-  }
-}
-
-type BrandRow = Database['public']['Tables']['brands']['Row']
-type Brand = BrandRow | AppBrand
+import type { Brand } from '@/lib/types/brand'
 
 export type DimensionKey =
   | 'profileCompleteness'
@@ -42,7 +27,7 @@ export type ActionNudge = {
   points: number
 }
 
-type HealthTier = 'gettingStarted' | 'growing' | 'thriving' | 'exemplary'
+export type HealthTier = 'gettingStarted' | 'growing' | 'thriving' | 'exemplary'
 
 export type BrandHealthScore = {
   overall: number
@@ -51,7 +36,7 @@ export type BrandHealthScore = {
   topActions: ActionNudge[]
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000
+const DAY_MS = 86_400_000
 const COLD_START_MS = 7 * DAY_MS
 
 const WEIGHTS: Record<DimensionKey, number> = {
@@ -84,122 +69,50 @@ const ICONS: Record<DimensionKey, string> = {
   clickThroughRate: 'mouse-pointer-click',
 }
 
-function getField<T>(brand: Brand, camelKey: string, snakeKey: string): T | undefined {
-  const source = brand as Record<string, unknown>
-  return (source[camelKey] ?? source[snakeKey]) as T | undefined
-}
-
-function toArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : []
-}
-
-function getDescription(brand: Brand): string {
-  return getField<string | null>(brand, 'description', 'description')?.trim() ?? ''
-}
-
-function getProductPhotos(brand: Brand): unknown[] {
-  return toArray(getField<unknown>(brand, 'productPhotos', 'productPhotos'))
-}
-
-function getPurchaseLinks(brand: Brand): unknown[] {
-  // New flat schema: check flat fields first
-  const source = brand as Record<string, unknown>
-  const flatUrls = [source.purchaseWebsite, source.purchasePinkoi, source.purchaseShopee].filter(Boolean)
-  if (flatUrls.length > 0) return flatUrls
-  // Legacy JSONB schema fallback
-  return toArray(getField<unknown>(brand, 'purchaseLinks', 'purchase_links'))
-}
-
-function getSocialLinks(brand: Brand): Record<string, unknown> {
-  // New flat schema: check flat fields first
-  const source = brand as Record<string, unknown>
-  if (source.socialInstagram !== undefined || source.socialThreads !== undefined || source.socialFacebook !== undefined) {
-    const result: Record<string, unknown> = {}
-    if (source.socialInstagram) result.instagram = source.socialInstagram
-    if (source.socialThreads) result.threads = source.socialThreads
-    if (source.socialFacebook) result.facebook = source.socialFacebook
-    return result
-  }
-  // Legacy JSONB schema fallback
-  const socialLinks = getField<unknown>(brand, 'socialLinks', 'social_links')
-  return socialLinks && !Array.isArray(socialLinks) && typeof socialLinks === 'object'
-    ? (socialLinks as Record<string, unknown>)
-    : {}
-}
-
 function scoreEngagement(analytics: AnalyticsResult): number {
-  if (analytics.viewTrend === 'up') {
-    return 100
-  }
-
-  if (analytics.viewTrend === 'down') {
-    return 20
-  }
-
+  if (analytics.viewTrend === 'up') return 100
+  if (analytics.viewTrend === 'down') return 20
   return 60
 }
 
 function scoreBrandStory(brand: Brand): number {
-  const descriptionLength = getDescription(brand).length
-  let descriptionScore = 0
-
-  if (descriptionLength >= 200) {
-    descriptionScore = 66
-  } else if (descriptionLength >= 100) {
-    descriptionScore = 33
-  }
-
-  return Math.min(100, descriptionScore)
+  const descriptionLength = (brand.description ?? '').trim().length
+  if (descriptionLength >= 200) return 66
+  if (descriptionLength >= 100) return 33
+  return 0
 }
 
 function scorePhotos(brand: Brand): number {
-  const photoCount = getProductPhotos(brand).length
-
-  if (photoCount >= 3) {
-    return 100
-  }
-
-  if (photoCount === 2) {
-    return 66
-  }
-
+  const photoCount = brand.productPhotos.length
+  if (photoCount >= 3) return 100
+  if (photoCount === 2) return 66
   return photoCount === 1 ? 33 : 0
 }
 
 function scoreSocialPresence(brand: Brand): number {
-  const filledLinkCount = Object.values(getSocialLinks(brand)).filter((value) => {
-    return typeof value === 'string' ? value.trim() : Boolean(value)
-  }).length
+  const filledCount = [brand.socialInstagram, brand.socialThreads, brand.socialFacebook]
+    .filter((v) => v?.trim())
+    .length
+  if (filledCount >= 2) return 100
+  return filledCount === 1 ? 50 : 0
+}
 
-  if (filledLinkCount >= 2) {
-    return 100
-  }
-
-  return filledLinkCount === 1 ? 50 : 0
+function scorePurchaseAccessibility(brand: Brand): number {
+  const hasAny = [brand.purchaseWebsite, brand.purchasePinkoi, brand.purchaseShopee]
+    .some((v) => v?.trim())
+  return hasAny ? 100 : 0
 }
 
 function scoreClickThroughRate(analytics: AnalyticsResult): number {
-  if (analytics.totalViews === 0) {
-    return 0
-  }
-
+  if (analytics.totalViews === 0) return 0
   const ctr = (analytics.totalClicks / analytics.totalViews) * 100
   return Math.min(100, Math.round((ctr / 3) * 100))
 }
 
 function getTier(overall: number): HealthTier {
-  if (overall >= 90) {
-    return 'exemplary'
-  }
-
-  if (overall >= 70) {
-    return 'thriving'
-  }
-
-  if (overall >= 40) {
-    return 'growing'
-  }
-
+  if (overall >= 90) return 'exemplary'
+  if (overall >= 70) return 'thriving'
+  if (overall >= 40) return 'growing'
   return 'gettingStarted'
 }
 
@@ -228,7 +141,7 @@ export function computeBrandHealth(
   const dimensions: DimensionScore[] = [
     {
       key: 'profileCompleteness',
-      score: Math.round(computeBrandCompleteness(brand as AppBrand).fraction * 100),
+      score: Math.round(computeBrandCompleteness(brand).fraction * 100),
       coldStart: false,
       weight: WEIGHTS.profileCompleteness,
     },
@@ -258,7 +171,7 @@ export function computeBrandHealth(
     },
     {
       key: 'purchaseAccessibility',
-      score: getPurchaseLinks(brand).length > 0 ? 100 : 0,
+      score: scorePurchaseAccessibility(brand),
       coldStart: false,
       weight: WEIGHTS.purchaseAccessibility,
     },

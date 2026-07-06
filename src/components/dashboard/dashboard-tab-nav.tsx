@@ -8,16 +8,15 @@ type DashboardTabNavProps = {
   brandSlug: string
 }
 
-const tabs = [
-  { key: 'profile', href: '/dashboard' },
-  { key: 'analytics', href: '/dashboard/analytics' },
-  { key: 'health', href: '/dashboard/health' },
-  { key: 'verification', href: '/dashboard/verification' },
-] as const
-
 export function DashboardTabNav({ brandSlug }: DashboardTabNavProps) {
   const t = useTranslations('dashboard.tabs')
   const pathname = usePathname()
+
+  const base = `/dashboard/brands/${brandSlug}`
+  const tabs = [
+    { key: 'profile' as const, segment: '' },
+    { key: 'analytics' as const, segment: '/analytics' },
+  ]
 
   return (
     <nav
@@ -25,7 +24,10 @@ export function DashboardTabNav({ brandSlug }: DashboardTabNavProps) {
       className="flex min-h-12 gap-6 border-b border-border"
     >
       {tabs.map((tab) => {
-        const isActive = pathname === tab.href
+        const href = `${base}${tab.segment}`
+        const isActive = tab.segment === ''
+          ? pathname === base
+          : pathname.startsWith(href)
 
         return (
           <Link
@@ -37,7 +39,7 @@ export function DashboardTabNav({ brandSlug }: DashboardTabNavProps) {
                 ? 'border-primary text-foreground font-semibold'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             )}
-            href={`${tab.href}?brand=${brandSlug}`}
+            href={href}
           >
             {t(tab.key)}
           </Link>

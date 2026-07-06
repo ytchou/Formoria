@@ -38,6 +38,7 @@
     "discoverHeading": "Discover",
     "directory": "Brand Directory",
     "gettingStarted": "Getting Started",
+    "guides": "Guides",
     "glossary": "Glossary",
     "submit": "Submit a Brand",
     "companyHeading": "Company",
@@ -971,10 +972,8 @@
     "empty": "You haven't claimed any brands yet. Once you claim a brand, it will appear here.",
     "claimedAt": "Claimed {date}",
     "tabs": {
-      "profile": "Brand Profile",
+      "profile": "Overview",
       "analytics": "Analytics",
-      "health": "Brand Health",
-      "verification": "MIT Verification",
       "submissions": "Submissions"
     },
     "emptyState": {
@@ -1068,61 +1067,6 @@
       "tier1Label": "High Impact",
       "tier2Label": "Good to Have"
     },
-    "completeness": {
-      "title": "Profile completeness",
-      "summary": "{completed} of {total} complete",
-      "toComplete": "To complete",
-      "completed": "Completed",
-      "editCta": "Edit",
-      "complete": "Your brand page is complete — shoppers can find everything they need.",
-      "items": {
-        "heroImage": {
-          "label": "Hero image",
-          "hint": "The first visual impression that makes your brand memorable",
-          "nudge": "The first thing shoppers see on your page."
-        },
-        "logo": {
-          "label": "Logo",
-          "hint": "Core brand identity, shown in the directory and category pages",
-          "nudge": "Builds instant recognition and trust."
-        },
-        "description": {
-          "label": "Description",
-          "hint": "Helps with search and discovery so more people find you",
-          "nudge": "Tell shoppers what makes your brand Taiwanese-made."
-        },
-        "purchaseLinks": {
-          "label": "Purchase links",
-          "hint": "Let interested shoppers take direct action",
-          "nudge": "Let shoppers buy — link your shop or marketplace."
-        },
-        "productPhotos": {
-          "label": "Product photos",
-          "hint": "Showcase your products and increase time on page",
-          "nudge": "Show your products in their best light."
-        },
-        "socialLinks": {
-          "label": "Social links",
-          "hint": "Build trust and let shoppers follow your updates",
-          "nudge": "Help fans follow you across platforms."
-        },
-        "brandHighlights": {
-          "label": "Brand highlights",
-          "hint": "Make your brand's unique features stand out",
-          "nudge": "Quick selling points at a glance."
-        },
-        "foundingYear": {
-          "label": "Founding year",
-          "hint": "Show your brand's history and experience",
-          "nudge": "Adds heritage and credibility."
-        },
-        "retailLocations": {
-          "label": "Retail locations",
-          "hint": "Help nearby shoppers find your physical store",
-          "nudge": "Help local shoppers find you in person."
-        }
-      }
-    },
     "health": {
       "title": "Brand Health Score",
       "subtitle": "How your brand is performing across 7 dimensions",
@@ -1138,6 +1082,9 @@
         "thriving": "70–89 · Strong presence",
         "exemplary": "90–100 · Best-in-class"
       },
+      "suggestedActions": "Suggested Actions",
+      "pointsToNextTier": "{points} pts to {tier}",
+      "atTopTier": "Best-in-class",
       "actionQueue": {
         "title": "Ready to grow? Here's what moves the needle",
         "label": {
@@ -1150,23 +1097,7 @@
           "clickThroughRate": "Improve your click-through rate"
         }
       },
-      "scoreBreakdown": "Score Breakdown",
-      "coldStart": "Collecting data...",
-      "coldStartHint": "Needs 7 days of data · check back soon",
-      "drillDown": {
-        "title": "Profile Completeness · 9-field checklist"
-      },
-      "editProfile": "Edit Profile",
-      "lastUpdated": "Last updated: {date}",
-      "dimension": {
-        "profileCompleteness": "Profile Completeness",
-        "engagementHealth": "Engagement Health",
-        "brandStory": "Brand Story",
-        "photoQuality": "Photo Quality",
-        "socialPresence": "Social Presence",
-        "purchaseAccessibility": "Purchase Accessibility",
-        "clickThroughRate": "Click-Through Rate"
-      }
+      "lastUpdated": "Last updated: {date}"
     },
     "mit": {
       "title": "MIT Verification",
@@ -1185,7 +1116,8 @@
       "certNotFound": "Certificate number not found in the MIT registry",
       "certExpired": "This MIT certificate has expired",
       "reviewNote": "Reviewer note",
-      "resubmitCta": "Request verification by email"
+      "resubmitCta": "Request verification by email",
+      "dismiss": "Dismiss"
     },
     "errors": {
       "invalidClaim": "The claim link is invalid or has expired. Please contact support.",
@@ -1336,7 +1268,14 @@
       "addCertification": "Add certification",
       "fieldReturnsPolicy": "Returns policy",
       "fieldWarranty": "Warranty",
-      "fieldShipsInternational": "Ships international"
+      "fieldShipsInternational": "Ships international",
+      "fieldCategoryHint": "Used for navigation, search, and filtering",
+      "fieldDescriptionHint": "Public description shown on the brand page",
+      "fieldFoundingYearHint": "Shown on the brand page",
+      "mitStoryHint": "Shown on the brand page if provided",
+      "cityHint": "Your brand will be shown on the map if provided",
+      "fieldPriceRangeHint": "Used for filtering",
+      "unsavedChanges": "Unsaved changes"
     },
     "brandProfile": {
       "customerVoices": "Customer Voices",

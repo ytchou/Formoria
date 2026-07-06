@@ -17,32 +17,25 @@ vi.mock('@/i18n/navigation', () => ({
       {children}
     </a>
   ),
-  usePathname: () => '/dashboard',
+  usePathname: () => '/dashboard/brands/test-brand',
 }))
 
 describe('DashboardTabNav', () => {
-  it('renders 4 tab links with correct hrefs', () => {
+  it('renders 2 tab links with correct hrefs', () => {
     render(
       <NextIntlClientProvider locale="en" messages={en}>
         <DashboardTabNav brandSlug="test-brand" />
       </NextIntlClientProvider>
     )
-    expect(screen.getByRole('link', { name: /Brand Profile/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /Overview/i })).toHaveAttribute(
       'href',
-      '/dashboard?brand=test-brand'
+      '/dashboard/brands/test-brand'
     )
     expect(screen.getByRole('link', { name: /Analytics/i })).toHaveAttribute(
       'href',
-      '/dashboard/analytics?brand=test-brand'
+      '/dashboard/brands/test-brand/analytics'
     )
-    expect(screen.getByRole('link', { name: /Brand Health/i })).toHaveAttribute(
-      'href',
-      '/dashboard/health?brand=test-brand'
-    )
-    expect(screen.getByRole('link', { name: /MIT Verification/i })).toHaveAttribute(
-      'href',
-      '/dashboard/verification?brand=test-brand'
-    )
+    expect(screen.queryAllByRole('link')).toHaveLength(2)
   })
 
   it('marks active tab based on current pathname', () => {
@@ -51,7 +44,7 @@ describe('DashboardTabNav', () => {
         <DashboardTabNav brandSlug="test-brand" />
       </NextIntlClientProvider>
     )
-    const profileLink = screen.getByRole('link', { name: /Brand Profile/i })
-    expect(profileLink.className).toMatch(/border-cta|text-foreground/)
+    const overviewLink = screen.getByRole('link', { name: /Overview/i })
+    expect(overviewLink).toHaveAttribute('aria-current', 'page')
   })
 })
