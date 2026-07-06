@@ -2,7 +2,7 @@ import type { AnalyticsResult } from './brand-analytics'
 import { computeBrandCompleteness } from './brand-completeness'
 import type { Brand } from '@/lib/types/brand'
 
-export type DimensionKey =
+type DimensionKey =
   | 'profileCompleteness'
   | 'engagementHealth'
   | 'brandStory'
@@ -11,14 +11,14 @@ export type DimensionKey =
   | 'purchaseAccessibility'
   | 'clickThroughRate'
 
-export type DimensionScore = {
+type DimensionScore = {
   key: DimensionKey
   score: number
   coldStart: boolean
   weight: number
 }
 
-export type ActionNudge = {
+type ActionNudge = {
   key: DimensionKey
   anchor: string
   icon: string
