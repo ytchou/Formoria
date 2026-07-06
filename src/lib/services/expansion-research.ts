@@ -1,8 +1,7 @@
 import { EXPANSION_SYSTEM_PROMPT } from '@/lib/prompts'
+import { createDeepSeekClient } from '@/lib/services/deepseek-client'
 import type { Certification, Manufacturing, Policies, ReputationSummary } from '@/lib/types/brand'
 
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions'
-const DEEPSEEK_MODEL = 'deepseek-v4-flash'
 const DEEPSEEK_TIMEOUT_MS = 60_000
 
 export type ExpansionResult = {
@@ -134,42 +133,23 @@ export async function runExpansionResearch(input: ExpansionInput): Promise<Expan
     input.siteContent ? `網站內容：\n${input.siteContent}` : '',
   ].filter(Boolean).join('\n\n')
 
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), DEEPSEEK_TIMEOUT_MS)
+  const client = createDeepSeekClient({ apiKey: token })
 
   try {
-    const res = await fetch(DEEPSEEK_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        model: DEEPSEEK_MODEL,
-        messages: [
-          { role: 'system', content: EXPANSION_SYSTEM_PROMPT },
-          { role: 'user', content: userContent },
-        ],
-        max_tokens: 1200,
-        temperature: 0.1,
-        thinking: { type: 'disabled' },
-        response_format: { type: 'json_object' },
-      }),
-      signal: controller.signal,
+    const { response, content } = await client.chat({
+      system: EXPANSION_SYSTEM_PROMPT,
+      user: userContent,
+      json: true,
+      timeoutMs: DEEPSEEK_TIMEOUT_MS,
+      maxTokens: 1200,
+      temperature: 0.1,
     })
 
-    if (!res.ok) return null
+    if (!response.ok) return null
 
-    const data = await res.json() as {
-      choices?: Array<{ message?: { content?: string } }>
-    }
-
-    const content = data.choices?.[0]?.message?.content?.trim()
     if (!content) return null
     return parseExpansionResult(content)
   } catch {
     return null
-  } finally {
-    clearTimeout(timeout)
   }
 }

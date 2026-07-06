@@ -267,20 +267,20 @@ describe('buildLinkEnrichPatch — overwrite-with-validation', () => {
 })
 
 describe('buildTextEnrichPatch (unified)', () => {
-  it('fills description when brand has none', () => {
+  it('does not fill description when brand has none', () => {
     const patch = buildTextEnrichPatch(
       { description: null },
       { description: 'A premium handcrafted leather goods brand from Taiwan' }
     )
-    expect(patch.description).toBe('A premium handcrafted leather goods brand from Taiwan')
+    expect(patch.description).toBeUndefined()
   })
 
-  it('fills description when existing is too short (<20 chars)', () => {
+  it('does not fill description when existing is too short (<20 chars)', () => {
     const patch = buildTextEnrichPatch(
       { description: 'Short desc' },
       { description: 'A premium handcrafted leather goods brand from Taiwan' }
     )
-    expect(patch.description).toBe('A premium handcrafted leather goods brand from Taiwan')
+    expect(patch.description).toBeUndefined()
   })
 
   it('does not overwrite valid existing description', () => {
@@ -299,6 +299,12 @@ describe('buildTextEnrichPatch (unified)', () => {
     expect(patch.description).toBeUndefined()
   })
 
+  it('never writes scraped meta text directly into the description patch', () => {
+    const brand = { description: null }
+    const scraped = { description: '一段超過二十個字元的網頁 meta 描述，品質未知不可直接入庫' }
+    const patch = buildTextEnrichPatch(brand, scraped)
+    expect(patch.description).toBeUndefined()
+  })
 })
 
 describe('buildImageEnrichPatch', () => {

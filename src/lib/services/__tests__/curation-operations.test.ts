@@ -41,9 +41,11 @@ describe('processEnrichBrand', () => {
     expect(result.patches.links?.social_instagram).toBe('https://www.instagram.com/mybrand/')
   })
 
-  it('generates brand description when description phase is enabled', () => {
+  it('does not write scraped description directly into patch (LLM rewrite path only)', () => {
     const result = processEnrichBrand(baseBrand, scrapedData, ['descriptions'])
-    expect(result.patches.descriptions?.description).toBe(scrapedData.description)
+    // Scraped text is junk — description is only populated via the LLM rewrite pipeline,
+    // so buildTextEnrichPatch returns empty and the patch key is absent.
+    expect(result.patches.descriptions).toBeUndefined()
   })
 
   it('omits description when phase is not requested', () => {

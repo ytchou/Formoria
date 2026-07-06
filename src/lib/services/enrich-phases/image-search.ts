@@ -1,5 +1,5 @@
 import type { PhaseResult } from '@/lib/types/curation'
-import { batchSearchBrandImages } from './scraper/search'
+import { batchSearchBrandImages, type BrandImageSearchResult } from './scraper/search'
 import { insertSearchResult } from '../search-results'
 import {
   buildPhaseResult,
@@ -65,10 +65,19 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext, serpResults?: 
     }
   }
 
-  const filteredNames = brandsNeedingImages.map(getDisplayBrandName)
-
   const { result, durationMs } = await timePhase(async () => {
-    const imageSearchResults = await batchSearchBrandImages(filteredNames, 5)
+    const imageSearchRows = await batchSearchBrandImages(
+      brandsNeedingImages.map((brand) => ({
+        brandName: getDisplayBrandName(brand),
+        productType: brand.product_type,
+        purchaseWebsite: brand.purchaseWebsite ?? brand.purchase_website,
+      })),
+      5
+    )
+    const imageSearchResults = new Map<string, string[]>()
+    for (const [brandName, rows] of imageSearchRows.entries()) {
+      imageSearchResults.set(brandName, rows.map((row) => row.url))
+    }
     const totalImages = [...imageSearchResults.values()].reduce((sum, urls) => sum + urls.length, 0)
     ctx.onProgress?.(`  [IMAGES] OK — ${totalImages} images across ${imageSearchResults.size} brands`)
 
@@ -77,9 +86,16 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext, serpResults?: 
       const imageBrandIds: string[] = []
       for (const brand of brandsNeedingImages) {
         const brandName = getDisplayBrandName(brand)
-        const images = imageSearchResults.get(brandName)
-        if (images && images.length > 0) {
-          await insertSearchResult(brand.id, 'image', `${brandName} 台灣`, images, [])
+        const rows = imageSearchRows.get(brandName)
+        if (rows && rows.length > 0) {
+          await insertSearchResult(
+            brand.id,
+            'image',
+            rows.at(0)?.query ?? `${brandName} 台灣`,
+            rows.map((row: BrandImageSearchResult) => row.url),
+            [],
+            rows.map((row: BrandImageSearchResult) => ({ url: row.url, query: row.query }))
+          )
           imageBrandIds.push(brand.id)
         }
       }
