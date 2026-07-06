@@ -1,10 +1,16 @@
 import sharp from 'sharp'
 
 import { createServiceClient } from '@/lib/supabase/server'
+import type { CandidateImageSource } from './enrich-phases/candidate-pool'
 
 const IMAGE_FETCH_TIMEOUT_MS = 10_000
 const MIN_IMAGE_SIZE_BYTES = 5_120
 const MIN_IMAGE_DIMENSION_PX = 400
+
+type DownloadImageCandidate = string | {
+  url: string
+  source: CandidateImageSource
+}
 
 function getExtFromContentType(contentType: string): string {
   const map: Record<string, string> = {
@@ -16,16 +22,36 @@ function getExtFromContentType(contentType: string): string {
   return map[contentType] ?? 'jpg'
 }
 
+function normalizeCandidate(candidate: DownloadImageCandidate): {
+  url: string
+  source: CandidateImageSource
+} {
+  return typeof candidate === 'string'
+    ? { url: candidate, source: 'google_image' }
+    : candidate
+}
+
+function channelToHex(value: number): string {
+  return Math.max(0, Math.min(255, Math.round(value)))
+    .toString(16)
+    .padStart(2, '0')
+}
+
+function dominantColorToHex(dominant: { r: number; g: number; b: number }): string {
+  return `#${channelToHex(dominant.r)}${channelToHex(dominant.g)}${channelToHex(dominant.b)}`
+}
+
 export async function downloadAndStoreImages(
-  urls: string[],
+  candidates: DownloadImageCandidate[],
   brandId: string
 ): Promise<(string | null)[]> {
-  if (urls.length === 0) return []
+  if (candidates.length === 0) return []
 
   const supabase = createServiceClient()
 
   const results = await Promise.allSettled(
-    urls.map(async (url) => {
+    candidates.map(async (candidate) => {
+      const { url, source } = normalizeCandidate(candidate)
       const controller = new AbortController()
       const timeoutId = setTimeout(
         () => controller.abort(),
@@ -46,7 +72,11 @@ export async function downloadAndStoreImages(
         }
 
         const buffer = Buffer.from(await blob.arrayBuffer())
-        const { width, height } = await sharp(buffer).metadata()
+        const image = sharp(buffer)
+        const [{ width, height }, stats] = await Promise.all([
+          image.metadata(),
+          sharp(buffer).stats(),
+        ])
         if (
           !width ||
           !height ||
@@ -61,6 +91,7 @@ export async function downloadAndStoreImages(
           response.headers.get('content-type') ?? 'image/jpeg'
         const ext = getExtFromContentType(contentType)
         const filename = `brands/${brandId}/${crypto.randomUUID()}.${ext}`
+        const dominantColor = dominantColorToHex(stats.dominant)
 
         const { error: uploadError } = await supabase.storage
           .from('brand-images')
@@ -73,6 +104,24 @@ export async function downloadAndStoreImages(
         const {
           data: { publicUrl },
         } = supabase.storage.from('brand-images').getPublicUrl(filename)
+
+        const { error: insertError } = await supabase
+          .from('brand_images')
+          .upsert({
+            brand_id: brandId,
+            url: publicUrl,
+            source,
+            source_url: url,
+            storage_path: filename,
+            status: 'active',
+            width,
+            height,
+            dominant_color: dominantColor,
+          } as never, { onConflict: 'brand_id,source_url' })
+
+        if (insertError) {
+          throw insertError
+        }
 
         return publicUrl
       } catch (err) {

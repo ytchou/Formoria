@@ -15,6 +15,12 @@ import {
   type BrandWriteActor,
   type SkippedBrandField,
 } from './brand-write-policy'
+import {
+  getBrandImages,
+  insertBrandImage,
+  syncHeroDenormalized,
+  toImageFields,
+} from './brand-images'
 
 function shuffleArray<T>(arr: T[]): void {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -602,6 +608,16 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
   return brand
 }
 
+async function brandToDomainWithImages(
+  supabase: unknown,
+  row: BrandRowWithJoins
+): Promise<Brand> {
+  const brand = brandToDomain(row)
+  const images = await getBrandImages(supabase, brand.id)
+  if (images.length === 0) return brand
+  return { ...brand, ...toImageFields(images) }
+}
+
 export function brandToInsert(data: BrandWriteInput): Record<string, unknown> {
   const row = baseToBrandRow(data)
   if (data.reputationSummary !== undefined) {
@@ -916,7 +932,7 @@ export async function getBrandBySlug(slug: string): Promise<Brand> {
     .maybeSingle()
 
   if (error || !data) throw new NotFoundError('Brand', slug, { cause: error })
-  return brandToDomain(data)
+  return brandToDomainWithImages(supabase, data)
 }
 
 /**
@@ -1148,7 +1164,7 @@ export async function getBrandById(id: string): Promise<Brand> {
     .single()
 
   if (error || !data) throw new NotFoundError('Brand', id, { cause: error })
-  return brandToDomain(data)
+  return brandToDomainWithImages(supabase, data)
 }
 
 function isSupabaseStorageUrl(url: string): boolean {
@@ -1217,6 +1233,7 @@ export function buildSyncedImagePatch(
 }
 
 export async function syncBrandImages(brandId: string): Promise<{ synced: number; failed: number }> {
+  const supabase = createServiceClient()
   const brand = await getBrandById(brandId)
 
   const syncableUrls = collectSyncableImageUrls({
@@ -1242,9 +1259,24 @@ export async function syncBrandImages(brandId: string): Promise<{ synced: number
 
   const externalUrls = refs.map((r) => r.url)
   const storedUrls = await downloadAndStoreImages(externalUrls, brandId)
+  for (let i = 0; i < refs.length; i++) {
+    const storedUrl = storedUrls.at(i)
+    if (storedUrl == null) continue
 
-  const patch = buildSyncedImagePatch(refs, storedUrls, brand.productPhotos)
-  await updateBrand(brandId, patch)
+    const ref = refs.at(i)
+    if (!ref) continue
+
+    await insertBrandImage(supabase, {
+      brand_id: brandId,
+      url: storedUrl,
+      source_url: ref.url,
+      source: 'admin',
+      sort_order: ref.field === 'hero' ? 0 : (ref.index ?? i) + 1,
+      tags: ref.field === 'hero' ? ['product'] : ['lifestyle'],
+    })
+  }
+
+  await syncHeroDenormalized(supabase, brandId)
 
   const failed = storedUrls.filter((u) => u == null).length
   return { synced: storedUrls.length - failed, failed }

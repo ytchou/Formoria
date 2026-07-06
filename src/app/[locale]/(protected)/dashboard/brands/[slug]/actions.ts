@@ -6,6 +6,7 @@ import { getTranslations } from 'next-intl/server'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
 import { createPendingEdit } from '@/lib/services/pending-edits'
 import { scanContent, shouldAutoApprove, saveModerationFlags } from '@/lib/services/moderation'
+import { insertBrandImage, syncHeroDenormalized } from '@/lib/services/brand-images'
 import {
   diffRemovedImageUrls,
   discardDraft,
@@ -13,7 +14,8 @@ import {
   publishDraft,
   updateBrand,
 } from '@/lib/services/brands'
-import { deleteBrandImages } from '@/lib/services/image-upload'
+import { createServiceClient } from '@/lib/supabase/server'
+import { deleteBrandImages, storageKeyFromPublicUrl } from '@/lib/services/image-upload'
 import { logAdminActionIfAdmin } from '@/lib/services/admin-audit'
 import {
   isOnboardingStepKey,
@@ -88,15 +90,42 @@ async function saveModerationFlagsQuietly(
   }
 }
 
+async function syncOwnerUploadedImages(
+  brandId: string,
+  previousImageUrls: string[],
+  nextImageUrls: string[]
+): Promise<void> {
+  const newImageUrls = nextImageUrls.filter((url) => !previousImageUrls.includes(url))
+  if (newImageUrls.length === 0) return
+
+  const supabase = createServiceClient()
+  for (const url of newImageUrls) {
+    await insertBrandImage(supabase, {
+      brand_id: brandId,
+      url,
+      source: 'owner',
+      source_url: url,
+      storage_path: storageKeyFromPublicUrl(url),
+      sort_order: nextImageUrls.indexOf(url),
+    })
+  }
+  await syncHeroDenormalized(supabase, brandId)
+}
+
 async function applyBrandUpdate(
   brand: Brand,
-  updateData: Partial<Brand>
+  updateData: Partial<Brand>,
+  options: { syncOwnerImages?: boolean } = {}
 ): Promise<void> {
   const previousImageUrls = imageUrlsFromBrand(brand)
   const nextImageUrls = imageUrlsFromBrand({ ...brand, ...updateData })
   const orphans = diffRemovedImageUrls(previousImageUrls, nextImageUrls)
 
   const updatedBrand = await updateBrand(brand.id, updateData)
+
+  if (options.syncOwnerImages) {
+    await syncOwnerUploadedImages(brand.id, previousImageUrls, nextImageUrls)
+  }
 
   await deleteBrandImages(orphans)
 
@@ -147,7 +176,7 @@ export async function updateBrandAction(
         : false
 
       if (autoApprove) {
-        await applyBrandUpdate(brand, updateData)
+        await applyBrandUpdate(brand, updateData, { syncOwnerImages: owner })
         await completeOnboardingAfterOwnerSubmit(formData, brand.id, user.id, owner)
       } else {
         await createPendingEdit(brand.id, user.id, updateData as Record<string, unknown>)
@@ -157,7 +186,7 @@ export async function updateBrandAction(
       }
     }
 
-    await applyBrandUpdate(brand, updateData)
+    await applyBrandUpdate(brand, updateData, { syncOwnerImages: owner })
     await completeOnboardingAfterOwnerSubmit(formData, brand.id, user.id, owner)
     await logAdminActionIfAdmin(actingAdmin, { id: user.id, email: user.email ?? null }, 'brand_edit', brandSlug, brand.id)
   } catch (err) {
@@ -195,7 +224,7 @@ export async function publishDraftAction(
       }
       return { error: `Brand not found: ${brandSlug}` }
     }
-    const { user, brand, actingAdmin, configuredAdmin } = editor
+    const { user, brand, owner, actingAdmin, configuredAdmin } = editor
 
     const snapshot = await getBrandDraft(brand.id)
     if (!snapshot) {
@@ -226,6 +255,9 @@ export async function publishDraftAction(
         })
         const orphans = diffRemovedImageUrls(imageUrlsFromBrand(brand), nextImageUrls)
         await publishDraft(brand.id)
+        if (owner) {
+          await syncOwnerUploadedImages(brand.id, imageUrlsFromBrand(brand), nextImageUrls)
+        }
         await deleteBrandImages(orphans)
 
         revalidatePath('/[locale]/brands/[slug]', 'page')
@@ -250,6 +282,9 @@ export async function publishDraftAction(
     })
     const orphans = diffRemovedImageUrls(imageUrlsFromBrand(brand), nextImageUrls)
     await publishDraft(brand.id)
+    if (owner) {
+      await syncOwnerUploadedImages(brand.id, imageUrlsFromBrand(brand), nextImageUrls)
+    }
     await deleteBrandImages(orphans)
     await logAdminActionIfAdmin(actingAdmin, { id: user.id, email: user.email ?? null }, 'draft_publish', brandSlug, brand.id)
 

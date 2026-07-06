@@ -19,6 +19,7 @@ type LinksPhaseOutput = {
   phaseResult: PhaseResult
   patch: Record<string, unknown>
   scrapedData: EnrichScrapedData | null
+  scrapedImageUrls: string[]
 }
 
 function uniqueUrls(urls: string[]): string[] {
@@ -65,6 +66,7 @@ export async function runLinksPhase({
       phaseResult: buildPhaseResult('links', 'skipped', [], 0, undefined, 'links phase not requested'),
       patch: {},
       scrapedData: null,
+      scrapedImageUrls: [],
     }
   }
 
@@ -82,7 +84,11 @@ export async function runLinksPhase({
     })
     const patch = buildLinkEnrichPatch(brand, scrapedData)
 
-    return { patch, scrapedData }
+    return {
+      patch,
+      scrapedData,
+      scrapedImageUrls: scrapedData.galleryImageUrls ?? [],
+    }
   })
 
   const changedFields = Object.keys(result.patch)
@@ -92,5 +98,6 @@ export async function runLinksPhase({
     phaseResult: buildPhaseResult('links', status, changedFields, durationMs),
     patch: result.patch,
     scrapedData: result.scrapedData,
+    scrapedImageUrls: result.scrapedImageUrls,
   }
 }

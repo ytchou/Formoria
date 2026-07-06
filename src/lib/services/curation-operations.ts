@@ -29,6 +29,7 @@ import {
   runDescriptionsPhase,
   runDiscoverPhase,
   runExpansionPhase,
+  runClassifyImagesPhase,
   runImageSearchPhase,
   runLinksPhase,
   runStandaloneClassification,
@@ -37,6 +38,7 @@ import {
   type SearchPhaseResult,
   hasPatchValues,
 } from './enrich-phases'
+import { buildCandidatePool } from './enrich-phases/candidate-pool'
 import {
   formatBrandComplete,
   formatJobStart,
@@ -864,16 +866,29 @@ export async function runEnrich(
         state.scrapedData = linksResult.scrapedData ?? {}
         appendPatch(state, linksResult.patch)
 
+        const candidateImages = buildCandidatePool({
+          scraped: linksResult.scrapedImageUrls,
+          googleImages: imageSearchUrls,
+        })
         const brandImageResult = await runBrandImagePhase({
           brand,
           phases,
           imageSearchUrls,
+          candidateImages,
           dryRun: config.dryRun,
           imageStorageId: brand.id,
         })
         state.phaseResults.push(brandImageResult.phaseResult)
         logCurrentPhase(brandImageResult.phaseResult)
         appendPatch(state, brandImageResult.patch)
+
+        const classifyImagesResult = await runClassifyImagesPhase({
+          brand,
+          phases,
+          dryRun: config.dryRun || target !== 'brands',
+        })
+        state.phaseResults.push(classifyImagesResult.phaseResult)
+        logCurrentPhase(classifyImagesResult.phaseResult)
 
         const descriptionsResult = await runDescriptionsPhase({
           brand,
