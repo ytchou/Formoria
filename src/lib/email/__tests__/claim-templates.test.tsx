@@ -49,7 +49,7 @@ describe('buildClaimApprovedEmail', () => {
     expect(email.html).toContain('Formoria')
   })
 
-  it('includes the share-card image, download CTA, and badge deep link (zh-TW)', async () => {
+  it('includes the share-card image and download CTA (zh-TW)', async () => {
     const email = await buildClaimApprovedEmail({
       ownerEmail: 'owner@example.com',
       brandName: '鮮乳坊',
@@ -59,8 +59,7 @@ describe('buildClaimApprovedEmail', () => {
     const html = email.html
     expect(html).toContain('https://formoria.com/api/share-card/yu-cha-ye')
     expect(html).toContain('https://formoria.com/api/share-card/yu-cha-ye?download=1')
-    expect(html).toContain('https://formoria.com/dashboard?brand=yu-cha-ye#badge')
-    expect(html).not.toContain('?tab=')
+    expect(html).not.toContain('#badge')
   })
 
   it('escapes the brand name in the new copy', async () => {
@@ -73,7 +72,7 @@ describe('buildClaimApprovedEmail', () => {
     expect(email.html).not.toContain('<script>alert(1)</script>')
   })
 
-  it('includes the share-card image, download CTA, and badge deep link (en)', async () => {
+  it('includes the share-card image and download CTA (en)', async () => {
     const email = await buildClaimApprovedEmail({
       ownerEmail: 'owner@example.com',
       brandName: 'Test Brand',
@@ -84,8 +83,7 @@ describe('buildClaimApprovedEmail', () => {
     const html = email.html
     expect(html).toContain('https://formoria.com/api/share-card/yu-cha-ye')
     expect(html).toContain('https://formoria.com/api/share-card/yu-cha-ye?download=1')
-    expect(html).toContain('https://formoria.com/dashboard?brand=yu-cha-ye#badge')
-    expect(html).not.toContain('?tab=')
+    expect(html).not.toContain('#badge')
   })
 })
 

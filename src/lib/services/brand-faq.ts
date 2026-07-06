@@ -27,45 +27,54 @@ function truncate<T>(items: T[], limit = 3): T[] {
   return items.slice(0, limit)
 }
 
-function collectPurchaseChannels(brand: Brand): string[] {
-  const channels: string[] = []
+function collectPurchaseLinks(brand: Brand, t: TFn): string[] {
+  const links: string[] = []
 
-  if (hasValue(brand.purchaseWebsite)) channels.push('website')
-  if (hasValue(brand.purchasePinkoi)) channels.push('Pinkoi')
-  if (hasValue(brand.purchaseShopee)) channels.push('Shopee')
+  if (hasValue(brand.purchaseWebsite))
+    links.push(`[${t('brandFaq.channels.website')}](${brand.purchaseWebsite})`)
+  if (hasValue(brand.purchasePinkoi))
+    links.push(`[${t('brandFaq.channels.pinkoi')}](${brand.purchasePinkoi})`)
+  if (hasValue(brand.purchaseShopee))
+    links.push(`[${t('brandFaq.channels.shopee')}](${brand.purchaseShopee})`)
 
-  return channels
+  return links
 }
 
 function collectRetailLocations(brand: Brand): string[] {
   return truncate((brand.retailLocations ?? []).map((location) => location.name).filter(Boolean))
 }
 
-function collectSocialAccounts(brand: Brand): string[] {
-  const accounts: string[] = []
+function collectSocialLinks(brand: Brand): string[] {
+  const links: string[] = []
 
-  if (hasValue(brand.socialInstagram)) accounts.push('Instagram')
-  if (hasValue(brand.socialThreads)) accounts.push('Threads')
-  if (hasValue(brand.socialFacebook)) accounts.push('Facebook')
+  if (hasValue(brand.socialInstagram))
+    links.push(`[Instagram](${brand.socialInstagram})`)
+  if (hasValue(brand.socialThreads))
+    links.push(`[Threads](${brand.socialThreads})`)
+  if (hasValue(brand.socialFacebook))
+    links.push(`[Facebook](${brand.socialFacebook})`)
 
-  return accounts
+  return links
 }
 
 function buildWhereToBuyAnswer(brand: Brand, t: TFn): string {
-  const channels = collectPurchaseChannels(brand)
-  return t('brandFaq.whereToBuy.answer', { brandName: brand.name, channels: truncate(channels).join(', ') })
+  const links = collectPurchaseLinks(brand, t)
+  const sep = t('brandFaq.listSeparator')
+  return t('brandFaq.whereToBuy.answer', { brandName: brand.name, channels: truncate(links).join(sep) })
 }
 
 function buildPhysicalStoresAnswer(brand: Brand, t: TFn): string {
+  const sep = t('brandFaq.listSeparator')
   return t('brandFaq.hasPhysicalStores.answer', {
     brandName: brand.name,
-    locations: collectRetailLocations(brand).join(', '),
+    locations: collectRetailLocations(brand).join(sep),
   })
 }
 
 function buildMainProductsAnswer(brand: Brand, t: TFn): string {
   const category = brand.category
-  const productTags = truncate(brand.productTags ?? []).join(', ')
+  const sep = t('brandFaq.listSeparator')
+  const productTags = truncate(brand.productTags ?? []).join(sep)
 
   if (category && productTags) {
     return t('brandFaq.mainProducts.answerWithCategoryAndTags', {
@@ -104,9 +113,10 @@ function buildFoundedAnswer(brand: Brand, t: TFn): string {
 }
 
 function buildOfficialAccountsAnswer(brand: Brand, t: TFn): string {
+  const sep = t('brandFaq.listSeparator')
   return t('brandFaq.officialAccounts.answer', {
     brandName: brand.name,
-    accounts: collectSocialAccounts(brand).join(', '),
+    accounts: collectSocialLinks(brand).join(sep),
   })
 }
 
@@ -122,14 +132,14 @@ function buildManufacturingAnswer(brand: Brand, t: TFn): string {
 
   return t('brandFaq.manufacturing.answer', {
     brandName: brand.name,
-    details: [manufacturing?.factoryLocation, manufacturing?.productionModel].filter(Boolean).join(', '),
+    details: [manufacturing?.factoryLocation, manufacturing?.productionModel].filter(Boolean).join(t('brandFaq.listSeparator')),
   })
 }
 
 function buildCertificationsAnswer(brand: Brand, t: TFn): string {
   return t('brandFaq.certifications.answer', {
     brandName: brand.name,
-    certList: truncate((brand.certifications ?? []).map((cert) => cert.name)).join(', '),
+    certList: truncate((brand.certifications ?? []).map((cert) => cert.name)).join(t('brandFaq.listSeparator')),
   })
 }
 
@@ -144,14 +154,11 @@ function buildReturnPolicyAnswer(brand: Brand, t: TFn): string {
 
 function buildInternationalShippingAnswer(brand: Brand, t: TFn): string {
   const shipsInternational = brand.policies?.shipsInternational
+  const detailKey = shipsInternational === true
+    ? 'brandFaq.internationalShipping.yes'
+    : 'brandFaq.internationalShipping.no'
 
-  return t('brandFaq.internationalShipping.answer', {
-    brandName: brand.name,
-    details:
-      shipsInternational === true
-        ? 'Yes, this brand ships internationally.'
-        : 'No, this brand does not ship internationally.',
-  })
+  return t(detailKey, { brandName: brand.name })
 }
 
 const FAQ_GENERATORS: FaqGenerator[] = [
@@ -231,33 +238,4 @@ export function buildBrandFaq(brand: Brand, t: TFn): FaqItem[] {
     question: t(generator.questionKey, { brandName: brand.name }),
     answer: generator.buildAnswer(brand, t),
   }))
-}
-
-export function buildBrandIntro(brand: Brand, t: TFn): string {
-  const parts: string[] = []
-
-  if (brand.category) {
-    parts.push(t('brandIntro.identity', { brandName: brand.name, category: brand.category }))
-  } else {
-    parts.push(t('brandIntro.identityNoCat', { brandName: brand.name }))
-  }
-
-  if (brand.foundingYear) {
-    parts.push(t('brandIntro.founded', { year: brand.foundingYear }))
-  }
-
-  if (brand.mitStatus === 'verified') {
-    parts.push(t('brandIntro.mitVerified'))
-  }
-
-  if ([1, 2, 3].includes(brand.priceRange ?? 0)) {
-    const rangeKey = PRICE_RANGE_KEYS[brand.priceRange as 1 | 2 | 3]
-    parts.push(t('brandIntro.price', { range: t(rangeKey) }))
-  }
-
-  if ([brand.purchaseWebsite, brand.purchasePinkoi, brand.purchaseShopee].some(hasValue)) {
-    parts.push(t('brandIntro.purchase', { channels: truncate(collectPurchaseChannels(brand)).join(', ') }))
-  }
-
-  return parts.join(' ')
 }

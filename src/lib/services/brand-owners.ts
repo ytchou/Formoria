@@ -47,6 +47,28 @@ export const getUserBrands = cache(async (userId: string): Promise<OwnedBrand[]>
   }))
 })
 
+export const getUserBrand = cache(async (userId: string): Promise<OwnedBrand | null> => {
+  const [brand] = await getUserBrands(userId)
+  return brand ?? null
+})
+
+export async function getUserBrandByEmail(email: string): Promise<OwnedBrand | null> {
+  const supabase = createServiceClient()
+  const normalizedEmail = email.trim().toLowerCase()
+  const perPage = 1000
+
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage })
+    if (error) throw error
+
+    const user = data.users.find((candidate) => candidate.email?.toLowerCase() === normalizedEmail)
+    if (user) return getUserBrand(user.id)
+    if (data.users.length < perPage) return null
+  }
+
+  return null
+}
+
 export async function isOwnerOf(
   userId: string,
   brandId: string

@@ -7,6 +7,7 @@ const {
   mockSubmitBrandForReview,
   mockVerifyTurnstileToken,
   mockRateLimiterCheck,
+  mockGetUserBrand,
 } = vi.hoisted(() => {
   const mockRateLimiterCheck = vi.fn().mockReturnValue({ allowed: true })
   return {
@@ -14,6 +15,7 @@ const {
     mockSubmitBrandForReview: vi.fn(),
     mockVerifyTurnstileToken: vi.fn(),
     mockRateLimiterCheck,
+    mockGetUserBrand: vi.fn(),
   }
 })
 
@@ -45,6 +47,10 @@ vi.mock('@/lib/supabase/server', () => ({
 
 vi.mock('@/lib/services/submission-pipeline', () => ({
   submitBrandForReview: mockSubmitBrandForReview,
+}))
+
+vi.mock('@/lib/services/brand-owners', () => ({
+  getUserBrand: mockGetUserBrand,
 }))
 
 vi.mock('@/lib/security/turnstile', () => ({
@@ -89,6 +95,7 @@ describe('server action schema routing', () => {
       error: null,
     })
     mockVerifyTurnstileToken.mockResolvedValue({ success: true })
+    mockGetUserBrand.mockResolvedValue(null)
     mockSubmitBrandForReview.mockResolvedValue({
       brand: { id: 'brand-123' },
       submissionId: 'submission-123',
@@ -138,6 +145,27 @@ describe('server action schema routing', () => {
     })
 
     expect(mockSubmitBrandForReview).toHaveBeenCalledTimes(1)
+  })
+
+  it('downgrades an additional owner submission to a community listing', async () => {
+    mockGetUserBrand.mockResolvedValue({ brandId: 'owned-brand' })
+
+    const result = await submitBrand({
+      name: 'Second Brand',
+      website: 'https://second.test',
+      isOwner: true,
+      mitSmileCert: '',
+      purchaseLinks: [{ platform: 'shopify', url: 'https://shop.test' }],
+      pdpaConsent: true,
+      socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://second.test' },
+      turnstileToken: 'test-token',
+      honeypot: '',
+    })
+
+    expect(result).toEqual({ ownershipAdjusted: true })
+    expect(mockSubmitBrandForReview).toHaveBeenCalledWith(
+      expect.objectContaining({ isBrandOwner: false }),
+    )
   })
 
   it('does not pass region to submitBrandForReview', async () => {

@@ -15,6 +15,7 @@ export const resolveDashboardBrand = cache(async (
   requestedSlug?: string
 ): Promise<DashboardBrandContext | null> => {
   if (!userId) return null
+  void requestedSlug
 
   const ownedBrands = await getUserBrands(userId)
 
@@ -25,13 +26,10 @@ export const resolveDashboardBrand = cache(async (
   const activeImpersonatedSlug = hasValidImpersonation
     ? impersonatedSlug
     : null
-  const requestedOwnedBrand = requestedSlug
-    ? ownedBrands.find((brand) => brand.brandSlug === requestedSlug)
-    : undefined
   const impersonatedOwnedBrand = activeImpersonatedSlug
     ? ownedBrands.find((brand) => brand.brandSlug === activeImpersonatedSlug)
     : undefined
-  const effectiveSlug = activeImpersonatedSlug ?? requestedOwnedBrand?.brandSlug
+  const effectiveSlug = activeImpersonatedSlug
 
   let allBrands = [...ownedBrands]
   const isImpersonating = activeImpersonatedSlug !== null

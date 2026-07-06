@@ -27,7 +27,6 @@ import {
   trackGalleryPhotoView,
   trackSessionStart,
   trackBrandPageShared,
-  trackListingSharedByOwner,
   trackSignUp,
   trackLogin,
   trackViewItemList,
@@ -323,14 +322,6 @@ describe('analytics', () => {
     expect(() => trackBrandPageShared('my-brand')).not.toThrow()
   })
 
-  it('records a GA4 event when the owner copies the badge embed', () => {
-    trackListingSharedByOwner('yu-cha-ye', 'badge_copied')
-    expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'listing_shared_by_owner', {
-      brand_slug: 'yu-cha-ye',
-      method: 'badge_copied',
-    })
-  })
-
   it('trackFilterSearch sends filter_search event', () => {
     trackFilterSearch(5)
     expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'filter_search', {
@@ -437,24 +428,6 @@ describe('trackViewItemList', () => {
     expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'view_item_list', {
       item_list_name: 'category:food',
       item_count: 5,
-    })
-  })
-})
-
-describe('Owner listing share events', () => {
-  it('records a GA4 event when the owner copies the badge embed', () => {
-    trackListingSharedByOwner('yu-cha-ye', 'badge_copied')
-    expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'listing_shared_by_owner', {
-      brand_slug: 'yu-cha-ye',
-      method: 'badge_copied',
-    })
-  })
-
-  it('records a GA4 event when the owner downloads the share card', () => {
-    trackListingSharedByOwner('yu-cha-ye', 'card_downloaded')
-    expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'listing_shared_by_owner', {
-      brand_slug: 'yu-cha-ye',
-      method: 'card_downloaded',
     })
   })
 })

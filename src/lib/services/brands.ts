@@ -1163,6 +1163,17 @@ export async function completeBrandClaim({
 }): Promise<void> {
   const supabase = createServiceClient()
 
+  const { data: existingOwnership, error: ownershipError } = await supabase
+    .from('brand_owners')
+    .select('brand_id')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (ownershipError) throw ownershipError
+  if (existingOwnership) {
+    throw new ValidationError('This account already manages a brand')
+  }
+
   const { error: insertError } = await supabase
     .from('brand_owners')
     .insert({ user_id: userId, brand_id: brandId })
@@ -1171,7 +1182,7 @@ export async function completeBrandClaim({
 
   if (insertError) {
     if (insertError.code === '23505') {
-      throw new ValidationError('This brand has already been claimed', { cause: insertError })
+      throw new ValidationError('This account already manages a brand', { cause: insertError })
     }
     throw insertError
   }

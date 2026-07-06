@@ -22,10 +22,12 @@ import {
 
 type SubmitFormProps = {
   source?: 'header_cta' | 'hero_cta' | 'footer_link'
+  hasOwnedBrand?: boolean
 }
 
 export default function SubmitForm({
   source = 'hero_cta',
+  hasOwnedBrand = false,
 }: SubmitFormProps) {
   const t = useTranslations('submit')
   const tForm = useTranslations('submit.form')
@@ -164,7 +166,9 @@ export default function SubmitForm({
       if (result?.error) {
         setSubmitError(result.error)
       } else {
-        router.push('/submit/confirmation')
+        router.push(result?.ownershipAdjusted
+          ? '/submit/confirmation?ownership=community'
+          : '/submit/confirmation')
         const mountTime = mountTimeRef.current
         if (mountTime !== null) {
           const elapsed = Math.round((Date.now() - mountTime) / 1000)
@@ -498,20 +502,23 @@ export default function SubmitForm({
                     id="submit-is-owner"
                     type="checkbox"
                     checked={field.value ?? false}
+                    disabled={hasOwnedBrand}
                     onChange={(e) => {
                       field.onChange(e.target.checked)
                     }}
-                    className="mt-0.5 h-[18px] w-[18px] shrink-0 cursor-pointer rounded border-border accent-primary"
+                    className="mt-0.5 h-[18px] w-[18px] shrink-0 cursor-pointer rounded border-border accent-primary disabled:cursor-not-allowed disabled:opacity-50"
                   />
                   <div>
                     <label
                       htmlFor="submit-is-owner"
-                      className="cursor-pointer text-sm font-semibold text-foreground"
+                      className={hasOwnedBrand
+                        ? 'cursor-not-allowed text-sm font-semibold text-muted-foreground'
+                        : 'cursor-pointer text-sm font-semibold text-foreground'}
                     >
                       {tForm('isOwnerLabel')}
                     </label>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      {tForm('isOwnerHint')}
+                      {hasOwnedBrand ? tForm('ownerLimitHint') : tForm('isOwnerHint')}
                     </p>
                   </div>
                 </div>

@@ -81,6 +81,23 @@ describe('ClaimRequestsList', () => {
     expect(approveClaimAction).toHaveBeenCalledWith(FAKE_PENDING_CLAIM.id)
   })
 
+  it('flags an existing owner and disables approval', async () => {
+    const user = userEvent.setup()
+    renderList([{
+      existingOwnedBrand: {
+        brandId: 'owned-1',
+        brandName: 'Existing Brand',
+        brandSlug: 'existing-brand',
+      },
+    }])
+
+    await user.click(screen.getByText('Sun Room Studio'))
+
+    expect(screen.getByText('已擁有品牌')).toBeInTheDocument()
+    expect(screen.getByText('Existing Brand')).toHaveAttribute('href', '/brands/existing-brand')
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled()
+  })
+
   it('requires notes before confirming rejection', async () => {
     const user = userEvent.setup()
 

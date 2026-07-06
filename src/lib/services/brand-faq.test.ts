@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Brand } from '@/lib/types'
-import { buildBrandFaq, buildBrandIntro } from '@/lib/services/brand-faq'
+import { buildBrandFaq } from '@/lib/services/brand-faq'
 
 function makeFaqBrand(overrides: Partial<Brand> = {}): Brand {
   return {
@@ -298,8 +298,7 @@ describe('buildBrandFaq', () => {
 
     const [item] = faq
     expect(item?.question).toContain('brandFaq.internationalShipping.question')
-    expect(item?.answer).toContain('brandFaq.internationalShipping.answer')
-    expect(item?.answer).toContain('internationally')
+    expect(item?.answer).toContain('brandFaq.internationalShipping.yes')
   })
 
   it('omits internationalShipping when policies is null', () => {
@@ -409,39 +408,5 @@ describe('buildBrandFaq', () => {
     expect(item?.answer).toContain('Store C')
     expect(item?.answer).not.toContain('Store D')
     expect(item?.answer).not.toContain('Store E')
-  })
-})
-
-describe('buildBrandIntro', () => {
-  it('returns a non-empty string for a minimal brand', () => {
-    expect(buildBrandIntro(makeFaqBrand(), mockT)).toBeTruthy()
-  })
-
-  it('always includes the identity sentence, with category when present', () => {
-    expect(buildBrandIntro(makeFaqBrand(), mockT)).toContain('brandIntro.identityNoCat|{"brandName":"Test Brand"}')
-    expect(buildBrandIntro(makeFaqBrand({ category: 'Food' }), mockT)).toContain(
-      'brandIntro.identity|{"brandName":"Test Brand","category":"Food"}',
-    )
-  })
-
-  it('includes founded when foundingYear exists', () => {
-    expect(buildBrandIntro(makeFaqBrand({ foundingYear: 2010 }), mockT)).toContain('brandIntro.founded|{"year":2010}')
-  })
-
-  it('includes mitVerified only for verified brands', () => {
-    expect(buildBrandIntro(makeFaqBrand({ mitStatus: 'verified' }), mockT)).toContain('brandIntro.mitVerified|{}')
-    expect(buildBrandIntro(makeFaqBrand({ mitStatus: 'unverified' }), mockT)).not.toContain('brandIntro.mitVerified|{}')
-  })
-
-  it('includes price when priceRange is valid', () => {
-    expect(buildBrandIntro(makeFaqBrand({ priceRange: 1 }), mockT)).toContain('brandIntro.price|{"range":"brandFaq.priceRanges.budget|{}"}')
-    expect(buildBrandIntro(makeFaqBrand({ priceRange: 2 }), mockT)).toContain('brandIntro.price|{"range":"brandFaq.priceRanges.midRange|{}"}')
-    expect(buildBrandIntro(makeFaqBrand({ priceRange: 3 }), mockT)).toContain('brandIntro.price|{"range":"brandFaq.priceRanges.premium|{}"}')
-  })
-
-  it('includes purchase when any purchase link exists', () => {
-    expect(buildBrandIntro(makeFaqBrand({ purchasePinkoi: 'https://pinkoi.com/test' }), mockT)).toContain(
-      'brandIntro.purchase|{"channels":"',
-    )
   })
 })

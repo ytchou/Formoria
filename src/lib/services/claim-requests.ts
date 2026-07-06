@@ -125,6 +125,11 @@ export type ClaimRequest = {
   brandName: string | null
   brandSlug: string | null
   requesterEmail: string | null
+  existingOwnedBrand?: {
+    brandId: string
+    brandName: string
+    brandSlug: string
+  } | null
 }
 
 export type ClaimRequestWithSignedProofs = Omit<ClaimRequest, 'proofEvidence'> & {
@@ -163,6 +168,7 @@ function rowToClaimRequest(row: ClaimRequestRowWithJoins): ClaimRequest {
     brandName: row.brands?.name ?? null,
     brandSlug: row.brands?.slug ?? null,
     requesterEmail: row.requester_email ?? null,
+    existingOwnedBrand: null,
   }
 }
 
@@ -308,11 +314,33 @@ async function attachRequesterEmails(rows: ClaimRequestRowWithJoins[]): Promise<
     })
   )
 
+  const { data: ownershipRows, error: ownershipError } = userIds.length > 0
+    ? await supabase
+        .from('brand_owners')
+        .select('user_id, brand_id, brands(name, slug)')
+        .in('user_id', userIds)
+    : { data: [], error: null }
+
+  if (ownershipError) throw ownershipError
+
+  const ownedBrandByUserId = new Map(
+    (ownershipRows ?? []).map((row) => {
+      const brand = row.brands as unknown as { name: string; slug: string }
+      return [row.user_id, {
+        brandId: row.brand_id,
+        brandName: brand.name,
+        brandSlug: brand.slug,
+      }] as const
+    })
+  )
   const emailByUserId = new Map<string, string | null>(emailEntries)
   return rows.map((row) =>
-    rowToClaimRequest({
-      ...row,
-      requester_email: emailByUserId.get(row.user_id) ?? null,
+    ({
+      ...rowToClaimRequest({
+        ...row,
+        requester_email: emailByUserId.get(row.user_id) ?? null,
+      }),
+      existingOwnedBrand: ownedBrandByUserId.get(row.user_id) ?? null,
     })
   )
 }
@@ -391,6 +419,17 @@ export async function createClaimRequest(input: {
   if (existingOwnerError) throw existingOwnerError
   if (brand.status !== 'approved' || existingOwner) {
     throw new ValidationError('This brand is not available to claim')
+  }
+
+  const { data: existingUserOwnership, error: existingUserOwnershipError } = await supabase
+    .from('brand_owners')
+    .select('brand_id')
+    .eq('user_id', input.userId)
+    .maybeSingle()
+
+  if (existingUserOwnershipError) throw existingUserOwnershipError
+  if (existingUserOwnership) {
+    throw new ValidationError('This account already manages a brand')
   }
 
   const { data: existingPendingClaim, error: existingPendingClaimError } = await claimRequestsTable(
@@ -587,6 +626,10 @@ export async function approveClaimRequest(id: string, reviewerId: string): Promi
 
   if (!error) {
     return
+  }
+
+  if (error.message.includes('already manages a brand')) {
+    throw new ValidationError('This account already manages a brand', { cause: error })
   }
 
   if (error.code === '23505' || error.message.includes('already been claimed')) {

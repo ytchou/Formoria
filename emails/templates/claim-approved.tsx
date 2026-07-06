@@ -29,7 +29,6 @@ export default function ClaimApprovedEmail({
   const dashboardUrl = `${siteUrl}/dashboard?brand=${escapeHtml(brandSlug)}`
   const cardUrl = buildShareCardUrl(siteUrl, brandSlug)
   const downloadUrl = buildShareCardUrl(siteUrl, brandSlug, { download: true })
-  const badgeUrl = `${siteUrl}/dashboard?brand=${escapeHtml(brandSlug)}#badge`
 
   if (locale === 'en') {
     return (
@@ -42,12 +41,10 @@ export default function ClaimApprovedEmail({
         <EmailText>You can now manage your brand from the owner dashboard.</EmailText>
         <Button href={dashboardUrl}>Go to owner dashboard</Button>
         <EmailText>
-          Share the news — download your brand share card and add the &ldquo;Featured on Formoria&rdquo; badge to your
-          website.
+          Share the news — download your brand share card.
         </EmailText>
         <Img src={cardUrl} width="270" height="338" alt={`${brandName} — Featured on Formoria share card`} />
         <Button href={downloadUrl}>Download share card</Button>
-        <Button href={badgeUrl}>Get your badge</Button>
         <EmailText>Formoria - Made in Taiwan Brand Directory</EmailText>
       </Layout>
     )
@@ -61,10 +58,9 @@ export default function ClaimApprovedEmail({
       </EmailText>
       <EmailText>您現在可以前往品牌主後台管理品牌資訊。</EmailText>
       <Button href={dashboardUrl}>前往品牌主後台</Button>
-      <EmailText>分享這個好消息 — 下載品牌分享卡，並在您的網站加上「台灣製造品牌目錄」認證標章。</EmailText>
+      <EmailText>分享這個好消息 — 下載品牌分享卡。</EmailText>
       <Img src={cardUrl} width="270" height="338" alt={`${brandName} — Formoria 品牌分享卡`} />
       <Button href={downloadUrl}>下載分享卡</Button>
-      <Button href={badgeUrl}>取得認證標章</Button>
       <EmailText>Formoria - 台灣品牌目錄</EmailText>
     </Layout>
   )

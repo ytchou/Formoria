@@ -25,7 +25,7 @@
     "signIn": "Sign in",
     "languageLabel": "Switch language",
     "about": "About Formoria",
-    "myBrands": "My Brands",
+    "myBrands": "My Brand",
     "guides": "Guides"
   },
   "footer": {
@@ -176,6 +176,9 @@
       "communityTitle": "Is this your brand?",
       "communityListing": "Claim your listing with business proof — domain email, backend access, or an official document. Once reviewed, you manage your brand's presence directly: update details, add products, and build trust with customers.",
       "claimButton": "Claim this brand",
+      "ownerLimitTitle": "You already manage a brand",
+      "ownerLimitBody": "Each account can manage one brand. You can still submit this brand as a community listing.",
+      "manageBrand": "Go to My Brand",
       "proofHeading": "Submit claim proof",
       "proofPrompt": "Submit proof of ownership so we can review your claim request.",
       "proofTypeLabel": "Proof type",
@@ -400,15 +403,13 @@
         "unknown": "Something went wrong. Please try again."
       }
     },
-    "brandIntro": {
-      "identity": "{brandName} is a {category} brand from Taiwan.",
-      "identityNoCat": "{brandName} is a brand from Taiwan.",
-      "founded": "Founded in {year},",
-      "mitVerified": "it is verified as Made in Taiwan.",
-      "price": "Products are in the {range} price range.",
-      "purchase": "Available for purchase through {channels}."
-    },
     "brandFaq": {
+      "listSeparator": ", ",
+      "channels": {
+        "website": "their official website",
+        "pinkoi": "Pinkoi",
+        "shopee": "Shopee"
+      },
       "priceRanges": {
         "budget": "budget-friendly",
         "midRange": "mid-range",
@@ -462,7 +463,8 @@
       },
       "internationalShipping": {
         "question": "Does {brandName} ship internationally?",
-        "answer": "{details}"
+        "yes": "Yes, {brandName} ships internationally.",
+        "no": "No, {brandName} does not ship internationally."
       }
     }
   },
@@ -971,12 +973,6 @@
       "verification": "MIT Verification",
       "submissions": "Submissions"
     },
-    "brandSelector": {
-      "title": "Viewing as",
-      "label": "Select brand",
-      "placeholder": "Choose a brand",
-      "description": "Shown when this account can manage {count} brands."
-    },
     "emptyState": {
       "title": "This page is for brand owners only",
       "description": "Only logged-in brand accounts can view this page. If you are a brand owner in Taiwan, submit your brand to join the MIT Map community.",
@@ -1197,6 +1193,7 @@
       "subtitle": "Manage your brand page",
       "viewButton": "View brand page",
       "editButton": "Edit brand",
+      "submitOtherBrand": "Submit another listing",
       "draftPendingTitle": "Draft pending",
       "draftPendingHint": "You have unpublished changes saved as a draft.",
       "draftPreview": "Preview",
@@ -1333,13 +1330,6 @@
       "fieldReturnsPolicy": "Returns policy",
       "fieldWarranty": "Warranty",
       "fieldShipsInternational": "Ships international"
-    },
-    "badge": {
-      "title": "Share your brand",
-      "description": "Add the Featured on Formoria badge to your website, or download your share card.",
-      "copy": "Copy embed code",
-      "copied": "Copied!",
-      "download": "Download share card"
     },
     "brandProfile": {
       "customerVoices": "Customer Voices",
@@ -1541,7 +1531,8 @@
         "description": "We have received your brand submission and it is under review."
       },
       "heading": "Thank you!",
-      "subheading": "We have received your brand submission",
+    "subheading": "We have received your brand submission",
+    "communityOwnershipNotice": "Because your account already manages a brand, this submission was accepted as a community listing and cannot be claimed by this account.",
       "timeline": {
         "review": {
           "label": "Under Review",
@@ -1609,6 +1600,7 @@
       "brandNameHint": "This will be used as the brand name. We also use it to search for brand information online, so accuracy is important.",
       "isOwnerLabel": "I am the brand owner",
       "isOwnerHint": "We'll ask you to verify ownership. Once claimed, you can manage your brand page and update information.",
+      "ownerLimitHint": "You already manage a brand. This submission will be reviewed as a community listing.",
       "sourceLabel": "How do you know this brand?",
       "sourcePlaceholder": "Select how you know this brand",
       "requiredHint": "indicates a required field",
@@ -1740,6 +1732,9 @@
       "adminProofLabel": "Ownership proof",
       "domainEmailVerified": "✓ Verified",
       "domainEmailPending": "⏳ Pending verification",
+      "ownerAlreadyManagesShort": "Already owns a brand",
+      "ownerAlreadyManagesTitle": "Approval blocked: owner limit reached",
+      "ownerAlreadyManagesBody": "This requester already manages {brandName}. Reject this claim using the existing-owner reason.",
       "proofTypes": {
         "domainEmail": "Brand domain email",
         "backendScreenshot": "Admin/backend screenshot",

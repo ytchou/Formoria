@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/sheet'
 import { Dialog as SheetPrimitive } from '@base-ui/react/dialog'
 import { AccountMenu } from '@/components/auth/account-menu'
-import { useUser } from '@/lib/auth/use-user'
 import { NavSearchInput } from './nav-search-input'
 import { NavCategoryTabs } from './nav-category-tabs'
 import { BrandMark } from '@/lib/brand/BrandMark'
@@ -19,13 +18,12 @@ import { LocaleSwitcher } from '@/components/i18n/locale-switcher'
 
 interface MainNavProps {
   categories: Array<{ slug: string; name: string; nameZh: string | null }>
+  hasOwnedBrand?: boolean
 }
 
-export function MainNav({ categories }: MainNavProps) {
+export function MainNav({ categories, hasOwnedBrand = false }: MainNavProps) {
   const [open, setOpen] = useState(false)
   const t = useTranslations('nav')
-  const { user } = useUser()
-
   return (
     <header className="border-b border-border bg-background">
       {/* Row 1: Logo | Search | Actions */}
@@ -57,18 +55,19 @@ export function MainNav({ categories }: MainNavProps) {
           >
             {t('guides')}
           </Link>
-          <Link
-            href="/submit"
-            className="rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            {t('submitBrand')}
-          </Link>
-          {user && (
+          {hasOwnedBrand ? (
             <Link
               href="/dashboard"
-              className="rounded-full border border-border px-5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+              className="rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >
               {t('myBrands')}
+            </Link>
+          ) : (
+            <Link
+              href="/submit"
+              className="rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              {t('submitBrand')}
             </Link>
           )}
           <LocaleSwitcher />
@@ -110,20 +109,21 @@ export function MainNav({ categories }: MainNavProps) {
                 >
                   {t('guides')}
                 </Link>
-                <Link
-                  href="/submit"
-                  className="block rounded-full bg-primary px-5 py-3 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-                  onClick={() => setOpen(false)}
-                >
-                  {t('submitBrand')}
-                </Link>
-                {user && (
+                {hasOwnedBrand ? (
                   <Link
                     href="/dashboard"
-                    className="block rounded-full border border-border px-5 py-3 text-center text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                    className="block rounded-full bg-primary px-5 py-3 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                     onClick={() => setOpen(false)}
                   >
                     {t('myBrands')}
+                  </Link>
+                ) : (
+                  <Link
+                    href="/submit"
+                    className="block rounded-full bg-primary px-5 py-3 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                    onClick={() => setOpen(false)}
+                  >
+                    {t('submitBrand')}
                   </Link>
                 )}
                 <div className="px-4">

@@ -49,6 +49,10 @@ import {
   setBrandOnboardingStepStatus,
 } from './brand-onboarding'
 
+beforeEach(() => {
+  vi.clearAllMocks()
+})
+
 describe('buildOnboardingProgress', () => {
   it('starts every step incomplete when no progress exists', () => {
     const progress = buildOnboardingProgress([])

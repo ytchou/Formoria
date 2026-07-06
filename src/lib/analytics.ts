@@ -241,13 +241,6 @@ export function trackBrandPageShared(_slug: string) {
   // stub
 }
 
-export function trackListingSharedByOwner(
-  slug: string,
-  method: 'badge_copied' | 'card_downloaded'
-) {
-  safeGAEvent('event', 'listing_shared_by_owner', { brand_slug: slug, method })
-}
-
 // Keep as-is: non-spec extras with useful signal
 export function trackFilterSearch(queryLength: number) {
   safeGAEvent('event', 'filter_search', { query_length: queryLength })
