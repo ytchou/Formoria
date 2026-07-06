@@ -1,7 +1,7 @@
 CREATE TABLE public.brand_onboarding_steps (
   brand_id uuid NOT NULL REFERENCES public.brands(id) ON DELETE CASCADE,
   step_key text NOT NULL CHECK (
-    step_key IN ('basics', 'products', 'story_media', 'purchase', 'social_proof')
+    step_key IN ('brand_basics', 'media_links', 'analytics', 'health', 'verification')
   ),
   status text NOT NULL DEFAULT 'not_started' CHECK (
     status IN ('not_started', 'in_progress', 'complete')
