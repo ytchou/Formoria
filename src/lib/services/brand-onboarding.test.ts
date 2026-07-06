@@ -46,6 +46,7 @@ import {
   completeOnboardingStepsForSection,
   getBrandOnboardingProgress,
   ONBOARDING_STEPS,
+  setBrandOnboardingStepStatus,
 } from './brand-onboarding'
 
 describe('buildOnboardingProgress', () => {
@@ -79,6 +80,19 @@ describe('buildOnboardingProgress', () => {
 
     expect(progress.nextStep).toBe('basics')
     expect(progress.completedCount).toBe(0)
+  })
+})
+
+describe('setBrandOnboardingStepStatus', () => {
+  it('skips persistence when the onboarding table is unavailable', async () => {
+    mocks.onboardingMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'PGRST205' },
+    })
+
+    await expect(
+      setBrandOnboardingStepStatus({ brandId: 'brand-1', userId: 'user-1', step: 'basics', status: 'in_progress' })
+    ).resolves.toBeUndefined()
   })
 })
 

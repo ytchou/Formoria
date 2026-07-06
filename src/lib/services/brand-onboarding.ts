@@ -29,6 +29,10 @@ type ProgressRow = {
   status: string
 }
 
+function isMissingOnboardingTable(error: { code?: string }): boolean {
+  return error.code === '42P01' || error.code === 'PGRST205'
+}
+
 export function isOnboardingStepKey(value: string): value is OnboardingStepKey {
   return ONBOARDING_STEPS.includes(value as OnboardingStepKey)
 }
@@ -67,7 +71,7 @@ export async function getBrandOnboardingProgress(
     .eq('brand_id', brandId)
 
   if (error) {
-    if (error.code === '42P01' || error.code === 'PGRST205') {
+    if (isMissingOnboardingTable(error)) {
       return buildOnboardingProgress([])
     }
     throw error
@@ -97,7 +101,10 @@ export async function setBrandOnboardingStepStatus({
     .eq('step_key', step)
     .maybeSingle()
 
-  if (fetchError) throw fetchError
+  if (fetchError) {
+    if (isMissingOnboardingTable(fetchError)) return
+    throw fetchError
+  }
 
   // Bug 2: Never regress from 'complete' to a lower status
   if (existing?.status === 'complete') {
@@ -116,7 +123,7 @@ export async function setBrandOnboardingStepStatus({
       updated_at: now,
     }, { onConflict: 'brand_id,step_key' })
 
-  if (error) throw error
+  if (error && !isMissingOnboardingTable(error)) throw error
 }
 
 async function markOnboardingStepCompleted(
