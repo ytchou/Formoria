@@ -15,7 +15,11 @@ vi.mock('@/lib/auth/use-user', () => ({
 }))
 
 vi.mock('@/hooks/use-saved-brands', () => ({
-  useSavedBrands: vi.fn(() => ({ savedIds: new Set(), toggle: vi.fn(), loading: false })),
+  useSavedBrands: vi.fn(() => ({
+    savedIds: new Set(),
+    toggle: vi.fn(),
+    loading: false,
+  })),
 }))
 
 vi.mock('next/navigation', () => ({
@@ -24,8 +28,14 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/i18n/navigation', () => ({
-  Link: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
-    <a href={href} {...props}>{children}</a>
+  Link: ({
+    href,
+    children,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
   useRouter: vi.fn(() => ({ push: vi.fn() })),
   usePathname: vi.fn(() => '/'),
@@ -50,11 +60,10 @@ const fixtureBrand: Brand = {
   purchaseShopee: null,
   otherUrls: [],
   retailLocations: [],
-  customerVoices: [],
   productPhotos: [],
-    siteContent: null,
-    priceRange: null,
-    productTags: [],
+  siteContent: null,
+  priceRange: null,
+  productTags: [],
   foundingYear: 2010,
   contactEmail: null,
   submittedAt: '2026-01-01T00:00:00Z',
@@ -68,14 +77,16 @@ describe('BrandCard — English locale (i18n)', () => {
     render(
       <NextIntlClientProvider locale="en" messages={en}>
         <BrandCard brand={fixtureBrand} />
-      </NextIntlClientProvider>
+      </NextIntlClientProvider>,
     )
 
     // Proper noun (brand name) is unchanged
     expect(screen.getByText('Sunrise Tea')).toBeInTheDocument()
 
     // Owner badge uses updated English short label and ARIA/title text
-    expect(screen.getByLabelText('Managed by the brand owner')).toBeInTheDocument()
+    expect(
+      screen.getByLabelText('Managed by the brand owner'),
+    ).toBeInTheDocument()
     expect(screen.getByText('Claimed')).toBeInTheDocument()
   })
 })

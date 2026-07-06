@@ -5,7 +5,6 @@ import { createClient } from '@/lib/supabase/server'
 import { getBrandBySlug } from '@/lib/services/brands'
 import { resolveDashboardBrand } from '@/lib/services/resolve-dashboard-brand'
 import { BrandAbout } from '@/components/brands/brand-about'
-import { BrandCustomerVoices } from '@/components/brands/brand-customer-voices'
 import { BrandHeader } from '@/components/brands/brand-header'
 import { BrandLinks } from '@/components/brands/brand-links'
 import { BrandLocations } from '@/components/brands/brand-locations'
@@ -36,7 +35,9 @@ function Section({
 }) {
   return (
     <section id={id} className="space-y-3">
-      <h2 className="font-heading text-base font-bold text-foreground">{title}</h2>
+      <h2 className="font-heading text-base font-bold text-foreground">
+        {title}
+      </h2>
       {children}
     </section>
   )
@@ -91,13 +92,19 @@ export default async function DashboardPage({ params, searchParams }: Props) {
   } = await supabase.auth.getUser()
 
   const ctx = user
-    ? await resolveDashboardBrand(user.id, user.email ?? null, resolvedSearchParams.brand)
+    ? await resolveDashboardBrand(
+        user.id,
+        user.email ?? null,
+        resolvedSearchParams.brand,
+      )
     : null
 
   if (!ctx) {
     return (
       <div className="rounded-xl border border-border bg-white p-10 text-center">
-        <p className="text-sm font-normal text-muted-foreground">No brand profile found.</p>
+        <p className="text-sm font-normal text-muted-foreground">
+          No brand profile found.
+        </p>
       </div>
     )
   }
@@ -126,10 +133,12 @@ export default async function DashboardPage({ params, searchParams }: Props) {
 
         <BrandLinks brand={brand} />
 
-        <BrandCustomerVoices brand={brand} />
-        <ProductPhotos photos={brand.productPhotos} brandName={brand.name} title={t('productPhotos')} />
+        <ProductPhotos
+          photos={brand.productPhotos}
+          brandName={brand.name}
+          title={t('productPhotos')}
+        />
         <BrandLocations brand={brand} />
-
       </div>
     </div>
   )

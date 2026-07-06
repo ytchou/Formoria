@@ -11,7 +11,7 @@ export type DiffField = {
 
 export function computeDiffFields(
   currentBrand: Record<string, unknown>,
-  proposedData: Record<string, unknown>
+  proposedData: Record<string, unknown>,
 ): DiffField[] {
   const FIELD_LABELS: Record<string, string> = {
     name: '品牌名稱',
@@ -20,7 +20,6 @@ export function computeDiffFields(
     category: '類別',
     contactEmail: '聯絡信箱',
     foundingYear: '創立年份',
-    customerVoices: '顧客心聲',
     mitStory: 'MIT 故事',
   }
 

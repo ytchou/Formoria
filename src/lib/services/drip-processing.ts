@@ -8,12 +8,17 @@ import { sendEmail } from '@/lib/email/send'
 import * as supabaseServer from '@/lib/supabase/server'
 import type { EmailMessage } from '@/lib/email/types'
 import { normalizeOwnerLocale, type OwnerLocale } from '@/lib/types'
+import { computeProfileCompleteness } from '@/lib/services/profile-completeness'
 
 declare module '@/lib/supabase/server' {
   export function createAdminClient(): unknown
 }
 
-type DripKey = 'welcome' | 'profile_nudge' | 'microsite_spotlight' | 're_engagement'
+type DripKey =
+  | 'welcome'
+  | 'profile_nudge'
+  | 'microsite_spotlight'
+  | 're_engagement'
 
 type OwnerRow = {
   user_id: string
@@ -23,7 +28,24 @@ type OwnerRow = {
   unsubscribe_token: string
   description?: string
   hero_image_url?: string
-  social_links?: Record<string, unknown>
+  product_photos: string[]
+  product_tags: string[]
+  price_range?: number
+  purchase_website?: string
+  city?: string
+  social_instagram?: string
+  social_threads?: string
+  social_facebook?: string
+  purchase_pinkoi?: string
+  purchase_shopee?: string
+  other_urls: { label: string; url: string }[]
+  retail_locations: {
+    name: string
+    address: string
+    latitude: number
+    longitude: number
+  }[]
+  reputation_summary?: { text: string; sources: { url: string }[] }
   founding_year?: number
   site_enabled?: boolean
   locale_preference: OwnerLocale
@@ -48,7 +70,9 @@ type QueryBuilder<T> = PromiseLike<QueryResult<T>> & {
 
 type SupabaseTable<T> = {
   select: (columns: string) => QueryBuilder<T>
-  insert?: (values: Record<string, unknown>) => PromiseLike<{ error: QueryError | null }>
+  insert?: (
+    values: Record<string, unknown>,
+  ) => PromiseLike<{ error: QueryError | null }>
   delete?: () => QueryBuilder<T>
 }
 
@@ -75,12 +99,16 @@ type DripType = {
 export const DRIP_TYPES: DripType[] = [
   { key: 'welcome', daysSinceClaim: 1, builder: buildWelcomeEmail },
   { key: 'profile_nudge', daysSinceClaim: 3, builder: buildProfileNudgeEmail },
-  { key: 'microsite_spotlight', daysSinceClaim: 1, builder: buildMicrositeSpotlightEmail },
+  {
+    key: 'microsite_spotlight',
+    daysSinceClaim: 1,
+    builder: buildMicrositeSpotlightEmail,
+  },
   { key: 're_engagement', daysSinceClaim: 14, builder: buildReEngagementEmail },
 ]
 
 export async function evaluateDrips(
-  dripType: string
+  dripType: string,
 ): Promise<{ sent: number; skipped: number; errors: number }> {
   const drip = DRIP_TYPES.find((type) => type.key === dripType)
   if (!drip) {
@@ -101,7 +129,9 @@ export async function evaluateDrips(
   // Filter microsite_spotlight owners in JS after fetching.
   if (drip.key === 'microsite_spotlight') {
     ownerRows = ownerRows.filter((row) => {
-      const brand = objectValue(Array.isArray(row.brands) ? row.brands[0] : row.brands)
+      const brand = objectValue(
+        Array.isArray(row.brands) ? row.brands[0] : row.brands,
+      )
       const siteContent = objectValue(brand?.site_content)
       return siteContent?.enabled === true || siteContent?.enabled === 'true'
     })
@@ -114,20 +144,30 @@ export async function evaluateDrips(
   const preferencesQuery = supabase
     .from<{ user_id: string }>('owner_email_preferences')
     .select('user_id')
-  const { data: unsubscribedRows, error: preferencesError } = preferencesQuery.not
-    ? await preferencesQuery.not('unsubscribed_at', 'is', null)
-    : { data: null, error: { message: 'Supabase query builder is missing not()' } }
+  const { data: unsubscribedRows, error: preferencesError } =
+    preferencesQuery.not
+      ? await preferencesQuery.not('unsubscribed_at', 'is', null)
+      : {
+          data: null,
+          error: { message: 'Supabase query builder is missing not()' },
+        }
 
   if (preferencesError) {
-    console.error('Failed to query owner email preferences', { dripType, error: preferencesError })
+    console.error('Failed to query owner email preferences', {
+      dripType,
+      error: preferencesError,
+    })
     return { sent: 0, skipped: 0, errors: 1 }
   }
 
   const unsubscribedUserIds = new Set(
-    (unsubscribedRows ?? []).map((row: { user_id: string }) => row.user_id)
+    (unsubscribedRows ?? []).map((row: { user_id: string }) => row.user_id),
   )
   const owners = ownerRows.map(normalizeOwnerRow)
-  const ownerLocales = await queryOwnerLocales(supabase, owners.map((owner) => owner.user_id))
+  const ownerLocales = await queryOwnerLocales(
+    supabase,
+    owners.map((owner) => owner.user_id),
+  )
   let sent = 0
   let skipped = 0
   let errors = 0
@@ -186,7 +226,11 @@ export async function evaluateDrips(
       } catch {
         // Best-effort cleanup
       }
-      console.error('Failed to send drip email', { dripType, userId: owner.user_id, error: err })
+      console.error('Failed to send drip email', {
+        dripType,
+        userId: owner.user_id,
+        error: err,
+      })
       errors++
     }
   }
@@ -196,7 +240,7 @@ export async function evaluateDrips(
 
 async function queryOwnerLocales(
   supabase: SupabaseClientLike,
-  userIds: string[]
+  userIds: string[],
 ): Promise<Map<string, OwnerLocale>> {
   const uniqueUserIds = Array.from(new Set(userIds.filter(Boolean)))
   if (uniqueUserIds.length === 0) {
@@ -209,7 +253,10 @@ async function queryOwnerLocales(
 
   const { data, error } = query.in
     ? await query.in('id', uniqueUserIds)
-    : { data: null, error: { message: 'Supabase query builder is missing in()' } }
+    : {
+        data: null,
+        error: { message: 'Supabase query builder is missing in()' },
+      }
 
   if (error) {
     console.error('Failed to query owner locales', { error })
@@ -217,7 +264,10 @@ async function queryOwnerLocales(
   }
 
   return new Map(
-    (data ?? []).map((row) => [row.id, normalizeOwnerLocale(row.locale_preference)])
+    (data ?? []).map((row) => [
+      row.id,
+      normalizeOwnerLocale(row.locale_preference),
+    ]),
   )
 }
 
@@ -225,20 +275,19 @@ function getAdminClient(): SupabaseClientLike {
   const serverModule = supabaseServer as typeof supabaseServer & {
     createAdminClient?: () => unknown
   }
-  const client = serverModule.createAdminClient?.() ?? serverModule.createServiceClient()
+  const client =
+    serverModule.createAdminClient?.() ?? serverModule.createServiceClient()
   return client as SupabaseClientLike
 }
 
 function queryEligibleOwners(
   supabase: SupabaseClientLike,
-  drip: DripType
+  drip: DripType,
 ): PromiseLike<QueryResult<Record<string, unknown>>> {
-  const query = supabase
-    .from<Record<string, unknown>>('brand_owners')
-    .select(`
+  const query = supabase.from<Record<string, unknown>>('brand_owners').select(`
       user_id,
       claimed_at,
-      brands!inner(name, slug, description, hero_image_url, social_links, founding_year, site_content),
+      brands!inner(name, slug, description, hero_image_url, founding_year, product_tags, price_range, purchase_website, city, social_instagram, social_threads, social_facebook, purchase_pinkoi, purchase_shopee, other_urls, retail_locations, reputation_summary, site_content, brand_images(url, status, sort_order)),
       owner_email_preferences!inner(unsubscribe_token),
       email:users!brand_owners_user_id_fkey(email)
     `)
@@ -257,30 +306,72 @@ function daysAgo(days: number): string {
 }
 
 function normalizeOwnerRow(row: Record<string, unknown>): OwnerRow {
-  const brand = objectValue(Array.isArray(row.brands) ? row.brands[0] : row.brands)
+  const brand = objectValue(
+    Array.isArray(row.brands) ? row.brands[0] : row.brands,
+  )
   const preferences = Array.isArray(row.owner_email_preferences)
     ? row.owner_email_preferences[0]
     : row.owner_email_preferences
   const preference = objectValue(preferences)
   const user = objectValue(Array.isArray(row.email) ? row.email[0] : row.email)
-  const email = typeof row.email === 'string' ? row.email : stringValue(user?.email)
+  const email =
+    typeof row.email === 'string' ? row.email : stringValue(user?.email)
 
-  const socialLinks = brand?.social_links
-  const parsedSocialLinks =
-    socialLinks && typeof socialLinks === 'object'
-      ? (socialLinks as Record<string, unknown>)
-      : undefined
+  const images = Array.isArray(brand?.brand_images)
+    ? brand.brand_images
+        .filter((image) => objectValue(image)?.status === 'active')
+        .toSorted(
+          (left, right) =>
+            Number(objectValue(left)?.sort_order ?? 0) -
+            Number(objectValue(right)?.sort_order ?? 0),
+        )
+    : []
 
   return {
     user_id: stringValue(row.user_id),
     email,
     brand_name: stringValue(row.brand_name ?? brand?.name),
     brand_slug: stringValue(row.brand_slug ?? brand?.slug),
-    unsubscribe_token: stringValue(row.unsubscribe_token ?? preference?.unsubscribe_token),
-    description: typeof brand?.description === 'string' ? brand.description : undefined,
-    hero_image_url: typeof brand?.hero_image_url === 'string' ? brand.hero_image_url : undefined,
-    social_links: parsedSocialLinks,
-    founding_year: typeof brand?.founding_year === 'number' ? brand.founding_year : undefined,
+    unsubscribe_token: stringValue(
+      row.unsubscribe_token ?? preference?.unsubscribe_token,
+    ),
+    description:
+      typeof brand?.description === 'string' ? brand.description : undefined,
+    hero_image_url:
+      typeof brand?.hero_image_url === 'string'
+        ? brand.hero_image_url
+        : undefined,
+    product_photos: images
+      .slice(1)
+      .map((image) => stringValue(objectValue(image)?.url))
+      .filter(Boolean),
+    product_tags: Array.isArray(brand?.product_tags)
+      ? brand.product_tags.filter(
+          (tag): tag is string => typeof tag === 'string',
+        )
+      : [],
+    price_range:
+      typeof brand?.price_range === 'number' ? brand.price_range : undefined,
+    purchase_website: stringValue(brand?.purchase_website) || undefined,
+    city: stringValue(brand?.city) || undefined,
+    social_instagram: stringValue(brand?.social_instagram) || undefined,
+    social_threads: stringValue(brand?.social_threads) || undefined,
+    social_facebook: stringValue(brand?.social_facebook) || undefined,
+    purchase_pinkoi: stringValue(brand?.purchase_pinkoi) || undefined,
+    purchase_shopee: stringValue(brand?.purchase_shopee) || undefined,
+    other_urls: Array.isArray(brand?.other_urls)
+      ? (brand.other_urls as OwnerRow['other_urls'])
+      : [],
+    retail_locations: Array.isArray(brand?.retail_locations)
+      ? (brand.retail_locations as OwnerRow['retail_locations'])
+      : [],
+    reputation_summary: objectValue(
+      brand?.reputation_summary,
+    ) as OwnerRow['reputation_summary'],
+    founding_year:
+      typeof brand?.founding_year === 'number'
+        ? brand.founding_year
+        : undefined,
     site_enabled: objectValue(brand?.site_content)?.enabled === true,
     locale_preference: normalizeOwnerLocale(row.locale_preference),
   }
@@ -290,29 +381,37 @@ function profileCompleteness(owner: OwnerRow): {
   completenessPercent: number
   missingFields: string[]
 } {
-  // [Critical 1] Check actual brand columns, not site_content.
-  // Matches the DB function profile_completeness() which scores:
-  // description, hero_image_url, social_links (non-empty object), founding_year
-  const checks: [string, boolean][] = [
-    ['description', Boolean(owner.description)],
-    ['hero_image_url', Boolean(owner.hero_image_url)],
-    [
-      'social_links',
-      Boolean(owner.social_links && Object.keys(owner.social_links).length > 0),
-    ],
-    ['founding_year', owner.founding_year != null],
-  ]
+  const completeness = computeProfileCompleteness({
+    description: owner.description ?? null,
+    productTags: owner.product_tags,
+    priceRange: owner.price_range ?? null,
+    heroImageUrl: owner.hero_image_url ?? null,
+    productPhotos: owner.product_photos,
+    purchaseWebsite: owner.purchase_website ?? null,
+    city: owner.city ?? null,
+    foundingYear: owner.founding_year ?? null,
+    socialInstagram: owner.social_instagram ?? null,
+    socialThreads: owner.social_threads ?? null,
+    socialFacebook: owner.social_facebook ?? null,
+    purchasePinkoi: owner.purchase_pinkoi ?? null,
+    purchaseShopee: owner.purchase_shopee ?? null,
+    otherUrls: owner.other_urls,
+    retailLocations: owner.retail_locations,
+    reputationSummary: owner.reputation_summary ?? null,
+  })
 
-  const missingFields = checks.filter(([, present]) => !present).map(([name]) => name)
-  const completenessPercent = Math.round(
-    ((checks.length - missingFields.length) / checks.length) * 100
-  )
-
-  return { completenessPercent, missingFields }
+  return {
+    completenessPercent: completeness.score,
+    missingFields: completeness.recommendations.map(
+      (component) => component.key,
+    ),
+  }
 }
 
 function objectValue(value: unknown): Record<string, unknown> | undefined {
-  return value && typeof value === 'object' ? (value as Record<string, unknown>) : undefined
+  return value && typeof value === 'object'
+    ? (value as Record<string, unknown>)
+    : undefined
 }
 
 function stringValue(value: unknown): string {

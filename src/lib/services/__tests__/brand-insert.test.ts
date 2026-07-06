@@ -6,7 +6,8 @@ describe('brandToInsert', () => {
     const row = brandToInsert({
       name: 'Test Maker',
       slug: 'test-maker',
-      description: 'A team-curated Made-in-Taiwan brand with a valid public profile.',
+      description:
+        'A team-curated Made-in-Taiwan brand with a valid public profile.',
       status: 'approved',
       category: 'food',
       mitStory: null,
@@ -17,7 +18,6 @@ describe('brandToInsert', () => {
       socialFacebook: null,
       otherUrls: [],
       retailLocations: [],
-      customerVoices: [],
     })
 
     expect(row.status).toBe('approved')

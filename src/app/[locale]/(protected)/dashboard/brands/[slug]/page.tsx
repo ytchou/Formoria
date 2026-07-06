@@ -2,15 +2,13 @@ import Image from 'next/image'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { createClient } from '@/lib/supabase/server'
 import { getBrandBySlug } from '@/lib/services/brands'
-import { getAnalytics } from '@/lib/services/brand-analytics'
-import { computeBrandHealth } from '@/lib/services/brand-health'
+import { computeProfileCompleteness } from '@/lib/services/profile-completeness'
 import { isOwnerOf } from '@/lib/services/brand-owners'
 import { BrandAbout } from '@/components/brands/brand-about'
-import { BrandCustomerVoices } from '@/components/brands/brand-customer-voices'
 import { BrandHeader } from '@/components/brands/brand-header'
 import { BrandLinks } from '@/components/brands/brand-links'
 import { BrandLocations } from '@/components/brands/brand-locations'
-import { HealthSummaryCard } from '@/components/dashboard/health-summary-card'
+import { ProfileCompletenessCard } from '@/components/dashboard/profile-completeness-card'
 import { InlineVerification } from '@/components/dashboard/inline-verification'
 
 type Props = {
@@ -28,7 +26,9 @@ function Section({
 }) {
   return (
     <section id={id} className="space-y-3">
-      <h2 className="font-heading text-base font-bold text-foreground">{title}</h2>
+      <h2 className="font-heading text-base font-bold text-foreground">
+        {title}
+      </h2>
       {children}
     </section>
   )
@@ -79,19 +79,15 @@ export default async function BrandOverviewPage({ params }: Props) {
   const brand = await getBrandBySlug(slug)
 
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  const [analytics, ownerCheck] = await Promise.all([
-    getAnalytics(brand.id, 30),
-    user ? isOwnerOf(user.id, brand.id) : false,
-  ])
-
-  const health = computeBrandHealth(brand, analytics, new Date(brand.createdAt))
+  const ownerCheck = user ? await isOwnerOf(user.id, brand.id) : false
+  const completeness = computeProfileCompleteness(brand)
 
   return (
     <div className="w-full space-y-8" data-testid="brand-profile">
-      <HealthSummaryCard health={health} slug={slug} />
-
       {brand.heroImageUrl ? (
         <div className="relative aspect-[7/2] w-full overflow-hidden rounded-xl bg-muted">
           <Image
@@ -117,12 +113,17 @@ export default async function BrandOverviewPage({ params }: Props) {
           isOwner={ownerCheck}
         />
 
+        <ProfileCompletenessCard completeness={completeness} slug={slug} />
+
         <BrandAbout brand={brand} />
 
         <BrandLinks brand={brand} />
 
-        <BrandCustomerVoices brand={brand} />
-        <ProductPhotos photos={brand.productPhotos} brandName={brand.name} title={t('productPhotos')} />
+        <ProductPhotos
+          photos={brand.productPhotos}
+          brandName={brand.name}
+          title={t('productPhotos')}
+        />
         <BrandLocations brand={brand} />
       </div>
     </div>

@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { parseBrandCSV, curatedSubmissionToBrand } from '@/lib/services/brands'
 
-const MIN_DESCRIPTION = 'A wonderful tea brand made in Taiwan with incredible quality and tradition.'
+const MIN_DESCRIPTION =
+  'A wonderful tea brand made in Taiwan with incredible quality and tradition.'
 
 describe('parseBrandCSV', () => {
   it('parses basic CSV rows with headers', () => {
@@ -50,7 +51,6 @@ describe('curatedSubmissionToBrand', () => {
     purchaseLinks: [],
     socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
     retailLocations: [],
-    customerVoices: [],
     region: null,
   }
 
@@ -74,10 +74,14 @@ describe('curatedSubmissionToBrand', () => {
   it('maps socialLinks.website to purchaseWebsite flat field', () => {
     const input = {
       ...baseInput,
-      socialLinks: { instagram: '@test', threads: '', facebook: '', website: 'https://test.com' },
+      socialLinks: {
+        instagram: '@test',
+        threads: '',
+        facebook: '',
+        website: 'https://test.com',
+      },
     }
     const result = curatedSubmissionToBrand(input)
     expect(result.purchaseWebsite).toBe('https://test.com')
   })
-
 })

@@ -10,12 +10,16 @@ vi.mock('next-intl/server', () => ({
 }))
 
 vi.mock('next-intl', () => ({
-  NextIntlClientProvider: ({ children }: { children: React.ReactNode }) => children,
+  NextIntlClientProvider: ({ children }: { children: React.ReactNode }) =>
+    children,
 }))
 
 vi.mock('@/lib/json-ld', () => ({
   buildWebSiteJsonLd: vi.fn(() => ({ '@context': 'https://schema.org' })),
-  buildOrganizationJsonLd: vi.fn(() => ({ '@context': 'https://schema.org', '@type': 'Organization' })),
+  buildOrganizationJsonLd: vi.fn(() => ({
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+  })),
   safeJsonLdStringify: vi.fn((data: Record<string, unknown>) =>
     JSON.stringify(data).replace(/</g, '\\u003c'),
   ),
@@ -24,7 +28,10 @@ vi.mock('@/lib/json-ld', () => ({
 vi.mock('@/lib/seo/alternates', () => ({
   buildAlternates: vi.fn(() => ({
     canonical: 'https://example.com',
-    languages: { en: 'https://example.com/en', 'zh-TW': 'https://example.com/zh-TW' },
+    languages: {
+      en: 'https://example.com/en',
+      'zh-TW': 'https://example.com/zh-TW',
+    },
   })),
 }))
 
@@ -55,8 +62,13 @@ vi.mock('@/components/landing/filterable-brand-showcase', () => ({
 }))
 
 vi.mock('@/hooks/use-saved-brands', () => ({
-  SavedBrandsProvider: ({ children }: { children: React.ReactNode }) => children,
-  useSavedBrands: vi.fn(() => ({ savedIds: new Set(), toggle: vi.fn(), loading: false })),
+  SavedBrandsProvider: ({ children }: { children: React.ReactNode }) =>
+    children,
+  useSavedBrands: vi.fn(() => ({
+    savedIds: new Set(),
+    toggle: vi.fn(),
+    loading: false,
+  })),
 }))
 
 vi.mock('@/components/shared/brand-showcase', () => ({
@@ -85,7 +97,11 @@ vi.mock('@/components/shared/brand-showcase', () => ({
 }))
 
 import { getTranslations } from 'next-intl/server'
-import { getBrands, getNewBrands, getRecentBrandCount } from '@/lib/services/brands'
+import {
+  getBrands,
+  getNewBrands,
+  getRecentBrandCount,
+} from '@/lib/services/brands'
 import type { Brand } from '@/lib/types'
 import LandingPage from '../page'
 
@@ -128,7 +144,6 @@ function createBrand(overrides: Partial<Brand>): Brand {
     purchaseShopee: null,
     otherUrls: [],
     retailLocations: [],
-    customerVoices: [],
     productPhotos: [],
     contactEmail: null,
     siteContent: null,
@@ -148,7 +163,12 @@ describe('LandingPage', () => {
 
     vi.mocked(getTranslations).mockImplementation(
       async (namespace: Parameters<typeof getTranslations>[0]) =>
-        makeT(zh as Messages, typeof namespace === 'string' ? namespace : '') as ReturnType<typeof makeT> as unknown as Awaited<ReturnType<typeof getTranslations>>
+        makeT(
+          zh as Messages,
+          typeof namespace === 'string' ? namespace : '',
+        ) as ReturnType<typeof makeT> as unknown as Awaited<
+          ReturnType<typeof getTranslations>
+        >,
     )
     vi.mocked(getBrands).mockResolvedValue({
       brands: [
@@ -166,7 +186,10 @@ describe('LandingPage', () => {
       totalCount: 2,
     })
     vi.mocked(getNewBrands).mockResolvedValue([])
-    vi.mocked(getRecentBrandCount).mockResolvedValue({ count: 3, period: '7d' })
+    vi.mocked(getRecentBrandCount).mockResolvedValue({
+      count: 3,
+      period: '7d',
+    })
   })
 
   it('renders the landing page and fetches approved brands', async () => {
@@ -174,8 +197,12 @@ describe('LandingPage', () => {
 
     expect(screen.getByTestId('submit-band')).toBeInTheDocument()
     // Verified rail was removed — no longer rendered
-    expect(screen.queryByRole('heading', { name: '認證品牌' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: '社群推薦' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: '認證品牌' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: '社群推薦' }),
+    ).not.toBeInTheDocument()
     expect(getBrands).toHaveBeenCalledTimes(1)
     expect(getBrands).toHaveBeenCalledWith({ status: 'approved', limit: 60 })
   })

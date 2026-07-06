@@ -8,37 +8,13 @@ export type OtherUrl = {
   url: string
 }
 
-interface ProvenanceSource {
+interface ReputationSource {
   url: string
-  title: string
-  retrievedAt: string
 }
 
 export interface ReputationSummary {
   text: string
-  sources: ProvenanceSource[]
-  retrievedAt: string
-}
-
-export interface Manufacturing {
-  factoryLocation: string | null
-  productionModel: 'own' | 'oem' | 'mixed' | null
-  notes: string | null
-  sources: ProvenanceSource[]
-}
-
-export interface Certification {
-  name: string
-  issuer: string | null
-  year: number | null
-  source: ProvenanceSource | null
-}
-
-export interface Policies {
-  returns: string | null
-  warranty: string | null
-  shipsInternational: boolean | null
-  sources: ProvenanceSource[]
+  sources: ReputationSource[]
 }
 
 export type BrandFlatLinkColumns = {
@@ -56,12 +32,6 @@ export type RetailLocation = {
   address: string
   latitude: number
   longitude: number
-}
-
-export type CustomerVoice = {
-  author: string
-  content: string
-  source?: string
 }
 
 type MitEvidence = {
@@ -113,9 +83,6 @@ export type Brand = {
   isDemo: boolean
   foundingYear: number | null
   reputationSummary?: ReputationSummary | null
-  manufacturing?: Manufacturing | null
-  certifications?: Certification[] | null
-  policies?: Policies | null
   socialInstagram: string | null
   socialThreads: string | null
   socialFacebook: string | null
@@ -124,7 +91,6 @@ export type Brand = {
   purchaseShopee: string | null
   otherUrls: OtherUrl[]
   retailLocations: RetailLocation[]
-  customerVoices: CustomerVoice[]
   productPhotos: string[]
   contactEmail: string | null
   priceRange: number | null
@@ -183,7 +149,6 @@ export type PendingBrandEditWithBrand = PendingBrandEdit & {
     | 'purchaseShopee'
     | 'otherUrls'
     | 'retailLocations'
-    | 'customerVoices'
     | 'productPhotos'
     | 'siteContent'
     | 'mitStory'

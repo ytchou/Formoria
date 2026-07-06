@@ -60,7 +60,9 @@ describe('buildOnboardingProgress', () => {
     expect(progress.completedCount).toBe(0)
     expect(progress.nextStep).toBe('brand_basics')
     expect(progress.steps.map((step) => step.key)).toEqual(ONBOARDING_STEPS)
-    expect(progress.steps.every((step) => step.status === 'not_started')).toBe(true)
+    expect(progress.steps.every((step) => step.status === 'not_started')).toBe(
+      true,
+    )
   })
 
   it('preserves explicit progress without inferring from brand fields', () => {
@@ -95,7 +97,12 @@ describe('setBrandOnboardingStepStatus', () => {
     })
 
     await expect(
-      setBrandOnboardingStepStatus({ brandId: 'brand-1', userId: 'user-1', step: 'brand_basics', status: 'in_progress' })
+      setBrandOnboardingStepStatus({
+        brandId: 'brand-1',
+        userId: 'user-1',
+        step: 'brand_basics',
+        status: 'in_progress',
+      }),
     ).resolves.toBeUndefined()
   })
 })
@@ -103,7 +110,10 @@ describe('setBrandOnboardingStepStatus', () => {
 describe('completeOnboardingStepsForSection', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.maybeSingle.mockResolvedValue({ data: { user_id: 'user-1' }, error: null })
+    mocks.maybeSingle.mockResolvedValue({
+      data: { user_id: 'user-1' },
+      error: null,
+    })
     mocks.onboardingMaybeSingle.mockResolvedValue({ data: null, error: null })
     mocks.upsert.mockResolvedValue({ error: null })
   })
@@ -113,7 +123,7 @@ describe('completeOnboardingStepsForSection', () => {
 
     expect(mocks.upsert).toHaveBeenCalledTimes(1)
     const steps = mocks.upsert.mock.calls.map(
-      (call: unknown[]) => (call[0] as Record<string, unknown>).step_key
+      (call: unknown[]) => (call[0] as Record<string, unknown>).step_key,
     )
     expect(steps).toContain('brand_basics')
   })
@@ -123,7 +133,7 @@ describe('completeOnboardingStepsForSection', () => {
 
     expect(mocks.upsert).toHaveBeenCalledTimes(1)
     const steps = mocks.upsert.mock.calls.map(
-      (call: unknown[]) => (call[0] as Record<string, unknown>).step_key
+      (call: unknown[]) => (call[0] as Record<string, unknown>).step_key,
     )
     expect(steps).toContain('media_links')
   })
@@ -133,13 +143,13 @@ describe('completeOnboardingStepsForSection', () => {
 
     expect(mocks.upsert).toHaveBeenCalledTimes(1)
     const steps = mocks.upsert.mock.calls.map(
-      (call: unknown[]) => (call[0] as Record<string, unknown>).step_key
+      (call: unknown[]) => (call[0] as Record<string, unknown>).step_key,
     )
     expect(steps).toContain('media_links')
   })
 
-  it('does nothing for sections with no onboarding steps (e.g. customerVoices)', async () => {
-    await completeOnboardingStepsForSection('any-id', 'customerVoices')
+  it('does nothing for sections with no onboarding steps', async () => {
+    await completeOnboardingStepsForSection('any-id', 'reputation')
     expect(mocks.upsert).not.toHaveBeenCalled()
   })
 })

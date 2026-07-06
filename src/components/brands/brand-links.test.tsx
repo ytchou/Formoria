@@ -8,7 +8,8 @@ import zh from '../../../messages/zh-TW.json'
 const mockTrackExternalLinkClicked = vi.fn()
 const mockTrackDbClick = vi.fn()
 vi.mock('@/lib/analytics', () => ({
-  trackExternalLinkClicked: (...args: unknown[]) => mockTrackExternalLinkClicked(...args),
+  trackExternalLinkClicked: (...args: unknown[]) =>
+    mockTrackExternalLinkClicked(...args),
   trackDbClick: (...args: unknown[]) => mockTrackDbClick(...args),
 }))
 
@@ -35,11 +36,10 @@ const mockBrand = {
   purchaseShopee: null,
   otherUrls: [],
   retailLocations: [],
-  customerVoices: [],
   contactEmail: null,
   siteContent: null,
-    priceRange: null,
-    productTags: [],
+  priceRange: null,
+  productTags: [],
   submittedAt: '2024-01-01',
   approvedAt: null,
   createdAt: '2024-01-01',
@@ -50,7 +50,7 @@ function renderWithIntl(ui: React.ReactElement) {
   return render(
     <NextIntlClientProvider locale="zh-TW" messages={zh}>
       {ui}
-    </NextIntlClientProvider>
+    </NextIntlClientProvider>,
   )
 }
 

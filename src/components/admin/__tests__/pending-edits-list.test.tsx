@@ -10,47 +10,50 @@ vi.mock('@/app/admin/actions', () => ({
   rejectPendingEditAction: vi.fn().mockResolvedValue(undefined),
 }))
 
-const EDITS = [{
-  id: 'edit-1',
-  brand: {
-    id: 'b1',
-    name: '暖木家居',
-    slug: 'wanjia',
-    description: 'Original description',
-    city: null,
-    heroImageUrl: null,
-    category: null,
-    contactEmail: 'owner@example.com',
-    foundingYear: 2020,
-    mitStory: null,
-    socialInstagram: null,
-    socialThreads: null,
-    socialFacebook: null,
-    purchaseWebsite: null,
-    purchasePinkoi: null,
-    purchaseShopee: null,
-    otherUrls: [],
-    retailLocations: [],
-    customerVoices: [],
-    productPhotos: [],
-    siteContent: null,
-    priceRange: null,
-    productTags: [],
+const EDITS = [
+  {
+    id: 'edit-1',
+    brand: {
+      id: 'b1',
+      name: '暖木家居',
+      slug: 'wanjia',
+      description: 'Original description',
+      city: null,
+      heroImageUrl: null,
+      category: null,
+      contactEmail: 'owner@example.com',
+      foundingYear: 2020,
+      mitStory: null,
+      socialInstagram: null,
+      socialThreads: null,
+      socialFacebook: null,
+      purchaseWebsite: null,
+      purchasePinkoi: null,
+      purchaseShopee: null,
+      otherUrls: [],
+      retailLocations: [],
+      productPhotos: [],
+      siteContent: null,
+      priceRange: null,
+      productTags: [],
+    },
+    submittedBy: 'user-1',
+    brandId: 'b1',
+    createdAt: '2026-06-12T10:00:00Z',
+    updatedAt: '2026-06-12T10:00:00Z',
+    status: 'pending' as const,
+    proposedData: { name: '暖木家居 Updated', description: 'New description' },
+    reviewerNotes: null,
+    reviewedAt: null,
+    reviewedBy: null,
   },
-  submittedBy: 'user-1',
-  brandId: 'b1',
-  createdAt: '2026-06-12T10:00:00Z',
-  updatedAt: '2026-06-12T10:00:00Z',
-  status: 'pending' as const,
-  proposedData: { name: '暖木家居 Updated', description: 'New description' },
-  reviewerNotes: null, reviewedAt: null, reviewedBy: null,
-}]
+]
 
 it('renders a row per pending edit', () => {
   render(
     <NextIntlClientProvider locale="zh-TW" messages={messages}>
       <PendingEditsList edits={EDITS} />
-    </NextIntlClientProvider>
+    </NextIntlClientProvider>,
   )
   expect(screen.getByText('暖木家居')).toBeInTheDocument()
 })
@@ -59,7 +62,7 @@ it('expands to show diff view on 展開 click', async () => {
   render(
     <NextIntlClientProvider locale="zh-TW" messages={messages}>
       <PendingEditsList edits={EDITS} />
-    </NextIntlClientProvider>
+    </NextIntlClientProvider>,
   )
   fireEvent.click(screen.getByText('展開'))
   expect(await screen.findByText('目前版本')).toBeInTheDocument()
@@ -70,7 +73,7 @@ it('shows reject note input when 退回 is clicked', async () => {
   render(
     <NextIntlClientProvider locale="zh-TW" messages={messages}>
       <PendingEditsList edits={EDITS} />
-    </NextIntlClientProvider>
+    </NextIntlClientProvider>,
   )
   fireEvent.click(screen.getByText('展開'))
   fireEvent.click(await screen.findByText('退回'))
@@ -82,7 +85,7 @@ describe('PendingEditsList', () => {
     render(
       <NextIntlClientProvider locale="zh-TW" messages={messages}>
         <PendingEditsList edits={[]} />
-      </NextIntlClientProvider>
+      </NextIntlClientProvider>,
     )
     expect(screen.getByText('目前沒有待審核的編輯申請。')).toBeInTheDocument()
   })
@@ -91,7 +94,7 @@ describe('PendingEditsList', () => {
     render(
       <NextIntlClientProvider locale="zh-TW" messages={messages}>
         <PendingEditsList edits={EDITS} />
-      </NextIntlClientProvider>
+      </NextIntlClientProvider>,
     )
     fireEvent.click(screen.getByText('展開'))
     fireEvent.click(await screen.findByText('退回'))
@@ -103,7 +106,7 @@ describe('PendingEditsList', () => {
     render(
       <NextIntlClientProvider locale="zh-TW" messages={messages}>
         <PendingEditsList edits={EDITS} />
-      </NextIntlClientProvider>
+      </NextIntlClientProvider>,
     )
     fireEvent.click(screen.getByText('展開'))
     fireEvent.click(await screen.findByText('退回'))

@@ -12,7 +12,12 @@ import {
   mergeDraftOverBrand,
 } from '@/lib/services/brands'
 import { hasPendingClaim } from '@/lib/services/claim-requests'
-import { buildBrandJsonLd, buildBreadcrumbJsonLd, buildFaqPageJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
+import {
+  buildBrandJsonLd,
+  buildBreadcrumbJsonLd,
+  buildFaqPageJsonLd,
+  safeJsonLdStringify,
+} from '@/lib/json-ld'
 import type { BreadcrumbItem } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
@@ -30,7 +35,6 @@ import { AdminBrandMenu } from '@/components/brands/admin-brand-menu'
 import { ClaimBrandCta } from '@/components/brands/claim-brand-cta'
 import { RequestRemoval } from '@/components/brands/request-removal'
 import { BrandAbout } from '@/components/brands/brand-about'
-import { BrandCustomerVoices } from '@/components/brands/brand-customer-voices'
 import { BrandFaqAccordion } from '@/components/brands/brand-faq-accordion'
 import { BrandLinks } from '@/components/brands/brand-links'
 import { BrandLocations } from '@/components/brands/brand-locations'
@@ -64,9 +68,14 @@ type PageProps = {
   searchParams: Promise<{ source?: string; preview?: string }>
 }
 
-type BrandFaqTranslateFn = (key: string, params?: Record<string, unknown>) => string
+type BrandFaqTranslateFn = (
+  key: string,
+  params?: Record<string, unknown>,
+) => string
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { locale, slug: rawSlug } = await params
   const slug = decodeURIComponent(rawSlug)
   setRequestLocale(locale)
@@ -76,11 +85,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   try {
     const brand = await getBrandBySlug(slug)
     const heroImageUrl = safeImageSrc(brand.heroImageUrl)
-    const { canonical, languages } = buildAlternates(`/brands/${brand.slug}`, safeLocale)
+    const { canonical, languages } = buildAlternates(
+      `/brands/${brand.slug}`,
+      safeLocale,
+    )
     const ogLocale = safeLocale === 'zh-TW' ? 'zh_TW' : 'en_US'
     const ogAlternateLocale = safeLocale === 'zh-TW' ? 'en_US' : 'zh_TW'
     const description = truncateForMeta(
-      brand.description || t('metadata.fallbackDescription', { name: brand.name }),
+      brand.description ||
+        t('metadata.fallbackDescription', { name: brand.name }),
     )
     return {
       title: brand.name,
@@ -103,7 +116,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     try {
       const redirectSlug = await findBrandByOldSlug(slug)
       if (redirectSlug) {
-        permanentRedirect(`/${locale}/brands/${encodeURIComponent(redirectSlug)}`)
+        permanentRedirect(
+          `/${locale}/brands/${encodeURIComponent(redirectSlug)}`,
+        )
       }
     } catch {
       // Fall through to original error handling.
@@ -117,7 +132,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-export default async function BrandDetailPage({ params, searchParams }: PageProps) {
+export default async function BrandDetailPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { locale, slug: rawSlug } = await params
   const slug = decodeURIComponent(rawSlug)
   setRequestLocale(locale)
@@ -129,13 +147,14 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
     await connection()
   }
 
-  const source = (
+  const source =
     sourceParam === 'search' ||
     sourceParam === 'category' ||
     sourceParam === 'directory' ||
     sourceParam === 'direct' ||
     sourceParam === 'recommendation'
-  ) ? sourceParam : 'direct'
+      ? sourceParam
+      : 'direct'
 
   let brand
   try {
@@ -144,7 +163,9 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
     try {
       const redirectSlug = await findBrandByOldSlug(slug)
       if (redirectSlug) {
-        permanentRedirect(`/${locale}/brands/${encodeURIComponent(redirectSlug)}`)
+        permanentRedirect(
+          `/${locale}/brands/${encodeURIComponent(redirectSlug)}`,
+        )
       }
     } catch {
       // Fall through to original error handling.
@@ -169,7 +190,8 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
     const {
       data: { user },
     } = await (await getSupabase()).auth.getUser()
-    const allowed = !!user && await canManageBrand(user.id, user.email, brand.id)
+    const allowed =
+      !!user && (await canManageBrand(user.id, user.email, brand.id))
 
     if (allowed) {
       displayBrand = mergeDraftOverBrand(brand, await getBrandDraft(brand.id))
@@ -187,7 +209,9 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
     const {
       data: { user },
     } = await (await getSupabase()).auth.getUser()
-    userHasPendingClaim = user ? await hasPendingClaim(user.id, displayBrand.id) : false
+    userHasPendingClaim = user
+      ? await hasPendingClaim(user.id, displayBrand.id)
+      : false
   }
 
   const {
@@ -202,18 +226,23 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
   const faqItems = buildBrandFaq(displayBrand, tBrandFaq)
 
   // Gallery images: hero + product photos
-  const galleryImages = [displayBrand.heroImageUrl, ...displayBrand.productPhotos].filter(
-    (url): url is string => Boolean(url),
-  )
+  const galleryImages = [
+    displayBrand.heroImageUrl,
+    ...displayBrand.productPhotos,
+  ].filter((url): url is string => Boolean(url))
 
-  const productTypeSlug = (displayBrand as Brand & { product_type?: string | null }).product_type ?? null
-  const productTypeCategory = PRODUCT_TYPE_CATEGORIES.find((category) => category.slug === productTypeSlug)
+  const productTypeSlug =
+    (displayBrand as Brand & { product_type?: string | null }).product_type ??
+    null
+  const productTypeCategory = PRODUCT_TYPE_CATEGORIES.find(
+    (category) => category.slug === productTypeSlug,
+  )
   const categoryTag = productTypeCategory
     ? {
-      slug: productTypeCategory.slug,
-      name: productTypeCategory.name,
-      nameZh: productTypeCategory.nameZh,
-    }
+        slug: productTypeCategory.slug,
+        name: productTypeCategory.name,
+        nameZh: productTypeCategory.nameZh,
+      }
     : null
 
   // Parallel fetch: related brands + category count by product_type slug.
@@ -227,20 +256,27 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
   ])
 
   // Visit Website URL — fallback: purchaseWebsite → facebook → pinkoi → shopee
-  const visitUrl = sanitizeHref(displayBrand.purchaseWebsite)
-    || sanitizeHref(displayBrand.socialFacebook)
-    || sanitizeHref(displayBrand.purchasePinkoi)
-    || sanitizeHref(displayBrand.purchaseShopee)
-    || null
+  const visitUrl =
+    sanitizeHref(displayBrand.purchaseWebsite) ||
+    sanitizeHref(displayBrand.socialFacebook) ||
+    sanitizeHref(displayBrand.purchasePinkoi) ||
+    sanitizeHref(displayBrand.purchaseShopee) ||
+    null
 
   // Breadcrumb items for JSON-LD
   const directoryLabel = tBrandDetail('breadcrumb.directory')
-  const categoryLabel = productTypeCategory?.nameZh ?? getBrandCategoryLabel(displayBrand)
+  const categoryLabel =
+    productTypeCategory?.nameZh ?? getBrandCategoryLabel(displayBrand)
 
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: directoryLabel, href: '/brands' },
     ...(categoryTag
-      ? [{ label: categoryLabel || categoryTag.name, href: `/brands?category=${categoryTag.slug}` }]
+      ? [
+          {
+            label: categoryLabel || categoryTag.name,
+            href: `/brands?category=${categoryTag.slug}`,
+          },
+        ]
       : []),
     { label: displayBrand.name },
   ]
@@ -258,16 +294,28 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
         {/* JSON-LD structured data */}
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(buildBrandJsonLd(displayBrand, safeLocale)) }}
+          dangerouslySetInnerHTML={{
+            __html: safeJsonLdStringify(
+              buildBrandJsonLd(displayBrand, safeLocale),
+            ),
+          }}
         />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(buildBreadcrumbJsonLd(breadcrumbItems, safeLocale)) }}
+          dangerouslySetInnerHTML={{
+            __html: safeJsonLdStringify(
+              buildBreadcrumbJsonLd(breadcrumbItems, safeLocale),
+            ),
+          }}
         />
         {faqItems.length > 0 && (
           <script
             type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(buildFaqPageJsonLd(faqItems, safeLocale)) }}
+            dangerouslySetInnerHTML={{
+              __html: safeJsonLdStringify(
+                buildFaqPageJsonLd(faqItems, safeLocale),
+              ),
+            }}
           />
         )}
 
@@ -292,7 +340,11 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
             <BrandHeader
               brand={displayBrand}
               categoryLabel={categoryLabel || null}
-              adminSlot={isAdmin ? <AdminBrandMenu brandSlug={displayBrand.slug} /> : undefined}
+              adminSlot={
+                isAdmin ? (
+                  <AdminBrandMenu brandSlug={displayBrand.slug} />
+                ) : undefined
+              }
               actionsSlot={
                 <SavedBrandsProvider>
                   <BrandActions
@@ -316,10 +368,6 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
 
             <BrandAbout brand={displayBrand} />
 
-            {displayBrand.customerVoices?.length > 0 && <hr className="border-border" />}
-
-            <BrandCustomerVoices brand={displayBrand} />
-
             <hr className="border-border" />
 
             <BrandLinks brand={displayBrand} />
@@ -340,7 +388,12 @@ export default async function BrandDetailPage({ params, searchParams }: PageProp
                 brandId={displayBrand.id}
                 hasPendingClaim={userHasPendingClaim}
                 hasOwnedBrand={Boolean(ownedBrand)}
-                removalSlot={<RequestRemoval brandName={displayBrand.name} brandSlug={displayBrand.slug} />}
+                removalSlot={
+                  <RequestRemoval
+                    brandName={displayBrand.name}
+                    brandSlug={displayBrand.slug}
+                  />
+                }
               />
             )}
 

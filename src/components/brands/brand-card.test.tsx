@@ -7,7 +7,8 @@ import en from '../../../messages/en.json'
 
 const mockTrackBrandCardClicked = vi.fn()
 vi.mock('@/lib/analytics', () => ({
-  trackBrandCardClicked: (...args: unknown[]) => mockTrackBrandCardClicked(...args),
+  trackBrandCardClicked: (...args: unknown[]) =>
+    mockTrackBrandCardClicked(...args),
 }))
 
 vi.mock('@/lib/auth/use-user', () => ({
@@ -15,7 +16,11 @@ vi.mock('@/lib/auth/use-user', () => ({
 }))
 
 vi.mock('@/hooks/use-saved-brands', () => ({
-  useSavedBrands: vi.fn(() => ({ savedIds: new Set(), toggle: vi.fn(), loading: false })),
+  useSavedBrands: vi.fn(() => ({
+    savedIds: new Set(),
+    toggle: vi.fn(),
+    loading: false,
+  })),
 }))
 
 vi.mock('next/navigation', () => ({
@@ -24,8 +29,14 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/i18n/navigation', () => ({
-  Link: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
-    <a href={href} {...props}>{children}</a>
+  Link: ({
+    href,
+    children,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
   useRouter: vi.fn(() => ({ push: vi.fn() })),
   usePathname: vi.fn(() => '/'),
@@ -54,11 +65,10 @@ const mockBrand = {
   purchaseShopee: null,
   otherUrls: [],
   retailLocations: [],
-  customerVoices: [],
   contactEmail: null,
   siteContent: null,
-    priceRange: null,
-    productTags: [],
+  priceRange: null,
+  productTags: [],
   submittedAt: '2024-01-01',
   approvedAt: null,
   createdAt: '2024-01-01',
@@ -69,7 +79,7 @@ function renderWithProvider(ui: React.ReactElement) {
   return render(
     <NextIntlClientProvider locale="en" messages={en}>
       {ui}
-    </NextIntlClientProvider>
+    </NextIntlClientProvider>,
   )
 }
 
@@ -82,13 +92,21 @@ describe('BrandCard', () => {
     const user = userEvent.setup()
     renderWithProvider(<BrandCard brand={mockBrand} position={2} />)
     await user.click(screen.getByRole('link'))
-    expect(mockTrackBrandCardClicked).toHaveBeenCalledWith('test-brand', 'accessories', 2)
+    expect(mockTrackBrandCardClicked).toHaveBeenCalledWith(
+      'test-brand',
+      'accessories',
+      2,
+    )
   })
 
   it('defaults position to 0 when not provided', async () => {
     const user = userEvent.setup()
     renderWithProvider(<BrandCard brand={mockBrand} />)
     await user.click(screen.getByRole('link'))
-    expect(mockTrackBrandCardClicked).toHaveBeenCalledWith('test-brand', 'accessories', 0)
+    expect(mockTrackBrandCardClicked).toHaveBeenCalledWith(
+      'test-brand',
+      'accessories',
+      0,
+    )
   })
 })

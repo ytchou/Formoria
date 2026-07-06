@@ -13,6 +13,7 @@ type ImageUploaderProps = {
   onUpload: (url: string) => void
   onRemove?: (index: number) => void
   maxFiles?: number
+  id?: string
 }
 
 export function ImageUploader({
@@ -23,10 +24,14 @@ export function ImageUploader({
   onUpload,
   onRemove,
   maxFiles = 6,
+  id,
 }: ImageUploaderProps) {
   const t = useTranslations('forms.uploader')
   const inputRef = useRef<HTMLInputElement>(null)
-  const { status, url, error, upload, reset } = useImageUpload({ bucket, path })
+  const { status, url, error, upload, reset } = useImageUpload({
+    bucket,
+    path,
+  })
   const queueRef = useRef<Array<{ file: File; filename: string }>>([])
   const currentFilenameRef = useRef<string | null>(null)
   const [processingQueue, setProcessingQueue] = useState(false)
@@ -54,7 +59,7 @@ export function ImageUploader({
   useEffect(() => {
     if (status === 'error' && processingQueue) {
       if (currentFilenameRef.current) {
-        setFailedFiles(prev => [...prev, currentFilenameRef.current!])
+        setFailedFiles((prev) => [...prev, currentFilenameRef.current!])
       }
       processNext()
     }
@@ -62,7 +67,10 @@ export function ImageUploader({
 
   const enqueueFiles = useCallback(
     (files: File[]) => {
-      const remaining = mode === 'multi' ? maxFiles - (Array.isArray(value) ? value.length : 0) : 1
+      const remaining =
+        mode === 'multi'
+          ? maxFiles - (Array.isArray(value) ? value.length : 0)
+          : 1
       const capped = files.slice(0, Math.max(0, remaining))
       capped.forEach((file, i) => {
         const filename = `${Date.now()}-${i}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}.webp`
@@ -70,17 +78,19 @@ export function ImageUploader({
       })
       if (!processingQueue) processNext()
     },
-    [mode, maxFiles, value, processingQueue, processNext]
+    [mode, maxFiles, value, processingQueue, processNext],
   )
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault()
-      const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'))
+      const files = Array.from(e.dataTransfer.files).filter((f) =>
+        f.type.startsWith('image/'),
+      )
       if (files.length === 0) return
       enqueueFiles(files)
     },
-    [enqueueFiles]
+    [enqueueFiles],
   )
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -94,7 +104,7 @@ export function ImageUploader({
       enqueueFiles(files)
       e.target.value = ''
     },
-    [enqueueFiles]
+    [enqueueFiles],
   )
 
   const urls =
@@ -115,7 +125,7 @@ export function ImageUploader({
       {urls.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {urls.map((imgUrl, index) => (
-            <div key={index} className="group relative">
+            <div key={imgUrl} className="group relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={imgUrl}
@@ -127,7 +137,7 @@ export function ImageUploader({
                   type="button"
                   onClick={() => onRemove(index)}
                   aria-label={t('ariaRemove', { n: index + 1 })}
-                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-neutral-800 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                  className="absolute -right-3 -top-3 flex h-12 w-12 items-center justify-center rounded-full bg-foreground text-background opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -140,7 +150,9 @@ export function ImageUploader({
       {/* Drop zone */}
       {showDropZone && (
         <div
+          id={id}
           role="button"
+          aria-label={t('clickOrDrag')}
           tabIndex={0}
           onClick={() => inputRef.current?.click()}
           onKeyDown={(e) => {
@@ -156,9 +168,7 @@ export function ImageUploader({
             <Upload className="h-6 w-6 text-muted-foreground" />
           )}
           <span className="text-sm text-muted-foreground">
-            {status === 'uploading'
-              ? t('uploading')
-              : t('clickOrDrag')}
+            {status === 'uploading' ? t('uploading') : t('clickOrDrag')}
           </span>
         </div>
       )}
@@ -174,9 +184,15 @@ export function ImageUploader({
       />
 
       {/* Error message */}
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && (
+        <p className="text-xs text-destructive" aria-live="polite">
+          {error}
+        </p>
+      )}
       {failedFiles.length > 0 && (
-        <p className="text-xs text-red-600">{t('uploadFailed', { files: failedFiles.join(', ') })}</p>
+        <p className="text-xs text-destructive" aria-live="polite">
+          {t('uploadFailed', { files: failedFiles.join(', ') })}
+        </p>
       )}
     </div>
   )

@@ -23,7 +23,6 @@ function makeBrandRow(overrides: Record<string, unknown> = {}) {
     purchase_shopee: null,
     other_urls: [],
     retail_locations: [],
-    customer_voices: [],
     product_highlights: [],
     submitted_at: '2026-01-01T00:00:00Z',
     approved_at: '2026-01-02T00:00:00Z',
@@ -156,7 +155,9 @@ describe('brandToDomain (flat link columns)', () => {
       other_urls: [{ label: 'PChome', url: 'https://pchome.com/store' }],
     })
     const brand = brandToDomain(row)
-    expect(brand.otherUrls).toEqual([{ label: 'PChome', url: 'https://pchome.com/store' }])
+    expect(brand.otherUrls).toEqual([
+      { label: 'PChome', url: 'https://pchome.com/store' },
+    ])
   })
 
   it('defaults null columns to null and empty array', () => {
@@ -192,7 +193,6 @@ describe('brandToDomain — brand detail enrichment fields', () => {
     const brand = brandToDomain(row)
     expect(brand.priceRange).toBeNull()
   })
-
 })
 
 describe('brandToInsert — isDemo', () => {
@@ -226,7 +226,9 @@ describe('brandToInsert (flat link columns)', () => {
     expect(result.social_instagram).toBe('test_brand')
     expect(result.social_threads).toBeNull()
     expect(result.purchase_website).toBe('https://testbrand.com')
-    expect(result.other_urls).toEqual([{ label: 'Blog', url: 'https://blog.test.com' }])
+    expect(result.other_urls).toEqual([
+      { label: 'Blog', url: 'https://blog.test.com' },
+    ])
   })
 })
 
@@ -276,6 +278,8 @@ describe('pendingEditWithBrandToDomain (flat links)', () => {
     expect(edit.brand.purchaseWebsite).toBe('https://proposed.example.com')
     expect(edit.brand.purchasePinkoi).toBe('https://pinkoi.com/store/current')
     expect(edit.brand.purchaseShopee).toBe('https://shopee.tw/current')
-    expect(edit.brand.otherUrls).toEqual([{ label: 'Blog', url: 'https://blog.example.com' }])
+    expect(edit.brand.otherUrls).toEqual([
+      { label: 'Blog', url: 'https://blog.example.com' },
+    ])
   })
 })

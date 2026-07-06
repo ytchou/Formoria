@@ -363,7 +363,6 @@
       "tags": "標籤",
       "highlights": "品牌亮點",
       "photos": "照片",
-      "customerVoices": "顧客心聲",
       "locations": "據點",
       "faq": "常見問題"
     },
@@ -453,23 +452,6 @@
       "reputation": {
         "question": "{brandName}評價如何？",
         "answer": "{brandName} 的評價重點包括：{summary}{context}"
-      },
-      "manufacturing": {
-        "question": "{brandName}在哪裡製造？",
-        "answer": "{brandName} 的製造資訊顯示：{details}。{context}"
-      },
-      "certifications": {
-        "question": "{brandName}有什麼認證？",
-        "answer": "{brandName} 列出的認證或標準包含{certList}。{context}"
-      },
-      "returnPolicy": {
-        "question": "{brandName}退換貨政策是什麼？",
-        "answer": "{brandName} 的退換貨與保固資訊為：{details}"
-      },
-      "internationalShipping": {
-        "question": "{brandName}有寄海外嗎？",
-        "yes": "{brandName}有提供國際運送服務。",
-        "no": "{brandName}目前不提供國際運送。"
       }
     }
   },
@@ -1051,8 +1033,8 @@
           "description": "了解品牌頁面的瀏覽表現。"
         },
         "health": {
-          "title": "檢視品牌健康度",
-          "description": "查看品牌健康分數與改善建議。"
+          "title": "檢視品牌檔案完成度",
+          "description": "查看品牌檔案接下來需要補充的內容。"
         },
         "verification": {
           "title": "開始品牌驗證",
@@ -1067,38 +1049,34 @@
       "tier1Label": "重要項目",
       "tier2Label": "加分項目"
     },
-    "health": {
-      "title": "品牌健康分數",
-      "subtitle": "您的品牌在 7 個維度上的表現",
-      "tier": {
-        "gettingStarted": "起步中",
-        "growing": "成長中",
-        "thriving": "蓬勃發展",
-        "exemplary": "卓越典範"
+    "profileCompleteness": {
+      "title": "品牌檔案完成度",
+      "completedCount": "已完成 {completed}／{total} 個項目",
+      "viewRecommendations": "查看建議",
+      "hideRecommendations": "收合建議",
+      "recommendations": "建議下一步",
+      "complete": "您的品牌檔案已完成。",
+      "priority": {
+        "required": "必填",
+        "weight5": "核心",
+        "weight3": "重要",
+        "weight1": "加分"
       },
-      "tierRange": {
-        "gettingStarted": "0–39 · 資料需要補充",
-        "growing": "40–69 · 基礎良好，還有優化空間",
-        "thriving": "70–89 · 品牌形象強烈",
-        "exemplary": "90–100 · 業界最佳"
-      },
-      "suggestedActions": "建議改善項目",
-      "pointsToNextTier": "距離{tier}還差 {points} 分",
-      "atTopTier": "頂尖品牌",
-      "actionQueue": {
-        "title": "準備好成長了嗎？這些改變最有效",
-        "label": {
-          "profileCompleteness": "完善您的品牌資料",
-          "engagementHealth": "提升品牌互動",
-          "brandStory": "強化品牌故事",
-          "photoQuality": "新增更多產品照片",
+      "component": {
+        "description": "新增品牌故事",
+        "productTags": "新增產品標籤",
+        "priceRange": "選擇價格範圍",
+        "heroImage": "上傳主視覺圖片",
+        "productPhotos": "上傳產品照片",
+        "officialWebsite": "新增官方網站",
+        "city": "新增品牌創立城市",
+        "foundingYear": "新增創立年份",
           "socialPresence": "連結社群帳號",
-          "purchaseAccessibility": "新增購買連結",
-          "clickThroughRate": "提升點擊率"
+        "additionalSalesChannel": "新增其他銷售管道",
+        "retailLocations": "新增零售據點",
+        "reputation": "新增口碑佐證"
         }
       },
-      "lastUpdated": "最後更新：{date}"
-    },
     "mit": {
       "title": "MIT 驗證狀態",
       "status": {
@@ -1157,7 +1135,6 @@
       "sectionBasicInfo": "品牌簡介",
       "sectionMedia": "媒體素材",
       "sectionLinks": "連結",
-      "sectionCustomerVoices": "顧客心聲",
       "sectionLocations": "零售據點",
       "fieldBrandName": "品牌名稱",
       "fieldCategory": "分類",
@@ -1192,11 +1169,6 @@
       "socialLinksLabel": "社群連結",
       "fieldOtherLinks": "其他連結",
       "addLink": "新增連結",
-      "customerVoicesLabel": "顧客評語",
-      "fieldCustomerVoiceAuthor": "顧客名稱",
-      "fieldCustomerVoiceContent": "顧客評語",
-      "fieldCustomerVoiceSource": "來源（選填）",
-      "addCustomerVoice": "新增顧客心聲",
       "removeItem": "移除",
       "addRetailLocation": "新增零售據點",
       "fieldStoreName": "店名",
@@ -1211,6 +1183,7 @@
         "notLoggedIn": "請先登入才能編輯品牌",
         "forbidden": "您沒有權限編輯此品牌",
         "noDraft": "沒有可發布的草稿。",
+        "requiredFieldsIncomplete": "發布前請完成所有必填欄位。",
         "unknown": "發生預期外的錯誤，請再試一次。"
       },
       "fieldRegion": "品牌所在地區",
@@ -1233,42 +1206,17 @@
       "wizardStepMediaSub": "品牌圖片",
       "wizardStepLinks": "連結",
       "wizardStepLinksSub": "社群與購買連結",
-      "wizardStepCustomerVoices": "顧客評價",
-      "wizardStepCustomerVoicesSub": "顧客評價",
       "wizardStepLocations": "據點",
       "wizardStepLocationsSub": "實體據點",
       "wizardStepReputation": "品牌口碑",
       "wizardStepReputationSub": "品牌口碑",
-      "wizardStepManufacturing": "生產製造",
-      "wizardStepManufacturingSub": "生產製造",
-      "wizardStepCertifications": "認證標章",
-      "wizardStepCertificationsSub": "認證標章",
-      "wizardStepPolicies": "消費者政策",
-      "wizardStepPoliciesSub": "消費者政策",
       "sectionReputation": "品牌口碑",
-      "sectionManufacturing": "生產製造",
-      "sectionCertifications": "認證標章",
-      "sectionPolicies": "消費者政策",
       "fieldReputationSummary": "口碑摘要",
       "fieldProvenanceSources": "來源佐證",
       "fieldSourceUrlPlaceholder": "來源網址",
-      "fieldSourceTitlePlaceholder": "標題",
-      "fieldRetrievedDatePlaceholder": "擷取日期",
       "addSource": "新增來源",
-      "fieldFactoryLocation": "工廠所在地",
-      "fieldProductionModel": "生產模式",
-      "fieldProductionModelPlaceholder": "選擇模式",
-      "productionModelOwn": "自有生產",
-      "productionModelOem": "OEM 代工",
-      "productionModelMixed": "混合模式",
-      "fieldManufacturingNotes": "生產製造備註",
-      "fieldCertificationNamePlaceholder": "認證名稱",
-      "fieldCertificationIssuerPlaceholder": "發證單位",
-      "fieldCertificationYearPlaceholder": "年份",
-      "addCertification": "新增認證",
-      "fieldReturnsPolicy": "退貨政策",
-      "fieldWarranty": "保固",
-      "fieldShipsInternational": "提供國際配送",
+      "requiredHint": "為必填欄位",
+      "requiredFieldError": "發布前請完成此必填欄位。",
       "fieldCategoryHint": "用於導航、搜尋和篩選",
       "fieldDescriptionHint": "顯示在品牌頁面上的公開介紹",
       "fieldFoundingYearHint": "顯示在品牌頁面上",
@@ -1278,7 +1226,6 @@
       "unsavedChanges": "有未儲存的變更"
     },
     "brandProfile": {
-      "customerVoices": "顧客心聲",
       "productPhotos": "產品照片",
       "retailLocations": "零售據點",
       "priceRange": "價格範圍",

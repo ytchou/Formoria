@@ -23,7 +23,7 @@ type CliOptions = {
 type FieldStateTable = {
   upsert: (
     rows: FieldStateInsert[],
-    options: { onConflict: 'brand_id,field'; ignoreDuplicates: true }
+    options: { onConflict: 'brand_id,field'; ignoreDuplicates: true },
   ) => Promise<{ error: { message?: string } | null }>
 }
 
@@ -35,7 +35,6 @@ const BRAND_FIELDS = [
   'product_type',
   'contact_email',
   'city',
-  'customer_voices',
   'purchase_website',
   'purchase_pinkoi',
   'purchase_shopee',
@@ -52,9 +51,6 @@ const BRAND_FIELDS = [
   'price_range',
   'product_tags',
   'reputation_summary',
-  'manufacturing',
-  'certifications',
-  'policies',
   'mit_status',
   'mit_verified_at',
   'mit_story',
@@ -70,7 +66,9 @@ function createServiceClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!url || !serviceRoleKey) {
-    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY')
+    throw new Error(
+      'Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY',
+    )
   }
 
   return createSupabaseClient(url, serviceRoleKey)
@@ -79,7 +77,9 @@ function createServiceClient() {
 function parseArgs(argv: string[]): CliOptions {
   const dryRun = argv.includes('--dry-run')
   const batchSizeArg = argv.find((arg) => arg.startsWith('--batch-size='))
-  const batchSize = batchSizeArg ? Number(batchSizeArg.slice('--batch-size='.length)) : 500
+  const batchSize = batchSizeArg
+    ? Number(batchSizeArg.slice('--batch-size='.length))
+    : 500
 
   if (!Number.isInteger(batchSize) || batchSize <= 0) {
     throw new Error('--batch-size must be a positive integer')
@@ -97,26 +97,29 @@ function isPopulated(value: unknown): boolean {
 
 function firstOwnerId(brand: BrandRow): string | null {
   const owners = brand.brand_owners
-  if (Array.isArray(owners)) return owners.find((owner) => owner.user_id)?.user_id ?? null
+  if (Array.isArray(owners))
+    return owners.find((owner) => owner.user_id)?.user_id ?? null
   return owners?.user_id ?? null
 }
 
 function fieldStateTable(client: unknown): FieldStateTable {
-  return (client as { from: (table: 'brand_field_state') => FieldStateTable }).from('brand_field_state')
+  return (
+    client as { from: (table: 'brand_field_state') => FieldStateTable }
+  ).from('brand_field_state')
 }
 
 function buildRows(brand: BrandRow): FieldStateInsert[] {
   const ownerId = firstOwnerId(brand)
   const source: Source = ownerId ? 'owner' : 'enriched'
 
-  return BRAND_FIELDS
-    .filter((field) => isPopulated(brand[field]))
-    .map((field) => ({
+  return BRAND_FIELDS.filter((field) => isPopulated(brand[field])).map(
+    (field) => ({
       brand_id: brand.id,
       field,
       source,
       updated_by: ownerId,
-    }))
+    }),
+  )
 }
 
 async function main(): Promise<void> {
@@ -136,7 +139,7 @@ async function main(): Promise<void> {
 
     if (error) throw error
 
-    const brands = ((data ?? []) as unknown) as BrandRow[]
+    const brands = (data ?? []) as unknown as BrandRow[]
     if (brands.length === 0) break
 
     scanned += brands.length
@@ -144,16 +147,21 @@ async function main(): Promise<void> {
     rowsBuilt += rows.length
 
     if (!options.dryRun && rows.length > 0) {
-      const { error: upsertError } = await fieldStateTable(supabase).upsert(rows, {
-        onConflict: 'brand_id,field',
-        ignoreDuplicates: true,
-      })
+      const { error: upsertError } = await fieldStateTable(supabase).upsert(
+        rows,
+        {
+          onConflict: 'brand_id,field',
+          ignoreDuplicates: true,
+        },
+      )
 
       if (upsertError) throw upsertError
       rowsWritten += rows.length
     }
 
-    console.log(`Progress: ${scanned} brand(s), ${rowsBuilt} field state row(s)`)
+    console.log(
+      `Progress: ${scanned} brand(s), ${rowsBuilt} field state row(s)`,
+    )
 
     if (brands.length < options.batchSize) break
     offset += options.batchSize

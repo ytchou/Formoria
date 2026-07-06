@@ -37,6 +37,19 @@ const shouldAutoApprove = vi.fn()
 const saveModerationFlags = vi.fn().mockResolvedValue(undefined)
 const isOnboardingStepKey = vi.fn().mockReturnValue(true)
 const setBrandOnboardingStepStatus = vi.fn().mockResolvedValue(undefined)
+const rejectBrandImages = vi.fn().mockResolvedValue(undefined)
+const mergeDraftOverBrand = vi.fn((brand: Record<string, unknown>, snapshot: Record<string, unknown>) => ({
+  ...brand,
+  ...snapshot,
+  name: 'Test Brand',
+  productType: 'food',
+  description: 'A complete profile',
+  productTags: ['tea'],
+  priceRange: 2,
+  heroImageUrl: heroUrl,
+  productPhotos: [newProductUrl],
+  purchaseWebsite: 'https://example.com',
+}))
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => ({
@@ -70,6 +83,13 @@ vi.mock('@/lib/services/brands', () => ({
   discardDraft,
   updateBrand,
   diffRemovedImageUrls,
+  mergeDraftOverBrand,
+}))
+
+vi.mock('@/lib/services/brand-images', () => ({
+  insertBrandImage: vi.fn().mockResolvedValue(undefined),
+  rejectBrandImages,
+  syncHeroDenormalized: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('@/lib/services/image-upload', () => ({

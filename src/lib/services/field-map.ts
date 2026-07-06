@@ -19,7 +19,7 @@ type FieldMap<Source extends object, Target extends object> = ReadonlyArray<
 function copyMappedFields<Source extends object, Target extends object>(
   source: Source,
   target: Partial<Target>,
-  fields: FieldMap<Source, Target>
+  fields: FieldMap<Source, Target>,
 ): void {
   for (const [from, to] of fields) {
     const value = source[from]
@@ -36,7 +36,10 @@ const SOCIAL_PURCHASE_FIELD_MAP = [
   ['purchaseWebsite', 'purchase_website'],
   ['purchasePinkoi', 'purchase_pinkoi'],
   ['purchaseShopee', 'purchase_shopee'],
-] as const satisfies FieldMap<CamelSocialPurchaseFields, BrandInsertRow & SubmissionInsertRow>
+] as const satisfies FieldMap<
+  CamelSocialPurchaseFields,
+  BrandInsertRow & SubmissionInsertRow
+>
 
 const BRAND_FIELD_MAP = [
   ['contactEmail', 'contact_email'],
@@ -44,7 +47,6 @@ const BRAND_FIELD_MAP = [
   ['city', 'city'],
   ['otherUrls', 'other_urls'],
   ['retailLocations', 'retail_locations'],
-  ['customerVoices', 'customer_voices'],
 ] as const satisfies FieldMap<
   {
     contactEmail?: string | null
@@ -52,7 +54,6 @@ const BRAND_FIELD_MAP = [
     city?: string | null
     otherUrls?: unknown
     retailLocations?: unknown
-    customerVoices?: unknown
     priceRange?: number | null
     productTags?: string[] | null
   },
@@ -120,7 +121,6 @@ export function toBrandRow(input: {
   purchaseShopee?: string | null
   otherUrls?: unknown
   retailLocations?: unknown
-  customerVoices?: unknown
   contactEmail?: string | null
   priceRange?: number | null
   productTags?: string[] | null

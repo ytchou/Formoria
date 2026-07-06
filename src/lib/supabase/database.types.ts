@@ -454,11 +454,9 @@ export type Database = {
           approved_at: string | null
           brand_enriched_at: string | null
           category_attributes: Json | null
-          certifications: Json | null
           city: string | null
           contact_email: string | null
           created_at: string | null
-          customer_voices: Json | null
           description: string | null
           draft_data: Json | null
           draft_updated_at: string | null
@@ -466,14 +464,12 @@ export type Database = {
           hero_image_url: string | null
           id: string
           is_demo: boolean
-          manufacturing: Json | null
           mit_evidence: Json | null
           mit_status: string
           mit_story: string | null
           mit_verified_at: string | null
           name: string
           other_urls: Json
-          policies: Json | null
           price_range: number | null
           product_tags: string[] | null
           product_type: string | null
@@ -497,11 +493,9 @@ export type Database = {
           approved_at?: string | null
           brand_enriched_at?: string | null
           category_attributes?: Json | null
-          certifications?: Json | null
           city?: string | null
           contact_email?: string | null
           created_at?: string | null
-          customer_voices?: Json | null
           description?: string | null
           draft_data?: Json | null
           draft_updated_at?: string | null
@@ -509,14 +503,12 @@ export type Database = {
           hero_image_url?: string | null
           id?: string
           is_demo?: boolean
-          manufacturing?: Json | null
           mit_evidence?: Json | null
           mit_status?: string
           mit_story?: string | null
           mit_verified_at?: string | null
           name: string
           other_urls?: Json
-          policies?: Json | null
           price_range?: number | null
           product_tags?: string[] | null
           product_type?: string | null
@@ -540,11 +532,9 @@ export type Database = {
           approved_at?: string | null
           brand_enriched_at?: string | null
           category_attributes?: Json | null
-          certifications?: Json | null
           city?: string | null
           contact_email?: string | null
           created_at?: string | null
-          customer_voices?: Json | null
           description?: string | null
           draft_data?: Json | null
           draft_updated_at?: string | null
@@ -552,14 +542,12 @@ export type Database = {
           hero_image_url?: string | null
           id?: string
           is_demo?: boolean
-          manufacturing?: Json | null
           mit_evidence?: Json | null
           mit_status?: string
           mit_story?: string | null
           mit_verified_at?: string | null
           name?: string
           other_urls?: Json
-          policies?: Json | null
           price_range?: number | null
           product_tags?: string[] | null
           product_type?: string | null
@@ -1008,7 +996,6 @@ export type Database = {
         Args: { p_brand_id: string; p_source?: string }
         Returns: undefined
       }
-      profile_completeness: { Args: { p_brand_id: string }; Returns: number }
       search_brands: {
         Args: {
           filter_categories?: string[]

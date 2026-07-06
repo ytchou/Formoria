@@ -151,12 +151,7 @@ export function needsPhase(brand: Record<string, unknown>, phase: RunEnrichPhase
   }
 
   if (phase === 'expansion') {
-    return (
-      isEmptyField(brand.reputation_summary ?? brand.reputationSummary) ||
-      isEmptyField(brand.manufacturing) ||
-      isEmptyField(brand.certifications) ||
-      isEmptyField(brand.policies)
-    )
+    return isEmptyField(brand.reputation_summary ?? brand.reputationSummary)
   }
 
   return true
@@ -604,7 +599,7 @@ export async function runEnrich(
     let query = supabase
       .from('brands')
       .select(
-        'id, slug, name, status, description, description_en, product_type, category_attributes, site_content, reputation_summary, manufacturing, certifications, policies, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, hero_image_url'
+        'id, slug, name, status, description, description_en, product_type, category_attributes, site_content, reputation_summary, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, hero_image_url'
       )
 
     if (config.slugs && config.slugs.length > 0) {

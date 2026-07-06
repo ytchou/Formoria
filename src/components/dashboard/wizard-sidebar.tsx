@@ -18,12 +18,8 @@ const STEP_MESSAGE_KEYS = {
   basicInfo: ['wizardStepBasicInfo', 'wizardStepBasicInfoSub'],
   media: ['wizardStepMedia', 'wizardStepMediaSub'],
   links: ['wizardStepLinks', 'wizardStepLinksSub'],
-  customerVoices: ['wizardStepCustomerVoices', 'wizardStepCustomerVoicesSub'],
   locations: ['wizardStepLocations', 'wizardStepLocationsSub'],
   reputation: ['wizardStepReputation', 'wizardStepReputationSub'],
-  manufacturing: ['wizardStepManufacturing', 'wizardStepManufacturingSub'],
-  certifications: ['wizardStepCertifications', 'wizardStepCertificationsSub'],
-  policies: ['wizardStepPolicies', 'wizardStepPoliciesSub'],
 } as const
 
 export function WizardSidebar({
