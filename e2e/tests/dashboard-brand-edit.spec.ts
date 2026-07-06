@@ -5,6 +5,8 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
 test.describe('Dashboard brand edit', () => {
+  test.describe.configure({ mode: 'serial' });
+
   let descriptionBrandId: string;
   let descriptionBrandSlug: string;
   let supabase: AnySupabaseClient;
@@ -35,7 +37,10 @@ test.describe('Dashboard brand edit', () => {
     }
     testUserId = testUser.id;
 
-    // One brand per journey to avoid unique-pending-per-brand constraint.
+    // Pre-delete orphan test brands and brand_owners for this user
+    await supabase.from('brand_owners').delete().eq('user_id', testUserId);
+    await supabase.from('brands').delete().like('name', '[E2E-TEST] Brand Edit%');
+
     const ts = Date.now();
 
     async function seedBrand(label: string, slug: string) {

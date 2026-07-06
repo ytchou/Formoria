@@ -45,8 +45,7 @@ export async function seedBrand(opts: {
     name: fullName,
     slug,
     status,
-    category: 'lifestyle',
-    founding_year: '2020',
+    product_type: 'crafts',
   };
 
   if (opts.withLinks) {
