@@ -12,7 +12,9 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/i18n/navigation', () => ({
   Link: ({ href, children, className }: React.ComponentProps<'a'>) => (
-    <a href={href} className={className}>{children}</a>
+    <a href={href} className={className}>
+      {children}
+    </a>
   ),
 }))
 
@@ -32,19 +34,26 @@ describe('WelcomeBanner', () => {
             { key: 'verification', status: 'not_started' },
           ]}
         />
-      </NextIntlClientProvider>
+      </NextIntlClientProvider>,
     )
 
     expect(screen.getByText('1 of 5 complete')).toBeInTheDocument()
     expect(screen.getByText('Add media & links')).toBeInTheDocument()
     expect(screen.getByText('Check your analytics')).toBeInTheDocument()
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1')
+    expect(screen.getByRole('progressbar')).toHaveAttribute(
+      'aria-valuenow',
+      '1',
+    )
 
     const links = screen.getAllByRole('link')
-    const mediaLink = links.find(l => l.textContent?.includes('Add media & links'))
+    const mediaLink = links.find((l) =>
+      l.textContent?.includes('Add media & links'),
+    )
     expect(mediaLink?.getAttribute('href')).toContain('?step=1')
 
-    const analyticsLink = links.find(l => l.textContent?.includes('Check your analytics'))
+    const analyticsLink = links.find((l) =>
+      l.textContent?.includes('Check your analytics'),
+    )
     expect(analyticsLink?.getAttribute('href')).toContain('/analytics')
   })
 
@@ -63,11 +72,14 @@ describe('WelcomeBanner', () => {
             { key: 'verification', status: 'complete' },
           ]}
         />
-      </NextIntlClientProvider>
+      </NextIntlClientProvider>,
     )
 
     expect(screen.getByText('5 of 5 complete')).toBeInTheDocument()
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '5')
+    expect(screen.getByRole('progressbar')).toHaveAttribute(
+      'aria-valuenow',
+      '5',
+    )
   })
 
   it('resolves every onboarding message in Traditional Chinese', () => {
@@ -87,13 +99,13 @@ describe('WelcomeBanner', () => {
             { key: 'verification', status: 'not_started' },
           ]}
         />
-      </NextIntlClientProvider>
+      </NextIntlClientProvider>,
     )
 
     expect(screen.getByText('完善品牌資料')).toBeInTheDocument()
     expect(screen.getByText('新增媒體與連結')).toBeInTheDocument()
     expect(screen.getByText('查看數據分析')).toBeInTheDocument()
-    expect(screen.getByText('檢視品牌健康度')).toBeInTheDocument()
+    expect(screen.getByText('檢視品牌檔案完成度')).toBeInTheDocument()
     expect(screen.getByText('開始品牌驗證')).toBeInTheDocument()
     expect(onError).not.toHaveBeenCalled()
   })

@@ -11,14 +11,31 @@ vi.mock('@/lib/analytics', () => ({
 }))
 
 vi.mock('@/i18n/navigation', () => ({
-  Link: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
-    <a href={href} {...props}>{children}</a>
+  Link: ({
+    href,
+    children,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
 }))
 
 vi.mock('../save-brand-button', () => ({
-  SaveBrandButton: ({ brandId, variant }: { brandId: string; variant: 'overlay' | 'inline' }) => (
-    <button type="button" aria-label="收藏品牌" data-brand-id={brandId} data-variant={variant} />
+  SaveBrandButton: ({
+    brandId,
+    variant,
+  }: {
+    brandId: string
+    variant: 'overlay' | 'inline'
+  }) => (
+    <button
+      type="button"
+      aria-label="收藏品牌"
+      data-brand-id={brandId}
+      data-variant={variant}
+    />
   ),
 }))
 
@@ -28,11 +45,11 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     name: '測試品牌',
     slug: 'test-brand',
     description: '品牌描述',
-  heroImageUrl: null,
-  status: 'approved',
-  category: 'fashion',
-  city: null,
-  isVerified: false,
+    heroImageUrl: null,
+    status: 'approved',
+    category: 'fashion',
+    city: null,
+    isVerified: false,
     mitStatus: 'unverified',
     mitVerifiedAt: null,
     mitEvidence: null,
@@ -46,7 +63,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     purchaseShopee: null,
     otherUrls: [],
     retailLocations: [],
-    customerVoices: [],
     productPhotos: [],
     siteContent: null,
     priceRange: null,
@@ -65,14 +81,16 @@ function renderWithProvider(ui: React.ReactElement) {
   return render(
     <NextIntlClientProvider locale="zh-TW" messages={zh}>
       {ui}
-    </NextIntlClientProvider>
+    </NextIntlClientProvider>,
   )
 }
 
 describe('BrandCard badges', () => {
   it('renders the MIT verified badge for MIT-verified brands', () => {
     renderWithProvider(
-      <BrandCard brand={makeBrand({ mitStatus: 'verified', mitVerified: true })} />
+      <BrandCard
+        brand={makeBrand({ mitStatus: 'verified', mitVerified: true })}
+      />,
     )
 
     expect(screen.getByTitle('MIT 已驗證')).toBeInTheDocument()
@@ -87,14 +105,20 @@ describe('BrandCard badges', () => {
   })
 
   it('renders community text without the owner badge for community brands', () => {
-    renderWithProvider(<BrandCard brand={makeBrand({ category: '社群', isVerified: false })} />)
+    renderWithProvider(
+      <BrandCard brand={makeBrand({ category: '社群', isVerified: false })} />,
+    )
 
     expect(screen.queryByTitle('由品牌方經營管理')).toBeNull()
     expect(screen.getByText('社群')).toBeInTheDocument()
   })
 
   it('renders no badge when isVerified is false and mitVerified is false', () => {
-    renderWithProvider(<BrandCard brand={makeBrand({ isVerified: false, mitVerified: false })} />)
+    renderWithProvider(
+      <BrandCard
+        brand={makeBrand({ isVerified: false, mitVerified: false })}
+      />,
+    )
 
     expect(screen.queryByTitle('由品牌方經營管理')).toBeNull()
     expect(screen.queryByTitle('MIT 已驗證')).toBeNull()

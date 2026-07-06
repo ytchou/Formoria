@@ -3,7 +3,6 @@ export type {
   BrandFilters,
   BrandFlatLinkColumns,
   BrandStatus,
-  CustomerVoice,
   OtherUrl,
   RetailLocation,
   SubmissionStatus,
@@ -16,8 +15,4 @@ export type {
   SourceAttribution,
 } from './submission'
 
-export {
-  DENIAL_REASONS,
-  normalizeOwnerLocale,
-} from './submission'
-
+export { DENIAL_REASONS, normalizeOwnerLocale } from './submission'

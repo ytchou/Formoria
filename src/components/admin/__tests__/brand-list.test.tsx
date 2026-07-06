@@ -32,7 +32,6 @@ const mockBrands = [
     purchaseShopee: null,
     otherUrls: [],
     retailLocations: [],
-    customerVoices: [],
     productPhotos: [],
     contactEmail: null,
     siteContent: null,
@@ -63,7 +62,6 @@ const mockBrands = [
     purchaseShopee: null,
     otherUrls: [],
     retailLocations: [],
-    customerVoices: [],
     productPhotos: [],
     contactEmail: null,
     siteContent: null,
@@ -94,7 +92,6 @@ const mockBrands = [
     purchaseShopee: null,
     otherUrls: [],
     retailLocations: [],
-    customerVoices: [],
     productPhotos: [],
     contactEmail: null,
     siteContent: null,
@@ -118,7 +115,9 @@ describe('BrandList', () => {
   it('renders status filter tabs', () => {
     render(<BrandList brands={mockBrands} />)
     expect(screen.getByRole('tab', { name: /全部/ })).toBeDefined()
-    expect(screen.queryByRole('tab', { name: /待審核/ })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('tab', { name: /待審核/ }),
+    ).not.toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /已上架/ })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /已隱藏/ })).toBeInTheDocument()
   })

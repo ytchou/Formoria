@@ -54,7 +54,9 @@ vi.mock('@/app/admin/actions', () => ({
   reviewFeedbackAction: vi.fn(),
 }))
 
-function makeSubmission(overrides: Partial<BrandSubmission> = {}): BrandSubmission {
+function makeSubmission(
+  overrides: Partial<BrandSubmission> = {},
+): BrandSubmission {
   return {
     id: 'submission-1',
     brandId: 'brand-1',
@@ -85,7 +87,9 @@ function makeSubmission(overrides: Partial<BrandSubmission> = {}): BrandSubmissi
   }
 }
 
-function makePendingEdit(overrides: Partial<PendingBrandEditWithBrand> = {}): PendingBrandEditWithBrand {
+function makePendingEdit(
+  overrides: Partial<PendingBrandEditWithBrand> = {},
+): PendingBrandEditWithBrand {
   return {
     id: 'edit-1',
     brandId: 'brand-2',
@@ -115,11 +119,10 @@ function makePendingEdit(overrides: Partial<PendingBrandEditWithBrand> = {}): Pe
       purchaseShopee: null,
       otherUrls: [],
       retailLocations: [],
-      customerVoices: [],
       productPhotos: [],
       siteContent: null,
-    priceRange: null,
-    productTags: [],
+      priceRange: null,
+      productTags: [],
     },
     ...overrides,
   }
@@ -182,7 +185,9 @@ function makeFeedback(overrides: Partial<FeedbackItem> = {}): FeedbackItem {
   }
 }
 
-function makeFlag(overrides: Partial<FlaggedContentItem> = {}): FlaggedContentItem {
+function makeFlag(
+  overrides: Partial<FlaggedContentItem> = {},
+): FlaggedContentItem {
   return {
     id: 'flag-1',
     brandId: 'brand-5',
@@ -218,7 +223,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     purchaseShopee: null,
     otherUrls: [],
     retailLocations: [],
-    customerVoices: [],
     productPhotos: [],
     contactEmail: null,
     siteContent: null,
@@ -238,7 +242,10 @@ beforeEach(() => {
   vi.mocked(listClaimRequests).mockResolvedValue([])
   vi.mocked(getPendingReports).mockResolvedValue([])
   vi.mocked(getFeedbackItems).mockResolvedValue([])
-  vi.mocked(getFlaggedContent).mockResolvedValue({ items: [], nextCursor: null })
+  vi.mocked(getFlaggedContent).mockResolvedValue({
+    items: [],
+    nextCursor: null,
+  })
   vi.mocked(getBrands).mockResolvedValue({
     brands: [],
     totalCount: 0,
@@ -264,7 +271,10 @@ describe('AdminPage', () => {
     ])
     vi.mocked(getPendingReports).mockResolvedValueOnce([makeReport()])
     vi.mocked(getFeedbackItems).mockResolvedValueOnce([makeFeedback()])
-    vi.mocked(getFlaggedContent).mockResolvedValueOnce({ items: [makeFlag()], nextCursor: null })
+    vi.mocked(getFlaggedContent).mockResolvedValueOnce({
+      items: [makeFlag()],
+      nextCursor: null,
+    })
 
     render(await AdminDashboardPage())
 
@@ -294,6 +304,8 @@ describe('AdminPage', () => {
 
     expect(screen.getByText('目前沒有待審核的新品牌提交。')).toBeInTheDocument()
     expect(screen.getByText('目前沒有待審核的品牌編輯。')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /核准|Approve/i })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /核准|Approve/i }),
+    ).not.toBeInTheDocument()
   })
 })

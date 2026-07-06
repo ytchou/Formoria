@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useImageUpload } from '@/components/upload/useImageUpload'
 import { Label } from '@/components/ui/label'
+import { RequiredLabel } from '@/components/forms/required-label'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
@@ -14,6 +15,7 @@ type ImageUploadFieldProps = {
   brandId?: string
   uploadPath?: string
   currentUrl?: string | null
+  required?: boolean
 }
 
 export function ImageUploadField({
@@ -22,12 +24,15 @@ export function ImageUploadField({
   brandId,
   uploadPath,
   currentUrl,
+  required = false,
 }: ImageUploadFieldProps) {
   const t = useTranslations('forms.imageUpload')
   const inputId = `image-upload-${name}`
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [localPreview, setLocalPreview] = useState<string | null>(currentUrl ?? null)
+  const [localPreview, setLocalPreview] = useState<string | null>(
+    currentUrl ?? null,
+  )
   const [cleared, setCleared] = useState(false)
   const [sizeError, setSizeError] = useState<string | null>(null)
   // URL confirmed by the most-recent completed upload (guards against stale race)
@@ -40,7 +45,8 @@ export function ImageUploadField({
   // inline hiddenValue derivation can read it without touching a ref during render.
   const [latestToken, setLatestToken] = useState(0)
 
-  const storagePath = uploadPath ?? (brandId ? `brands/${brandId}/${name}` : `brands/tmp/${name}`)
+  const storagePath =
+    uploadPath ?? (brandId ? `brands/${brandId}/${name}` : `brands/tmp/${name}`)
   const { status, url, error, upload } = useImageUpload({
     bucket: 'brand-images',
     path: storagePath,
@@ -49,7 +55,11 @@ export function ImageUploadField({
   // When the hook reports a successful upload, only commit the URL if its
   // select-token is still the latest one (stale-URL race guard).
   useEffect(() => {
-    if (status === 'success' && url && pendingToken === selectTokenRef.current) {
+    if (
+      status === 'success' &&
+      url &&
+      pendingToken === selectTokenRef.current
+    ) {
       setConfirmedUrl(url)
     }
   }, [status, url, pendingToken])
@@ -58,7 +68,9 @@ export function ImageUploadField({
   // the one-render gap before the useEffect sets confirmedUrl); fall back to confirmedUrl,
   // then currentUrl.
   const immediateUrl =
-    status === 'success' && url && pendingToken === latestToken ? url : confirmedUrl
+    status === 'success' && url && pendingToken === latestToken
+      ? url
+      : confirmedUrl
   const hiddenValue = cleared ? '' : (immediateUrl ?? currentUrl ?? '')
 
   const handleFileSelect = useCallback(
@@ -94,7 +106,7 @@ export function ImageUploadField({
       // Reset file input so the same file can be selected again
       e.target.value = ''
     },
-    [t, upload]
+    [t, upload],
   )
 
   const handleRemove = useCallback(() => {
@@ -111,7 +123,11 @@ export function ImageUploadField({
 
   return (
     <div className="space-y-2">
-      <Label htmlFor={inputId}>{label}</Label>
+      {required ? (
+        <RequiredLabel htmlFor={inputId}>{label}</RequiredLabel>
+      ) : (
+        <Label htmlFor={inputId}>{label}</Label>
+      )}
 
       {/* Hidden URL input — submitted as the field value in FormData */}
       <input type="hidden" name={name} value={hiddenValue} />
@@ -123,6 +139,7 @@ export function ImageUploadField({
         type="file"
         accept="image/jpeg,image/png,image/webp"
         aria-label={label}
+        aria-required={required}
         className="sr-only"
         onChange={handleFileSelect}
       />

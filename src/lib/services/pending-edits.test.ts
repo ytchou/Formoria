@@ -32,7 +32,7 @@ const EDIT_ID = 'edit-uuid-1'
 const PROPOSED_DATA = { name: 'Updated Name', description: 'New description' }
 
 function makePendingEditWithBrandRow(
-  overrides: Partial<Parameters<typeof pendingEditWithBrandToDomain>[0]> = {}
+  overrides: Partial<Parameters<typeof pendingEditWithBrandToDomain>[0]> = {},
 ): Parameters<typeof pendingEditWithBrandToDomain>[0] {
   return {
     id: EDIT_ID,
@@ -62,7 +62,6 @@ function makePendingEditWithBrandRow(
       purchase_shopee: null,
       other_urls: null,
       retail_locations: null,
-      customer_voices: null,
       site_content: null,
       price_range: null,
       product_tags: null,
@@ -74,7 +73,10 @@ function makePendingEditWithBrandRow(
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(updateBrand).mockResolvedValue({ id: 'brand-1', name: 'Test Brand' } as Awaited<ReturnType<typeof updateBrand>>)
+  vi.mocked(updateBrand).mockResolvedValue({
+    id: 'brand-1',
+    name: 'Test Brand',
+  } as Awaited<ReturnType<typeof updateBrand>>)
   vi.mocked(diffRemovedImageUrls).mockReturnValue([])
 })
 
@@ -104,7 +106,7 @@ describe('createPendingEdit', () => {
         submitted_by: USER_ID,
         proposed_data: PROPOSED_DATA,
         status: 'pending',
-      })
+      }),
     )
     expect(result.status).toBe('pending')
   })
@@ -140,14 +142,18 @@ describe('getPendingEdits', () => {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({
-        data: [{ id: EDIT_ID, status: 'pending', brands: { name: 'Test Brand' } }],
+        data: [
+          { id: EDIT_ID, status: 'pending', brands: { name: 'Test Brand' } },
+        ],
         error: null,
       }),
     }
     mockFrom.mockReturnValue(mockChain)
 
     const result = await getPendingEdits('pending')
-    expect(mockChain.select).toHaveBeenCalledWith(expect.stringContaining('description'))
+    expect(mockChain.select).toHaveBeenCalledWith(
+      expect.stringContaining('description'),
+    )
     expect(result).toHaveLength(1)
     expect(result[0].status).toBe('pending')
   })
@@ -155,13 +161,17 @@ describe('getPendingEdits', () => {
 
 describe('pendingEditWithBrandToDomain', () => {
   it('includes mitStory on the brand field of the mapped pending edit', () => {
-    const rawEdit = makePendingEditWithBrandRow({ brands: { mit_story: 'Handcrafted in New Taipei.' } })
+    const rawEdit = makePendingEditWithBrandRow({
+      brands: { mit_story: 'Handcrafted in New Taipei.' },
+    })
     const mapped = pendingEditWithBrandToDomain(rawEdit)
     expect(mapped.brand.mitStory).toBe('Handcrafted in New Taipei.')
   })
 
   it('defaults brand.mitStory to null when mit_story absent', () => {
-    const rawEdit = makePendingEditWithBrandRow({ brands: { mit_story: null } })
+    const rawEdit = makePendingEditWithBrandRow({
+      brands: { mit_story: null },
+    })
     const mapped = pendingEditWithBrandToDomain(rawEdit)
     expect(mapped.brand.mitStory).toBeNull()
   })
@@ -169,8 +179,10 @@ describe('pendingEditWithBrandToDomain', () => {
 
 describe('approvePendingEdit', () => {
   it('sets status to approved with CAS before updating the brand', async () => {
-    const currentHero = 'https://example.test/storage/v1/object/public/brand-images/brands/old-hero.png'
-    const updatedHero = 'https://example.test/storage/v1/object/public/brand-images/brands/new-hero.png'
+    const currentHero =
+      'https://example.test/storage/v1/object/public/brand-images/brands/old-hero.png'
+    const updatedHero =
+      'https://example.test/storage/v1/object/public/brand-images/brands/new-hero.png'
     vi.mocked(updateBrand).mockResolvedValueOnce({
       id: BRAND_ID,
       name: 'Updated Name',
@@ -207,15 +219,18 @@ describe('approvePendingEdit', () => {
 
     expect(mockUpdate.update).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'approved', reviewed_by: USER_ID }),
-      expect.objectContaining({ count: 'exact' })
+      expect.objectContaining({ count: 'exact' }),
     )
     expect(mockUpdate.eq).toHaveBeenCalledWith('id', EDIT_ID)
     expect(mockUpdate.eq).toHaveBeenCalledWith('status', 'pending')
     expect(updateBrand).toHaveBeenCalledWith(
       BRAND_ID,
-      expect.objectContaining({ ...PROPOSED_DATA, heroImageUrl: updatedHero })
+      expect.objectContaining({ ...PROPOSED_DATA, heroImageUrl: updatedHero }),
     )
-    expect(diffRemovedImageUrls).toHaveBeenCalledWith([currentHero], [updatedHero])
+    expect(diffRemovedImageUrls).toHaveBeenCalledWith(
+      [currentHero],
+      [updatedHero],
+    )
     expect(deleteBrandImages).toHaveBeenCalledWith([currentHero])
   })
 
@@ -224,11 +239,17 @@ describe('approvePendingEdit', () => {
       update: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({ data: null, count: 0, error: { code: 'PGRST116' } }),
+      single: vi.fn().mockResolvedValue({
+        data: null,
+        count: 0,
+        error: { code: 'PGRST116' },
+      }),
     }
     mockFrom.mockReturnValue(mockUpdate)
 
-    await expect(approvePendingEdit(EDIT_ID, USER_ID)).rejects.toThrow('already processed')
+    await expect(approvePendingEdit(EDIT_ID, USER_ID)).rejects.toThrow(
+      'already processed',
+    )
     expect(updateBrand).not.toHaveBeenCalled()
   })
 
@@ -240,14 +261,21 @@ describe('approvePendingEdit', () => {
       eq: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),
       single: vi.fn().mockResolvedValue({
-        data: { id: EDIT_ID, brand_id: BRAND_ID, proposed_data: PROPOSED_DATA, brands: null },
+        data: {
+          id: EDIT_ID,
+          brand_id: BRAND_ID,
+          proposed_data: PROPOSED_DATA,
+          brands: null,
+        },
         count: 1,
         error: null,
       }),
     }
     mockFrom.mockReturnValue(mockUpdate)
 
-    await expect(approvePendingEdit(EDIT_ID, USER_ID)).rejects.toThrow(updateError)
+    await expect(approvePendingEdit(EDIT_ID, USER_ID)).rejects.toThrow(
+      updateError,
+    )
     expect(deleteBrandImages).not.toHaveBeenCalled()
   })
 })
@@ -286,7 +314,7 @@ describe('rejectPendingEdit', () => {
         status: 'rejected',
         reviewer_notes: 'Please fix the description',
         reviewed_by: USER_ID,
-      })
+      }),
     )
   })
 })
@@ -308,7 +336,9 @@ describe('hasPendingEdit', () => {
     const mockChain = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } }),
+      single: vi
+        .fn()
+        .mockResolvedValue({ data: null, error: { code: 'PGRST116' } }),
     }
     mockFrom.mockReturnValue(mockChain)
 

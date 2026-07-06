@@ -1,5 +1,5 @@
-import type { Brand, BrandFilters, CustomerVoice, OtherUrl } from '@/lib/types'
-import type { SiteContent, SiteProduct, SiteTokens } from '@/lib/types/brand'
+import type { Brand, BrandFilters, OtherUrl } from '@/lib/types'
+import type { ReputationSummary, SiteContent, SiteProduct, SiteTokens } from '@/lib/types/brand'
 import type { Database } from '@/lib/supabase/database.types'
 import { toBrandRow as baseToBrandRow } from './field-map'
 import { NotFoundError, ValidationError } from '@/lib/errors'
@@ -376,11 +376,7 @@ const BRAND_DRAFT_EDITABLE_KEYS = [
   'mitStory',
   'otherUrls',
   'retailLocations',
-  'customerVoices',
   'reputationSummary',
-  'manufacturing',
-  'certifications',
-  'policies',
 ] as const satisfies readonly (keyof Brand)[]
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -389,6 +385,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function optionalString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined
+}
+
+function normalizeReputationSummary(value: unknown): ReputationSummary | null {
+  if (!isRecord(value) || typeof value.text !== 'string') return null
+  const sources = Array.isArray(value.sources)
+    ? value.sources.flatMap((source) =>
+        isRecord(source) && typeof source.url === 'string' && source.url.trim()
+          ? [{ url: source.url }]
+          : []
+      )
+    : []
+  return { text: value.text, sources }
 }
 
 function normalizeSiteTokens(value: unknown): SiteTokens {
@@ -522,20 +530,8 @@ export function draftSnapshotToDomain(
       case 'retailLocations':
         partial.retailLocations = (snapshot.retailLocations as Brand['retailLocations']) ?? []
         break
-      case 'customerVoices':
-        partial.customerVoices = (snapshot.customerVoices as Brand['customerVoices']) ?? []
-        break
       case 'reputationSummary':
         partial.reputationSummary = snapshot.reputationSummary as Brand['reputationSummary']
-        break
-      case 'manufacturing':
-        partial.manufacturing = snapshot.manufacturing as Brand['manufacturing']
-        break
-      case 'certifications':
-        partial.certifications = (snapshot.certifications as Brand['certifications']) ?? []
-        break
-      case 'policies':
-        partial.policies = snapshot.policies as Brand['policies']
         break
     }
   }
@@ -590,15 +586,11 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     purchaseShopee: row.purchase_shopee ?? null,
     otherUrls: (row.other_urls as OtherUrl[]) ?? [],
     retailLocations: (row.retail_locations as Brand['retailLocations']) ?? [],
-    customerVoices: (row.customer_voices as CustomerVoice[]) ?? [],
     productPhotos: [],
     contactEmail: row.contact_email ?? null,
     priceRange: row.price_range ?? null,
     productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
-    reputationSummary: (row.reputation_summary as Brand['reputationSummary']) ?? null,
-    manufacturing: (row.manufacturing as Brand['manufacturing']) ?? null,
-    certifications: (row.certifications as Brand['certifications']) ?? null,
-    policies: (row.policies as Brand['policies']) ?? null,
+    reputationSummary: normalizeReputationSummary(row.reputation_summary),
     siteContent: normalizeSiteContent(row.site_content as Brand['siteContent']),
     submittedAt: row.submitted_at ?? '',
     approvedAt: row.approved_at ?? null,
@@ -622,15 +614,6 @@ export function brandToInsert(data: BrandWriteInput): Record<string, unknown> {
   const row = baseToBrandRow(data)
   if (data.reputationSummary !== undefined) {
     row.reputation_summary = data.reputationSummary as typeof row.reputation_summary
-  }
-  if (data.manufacturing !== undefined) {
-    row.manufacturing = data.manufacturing as typeof row.manufacturing
-  }
-  if (data.certifications !== undefined) {
-    row.certifications = data.certifications as typeof row.certifications
-  }
-  if (data.policies !== undefined) {
-    row.policies = data.policies as typeof row.policies
   }
   return row
 }
@@ -690,13 +673,13 @@ export function previewBrandPatch(
 
 const BRAND_COLUMNS = [
   'id', 'name', 'slug', 'description', 'hero_image_url',
-  'product_type', 'contact_email', 'city', 'customer_voices', 'purchase_website', 'purchase_pinkoi',
+  'product_type', 'contact_email', 'city', 'purchase_website', 'purchase_pinkoi',
   'purchase_shopee', 'social_instagram', 'social_threads', 'social_facebook',
   'other_urls', 'retail_locations', 'site_content',
   'status', 'submitted_at', 'approved_at', 'created_at', 'updated_at',
   'draft_data', 'draft_updated_at', 'founding_year',
   'price_range', 'product_tags',
-  'reputation_summary', 'manufacturing', 'certifications', 'policies',
+  'reputation_summary',
   'mit_status', 'mit_verified_at',
   'mit_story',
   'mit_evidence', 'source', 'is_demo',

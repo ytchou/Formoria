@@ -154,9 +154,9 @@ export default withSentryConfig(withNextIntl(nextConfig), {
   // For all available options, see:
   // https://www.npmjs.com/package/@sentry/webpack-plugin#options
 
-  org: "yung-tang-chou",
+  org: "formoria",
 
-  project: "mit-map",
+  project: "formoria",
 
   // Only print logs for uploading source maps in CI
   silent: !process.env.CI,

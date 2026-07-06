@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest'
 import {
   brandToDraftSnapshot,
   draftSnapshotToDomain,
   mergeDraftOverBrand,
   diffRemovedImageUrls,
-} from '../brands';
-import type { Brand } from '@/lib/types/brand';
+} from '../brands'
+import type { Brand } from '@/lib/types/brand'
 
 const liveBrand: Brand = {
   id: 'b1',
@@ -30,111 +30,98 @@ const liveBrand: Brand = {
   purchasePinkoi: null,
   purchaseShopee: 'https://shopee.tw/live',
   otherUrls: [],
-  retailLocations: [{ name: 'Live Store', address: 'Taipei', latitude: 25.0330, longitude: 121.5654 }],
-  customerVoices: [],
+  retailLocations: [
+    {
+      name: 'Live Store',
+      address: 'Taipei',
+      latitude: 25.033,
+      longitude: 121.5654,
+    },
+  ],
   productPhotos: ['https://x.supabase.co/p-live-1.png'],
   contactEmail: 'live@brand.tw',
   mitStory: 'Our fabrics come from Changhua.',
-    siteContent: null,
-    priceRange: null,
-    productTags: [],
+  siteContent: null,
+  priceRange: null,
+  productTags: [],
   submittedAt: '2026-01-01T00:00:00Z',
   approvedAt: '2026-01-02T00:00:00Z',
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-02T00:00:00Z',
-};
-
-const createTestBrand = (overrides: Partial<Brand> = {}): Brand => ({
-  ...liveBrand,
-  ...overrides,
-});
+}
 
 describe('brandToDraftSnapshot', () => {
   it('captures only allow-listed editable fields, never id/slug/status', () => {
     const snap = brandToDraftSnapshot({
       name: 'New Name',
       description: 'new desc',
-    } as Partial<Brand>);
-    expect(snap.name).toBe('New Name');
-    expect(snap.description).toBe('new desc');
-    expect(snap).not.toHaveProperty('id');
-    expect(snap).not.toHaveProperty('slug');
-    expect(snap).not.toHaveProperty('status');
-    expect(snap).not.toHaveProperty('isVerified');
-  });
-});
+    } as Partial<Brand>)
+    expect(snap.name).toBe('New Name')
+    expect(snap.description).toBe('new desc')
+    expect(snap).not.toHaveProperty('id')
+    expect(snap).not.toHaveProperty('slug')
+    expect(snap).not.toHaveProperty('status')
+    expect(snap).not.toHaveProperty('isVerified')
+  })
+})
 
 describe('mergeDraftOverBrand', () => {
   it('overlays editable fields, preserves identity/status/mit', () => {
-    const snap = brandToDraftSnapshot({ name: 'Draft Name' } as Partial<Brand>);
-    const merged = mergeDraftOverBrand(liveBrand, snap);
-    expect(merged.name).toBe('Draft Name');
-    expect(merged.id).toBe('b1');
-    expect(merged.slug).toBe('live-name');
-    expect(merged.status).toBe('approved');
-    expect(merged.mitStatus).toBe('verified');
-  });
+    const snap = brandToDraftSnapshot({ name: 'Draft Name' } as Partial<Brand>)
+    const merged = mergeDraftOverBrand(liveBrand, snap)
+    expect(merged.name).toBe('Draft Name')
+    expect(merged.id).toBe('b1')
+    expect(merged.slug).toBe('live-name')
+    expect(merged.status).toBe('approved')
+    expect(merged.mitStatus).toBe('verified')
+  })
 
   it('returns the live brand unchanged when snapshot is null', () => {
-    expect(mergeDraftOverBrand(liveBrand, null)).toEqual(liveBrand);
-  });
+    expect(mergeDraftOverBrand(liveBrand, null)).toEqual(liveBrand)
+  })
 
   it('ignores unknown snapshot keys (schema-drift tolerant)', () => {
-    const merged = mergeDraftOverBrand(liveBrand, { name: 'D', legacyRemovedField: 'x' });
-    expect(merged.name).toBe('D');
-    expect(merged).not.toHaveProperty('legacyRemovedField');
-  });
-
-  it('preserves brand array defaults when draft snapshot has null arrays', () => {
-    const brand = createTestBrand({ customerVoices: [{ author: 'A', content: 'B', source: 'C' }] });
-    const snapshot: Record<string, unknown> = { customerVoices: null };
-    const merged = mergeDraftOverBrand(brand, snapshot);
-    expect(merged.customerVoices).toEqual([]);
-  });
-
-  it('preserves brand array defaults when draft snapshot omits array fields', () => {
-    const brand = createTestBrand({ customerVoices: [{ author: 'A', content: 'B', source: 'C' }] });
-    const snapshot: Record<string, unknown> = { name: 'Updated Name' };
-    const merged = mergeDraftOverBrand(brand, snapshot);
-    expect(merged.customerVoices).toEqual(brand.customerVoices);
-  });
-});
+    const merged = mergeDraftOverBrand(liveBrand, {
+      name: 'D',
+      legacyRemovedField: 'x',
+    })
+    expect(merged.name).toBe('D')
+    expect(merged).not.toHaveProperty('legacyRemovedField')
+  })
+})
 
 describe('draftSnapshotToDomain', () => {
   it('normalizes flat social link fields', () => {
     const partial = draftSnapshotToDomain(
       { purchaseWebsite: 'https://d.tw', socialInstagram: 'd_ig' },
       liveBrand,
-    );
-    expect(partial.purchaseWebsite).toBe('https://d.tw');
-    expect(partial.socialInstagram).toBe('d_ig');
-  });
+    )
+    expect(partial.purchaseWebsite).toBe('https://d.tw')
+    expect(partial.socialInstagram).toBe('d_ig')
+  })
 
   it('defaults missing array fields to empty arrays', () => {
     const snapshot: Record<string, unknown> = {
       name: 'Test Brand',
-      // customerVoices, productPhotos, otherUrls, retailLocations, productTags all absent
-    };
-    const result = draftSnapshotToDomain(snapshot);
-    expect(result.customerVoices).toBeUndefined();
-    expect(result.productPhotos).toBeUndefined();
-  });
+      // productPhotos, otherUrls, retailLocations, productTags all absent
+    }
+    const result = draftSnapshotToDomain(snapshot)
+    expect(result.productPhotos).toBeUndefined()
+  })
 
   it('defaults null array fields to empty arrays when key is present', () => {
     const snapshot: Record<string, unknown> = {
-      customerVoices: null,
       productPhotos: null,
       otherUrls: null,
       retailLocations: null,
       productTags: null,
-    };
-    const result = draftSnapshotToDomain(snapshot);
-    expect(result.customerVoices).toEqual([]);
-    expect(result.productPhotos).toEqual([]);
-    expect(result.otherUrls).toEqual([]);
-    expect(result.retailLocations).toEqual([]);
-    expect(result.productTags).toEqual([]);
-  });
+    }
+    const result = draftSnapshotToDomain(snapshot)
+    expect(result.productPhotos).toEqual([])
+    expect(result.otherUrls).toEqual([])
+    expect(result.retailLocations).toEqual([])
+    expect(result.productTags).toEqual([])
+  })
 
   it('round-trips mitStory through draft snapshot', () => {
     const snapshot = brandToDraftSnapshot(liveBrand)
@@ -148,18 +135,24 @@ describe('draftSnapshotToDomain', () => {
     const restored = draftSnapshotToDomain(snapshot, brand)
     expect(restored.mitStory).toBeNull()
   })
-});
+})
 
 describe('diffRemovedImageUrls', () => {
   it('returns live image URLs no longer present in the next set (publish case)', () => {
     const removed = diffRemovedImageUrls(
-      ['https://x.supabase.co/logo-live.png', 'https://x.supabase.co/p-live-1.png'],
-      ['https://x.supabase.co/logo-new.png', 'https://x.supabase.co/p-live-1.png'],
-    );
-    expect(removed).toEqual(['https://x.supabase.co/logo-live.png']);
-  });
+      [
+        'https://x.supabase.co/logo-live.png',
+        'https://x.supabase.co/p-live-1.png',
+      ],
+      [
+        'https://x.supabase.co/logo-new.png',
+        'https://x.supabase.co/p-live-1.png',
+      ],
+    )
+    expect(removed).toEqual(['https://x.supabase.co/logo-live.png'])
+  })
 
   it('returns empty when nothing removed', () => {
-    expect(diffRemovedImageUrls(['a'], ['a', 'b'])).toEqual([]);
-  });
-});
+    expect(diffRemovedImageUrls(['a'], ['a', 'b'])).toEqual([])
+  })
+})

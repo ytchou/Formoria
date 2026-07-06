@@ -1,64 +1,82 @@
 import { describe, it, expect } from 'vitest'
 import {
   basicInfoSchema,
-  mediaSchema,
-  linksSchema,
-  customerVoicesSchema,
-  locationsSchema,
-  reputationSchema,
-  manufacturingSchema,
-  certificationsSchema,
-  policiesSchema,
   brandEditSchema,
+  brandPublishSchema,
   SECTION_FIELDS,
   getOnboardingStepHref,
 } from './brand-edit'
 
 describe('basicInfoSchema', () => {
   it('passes with valid minimal data', () => {
-    const result = basicInfoSchema.safeParse({ name: 'Test Brand', productType: 'fashion' })
+    const result = basicInfoSchema.safeParse({
+      name: 'Test Brand',
+      productType: 'fashion',
+    })
     expect(result.success).toBe(true)
   })
-  it('fails when name is empty', () => {
-    const result = basicInfoSchema.safeParse({ name: '', productType: 'fashion' })
-    expect(result.success).toBe(false)
+  it('allows an empty name in a draft', () => {
+    const result = basicInfoSchema.safeParse({
+      name: '',
+      productType: 'fashion',
+    })
+    expect(result.success).toBe(true)
   })
   it('fails when productTags exceeds 5', () => {
     const result = basicInfoSchema.safeParse({
-      name: 'X', productType: 'fashion',
-      productTags: ['a','b','c','d','e','f'],
+      name: 'X',
+      productType: 'fashion',
+      productTags: ['a', 'b', 'c', 'd', 'e', 'f'],
     })
     expect(result.success).toBe(false)
   })
   it('fails when a productTag exceeds 40 chars', () => {
     const result = basicInfoSchema.safeParse({
-      name: 'X', productType: 'fashion',
+      name: 'X',
+      productType: 'fashion',
       productTags: ['a'.repeat(41)],
     })
     expect(result.success).toBe(false)
   })
 })
 
-describe('customerVoicesSchema', () => {
-  it('fails when customerVoices exceeds 5 items', () => {
-    const voice = { author: 'A', content: 'B', source: 'C' }
-    const result = customerVoicesSchema.safeParse({ customerVoices: Array(6).fill(voice) })
-    expect(result.success).toBe(false)
-  })
-})
-
 describe('brandEditSchema', () => {
-  it('is a merge of all 9 section schemas', () => {
-    const result = brandEditSchema.safeParse({ name: 'Brand', productType: 'food' })
+  it('is a merge of all five section schemas', () => {
+    const result = brandEditSchema.safeParse({
+      name: 'Brand',
+      productType: 'food',
+    })
     expect(result.success).toBe(true)
   })
 })
 
+describe('brandPublishSchema', () => {
+  it('requires every owner publish field', () => {
+    expect(
+      brandPublishSchema.safeParse({ name: '', productType: '' }).success,
+    ).toBe(false)
+  })
+
+  it('accepts a complete required profile', () => {
+    expect(
+      brandPublishSchema.safeParse({
+        name: 'Brand',
+        productType: 'food',
+        description: 'Story',
+        productTags: ['tea'],
+        priceRange: 2,
+        heroImageUrl: 'https://example.com/hero.webp',
+        productPhotos: ['https://example.com/product.webp'],
+        purchaseWebsite: 'https://example.com',
+      }).success,
+    ).toBe(true)
+  })
+})
+
 describe('SECTION_FIELDS', () => {
-  it('has entries for all 9 sections', () => {
-    const expected = ['basicInfo','media','links','customerVoices','locations',
-      'reputation','manufacturing','certifications','policies']
-    expected.forEach(k => expect(SECTION_FIELDS).toHaveProperty(k))
+  it('has entries for all five sections', () => {
+    const expected = ['basicInfo', 'media', 'links', 'locations', 'reputation']
+    expected.forEach((k) => expect(SECTION_FIELDS).toHaveProperty(k))
   })
   it('includes name in basicInfo fields', () => {
     expect(SECTION_FIELDS.basicInfo).toContain('name')
@@ -68,22 +86,22 @@ describe('SECTION_FIELDS', () => {
 describe('getOnboardingStepHref', () => {
   it('maps brand_basics and media_links to edit wizard steps', () => {
     expect(getOnboardingStepHref('brand_basics', 'test-brand')).toBe(
-      '/dashboard/brands/test-brand/edit?step=0'
+      '/dashboard/brands/test-brand/edit?step=0',
     )
     expect(getOnboardingStepHref('media_links', 'test-brand')).toBe(
-      '/dashboard/brands/test-brand/edit?step=1'
+      '/dashboard/brands/test-brand/edit?step=1',
     )
   })
 
   it('maps analytics, health, verification to dashboard routes', () => {
     expect(getOnboardingStepHref('analytics', 'test-brand')).toBe(
-      '/dashboard/brands/test-brand/analytics'
+      '/dashboard/brands/test-brand/analytics',
     )
     expect(getOnboardingStepHref('health', 'test-brand')).toBe(
-      '/dashboard/brands/test-brand#health'
+      '/dashboard/brands/test-brand#profile-completeness',
     )
     expect(getOnboardingStepHref('verification', 'test-brand')).toBe(
-      '/dashboard/brands/test-brand#verification'
+      '/dashboard/brands/test-brand#verification',
     )
   })
 })

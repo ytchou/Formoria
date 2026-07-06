@@ -16,10 +16,17 @@ import type { Brand } from '@/lib/types'
 
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
   return {
-    id: '123', name: '茶籽堂 Chatzutang', slug: 'chatzutang',
+    id: '123',
+    name: '茶籽堂 Chatzutang',
+    slug: 'chatzutang',
     description: 'Natural body care with camellia seed oil',
     heroImageUrl: 'https://example.com/hero.jpg',
-    status: 'approved', isVerified: false, isDemo: false, category: 'Food & Beverage', foundingYear: 2004, city: null,
+    status: 'approved',
+    isVerified: false,
+    isDemo: false,
+    category: 'Food & Beverage',
+    foundingYear: 2004,
+    city: null,
     purchaseWebsite: 'https://chatzutang.com',
     purchasePinkoi: 'https://pinkoi.com/chatzutang',
     purchaseShopee: null,
@@ -27,15 +34,23 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     socialThreads: null,
     socialFacebook: 'https://facebook.com/chatzutang',
     otherUrls: [],
-    retailLocations: [{ name: 'Nanzhuang Store', address: '苗栗縣南庄鄉', latitude: 24.59, longitude: 120.99 }],
-    customerVoices: [],
+    retailLocations: [
+      {
+        name: 'Nanzhuang Store',
+        address: '苗栗縣南庄鄉',
+        latitude: 24.59,
+        longitude: 120.99,
+      },
+    ],
     productPhotos: [],
     siteContent: null,
     priceRange: null,
     productTags: [],
     contactEmail: 'hello@chatzutang.com',
-    submittedAt: '2026-01-01T00:00:00Z', approvedAt: '2026-01-02T00:00:00Z',
-    createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-02T00:00:00Z',
+    submittedAt: '2026-01-01T00:00:00Z',
+    approvedAt: '2026-01-02T00:00:00Z',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-02T00:00:00Z',
     ...overrides,
   }
 }
@@ -63,10 +78,12 @@ describe('buildBrandJsonLd', () => {
   })
 
   it('includes purchase link URLs in sameAs alongside social links', () => {
-    const jsonLd = buildBrandJsonLd(makeBrand({
-      purchasePinkoi: 'https://pinkoi.com/chatzutang',
-      purchaseShopee: 'https://shopee.tw/chatzutang',
-    }))
+    const jsonLd = buildBrandJsonLd(
+      makeBrand({
+        purchasePinkoi: 'https://pinkoi.com/chatzutang',
+        purchaseShopee: 'https://shopee.tw/chatzutang',
+      }),
+    )
     expect(jsonLd.sameAs).toContain('https://instagram.com/chatzutang')
     expect(jsonLd.sameAs).toContain('https://facebook.com/chatzutang')
     expect(jsonLd.sameAs).toContain('https://pinkoi.com/chatzutang')
@@ -75,7 +92,9 @@ describe('buildBrandJsonLd', () => {
 
   describe('buildBrandJsonLd audit', () => {
     it('never exposes contactEmail as email in the output', () => {
-      const withEmail = buildBrandJsonLd(makeBrand({ contactEmail: 'hello@chatzutang.com' }))
+      const withEmail = buildBrandJsonLd(
+        makeBrand({ contactEmail: 'hello@chatzutang.com' }),
+      )
       expect(withEmail.email).toBeUndefined()
 
       const withoutEmail = buildBrandJsonLd(makeBrand({ contactEmail: null }))
@@ -83,7 +102,9 @@ describe('buildBrandJsonLd', () => {
     })
 
     it('maps heroImageUrl to logo and omits it when null', () => {
-      const withHero = buildBrandJsonLd(makeBrand({ heroImageUrl: 'https://example.com/hero.jpg' }))
+      const withHero = buildBrandJsonLd(
+        makeBrand({ heroImageUrl: 'https://example.com/hero.jpg' }),
+      )
       expect(withHero.logo).toBe('https://example.com/hero.jpg')
 
       const withoutHero = buildBrandJsonLd(makeBrand({ heroImageUrl: null }))
@@ -91,15 +112,17 @@ describe('buildBrandJsonLd', () => {
     })
 
     it('includes all non-null social and purchase URLs in sameAs', () => {
-      const jsonLd = buildBrandJsonLd(makeBrand({
-        socialInstagram: 'https://instagram.com/chatzutang',
-        socialThreads: 'https://threads.net/@chatzutang',
-        socialFacebook: 'https://facebook.com/chatzutang',
-        purchaseWebsite: 'https://chatzutang.com',
-        purchasePinkoi: 'https://pinkoi.com/chatzutang',
-        purchaseShopee: 'https://shopee.tw/chatzutang',
-        otherUrls: [{ label: 'Blog', url: 'https://example.com/brand' }],
-      }))
+      const jsonLd = buildBrandJsonLd(
+        makeBrand({
+          socialInstagram: 'https://instagram.com/chatzutang',
+          socialThreads: 'https://threads.net/@chatzutang',
+          socialFacebook: 'https://facebook.com/chatzutang',
+          purchaseWebsite: 'https://chatzutang.com',
+          purchasePinkoi: 'https://pinkoi.com/chatzutang',
+          purchaseShopee: 'https://shopee.tw/chatzutang',
+          otherUrls: [{ label: 'Blog', url: 'https://example.com/brand' }],
+        }),
+      )
 
       expect(jsonLd.sameAs).toEqual([
         'https://instagram.com/chatzutang',
@@ -113,15 +136,20 @@ describe('buildBrandJsonLd', () => {
     })
 
     it('excludes null and undefined values from sameAs', () => {
-      const jsonLd = buildBrandJsonLd(makeBrand({
-        socialInstagram: null,
-        socialThreads: undefined,
-        socialFacebook: null,
-        purchaseWebsite: null,
-        purchasePinkoi: undefined,
-        purchaseShopee: null,
-        otherUrls: [{ label: 'Blog', url: '' }, { label: 'Docs', url: 'https://docs.example.com' }],
-      } as unknown as Partial<Brand>))
+      const jsonLd = buildBrandJsonLd(
+        makeBrand({
+          socialInstagram: null,
+          socialThreads: undefined,
+          socialFacebook: null,
+          purchaseWebsite: null,
+          purchasePinkoi: undefined,
+          purchaseShopee: null,
+          otherUrls: [
+            { label: 'Blog', url: '' },
+            { label: 'Docs', url: 'https://docs.example.com' },
+          ],
+        } as unknown as Partial<Brand>),
+      )
 
       expect(jsonLd.sameAs).toEqual(['https://docs.example.com'])
     })
@@ -136,12 +164,24 @@ describe('buildBrandJsonLd', () => {
   })
 
   it('includes all retail locations as PostalAddress array when multiple', () => {
-    const jsonLd = buildBrandJsonLd(makeBrand({
-      retailLocations: [
-        { name: 'Nanzhuang Store', address: '苗栗縣南庄鄉', latitude: 24.59, longitude: 120.99 },
-        { name: 'Taipei Store', address: '台北市信義區', latitude: 25.03, longitude: 121.56 },
-      ],
-    }))
+    const jsonLd = buildBrandJsonLd(
+      makeBrand({
+        retailLocations: [
+          {
+            name: 'Nanzhuang Store',
+            address: '苗栗縣南庄鄉',
+            latitude: 24.59,
+            longitude: 120.99,
+          },
+          {
+            name: 'Taipei Store',
+            address: '台北市信義區',
+            latitude: 25.03,
+            longitude: 121.56,
+          },
+        ],
+      }),
+    )
     expect(jsonLd.address).toEqual([
       {
         '@type': 'PostalAddress',
@@ -164,11 +204,21 @@ describe('buildBrandJsonLd', () => {
   })
 
   it('omits optional fields when null', () => {
-    const jsonLd = buildBrandJsonLd(makeBrand({
-      contactEmail: null, socialInstagram: null, socialThreads: null, socialFacebook: null,
-      purchaseWebsite: null, purchasePinkoi: null, purchaseShopee: null, otherUrls: [],
-      retailLocations: [], heroImageUrl: null, foundingYear: null,
-    }))
+    const jsonLd = buildBrandJsonLd(
+      makeBrand({
+        contactEmail: null,
+        socialInstagram: null,
+        socialThreads: null,
+        socialFacebook: null,
+        purchaseWebsite: null,
+        purchasePinkoi: null,
+        purchaseShopee: null,
+        otherUrls: [],
+        retailLocations: [],
+        heroImageUrl: null,
+        foundingYear: null,
+      }),
+    )
     expect(jsonLd.logo).toBeUndefined()
     expect(jsonLd.foundingDate).toBeUndefined()
     expect(jsonLd.sameAs).toBeUndefined()
@@ -218,7 +268,9 @@ describe('buildCategoryItemListJsonLd', () => {
       { name: 'Test', slug: 'test-brand' },
     ])
     expect(result.itemListElement[0].url).toContain('/brands/test-brand')
-    expect(result.itemListElement[0].url).not.toMatch(/^https?:\/\/[^/]+\/test-brand$/)
+    expect(result.itemListElement[0].url).not.toMatch(
+      /^https?:\/\/[^/]+\/test-brand$/,
+    )
   })
 })
 
@@ -275,14 +327,18 @@ describe('buildBreadcrumbJsonLd', () => {
 
 describe('buildFaqPageJsonLd', () => {
   it('returns FAQPage schema with correct @context and @type', () => {
-    const items = [{ question: '什麼是 Formoria？', answer: 'Formoria 是台灣品牌目錄。' }]
+    const items = [
+      { question: '什麼是 Formoria？', answer: 'Formoria 是台灣品牌目錄。' },
+    ]
     const result = buildFaqPageJsonLd(items)
     expect(result['@context']).toBe('https://schema.org')
     expect(result['@type']).toBe('FAQPage')
   })
 
   it('maps each item to a Question/Answer entity', () => {
-    const items = [{ question: '什麼是 Formoria？', answer: 'Formoria 是台灣品牌目錄。' }]
+    const items = [
+      { question: '什麼是 Formoria？', answer: 'Formoria 是台灣品牌目錄。' },
+    ]
     const result = buildFaqPageJsonLd(items)
     expect((result.mainEntity as unknown[]).length).toBe(1)
     expect((result.mainEntity as unknown[])[0]).toEqual({
@@ -376,7 +432,7 @@ describe('buildWebSiteJsonLd', () => {
     expect(jsonLd.potentialAction['@type']).toBe('SearchAction')
     expect(jsonLd.potentialAction.target.urlTemplate).toContain('search=')
     expect(jsonLd.potentialAction['query-input']).toContain(
-      'search_term_string'
+      'search_term_string',
     )
   })
 
@@ -403,7 +459,12 @@ describe('buildOrganizationJsonLd', () => {
 
 describe('buildArticleJsonLd', () => {
   it('emits an Article with headline and publisher Organization', () => {
-    const ld = buildArticleJsonLd({ title: 'About', description: 'desc', path: '/about', locale: 'zh-TW' }) as JsonLdObject
+    const ld = buildArticleJsonLd({
+      title: 'About',
+      description: 'desc',
+      path: '/about',
+      locale: 'zh-TW',
+    }) as JsonLdObject
     expect(ld['@type']).toBe('Article')
     expect(ld.headline).toBe('About')
     expect(ld.publisher['@type']).toBe('Organization')

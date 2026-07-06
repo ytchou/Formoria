@@ -12,11 +12,11 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     name: 'Test Brand',
     slug: 'test-brand',
     description: 'A brand',
-  heroImageUrl: null,
-  status: 'approved',
-  category: 'fashion',
-  city: null,
-  isVerified: false,
+    heroImageUrl: null,
+    status: 'approved',
+    category: 'fashion',
+    city: null,
+    isVerified: false,
     isDemo: false,
     socialInstagram: null,
     socialThreads: null,
@@ -26,7 +26,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     purchaseShopee: null,
     otherUrls: [],
     retailLocations: [],
-    customerVoices: [],
     productPhotos: [],
     siteContent: null,
     priceRange: null,
@@ -45,7 +44,7 @@ function renderWithIntl(ui: React.ReactElement) {
   return render(
     <NextIntlClientProvider locale="zh-TW" messages={zh}>
       {ui}
-    </NextIntlClientProvider>
+    </NextIntlClientProvider>,
   )
 }
 
@@ -63,7 +62,11 @@ describe('BrandHeader — verified badge', () => {
   })
 
   it('does not show verified badge based on approvedAt alone', () => {
-    renderWithIntl(<BrandHeader brand={makeBrand({ isVerified: false, approvedAt: '2026-05-01' })} />)
+    renderWithIntl(
+      <BrandHeader
+        brand={makeBrand({ isVerified: false, approvedAt: '2026-05-01' })}
+      />,
+    )
     expect(screen.queryByText('品牌經營')).not.toBeInTheDocument()
     expect(screen.queryByTitle('由品牌方經營管理')).not.toBeInTheDocument()
   })

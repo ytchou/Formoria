@@ -1,4 +1,4 @@
-import type { Brand, BrandFlatLinkColumns, CustomerVoice, OtherUrl, PendingBrandEdit, PendingBrandEditWithBrand } from '@/lib/types/brand'
+import type { Brand, BrandFlatLinkColumns, OtherUrl, PendingBrandEdit, PendingBrandEditWithBrand } from '@/lib/types/brand'
 import type { Database } from '@/lib/supabase/database.types'
 import { createServiceClient } from '@/lib/supabase/server'
 import { deleteBrandImages } from '@/lib/services/image-upload'
@@ -29,7 +29,7 @@ type PendingEditReviewRow = {
 }
 
 const PENDING_EDIT_WITH_BRAND_SELECT =
-  '*, brands(id, name, slug, description, hero_image_url, product_type, city, contact_email, founding_year, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, other_urls, retail_locations, customer_voices, site_content, mit_story)'
+  '*, brands(id, name, slug, description, hero_image_url, product_type, city, contact_email, founding_year, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, other_urls, retail_locations, site_content, mit_story)'
 
 function asSingleBrand(
   brand: Partial<BrandRow> | Partial<BrandRow>[] | null | undefined
@@ -112,7 +112,6 @@ export function pendingEditWithBrandToDomain(
       purchaseShopee: proposedStringOrNull(proposedData, 'purchaseShopee', brand?.purchase_shopee),
       otherUrls: proposedArrayField<OtherUrl>(proposedData, 'otherUrls', brand?.other_urls),
       retailLocations: Array.isArray(brand?.retail_locations) ? brand.retail_locations as Brand['retailLocations'] : [],
-      customerVoices: proposedArrayField<CustomerVoice>(proposedData, 'customerVoices', brand?.customer_voices),
       productPhotos: [],
       priceRange: brand?.price_range ?? null,
       productTags: Array.isArray(brand?.product_tags) ? brand.product_tags : [],

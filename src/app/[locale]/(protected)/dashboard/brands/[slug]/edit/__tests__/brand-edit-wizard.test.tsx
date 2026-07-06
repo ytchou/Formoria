@@ -22,20 +22,28 @@ vi.mock('next/navigation', () => ({
 }))
 vi.mock('@/i18n/navigation', () => ({
   Link: ({ href, children, className }: React.ComponentProps<'a'>) => (
-    <a href={href} className={className}>{children}</a>
+    <a href={href} className={className}>
+      {children}
+    </a>
   ),
 }))
 
 // Mock all 9 section components for isolation
-vi.mock('../sections/basic-info-section', () => ({ BasicInfoSection: () => <div data-testid="basic-info-section" /> }))
-vi.mock('../sections/media-section', () => ({ MediaSection: () => <div data-testid="media-section" /> }))
-vi.mock('../sections/links-section', () => ({ LinksSection: () => <div data-testid="links-section" /> }))
-vi.mock('../sections/customer-voices-section', () => ({ CustomerVoicesSection: () => <div data-testid="customer-voices-section" /> }))
-vi.mock('../sections/locations-section', () => ({ LocationsSection: () => <div data-testid="locations-section" /> }))
-vi.mock('../sections/reputation-section', () => ({ ReputationSection: () => <div data-testid="reputation-section" /> }))
-vi.mock('../sections/manufacturing-section', () => ({ ManufacturingSection: () => <div data-testid="manufacturing-section" /> }))
-vi.mock('../sections/certifications-section', () => ({ CertificationsSection: () => <div data-testid="certifications-section" /> }))
-vi.mock('../sections/policies-section', () => ({ PoliciesSection: () => <div data-testid="policies-section" /> }))
+vi.mock('../sections/basic-info-section', () => ({
+  BasicInfoSection: () => <div data-testid="basic-info-section" />,
+}))
+vi.mock('../sections/media-section', () => ({
+  MediaSection: () => <div data-testid="media-section" />,
+}))
+vi.mock('../sections/links-section', () => ({
+  LinksSection: () => <div data-testid="links-section" />,
+}))
+vi.mock('../sections/locations-section', () => ({
+  LocationsSection: () => <div data-testid="locations-section" />,
+}))
+vi.mock('../sections/reputation-section', () => ({
+  ReputationSection: () => <div data-testid="reputation-section" />,
+}))
 
 const mockBrand: Brand = {
   id: 'test-brand-id',
@@ -53,7 +61,7 @@ function renderWizard(props = {}) {
         initialStep={0}
         {...props}
       />
-    </NextIntlClientProvider>
+    </NextIntlClientProvider>,
   )
 }
 
@@ -72,11 +80,13 @@ describe('BrandEditWizard', () => {
           defaultValues={{ name: 'Test Brand', productType: 'fashion' }}
           initialStep={0}
         />
-      </NextIntlClientProvider>
+      </NextIntlClientProvider>,
     )
 
     expect(screen.getAllByText('基本資料').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByRole('progressbar', { name: '第 1 步，共 9 步' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('progressbar', { name: '第 1 步，共 5 步' }),
+    ).toBeInTheDocument()
   })
 
   it('shows the active section content at step 0', () => {
@@ -100,7 +110,8 @@ describe('BrandEditWizard', () => {
   })
 
   it('calls saveSectionDraftAction on Save & Continue', async () => {
-    const { saveSectionDraftAction } = await import('@/lib/actions/brand-edit-wizard')
+    const { saveSectionDraftAction } =
+      await import('@/lib/actions/brand-edit-wizard')
     renderWizard({ initialStep: 0 })
     fireEvent.click(screen.getByRole('button', { name: /save & continue/i }))
     await waitFor(() => {

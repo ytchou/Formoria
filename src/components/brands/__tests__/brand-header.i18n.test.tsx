@@ -25,11 +25,10 @@ const fixtureBrand: Brand = {
   purchaseShopee: null,
   otherUrls: [],
   retailLocations: [],
-  customerVoices: [],
   productPhotos: [],
-    siteContent: null,
-    priceRange: null,
-    productTags: [],
+  siteContent: null,
+  priceRange: null,
+  productTags: [],
   foundingYear: 2010,
   contactEmail: null,
   submittedAt: '2026-01-01T00:00:00Z',
@@ -43,7 +42,7 @@ describe('BrandHeader — English locale (i18n)', () => {
     render(
       <NextIntlClientProvider locale="en" messages={en}>
         <BrandHeader brand={fixtureBrand} />
-      </NextIntlClientProvider>
+      </NextIntlClientProvider>,
     )
 
     // Proper noun (brand name) is unchanged

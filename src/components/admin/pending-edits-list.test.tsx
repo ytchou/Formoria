@@ -15,7 +15,9 @@ type PendingEditWithRisk = PendingBrandEditWithBrand & {
   moderationRiskLevel?: 'high' | 'medium' | 'clean'
 }
 
-function makeEdit(overrides: Partial<PendingEditWithRisk> = {}): PendingEditWithRisk {
+function makeEdit(
+  overrides: Partial<PendingEditWithRisk> = {},
+): PendingEditWithRisk {
   return {
     id: 'edit-1',
     brand: {
@@ -36,11 +38,10 @@ function makeEdit(overrides: Partial<PendingEditWithRisk> = {}): PendingEditWith
       purchaseShopee: null,
       otherUrls: [],
       retailLocations: [],
-      customerVoices: [],
       productPhotos: [],
       siteContent: null,
-    priceRange: null,
-    productTags: [],
+      priceRange: null,
+      productTags: [],
     },
     submittedBy: 'user-1',
     brandId: 'brand-1',
@@ -60,7 +61,7 @@ describe('PendingEditsList moderation risk badges', () => {
     render(
       <NextIntlClientProvider locale="zh-TW" messages={messages}>
         <PendingEditsList edits={[makeEdit({ moderationRiskLevel: 'high' })]} />
-      </NextIntlClientProvider>
+      </NextIntlClientProvider>,
     )
     expect(screen.getByText('高風險')).toBeInTheDocument()
   })
@@ -68,8 +69,10 @@ describe('PendingEditsList moderation risk badges', () => {
   it('renders a medium risk badge', () => {
     render(
       <NextIntlClientProvider locale="zh-TW" messages={messages}>
-        <PendingEditsList edits={[makeEdit({ moderationRiskLevel: 'medium' })]} />
-      </NextIntlClientProvider>
+        <PendingEditsList
+          edits={[makeEdit({ moderationRiskLevel: 'medium' })]}
+        />
+      </NextIntlClientProvider>,
     )
     expect(screen.getByText('中風險')).toBeInTheDocument()
   })
@@ -83,7 +86,7 @@ describe('PendingEditsList moderation risk badges', () => {
             makeEdit({ id: 'absent-edit', brandId: 'brand-2' }),
           ]}
         />
-      </NextIntlClientProvider>
+      </NextIntlClientProvider>,
     )
 
     expect(screen.queryByText('高風險')).not.toBeInTheDocument()

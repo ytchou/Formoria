@@ -18,7 +18,6 @@ const brandInput = {
   purchaseShopee: 'https://shopee.tw/senzi',
   otherUrls: [{ label: 'Line', url: 'https://line.me/senzi' }],
   retailLocations: [{ name: 'Taipei flagship', address: 'No. 1, Xinyi Rd.' }],
-  customerVoices: [{ author: 'Mina', quote: 'Lovely packaging.' }],
   contactEmail: 'hello@senzi.tw',
   priceRange: 2,
   productTags: ['handmade', 'home'],
@@ -69,8 +68,9 @@ describe('field-map', () => {
       purchase_pinkoi: 'https://pinkoi.com/store/senzi',
       purchase_shopee: 'https://shopee.tw/senzi',
       other_urls: [{ label: 'Line', url: 'https://line.me/senzi' }],
-      retail_locations: [{ name: 'Taipei flagship', address: 'No. 1, Xinyi Rd.' }],
-      customer_voices: [{ author: 'Mina', quote: 'Lovely packaging.' }],
+      retail_locations: [
+        { name: 'Taipei flagship', address: 'No. 1, Xinyi Rd.' },
+      ],
       contact_email: 'hello@senzi.tw',
       price_range: 2,
       product_tags: ['handmade', 'home'],
@@ -79,8 +79,12 @@ describe('field-map', () => {
   })
 
   it('maps mitStory to mit_story when present', () => {
-    const result = toBrandRow({ mitStory: 'Our fabrics come from Changhua weaving mills.' })
-    expect(result.mit_story).toBe('Our fabrics come from Changhua weaving mills.')
+    const result = toBrandRow({
+      mitStory: 'Our fabrics come from Changhua weaving mills.',
+    })
+    expect(result.mit_story).toBe(
+      'Our fabrics come from Changhua weaving mills.',
+    )
   })
 
   it('omits mit_story when mitStory is undefined', () => {
@@ -106,7 +110,6 @@ describe('field-map', () => {
       foundingYear: undefined,
       otherUrls: undefined,
       retailLocations: undefined,
-      customerVoices: undefined,
       contactEmail: undefined,
       priceRange: undefined,
       productTags: undefined,

@@ -1,7 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ENRICH_PHASES } from '@/lib/constants/enrich-phases'
 import type { BrandFlatLinkColumns } from '@/lib/types'
-import type { CurationConfig, PhaseResult, PhaseStatus } from '@/lib/types/curation'
+import type {
+  CurationConfig,
+  PhaseResult,
+  PhaseStatus,
+} from '@/lib/types/curation'
 import type { SiteContent } from '@/lib/types/brand'
 import type { Database } from '@/lib/supabase/database.types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
@@ -26,9 +30,6 @@ export type EnrichBrand = {
   heroImageUrl?: string | null
   productPhotos?: string[] | null
   reputation_summary?: unknown | null
-  manufacturing?: unknown | null
-  certifications?: unknown | null
-  policies?: unknown | null
 } & Partial<BrandFlatLinkColumns>
 
 export type SearchPhaseResult = {
@@ -37,9 +38,10 @@ export type SearchPhaseResult = {
   rawEntries?: unknown[]
 }
 
-export type EnrichScrapedData = Partial<ScrapedBrandData> & Partial<BrandFlatLinkColumns> & {
-  snippets?: string[]
-}
+export type EnrichScrapedData = Partial<ScrapedBrandData> &
+  Partial<BrandFlatLinkColumns> & {
+    snippets?: string[]
+  }
 
 export type EnrichPatch = Partial<BrandFlatLinkColumns> &
   Partial<{
@@ -50,9 +52,6 @@ export type EnrichPatch = Partial<BrandFlatLinkColumns> &
     hero_image_url: string | null
     name: string
     reputation_summary: unknown
-    manufacturing: unknown
-    certifications: unknown
-    policies: unknown
     price_range: number | null
     product_tags: string[] | null
     product_type: string | null
@@ -85,7 +84,7 @@ export function getDisplayBrandName(brand: { name?: string | null }): string {
 }
 
 export async function timePhase<T>(
-  fn: () => Promise<T>
+  fn: () => Promise<T>,
 ): Promise<{ result: T; durationMs: number }> {
   const startedAt = performance.now()
 
@@ -103,7 +102,7 @@ export function buildPhaseResult(
   changedFields: string[],
   durationMs: number,
   error?: string,
-  detail?: string
+  detail?: string,
 ): PhaseResult {
   return {
     phase,

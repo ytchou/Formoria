@@ -94,13 +94,17 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
       userPage.locator('aside nav button').first()
     ).toHaveAttribute('data-active', 'true', { timeout: 5_000 });
 
-    // Progress bar shows 1/9 ≈ 11%
+    await expect(userPage.getByText('為必填欄位')).toBeVisible();
+    await expect(userPage.locator('#description')).toHaveAttribute('aria-required', 'true');
+    await expect(userPage.locator('#priceRange')).toHaveAttribute('aria-required', 'true');
+
+    // Progress bar shows 1/5 = 20%
     await expect(
       userPage.getByRole('progressbar')
-    ).toHaveAttribute('aria-valuenow', '11', { timeout: 5_000 });
+    ).toHaveAttribute('aria-valuenow', '20', { timeout: 5_000 });
   });
 
-  test('sidebar shows all 9 step labels', async ({ userPage }) => {
+  test('sidebar shows all five step labels', async ({ userPage }) => {
     test.setTimeout(60_000);
 
     const resp = await userPage.goto(`/dashboard/brands/${brandSlug}/edit`, { timeout: 60_000 });
@@ -120,12 +124,8 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
       'Basic Info',
       'Media',
       'Links',
-      'Customer Voices',
       'Locations',
       'Reputation',
-      'Manufacturing',
-      'Certifications',
-      'Policies',
     ];
 
     for (const label of expectedLabels) {
@@ -134,8 +134,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
       ).toBeVisible({ timeout: 5_000 });
     }
 
-    // Exactly 9 step buttons in the desktop sidebar
-    await expect(sidebarNav.locator('button')).toHaveCount(9);
+    await expect(sidebarNav.locator('button')).toHaveCount(5);
   });
 
   test('Save & Continue saves draft and advances to step 1 (Media)', async ({ userPage }) => {
@@ -169,7 +168,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     ).toBeVisible({ timeout: 5_000 });
   });
 
-  test('sidebar click jumps non-linearly to Customer Voices (step 3)', async ({ userPage }) => {
+  test('sidebar click jumps non-linearly to Reputation (step 4)', async ({ userPage }) => {
     test.setTimeout(60_000);
 
     const resp = await userPage.goto(`/dashboard/brands/${brandSlug}/edit`, { timeout: 60_000 });
@@ -182,27 +181,23 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
       userPage.getByRole('heading', { name: /^編輯 / })
     ).toBeVisible({ timeout: 60_000 });
 
-    // Click "Customer Voices" step button in the desktop sidebar (step index 3)
     const sidebarNav = userPage.locator('aside nav');
-    await sidebarNav.locator('button').filter({ hasText: 'Customer Voices' }).click();
+    await sidebarNav.locator('button').filter({ hasText: 'Reputation' }).click();
 
-    // Customer Voices section becomes active without sequential navigation
-    await expect(userPage.locator('#customer-voices')).toBeVisible({ timeout: 10_000 });
+    await expect(userPage.locator('#reputation')).toBeVisible({ timeout: 10_000 });
 
-    // URL reflects step 3
-    await expect(userPage).toHaveURL(/\?step=3/, { timeout: 5_000 });
+    await expect(userPage).toHaveURL(/\?step=4/, { timeout: 5_000 });
 
-    // Customer Voices sidebar button is now marked active
     await expect(
-      sidebarNav.locator('button').filter({ hasText: 'Customer Voices' })
+      sidebarNav.locator('button').filter({ hasText: 'Reputation' })
     ).toHaveAttribute('data-active', 'true', { timeout: 5_000 });
   });
 
-  test('?step=4 deep link opens Locations section (step 4)', async ({ userPage }) => {
+  test('?step=3 deep link opens Locations section', async ({ userPage }) => {
     test.setTimeout(60_000);
 
     const resp = await userPage.goto(
-      `/dashboard/brands/${brandSlug}/edit?step=4`,
+      `/dashboard/brands/${brandSlug}/edit?step=3`,
       { timeout: 60_000 }
     );
     if (resp?.status() === 503) {
@@ -217,15 +212,13 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     // Locations section (step 4) is the active content area
     await expect(userPage.locator('#locations')).toBeVisible({ timeout: 10_000 });
 
-    // Sidebar step at index 4 is active
     await expect(
-      userPage.locator('aside nav button').nth(4)
+      userPage.locator('aside nav button').nth(3)
     ).toHaveAttribute('data-active', 'true', { timeout: 5_000 });
 
-    // Progress bar shows 5/9 ≈ 56%
     await expect(
       userPage.getByRole('progressbar')
-    ).toHaveAttribute('aria-valuenow', '56', { timeout: 5_000 });
+    ).toHaveAttribute('aria-valuenow', '80', { timeout: 5_000 });
   });
 
   test('?onboardingStep=basics backwards compat loads step 0 (Basic Info)', async ({ userPage }) => {

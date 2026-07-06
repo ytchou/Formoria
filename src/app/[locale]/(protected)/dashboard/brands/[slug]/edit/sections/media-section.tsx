@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl'
 import { type UseFormReturn, Controller } from 'react-hook-form'
 import { ImageUploadField } from '@/components/forms/image-upload-field'
+import { ProductPhotosField } from '@/components/forms/product-photos-field'
 import type { BrandEditFormValues } from '@/lib/schemas/brand-edit'
 
 export function MediaSection({
@@ -18,15 +19,40 @@ export function MediaSection({
         {t('sectionMedia')}
       </h2>
 
+      <div aria-required="true">
+        <Controller
+          control={form.control}
+          name="heroImageUrl"
+          render={({ field }) => (
+            <ImageUploadField
+              name={field.name}
+              label={t('fieldHeroImage')}
+              uploadPath="brands/tmp/heroImageUrl"
+              currentUrl={field.value}
+              required
+            />
+          )}
+        />
+        {form.formState.errors.heroImageUrl ? (
+          <p className="text-xs text-destructive" aria-live="polite">
+            {t('requiredFieldError')}
+          </p>
+        ) : null}
+      </div>
+
       <Controller
         control={form.control}
-        name="heroImageUrl"
+        name="productPhotos"
         render={({ field }) => (
-          <ImageUploadField
-            name={field.name}
-            label={t('fieldHeroImage')}
-            uploadPath="brands/tmp/heroImageUrl"
-            currentUrl={field.value}
+          <ProductPhotosField
+            value={field.value ?? []}
+            onChange={field.onChange}
+            label={t('fieldProductPhotos')}
+            error={
+              form.formState.errors.productPhotos
+                ? t('requiredFieldError')
+                : undefined
+            }
           />
         )}
       />

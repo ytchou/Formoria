@@ -4,8 +4,8 @@ import type { OnboardingStepKey } from '@/lib/services/brand-onboarding'
 // --- Per-section Zod schemas ---
 
 export const basicInfoSchema = z.object({
-  name: z.string().min(1),
-  productType: z.string().min(1),
+  name: z.string().optional(),
+  productType: z.string().optional(),
   description: z.string().optional(),
   foundingYear: z.number().optional().or(z.string().optional()),
   mitStory: z.string().optional(),
@@ -14,78 +14,79 @@ export const basicInfoSchema = z.object({
   priceRange: z.number().optional().or(z.string().optional()),
 })
 
-export const mediaSchema = z.object({
+const mediaSchema = z.object({
   heroImageUrl: z.string().url().optional().or(z.literal('')),
+  productPhotos: z.array(z.string().url()).max(6).optional(),
 })
 
-export const linksSchema = z.object({
+const linksSchema = z.object({
   socialInstagram: z.string().optional(),
   socialThreads: z.string().optional(),
   socialFacebook: z.string().url().optional().or(z.literal('')),
   purchaseWebsite: z.string().url().optional().or(z.literal('')),
   purchasePinkoi: z.string().url().optional().or(z.literal('')),
   purchaseShopee: z.string().url().optional().or(z.literal('')),
-  otherUrls: z.array(z.object({
-    label: z.string().optional(),
-    url: z.string().url().or(z.literal('')),
-  })).optional(),
+  otherUrls: z
+    .array(
+      z.object({
+        label: z.string().optional(),
+        url: z.string().url().or(z.literal('')),
+      }),
+    )
+    .optional(),
 })
 
-export const customerVoicesSchema = z.object({
-  customerVoices: z.array(z.object({
-    author: z.string(),
-    content: z.string(),
-    source: z.string().optional(),
-  })).max(5).optional(),
+const locationsSchema = z.object({
+  retailLocations: z
+    .array(
+      z.object({
+        name: z.string(),
+        address: z.string().optional(),
+      }),
+    )
+    .optional(),
 })
 
-export const locationsSchema = z.object({
-  retailLocations: z.array(z.object({
-    name: z.string(),
-    address: z.string().optional(),
-  })).optional(),
-})
-
-export const reputationSchema = z.object({
+const reputationSchema = z.object({
   reputationSummary: z.string().optional(),
-  reputationSources: z.array(z.object({
-    url: z.string().url().or(z.literal('')),
-    title: z.string().optional(),
-    retrievedAt: z.string().optional(),
-  })).max(5).optional(),
+  reputationSources: z
+    .array(
+      z.object({
+        url: z.string().url().or(z.literal('')),
+      }),
+    )
+    .max(5)
+    .optional(),
 })
 
-export const manufacturingSchema = z.object({
-  factoryLocation: z.string().optional(),
-  productionModel: z.string().optional(),
-  manufacturingNotes: z.string().optional(),
-})
-
-export const certificationsSchema = z.object({
-  certifications: z.array(z.object({
-    name: z.string(),
-    issuer: z.string().optional(),
-    year: z.number().optional().or(z.string().optional()),
-    sourceUrl: z.string().url().optional().or(z.literal('')),
-  })).max(10).optional(),
-})
-
-export const policiesSchema = z.object({
-  returnsPolicy: z.string().optional(),
-  warranty: z.string().optional(),
-  shipsInternational: z.boolean().optional(),
-})
-
-// Composed full schema (merge of all 9)
+// Composed full schema (merge of all 5)
 export const brandEditSchema = basicInfoSchema
   .merge(mediaSchema)
   .merge(linksSchema)
-  .merge(customerVoicesSchema)
   .merge(locationsSchema)
   .merge(reputationSchema)
-  .merge(manufacturingSchema)
-  .merge(certificationsSchema)
-  .merge(policiesSchema)
+
+export const brandPublishRequirementsSchema = z.object({
+  name: z.string().trim().min(1),
+  productType: z.string().trim().min(1),
+  description: z.string().trim().min(1),
+  productTags: z.array(z.string().trim().min(1)).min(1).max(5),
+  priceRange: z.union([
+    z.literal(1),
+    z.literal(2),
+    z.literal(3),
+    z.literal('1'),
+    z.literal('2'),
+    z.literal('3'),
+  ]),
+  heroImageUrl: z.string().url(),
+  productPhotos: z.array(z.string().url()).min(1).max(6),
+  purchaseWebsite: z.string().url(),
+})
+
+export const brandPublishSchema = brandEditSchema.and(
+  brandPublishRequirementsSchema,
+)
 
 export type BrandEditFormValues = z.infer<typeof brandEditSchema>
 
@@ -101,7 +102,7 @@ export const SECTION_FIELDS: Record<string, (keyof BrandEditFormValues)[]> = {
     'city',
     'priceRange',
   ],
-  media: ['heroImageUrl'],
+  media: ['heroImageUrl', 'productPhotos'],
   links: [
     'socialInstagram',
     'socialThreads',
@@ -111,12 +112,8 @@ export const SECTION_FIELDS: Record<string, (keyof BrandEditFormValues)[]> = {
     'purchaseShopee',
     'otherUrls',
   ],
-  customerVoices: ['customerVoices'],
   locations: ['retailLocations'],
   reputation: ['reputationSummary', 'reputationSources'],
-  manufacturing: ['factoryLocation', 'productionModel', 'manufacturingNotes'],
-  certifications: ['certifications'],
-  policies: ['returnsPolicy', 'warranty', 'shipsInternational'],
 }
 
 // --- Wizard step definitions ---
@@ -124,12 +121,8 @@ type WizardStepKey =
   | 'basicInfo'
   | 'media'
   | 'links'
-  | 'customerVoices'
   | 'locations'
   | 'reputation'
-  | 'manufacturing'
-  | 'certifications'
-  | 'policies'
 
 export type WizardStep = { key: WizardStepKey }
 
@@ -137,16 +130,15 @@ export const WIZARD_STEPS: WizardStep[] = [
   { key: 'basicInfo' },
   { key: 'media' },
   { key: 'links' },
-  { key: 'customerVoices' },
   { key: 'locations' },
   { key: 'reputation' },
-  { key: 'manufacturing' },
-  { key: 'certifications' },
-  { key: 'policies' },
 ]
 
 // --- Onboarding step mappings ---
-export function getOnboardingStepHref(key: OnboardingStepKey, slug: string): string {
+export function getOnboardingStepHref(
+  key: OnboardingStepKey,
+  slug: string,
+): string {
   switch (key) {
     case 'brand_basics':
       return `/dashboard/brands/${slug}/edit?step=0`
@@ -155,14 +147,15 @@ export function getOnboardingStepHref(key: OnboardingStepKey, slug: string): str
     case 'analytics':
       return `/dashboard/brands/${slug}/analytics`
     case 'health':
-      return `/dashboard/brands/${slug}#health`
+      return `/dashboard/brands/${slug}#profile-completeness`
     case 'verification':
       return `/dashboard/brands/${slug}#verification`
   }
 }
 
-export const SECTION_TO_ONBOARDING_STEPS: Record<string, OnboardingStepKey[]> = {
-  basicInfo: ['brand_basics'],
-  media: ['media_links'],
-  links: ['media_links'],
-}
+export const SECTION_TO_ONBOARDING_STEPS: Record<string, OnboardingStepKey[]> =
+  {
+    basicInfo: ['brand_basics'],
+    media: ['media_links'],
+    links: ['media_links'],
+  }

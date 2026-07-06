@@ -363,7 +363,6 @@
       "tags": "Tags",
       "highlights": "Brand Highlights",
       "photos": "Photos",
-      "customerVoices": "Customer Voices",
       "locations": "Locations",
       "faq": "Frequently Asked Questions"
     },
@@ -453,23 +452,6 @@
       "reputation": {
         "question": "What is {brandName}'s reputation?",
         "answer": "{brandName}'s reputation signals point to {summary}{context}"
-      },
-      "manufacturing": {
-        "question": "Where is {brandName} manufactured?",
-        "answer": "{brandName}'s manufacturing information highlights {details}.{context}"
-      },
-      "certifications": {
-        "question": "What certifications does {brandName} have?",
-        "answer": "{brandName} lists certifications or standards including {certList}.{context}"
-      },
-      "returnPolicy": {
-        "question": "What is {brandName}'s return policy?",
-        "answer": "{brandName}'s return and warranty notes state: {details}"
-      },
-      "internationalShipping": {
-        "question": "Does {brandName} ship internationally?",
-        "yes": "Yes, {brandName} ships internationally.",
-        "no": "No, {brandName} does not ship internationally."
       }
     }
   },
@@ -1051,8 +1033,8 @@
           "description": "See how your brand page is performing."
         },
         "health": {
-          "title": "Review brand health",
-          "description": "Check your brand health score and improvement tips."
+          "title": "Review profile completeness",
+          "description": "See what to complete next on your brand profile."
         },
         "verification": {
           "title": "Start verification",
@@ -1067,38 +1049,34 @@
       "tier1Label": "High Impact",
       "tier2Label": "Good to Have"
     },
-    "health": {
-      "title": "Brand Health Score",
-      "subtitle": "How your brand is performing across 7 dimensions",
-      "tier": {
-        "gettingStarted": "Getting Started",
-        "growing": "Growing",
-        "thriving": "Thriving",
-        "exemplary": "Exemplary"
+    "profileCompleteness": {
+      "title": "Profile Completeness",
+      "completedCount": "{completed} of {total} components complete",
+      "viewRecommendations": "View Recommendations",
+      "hideRecommendations": "Hide Recommendations",
+      "recommendations": "Recommended Next Steps",
+      "complete": "Your profile is complete.",
+      "priority": {
+        "required": "Required",
+        "weight5": "Core",
+        "weight3": "Important",
+        "weight1": "Enrichment"
       },
-      "tierRange": {
-        "gettingStarted": "0–39 · Profile needs attention",
-        "growing": "40–69 · Good foundation, room to optimize",
-        "thriving": "70–89 · Strong presence",
-        "exemplary": "90–100 · Best-in-class"
-      },
-      "suggestedActions": "Suggested Actions",
-      "pointsToNextTier": "{points} pts to {tier}",
-      "atTopTier": "Best-in-class",
-      "actionQueue": {
-        "title": "Ready to grow? Here's what moves the needle",
-        "label": {
-          "profileCompleteness": "Complete your brand profile",
-          "engagementHealth": "Boost your engagement",
-          "brandStory": "Strengthen your brand story",
-          "photoQuality": "Add more product photos",
-          "socialPresence": "Link a social account",
-          "purchaseAccessibility": "Add a purchase link",
-          "clickThroughRate": "Improve your click-through rate"
+      "component": {
+        "description": "Add your brand story",
+        "productTags": "Add product tags",
+        "priceRange": "Choose a price range",
+        "heroImage": "Upload a hero image",
+        "productPhotos": "Upload product photos",
+        "officialWebsite": "Add your official website",
+        "city": "Add your founding city",
+        "foundingYear": "Add your founding year",
+        "socialPresence": "Connect a social account",
+        "additionalSalesChannel": "Add another sales channel",
+        "retailLocations": "Add a retail location",
+        "reputation": "Add reputation evidence"
         }
       },
-      "lastUpdated": "Last updated: {date}"
-    },
     "mit": {
       "title": "MIT Verification",
       "status": {
@@ -1157,7 +1135,6 @@
       "sectionBasicInfo": "Basic Info",
       "sectionMedia": "Media",
       "sectionLinks": "Links",
-      "sectionCustomerVoices": "Customer Voices",
       "sectionLocations": "Locations",
       "fieldBrandName": "Brand name",
       "fieldCategory": "Category",
@@ -1192,11 +1169,6 @@
       "socialLinksLabel": "Social links",
       "fieldOtherLinks": "Other links",
       "addLink": "Add link",
-      "customerVoicesLabel": "Customer quotes",
-      "fieldCustomerVoiceAuthor": "Customer name",
-      "fieldCustomerVoiceContent": "Quote",
-      "fieldCustomerVoiceSource": "Source (optional)",
-      "addCustomerVoice": "Add customer voice",
       "removeItem": "Remove",
       "addRetailLocation": "Add retail location",
       "fieldStoreName": "Store name",
@@ -1211,6 +1183,7 @@
         "notLoggedIn": "Please sign in to edit this brand",
         "forbidden": "You do not have permission to edit this brand",
         "noDraft": "No draft to publish.",
+        "requiredFieldsIncomplete": "Complete all required fields before publishing.",
         "unknown": "An unexpected error occurred. Please try again."
       },
       "fieldRegion": "Region",
@@ -1233,42 +1206,17 @@
       "wizardStepMediaSub": "Photos & hero image",
       "wizardStepLinks": "Links",
       "wizardStepLinksSub": "Social & purchase links",
-      "wizardStepCustomerVoices": "Customer Voices",
-      "wizardStepCustomerVoicesSub": "Reviews & testimonials",
       "wizardStepLocations": "Locations",
       "wizardStepLocationsSub": "Physical locations",
       "wizardStepReputation": "Reputation",
       "wizardStepReputationSub": "Press & recognition",
-      "wizardStepManufacturing": "Manufacturing",
-      "wizardStepManufacturingSub": "Production details",
-      "wizardStepCertifications": "Certifications",
-      "wizardStepCertificationsSub": "Awards & certifications",
-      "wizardStepPolicies": "Policies",
-      "wizardStepPoliciesSub": "Consumer policies",
       "sectionReputation": "Brand Reputation",
-      "sectionManufacturing": "Manufacturing",
-      "sectionCertifications": "Certifications",
-      "sectionPolicies": "Consumer Policies",
       "fieldReputationSummary": "Reputation summary",
       "fieldProvenanceSources": "Provenance sources",
       "fieldSourceUrlPlaceholder": "Source URL",
-      "fieldSourceTitlePlaceholder": "Title",
-      "fieldRetrievedDatePlaceholder": "Retrieved date",
       "addSource": "Add source",
-      "fieldFactoryLocation": "Factory location",
-      "fieldProductionModel": "Production model",
-      "fieldProductionModelPlaceholder": "Select model",
-      "productionModelOwn": "Own",
-      "productionModelOem": "OEM",
-      "productionModelMixed": "Mixed",
-      "fieldManufacturingNotes": "Manufacturing notes",
-      "fieldCertificationNamePlaceholder": "Certification name",
-      "fieldCertificationIssuerPlaceholder": "Issuer",
-      "fieldCertificationYearPlaceholder": "Year",
-      "addCertification": "Add certification",
-      "fieldReturnsPolicy": "Returns policy",
-      "fieldWarranty": "Warranty",
-      "fieldShipsInternational": "Ships international",
+      "requiredHint": "indicates a required field",
+      "requiredFieldError": "Complete this required field before publishing.",
       "fieldCategoryHint": "Used for navigation, search, and filtering",
       "fieldDescriptionHint": "Public description shown on the brand page",
       "fieldFoundingYearHint": "Shown on the brand page",
@@ -1278,7 +1226,6 @@
       "unsavedChanges": "Unsaved changes"
     },
     "brandProfile": {
-      "customerVoices": "Customer Voices",
       "productPhotos": "Product Photos",
       "retailLocations": "Retail Locations",
       "priceRange": "Price Range",

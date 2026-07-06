@@ -31,7 +31,7 @@ type BrandImagesSelectQuery = {
   eq: (column: 'brand_id' | 'status', value: string) => BrandImagesSelectQuery
   order: (
     column: 'sort_order',
-    options: { ascending: boolean }
+    options: { ascending: boolean },
   ) => Promise<{ data: BrandImageRow[] | null; error: QueryError | null }>
 }
 type BrandImagesTable = {
@@ -39,21 +39,40 @@ type BrandImagesTable = {
   insert: (row: BrandImageInsert) => Promise<{ error: QueryError | null }>
   upsert: (
     row: BrandImageInsert,
-    options: { onConflict: string }
+    options: { onConflict: string },
   ) => Promise<{ error: QueryError | null }>
+  update: (row: Partial<BrandImageInsert>) => {
+    eq: (
+      column: 'brand_id',
+      value: string,
+    ) => {
+      in: (
+        column: 'url',
+        values: string[],
+      ) => Promise<{ error: QueryError | null }>
+    }
+  }
 }
 type BrandImagesClient = {
   from: (table: 'brand_images') => BrandImagesTable
 }
 
 const HERO_TAGS = new Set(['product', 'lifestyle', 'packaging'])
-const REJECTED_HERO_TAGS = new Set(['promo', 'text_banner', 'irrelevant', 'logo'])
+const REJECTED_HERO_TAGS = new Set([
+  'promo',
+  'text_banner',
+  'irrelevant',
+  'logo',
+])
 
 function brandImagesTable(supabase: unknown): BrandImagesTable {
   return (supabase as BrandImagesClient).from('brand_images')
 }
 
-function hasAnyTag(row: Pick<BrandImageRow, 'tags'>, tags: Set<string>): boolean {
+function hasAnyTag(
+  row: Pick<BrandImageRow, 'tags'>,
+  tags: Set<string>,
+): boolean {
   return (row.tags ?? []).some((tag) => tags.has(tag))
 }
 
@@ -63,9 +82,10 @@ function scoreValue(row: Pick<BrandImageRow, 'score'>): number {
   return 0
 }
 
-export function toImageFields(
-  rows: BrandImageRow[]
-): { heroImageUrl: string | null; productPhotos: string[] } {
+export function toImageFields(rows: BrandImageRow[]): {
+  heroImageUrl: string | null
+  productPhotos: string[]
+} {
   const active = rows
     .filter((row) => row.status === 'active')
     .toSorted((left, right) => (left.sort_order ?? 0) - (right.sort_order ?? 0))
@@ -94,7 +114,7 @@ export function pickHero(candidates: BrandImageRow[]): BrandImageRow | null {
 
 export async function getBrandImages(
   supabase: unknown,
-  brandId: string
+  brandId: string,
 ): Promise<BrandImageRow[]> {
   const { data, error } = await brandImagesTable(supabase)
     .select('url, status, tags, score, sort_order, source_url')
@@ -111,7 +131,7 @@ export async function getBrandImages(
 
 export async function insertBrandImage(
   supabase: unknown,
-  data: BrandImageInsert
+  data: BrandImageInsert,
 ): Promise<void> {
   const row: BrandImageInsert = {
     status: 'active',
@@ -120,15 +140,30 @@ export async function insertBrandImage(
   }
 
   const { error } = data.source_url
-    ? await brandImagesTable(supabase).upsert(row, { onConflict: 'brand_id,source_url' })
+    ? await brandImagesTable(supabase).upsert(row, {
+        onConflict: 'brand_id,source_url',
+      })
     : await brandImagesTable(supabase).insert(row)
 
   if (error && error.code !== '23505') throw error
 }
 
+export async function rejectBrandImages(
+  supabase: unknown,
+  brandId: string,
+  urls: string[],
+): Promise<void> {
+  if (urls.length === 0) return
+  const { error } = await brandImagesTable(supabase)
+    .update({ status: 'rejected' })
+    .eq('brand_id', brandId)
+    .in('url', urls)
+  if (error) throw error
+}
+
 export async function syncHeroDenormalized(
   supabase: unknown,
-  brandId: string
+  brandId: string,
 ): Promise<void> {
   const images = await getBrandImages(supabase, brandId)
   const hero = pickHero(images) ?? images.at(0)
