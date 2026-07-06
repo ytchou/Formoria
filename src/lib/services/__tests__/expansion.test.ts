@@ -13,6 +13,22 @@ vi.mock('@/lib/services/expansion-research', () => ({
   runExpansionResearch: vi.fn(),
 }))
 
+vi.mock('@/lib/supabase/server', () => ({
+  createServiceClient: () => ({
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            order: () => ({
+              limit: () => Promise.resolve({ data: null }),
+            }),
+          }),
+        }),
+      }),
+    }),
+  }),
+}))
+
 
 describe('runExpansionPhase', () => {
   const baseBrand = {

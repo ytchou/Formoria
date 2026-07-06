@@ -2,6 +2,7 @@ import {
   buildLinkEnrichPatch,
   extractLinksFromUrls,
 } from '../link-enrichment'
+import { insertSearchResult } from '../search-results'
 import { scrapeBrandUrls } from './scraper'
 import { classifyByDomain } from './scraper/input-detector'
 import type { PhaseResult } from '@/lib/types/curation'
@@ -13,6 +14,7 @@ type LinksPhaseOptions = {
   phases: EnrichPhase[]
   discoveredUrls: string[]
   knownUrls: string[]
+  dryRun?: boolean
 }
 
 type LinksPhaseOutput = {
@@ -55,11 +57,25 @@ function normalizeScrapedData(scrapedData: EnrichScrapedData): EnrichScrapedData
   }
 }
 
+function buildScrapePayload(scrapedData: EnrichScrapedData): Record<string, unknown> | null {
+  if (!scrapedData.description && !scrapedData.story && !scrapedData.rawJsonLd) {
+    return null
+  }
+
+  return {
+    pageUrl: scrapedData.websiteUrl ?? scrapedData.purchaseWebsite ?? scrapedData.purchase_website ?? null,
+    description: scrapedData.description ?? null,
+    story: scrapedData.story ?? null,
+    jsonLd: scrapedData.rawJsonLd ?? null,
+  }
+}
+
 export async function runLinksPhase({
   brand,
   phases,
   discoveredUrls,
   knownUrls,
+  dryRun = false,
 }: LinksPhaseOptions): Promise<LinksPhaseOutput> {
   if (!phases.includes('links')) {
     return {
@@ -83,6 +99,21 @@ export async function runLinksPhase({
       purchaseWebsite: derivedWebsite,
     })
     const patch = buildLinkEnrichPatch(brand, scrapedData)
+    const scrapePayload = buildScrapePayload(scrapedData)
+
+    if (!dryRun && scrapePayload) {
+      const pageUrl = typeof scrapePayload.pageUrl === 'string'
+        ? scrapePayload.pageUrl
+        : derivedWebsite ?? urls[0] ?? ''
+      await insertSearchResult(
+        brand.id,
+        'scrape' as never,
+        pageUrl,
+        pageUrl ? [pageUrl] : [],
+        [scrapedData.description, scrapedData.story].filter((text): text is string => Boolean(text)),
+        scrapePayload
+      )
+    }
 
     return {
       patch,

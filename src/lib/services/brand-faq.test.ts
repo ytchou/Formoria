@@ -58,6 +58,7 @@ describe('buildBrandFaq', () => {
   it('includes isMadeInTaiwan only when mitStatus is verified', () => {
     expect(buildBrandFaq(makeFaqBrand({ mitStatus: 'verified' }), mockT)).toEqual([
       {
+        id: 'made-in-taiwan',
         question: 'brandFaq.isMadeInTaiwan.question|{"brandName":"Test Brand"}',
         answer: 'brandFaq.isMadeInTaiwan.answer|{"brandName":"Test Brand"}',
       },
@@ -123,17 +124,19 @@ describe('buildBrandFaq', () => {
     expect(item?.answer).toContain('Store A')
   })
 
-  it('includes mainProducts when category or productTags exist', () => {
-    const [withCategory] = buildBrandFaq(makeFaqBrand({ category: 'Food' }), mockT)
+  it('includes mainProducts only when productTags exist', () => {
+    const withCategory = buildBrandFaq(makeFaqBrand({ category: 'Food' }), mockT)
     const [withTags] = buildBrandFaq(makeFaqBrand({ productTags: ['soap'] }), mockT)
-    expect(withCategory?.question).toContain('brandFaq.mainProducts.question')
-    expect(withCategory?.answer).toContain('brandFaq.mainProducts.answerWithCategory')
-    expect(withCategory?.answer).not.toContain('null')
-    expect(withCategory?.answer).not.toContain(', including .')
+    expect(withCategory).toEqual([])
     expect(withTags?.question).toContain('brandFaq.mainProducts.question')
     expect(withTags?.answer).toContain('brandFaq.mainProducts.answerWithTags')
     expect(withTags?.answer).not.toContain('null')
     expect(withTags?.answer).not.toContain(', including .')
+  })
+
+  it('suppresses generators whose underlying field is thin', () => {
+    const faq = buildBrandFaq(makeFaqBrand({ productTags: [], certifications: null }), mockT)
+    expect(faq.find((f) => f.id === 'main-products')).toBeUndefined()
   })
 
   it('includes priceRange only for valid values', () => {
@@ -366,6 +369,20 @@ describe('buildBrandFaq', () => {
       'brandFaq.certifications.question|{"brandName":"Test Brand"}',
       'brandFaq.returnPolicy.question|{"brandName":"Test Brand"}',
       'brandFaq.internationalShipping.question|{"brandName":"Test Brand"}',
+    ])
+    expect(faq.map((item) => item.id)).toEqual([
+      'made-in-taiwan',
+      'where-to-buy',
+      'physical-stores',
+      'main-products',
+      'price-range',
+      'founded',
+      'official-accounts',
+      'reputation',
+      'manufacturing',
+      'certifications',
+      'return-policy',
+      'international-shipping',
     ])
   })
 

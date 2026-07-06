@@ -2,6 +2,7 @@ import * as React from 'react'
 import { Img, Section } from '@react-email/components'
 import { Button, EmailHeading, EmailText } from '@emails/components/'
 import { BG_WHITE, BORDER, TEXT_SECONDARY } from '@emails/styles'
+import { truncateForMeta } from '@/lib/text/truncate-for-meta'
 
 type BrandCardProps = {
   name: string
@@ -11,12 +12,14 @@ type BrandCardProps = {
 }
 
 export function BrandCard({ name, imageUrl, blurb, ctaUrl }: BrandCardProps) {
+  const truncatedBlurb = truncateForMeta(blurb)
+
   return (
     <Section style={card}>
       <Img src={imageUrl} alt={name} width="552" style={image} />
       <Section style={content}>
         <EmailHeading as="h2">{name}</EmailHeading>
-        <EmailText>{blurb}</EmailText>
+        <EmailText>{truncatedBlurb}</EmailText>
         <Button href={ctaUrl}>了解更多 / Learn More</Button>
       </Section>
     </Section>

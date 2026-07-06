@@ -415,6 +415,11 @@
         "midRange": "mid-range",
         "premium": "premium"
       },
+      "context": {
+        "city": "based in {city}",
+        "founded": "founded in {year}",
+        "suffix": " It is {details}."
+      },
       "isMadeInTaiwan": {
         "question": "Is {brandName} made in Taiwan?",
         "answer": "Yes, {brandName} is a verified Made in Taiwan brand."
@@ -429,9 +434,8 @@
       },
       "mainProducts": {
         "question": "What products does {brandName} make?",
-        "answerWithCategoryAndTags": "{brandName} specializes in {category}, including {productTags}.",
-        "answerWithCategory": "{brandName} specializes in {category}.",
-        "answerWithTags": "{brandName} specializes in products including {productTags}."
+        "answerWithCategoryAndTags": "{brandName} focuses on {category}, with signature products including {productTags}.{context}",
+        "answerWithTags": "{brandName} makes {productTags} as signature products.{context}"
       },
       "priceRange": {
         "question": "What is {brandName}'s price range?",
@@ -447,19 +451,19 @@
       },
       "reputation": {
         "question": "What is {brandName}'s reputation?",
-        "answer": "{summary}"
+        "answer": "{brandName}'s reputation signals point to {summary}{context}"
       },
       "manufacturing": {
         "question": "Where is {brandName} manufactured?",
-        "answer": "{details}"
+        "answer": "{brandName}'s manufacturing information highlights {details}.{context}"
       },
       "certifications": {
         "question": "What certifications does {brandName} have?",
-        "answer": "{certList}"
+        "answer": "{brandName} lists certifications or standards including {certList}.{context}"
       },
       "returnPolicy": {
         "question": "What is {brandName}'s return policy?",
-        "answer": "{details}"
+        "answer": "{brandName}'s return and warranty notes state: {details}"
       },
       "internationalShipping": {
         "question": "Does {brandName} ship internationally?",

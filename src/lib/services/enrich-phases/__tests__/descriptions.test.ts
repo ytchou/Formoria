@@ -1,6 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { DescriptionRewriteResult } from '../../description-rewrite'
 import { runDescriptionsPhase } from '../descriptions'
 import type { EnrichBrand, EnrichPhase } from '../types'
+
+const supabaseMocks = vi.hoisted(() => ({
+  data: null as unknown[] | null,
+}))
+
+vi.mock('@/lib/supabase/server', () => ({
+  createServiceClient: () => ({
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            order: () => ({
+              limit: () => Promise.resolve({ data: supabaseMocks.data }),
+            }),
+          }),
+        }),
+      }),
+    }),
+  }),
+}))
 
 vi.mock('../../description-rewrite', () => ({
   rewriteBrandDescription: vi.fn(),
@@ -15,9 +36,29 @@ const brand: EnrichBrand = {
   description: null,
 }
 
+function makeDescriptionRewriteResult(
+  overrides: Partial<DescriptionRewriteResult>,
+): DescriptionRewriteResult {
+  return {
+    description_zh: null,
+    description_en: null,
+    description: null,
+    priceRange: null,
+    productTags: [],
+    city: null,
+    foundingYear: null,
+    signatureProducts: [],
+    whereToBuy: null,
+    categoryMismatch: false,
+    validationRejections: [],
+    ...overrides,
+  }
+}
+
 describe('runDescriptionsPhase', () => {
   beforeEach(() => {
     rewriteBrandDescription.mockReset()
+    supabaseMocks.data = null
   })
 
   it('returns skipped when descriptions is not in requested phases', async () => {
@@ -48,11 +89,11 @@ describe('runDescriptionsPhase', () => {
   })
 
   it('includes price_range in patch when classification returns a value', async () => {
-    rewriteBrandDescription.mockResolvedValue({
+    rewriteBrandDescription.mockResolvedValue(makeDescriptionRewriteResult({
       description: 'Test Brand creates considered everyday accessories for modern homes.',
       priceRange: 2,
       productTags: [],
-    })
+    }))
 
     const result = await runDescriptionsPhase({
       brand,
@@ -65,11 +106,11 @@ describe('runDescriptionsPhase', () => {
   })
 
   it('includes product_tags in patch when extraction returns products', async () => {
-    rewriteBrandDescription.mockResolvedValue({
+    rewriteBrandDescription.mockResolvedValue(makeDescriptionRewriteResult({
       description: 'Test Brand creates considered everyday accessories for modern homes.',
       priceRange: null,
       productTags: ['ceramic mugs', 'linen placemats'],
-    })
+    }))
 
     const result = await runDescriptionsPhase({
       brand,
@@ -82,11 +123,11 @@ describe('runDescriptionsPhase', () => {
   })
 
   it('tracks price_range and product_tags in changedFields', async () => {
-    rewriteBrandDescription.mockResolvedValue({
-      description: 'Test Brand creates considered everyday accessories for modern homes.',
+    rewriteBrandDescription.mockResolvedValue(makeDescriptionRewriteResult({
+      description_zh: 'Test Brand creates considered everyday accessories for modern homes.',
       priceRange: 3,
       productTags: ['leather totes', 'silk scarves'],
-    })
+    }))
 
     const result = await runDescriptionsPhase({
       brand,

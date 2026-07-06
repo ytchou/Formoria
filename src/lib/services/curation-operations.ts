@@ -15,6 +15,7 @@ import {
 import {
   type ClassificationResult,
 } from './product-type-classifier'
+import type { DescriptionRewriteResult } from './description-rewrite'
 import { SEARCH_DELAY_MS } from './enrich-phases/scraper/search'
 import { insertTriageResult, insertDescriptionResult, insertClassificationResult } from './ai-results'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -62,7 +63,9 @@ type CurationBrand = {
   name?: string
   status?: string | null
   description?: string | null
+  description_en?: string | null
   product_type?: string | null
+  category_attributes?: unknown | null
   purchase_website?: string | null
   purchaseWebsite?: string | null
 }
@@ -81,6 +84,25 @@ function errorMessage(error: unknown): string {
   }
 
   return String(error)
+}
+
+async function logDescriptionAiResult(brandId: string, descriptionRewrite: DescriptionRewriteResult): Promise<void> {
+  await insertDescriptionResult({
+    brandId,
+    description: descriptionRewrite.description_zh ?? '',
+    priceRange: descriptionRewrite.priceRange,
+    productTags: descriptionRewrite.productTags,
+    rawResponse: {
+      description_en: descriptionRewrite.description_en,
+      city: descriptionRewrite.city,
+      founding_year: descriptionRewrite.foundingYear,
+      signature_products: descriptionRewrite.signatureProducts,
+      where_to_buy: descriptionRewrite.whereToBuy,
+      category_mismatch: descriptionRewrite.categoryMismatch,
+      validation_rejections: descriptionRewrite.validationRejections,
+      response: descriptionRewrite.rawResponse,
+    },
+  })
 }
 
 const SCRAPE_DELAY_MS = 1000
@@ -165,8 +187,11 @@ type EnrichDescriptionsPhase = {
 
 type EnrichDescriptionPatch = Partial<{
   description: string | null
+  description_en: string | null
   price_range: number | null
   product_tags: string[] | null
+  city: string | null
+  category_attributes: unknown
 }>
 
 type EnrichProcessPhases = {
@@ -614,7 +639,7 @@ export async function runEnrich(
     let query = supabase
       .from('brands')
       .select(
-        'id, slug, name, status, description, product_type, site_content, reputation_summary, manufacturing, certifications, policies, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, hero_image_url, product_photos'
+        'id, slug, name, status, description, description_en, product_type, category_attributes, site_content, reputation_summary, manufacturing, certifications, policies, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, hero_image_url, product_photos'
       )
 
     if (config.slugs && config.slugs.length > 0) {
@@ -860,6 +885,7 @@ export async function runEnrich(
           phases,
           discoveredUrls: state.discoveredUrls,
           knownUrls: state.knownUrls,
+          dryRun: config.dryRun,
         })
         state.phaseResults.push(linksResult.phaseResult)
         logCurrentPhase(linksResult.phaseResult)
@@ -893,12 +919,12 @@ export async function runEnrich(
         const descriptionsResult = await runDescriptionsPhase({
           brand,
           phases,
-          scrapedData: state.scrapedData,
           serpSnippets: state.serpSnippets,
         })
         state.phaseResults.push(descriptionsResult.phaseResult)
         logCurrentPhase(descriptionsResult.phaseResult)
         appendPatch(state, descriptionsResult.patch)
+        const categoryMismatch = descriptionsResult.descriptionRewrite?.categoryMismatch === true
 
         const expansionResult = await runExpansionPhase({
           brand,
@@ -953,14 +979,19 @@ export async function runEnrich(
             weakBrandCount += 1
             onProgress(`  [WEAK-BRAND] ${brand.slug}: no useful data found (${state.discoveredUrls.length} search results, no enrichment changes)`)
           }
-          result.brandOutcomes.push({
+          if (!config.dryRun && target === 'brands' && descriptionsResult.descriptionRewrite) {
+            await logDescriptionAiResult(brand.id, descriptionsResult.descriptionRewrite)
+          }
+          const skippedOutcome: BrandOutcome & { categoryMismatch?: boolean } = {
             slug: brand.slug,
             name: getDisplayBrandName(brand),
             ...(target === 'submissions' ? { submissionId: brand.id } : {}),
             status: 'skipped',
             changedFields,
             phaseResults: state.phaseResults,
-          })
+            ...(categoryMismatch ? { categoryMismatch: true } : {}),
+          }
+          result.brandOutcomes.push(skippedOutcome)
           result.skipped += 1
           onProgress(formatBrandComplete(brand.slug, brandIndex, totalBrands, Date.now() - brandStartedAt))
           continue
@@ -979,13 +1010,7 @@ export async function runEnrich(
             })
           }
           if (target === 'brands' && descriptionsResult.descriptionRewrite) {
-            await insertDescriptionResult({
-              brandId: brand.id,
-              description: descriptionsResult.descriptionRewrite.description!,
-              priceRange: descriptionsResult.descriptionRewrite.priceRange,
-              productTags: descriptionsResult.descriptionRewrite.productTags,
-              rawResponse: descriptionsResult.descriptionRewrite.rawResponse,
-            })
+            await logDescriptionAiResult(brand.id, descriptionsResult.descriptionRewrite)
           }
           if (target === 'brands' && classification) {
             await insertClassificationResult({
@@ -1031,14 +1056,16 @@ export async function runEnrich(
           }
         }
 
-        result.brandOutcomes.push({
+        const succeededOutcome: BrandOutcome & { categoryMismatch?: boolean } = {
           slug: brand.slug,
           name: getDisplayBrandName(brand),
           ...(target === 'submissions' ? { submissionId: brand.id } : {}),
           status: 'succeeded',
           changedFields,
           phaseResults: state.phaseResults,
-        })
+          ...(categoryMismatch ? { categoryMismatch: true } : {}),
+        }
+        result.brandOutcomes.push(succeededOutcome)
         result.updated += 1
         onProgress(formatBrandComplete(brand.slug, brandIndex, totalBrands, Date.now() - brandStartedAt))
       } catch (err) {

@@ -76,24 +76,44 @@ ${CATEGORY_LIST}
 單一品牌：{"isNonBrand":true|false,"nonBrandReason":"...或 null","slug_generated":"...","productType":"...或 null","confidence":"high|medium|low"}
 多個品牌：[{"slug":"<原始 slug>","isNonBrand":...,"nonBrandReason":...,"slug_generated":"...","productType":...,"confidence":...}]`
 
-export const DESCRIPTION_SYSTEM_PROMPT = `你是台灣品牌文案撰寫者。請根據提供的資料，撰寫一段品牌簡介（繁體中文）。
+export const DESCRIPTION_SYSTEM_PROMPT = `你是台灣品牌研究編輯。請根據提供的資料，撰寫豐富但客觀的雙語品牌簡介。
 
 要求：
-- 2-3 句，總字數 60-120 字
-- 第一句說明品牌創立背景或核心產品
-- 第二句突出品牌特色、工藝或台灣元素
-- 第三句（選填）說明產品線或品牌願景
-- 語氣客觀、簡潔，不使用行銷誇大用語
-- 只輸出品牌簡介本身，不加標題或前綴
+- description_zh：300-600 字，繁體中文
+- description_en：400-900 characters，英文
+- 說明品牌背景、核心產品、材料／工藝／設計特色、通路或產品線；資料不足的面向請省略
+- 語氣客觀、具體，不使用行銷誇大用語
+- 只使用提供來源中的事實；沒有根據的內容必須省略，不可臆測或補完
 
 語言規則：
-- 全文使用繁體中文
+- description_zh 全文使用繁體中文
+- description_en 全文使用英文
 - 品牌英文名稱保留原文（如 inBlooom），不翻譯
 - 避免不必要的英文詞彙，使用中文對應詞（如「台灣製造」而非「MIT」）
 
 範例：
 輸入：品牌名稱：茶籽堂
-輸出：茶籽堂創立於苗栗，以台灣原生苦茶籽為核心原料，開發天然清潔與身體保養產品。品牌堅持在地農業合作，結合現代設計與傳統製皂工藝。產品涵蓋洗沐、保養及居家清潔系列。`
+輸出：
+{
+  "description_zh": "茶籽堂以台灣原生苦茶籽為核心原料，開發清潔與身體保養產品。品牌資料顯示其關注在地農業合作，並將植物油應用於洗沐、保養與居家清潔品項。整體定位圍繞台灣風土、日常清潔與可追溯原料，適合尋找具在地來源與實用產品線的消費者。",
+  "description_en": "Cha Tzu Tang develops cleansing and body care products centered on Taiwan-grown camellia seed oil. Based on the provided materials, the brand emphasizes local agricultural sourcing and applies plant-based oils across bath, body care, and home cleaning lines. Its positioning is grounded in Taiwanese terroir, everyday use, and traceable ingredients rather than broad lifestyle claims."
+}`
+
+export const EXTRACTION_SYSTEM_PROMPT = `你是台灣品牌資料抽取助手。請只根據提供來源抽取可驗證事實；任何欄位沒有明確證據時回傳 null、[] 或 false，不可猜測。
+
+欄位：
+- price_range：1、2、3 或 null。1=入門低價，2=中價位，3=高價／精品。
+- product_tags：2-5 個具體商品詞，避免寬泛分類。
+- city：品牌公開所在地或主要城市，無證據回傳 null。
+- founding_year：品牌創立年份，無證據回傳 null。
+- signature_products：具代表性的商品名稱陣列，無證據回傳 []。
+- where_to_buy：可購買通路摘要，無證據回傳 null。
+- category_mismatch：若來源明確顯示目前分類與品牌核心產品不符，回傳 true；否則 false。
+
+禁止輸出 category；分類變更必須人工審核。
+
+回應格式（嚴格 JSON，不加任何其他文字）：
+{"price_range":1|2|3|null,"product_tags":["具體商品"],"city":"城市或 null","founding_year":2015|null,"signature_products":["代表商品"],"where_to_buy":"通路或 null","category_mismatch":true|false}`
 
 export const EXPANSION_SYSTEM_PROMPT = `你是台灣品牌擴充研究專家。請根據搜尋摘要與網站內容，抽取品牌的聲譽、製造、認證與政策資訊。
 

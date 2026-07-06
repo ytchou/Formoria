@@ -3,11 +3,13 @@ import type { Brand } from '@/lib/types'
 type TFn = (key: string, params?: Record<string, unknown>) => string
 
 type FaqItem = {
+  id: string
   question: string
   answer: string
 }
 
 type FaqGenerator = {
+  id: string
   condition: (brand: Brand) => boolean
   questionKey: string
   buildAnswer: (brand: Brand, t: TFn) => string
@@ -21,6 +23,14 @@ const PRICE_RANGE_KEYS: Record<1 | 2 | 3, string> = {
 
 function hasValue(value: string | null | undefined): value is string {
   return value != null && value.trim() !== ''
+}
+
+function hasMinLength(value: string | null | undefined, minLength: number): value is string {
+  return value != null && value.trim().length >= minLength
+}
+
+function compactValues(values: Array<string | null | undefined>): string[] {
+  return values.filter(hasValue)
 }
 
 function truncate<T>(items: T[], limit = 3): T[] {
@@ -75,25 +85,21 @@ function buildMainProductsAnswer(brand: Brand, t: TFn): string {
   const category = brand.category
   const sep = t('brandFaq.listSeparator')
   const productTags = truncate(brand.productTags ?? []).join(sep)
+  const context = buildBrandContext(brand, t)
 
   if (category && productTags) {
     return t('brandFaq.mainProducts.answerWithCategoryAndTags', {
       brandName: brand.name,
       category,
       productTags,
-    })
-  }
-
-  if (category) {
-    return t('brandFaq.mainProducts.answerWithCategory', {
-      brandName: brand.name,
-      category,
+      context,
     })
   }
 
   return t('brandFaq.mainProducts.answerWithTags', {
     brandName: brand.name,
     productTags,
+    context,
   })
 }
 
@@ -109,6 +115,7 @@ function buildFoundedAnswer(brand: Brand, t: TFn): string {
   return t('brandFaq.whenFounded.answer', {
     brandName: brand.name,
     year: brand.foundingYear,
+    context: buildBrandContext(brand, t),
   })
 }
 
@@ -124,6 +131,7 @@ function buildReputationAnswer(brand: Brand, t: TFn): string {
   return t('brandFaq.reputation.answer', {
     brandName: brand.name,
     summary: brand.reputationSummary?.text ?? '',
+    context: buildBrandContext(brand, t),
   })
 }
 
@@ -132,14 +140,16 @@ function buildManufacturingAnswer(brand: Brand, t: TFn): string {
 
   return t('brandFaq.manufacturing.answer', {
     brandName: brand.name,
-    details: [manufacturing?.factoryLocation, manufacturing?.productionModel].filter(Boolean).join(t('brandFaq.listSeparator')),
+    details: compactValues([manufacturing?.factoryLocation, manufacturing?.productionModel]).join(t('brandFaq.listSeparator')),
+    context: buildBrandContext(brand, t),
   })
 }
 
 function buildCertificationsAnswer(brand: Brand, t: TFn): string {
   return t('brandFaq.certifications.answer', {
     brandName: brand.name,
-    certList: truncate((brand.certifications ?? []).map((cert) => cert.name)).join(t('brandFaq.listSeparator')),
+    certList: truncate(compactValues((brand.certifications ?? []).map((cert) => cert.name))).join(t('brandFaq.listSeparator')),
+    context: buildBrandContext(brand, t),
   })
 }
 
@@ -148,7 +158,7 @@ function buildReturnPolicyAnswer(brand: Brand, t: TFn): string {
 
   return t('brandFaq.returnPolicy.answer', {
     brandName: brand.name,
-    details: [policies?.returns, policies?.warranty].filter(Boolean).join(' '),
+    details: compactValues([policies?.returns, policies?.warranty]).join(' '),
   })
 }
 
@@ -161,8 +171,20 @@ function buildInternationalShippingAnswer(brand: Brand, t: TFn): string {
   return t(detailKey, { brandName: brand.name })
 }
 
+function buildBrandContext(brand: Brand, t: TFn): string {
+  const details = compactValues([
+    brand.city ? t('brandFaq.context.city', { city: brand.city }) : null,
+    brand.foundingYear ? t('brandFaq.context.founded', { year: brand.foundingYear }) : null,
+  ])
+
+  return details.length > 0
+    ? t('brandFaq.context.suffix', { details: details.join(t('brandFaq.listSeparator')) })
+    : ''
+}
+
 const FAQ_GENERATORS: FaqGenerator[] = [
   {
+    id: 'made-in-taiwan',
     condition: (brand) => brand.mitStatus === 'verified' || hasValue(brand.mitStory),
     questionKey: 'brandFaq.isMadeInTaiwan.question',
     buildAnswer: (brand, t) => {
@@ -177,56 +199,68 @@ const FAQ_GENERATORS: FaqGenerator[] = [
     },
   },
   {
+    id: 'where-to-buy',
     condition: (brand) => [brand.purchaseWebsite, brand.purchasePinkoi, brand.purchaseShopee].some(hasValue),
     questionKey: 'brandFaq.whereToBuy.question',
     buildAnswer: buildWhereToBuyAnswer,
   },
   {
-    condition: (brand) => (brand.retailLocations?.length ?? 0) > 0,
+    id: 'physical-stores',
+    condition: (brand) => collectRetailLocations(brand).length > 0,
     questionKey: 'brandFaq.hasPhysicalStores.question',
     buildAnswer: buildPhysicalStoresAnswer,
   },
   {
-    condition: (brand) => Boolean(brand.category) || (brand.productTags?.length ?? 0) > 0,
+    id: 'main-products',
+    condition: (brand) => compactValues(brand.productTags ?? []).length > 0,
     questionKey: 'brandFaq.mainProducts.question',
     buildAnswer: buildMainProductsAnswer,
   },
   {
+    id: 'price-range',
     condition: (brand) => [1, 2, 3].includes(brand.priceRange ?? 0),
     questionKey: 'brandFaq.priceRange.question',
     buildAnswer: buildPriceRangeAnswer,
   },
   {
+    id: 'founded',
     condition: (brand) => Boolean(brand.foundingYear),
     questionKey: 'brandFaq.whenFounded.question',
     buildAnswer: buildFoundedAnswer,
   },
   {
+    id: 'official-accounts',
     condition: (brand) => [brand.socialInstagram, brand.socialThreads, brand.socialFacebook].some(hasValue),
     questionKey: 'brandFaq.officialAccounts.question',
     buildAnswer: buildOfficialAccountsAnswer,
   },
   {
-    condition: (brand) => Boolean(brand.reputationSummary?.text),
+    id: 'reputation',
+    condition: (brand) => hasMinLength(brand.reputationSummary?.text, 10),
     questionKey: 'brandFaq.reputation.question',
     buildAnswer: buildReputationAnswer,
   },
   {
-    condition: (brand) => Boolean(brand.manufacturing?.factoryLocation || brand.manufacturing?.productionModel),
+    id: 'manufacturing',
+    condition: (brand) =>
+      compactValues([brand.manufacturing?.factoryLocation, brand.manufacturing?.productionModel]).length > 0,
     questionKey: 'brandFaq.manufacturing.question',
     buildAnswer: buildManufacturingAnswer,
   },
   {
-    condition: (brand) => (brand.certifications?.length ?? 0) > 0,
+    id: 'certifications',
+    condition: (brand) => compactValues((brand.certifications ?? []).map((cert) => cert.name)).length > 0,
     questionKey: 'brandFaq.certifications.question',
     buildAnswer: buildCertificationsAnswer,
   },
   {
-    condition: (brand) => Boolean(brand.policies?.returns || brand.policies?.warranty),
+    id: 'return-policy',
+    condition: (brand) => compactValues([brand.policies?.returns, brand.policies?.warranty]).length > 0,
     questionKey: 'brandFaq.returnPolicy.question',
     buildAnswer: buildReturnPolicyAnswer,
   },
   {
+    id: 'international-shipping',
     condition: (brand) => brand.policies?.shipsInternational != null,
     questionKey: 'brandFaq.internationalShipping.question',
     buildAnswer: buildInternationalShippingAnswer,
@@ -235,6 +269,7 @@ const FAQ_GENERATORS: FaqGenerator[] = [
 
 export function buildBrandFaq(brand: Brand, t: TFn): FaqItem[] {
   return FAQ_GENERATORS.filter((generator) => generator.condition(brand)).map((generator) => ({
+    id: generator.id,
     question: t(generator.questionKey, { brandName: brand.name }),
     answer: generator.buildAnswer(brand, t),
   }))

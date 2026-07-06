@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import {
+  parseExtractionResult,
   triageBrandsBatch,
   type TriageBatchItem,
   type TriageResult,
@@ -121,5 +122,18 @@ describe('triageBrandsBatch', () => {
     const results = await triageBrandsBatch(largeBatch)
     expect(mockFetch).toHaveBeenCalledTimes(2)
     expect(results.size).toBe(25)
+  })
+})
+
+describe('parseExtractionResult', () => {
+  it('extraction parses new fact fields and never returns a category write', () => {
+    const parsed = parseExtractionResult(JSON.stringify({
+      price_range: 2, product_tags: ['餐具'], city: '台中', founding_year: 2015,
+      signature_products: ['木製餐盤'], where_to_buy: '官網與誠品', category_mismatch: true,
+    }))
+    expect(parsed.city).toBe('台中')
+    expect(parsed.foundingYear).toBe(2015)
+    expect(parsed.categoryMismatch).toBe(true)
+    expect('category' in parsed).toBe(false)
   })
 })

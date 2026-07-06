@@ -45,6 +45,7 @@ import { MapPin } from 'lucide-react'
 import { NotFoundError } from '@/lib/errors'
 import { sanitizeHref } from '@/lib/url'
 import { getUserBrand } from '@/lib/services/brand-owners'
+import { truncateForMeta } from '@/lib/text/truncate-for-meta'
 
 // 1h ISR: ownership/verified-state changes propagate within ~an hour; route still statically served between regenerations
 export const revalidate = 3600
@@ -78,20 +79,23 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const { canonical, languages } = buildAlternates(`/brands/${brand.slug}`, safeLocale)
     const ogLocale = safeLocale === 'zh-TW' ? 'zh_TW' : 'en_US'
     const ogAlternateLocale = safeLocale === 'zh-TW' ? 'en_US' : 'zh_TW'
+    const description = truncateForMeta(
+      brand.description || t('metadata.fallbackDescription', { name: brand.name }),
+    )
     return {
       title: brand.name,
-      description: brand.description || t('metadata.fallbackDescription', { name: brand.name }),
+      description,
       alternates: { canonical, languages },
       openGraph: {
         title: brand.name,
-        description: brand.description ?? undefined,
+        description,
         images: heroImageUrl ? [{ url: heroImageUrl }] : undefined,
         locale: ogLocale,
         alternateLocale: [ogAlternateLocale],
       },
       twitter: {
         title: brand.name,
-        description: brand.description ?? undefined,
+        description,
         images: heroImageUrl ?? undefined,
       },
     }
