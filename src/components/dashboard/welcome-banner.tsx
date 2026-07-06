@@ -1,10 +1,17 @@
 'use client'
 
-import { ArrowRight, Check, Circle, ListChecks } from 'lucide-react'
+import { ListChecks } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Link } from '@/i18n/navigation'
-import { ONBOARDING_STEP_TO_WIZARD_STEP } from '@/lib/schemas/brand-edit'
-import { ONBOARDING_STEPS, type OnboardingStep, type OnboardingStepKey } from '@/lib/services/brand-onboarding'
+import { getOnboardingStepHref } from '@/lib/schemas/brand-edit'
+import {
+  ONBOARDING_STEPS,
+  type OnboardingStep,
+  type OnboardingStepKey,
+} from '@/lib/services/brand-onboarding'
+import {
+  OnboardingStepList,
+  type OnboardingStepItem,
+} from './onboarding-step-list'
 
 type WelcomeBannerProps = {
   completedCount: number
@@ -23,6 +30,16 @@ export function WelcomeBanner({
 
   const percentage = (completedCount / ONBOARDING_STEPS.length) * 100
 
+  const stepItems: OnboardingStepItem[] = steps.map((step) => ({
+    key: step.key,
+    title: t(`steps.${step.key}.title`),
+    description: t(`steps.${step.key}.description`),
+    isHighlighted: step.key === nextStep,
+    isCompleted: step.status === 'complete',
+    statusLabel: t(`status.${step.status}`),
+    href: getOnboardingStepHref(step.key, slug),
+  }))
+
   return (
     <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
       <div className="flex items-center gap-3">
@@ -34,7 +51,10 @@ export function WelcomeBanner({
             {t('card.title')}
           </h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {t('progress', { completed: completedCount, total: ONBOARDING_STEPS.length })}
+            {t('progress', {
+              completed: completedCount,
+              total: ONBOARDING_STEPS.length,
+            })}
           </p>
         </div>
       </div>
@@ -53,57 +73,7 @@ export function WelcomeBanner({
         />
       </div>
 
-      <ol className="mt-5 space-y-2">
-        {steps.map((step, index) => {
-          const isNext = step.key === nextStep
-          const wizardStep = ONBOARDING_STEP_TO_WIZARD_STEP[step.key]
-
-          return (
-            <li key={step.key}>
-              <Link
-                href={`/dashboard/brands/${slug}/edit?step=${wizardStep}`}
-                className={`group flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                  isNext
-                    ? 'border-primary/30 bg-primary/5 hover:bg-primary/10'
-                    : 'border-transparent hover:bg-muted'
-                }`}
-              >
-                <span
-                  className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full ${
-                    step.status === 'complete'
-                      ? 'bg-primary text-primary-foreground'
-                      : isNext
-                        ? 'bg-primary/15 text-primary'
-                        : 'bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {step.status === 'complete' ? (
-                    <Check className="size-3.5" />
-                  ) : isNext ? (
-                    <span className="text-xs font-bold">{index + 1}</span>
-                  ) : (
-                    <Circle className="size-3" />
-                  )}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-foreground">
-                    {t(`steps.${step.key}.title`)}
-                  </span>
-                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                    {t(`steps.${step.key}.description`)}
-                  </span>
-                  <span className="mt-1.5 block text-xs font-medium text-primary">
-                    {t(`status.${step.status}`)}
-                  </span>
-                </span>
-                {isNext ? (
-                  <ArrowRight className="mt-1 size-4 shrink-0 text-primary transition-transform group-hover:translate-x-0.5" />
-                ) : null}
-              </Link>
-            </li>
-          )
-        })}
-      </ol>
+      <OnboardingStepList steps={stepItems} showArrow className="mt-5" />
     </section>
   )
 }

@@ -2,11 +2,11 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { SECTION_TO_ONBOARDING_STEPS } from '@/lib/schemas/brand-edit'
 
 export const ONBOARDING_STEPS = [
-  'basics',
-  'products',
-  'story_media',
-  'purchase',
-  'social_proof',
+  'brand_basics',
+  'media_links',
+  'analytics',
+  'health',
+  'verification',
 ] as const
 
 export type OnboardingStepKey = (typeof ONBOARDING_STEPS)[number]
@@ -29,8 +29,10 @@ type ProgressRow = {
   status: string
 }
 
-function isMissingOnboardingTable(error: { code?: string }): boolean {
-  return error.code === '42P01' || error.code === 'PGRST205'
+function isOnboardingInfraError(error: { code?: string }): boolean {
+  // 42P01 = table doesn't exist, PGRST205 = PostgREST missing table,
+  // 23514 = CHECK constraint violation (step keys not yet migrated)
+  return error.code === '42P01' || error.code === 'PGRST205' || error.code === '23514'
 }
 
 export function isOnboardingStepKey(value: string): value is OnboardingStepKey {
@@ -71,7 +73,7 @@ export async function getBrandOnboardingProgress(
     .eq('brand_id', brandId)
 
   if (error) {
-    if (isMissingOnboardingTable(error)) {
+    if (isOnboardingInfraError(error)) {
       return buildOnboardingProgress([])
     }
     throw error
@@ -102,7 +104,7 @@ export async function setBrandOnboardingStepStatus({
     .maybeSingle()
 
   if (fetchError) {
-    if (isMissingOnboardingTable(fetchError)) return
+    if (isOnboardingInfraError(fetchError)) return
     throw fetchError
   }
 
@@ -123,7 +125,7 @@ export async function setBrandOnboardingStepStatus({
       updated_at: now,
     }, { onConflict: 'brand_id,step_key' })
 
-  if (error && !isMissingOnboardingTable(error)) throw error
+  if (error && !isOnboardingInfraError(error)) throw error
 }
 
 async function markOnboardingStepCompleted(

@@ -557,20 +557,20 @@
           "accessible": {
             "zh": "Accessible",
             "en": "Accessible",
-            "definition": "Everyday pricing, from NT$0 to NT$500.",
-            "range": "NT$0 – NT$500"
+            "definition": "Everyday pricing below NT$1,000.",
+            "range": "Under NT$1,000"
           },
           "midRange": {
             "zh": "Mid-range",
             "en": "Mid-range",
-            "definition": "Considered purchases, from NT$500 to NT$3,000.",
-            "range": "NT$500 – NT$3,000"
+            "definition": "Considered purchases, from NT$1,000 to NT$5,000.",
+            "range": "NT$1,000 – NT$5,000"
           },
           "premium": {
             "zh": "Premium",
             "en": "Premium",
-            "definition": "Premium craft, NT$3,000 and above.",
-            "range": "NT$3,000+"
+            "definition": "Premium craft above NT$5,000.",
+            "range": "Over NT$5,000"
           }
         }
       },
@@ -1011,9 +1011,9 @@
       }
     },
     "onboarding": {
-      "progress": "{completed} of {total} reviewed",
+      "progress": "{completed} of {total} complete",
       "card": {
-        "title": "Review your brand profile",
+        "title": "Set up your dashboard",
         "progressLabel": "Onboarding progress",
         "next": "Next step",
         "continue": "Continue review",
@@ -1035,25 +1035,25 @@
         "back": "Back to checklist"
       },
       "steps": {
-        "basics": {
-          "title": "Confirm brand basics",
-          "description": "Review the brand name, founding year, and price range."
+        "brand_basics": {
+          "title": "Complete brand profile",
+          "description": "Review brand name, type, description, and key details."
         },
-        "products": {
-          "title": "Confirm products",
-          "description": "Review the specific product tags that help people discover the brand."
+        "media_links": {
+          "title": "Add media & links",
+          "description": "Upload photos and connect social & purchase links."
         },
-        "story_media": {
-          "title": "Review story and visuals",
-          "description": "Check the brand description, hero image, and product photos."
+        "analytics": {
+          "title": "Check your analytics",
+          "description": "See how your brand page is performing."
         },
-        "purchase": {
-          "title": "Confirm purchase channels",
-          "description": "Review marketplace links, other URLs, and retail locations."
+        "health": {
+          "title": "Review brand health",
+          "description": "Check your brand health score and improvement tips."
         },
-        "social_proof": {
-          "title": "Confirm social presence",
-          "description": "Review social accounts and customer voices."
+        "verification": {
+          "title": "Start verification",
+          "description": "Verify your brand ownership for a trust badge."
         }
       },
       "milestone": {
@@ -1227,7 +1227,7 @@
       "fieldCategory": "Category",
       "fieldDescription": "Description",
       "fieldProductTags": "Product tags",
-      "fieldProductTagsPlaceholder": "Add a specific product type",
+      "fieldProductTagsPlaceholder": "Add product tag",
       "removeProductTag": "Remove tag",
       "productTagsMax": "Up to 5 tags. Describe products, not promotional claims.",
       "fieldBrandHighlights": "Brand highlights",
@@ -1235,11 +1235,14 @@
       "fieldFoundingYear": "Founding Year",
       "fieldPriceRange": "Price Range",
       "fieldPriceRangeUnset": "Unset",
+      "fieldPriceRangeBudget": "Budget-friendly (under NT$1,000)",
+      "fieldPriceRangeMidRange": "Mid-range (NT$1,000–5,000)",
+      "fieldPriceRangePremium": "Premium (over NT$5,000)",
       "fieldLogo": "Logo",
       "fieldHeroImage": "Hero Image",
       "fieldProductPhotos": "Product photos",
-      "city": "City/County",
-      "cityPlaceholder": "Select city",
+      "city": "Brand founding city",
+      "cityPlaceholder": "Select the brand founding city",
       "fieldOfficialWebsite": "Official Website",
       "fieldInstagram": "Instagram",
       "fieldThreads": "Threads",
@@ -1289,23 +1292,23 @@
       "wizardPublish": "Publish",
       "wizardSaveDraft": "Save Draft",
       "wizardStepBasicInfo": "Basic Info",
-      "wizardStepBasicInfoSub": "品牌基本資料",
+      "wizardStepBasicInfoSub": "Brand identity & details",
       "wizardStepMedia": "Media",
-      "wizardStepMediaSub": "品牌圖片",
+      "wizardStepMediaSub": "Photos & hero image",
       "wizardStepLinks": "Links",
-      "wizardStepLinksSub": "社群與購買連結",
+      "wizardStepLinksSub": "Social & purchase links",
       "wizardStepCustomerVoices": "Customer Voices",
-      "wizardStepCustomerVoicesSub": "顧客評價",
+      "wizardStepCustomerVoicesSub": "Reviews & testimonials",
       "wizardStepLocations": "Locations",
-      "wizardStepLocationsSub": "實體據點",
+      "wizardStepLocationsSub": "Physical locations",
       "wizardStepReputation": "Reputation",
-      "wizardStepReputationSub": "品牌口碑",
+      "wizardStepReputationSub": "Press & recognition",
       "wizardStepManufacturing": "Manufacturing",
-      "wizardStepManufacturingSub": "生產製造",
+      "wizardStepManufacturingSub": "Production details",
       "wizardStepCertifications": "Certifications",
-      "wizardStepCertificationsSub": "認證標章",
+      "wizardStepCertificationsSub": "Awards & certifications",
       "wizardStepPolicies": "Policies",
-      "wizardStepPoliciesSub": "消費者政策",
+      "wizardStepPoliciesSub": "Consumer policies",
       "sectionReputation": "Brand Reputation",
       "sectionManufacturing": "Manufacturing",
       "sectionCertifications": "Certifications",
