@@ -5,6 +5,8 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
 test.describe('Dashboard brand edit', () => {
+  test.describe.configure({ mode: 'serial' });
+
   let descriptionBrandId: string;
   let descriptionBrandSlug: string;
   let supabase: AnySupabaseClient;
@@ -35,7 +37,10 @@ test.describe('Dashboard brand edit', () => {
     }
     testUserId = testUser.id;
 
-    // One brand per journey to avoid unique-pending-per-brand constraint.
+    // Pre-delete orphan test brands and brand_owners for this user
+    await supabase.from('brand_owners').delete().eq('user_id', testUserId);
+    await supabase.from('brands').delete().like('name', '[E2E-TEST] Brand Edit%');
+
     const ts = Date.now();
 
     async function seedBrand(label: string, slug: string) {
@@ -112,6 +117,21 @@ test.describe('Dashboard brand edit', () => {
       userPage.getByText(/submitted for review|提交審核|審核中/i)
     ).toBeVisible({ timeout: 15_000 });
     await expect(userPage).toHaveURL(/\/dashboard\/brands\/.+\/edit/);
+  });
+
+  test('mitStory textarea renders with correct label', async ({ userPage }) => {
+    test.setTimeout(120_000);
+
+    await userPage.goto(`/dashboard/brands/${descriptionBrandSlug}/edit`, { timeout: 60_000 });
+    await expect(
+      userPage.getByRole('heading', { name: /^編輯 / })
+    ).toBeVisible({ timeout: 60_000 });
+
+    const mitStoryField = userPage.locator('textarea[name="mitStory"]');
+    await expect(mitStoryField).toBeVisible({ timeout: 5_000 });
+    await expect(
+      userPage.getByText('MIT 製造故事', { exact: true })
+    ).toBeVisible({ timeout: 5_000 });
   });
 
 });
