@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { useTranslations } from 'next-intl'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -29,17 +29,13 @@ export function InlineVerification({
 
   const DISMISS_KEY = `formoria:dismiss-verification:${brandId}`
 
-  const [dismissed, setDismissed] = useState(false)
+  const [dismissed, setDismissed] = useState(
+    () => typeof window !== 'undefined' && localStorage.getItem(DISMISS_KEY) === '1',
+  )
   const [certNumber, setCertNumber] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [isPending, startTransition] = useTransition()
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setDismissed(localStorage.getItem(DISMISS_KEY) === '1')
-    }
-  }, [DISMISS_KEY])
 
   function dismiss() {
     localStorage.setItem(DISMISS_KEY, '1')
