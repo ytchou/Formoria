@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures/auth'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { ensureOwnedBrand } from '../helpers/owned-brand'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>
@@ -14,8 +15,8 @@ test.describe('Dashboard — brand image upload', () => {
   let supabase: AnySupabaseClient
   let brandId: string
   let brandSlug: string
-  let brandName: string
   let ownerUserId: string
+  let originalDraftData: unknown
 
   test.beforeAll(async () => {
     supabase = createClient(
@@ -34,31 +35,10 @@ test.describe('Dashboard — brand image upload', () => {
       throw new Error(`E2E test user not found: ${process.env.E2E_USER_EMAIL}`)
     ownerUserId = testUser.id
 
-    const ts = Date.now()
-    brandName = `[E2E-TEST] Image Upload ${ts}`
-    brandSlug = `e2e-image-upload-${ts}`
-
-    const { data: brandData, error: brandErr } = await supabase
-      .from('brands')
-      .insert({
-        name: brandName,
-        slug: brandSlug,
-        status: 'approved',
-        product_type: 'crafts',
-        description: 'E2E throwaway — image upload test.',
-        retail_locations: [],
-      })
-      .select('id')
-      .single()
-    if (brandErr || !brandData)
-      throw new Error(`Failed to seed brand: ${brandErr?.message}`)
-    brandId = brandData.id
-
-    const { error: boErr } = await supabase.from('brand_owners').insert({
-      user_id: ownerUserId,
-      brand_id: brandId,
-    })
-    if (boErr) throw new Error(`Failed to seed brand_owners: ${boErr.message}`)
+    const brand = await ensureOwnedBrand(supabase, ownerUserId)
+    brandId = brand.id
+    brandSlug = brand.slug
+    originalDraftData = brand.draftData
   })
 
   test.afterAll(async () => {
@@ -71,8 +51,10 @@ test.describe('Dashboard — brand image upload', () => {
         .from('pending_brand_edits')
         .delete()
         .eq('brand_id', brandId)
-      await supabase.from('brand_owners').delete().eq('brand_id', brandId)
-      await supabase.from('brands').delete().eq('id', brandId)
+      await supabase
+        .from('brands')
+        .update({ draft_data: originalDraftData })
+        .eq('id', brandId)
     }
   })
 
@@ -92,7 +74,7 @@ test.describe('Dashboard — brand image upload', () => {
 
     // Confirm the form loaded
     await expect(
-      userPage.getByRole('heading', { name: /edit|編輯/i }),
+      userPage.getByRole('heading', { level: 1, name: /edit|編輯/i }),
     ).toBeVisible({ timeout: 60_000 })
 
     const heroInput = userPage.locator('#image-upload-heroImageUrl')
@@ -120,19 +102,16 @@ test.describe('Dashboard — brand image upload', () => {
     const uploadedUrl: string = uploadBody.url
     expect(uploadedUrl).toBeTruthy()
 
-    // Wait for upload SUCCESS: the button's visible TEXT transitions '上傳中...' → '更換'
-    // (status-based, only after /api/upload resolves). Do NOT use getByRole(name:'更換圖片')
-    // — that matches the aria-label, which is set at file-select time (localPreview) before
-    // the upload completes. hasText matches rendered text content only ('更換', not the
-    // aria-label '更換圖片').
+    // The shared uploader is controlled by the form value. A successful upload
+    // renders the preview and switches the dropzone to replacement mode.
     await expect(
-      userPage.locator('button').filter({ hasText: '更換' }).first(),
+      userPage.locator('#image-upload-heroImageUrl-replace'),
+    ).toBeVisible({ timeout: 10_000 })
+    await expect(
+      userPage.locator('#image-upload-heroImageUrl-dropzone').locator('..').getByRole('img'),
     ).toBeVisible({ timeout: 10_000 })
 
-    const productInput = userPage
-      .locator('#productPhotos-upload')
-      .locator('..')
-      .locator('input[type="file"]')
+    const productInput = userPage.locator('#productPhotos-upload')
     const productUploadResponsePromise = userPage.waitForResponse(
       (resp) =>
         resp.url().includes('/api/upload') &&
@@ -149,7 +128,7 @@ test.describe('Dashboard — brand image upload', () => {
     const productUploadBody = await productUploadResponse.json()
     const productUrl: string = productUploadBody.url
     await expect(
-      userPage.locator('#productPhotos-upload').locator('..').getByRole('img'),
+      userPage.locator('#productPhotos-upload-dropzone').locator('..').getByRole('img'),
     ).toBeVisible()
 
     // Save & Continue at step 1 — wizard button (not the old single-form "儲存變更").

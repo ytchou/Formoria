@@ -9,7 +9,7 @@ import { test, expect } from '@playwright/test';
  *
  * The LocaleSwitcher renders as a dropdown:
  *   button[aria-label="Switch language" | "切換語言"]
- *   → menu with menuitem "中文" (href /zh-TW/…) and menuitem "English" (href /en/…)
+ *   → menu with persisted locale actions for Traditional Chinese and English
  */
 test.describe('i18n English browse', () => {
   test('/en returns 200 and shows English header chrome', async ({ page }) => {
@@ -35,31 +35,32 @@ test.describe('i18n English browse', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   });
 
-  test('LocaleSwitcher "中文" menuitem on /en/brands points to the zh-TW equivalent', async ({
+  test('LocaleSwitcher persists Traditional Chinese and returns to the equivalent route', async ({
     page,
   }) => {
     await page.goto('/en/brands');
 
     // The LocaleSwitcher is now a button + dropdown menu, not bare <a> links.
-    const switcherBtn = page.getByRole('button', { name: 'Switch language' });
+    const switcherBtn = page.getByRole('banner').getByRole('button', { name: 'Switch language' });
     await expect(switcherBtn).toBeVisible({ timeout: 10_000 });
     await switcherBtn.click();
 
-    // When current locale is "en", the dropdown contains menuitem "中文" → /zh-TW/brands
-    const zhItem = page.getByRole('menuitem', { name: '中文' });
+    const zhItem = page.getByRole('menuitem', { name: 'Traditional Chinese' });
     await expect(zhItem).toBeVisible({ timeout: 5_000 });
+    await zhItem.click();
 
-    const href = await zhItem.getAttribute('href');
-    expect(href).toBeTruthy();
-    // The zh-TW switcher href must end in /brands (zh-TW prefix or prefix-free)
-    expect(href).toMatch(/\/brands$/);
+    await expect(page).toHaveURL(/\/brands$/, { timeout: 10_000 });
+    await expect(page.locator('html')).toHaveAttribute('lang', 'zh-TW');
+    await expect.poll(async () =>
+      (await page.context().cookies()).find((cookie) => cookie.name === 'NEXT_LOCALE')?.value,
+    ).toBe('zh-TW');
   });
 
   test('LocaleSwitcher "English" menuitem on /brands navigates to /en/brands', async ({ page }) => {
     await page.goto('/brands');
 
     // The LocaleSwitcher is a button + dropdown — no bare <a href="/en/brands"> link.
-    const switcherBtn = page.getByRole('button', { name: '切換語言' });
+    const switcherBtn = page.getByRole('banner').getByRole('button', { name: '切換語言' });
     await expect(switcherBtn).toBeVisible({ timeout: 10_000 });
     await switcherBtn.click();
 
@@ -91,7 +92,7 @@ test.describe('i18n English browse', () => {
     await page.goto('/');
     // The LocaleSwitcher is now a dropdown button, not bare <a> links.
     // Open the menu and click "English" to switch locale.
-    const switcherBtn = page.getByRole('button', { name: '切換語言' });
+    const switcherBtn = page.getByRole('banner').getByRole('button', { name: '切換語言' });
     await expect(switcherBtn).toBeVisible({ timeout: 10_000 });
     await switcherBtn.click();
     const enItem = page.getByRole('menuitem', { name: 'English' });

@@ -24,6 +24,8 @@
     "clearSearch": "Clear search",
     "signIn": "Sign in",
     "languageLabel": "Switch language",
+    "languageTraditionalChinese": "Traditional Chinese",
+    "languageEnglish": "English",
     "about": "About Formoria",
     "myBrands": "My Brand",
     "guides": "Guides"
@@ -921,6 +923,8 @@
     "uploader": {
       "uploading": "Uploading...",
       "clickOrDrag": "Click to upload or drag and drop",
+      "clickToReplace": "Click or drag to replace",
+      "replace": "Replace image",
       "imageAlt": "Upload {n}",
       "ariaRemove": "Remove image {n}",
       "uploadFailed": "The following files could not be uploaded: {files}"
@@ -996,10 +1000,10 @@
       }
     },
     "onboarding": {
-      "progress": "{completed} of {total} complete",
+      "progress": "{completed} of {total} visited",
       "card": {
-        "title": "Set up your dashboard",
-        "progressLabel": "Onboarding progress",
+        "title": "Dashboard walkthrough",
+        "progressLabel": "Dashboard walkthrough progress",
         "next": "Next step",
         "continue": "Continue review",
         "viewAll": "View checklist"
@@ -1011,7 +1015,7 @@
       "status": {
         "not_started": "Not started",
         "in_progress": "In progress",
-        "complete": "Reviewed"
+        "complete": "Visited"
       },
       "review": {
         "title": "Onboarding review",
@@ -1021,24 +1025,24 @@
       },
       "steps": {
         "brand_basics": {
-          "title": "Complete brand profile",
-          "description": "Review brand name, type, description, and key details."
+          "title": "Review brand profile",
+          "description": "Open your brand details and see where to update them."
         },
         "media_links": {
           "title": "Add media & links",
-          "description": "Upload photos and connect social & purchase links."
+          "description": "Open the editor for photos, social profiles, and purchase links."
         },
         "analytics": {
           "title": "Check your analytics",
-          "description": "See how your brand page is performing."
+          "description": "Open analytics and see how your brand page is performing."
         },
         "health": {
           "title": "Review profile completeness",
-          "description": "See what to complete next on your brand profile."
+          "description": "Open your profile recommendations and see what to improve next."
         },
         "verification": {
-          "title": "Start verification",
-          "description": "Verify your brand ownership for a trust badge."
+          "title": "Explore verification",
+          "description": "Open verification and learn how to earn a trust badge."
         }
       },
       "milestone": {
@@ -1075,8 +1079,8 @@
         "additionalSalesChannel": "Add another sales channel",
         "retailLocations": "Add a retail location",
         "reputation": "Add reputation evidence"
-        }
-      },
+      }
+    },
     "mit": {
       "title": "MIT Verification",
       "status": {
@@ -1137,6 +1141,7 @@
       "sectionLinks": "Links",
       "sectionLocations": "Locations",
       "fieldBrandName": "Brand name",
+      "fieldProductType": "Product type",
       "fieldCategory": "Category",
       "fieldDescription": "Description",
       "fieldProductTags": "Product tags",
@@ -1153,7 +1158,10 @@
       "fieldPriceRangePremium": "Premium (over NT$5,000)",
       "fieldLogo": "Logo",
       "fieldHeroImage": "Hero Image",
+      "heroImageOverviewHint": "This is the first image visitors see and the image used on masonry brand cards.",
+      "heroImageEditHint": "One image only. This is the first image on your brand page and the cover used on masonry brand cards. Use a clear 16:9 landscape image.",
       "fieldProductPhotos": "Product photos",
+      "productPhotosEditHint": "Add 1–6 photos showing individual products, details, or products in use. These appear in the product gallery on your brand page.",
       "city": "Brand founding city",
       "cityPlaceholder": "Select the brand founding city",
       "fieldOfficialWebsite": "Official Website",
@@ -1196,6 +1204,7 @@
       "mitStoryLabel": "MIT Manufacturing Story",
       "mitStoryPlaceholder": "Share your manufacturing craftsmanship, materials sourcing, and factory partnerships…",
       "wizardProgress": "Step {current} of {total}",
+      "wizardSidebarTitle": "Edit brand details",
       "wizardSaveAndContinue": "Save & Continue",
       "wizardBack": "Back",
       "wizardPublish": "Publish",

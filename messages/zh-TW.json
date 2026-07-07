@@ -25,6 +25,8 @@
     "myBrands": "我的品牌",
     "signIn": "登入",
     "languageLabel": "切換語言",
+    "languageTraditionalChinese": "繁體中文",
+    "languageEnglish": "English",
     "about": "關於 Formoria",
     "guides": "指南"
   },
@@ -921,6 +923,8 @@
     "uploader": {
       "uploading": "上傳中…",
       "clickOrDrag": "點擊上傳或拖曳檔案",
+      "clickToReplace": "點擊或拖曳以更換圖片",
+      "replace": "更換圖片",
       "imageAlt": "上傳 {n}",
       "ariaRemove": "移除圖片 {n}",
       "uploadFailed": "以下檔案上傳失敗：{files}"
@@ -996,10 +1000,10 @@
       }
     },
     "onboarding": {
-      "progress": "已完成 {completed}/{total}",
+      "progress": "已查看 {completed}/{total}",
       "card": {
-        "title": "設定你的品牌後台",
-        "progressLabel": "新手任務進度",
+        "title": "品牌後台導覽",
+        "progressLabel": "品牌後台導覽進度",
         "next": "下一步",
         "continue": "繼續檢視",
         "viewAll": "查看檢查清單"
@@ -1011,7 +1015,7 @@
       "status": {
         "not_started": "尚未開始",
         "in_progress": "進行中",
-        "complete": "已檢視"
+        "complete": "已查看"
       },
       "review": {
         "title": "新手任務檢視",
@@ -1021,24 +1025,24 @@
       },
       "steps": {
         "brand_basics": {
-          "title": "完善品牌資料",
-          "description": "檢視品牌名稱、類型、簡介等基本資料。"
+          "title": "查看品牌資料",
+          "description": "開啟品牌資料，了解可在哪裡更新內容。"
         },
         "media_links": {
           "title": "新增媒體與連結",
-          "description": "上傳照片，並連結社群與購買管道。"
+          "description": "開啟編輯器，查看照片、社群與購買連結。"
         },
         "analytics": {
           "title": "查看數據分析",
-          "description": "了解品牌頁面的瀏覽表現。"
+          "description": "開啟數據分析，了解品牌頁面的瀏覽表現。"
         },
         "health": {
           "title": "檢視品牌檔案完成度",
-          "description": "查看品牌檔案接下來需要補充的內容。"
+          "description": "開啟品牌檔案建議，查看接下來可改善的內容。"
         },
         "verification": {
-          "title": "開始品牌驗證",
-          "description": "驗證品牌所有權，取得信任徽章。"
+          "title": "了解品牌驗證",
+          "description": "開啟驗證功能，了解如何取得信任徽章。"
         }
       },
       "milestone": {
@@ -1071,12 +1075,12 @@
         "officialWebsite": "新增官方網站",
         "city": "新增品牌創立城市",
         "foundingYear": "新增創立年份",
-          "socialPresence": "連結社群帳號",
+        "socialPresence": "連結社群帳號",
         "additionalSalesChannel": "新增其他銷售管道",
         "retailLocations": "新增零售據點",
         "reputation": "新增口碑佐證"
-        }
-      },
+      }
+    },
     "mit": {
       "title": "MIT 驗證狀態",
       "status": {
@@ -1137,6 +1141,7 @@
       "sectionLinks": "連結",
       "sectionLocations": "零售據點",
       "fieldBrandName": "品牌名稱",
+      "fieldProductType": "產品類型",
       "fieldCategory": "分類",
       "fieldDescription": "品牌介紹",
       "fieldProductTags": "產品標籤",
@@ -1153,7 +1158,10 @@
       "fieldPriceRangePremium": "高價位（高於 NT$5,000）",
       "fieldLogo": "品牌 Logo",
       "fieldHeroImage": "主視覺圖片",
+      "heroImageOverviewHint": "這是訪客最先看到的圖片，也會用於瀑布流品牌卡片。",
+      "heroImageEditHint": "僅限 1 張。這是品牌頁面最先顯示的圖片，也會作為瀑布流品牌卡片封面。建議使用清晰的 16:9 橫式圖片。",
       "fieldProductPhotos": "產品照片",
+      "productPhotosEditHint": "可上傳 1–6 張產品單品、細節或使用情境照片，這些圖片會顯示於品牌頁面的產品圖庫。",
       "city": "品牌創立城市",
       "cityPlaceholder": "請選擇品牌創立城市",
       "fieldOfficialWebsite": "官方網站",
@@ -1196,6 +1204,7 @@
       "mitStoryLabel": "MIT 製造故事",
       "mitStoryPlaceholder": "分享您的製造工藝、材料來源與工廠合作關係…",
       "wizardProgress": "第 {current} 步，共 {total} 步",
+      "wizardSidebarTitle": "編輯品牌資料",
       "wizardSaveAndContinue": "儲存並繼續",
       "wizardBack": "上一步",
       "wizardPublish": "發布",

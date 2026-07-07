@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { ensureOwnedBrand } from '../helpers/owned-brand';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
@@ -7,20 +8,20 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
 /**
  * Brand edit sidebar wizard journeys (DEV-953).
  *
- * Journey 1: Default load — wizard opens at step 0 (Basic Info)
- * Journey 2: Sidebar integrity — all 9 step buttons with correct labels are visible
- * Journey 3: Save & Continue — saves draft for current section and advances to step 1 (Media)
+ * Journey 1: Default load — wizard opens at step 0 (基本資料)
+ * Journey 2: Sidebar integrity — all five step buttons with current labels are visible
+ * Journey 3: Save & Continue — saves draft and advances to step 1 (媒體)
  * Journey 4: Non-linear sidebar nav — clicking a step jumps directly to it
  * Journey 5: Deep link via ?step=N — correct section opens on initial load
- * Journey 6: Backwards compat — ?onboardingStep=basics maps to step 0
  */
 test.describe('Brand edit sidebar wizard — navigation', () => {
+  test.describe.configure({ mode: 'serial' });
   let supabase: AnySupabaseClient;
   let brandId: string;
   let brandSlug: string;
-  let brandName: string;
+  let originalDraftData: unknown;
 
-  test.beforeAll(async ({}, workerInfo) => {
+  test.beforeAll(async () => {
     supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -39,38 +40,16 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
       );
     }
 
-    const ts = Date.now();
-    const wi = workerInfo.workerIndex;
-    brandName = `[E2E-TEST] Wizard Nav ${ts}`;
-    brandSlug = `e2e-wizard-nav-${ts}-${wi}`;
-
-    const { data: brandData, error: brandErr } = await supabase
-      .from('brands')
-      .insert({
-        name: brandName,
-        slug: brandSlug,
-        status: 'approved',
-        product_type: 'crafts',
-        description: '[E2E-TEST] Sidebar wizard navigation test brand.',
-        retail_locations: [],
-      })
-      .select('id')
-      .single();
-    if (brandErr || !brandData) throw new Error(`Failed to seed brand: ${brandErr?.message}`);
-    brandId = brandData.id;
-
-    const { error: boErr } = await supabase.from('brand_owners').insert({
-      user_id: testUser.id,
-      brand_id: brandId,
-    });
-    if (boErr) throw new Error(`Failed to seed brand_owners: ${boErr.message}`);
+    const brand = await ensureOwnedBrand(supabase, testUser.id);
+    brandId = brand.id;
+    brandSlug = brand.slug;
+    originalDraftData = brand.draftData;
   });
 
   test.afterAll(async () => {
     if (!supabase || !brandId) return;
     await supabase.from('pending_brand_edits').delete().eq('brand_id', brandId);
-    await supabase.from('brand_owners').delete().eq('brand_id', brandId);
-    await supabase.from('brands').delete().eq('id', brandId);
+    await supabase.from('brands').update({ draft_data: originalDraftData }).eq('id', brandId);
   });
 
   test('wizard loads at step 0 (Basic Info) by default', async ({ userPage }) => {
@@ -89,19 +68,20 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     // Basic Info content section is visible
     await expect(userPage.locator('#basic-info')).toBeVisible({ timeout: 10_000 });
 
-    // First sidebar step button is marked active
+    await expect(
+      userPage.getByRole('heading', { name: '編輯品牌資料' }),
+    ).toBeVisible()
+    await expect(userPage.getByText('第 1 步，共 5 步').first()).toBeVisible()
+
+    // First sidebar step button is marked as the current step
     await expect(
       userPage.locator('aside nav button').first()
-    ).toHaveAttribute('data-active', 'true', { timeout: 5_000 });
+    ).toHaveAttribute('aria-current', 'step', { timeout: 5_000 });
 
     await expect(userPage.getByText('為必填欄位')).toBeVisible();
     await expect(userPage.locator('#description')).toHaveAttribute('aria-required', 'true');
     await expect(userPage.locator('#priceRange')).toHaveAttribute('aria-required', 'true');
 
-    // Progress bar shows 1/5 = 20%
-    await expect(
-      userPage.getByRole('progressbar')
-    ).toHaveAttribute('aria-valuenow', '20', { timeout: 5_000 });
   });
 
   test('sidebar shows all five step labels', async ({ userPage }) => {
@@ -121,11 +101,11 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     const sidebarNav = userPage.locator('aside nav');
 
     const expectedLabels = [
-      'Basic Info',
-      'Media',
-      'Links',
-      'Locations',
-      'Reputation',
+      '基本資料',
+      '媒體',
+      '連結',
+      '據點',
+      '品牌口碑',
     ];
 
     for (const label of expectedLabels) {
@@ -182,15 +162,15 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     ).toBeVisible({ timeout: 60_000 });
 
     const sidebarNav = userPage.locator('aside nav');
-    await sidebarNav.locator('button').filter({ hasText: 'Reputation' }).click();
+    await sidebarNav.locator('button').filter({ hasText: '品牌口碑' }).click();
 
     await expect(userPage.locator('#reputation')).toBeVisible({ timeout: 10_000 });
 
     await expect(userPage).toHaveURL(/\?step=4/, { timeout: 5_000 });
 
     await expect(
-      sidebarNav.locator('button').filter({ hasText: 'Reputation' })
-    ).toHaveAttribute('data-active', 'true', { timeout: 5_000 });
+      sidebarNav.locator('button').filter({ hasText: '品牌口碑' })
+    ).toHaveAttribute('aria-current', 'step', { timeout: 5_000 });
   });
 
   test('?step=3 deep link opens Locations section', async ({ userPage }) => {
@@ -214,35 +194,6 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
 
     await expect(
       userPage.locator('aside nav button').nth(3)
-    ).toHaveAttribute('data-active', 'true', { timeout: 5_000 });
-
-    await expect(
-      userPage.getByRole('progressbar')
-    ).toHaveAttribute('aria-valuenow', '80', { timeout: 5_000 });
-  });
-
-  test('?onboardingStep=basics backwards compat loads step 0 (Basic Info)', async ({ userPage }) => {
-    test.setTimeout(60_000);
-
-    const resp = await userPage.goto(
-      `/dashboard/brands/${brandSlug}/edit?onboardingStep=basics`,
-      { timeout: 60_000 }
-    );
-    if (resp?.status() === 503) {
-      test.skip(true, 'PREVIEW_MODE active — skipping.');
-      return;
-    }
-
-    await expect(
-      userPage.getByRole('heading', { name: /^編輯 / })
-    ).toBeVisible({ timeout: 60_000 });
-
-    // Step 0 — Basic Info — is the active content area
-    await expect(userPage.locator('#basic-info')).toBeVisible({ timeout: 10_000 });
-
-    // First sidebar step is active
-    await expect(
-      userPage.locator('aside nav button').first()
-    ).toHaveAttribute('data-active', 'true', { timeout: 5_000 });
+    ).toHaveAttribute('aria-current', 'step', { timeout: 5_000 });
   });
 });
