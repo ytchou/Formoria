@@ -126,17 +126,11 @@ export default function SubmitForm({
   const nameRegistration = register('name')
 
   // eslint-disable-next-line react-hooks/refs
-  const onSubmit = handleSubmit((data: SubmissionFormData, event) => {
+  const onSubmit = handleSubmit((data: SubmissionFormData) => {
     setSubmitError(null)
-    const formData =
-      event?.currentTarget instanceof HTMLFormElement
-        ? new FormData(event.currentTarget)
-        : null
-    const heroImageUrl = formData?.get('heroImageUrl')
     const submitPayload = {
       ...data,
       city: data.city ?? undefined,
-      heroImageUrl: typeof heroImageUrl === 'string' ? heroImageUrl : data.heroImageUrl,
     } satisfies Parameters<typeof submitBrand>[0]
 
     startTransition(async () => {
@@ -270,13 +264,19 @@ export default function SubmitForm({
 
           {/* Hero image */}
           <div className="space-y-1.5">
-            <label className="block text-sm font-semibold text-foreground">
-              {t('fields.heroImage')}
-            </label>
-            <ImageUploadField
+            <Controller
               name="heroImageUrl"
-              label=""
-              uploadPath={`submissions/${sessionId}/hero`}
+              control={control}
+              render={({ field, fieldState }) => (
+                <ImageUploadField
+                  name={field.name}
+                  label={t('fields.heroImage')}
+                  uploadPath={`submissions/${sessionId}/hero`}
+                  value={field.value ?? ''}
+                  onChange={(value) => field.onChange(value)}
+                  error={fieldState.error?.message}
+                />
+              )}
             />
             <p className="text-xs text-muted-foreground">
               {t('fields.heroImageHelper')}

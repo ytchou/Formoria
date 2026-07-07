@@ -5,10 +5,9 @@ import { createClient } from '@/lib/supabase/server'
 import { resolveDashboardBrand } from '@/lib/services/resolve-dashboard-brand'
 import { DashboardTabNav } from '@/components/dashboard/dashboard-tab-nav'
 import { DashboardEmptyState } from '@/components/dashboard/dashboard-empty-state'
-import { DashboardContentLayout } from '@/components/dashboard/dashboard-content-layout'
-import { WelcomeBanner } from '@/components/dashboard/welcome-banner'
 import { EditReviewBanner } from '@/components/brands/edit-review-banner'
-import { getWelcomeBannerData } from './_lib/welcome-banner-data'
+import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { getLatestReview } from './_lib/latest-review'
 
 type DashboardLayoutProps = {
@@ -46,47 +45,40 @@ export default async function DashboardLayout({
 
   const { brand: selectedBrand } = ctx
 
-  const [welcomeBannerData, latestReview] = user
-    ? await Promise.all([
-        getWelcomeBannerData(selectedBrand),
-        getLatestReview(selectedBrand, user),
-      ])
-    : [null, null]
+  const latestReview = await getLatestReview(selectedBrand, user)
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="flex h-[72px] items-center justify-between gap-6 px-5 lg:px-20">
+      <header className="border-b border-border bg-background">
+        <div className="mx-auto flex min-h-16 max-w-screen-xl flex-wrap items-center justify-between gap-3 px-6 py-2">
           <h1 className="font-heading text-[22px] font-bold leading-tight text-foreground">
             {selectedBrand.brandName}
           </h1>
-          <Link
-            className="inline-flex min-h-11 items-center justify-center rounded-[8px] border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            href={`/dashboard/brands/${selectedBrand.brandSlug}/edit`}
-          >
-            {t('editButton')}
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              className={cn(buttonVariants({ variant: 'outline' }), 'min-h-12 rounded-full px-5')}
+              href={`/brands/${selectedBrand.brandSlug}`}
+            >
+              {t('viewButton')}
+            </Link>
+            <Link
+              className={cn(buttonVariants(), 'min-h-12 rounded-full px-5')}
+              href={`/dashboard/brands/${selectedBrand.brandSlug}/edit`}
+            >
+              {t('editButton')}
+            </Link>
+          </div>
         </div>
       </header>
 
-      <div className="border-b border-border bg-card [&_nav]:border-b-0">
-        <div className="flex h-12 items-center px-5 lg:px-20">
+      <div className="border-b border-border bg-background [&_nav]:border-b-0">
+        <div className="mx-auto flex h-12 max-w-screen-xl items-center px-6">
           <DashboardTabNav brandSlug={selectedBrand.brandSlug} />
         </div>
       </div>
 
-      <main className="px-5 py-8 lg:px-20">
-        <DashboardContentLayout
-          showOnboarding={Boolean(welcomeBannerData && !welcomeBannerData.isComplete)}
-          onboarding={welcomeBannerData ? (
-            <WelcomeBanner
-              completedCount={welcomeBannerData.completedCount}
-              nextStep={welcomeBannerData.nextStep}
-              slug={selectedBrand.brandSlug}
-              steps={welcomeBannerData.steps}
-            />
-          ) : null}
-        >
+      <main className="mx-auto max-w-screen-xl px-6 py-8">
+        <div className="space-y-6">
           {latestReview ? (
             <EditReviewBanner
               edit={latestReview}
@@ -94,7 +86,7 @@ export default async function DashboardLayout({
             />
           ) : null}
           {children}
-        </DashboardContentLayout>
+        </div>
       </main>
     </div>
   )

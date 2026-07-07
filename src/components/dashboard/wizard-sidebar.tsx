@@ -1,5 +1,6 @@
 'use client'
 
+import { ListChecks } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { WizardStep } from '@/lib/schemas/brand-edit'
 import {
@@ -31,11 +32,11 @@ export function WizardSidebar({
   const t = useTranslations('dashboard.edit')
 
   const stepItems: OnboardingStepItem[] = steps.map((step, index) => {
-    const [labelKey, sublabelKey] = STEP_MESSAGE_KEYS[step.key]
+    const [labelKey] = STEP_MESSAGE_KEYS[step.key]
     return {
       key: step.key,
       title: t(labelKey),
-      description: t(sublabelKey),
+      description: undefined,
       isHighlighted: index === activeStep,
       isCompleted: completedSteps.has(index),
     }
@@ -48,25 +49,32 @@ export function WizardSidebar({
 
   return (
     <>
-      <aside className="sticky top-0 hidden h-screen w-[280px] flex-col border-r border-border bg-card md:flex">
+      <aside className="sticky top-6 hidden w-60 self-start border-r border-border bg-card md:block">
+        <div className="flex items-center gap-3 px-4 pt-4 pb-2">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <ListChecks className="size-5" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="font-heading text-base font-bold leading-tight text-foreground">
+              {t('wizardSidebarTitle')}
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {t('wizardProgress', {
+                current: activeStep + 1,
+                total: steps.length,
+              })}
+            </p>
+          </div>
+        </div>
         <nav
-          className="flex-1 overflow-y-auto p-4"
+          className="p-3"
           aria-label={t('wizardProgress', {
             current: activeStep + 1,
             total: steps.length,
           })}
         >
-          <OnboardingStepList steps={stepItems} onStepClick={onStepClick} />
+          <OnboardingStepList className="space-y-1" steps={stepItems} onStepClick={onStepClick} />
         </nav>
-
-        <WizardProgress
-          value={progressPercent}
-          label={t('wizardProgress', {
-            current: activeStep + 1,
-            total: steps.length,
-          })}
-          withRole
-        />
       </aside>
 
       <details className="border-b border-border bg-card md:hidden">
@@ -74,7 +82,7 @@ export function WizardSidebar({
           <span className="min-w-0">
             <span className="block truncate">
               {activeStepItem
-                ? `${activeStepItem.title} · ${activeStepItem.description}`
+                ? activeStepItem.title
                 : t('wizardProgress', {
                     current: activeStep + 1,
                     total: steps.length,
@@ -111,21 +119,19 @@ export function WizardSidebar({
 function WizardProgress({
   value,
   label,
-  withRole = false,
 }: {
   value: number
   label: string
-  withRole?: boolean
 }) {
   return (
     <div className="border-t border-border p-4">
       <div
         className="h-2 overflow-hidden rounded-full bg-secondary"
-        role={withRole ? 'progressbar' : undefined}
-        aria-label={withRole ? label : undefined}
-        aria-valuemin={withRole ? 0 : undefined}
-        aria-valuemax={withRole ? 100 : undefined}
-        aria-valuenow={withRole ? value : undefined}
+        role="progressbar"
+        aria-label={label}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={value}
       >
         <div
           className="h-full rounded-full bg-primary transition-[width]"

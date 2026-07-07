@@ -26,4 +26,8 @@ Running inventory of e2e-covered user journeys. Updated by `/e2e-author` runs.
 | **Static & compliance pages** | `e2e/tests/static-pages.spec.ts` | 2026-07-05 |
 | **API contracts** | `e2e/tests/api-contracts.spec.ts` | 2026-07-05 |
 | **Single-brand dashboard navigation** | `e2e/tests/dashboard-tabs.spec.ts` | 2026-07-05 |
+| **Five-step brand editor navigation** | `e2e/tests/dashboard-brand-edit-wizard.spec.ts` | 2026-07-07 |
+| **Dashboard hero and product image persistence** | `e2e/tests/dashboard-image-upload.spec.ts` | 2026-07-07 |
+| **Submission hero image persistence** | `e2e/tests/submit-funnel.spec.ts` | 2026-07-07 |
+| **Persisted locale switching** | `e2e/tests/i18n-en.spec.ts` | 2026-07-07 |
 | _(30+ existing deep specs omitted — see e2e/tests/ for full inventory)_ | | |

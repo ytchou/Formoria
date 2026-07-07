@@ -30,7 +30,7 @@ type UseImageUploadReturn = {
   url: string | null
   key: string | null
   error: string | null
-  upload: (file: File, filename: string) => Promise<UploadResult | null>
+  upload: (file: File) => Promise<UploadResult | null>
   reset: () => void
 }
 
@@ -41,8 +41,7 @@ export function useImageUpload(config: UseImageUploadConfig): UseImageUploadRetu
   const [error, setError] = useState<string | null>(null)
 
   const upload = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    async (file: File, _filename: string) => {
+    async (file: File) => {
       // Client-side pre-filter: validate file type and size before hitting server
       const acceptedTypes = config.acceptedTypes ?? ACCEPTED_TYPES
       if (!acceptedTypes.includes(file.type)) {

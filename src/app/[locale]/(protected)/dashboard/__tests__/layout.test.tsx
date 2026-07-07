@@ -17,8 +17,8 @@ vi.mock('@/lib/supabase/server', () => ({
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1', email: 'test@example.com' } }, error: null }) },
   }),
 }))
-vi.mock('@/lib/services/brand-owners', () => ({ getUserBrands: vi.fn() }))
-vi.mock('@/lib/services/profiles', () => ({ getProfile: vi.fn().mockResolvedValue(null) }))
+vi.mock('@/lib/services/resolve-dashboard-brand', () => ({ resolveDashboardBrand: vi.fn() }))
+vi.mock('../_lib/latest-review', () => ({ getLatestReview: vi.fn().mockResolvedValue(null) }))
 vi.mock('@/components/dashboard/dashboard-tab-nav', () => ({
   DashboardTabNav: ({ brandSlug }: { brandSlug: string }) => <nav data-testid="tab-nav">Tabs for: {brandSlug}</nav>,
 }))
@@ -34,27 +34,46 @@ vi.mock('@/components/dashboard/dashboard-content-layout', () => ({
   ),
 }))
 
-import { getUserBrands } from '@/lib/services/brand-owners'
+import { resolveDashboardBrand } from '@/lib/services/resolve-dashboard-brand'
 import DashboardLayout from '../layout'
+
+function dashboardContext(name: string, slug: string) {
+  const brand = {
+    brandId: '1',
+    brandName: name,
+    brandSlug: slug,
+    heroImageUrl: null,
+    claimedAt: '2026-01-01',
+  }
+
+  return {
+    brand,
+    allBrands: [brand],
+    isImpersonating: false,
+  }
+}
 
 describe('DashboardLayout', () => {
   it('renders the single brand name and tabs when the user has a brand', async () => {
-    vi.mocked(getUserBrands).mockResolvedValue([
-      { brandId: '1', brandName: 'Brand A', brandSlug: 'brand-a', heroImageUrl: null, claimedAt: '2026-01-01' },
-    ])
+    vi.mocked(resolveDashboardBrand).mockResolvedValue(dashboardContext('Brand A', 'brand-a'))
     render(await DashboardLayout({
       children: <div>child content</div>,
       params: Promise.resolve({ locale: 'en' }),
       searchParams: Promise.resolve({ brand: 'brand-a' }),
     }))
-    expect(screen.getByRole('heading', { name: 'Brand A' })).toBeInTheDocument()
+    const heading = screen.getByRole('heading', { name: 'Brand A' })
+    expect(heading).toBeInTheDocument()
+    expect(heading.parentElement).toHaveClass('mx-auto', 'max-w-screen-xl', 'px-6')
+    expect(screen.getByRole('link', { name: 'viewButton' })).toHaveAttribute('href', '/brands/brand-a')
+    expect(screen.getByRole('link', { name: 'editButton' })).toHaveAttribute('href', '/dashboard/brands/brand-a/edit')
+    expect(screen.getByRole('link', { name: 'viewButton' })).toHaveClass('min-h-12')
+    expect(screen.getByRole('link', { name: 'editButton' })).toHaveClass('min-h-12')
     expect(screen.getByTestId('tab-nav')).toBeInTheDocument()
-    expect(screen.getByTestId('welcome-banner')).toBeInTheDocument()
     expect(screen.getByText('child content')).toBeInTheDocument()
   })
 
   it('renders empty state when user has no brands', async () => {
-    vi.mocked(getUserBrands).mockResolvedValue([])
+    vi.mocked(resolveDashboardBrand).mockResolvedValue(null)
     render(await DashboardLayout({
       children: <div>child</div>,
       params: Promise.resolve({ locale: 'en' }),
@@ -65,10 +84,7 @@ describe('DashboardLayout', () => {
   })
 
   it('renders the first owned brand when legacy data contains multiple brands', async () => {
-    vi.mocked(getUserBrands).mockResolvedValue([
-      { brandId: '1', brandName: 'Brand A', brandSlug: 'brand-a', heroImageUrl: null, claimedAt: '2026-01-01' },
-      { brandId: '2', brandName: 'Brand B', brandSlug: 'brand-b', heroImageUrl: null, claimedAt: '2026-01-02' },
-    ])
+    vi.mocked(resolveDashboardBrand).mockResolvedValue(dashboardContext('Brand A', 'brand-a'))
     render(await DashboardLayout({
       children: <div>child</div>,
       params: Promise.resolve({ locale: 'en' }),

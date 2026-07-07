@@ -12,6 +12,7 @@ export type OnboardingStepItem = {
   isCompleted: boolean
   statusLabel?: string
   href?: string
+  action?: () => Promise<void>
 }
 
 type OnboardingStepListProps = {
@@ -108,6 +109,7 @@ function StepItem({
           type="button"
           onClick={() => onStepClick(index)}
           className={itemClasses}
+          aria-current={step.isHighlighted ? 'step' : undefined}
         >
           {content}
         </button>
@@ -115,10 +117,30 @@ function StepItem({
     )
   }
 
+  if (step.action) {
+    return (
+      <li>
+        <form action={step.action}>
+          <button
+            type="submit"
+            className={itemClasses}
+            aria-current={step.isHighlighted ? 'step' : undefined}
+          >
+            {content}
+          </button>
+        </form>
+      </li>
+    )
+  }
+
   if (step.href) {
     return (
       <li>
-        <Link href={step.href} className={itemClasses}>
+        <Link
+          href={step.href}
+          className={itemClasses}
+          aria-current={step.isHighlighted ? 'step' : undefined}
+        >
           {content}
         </Link>
       </li>

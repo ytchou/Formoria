@@ -2,7 +2,7 @@
 
 import { ListChecks } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { getOnboardingStepHref } from '@/lib/schemas/brand-edit'
+import { visitDashboardWalkthroughStep } from '@/app/[locale]/(protected)/dashboard/brands/[slug]/walkthrough-actions'
 import {
   ONBOARDING_STEPS,
   type OnboardingStep,
@@ -14,6 +14,7 @@ import {
 } from './onboarding-step-list'
 
 type WelcomeBannerProps = {
+  brandId: string
   completedCount: number
   nextStep: OnboardingStepKey | null
   slug: string
@@ -21,6 +22,7 @@ type WelcomeBannerProps = {
 }
 
 export function WelcomeBanner({
+  brandId,
   completedCount,
   nextStep,
   slug,
@@ -37,7 +39,7 @@ export function WelcomeBanner({
     isHighlighted: step.key === nextStep,
     isCompleted: step.status === 'complete',
     statusLabel: t(`status.${step.status}`),
-    href: getOnboardingStepHref(step.key, slug),
+    action: visitDashboardWalkthroughStep.bind(null, brandId, slug, step.key),
   }))
 
   return (

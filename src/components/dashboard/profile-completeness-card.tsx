@@ -19,7 +19,7 @@ export function ProfileCompletenessCard({
   slug: string
 }) {
   const t = useTranslations('dashboard.profileCompleteness')
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
 
   return (
     <section

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useSyncExternalStore, useTransition } from 'react'
 import { useTranslations } from 'next-intl'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -29,8 +29,17 @@ export function InlineVerification({
 
   const DISMISS_KEY = `formoria:dismiss-verification:${brandId}`
 
-  const [dismissed, setDismissed] = useState(
-    () => typeof window !== 'undefined' && localStorage.getItem(DISMISS_KEY) === '1',
+  const dismissed = useSyncExternalStore(
+    (onStoreChange) => {
+      window.addEventListener('storage', onStoreChange)
+      window.addEventListener('formoria:verification-dismissed', onStoreChange)
+      return () => {
+        window.removeEventListener('storage', onStoreChange)
+        window.removeEventListener('formoria:verification-dismissed', onStoreChange)
+      }
+    },
+    () => localStorage.getItem(DISMISS_KEY) === '1',
+    () => false,
   )
   const [certNumber, setCertNumber] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -39,7 +48,7 @@ export function InlineVerification({
 
   function dismiss() {
     localStorage.setItem(DISMISS_KEY, '1')
-    setDismissed(true)
+    window.dispatchEvent(new Event('formoria:verification-dismissed'))
   }
 
   function handleVerify() {

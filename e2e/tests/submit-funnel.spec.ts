@@ -1,6 +1,11 @@
 import { test, expect } from '../fixtures/auth'
 import { createClient } from '@supabase/supabase-js'
 
+const TINY_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'base64',
+)
+
 /**
  * Submit Funnel End-to-End
  *
@@ -75,6 +80,25 @@ test.describe('Submit funnel', () => {
     await userPage.locator('#submit-website').fill(websiteUrl)
     await userPage.locator('#submit-name').fill(brandName)
 
+    const uploadResponsePromise = userPage.waitForResponse(
+      (response) =>
+        response.url().includes('/api/upload') &&
+        response.request().method() === 'POST',
+      { timeout: 20_000 },
+    )
+    await userPage.locator('#image-upload-heroImageUrl').setInputFiles({
+      name: 'submission-hero.png',
+      mimeType: 'image/png',
+      buffer: TINY_PNG,
+    })
+    const uploadResponse = await uploadResponsePromise
+    expect(uploadResponse.status()).toBe(200)
+    const { url: uploadedHeroUrl } = await uploadResponse.json()
+    expect(uploadedHeroUrl).toBeTruthy()
+    await expect(
+      userPage.locator('#image-upload-heroImageUrl-replace').locator('..').getByRole('img'),
+    ).toBeVisible()
+
     // Source attribution is required when isOwner is unchecked (default)
     await userPage.locator('#submit-source').selectOption('found_online')
 
@@ -120,10 +144,11 @@ test.describe('Submit funnel', () => {
     )
     const { data, error } = await supabase
       .from('brand_submissions')
-      .select('id')
-      .like('brand_name', '[E2E-TEST] Submit Funnel%')
+      .select('id, hero_image_url')
+      .eq('brand_name', brandName)
+      .single()
 
     expect(error).toBeNull()
-    expect(data?.length).toBeGreaterThanOrEqual(1)
+    expect(data?.hero_image_url).toBe(uploadedHeroUrl)
   })
 })

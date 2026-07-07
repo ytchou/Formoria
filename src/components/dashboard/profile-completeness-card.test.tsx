@@ -6,7 +6,7 @@ import messages from '@/../messages/en.json'
 import { ProfileCompletenessCard } from './profile-completeness-card'
 
 describe('ProfileCompletenessCard', () => {
-  it('starts collapsed and reveals actionable recommendations', () => {
+  it('starts expanded and allows recommendations to be collapsed', () => {
     render(
       <NextIntlClientProvider locale="en" messages={messages}>
         <ProfileCompletenessCard
@@ -32,12 +32,12 @@ describe('ProfileCompletenessCard', () => {
 
     expect(screen.getByText('50%')).toBeInTheDocument()
     expect(screen.getByText('6 of 12 components complete')).toBeInTheDocument()
-    expect(screen.queryByText('Add your brand story')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button'))
     expect(screen.getByText('Add your brand story')).toBeInTheDocument()
     expect(screen.getByRole('link')).toHaveAttribute(
       'href',
       '/en/dashboard/brands/test-brand/edit?step=0',
     )
+    fireEvent.click(screen.getByRole('button'))
+    expect(screen.queryByText('Add your brand story')).not.toBeInTheDocument()
   })
 })

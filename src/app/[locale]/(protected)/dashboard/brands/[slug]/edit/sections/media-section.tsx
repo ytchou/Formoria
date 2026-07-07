@@ -27,17 +27,17 @@ export function MediaSection({
             <ImageUploadField
               name={field.name}
               label={t('fieldHeroImage')}
+              description={t('heroImageEditHint')}
               uploadPath="brands/tmp/heroImageUrl"
-              currentUrl={field.value}
+              value={field.value ?? ''}
+              onChange={field.onChange}
               required
+              error={form.formState.errors.heroImageUrl
+                ? t('requiredFieldError')
+                : undefined}
             />
           )}
         />
-        {form.formState.errors.heroImageUrl ? (
-          <p className="text-xs text-destructive" aria-live="polite">
-            {t('requiredFieldError')}
-          </p>
-        ) : null}
       </div>
 
       <Controller
@@ -48,6 +48,7 @@ export function MediaSection({
             value={field.value ?? []}
             onChange={field.onChange}
             label={t('fieldProductPhotos')}
+            description={t('productPhotosEditHint')}
             error={
               form.formState.errors.productPhotos
                 ? t('requiredFieldError')
