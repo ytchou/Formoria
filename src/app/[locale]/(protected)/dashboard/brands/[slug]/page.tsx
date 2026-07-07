@@ -2,7 +2,7 @@ import { setRequestLocale } from 'next-intl/server'
 import { createClient } from '@/lib/supabase/server'
 import { getBrandBySlug } from '@/lib/services/brands'
 import { computeProfileCompleteness } from '@/lib/services/profile-completeness'
-import { isOwnerOf } from '@/lib/services/brand-owners'
+import { canManageDashboardBrand } from '@/lib/auth/admin-mode'
 import { ProfileCompletenessCard } from '@/components/dashboard/profile-completeness-card'
 import { InlineVerification } from '@/components/dashboard/inline-verification'
 import { OwnerBrandOverview } from '@/components/dashboard/owner-brand-overview'
@@ -25,7 +25,7 @@ export default async function BrandOverviewPage({ params }: Props) {
   } = await supabase.auth.getUser()
 
   const [ownerCheck, walkthrough] = await Promise.all([
-    user ? isOwnerOf(user.id, brand.id) : Promise.resolve(false),
+    user ? canManageDashboardBrand(user.id, user.email, brand.id, slug) : Promise.resolve(false),
     getBrandOnboardingProgress(brand.id),
   ])
   const completeness = computeProfileCompleteness(brand)
@@ -33,17 +33,18 @@ export default async function BrandOverviewPage({ params }: Props) {
   const content = (
     <div className="w-full space-y-8" data-testid="brand-profile">
       <div className="space-y-8">
-        <InlineVerification
-          brandId={brand.id}
-          brandName={brand.name}
-          brandSlug={brand.slug}
-          mitStatus={brand.mitStatus ?? 'unverified'}
-          mitEvidence={brand.mitEvidence ?? undefined}
-          isOwner={ownerCheck}
-        />
-
         <ProfileCompletenessCard completeness={completeness} slug={slug} />
-        <OwnerBrandOverview brand={brand} />
+        <OwnerBrandOverview
+          brand={brand}
+          verification={(
+            <InlineVerification
+              brandId={brand.id}
+              embedded
+              mitStatus={brand.mitStatus ?? 'unverified'}
+              mitEvidence={brand.mitEvidence ?? undefined}
+            />
+          )}
+        />
       </div>
     </div>
   )

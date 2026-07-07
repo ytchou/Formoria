@@ -6,24 +6,19 @@ import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { verifyMitAction } from '@/app/[locale]/(protected)/dashboard/actions'
-import { CONTACT_EMAILS } from '@/lib/constants'
 
 type InlineVerificationProps = {
   brandId: string
-  brandName: string
-  brandSlug: string
+  embedded?: boolean
   mitStatus: 'unverified' | 'verified'
   mitEvidence?: { mit_smile_cert?: string; mit_smile_listed?: boolean }
-  isOwner: boolean
 }
 
 export function InlineVerification({
   brandId,
-  brandName,
-  brandSlug,
+  embedded = false,
   mitStatus,
   mitEvidence,
-  isOwner,
 }: InlineVerificationProps) {
   const t = useTranslations('dashboard.mit')
 
@@ -69,7 +64,10 @@ export function InlineVerification({
 
   if (mitStatus === 'verified') {
     return (
-      <div id="verification" className="mt-3.5 flex items-center gap-2">
+      <div
+        id="verification"
+        className={embedded ? 'flex items-center gap-2' : 'mt-3.5 flex items-center gap-2'}
+      >
         <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
         <span className="text-sm font-semibold text-green-700 dark:text-green-400">
           {t('status.verified')}
@@ -83,16 +81,19 @@ export function InlineVerification({
     )
   }
 
-  if (isOwner) {
-    if (dismissed) return null
+  if (!embedded && dismissed) return null
 
-    return (
-      <div id="verification" className="mt-3.5 rounded-md border p-3.5">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="h-2 w-2 rounded-full bg-muted-foreground shrink-0" />
-          <span className="text-sm font-semibold">
-            {t('title')} — {t('status.unverified')}
-          </span>
+  return (
+    <div
+      id="verification"
+      className={embedded ? undefined : 'mt-3.5 rounded-md border p-3.5'}
+    >
+      <div className="flex items-center gap-2 mb-2">
+        <span className="h-2 w-2 rounded-full bg-muted-foreground shrink-0" />
+        <span className="text-sm font-semibold">
+          {t('title')} — {t('status.unverified')}
+        </span>
+        {!embedded ? (
           <button
             onClick={dismiss}
             className="ml-auto text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
@@ -100,37 +101,24 @@ export function InlineVerification({
           >
             <X className="h-3.5 w-3.5" />
           </button>
-        </div>
-        <p className="text-xs text-muted-foreground mb-2.5">{t('description.unverified')}</p>
-        <div className="flex gap-2">
-          <Input
-            value={certNumber}
-            onChange={(e) => setCertNumber(e.target.value)}
-            placeholder={t('certPlaceholder')}
-            className="h-8 max-w-[200px] font-mono text-xs"
-          />
-          <Button size="sm" onClick={handleVerify} disabled={!certNumber.trim() || isPending}>
-            {t('verifyButton')}
-          </Button>
-        </div>
-        {error && <p className="text-xs text-destructive mt-2">{t(error)}</p>}
-        {success && (
-          <p className="text-xs text-green-600 dark:text-green-400 mt-2">{t('verifySuccess')}</p>
-        )}
+        ) : null}
       </div>
-    )
-  }
-
-  return (
-    <div id="verification" className="mt-3.5 flex items-center gap-2">
-      <span className="h-2 w-2 rounded-full bg-muted-foreground shrink-0" />
-      <span className="text-sm text-muted-foreground">{t('status.unverified')}</span>
-      <a
-        href={`mailto:${CONTACT_EMAILS.operations}?subject=MIT Verification: ${brandName} (${brandSlug})`}
-        className="text-xs text-primary underline underline-offset-2"
-      >
-        {t('resubmitCta')}
-      </a>
+      <p className="text-xs text-muted-foreground mb-2.5">{t('description.unverified')}</p>
+      <div className="flex gap-2">
+        <Input
+          value={certNumber}
+          onChange={(e) => setCertNumber(e.target.value)}
+          placeholder={t('certPlaceholder')}
+          className="h-8 max-w-[200px] font-mono text-xs"
+        />
+        <Button size="sm" onClick={handleVerify} disabled={!certNumber.trim() || isPending}>
+          {t('verifyButton')}
+        </Button>
+      </div>
+      {error && <p className="text-xs text-destructive mt-2">{t(error)}</p>}
+      {success && (
+        <p className="text-xs text-green-600 dark:text-green-400 mt-2">{t('verifySuccess')}</p>
+      )}
     </div>
   )
 }

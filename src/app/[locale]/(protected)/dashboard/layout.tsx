@@ -7,7 +7,6 @@ import { DashboardTabNav } from '@/components/dashboard/dashboard-tab-nav'
 import { DashboardEmptyState } from '@/components/dashboard/dashboard-empty-state'
 import { EditReviewBanner } from '@/components/brands/edit-review-banner'
 import { buttonVariants } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 import { getLatestReview } from './_lib/latest-review'
 
 type DashboardLayoutProps = {
@@ -56,13 +55,13 @@ export default async function DashboardLayout({
           </h1>
           <div className="flex flex-wrap items-center gap-2">
             <Link
-              className={cn(buttonVariants({ variant: 'outline' }), 'min-h-12 rounded-full px-5')}
+              className={buttonVariants({ variant: 'outline' })}
               href={`/brands/${selectedBrand.brandSlug}`}
             >
               {t('viewButton')}
             </Link>
             <Link
-              className={cn(buttonVariants(), 'min-h-12 rounded-full px-5')}
+              className={buttonVariants()}
               href={`/dashboard/brands/${selectedBrand.brandSlug}/edit`}
             >
               {t('editButton')}

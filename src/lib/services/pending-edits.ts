@@ -29,11 +29,16 @@ type PendingEditReviewRow = {
 }
 
 const PENDING_EDIT_WITH_BRAND_SELECT =
-  '*, brands(id, name, slug, description, hero_image_url, product_type, city, contact_email, founding_year, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, other_urls, retail_locations, site_content, mit_story)'
+  '*, brands(id, name, slug, description, description_en, blurb, hero_image_url, product_type, city, contact_email, founding_year, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, other_urls, retail_locations, site_content, mit_story)'
+
+type ExtendedBrandRow = Partial<BrandRow> & BrandFlatLinkColumns & {
+  description_en?: string | null
+  blurb?: string | null
+}
 
 function asSingleBrand(
   brand: Partial<BrandRow> | Partial<BrandRow>[] | null | undefined
-): (Partial<BrandRow> & BrandFlatLinkColumns) | null {
+): ExtendedBrandRow | null {
   if (Array.isArray(brand)) return brand[0] ?? null
   return brand ?? null
 }
@@ -99,6 +104,8 @@ export function pendingEditWithBrandToDomain(
       name: brand?.name ?? '',
       slug: brand?.slug ?? '',
       description: brand?.description ?? null,
+      descriptionEn: brand?.description_en ?? null,
+      blurb: brand?.blurb ?? null,
       heroImageUrl: brand?.hero_image_url ?? null,
       city: brand?.city ?? null,
       category: deriveCategoryFromProductType(brand?.product_type ?? '') ?? null,

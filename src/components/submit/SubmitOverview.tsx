@@ -4,6 +4,8 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
+import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 const HERO_IMAGE_SRC = '/images/submit-hero.png'
 
@@ -41,7 +43,7 @@ export default function SubmitOverview({ nextPath = '/submit/form', isLoggedIn =
       <p className="mt-6 text-sm text-muted-foreground">{t('timeEstimate')}</p>
       <Link
         href={isLoggedIn ? nextPath : `/auth/sign-in?next=${nextPath}`}
-        className="mt-8 inline-flex items-center justify-center rounded-lg bg-cta px-8 py-3 text-base font-semibold text-cta-foreground transition-colors hover:bg-cta/90"
+        className={cn(buttonVariants({ variant: 'cta' }), 'mt-8')}
       >
         {isLoggedIn ? t('ctaLoggedIn') : t('cta')}
       </Link>

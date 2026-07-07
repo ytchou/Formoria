@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Search } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 interface SearchEmptyStateProps {
   query: string
@@ -51,13 +52,14 @@ export function SearchEmptyState({
 
       {/* Clear filters button */}
       {hasActiveFilters && (
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={onClearFilters}
-          className="mt-3 cursor-pointer rounded-md border border-primary px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="mt-3"
         >
           {t('emptyState.clearFilters')}
-        </button>
+        </Button>
       )}
 
       {/* Browse by Category */}

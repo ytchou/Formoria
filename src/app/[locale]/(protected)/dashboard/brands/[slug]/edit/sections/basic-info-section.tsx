@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { type UseFormReturn, Controller } from 'react-hook-form'
 import { ProductTagField } from '@/components/forms/product-tag-field'
 import { RequiredLabel } from '@/components/forms/required-label'
+import { RequiredFieldsHint } from '@/components/forms/required-fields-hint'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -53,8 +54,8 @@ function DirtyFieldWrapper({
   return (
     <div
       className={cn(
-        'space-y-2 rounded-md border-l-2 pl-3 transition-colors',
-        isDirty ? 'border-l-amber-400' : 'border-l-transparent',
+        'space-y-2 rounded-md px-4 py-1 transition-colors',
+        isDirty && 'bg-amber-50/60 ring-1 ring-amber-200',
       )}
     >
       {children}
@@ -92,9 +93,10 @@ export function BasicInfoSection({
   }
   return (
     <section id="basic-info" className="space-y-4">
-      <h2 className="font-heading text-base font-bold border-b border-border pb-2 mb-4">
-        {t('sectionBasicInfo')}
+      <h2 className="mb-4 border-b border-border px-4 pb-2 font-heading text-base font-bold">
+        {t('wizardStepBasicInfo')}
       </h2>
+      <RequiredFieldsHint />
 
       <DirtyFieldWrapper fieldName="name">
         <RequiredLabel htmlFor="name">{t('fieldBrandName')}</RequiredLabel>
@@ -117,8 +119,14 @@ export function BasicInfoSection({
 
       <DirtyFieldWrapper fieldName="productType">
         <RequiredLabel htmlFor="productType">
-          {t('fieldCategory')}
+          {t('fieldProductType')}
         </RequiredLabel>
+        <FieldHint
+          text={tx(
+            'fieldCategoryHint',
+            'Used for navigation, search, and filtering',
+          )}
+        />
         <Controller
           control={form.control}
           name="productType"
@@ -135,7 +143,7 @@ export function BasicInfoSection({
                 }
                 className="min-h-12 w-full bg-card"
               >
-                <SelectValue placeholder={t('fieldCategory')}>
+                <SelectValue placeholder={t('fieldProductType')}>
                   {getCategoryLabel}
                 </SelectValue>
               </SelectTrigger>
@@ -154,18 +162,18 @@ export function BasicInfoSection({
           show={Boolean(form.formState.errors.productType)}
           text={t('requiredFieldError')}
         />
-        <FieldHint
-          text={tx(
-            'fieldCategoryHint',
-            'Used for navigation, search, and filtering',
-          )}
-        />
       </DirtyFieldWrapper>
 
       <DirtyFieldWrapper fieldName="description">
         <RequiredLabel htmlFor="description">
           {t('fieldDescription')}
         </RequiredLabel>
+        <FieldHint
+          text={tx(
+            'fieldDescriptionHint',
+            'Public description shown on the brand page',
+          )}
+        />
         <Textarea
           id="description"
           aria-required="true"
@@ -181,16 +189,13 @@ export function BasicInfoSection({
           show={Boolean(form.formState.errors.description)}
           text={t('requiredFieldError')}
         />
-        <FieldHint
-          text={tx(
-            'fieldDescriptionHint',
-            'Public description shown on the brand page',
-          )}
-        />
       </DirtyFieldWrapper>
 
       <DirtyFieldWrapper fieldName="foundingYear">
         <Label htmlFor="foundingYear">{t('fieldFoundingYear')}</Label>
+        <FieldHint
+          text={tx('fieldFoundingYearHint', 'Shown on the brand page')}
+        />
         <Input
           id="foundingYear"
           type="number"
@@ -199,22 +204,19 @@ export function BasicInfoSection({
           className="min-h-12 bg-card"
           {...form.register('foundingYear')}
         />
-        <FieldHint
-          text={tx('fieldFoundingYearHint', 'Shown on the brand page')}
-        />
       </DirtyFieldWrapper>
 
       <DirtyFieldWrapper fieldName="mitStory">
         <Label htmlFor="mitStory">{t('mitStoryLabel')}</Label>
+        <FieldHint
+          text={tx('mitStoryHint', 'Shown on the brand page if provided')}
+        />
         <Textarea
           id="mitStory"
           rows={5}
           placeholder={t('mitStoryPlaceholder')}
           className="min-h-28 bg-card"
           {...form.register('mitStory')}
-        />
-        <FieldHint
-          text={tx('mitStoryHint', 'Shown on the brand page if provided')}
         />
       </DirtyFieldWrapper>
 
@@ -259,6 +261,12 @@ export function BasicInfoSection({
 
       <DirtyFieldWrapper fieldName="city">
         <Label htmlFor="city">{t('city')}</Label>
+        <FieldHint
+          text={tx(
+            'cityHint',
+            'Your brand will be shown on the map if provided',
+          )}
+        />
         <Controller
           control={form.control}
           name="city"
@@ -279,18 +287,13 @@ export function BasicInfoSection({
             </Select>
           )}
         />
-        <FieldHint
-          text={tx(
-            'cityHint',
-            'Your brand will be shown on the map if provided',
-          )}
-        />
       </DirtyFieldWrapper>
 
       <DirtyFieldWrapper fieldName="priceRange">
         <RequiredLabel htmlFor="priceRange">
           {tx('fieldPriceRange', 'Price Range')}
         </RequiredLabel>
+        <FieldHint text={tx('fieldPriceRangeHint', 'Used for filtering')} />
         <Controller
           control={form.control}
           name="priceRange"
@@ -327,7 +330,6 @@ export function BasicInfoSection({
           show={Boolean(form.formState.errors.priceRange)}
           text={t('requiredFieldError')}
         />
-        <FieldHint text={tx('fieldPriceRangeHint', 'Used for filtering')} />
       </DirtyFieldWrapper>
     </section>
   )

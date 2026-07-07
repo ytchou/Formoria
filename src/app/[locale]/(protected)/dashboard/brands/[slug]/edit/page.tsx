@@ -5,9 +5,12 @@ import { createClient } from '@/lib/supabase/server'
 import { canManageDashboardBrand } from '@/lib/auth/admin-mode'
 import { getBrandBySlug, getBrandDraft } from '@/lib/services/brands'
 import { getApprovedProductTagSuggestions } from '@/lib/services/product-tag-suggestions'
-import { DraftBanner } from '../draft-banner'
 import { BrandEditWizard } from './brand-edit-wizard'
-import { buildBrandEditDefaultValues } from './brand-edit-defaults'
+import {
+  buildBrandEditDefaultValues,
+  getCompletedWizardSteps,
+  getInitialWizardStep,
+} from './brand-edit-defaults'
 
 type Props = {
   params: Promise<{ slug: string; locale: string }>
@@ -46,12 +49,14 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
     getApprovedProductTagSuggestions(),
   ])
 
-  const defaultValues = buildBrandEditDefaultValues(brand, draft?.data)
+  const defaultValues = buildBrandEditDefaultValues(brand, draft)
+  const initialCompletedSteps = getCompletedWizardSteps(draft)
 
-  let initialStep = 0
-  if (rawStep) {
-    initialStep = Math.max(0, Math.min(parseInt(rawStep, 10), 4))
-  }
+  const initialStep = getInitialWizardStep(
+    rawStep,
+    initialCompletedSteps,
+    5,
+  )
 
   const t = await getTranslations('dashboard.edit')
 
@@ -65,14 +70,10 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
       </p>
 
       <div className="mt-8">
-        {draft ? (
-          <div className="mb-8">
-            <DraftBanner slug={brand.slug} draftUpdatedAt={null} />
-          </div>
-        ) : null}
         <BrandEditWizard
           brand={brand}
           defaultValues={defaultValues}
+          initialCompletedSteps={initialCompletedSteps}
           initialStep={initialStep}
           productTagSuggestions={productTagSuggestions}
         />

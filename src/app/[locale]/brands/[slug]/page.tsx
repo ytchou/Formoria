@@ -91,8 +91,11 @@ export async function generateMetadata({
     )
     const ogLocale = safeLocale === 'zh-TW' ? 'zh_TW' : 'en_US'
     const ogAlternateLocale = safeLocale === 'zh-TW' ? 'en_US' : 'zh_TW'
+    const rawDescription = safeLocale === 'en'
+      ? (brand.blurbEn ?? brand.descriptionEn ?? brand.blurb ?? brand.description)
+      : (brand.blurb ?? brand.description)
     const description = truncateForMeta(
-      brand.description ||
+      rawDescription ||
         t('metadata.fallbackDescription', { name: brand.name }),
     )
     return {
@@ -223,7 +226,7 @@ export default async function BrandDetailPage({
   const tCities = await getTranslations('cities')
   const tBrandFaq = ((key: string, params?: Record<string, unknown>) =>
     tBrandDetail(key, params as never)) as BrandFaqTranslateFn
-  const faqItems = buildBrandFaq(displayBrand, tBrandFaq)
+  const faqItems = buildBrandFaq(displayBrand, tBrandFaq, safeLocale)
 
   // Gallery images: hero + product photos
   const galleryImages = [
@@ -265,8 +268,9 @@ export default async function BrandDetailPage({
 
   // Breadcrumb items for JSON-LD
   const directoryLabel = tBrandDetail('breadcrumb.directory')
-  const categoryLabel =
-    productTypeCategory?.nameZh ?? getBrandCategoryLabel(displayBrand)
+  const categoryLabel = productTypeCategory
+    ? (safeLocale === 'en' ? productTypeCategory.name : productTypeCategory.nameZh)
+    : getBrandCategoryLabel(displayBrand, safeLocale === 'en' ? 'en' : 'zh-TW')
 
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: directoryLabel, href: '/brands' },
@@ -331,7 +335,7 @@ export default async function BrandDetailPage({
           {/* Left: sticky image gallery */}
           <div className="w-full lg:w-[580px] lg:shrink-0">
             <div className="lg:sticky lg:top-8">
-              <ImageCarousel images={galleryImages} alt={displayBrand.name} />
+              <ImageCarousel images={galleryImages} alt={displayBrand.name} imageAlts={displayBrand.imageAlts} />
             </div>
           </div>
 
@@ -340,6 +344,7 @@ export default async function BrandDetailPage({
             <BrandHeader
               brand={displayBrand}
               categoryLabel={categoryLabel || null}
+              locale={safeLocale}
               adminSlot={
                 isAdmin ? (
                   <AdminBrandMenu brandSlug={displayBrand.slug} />

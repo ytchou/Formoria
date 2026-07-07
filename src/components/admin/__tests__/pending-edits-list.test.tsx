@@ -36,6 +36,8 @@ const EDITS = [
       siteContent: null,
       priceRange: null,
       productTags: [],
+      descriptionEn: null,
+      blurb: null,
     },
     submittedBy: 'user-1',
     brandId: 'b1',

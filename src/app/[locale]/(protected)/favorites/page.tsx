@@ -6,6 +6,8 @@ import { Link } from '@/i18n/navigation'
 import { getUserSavedBrands } from '@/lib/services/saved-brands'
 import { createClient } from '@/lib/supabase/server'
 import type { SavedBrand } from '@/lib/types/saved-brand'
+import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 type Props = {
   params: Promise<{ locale: string }>
@@ -76,7 +78,7 @@ function EmptyState({
           {description}
         </p>
         <Link
-          className="mt-6 inline-flex min-h-12 items-center justify-center rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className={cn(buttonVariants(), 'mt-6')}
           href="/brands"
         >
           {action}

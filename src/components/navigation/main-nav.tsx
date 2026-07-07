@@ -15,6 +15,8 @@ import { NavSearchInput } from './nav-search-input'
 import { NavCategoryTabs } from './nav-category-tabs'
 import { BrandMark } from '@/lib/brand/BrandMark'
 import { LocaleSwitcher } from '@/components/i18n/locale-switcher'
+import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 interface MainNavProps {
   categories: Array<{ slug: string; name: string; nameZh: string | null }>
@@ -59,14 +61,14 @@ export function MainNav({ categories, hasOwnedBrand = false, isAuthenticated = f
           {hasOwnedBrand ? (
             <Link
               href="/dashboard"
-              className="rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              className={cn(buttonVariants(), 'rounded-full')}
             >
               {t('myBrands')}
             </Link>
           ) : (
             <Link
               href="/submit"
-              className="rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              className={cn(buttonVariants({ variant: 'cta' }), 'rounded-full')}
             >
               {t('submitBrand')}
             </Link>
@@ -113,7 +115,7 @@ export function MainNav({ categories, hasOwnedBrand = false, isAuthenticated = f
                 {hasOwnedBrand ? (
                   <Link
                     href="/dashboard"
-                    className="block rounded-full bg-primary px-5 py-3 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                    className={cn(buttonVariants(), 'w-full rounded-full')}
                     onClick={() => setOpen(false)}
                   >
                     {t('myBrands')}
@@ -121,7 +123,7 @@ export function MainNav({ categories, hasOwnedBrand = false, isAuthenticated = f
                 ) : (
                   <Link
                     href="/submit"
-                    className="block rounded-full bg-primary px-5 py-3 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                    className={cn(buttonVariants({ variant: 'cta' }), 'w-full rounded-full')}
                     onClick={() => setOpen(false)}
                   >
                     {t('submitBrand')}

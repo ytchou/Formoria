@@ -28,11 +28,7 @@ describe('BasicInfoSection', () => {
 
   it('renders product type field', () => {
     render(<Wrapper />)
-    const label =
-      screen.queryByLabelText(/category/i) ||
-      screen.queryByLabelText(/product type/i) ||
-      screen.queryByText(/category/i)
-    expect(label).toBeInTheDocument()
+    expect(screen.getByLabelText(/product type/i)).toBeInTheDocument()
   })
 
   it('pre-fills name with defaultValues', () => {
@@ -63,5 +59,23 @@ describe('BasicInfoSection', () => {
     const input = screen.getByRole('combobox', { name: 'Product tags' })
     expect(guidance.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(input).toHaveAttribute('placeholder', 'Add product tag')
+  })
+
+  it.each([
+    ['Used for navigation, search, and filtering', '#productType'],
+    ['Public description shown on the brand page', '#description'],
+    ['Shown on the brand page', '#foundingYear'],
+    ['Shown on the brand page if provided', '#mitStory'],
+    ['Your brand will be shown on the map if provided', '#city'],
+    ['Used for filtering', '#priceRange'],
+  ])('places the "%s" hint before its control', (hint, selector) => {
+    const { container } = render(<Wrapper />)
+
+    const guidance = screen.getByText(hint)
+    const control = container.querySelector(selector)
+    expect(control).not.toBeNull()
+    expect(
+      guidance.compareDocumentPosition(control!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
   })
 })

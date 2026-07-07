@@ -14,7 +14,7 @@ function renderFooter(props = {}) {
         isSaving={false}
         onBack={vi.fn()}
         onSaveAndContinue={vi.fn()}
-        onSaveDraft={vi.fn()}
+        onSave={vi.fn()}
         onPublish={vi.fn()}
         {...props}
       />
@@ -28,13 +28,25 @@ describe('WizardFooter', () => {
     expect(screen.getByRole('button', { name: /back/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /save & continue/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /publish/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /save & continue/i })).toHaveClass(
+      'h-9',
+      'rounded-lg',
+      'bg-primary',
+    )
   })
 
-  it('shows Save Draft and Publish on final step (step 8)', () => {
+  it('shows Save and Publish on final step (step 8)', () => {
     renderFooter({ activeStep: 8, totalSteps: 9 })
-    expect(screen.getByRole('button', { name: /save draft/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /save changes/i })).toHaveClass(
+      'border-border',
+    )
     expect(screen.getByRole('button', { name: /publish/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /save & continue/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /publish/i })).toHaveClass(
+      'h-9',
+      'rounded-lg',
+      'bg-cta',
+    )
   })
 
   it('hides Back button on first step', () => {

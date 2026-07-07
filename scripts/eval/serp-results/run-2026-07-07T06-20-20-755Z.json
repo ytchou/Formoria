@@ -1,0 +1,721 @@
+{
+  "runAt": "2026-07-07T06:20:20.755Z",
+  "brands": [
+    {
+      "slug": "escura-x",
+      "name": "ESCURA",
+      "productType": "fashion",
+      "productTypeZh": "服飾鞋履",
+      "difficulty": "easy"
+    },
+    {
+      "slug": "sobdeall",
+      "name": "沙伯迪澳 SOBDEALL",
+      "productType": "bags-accessories",
+      "productTypeZh": "包袋配件",
+      "difficulty": "easy"
+    },
+    {
+      "slug": "farmy-life",
+      "name": "日日好田 Farmy Life",
+      "productType": "food-drink",
+      "productTypeZh": "食品飲料",
+      "difficulty": "easy"
+    },
+    {
+      "slug": "mooni",
+      "name": "沐澧 Mooni",
+      "productType": "beauty",
+      "productTypeZh": "美妝保養",
+      "difficulty": "medium"
+    },
+    {
+      "slug": "evies-drawing-daily",
+      "name": "Evie's Drawing Daily",
+      "productType": "crafts",
+      "productTypeZh": "工藝文創",
+      "difficulty": "hard"
+    },
+    {
+      "slug": "qmat-設計館",
+      "name": "QMAT",
+      "productType": "outdoor",
+      "productTypeZh": "戶外運動保健",
+      "difficulty": "medium"
+    },
+    {
+      "slug": "warmwood-living",
+      "name": "暖木家居 Warmwood Living",
+      "productType": "home",
+      "productTypeZh": "居家生活",
+      "difficulty": "medium"
+    },
+    {
+      "slug": "lianne-baby",
+      "name": "Lianne Baby 梨安",
+      "productType": "kids-pets",
+      "productTypeZh": "母嬰寵物",
+      "difficulty": "medium"
+    },
+    {
+      "slug": "1935",
+      "name": "鹿苑茶莊 1935",
+      "productType": "food-drink",
+      "productTypeZh": "食品飲料",
+      "difficulty": "medium"
+    },
+    {
+      "slug": "clm",
+      "name": "CLM",
+      "productType": "unknown",
+      "productTypeZh": "",
+      "difficulty": "hard"
+    }
+  ],
+  "variants": [
+    {
+      "id": "A",
+      "label": "Broad Discovery"
+    },
+    {
+      "id": "B",
+      "label": "Precision + Noise Filter"
+    },
+    {
+      "id": "C",
+      "label": "Third-Party Content Bias"
+    }
+  ],
+  "results": [
+    {
+      "brand": {
+        "slug": "escura-x",
+        "name": "ESCURA",
+        "productType": "fashion",
+        "productTypeZh": "服飾鞋履",
+        "difficulty": "easy"
+      },
+      "variant": {
+        "id": "A",
+        "label": "Broad Discovery"
+      },
+      "query": "ESCURA 台灣",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:19:28.692Z"
+    },
+    {
+      "brand": {
+        "slug": "escura-x",
+        "name": "ESCURA",
+        "productType": "fashion",
+        "productTypeZh": "服飾鞋履",
+        "difficulty": "easy"
+      },
+      "variant": {
+        "id": "B",
+        "label": "Precision + Noise Filter"
+      },
+      "query": "\"ESCURA\" 服飾鞋履 品牌 -徵才 -104 -人力",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:19:30.714Z"
+    },
+    {
+      "brand": {
+        "slug": "escura-x",
+        "name": "ESCURA",
+        "productType": "fashion",
+        "productTypeZh": "服飾鞋履",
+        "difficulty": "easy"
+      },
+      "variant": {
+        "id": "C",
+        "label": "Third-Party Content Bias"
+      },
+      "query": "ESCURA 品牌 介紹 評價 推薦",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:19:32.486Z"
+    },
+    {
+      "brand": {
+        "slug": "sobdeall",
+        "name": "沙伯迪澳 SOBDEALL",
+        "productType": "bags-accessories",
+        "productTypeZh": "包袋配件",
+        "difficulty": "easy"
+      },
+      "variant": {
+        "id": "A",
+        "label": "Broad Discovery"
+      },
+      "query": "沙伯迪澳 SOBDEALL 台灣",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:19:34.329Z"
+    },
+    {
+      "brand": {
+        "slug": "sobdeall",
+        "name": "沙伯迪澳 SOBDEALL",
+        "productType": "bags-accessories",
+        "productTypeZh": "包袋配件",
+        "difficulty": "easy"
+      },
+      "variant": {
+        "id": "B",
+        "label": "Precision + Noise Filter"
+      },
+      "query": "\"沙伯迪澳 SOBDEALL\" 包袋配件 品牌 -徵才 -104 -人力",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:19:36.148Z"
+    },
+    {
+      "brand": {
+        "slug": "sobdeall",
+        "name": "沙伯迪澳 SOBDEALL",
+        "productType": "bags-accessories",
+        "productTypeZh": "包袋配件",
+        "difficulty": "easy"
+      },
+      "variant": {
+        "id": "C",
+        "label": "Third-Party Content Bias"
+      },
+      "query": "沙伯迪澳 SOBDEALL 品牌 介紹 評價 推薦",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:19:37.900Z"
+    },
+    {
+      "brand": {
+        "slug": "farmy-life",
+        "name": "日日好田 Farmy Life",
+        "productType": "food-drink",
+        "productTypeZh": "食品飲料",
+        "difficulty": "easy"
+      },
+      "variant": {
+        "id": "A",
+        "label": "Broad Discovery"
+      },
+      "query": "日日好田 Farmy Life 台灣",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:19:39.744Z"
+    },
+    {
+      "brand": {
+        "slug": "farmy-life",
+        "name": "日日好田 Farmy Life",
+        "productType": "food-drink",
+        "productTypeZh": "食品飲料",
+        "difficulty": "easy"
+      },
+      "variant": {
+        "id": "B",
+        "label": "Precision + Noise Filter"
+      },
+      "query": "\"日日好田 Farmy Life\" 食品飲料 品牌 -徵才 -104 -人力",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:19:41.501Z"
+    },
+    {
+      "brand": {
+        "slug": "farmy-life",
+        "name": "日日好田 Farmy Life",
+        "productType": "food-drink",
+        "productTypeZh": "食品飲料",
+        "difficulty": "easy"
+      },
+      "variant": {
+        "id": "C",
+        "label": "Third-Party Content Bias"
+      },
+      "query": "日日好田 Farmy Life 品牌 介紹 評價 推薦",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:19:43.251Z"
+    },
+    {
+      "brand": {
+        "slug": "mooni",
+        "name": "沐澧 Mooni",
+        "productType": "beauty",
+        "productTypeZh": "美妝保養",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "A",
+        "label": "Broad Discovery"
+      },
+      "query": "沐澧 Mooni 台灣",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:19:45.051Z"
+    },
+    {
+      "brand": {
+        "slug": "mooni",
+        "name": "沐澧 Mooni",
+        "productType": "beauty",
+        "productTypeZh": "美妝保養",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "B",
+        "label": "Precision + Noise Filter"
+      },
+      "query": "\"沐澧 Mooni\" 美妝保養 品牌 -徵才 -104 -人力",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:19:46.815Z"
+    },
+    {
+      "brand": {
+        "slug": "mooni",
+        "name": "沐澧 Mooni",
+        "productType": "beauty",
+        "productTypeZh": "美妝保養",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "C",
+        "label": "Third-Party Content Bias"
+      },
+      "query": "沐澧 Mooni 品牌 介紹 評價 推薦",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:19:48.574Z"
+    },
+    {
+      "brand": {
+        "slug": "evies-drawing-daily",
+        "name": "Evie's Drawing Daily",
+        "productType": "crafts",
+        "productTypeZh": "工藝文創",
+        "difficulty": "hard"
+      },
+      "variant": {
+        "id": "A",
+        "label": "Broad Discovery"
+      },
+      "query": "Evie's Drawing Daily 台灣",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:19:50.333Z"
+    },
+    {
+      "brand": {
+        "slug": "evies-drawing-daily",
+        "name": "Evie's Drawing Daily",
+        "productType": "crafts",
+        "productTypeZh": "工藝文創",
+        "difficulty": "hard"
+      },
+      "variant": {
+        "id": "B",
+        "label": "Precision + Noise Filter"
+      },
+      "query": "\"Evie's Drawing Daily\" 工藝文創 品牌 -徵才 -104 -人力",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:19:52.149Z"
+    },
+    {
+      "brand": {
+        "slug": "evies-drawing-daily",
+        "name": "Evie's Drawing Daily",
+        "productType": "crafts",
+        "productTypeZh": "工藝文創",
+        "difficulty": "hard"
+      },
+      "variant": {
+        "id": "C",
+        "label": "Third-Party Content Bias"
+      },
+      "query": "Evie's Drawing Daily 品牌 介紹 評價 推薦",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:19:53.975Z"
+    },
+    {
+      "brand": {
+        "slug": "qmat-設計館",
+        "name": "QMAT",
+        "productType": "outdoor",
+        "productTypeZh": "戶外運動保健",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "A",
+        "label": "Broad Discovery"
+      },
+      "query": "QMAT 台灣",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:19:55.820Z"
+    },
+    {
+      "brand": {
+        "slug": "qmat-設計館",
+        "name": "QMAT",
+        "productType": "outdoor",
+        "productTypeZh": "戶外運動保健",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "B",
+        "label": "Precision + Noise Filter"
+      },
+      "query": "\"QMAT\" 戶外運動保健 品牌 -徵才 -104 -人力",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:19:57.639Z"
+    },
+    {
+      "brand": {
+        "slug": "qmat-設計館",
+        "name": "QMAT",
+        "productType": "outdoor",
+        "productTypeZh": "戶外運動保健",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "C",
+        "label": "Third-Party Content Bias"
+      },
+      "query": "QMAT 品牌 介紹 評價 推薦",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:19:59.401Z"
+    },
+    {
+      "brand": {
+        "slug": "warmwood-living",
+        "name": "暖木家居 Warmwood Living",
+        "productType": "home",
+        "productTypeZh": "居家生活",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "A",
+        "label": "Broad Discovery"
+      },
+      "query": "暖木家居 Warmwood Living 台灣",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:20:01.213Z"
+    },
+    {
+      "brand": {
+        "slug": "warmwood-living",
+        "name": "暖木家居 Warmwood Living",
+        "productType": "home",
+        "productTypeZh": "居家生活",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "B",
+        "label": "Precision + Noise Filter"
+      },
+      "query": "\"暖木家居 Warmwood Living\" 居家生活 品牌 -徵才 -104 -人力",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:20:02.976Z"
+    },
+    {
+      "brand": {
+        "slug": "warmwood-living",
+        "name": "暖木家居 Warmwood Living",
+        "productType": "home",
+        "productTypeZh": "居家生活",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "C",
+        "label": "Third-Party Content Bias"
+      },
+      "query": "暖木家居 Warmwood Living 品牌 介紹 評價 推薦",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:20:04.738Z"
+    },
+    {
+      "brand": {
+        "slug": "lianne-baby",
+        "name": "Lianne Baby 梨安",
+        "productType": "kids-pets",
+        "productTypeZh": "母嬰寵物",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "A",
+        "label": "Broad Discovery"
+      },
+      "query": "Lianne Baby 梨安 台灣",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:20:06.554Z"
+    },
+    {
+      "brand": {
+        "slug": "lianne-baby",
+        "name": "Lianne Baby 梨安",
+        "productType": "kids-pets",
+        "productTypeZh": "母嬰寵物",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "B",
+        "label": "Precision + Noise Filter"
+      },
+      "query": "\"Lianne Baby 梨安\" 母嬰寵物 品牌 -徵才 -104 -人力",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:20:08.306Z"
+    },
+    {
+      "brand": {
+        "slug": "lianne-baby",
+        "name": "Lianne Baby 梨安",
+        "productType": "kids-pets",
+        "productTypeZh": "母嬰寵物",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "C",
+        "label": "Third-Party Content Bias"
+      },
+      "query": "Lianne Baby 梨安 品牌 介紹 評價 推薦",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:20:10.076Z"
+    },
+    {
+      "brand": {
+        "slug": "1935",
+        "name": "鹿苑茶莊 1935",
+        "productType": "food-drink",
+        "productTypeZh": "食品飲料",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "A",
+        "label": "Broad Discovery"
+      },
+      "query": "鹿苑茶莊 1935 台灣",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:20:11.833Z"
+    },
+    {
+      "brand": {
+        "slug": "1935",
+        "name": "鹿苑茶莊 1935",
+        "productType": "food-drink",
+        "productTypeZh": "食品飲料",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "B",
+        "label": "Precision + Noise Filter"
+      },
+      "query": "\"鹿苑茶莊 1935\" 食品飲料 品牌 -徵才 -104 -人力",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:20:13.674Z"
+    },
+    {
+      "brand": {
+        "slug": "1935",
+        "name": "鹿苑茶莊 1935",
+        "productType": "food-drink",
+        "productTypeZh": "食品飲料",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "C",
+        "label": "Third-Party Content Bias"
+      },
+      "query": "鹿苑茶莊 1935 品牌 介紹 評價 推薦",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:20:15.471Z"
+    },
+    {
+      "brand": {
+        "slug": "clm",
+        "name": "CLM",
+        "productType": "unknown",
+        "productTypeZh": "",
+        "difficulty": "hard"
+      },
+      "variant": {
+        "id": "A",
+        "label": "Broad Discovery"
+      },
+      "query": "CLM 台灣",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:20:17.229Z"
+    },
+    {
+      "brand": {
+        "slug": "clm",
+        "name": "CLM",
+        "productType": "unknown",
+        "productTypeZh": "",
+        "difficulty": "hard"
+      },
+      "variant": {
+        "id": "B",
+        "label": "Precision + Noise Filter"
+      },
+      "query": "\"CLM\" 品牌 -徵才 -104 -人力",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:20:18.988Z"
+    },
+    {
+      "brand": {
+        "slug": "clm",
+        "name": "CLM",
+        "productType": "unknown",
+        "productTypeZh": "",
+        "difficulty": "hard"
+      },
+      "variant": {
+        "id": "C",
+        "label": "Third-Party Content Bias"
+      },
+      "query": "CLM 品牌 介紹 評價 推薦",
+      "parsed": {
+        "urls": [],
+        "snippets": [],
+        "rawCount": 0,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-07T06:20:20.755Z"
+    }
+  ]
+}

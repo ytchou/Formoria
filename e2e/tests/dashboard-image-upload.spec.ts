@@ -63,7 +63,7 @@ test.describe('Dashboard — brand image upload', () => {
   }) => {
     test.setTimeout(120_000)
 
-    // Image upload is in the Media section — step 1 of the wizard.
+    // Image upload is in the Brand images section — step 1 of the wizard.
     // Navigate directly to ?step=1 so the MediaSection (heroImageUrl) is visible.
     const editPath = `/dashboard/brands/${brandSlug}/edit?step=1`
     const editResp = await userPage.goto(editPath, { timeout: 60_000 })

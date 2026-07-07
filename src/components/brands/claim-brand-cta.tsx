@@ -4,7 +4,7 @@ import { Upload } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useRef, useState, useTransition, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
 import { submitClaimAction } from '@/app/[locale]/brands/[slug]/actions'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useImageUpload } from '@/components/upload/useImageUpload'
@@ -281,17 +281,17 @@ export function ClaimBrandCta({
           )}
           <div className="flex flex-wrap items-center gap-3">
             {user ? (
-              <button
+              <Button
                 type="button"
+                variant="cta"
                 onClick={openForm}
-                className="inline-flex min-h-12 items-center justify-center rounded-lg bg-cta px-6 py-3 text-sm font-semibold text-cta-foreground transition-all hover:bg-cta/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]"
               >
                 {t('claimButton')}
-              </button>
+              </Button>
             ) : (
               <Link
                 href={`/auth/sign-in?next=${encodeURIComponent(pathname)}`}
-                className="inline-flex min-h-12 items-center justify-center rounded-lg bg-cta px-6 py-3 text-sm font-semibold text-cta-foreground transition-all hover:bg-cta/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]"
+                className={buttonVariants({ variant: 'cta' })}
               >
                 {t('signIn')}
               </Link>
@@ -471,8 +471,8 @@ export function ClaimBrandCta({
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button
               type="submit"
+              variant="cta"
               disabled={!canSubmit}
-              className="min-h-12 bg-cta px-6 py-3 text-sm font-semibold text-cta-foreground hover:bg-cta/90 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isPending ? t('submitting') : t('submit')}
             </Button>
@@ -480,7 +480,6 @@ export function ClaimBrandCta({
               type="button"
               variant="outline"
               onClick={() => setIsOpen(false)}
-              className="min-h-12 px-6 py-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring"
             >
               {t('cancel')}
             </Button>

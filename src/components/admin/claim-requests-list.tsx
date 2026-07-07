@@ -318,8 +318,6 @@ export function ClaimRequestsList({
                         {claimRequest.status === 'pending' && (
                           <div className="flex flex-col items-start gap-3 sm:flex-row">
                             <Button
-                              size="lg"
-                              className="min-h-12 px-4"
                               onClick={(event) => {
                                 event.stopPropagation()
                                 handleApprove(claimRequest.id)

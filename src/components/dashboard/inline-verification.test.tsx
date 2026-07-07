@@ -15,10 +15,7 @@ vi.mock('@/app/[locale]/(protected)/dashboard/actions', () => ({
 
 const props = {
   brandId: 'brand-1',
-  brandName: 'Brand One',
-  brandSlug: 'brand-one',
   mitStatus: 'unverified' as const,
-  isOwner: true,
 }
 
 afterEach(() => {
@@ -27,6 +24,17 @@ afterEach(() => {
 })
 
 describe('InlineVerification hydration', () => {
+  it('renders without a nested card when embedded', () => {
+    const container = document.createElement('div')
+    container.innerHTML = renderToString(
+      <InlineVerification {...props} embedded />,
+    )
+
+    const verification = container.querySelector('#verification')
+    expect(verification).not.toBeNull()
+    expect(verification).not.toHaveClass('border')
+  })
+
   it('hydrates without a mismatch when verification was previously dismissed', async () => {
     const container = document.createElement('div')
     container.innerHTML = renderToString(<InlineVerification {...props} />)

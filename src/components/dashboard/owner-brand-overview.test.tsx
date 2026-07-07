@@ -47,6 +47,11 @@ const brand: Brand = {
   contactEmail: null,
   priceRange: 2,
   productTags: ['wood'],
+  productTagsEn: [],
+  descriptionEn: null,
+  blurb: null,
+  blurbEn: null,
+  imageAlts: [],
   siteContent: null,
   submittedAt: '2026-01-01',
   approvedAt: '2026-01-02',
@@ -72,6 +77,16 @@ describe('OwnerBrandOverview', () => {
         `/dashboard/brands/brand-one/edit?step=${step}`,
       )
     }
+
+    for (const hint of [
+      'sectionBasicInfoHint',
+      'sectionBrandImagesHint',
+      'sectionLinksHint',
+      'sectionLocationsHint',
+      'sectionReputationHint',
+    ]) {
+      expect(screen.getByText(hint)).toBeInTheDocument()
+    }
   })
 
   it('shows hero and product images as separate media groups', async () => {
@@ -79,6 +94,7 @@ describe('OwnerBrandOverview', () => {
 
     expect(screen.getByRole('heading', { name: 'fieldHeroImage' })).toBeInTheDocument()
     expect(screen.getByText('heroImageOverviewHint')).toBeInTheDocument()
+    expect(screen.getByText('productPhotosOverviewHint')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'fieldProductPhotos' })).toBeInTheDocument()
     expect(screen.getByRole('img', { name: 'fieldHeroImage' })).toHaveAttribute(
       'data-src',
@@ -90,10 +106,40 @@ describe('OwnerBrandOverview', () => {
     )
   })
 
+  it('places verification between locations and reputation', async () => {
+    const { container } = render(await OwnerBrandOverview({
+      brand,
+      verification: <div id="verification">Verification controls</div>,
+    }))
+
+    const sections = Array.from(container.querySelectorAll('section'))
+    const verificationIndex = sections.findIndex((section) =>
+      section.querySelector('#verification'),
+    )
+
+    expect(sections[verificationIndex - 1]).toHaveTextContent('wizardStepLocations')
+    expect(sections[verificationIndex]).toHaveTextContent('sectionVerification')
+    expect(sections[verificationIndex + 1]).toHaveTextContent('wizardStepReputation')
+  })
+
   it('localizes a stored product-type slug', async () => {
     render(await OwnerBrandOverview({ brand: { ...brand, productType: 'home' } }))
 
     expect(screen.getByText('居家生活')).toBeInTheDocument()
     expect(screen.queryByText('home')).not.toBeInTheDocument()
+  })
+
+  it('renders unset values with muted styling', async () => {
+    render(await OwnerBrandOverview({
+      brand: {
+        ...brand,
+        socialThreads: null,
+        purchasePinkoi: null,
+      },
+    }))
+
+    for (const value of screen.getAllByText('notSet')) {
+      expect(value).toHaveClass('text-muted-foreground')
+    }
   })
 })

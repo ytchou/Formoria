@@ -31,6 +31,7 @@ describe('ProfileCompletenessCard', () => {
     )
 
     expect(screen.getByText('50%')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: '50%' })).toBeInTheDocument()
     expect(screen.getByText('6 of 12 components complete')).toBeInTheDocument()
     expect(screen.getByText('Add your brand story')).toBeInTheDocument()
     expect(screen.getByRole('link')).toHaveAttribute(

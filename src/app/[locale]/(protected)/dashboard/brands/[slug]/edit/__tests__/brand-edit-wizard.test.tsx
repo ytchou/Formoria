@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import messages from '@/../messages/en.json'
 import zhMessages from '@/../messages/zh-TW.json'
+import type { UseFormReturn } from 'react-hook-form'
+import type { BrandEditFormValues } from '@/lib/schemas/brand-edit'
 import type { Brand } from '@/lib/types'
 import { BrandEditWizard } from '../brand-edit-wizard'
 
@@ -30,19 +32,38 @@ vi.mock('@/i18n/navigation', () => ({
 
 // Mock all 9 section components for isolation
 vi.mock('../sections/basic-info-section', () => ({
-  BasicInfoSection: () => <div data-testid="basic-info-section" />,
+  BasicInfoSection: ({ form }: { form: UseFormReturn<BrandEditFormValues> }) => (
+    <div data-testid="basic-info-section">
+      <input aria-label="Brand name field" {...form.register('name')} />
+    </div>
+  ),
 }))
 vi.mock('../sections/media-section', () => ({
   MediaSection: () => <div data-testid="media-section" />,
 }))
 vi.mock('../sections/links-section', () => ({
-  LinksSection: () => <div data-testid="links-section" />,
+  LinksSection: ({ form }: { form: UseFormReturn<BrandEditFormValues> }) => (
+    <div data-testid="links-section">
+      <input
+        aria-label="Official website"
+        aria-invalid={Boolean(form.formState.errors.purchaseWebsite)}
+        {...form.register('purchaseWebsite')}
+      />
+    </div>
+  ),
 }))
 vi.mock('../sections/locations-section', () => ({
   LocationsSection: () => <div data-testid="locations-section" />,
 }))
 vi.mock('../sections/reputation-section', () => ({
-  ReputationSection: () => <div data-testid="reputation-section" />,
+  ReputationSection: ({ form }: { form: UseFormReturn<BrandEditFormValues> }) => (
+    <div data-testid="reputation-section">
+      <textarea
+        aria-label="Reputation summary"
+        {...form.register('reputationSummary')}
+      />
+    </div>
+  ),
 }))
 
 const mockBrand: Brand = {
@@ -66,6 +87,10 @@ function renderWizard(props = {}) {
 }
 
 describe('BrandEditWizard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('renders the sidebar', () => {
     renderWizard()
     // Sidebar renders step buttons
@@ -100,6 +125,38 @@ describe('BrandEditWizard', () => {
     expect(screen.getByTestId('links-section')).toBeInTheDocument()
   })
 
+  it('restores completed steps from saved progress metadata', () => {
+    renderWizard({
+      initialStep: 2,
+      initialCompletedSteps: [0, 1],
+    })
+
+    const basicInfoButton = screen.getAllByRole('button', { name: 'Basic Info' })[0]
+    expect(basicInfoButton.querySelector('svg')).toBeTruthy()
+  })
+
+  it('only shows unsaved changes for edits in the active section', async () => {
+    renderWizard()
+
+    expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument()
+    fireEvent.change(screen.getByRole('textbox', { name: 'Brand name field' }), {
+      target: { value: 'Changed Brand' },
+    })
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument()
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Brand images/ })[0])
+    await waitFor(() => {
+      expect(screen.getByTestId('media-section')).toBeInTheDocument()
+      expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Basic Info' })[0])
+    await waitFor(() => {
+      expect(screen.getByTestId('basic-info-section')).toBeInTheDocument()
+      expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument()
+    })
+  })
+
   it('navigates to the next section on Save & Continue', async () => {
     renderWizard({ initialStep: 0 })
     const btn = screen.getByRole('button', { name: /save & continue/i })
@@ -119,11 +176,98 @@ describe('BrandEditWizard', () => {
     })
   })
 
+  it('does not advance from Links without the required official website', async () => {
+    const { saveSectionDraftAction } =
+      await import('@/lib/actions/brand-edit-wizard')
+    renderWizard({ initialStep: 2 })
+
+    fireEvent.click(screen.getByRole('button', { name: /save & continue/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: 'Official website' })).toHaveAttribute(
+        'aria-invalid',
+        'true',
+      )
+    })
+    expect(screen.getByTestId('links-section')).toBeInTheDocument()
+    expect(saveSectionDraftAction).not.toHaveBeenCalled()
+  })
+
   it('navigates back on Back click', async () => {
     renderWizard({ initialStep: 1 })
     fireEvent.click(screen.getByRole('button', { name: /back/i }))
     await waitFor(() => {
       expect(screen.getByTestId('basic-info-section')).toBeInTheDocument()
     })
+  })
+
+  it('saves final-step edits before publishing', async () => {
+    const { saveSectionDraftAction } =
+      await import('@/lib/actions/brand-edit-wizard')
+    const { publishDraftAction } =
+      await import('@/app/[locale]/(protected)/dashboard/brands/[slug]/actions')
+    renderWizard({
+      initialStep: 4,
+      defaultValues: {
+        name: 'Warmwood Living',
+        productType: 'home',
+        description: 'Furniture made in Taiwan.',
+        productTags: ['furniture'],
+        priceRange: 2,
+        heroImageUrl: 'https://example.com/hero.jpg',
+        productPhotos: ['https://example.com/product.jpg'],
+        purchaseWebsite: 'https://example.com',
+      },
+    })
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Reputation summary' }), {
+      target: { value: 'Featured by independent design publications.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /publish/i }))
+
+    await waitFor(() => {
+      expect(saveSectionDraftAction).toHaveBeenCalledWith(
+        'test-brand-id',
+        'test-brand',
+        'reputation',
+        expect.objectContaining({
+          reputationSummary: 'Featured by independent design publications.',
+        }),
+      )
+      expect(publishDraftAction).toHaveBeenCalled()
+    })
+    expect(vi.mocked(saveSectionDraftAction).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(publishDraftAction).mock.invocationCallOrder[0] ?? 0,
+    )
+  })
+
+  it('does not publish when saving final-step edits fails', async () => {
+    const { saveSectionDraftAction } =
+      await import('@/lib/actions/brand-edit-wizard')
+    const { publishDraftAction } =
+      await import('@/app/[locale]/(protected)/dashboard/brands/[slug]/actions')
+    vi.mocked(saveSectionDraftAction).mockResolvedValueOnce({
+      error: 'Unable to save reputation edits',
+    })
+    renderWizard({
+      initialStep: 4,
+      defaultValues: {
+        name: 'Warmwood Living',
+        productType: 'home',
+        description: 'Furniture made in Taiwan.',
+        productTags: ['furniture'],
+        priceRange: 2,
+        heroImageUrl: 'https://example.com/hero.jpg',
+        productPhotos: ['https://example.com/product.jpg'],
+        purchaseWebsite: 'https://example.com',
+      },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /publish/i }))
+
+    await waitFor(() => {
+      expect(saveSectionDraftAction).toHaveBeenCalled()
+    })
+    expect(publishDraftAction).not.toHaveBeenCalled()
   })
 })

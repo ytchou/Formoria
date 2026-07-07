@@ -249,10 +249,9 @@ export function BrandEditDialog({
                     <Button
                       type="button"
                       variant="ghost"
-                      size="icon"
+                      size="icon-lg"
                       aria-label={`Remove URL ${index + 1}`}
                       onClick={() => removeOtherUrl(index)}
-                      className="h-12 w-12 rounded-lg focus-visible:ring-2 focus-visible:ring-primary"
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -263,7 +262,6 @@ export function BrandEditDialog({
                 type="button"
                 variant="outline"
                 onClick={addOtherUrl}
-                className="h-12 focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <Plus className="h-4 w-4" />
                 Add URL

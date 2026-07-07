@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -126,12 +127,13 @@ export default async function ReviewQueueModerationPage({ searchParams }: Modera
             <option value="flag">flag</option>
           </select>
         </label>
-        <button
+        <Button
           type="submit"
-          className="self-end rounded-md border bg-white px-4 py-2 text-sm font-medium hover:bg-muted"
+          variant="outline"
+          className="self-end"
         >
           {t('filterByRisk')}
-        </button>
+        </Button>
       </form>
 
       <div className="mt-8 rounded-lg border bg-white">

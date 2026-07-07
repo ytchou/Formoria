@@ -12,7 +12,7 @@ type WizardFooterProps = {
   isDirty?: boolean
   onBack: () => void
   onSaveAndContinue: () => void
-  onSaveDraft: () => void
+  onSave: () => void
   onPublish: () => void
 }
 
@@ -23,14 +23,11 @@ export function WizardFooter({
   isDirty = false,
   onBack,
   onSaveAndContinue,
-  onSaveDraft,
+  onSave,
   onPublish,
 }: WizardFooterProps) {
   const t = useTranslations('dashboard.edit')
   const isFinalStep = activeStep === totalSteps - 1
-  const primaryButtonClassName =
-    'min-h-12 bg-cta px-6 text-cta-foreground hover:bg-cta/90 focus-visible:ring-2 focus-visible:ring-primary'
-
   return (
     <footer
       className={cn(
@@ -43,18 +40,16 @@ export function WizardFooter({
         {isFinalStep ? (
           <Button
             type="button"
-            variant="ghost"
-            className="min-h-12 px-4 focus-visible:ring-2 focus-visible:ring-primary"
+            variant="outline"
             disabled={isSaving}
-            onClick={onSaveDraft}
+            onClick={onSave}
           >
-            {t('wizardSaveDraft')}
+            {t('save')}
           </Button>
         ) : activeStep > 0 ? (
           <Button
             type="button"
             variant="outline"
-            className="min-h-12 px-4 focus-visible:ring-2 focus-visible:ring-primary"
             disabled={isSaving}
             onClick={onBack}
           >
@@ -73,7 +68,7 @@ export function WizardFooter({
       {isFinalStep ? (
         <Button
           type="button"
-          className={primaryButtonClassName}
+          variant="cta"
           disabled={isSaving}
           onClick={onPublish}
         >
@@ -83,7 +78,6 @@ export function WizardFooter({
       ) : (
         <Button
           type="button"
-          className={primaryButtonClassName}
           disabled={isSaving}
           onClick={onSaveAndContinue}
         >
