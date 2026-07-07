@@ -1,6 +1,7 @@
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { CONTACT_EMAILS, FEEDBACK_FORM_URL } from '@/lib/constants'
+import { LocaleSwitcher } from '@/components/i18n/locale-switcher'
 
 export function Footer() {
   const t = useTranslations('footer')
@@ -133,11 +134,14 @@ export function Footer() {
         </div>
 
         {/* Bottom bar: tagline + copyright */}
-        <div className="mt-10 flex flex-col items-start gap-2 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-10 flex flex-col items-start gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">{t('tagline')}</p>
-          <p className="text-xs text-muted-foreground">
-            {t('copyright', { year: new Date().getFullYear() })}
-          </p>
+          <div className="flex items-center gap-3">
+            <LocaleSwitcher compact />
+            <p className="text-xs text-muted-foreground">
+              {t('copyright', { year: new Date().getFullYear() })}
+            </p>
+          </div>
         </div>
       </div>
     </footer>

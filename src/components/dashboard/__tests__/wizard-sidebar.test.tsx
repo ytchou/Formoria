@@ -35,9 +35,12 @@ function renderSidebar(props = {}) {
 describe('WizardSidebar', () => {
   it('renders all step labels', () => {
     renderSidebar()
+    expect(screen.getByRole('heading', { name: 'Edit brand details' })).toBeInTheDocument()
+    expect(screen.getAllByText('Step 2 of 3').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Basic Info').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Media').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Links').length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByText(/undefined/)).not.toBeInTheDocument()
   })
 
   it('calls onStepClick with step index when clicked', () => {
@@ -45,6 +48,14 @@ describe('WizardSidebar', () => {
     renderSidebar({ onStepClick })
     fireEvent.click(screen.getAllByText('Links')[0])
     expect(onStepClick).toHaveBeenCalledWith(2)
+  })
+
+  it('marks the active step for assistive technology', () => {
+    renderSidebar()
+    expect(screen.getAllByRole('button', { name: /Media/ })[0]).toHaveAttribute(
+      'aria-current',
+      'step',
+    )
   })
 
   it('shows progress bar', () => {

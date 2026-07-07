@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import createMiddleware from 'next-intl/middleware'
 import { NextResponse, type NextRequest } from "next/server";
 import { routing } from '@/i18n/routing'
+import { isAppLocale, localizePath, LOCALE_COOKIE, resolveInitialLocale } from '@/i18n/locale-preference'
 import { IMPERSONATE_COOKIE, resolveImpersonationCookie } from '@/lib/auth/impersonation'
 import { verifyChallengeToken, CHALLENGE_COOKIE_NAME } from '@/lib/security/challenge'
 import { checkRateLimit, checkSoftRateLimit, getClientIp } from "@/lib/security/rate-limiter";
@@ -209,9 +210,41 @@ export async function middleware(request: NextRequest) {
   }
 
   const isPublicPath = isLocalizedPublicPath(pathname)
+  const explicitLocale = isAppLocale(segments.at(0)) ? segments.at(0) : null
+  const cookieLocale = request.cookies.get(LOCALE_COOKIE)?.value
+  const inferredLocale = isPublicPath && !explicitLocale
+    ? resolveInitialLocale({
+        cookieLocale,
+        acceptLanguage: request.headers.get('accept-language'),
+        country: request.headers.get('cf-ipcountry') ?? request.headers.get('x-vercel-ip-country'),
+      })
+    : null
+
+  if (isPublicPath && !explicitLocale && inferredLocale === 'en') {
+    const url = request.nextUrl.clone()
+    url.pathname = localizePath(pathname, 'en')
+    const localeResponse = NextResponse.redirect(url)
+    localeResponse.cookies.set(LOCALE_COOKIE, 'en', {
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 365 * 24 * 60 * 60,
+    })
+    localeResponse.headers.set('Cache-Control', 'private, no-store')
+    return localeResponse
+  }
+
   const response = isPublicPath
     ? intlMiddleware(request)
     : NextResponse.next({ request })
+
+  const resolvedLocale = explicitLocale ?? inferredLocale
+  if (resolvedLocale) {
+    response.cookies.set(LOCALE_COOKIE, resolvedLocale, {
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 365 * 24 * 60 * 60,
+    })
+  }
 
   // Skip Supabase auth refresh for truly public content paths to reduce egress.
   // dashboard, settings, and my-submissions still need auth even though

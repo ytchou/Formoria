@@ -3,8 +3,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
 import { getBrandDraft, saveDraft } from '@/lib/services/brands'
-import { completeOnboardingStepsForSection } from '@/lib/services/brand-onboarding'
-import { SECTION_TO_ONBOARDING_STEPS } from '@/lib/schemas/brand-edit'
 import type { Brand } from '@/lib/types'
 
 type SaveSectionDraftResult = {
@@ -35,8 +33,6 @@ export async function saveSectionDraftAction(
     }
 
     const brandSlug = brandSlugOrSectionKey
-    const sectionKey = sectionKeyOrSectionData
-
     const supabase = await createClient()
     const {
       data: { user },
@@ -59,10 +55,6 @@ export async function saveSectionDraftAction(
     }
 
     await saveDraft(brandId, mergedData as Partial<Brand>)
-
-    if (SECTION_TO_ONBOARDING_STEPS[sectionKey]?.length) {
-      await completeOnboardingStepsForSection(brandId, sectionKey)
-    }
 
     return { success: true }
   } catch (error) {

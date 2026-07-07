@@ -66,6 +66,8 @@ describe('ImageUploader', () => {
       'src',
       'https://example.com/logo.webp'
     )
+    expect(screen.queryByText('Click or drag to replace')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Replace image' })).toBeInTheDocument()
   })
 
   it('shows multiple image previews in multi mode', () => {
@@ -99,7 +101,10 @@ describe('ImageUploader', () => {
         onRemove={onRemove}
       />
     )
-    fireEvent.click(screen.getByLabelText(/remove/i))
+    const removeButton = screen.getByLabelText(/remove/i)
+    expect(removeButton).toHaveClass('h-12', 'w-12')
+    expect(removeButton.querySelector('span')).toHaveClass('size-6')
+    fireEvent.click(removeButton)
     expect(onRemove).toHaveBeenCalledWith(0)
   })
 
@@ -109,10 +114,16 @@ describe('ImageUploader', () => {
         mode="single"
         bucket="brand-images"
         path="test"
+        id="hero-upload"
         onUpload={vi.fn()}
       />
     )
     const input = document.querySelector('input[type="file"]')
-    expect(input).toHaveAttribute('accept', 'image/*')
+    expect(input).toHaveAttribute('id', 'hero-upload')
+    expect(input).toHaveAttribute('accept', 'image/jpeg,image/png,image/webp')
+    expect(screen.getByRole('button')).toHaveAttribute(
+      'id',
+      'hero-upload-dropzone',
+    )
   })
 })

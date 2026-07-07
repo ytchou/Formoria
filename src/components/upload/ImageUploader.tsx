@@ -4,6 +4,7 @@ import { useRef, useCallback, useEffect, useState } from 'react'
 import { Upload, X, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useImageUpload } from './useImageUpload'
+import { cn } from '@/lib/utils'
 
 type ImageUploaderProps = {
   mode: 'single' | 'multi'
@@ -32,7 +33,8 @@ export function ImageUploader({
     bucket,
     path,
   })
-  const queueRef = useRef<Array<{ file: File; filename: string }>>([])
+  const queueRef = useRef<File[]>([])
+  const onUploadRef = useRef(onUpload)
   const currentFilenameRef = useRef<string | null>(null)
   const [processingQueue, setProcessingQueue] = useState(false)
   const [failedFiles, setFailedFiles] = useState<string[]>([])
@@ -44,17 +46,21 @@ export function ImageUploader({
       return
     }
     setProcessingQueue(true)
-    currentFilenameRef.current = next.file.name
-    upload(next.file, next.filename)
+    currentFilenameRef.current = next.name
+    upload(next)
   }, [upload])
 
   useEffect(() => {
+    onUploadRef.current = onUpload
+  }, [onUpload])
+
+  useEffect(() => {
     if (url) {
-      onUpload(url)
+      onUploadRef.current(url)
       reset()
       processNext()
     }
-  }, [url, onUpload, reset, processNext])
+  }, [url, reset, processNext])
 
   useEffect(() => {
     if (status === 'error' && processingQueue) {
@@ -72,10 +78,7 @@ export function ImageUploader({
           ? maxFiles - (Array.isArray(value) ? value.length : 0)
           : 1
       const capped = files.slice(0, Math.max(0, remaining))
-      capped.forEach((file, i) => {
-        const filename = `${Date.now()}-${i}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}.webp`
-        queueRef.current.push({ file, filename })
-      })
+      queueRef.current.push(...capped)
       if (!processingQueue) processNext()
     },
     [mode, maxFiles, value, processingQueue, processNext],
@@ -116,8 +119,7 @@ export function ImageUploader({
         ? [value]
         : []
 
-  const showDropZone =
-    mode === 'single' ? urls.length === 0 : urls.length < maxFiles
+  const showDropZone = mode === 'single' ? urls.length === 0 : urls.length < maxFiles
 
   return (
     <div className="space-y-3">
@@ -125,21 +127,42 @@ export function ImageUploader({
       {urls.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {urls.map((imgUrl, index) => (
-            <div key={imgUrl} className="group relative">
+            <div
+              key={imgUrl}
+              className={cn(
+                'group relative',
+                mode === 'single' && 'w-full max-w-md',
+              )}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={imgUrl}
                 alt={t('imageAlt', { n: index + 1 })}
-                className="h-20 w-20 rounded-lg object-cover"
+                className={mode === 'single'
+                  ? 'aspect-video w-full max-w-md rounded-lg object-cover'
+                  : 'h-20 w-20 rounded-lg object-cover'}
               />
               {onRemove && (
                 <button
                   type="button"
                   onClick={() => onRemove(index)}
                   aria-label={t('ariaRemove', { n: index + 1 })}
-                  className="absolute -right-3 -top-3 flex h-12 w-12 items-center justify-center rounded-full bg-foreground text-background opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary"
+                  className="absolute -right-3 -top-3 flex h-12 w-12 items-center justify-center rounded-full text-background opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  <X className="h-3 w-3" />
+                  <span className="flex size-6 items-center justify-center rounded-full bg-foreground shadow-sm">
+                    <X className="size-3" />
+                  </span>
+                </button>
+              )}
+              {mode === 'single' && (
+                <button
+                  id={id ? `${id}-replace` : undefined}
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  className="absolute bottom-3 left-3 inline-flex min-h-9 items-center gap-2 rounded-lg bg-background/95 px-3 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-background focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <Upload className="size-4" />
+                  {t('replace')}
                 </button>
               )}
             </div>
@@ -150,7 +173,7 @@ export function ImageUploader({
       {/* Drop zone */}
       {showDropZone && (
         <div
-          id={id}
+          id={id ? `${id}-dropzone` : undefined}
           role="button"
           aria-label={t('clickOrDrag')}
           tabIndex={0}
@@ -168,16 +191,21 @@ export function ImageUploader({
             <Upload className="h-6 w-6 text-muted-foreground" />
           )}
           <span className="text-sm text-muted-foreground">
-            {status === 'uploading' ? t('uploading') : t('clickOrDrag')}
+            {status === 'uploading'
+              ? t('uploading')
+              : mode === 'single' && urls.length > 0
+                ? t('clickToReplace')
+                : t('clickOrDrag')}
           </span>
         </div>
       )}
 
       {/* Hidden file input */}
       <input
+        id={id}
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp"
         multiple={mode === 'multi'}
         className="hidden"
         onChange={handleFileSelect}

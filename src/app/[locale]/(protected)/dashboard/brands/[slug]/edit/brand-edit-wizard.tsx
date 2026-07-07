@@ -109,12 +109,16 @@ export function BrandEditWizard({
     setIsSaving(true)
     try {
       const sectionData = form.getValues()
-      await saveSectionDraftAction(
+      const result = await saveSectionDraftAction(
         brand.id,
         brand.slug,
         currentStepKey,
         sectionData as Record<string, unknown>,
       )
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
       setCompletedSteps((prev) => new Set([...prev, activeStep]))
       if (activeStep < WIZARD_STEPS.length - 1) {
         navigateTo(activeStep + 1)

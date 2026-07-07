@@ -21,10 +21,11 @@ vi.mock('@/i18n/navigation', () => ({
       {children}
     </a>
   ),
+  usePathname: () => '/brands/test',
 }))
 vi.mock('@/lib/auth/use-user', () => ({ useUser: vi.fn() }))
 vi.mock('@/app/auth/actions', () => ({ signOut: vi.fn() }))
-vi.mock('next/navigation', () => ({ usePathname: () => '/brands/test' }))
+vi.mock('@/app/actions/locale-preference', () => ({ setLocalePreference: vi.fn() }))
 
 import { useUser } from '@/lib/auth/use-user'
 
@@ -81,6 +82,20 @@ describe('AccountMenu', () => {
     await user.click(screen.getByRole('button', { name: 'Account' }))
 
     expect((await screen.findAllByText('Sign out'))[0]).toBeInTheDocument()
+  })
+
+  it('shows language preferences inside the signed-in account menu', async () => {
+    const user = userEvent.setup()
+    ;(useUser as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      user: { id: 'u1', email: 'patrick@example.com' },
+      loading: false,
+    })
+    renderWithIntl(<AccountMenu />)
+
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+
+    expect((await screen.findAllByRole('menuitem', { name: 'Traditional Chinese' })).length).toBeGreaterThan(0)
+    expect((await screen.findAllByRole('menuitem', { name: 'English' })).length).toBeGreaterThan(0)
   })
 
   it('shows a Saved Brands link when logged in', async () => {

@@ -19,9 +19,10 @@ import { LocaleSwitcher } from '@/components/i18n/locale-switcher'
 interface MainNavProps {
   categories: Array<{ slug: string; name: string; nameZh: string | null }>
   hasOwnedBrand?: boolean
+  isAuthenticated?: boolean
 }
 
-export function MainNav({ categories, hasOwnedBrand = false }: MainNavProps) {
+export function MainNav({ categories, hasOwnedBrand = false, isAuthenticated = false }: MainNavProps) {
   const [open, setOpen] = useState(false)
   const t = useTranslations('nav')
   return (
@@ -70,7 +71,7 @@ export function MainNav({ categories, hasOwnedBrand = false }: MainNavProps) {
               {t('submitBrand')}
             </Link>
           )}
-          <LocaleSwitcher />
+          {!isAuthenticated ? <LocaleSwitcher compact /> : null}
           <AccountMenu />
         </div>
 
@@ -127,7 +128,7 @@ export function MainNav({ categories, hasOwnedBrand = false }: MainNavProps) {
                   </Link>
                 )}
                 <div className="px-4">
-                  <LocaleSwitcher />
+                  <LocaleSwitcher compact />
                 </div>
                 <div className="px-4">
                   <AccountMenu />

@@ -7,9 +7,11 @@ vi.mock('@/i18n/navigation', () => ({
   Link: ({ href, children }: { href: string; children: React.ReactNode }) => (
     <a href={href}>{children}</a>
   ),
+  usePathname: () => '/',
 }))
 
 vi.mock('next-intl', () => ({
+  useLocale: () => 'zh-TW',
   useTranslations: () => (key: string, params?: Record<string, unknown>) => {
     const map: Record<string, string> = {
       discoverHeading: '探索',
@@ -30,6 +32,10 @@ vi.mock('next-intl', () => ({
     }
     return map[key] ?? key
   },
+}))
+
+vi.mock('@/app/actions/locale-preference', () => ({
+  setLocalePreference: vi.fn(),
 }))
 
 describe('Footer', () => {

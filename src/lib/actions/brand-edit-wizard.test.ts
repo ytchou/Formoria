@@ -6,16 +6,12 @@ vi.mock('@/lib/services/brands', () => ({
   getBrandDraft: vi.fn(),
   saveDraft: vi.fn(),
 }))
-vi.mock('@/lib/services/brand-onboarding', () => ({
-  completeOnboardingStepsForSection: vi.fn(),
-}))
 vi.mock('next/headers', () => ({ cookies: vi.fn(() => ({ getAll: () => [] })) }))
 
 import { saveSectionDraftAction } from './brand-edit-wizard'
 import { createClient } from '@/lib/supabase/server'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
 import { getBrandDraft, saveDraft } from '@/lib/services/brands'
-import { completeOnboardingStepsForSection } from '@/lib/services/brand-onboarding'
 
 describe('saveSectionDraftAction', () => {
   beforeEach(() => {
@@ -67,22 +63,6 @@ describe('saveSectionDraftAction', () => {
         heroImageUrl: 'http://example.com/img.jpg',
       })
     )
-  })
-
-  it('calls completeOnboardingStepsForSection for basicInfo', async () => {
-    vi.mocked(getBrandDraft).mockResolvedValue(null)
-
-    await saveSectionDraftAction('brand-id', 'brand-slug', 'basicInfo', { name: 'X', productType: 'food' })
-
-    expect(completeOnboardingStepsForSection).toHaveBeenCalledWith('brand-id', 'basicInfo')
-  })
-
-  it('calls completeOnboardingStepsForSection for media', async () => {
-    vi.mocked(getBrandDraft).mockResolvedValue(null)
-
-    await saveSectionDraftAction('brand-id', 'brand-slug', 'media', { heroImageUrl: 'http://example.com/img.jpg' })
-
-    expect(completeOnboardingStepsForSection).toHaveBeenCalledWith('brand-id', 'media')
   })
 
   it('returns error when save fails', async () => {

@@ -86,7 +86,11 @@ export default async function LocaleLayout({ children, params }: LayoutProps) {
         />
       ) : null}
       <div className="relative z-50">
-        <MainNav categories={[...PRODUCT_TYPE_CATEGORIES]} hasOwnedBrand={Boolean(ownedBrand)} />
+        <MainNav
+          categories={[...PRODUCT_TYPE_CATEGORIES]}
+          hasOwnedBrand={Boolean(ownedBrand)}
+          isAuthenticated={Boolean(user)}
+        />
       </div>
       <div className="flex-1">{children}</div>
       <Footer />

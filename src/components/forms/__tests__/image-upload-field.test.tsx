@@ -1,73 +1,71 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest'
-import { render as rtlRender, screen, waitFor } from '@testing-library/react'
-import { type ReactElement } from 'react'
+import { useState } from 'react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { NextIntlClientProvider } from 'next-intl'
-import enMessages from '../../../../messages/en.json'
+import { describe, expect, it, vi } from 'vitest'
 import { ImageUploadField } from '../image-upload-field'
 
-const render = (ui: ReactElement) =>
-  rtlRender(
-    <NextIntlClientProvider locale="en" messages={enMessages}>
-      {ui}
-    </NextIntlClientProvider>,
+vi.mock('@/components/upload/ImageUploader', () => ({
+  ImageUploader: ({
+    id,
+    value,
+    onUpload,
+    onRemove,
+  }: {
+    id: string
+    value: string
+    onUpload: (url: string) => void
+    onRemove: () => void
+  }) => (
+    <div id={id}>
+      <span>{value || 'No image'}</span>
+      <button type="button" onClick={() => onUpload('https://example.com/new.webp')}>
+        Upload image
+      </button>
+      <button type="button" onClick={onRemove}>Remove image</button>
+    </div>
+  ),
+}))
+
+function ControlledField({ initialValue = '' }: { initialValue?: string }) {
+  const [value, setValue] = useState(initialValue)
+  return (
+    <ImageUploadField
+      name="heroImageUrl"
+      label="Hero image"
+      description="Used as the brand card cover."
+      value={value}
+      onChange={setValue}
+      required
+    />
   )
+}
 
 describe('ImageUploadField', () => {
-  it('renders a file input and upload label', () => {
-    render(<ImageUploadField name="logo" label="Brand Logo" />)
-    expect(screen.getByLabelText('Brand Logo')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /upload/i })).toBeInTheDocument()
+  it('renders usage guidance', () => {
+    render(<ControlledField />)
+    expect(screen.getByText('Used as the brand card cover.')).toBeInTheDocument()
   })
 
-  it('shows a preview when an image is selected', async () => {
-    render(<ImageUploadField name="logo" label="Brand Logo" />)
-    const file = new File(['(binary)'], 'logo.png', { type: 'image/png' })
-    const input = screen.getByLabelText('Brand Logo')
-    await userEvent.upload(input, file)
-    await waitFor(() => {
-      expect(screen.getByAltText('Brand Logo preview')).toBeInTheDocument()
-    })
-  })
+  it('adapts the shared uploader to a controlled form value', async () => {
+    const user = userEvent.setup()
+    render(<ControlledField />)
 
-  it('shows an error for files exceeding 5MB', async () => {
-    render(<ImageUploadField name="logo" label="Brand Logo" />)
-    const bigFile = Object.defineProperty(
-      new File([''], 'big.png', { type: 'image/png' }),
-      'size',
-      { value: 6 * 1024 * 1024 }
-    )
-    const input = screen.getByLabelText('Brand Logo')
-    await userEvent.upload(input, bigFile)
-    await waitFor(() => {
-      expect(screen.getByText(/file too large/i)).toBeInTheDocument()
-    })
-  })
+    await user.click(screen.getByRole('button', { name: 'Upload image' }))
 
-  it('shows existing image URL as preview when currentUrl is provided', () => {
-    render(
-      <ImageUploadField
-        name="hero"
-        label="Hero Image"
-        currentUrl="https://example.com/hero.jpg"
-      />
-    )
-    expect(screen.getByAltText('Hero Image preview')).toHaveAttribute(
-      'src',
-      expect.stringContaining('hero.jpg')
+    expect(screen.getByText('https://example.com/new.webp')).toBeInTheDocument()
+    expect(document.querySelector('input[name="heroImageUrl"]')).toHaveValue(
+      'https://example.com/new.webp',
     )
   })
 
-  it('clears the preview when the remove button is clicked', async () => {
-    render(
-      <ImageUploadField
-        name="hero"
-        label="Hero Image"
-        currentUrl="https://example.com/hero.jpg"
-      />
-    )
-    await userEvent.click(screen.getByRole('button', { name: /remove/i }))
-    expect(screen.queryByAltText('Hero Image preview')).not.toBeInTheDocument()
+  it('clears the same controlled value when removed', async () => {
+    const user = userEvent.setup()
+    render(<ControlledField initialValue="https://example.com/hero.webp" />)
+
+    await user.click(screen.getByRole('button', { name: 'Remove image' }))
+
+    expect(screen.getByText('No image')).toBeInTheDocument()
+    expect(document.querySelector('input[name="heroImageUrl"]')).toHaveValue('')
   })
 })

@@ -5,9 +5,9 @@ import { createClient } from '@/lib/supabase/server'
 import { canManageDashboardBrand } from '@/lib/auth/admin-mode'
 import { getBrandBySlug, getBrandDraft } from '@/lib/services/brands'
 import { getApprovedProductTagSuggestions } from '@/lib/services/product-tag-suggestions'
-import type { BrandEditFormValues } from '@/lib/schemas/brand-edit'
 import { DraftBanner } from '../draft-banner'
 import { BrandEditWizard } from './brand-edit-wizard'
+import { buildBrandEditDefaultValues } from './brand-edit-defaults'
 
 type Props = {
   params: Promise<{ slug: string; locale: string }>
@@ -46,11 +46,7 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
     getApprovedProductTagSuggestions(),
   ])
 
-  // Brand DB fields are string|null; form values use string|undefined. Cast at boundary.
-  const defaultValues: Partial<BrandEditFormValues> = {
-    ...(brand as unknown as Partial<BrandEditFormValues>),
-    ...(draft?.data ?? {}),
-  }
+  const defaultValues = buildBrandEditDefaultValues(brand, draft?.data)
 
   let initialStep = 0
   if (rawStep) {

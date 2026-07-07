@@ -33,7 +33,7 @@ describe('useImageUpload', () => {
     const bigFile = createMockFile('huge.jpg', 6 * 1024 * 1024, 'image/jpeg')
 
     await act(async () => {
-      await result.current.upload(bigFile, 'logo.webp')
+      await result.current.upload(bigFile)
     })
 
     expect(result.current.status).toBe('error')
@@ -47,7 +47,7 @@ describe('useImageUpload', () => {
     const textFile = createMockFile('doc.txt', 100, 'text/plain')
 
     await act(async () => {
-      await result.current.upload(textFile, 'logo.webp')
+      await result.current.upload(textFile)
     })
 
     expect(result.current.status).toBe('error')
@@ -68,7 +68,7 @@ describe('useImageUpload', () => {
     const file = createMockFile('logo.png', 1024, 'image/png')
 
     await act(async () => {
-      await result.current.upload(file, 'logo.webp')
+      await result.current.upload(file)
     })
 
     expect(result.current.status).toBe('success')
@@ -94,7 +94,7 @@ describe('useImageUpload', () => {
     const file = createMockFile('doc.pdf', 1024, 'application/pdf')
 
     await act(async () => {
-      await result.current.upload(file, 'doc.pdf')
+      await result.current.upload(file)
     })
 
     expect(result.current.status).toBe('success')
@@ -115,7 +115,7 @@ describe('useImageUpload', () => {
     const file = createMockFile('logo.png', 1024, 'image/png')
 
     await act(async () => {
-      await result.current.upload(file, 'logo.webp')
+      await result.current.upload(file)
     })
 
     expect(result.current.status).toBe('error')

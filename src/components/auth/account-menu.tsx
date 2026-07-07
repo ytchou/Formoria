@@ -1,10 +1,10 @@
 'use client'
 
-import { useTranslations } from 'next-intl'
-import { usePathname } from 'next/navigation'
-import { Link } from '@/i18n/navigation'
+import { useLocale, useTranslations } from 'next-intl'
+import { Link, usePathname } from '@/i18n/navigation'
 
 import { signOut } from '@/app/auth/actions'
+import { setLocalePreference } from '@/app/actions/locale-preference'
 import { useUser } from '@/lib/auth/use-user'
 import { FEEDBACK_FORM_URL } from '@/lib/constants'
 import {
@@ -24,6 +24,7 @@ function getUserInitial(email?: string | null): string {
 export function AccountMenu() {
   const { user, loading } = useUser()
   const t = useTranslations()
+  const locale = useLocale()
   const pathname = usePathname()
 
   if (loading) {
@@ -67,6 +68,19 @@ export function AccountMenu() {
         >
           {t('account.feedback')}
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        {(['zh-TW', 'en'] as const).map((targetLocale) => (
+          <form key={targetLocale} action={setLocalePreference.bind(null, targetLocale, pathname)}>
+            <DropdownMenuItem
+              className={locale === targetLocale ? 'font-medium' : undefined}
+              render={<button type="submit" className="w-full text-left" aria-current={locale === targetLocale ? 'true' : undefined} />}
+            >
+              {t(targetLocale === 'zh-TW'
+                ? 'nav.languageTraditionalChinese'
+                : 'nav.languageEnglish')}
+            </DropdownMenuItem>
+          </form>
+        ))}
         <DropdownMenuSeparator />
         <form action={signOut.bind(null, pathname)}>
           <DropdownMenuItem

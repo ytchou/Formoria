@@ -37,7 +37,7 @@ type FeedbackState =
   | { type: 'error'; message: string; authRequired?: boolean }
 
 type UploadHookState = {
-  upload: (file: File, filename: string) => Promise<{ url: string | null; key: string | null } | null>
+  upload: (file: File) => Promise<{ url: string | null; key: string | null } | null>
   uploading?: boolean
   progress?: number
   status?: string
@@ -65,10 +65,6 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 function isAuthError(message: string) {
   const normalized = message.toLowerCase()
   return normalized.includes('sign in') || normalized.includes('authenticate')
-}
-
-function sanitizeFilename(filename: string) {
-  return filename.replace(/[^a-zA-Z0-9.]/g, '_')
 }
 
 function hasRequiredEvidence(type: ClaimProofType, proof: ProofState) {
@@ -113,8 +109,7 @@ function ClaimProofUpload({
     const file = event.target.files?.[0]
     if (!file) return
 
-    const filename = `${Date.now()}-${sanitizeFilename(file.name)}`
-    const result = await uploadState.upload(file, filename)
+    const result = await uploadState.upload(file)
     if (result?.key) {
       onUploaded(result.key)
     }
