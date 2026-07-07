@@ -31,7 +31,8 @@ export function getInitialWizardStep(
   const maxIndex = Math.max(totalSteps - 1, 0)
 
   if (rawStep) {
-    return Math.max(0, Math.min(parseInt(rawStep, 10), maxIndex))
+    const parsed = parseInt(rawStep, 10)
+    return Math.max(0, Math.min(Number.isNaN(parsed) ? 0 : parsed, maxIndex))
   }
 
   if (completedSteps.length === 0) return 0
