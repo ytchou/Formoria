@@ -1,0 +1,61 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Directory Health — 2026-07-07"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*355 brands total* (+0 today)\n96.9% have complete profiles (description + image) · 0 zero-content brands · 179 brands with website URLs audited"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*:warning: Suspicious — Third-party (1)*\n• `暖木家居 Warmwood Living` (`warmwood-living`) → <https://www.threads.net/@warmwood.living|threads.net/@warmwood.living>\n  _Threads social media profile — not the brand's own website. Should point to brand's owned domain._"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Unknown / Unverified (88)*\nDomains appear legitimate (`.com.tw` / `.tw` / `.com`) but could not be confirmed reachable via web search — typical for small/niche Taiwan brands with low search footprint. No evidence of broken domains detected.\n_Heads-up: `BoingBoing` uses `http://www.boing.com.tw` (plain HTTP, no HTTPS) — consider updating the record._"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*:white_check_mark: OK (~90 confirmed)*\nConfirmed reachable via web search — includes 1973 Furniture, 2Angels, AROMASE, Djulis, Ecopeco, EYEGLAD, HIPPORIZZ, JUN616XTEEN, MOLA, MTSK, MXM, Pato Pato, PERi, Robber 925 Silver, SATBAKHI, SOLIS, Washcan, WEAVISM, ZALY, ZILA, and more."
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*DB Health*\nTop tables: `brands` (9.2 MB), `storage.objects` (5.1 MB), `brand_search_results` (3.7 MB), `brand_ai_results` (1.6 MB), `brand_images` (1.5 MB)\nConnections: 1 active / 10 idle / 0 idle-in-txn / longest running <1s — healthy ✓\n\n:warning: *Dead tuples — VACUUM needed:*\n• `brands` — 28.3% (117 dead / 414 live) ← most critical\n• `brand_submissions` — 2400% (48 dead / 2 live)\n• `brand_owners` — 2300% (23 dead / 1 live)\n• `brand_saves` — 1800% (18 dead / 1 live)\n• `newsletter_subscribers` — 1100% (22 dead / 2 live)\n• `moderation_flags` — 600% (12 dead / 2 live)\n• `profiles` — 125% (5 dead / 4 live)\n• `brand_field_state` — 100% (14 dead / 14 live)\n• `owner_email_preferences` — 20 dead / 0 live\n• `pending_brand_edits` — 7 dead / 0 live\n\nSlow queries: Top `pg_stat_statements` entries are VACUUM ANALYZE & Supabase system introspection — no app-level slow query concern."
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "1 Linear ticket created (<https://linear.app/ytchou/issue/DEV-972|DEV-972>) · Directory Health v2 · daily run"
+        }
+      ]
+    }
+  ]
+}
