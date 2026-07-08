@@ -56,7 +56,7 @@ function normalizeVerificationStatus(
   return latitude !== undefined && longitude !== undefined ? 'verified' : 'manual'
 }
 
-export function normalizeRetailLocation(value: unknown): RetailLocation | null {
+function normalizeRetailLocation(value: unknown): RetailLocation | null {
   if (!isRecord(value)) return null
 
   const name = optionalString(value.name)

@@ -159,9 +159,3 @@ export async function submitOwnerBrand(
     return { error: t('unexpected') }
   }
 }
-
-export async function submitBrand(
-  data: SubmitBrandInput
-): Promise<{ error?: string } | undefined> {
-  return submitRecommendation(data)
-}

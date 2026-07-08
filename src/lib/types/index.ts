@@ -6,7 +6,6 @@ export type {
   OtherUrl,
   RetailLocation,
   RetailLocationRelationshipType,
-  RetailLocationVerificationStatus,
   SubmissionStatus,
 } from './brand'
 

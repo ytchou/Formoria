@@ -153,10 +153,6 @@ export function createSubmissionSchema(isOwner: boolean, t: Translator = zhT) {
 
 export const fullSubmissionSchema = createRecommendationSubmissionSchema(zhT)
 
-export function getFullSubmissionSchema(t: Translator) {
-  return createRecommendationSubmissionSchema(t)
-}
-
 export type SubmissionFormData = {
   name: string
   website: string
