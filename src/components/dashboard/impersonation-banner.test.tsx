@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ImpersonationBanner } from './impersonation-banner'
 
 vi.mock('next/navigation', () => ({
@@ -15,12 +15,18 @@ vi.mock('@/lib/actions/impersonation', () => ({
 }))
 
 describe('ImpersonationBanner', () => {
-  it('renders the server-provided remaining minutes on first paint', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('renders the remaining minutes on first paint', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-08T00:00:00Z'))
+
     render(
       <ImpersonationBanner
         brandName="Warmwood Living"
-        expiresAt={1_783_478_713}
-        initialMinutesLeft={1}
+        expiresAt={1_783_468_860}
         labels={{
           banner: 'You are viewing as Warmwood Living',
           exit: 'Exit',
