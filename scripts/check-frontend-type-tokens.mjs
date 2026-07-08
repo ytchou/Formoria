@@ -1,8 +1,7 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { globSync } from 'node:fs'
 
 export const frontendTokenRoots = ['src/app', 'src/components']
 
@@ -82,16 +81,42 @@ function isAllowedMatch(file, name, value) {
   )
 }
 
+function collectSourceFiles(cwd, root) {
+  const absoluteRoot = join(cwd, root)
+  if (!existsSync(absoluteRoot)) return []
+
+  const files = []
+  const stack = [root]
+
+  while (stack.length > 0) {
+    const current = stack.pop()
+    if (!current) continue
+
+    for (const entry of readdirSync(join(cwd, current), {
+      withFileTypes: true,
+    })) {
+      if (entry.name === '.next' || entry.name === 'node_modules') continue
+
+      const child = join(current, entry.name)
+      if (entry.isDirectory()) {
+        stack.push(child)
+        continue
+      }
+
+      if (entry.isFile() && /\.(ts|tsx)$/.test(entry.name)) {
+        files.push(child)
+      }
+    }
+  }
+
+  return files.sort()
+}
+
 export function collectFrontendTokenFailures({
   cwd = process.cwd(),
   roots = frontendTokenRoots,
 } = {}) {
-  const files = roots.flatMap((root) =>
-    globSync(`${root}/**/*.{ts,tsx}`, {
-      cwd,
-      exclude: ['**/.next/**', '**/node_modules/**'],
-    }),
-  )
+  const files = roots.flatMap((root) => collectSourceFiles(cwd, root))
 
   const failures = []
 
