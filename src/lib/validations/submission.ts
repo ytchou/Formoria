@@ -32,10 +32,22 @@ function buildFieldSchemas(t: Translator) {
   const socialLinksSchema = z.object({
     instagram: z.string().optional().default(''),
     threads: z.string().optional().default(''),
-    facebook: httpUrl(t('validation.urlInvalid')).or(z.literal('')).optional().default(''),
-    pinkoi: httpUrl(t('validation.urlInvalid')).or(z.literal('')).optional().default(''),
-    shopee: httpUrl(t('validation.urlInvalid')).or(z.literal('')).optional().default(''),
-    website: httpUrl(t('validation.urlInvalid')).or(z.literal('')).optional().default(''),
+    facebook: httpUrl(t('validation.urlInvalid'))
+      .or(z.literal(''))
+      .optional()
+      .default(''),
+    pinkoi: httpUrl(t('validation.urlInvalid'))
+      .or(z.literal(''))
+      .optional()
+      .default(''),
+    shopee: httpUrl(t('validation.urlInvalid'))
+      .or(z.literal(''))
+      .optional()
+      .default(''),
+    website: httpUrl(t('validation.urlInvalid'))
+      .or(z.literal(''))
+      .optional()
+      .default(''),
   })
 
   return {
@@ -55,14 +67,10 @@ function getBrandInfoSchema(t: Translator) {
   })
 }
 
-
 export function getLinksSchema(t: Translator) {
   const { purchaseLinkSchema, socialLinksSchema } = buildFieldSchemas(t)
   return z.object({
-    purchaseLinks: z
-      .array(purchaseLinkSchema)
-      .optional()
-      .default([]),
+    purchaseLinks: z.array(purchaseLinkSchema).optional().default([]),
     socialLinks: socialLinksSchema.optional().default({
       instagram: '',
       threads: '',
@@ -96,7 +104,9 @@ function getBotDetectionSchema(_t: Translator) {
 const zhT = (key: string): string => {
   const map: Record<string, string> = {
     'validation.nameMinLength': '品牌名稱至少需要 2 個字元',
+    'validation.descriptionRequired': '請填寫品牌簡介',
     'validation.emailInvalid': '請輸入有效的電子郵件地址',
+    'validation.heroImageRequired': '請上傳品牌主圖',
     'validation.platformRequired': '請選擇平台',
     'validation.urlInvalid': '請輸入有效的網址',
     'validation.pdpaRequired': '請同意隱私政策',
@@ -113,28 +123,47 @@ function optionalEmail(message: string) {
 
 function baseSubmissionSchema(t: Translator) {
   return getBrandInfoSchema(t)
-    .merge(z.object({
-      heroImageUrl: z.string().url().optional().or(z.literal('')),
-      description: z.string().max(500).optional().default(''),
-    }))
+    .merge(
+      z.object({
+        heroImageUrl: z.string().url().optional().or(z.literal('')),
+        description: z.string().max(500).optional().default(''),
+      }),
+    )
     .merge(getReviewSchema(t))
     .merge(getBotDetectionSchema(t))
 }
 
 export function createRecommendationSubmissionSchema(t: Translator = zhT) {
-  return baseSubmissionSchema(t).merge(z.object({
-    sourceAttribution: sourceAttributionEnum,
-    guestEmail: optionalEmail(t('validation.emailInvalid')),
-  }))
+  return baseSubmissionSchema(t).merge(
+    z.object({
+      sourceAttribution: sourceAttributionEnum,
+      guestEmail: optionalEmail(t('validation.emailInvalid')),
+    }),
+  )
 }
 
 export function createOwnerSubmissionSchema(t: Translator = zhT) {
   return baseSubmissionSchema(t)
+    .merge(
+      z.object({
+        description: z
+          .string()
+          .trim()
+          .min(1, t('validation.descriptionRequired'))
+          .max(500),
+        heroImageUrl: z
+          .string()
+          .min(1, t('validation.heroImageRequired'))
+          .url(t('validation.urlInvalid')),
+      }),
+    )
     .merge(getLinksSchema(t))
-    .merge(z.object({
-      city: z.enum(CITY_SLUGS).optional(),
-      mitSmileCert: z.string().optional().default(''),
-    }))
+    .merge(
+      z.object({
+        city: z.enum(CITY_SLUGS).optional(),
+        mitSmileCert: z.string().optional().default(''),
+      }),
+    )
 }
 
 /**
@@ -166,5 +195,7 @@ export type SubmissionFormData = {
   turnstileToken: string
   honeypot?: string
   purchaseLinks?: z.infer<ReturnType<typeof getLinksSchema>>['purchaseLinks']
-  socialLinks?: Partial<z.infer<ReturnType<typeof getLinksSchema>>['socialLinks']>
+  socialLinks?: Partial<
+    z.infer<ReturnType<typeof getLinksSchema>>['socialLinks']
+  >
 }

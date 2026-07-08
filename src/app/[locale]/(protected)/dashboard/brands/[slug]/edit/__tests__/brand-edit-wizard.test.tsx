@@ -32,7 +32,11 @@ vi.mock('@/i18n/navigation', () => ({
 
 // Mock all 9 section components for isolation
 vi.mock('../sections/basic-info-section', () => ({
-  BasicInfoSection: ({ form }: { form: UseFormReturn<BrandEditFormValues> }) => (
+  BasicInfoSection: ({
+    form,
+  }: {
+    form: UseFormReturn<BrandEditFormValues>
+  }) => (
     <div data-testid="basic-info-section">
       <input aria-label="Brand name field" {...form.register('name')} />
     </div>
@@ -56,7 +60,11 @@ vi.mock('../sections/locations-section', () => ({
   LocationsSection: () => <div data-testid="locations-section" />,
 }))
 vi.mock('../sections/reputation-section', () => ({
-  ReputationSection: ({ form }: { form: UseFormReturn<BrandEditFormValues> }) => (
+  ReputationSection: ({
+    form,
+  }: {
+    form: UseFormReturn<BrandEditFormValues>
+  }) => (
     <div data-testid="reputation-section">
       <textarea
         aria-label="Reputation summary"
@@ -110,8 +118,8 @@ describe('BrandEditWizard', () => {
 
     expect(screen.getAllByText('基本資料').length).toBeGreaterThanOrEqual(1)
     expect(
-      screen.getByRole('progressbar', { name: '第 1 步，共 5 步' }),
-    ).toBeInTheDocument()
+      screen.getAllByRole('progressbar', { name: '第 1 步，共 5 步' }),
+    ).toHaveLength(2)
   })
 
   it('shows the active section content at step 0', () => {
@@ -131,7 +139,9 @@ describe('BrandEditWizard', () => {
       initialCompletedSteps: [0, 1],
     })
 
-    const basicInfoButton = screen.getAllByRole('button', { name: 'Basic Info' })[0]
+    const basicInfoButton = screen.getAllByRole('button', {
+      name: 'Basic Info',
+    })[0]
     expect(basicInfoButton.querySelector('svg')).toBeTruthy()
   })
 
@@ -139,9 +149,12 @@ describe('BrandEditWizard', () => {
     renderWizard()
 
     expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument()
-    fireEvent.change(screen.getByRole('textbox', { name: 'Brand name field' }), {
-      target: { value: 'Changed Brand' },
-    })
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Brand name field' }),
+      {
+        target: { value: 'Changed Brand' },
+      },
+    )
     expect(screen.getByText('Unsaved changes')).toBeInTheDocument()
 
     fireEvent.click(screen.getAllByRole('button', { name: /Brand images/ })[0])
@@ -184,10 +197,9 @@ describe('BrandEditWizard', () => {
     fireEvent.click(screen.getByRole('button', { name: /save & continue/i }))
 
     await waitFor(() => {
-      expect(screen.getByRole('textbox', { name: 'Official website' })).toHaveAttribute(
-        'aria-invalid',
-        'true',
-      )
+      expect(
+        screen.getByRole('textbox', { name: 'Official website' }),
+      ).toHaveAttribute('aria-invalid', 'true')
     })
     expect(screen.getByTestId('links-section')).toBeInTheDocument()
     expect(saveSectionDraftAction).not.toHaveBeenCalled()
@@ -220,9 +232,12 @@ describe('BrandEditWizard', () => {
       },
     })
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'Reputation summary' }), {
-      target: { value: 'Featured by independent design publications.' },
-    })
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Reputation summary' }),
+      {
+        target: { value: 'Featured by independent design publications.' },
+      },
+    )
     fireEvent.click(screen.getByRole('button', { name: /publish/i }))
 
     await waitFor(() => {
@@ -236,7 +251,9 @@ describe('BrandEditWizard', () => {
       )
       expect(publishDraftAction).toHaveBeenCalled()
     })
-    expect(vi.mocked(saveSectionDraftAction).mock.invocationCallOrder[0]).toBeLessThan(
+    expect(
+      vi.mocked(saveSectionDraftAction).mock.invocationCallOrder[0],
+    ).toBeLessThan(
       vi.mocked(publishDraftAction).mock.invocationCallOrder[0] ?? 0,
     )
   })

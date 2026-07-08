@@ -4,7 +4,7 @@ import { seedBrand } from '../helpers/seed'
 /**
  * Dashboard Analytics
  *
- * Journey: Brand owner navigates to /dashboard/analytics?brand=<slug> and
+ * Journey: Brand owner navigates to /dashboard/brands/<slug>/analytics and
  * sees all analytics UI components in their empty-state form (new brand with
  * no view/click data yet).
  *
@@ -33,9 +33,12 @@ test.describe('Dashboard — analytics', () => {
   test('renders analytics page with empty-state components', async ({ userPage }) => {
     test.setTimeout(60_000)
 
-    const resp = await userPage.goto(`/dashboard/analytics?brand=${brandSlug}`, {
-      timeout: 60_000,
-    })
+    const resp = await userPage.goto(
+      `/dashboard/brands/${brandSlug}/analytics`,
+      {
+        timeout: 60_000,
+      },
+    )
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping')
       return

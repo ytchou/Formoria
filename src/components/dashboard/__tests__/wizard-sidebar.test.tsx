@@ -8,7 +8,9 @@ import type { WizardStep } from '@/lib/schemas/brand-edit'
 
 vi.mock('@/i18n/navigation', () => ({
   Link: ({ href, children, className }: React.ComponentProps<'a'>) => (
-    <a href={href} className={className}>{children}</a>
+    <a href={href} className={className}>
+      {children}
+    </a>
   ),
 }))
 
@@ -28,18 +30,22 @@ function renderSidebar(props = {}) {
         onStepClick={vi.fn()}
         {...props}
       />
-    </NextIntlClientProvider>
+    </NextIntlClientProvider>,
   )
 }
 
 describe('WizardSidebar', () => {
   it('renders all step labels', () => {
     renderSidebar()
-    expect(screen.getByRole('heading', { name: 'Edit brand details' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Edit brand details' }),
+    ).toBeInTheDocument()
     expect(screen.getAllByText('Step 2 of 3').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Basic Info').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Brand images').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('Social & purchase links').length).toBeGreaterThanOrEqual(1)
+    expect(
+      screen.getAllByText('Social & purchase links').length,
+    ).toBeGreaterThanOrEqual(1)
     expect(screen.queryByText(/undefined/)).not.toBeInTheDocument()
   })
 
@@ -52,14 +58,18 @@ describe('WizardSidebar', () => {
 
   it('marks the active step for assistive technology', () => {
     renderSidebar()
-    expect(screen.getAllByRole('button', { name: /Brand images/ })[0]).toHaveAttribute(
-      'aria-current',
-      'step',
-    )
+    expect(
+      screen.getAllByRole('button', { name: /Brand images/ })[0],
+    ).toHaveAttribute('aria-current', 'step')
   })
 
   it('shows progress bar', () => {
     renderSidebar()
-    expect(screen.getByRole('progressbar')).toBeInTheDocument()
+    const progressBars = screen.getAllByRole('progressbar')
+    expect(progressBars).toHaveLength(2)
+    for (const progressBar of progressBars) {
+      expect(progressBar).toHaveAttribute('aria-valuenow', '2')
+      expect(progressBar).toHaveAttribute('aria-valuemax', '3')
+    }
   })
 })

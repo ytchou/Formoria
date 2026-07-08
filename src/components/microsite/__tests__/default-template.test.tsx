@@ -30,7 +30,7 @@ describe('DefaultTemplate (microsite)', () => {
     expect(screen.getByText('核桃木托盤')).toBeInTheDocument()
     const mailto = screen.getByRole('link', { name: /洽詢|聯絡品牌/ })
     expect(mailto).toHaveAttribute('href', 'mailto:hi@warmwood.tw')
-    expect(screen.getByText(/MIT 已驗證/)).toBeInTheDocument()
+    expect(screen.getByText(/MIT 微笑認證/)).toBeInTheDocument()
     expect(screen.getByText(/Powered by Formoria/i)).toBeInTheDocument()
   })
 

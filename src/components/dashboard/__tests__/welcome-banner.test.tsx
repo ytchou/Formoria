@@ -6,9 +6,12 @@ import en from '@/../messages/en.json'
 import zhTW from '@/../messages/zh-TW.json'
 import { WelcomeBanner } from '../welcome-banner'
 
-vi.mock('@/app/[locale]/(protected)/dashboard/brands/[slug]/walkthrough-actions', () => ({
-  visitDashboardWalkthroughStep: vi.fn(),
-}))
+vi.mock(
+  '@/app/[locale]/(protected)/dashboard/brands/[slug]/walkthrough-actions',
+  () => ({
+    visitDashboardWalkthroughStep: vi.fn(),
+  }),
+)
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/dashboard',
@@ -50,8 +53,12 @@ describe('WelcomeBanner', () => {
       '1',
     )
 
-    expect(screen.getByRole('button', { name: /Add media & links/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Check your analytics/ })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /Add media & links/ }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /Check your analytics/ }),
+    ).toBeInTheDocument()
   })
 
   it('renders at 100% when all steps are completed', () => {

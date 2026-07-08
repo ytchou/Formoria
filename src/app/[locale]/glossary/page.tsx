@@ -185,7 +185,7 @@ export default async function GlossaryPage({ params }: PageProps) {
                             </span>
                             {term.badge === 'verified' && (
                               <MitVerifiedBadge
-                                label={safeLocale === 'zh-TW' ? 'MIT 已驗證' : 'MIT Verified'}
+                                label={safeLocale === 'zh-TW' ? 'MIT 微笑認證' : 'MIT Verified'}
                                 title={safeLocale === 'zh-TW' ? '已通過 MIT 微笑標章登錄驗證' : 'Verified MIT Smile Mark registration'}
                               />
                             )}

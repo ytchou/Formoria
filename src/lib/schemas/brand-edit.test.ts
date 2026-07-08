@@ -67,6 +67,23 @@ describe('brandEditSchema', () => {
     })
     expect(result.success).toBe(true)
   })
+
+  it('blocks duplicate retail locations', () => {
+    const result = brandEditSchema.safeParse({
+      retailLocations: [
+        {
+          relationshipType: 'stockist',
+          address: 'Taipei 101',
+        },
+        {
+          relationshipType: 'brand_store',
+          address: ' Taipei   101 ',
+        },
+      ],
+    })
+
+    expect(result.success).toBe(false)
+  })
 })
 
 describe('brandPublishSchema', () => {

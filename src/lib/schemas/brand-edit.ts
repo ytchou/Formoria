@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { getDuplicateRetailLocationIndex } from '@/lib/brands/locations'
 import type { OnboardingStepKey } from '@/lib/services/brand-onboarding'
 
 // --- Per-section Zod schemas ---
@@ -70,6 +71,16 @@ const retailLocationSchema = z
 const locationsSchema = z.object({
   retailLocations: z
     .array(retailLocationSchema)
+    .superRefine((locations, ctx) => {
+      const duplicateIndex = getDuplicateRetailLocationIndex(locations)
+      if (duplicateIndex === undefined) return
+
+      ctx.addIssue({
+        code: 'custom',
+        path: [duplicateIndex, 'address'],
+        message: 'Duplicate retail location',
+      })
+    })
     .optional(),
 })
 

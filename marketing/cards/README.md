@@ -68,7 +68,7 @@ Placeholders found across all four templates, grouped by role:
 | `{{CTA_NOTE}}` | cta | Per-platform sub-note below the button |
 | `{{CTA_BTN_BG}}` | cta | CTA button background color |
 | `{{CTA_BTN_TEXT}}` | cta | CTA button text color |
-| `{{BADGE}}` | brand-highlight | MIT 已驗證 badge text; collapses when empty |
+| `{{BADGE}}` | brand-highlight | MIT 微笑認證 badge text; collapses when empty |
 | `{{CAT_TAG}}` | brand-highlight | Category tag pill; collapses when empty |
 | `{{BRAND_NAME}}` | brand-highlight | Brand Chinese name (72 px) |
 | `{{BRAND_EN}}` | brand-highlight | Brand English name |
@@ -108,7 +108,7 @@ Templates and theme are reusable for these future sets — each needs only a new
 
 | Series | Template | Mode | Gate |
 |---|---|---|---|
-| **Brand highlight** — one card per listed brand; optional MIT 已驗證 badge | `brand-highlight.html` | — | ~12+ listed brands |
+| **Brand highlight** — one card per listed brand; optional MIT 微笑認證 badge | `brand-highlight.html` | — | ~12+ listed brands |
 | **Founder / behind-the-scenes** — founder voice, quotes | `text.html` | `quote` / `prose` | — |
 | **Category highlight** — one set per taxonomy category | `text.html` | `bullets` / `keyword` | — |
 | **"Top 5" / curated lists** | `text.html` | `numbered` | — |

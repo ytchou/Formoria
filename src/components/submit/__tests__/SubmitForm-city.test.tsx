@@ -35,7 +35,7 @@ function renderForm() {
   return render(
     <NextIntlClientProvider locale="zh-TW" messages={messages}>
       <SubmitForm variant="owner" />
-    </NextIntlClientProvider>
+    </NextIntlClientProvider>,
   )
 }
 
@@ -46,7 +46,9 @@ describe('SubmitForm city field', () => {
     const citySelect = screen.getByLabelText(/品牌所在縣市/)
     expect(citySelect).toBeInTheDocument()
     expect(citySelect).toHaveAttribute('id', 'submit-city')
-    expect(screen.getByRole('option', { name: /請選擇縣市（選填）/ })).toBeInTheDocument()
+    expect(
+      screen.getByRole('option', { name: /請選擇縣市（選填）/ }),
+    ).toBeInTheDocument()
     expect(screen.getByRole('option', { name: '臺北市' })).toBeInTheDocument()
   })
 })

@@ -98,8 +98,8 @@ describe('BrandCard badges', () => {
       />,
     )
 
-    expect(screen.getByTitle('MIT 已驗證')).toBeInTheDocument()
-    expect(screen.getByTitle('MIT 已驗證')).toHaveTextContent('MIT')
+    expect(screen.getByTitle('MIT 微笑認證')).toBeInTheDocument()
+    expect(screen.getByTitle('MIT 微笑認證')).toHaveTextContent('MIT')
   })
 
   it('renders the owner badge for verified brands', () => {
@@ -126,7 +126,7 @@ describe('BrandCard badges', () => {
     )
 
     expect(screen.queryByTitle('由品牌方經營管理')).toBeNull()
-    expect(screen.queryByTitle('MIT 已驗證')).toBeNull()
+    expect(screen.queryByTitle('MIT 微笑認證')).toBeNull()
   })
 
   it('renders a save button overlay on the card image', () => {
