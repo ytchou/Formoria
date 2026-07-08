@@ -8,8 +8,15 @@ describe('toImageFields', () => {
     { url: 'life.jpg', status: 'active', sort_order: 1 },
   ]
 
-  it('maps active rows to the existing domain shape (hero + productPhotos)', () => {
-    expect(toImageFields(rows as never)).toEqual({ heroImageUrl: 'prod.jpg', productPhotos: ['life.jpg'] })
+  it('maps active rows to the existing domain shape (hero + productPhotos + imageAlts)', () => {
+    expect(toImageFields(rows as never)).toEqual({
+      heroImageUrl: 'prod.jpg',
+      productPhotos: ['life.jpg'],
+      imageAlts: [
+        { altZh: null, altEn: null },
+        { altZh: null, altEn: null },
+      ],
+    })
   })
 })
 
