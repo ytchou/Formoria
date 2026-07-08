@@ -42,6 +42,7 @@ vi.mock('@/lib/services/submissions', () => ({
   }),
   approveSubmission: vi.fn().mockResolvedValue({ brandId: 'brand-1' }),
   rejectSubmission: vi.fn().mockResolvedValue(undefined),
+  isGeneratedGuestSubmissionEmail: vi.fn(() => false),
 }))
 
 vi.mock('@/lib/services/claim-requests', () => ({

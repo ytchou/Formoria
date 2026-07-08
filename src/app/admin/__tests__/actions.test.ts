@@ -117,6 +117,7 @@ describe('rejectSubmissionAction', () => {
       }),
       approveSubmission: vi.fn(),
       rejectSubmission: vi.fn().mockResolvedValue(undefined),
+      isGeneratedGuestSubmissionEmail: vi.fn(() => false),
     }))
 
     vi.doMock('@/lib/services/claim-requests', () => ({
