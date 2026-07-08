@@ -6,7 +6,8 @@ import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { createClient } from '@/lib/supabase/server'
 import { getUserBrand } from '@/lib/services/brand-owners'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import SubmitForm from '@/components/submit/SubmitForm'
 
 type OwnerPageProps = {
@@ -85,16 +86,21 @@ export default async function SubmitOwnerPage({
               {tSubmitConfirmation('communityOwnershipContinue')}
             </p>
             <div className="mt-5 grid gap-2 sm:grid-cols-2">
-              <Button asChild className="min-h-12">
-                <Link href={submitOwnerPath}>
-                  {tSubmitConfirmation('communityOwnershipContinueCta')}
-                </Link>
-              </Button>
-              <Button asChild variant="outline" className="min-h-12">
-                <Link href={submitPagePath}>
-                  {tSubmitConfirmation('communityOwnershipBackCta')}
-                </Link>
-              </Button>
+              <Link
+                href={submitOwnerPath}
+                className={cn(buttonVariants(), 'min-h-12')}
+              >
+                {tSubmitConfirmation('communityOwnershipContinueCta')}
+              </Link>
+              <Link
+                href={submitPagePath}
+                className={cn(
+                  buttonVariants({ variant: 'outline' }),
+                  'min-h-12',
+                )}
+              >
+                {tSubmitConfirmation('communityOwnershipBackCta')}
+              </Link>
             </div>
           </section>
         </div>

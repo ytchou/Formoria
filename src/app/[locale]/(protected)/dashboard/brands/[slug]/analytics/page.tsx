@@ -12,7 +12,7 @@ import { AnalyticsChart } from '@/components/dashboard/analytics-chart'
 import { LinkBreakdown } from '@/components/dashboard/link-breakdown'
 import { SourcesBreakdownCard } from '@/components/dashboard/sources-breakdown-card'
 import { BrandDashboardShell } from '@/components/dashboard/brand-dashboard-shell'
-import { getLatestReview } from '../../_lib/latest-review'
+import { getLatestReview } from '../../../_lib/latest-review'
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
