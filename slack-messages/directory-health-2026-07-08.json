@@ -1,0 +1,68 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Directory Health — 2026-07-08"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*355 brands total* (+0 today)\n96.9% have complete profiles (description + image) · 0 zero-content brands · 175 brands with website URLs audited"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*:warning: Suspicious — Third-party (1)*\n• `1973 Furniture` (`1973-furniture`) → <https://1973home.myshopify.com|1973home.myshopify.com>\n  _Raw Shopify subdomain — no custom domain configured. Brand's own domain should be set as purchase URL. Recurring from DEV-942._"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*:x: Possible Broken (2)*\n• `BoingBoing` (`boingboing`) → <https://www.boing.com.tw|www.boing.com.tw>\n  _Indexed pages all use plain HTTP only; HTTPS certificate may not be configured. Recurring from DEV-919._\n• `Journey of Sole` (`journey-of-sole`) → <https://journeyofsole.com|journeyofsole.com>\n  _Domain not indexed by search engines; no evidence of a live site. Recurring from DEV-942._"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Unknown / Unverified (~100)*\nDomains appear legitimate but could not be confirmed reachable via web search — typical for small/niche Taiwan brands with low search footprint. No evidence of broken domains detected in this group."
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*:white_check_mark: OK (~72 confirmed)*\nConfirmed reachable via web search — includes AROMASE, Baby Baby Cool, Bonbons, DKGP, Enjoy Caster, EYEGLAD, Fuwan Chocolates, HIPPORIZZ, immugoat, Keizu, Kirameku Jewelry, Le Gusta, Lianne Baby, MOLA, MXM, Musen Socks, Niizo, ÓLIVE, Playzu, Prowear, RESHOCK COFFEE, Sanly Joy, SATBAKHI, SOLIS, SOBDEALL, Shunyun Tea, Yates, ZALY, Zoodi, Z研 and more."
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*DB Health*\nTop tables: `brands` (9.2 MB), `storage.objects` (5.2 MB), `brand_search_results` (3.7 MB), `brand_ai_results` (1.6 MB), `brand_images` (1.5 MB)\nConnections: 1 active / 17 idle / 0 idle-in-txn / longest running <1s — healthy ✓\n\n:warning: *Dead tuples — VACUUM recommended (small tables, autovacuum delayed):*\n• `brand_field_state` — 100% (14 dead / 0 live)\n• `brand_saves` — 2000% (20 dead / 1 live)\n• `brand_owners` — 700% (7 dead / 1 live)\n• `brand_submissions` — 1000% (20 dead / 2 live)\n• `moderation_flags` — 600% (12 dead / 2 live)\n_Note: `brands` improved to 9.4% (was 28.3% yesterday) — prior VACUUMs effective._\n\nSlow queries: VACUUM ANALYZE ops top pg_stat_statements (expected). Extension metadata SELECT runs 70× at mean 543ms — Supabase/MCP tooling, not app traffic. No application queries above 500ms."
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "1 Linear ticket created (<https://linear.app/ytchou/issue/DEV-976|DEV-976>) · Directory Health v2 · daily run"
+        }
+      ]
+    }
+  ]
+}
