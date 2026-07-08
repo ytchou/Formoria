@@ -13,7 +13,7 @@ export async function BrandBreadcrumb({ categorySlug, categoryLabel, brandName }
 
   return (
     <nav aria-label="Breadcrumb" className="mb-6">
-      <ol className="flex items-center gap-1.5 text-sm text-muted-foreground">
+      <ol className="flex items-center gap-1.5 type-card-description">
         <li>
           <Link
             href="/brands"

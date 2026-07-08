@@ -56,17 +56,17 @@ export default async function PrivacyPage({ params }: PageProps) {
     <main className="mx-auto w-full max-w-screen-xl px-6 py-10 md:px-10">
       <div className="grid gap-10 md:grid-cols-[18rem_minmax(0,1fr)] md:gap-16">
         <aside className="space-y-4 md:sticky md:top-24 md:self-start">
-          <h1 className="font-heading text-[26px] font-bold text-foreground">{t('title')}</h1>
-          <p className="font-sans text-sm leading-[1.7] text-muted-foreground">{t('intro')}</p>
-          <p className="font-sans text-sm leading-[1.7] text-muted-foreground">{t('lastUpdated')}</p>
+          <h1 className="type-page-title">{t('title')}</h1>
+          <p className="type-body-muted">{t('intro')}</p>
+          <p className="type-body-muted">{t('lastUpdated')}</p>
         </aside>
         <div className="divide-y divide-border">
           {sectionKeys.map((key) => (
             <section key={key} className="space-y-3 py-6 first:pt-0">
-              <h2 className="font-heading text-xl font-bold text-foreground">
+              <h2 className="type-section-title-large">
                 {t(`${key}.heading`)}
               </h2>
-              <p className="font-sans text-sm leading-[1.7] text-muted-foreground">
+              <p className="type-body-muted">
                 {t(`${key}.body`)}
               </p>
             </section>

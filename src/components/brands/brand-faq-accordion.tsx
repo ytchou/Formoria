@@ -50,7 +50,7 @@ export function BrandFaqAccordion({ items }: BrandFaqAccordionProps) {
 
   return (
     <section>
-      <h2 className="mb-3 font-heading text-base font-bold text-foreground">
+      <h2 className="mb-3 type-section-title">
         {t('faq')}
       </h2>
       <Accordion type="multiple">
@@ -58,7 +58,7 @@ export function BrandFaqAccordion({ items }: BrandFaqAccordionProps) {
           <AccordionItem key={`${item.question}-${index}`} value={`faq-${index}`}>
             <AccordionTrigger>{item.question}</AccordionTrigger>
             <AccordionContent>
-              <p className="text-sm leading-relaxed text-muted-foreground">
+              <p className="type-section-description">
                 {renderLinkedText(item.answer)}
               </p>
             </AccordionContent>

@@ -19,16 +19,16 @@ export function EditReviewBanner({ edit, brandSlug }: Props) {
 
   if (edit.status === 'pending') {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+      <div className="rounded-xl border border-mit-verified/20 bg-mit-verified-bg p-4">
         <div className="flex items-center gap-3">
-          <span className="text-amber-600">⏳</span>
+          <span className="text-mit-verified">⏳</span>
           <div>
-            <p className="text-sm font-semibold text-amber-800">{t('pendingMessage')}</p>
-            <p className="text-xs text-amber-600">
+            <p className="type-body-emphasis text-mit-verified">{t('pendingMessage')}</p>
+            <p className="type-caption text-mit-verified">
               {new Date(edit.createdAt).toLocaleDateString('zh-TW')}
             </p>
           </div>
-          <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+          <span className="ml-auto rounded-full bg-background px-2 py-0.5 type-caption text-mit-verified">
             {t('pending')}
           </span>
         </div>
@@ -38,19 +38,19 @@ export function EditReviewBanner({ edit, brandSlug }: Props) {
 
   if (edit.status === 'rejected') {
     return (
-      <div className="rounded-xl border border-destructive bg-red-50 p-4">
+      <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4">
         <div className="flex items-start gap-3">
           <span className="text-destructive">✕</span>
           <div className="flex-1">
-            <p className="text-sm font-semibold text-destructive">{t('rejected')}</p>
+            <p className="type-error">{t('rejected')}</p>
             {edit.reviewerNotes && (
-              <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-destructive">
+              <div className="mt-2 rounded-lg border border-destructive/20 bg-background p-3 type-error">
                 {edit.reviewerNotes}
               </div>
             )}
             <Link
               href={`/dashboard/brands/${brandSlug}/edit`}
-              className="mt-3 inline-block rounded-lg bg-[var(--cta)] px-4 py-2 text-sm font-semibold text-white"
+              className="mt-3 inline-block rounded-lg bg-cta px-4 py-2 type-body-emphasis text-white"
             >
               {t('resubmit')}
             </Link>
@@ -62,13 +62,13 @@ export function EditReviewBanner({ edit, brandSlug }: Props) {
 
   if (edit.status === 'approved') {
     return (
-      <div className="rounded-xl border border-[var(--verified-green)] bg-[var(--verified-green-bg)] p-4">
+      <div className="rounded-xl border border-verified-green/20 bg-verified-green-bg p-4">
         <div className="flex items-center gap-3">
-          <span className="text-[var(--verified-green)]">✓</span>
+          <span className="text-verified-green">✓</span>
           <div>
-            <p className="text-sm font-semibold text-[var(--verified-green)]">{t('approved')}</p>
+            <p className="type-success">{t('approved')}</p>
             {edit.reviewedAt && (
-              <p className="text-xs">
+              <p className="type-caption">
                 {new Date(edit.reviewedAt).toLocaleDateString('zh-TW')}
               </p>
             )}
@@ -76,7 +76,7 @@ export function EditReviewBanner({ edit, brandSlug }: Props) {
           <button
             aria-label={t('close')}
             onClick={() => setDismissed(true)}
-            className="ml-auto text-sm text-muted-foreground"
+            className="ml-auto type-card-description"
           >
             ✕
           </button>

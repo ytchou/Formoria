@@ -42,16 +42,16 @@ export function ImpersonationBanner({
   }, [expiresAt, router])
 
   return (
-    <div className="border-b border-amber-300/40 bg-amber-50 px-3 py-2">
+    <div className="border-b border-mit-verified/20 bg-mit-verified-bg px-3 py-2">
       <div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <Badge className="bg-amber-200 text-amber-900">
+          <Badge className="bg-background text-mit-verified">
             {brandName}
           </Badge>
-          <span className="truncate text-sm font-semibold text-amber-900">
+          <span className="truncate type-body-emphasis text-mit-verified">
             {labels.banner}
           </span>
-          <span className="text-xs text-amber-700">
+          <span className="type-caption text-mit-verified">
             {labels.timeRemaining.replace('{minutes}', String(minutesLeft))}
           </span>
         </div>
@@ -59,7 +59,7 @@ export function ImpersonationBanner({
           type="button"
           size="sm"
           variant="outline"
-          className="border-amber-300 text-amber-900 hover:bg-amber-100"
+          className="border-mit-verified/30 text-mit-verified hover:bg-background"
           disabled={isPending}
           onClick={() => {
             startTransition(async () => {

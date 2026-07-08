@@ -12,8 +12,8 @@ type LinkBreakdownProps = {
 }
 
 const chartStyles = {
-  '--chart-1': '#2F5D50',
-  '--chart-2': '#6F9B8C',
+  '--chart-1': 'var(--primary)',
+  '--chart-2': 'var(--primary-light)',
 } as CSSProperties
 
 export function LinkBreakdown({ rows }: LinkBreakdownProps) {
@@ -28,16 +28,16 @@ export function LinkBreakdown({ rows }: LinkBreakdownProps) {
       className="space-y-3"
       style={chartStyles}
     >
-      <p className="text-[11px] font-medium tracking-widest text-[#7C7570]">
+      <p className="type-eyebrow-muted">
         {t('breakdownLabel')}
       </p>
 
-      <Card className="rounded-xl border-[#E5E0D8] bg-white shadow-none">
+      <Card className="rounded-xl border-border bg-white shadow-none">
         <CardHeader className="flex flex-row items-start justify-between gap-4 pb-4">
-          <CardTitle className="text-base font-semibold text-[#1C1C1C]">
+          <CardTitle className="type-card-title">
             {t('perDestination')}
           </CardTitle>
-          <p className="text-sm font-medium text-[#7C7570]">
+          <p className="type-metadata">
             {t('total', { count: totalClicks })}
           </p>
         </CardHeader>
@@ -47,13 +47,13 @@ export function LinkBreakdown({ rows }: LinkBreakdownProps) {
             <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
               <MousePointerClick
                 className="mb-4 h-8 w-8"
-                color="#C8C3BC"
+                color="var(--muted-foreground)"
                 aria-hidden="true"
               />
-              <p className="text-base font-medium text-[#9E9893]">
+              <p className="type-empty-title">
                 {t('empty')}
               </p>
-              <p className="mt-2 max-w-sm text-sm leading-6 text-[#B0AAA4]">
+              <p className="mt-2 max-w-sm type-card-description">
                 {t('emptyBody')}
               </p>
             </div>
@@ -71,10 +71,10 @@ export function LinkBreakdown({ rows }: LinkBreakdownProps) {
                     role="listitem"
                     className="flex items-center gap-4"
                   >
-                    <span className="w-[120px] shrink-0 truncate text-[13px] font-medium text-[#1C1C1C]">
+                    <span className="w-[120px] shrink-0 truncate type-body-emphasis">
                       {row.destination}
                     </span>
-                    <div className="h-2 flex-1 rounded-full bg-[#F5F4F1]">
+                    <div className="h-2 flex-1 rounded-full bg-secondary">
                       <div
                         data-testid="bar"
                         className={cn('h-full rounded-full')}
@@ -86,8 +86,8 @@ export function LinkBreakdown({ rows }: LinkBreakdownProps) {
                     </div>
                     <span
                       className={cn(
-                        'w-10 shrink-0 text-right text-[13px] font-semibold',
-                        row.clicks === 0 ? 'text-[#9E9893]' : 'text-[#1C1C1C]',
+                        'w-10 shrink-0 text-right type-body-emphasis',
+                        row.clicks === 0 ? 'text-muted-foreground' : 'text-foreground',
                       )}
                     >
                       {row.clicks}

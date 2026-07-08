@@ -159,7 +159,7 @@ export function ImageUploader({
                   id={id ? `${id}-replace` : undefined}
                   type="button"
                   onClick={() => inputRef.current?.click()}
-                  className="absolute bottom-3 left-3 inline-flex min-h-9 items-center gap-2 rounded-lg bg-background/95 px-3 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-background focus-visible:ring-2 focus-visible:ring-primary"
+                  className="absolute bottom-3 left-3 inline-flex min-h-9 items-center gap-2 rounded-lg bg-background/95 px-3 type-body-emphasis shadow-sm transition-colors hover:bg-background focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <Upload className="size-4" />
                   {t('replace')}
@@ -190,7 +190,7 @@ export function ImageUploader({
           ) : (
             <Upload className="h-6 w-6 text-muted-foreground" />
           )}
-          <span className="text-sm text-muted-foreground">
+          <span className="type-card-description">
             {status === 'uploading'
               ? t('uploading')
               : mode === 'single' && urls.length > 0

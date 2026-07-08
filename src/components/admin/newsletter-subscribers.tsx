@@ -68,13 +68,13 @@ export function NewsletterSubscribersList({
         {statCards.map((stat) => (
           <Card key={stat.label}>
             <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="type-metadata">
                 {stat.label}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="font-heading text-4xl font-bold">{stat.value}</p>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="type-stat">{stat.value}</p>
+              <p className="mt-2 type-card-description">
                 {stat.description}
               </p>
             </CardContent>
@@ -95,7 +95,7 @@ export function NewsletterSubscribersList({
           <TableBody>
             {subscribers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="py-8 text-center text-[#7C7570]">
+                <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
                   No newsletter subscribers yet.
                 </TableCell>
               </TableRow>
@@ -110,7 +110,7 @@ export function NewsletterSubscribersList({
                           <Badge
                             key={interest}
                             variant="outline"
-                            className="bg-[#FAF8F3] text-[#7C7570]"
+                            className="bg-background text-muted-foreground"
                           >
                             {formatInterest(interest)}
                           </Badge>
@@ -123,7 +123,7 @@ export function NewsletterSubscribersList({
                   <TableCell>
                     {subscriber.confirmed_at ? (
                       <Check
-                        className="size-4 text-green-600"
+                        className="size-4 text-verified-green"
                         aria-label="Confirmed"
                       />
                     ) : (

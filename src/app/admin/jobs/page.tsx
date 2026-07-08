@@ -11,8 +11,8 @@ export default async function JobsPage() {
   if ('error' in result) {
     return (
       <div className="space-y-4">
-        <h1 className="text-xl font-bold text-foreground">工作紀錄</h1>
-        <p className="text-sm text-destructive">{result.error}</p>
+        <h1 className="type-section-title-large">工作紀錄</h1>
+        <p className="type-error">{result.error}</p>
       </div>
     )
   }
@@ -20,8 +20,8 @@ export default async function JobsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold text-foreground">工作紀錄</h1>
-        <p className="mt-1 text-sm text-muted-foreground">查看所有工作的執行狀態與結果。</p>
+        <h1 className="type-section-title-large">工作紀錄</h1>
+        <p className="mt-1 type-card-description">查看所有工作的執行狀態與結果。</p>
       </div>
       <JobHistoryList initialJobs={result.jobs} railwayLogsUrl={process.env.RAILWAY_LOGS_URL} />
     </div>

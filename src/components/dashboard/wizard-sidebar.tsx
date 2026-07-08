@@ -65,7 +65,7 @@ export function WizardSidebar({
       </aside>
 
       <details className="rounded-xl border border-border bg-card shadow-sm md:hidden">
-        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 py-3 text-left text-sm font-semibold text-foreground outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 py-3 text-left type-subsection-title outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden">
           <span className="min-w-0">
             <span className="block truncate">
               {activeStepItem
@@ -76,7 +76,7 @@ export function WizardSidebar({
                   })}
             </span>
           </span>
-          <span className="ml-3 text-xs text-muted-foreground">
+          <span className="ml-3 type-caption">
             {progressText}
           </span>
         </summary>

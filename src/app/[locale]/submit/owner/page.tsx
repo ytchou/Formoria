@@ -75,14 +75,14 @@ export default async function SubmitOwnerPage({
           >
             <h2
               id="owned-brand-notice-title"
-              className="text-lg font-semibold text-foreground"
+              className="type-card-title"
             >
               {tSubmitConfirmation('ownerSubheading')}
             </h2>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            <p className="mt-3 type-card-description">
               {tSubmitConfirmation('communityOwnershipNotice')}
             </p>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 type-card-description">
               {tSubmitConfirmation('communityOwnershipContinue')}
             </p>
             <div className="mt-5 grid gap-2 sm:grid-cols-2">

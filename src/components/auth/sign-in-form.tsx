@@ -31,16 +31,16 @@ export function SignInForm({ claimToken, claimBrandName }: SignInFormProps) {
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="font-heading text-2xl font-bold tracking-tight">
+        <h1 className="type-section-title-large">
           {t("signIn.heading")}
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="type-card-description">
           {t("signIn.subheading")}
         </p>
       </div>
 
       {claimToken && claimBrandName && (
-        <div className="rounded-lg border border-[#E06B3F]/20 bg-[#E06B3F]/5 px-4 py-3 text-sm">
+        <div className="rounded-lg border border-cta/20 bg-cta/5 px-4 py-3 text-sm">
           {t.rich("signIn.claimMessage", {
             brandName: claimBrandName,
             strong: (chunks) => <strong>{chunks}</strong>,
@@ -98,7 +98,7 @@ export function SignInForm({ claimToken, claimBrandName }: SignInFormProps) {
 
       <GoogleButton action={googleAction} />
 
-      <p className="text-center text-sm text-muted-foreground">
+      <p className="text-center type-card-description">
         {t("signIn.noAccount")}{" "}
         <Link
           href={signUpHref}

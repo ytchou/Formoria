@@ -62,13 +62,13 @@ export async function Pagination({
       {currentPage > 1 ? (
         <Link
           href={buildPageUrl(basePath, currentPage - 1, searchParams)}
-          className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-[13px] font-medium text-foreground/70 transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring/20"
+          className="inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20"
           aria-label={t('pagination.previousAria')}
         >
           {t('pagination.previous')}
         </Link>
       ) : (
-        <span className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-[13px] font-medium text-foreground/20">
+        <span className="inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/20">
           {t('pagination.previous')}
         </span>
       )}
@@ -79,9 +79,9 @@ export async function Pagination({
           return (
             <span
               key={`ellipsis-${i}`}
-              className="inline-flex h-9 w-9 items-center justify-center text-[13px] text-foreground/40"
+              className="inline-flex min-h-12 min-w-12 items-center justify-center type-body text-foreground/40"
             >
-              ...
+              …
             </span>
           )
         }
@@ -92,7 +92,7 @@ export async function Pagination({
           return (
             <span
               key={page}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-[13px] font-semibold text-primary-foreground"
+              className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg bg-primary type-metadata text-primary-foreground"
               aria-current="page"
             >
               {page}
@@ -104,7 +104,7 @@ export async function Pagination({
           <Link
             key={page}
             href={buildPageUrl(basePath, page, searchParams)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[13px] font-medium text-foreground/70 transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring/20"
+            className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20"
           >
             {page}
           </Link>
@@ -115,13 +115,13 @@ export async function Pagination({
       {currentPage < totalPages ? (
         <Link
           href={buildPageUrl(basePath, currentPage + 1, searchParams)}
-          className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-[13px] font-medium text-foreground/70 transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring/20"
+          className="inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20"
           aria-label={t('pagination.nextAria')}
         >
           {t('pagination.next')}
         </Link>
       ) : (
-        <span className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-[13px] font-medium text-foreground/20">
+        <span className="inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/20">
           {t('pagination.next')}
         </span>
       )}

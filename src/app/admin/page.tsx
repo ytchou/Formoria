@@ -198,10 +198,10 @@ export default async function AdminPage() {
       <section aria-labelledby="review-queues">
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
-            <h2 id="review-queues" className="text-xl font-semibold">
+            <h2 id="review-queues" className="type-section-title-large">
               審核佇列
             </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 type-card-description">
               依目前待處理數量排序。
             </p>
           </div>
@@ -234,10 +234,10 @@ export default async function AdminPage() {
 
       <section aria-labelledby="overview">
         <div className="mb-4">
-          <h2 id="overview" className="text-xl font-semibold">
+          <h2 id="overview" className="type-section-title-large">
             總覽
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 type-card-description">
             站台資料與治理範圍的快速指標。
           </p>
         </div>
@@ -246,13 +246,13 @@ export default async function AdminPage() {
           {overviewStats.map((stat) => (
             <Card key={stat.label}>
               <CardHeader>
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="type-metadata">
                   {stat.label}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="font-heading text-4xl font-bold">{stat.value}</p>
-                <p className="mt-2 text-sm text-muted-foreground">
+                <p className="type-stat">{stat.value}</p>
+                <p className="mt-2 type-card-description">
                   {stat.description}
                 </p>
               </CardContent>
@@ -263,10 +263,10 @@ export default async function AdminPage() {
 
       <section aria-labelledby="newsletter-subscribers">
         <div className="mb-4">
-          <h2 id="newsletter-subscribers" className="text-xl font-semibold">
+          <h2 id="newsletter-subscribers" className="type-section-title-large">
             Newsletter Subscribers
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 type-card-description">
             Email capture list and subscription confirmation status.
           </p>
         </div>

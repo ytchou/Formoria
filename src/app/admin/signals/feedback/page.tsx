@@ -15,13 +15,13 @@ export default async function FeedbackPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="font-heading text-2xl font-bold">用戶回饋</h1>
-        <p className="mt-1 text-muted-foreground">
+        <h1 className="type-section-title-large">用戶回饋</h1>
+        <p className="mt-1 type-body-muted">
           管理來自 Sentry 和 Tally 的用戶回饋與錯誤報告
         </p>
       </div>
       {items.length === 0 ? (
-        <p className="text-muted-foreground">目前沒有回饋項目。</p>
+        <p className="type-body-muted">目前沒有回饋項目。</p>
       ) : (
         <FeedbackList items={items} />
       )}

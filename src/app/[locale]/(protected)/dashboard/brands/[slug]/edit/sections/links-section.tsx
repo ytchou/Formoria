@@ -28,13 +28,13 @@ export function LinksSection({
   return (
     <StandardFormSection id="purchase" className="scroll-mt-8">
       <StandardFormStack>
-        <h2 className="font-heading text-base font-bold">
+        <h2 className="type-section-title">
           {t('sectionLinks')}
         </h2>
         <RequiredFieldsHint />
 
         <div id="social-proof" className="space-y-4">
-          <h3 className="text-sm font-semibold text-foreground">
+          <h3 className="type-subsection-title">
             {tx('socialLinksLabel', 'Social links')}
           </h3>
           <div className="grid gap-3">
@@ -61,7 +61,7 @@ export function LinksSection({
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-foreground">
+          <h3 className="type-subsection-title">
             {t('fieldPurchaseLinks')}
           </h3>
           <div className="grid gap-3">
@@ -96,7 +96,7 @@ export function LinksSection({
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-foreground">
+          <h3 className="type-subsection-title">
             {tx('fieldOtherLinks', 'Other links')}
           </h3>
           <div className="space-y-3">

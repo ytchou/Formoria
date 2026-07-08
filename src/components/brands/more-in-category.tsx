@@ -20,10 +20,10 @@ export async function MoreInCategory({ category, categoryLabel, count }: MoreInC
       className="flex items-center justify-between rounded-xl bg-card border border-border px-4 py-3.5 transition-colors hover:border-foreground/20"
     >
       <div className="space-y-0.5">
-        <p className="text-sm font-semibold text-foreground">
+        <p className="type-subsection-title">
           {t('moreInCategory.heading', { category: displayLabel })}
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="type-caption">
           {t('moreInCategory.subtext', { count })}
         </p>
       </div>

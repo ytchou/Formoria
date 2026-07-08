@@ -53,7 +53,7 @@ export function BasicInfoSection({
   return (
     <StandardFormSection id="basic-info">
       <StandardFormStack>
-        <h2 className="font-heading text-base font-bold">
+        <h2 className="type-section-title">
           {t('wizardStepBasicInfo')}
         </h2>
         <RequiredFieldsHint />

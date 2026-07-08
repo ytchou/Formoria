@@ -19,8 +19,8 @@ function OwnerSection({ children, description, editHref, title, editLabel }: Own
     <section className="space-y-3">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <h2 className="font-heading text-base font-bold text-foreground">{title}</h2>
-          <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
+          <h2 className="type-section-title">{title}</h2>
+          <p className="type-section-description">{description}</p>
         </div>
         {editHref && editLabel ? (
           <Link
@@ -40,7 +40,7 @@ function OwnerSection({ children, description, editHref, title, editLabel }: Own
 function Field({ label, value, wide = false }: { label: string; value: React.ReactNode; wide?: boolean }) {
   return (
     <div className={wide ? 'space-y-1 sm:col-span-2' : 'space-y-1'}>
-      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dt className="type-caption">{label}</dt>
       <dd className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{value}</dd>
     </div>
   )
@@ -117,19 +117,19 @@ export async function OwnerBrandOverview({
       <OwnerSection description={t('sectionBrandImagesHint')} editHref={`${editBase}1`} title={tEdit('wizardStepMedia')} editLabel={t('edit')}>
         <div className="space-y-6">
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-foreground">{tEdit('fieldHeroImage')}</h3>
-            <p className="text-xs leading-relaxed text-muted-foreground">
+            <h3 className="type-subsection-title">{tEdit('fieldHeroImage')}</h3>
+            <p className="type-form-hint">
               {tEdit('heroImageOverviewHint')}
             </p>
             {brand.heroImageUrl ? (
               <div className="relative aspect-[16/9] max-w-md overflow-hidden rounded-xl bg-muted">
                 <Image alt={tEdit('fieldHeroImage')} className="object-cover" fill sizes="448px" src={brand.heroImageUrl} />
               </div>
-            ) : <p className="text-sm text-muted-foreground">{t('notSet')}</p>}
+            ) : <p className="type-card-description">{t('notSet')}</p>}
           </div>
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-foreground">{tEdit('fieldProductPhotos')}</h3>
-            <p className="text-xs leading-relaxed text-muted-foreground">
+            <h3 className="type-subsection-title">{tEdit('fieldProductPhotos')}</h3>
+            <p className="type-form-hint">
               {tEdit('productPhotosOverviewHint')}
             </p>
             {brand.productPhotos.length > 0 ? (
@@ -140,7 +140,7 @@ export async function OwnerBrandOverview({
                   </div>
                 ))}
               </div>
-            ) : <p className="text-sm text-muted-foreground">{t('notSet')}</p>}
+            ) : <p className="type-card-description">{t('notSet')}</p>}
           </div>
         </div>
       </OwnerSection>
@@ -166,15 +166,15 @@ export async function OwnerBrandOverview({
           <dl className="grid gap-4 sm:grid-cols-2">
             {retailLocations.map((location, index) => (
               <div key={`${location.name}-${index}`} className="rounded-lg bg-secondary p-4">
-                <dt className="text-sm font-semibold text-foreground">{location.name}</dt>
-                <dd className="mt-1 text-xs font-medium text-muted-foreground">
+                <dt className="type-subsection-title">{location.name}</dt>
+                <dd className="mt-1 type-caption">
                   {tEdit(locationTypeLabelKey(location.relationshipType ?? 'stockist'))}
                 </dd>
-                <dd className="mt-1 text-sm text-muted-foreground">{location.address || <EmptyValue>{t('notSet')}</EmptyValue>}</dd>
+                <dd className="mt-1 type-card-description">{location.address || <EmptyValue>{t('notSet')}</EmptyValue>}</dd>
               </div>
             ))}
           </dl>
-        ) : <p className="text-sm text-muted-foreground">{t('notSet')}</p>}
+        ) : <p className="type-card-description">{t('notSet')}</p>}
       </OwnerSection>
 
       {verification ? (

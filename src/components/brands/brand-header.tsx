@@ -22,7 +22,7 @@ export function BrandHeader({ brand, categoryLabel, locale, actionsSlot, adminSl
     <div className="space-y-3">
       {/* Brand name */}
       <div className="flex items-start justify-between gap-2">
-        <h1 className="font-heading text-[26px] font-bold leading-tight text-foreground md:text-[32px]">
+        <h1 className="type-display">
           {brand.name}
         </h1>
         {adminSlot}
@@ -35,21 +35,21 @@ export function BrandHeader({ brand, categoryLabel, locale, actionsSlot, adminSl
       <div className="flex flex-wrap items-center gap-2 text-sm">
         {/* Founding year */}
         {brand.foundingYear && (
-          <span className="text-xs text-warm-caption">
+          <span className="type-caption">
             {t('foundingYear', { year: brand.foundingYear })}
           </span>
         )}
 
         {/* Category pill */}
         {(categoryLabel ?? brand.category) && (
-          <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
+          <span className="rounded-full bg-primary/10 px-2 py-1 type-micro text-primary">
             {categoryLabel ?? brand.category}
           </span>
         )}
 
         {/* Price range pill */}
         {priceRangeLabel != null && (
-          <span className="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+          <span className="rounded-full bg-mit-verified-bg px-2 py-1 type-micro text-mit-verified">
             {priceRangeLabel}
           </span>
         )}
@@ -59,7 +59,7 @@ export function BrandHeader({ brand, categoryLabel, locale, actionsSlot, adminSl
           (locale === 'en' ? (brand.productTagsEn.length > 0 ? brand.productTagsEn : brand.productTags) : brand.productTags).map((tag, index) => (
             <span
               key={`${tag}-${index}`}
-              className="rounded-full bg-secondary px-2 py-1 text-[11px] font-medium text-secondary-foreground"
+              className="rounded-full bg-secondary px-2 py-1 type-micro text-secondary-foreground"
             >
               {tag}
             </span>
@@ -78,7 +78,7 @@ export function BrandHeader({ brand, categoryLabel, locale, actionsSlot, adminSl
 
         {/* MIT Smile cert number — plain caption, no link */}
         {mitSmileCert && (
-          <span className="text-xs text-warm-caption">
+          <span className="type-caption">
             {t('mitProofLink', { cert: mitSmileCert })}
           </span>
         )}

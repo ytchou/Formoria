@@ -21,8 +21,8 @@ type AnalyticsChartCanvasProps = {
 type Period = '30d' | '90d'
 
 const chartStyles = {
-  '--chart-1': '#2F5D50',
-  '--chart-2': '#6F9B8C',
+  '--chart-1': 'var(--primary)',
+  '--chart-2': 'var(--primary-light)',
 } as CSSProperties
 
 const chartHeightClassName = 'h-[180px] w-full'
@@ -53,7 +53,7 @@ const AnalyticsChartCanvas = dynamic<AnalyticsChartCanvasProps>(
               >
                 <CartesianGrid
                   vertical={false}
-                  stroke="#E5E0D8"
+                  stroke="var(--border)"
                 />
                 <XAxis
                   dataKey="date"
@@ -61,7 +61,7 @@ const AnalyticsChartCanvas = dynamic<AnalyticsChartCanvasProps>(
                   tickLine={false}
                   tickMargin={10}
                   minTickGap={24}
-                  tick={{ fill: '#9E9893', fontSize: 11 }}
+                  tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
                   tickFormatter={formatAxisDate}
                 />
                 <YAxis hide />
@@ -112,11 +112,11 @@ export function AnalyticsChart({ series }: AnalyticsChartProps) {
   const chartConfig: ChartConfig = {
     views: {
       label: t('views'),
-      color: '#2F5D50',
+      color: 'var(--primary)',
     },
     clicks: {
       label: t('clicks'),
-      color: '#6F9B8C',
+      color: 'var(--primary-light)',
     },
   }
 
@@ -125,23 +125,23 @@ export function AnalyticsChart({ series }: AnalyticsChartProps) {
       className="space-y-3"
       style={chartStyles}
     >
-      <p className="text-[11px] font-medium tracking-widest text-[#7C7570]">
+      <p className="type-eyebrow-muted">
         {t('trendsLabel')}
       </p>
 
-      <Card className="rounded-xl border-[#E5E0D8] bg-white shadow-none">
+      <Card className="rounded-xl border-border bg-card shadow-none">
         <CardHeader className="flex flex-row items-start justify-between gap-4 pb-5">
           <div className="space-y-1">
-            <CardTitle className="font-heading text-[15px] font-bold text-[#1C1C1C]">
+            <CardTitle className="type-card-title-small">
               {t('viewsClicksTitle')}
             </CardTitle>
-            <p className="text-sm text-[#6B6B6B]">{t('dailyTrend')}</p>
+            <p className="type-card-description">{t('dailyTrend')}</p>
           </div>
 
           <div
             role="group"
             aria-label="period"
-            className="inline-flex items-center gap-1 rounded-[8px] border border-[#E5E0D8] bg-white p-1"
+            className="inline-flex items-center gap-1 rounded-[8px] border border-border bg-white p-1"
           >
             {(['30d', '90d'] as const).map((value) => {
               const isActive = period === value
@@ -155,8 +155,8 @@ export function AnalyticsChart({ series }: AnalyticsChartProps) {
                   className={cn(
                     'rounded-[7px] px-3 py-1.5 text-sm font-medium transition-colors',
                     isActive
-                      ? 'bg-[#1C1C1C] text-white'
-                      : 'bg-white text-[#6B6B6B]'
+                      ? 'bg-foreground text-white'
+                      : 'bg-white text-muted-foreground'
                   )}
                 >
                   {value === '30d' ? t('period30') : t('period90')}
@@ -167,7 +167,7 @@ export function AnalyticsChart({ series }: AnalyticsChartProps) {
         </CardHeader>
 
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-5 text-sm text-[#1C1C1C]">
+          <div className="flex items-center gap-5 text-sm text-foreground">
             <div className="flex items-center gap-2">
               <span
                 aria-hidden="true"

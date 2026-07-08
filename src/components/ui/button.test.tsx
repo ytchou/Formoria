@@ -4,11 +4,11 @@ import { describe, expect, it } from 'vitest'
 import { Button } from './button'
 
 describe('Button', () => {
-  it('uses the 36px green standard action by default', () => {
+  it('uses the 48px green standard action by default', () => {
     render(<Button>Save</Button>)
 
     expect(screen.getByRole('button', { name: 'Save' })).toHaveClass(
-      'h-9',
+      'h-12',
       'rounded-lg',
       'bg-primary',
     )
@@ -18,7 +18,7 @@ describe('Button', () => {
     render(<Button variant="cta">Publish</Button>)
 
     expect(screen.getByRole('button', { name: 'Publish' })).toHaveClass(
-      'h-9',
+      'h-12',
       'rounded-lg',
       'bg-cta',
     )

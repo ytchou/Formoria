@@ -32,13 +32,13 @@ export function SettingsForm({ profile, email, currentLocale }: Props) {
       <input type="hidden" name="_currentLocale" value={currentLocale} />
 
       {state.error && (
-        <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div className="rounded-lg bg-destructive/10 px-4 py-3 type-error">
           {state.error}
         </div>
       )}
 
       {state.message && (
-        <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800 dark:bg-green-950 dark:text-green-200">
+        <div className="type-success-panel">
           {state.message}
         </div>
       )}
@@ -60,7 +60,7 @@ export function SettingsForm({ profile, email, currentLocale }: Props) {
           maxLength={50}
         />
         {state.fieldErrors?.displayName && (
-          <p className="text-xs text-destructive">
+          <p className="type-error">
             {state.fieldErrors.displayName}
           </p>
         )}
@@ -73,13 +73,13 @@ export function SettingsForm({ profile, email, currentLocale }: Props) {
           id="localePreference"
           name="localePreference"
           defaultValue={profile?.localePreference ?? currentLocale}
-          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="flex h-12 w-full rounded-md border border-input bg-transparent px-3 py-2 type-body shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <option value="zh-TW">中文（繁體）</option>
           <option value="en">English</option>
         </select>
         {state.fieldErrors?.localePreference && (
-          <p className="text-xs text-destructive">
+          <p className="type-error">
             {state.fieldErrors.localePreference}
           </p>
         )}
@@ -101,7 +101,7 @@ export function SettingsForm({ profile, email, currentLocale }: Props) {
           <Label htmlFor="emailNotifications">
             {t("emailNotificationsLabel")}
           </Label>
-          <p className="text-xs text-muted-foreground">
+          <p className="type-caption">
             {t("emailNotificationsDescription")}
           </p>
         </div>

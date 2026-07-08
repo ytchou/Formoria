@@ -23,7 +23,7 @@ export function QueueSummaryCard({
     <Card className="overflow-hidden">
       <CardHeader className="flex-row items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-2">
-          <h3 className="truncate text-base font-semibold">{title}</h3>
+          <h3 className="truncate type-card-title">{title}</h3>
         </div>
         <span className="rounded-full bg-muted px-2.5 py-1 text-sm font-semibold text-muted-foreground">
           {count}
@@ -31,7 +31,7 @@ export function QueueSummaryCard({
       </CardHeader>
       <CardContent className="space-y-4">
         {count === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">{emptyMessage}</p>
+          <p className="py-4 text-center type-card-description">{emptyMessage}</p>
         ) : (
           <div className="space-y-2">{children}</div>
         )}

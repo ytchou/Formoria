@@ -38,7 +38,7 @@ function BrandImage({ brand }: { brand: SavedBrand }) {
 function SavedBrandCard({ brand }: { brand: SavedBrand }) {
   return (
     <Link
-      className="group block overflow-hidden rounded-xl border border-border bg-white transition-all hover:-translate-y-px hover:shadow-[var(--shadow-card-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="group block overflow-hidden rounded-xl border border-border bg-white transition-[box-shadow,transform] hover:-translate-y-px hover:shadow-[var(--shadow-card-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       href={`/brands/${brand.brandSlug}`}
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
@@ -48,7 +48,7 @@ function SavedBrandCard({ brand }: { brand: SavedBrand }) {
         </div>
       </div>
       <div className="p-4">
-        <h2 className="truncate text-sm font-bold leading-snug text-foreground">
+        <h2 className="truncate type-subsection-title">
           {brand.brandName}
         </h2>
       </div>
@@ -71,10 +71,10 @@ function EmptyState({
         <div className="mx-auto flex h-[72px] w-[72px] items-center justify-center rounded-full bg-muted text-muted-foreground">
           <Heart className="h-8 w-8" aria-hidden />
         </div>
-        <h2 className="mt-6 font-heading text-2xl font-bold text-foreground">
+        <h2 className="mt-6 type-section-title-large">
           {title}
         </h2>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+        <p className="mt-3 type-card-description">
           {description}
         </p>
         <Link
@@ -108,10 +108,10 @@ export default async function FavoritesPage({ params }: Props) {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
         <div className="flex h-16 items-center justify-between gap-4 px-5 lg:px-20">
-          <h1 className="font-heading text-[22px] font-bold text-foreground">
+          <h1 className="type-section-title-large">
             {t('heading')}
           </h1>
-          <p className="text-sm font-medium text-muted-foreground">
+          <p className="type-metadata">
             {t('count', { count: brands.length })}
           </p>
         </div>

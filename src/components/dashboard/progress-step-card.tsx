@@ -40,10 +40,10 @@ export function ProgressStepCard({
           <ListChecks className="size-5" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="font-heading text-lg font-bold text-foreground">
+          <h2 className="type-card-title">
             {title}
           </h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">{progressText}</p>
+          <p className="mt-0.5 type-card-description">{progressText}</p>
         </div>
       </div>
 

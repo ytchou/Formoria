@@ -143,7 +143,7 @@ export function ProductTagField({
           </div>
         ) : null}
       </div>
-      {maxLabel ? <p className="text-xs text-muted-foreground">{maxLabel}</p> : null}
+      {maxLabel ? <p className="type-caption">{maxLabel}</p> : null}
     </div>
   )
 }

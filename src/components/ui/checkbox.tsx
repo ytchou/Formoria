@@ -19,7 +19,7 @@ function Checkbox({ className, indeterminate, onCheckedChange, ref, ...props }: 
       type="checkbox"
       data-slot="checkbox"
       className={cn(
-        "size-4 cursor-pointer accent-[#E06B3F]",
+        "size-4 cursor-pointer accent-cta",
         "disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}

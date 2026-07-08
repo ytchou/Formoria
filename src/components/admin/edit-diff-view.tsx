@@ -62,7 +62,7 @@ function ValueBox({
         className={`${style} flex items-center justify-center`}
         style={{ height: 140 }}
       >
-        <span className="text-xs text-muted-foreground">Image</span>
+        <span className="type-caption">Image</span>
       </div>
     )
   }

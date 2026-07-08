@@ -68,10 +68,10 @@ export function ProfileCompletenessCard({
         <CollapsibleTrigger className="flex min-h-12 w-full items-center gap-4 px-5 py-3 text-left transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary">
           <CompletenessRing score={completeness.score} />
           <span className="min-w-0">
-            <span className="block text-sm font-semibold text-foreground">
+            <span className="block type-subsection-title">
               {t('title')}
             </span>
-            <span className="block text-xs text-muted-foreground">
+            <span className="block type-caption">
               {t('completedCount', {
                 completed: completeness.completed,
                 total: completeness.total,
@@ -90,7 +90,7 @@ export function ProfileCompletenessCard({
         <CollapsibleContent className="border-t border-border px-5 py-5">
           {completeness.recommendations.length > 0 ? (
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-foreground">
+              <h3 className="type-subsection-title">
                 {t('recommendations')}
               </h3>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -105,7 +105,7 @@ export function ProfileCompletenessCard({
                         ? t('priority.required')
                         : t(`priority.weight${component.weight}`)}
                     </span>
-                    <span className="mt-1 block text-sm font-medium text-foreground">
+                    <span className="mt-1 block type-body-emphasis">
                       {t(`component.${component.key}`)}
                     </span>
                   </Link>
@@ -113,7 +113,7 @@ export function ProfileCompletenessCard({
               </div>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">{t('complete')}</p>
+            <p className="type-card-description">{t('complete')}</p>
           )}
         </CollapsibleContent>
       </Collapsible>

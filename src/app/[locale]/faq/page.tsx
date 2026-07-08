@@ -84,13 +84,13 @@ export default async function FaqPage({ params }: PageProps) {
       <OpenTargetDetails />
       <div className="grid gap-10 md:grid-cols-[18rem_minmax(0,1fr)] md:gap-16">
         <aside className="space-y-4 md:sticky md:top-24 md:self-start">
-          <h1 className="font-heading text-[26px] font-bold text-foreground">{t('title')}</h1>
-          <p className="font-sans text-sm leading-[1.7] text-muted-foreground">{t('intro')}</p>
+          <h1 className="type-page-title">{t('title')}</h1>
+          <p className="type-body-muted">{t('intro')}</p>
           <div className="space-y-2 pt-2">
-            <p className="font-sans text-sm font-semibold text-foreground">{t('stillHaveQuestions')}</p>
+          <p className="type-subsection-title">{t('stillHaveQuestions')}</p>
             <a
               href={`mailto:${CONTACT_EMAILS.contact}`}
-              className="font-sans text-sm text-foreground underline underline-offset-4"
+              className="type-link text-foreground"
             >
               {t('contactCta')}
             </a>
@@ -99,21 +99,21 @@ export default async function FaqPage({ params }: PageProps) {
         <div className="divide-y divide-border">
           {plainItemKeys.map((key, i) => (
             <details key={i} id={key === 'claimBenefits' ? 'claim' : undefined} className="group scroll-mt-24 py-5">
-              <summary className="flex cursor-pointer list-none items-center justify-between font-heading text-base font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer list-none items-center justify-between type-card-title [&::-webkit-details-marker]:hidden">
                 {t(`items.${key}.question`)}
                 <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
               </summary>
-              <p className="mt-3 max-w-2xl font-sans text-sm leading-[1.7] text-muted-foreground">
+              <p className="mt-3 max-w-2xl type-body-muted">
                 {t(`items.${key}.answer`)}
               </p>
             </details>
           ))}
           <details className="group py-5">
-            <summary className="flex cursor-pointer list-none items-center justify-between font-heading text-base font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center justify-between type-card-title [&::-webkit-details-marker]:hidden">
               {t('items.contact.question')}
               <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
             </summary>
-            <p className="mt-3 max-w-2xl font-sans text-sm leading-[1.7] text-muted-foreground">
+            <p className="mt-3 max-w-2xl type-body-muted">
               {t.rich('items.contact.answer', {
                 email: CONTACT_EMAILS.contact,
                 mail: (chunks) => (

@@ -60,7 +60,7 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
   return (
     <Dialog>
       <DialogTrigger
-        className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-secondary px-3 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80"
+        className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-secondary px-3 type-body-emphasis transition-colors hover:bg-secondary/80"
       >
         <Flag className="size-4" />
         {t('trigger')}
@@ -73,7 +73,7 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
 
         {state.success ? (
           <>
-            <p className="py-4 text-sm text-[#7C7570]">{t('success')}</p>
+            <p className="py-4 type-card-description">{t('success')}</p>
             <DialogFooter>
               <DialogClose render={<Button variant="outline" />}>
                 {t('close')}
@@ -87,7 +87,7 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
 
             <div className="space-y-4 py-4">
               {alreadyReported && (
-                <p className="rounded-lg border border-[#E5E4E1] p-3 text-sm text-[#7C7570]">
+                <p className="rounded-lg border border-border p-3 type-card-description">
                   {t('alreadyReported')}
                 </p>
               )}
@@ -110,8 +110,8 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
                       className={cn(
                         'rounded-lg border px-3 py-2 text-left text-sm transition-colors',
                         selectedReasons.has(value)
-                          ? 'border-[#1A1918] bg-[#1A1918] text-white'
-                          : 'border-[#E5E4E1] text-[#1A1918] hover:border-[#C4C0BC]'
+                          ? 'border-foreground bg-foreground text-white'
+                          : 'border-border text-foreground hover:border-muted-foreground'
                       )}
                     >
                       {label}
@@ -128,7 +128,7 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
               </div>
 
               {state.error && (
-                <p className="text-sm text-[#D94F3D]">{state.error}</p>
+                <p className="text-sm text-destructive">{state.error}</p>
               )}
             </div>
 

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Label } from '@/components/ui/label'
+import { fieldTextStyles } from '@/components/ui/text-styles'
 import { cn } from '@/lib/utils'
 
 type FormFieldProps = {
@@ -38,22 +39,22 @@ export function FormField({
   return (
     <div className={cn('space-y-2', className)} aria-invalid={Boolean(error)}>
       {label && id ? (
-        <Label htmlFor={id} className="font-semibold text-foreground">
+        <Label htmlFor={id}>
           {labelContent}
         </Label>
       ) : label ? (
-        <p className="flex items-center gap-2 text-sm leading-none font-semibold text-foreground">
+        <p className={cn('flex items-center gap-2', fieldTextStyles.formLabel)}>
           {labelContent}
         </p>
       ) : null}
       {description ? (
-        <p className="text-xs leading-5 text-muted-foreground">{description}</p>
+        <p className={fieldTextStyles.hint}>{description}</p>
       ) : null}
       {children ? children : null}
       {error ? (
         <p
           id={errorId}
-          className="text-xs leading-5 text-destructive"
+          className={fieldTextStyles.error}
           aria-live="polite"
         >
           {error}

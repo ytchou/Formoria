@@ -11,10 +11,10 @@ export default async function BrandsPage() {
 
   return (
     <div>
-      <h1 className="font-heading text-3xl font-bold tracking-tight">
+      <h1 className="type-page-title-large">
         Brands
       </h1>
-      <p className="mt-2 text-[#7C7570]">
+      <p className="mt-2 type-body-muted">
         Manage all brands in the directory, including MIT verification status.
       </p>
 

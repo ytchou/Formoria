@@ -59,18 +59,18 @@ export default async function StatsPage({ params }: StatsPageProps) {
   const formattedDate = formatDate(new Date(), safeLocale)
 
   return (
-    <main className="mx-auto w-full max-w-5xl bg-background px-6 py-8 font-sans text-foreground md:px-10 md:py-12">
+    <main className="mx-auto w-full max-w-5xl bg-background px-6 py-8 text-foreground md:px-10 md:py-12">
       <div className="space-y-12">
         <section className="space-y-3">
-          <p className="text-[0.8125rem] font-medium text-muted-foreground">{t('hero.subtitle')}</p>
-          <h1 className="font-heading text-[1.625rem] font-bold leading-[1.2] text-foreground">
+          <p className="type-metadata">{t('hero.subtitle')}</p>
+          <h1 className="type-page-title">
             {t('hero.title')}
           </h1>
           <div className="space-y-1">
-            <p className="text-sm font-normal text-foreground">
+            <p className="type-body">
               {t('hero.totalBrands', { count: data.totalBrands })}
             </p>
-            <p className="text-xs font-normal text-muted-foreground">
+            <p className="type-caption">
               {t('hero.asOf', { date: formattedDate })}
             </p>
           </div>
@@ -78,10 +78,10 @@ export default async function StatsPage({ params }: StatsPageProps) {
 
         <section className="space-y-4">
           <div className="space-y-1">
-            <h2 className="font-heading text-base font-bold leading-[1.3] text-foreground">
+            <h2 className="type-section-title">
               {t('categories.title')}
             </h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="type-card-description">
               {t('categories.description', { count: data.totalBrands })}
             </p>
           </div>
@@ -93,8 +93,8 @@ export default async function StatsPage({ params }: StatsPageProps) {
                   href={`/brands?category=${encodeURIComponent(item.slug)}`}
                   className="flex items-center justify-between gap-4 rounded-lg border border-border px-3 py-3 transition-colors hover:bg-secondary"
                 >
-                  <span className="text-sm font-medium text-foreground">{item.category}</span>
-                  <span className="text-[0.8125rem] font-medium text-muted-foreground">
+                  <span className="type-body-emphasis">{item.category}</span>
+                  <span className="type-metadata">
                     {t('categories.brandCount', { count: item.count })}
                   </span>
                 </Link>
@@ -105,10 +105,10 @@ export default async function StatsPage({ params }: StatsPageProps) {
 
         <section className="space-y-4">
           <div className="space-y-1">
-            <h2 className="font-heading text-base font-bold leading-[1.3] text-foreground">
+            <h2 className="type-section-title">
               {t('mitVerified.title')}
             </h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="type-card-description">
               {t('mitVerified.description', {
                 verified: data.mitVerifiedShare.verified,
                 total: data.mitVerifiedShare.total,
@@ -117,7 +117,7 @@ export default async function StatsPage({ params }: StatsPageProps) {
             </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-4">
-            <p className="font-heading text-[1.625rem] font-bold leading-[1.2] text-foreground">
+            <p className="type-page-title">
               {data.mitVerifiedShare.percentage}%
             </p>
           </div>
@@ -125,22 +125,22 @@ export default async function StatsPage({ params }: StatsPageProps) {
 
         <section className="space-y-4">
           <div className="space-y-1">
-            <h2 className="font-heading text-base font-bold leading-[1.3] text-foreground">
+            <h2 className="type-section-title">
               {t('geographicDistribution')}
             </h2>
-            <p className="text-sm text-muted-foreground">{t('geographicDistributionDesc')}</p>
+            <p className="type-card-description">{t('geographicDistributionDesc')}</p>
           </div>
           <div className="rounded-xl border border-border bg-card p-4">
             <TaiwanMapDynamic data={data.cityCoverage} />
             {data.cityCoverage.length > 0 && (
               <ol className="mt-4 space-y-1.5">
                 {data.cityCoverage.slice(0, 10).map(({ city, count }, index) => (
-                  <li key={city} className="flex items-center justify-between text-sm">
+                  <li key={city} className="flex items-center justify-between type-body">
                     <span className="flex items-center gap-2">
-                      <span className="w-5 text-right text-muted-foreground">{index + 1}.</span>
+                      <span className="w-5 text-right type-caption">{index + 1}.</span>
                       <span>{tCities(city)}</span>
                     </span>
-                    <span className="font-medium">{count}</span>
+                    <span className="type-body-emphasis">{count}</span>
                   </li>
                 ))}
               </ol>
@@ -151,17 +151,17 @@ export default async function StatsPage({ params }: StatsPageProps) {
         {data.foundingDecadeDistribution.length > 0 ? (
           <section className="space-y-4">
             <div className="space-y-1">
-              <h2 className="font-heading text-base font-bold leading-[1.3] text-foreground">
+              <h2 className="type-section-title">
                 {t('foundingDecade.title')}
               </h2>
-              <p className="text-sm text-muted-foreground">{t('foundingDecade.description')}</p>
+              <p className="type-card-description">{t('foundingDecade.description')}</p>
             </div>
             <div className="rounded-xl border border-border bg-card p-4">
               <div className="grid gap-3">
                 {data.foundingDecadeDistribution.map((item) => (
                   <div key={item.decade} className="flex items-center justify-between gap-4">
-                    <span className="text-sm font-medium text-foreground">{item.decade}</span>
-                    <span className="text-[0.8125rem] font-medium text-muted-foreground">
+                    <span className="type-body-emphasis">{item.decade}</span>
+                    <span className="type-metadata">
                       {item.count}
                     </span>
                   </div>

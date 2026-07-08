@@ -73,43 +73,43 @@ export function AnalyticsCards({
 
   return (
     <div className="grid grid-cols-2 gap-4">
-      <Card className="bg-white border-[#E5E0D8]">
+      <Card className="bg-white border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardTitle className="type-metadata">
             {t('pageViews')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold text-foreground">
+            <span className="type-stat">
               {totalViews}
             </span>
             <TrendIcon trend={viewTrend} label={getTrendLabel(viewTrend)} />
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="type-caption mt-1">
             {t(`benchmark.views.${viewsBenchmark}`)}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">{t('last30Days')}</p>
+          <p className="mt-1 type-caption">{t('last30Days')}</p>
         </CardContent>
       </Card>
 
-      <Card className="bg-white border-[#E5E0D8]">
+      <Card className="bg-white border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardTitle className="type-metadata">
             {t('outboundClicks')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold text-foreground">
+            <span className="type-stat">
               {totalClicks}
             </span>
             <TrendIcon trend={clickTrend} label={getTrendLabel(clickTrend)} />
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="type-caption mt-1">
             {t(`benchmark.ctr.${ctrBenchmark}`)}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">{t('last30Days')}</p>
+          <p className="mt-1 type-caption">{t('last30Days')}</p>
         </CardContent>
       </Card>
     </div>

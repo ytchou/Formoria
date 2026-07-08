@@ -31,7 +31,7 @@ export function EmailCaptureForm() {
 
   if (state.success) {
     return (
-      <div className="rounded-lg bg-[#EAF3E8] px-4 py-3 text-sm font-medium text-[#2D5A27]">
+      <div className="rounded-lg bg-verified-green-bg px-4 py-3 text-sm font-medium text-verified-green">
         {t('success')}
       </div>
     )

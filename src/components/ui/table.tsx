@@ -3,6 +3,7 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { textStyles } from "./text-styles"
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
@@ -11,8 +12,8 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
       className="relative w-full overflow-x-auto"
     >
       <table
-        data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
+      data-slot="table"
+      className={cn("w-full caption-bottom", textStyles({ variant: "body" }), className)}
         {...props}
       />
     </div>
@@ -57,7 +58,8 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
+        "h-10 px-2 text-left align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+        textStyles({ variant: "bodyEmphasis" }),
         className
       )}
       {...props}

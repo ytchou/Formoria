@@ -19,10 +19,10 @@ export default function Error({
 
   return (
     <main className="mx-auto flex max-w-screen-xl flex-col items-start px-6 py-24 md:px-10">
-      <h1 className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[#1A1918]">
+      <h1 className="type-page-title-large">
         Something went wrong
       </h1>
-      <p className="mt-3 text-sm text-[#7C7570]">An unexpected error occurred. Please try again.</p>
+      <p className="mt-3 type-card-description">An unexpected error occurred. Please try again.</p>
       <Button
         variant="cta"
         onClick={reset}

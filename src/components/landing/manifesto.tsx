@@ -18,16 +18,16 @@ export default async function Manifesto() {
       />
       <div className="absolute inset-0 bg-black/55" />
       <div className="relative mx-auto max-w-3xl px-6 text-center md:px-10">
-        <h2 className="font-heading text-3xl font-bold leading-tight text-white lg:text-5xl">
+        <h2 className="type-hero-inverse">
           {t('headline')}
         </h2>
-        <p className="mt-4 text-lg leading-relaxed text-white/80">
+        <p className="mt-4 type-body-inverse">
           {t('body1')}
         </p>
-        <p className="mt-3 text-lg leading-relaxed text-white/80">
+        <p className="mt-3 type-body-inverse">
           {t('body2')}
         </p>
-        <p className="mt-3 text-lg leading-relaxed text-white/80">
+        <p className="mt-3 type-body-inverse">
           {t('body3')}
         </p>
         <Link

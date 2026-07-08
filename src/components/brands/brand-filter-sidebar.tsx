@@ -192,7 +192,7 @@ export function BrandFilterSidebar({
     <div className={cn('space-y-6', className)}>
       {showSummary && (
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">
+          <p className="type-card-description">
             {t('appliedCount', { count: activeCount })}
           </p>
           {activeCount > 0 && (
@@ -242,7 +242,7 @@ export function BrandFilterSidebar({
               <Label
                 key={value}
                 className={cn(
-                  'cursor-pointer rounded-full border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:border-primary hover:text-foreground',
+                  'cursor-pointer rounded-full border border-border px-3 py-1.5 type-metadata transition-colors hover:border-primary hover:text-foreground',
                   checked && 'border-primary bg-primary text-primary-foreground hover:text-primary-foreground'
                 )}
               >
@@ -293,7 +293,7 @@ function FilterRadio({
   return (
     <label
       className={cn(
-        'flex cursor-pointer items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground',
+        'flex cursor-pointer items-center gap-2 type-card-description transition-colors hover:text-foreground',
         checked && 'font-medium text-primary'
       )}
     >
@@ -377,7 +377,7 @@ function MobileClearAll({ onClear }: { onClear: () => void }) {
     <button
       type="button"
       onClick={clearAll}
-      className="mx-auto text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+      className="mx-auto type-card-description underline-offset-2 hover:text-foreground hover:underline"
     >
       {t('clearAll')}
     </button>

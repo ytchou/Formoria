@@ -62,7 +62,7 @@ export function ReportsTable({ reports }: ReportsTableProps) {
         <TableBody>
           {reports.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={4} className="py-8 text-center text-[#7C7570]">
+              <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
                 目前沒有待處理的檢舉。
               </TableCell>
             </TableRow>
@@ -70,7 +70,7 @@ export function ReportsTable({ reports }: ReportsTableProps) {
             reports.map((r) => (
               <Fragment key={r.id}>
                 <TableRow
-                  className="cursor-pointer hover:bg-[#F5F4F1]"
+                  className="cursor-pointer hover:bg-secondary"
                   onClick={() => handleRowClick(r.id)}
                 >
                   <TableCell className="font-medium">
@@ -85,7 +85,7 @@ export function ReportsTable({ reports }: ReportsTableProps) {
                   <TableCell>{REASON_LABELS[r.reason]}</TableCell>
                   <TableCell>{formatDate(r.createdAt)}</TableCell>
                   <TableCell>
-                    <span className="inline-flex items-center rounded-full bg-[#FAF8F3] px-2 py-0.5 text-xs font-semibold text-[#C4693B] border border-[#C4693B]">
+                    <span className="inline-flex items-center rounded-full bg-background px-2 py-0.5 text-xs font-semibold text-cta border border-cta">
                       待處理
                     </span>
                   </TableCell>
@@ -93,11 +93,11 @@ export function ReportsTable({ reports }: ReportsTableProps) {
 
                 {expandedId === r.id && (
                   <TableRow>
-                    <TableCell colSpan={4} className="bg-[#FAF7F4] p-6">
+                    <TableCell colSpan={4} className="bg-background p-6">
                       <div className="space-y-4">
                         {r.notes && (
                           <div>
-                            <p className="text-sm font-medium text-[#7C7570]">
+                            <p className="type-metadata">
                               補充說明
                             </p>
                             <p className="mt-1 text-sm">
@@ -113,7 +113,7 @@ export function ReportsTable({ reports }: ReportsTableProps) {
                               handleReview(r.id, 'reviewed')
                             }}
                             disabled={isPending}
-                            className="bg-[#E06B3F] hover:bg-[#c95d36]"
+                            className="bg-cta hover:bg-cta/90"
                           >
                             審核
                           </Button>

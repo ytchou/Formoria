@@ -51,13 +51,13 @@ export function TaiwanMap({ data }: Props) {
                   style={{
                     default: {
                       fill: fillColor,
-                      stroke: '#E5E0D8',
+                      stroke: 'var(--border)',
                       strokeWidth: 0.5,
                       outline: 'none',
                     },
                     hover: {
                       fill: fillColor,
-                      stroke: '#E5E0D8',
+                      stroke: 'var(--border)',
                       strokeWidth: 0.5,
                       outline: 'none',
                     },

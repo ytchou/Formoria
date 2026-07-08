@@ -66,7 +66,7 @@ export default function FilterableBrandShowcase({
 
   return (
     <section>
-      <h2 className="font-heading text-2xl font-bold">{t('heading')}</h2>
+      <h2 className="type-section-title-large">{t('heading')}</h2>
 
       <div className="relative mt-3">
         <div
@@ -113,7 +113,7 @@ export default function FilterableBrandShowcase({
           ))}
         </div>
       ) : (
-        <p className="mt-6 text-sm text-muted-foreground">
+        <p className="mt-6 type-card-description">
           {t('emptyCategory')}
         </p>
       )}

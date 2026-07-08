@@ -86,8 +86,8 @@ function JobStatusBadge({ status }: { status: CurationJob['status'] }) {
   const config: Record<CurationJob['status'], { label: string; className: string }> = {
     pending: { label: '待處理', className: 'bg-secondary text-muted-foreground' },
     running: { label: '執行中', className: 'animate-pulse bg-secondary text-muted-foreground' },
-    completed: { label: '已完成', className: 'bg-[#EAF3E8] text-[#2D5A27]' },
-    failed: { label: '失敗', className: 'bg-[#FDF3EC] text-[#D94F3D]' },
+    completed: { label: '已完成', className: 'bg-verified-green-bg text-verified-green' },
+    failed: { label: '失敗', className: 'bg-destructive/10 text-destructive' },
   }
 
   return <Badge className={config[status].className}>{config[status].label}</Badge>
@@ -108,7 +108,7 @@ export function JobHistoryList({
             href={railwayLogsUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-md border border-border bg-white px-3 py-2.5 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="inline-flex items-center gap-2 rounded-md border border-border bg-white px-3 py-2.5 type-body-emphasis shadow-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             <ExternalLink className="h-4 w-4" aria-hidden="true" />
             View Railway Logs

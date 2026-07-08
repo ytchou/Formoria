@@ -37,14 +37,14 @@ export function SearchEmptyState({
       </div>
 
       {/* Heading */}
-      <h2 className="mt-4 text-center text-lg font-semibold text-foreground">
+      <h2 className="mt-4 text-center type-card-title">
         {hasActiveFilters
           ? t('emptyState.withFiltersTitle', { query })
           : t('emptyState.title', { query })}
       </h2>
 
       {/* Subtitle */}
-      <p className="mt-1 text-center text-sm text-muted-foreground">
+      <p className="mt-1 text-center type-card-description">
         {hasActiveFilters
           ? t('emptyState.withFiltersDescription')
           : t('emptyState.description')}
@@ -106,10 +106,10 @@ export function SearchEmptyState({
                 ) : (
                   <div className="aspect-[4/3] w-full bg-muted" />
                 )}
-                <p className="truncate px-2 pt-1.5 text-sm font-medium text-foreground">
+                <p className="truncate px-2 pt-1.5 type-body-emphasis">
                   {brand.name}
                 </p>
-                <p className="truncate px-2 pb-2 text-xs text-muted-foreground">
+                <p className="truncate px-2 pb-2 type-caption">
                   {brand.category}
                 </p>
               </Link>

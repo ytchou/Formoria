@@ -17,7 +17,7 @@ export function RequestRemoval({ brandName, brandSlug }: RequestRemovalProps) {
   return (
     <a
       href={mailto}
-      className="text-xs text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground"
+      className="type-caption underline underline-offset-4 transition-colors hover:text-foreground"
     >
       {t('removal.trigger')}
     </a>

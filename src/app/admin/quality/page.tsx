@@ -77,7 +77,7 @@ export default async function AdminQualityPage() {
 
   return (
     <div>
-      <h1 className="font-heading text-3xl font-bold tracking-tight">
+      <h1 className="type-page-title-large">
         品質儀表板
       </h1>
       <p className="mt-2 text-muted-foreground">
@@ -87,15 +87,15 @@ export default async function AdminQualityPage() {
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         <Card className="border-border bg-card shadow-none">
           <CardHeader className="p-4 pb-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="type-metadata">
               Hero Image Coverage
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4">
-            <p className="font-heading text-4xl font-bold text-foreground">
+            <p className="type-stat">
               {formatPercentage(metrics.heroImage.percentage)}
             </p>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 type-card-description">
               {metrics.heroImage.withCount} brands with hero / {metrics.totalBrands} total
             </p>
             <div className="mt-4">
@@ -109,7 +109,7 @@ export default async function AdminQualityPage() {
 
         <Card className="border-border bg-card shadow-none">
           <CardHeader className="p-4 pb-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="type-metadata">
               Link Coverage
             </CardTitle>
           </CardHeader>
@@ -137,15 +137,15 @@ export default async function AdminQualityPage() {
 
         <Card className="border-border bg-card shadow-none">
           <CardHeader className="p-4 pb-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="type-metadata">
               Description Completeness
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4">
-            <p className="font-heading text-4xl font-bold text-foreground">
+            <p className="type-stat">
               {formatPercentage(metrics.description.percentage)}
             </p>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 type-card-description">
               avg length: {metrics.description.avgLength} chars
             </p>
             <div className="mt-4">
@@ -159,7 +159,7 @@ export default async function AdminQualityPage() {
 
         <Card className="border-border bg-card shadow-none">
           <CardHeader className="p-4 pb-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="type-metadata">
               Completeness Distribution
             </CardTitle>
           </CardHeader>
@@ -193,7 +193,7 @@ export default async function AdminQualityPage() {
 
         <Card className="border-border bg-card shadow-none md:col-span-2">
           <CardHeader className="p-4 pb-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="type-metadata">
               Enrichment Quality
             </CardTitle>
           </CardHeader>
@@ -219,14 +219,14 @@ export default async function AdminQualityPage() {
 
             <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
               <div>
-                <p className="text-sm font-medium text-foreground">Promo hero images</p>
-                <p className="mt-1 font-heading text-3xl font-bold text-foreground">
+                <p className="type-body-emphasis">Promo hero images</p>
+                <p className="mt-1 type-stat">
                   {metrics.enrichment.promoHeroCount}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium text-foreground">Validation failures</p>
-                <p className="mt-1 font-heading text-3xl font-bold text-foreground">
+                <p className="type-body-emphasis">Validation failures</p>
+                <p className="mt-1 type-stat">
                   {metrics.enrichment.validationFailures}
                 </p>
               </div>

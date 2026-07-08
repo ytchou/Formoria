@@ -29,10 +29,10 @@ export function BrandLocations({ brand }: BrandLocationsProps) {
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="font-[family-name:var(--font-heading)] text-lg font-bold text-foreground">
+        <h2 className="type-card-title">
           {t('sections.locations')}
         </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 type-card-description">
           {t('locations.subheading')}
         </p>
       </div>
@@ -56,7 +56,7 @@ export function BrandLocations({ brand }: BrandLocationsProps) {
                 <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-sm font-semibold text-foreground">
+                    <h3 className="type-subsection-title">
                       {location.name}
                     </h3>
                     <Badge variant="secondary">
@@ -70,20 +70,20 @@ export function BrandLocations({ brand }: BrandLocationsProps) {
                   </div>
 
                   {location.venueName ? (
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <p className="mt-1 type-card-description">
                       {location.venueName}
                       {location.floorOrCounter
                         ? ` - ${location.floorOrCounter}`
                         : ''}
                     </p>
                   ) : location.floorOrCounter ? (
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <p className="mt-1 type-card-description">
                       {location.floorOrCounter}
                     </p>
                   ) : null}
 
                   {location.address ? (
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <p className="mt-1 type-card-description">
                       {location.address}
                     </p>
                   ) : null}
@@ -93,7 +93,7 @@ export function BrandLocations({ brand }: BrandLocationsProps) {
                       {location.availabilityNote}
                     </p>
                   ) : (
-                    <p className="mt-2 text-sm text-muted-foreground">
+                    <p className="mt-2 type-card-description">
                       {t(`locations.defaultNotes.${relationshipType}`)}
                     </p>
                   )}

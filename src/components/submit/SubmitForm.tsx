@@ -219,16 +219,16 @@ export default function SubmitForm({
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
       <div className="mb-8">
-        <h1 className="text-balance text-center font-heading text-[26px] font-bold text-foreground">
+        <h1 className="text-balance text-center type-page-title">
           {tForm('heading')}
         </h1>
-        <p className="mt-3 text-center text-sm leading-6 text-muted-foreground">
+        <p className="mt-3 text-center type-card-description">
           {tForm('subheading')}
         </p>
       </div>
 
       <StandardForm onSubmit={onSubmit} noValidate>
-        <p className="mb-5 text-xs text-muted-foreground">
+        <p className="mb-5 type-caption">
           <span className="text-destructive">*</span> {tForm('requiredHint')}
         </p>
 
@@ -528,7 +528,7 @@ export default function SubmitForm({
                       onChange={field.onChange}
                       className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded border-border accent-primary"
                     />
-                    <span className="text-[13px] text-foreground">
+                    <span className="type-body">
                       {tReview.rich('pdpaConsent', {
                         privacyPolicy: (chunks) => (
                           <a

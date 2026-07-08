@@ -1,7 +1,7 @@
 import { BadgeCheck, ShieldCheck } from 'lucide-react'
 
 const badgeClassName =
-  'inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-sans text-[11px] font-semibold'
+  'inline-flex items-center gap-1 rounded-full px-2.5 py-1 type-micro'
 
 type BrandVerificationBadgeProps = {
   label: string

@@ -29,13 +29,13 @@ export default async function SettingsPage({ params, searchParams }: Props) {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
-      <h1 className="font-heading text-3xl font-bold tracking-tight">
+      <h1 className="type-page-title-large">
         {t("heading")}
       </h1>
-      <p className="mt-2 text-muted-foreground">{t("subheading")}</p>
+      <p className="mt-2 type-body-muted">{t("subheading")}</p>
 
       {saved && (
-        <div className="mt-4 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800 dark:bg-green-950 dark:text-green-200">
+        <div className="mt-4 type-success-panel">
           {t("saved")}
         </div>
       )}

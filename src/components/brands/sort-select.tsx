@@ -12,12 +12,12 @@ export function SortSelect() {
   const { currentSort, setSort } = useFilterParams()
 
   return (
-    <label className="inline-flex items-center gap-2 text-[13px] font-medium text-muted-foreground">
+    <label className="inline-flex items-center gap-2 type-metadata">
       {t('sortLabel')}
       <select
         value={currentSort}
         onChange={(e) => setSort(e.target.value as BrandSortOption)}
-        className="rounded-lg border border-border bg-background px-3 py-1.5 text-[13px] font-medium text-foreground transition-colors hover:border-foreground/20 focus:outline-none focus:ring-2 focus:ring-ring/20"
+        className="rounded-lg border border-border bg-background px-3 py-1.5 type-body-emphasis transition-colors hover:border-foreground/20 focus:outline-none focus:ring-2 focus:ring-ring/20"
       >
         {(Object.keys(BRAND_SORT_CONFIG) as BrandSortOption[]).map((key) => (
           <option key={key} value={key}>

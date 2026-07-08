@@ -271,7 +271,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
               categories={[...PRODUCT_TYPE_CATEGORIES]}
               totalCount={totalCount}
             />
-            <p className="text-sm text-muted-foreground">
+            <p className="type-card-description">
               {totalCount > 0 ? t('count', { count: totalCount }) : t('notFound')}
             </p>
           </div>
@@ -310,10 +310,10 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center py-24 text-center">
-                  <p className="text-base font-semibold text-foreground">
+                  <p className="type-card-title">
                     {t('emptyTitle')}
                   </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p className="mt-1 type-card-description">
                     {t('emptyDescription')}
                   </p>
                 </div>
