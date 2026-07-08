@@ -36,14 +36,40 @@ const linksSchema = z.object({
     .optional(),
 })
 
+const optionalLocationNumberSchema = z.union([z.number(), z.string()]).optional()
+
+const retailLocationSchema = z
+  .object({
+    name: z.string().optional(),
+    relationshipType: z
+      .enum(['brand_store', 'stockist', 'department_counter'])
+      .optional(),
+    address: z.string().optional(),
+    city: z.string().optional(),
+    district: z.string().optional(),
+    venueName: z.string().optional(),
+    floorOrCounter: z.string().optional(),
+    availabilityNote: z.string().optional(),
+    latitude: optionalLocationNumberSchema,
+    longitude: optionalLocationNumberSchema,
+    verificationStatus: z.enum(['verified', 'manual', 'needs_review']).optional(),
+  })
+  .superRefine((location, ctx) => {
+    const hasLocationValue = Object.values(location).some((value) =>
+      typeof value === 'string' ? value.trim().length > 0 : value !== undefined,
+    )
+    if (hasLocationValue && !location.address?.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['address'],
+        message: 'Address is required',
+      })
+    }
+  })
+
 const locationsSchema = z.object({
   retailLocations: z
-    .array(
-      z.object({
-        name: z.string(),
-        address: z.string().optional(),
-      }),
-    )
+    .array(retailLocationSchema)
     .optional(),
 })
 

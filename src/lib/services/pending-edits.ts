@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { deleteBrandImages } from '@/lib/services/image-upload'
 import { diffRemovedImageUrls, updateBrand } from './brands'
 import { deriveCategoryFromProductType } from '@/lib/taxonomy/ontology'
+import { normalizeRetailLocations } from '@/lib/brands/locations'
 
 // ---------------------------------------------------------------------------
 // Row types
@@ -91,6 +92,17 @@ function proposedArrayField<T>(
   return Array.isArray(current) ? (current as T[]) : []
 }
 
+function proposedRetailLocations(
+  proposedData: Record<string, unknown>,
+  current: unknown,
+): Brand['retailLocations'] {
+  return normalizeRetailLocations(
+    Object.prototype.hasOwnProperty.call(proposedData, 'retailLocations')
+      ? proposedData.retailLocations
+      : current,
+  )
+}
+
 export function pendingEditWithBrandToDomain(
   row: PendingBrandEditWithBrandRowInput
 ): PendingBrandEditWithBrand {
@@ -118,7 +130,7 @@ export function pendingEditWithBrandToDomain(
       purchasePinkoi: proposedStringOrNull(proposedData, 'purchasePinkoi', brand?.purchase_pinkoi),
       purchaseShopee: proposedStringOrNull(proposedData, 'purchaseShopee', brand?.purchase_shopee),
       otherUrls: proposedArrayField<OtherUrl>(proposedData, 'otherUrls', brand?.other_urls),
-      retailLocations: Array.isArray(brand?.retail_locations) ? brand.retail_locations as Brand['retailLocations'] : [],
+      retailLocations: proposedRetailLocations(proposedData, brand?.retail_locations),
       productPhotos: [],
       priceRange: brand?.price_range ?? null,
       productTags: Array.isArray(brand?.product_tags) ? brand.product_tags : [],

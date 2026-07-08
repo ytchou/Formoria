@@ -1,16 +1,14 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 
-// Mock server actions
 vi.mock('@/app/[locale]/submit/actions', () => ({
-  submitBrand: vi.fn(),
+  submitRecommendation: vi.fn(),
+  submitOwnerBrand: vi.fn(),
   suggestCleanName: vi.fn(),
 }))
 
-// Mock TurnstileWidget — immediately fires onSuccess so turnstileToken is populated
 vi.mock('@/components/submit/TurnstileWidget', () => ({
   TurnstileWidget: ({ onSuccess }: { onSuccess: (token: string) => void }) => {
     onSuccess('mock-turnstile-token')
@@ -18,7 +16,6 @@ vi.mock('@/components/submit/TurnstileWidget', () => ({
   },
 }))
 
-// Mock next-intl/navigation
 vi.mock('@/i18n/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
   Link: ({ href, children }: { href: string; children: React.ReactNode }) => (
@@ -26,7 +23,6 @@ vi.mock('@/i18n/navigation', () => ({
   ),
 }))
 
-// Mock analytics (functions may change signatures)
 vi.mock('@/lib/analytics', () => ({
   trackSubmissionFormOpened: vi.fn(),
   trackSubmissionCompleted: vi.fn(),
@@ -35,10 +31,10 @@ vi.mock('@/lib/analytics', () => ({
 import SubmitForm from './SubmitForm'
 import messages from '@/../messages/zh-TW.json'
 
-function renderForm() {
+function renderForm(variant: 'recommend' | 'owner') {
   return render(
     <NextIntlClientProvider locale="zh-TW" messages={messages}>
-      <SubmitForm />
+      <SubmitForm variant={variant} />
     </NextIntlClientProvider>
   )
 }
@@ -48,86 +44,24 @@ describe('SubmitForm', () => {
     vi.clearAllMocks()
   })
 
-  it('renders page heading', () => {
-    renderForm()
-    expect(screen.getByRole('heading', { name: /提交品牌/ })).toBeInTheDocument()
+  it('renders recommendation form for guest users', () => {
+    renderForm('recommend')
+    expect(screen.getByRole('heading', { name: /推薦品牌/ })).toBeInTheDocument()
+    expect(screen.getByLabelText(/你的電子郵件（選填）/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/你如何知道這個品牌/)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/Instagram/)).not.toBeInTheDocument()
   })
 
-  it('renders website field', () => {
-    renderForm()
-    expect(screen.getByLabelText(/品牌官方網站/)).toBeInTheDocument()
-  })
-
-  it('renders brand name field', () => {
-    renderForm()
-    expect(screen.getByLabelText(/品牌名稱/)).toBeInTheDocument()
-  })
-
-  it('renders ownership checkbox', () => {
-    renderForm()
-    expect(screen.getByLabelText(/我是品牌負責人/)).toBeInTheDocument()
-  })
-
-  it('ownership checkbox is unchecked by default', () => {
-    renderForm()
-    const ownerCheckbox = screen.getByLabelText(/我是品牌負責人/)
-    expect(ownerCheckbox).not.toBeChecked()
-  })
-
-  it('renders social links section', () => {
-    renderForm()
-    // Social links are always visible (no accordion) — verify the section label exists
-    expect(screen.getByText(/其他連結/)).toBeInTheDocument()
-  })
-
-  it('renders submit button', () => {
-    renderForm()
-    expect(screen.getByRole('button', { name: /提交品牌/ })).toBeInTheDocument()
-  })
-
-  it('renders submit button initially disabled (form not yet valid)', () => {
-    renderForm()
-    // Button should be disabled because pdpaConsent = false (and fields empty)
-    const submitBtn = screen.getByRole('button', { name: /提交品牌/ })
-    expect(submitBtn).toBeDisabled()
-  })
-
-  it('shows source attribution when ownership unchecked', () => {
-    renderForm()
-    // isOwner defaults to false (unchecked), so source attribution is already visible
-    expect(screen.getByLabelText(/資料來源/)).toBeVisible()
-  })
-
-  it('always renders source attribution regardless of ownership', () => {
-    renderForm()
-    // Source attribution is always visible (not conditional on isOwner)
-    expect(screen.getByLabelText(/資料來源/)).toBeInTheDocument()
-  })
-
-  it('renders social link fields directly without accordion interaction', () => {
-    renderForm()
-    // Social links are always expanded (accordion removed) — fields are immediately accessible
+  it('renders owner form with brand links and no source attribution selector', () => {
+    renderForm('owner')
+    expect(screen.getByRole('heading', { name: /品牌主提交/ })).toBeInTheDocument()
     expect(screen.getByLabelText(/Instagram/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/品牌所在縣市/)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/你如何知道這個品牌/)).not.toBeInTheDocument()
   })
 
-  it('renders hidden honeypot field', () => {
-    renderForm()
-    const honeypot = document.querySelector('input[name="honeypot"]')
-    expect(honeypot).toBeInTheDocument()
-    expect(honeypot).toHaveAttribute('tabindex', '-1')
-    expect(honeypot).toHaveAttribute('aria-hidden', 'true')
-  })
-
-  it('shows MIT cert field when isOwner is checked', async () => {
-    const user = userEvent.setup()
-    renderForm()
-    const ownerCheckbox = screen.getByLabelText(/我是品牌負責人/)
-    await user.click(ownerCheckbox)
-    expect(screen.getByLabelText(/MIT 微笑標章/)).toBeInTheDocument()
-  })
-
-  it('hides MIT cert field when isOwner is unchecked', () => {
-    renderForm()
-    expect(screen.queryByLabelText(/MIT 微笑標章/)).not.toBeInTheDocument()
+  it('renders submit button disabled before required fields are completed', () => {
+    renderForm('recommend')
+    expect(screen.getByRole('button', { name: /送出推薦/ })).toBeDisabled()
   })
 })

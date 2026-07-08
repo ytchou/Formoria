@@ -1,3 +1,16 @@
-ignoredBuiltDependencies:
-  - sharp
-  - unrs-resolver
+overrides:
+  vite: '>=8.1.2'
+  '@tinacms/cli>vite': 4.5.9
+  ws: '>=8.21.0'
+  undici: '>=7.28.0'
+
+allowBuilds:
+  '@parcel/watcher': true
+  '@sentry/cli': true
+  '@swc/core': true
+  better-sqlite3: true
+  core-js: true
+  esbuild: true
+  msw: true
+  sharp: false
+  unrs-resolver: false

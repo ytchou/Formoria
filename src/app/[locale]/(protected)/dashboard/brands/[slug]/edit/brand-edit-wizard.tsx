@@ -59,6 +59,7 @@ const STEP_VALIDATION_FIELDS: Partial<
 > = {
   basicInfo: ['name', 'productType', 'description', 'priceRange'],
   links: ['purchaseWebsite'],
+  locations: ['retailLocations'],
 }
 
 function deriveCompletedSteps(
@@ -162,7 +163,6 @@ export function BrandEditWizard({
     }
   }, [
     form,
-    currentSectionFields,
     currentStepKey,
     brand.id,
     brand.slug,

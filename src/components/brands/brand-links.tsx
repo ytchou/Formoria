@@ -1,7 +1,11 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { sanitizeHref } from '@/lib/url'
+import {
+  normalizeInstagramHref,
+  normalizeThreadsHref,
+  sanitizeHref,
+} from '@/lib/url'
 import type { ReactNode } from 'react'
 import {
   AtSign,
@@ -21,32 +25,6 @@ import {
 
 interface BrandLinksProps {
   brand: Brand
-}
-
-function normalizeInstagramUrl(value: string | undefined | null): string | null {
-  if (!value) return null
-  const trimmed = value.trim()
-  if (!trimmed) return null
-  if (/^https?:\/\//i.test(trimmed)) return trimmed
-  const handle = trimmed.startsWith('@') ? trimmed.slice(1) : trimmed
-  return `https://instagram.com/${handle}`
-}
-
-function normalizeThreadsUrl(value: string | undefined | null): string | null {
-  if (!value) return null
-  const trimmed = value.trim()
-  if (!trimmed) return null
-  if (/^https?:\/\//i.test(trimmed)) return trimmed
-  const handle = trimmed.startsWith('@') ? trimmed.slice(1) : trimmed
-  return `https://threads.net/@${handle}`
-}
-
-function normalizeWebsiteUrl(value: string | undefined | null): string | null {
-  if (!value) return null
-  const trimmed = value.trim()
-  if (!trimmed) return null
-  if (/^https?:\/\//i.test(trimmed)) return trimmed
-  return `https://${trimmed}`
 }
 
 function normalizeDirectUrl(value: string | undefined | null): string | null {
@@ -114,11 +92,13 @@ function LinkSection({ label, icon, slots, brand }: LinkSectionProps) {
     <section>
       <SectionLabel icon={icon}>{label}</SectionLabel>
       <div className="flex flex-wrap gap-3">
-        {slots.map((slot) => {
+        {slots.map((slot, index) => {
+          const slotKey = `${slot.linkType}:${slot.label}:${index}`
+
           if (slot.url) {
             return (
               <a
-                key={slot.label}
+                key={slotKey}
                 href={slot.url}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -142,7 +122,7 @@ function LinkSection({ label, icon, slots, brand }: LinkSectionProps) {
 
           return (
             <span
-              key={slot.label}
+              key={slotKey}
               aria-disabled="true"
               className={disabledChipClassName}
             >
@@ -162,14 +142,14 @@ function BrandSocialLinks({ brand }: BrandLinksProps) {
   const socialSlots: LinkSlot[] = [
     {
       label: t('links.instagram'),
-      url: normalizeInstagramUrl(brand.socialInstagram),
+      url: normalizeInstagramHref(brand.socialInstagram),
       linkType: 'instagram',
       dbDestination: 'instagram',
       icon: <InstagramIcon className="size-4 text-foreground" />,
     },
     {
       label: t('links.threads'),
-      url: normalizeThreadsUrl(brand.socialThreads),
+      url: normalizeThreadsHref(brand.socialThreads),
       linkType: 'threads',
       dbDestination: 'threads',
       icon: <AtSign className="size-4 text-foreground" />,
@@ -199,7 +179,7 @@ function BrandPurchaseLinks({ brand }: BrandLinksProps) {
   const purchaseSlots: LinkSlot[] = [
     {
       label: t('links.website'),
-      url: normalizeWebsiteUrl(brand.purchaseWebsite),
+      url: normalizeDirectUrl(brand.purchaseWebsite),
       linkType: 'website',
       dbDestination: 'website',
       icon: <Globe className="size-4 text-foreground" />,
@@ -233,12 +213,20 @@ function BrandPurchaseLinks({ brand }: BrandLinksProps) {
 function BrandOtherLinks({ brand }: BrandLinksProps) {
   const t = useTranslations('brandDetail')
 
-  const otherSlots: LinkSlot[] = brand.otherUrls.map((otherUrl) => ({
-    label: otherUrl.label,
-    url: normalizeDirectUrl(otherUrl.url),
-    linkType: 'other',
-    icon: <Link className="size-4 text-foreground" />,
-  }))
+  const otherSlots: LinkSlot[] = brand.otherUrls.flatMap((otherUrl) => {
+    const label = otherUrl.label?.trim() ?? ''
+    const url = normalizeDirectUrl(otherUrl.url)
+    if (!label || !url) return []
+
+    return [
+      {
+        label,
+        url,
+        linkType: 'other',
+        icon: <Link className="size-4 text-foreground" />,
+      },
+    ]
+  })
 
   if (otherSlots.length === 0) return null
 

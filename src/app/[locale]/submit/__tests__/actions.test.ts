@@ -1,25 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createSubmissionSchema } from '@/lib/validations/submission'
 import zhMessages from '../../../../../messages/zh-TW.json'
 
 const {
   mockGetUser,
   mockSubmitBrandForReview,
   mockVerifyTurnstileToken,
-  mockRateLimiterCheck,
+  mockOwnerRateLimiterCheck,
+  mockGuestRateLimiterCheck,
   mockGetUserBrand,
-} = vi.hoisted(() => {
-  const mockRateLimiterCheck = vi.fn().mockReturnValue({ allowed: true })
-  return {
-    mockGetUser: vi.fn(),
-    mockSubmitBrandForReview: vi.fn(),
-    mockVerifyTurnstileToken: vi.fn(),
-    mockRateLimiterCheck,
-    mockGetUserBrand: vi.fn(),
-  }
-})
+  mockCheckBrandDuplicates,
+} = vi.hoisted(() => ({
+  mockGetUser: vi.fn(),
+  mockSubmitBrandForReview: vi.fn(),
+  mockVerifyTurnstileToken: vi.fn(),
+  mockOwnerRateLimiterCheck: vi.fn().mockReturnValue({ allowed: true }),
+  mockGuestRateLimiterCheck: vi.fn().mockReturnValue({ allowed: true }),
+  mockGetUserBrand: vi.fn(),
+  mockCheckBrandDuplicates: vi.fn().mockResolvedValue({ nameMatches: [] }),
+}))
 
-// Resolve dot-delimited key paths in a nested messages object
 function makeT(messages: Record<string, unknown>, namespace: string) {
   return (key: string) => {
     const parts = `${namespace}.${key}`.split('.')
@@ -35,6 +34,13 @@ function makeT(messages: Record<string, unknown>, namespace: string) {
 vi.mock('next-intl/server', () => ({
   getTranslations: vi.fn(),
   setRequestLocale: vi.fn(),
+}))
+
+vi.mock('next/headers', () => ({
+  headers: vi.fn(async () => new Headers([
+    ['cf-connecting-ip', '127.0.0.1'],
+    ['x-forwarded-for', '127.0.0.1'],
+  ])),
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -58,7 +64,13 @@ vi.mock('@/lib/security/turnstile', () => ({
 }))
 
 vi.mock('@/lib/security/rate-limiter', () => ({
-  createInMemoryRateLimiter: () => ({ check: mockRateLimiterCheck }),
+  createInMemoryRateLimiter: vi.fn(() => ({
+    check: vi.fn((key: string) => (
+      key === '127.0.0.1'
+        ? mockGuestRateLimiterCheck(key)
+        : mockOwnerRateLimiterCheck(key)
+    )),
+  })),
 }))
 
 vi.mock('@/lib/services/brand-cleanup', () => ({
@@ -70,16 +82,17 @@ vi.mock('@/lib/services/brand-cleanup', () => ({
   })),
 }))
 
-import { getTranslations } from 'next-intl/server'
-import { submitBrand } from '@/app/[locale]/submit/actions'
+vi.mock('@/lib/services/submissions', () => ({
+  buildGuestSubmissionEmail: vi.fn(() => 'guest+123@guest.formoria.invalid'),
+  checkBrandDuplicates: mockCheckBrandDuplicates,
+}))
 
-// Test the schema selection logic in isolation — not the full action
-// (Full action involves Turnstile + Supabase; those are covered by E2E)
-describe('server action schema routing', () => {
+import { getTranslations } from 'next-intl/server'
+import { submitOwnerBrand, submitRecommendation } from '@/app/[locale]/submit/actions'
+
+describe('submit actions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // Wire up next-intl/server with zh-TW messages so the action resolves
-    // submit.errors.* strings correctly
     vi.mocked(getTranslations).mockImplementation(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       async (namespace: any) => makeT(zhMessages as Record<string, unknown>, typeof namespace === 'string' ? namespace : '') as any
@@ -96,134 +109,107 @@ describe('server action schema routing', () => {
     })
     mockVerifyTurnstileToken.mockResolvedValue({ success: true })
     mockGetUserBrand.mockResolvedValue(null)
-    mockSubmitBrandForReview.mockResolvedValue({
-      brand: { id: 'brand-123' },
-      submissionId: 'submission-123',
-    })
+    mockSubmitBrandForReview.mockResolvedValue({ submissionId: 'submission-123' })
+    mockCheckBrandDuplicates.mockResolvedValue({ nameMatches: [] })
+    mockOwnerRateLimiterCheck.mockReturnValue({ allowed: true })
+    mockGuestRateLimiterCheck.mockReturnValue({ allowed: true })
   })
 
-  it('owner payload with required fields passes schema', () => {
-    const schema = createSubmissionSchema(true)
-    const ownerPayload = {
+  it('submits a guest recommendation with source attribution', async () => {
+    const result = await submitRecommendation({
       name: 'Test Brand',
       website: 'https://test.com',
-      isOwner: true,
-      purchaseLinks: [{ platform: 'shopify', url: 'https://shop.com' }],
-      pdpaConsent: true,
-      socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
-      turnstileToken: 'test-token',
-    }
-    expect(schema.safeParse(ownerPayload).success).toBe(true)
-  })
-
-  it('community payload without owner-only fields passes community schema', () => {
-    const schema = createSubmissionSchema(false)
-    const communityPayload = {
-      name: 'Test Brand',
-      website: 'https://test.com',
-      isOwner: false,
-      purchaseLinks: [],
-      pdpaConsent: true,
-      socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
+      description: 'A short recommendation note.',
+      guestEmail: '',
       sourceAttribution: 'found_online',
-      turnstileToken: 'test-token',
-    }
-    expect(schema.safeParse(communityPayload).success).toBe(true)
-  })
-
-  it('omits the dormant brand column from the brand insert payload', async () => {
-    await submitBrand({
-      name: 'Test Brand',
-      website: 'https://test.com',
-      isOwner: true,
-      mitSmileCert: '',
-      purchaseLinks: [{ platform: 'shopify', url: 'https://shop.com' }],
       pdpaConsent: true,
-      socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
-      turnstileToken: 'test-token',
-      honeypot: '',
-    })
-
-    expect(mockSubmitBrandForReview).toHaveBeenCalledTimes(1)
-  })
-
-  it('downgrades an additional owner submission to a community listing', async () => {
-    mockGetUserBrand.mockResolvedValue({ brandId: 'owned-brand' })
-
-    const result = await submitBrand({
-      name: 'Second Brand',
-      website: 'https://second.test',
-      isOwner: true,
-      mitSmileCert: '',
-      purchaseLinks: [{ platform: 'shopify', url: 'https://shop.test' }],
-      pdpaConsent: true,
-      socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://second.test' },
-      turnstileToken: 'test-token',
-      honeypot: '',
-    })
-
-    expect(result).toEqual({ ownershipAdjusted: true })
-    expect(mockSubmitBrandForReview).toHaveBeenCalledWith(
-      expect.objectContaining({ isBrandOwner: false }),
-    )
-  })
-
-  it('does not pass region to submitBrandForReview', async () => {
-    await submitBrand({
-      name: 'Test Brand',
-      website: 'https://test.com',
-      isOwner: false,
-      mitSmileCert: '',
-      purchaseLinks: [],
-      pdpaConsent: true,
-      socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
-      sourceAttribution: 'found_online',
-      turnstileToken: 'test-token',
-      honeypot: '',
-    })
-
-    expect(mockSubmitBrandForReview).toHaveBeenCalledWith(
-      expect.not.objectContaining({
-        region: expect.anything(),
-      })
-    )
-  })
-
-  it('returns undefined on successful submission', async () => {
-    const result = await submitBrand({
-      name: 'Test Brand',
-      website: 'https://test.com',
-      isOwner: false,
-      mitSmileCert: '',
-      purchaseLinks: [{ platform: 'shopify', url: 'https://shop.com/product' }],
-      pdpaConsent: true,
-      socialLinks: { instagram: '', threads: '', facebook: '', website: 'https://test.com' },
-      sourceAttribution: 'found_online',
       turnstileToken: 'test-token',
       honeypot: '',
     })
 
     expect(result).toBeUndefined()
-    expect(mockSubmitBrandForReview).toHaveBeenCalledTimes(1)
+    expect(mockSubmitBrandForReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent: 'recommend',
+        isBrandOwner: false,
+        sourceAttribution: 'found_online',
+        submitterEmail: 'guest+123@guest.formoria.invalid',
+      }),
+      { useServiceRole: true }
+    )
   })
 
-  it('returns error when rate limited', async () => {
-    mockRateLimiterCheck.mockReturnValue({ allowed: false })
+  it('blocks duplicate guest recommendations', async () => {
+    mockCheckBrandDuplicates.mockResolvedValue({
+      nameMatches: [{ id: 'b1', name: 'Test Brand', slug: 'test-brand', similarity: 0.95 }],
+    })
 
-    const result = await submitBrand({
+    const result = await submitRecommendation({
       name: 'Test Brand',
       website: 'https://test.com',
-      isOwner: false,
-      mitSmileCert: '',
-      purchaseLinks: [],
-      pdpaConsent: true,
-      socialLinks: { instagram: '', threads: '', facebook: '', website: '' },
       sourceAttribution: 'found_online',
+      pdpaConsent: true,
       turnstileToken: 'test-token',
       honeypot: '',
     })
 
     expect(result).toEqual({ error: expect.any(String) })
     expect(mockSubmitBrandForReview).not.toHaveBeenCalled()
+  })
+
+  it('returns error when guest recommendation is rate limited', async () => {
+    mockGuestRateLimiterCheck.mockReturnValue({ allowed: false })
+
+    const result = await submitRecommendation({
+      name: 'Test Brand',
+      website: 'https://test.com',
+      sourceAttribution: 'found_online',
+      pdpaConsent: true,
+      turnstileToken: 'test-token',
+      honeypot: '',
+    })
+
+    expect(result).toEqual({ error: expect.any(String) })
+    expect(mockSubmitBrandForReview).not.toHaveBeenCalled()
+  })
+
+  it('submits an authenticated owner brand', async () => {
+    const result = await submitOwnerBrand({
+      name: 'Owner Brand',
+      website: 'https://owner.test',
+      description: 'Owner submission',
+      mitSmileCert: '0123',
+      socialLinks: { instagram: 'https://instagram.com/ownerbrand' },
+      pdpaConsent: true,
+      turnstileToken: 'test-token',
+      honeypot: '',
+    })
+
+    expect(result).toBeUndefined()
+    expect(mockSubmitBrandForReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent: 'owner_claim',
+        isBrandOwner: true,
+        submitterEmail: 'owner@example.com',
+        mitSmileCert: '0123',
+      })
+    )
+  })
+
+  it('downgrades an additional owner submission to a community listing', async () => {
+    mockGetUserBrand.mockResolvedValue({ brandId: 'owned-brand' })
+
+    const result = await submitOwnerBrand({
+      name: 'Second Brand',
+      website: 'https://second.test',
+      pdpaConsent: true,
+      turnstileToken: 'test-token',
+      honeypot: '',
+    })
+
+    expect(result).toEqual({ ownershipAdjusted: true })
+    expect(mockSubmitBrandForReview).toHaveBeenCalledWith(
+      expect.objectContaining({ isBrandOwner: false, intent: 'recommend' })
+    )
   })
 })

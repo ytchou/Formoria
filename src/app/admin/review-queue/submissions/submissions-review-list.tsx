@@ -9,6 +9,7 @@ import {
   type BrandSubmission,
   type DenialReason,
   type OtherUrl,
+  type SubmissionIntent,
   type SourceAttribution,
   type SubmissionStatus,
 } from '@/lib/types'
@@ -45,6 +46,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 
 type TabValue = 'all' | SubmissionStatus
+type IntentFilter = 'all' | SubmissionIntent
 
 type BrandSubmissionWithRisk = BrandSubmission & {
   moderationRiskLevel?: 'high' | 'medium' | 'clean'
@@ -69,6 +71,18 @@ const PRODUCT_TYPE_EMPTY = '__none'
 const BULK_DENIAL_REASONS = DENIAL_REASONS.filter((reason) => reason !== 'other')
 
 type EnrichmentStatus = 'not_enriched' | 'enriched' | 'partially_enriched'
+const GENERATED_GUEST_EMAIL_SUFFIX = '@guest.formoria.invalid'
+
+function getSubmissionIntent(submission: Pick<BrandSubmission, 'intent' | 'isBrandOwner'>): SubmissionIntent {
+  if (submission.intent) return submission.intent
+  return submission.isBrandOwner ? 'owner_claim' : 'recommend'
+}
+
+function getSubmitterLabel(submission: Pick<BrandSubmission, 'submitterEmail'>) {
+  return submission.submitterEmail.endsWith(GENERATED_GUEST_EMAIL_SUFFIX)
+    ? '未提供'
+    : submission.submitterEmail
+}
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('zh-TW', {
@@ -210,6 +224,7 @@ export function SubmissionsReviewList({
   const denialReasonsT = useTranslations('admin.submissions.denialReasons')
   const enrichT = useTranslations('admin.enrichment')
   const [activeTab, setActiveTab] = useState<TabValue>('pending')
+  const [intentFilter, setIntentFilter] = useState<IntentFilter>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState<DenialReason | ''>('')
@@ -224,10 +239,14 @@ export function SubmissionsReviewList({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const router = useRouter()
 
-  const filtered =
+  const statusFiltered =
     activeTab === 'all'
       ? submissions
       : submissions.filter((s) => s.status === activeTab)
+  const filtered =
+    intentFilter === 'all'
+      ? statusFiltered
+      : statusFiltered.filter((submission) => getSubmissionIntent(submission) === intentFilter)
 
   function handleRowClick(submission: BrandSubmissionWithRisk) {
     setExpandedId((prev) => (prev === submission.id ? null : submission.id))
@@ -323,6 +342,11 @@ export function SubmissionsReviewList({
     pending: submissions.filter((s) => s.status === 'pending').length,
     approved: submissions.filter((s) => s.status === 'approved').length,
     rejected: submissions.filter((s) => s.status === 'rejected').length,
+  }), [submissions])
+  const intentCounts = useMemo(() => ({
+    all: submissions.length,
+    recommend: submissions.filter((submission) => getSubmissionIntent(submission) === 'recommend').length,
+    owner_claim: submissions.filter((submission) => getSubmissionIntent(submission) === 'owner_claim').length,
   }), [submissions])
 
   function handleBulkApprove() {
@@ -449,6 +473,7 @@ export function SubmissionsReviewList({
         value={activeTab}
         onValueChange={(v) => {
           setActiveTab(v as TabValue)
+          setIntentFilter('all')
           setSelectedIds(new Set())
           setIsBulkRejecting(false)
           setBulkRejectReason('')
@@ -470,6 +495,19 @@ export function SubmissionsReviewList({
           </TabsList>
 
           <div className="flex items-center gap-2">
+            <Select
+              value={intentFilter}
+              onValueChange={(value) => setIntentFilter(value as IntentFilter)}
+            >
+              <SelectTrigger aria-label="提交意圖篩選" className="h-9 w-[220px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="end">
+                <SelectItem value="all">全部提交 ({intentCounts.all})</SelectItem>
+                <SelectItem value="recommend">推薦提交 ({intentCounts.recommend})</SelectItem>
+                <SelectItem value="owner_claim">品牌主開始申請 ({intentCounts.owner_claim})</SelectItem>
+              </SelectContent>
+            </Select>
             {selectedCount > 0 && (
               <span className="text-sm text-muted-foreground">
                 已選擇 {selectedCount} 筆
@@ -566,6 +604,7 @@ export function SubmissionsReviewList({
             {filtered.map((submission) => {
               const form = overridesById[submission.id] ?? createOverrideForm(submission)
               const hasEnrichment = Boolean(submission.enriched_data)
+              const submissionIntent = getSubmissionIntent(submission)
 
               return (
                 <Fragment key={submission.id}>
@@ -615,13 +654,13 @@ export function SubmissionsReviewList({
                       })()}
                     </TableCell>
                     <TableCell>
-                      {submission.isBrandOwner ? (
+                      {submissionIntent === 'owner_claim' ? (
                         <span className="inline-flex items-center rounded-full bg-foreground px-2 py-0.5 text-xs font-semibold text-white">
-                          品牌主
+                          品牌主開始申請
                         </span>
                       ) : (
                         <span className="inline-flex items-center rounded-full bg-[#EAF3E8] px-2 py-0.5 text-xs font-semibold text-[#2D5A27]">
-                          社群
+                          推薦提交
                         </span>
                       )}
                     </TableCell>
@@ -640,7 +679,7 @@ export function SubmissionsReviewList({
                         return <ReadinessBadge tone="grey">未處理</ReadinessBadge>
                       })()}
                     </TableCell>
-                    <TableCell className="max-w-[160px] truncate">{submission.submitterEmail}</TableCell>
+                    <TableCell className="max-w-[160px] truncate">{getSubmitterLabel(submission)}</TableCell>
                     <TableCell>{formatDate(submission.submittedAt)}</TableCell>
                     <TableCell className="text-right">
                       {submission.status === 'pending' && (
@@ -871,7 +910,7 @@ export function SubmissionsReviewList({
                             ) : null
                           })()}
 
-                          {!submission.isBrandOwner && submission.sourceAttribution && (
+                          {submissionIntent === 'recommend' && submission.sourceAttribution && (
                             <div>
                               <p className="text-sm font-medium text-muted-foreground">
                                 你怎麼知道這個品牌？
@@ -881,6 +920,12 @@ export function SubmissionsReviewList({
                               </p>
                             </div>
                           )}
+
+                          {submissionIntent === 'owner_claim' ? (
+                            <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+                              核准後，系統會寄送品牌認領邀請給提交者；後續的證明審核會在認領申請佇列處理。
+                            </div>
+                          ) : null}
 
                           {submission.productTypeNote?.trim() && (
                             <div>

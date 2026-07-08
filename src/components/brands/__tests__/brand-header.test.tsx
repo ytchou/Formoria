@@ -75,4 +75,23 @@ describe('BrandHeader — verified badge', () => {
     expect(screen.queryByText('品牌經營')).not.toBeInTheDocument()
     expect(screen.queryByTitle('由品牌方經營管理')).not.toBeInTheDocument()
   })
+
+  it('does not render retail locations in the metadata row', () => {
+    renderWithIntl(
+      <BrandHeader
+        brand={makeBrand({
+          retailLocations: [
+            {
+              name: '大零售據點',
+              address: '新北市林口區麗園一街11巷',
+              latitude: 25.073,
+              longitude: 121.389,
+            },
+          ],
+        })}
+      />,
+    )
+
+    expect(screen.queryByText('大零售據點')).not.toBeInTheDocument()
+  })
 })

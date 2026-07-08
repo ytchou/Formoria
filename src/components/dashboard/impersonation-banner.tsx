@@ -16,6 +16,10 @@ type ImpersonationBannerProps = {
   }
 }
 
+function getMinutesLeft(expiresAt: number) {
+  return Math.max(0, Math.ceil((expiresAt - Date.now() / 1000) / 60))
+}
+
 export function ImpersonationBanner({
   brandName,
   expiresAt,
@@ -23,13 +27,11 @@ export function ImpersonationBanner({
 }: ImpersonationBannerProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [minutesLeft, setMinutesLeft] = useState(() =>
-    Math.max(0, Math.ceil((expiresAt - Date.now() / 1000) / 60))
-  )
+  const [minutesLeft, setMinutesLeft] = useState(() => getMinutesLeft(expiresAt))
 
   useEffect(() => {
     const interval = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((expiresAt - Date.now() / 1000) / 60))
+      const remaining = getMinutesLeft(expiresAt)
       setMinutesLeft(remaining)
       if (remaining <= 0) {
         clearInterval(interval)

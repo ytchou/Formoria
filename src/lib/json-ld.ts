@@ -1,5 +1,6 @@
 import type { Brand } from '@/lib/types'
 import type { Locale } from '@/lib/seo/alternates'
+import { normalizeRetailLocations } from '@/lib/brands/locations'
 import { FORMORIA_SOCIALS } from './constants'
 import { getSiteUrl } from './seo/site-url'
 
@@ -27,6 +28,7 @@ function toInLanguage(locale: JsonLdLocale = 'zh-TW'): string {
  * Build Organization JSON-LD structured data for a brand detail page.
  */
 export function buildBrandJsonLd(brand: Brand, locale: Locale = 'zh-TW'): JsonLdObject {
+  const retailLocations = normalizeRetailLocations(brand.retailLocations)
   const allSameAs = [
     brand.socialInstagram,
     brand.socialThreads,
@@ -50,13 +52,15 @@ export function buildBrandJsonLd(brand: Brand, locale: Locale = 'zh-TW'): JsonLd
   if (brand.heroImageUrl) jsonLd.logo = brand.heroImageUrl
   if (brand.foundingYear) jsonLd.foundingDate = String(brand.foundingYear)
   if (allSameAs.length > 0) jsonLd.sameAs = allSameAs
-  if (brand.retailLocations.length === 1) {
+  if (retailLocations.length === 1) {
+    const location = retailLocations[0]
+    if (!location) return jsonLd
     jsonLd.address = {
       '@type': 'PostalAddress',
-      streetAddress: brand.retailLocations[0].address,
+      streetAddress: location.address,
     }
-  } else if (brand.retailLocations.length > 1) {
-    jsonLd.address = brand.retailLocations.map((location) => ({
+  } else if (retailLocations.length > 1) {
+    jsonLd.address = retailLocations.map((location) => ({
       '@type': 'PostalAddress',
       streetAddress: location.address,
     }))

@@ -1,4 +1,5 @@
 import type { Brand } from '@/lib/types'
+import { normalizeRetailLocations } from '@/lib/brands/locations'
 
 type TFn = (key: string, params?: Record<string, unknown>) => string
 
@@ -55,7 +56,7 @@ function collectPurchaseLinks(brand: Brand, t: TFn): string[] {
 
 function collectRetailLocations(brand: Brand): string[] {
   return truncate(
-    (brand.retailLocations ?? [])
+    normalizeRetailLocations(brand.retailLocations)
       .map((location) => location.name)
       .filter(Boolean),
   )

@@ -68,12 +68,12 @@ export default async function LocaleLayout({ children, params }: LayoutProps) {
   const tImpersonate = impersonatedBrand
     ? await getTranslations('impersonation')
     : null
-
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       <SyncHtmlLang />
       {impersonatedBrand && impersonationExpiresAt && tImpersonate ? (
         <ImpersonationBanner
+          key={impersonationExpiresAt}
           brandName={impersonatedBrand.brandName}
           expiresAt={impersonationExpiresAt}
           labels={{

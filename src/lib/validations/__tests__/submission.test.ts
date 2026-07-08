@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { fullSubmissionSchema } from '../submission'
+import {
+  createOwnerSubmissionSchema,
+  fullSubmissionSchema,
+} from '../submission'
+
+const sourceAttribution = 'found_online'
 
 describe('simplified submission schema', () => {
-  it('accepts minimal submission with URL, name, owner, PDPA, turnstile', () => {
+  it('accepts minimal recommendation with URL, name, source, PDPA, turnstile', () => {
     const data = {
       name: 'TestBrand',
       website: 'https://example.com',
-      isOwner: true,
+      sourceAttribution,
       pdpaConsent: true,
       turnstileToken: 'test-token',
       honeypot: '',
@@ -19,7 +24,7 @@ describe('simplified submission schema', () => {
     const data = {
       name: 'TestBrand',
       website: 'https://example.com',
-      isOwner: true,
+      sourceAttribution,
       pdpaConsent: true,
       turnstileToken: 'test-token',
       honeypot: '',
@@ -29,12 +34,12 @@ describe('simplified submission schema', () => {
     expect(fullSubmissionSchema.shape).not.toHaveProperty('unifiedBusinessNumber')
   })
 
-  it('does not require description, productType, productPhotos, heroImageUrl', () => {
+  it('keeps description and hero image optional', () => {
     const shape = Object.keys(fullSubmissionSchema.shape)
-    expect(shape).not.toContain('description')
     expect(shape).not.toContain('productType')
     expect(shape).not.toContain('productPhotos')
-    expect(shape).not.toContain('heroImageUrl')
+    expect(shape).toContain('description')
+    expect(shape).toContain('heroImageUrl')
   })
 
   it('does not include retailLocations', () => {
@@ -43,16 +48,16 @@ describe('simplified submission schema', () => {
   })
 
   it('accepts optional social links as strings', () => {
+    const ownerSchema = createOwnerSubmissionSchema()
     const data = {
       name: 'TestBrand',
       website: 'https://example.com',
-      isOwner: true,
       pdpaConsent: true,
       turnstileToken: 'test-token',
       honeypot: '',
       socialLinks: { instagram: 'https://instagram.com/test', threads: '', facebook: '' },
     }
-    const result = fullSubmissionSchema.safeParse(data)
+    const result = ownerSchema.safeParse(data)
     expect(result.success).toBe(true)
   })
 

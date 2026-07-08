@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sanitizeHref } from './url'
+import { normalizeInstagramHref, normalizeThreadsHref, sanitizeHref } from './url'
 
 describe('sanitizeHref', () => {
   it('returns null for null, undefined, empty string', () => {
@@ -39,5 +39,33 @@ describe('sanitizeHref', () => {
 
   it('trims whitespace', () => {
     expect(sanitizeHref('  https://example.com  ')).toBe('https://example.com')
+  })
+})
+
+describe('normalizeInstagramHref', () => {
+  it('normalizes handles and passes through safe URLs', () => {
+    expect(normalizeInstagramHref('@warmwood.living')).toBe(
+      'https://instagram.com/warmwood.living',
+    )
+    expect(normalizeInstagramHref('warmwood.living')).toBe(
+      'https://instagram.com/warmwood.living',
+    )
+    expect(normalizeInstagramHref('https://instagram.com/warmwood')).toBe(
+      'https://instagram.com/warmwood',
+    )
+  })
+})
+
+describe('normalizeThreadsHref', () => {
+  it('normalizes handles and passes through safe URLs', () => {
+    expect(normalizeThreadsHref('@warmwood.living')).toBe(
+      'https://threads.net/@warmwood.living',
+    )
+    expect(normalizeThreadsHref('warmwood.living')).toBe(
+      'https://threads.net/@warmwood.living',
+    )
+    expect(normalizeThreadsHref('https://threads.net/@warmwood')).toBe(
+      'https://threads.net/@warmwood',
+    )
   })
 })

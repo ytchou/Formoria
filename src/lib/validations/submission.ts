@@ -1,5 +1,5 @@
 import { z } from 'zod/v3'
-import { CITY_SLUGS } from '@/lib/constants/taiwan-cities'
+import { CITY_SLUGS, type CitySlug } from '@/lib/constants/taiwan-cities'
 import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
 
 type Translator = (key: string) => string
@@ -96,6 +96,7 @@ function getBotDetectionSchema(_t: Translator) {
 const zhT = (key: string): string => {
   const map: Record<string, string> = {
     'validation.nameMinLength': '品牌名稱至少需要 2 個字元',
+    'validation.emailInvalid': '請輸入有效的電子郵件地址',
     'validation.platformRequired': '請選擇平台',
     'validation.urlInvalid': '請輸入有效的網址',
     'validation.pdpaRequired': '請同意隱私政策',
@@ -104,151 +105,66 @@ const zhT = (key: string): string => {
   return map[key] ?? key
 }
 
-const brandInfoSchema = getBrandInfoSchema(zhT)
-const linksSchema = getLinksSchema(zhT)
-const reviewSchema = getReviewSchema(zhT)
-const botDetectionSchema = getBotDetectionSchema(zhT)
-
 const sourceAttributionEnum = z.enum(SOURCE_ATTRIBUTION_VALUES)
 
-const ownerFields = z.object({
-  isOwner: z.boolean(),
-  sourceAttribution: sourceAttributionEnum.optional(),
-  mitSmileCert: z.string().optional().default(''),
-})
+function optionalEmail(message: string) {
+  return z.string().email(message).or(z.literal('')).optional().default('')
+}
 
-type OwnerFields = z.infer<typeof ownerFields>
+function baseSubmissionSchema(t: Translator) {
+  return getBrandInfoSchema(t)
+    .merge(z.object({
+      heroImageUrl: z.string().url().optional().or(z.literal('')),
+      description: z.string().max(500).optional().default(''),
+    }))
+    .merge(getReviewSchema(t))
+    .merge(getBotDetectionSchema(t))
+}
 
-function requireSourceAttribution<Schema extends z.ZodType>(
-  schema: Schema
-): z.ZodEffects<Schema>
-function requireSourceAttribution<Schema extends z.AnyZodObject>(
-  schema: Schema,
-  preserveObjectMethods: true
-): z.ZodEffects<Schema> & Schema
-function requireSourceAttribution<Schema extends z.ZodType>(
-  schema: Schema,
-  preserveObjectMethods = false
-) {
-  const refined = schema.superRefine((data: OwnerFields, ctx) => {
-    if (data.isOwner === false && data.sourceAttribution === undefined) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: '請選擇資料來源',
-        path: ['sourceAttribution'],
-      })
-    }
-  })
+export function createRecommendationSubmissionSchema(t: Translator = zhT) {
+  return baseSubmissionSchema(t).merge(z.object({
+    sourceAttribution: sourceAttributionEnum,
+    guestEmail: optionalEmail(t('validation.emailInvalid')),
+  }))
+}
 
-  if (!preserveObjectMethods) {
-    return refined
-  }
-
-  return new Proxy(refined, {
-    get(target, property, receiver) {
-      if (property in target) {
-        return Reflect.get(target, property, receiver)
-      }
-
-      const value = Reflect.get(schema, property, schema)
-      if (typeof value !== 'function') {
-        return value
-      }
-
-      return (...args: unknown[]) => {
-        const result = Reflect.apply(value, schema, args)
-        if (result instanceof z.ZodObject && 'isOwner' in result.shape) {
-          return requireSourceAttribution(result, true)
-        }
-        return result
-      }
-    },
-  }) as z.ZodEffects<Schema> & Schema
+export function createOwnerSubmissionSchema(t: Translator = zhT) {
+  return baseSubmissionSchema(t)
+    .merge(getLinksSchema(t))
+    .merge(z.object({
+      city: z.enum(CITY_SLUGS).optional(),
+      mitSmileCert: z.string().optional().default(''),
+    }))
 }
 
 /**
  * Schema factory for brand submission validation.
- * - isOwner=false: sourceAttribution is required
+ * Compatibility wrapper used by older tests/callers.
  *
  * Accepts an optional translator so Zod error messages can be localised.
  * Falls back to zh-TW strings when no translator is provided (server actions
  * that call getTranslations should pass the result here).
  */
 export function createSubmissionSchema(isOwner: boolean, t: Translator = zhT) {
-  const { nameField, websiteField, purchaseLinkSchema, socialLinksSchema } =
-    buildFieldSchemas(t)
-
-  const brandInfoBase = z.object({
-    name: nameField,
-    website: websiteField,
-    city: z.enum(CITY_SLUGS).optional(),
-  })
-
-  const linksBase = z.object({
-    heroImageUrl: z.string().url().optional().or(z.literal('')),
-    purchaseLinks: z.array(purchaseLinkSchema).optional().default([]),
-    socialLinks: socialLinksSchema.optional().default({
-      instagram: '',
-      threads: '',
-      facebook: '',
-      pinkoi: '',
-      shopee: '',
-      website: '',
-    }),
-  })
-
-  const reviewBase = z.object({
-    pdpaConsent: z.boolean().refine((v) => v === true, {
-      message: t('validation.pdpaRequired'),
-    }),
-  })
-
-  const botDetectionBase = z.object({
-    turnstileToken: z.string().min(1),
-    honeypot: z.string().max(0).optional().default(''),
-  })
-
-  const schema = brandInfoBase
-    .merge(linksBase)
-    .merge(reviewBase)
-    .merge(botDetectionBase)
-    .merge(
-      ownerFields.extend({
-        isOwner: z.boolean().default(isOwner),
-      })
-    )
-
-  return requireSourceAttribution(schema, true)
+  return isOwner
+    ? createOwnerSubmissionSchema(t)
+    : createRecommendationSubmissionSchema(t)
 }
 
+export const fullSubmissionSchema = createRecommendationSubmissionSchema(zhT)
 
-export const fullSubmissionSchema = requireSourceAttribution(
-  brandInfoSchema
-    .merge(linksSchema)
-    .merge(reviewSchema)
-    .merge(botDetectionSchema)
-    .merge(ownerFields),
-  true
-)
-
-export function getFullSubmissionSchema(t: Translator) {
-  return requireSourceAttribution(
-    getBrandInfoSchema(t)
-      .merge(z.object({
-        heroImageUrl: z.string().url().optional().or(z.literal('')),
-      }))
-      .merge(getLinksSchema(t))
-      .merge(getReviewSchema(t))
-      .merge(getBotDetectionSchema(t))
-      .merge(ownerFields),
-    true
-  )
-}
-
-type FullSubmissionSchemaData = z.infer<typeof fullSubmissionSchema>
-
-export type SubmissionFormData = Omit<FullSubmissionSchemaData, 'socialLinks'> & {
+export type SubmissionFormData = {
+  name: string
+  website: string
+  description?: string
   heroImageUrl?: string | null
-  purchaseLinks?: FullSubmissionSchemaData['purchaseLinks']
-  socialLinks?: Partial<FullSubmissionSchemaData['socialLinks']>
+  guestEmail?: string
+  sourceAttribution?: z.infer<typeof sourceAttributionEnum>
+  city?: CitySlug
+  mitSmileCert?: string
+  pdpaConsent: boolean
+  turnstileToken: string
+  honeypot?: string
+  purchaseLinks?: z.infer<ReturnType<typeof getLinksSchema>>['purchaseLinks']
+  socialLinks?: Partial<z.infer<ReturnType<typeof getLinksSchema>>['socialLinks']>
 }

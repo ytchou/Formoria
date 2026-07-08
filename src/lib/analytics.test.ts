@@ -274,6 +274,7 @@ describe('analytics', () => {
     trackSubmissionFormOpened('hero_cta')
     expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'submission_form_opened', {
       source: 'hero_cta',
+      intent: 'recommend',
     })
   })
 
@@ -291,6 +292,8 @@ describe('analytics', () => {
       category: 'accessories',
       has_logo: true,
       time_spent_seconds: 120,
+      intent: 'recommend',
+      guest_submission: false,
     })
   })
 

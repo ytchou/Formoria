@@ -82,4 +82,72 @@ describe('BrandLinks', () => {
     await user.click(screen.getByRole('link', { name: /品牌官網/i }))
     expect(mockTrackExternalLinkClicked.mock.calls[0][0]).toBe('test-brand')
   })
+
+  it('renders repeated other link labels without React key warnings', () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined)
+    const brandWithRepeatedOtherLinks = {
+      ...mockBrand,
+      otherUrls: [
+        { label: 'Portfolio', url: 'https://example.com/one' },
+        { label: 'Portfolio', url: 'https://example.com/two' },
+      ],
+    }
+
+    try {
+      renderWithIntl(<BrandLinks brand={brandWithRepeatedOtherLinks} />)
+
+      const keyWarningWasLogged = consoleError.mock.calls.some(([message]) =>
+        String(message).includes('unique "key" prop'),
+      )
+      expect(keyWarningWasLogged).toBe(false)
+    } finally {
+      consoleError.mockRestore()
+    }
+  })
+
+  it('hides other links when entries have no usable label or URL', () => {
+    renderWithIntl(
+      <BrandLinks
+        brand={{
+          ...mockBrand,
+          otherUrls: [
+            { label: '', url: 'https://example.com/blank-label' },
+            { label: 'Portfolio', url: '' },
+          ],
+        }}
+      />,
+    )
+
+    expect(screen.queryByText('其他連結')).not.toBeInTheDocument()
+  })
+
+  it('hides other links when runtime data is missing labels', () => {
+    renderWithIntl(
+      <BrandLinks
+        brand={{
+          ...mockBrand,
+          otherUrls: [
+            { url: 'https://example.com/missing-label' },
+          ] as typeof mockBrand.otherUrls,
+        }}
+      />,
+    )
+
+    expect(screen.queryByText('其他連結')).not.toBeInTheDocument()
+  })
+
+  it('does not render unsafe website links', () => {
+    renderWithIntl(
+      <BrandLinks
+        brand={{
+          ...mockBrand,
+          purchaseWebsite: 'javascript:alert(1)',
+        }}
+      />,
+    )
+
+    expect(screen.queryByRole('link', { name: /品牌官網/i })).not.toBeInTheDocument()
+  })
 })

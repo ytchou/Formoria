@@ -3,7 +3,12 @@
 import { revalidatePath } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdminAction } from '@/lib/auth/require-admin'
-import { getSubmission, approveSubmission, rejectSubmission } from '@/lib/services/submissions'
+import {
+  getSubmission,
+  approveSubmission,
+  rejectSubmission,
+  isGeneratedGuestSubmissionEmail,
+} from '@/lib/services/submissions'
 import type { SubmissionApprovalOverrides } from '@/lib/services/submissions'
 import { getOwnerLocale } from '@/lib/services/profiles'
 import {
@@ -101,6 +106,8 @@ export async function approveSubmissionAction(
       ? await getUserBrandByEmail(submitterEmail)
       : null
 
+    const shouldEmailSubmitter = !isGeneratedGuestSubmissionEmail(submitterEmail)
+
     if (isBrandOwner && !existingOwnedBrand) {
       const token = await generateClaimToken(brandId, submitterEmail, brandName)
       const claimUrl = `${siteUrl}/auth/sign-up?claim=${token}`
@@ -110,7 +117,7 @@ export async function approveSubmissionAction(
         claimUrl,
         siteUrl,
       }))
-    } else {
+    } else if (shouldEmailSubmitter) {
       sendEmail(await buildApprovalEmail({
         submitterEmail,
         brandName,
@@ -153,12 +160,14 @@ export async function rejectSubmissionAction(
     const submission = await getSubmission(submissionId)
     await rejectSubmission(submissionId, auth.user.id, denialReason, notes)
 
-    sendEmail(await buildRejectionEmail({
-      submitterEmail: submission.submitterEmail,
-      brandName: submission.brandName,
-      denialReason,
-      reviewerNotes: notes,
-    }))
+    if (!isGeneratedGuestSubmissionEmail(submission.submitterEmail)) {
+      sendEmail(await buildRejectionEmail({
+        submitterEmail: submission.submitterEmail,
+        brandName: submission.brandName,
+        denialReason,
+        reviewerNotes: notes,
+      }))
+    }
 
     revalidatePath('/admin/review-queue/submissions')
     revalidatePath('/admin')

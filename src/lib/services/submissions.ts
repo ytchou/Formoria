@@ -1,4 +1,12 @@
-import type { Brand, BrandSubmission, DenialReason, OtherUrl, SubmissionStatus, SourceAttribution } from '@/lib/types'
+import type {
+  Brand,
+  BrandSubmission,
+  DenialReason,
+  OtherUrl,
+  SubmissionIntent,
+  SubmissionStatus,
+  SourceAttribution,
+} from '@/lib/types'
 import type { DuplicateCheckResult } from '@/lib/types/submission'
 import type { Database } from '@/lib/supabase/database.types'
 import type { EnrichedData } from '@/lib/types/enriched-data'
@@ -73,6 +81,8 @@ type BrandFieldStateWriteTable = {
   ) => Promise<{ error: { message?: string } | null }>
 }
 
+const GENERATED_GUEST_EMAIL_DOMAIN = 'guest.formoria.invalid'
+
 export type SubmissionApprovalOverrides = Partial<
   Pick<
     Brand,
@@ -106,6 +116,7 @@ export type ApproveSubmissionResult = {
 
 export type CreateSubmissionInput = {
   brandId?: string
+  intent?: SubmissionIntent
   brandName: string
   submitterEmail: string
   submitterName?: string
@@ -130,6 +141,7 @@ export type CreateSubmissionInput = {
 export function buildSubmissionRecord(input: CreateSubmissionInput): Record<string, unknown> {
   return {
     brand_id: input.brandId ?? null,
+    intent: input.intent ?? 'recommend',
     brand_name: input.brandName,
     submitter_email: input.submitterEmail,
     submitter_name: input.submitterName ?? null,
@@ -159,6 +171,7 @@ export function submissionToDomain(row: SubmissionRowInput): BrandSubmissionWith
   return {
     id: row.id,
     brandId: row.brand_id ?? null,
+    intent: (row.intent as SubmissionIntent | null) ?? 'recommend',
     brandName: row.brand_name,
     submitterEmail: row.submitter_email,
     submitterName: row.submitter_name ?? null,
@@ -210,6 +223,14 @@ function isEnrichedData(value: unknown): value is EnrichedData {
 function normalizeString(value: string | null | undefined): string | null {
   const trimmed = value?.trim() ?? ''
   return trimmed ? trimmed : null
+}
+
+export function buildGuestSubmissionEmail(): string {
+  return `guest+${crypto.randomUUID()}@${GENERATED_GUEST_EMAIL_DOMAIN}`
+}
+
+export function isGeneratedGuestSubmissionEmail(email: string | null | undefined): boolean {
+  return (email ?? '').endsWith(`@${GENERATED_GUEST_EMAIL_DOMAIN}`)
 }
 
 function normalizeOtherUrls(value: unknown): OtherUrl[] {
@@ -378,10 +399,12 @@ export async function createSubmission(
       websiteUrl?: string | null
       suggestedTags?: SuggestedTagsInput
       productTypeNote?: string | null
+      intent?: SubmissionIntent
     }
+,
+  options?: { useServiceRole?: boolean }
 ): Promise<BrandSubmissionWithProductTypeNote> {
-  // Authenticated insert: RLS requires a signed-in user, and the submit action authenticates first.
-  const supabase = await createClient()
+  const supabase = options?.useServiceRole ? createServiceClient() : await createClient()
   const row = submissionToInsert(data)
   const { data: inserted, error } = await supabase
     .from('brand_submissions')
@@ -420,6 +443,7 @@ const ADMIN_SUBMISSIONS_SELECT = `
   validation_errors,
   notified_at,
   is_brand_owner,
+  intent,
   source_attribution,
   product_type_note,
   enriched_data
@@ -452,6 +476,7 @@ const ADMIN_REVIEW_SUBMISSIONS_SELECT = `
   validation_errors,
   notified_at,
   is_brand_owner,
+  intent,
   source_attribution,
   product_type_note,
   enriched_data

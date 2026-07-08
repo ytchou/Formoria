@@ -38,6 +38,7 @@ beforeEach(() => {
       validation_status: null,
       validation_errors: null,
       notified_at: null,
+      intent: 'recommend',
       is_brand_owner: false,
       source_attribution: null,
       product_type_note: null,
@@ -107,6 +108,12 @@ describe('buildSubmissionRecord', () => {
     const communityRecord = buildSubmissionRecord({ ...base, isOwner: false })
     expect(communityRecord.is_brand_owner).toBe(false)
   })
+
+  it('stores submission intent when provided', async () => {
+    const { buildSubmissionRecord } = await import('../submissions')
+    const record = buildSubmissionRecord({ ...base, intent: 'owner_claim' })
+    expect(record.intent).toBe('owner_claim')
+  })
 })
 
 describe('submissionToDomain (flat link columns)', () => {
@@ -138,6 +145,7 @@ describe('submissionToDomain (flat link columns)', () => {
       validation_status: null,
       validation_errors: null,
       notified_at: null,
+      intent: 'recommend',
       is_brand_owner: false,
       source_attribution: null,
       product_type_note: null,

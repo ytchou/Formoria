@@ -1,4 +1,5 @@
 import type { Brand } from '@/lib/types/brand'
+import { normalizeRetailLocations } from '@/lib/brands/locations'
 
 type ProfileComponentKey =
   | 'description'
@@ -143,7 +144,7 @@ export function computeProfileCompleteness(
     },
     {
       key: 'retailLocations',
-      complete: brand.retailLocations.length > 0,
+      complete: normalizeRetailLocations(brand.retailLocations).length > 0,
       required: false,
       weight: 3,
       step: 3,

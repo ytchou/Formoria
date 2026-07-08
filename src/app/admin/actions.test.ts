@@ -88,6 +88,7 @@ vi.mock('@/lib/services/submissions', () => ({
   getSubmission: vi.fn(),
   approveSubmission: vi.fn(),
   rejectSubmission: vi.fn(),
+  isGeneratedGuestSubmissionEmail: vi.fn(() => false),
 }))
 
 vi.mock('@/lib/services/moderation', () => ({

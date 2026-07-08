@@ -1,7 +1,9 @@
 .PHONY: dev-all doctor seed seed-qa-brand reset-qa-brand eval
 
+PNPM ?= corepack pnpm
+
 dev-all:
-	pnpm dev
+	$(PNPM) dev
 
 doctor:
 	@bash scripts/doctor.sh
@@ -23,4 +25,4 @@ reset-qa-brand: ## Reset QA brand: remove owner+claims (re-claimable) and restor
 	@echo "Done. test-brand-qa is claimable again."
 
 eval: ## Run enrichment golden-set evaluation
-	pnpm curate eval
+	$(PNPM) curate eval

@@ -12,7 +12,7 @@ type AnySupabaseClient = SupabaseClient<any, any, any>
  *  - /privacy renders with heading
  *  - /terms renders with heading
  *  - /challenge renders "Quick verification" heading with Turnstile container
- *  - /submit landing renders heading and CTA link to /submit/form
+ *  - /submit landing renders heading and links to the recommendation and owner flows
  *  - /site/<slug> renders brand name and tagline for a seeded microsite brand
  *
  * Actor: anonPage (unauthenticated)
@@ -106,7 +106,7 @@ test.describe('Static & compliance pages', () => {
     // The widget may redirect quickly in dev; assert the heading appeared above.
   })
 
-  test('submit landing page renders with CTA link to /submit/form', async ({ anonPage }) => {
+  test('submit landing page renders with recommendation and owner CTAs', async ({ anonPage }) => {
     test.setTimeout(30_000)
     const resp = await anonPage.goto('/submit', { timeout: 30_000 })
     if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return }
@@ -114,10 +114,8 @@ test.describe('Static & compliance pages', () => {
     await expect(
       anonPage.getByRole('heading', { name: '提交你的台灣品牌' }),
     ).toBeVisible({ timeout: 15_000 })
-    // CTA link href contains /submit/form (may include auth redirect for anon users)
-    await expect(
-      anonPage.locator('a[href*="/submit/form"]'),
-    ).toBeVisible({ timeout: 10_000 })
+    await expect(anonPage.locator('a[href*="/submit/recommend"]')).toBeVisible({ timeout: 10_000 })
+    await expect(anonPage.locator('a[href*="/auth/sign-in?next=/submit/owner"]')).toBeVisible({ timeout: 10_000 })
   })
 
   test('microsite renders for seeded brand', async ({ anonPage }) => {

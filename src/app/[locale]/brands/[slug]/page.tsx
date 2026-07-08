@@ -43,11 +43,11 @@ import { RelatedBrands } from '@/components/brands/related-brands'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
+import { getBrandVisitHref } from '@/lib/brands/link-fallback'
 import { buildBrandFaq } from '@/lib/services/brand-faq'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { MapPin } from 'lucide-react'
 import { NotFoundError } from '@/lib/errors'
-import { sanitizeHref } from '@/lib/url'
 import { getUserBrand } from '@/lib/services/brand-owners'
 import { truncateForMeta } from '@/lib/text/truncate-for-meta'
 
@@ -258,13 +258,7 @@ export default async function BrandDetailPage({
       : Promise.resolve(0),
   ])
 
-  // Visit Website URL — fallback: purchaseWebsite → facebook → pinkoi → shopee
-  const visitUrl =
-    sanitizeHref(displayBrand.purchaseWebsite) ||
-    sanitizeHref(displayBrand.socialFacebook) ||
-    sanitizeHref(displayBrand.purchasePinkoi) ||
-    sanitizeHref(displayBrand.purchaseShopee) ||
-    null
+  const visitUrl = getBrandVisitHref(displayBrand)
 
   // Breadcrumb items for JSON-LD
   const directoryLabel = tBrandDetail('breadcrumb.directory')

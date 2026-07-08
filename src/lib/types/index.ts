@@ -5,6 +5,7 @@ export type {
   BrandStatus,
   OtherUrl,
   RetailLocation,
+  RetailLocationRelationshipType,
   SubmissionStatus,
 } from './brand'
 
@@ -13,6 +14,7 @@ export type {
   DenialReason,
   OwnerLocale,
   SourceAttribution,
+  SubmissionIntent,
 } from './submission'
 
 export { DENIAL_REASONS, normalizeOwnerLocale } from './submission'

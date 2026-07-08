@@ -2,6 +2,7 @@ import type { Brand, OtherUrl, RetailLocation } from '@/lib/types'
 import type { ReputationSummary } from '@/lib/types/brand'
 import type { ContentPayload } from '@/lib/services/moderation'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { normalizeRetailLocations } from '@/lib/brands/locations'
 import { sanitizeHref } from '@/lib/url'
 
 export class InvalidBrandEditFormError extends Error {}
@@ -34,6 +35,20 @@ function parseOptionalString(value: FormDataEntryValue | null): string | null {
 
 type ProvenanceSourceForm = {
   url: string
+}
+
+type RetailLocationForm = {
+  name: string
+  relationshipType: string
+  address: string
+  city: string
+  district: string
+  venueName: string
+  floorOrCounter: string
+  availabilityNote: string
+  latitude: string
+  longitude: string
+  verificationStatus: string
 }
 
 function parseProductTags(value: FormDataEntryValue | null): string[] {
@@ -130,11 +145,22 @@ export function parseBrandEditForm(formData: FormData): Partial<Brand> {
     'label',
     'url',
   ])
-  const retailLocations = parseArrayField<{ name: string; address: string }>(
-    formData,
-    'retailLocations',
-    ['name', 'address'],
+  const retailLocations = normalizeRetailLocations(
+    parseArrayField<RetailLocationForm>(formData, 'retailLocations', [
+      'name',
+      'relationshipType',
+      'address',
+      'city',
+      'district',
+      'venueName',
+      'floorOrCounter',
+      'availabilityNote',
+      'latitude',
+      'longitude',
+      'verificationStatus',
+    ]),
   )
+  const hasRetailLocationsField = formData.has('retailLocations[0].name')
 
   // Security-relevant allow-list: only explicitly permitted owner-editable fields may reach updateBrand.
   const updateData: Partial<Brand> = {}
@@ -156,7 +182,7 @@ export function parseBrandEditForm(formData: FormData): Partial<Brand> {
       url: sanitizeHref(entry.url) ?? '',
     }))
   }
-  if (retailLocations.length > 0) {
+  if (hasRetailLocationsField) {
     updateData.retailLocations = retailLocations as RetailLocation[]
   }
   if (instagram !== null) updateData.socialInstagram = instagram || null

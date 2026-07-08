@@ -1,9 +1,10 @@
-import type { OtherUrl } from '@/lib/types'
+import type { OtherUrl, SubmissionIntent } from '@/lib/types'
 import type { SourceAttribution } from '@/lib/types/submission'
 import { createSubmission } from '@/lib/services/submissions'
 import { classifySubmittedUrl } from '@/lib/services/link-enrichment'
 
 export interface SubmitBrandForReviewParams {
+  intent?: SubmissionIntent
   brandName: string
   websiteUrl?: string
   heroImageUrl?: string
@@ -35,7 +36,8 @@ export interface SubmitBrandForReviewResult {
 }
 
 export async function submitBrandForReview(
-  params: SubmitBrandForReviewParams
+  params: SubmitBrandForReviewParams,
+  options?: { useServiceRole?: boolean }
 ): Promise<SubmitBrandForReviewResult> {
   // Map social links
   let socialInstagram = params.socialLinks?.instagram || null
@@ -72,6 +74,7 @@ export async function submitBrandForReview(
 
   const submission = await createSubmission({
     brandId: null,
+    intent: params.intent ?? 'recommend',
     brandName: params.brandName,
     submitterEmail: params.submitterEmail,
     submitterName: params.submitterName,
@@ -90,7 +93,7 @@ export async function submitBrandForReview(
     sourceAttribution: params.sourceAttribution ?? null,
     pdpaConsentAt: params.pdpaConsent ? new Date().toISOString() : undefined,
     productTypeNote: params.productTypeNote ?? null,
-  })
+  }, options)
 
   return { submissionId: submission.id }
 }
