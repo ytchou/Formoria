@@ -49,23 +49,6 @@ export const textStyles = cva('', {
   },
 })
 
-export const headingGroupStyles = {
-  tight: 'space-y-0.5',
-  default: 'space-y-1',
-  comfortable: 'space-y-2',
-} as const
-
-export const sectionSpacingStyles = {
-  compact: 'space-y-3',
-  default: 'space-y-6',
-  loose: 'space-y-8',
-} as const
-
-export const navTextStyles = {
-  active: textStyles({ variant: 'navItemActive' }),
-  inactive: textStyles({ variant: 'navItem' }),
-} as const
-
 export const fieldTextStyles = {
   label: textStyles({ variant: 'fieldLabel' }),
   value: textStyles({ variant: 'fieldValue' }),
