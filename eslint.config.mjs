@@ -13,6 +13,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "public/admin/content/**",
+    "scripts/threads-scraper/**",
+    "tina/__generated__/**",
   ]),
 ]);
 
