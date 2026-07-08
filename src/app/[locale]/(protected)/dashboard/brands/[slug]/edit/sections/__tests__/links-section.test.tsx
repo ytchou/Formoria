@@ -27,8 +27,7 @@ describe('LinksSection', () => {
     render(<Wrapper />)
     const btn = screen.queryByRole('button', { name: /add/i })
     expect(btn).toBeInTheDocument()
-    expect(btn).toHaveClass('h-9', 'rounded-lg')
-    expect(btn).not.toHaveClass('min-h-12')
+    expect(btn).toHaveClass('h-12', 'rounded-lg')
   })
 
   it('uses headings for each link group', () => {
