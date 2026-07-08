@@ -33,7 +33,7 @@ function optionalNumber(value: unknown): number | undefined {
   return Number.isFinite(number) ? number : undefined
 }
 
-export function getLocationAddressKey(address: unknown): string {
+function getLocationAddressKey(address: unknown): string {
   return typeof address === 'string'
     ? address.trim().replace(/\s+/g, '').toLocaleLowerCase()
     : ''
