@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Link } from '@/i18n/navigation'
 import Image from 'next/image'
 import { BadgeCheck, ShieldCheck, type LucideIcon } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import type { Brand } from '@/lib/types'
 import { trackBrandCardClicked } from '@/lib/analytics'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
@@ -28,6 +28,7 @@ type BrandCardBadge = {
 export function BrandCard({ brand, position = 0, priority = false }: BrandCardProps) {
   const t = useTranslations('brands')
   const tDetail = useTranslations('brandDetail')
+  const locale = useLocale()
   const [imgError, setImgError] = useState(false)
   const imageSrc =
     [brand.heroImageUrl, ...brand.productPhotos]
@@ -55,7 +56,7 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
       : null,
   ].filter((badge): badge is BrandCardBadge => badge !== null)
 
-  const categoryLabel = getBrandCategoryLabel(brand)
+  const categoryLabel = getBrandCategoryLabel(brand, locale === 'en' ? 'en' : 'zh-TW')
 
   return (
     <Link
@@ -116,7 +117,9 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
           )}
         </div>
         <p className="mt-1.5 min-h-[2.625rem] text-[13px] leading-relaxed text-muted-foreground line-clamp-2">
-          {brand.description ?? ' '}
+          {(locale === 'en'
+            ? (brand.blurbEn ?? brand.descriptionEn ?? brand.blurb ?? brand.description)
+            : (brand.blurb ?? brand.description)) ?? ' '}
         </p>
         <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
           {categoryLabel && (
@@ -131,7 +134,7 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
           )}
           {brand.productTags[0] && (
             <span className="truncate rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-foreground whitespace-nowrap">
-              {brand.productTags[0]}
+              {locale === 'en' ? (brand.productTagsEn[0] ?? brand.productTags[0]) : brand.productTags[0]}
             </span>
           )}
         </div>

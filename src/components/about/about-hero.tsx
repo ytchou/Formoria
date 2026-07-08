@@ -1,6 +1,8 @@
 import { getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import SplitHero from '@/components/shared/split-hero'
+import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 interface AboutHeroProps {
   brandCount: number
@@ -35,7 +37,7 @@ export default async function AboutHero({ brandCount, categoryCount, recentBrand
           </div>
           <Link
             href="/brands"
-            className="mt-6 inline-flex items-center justify-center rounded-lg bg-cta px-8 py-3 text-base font-semibold text-cta-foreground transition-colors hover:bg-cta/90"
+            className={cn(buttonVariants({ variant: 'cta' }), 'mt-6')}
           >
             {t('cta')}
           </Link>

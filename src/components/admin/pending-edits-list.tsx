@@ -96,8 +96,6 @@ export function PendingEditsList({ edits }: { edits: PendingBrandEditWithRisk[] 
                   <Button
                     onClick={() => handleApprove(edit.id)}
                     disabled={isPending}
-                    className="rounded-lg bg-primary text-white"
-                    style={{ borderRadius: 8 }}
                   >
                     核准
                   </Button>

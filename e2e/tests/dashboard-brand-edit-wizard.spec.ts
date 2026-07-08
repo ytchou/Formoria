@@ -10,7 +10,7 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
  *
  * Journey 1: Default load — wizard opens at step 0 (基本資料)
  * Journey 2: Sidebar integrity — all five step buttons with current labels are visible
- * Journey 3: Save & Continue — saves draft and advances to step 1 (媒體)
+ * Journey 3: Save & Continue — saves progress and advances to step 1 (品牌圖片)
  * Journey 4: Non-linear sidebar nav — clicking a step jumps directly to it
  * Journey 5: Deep link via ?step=N — correct section opens on initial load
  */
@@ -102,8 +102,8 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
 
     const expectedLabels = [
       '基本資料',
-      '媒體',
-      '連結',
+      '品牌圖片',
+      '社群與購買連結',
       '據點',
       '品牌口碑',
     ];
@@ -117,8 +117,9 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     await expect(sidebarNav.locator('button')).toHaveCount(5);
   });
 
-  test('Save & Continue saves draft and advances to step 1 (Media)', async ({ userPage }) => {
+  test('Save & Continue saves progress, survives reload, and advances to step 1 (Brand images)', async ({ userPage }) => {
     test.setTimeout(90_000);
+    const nextName = `Reload Check ${Date.now()}`;
 
     const resp = await userPage.goto(`/dashboard/brands/${brandSlug}/edit`, { timeout: 60_000 });
     if (resp?.status() === 503) {
@@ -133,14 +134,32 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     // Basic Info is the active section before saving
     await expect(userPage.locator('#basic-info')).toBeVisible({ timeout: 10_000 });
 
+    await userPage.locator('#name').fill(nextName);
+    await userPage.locator('#priceRange').click();
+    await userPage.getByRole('option', { name: /中價位/ }).click();
+
     // Click Save & Continue (儲存並繼續)
     await userPage.getByRole('button', { name: '儲存並繼續' }).click();
 
-    // URL advances to ?step=1 after the server action completes
-    await expect(userPage).toHaveURL(/\/dashboard\/brands\/.+\/edit\?step=1/, { timeout: 15_000 });
-
-    // Media section is now the active content area
+    // Brand images section is now the active content area
     await expect(userPage.locator('#media')).toBeVisible({ timeout: 10_000 });
+
+    const { data: savedBrand } = await supabase
+      .from('brands')
+      .select('draft_data')
+      .eq('id', brandId)
+      .single();
+    const savedDraft = savedBrand?.draft_data as Record<string, unknown> | null;
+    expect(savedDraft?.name).toBe(nextName);
+    expect(savedDraft?.__wizardCompletedSteps).toEqual([0]);
+
+    await userPage.reload();
+    await expect(userPage.locator('#media')).toBeVisible({ timeout: 10_000 });
+    await expect(userPage.locator('aside nav button').first().locator('svg')).toHaveCount(1);
+
+    await userPage.locator('aside nav button').filter({ hasText: '基本資料' }).click();
+    await expect(userPage.locator('#basic-info')).toBeVisible({ timeout: 10_000 });
+    await expect(userPage.locator('#name')).toHaveValue(nextName);
 
     // Back button (上一步) appears on non-first, non-final steps
     await expect(

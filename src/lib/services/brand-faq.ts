@@ -12,7 +12,7 @@ type FaqGenerator = {
   id: string
   condition: (brand: Brand) => boolean
   questionKey: string
-  buildAnswer: (brand: Brand, t: TFn) => string
+  buildAnswer: (brand: Brand, t: TFn, locale: string) => string
 }
 
 const PRICE_RANGE_KEYS: Record<1 | 2 | 3, string> = {
@@ -74,7 +74,7 @@ function collectSocialLinks(brand: Brand): string[] {
   return links
 }
 
-function buildWhereToBuyAnswer(brand: Brand, t: TFn): string {
+function buildWhereToBuyAnswer(brand: Brand, t: TFn, _locale: string): string {
   const links = collectPurchaseLinks(brand, t)
   const sep = t('brandFaq.listSeparator')
   return t('brandFaq.whereToBuy.answer', {
@@ -83,7 +83,7 @@ function buildWhereToBuyAnswer(brand: Brand, t: TFn): string {
   })
 }
 
-function buildPhysicalStoresAnswer(brand: Brand, t: TFn): string {
+function buildPhysicalStoresAnswer(brand: Brand, t: TFn, _locale: string): string {
   const sep = t('brandFaq.listSeparator')
   return t('brandFaq.hasPhysicalStores.answer', {
     brandName: brand.name,
@@ -91,7 +91,7 @@ function buildPhysicalStoresAnswer(brand: Brand, t: TFn): string {
   })
 }
 
-function buildMainProductsAnswer(brand: Brand, t: TFn): string {
+function buildMainProductsAnswer(brand: Brand, t: TFn, _locale: string): string {
   const category = brand.category
   const sep = t('brandFaq.listSeparator')
   const productTags = truncate(brand.productTags ?? []).join(sep)
@@ -113,7 +113,7 @@ function buildMainProductsAnswer(brand: Brand, t: TFn): string {
   })
 }
 
-function buildPriceRangeAnswer(brand: Brand, t: TFn): string {
+function buildPriceRangeAnswer(brand: Brand, t: TFn, _locale: string): string {
   const rangeKey = brand.priceRange as 1 | 2 | 3
   return t('brandFaq.priceRange.answer', {
     brandName: brand.name,
@@ -121,7 +121,7 @@ function buildPriceRangeAnswer(brand: Brand, t: TFn): string {
   })
 }
 
-function buildFoundedAnswer(brand: Brand, t: TFn): string {
+function buildFoundedAnswer(brand: Brand, t: TFn, _locale: string): string {
   return t('brandFaq.whenFounded.answer', {
     brandName: brand.name,
     year: brand.foundingYear,
@@ -129,7 +129,7 @@ function buildFoundedAnswer(brand: Brand, t: TFn): string {
   })
 }
 
-function buildOfficialAccountsAnswer(brand: Brand, t: TFn): string {
+function buildOfficialAccountsAnswer(brand: Brand, t: TFn, _locale: string): string {
   const sep = t('brandFaq.listSeparator')
   return t('brandFaq.officialAccounts.answer', {
     brandName: brand.name,
@@ -137,10 +137,13 @@ function buildOfficialAccountsAnswer(brand: Brand, t: TFn): string {
   })
 }
 
-function buildReputationAnswer(brand: Brand, t: TFn): string {
+function buildReputationAnswer(brand: Brand, t: TFn, locale: string): string {
+  const summary = locale === 'en'
+    ? (brand.reputationSummary?.textEn ?? brand.reputationSummary?.text ?? '')
+    : (brand.reputationSummary?.text ?? '')
   return t('brandFaq.reputation.answer', {
     brandName: brand.name,
-    summary: brand.reputationSummary?.text ?? '',
+    summary,
     context: buildBrandContext(brand, t),
   })
 }
@@ -166,7 +169,7 @@ const FAQ_GENERATORS: FaqGenerator[] = [
     condition: (brand) =>
       brand.mitStatus === 'verified' || hasValue(brand.mitStory),
     questionKey: 'brandFaq.isMadeInTaiwan.question',
-    buildAnswer: (brand, t) => {
+    buildAnswer: (brand, t, _locale) => {
       const stampsAnswer = t('brandFaq.isMadeInTaiwan.answer', {
         brandName: brand.name,
       })
@@ -229,12 +232,12 @@ const FAQ_GENERATORS: FaqGenerator[] = [
   },
 ]
 
-export function buildBrandFaq(brand: Brand, t: TFn): FaqItem[] {
+export function buildBrandFaq(brand: Brand, t: TFn, locale: string = 'zh-TW'): FaqItem[] {
   return FAQ_GENERATORS.filter((generator) => generator.condition(brand)).map(
     (generator) => ({
       id: generator.id,
       question: t(generator.questionKey, { brandName: brand.name }),
-      answer: generator.buildAnswer(brand, t),
+      answer: generator.buildAnswer(brand, t, locale),
     }),
   )
 }

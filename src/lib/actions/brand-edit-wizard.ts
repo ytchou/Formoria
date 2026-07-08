@@ -2,12 +2,72 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
-import { getBrandDraft, saveDraft } from '@/lib/services/brands'
+import {
+  BRAND_DRAFT_PROGRESS_KEY,
+  getBrandDraft,
+  saveDraft,
+} from '@/lib/services/brands'
+import { WIZARD_STEPS } from '@/lib/schemas/brand-edit'
 import type { Brand } from '@/lib/types'
 
 type SaveSectionDraftResult = {
   success?: true
   error?: string
+}
+
+function getCompletedSteps(snapshot: Record<string, unknown> | null): number[] {
+  const value = snapshot?.[BRAND_DRAFT_PROGRESS_KEY]
+  if (!Array.isArray(value)) return []
+  return Array.from(
+    new Set(
+      value.filter(
+        (step): step is number => Number.isInteger(step) && step >= 0,
+      ),
+    ),
+  ).sort((left, right) => left - right)
+}
+
+function normalizeSectionData(
+  sectionData: Record<string, unknown>,
+  existingReputation: unknown,
+): Partial<Brand> {
+  const { reputationSources, ...data } = sectionData
+  if (
+    typeof data.reputationSummary !== 'string' &&
+    !Array.isArray(reputationSources)
+  ) {
+    return data as Partial<Brand>
+  }
+
+  const previous =
+    existingReputation &&
+    typeof existingReputation === 'object' &&
+    !Array.isArray(existingReputation)
+      ? existingReputation
+      : {}
+  const sources = Array.isArray(reputationSources)
+    ? reputationSources.flatMap((source) => {
+        if (
+          !source ||
+          typeof source !== 'object' ||
+          Array.isArray(source) ||
+          typeof (source as Record<string, unknown>).url !== 'string'
+        ) {
+          return []
+        }
+        const url = (source as Record<string, unknown>).url as string
+        return url.trim() ? [{ url }] : []
+      })
+    : []
+
+  return {
+    ...(data as Partial<Brand>),
+    reputationSummary: {
+      ...previous,
+      text: typeof data.reputationSummary === 'string' ? data.reputationSummary : '',
+      sources,
+    },
+  }
 }
 
 export async function saveSectionDraftAction(
@@ -49,9 +109,22 @@ export async function saveSectionDraftAction(
     }
 
     const existingDraft = await getBrandDraft(brandId)
+    const existingReputation =
+      existingDraft?.reputationSummary ?? editor.brand.reputationSummary
+    const stepIndex = WIZARD_STEPS.findIndex(
+      (step) => step.key === sectionKeyOrSectionData,
+    )
+    const completedSteps = getCompletedSteps(existingDraft)
     const mergedData = {
       ...(existingDraft ?? {}),
-      ...sectionData,
+      ...normalizeSectionData(sectionData, existingReputation),
+      ...(stepIndex >= 0
+        ? {
+            [BRAND_DRAFT_PROGRESS_KEY]: Array.from(
+              new Set([...completedSteps, stepIndex]),
+            ).sort((left, right) => left - right),
+          }
+        : {}),
     }
 
     await saveDraft(brandId, mergedData as Partial<Brand>)
@@ -60,7 +133,7 @@ export async function saveSectionDraftAction(
   } catch (error) {
     console.error('[brand-edit-wizard:saveSectionDraftAction]', error)
     return {
-      error: error instanceof Error ? error.message : 'Failed to save draft',
+      error: error instanceof Error ? error.message : 'Failed to save changes',
     }
   }
 }

@@ -42,6 +42,7 @@ function parseReputationSummary(value: unknown): ReputationSummary | null {
   if (sources.length === 0) return null
   return {
     text: item.text.trim(),
+    textEn: isString(item.text_en) ? item.text_en.trim() : null,
     sources,
   }
 }

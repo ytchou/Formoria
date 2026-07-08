@@ -1,5 +1,6 @@
 import { getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
+import { buttonVariants } from '@/components/ui/button'
 
 export default async function NotFound() {
   const t = await getTranslations('errors')
@@ -15,13 +16,13 @@ export default async function NotFound() {
       <div className="mt-6 flex flex-wrap gap-3">
         <Link
           href="/"
-          className="inline-flex items-center justify-center rounded-lg bg-[#E06B3F] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#C85A33] transition-colors"
+          className={buttonVariants({ variant: 'cta' })}
         >
           {t('notFound.cta')}
         </Link>
         <Link
           href="/brands"
-          className="inline-flex items-center justify-center rounded-lg border border-[#E8E5E0] bg-white px-5 py-2.5 text-sm font-medium text-[#1A1918] hover:bg-[#F5F3F0] transition-colors"
+          className={buttonVariants({ variant: 'outline' })}
         >
           {t('notFound.browseDirectory')}
         </Link>

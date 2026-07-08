@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { Button } from '@/components/ui/button'
 import * as Sentry from '@sentry/nextjs'
 
 export default function AdminError({
@@ -23,12 +24,12 @@ export default function AdminError({
       <p className="mt-1 max-w-md text-sm text-[#7C7570]">
         載入此管理頁面時發生預期外的錯誤，請再試一次。
       </p>
-      <button
+      <Button
         onClick={reset}
-        className="mt-6 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring/20"
+        className="mt-6"
       >
         再試一次
-      </button>
+      </Button>
     </div>
   )
 }

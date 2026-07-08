@@ -7,6 +7,8 @@ import {
   trackExternalLinkClicked,
 } from '@/lib/analytics'
 import { ReportDialog } from '@/components/brands/report-dialog'
+import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { SaveBrandButton } from './save-brand-button'
 import { ShareDialog } from './share-dialog'
 
@@ -17,10 +19,11 @@ interface BrandActionsProps {
   brandName: string
 }
 
-const activeCta =
-  'flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-cta text-sm font-semibold text-cta-foreground transition-colors hover:bg-cta/90'
-const disabledCta =
-  'flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-muted text-sm font-semibold text-muted-foreground cursor-default'
+const activeCta = cn(buttonVariants({ variant: 'cta' }), 'flex-1')
+const disabledCta = cn(
+  buttonVariants({ variant: 'secondary' }),
+  'flex-1 cursor-default opacity-50',
+)
 
 export function BrandActions({ websiteUrl, brandSlug = '', brandId, brandName }: BrandActionsProps) {
   const t = useTranslations('brandDetail')
@@ -71,7 +74,7 @@ export function BrandActions({ websiteUrl, brandSlug = '', brandId, brandName }:
             rel="noopener noreferrer"
             aria-label={t('actions.visitOfficialWebsiteAria')}
             onClick={handleWebsiteClick}
-            className="flex h-[48px] w-full items-center justify-center gap-1.5 rounded-xl bg-cta text-sm font-semibold text-cta-foreground transition-colors hover:bg-cta/90"
+            className={cn(buttonVariants({ variant: 'cta' }), 'w-full')}
           >
             {t('actions.visitWebsite')} <ExternalLink size={14} />
           </a>

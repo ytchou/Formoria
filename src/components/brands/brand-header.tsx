@@ -7,11 +7,12 @@ import { MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badge
 interface BrandHeaderProps {
   brand: Brand
   categoryLabel?: string | null
+  locale?: string
   actionsSlot?: ReactNode
   adminSlot?: ReactNode
 }
 
-export function BrandHeader({ brand, categoryLabel, actionsSlot, adminSlot }: BrandHeaderProps) {
+export function BrandHeader({ brand, categoryLabel, locale, actionsSlot, adminSlot }: BrandHeaderProps) {
   const t = useTranslations('brandDetail')
   const locationName = brand.retailLocations[0]?.name
   const hasMitVerifiedBadge = brand.mitVerified === true
@@ -57,7 +58,7 @@ export function BrandHeader({ brand, categoryLabel, actionsSlot, adminSlot }: Br
 
         {/* Product tags */}
         {brand.productTags.length > 0 &&
-          brand.productTags.map((tag, index) => (
+          (locale === 'en' ? (brand.productTagsEn.length > 0 ? brand.productTagsEn : brand.productTags) : brand.productTags).map((tag, index) => (
             <span
               key={`${tag}-${index}`}
               className="rounded-full bg-secondary px-2 py-1 text-[11px] font-medium text-secondary-foreground"

@@ -44,6 +44,22 @@ function changedFieldsForPatch(patch: Record<string, unknown>): string[] {
     changedFields.push('category_attributes')
   }
 
+  if (patch.blurb !== undefined) {
+    changedFields.push('blurb')
+  }
+
+  if (patch.blurb_en !== undefined) {
+    changedFields.push('blurb_en')
+  }
+
+  if (patch.founding_year != null) {
+    changedFields.push('founding_year')
+  }
+
+  if (Array.isArray(patch.product_tags_en) && patch.product_tags_en.length > 0) {
+    changedFields.push('product_tags_en')
+  }
+
   return changedFields
 }
 
@@ -110,8 +126,6 @@ function categoryAttributesPatch(
   const existing = isRecord(brand.category_attributes) ? brand.category_attributes : {}
   const patch = {
     ...existing,
-    ...(descriptionRewrite.foundingYear != null ? { founding_year: descriptionRewrite.foundingYear } : {}),
-    ...(descriptionRewrite.signatureProducts.length > 0 ? { signature_products: descriptionRewrite.signatureProducts } : {}),
     ...(descriptionRewrite.whereToBuy ? { where_to_buy: descriptionRewrite.whereToBuy } : {}),
   }
 
@@ -152,16 +166,49 @@ export async function runDescriptionsPhase({
     const categoryAttributes = descriptionRewrite
       ? categoryAttributesPatch(brand, descriptionRewrite)
       : null
-    const descriptionPatch = descriptionRewrite
-      ? {
-          ...(descriptionRewrite.description_zh ? { description: descriptionRewrite.description_zh } : {}),
-          ...(descriptionRewrite.description_en ? { description_en: descriptionRewrite.description_en } : {}),
-          ...(descriptionRewrite.priceRange != null ? { price_range: descriptionRewrite.priceRange } : {}),
-          ...(descriptionRewrite.productTags.length > 0 ? { product_tags: descriptionRewrite.productTags } : {}),
-          ...(!brand.city && descriptionRewrite.city ? { city: descriptionRewrite.city } : {}),
-          ...(categoryAttributes ? { category_attributes: categoryAttributes } : {}),
+
+    let descriptionPatch: Record<string, unknown> = {}
+    if (descriptionRewrite) {
+      const mergedTags = [...new Set([
+        ...descriptionRewrite.productTags,
+        ...descriptionRewrite.signatureProducts,
+      ])]
+
+      descriptionPatch = {
+        ...(descriptionRewrite.description_zh ? { description: descriptionRewrite.description_zh } : {}),
+        ...(descriptionRewrite.description_en ? { description_en: descriptionRewrite.description_en } : {}),
+        ...(descriptionRewrite.blurb_zh ? { blurb: descriptionRewrite.blurb_zh } : {}),
+        ...(descriptionRewrite.blurb_en ? { blurb_en: descriptionRewrite.blurb_en } : {}),
+        ...(descriptionRewrite.priceRange != null ? { price_range: descriptionRewrite.priceRange } : {}),
+        ...(mergedTags.length > 0 ? { product_tags: mergedTags } : {}),
+        ...(descriptionRewrite.productTagsEn.length > 0 ? { product_tags_en: descriptionRewrite.productTagsEn } : {}),
+        ...(!brand.city && descriptionRewrite.city ? { city: descriptionRewrite.city } : {}),
+        ...(descriptionRewrite.foundingYear != null ? { founding_year: descriptionRewrite.foundingYear } : {}),
+        ...(categoryAttributes ? { category_attributes: categoryAttributes } : {}),
+      }
+
+      if (mergedTags.length > 0 && descriptionRewrite.productTagsEn.length > 0) {
+        const supabase = createServiceClient()
+        const tagPairs = mergedTags.slice(0, descriptionRewrite.productTagsEn.length).map((zh, i) => ({
+          tag_zh: zh,
+          tag_en: descriptionRewrite.productTagsEn[i] ?? zh,
+        }))
+
+        await supabase
+          .from('product_tag_translations')
+          .upsert(tagPairs, { onConflict: 'tag_zh', ignoreDuplicates: true })
+
+        const { data: canonical } = await supabase
+          .from('product_tag_translations')
+          .select('tag_zh, tag_en')
+          .in('tag_zh', mergedTags)
+
+        if (canonical && canonical.length > 0) {
+          const tagMap = new Map(canonical.map((t: { tag_zh: string; tag_en: string }) => [t.tag_zh, t.tag_en]))
+          descriptionPatch.product_tags_en = mergedTags.map(zh => tagMap.get(zh) ?? zh)
         }
-      : {}
+      }
+    }
 
     return {
       patch: descriptionPatch,

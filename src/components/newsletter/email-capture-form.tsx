@@ -67,7 +67,7 @@ export function EmailCaptureForm() {
         </div>
 
         <Button
-          className="h-12 rounded-lg bg-[color:var(--cta)] px-6 text-white hover:bg-[color:var(--cta)]/90 sm:h-11"
+          variant="cta"
           disabled={isPending}
           type="submit"
         >

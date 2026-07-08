@@ -131,6 +131,10 @@ export type BrandRowWithJoins = Partial<BrandRow> &
   {
     price_range?: number | null
     product_tags?: string[] | null
+    description_en?: string | null
+    blurb?: string | null
+    blurb_en?: string | null
+    product_tags_en?: string[] | null
   } &
   Pick<BrandRow, 'id' | 'name' | 'slug' | 'status' | 'submitted_at' | 'created_at' | 'updated_at'> & {
     brand_owners?: BrandOwnerRef | BrandOwnerRef[] | null
@@ -453,11 +457,24 @@ function draftDataToSnapshot(value: BrandDraftData): Record<string, unknown> | n
   return isRecord(value) ? value : null
 }
 
+export const BRAND_DRAFT_PROGRESS_KEY = '__wizardCompletedSteps'
+
 export function brandToDraftSnapshot(data: Partial<Brand>): Record<string, unknown> {
   const snapshot: Record<string, unknown> = {}
   for (const key of BRAND_DRAFT_EDITABLE_KEYS) {
     if (key in data && data[key] !== undefined) {
       snapshot[key] = data[key]
+    }
+  }
+  const progress = (data as Record<string, unknown>)[BRAND_DRAFT_PROGRESS_KEY]
+  if (Array.isArray(progress)) {
+    const normalized = progress.filter(
+      (step): step is number => Number.isInteger(step) && step >= 0,
+    )
+    if (normalized.length > 0) {
+      snapshot[BRAND_DRAFT_PROGRESS_KEY] = Array.from(new Set(normalized)).sort(
+        (left, right) => left - right,
+      )
     }
   }
   return snapshot
@@ -563,6 +580,9 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     name: row.name,
     slug: row.slug,
     description: row.description ?? null,
+    descriptionEn: row.description_en ?? null,
+    blurb: row.blurb ?? null,
+    blurbEn: row.blurb_en ?? null,
     heroImageUrl: row.hero_image_url ?? null,
     // status is text in the DB — cast to BrandStatus at the boundary
     status: row.status as Brand['status'],
@@ -587,9 +607,11 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     otherUrls: (row.other_urls as OtherUrl[]) ?? [],
     retailLocations: (row.retail_locations as Brand['retailLocations']) ?? [],
     productPhotos: [],
+    imageAlts: [],
     contactEmail: row.contact_email ?? null,
     priceRange: row.price_range ?? null,
     productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
+    productTagsEn: Array.isArray(row.product_tags_en) ? row.product_tags_en : [],
     reputationSummary: normalizeReputationSummary(row.reputation_summary),
     siteContent: normalizeSiteContent(row.site_content as Brand['siteContent']),
     submittedAt: row.submitted_at ?? '',
@@ -672,13 +694,13 @@ export function previewBrandPatch(
 // ---------------------------------------------------------------------------
 
 const BRAND_COLUMNS = [
-  'id', 'name', 'slug', 'description', 'hero_image_url',
+  'id', 'name', 'slug', 'description', 'description_en', 'blurb', 'blurb_en', 'hero_image_url',
   'product_type', 'contact_email', 'city', 'purchase_website', 'purchase_pinkoi',
   'purchase_shopee', 'social_instagram', 'social_threads', 'social_facebook',
   'other_urls', 'retail_locations', 'site_content',
   'status', 'submitted_at', 'approved_at', 'created_at', 'updated_at',
   'draft_data', 'draft_updated_at', 'founding_year',
-  'price_range', 'product_tags',
+  'price_range', 'product_tags', 'product_tags_en',
   'reputation_summary',
   'mit_status', 'mit_verified_at',
   'mit_story',

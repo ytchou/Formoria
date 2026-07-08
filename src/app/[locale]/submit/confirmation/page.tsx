@@ -4,6 +4,8 @@ import { Check, Home, Plus } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 type ConfirmationPageProps = {
   params: Promise<{ locale: string }>
@@ -113,14 +115,14 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
         <div className="mt-8 space-y-3">
           <Link
             href="/"
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-cta px-5 py-3 text-sm font-medium text-white hover:bg-cta/90"
+            className={cn(buttonVariants({ variant: 'cta' }), 'w-full')}
           >
             <Home className="h-4 w-4" />
             {t('cta.explore')}
           </Link>
           <Link
             href="/submit"
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#D4CFC9] bg-white px-5 py-3 text-sm font-medium text-[#1A1918] hover:bg-[#F5F4F1]"
+            className={cn(buttonVariants({ variant: 'outline' }), 'w-full')}
           >
             <Plus className="h-4 w-4" />
             {t('cta.submitAnother')}

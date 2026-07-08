@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 
 import { Link } from '@/i18n/navigation'
 import { useUser } from '@/lib/auth/use-user'
+import { buttonVariants } from '@/components/ui/button'
 
 const benefits = [
   {
@@ -41,7 +42,7 @@ export function OwnerBenefitsSection() {
       {!user && (
         <Link
           href="/submit"
-          className="inline-flex items-center justify-center rounded-lg bg-cta px-5 py-3 text-sm font-medium text-white hover:bg-cta/90"
+          className={buttonVariants({ variant: 'cta' })}
         >
           {ctaT('cta')}
         </Link>

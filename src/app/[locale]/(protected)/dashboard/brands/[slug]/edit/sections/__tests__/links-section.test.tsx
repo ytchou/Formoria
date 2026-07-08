@@ -27,5 +27,25 @@ describe('LinksSection', () => {
     render(<Wrapper />)
     const btn = screen.queryByRole('button', { name: /add/i })
     expect(btn).toBeInTheDocument()
+    expect(btn).toHaveClass('h-9', 'rounded-lg')
+    expect(btn).not.toHaveClass('min-h-12')
+  })
+
+  it('uses headings for each link group', () => {
+    render(<Wrapper />)
+
+    expect(screen.getByRole('heading', { name: 'Social links' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Purchase Links' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Other links' })).toBeInTheDocument()
+  })
+
+  it('places the required-field note below the section heading', () => {
+    render(<Wrapper />)
+
+    const heading = screen.getByRole('heading', { name: 'Social & purchase links' })
+    const note = screen.getByText('indicates a required field')
+    expect(
+      heading.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
   })
 })

@@ -14,6 +14,7 @@ interface ReputationSource {
 
 export interface ReputationSummary {
   text: string
+  textEn?: string | null
   sources: ReputationSource[]
 }
 
@@ -69,6 +70,9 @@ export type Brand = {
   name: string
   slug: string
   description: string | null
+  descriptionEn: string | null
+  blurb: string | null
+  blurbEn: string | null
   heroImageUrl: string | null
   status: BrandStatus
   productType?: string | null
@@ -92,9 +96,11 @@ export type Brand = {
   otherUrls: OtherUrl[]
   retailLocations: RetailLocation[]
   productPhotos: string[]
+  imageAlts: Array<{ altZh: string | null; altEn: string | null }>
   contactEmail: string | null
   priceRange: number | null
   productTags: string[]
+  productTagsEn: string[]
   siteContent: SiteContent | null
   submittedAt: string
   approvedAt: string | null
@@ -134,6 +140,8 @@ export type PendingBrandEditWithBrand = PendingBrandEdit & {
     | 'name'
     | 'slug'
     | 'description'
+    | 'descriptionEn'
+    | 'blurb'
     | 'heroImageUrl'
     | 'city'
     | 'category'

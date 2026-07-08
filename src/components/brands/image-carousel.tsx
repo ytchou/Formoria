@@ -3,16 +3,18 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 
 interface ImageCarouselProps {
   images: string[]
   alt: string
+  imageAlts?: Array<{ altZh: string | null; altEn: string | null }>
 }
 
-export function ImageCarousel({ images, alt }: ImageCarouselProps) {
+export function ImageCarousel({ images, alt, imageAlts }: ImageCarouselProps) {
   const t = useTranslations('brandDetail')
+  const locale = useLocale()
   const validImages = images.flatMap((image) => {
     const safeSrc = safeImageSrc(image)
     return safeSrc ? [safeSrc] : []
@@ -33,6 +35,15 @@ export function ImageCarousel({ images, alt }: ImageCarouselProps) {
         </div>
       </div>
     )
+  }
+
+  function getAlt(index: number): string {
+    if (imageAlts?.[index]) {
+      const a = imageAlts[index]
+      const localeAlt = locale === 'en' ? (a.altEn ?? a.altZh) : (a.altZh ?? a.altEn)
+      if (localeAlt) return localeAlt
+    }
+    return t('gallery.photoAlt', { n: index + 1 })
   }
 
   function handleImageError(index: number) {
@@ -58,7 +69,7 @@ export function ImageCarousel({ images, alt }: ImageCarouselProps) {
         ) : (
           <Image
             src={validImages[current]}
-            alt={t('gallery.photoAlt', { n: current + 1 })}
+            alt={getAlt(current)}
             fill
             className="object-contain"
             sizes="(max-width: 1024px) 100vw, 580px"
@@ -121,7 +132,7 @@ export function ImageCarousel({ images, alt }: ImageCarouselProps) {
               ) : (
                 <Image
                   src={src}
-                  alt={t('gallery.photoAlt', { n: i + 1 })}
+                  alt={getAlt(i)}
                   fill
                   className="object-cover"
                   sizes="64px"

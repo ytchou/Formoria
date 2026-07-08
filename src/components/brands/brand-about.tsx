@@ -1,4 +1,4 @@
-import { getTranslations } from 'next-intl/server'
+import { getTranslations, getLocale } from 'next-intl/server'
 import type { Brand } from '@/lib/types'
 
 interface BrandAboutProps {
@@ -6,10 +6,15 @@ interface BrandAboutProps {
 }
 
 export async function BrandAbout({ brand }: BrandAboutProps) {
-  if (!brand.description) return null
+  const locale = await getLocale()
+  const description = locale === 'en'
+    ? (brand.descriptionEn ?? brand.description)
+    : brand.description
+
+  if (!description) return null
 
   const t = await getTranslations('brandDetail')
-  const paragraphs = brand.description.split('\n\n')
+  const paragraphs = description.split('\n\n')
 
   return (
     <section>

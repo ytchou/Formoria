@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import * as Sentry from '@sentry/nextjs'
+import { Button } from '@/components/ui/button'
 
 // Strings are hardcoded intentionally — an error boundary must never depend on
 // the infrastructure (NextIntlClientProvider) it is trying to survive.
@@ -22,12 +23,13 @@ export default function Error({
         Something went wrong
       </h1>
       <p className="mt-3 text-sm text-[#7C7570]">An unexpected error occurred. Please try again.</p>
-      <button
+      <Button
+        variant="cta"
         onClick={reset}
-        className="mt-6 inline-flex items-center justify-center rounded-lg bg-[#E06B3F] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#C85A33] transition-colors"
+        className="mt-6"
       >
         Try again
-      </button>
+      </Button>
     </main>
   )
 }

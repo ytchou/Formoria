@@ -1,12 +1,13 @@
 'use client'
 
-import { Trash2 } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { type UseFormReturn, Controller, useFieldArray } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RequiredLabel } from '@/components/forms/required-label'
+import { RequiredFieldsHint } from '@/components/forms/required-fields-hint'
 import type { BrandEditFormValues } from '@/lib/schemas/brand-edit'
 
 export function LinksSection({
@@ -23,17 +24,18 @@ export function LinksSection({
 
   return (
     <section id="purchase" className="space-y-4 scroll-mt-8">
-      <h2 className="font-heading text-base font-bold border-b border-border pb-2 mb-4">
+      <h2 className="mb-4 border-b border-border px-4 pb-2 font-heading text-base font-bold">
         {t('sectionLinks')}
       </h2>
+      <RequiredFieldsHint />
 
       <div
         id="social-proof"
         className="space-y-4 rounded-lg border border-border bg-card p-4"
       >
-        <div className="inline-flex min-h-12 items-center rounded-lg bg-primary px-4 text-[11px] font-medium uppercase tracking-wide text-primary-foreground">
+        <h3 className="text-sm font-semibold text-foreground">
           {tx('socialLinksLabel', 'Social links')}
-        </div>
+        </h3>
         <div className="grid gap-3">
           <LinkedInput
             control={form.control}
@@ -58,9 +60,9 @@ export function LinksSection({
       </div>
 
       <div className="space-y-4 rounded-lg border border-border bg-card p-4">
-        <div className="inline-flex min-h-12 items-center rounded-lg bg-primary px-4 text-[11px] font-medium uppercase tracking-wide text-primary-foreground">
+        <h3 className="text-sm font-semibold text-foreground">
           {t('fieldPurchaseLinks')}
-        </div>
+        </h3>
         <div className="grid gap-3">
           <LinkedInput
             control={form.control}
@@ -93,9 +95,9 @@ export function LinksSection({
       </div>
 
       <div className="space-y-4 rounded-lg border border-border bg-card p-4">
-        <div className="text-[11px] font-medium uppercase tracking-wide text-foreground">
+        <h3 className="text-sm font-semibold text-foreground">
           {tx('fieldOtherLinks', 'Other links')}
-        </div>
+        </h3>
         <div className="space-y-3">
           {fields.map((field, index) => (
             <div
@@ -116,9 +118,8 @@ export function LinksSection({
               <Button
                 type="button"
                 variant="ghost"
-                size="icon"
+                size="icon-lg"
                 aria-label={t('removeItem')}
-                className="h-12 w-12"
                 onClick={() => remove(index)}
               >
                 <Trash2 className="h-4 w-4" />
@@ -128,9 +129,9 @@ export function LinksSection({
           <Button
             type="button"
             variant="outline"
-            className="min-h-12"
             onClick={() => append({ label: '', url: '' })}
           >
+            <Plus className="size-3.5" />
             {tx('addLink', 'Add link')}
           </Button>
         </div>

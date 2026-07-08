@@ -482,15 +482,14 @@ export function SubmissionsReviewList({
               size="sm"
               onClick={handleEnrichSelected}
               disabled={selectedCount === 0 || isEnriching}
-              className="bg-cta hover:bg-cta/90"
             >
               {isEnriching ? '抓取中...' : '抓取資料'}
             </Button>
             <Button
               size="sm"
+              variant="cta"
               onClick={handleBulkApprove}
               disabled={selectedCount === 0 || isPending}
-              className="bg-cta hover:bg-cta/90"
             >
               核准
             </Button>
@@ -648,9 +647,9 @@ export function SubmissionsReviewList({
                         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                           <Button
                             size="sm"
+                            variant="cta"
                             onClick={() => handleApprove(submission)}
                             disabled={isPending}
-                            className="h-7 bg-cta px-2 text-xs hover:bg-cta/90"
                           >
                             核准
                           </Button>
@@ -944,12 +943,12 @@ export function SubmissionsReviewList({
                           {submission.status === 'pending' && (
                             <div className="flex items-start gap-3">
                               <Button
+                                variant="cta"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   handleApprove(submission)
                                 }}
                                 disabled={isPending}
-                                className="bg-cta hover:bg-cta/90"
                               >
                                 核准
                               </Button>

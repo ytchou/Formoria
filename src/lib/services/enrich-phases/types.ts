@@ -56,6 +56,10 @@ export type EnrichPatch = Partial<BrandFlatLinkColumns> &
     product_tags: string[] | null
     product_type: string | null
     slug: string
+    blurb: string | null
+    blurb_en: string | null
+    founding_year: number | null
+    product_tags_en: string[] | null
   }>
 
 export type BatchPhaseContext = {

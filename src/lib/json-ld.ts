@@ -41,7 +41,7 @@ export function buildBrandJsonLd(brand: Brand, locale: Locale = 'zh-TW'): JsonLd
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: brand.name,
-    description: brand.description ?? undefined,
+    description: (locale === 'en' ? (brand.descriptionEn ?? brand.description) : brand.description) ?? undefined,
     inLanguage: toInLanguage(locale),
   }
 

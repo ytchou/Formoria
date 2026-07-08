@@ -12,6 +12,7 @@ import { submitBrand, suggestCleanName } from '@/app/[locale]/submit/actions'
 import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
 import type { SourceAttribution } from '@/lib/types/submission'
 import { ImageUploadField } from '@/components/forms/image-upload-field'
+import { Button } from '@/components/ui/button'
 import { TurnstileWidget } from '@/components/submit/TurnstileWidget'
 import {
   trackSubmissionFormOpened,
@@ -546,13 +547,14 @@ export default function SubmitForm({
           )}
 
           {/* Submit button */}
-          <button
+          <Button
             type="submit"
+            variant="cta"
             disabled={isSubmitDisabled}
-            className="flex h-12 w-full items-center justify-center rounded-lg bg-cta px-6 text-sm font-semibold text-white hover:bg-cta/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full"
           >
             {isPending ? tForm('submittingButton') : tForm('submitButton')}
-          </button>
+          </Button>
         </div>
       </form>
     </div>

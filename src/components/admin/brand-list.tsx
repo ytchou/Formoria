@@ -272,14 +272,13 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="rounded-full"
                         onClick={() => setEditingBrand(brand)}
                       >
                         編輯
                       </Button>
                       <Link
                         href={`/${routing.defaultLocale}/dashboard/brands/${brand.slug}`}
-                        className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'rounded-full')}
+                        className={buttonVariants({ variant: 'outline', size: 'sm' })}
                       >
                         在 Dashboard 查看
                       </Link>
@@ -287,7 +286,6 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="rounded-full"
                           onClick={() => handleHide(brand)}
                           disabled={isPending}
                         >
@@ -298,7 +296,6 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="rounded-full"
                           onClick={() => handleUnhide(brand)}
                           disabled={isPending}
                         >
@@ -338,7 +335,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="rounded-full text-[#D94F3D] hover:text-[#D94F3D]"
+                        className="text-[#D94F3D] hover:text-[#D94F3D]"
                         onClick={() => setDeletingBrand(brand)}
                       >
                         刪除

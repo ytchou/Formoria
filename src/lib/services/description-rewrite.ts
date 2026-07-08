@@ -6,20 +6,25 @@ import { parseExtractionResult } from './product-type-classifier'
 const DEEPSEEK_TIMEOUT_MS = 30_000
 const ZH_DESCRIPTION_BAND = [300, 600] as const
 const EN_DESCRIPTION_BAND = [400, 900] as const
+const ZH_BLURB_BAND = [60, 120] as const
+const EN_BLURB_BAND = [80, 180] as const
 
 export type DescriptionRewriteResult = {
   description_zh: string | null
   description_en: string | null
   description: string | null
+  blurb_zh: string | null
+  blurb_en: string | null
   priceRange: 1 | 2 | 3 | null
   productTags: string[]
+  productTagsEn: string[]
   city: string | null
   foundingYear: number | null
   signatureProducts: string[]
   whereToBuy: string | null
   categoryMismatch: boolean
   validationRejections: Array<{
-    field: 'description_zh' | 'description_en'
+    field: 'description_zh' | 'description_en' | 'blurb_zh' | 'blurb_en'
     reasons: string[]
     attempt: number
   }>
@@ -32,8 +37,11 @@ const DESCRIPTION_REWRITE_WITH_DETAILS_SYSTEM_PROMPT = `${DESCRIPTION_SYSTEM_PRO
 {
   "description_zh": "300-600 字繁體中文品牌簡介",
   "description_en": "400-900 characters English brand description",
+  "blurb_zh": "60-120 字繁體中文品牌摘要，用於卡片顯示，精簡且吸引人",
+  "blurb_en": "80-180 characters English brand summary for card display",
   "price_range": 1 | 2 | 3 | null,
-  "product_tags": ["具體商品類型"],
+  "product_tags": ["具體商品類型（繁體中文）"],
+  "product_tags_en": ["specific product types (English)"],
   "city": "城市或 null",
   "founding_year": 2015 | null,
   "signature_products": ["代表商品"],
@@ -48,6 +56,7 @@ priceRange 分級：
 - 若價格線索不足，回傳 null
 
 product_tags 請擷取 2 到 5 個具體商品描述，例如「陶瓷馬克杯」、「亞麻圍裙」、「皮革托特包」。不要使用寬泛分類，例如「服飾」、「配件」、「家居」。若資料不清楚，回傳 []。
+product_tags_en 是 product_tags 的英文對應翻譯，必須數量與順序一致。
 
 所有欄位只能使用提供來源中的事實；沒有根據的欄位回傳 null、[] 或 false。`
 
@@ -60,8 +69,11 @@ export function parseDescriptionRewriteResult(content: string): DescriptionRewri
       description_zh: null,
       description_en: null,
       description: null,
+      blurb_zh: null,
+      blurb_en: null,
       priceRange: null,
       productTags: [],
+      productTagsEn: [],
       city: null,
       foundingYear: null,
       signatureProducts: [],
@@ -80,12 +92,29 @@ export function parseDescriptionRewriteResult(content: string): DescriptionRewri
     ? rawDescriptionEn.trim()
     : null
 
+  const rawBlurbZh = parsed.blurb_zh
+  const rawBlurbEn = parsed.blurb_en
+  const blurbZh = typeof rawBlurbZh === 'string' && rawBlurbZh.trim().length > 0
+    ? rawBlurbZh.trim()
+    : null
+  const blurbEn = typeof rawBlurbEn === 'string' && rawBlurbEn.trim().length > 0
+    ? rawBlurbEn.trim()
+    : null
+
+  const rawProductTagsEn = parsed.product_tags_en
+  const productTagsEn = Array.isArray(rawProductTagsEn)
+    ? rawProductTagsEn.filter((t): t is string => typeof t === 'string' && t.trim().length > 0).map(t => t.trim())
+    : []
+
   return {
     description_zh: descriptionZh,
     description_en: descriptionEn,
     description: descriptionZh,
+    blurb_zh: blurbZh,
+    blurb_en: blurbEn,
     priceRange: extraction.priceRange,
     productTags: extraction.productTags.length >= 2 ? extraction.productTags : [],
+    productTagsEn,
     city: extraction.city,
     foundingYear: extraction.foundingYear,
     signatureProducts: extraction.signatureProducts,
@@ -102,6 +131,8 @@ function validateDescriptionFields(
   const validationRejections: DescriptionRewriteResult['validationRejections'] = []
   let descriptionZh = parsed.description_zh
   let descriptionEn = parsed.description_en
+  let blurbZh = parsed.blurb_zh
+  let blurbEn = parsed.blurb_en
 
   if (descriptionZh) {
     const validation = validateLocalizedText(descriptionZh, 'zh', ZH_DESCRIPTION_BAND)
@@ -123,11 +154,33 @@ function validateDescriptionFields(
     validationRejections.push({ field: 'description_en', reasons: ['missing'], attempt })
   }
 
+  if (blurbZh) {
+    const validation = validateLocalizedText(blurbZh, 'zh', ZH_BLURB_BAND)
+    if (!validation.ok) {
+      validationRejections.push({ field: 'blurb_zh', reasons: validation.reasons, attempt })
+      blurbZh = null
+    }
+  } else {
+    validationRejections.push({ field: 'blurb_zh', reasons: ['missing'], attempt })
+  }
+
+  if (blurbEn) {
+    const validation = validateLocalizedText(blurbEn, 'en', EN_BLURB_BAND)
+    if (!validation.ok) {
+      validationRejections.push({ field: 'blurb_en', reasons: validation.reasons, attempt })
+      blurbEn = null
+    }
+  } else {
+    validationRejections.push({ field: 'blurb_en', reasons: ['missing'], attempt })
+  }
+
   return {
     ...parsed,
     description_zh: descriptionZh,
     description_en: descriptionEn,
     description: descriptionZh,
+    blurb_zh: blurbZh,
+    blurb_en: blurbEn,
     validationRejections,
   }
 }
@@ -151,6 +204,8 @@ export async function rewriteBrandDescription(
   let bestResult: DescriptionRewriteResult | null = null
   let acceptedDescriptionZh: string | null = null
   let acceptedDescriptionEn: string | null = null
+  let acceptedBlurbZh: string | null = null
+  let acceptedBlurbEn: string | null = null
   const validationRejections: DescriptionRewriteResult['validationRejections'] = []
 
   try {
@@ -187,8 +242,11 @@ export async function rewriteBrandDescription(
           description_zh: null,
           description_en: null,
           description: null,
+          blurb_zh: null,
+          blurb_en: null,
           priceRange: null,
           productTags: [],
+          productTagsEn: [],
           city: null,
           foundingYear: null,
           signatureProducts: [],
@@ -203,11 +261,15 @@ export async function rewriteBrandDescription(
       validationRejections.push(...validated.validationRejections)
       acceptedDescriptionZh ??= validated.description_zh
       acceptedDescriptionEn ??= validated.description_en
+      acceptedBlurbZh ??= validated.blurb_zh
+      acceptedBlurbEn ??= validated.blurb_en
       bestResult = {
         ...validated,
         description_zh: acceptedDescriptionZh,
         description_en: acceptedDescriptionEn,
         description: acceptedDescriptionZh,
+        blurb_zh: acceptedBlurbZh,
+        blurb_en: acceptedBlurbEn,
         validationRejections,
         rawResponse: {
           response: data,
@@ -224,8 +286,11 @@ export async function rewriteBrandDescription(
       description_zh: null,
       description_en: null,
       description: null,
+      blurb_zh: null,
+      blurb_en: null,
       priceRange: null,
       productTags: [],
+      productTagsEn: [],
       city: null,
       foundingYear: null,
       signatureProducts: [],

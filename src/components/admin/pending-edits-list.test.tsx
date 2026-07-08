@@ -42,6 +42,8 @@ function makeEdit(
       siteContent: null,
       priceRange: null,
       productTags: [],
+      descriptionEn: null,
+      blurb: null,
     },
     submittedBy: 'user-1',
     brandId: 'brand-1',

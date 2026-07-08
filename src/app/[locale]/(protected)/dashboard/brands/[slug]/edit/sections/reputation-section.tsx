@@ -22,7 +22,7 @@ export function ReputationSection({
 
   return (
     <section id="reputation" className="space-y-4">
-      <h2 className="font-heading text-base font-bold border-b border-border pb-2 mb-4">
+      <h2 className="mb-4 border-b border-border px-4 pb-2 font-heading text-base font-bold">
         {t('sectionReputation')}
       </h2>
 
@@ -53,9 +53,8 @@ export function ReputationSection({
               <Button
                 type="button"
                 variant="ghost"
-                size="icon"
+                size="icon-lg"
                 aria-label={t('removeItem')}
-                className="h-12 w-12"
                 onClick={() => remove(index)}
               >
                 <Trash2 className="h-4 w-4" />
@@ -65,7 +64,6 @@ export function ReputationSection({
           <Button
             type="button"
             variant="outline"
-            className="min-h-12"
             disabled={fields.length >= 5}
             onClick={() => append({ url: '' })}
           >

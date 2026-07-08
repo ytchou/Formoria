@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn() }))
 vi.mock('@/lib/auth/require-brand-editor', () => ({ requireBrandEditor: vi.fn() }))
 vi.mock('@/lib/services/brands', () => ({
+  BRAND_DRAFT_PROGRESS_KEY: '__wizardCompletedSteps',
   getBrandDraft: vi.fn(),
   saveDraft: vi.fn(),
 }))
@@ -40,7 +41,14 @@ describe('saveSectionDraftAction', () => {
     })
 
     expect(result).toEqual({ success: true })
-    expect(saveDraft).toHaveBeenCalled()
+    expect(saveDraft).toHaveBeenCalledWith(
+      'brand-id',
+      expect.objectContaining({
+        name: 'Test Brand',
+        productType: 'fashion',
+        __wizardCompletedSteps: [0],
+      }),
+    )
   })
 
   it('merges section data into existing draft', async () => {
@@ -61,7 +69,57 @@ describe('saveSectionDraftAction', () => {
         name: 'New Name',
         productType: 'food',
         heroImageUrl: 'http://example.com/img.jpg',
+        __wizardCompletedSteps: [0],
       })
+    )
+  })
+
+  it('preserves and extends saved wizard progress', async () => {
+    vi.mocked(getBrandDraft).mockResolvedValue({
+      name: 'Warmwood Living',
+      __wizardCompletedSteps: [0, 1],
+    })
+
+    await saveSectionDraftAction('brand-id', 'brand-slug', 'links', {
+      purchaseWebsite: 'https://warmwood.example',
+    })
+
+    expect(saveDraft).toHaveBeenCalledWith(
+      'brand-id',
+      expect.objectContaining({
+        name: 'Warmwood Living',
+        purchaseWebsite: 'https://warmwood.example',
+        __wizardCompletedSteps: [0, 1, 2],
+      }),
+    )
+  })
+
+  it('stores reputation fields in the brand domain shape', async () => {
+    vi.mocked(getBrandDraft).mockResolvedValue({ name: 'Warmwood Living' })
+
+    const result = await saveSectionDraftAction(
+      'brand-id',
+      'brand-slug',
+      'reputation',
+      {
+        reputationSummary: 'Featured by independent design publications.',
+        reputationSources: [
+          { url: 'https://example.com/warmwood-review' },
+          { url: '' },
+        ],
+      },
+    )
+
+    expect(result).toEqual({ success: true })
+    expect(saveDraft).toHaveBeenCalledWith(
+      'brand-id',
+      expect.objectContaining({
+        name: 'Warmwood Living',
+        reputationSummary: {
+          text: 'Featured by independent design publications.',
+          sources: [{ url: 'https://example.com/warmwood-review' }],
+        },
+      }),
     )
   })
 

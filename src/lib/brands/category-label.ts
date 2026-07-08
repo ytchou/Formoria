@@ -12,8 +12,8 @@ export function getProductTypeLabel(
 /**
  * Derives a localized category label for a brand using brands.category (product_type slug).
  */
-export function getBrandCategoryLabel(brand: Brand): string {
+export function getBrandCategoryLabel(brand: Brand, locale: 'zh-TW' | 'en' = 'zh-TW'): string {
   if (!brand.category) return ''
   const category = PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === brand.category)
-  return category?.nameZh ?? brand.category
+  return category ? (locale === 'zh-TW' ? category.nameZh : category.name) : brand.category
 }

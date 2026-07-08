@@ -52,8 +52,7 @@ export function GoogleButton({ action }: GoogleButtonProps) {
         <Button
           type="submit"
           variant="outline"
-          size="lg"
-          className="h-12 w-full border-[#E5E0D8] bg-white text-foreground hover:bg-[#F8F4EC] focus-visible:border-[#E06B3F]/40 focus-visible:ring-[#E06B3F]/20"
+          className="w-full"
         >
           <GoogleGlyph />
           {t("continueWithGoogle")}

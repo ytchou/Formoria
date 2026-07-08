@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { Button } from '@/components/ui/button'
 
 type DynamicArrayFieldProps<T extends object> = {
   initialItems: T[]
@@ -34,14 +35,14 @@ export function DynamicArrayField<T extends object>({
           {renderItem(item, index, () => removeItem(index))}
         </div>
       ))}
-      <button
+      <Button
         type="button"
+        variant="outline"
         onClick={addItem}
         disabled={maxItems !== undefined && items.length >= maxItems}
-        className="text-sm font-medium text-[#8B5E3C] hover:underline disabled:opacity-50"
       >
         {addLabel}
-      </button>
+      </Button>
     </div>
   )
 }

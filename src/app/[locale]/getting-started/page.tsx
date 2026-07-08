@@ -9,6 +9,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { OwnerBenefitsSection } from '@/components/getting-started/OwnerBenefitsSection'
+import { buttonVariants } from '@/components/ui/button'
 import { buildFaqPageJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
@@ -79,14 +80,14 @@ export default async function GettingStartedPage({ params }: PageProps) {
         <div className="flex flex-col gap-3 sm:flex-row md:flex-col">
           <Link
             href="/submit"
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-cta px-5 py-3 text-sm font-medium text-white hover:bg-cta/90"
+            className={buttonVariants({ variant: 'cta' })}
           >
             {t('hero.primaryCta')}
             <ArrowRight className="size-4" />
           </Link>
           <Link
             href="/brands"
-            className="inline-flex items-center justify-center rounded-lg border border-border px-5 py-3 text-sm font-medium text-foreground hover:bg-muted"
+            className={buttonVariants({ variant: 'outline' })}
           >
             {t('hero.secondaryCta')}
           </Link>
@@ -167,13 +168,13 @@ export default async function GettingStartedPage({ params }: PageProps) {
         <div className="mt-5 flex flex-col gap-3 sm:flex-row md:mt-0">
           <Link
             href="/submit"
-            className="inline-flex items-center justify-center rounded-lg bg-cta px-5 py-3 text-sm font-medium text-white hover:bg-cta/90"
+            className={buttonVariants({ variant: 'cta' })}
           >
             {t('cta.submit')}
           </Link>
           <Link
             href="/faq"
-            className="inline-flex items-center justify-center rounded-lg border border-border px-5 py-3 text-sm font-medium text-foreground hover:bg-muted"
+            className={buttonVariants({ variant: 'outline' })}
           >
             {t('cta.faq')}
           </Link>

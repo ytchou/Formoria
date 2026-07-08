@@ -1,6 +1,8 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
+import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 export default async function SubmitBand() {
   const t = await getTranslations('landing.submitBand')
@@ -23,7 +25,7 @@ export default async function SubmitBand() {
         </p>
         <Link
           href="/submit"
-          className="mt-8 inline-flex items-center justify-center rounded-lg bg-cta px-8 py-3 text-base font-semibold text-cta-foreground transition-colors hover:bg-cta/90"
+          className={cn(buttonVariants({ variant: 'cta' }), 'mt-8')}
         >
           {t('cta')}
         </Link>

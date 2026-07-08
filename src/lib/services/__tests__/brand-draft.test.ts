@@ -44,6 +44,11 @@ const liveBrand: Brand = {
   siteContent: null,
   priceRange: null,
   productTags: [],
+  productTagsEn: [],
+  descriptionEn: null,
+  blurb: null,
+  blurbEn: null,
+  imageAlts: [],
   submittedAt: '2026-01-01T00:00:00Z',
   approvedAt: '2026-01-02T00:00:00Z',
   createdAt: '2026-01-01T00:00:00Z',
@@ -62,6 +67,15 @@ describe('brandToDraftSnapshot', () => {
     expect(snap).not.toHaveProperty('slug')
     expect(snap).not.toHaveProperty('status')
     expect(snap).not.toHaveProperty('isVerified')
+  })
+
+  it('preserves internal wizard progress metadata for staged edits', () => {
+    const snap = brandToDraftSnapshot({
+      name: 'New Name',
+      __wizardCompletedSteps: [2, 0, 2],
+    } as Partial<Brand> & { __wizardCompletedSteps: number[] })
+
+    expect(snap.__wizardCompletedSteps).toEqual([0, 2])
   })
 })
 
