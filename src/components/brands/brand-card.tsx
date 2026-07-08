@@ -61,7 +61,7 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
   return (
     <Link
       href={`/brands/${brand.slug}`}
-      className="group block rounded-xl border border-border bg-card shadow-[var(--shadow-card)] transition-all hover:-translate-y-px hover:shadow-[var(--shadow-card-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="group block rounded-xl border border-border bg-card shadow-[var(--shadow-card)] transition-[box-shadow,transform] hover:-translate-y-px hover:shadow-[var(--shadow-card-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={brand.name}
       onClick={() => trackBrandCardClicked(brand.slug, brand.category, position)}
     >
@@ -93,7 +93,7 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
       {/* Content */}
       <div className="p-4">
         <div className="flex min-w-0 items-center gap-1.5">
-          <h3 className="min-w-0 truncate text-sm font-bold leading-snug text-foreground">
+          <h3 className="min-w-0 truncate type-subsection-title">
             {brand.name}
           </h3>
           {badges.length > 0 && (
@@ -106,7 +106,7 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
                     key={badge.key}
                     aria-label={badge.title}
                     title={badge.title}
-                    className={`inline-flex items-center gap-[3px] rounded-full px-[7px] py-0.5 font-sans text-[10px] font-semibold ${badge.className}`}
+                    className={`inline-flex items-center gap-[3px] rounded-full px-[7px] py-0.5 type-micro ${badge.className}`}
                   >
                     <Icon className="h-[9px] w-[9px]" aria-hidden />
                     {badge.label}
@@ -116,24 +116,24 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
             </div>
           )}
         </div>
-        <p className="mt-1.5 min-h-[2.625rem] text-[13px] leading-relaxed text-muted-foreground line-clamp-2">
+        <p className="mt-1.5 min-h-[2.625rem] type-section-description line-clamp-2">
           {(locale === 'en'
             ? (brand.blurbEn ?? brand.descriptionEn ?? brand.blurb ?? brand.description)
             : (brand.blurb ?? brand.description)) ?? ' '}
         </p>
         <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
           {categoryLabel && (
-            <span className="shrink-0 rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-foreground whitespace-nowrap">
+            <span className="shrink-0 rounded-full bg-secondary px-3 py-1 type-micro text-foreground whitespace-nowrap">
               {categoryLabel}
             </span>
           )}
           {brand.priceRange != null && (
-            <span className="shrink-0 rounded-full bg-secondary px-2 py-1 text-[11px] font-medium text-foreground whitespace-nowrap">
+            <span className="shrink-0 rounded-full bg-secondary px-2 py-1 type-micro text-foreground whitespace-nowrap">
               {'$'.repeat(brand.priceRange)}
             </span>
           )}
           {brand.productTags[0] && (
-            <span className="truncate rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-foreground whitespace-nowrap">
+            <span className="truncate rounded-full bg-secondary px-3 py-1 type-micro text-foreground whitespace-nowrap">
               {locale === 'en' ? (brand.productTagsEn[0] ?? brand.productTags[0]) : brand.productTags[0]}
             </span>
           )}

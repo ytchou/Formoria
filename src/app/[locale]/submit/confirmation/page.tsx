@@ -51,7 +51,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
-      <div className="w-full max-w-[560px] rounded-2xl border border-[#E8E5E0] bg-white p-10 shadow-sm">
+      <div className="w-full max-w-[560px] rounded-2xl border border-border bg-white p-10 shadow-sm">
         {/* Success badge */}
         <div className="flex justify-center">
           <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-cta">
@@ -59,18 +59,18 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
           </div>
         </div>
 
-        <h1 className="mt-6 text-center font-heading text-[22px] font-bold text-foreground">
+        <h1 className="mt-6 text-center type-section-title-large">
           {isOwnerIntent ? t('ownerSubheading') : t('subheading')}
         </h1>
 
         {ownershipAdjusted ? (
-          <p className="mt-4 rounded-lg border border-border bg-muted p-4 text-sm leading-6 text-muted-foreground">
+          <p className="mt-4 rounded-lg border border-border bg-muted p-4 type-card-description">
             {t('communityOwnershipNotice')}
           </p>
         ) : null}
 
         {/* Timeline */}
-        <div className="mt-8 rounded-xl bg-[#FAFAF8] p-6">
+        <div className="mt-8 rounded-xl bg-background p-6">
           <div className="space-y-4">
               {([
               {
@@ -88,22 +88,22 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
                 <div className="flex flex-col items-center">
                   <div
                     className={`h-3 w-3 shrink-0 rounded-full ${
-                      step.active ? 'bg-cta' : 'bg-[#D4CFC9]'
+                      step.active ? 'bg-cta' : 'bg-border'
                     }`}
                   />
                   {i < 1 && (
-                    <div className="mt-1 h-full w-px bg-[#D4CFC9]" />
+                    <div className="mt-1 h-full w-px bg-border" />
                   )}
                 </div>
                 <div className="pb-4">
                   <p
                     className={`text-sm font-semibold ${
-                      step.active ? 'text-[#1A1918]' : 'text-[#7C7570]'
+                      step.active ? 'text-foreground' : 'text-muted-foreground'
                     }`}
                   >
                     {step.label}
                   </p>
-                  <p className="mt-0.5 text-xs text-[#B0AAA4]">
+                  <p className="mt-0.5 type-caption">
                     {step.description}
                   </p>
                 </div>
@@ -112,7 +112,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
           </div>
         </div>
 
-        <p className="mt-4 text-sm text-muted-foreground">
+        <p className="mt-4 type-card-description">
           {t.rich(isOwnerIntent ? 'whatNext.ownerLearnMore.answer' : 'whatNext.learnMore.answer', {
             link: (chunks) => (
               <Link href="/getting-started" className="text-foreground underline">

@@ -144,10 +144,10 @@ export function LocationsSection({
   return (
     <StandardFormSection id="locations">
       <StandardFormStack>
-        <h2 className="font-heading text-base font-bold">
+        <h2 className="type-section-title">
           {t('sectionLocations')}
         </h2>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+        <p className="mt-1 type-form-hint">
           {t('sectionLocationsHelp')}
         </p>
 
@@ -173,7 +173,7 @@ export function LocationsSection({
               className="space-y-4 rounded-lg border border-border bg-card p-4"
             >
               <div className="flex items-start justify-between gap-3">
-                <p className="min-w-0 text-sm font-semibold text-foreground">
+                <p className="min-w-0 type-subsection-title">
                   {t('retailLocationItem', { number: index + 1 })}
                 </p>
                 <Button
@@ -291,18 +291,12 @@ export function LocationsSection({
                     </Button>
                   </div>
                   {searchErrors[field.id] ? (
-                    <p
-                      className="text-xs leading-5 text-destructive"
-                      aria-live="polite"
-                    >
+                    <p className="type-error" aria-live="polite">
                       {searchErrors[field.id]}
                     </p>
                   ) : null}
                   {searchNotices[field.id] ? (
-                    <p
-                      className="text-xs leading-5 text-muted-foreground"
-                      aria-live="polite"
-                    >
+                    <p className="type-form-hint" aria-live="polite">
                       {searchNotices[field.id]}
                     </p>
                   ) : null}
@@ -317,10 +311,10 @@ export function LocationsSection({
                             applySearchResult(field.id, index, result)
                           }
                         >
-                          <span className="block font-medium text-foreground">
+                          <span className="block type-body-emphasis">
                             {result.name}
                           </span>
-                          <span className="block text-xs leading-5 text-muted-foreground">
+                          <span className="block type-form-hint">
                             {result.address}
                           </span>
                         </button>

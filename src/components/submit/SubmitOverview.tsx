@@ -21,26 +21,26 @@ export default function SubmitOverview({
   return (
     <main className="mx-auto max-w-5xl px-6 py-20">
       <div className="max-w-3xl">
-        <h1 className="text-balance font-heading text-3xl font-bold text-foreground">
+        <h1 className="text-balance type-page-title-large">
           {t('heading')}
         </h1>
-        <p className="mt-4 text-base leading-relaxed text-muted-foreground">
+        <p className="mt-4 type-body-muted">
           {t('description')}
         </p>
       </div>
 
       <div className="mt-10 grid gap-6 md:grid-cols-2">
         <section className="rounded-xl border border-border bg-card p-6">
-          <p className="text-sm font-semibold text-muted-foreground">
+          <p className="type-eyebrow-muted">
             {t('recommendEyebrow')}
           </p>
-          <h2 className="mt-2 text-xl font-semibold text-foreground">
+          <h2 className="mt-2 type-section-title-large text-foreground">
             {t('recommendTitle')}
           </h2>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          <p className="mt-3 type-card-description">
             {t('recommendDescription')}
           </p>
-          <ul className="mt-5 space-y-2.5 text-sm text-foreground">
+          <ul className="mt-5 space-y-2.5">
             {[t('recommendPoint1'), t('recommendPoint2'), t('recommendPoint3')].map(
               (point) => (
                 <li
@@ -53,7 +53,7 @@ export default function SubmitOverview({
                   >
                     <Check className="size-3" />
                   </span>
-                  <span className="leading-6 text-muted-foreground">{point}</span>
+                  <span className="type-body-muted">{point}</span>
                 </li>
               ),
             )}
@@ -67,16 +67,16 @@ export default function SubmitOverview({
         </section>
 
         <section className="rounded-xl border border-border bg-card p-6">
-          <p className="text-sm font-semibold text-muted-foreground">
+          <p className="type-eyebrow-muted">
             {t('ownerEyebrow')}
           </p>
-          <h2 className="mt-2 text-xl font-semibold text-foreground">
+          <h2 className="mt-2 type-section-title-large text-foreground">
             {t('ownerTitle')}
           </h2>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          <p className="mt-3 type-card-description">
             {t('ownerDescription')}
           </p>
-          <ul className="mt-5 space-y-2.5 text-sm text-foreground">
+          <ul className="mt-5 space-y-2.5">
             {[t('ownerPoint1'), t('ownerPoint2'), t('ownerPoint3')].map(
               (point) => (
                 <li
@@ -89,7 +89,7 @@ export default function SubmitOverview({
                   >
                     <Check className="size-3" />
                   </span>
-                  <span className="leading-6 text-muted-foreground">{point}</span>
+                  <span className="type-body-muted">{point}</span>
                 </li>
               ),
             )}

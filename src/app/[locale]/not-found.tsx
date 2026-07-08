@@ -7,10 +7,10 @@ export default async function NotFound() {
 
   return (
     <main className="mx-auto flex max-w-screen-xl flex-col items-start px-6 py-24 md:px-10">
-      <h1 className="font-[family-name:var(--font-heading)] text-3xl font-bold text-[#1A1918]">
+      <h1 className="type-page-title-large">
         {t('notFound.title')}
       </h1>
-      <p className="mt-3 text-sm text-[#7C7570]">
+      <p className="mt-3 type-card-description">
         {t('notFound.description')}
       </p>
       <div className="mt-6 flex flex-wrap gap-3">

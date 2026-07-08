@@ -48,8 +48,8 @@ function ChallengeContent() {
         justifyContent: 'center',
         padding: '24px',
         fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-        background: '#f7f7f5',
-        color: '#1f2933',
+        background: 'var(--background)',
+        color: 'var(--foreground)',
       }}
     >
       <section
@@ -58,26 +58,26 @@ function ChallengeContent() {
           maxWidth: '420px',
           textAlign: 'center',
           padding: '32px',
-          border: '1px solid #deded8',
+          border: '1px solid var(--border)',
           borderRadius: '8px',
-          background: '#ffffff',
+          background: 'var(--card)',
           boxShadow: '0 12px 32px rgba(15, 23, 42, 0.08)',
         }}
       >
         <h1 style={{ margin: '0 0 12px', fontSize: '24px', lineHeight: 1.25 }}>
           Quick verification
         </h1>
-        <p style={{ margin: '0 0 24px', color: '#5f6b76', lineHeight: 1.5 }}>
+        <p style={{ margin: '0 0 24px', color: 'var(--muted-foreground)', lineHeight: 1.5 }}>
           Please complete the check to continue browsing.
         </p>
         <div style={{ display: 'flex', justifyContent: 'center', minHeight: '65px' }}>
           <TurnstileWidget onSuccess={handleSuccess} onError={() => setState('error')} />
         </div>
         {state === 'verifying' ? (
-          <p style={{ margin: '20px 0 0', color: '#5f6b76' }}>Verifying...</p>
+          <p style={{ margin: '20px 0 0', color: 'var(--muted-foreground)' }}>Verifying…</p>
         ) : null}
         {state === 'error' ? (
-          <p style={{ margin: '20px 0 0', color: '#b42318' }}>
+          <p style={{ margin: '20px 0 0', color: 'var(--destructive)' }}>
             Verification failed. Please try again.
           </p>
         ) : null}

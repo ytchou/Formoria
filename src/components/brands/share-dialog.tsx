@@ -133,7 +133,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
     <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
       <button
         type="button"
-        className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-secondary px-3 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80"
+        className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-secondary px-3 type-body-emphasis transition-colors hover:bg-secondary/80"
         aria-label={t('trigger')}
         onClick={handleTriggerClick}
       >
@@ -144,7 +144,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
         <DialogPrimitive.Backdrop className="fixed inset-0 isolate z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
         <DialogPrimitive.Popup className="fixed top-1/2 left-1/2 z-50 w-80 max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-popover p-0 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <DialogPrimitive.Title className="font-heading text-base leading-none font-medium">
+            <DialogPrimitive.Title className="type-card-title">
               {t('dialogTitle')}
             </DialogPrimitive.Title>
             <DialogPrimitive.Close className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
@@ -161,7 +161,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
                 style={{ backgroundImage: `url(${brandImageUrl})` }}
               />
             )}
-            <p className="min-w-0 truncate text-sm font-medium text-foreground">
+            <p className="min-w-0 truncate type-body-emphasis">
               {brandName}
             </p>
           </div>
@@ -170,7 +170,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
             <button
               type="button"
               className={`flex h-22 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl transition-colors ${
-                copied ? 'bg-[#EAF3E8]' : 'bg-secondary hover:bg-secondary/80'
+                copied ? 'bg-verified-green-bg' : 'bg-secondary hover:bg-secondary/80'
               }`}
               onClick={handleCopyLink}
             >

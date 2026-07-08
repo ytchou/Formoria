@@ -12,11 +12,11 @@ export function Hero({ brand, siteContent }: HeroProps) {
       <div className="mx-auto grid max-w-[1280px] items-center gap-8 md:grid-cols-[minmax(0,0.85fr)_minmax(320px,1fr)] md:gap-12">
         <div className="space-y-5">
           <div className="space-y-3">
-            <h1 className="font-heading text-[26px] font-bold leading-tight text-foreground md:text-[32px]">
+            <h1 className="type-display">
               {brand.name}
             </h1>
             {siteContent.tagline && (
-              <p className="max-w-2xl text-sm leading-[1.7] text-muted-foreground md:text-base">
+      <p className="max-w-2xl type-body-muted">
                 {siteContent.tagline}
               </p>
             )}

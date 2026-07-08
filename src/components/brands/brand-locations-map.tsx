@@ -11,7 +11,7 @@ const BrandLocationsLeaflet = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-72 items-center justify-center rounded-lg border border-border bg-muted text-sm text-muted-foreground">
+      <div className="flex h-72 items-center justify-center rounded-lg border border-border bg-muted type-card-description">
         Loading map...
       </div>
     ),

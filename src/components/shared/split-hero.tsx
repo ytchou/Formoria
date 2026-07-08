@@ -24,13 +24,13 @@ export default function SplitHero({ imageSrc, eyebrow, headline, subheadline, ch
       </div>
       <div className="flex flex-col justify-center px-8 py-12 md:px-12 lg:py-16">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-cta">
+          <p className="type-eyebrow-cta">
             {eyebrow}
           </p>
-          <h1 className="mt-4 font-heading text-4xl font-bold leading-tight text-foreground md:text-5xl">
+          <h1 className="mt-4 type-hero">
             {headline}
           </h1>
-          <p className="mt-4 text-base leading-[1.7] text-muted-foreground">
+          <p className="mt-4 type-page-subtitle">
             {subheadline}
           </p>
           {children}

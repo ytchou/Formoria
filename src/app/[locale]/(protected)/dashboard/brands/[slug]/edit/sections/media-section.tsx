@@ -21,7 +21,7 @@ export function MediaSection({
   return (
     <StandardFormSection id="media" className="scroll-mt-8">
       <StandardFormStack>
-        <h2 className="font-heading text-base font-bold">
+        <h2 className="type-section-title">
           {t('sectionMedia')}
         </h2>
         <RequiredFieldsHint />

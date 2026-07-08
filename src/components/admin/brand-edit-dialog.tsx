@@ -146,11 +146,11 @@ export function BrandEditDialog({
 
           <div className="space-y-4 border-t border-border pt-4">
             <div className="space-y-1">
-              <h3 className="text-sm font-semibold text-foreground">Links</h3>
+              <h3 className="type-subsection-title">Links</h3>
             </div>
 
             <div className="space-y-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <h4 className="type-eyebrow-muted">
                 Social
               </h4>
               <div className="grid gap-3 sm:grid-cols-3">
@@ -191,7 +191,7 @@ export function BrandEditDialog({
             </div>
 
             <div className="space-y-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <h4 className="type-eyebrow-muted">
                 Purchase
               </h4>
               <div className="grid gap-3 sm:grid-cols-3">
@@ -232,7 +232,7 @@ export function BrandEditDialog({
             </div>
 
             <div className="space-y-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <h4 className="type-eyebrow-muted">
                 Other URLs
               </h4>
               <div className="space-y-2">

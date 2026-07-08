@@ -18,10 +18,10 @@ export function NewsletterSection() {
       />
       <div className="absolute inset-0 bg-black/55" />
       <div className="relative mx-auto max-w-3xl space-y-5 px-5">
-        <h2 className="text-center font-heading text-[28px] font-bold text-white">
+        <h2 className="text-center type-hero-inverse">
           {t('heading')}
         </h2>
-        <p className="text-center text-sm text-white/80">
+        <p className="text-center type-body-inverse">
           {t('subtext')}
         </p>
         <EmailCaptureForm />

@@ -118,12 +118,12 @@ function ClaimProofUpload({
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium text-foreground">{label}</p>
+      <p className="type-body-emphasis">{label}</p>
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
-        className="flex min-h-24 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted px-4 py-4 text-sm font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex min-h-24 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted px-4 py-4 type-metadata transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
       >
         <Upload className="h-4 w-4" aria-hidden="true" />
         <span>{uploading ? t('uploadingLabel') : hint}</span>
@@ -137,7 +137,7 @@ function ClaimProofUpload({
         onChange={handleFileSelect}
       />
       {typeof uploadState.progress === 'number' && uploadState.progress > 0 && (
-        <p className="text-xs text-muted-foreground">{uploadState.progress}%</p>
+        <p className="type-caption">{uploadState.progress}%</p>
       )}
       {uploadState.error && <p className="text-xs text-destructive">{uploadState.error}</p>}
     </div>
@@ -242,8 +242,8 @@ export function ClaimBrandCta({
   if (hasOwnedBrand) {
     return (
       <section className="space-y-3 rounded-xl border border-border bg-card p-5 text-left">
-        <p className="text-base font-semibold text-foreground">{t('ownerLimitTitle')}</p>
-        <p className="text-sm leading-relaxed text-muted-foreground">{t('ownerLimitBody')}</p>
+        <p className="type-card-title">{t('ownerLimitTitle')}</p>
+        <p className="type-section-description">{t('ownerLimitBody')}</p>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <Link href="/dashboard" className="text-sm font-semibold text-primary underline underline-offset-4">
             {t('manageBrand')}
@@ -257,8 +257,8 @@ export function ClaimBrandCta({
   if (feedback.type === 'pending') {
     return (
       <section className="space-y-3 rounded-xl border border-border bg-card p-5 text-left">
-        <p className="text-base font-semibold text-foreground">{t('pendingTitle')}</p>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="type-card-title">{t('pendingTitle')}</p>
+        <p className="type-section-description">
           {feedback.domainEmailVerificationSentTo
             ? t('pendingDomainEmailBody', { email: feedback.domainEmailVerificationSentTo })
             : t('pendingBody')}
@@ -270,14 +270,14 @@ export function ClaimBrandCta({
   return (
     <section className="space-y-4 rounded-xl border border-border bg-card p-5 text-left">
       <div className="space-y-1">
-        <p className="text-base font-semibold text-foreground">{t('communityTitle')}</p>
-        <p className="text-sm text-muted-foreground">{t('communityListing')}</p>
+        <p className="type-card-title">{t('communityTitle')}</p>
+        <p className="type-card-description">{t('communityListing')}</p>
       </div>
 
       {!isOpen ? (
         <div className="space-y-3">
           {!user && (
-            <p className="text-sm text-muted-foreground">{claimErrorsT('notLoggedIn')}</p>
+            <p className="type-card-description">{claimErrorsT('notLoggedIn')}</p>
           )}
           <div className="flex flex-wrap items-center gap-3">
             {user ? (
@@ -307,8 +307,8 @@ export function ClaimBrandCta({
       ) : (
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-1">
-            <h2 className="text-sm font-semibold text-foreground">{t('proofHeading')}</h2>
-            <p className="text-sm text-muted-foreground">{t('pickOneInstruction')}</p>
+            <h2 className="type-subsection-title">{t('proofHeading')}</h2>
+            <p className="type-card-description">{t('pickOneInstruction')}</p>
           </div>
 
           <div
@@ -348,10 +348,10 @@ export function ClaimBrandCta({
                       className="mt-1 h-5 w-5 rounded border-border accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
                     <div className="min-w-0 flex-1 space-y-1">
-                      <label htmlFor={`claim-proof-${type}`} className="block min-h-6 cursor-pointer text-sm font-semibold text-foreground">
+                      <label htmlFor={`claim-proof-${type}`} className="block min-h-6 cursor-pointer type-subsection-title">
                         {label}
                       </label>
-                      <p className="text-sm text-muted-foreground">{description}</p>
+                      <p className="type-card-description">{description}</p>
                       {type === 'domain_email' && (
                         <p className="text-xs leading-relaxed text-muted-foreground">
                           {t('proofTypes.domainEmail.helperText')}
@@ -369,7 +369,7 @@ export function ClaimBrandCta({
                     <div className="grid gap-4 border-t border-border pt-4 md:grid-cols-2">
                       {type === 'domain_email' && (
                         <div className="space-y-2 md:col-span-2">
-                          <label htmlFor={`claim-${type}-email`} className="block text-sm font-medium text-foreground">
+                          <label htmlFor={`claim-${type}-email`} className="block type-body-emphasis">
                             {t('proofTypes.domainEmail.emailLabel')}
                           </label>
                           <Input
@@ -425,7 +425,7 @@ export function ClaimBrandCta({
                       )}
 
                       <div className="space-y-2 md:col-span-2">
-                        <label htmlFor={`claim-${type}-note`} className="block text-sm font-medium text-foreground">
+                        <label htmlFor={`claim-${type}-note`} className="block type-body-emphasis">
                           {t('noteLabel')}
                         </label>
                         <Textarea
@@ -443,7 +443,7 @@ export function ClaimBrandCta({
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="claim-mit-smile-cert" className="block text-sm font-medium text-foreground">
+            <label htmlFor="claim-mit-smile-cert" className="block type-body-emphasis">
               {t('mitCertLabel')}
             </label>
             <Input
@@ -454,7 +454,7 @@ export function ClaimBrandCta({
               onChange={(event) => setMitSmileCert(event.target.value)}
               className="min-h-12 bg-card px-3.5 py-2.5 text-sm focus-visible:ring-2 focus-visible:ring-ring"
             />
-            <p className="text-xs text-muted-foreground">{t('mitCertHint')}</p>
+            <p className="type-caption">{t('mitCertHint')}</p>
           </div>
 
           {feedback.type === 'error' && (

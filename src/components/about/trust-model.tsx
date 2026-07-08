@@ -27,17 +27,17 @@ export function TrustModel() {
   return (
     <section className="border-t border-border py-16 md:py-24">
       <div className="mx-auto max-w-5xl px-6 md:px-8">
-        <h2 className="font-heading text-3xl font-bold leading-tight text-foreground md:text-4xl">
+        <h2 className="type-page-title-large">
           {t('heading')}
         </h2>
         <div className="mt-12 grid grid-cols-1 gap-8 md:grid-cols-3">
           {trustPillars.map(({ key, icon: Icon }) => (
             <div key={key} className="border-t border-border pt-5">
               <Icon className="text-cta" size={24} aria-hidden="true" />
-              <h3 className="mt-5 font-heading text-lg font-bold text-foreground">
+              <h3 className="mt-5 type-card-title">
                 {t(`${key}.title`)}
               </h3>
-              <p className="mt-3 text-base leading-relaxed text-muted-foreground md:text-lg">
+              <p className="mt-3 type-body-muted">
                 {t(`${key}.desc`)}
               </p>
             </div>

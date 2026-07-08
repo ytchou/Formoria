@@ -25,7 +25,7 @@ export async function BrandDashboardShell({
     <section className="space-y-6">
       <div className="space-y-2">
         <div className="flex min-h-16 flex-wrap items-center justify-between gap-3">
-          <h1 className="min-w-0 font-heading text-2xl font-bold tracking-tight text-foreground">
+          <h1 className="min-w-0 type-section-title-large">
             {brandName}
           </h1>
           <div className="flex flex-wrap items-center gap-2">

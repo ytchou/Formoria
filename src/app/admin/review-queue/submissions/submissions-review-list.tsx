@@ -95,13 +95,13 @@ function formatDate(dateStr: string) {
 function readinessBadgeClass(tone: 'green' | 'amber' | 'red' | 'grey') {
   switch (tone) {
     case 'green':
-      return 'bg-[#EAF3E8] text-[#2D5A27]'
+      return 'bg-verified-green-bg text-verified-green'
     case 'amber':
-      return 'bg-amber-50 text-amber-700'
+      return 'bg-mit-verified-bg text-mit-verified'
     case 'red':
-      return 'bg-red-50 text-destructive'
+      return 'bg-destructive/10 text-destructive'
     case 'grey':
-      return 'bg-[#F5F4F1] text-muted-foreground'
+      return 'bg-secondary text-muted-foreground'
   }
 }
 
@@ -121,7 +121,7 @@ function ReadinessBadge({
 
 function AutoBadge() {
   return (
-    <Badge variant="outline" className="border-dashed bg-background text-[11px] uppercase tracking-wide text-muted-foreground">
+    <Badge variant="outline" className="border-dashed bg-background type-eyebrow-muted">
       auto
     </Badge>
   )
@@ -135,7 +135,7 @@ function FieldLabel({
   auto?: boolean
 }) {
   return (
-    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+    <div className="flex items-center gap-2 type-metadata">
       <span>{children}</span>
       {auto && <AutoBadge />}
     </div>
@@ -509,7 +509,7 @@ export function SubmissionsReviewList({
               </SelectContent>
             </Select>
             {selectedCount > 0 && (
-              <span className="text-sm text-muted-foreground">
+              <span className="type-card-description">
                 已選擇 {selectedCount} 筆
               </span>
             )}
@@ -548,7 +548,7 @@ export function SubmissionsReviewList({
         {isBulkRejecting && selectedCount > 0 && (
           <div className="mt-3 flex flex-wrap items-end gap-3 rounded-md border bg-background p-3">
             <div className="min-w-[240px] flex-1 space-y-2">
-              <label className="text-sm font-semibold text-foreground">
+              <label className="type-subsection-title">
                 批次拒絕原因 <span className="text-destructive">*</span>
               </label>
               <Select
@@ -559,7 +559,7 @@ export function SubmissionsReviewList({
               >
                 <SelectTrigger
                   aria-label="批次拒絕原因"
-                  className="h-12 w-full focus-visible:ring-2 focus-visible:ring-[#2F5D50]/60"
+                  className="h-12 w-full focus-visible:ring-2 focus-visible:ring-primary/60"
                 >
                   <SelectValue placeholder="選擇拒絕原因" />
                 </SelectTrigger>
@@ -609,7 +609,7 @@ export function SubmissionsReviewList({
               return (
                 <Fragment key={submission.id}>
                   <TableRow
-                    className="cursor-pointer hover:bg-[#F5F4F1]"
+                    className="cursor-pointer hover:bg-secondary"
                     onClick={() => handleRowClick(submission)}
                   >
                     <TableCell>
@@ -627,7 +627,7 @@ export function SubmissionsReviewList({
                           <Badge className="bg-destructive text-xs text-white">{moderationT('riskHigh')}</Badge>
                         )}
                         {submission.moderationRiskLevel === 'medium' && (
-                          <Badge className="border border-amber-200 bg-amber-50 text-xs text-amber-700">{moderationT('riskMedium')}</Badge>
+                          <Badge className="border border-mit-verified/20 bg-mit-verified-bg text-xs text-mit-verified">{moderationT('riskMedium')}</Badge>
                         )}
                       </div>
                     </TableCell>
@@ -659,7 +659,7 @@ export function SubmissionsReviewList({
                           品牌主開始申請
                         </span>
                       ) : (
-                        <span className="inline-flex items-center rounded-full bg-[#EAF3E8] px-2 py-0.5 text-xs font-semibold text-[#2D5A27]">
+                        <span className="inline-flex items-center rounded-full bg-verified-green-bg px-2 py-0.5 text-xs font-semibold text-verified-green">
                           推薦提交
                         </span>
                       )}
@@ -897,13 +897,13 @@ export function SubmissionsReviewList({
                                           alt={`${submission.brandName} hero`}
                                           className="aspect-square w-full object-cover"
                                         />
-                                        <span className="block px-2 py-1 text-xs text-muted-foreground">主圖</span>
+                                        <span className="block px-2 py-1 type-caption">主圖</span>
                                       </a>
                                     )}
                                   </div>
                                   {!submission.heroImageUrl &&
                                     !submission.enriched_data?.heroImageUrl && (
-                                      <p className="text-sm text-muted-foreground">尚無圖片</p>
+                                      <p className="type-card-description">尚無圖片</p>
                                     )}
                                 </div>
                               </EnrichedCard>
@@ -912,7 +912,7 @@ export function SubmissionsReviewList({
 
                           {submissionIntent === 'recommend' && submission.sourceAttribution && (
                             <div>
-                              <p className="text-sm font-medium text-muted-foreground">
+                              <p className="type-metadata">
                                 你怎麼知道這個品牌？
                               </p>
                               <p className="mt-1 text-sm">
@@ -922,17 +922,17 @@ export function SubmissionsReviewList({
                           )}
 
                           {submissionIntent === 'owner_claim' ? (
-                            <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+                            <div className="rounded-lg border border-border bg-card p-4 type-card-description">
                               核准後，系統會寄送品牌認領邀請給提交者；後續的證明審核會在認領申請佇列處理。
                             </div>
                           ) : null}
 
                           {submission.productTypeNote?.trim() && (
                             <div>
-                              <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                              <span className="inline-flex items-center rounded-full border border-mit-verified/20 bg-mit-verified-bg px-2.5 py-0.5 type-caption text-mit-verified">
                                 分類缺口
                               </span>
-                              <p className="mt-1 text-sm text-muted-foreground">
+                              <p className="mt-1 type-card-description">
                                 {submission.productTypeNote}
                               </p>
                             </div>
@@ -944,14 +944,14 @@ export function SubmissionsReviewList({
                             if (Array.isArray(suggestedTags)) {
                               return suggestedTags.length > 0 && (
                                 <div>
-                                  <p className="text-sm font-medium text-muted-foreground">
+                                  <p className="type-metadata">
                                     建議標籤
                                   </p>
                                   <div className="mt-1 flex flex-wrap gap-2">
                                     {suggestedTags.map((tag) => (
                                       <span
                                         key={tag}
-                                        className="inline-flex rounded-full bg-[#F5F4F1] px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+                                        className="inline-flex rounded-full bg-secondary px-2.5 py-0.5 type-caption"
                                       >
                                         {tag}
                                       </span>
@@ -967,7 +967,7 @@ export function SubmissionsReviewList({
 
                               return values.length > 0 && (
                                 <div>
-                                  <p className="text-sm font-medium text-muted-foreground">
+                                  <p className="type-metadata">
                                     建議標籤
                                   </p>
                                   <div className="mt-1 space-y-1 text-sm">
@@ -1001,7 +1001,7 @@ export function SubmissionsReviewList({
                                 {rejectingId === submission.id && (
                                   <div className="mb-2 space-y-3">
                                     <div className="space-y-2">
-                                      <label className="text-sm font-semibold text-foreground">
+                                      <label className="type-subsection-title">
                                         拒絕原因 <span className="text-destructive">*</span>
                                       </label>
                                       <Select
@@ -1013,7 +1013,7 @@ export function SubmissionsReviewList({
                                         <SelectTrigger
                                           aria-label="拒絕原因"
                                           onClick={(e) => e.stopPropagation()}
-                                          className="h-12 w-full focus-visible:ring-2 focus-visible:ring-[#2F5D50]/60"
+                                          className="h-12 w-full focus-visible:ring-2 focus-visible:ring-primary/60"
                                         >
                                           <SelectValue placeholder="選擇拒絕原因" />
                                         </SelectTrigger>

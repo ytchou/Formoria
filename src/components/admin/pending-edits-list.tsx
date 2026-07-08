@@ -52,18 +52,18 @@ export function PendingEditsList({ edits }: { edits: PendingBrandEditWithRisk[] 
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-semibold">{edit.brand.name}</p>
                   {edit.moderationRiskLevel === 'high' && (
-                    <Badge className="bg-destructive text-white text-xs">高風險</Badge>
+                    <Badge className="bg-destructive text-white">高風險</Badge>
                   )}
                   {edit.moderationRiskLevel === 'medium' && (
-                    <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-xs">中風險</Badge>
+                    <Badge className="border border-mit-verified/20 bg-mit-verified-bg text-mit-verified">中風險</Badge>
                   )}
                 </div>
-                <p className="text-sm text-muted-foreground">{edit.submittedBy}</p>
+                <p className="type-card-description">{edit.submittedBy}</p>
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="type-card-description">
                 {new Date(edit.createdAt).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' })}
               </p>
-              <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+              <span className="inline-flex items-center rounded-full bg-mit-verified-bg px-2 py-0.5 type-caption text-mit-verified">
                 待審核
               </span>
               <Button

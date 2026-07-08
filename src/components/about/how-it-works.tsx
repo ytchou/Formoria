@@ -15,25 +15,25 @@ export default function HowItWorks({ heading, steps, cta }: HowItWorksProps) {
   return (
     <section className="border-t border-border py-16 md:py-24">
       <div className="mx-auto max-w-5xl px-6 md:px-8">
-        <h2 className="font-heading text-3xl font-bold leading-tight text-foreground md:text-4xl">
+        <h2 className="type-page-title-large">
           {heading}
         </h2>
         <ol className="mt-12 grid gap-8 md:grid-cols-3">
           {steps.map(({ label, description }, index) => (
             <li key={label} className="border-t border-border pt-5">
-              <p className="text-sm font-semibold text-cta">
+              <p className="type-eyebrow-cta">
                 {String(index + 1).padStart(2, '0')}
               </p>
-              <h3 className="mt-4 font-heading text-lg font-bold text-foreground">
+              <h3 className="mt-4 type-card-title">
                 {label}
               </h3>
-              <p className="mt-3 text-base leading-relaxed text-muted-foreground md:text-lg">
+              <p className="mt-3 type-body-muted">
                 {description}
               </p>
             </li>
           ))}
         </ol>
-        <Link href="/submit" className="mt-10 inline-flex text-sm font-semibold text-primary hover:underline">
+        <Link href="/submit" className="mt-10 inline-flex type-link">
           {cta}
         </Link>
       </div>

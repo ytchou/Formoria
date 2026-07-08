@@ -18,10 +18,10 @@ export default function AdminError({
 
   return (
     <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
-      <p className="text-base font-semibold text-foreground">
+      <p className="type-card-title">
         發生錯誤
       </p>
-      <p className="mt-1 max-w-md text-sm text-[#7C7570]">
+      <p className="mt-1 max-w-md type-card-description">
         載入此管理頁面時發生預期外的錯誤，請再試一次。
       </p>
       <Button

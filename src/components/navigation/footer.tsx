@@ -16,14 +16,14 @@ export function Footer() {
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
           {/* Discover */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-foreground">
+            <p className="type-eyebrow-foreground">
               {t('discoverHeading')}
             </p>
             <ul className="mt-4 space-y-2">
               <li>
                 <Link
                   href="/brands"
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('directory')}
                 </Link>
@@ -31,7 +31,7 @@ export function Footer() {
               <li>
                 <Link
                   href="/getting-started"
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('gettingStarted')}
                 </Link>
@@ -39,7 +39,7 @@ export function Footer() {
               <li>
                 <Link
                   href="/guides"
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('guides')}
                 </Link>
@@ -47,7 +47,7 @@ export function Footer() {
               <li>
                 <Link
                   href="/submit"
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('submit')}
                 </Link>
@@ -57,14 +57,14 @@ export function Footer() {
 
           {/* Company */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-foreground">
+            <p className="type-eyebrow-foreground">
               {t('companyHeading')}
             </p>
             <ul className="mt-4 space-y-2">
               <li>
                 <Link
                   href="/about"
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('about')}
                 </Link>
@@ -72,7 +72,7 @@ export function Footer() {
               <li>
                 <Link
                   href="/faq"
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('faq')}
                 </Link>
@@ -82,14 +82,14 @@ export function Footer() {
 
           {/* Legal */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-foreground">
+            <p className="type-eyebrow-foreground">
               {t('legalHeading')}
             </p>
             <ul className="mt-4 space-y-2">
               <li>
                 <Link
                   href="/terms"
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('terms')}
                 </Link>
@@ -97,7 +97,7 @@ export function Footer() {
               <li>
                 <Link
                   href="/privacy"
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('privacy')}
                 </Link>
@@ -107,14 +107,14 @@ export function Footer() {
 
           {/* Connect */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-foreground">
+            <p className="type-eyebrow-foreground">
               {t('connectHeading')}
             </p>
             <ul className="mt-4 space-y-2">
               <li>
                 <a
                   href={`mailto:${CONTACT_EMAILS.contact}`}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('contact')}
                 </a>
@@ -124,7 +124,7 @@ export function Footer() {
                   href={FEEDBACK_FORM_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('feedback')}
                 </a>
@@ -135,10 +135,10 @@ export function Footer() {
 
         {/* Bottom bar: tagline + copyright */}
         <div className="mt-10 flex flex-col items-start gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-muted-foreground">{t('tagline')}</p>
+          <p className="type-card-description">{t('tagline')}</p>
           <div className="flex items-center gap-3">
             <LocaleSwitcher compact />
-            <p className="text-xs text-muted-foreground">
+            <p className="type-caption">
               {t('copyright', { year: new Date().getFullYear() })}
             </p>
           </div>

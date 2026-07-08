@@ -27,11 +27,11 @@ export function FaqBlock({ questions }: FaqBlockProps) {
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(jsonLd) }}
       />
       {items.map((item) => (
-        <details key={item.q} className="rounded-xl border border-stone-200 bg-white px-4 py-3">
-          <summary className="cursor-pointer text-base font-semibold text-stone-900">
+        <details key={item.q} className="rounded-xl border border-border bg-card px-4 py-3">
+          <summary className="cursor-pointer type-card-title">
             {item.q}
           </summary>
-          <div className="mt-3 text-base leading-7 text-stone-700">
+          <div className="mt-3 type-body-muted">
             {item.a}
           </div>
         </details>

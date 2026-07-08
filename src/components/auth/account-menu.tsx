@@ -35,7 +35,7 @@ export function AccountMenu() {
     return (
       <Link
         href={`/auth/sign-in?next=${encodeURIComponent(pathname)}`}
-        className="inline-flex h-9 items-center justify-center rounded-md px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        className="inline-flex h-9 items-center justify-center rounded-md px-2.5 type-metadata transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         {t('nav.signIn')}
       </Link>

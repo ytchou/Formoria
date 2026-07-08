@@ -43,10 +43,10 @@ export function DashboardQueueItem({
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{label}</p>
         {sublabel ? (
-          <p className="truncate text-sm text-muted-foreground">{sublabel}</p>
+          <p className="truncate type-card-description">{sublabel}</p>
         ) : null}
       </div>
-      <time className="shrink-0 text-sm text-muted-foreground">{date}</time>
+      <time className="shrink-0 type-card-description">{date}</time>
       {riskLevel ? (
         <Badge className={cn('border text-xs', riskClassNames[riskLevel])}>
           {riskLabels[riskLevel]}

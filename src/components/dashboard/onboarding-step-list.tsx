@@ -78,20 +78,20 @@ function StepItem({
         {step.isCompleted ? (
           <Check className="size-3.5" />
         ) : (
-          <span className="text-xs font-bold">{index + 1}</span>
+          <span className="type-micro">{index + 1}</span>
         )}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold text-foreground">
+        <span className="block type-subsection-title">
           {step.title}
         </span>
         {step.description ? (
-          <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+          <span className="mt-1 block type-form-hint">
             {step.description}
           </span>
         ) : null}
         {step.statusLabel ? (
-          <span className="mt-1.5 block text-xs font-medium text-primary">
+          <span className="mt-1.5 block type-eyebrow">
             {step.statusLabel}
           </span>
         ) : null}

@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { textStyles } from "./text-styles";
 
 function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (
@@ -27,7 +28,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"h3">) {
   return (
     <h3
       data-slot="card-title"
-      className={cn("leading-none font-semibold tracking-tight", className)}
+      className={cn(textStyles({ variant: "cardTitle" }), className)}
       {...props}
     />
   );

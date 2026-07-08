@@ -14,10 +14,10 @@ export function ContactCta({ brand, siteContent }: ContactCtaProps) {
         <div className="rounded-xl border border-border bg-card p-6 md:p-8">
           <div className="flex flex-col items-start gap-5 md:flex-row md:items-center md:justify-between">
             <div className="space-y-2">
-              <h2 id="contact-title" className="text-base font-bold leading-tight text-foreground">
+              <h2 id="contact-title" className="type-section-title">
                 與品牌聯繫
               </h2>
-              <p className="text-sm leading-[1.7] text-muted-foreground">
+              <p className="type-body-muted">
                 歡迎洽詢商品、合作與客製需求。
               </p>
             </div>

@@ -33,8 +33,8 @@ export function OwnerBenefitsSection() {
         {benefits.map(({ key, Icon }) => (
           <article key={key} className="space-y-2 rounded-xl border border-border bg-card p-4">
             <Icon className="size-6 text-primary" aria-hidden="true" />
-            <h3 className="text-sm font-semibold text-foreground">{t(`${key}.title`)}</h3>
-            <p className="text-sm text-muted-foreground">{t(`${key}.description`)}</p>
+            <h3 className="type-subsection-title">{t(`${key}.title`)}</h3>
+            <p className="type-card-description">{t(`${key}.description`)}</p>
           </article>
         ))}
       </div>

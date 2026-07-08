@@ -69,11 +69,11 @@ export default async function GettingStartedPage({ params }: PageProps) {
       />
       <section className="grid gap-8 border-b border-border pb-10 md:grid-cols-[minmax(0,1fr)_18rem] md:items-end">
         <div className="max-w-3xl">
-          <p className="text-sm font-semibold text-primary">{t('hero.eyebrow')}</p>
-          <h1 className="mt-3 font-heading text-4xl font-bold text-foreground md:text-5xl">
+          <p className="type-eyebrow">{t('hero.eyebrow')}</p>
+          <h1 className="mt-3 type-hero">
             {t('hero.title')}
           </h1>
-          <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
+          <p className="mt-4 max-w-2xl type-page-subtitle">
             {t('hero.intro')}
           </p>
         </div>
@@ -95,7 +95,7 @@ export default async function GettingStartedPage({ params }: PageProps) {
       </section>
 
       <section className="py-10">
-        <h2 className="font-heading text-2xl font-bold text-foreground">
+        <h2 className="type-section-title-large">
           {t('steps.heading')}
         </h2>
         <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -104,10 +104,10 @@ export default async function GettingStartedPage({ params }: PageProps) {
               <div className="flex size-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
                 {index + 1}
               </div>
-              <h3 className="mt-4 text-base font-semibold text-foreground">
+              <h3 className="mt-4 type-card-title">
                 {t(`steps.${step}.title`)}
               </h3>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              <p className="mt-2 type-card-description">
                 {t(`steps.${step}.body`)}
               </p>
             </article>
@@ -117,17 +117,17 @@ export default async function GettingStartedPage({ params }: PageProps) {
 
       <section className="grid gap-8 border-t border-border py-10 md:grid-cols-[18rem_minmax(0,1fr)]">
         <div>
-          <h2 className="font-heading text-2xl font-bold text-foreground">
+          <h2 className="type-section-title-large">
             {t('questions.heading')}
           </h2>
         </div>
         <Accordion type="single" collapsible defaultValue="eligibility">
           {questions.map((question) => (
             <AccordionItem key={question} value={question}>
-              <AccordionTrigger className="font-heading text-base font-semibold text-foreground">
+              <AccordionTrigger className="type-card-title">
                 {t(`questions.${question}.question`)}
               </AccordionTrigger>
-              <AccordionContent className="max-w-2xl text-sm leading-6 text-muted-foreground">
+              <AccordionContent className="max-w-2xl type-card-description">
                 {t(`questions.${question}.answer`)}
               </AccordionContent>
             </AccordionItem>
@@ -136,12 +136,12 @@ export default async function GettingStartedPage({ params }: PageProps) {
       </section>
 
       <section className="grid gap-8 border-t border-border py-10 md:grid-cols-[18rem_minmax(0,1fr)]">
-        <h2 className="font-heading text-2xl font-bold text-foreground">
+        <h2 className="type-section-title-large">
           {t('tips.heading')}
         </h2>
         <ul className="grid gap-3">
           {tips.map((tip) => (
-            <li key={tip} className="flex gap-3 text-sm leading-6 text-muted-foreground">
+            <li key={tip} className="flex gap-3 type-card-description">
               <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-primary" />
               <span>{t(`tips.${tip}`)}</span>
             </li>
@@ -150,7 +150,7 @@ export default async function GettingStartedPage({ params }: PageProps) {
       </section>
 
       <section className="grid gap-8 border-t border-border py-10 md:grid-cols-[18rem_minmax(0,1fr)]">
-        <h2 className="font-heading text-2xl font-bold text-foreground">
+        <h2 className="type-section-title-large">
           {t('forOwners.heading')}
         </h2>
         <OwnerBenefitsSection />
@@ -158,10 +158,10 @@ export default async function GettingStartedPage({ params }: PageProps) {
 
       <section className="rounded-xl border border-border bg-card p-6 md:flex md:items-center md:justify-between md:gap-8">
         <div>
-          <h2 className="font-heading text-xl font-bold text-foreground">
+          <h2 className="type-section-title-large">
             {t('cta.heading')}
           </h2>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          <p className="mt-2 type-card-description">
             {t('cta.body')}
           </p>
         </div>

@@ -81,10 +81,10 @@ export default async function GuidePage({ params }: PageProps) {
           }}
         />
         <header className="space-y-4">
-          <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+          <h1 className="type-page-title-large">
             {guide.entry.frontmatter.title}
           </h1>
-          <p className="text-base leading-8 text-muted-foreground md:text-lg">
+          <p className="type-page-subtitle">
             {guide.entry.frontmatter.description}
           </p>
         </header>

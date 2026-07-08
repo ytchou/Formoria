@@ -121,13 +121,13 @@ export default async function GlossaryPage({ params }: PageProps) {
         <div className="max-w-6xl mx-auto px-4 py-12 sm:px-6 md:py-16">
           {/* Page intro */}
           <div className="mb-10 max-w-[680px]">
-            <p className="mb-3 font-sans text-[13px] font-semibold uppercase tracking-widest text-primary">
+            <p className="mb-3 type-eyebrow">
               {t('eyebrow')}
             </p>
-            <h1 className="font-heading text-[32px] font-bold leading-tight text-foreground md:text-[48px]">
+            <h1 className="type-hero">
               {t('heading')}
             </h1>
-            <p className="mt-4 font-sans text-base leading-[1.7] text-muted-foreground">
+            <p className="mt-4 type-page-subtitle">
               {t('lede')}
             </p>
           </div>
@@ -164,7 +164,7 @@ export default async function GlossaryPage({ params }: PageProps) {
                       />
                       <h2
                         id={headingId}
-                        className="font-heading text-[22px] font-bold text-foreground"
+                        className="type-section-title-large"
                       >
                         {section.title}
                       </h2>
@@ -178,9 +178,9 @@ export default async function GlossaryPage({ params }: PageProps) {
                           className="border-t border-border py-6 first:border-t-0"
                         >
                           <dt className="mb-2 flex flex-wrap items-center gap-2">
-                            <span className="font-heading text-[18px] font-bold text-foreground">
+                            <span className="type-card-title">
                               {term.zh}
-                              <span className="mx-1.5 font-sans text-sm font-normal text-muted-foreground">·</span>
+                              <span className="mx-1.5 type-caption">·</span>
                               {term.en}
                             </span>
                             {term.badge === 'verified' && (
@@ -196,12 +196,12 @@ export default async function GlossaryPage({ params }: PageProps) {
                               />
                             )}
                             {term.range && (
-                              <span className="inline-flex items-center rounded-full border border-border bg-secondary px-2.5 py-0.5 font-sans text-[12px] font-medium text-muted-foreground">
+                              <span className="inline-flex items-center rounded-full border border-border bg-secondary px-2.5 py-0.5 type-caption">
                                 {term.range}
                               </span>
                             )}
                           </dt>
-                          <dd className="font-sans text-[15px] leading-relaxed text-muted-foreground">
+                          <dd className="type-body-muted">
                             {term.definition}
                           </dd>
                         </div>

@@ -40,9 +40,9 @@ function getTitlePreview(item: FeedbackItem) {
 }
 
 function getStatusBadgeClass(status: FeedbackStatus) {
-  if (status === 'open') return 'bg-[#FAF8F3] text-[#C4693B] border border-[#C4693B]'
-  if (status === 'reviewed') return 'bg-[#EAF3E8] text-[#2D5A27]'
-  return 'bg-[#F5F4F1] text-[#7C7570]'
+  if (status === 'open') return 'bg-background text-cta border border-cta'
+  if (status === 'reviewed') return 'bg-verified-green-bg text-verified-green'
+  return 'bg-secondary text-muted-foreground'
 }
 
 export function FeedbackList({ items }: { items: FeedbackItem[] }) {
@@ -123,13 +123,13 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
             {syncing ? '同步中...' : '同步 Sentry'}
           </Button>
           {syncMessage && (
-            <p className="text-sm text-[#7C7570]">{syncMessage}</p>
+            <p className="type-card-description">{syncMessage}</p>
           )}
         </div>
       </div>
 
       {actionError && (
-        <p className="mt-4 text-sm text-[#D94F3D]">{actionError}</p>
+        <p className="mt-4 text-sm text-destructive">{actionError}</p>
       )}
 
       <div className="mt-4 rounded-lg border bg-white">
@@ -146,11 +146,11 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
             {filtered.map((item) => (
               <Fragment key={item.id}>
                 <TableRow
-                  className="cursor-pointer hover:bg-[#F5F4F1]"
+                  className="cursor-pointer hover:bg-secondary"
                   onClick={() => handleRowClick(item.id)}
                 >
                   <TableCell>
-                    <span className="inline-flex items-center rounded-full bg-[#F5F4F1] px-2 py-0.5 text-xs font-semibold text-[#7C7570]">
+                    <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold text-muted-foreground">
                       {SOURCE_LABELS[item.source]}
                     </span>
                   </TableCell>
@@ -169,11 +169,11 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
 
                 {expandedId === item.id && (
                   <TableRow>
-                    <TableCell colSpan={4} className="bg-[#FAF7F4] p-6">
+                    <TableCell colSpan={4} className="bg-background p-6">
                       <div className="space-y-4">
                         {item.body && (
                           <div>
-                            <p className="text-sm font-medium text-[#7C7570]">
+                            <p className="type-metadata">
                               內容
                             </p>
                             <p className="mt-1 whitespace-pre-wrap text-sm">
@@ -184,14 +184,14 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
 
                         {item.url && (
                           <div>
-                            <p className="text-sm font-medium text-[#7C7570]">
+                            <p className="type-metadata">
                               頁面 URL
                             </p>
                             <a
                               href={item.url}
                               target="_blank"
                               rel="noreferrer"
-                              className="mt-1 block break-all text-sm text-[#C4693B] underline"
+                              className="mt-1 block break-all text-sm text-cta underline"
                               onClick={(e) => e.stopPropagation()}
                             >
                               {item.url}
@@ -201,7 +201,7 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
 
                         {item.userEmail && (
                           <div>
-                            <p className="text-sm font-medium text-[#7C7570]">
+                            <p className="type-metadata">
                               使用者信箱
                             </p>
                             <p className="mt-1 text-sm">{item.userEmail}</p>
@@ -210,7 +210,7 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
 
                         {item.sentryEventId && (
                           <div>
-                            <p className="text-sm font-medium text-[#7C7570]">
+                            <p className="type-metadata">
                               Sentry Event ID
                             </p>
                             <p className="mt-1 font-mono text-sm">
@@ -227,7 +227,7 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
                                 handleStatusChange(item.id, 'reviewed')
                               }}
                               disabled={isPending}
-                              className="bg-[#E06B3F] hover:bg-[#c95d36]"
+                              className="bg-cta hover:bg-cta/90"
                             >
                               標記已審閱
                             </Button>
@@ -255,7 +255,7 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
               <TableRow>
                 <TableCell
                   colSpan={4}
-                  className="py-8 text-center text-[#7C7570]"
+                  className="py-8 text-center text-muted-foreground"
                 >
                   找不到回饋記錄。
                 </TableCell>

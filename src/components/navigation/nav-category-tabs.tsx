@@ -47,8 +47,8 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
           onClick={() => handleClick('')}
           className={
             isBrandsPage && !activeCategory
-              ? 'text-sm font-medium text-foreground border-b-2 border-foreground whitespace-nowrap px-3 py-2'
-              : 'text-sm text-muted-foreground hover:text-foreground whitespace-nowrap px-3 py-2 transition-colors'
+              ? 'type-body-emphasis border-b-2 border-foreground whitespace-nowrap px-3 py-2'
+              : 'type-card-description hover:text-foreground whitespace-nowrap px-3 py-2 transition-colors'
           }
         >
           {t('allBrands')}
@@ -64,8 +64,8 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
               onClick={() => handleClick(cat.slug)}
               className={
                 isActive
-                  ? 'text-sm font-medium text-foreground border-b-2 border-foreground whitespace-nowrap px-3 py-2'
-                  : 'text-sm text-muted-foreground hover:text-foreground whitespace-nowrap px-3 py-2 transition-colors'
+                  ? 'type-body-emphasis border-b-2 border-foreground whitespace-nowrap px-3 py-2'
+                  : 'type-card-description hover:text-foreground whitespace-nowrap px-3 py-2 transition-colors'
               }
             >
               {label}

@@ -22,9 +22,9 @@ export default function BrandShowcase({
   return (
     <section>
       <div className="mb-6">
-        <h2 className="font-heading text-xl font-bold">{heading}</h2>
+        <h2 className="type-section-title-large">{heading}</h2>
         {subheading && (
-          <p className="mt-1 text-sm text-muted-foreground">{subheading}</p>
+          <p className="mt-1 type-card-description">{subheading}</p>
         )}
       </div>
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">

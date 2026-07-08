@@ -18,14 +18,14 @@ export async function BrandAbout({ brand }: BrandAboutProps) {
 
   return (
     <section>
-      <h2 className="mb-3 font-heading text-base font-bold text-foreground">
+      <h2 className="mb-3 type-section-title">
         {t('sections.about')}
       </h2>
       <div className="space-y-3">
         {paragraphs.map((paragraph, i) => (
           <p
             key={i}
-            className="text-sm leading-relaxed text-muted-foreground"
+            className="type-section-description"
           >
             {paragraph.split('\n').map((line, j) => (
               <span key={j}>

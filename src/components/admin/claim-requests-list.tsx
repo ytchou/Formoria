@@ -184,7 +184,7 @@ export function ClaimRequestsList({
               <Fragment key={claimRequest.id}>
                 <TableRow
                   aria-expanded={expandedId === claimRequest.id}
-                  className="cursor-pointer hover:bg-[#F5F4F1]"
+                  className="cursor-pointer hover:bg-secondary"
                   onClick={() => handleRowClick(claimRequest.id)}
                 >
                   <TableCell className="font-medium">
@@ -207,14 +207,14 @@ export function ClaimRequestsList({
 
                 {expandedId === claimRequest.id && (
                   <TableRow>
-                    <TableCell colSpan={5} className="bg-[#FAF7F4] p-6 whitespace-normal">
+                    <TableCell colSpan={5} className="bg-background p-6 whitespace-normal">
                       <div className="space-y-4">
                         {claimRequest.existingOwnedBrand ? (
                           <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
                             <p className="text-sm font-semibold text-destructive">
                               {adminClaimT('ownerAlreadyManagesTitle')}
                             </p>
-                            <p className="mt-1 text-sm text-muted-foreground">
+                            <p className="mt-1 type-card-description">
                               {adminClaimT('ownerAlreadyManagesBody', {
                                 brandName: claimRequest.existingOwnedBrand.brandName,
                               })}
@@ -229,7 +229,7 @@ export function ClaimRequestsList({
                           </div>
                         ) : null}
                         <div className="space-y-3">
-                          <p className="text-sm font-medium text-muted-foreground">
+                          <p className="type-metadata">
                             Proof evidence
                           </p>
                           {claimRequest.proofEvidence.length > 0 ? (
@@ -240,14 +240,14 @@ export function ClaimRequestsList({
                                   className="rounded-lg border border-border bg-card p-4"
                                 >
                                   <div className="space-y-3">
-                                    <p className="text-sm font-medium text-foreground">
+                                    <p className="type-body-emphasis">
                                       {proofTypesT(`${PROOF_TYPE_I18N_KEYS[proof.type]}.label`)}
                                     </p>
                                     {proof.type === 'domain_email' && (
                                       <span
                                         className={proof.verified
-                                          ? 'inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700'
-                                          : 'inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground'
+                                          ? 'inline-flex rounded-full bg-verified-green-bg px-2 py-0.5 type-caption text-verified-green'
+                                          : 'inline-flex rounded-full bg-muted px-2 py-0.5 type-caption'
                                         }
                                       >
                                         {proof.verified
@@ -267,7 +267,7 @@ export function ClaimRequestsList({
                                       </a>
                                     )}
                                     {proof.url && !isClickableProofUrl(proof.url) && (
-                                      <p className="break-all text-sm text-muted-foreground">
+                                      <p className="break-all type-card-description">
                                         {proof.url}
                                       </p>
                                     )}
@@ -280,7 +280,7 @@ export function ClaimRequestsList({
                                       />
                                     )}
                                     {proof.note && (
-                                      <p className="text-sm text-muted-foreground">
+                                      <p className="type-card-description">
                                         {proof.note}
                                       </p>
                                     )}
@@ -289,7 +289,7 @@ export function ClaimRequestsList({
                               ))}
                             </div>
                           ) : (
-                            <p className="text-sm text-muted-foreground">
+                            <p className="type-card-description">
                               No proof evidence provided.
                             </p>
                           )}
@@ -297,7 +297,7 @@ export function ClaimRequestsList({
 
                         {claimRequest.mitSmileCert && (
                           <div>
-                            <p className="text-sm font-medium text-muted-foreground">
+                            <p className="type-metadata">
                               MIT Smile cert
                             </p>
                             <p className="mt-1 text-sm">{claimRequest.mitSmileCert}</p>
@@ -306,7 +306,7 @@ export function ClaimRequestsList({
 
                         {claimRequest.reviewerNotes && (
                           <div>
-                            <p className="text-sm font-medium text-muted-foreground">
+                            <p className="type-metadata">
                               Reviewer notes
                             </p>
                             <p className="mt-1 text-sm">{claimRequest.reviewerNotes}</p>
@@ -398,7 +398,7 @@ export function ClaimRequestsList({
 
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="py-8 text-center text-[#7C7570]">
+                <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
                   找不到認領申請。
                 </TableCell>
               </TableRow>

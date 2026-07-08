@@ -32,6 +32,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { statusStyles, textStyles } from '@/components/ui/text-styles'
 import { routing } from '@/i18n/routing'
 import { cn } from '@/lib/utils'
 
@@ -52,11 +53,11 @@ const CURATION_ACTIONS: Array<{
 const MIT_STATUS_CONFIG: Record<MitStatus, { label: string; className: string }> = {
   unverified: {
     label: 'MIT 未驗證',
-    className: 'bg-[#F5F4F1] text-[#7C7570]',
+    className: 'bg-secondary text-muted-foreground',
   },
   verified: {
     label: 'MIT 微笑認證',
-    className: 'bg-[#EAF3E8] text-[#2D5A27]',
+    className: 'bg-verified-green-bg text-verified-green',
   },
 }
 
@@ -197,7 +198,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
       </Tabs>
 
       {error && (
-        <p className="mt-2 text-sm text-[#D94F3D]">{error}</p>
+        <p className="mt-2 text-sm text-destructive">{error}</p>
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -247,7 +248,13 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                   <TableCell className="max-w-[180px] font-medium">
                     <span className="block truncate">{brand.name}</span>
                     {brand.isDemo && (
-                      <span className="ml-1.5 inline-flex items-center rounded-full bg-[#EDE8F5] px-2 py-0.5 text-[11px] font-medium text-[#6B47B8]">
+                      <span
+                        className={cn(
+                          'ml-1.5 inline-flex items-center rounded-full px-2 py-0.5',
+                          textStyles({ variant: 'micro' }),
+                          statusStyles.demoBadge,
+                        )}
+                      >
                         Demo
                       </span>
                     )}
@@ -259,7 +266,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                     <div className="space-y-1">
                       <MitStatusBadge status={getMitStatus(brand)} />
                       {brand.mitEvidence?.mit_smile_cert && (
-                        <p className="text-xs text-[#7C7570]">
+                        <p className="type-caption">
                           Cert: {brand.mitEvidence.mit_smile_cert}
                         </p>
                       )}
@@ -335,7 +342,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="text-[#D94F3D] hover:text-[#D94F3D]"
+                        className="text-destructive hover:text-destructive"
                         onClick={() => setDeletingBrand(brand)}
                       >
                         刪除
@@ -349,7 +356,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
               <TableRow>
                 <TableCell
                   colSpan={6}
-                  className="py-8 text-center text-[#7C7570]"
+                  className="py-8 text-center text-muted-foreground"
                 >
                   找不到品牌。
                 </TableCell>

@@ -72,7 +72,7 @@ function RiskBadge({
   }
 
   return (
-    <Badge className="bg-amber-50 text-amber-700 border border-amber-200">
+    <Badge className="border border-mit-verified/20 bg-mit-verified-bg text-mit-verified">
       {t('riskMedium')}
     </Badge>
   )
@@ -94,7 +94,7 @@ export default async function ReviewQueueModerationPage({ searchParams }: Modera
 
   return (
     <div>
-      <h1 className="font-heading text-3xl font-bold tracking-tight">
+      <h1 className="type-page-title-large">
         {t('dashboard')}
       </h1>
       <p className="mt-2 text-warm-caption">

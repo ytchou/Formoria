@@ -14,7 +14,7 @@ export function ProductGrid({ brand, products }: ProductGridProps) {
   return (
     <section className="px-6 py-12 md:px-10 md:py-16" aria-labelledby="microsite-products">
       <div className="mx-auto max-w-[1280px] space-y-6">
-        <h2 id="microsite-products" className="text-base font-bold leading-tight text-foreground">
+        <h2 id="microsite-products" className="type-section-title">
           精選商品
         </h2>
 
@@ -22,7 +22,7 @@ export function ProductGrid({ brand, products }: ProductGridProps) {
           {products.map((product) => (
             <article
               key={`${product.name}-${product.url ?? product.imageUrl ?? 'product'}`}
-              className="group overflow-hidden rounded-xl border border-border bg-card transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-card-hover)]"
+              className="group overflow-hidden rounded-xl border border-border bg-card transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[var(--shadow-card-hover)]"
             >
               {product.imageUrl && (
                 <div className="relative aspect-[4/3] overflow-hidden rounded-t-xl bg-secondary">
@@ -38,7 +38,7 @@ export function ProductGrid({ brand, products }: ProductGridProps) {
 
               <div className="space-y-3 p-5">
                 <div className="space-y-1.5">
-                  <h3 className="text-sm font-bold leading-snug text-foreground">
+                  <h3 className="type-subsection-title">
                     {product.name}
                   </h3>
                   {product.caption && (
@@ -53,7 +53,7 @@ export function ProductGrid({ brand, products }: ProductGridProps) {
                     href={product.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex min-h-12 items-center justify-center rounded-lg border border-border px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:border-[var(--brand-accent)] hover:text-[var(--brand-accent)] active:scale-[0.98]"
+                    className="inline-flex min-h-12 items-center justify-center rounded-lg border border-border px-4 py-3 type-subsection-title transition-colors hover:border-[var(--brand-accent)] hover:text-[var(--brand-accent)] active:scale-[0.98]"
                   >
                     查看商品
                   </a>

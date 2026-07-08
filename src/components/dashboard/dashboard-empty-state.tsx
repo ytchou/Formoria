@@ -14,10 +14,10 @@ export function DashboardEmptyState() {
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
           <Lock className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
         </div>
-        <h1 className="mt-6 font-heading text-2xl font-bold text-foreground">
+        <h1 className="mt-6 type-section-title-large">
           {t('title')}
         </h1>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+        <p className="mt-3 type-card-description">
           {t('description')}
         </p>
         <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">

@@ -34,7 +34,7 @@ export function MainNav({ categories, hasOwnedBrand = false, isAuthenticated = f
         {/* Logo */}
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <BrandMark size={32} />
-          <span className="font-heading text-base font-bold text-foreground">
+          <span className="type-section-title">
             Formoria
           </span>
         </Link>
@@ -48,13 +48,13 @@ export function MainNav({ categories, hasOwnedBrand = false, isAuthenticated = f
         <div className="hidden items-center gap-4 md:flex">
           <Link
             href="/about"
-            className="text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
+            className="type-body-emphasis text-foreground/80 transition-colors hover:text-foreground"
           >
             {t('about')}
           </Link>
           <Link
             href="/guides"
-            className="text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
+            className="type-body-emphasis text-foreground/80 transition-colors hover:text-foreground"
           >
             {t('guides')}
           </Link>
@@ -100,14 +100,14 @@ export function MainNav({ categories, hasOwnedBrand = false, isAuthenticated = f
 
                 <Link
                   href="/about"
-                  className="block px-1 text-sm font-medium text-foreground"
+                  className="block px-1 type-body-emphasis"
                   onClick={() => setOpen(false)}
                 >
                   {t('about')}
                 </Link>
                 <Link
                   href="/guides"
-                  className="block px-1 text-sm font-medium text-foreground"
+                  className="block px-1 type-body-emphasis"
                   onClick={() => setOpen(false)}
                 >
                   {t('guides')}

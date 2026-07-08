@@ -7,10 +7,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 
 const STATUS_DOT: Record<ServiceHealthResult['status'], string> = {
-  healthy: 'bg-[#2D5A27]',
-  degraded: 'bg-[#C4870A]',
-  down: 'bg-[#D94F3D]',
-  unconfigured: 'bg-[#A39E98]',
+  healthy: 'bg-verified-green',
+  degraded: 'bg-mit-verified',
+  down: 'bg-destructive',
+  unconfigured: 'bg-muted-foreground',
 }
 
 export function SystemStatusCard({ initialResults }: { initialResults: ServiceHealthResult[] }) {
@@ -34,10 +34,10 @@ export function SystemStatusCard({ initialResults }: { initialResults: ServiceHe
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className={`h-2 w-2 rounded-full ${STATUS_DOT[overallStatus]}`} />
-          <h2 className="text-xl font-semibold">系統狀態</h2>
+          <h2 className="type-section-title-large">系統狀態</h2>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">載入頁面時自動更新</span>
+          <span className="type-caption">載入頁面時自動更新</span>
           <Button
             variant="outline"
             size="sm"
@@ -51,7 +51,7 @@ export function SystemStatusCard({ initialResults }: { initialResults: ServiceHe
       <Card>
         <CardContent className="space-y-2 pt-6">
           {initialResults.length === 0 && (
-            <p className="text-center text-sm text-muted-foreground">無資料</p>
+            <p className="text-center type-card-description">無資料</p>
           )}
           {initialResults.map((result) => (
             <div key={result.service} className="flex items-center justify-between text-sm">

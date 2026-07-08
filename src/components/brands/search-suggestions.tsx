@@ -43,7 +43,7 @@ export function SearchSuggestions({
       className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-card shadow-lg"
     >
       {suggestions.length === 0 ? (
-        <li className="px-4 py-3 text-sm text-muted-foreground">{t('noResultsInSuggestions')}</li>
+        <li className="px-4 py-3 type-card-description">{t('noResultsInSuggestions')}</li>
       ) : (
         suggestions.map((item, index) => (
           <li
@@ -58,7 +58,7 @@ export function SearchSuggestions({
           >
             <span className="font-medium text-foreground">{highlightMatch(item.name, query)}</span>
             {item.category && (
-              <span className="ml-2 text-xs text-muted-foreground">
+              <span className="ml-2 type-caption">
                 {highlightMatch(item.category, query)}
               </span>
             )}

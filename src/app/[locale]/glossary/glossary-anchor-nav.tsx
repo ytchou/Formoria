@@ -58,7 +58,7 @@ export function GlossaryAnchorNav({ sections, sectionsLabel }: GlossaryAnchorNav
         className="hidden w-60 shrink-0 md:block"
       >
         <div className="sticky top-16">
-          <p className="mb-3 font-sans text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+          <p className="mb-3 type-eyebrow-muted">
             {sectionsLabel}
           </p>
           <ul className="space-y-1">
@@ -70,7 +70,7 @@ export function GlossaryAnchorNav({ sections, sectionsLabel }: GlossaryAnchorNav
                     href={`#${id}`}
                     onClick={(e) => handleClick(e, id)}
                     className={[
-                      'flex items-center gap-2 rounded-sm px-2 py-1.5 font-sans text-sm transition-colors',
+                      'flex items-center gap-2 rounded-sm px-2 py-1.5 transition-colors',
                       isActive
                         ? 'font-semibold text-primary'
                         : 'text-muted-foreground hover:text-foreground',
@@ -79,7 +79,7 @@ export function GlossaryAnchorNav({ sections, sectionsLabel }: GlossaryAnchorNav
                     <span
                       aria-hidden
                       className={[
-                        'h-1.5 w-1.5 rounded-full transition-all',
+                        'h-1.5 w-1.5 rounded-full transition-colors',
                         isActive ? 'bg-primary' : 'bg-transparent',
                       ].join(' ')}
                     />
@@ -106,7 +106,7 @@ export function GlossaryAnchorNav({ sections, sectionsLabel }: GlossaryAnchorNav
                 href={`#${id}`}
                 onClick={(e) => handleClick(e, id)}
                 className={[
-                  'inline-flex shrink-0 items-center rounded-full border border-border px-3 py-2 font-sans text-sm transition-colors',
+                  'inline-flex shrink-0 items-center rounded-full border border-border px-3 py-2 transition-colors',
                   'min-h-[44px] whitespace-nowrap',
                   isActive
                     ? 'border-primary bg-primary/10 font-semibold text-primary'

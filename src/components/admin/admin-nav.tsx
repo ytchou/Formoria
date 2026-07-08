@@ -118,7 +118,7 @@ function NavItemWithDropdown({
             >
               {child.label}
               {child.count ? (
-                <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                <span className="rounded-full bg-muted px-2 py-0.5 type-caption">
                   {child.count}
                 </span>
               ) : null}

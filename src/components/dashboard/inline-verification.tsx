@@ -68,12 +68,12 @@ export function InlineVerification({
         id="verification"
         className={embedded ? 'flex items-center gap-2' : 'mt-3.5 flex items-center gap-2'}
       >
-        <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
-        <span className="text-sm font-semibold text-green-700 dark:text-green-400">
+        <span className="h-2 w-2 rounded-full bg-verified-green shrink-0" />
+        <span className="type-success">
           {t('status.verified')}
         </span>
         {mitEvidence?.mit_smile_cert && (
-          <span className="font-mono text-xs bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-2 py-0.5 rounded">
+          <span className="rounded bg-verified-green-bg px-2 py-0.5 font-mono type-caption text-verified-green">
             {mitEvidence.mit_smile_cert}
           </span>
         )}
@@ -90,34 +90,34 @@ export function InlineVerification({
     >
       <div className="flex items-center gap-2 mb-2">
         <span className="h-2 w-2 rounded-full bg-muted-foreground shrink-0" />
-        <span className="text-sm font-semibold">
+        <span className="type-body-emphasis">
           {t('title')} — {t('status.unverified')}
         </span>
         {!embedded ? (
           <button
             onClick={dismiss}
-            className="ml-auto text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+            className="ml-auto inline-flex min-h-12 min-w-12 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
             aria-label={t('dismiss')}
           >
             <X className="h-3.5 w-3.5" />
           </button>
         ) : null}
       </div>
-      <p className="text-xs text-muted-foreground mb-2.5">{t('description.unverified')}</p>
+      <p className="type-caption mb-2.5">{t('description.unverified')}</p>
       <div className="flex gap-2">
         <Input
           value={certNumber}
           onChange={(e) => setCertNumber(e.target.value)}
           placeholder={t('certPlaceholder')}
-          className="h-8 max-w-[200px] font-mono text-xs"
+          className="max-w-[200px] font-mono type-caption"
         />
         <Button size="sm" onClick={handleVerify} disabled={!certNumber.trim() || isPending}>
           {t('verifyButton')}
         </Button>
       </div>
-      {error && <p className="text-xs text-destructive mt-2">{t(error)}</p>}
+      {error && <p className="mt-2 type-error">{t(error)}</p>}
       {success && (
-        <p className="text-xs text-green-600 dark:text-green-400 mt-2">{t('verifySuccess')}</p>
+        <p className="mt-2 type-success">{t('verifySuccess')}</p>
       )}
     </div>
   )
