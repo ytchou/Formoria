@@ -48,6 +48,25 @@ describe('brandEditSchema', () => {
     })
     expect(result.success).toBe(true)
   })
+
+  it('requires an address when a retail location row has data', () => {
+    const result = brandEditSchema.safeParse({
+      retailLocations: [{ relationshipType: 'stockist' }],
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('accepts a retail location with a manual address', () => {
+    const result = brandEditSchema.safeParse({
+      retailLocations: [
+        {
+          relationshipType: 'stockist',
+          address: '新北市林口區忠孝路 82號',
+        },
+      ],
+    })
+    expect(result.success).toBe(true)
+  })
 })
 
 describe('brandPublishSchema', () => {

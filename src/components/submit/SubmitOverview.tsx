@@ -1,75 +1,80 @@
 'use client'
 
-import { useState } from 'react'
-import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-const HERO_IMAGE_SRC = '/images/submit-hero.png'
-
 type SubmitOverviewProps = {
-  nextPath?: string
+  ownerPath?: string
+  recommendPath?: string
   isLoggedIn?: boolean
 }
 
-export default function SubmitOverview({ nextPath = '/submit/form', isLoggedIn = false }: SubmitOverviewProps) {
+export default function SubmitOverview({
+  ownerPath = '/submit/owner',
+  recommendPath = '/submit/recommend',
+  isLoggedIn = false,
+}: SubmitOverviewProps) {
   const t = useTranslations('submit.overview')
-  const [imageFailed, setImageFailed] = useState(false)
-
-  const content = (
-    <div>
-      <h1 className="font-heading text-3xl font-bold text-foreground">
-        {t('heading')}
-      </h1>
-      <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-        {t('description')}
-      </p>
-      <ul className="mt-8 space-y-3">
-        <li className="flex items-start gap-3">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cta text-xs font-bold text-cta-foreground">1</span>
-          <span className="text-sm text-foreground">{t('step1')}</span>
-        </li>
-        <li className="flex items-start gap-3">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cta text-xs font-bold text-cta-foreground">2</span>
-          <span className="text-sm text-foreground">{t('step2')}</span>
-        </li>
-        <li className="flex items-start gap-3">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cta text-xs font-bold text-cta-foreground">3</span>
-          <span className="text-sm text-foreground">{t('step3')}</span>
-        </li>
-      </ul>
-      <p className="mt-6 text-sm text-muted-foreground">{t('timeEstimate')}</p>
-      <Link
-        href={isLoggedIn ? nextPath : `/auth/sign-in?next=${nextPath}`}
-        className={cn(buttonVariants({ variant: 'cta' }), 'mt-8')}
-      >
-        {isLoggedIn ? t('ctaLoggedIn') : t('cta')}
-      </Link>
-    </div>
-  )
-
-  // Single brand-neutral hero image; falls back to the single-column intro if the
-  // asset is missing (404) so we never show a broken tile.
-  if (imageFailed) {
-    return <main className="mx-auto max-w-2xl px-6 py-20">{content}</main>
-  }
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-20">
-      <div className="grid items-center gap-10 md:grid-cols-2 md:gap-16">
-        {content}
-        <div className="relative aspect-[4/5] overflow-hidden rounded-xl border border-border bg-muted">
-          <Image
-            src={HERO_IMAGE_SRC}
-            alt=""
-            fill
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, 480px"
-            onError={() => setImageFailed(true)}
-          />
-        </div>
+      <div className="max-w-3xl">
+        <h1 className="text-balance font-heading text-3xl font-bold text-foreground">
+          {t('heading')}
+        </h1>
+        <p className="mt-4 text-base leading-relaxed text-muted-foreground">
+          {t('description')}
+        </p>
+      </div>
+
+      <div className="mt-10 grid gap-6 md:grid-cols-2">
+        <section className="rounded-xl border border-border bg-card p-6">
+          <p className="text-sm font-semibold text-muted-foreground">
+            {t('recommendEyebrow')}
+          </p>
+          <h2 className="mt-2 text-xl font-semibold text-foreground">
+            {t('recommendTitle')}
+          </h2>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            {t('recommendDescription')}
+          </p>
+          <ul className="mt-5 space-y-2 text-sm text-foreground">
+            <li>{t('recommendPoint1')}</li>
+            <li>{t('recommendPoint2')}</li>
+            <li>{t('recommendPoint3')}</li>
+          </ul>
+          <Link
+            href={recommendPath}
+            className={cn(buttonVariants({ variant: 'cta' }), 'mt-6')}
+          >
+            {t('recommendCta')}
+          </Link>
+        </section>
+
+        <section className="rounded-xl border border-border bg-card p-6">
+          <p className="text-sm font-semibold text-muted-foreground">
+            {t('ownerEyebrow')}
+          </p>
+          <h2 className="mt-2 text-xl font-semibold text-foreground">
+            {t('ownerTitle')}
+          </h2>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            {t('ownerDescription')}
+          </p>
+          <ul className="mt-5 space-y-2 text-sm text-foreground">
+            <li>{t('ownerPoint1')}</li>
+            <li>{t('ownerPoint2')}</li>
+            <li>{t('ownerPoint3')}</li>
+          </ul>
+          <Link
+            href={isLoggedIn ? ownerPath : `/auth/sign-in?next=${ownerPath}`}
+            className={cn(buttonVariants({ variant: 'outline' }), 'mt-6')}
+          >
+            {isLoggedIn ? t('ownerCtaLoggedIn') : t('ownerCta')}
+          </Link>
+        </section>
       </div>
     </main>
   )

@@ -68,6 +68,7 @@ const SUBMISSION_FIELD_MAP = [
   ['description', 'description'],
   ['websiteUrl', 'website_url'],
   ['heroImageUrl', 'hero_image_url'],
+  ['intent', 'intent'],
   ['otherUrls', 'other_urls'],
   ['suggestedTags', 'suggested_tags'],
   ['status', 'status'],
@@ -87,6 +88,7 @@ const SUBMISSION_FIELD_MAP = [
     description?: string | null
     websiteUrl?: string | null
     heroImageUrl?: string | null
+    intent?: string
     otherUrls?: unknown
     suggestedTags?: unknown
     status?: string
@@ -154,6 +156,7 @@ export function toSubmissionRow(input: {
   description?: string | null
   websiteUrl?: string | null
   heroImageUrl?: string | null
+  intent?: string
   city?: string | null
   socialInstagram?: string | null
   socialThreads?: string | null

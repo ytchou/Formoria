@@ -12,6 +12,7 @@ import {
   getUploadImageProcessingConfig,
   type AllowedUploadBucket,
 } from '@/lib/services/image-upload'
+import { getClientIp } from '@/lib/security/rate-limiter'
 
 const uploadRateLimiter = createInMemoryRateLimiter()
 const UPLOAD_RATE_LIMIT_WINDOW_MS = 60_000
@@ -26,24 +27,9 @@ function isPdf(buffer: Buffer): boolean {
 
 export async function POST(request: Request) {
   try {
-    // Auth check
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
-    }
-
-    const rateResult = uploadRateLimiter.check(
-      user.id,
-      UPLOAD_RATE_LIMIT_WINDOW_MS,
-      UPLOAD_RATE_LIMIT_MAX_REQUESTS
-    )
-    if (!rateResult.allowed) {
-      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
+    const contentLength = Number(request.headers.get('content-length') ?? 0)
+    if (contentLength > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: 'File size must be under 5MB' }, { status: 400 })
     }
 
     // Parse form data
@@ -72,7 +58,33 @@ export async function POST(request: Request) {
     }
     const bucket = rawBucket as AllowedUploadBucket
 
-    if (bucket === PRIVATE_UPLOAD_BUCKET && !path.startsWith(`${user.id}/`)) {
+    const requiresAuth = bucket === PRIVATE_UPLOAD_BUCKET
+    let userId: string | null = null
+
+    if (requiresAuth) {
+      const supabase = await createClient()
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser()
+
+      if (authError || !user) {
+        return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      }
+      userId = user.id
+    }
+
+    const rateKey = userId ?? `guest:${getClientIp(request)}`
+    const rateResult = uploadRateLimiter.check(
+      rateKey,
+      UPLOAD_RATE_LIMIT_WINDOW_MS,
+      UPLOAD_RATE_LIMIT_MAX_REQUESTS
+    )
+    if (!rateResult.allowed) {
+      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
+    }
+
+    if (bucket === PRIVATE_UPLOAD_BUCKET && !path.startsWith(`${userId}/`)) {
       return NextResponse.json({ error: 'Invalid path' }, { status: 403 })
     }
 

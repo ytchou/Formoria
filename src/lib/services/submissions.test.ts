@@ -27,6 +27,7 @@ describe('submissionToDomain', () => {
       validation_status: null,
       validation_errors: null,
       notified_at: null,
+      intent: 'recommend',
       is_brand_owner: false,
     }
 
@@ -36,6 +37,7 @@ describe('submissionToDomain', () => {
     expect(submission.brandId).toBeNull()
     expect(submission.brandName).toBe('Cool Brand')
     expect(submission.submitterEmail).toBe('submitter@example.com')
+    expect(submission.intent).toBe('recommend')
     expect(submission.submitterName).toBe('John Doe')
     expect(submission.websiteUrl).toBe('https://coolbrand.tw')
     expect(submission.socialInstagram).toBe('@coolbrand')
@@ -69,6 +71,7 @@ describe('submissionToDomain', () => {
       validation_status: 'valid',
       validation_errors: null,
       notified_at: '2026-05-18T09:00:00Z',
+      intent: 'owner_claim',
       is_brand_owner: true,
     }
 
@@ -77,6 +80,7 @@ describe('submissionToDomain', () => {
     expect(submission.validationStatus).toBe('valid')
     expect(submission.validationErrors).toBeNull()
     expect(submission.notifiedAt).toBe('2026-05-18T09:00:00Z')
+    expect(submission.intent).toBe('owner_claim')
     expect(submission.isBrandOwner).toBe(true)
   })
 })

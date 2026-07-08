@@ -9,11 +9,11 @@ const TINY_PNG = Buffer.from(
 /**
  * Submit Funnel End-to-End
  *
- * Journey: Authenticated user navigates to /submit/form, fills all required
+ * Journey: Guest user navigates to /submit/recommend, fills all required
  * fields, waits for Turnstile to auto-complete in dev mode, submits the form,
  * and lands on the /submit/confirmation page.
  *
- * Actor: userPage (authenticated)
+ * Actor: anonPage (guest)
  * Seed: none — creates a brand_submissions row on submit
  * Cleanup: afterAll deletes brand_submissions rows matching [E2E-TEST] Submit Funnel%
  *
@@ -33,7 +33,7 @@ test.describe('Submit funnel', () => {
       .like('brand_name', '[E2E-TEST] Submit Funnel%')
   })
 
-  test('submits brand and reaches confirmation page', async ({ userPage }, workerInfo) => {
+  test('submits brand and reaches confirmation page', async ({ anonPage }, workerInfo) => {
     test.setTimeout(60_000)
 
     const ts = Date.now()
@@ -44,7 +44,7 @@ test.describe('Submit funnel', () => {
     // Override window.turnstile BEFORE navigating so the widget immediately
     // calls onSuccess with a fake token.  addInitScript persists for all
     // subsequent navigations on this page instance.
-    await userPage.addInitScript(() => {
+    await anonPage.addInitScript(() => {
       Object.defineProperty(window, 'turnstile', {
         configurable: true,
         get() {
@@ -60,33 +60,33 @@ test.describe('Submit funnel', () => {
     })
 
     // Navigate with PREVIEW_MODE guard
-    const resp = await userPage.goto('/submit/form', { timeout: 60_000 })
+    const resp = await anonPage.goto('/submit/recommend', { timeout: 60_000 })
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping')
       return
     }
 
     // Auth-redirect resilience: middleware can transiently send to /auth/sign-in
-    if (userPage.url().includes('/auth/sign-in')) {
-      await userPage.goto('/submit/form', { timeout: 60_000 })
+    if (anonPage.url().includes('/auth/sign-in')) {
+      await anonPage.goto('/submit/recommend', { timeout: 60_000 })
     }
 
     // Wait for the flat-form heading (confirms hydration)
     await expect(
-      userPage.getByRole('heading', { name: '提交品牌', exact: true }),
+      anonPage.getByRole('heading', { name: '推薦品牌', exact: true }),
     ).toBeVisible({ timeout: 30_000 })
 
     // Fill required fields
-    await userPage.locator('#submit-website').fill(websiteUrl)
-    await userPage.locator('#submit-name').fill(brandName)
+    await anonPage.locator('#submit-website').fill(websiteUrl)
+    await anonPage.locator('#submit-name').fill(brandName)
 
-    const uploadResponsePromise = userPage.waitForResponse(
+    const uploadResponsePromise = anonPage.waitForResponse(
       (response) =>
         response.url().includes('/api/upload') &&
         response.request().method() === 'POST',
       { timeout: 20_000 },
     )
-    await userPage.locator('#image-upload-heroImageUrl').setInputFiles({
+    await anonPage.locator('#image-upload-heroImageUrl').setInputFiles({
       name: 'submission-hero.png',
       mimeType: 'image/png',
       buffer: TINY_PNG,
@@ -96,22 +96,22 @@ test.describe('Submit funnel', () => {
     const { url: uploadedHeroUrl } = await uploadResponse.json()
     expect(uploadedHeroUrl).toBeTruthy()
     await expect(
-      userPage.locator('#image-upload-heroImageUrl-replace').locator('..').getByRole('img'),
+      anonPage.locator('#image-upload-heroImageUrl-replace').locator('..').getByRole('img'),
     ).toBeVisible()
 
     // Source attribution is required when isOwner is unchecked (default)
-    await userPage.locator('#submit-source').selectOption('found_online')
+    await anonPage.locator('#submit-source').selectOption('found_online')
 
     // PDPA consent
-    await userPage.locator('#submit-pdpa').check()
+    await anonPage.locator('#submit-pdpa').check()
 
     // Wait for submit button to be enabled (Turnstile fires via addInitScript mock).
     // Fallback: if not enabled within 15s, post a synthetic Cloudflare postMessage.
-    const submitBtn = userPage.getByRole('button', { name: '提交品牌' })
+    const submitBtn = anonPage.getByRole('button', { name: '送出推薦' })
     try {
       await expect(submitBtn).toBeEnabled({ timeout: 15_000 })
     } catch {
-      await userPage.evaluate(() => {
+      await anonPage.evaluate(() => {
         // Synthetic Cloudflare Turnstile success message (last-resort fallback)
         window.dispatchEvent(
           new MessageEvent('message', {
@@ -120,22 +120,22 @@ test.describe('Submit funnel', () => {
           }),
         )
       })
-      await userPage.waitForTimeout(500)
+      await anonPage.waitForTimeout(500)
     }
 
     await submitBtn.click()
 
     // Must land on the confirmation page
-    await userPage.waitForURL(/\/submit\/confirmation/, { timeout: 30_000 })
+    await anonPage.waitForURL(/\/submit\/confirmation/, { timeout: 30_000 })
 
     // Confirmation heading
     await expect(
-      userPage.getByRole('heading', { name: '我們已收到您的品牌提交' }),
+      anonPage.getByRole('heading', { name: '我們已收到你的品牌推薦' }),
     ).toBeVisible({ timeout: 15_000 })
 
     // Both CTAs: return home and submit another
-    await expect(userPage.locator('a[href="/"]').first()).toBeVisible()
-    await expect(userPage.locator('a[href="/submit"]').first()).toBeVisible()
+    await expect(anonPage.locator('a[href="/"]').first()).toBeVisible()
+    await expect(anonPage.locator('a[href="/submit"]').first()).toBeVisible()
 
     // Verify brand_submissions row was created in DB
     const supabase = createClient(
@@ -144,11 +144,14 @@ test.describe('Submit funnel', () => {
     )
     const { data, error } = await supabase
       .from('brand_submissions')
-      .select('id, hero_image_url')
+      .select('id, hero_image_url, intent, source_attribution, submitter_email')
       .eq('brand_name', brandName)
       .single()
 
     expect(error).toBeNull()
     expect(data?.hero_image_url).toBe(uploadedHeroUrl)
+    expect(data?.intent).toBe('recommend')
+    expect(data?.source_attribution).toBe('found_online')
+    expect(data?.submitter_email).toMatch(/^guest\+.+@guest\.formoria\.invalid$/)
   })
 })

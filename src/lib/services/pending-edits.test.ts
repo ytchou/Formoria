@@ -175,6 +175,36 @@ describe('pendingEditWithBrandToDomain', () => {
     const mapped = pendingEditWithBrandToDomain(rawEdit)
     expect(mapped.brand.mitStory).toBeNull()
   })
+
+  it('maps proposed retail location changes for review', () => {
+    const rawEdit = makePendingEditWithBrandRow({
+      proposed_data: {
+        retailLocations: [
+          {
+            name: 'New Stockist',
+            address: 'Taipei City',
+          },
+        ],
+      },
+      brands: {
+        retail_locations: [
+          {
+            name: 'Old Stockist',
+            address: 'Old Address',
+          },
+        ],
+      },
+    })
+
+    const mapped = pendingEditWithBrandToDomain(rawEdit)
+
+    expect(mapped.brand.retailLocations).toEqual([
+      expect.objectContaining({
+        name: 'New Stockist',
+        address: 'Taipei City',
+      }),
+    ])
+  })
 })
 
 describe('approvePendingEdit', () => {

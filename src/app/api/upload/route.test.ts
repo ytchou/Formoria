@@ -64,10 +64,11 @@ function makeFormData(
   return fd
 }
 
-function makeRequest(formData: FormData): Request {
+function makeRequest(formData: FormData, headers?: HeadersInit): Request {
   return new Request('http://localhost/api/upload', {
     method: 'POST',
     body: formData,
+    headers,
   })
 }
 
@@ -80,13 +81,13 @@ describe('POST /api/upload', () => {
     vi.clearAllMocks()
   })
 
-  it('returns 401 when user is not authenticated', async () => {
+  it('returns 401 when claim-proof upload is not authenticated', async () => {
     mockGetUser.mockResolvedValue({
       data: { user: null },
       error: new Error('No session'),
     })
 
-    const fd = makeFormData({ path: 'logos/brand-1', bucket: 'brand-images' })
+    const fd = makeFormData({ path: 'user-1/brand-1', bucket: 'claim-proofs' })
     const res = await POST(makeRequest(fd))
     const body = await res.json()
 
@@ -164,6 +165,20 @@ describe('POST /api/upload', () => {
 
     expect(res.status).toBe(400)
     expect(body.error).toMatch(/no file/i)
+  })
+
+  it('rejects oversized requests before parsing multipart data', async () => {
+    const request = {
+      headers: new Headers({ 'content-length': String(6 * 1024 * 1024) }),
+      formData: vi.fn(),
+    } as unknown as Request
+
+    const res = await POST(request)
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/under 5MB/i)
+    expect(request.formData).not.toHaveBeenCalled()
   })
 
   it('returns 400 when image processing fails', async () => {

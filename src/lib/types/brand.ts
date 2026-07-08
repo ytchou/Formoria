@@ -28,11 +28,28 @@ export type BrandFlatLinkColumns = {
   other_urls?: unknown
 }
 
+export type RetailLocationRelationshipType =
+  | 'brand_store'
+  | 'stockist'
+  | 'department_counter'
+
+export type RetailLocationVerificationStatus =
+  | 'verified'
+  | 'manual'
+  | 'needs_review'
+
 export type RetailLocation = {
   name: string
+  relationshipType?: RetailLocationRelationshipType
   address: string
-  latitude: number
-  longitude: number
+  city?: string
+  district?: string
+  venueName?: string
+  floorOrCounter?: string
+  availabilityNote?: string
+  latitude?: number
+  longitude?: number
+  verificationStatus?: RetailLocationVerificationStatus
 }
 
 type MitEvidence = {

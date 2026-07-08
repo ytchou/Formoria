@@ -302,6 +302,27 @@ describe('updateBrandAction', () => {
     expect(result.mitStory).toBeNull()
   })
 
+  it('persists an empty retailLocations array when submitted rows normalize away', async () => {
+    const { parseBrandEditForm } = await import('./actions-utils')
+
+    const formData = form({
+      brandSlug: 'test-brand',
+      'retailLocations[0].name': '',
+      'retailLocations[0].relationshipType': 'stockist',
+      'retailLocations[0].address': '',
+      'retailLocations[0].city': '',
+      'retailLocations[0].district': '',
+      'retailLocations[0].venueName': '',
+      'retailLocations[0].floorOrCounter': '',
+      'retailLocations[0].availabilityNote': '',
+      'retailLocations[0].latitude': '',
+      'retailLocations[0].longitude': '',
+      'retailLocations[0].verificationStatus': 'manual',
+    })
+
+    expect(parseBrandEditForm(formData).retailLocations).toEqual([])
+  })
+
   it('includes mitStory in moderation payload', async () => {
     const { buildModerationPayload } = await import('./actions-utils')
 

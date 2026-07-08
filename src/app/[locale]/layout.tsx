@@ -68,6 +68,9 @@ export default async function LocaleLayout({ children, params }: LayoutProps) {
   const tImpersonate = impersonatedBrand
     ? await getTranslations('impersonation')
     : null
+  const initialImpersonationMinutesLeft = impersonationExpiresAt
+    ? Math.max(0, Math.ceil((impersonationExpiresAt - Date.now() / 1000) / 60))
+    : 0
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
@@ -76,6 +79,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps) {
         <ImpersonationBanner
           brandName={impersonatedBrand.brandName}
           expiresAt={impersonationExpiresAt}
+          initialMinutesLeft={initialImpersonationMinutesLeft}
           labels={{
             banner: tImpersonate('banner', {
               brandName: impersonatedBrand.brandName,

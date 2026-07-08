@@ -52,7 +52,8 @@ export default async function SubmitPage({ params }: SubmitPageProps) {
 
   return (
     <SubmitOverview
-      nextPath={locale === 'en' ? '/en/submit/form' : '/submit/form'}
+      ownerPath={locale === 'en' ? '/en/submit/owner' : '/submit/owner'}
+      recommendPath={locale === 'en' ? '/en/submit/recommend' : '/submit/recommend'}
       isLoggedIn={isLoggedIn}
     />
   )

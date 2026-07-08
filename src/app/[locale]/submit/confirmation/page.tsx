@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 
 type ConfirmationPageProps = {
   params: Promise<{ locale: string }>
-  searchParams?: Promise<{ ownership?: string }>
+  searchParams?: Promise<{ ownership?: string; intent?: string }>
 }
 
 export async function generateMetadata({ params }: ConfirmationPageProps): Promise<Metadata> {
@@ -44,7 +44,10 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
   const { locale } = await params
   setRequestLocale(locale)
   const t = await getTranslations('submit.confirmation')
-  const ownershipAdjusted = (await searchParams)?.ownership === 'community'
+  const resolvedSearchParams = await searchParams
+  const ownershipAdjusted = resolvedSearchParams?.ownership === 'community'
+  const intent = resolvedSearchParams?.intent === 'owner_claim' ? 'owner_claim' : 'recommend'
+  const isOwnerIntent = intent === 'owner_claim'
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
@@ -57,7 +60,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
         </div>
 
         <h1 className="mt-6 text-center font-heading text-[22px] font-bold text-foreground">
-          {t('subheading')}
+          {isOwnerIntent ? t('ownerSubheading') : t('subheading')}
         </h1>
 
         {ownershipAdjusted ? (
@@ -69,9 +72,17 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
         {/* Timeline */}
         <div className="mt-8 rounded-xl bg-[#FAFAF8] p-6">
           <div className="space-y-4">
-            {([
-              { label: t('timeline.review.label'), description: t('timeline.review.description'), active: true },
-              { label: t('timeline.result.label'), description: t('timeline.result.description'), active: false },
+              {([
+              {
+                label: isOwnerIntent ? t('timeline.ownerReview.label') : t('timeline.review.label'),
+                description: isOwnerIntent ? t('timeline.ownerReview.description') : t('timeline.review.description'),
+                active: true,
+              },
+              {
+                label: isOwnerIntent ? t('timeline.ownerResult.label') : t('timeline.result.label'),
+                description: isOwnerIntent ? t('timeline.ownerResult.description') : t('timeline.result.description'),
+                active: false,
+              },
             ] as const).map((step, i) => (
               <div key={i} className="flex gap-3">
                 <div className="flex flex-col items-center">
@@ -102,7 +113,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
         </div>
 
         <p className="mt-4 text-sm text-muted-foreground">
-          {t.rich('whatNext.learnMore.answer', {
+          {t.rich(isOwnerIntent ? 'whatNext.ownerLearnMore.answer' : 'whatNext.learnMore.answer', {
             link: (chunks) => (
               <Link href="/getting-started" className="text-foreground underline">
                 {chunks}

@@ -4,7 +4,8 @@ import { NextIntlClientProvider } from 'next-intl'
 import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('@/app/[locale]/submit/actions', () => ({
-  submitBrand: vi.fn(),
+  submitRecommendation: vi.fn(),
+  submitOwnerBrand: vi.fn(),
   suggestCleanName: vi.fn(),
 }))
 
@@ -33,7 +34,7 @@ import messages from '@/../messages/zh-TW.json'
 function renderForm() {
   return render(
     <NextIntlClientProvider locale="zh-TW" messages={messages}>
-      <SubmitForm />
+      <SubmitForm variant="owner" />
     </NextIntlClientProvider>
   )
 }

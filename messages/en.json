@@ -377,7 +377,20 @@
       "viewPhoto": "View photo {n}"
     },
     "locations": {
-      "mapTitle": "{name} map"
+      "mapTitle": "{name} stockist map",
+      "subheading": "Find brand stores, stockists, and counters that carry this brand.",
+      "manualAddress": "Manual address",
+      "openInMaps": "Open in Google Maps",
+      "types": {
+        "brand_store": "Brand store",
+        "stockist": "Stockist",
+        "department_counter": "Department counter"
+      },
+      "defaultNotes": {
+        "brand_store": "Brand-owned location.",
+        "stockist": "Carries selected products. Please confirm availability before visiting.",
+        "department_counter": "Department-store counter or stall. Please confirm availability before visiting."
+      }
     },
     "moreInCategory": {
       "heading": "More in {category}",
@@ -1176,6 +1189,42 @@
       "addRetailLocation": "Add retail location",
       "fieldStoreName": "Store name",
       "fieldAddress": "Address",
+      "retailLocationItem": "Retail location {number}",
+      "fieldLocationType": "Location type",
+      "fieldLocationTypeHelpLabel": "Explain location types",
+      "fieldLocationTypeHelp": "Brand store means your own shop. Stockist means another retailer carries selected products. Department counter means a counter or stall inside a larger venue.",
+      "locationTypeBrandStore": "Brand store",
+      "locationTypeStockist": "Stockist",
+      "locationTypeDepartmentCounter": "Department counter",
+      "fieldLocationSearch": "Location",
+      "fieldLocationSearchPlaceholder": "Search or enter the full address",
+      "fieldLocationSearchHelpLabel": "Explain location field",
+      "fieldLocationSearchHelp": "Use one searchable location/address. When a map result is selected, the public place name and coordinates are filled from OpenStreetMap data.",
+      "searchLocation": "Search address",
+      "locationSearchError": "Address search is unavailable. You can keep the address manually.",
+      "locationManualOverrideHint": "If the place is not listed, keep your manually entered address and save it.",
+      "fieldLocationName": "Location name",
+      "fieldLocationNamePlaceholder": "Store, counter, or stockist name",
+      "fieldLocationNameHint": "This is the public name visitors see first.",
+      "fieldVenueName": "Venue name",
+      "fieldVenueNamePlaceholder": "Department store, mall, or retailer",
+      "fieldFloorOrCounter": "Floor or counter",
+      "fieldFloorOrCounterPlaceholder": "3F counter, booth A12",
+      "fieldLocationCity": "City",
+      "fieldLocationCityPlaceholder": "Taipei City",
+      "fieldLocationDistrict": "District",
+      "fieldLocationDistrictPlaceholder": "Xinyi District",
+      "fieldLocationAddress": "Address",
+      "fieldLocationAddressPlaceholder": "Full street address",
+      "fieldLocationAddressHint": "Use the address visitors should navigate to. Add coordinates only when the pin is known.",
+      "fieldLocationVerification": "Map status",
+      "locationVerificationVerified": "Verified pin",
+      "locationVerificationManual": "Manual address",
+      "locationVerificationNeedsReview": "Needs review",
+      "fieldLatitude": "Latitude",
+      "fieldLongitude": "Longitude",
+      "fieldAvailabilityNote": "Availability note",
+      "fieldAvailabilityNotePlaceholder": "Carries selected products. Please call ahead.",
       "saving": "Saving...",
       "saveDraft": "Save as draft",
       "savingDraft": "Saving draft…",
@@ -1273,13 +1322,22 @@
     },
     "overview": {
       "heading": "Submit Your Taiwan Brand",
-      "description": "Formoria lists locally made and designed Taiwan brands so more people can discover your story.",
-      "step1": "Fill in your brand's basic information",
-      "step2": "Upload brand photos and product images",
-      "step3": "Submit and get listed after review",
-      "timeEstimate": "Takes about 3 minutes to complete",
-      "cta": "Sign in and start submitting",
-      "ctaLoggedIn": "Start submitting"
+      "description": "You can recommend a brand you love, or start the owner flow to claim and manage your own brand later.",
+      "recommendEyebrow": "Community recommendation",
+      "recommendTitle": "Recommend a brand worth discovering",
+      "recommendDescription": "Best for shoppers, fans, and friends. Just share the brand name and a URL so we can start reviewing it.",
+      "recommendPoint1": "Open to guests with no sign-in gate",
+      "recommendPoint2": "Only asks for the basics",
+      "recommendPoint3": "Approved brands are added to Formoria",
+      "recommendCta": "Recommend a brand",
+      "ownerEyebrow": "Brand owner",
+      "ownerTitle": "Start your brand management flow",
+      "ownerDescription": "Best for founders, operators, and brand teams. After approval, we’ll send the invitation to claim and manage the listing.",
+      "ownerPoint1": "Share core brand details and links",
+      "ownerPoint2": "Receive a claim invitation after review",
+      "ownerPoint3": "Manage the listing from your dashboard later",
+      "ownerCta": "Sign in to start",
+      "ownerCtaLoggedIn": "Submit as the brand owner"
     },
     "wizard": {
       "heading": "Submit a Brand",
@@ -1435,16 +1493,25 @@
         "description": "We have received your brand submission and it is under review."
       },
       "heading": "Thank you!",
-    "subheading": "We have received your brand submission",
-    "communityOwnershipNotice": "Because your account already manages a brand, this submission was accepted as a community listing and cannot be claimed by this account.",
+      "subheading": "We’ve received your brand recommendation",
+      "ownerSubheading": "We’ve received your owner submission",
+      "communityOwnershipNotice": "Because your account already manages a brand, this submission was accepted as a community listing and cannot be claimed by this account.",
       "timeline": {
         "review": {
           "label": "Under Review",
           "description": "Our team typically completes the review within 3 business days"
         },
+        "ownerReview": {
+          "label": "Listing Review",
+          "description": "We’ll review the listing details first to confirm the brand fits the directory."
+        },
         "result": {
           "label": "Result Notification",
           "description": "Once reviewed, you'll receive an email with the result. Approved brands will appear in the Formoria directory"
+        },
+        "ownerResult": {
+          "label": "Claim Invitation",
+          "description": "If approved, we’ll send a claim invitation next, followed by the ownership-proof flow."
         }
       },
       "cta": {
@@ -1468,6 +1535,10 @@
         "learnMore": {
           "question": "Want to learn more?",
           "answer": "Want to learn more about Formoria? Check out our <link>Getting Started guide</link>."
+        },
+        "ownerLearnMore": {
+          "question": "What happens next?",
+          "answer": "Want to understand the claim and management flow? Read our <link>Getting Started guide</link>."
         }
       }
     },
@@ -1478,6 +1549,7 @@
       "tagsMax": "You can select up to 5 tags",
       "logoRequired": "Please upload a brand logo",
       "photosMax": "You can upload up to 6 photos",
+      "emailInvalid": "Please enter a valid email address",
       "platformRequired": "Please select a platform",
       "urlInvalid": "Please enter a valid URL",
       "locationNameRequired": "Please enter a location name",
@@ -1493,6 +1565,63 @@
       "rateLimit": "Too many submissions, please try again later.",
       "validation": "Validation failed, please try again.",
       "unexpected": "An unexpected error occurred, please try again."
+    },
+    "recommendForm": {
+      "heading": "Recommend a Brand",
+      "subheading": "Share the brand name and URL so we can review this Taiwan-made brand.",
+      "websiteLabel": "Official Brand URL",
+      "websiteHint": "Paste the main website, storefront, or social homepage for the brand.",
+      "websitePlaceholder": "https://brand.example",
+      "brandNameLabel": "Brand Name",
+      "brandNamePlaceholder": "e.g. Warmwood Living",
+      "brandNameHint": "Use the official brand name so we can verify it and avoid duplicates.",
+      "guestEmailLabel": "Your email (optional)",
+      "guestEmailHint": "Leave an email if you’re open to follow-up questions from our team.",
+      "guestEmailPlaceholder": "name@example.com",
+      "descriptionLabel": "Extra context (optional)",
+      "descriptionHint": "If you know the brand story, products, or why it matters, add it here.",
+      "descriptionPlaceholder": "For example: I bought their handmade furniture at a local design market…",
+      "heroImageHintRecommend": "Optional. Upload a representative image if you already have one.",
+      "sourceLabel": "How do you know this brand?",
+      "sourceHint": "This helps us understand the context behind the recommendation.",
+      "sourcePlaceholder": "Select how you know this brand",
+      "requiredHint": "indicates a required field",
+      "submitButton": "Send Recommendation",
+      "submittingButton": "Sending…",
+      "suggestedName": "Suggested name:",
+      "suggestedUrl": "Suggested URL:",
+      "applySuggestion": "Apply"
+    },
+    "ownerForm": {
+      "heading": "Owner Submission",
+      "subheading": "Submit your brand details first. After approval, we’ll send the claim invitation.",
+      "websiteLabel": "Official Brand Website",
+      "websiteHint": "Use your main website. We’ll use it as the anchor for review and later claim steps.",
+      "websitePlaceholder": "https://yourbrand.com",
+      "brandNameLabel": "Brand Name",
+      "brandNamePlaceholder": "e.g. Warmwood Living",
+      "brandNameHint": "Use the official public brand name. It will shape both the listing and the later claim flow.",
+      "descriptionLabel": "Brand Description (optional)",
+      "descriptionHint": "A short brand description helps us review and structure the listing faster.",
+      "descriptionPlaceholder": "Tell us what you make, why it’s made in Taiwan, and what defines the brand.",
+      "heroImageHintOwner": "We recommend uploading the main visual or homepage hero image for the brand.",
+      "cityHint": "Optional, but useful if you want us to capture the brand’s operating city early.",
+      "linksHeading": "Brand Links (optional)",
+      "linksHint": "Add your main social and buying links so the listing is easier to build after approval.",
+      "instagramLabel": "Instagram",
+      "threadsLabel": "Threads",
+      "facebookLabel": "Facebook",
+      "pinkoiLabel": "Pinkoi",
+      "shopeeLabel": "Shopee",
+      "ownerFlowTitle": "What happens after this",
+      "ownerFlowHint": "If the listing is approved, we’ll email you the invitation to claim the brand and continue the proof flow.",
+      "ownerLimitHint": "Your account already manages one brand. We’ll still accept this submission, but it will be treated as a community recommendation instead of a claimable owner submission.",
+      "requiredHint": "indicates a required field",
+      "submitButton": "Submit Brand Details",
+      "submittingButton": "Submitting…",
+      "suggestedName": "Suggested name:",
+      "suggestedUrl": "Suggested URL:",
+      "applySuggestion": "Apply"
     },
     "form": {
       "heading": "Submit a Brand",

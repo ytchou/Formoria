@@ -75,6 +75,7 @@ function makeSubmission(
     validationStatus: null,
     validationErrors: null,
     notifiedAt: null,
+    intent: 'owner_claim',
     isBrandOwner: true,
     sourceAttribution: null,
     ...overrides,

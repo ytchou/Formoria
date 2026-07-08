@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures/auth';
-import { gotoSubmitForm } from '../utils/submit-form';
+import { gotoSubmitRecommend } from '../utils/submit-form';
 
 // ---------------------------------------------------------------------------
 // Journey: Name cleanup suggestion
@@ -16,7 +16,7 @@ test.describe('Submit name suggestion', () => {
   }) => {
     test.setTimeout(60_000);
 
-    await gotoSubmitForm(userPage);
+    await gotoSubmitRecommend(userPage);
 
     // Name field is immediately visible on the flat single-screen form
     const nameInput = userPage.locator('#submit-name');
@@ -64,7 +64,7 @@ test.describe('Submit name suggestion', () => {
   }) => {
     test.setTimeout(60_000);
 
-    await gotoSubmitForm(userPage);
+    await gotoSubmitRecommend(userPage);
 
     // Name field is immediately visible — no skip step needed
     const nameInput = userPage.locator('#submit-name');

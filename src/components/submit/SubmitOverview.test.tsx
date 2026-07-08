@@ -35,17 +35,15 @@ describe('SubmitOverview', () => {
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
   });
 
-  it('renders 登入並開始提交 CTA linking to sign-in with ?next=/submit/form', () => {
+  it('renders recommendation CTA without auth redirect', () => {
     renderWithZhTW(<SubmitOverview />);
-    const cta = screen.getByRole('link', { name: /登入並開始提交/i });
-    expect(cta).toBeInTheDocument();
-    expect(cta).toHaveAttribute('href', '/auth/sign-in?next=/submit/form');
+    const cta = screen.getByRole('link', { name: /推薦品牌/i });
+    expect(cta).toHaveAttribute('href', '/submit/recommend');
   });
 
-  it('includes a step count or time estimate', () => {
+  it('renders owner CTA behind sign-in when logged out', () => {
     renderWithZhTW(<SubmitOverview />);
-    expect(
-      screen.getByText(/步驟|分鐘|step/i)
-    ).toBeInTheDocument();
+    const cta = screen.getByRole('link', { name: /登入後開始/i });
+    expect(cta).toHaveAttribute('href', '/auth/sign-in?next=/submit/owner');
   });
 });

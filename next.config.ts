@@ -4,6 +4,7 @@ import createNextIntlPlugin from 'next-intl/plugin'
 import { ALLOWED_IMAGE_HOSTS } from './src/lib/images/allowed-image-hosts'
 
 const imgSrcHosts = ALLOWED_IMAGE_HOSTS.map((hostname) => `https://${hostname}`).join(' ')
+const mapTileImgSrcHosts = 'https://*.tile.openstreetmap.org'
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ['adm-zip'],
@@ -30,7 +31,7 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://challenges.cloudflare.com https://*.sentry.io",
               "style-src 'self' 'unsafe-inline'",
-              `img-src 'self' data: blob: ${imgSrcHosts}`,
+              `img-src 'self' data: blob: ${imgSrcHosts} ${mapTileImgSrcHosts}`,
               "font-src 'self'",
               "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://www.google-analytics.com https://challenges.cloudflare.com",
               "frame-src https://challenges.cloudflare.com",

@@ -1,5 +1,4 @@
 import { useTranslations } from 'next-intl'
-import { MapPin } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { Brand } from '@/lib/types'
 import { MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badges'
@@ -14,7 +13,6 @@ interface BrandHeaderProps {
 
 export function BrandHeader({ brand, categoryLabel, locale, actionsSlot, adminSlot }: BrandHeaderProps) {
   const t = useTranslations('brandDetail')
-  const locationName = brand.retailLocations[0]?.name
   const hasMitVerifiedBadge = brand.mitVerified === true
   const hasOwnerVerifiedBadge = brand.isVerified
   const mitSmileCert = hasMitVerifiedBadge ? brand.mitEvidence?.mit_smile_cert : undefined
@@ -82,14 +80,6 @@ export function BrandHeader({ brand, categoryLabel, locale, actionsSlot, adminSl
         {mitSmileCert && (
           <span className="text-xs text-warm-caption">
             {t('mitProofLink', { cert: mitSmileCert })}
-          </span>
-        )}
-
-        {/* Location */}
-        {locationName && (
-          <span className="flex items-center gap-1 text-xs text-warm-caption">
-            <MapPin className="size-3.5" />
-            {locationName}
           </span>
         )}
       </div>

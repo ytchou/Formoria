@@ -2,7 +2,9 @@ import Image from 'next/image'
 import { getLocale, getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { getProductTypeLabel } from '@/lib/brands/category-label'
+import { normalizeRetailLocations } from '@/lib/brands/locations'
 import type { Brand } from '@/lib/types'
+import type { RetailLocationRelationshipType } from '@/lib/types/brand'
 
 type OwnerSectionProps = {
   children: React.ReactNode
@@ -54,6 +56,17 @@ function display(value: string | number | null | undefined, fallback: string) {
     : String(value)
 }
 
+function locationTypeLabelKey(type: RetailLocationRelationshipType) {
+  switch (type) {
+    case 'brand_store':
+      return 'locationTypeBrandStore'
+    case 'department_counter':
+      return 'locationTypeDepartmentCounter'
+    case 'stockist':
+      return 'locationTypeStockist'
+  }
+}
+
 export async function OwnerBrandOverview({
   brand,
   verification,
@@ -67,6 +80,7 @@ export async function OwnerBrandOverview({
     getTranslations('dashboard.edit'),
   ])
   const editBase = `/dashboard/brands/${brand.slug}/edit?step=`
+  const retailLocations = normalizeRetailLocations(brand.retailLocations)
   const priceRange = brand.priceRange
     ? tEdit(
         brand.priceRange === 1
@@ -148,11 +162,14 @@ export async function OwnerBrandOverview({
       </OwnerSection>
 
       <OwnerSection description={t('sectionLocationsHint')} editHref={`${editBase}3`} title={tEdit('wizardStepLocations')} editLabel={t('edit')}>
-        {brand.retailLocations.length > 0 ? (
+        {retailLocations.length > 0 ? (
           <dl className="grid gap-4 sm:grid-cols-2">
-            {brand.retailLocations.map((location, index) => (
+            {retailLocations.map((location, index) => (
               <div key={`${location.name}-${index}`} className="rounded-lg bg-secondary p-4">
                 <dt className="text-sm font-semibold text-foreground">{location.name}</dt>
+                <dd className="mt-1 text-xs font-medium text-muted-foreground">
+                  {tEdit(locationTypeLabelKey(location.relationshipType ?? 'stockist'))}
+                </dd>
                 <dd className="mt-1 text-sm text-muted-foreground">{location.address || <EmptyValue>{t('notSet')}</EmptyValue>}</dd>
               </div>
             ))}

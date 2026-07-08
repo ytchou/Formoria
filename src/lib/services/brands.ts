@@ -8,6 +8,7 @@ import { BRAND_SORT_CONFIG, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import { isNonImageHost } from '@/lib/images/allowed-image-hosts'
 import { RESERVED_ROUTES } from '@/middleware'
 import { deriveCategoryFromProductType } from '@/lib/taxonomy/ontology'
+import { normalizeRetailLocations } from '@/lib/brands/locations'
 import { downloadAndStoreImages } from './image-download'
 import {
   resolveWritablePatch,
@@ -350,8 +351,8 @@ export function curatedSubmissionToBrand(input: CuratedSubmissionInput): Curated
     otherUrls,
     retailLocations: input.retailLocations.map((location) => ({
       ...location,
-      latitude: 0,
-      longitude: 0,
+      relationshipType: 'stockist',
+      verificationStatus: 'manual',
     })),
     productPhotos: input.productPhotos,
     contactEmail: null,
@@ -545,7 +546,9 @@ export function draftSnapshotToDomain(
         partial.otherUrls = (snapshot.otherUrls as Brand['otherUrls']) ?? []
         break
       case 'retailLocations':
-        partial.retailLocations = (snapshot.retailLocations as Brand['retailLocations']) ?? []
+        partial.retailLocations = normalizeRetailLocations(
+          snapshot.retailLocations,
+        )
         break
       case 'reputationSummary':
         partial.reputationSummary = snapshot.reputationSummary as Brand['reputationSummary']
@@ -605,7 +608,7 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     purchasePinkoi: row.purchase_pinkoi ?? null,
     purchaseShopee: row.purchase_shopee ?? null,
     otherUrls: (row.other_urls as OtherUrl[]) ?? [],
-    retailLocations: (row.retail_locations as Brand['retailLocations']) ?? [],
+    retailLocations: normalizeRetailLocations(row.retail_locations),
     productPhotos: [],
     imageAlts: [],
     contactEmail: row.contact_email ?? null,

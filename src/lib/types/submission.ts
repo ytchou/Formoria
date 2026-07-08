@@ -1,6 +1,7 @@
 import type { OtherUrl, SubmissionStatus } from './brand'
 
 type ValidationStatus = 'valid' | 'incomplete'
+export type SubmissionIntent = 'recommend' | 'owner_claim'
 export type SourceAttribution =
   | 'bought_product'
   | 'saw_at_market'
@@ -38,6 +39,7 @@ export function normalizeOwnerLocale(locale: unknown): OwnerLocale {
 export type BrandSubmission = {
   id: string
   brandId: string | null
+  intent?: SubmissionIntent
   brandName: string
   heroImageUrl?: string | null
   submitterEmail: string

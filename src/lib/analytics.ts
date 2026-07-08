@@ -188,9 +188,10 @@ export function trackSearchResultClicked(query: string, positionInResults: numbe
 }
 
 export function trackSubmissionFormOpened(
-  source: 'header_cta' | 'hero_cta' | 'footer_link' = 'hero_cta'
+  source: 'header_cta' | 'hero_cta' | 'footer_link' = 'hero_cta',
+  intent: 'recommend' | 'owner_claim' = 'recommend'
 ) {
-  safeGAEvent('event', 'submission_form_opened', { source })
+  safeGAEvent('event', 'submission_form_opened', { source, intent })
 }
 
 export function trackSubmissionFormStepCompleted(step: string) {
@@ -201,7 +202,9 @@ export function trackSubmissionCompleted(
   brandName: string,
   category: string,
   hasLogo: boolean,
-  timeSpentSeconds: number
+  timeSpentSeconds: number,
+  intent: 'recommend' | 'owner_claim' = 'recommend',
+  guestSubmission = false,
 ) {
   const utmParams =
     typeof window !== 'undefined' ? getUtmParams(window.location.search) : {}
@@ -211,6 +214,8 @@ export function trackSubmissionCompleted(
     category,
     has_logo: hasLogo,
     time_spent_seconds: timeSpentSeconds,
+    intent,
+    guest_submission: guestSubmission,
     ...utmParams,
   })
 }
