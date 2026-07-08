@@ -52,6 +52,8 @@ describe('simplified submission schema', () => {
     const data = {
       name: 'TestBrand',
       website: 'https://example.com',
+      description: 'Taiwan-made home goods with practical daily designs.',
+      heroImageUrl: 'https://example.com/hero.jpg',
       pdpaConsent: true,
       turnstileToken: 'test-token',
       honeypot: '',
