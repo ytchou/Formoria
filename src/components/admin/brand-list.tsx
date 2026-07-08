@@ -55,7 +55,7 @@ const MIT_STATUS_CONFIG: Record<MitStatus, { label: string; className: string }>
     className: 'bg-[#F5F4F1] text-[#7C7570]',
   },
   verified: {
-    label: 'MIT 已驗證',
+    label: 'MIT 微笑認證',
     className: 'bg-[#EAF3E8] text-[#2D5A27]',
   },
 }
@@ -214,7 +214,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
         >
           <option value="all">全部 MIT 狀態</option>
           <option value="unverified">MIT 未驗證</option>
-          <option value="verified">MIT 已驗證</option>
+          <option value="verified">MIT 微笑認證</option>
         </select>
         <select
           value={categoryFilter}

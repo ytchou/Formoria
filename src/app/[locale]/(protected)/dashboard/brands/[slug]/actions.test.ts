@@ -323,6 +323,42 @@ describe('updateBrandAction', () => {
     expect(parseBrandEditForm(formData).retailLocations).toEqual([])
   })
 
+  it('blocks duplicate retailLocations when parsing owner edits', async () => {
+    const { InvalidBrandEditFormError, parseBrandEditForm } = await import(
+      './actions-utils'
+    )
+
+    const formData = form({
+      brandSlug: 'test-brand',
+      'retailLocations[0].name': 'First location',
+      'retailLocations[0].relationshipType': 'stockist',
+      'retailLocations[0].address': 'Taipei 101',
+      'retailLocations[0].city': '',
+      'retailLocations[0].district': '',
+      'retailLocations[0].venueName': '',
+      'retailLocations[0].floorOrCounter': '',
+      'retailLocations[0].availabilityNote': '',
+      'retailLocations[0].latitude': '',
+      'retailLocations[0].longitude': '',
+      'retailLocations[0].verificationStatus': 'manual',
+      'retailLocations[1].name': 'Second location',
+      'retailLocations[1].relationshipType': 'brand_store',
+      'retailLocations[1].address': ' Taipei   101 ',
+      'retailLocations[1].city': '',
+      'retailLocations[1].district': '',
+      'retailLocations[1].venueName': '',
+      'retailLocations[1].floorOrCounter': '',
+      'retailLocations[1].availabilityNote': '',
+      'retailLocations[1].latitude': '',
+      'retailLocations[1].longitude': '',
+      'retailLocations[1].verificationStatus': 'manual',
+    })
+
+    expect(() => parseBrandEditForm(formData)).toThrow(
+      InvalidBrandEditFormError,
+    )
+  })
+
   it('includes mitStory in moderation payload', async () => {
     const { buildModerationPayload } = await import('./actions-utils')
 

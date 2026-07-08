@@ -2,12 +2,15 @@
 
 import { useState, useTransition } from 'react'
 import { Controller, type UseFormReturn, useFieldArray } from 'react-hook-form'
-import { HelpCircle, MapPin, Search, Trash2 } from 'lucide-react'
+import { MapPin, Search, Trash2 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { RequiredLabel } from '@/components/forms/required-label'
+import { DashboardFormField } from './dashboard-form-field'
+import {
+  StandardFormSection,
+  StandardFormStack,
+} from '@/components/forms/form-layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -44,35 +47,6 @@ const EMPTY_LOCATION = {
   verificationStatus: 'manual' as const,
 }
 
-function FieldError({
-  id,
-  show,
-  text,
-}: {
-  id: string
-  show: boolean
-  text: string
-}) {
-  return show ? (
-    <p id={id} className="text-xs text-destructive" aria-live="polite">
-      {text}
-    </p>
-  ) : null
-}
-
-function HelpTooltip({ label, text }: { label: string; text: string }) {
-  return (
-    <button
-      type="button"
-      className="inline-flex size-12 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-      aria-label={label}
-      title={text}
-    >
-      <HelpCircle className="h-4 w-4" />
-    </button>
-  )
-}
-
 export function LocationsSection({
   form,
 }: {
@@ -88,10 +62,16 @@ export function LocationsSection({
     Record<string, LocationSearchResult[]>
   >({})
   const [searchErrors, setSearchErrors] = useState<Record<string, string>>({})
+  const [searchNotices, setSearchNotices] = useState<Record<string, string>>({})
   const [isSearching, startSearch] = useTransition()
 
   const searchLocation = (fieldKey: string, index: number) => {
     const query = form.getValues(`retailLocations.${index}.address`)?.trim()
+    setSearchNotices((prev) => {
+      const next = { ...prev }
+      delete next[fieldKey]
+      return next
+    })
     if (!query) {
       form.setError(`retailLocations.${index}.address`, {
         type: 'required',
@@ -115,6 +95,12 @@ export function LocationsSection({
         delete next[fieldKey]
         return next
       })
+      if (result.results.length === 0) {
+        setSearchNotices((prev) => ({
+          ...prev,
+          [fieldKey]: t('locationSearchNoResults'),
+        }))
+      }
     })
   }
 
@@ -143,6 +129,11 @@ export function LocationsSection({
       shouldDirty: true,
     })
     form.clearErrors(`retailLocations.${index}.address`)
+    setSearchNotices((prev) => {
+      const next = { ...prev }
+      delete next[fieldKey]
+      return next
+    })
     setSearchResults((prev) => {
       const next = { ...prev }
       delete next[fieldKey]
@@ -151,42 +142,28 @@ export function LocationsSection({
   }
 
   return (
-    <section id="locations" className="space-y-4">
-      <h2 className="mb-4 border-b border-border px-4 pb-2 font-heading text-base font-bold">
-        {t('sectionLocations')}
-      </h2>
+    <StandardFormSection id="locations">
+      <StandardFormStack>
+        <h2 className="font-heading text-base font-bold">
+          {t('sectionLocations')}
+        </h2>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          {t('sectionLocationsHelp')}
+        </p>
 
-      <div className="space-y-4 px-4">
         {fields.map((field, index) => {
           const fieldId = `retailLocations-${index}`
-          const addressErrors = form.formState.errors.retailLocations
-          const addressError = Array.isArray(addressErrors)
-            ? addressErrors.at(index)?.address
+          const formAddressErrors = form.formState.errors.retailLocations
+          const addressError = Array.isArray(formAddressErrors)
+            ? formAddressErrors.at(index)?.address
             : undefined
+          const addressErrorText =
+            addressError?.message === 'Duplicate retail location'
+              ? t('locationDuplicateError')
+              : (addressError?.message ??
+                (addressError ? t('requiredFieldError') : undefined))
           const addressRegistration = form.register(
             `retailLocations.${index}.address`,
-            {
-              onChange: (event) => {
-                const value = String(event.target.value ?? '')
-                form.setValue(`retailLocations.${index}.name`, value, {
-                  shouldDirty: true,
-                })
-                form.setValue(`retailLocations.${index}.venueName`, '', {
-                  shouldDirty: true,
-                })
-                form.setValue(`retailLocations.${index}.latitude`, undefined, {
-                  shouldDirty: true,
-                })
-                form.setValue(`retailLocations.${index}.longitude`, undefined, {
-                  shouldDirty: true,
-                })
-                form.setValue(
-                  `retailLocations.${index}.verificationStatus`,
-                  'manual',
-                  { shouldDirty: true },
-                )
-              },
-            },
           )
           const results = searchResults[field.id] ?? []
 
@@ -211,16 +188,11 @@ export function LocationsSection({
               </div>
 
               <div className="grid gap-4 sm:grid-cols-[minmax(0,220px)_minmax(0,1fr)]">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1">
-                    <Label htmlFor={`${fieldId}-relationshipType`}>
-                      {t('fieldLocationType')}
-                    </Label>
-                    <HelpTooltip
-                      label={t('fieldLocationTypeHelpLabel')}
-                      text={t('fieldLocationTypeHelp')}
-                    />
-                  </div>
+                <DashboardFormField
+                  id={`${fieldId}-relationshipType`}
+                  label={t('fieldLocationType')}
+                  className="px-0 py-0"
+                >
                   <Controller
                     control={form.control}
                     name={`retailLocations.${index}.relationshipType`}
@@ -245,10 +217,7 @@ export function LocationsSection({
                         </SelectTrigger>
                         <SelectContent>
                           {RELATIONSHIP_OPTIONS.map((option) => (
-                            <SelectItem
-                              key={option.value}
-                              value={option.value}
-                            >
+                            <SelectItem key={option.value} value={option.value}>
                               {t(option.labelKey)}
                             </SelectItem>
                           ))}
@@ -256,29 +225,59 @@ export function LocationsSection({
                       </Select>
                     )}
                   />
-                </div>
+                </DashboardFormField>
 
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1">
-                    <RequiredLabel htmlFor={`${fieldId}-address`}>
-                      {t('fieldLocationSearch')}
-                    </RequiredLabel>
-                    <HelpTooltip
-                      label={t('fieldLocationSearchHelpLabel')}
-                      text={t('fieldLocationSearchHelp')}
-                    />
-                  </div>
+                <DashboardFormField
+                  id={`${fieldId}-address`}
+                  label={t('fieldLocationSearch')}
+                  required
+                  error={addressErrorText}
+                  errorId={`${fieldId}-address-error`}
+                  className="px-0 py-0"
+                >
                   <div className="flex gap-2">
                     <Input
                       id={`${fieldId}-address`}
                       className="min-h-12 bg-card"
                       placeholder={t('fieldLocationSearchPlaceholder')}
                       aria-required="true"
-                      aria-invalid={Boolean(addressError)}
+                      aria-invalid={Boolean(addressErrorText)}
                       aria-describedby={
-                        addressError ? `${fieldId}-address-error` : undefined
+                        addressErrorText
+                          ? `${fieldId}-address-error`
+                          : undefined
                       }
                       {...addressRegistration}
+                      onChange={(event) => {
+                        addressRegistration.onChange(event)
+                        const value = String(event.target.value ?? '')
+                        form.setValue(`retailLocations.${index}.name`, value, {
+                          shouldDirty: true,
+                        })
+                        form.setValue(
+                          `retailLocations.${index}.venueName`,
+                          '',
+                          {
+                            shouldDirty: true,
+                          },
+                        )
+                        form.clearErrors(`retailLocations.${index}.address`)
+                        form.setValue(
+                          `retailLocations.${index}.latitude`,
+                          undefined,
+                          { shouldDirty: true },
+                        )
+                        form.setValue(
+                          `retailLocations.${index}.longitude`,
+                          undefined,
+                          { shouldDirty: true },
+                        )
+                        form.setValue(
+                          `retailLocations.${index}.verificationStatus`,
+                          'manual',
+                          { shouldDirty: true },
+                        )
+                      }}
                     />
                     <Button
                       type="button"
@@ -291,14 +290,20 @@ export function LocationsSection({
                       {t('searchLocation')}
                     </Button>
                   </div>
-                  <FieldError
-                    id={`${fieldId}-address-error`}
-                    show={Boolean(addressError)}
-                    text={t('requiredFieldError')}
-                  />
                   {searchErrors[field.id] ? (
-                    <p className="text-xs text-destructive" aria-live="polite">
+                    <p
+                      className="text-xs leading-5 text-destructive"
+                      aria-live="polite"
+                    >
                       {searchErrors[field.id]}
+                    </p>
+                  ) : null}
+                  {searchNotices[field.id] ? (
+                    <p
+                      className="text-xs leading-5 text-muted-foreground"
+                      aria-live="polite"
+                    >
+                      {searchNotices[field.id]}
                     </p>
                   ) : null}
                   {results.length > 0 ? (
@@ -322,17 +327,15 @@ export function LocationsSection({
                       ))}
                     </div>
                   ) : null}
-                  <p className="text-xs leading-5 text-muted-foreground">
-                    {t('locationManualOverrideHint')}
-                  </p>
-                </div>
+                </DashboardFormField>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor={`${fieldId}-floorOrCounter`}>
-                    {t('fieldFloorOrCounter')}
-                  </Label>
+                <DashboardFormField
+                  id={`${fieldId}-floorOrCounter`}
+                  label={t('fieldFloorOrCounter')}
+                  className="px-0 py-0"
+                >
                   <Input
                     id={`${fieldId}-floorOrCounter`}
                     className="min-h-12 bg-card"
@@ -341,12 +344,13 @@ export function LocationsSection({
                       `retailLocations.${index}.floorOrCounter`,
                     )}
                   />
-                </div>
+                </DashboardFormField>
 
-                <div className="space-y-2">
-                  <Label htmlFor={`${fieldId}-availabilityNote`}>
-                    {t('fieldAvailabilityNote')}
-                  </Label>
+                <DashboardFormField
+                  id={`${fieldId}-availabilityNote`}
+                  label={t('fieldAvailabilityNote')}
+                  className="px-0 py-0"
+                >
                   <Textarea
                     id={`${fieldId}-availabilityNote`}
                     className="min-h-12 bg-card"
@@ -355,7 +359,7 @@ export function LocationsSection({
                       `retailLocations.${index}.availabilityNote`,
                     )}
                   />
-                </div>
+                </DashboardFormField>
               </div>
 
               <input
@@ -376,7 +380,9 @@ export function LocationsSection({
               />
               <input
                 type="hidden"
-                {...form.register(`retailLocations.${index}.verificationStatus`)}
+                {...form.register(
+                  `retailLocations.${index}.verificationStatus`,
+                )}
               />
             </div>
           )
@@ -390,7 +396,7 @@ export function LocationsSection({
           <MapPin className="h-4 w-4" />
           {t('addRetailLocation')}
         </Button>
-      </div>
-    </section>
+      </StandardFormStack>
+    </StandardFormSection>
   )
 }

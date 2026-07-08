@@ -82,7 +82,7 @@ describe('BrandHeader — verified badge', () => {
         brand={makeBrand({
           retailLocations: [
             {
-              name: '大零售據點',
+              name: '大零售地點',
               address: '新北市林口區麗園一街11巷',
               latitude: 25.073,
               longitude: 121.389,
@@ -92,6 +92,6 @@ describe('BrandHeader — verified badge', () => {
       />,
     )
 
-    expect(screen.queryByText('大零售據點')).not.toBeInTheDocument()
+    expect(screen.queryByText('大零售地點')).not.toBeInTheDocument()
   })
 })

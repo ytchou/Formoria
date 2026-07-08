@@ -33,6 +33,50 @@ function optionalNumber(value: unknown): number | undefined {
   return Number.isFinite(number) ? number : undefined
 }
 
+function getLocationAddressKey(address: unknown): string {
+  return typeof address === 'string'
+    ? address.trim().replace(/\s+/g, '').toLocaleLowerCase()
+    : ''
+}
+
+function getLocationCoordinateKey(location: {
+  latitude?: unknown
+  longitude?: unknown
+}): string {
+  const latitude = optionalNumber(location.latitude)
+  const longitude = optionalNumber(location.longitude)
+  return latitude !== undefined && longitude !== undefined
+    ? `${latitude.toFixed(6)},${longitude.toFixed(6)}`
+    : ''
+}
+
+export function getDuplicateRetailLocationIndex(
+  locations: Array<{
+    address?: unknown
+    latitude?: unknown
+    longitude?: unknown
+  }>,
+): number | undefined {
+  const addresses = new Set<string>()
+  const coordinates = new Set<string>()
+
+  for (const [index, location] of locations.entries()) {
+    const addressKey = getLocationAddressKey(location.address)
+    if (addressKey) {
+      if (addresses.has(addressKey)) return index
+      addresses.add(addressKey)
+    }
+
+    const coordinateKey = getLocationCoordinateKey(location)
+    if (coordinateKey) {
+      if (coordinates.has(coordinateKey)) return index
+      coordinates.add(coordinateKey)
+    }
+  }
+
+  return undefined
+}
+
 function normalizeRelationshipType(
   value: unknown,
 ): RetailLocationRelationshipType {

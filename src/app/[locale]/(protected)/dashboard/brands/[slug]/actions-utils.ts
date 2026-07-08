@@ -2,7 +2,10 @@ import type { Brand, OtherUrl, RetailLocation } from '@/lib/types'
 import type { ReputationSummary } from '@/lib/types/brand'
 import type { ContentPayload } from '@/lib/services/moderation'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
-import { normalizeRetailLocations } from '@/lib/brands/locations'
+import {
+  getDuplicateRetailLocationIndex,
+  normalizeRetailLocations,
+} from '@/lib/brands/locations'
 import { sanitizeHref } from '@/lib/url'
 
 export class InvalidBrandEditFormError extends Error {}
@@ -161,6 +164,11 @@ export function parseBrandEditForm(formData: FormData): Partial<Brand> {
     ]),
   )
   const hasRetailLocationsField = formData.has('retailLocations[0].name')
+  const duplicateRetailLocationIndex =
+    getDuplicateRetailLocationIndex(retailLocations)
+  if (duplicateRetailLocationIndex !== undefined) {
+    throw new InvalidBrandEditFormError('Duplicate retail location')
+  }
 
   // Security-relevant allow-list: only explicitly permitted owner-editable fields may reach updateBrand.
   const updateData: Partial<Brand> = {}

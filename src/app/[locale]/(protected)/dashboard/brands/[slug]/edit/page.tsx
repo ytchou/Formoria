@@ -52,32 +52,28 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
   const defaultValues = buildBrandEditDefaultValues(brand, draft)
   const initialCompletedSteps = getCompletedWizardSteps(draft)
 
-  const initialStep = getInitialWizardStep(
-    rawStep,
-    initialCompletedSteps,
-    5,
-  )
+  const initialStep = getInitialWizardStep(rawStep, initialCompletedSteps, 5)
 
   const t = await getTranslations('dashboard.edit')
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-12">
-      <h1 className="font-heading text-2xl font-bold tracking-tight">
-        {t('pageHeading', { name: brand.name })}
-      </h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {t('pageSubheading')}
-      </p>
-
-      <div className="mt-8">
-        <BrandEditWizard
-          brand={brand}
-          defaultValues={defaultValues}
-          initialCompletedSteps={initialCompletedSteps}
-          initialStep={initialStep}
-          productTagSuggestions={productTagSuggestions}
-        />
+    <div className="w-full space-y-8">
+      <div>
+        <h1 className="font-heading text-2xl font-bold tracking-tight">
+          {t('pageHeading', { name: brand.name })}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t('pageSubheading')}
+        </p>
       </div>
+
+      <BrandEditWizard
+        brand={brand}
+        defaultValues={defaultValues}
+        initialCompletedSteps={initialCompletedSteps}
+        initialStep={initialStep}
+        productTagSuggestions={productTagSuggestions}
+      />
     </div>
   )
 }

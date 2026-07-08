@@ -8,7 +8,9 @@ import { InlineVerification } from '@/components/dashboard/inline-verification'
 import { OwnerBrandOverview } from '@/components/dashboard/owner-brand-overview'
 import { DashboardContentLayout } from '@/components/dashboard/dashboard-content-layout'
 import { WelcomeBanner } from '@/components/dashboard/welcome-banner'
+import { BrandDashboardShell } from '@/components/dashboard/brand-dashboard-shell'
 import { getBrandOnboardingProgress } from '@/lib/services/brand-onboarding'
+import { getLatestReview } from '../../_lib/latest-review'
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
@@ -24,9 +26,12 @@ export default async function BrandOverviewPage({ params }: Props) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const [ownerCheck, walkthrough] = await Promise.all([
-    user ? canManageDashboardBrand(user.id, user.email, brand.id, slug) : Promise.resolve(false),
+  const [ownerCheck, walkthrough, latestReview] = await Promise.all([
+    user
+      ? canManageDashboardBrand(user.id, user.email, brand.id, slug)
+      : Promise.resolve(false),
     getBrandOnboardingProgress(brand.id),
+    user ? getLatestReview({ brandId: brand.id }, user) : Promise.resolve(null),
   ])
   const completeness = computeProfileCompleteness(brand)
 
@@ -36,33 +41,41 @@ export default async function BrandOverviewPage({ params }: Props) {
         <ProfileCompletenessCard completeness={completeness} slug={slug} />
         <OwnerBrandOverview
           brand={brand}
-          verification={(
+          verification={
             <InlineVerification
               brandId={brand.id}
               embedded
               mitStatus={brand.mitStatus ?? 'unverified'}
               mitEvidence={brand.mitEvidence ?? undefined}
             />
-          )}
+          }
         />
       </div>
     </div>
   )
 
   return (
-    <DashboardContentLayout
-      showOnboarding={ownerCheck && !walkthrough.isComplete}
-      onboarding={ownerCheck ? (
-        <WelcomeBanner
-          brandId={brand.id}
-          completedCount={walkthrough.completedCount}
-          nextStep={walkthrough.nextStep}
-          slug={brand.slug}
-          steps={walkthrough.steps}
-        />
-      ) : null}
+    <BrandDashboardShell
+      brandName={brand.name}
+      brandSlug={brand.slug}
+      latestReview={latestReview}
     >
-      {content}
-    </DashboardContentLayout>
+      <DashboardContentLayout
+        showOnboarding={ownerCheck && !walkthrough.isComplete}
+        onboarding={
+          ownerCheck ? (
+            <WelcomeBanner
+              brandId={brand.id}
+              completedCount={walkthrough.completedCount}
+              nextStep={walkthrough.nextStep}
+              slug={brand.slug}
+              steps={walkthrough.steps}
+            />
+          ) : null
+        }
+      >
+        {content}
+      </DashboardContentLayout>
+    </BrandDashboardShell>
   )
 }

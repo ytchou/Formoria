@@ -3,6 +3,11 @@
 import { Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { type UseFormReturn, useFieldArray } from 'react-hook-form'
+import { DashboardFormField } from './dashboard-form-field'
+import {
+  StandardFormSection,
+  StandardFormStack,
+} from '@/components/forms/form-layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,22 +26,23 @@ export function ReputationSection({
   })
 
   return (
-    <section id="reputation" className="space-y-4">
-      <h2 className="mb-4 border-b border-border px-4 pb-2 font-heading text-base font-bold">
-        {t('sectionReputation')}
-      </h2>
+    <StandardFormSection id="reputation">
+      <StandardFormStack>
+        <h2 className="font-heading text-base font-bold">
+          {t('sectionReputation')}
+        </h2>
 
-      <div className="space-y-4 rounded-lg border border-border bg-card p-4">
-        <div className="space-y-2">
-          <Label htmlFor="reputationSummary">
-            {t('fieldReputationSummary')}
-          </Label>
+        <DashboardFormField
+          id="reputationSummary"
+          label={t('fieldReputationSummary')}
+          className="px-0 py-0"
+        >
           <Textarea
             id="reputationSummary"
             className="min-h-28 bg-card"
             {...form.register('reputationSummary')}
           />
-        </div>
+        </DashboardFormField>
         <div className="space-y-3">
           <Label>{t('fieldProvenanceSources')}</Label>
           {fields.map((field, index) => (
@@ -47,6 +53,7 @@ export function ReputationSection({
               <Input
                 className="min-h-12 bg-card"
                 type="url"
+                aria-label={t('fieldSourceUrlPlaceholder')}
                 placeholder={t('fieldSourceUrlPlaceholder')}
                 {...form.register(`reputationSources.${index}.url`)}
               />
@@ -70,7 +77,7 @@ export function ReputationSection({
             {t('addSource')}
           </Button>
         </div>
-      </div>
-    </section>
+      </StandardFormStack>
+    </StandardFormSection>
   )
 }

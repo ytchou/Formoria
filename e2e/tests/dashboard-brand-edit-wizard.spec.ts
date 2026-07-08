@@ -104,7 +104,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
       '基本資料',
       '品牌圖片',
       '社群與購買連結',
-      '據點',
+      '販售地點',
       '品牌口碑',
     ];
 

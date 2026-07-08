@@ -97,10 +97,10 @@ test.describe('MIT verification badges', () => {
       timeout: 10_000,
     });
 
-    // MIT badge in brand-header: label = 'MIT 已驗證', title = '已通過 MIT 微笑標章登錄驗證'
+    // MIT badge in brand-header: label = 'MIT 微笑認證', title = '已通過 MIT 微笑標章登錄驗證'
     const mitBadge = anonPage.locator('span[title="已通過 MIT 微笑標章登錄驗證"]');
     await expect(mitBadge).toBeVisible({ timeout: 5_000 });
-    await expect(mitBadge).toContainText('MIT 已驗證');
+    await expect(mitBadge).toContainText('MIT 微笑認證');
 
     // Owner badge (品牌經營) must NOT appear — no brand_owners row
     await expect(anonPage.locator('span[title="由品牌方經營管理"]')).toHaveCount(0);

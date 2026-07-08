@@ -26,7 +26,7 @@ const brandWithLocation: Brand = {
   otherUrls: [],
   retailLocations: [
     {
-      name: '大零售據點',
+      name: '大零售地點',
       relationshipType: 'stockist',
       address: '新北市林口區麗園一街11巷',
       latitude: 25.073,
@@ -71,8 +71,8 @@ describe('BrandLocations', () => {
   it('renders relationship-specific cards and outbound map links', () => {
     renderWithIntl(<BrandLocations brand={brandWithLocation} />)
 
-    expect(screen.getByText('大零售據點')).toBeInTheDocument()
-    expect(screen.getByText('販售據點')).toBeInTheDocument()
+    expect(screen.getByText('大零售地點')).toBeInTheDocument()
+    expect(screen.getByText('販售地點')).toBeInTheDocument()
     expect(screen.getByText('新光三越櫃位')).toBeInTheDocument()
     expect(screen.getByText('百貨專櫃')).toBeInTheDocument()
     expect(screen.getByText('手動地址')).toBeInTheDocument()

@@ -4,6 +4,7 @@ import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { createClient } from '@/lib/supabase/server'
 import SubmitOverview from '@/components/submit/SubmitOverview'
+import { getUserBrand } from '@/lib/services/brand-owners'
 
 type SubmitPageProps = {
   params: Promise<{ locale: string }>
@@ -49,10 +50,12 @@ export default async function SubmitPage({ params }: SubmitPageProps) {
   } = await supabase.auth.getUser()
 
   const isLoggedIn = !error && !!user
+  const hasOwnedBrand = isLoggedIn ? Boolean(await getUserBrand(user.id)) : false
+  const ownerPath = locale === 'en' ? '/en/submit/owner' : '/submit/owner'
 
   return (
     <SubmitOverview
-      ownerPath={locale === 'en' ? '/en/submit/owner' : '/submit/owner'}
+      ownerPath={hasOwnedBrand ? `${ownerPath}?ownedNotice=1` : ownerPath}
       recommendPath={locale === 'en' ? '/en/submit/recommend' : '/submit/recommend'}
       isLoggedIn={isLoggedIn}
     />

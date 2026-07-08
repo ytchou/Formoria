@@ -35,7 +35,7 @@ function renderForm(variant: 'recommend' | 'owner') {
   return render(
     <NextIntlClientProvider locale="zh-TW" messages={messages}>
       <SubmitForm variant={variant} />
-    </NextIntlClientProvider>
+    </NextIntlClientProvider>,
   )
 }
 
@@ -46,18 +46,28 @@ describe('SubmitForm', () => {
 
   it('renders recommendation form for guest users', () => {
     renderForm('recommend')
-    expect(screen.getByRole('heading', { name: /推薦品牌/ })).toBeInTheDocument()
-    expect(screen.getByLabelText(/你的電子郵件（選填）/)).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: /推薦品牌/ }),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText(/你的電子郵件/)).toBeInTheDocument()
     expect(screen.getByLabelText(/你如何知道這個品牌/)).toBeInTheDocument()
     expect(screen.queryByLabelText(/Instagram/)).not.toBeInTheDocument()
   })
 
   it('renders owner form with brand links and no source attribution selector', () => {
     renderForm('owner')
-    expect(screen.getByRole('heading', { name: /品牌主提交/ })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: /品牌主提交/ }),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText(/品牌簡介/)).toBeRequired()
+    expect(screen.getByLabelText(/品牌主圖/)).toBeInTheDocument()
     expect(screen.getByLabelText(/Instagram/)).toBeInTheDocument()
     expect(screen.getByLabelText(/品牌所在縣市/)).toBeInTheDocument()
-    expect(screen.queryByLabelText(/你如何知道這個品牌/)).not.toBeInTheDocument()
+    expect(screen.getByText('品牌連結')).toBeInTheDocument()
+    expect(screen.getByText('MIT 微笑標章編號')).toBeInTheDocument()
+    expect(
+      screen.queryByLabelText(/你如何知道這個品牌/),
+    ).not.toBeInTheDocument()
   })
 
   it('renders submit button disabled before required fields are completed', () => {

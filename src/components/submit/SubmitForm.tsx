@@ -26,20 +26,32 @@ import {
 } from '@/app/[locale]/submit/actions'
 import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
 import type { SourceAttribution } from '@/lib/types/submission'
+import { FormField } from '@/components/forms/form-field'
+import { StandardForm, StandardFormStack } from '@/components/forms/form-layout'
 import { ImageUploadField } from '@/components/forms/image-upload-field'
 import { Button } from '@/components/ui/button'
 import { TurnstileWidget } from '@/components/submit/TurnstileWidget'
-import { trackSubmissionCompleted, trackSubmissionFormOpened } from '@/lib/analytics'
+import {
+  trackSubmissionCompleted,
+  trackSubmissionFormOpened,
+} from '@/lib/analytics'
 
 type SubmitFormProps = {
   source?: 'header_cta' | 'hero_cta' | 'footer_link'
-  hasOwnedBrand?: boolean
   variant?: 'recommend' | 'owner'
 }
 
+const submitInputClassName =
+  'h-12 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20'
+
+const submitSelectClassName =
+  'h-12 w-full rounded-lg border border-border bg-white px-3 text-sm focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20'
+
+const submitTextareaClassName =
+  'min-h-32 w-full rounded-lg border border-border bg-white px-3.5 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20'
+
 export default function SubmitForm({
   source = 'hero_cta',
-  hasOwnedBrand = false,
   variant = 'recommend',
 }: SubmitFormProps) {
   const t = useTranslations('submit')
@@ -53,15 +65,14 @@ export default function SubmitForm({
 
   const tSchema = useMemo(
     () => (key: string) => t(key as Parameters<typeof t>[0]),
-    [t]
+    [t],
   )
   const schema = useMemo(
-    () => (
+    () =>
       variant === 'owner'
         ? createOwnerSubmissionSchema(tSchema)
-        : createRecommendationSubmissionSchema(tSchema)
-    ),
-    [tSchema, variant]
+        : createRecommendationSubmissionSchema(tSchema),
+    [tSchema, variant],
   )
   const resolver = useMemo(
     () => zodResolver(schema as never) as Resolver<SubmissionFormData>,
@@ -88,7 +99,14 @@ export default function SubmitForm({
       pdpaConsent: false,
       turnstileToken: '',
       honeypot: '',
-      socialLinks: { instagram: '', threads: '', facebook: '', pinkoi: '', shopee: '', website: '' },
+      socialLinks: {
+        instagram: '',
+        threads: '',
+        facebook: '',
+        pinkoi: '',
+        shopee: '',
+        website: '',
+      },
       purchaseLinks: [],
       heroImageUrl: '',
     },
@@ -103,7 +121,10 @@ export default function SubmitForm({
 
   useEffect(() => {
     mountTimeRef.current = Date.now()
-    trackSubmissionFormOpened(source, variant === 'owner' ? 'owner_claim' : 'recommend')
+    trackSubmissionFormOpened(
+      source,
+      variant === 'owner' ? 'owner_claim' : 'recommend',
+    )
   }, [source, variant])
 
   const handleNameBlur = async () => {
@@ -127,8 +148,9 @@ export default function SubmitForm({
   }
 
   const handleTurnstileSuccess = useCallback(
-    (token: string) => setValue('turnstileToken', token, { shouldValidate: true }),
-    [setValue]
+    (token: string) =>
+      setValue('turnstileToken', token, { shouldValidate: true }),
+    [setValue],
   )
 
   function handleWebsiteBlur(value: string) {
@@ -144,41 +166,46 @@ export default function SubmitForm({
   const websiteRegistration = register('website')
   const nameRegistration = register('name')
 
-  const submitForm = useCallback((data: SubmissionFormData) => {
-    setSubmitError(null)
+  const submitForm = useCallback(
+    (data: SubmissionFormData) => {
+      setSubmitError(null)
 
-    startTransition(async () => {
-      const result: { error?: string; ownershipAdjusted?: boolean } | undefined =
-        variant === 'owner'
-          ? await submitOwnerBrand(data)
-          : await submitRecommendation(data)
+      startTransition(async () => {
+        const result:
+          | { error?: string; ownershipAdjusted?: boolean }
+          | undefined =
+          variant === 'owner'
+            ? await submitOwnerBrand(data)
+            : await submitRecommendation(data)
 
-      if (result?.error) {
-        setSubmitError(result.error)
-        return
-      }
+        if (result?.error) {
+          setSubmitError(result.error)
+          return
+        }
 
-      const query = new URLSearchParams({
-        intent: variant === 'owner' ? 'owner_claim' : 'recommend',
+        const query = new URLSearchParams({
+          intent: variant === 'owner' ? 'owner_claim' : 'recommend',
+        })
+        if (result?.ownershipAdjusted) {
+          query.set('ownership', 'community')
+        }
+        router.push(`/submit/confirmation?${query.toString()}`)
+
+        if (mountTimeRef.current !== null) {
+          const elapsed = Math.round((Date.now() - mountTimeRef.current) / 1000)
+          trackSubmissionCompleted(
+            data.name,
+            '',
+            Boolean(data.heroImageUrl),
+            elapsed,
+            variant === 'owner' ? 'owner_claim' : 'recommend',
+            !data.guestEmail && variant === 'recommend',
+          )
+        }
       })
-      if (result?.ownershipAdjusted) {
-        query.set('ownership', 'community')
-      }
-      router.push(`/submit/confirmation?${query.toString()}`)
-
-      if (mountTimeRef.current !== null) {
-        const elapsed = Math.round((Date.now() - mountTimeRef.current) / 1000)
-        trackSubmissionCompleted(
-          data.name,
-          '',
-          Boolean(data.heroImageUrl),
-          elapsed,
-          variant === 'owner' ? 'owner_claim' : 'recommend',
-          !data.guestEmail && variant === 'recommend',
-        )
-      }
-    })
-  }, [router, startTransition, variant])
+    },
+    [router, startTransition, variant],
+  )
 
   const onSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
@@ -200,27 +227,25 @@ export default function SubmitForm({
         </p>
       </div>
 
-      <form
-        onSubmit={onSubmit}
-        className="rounded-xl border border-border bg-white p-8 shadow-sm"
-        noValidate
-      >
+      <StandardForm onSubmit={onSubmit} noValidate>
         <p className="mb-5 text-xs text-muted-foreground">
           <span className="text-destructive">*</span> {tForm('requiredHint')}
         </p>
 
-        <div className="flex flex-col gap-5">
-          <div className="space-y-1.5">
-            <label htmlFor="submit-name" className="block text-sm font-semibold text-foreground">
-              {tForm('brandNameLabel')} <span className="text-destructive">*</span>
-            </label>
-            <p className="text-xs text-muted-foreground">{tForm('brandNameHint')}</p>
+        <StandardFormStack>
+          <FormField
+            id="submit-name"
+            label={tForm('brandNameLabel')}
+            description={tForm('brandNameHint')}
+            error={errors.name?.message}
+            required
+          >
             <input
               id="submit-name"
               type="text"
               autoComplete="off"
               placeholder={tForm('brandNamePlaceholder')}
-              className="h-11 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
+              className={submitInputClassName}
               {...nameRegistration}
               onBlur={async (event) => {
                 nameRegistration.onBlur(event)
@@ -233,7 +258,9 @@ export default function SubmitForm({
             />
             {nameSuggestion ? (
               <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-white p-3 text-sm">
-                <span>{tForm('suggestedName')} <strong>{nameSuggestion}</strong></span>
+                <span>
+                  {tForm('suggestedName')} <strong>{nameSuggestion}</strong>
+                </span>
                 <button
                   type="button"
                   onClick={() => {
@@ -246,20 +273,21 @@ export default function SubmitForm({
                 </button>
               </div>
             ) : null}
-            {errors.name ? <p className="text-xs text-destructive">{errors.name.message}</p> : null}
-          </div>
+          </FormField>
 
-          <div className="space-y-1.5">
-            <label htmlFor="submit-website" className="block text-sm font-semibold text-foreground">
-              {tForm('websiteLabel')} <span className="text-destructive">*</span>
-            </label>
-            <p className="text-xs text-muted-foreground">{tForm('websiteHint')}</p>
+          <FormField
+            id="submit-website"
+            label={tForm('websiteLabel')}
+            description={tForm('websiteHint')}
+            error={errors.website?.message}
+            required
+          >
             <input
               id="submit-website"
               type="url"
               autoComplete="off"
               placeholder={tForm('websitePlaceholder')}
-              className="h-11 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
+              className={submitInputClassName}
               {...websiteRegistration}
               onBlur={(event) => {
                 websiteRegistration.onBlur(event)
@@ -272,7 +300,9 @@ export default function SubmitForm({
             />
             {urlSuggestion ? (
               <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-white p-3 text-sm">
-                <span>{tForm('suggestedUrl')} <strong>{urlSuggestion}</strong></span>
+                <span>
+                  {tForm('suggestedUrl')} <strong>{urlSuggestion}</strong>
+                </span>
                 <button
                   type="button"
                   onClick={() => {
@@ -285,78 +315,90 @@ export default function SubmitForm({
                 </button>
               </div>
             ) : null}
-            {errors.website ? <p className="text-xs text-destructive">{errors.website.message}</p> : null}
-          </div>
+          </FormField>
 
           {variant === 'recommend' ? (
-            <div className="space-y-1.5">
-              <label htmlFor="submit-guest-email" className="block text-sm font-semibold text-foreground">
-                {tForm('guestEmailLabel')}
-              </label>
-              <p className="text-xs text-muted-foreground">{tForm('guestEmailHint')}</p>
+            <FormField
+              id="submit-guest-email"
+              label={tForm('guestEmailLabel')}
+              description={tForm('guestEmailHint')}
+              error={errors.guestEmail?.message}
+            >
               <input
                 id="submit-guest-email"
                 type="email"
                 autoComplete="email"
                 spellCheck={false}
                 placeholder={tForm('guestEmailPlaceholder')}
-                className="h-11 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
+                className={submitInputClassName}
                 {...register('guestEmail')}
               />
-              {errors.guestEmail ? <p className="text-xs text-destructive">{errors.guestEmail.message}</p> : null}
-            </div>
+            </FormField>
           ) : null}
 
-          <div className="space-y-1.5">
-            <label htmlFor="submit-description" className="block text-sm font-semibold text-foreground">
-              {tForm('descriptionLabel')}
-            </label>
-            <p className="text-xs text-muted-foreground">{tForm('descriptionHint')}</p>
+          <FormField
+            id="submit-description"
+            label={tForm('descriptionLabel')}
+            description={tForm('descriptionHint')}
+            error={errors.description?.message}
+            required={variant === 'owner'}
+          >
             <textarea
               id="submit-description"
               rows={4}
+              required={variant === 'owner'}
               placeholder={tForm('descriptionPlaceholder')}
-              className="w-full rounded-lg border border-border bg-white px-3.5 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
+              className={submitTextareaClassName}
               {...register('description')}
             />
-            {errors.description ? <p className="text-xs text-destructive">{errors.description.message}</p> : null}
-          </div>
+          </FormField>
 
-          <div className="space-y-1.5">
-            <Controller
-              name="heroImageUrl"
-              control={control}
-              render={({ field, fieldState }) => (
-                <ImageUploadField
-                  name={field.name}
-                  label={t('fields.heroImage')}
-                  description={variant === 'owner' ? tForm('heroImageHintOwner') : tForm('heroImageHintRecommend')}
-                  uploadPath={`submissions/${sessionId}/hero`}
-                  value={field.value ?? ''}
-                  onChange={(value) => field.onChange(value)}
-                  error={fieldState.error?.message}
-                />
-              )}
-            />
-          </div>
+          <Controller
+            name="heroImageUrl"
+            control={control}
+            render={({ field, fieldState }) => (
+              <ImageUploadField
+                name={field.name}
+                label={t('fields.heroImage')}
+                description={
+                  variant === 'owner'
+                    ? tForm('heroImageHintOwner')
+                    : tForm('heroImageHintRecommend')
+                }
+                uploadPath={`submissions/${sessionId}/hero`}
+                value={field.value ?? ''}
+                onChange={(value) => field.onChange(value)}
+                required={variant === 'owner'}
+                error={fieldState.error?.message}
+              />
+            )}
+          />
 
           {variant === 'recommend' ? (
-            <div className="space-y-1.5">
-              <label htmlFor="submit-source" className="block text-sm font-semibold text-foreground">
-                {tForm('sourceLabel')} <span className="text-destructive">*</span>
-              </label>
-              <p className="text-xs text-muted-foreground">{tForm('sourceHint')}</p>
+            <FormField
+              id="submit-source"
+              label={tForm('sourceLabel')}
+              description={tForm('sourceHint')}
+              error={errors.sourceAttribution?.message}
+              required
+            >
               <Controller
                 name="sourceAttribution"
                 control={control}
                 render={({ field }) => (
                   <select
                     id="submit-source"
-                    className={`h-11 w-full rounded-lg border border-border bg-white px-3 text-sm focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 ${field.value ? 'text-foreground' : 'text-muted-foreground'}`}
+                    className={`${submitSelectClassName} ${field.value ? 'text-foreground' : 'text-muted-foreground'}`}
                     value={field.value ?? ''}
-                    onChange={(event) => field.onChange((event.target.value as SourceAttribution) || undefined)}
+                    onChange={(event) =>
+                      field.onChange(
+                        (event.target.value as SourceAttribution) || undefined,
+                      )
+                    }
                   >
-                    <option value="" disabled>{tForm('sourcePlaceholder')}</option>
+                    <option value="" disabled>
+                      {tForm('sourcePlaceholder')}
+                    </option>
                     {SOURCE_ATTRIBUTION_VALUES.map((value) => (
                       <option key={value} value={value}>
                         {t(`attribution.${value}` as Parameters<typeof t>[0])}
@@ -365,20 +407,19 @@ export default function SubmitForm({
                   </select>
                 )}
               />
-              {errors.sourceAttribution ? <p className="text-xs text-destructive">{errors.sourceAttribution.message}</p> : null}
-            </div>
+            </FormField>
           ) : null}
 
           {variant === 'owner' ? (
             <>
-              <div className="space-y-1.5">
-                <label htmlFor="submit-city" className="block text-sm font-semibold text-foreground">
-                  {t('city')}
-                </label>
-                <p className="text-xs text-muted-foreground">{tForm('cityHint')}</p>
+              <FormField
+                id="submit-city"
+                label={t('city')}
+                description={tForm('cityHint')}
+              >
                 <select
                   id="submit-city"
-                  className="h-12 w-full rounded-lg border border-border bg-white px-3 text-sm text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
+                  className={`${submitSelectClassName} text-muted-foreground`}
                   {...register('city', {
                     setValueAs: (value) => (value === '' ? undefined : value),
                   })}
@@ -390,54 +431,86 @@ export default function SubmitForm({
                     </option>
                   ))}
                 </select>
-              </div>
+              </FormField>
 
-              <div className="space-y-4">
-                <p className="text-sm font-semibold text-foreground">{tForm('linksHeading')}</p>
-                <p className="text-xs text-muted-foreground">{tForm('linksHint')}</p>
-                <div className="space-y-1.5">
-                  <label htmlFor="submit-instagram" className="block text-sm font-semibold text-foreground">{tForm('instagramLabel')}</label>
-                  <input id="submit-instagram" type="url" autoComplete="off" placeholder="https://instagram.com/yourbrand" className="h-12 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20" {...register('socialLinks.instagram')} />
+              <FormField
+                label={tForm('linksHeading')}
+                description={tForm('linksHint')}
+              >
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField
+                    id="submit-instagram"
+                    label={tForm('instagramLabel')}
+                  >
+                    <input
+                      id="submit-instagram"
+                      type="url"
+                      autoComplete="off"
+                      placeholder="https://instagram.com/yourbrand"
+                      className={submitInputClassName}
+                      {...register('socialLinks.instagram')}
+                    />
+                  </FormField>
+                  <FormField id="submit-threads" label={tForm('threadsLabel')}>
+                    <input
+                      id="submit-threads"
+                      type="url"
+                      autoComplete="off"
+                      placeholder="https://threads.net/@yourbrand"
+                      className={submitInputClassName}
+                      {...register('socialLinks.threads')}
+                    />
+                  </FormField>
+                  <FormField
+                    id="submit-facebook"
+                    label={tForm('facebookLabel')}
+                  >
+                    <input
+                      id="submit-facebook"
+                      type="url"
+                      autoComplete="off"
+                      placeholder="https://facebook.com/yourbrand"
+                      className={submitInputClassName}
+                      {...register('socialLinks.facebook')}
+                    />
+                  </FormField>
+                  <FormField id="submit-pinkoi" label={tForm('pinkoiLabel')}>
+                    <input
+                      id="submit-pinkoi"
+                      type="url"
+                      autoComplete="off"
+                      placeholder="https://pinkoi.com/store/yourbrand"
+                      className={submitInputClassName}
+                      {...register('socialLinks.pinkoi')}
+                    />
+                  </FormField>
+                  <FormField id="submit-shopee" label={tForm('shopeeLabel')}>
+                    <input
+                      id="submit-shopee"
+                      type="url"
+                      autoComplete="off"
+                      placeholder="https://shopee.tw/yourbrand"
+                      className={submitInputClassName}
+                      {...register('socialLinks.shopee')}
+                    />
+                  </FormField>
                 </div>
-                <div className="space-y-1.5">
-                  <label htmlFor="submit-threads" className="block text-sm font-semibold text-foreground">{tForm('threadsLabel')}</label>
-                  <input id="submit-threads" type="url" autoComplete="off" placeholder="https://threads.net/@yourbrand" className="h-12 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20" {...register('socialLinks.threads')} />
-                </div>
-                <div className="space-y-1.5">
-                  <label htmlFor="submit-facebook" className="block text-sm font-semibold text-foreground">{tForm('facebookLabel')}</label>
-                  <input id="submit-facebook" type="url" autoComplete="off" placeholder="https://facebook.com/yourbrand" className="h-12 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20" {...register('socialLinks.facebook')} />
-                </div>
-                <div className="space-y-1.5">
-                  <label htmlFor="submit-pinkoi" className="block text-sm font-semibold text-foreground">{tForm('pinkoiLabel')}</label>
-                  <input id="submit-pinkoi" type="url" autoComplete="off" placeholder="https://pinkoi.com/store/yourbrand" className="h-12 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20" {...register('socialLinks.pinkoi')} />
-                </div>
-                <div className="space-y-1.5">
-                  <label htmlFor="submit-shopee" className="block text-sm font-semibold text-foreground">{tForm('shopeeLabel')}</label>
-                  <input id="submit-shopee" type="url" autoComplete="off" placeholder="https://shopee.tw/yourbrand" className="h-12 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20" {...register('socialLinks.shopee')} />
-                </div>
-              </div>
+              </FormField>
 
-              <div className="space-y-2 rounded-lg border border-border bg-muted/40 p-4">
-                <p className="text-sm font-semibold text-foreground">{tForm('ownerFlowTitle')}</p>
-                <p className="text-xs leading-6 text-muted-foreground">
-                  {hasOwnedBrand ? tForm('ownerLimitHint') : tForm('ownerFlowHint')}
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="submit-mit-smile-cert" className="block text-sm font-semibold text-foreground">
-                  {t('fields.mitSmileMarkNumber')}
-                </label>
-                <p className="text-xs text-muted-foreground">{t('fields.mitSmileMarkNumberHint')}</p>
+              <FormField
+                id="submit-mit-smile-cert"
+                label={t('fields.mitSmileMarkNumber')}
+                description={t('fields.mitSmileMarkNumberHint')}
+              >
                 <input
                   id="submit-mit-smile-cert"
                   type="text"
                   autoComplete="off"
                   placeholder={t('fields.mitSmileMarkNumberPlaceholder')}
-                  className="h-11 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
+                  className={submitInputClassName}
                   {...register('mitSmileCert')}
                 />
-              </div>
+              </FormField>
             </>
           ) : null}
 
@@ -470,7 +543,11 @@ export default function SubmitForm({
                       })}
                     </span>
                   </label>
-                  {fieldState.error ? <p className="text-xs text-destructive">{fieldState.error.message}</p> : null}
+                  {fieldState.error ? (
+                    <p className="text-xs text-destructive">
+                      {fieldState.error.message}
+                    </p>
+                  ) : null}
                 </div>
               )}
             />
@@ -490,16 +567,25 @@ export default function SubmitForm({
           </div>
 
           {submitError ? (
-            <p role="alert" className="text-sm text-destructive" aria-live="polite">
+            <p
+              role="alert"
+              className="text-sm text-destructive"
+              aria-live="polite"
+            >
               {submitError}
             </p>
           ) : null}
 
-          <Button type="submit" variant="cta" disabled={isSubmitDisabled} className="w-full">
+          <Button
+            type="submit"
+            variant="cta"
+            disabled={isSubmitDisabled}
+            className="w-full"
+          >
             {isPending ? tForm('submittingButton') : tForm('submitButton')}
           </Button>
-        </div>
-      </form>
+        </StandardFormStack>
+      </StandardForm>
     </div>
   )
 }

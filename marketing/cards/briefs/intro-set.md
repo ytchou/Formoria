@@ -142,7 +142,7 @@ background.value:   #2F5D50
 tag:                看得見的信任
 headline:           三種信任標記
 numbered:
-  1. MIT 已驗證 — 比對台灣製造登錄資料
+  1. MIT 微笑認證 — 比對台灣製造登錄資料
   2. 社群策展 — 由真實使用者推薦
   3. 品牌經營 — 品牌親自認領與維護
 footer:             島藏 Formoria

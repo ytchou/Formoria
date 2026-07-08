@@ -19,7 +19,7 @@ export function MicrositeFooter({ brand }: MicrositeFooterProps) {
 
         {brand.mitVerified === true && (
           <span className="inline-flex w-fit items-center rounded-full bg-[var(--verified-green-bg,#EAF3E8)] px-2.5 py-1 text-[11px] font-semibold text-[var(--verified-green,#2D5A27)]">
-            MIT 已驗證
+            MIT 微笑認證
           </span>
         )}
       </div>

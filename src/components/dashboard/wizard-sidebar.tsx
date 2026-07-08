@@ -1,12 +1,12 @@
 'use client'
 
-import { ListChecks } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { WizardStep } from '@/lib/schemas/brand-edit'
 import {
   OnboardingStepList,
   type OnboardingStepItem,
 } from './onboarding-step-list'
+import { ProgressStepCard } from './progress-step-card'
 
 type WizardSidebarProps = {
   steps: WizardStep[]
@@ -43,41 +43,28 @@ export function WizardSidebar({
   })
 
   const activeStepItem = stepItems[activeStep]
-  const progressPercent = steps.length
-    ? Math.round(((activeStep + 1) / steps.length) * 100)
-    : 0
+  const progressText = t('wizardProgress', {
+    current: activeStep + 1,
+    total: steps.length,
+  })
 
   return (
     <>
-      <aside className="sticky top-6 hidden w-60 self-start border-r border-border bg-card md:block">
-        <div className="flex items-center gap-3 px-4 pt-4 pb-2">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <ListChecks className="size-5" />
-          </span>
-          <div className="min-w-0">
-            <h2 className="font-heading text-base font-bold leading-tight text-foreground">
-              {t('wizardSidebarTitle')}
-            </h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {t('wizardProgress', {
-                current: activeStep + 1,
-                total: steps.length,
-              })}
-            </p>
-          </div>
-        </div>
-        <nav
-          className="p-3"
-          aria-label={t('wizardProgress', {
-            current: activeStep + 1,
-            total: steps.length,
-          })}
+      <aside className="sticky top-6 hidden w-80 self-start md:block">
+        <ProgressStepCard
+          title={t('wizardSidebarTitle')}
+          progressText={progressText}
+          progressLabel={progressText}
+          value={activeStep + 1}
+          max={steps.length}
         >
-          <OnboardingStepList className="space-y-1" steps={stepItems} onStepClick={onStepClick} />
-        </nav>
+          <nav aria-label={progressText}>
+            <OnboardingStepList steps={stepItems} onStepClick={onStepClick} />
+          </nav>
+        </ProgressStepCard>
       </aside>
 
-      <details className="border-b border-border bg-card md:hidden">
+      <details className="rounded-xl border border-border bg-card shadow-sm md:hidden">
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 py-3 text-left text-sm font-semibold text-foreground outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden">
           <span className="min-w-0">
             <span className="block truncate">
@@ -90,54 +77,32 @@ export function WizardSidebar({
             </span>
           </span>
           <span className="ml-3 text-xs text-muted-foreground">
-            {progressPercent}%
+            {progressText}
           </span>
         </summary>
 
-        <nav
-          className="border-t border-border p-3"
-          aria-label={t('wizardProgress', {
-            current: activeStep + 1,
-            total: steps.length,
-          })}
-        >
+        <nav className="border-t border-border p-3" aria-label={progressText}>
           <OnboardingStepList steps={stepItems} onStepClick={onStepClick} />
         </nav>
 
-        <WizardProgress
-          value={progressPercent}
-          label={t('wizardProgress', {
-            current: activeStep + 1,
-            total: steps.length,
-          })}
-        />
+        <div className="border-t border-border px-4 py-3">
+          <div
+            className="h-2 overflow-hidden rounded-full bg-muted"
+            role="progressbar"
+            aria-label={progressText}
+            aria-valuemin={0}
+            aria-valuemax={steps.length}
+            aria-valuenow={activeStep + 1}
+          >
+            <div
+              className="h-full rounded-full bg-primary transition-[width]"
+              style={{
+                width: `${steps.length ? ((activeStep + 1) / steps.length) * 100 : 0}%`,
+              }}
+            />
+          </div>
+        </div>
       </details>
     </>
-  )
-}
-
-function WizardProgress({
-  value,
-  label,
-}: {
-  value: number
-  label: string
-}) {
-  return (
-    <div className="border-t border-border p-4">
-      <div
-        className="h-2 overflow-hidden rounded-full bg-secondary"
-        role="progressbar"
-        aria-label={label}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={value}
-      >
-        <div
-          className="h-full rounded-full bg-primary transition-[width]"
-          style={{ width: `${value}%` }}
-        />
-      </div>
-    </div>
   )
 }

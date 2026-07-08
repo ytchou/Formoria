@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  getDuplicateRetailLocationIndex,
   hasLocationCoordinates,
   normalizeRetailLocations,
 } from './locations'
@@ -80,5 +81,34 @@ describe('normalizeRetailLocations', () => {
     expect(locations.at(0)?.latitude).toBeUndefined()
     expect(locations.at(0)?.longitude).toBeUndefined()
     expect(locations.at(0)?.verificationStatus).toBe('manual')
+  })
+})
+
+describe('getDuplicateRetailLocationIndex', () => {
+  it('flags repeated normalized addresses', () => {
+    expect(
+      getDuplicateRetailLocationIndex([
+        { address: 'Taipei 101' },
+        { address: ' Taipei   101 ' },
+      ]),
+    ).toBe(1)
+  })
+
+  it('flags repeated verified coordinates', () => {
+    expect(
+      getDuplicateRetailLocationIndex([
+        { address: 'A', latitude: 25.033964, longitude: 121.564468 },
+        { address: 'B', latitude: '25.0339641', longitude: '121.5644681' },
+      ]),
+    ).toBe(1)
+  })
+
+  it('allows distinct manual locations', () => {
+    expect(
+      getDuplicateRetailLocationIndex([
+        { address: 'Taipei 101' },
+        { address: 'Songshan Cultural Park' },
+      ]),
+    ).toBeUndefined()
   })
 })

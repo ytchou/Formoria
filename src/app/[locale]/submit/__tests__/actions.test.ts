@@ -37,17 +37,20 @@ vi.mock('next-intl/server', () => ({
 }))
 
 vi.mock('next/headers', () => ({
-  headers: vi.fn(async () => new Headers([
-    ['cf-connecting-ip', '127.0.0.1'],
-    ['x-forwarded-for', '127.0.0.1'],
-  ])),
+  headers: vi.fn(
+    async () =>
+      new Headers([
+        ['cf-connecting-ip', '127.0.0.1'],
+        ['x-forwarded-for', '127.0.0.1'],
+      ]),
+  ),
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() =>
     Promise.resolve({
       auth: { getUser: mockGetUser },
-    })
+    }),
   ),
 }))
 
@@ -65,11 +68,11 @@ vi.mock('@/lib/security/turnstile', () => ({
 
 vi.mock('@/lib/security/rate-limiter', () => ({
   createInMemoryRateLimiter: vi.fn(() => ({
-    check: vi.fn((key: string) => (
+    check: vi.fn((key: string) =>
       key === '127.0.0.1'
         ? mockGuestRateLimiterCheck(key)
-        : mockOwnerRateLimiterCheck(key)
-    )),
+        : mockOwnerRateLimiterCheck(key),
+    ),
   })),
 }))
 
@@ -88,14 +91,20 @@ vi.mock('@/lib/services/submissions', () => ({
 }))
 
 import { getTranslations } from 'next-intl/server'
-import { submitOwnerBrand, submitRecommendation } from '@/app/[locale]/submit/actions'
+import {
+  submitOwnerBrand,
+  submitRecommendation,
+} from '@/app/[locale]/submit/actions'
 
 describe('submit actions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(getTranslations).mockImplementation(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      async (namespace: any) => makeT(zhMessages as Record<string, unknown>, typeof namespace === 'string' ? namespace : '') as any
+      async (namespace) =>
+        makeT(
+          zhMessages as Record<string, unknown>,
+          typeof namespace === 'string' ? namespace : '',
+        ) as Awaited<ReturnType<typeof getTranslations>>,
     )
     mockGetUser.mockResolvedValue({
       data: {
@@ -109,7 +118,9 @@ describe('submit actions', () => {
     })
     mockVerifyTurnstileToken.mockResolvedValue({ success: true })
     mockGetUserBrand.mockResolvedValue(null)
-    mockSubmitBrandForReview.mockResolvedValue({ submissionId: 'submission-123' })
+    mockSubmitBrandForReview.mockResolvedValue({
+      submissionId: 'submission-123',
+    })
     mockCheckBrandDuplicates.mockResolvedValue({ nameMatches: [] })
     mockOwnerRateLimiterCheck.mockReturnValue({ allowed: true })
     mockGuestRateLimiterCheck.mockReturnValue({ allowed: true })
@@ -135,13 +146,15 @@ describe('submit actions', () => {
         sourceAttribution: 'found_online',
         submitterEmail: 'guest+123@guest.formoria.invalid',
       }),
-      { useServiceRole: true }
+      { useServiceRole: true },
     )
   })
 
   it('blocks duplicate guest recommendations', async () => {
     mockCheckBrandDuplicates.mockResolvedValue({
-      nameMatches: [{ id: 'b1', name: 'Test Brand', slug: 'test-brand', similarity: 0.95 }],
+      nameMatches: [
+        { id: 'b1', name: 'Test Brand', slug: 'test-brand', similarity: 0.95 },
+      ],
     })
 
     const result = await submitRecommendation({
@@ -178,6 +191,7 @@ describe('submit actions', () => {
       name: 'Owner Brand',
       website: 'https://owner.test',
       description: 'Owner submission',
+      heroImageUrl: 'https://owner.test/hero.jpg',
       mitSmileCert: '0123',
       socialLinks: { instagram: 'https://instagram.com/ownerbrand' },
       pdpaConsent: true,
@@ -192,7 +206,7 @@ describe('submit actions', () => {
         isBrandOwner: true,
         submitterEmail: 'owner@example.com',
         mitSmileCert: '0123',
-      })
+      }),
     )
   })
 
@@ -202,6 +216,8 @@ describe('submit actions', () => {
     const result = await submitOwnerBrand({
       name: 'Second Brand',
       website: 'https://second.test',
+      description: 'Second owner submission',
+      heroImageUrl: 'https://second.test/hero.jpg',
       pdpaConsent: true,
       turnstileToken: 'test-token',
       honeypot: '',
@@ -209,7 +225,7 @@ describe('submit actions', () => {
 
     expect(result).toEqual({ ownershipAdjusted: true })
     expect(mockSubmitBrandForReview).toHaveBeenCalledWith(
-      expect.objectContaining({ isBrandOwner: false, intent: 'recommend' })
+      expect.objectContaining({ isBrandOwner: false, intent: 'recommend' }),
     )
   })
 })

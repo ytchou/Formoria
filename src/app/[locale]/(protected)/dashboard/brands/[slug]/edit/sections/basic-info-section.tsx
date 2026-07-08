@@ -1,13 +1,15 @@
 'use client'
 
-import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { type UseFormReturn, Controller } from 'react-hook-form'
+import { DashboardFormField } from './dashboard-form-field'
+import {
+  StandardFormSection,
+  StandardFormStack,
+} from '@/components/forms/form-layout'
 import { ProductTagField } from '@/components/forms/product-tag-field'
-import { RequiredLabel } from '@/components/forms/required-label'
 import { RequiredFieldsHint } from '@/components/forms/required-fields-hint'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -16,52 +18,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { cn } from '@/lib/utils'
 import { TAIWAN_CITIES } from '@/lib/constants/taiwan-cities'
 import type { BrandEditFormValues } from '@/lib/schemas/brand-edit'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
-import { useDirtyFields } from '../dirty-fields-context'
-
-function FieldHint({ text }: { text: string }) {
-  return <p className="text-xs text-muted-foreground">{text}</p>
-}
-
-function FieldError({
-  id,
-  show,
-  text,
-}: {
-  id: string
-  show: boolean
-  text: string
-}) {
-  return show ? (
-    <p id={id} className="text-xs text-destructive" aria-live="polite">
-      {text}
-    </p>
-  ) : null
-}
-
-function DirtyFieldWrapper({
-  fieldName,
-  children,
-}: {
-  fieldName: keyof BrandEditFormValues
-  children: ReactNode
-}) {
-  const dirtyFields = useDirtyFields()
-  const isDirty = Boolean(dirtyFields[fieldName])
-  return (
-    <div
-      className={cn(
-        'space-y-2 rounded-md px-4 py-1 transition-colors',
-        isDirty && 'bg-amber-50/60 ring-1 ring-amber-200',
-      )}
-    >
-      {children}
-    </div>
-  )
-}
 
 export function BasicInfoSection({
   form,
@@ -92,245 +51,268 @@ export function BasicInfoSection({
     return labels[String(value)] ?? String(value ?? '')
   }
   return (
-    <section id="basic-info" className="space-y-4">
-      <h2 className="mb-4 border-b border-border px-4 pb-2 font-heading text-base font-bold">
-        {t('wizardStepBasicInfo')}
-      </h2>
-      <RequiredFieldsHint />
+    <StandardFormSection id="basic-info">
+      <StandardFormStack>
+        <h2 className="font-heading text-base font-bold">
+          {t('wizardStepBasicInfo')}
+        </h2>
+        <RequiredFieldsHint />
 
-      <DirtyFieldWrapper fieldName="name">
-        <RequiredLabel htmlFor="name">{t('fieldBrandName')}</RequiredLabel>
-        <Input
+        <DashboardFormField
           id="name"
-          aria-required="true"
-          aria-invalid={Boolean(form.formState.errors.name)}
-          aria-describedby={
-            form.formState.errors.name ? 'name-error' : undefined
+          fieldName="name"
+          label={t('fieldBrandName')}
+          required
+          error={
+            form.formState.errors.name ? t('requiredFieldError') : undefined
           }
-          className="min-h-12 bg-card"
-          {...form.register('name')}
-        />
-        <FieldError
-          id="name-error"
-          show={Boolean(form.formState.errors.name)}
-          text={t('requiredFieldError')}
-        />
-      </DirtyFieldWrapper>
+          errorId="name-error"
+        >
+          <Input
+            id="name"
+            aria-required="true"
+            aria-invalid={Boolean(form.formState.errors.name)}
+            aria-describedby={
+              form.formState.errors.name ? 'name-error' : undefined
+            }
+            className="min-h-12 bg-card"
+            {...form.register('name')}
+          />
+        </DashboardFormField>
 
-      <DirtyFieldWrapper fieldName="productType">
-        <RequiredLabel htmlFor="productType">
-          {t('fieldProductType')}
-        </RequiredLabel>
-        <FieldHint
-          text={tx(
+        <DashboardFormField
+          id="productType"
+          fieldName="productType"
+          label={t('fieldProductType')}
+          description={tx(
             'fieldCategoryHint',
             'Used for navigation, search, and filtering',
           )}
-        />
-        <Controller
-          control={form.control}
-          name="productType"
-          render={({ field }) => (
-            <Select value={field.value ?? ''} onValueChange={field.onChange}>
-              <SelectTrigger
-                id="productType"
-                aria-required="true"
-                aria-invalid={Boolean(form.formState.errors.productType)}
-                aria-describedby={
-                  form.formState.errors.productType
-                    ? 'productType-error'
-                    : undefined
-                }
-                className="min-h-12 w-full bg-card"
-              >
-                <SelectValue placeholder={t('fieldProductType')}>
-                  {getCategoryLabel}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {PRODUCT_TYPE_CATEGORIES.map((category) => (
-                  <SelectItem key={category.slug} value={category.slug}>
-                    {category.nameZh} ({category.name})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
-        <FieldError
-          id="productType-error"
-          show={Boolean(form.formState.errors.productType)}
-          text={t('requiredFieldError')}
-        />
-      </DirtyFieldWrapper>
+          required
+          error={
+            form.formState.errors.productType
+              ? t('requiredFieldError')
+              : undefined
+          }
+          errorId="productType-error"
+        >
+          <Controller
+            control={form.control}
+            name="productType"
+            render={({ field }) => (
+              <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                <SelectTrigger
+                  id="productType"
+                  aria-required="true"
+                  aria-invalid={Boolean(form.formState.errors.productType)}
+                  aria-describedby={
+                    form.formState.errors.productType
+                      ? 'productType-error'
+                      : undefined
+                  }
+                  className="min-h-12 w-full bg-card"
+                >
+                  <SelectValue placeholder={t('fieldProductType')}>
+                    {getCategoryLabel}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {PRODUCT_TYPE_CATEGORIES.map((category) => (
+                    <SelectItem key={category.slug} value={category.slug}>
+                      {category.nameZh} ({category.name})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </DashboardFormField>
 
-      <DirtyFieldWrapper fieldName="description">
-        <RequiredLabel htmlFor="description">
-          {t('fieldDescription')}
-        </RequiredLabel>
-        <FieldHint
-          text={tx(
+        <DashboardFormField
+          id="description"
+          fieldName="description"
+          label={t('fieldDescription')}
+          description={tx(
             'fieldDescriptionHint',
             'Public description shown on the brand page',
           )}
-        />
-        <Textarea
-          id="description"
-          aria-required="true"
-          aria-invalid={Boolean(form.formState.errors.description)}
-          aria-describedby={
-            form.formState.errors.description ? 'description-error' : undefined
+          required
+          error={
+            form.formState.errors.description
+              ? t('requiredFieldError')
+              : undefined
           }
-          className="min-h-28 bg-card"
-          {...form.register('description')}
-        />
-        <FieldError
-          id="description-error"
-          show={Boolean(form.formState.errors.description)}
-          text={t('requiredFieldError')}
-        />
-      </DirtyFieldWrapper>
-
-      <DirtyFieldWrapper fieldName="foundingYear">
-        <Label htmlFor="foundingYear">{t('fieldFoundingYear')}</Label>
-        <FieldHint
-          text={tx('fieldFoundingYearHint', 'Shown on the brand page')}
-        />
-        <Input
-          id="foundingYear"
-          type="number"
-          min={1900}
-          max={new Date().getFullYear()}
-          className="min-h-12 bg-card"
-          {...form.register('foundingYear')}
-        />
-      </DirtyFieldWrapper>
-
-      <DirtyFieldWrapper fieldName="mitStory">
-        <Label htmlFor="mitStory">{t('mitStoryLabel')}</Label>
-        <FieldHint
-          text={tx('mitStoryHint', 'Shown on the brand page if provided')}
-        />
-        <Textarea
-          id="mitStory"
-          rows={5}
-          placeholder={t('mitStoryPlaceholder')}
-          className="min-h-28 bg-card"
-          {...form.register('mitStory')}
-        />
-      </DirtyFieldWrapper>
-
-      <DirtyFieldWrapper fieldName="productTags">
-        <div
-          aria-required="true"
-          aria-invalid={Boolean(form.formState.errors.productTags)}
-          aria-describedby={
-            form.formState.errors.productTags ? 'productTags-error' : undefined
-          }
+          errorId="description-error"
         >
-          <RequiredLabel>
-            {tx('fieldProductTags', 'Product tags')}
-          </RequiredLabel>
-          <p className="text-xs text-muted-foreground">
-            {tx('productTagsMax', 'Up to 5 product tags')}
-          </p>
-          <Controller
-            control={form.control}
-            name="productTags"
-            render={({ field }) => (
-              <ProductTagField
-                value={field.value ?? []}
-                onChange={field.onChange}
-                suggestions={productTagSuggestions}
-                inputLabel={tx('fieldProductTags', 'Product tags')}
-                placeholder={tx(
-                  'fieldProductTagsPlaceholder',
-                  'Add product tag',
-                )}
-                removeLabel={tx('removeProductTag', 'Remove tag')}
-              />
-            )}
+          <Textarea
+            id="description"
+            aria-required="true"
+            aria-invalid={Boolean(form.formState.errors.description)}
+            aria-describedby={
+              form.formState.errors.description
+                ? 'description-error'
+                : undefined
+            }
+            className="min-h-28 bg-card"
+            {...form.register('description')}
           />
-        </div>
-        <FieldError
-          id="productTags-error"
-          show={Boolean(form.formState.errors.productTags)}
-          text={t('requiredFieldError')}
-        />
-      </DirtyFieldWrapper>
+        </DashboardFormField>
 
-      <DirtyFieldWrapper fieldName="city">
-        <Label htmlFor="city">{t('city')}</Label>
-        <FieldHint
-          text={tx(
+        <DashboardFormField
+          id="foundingYear"
+          fieldName="foundingYear"
+          label={t('fieldFoundingYear')}
+          description={tx('fieldFoundingYearHint', 'Shown on the brand page')}
+        >
+          <Input
+            id="foundingYear"
+            type="number"
+            min={1900}
+            max={new Date().getFullYear()}
+            className="min-h-12 bg-card"
+            {...form.register('foundingYear')}
+          />
+        </DashboardFormField>
+
+        <DashboardFormField
+          id="mitStory"
+          fieldName="mitStory"
+          label={t('mitStoryLabel')}
+          description={tx(
+            'mitStoryHint',
+            'Shown on the brand page if provided',
+          )}
+        >
+          <Textarea
+            id="mitStory"
+            rows={5}
+            placeholder={t('mitStoryPlaceholder')}
+            className="min-h-28 bg-card"
+            {...form.register('mitStory')}
+          />
+        </DashboardFormField>
+
+        <DashboardFormField
+          id="productTags"
+          fieldName="productTags"
+          label={tx('fieldProductTags', 'Product tags')}
+          description={tx('productTagsMax', 'Up to 5 product tags')}
+          required
+          error={
+            form.formState.errors.productTags
+              ? t('requiredFieldError')
+              : undefined
+          }
+          errorId="productTags-error"
+        >
+          <div
+            aria-required="true"
+            aria-invalid={Boolean(form.formState.errors.productTags)}
+            aria-describedby={
+              form.formState.errors.productTags
+                ? 'productTags-error'
+                : undefined
+            }
+          >
+            <Controller
+              control={form.control}
+              name="productTags"
+              render={({ field }) => (
+                <ProductTagField
+                  value={field.value ?? []}
+                  onChange={field.onChange}
+                  suggestions={productTagSuggestions}
+                  inputLabel={tx('fieldProductTags', 'Product tags')}
+                  placeholder={tx(
+                    'fieldProductTagsPlaceholder',
+                    'Add product tag',
+                  )}
+                  removeLabel={tx('removeProductTag', 'Remove tag')}
+                />
+              )}
+            />
+          </div>
+        </DashboardFormField>
+
+        <DashboardFormField
+          id="city"
+          fieldName="city"
+          label={t('city')}
+          description={tx(
             'cityHint',
             'Your brand will be shown on the map if provided',
           )}
-        />
-        <Controller
-          control={form.control}
-          name="city"
-          render={({ field }) => (
-            <Select value={field.value ?? ''} onValueChange={field.onChange}>
-              <SelectTrigger id="city" className="min-h-12 w-full bg-card">
-                <SelectValue placeholder={t('cityPlaceholder')}>
-                  {getCityLabel}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {TAIWAN_CITIES.map((city) => (
-                  <SelectItem key={city.slug} value={city.slug}>
-                    {tCities(city.slug)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
-      </DirtyFieldWrapper>
+        >
+          <Controller
+            control={form.control}
+            name="city"
+            render={({ field }) => (
+              <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                <SelectTrigger id="city" className="min-h-12 w-full bg-card">
+                  <SelectValue placeholder={t('cityPlaceholder')}>
+                    {getCityLabel}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {TAIWAN_CITIES.map((city) => (
+                    <SelectItem key={city.slug} value={city.slug}>
+                      {tCities(city.slug)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </DashboardFormField>
 
-      <DirtyFieldWrapper fieldName="priceRange">
-        <RequiredLabel htmlFor="priceRange">
-          {tx('fieldPriceRange', 'Price Range')}
-        </RequiredLabel>
-        <FieldHint text={tx('fieldPriceRangeHint', 'Used for filtering')} />
-        <Controller
-          control={form.control}
-          name="priceRange"
-          render={({ field }) => (
-            <Select
-              value={field.value == null ? '' : String(field.value)}
-              onValueChange={field.onChange}
-            >
-              <SelectTrigger
-                id="priceRange"
-                aria-required="true"
-                aria-invalid={Boolean(form.formState.errors.priceRange)}
-                aria-describedby={
-                  form.formState.errors.priceRange
-                    ? 'priceRange-error'
-                    : undefined
-                }
-                className="min-h-12 w-full bg-card"
+        <DashboardFormField
+          id="priceRange"
+          fieldName="priceRange"
+          label={tx('fieldPriceRange', 'Price Range')}
+          description={tx('fieldPriceRangeHint', 'Used for filtering')}
+          required
+          error={
+            form.formState.errors.priceRange
+              ? t('requiredFieldError')
+              : undefined
+          }
+          errorId="priceRange-error"
+        >
+          <Controller
+            control={form.control}
+            name="priceRange"
+            render={({ field }) => (
+              <Select
+                value={field.value == null ? '' : String(field.value)}
+                onValueChange={field.onChange}
               >
-                <SelectValue placeholder={tx('fieldPriceRangeUnset', 'Unset')}>
-                  {getPriceRangeLabel}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">{getPriceRangeLabel('1')}</SelectItem>
-                <SelectItem value="2">{getPriceRangeLabel('2')}</SelectItem>
-                <SelectItem value="3">{getPriceRangeLabel('3')}</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-        />
-        <FieldError
-          id="priceRange-error"
-          show={Boolean(form.formState.errors.priceRange)}
-          text={t('requiredFieldError')}
-        />
-      </DirtyFieldWrapper>
-    </section>
+                <SelectTrigger
+                  id="priceRange"
+                  aria-required="true"
+                  aria-invalid={Boolean(form.formState.errors.priceRange)}
+                  aria-describedby={
+                    form.formState.errors.priceRange
+                      ? 'priceRange-error'
+                      : undefined
+                  }
+                  className="min-h-12 w-full bg-card"
+                >
+                  <SelectValue
+                    placeholder={tx('fieldPriceRangeUnset', 'Unset')}
+                  >
+                    {getPriceRangeLabel}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">{getPriceRangeLabel('1')}</SelectItem>
+                  <SelectItem value="2">{getPriceRangeLabel('2')}</SelectItem>
+                  <SelectItem value="3">{getPriceRangeLabel('3')}</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </DashboardFormField>
+      </StandardFormStack>
+    </StandardFormSection>
   )
 }

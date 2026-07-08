@@ -8,6 +8,8 @@ describe('submission schema city validation', () => {
   const baseSubmission = {
     name: '品牌名稱',
     website: 'https://example.com',
+    description: '台灣設計品牌，專注日常生活用品。',
+    heroImageUrl: 'https://example.com/hero.jpg',
     pdpaConsent: true,
     turnstileToken: 'token',
     isOwner: true,

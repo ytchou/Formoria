@@ -2,6 +2,10 @@
 
 import { useTranslations } from 'next-intl'
 import { type UseFormReturn, Controller } from 'react-hook-form'
+import {
+  StandardFormSection,
+  StandardFormStack,
+} from '@/components/forms/form-layout'
 import { ImageUploadField } from '@/components/forms/image-upload-field'
 import { ProductPhotosField } from '@/components/forms/product-photos-field'
 import { RequiredFieldsHint } from '@/components/forms/required-fields-hint'
@@ -15,13 +19,13 @@ export function MediaSection({
   const t = useTranslations('dashboard.edit')
 
   return (
-    <section id="media" className="space-y-4 scroll-mt-8">
-      <h2 className="mb-4 border-b border-border px-4 pb-2 font-heading text-base font-bold">
-        {t('sectionMedia')}
-      </h2>
-      <RequiredFieldsHint />
+    <StandardFormSection id="media" className="scroll-mt-8">
+      <StandardFormStack>
+        <h2 className="font-heading text-base font-bold">
+          {t('sectionMedia')}
+        </h2>
+        <RequiredFieldsHint />
 
-      <div className="space-y-4 px-4">
         <div aria-required="true">
           <Controller
             control={form.control}
@@ -35,9 +39,11 @@ export function MediaSection({
                 value={field.value ?? ''}
                 onChange={field.onChange}
                 required
-                error={form.formState.errors.heroImageUrl
-                  ? t('requiredFieldError')
-                  : undefined}
+                error={
+                  form.formState.errors.heroImageUrl
+                    ? t('requiredFieldError')
+                    : undefined
+                }
               />
             )}
           />
@@ -60,7 +66,7 @@ export function MediaSection({
             />
           )}
         />
-      </div>
-    </section>
+      </StandardFormStack>
+    </StandardFormSection>
   )
 }

@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback } from 'react'
+import { FormField } from '@/components/forms/form-field'
 import { ImageUploader } from '@/components/upload/ImageUploader'
-import { RequiredLabel } from '@/components/forms/required-label'
 
 type ProductPhotosFieldProps = {
   value: string[]
@@ -30,11 +30,14 @@ export function ProductPhotosField({
   )
 
   return (
-    <div className="space-y-2" aria-invalid={Boolean(error)}>
-      <RequiredLabel htmlFor="productPhotos">{label}</RequiredLabel>
-      {description ? (
-        <p className="text-sm leading-6 text-muted-foreground">{description}</p>
-      ) : null}
+    <FormField
+      id="productPhotos"
+      label={label}
+      description={description}
+      error={error}
+      errorId="productPhotos-error"
+      required
+    >
       <ImageUploader
         id="productPhotos-upload"
         mode="multi"
@@ -51,15 +54,6 @@ export function ProductPhotosField({
         type="hidden"
         value={JSON.stringify(value)}
       />
-      {error ? (
-        <p
-          id="productPhotos-error"
-          className="text-xs text-destructive"
-          aria-live="polite"
-        >
-          {error}
-        </p>
-      ) : null}
-    </div>
+    </FormField>
   )
 }

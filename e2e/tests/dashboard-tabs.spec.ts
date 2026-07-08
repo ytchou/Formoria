@@ -12,14 +12,14 @@ test.describe.configure({ mode: 'serial' });
  * Dashboard tab navigation tests.
  *
  * Journey 1: Single-brand owner dashboard landing
- *   - Default landing shows a brand panel (Edit CTA + active Profile tab)
- *   - Header shows the owned brand directly with no selector
+ *   - Default landing redirects to the path-based brand overview
+ *   - Brand overview shows owner actions and active Profile tab
  *   - Navigation shows My Brand instead of Submit a Brand
  *   - Active tab is determined by URL pathname, not a query param value
  *
  * Journey 2: Legacy query and route compatibility
  *   - A stale ?brand=<slug> cannot switch away from the account's single brand
- *   - /dashboard/brands/<slug> → 302 → /dashboard?brand=<slug>
+ *   - /dashboard/brands/<slug> renders the brand overview directly
  */
 test.describe('Dashboard — tab navigation', () => {
   let supabase: AnySupabaseClient;
@@ -90,20 +90,23 @@ test.describe('Dashboard — tab navigation', () => {
       return;
     }
 
+    await expect(userPage).toHaveURL(
+      new RegExp(`/dashboard/brands/${brandSlug}$`),
+      { timeout: 60_000 }
+    );
     await expect(userPage.getByRole('heading', { level: 1, name: brandName }).first()).toBeVisible({
       timeout: 60_000,
     });
     await expect(userPage.getByRole('link', { name: '編輯品牌' }).first()).toBeVisible({
       timeout: 60_000,
     });
-    await expect(userPage.getByRole('link', { name: '提交其他品牌' })).toBeVisible();
     const mainNav = userPage.locator('header').first();
     await expect(mainNav.getByRole('link', { name: '我的品牌' })).toBeVisible();
     await expect(mainNav.getByRole('link', { name: '提交品牌' })).toHaveCount(0);
 
-    // Profile tab ('總覽') is the active tab when pathname === '/dashboard'
+    // Profile tab ('總覽') is active on the path-based brand overview.
     const profileTab = userPage.locator('a').filter({ hasText: '總覽' });
-    await expect(profileTab).toHaveClass(/border-primary/, { timeout: 60_000 });
+    await expect(profileTab).toHaveClass(/border-foreground/, { timeout: 60_000 });
 
   });
 
@@ -117,10 +120,14 @@ test.describe('Dashboard — tab navigation', () => {
     }
 
     await expect(userPage.getByRole('heading', { level: 1, name: brandName }).first()).toBeVisible({ timeout: 60_000 });
+    await expect(userPage).toHaveURL(
+      new RegExp(`/dashboard/brands/${brandSlug}$`),
+      { timeout: 60_000 }
+    );
 
-    // Profile tab is active (pathname === '/dashboard', isActive = true)
+    // Profile tab is active on the canonical path-based brand overview.
     const profileTab = userPage.locator('a').filter({ hasText: '總覽' });
-    await expect(profileTab).toHaveClass(/border-primary/, { timeout: 5_000 });
+    await expect(profileTab).toHaveClass(/border-foreground/, { timeout: 5_000 });
   });
 
 });
