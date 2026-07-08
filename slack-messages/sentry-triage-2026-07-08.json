@@ -1,0 +1,113 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Sentry Daily Triage — 2026-07-07 to 2026-07-08",
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Issues found:* 14 total  ·  Critical: 1  ·  Moderate: 10  ·  Trivial: 1  ·  Noise: 2\n*Outcome:* 5 tickets created  ·  0 duplicates skipped  ·  7 auto-resolved (not ticketed)  ·  2 noise (skipped)\n*Incident mode:* No"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Auto-Resolved (7) — error condition no longer exists in codebase:*\n- :white_check_mark: *<https://formoria.sentry.io/issues/FORMORIA-3X|FORMORIA-3X>* — `submission.ts` parse error at line 167 — file is valid TS in current main; type export shifted to line 185 (53 events, Critical)\n- :white_check_mark: *<https://formoria.sentry.io/issues/FORMORIA-S|FORMORIA-S>* — `@/components/submit/SubmitForm` module not found — `SubmitForm.tsx` now exists (3 events, Recurring)\n- :white_check_mark: *<https://formoria.sentry.io/issues/FORMORIA-3V|FORMORIA-3V>* — `@/components/brands/brand-locations` module not found — file now exists (2 events)\n- :white_check_mark: *<https://formoria.sentry.io/issues/FORMORIA-3T|FORMORIA-3T>* — `./sections/locations-section` module not found — file now exists (2 events)\n- :white_check_mark: *<https://formoria.sentry.io/issues/FORMORIA-3Q|FORMORIA-3Q>* — `.trim()` on undefined in `BrandOtherLinks` (client) — optional chaining `?.trim()` now in place (5 events)\n- :white_check_mark: *<https://formoria.sentry.io/issues/FORMORIA-3S|FORMORIA-3S>* — `.trim()` on undefined in `BrandOtherLinks` (server) — same fix, optional chaining applied (1 event)\n- :white_check_mark: *<https://formoria.sentry.io/issues/FORMORIA-3R|FORMORIA-3R>* — `ReferenceError: t is not defined` in `BrandLocations` — `useTranslations` now properly declared at component scope (1 event)"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": ":red_circle: *MODERATE — Still Present / Inconclusive*"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*<https://formoria.sentry.io/issues/FORMORIA-3Z|Module not found: `_lib/latest-review` in analytics page>*\nEvents: 6  ·  New  ·  Severity: Moderate\nDrop the stale import or create the missing `_lib/latest-review` module under the analytics route segment.\nTicket: <https://linear.app/ytchou/issue/DEV-977/fix-missing-liblatest-review-module-in-brand-analytics-page|DEV-977> — Fix missing `_lib/latest-review` module in brand analytics page  ·  Priority: High  ·  Labels: Bug, M"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*<https://formoria.sentry.io/issues/FORMORIA-39|Internal Next.js error: Router action dispatched before initialization>*\nEvents: 2  ·  Recurring (since 2026-07-06)  ·  Severity: Moderate\nInvestigate early navigation/redirect in the `/submit/owner` route before App Router has mounted.\nTicket: <https://linear.app/ytchou/issue/DEV-978/investigate-nextjs-router-action-dispatched-before-initialization-at|DEV-978> — Investigate Next.js Router action dispatched before initialization  ·  Priority: High  ·  Labels: Bug, M"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*<https://formoria.sentry.io/issues/FORMORIA-3Y|TypeError: Cannot read properties of undefined (reading UUID) in LocationsSection>*\nEvents: 1  ·  New  ·  Severity: Moderate\nGuard the UUID keyed map lookup in `LocationsSection` with a null check or default initialization before render.\nTicket: <https://linear.app/ytchou/issue/DEV-979/fix-typeerror-cannot-read-properties-of-undefined-reading-uuid-in|DEV-979> — Fix TypeError: Cannot read properties of undefined (reading UUID) in LocationsSection  ·  Priority: High  ·  Labels: Bug, M"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*<https://formoria.sentry.io/issues/FORMORIA-1B|Supabase fetch failed: ENOTFOUND xkcayngbttpxyibgzern.supabase.co>*\nEvents: 1 (total: 229)  ·  Recurring (since 2026-06-18)  ·  Severity: Moderate  ·  2 users impacted\nCheck if the Supabase project is paused or if `.env.local` references a stale project URL.\nTicket: <https://linear.app/ytchou/issue/DEV-980/fix-supabase-dns-resolution-failure-enotfound-on-server-actions-in-dev|DEV-980> — Fix Supabase DNS resolution failure (ENOTFOUND) on server actions in dev  ·  Priority: High  ·  Labels: Bug, M"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": ":large_yellow_circle: *TRIVIAL — Still Present*"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*<https://formoria.sentry.io/issues/FORMORIA-3C|Hydration mismatch in ImpersonationBanner countdown timer>*\nEvents: 1 (total: 2)  ·  Recurring (since 2026-07-06)  ·  Severity: Trivial\nUse `suppressHydrationWarning` or move the countdown calculation to a `useEffect` to avoid SSR/client time divergence.\nTicket: <https://linear.app/ytchou/issue/DEV-981/fix-hydration-mismatch-in-impersonationbanner-countdown-timer|DEV-981> — Fix hydration mismatch in ImpersonationBanner countdown timer  ·  Priority: Normal  ·  Labels: Bug, S"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": ":white_circle: *NOISE — Skipped (2)*\n- *FORMORIA-3W* — `TypeError: Failed to fetch` at Server Action (1 event, transient dev network error, no code pattern)\n- *FORMORIA-3D* — Hydration Error replay event (Sentry replay companion to FORMORIA-3C, same session)"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Tickets Created (5):*\n- <https://linear.app/ytchou/issue/DEV-977/fix-missing-liblatest-review-module-in-brand-analytics-page|DEV-977> — Fix missing `_lib/latest-review` module in brand analytics page (Priority: High, M)\n- <https://linear.app/ytchou/issue/DEV-978/investigate-nextjs-router-action-dispatched-before-initialization-at|DEV-978> — Investigate Next.js Router action dispatched before initialization (Priority: High, M)\n- <https://linear.app/ytchou/issue/DEV-979/fix-typeerror-cannot-read-properties-of-undefined-reading-uuid-in|DEV-979> — Fix TypeError in LocationsSection (Priority: High, M)\n- <https://linear.app/ytchou/issue/DEV-980/fix-supabase-dns-resolution-failure-enotfound-on-server-actions-in-dev|DEV-980> — Fix Supabase DNS ENOTFOUND on server actions (Priority: High, M)\n- <https://linear.app/ytchou/issue/DEV-981/fix-hydration-mismatch-in-impersonationbanner-countdown-timer|DEV-981> — Fix ImpersonationBanner hydration mismatch (Priority: Normal, S)\n\n_7 issues auto-resolved (not ticketed) · 2 noise skipped_"
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Sentry Daily Triage · Formoria · 2026-07-08T23:15:00 CST"
+        }
+      ]
+    }
+  ]
+}
