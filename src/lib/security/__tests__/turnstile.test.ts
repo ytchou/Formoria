@@ -3,14 +3,18 @@ import { verifyTurnstileToken } from '../turnstile'
 
 describe('verifyTurnstileToken', () => {
   const originalEnv = process.env.TURNSTILE_SECRET_KEY
+  const originalNodeEnv = process.env.NODE_ENV
 
   beforeEach(() => {
     process.env.TURNSTILE_SECRET_KEY = 'test-secret-key'
+    vi.stubEnv('NODE_ENV', 'test')
   })
 
   afterEach(() => {
     process.env.TURNSTILE_SECRET_KEY = originalEnv
+    vi.stubEnv('NODE_ENV', originalNodeEnv)
     vi.restoreAllMocks()
+    vi.unstubAllEnvs()
   })
 
   it('returns success when Cloudflare verifies the token', async () => {
@@ -40,6 +44,26 @@ describe('verifyTurnstileToken', () => {
     delete process.env.TURNSTILE_SECRET_KEY
     const result = await verifyTurnstileToken('any-token')
     expect(result.success).toBe(true)
+  })
+
+  it('skips verification for localhost outside production', async () => {
+    const fetchSpy = vi.spyOn(global, 'fetch')
+    const result = await verifyTurnstileToken('any-token', undefined, 'localhost:3000')
+
+    expect(result.success).toBe(true)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('does not skip localhost verification in production', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: true }), { status: 200 })
+    )
+
+    const result = await verifyTurnstileToken('valid-token', undefined, 'localhost:3000')
+
+    expect(result.success).toBe(true)
+    expect(fetchSpy).toHaveBeenCalled()
   })
 
   it('returns failure on network error', async () => {

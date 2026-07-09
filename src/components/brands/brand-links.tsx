@@ -17,7 +17,9 @@ import {
   Users,
 } from 'lucide-react'
 import { InstagramIcon } from '@/components/icons/instagram-icon'
+import { buttonVariants } from '@/components/ui/button'
 import type { Brand } from '@/lib/types'
+import { cn } from '@/lib/utils'
 import {
   trackDbClick,
   trackExternalLinkClicked,
@@ -59,6 +61,7 @@ type LinkSlot = {
   linkType: LinkDestination | 'other'
   dbDestination?: LinkDestination
   icon: ReactNode
+  accentClassName?: string
 }
 
 type LinkSectionProps = {
@@ -68,11 +71,45 @@ type LinkSectionProps = {
   brand: Brand
 }
 
-const chipClassName =
-  'inline-flex min-h-12 min-w-32 items-center gap-2 rounded-full bg-secondary px-4 py-2 type-body-emphasis transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+const destinationLinkClassName =
+  buttonVariants({
+    variant: 'secondary',
+    shape: 'pill',
+    size: 'compact',
+    className: 'min-w-32 max-w-full justify-center gap-2',
+  })
 
-const disabledChipClassName =
-  'inline-flex min-h-12 min-w-32 items-center gap-2 rounded-full bg-secondary px-4 py-2 type-body-emphasis opacity-45'
+const disabledDestinationLinkClassName =
+  buttonVariants({
+    variant: 'secondary',
+    shape: 'pill',
+    size: 'compact',
+    className: 'pointer-events-none min-w-32 max-w-full justify-center gap-2 opacity-45',
+  })
+
+function DestinationLinkButton({
+  slot,
+  disabled = false,
+  children,
+}: {
+  slot: LinkSlot
+  disabled?: boolean
+  children: ReactNode
+}) {
+  return (
+    <>
+      <span
+        aria-hidden="true"
+        className={cn('flex size-4 shrink-0 items-center justify-center', slot.accentClassName)}
+      >
+        {slot.icon}
+      </span>
+      <span className={cn('min-w-0 truncate', disabled && 'line-through')}>
+        {children}
+      </span>
+    </>
+  )
+}
 
 function SectionLabel({
   children,
@@ -102,7 +139,7 @@ function LinkSection({ label, icon, slots, brand }: LinkSectionProps) {
                 href={slot.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={chipClassName}
+                className={destinationLinkClassName}
                 onClick={() => {
                   trackExternalLinkClicked(
                     brand.slug,
@@ -114,8 +151,9 @@ function LinkSection({ label, icon, slots, brand }: LinkSectionProps) {
                   }
                 }}
               >
-                {slot.icon}
-                {slot.label}
+                <DestinationLinkButton slot={slot}>
+                  {slot.label}
+                </DestinationLinkButton>
               </a>
             )
           }
@@ -124,10 +162,11 @@ function LinkSection({ label, icon, slots, brand }: LinkSectionProps) {
             <span
               key={slotKey}
               aria-disabled="true"
-              className={disabledChipClassName}
+              className={disabledDestinationLinkClassName}
             >
-              {slot.icon}
-              <span className="line-through">{slot.label}</span>
+              <DestinationLinkButton slot={slot} disabled>
+                {slot.label}
+              </DestinationLinkButton>
             </span>
           )
         })}
@@ -145,21 +184,23 @@ function BrandSocialLinks({ brand }: BrandLinksProps) {
       url: normalizeInstagramHref(brand.socialInstagram),
       linkType: 'instagram',
       dbDestination: 'instagram',
-      icon: <InstagramIcon className="size-4 text-foreground" />,
+      icon: <InstagramIcon className="size-4 text-current" />,
+      accentClassName: 'text-[#E1306C]',
     },
     {
       label: t('links.threads'),
       url: normalizeThreadsHref(brand.socialThreads),
       linkType: 'threads',
       dbDestination: 'threads',
-      icon: <AtSign className="size-4 text-foreground" />,
+      icon: <AtSign className="size-4 text-current" />,
     },
     {
       label: t('links.facebook'),
       url: normalizeDirectUrl(brand.socialFacebook),
       linkType: 'facebook',
       dbDestination: 'facebook',
-      icon: <FacebookIcon className="size-4 text-foreground" />,
+      icon: <FacebookIcon className="size-4 text-current" />,
+      accentClassName: 'text-[#1877F2]',
     },
   ]
 
@@ -182,21 +223,24 @@ function BrandPurchaseLinks({ brand }: BrandLinksProps) {
       url: normalizeDirectUrl(brand.purchaseWebsite),
       linkType: 'website',
       dbDestination: 'website',
-      icon: <Globe className="size-4 text-foreground" />,
+      icon: <Globe className="size-4 text-current" />,
+      accentClassName: 'text-primary',
     },
     {
       label: t('links.pinkoi'),
       url: normalizeDirectUrl(brand.purchasePinkoi),
       linkType: 'pinkoi',
       dbDestination: 'pinkoi',
-      icon: <Store className="size-4 text-[#E05B6F]" />,
+      icon: <Store className="size-4 text-current" />,
+      accentClassName: 'text-[#E05B6F]',
     },
     {
       label: t('links.shopee'),
       url: normalizeDirectUrl(brand.purchaseShopee),
       linkType: 'shopee',
       dbDestination: 'shopee',
-      icon: <ShoppingCart className="size-4 text-[#EE4D2D]" />,
+      icon: <ShoppingCart className="size-4 text-current" />,
+      accentClassName: 'text-[#EE4D2D]',
     },
   ]
 
@@ -223,7 +267,7 @@ function BrandOtherLinks({ brand }: BrandLinksProps) {
         label,
         url,
         linkType: 'other',
-        icon: <Link className="size-4 text-foreground" />,
+        icon: <Link className="size-4 text-current" />,
       },
     ]
   })

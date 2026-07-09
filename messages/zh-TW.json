@@ -392,12 +392,10 @@
         "department_counter": "百貨專櫃或櫃位，建議造訪前先確認庫存。"
       }
     },
-    "moreInCategory": {
-      "heading": "更多{category}",
-      "subtext": "此分類還有 {count} 個品牌"
-    },
     "relatedBrands": {
-      "heading": "你可能也會喜歡"
+      "heading": "更多{category}",
+      "subtext": "此分類還有 {count} 個品牌",
+      "viewAll": "查看全部"
     },
     "removal": {
       "trigger": "要求移除",

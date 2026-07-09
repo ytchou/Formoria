@@ -42,6 +42,7 @@ vi.mock('next/headers', () => ({
       new Headers([
         ['cf-connecting-ip', '127.0.0.1'],
         ['x-forwarded-for', '127.0.0.1'],
+        ['host', 'localhost:3000'],
       ]),
   ),
 }))
@@ -148,6 +149,11 @@ describe('submit actions', () => {
       }),
       { useServiceRole: true },
     )
+    expect(mockVerifyTurnstileToken).toHaveBeenCalledWith(
+      'test-token',
+      '127.0.0.1',
+      'localhost:3000',
+    )
   })
 
   it('blocks duplicate guest recommendations', async () => {
@@ -207,6 +213,11 @@ describe('submit actions', () => {
         submitterEmail: 'owner@example.com',
         mitSmileCert: '0123',
       }),
+    )
+    expect(mockVerifyTurnstileToken).toHaveBeenCalledWith(
+      'test-token',
+      undefined,
+      'localhost:3000',
     )
   })
 

@@ -150,4 +150,37 @@ describe('BrandLinks', () => {
 
     expect(screen.queryByRole('link', { name: /品牌官網/i })).not.toBeInTheDocument()
   })
+
+  it('uses standardized pill buttons with destination icon accents', () => {
+    renderWithIntl(
+      <BrandLinks
+        brand={{
+          ...mockBrand,
+          socialInstagram: '@test-brand',
+          socialFacebook: 'https://facebook.com/test-brand',
+          purchasePinkoi: 'https://pinkoi.com/store/test-brand',
+          purchaseShopee: 'https://shopee.tw/test-brand',
+        }}
+      />,
+    )
+
+    const websiteLink = screen.getByRole('link', { name: /品牌官網/i })
+    expect(websiteLink).toHaveClass('rounded-full')
+    expect(websiteLink).toHaveClass('border-border')
+    expect(websiteLink).toHaveClass('justify-center')
+    expect(websiteLink.firstElementChild).toHaveClass('text-primary')
+
+    expect(screen.getByRole('link', { name: /Instagram/i }).firstElementChild?.className).toMatch(
+      /\btext-\[#/,
+    )
+    expect(screen.getByRole('link', { name: /Facebook/i }).firstElementChild?.className).toMatch(
+      /\btext-\[#/,
+    )
+    expect(screen.getByRole('link', { name: /Pinkoi/i }).firstElementChild?.className).toMatch(
+      /\btext-\[#/,
+    )
+    expect(screen.getByRole('link', { name: /蝦皮購物/i }).firstElementChild?.className).toMatch(
+      /\btext-\[#/,
+    )
+  })
 })

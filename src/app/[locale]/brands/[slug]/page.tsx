@@ -38,12 +38,12 @@ import { BrandAbout } from '@/components/brands/brand-about'
 import { BrandFaqAccordion } from '@/components/brands/brand-faq-accordion'
 import { BrandLinks } from '@/components/brands/brand-links'
 import { BrandLocations } from '@/components/brands/brand-locations'
-import { MoreInCategory } from '@/components/brands/more-in-category'
 import { RelatedBrands } from '@/components/brands/related-brands'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
 import { getBrandVisitHref } from '@/lib/brands/link-fallback'
+import { normalizeRetailLocations } from '@/lib/brands/locations'
 import { buildBrandFaq } from '@/lib/services/brand-faq'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { MapPin } from 'lucide-react'
@@ -265,6 +265,7 @@ export default async function BrandDetailPage({
   const categoryLabel = productTypeCategory
     ? (safeLocale === 'en' ? productTypeCategory.name : productTypeCategory.nameZh)
     : getBrandCategoryLabel(displayBrand, safeLocale === 'en' ? 'en' : 'zh-TW')
+  const hasRetailLocations = normalizeRetailLocations(displayBrand.retailLocations).length > 0
 
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: directoryLabel, href: '/brands' },
@@ -371,9 +372,12 @@ export default async function BrandDetailPage({
 
             <BrandLinks brand={displayBrand} />
 
-            <hr className="border-border" />
-
-            <BrandLocations brand={displayBrand} />
+            {hasRetailLocations && (
+              <>
+                <hr className="border-border" />
+                <BrandLocations brand={displayBrand} />
+              </>
+            )}
 
             {faqItems.length > 0 && (
               <>
@@ -396,13 +400,6 @@ export default async function BrandDetailPage({
               />
             )}
 
-            {categoryTag && (
-              <MoreInCategory
-                category={categoryTag.slug}
-                categoryLabel={categoryLabel || null}
-                count={categoryCount}
-              />
-            )}
           </div>
         </div>
 
@@ -410,8 +407,10 @@ export default async function BrandDetailPage({
         {categoryTag && (
           <RelatedBrands
             brands={relatedBrands}
+            category={categoryTag.slug}
             categoryName={categoryLabel || categoryTag.name}
             categoryLabel={categoryLabel || null}
+            count={categoryCount}
           />
         )}
       </main>

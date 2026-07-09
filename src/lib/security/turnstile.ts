@@ -8,11 +8,26 @@ interface TurnstileApiResponse {
   'error-codes'?: string[]
 }
 
+function isLocalDevHost(requestHost?: string): boolean {
+  if (process.env.NODE_ENV === 'production' || !requestHost) return false
+
+  const host = requestHost.toLowerCase()
+  if (host === '::1' || host.startsWith('[::1]')) return true
+
+  const hostname = host.split(':')[0]
+  return hostname === 'localhost' || hostname === '127.0.0.1'
+}
+
 export async function verifyTurnstileToken(
   token: string,
-  remoteIp?: string
+  remoteIp?: string,
+  requestHost?: string
 ): Promise<TurnstileResult> {
   const secretKey = process.env.TURNSTILE_SECRET_KEY
+
+  if (isLocalDevHost(requestHost)) {
+    return { success: true }
+  }
 
   if (
     process.env.NODE_ENV !== 'production' &&

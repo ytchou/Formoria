@@ -19,7 +19,16 @@ const allowedMatches = [
   {
     file: 'src/components/brands/brand-links.tsx',
     names: ['raw hex color class', 'raw hex color literal'],
-    values: ['text-[#E05B6F]', '#E05B6F', 'text-[#EE4D2D]', '#EE4D2D'],
+    values: [
+      'text-[#E1306C]',
+      '#E1306C',
+      'text-[#1877F2]',
+      '#1877F2',
+      'text-[#E05B6F]',
+      '#E05B6F',
+      'text-[#EE4D2D]',
+      '#EE4D2D',
+    ],
   },
   {
     file: 'src/components/microsite/__tests__/default-template.test.tsx',

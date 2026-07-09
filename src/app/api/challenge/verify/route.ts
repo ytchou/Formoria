@@ -34,7 +34,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing token' }, { status: 400 })
   }
 
-  const turnstileResult = await verifyTurnstileToken(body.token, ip)
+  const turnstileResult = await verifyTurnstileToken(
+    body.token,
+    ip,
+    request.nextUrl.host,
+  )
 
   if (!turnstileResult.success) {
     return NextResponse.json({ error: 'Verification failed' }, { status: 400 })
