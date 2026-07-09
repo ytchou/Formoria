@@ -63,7 +63,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@playwright/test": "^1.60.0",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -85,7 +85,7 @@
     "tailwindcss": "^4",
     "tsx": "^4",
     "typescript": "^5",
-    "vite": ">=8.1.2",
+    "vite": ">=8.1.4",
     "vitest": "^4.1.9"
   }
 }
