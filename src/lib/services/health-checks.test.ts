@@ -56,7 +56,7 @@ describe('checkAllServices', () => {
       if (url.includes('google.serper.dev')) {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ organic: [] }),
+          json: async () => ({ credits: 2500 }),
         })
       }
 
@@ -95,7 +95,7 @@ describe('checkAllServices', () => {
       if (url.includes('google.serper.dev')) {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ organic: [] }),
+          json: async () => ({ credits: 2500 }),
         })
       }
 
@@ -254,7 +254,7 @@ describe('checkAllServices', () => {
       vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
       fetchMock.mockImplementation((url: string) => {
         if (url.includes('google.serper.dev')) {
-          return Promise.resolve({ ok: true, json: async () => ({ organic: [] }) })
+          return Promise.resolve({ ok: true, json: async () => ({ credits: 2500 }) })
         }
         return Promise.resolve({ ok: true, json: async () => ({}) })
       })

@@ -1,4 +1,4 @@
-import type { QueryTemplate } from './types'
+import type { ImageQueryInput, QueryTemplate } from './types'
 
 export const SEARCH_DELAY_MS = 1500
 
@@ -22,7 +22,7 @@ function extractSearchDomain(url: string | null | undefined): string | null {
   }
 }
 
-export function buildImageQueryVariants(input: import('./types').ImageQueryInput): string[] {
+export function buildImageQueryVariants(input: ImageQueryInput): string[] {
   const brandName = input.brandName.trim()
   if (!brandName) {
     return []

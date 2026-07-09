@@ -221,13 +221,9 @@ async function checkSerper(): Promise<ServiceHealthResult> {
   }
 
   try {
-    const response = await fetch('https://google.serper.dev/search', {
-      method: 'POST',
-      headers: {
-        'X-API-KEY': apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ q: 'test', num: 1, gl: 'tw', hl: 'zh-TW' }),
+    const response = await fetch('https://google.serper.dev/account', {
+      method: 'GET',
+      headers: { 'X-API-KEY': apiKey },
       signal: AbortSignal.timeout(5000),
     })
 

@@ -6,12 +6,12 @@ import type {
 } from './types'
 import { DEFAULT_QUERY, buildImageQueryVariants, isGoogleUrl, stripTrackingParams } from './search'
 
-export const SERPER_SERP_ENDPOINT = 'https://google.serper.dev/search'
-export const SERPER_IMAGE_ENDPOINT = 'https://google.serper.dev/images'
-export const SEARCH_TIMEOUT_MS = 60_000
-export const MIN_IMAGE_DIMENSION = 400
+const SERPER_SERP_ENDPOINT = 'https://google.serper.dev/search'
+const SERPER_IMAGE_ENDPOINT = 'https://google.serper.dev/images'
+const SEARCH_TIMEOUT_MS = 60_000
+const MIN_IMAGE_DIMENSION = 400
 
-export type SerperSerpResponse = {
+type SerperSerpResponse = {
   organic: Array<{
     title: string
     link: string
@@ -20,7 +20,7 @@ export type SerperSerpResponse = {
   }>
 }
 
-export type SerperImageResponse = {
+type SerperImageResponse = {
   images: Array<{
     imageUrl: string
     imageWidth?: number
@@ -47,25 +47,7 @@ function isSerperImageResponse(value: unknown): value is SerperImageResponse {
   )
 }
 
-function toSnippets(organic: SerperSerpResponse['organic']): string[] {
-  const snippets: string[] = []
 
-  for (const entry of organic) {
-    const title = entry.title?.trim() || ''
-    const snippet = entry.snippet?.trim() || ''
-    if (!title) {
-      continue
-    }
-
-    if (snippet) {
-      snippets.push(`${title} — ${snippet}`)
-    } else {
-      snippets.push(title)
-    }
-  }
-
-  return snippets
-}
 
 async function callSerpApi(brandName: string, queryTemplate: QueryTemplate): Promise<SerperSerpResponse['organic']> {
   const apiKey = process.env.SERPER_API_KEY
@@ -285,7 +267,7 @@ async function searchBrandImagesForQuery(query: string): Promise<BrandImageSearc
   }
 }
 
-export async function searchBrandImages(
+async function searchBrandImages(
   input: ImageSearchBrandInput,
   queryTemplate: QueryTemplate = DEFAULT_QUERY
 ): Promise<BrandImageSearchResult[]> {
