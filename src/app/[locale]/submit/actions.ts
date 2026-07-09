@@ -32,6 +32,19 @@ function getRequestIp(headerStore: Awaited<ReturnType<typeof headers>>) {
   return headerStore.get('cf-connecting-ip') ?? headerStore.get('x-forwarded-for')?.split(',').at(0)?.trim() ?? 'unknown'
 }
 
+function isDnsResolutionError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false
+  }
+
+  const cause = (error as { cause?: { code?: string } }).cause
+  return (
+    error.message.includes('ENOTFOUND') ||
+    error.message.includes('getaddrinfo ENOTFOUND') ||
+    cause?.code === 'ENOTFOUND'
+  )
+}
+
 export async function suggestCleanName(name: string) {
   if (!name || name.length > 200) {
     return { suggestion: null, changed: false, patterns: [] as string[] }
@@ -97,6 +110,10 @@ export async function submitRecommendation(
     return undefined
   } catch (err) {
     console.error('Submit recommendation error:', err)
+    if (isDnsResolutionError(err)) {
+      console.error('Submit recommendation DNS resolution failure:', err)
+      return { error: t('unexpected') }
+    }
     return { error: t('unexpected') }
   }
 }
@@ -156,6 +173,12 @@ export async function submitOwnerBrand(
     return ownershipAdjusted ? { ownershipAdjusted: true } : undefined
   } catch (err) {
     console.error('Submit owner brand error:', err)
+    if (
+      isDnsResolutionError(err)
+    ) {
+      console.error('Submit owner brand DNS resolution failure:', err)
+      return { error: t('unexpected') }
+    }
     return { error: t('unexpected') }
   }
 }
