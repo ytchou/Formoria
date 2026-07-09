@@ -8,7 +8,8 @@
   "project": [
     "src/**/*.{ts,tsx}",
     "scripts/**/*.{ts,mjs}",
-    "emails/**/*.{ts,tsx}"
+    "emails/**/*.{ts,tsx}",
+    "tina/__generated__/client.ts"
   ],
   "ignoreDependencies": ["tw-animate-css", "tailwindcss", "shadcn", "@react-email/ui"],
   "ignoreBinaries": ["dotenv"],

@@ -82,7 +82,15 @@ function listGuideFiles(): string[] {
   }
 }
 
-export const client = {
+export const client: {
+  queries: {
+    guide: (args: { relativePath: string }) => Promise<GuideQueryResult>;
+    guideConnection: (args?: {
+      first?: number;
+      filter?: Record<string, unknown>;
+    }) => Promise<GuideConnectionQueryResult>;
+  };
+} = {
   queries: {
     guide: async (args: { relativePath: string }): Promise<GuideQueryResult> => {
       const node = readGuideFile(args.relativePath);
@@ -116,5 +124,3 @@ export const client = {
     },
   },
 };
-
-export default client;
