@@ -15,8 +15,7 @@
   "ignoreBinaries": ["dotenv"],
   "ignore": [
     "src/lib/supabase/database.types.ts",
-    "scripts/threads-scraper/**",
-    "src/lib/services/enrich-phases/scraper/apify.ts"
+    "scripts/threads-scraper/**"
   ],
   "ignoreIssues": {
     "src/components/ui/card.tsx": ["exports"]
