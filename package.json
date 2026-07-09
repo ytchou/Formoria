@@ -85,7 +85,7 @@
     "tailwindcss": "^4",
     "tsx": "^4",
     "typescript": "^5",
-    "vite": ">=8.1.2",
+    "vite": ">=8.1.4",
     "vitest": "^4.1.9"
   }
 }
