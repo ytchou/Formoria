@@ -16,6 +16,7 @@ type ExpansionPhaseOptions = {
   phases: EnrichPhase[]
   scrapedData: EnrichScrapedData | null
   serpSnippets: string[]
+  overwrite?: boolean
 }
 
 type ExpansionPhaseOutput = {
@@ -51,6 +52,7 @@ export async function runExpansionPhase({
   brand,
   phases,
   serpSnippets,
+  overwrite = false,
 }: ExpansionPhaseOptions): Promise<ExpansionPhaseOutput> {
   if (!phases.includes('expansion')) {
     return {
@@ -66,7 +68,7 @@ export async function runExpansionPhase({
     }
   }
 
-  if (hasExpansionValues(brand)) {
+  if (!overwrite && hasExpansionValues(brand)) {
     return {
       phaseResult: buildPhaseResult(
         'expansion',

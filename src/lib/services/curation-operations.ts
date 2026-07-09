@@ -891,6 +891,7 @@ export async function runEnrich(
           phases,
           serpSnippets: state.serpSnippets,
           scrapedData: state.scrapedData,
+          overwrite: config.overwrite,
         })
         state.phaseResults.push(expansionResult.phaseResult)
         logCurrentPhase(expansionResult.phaseResult)

@@ -36,6 +36,7 @@ describe('runExpansionPhase', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks()
+    vi.clearAllMocks()
     vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
   })
 
@@ -47,6 +48,20 @@ describe('runExpansionPhase', () => {
       scrapedData: {},
     })
     expect(phaseResult.status).toBe('skipped')
+  })
+
+  it('does not skip when reputation is populated but overwrite is true', async () => {
+    vi.mocked(runExpansionResearch).mockResolvedValue({
+      reputationSummary: { text: 'Updated summary.', sources: [] },
+    })
+    const { phaseResult } = await runExpansionPhase({
+      brand: { ...baseBrand, reputation_summary: { text: 'Old summary' } },
+      phases: ['expansion'],
+      serpSnippets: ['Snippet'],
+      scrapedData: {},
+      overwrite: true,
+    })
+    expect(phaseResult.status).toBe('succeeded')
   })
 
   it('returns a reputation-only patch', async () => {
