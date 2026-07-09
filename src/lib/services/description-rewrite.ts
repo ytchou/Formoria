@@ -42,7 +42,7 @@ const DESCRIPTION_REWRITE_WITH_DETAILS_SYSTEM_PROMPT = `${DESCRIPTION_SYSTEM_PRO
   "price_range": 1 | 2 | 3 | null,
   "product_tags": ["具體商品類型（繁體中文）"],
   "product_tags_en": ["specific product types (English)"],
-  "city": "城市或 null",
+  "city": "城市 slug 或 null（只能用以下值：taipei, new_taipei, taoyuan, taichung, tainan, kaohsiung, keelung, hsinchu_city, chiayi_city, hsinchu_county, miaoli, changhua, nantou, yunlin, chiayi_county, pingtung, yilan, hualien, taitung, penghu, kinmen, lienchiang）",
   "founding_year": 2015 | null,
   "signature_products": ["代表商品"],
   "where_to_buy": "通路摘要或 null",
@@ -218,7 +218,7 @@ export async function rewriteBrandDescription(
         user: `${userContent}${retryInstruction}`,
         json: true,
         timeoutMs: DEEPSEEK_TIMEOUT_MS,
-        maxTokens: 1800,
+        maxTokens: 2400,
         temperature: 0.1,
       })
 
@@ -277,7 +277,7 @@ export async function rewriteBrandDescription(
         },
       }
 
-      if (acceptedDescriptionZh && acceptedDescriptionEn) {
+      if (acceptedDescriptionZh && acceptedDescriptionEn && acceptedBlurbZh && acceptedBlurbEn) {
         return bestResult
       }
     }

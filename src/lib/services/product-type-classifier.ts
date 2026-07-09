@@ -58,6 +58,47 @@ function parseNullableString(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
 }
 
+const VALID_CITY_SLUGS = new Set([
+  'taipei', 'new_taipei', 'taoyuan', 'taichung', 'tainan', 'kaohsiung',
+  'keelung', 'hsinchu_city', 'chiayi_city',
+  'hsinchu_county', 'miaoli', 'changhua', 'nantou', 'yunlin',
+  'chiayi_county', 'pingtung', 'yilan', 'hualien', 'taitung',
+  'penghu', 'kinmen', 'lienchiang',
+])
+
+const CITY_NAME_TO_SLUG: Record<string, string> = {
+  '台北': 'taipei', '台北市': 'taipei', 'taipei city': 'taipei',
+  '新北': 'new_taipei', '新北市': 'new_taipei', 'new taipei': 'new_taipei',
+  '桃園': 'taoyuan', '桃園市': 'taoyuan',
+  '台中': 'taichung', '台中市': 'taichung',
+  '台南': 'tainan', '台南市': 'tainan',
+  '高雄': 'kaohsiung', '高雄市': 'kaohsiung',
+  '基隆': 'keelung', '基隆市': 'keelung',
+  '新竹市': 'hsinchu_city', 'hsinchu city': 'hsinchu_city',
+  '嘉義市': 'chiayi_city', 'chiayi city': 'chiayi_city',
+  '新竹縣': 'hsinchu_county', 'hsinchu county': 'hsinchu_county',
+  '苗栗': 'miaoli', '苗栗縣': 'miaoli',
+  '彰化': 'changhua', '彰化縣': 'changhua',
+  '南投': 'nantou', '南投縣': 'nantou',
+  '雲林': 'yunlin', '雲林縣': 'yunlin',
+  '嘉義縣': 'chiayi_county', 'chiayi county': 'chiayi_county',
+  '屏東': 'pingtung', '屏東縣': 'pingtung',
+  '宜蘭': 'yilan', '宜蘭縣': 'yilan',
+  '花蓮': 'hualien', '花蓮縣': 'hualien',
+  '台東': 'taitung', '台東縣': 'taitung',
+  '澎湖': 'penghu', '澎湖縣': 'penghu',
+  '金門': 'kinmen', '金門縣': 'kinmen',
+  '連江': 'lienchiang', '連江縣': 'lienchiang', '馬祖': 'lienchiang',
+}
+
+function mapCityToSlug(value: string | null): string | null {
+  if (!value) return null
+  const trimmed = value.trim()
+  if (VALID_CITY_SLUGS.has(trimmed)) return trimmed
+  const mapped = CITY_NAME_TO_SLUG[trimmed] ?? CITY_NAME_TO_SLUG[trimmed.toLowerCase()]
+  return mapped ?? null
+}
+
 export function parseExtractionResult(content: string): ExtractionResult {
   try {
     const parsed = JSON.parse(content) as UnknownRecord
@@ -71,7 +112,7 @@ export function parseExtractionResult(content: string): ExtractionResult {
     return {
       priceRange,
       productTags: parseStringArray(parsed.product_tags).slice(0, 5),
-      city: parseNullableString(parsed.city),
+      city: mapCityToSlug(parseNullableString(parsed.city)),
       foundingYear,
       signatureProducts: parseStringArray(parsed.signature_products).slice(0, 10),
       whereToBuy: parseNullableString(parsed.where_to_buy),
