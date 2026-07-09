@@ -79,10 +79,10 @@ check_env() {
     if ! grep -q "CHALLENGE_SECRET=." .env.local; then
       echo "WARN: CHALLENGE_SECRET not set — progressive CAPTCHA challenge will fail in production"
     fi
-    if grep -q "APIFY_TOKEN=." .env.local; then
-      echo "OK: APIFY_TOKEN"
+    if grep -q "SERPER_API_KEY=." .env.local; then
+      echo "OK: SERPER_API_KEY"
     else
-      echo "WARN: APIFY_TOKEN not set (enrichment commands will fail)"
+      echo "WARN: SERPER_API_KEY not set (enrichment SERP/image search will fail)"
     fi
     if ! grep -q "INDEXNOW_KEY=." .env.local 2>/dev/null; then
       echo "WARN: INDEXNOW_KEY not set (optional — needed for Bing IndexNow submission)"
