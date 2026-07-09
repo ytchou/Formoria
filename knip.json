@@ -12,7 +12,10 @@
   ],
   "ignoreDependencies": ["tw-animate-css", "tailwindcss", "shadcn", "@react-email/ui"],
   "ignoreBinaries": ["dotenv"],
-  "ignore": ["src/lib/supabase/database.types.ts"],
+  "ignore": [
+    "src/lib/supabase/database.types.ts",
+    "src/lib/services/enrich-phases/scraper/apify.ts"
+  ],
   "ignoreIssues": {
     "src/components/ui/card.tsx": ["exports"]
   },
