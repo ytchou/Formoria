@@ -31,15 +31,14 @@ export async function BrandDashboardShell({
           <div className="flex flex-wrap items-center gap-2">
             <Link
               className={buttonVariants({
-                variant: 'outline',
-                className: 'min-h-12',
+                variant: 'secondary',
               })}
               href={`/brands/${brandSlug}`}
             >
               {t('viewButton')}
             </Link>
             <Link
-              className={buttonVariants({ className: 'min-h-12' })}
+              className={buttonVariants({ variant: 'primary' })}
               href={`/dashboard/brands/${brandSlug}/edit`}
             >
               {t('editButton')}

@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { useUser } from '@/lib/auth/use-user'
 import { buttonVariants } from '@/components/ui/button'
+import { surfaceCardStyles } from '@/components/ui/card'
 
 const benefits = [
   {
@@ -31,7 +32,10 @@ export function OwnerBenefitsSection() {
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {benefits.map(({ key, Icon }) => (
-          <article key={key} className="space-y-2 rounded-xl border border-border bg-card p-4">
+          <article
+            key={key}
+            className={surfaceCardStyles({ className: 'space-y-2', padding: 'sm' })}
+          >
             <Icon className="size-6 text-primary" aria-hidden="true" />
             <h3 className="type-subsection-title">{t(`${key}.title`)}</h3>
             <p className="type-card-description">{t(`${key}.description`)}</p>
@@ -42,7 +46,7 @@ export function OwnerBenefitsSection() {
       {!user && (
         <Link
           href="/submit"
-          className={buttonVariants({ variant: 'cta' })}
+          className={buttonVariants({ variant: 'primary', tone: 'cta' })}
         >
           {ctaT('cta')}
         </Link>

@@ -328,7 +328,7 @@ export function BrandFilterDrawer({
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         render={
-          <Button variant="outline" className="gap-2 lg:hidden" />
+          <Button variant="secondary" className="gap-2 lg:hidden" />
         }
       >
         <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />

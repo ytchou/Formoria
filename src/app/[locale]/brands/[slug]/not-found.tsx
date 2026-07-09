@@ -15,7 +15,7 @@ export default async function BrandNotFound() {
       </p>
       <Link
         href="/brands"
-        className={buttonVariants({ variant: 'default' }) + ' mt-6'}
+        className={buttonVariants({ variant: 'primary', className: 'mt-6' })}
       >
         {t('notFound.browseAll')}
       </Link>

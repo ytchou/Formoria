@@ -121,7 +121,7 @@ export function LinksSection({
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon-lg"
+                  size="icon"
                   aria-label={t('removeItem')}
                   onClick={() => remove(index)}
                 >
@@ -131,7 +131,7 @@ export function LinksSection({
             ))}
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               onClick={() => append({ label: '', url: '' })}
             >
               <Plus className="size-3.5" />

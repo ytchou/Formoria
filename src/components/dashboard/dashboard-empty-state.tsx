@@ -22,13 +22,13 @@ export function DashboardEmptyState() {
         </p>
         <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
           <Link
-            className={buttonVariants({ variant: 'cta' })}
+            className={buttonVariants({ variant: 'primary', tone: 'cta' })}
             href="/submit"
           >
             {t('submitCta')}
           </Link>
           <Link
-            className={buttonVariants({ variant: 'outline' })}
+            className={buttonVariants({ variant: 'secondary' })}
             href="/brands"
           >
             {t('browseCta')}

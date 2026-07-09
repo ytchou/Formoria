@@ -37,7 +37,7 @@ export default async function HeroSection({ brandCount, categoryCount, recentBra
           </div>
           <Link
             href="/brands"
-            className={cn(buttonVariants({ variant: 'cta' }), 'mt-6')}
+            className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-6')}
           >
             {t('cta')}
           </Link>

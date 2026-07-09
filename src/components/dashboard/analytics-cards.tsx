@@ -1,7 +1,7 @@
 'use client'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { DataCard } from '@/components/ui/card'
 
 type Trend = 'up' | 'down' | 'flat'
 
@@ -73,45 +73,39 @@ export function AnalyticsCards({
 
   return (
     <div className="grid grid-cols-2 gap-4">
-      <Card className="bg-white border-border">
-        <CardHeader className="pb-2">
-          <CardTitle className="type-metadata">
-            {t('pageViews')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2">
-            <span className="type-stat">
-              {totalViews}
-            </span>
+      <DataCard
+        tone="white"
+        label={t('pageViews')}
+        value={
+          <span className="flex items-center gap-2">
+            <span>{totalViews}</span>
             <TrendIcon trend={viewTrend} label={getTrendLabel(viewTrend)} />
-          </div>
-          <p className="type-caption mt-1">
-            {t(`benchmark.views.${viewsBenchmark}`)}
-          </p>
-          <p className="mt-1 type-caption">{t('last30Days')}</p>
-        </CardContent>
-      </Card>
+          </span>
+        }
+        description={
+          <>
+            <span>{t(`benchmark.views.${viewsBenchmark}`)}</span>
+            <span className="mt-1 block">{t('last30Days')}</span>
+          </>
+        }
+      />
 
-      <Card className="bg-white border-border">
-        <CardHeader className="pb-2">
-          <CardTitle className="type-metadata">
-            {t('outboundClicks')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2">
-            <span className="type-stat">
-              {totalClicks}
-            </span>
+      <DataCard
+        tone="white"
+        label={t('outboundClicks')}
+        value={
+          <span className="flex items-center gap-2">
+            <span>{totalClicks}</span>
             <TrendIcon trend={clickTrend} label={getTrendLabel(clickTrend)} />
-          </div>
-          <p className="type-caption mt-1">
-            {t(`benchmark.ctr.${ctrBenchmark}`)}
-          </p>
-          <p className="mt-1 type-caption">{t('last30Days')}</p>
-        </CardContent>
-      </Card>
+          </span>
+        }
+        description={
+          <>
+            <span>{t(`benchmark.ctr.${ctrBenchmark}`)}</span>
+            <span className="mt-1 block">{t('last30Days')}</span>
+          </>
+        }
+      />
     </div>
   )
 }

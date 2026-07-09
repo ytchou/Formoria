@@ -2,7 +2,7 @@
 
 import { ChartNoAxesColumn } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Card } from '@/components/ui/card'
+import { SurfaceCard } from '@/components/ui/card'
 import type { SourceBucket } from '@/lib/analytics/source-bucket'
 
 type SourcesBreakdownCardProps = {
@@ -20,7 +20,7 @@ export function SourcesBreakdownCard({
   const isEmpty = total === 0
 
   return (
-    <Card className="overflow-hidden rounded-xl border border-border bg-card shadow-none">
+    <SurfaceCard padding="none" className="overflow-hidden">
       <div className="px-5 pt-5 pb-4">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-0.5">
@@ -83,6 +83,6 @@ export function SourcesBreakdownCard({
       )}
 
       <div className="h-2" />
-    </Card>
+    </SurfaceCard>
   )
 }

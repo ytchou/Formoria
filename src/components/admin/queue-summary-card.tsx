@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { SurfaceCard } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 type QueueSummaryCardProps = {
@@ -20,16 +20,16 @@ export function QueueSummaryCard({
   children,
 }: QueueSummaryCardProps) {
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="flex-row items-center justify-between gap-4">
+    <SurfaceCard padding="lg" className="overflow-hidden">
+      <div className="flex flex-row items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-2">
           <h3 className="truncate type-card-title">{title}</h3>
         </div>
         <span className="rounded-full bg-muted px-2.5 py-1 text-sm font-semibold text-muted-foreground">
           {count}
         </span>
-      </CardHeader>
-      <CardContent className="space-y-4">
+      </div>
+      <div className="mt-6 space-y-4">
         {count === 0 ? (
           <p className="py-4 text-center type-card-description">{emptyMessage}</p>
         ) : (
@@ -44,7 +44,7 @@ export function QueueSummaryCard({
         >
           查看全部 →
         </Link>
-      </CardContent>
-    </Card>
+      </div>
+    </SurfaceCard>
   )
 }

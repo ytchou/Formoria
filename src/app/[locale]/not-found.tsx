@@ -16,13 +16,13 @@ export default async function NotFound() {
       <div className="mt-6 flex flex-wrap gap-3">
         <Link
           href="/"
-          className={buttonVariants({ variant: 'cta' })}
+          className={buttonVariants({ variant: 'primary', tone: 'cta' })}
         >
           {t('notFound.cta')}
         </Link>
         <Link
           href="/brands"
-          className={buttonVariants({ variant: 'outline' })}
+          className={buttonVariants({ variant: 'secondary' })}
         >
           {t('notFound.browseDirectory')}
         </Link>

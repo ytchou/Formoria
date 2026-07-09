@@ -40,7 +40,7 @@ export function WizardFooter({
         {isFinalStep ? (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             disabled={isSaving}
             onClick={onSave}
           >
@@ -49,7 +49,7 @@ export function WizardFooter({
         ) : activeStep > 0 ? (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             disabled={isSaving}
             onClick={onBack}
           >
@@ -68,7 +68,7 @@ export function WizardFooter({
       {isFinalStep ? (
         <Button
           type="button"
-          variant="cta"
+          variant="primary"
           disabled={isSaving}
           onClick={onPublish}
         >

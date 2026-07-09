@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
+import { X } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import type { PendingBrandEdit } from '@/lib/types/brand'
 
 type Props = {
@@ -73,13 +75,16 @@ export function EditReviewBanner({ edit, brandSlug }: Props) {
               </p>
             )}
           </div>
-          <button
+          <Button
+            type="button"
             aria-label={t('close')}
             onClick={() => setDismissed(true)}
-            className="ml-auto type-card-description"
+            variant="ghost"
+            size="icon"
+            className="ml-auto text-muted-foreground hover:text-foreground"
           >
-            ✕
-          </button>
+            <X className="size-4" />
+          </Button>
         </div>
       </div>
     )

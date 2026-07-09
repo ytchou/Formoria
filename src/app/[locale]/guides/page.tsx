@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
+import { surfaceCardStyles } from '@/components/ui/card'
 import { getAllGuides, getGuidesByCategory } from '@/lib/services/guides'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
@@ -94,7 +95,10 @@ export default async function GuidesHubPage({ params, searchParams }: PageProps)
               <Link
                 key={guide.slug}
                 href={`/guides/${guide.slug}`}
-                className="group rounded-xl border border-border bg-card p-5 transition-colors hover:bg-secondary"
+                className={surfaceCardStyles({
+                  className: 'group hover:bg-secondary',
+                  interactive: true,
+                })}
               >
                 <div className="space-y-3">
                   <div className="space-y-2">

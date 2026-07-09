@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import { getLocale, getTranslations } from 'next-intl/server'
+import { InfoField, InfoGroup, SurfaceCard } from '@/components/ui/card'
 import { Link } from '@/i18n/navigation'
 import { getProductTypeLabel } from '@/lib/brands/category-label'
 import { normalizeRetailLocations } from '@/lib/brands/locations'
@@ -32,17 +33,8 @@ function OwnerSection({ children, description, editHref, title, editLabel }: Own
           </Link>
         ) : null}
       </div>
-      <div className="rounded-xl border border-border bg-card p-5">{children}</div>
+      <SurfaceCard>{children}</SurfaceCard>
     </section>
-  )
-}
-
-function Field({ label, value, wide = false }: { label: string; value: React.ReactNode; wide?: boolean }) {
-  return (
-    <div className={wide ? 'space-y-1 sm:col-span-2' : 'space-y-1'}>
-      <dt className="type-caption">{label}</dt>
-      <dd className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{value}</dd>
-    </div>
   )
 }
 
@@ -95,43 +87,41 @@ export async function OwnerBrandOverview({
     <div className="space-y-8">
       <OwnerSection description={t('sectionBasicInfoHint')} editHref={`${editBase}0`} title={tEdit('wizardStepBasicInfo')} editLabel={t('edit')}>
         <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
-          <Field label={tEdit('fieldBrandName')} value={display(brand.name, t('notSet'))} />
-          <Field
+          <InfoField label={tEdit('fieldBrandName')} value={display(brand.name, t('notSet'))} />
+          <InfoField
             label={tEdit('fieldProductType')}
             value={brand.productType
               ? (getProductTypeLabel(brand.productType, locale === 'zh-TW' ? 'zh-TW' : 'en') ?? brand.productType)
               : <EmptyValue>{t('notSet')}</EmptyValue>}
           />
-          <Field label={tEdit('fieldDescription')} value={display(brand.description, t('notSet'))} wide />
-          <Field label={tEdit('fieldFoundingYear')} value={display(brand.foundingYear, t('notSet'))} />
-          <Field label={tEdit('city')} value={display(brand.city, t('notSet'))} />
-          <Field label={tEdit('fieldPriceRange')} value={priceRange} />
-          <Field
+          <InfoField label={tEdit('fieldDescription')} value={display(brand.description, t('notSet'))} wide />
+          <InfoField label={tEdit('fieldFoundingYear')} value={display(brand.foundingYear, t('notSet'))} />
+          <InfoField label={tEdit('city')} value={display(brand.city, t('notSet'))} />
+          <InfoField label={tEdit('fieldPriceRange')} value={priceRange} />
+          <InfoField
             label={tEdit('fieldProductTags')}
             value={brand.productTags.length > 0 ? brand.productTags.join(' · ') : <EmptyValue>{t('notSet')}</EmptyValue>}
           />
-          <Field label={tEdit('mitStoryLabel')} value={display(brand.mitStory, t('notSet'))} wide />
+          <InfoField label={tEdit('mitStoryLabel')} value={display(brand.mitStory, t('notSet'))} wide />
         </dl>
       </OwnerSection>
 
       <OwnerSection description={t('sectionBrandImagesHint')} editHref={`${editBase}1`} title={tEdit('wizardStepMedia')} editLabel={t('edit')}>
         <div className="space-y-6">
-          <div className="space-y-3">
-            <h3 className="type-subsection-title">{tEdit('fieldHeroImage')}</h3>
-            <p className="type-form-hint">
-              {tEdit('heroImageOverviewHint')}
-            </p>
+          <InfoGroup
+            description={tEdit('heroImageOverviewHint')}
+            label={tEdit('fieldHeroImage')}
+          >
             {brand.heroImageUrl ? (
               <div className="relative aspect-[16/9] max-w-md overflow-hidden rounded-xl bg-muted">
                 <Image alt={tEdit('fieldHeroImage')} className="object-cover" fill sizes="448px" src={brand.heroImageUrl} />
               </div>
-            ) : <p className="type-card-description">{t('notSet')}</p>}
-          </div>
-          <div className="space-y-3">
-            <h3 className="type-subsection-title">{tEdit('fieldProductPhotos')}</h3>
-            <p className="type-form-hint">
-              {tEdit('productPhotosOverviewHint')}
-            </p>
+            ) : <p className="type-field-value text-muted-foreground">{t('notSet')}</p>}
+          </InfoGroup>
+          <InfoGroup
+            description={tEdit('productPhotosOverviewHint')}
+            label={tEdit('fieldProductPhotos')}
+          >
             {brand.productPhotos.length > 0 ? (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                 {brand.productPhotos.map((photo, index) => (
@@ -140,20 +130,20 @@ export async function OwnerBrandOverview({
                   </div>
                 ))}
               </div>
-            ) : <p className="type-card-description">{t('notSet')}</p>}
-          </div>
+            ) : <p className="type-field-value text-muted-foreground">{t('notSet')}</p>}
+          </InfoGroup>
         </div>
       </OwnerSection>
 
       <OwnerSection description={t('sectionLinksHint')} editHref={`${editBase}2`} title={tEdit('wizardStepLinks')} editLabel={t('edit')}>
         <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
-          <Field label={tEdit('fieldInstagram')} value={display(brand.socialInstagram, t('notSet'))} />
-          <Field label={tEdit('fieldThreads')} value={display(brand.socialThreads, t('notSet'))} />
-          <Field label={tEdit('fieldFacebook')} value={display(brand.socialFacebook, t('notSet'))} />
-          <Field label={tEdit('fieldOfficialWebsite')} value={display(brand.purchaseWebsite, t('notSet'))} />
-          <Field label="Pinkoi" value={display(brand.purchasePinkoi, t('notSet'))} />
-          <Field label={tEdit('fieldShopee')} value={display(brand.purchaseShopee, t('notSet'))} />
-          <Field
+          <InfoField label={tEdit('fieldInstagram')} value={display(brand.socialInstagram, t('notSet'))} />
+          <InfoField label={tEdit('fieldThreads')} value={display(brand.socialThreads, t('notSet'))} />
+          <InfoField label={tEdit('fieldFacebook')} value={display(brand.socialFacebook, t('notSet'))} />
+          <InfoField label={tEdit('fieldOfficialWebsite')} value={display(brand.purchaseWebsite, t('notSet'))} />
+          <InfoField label="Pinkoi" value={display(brand.purchasePinkoi, t('notSet'))} />
+          <InfoField label={tEdit('fieldShopee')} value={display(brand.purchaseShopee, t('notSet'))} />
+          <InfoField
             label={tEdit('fieldOtherLinks')}
             value={brand.otherUrls.length > 0 ? brand.otherUrls.map(({ label, url }) => `${label}: ${url}`).join('\n') : <EmptyValue>{t('notSet')}</EmptyValue>}
             wide
@@ -166,15 +156,15 @@ export async function OwnerBrandOverview({
           <dl className="grid gap-4 sm:grid-cols-2">
             {retailLocations.map((location, index) => (
               <div key={`${location.name}-${index}`} className="rounded-lg bg-secondary p-4">
-                <dt className="type-subsection-title">{location.name}</dt>
-                <dd className="mt-1 type-caption">
+                <dt className="type-field-label">{location.name}</dt>
+                <dd className="mt-1 type-form-hint">
                   {tEdit(locationTypeLabelKey(location.relationshipType ?? 'stockist'))}
                 </dd>
-                <dd className="mt-1 type-card-description">{location.address || <EmptyValue>{t('notSet')}</EmptyValue>}</dd>
+                <dd className="mt-1 break-words type-field-value">{location.address || <EmptyValue>{t('notSet')}</EmptyValue>}</dd>
               </div>
             ))}
           </dl>
-        ) : <p className="type-card-description">{t('notSet')}</p>}
+        ) : <p className="type-field-value text-muted-foreground">{t('notSet')}</p>}
       </OwnerSection>
 
       {verification ? (
@@ -188,8 +178,8 @@ export async function OwnerBrandOverview({
 
       <OwnerSection description={t('sectionReputationHint')} editHref={`${editBase}4`} title={tEdit('wizardStepReputation')} editLabel={t('edit')}>
         <dl className="space-y-5">
-          <Field label={tEdit('fieldReputationSummary')} value={display(brand.reputationSummary?.text, t('notSet'))} wide />
-          <Field
+          <InfoField label={tEdit('fieldReputationSummary')} value={display(brand.reputationSummary?.text, t('notSet'))} wide />
+          <InfoField
             label={tEdit('fieldProvenanceSources')}
             value={brand.reputationSummary?.sources.length
               ? brand.reputationSummary.sources.map(({ url }) => url).join('\n')

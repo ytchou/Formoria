@@ -7,6 +7,7 @@ import { approvePendingEditAction, rejectPendingEditAction } from '@/app/admin/a
 import { EditDiffView, computeDiffFields } from './edit-diff-view'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { surfaceCardStyles } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 
 type PendingBrandEditWithRisk = PendingBrandEditWithBrand & {
@@ -40,7 +41,7 @@ export function PendingEditsList({ edits }: { edits: PendingBrandEditWithRisk[] 
   }
 
   return (
-    <div className="rounded-lg border bg-white">
+    <div className={surfaceCardStyles({ padding: 'none' })}>
       {edits.map((edit) => {
         const isExpanded = expandedId === edit.id
         const isRejecting = rejectNoteId === edit.id
@@ -68,7 +69,7 @@ export function PendingEditsList({ edits }: { edits: PendingBrandEditWithRisk[] 
               </span>
               <Button
                 variant="ghost"
-                size="sm"
+                size="compact"
                 onClick={() => handleToggle(edit.id)}
               >
                 {isExpanded ? (
@@ -103,7 +104,7 @@ export function PendingEditsList({ edits }: { edits: PendingBrandEditWithRisk[] 
                   <div className="flex flex-col gap-2">
                     {!isRejecting && (
                       <Button
-                        variant="outline"
+                        variant="secondary"
                         className="border-destructive text-destructive"
                         onClick={() => setRejectNoteId(edit.id)}
                         disabled={isPending}
@@ -123,7 +124,7 @@ export function PendingEditsList({ edits }: { edits: PendingBrandEditWithRisk[] 
                         <div className="flex gap-2">
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="compact"
                             onClick={() => {
                               setRejectNoteId(null)
                               setRejectNote('')
@@ -133,7 +134,7 @@ export function PendingEditsList({ edits }: { edits: PendingBrandEditWithRisk[] 
                           </Button>
                           <Button
                             variant="destructive"
-                            size="sm"
+                            size="compact"
                             onClick={() => handleRejectConfirm(edit.id)}
                             disabled={isPending}
                           >

@@ -7,6 +7,7 @@ import { getUserSavedBrands } from '@/lib/services/saved-brands'
 import { createClient } from '@/lib/supabase/server'
 import type { SavedBrand } from '@/lib/types/saved-brand'
 import { buttonVariants } from '@/components/ui/button'
+import { surfaceCardStyles } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -38,7 +39,12 @@ function BrandImage({ brand }: { brand: SavedBrand }) {
 function SavedBrandCard({ brand }: { brand: SavedBrand }) {
   return (
     <Link
-      className="group block overflow-hidden rounded-xl border border-border bg-white transition-[box-shadow,transform] hover:-translate-y-px hover:shadow-[var(--shadow-card-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className={surfaceCardStyles({
+        className: 'group block overflow-hidden',
+        interactive: true,
+        padding: 'none',
+        tone: 'white',
+      })}
       href={`/brands/${brand.brandSlug}`}
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">

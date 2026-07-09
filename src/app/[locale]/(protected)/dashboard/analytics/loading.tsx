@@ -1,10 +1,12 @@
+import { surfaceCardStyles } from '@/components/ui/card'
+
 export default function AnalyticsLoading() {
   return (
     <div className="space-y-6 animate-pulse">
       <div className="grid gap-4 md:grid-cols-3">
         {[0, 1, 2].map((item) => (
           <div
-            className="h-28 rounded-xl border border-border bg-white p-5"
+            className={surfaceCardStyles({ className: 'h-28', tone: 'white' })}
             key={item}
           >
             <div className="h-4 w-24 rounded bg-muted" />
@@ -17,7 +19,7 @@ export default function AnalyticsLoading() {
         ))}
       </div>
 
-      <div className="rounded-xl border border-border bg-white p-5">
+      <div className={surfaceCardStyles({ tone: 'white' })}>
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">
             <div className="h-4 w-36 rounded bg-muted" />
@@ -31,7 +33,7 @@ export default function AnalyticsLoading() {
       <div className="grid gap-6 md:grid-cols-2">
         {[0, 1].map((item) => (
           <div
-            className="rounded-xl border border-border bg-white p-5"
+            className={surfaceCardStyles({ tone: 'white' })}
             key={item}
           >
             <div className="flex items-center justify-between gap-4">

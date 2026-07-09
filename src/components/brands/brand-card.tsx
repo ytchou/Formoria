@@ -7,6 +7,7 @@ import { BadgeCheck, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 import type { Brand } from '@/lib/types'
 import { trackBrandCardClicked } from '@/lib/analytics'
+import { surfaceCardStyles } from '@/components/ui/card'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
 import { SaveBrandButton } from './save-brand-button'
@@ -61,7 +62,11 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
   return (
     <Link
       href={`/brands/${brand.slug}`}
-      className="group block rounded-xl border border-border bg-card shadow-[var(--shadow-card)] transition-[box-shadow,transform] hover:-translate-y-px hover:shadow-[var(--shadow-card-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className={surfaceCardStyles({
+        className: 'group block shadow-card',
+        interactive: true,
+        padding: 'none',
+      })}
       aria-label={brand.name}
       onClick={() => trackBrandCardClicked(brand.slug, brand.category, position)}
     >

@@ -8,6 +8,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import { surfaceCardStyles } from '@/components/ui/card'
 import { Link } from '@/i18n/navigation'
 import type { ProfileCompleteness } from '@/lib/services/profile-completeness'
 
@@ -62,7 +63,7 @@ export function ProfileCompletenessCard({
   return (
     <section
       id="profile-completeness"
-      className="overflow-hidden rounded-xl border border-border bg-card"
+      className={surfaceCardStyles({ className: 'overflow-hidden', padding: 'none' })}
     >
       <Collapsible open={open} onOpenChange={setOpen}>
         <CollapsibleTrigger className="flex min-h-12 w-full items-center gap-4 px-5 py-3 text-left transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary">

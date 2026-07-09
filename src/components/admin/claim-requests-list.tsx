@@ -370,10 +370,9 @@ export function ClaimRequestsList({
                                   rejectTarget?.kind === 'claim' &&
                                   rejectTarget.id === claimRequest.id
                                     ? 'destructive'
-                                    : 'outline'
+                                    : 'secondary'
                                 }
-                                size="lg"
-                                className="min-h-12 px-4"
+                                size="large"
                                 onClick={(event) => {
                                   event.stopPropagation()
                                   handleRejectClaim(claimRequest.id)

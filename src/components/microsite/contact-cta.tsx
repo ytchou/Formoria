@@ -1,3 +1,4 @@
+import { surfaceCardStyles } from '@/components/ui/card'
 import type { Brand, SiteContent } from '@/lib/types/brand'
 
 type ContactCtaProps = {
@@ -11,7 +12,7 @@ export function ContactCta({ brand, siteContent }: ContactCtaProps) {
   return (
     <section id="contact" className="px-6 py-12 md:px-10 md:py-16" aria-labelledby="contact-title">
       <div className="mx-auto max-w-[1280px]">
-        <div className="rounded-xl border border-border bg-card p-6 md:p-8">
+        <div className={surfaceCardStyles({ className: 'md:p-8', padding: 'lg' })}>
           <div className="flex flex-col items-start gap-5 md:flex-row md:items-center md:justify-between">
             <div className="space-y-2">
               <h2 id="contact-title" className="type-section-title">

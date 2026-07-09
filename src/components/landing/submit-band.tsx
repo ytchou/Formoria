@@ -25,7 +25,7 @@ export default async function SubmitBand() {
         </p>
         <Link
           href="/submit"
-          className={cn(buttonVariants({ variant: 'cta' }), 'mt-8')}
+          className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-8')}
         >
           {t('cta')}
         </Link>

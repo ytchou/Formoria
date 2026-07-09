@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/accordion'
 import { OwnerBenefitsSection } from '@/components/getting-started/OwnerBenefitsSection'
 import { buttonVariants } from '@/components/ui/button'
+import { surfaceCardStyles } from '@/components/ui/card'
 import { buildFaqPageJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
@@ -80,14 +81,14 @@ export default async function GettingStartedPage({ params }: PageProps) {
         <div className="flex flex-col gap-3 sm:flex-row md:flex-col">
           <Link
             href="/submit"
-            className={buttonVariants({ variant: 'cta' })}
+            className={buttonVariants({ variant: 'primary', tone: 'cta' })}
           >
             {t('hero.primaryCta')}
             <ArrowRight className="size-4" />
           </Link>
           <Link
             href="/brands"
-            className={buttonVariants({ variant: 'outline' })}
+            className={buttonVariants({ variant: 'secondary' })}
           >
             {t('hero.secondaryCta')}
           </Link>
@@ -100,7 +101,7 @@ export default async function GettingStartedPage({ params }: PageProps) {
         </h2>
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           {steps.map((step, index) => (
-            <article key={step} className="rounded-xl border border-border bg-card p-5">
+            <article key={step} className={surfaceCardStyles()}>
               <div className="flex size-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
                 {index + 1}
               </div>
@@ -156,7 +157,12 @@ export default async function GettingStartedPage({ params }: PageProps) {
         <OwnerBenefitsSection />
       </section>
 
-      <section className="rounded-xl border border-border bg-card p-6 md:flex md:items-center md:justify-between md:gap-8">
+      <section
+        className={surfaceCardStyles({
+          className: 'md:flex md:items-center md:justify-between md:gap-8',
+          padding: 'lg',
+        })}
+      >
         <div>
           <h2 className="type-section-title-large">
             {t('cta.heading')}
@@ -168,13 +174,13 @@ export default async function GettingStartedPage({ params }: PageProps) {
         <div className="mt-5 flex flex-col gap-3 sm:flex-row md:mt-0">
           <Link
             href="/submit"
-            className={buttonVariants({ variant: 'cta' })}
+            className={buttonVariants({ variant: 'primary', tone: 'cta' })}
           >
             {t('cta.submit')}
           </Link>
           <Link
             href="/faq"
-            className={buttonVariants({ variant: 'outline' })}
+            className={buttonVariants({ variant: 'secondary' })}
           >
             {t('cta.faq')}
           </Link>

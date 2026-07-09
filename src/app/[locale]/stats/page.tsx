@@ -4,6 +4,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { getStatsPageData } from '@/lib/services/stats'
+import { surfaceCardStyles } from '@/components/ui/card'
 import { TaiwanMapDynamic } from '@/components/stats/TaiwanMapDynamic'
 
 interface StatsPageProps {
@@ -85,7 +86,7 @@ export default async function StatsPage({ params }: StatsPageProps) {
               {t('categories.description', { count: data.totalBrands })}
             </p>
           </div>
-          <div className="rounded-xl border border-border bg-card p-4">
+          <div className={surfaceCardStyles({ padding: 'sm' })}>
             <div className="grid gap-3">
               {data.categoryBreakdown.map((item) => (
                 <Link
@@ -116,7 +117,7 @@ export default async function StatsPage({ params }: StatsPageProps) {
               })}
             </p>
           </div>
-          <div className="rounded-xl border border-border bg-card p-4">
+          <div className={surfaceCardStyles({ padding: 'sm' })}>
             <p className="type-page-title">
               {data.mitVerifiedShare.percentage}%
             </p>
@@ -130,7 +131,7 @@ export default async function StatsPage({ params }: StatsPageProps) {
             </h2>
             <p className="type-card-description">{t('geographicDistributionDesc')}</p>
           </div>
-          <div className="rounded-xl border border-border bg-card p-4">
+          <div className={surfaceCardStyles({ padding: 'sm' })}>
             <TaiwanMapDynamic data={data.cityCoverage} />
             {data.cityCoverage.length > 0 && (
               <ol className="mt-4 space-y-1.5">
@@ -156,7 +157,7 @@ export default async function StatsPage({ params }: StatsPageProps) {
               </h2>
               <p className="type-card-description">{t('foundingDecade.description')}</p>
             </div>
-            <div className="rounded-xl border border-border bg-card p-4">
+            <div className={surfaceCardStyles({ padding: 'sm' })}>
               <div className="grid gap-3">
                 {data.foundingDecadeDistribution.map((item) => (
                   <div key={item.decade} className="flex items-center justify-between gap-4">

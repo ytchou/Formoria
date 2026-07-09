@@ -142,4 +142,15 @@ describe('OwnerBrandOverview', () => {
       expect(value).toHaveClass('text-muted-foreground')
     }
   })
+
+  it('uses the shared dashboard information field styles for labels and values', async () => {
+    render(await OwnerBrandOverview({ brand }))
+
+    expect(screen.getByText('fieldBrandName')).toHaveClass('type-field-label')
+    expect(screen.getByText('Brand One')).toHaveClass('type-field-value')
+    expect(screen.getByRole('heading', { name: 'fieldHeroImage' })).toHaveClass(
+      'type-field-label',
+    )
+    expect(screen.getByText('heroImageOverviewHint')).toHaveClass('type-form-hint')
+  })
 })

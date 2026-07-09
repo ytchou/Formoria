@@ -54,7 +54,7 @@ export function SearchEmptyState({
       {hasActiveFilters && (
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           onClick={onClearFilters}
           className="mt-3"
         >

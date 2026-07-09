@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { unstable_cache } from 'next/cache'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { DataCard, SurfaceCard } from '@/components/ui/card'
 import { getQualityMetrics } from '@/lib/services/brand-quality'
 
 export const metadata: Metadata = {
@@ -85,35 +85,23 @@ export default async function AdminQualityPage() {
       </p>
 
       <div className="mt-8 grid gap-4 md:grid-cols-2">
-        <Card className="border-border bg-card shadow-none">
-          <CardHeader className="p-4 pb-0">
-            <CardTitle className="type-metadata">
-              Hero Image Coverage
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            <p className="type-stat">
-              {formatPercentage(metrics.heroImage.percentage)}
-            </p>
-            <p className="mt-2 type-card-description">
-              {metrics.heroImage.withCount} brands with hero / {metrics.totalBrands} total
-            </p>
-            <div className="mt-4">
-              <ProgressBar
-                label="Hero image coverage"
-                value={metrics.heroImage.percentage}
-              />
-            </div>
-          </CardContent>
-        </Card>
+        <DataCard
+          label="Hero Image Coverage"
+          value={formatPercentage(metrics.heroImage.percentage)}
+          description={`${metrics.heroImage.withCount} brands with hero / ${metrics.totalBrands} total`}
+          padding="sm"
+        >
+          <ProgressBar
+            label="Hero image coverage"
+            value={metrics.heroImage.percentage}
+          />
+        </DataCard>
 
-        <Card className="border-border bg-card shadow-none">
-          <CardHeader className="p-4 pb-0">
-            <CardTitle className="type-metadata">
-              Link Coverage
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 p-4">
+        <SurfaceCard padding="sm">
+          <h2 className="type-metadata">
+            Link Coverage
+          </h2>
+          <div className="mt-4 space-y-4">
             {linkRows.map((row) => {
               const metric = metrics.links[row.key]
 
@@ -132,38 +120,26 @@ export default async function AdminQualityPage() {
                 </div>
               )
             })}
-          </CardContent>
-        </Card>
+          </div>
+        </SurfaceCard>
 
-        <Card className="border-border bg-card shadow-none">
-          <CardHeader className="p-4 pb-0">
-            <CardTitle className="type-metadata">
-              Description Completeness
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            <p className="type-stat">
-              {formatPercentage(metrics.description.percentage)}
-            </p>
-            <p className="mt-2 type-card-description">
-              avg length: {metrics.description.avgLength} chars
-            </p>
-            <div className="mt-4">
-              <ProgressBar
-                label="Description completeness"
-                value={metrics.description.percentage}
-              />
-            </div>
-          </CardContent>
-        </Card>
+        <DataCard
+          label="Description Completeness"
+          value={formatPercentage(metrics.description.percentage)}
+          description={`avg length: ${metrics.description.avgLength} chars`}
+          padding="sm"
+        >
+          <ProgressBar
+            label="Description completeness"
+            value={metrics.description.percentage}
+          />
+        </DataCard>
 
-        <Card className="border-border bg-card shadow-none">
-          <CardHeader className="p-4 pb-0">
-            <CardTitle className="type-metadata">
-              Completeness Distribution
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 p-4">
+        <SurfaceCard padding="sm">
+          <h2 className="type-metadata">
+            Completeness Distribution
+          </h2>
+          <div className="mt-4 space-y-4">
             {distributionRows.map((row) => {
               const count = metrics.completeness[row.key]
               const percentage = distributionTotal > 0
@@ -188,16 +164,14 @@ export default async function AdminQualityPage() {
                 </div>
               )
             })}
-          </CardContent>
-        </Card>
+          </div>
+        </SurfaceCard>
 
-        <Card className="border-border bg-card shadow-none md:col-span-2">
-          <CardHeader className="p-4 pb-0">
-            <CardTitle className="type-metadata">
-              Enrichment Quality
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 p-4">
+        <SurfaceCard padding="sm" className="md:col-span-2">
+          <h2 className="type-metadata">
+            Enrichment Quality
+          </h2>
+          <div className="mt-4 space-y-4">
             {enrichmentRows.map((row) => {
               const value = metrics.enrichment[row.key]
 
@@ -231,8 +205,8 @@ export default async function AdminQualityPage() {
                 </p>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </SurfaceCard>
       </div>
     </div>
   )
