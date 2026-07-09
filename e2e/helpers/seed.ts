@@ -45,7 +45,7 @@ export async function seedBrand(opts: {
     name: fullName,
     slug,
     status,
-    category: 'lifestyle',
+    product_type: 'crafts',
     founding_year: '2020',
   };
 
@@ -72,8 +72,13 @@ export async function seedBrand(opts: {
       .from('brand_owners')
       .insert({ brand_id: brand.id, user_id: testUserId });
     if (ownerError) {
-      await supabase.from('brands').delete().eq('id', brand.id);
-      throw new Error(`seedBrand brand_owners insert failed: ${ownerError.message}`);
+      // Duplicate key means user already owns another brand — non-fatal for most tests.
+      if (ownerError.code === '23505') {
+        console.warn(`[e2e-seed] withOwner: user already owns a brand (${ownerError.message}) — continuing without ownership`);
+      } else {
+        await supabase.from('brands').delete().eq('id', brand.id);
+        throw new Error(`seedBrand brand_owners insert failed: ${ownerError.message}`);
+      }
     }
   }
 

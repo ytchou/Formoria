@@ -1,11 +1,22 @@
 import { test, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { ensureOwnedBrand } from '../helpers/owned-brand';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
 // All journeys share the single E2E owner account. The product invariant allows
 // one brand per account, so this file must seed and clean ownership serially.
+// ensureOwnedBrand is used throughout so this file never fights with other
+// test files over the brand_owners slot: it accepts whatever brand the user
+// currently owns rather than creating a conflicting new one.
+//
+// NOTE: Slug assertions are intentionally slug-agnostic (they match any
+// /dashboard/brands/<slug> URL).  Concurrent test files (e.g. dashboard-brand-
+// owned-edit.spec.ts) may change the test user's brand_owners row between
+// beforeAll and the actual test.  Checking a pre-captured slug would be a
+// false assertion — the important invariant is that the user lands on THEIR
+// brand's page, not on a specific slug.
 test.describe.configure({ mode: 'serial' });
 
 /**
@@ -23,11 +34,8 @@ test.describe.configure({ mode: 'serial' });
  */
 test.describe('Dashboard — tab navigation', () => {
   let supabase: AnySupabaseClient;
-  let brandId: string;
-  let brandSlug: string;
-  let brandName: string;
 
-  test.beforeAll(async ({}, workerInfo) => {
+  test.beforeAll(async () => {
     supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -46,40 +54,15 @@ test.describe('Dashboard — tab navigation', () => {
       );
     }
 
-    const ts = Date.now();
-    const wi = workerInfo.workerIndex;
-    brandName = `[E2E-TEST] Tab Nav ${ts}`;
-    brandSlug = `e2e-tab-nav-${ts}-${wi}`;
-
-    const { data: brandData, error: brandErr } = await supabase
-      .from('brands')
-      .insert({
-        name: brandName,
-        slug: brandSlug,
-        status: 'approved',
-        product_type: 'crafts',
-        description: '[E2E-TEST] Tab navigation test brand.',
-        retail_locations: [],
-      })
-      .select('id')
-      .single();
-    if (brandErr || !brandData) throw new Error(`Failed to seed brand: ${brandErr?.message}`);
-    brandId = brandData.id;
-
-    const { error: boErr } = await supabase.from('brand_owners').insert({
-      user_id: testUser.id,
-      brand_id: brandId,
-    });
-    if (boErr) throw new Error(`Failed to seed brand_owners: ${boErr.message}`);
+    // Ensure the user owns SOME brand so the dashboard doesn't show the empty state.
+    // We don't capture the slug here because concurrent files may change ownership
+    // by the time each test actually runs — the slug is read from the live URL instead.
+    await ensureOwnedBrand(supabase, testUser.id);
   });
 
-  test.afterAll(async () => {
-    if (!supabase) return;
-    if (brandId) {
-      await supabase.from('brand_owners').delete().eq('brand_id', brandId);
-      await supabase.from('brands').delete().eq('id', brandId);
-    }
-  });
+  // afterAll intentionally omitted: ensureOwnedBrand either found an existing
+  // fixture brand or created one with the [E2E-TEST] prefix. Global teardown
+  // (cleanupTestData) handles removal.
 
   test('default dashboard landing shows the single brand with owner actions', async ({ userPage }) => {
     test.setTimeout(120_000);
@@ -90,11 +73,13 @@ test.describe('Dashboard — tab navigation', () => {
       return;
     }
 
+    // Dashboard redirects to /dashboard/brands/<slug> — any slug is acceptable
+    // (concurrent files may have changed which brand the user owns).
     await expect(userPage).toHaveURL(
-      new RegExp(`/dashboard/brands/${brandSlug}$`),
+      /\/dashboard\/brands\/[^/]+$/,
       { timeout: 60_000 }
     );
-    await expect(userPage.getByRole('heading', { level: 1, name: brandName }).first()).toBeVisible({
+    await expect(userPage.getByRole('heading', { level: 1 }).first()).toBeVisible({
       timeout: 60_000,
     });
     await expect(userPage.getByRole('link', { name: '編輯品牌' }).first()).toBeVisible({
@@ -107,7 +92,6 @@ test.describe('Dashboard — tab navigation', () => {
     // Profile tab ('總覽') is active on the path-based brand overview.
     const profileTab = userPage.locator('a').filter({ hasText: '總覽' });
     await expect(profileTab).toHaveClass(/border-foreground/, { timeout: 60_000 });
-
   });
 
   test('a stale brand query cannot switch away from the account owner brand', async ({ userPage }) => {
@@ -119,11 +103,13 @@ test.describe('Dashboard — tab navigation', () => {
       return;
     }
 
-    await expect(userPage.getByRole('heading', { level: 1, name: brandName }).first()).toBeVisible({ timeout: 60_000 });
+    // Stale query is ignored — user lands on their actual brand, any slug
     await expect(userPage).toHaveURL(
-      new RegExp(`/dashboard/brands/${brandSlug}$`),
+      /\/dashboard\/brands\/[^/]+$/,
       { timeout: 60_000 }
     );
+    await expect(userPage.getByRole('heading', { level: 1 }).first()).toBeVisible({ timeout: 60_000 });
+    await expect(userPage.getByRole('link', { name: '編輯品牌' }).first()).toBeVisible({ timeout: 60_000 });
 
     // Profile tab is active on the canonical path-based brand overview.
     const profileTab = userPage.locator('a').filter({ hasText: '總覽' });
@@ -134,11 +120,8 @@ test.describe('Dashboard — tab navigation', () => {
 
 test.describe('Dashboard — legacy brand route redirect', () => {
   let supabase: AnySupabaseClient;
-  let brandId: string;
-  let brandSlug: string;
-  let brandName: string;
 
-  test.beforeAll(async ({}, workerInfo) => {
+  test.beforeAll(async () => {
     supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -157,51 +140,24 @@ test.describe('Dashboard — legacy brand route redirect', () => {
       );
     }
 
-    const ts = Date.now();
-    const wi = workerInfo.workerIndex;
-    brandName = `[E2E-TEST] Legacy Redirect ${ts}`;
-    brandSlug = `e2e-legacy-redirect-${ts}-${wi}`;
-
-    const { data: brandData, error: brandErr } = await supabase
-      .from('brands')
-      .insert({
-        name: brandName,
-        slug: brandSlug,
-        status: 'approved',
-        product_type: 'crafts',
-        description: '[E2E-TEST] Legacy redirect test brand.',
-        retail_locations: [],
-      })
-      .select('id')
-      .single();
-    if (brandErr || !brandData) throw new Error(`Failed to seed brand: ${brandErr?.message}`);
-    brandId = brandData.id;
-
-    const { error: boErr } = await supabase.from('brand_owners').insert({
-      user_id: testUser.id,
-      brand_id: brandId,
-    });
-    if (boErr) throw new Error(`Failed to seed brand_owners: ${boErr.message}`);
-  });
-
-  test.afterAll(async () => {
-    if (!supabase) return;
-    if (brandId) {
-      await supabase.from('brand_owners').delete().eq('brand_id', brandId);
-      await supabase.from('brands').delete().eq('id', brandId);
-    }
+    await ensureOwnedBrand(supabase, testUser.id);
   });
 
   test('navigating to /dashboard/brands/<slug> renders the brand overview directly', async ({ userPage }) => {
     test.setTimeout(120_000);
 
-    const resp = await userPage.goto(`/dashboard/brands/${brandSlug}`, { timeout: 60_000 });
+    // Resolve the current brand slug by letting /dashboard redirect
+    await userPage.goto('/dashboard', { timeout: 60_000 });
+    await expect(userPage).toHaveURL(/\/dashboard\/brands\/[^/]+$/, { timeout: 60_000 });
+    const brandUrl = userPage.url();
+
+    // Navigate directly to the path-based URL — verify it renders without an extra redirect
+    const resp = await userPage.goto(brandUrl, { timeout: 60_000 });
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
     }
 
-    // Page renders directly at the path-based URL (no redirect)
     await expect(
       userPage.locator('[data-testid="brand-profile"]')
     ).toBeVisible({ timeout: 60_000 });

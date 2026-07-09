@@ -18,10 +18,9 @@ test.describe('Navbar auth journey', () => {
     await expect(accountTrigger).toBeVisible({ timeout: 10_000 });
     await expect(userPage.getByRole('link', { name: /sign in|登入/i })).toHaveCount(0);
 
-    // Dashboard link moved to main nav header (nav.myBrands = "我的品牌") — not in dropdown
-    const dashboardNavLink = userPage.getByRole('link', { name: '我的品牌' });
-    await expect(dashboardNavLink).toBeVisible({ timeout: 10_000 });
-    await expect(dashboardNavLink).toHaveAttribute('href', '/dashboard');
+    // "我的品牌" link is conditional on hasOwnedBrand — only shown when user owns a brand.
+    // That nav link is NOT in the account dropdown (verified below); testing its presence
+    // requires a seeded brand_owners row which belongs in dashboard-specific tests.
 
     await accountTrigger.click();
 

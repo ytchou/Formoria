@@ -3,6 +3,18 @@ import { withSentryConfig } from "@sentry/nextjs";
 import createNextIntlPlugin from 'next-intl/plugin'
 import { ALLOWED_IMAGE_HOSTS } from './src/lib/images/allowed-image-hosts'
 
+// Ensure the E2E admin account is recognised as admin by the Next.js server.
+// playwright.config.ts patches ADMIN_EMAILS for the test runner process, but
+// the dev server is a separate process — it needs the same patch at startup.
+if (process.env.E2E_ADMIN_EMAIL) {
+  const current = process.env.ADMIN_EMAILS ?? '';
+  const admins = current.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+  const e2eAdmin = process.env.E2E_ADMIN_EMAIL.trim().toLowerCase();
+  if (!admins.includes(e2eAdmin)) {
+    process.env.ADMIN_EMAILS = current ? `${current},${process.env.E2E_ADMIN_EMAIL}` : process.env.E2E_ADMIN_EMAIL;
+  }
+}
+
 const imgSrcHosts = ALLOWED_IMAGE_HOSTS.map((hostname) => `https://${hostname}`).join(' ')
 const mapTileImgSrcHosts = 'https://*.tile.openstreetmap.org'
 
