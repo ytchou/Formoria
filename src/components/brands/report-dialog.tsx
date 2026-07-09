@@ -33,7 +33,7 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      setAlreadyReported(!!localStorage.getItem(`report:${brandSlug}`))
+      setAlreadyReported(!!window.localStorage.getItem(`report:${brandSlug}`))
     }, 0)
 
     return () => window.clearTimeout(timeoutId)
@@ -41,7 +41,7 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
 
   useEffect(() => {
     if (state.success) {
-      localStorage.setItem(`report:${brandSlug}`, '1')
+      window.localStorage.setItem(`report:${brandSlug}`, '1')
       const timeoutId = window.setTimeout(() => {
         setAlreadyReported(true)
       }, 0)

@@ -19,7 +19,7 @@ const props = {
 }
 
 afterEach(() => {
-  localStorage.clear()
+  window.localStorage.clear()
   vi.restoreAllMocks()
 })
 
@@ -38,7 +38,7 @@ describe('InlineVerification hydration', () => {
   it('hydrates without a mismatch when verification was previously dismissed', async () => {
     const container = document.createElement('div')
     container.innerHTML = renderToString(<InlineVerification {...props} />)
-    localStorage.setItem('formoria:dismiss-verification:brand-1', '1')
+    window.localStorage.setItem('formoria:dismiss-verification:brand-1', '1')
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     let root: ReturnType<typeof hydrateRoot>

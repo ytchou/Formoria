@@ -33,7 +33,7 @@ export function InlineVerification({
         window.removeEventListener('formoria:verification-dismissed', onStoreChange)
       }
     },
-    () => localStorage.getItem(DISMISS_KEY) === '1',
+    () => window.localStorage.getItem(DISMISS_KEY) === '1',
     () => false,
   )
   const [certNumber, setCertNumber] = useState('')
@@ -42,7 +42,7 @@ export function InlineVerification({
   const [isPending, startTransition] = useTransition()
 
   function dismiss() {
-    localStorage.setItem(DISMISS_KEY, '1')
+    window.localStorage.setItem(DISMISS_KEY, '1')
     window.dispatchEvent(new Event('formoria:verification-dismissed'))
   }
 

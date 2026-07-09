@@ -119,7 +119,7 @@ describe('getContentGroup', () => {
 
 describe('persistUtmTouchPoints', () => {
   beforeEach(() => {
-    localStorage.clear()
+    window.localStorage.clear()
   })
 
   it('stores first touch on initial visit', () => {
@@ -163,7 +163,7 @@ describe('persistUtmTouchPoints', () => {
     // Store valid first touch
     persistUtmTouchPoints({ utm_source: 'google', utm_medium: 'cpc' })
     // Corrupt the first touch entry
-    localStorage.setItem('formoria_utm_first_touch', 'not-json')
+    window.localStorage.setItem('formoria_utm_first_touch', 'not-json')
     // Should still work - treat corrupted first touch as missing but don't crash
     const result = persistUtmTouchPoints({
       utm_source: 'twitter',
