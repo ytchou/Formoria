@@ -12,7 +12,9 @@ test.describe('MIT verification badges', () => {
   let ownerBrandId: string;
   let ownerBrandSlug: string;
   let ownerBrandName: string;
-  let ownerUserId: string;
+  // Throwaway user — avoids touching E2E_USER_EMAIL's brand_owners slot which
+  // other concurrent test files depend on (cross-file race condition).
+  let throwawayOwnerId: string;
 
   test.beforeAll(async () => {
     supabase = createClient(
@@ -20,14 +22,21 @@ test.describe('MIT verification badges', () => {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Resolve the seeded test user's ID (needed for brand_owners row)
-    const { data: usersData, error: usersError } = await supabase.auth.admin.listUsers();
-    if (usersError) throw new Error(`Failed to list users: ${usersError.message}`);
-    const testUser = usersData.users.find((u) => u.email === process.env.E2E_USER_EMAIL);
-    if (!testUser) throw new Error(`E2E test user not found: ${process.env.E2E_USER_EMAIL}`);
-    ownerUserId = testUser.id;
-
     const ts = Date.now();
+
+    // Create a throwaway user to own the owner-badge test brand.
+    // Using E2E_USER_EMAIL here causes a cross-file race: other parallel files
+    // also upsert brand_owners for the same user_id and overwrite each other.
+    const throwawayEmail = `e2e-mit-owner-${ts}@test.local`;
+    const { data: throwawayData, error: throwawayError } = await supabase.auth.admin.createUser({
+      email: throwawayEmail,
+      password: `MitOwner${ts}A!`,
+      email_confirm: true,
+    });
+    if (throwawayError || !throwawayData.user) {
+      throw new Error(`Failed to create throwaway owner user: ${throwawayError?.message}`);
+    }
+    throwawayOwnerId = throwawayData.user.id;
 
     // Seed MIT-verified brand (mit_status = 'verified', no brand_owners row)
     mitBrandName = `[E2E-TEST] MIT Verified ${ts}`;
@@ -67,11 +76,10 @@ test.describe('MIT verification badges', () => {
     if (ownerErr || !ownerData) throw new Error(`Failed to seed owner brand: ${ownerErr?.message}`);
     ownerBrandId = ownerData.id;
 
-    // Link test user as owner so isVerified = true
-    const { error: boErr } = await supabase.from('brand_owners').insert({
-      user_id: ownerUserId,
-      brand_id: ownerBrandId,
-    });
+    // Link throwaway user as owner — badge is visible to anonymous users regardless of owner identity
+    const { error: boErr } = await supabase.from('brand_owners').insert(
+      { user_id: throwawayOwnerId, brand_id: ownerBrandId },
+    );
     if (boErr) throw new Error(`Failed to seed brand_owners: ${boErr.message}`);
   });
 
@@ -83,6 +91,9 @@ test.describe('MIT verification badges', () => {
     }
     if (mitBrandId) {
       await supabase.from('brands').delete().eq('id', mitBrandId);
+    }
+    if (throwawayOwnerId) {
+      await supabase.auth.admin.deleteUser(throwawayOwnerId);
     }
   });
 

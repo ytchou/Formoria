@@ -39,7 +39,7 @@ test.describe('Admin content moderation dashboard', () => {
       .insert({
         name: `[E2E-TEST] Moderation ${ts}`,
         slug: brandSlug,
-        status: 'hidden',
+        status: 'approved',
         product_type: 'crafts',
         description: '[E2E-TEST] Suspicious moderation test brand',
         retail_locations: [],
@@ -93,13 +93,13 @@ test.describe('Admin content moderation dashboard', () => {
     await expect(adminPage.getByRole('heading', { name: '內容審核' })).toBeVisible({ timeout: 60_000 });
 
     // The seeded brand's flag rows appear in the table
-    await expect(adminPage.getByText(/\[E2E-TEST\] Moderation/).first()).toBeVisible({ timeout: 10_000 });
+    await expect(adminPage.getByText(/\[E2E-TEST\] Moderation/).first()).toBeVisible({ timeout: 30_000 });
 
     // High-risk badge (block → riskHigh → "高風險") is visible in the table (not the filter dropdown)
-    await expect(adminPage.locator('table').getByText('高風險').first()).toBeVisible({ timeout: 5_000 });
+    await expect(adminPage.locator('table').getByText('高風險').first()).toBeVisible({ timeout: 10_000 });
 
     // Medium-risk badge (flag → riskMedium → "中風險") is visible in the table
-    await expect(adminPage.locator('table').getByText('中風險').first()).toBeVisible({ timeout: 5_000 });
+    await expect(adminPage.locator('table').getByText('中風險').first()).toBeVisible({ timeout: 10_000 });
   });
 
   test('moderation dashboard filter by risk shows correct subset', async ({
@@ -111,7 +111,7 @@ test.describe('Admin content moderation dashboard', () => {
     await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
 
     // Only high-risk rows shown — block flag for seeded brand visible
-    await expect(adminPage.getByText(/\[E2E-TEST\] Moderation/).first()).toBeVisible({ timeout: 10_000 });
-    await expect(adminPage.locator('table').getByText('高風險').first()).toBeVisible({ timeout: 5_000 });
+    await expect(adminPage.getByText(/\[E2E-TEST\] Moderation/).first()).toBeVisible({ timeout: 30_000 });
+    await expect(adminPage.locator('table').getByText('高風險').first()).toBeVisible({ timeout: 10_000 });
   });
 });

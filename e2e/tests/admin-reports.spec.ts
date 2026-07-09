@@ -61,6 +61,7 @@ test.describe('Admin reports deep', () => {
     // DEV-762: admin sub-routes cold-compile in CI dev mode; give generous budget
     test.setTimeout(120_000);
     await adminPage.goto('/admin/signals/reports', { timeout: 60_000 });
+    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
 
     await expect(
       adminPage.getByRole('heading', { name: '品牌檢舉' })

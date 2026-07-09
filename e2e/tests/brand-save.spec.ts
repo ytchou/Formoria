@@ -100,6 +100,8 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
     // Both share the same aria-label contract.
     const saveBtn = userPage.getByRole('button', { name: '收藏這個品牌' }).first();
     await expect(saveBtn).toBeVisible({ timeout: 10_000 });
+    // Wait for the useSavedBrands hook to finish loading before clicking
+    await expect(saveBtn).toBeEnabled({ timeout: 15_000 });
 
     await saveBtn.click();
 
@@ -174,6 +176,9 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
       const savedBrandHeading = userPage.locator('h2').filter({ hasText: brandName });
       await expect(savedBrandHeading).toBeVisible({ timeout: 5_000 });
     }).toPass({ timeout: 90_000, intervals: [3_000, 5_000, 10_000] });
+
+    // Card links to the brand detail page
+    await expect(userPage.locator(`a[href*="/brands/${brandSlug}"]`)).toBeVisible({ timeout: 5_000 });
   });
 
   test('Journey 3: unsave from brand page — heart returns to unfilled state', async ({ userPage }) => {
@@ -228,7 +233,7 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
         timeout: 60_000,
         waitUntil: 'domcontentloaded',
       });
-      await expect(userPage.getByRole('heading')).toBeVisible();
+      await expect(userPage.getByRole('heading').first()).toBeVisible();
       if (resp?.status() === 503) {
         test.skip(true, 'PREVIEW_MODE active — skipping.');
         return;
@@ -339,7 +344,8 @@ test.describe('Brand save — card overlay on directory', () => {
     // The detail page has no search suggestion overlay that can intercept clicks.
     const saveBtn = userPage.getByRole('button', { name: '收藏這個品牌' }).first();
     await expect(saveBtn).toBeVisible({ timeout: 10_000 });
-    await expect(saveBtn).toBeEnabled({ timeout: 10_000 });
+    // Wait for the useSavedBrands hook to finish loading before clicking
+    await expect(saveBtn).toBeEnabled({ timeout: 15_000 });
 
     await saveBtn.click();
 

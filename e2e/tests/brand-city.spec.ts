@@ -26,7 +26,7 @@ test.describe('Brand city badge', () => {
         name: `[E2E-TEST] City Badge ${ts}`,
         slug: brandSlug,
         status: 'approved',
-        category: 'lifestyle',
+        product_type: 'crafts',
         city: 'taipei',
       })
       .select('id')

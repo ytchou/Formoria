@@ -47,10 +47,11 @@ test.describe('Dashboard — analytics', () => {
     await expect(userPage.getByRole('heading', { name: '瀏覽與點擊' })).toBeVisible({
       timeout: 30_000,
     })
-    await expect(userPage.getByRole('heading', { name: '頁面瀏覽' })).toBeVisible({
+    // pageViews and outboundClicks are <p> labels in DataCard, not headings
+    await expect(userPage.getByText('頁面瀏覽', { exact: true })).toBeVisible({
       timeout: 10_000,
     })
-    await expect(userPage.getByRole('heading', { name: '外部連結點擊' })).toBeVisible({
+    await expect(userPage.getByText('外部連結點擊', { exact: true })).toBeVisible({
       timeout: 10_000,
     })
 

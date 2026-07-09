@@ -112,8 +112,9 @@ test.describe('Auth — sign-up flow', () => {
       // Rate-limit / transient Supabase error path — form shows error, URL unchanged.
       // This is still a valid characterization: the app correctly surfaces the error.
       // The error div from sign-up-form.tsx: {state.error && <div>…{state.error}</div>}
+      // Filter out the empty Next.js route announcer which also has role="alert".
       await expect(anonPage).toHaveURL(/\/auth\/sign-up/);
-      await expect(anonPage.getByRole('alert')).toBeVisible({ timeout: 5_000 });
+      await expect(anonPage.getByRole('alert').filter({ hasText: /.+/ })).toBeVisible({ timeout: 5_000 });
     }
   });
 });
