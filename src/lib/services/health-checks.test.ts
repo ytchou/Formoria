@@ -41,7 +41,7 @@ describe('checkAllServices', () => {
     process.env.NEXT_PUBLIC_SITE_URL = 'https://test.formoria.com'
     process.env.UPSTASH_REDIS_REST_URL = 'https://test-upstash.upstash.io'
     process.env.UPSTASH_REDIS_REST_TOKEN = 'test-upstash-token'
-    process.env.APIFY_TOKEN = 'test-apify-token'
+    process.env.SERPER_API_KEY = 'test-serper-key'
     process.env.DEEPSEEK_API_KEY = 'test-deepseek-key'
   })
 
@@ -53,10 +53,10 @@ describe('checkAllServices', () => {
     const { createServiceClient } = await import('@/lib/supabase/server')
     vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
     fetchMock.mockImplementation((url: string) => {
-      if (url.includes('apify.com')) {
+      if (url.includes('google.serper.dev')) {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ data: { totalUsageCreditsUsdAfterVolumeDiscount: 12.34 } }),
+          json: async () => ({ organic: [] }),
         })
       }
 
@@ -84,7 +84,7 @@ describe('checkAllServices', () => {
     expect(services).toContain('Tally')
     expect(services).toContain('Railway')
     expect(services).toContain('Upstash Redis')
-    expect(services).toContain('Apify')
+    expect(services).toContain('Serper')
     expect(services).toContain('DeepSeek')
   })
 
@@ -92,10 +92,10 @@ describe('checkAllServices', () => {
     const { createServiceClient } = await import('@/lib/supabase/server')
     vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
     fetchMock.mockImplementation((url: string) => {
-      if (url.includes('apify.com')) {
+      if (url.includes('google.serper.dev')) {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ data: { totalUsageCreditsUsdAfterVolumeDiscount: 12.34 } }),
+          json: async () => ({ organic: [] }),
         })
       }
 
@@ -235,55 +235,52 @@ describe('checkAllServices', () => {
     })
   })
 
-  describe('checkApify', () => {
-    it('returns unconfigured when APIFY_TOKEN is missing', async () => {
-      delete process.env.APIFY_TOKEN
+  describe('checkSerper', () => {
+    it('returns unconfigured when SERPER_API_KEY is missing', async () => {
+      delete process.env.SERPER_API_KEY
       const { createServiceClient } = await import('@/lib/supabase/server')
       vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
       fetchMock.mockResolvedValue({ ok: true, json: async () => ({}) })
 
       const results = await checkAllServices()
-      const apify = results.find((r) => r.service === 'Apify')
+      const serper = results.find((r) => r.service === 'Serper')
 
-      expect(apify?.status).toBe('unconfigured')
-      expect(apify?.message).toBe('APIFY_TOKEN is not configured')
+      expect(serper?.status).toBe('unconfigured')
+      expect(serper?.message).toBe('SERPER_API_KEY is not configured')
     })
 
-    it('returns healthy with monthly usage spend when API succeeds', async () => {
+    it('returns healthy when API responds ok', async () => {
       const { createServiceClient } = await import('@/lib/supabase/server')
       vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
       fetchMock.mockImplementation((url: string) => {
-        if (url.includes('apify.com')) {
-          return Promise.resolve({
-            ok: true,
-            json: async () => ({ data: { totalUsageCreditsUsdAfterVolumeDiscount: 12.34 } }),
-          })
+        if (url.includes('google.serper.dev')) {
+          return Promise.resolve({ ok: true, json: async () => ({ organic: [] }) })
         }
         return Promise.resolve({ ok: true, json: async () => ({}) })
       })
 
       const results = await checkAllServices()
-      const apify = results.find((r) => r.service === 'Apify')
+      const serper = results.find((r) => r.service === 'Serper')
 
-      expect(apify?.status).toBe('healthy')
-      expect(apify?.message).toBe('$12.34 spent this cycle')
+      expect(serper?.status).toBe('healthy')
+      expect(serper?.message).toBe('API reachable')
     })
 
     it('returns down when API returns non-ok response', async () => {
       const { createServiceClient } = await import('@/lib/supabase/server')
       vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
       fetchMock.mockImplementation((url: string) => {
-        if (url.includes('apify.com')) {
+        if (url.includes('google.serper.dev')) {
           return Promise.resolve({ ok: false, status: 401 })
         }
         return Promise.resolve({ ok: true, json: async () => ({}) })
       })
 
       const results = await checkAllServices()
-      const apify = results.find((r) => r.service === 'Apify')
+      const serper = results.find((r) => r.service === 'Serper')
 
-      expect(apify?.status).toBe('down')
-      expect(apify?.message).toBe('API returned 401')
+      expect(serper?.status).toBe('down')
+      expect(serper?.message).toBe('API returned 401')
     })
   })
 

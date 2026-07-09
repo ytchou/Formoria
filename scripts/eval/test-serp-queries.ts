@@ -61,23 +61,17 @@ const VARIANTS: QueryVariant[] = [
 ]
 
 // ---------------------------------------------------------------------------
-// Apify SERP call
+// Serper SERP call
 // ---------------------------------------------------------------------------
 
-const APIFY_ENDPOINT =
-  'https://api.apify.com/v2/acts/apify~google-search-scraper/run-sync-get-dataset-items'
+const SERPER_ENDPOINT = 'https://google.serper.dev/search'
 const TIMEOUT_MS = 60_000
 
-type OrganicResult = {
-  url?: string
-  title?: string
-  description?: string
-}
-
-type SerpEntry = {
-  searchQuery?: { term?: string }
-  organicResults?: OrganicResult[]
-  error?: string
+type SerperOrganicResult = {
+  title: string
+  link: string
+  snippet?: string
+  position: number
 }
 
 function isGoogleUrl(url: string): boolean {
@@ -100,34 +94,29 @@ function stripTracking(url: string): string {
 
 async function fetchSerp(
   query: string,
-  token: string,
-  maxPages: number = 1,
-): Promise<SerpEntry[]> {
+  apiKey: string,
+): Promise<SerperOrganicResult[]> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
   try {
-    const res = await fetch(`${APIFY_ENDPOINT}?token=${encodeURIComponent(token)}`, {
+    const res = await fetch(SERPER_ENDPOINT, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        queries: query,
-        maxPagesPerQuery: maxPages,
-        countryCode: 'tw',
-        languageCode: 'zh-TW',
-      }),
+      headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ q: query, num: 10, gl: 'tw', hl: 'zh-TW' }),
       signal: controller.signal,
     })
 
     if (!res.ok) {
       const msg = `SERP API error: ${res.status} ${res.statusText}`
-      if (res.status === 402) throw new Error(`${msg} — Apify balance is empty. Top up at https://console.apify.com/billing`)
+      if (res.status === 402) throw new Error(`${msg} — Serper credits exhausted`)
+      if (res.status === 403) throw new Error(`${msg} — Invalid SERPER_API_KEY`)
       console.error(`  ${msg}`)
       return []
     }
 
-    const data: unknown = await res.json()
-    return Array.isArray(data) ? (data as SerpEntry[]) : []
+    const data = await res.json() as { organic?: SerperOrganicResult[] }
+    return data.organic ?? []
   } catch (err) {
     console.error(`  SERP fetch failed: ${err instanceof Error ? err.message : err}`)
     return []
@@ -147,35 +136,26 @@ type ParsedResult = {
   errorCount: number
 }
 
-function parseEntries(entries: SerpEntry[]): ParsedResult {
+function parseEntries(organicResults: SerperOrganicResult[]): ParsedResult {
   const urls = new Set<string>()
   const snippets: ParsedResult['snippets'] = []
-  let errorCount = 0
 
-  for (const entry of entries) {
-    if (entry.error) {
-      errorCount++
-      continue
+  for (const r of organicResults) {
+    if (typeof r.link === 'string' && !isGoogleUrl(r.link)) {
+      urls.add(stripTracking(r.link))
     }
-    if (!Array.isArray(entry.organicResults)) continue
-
-    for (const r of entry.organicResults) {
-      if (typeof r.url === 'string' && !isGoogleUrl(r.url)) {
-        urls.add(stripTracking(r.url))
-      }
-      snippets.push({
-        title: r.title?.trim() ?? '',
-        description: r.description?.trim() ?? '',
-        url: r.url?.trim() ?? '',
-      })
-    }
+    snippets.push({
+      title: r.title?.trim() ?? '',
+      description: `${r.title?.trim() ?? ''} — ${r.snippet?.trim() ?? ''}`,
+      url: r.link?.trim() ?? '',
+    })
   }
 
   return {
     urls: [...urls],
     snippets,
-    rawCount: entries.length,
-    errorCount,
+    rawCount: organicResults.length,
+    errorCount: 0,
   }
 }
 
@@ -203,9 +183,9 @@ type TestRun = {
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
-  const token = process.env.APIFY_TOKEN
-  if (!token) {
-    console.error('APIFY_TOKEN not set. Add it to .env.local')
+  const apiKey = process.env.SERPER_API_KEY
+  if (!apiKey) {
+    console.error('SERPER_API_KEY not set. Add it to .env.local')
     process.exit(1)
   }
 
@@ -226,7 +206,7 @@ async function main(): Promise<void> {
       completed++
       console.log(`  [${completed}/${totalCalls}] Variant ${variant.id}: ${query}`)
 
-      const entries = await fetchSerp(query, token)
+      const entries = await fetchSerp(query, apiKey)
       const parsed = parseEntries(entries)
 
       console.log(`    → ${parsed.urls.length} URLs, ${parsed.snippets.length} snippets${parsed.errorCount > 0 ? `, ${parsed.errorCount} errors` : ''}`)

@@ -213,31 +213,29 @@ async function checkRailway(): Promise<ServiceHealthResult> {
   }
 }
 
-async function checkApify(): Promise<ServiceHealthResult> {
-  const { APIFY_TOKEN } = process.env
+async function checkSerper(): Promise<ServiceHealthResult> {
+  const apiKey = process.env.SERPER_API_KEY
 
-  if (!APIFY_TOKEN) {
-    return result('Apify', 'unconfigured', 'APIFY_TOKEN is not configured')
+  if (!apiKey) {
+    return result('Serper', 'unconfigured', 'SERPER_API_KEY is not configured')
   }
 
   try {
-    const response = await fetch(
-      `https://api.apify.com/v2/users/me/usage/monthly?token=${APIFY_TOKEN}`,
-      {
-        signal: AbortSignal.timeout(3000),
-      }
-    )
+    const response = await fetch('https://google.serper.dev/search', {
+      method: 'POST',
+      headers: {
+        'X-API-KEY': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ q: 'test', num: 1, gl: 'tw', hl: 'zh-TW' }),
+      signal: AbortSignal.timeout(5000),
+    })
 
-    if (!response.ok) {
-      return result('Apify', 'down', `API returned ${response.status}`)
-    }
-
-    const usage = await response.json()
-    const spend = usage.data.totalUsageCreditsUsdAfterVolumeDiscount
-
-    return result('Apify', 'healthy', `$${spend.toFixed(2)} spent this cycle`)
+    return response.ok
+      ? result('Serper', 'healthy', 'API reachable')
+      : result('Serper', 'down', `API returned ${response.status}`)
   } catch (error) {
-    return result('Apify', 'down', error instanceof Error ? error.message : 'Unknown error')
+    return result('Serper', 'down', error instanceof Error ? error.message : 'Unknown error')
   }
 }
 
@@ -284,7 +282,7 @@ const serviceNames = [
   'Turnstile',
   'Tally',
   'Railway',
-  'Apify',
+  'Serper',
   'DeepSeek',
 ] as const
 
@@ -297,7 +295,7 @@ export async function checkAllServices(): Promise<ServiceHealthResult[]> {
     checkTurnstile(),
     checkTally(),
     checkRailway(),
-    checkApify(),
+    checkSerper(),
     checkDeepSeek(),
   ])
 
