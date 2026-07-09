@@ -7,7 +7,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useTransition,
 } from 'react'
 import { useForm, useWatch, Controller, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -62,6 +61,8 @@ export default function SubmitForm({
   const sessionId = useMemo(() => crypto.randomUUID(), [])
   const mountTimeRef = useRef<number | null>(null)
   const nameBlurRequestRef = useRef(0)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [pendingRedirect, setPendingRedirect] = useState<string | null>(null)
 
   const tSchema = useMemo(
     () => (key: string) => t(key as Parameters<typeof t>[0]),
@@ -117,7 +118,6 @@ export default function SubmitForm({
   const [nameSuggestion, setNameSuggestion] = useState<string | null>(null)
   const [urlSuggestion, setUrlSuggestion] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
 
   useEffect(() => {
     mountTimeRef.current = Date.now()
@@ -166,11 +166,25 @@ export default function SubmitForm({
   const websiteRegistration = register('website')
   const nameRegistration = register('name')
 
-  const submitForm = useCallback(
-    (data: SubmissionFormData) => {
-      setSubmitError(null)
+  useEffect(() => {
+    if (!pendingRedirect) return
 
-      startTransition(async () => {
+    const timeout = setTimeout(() => {
+      router.push(pendingRedirect)
+      setPendingRedirect(null)
+    }, 0)
+
+    return () => clearTimeout(timeout)
+  }, [pendingRedirect, router])
+
+  const submitForm = useCallback(
+    async (data: SubmissionFormData) => {
+      if (isSubmitting) return
+
+      setSubmitError(null)
+      setIsSubmitting(true)
+
+      try {
         const result:
           | { error?: string; ownershipAdjusted?: boolean }
           | undefined =
@@ -189,7 +203,7 @@ export default function SubmitForm({
         if (result?.ownershipAdjusted) {
           query.set('ownership', 'community')
         }
-        router.push(`/submit/confirmation?${query.toString()}`)
+        setPendingRedirect(`/submit/confirmation?${query.toString()}`)
 
         if (mountTimeRef.current !== null) {
           const elapsed = Math.round((Date.now() - mountTimeRef.current) / 1000)
@@ -202,9 +216,11 @@ export default function SubmitForm({
             !data.guestEmail && variant === 'recommend',
           )
         }
-      })
+      } finally {
+        setIsSubmitting(false)
+      }
     },
-    [router, startTransition, variant],
+    [isSubmitting, variant],
   )
 
   const onSubmit = useCallback(
@@ -214,7 +230,7 @@ export default function SubmitForm({
     [handleSubmit, submitForm],
   )
 
-  const isSubmitDisabled = !isValid || !pdpaConsent || isPending
+  const isSubmitDisabled = !isValid || !pdpaConsent || isSubmitting
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
@@ -582,7 +598,7 @@ export default function SubmitForm({
             disabled={isSubmitDisabled}
             className="w-full"
           >
-            {isPending ? tForm('submittingButton') : tForm('submitButton')}
+            {isSubmitting ? tForm('submittingButton') : tForm('submitButton')}
           </Button>
         </StandardFormStack>
       </StandardForm>

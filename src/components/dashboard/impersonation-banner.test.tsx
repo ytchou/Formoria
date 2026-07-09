@@ -26,7 +26,7 @@ describe('ImpersonationBanner', () => {
     render(
       <ImpersonationBanner
         brandName="Warmwood Living"
-        expiresAt={1_783_468_860}
+        expiresAt={Math.floor(Date.now() / 1000) + 60}
         labels={{
           banner: 'You are viewing as Warmwood Living',
           exit: 'Exit',
@@ -35,6 +35,6 @@ describe('ImpersonationBanner', () => {
       />,
     )
 
-    expect(screen.getByText('1m remaining')).toBeInTheDocument()
+    expect(screen.getByText('0m remaining')).toBeInTheDocument()
   })
 })

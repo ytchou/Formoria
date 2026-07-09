@@ -84,23 +84,25 @@ export function LocationsSection({
       const result = await searchLocationAction(query, locale)
       if (!result.success) {
         setSearchErrors((prev) => ({
-          ...prev,
+          ...(prev ?? {}),
           [fieldKey]: t('locationSearchError'),
         }))
         return
       }
-      setSearchResults((prev) => ({ ...prev, [fieldKey]: result.results }))
+      setSearchResults((prev) => ({ ...(prev ?? {}), [fieldKey]: result.results }))
       setSearchErrors((prev) => {
-        const next = { ...prev }
+        const next = { ...(prev ?? {}) }
         delete next[fieldKey]
         return next
       })
-      if (result.results.length === 0) {
-        setSearchNotices((prev) => ({
-          ...prev,
-          [fieldKey]: t('locationSearchNoResults'),
-        }))
-      }
+      setSearchNotices((prev) => {
+        const next = { ...(prev ?? {}) }
+        delete next[fieldKey]
+        if (result.results.length === 0) {
+          next[fieldKey] = t('locationSearchNoResults')
+        }
+        return next
+      })
     })
   }
 
@@ -165,7 +167,10 @@ export function LocationsSection({
           const addressRegistration = form.register(
             `retailLocations.${index}.address`,
           )
-          const results = searchResults[field.id] ?? []
+          const safeSearchResults = searchResults ?? {}
+          const safeSearchErrors = searchErrors ?? {}
+          const safeSearchNotices = searchNotices ?? {}
+          const results = safeSearchResults[field.id] ?? []
 
           return (
             <div
@@ -290,14 +295,14 @@ export function LocationsSection({
                       {t('searchLocation')}
                     </Button>
                   </div>
-                  {searchErrors[field.id] ? (
+                  {safeSearchErrors[field.id] ? (
                     <p className="type-error" aria-live="polite">
-                      {searchErrors[field.id]}
+                      {safeSearchErrors[field.id]}
                     </p>
                   ) : null}
-                  {searchNotices[field.id] ? (
+                  {safeSearchNotices[field.id] ? (
                     <p className="type-form-hint" aria-live="polite">
-                      {searchNotices[field.id]}
+                      {safeSearchNotices[field.id]}
                     </p>
                   ) : null}
                   {results.length > 0 ? (

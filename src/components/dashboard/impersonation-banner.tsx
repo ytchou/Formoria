@@ -27,18 +27,28 @@ export function ImpersonationBanner({
 }: ImpersonationBannerProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [minutesLeft, setMinutesLeft] = useState(() => getMinutesLeft(expiresAt))
+  const [minutesLeft, setMinutesLeft] = useState(0)
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    const updateMinutesLeft = () => {
       const remaining = getMinutesLeft(expiresAt)
       setMinutesLeft(remaining)
+      return remaining
+    }
+    const timeout = setTimeout(() => {
+      updateMinutesLeft()
+    }, 0)
+    const interval = setInterval(() => {
+      const remaining = updateMinutesLeft()
       if (remaining <= 0) {
         clearInterval(interval)
         router.refresh()
       }
     }, 30_000)
-    return () => clearInterval(interval)
+    return () => {
+      clearTimeout(timeout)
+      clearInterval(interval)
+    }
   }, [expiresAt, router])
 
   return (
@@ -51,7 +61,7 @@ export function ImpersonationBanner({
           <span className="truncate type-body-emphasis text-mit-verified">
             {labels.banner}
           </span>
-          <span className="type-caption text-mit-verified">
+          <span className="type-caption text-mit-verified" suppressHydrationWarning>
             {labels.timeRemaining.replace('{minutes}', String(minutesLeft))}
           </span>
         </div>
