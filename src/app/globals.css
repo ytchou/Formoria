@@ -67,6 +67,8 @@
   --color-cta-foreground: var(--cta-foreground);
   --color-primary-dark: var(--primary-dark);
   --color-primary-light: var(--primary-light);
+  --shadow-card: 0 2px 8px oklch(0 0 0 / 0.06);
+  --shadow-card-hover: 0 4px 12px oklch(0 0 0 / 0.10);
 }
 
 :root {

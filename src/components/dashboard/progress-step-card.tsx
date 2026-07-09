@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { ListChecks } from 'lucide-react'
+import { surfaceCardStyles } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 type ProgressStepCardProps = {
@@ -31,7 +32,7 @@ export function ProgressStepCard({
   return (
     <section
       className={cn(
-        'rounded-xl border border-border bg-card p-5 shadow-sm',
+        surfaceCardStyles({ elevated: true }),
         className,
       )}
     >

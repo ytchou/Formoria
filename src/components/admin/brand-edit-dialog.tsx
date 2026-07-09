@@ -249,7 +249,7 @@ export function BrandEditDialog({
                     <Button
                       type="button"
                       variant="ghost"
-                      size="icon-lg"
+                      size="icon"
                       aria-label={`Remove URL ${index + 1}`}
                       onClick={() => removeOtherUrl(index)}
                     >
@@ -260,7 +260,7 @@ export function BrandEditDialog({
               </div>
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 onClick={addOtherUrl}
               >
                 <Plus className="h-4 w-4" />
@@ -273,9 +273,7 @@ export function BrandEditDialog({
         </div>
 
         <DialogFooter>
-          <DialogClose>
-            <Button variant="outline">Cancel</Button>
-          </DialogClose>
+          <DialogClose render={<Button variant="secondary" />}>Cancel</DialogClose>
           <Button onClick={handleSave} disabled={isPending}>
             {isPending ? 'Saving...' : 'Save'}
           </Button>

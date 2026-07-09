@@ -37,7 +37,7 @@ export function DynamicArrayField<T extends object>({
       ))}
       <Button
         type="button"
-        variant="outline"
+        variant="secondary"
         onClick={addItem}
         disabled={maxItems !== undefined && items.length >= maxItems}
       >

@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { useRef, useState, useTransition, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
 import { submitClaimAction } from '@/app/[locale]/brands/[slug]/actions'
 import { Button, buttonVariants } from '@/components/ui/button'
+import { surfaceCardStyles } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useImageUpload } from '@/components/upload/useImageUpload'
@@ -241,7 +242,7 @@ export function ClaimBrandCta({
 
   if (hasOwnedBrand) {
     return (
-      <section className="space-y-3 rounded-xl border border-border bg-card p-5 text-left">
+      <section className={surfaceCardStyles({ className: 'space-y-3 text-left' })}>
         <p className="type-card-title">{t('ownerLimitTitle')}</p>
         <p className="type-section-description">{t('ownerLimitBody')}</p>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -256,7 +257,7 @@ export function ClaimBrandCta({
 
   if (feedback.type === 'pending') {
     return (
-      <section className="space-y-3 rounded-xl border border-border bg-card p-5 text-left">
+      <section className={surfaceCardStyles({ className: 'space-y-3 text-left' })}>
         <p className="type-card-title">{t('pendingTitle')}</p>
         <p className="type-section-description">
           {feedback.domainEmailVerificationSentTo
@@ -268,7 +269,7 @@ export function ClaimBrandCta({
   }
 
   return (
-    <section className="space-y-4 rounded-xl border border-border bg-card p-5 text-left">
+    <section className={surfaceCardStyles({ className: 'space-y-4 text-left' })}>
       <div className="space-y-1">
         <p className="type-card-title">{t('communityTitle')}</p>
         <p className="type-card-description">{t('communityListing')}</p>
@@ -283,7 +284,7 @@ export function ClaimBrandCta({
             {user ? (
               <Button
                 type="button"
-                variant="cta"
+                variant="primary" tone="cta"
                 onClick={openForm}
               >
                 {t('claimButton')}
@@ -291,7 +292,7 @@ export function ClaimBrandCta({
             ) : (
               <Link
                 href={`/auth/sign-in?next=${encodeURIComponent(pathname)}`}
-                className={buttonVariants({ variant: 'cta' })}
+                className={buttonVariants({ variant: 'primary', tone: 'cta' })}
               >
                 {t('signIn')}
               </Link>
@@ -335,7 +336,7 @@ export function ClaimBrandCta({
                 <div
                   key={type}
                   className={cn(
-                    'space-y-4 rounded-xl border border-border bg-card p-4',
+                    surfaceCardStyles({ className: 'space-y-4', padding: 'sm' }),
                     proof.selected && 'border-primary bg-primary/5',
                   )}
                 >
@@ -471,14 +472,14 @@ export function ClaimBrandCta({
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button
               type="submit"
-              variant="cta"
+              variant="primary" tone="cta"
               disabled={!canSubmit}
             >
               {isPending ? t('submitting') : t('submit')}
             </Button>
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               onClick={() => setIsOpen(false)}
             >
               {t('cancel')}

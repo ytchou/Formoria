@@ -4,7 +4,7 @@ import { useTransition } from 'react'
 import { refreshHealthChecks } from '@/app/admin/actions'
 import type { ServiceHealthResult } from '@/lib/services/health-checks'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { SurfaceCard } from '@/components/ui/card'
 
 const STATUS_DOT: Record<ServiceHealthResult['status'], string> = {
   healthy: 'bg-verified-green',
@@ -39,8 +39,8 @@ export function SystemStatusCard({ initialResults }: { initialResults: ServiceHe
         <div className="flex items-center gap-2">
           <span className="type-caption">載入頁面時自動更新</span>
           <Button
-            variant="outline"
-            size="sm"
+            variant="secondary"
+            size="compact"
             onClick={handleRefresh}
             disabled={isPending}
           >
@@ -48,8 +48,7 @@ export function SystemStatusCard({ initialResults }: { initialResults: ServiceHe
           </Button>
         </div>
       </div>
-      <Card>
-        <CardContent className="space-y-2 pt-6">
+      <SurfaceCard padding="lg" className="space-y-2">
           {initialResults.length === 0 && (
             <p className="text-center type-card-description">無資料</p>
           )}
@@ -62,8 +61,7 @@ export function SystemStatusCard({ initialResults }: { initialResults: ServiceHe
               </div>
             </div>
           ))}
-        </CardContent>
-      </Card>
+      </SurfaceCard>
     </section>
   )
 }

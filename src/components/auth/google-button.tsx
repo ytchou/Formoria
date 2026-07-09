@@ -51,7 +51,7 @@ export function GoogleButton({ action }: GoogleButtonProps) {
       <form action={action}>
         <Button
           type="submit"
-          variant="outline"
+          variant="secondary"
           className="w-full"
         >
           <GoogleGlyph />

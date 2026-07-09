@@ -9,7 +9,7 @@ import { DashboardQueueItem } from '@/components/admin/dashboard-queue-item'
 import { NewsletterSubscribersList } from '@/components/admin/newsletter-subscribers'
 import { QueueSummaryCard } from '@/components/admin/queue-summary-card'
 import { SystemStatusCard } from '@/components/admin/system-status-card'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { DataCard } from '@/components/ui/card'
 import { getBrands } from '@/lib/services/brands'
 import { listClaimRequests } from '@/lib/services/claim-requests'
 import { getFeedbackItems } from '@/lib/services/feedback'
@@ -244,19 +244,13 @@ export default async function AdminPage() {
 
         <div className="grid gap-4 md:grid-cols-3">
           {overviewStats.map((stat) => (
-            <Card key={stat.label}>
-              <CardHeader>
-                <CardTitle className="type-metadata">
-                  {stat.label}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="type-stat">{stat.value}</p>
-                <p className="mt-2 type-card-description">
-                  {stat.description}
-                </p>
-              </CardContent>
-            </Card>
+            <DataCard
+              key={stat.label}
+              label={stat.label}
+              value={stat.value}
+              description={stat.description}
+              padding="lg"
+            />
           ))}
         </div>
       </section>

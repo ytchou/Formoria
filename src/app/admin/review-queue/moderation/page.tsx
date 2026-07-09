@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { surfaceCardStyles } from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -129,14 +130,14 @@ export default async function ReviewQueueModerationPage({ searchParams }: Modera
         </label>
         <Button
           type="submit"
-          variant="outline"
+          variant="secondary"
           className="self-end"
         >
           {t('filterByRisk')}
         </Button>
       </form>
 
-      <div className="mt-8 rounded-lg border bg-white">
+      <div className={surfaceCardStyles({ className: 'mt-8 overflow-hidden', padding: 'none' })}>
         <Table>
           <TableBody>
             {items.map((item) => (

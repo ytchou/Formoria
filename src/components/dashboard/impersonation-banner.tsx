@@ -57,8 +57,8 @@ export function ImpersonationBanner({
         </div>
         <Button
           type="button"
-          size="sm"
-          variant="outline"
+          size="compact"
+          variant="secondary"
           className="border-mit-verified/30 text-mit-verified hover:bg-background"
           disabled={isPending}
           onClick={() => {

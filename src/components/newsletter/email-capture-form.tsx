@@ -67,7 +67,7 @@ export function EmailCaptureForm() {
         </div>
 
         <Button
-          variant="cta"
+          variant="primary" tone="cta"
           disabled={isPending}
           type="submit"
         >

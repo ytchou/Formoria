@@ -12,7 +12,10 @@
   ],
   "ignoreDependencies": ["tw-animate-css", "tailwindcss", "shadcn", "@react-email/ui"],
   "ignoreBinaries": ["dotenv"],
-  "ignore": ["src/lib/supabase/database.types.ts", "scripts/threads-scraper/.venv/**"],
+  "ignore": ["src/lib/supabase/database.types.ts"],
+  "ignoreIssues": {
+    "src/components/ui/card.tsx": ["exports"]
+  },
   "paths": {
     "@tina/*": ["tina/__generated__/*"]
   }

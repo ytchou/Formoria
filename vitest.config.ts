@@ -5,6 +5,11 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx", "scripts/**/*.test.ts", "supabase/functions/**/*.test.ts", "tina/__generated__/**/*.test.ts"],
+    environmentOptions: {
+      jsdom: {
+        url: "http://localhost",
+      },
+    },
     setupFiles: ["./src/test/setup.ts", "./src/test/setup-dom.ts"],
     server: {
       deps: {

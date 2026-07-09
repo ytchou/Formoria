@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
+import { surfaceCardStyles } from '@/components/ui/card'
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -30,7 +31,7 @@ export default function SubmitOverview({
       </div>
 
       <div className="mt-10 grid gap-6 md:grid-cols-2">
-        <section className="rounded-xl border border-border bg-card p-6">
+        <section className={surfaceCardStyles({ padding: 'lg' })}>
           <p className="type-eyebrow-muted">
             {t('recommendEyebrow')}
           </p>
@@ -60,13 +61,13 @@ export default function SubmitOverview({
           </ul>
           <Link
             href={recommendPath}
-            className={cn(buttonVariants({ variant: 'cta' }), 'mt-6')}
+            className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-6')}
           >
             {t('recommendCta')}
           </Link>
         </section>
 
-        <section className="rounded-xl border border-border bg-card p-6">
+        <section className={surfaceCardStyles({ padding: 'lg' })}>
           <p className="type-eyebrow-muted">
             {t('ownerEyebrow')}
           </p>
@@ -96,7 +97,7 @@ export default function SubmitOverview({
           </ul>
           <Link
             href={isLoggedIn ? ownerPath : `/auth/sign-in?next=${ownerPath}`}
-            className={cn(buttonVariants({ variant: 'cta' }), 'mt-6')}
+            className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-6')}
           >
             {isLoggedIn ? t('ownerCtaLoggedIn') : t('ownerCta')}
           </Link>

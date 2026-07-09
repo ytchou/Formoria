@@ -5,7 +5,7 @@ import { Link } from '@/i18n/navigation'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { buttonVariants } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { surfaceCardStyles } from '@/components/ui/card'
 
 type ConfirmationPageProps = {
   params: Promise<{ locale: string }>
@@ -51,7 +51,14 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
-      <div className="w-full max-w-[560px] rounded-2xl border border-border bg-white p-10 shadow-sm">
+      <div
+        className={surfaceCardStyles({
+          className: 'w-full max-w-[560px] rounded-2xl p-10',
+          elevated: true,
+          padding: 'none',
+          tone: 'white',
+        })}
+      >
         {/* Success badge */}
         <div className="flex justify-center">
           <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-cta">
@@ -126,14 +133,14 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
         <div className="mt-8 space-y-3">
           <Link
             href="/"
-            className={cn(buttonVariants({ variant: 'cta' }), 'w-full')}
+            className={buttonVariants({ variant: 'primary', tone: 'cta', className: 'w-full' })}
           >
             <Home className="h-4 w-4" />
             {t('cta.explore')}
           </Link>
           <Link
             href="/submit"
-            className={cn(buttonVariants({ variant: 'outline' }), 'w-full')}
+            className={buttonVariants({ variant: 'secondary', className: 'w-full' })}
           >
             <Plus className="h-4 w-4" />
             {t('cta.submitAnother')}

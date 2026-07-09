@@ -91,7 +91,7 @@ export function SignInForm({ claimToken, claimBrandName }: SignInFormProps) {
           />
         </div>
 
-        <Button type="submit" className="w-full" size="lg" disabled={pending}>
+        <Button type="submit" className="w-full" size="large" disabled={pending}>
           {pending ? t("signIn.submitting") : t("signIn.submit")}
         </Button>
       </form>

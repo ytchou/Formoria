@@ -115,8 +115,8 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
 
         <div className="flex items-center gap-2">
           <Button
-            size="sm"
-            variant="outline"
+            size="compact"
+            variant="secondary"
             onClick={handleSync}
             disabled={syncing}
           >
@@ -227,7 +227,6 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
                                 handleStatusChange(item.id, 'reviewed')
                               }}
                               disabled={isPending}
-                              className="bg-cta hover:bg-cta/90"
                             >
                               標記已審閱
                             </Button>

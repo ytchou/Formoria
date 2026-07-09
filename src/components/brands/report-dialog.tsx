@@ -15,7 +15,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
@@ -33,7 +33,7 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      setAlreadyReported(!!localStorage.getItem(`report:${brandSlug}`))
+      setAlreadyReported(!!window.localStorage.getItem(`report:${brandSlug}`))
     }, 0)
 
     return () => window.clearTimeout(timeoutId)
@@ -41,7 +41,7 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
 
   useEffect(() => {
     if (state.success) {
-      localStorage.setItem(`report:${brandSlug}`, '1')
+      window.localStorage.setItem(`report:${brandSlug}`, '1')
       const timeoutId = window.setTimeout(() => {
         setAlreadyReported(true)
       }, 0)
@@ -60,7 +60,7 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
   return (
     <Dialog>
       <DialogTrigger
-        className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-secondary px-3 type-body-emphasis transition-colors hover:bg-secondary/80"
+        className={buttonVariants({ variant: 'secondary', className: 'shrink-0' })}
       >
         <Flag className="size-4" />
         {t('trigger')}
@@ -75,7 +75,7 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
           <>
             <p className="py-4 type-card-description">{t('success')}</p>
             <DialogFooter>
-              <DialogClose render={<Button variant="outline" />}>
+              <DialogClose render={<Button variant="secondary" />}>
                 {t('close')}
               </DialogClose>
             </DialogFooter>
@@ -133,7 +133,7 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
             </div>
 
             <DialogFooter>
-              <DialogClose render={<Button variant="outline" />}>
+              <DialogClose render={<Button variant="secondary" />}>
                 {t('close')}
               </DialogClose>
               <Button

@@ -16,7 +16,6 @@ import { NavCategoryTabs } from './nav-category-tabs'
 import { BrandMark } from '@/lib/brand/BrandMark'
 import { LocaleSwitcher } from '@/components/i18n/locale-switcher'
 import { buttonVariants } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 
 interface MainNavProps {
   categories: Array<{ slug: string; name: string; nameZh: string | null }>
@@ -61,14 +60,14 @@ export function MainNav({ categories, hasOwnedBrand = false, isAuthenticated = f
           {hasOwnedBrand ? (
             <Link
               href="/dashboard"
-              className={cn(buttonVariants(), 'rounded-full')}
+              className={buttonVariants({ variant: 'primary' })}
             >
               {t('myBrands')}
             </Link>
           ) : (
             <Link
               href="/submit"
-              className={cn(buttonVariants({ variant: 'cta' }), 'rounded-full')}
+              className={buttonVariants({ variant: 'primary', tone: 'cta' })}
             >
               {t('submitBrand')}
             </Link>
@@ -83,7 +82,8 @@ export function MainNav({ categories, hasOwnedBrand = false, isAuthenticated = f
             <SheetPrimitive.Trigger
               render={
                 <button
-                  className="inline-flex size-10 items-center justify-center rounded-lg"
+                  type="button"
+                  className={buttonVariants({ variant: 'ghost', size: 'icon' })}
                   aria-label="Open menu"
                 />
               }
@@ -115,7 +115,7 @@ export function MainNav({ categories, hasOwnedBrand = false, isAuthenticated = f
                 {hasOwnedBrand ? (
                   <Link
                     href="/dashboard"
-                    className={cn(buttonVariants(), 'w-full rounded-full')}
+                    className={buttonVariants({ variant: 'primary', className: 'w-full' })}
                     onClick={() => setOpen(false)}
                   >
                     {t('myBrands')}
@@ -123,7 +123,7 @@ export function MainNav({ categories, hasOwnedBrand = false, isAuthenticated = f
                 ) : (
                   <Link
                     href="/submit"
-                    className={cn(buttonVariants({ variant: 'cta' }), 'w-full rounded-full')}
+                    className={buttonVariants({ variant: 'primary', tone: 'cta', className: 'w-full' })}
                     onClick={() => setOpen(false)}
                   >
                     {t('submitBrand')}

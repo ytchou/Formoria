@@ -76,7 +76,7 @@ function flattenTouchPoint(
 }
 
 function readStoredUtmParams(key: string): Record<string, string> | null {
-  const value = localStorage.getItem(key)
+  const value = window.localStorage.getItem(key)
   if (!value) return null
 
   try {
@@ -103,9 +103,9 @@ export function persistUtmTouchPoints(
 
     if (hasUtmParams) {
       if (!storedFirstTouch) {
-        localStorage.setItem(UTM_FIRST_TOUCH_KEY, JSON.stringify(utmParams))
+        window.localStorage.setItem(UTM_FIRST_TOUCH_KEY, JSON.stringify(utmParams))
       }
-      localStorage.setItem(UTM_LAST_TOUCH_KEY, JSON.stringify(utmParams))
+      window.localStorage.setItem(UTM_LAST_TOUCH_KEY, JSON.stringify(utmParams))
     }
 
     return {

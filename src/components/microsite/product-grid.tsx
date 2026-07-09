@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import { surfaceCardStyles } from '@/components/ui/card'
 import type { Brand, SiteProduct } from '@/lib/types/brand'
 
 type ProductGridProps = {
@@ -22,7 +23,11 @@ export function ProductGrid({ brand, products }: ProductGridProps) {
           {products.map((product) => (
             <article
               key={`${product.name}-${product.url ?? product.imageUrl ?? 'product'}`}
-              className="group overflow-hidden rounded-xl border border-border bg-card transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[var(--shadow-card-hover)]"
+              className={surfaceCardStyles({
+                className: 'group overflow-hidden hover:-translate-y-0.5',
+                interactive: true,
+                padding: 'none',
+              })}
             >
               {product.imageUrl && (
                 <div className="relative aspect-[4/3] overflow-hidden rounded-t-xl bg-secondary">

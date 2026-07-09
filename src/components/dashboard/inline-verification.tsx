@@ -33,7 +33,7 @@ export function InlineVerification({
         window.removeEventListener('formoria:verification-dismissed', onStoreChange)
       }
     },
-    () => localStorage.getItem(DISMISS_KEY) === '1',
+    () => window.localStorage.getItem(DISMISS_KEY) === '1',
     () => false,
   )
   const [certNumber, setCertNumber] = useState('')
@@ -42,7 +42,7 @@ export function InlineVerification({
   const [isPending, startTransition] = useTransition()
 
   function dismiss() {
-    localStorage.setItem(DISMISS_KEY, '1')
+    window.localStorage.setItem(DISMISS_KEY, '1')
     window.dispatchEvent(new Event('formoria:verification-dismissed'))
   }
 
@@ -94,13 +94,16 @@ export function InlineVerification({
           {t('title')} — {t('status.unverified')}
         </span>
         {!embedded ? (
-          <button
+          <Button
+            type="button"
             onClick={dismiss}
-            className="ml-auto inline-flex min-h-12 min-w-12 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
+            variant="ghost"
+            size="icon"
+            className="ml-auto text-muted-foreground hover:text-foreground [&_svg:not([class*=size-])]:size-3.5"
             aria-label={t('dismiss')}
           >
             <X className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         ) : null}
       </div>
       <p className="type-caption mb-2.5">{t('description.unverified')}</p>
@@ -111,7 +114,7 @@ export function InlineVerification({
           placeholder={t('certPlaceholder')}
           className="max-w-[200px] font-mono type-caption"
         />
-        <Button size="sm" onClick={handleVerify} disabled={!certNumber.trim() || isPending}>
+        <Button size="compact" onClick={handleVerify} disabled={!certNumber.trim() || isPending}>
           {t('verifyButton')}
         </Button>
       </div>

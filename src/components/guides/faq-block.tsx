@@ -1,3 +1,4 @@
+import { surfaceCardStyles } from '@/components/ui/card'
 import { buildFaqPageJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 
 type FaqItem = {
@@ -27,7 +28,7 @@ export function FaqBlock({ questions }: FaqBlockProps) {
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(jsonLd) }}
       />
       {items.map((item) => (
-        <details key={item.q} className="rounded-xl border border-border bg-card px-4 py-3">
+        <details key={item.q} className={surfaceCardStyles({ className: 'px-4 py-3', padding: 'none' })}>
           <summary className="cursor-pointer type-card-title">
             {item.q}
           </summary>

@@ -3,7 +3,7 @@
 import type { CSSProperties } from 'react'
 import { MousePointerClick } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { SurfaceCard } from '@/components/ui/card'
 import type { LinkBreakdownPoint } from '@/lib/services/brand-analytics'
 import { cn } from '@/lib/utils'
 
@@ -32,17 +32,17 @@ export function LinkBreakdown({ rows }: LinkBreakdownProps) {
         {t('breakdownLabel')}
       </p>
 
-      <Card className="rounded-xl border-border bg-white shadow-none">
-        <CardHeader className="flex flex-row items-start justify-between gap-4 pb-4">
-          <CardTitle className="type-card-title">
+      <SurfaceCard tone="white" padding="lg">
+        <div className="flex flex-row items-start justify-between gap-4 pb-4">
+          <h3 className="type-card-title">
             {t('perDestination')}
-          </CardTitle>
+          </h3>
           <p className="type-metadata">
             {t('total', { count: totalClicks })}
           </p>
-        </CardHeader>
+        </div>
 
-        <CardContent>
+        <div>
           {showEmptyState ? (
             <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
               <MousePointerClick
@@ -97,8 +97,8 @@ export function LinkBreakdown({ rows }: LinkBreakdownProps) {
               })}
             </ul>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </SurfaceCard>
     </section>
   )
 }

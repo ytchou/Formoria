@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { MoreHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Brand, BrandStatus } from '@/lib/types'
+import { surfaceCardStyles } from '@/components/ui/card'
 import { BrandStatusBadge } from './status-badge'
 import { BrandEditDialog } from './brand-edit-dialog'
 import { ConfirmDialog } from './confirm-dialog'
@@ -229,7 +230,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
         </select>
       </div>
 
-      <div className="mt-4 rounded-lg border bg-white">
+      <div className={surfaceCardStyles({ className: 'mt-4 overflow-hidden', padding: 'none' })}>
         <Table>
           <TableHeader>
             <TableRow>
@@ -277,22 +278,22 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1.5">
                       <Button
-                        variant="outline"
-                        size="sm"
+                        variant="secondary"
+                        size="compact"
                         onClick={() => setEditingBrand(brand)}
                       >
                         編輯
                       </Button>
                       <Link
                         href={`/${routing.defaultLocale}/dashboard/brands/${brand.slug}`}
-                        className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                        className={buttonVariants({ variant: 'secondary', size: 'compact' })}
                       >
                         在 Dashboard 查看
                       </Link>
                       {brand.status === 'approved' && (
                         <Button
-                          variant="outline"
-                          size="sm"
+                          variant="secondary"
+                          size="compact"
                           onClick={() => handleHide(brand)}
                           disabled={isPending}
                         >
@@ -301,8 +302,8 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                       )}
                       {brand.status === 'hidden' && (
                         <Button
-                          variant="outline"
-                          size="sm"
+                          variant="secondary"
+                          size="compact"
                           onClick={() => handleUnhide(brand)}
                           disabled={isPending}
                         >
@@ -312,10 +313,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                       <DropdownMenu>
                         <DropdownMenuTrigger
                           aria-label={`Open curation actions for ${brand.name}`}
-                          className={cn(
-                            buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
-                            'rounded-full'
-                          )}
+                          className={buttonVariants({ variant: 'ghost', size: 'icon', shape: 'pill' })}
                         >
                           <MoreHorizontal className="size-4" aria-hidden />
                         </DropdownMenuTrigger>
@@ -340,8 +338,8 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                         </DropdownMenuContent>
                       </DropdownMenu>
                       <Button
-                        variant="outline"
-                        size="sm"
+                        variant="secondary"
+                        size="compact"
                         className="text-destructive hover:text-destructive"
                         onClick={() => setDeletingBrand(brand)}
                       >

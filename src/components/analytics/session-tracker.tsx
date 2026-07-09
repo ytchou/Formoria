@@ -8,7 +8,7 @@ const RETURNING_WINDOW_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 
 export function SessionTracker() {
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = window.localStorage.getItem(STORAGE_KEY)
     let isReturning = false
     let daysSinceLastVisit: number | null = null
 
@@ -24,7 +24,7 @@ export function SessionTracker() {
     }
 
     trackSessionStart(isReturning, daysSinceLastVisit)
-    localStorage.setItem(STORAGE_KEY, String(Date.now()))
+    window.localStorage.setItem(STORAGE_KEY, String(Date.now()))
   }, [])
 
   return null

@@ -11,7 +11,7 @@ import { SessionTracker } from './session-tracker'
 
 beforeEach(() => {
   mockSendGAEvent.mockClear()
-  localStorage.clear()
+  window.localStorage.clear()
 })
 
 describe('SessionTracker', () => {
@@ -25,7 +25,7 @@ describe('SessionTracker', () => {
 
   it('fires session_start with is_returning=true on repeat visit within 7 days', () => {
     const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000
-    localStorage.setItem('mit_last_visit', String(threeDaysAgo))
+    window.localStorage.setItem('mit_last_visit', String(threeDaysAgo))
     render(<SessionTracker />)
     expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'session_start', {
       is_returning: true,
@@ -35,7 +35,7 @@ describe('SessionTracker', () => {
 
   it('fires session_start with is_returning=false after 7+ days', () => {
     const eightDaysAgo = Date.now() - 8 * 24 * 60 * 60 * 1000
-    localStorage.setItem('mit_last_visit', String(eightDaysAgo))
+    window.localStorage.setItem('mit_last_visit', String(eightDaysAgo))
     render(<SessionTracker />)
     expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'session_start', {
       is_returning: false,
@@ -45,6 +45,6 @@ describe('SessionTracker', () => {
 
   it('updates mit_last_visit in localStorage on every render', () => {
     render(<SessionTracker />)
-    expect(localStorage.getItem('mit_last_visit')).toBeTruthy()
+    expect(window.localStorage.getItem('mit_last_visit')).toBeTruthy()
   })
 })

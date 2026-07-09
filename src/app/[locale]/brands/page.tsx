@@ -16,6 +16,7 @@ import { Pagination } from '@/components/brands/pagination'
 import { SortSelect } from '@/components/brands/sort-select'
 import { SearchEmptyStateWrapper } from '@/components/brands/search-empty-state-wrapper'
 import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
+import { surfaceCardStyles } from '@/components/ui/card'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
@@ -288,7 +289,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
               aria-label={t('loadingAria')}
             >
               {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="rounded-xl border border-border bg-card">
+                <div key={i} className={surfaceCardStyles({ padding: 'none' })}>
                   <div className="aspect-[4/3] animate-pulse rounded-t-xl bg-muted" />
                   <div className="p-4">
                     <div className="h-4 animate-pulse rounded bg-muted" />

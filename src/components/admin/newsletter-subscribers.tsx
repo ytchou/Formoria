@@ -2,7 +2,7 @@
 
 import { Check, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { DataCard, surfaceCardStyles } from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -66,23 +66,17 @@ export function NewsletterSubscribersList({
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-3">
         {statCards.map((stat) => (
-          <Card key={stat.label}>
-            <CardHeader>
-              <CardTitle className="type-metadata">
-                {stat.label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="type-stat">{stat.value}</p>
-              <p className="mt-2 type-card-description">
-                {stat.description}
-              </p>
-            </CardContent>
-          </Card>
+          <DataCard
+            key={stat.label}
+            label={stat.label}
+            value={stat.value}
+            description={stat.description}
+            padding="lg"
+          />
         ))}
       </div>
 
-      <div className="rounded-lg border bg-white">
+      <div className={surfaceCardStyles({ padding: 'none' })}>
         <Table>
           <TableHeader>
             <TableRow>

@@ -4,7 +4,7 @@ import type { CSSProperties } from 'react'
 import { useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useTranslations } from 'next-intl'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { SurfaceCard } from '@/components/ui/card'
 import type { ChartConfig } from '@/components/ui/chart'
 import type { DailyPoint } from '@/lib/services/brand-analytics'
 import { cn } from '@/lib/utils'
@@ -129,12 +129,12 @@ export function AnalyticsChart({ series }: AnalyticsChartProps) {
         {t('trendsLabel')}
       </p>
 
-      <Card className="rounded-xl border-border bg-card shadow-none">
-        <CardHeader className="flex flex-row items-start justify-between gap-4 pb-5">
+      <SurfaceCard padding="lg">
+        <div className="flex flex-row items-start justify-between gap-4 pb-5">
           <div className="space-y-1">
-            <CardTitle className="type-card-title-small">
+            <h3 className="type-card-title-small">
               {t('viewsClicksTitle')}
-            </CardTitle>
+            </h3>
             <p className="type-card-description">{t('dailyTrend')}</p>
           </div>
 
@@ -164,9 +164,9 @@ export function AnalyticsChart({ series }: AnalyticsChartProps) {
               )
             })}
           </div>
-        </CardHeader>
+        </div>
 
-        <CardContent className="space-y-4">
+        <div className="space-y-4">
           <div className="flex items-center gap-5 text-sm text-foreground">
             <div className="flex items-center gap-2">
               <span
@@ -190,8 +190,8 @@ export function AnalyticsChart({ series }: AnalyticsChartProps) {
             config={chartConfig}
             data={data}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </SurfaceCard>
     </section>
   )
 }

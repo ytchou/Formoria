@@ -32,7 +32,7 @@ export default async function Manifesto() {
         </p>
         <Link
           href="/about"
-          className={cn(buttonVariants({ variant: 'cta' }), 'mt-8')}
+          className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-8')}
         >
           {t('cta')}
         </Link>

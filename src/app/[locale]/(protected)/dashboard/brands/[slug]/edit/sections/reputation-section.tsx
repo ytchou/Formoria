@@ -60,7 +60,7 @@ export function ReputationSection({
               <Button
                 type="button"
                 variant="ghost"
-                size="icon-lg"
+                size="icon"
                 aria-label={t('removeItem')}
                 onClick={() => remove(index)}
               >
@@ -70,7 +70,7 @@ export function ReputationSection({
           ))}
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             disabled={fields.length >= 5}
             onClick={() => append({ url: '' })}
           >

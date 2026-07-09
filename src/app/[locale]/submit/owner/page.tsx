@@ -7,7 +7,7 @@ import type { Locale } from '@/lib/seo/alternates'
 import { createClient } from '@/lib/supabase/server'
 import { getUserBrand } from '@/lib/services/brand-owners'
 import { buttonVariants } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { surfaceCardStyles } from '@/components/ui/card'
 import SubmitForm from '@/components/submit/SubmitForm'
 
 type OwnerPageProps = {
@@ -71,7 +71,7 @@ export default async function SubmitOwnerPage({
         <div className="mx-auto max-w-2xl px-4 pt-8">
           <section
             aria-labelledby="owned-brand-notice-title"
-            className="rounded-xl border border-border bg-card p-6 shadow-sm"
+            className={surfaceCardStyles({ elevated: true, padding: 'lg' })}
           >
             <h2
               id="owned-brand-notice-title"
@@ -88,16 +88,13 @@ export default async function SubmitOwnerPage({
             <div className="mt-5 grid gap-2 sm:grid-cols-2">
               <Link
                 href={submitOwnerPath}
-                className={cn(buttonVariants(), 'min-h-12')}
+                className={buttonVariants({ variant: 'primary' })}
               >
                 {tSubmitConfirmation('communityOwnershipContinueCta')}
               </Link>
               <Link
                 href={submitPagePath}
-                className={cn(
-                  buttonVariants({ variant: 'outline' }),
-                  'min-h-12',
-                )}
+                className={buttonVariants({ variant: 'secondary' })}
               >
                 {tSubmitConfirmation('communityOwnershipBackCta')}
               </Link>

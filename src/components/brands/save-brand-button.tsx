@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import type { MouseEvent } from 'react'
 
 import { useSavedBrands } from '@/hooks/use-saved-brands'
+import { buttonVariants } from '@/components/ui/button'
 import { usePathname, useRouter } from '@/i18n/navigation'
 import { useUser } from '@/lib/auth/use-user'
 import { cn } from '@/lib/utils'
@@ -55,10 +56,14 @@ export function SaveBrandButton({
       title={!user ? t('loginToSave') : label}
       disabled={isLoading}
       className={cn(
-        'inline-flex shrink-0 items-center justify-center text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
         variant === 'overlay'
-          ? 'absolute right-2 top-2 h-8 w-8 rounded-full border border-border bg-white shadow-sm'
-          : 'h-11 gap-1.5 rounded-xl bg-secondary px-3 text-sm font-medium hover:bg-secondary/80',
+          ? buttonVariants({
+              variant: 'secondary',
+              size: 'icon',
+              shape: 'pill',
+              className: 'absolute right-2 top-2 size-8 bg-white shadow-sm [&_svg:not([class*=size-])]:size-4',
+            })
+          : buttonVariants({ variant: 'secondary', className: 'shrink-0' }),
         className
       )}
       onClick={handleClick}

@@ -24,7 +24,7 @@ import { startCurationJobAction } from '@/app/admin/operations/actions'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { SurfaceCard } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import {
@@ -150,9 +150,13 @@ function EnrichedCard({
   auto?: boolean
 }) {
   return (
-    <Card className={auto ? 'border-dashed bg-background shadow-none' : 'bg-white shadow-none'}>
-      <CardContent className="p-4">{children}</CardContent>
-    </Card>
+    <SurfaceCard
+      padding="sm"
+      tone={auto ? 'background' : 'white'}
+      className={auto ? 'border-dashed' : undefined}
+    >
+      {children}
+    </SurfaceCard>
   )
 }
 
@@ -517,22 +521,22 @@ export function SubmissionsReviewList({
               <span className="text-sm text-destructive">{bulkRejectError}</span>
             )}
             <Button
-              size="sm"
+              size="compact"
               onClick={handleEnrichSelected}
               disabled={selectedCount === 0 || isEnriching}
             >
               {isEnriching ? '抓取中...' : '抓取資料'}
             </Button>
             <Button
-              size="sm"
-              variant="cta"
+              size="compact"
+              variant="primary"
               onClick={handleBulkApprove}
               disabled={selectedCount === 0 || isPending}
             >
               核准
             </Button>
             <Button
-              size="sm"
+              size="compact"
               variant="destructive"
               onClick={handleBulkReject}
               disabled={
@@ -685,15 +689,15 @@ export function SubmissionsReviewList({
                       {submission.status === 'pending' && (
                         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                           <Button
-                            size="sm"
-                            variant="cta"
+                            size="compact"
+                            variant="primary"
                             onClick={() => handleApprove(submission)}
                             disabled={isPending}
                           >
                             核准
                           </Button>
                           <Button
-                            size="sm"
+                            size="compact"
                             variant="destructive"
                             onClick={async () => {
                               if (!confirm('確定要拒絕此提交？')) return
@@ -816,7 +820,7 @@ export function SubmissionsReviewList({
                                     />
                                     <Button
                                       type="button"
-                                      variant="outline"
+                                      variant="secondary"
                                       onClick={(e) => {
                                         e.stopPropagation()
                                         removeOtherUrl(submission.id, index)
@@ -828,7 +832,7 @@ export function SubmissionsReviewList({
                                 ))}
                                 <Button
                                   type="button"
-                                  variant="outline"
+                                  variant="secondary"
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     addOtherUrl(submission.id)
@@ -988,7 +992,7 @@ export function SubmissionsReviewList({
                           {submission.status === 'pending' && (
                             <div className="flex items-start gap-3">
                               <Button
-                                variant="cta"
+                                variant="primary"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   handleApprove(submission)

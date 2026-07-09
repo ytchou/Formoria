@@ -24,7 +24,7 @@ export default function Error({
       </h1>
       <p className="mt-3 type-card-description">An unexpected error occurred. Please try again.</p>
       <Button
-        variant="cta"
+        variant="primary" tone="cta"
         onClick={reset}
         className="mt-6"
       >

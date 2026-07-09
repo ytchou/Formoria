@@ -20,7 +20,7 @@ type ConfirmDialogProps = {
   description: string
   onConfirm: () => void
   confirmLabel: string
-  variant?: 'default' | 'destructive'
+  variant?: 'primary' | 'destructive'
   confirmText?: string
   isPending?: boolean
 }
@@ -32,7 +32,7 @@ export function ConfirmDialog({
   description,
   onConfirm,
   confirmLabel,
-  variant = 'default',
+  variant = 'primary',
   confirmText,
   isPending = false,
 }: ConfirmDialogProps) {
@@ -72,7 +72,7 @@ export function ConfirmDialog({
             onClick={onConfirm}
             disabled={isConfirmDisabled}
           >
-            {isPending ? '處理中...' : confirmLabel}
+            {isPending ? '處理中…' : confirmLabel}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

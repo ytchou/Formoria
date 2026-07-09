@@ -3,6 +3,7 @@ import type {
   FormHTMLAttributes,
   ReactNode,
 } from 'react'
+import { surfaceCardStyles } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 type StandardFormProps = FormHTMLAttributes<HTMLFormElement> & {
@@ -17,7 +18,11 @@ type StandardFormStackProps = ComponentPropsWithoutRef<'div'> & {
   children: ReactNode
 }
 
-const panelClassName = 'rounded-xl border border-border bg-card p-8 shadow-sm'
+const panelClassName = surfaceCardStyles({
+  className: 'p-8',
+  elevated: true,
+  padding: 'none',
+})
 const stackClassName = 'flex flex-col gap-5'
 
 export function StandardForm({

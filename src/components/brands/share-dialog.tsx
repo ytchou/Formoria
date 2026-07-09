@@ -11,6 +11,8 @@ import {
   X,
 } from 'lucide-react'
 import { trackBrandPageShared } from '@/lib/analytics'
+import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 interface ShareDialogProps {
   brandSlug: string
@@ -133,7 +135,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
     <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
       <button
         type="button"
-        className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-secondary px-3 type-body-emphasis transition-colors hover:bg-secondary/80"
+        className={buttonVariants({ variant: 'secondary', className: 'shrink-0' })}
         aria-label={t('trigger')}
         onClick={handleTriggerClick}
       >
@@ -169,9 +171,13 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
           <div className="grid grid-cols-2 gap-2 p-4">
             <button
               type="button"
-              className={`flex h-22 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl transition-colors ${
-                copied ? 'bg-verified-green-bg' : 'bg-secondary hover:bg-secondary/80'
-              }`}
+              className={buttonVariants({
+                variant: 'secondary',
+                className: cn(
+                  'h-22 cursor-pointer flex-col gap-2 rounded-xl',
+                  copied && 'border-verified-green-bg bg-verified-green-bg hover:bg-verified-green-bg',
+                ),
+              })}
               onClick={handleCopyLink}
             >
               {copied ? <Check className="size-5" /> : <Link className="size-5" />}
@@ -182,7 +188,10 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
 
             <button
               type="button"
-              className="flex h-22 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl bg-secondary transition-colors hover:bg-secondary/80"
+              className={buttonVariants({
+                variant: 'secondary',
+                className: 'h-22 cursor-pointer flex-col gap-2 rounded-xl',
+              })}
               onClick={handleLineShare}
             >
               <MessageCircle className="size-5 text-[#07B53B]" />
@@ -191,7 +200,10 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
 
             <button
               type="button"
-              className="flex h-22 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl bg-secondary transition-colors hover:bg-secondary/80"
+              className={buttonVariants({
+                variant: 'secondary',
+                className: 'h-22 cursor-pointer flex-col gap-2 rounded-xl',
+              })}
               onClick={handleFacebookShare}
             >
               <FacebookIcon className="size-5 text-[#1877F2]" />
@@ -200,7 +212,10 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
 
             <button
               type="button"
-              className="flex h-22 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl bg-secondary transition-colors hover:bg-secondary/80"
+              className={buttonVariants({
+                variant: 'secondary',
+                className: 'h-22 cursor-pointer flex-col gap-2 rounded-xl',
+              })}
               onClick={handleXShare}
             >
               <TwitterIcon className="size-5 text-foreground" />

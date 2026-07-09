@@ -261,16 +261,16 @@ export default function SubmitForm({
                 <span>
                   {tForm('suggestedName')} <strong>{nameSuggestion}</strong>
                 </span>
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={() => {
                     setValue('name', nameSuggestion)
                     setNameSuggestion(null)
                   }}
-                  className="inline-flex min-h-[44px] items-center rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
                 >
                   {tForm('applySuggestion')}
-                </button>
+                </Button>
               </div>
             ) : null}
           </FormField>
@@ -303,16 +303,16 @@ export default function SubmitForm({
                 <span>
                   {tForm('suggestedUrl')} <strong>{urlSuggestion}</strong>
                 </span>
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={() => {
                     setValue('website', urlSuggestion)
                     setUrlSuggestion(null)
                   }}
-                  className="inline-flex min-h-[44px] items-center rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
                 >
                   {tForm('applySuggestion')}
-                </button>
+                </Button>
               </div>
             ) : null}
           </FormField>
@@ -578,7 +578,7 @@ export default function SubmitForm({
 
           <Button
             type="submit"
-            variant="cta"
+            variant="primary" tone="cta"
             disabled={isSubmitDisabled}
             className="w-full"
           >

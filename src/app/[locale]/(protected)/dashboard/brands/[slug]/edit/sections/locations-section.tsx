@@ -179,7 +179,7 @@ export function LocationsSection({
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon-lg"
+                  size="icon"
                   aria-label={t('removeItem')}
                   onClick={() => remove(index)}
                 >
@@ -281,7 +281,7 @@ export function LocationsSection({
                     />
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="secondary"
                       className="min-h-12"
                       disabled={isSearching}
                       onClick={() => searchLocation(field.id, index)}
@@ -384,7 +384,7 @@ export function LocationsSection({
 
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           onClick={() => append(EMPTY_LOCATION)}
         >
           <MapPin className="h-4 w-4" />

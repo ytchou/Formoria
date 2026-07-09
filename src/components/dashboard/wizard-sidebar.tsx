@@ -1,6 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
+import { surfaceCardStyles } from '@/components/ui/card'
 import type { WizardStep } from '@/lib/schemas/brand-edit'
 import {
   OnboardingStepList,
@@ -64,7 +65,11 @@ export function WizardSidebar({
         </ProgressStepCard>
       </aside>
 
-      <details className="rounded-xl border border-border bg-card shadow-sm md:hidden">
+      <details className={surfaceCardStyles({
+        className: 'md:hidden',
+        elevated: true,
+        padding: 'none',
+      })}>
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 py-3 text-left type-subsection-title outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden">
           <span className="min-w-0">
             <span className="block truncate">

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { reviewReportAction } from '@/app/admin/actions'
 import type { BrandReport, ReportReason } from '@/lib/services/reports'
 import { Button } from '@/components/ui/button'
+import { surfaceCardStyles } from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -49,7 +50,7 @@ export function ReportsTable({ reports }: ReportsTableProps) {
   }
 
   return (
-    <div className="mt-4 rounded-lg border bg-white">
+    <div className={surfaceCardStyles({ className: 'mt-4 overflow-hidden', padding: 'none' })}>
       <Table>
         <TableHeader>
           <TableRow>
@@ -113,7 +114,6 @@ export function ReportsTable({ reports }: ReportsTableProps) {
                               handleReview(r.id, 'reviewed')
                             }}
                             disabled={isPending}
-                            className="bg-cta hover:bg-cta/90"
                           >
                             審核
                           </Button>
