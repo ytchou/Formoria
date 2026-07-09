@@ -1,0 +1,74 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Growth Pulse — Jul 08"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "✅ *Steady day — no action needed*"
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        { "type": "mrkdwn", "text": "*Sessions*\n0 (— WoW)" },
+        { "type": "mrkdwn", "text": "*Users*\n0 (— WoW)" },
+        { "type": "mrkdwn", "text": "*Page Views*\n0 (— WoW)" },
+        { "type": "mrkdwn", "text": "*Bounce Rate*\n0% (— pp WoW)" },
+        { "type": "mrkdwn", "text": "*Avg Duration*\n0m 0s (— WoW)" }
+      ]
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Top Pages* (vs last week)\nNo page data recorded"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Referral Sources* (vs last week)\nNo referral source data recorded"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Signals*\n• *What:* Zero traffic on Jul 08 — 0 sessions, 0 users, 0 page views. Same weekday last week (Jul 01) also reported 0 sessions.\n  *So what:* Consistent zero traffic across both comparison periods; no degradation detected, but site has not yet generated organic visits in GA4.\n  *Now what:* No action needed — both periods fall below the 30-session anomaly floor for an early-stage site.\n\nNo ticket — signals are informational only"
+      }
+    },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "Open GA4 Dashboard" },
+          "url": "https://analytics.google.com/analytics/web/#/p538232091/reports/"
+        }
+      ]
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Compared against same weekday last week. GA4 data may lag 24–48h."
+        }
+      ]
+    }
+  ]
+}
