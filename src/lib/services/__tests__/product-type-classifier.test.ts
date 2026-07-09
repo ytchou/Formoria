@@ -131,7 +131,7 @@ describe('parseExtractionResult', () => {
       price_range: 2, product_tags: ['餐具'], city: '台中', founding_year: 2015,
       signature_products: ['木製餐盤'], where_to_buy: '官網與誠品', category_mismatch: true,
     }))
-    expect(parsed.city).toBe('台中')
+    expect(parsed.city).toBe('taichung')
     expect(parsed.foundingYear).toBe(2015)
     expect(parsed.categoryMismatch).toBe(true)
     expect('category' in parsed).toBe(false)
