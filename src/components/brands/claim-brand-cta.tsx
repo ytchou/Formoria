@@ -242,14 +242,24 @@ export function ClaimBrandCta({
 
   if (hasOwnedBrand) {
     return (
-      <section className={surfaceCardStyles({ className: 'space-y-3 text-left' })}>
-        <p className="type-card-title">{t('ownerLimitTitle')}</p>
-        <p className="type-section-description">{t('ownerLimitBody')}</p>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <Link href="/dashboard" className="text-sm font-semibold text-primary underline underline-offset-4">
-            {t('manageBrand')}
-          </Link>
-          {removalSlot}
+      <section
+        className={surfaceCardStyles({
+          tone: 'background',
+          padding: 'sm',
+          className: 'text-left',
+        })}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 space-y-1">
+            <p className="type-subsection-title">{t('ownerLimitTitle')}</p>
+            <p className="type-card-description">{t('ownerLimitBody')}</p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2">
+            <Link href="/dashboard" className="text-sm font-semibold text-primary underline underline-offset-4">
+              {t('manageBrand')}
+            </Link>
+            {removalSlot}
+          </div>
         </div>
       </section>
     )
@@ -257,30 +267,43 @@ export function ClaimBrandCta({
 
   if (feedback.type === 'pending') {
     return (
-      <section className={surfaceCardStyles({ className: 'space-y-3 text-left' })}>
-        <p className="type-card-title">{t('pendingTitle')}</p>
-        <p className="type-section-description">
-          {feedback.domainEmailVerificationSentTo
-            ? t('pendingDomainEmailBody', { email: feedback.domainEmailVerificationSentTo })
-            : t('pendingBody')}
-        </p>
+      <section
+        className={surfaceCardStyles({
+          tone: 'background',
+          padding: 'sm',
+          className: 'text-left',
+        })}
+      >
+        <div className="space-y-1">
+          <p className="type-subsection-title">{t('pendingTitle')}</p>
+          <p className="type-card-description">
+            {feedback.domainEmailVerificationSentTo
+              ? t('pendingDomainEmailBody', { email: feedback.domainEmailVerificationSentTo })
+              : t('pendingBody')}
+          </p>
+        </div>
       </section>
     )
   }
 
   return (
-    <section className={surfaceCardStyles({ className: 'space-y-4 text-left' })}>
-      <div className="space-y-1">
-        <p className="type-card-title">{t('communityTitle')}</p>
-        <p className="type-card-description">{t('communityListing')}</p>
-      </div>
-
+    <section
+      className={surfaceCardStyles({
+        tone: isOpen ? 'card' : 'background',
+        padding: isOpen ? 'md' : 'sm',
+        className: 'text-left',
+      })}
+    >
       {!isOpen ? (
-        <div className="space-y-3">
-          {!user && (
-            <p className="type-card-description">{claimErrorsT('notLoggedIn')}</p>
-          )}
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 space-y-1">
+            <p className="type-subsection-title">{t('communityTitle')}</p>
+            <p className="type-card-description">{t('communityListing')}</p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2">
+            {!user && (
+              <p className="basis-full type-caption">{claimErrorsT('notLoggedIn')}</p>
+            )}
             {user ? (
               <Button
                 type="button"
@@ -297,8 +320,6 @@ export function ClaimBrandCta({
                 {t('signIn')}
               </Link>
             )}
-          </div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <Link href="/faq#claim" className="text-xs text-primary underline underline-offset-4">
               {t('whyClaim')}
             </Link>
@@ -307,6 +328,11 @@ export function ClaimBrandCta({
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="space-y-1">
+            <p className="type-card-title">{t('communityTitle')}</p>
+            <p className="type-card-description">{t('communityListing')}</p>
+          </div>
+
           <div className="space-y-1">
             <h2 className="type-subsection-title">{t('proofHeading')}</h2>
             <p className="type-card-description">{t('pickOneInstruction')}</p>

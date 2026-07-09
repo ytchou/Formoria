@@ -48,6 +48,10 @@ it('shows a sign-in gate instead of the claim form when logged out', () => {
   renderCta()
 
   expect(screen.getByText('這是你的品牌嗎？')).toBeInTheDocument()
+  const compactNotice = screen.getByText('這是你的品牌嗎？').closest('section')
+  expect(compactNotice).not.toBeNull()
+  expect(compactNotice!).toHaveClass('bg-background', 'p-4')
+  expect(compactNotice!).not.toHaveClass('bg-card', 'p-5')
   expect(screen.getByText('請先登入後再提交認領申請')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: '立即登入' })).toHaveAttribute(
     'href',

@@ -32,6 +32,10 @@ function getRequestIp(headerStore: Awaited<ReturnType<typeof headers>>) {
   return headerStore.get('cf-connecting-ip') ?? headerStore.get('x-forwarded-for')?.split(',').at(0)?.trim() ?? 'unknown'
 }
 
+function getRequestHost(headerStore: Awaited<ReturnType<typeof headers>>) {
+  return headerStore.get('x-forwarded-host') ?? headerStore.get('host') ?? undefined
+}
+
 function isDnsResolutionError(error: unknown) {
   if (!(error instanceof Error)) {
     return false
@@ -85,7 +89,11 @@ export async function submitRecommendation(
       return { error: t('rateLimit') }
     }
 
-    const turnstile = await verifyTurnstileToken(parsed.turnstileToken, ip)
+    const turnstile = await verifyTurnstileToken(
+      parsed.turnstileToken,
+      ip,
+      getRequestHost(headerStore),
+    )
     if (!turnstile.success) {
       return { error: t('validation') }
     }
@@ -148,7 +156,12 @@ export async function submitOwnerBrand(
       return { error: t('rateLimit') }
     }
 
-    const turnstile = await verifyTurnstileToken(parsed.turnstileToken)
+    const headerStore = await headers()
+    const turnstile = await verifyTurnstileToken(
+      parsed.turnstileToken,
+      undefined,
+      getRequestHost(headerStore),
+    )
     if (!turnstile.success) {
       return { error: t('validation') }
     }

@@ -392,12 +392,10 @@
         "department_counter": "Department-store counter or stall. Please confirm availability before visiting."
       }
     },
-    "moreInCategory": {
-      "heading": "More in {category}",
-      "subtext": "{count} other brands in this category"
-    },
     "relatedBrands": {
-      "heading": "You might also like"
+      "heading": "More in {category}",
+      "subtext": "{count} other brands in this category",
+      "viewAll": "View all"
     },
     "removal": {
       "trigger": "Request removal",
