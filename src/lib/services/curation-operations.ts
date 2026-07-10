@@ -116,15 +116,15 @@ async function upsertBrandFaq(
 
   for (const [category, items] of byCategory) {
     const column = FAQ_CATEGORY_COLUMNS[category]
-    if (column && items.length >= 2) {
+    if (column && items.length >= 1) {
       const zhItem = items.find((i) => /[一-鿿]/.test(i.question))
       const enItem = items.find((i) => !/[一-鿿]/.test(i.question))
-      if (zhItem && enItem) {
+      if (zhItem || enItem) {
         row[column] = {
-          question_zh: zhItem.question,
-          answer_zh: zhItem.answer,
-          question_en: enItem.question,
-          answer_en: enItem.answer,
+          question_zh: zhItem?.question ?? null,
+          answer_zh: zhItem?.answer ?? null,
+          question_en: enItem?.question ?? null,
+          answer_en: enItem?.answer ?? null,
         }
       }
     }

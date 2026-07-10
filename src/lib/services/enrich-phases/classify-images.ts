@@ -69,7 +69,10 @@ type BrandImagesSelectQuery = {
 }
 
 type BrandImagesUpdateQuery = {
-  eq: (column: string, value: string) => Promise<{ error: unknown }>
+  eq: (column: string, value: string) => BrandImagesUpdateQuery
+  not: (column: string, operator: string, value: unknown) => BrandImagesUpdateQuery
+  select: (columns: string) => Promise<{ data: Array<{ id: string }> | null; error: unknown }>
+  then: Promise<{ error: unknown }>['then']
 }
 
 type AiResultsTable = {
@@ -284,12 +287,14 @@ async function updateImage(
 }
 
 async function resetImageTags(supabase: unknown, brandId: string): Promise<number> {
-  const active = await getActiveImages(supabase, brandId)
-  const tagged = active.filter((img) => img.tags && img.tags.length > 0)
-  for (const img of tagged) {
-    await updateImage(supabase, img.id, { tags: null, score: null, alt_zh: null, alt_en: null, status: 'active' })
-  }
-  return tagged.length
+  const { data, error } = await classifyImagesClient(supabase)
+    .from('brand_images')
+    .update({ tags: null, score: null, alt_zh: null, alt_en: null, status: 'active' })
+    .eq('brand_id', brandId)
+    .not('tags', 'is', null)
+    .select('id')
+  if (error) throw error
+  return data?.length ?? 0
 }
 
 export async function runClassifyImagesPhase({
@@ -375,11 +380,11 @@ export async function runClassifyImagesPhase({
         ? parseClassificationBatch(response.content, chunk.length)
         : Array<null>(chunk.length).fill(null)
 
+      await insertRawClassificationResult(supabase, brand.id, chunk[0].id, response.content, config, batchLatencyMs)
+
       for (let j = 0; j < chunk.length; j++) {
         const image = chunk[j]
         const classification = parsed[j] ?? null
-
-        await insertRawClassificationResult(supabase, brand.id, image.id, response.content, config, batchLatencyMs)
 
         if (!classification) {
           await updateImage(supabase, image.id, { status: 'rejected' })
