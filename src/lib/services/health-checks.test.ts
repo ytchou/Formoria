@@ -75,7 +75,7 @@ describe('checkAllServices', () => {
 
     const results: ServiceHealthResult[] = await checkAllServices()
 
-    expect(results).toHaveLength(9)
+    expect(results).toHaveLength(10)
     const services = results.map((r) => r.service)
     expect(services).toContain('Supabase')
     expect(services).toContain('Sentry')
@@ -86,6 +86,7 @@ describe('checkAllServices', () => {
     expect(services).toContain('Upstash Redis')
     expect(services).toContain('Serper')
     expect(services).toContain('DeepSeek')
+    expect(services).toContain('OpenAI')
   })
 
   it('each result has the required ServiceHealthResult shape', async () => {

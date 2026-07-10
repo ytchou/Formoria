@@ -15,13 +15,13 @@ import {
 import {
   type ClassificationResult,
 } from './product-type-classifier'
-import type { DescriptionRewriteResult } from './description-rewrite'
+import type { DescriptionAttempt } from './description-rewrite'
 import { SEARCH_DELAY_MS } from './enrich-phases/scraper/search'
 import { insertTriageResult, insertDescriptionResult, insertClassificationResult } from './ai-results'
 import { createServiceClient } from '@/lib/supabase/server'
 import type { BrandOutcome, CurationConfig, OperationResult, PhaseResult } from '@/lib/types/curation'
 import {
-  applyTriageResult,
+  applyDetectResult,
   buildPhaseResult,
   getDisplayBrandName,
   loadCachedSearchResults,
@@ -34,7 +34,7 @@ import {
   runImageSearchPhase,
   runLinksPhase,
   runStandaloneClassification,
-  runTriagePhase,
+  runDetectPhase,
   type BrandEnrichState,
   type SearchPhaseResult,
   hasPatchValues,
@@ -51,7 +51,7 @@ import {
 } from './enrichment-logger'
 
 export type { BrandOutcome, CurationConfig, OperationResult }
-export { shouldSkipForNonBrand } from './enrich-phases/triage'
+export { shouldSkipForNonBrand } from './enrich-phases/detect'
 
 type EnrichOperationResult = OperationResult & {
   enrichmentSummary: EnrichmentSummary
@@ -83,26 +83,94 @@ function errorMessage(error: unknown): string {
     return error.message
   }
 
+  if (typeof error === 'object' && error !== null) {
+    return JSON.stringify(error).slice(0, 500)
+  }
+
   return String(error)
 }
 
-async function logDescriptionAiResult(brandId: string, descriptionRewrite: DescriptionRewriteResult): Promise<void> {
-  await insertDescriptionResult({
-    brandId,
-    description: descriptionRewrite.description_zh ?? '',
-    priceRange: descriptionRewrite.priceRange,
-    productTags: descriptionRewrite.productTags,
-    rawResponse: {
-      description_en: descriptionRewrite.description_en,
-      city: descriptionRewrite.city,
-      founding_year: descriptionRewrite.foundingYear,
-      signature_products: descriptionRewrite.signatureProducts,
-      where_to_buy: descriptionRewrite.whereToBuy,
-      category_mismatch: descriptionRewrite.categoryMismatch,
-      validation_rejections: descriptionRewrite.validationRejections,
-      response: descriptionRewrite.rawResponse,
-    },
-  })
+const FAQ_CATEGORY_COLUMNS: Record<string, string> = {
+  mit: 'faq_mit',
+  where_to_buy: 'faq_where_to_buy',
+  products: 'faq_products',
+  price: 'faq_price',
+  founded: 'faq_founded',
+  reputation: 'faq_reputation',
+}
+
+async function upsertBrandFaq(
+  supabase: SupabaseClient,
+  brandId: string,
+  faqItems: Array<{ category: string; question: string; answer: string }>
+): Promise<void> {
+  const row: Record<string, unknown> = { brand_id: brandId, updated_at: new Date().toISOString() }
+
+  const byCategory = new Map<string, Array<{ question: string; answer: string }>>()
+  for (const item of faqItems) {
+    const cat = item.category || 'custom'
+    const list = byCategory.get(cat) ?? []
+    list.push({ question: item.question, answer: item.answer })
+    byCategory.set(cat, list)
+  }
+
+  for (const [category, items] of byCategory) {
+    const column = FAQ_CATEGORY_COLUMNS[category]
+    if (column && items.length >= 1) {
+      const zhItem = items.find((i) => /[一-鿿]/.test(i.question))
+      const enItem = items.find((i) => !/[一-鿿]/.test(i.question))
+      if (zhItem || enItem) {
+        row[column] = {
+          question_zh: zhItem?.question ?? null,
+          answer_zh: zhItem?.answer ?? null,
+          question_en: enItem?.question ?? null,
+          answer_en: enItem?.answer ?? null,
+        }
+      }
+    }
+  }
+
+  let customIndex = 1
+  for (const [category, items] of byCategory) {
+    if (FAQ_CATEGORY_COLUMNS[category]) continue
+    for (let i = 0; i < items.length && customIndex <= 4; i += 2) {
+      const zhItem = items[i]
+      const enItem = items[i + 1]
+      if (zhItem) {
+        row[`faq_custom_${customIndex}`] = enItem
+          ? { question_zh: zhItem.question, answer_zh: zhItem.answer, question_en: enItem.question, answer_en: enItem.answer }
+          : { question_zh: zhItem.question, answer_zh: zhItem.answer, question_en: null, answer_en: null }
+        customIndex += 1
+      }
+    }
+  }
+
+  const { error } = await supabase.from('brand_faq').upsert(row, { onConflict: 'brand_id' })
+  if (error) console.error(`  [FAQ] upsert failed for ${brandId}:`, error.message)
+}
+
+async function logDescriptionAiResult(brandId: string, attempts: DescriptionAttempt[]): Promise<void> {
+  for (const attempt of attempts) {
+    await insertDescriptionResult({
+      brandId,
+      description: attempt.parsed.description_zh ?? '',
+      priceRange: attempt.parsed.priceRange,
+      productTags: attempt.parsed.productTags,
+      rawResponse: {
+        description_en: attempt.parsed.description_en,
+        city: attempt.parsed.city,
+        founding_year: attempt.parsed.foundingYear,
+        reputation_summary: attempt.parsed.reputationSummary,
+        faq: attempt.parsed.faq,
+        validation_rejections: attempt.validationRejections,
+        response: attempt.rawResponse,
+      },
+      input: attempt.input,
+      attempt: attempt.attempt,
+      config: attempt.config,
+      latencyMs: attempt.latencyMs,
+    })
+  }
 }
 
 const SCRAPE_DELAY_MS = 1000
@@ -396,9 +464,9 @@ function logPhaseResult(
   }))
 }
 
-function buildBrandPhaseOrder(phases: RunEnrichPhase[], hasTriagePhases: boolean): string[] {
+function buildBrandPhaseOrder(phases: RunEnrichPhase[], hasDetectPhases: boolean): string[] {
   return [
-    hasTriagePhases && 'triage',
+    hasDetectPhases && 'detect',
     'clean',
     'links',
     'images',
@@ -599,7 +667,7 @@ export async function runEnrich(
     let query = supabase
       .from('brands')
       .select(
-        'id, slug, name, status, description, description_en, product_type, category_attributes, site_content, reputation_summary, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, hero_image_url'
+        'id, slug, name, status, description, description_en, product_type, category_attributes, site_content, reputation_summary, retail_locations, mit_evidence, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, hero_image_url, city'
       )
 
     if (config.slugs && config.slugs.length > 0) {
@@ -644,11 +712,11 @@ export async function runEnrich(
     }
 
     const chunk = brandChunks[chunkIndex]
-    const hasTriagePhases = phases.includes('detect') || phases.includes('slugs') || phases.includes('tags')
+    const hasDetectPhases = phases.includes('detect') || phases.includes('slugs') || phases.includes('tags')
     const activeSteps = [
       phases.includes('discover') && 'SERP',
       phases.includes('images') && 'images',
-      hasTriagePhases && 'triage',
+      hasDetectPhases && 'detect',
       phases.includes('tags') && !phases.includes('descriptions') && 'tags',
       phases.includes('descriptions') && phases.includes('tags') && 'descriptions+tags',
       phases.includes('descriptions') && !phases.includes('tags') && 'descriptions',
@@ -669,7 +737,7 @@ export async function runEnrich(
     let searchResults = discoverResult.searchResults
     const searchError = discoverResult.searchError
 
-    if (!phases.includes('discover') && (hasTriagePhases || phases.includes('descriptions'))) {
+    if (!phases.includes('discover') && (hasDetectPhases || phases.includes('descriptions'))) {
       const cached = await loadCachedSearchResults(
         chunk.map((brand) => brand.id)
       )
@@ -690,8 +758,8 @@ export async function runEnrich(
     const imageSearchResult = await runImageSearchPhase(batchContext, searchResults)
     const imageSearchResults = imageSearchResult.imageSearchResults
 
-    const triagePhaseResult = await runTriagePhase(batchContext, searchResults)
-    const triageResults = triagePhaseResult.triageResults
+    const detectPhaseResult = await runDetectPhase(batchContext, searchResults)
+    const detectResults = detectPhaseResult.detectResults
     const standaloneClassificationResult = await runStandaloneClassification(batchContext)
     const batchClassifications = standaloneClassificationResult.batchClassifications
 
@@ -699,7 +767,7 @@ export async function runEnrich(
       result.processed += 1
       const brandIndex = result.processed
       const brandStartedAt = Date.now()
-      const phaseOrder = buildBrandPhaseOrder(phases, hasTriagePhases)
+      const phaseOrder = buildBrandPhaseOrder(phases, hasDetectPhases)
       const totalPhases = phaseOrder.length
       const logCurrentPhase = (phaseResult: PhaseResult): void => {
         const rawIndex = phaseOrder.indexOf(phaseResult.phase)
@@ -717,7 +785,7 @@ export async function runEnrich(
       let outcomePhaseResults: PhaseResult[] = []
 
       try {
-        const triageResult = triageResults.get(brand.slug)
+        const detectResult = detectResults.get(brand.slug)
         const state: BrandEnrichState = {
           patches: {},
           phaseResults: [],
@@ -727,45 +795,45 @@ export async function runEnrich(
           scrapedData: {},
         }
         outcomePhaseResults = state.phaseResults
-        const triageApplication = applyTriageResult(triageResult, brand, phases)
-        if (hasTriagePhases) {
-          state.phaseResults.push(triageApplication.phaseResult)
-          logCurrentPhase(triageApplication.phaseResult)
+        const detectApplication = applyDetectResult(detectResult, brand, phases)
+        if (hasDetectPhases) {
+          state.phaseResults.push(detectApplication.phaseResult)
+          logCurrentPhase(detectApplication.phaseResult)
         }
-        appendPatch(state, triageApplication.patch)
+        appendPatch(state, detectApplication.patch)
 
-        let triageSlug = state.patches.slug
+        let detectedSlug = state.patches.slug
 
-        if (target === 'brands' && triageSlug && !config.dryRun) {
+        if (target === 'brands' && detectedSlug && !config.dryRun) {
           const svc = createServiceClient()
           const { data: slugOwner } = await svc
             .from('brands')
             .select('id')
-            .eq('slug', triageSlug)
+            .eq('slug', detectedSlug)
             .neq('id', brand.id)
             .maybeSingle()
           if (slugOwner) {
-            onProgress(`  [SLUG-CONFLICT] "${triageSlug}" already taken — keeping original slug`)
+            onProgress(`  [SLUG-CONFLICT] "${detectedSlug}" already taken — keeping original slug`)
             delete state.patches.slug
-            triageApplication.phaseResult.changedFields = triageApplication.phaseResult.changedFields.filter(
+            detectApplication.phaseResult.changedFields = detectApplication.phaseResult.changedFields.filter(
               (field) => field !== 'slug'
             )
-            triageSlug = undefined
+            detectedSlug = undefined
           }
         }
 
-        if (triageApplication.isNonBrand) {
-          onProgress(`  [NON-BRAND] ${brand.slug}: ${triageResult?.nonBrandReason ?? 'non-brand'} (${triageResult?.confidence})`)
+        if (detectApplication.isNonBrand) {
+          onProgress(`  [NON-BRAND] ${brand.slug}: ${detectResult?.nonBrandReason ?? 'non-brand'} (${detectResult?.confidence})`)
 
           if (target === 'brands' && !config.dryRun) {
             await insertTriageResult({
               brandId: brand.id,
               isNonBrand: true,
-              nonBrandReason: triageResult?.nonBrandReason ?? null,
-              slugGenerated: triageResult?.slugGenerated ?? null,
-              productType: triageResult?.productType ?? null,
-              confidence: triageResult?.confidence ?? 'high',
-              rawResponse: triageResult,
+              nonBrandReason: detectResult?.nonBrandReason ?? null,
+              slugGenerated: detectResult?.slugGenerated ?? null,
+              productType: detectResult?.productType ?? null,
+              confidence: detectResult?.confidence ?? 'high',
+              rawResponse: detectResult,
             })
             await updateBrand(
               brand.id,
@@ -872,6 +940,7 @@ export async function runEnrich(
           brand,
           phases,
           dryRun: config.dryRun || target !== 'brands',
+          overwrite: config.overwrite,
         })
         state.phaseResults.push(classifyImagesResult.phaseResult)
         logCurrentPhase(classifyImagesResult.phaseResult)
@@ -880,11 +949,12 @@ export async function runEnrich(
           brand,
           phases,
           serpSnippets: state.serpSnippets,
+          overwrite: config.overwrite,
         })
         state.phaseResults.push(descriptionsResult.phaseResult)
         logCurrentPhase(descriptionsResult.phaseResult)
         appendPatch(state, descriptionsResult.patch)
-        const categoryMismatch = descriptionsResult.descriptionRewrite?.categoryMismatch === true
+        const reputationAlreadySet = descriptionsResult.patch.reputation_summary != null
 
         const expansionResult = await runExpansionPhase({
           brand,
@@ -892,6 +962,7 @@ export async function runEnrich(
           serpSnippets: state.serpSnippets,
           scrapedData: state.scrapedData,
           overwrite: config.overwrite,
+          reputationAlreadySet,
         })
         state.phaseResults.push(expansionResult.phaseResult)
         logCurrentPhase(expansionResult.phaseResult)
@@ -940,17 +1011,16 @@ export async function runEnrich(
             weakBrandCount += 1
             onProgress(`  [WEAK-BRAND] ${brand.slug}: no useful data found (${state.discoveredUrls.length} search results, no enrichment changes)`)
           }
-          if (!config.dryRun && target === 'brands' && descriptionsResult.descriptionRewrite) {
-            await logDescriptionAiResult(brand.id, descriptionsResult.descriptionRewrite)
+          if (!config.dryRun && target === 'brands' && descriptionsResult.attempts.length > 0) {
+            await logDescriptionAiResult(brand.id, descriptionsResult.attempts)
           }
-          const skippedOutcome: BrandOutcome & { categoryMismatch?: boolean } = {
+          const skippedOutcome: BrandOutcome = {
             slug: brand.slug,
             name: getDisplayBrandName(brand),
             ...(target === 'submissions' ? { submissionId: brand.id } : {}),
             status: 'skipped',
             changedFields,
             phaseResults: state.phaseResults,
-            ...(categoryMismatch ? { categoryMismatch: true } : {}),
           }
           result.brandOutcomes.push(skippedOutcome)
           result.skipped += 1
@@ -959,19 +1029,19 @@ export async function runEnrich(
         }
 
         if (!config.dryRun) {
-          if (target === 'brands' && triageResult) {
+          if (target === 'brands' && detectResult) {
             await insertTriageResult({
               brandId: brand.id,
               isNonBrand: false,
               nonBrandReason: null,
-              slugGenerated: triageResult.slugGenerated,
-              productType: triageResult.productType,
-              confidence: triageResult.confidence,
-              rawResponse: triageResult,
+              slugGenerated: detectResult.slugGenerated,
+              productType: detectResult.productType,
+              confidence: detectResult.confidence,
+              rawResponse: detectResult,
             })
           }
-          if (target === 'brands' && descriptionsResult.descriptionRewrite) {
-            await logDescriptionAiResult(brand.id, descriptionsResult.descriptionRewrite)
+          if (target === 'brands' && descriptionsResult.attempts.length > 0) {
+            await logDescriptionAiResult(brand.id, descriptionsResult.attempts)
           }
           if (target === 'brands' && classification) {
             await insertClassificationResult({
@@ -991,8 +1061,8 @@ export async function runEnrich(
             } else {
               await persistEnrichmentResults(
                 supabase as unknown as SupabaseClient,
-                brand.id,
-                patch as JsonObject
+                [{ brandId: brand.id, patch: patch as JsonObject }],
+                config.jobId
               )
             }
           } catch (err) {
@@ -1012,19 +1082,25 @@ export async function runEnrich(
             continue
           }
 
-          if (target === 'brands' && triageSlug) {
-            await insertSlugRedirect(brand.slug, triageSlug)
+          if (target === 'brands' && descriptionsResult.descriptionRewrite?.faq) {
+            await upsertBrandFaq(
+              supabase as unknown as SupabaseClient,
+              brand.id,
+              descriptionsResult.descriptionRewrite.faq
+            )
+          }
+          if (target === 'brands' && detectedSlug) {
+            await insertSlugRedirect(brand.slug, detectedSlug)
           }
         }
 
-        const succeededOutcome: BrandOutcome & { categoryMismatch?: boolean } = {
+        const succeededOutcome: BrandOutcome = {
           slug: brand.slug,
           name: getDisplayBrandName(brand),
           ...(target === 'submissions' ? { submissionId: brand.id } : {}),
           status: 'succeeded',
           changedFields,
           phaseResults: state.phaseResults,
-          ...(categoryMismatch ? { categoryMismatch: true } : {}),
         }
         result.brandOutcomes.push(succeededOutcome)
         result.updated += 1

@@ -84,6 +84,11 @@ check_env() {
     else
       echo "WARN: SERPER_API_KEY not set (enrichment SERP/image search will fail)"
     fi
+    if grep -q "OPENAI_API_KEY=." .env.local; then
+      echo "OK: OPENAI_API_KEY"
+    else
+      echo "WARN: OPENAI_API_KEY not set (image classification will fail)"
+    fi
     if ! grep -q "INDEXNOW_KEY=." .env.local 2>/dev/null; then
       echo "WARN: INDEXNOW_KEY not set (optional — needed for Bing IndexNow submission)"
     fi

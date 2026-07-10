@@ -1,13 +1,14 @@
-import { CLASSIFY_SYSTEM_PROMPT, TRIAGE_SYSTEM_PROMPT } from '@/lib/prompts'
+import { CLASSIFY_SYSTEM_PROMPT, DETECT_SYSTEM_PROMPT } from '@/lib/prompts'
 import { createDeepSeekClient } from '@/lib/services/deepseek-client'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 export type ClassificationResult = { productType: string; confidence: 'high' | 'medium' | 'low' }
 export type BatchClassificationItem = { slug: string; name: string; description: string | null }
-export type TriageBatchItem = { slug: string; name: string; description: string | null; website: string | null; snippets?: string[] }
-export type TriageResult = {
+export type DetectBatchItem = { slug: string; name: string; description: string | null; website: string | null; snippets?: string[] }
+export type DetectResult = {
   isNonBrand: boolean
   nonBrandReason: string | null
+  brandName: string | null
   slug: string
   slugGenerated: string | null
   productType: string | null
@@ -164,7 +165,7 @@ function parseBatchClassification(content: string, validSlugs: Set<string>): Map
   return results
 }
 
-function parseTriageEntry(entry: UnknownRecord, slug: string): TriageResult | null {
+function parseTriageEntry(entry: UnknownRecord, slug: string): DetectResult | null {
   const isNonBrand = entry.isNonBrand
   const nonBrandReason = entry.nonBrandReason
   const slugGenerated = entry.slug_generated
@@ -179,9 +180,12 @@ function parseTriageEntry(entry: UnknownRecord, slug: string): TriageResult | nu
     return null
   }
 
+  const brandName = entry.brand_name
+
   return {
     isNonBrand,
     nonBrandReason: typeof nonBrandReason === 'string' ? nonBrandReason : null,
+    brandName: typeof brandName === 'string' && brandName.trim().length > 0 ? brandName.trim() : null,
     slug,
     slugGenerated: typeof slugGenerated === 'string' ? slugGenerated : null,
     productType,
@@ -189,7 +193,7 @@ function parseTriageEntry(entry: UnknownRecord, slug: string): TriageResult | nu
   }
 }
 
-function parseTriageResponse(content: string, brands: TriageBatchItem[]): Map<string, TriageResult> | null {
+function parseTriageResponse(content: string, brands: DetectBatchItem[]): Map<string, DetectResult> | null {
   const parsed = JSON.parse(content) as unknown
 
   if (!Array.isArray(parsed)) {
@@ -197,7 +201,7 @@ function parseTriageResponse(content: string, brands: TriageBatchItem[]): Map<st
   }
 
   const validSlugs = new Set(brands.map(brand => brand.slug))
-  const results = new Map<string, TriageResult>()
+  const results = new Map<string, DetectResult>()
 
   parsed.forEach((entry, index) => {
     if (!entry || typeof entry !== 'object') return
@@ -219,7 +223,7 @@ function parseTriageResponse(content: string, brands: TriageBatchItem[]): Map<st
   return results
 }
 
-function parseSingleTriageResponse(content: string, slug: string): TriageResult | null {
+function parseSingleTriageResponse(content: string, slug: string): DetectResult | null {
   const parsed = JSON.parse(content) as unknown
 
   if (!parsed || typeof parsed !== 'object') {
@@ -347,18 +351,18 @@ export async function classifyProductTypeBatch(
   return results
 }
 
-async function triageBrand(brand: TriageBatchItem): Promise<TriageResult | null> {
+async function detectBrand(brand: DetectBatchItem): Promise<DetectResult | null> {
   const token = process.env.DEEPSEEK_API_KEY
   if (!token) return null
 
-  const snippetLine = brand.snippets?.length ? `\n搜尋摘要：${brand.snippets.slice(0, 3).join('；')}` : ''
+  const snippetLine = brand.snippets?.length ? `\n搜尋摘要：${brand.snippets.slice(0, 10).join('；')}` : ''
   const userContent = `品牌 slug：${brand.slug}\n品牌名稱：${brand.name}\n描述：${brand.description ?? '無'}\n網站：${brand.website ?? '無'}${snippetLine}`
 
   const client = createDeepSeekClient({ apiKey: token })
 
   try {
     const { response, data, content } = await client.chat({
-      system: TRIAGE_SYSTEM_PROMPT,
+      system: DETECT_SYSTEM_PROMPT,
       user: userContent,
       json: true,
       timeoutMs: CLASSIFY_TIMEOUT_MS,
@@ -389,15 +393,15 @@ async function triageBrand(brand: TriageBatchItem): Promise<TriageResult | null>
   }
 }
 
-async function triageBrandsBatchChunk(
-  brands: TriageBatchItem[]
-): Promise<Map<string, TriageResult> | null> {
+async function detectBrandsBatchChunk(
+  brands: DetectBatchItem[]
+): Promise<Map<string, DetectResult> | null> {
   const token = process.env.DEEPSEEK_API_KEY
   if (!token) return null
 
   const list = brands.map((brand, index) => {
     const base = `${index + 1}. [${brand.slug}] 品牌名：${brand.name} / 描述：${brand.description ?? '無'} / 網站：${brand.website ?? '無'}`
-    const snippetStr = brand.snippets?.length ? ` / 搜尋摘要：${brand.snippets.slice(0, 3).join('；')}` : ''
+    const snippetStr = brand.snippets?.length ? ` / 搜尋摘要：${brand.snippets.slice(0, 10).join('；')}` : ''
     return base + snippetStr
   }).join('\n')
   const userContent = `請判斷以下項目是否為實際品牌，並為實際品牌分類：\n${list}`
@@ -406,7 +410,7 @@ async function triageBrandsBatchChunk(
 
   try {
     const { response, data, content } = await client.chat({
-      system: TRIAGE_SYSTEM_PROMPT,
+      system: DETECT_SYSTEM_PROMPT,
       user: userContent,
       json: true,
       timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
@@ -437,14 +441,14 @@ async function triageBrandsBatchChunk(
   }
 }
 
-export async function triageBrandsBatch(
-  brands: TriageBatchItem[]
-): Promise<Map<string, TriageResult>> {
-  const results = new Map<string, TriageResult>()
+export async function detectBrandsBatch(
+  brands: DetectBatchItem[]
+): Promise<Map<string, DetectResult>> {
+  const results = new Map<string, DetectResult>()
 
   for (let i = 0; i < brands.length; i += 20) {
     const batch = brands.slice(i, i + 20)
-    const batchResults = await triageBrandsBatchChunk(batch)
+    const batchResults = await detectBrandsBatchChunk(batch)
 
     if (batchResults) {
       for (const [slug, result] of batchResults) {
@@ -454,7 +458,7 @@ export async function triageBrandsBatch(
     }
 
     for (const brand of batch) {
-      const result = await triageBrand(brand)
+      const result = await detectBrand(brand)
       if (result) {
         results.set(brand.slug, result)
       }

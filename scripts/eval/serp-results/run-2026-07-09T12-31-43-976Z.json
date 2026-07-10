@@ -1,0 +1,2479 @@
+{
+  "runAt": "2026-07-09T12:31:43.976Z",
+  "brands": [
+    {
+      "slug": "escura-x",
+      "name": "ESCURA",
+      "productType": "fashion",
+      "productTypeZh": "服飾鞋履",
+      "difficulty": "easy"
+    },
+    {
+      "slug": "sobdeall",
+      "name": "沙伯迪澳 SOBDEALL",
+      "productType": "bags-accessories",
+      "productTypeZh": "包袋配件",
+      "difficulty": "easy"
+    },
+    {
+      "slug": "farmy-life",
+      "name": "日日好田 Farmy Life",
+      "productType": "food-drink",
+      "productTypeZh": "食品飲料",
+      "difficulty": "easy"
+    },
+    {
+      "slug": "mooni",
+      "name": "沐澧 Mooni",
+      "productType": "beauty",
+      "productTypeZh": "美妝保養",
+      "difficulty": "medium"
+    },
+    {
+      "slug": "evies-drawing-daily",
+      "name": "Evie's Drawing Daily",
+      "productType": "crafts",
+      "productTypeZh": "工藝文創",
+      "difficulty": "hard"
+    },
+    {
+      "slug": "qmat-設計館",
+      "name": "QMAT",
+      "productType": "outdoor",
+      "productTypeZh": "戶外運動保健",
+      "difficulty": "medium"
+    },
+    {
+      "slug": "warmwood-living",
+      "name": "暖木家居 Warmwood Living",
+      "productType": "home",
+      "productTypeZh": "居家生活",
+      "difficulty": "medium"
+    },
+    {
+      "slug": "lianne-baby",
+      "name": "Lianne Baby 梨安",
+      "productType": "kids-pets",
+      "productTypeZh": "母嬰寵物",
+      "difficulty": "medium"
+    },
+    {
+      "slug": "1935",
+      "name": "鹿苑茶莊 1935",
+      "productType": "food-drink",
+      "productTypeZh": "食品飲料",
+      "difficulty": "medium"
+    },
+    {
+      "slug": "clm",
+      "name": "CLM",
+      "productType": "unknown",
+      "productTypeZh": "",
+      "difficulty": "hard"
+    }
+  ],
+  "variants": [
+    {
+      "id": "A",
+      "label": "Broad Discovery"
+    },
+    {
+      "id": "B",
+      "label": "Precision + Noise Filter"
+    },
+    {
+      "id": "C",
+      "label": "Third-Party Content Bias"
+    }
+  ],
+  "results": [
+    {
+      "brand": {
+        "slug": "escura-x",
+        "name": "ESCURA",
+        "productType": "fashion",
+        "productTypeZh": "服飾鞋履",
+        "difficulty": "easy"
+      },
+      "variant": {
+        "id": "A",
+        "label": "Broad Discovery"
+      },
+      "query": "ESCURA 台灣",
+      "parsed": {
+        "urls": [
+          "https://myescura.com/",
+          "https://www.citiesocial.com/collections/escura-2025-6-9",
+          "https://www.facebook.com/myescura/?locale=zh_TW",
+          "https://www.instagram.com/escura_tw/",
+          "https://www.zeczec.com/projects/escura-33c/updates",
+          "https://www.facebook.com/citiesocial/videos/%E5%BE%9E%E7%A9%BF%E4%B8%8A%E9%82%A3%E4%B8%80%E5%88%BB%E9%96%8B%E5%A7%8B%E5%B0%B1%E7%9F%A5%E9%81%93%E5%AE%83%E4%B8%8D%E6%98%AF%E6%99%AE%E9%80%9A-t-%E6%81%A4escura%E7%94%A8%E5%8F%B0%E7%81%A3%E8%A3%BD%E9%80%A0%E7%9A%84%E6%89%8E%E5%AF%A6%E5%B7%A5%E8%97%9D%E6%8A%8A90%E7%9A%84fsc%E6%B0%B8%E7%BA%8C%E6%9C%A8%E6%BC%BF%E7%BA%96%E7%B6%AD%E7%B9%94%E6%88%90%E5%83%8F%E7%A9%BA%E6%B0%A3%E4%B8%80%E6%A8%A3%E7%9A%84%E8%A6%AA%E8%86%9A%E8%A7%B8%E6%84%9F%E4%B8%8A%E8%90%AC%E5%80%8B%E6%B0%A3%E5%AD%94%E8%AE%93%E4%BD%A0%E6%B5%81%E6%B1%97%E4%B9%9F%E4%B8%8D%E9%BB%8F%E8%86%A9%E6%9B%B4%E5%8E%B2%E5%AE%B3%E7%9A%84%E6%98%AF%E6%AF%8F/1743079446416138/",
+          "https://wanderlustannie.com.tw/escura/"
+        ],
+        "snippets": [
+          {
+            "title": "ESCURA ｜台灣永續慢時尚品牌，減塑生活代表",
+            "description": "ESCURA ｜台灣永續慢時尚品牌，減塑生活代表 — ESCURA，台灣永續慢時尚、減塑生活實踐者，天絲與萊賽爾纖維專家。我們相信「穿上最舒服，自然_最好看」。積極引進世界先進的天然環保與機能纖維，如大麻纖維、德國Clima ...",
+            "url": "https://myescura.com/?srsltid=AfmBOoobn1-RrZOxbmLK-jqQxlysHZapI9S_MRoFBCQvZBLh0yQkzpHm"
+          },
+          {
+            "title": "台灣ESCURA 透氣親膚衣服系列天然原料純淨抗菌隨時擁抱清爽夏日 ...",
+            "description": "台灣ESCURA 透氣親膚衣服系列天然原料純淨抗菌隨時擁抱清爽夏日 ... — 清輕V領女性短袖上衣 · 清輕U領中性短袖上衣 · 感溫中性短袖上衣 · 清輕寬版中性短袖上衣 · 感溫女性背心 · 純淨抗菌，高腰內褲3 件組(包色組) · 純淨抗菌， ...",
+            "url": "https://www.citiesocial.com/collections/escura-2025-6-9?srsltid=AfmBOopWsiUSRqSzXgv6or7ZVCrHkHaEALgL2dOeP7u80bYEAZiedvUy"
+          },
+          {
+            "title": "ESCURA 自然．有它的道理(@myescura) - Facebook",
+            "description": "ESCURA 自然．有它的道理(@myescura) - Facebook — 別讓臃腫厚重的穿搭打亂你的自在節奏！ #ESCURA 33℃ 感溫機能帽T，採用 歐洲進口頂級機能纖維，堅持台灣在地工藝製造，打造 出獨一無二、適合台灣濕冷氣候的「智慧溫控」帽T。",
+            "url": "https://www.facebook.com/myescura/?locale=zh_TW"
+          },
+          {
+            "title": "ESCURA 穿回自然。純淨妳的第二層肌膚(@escura_tw) - Instagram",
+            "description": "ESCURA 穿回自然。純淨妳的第二層肌膚(@escura_tw) - Instagram — 天然材料，沒有塑膠聚酯纖維的缺點，真的比較透氣不悶❗️」 ～～～～～～～～～～～～～ 榮獲日本2024 Good Design 受賞的ESCURA 33℃感溫衣團隊用盡心力，投入比傳統帽T 高3 倍的用料成本， ...",
+            "url": "https://www.instagram.com/escura_tw/"
+          },
+          {
+            "title": "台灣的群眾集資平台| 專案更新列表| 【ESCURA - 嘖嘖",
+            "description": "台灣的群眾集資平台| 專案更新列表| 【ESCURA - 嘖嘖 — 最近天氣變化大，許多朋友都說，以前換季穿搭超麻煩，但自從穿上ESCURA 33℃ 感溫機能帽T，終於不用煩惱了！ 一件搞定溫差，整天舒適！ https://r.zecz.ec/Qjn...",
+            "url": "https://www.zeczec.com/projects/escura-33c/updates?srsltid=AfmBOopm_yw_i-dnHU4IuVhrE-_riZM1Yac5kNbE9OkantldnGPFvenX"
+          },
+          {
+            "title": "從穿上那一刻開始，就知道它不是普通T 恤   「ESCURA」用台灣製造 ...",
+            "description": "從穿上那一刻開始，就知道它不是普通T 恤   「ESCURA」用台灣製造 ... — 從穿上那一刻開始，就知道它不是普通T 恤✨ 「ESCURA」用台灣製造的扎實工藝 把90%的FSC永續木漿纖維 織成像空氣一樣的親膚觸感 上萬個氣孔讓你流汗也不黏膩 ...",
+            "url": "https://www.facebook.com/citiesocial/videos/%E5%BE%9E%E7%A9%BF%E4%B8%8A%E9%82%A3%E4%B8%80%E5%88%BB%E9%96%8B%E5%A7%8B%E5%B0%B1%E7%9F%A5%E9%81%93%E5%AE%83%E4%B8%8D%E6%98%AF%E6%99%AE%E9%80%9A-t-%E6%81%A4escura%E7%94%A8%E5%8F%B0%E7%81%A3%E8%A3%BD%E9%80%A0%E7%9A%84%E6%89%8E%E5%AF%A6%E5%B7%A5%E8%97%9D%E6%8A%8A90%E7%9A%84fsc%E6%B0%B8%E7%BA%8C%E6%9C%A8%E6%BC%BF%E7%BA%96%E7%B6%AD%E7%B9%94%E6%88%90%E5%83%8F%E7%A9%BA%E6%B0%A3%E4%B8%80%E6%A8%A3%E7%9A%84%E8%A6%AA%E8%86%9A%E8%A7%B8%E6%84%9F%E4%B8%8A%E8%90%AC%E5%80%8B%E6%B0%A3%E5%AD%94%E8%AE%93%E4%BD%A0%E6%B5%81%E6%B1%97%E4%B9%9F%E4%B8%8D%E9%BB%8F%E8%86%A9%E6%9B%B4%E5%8E%B2%E5%AE%B3%E7%9A%84%E6%98%AF%E6%AF%8F/1743079446416138/"
+          },
+          {
+            "title": "【穿搭選物】告別夏季濕熱燜！ESCURA 清輕貼身著，旅人必備天絲 ...",
+            "description": "【穿搭選物】告別夏季濕熱燜！ESCURA 清輕貼身著，旅人必備天絲 ... — ESCURA衣服評價清輕貼身著，親膚涼感、抗菌除臭，90%出自永續森林的機能衣，ESCURA從來沒讓我失望過，台灣夏天濕熱，很容易覺得衣服不透氣，一下就悶出汗臭 ...",
+            "url": "https://wanderlustannie.com.tw/escura/"
+          }
+        ],
+        "rawCount": 7,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:30:23.385Z"
+    },
+    {
+      "brand": {
+        "slug": "escura-x",
+        "name": "ESCURA",
+        "productType": "fashion",
+        "productTypeZh": "服飾鞋履",
+        "difficulty": "easy"
+      },
+      "variant": {
+        "id": "B",
+        "label": "Precision + Noise Filter"
+      },
+      "query": "\"ESCURA\" 服飾鞋履 品牌 -徵才 -104 -人力",
+      "parsed": {
+        "urls": [
+          "https://formoria.com/brands/escura-x",
+          "https://formoria.com/brands/escura-%E8%87%AA%E7%84%B6-x-%E6%A9%9F%E8%83%BD%E6%9C%8D%E9%A3%BE",
+          "https://www.instagram.com/reel/Cx5fRvyvKZu/",
+          "https://searchingc.com/collections/care-bears-escura-instantsnap/",
+          "https://catalog.hkstore.com/catalog_tc_hk/about-us",
+          "https://www.facebook.com/sogohongkong/posts/%E5%B4%87%E5%85%89%E7%94%9F%E6%97%A5%E9%99%90%E5%AE%9A%E7%A6%AE%E9%81%87%E9%80%90%E5%B1%A4%E8%A1%8C%E5%87%BA%E6%96%B0%E8%91%97%E6%95%B8-%E6%99%82%E5%B0%9A%E8%BC%95%E4%BE%BF-level-up%E5%B4%87%E5%85%89%E7%94%9F%E6%97%A5%E5%91%A8%E5%B9%B4%E6%85%B6%E6%BA%96%E5%82%99%E5%92%97%E4%B8%80%E9%80%A3%E4%B8%B2%E6%BF%80%E6%8A%B5%E5%84%AA%E6%83%A0%E5%81%9A%E5%9B%9E%E7%A6%AE%E7%94%B1-315-%E8%87%B3-162025%E5%9A%9F%E5%B4%87%E5%85%89%E9%8A%85%E9%91%BC%E7%81%A3%E5%BA%97-3f-%E6%99%82%E5%B0%9A%E8%BC%95%E4%BE%BF%E6%9C%8D%E9%A3%BE/1112371260921040/",
+          "https://www.instagram.com/reel/DLUkTPCTcnU/",
+          "https://lillian.tw/category/beauty/beautystyle/page/2/",
+          "https://www.pinkoi.com/search?q=%E7%89%9B%E4%BB%94%E6%B6%BC%E9%9E%8B",
+          "https://wanderlustannie.com.tw/projext/"
+        ],
+        "snippets": [
+          {
+            "title": "ESCURA 自然X 機能服飾| Formoria",
+            "description": "ESCURA 自然X 機能服飾| Formoria — ESCURA 是台灣的永續機能服飾品牌，以木漿等天然來源纖維開發貼身衣物、感溫衣與寢具。品牌從原料、製程到包裝減少石化塑膠使用，並以親膚、透氣與可回歸自然的材料 ...",
+            "url": "https://formoria.com/brands/escura-x"
+          },
+          {
+            "title": "ESCURA 自然X 機能服飾| Formoria",
+            "description": "ESCURA 自然X 機能服飾| Formoria — 回歸到事物的本質，重視並回饋這個世界。 讓自然在生活中無處不在，這就是ESCURA。 ESCURA 想創造的不只是一件衣服、一條棉被， 而是一種能讓身心「呼吸」、能在每一次觸感 ...",
+            "url": "https://formoria.com/brands/escura-%E8%87%AA%E7%84%B6-x-%E6%A9%9F%E8%83%BD%E6%9C%8D%E9%A3%BE"
+          },
+          {
+            "title": "SHOES BAR 仁愛新址打造一座放慢速度享受「鞋」的 ... - Instagram",
+            "description": "SHOES BAR 仁愛新址打造一座放慢速度享受「鞋」的 ... - Instagram — 品牌共用鞋廠是常識吧 . June 22. OCR. Louis Vuitton 被說像VANS ? 菲董曝光2027 S/S ... Escura Snaproll Kodak Pixpro FZ55 你最喜歡哪款數位相機？",
+            "url": "https://www.instagram.com/reel/Cx5fRvyvKZu/"
+          },
+          {
+            "title": "Care Bears | ESCURA Instantsnap 聯名特別版數碼相機(品牌直送)",
+            "description": "Care Bears | ESCURA Instantsnap 聯名特別版數碼相機(品牌直送) — Care Bears | ESCURA Instantsnap 聯名特別版數碼相機(品牌直送). 品牌: WinnerConcept. HK$ 399.",
+            "url": "https://searchingc.com/collections/care-bears-escura-instantsnap/"
+          },
+          {
+            "title": "關於Catalog",
+            "description": "關於Catalog — ... ESCURA · EVERWIN · FUGGLER 牙寶 · HOKA · KANGOL · KEEN · MERRELL · NEW BALANCE · PUMA ... 創自2000年的Catalog時刻引領潮流，集合多個國際潮牌，讓您一站式購買人氣鞋履 ...",
+            "url": "https://catalog.hkstore.com/catalog_tc_hk/about-us"
+          },
+          {
+            "title": "即可以優惠價$80 換購SOGO 40 周年獨家限定聯乘ESCURA 一次性 ...",
+            "description": "即可以優惠價$80 換購SOGO 40 周年獨家限定聯乘ESCURA 一次性 ... — ... 服飾部同啟德店4/F 潮流服飾部行個圈， ... ESCURA 一次性菲林相機1 部（價值$199）。 2️⃣即日 ... 【父親節潮爸禮物特集 精選鞋履限時登場✨！ 】 暖 ...",
+            "url": "https://www.facebook.com/sogohongkong/posts/%E5%B4%87%E5%85%89%E7%94%9F%E6%97%A5%E9%99%90%E5%AE%9A%E7%A6%AE%E9%81%87%E9%80%90%E5%B1%A4%E8%A1%8C%E5%87%BA%E6%96%B0%E8%91%97%E6%95%B8-%E6%99%82%E5%B0%9A%E8%BC%95%E4%BE%BF-level-up%E5%B4%87%E5%85%89%E7%94%9F%E6%97%A5%E5%91%A8%E5%B9%B4%E6%85%B6%E6%BA%96%E5%82%99%E5%92%97%E4%B8%80%E9%80%A3%E4%B8%B2%E6%BF%80%E6%8A%B5%E5%84%AA%E6%83%A0%E5%81%9A%E5%9B%9E%E7%A6%AE%E7%94%B1-315-%E8%87%B3-162025%E5%9A%9F%E5%B4%87%E5%85%89%E9%8A%85%E9%91%BC%E7%81%A3%E5%BA%97-3f-%E6%99%82%E5%B0%9A%E8%BC%95%E4%BE%BF%E6%9C%8D%E9%A3%BE/1112371260921040/"
+          },
+          {
+            "title": "我們在韓國人氣包包品牌CARLYN 遇到了宋芸樺！ 女孩永遠少一顆包",
+            "description": "我們在韓國人氣包包品牌CARLYN 遇到了宋芸樺！ 女孩永遠少一顆包 — ... 鞋的時裝輪廓。 #asics ＿＿＿＿＿＿ 完整報導請看@keedan_mag 首頁連結. June 17. OCR ... Escura Snaproll Kodak Pixpro FZ55 你最喜歡哪款數位相機？",
+            "url": "https://www.instagram.com/reel/DLUkTPCTcnU/"
+          },
+          {
+            "title": "美美。穿搭彙整- Page 2 of 5 - 嗯嗯。莉莉嗯-",
+            "description": "美美。穿搭彙整- Page 2 of 5 - 嗯嗯。莉莉嗯- — MIT台灣永續品牌｜ESCURA調溫衣、天絲毛巾內著，天然環保友善地球。 美美。穿搭, 嗯嗯。感動、故事 · MIT台灣永續品牌 ...",
+            "url": "https://lillian.tw/category/beauty/beautystyle/page/2/"
+          },
+          {
+            "title": "牛仔涼鞋｜小眾質感品牌 - Pinkoi",
+            "description": "牛仔涼鞋｜小眾質感品牌 - Pinkoi — 休閒鞋.真皮鞋. 赫. 3 折 · 不露趾涼鞋.寬版舒適.休閒鞋.真皮鞋. 赫拉涼鞋杏色 ... ESCURA 自然X 機能服飾 等海內外人氣牛仔涼鞋品牌，並讓Pinkoi 幫你把好設計直送 ...",
+            "url": "https://www.pinkoi.com/search?q=%E7%89%9B%E4%BB%94%E6%B6%BC%E9%9E%8B"
+          },
+          {
+            "title": "【穿搭選物】 Projext & Co. 小白鞋與飛織芭蕾鞋評價，打造輕盈防水 ...",
+            "description": "【穿搭選物】 Projext & Co. 小白鞋與飛織芭蕾鞋評價，打造輕盈防水 ... — 的Scooter One 防水小白鞋還有飛織芭蕾鞋！因為一看到是個永續慢時尚品牌 ... 【穿搭選物】告別夏季濕熱燜！ESCURA 清輕貼身著，旅人必備天絲抗菌機能服 ESCURA ...",
+            "url": "https://wanderlustannie.com.tw/projext/"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:30:26.436Z"
+    },
+    {
+      "brand": {
+        "slug": "escura-x",
+        "name": "ESCURA",
+        "productType": "fashion",
+        "productTypeZh": "服飾鞋履",
+        "difficulty": "easy"
+      },
+      "variant": {
+        "id": "C",
+        "label": "Third-Party Content Bias"
+      },
+      "query": "ESCURA 品牌 介紹 評價 推薦",
+      "parsed": {
+        "urls": [
+          "https://myescura.com/",
+          "https://www.pinkoi.com/store/escura-camera",
+          "https://lillian.tw/escura/",
+          "https://www.facebook.com/citiesocial/videos/%E5%BE%9E%E7%A9%BF%E4%B8%8A%E9%82%A3%E4%B8%80%E5%88%BB%E9%96%8B%E5%A7%8B%E5%B0%B1%E7%9F%A5%E9%81%93%E5%AE%83%E4%B8%8D%E6%98%AF%E6%99%AE%E9%80%9A-t-%E6%81%A4escura%E7%94%A8%E5%8F%B0%E7%81%A3%E8%A3%BD%E9%80%A0%E7%9A%84%E6%89%8E%E5%AF%A6%E5%B7%A5%E8%97%9D%E6%8A%8A90%E7%9A%84fsc%E6%B0%B8%E7%BA%8C%E6%9C%A8%E6%BC%BF%E7%BA%96%E7%B6%AD%E7%B9%94%E6%88%90%E5%83%8F%E7%A9%BA%E6%B0%A3%E4%B8%80%E6%A8%A3%E7%9A%84%E8%A6%AA%E8%86%9A%E8%A7%B8%E6%84%9F%E4%B8%8A%E8%90%AC%E5%80%8B%E6%B0%A3%E5%AD%94%E8%AE%93%E4%BD%A0%E6%B5%81%E6%B1%97%E4%B9%9F%E4%B8%8D%E9%BB%8F%E8%86%A9%E6%9B%B4%E5%8E%B2%E5%AE%B3%E7%9A%84%E6%98%AF%E6%AF%8F/1743079446416138/",
+          "https://www.citiesocial.com/collections/escura-2025-6-9",
+          "https://wanderlustannie.com.tw/escura/",
+          "https://igood.tw/posts/61501",
+          "https://www.facebook.com/Mr.Ca69/posts/%E9%96%8B%E7%AE%B1%E4%BB%8A%E5%A4%A9%E4%B9%9F%E6%98%AF%E8%A2%AB%E5%86%8D%E8%A6%8B%E5%85%A8%E5%A3%98%E6%89%93%E7%9A%84%E4%B8%80%E5%93%A1%E9%9B%96%E7%84%B6%E6%98%AF%E9%A3%B2%E6%81%A8%E4%BD%86%E5%A5%BD%E5%9C%A8%E4%BB%8A%E5%A4%A9%E5%8F%A6%E4%B8%80%E5%80%8B%E5%87%BA%E9%96%80%E7%9A%84%E9%87%8D%E9%BB%9E%E5%88%9D%E6%AD%A5%E7%B5%A6%E6%88%91%E6%84%9F%E8%A6%BA%E9%82%84%E7%AE%97%E4%B8%8D%E9%8C%AF%E8%80%8C%E9%80%99%E8%A3%A1%E6%9C%89%E5%85%A9%E4%BB%B6%E4%B8%80%E5%80%8B%E6%98%AFvuori%E7%9A%84%E6%85%A2%E8%B7%91%E8%A4%B2%E5%8F%A6%E4%B8%80%E4%BB%B6%E6%98%AF%E6%9D%BF%E5%8F%8B%E7%86%B1%E6%83%85%E6%8E%A8%E8%96%A6%E7%9A%84escura%E6%84%9F%E6%BA%AB/1198465848963600/",
+          "https://www.threads.com/@milleteer/post/DFNEvpNRdVf",
+          "https://www.bocanselect.com/products/%E6%97%A5%E6%9C%AC%E8%B6%85%E5%A4%AF-escura-instantsnap-%E5%8D%B3%E5%BD%B1-%E5%8D%B3%E6%8B%8D-%E5%8D%B3%E6%9C%89-%E9%80%8F%E6%98%8E-%E5%8F%A3%E8%A2%8B-%E7%9B%B8%E6%A9%9F"
+        ],
+        "snippets": [
+          {
+            "title": "ESCURA ｜台灣永續慢時尚品牌，減塑生活代表",
+            "description": "ESCURA ｜台灣永續慢時尚品牌，減塑生活代表 — 被子舒服到被孩子搶走！ 用了抱抱被一年，真的省掉冬夏換被的麻煩！它有蠶絲被的貼身感卻更好打理，不必裝被套、全件可洗，真的是跟上時代的智能寢具。最誇張的是小孩到哪都要扛 ...",
+            "url": "https://myescura.com/?srsltid=AfmBOopAu8hcaAHFDODG08PZRm_Zt6H_ddrVveL7Hq2tm_fXFqaVynf5"
+          },
+          {
+            "title": "Escura Lab - 官方線上商店| 港澳品牌 - Pinkoi",
+            "description": "Escura Lab - 官方線上商店| 港澳品牌 - Pinkoi — 熱門商品推薦 · 【 Escura Lab 】全手動拍立得相機 · Escura 江戶風彩色135底片(日本限定版) · InstantSnap【經典拍立得】 · 【 Escura Lab 】SnapRoll 模擬底片數位相機小盒1 ...",
+            "url": "https://www.pinkoi.com/store/escura-camera"
+          },
+          {
+            "title": "MIT台灣永續品牌｜ESCURA調溫衣、天絲毛巾內著，天然環保友善 ...",
+            "description": "MIT台灣永續品牌｜ESCURA調溫衣、天絲毛巾內著，天然環保友善 ... — ESCURA的產品全部都有通過歐盟抗蟎抗菌檢測，在整個製造過程材料的選用上也堅持天然、永續、資源再生、不使用藥劑浸泡、不採用化學纖維、不內含有毒物質，將 ...",
+            "url": "https://lillian.tw/escura/"
+          },
+          {
+            "title": "從穿上那一刻開始，就知道它不是普通T 恤   「ESCURA」用台灣製造 ...",
+            "description": "從穿上那一刻開始，就知道它不是普通T 恤   「ESCURA」用台灣製造 ... — 從穿上那一刻開始，就知道它不是普通T 恤✨ 「ESCURA」用台灣製造的扎實工藝 把90%的FSC永續木漿纖維 織成像空氣一樣的親膚觸感 上萬個氣孔讓你流汗也不 ...",
+            "url": "https://www.facebook.com/citiesocial/videos/%E5%BE%9E%E7%A9%BF%E4%B8%8A%E9%82%A3%E4%B8%80%E5%88%BB%E9%96%8B%E5%A7%8B%E5%B0%B1%E7%9F%A5%E9%81%93%E5%AE%83%E4%B8%8D%E6%98%AF%E6%99%AE%E9%80%9A-t-%E6%81%A4escura%E7%94%A8%E5%8F%B0%E7%81%A3%E8%A3%BD%E9%80%A0%E7%9A%84%E6%89%8E%E5%AF%A6%E5%B7%A5%E8%97%9D%E6%8A%8A90%E7%9A%84fsc%E6%B0%B8%E7%BA%8C%E6%9C%A8%E6%BC%BF%E7%BA%96%E7%B6%AD%E7%B9%94%E6%88%90%E5%83%8F%E7%A9%BA%E6%B0%A3%E4%B8%80%E6%A8%A3%E7%9A%84%E8%A6%AA%E8%86%9A%E8%A7%B8%E6%84%9F%E4%B8%8A%E8%90%AC%E5%80%8B%E6%B0%A3%E5%AD%94%E8%AE%93%E4%BD%A0%E6%B5%81%E6%B1%97%E4%B9%9F%E4%B8%8D%E9%BB%8F%E8%86%A9%E6%9B%B4%E5%8E%B2%E5%AE%B3%E7%9A%84%E6%98%AF%E6%AF%8F/1743079446416138/"
+          },
+          {
+            "title": "台灣ESCURA 透氣親膚衣服系列天然原料純淨抗菌隨時擁抱清爽夏日 ...",
+            "description": "台灣ESCURA 透氣親膚衣服系列天然原料純淨抗菌隨時擁抱清爽夏日 ... — 我們相信透過大自然中的元素，就能帶給你最好的機能， 因為你值得擁有最好的， 無汙染、最天然、最用心的堅持， 從纖維開始，每一捻紗、每一塊布到每一件衣服， ...",
+            "url": "https://www.citiesocial.com/collections/escura-2025-6-9?srsltid=AfmBOopG744W6qao4jpz2RwX4TSSBbKOk0nVU_MVsYEeZtoA-AisLeIY"
+          },
+          {
+            "title": "【穿搭選物】告別夏季濕熱燜！ESCURA 清輕貼身著，旅人必備天絲 ...",
+            "description": "【穿搭選物】告別夏季濕熱燜！ESCURA 清輕貼身著，旅人必備天絲 ... — ESCURA衣服評價清輕貼身著，親膚涼感、抗菌除臭，90%出自永續森林的機能衣，ESCURA從來沒讓我失望過，台灣夏天濕熱，很容易覺得衣服不透氣，一下就悶出汗臭 ...",
+            "url": "https://wanderlustannie.com.tw/escura/"
+          },
+          {
+            "title": "3coins 迷你相機、Escura InstantSnap 透明相機等，數位底片一次滿足",
+            "description": "3coins 迷你相機、Escura InstantSnap 透明相機等，數位底片一次滿足 — Escura 是專注於「創意、趣味與懷舊」的攝影品牌，設計風格融合復古情懷與現代生活感。 ... 編輯推薦這款第二代魚眼底片相機能拍攝出跳脫框架趣味十足 ...",
+            "url": "https://igood.tw/posts/61501"
+          },
+          {
+            "title": "開箱. 今天也是被再見全壘打的一員。 . 雖然是飲恨，但好 ... - Facebook",
+            "description": "開箱. 今天也是被再見全壘打的一員。 . 雖然是飲恨，但好 ... - Facebook — 畢竟這件是有主打【感溫相變】。透過材質的物理 變化加速調節溫度對身體的影響，所以升溫體感的確相 較於棉t來說更加緩和，同時也保有一定的棉柔感。 . 這點 ...",
+            "url": "https://www.facebook.com/Mr.Ca69/posts/%E9%96%8B%E7%AE%B1%E4%BB%8A%E5%A4%A9%E4%B9%9F%E6%98%AF%E8%A2%AB%E5%86%8D%E8%A6%8B%E5%85%A8%E5%A3%98%E6%89%93%E7%9A%84%E4%B8%80%E5%93%A1%E9%9B%96%E7%84%B6%E6%98%AF%E9%A3%B2%E6%81%A8%E4%BD%86%E5%A5%BD%E5%9C%A8%E4%BB%8A%E5%A4%A9%E5%8F%A6%E4%B8%80%E5%80%8B%E5%87%BA%E9%96%80%E7%9A%84%E9%87%8D%E9%BB%9E%E5%88%9D%E6%AD%A5%E7%B5%A6%E6%88%91%E6%84%9F%E8%A6%BA%E9%82%84%E7%AE%97%E4%B8%8D%E9%8C%AF%E8%80%8C%E9%80%99%E8%A3%A1%E6%9C%89%E5%85%A9%E4%BB%B6%E4%B8%80%E5%80%8B%E6%98%AFvuori%E7%9A%84%E6%85%A2%E8%B7%91%E8%A4%B2%E5%8F%A6%E4%B8%80%E4%BB%B6%E6%98%AF%E6%9D%BF%E5%8F%8B%E7%86%B1%E6%83%85%E6%8E%A8%E8%96%A6%E7%9A%84escura%E6%84%9F%E6%BA%AB/1198465848963600/"
+          },
+          {
+            "title": "推薦一間台灣製造的服飾寢具品牌ESCURA，他有一款智慧調溫底層 ...",
+            "description": "推薦一間台灣製造的服飾寢具品牌ESCURA，他有一款智慧調溫底層 ... — 推薦一間台灣製造的服飾寢具品牌ESCURA，他有一款智慧調溫底層衣33°C 感溫衣，剛獲得2024 日本Good Design 創新設計大獎(國際4大設計獎之)。另一款智慧調溫 ...",
+            "url": "https://www.threads.com/@milleteer/post/DFNEvpNRdVf"
+          },
+          {
+            "title": "日本超夯ESCURA INSTANTSNAP 即影即拍即有透明口袋相機",
+            "description": "日本超夯ESCURA INSTANTSNAP 即影即拍即有透明口袋相機 — 日本超夯ESCURA INSTANTSNAP 即影即拍即有透明口袋相機. 全新境界的拍攝體驗 不只可以拍照還有支援錄影功能 靜態動態都能留住回憶 超輕薄名片大小重量只有28g！",
+            "url": "https://www.bocanselect.com/products/%E6%97%A5%E6%9C%AC%E8%B6%85%E5%A4%AF-escura-instantsnap-%E5%8D%B3%E5%BD%B1-%E5%8D%B3%E6%8B%8D-%E5%8D%B3%E6%9C%89-%E9%80%8F%E6%98%8E-%E5%8F%A3%E8%A2%8B-%E7%9B%B8%E6%A9%9F"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:30:30.292Z"
+    },
+    {
+      "brand": {
+        "slug": "sobdeall",
+        "name": "沙伯迪澳 SOBDEALL",
+        "productType": "bags-accessories",
+        "productTypeZh": "包袋配件",
+        "difficulty": "easy"
+      },
+      "variant": {
+        "id": "A",
+        "label": "Broad Discovery"
+      },
+      "query": "沙伯迪澳 SOBDEALL 台灣",
+      "parsed": {
+        "urls": [
+          "https://www.sobdeall.com.tw/shop/",
+          "https://www.sobdeall.com.tw/",
+          "https://m.momoshop.com.tw/category.momo?cn=1511600166&cid=dir&oid=rela",
+          "https://www.facebook.com/sobdeall/?locale=zh_TW",
+          "https://www.sobdeall.com.tw/product-category/%E5%A5%B3%E5%A3%AB/%E5%8C%85%E6%AC%BE%E7%B8%BD%E8%A6%BD/",
+          "https://www.instagram.com/sobdeall_official/",
+          "https://www.sobdeall.com.tw/store-category/taichung/",
+          "https://www.mobile01.com/topicdetail.php?f=744&t=5811265&p=4",
+          "https://www.sobdeall.com.tw/%E5%93%81%E7%89%8C%E6%95%85%E4%BA%8B/",
+          "https://www.sobdeall.com.tw/%E6%9C%80%E6%96%B0%E6%B6%88%E6%81%AF/%E6%9C%80%E6%96%B0%E6%B6%88%E6%81%AF/"
+        ],
+        "snippets": [
+          {
+            "title": "沙伯迪澳網路商城 - SOBDEALL",
+            "description": "沙伯迪澳網路商城 - SOBDEALL — 銷售據點-台灣 · 銷售據點-日本 · 人才募集; Close. SOBDEALL沙伯迪澳生活園區 · 園區介紹 · 最新動態 · 質感小旅行，故鄉即景點 · Facebook 最新消息 · 名人推薦 · 品牌 ...",
+            "url": "https://www.sobdeall.com.tw/shop/"
+          },
+          {
+            "title": "沙伯迪澳SOBDEALL - 台灣人的手，在地的品牌- 「專注工藝，皮件 ...",
+            "description": "沙伯迪澳SOBDEALL - 台灣人的手，在地的品牌- 「專注工藝，皮件 ... — 從產品設計一直到行銷通路，皆由沙伯迪澳團隊經營，更培養了專業工匠師團隊，提供完整的服務系統，也以落實產業在地化為宗旨，深根台灣。SOBDEALL台灣製植鞣革第一品牌。",
+            "url": "https://www.sobdeall.com.tw/"
+          },
+          {
+            "title": "SOBDEALL,品牌總覽,專櫃包,鞋包箱- momo購物網- 好評推薦",
+            "description": "SOBDEALL,品牌總覽,專櫃包,鞋包箱- momo購物網- 好評推薦 — 【SOBDEALL 沙伯迪澳】真皮L型拉鍊長夾 · $6,400. (27). 折價券登記 ; 【SOBDEALL 沙伯迪澳】真皮壓釦短夾 · $6,000. (15). 折價券登記 ; 【SOBDEALL 沙伯迪澳】直式識別證.",
+            "url": "https://m.momoshop.com.tw/category.momo?cn=1511600166&cid=dir&oid=rela"
+          },
+          {
+            "title": "SOBDEALL 沙伯迪澳- 品牌 - Facebook",
+            "description": "SOBDEALL 沙伯迪澳- 品牌 - Facebook — 肩背帶以皮革穿扣皮 環取代繁複五金，呈現僅360 公克的輕盈重量，帶來更舒適的肩背感受。結合日製 YKK 銅製拉鍊與實用收納配置，讓每一次使用都更加從容順 手。",
+            "url": "https://www.facebook.com/sobdeall/?locale=zh_TW"
+          },
+          {
+            "title": "包款總覽彙整- 沙伯迪澳SOBDEALL",
+            "description": "包款總覽彙整- 沙伯迪澳SOBDEALL — 沙伯迪澳國際精品有限公司. 營業時間. 週一~週五. AM9:00~PM18:00. 前往商店 ... 銷售據點-台灣 · 銷售據點-日本 · 人才募集; Close. SOBDEALL沙伯迪澳生活園區 · 園區介紹 ...",
+            "url": "https://www.sobdeall.com.tw/product-category/%E5%A5%B3%E5%A3%AB/%E5%8C%85%E6%AC%BE%E7%B8%BD%E8%A6%BD/"
+          },
+          {
+            "title": "SOBDEALL 沙伯迪澳(@sobdeall_official) · Taiwan - Instagram",
+            "description": "SOBDEALL 沙伯迪澳(@sobdeall_official) · Taiwan - Instagram — . 父親節新作登場#經典輕薄長夾以義大利 ...",
+            "url": "https://www.instagram.com/sobdeall_official/"
+          },
+          {
+            "title": "台中彙整- 沙伯迪澳SOBDEALL",
+            "description": "台中彙整- 沙伯迪澳SOBDEALL — 銷售據點-台灣 · 銷售據點-日本 · 人才募集; Close. SOBDEALL沙伯迪澳生活園區 · 園區介紹 · 最新動態 · 質感小旅行，故鄉即景點 · Facebook 最新消息 · 名人推薦 · 品牌 ...",
+            "url": "https://www.sobdeall.com.tw/store-category/taichung/"
+          },
+          {
+            "title": "SOBDEALL沙伯迪澳不愉快使用評價，產品設計&售後合理嗎？",
+            "description": "SOBDEALL沙伯迪澳不愉快使用評價，產品設計&售後合理嗎？ — 其實這間也只是台灣品牌，但很多產品其實也是MIC了，之前也是衝著本土品牌台灣製造才買的，後來買了一個男短夾上網查才發現我買的是中國製造，而且也不算太便宜，用了 ...",
+            "url": "https://www.mobile01.com/topicdetail.php?f=744&t=5811265&p=4"
+          },
+          {
+            "title": "品牌故事- 沙伯迪澳SOBDEALL 真皮包包，台灣第一皮件品牌",
+            "description": "品牌故事- 沙伯迪澳SOBDEALL 真皮包包，台灣第一皮件品牌 — 回國後，歷經產業外移衝擊等因素，於1993年創立「SOBDEALL ‧ 沙伯迪澳」品牌， 期間發展出四大系列，以不同風格滿足市場上的顧客，商品種類多元，涵蓋生活家飾用品， 如今成為台灣 ...",
+            "url": "https://www.sobdeall.com.tw/%E5%93%81%E7%89%8C%E6%95%85%E4%BA%8B/"
+          },
+          {
+            "title": "最新消息- 沙伯迪澳SOBDEALL",
+            "description": "最新消息- 沙伯迪澳SOBDEALL — 第一波限量完售熱賣加開. 限定款-雙口袋尼龍後背包. NT$ 15,800. 選擇規格 · (預購中)限定款-SD鱷魚壓紋長夾附鍊條背帶. NT$ 14,000.",
+            "url": "https://www.sobdeall.com.tw/%E6%9C%80%E6%96%B0%E6%B6%88%E6%81%AF/%E6%9C%80%E6%96%B0%E6%B6%88%E6%81%AF/"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:30:33.254Z"
+    },
+    {
+      "brand": {
+        "slug": "sobdeall",
+        "name": "沙伯迪澳 SOBDEALL",
+        "productType": "bags-accessories",
+        "productTypeZh": "包袋配件",
+        "difficulty": "easy"
+      },
+      "variant": {
+        "id": "B",
+        "label": "Precision + Noise Filter"
+      },
+      "query": "\"沙伯迪澳 SOBDEALL\" 包袋配件 品牌 -徵才 -104 -人力",
+      "parsed": {
+        "urls": [
+          "https://www.sobdeall.com.tw/",
+          "https://www.instagram.com/sobdeall_official/",
+          "https://www.threads.com/@mens_30s_life/post/DQZc05Sk029/%E4%BE%86%E8%87%AA%E5%8F%B0%E7%81%A3%E7%9A%84%E7%9A%AE%E4%BB%B6%E5%93%81%E7%89%8C-sobdeall%E6%B2%99%E4%BC%AF%E8%BF%AA%E6%BE%B3%E6%98%AF%E5%BE%9E%E8%A8%AD%E8%A8%88%E5%88%B0%E8%A3%BD%E4%BD%9C%E5%85%A8%E7%94%B1%E8%87%AA%E5%AE%B6%E5%B7%A5%E5%8C%A0%E5%9C%98%E9%9A%8A%E5%AE%8C%E6%88%90%E7%95%B6%E5%A4%A9%E6%89%8D%E5%BE%97%E7%9F%A5%E6%9C%80%E8%B3%87%E6%B7%B1%E7%9A%84%E5%B7%A5%E5%8C%A0%E5%B7%B2%E6%9C%89%E8%B6%85%E9%81%8E30%E5%B9%B4%E7%9A%84%E8%B3%87%E6%AD%B7%E8%87%B3%E4%BB%8A%E4%BE%9D%E8%88%8A%E5%B0%88%E6%B3%A8%E4%BB%A5%E5%B7%A5%E8%97%9D%E5%82%B3%E9%81%9E%E7%9A%AE%E9%9D%A9%E7%9A%84%E6%BA%AB%E5%BA%A6%E5%9C%A8%E5%B7%A5%E8%97%9D%E7%A0%94",
+          "https://www.facebook.com/sobdeall/?locale=fa_IR",
+          "https://www.sobdeall.com.tw/%E6%9C%80%E6%96%B0%E6%B6%88%E6%81%AF/%E6%9C%80%E6%96%B0%E6%B6%88%E6%81%AF-%E6%96%B0%E5%93%81%E4%B8%8A%E5%B8%82/",
+          "https://vincnet0311.pixnet.net/blog/posts/12217017233",
+          "https://www.ruten.com.tw/find/?q=sobdeall+%E6%B2%99%E4%BC%AF%E8%BF%AA%E6%BE%B3",
+          "https://iloveeateateat.pixnet.net/blog/posts/7116341612",
+          "https://shopee.tw/%E3%80%90%E5%AF%A7%E5%AF%A7%E7%B2%BE%E5%93%81%E3%80%91%E5%8F%B0%E4%B8%AD35%E5%B9%B4%E8%80%81%E5%BA%97-%E6%B2%99%E4%BC%AF%E8%BF%AA%E6%BE%B3-SobDeall-%E5%92%96%E5%95%A1%E8%89%B2%E6%8B%89%E9%8F%88%E5%B0%8F%E5%9E%8B%E7%9F%AD%E5%A4%BE-%E6%8B%89%E9%8D%8A%E5%B0%8F%E7%9F%AD%E5%A4%BE-%E5%B0%8F%E9%8C%A2%E5%8C%85-%E9%9B%B6%E9%8C%A2%E5%8C%85-0020-i.26970105.794944018",
+          "https://user198540.pse.is/99uv9n"
+        ],
+        "snippets": [
+          {
+            "title": "沙伯迪澳SOBDEALL - 台灣人的手，在地的品牌- 「專注工藝，皮件 ...",
+            "description": "沙伯迪澳SOBDEALL - 台灣人的手，在地的品牌- 「專注工藝，皮件 ... — 自1993年創立以來一直追求精湛工藝，堅持台灣製造本著嚴謹的做工專職於皮件精品，美與實用兼具，將品牌核心宗旨「專注工藝，力求完美」發揮到淋漓盡致。",
+            "url": "https://www.sobdeall.com.tw/"
+          },
+          {
+            "title": "SOBDEALL 沙伯迪澳(@sobdeall_official) · Taiwan - Instagram",
+            "description": "SOBDEALL 沙伯迪澳(@sobdeall_official) · Taiwan - Instagram — ​ 為您的珍藏安放一個家>>https://pse.is/6ck8c7 ​ ​ #沙伯迪澳#SOBDEALL #台灣皮 ... 袋包配件。 ​ 專屬限定款袋鞄的全新體驗，獻給您！",
+            "url": "https://www.instagram.com/sobdeall_official/"
+          },
+          {
+            "title": "來自台灣的皮件品牌-SOBDEALL沙伯迪澳， 是從設計到製作全由自家 ...",
+            "description": "來自台灣的皮件品牌-SOBDEALL沙伯迪澳， 是從設計到製作全由自家 ... — #SOBDEALL #沙伯迪澳# SOBDEALL華山期間限定店#SOBDEALL革物經典學院 ... ∞ 商品資訊簡約優雅細緻的卡片夾提案，正面3卡夾與側開口暗袋，雙轉圈鑰匙環，可以掛 ...",
+            "url": "https://www.threads.com/@mens_30s_life/post/DQZc05Sk029/%E4%BE%86%E8%87%AA%E5%8F%B0%E7%81%A3%E7%9A%84%E7%9A%AE%E4%BB%B6%E5%93%81%E7%89%8C-sobdeall%E6%B2%99%E4%BC%AF%E8%BF%AA%E6%BE%B3%E6%98%AF%E5%BE%9E%E8%A8%AD%E8%A8%88%E5%88%B0%E8%A3%BD%E4%BD%9C%E5%85%A8%E7%94%B1%E8%87%AA%E5%AE%B6%E5%B7%A5%E5%8C%A0%E5%9C%98%E9%9A%8A%E5%AE%8C%E6%88%90%E7%95%B6%E5%A4%A9%E6%89%8D%E5%BE%97%E7%9F%A5%E6%9C%80%E8%B3%87%E6%B7%B1%E7%9A%84%E5%B7%A5%E5%8C%A0%E5%B7%B2%E6%9C%89%E8%B6%85%E9%81%8E30%E5%B9%B4%E7%9A%84%E8%B3%87%E6%AD%B7%E8%87%B3%E4%BB%8A%E4%BE%9D%E8%88%8A%E5%B0%88%E6%B3%A8%E4%BB%A5%E5%B7%A5%E8%97%9D%E5%82%B3%E9%81%9E%E7%9A%AE%E9%9D%A9%E7%9A%84%E6%BA%AB%E5%BA%A6%E5%9C%A8%E5%B7%A5%E8%97%9D%E7%A0%94"
+          },
+          {
+            "title": "‏‎SOBDEALL 沙伯迪澳‎‏ ‏‎(@sobdeall)‎‏ ‏‎• Facebook‎‏",
+            "description": "‏‎SOBDEALL 沙伯迪澳‎‏ ‏‎(@sobdeall)‎‏ ‏‎• Facebook‎‏ — 台灣第一皮件品牌MADE IN TAIWAN 台灣人的手，在地的品牌. ... 肩背法棍包- 沙伯迪澳 SOBDEALL 真皮包包，沙伯迪澳 ... 或許您曾在品牌專櫃裡注意過， 銷售顧問肩上流暢線條中 ...",
+            "url": "https://www.facebook.com/sobdeall/?locale=fa_IR"
+          },
+          {
+            "title": "新品上市- 沙伯迪澳SOBDEALL",
+            "description": "新品上市- 沙伯迪澳SOBDEALL — 沙伯迪澳SOBDEALL 新品 ... 嚴選五款商品，哪一個經典商品會陪伴著您?! 雙袋扁式手拿包 細緻的塗邊工藝，增添穩重質感，可裝入現金、小錢包及手機等物品，簡約外 ...",
+            "url": "https://www.sobdeall.com.tw/%E6%9C%80%E6%96%B0%E6%B6%88%E6%81%AF/%E6%9C%80%E6%96%B0%E6%B6%88%E6%81%AF-%E6%96%B0%E5%93%81%E4%B8%8A%E5%B8%82/"
+          },
+          {
+            "title": "【開箱】皮革日常- 沙伯迪澳SOBDEALL 帶你感受經典手作溫度。",
+            "description": "【開箱】皮革日常- 沙伯迪澳SOBDEALL 帶你感受經典手作溫度。 — 【開箱】皮革日常- 沙伯迪澳SOBDEALL 帶你感受經典手作溫度。 ... 以具有實用價值的日常生活配件為引子，透過這些著重皮革、材質、傳統手工技能與生活感的 ...",
+            "url": "https://vincnet0311.pixnet.net/blog/posts/12217017233"
+          },
+          {
+            "title": "sobdeall 沙伯迪澳- 人氣推薦- 2026年4月| 露天市集",
+            "description": "sobdeall 沙伯迪澳- 人氣推薦- 2026年4月| 露天市集 — ... 【寧寧精品小舖*台中皮件皮夾】沙伯迪澳SobDeall-352【可放超多信用卡夾和汽車行照短夾】16. 4,410. 免運 折扣碼. 銷售 1.",
+            "url": "https://www.ruten.com.tw/find/?q=sobdeall%20%E6%B2%99%E4%BC%AF%E8%BF%AA%E6%BE%B3&srsltid=AfmBOoq_yMPnNHMJIIOnOgZTHGnJAfRZx_Gp1ntOhTf8pm5NOqYkFCmI"
+          },
+          {
+            "title": "{體驗& 分享}沙伯迪澳．SOBDEALL 小包+長夾～匠心獨具，手感溫度",
+            "description": "{體驗& 分享}沙伯迪澳．SOBDEALL 小包+長夾～匠心獨具，手感溫度 — {體驗& 分享}沙伯迪澳．SOBDEALL 小包+長夾～匠心獨具，手感溫度官網： Sobdeall 沙伯迪澳FB： Sobdeall 沙伯迪澳奇摩購物中心：Sobdeall 沙伯迪澳銷售據點：查詢請點我耐斯 ...",
+            "url": "https://iloveeateateat.pixnet.net/blog/posts/7116341612"
+          },
+          {
+            "title": "【寧寧精品】台中35年老店沙伯迪澳SobDeall 咖啡色拉鏈小型短夾 ...",
+            "description": "【寧寧精品】台中35年老店沙伯迪澳SobDeall 咖啡色拉鏈小型短夾 ... — 零錢袋. 有. 每組數量. 1. 出貨地. 臺中市中區. 蝦皮購物 女生包包/精品 皮夾 短/中夾. 【寧寧精品】台中35年老店沙伯迪澳SobDeall 咖啡色拉鏈小型短夾拉鍊小短夾小錢包 ...",
+            "url": "https://shopee.tw/%E3%80%90%E5%AF%A7%E5%AF%A7%E7%B2%BE%E5%93%81%E3%80%91%E5%8F%B0%E4%B8%AD35%E5%B9%B4%E8%80%81%E5%BA%97-%E6%B2%99%E4%BC%AF%E8%BF%AA%E6%BE%B3-SobDeall-%E5%92%96%E5%95%A1%E8%89%B2%E6%8B%89%E9%8F%88%E5%B0%8F%E5%9E%8B%E7%9F%AD%E5%A4%BE-%E6%8B%89%E9%8D%8A%E5%B0%8F%E7%9F%AD%E5%A4%BE-%E5%B0%8F%E9%8C%A2%E5%8C%85-%E9%9B%B6%E9%8C%A2%E5%8C%85-0020-i.26970105.794944018"
+          },
+          {
+            "title": "足球編織皮革掛(顏色隨機) - 沙伯迪澳SOBDEALL 真皮包包",
+            "description": "足球編織皮革掛(顏色隨機) - 沙伯迪澳SOBDEALL 真皮包包 — 沙伯迪澳SOBDEALL 足球編織皮革掛(顏色隨機) 真皮包包， ... 包裝隨附包裝盒，選用皮革色調咖啡為基底，上蓋綴有品牌LOGO燙金點綴。 隨附品牌手提紙袋一枚 ...",
+            "url": "https://user198540.pse.is/99uv9n"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:30:35.985Z"
+    },
+    {
+      "brand": {
+        "slug": "sobdeall",
+        "name": "沙伯迪澳 SOBDEALL",
+        "productType": "bags-accessories",
+        "productTypeZh": "包袋配件",
+        "difficulty": "easy"
+      },
+      "variant": {
+        "id": "C",
+        "label": "Third-Party Content Bias"
+      },
+      "query": "沙伯迪澳 SOBDEALL 品牌 介紹 評價 推薦",
+      "parsed": {
+        "urls": [
+          "https://www.sobdeall.com.tw/shop/",
+          "https://www.instagram.com/sobdeall_official/",
+          "https://www.mobile01.com/topicdetail.php?f=744&t=5811265&p=4",
+          "https://m.momoshop.com.tw/category.momo?cn=1511600166&cid=dir&oid=rela",
+          "https://www.facebook.com/sobdeall/",
+          "https://www.facebook.com/iamsharalin/videos/%E5%B8%B8%E5%B8%B8%E6%9C%89%E4%BA%BA%E5%95%8F%E6%88%91%E5%B9%B3%E6%99%82%E5%B8%B8%E6%8F%B9%E7%9A%84%E5%8C%85%E5%8C%85%E6%98%AF%E5%93%AA%E4%B8%80%E5%AE%B6%E7%9A%84%E5%91%A2%E5%85%B6%E5%AF%A6%E5%AE%83%E5%B0%B1%E6%98%AF%E4%BE%86%E8%87%AA-mit-%E5%8F%B0%E7%81%A3%E7%9A%AE%E4%BB%B6%E5%93%81%E7%89%8C-sobdeall-%E6%B2%99%E4%BC%AF%E8%BF%AA%E6%BE%B3-%E9%82%A3%E5%A4%A9%E7%99%BC%E7%8F%BE%E6%9C%80%E8%BF%91%E5%9C%A8%E8%8F%AF%E5%B1%B1%E6%9C%89%E6%9C%9F%E9%96%93%E9%99%90%E5%AE%9A%E5%BA%97%E9%82%A3%E5%B0%B1%E4%BE%86%E5%B8%B6%E5%A4%A7%E5%AE%B6%E4%B8%80%E8%B5%B7%E9%80%9B%E4%B8%80%E9%80%9B%E5%90%A7-/2323675644737200/",
+          "https://iloveeateateat.pixnet.net/blog/posts/7116341612",
+          "https://www.dcard.tw/f/girl/p/257841236",
+          "https://www.ptt.cc/bbs/e-shopping/M.1575621737.A.C18.html"
+        ],
+        "snippets": [
+          {
+            "title": "沙伯迪澳網路商城",
+            "description": "沙伯迪澳網路商城 — 品牌故事 · 品牌理念 · 關鍵六道工序 · 媒體報導 · 專欄文章 · 特別企劃 · 商品特集 · 創辦人的話 · 人物訪談 · 植鞣革皮件工藝. 銷售據點. 銷售據點-台灣 · 銷售據點-日本.",
+            "url": "https://www.sobdeall.com.tw/shop/"
+          },
+          {
+            "title": "SOBDEALL 沙伯迪澳(@sobdeall_official)",
+            "description": "SOBDEALL 沙伯迪澳(@sobdeall_official) — 每一件作品皆是由品牌自家工匠團隊親手製作而成。團隊擁有10年至20年不等的工藝經驗。他們不僅是職人工匠，更是堅守台灣在地製造的守護者! ​ 無論世界如何變動，”專注工藝、 ...",
+            "url": "https://www.instagram.com/sobdeall_official/"
+          },
+          {
+            "title": "SOBDEALL沙伯迪澳不愉快使用評價，產品設計&售後合理嗎？",
+            "description": "SOBDEALL沙伯迪澳不愉快使用評價，產品設計&售後合理嗎？ — 我也是之前購買S家商品結果碰的一鼻子灰上上個月才調解完~心真累皮包拿沒兩三天發現有瑕疵後向總公司反映也是獲得這樣的告知公司強調因為產品沒有瑕疵，也沒有設計上的 ...",
+            "url": "https://www.mobile01.com/topicdetail.php?f=744&t=5811265&p=4"
+          },
+          {
+            "title": "SOBDEALL,品牌總覽,專櫃包,鞋包箱- momo購物網- 好評推薦-2026年7月",
+            "description": "SOBDEALL,品牌總覽,專櫃包,鞋包箱- momo購物網- 好評推薦-2026年7月 — SOBDEALL ; 【SOBDEALL 沙伯迪澳】真皮L型拉鍊長夾 · $6,400. (27). 折價券登記 ; 【SOBDEALL 沙伯迪澳】真皮壓釦短夾 · $6,000. (15). 折價券登記 ; 【SOBDEALL 沙伯迪澳】直式 ...",
+            "url": "https://m.momoshop.com.tw/category.momo?cn=1511600166&cid=dir&oid=rela"
+          },
+          {
+            "title": "SOBDEALL 沙伯迪澳",
+            "description": "SOBDEALL 沙伯迪澳 — 肩背帶以皮革穿扣皮 環取代繁複五金，呈現僅360 公克的輕盈重量，帶來更舒適的肩背感受。結合日製 YKK 銅製拉鍊與實用收納配置，讓每一次使用都更加從容順 手。",
+            "url": "https://www.facebook.com/sobdeall/"
+          },
+          {
+            "title": "常常有人問我，平時常揹的包包是哪一家的呢？其實它就是來自MIT 台灣 ...",
+            "description": "常常有人問我，平時常揹的包包是哪一家的呢？其實它就是來自MIT 台灣 ... — ",
+            "url": "https://www.facebook.com/iamsharalin/videos/%E5%B8%B8%E5%B8%B8%E6%9C%89%E4%BA%BA%E5%95%8F%E6%88%91%E5%B9%B3%E6%99%82%E5%B8%B8%E6%8F%B9%E7%9A%84%E5%8C%85%E5%8C%85%E6%98%AF%E5%93%AA%E4%B8%80%E5%AE%B6%E7%9A%84%E5%91%A2%E5%85%B6%E5%AF%A6%E5%AE%83%E5%B0%B1%E6%98%AF%E4%BE%86%E8%87%AA-mit-%E5%8F%B0%E7%81%A3%E7%9A%AE%E4%BB%B6%E5%93%81%E7%89%8C-sobdeall-%E6%B2%99%E4%BC%AF%E8%BF%AA%E6%BE%B3-%E9%82%A3%E5%A4%A9%E7%99%BC%E7%8F%BE%E6%9C%80%E8%BF%91%E5%9C%A8%E8%8F%AF%E5%B1%B1%E6%9C%89%E6%9C%9F%E9%96%93%E9%99%90%E5%AE%9A%E5%BA%97%E9%82%A3%E5%B0%B1%E4%BE%86%E5%B8%B6%E5%A4%A7%E5%AE%B6%E4%B8%80%E8%B5%B7%E9%80%9B%E4%B8%80%E9%80%9B%E5%90%A7-/2323675644737200/"
+          },
+          {
+            "title": "{體驗& 分享}沙伯迪澳．SOBDEALL 小包+長夾～匠心獨具，手感溫度",
+            "description": "{體驗& 分享}沙伯迪澳．SOBDEALL 小包+長夾～匠心獨具，手感溫度 — Sobdeall 沙伯迪澳創辦人何偉新年少時便投入皮件製作，. 並一直積極學習更精湛的皮革工藝技術。 在一次前往義大利佛羅 ...",
+            "url": "https://iloveeateateat.pixnet.net/blog/posts/7116341612"
+          },
+          {
+            "title": "Sobdeall 沙伯迪澳馬鞍包/短夾開箱✨ - 女孩板",
+            "description": "Sobdeall 沙伯迪澳馬鞍包/短夾開箱✨ - 女孩板 — 當初也是跟卡友一樣，cowa 跟sobdeall 在選擇，但我還是比較喜歡深色皮革，去櫃上看到實體包款更是愛不釋手，原本打算買短夾，不小心驚鴻一瞥也一併帶走ㄧ顆 ...",
+            "url": "https://www.dcard.tw/f/girl/p/257841236"
+          },
+          {
+            "title": "[心得] SOBDEALL男用短夾- 看板e-shopping - 批踢踢實業坊",
+            "description": "[心得] SOBDEALL男用短夾- 看板e-shopping - 批踢踢實業坊 — 淘寶沒有不好，也有品質不錯的，但這牌的品牌形象... 推gwen0680: 用了10年的長夾覺得很耐用也沒脫線只是223.139.231.249 12 ...",
+            "url": "https://www.ptt.cc/bbs/e-shopping/M.1575621737.A.C18.html"
+          }
+        ],
+        "rawCount": 9,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:30:38.669Z"
+    },
+    {
+      "brand": {
+        "slug": "farmy-life",
+        "name": "日日好田 Farmy Life",
+        "productType": "food-drink",
+        "productTypeZh": "食品飲料",
+        "difficulty": "easy"
+      },
+      "variant": {
+        "id": "A",
+        "label": "Broad Discovery"
+      },
+      "query": "日日好田 Farmy Life 台灣",
+      "parsed": {
+        "urls": [
+          "https://www.farmylife.org.tw/",
+          "https://www.facebook.com/FarmyLife/",
+          "https://twrr.org.tw/zh-TW/partner/474",
+          "https://www.instagram.com/farmylifetw/",
+          "https://www.farmylife.org.tw/market",
+          "https://www.facebook.com/FarmyLife/mentions/",
+          "https://www.farmylife.org.tw/lin-ya-wen-founder-glean-for-goods",
+          "https://www.facebook.com/FarmyLife/photos/122166669140695154/",
+          "https://www.farmylife.org.tw/latest",
+          "https://www.instagram.com/p/DWnTOGeEz5t/"
+        ],
+        "snippets": [
+          {
+            "title": "日日好田Farmy Life—台灣食農創生發展協會",
+            "description": "日日好田Farmy Life—台灣食農創生發展協會 — 台灣食農創生發展協會打造的食農平台：企業ESG工作坊、農場體驗遊程、產銷履歷小農直送。連結土地與企業，實現永續共好，立即探索！",
+            "url": "https://www.farmylife.org.tw/?srsltid=AfmBOopn5D9Uk7EhZLDwq8cbbHtzZyQNrPaeeCzPiNxMX3b50kshWE2y"
+          },
+          {
+            "title": "日日好田Farmy Life—台灣食農創生發展協會 - Facebook",
+            "description": "日日好田Farmy Life—台灣食農創生發展協會 - Facebook — 我們是為台灣農業創造價值的非營利公關組織，致力 為產地與企業創造雙贏。核心服務包含： * 深化產地連結：透過產地走訪與食農教育，拉近人與 土地的真實距離，為在地農業帶來最 ...",
+            "url": "https://www.facebook.com/FarmyLife/"
+          },
+          {
+            "title": "社團法人台灣食農創生發展協會",
+            "description": "社團法人台灣食農創生發展協會 — 此外，我們推出共同品牌「日日好田Farmy Life」，希望以永續、友善的農產行銷策略，帶動更多通路拓展、消費認知提升與文化傳承。同時，也積極促進在地就業與技能培訓，協助青年 ...",
+            "url": "https://twrr.org.tw/zh-TW/partner/474"
+          },
+          {
+            "title": "日日好田Farmy Life--台灣食農創生發展協會(@farmylifetw) - Instagram",
+            "description": "日日好田Farmy Life--台灣食農創生發展協會(@farmylifetw) - Instagram — 每天被農產品療癒,還能邊學習邊上班的夢幻職缺大公開! 100% 幸福🌟辦公室零食櫃永遠爆滿! 隨時互相支援,聊天聊到停不下來!",
+            "url": "https://www.instagram.com/farmylifetw/"
+          },
+          {
+            "title": "日日好田食農市集| 支持在地農友的永續好物",
+            "description": "日日好田食農市集| 支持在地農友的永續好物 — 在日日好田食農市集,您可以找到來自台灣在地的當季鮮採蔬果・ 日日好田Farmy Life ・ 我們走遍台灣的田野・ 灌溉台灣食農未來的真實力量。 日日好田Farmy Life-台灣食",
+            "url": "https://www.farmylife.org.tw/market?srsltid=AfmBOoqBxdUjPfuLXSMCt3g6eqotkqqyNpAO_vfEYRt4R42cZgQWCFQI"
+          },
+          {
+            "title": "日日好田Farmy Life—台灣食農創生發展協會(@FarmyLife) - Mentions",
+            "description": "日日好田Farmy Life—台灣食農創生發展協會(@FarmyLife) - Mentions — 我們是為台灣農業創造價值的非營利公關組織，致力 為產地與企業創造雙贏。核心服務包含： * 深化產地連結：透過產地走訪與食農教育，拉近人與 土地的真實距離，為在地農業帶 ...",
+            "url": "https://www.facebook.com/FarmyLife/mentions/"
+          },
+          {
+            "title": "格外農品創辦人林雅文",
+            "description": "格外農品創辦人林雅文 — 日日好田Farmy Life 是一個為台灣農業創造價值的非營利組織。我們串連在地農友與企業，透過食農教育、產地走訪體驗和ESG 永續合作，讓農民獲得穩定收入、 ...",
+            "url": "https://www.farmylife.org.tw/lin-ya-wen-founder-glean-for-goods?srsltid=AfmBOoo0Zhpv1VfNY9R_CieZcn73xeXsFzD_G4o_E2-hWP9oY6KhjK4s"
+          },
+          {
+            "title": "日日好田Farmy Life—台灣食農創生發展協會 - Facebook",
+            "description": "日日好田Farmy Life—台灣食農創生發展協會 - Facebook — 目前報名 已經進入最後階段，如果你還在猶豫，這是一篇「千萬 別錯過」的最後提醒！ 我們知道農忙與創業的日常總是塞滿各種挑戰，但只要 抽出一個下午，我們 ...",
+            "url": "https://www.facebook.com/FarmyLife/photos/122166669140695154/"
+          },
+          {
+            "title": "全部商品 - 日日好田Farmy Life—台灣食農創生發展協會",
+            "description": "全部商品 - 日日好田Farmy Life—台灣食農創生發展協會 — 我們是為台灣農業創造價值的非營利公關公司，致力為產地與企業創造雙贏。我們的核心服務包含： * 深化產地連結：透過產地走訪與食農教育，拉近人與土地的真實距離， ...",
+            "url": "https://www.farmylife.org.tw/latest?srsltid=AfmBOopFRyoy_qRoMRxqiqF24UbYj8zT7d5ON-VVpgTY30fVUquf-Cgx"
+          },
+          {
+            "title": "日日好田Farmy Life--台灣食農創生發展協會| 嗨大家，我 ... - Instagram",
+            "description": "日日好田Farmy Life--台灣食農創生發展協會| 嗨大家，我 ... - Instagram — 嗨大家，我是日日好田的小編！☀️ 小編今天要來分享一個超棒的消息！我們台灣食農創生發展協會的理事長——游子昂（同時也是格外農品的執行長），憑藉著多年深耕 ...",
+            "url": "https://www.instagram.com/p/DWnTOGeEz5t/"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:30:40.963Z"
+    },
+    {
+      "brand": {
+        "slug": "farmy-life",
+        "name": "日日好田 Farmy Life",
+        "productType": "food-drink",
+        "productTypeZh": "食品飲料",
+        "difficulty": "easy"
+      },
+      "variant": {
+        "id": "B",
+        "label": "Precision + Noise Filter"
+      },
+      "query": "\"日日好田 Farmy Life\" 食品飲料 品牌 -徵才 -104 -人力",
+      "parsed": {
+        "urls": [
+          "https://www.instagram.com/p/DXyUnmCE4kT/",
+          "https://formoria.com/brands/%E7%A6%8F%E9%81%8B%E7%A8%BB",
+          "https://www.facebook.com/goodwillfoods/posts/%E5%A4%A9%E6%B0%A3%E9%96%8B%E5%A7%8B%E7%86%B1%E9%B3%B3%E6%A2%A8%E4%B9%9F%E7%86%9F%E4%BA%86%E8%A9%B2%E6%98%AF%E7%94%A8%E9%A3%B2%E6%96%99%E4%BE%86%E6%94%BB%E6%93%8A%E4%BD%A0%E5%90%84%E4%BD%8D%E7%9A%84%E6%99%82%E5%80%99%E4%BA%86%E6%A0%BC%E5%A4%96%E8%BE%B2%E5%93%81%E7%9A%84%E8%B6%85%E7%B4%9A%E5%A5%BD%E5%A4%A5%E4%BC%B4-%E9%96%83%E9%9B%BB%E5%8C%85%E5%AD%90%E8%88%96-%E7%8F%BE%E6%AD%A3%E6%8E%A8%E5%87%BA-%E6%A0%BC%E5%A4%96%E8%BE%B2%E5%93%81-%E9%B3%B3%E6%A2%A8%E6%9E%9C%E8%8C%B6%E9%A3%B2%E9%96%80%E5%B8%82%E6%8E%A8%E5%BB%A3%E5%83%B950%E5%85%8350%E5%85%83%E5%8F%AF%E4%BB%A5%E5%BE%97%E5%88%B0%E4%B8%80%E6%9D%AF%E9%80%8F%E5%BF%83%E6%B6%BC%E5%8F%88%E7%84%A1%E6%B7%BB/1103125255176598/",
+          "https://www.facebook.com/goodwillfoods/videos/%E5%A4%A7%E5%AE%B6%E5%BF%AB%E4%BE%86%E9%80%99%E9%9B%86%E6%A0%BC%E5%A4%96%E8%BE%B2%E5%93%81%E6%A0%BC%E4%BE%86%E8%81%8Apodcast%E8%B6%85%E7%89%B9%E5%88%A5%E6%9C%89%E6%88%91%E5%80%91%E7%9A%84-%E4%B9%BE%E7%88%B9-%E8%B4%8A%E5%8A%A9%E6%89%8D%E8%83%BD%E8%B7%9F%E5%A4%A7%E5%AE%B6%E8%A6%8B%E9%9D%A2%E5%95%A6%E5%85%88%E8%AE%93%E6%88%91%E5%80%91%E7%94%A8%E5%8A%9B%E5%B7%A5%E5%95%86%E4%B8%80%E4%B8%8B%E7%AD%89%E7%AD%89%E5%88%86%E4%BA%AB%E7%9A%84%E5%85%A7%E5%AE%B9%E7%B5%95%E5%B0%8D%E7%B2%BE%E5%BD%A9%E4%BF%9D%E8%AD%89%E4%B8%8D%E6%9C%83%E5%BE%8C%E6%82%94%E5%BE%9E%E5%B0%8F%E8%B6%85%E6%84%9B%E7%9C%8B%E6%8E%A8%E7%90%86%E5%8A%87%E7%9A%84%E5%8B%9E%E7%B6%81%E5%A8%98/1461945241681259/",
+          "https://formoria.com/en/brands/vds%E6%B4%BB%E5%8A%9B%E6%9D%B1%E5%8B%A2",
+          "https://www.instagram.com/reel/DXG67YLD1pH/",
+          "https://www.threads.com/@pindou_soymilk/post/DaRmY63idro/%E7%84%A1%E6%B7%BB%E5%8A%A0%E9%A3%9F%E7%89%A9%E5%8E%9F%E5%9E%8B%E6%88%90%E5%88%86%E5%96%AE%E7%B4%94-%E9%82%84%E8%A6%81%E7%BE%8E%E5%91%B3%E6%98%AF%E6%88%91%E5%80%91%E7%9A%84%E5%A0%85%E6%8C%811/",
+          "https://www.instagram.com/reel/DQOtVDyAVHZ/",
+          "https://www.facebook.com/FarmyLife/posts/%E5%97%A8%E5%97%A8%E5%B0%8F%E7%B7%A8%E4%BB%8A%E5%A4%A9%E9%96%8B%E5%A7%8B%E4%B8%80%E9%80%A35%E5%A4%A9%E9%83%BD%E5%9C%A8%E5%8F%B0%E5%8D%97%E6%84%9F%E5%8F%97%E4%B8%80%E4%B8%8B%E5%BA%9C%E5%9F%8E%E7%9A%84%E9%AD%85%E5%8A%9B%E7%95%B6%E7%84%B6%E5%B8%B6%E8%91%97%E6%88%91%E5%80%91%E5%8F%8B%E5%96%84%E8%BE%B2%E7%94%A2%E9%81%B8%E5%93%81%E4%BE%86%E8%B7%9F%E5%A4%A7%E5%AE%B6%E8%A6%8B%E9%9D%A2%E5%95%A6-%E8%B5%B0%E9%81%8E%E5%8F%B0%E5%8D%97%E8%B7%AF%E9%81%8E%E5%8F%B0%E5%8D%97%E7%9A%84%E4%BD%A0%E6%AD%A1%E8%BF%8E%E4%BE%86%E8%B7%9F%E5%B0%8F%E7%B7%A8%E6%88%91%E7%9B%B8%E8%A6%8B%E6%AD%A1%E5%96%94%EF%B8%8F%EF%B8%8F%EF%B8%8F2025%E6%96%B0%E5%85%89%E4%B8%89%E8%B6%8Area/122135641850695154/",
+          "https://www.facebook.com/goodwillfoods/videos/%E6%A0%BC%E5%A4%96%E5%B0%8F%E5%AD%B8%E5%A0%82%E6%9E%9C%E9%86%AC%E6%9C%89%E5%8F%AF%E8%83%BD%E7%84%A1%E7%B3%96%E5%97%8E%E5%B0%8F%E7%B7%A8%E4%BB%8A%E5%A4%A9%E4%B8%8D%E8%81%8A%E6%83%85%E6%87%B7%E4%BE%86%E8%81%8A%E9%BB%9E%E7%A1%AC%E6%A0%B8%E7%9A%84%E6%AC%B8%E6%AC%B8%E6%AC%B8%E5%90%84%E4%BD%8D%E9%84%89%E8%A6%AA%E7%88%B6%E8%80%81%E5%85%84%E5%BC%9F%E5%A7%8A%E5%A6%B9%E5%80%91%E5%89%8D%E5%B9%BE%E5%A4%A9%E6%9C%89%E4%BD%8D%E7%86%9F%E5%AE%A2%E7%A7%81%E8%A8%8A%E5%B0%8F%E7%B7%A8%E5%95%8F%E4%BA%86%E4%B8%80%E5%80%8B%E6%88%91%E5%80%91%E8%A6%BA%E5%BE%97%E8%B6%85%E8%AE%9A%E8%B6%85%E5%85%A7%E8%A1%8C%E7%9A%84%E5%95%8F%E9%A1%8C%E4%BD%A0%E5%80%91%E5%AE%B6%E7%9A%84%E6%9E%9C%E8%8C%B6%E9%86%AC%E5%BE%88%E5%A5%BD%E5%90%83%E4%BD%86%E6%9C%AA/1185663756739141/"
+        ],
+        "snippets": [
+          {
+            "title": "日日好田Farmy Life--台灣食農創生發展協會| 森林系市集出沒中！日日 ...",
+            "description": "日日好田Farmy Life--台灣食農創生發展協會| 森林系市集出沒中！日日 ... — 五一勞動節連假，就是要逃離水泥叢林，躲進綠意盎然的森林裡呀！ **日日好田Farmy Life** 今天跟明天都在潮州**林後四林平地森林園區**，陪大家一起慢活過節！ 走在無患子 ...",
+            "url": "https://www.instagram.com/p/DXyUnmCE4kT/"
+          },
+          {
+            "title": "福運稻 - Formoria",
+            "description": "福運稻 - Formoria — 日日好田Farmy Life 是由台灣食農創生發展協會推出的共同品牌，以非營利公關模式為台灣農業創造價值。品牌透過產地走訪、食農教育與ESG永續合作，串連農友與企業，將優質 ...",
+            "url": "https://formoria.com/brands/%E7%A6%8F%E9%81%8B%E7%A8%BB"
+          },
+          {
+            "title": "天氣開始熱，鳳梨  也熟了!!! 該是用飲料來攻擊你各位的時候了 ...",
+            "description": "天氣開始熱，鳳梨  也熟了!!! 該是用飲料來攻擊你各位的時候了 ... — ... ，鳳梨 也熟了!!! 該是用飲料 ... #格外農品 #循環經濟 #永續創業 #女力創業 #屏東在地品牌 #格外品的逆襲 #食農永續 #綠色商機 ... 日日好田Farmy Life—台灣食農創生發展協會.",
+            "url": "https://www.facebook.com/goodwillfoods/posts/%E5%A4%A9%E6%B0%A3%E9%96%8B%E5%A7%8B%E7%86%B1%E9%B3%B3%E6%A2%A8%E4%B9%9F%E7%86%9F%E4%BA%86%E8%A9%B2%E6%98%AF%E7%94%A8%E9%A3%B2%E6%96%99%E4%BE%86%E6%94%BB%E6%93%8A%E4%BD%A0%E5%90%84%E4%BD%8D%E7%9A%84%E6%99%82%E5%80%99%E4%BA%86%E6%A0%BC%E5%A4%96%E8%BE%B2%E5%93%81%E7%9A%84%E8%B6%85%E7%B4%9A%E5%A5%BD%E5%A4%A5%E4%BC%B4-%E9%96%83%E9%9B%BB%E5%8C%85%E5%AD%90%E8%88%96-%E7%8F%BE%E6%AD%A3%E6%8E%A8%E5%87%BA-%E6%A0%BC%E5%A4%96%E8%BE%B2%E5%93%81-%E9%B3%B3%E6%A2%A8%E6%9E%9C%E8%8C%B6%E9%A3%B2%E9%96%80%E5%B8%82%E6%8E%A8%E5%BB%A3%E5%83%B950%E5%85%8350%E5%85%83%E5%8F%AF%E4%BB%A5%E5%BE%97%E5%88%B0%E4%B8%80%E6%9D%AF%E9%80%8F%E5%BF%83%E6%B6%BC%E5%8F%88%E7%84%A1%E6%B7%BB/1103125255176598/"
+          },
+          {
+            "title": "大家快來！這集《格外農品格來聊》Podcast超特別，有我們的乾爹贊助",
+            "description": "大家快來！這集《格外農品格來聊》Podcast超特別，有我們的乾爹贊助 — ... 品牌Patagonia 的創辦人真的這麼做了！他把價值30 億美元的公司直接 ... No photo description available. 日日好田Farmy Life—台灣食農創生發展協會 ...",
+            "url": "https://www.facebook.com/goodwillfoods/videos/%E5%A4%A7%E5%AE%B6%E5%BF%AB%E4%BE%86%E9%80%99%E9%9B%86%E6%A0%BC%E5%A4%96%E8%BE%B2%E5%93%81%E6%A0%BC%E4%BE%86%E8%81%8Apodcast%E8%B6%85%E7%89%B9%E5%88%A5%E6%9C%89%E6%88%91%E5%80%91%E7%9A%84-%E4%B9%BE%E7%88%B9-%E8%B4%8A%E5%8A%A9%E6%89%8D%E8%83%BD%E8%B7%9F%E5%A4%A7%E5%AE%B6%E8%A6%8B%E9%9D%A2%E5%95%A6%E5%85%88%E8%AE%93%E6%88%91%E5%80%91%E7%94%A8%E5%8A%9B%E5%B7%A5%E5%95%86%E4%B8%80%E4%B8%8B%E7%AD%89%E7%AD%89%E5%88%86%E4%BA%AB%E7%9A%84%E5%85%A7%E5%AE%B9%E7%B5%95%E5%B0%8D%E7%B2%BE%E5%BD%A9%E4%BF%9D%E8%AD%89%E4%B8%8D%E6%9C%83%E5%BE%8C%E6%82%94%E5%BE%9E%E5%B0%8F%E8%B6%85%E6%84%9B%E7%9C%8B%E6%8E%A8%E7%90%86%E5%8A%87%E7%9A%84%E5%8B%9E%E7%B6%81%E5%A8%98/1461945241681259/"
+          },
+          {
+            "title": "VDS 活力東勢| Formoria",
+            "description": "VDS 活力東勢| Formoria — 日日好田Farmy Life 是由台灣食農創生發展協會推出的共同品牌，以非營利公關模式為台灣農業創造價值。品牌透過產地走訪、食農教育與ESG永續合作，串連農友與企業，將優質 ...",
+            "url": "https://formoria.com/en/brands/vds%E6%B4%BB%E5%8A%9B%E6%9D%B1%E5%8B%A2"
+          },
+          {
+            "title": "115-1-16 花現飲藏的美味活動演出   花蓮 - Instagram",
+            "description": "115-1-16 花現飲藏的美味活動演出   花蓮 - Instagram — ... 品牌故事把花蓮的特色與文化通通裝進禮盒裡～ 而 ... 𐓏 #日日好田Farmy Life—台灣食農創生發展協會優質農產X創新行銷，吃得 ...",
+            "url": "https://www.instagram.com/reel/DXG67YLD1pH/"
+          },
+          {
+            "title": "無添加、食物原型、成分單純、還要美味是我們的堅持+1   - Threads",
+            "description": "無添加、食物原型、成分單純、還要美味是我們的堅持+1   - Threads — 日日好田Farmy Life--台灣食農創生發展協會(@farmylifetw) · May 14, 2025 at 1:59 AM. 我們 ！精選友善耕作選品！歡迎進來看看 成分單純美味 目前有果醬、無酒精麥 ...",
+            "url": "https://www.threads.com/@pindou_soymilk/post/DaRmY63idro/%E7%84%A1%E6%B7%BB%E5%8A%A0%E9%A3%9F%E7%89%A9%E5%8E%9F%E5%9E%8B%E6%88%90%E5%88%86%E5%96%AE%E7%B4%94-%E9%82%84%E8%A6%81%E7%BE%8E%E5%91%B3%E6%98%AF%E6%88%91%E5%80%91%E7%9A%84%E5%A0%85%E6%8C%811/"
+          },
+          {
+            "title": "一站體驗在地風華與創新魅力！ #原之驛#南投名間#BaBu樂園#朵烈 ...",
+            "description": "一站體驗在地風華與創新魅力！ #原之驛#南投名間#BaBu樂園#朵烈 ... — Photo by 日日好田Farmy Life--台灣食農創生發展.",
+            "url": "https://www.instagram.com/reel/DQOtVDyAVHZ/"
+          },
+          {
+            "title": "嗨嗨！小編今天開始一連5天都在台南，感受一下府城的魅力，當然帶 ...",
+            "description": "嗨嗨！小編今天開始一連5天都在台南，感受一下府城的魅力，當然帶 ... — 日日好田Farmy Life—台灣食農創生發展協會 is at 台南新光三越西門店新天地. Jun 26, 2025 ...",
+            "url": "https://www.facebook.com/FarmyLife/posts/%E5%97%A8%E5%97%A8%E5%B0%8F%E7%B7%A8%E4%BB%8A%E5%A4%A9%E9%96%8B%E5%A7%8B%E4%B8%80%E9%80%A35%E5%A4%A9%E9%83%BD%E5%9C%A8%E5%8F%B0%E5%8D%97%E6%84%9F%E5%8F%97%E4%B8%80%E4%B8%8B%E5%BA%9C%E5%9F%8E%E7%9A%84%E9%AD%85%E5%8A%9B%E7%95%B6%E7%84%B6%E5%B8%B6%E8%91%97%E6%88%91%E5%80%91%E5%8F%8B%E5%96%84%E8%BE%B2%E7%94%A2%E9%81%B8%E5%93%81%E4%BE%86%E8%B7%9F%E5%A4%A7%E5%AE%B6%E8%A6%8B%E9%9D%A2%E5%95%A6-%E8%B5%B0%E9%81%8E%E5%8F%B0%E5%8D%97%E8%B7%AF%E9%81%8E%E5%8F%B0%E5%8D%97%E7%9A%84%E4%BD%A0%E6%AD%A1%E8%BF%8E%E4%BE%86%E8%B7%9F%E5%B0%8F%E7%B7%A8%E6%88%91%E7%9B%B8%E8%A6%8B%E6%AD%A1%E5%96%94%EF%B8%8F%EF%B8%8F%EF%B8%8F2025%E6%96%B0%E5%85%89%E4%B8%89%E8%B6%8Area/122135641850695154/"
+          },
+          {
+            "title": "【格外小學堂】果醬有可能「無糖」嗎？小編今天不聊 ... - Facebook",
+            "description": "【格外小學堂】果醬有可能「無糖」嗎？小編今天不聊 ... - Facebook — 【誠徵夥伴：品牌聯名/企業贊 助】讓一款美好的無酒精水果... Jul 9 ... No photo description available. 日日好田Farmy Life—台灣食農創生發展協會 ...",
+            "url": "https://www.facebook.com/goodwillfoods/videos/%E6%A0%BC%E5%A4%96%E5%B0%8F%E5%AD%B8%E5%A0%82%E6%9E%9C%E9%86%AC%E6%9C%89%E5%8F%AF%E8%83%BD%E7%84%A1%E7%B3%96%E5%97%8E%E5%B0%8F%E7%B7%A8%E4%BB%8A%E5%A4%A9%E4%B8%8D%E8%81%8A%E6%83%85%E6%87%B7%E4%BE%86%E8%81%8A%E9%BB%9E%E7%A1%AC%E6%A0%B8%E7%9A%84%E6%AC%B8%E6%AC%B8%E6%AC%B8%E5%90%84%E4%BD%8D%E9%84%89%E8%A6%AA%E7%88%B6%E8%80%81%E5%85%84%E5%BC%9F%E5%A7%8A%E5%A6%B9%E5%80%91%E5%89%8D%E5%B9%BE%E5%A4%A9%E6%9C%89%E4%BD%8D%E7%86%9F%E5%AE%A2%E7%A7%81%E8%A8%8A%E5%B0%8F%E7%B7%A8%E5%95%8F%E4%BA%86%E4%B8%80%E5%80%8B%E6%88%91%E5%80%91%E8%A6%BA%E5%BE%97%E8%B6%85%E8%AE%9A%E8%B6%85%E5%85%A7%E8%A1%8C%E7%9A%84%E5%95%8F%E9%A1%8C%E4%BD%A0%E5%80%91%E5%AE%B6%E7%9A%84%E6%9E%9C%E8%8C%B6%E9%86%AC%E5%BE%88%E5%A5%BD%E5%90%83%E4%BD%86%E6%9C%AA/1185663756739141/"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:30:43.596Z"
+    },
+    {
+      "brand": {
+        "slug": "farmy-life",
+        "name": "日日好田 Farmy Life",
+        "productType": "food-drink",
+        "productTypeZh": "食品飲料",
+        "difficulty": "easy"
+      },
+      "variant": {
+        "id": "C",
+        "label": "Third-Party Content Bias"
+      },
+      "query": "日日好田 Farmy Life 品牌 介紹 評價 推薦",
+      "parsed": {
+        "urls": [
+          "https://www.facebook.com/FarmyLife/",
+          "https://www.farmylife.org.tw/pages/%E9%97%9C%E6%96%BC%E6%88%91%E5%80%91",
+          "https://www.instagram.com/farmylifetw/",
+          "https://twrr.org.tw/zh-TW/partner/474",
+          "https://www.farmylife.org.tw/product/product&product_id=93",
+          "https://www.facebook.com/FarmyLife/photos/122166669140695154/",
+          "https://www.instagram.com/p/DYV_2Otma8i/?img_index=3",
+          "https://www.farmylife.org.tw/product/product&product_id=91",
+          "https://ezgo.ardswc.gov.tw/zh-tw/column/5086/",
+          "https://www.instagram.com/p/DYV_2Otma8i/"
+        ],
+        "snippets": [
+          {
+            "title": "日日好田Farmy Life—台灣食農創生發展協會 - Facebook",
+            "description": "日日好田Farmy Life—台灣食農創生發展協會 - Facebook — 我們將攜手許老師這樣具備實戰經驗與 高度專業的夥伴，為企業夥伴與政府單位提供： 具備文化敘事力的食農品牌開發。有溫度、能帶動地方 經濟的社群藝術遊程設計。最扎根地方 ...",
+            "url": "https://www.facebook.com/FarmyLife/"
+          },
+          {
+            "title": "關於我們 - 日日好田Farmy Life—台灣食農創生發展協會",
+            "description": "關於我們 - 日日好田Farmy Life—台灣食農創生發展協會 — 我們是為台灣農業創造價值的非營利公關公司，致力為產地與企業創造雙贏。我們的核心服務包含： * 深化產地連結：透過產地走訪與食農教育，拉近人與土地的真實距離， ...",
+            "url": "https://www.farmylife.org.tw/pages/%E9%97%9C%E6%96%BC%E6%88%91%E5%80%91?srsltid=AfmBOorVTf6bNNyk7xdNQUnB4SlRpqstgmbulh5EYStCKNrQhmoK3vfz"
+          },
+          {
+            "title": "日日好田Farmy Life--台灣食農創生發展協會(@farmylifetw) - Instagram",
+            "description": "日日好田Farmy Life--台灣食農創生發展協會(@farmylifetw) - Instagram — 你的辦公室，是我們的【幸福肥養成班】！ 誰說工作就要苦哈哈？ 來「日日好田」，你的日常將會是： 100% 幸福 辦公室零食櫃永遠爆滿！ 同事超愛分享，每天都有農產品和點心在等 ...",
+            "url": "https://www.instagram.com/farmylifetw/"
+          },
+          {
+            "title": "社團法人台灣食農創生發展協會",
+            "description": "社團法人台灣食農創生發展協會 — 此外，我們推出共同品牌「日日好田Farmy Life」，希望以永續、友善的農產行銷策略，帶動更多通路拓展、消費認知提升與文化傳承。同時，也積極促進在地就業與技能培訓，協助青年 ...",
+            "url": "https://twrr.org.tw/zh-TW/partner/474"
+          },
+          {
+            "title": "贊助會員繳費 - 日日好田Farmy Life—台灣食農創生發展協會",
+            "description": "贊助會員繳費 - 日日好田Farmy Life—台灣食農創生發展協會 — 日日好田Farmy Life 是一個為台灣農業創造價值的非營利組織。我們串連在地農友與企業，透過食農教育、產地走訪體驗和ESG 永續合作，讓農民獲得穩定收入、企業實踐社會責任、 ...",
+            "url": "https://www.farmylife.org.tw/product/product&product_id=93?srsltid=AfmBOoqlDNZIF3MvmF1D-kBA9qztl5uPnlRpagMBvh_i0nlpisif23jI"
+          },
+          {
+            "title": "日日好田Farmy Life—台灣食農創生發展協會 - Facebook",
+            "description": "日日好田Farmy Life—台灣食農創生發展協會 - Facebook — 今天小編忍不住又煮了一鍋奶茶。你們知道嗎？ 用台東紅烏龍煮出來的奶茶，味道真的特別不一樣！那 個重焙火的香氣，就算遇上了鮮奶和這麼多香料，還是 非常有 ...",
+            "url": "https://www.facebook.com/FarmyLife/photos/122166669140695154/"
+          },
+          {
+            "title": "降落在【2026高雄市旅行公會旅展】   帶著滿滿的在地好物和超有 ...",
+            "description": "降落在【2026高雄市旅行公會旅展】   帶著滿滿的在地好物和超有 ... — 隨機贈送，來了就有機會拿到～超划算的啦！ 我們這次帶了什麼好料？ 果茶醬、花草茶、蜜香紅茶、嚴選好茶⋯⋯ 每一樣都是我們協會農友用心栽培、手工製作的 ...",
+            "url": "https://www.instagram.com/p/DYV_2Otma8i/?img_index=3"
+          },
+          {
+            "title": "個人會員初次繳費 - 日日好田Farmy Life—台灣食農創生發展協會",
+            "description": "個人會員初次繳費 - 日日好田Farmy Life—台灣食農創生發展協會 — 日日好田Farmy Life 是一個為台灣農業創造價值的非營利組織。我們串連在地農友與企業，透過食農教育、產地走訪體驗和ESG 永續合作，讓農民獲得穩定收入、企業實踐社會責任、 ...",
+            "url": "https://www.farmylife.org.tw/product/product&product_id=91?srsltid=AfmBOorpzmKlHyKWcIIcah5zPQkRVkwccH0F_-N4zY7Lwc7-s6kAY5qF"
+          },
+          {
+            "title": "Thread爆紅農特產品大集合 - 農業易遊網",
+            "description": "Thread爆紅農特產品大集合 - 農業易遊網 — 這款沖泡飲品獲得不少迴響，許多喜愛台灣農特產品的消費者紛紛回購，展現後壁區農會善用在地好米開發多元商品的用心。 特級米奶茶照片授權：後壁區農會 特級 ...",
+            "url": "https://ezgo.ardswc.gov.tw/zh-tw/column/5086/"
+          },
+          {
+            "title": "日日好田的粉絲們！我們在高雄旅展等你來玩啦～～ 沒錯 ... - Instagram",
+            "description": "日日好田的粉絲們！我們在高雄旅展等你來玩啦～～ 沒錯 ... - Instagram — 日日好田Farmy Life--台灣食農創生發展協會| ✨ 日日好田的粉絲們 ... 小編一日遊推薦： 白天帶全家人去農場親自採摘食材、做手作DIY，傍晚 ...",
+            "url": "https://www.instagram.com/p/DYV_2Otma8i/"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:30:46.603Z"
+    },
+    {
+      "brand": {
+        "slug": "mooni",
+        "name": "沐澧 Mooni",
+        "productType": "beauty",
+        "productTypeZh": "美妝保養",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "A",
+        "label": "Broad Discovery"
+      },
+      "query": "沐澧 Mooni 台灣",
+      "parsed": {
+        "urls": [
+          "https://www.mooni.com.tw/",
+          "https://www.mooni.com.tw/latest",
+          "https://www.facebook.com/mooniTW/?locale=zh_TW",
+          "https://shopee.tw/mubittw",
+          "https://www.mooni.com.tw/hairclean",
+          "https://twrr.org.tw/zh-TW/partner/469",
+          "https://tshopping.thsrc.com.tw/%E6%B2%90%E6%BE%A7mooni",
+          "https://www.pinkoi.com/store/moonitw",
+          "https://www.instagram.com/mooni_tw/",
+          "https://www.herday.tw/mooni"
+        ],
+        "snippets": [
+          {
+            "title": "沐澧mooni｜洗髮餅｜手工皂｜洗髮皂推薦｜台灣製造",
+            "description": "沐澧mooni｜洗髮餅｜手工皂｜洗髮皂推薦｜台灣製造 — 改變你洗髮的習慣專業的台灣手創職人，Made in Taiwan 的洗髮餅專科洗髮餅的達人老師，以專業的知識、技術與精神製造研發最適合台灣人使用的洗髮餅(也有洗髮皂的選擇) ...",
+            "url": "https://www.mooni.com.tw/"
+          },
+          {
+            "title": "全部商品| 沐澧mooni｜洗髮餅｜手工皂｜洗髮皂推薦｜台灣製造",
+            "description": "全部商品| 沐澧mooni｜洗髮餅｜手工皂｜洗髮皂推薦｜台灣製造 — 改變你洗髮的習慣專業的台灣手創職人，Made in Taiwan 的洗髮餅專科洗髮餅的達人老師，以專業的知識、技術與精神製造研發最適合台灣人使用的洗髮餅(也有洗髮皂的選擇) ...",
+            "url": "https://www.mooni.com.tw/latest"
+          },
+          {
+            "title": "沐澧mooni (@mooniTW) - Facebook",
+            "description": "沐澧mooni (@mooniTW) - Facebook — 沐澧mooni 。 6192 個讚· 4 人正在談論這個。 ✓台灣製造手工洗髮餅✓改變你的洗髮習慣✓友善環境系列.",
+            "url": "https://www.facebook.com/mooniTW/?locale=zh_TW"
+          },
+          {
+            "title": "【沐澧mooni】台灣製造手工洗髮餅, 線上商店| 蝦皮購物",
+            "description": "【沐澧mooni】台灣製造手工洗髮餅, 線上商店| 蝦皮購物 — 減少瓶罐！友善環境。 台灣製造洗髮餅&客製手工皂，致力於研發適合台灣人肌膚狀況的清潔用品，專業的產品研發及設計，無浪費的使用過程及簡單的視覺概念，注入手作情感， ...",
+            "url": "https://shopee.tw/mubittw"
+          },
+          {
+            "title": "頭髮清潔| 沐澧mooni｜洗髮餅｜手工皂｜洗髮皂推薦｜台灣製造",
+            "description": "頭髮清潔| 沐澧mooni｜洗髮餅｜手工皂｜洗髮皂推薦｜台灣製造 — 改變你洗髮的習慣專業的台灣手創職人，Made in Taiwan 的洗髮餅專科洗髮餅的達人老師，以專業的知識、技術與精神製造研發最適合台灣人使用的洗髮餅(也有洗髮皂的選擇) ...",
+            "url": "https://www.mooni.com.tw/hairclean"
+          },
+          {
+            "title": "沐澧mooni - 創生夥伴介紹",
+            "description": "沐澧mooni - 創生夥伴介紹 — 以「簡單、純淨、永續、日常」為核心精神，致力打造結合自然療癒與環境友善的台灣在地保養品牌。 秉持專業研發背景，產品涵蓋手工皂、洗髮餅、擴香石與永續禮盒等，堅持 ...",
+            "url": "https://twrr.org.tw/zh-TW/partner/469"
+          },
+          {
+            "title": "沐澧mooni - T-Shopping 高鐵線上購",
+            "description": "沐澧mooni - T-Shopping 高鐵線上購 — 沐澧mooni. 適合台灣人的頭皮與肌膚的自然清潔產品， 結合環保包裝與手作情懷，打造無浪費且健康的生活之選。 mooni 用最純粹的方式呵護你與地球，共創永續未來。",
+            "url": "https://tshopping.thsrc.com.tw/%E6%B2%90%E6%BE%A7mooni?srsltid=AfmBOoqGSEv3qY052aneM_qKljiSFcMdoRhVwIfDezo4_GknlCBgXNEm"
+          },
+          {
+            "title": "沐澧mooni - 官方線上商店| Pinkoi 全系列好評上架中",
+            "description": "沐澧mooni - 官方線上商店| Pinkoi 全系列好評上架中 — 沐澧mooni ... 台灣在地特色原料減少碳足跡，使用友善環境材料，不用過多化學成分，製作出適合台灣人的手工洗髮餅&洗沐商品，以真誠專業的態度打造出屬於台灣 ...",
+            "url": "https://www.pinkoi.com/store/moonitw"
+          },
+          {
+            "title": "沐澧mooni (@mooni_tw) · Keelung - Instagram",
+            "description": "沐澧mooni (@mooni_tw) · Keelung - Instagram — 839 followers · 289 posts · ｜台灣製造洗髮餅｜改變！洗髮的習慣 官網連結.",
+            "url": "https://www.instagram.com/mooni_tw/"
+          },
+          {
+            "title": "沐澧mooni ｜職人精神手工製皂，回歸減塑的純粹心意",
+            "description": "沐澧mooni ｜職人精神手工製皂，回歸減塑的純粹心意 — 台灣在地手工皂品牌「沐澧mooni 」，以永續與友善環境為核心，致力用台灣精神做出適合台灣人使用的洗沐清潔產品。並保持對環境友善、並能結合台灣在地 ...",
+            "url": "https://www.herday.tw/mooni"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:30:49.520Z"
+    },
+    {
+      "brand": {
+        "slug": "mooni",
+        "name": "沐澧 Mooni",
+        "productType": "beauty",
+        "productTypeZh": "美妝保養",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "B",
+        "label": "Precision + Noise Filter"
+      },
+      "query": "\"沐澧 Mooni\" 美妝保養 品牌 -徵才 -104 -人力",
+      "parsed": {
+        "urls": [
+          "https://hk.pinkoi.com/search?q=%E6%B2%90%E6%BE%A7mooni",
+          "https://www.instagram.com/p/DZeQ2PokYIj/",
+          "https://shop.tw.coupang.com/vid/A15800013C?source=brandstore_sdp_atf&pid=626608637362503&viid=626608637247641&ocid=23794685&platform=p",
+          "https://www.popdaily.com.tw/forum/beauty/1114228",
+          "https://shop.yunfeis-choice.com.tw/products/mooni-oat",
+          "https://events.eslite.com/2022/220304-lady/index4.html",
+          "https://www.facebook.com/tvbsnewtaiwan/videos/%E6%95%91%E5%BF%83%E6%9A%96%E8%83%83%E7%9A%84%E9%86%AB%E7%94%9F%E4%B8%BB%E5%BB%9A%E7%B2%B5%E5%BF%83%E5%9D%8Ahttpswwwfacebookcomyxbakery%E5%9C%B0%E5%9D%80-813%E9%AB%98%E9%9B%84%E5%B8%82%E5%B7%A6%E7%87%9F%E5%8D%80%E5%8D%9A%E6%84%9B%E4%B8%89%E8%B7%AF336%E8%99%9F%E9%9B%BB%E8%A9%B1%E8%99%9F%E7%A2%BC-07-345-1656%E6%B0%B8%E7%BA%8C%E7%94%9F%E6%B4%BB%E5%AF%A6/1077551522103544/",
+          "https://www.instagram.com/reel/DaZR0ijz65W/",
+          "https://www.ipacker.tw/collections/mooni-shampoosoap",
+          "https://formoria.com/en/brands/contin-%E5%BA%B7%E5%AE%9A"
+        ],
+        "snippets": [
+          {
+            "title": "沐澧mooni 推薦| 2026 年6 月| Pinkoi 亞洲跨境設計購物平台",
+            "description": "沐澧mooni 推薦| 2026 年6 月| Pinkoi 亞洲跨境設計購物平台 — 沐澧mooni · 台灣製造/純素手工洗髮餅/旅遊首選-就一塊 · 台灣製造/不油自主手工洗髮皂/何首烏/油頭專用 · 台灣製造/純素環保手工洗髮餅/薰衣草/固體洗髮精-紫色杜松 · 台灣 ...",
+            "url": "https://hk.pinkoi.com/search?q=%E6%B2%90%E6%BE%A7mooni&srsltid=AfmBOoox-QZaP0jgVhRqUf1a2NQcp6GLhvtqB-aQLicqx7CMrPU6cFGy"
+          },
+          {
+            "title": "【沐澧mooni 洗髮餅/潤髮餅產品調整通知】 感謝一路以來 ... - Instagram",
+            "description": "【沐澧mooni 洗髮餅/潤髮餅產品調整通知】 感謝一路以來 ... - Instagram — ⚠️本次調整僅限洗髮餅與潤髮餅系列，沐澧mooni其他商品皆正常販售。 ... 洗髮餅× 潤髮餅限定優惠 謝謝大家一直以來的支持，也讓喜歡這兩個系列的朋友有機會提前備齊。",
+            "url": "https://www.instagram.com/p/DZeQ2PokYIj/"
+          },
+          {
+            "title": "沐澧國際企業有限公司(MOONI INTERNATIONAL CO., LTD.)",
+            "description": "沐澧國際企業有限公司(MOONI INTERNATIONAL CO., LTD.) — 顧客評分. 全部; 4分或更多; 3分或更多; 2分或更多; 1分或更多. 重置 套用. product. 沐澧mooni 手工卸妝餅荷荷芭, 1個, 迷你版-45G. $220. 5/14 預計送達 · product. 沐澧 ...",
+            "url": "https://shop.tw.coupang.com/vid/A15800013C?source=brandstore_sdp_atf&pid=626608637362503&viid=626608637247641&ocid=23794685&platform=p"
+          },
+          {
+            "title": "【美髮護理】最環保的洗髮餅！超可愛的洗髮球！MIT無動 ... - PopDaily",
+            "description": "【美髮護理】最環保的洗髮餅！超可愛的洗髮球！MIT無動 ... - PopDaily — 【美髮護理】最環保的洗髮餅！超可愛的洗髮球！MIT無動美髮品牌「沐澧Mooni」，呵護秀髮的同時一起愛地球吧 · 【洗髮精推薦】FUSA法莎仙人掌精油洗髮精|適合染 ...",
+            "url": "https://www.popdaily.com.tw/forum/beauty/1114228"
+          },
+          {
+            "title": "沐澧mooni｜濃濃燕麥潔面皂",
+            "description": "沐澧mooni｜濃濃燕麥潔面皂 — 【 濃濃燕麥潔面皂】 · ✋│燕麥│是家庭醫生，也是植物黃金，更是天然美容師，連埃及豔后也會用它來洗沐，對肌膚美容保養超棒der！！ · 潔面餅上的粒粒燕麥麩本人，在洗臉時能溫和去 ...",
+            "url": "https://shop.yunfeis-choice.com.tw/products/mooni-oat"
+          },
+          {
+            "title": "誠品線上-Good Lady,Lady's goods靓女子時代",
+            "description": "誠品線上-Good Lady,Lady's goods靓女子時代 — 沐澧mooni 洗髮餅/紫色杜松. 9折,特價$252. GREENCONUT綠果 雙色瑞豆豆皂/日夜潔淨. 77折,特價$333. 臻品植萃 珍珠手工皂65g. 推薦價$290. 自宅嚴選｜外出餐具. LiFE RiCH",
+            "url": "https://events.eslite.com/2022/220304-lady/index4.html"
+          },
+          {
+            "title": "#救心暖胃的醫生主廚粵心坊https://www.facebook.com/yx.bakery ...",
+            "description": "#救心暖胃的醫生主廚粵心坊https://www.facebook.com/yx.bakery ... — #永續生活實踐手工皂 沐澧mooni 02-2427-7726 https://www.mooni.com.tw/ . #陪你找回自信假髮師 W.Rich假髮專科 0919-155-499 https://www.",
+            "url": "https://www.facebook.com/tvbsnewtaiwan/videos/%E6%95%91%E5%BF%83%E6%9A%96%E8%83%83%E7%9A%84%E9%86%AB%E7%94%9F%E4%B8%BB%E5%BB%9A%E7%B2%B5%E5%BF%83%E5%9D%8Ahttpswwwfacebookcomyxbakery%E5%9C%B0%E5%9D%80-813%E9%AB%98%E9%9B%84%E5%B8%82%E5%B7%A6%E7%87%9F%E5%8D%80%E5%8D%9A%E6%84%9B%E4%B8%89%E8%B7%AF336%E8%99%9F%E9%9B%BB%E8%A9%B1%E8%99%9F%E7%A2%BC-07-345-1656%E6%B0%B8%E7%BA%8C%E7%94%9F%E6%B4%BB%E5%AF%A6/1077551522103544/"
+          },
+          {
+            "title": "出門前的小儀式， 有時候只是一個髮圈、一點香氣。 把頭髮整理好 ...",
+            "description": "出門前的小儀式， 有時候只是一個髮圈、一點香氣。 把頭髮整理好 ... — #AMUSE #OliveYoung限定 #韓國美妝 #髮香噴霧 #韓國直送 · June 26. OCR. AMUSE ... ⚠️本次調整僅限洗髮餅與潤髮餅系列，沐澧mooni其他商品皆正常販售。",
+            "url": "https://www.instagram.com/reel/DaZR0ijz65W/"
+          },
+          {
+            "title": "Mooni洗髮餅- 環保天然洗髮 - 自備客",
+            "description": "Mooni洗髮餅- 環保天然洗髮 - 自備客 — 【沐澧Mooni】無皂洗髮餅中性溫和/保濕/. 查看商品 加入購物車 · 【沐澧Mooni】無皂洗髮餅中性溫和/保濕/控油系列. NT$300. 加入購物車. 目前搶購人潮眾多，請耐心等候.",
+            "url": "https://www.ipacker.tw/collections/mooni-shampoosoap?srsltid=AfmBOophFyJ2RFeAjeWzM6UIMMDv9HLEBVLXLeQWXabyAXkT5Y7GdBxK"
+          },
+          {
+            "title": "CONTIN 康定| Formoria",
+            "description": "CONTIN 康定| Formoria — 沐澧Mooni 為台灣手創清潔品牌，專注研發適合台灣氣候與肌膚的洗髮餅與手工皂。品牌堅持台灣製造，以專業配方與手作工藝，減少瓶罐浪費，友善環境。產品線涵蓋洗髮餅、洗髮 ...",
+            "url": "https://formoria.com/en/brands/contin-%E5%BA%B7%E5%AE%9A"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:30:52.593Z"
+    },
+    {
+      "brand": {
+        "slug": "mooni",
+        "name": "沐澧 Mooni",
+        "productType": "beauty",
+        "productTypeZh": "美妝保養",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "C",
+        "label": "Third-Party Content Bias"
+      },
+      "query": "沐澧 Mooni 品牌 介紹 評價 推薦",
+      "parsed": {
+        "urls": [
+          "https://www.mooni.com.tw/pages/aboutme",
+          "https://www.facebook.com/mooniTW/?locale=zh_TW",
+          "https://rmm091219.pixnet.net/blog/posts/3049746423",
+          "https://www.herday.tw/mooni",
+          "https://www.ipacker.tw/pages/mooni-brandstory",
+          "https://www.mooni.com.tw/",
+          "https://www.he-xu.com.tw/selection-page215",
+          "https://tshopping.thsrc.com.tw/%E6%B2%90%E6%BE%A7mooni",
+          "https://shop.yunfeis-choice.com.tw/products/mooni-grapeseed",
+          "https://www.instagram.com/mooni_tw/"
+        ],
+        "snippets": [
+          {
+            "title": "品牌故事| 沐澧mooni｜洗髮餅｜手工皂｜洗髮皂推薦｜台灣製造",
+            "description": "品牌故事| 沐澧mooni｜洗髮餅｜手工皂｜洗髮皂推薦｜台灣製造 — 實用的包裝：僅需要很小的空間，相較於瓶罐洗髮精，洗髮餅非常適合旅遊或較小浴室，沒有足夠空間來放置瓶瓶罐罐使用。偷偷告訴你，洗髮餅還可以放在隨身行李上飛機呢!!!",
+            "url": "https://www.mooni.com.tw/pages/aboutme"
+          },
+          {
+            "title": "沐澧mooni (@mooniTW) - Facebook",
+            "description": "沐澧mooni (@mooniTW) - Facebook — 沐澧mooni 。 6192 個讚· 4 人正在談論這個。 ✓台灣製造手工洗髮餅✓改變你的洗髮習慣✓友善環境系列.",
+            "url": "https://www.facebook.com/mooniTW/?locale=zh_TW"
+          },
+          {
+            "title": "[美髮]沐澧mooni。洗髮餅初體驗 - Yukina。吃到靈魂深處",
+            "description": "[美髮]沐澧mooni。洗髮餅初體驗 - Yukina。吃到靈魂深處 — [美髮]沐澧mooni。洗髮餅初體驗，療癒的vegan台灣品牌洗髮餅 · 圖片 1. 潤髮餅則選擇了玫瑰味的 · 圖片 2. 收到實品之後發現他們的防撞是用蜂巢紙取代氣泡袋，真的相當注重環保.",
+            "url": "https://rmm091219.pixnet.net/blog/posts/3049746423"
+          },
+          {
+            "title": "沐澧mooni ｜職人精神手工製皂，回歸減塑的純粹心意",
+            "description": "沐澧mooni ｜職人精神手工製皂，回歸減塑的純粹心意 — 台灣在地手工皂品牌「沐澧mooni 」，以永續與友善環境為核心，致力用台灣精神做出適合台灣人使用的洗沐清潔產品。並保持對環境友善、並能結合台灣在地 ...",
+            "url": "https://www.herday.tw/mooni"
+          },
+          {
+            "title": "沐澧mooni品牌故事 - 自備客",
+            "description": "沐澧mooni品牌故事 - 自備客 — 沐澧手創mooni－是由兩位堅持台灣製造、為台灣傳統產業延續生命力的夥伴所創立的。 有感於在知名洗髮餅品牌LUSH工作並培訓多年，深受品牌對歐美國家環保的影響力，加上 ...",
+            "url": "https://www.ipacker.tw/pages/mooni-brandstory?srsltid=AfmBOorkCTjPpuHiQulMlEi-L1nrAEt7e_yZ1GtcUAKMoTdbgOyTlWpT"
+          },
+          {
+            "title": "沐澧mooni｜洗髮餅｜手工皂｜洗髮皂推薦｜台灣製造",
+            "description": "沐澧mooni｜洗髮餅｜手工皂｜洗髮皂推薦｜台灣製造 — 改變你洗髮的習慣專業的台灣手創職人，Made in Taiwan 的洗髮餅專科洗髮餅的達人老師，以專業的知識、技術與精神製造研發最適合台灣人使用的洗髮餅(也有洗髮皂的選擇) ...",
+            "url": "https://www.mooni.com.tw/"
+          },
+          {
+            "title": "沐澧mooni - 禾煦國際股份有限公司",
+            "description": "沐澧mooni - 禾煦國際股份有限公司 — ... 簡介 ... 結合台灣在地特色原料減少碳足跡，使用友善環境材料，不用過多化學成分製作出適合台灣人的手工洗髮餅&洗沐商品，以真誠專業的態度打造出屬於台灣的在地品牌。。",
+            "url": "https://www.he-xu.com.tw/selection-page215"
+          },
+          {
+            "title": "沐澧mooni - T-Shopping 高鐵線上購",
+            "description": "沐澧mooni - T-Shopping 高鐵線上購 — 沐澧mooni. 適合台灣人的頭皮與肌膚的自然清潔產品， 結合環保包裝與手作情懷，打造無浪費且健康的生活之選。 mooni 用最純粹的方式呵護你與地球，共創永續未來。",
+            "url": "https://tshopping.thsrc.com.tw/%E6%B2%90%E6%BE%A7mooni?srsltid=AfmBOorn5M20mMFgQ_ma0XvQl5a0D21CkOjqxox-KbiGACD-_JAjDW3W"
+          },
+          {
+            "title": "mooni 葡萄籽卸妝餅- 手工皂",
+            "description": "mooni 葡萄籽卸妝餅- 手工皂 — 沐澧mooni 葡萄籽卸妝餅透過結合台灣在地特色產物，石花菜、台灣米…等原料， 製作出友善環境、減少碳足跡、無過多化學成分的手工皂類清潔產品。",
+            "url": "https://shop.yunfeis-choice.com.tw/products/mooni-grapeseed"
+          },
+          {
+            "title": "沐澧mooni (@mooni_tw) · Keelung - Instagram",
+            "description": "沐澧mooni (@mooni_tw) · Keelung - Instagram — #mooni. #基隆在地探索合作品牌介紹：八斗邀友善餐廳藏身在八斗子漁港旁的「八斗邀友善餐廳」， 是一間用料理說故事的地方。",
+            "url": "https://www.instagram.com/mooni_tw/"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:30:55.271Z"
+    },
+    {
+      "brand": {
+        "slug": "evies-drawing-daily",
+        "name": "Evie's Drawing Daily",
+        "productType": "crafts",
+        "productTypeZh": "工藝文創",
+        "difficulty": "hard"
+      },
+      "variant": {
+        "id": "A",
+        "label": "Broad Discovery"
+      },
+      "query": "Evie's Drawing Daily 台灣",
+      "parsed": {
+        "urls": [
+          "https://www.behance.net/eviedrawing/info",
+          "https://www.instagram.com/reel/DC3_h8ATrlN/",
+          "https://www.accupass.com/event/2407181007361047842057",
+          "https://www.facebook.com/61554993659674/?locale=zh_HK",
+          "https://www.pinkoi.com/product/yE7fwiNA",
+          "https://linkgoods.com/eviedrawingdaily",
+          "https://www.instagram.com/reel/DENQaGiTjMQ/",
+          "https://formoria.com/brands/evie-drawing-daily",
+          "https://linktr.ee/evie_drawing_daily",
+          "https://www.threads.com/@evie_drawing_daily"
+        ],
+        "snippets": [
+          {
+            "title": "Evie Drawing Daily - Watercolor Illustration Design in Taiwan Region",
+            "description": "Evie Drawing Daily - Watercolor Illustration Design in Taiwan Region — 水彩插畫家｜圖案設計師平面設計師｜UI/UX設計師Evie的療癒畫畫課創辦人- ｜關於Evie's Drawing Daily｜ 2024春日創立的水彩插畫品牌， 主打療癒田園風格的水彩插畫， ...",
+            "url": "https://www.behance.net/eviedrawing/info"
+          },
+          {
+            "title": "《  Evie's Drawing Daily｜甜美上架  》 甜點控必收  https://c3s.tw ...",
+            "description": "《  Evie's Drawing Daily｜甜美上架  》 甜點控必收  https://c3s.tw ... — ✨聯名最後優惠！好好收藏到最後✨ Evie➡️https://lihi3.me/H0GIK Dipsy➡️https://lihi3.me/1wdJX 兩位同樣療癒溫暖的創作者讓人一眼就認出的色調與筆觸在說再見前再好好 ...",
+            "url": "https://www.instagram.com/reel/DC3_h8ATrlN/"
+          },
+          {
+            "title": "Evie的咖啡廳甜點水彩課【台北場】｜ACCUPASS 活動通",
+            "description": "Evie的咖啡廳甜點水彩課【台北場】｜ACCUPASS 活動通 — 台灣台北市板橋區館前西路166號. 店名：星亞米咖啡. 相關連結. Evie's Drawing Daily 的IG. 線下活動. 報名完成後出示ACCUPASS App 中的票券即可快速入場 ...",
+            "url": "https://www.accupass.com/event/2407181007361047842057"
+          },
+          {
+            "title": "Evie's Drawing Daily - Facebook",
+            "description": "Evie's Drawing Daily - Facebook — 水彩課報名連結：https://linkgoods. com/eviedrawingdaily - 專屬於你的療癒畫畫課! 3小時就能完成作品帶回家! ☕️上班族放假舒壓首選! 使用可愛旅行水彩用具組授課 ...",
+            "url": "https://www.facebook.com/61554993659674/?locale=zh_HK"
+          },
+          {
+            "title": "聯名Evie's Drawing Daily 街角的香氣防摔手機殼EVAA04 - Pinkoi",
+            "description": "聯名Evie's Drawing Daily 街角的香氣防摔手機殼EVAA04 - Pinkoi — 台灣. 製造方式: 機器製造. 商品材質: 矽膠. 商品特點: 有提供客製服務, 官方IP 授權商品. 商品摘要: Evie's Drawing Daily X CreASEnse創感品味聯名防摔手機殼街角的香氣 ...",
+            "url": "https://www.pinkoi.com/product/yE7fwiNA"
+          },
+          {
+            "title": "EVIE'S DRAWING DAILY | LINKGOODS",
+            "description": "EVIE'S DRAWING DAILY | LINKGOODS — 2024春日創立的水彩插畫品牌， 主打療癒田園風格的水彩插畫，繪製生活周遭的美好，同時結合流行設計元素，創造出兼具美感與生活感的設計與插畫！ · 主題水彩課程- 復古甜點店（ ...",
+            "url": "https://linkgoods.com/eviedrawingdaily"
+          },
+          {
+            "title": "2025-1月桌布開放下載~ 2025每個月都會有5張手機桌布給大家下載～",
+            "description": "2025-1月桌布開放下載~ 2025每個月都會有5張手機桌布給大家下載～ — 19.00 Thursday, Thursday,15February 15 February Evie'sDrawingDaily Evie's Drawing Daily Poly X LUTDS Lülu. ... 中文(台灣), বাংলা ...",
+            "url": "https://www.instagram.com/reel/DENQaGiTjMQ/"
+          },
+          {
+            "title": "Evie's Drawing Daily | Formoria",
+            "description": "Evie's Drawing Daily | Formoria — Evie's Drawing Daily 以水彩插畫建構帶有童話感的角色與故事世界，將作品延伸為印花包袋、文創小物與聯名商品。品牌也開設療癒水彩課程，讓插畫創作成為日常放鬆的 ...",
+            "url": "https://formoria.com/brands/evie-drawing-daily"
+          },
+          {
+            "title": "@evies_town Official: Instagram, Threads - Linktree",
+            "description": "@evies_town Official: Instagram, Threads - Linktree — Evie's Fairytale Town 歡迎來到夢境童話鎮～Evie將創造童話給美好的你♡ 童話感水彩故事集♡ 印花品♡ 夢境手作包♡ 小文創♡聯名款. @evies_town Threads",
+            "url": "https://linktr.ee/evie_drawing_daily"
+          },
+          {
+            "title": "Evie's Drawing Daily 療癒水彩日常(@evie_drawing_daily)",
+            "description": "Evie's Drawing Daily 療癒水彩日常(@evie_drawing_daily) — 歡迎進群下載♡ 最近終於要開始連載新圖了 歡迎追蹤～童話動物們的新故事要開啟了♡ ig.me/j/AbY… ... Log in to see more from evie_drawing_daily.",
+            "url": "https://www.threads.com/@evie_drawing_daily"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:30:58.242Z"
+    },
+    {
+      "brand": {
+        "slug": "evies-drawing-daily",
+        "name": "Evie's Drawing Daily",
+        "productType": "crafts",
+        "productTypeZh": "工藝文創",
+        "difficulty": "hard"
+      },
+      "variant": {
+        "id": "B",
+        "label": "Precision + Noise Filter"
+      },
+      "query": "\"Evie's Drawing Daily\" 工藝文創 品牌 -徵才 -104 -人力",
+      "parsed": {
+        "urls": [
+          "https://formoria.com/brands/evie-drawing-daily",
+          "https://www.instagram.com/reel/DY15eAzPkMd/",
+          "https://www.instagram.com/reel/DS7wtvLjwo-/",
+          "https://www.instagram.com/p/DE6rQxgTMMp/",
+          "https://formoria.com/brands/littmatter",
+          "https://www.instagram.com/reel/DGdKYs6Te7P/",
+          "https://formoria.com/brands/littdlework",
+          "https://www.instagram.com/p/DaFqRaBB15R/",
+          "https://www.instagram.com/reel/DZZ0Riszs5A/",
+          "https://www.instagram.com/p/DW8thQMmYbh/"
+        ],
+        "snippets": [
+          {
+            "title": "Evie's Drawing Daily | Formoria",
+            "description": "Evie's Drawing Daily | Formoria — Evie's Drawing Daily 以水彩插畫建構帶有童話感的角色與故事世界，將作品延伸為印花包袋、文創小物與聯名商品。品牌也開設療癒水彩課程，讓插畫創作成為日常放鬆的 ...",
+            "url": "https://formoria.com/brands/evie-drawing-daily"
+          },
+          {
+            "title": "聯名最後優惠！好好收藏到最後   Evie➡️https://lihi3.me/H0GIK ...",
+            "description": "聯名最後優惠！好好收藏到最後   Evie➡️https://lihi3.me/H0GIK ... — ✨Evie's Drawing Daily @evie_drawing_daily 復古感滿滿的美系療癒插畫每一口都是豐收的喜悅⏰ 5/15～6/12 #單件8折 ✨迪普西。Dipsy @dipsydisplay 用插畫 ...",
+            "url": "https://www.instagram.com/reel/DY15eAzPkMd/"
+          },
+          {
+            "title": "2025 年度TOP 10 回顧     謝謝選擇我們的你  https://lihi3.me/86QUF ...",
+            "description": "2025 年度TOP 10 回顧     謝謝選擇我們的你  https://lihi3.me/86QUF ... — #10 聯名Evie's Drawing Daily 秋日野宴（EVAA06） #9 聯名狐日和四季花磚（KIAA02） #8 花磚系列磐薈漸層（CSBE13） #7 花磚系列歐式復古（CSAL04） 6 聯名Manting",
+            "url": "https://www.instagram.com/reel/DS7wtvLjwo-/"
+          },
+          {
+            "title": "關於橘子大家聯想到什麼   歡迎留言給我畫   田園調色盤系列 - Instagram",
+            "description": "關於橘子大家聯想到什麼   歡迎留言給我畫   田園調色盤系列 - Instagram — ... Evie's Drawing Daily Poly X LUTDS Lülu. Evie's Φαωίας Daily ... @evie_drawing_daily_official 把以前在服裝產業的技能都拿來了～我不是很理解文 ...",
+            "url": "https://www.instagram.com/p/DE6rQxgTMMp/"
+          },
+          {
+            "title": "重要的小事Littmatter - Formoria",
+            "description": "重要的小事Littmatter - Formoria — Evie's Drawing Daily 創立於2024年春季，以水彩插畫描繪療癒田園風格，記錄生活周遭的美好事物。品牌將插畫延伸為印花包袋、文創小物與聯名商品，並開設主題水彩課程，讓創作 ...",
+            "url": "https://formoria.com/brands/littmatter"
+          },
+          {
+            "title": "《  名畫拼貼系列｜色彩躍於指尖  》 新上架優惠中  https://c3s.tw ...",
+            "description": "《  名畫拼貼系列｜色彩躍於指尖  》 新上架優惠中  https://c3s.tw ... — https://lihi3.me/NgtHl. View 1 comment · creasense.oui. 文創插畫型號最廣創感品味全館快速出貨 ... CreASEnse Hello 2026 Evie's Drawing Daily Evie's ...",
+            "url": "https://www.instagram.com/reel/DGdKYs6Te7P/"
+          },
+          {
+            "title": "繡珍森活Littdlework - Formoria",
+            "description": "繡珍森活Littdlework - Formoria — Evie's Drawing Daily 創立於2024年春季，以水彩插畫描繪療癒田園風格，記錄生活周遭的美好事物。品牌將插畫延伸為印花包袋、文創小物與聯名商品，並開設主題水彩課程，讓創作 ...",
+            "url": "https://formoria.com/brands/littdlework"
+          },
+          {
+            "title": "\\  WOW IM GOOD 我好棒系列  /包包登場世貿文具展7/2-7/6 形象區 ...",
+            "description": "\\  WOW IM GOOD 我好棒系列  /包包登場世貿文具展7/2-7/6 形象區 ... — Vintage Dessert Shop CreASense x Evie's Drawing Daily 授權到期最後優惠5/15 ~ 6/12 單件8折@Dipsydisplay 迪普西。Dipsy 5/15 ~ 6/30 Croissant ...",
+            "url": "https://www.instagram.com/p/DaFqRaBB15R/"
+          },
+          {
+            "title": "韓國小眾文創Aeong ｜全系列享7折優惠   限時開團｜6/11（四) – 6 ...",
+            "description": "韓國小眾文創Aeong ｜全系列享7折優惠   限時開團｜6/11（四) – 6 ... — ꒰ 新品牌登場꒱ 歡迎澳門文創品牌半島師奶 ​ @pundusina 店主之前 ... Vintage Dessert Shop CreASense x Evie's Drawing Daily 授權到期最後 ...",
+            "url": "https://www.instagram.com/reel/DZZ0Riszs5A/"
+          },
+          {
+            "title": "送小福袋（含1～2件禮物） 滿$1500 - Instagram",
+            "description": "送小福袋（含1～2件禮物） 滿$1500 - Instagram — Vintage Dessert Shop CreASense x Evie's Drawing Daily 授權到期最後優惠5/15 ~ 6/12 單件8折@Dipsydisplay 迪普西。Dipsy 5/15 ~ 6/30 Croissant ...",
+            "url": "https://www.instagram.com/p/DW8thQMmYbh/"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:31:01.317Z"
+    },
+    {
+      "brand": {
+        "slug": "evies-drawing-daily",
+        "name": "Evie's Drawing Daily",
+        "productType": "crafts",
+        "productTypeZh": "工藝文創",
+        "difficulty": "hard"
+      },
+      "variant": {
+        "id": "C",
+        "label": "Third-Party Content Bias"
+      },
+      "query": "Evie's Drawing Daily 品牌 介紹 評價 推薦",
+      "parsed": {
+        "urls": [
+          "https://www.instagram.com/reel/DC3_h8ATrlN/",
+          "https://www.instagram.com/reel/DY15eAzPkMd/",
+          "https://www.facebook.com/CreaSense.tw/videos/%E8%81%AF%E5%90%8D%E6%9C%80%E5%BE%8C%E5%84%AA%E6%83%A0%E5%A5%BD%E5%A5%BD%E6%94%B6%E8%97%8F%E5%88%B0%E6%9C%80%E5%BE%8Cevie%EF%B8%8Fhttpslihi3meh0gikdipsy%EF%B8%8Fhttpslihi3me1wdjx%E5%85%A9%E4%BD%8D%E5%90%8C%E6%A8%A3%E7%99%82%E7%99%92%E6%BA%AB%E6%9A%96%E7%9A%84%E5%89%B5%E4%BD%9C%E8%80%85%E8%AE%93%E4%BA%BA%E4%B8%80%E7%9C%BC%E5%B0%B1%E8%AA%8D%E5%87%BA%E7%9A%84%E8%89%B2%E8%AA%BF/876871045443979/",
+          "https://www.instagram.com/reel/C2KT_FwvnrM/",
+          "https://uk.pinterest.com/cisslan/evies-drawing-inspiration/",
+          "https://www.facebook.com/PolyLuluTW/posts/evies-drawing-daily-%E8%81%AF%E5%90%8D-%E5%8F%AF%E6%84%9B%E5%85%94%E5%85%94%E5%9C%A8%E5%AF%AC%E8%82%A9%E5%B8%B6%E6%96%B9%E9%A0%98%E6%89%8B%E7%B9%AA%E8%83%8C%E5%BF%83%E4%B8%8A%E7%99%BB%E5%A0%B4%E5%95%A6%E5%A4%A2%E5%B9%BB%E6%B0%B4%E5%BD%A9%E5%8F%AF%E6%84%9B%E5%B0%8F%E5%85%94%E5%9C%96%E6%A1%88%E7%B0%A1%E5%96%AE%E5%8D%BB%E8%AE%93%E4%BA%BA%E7%A7%92%E5%BF%83%E5%8B%95%E6%96%B9%E9%A0%98%E5%89%AA%E8%A3%81%E8%88%92%E9%81%A9%E5%8F%88%E4%BF%AE%E9%A3%BE%E8%82%A9%E8%86%80%E7%B7%9A%E6%A2%9D%E4%B8%8D%E5%8F%AA%E5%8F%AF%E6%84%9B%E5%90%B8%E7%9D%9B%E6%9B%B4%E6%9F%94/1178102131017570/",
+          "https://www.tiktok.com/@drawnbycass/video/7610839568362867986",
+          "https://www.youtube.com/watch?v=9pILZxcebho",
+          "https://www.pinkoi.com/product/6TQ7wuDG",
+          "https://www.threads.com/@dearfine_metal/post/C7Dwv7mLAbW"
+        ],
+        "snippets": [
+          {
+            "title": "《🍓Evie's Drawing Daily｜甜美上架🍰》 甜點控必收✨https:/ ...",
+            "description": "《🍓Evie's Drawing Daily｜甜美上架🍰》 甜點控必收✨https:/ ... — 兩位同樣療癒溫暖的創作者讓人一眼就認出的色調與筆觸在說再見前再好好推薦一次給你❤️ ✨Evie's Drawing Daily @evie_drawing_daily 復古感滿滿的美 ...",
+            "url": "https://www.instagram.com/reel/DC3_h8ATrlN/"
+          },
+          {
+            "title": "✨聯名最後優惠！好好收藏到最後✨ Evie➡️https://lihi3.me ...",
+            "description": "✨聯名最後優惠！好好收藏到最後✨ Evie➡️https://lihi3.me ... — 兩位同樣療癒溫暖的創作者讓人一眼就認出的色調與筆觸在說再見前再好好推薦一次給你❤️ ✨Evie's Drawing Daily @evie_drawing_daily 復古感滿滿的美系療癒 ...",
+            "url": "https://www.instagram.com/reel/DY15eAzPkMd/"
+          },
+          {
+            "title": "✨聯名最後優惠！好好收藏到最後✨ Evie➡️https://lihi3.me ...",
+            "description": "✨聯名最後優惠！好好收藏到最後✨ Evie➡️https://lihi3.me ... — ... 兩位同樣療癒溫暖的創作者讓人一眼就認出的色調與筆觸在說再見前再好好推薦一次給你❤️ ✨Evie's Drawing Daily...",
+            "url": "https://www.facebook.com/CreaSense.tw/videos/%E8%81%AF%E5%90%8D%E6%9C%80%E5%BE%8C%E5%84%AA%E6%83%A0%E5%A5%BD%E5%A5%BD%E6%94%B6%E8%97%8F%E5%88%B0%E6%9C%80%E5%BE%8Cevie%EF%B8%8Fhttpslihi3meh0gikdipsy%EF%B8%8Fhttpslihi3me1wdjx%E5%85%A9%E4%BD%8D%E5%90%8C%E6%A8%A3%E7%99%82%E7%99%92%E6%BA%AB%E6%9A%96%E7%9A%84%E5%89%B5%E4%BD%9C%E8%80%85%E8%AE%93%E4%BA%BA%E4%B8%80%E7%9C%BC%E5%B0%B1%E8%AA%8D%E5%87%BA%E7%9A%84%E8%89%B2%E8%AA%BF/876871045443979/"
+          },
+          {
+            "title": "DanNior🤎文藝復興貓貓氣質新上架✨https://c3s.tw/5Avr5 @ ...",
+            "description": "DanNior🤎文藝復興貓貓氣質新上架✨https://c3s.tw/5Avr5 @ ... — 換個新殼每天拿手機的心情也會不一樣不管是甜甜花花、可愛插畫還是耐看的質感氣質今天全館通通有優惠✨ #520單日限定 滿520 免運 全館商品單件9 折 # ...",
+            "url": "https://www.instagram.com/reel/C2KT_FwvnrM/"
+          },
+          {
+            "title": "22 Evie's drawing inspiration ideas",
+            "description": "22 Evie's drawing inspiration ideas — May 8, 2022 - Explore Cecilia Waller's board \"Evie's drawing inspiration\" on Pinterest. See more ideas about doodle drawings, cute easy drawings, easy drawings.",
+            "url": "https://uk.pinterest.com/cisslan/evies-drawing-inspiration/"
+          },
+          {
+            "title": "Evie's Drawing Daily 聯名🌿 https://polylulu.shop/ ...",
+            "description": "Evie's Drawing Daily 聯名🌿 https://polylulu.shop/ ... — 夢幻水彩+可愛小兔圖案，簡單卻讓人秒心動！ 方領剪裁，舒適又修飾肩膀線條～ 不只可愛吸睛，更柔軟透氣 搭配飄逸長裙一秒變身文藝小姊姊🕊️ 不管內搭還是單穿都 ...",
+            "url": "https://www.facebook.com/PolyLuluTW/posts/evies-drawing-daily-%E8%81%AF%E5%90%8D-%E5%8F%AF%E6%84%9B%E5%85%94%E5%85%94%E5%9C%A8%E5%AF%AC%E8%82%A9%E5%B8%B6%E6%96%B9%E9%A0%98%E6%89%8B%E7%B9%AA%E8%83%8C%E5%BF%83%E4%B8%8A%E7%99%BB%E5%A0%B4%E5%95%A6%E5%A4%A2%E5%B9%BB%E6%B0%B4%E5%BD%A9%E5%8F%AF%E6%84%9B%E5%B0%8F%E5%85%94%E5%9C%96%E6%A1%88%E7%B0%A1%E5%96%AE%E5%8D%BB%E8%AE%93%E4%BA%BA%E7%A7%92%E5%BF%83%E5%8B%95%E6%96%B9%E9%A0%98%E5%89%AA%E8%A3%81%E8%88%92%E9%81%A9%E5%8F%88%E4%BF%AE%E9%A3%BE%E8%82%A9%E8%86%80%E7%B7%9A%E6%A2%9D%E4%B8%8D%E5%8F%AA%E5%8F%AF%E6%84%9B%E5%90%B8%E7%9D%9B%E6%9B%B4%E6%9F%94/1178102131017570/"
+          },
+          {
+            "title": "Realistic Drawing of Evie from Descendants",
+            "description": "Realistic Drawing of Evie from Descendants — Creating a realistic portrait of Evie from the popular Disney movie \"Descendants\" by Sofia Carson. Evie is known for her blue dress, striking ...",
+            "url": "https://www.tiktok.com/@drawnbycass/video/7610839568362867986"
+          },
+          {
+            "title": "I Draw Daily ✦ Here's How You Can Too",
+            "description": "I Draw Daily ✦ Here's How You Can Too — A tip regarding sketchbooks: I draw on random pieces of paper, whatever I have on hand. It really is way less intimidating than having this pristine book.",
+            "url": "https://www.youtube.com/watch?v=9pILZxcebho"
+          },
+          {
+            "title": "聯名Evie's Drawing Daily ショートケーキの日手機殼EVAA03",
+            "description": "聯名Evie's Drawing Daily ショートケーキの日手機殼EVAA03 — Evie's Drawing Daily X CreASEnse創感品味聯名防摔手機殼ショートケーキの日款台灣 製造，一間快時尚手機殼的店。 期望您可以在本店買到最獨特款式及享受最優質服務， ...",
+            "url": "https://www.pinkoi.com/product/6TQ7wuDG"
+          },
+          {
+            "title": "最近也看到很多異業合作成功的品牌但小 ...",
+            "description": "最近也看到很多異業合作成功的品牌但小 ... — 其實滿建議手作品牌跟不同的行業合作跨出去就會有更多可能 · 飾品系列可以跟服飾合作包類也很適合跟服飾合作飲料提袋可以跟環保杯合作手機背帶就跟手機殼 ...",
+            "url": "https://www.threads.com/@dearfine_metal/post/C7Dwv7mLAbW"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:31:04.523Z"
+    },
+    {
+      "brand": {
+        "slug": "qmat-設計館",
+        "name": "QMAT",
+        "productType": "outdoor",
+        "productTypeZh": "戶外運動保健",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "A",
+        "label": "Broad Discovery"
+      },
+      "query": "QMAT 台灣",
+      "parsed": {
+        "urls": [
+          "https://qmat.com.tw/",
+          "https://www.eslite.com/exhibitions/CU202204-00094",
+          "https://m.momoshop.com.tw/category.momo?cn=5000700096&cid=dir&oid=rela",
+          "https://www.decathlon.tw/c/%E6%89%80%E6%9C%89%E5%93%81%E7%89%8C/qmat.html",
+          "https://www.instagram.com/qmat_tw/",
+          "https://shopee.tw/allenkuo88",
+          "https://www.facebook.com/QMAT.TW/"
+        ],
+        "snippets": [
+          {
+            "title": "QMAT 官網",
+            "description": "QMAT 官網 — 熱銷商品 ... QMAT是以在家運動為出發點，以品質與環保為核心價值的台灣在地品牌。 因健康意識逐漸抬頭，各種運動開始盛行，我們想成為你運動的力量，從一塊適合自己的瑜珈墊開始 ...",
+            "url": "https://qmat.com.tw/?srsltid=AfmBOooGDjtguqvMXmIQeivl7uNkERQI0dJThinijW1H7w1Z7iDix8AU"
+          },
+          {
+            "title": "台灣QMAT 驚喜加碼結帳享現折",
+            "description": "台灣QMAT 驚喜加碼結帳享現折 — QMAT是以在家運動為出發點，以環保與品質為核心價值的台灣在地品牌。因健康意識逐漸抬頭，各種運動開始盛行—每個人都需要一塊瑜珈墊、運動墊，我們想成為你運動的力量從一塊 ...",
+            "url": "https://www.eslite.com/exhibitions/CU202204-00094?srsltid=AfmBOorDtI2zTE7eut9JwYbuEOMk66T5Oub630EqeaMSGSTnR19cFkM-"
+          },
+          {
+            "title": "QMAT,品牌總覽,瑜珈/體適能,運動/按摩- momo購物網- 好評推薦",
+            "description": "QMAT,品牌總覽,瑜珈/體適能,運動/按摩- momo購物網- 好評推薦 — 【QMAT】台灣製6mm折疊瑜珈墊(贈收納袋雙面雙 · 【QMAT】超厚10mm折疊瑜珈墊台灣製(贈拉鍊揹袋 · 【QMAT】50D瑜珈磚台灣製(瑜珈輔具Yoga Blocks) · 【QMAT】20mm超慢跑墊台灣 ...",
+            "url": "https://m.momoshop.com.tw/category.momo?cn=5000700096&cid=dir&oid=rela"
+          },
+          {
+            "title": "QMAT",
+            "description": "QMAT — QMAT ; 5mm天然橡膠瑜珈墊66*180cm - STONE 黑(附鬆緊帶+再生 · $2,000. 5mm天然橡膠瑜珈墊66*180cm - STONE 黑(附鬆緊帶+再生布束袋) ; 10mm折疊瑜珈墊(十二折墊) 63*185cm - ...",
+            "url": "https://www.decathlon.tw/c/%E6%89%80%E6%9C%89%E5%93%81%E7%89%8C/qmat.html?srsltid=AfmBOooHmVtMBMEYeIViRUCk6wcM9akV_G5h3yy_2BUbJbvr9d-qi8Cz"
+          },
+          {
+            "title": "QMAT (@qmat_tw) • Instagram photos and videos",
+            "description": "QMAT (@qmat_tw) • Instagram photos and videos — 川紋設計× 35D適中硬度給剛開始放鬆的你，剛剛好的舒適感親膚柔和的觸感每天都想拿起來滾一下放鬆，從滾動開始#筋膜放鬆#按摩滾筒#居家放鬆#新手友善#qmat.",
+            "url": "https://www.instagram.com/qmat_tw/"
+          },
+          {
+            "title": "QMAT OUTLET 運動/瑜珈墊巧拼地墊按摩滾筒筋膜球, 線上商店",
+            "description": "QMAT OUTLET 運動/瑜珈墊巧拼地墊按摩滾筒筋膜球, 線上商店 — 歡迎來到QMAT OUTLET賣場！這裡提供優質的瑜珈運動用品和居家巧拼地墊，產品主要外銷至歐美和日本市場。在此，您可以找到QMAT的商品以及內、外銷福利品。",
+            "url": "https://shopee.tw/allenkuo88"
+          },
+          {
+            "title": "QMAT | Changhua",
+            "description": "QMAT | Changhua — QMAT是以在家運動為出發點，以環保與品質為核心價 值的台灣在地品牌。我們. Outdoor & Sporting Goods Company · $$. . Follow. Details.",
+            "url": "https://www.facebook.com/QMAT.TW/"
+          }
+        ],
+        "rawCount": 7,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:31:07.119Z"
+    },
+    {
+      "brand": {
+        "slug": "qmat-設計館",
+        "name": "QMAT",
+        "productType": "outdoor",
+        "productTypeZh": "戶外運動保健",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "B",
+        "label": "Precision + Noise Filter"
+      },
+      "query": "\"QMAT\" 戶外運動保健 品牌 -徵才 -104 -人力",
+      "parsed": {
+        "urls": [
+          "https://www.facebook.com/FitnessFactory.Group/posts/%E5%81%A5%E4%BA%BA%E9%81%B8%E5%93%81%E5%8F%B0%E7%81%A3%E5%9C%A8%E5%9C%B0%E5%93%81%E7%89%8Cqmat-%E5%93%81%E7%89%8C%E4%BB%8B%E7%B4%B9-qmat%E6%98%AF%E4%BB%A5%E5%9C%A8%E5%AE%B6%E9%81%8B%E5%8B%95%E7%82%BA%E5%87%BA%E7%99%BC%E9%BB%9E%E4%BB%A5%E5%93%81%E8%B3%AA%E8%88%87%E7%92%B0%E4%BF%9D%E7%82%BA%E6%A0%B8%E5%BF%83%E5%83%B9%E5%80%BC%E7%9A%84%E5%8F%B0%E7%81%A3%E5%9C%A8%E5%9C%B0%E5%93%81%E7%89%8C%E5%9B%A0%E5%81%A5%E5%BA%B7%E6%84%8F%E8%AD%98%E9%80%90%E6%BC%B8%E6%8A%AC%E9%A0%AD%E5%90%84%E7%A8%AE%E9%81%8B%E5%8B%95%E9%96%8B%E5%A7%8B%E7%9B%9B%E8%A1%8C%E6%88%91%E5%80%91%E6%83%B3%E6%88%90%E7%82%BA%E4%BD%A0%E9%81%8B%E5%8B%95%E7%9A%84%E5%8A%9B%E9%87%8F/1034835758678421/",
+          "https://formoria.com/en/brands/qmat-%E8%A8%AD%E8%A8%88%E9%A4%A8",
+          "https://tw.buy.yahoo.com/category/4436854?flt=%E5%93%81%E7%89%8C_QMAT",
+          "https://www.mysport.com.tw/commodity/12329",
+          "https://24h.pchome.com.tw/store/DEBYLF",
+          "https://helloyogis.com/magazine/2022/03/26/mit-folding-yoga-mat/",
+          "https://www.womenshealthmag.com/tw/fitness/yoga/a71500851/fit-fest-qmat8mm/",
+          "https://doratheexploer.com/2021/10/15/qmat-yoga-mat/",
+          "https://vocus.cc/article/6936a1b7fd897800011de945",
+          "https://www.tw.coupang.com/np/products/brand-shop?brandName=QMAT"
+        ],
+        "snippets": [
+          {
+            "title": "陪你迎接每一個挑戰。 【贊助品介紹】- 12mm折疊運動舒緩墊(四折 ...",
+            "description": "陪你迎接每一個挑戰。 【贊助品介紹】- 12mm折疊運動舒緩墊(四折 ... — ＃健人選品｜台灣在地品牌－QMAT 【 品牌介紹】 QMAT是以在家運動為出發點，以品質與環保為核心價 值的台灣在地品牌。 因健康意識逐漸抬頭，各種運動開始盛行， ...",
+            "url": "https://www.facebook.com/FitnessFactory.Group/posts/%E5%81%A5%E4%BA%BA%E9%81%B8%E5%93%81%E5%8F%B0%E7%81%A3%E5%9C%A8%E5%9C%B0%E5%93%81%E7%89%8Cqmat-%E5%93%81%E7%89%8C%E4%BB%8B%E7%B4%B9-qmat%E6%98%AF%E4%BB%A5%E5%9C%A8%E5%AE%B6%E9%81%8B%E5%8B%95%E7%82%BA%E5%87%BA%E7%99%BC%E9%BB%9E%E4%BB%A5%E5%93%81%E8%B3%AA%E8%88%87%E7%92%B0%E4%BF%9D%E7%82%BA%E6%A0%B8%E5%BF%83%E5%83%B9%E5%80%BC%E7%9A%84%E5%8F%B0%E7%81%A3%E5%9C%A8%E5%9C%B0%E5%93%81%E7%89%8C%E5%9B%A0%E5%81%A5%E5%BA%B7%E6%84%8F%E8%AD%98%E9%80%90%E6%BC%B8%E6%8A%AC%E9%A0%AD%E5%90%84%E7%A8%AE%E9%81%8B%E5%8B%95%E9%96%8B%E5%A7%8B%E7%9B%9B%E8%A1%8C%E6%88%91%E5%80%91%E6%83%B3%E6%88%90%E7%82%BA%E4%BD%A0%E9%81%8B%E5%8B%95%E7%9A%84%E5%8A%9B%E9%87%8F/1034835758678421/"
+          },
+          {
+            "title": "QMAT | Formoria",
+            "description": "QMAT | Formoria — QMAT 創立於2014 年，是專注於發泡產品的台灣運動品牌，以瑜珈墊、瑜珈磚及按摩滾筒為核心產品。品牌結合30 年純熟工藝與國際認可技術，堅持環保與品質。",
+            "url": "https://formoria.com/en/brands/qmat-%E8%A8%AD%E8%A8%88%E9%A4%A8"
+          },
+          {
+            "title": "QMAT,運動/戶外/休閒/健身-精選品牌 - Yahoo購物中心",
+            "description": "QMAT,運動/戶外/休閒/健身-精選品牌 - Yahoo購物中心 — 眾多QMAT - 運動/戶外/休閒/健身精選與特價商品，【QMAT】加厚瑜珈磚台灣製(9種顏色可選擇瑜珈輔具),【QMAT】50D瑜珈磚- 單色,【QMAT】40CM按摩滾筒-台灣製(按摩滾筒 ...",
+            "url": "https://tw.buy.yahoo.com/category/4436854?flt=%E5%93%81%E7%89%8C_QMAT"
+          },
+          {
+            "title": "運動市集MySport",
+            "description": "運動市集MySport — 運動保健>運動恢復>滾筒>. 【QMAT】 50cm按摩滾筒. 已售出8個 | ... 【QMAT】 50cm按摩滾筒 0 【QMAT】 50cm按摩滾筒 1 【QMAT】 50cm按摩滾筒 2 ...",
+            "url": "https://www.mysport.com.tw/commodity/12329"
+          },
+          {
+            "title": "QMAT | 健身重訓- PChome 24h購物",
+            "description": "QMAT | 健身重訓- PChome 24h購物 — 無論是瑜珈伸展、筋膜放鬆，或是運動後的肌肉舒緩，這些瑜珈用品都能提供絕佳輔助，讓您更有效率地達成健身目標。 我們精選QMAT等知名品牌，提供您最新、最熱門的瑜珈用品選擇 ...",
+            "url": "https://24h.pchome.com.tw/store/DEBYLF?srsltid=AfmBOooPRcUrH1B3yclgd37ZFSVCZMARqkDeNyinkveag-RRUrKtI_oh"
+          },
+          {
+            "title": "3 款MIT 台灣折疊瑜珈墊推薦：集功能、環保與輕巧於一身！",
+            "description": "3 款MIT 台灣折疊瑜珈墊推薦：集功能、環保與輕巧於一身！ — QMAT 成立於2006 年，算是非常早期的瑜珈輔具品牌，有著前人留下的傳統技術，和與時俱進的環保理念。隨著戶外運動的盛行，以及綠色意識的抬頭，QMAT ...",
+            "url": "https://helloyogis.com/magazine/2022/03/26/mit-folding-yoga-mat/"
+          },
+          {
+            "title": "從FIT FEST美力綠動節看見運動風格新趨勢！QMAT「8MM折疊瑜珈 ...",
+            "description": "從FIT FEST美力綠動節看見運動風格新趨勢！QMAT「8MM折疊瑜珈 ... — 台灣在地品牌QMAT把運動裝備重新設計成更貼近日常，其經典的「8MM折疊瑜珈墊」搭配專屬帆布收納袋，打破傳統瑜珈墊笨重難攜帶的印象，也成為現在Gen Z ...",
+            "url": "https://www.womenshealthmag.com/tw/fitness/yoga/a71500851/fit-fest-qmat8mm/"
+          },
+          {
+            "title": "【開箱】命中註定的運動好夥伴｜推薦QMAT環保材質瑜珈墊",
+            "description": "【開箱】命中註定的運動好夥伴｜推薦QMAT環保材質瑜珈墊 — QMAT是臺灣嚴選品牌，又是環保材質，運動時實測也沒太大毛病； 該怎麼說呢？就是特別安心。 拉扯不容易損壞、運動時不會滑來滑去、又不會有難聞的塑膠味！",
+            "url": "https://doratheexploer.com/2021/10/15/qmat-yoga-mat/"
+          },
+          {
+            "title": "足底有感的立體紋理設計，日常超慢跑也能放鬆｜QMAT 筋膜XO超 ...",
+            "description": "足底有感的立體紋理設計，日常超慢跑也能放鬆｜QMAT 筋膜XO超 ... — QMAT 是台灣在地品牌，旗下的產品都是以「在家運動」為出發點進行設計，讓運動可以更貼近日常生活，不一定要走到戶外或健身房，只要利用瑜珈墊、瑜珈磚、筋膜 ...",
+            "url": "https://vocus.cc/article/6936a1b7fd897800011de945"
+          },
+          {
+            "title": "QMAT | Coupang Taiwan - 酷澎",
+            "description": "QMAT | Coupang Taiwan - 酷澎 — 全部 ; QMAT 環保POE摺疊瑜珈墊附尼龍拉鍊袋, 香檳葡萄, 1個 ; QMAT 環保POE摺疊瑜珈墊附尼龍拉鍊袋, 灰藍+ 黑色, 1個 ; QMAT 筋膜球雲彩, 50D 紫鳶橘, 1個.",
+            "url": "https://www.tw.coupang.com/np/products/brand-shop?brandName=QMAT"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:31:10.392Z"
+    },
+    {
+      "brand": {
+        "slug": "qmat-設計館",
+        "name": "QMAT",
+        "productType": "outdoor",
+        "productTypeZh": "戶外運動保健",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "C",
+        "label": "Third-Party Content Bias"
+      },
+      "query": "QMAT 品牌 介紹 評價 推薦",
+      "parsed": {
+        "urls": [
+          "https://qmat.com.tw/",
+          "https://doratheexploer.com/2021/10/15/qmat-yoga-mat/",
+          "https://helloyogis.com/magazine/2022/03/26/mit-folding-yoga-mat/",
+          "https://www.momoshop.com.tw/product/9718423",
+          "https://www.dcard.tw/f/fitness/p/259110335",
+          "https://www.zingala.com/blog/lazyguide/yogamat",
+          "https://www.ptt.cc/bbs/e-shopping/M.1458135579.A.B75.html",
+          "https://www.facebook.com/QMAT.TW/videos/%E6%8A%98%E7%96%8A%E5%BC%8F%E7%91%9C%E7%8F%88%E5%A2%8Aqa-part1/983965285079678/",
+          "https://www.facebook.com/YJ0428/posts/%E4%BB%A5%E5%89%8D%E8%B7%AA%E5%A7%BF%E9%83%BD%E8%A6%81%E5%81%B7%E5%81%B7%E6%8A%8A%E7%91%9C%E7%8F%88%E5%A2%8A%E5%B0%8D%E6%8A%98%E5%9B%A0%E7%82%BA%E8%86%9D%E8%93%8B%E7%9C%9F%E7%9A%84%E6%9C%83%E7%97%9B%E9%80%99%E6%AC%A1%E5%88%86%E4%BA%AB%E6%88%91%E7%9A%84-qmat%E8%A9%95%E5%83%B9%E6%8A%98%E7%96%8A%E8%A8%AD%E8%A8%88%E7%9C%9F%E7%9A%84%E6%96%B9%E4%BE%BF%E5%B1%85%E5%AE%B6%E9%81%8B%E5%8B%95%E6%97%85%E8%A1%8C%E9%83%BD%E5%8F%AF%E4%BB%A5%E7%94%A8%E4%B8%8D%E6%98%AF%E8%8F%AF%E9%BA%97%E6%AC%BE%E6%98%AF%E5%BE%88%E5%AF%A6%E5%9C%A8%E9%82%A3%E7%A8%AE%E4%BD%A0%E6%9C%83%E5%9C%A8%E5%AE%B6%E9%81%8B%E5%8B%95%E5%97%8E%E9%82%84%E6%98%AF%E6%AF%94%E8%BC%83%E5%96%9C%E6%AD%A1%E5%8E%BB%E6%95%99%E5%AE%A4/1417394337067548/",
+          "https://shopee.tw/list/QMAT/%E7%91%9C%E7%8F%88%E5%A2%8A"
+        ],
+        "snippets": [
+          {
+            "title": "QMAT 官網",
+            "description": "QMAT 官網 — 誕生於西元2014年(民國103年)的台灣運動品牌，資歷尚淺卻有純熟的30年精湛工藝和國際認可技術，專注於發泡產品。涉獵瑜珈墊、瑜珈磚、按摩滾筒與其他運動用品。",
+            "url": "https://qmat.com.tw/?srsltid=AfmBOopGgZz7RO-RnXChReuyi-SBAiIcmsWc6Zf-vE9Itx_41vK3_SrW"
+          },
+          {
+            "title": "【開箱】命中註定的運動好夥伴｜推薦QMAT環保材質瑜珈墊",
+            "description": "【開箱】命中註定的運動好夥伴｜推薦QMAT環保材質瑜珈墊 — 不只有瑜珈墊｜QMAT按摩滾筒. QMAT是一個Made In Taiwan貨真價實臺灣製造的品牌，其實除了瑜珈墊之外，也致力於設計研發適合人類運動使用的器材，今天 ...",
+            "url": "https://doratheexploer.com/2021/10/15/qmat-yoga-mat/"
+          },
+          {
+            "title": "3 款MIT 台灣折疊瑜珈墊推薦：集功能、環保與輕巧於一身！",
+            "description": "3 款MIT 台灣折疊瑜珈墊推薦：集功能、環保與輕巧於一身！ — QMAT 8mm厚折疊瑜珈墊：採用回收原料EPR 與POE 環保材質，符合環保、友善自然的條件。材質輕盈、好收納，很適合習慣自行攜帶墊子到瑜珈教室上課的練習者。但 ...",
+            "url": "https://helloyogis.com/magazine/2022/03/26/mit-folding-yoga-mat/"
+          },
+          {
+            "title": "【QMAT】台灣製6mm折疊瑜珈墊(贈收納袋雙面雙壓紋皆可使用)",
+            "description": "【QMAT】台灣製6mm折疊瑜珈墊(贈收納袋雙面雙壓紋皆可使用) — 品質好，無異味，好收納. *唯*. 2026/07/09. 0. 規格：奶茶棕（拉鍊袋）. 不會有因為捲起來鋪不平的問題. 查看全部評價(1,885). 商品評價規則說明. 關閉. 圖文詳情. 快速收納， ...",
+            "url": "https://www.momoshop.com.tw/product/9718423?srsltid=AfmBOopT7cJzpIwmxk5YWyEoRmhDXHlUUnSgF1cWCIBvA81B3CGIhEIw"
+          },
+          {
+            "title": "#請益瑜珈墊選哪個？ 月熊Tumaz/LOTUS/QMAT - 健身板| Dcard",
+            "description": "#請益瑜珈墊選哪個？ 月熊Tumaz/LOTUS/QMAT - 健身板| Dcard — 不過我一直都是用一塊很平價的瑜珈墊（某平台199買的那種 ）. 雖然一開始覺得夠用就好. 但後來發現它味道超重，有種塑膠味，而且還會掉屑屑…",
+            "url": "https://www.dcard.tw/f/fitness/p/259110335"
+          },
+          {
+            "title": "瑜珈墊怎麼選？精選10款瑜珈墊推薦！瑜珈墊大補帖一覽",
+            "description": "瑜珈墊怎麼選？精選10款瑜珈墊推薦！瑜珈墊大補帖一覽 — 有在物色瑜珈墊的人一定看過QMAT，快速摺疊收納這點好讚，直接幫我解決瑜珈墊佔位子又不易收納這痛點！而且日曬褐這個燕麥色真的很好看哈哈哈，多種厚度可選， ...",
+            "url": "https://www.zingala.com/blog/lazyguide/yogamat"
+          },
+          {
+            "title": "[問題] Qmat瑜珈墊評價- 看板e-shopping - 批踢踢實業坊",
+            "description": "[問題] Qmat瑜珈墊評價- 看板e-shopping - 批踢踢實業坊 — 由於最近開始學瑜珈因此想買個瑜珈墊：） 剛好在合購版有看到經常在團購的Qmat瑜珈墊，價格方面我也在我可接受的範圍^_^ 但爬了很多文，似乎沒有使用後的 ...",
+            "url": "https://www.ptt.cc/bbs/e-shopping/M.1458135579.A.B75.html"
+          },
+          {
+            "title": "若您還在猶豫要不要購買折疊式瑜珈墊，以下影片可以給您一個方向 ...",
+            "description": "若您還在猶豫要不要購買折疊式瑜珈墊，以下影片可以給您一個方向 ... — 小編可以推薦哪種適合初學者呢？ 9y. 1. 湯富翔. 請問你們有門市嗎？ 7y ... #qmat #田中馬拉松#馬拉松 #台灣米倉田中馬拉松#2025. Nov 21, 2025 · 2.1 ...",
+            "url": "https://www.facebook.com/QMAT.TW/videos/%E6%8A%98%E7%96%8A%E5%BC%8F%E7%91%9C%E7%8F%88%E5%A2%8Aqa-part1/983965285079678/"
+          },
+          {
+            "title": "以前跪姿都要偷偷把瑜珈墊對折   因為膝蓋真的會痛.... 這次分享我的 ...",
+            "description": "以前跪姿都要偷偷把瑜珈墊對折   因為膝蓋真的會痛.... 這次分享我的 ... — 這次分享我的QMAT評價 折疊設計真的方便 居家運動、旅行都可以用 不是華麗款，是很實在那種！ 你會在家運動嗎？ 還是比較喜歡去教室？ （留言處看更詳細文章） # ...",
+            "url": "https://www.facebook.com/YJ0428/posts/%E4%BB%A5%E5%89%8D%E8%B7%AA%E5%A7%BF%E9%83%BD%E8%A6%81%E5%81%B7%E5%81%B7%E6%8A%8A%E7%91%9C%E7%8F%88%E5%A2%8A%E5%B0%8D%E6%8A%98%E5%9B%A0%E7%82%BA%E8%86%9D%E8%93%8B%E7%9C%9F%E7%9A%84%E6%9C%83%E7%97%9B%E9%80%99%E6%AC%A1%E5%88%86%E4%BA%AB%E6%88%91%E7%9A%84-qmat%E8%A9%95%E5%83%B9%E6%8A%98%E7%96%8A%E8%A8%AD%E8%A8%88%E7%9C%9F%E7%9A%84%E6%96%B9%E4%BE%BF%E5%B1%85%E5%AE%B6%E9%81%8B%E5%8B%95%E6%97%85%E8%A1%8C%E9%83%BD%E5%8F%AF%E4%BB%A5%E7%94%A8%E4%B8%8D%E6%98%AF%E8%8F%AF%E9%BA%97%E6%AC%BE%E6%98%AF%E5%BE%88%E5%AF%A6%E5%9C%A8%E9%82%A3%E7%A8%AE%E4%BD%A0%E6%9C%83%E5%9C%A8%E5%AE%B6%E9%81%8B%E5%8B%95%E5%97%8E%E9%82%84%E6%98%AF%E6%AF%94%E8%BC%83%E5%96%9C%E6%AD%A1%E5%8E%BB%E6%95%99%E5%AE%A4/1417394337067548/"
+          },
+          {
+            "title": "QMAT 瑜珈墊｜優惠推薦- 蝦皮購物- 2026年7月",
+            "description": "QMAT 瑜珈墊｜優惠推薦- 蝦皮購物- 2026年7月 — 【QMAT】10MM折疊瑜珈墊台灣製60*180cm (織紋設計雙面雙壓紋皆可使用)$1,599 ... 評價獲得更多QMAT瑜珈墊評價資訊！別忘了，蝦皮購物還有第三方支付服務提供買賣 ...",
+            "url": "https://shopee.tw/list/QMAT/%E7%91%9C%E7%8F%88%E5%A2%8A"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:31:13.022Z"
+    },
+    {
+      "brand": {
+        "slug": "warmwood-living",
+        "name": "暖木家居 Warmwood Living",
+        "productType": "home",
+        "productTypeZh": "居家生活",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "A",
+        "label": "Broad Discovery"
+      },
+      "query": "暖木家居 Warmwood Living 台灣",
+      "parsed": {
+        "urls": [
+          "https://formoria.com/brands/warmwood-living",
+          "https://warmwood-living.com/",
+          "https://www.instagram.com/p/DXdkdtNDJpk/",
+          "https://mountainliving.com.tw/",
+          "https://www.facebook.com/goodwood0201/posts/%E5%A5%BD%E6%9C%A8%E5%8E%9F%E6%9C%A8%E5%82%A2%E4%BF%B1%E5%BA%97%E6%96%B0%E7%AB%B9%E9%96%80%E5%B8%82%E7%9B%9B%E5%A4%A7%E9%96%8B%E5%B9%95%E7%B1%8C%E5%82%99%E5%B7%B2%E4%B9%85%E5%A5%BD%E6%9C%A8%E6%AD%A3%E5%BC%8F%E5%B0%87%E9%9B%99%E5%93%81%E7%89%8C%E5%AF%A6%E6%9C%A8%E7%94%9F%E6%B4%BB%E7%BE%8E%E5%AD%B8%E5%B8%B6%E9%80%B2%E6%96%B0%E7%AB%B9%E5%93%81%E7%89%8C%E5%AE%98%E7%B6%B2-%E9%96%8B%E5%B9%95%E6%B4%BB%E5%8B%95%E9%96%8B%E8%B7%91%E6%9C%80%E7%9B%B4%E6%8E%A5%E7%9A%84%E5%84%AA%E6%83%A0%E6%9C%80%E6%9C%89%E6%84%9F%E7%9A%84%E5%9B%9E%E9%A5%8B-%E5%AE%B6%E5%85%B7%E4%B8%80%E4%BB%B6%EF%BC%99%E6%8A%98-%E5%AE%B6%E5%85%B7%E4%BA%8C%E4%BB%B6%EF%BC%98%EF%BC%98%E6%8A%98-%E5%AE%B6%E5%85%B7%E4%B8%89%E4%BB%B6/979908124688484/",
+          "https://www.instagram.com/reel/DAf-twTS2Fe/",
+          "https://shopee.tw/linpo10989",
+          "https://www.mrliving.com.tw/",
+          "https://www.nuanyu.tw/",
+          "https://www.instagram.com/reel/DRhA1iDEhhx/"
+        ],
+        "snippets": [
+          {
+            "title": "暖木家居Warmwood Living - Formoria",
+            "description": "暖木家居Warmwood Living - Formoria — 暖木家居Warmwood Living 創立於台中，專注以台灣在地木材手工製作溫潤耐用的生活用品。品牌在工作室中細心打磨每件作品，從餐桌器皿到收納小物，將自然溫度融入日常。",
+            "url": "https://formoria.com/brands/warmwood-living"
+          },
+          {
+            "title": "黃金先生暖木生活",
+            "description": "黃金先生暖木生活 — 最新消息 ; 濱文様Hamamonyo・經典繪手拭巾 · 濱文様Hamamonyo・經典繪手拭巾 · $310 ; 濱文様Hamamonyo・純棉散步小托特包 · 濱文様Hamamonyo・純棉散步小托特包 · $250 ; 濱文様 ...",
+            "url": "https://warmwood-living.com/"
+          },
+          {
+            "title": "在空間的純淨基調下，天然木料與植物的濃綠相互輝映，構築出一種 ...",
+            "description": "在空間的純淨基調下，天然木料與植物的濃綠相互輝映，構築出一種 ... — ✓木結構保固10年✓台灣最有設計感的實木家具✓台灣保固最長的實木家具 ... Your Home Kate 薄荷暖木宅顧客分享薄荷暖木宅X 凱特沙發簡約空間展現 ...",
+            "url": "https://www.instagram.com/p/DXdkdtNDJpk/"
+          },
+          {
+            "title": "Mountain Living - 柚木家具、進口家具推薦品牌",
+            "description": "Mountain Living - 柚木家具、進口家具推薦品牌 — Mountain Living 為柚木家具推薦品牌，選集來自全球及北歐的高品質原木進口家具；擁有卓越工藝與獨特風格，是原創設計家具推薦品牌。Mountain Living 讓平凡的日子裡充滿 ...",
+            "url": "https://mountainliving.com.tw/"
+          },
+          {
+            "title": "好木原木傢俱店｜新竹門市盛大開幕籌備已久，好木正式 ... - Facebook",
+            "description": "好木原木傢俱店｜新竹門市盛大開幕籌備已久，好木正式 ... - Facebook — 好木原木傢俱店｜新竹門市盛大開幕籌備已久，好木正式將雙品牌「實木生活美學」帶進新竹。 品牌官網： https://www.w2woodwork.com/aboutwood 「開幕活動 ...",
+            "url": "https://www.facebook.com/goodwood0201/posts/%E5%A5%BD%E6%9C%A8%E5%8E%9F%E6%9C%A8%E5%82%A2%E4%BF%B1%E5%BA%97%E6%96%B0%E7%AB%B9%E9%96%80%E5%B8%82%E7%9B%9B%E5%A4%A7%E9%96%8B%E5%B9%95%E7%B1%8C%E5%82%99%E5%B7%B2%E4%B9%85%E5%A5%BD%E6%9C%A8%E6%AD%A3%E5%BC%8F%E5%B0%87%E9%9B%99%E5%93%81%E7%89%8C%E5%AF%A6%E6%9C%A8%E7%94%9F%E6%B4%BB%E7%BE%8E%E5%AD%B8%E5%B8%B6%E9%80%B2%E6%96%B0%E7%AB%B9%E5%93%81%E7%89%8C%E5%AE%98%E7%B6%B2-%E9%96%8B%E5%B9%95%E6%B4%BB%E5%8B%95%E9%96%8B%E8%B7%91%E6%9C%80%E7%9B%B4%E6%8E%A5%E7%9A%84%E5%84%AA%E6%83%A0%E6%9C%80%E6%9C%89%E6%84%9F%E7%9A%84%E5%9B%9E%E9%A5%8B-%E5%AE%B6%E5%85%B7%E4%B8%80%E4%BB%B6%EF%BC%99%E6%8A%98-%E5%AE%B6%E5%85%B7%E4%BA%8C%E4%BB%B6%EF%BC%98%EF%BC%98%E6%8A%98-%E5%AE%B6%E5%85%B7%E4%B8%89%E4%BB%B6/979908124688484/"
+          },
+          {
+            "title": "邊桌&邊櫃還有好可愛好細緻，木平台帶來的小木器品牌 ... - Instagram",
+            "description": "邊桌&邊櫃還有好可愛好細緻，木平台帶來的小木器品牌 ... - Instagram — ... 生活展台灣工坊家具與小木器Taiwan Artisan Furniture & Woodcrafts Exhibition 2024/9/17(二)～10/6(日) 新光三越台北信義新天地A9-9F ｜家具品牌｜ 木 ...",
+            "url": "https://www.instagram.com/reel/DAf-twTS2Fe/"
+          },
+          {
+            "title": "Warm House Decor 暖&和家居-居家佈置小物生活用品 - 蝦皮購物",
+            "description": "Warm House Decor 暖&和家居-居家佈置小物生活用品 - 蝦皮購物 — 台灣賣家台灣出貨，倉庫靠近桃園藝文特區. △ 全館由蝦皮代開立發票Warm House Decor 暖&和家居佈置你溫暖的家Warm House Decor 提供各式居家佈置商品, 提供你佈置靈感, ...",
+            "url": "https://shopee.tw/linpo10989"
+          },
+          {
+            "title": "MR. LIVING 居家先生：北歐設計家具，全室家具一站挑選",
+            "description": "MR. LIVING 居家先生：北歐設計家具，全室家具一站挑選 — 讓大家以負擔得起的價格，擁有好質感的北歐設計家具！道地復古與簡約風家具、沙發，不一定昂貴價格～MR. LIVING居家先生使命＂精品家具平價化＂，市價4~6折買到喜愛家具， ...",
+            "url": "https://www.mrliving.com.tw/?srsltid=AfmBOor0-ZvuZvFdrKCdKEag5HojWzSUwb-CHulT6AWH6VcpCucS-2el"
+          },
+          {
+            "title": "暖嶼家居NUANYU｜小宅奶油風沙發・居家家具推薦",
+            "description": "暖嶼家居NUANYU｜小宅奶油風沙發・居家家具推薦 — 暖嶼家居NUANYU 專注於打造小宅友善與奶油風美感的居家家具，從訂製沙發、餐桌椅到茶几與床墊，陪你創造被光與溫柔填滿的理想空間。",
+            "url": "https://www.nuanyu.tw/"
+          },
+          {
+            "title": "〔 初心－堅守的台灣傢具品牌〕W2老檜木新生命Reuse + Rebirth ...",
+            "description": "〔 初心－堅守的台灣傢具品牌〕W2老檜木新生命Reuse + Rebirth ... — 光線緩緩落下，紋理便一點一點浮現，歲月也安靜留在其中。這份不急著表現自己的質感，反而更耐看，也更值得長久相處。 #實木 #家具 #原木桌板 ...",
+            "url": "https://www.instagram.com/reel/DRhA1iDEhhx/"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:31:15.764Z"
+    },
+    {
+      "brand": {
+        "slug": "warmwood-living",
+        "name": "暖木家居 Warmwood Living",
+        "productType": "home",
+        "productTypeZh": "居家生活",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "B",
+        "label": "Precision + Noise Filter"
+      },
+      "query": "\"暖木家居 Warmwood Living\" 居家生活 品牌 -徵才 -104 -人力",
+      "parsed": {
+        "urls": [
+          "https://formoria.com/brands/warmwood-living",
+          "https://formoria.com/categories/home",
+          "https://formoria.com/brands/%E5%AF%8C%E7%9B%9B%E8%B1%90%E9%A3%9F%E5%93%81%E7%B4%9A%E6%B8%85%E6%BD%94%E5%8A%91%E5%B7%A5%E5%BB%A0",
+          "https://formoria.com/brands/karus",
+          "https://formoria.com/brands/potato-sofa"
+        ],
+        "snippets": [
+          {
+            "title": "暖木家居Warmwood Living - Formoria",
+            "description": "暖木家居Warmwood Living - Formoria — 暖木家居Warmwood Living 創立於台中，專注以台灣在地木材手工製作溫潤耐用的生活用品。品牌在工作室中細心打磨每件作品，從餐桌器皿到收納小物，將自然溫度融入日常。",
+            "url": "https://formoria.com/brands/warmwood-living"
+          },
+          {
+            "title": "居家生活台灣品牌 - Formoria",
+            "description": "居家生活台灣品牌 - Formoria — ... 居家美學。 讓質感家具陪伴您生活的美好時刻。 居家生活 · 暖木家居Warmwood Living. 品牌. 暖木家居是來自台中的手作木質家居品牌，專注以台灣在 ...",
+            "url": "https://formoria.com/categories/home"
+          },
+          {
+            "title": "富盛豐食品級清潔劑工廠| Formoria",
+            "description": "富盛豐食品級清潔劑工廠| Formoria — 居家生活全台灣 · 暖木家居Warmwood Living. 品牌. 暖木家居是來自台中的手作木質家居品牌，專注以台灣在地木材製作溫潤耐用的生活用品。從餐桌 ...",
+            "url": "https://formoria.com/brands/%E5%AF%8C%E7%9B%9B%E8%B1%90%E9%A3%9F%E5%93%81%E7%B4%9A%E6%B8%85%E6%BD%94%E5%8A%91%E5%B7%A5%E5%BB%A0"
+          },
+          {
+            "title": "KARUS 在意生活| Formoria",
+            "description": "KARUS 在意生活| Formoria — 暖木家居Warmwood Living. 品牌. 暖木家居是來自台中的手作木質家居品牌，專注以台灣在地木材製作溫潤耐用的生活用品。從餐桌器皿到收納小物 ...",
+            "url": "https://formoria.com/brands/karus"
+          },
+          {
+            "title": "馬鈴薯沙發Potato Sofa - Formoria",
+            "description": "馬鈴薯沙發Potato Sofa - Formoria — 更多居家生活. 此分類還有89 個品牌. 你可能也會喜歡. 暖木家居Warmwood Living. 品牌. 暖木家居是來自台中的手作木質家居品牌，專注以台灣在地 ...",
+            "url": "https://formoria.com/brands/potato-sofa"
+          }
+        ],
+        "rawCount": 5,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:31:18.628Z"
+    },
+    {
+      "brand": {
+        "slug": "warmwood-living",
+        "name": "暖木家居 Warmwood Living",
+        "productType": "home",
+        "productTypeZh": "居家生活",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "C",
+        "label": "Third-Party Content Bias"
+      },
+      "query": "暖木家居 Warmwood Living 品牌 介紹 評價 推薦",
+      "parsed": {
+        "urls": [
+          "https://mountainliving.com.tw/",
+          "https://formoria.com/brands/warmwood-living",
+          "https://www.nuanyu.tw/aboutnuanyu",
+          "https://warmwood-living.com/",
+          "https://gzifood.com/nuanyu/",
+          "https://www.facebook.com/goodwood0201/?locale=zh_TW",
+          "https://www.facebook.com/61574407101944/videos/nuanyu%E6%9A%96%E5%B6%BC%E7%AB%8B%E5%8D%B3%E5%89%8D%E5%BE%80%E9%AB%94%E9%A9%97/1881047342496358/",
+          "https://www.davidwin.net/?p=56734",
+          "https://buy.line.me/u/article/143728",
+          "https://sofa.c-h-c.com.tw/446/"
+        ],
+        "snippets": [
+          {
+            "title": "Mountain Living - 柚木家具、進口家具推薦品牌",
+            "description": "Mountain Living - 柚木家具、進口家具推薦品牌 — Mountain Living 為柚木家具推薦品牌，選集來自全球及北歐的高品質原木進口家具；擁有卓越工藝與獨特風格，是原創設計家具推薦品牌。Mountain Living 讓平凡的日子裡充滿 ...",
+            "url": "https://mountainliving.com.tw/"
+          },
+          {
+            "title": "暖木家居Warmwood Living - Formoria",
+            "description": "暖木家居Warmwood Living - Formoria — 暖木家居Warmwood Living 創立於台中，專注以台灣在地木材手工製作溫潤耐用的生活用品。品牌在工作室中細心打磨每件作品，從餐桌器皿到收納小物，將自然溫度融入日常。",
+            "url": "https://formoria.com/brands/warmwood-living"
+          },
+          {
+            "title": "品牌故事與設計理念| 暖嶼家居NUANYU｜小宅奶油風沙發・居家家具 ...",
+            "description": "品牌故事與設計理念| 暖嶼家居NUANYU｜小宅奶油風沙發・居家家具 ... — 暖嶼家居NUANYU，了解我們從一張沙發出發。暖嶼相信家具的溫度能改變生活，打造屬於每個人生活節奏的居家風格。我們的品牌故事始於對實用美學的追求，為您提供有溫度的 ...",
+            "url": "https://www.nuanyu.tw/aboutnuanyu"
+          },
+          {
+            "title": "黃金先生暖木生活",
+            "description": "黃金先生暖木生活 — 品牌選物. 悠悠庵(YOU YOU ANG) · 本高砂屋(Hon-takasagoya) · 砂糖奶油樹(Sugar Butter Tree) · 桂新堂(Keishindo) · 和寶堂(Wahodo) ... 版權所有© 2025, warmwood-living.",
+            "url": "https://warmwood-living.com/"
+          },
+          {
+            "title": "暖嶼家居評價大公開｜樹林門市開箱心得!打造奶油風小宅,客製化小 ...",
+            "description": "暖嶼家居評價大公開｜樹林門市開箱心得!打造奶油風小宅,客製化小 ... — 暖嶼家居樹林店空間很寬敞超大的，而且整體氛圍就是奶油風小宅的設計，連燈光都是很舒服的暖色黃光，給人很溫馨家的歸屬感。現場有多款沙發和床墊可以試坐試 ...",
+            "url": "https://gzifood.com/nuanyu/"
+          },
+          {
+            "title": "好木wood shop -台北門市",
+            "description": "好木wood shop -台北門市 — 延續品牌一貫的美感語彙與空間氣息， 從木質、光線、氣味到生活感受，我們希望用最自然純 粹的方式， 讓每一位走進空間的人，感受到原木真正的溫度。 實木不只是家具， 而是一種 ...",
+            "url": "https://www.facebook.com/goodwood0201/?locale=zh_TW"
+          },
+          {
+            "title": "NUANYU暖嶼|台灣手工訂製沙發   有時候，家裡只差一件家具，氛圍 ...",
+            "description": "NUANYU暖嶼|台灣手工訂製沙發   有時候，家裡只差一件家具，氛圍 ... — 穩固耐用的結構，同時保留手感、溫度與你喜歡的風 格 你可以依照你家的空間調整尺寸，自由訂製尺寸、材質 、顏色 不用妥協，也不用怕買錯 想讓家變得更舒服？",
+            "url": "https://www.facebook.com/61574407101944/videos/nuanyu%E6%9A%96%E5%B6%BC%E7%AB%8B%E5%8D%B3%E5%89%8D%E5%BE%80%E9%AB%94%E9%A9%97/1881047342496358/"
+          },
+          {
+            "title": "【幫主賞屋】市售床墊品牌比一比。覺醒家居Awake Living - 大衛營",
+            "description": "【幫主賞屋】市售床墊品牌比一比。覺醒家居Awake Living - 大衛營 — 躺了舒服好睡最重要說實話，現代的製床工藝，水準真的都不賴，未必要迷信大品牌，視自己的需求、預算來挑選，多去店家躺躺就對了！ 覺醒家居Awake Living 台北 ...",
+            "url": "https://www.davidwin.net/?p=56734"
+          },
+          {
+            "title": "【台中傢俱推薦-Amour Wood 愛沐家居】嚴選優質木材，獨家設計",
+            "description": "【台中傢俱推薦-Amour Wood 愛沐家居】嚴選優質木材，獨家設計 — 走過25個年頭的木工廠Amour Wood 愛沐家居，一直替許多知名傢俱品牌代工，可想而知品質肯定讓人放心. 而在近幾年也開始經營屬於自己的品牌- Amour Wood ...",
+            "url": "https://buy.line.me/u/article/143728"
+          },
+          {
+            "title": "2026 實木家具推薦： TOP 10 實木家具品牌排行！ - Sofa Studio",
+            "description": "2026 實木家具推薦： TOP 10 實木家具品牌排行！ - Sofa Studio — 環保友善： 品牌融合設計美感與環保，選用高品質耐用的實木，並符合世界最高標準4星甲醛認證。 簡約原創設計： ALOT挑選嚴謹的日本原創設計品牌，追求簡約且兼 ...",
+            "url": "https://sofa.c-h-c.com.tw/446/"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:31:21.423Z"
+    },
+    {
+      "brand": {
+        "slug": "lianne-baby",
+        "name": "Lianne Baby 梨安",
+        "productType": "kids-pets",
+        "productTypeZh": "母嬰寵物",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "A",
+        "label": "Broad Discovery"
+      },
+      "query": "Lianne Baby 梨安 台灣",
+      "parsed": {
+        "urls": [
+          "https://www.liannebaby.com/",
+          "https://www.facebook.com/liannebaby.tw/",
+          "https://www.instagram.com/liannebaby.tw/",
+          "https://www.pinkoi.com/store/lianneshop",
+          "https://www.liannebaby.com/category",
+          "http://www.momoshop.com.tw/product/13337121",
+          "https://feebee.com.tw/all/lianne%20baby/",
+          "https://www.liannebaby.com/page/%E9%96%80%E5%B8%82%E8%B3%87%E8%A8%8A",
+          "https://www.threads.com/@liannebaby.tw?hl=zh-tw"
+        ],
+        "snippets": [
+          {
+            "title": "Lianne baby 梨安-破2500則好評推薦手工圍兜嬰兒禮盒",
+            "description": "Lianne baby 梨安-破2500則好評推薦手工圍兜嬰兒禮盒 — Lianne Baby. 是關於「如何把日常過得更好」的理想實踐，. 也是陪伴妳走過育兒旅程的堅定力量。 Gentle care, powerful love. Handmade for the motherhood journey. · 〃圍 ...",
+            "url": "https://www.liannebaby.com/"
+          },
+          {
+            "title": "梨安Lianne baby 市場內的手作童品裁縫室(@liannebaby.tw)",
+            "description": "梨安Lianne baby 市場內的手作童品裁縫室(@liannebaby.tw) — 這份不張揚的份量感 在日常使用中為心靈帶來極致的舒心與安穩。 - 尺寸：7cm x 8.5cm 可放符咒、能量水晶或經文 可掛於寶寶衣物、嬰兒床、推車 材質：韓國100%純棉＋鋪棉內裡， ...",
+            "url": "https://www.facebook.com/liannebaby.tw/"
+          },
+          {
+            "title": "Lianne baby梨安手工圍兜專屬繡字嬰兒滿月週歲見面禮(@liannebaby ...",
+            "description": "Lianne baby梨安手工圍兜專屬繡字嬰兒滿月週歲見面禮(@liannebaby ... — - 背面採用KC認證水洗皺褶二重紗， 天然色素染色，無甲醛、無芳香胺， 連敏感肌寶寶都能安心使用。 - -減少口水疹- 手感更蓬鬆-更瞬吸口水 優雅設計，襯托寶寶氣質獨特公主領 ...",
+            "url": "https://www.instagram.com/liannebaby.tw/"
+          },
+          {
+            "title": "Lianne baby 梨安手工嬰兒禮物彌月禮新生兒見面禮周歲禮",
+            "description": "Lianne baby 梨安手工嬰兒禮物彌月禮新生兒見面禮周歲禮 — Lianne baby 梨安手工嬰兒禮物彌月禮新生兒見面禮周歲禮官方經營商店，Pinkoi 新會員享APP 運費優惠，最高折NT$100！ ... 台灣四層紗大尺寸嬰幼兒紗布浴巾寶寶包巾夏日涼被寶寶 ...",
+            "url": "https://www.pinkoi.com/store/lianneshop"
+          },
+          {
+            "title": "商品列表市場內裁縫室的手工嬰兒禮盒",
+            "description": "商品列表市場內裁縫室的手工嬰兒禮盒 — 全部商品 ; 【許願團購】幼兒園入學必備！韓國天然染色皺皺紗手帕夾（100%手工製作✨） · 220 ; (快出)【花漾初綻】韓國純棉× 天然染色雙面空氣感皺皺紗・職人花瓣圍兜三入禮盒組（ ...",
+            "url": "https://www.liannebaby.com/category"
+          },
+          {
+            "title": "【Lianne baby】淡紫和花手工寶寶蝴蝶枕圍兜彌月禮盒嬰兒禮物(滿月 ...",
+            "description": "【Lianne baby】淡紫和花手工寶寶蝴蝶枕圍兜彌月禮盒嬰兒禮物(滿月 ... — 以確保寶寶的肌膚感受到最優質的呵護。 台灣梨安家的手工寶寶天使蝴蝶枕,. 梨安舞兜小裁縫梨安舞兜小裁縫. 韓國KC認証無甲銓、無芳香胺、PH值合格. 商品規格. 品牌名稱.",
+            "url": "http://www.momoshop.com.tw/product/13337121?srsltid=AfmBOorTbYL3WcW6khlJUeMsarbOor5dPv9_i8pN-ypuIs0M5M31Is0d"
+          },
+          {
+            "title": "Lianne Baby的比價推薦- 2026年06月",
+            "description": "Lianne Baby的比價推薦- 2026年06月 — 【Lianne baby】台灣製薄棉柔軟嬰兒肚圍(嬰兒肚圍新生兒包巾兒童肚圍. $298 ... Lianne Baby 梨安舞兜小裁縫粉薄荷草兔3件組彌月禮盒天使枕+ 圍. $1,698. Coupang ...",
+            "url": "https://feebee.com.tw/all/lianne%20baby/"
+          },
+          {
+            "title": "門市資訊市場內裁縫室的手工嬰兒禮盒",
+            "description": "門市資訊市場內裁縫室的手工嬰兒禮盒 — 安撫兔兔/ 許願星/立方球 · 育兒配件 · 遮陽漁夫帽 · 寶寶親子髮帶 · 奶嘴鍊套- 平安袋 · 手帕拍嗝巾 · 託藥袋|尿布袋| 收納包 · 台灣製幼兒服 · 加購繡字.禮盒包裝 · 部落 ...",
+            "url": "https://www.liannebaby.com/page/%E9%96%80%E5%B8%82%E8%B3%87%E8%A8%8A"
+          },
+          {
+            "title": "Lianne baby梨安手工圍兜專屬繡字嬰兒滿月週歲見面禮",
+            "description": "Lianne baby梨安手工圍兜專屬繡字嬰兒滿月週歲見面禮 — 新北傳統市場裡的手作裁縫店｜週休三日（六日一） 𖤐店內有現貨，官網可下單𖤐北中部月子中心·安親班暑期寒假課程合作，請私訊洽詢𖤐商檢合格M56499｜註冊商標・圖文版權所有.",
+            "url": "https://www.threads.com/@liannebaby.tw?hl=zh-tw"
+          }
+        ],
+        "rawCount": 9,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:31:24.085Z"
+    },
+    {
+      "brand": {
+        "slug": "lianne-baby",
+        "name": "Lianne Baby 梨安",
+        "productType": "kids-pets",
+        "productTypeZh": "母嬰寵物",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "B",
+        "label": "Precision + Noise Filter"
+      },
+      "query": "\"Lianne Baby 梨安\" 母嬰寵物 品牌 -徵才 -104 -人力",
+      "parsed": {
+        "urls": [
+          "https://formoria.com/brands/lianne-baby",
+          "https://www.tw.coupang.com/products/Lianne-Baby-%E6%A2%A8%E5%AE%89%E8%88%9E%E5%85%9C%E5%B0%8F%E8%A3%81%E7%B8%AB-%E7%B2%89%E9%B9%BF%E7%86%8A%E6%A3%AE%E6%9E%97-%E9%9F%93%E5%9C%8B%E6%9C%89%E6%A9%9F%E6%A3%89%E5%AC%B0%E5%85%92%E7%A6%AE%E7%9B%92-%E8%9D%B4%E8%9D%B6%E6%9E%95-%2B-%E5%9C%8D%E5%85%9C-%2B-%E9%AB%AE%E5%B8%B6-600g-491138666430466",
+          "https://www.instagram.com/reel/DZPTkpFTZwm/",
+          "https://www.instagram.com/p/DZorqjLE2kp/?img_index=2&hl=ms",
+          "https://hk.pinkoi.com/search?q=%E6%96%B0%E7%94%9F%E5%85%92+%E6%B5%B4%E5%B7%BE",
+          "https://formoria.com/en/categories/kids-pets",
+          "https://www.instagram.com/reel/DZhH_XqT2lA/",
+          "https://www.threads.com/@liannebaby.tw/post/DZ8uze6k6j-/%E5%97%A8%E5%A4%A7%E5%AE%B6%E6%88%91%E6%98%AF%E6%96%B0%E5%8C%97%E4%B8%AD%E5%92%8C%E5%82%B3%E7%B5%B1%E5%B8%82%E5%A0%B4%E8%A3%A1%E7%9A%84%E4%B8%80%E9%96%93%E5%B0%8F%E8%A3%81%E7%B8%AB%E5%AE%A4%E6%AF%8F%E5%A4%A9%E9%83%BD%E5%9C%A8%E5%B8%83%E6%96%99%E5%A0%86%E5%92%8C%E8%A3%81%E7%B8%AB%E6%A9%9F%E8%A3%A1%E5%B7%A5%E4%BD%9C%E5%9B%A0%E7%82%BA%E5%81%9A%E7%9A%84%E6%98%AF%E5%AF%B6%E5%AF%B6%E7%94%A8%E5%93%81%E6%89%80%E4%BB%A5%E5%B8%B8%E5%B8%B8%E6%AF%94%E5%AE%A2%E4%BA%BA%E9%82%84%E5%9C%A8%E6%84%8F%E5%B8%83%E6%96%99%E7%9C%8B%E5%88%B0%E8%8A%B1%E8%89%B2%E6%BC%82%E4%BA%AE%E6%9C%83%E5%BF%83%E5%8B%95%E4%BD%86%E9%82%84%E6%98%AF%E6%9C%83%E5%85%88%E7%9C%8B%E4%BE%86%E6%BA%90%E6%91%B8%E6%89%8B%E6%84%9F%E7%A2%BA%E8%AA%8D%E9%81%A9%E4%B8%8D",
+          "https://www.instagram.com/reel/DX3Bxjmhvmp/",
+          "https://www.instagram.com/p/DZFZ-QtEiDY/"
+        ],
+        "snippets": [
+          {
+            "title": "Lianne Baby 梨安 - Formoria",
+            "description": "Lianne Baby 梨安 - Formoria — Lianne Baby 梨安創立於台灣，以手工圍兜為核心產品，從照護與安全需求出發， ... 品牌產品涵蓋免疫、口腔、腸胃、關節等照護需求，並有系列產品取得SNQ 國家品質標章。 母嬰寵物 ...",
+            "url": "https://formoria.com/brands/lianne-baby"
+          },
+          {
+            "title": "Lianne Baby 梨安舞兜小裁縫粉鹿熊森林韓國有機棉嬰兒禮盒蝴蝶枕+ ...",
+            "description": "Lianne Baby 梨安舞兜小裁縫粉鹿熊森林韓國有機棉嬰兒禮盒蝴蝶枕+ ... — Lianne Baby 梨安舞兜小裁縫粉鹿熊森林韓國有機棉嬰兒禮盒蝴蝶枕+ 圍兜+ 髮帶600g, 粉色, 1入, 1組 ; 原產地/國, 台灣 ; 國內製造商或負責商名稱, 穎安嬰幼有限公司 ; BSMI ...",
+            "url": "https://www.tw.coupang.com/products/Lianne-Baby-%E6%A2%A8%E5%AE%89%E8%88%9E%E5%85%9C%E5%B0%8F%E8%A3%81%E7%B8%AB-%E7%B2%89%E9%B9%BF%E7%86%8A%E6%A3%AE%E6%9E%97-%E9%9F%93%E5%9C%8B%E6%9C%89%E6%A9%9F%E6%A3%89%E5%AC%B0%E5%85%92%E7%A6%AE%E7%9B%92-%E8%9D%B4%E8%9D%B6%E6%9E%95-%2B-%E5%9C%8D%E5%85%9C-%2B-%E9%AB%AE%E5%B8%B6-600g-491138666430466"
+          },
+          {
+            "title": "客製繡名分享｜ 有些禮物， 卻會陪著孩子一起長大。 當寶寶的名字被 ...",
+            "description": "客製繡名分享｜ 有些禮物， 卻會陪著孩子一起長大。 當寶寶的名字被 ... — ... 嬰幼兒用品寶寶彌月送禮嫩嬰baby 口水巾嬰幼兒寶寶日常育兒好物手作handmade 手作圍兜. June 20. Join Lianne baby梨安手工圍兜專屬繡字嬰兒滿月週歲 ...",
+            "url": "https://www.instagram.com/reel/DZPTkpFTZwm/"
+          },
+          {
+            "title": "各位媽咪久等了！！ 千呼萬喚的「紫花  微語」新品嬰兒禮盒終於來啦 ...",
+            "description": "各位媽咪久等了！！ 千呼萬喚的「紫花  微語」新品嬰兒禮盒終於來啦 ... — Photo by Lianne baby梨 ...",
+            "url": "https://www.instagram.com/p/DZorqjLE2kp/?img_index=2&hl=ms"
+          },
+          {
+            "title": "新生兒浴巾推薦| 2026 年7 月| Pinkoi 亞洲跨境設計購物平台",
+            "description": "新生兒浴巾推薦| 2026 年7 月| Pinkoi 亞洲跨境設計購物平台 — ... 品牌，包含 Deux Filles Organics ， POSHÜP 母嬰設計品牌 ， Nature Me ， Nizio 簡單日常｜好物計劃 ， Lianne baby 梨安手工嬰兒禮物彌月禮新生兒見面禮周歲禮 等 ...",
+            "url": "https://hk.pinkoi.com/search?q=%E6%96%B0%E7%94%9F%E5%85%92+%E6%B5%B4%E5%B7%BE&srsltid=AfmBOopgOnVkaPFLFBWyR65PUal2xHQunbDhlqReYDeK6SfJ6RKQaXky"
+          },
+          {
+            "title": "Kids, Baby & Pets Brands from Taiwan | Formoria",
+            "description": "Kids, Baby & Pets Brands from Taiwan | Formoria — Lianne baby 梨安手工圍兜是台灣親子或寵物生活品牌，產品從照護、安全與日常使用需求出發。設計兼顧實用性、材質與生活美感。 母嬰 ...",
+            "url": "https://formoria.com/en/categories/kids-pets"
+          },
+          {
+            "title": "多名媽咪們反饋現在奶嘴幾乎都用有圓環！ 所以扣式相對 ... - Instagram",
+            "description": "多名媽咪們反饋現在奶嘴幾乎都用有圓環！ 所以扣式相對 ... - Instagram — ... 母嬰用品 #嬰兒用品 #日系品牌 · June 26. OCR. 赤ちゃん本舗寶寶來開箱 ... Join Lianne baby梨安手工圍兜專屬繡字嬰兒滿月週歲見面禮on Instagram.",
+            "url": "https://www.instagram.com/reel/DZhH_XqT2lA/"
+          },
+          {
+            "title": "嗨大家～ 我是新北中和傳統市場裡的一間小裁縫室    ‍♀️ 每天都在 ...",
+            "description": "嗨大家～ 我是新北中和傳統市場裡的一間小裁縫室    ‍♀️ 每天都在 ... — Lianne baby梨安手工圍兜專屬繡字嬰兒滿月週歲見面禮(@liannebaby.tw). 嗨大家～ 我是新北中和傳統市場裡的一間小裁縫室 ‍♀️ 每天都在布料堆和裁縫機裡 ...",
+            "url": "https://www.threads.com/@liannebaby.tw/post/DZ8uze6k6j-/%E5%97%A8%E5%A4%A7%E5%AE%B6%E6%88%91%E6%98%AF%E6%96%B0%E5%8C%97%E4%B8%AD%E5%92%8C%E5%82%B3%E7%B5%B1%E5%B8%82%E5%A0%B4%E8%A3%A1%E7%9A%84%E4%B8%80%E9%96%93%E5%B0%8F%E8%A3%81%E7%B8%AB%E5%AE%A4%E6%AF%8F%E5%A4%A9%E9%83%BD%E5%9C%A8%E5%B8%83%E6%96%99%E5%A0%86%E5%92%8C%E8%A3%81%E7%B8%AB%E6%A9%9F%E8%A3%A1%E5%B7%A5%E4%BD%9C%E5%9B%A0%E7%82%BA%E5%81%9A%E7%9A%84%E6%98%AF%E5%AF%B6%E5%AF%B6%E7%94%A8%E5%93%81%E6%89%80%E4%BB%A5%E5%B8%B8%E5%B8%B8%E6%AF%94%E5%AE%A2%E4%BA%BA%E9%82%84%E5%9C%A8%E6%84%8F%E5%B8%83%E6%96%99%E7%9C%8B%E5%88%B0%E8%8A%B1%E8%89%B2%E6%BC%82%E4%BA%AE%E6%9C%83%E5%BF%83%E5%8B%95%E4%BD%86%E9%82%84%E6%98%AF%E6%9C%83%E5%85%88%E7%9C%8B%E4%BE%86%E6%BA%90%E6%91%B8%E6%89%8B%E6%84%9F%E7%A2%BA%E8%AA%8D%E9%81%A9%E4%B8%8D"
+          },
+          {
+            "title": "給寶貝的第一件手作禮：親手縫製的圍兜   總覺得市售的 ... - Instagram",
+            "description": "給寶貝的第一件手作禮：親手縫製的圍兜   總覺得市售的 ... - Instagram — ✉️或搜尋官方Line ID ｜@ forevermommy 地址：台北市內湖區民權東路六段180 巷6 號3 樓 #永安福華產後護理之家 #20多年母嬰 ... Photo by ...",
+            "url": "https://www.instagram.com/reel/DX3Bxjmhvmp/"
+          },
+          {
+            "title": "新的圍兜上線！ 有別於過去的動物系列， 這次多了一些小 ... - Instagram",
+            "description": "新的圍兜上線！ 有別於過去的動物系列， 這次多了一些小 ... - Instagram — Photo by Lianne baby梨 ...",
+            "url": "https://www.instagram.com/p/DZFZ-QtEiDY/"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:31:26.440Z"
+    },
+    {
+      "brand": {
+        "slug": "lianne-baby",
+        "name": "Lianne Baby 梨安",
+        "productType": "kids-pets",
+        "productTypeZh": "母嬰寵物",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "C",
+        "label": "Third-Party Content Bias"
+      },
+      "query": "Lianne Baby 梨安 品牌 介紹 評價 推薦",
+      "parsed": {
+        "urls": [
+          "https://www.instagram.com/liannebaby.tw/",
+          "https://www.liannebaby.com/",
+          "https://www.facebook.com/liannebaby.tw/",
+          "https://www.liannebaby.com/page/%E9%96%80%E5%B8%82%E8%B3%87%E8%A8%8A",
+          "https://www.instagram.com/reel/C60tr_rvpfE/",
+          "https://www.threads.com/@liannebaby.tw?hl=zh-tw",
+          "https://www.facebook.com/liannebaby.tw/videos/%E5%B8%82%E5%A0%B4%E5%85%A7%E7%9A%84%E8%A3%81%E7%B8%AB%E5%AE%A4%E5%9C%A8%E5%87%BA%E4%BB%80%E9%BA%BC%E8%B2%A8/793422810086903/",
+          "http://www.momoshop.com.tw/product/13337121",
+          "https://www.instagram.com/lianneshop/",
+          "https://www.liannebaby.com/about_us"
+        ],
+        "snippets": [
+          {
+            "title": "Lianne baby梨安手工圍兜專屬繡字嬰兒滿月週歲見面禮 ... - Instagram",
+            "description": "Lianne baby梨安手工圍兜專屬繡字嬰兒滿月週歲見面禮 ... - Instagram — ➤➤ 防風設計，帽子乖乖待在頭上！對於好動、愛跑跳的寶寶來說，絕對友善！鬆緊度剛剛好！不會遇到那種一陣風就吹跑的窘境，推爆！ . ➤➤ 還有更多優點包含，可折疊好收納，不占媽媽包 ...",
+            "url": "https://www.instagram.com/liannebaby.tw/"
+          },
+          {
+            "title": "Lianne baby 梨安-破2500則好評推薦手工圍兜嬰兒禮盒",
+            "description": "Lianne baby 梨安-破2500則好評推薦手工圍兜嬰兒禮盒 — Lianne Baby. 是關於「如何把日常過得更好」的理想實踐，. 也是陪伴妳走過育兒旅程的堅定力量。 Gentle care, powerful love. Handmade for the motherhood journey. · 〃圍 ...",
+            "url": "https://www.liannebaby.com/"
+          },
+          {
+            "title": "梨安Lianne baby 市場內的手作童品裁縫室(@liannebaby.tw)",
+            "description": "梨安Lianne baby 市場內的手作童品裁縫室(@liannebaby.tw) — 安心，是唯一的標準： 全系列嚴選通過嚴格認證的無毒、安全布料。 從日常微風到午後烈日，每一次肌膚接觸， 都有品牌對材質安全的絕對堅持，讓您與孩子都能全然 放心 ...",
+            "url": "https://www.facebook.com/liannebaby.tw/"
+          },
+          {
+            "title": "門市資訊市場內裁縫室的手工嬰兒禮盒 - Lianne baby",
+            "description": "門市資訊市場內裁縫室的手工嬰兒禮盒 - Lianne baby — 安撫兔兔/ 許願星/立方球 · 育兒配件 · 遮陽漁夫帽 · 寶寶親子髮帶 · 奶嘴鍊套- 平安袋 · 手帕拍嗝巾 · 託藥袋|尿布袋| 收納包 · 台灣製幼兒服 · 加購繡字.禮盒包裝 · 部落 ...",
+            "url": "https://www.liannebaby.com/page/%E9%96%80%E5%B8%82%E8%B3%87%E8%A8%8A"
+          },
+          {
+            "title": "媽咪療癒｜品味育兒生活門市地址：新北市中和區民享街37號-118室 ...",
+            "description": "媽咪療癒｜品味育兒生活門市地址：新北市中和區民享街37號-118室 ... — 梨安裁縫室Lianne baby 梨安平安符袋內裡鋪棉有厚度視覺更挺版觸感更有 ... 台灣Lianne Baby 職人手作/ 東西放入包包就能擁有的好心情",
+            "url": "https://www.instagram.com/reel/C60tr_rvpfE/"
+          },
+          {
+            "title": "Lianne baby梨安手工圍兜專屬繡字嬰兒滿月週歲見面禮 - Threads",
+            "description": "Lianne baby梨安手工圍兜專屬繡字嬰兒滿月週歲見面禮 - Threads — 這位同學活潑可愛的程度直接評價五顆星 . 1 ... 品牌我就不用太燒腦了. 但羨慕對現實不太有幫助還是好好面對當下的重整跟優化對每 ...",
+            "url": "https://www.threads.com/@liannebaby.tw?hl=zh-tw"
+          },
+          {
+            "title": "嬰兒禮盒| 梨安Lianne baby 市場內的手作童品裁縫室 - Facebook",
+            "description": "嬰兒禮盒| 梨安Lianne baby 市場內的手作童品裁縫室 - Facebook — More videos you may like. 00:17. May 2, 2026 · 478 views. 00:17. 加大尺寸☆韓國神級柔軟皺皺紗 ☆拍嗝巾紗布巾三入組... Apr 20, 2026 · 357 views.",
+            "url": "https://www.facebook.com/liannebaby.tw/videos/%E5%B8%82%E5%A0%B4%E5%85%A7%E7%9A%84%E8%A3%81%E7%B8%AB%E5%AE%A4%E5%9C%A8%E5%87%BA%E4%BB%80%E9%BA%BC%E8%B2%A8/793422810086903/"
+          },
+          {
+            "title": "【Lianne baby】淡紫和花手工寶寶蝴蝶枕圍兜彌月禮盒嬰兒禮物 ...",
+            "description": "【Lianne baby】淡紫和花手工寶寶蝴蝶枕圍兜彌月禮盒嬰兒禮物 ... — 以確保寶寶的肌膚感受到最優質的呵護。 台灣梨安家的手工寶寶天使蝴蝶枕,. 梨安舞兜小裁縫梨安舞兜小裁縫. 韓國KC認証無甲銓、無芳香胺、PH值合格. 商品規格. 品牌名稱.",
+            "url": "http://www.momoshop.com.tw/product/13337121?srsltid=AfmBOooXgjdl4eoPP6ZNMmcrjPTcp8Y6WI7zHhuGSvaHEIuHJIw0mFOD"
+          },
+          {
+            "title": "梨安舞兜小裁縫Lianne Baby Hand Made (@lianneshop) - Instagram",
+            "description": "梨安舞兜小裁縫Lianne Baby Hand Made (@lianneshop) - Instagram — 高品質手工寶寶用品專賣｜韓國製·二重紗·有機棉｜日本製·二重紗·純棉｜▪️梨安設計師手工裁縫製作｜100%實品拍攝- ▪️官網可刷卡▪️彌月禮盒接單中▪️製作天數14天（不含假日）",
+            "url": "https://www.instagram.com/lianneshop/"
+          },
+          {
+            "title": "關於我們市場內裁縫室的手工嬰兒禮盒 - Lianne baby",
+            "description": "關於我們市場內裁縫室的手工嬰兒禮盒 - Lianne baby — 梨安手製，值得被等待。 每一件可愛療癒的育兒用品，. 都來自我們團隊背後的專注與真誠。",
+            "url": "https://www.liannebaby.com/about_us"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:31:28.668Z"
+    },
+    {
+      "brand": {
+        "slug": "1935",
+        "name": "鹿苑茶莊 1935",
+        "productType": "food-drink",
+        "productTypeZh": "食品飲料",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "A",
+        "label": "Broad Discovery"
+      },
+      "query": "鹿苑茶莊 1935 台灣",
+      "parsed": {
+        "urls": [
+          "https://shop.luyuan-tea.com/",
+          "https://luyuan-tea.com/home/",
+          "https://www.books.com.tw/web/sys_brand/0/0000023108",
+          "https://www.facebook.com/luyuantea1935/",
+          "https://shop.luyuan-tea.com/product/category&path=1",
+          "https://www.pinkoi.com/store/luyuan-tea",
+          "https://tcmb.culture.tw/zh-tw/detail?indexCode=Culture_Event&id=235595",
+          "https://www.youtube.com/@LuYuanTea/videos",
+          "https://www.yilantea.com.tw/",
+          "https://luyuan-tea.com/tag/%E9%B9%BF%E8%8B%91%E8%8C%B6%E8%8E%8A/"
+        ],
+        "snippets": [
+          {
+            "title": "鹿苑茶莊LuYuan Tea",
+            "description": "鹿苑茶莊LuYuan Tea — 鹿苑茶莊-林家早在清朝時期於福建安溪即為製茶世家，來台後傳承數代。 1935年在台北州羅東郡(今台灣宜蘭縣)冬山莊莊長－莊上先生的邀請下，鹿苑茶莊第一代創辦人林川先生 ...",
+            "url": "https://shop.luyuan-tea.com/"
+          },
+          {
+            "title": "首頁| 鹿苑茶莊LuYuan",
+            "description": "首頁| 鹿苑茶莊LuYuan — 鹿苑林家在清治時期於福建安溪即為製茶世家。1935 年，應宜蘭地方人士邀請，第一代創辦人林川先生自石碇來到冬山一帶開墾茶園，全面投入台灣東部茶產業的發展。",
+            "url": "https://luyuan-tea.com/home/"
+          },
+          {
+            "title": "鹿苑茶莊LuYuan Tea _ 1935 - 博客來",
+            "description": "鹿苑茶莊LuYuan Tea _ 1935 - 博客來 — 中烘焙烏龍茶-半熟茶-茶香帶微炭香甘醇不傷胃_原片散茶品牌嘗鮮小盒. $229. 重烘焙烏龍-熟茶-鐵觀音韻沉香醇厚老師傅獨門手藝_原葉散茶品牌嘗鮮小盒. $229 ...",
+            "url": "https://www.books.com.tw/web/sys_brand/0/0000023108?srsltid=AfmBOoonwlS9Or3XVmKzvKWjBUYZO7ySIMzvrJERqYuL4OfVyzCKHPmI"
+          },
+          {
+            "title": "鹿苑茶莊LuYuan Tea (@luyuantea1935) - Facebook",
+            "description": "鹿苑茶莊LuYuan Tea (@luyuantea1935) - Facebook — 鹿苑故事 傳承台灣茶的美好 一場關於土地傳統工藝與人文的饗宴 我們是來自宜蘭的鹿苑茶莊，自1935年至今，已傳承 四代。 鹿苑的每一步都希望能傳承台灣茶的美好，這是我們 ...",
+            "url": "https://www.facebook.com/luyuantea1935/"
+          },
+          {
+            "title": "伴手禮盒| 鹿苑茶莊LuYuan Tea",
+            "description": "伴手禮盒| 鹿苑茶莊LuYuan Tea — 鹿苑茶莊-林家早在清朝時期於福建安溪即為製茶世家，來台後傳承數代。 1935年在台北州羅東郡(今台灣宜蘭縣)冬山莊莊長－莊上先生的邀請下，鹿苑茶莊第一代創辦人林川先生 ...",
+            "url": "https://shop.luyuan-tea.com/product/category&path=1"
+          },
+          {
+            "title": "鹿苑茶莊1935--以茶為媒，述說台灣島嶼的故事與溫暖 - Pinkoi",
+            "description": "鹿苑茶莊1935--以茶為媒，述說台灣島嶼的故事與溫暖 - Pinkoi — 創立於1935年的鹿苑茶莊，傳承四代製茶技藝，從石碇、宜蘭到台東，持續探索台灣茶的風味與可能。我們走訪茶園、研究風土、鑽研工藝，也透過茶葉記錄這座島嶼的故事。 多年來， ...",
+            "url": "https://www.pinkoi.com/store/luyuan-tea"
+          },
+          {
+            "title": "宜蘭茶業先驅-鹿苑茶莊 - 國家文化記憶庫",
+            "description": "宜蘭茶業先驅-鹿苑茶莊 - 國家文化記憶庫 — 鹿苑林家祖籍福建安溪，早在清朝時期就為製茶世家，來台後傳承數代，1935年(民國24年)日據時期，鹿苑茶莊的創辦人林川先生在台北州羅東郡東山庄庄長莊上先生的邀請之下，由台北 ...",
+            "url": "https://tcmb.culture.tw/zh-tw/detail?indexCode=Culture_Event&id=235595"
+          },
+          {
+            "title": "Since 1935, 鹿苑茶莊LuYuan Tea “100%天然台灣茶, 不加香料不混茶”",
+            "description": "Since 1935, 鹿苑茶莊LuYuan Tea “100%天然台灣茶, 不加香料不混茶” — Since 1935, 鹿苑茶莊LuYuan Tea “100%天然台灣茶, 不加香料不混茶”. Home ... 非凡新聞台灣真善美採訪老茶莊新生命鹿苑茶莊. 490 views. 12 years ago · 7:24. 台視 ...",
+            "url": "https://www.youtube.com/@LuYuanTea/videos"
+          },
+          {
+            "title": "鹿苑茶莊:: 冬山茶、宜蘭茶、茶葉禮盒、烏龍茶、老人茶",
+            "description": "鹿苑茶莊:: 冬山茶、宜蘭茶、茶葉禮盒、烏龍茶、老人茶 — 鹿苑茶莊，在武荖溪山麓遍植茶樹，朝風夜露下，造就了無數品質特優的茗茶。鹿苑製茶迄今已有七十個年頭，在武荖坑雨露均霑的眷顧下，所產的茶葉嫩軟、葉柄短且 ...",
+            "url": "https://www.yilantea.com.tw/"
+          },
+          {
+            "title": "鹿苑茶莊彙整",
+            "description": "鹿苑茶莊彙整 — 為什麼有這些代表性的茶產品？ 鹿苑自1935 年創立以來，始終相信茶不只是飲品，而是一段生活、一次陪伴、一種文化。 我們希望把台灣茶的故事傳遞出去 ...",
+            "url": "https://luyuan-tea.com/tag/%E9%B9%BF%E8%8B%91%E8%8C%B6%E8%8E%8A/"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:31:30.942Z"
+    },
+    {
+      "brand": {
+        "slug": "1935",
+        "name": "鹿苑茶莊 1935",
+        "productType": "food-drink",
+        "productTypeZh": "食品飲料",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "B",
+        "label": "Precision + Noise Filter"
+      },
+      "query": "\"鹿苑茶莊 1935\" 食品飲料 品牌 -徵才 -104 -人力",
+      "parsed": {
+        "urls": [
+          "https://www.pinkoi.com/product/aDCVLwk3",
+          "https://formoria.com/categories/tools-hardware",
+          "https://twbuystore.com/product/%E3%80%90%E7%8D%A8%E5%AE%B6%E3%80%91%E9%80%81%E9%95%B7%E8%BC%A9-%E6%89%8B%E6%8E%A1%E9%AB%98%E5%B1%B1%E8%8C%B6%E3%80%90%E7%B6%93%E5%85%B8%E7%8D%BB%E7%A6%AE%E3%80%91%E9%98%BF%E9%87%8C%E5%B1%B1-2/",
+          "https://formoria.com/en/brands/vds%E6%B4%BB%E5%8A%9B%E6%9D%B1%E5%8B%A2",
+          "https://twbuystore.com/product/%E3%80%90%E6%99%82%E5%85%89%E8%8C%B6%E8%97%8F%E3%80%911981%E8%80%81%E8%8C%B6-x-2025%E6%A2%A8%E5%B1%B1%E5%86%AC%E5%AD%A3%E7%83%8F%E9%BE%8D%E9%9B%99%E7%BD%90%E6%9C%A8%E7%9B%92%E7%A6%AE_%E7%8D%A8-2/",
+          "https://formoria.com/en/brands/404-oligo",
+          "http://www.arboristcentral.com/products/a741a68797401",
+          "https://biggo.com.tw/s/%E7%82%AD%E5%9F%B9%E7%83%8F%E9%BE%8D%E8%8C%B6",
+          "https://twbuystore.com/product/%E3%80%90%E8%8C%B6%E7%B1%B3%E8%8C%B6%E7%A6%AE%E7%9B%92%E3%80%91%E5%93%81%E5%91%B3%E7%8D%A8%E7%89%B9%E5%8F%B0%E8%8C%B6%E7%9A%84%E7%99%BC%E9%85%B5%E8%88%87%E7%83%98%E7%84%99%E7%B6%A0%E8%8C%B6-2/",
+          "https://hk.pinkoi.com/search?q=%E6%A4%AA%E7%B3%96"
+        ],
+        "snippets": [
+          {
+            "title": "選茶重點【鹿苑茶譜】三大系列茶葉-羅列品嘗建議 - Pinkoi",
+            "description": "選茶重點【鹿苑茶譜】三大系列茶葉-羅列品嘗建議 - Pinkoi — 【鹿苑】創立於1935年，有代代相傳的製茶技術、經驗老道的專業製茶品茶師，依據自然環境變異的風土條件、製程中人為工藝的發酵與烘焙、及特殊變異等，嚴選各種不同風味的台灣 ...",
+            "url": "https://www.pinkoi.com/product/aDCVLwk3"
+          },
+          {
+            "title": "Formoria — Made in Taiwan Brand Directory",
+            "description": "Formoria — Made in Taiwan Brand Directory — 品牌首創台灣茶系列無加糖牛乳片，堅持台灣製造，並通過ISO22000與HACCP認證。產品線涵蓋造型糖果、餅乾及保健錠片。 食品飲料$造型糖果 · 鹿苑茶莊1935.",
+            "url": "https://formoria.com/categories/tools-hardware"
+          },
+          {
+            "title": "【獨家】送長輩手採高山茶【經典獻禮】阿里山烏龍/金萱(送提袋)",
+            "description": "【獨家】送長輩手採高山茶【經典獻禮】阿里山烏龍/金萱(送提袋) — 台灣設計師品牌| 鹿苑茶莊1935–以茶為媒介，傳遞台灣這座島嶼的故事與溫暖. 【獨家】送長輩手採高山茶【經典獻禮】阿里山烏龍/金萱(送提袋) 數量. 加入購物車. 分類: ⛰️ ...",
+            "url": "https://twbuystore.com/product/%E3%80%90%E7%8D%A8%E5%AE%B6%E3%80%91%E9%80%81%E9%95%B7%E8%BC%A9-%E6%89%8B%E6%8E%A1%E9%AB%98%E5%B1%B1%E8%8C%B6%E3%80%90%E7%B6%93%E5%85%B8%E7%8D%BB%E7%A6%AE%E3%80%91%E9%98%BF%E9%87%8C%E5%B1%B1-2/"
+          },
+          {
+            "title": "VDS 活力東勢| Formoria",
+            "description": "VDS 活力東勢| Formoria — 品牌首創台灣茶系列無加糖牛乳片，堅持台灣製造，並通過ISO22000與HACCP認證。產品線涵蓋造型糖果、餅乾及保健錠片。 食品飲料$造型糖果 · 鹿苑茶莊1935.",
+            "url": "https://formoria.com/en/brands/vds%E6%B4%BB%E5%8A%9B%E6%9D%B1%E5%8B%A2"
+          },
+          {
+            "title": "【時光茶藏】1981老茶× 2025梨山冬季烏龍雙罐木盒禮_獨家一件",
+            "description": "【時光茶藏】1981老茶× 2025梨山冬季烏龍雙罐木盒禮_獨家一件 — HKD3,639.00 Original price was: HKD3,639.00. HKD2,429.00 Current price is: HKD2,429.00. 台灣設計師品牌| 鹿苑茶莊1935–以茶為媒介，傳遞台灣這座島嶼的故事與溫暖.",
+            "url": "https://twbuystore.com/product/%E3%80%90%E6%99%82%E5%85%89%E8%8C%B6%E8%97%8F%E3%80%911981%E8%80%81%E8%8C%B6-x-2025%E6%A2%A8%E5%B1%B1%E5%86%AC%E5%AD%A3%E7%83%8F%E9%BE%8D%E9%9B%99%E7%BD%90%E6%9C%A8%E7%9B%92%E7%A6%AE_%E7%8D%A8-2/"
+          },
+          {
+            "title": "404 Oligo - Formoria",
+            "description": "404 Oligo - Formoria — ... 食品代工。品牌首創台灣茶系列無加糖牛乳片，堅持台灣製造，並通過ISO22000與HACCP認證。產品線涵蓋造型糖果、餅乾及保健錠片。 食品飲料$造型糖果. 鹿苑茶莊1935.",
+            "url": "https://formoria.com/en/brands/404-oligo"
+          },
+          {
+            "title": "HOT ! 玉米纖維 立體茶包包裝 阿里山珠露 三角立體 ... - Arborist Central",
+            "description": "HOT ! 玉米纖維 立體茶包包裝 阿里山珠露 三角立體 ... - Arborist Central — ... 鹿苑茶莊1935--以茶為媒 述說台灣島嶼的故事與溫暖 茶葉 茶包 水果茶人氣榜-,玉米纤维三角泡茶袋-玉米纤维三角泡茶袋促销价格 玉米纤维三角泡茶袋品牌- 淘宝. カテゴリ ...",
+            "url": "http://www.arboristcentral.com/products/a741a68797401"
+          },
+          {
+            "title": "炭培烏龍茶的價格推薦- 2026年7月| 比價比個夠BigGo",
+            "description": "炭培烏龍茶的價格推薦- 2026年7月| 比價比個夠BigGo — 鹿苑茶莊1935--以茶為媒，述說台灣島嶼的故事與溫暖. | 松一製茶| 炭焙烏龍茶/ 烘焙四季春茶冷泡茶不知春茶150g.",
+            "url": "https://biggo.com.tw/s/%E7%82%AD%E5%9F%B9%E7%83%8F%E9%BE%8D%E8%8C%B6"
+          },
+          {
+            "title": "【茶米茶禮盒】品味獨特台茶的發酵與烘焙(綠茶/中焙烏龍/蜜香紅)",
+            "description": "【茶米茶禮盒】品味獨特台茶的發酵與烘焙(綠茶/中焙烏龍/蜜香紅) — HKD949.00 Original price was: HKD949.00. HKD639.00 Current price is: HKD639.00. 台灣設計師品牌| 鹿苑茶莊1935–以茶為媒介，傳遞台灣這座島嶼的故事與溫暖. 【茶米 ...",
+            "url": "https://twbuystore.com/product/%E3%80%90%E8%8C%B6%E7%B1%B3%E8%8C%B6%E7%A6%AE%E7%9B%92%E3%80%91%E5%93%81%E5%91%B3%E7%8D%A8%E7%89%B9%E5%8F%B0%E8%8C%B6%E7%9A%84%E7%99%BC%E9%85%B5%E8%88%87%E7%83%98%E7%84%99%E7%B6%A0%E8%8C%B6-2/"
+          },
+          {
+            "title": "椪糖推薦| 2026 年3 月| Pinkoi 亞洲跨境設計購物平台",
+            "description": "椪糖推薦| 2026 年3 月| Pinkoi 亞洲跨境設計購物平台 — 廣告鹿苑茶莊1935--以茶為媒介，傳遞台灣這座島嶼的故事與溫暖. HK$ 171.1. 可訂製. 【魷魚遊戲】Squid Game 椪糖遊戲徽章組 · Dope 私 ...",
+            "url": "https://hk.pinkoi.com/search?q=%E6%A4%AA%E7%B3%96&srsltid=AfmBOoqWnyvLaMv3fdyr8LvwZ2t1xXf1OHqvUk_TN3lFkWN_kp_Loh40"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:31:33.486Z"
+    },
+    {
+      "brand": {
+        "slug": "1935",
+        "name": "鹿苑茶莊 1935",
+        "productType": "food-drink",
+        "productTypeZh": "食品飲料",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "C",
+        "label": "Third-Party Content Bias"
+      },
+      "query": "鹿苑茶莊 1935 品牌 介紹 評價 推薦",
+      "parsed": {
+        "urls": [
+          "https://shop.luyuan-tea.com/",
+          "https://www.pinkoi.com/store/luyuan-tea",
+          "https://www.facebook.com/luyuantea1935/",
+          "https://www.books.com.tw/web/sys_brand/0/0000023108",
+          "https://luyuan-tea.com/home/",
+          "https://www.instagram.com/p/Cj68g8jv1Ig/",
+          "https://www.momoshop.com.tw/TP/TP0004979/main",
+          "https://tcmb.culture.tw/zh-tw/detail?indexCode=Culture_Event&id=235595",
+          "https://iamcloudfoodie.com/2022/12/04/taiwantea_pinkoi_luyuantea/"
+        ],
+        "snippets": [
+          {
+            "title": "鹿苑茶莊LuYuan Tea",
+            "description": "鹿苑茶莊LuYuan Tea — 鹿苑茶莊-林家早在清朝時期於福建安溪即為製茶世家，來台後傳承數代。 1935年在台北州羅東郡(今台灣宜蘭縣)冬山莊莊長－莊上先生的邀請下，鹿苑茶莊第一代創辦人林川先生從",
+            "url": "https://shop.luyuan-tea.com/"
+          },
+          {
+            "title": "鹿苑茶莊1935--以茶為媒，述說台灣島嶼的故事與溫暖",
+            "description": "鹿苑茶莊1935--以茶為媒，述說台灣島嶼的故事與溫暖 — 創立於1935年的鹿苑茶莊，傳承四代製茶技藝，從石碇、宜蘭到台東，持續探索台灣茶的風味與可能。我們走訪茶園、研究風土、鑽研工藝，也透過茶葉記錄這座島嶼的故事。 多年來， ...",
+            "url": "https://www.pinkoi.com/store/luyuan-tea"
+          },
+          {
+            "title": "鹿苑茶莊LuYuan Tea (@luyuantea1935)",
+            "description": "鹿苑茶莊LuYuan Tea (@luyuantea1935) — 鹿苑茶莊1935-- 以茶為媒介，傳遞台灣這座島嶼的故事與溫暖 收到客人的五顆星滿分評價 「送禮用的，質感很好，會再回購 」 #Pinkoi ... 【85 折】【窨花尋芳】傳統窨製台灣味 ...",
+            "url": "https://www.facebook.com/luyuantea1935/"
+          },
+          {
+            "title": "鹿苑茶莊LuYuan Tea _ 1935",
+            "description": "鹿苑茶莊LuYuan Tea _ 1935 — 【風味系列】茉莉綠茶(香片) -春天的氣息-茶引花香以益茶香. $288. 中烘焙烏龍茶-半熟茶-茶香帶微炭香甘醇不傷胃_原片散茶品牌嘗鮮小盒.",
+            "url": "https://www.books.com.tw/web/sys_brand/0/0000023108?srsltid=AfmBOor-RMJkBMMqwVHRwf0CSLYt8nmvpGu-G_EmZigqHrjhqkMfZggR"
+          },
+          {
+            "title": "首頁| 鹿苑茶莊LuYuan",
+            "description": "首頁| 鹿苑茶莊LuYuan — 了解台灣在台灣老茶莊「鹿苑茶莊」自1935年以來傳承四代的故事，傳承百年製茶工藝，獲獎無數的製茶師，擁有國內外大獎的台灣茶。邀請您一同品嚐屬於這座島嶼的經典茶香， ...",
+            "url": "https://luyuan-tea.com/home/"
+          },
+          {
+            "title": "各位關心鹿苑的朋友，近來好嗎? 從去年年末到今年，我們努力準備的 ...",
+            "description": "各位關心鹿苑的朋友，近來好嗎? 從去年年末到今年，我們努力準備的 ... — 嗯～我想，可能是因為那淡淡的月桃葉香吧， 有點像山裡的空氣，也有點像孩時記憶中廟裡飄著的香氣。 不是那種熱鬧的味道，而是一種讓你慢下來、覺得安心的氣息 ...",
+            "url": "https://www.instagram.com/p/Cj68g8jv1Ig/"
+          },
+          {
+            "title": "鹿苑茶莊1935 - momo購物網- 好評推薦- 2026年07月",
+            "description": "鹿苑茶莊1935 - momo購物網- 好評推薦- 2026年07月 — 【鹿苑茶莊】光映映台灣味花茶-野薑刺蔥紅茶傳統窨製工藝x剪紙藝術 ... 每一袋溫暖茶香，致敬女性力量。",
+            "url": "https://www.momoshop.com.tw/TP/TP0004979/main?srsltid=AfmBOopW29PtXE9NK9fYtBk_AyiLcGdohr0JSXd1fMjD0eAS_c44J5DK"
+          },
+          {
+            "title": "宜蘭茶業先驅-鹿苑茶莊 - 國家文化記憶庫",
+            "description": "宜蘭茶業先驅-鹿苑茶莊 - 國家文化記憶庫 — 鹿苑林家祖籍福建安溪，早在清朝時期就為製茶世家，來台後傳承數代，1935年(民國24年)日據時期，鹿苑茶莊的創辦人林川先生在台北州羅東郡東山庄庄長莊上先生的邀請之下，由台北 ...",
+            "url": "https://tcmb.culture.tw/zh-tw/detail?indexCode=Culture_Event&id=235595"
+          },
+          {
+            "title": "送禮首選！鹿苑茶莊「台灣茶辦桌體驗禮盒」在地精品茶葉結合台式辦 ...",
+            "description": "送禮首選！鹿苑茶莊「台灣茶辦桌體驗禮盒」在地精品茶葉結合台式辦 ... — 鹿苑辦桌茶禮盒3個特色points. ◎台灣茶葉結合辦桌文化. ◎帶著走的辦桌茶席. ◎花布設計與線上習茶影片. 關於品牌. 鹿苑茶莊位在宜蘭冬山鄉.",
+            "url": "https://iamcloudfoodie.com/2022/12/04/taiwantea_pinkoi_luyuantea/"
+          }
+        ],
+        "rawCount": 9,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:31:36.067Z"
+    },
+    {
+      "brand": {
+        "slug": "clm",
+        "name": "CLM",
+        "productType": "unknown",
+        "productTypeZh": "",
+        "difficulty": "hard"
+      },
+      "variant": {
+        "id": "A",
+        "label": "Broad Discovery"
+      },
+      "query": "CLM 台灣",
+      "parsed": {
+        "urls": [
+          "https://clm-taiwan.com/",
+          "https://shopee.tw/clm_wonderland",
+          "https://www.pinkoi.com/store/clm-taiwan",
+          "https://www.facebook.com/clm2003/?locale=zh_TW",
+          "https://www.instagram.com/clm_taiwan/",
+          "https://www.threads.com/@clm_taiwan?hl=zh-tw",
+          "https://tw.creema.net/c/clm-taiwan/item/display"
+        ],
+        "snippets": [
+          {
+            "title": "CLM-TAIWAN",
+            "description": "CLM-TAIWAN — CLM產品100%台灣製造，所有產品皆在製作所內手工製成，採用無動物性成分的純素皮革製作， 防水防霉，結構強韌，不會龜裂脫皮，品質保證。",
+            "url": "https://clm-taiwan.com/"
+          },
+          {
+            "title": "C.L.M-TAIWAN 製作所, 線上商城| 蝦皮購物",
+            "description": "C.L.M-TAIWAN 製作所, 線上商城| 蝦皮購物 — 保證不脫皮．一年保固．台灣製作．純素皮革－肩背包＋斜背包C.L.M-製作所－奇旅側肩包-煙燻灰黑. $3,298. 已售出1 · 保證不脫皮．一年保固．台灣製作．純素皮革－肩.",
+            "url": "https://shopee.tw/clm_wonderland"
+          },
+          {
+            "title": "C.L.M - 官方授權販售| Pinkoi 全系列好評上架中",
+            "description": "C.L.M - 官方授權販售| Pinkoi 全系列好評上架中 — C.L.M官方經營商店，Pinkoi 新會員享APP 運費優惠，最高折NT$100！ 創立於2003年. 於2005年轉型批發商， 2010年跨足製造業， 2014年正式成立C.L.M品牌。",
+            "url": "https://www.pinkoi.com/store/clm-taiwan"
+          },
+          {
+            "title": "C.L.M-Taiwan 製作所| Taipei - Facebook",
+            "description": "C.L.M-Taiwan 製作所| Taipei - Facebook — 不同於市場上的潮流款式，CLM專注於經典設計，強 調歷久彌新與實用性，作品皆採用不含動物成份，細 緻且耐用的乳膠皮革製作，並提供維修服務，希望透 過作品傳遞「時尚零殘忍」與 ...",
+            "url": "https://www.facebook.com/clm2003/?locale=zh_TW"
+          },
+          {
+            "title": "CLM-Taiwan (@clm_taiwan) • Instagram photos and videos",
+            "description": "CLM-Taiwan (@clm_taiwan) • Instagram photos and videos — 走過20 年的創業歷程，從夜市擺攤到創立CLM製作所 ...",
+            "url": "https://www.instagram.com/clm_taiwan/"
+          },
+          {
+            "title": "CLM-Taiwan (@clm_taiwan) • Threads, Say more",
+            "description": "CLM-Taiwan (@clm_taiwan) • Threads, Say more — 我們的設計師，從二十多歲開始做包包打樣， 起初一個月只能完成3～5 個樣品， 現在加上夥伴們一起努力， 一個月已經能完成上百個包包。 很多人都建議： 「找更多人做啊！",
+            "url": "https://www.threads.com/@clm_taiwan?hl=zh-tw"
+          },
+          {
+            "title": "CLM-Taiwan展示中的作品| Creema 手作・設計購物網站",
+            "description": "CLM-Taiwan展示中的作品| Creema 手作・設計購物網站 — 此頁面為「CLM-Taiwan展示中的作品」。販賣・購買手作・設計作品的購物網站Creema。快從可愛、時尚、漂亮、獨一無二的原創作品中挑選最喜歡、最適合自己的吧！",
+            "url": "https://tw.creema.net/c/clm-taiwan/item/display"
+          }
+        ],
+        "rawCount": 7,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:31:38.756Z"
+    },
+    {
+      "brand": {
+        "slug": "clm",
+        "name": "CLM",
+        "productType": "unknown",
+        "productTypeZh": "",
+        "difficulty": "hard"
+      },
+      "variant": {
+        "id": "B",
+        "label": "Precision + Noise Filter"
+      },
+      "query": "\"CLM\" 品牌 -徵才 -104 -人力",
+      "parsed": {
+        "urls": [
+          "https://clm-taiwan.com/brand-story",
+          "https://www.threads.com/@clm_taiwan",
+          "https://www.pinkoi.com/store/clm-taiwan",
+          "https://www.instagram.com/p/DLH2KuEzI73/",
+          "https://www.facebook.com/clm2003/",
+          "https://clm-taiwan.com/",
+          "https://www.facebook.com/clm2003/videos/%E6%83%B3%E8%B5%B7%E4%BA%8C%E5%8D%81%E5%A4%9A%E5%B9%B4%E5%89%8Dclm%E5%93%81%E7%89%8C%E9%82%84%E6%9C%AA%E8%AA%95%E7%94%9F%E6%88%91%E5%80%91%E5%B8%B8%E9%A3%9B%E9%9F%93%E5%9C%8B%E7%AD%89%E5%9C%B0%E8%B7%91%E5%96%AE%E5%B9%AB%E5%9C%A8%E4%BA%94%E5%88%86%E5%9F%94%E7%B6%93%E7%87%9F%E6%89%B9%E7%99%BC%E5%BA%97%E6%89%B9%E7%99%BC%E5%B8%B6%E8%B2%A8%E5%B0%B1%E6%88%91%E5%80%91%E6%9C%80%E7%86%9F%E6%82%89%E7%9A%84%E7%B6%93%E7%87%9F%E6%A8%A1%E5%BC%8F%E9%82%A3%E6%98%AF-iphone-%E5%B0%9A%E6%9C%AA%E5%95%8F%E4%B8%96%E7%9A%84%E5%B9%B4%E4%BB%A3%E4%B9%9F%E6%98%AF%E9%9F%93%E6%B5%81%E5%BC%95%E9%A0%98%E9%A2%A8%E6%BD%AE%E7%9A%84%E5%B9%B4%E4%BB%A3%E5%9C%A8/1775754726648805/",
+          "https://fzy.taiji.com.cn/exampleList/exampleDetail_6.html",
+          "https://www.ssl.com/zh-TW/%E7%94%A2%E5%93%81/%E7%B6%B2%E7%AB%99%E5%AE%89%E5%85%A8/CLM/",
+          "https://www.ithome.com/0/932/090.htm"
+        ],
+        "snippets": [
+          {
+            "title": "品牌故事",
+            "description": "品牌故事 — C.L.M 為設計師「瑪黑夫人」的法文名稱縮寫（Comtesse Le Marais）。 設計師將在法國學習到的設計美學帶回台灣，結合實用機能與簡約風格，創作出兼具實用性與美感的包款。",
+            "url": "https://clm-taiwan.com/brand-story"
+          },
+          {
+            "title": "CLM-Taiwan (@clm_taiwan) • Threads, Say more",
+            "description": "CLM-Taiwan (@clm_taiwan) • Threads, Say more — CLM-Taiwan ... 我們的設計師，從二十多歲開始做包包打樣， 起初一個月只能完成3～5 個樣品， 現在加上夥伴們一起努力， 一個月已經能完成上百個包包。 很多人都建議： 「找更多人 ...",
+            "url": "https://www.threads.com/@clm_taiwan"
+          },
+          {
+            "title": "C.L.M - 官方授權販售| Pinkoi 全系列好評上架中",
+            "description": "C.L.M - 官方授權販售| Pinkoi 全系列好評上架中 — 創立於2003年. 於2005年轉型批發商， 2010年跨足製造業， 2014年正式成立C.L.M品牌。 多年以來，在流行文化當道的環境下，堅持不隨波逐流，並創造自我品牌價值 ...",
+            "url": "https://www.pinkoi.com/store/clm-taiwan"
+          },
+          {
+            "title": "CLM的小小請求  ‍♀️ 品牌不知不覺經營了十多年，粗估也銷售了數以 ...",
+            "description": "CLM的小小請求  ‍♀️ 品牌不知不覺經營了十多年，粗估也銷售了數以 ... — CLM的小小請求 ‍♀️ 品牌不知不覺經營了十多年，粗估也銷售了數以萬件的商品，相信也有不少老朋友一直默默支持著我們。 因為早期僅透過經銷門市和電商平台 ...",
+            "url": "https://www.instagram.com/p/DLH2KuEzI73/"
+          },
+          {
+            "title": "C.L.M-Taiwan 製作所| Taipei - Facebook",
+            "description": "C.L.M-Taiwan 製作所| Taipei - Facebook — 不同於市場上的潮流款式，CLM專注於經典設計，強 調歷久彌新與實用性，作品皆採用不含動物成份，細 緻且耐用的乳膠皮革製作，並提供維修服務，希望透 過作品傳遞「時尚零殘忍」與 ...",
+            "url": "https://www.facebook.com/clm2003/"
+          },
+          {
+            "title": "CLM-TAIWAN",
+            "description": "CLM-TAIWAN — CLM의모든제품은저희작업실에서정성스럽게수작업으로제작되며, 100% 대만에서생산됩니다. 모든제품은비건가죽으로만들어졌으며, 동물성성분이포함되지않았으며, 방수, 방 ...",
+            "url": "https://clm-taiwan.com/"
+          },
+          {
+            "title": "想起二十多年前，CLM品牌還未誕生，我們常飛韓國等地跑單幫，在 ...",
+            "description": "想起二十多年前，CLM品牌還未誕生，我們常飛韓國等地跑單幫，在 ... — 二十年後，我們創立了CLM，以「臺灣製造」的品牌形 象，自行設計與開發產品，讓韓國、日本等地的客人感 受在地魅力。 「以前我們跟韓國人買貨，現在卻能製造 ...",
+            "url": "https://www.facebook.com/clm2003/videos/%E6%83%B3%E8%B5%B7%E4%BA%8C%E5%8D%81%E5%A4%9A%E5%B9%B4%E5%89%8Dclm%E5%93%81%E7%89%8C%E9%82%84%E6%9C%AA%E8%AA%95%E7%94%9F%E6%88%91%E5%80%91%E5%B8%B8%E9%A3%9B%E9%9F%93%E5%9C%8B%E7%AD%89%E5%9C%B0%E8%B7%91%E5%96%AE%E5%B9%AB%E5%9C%A8%E4%BA%94%E5%88%86%E5%9F%94%E7%B6%93%E7%87%9F%E6%89%B9%E7%99%BC%E5%BA%97%E6%89%B9%E7%99%BC%E5%B8%B6%E8%B2%A8%E5%B0%B1%E6%88%91%E5%80%91%E6%9C%80%E7%86%9F%E6%82%89%E7%9A%84%E7%B6%93%E7%87%9F%E6%A8%A1%E5%BC%8F%E9%82%A3%E6%98%AF-iphone-%E5%B0%9A%E6%9C%AA%E5%95%8F%E4%B8%96%E7%9A%84%E5%B9%B4%E4%BB%A3%E4%B9%9F%E6%98%AF%E9%9F%93%E6%B5%81%E5%BC%95%E9%A0%98%E9%A2%A8%E6%BD%AE%E7%9A%84%E5%B9%B4%E4%BB%A3%E5%9C%A8/1775754726648805/"
+          },
+          {
+            "title": "中国CLM领域的专业品牌 - 太极法智易 - 太极股份",
+            "description": "中国CLM领域的专业品牌 - 太极法智易 - 太极股份 — 法智易，以合同管理为核心，用智能化的手段，保证合同管理过程的合规、高效，实现合同审批、履约监控、合同评价的全生命周期管理，未来会扩展到法律事务领域的一体化 ...",
+            "url": "https://fzy.taiji.com.cn/exampleList/exampleDetail_6.html"
+          },
+          {
+            "title": "CLM — 憑證生命週期管理- SSL.com",
+            "description": "CLM — 憑證生命週期管理- SSL.com — 證書生命週期管理（CLM） 涵蓋證書的整個生命週期：網路發現、跨團隊和憑證授權單位的清單管理、頒發、部署、監控、續約和吊銷。生命週期的不同階段由技術棧的不同層級負責。",
+            "url": "https://www.ssl.com/zh-TW/%E7%94%A2%E5%93%81/%E7%B6%B2%E7%AB%99%E5%AE%89%E5%85%A8/CLM/"
+          },
+          {
+            "title": "2026 合同管理系统品牌推荐：科学决策框架+ 全球CLM 厂商深度解析",
+            "description": "2026 合同管理系统品牌推荐：科学决策框架+ 全球CLM 厂商深度解析 — CLM 的价值在于连接，而非孤立。系统需具备强大的开放性与集成能力，能够与企业现有的ERP、CRM、SRM、OA / 费控、资金系统等核心业务财务系统无缝打通。真正 ...",
+            "url": "https://www.ithome.com/0/932/090.htm"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:31:41.603Z"
+    },
+    {
+      "brand": {
+        "slug": "clm",
+        "name": "CLM",
+        "productType": "unknown",
+        "productTypeZh": "",
+        "difficulty": "hard"
+      },
+      "variant": {
+        "id": "C",
+        "label": "Third-Party Content Bias"
+      },
+      "query": "CLM 品牌 介紹 評價 推薦",
+      "parsed": {
+        "urls": [
+          "https://www.pinkoi.com/store/clm-taiwan",
+          "https://clm-taiwan.com/",
+          "https://shopee.tw/search?keyword=CLM",
+          "https://www.instagram.com/p/DLH2KuEzI73/",
+          "https://www.threads.com/@clm_taiwan/post/DVHFjotk4Ih/hi-%E6%88%91%E5%80%91%E6%98%AF-clm-taiwan%E8%87%BA%E7%81%A3%E8%A3%BD%E9%80%A0%E7%9A%84%E6%89%8B%E5%B7%A5%E5%8C%85%E5%8C%85%E5%93%81%E7%89%8C%E6%AF%8F%E4%B8%80%E9%A1%86%E5%8C%85%E5%8C%85%E5%BE%9E%E8%A8%AD%E8%A8%88%E6%89%93%E7%89%88%E5%89%AA%E8%A3%81%E5%88%B0%E7%B8%AB%E8%A3%BD%E9%83%BD%E5%9C%A8%E9%96%80%E5%B8%82%E8%A6%AA%E6%89%8B%E5%AE%8C%E6%88%90%E5%BE%88%E8%BC%95%E7%9B%88%E4%B8%94%E4%B8%8D%E6%9C%83%E9%BE%9C%E8%A3%82%E8%84%AB%E7%9A%AE%E4%B9%9F%E6%8F%90%E4%BE%9B%E4%BF%9D%E5%9B%BA%E8%88%87%E7%B6%AD%E4%BF%AE%E6%9C%8D%E5%8B%99%E5%A6%82%E6%9E%9C%E6%82%A8%E5%B0%8D%E5%8F%B0%E7%81%A3%E5%93%81%E7%89%8C%E6%9C%89",
+          "https://www.facebook.com/clm2003/?locale=zh_TW",
+          "https://www.youtube.com/watch?v=haOHO7A7YUk",
+          "https://www.facebook.com/clm2003/videos/clm-%E7%B6%93%E5%85%B8%E5%B9%B3%E5%8F%A3%E8%83%8C%E5%8C%85-%E7%B4%94%E7%B4%A0%E7%9A%AE%E9%9D%A9-%E5%8F%B0%E7%81%A3%E8%A3%BD%E9%80%A0-mit-clm/1742460399265090/",
+          "https://clm-taiwan.com/brand-story",
+          "http://www.momoshop.com.tw/product/13660794"
+        ],
+        "snippets": [
+          {
+            "title": "C.L.M - 官方授權販售| Pinkoi 全系列好評上架中",
+            "description": "C.L.M - 官方授權販售| Pinkoi 全系列好評上架中 — 設計館故事. 創立於2003年. 於2005年轉型批發商， 2010年跨足製造業， 2014年正式成立C.L.M品牌。 多年以來，在流行文化當道的環境下，堅持不隨波逐流，並創造自我品牌價值。",
+            "url": "https://www.pinkoi.com/store/clm-taiwan"
+          },
+          {
+            "title": "CLM-TAIWAN",
+            "description": "CLM-TAIWAN — CLM產品100%台灣製造，所有產品皆在製作所內手工製成，採用無動物性成分的純素皮革製作， 防水防霉，結構強韌，不會龜裂脫皮，品質保證。 all products from CLM are thoroughly ...",
+            "url": "https://clm-taiwan.com/"
+          },
+          {
+            "title": "CLM - 優惠推薦- 2026年7月| 蝦皮購物台灣",
+            "description": "CLM - 優惠推薦- 2026年7月| 蝦皮購物台灣 — CLM尼伯特背包-耐磨皮革_4色任選(煙 · CLM環釦包_黑、黑紅、防刮杏駝(後 · 保證不脫皮． · CLM 挪亞包_三色任選(杏駝、煙燻灰 · {C.L.M-製作所}台灣原創-Vegan純素皮革-經典托特.",
+            "url": "https://shopee.tw/search?keyword=CLM"
+          },
+          {
+            "title": "CLM的小小請求  ‍♀️ 品牌不知不覺經營了十多年，粗估也銷售了數以 ...",
+            "description": "CLM的小小請求  ‍♀️ 品牌不知不覺經營了十多年，粗估也銷售了數以 ... — 客人先是抱怨：等好久！ 收到包包以後：好喜歡❤️ 讓大家久等了，真的很抱歉。 這款「勃根地側肩包」製作起來需要耗費大量心力與時間，從裁剪、車縫到細節調整，每 ...",
+            "url": "https://www.instagram.com/p/DLH2KuEzI73/"
+          },
+          {
+            "title": "Hi 我們是CLM-TAIWAN 臺灣製造的手工包包品牌 - Threads",
+            "description": "Hi 我們是CLM-TAIWAN 臺灣製造的手工包包品牌 - Threads — 品牌以經典極簡主義為核心，大量採用真皮牛皮製作包款，在質感與耐用度上都有相當不錯的表現。相較於許多韓國設計師真皮品牌，價格更容易入手，卻依然保有高級 ...",
+            "url": "https://www.threads.com/@clm_taiwan/post/DVHFjotk4Ih/hi-%E6%88%91%E5%80%91%E6%98%AF-clm-taiwan%E8%87%BA%E7%81%A3%E8%A3%BD%E9%80%A0%E7%9A%84%E6%89%8B%E5%B7%A5%E5%8C%85%E5%8C%85%E5%93%81%E7%89%8C%E6%AF%8F%E4%B8%80%E9%A1%86%E5%8C%85%E5%8C%85%E5%BE%9E%E8%A8%AD%E8%A8%88%E6%89%93%E7%89%88%E5%89%AA%E8%A3%81%E5%88%B0%E7%B8%AB%E8%A3%BD%E9%83%BD%E5%9C%A8%E9%96%80%E5%B8%82%E8%A6%AA%E6%89%8B%E5%AE%8C%E6%88%90%E5%BE%88%E8%BC%95%E7%9B%88%E4%B8%94%E4%B8%8D%E6%9C%83%E9%BE%9C%E8%A3%82%E8%84%AB%E7%9A%AE%E4%B9%9F%E6%8F%90%E4%BE%9B%E4%BF%9D%E5%9B%BA%E8%88%87%E7%B6%AD%E4%BF%AE%E6%9C%8D%E5%8B%99%E5%A6%82%E6%9E%9C%E6%82%A8%E5%B0%8D%E5%8F%B0%E7%81%A3%E5%93%81%E7%89%8C%E6%9C%89"
+          },
+          {
+            "title": "C.L.M-Taiwan 製作所| Taipei - Facebook",
+            "description": "C.L.M-Taiwan 製作所| Taipei - Facebook — 不同於市場上的潮流款式，CLM專注於經典設計，強 調歷久彌新與實用性，作品皆採用不含動物成份，細 緻且耐用的乳膠皮革製作，並提供維修服務，希望透 過作品傳遞「時尚零殘忍」與 ...",
+            "url": "https://www.facebook.com/clm2003/?locale=zh_TW"
+          },
+          {
+            "title": "【開箱】職人手作‼️台灣品牌C.L.M親子包：實測到底多能裝？",
+            "description": "【開箱】職人手作‼️台灣品牌C.L.M親子包：實測到底多能裝？ — 免費訂閱#clm #mit #台灣製#台灣品牌#母親節#托特包#必買♥️預祝大家母親節快樂！ 也別忘了好好愛自己唷！ ⋯⋯⋯⋯⋯⋯⋯⋯୨୧⋯⋯⋯⋯⋯⋯⋯⋯ ✤ C.L.M-Taiwan官方 ...",
+            "url": "https://www.youtube.com/watch?v=haOHO7A7YUk"
+          },
+          {
+            "title": "CLM | 經典平口背包| 純素皮革",
+            "description": "CLM | 經典平口背包| 純素皮革 — http://www.clm-taiwan.com/clm商品/經典平口背包/ 你也想念夏天嗎？ 這是2020夏天#平口背包新色發表的平面拍攝側錄影片,在那之後我們就忙著訂單製作 ...",
+            "url": "https://www.facebook.com/clm2003/videos/clm-%E7%B6%93%E5%85%B8%E5%B9%B3%E5%8F%A3%E8%83%8C%E5%8C%85-%E7%B4%94%E7%B4%A0%E7%9A%AE%E9%9D%A9-%E5%8F%B0%E7%81%A3%E8%A3%BD%E9%80%A0-mit-clm/1742460399265090/"
+          },
+          {
+            "title": "品牌故事",
+            "description": "品牌故事 — C.L.M 為設計師「瑪黑夫人」的法文名稱縮寫（Comtesse Le Marais）。 設計師將在法國學習到的設計美學帶回台灣，結合實用機能與簡約風格，創作出兼具實用性與美感的包款。",
+            "url": "https://clm-taiwan.com/brand-story"
+          },
+          {
+            "title": "【CLAYMORE】ULTRA 3.0 M 露營燈CLM-00475(悠遊戶外)",
+            "description": "【CLAYMORE】ULTRA 3.0 M 露營燈CLM-00475(悠遊戶外) — CLAYMOREULTRA 3.0 M 露營燈CLM-00475(悠遊戶外). $2,952. 限時折後價. $3,280. 促銷價. $4,100. 市售價. 下單再折. 限時折後價. $2,952. 折扣金額. 下單再折.",
+            "url": "http://www.momoshop.com.tw/product/13660794?srsltid=AfmBOorEOZrV3JXyrbruFGuepcNNEJ6buAEJBY5dWQuJozi_-UuIQkm9"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T12:31:43.975Z"
+    }
+  ]
+}

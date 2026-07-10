@@ -50,9 +50,10 @@ function makeDescriptionRewriteResult(
     blurb_en: null,
     city: null,
     foundingYear: null,
-    signatureProducts: [],
-    whereToBuy: null,
-    categoryMismatch: false,
+    reputationSummary: null,
+    faq: null,
+    stockists: null,
+    mitIndicators: null,
     validationRejections: [],
     ...overrides,
   }
@@ -92,11 +93,14 @@ describe('runDescriptionsPhase', () => {
   })
 
   it('includes price_range in patch when classification returns a value', async () => {
-    rewriteBrandDescription.mockResolvedValue(makeDescriptionRewriteResult({
-      description: 'Test Brand creates considered everyday accessories for modern homes.',
-      priceRange: 2,
-      productTags: [],
-    }))
+    rewriteBrandDescription.mockResolvedValue({
+      result: makeDescriptionRewriteResult({
+        description: 'Test Brand creates considered everyday accessories for modern homes.',
+        priceRange: 2,
+        productTags: [],
+      }),
+      attempts: [],
+    })
 
     const result = await runDescriptionsPhase({
       brand,
@@ -109,11 +113,14 @@ describe('runDescriptionsPhase', () => {
   })
 
   it('includes product_tags in patch when extraction returns products', async () => {
-    rewriteBrandDescription.mockResolvedValue(makeDescriptionRewriteResult({
-      description: 'Test Brand creates considered everyday accessories for modern homes.',
-      priceRange: null,
-      productTags: ['ceramic mugs', 'linen placemats'],
-    }))
+    rewriteBrandDescription.mockResolvedValue({
+      result: makeDescriptionRewriteResult({
+        description: 'Test Brand creates considered everyday accessories for modern homes.',
+        priceRange: null,
+        productTags: ['ceramic mugs', 'linen placemats'],
+      }),
+      attempts: [],
+    })
 
     const result = await runDescriptionsPhase({
       brand,
@@ -126,11 +133,14 @@ describe('runDescriptionsPhase', () => {
   })
 
   it('tracks price_range and product_tags in changedFields', async () => {
-    rewriteBrandDescription.mockResolvedValue(makeDescriptionRewriteResult({
-      description_zh: 'Test Brand creates considered everyday accessories for modern homes.',
-      priceRange: 3,
-      productTags: ['leather totes', 'silk scarves'],
-    }))
+    rewriteBrandDescription.mockResolvedValue({
+      result: makeDescriptionRewriteResult({
+        description_zh: 'Test Brand creates considered everyday accessories for modern homes.',
+        priceRange: 3,
+        productTags: ['leather totes', 'silk scarves'],
+      }),
+      attempts: [],
+    })
 
     const result = await runDescriptionsPhase({
       brand,

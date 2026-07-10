@@ -1,4 +1,5 @@
-const CJK_REGEX = /[\u4E00-\u9FFF\u3400-\u4DBF]/gu
+const CJK_ALL_REGEX = /[\u4E00-\u9FFF\u3400-\u4DBF\u3000-\u303F\uFF01-\uFF60\uFE30-\uFE4F]/u
+const LATIN_REGEX = /[A-Za-z]/u
 const JUNK_IMAGE_TAGS = new Set(['promo', 'text_banner', 'irrelevant', 'logo'])
 
 export type LanguageLocale = 'zh' | 'en'
@@ -15,9 +16,15 @@ export function languagePurity(text: string, locale: LanguageLocale): number {
     return 1
   }
 
-  const cjkCount = chars.filter((char) => char.match(CJK_REGEX)).length
-  const cjkRatio = cjkCount / chars.length
+  const cjkCount = chars.filter((char) => CJK_ALL_REGEX.test(char)).length
+  const latinCount = chars.filter((char) => LATIN_REGEX.test(char)).length
+  const scriptChars = cjkCount + latinCount
 
+  if (scriptChars === 0) {
+    return 1
+  }
+
+  const cjkRatio = cjkCount / scriptChars
   return locale === 'zh' ? cjkRatio : 1 - cjkRatio
 }
 

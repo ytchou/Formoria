@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { PRODUCT_TYPE_CATEGORIES, deriveCategoryFromProductType } from '../ontology'
 
 describe('PRODUCT_TYPE_CATEGORIES', () => {
-  it('has exactly 10 entries', () => {
-    expect(PRODUCT_TYPE_CATEGORIES).toHaveLength(10)
+  it('has exactly 12 entries', () => {
+    expect(PRODUCT_TYPE_CATEGORIES).toHaveLength(12)
   })
 
   it('each entry has slug, name, nameZh', () => {
@@ -23,8 +23,10 @@ describe('PRODUCT_TYPE_CATEGORIES', () => {
     expect(slugs).toContain('home')
     expect(slugs).toContain('food-drink')
     expect(slugs).toContain('crafts')
+    expect(slugs).toContain('stationery')
     expect(slugs).toContain('tech')
     expect(slugs).toContain('outdoor')
+    expect(slugs).toContain('fitness')
     expect(slugs).toContain('kids-pets')
   })
 

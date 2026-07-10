@@ -15,7 +15,7 @@ describe('parseCliArgs', () => {
   it('defaults enrich phases to all when not specified', () => {
     const args = parseCliArgs(['enrich'])
     expect(args.command).toBe('enrich')
-    expect(args.config.phases).toEqual(['clean', 'detect', 'slugs', 'tags', 'discover', 'links', 'images', 'descriptions'])
+    expect(args.config.phases).toEqual(['clean', 'detect', 'slugs', 'tags', 'discover', 'links', 'images', 'classify_images', 'descriptions', 'expansion'])
   })
 
   it('rejects old deprecated commands', () => {

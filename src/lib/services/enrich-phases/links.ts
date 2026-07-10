@@ -107,7 +107,7 @@ export async function runLinksPhase({
         : derivedWebsite ?? urls[0] ?? ''
       await insertSearchResult(
         brand.id,
-        'scrape' as never,
+        'scrape',
         pageUrl,
         pageUrl ? [pageUrl] : [],
         [scrapedData.description, scrapedData.story].filter((text): text is string => Boolean(text)),

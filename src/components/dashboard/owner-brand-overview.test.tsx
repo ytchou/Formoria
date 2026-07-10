@@ -27,7 +27,7 @@ const brand: Brand = {
   name: 'Brand One',
   slug: 'brand-one',
   description: 'Brand description',
-  heroImageUrl: 'https://example.com/hero.jpg',
+  heroImageUrl: 'https://abc.supabase.co/storage/v1/object/public/brand-images/hero.jpg',
   status: 'approved',
   productType: 'Furniture',
   city: 'Taipei',
@@ -43,7 +43,7 @@ const brand: Brand = {
   purchaseShopee: null,
   otherUrls: [],
   retailLocations: [{ name: 'Showroom', address: 'Taipei', latitude: 0, longitude: 0 }],
-  productPhotos: ['https://example.com/product.jpg'],
+  productPhotos: ['https://abc.supabase.co/storage/v1/object/public/brand-images/product.jpg'],
   contactEmail: null,
   priceRange: 2,
   productTags: ['wood'],
@@ -104,6 +104,26 @@ describe('OwnerBrandOverview', () => {
       'data-src',
       brand.productPhotos.at(0),
     )
+  })
+
+  it('filters images on non-allowlisted hosts instead of rendering them', async () => {
+    render(await OwnerBrandOverview({
+      brand: {
+        ...brand,
+        heroImageUrl: 'https://cdn04.pinkoi.com/pinkoi.site/curation/hero.jpeg',
+        productPhotos: [
+          'https://cdn04.pinkoi.com/pinkoi.site/curation/photo.jpeg',
+          'https://abc.supabase.co/storage/v1/object/public/brand-images/photo.jpg',
+        ],
+      },
+    }))
+
+    expect(screen.queryByRole('img', { name: 'fieldHeroImage' })).not.toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'fieldProductPhotos 1' })).toHaveAttribute(
+      'data-src',
+      'https://abc.supabase.co/storage/v1/object/public/brand-images/photo.jpg',
+    )
+    expect(screen.queryByRole('img', { name: 'fieldProductPhotos 2' })).not.toBeInTheDocument()
   })
 
   it('places verification between locations and reputation', async () => {

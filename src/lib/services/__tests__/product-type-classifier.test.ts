@@ -1,15 +1,15 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import {
   parseExtractionResult,
-  triageBrandsBatch,
-  type TriageBatchItem,
-  type TriageResult,
+  detectBrandsBatch,
+  type DetectBatchItem,
+  type DetectResult,
 } from '../product-type-classifier'
 
 const mockFetch = vi.fn()
-void (null as TriageResult | null)
+void (null as DetectResult | null)
 
-describe('triageBrandsBatch', () => {
+describe('detectBrandsBatch', () => {
   beforeEach(() => {
     mockFetch.mockClear()
     vi.stubGlobal('fetch', mockFetch)
@@ -21,12 +21,12 @@ describe('triageBrandsBatch', () => {
     vi.unstubAllEnvs()
   })
 
-  const brands: TriageBatchItem[] = [
+  const brands: DetectBatchItem[] = [
     { slug: 'my-brand', name: 'My Brand', description: 'Handmade soap', website: 'https://mybrand.com' },
     { slug: 'some-reseller', name: '代購小舖', description: null, website: null },
   ]
 
-  it('returns triage results for each brand in the batch', async () => {
+  it('returns detect results for each brand in the batch', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -41,7 +41,7 @@ describe('triageBrandsBatch', () => {
       }),
     })
 
-    const results = await triageBrandsBatch(brands)
+    const results = await detectBrandsBatch(brands)
 
     expect(results.size).toBe(2)
 
@@ -84,12 +84,12 @@ describe('triageBrandsBatch', () => {
         }),
       })
 
-    const results = await triageBrandsBatch(brands)
+    const results = await detectBrandsBatch(brands)
     expect(results.size).toBe(2)
   })
 
   it('chunks brands into batches of 20', async () => {
-    const largeBatch: TriageBatchItem[] = Array.from({ length: 25 }, (_, i) => ({
+    const largeBatch: DetectBatchItem[] = Array.from({ length: 25 }, (_, i) => ({
       slug: `brand-${i}`,
       name: `Brand ${i}`,
       description: null,
@@ -119,7 +119,7 @@ describe('triageBrandsBatch', () => {
       .mockResolvedValueOnce(makeResponse(20))
       .mockResolvedValueOnce(makeResponse(5))
 
-    const results = await triageBrandsBatch(largeBatch)
+    const results = await detectBrandsBatch(largeBatch)
     expect(mockFetch).toHaveBeenCalledTimes(2)
     expect(results.size).toBe(25)
   })

@@ -126,12 +126,14 @@ export function toBrandRow(input: {
   contactEmail?: string | null
   priceRange?: number | null
   productTags?: string[] | null
+  blurb?: string | null
   isDemo?: boolean
 }): BrandInsertRow {
   const row: Partial<BrandInsertRow> = {}
   if (input.name !== undefined) row.name = input.name
   if (input.slug !== undefined) row.slug = input.slug
   if (input.description !== undefined) row.description = input.description
+  if (input.blurb !== undefined) (row as Record<string, unknown>).blurb = input.blurb
   if (input.heroImageUrl !== undefined) row.hero_image_url = input.heroImageUrl
   if (input.status !== undefined) row.status = input.status
   if (input.productType !== undefined) {

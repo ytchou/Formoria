@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
-  applyTriageResult,
+  applyDetectResult,
   runStandaloneClassification,
-  runTriagePhase,
-} from '../triage'
+  runDetectPhase,
+} from '../detect'
 import type { BatchPhaseContext, EnrichBrand, EnrichPhase } from '../types'
-import type { TriageResult } from '../../product-type-classifier'
+import type { DetectResult } from '../../product-type-classifier'
 
 const brand: EnrichBrand = {
   id: 'brand-1',
@@ -16,9 +16,10 @@ const brand: EnrichBrand = {
   purchase_website: 'https://test.example',
 }
 
-const brandTriage: TriageResult = {
+const brandDetect: DetectResult = {
   isNonBrand: false,
   nonBrandReason: null,
+  brandName: null,
   slug: 'test-brand',
   slugGenerated: 'better-brand',
   productType: 'skincare',
@@ -36,12 +37,12 @@ function ctx(overrides: Partial<BatchPhaseContext> = {}): BatchPhaseContext {
   }
 }
 
-describe('runTriagePhase', () => {
-  it('returns skipped when no triage phases requested', async () => {
-    const result = await runTriagePhase(ctx({ phases: ['links'] as EnrichPhase[] }), new Map())
+describe('runDetectPhase', () => {
+  it('returns skipped when no detect phases requested', async () => {
+    const result = await runDetectPhase(ctx({ phases: ['links'] as EnrichPhase[] }), new Map())
 
     expect(result.phaseResult.status).toBe('skipped')
-    expect(result.triageResults.size).toBe(0)
+    expect(result.detectResults.size).toBe(0)
   })
 })
 
@@ -56,11 +57,11 @@ describe('runStandaloneClassification', () => {
   })
 })
 
-describe('applyTriageResult', () => {
+describe('applyDetectResult', () => {
   it('returns non-brand skip result for high-confidence non-brands', () => {
-    const result = applyTriageResult(
+    const result = applyDetectResult(
       {
-        ...brandTriage,
+        ...brandDetect,
         isNonBrand: true,
         nonBrandReason: 'directory',
       },
@@ -72,8 +73,8 @@ describe('applyTriageResult', () => {
     expect(result.patch).toEqual({})
   })
 
-  it('returns brand result with triage patch for valid brands', () => {
-    const result = applyTriageResult(brandTriage, brand)
+  it('returns brand result with detect patch for valid brands', () => {
+    const result = applyDetectResult(brandDetect, brand)
 
     expect(result.isNonBrand).toBe(false)
     expect(result.phaseResult.status).toBe('succeeded')

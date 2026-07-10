@@ -65,6 +65,9 @@ const ALLOWLIST = [
   'lib/services/description-rewrite.ts',
   'lib/services/product-type-classifier.ts',
   'lib/services/expansion-research.ts',
+  // Image classify user message includes brand name in Chinese; detect has SEO keyword constants.
+  'lib/services/enrich-phases/classify-images.ts',
+  'lib/services/enrich-phases/detect.ts',
   // SERP query string uses Chinese keyword '台灣' (not UI copy).
   'lib/services/curation-operations.ts',
   // Transitional: real messages come from the i18n factory; static fallback map

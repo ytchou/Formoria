@@ -10,7 +10,7 @@ vi.mock('../product-type-classifier', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../product-type-classifier')>()
   return {
     ...actual,
-    triageBrandsBatch: vi.fn(),
+    detectBrandsBatch: vi.fn(),
   }
 })
 
@@ -161,50 +161,53 @@ describe('mergeEnrichPatches', () => {
   })
 })
 
-describe('runEnrich triage integration', () => {
+describe('runEnrich detect integration', () => {
   it('applies non-brand gating — skips tier 3+4 for flagged brands', async () => {
     const { shouldSkipForNonBrand } = await import('../curation-operations')
 
-    const triageResult = {
+    const detectResult = {
       isNonBrand: true,
       nonBrandReason: 'reseller',
+      brandName: null,
       slug: 'some-brand',
       slugGenerated: null,
       productType: null,
       confidence: 'high' as const,
     }
 
-    expect(shouldSkipForNonBrand(triageResult)).toBe(true)
+    expect(shouldSkipForNonBrand(detectResult)).toBe(true)
   })
 
   it('does not gate brands that are not non-brands', async () => {
     const { shouldSkipForNonBrand } = await import('../curation-operations')
 
-    const triageResult = {
+    const detectResult = {
       isNonBrand: false,
       nonBrandReason: null,
+      brandName: null,
       slug: 'good-brand',
       slugGenerated: 'good-brand',
       productType: 'beauty',
       confidence: 'high' as const,
     }
 
-    expect(shouldSkipForNonBrand(triageResult)).toBe(false)
+    expect(shouldSkipForNonBrand(detectResult)).toBe(false)
   })
 
   it('does not gate low-confidence non-brands', async () => {
     const { shouldSkipForNonBrand } = await import('../curation-operations')
 
-    const triageResult = {
+    const detectResult = {
       isNonBrand: true,
       nonBrandReason: 'maybe reseller',
+      brandName: null,
       slug: 'uncertain-brand',
       slugGenerated: null,
       productType: null,
       confidence: 'low' as const,
     }
 
-    expect(shouldSkipForNonBrand(triageResult)).toBe(false)
+    expect(shouldSkipForNonBrand(detectResult)).toBe(false)
   })
 })
 

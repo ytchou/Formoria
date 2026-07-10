@@ -44,7 +44,7 @@ import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
 import { getBrandVisitHref } from '@/lib/brands/link-fallback'
 import { normalizeRetailLocations } from '@/lib/brands/locations'
-import { buildBrandFaq } from '@/lib/services/brand-faq'
+import { getBrandFaq } from '@/lib/services/brand-faq'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { MapPin } from 'lucide-react'
 import { NotFoundError } from '@/lib/errors'
@@ -226,7 +226,7 @@ export default async function BrandDetailPage({
   const tCities = await getTranslations('cities')
   const tBrandFaq = ((key: string, params?: Record<string, unknown>) =>
     tBrandDetail(key, params as never)) as BrandFaqTranslateFn
-  const faqItems = buildBrandFaq(displayBrand, tBrandFaq, safeLocale)
+  const faqItems = await getBrandFaq(displayBrand.id, displayBrand, tBrandFaq, safeLocale)
 
   // Gallery images: hero + product photos
   const galleryImages = [
