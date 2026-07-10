@@ -1,0 +1,61 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Directory Health — 2026-07-10"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*345 brands total* (+0 today)\n90.7% have complete profiles (description + image) — 32 brands missing hero image, 0 missing description"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*:rotating_light: Broken Links (2)*\n• `1002` → https://www.qvtu.edu.cn/sam/info/1002/2337.htm — Chinese university arts dept page, no connection to brand\n• `Mr.Casa 傢燈先生` → https://spstaszic.pl/products/baea6140126201 — Polish elementary school website, clearly wrong domain"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*:warning: Possible Broken / Unverified (2)*\n• `BoingBoing 故事鞋與童畫包` → https://www.boing.com.tw — HTTPS status unclear; HTTP indexed (also flagged DEV-985 yesterday)\n• `Journey of Sole` → https://journeyofsole.com — could not be confirmed reachable via search (also flagged DEV-985)"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*:link: Suspicious — Third-party (95+)*\n*Threads.com social links (72):* 72 brands list a Threads social profile or post as their `purchase_website` — not a brand-owned domain (4 Nuts, 404 Oligo, AGAPE 雅家倍, AiliN, Allite, and 67 others)\n*Self-referential (2):* 7th Island & 三十革皮藝 link to `taiwan-brands.vercel.app` (this directory)\n*Aggregators / marketplaces / blogs (21+):* Coupang (BOXKITTY, Soar&Arrow), biggo (Funmay, Gallop, YUE TRAVELER, JadeGaze), findprice (Desrochers, Miss Luna, 京都奈口金包), Yahoo Shopping (Matchwood, Tumaz, 奕綸口罩), LINE Shopping (Southgate, 淡然有味), Pixnet blogs (Lisscode, Mittag Jewelry, PhotoFast, Sudio, Chez, 森活小飾, 源作木坊), Books.com.tw (KOPER, 布物設計 BUWU, 姆姆 MUMU), and others"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*DB Health*\nTop tables: `brands` (10.2 MB), `brand_ai_results` (8.0 MB), `storage.objects` (7.8 MB), `brand_search_results` (7.0 MB), `brand_images` (3.9 MB)\nConnections: 1 active / 13 idle / 0 idle-in-txn — :white_check_mark: healthy\n:warning: Dead tuples: `brand_analytics` at 26.0% (430 live, 112 dead) — `VACUUM ANALYZE brand_analytics` recommended. Several low-traffic tables also have high dead_row_pct (profiles 685%, brand_submissions 1900%, brand_saves 3600%, newsletter_subscribers 4800% — low operational impact due to near-zero live rows)\nSlow queries: VACUUM ops ~1057ms mean (maintenance, expected); extension catalog query 535ms mean/86 calls (Supabase MCP tooling) — no app query concerns"
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "1 Linear ticket created | Directory Health v2"
+        }
+      ]
+    }
+  ]
+}
