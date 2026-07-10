@@ -401,7 +401,10 @@ function normalizeReputationSummary(value: unknown): ReputationSummary | null {
           : []
       )
     : []
-  return { text: value.text, sources }
+  const textEn = typeof value.text_en === 'string' && value.text_en.trim().length > 0
+    ? value.text_en.trim()
+    : null
+  return { text: value.text, textEn, sources }
 }
 
 function normalizeSiteTokens(value: unknown): SiteTokens {
@@ -650,8 +653,9 @@ function brandToUpdate(data: BrandWriteInput): Record<string, unknown> {
       row[key] = value
     }
   }
-  if (data.priceRange === undefined) delete row.price_range
-  if (data.productTags === undefined) delete row.product_tags
+  const raw = data as Record<string, unknown>
+  if (data.priceRange === undefined && raw.price_range === undefined) delete row.price_range
+  if (data.productTags === undefined && raw.product_tags === undefined) delete row.product_tags
   return row
 }
 

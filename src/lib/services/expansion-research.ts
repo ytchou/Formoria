@@ -6,6 +6,7 @@ const DEEPSEEK_TIMEOUT_MS = 60_000
 
 export type ExpansionResult = {
   reputationSummary: ReputationSummary | null
+  latencyMs?: number
 }
 
 type ExpansionInput = {
@@ -75,7 +76,7 @@ export async function runExpansionResearch(
     input.category ? `類別：${input.category}` : '',
     input.description ? `品牌描述：${input.description}` : '',
     input.serpSnippets.length > 0
-      ? `搜尋摘要：\n${input.serpSnippets.slice(0, 5).join('\n')}`
+      ? `搜尋摘要：\n${input.serpSnippets.slice(0, 10).join('\n')}`
       : '',
     input.siteContent ? `網站內容：\n${input.siteContent}` : '',
   ]
@@ -85,6 +86,7 @@ export async function runExpansionResearch(
   const client = createDeepSeekClient({ apiKey: token })
 
   try {
+    const startAt = Date.now()
     const { response, content } = await client.chat({
       system: EXPANSION_SYSTEM_PROMPT,
       user: userContent,
@@ -93,11 +95,13 @@ export async function runExpansionResearch(
       maxTokens: 1200,
       temperature: 0.1,
     })
+    const latencyMs = Date.now() - startAt
 
     if (!response.ok) return null
 
     if (!content) return null
-    return parseExpansionResult(content)
+    const parsed = parseExpansionResult(content)
+    return parsed ? { ...parsed, latencyMs } : null
   } catch {
     return null
   }

@@ -5,7 +5,7 @@ export type BrandImageSearchResult = {
   query: string
 }
 
-type BrandSearchResult = { urls: string[], snippets: string[], rawEntries?: unknown[] }
+type BrandSearchResult = { urls: string[], snippets: string[], rawEntries?: unknown, latencyMs?: number }
 
 export type ImageQueryInput = {
   brandName: string

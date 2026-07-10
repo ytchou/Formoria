@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Heart } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
+import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getUserSavedBrands } from '@/lib/services/saved-brands'
 import { createClient } from '@/lib/supabase/server'
 import type { SavedBrand } from '@/lib/types/saved-brand'
@@ -15,7 +16,8 @@ type Props = {
 }
 
 function BrandImage({ brand }: { brand: SavedBrand }) {
-  if (!brand.heroImageUrl) {
+  const heroImageUrl = safeImageSrc(brand.heroImageUrl)
+  if (!heroImageUrl) {
     return (
       <div className="flex h-full items-center justify-center bg-secondary">
         <span className="text-3xl font-bold text-muted-foreground">
@@ -31,7 +33,7 @@ function BrandImage({ brand }: { brand: SavedBrand }) {
       className="object-cover"
       fill
       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-      src={brand.heroImageUrl}
+      src={heroImageUrl}
     />
   )
 }

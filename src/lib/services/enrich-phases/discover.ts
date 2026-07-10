@@ -1,6 +1,8 @@
 import type { PhaseResult } from '@/lib/types/curation'
 import { batchSearchBrandsWithSnippets } from './scraper/search'
 import { getLatestSearchResults, insertSearchResult } from '../search-results'
+import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { buildSerpConfig } from '@/lib/constants/enrichment-config'
 import {
   buildPhaseResult,
   getDisplayBrandName,
@@ -8,6 +10,14 @@ import {
   type BatchPhaseContext,
   type SearchPhaseResult,
 } from './types'
+
+function buildSerpQuery(brandName: string, productTypeSlug?: string | null): string {
+  const typeZh = productTypeSlug
+    ? PRODUCT_TYPE_CATEGORIES.find((c) => c.slug === productTypeSlug)?.nameZh
+    : undefined
+  const typeSegment = typeZh ? ` ${typeZh}` : ''
+  return `"${brandName}"${typeSegment} 品牌 介紹 評價 推薦 -徵才 -104 -人力 -site:formoria.com`
+}
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -38,9 +48,14 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
     }
   }
 
+  const brandProductTypes = new Map(
+    ctx.chunk.map((b) => [getDisplayBrandName(b), b.product_type])
+  )
+  const queryTemplate = (name: string) => buildSerpQuery(name, brandProductTypes.get(name))
+
   const { result, durationMs } = await timePhase(async () => {
     try {
-      const searchResults = await batchSearchBrandsWithSnippets(ctx.chunkBrandNames)
+      const searchResults = await batchSearchBrandsWithSnippets(ctx.chunkBrandNames, queryTemplate)
       const serpHits = [...searchResults.values()].filter(
         (searchResult) => searchResult.snippets.length > 0 || searchResult.urls.length > 0
       ).length
@@ -59,10 +74,12 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
             await insertSearchResult(
               brand.id,
               'serp',
-              `${brandName} 台灣`,
+              queryTemplate(brandName),
               searchResult.urls,
               searchResult.snippets,
-              searchResult.rawEntries
+              searchResult.rawEntries,
+              buildSerpConfig(),
+              searchResult.latencyMs
             )
             serpBrandIds.push(brand.id)
           }

@@ -49,7 +49,13 @@ function isSerperImageResponse(value: unknown): value is SerperImageResponse {
 
 
 
-async function callSerpApi(brandName: string, queryTemplate: QueryTemplate): Promise<SerperSerpResponse['organic']> {
+type SerpApiResult = {
+  organic: SerperSerpResponse['organic']
+  fullResponse: unknown
+  latencyMs: number
+}
+
+async function callSerpApi(brandName: string, queryTemplate: QueryTemplate): Promise<SerpApiResult> {
   const apiKey = process.env.SERPER_API_KEY
 
   if (!apiKey) {
@@ -59,6 +65,7 @@ async function callSerpApi(brandName: string, queryTemplate: QueryTemplate): Pro
   const query = queryTemplate ? queryTemplate(brandName) : DEFAULT_QUERY(brandName)
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS)
+  const startAt = Date.now()
 
   try {
     const res = await fetch(SERPER_SERP_ENDPOINT, {
@@ -76,12 +83,15 @@ async function callSerpApi(brandName: string, queryTemplate: QueryTemplate): Pro
       signal: controller.signal,
     })
 
+    const latencyMs = Date.now() - startAt
+
     if (!res.ok) {
-      return []
+      return { organic: [], fullResponse: null, latencyMs }
     }
 
     const data: unknown = await res.json()
-    return isSerperSerpResponse(data) ? data.organic : []
+    const organic = isSerperSerpResponse(data) ? data.organic : []
+    return { organic, fullResponse: data, latencyMs }
   } finally {
     clearTimeout(timeout)
   }
@@ -92,7 +102,7 @@ export async function searchBrandUrls(
   queryTemplate: QueryTemplate = DEFAULT_QUERY
 ): Promise<string[]> {
   try {
-    const entries = await callSerpApi(brandName, queryTemplate)
+    const { organic: entries } = await callSerpApi(brandName, queryTemplate)
 
     const urls = new Set<string>()
     for (const result of entries) {
@@ -172,11 +182,12 @@ export async function batchSearchBrandsWithSnippets(
 
       const brandName = names[index]
       try {
-        const entries = await callSerpApi(brandName, queryTemplate)
-        const parsed = parseBrandSearchResults(entries)
+        const { organic, fullResponse, latencyMs } = await callSerpApi(brandName, queryTemplate)
+        const parsed = parseBrandSearchResults(organic)
         results.set(brandName, {
           ...parsed,
-          rawEntries: entries,
+          rawEntries: fullResponse,
+          latencyMs,
         })
       } catch (err) {
         if (err instanceof Error && err.message.includes('SERPER_API_KEY')) {
@@ -202,7 +213,17 @@ export async function batchSearchBrandsWithSnippets(
   return results
 }
 
+const IMAGE_BLOCKED_HOSTS = [
+  'lookaside.instagram.com',
+  'lookaside.fbsbx.com',
+]
+
 function shouldKeepImage(result: SerperImageResponse['images'][number]): boolean {
+  try {
+    const host = new URL(result.imageUrl).hostname
+    if (IMAGE_BLOCKED_HOSTS.some((blocked) => host.includes(blocked))) return false
+  } catch { /* keep if URL parsing fails */ }
+
   const width = result.imageWidth ?? 0
   const height = result.imageHeight ?? 0
 

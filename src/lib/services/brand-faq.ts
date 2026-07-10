@@ -1,5 +1,6 @@
 import type { Brand } from '@/lib/types'
 import { normalizeRetailLocations } from '@/lib/brands/locations'
+import { createServiceClient } from '@/lib/supabase/server'
 
 type TFn = (key: string, params?: Record<string, unknown>) => string
 
@@ -7,6 +8,52 @@ type FaqItem = {
   id: string
   question: string
   answer: string
+}
+
+type BrandFaqEntry = {
+  question_zh?: string | null
+  answer_zh?: string | null
+  question_en?: string | null
+  answer_en?: string | null
+}
+
+const FAQ_COLUMN_ORDER = [
+  'faq_mit', 'faq_products', 'faq_price', 'faq_where_to_buy',
+  'faq_founded', 'faq_reputation',
+  'faq_custom_1', 'faq_custom_2', 'faq_custom_3', 'faq_custom_4',
+] as const
+
+export async function getBrandFaq(
+  brandId: string,
+  brand: Brand,
+  t: TFn,
+  locale: string = 'zh-TW'
+): Promise<FaqItem[]> {
+  const supabase = createServiceClient()
+  const { data: faqRow } = await supabase
+    .from('brand_faq')
+    .select('*')
+    .eq('brand_id', brandId)
+    .maybeSingle()
+
+  const isZh = locale.startsWith('zh')
+  const items: FaqItem[] = []
+
+  if (faqRow) {
+    for (const column of FAQ_COLUMN_ORDER) {
+      const entry = faqRow[column] as BrandFaqEntry | null
+      if (!entry) continue
+      const question = isZh ? entry.question_zh : entry.question_en
+      const answer = isZh ? entry.answer_zh : entry.answer_en
+      if (question && answer) {
+        items.push({ id: column, question, answer })
+      }
+    }
+  }
+
+  if (items.length > 0) return items
+
+  return buildBrandFaq(brand, t, locale)
 }
 
 type FaqGenerator = {
@@ -39,6 +86,17 @@ function compactValues(values: Array<string | null | undefined>): string[] {
 
 function truncate<T>(items: T[], limit = 3): T[] {
   return items.slice(0, limit)
+}
+
+function hasMitEnrichmentSignals(brand: Brand): boolean {
+  const evidence = brand.mitEvidence as Record<string, unknown> | null | undefined
+  return Array.isArray(evidence?.enrichment_signals) && evidence.enrichment_signals.length > 0
+}
+
+function getMitEnrichmentSignals(brand: Brand): string[] {
+  const evidence = brand.mitEvidence as Record<string, unknown> | null | undefined
+  const signals = evidence?.enrichment_signals
+  return Array.isArray(signals) ? signals.filter((s): s is string => typeof s === 'string') : []
 }
 
 function collectPurchaseLinks(brand: Brand, t: TFn): string[] {
@@ -168,7 +226,9 @@ const FAQ_GENERATORS: FaqGenerator[] = [
   {
     id: 'made-in-taiwan',
     condition: (brand) =>
-      brand.mitStatus === 'verified' || hasValue(brand.mitStory),
+      brand.mitStatus === 'verified' ||
+      hasValue(brand.mitStory) ||
+      hasMitEnrichmentSignals(brand),
     questionKey: 'brandFaq.isMadeInTaiwan.question',
     buildAnswer: (brand, t, _locale) => {
       const stampsAnswer = t('brandFaq.isMadeInTaiwan.answer', {
@@ -179,6 +239,10 @@ const FAQ_GENERATORS: FaqGenerator[] = [
       }
       if (hasValue(brand.mitStory)) {
         return brand.mitStory
+      }
+      const signals = getMitEnrichmentSignals(brand)
+      if (signals.length > 0) {
+        return signals.join('。') + '。'
       }
       return stampsAnswer
     },

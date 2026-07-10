@@ -1,8 +1,10 @@
 import { createServiceClient } from '@/lib/supabase/server'
 
+export type SearchType = 'serp' | 'image' | 'scrape'
+
 export type SearchResultRow = {
   brandId: string
-  searchType: 'serp' | 'image'
+  searchType: SearchType
   query: string
   urls: string[]
   snippets: string[]
@@ -10,26 +12,31 @@ export type SearchResultRow = {
 
 export async function insertSearchResult(
   brandId: string,
-  searchType: 'serp' | 'image',
+  searchType: SearchType,
   query: string,
   urls: string[],
   snippets: string[],
-  rawResponse?: unknown
+  rawResponse?: unknown,
+  config?: unknown,
+  latencyMs?: number
 ): Promise<void> {
   const supabase = createServiceClient()
-  await supabase.from('brand_search_results').insert({
+  const { error } = await supabase.from('brand_search_results').insert({
     brand_id: brandId,
     search_type: searchType,
     query,
     urls,
     snippets,
     raw_response: rawResponse ?? null,
+    config: config ?? null,
+    latency_ms: latencyMs ?? null,
   })
+  if (error) console.error(`  [SEARCH-RESULTS] insertSearchResult failed:`, error.message)
 }
 
 export async function getLatestSearchResults(
   brandIds: string[],
-  searchType: 'serp' | 'image'
+  searchType: SearchType
 ): Promise<Map<string, SearchResultRow>> {
   if (brandIds.length === 0) return new Map()
   const supabase = createServiceClient()
@@ -45,7 +52,7 @@ export async function getLatestSearchResults(
     if (results.has(row.brand_id)) continue
     results.set(row.brand_id, {
       brandId: row.brand_id,
-      searchType: row.search_type as 'serp' | 'image',
+      searchType: row.search_type as SearchType,
       query: row.query,
       urls: row.urls ?? [],
       snippets: row.snippets ?? [],

@@ -3,6 +3,7 @@ import { getLocale, getTranslations } from 'next-intl/server'
 import { InfoField, InfoGroup, SurfaceCard } from '@/components/ui/card'
 import { Link } from '@/i18n/navigation'
 import { getProductTypeLabel } from '@/lib/brands/category-label'
+import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { normalizeRetailLocations } from '@/lib/brands/locations'
 import type { Brand } from '@/lib/types'
 import type { RetailLocationRelationshipType } from '@/lib/types/brand'
@@ -73,6 +74,10 @@ export async function OwnerBrandOverview({
   ])
   const editBase = `/dashboard/brands/${brand.slug}/edit?step=`
   const retailLocations = normalizeRetailLocations(brand.retailLocations)
+  const heroImageUrl = safeImageSrc(brand.heroImageUrl)
+  const productPhotos = brand.productPhotos
+    .map((photo) => safeImageSrc(photo))
+    .filter((photo): photo is string => photo !== null)
   const priceRange = brand.priceRange
     ? tEdit(
         brand.priceRange === 1
@@ -112,9 +117,9 @@ export async function OwnerBrandOverview({
             description={tEdit('heroImageOverviewHint')}
             label={tEdit('fieldHeroImage')}
           >
-            {brand.heroImageUrl ? (
+            {heroImageUrl ? (
               <div className="relative aspect-[16/9] max-w-md overflow-hidden rounded-xl bg-muted">
-                <Image alt={tEdit('fieldHeroImage')} className="object-cover" fill sizes="448px" src={brand.heroImageUrl} />
+                <Image alt={tEdit('fieldHeroImage')} className="object-cover" fill sizes="448px" src={heroImageUrl} />
               </div>
             ) : <p className="type-field-value text-muted-foreground">{t('notSet')}</p>}
           </InfoGroup>
@@ -122,9 +127,9 @@ export async function OwnerBrandOverview({
             description={tEdit('productPhotosOverviewHint')}
             label={tEdit('fieldProductPhotos')}
           >
-            {brand.productPhotos.length > 0 ? (
+            {productPhotos.length > 0 ? (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                {brand.productPhotos.map((photo, index) => (
+                {productPhotos.map((photo, index) => (
                   <div key={`${photo}-${index}`} className="relative aspect-square overflow-hidden rounded-xl bg-muted">
                     <Image alt={`${tEdit('fieldProductPhotos')} ${index + 1}`} className="object-cover" fill sizes="176px" src={photo} />
                   </div>

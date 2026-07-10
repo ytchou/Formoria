@@ -1,0 +1,913 @@
+{
+  "runAt": "2026-07-09T13:13:38.619Z",
+  "brands": [
+    {
+      "slug": "anden-hud",
+      "name": "Anden Hud",
+      "productType": "fashion",
+      "productTypeZh": "服飾鞋履",
+      "difficulty": "medium"
+    },
+    {
+      "slug": "aromase艾瑪絲-頭皮療癒永續品牌",
+      "name": "AROMASE 艾瑪絲",
+      "productType": "beauty",
+      "productTypeZh": "美妝保養",
+      "difficulty": "easy"
+    },
+    {
+      "slug": "darker-than-black-bags",
+      "name": "Darker Than Black Bags",
+      "productType": "bags-accessories",
+      "productTypeZh": "包袋配件",
+      "difficulty": "medium"
+    },
+    {
+      "slug": "djulis德朱利斯-台東必買伴手禮-紅藜穀物棒-紅藜小米起司棒-紅藜黑芝麻糕",
+      "name": "Djulis 德朱利斯",
+      "productType": "food-drink",
+      "productTypeZh": "食品飲料",
+      "difficulty": "medium"
+    },
+    {
+      "slug": "hipporizz",
+      "name": "HIPPORIZZ 河馬引力",
+      "productType": "tech",
+      "productTypeZh": "3C科技",
+      "difficulty": "medium"
+    },
+    {
+      "slug": "hanchor",
+      "name": "HANCHOR",
+      "productType": "outdoor",
+      "productTypeZh": "戶外運動保健",
+      "difficulty": "medium"
+    },
+    {
+      "slug": "baby-baby-cool",
+      "name": "Baby Baby Cool",
+      "productType": "kids-pets",
+      "productTypeZh": "母嬰寵物",
+      "difficulty": "medium"
+    },
+    {
+      "slug": "ecopeco",
+      "name": "Ecopeco",
+      "productType": "crafts",
+      "productTypeZh": "工藝文創",
+      "difficulty": "medium"
+    },
+    {
+      "slug": "febbi",
+      "name": "FEBBI",
+      "productType": "jewelry",
+      "productTypeZh": "飾品珠寶",
+      "difficulty": "hard"
+    },
+    {
+      "slug": "chaiwood",
+      "name": "Chaiwood 柴屋",
+      "productType": "home",
+      "productTypeZh": "居家生活",
+      "difficulty": "hard"
+    }
+  ],
+  "variants": [
+    {
+      "id": "E",
+      "label": "Precision + Review Hybrid"
+    }
+  ],
+  "results": [
+    {
+      "brand": {
+        "slug": "anden-hud",
+        "name": "Anden Hud",
+        "productType": "fashion",
+        "productTypeZh": "服飾鞋履",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "E",
+        "label": "Precision + Review Hybrid"
+      },
+      "query": "\"Anden Hud\" 服飾鞋履 品牌 介紹 評價 推薦 -徵才 -104 -人力 -site:formoria.com",
+      "parsed": {
+        "urls": [
+          "https://gzifood.com/post-115584496/",
+          "https://www.facebook.com/dafshoesclub/photos/%E5%90%91%E5%85%A8%E4%B8%96%E7%95%8C%E5%AE%89%E5%88%A9%E6%9C%80%E5%A5%BD%E7%9A%84mit%E5%9C%8B%E6%B0%91%E9%9E%8B%E6%80%8E%E9%BA%BC%E6%9C%83%E9%82%A3%E9%BA%BC%E5%A5%BD%E7%A9%BF-httpsbitly3747wgi%E4%B8%80%E7%A9%BF%E4%B8%8A%E7%99%AE%E7%9A%84%E7%A5%9E%E5%A5%87%E9%9E%8B%E5%B1%A5%E5%8F%B0%E7%81%A3%E8%80%81%E5%B8%AB%E5%82%85%E8%B6%85%E9%81%8E30%E5%B9%B4%E8%A3%BD%E9%9E%8B%E7%B6%93%E9%A9%97%E7%86%B1%E9%8A%B7%E8%90%AC%E9%9B%99108%E6%A3%9F%E5%8F%B0%E5%8C%97101%E8%B1%86%E8%B1%86%E9%9E%8B3/5429175430439846/",
+          "https://fgblog.fashionguide.com.tw/8108/posts/99595",
+          "https://www.setn.com/ampnews/1283512",
+          "https://www.threads.com/@amychan2603/post/DXGvgv3j1Tk/%E5%94%94%E4%BF%82%E5%91%80-%E5%A5%BD%E5%A4%9A%E9%96%93-%E4%BD%A0%E4%B8%8A%E4%BD%A2%E5%AE%98%E7%B6%B2%E7%9D%87%E4%B8%AB",
+          "https://www.instagram.com/reel/DZrHRNvh2Wu/",
+          "https://www.instagram.com/bywen.jpg_/",
+          "https://gzifood.com/post-115584661/",
+          "http://www.tongmengguo.com/lei_1936761.html",
+          "https://news.pchome.com.tw/expense/winnews/20260601/index-78031485111962346013.html"
+        ],
+        "snippets": [
+          {
+            "title": "(試穿)Anden Hud-MIT來自台灣的好質感 - G子的漫畫生活",
+            "description": "(試穿)Anden Hud-MIT來自台灣的好質感 - G子的漫畫生活 — (試穿)Anden Hud-MIT來自台灣的好質感 ... 不知道大家有沒有買過品質很不好的衣服呢? ... 我發現真的超級讚的! ... (好害羞得先來全體照一張!) 之前他們也有作 ...",
+            "url": "https://gzifood.com/post-115584496/"
+          },
+          {
+            "title": "D+AF - 向全世界安利最好的MIT國民鞋   怎麼會那麼好穿~~~ https://bit ...",
+            "description": "D+AF - 向全世界安利最好的MIT國民鞋   怎麼會那麼好穿~~~ https://bit ... — MIT鞋、台灣製造手工鞋推薦 好感國民鞋-. 4y. Profile photo of 昱汝. 賴昱汝. 我的腳長22公分，34號還是太大，請問如何 退貨？ ... Anden Hud · 󱙶. Follow.",
+            "url": "https://www.facebook.com/dafshoesclub/photos/%E5%90%91%E5%85%A8%E4%B8%96%E7%95%8C%E5%AE%89%E5%88%A9%E6%9C%80%E5%A5%BD%E7%9A%84mit%E5%9C%8B%E6%B0%91%E9%9E%8B%E6%80%8E%E9%BA%BC%E6%9C%83%E9%82%A3%E9%BA%BC%E5%A5%BD%E7%A9%BF-httpsbitly3747wgi%E4%B8%80%E7%A9%BF%E4%B8%8A%E7%99%AE%E7%9A%84%E7%A5%9E%E5%A5%87%E9%9E%8B%E5%B1%A5%E5%8F%B0%E7%81%A3%E8%80%81%E5%B8%AB%E5%82%85%E8%B6%85%E9%81%8E30%E5%B9%B4%E8%A3%BD%E9%9E%8B%E7%B6%93%E9%A9%97%E7%86%B1%E9%8A%B7%E8%90%AC%E9%9B%99108%E6%A3%9F%E5%8F%B0%E5%8C%97101%E8%B1%86%E8%B1%86%E9%9E%8B3/5429175430439846/"
+          },
+          {
+            "title": "[ 穿搭] 我的日常生活X 美式休閒穿搭   - i am 曉琪拉  部落格 ...",
+            "description": "[ 穿搭] 我的日常生活X 美式休閒穿搭   - i am 曉琪拉  部落格 ... — ... ̶́ ˵)ෆ 是深受大家喜愛的Anden Hud♥ http://www.andenhud.com.tw/ 記得上一次試穿AH家的衣服是在冷吱吱的冬天..... 柔軟紮實的材質、外加修身的版型都令我印象...",
+            "url": "https://fgblog.fashionguide.com.tw/8108/posts/99595"
+          },
+          {
+            "title": "來場感受山林漫步的旅行初春露營季登場！穿戴這些走出去就對啦",
+            "description": "來場感受山林漫步的旅行初春露營季登場！穿戴這些走出去就對啦 — MIT品牌Anden Hud 創立於2010年，以多色多款、高品質低價格純棉內褲掘起，憑「你想要的款式AH都有」的品牌理念包羅了各式貼身衣物需求，以呵護日夜的溫柔陪伴 ...",
+            "url": "https://www.setn.com/ampnews/1283512"
+          },
+          {
+            "title": "唔係呀好多間你上佢官網睇丫 - Threads",
+            "description": "唔係呀好多間你上佢官網睇丫 - Threads — 一直在尋找天然材質的品項，但通常都是零散的，在網路上看材質標示也偏模糊，很多根本不標。在Sloggi、Anden Hud、H&M、Muji 等有看過部分品項為有機棉或純棉！ ... 同時我也 ...",
+            "url": "https://www.threads.com/@amychan2603/post/DXGvgv3j1Tk/%E5%94%94%E4%BF%82%E5%91%80-%E5%A5%BD%E5%A4%9A%E9%96%93-%E4%BD%A0%E4%B8%8A%E4%BD%A2%E5%AE%98%E7%B6%B2%E7%9D%87%E4%B8%AB"
+          },
+          {
+            "title": "(  折扣碼分享) 沖繩OOTD   這天穿的是@nikoichi_ii 的洋裝，看似極簡 ...",
+            "description": "(  折扣碼分享) 沖繩OOTD   這天穿的是@nikoichi_ii 的洋裝，看似極簡 ... — ... ANDEN HUD 冰絲涼感內衣褲系列。他們的冰絲涼感Bra Top 材質非常輕透 ... 作為日本官方服飾品牌正式授權的跨境購物平台，我們提供全繁體中文介面 ...",
+            "url": "https://www.instagram.com/reel/DZrHRNvh2Wu/"
+          },
+          {
+            "title": "Wen 𝜗𝜚˚⋆ (@bywen.jpg_) • Instagram photos and videos",
+            "description": "Wen 𝜗𝜚˚⋆ (@bywen.jpg_) • Instagram photos and videos — ... Anden Hud 完全解決這些煩惱！ ✓ MIT 品質、10年以上品牌保證✓ 彈性舒適不緊繃，面料柔軟到讓人驚喜✓ 款式選擇超多，天天換新花色也不會膩之前就有 ...",
+            "url": "https://www.instagram.com/bywen.jpg_/"
+          },
+          {
+            "title": "G子試穿*休閒舒適純棉睡衣*+浪漫漫畫式穿搭 - G子的漫畫生活",
+            "description": "G子試穿*休閒舒適純棉睡衣*+浪漫漫畫式穿搭 - G子的漫畫生活 — ... 不起來所以呢就想到用漫畫來表現穿搭!!(有沒有很聰明?)G子一直有在發瞜這家ANDEN HUD的衣服因為主打MIT來自台灣+百分之百純棉最重要的是他有分尺寸!!因為我家剛好是S.M.L.",
+            "url": "https://gzifood.com/post-115584661/"
+          },
+          {
+            "title": "T恤大数据分析 - TMG分类目录",
+            "description": "T恤大数据分析 - TMG分类目录 — 內褲,襪子,T恤,上衣,短褲,男裝,女裝,童裝,POLO衫,居家服,購物,購物網,MIT,拍賣,平價... Anden Hud服飾堅持台灣T恤設計及製造提供高品質的國民服飾,將台灣50年來極致紡織 ...",
+            "url": "http://www.tongmengguo.com/lei_1936761.html"
+          },
+          {
+            "title": "Melissa果凍鞋強勢回歸今夏鞋櫃！Sanrio三麗鷗、SUSAN FANG",
+            "description": "Melissa果凍鞋強勢回歸今夏鞋櫃！Sanrio三麗鷗、SUSAN FANG — 五大台灣女鞋品牌聯手寵愛媽咪！MAGY、ORIN、CHOiCE、TAS、DIANA ... ANDEN HUD端午大撒幣！免費LINE貼圖、送$88購物金，再抽Dyson、iPad頂級 ...",
+            "url": "https://news.pchome.com.tw/expense/winnews/20260601/index-78031485111962346013.html"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T13:13:11.931Z"
+    },
+    {
+      "brand": {
+        "slug": "aromase艾瑪絲-頭皮療癒永續品牌",
+        "name": "AROMASE 艾瑪絲",
+        "productType": "beauty",
+        "productTypeZh": "美妝保養",
+        "difficulty": "easy"
+      },
+      "variant": {
+        "id": "E",
+        "label": "Precision + Review Hybrid"
+      },
+      "query": "\"AROMASE 艾瑪絲\" 美妝保養 品牌 介紹 評價 推薦 -徵才 -104 -人力 -site:formoria.com",
+      "parsed": {
+        "urls": [
+          "https://www.aromase.com.tw/",
+          "https://hk.cosme.net/brands/4999?effect=774",
+          "https://www.instagram.com/aromasetw/",
+          "https://www.facebook.com/Aromase.tw/photos/%E7%B5%A6%E4%B8%80%E6%A8%A3%E6%9C%89%E9%A0%AD%E7%9A%AE%E5%9B%B0%E6%93%BE%E7%9A%84%E4%BD%A0-%E7%BE%8E%E5%A6%9D%E9%83%A8%E8%90%BD%E5%AE%A2-nana-%E6%9C%89%E5%90%8C%E6%84%9F%E6%8E%A8%E8%96%A6%E9%80%99%E6%98%AF%E9%87%9D%E5%B0%8D%E8%84%82%E6%BC%8F%E6%80%A7%E7%AD%89%E5%95%8F%E9%A1%8C%E9%A0%AD%E7%9A%AE%E7%9A%84%E6%B7%A8%E5%8C%96%E6%B6%B2%E4%BD%86%E6%98%AF%E5%9B%A0%E7%82%BA%E6%88%91%E7%9A%84%E5%BE%88%E5%9A%B4%E9%87%8D%E6%89%80%E4%BB%A5%E9%82%84%E5%9C%A8%E6%AF%8F%E5%A4%A9%E8%A9%A6%E7%94%A8%E7%95%B6%E4%B8%AD%E6%88%91%E6%9C%89%E6%90%AD%E9%85%8D%E5%8E%BB%E5%B1%91%E7%9A%84%E6%B4%97%E9%AB%AE%E7%B2%BE%E5%B8%8C%E6%9C%9B%E6%95%88%E6%9E%9C%E5%8F%AF%E4%BB%A5%E6%9B%B4%E5%8A%A0/1490982940914744/",
+          "https://www.cosme.net.tw/brands/769/reviews",
+          "https://www.momoshop.com.tw/blog/beauty/98079/",
+          "https://www.threads.com/@nina._.vitamin/post/DZ5UcPcE0BN/%E8%89%BE%E7%91%AA%E7%B5%B2%E7%9A%84%E6%A3%AE%E7%B3%BB%E5%88%97%E8%A0%BB%E5%A5%BD%E7%94%A8%E7%9A%84%E5%BE%88%E6%8E%A8%E8%96%A6httpssshopeetw8pjcqsj9so/",
+          "https://www.instagram.com/reel/C55azRXMmrx/",
+          "https://pinkwiewie1025.pixnet.net/blog/posts/13362711142",
+          "https://buylabuyya.com/2023/08/07/%E3%80%90%E7%94%A2%E5%93%81%E8%A9%A6%E7%94%A8%E3%80%91-%E8%B7%9F%E8%91%97%E9%80%993%E5%80%8B%E6%AD%A5%E9%A9%9F%EF%BC%8C%E6%8E%89%E9%AB%AE%E9%A0%AD%E7%9A%AE%E5%B1%91%E9%A0%AD%E7%99%A2%E4%B8%8D%E6%98%AF/"
+        ],
+        "snippets": [
+          {
+            "title": "艾瑪絲AROMASE | 氧髮淨化源自根本",
+            "description": "艾瑪絲AROMASE | 氧髮淨化源自根本 — 中東最大且最具指標的美妝大賞，2020艾瑪絲入圍年度之星獎. 2024天下永續 ... Copyright © 2020 AROMASE艾瑪絲All Rights Reserved 美科實業股份有限公司/ 統編 ...",
+            "url": "https://www.aromase.com.tw/?srsltid=AfmBOooCNPbd7IQMYFPMgEcva7_tlqsrGJV_eQbZVEMp0JV8Jhfk06xz"
+          },
+          {
+            "title": "AROMASE 艾瑪絲台灣彩妝好用推薦產品| @cosme 找美妝護膚",
+            "description": "AROMASE 艾瑪絲台灣彩妝好用推薦產品| @cosme 找美妝護膚 — AROMASE 艾瑪絲好用推薦產品. 品牌資訊產品推薦消息報導官網.門市用家評價. 依產品分類找. 美髮, 身體保養, 洗髮, 洗髮液, 護髮, 頭皮護理, 沐浴清潔, 護髮素 ...",
+            "url": "https://hk.cosme.net/brands/4999?effect=774"
+          },
+          {
+            "title": "AROMASE艾瑪絲頭皮療癒永續品牌(@aromasetw) - Instagram",
+            "description": "AROMASE艾瑪絲頭皮療癒永續品牌(@aromasetw) - Instagram — 讓頭皮深呼吸，從現在開始減壓養護 ‍♂️ 頭皮健康了，職場更有戰鬥力！ ​ 立即領取限量減壓神器 ➡️ 點選@aromasetw 首頁連結​ #AROMASE艾瑪絲#頭皮問題的好朋友#捷利爾去屑洗 ...",
+            "url": "https://www.instagram.com/aromasetw/"
+          },
+          {
+            "title": "Aromase艾瑪絲- 「給一樣有頭皮困擾的你」- 美妝部落客Nana 有 ...",
+            "description": "Aromase艾瑪絲- 「給一樣有頭皮困擾的你」- 美妝部落客Nana 有 ... — AROMASE艾瑪絲5α 捷利爾頭皮淨化液 獨家液態水狀設計，能精準滲透髮根， 不只是帶走多餘油脂，更是為頭皮建立長效清爽的健康 基礎 找回妳的頭皮清爽養護主導 ...",
+            "url": "https://www.facebook.com/Aromase.tw/photos/%E7%B5%A6%E4%B8%80%E6%A8%A3%E6%9C%89%E9%A0%AD%E7%9A%AE%E5%9B%B0%E6%93%BE%E7%9A%84%E4%BD%A0-%E7%BE%8E%E5%A6%9D%E9%83%A8%E8%90%BD%E5%AE%A2-nana-%E6%9C%89%E5%90%8C%E6%84%9F%E6%8E%A8%E8%96%A6%E9%80%99%E6%98%AF%E9%87%9D%E5%B0%8D%E8%84%82%E6%BC%8F%E6%80%A7%E7%AD%89%E5%95%8F%E9%A1%8C%E9%A0%AD%E7%9A%AE%E7%9A%84%E6%B7%A8%E5%8C%96%E6%B6%B2%E4%BD%86%E6%98%AF%E5%9B%A0%E7%82%BA%E6%88%91%E7%9A%84%E5%BE%88%E5%9A%B4%E9%87%8D%E6%89%80%E4%BB%A5%E9%82%84%E5%9C%A8%E6%AF%8F%E5%A4%A9%E8%A9%A6%E7%94%A8%E7%95%B6%E4%B8%AD%E6%88%91%E6%9C%89%E6%90%AD%E9%85%8D%E5%8E%BB%E5%B1%91%E7%9A%84%E6%B4%97%E9%AB%AE%E7%B2%BE%E5%B8%8C%E6%9C%9B%E6%95%88%E6%9E%9C%E5%8F%AF%E4%BB%A5%E6%9B%B4%E5%8A%A0/1490982940914744/"
+          },
+          {
+            "title": "AROMASE 艾瑪絲使用心得一覽| 找美妝@cosme",
+            "description": "AROMASE 艾瑪絲使用心得一覽| 找美妝@cosme — AROMASE 艾瑪絲心得一覽 ; 白拋 · 白拋. 油性肌膚・46歲・288 篇心得 ; Giselle JL. 混合性肌膚・37歲・291 篇心得 ; 金曼妮. 混合性肌膚・36歲・186 篇心得 ; CIAO/CIAO. 混合 ...",
+            "url": "https://www.cosme.net.tw/brands/769/reviews"
+          },
+          {
+            "title": "草本植萃首選品牌【AROMASE艾瑪絲】，夏日頭皮救星 - Momo 購物",
+            "description": "草本植萃首選品牌【AROMASE艾瑪絲】，夏日頭皮救星 - Momo 購物 — 美妝保養. 草本植萃首選品牌【AROMASE艾瑪絲】，夏日頭皮救星，令人安心的洗髮精 ... 推薦艾瑪絲的洗髮精，他家的產品都是走草本植萃的路線，成分蠻天然的，但真正 ...",
+            "url": "https://www.momoshop.com.tw/blog/beauty/98079/?srsltid=AfmBOopzvKFSWZ46Z6qDjgnz1TP4dmSikxV04-Vk7PM3Y7lQ3L2ehRT6"
+          },
+          {
+            "title": "艾瑪絲的森系列蠻好用的很推薦～ https://s.shopee.tw/8pjcQSj9So",
+            "description": "艾瑪絲的森系列蠻好用的很推薦～ https://s.shopee.tw/8pjcQSj9So — 推薦台灣這個天氣，真的對油頭人很不友善…… 每天騎車戴安全帽，一拿下頭頂塌到像三天沒洗頭，瀏海直接變條碼貓。 ​之前被推坑AROMASE 艾瑪絲這瓶「草本胺基酸 ...",
+            "url": "https://www.threads.com/@nina._.vitamin/post/DZ5UcPcE0BN/%E8%89%BE%E7%91%AA%E7%B5%B2%E7%9A%84%E6%A3%AE%E7%B3%BB%E5%88%97%E8%A0%BB%E5%A5%BD%E7%94%A8%E7%9A%84%E5%BE%88%E6%8E%A8%E8%96%A6httpssshopeetw8pjcqsj9so/"
+          },
+          {
+            "title": "全身清清爽爽，夏天才會比較舒服！ 艾瑪絲也是老伴侶了 ... - Instagram",
+            "description": "全身清清爽爽，夏天才會比較舒服！ 艾瑪絲也是老伴侶了 ... - Instagram — AROMASE 艾瑪絲鐵粉必看！ #頭皮養護集點計劃 正式開跑✨ 詳細資訊 頭皮保養就像肌膚一樣，需要持之以恆的灌溉 為了感謝鐵粉們的長期支持，艾瑪絲推出超 ...",
+            "url": "https://www.instagram.com/reel/C55azRXMmrx/"
+          },
+          {
+            "title": "漂亮髮絲靠洗頭就能完成「AROMASE艾瑪絲」高CP洗髮評比！",
+            "description": "漂亮髮絲靠洗頭就能完成「AROMASE艾瑪絲」高CP洗髮評比！ — 漂亮髮絲靠洗頭就能完成「AROMASE艾瑪絲」高CP洗髮評比！ · 這次開箱 · 捷利爾角質淨化液（costco獨家2入組） · 草本去屑洗髮精（costco獨家1公升） · 5α捷利爾洗髮沐浴露3 in 1",
+            "url": "https://pinkwiewie1025.pixnet.net/blog/posts/13362711142"
+          },
+          {
+            "title": "【產品試用】 跟著這3個步驟，掉髮頭皮屑頭癢不是問題！Aromase艾 ...",
+            "description": "【產品試用】 跟著這3個步驟，掉髮頭皮屑頭癢不是問題！Aromase艾 ... — 接下來介紹為何Aromase艾瑪絲這麼多擁護者頭皮清潔事保持頭髮健康最最最重要的一環～ 如果你的頭皮(根)健康，那你長出來的頭髮也會健康頭皮就跟我們的 ...",
+            "url": "https://buylabuyya.com/2023/08/07/%E3%80%90%E7%94%A2%E5%93%81%E8%A9%A6%E7%94%A8%E3%80%91-%E8%B7%9F%E8%91%97%E9%80%993%E5%80%8B%E6%AD%A5%E9%A9%9F%EF%BC%8C%E6%8E%89%E9%AB%AE%E9%A0%AD%E7%9A%AE%E5%B1%91%E9%A0%AD%E7%99%A2%E4%B8%8D%E6%98%AF/?srsltid=AfmBOoos7v6_uFhZ968tkIoydnMn94ghMuxMkOVkrW97cwuEPmusT6PI"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T13:13:15.693Z"
+    },
+    {
+      "brand": {
+        "slug": "darker-than-black-bags",
+        "name": "Darker Than Black Bags",
+        "productType": "bags-accessories",
+        "productTypeZh": "包袋配件",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "E",
+        "label": "Precision + Review Hybrid"
+      },
+      "query": "\"Darker Than Black Bags\" 包袋配件 品牌 介紹 評價 推薦 -徵才 -104 -人力 -site:formoria.com",
+      "parsed": {
+        "urls": [
+          "https://www.facebook.com/DTBBAG/",
+          "https://www.instagram.com/reel/C4NoSDJLUtS/",
+          "https://www.dtbbag.com/about",
+          "https://www.instagram.com/reel/C-_58n8Clli/",
+          "https://today.line.me/tw/v3/article/1RlGN3",
+          "https://www.facebook.com/DTBBAG/videos/valley-hobo-bag-%E9%96%8B%E7%AE%B1/422481193927825/",
+          "https://style.yahoo.com.tw/news/%E5%B0%8D%E7%9A%84%E5%8C%85%E5%8C%85%E6%89%8D%E8%83%BD%E7%82%BA%E7%94%9F%E6%B4%BB%E6%AF%8F%E5%80%8B%E6%99%82%E5%88%BB%E5%81%9A%E5%A5%BD%E6%BA%96%E5%82%99%E8%88%87-darker-than-black-bags-%E7%B6%93%E5%85%B8%E5%8C%85%E6%AC%BE%E4%B8%80%E5%90%8C%E6%89%93%E9%80%A0%E7%90%86%E6%83%B3%E7%A9%BF%E6%90%AD-214409354.html",
+          "https://www.eslite.com/exhibitions/CU202107-00008",
+          "https://www.facebook.com/DTBBAG/posts/%E9%96%8B%E7%AE%B1%E4%B8%80%E6%AC%BE%E5%A4%A7%E5%AE%B9%E9%87%8F%E7%9A%84valley-hobo-bag%E7%9C%8B%E7%9C%8B%E5%AE%83%E8%83%BD%E8%A3%9D%E4%B8%8B%E5%A4%9A%E5%B0%91%E6%9D%B1%E8%A5%BF%E7%94%9F%E6%B4%BB%E6%97%A5%E7%94%A8%E5%93%81%E5%85%A8%E9%83%BD%E4%B8%80%E5%8C%85%E6%90%9E%E5%AE%9A%E5%AF%A6%E7%94%A8%E5%8F%88%E6%99%82%E5%B0%9A%E7%B5%95%E5%B0%8D%E6%98%AF%E6%97%A5%E5%B8%B8%E5%87%BA%E8%A1%8C%E7%9A%84%E6%9C%80%E4%BD%B3%E9%81%B8%E6%93%87%E6%89%8B%E6%8F%90%E5%8C%85-dtb%E7%9A%AE%E4%BB%B6-%E5%A4%A7%E5%AE%B9%E9%87%8F-%E5%AF%A6%E7%94%A8%E6%99%82%E5%B0%9A-/986045430193106/",
+          "https://www.pinkoi.com/store/dtbbag"
+        ],
+        "snippets": [
+          {
+            "title": "Darker Than Black Bags (@DTBBAG) - Facebook",
+            "description": "Darker Than Black Bags (@DTBBAG) - Facebook — Darker Than Black Bags is at 新光三越台北信義新天地A11. Apr 2󰞋󱟠. 󳄫. 【新品上市｜Mesa Shoulder Bag 覓莎側背包】 在專業與自我之間，找到最俐落的平衡。 在換季 ...",
+            "url": "https://www.facebook.com/DTBBAG/"
+          },
+          {
+            "title": "輕巧方便   官網下單還有附贈小禮物喔！   #荔枝皮#mini軟包#開箱文 ...",
+            "description": "輕巧方便   官網下單還有附贈小禮物喔！   #荔枝皮#mini軟包#開箱文 ... — 許久未見的New Tote Bag，是品牌中最具包容力的單品。在每一張送給 ... Join Darker Than Black bags on Instagram. Sign up for Instagram · Sign ...",
+            "url": "https://www.instagram.com/reel/C4NoSDJLUtS/"
+          },
+          {
+            "title": "品牌故事",
+            "description": "品牌故事 — ... Darker Than Black Bags · 品牌故事 · 最新消息 · 商品專區 · 皮革小知識 · 銷售據點 ... 名牌是一個標籤，一不小心，就會讓你成為包包的配件。 對Yu-Shan而言，包包有沒有 ...",
+            "url": "https://www.dtbbag.com/about?srsltid=AfmBOoprPESU7tCd2qEt43Pq9-_WlXmZd-BhkzM2Vm1iKUX3utb1SgUW"
+          },
+          {
+            "title": "今天推薦幾款超實用的通勤包讓你上班外出更輕鬆  不僅能完美收納筆 ...",
+            "description": "今天推薦幾款超實用的通勤包讓你上班外出更輕鬆  不僅能完美收納筆 ... — 設計師品牌Darker Than Black年末推薦，Isosceles Triangle Hobo Bag亞麻霧與 ... Darker Than Black Bags 用乾布擦拭TEBIE . 給真皮包一點時間就能慢慢 ...",
+            "url": "https://www.instagram.com/reel/C-_58n8Clli/"
+          },
+          {
+            "title": "對的包包才能為生活每個時刻做好準備！與Darker Than Black Bags ...",
+            "description": "對的包包才能為生活每個時刻做好準備！與Darker Than Black Bags ... — 曾獲得美國IDA 設計大獎、台灣文博會文創精品獎等傑出獎項，台灣設計師皮件品牌「Darker Than Black Bags」善於利用最簡約且保有個性印象的黑色來營造包包 ...",
+            "url": "https://today.line.me/tw/v3/article/1RlGN3"
+          },
+          {
+            "title": "開箱一款大容量的Valley hobo bag 看看它能裝下多少東西！ 生活 ...",
+            "description": "開箱一款大容量的Valley hobo bag 看看它能裝下多少東西！ 生活 ... — ... Valley hobo bag 看看它能裝下多少東西！ 生活日用品，全都一包 ... Darker Than Black Bags. May 23, 2024· 󰟠. 󳄫. Valley hobo bag 開箱. 開箱 ...",
+            "url": "https://www.facebook.com/DTBBAG/videos/valley-hobo-bag-%E9%96%8B%E7%AE%B1/422481193927825/"
+          },
+          {
+            "title": "對的包包才能為生活每個時刻做好準備！與Darker Than Black Bags ...",
+            "description": "對的包包才能為生活每個時刻做好準備！與Darker Than Black Bags ... — 曾獲得美國IDA 設計大獎、台灣文博會文創精品獎等傑出獎項，台灣設計師皮件品牌「Darker Than Black Bags」善於利用最簡約且保有個性印象的黑色來營造包包 ...",
+            "url": "https://style.yahoo.com.tw/news/%E5%B0%8D%E7%9A%84%E5%8C%85%E5%8C%85%E6%89%8D%E8%83%BD%E7%82%BA%E7%94%9F%E6%B4%BB%E6%AF%8F%E5%80%8B%E6%99%82%E5%88%BB%E5%81%9A%E5%A5%BD%E6%BA%96%E5%82%99%E8%88%87-darker-than-black-bags-%E7%B6%93%E5%85%B8%E5%8C%85%E6%AC%BE%E4%B8%80%E5%90%8C%E6%89%93%E9%80%A0%E7%90%86%E6%83%B3%E7%A9%BF%E6%90%AD-214409354.html"
+          },
+          {
+            "title": "【Darker Than Black Bags】｜精選策展 - 誠品",
+            "description": "【Darker Than Black Bags】｜精選策展 - 誠品 — 精選策展：【Darker Than Black Bags】：【Darker Than Black Bags】，柔中有型的獨立風格，打破性別的界線：誠品以「人文、藝術、創意、生活」為核心價值，由推廣閱讀出發.",
+            "url": "https://www.eslite.com/exhibitions/CU202107-00008?srsltid=AfmBOoret3hCPOFTTRWQDEW-neLO6tjoFnQszDHU5rACCR1R6Rlu8wEi"
+          },
+          {
+            "title": "開箱一款大容量的Valley hobo bag 看看它能裝下多少東西！ 生活日用品",
+            "description": "開箱一款大容量的Valley hobo bag 看看它能裝下多少東西！ 生活日用品 — Darker Than Black Bags is at Michelle Chu Yoga. 3d󰞋󱟠. 󳄫. 律動淨化日 ... 全新的【Tide Tote Bag 潮境托特包】就是為了打破這個痛點而生。",
+            "url": "https://www.facebook.com/DTBBAG/posts/%E9%96%8B%E7%AE%B1%E4%B8%80%E6%AC%BE%E5%A4%A7%E5%AE%B9%E9%87%8F%E7%9A%84valley-hobo-bag%E7%9C%8B%E7%9C%8B%E5%AE%83%E8%83%BD%E8%A3%9D%E4%B8%8B%E5%A4%9A%E5%B0%91%E6%9D%B1%E8%A5%BF%E7%94%9F%E6%B4%BB%E6%97%A5%E7%94%A8%E5%93%81%E5%85%A8%E9%83%BD%E4%B8%80%E5%8C%85%E6%90%9E%E5%AE%9A%E5%AF%A6%E7%94%A8%E5%8F%88%E6%99%82%E5%B0%9A%E7%B5%95%E5%B0%8D%E6%98%AF%E6%97%A5%E5%B8%B8%E5%87%BA%E8%A1%8C%E7%9A%84%E6%9C%80%E4%BD%B3%E9%81%B8%E6%93%87%E6%89%8B%E6%8F%90%E5%8C%85-dtb%E7%9A%AE%E4%BB%B6-%E5%A4%A7%E5%AE%B9%E9%87%8F-%E5%AF%A6%E7%94%A8%E6%99%82%E5%B0%9A-/986045430193106/"
+          },
+          {
+            "title": "Darker Than Black Bags - 官方線上商店| Pinkoi 全系列好評上架中",
+            "description": "Darker Than Black Bags - 官方線上商店| Pinkoi 全系列好評上架中 — Darker Than Black Bags官方經營商店，Pinkoi 新會員享APP 運費優惠，最高折NT$100！ ... 品牌是設計師Yu-Shan十年前就訂下的目標。她同時具備服裝設計與工業設計背景 ...",
+            "url": "https://www.pinkoi.com/store/dtbbag"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T13:13:18.793Z"
+    },
+    {
+      "brand": {
+        "slug": "djulis德朱利斯-台東必買伴手禮-紅藜穀物棒-紅藜小米起司棒-紅藜黑芝麻糕",
+        "name": "Djulis 德朱利斯",
+        "productType": "food-drink",
+        "productTypeZh": "食品飲料",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "E",
+        "label": "Precision + Review Hybrid"
+      },
+      "query": "\"Djulis 德朱利斯\" 食品飲料 品牌 介紹 評價 推薦 -徵才 -104 -人力 -site:formoria.com",
+      "parsed": {
+        "urls": [
+          "https://www.facebook.com/djulistaiwan/",
+          "https://www.ez66.com.tw/products/n1hf00003120000",
+          "https://tshopping.thsrc.com.tw/DJULIS%E5%BE%B7%E6%9C%B1%E5%88%A9%E6%96%AF",
+          "https://www.instagram.com/p/DP6Nt1GgUti/",
+          "https://buy.line.me/product/233/10006305_322435269",
+          "https://24h.pchome.com.tw/prod/DBDA4K-B900FM0TA",
+          "https://www.facebook.com/Taiwansafefood/posts/%E9%80%99%E9%BA%BC%E7%BE%8E%E7%9A%84%E6%96%B0%E5%93%81%E7%9C%9F%E7%9A%84%E6%98%AF%E5%90%83%E7%9A%84%E9%80%99%E6%AC%A1-%E5%BE%B7%E6%9C%B1%E5%88%A9%E6%96%AF-%E6%8E%A8%E5%87%BA%E4%BA%864%E6%AC%BE%E6%96%B0%E5%93%81%E5%A4%AA%E7%BE%8E%E8%86%A9%E4%BA%86%E4%B8%8D%E5%8F%AA%E5%A5%BD%E7%9C%8B%E5%8F%88%E5%A5%BD%E5%90%83%E9%80%81%E4%BA%BA%E4%B9%9F%E8%B6%85-okdjulis-%E5%BE%B7%E6%9C%B1%E5%88%A9%E6%96%AF%E7%9A%84%E7%B4%85%E8%97%9C%E7%B3%BB%E5%88%97%E5%A5%BD%E9%A3%9F%E6%87%89%E8%A9%B2%E6%9C%89%E4%B8%8D%E5%B0%91%E4%BA%BA%E7%9F%A5%E9%81%93%E4%BA%86%E7%B4%85%E8%97%9C%E6%98%AF%E7%9C%9F%E7%9A%84%E6%98%AF-%E7%A9%80%E7%89%A9/1132006778979446/",
+          "https://taitung.contenta.tw/2500/",
+          "https://www.tw.coupang.com/products/DJULIS-%E5%BE%B7%E6%9C%B1%E5%88%A9%E6%96%AF-%E7%B4%85%E8%97%9C%E7%A9%80%E7%89%A9%E6%A3%92-12%E6%94%AF-558165695315972",
+          "https://www.etmall.com.tw/i/3683696"
+        ],
+        "snippets": [
+          {
+            "title": "Djulis 德朱利斯| Taitung - Facebook",
+            "description": "Djulis 德朱利斯| Taitung - Facebook — 下午茶一口接一口的療癒甜點隆重介紹 **DJULIS 德朱利斯【紅烏龍小水滴泡芙】** 當台灣深厚底蘊的茶文化 遇上優雅的法式點心靈感 誕生了這款外型可愛、香甜不膩的創意 ...",
+            "url": "https://www.facebook.com/djulistaiwan/"
+          },
+          {
+            "title": "【DJULIS】德朱利斯台東紅藜富貴禮盒- 2盒組(每1禮盒包含 - 樂齡網",
+            "description": "【DJULIS】德朱利斯台東紅藜富貴禮盒- 2盒組(每1禮盒包含 - 樂齡網 — 品牌：DJULIS 德朱利斯; 型號：4713170324031; 商品內容：每組二個禮盒，禮盒內含3種點心盒(紅藜穀物棒-168g×1 + 紅藜小米起司棒-63g×1 + 紅藜黑芝麻糕-252g×1); 包裝：34 ...",
+            "url": "https://www.ez66.com.tw/products/n1hf00003120000?srsltid=AfmBOoq11Dr5PSz2Et8ksNLdLgweXhAFvRAf88mpDWMmzYhCl3KmjfIG"
+          },
+          {
+            "title": "DJULIS德朱利斯 - T-Shopping 高鐵線上購",
+            "description": "DJULIS德朱利斯 - T-Shopping 高鐵線上購 — DJULIS德朱利斯 Remove filter 當前優化項分類: DJULIS德朱利斯. 台東紅藜穀物棒. DJULIS德朱利斯. 台東紅藜穀物棒. NT$ 200. 廠商出貨. 紅藜紅烏龍燕麥脆脆. DJULIS德朱利 ...",
+            "url": "https://tshopping.thsrc.com.tw/DJULIS%E5%BE%B7%E6%9C%B1%E5%88%A9%E6%96%AF?srsltid=AfmBOoqKMpP_cLZOHkbiU1lLqP1tK7zsBHfOdrEWOGXYObLZCjR9D9y4"
+          },
+          {
+            "title": "【#DJULIS德朱利斯紅藜穀物棒   2025知本溫泉公益 ... - Instagram",
+            "description": "【#DJULIS德朱利斯紅藜穀物棒   2025知本溫泉公益 ... - Instagram — 【#DJULIS德朱利斯 紅藜穀物棒✕ 2025知本溫泉公益馬拉松】 跑友們～是不是都吃過那款口感酥脆、營養滿分的紅藜穀物棒？ 想再回味一次那股熟悉的香氣與能量嗎？ 這次 ...",
+            "url": "https://www.instagram.com/p/DP6Nt1GgUti/"
+          },
+          {
+            "title": "［3日內出貨］【DJULIS 德朱利斯】紅藜紅烏龍燕麥脆脆4包禮盒 ...",
+            "description": "［3日內出貨］【DJULIS 德朱利斯】紅藜紅烏龍燕麥脆脆4包禮盒 ... — ... 【DJULIS 德朱利斯】紅藜紅. 找相似. 降價. $340(降$30). ［3日內出貨］【DJULIS 德朱利斯】紅藜紅烏龍燕麥脆脆4包禮盒｜一次一口酥脆穀物茶點、一次一口茶香穀物、LINE購物 ...",
+            "url": "https://buy.line.me/product/233/10006305_322435269"
+          },
+          {
+            "title": "DJULIS 德朱利斯【南紡購物中心】 紅藜穀物棒168g/盒",
+            "description": "DJULIS 德朱利斯【南紡購物中心】 紅藜穀物棒168g/盒 — DJULIS 德朱利斯. 【南紡購物中心】 紅藜穀物棒168g/盒. $250. $300. 5.0. (1). 任選. 滿888免運，未滿加收80運費 · 選更多. 配送資訊. 廠商出貨.",
+            "url": "https://24h.pchome.com.tw/prod/DBDA4K-B900FM0TA?srsltid=AfmBOoohTNrs24XxmGRDZzPVYF_o4mqcJogaMrsS5VYfbMPnhpiO4KFS"
+          },
+          {
+            "title": "送人也超ok！ Djulis 德朱利斯的紅藜系列好食，應該有不少人知道了 ...",
+            "description": "送人也超ok！ Djulis 德朱利斯的紅藜系列好食，應該有不少人知道了 ... — 太美膩了 不只好看又好吃，送人也超ok！ Djulis 德朱利斯的紅藜系列好食，應該有不少人知道了～ 紅藜是真的是「 #穀物紅寶石」！ ✨4款台東好食 快留言跟我說你 ...",
+            "url": "https://www.facebook.com/Taiwansafefood/posts/%E9%80%99%E9%BA%BC%E7%BE%8E%E7%9A%84%E6%96%B0%E5%93%81%E7%9C%9F%E7%9A%84%E6%98%AF%E5%90%83%E7%9A%84%E9%80%99%E6%AC%A1-%E5%BE%B7%E6%9C%B1%E5%88%A9%E6%96%AF-%E6%8E%A8%E5%87%BA%E4%BA%864%E6%AC%BE%E6%96%B0%E5%93%81%E5%A4%AA%E7%BE%8E%E8%86%A9%E4%BA%86%E4%B8%8D%E5%8F%AA%E5%A5%BD%E7%9C%8B%E5%8F%88%E5%A5%BD%E5%90%83%E9%80%81%E4%BA%BA%E4%B9%9F%E8%B6%85-okdjulis-%E5%BE%B7%E6%9C%B1%E5%88%A9%E6%96%AF%E7%9A%84%E7%B4%85%E8%97%9C%E7%B3%BB%E5%88%97%E5%A5%BD%E9%A3%9F%E6%87%89%E8%A9%B2%E6%9C%89%E4%B8%8D%E5%B0%91%E4%BA%BA%E7%9F%A5%E9%81%93%E4%BA%86%E7%B4%85%E8%97%9C%E6%98%AF%E7%9C%9F%E7%9A%84%E6%98%AF-%E7%A9%80%E7%89%A9/1132006778979446/"
+          },
+          {
+            "title": "台東正氣路美食全攻略｜在地人私藏TOP 10 清單＋德朱利斯伴手禮",
+            "description": "台東正氣路美食全攻略｜在地人私藏TOP 10 清單＋德朱利斯伴手禮 — Djulis 德朱利斯 ... 創辦人看見「台東紅藜」的商機，因此推出以紅藜為原料的相關食品，並與在地小農合作，在生產健康的紅藜食品的同時還能確保品質與小農的利益。 人氣產品包括 ...",
+            "url": "https://taitung.contenta.tw/2500/"
+          },
+          {
+            "title": "DJULIS 德朱利斯紅藜穀物棒12支, 168g, 1盒- 優惠推薦 - 酷澎",
+            "description": "DJULIS 德朱利斯紅藜穀物棒12支, 168g, 1盒- 優惠推薦 - 酷澎 — DJULIS 德朱利斯紅藜穀物棒12支, 168g, 1盒 ; 口味滿意度好吃 ; 甜度不太甜 ; 口味滿意度好吃 ; 甜度不太甜 ; 公司名稱 · 酷澎股份有限公司",
+            "url": "https://www.tw.coupang.com/products/DJULIS-%E5%BE%B7%E6%9C%B1%E5%88%A9%E6%96%AF-%E7%B4%85%E8%97%9C%E7%A9%80%E7%89%A9%E6%A3%92-12%E6%94%AF-558165695315972"
+          },
+          {
+            "title": "【DJULIS德朱利斯】紅藜穀物棒(14g*12支)/盒*3盒 - 東森購物",
+            "description": "【DJULIS德朱利斯】紅藜穀物棒(14g*12支)/盒*3盒 - 東森購物 — 已拆封之個人衛生用品，依特通訊交易解除權合理例外情事適用準則辦理。 【DJULIS德朱利斯】紅藜穀物棒 ...",
+            "url": "https://www.etmall.com.tw/i/3683696"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T13:13:21.695Z"
+    },
+    {
+      "brand": {
+        "slug": "hipporizz",
+        "name": "HIPPORIZZ 河馬引力",
+        "productType": "tech",
+        "productTypeZh": "3C科技",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "E",
+        "label": "Precision + Review Hybrid"
+      },
+      "query": "\"HIPPORIZZ 河馬引力\" 3C科技 品牌 介紹 評價 推薦 -徵才 -104 -人力 -site:formoria.com",
+      "parsed": {
+        "urls": [
+          "https://hipporizz.com.tw/pages/business",
+          "https://www.instagram.com/hipporizz.official/",
+          "https://vocus.cc/article/69df49f6fd897800019ce5c4",
+          "https://luka-life.com/tag/hipporizz/",
+          "https://texch.com.tw/blog/post/hipporizz-charger-and-cable",
+          "https://www.mobile01.com/topicdetail.php?f=738&t=7266426",
+          "https://hipporizz.com.tw/pages/about-us",
+          "https://www.threads.com/@my_airlife/post/DXOj1GkkTU_/video-%E9%9B%BB%E9%87%8F%E7%84%A6%E6%85%AE%E6%95%91%E6%98%9F%EF%B8%8F%E4%B8%89%E5%90%88%E4%B8%80%E7%84%A1%E7%B7%9A%E5%85%85%E9%9B%BB%E5%99%A8%E5%88%86%E4%BA%AB%E8%BA%AB%E7%82%BA-apple-%E5%85%A8%E5%AE%B6%E6%A1%B6%E4%BD%BF%E7%94%A8%E8%80%85-%E6%AF%8F%E5%A4%A9%E6%9C%80%E5%B4%A9%E6%BD%B0%E7%9A%84%E4%B8%8D%E6%98%AF%E6%B2%92%E9%9B%BB%E8%80%8C%E6%98%AF%E4%B8%80%E5%A0%86%E7%B7%9A%E4%B8%8D%E7%AE%A1%E5%9C%A8%E5%93%AA%E9%83%BD%E5%9C%A8%E6%89%93%E7%B5%90hipporizz-%E6%B2%B3%E9%A6%AC%E5%BC%95%E5%8A%9B-zeno-qi22",
+          "https://www.instagram.com/reel/DVM0K6ZEztp/",
+          "https://www.facebook.com/groups/146870855765623/permalink/607412856378085/"
+        ],
+        "snippets": [
+          {
+            "title": "企業禮品採購｜3C 科技配件大宗採購推薦 - HIPPORIZZ 河馬引力",
+            "description": "企業禮品採購｜3C 科技配件大宗採購推薦 - HIPPORIZZ 河馬引力 — HIPPORIZZ 河馬引力是台灣自有品牌3C 配件廠商，所有產品均通過台灣BSMI 及NCC 認證，並投保產品責任險，確保大量採購時的品質與安全無後顧之憂。我們提供單次100 件 ...",
+            "url": "https://hipporizz.com.tw/pages/business?srsltid=AfmBOoqdzwW6GQ17rsjJH0opv_egfR8d76GXeVTt3qQ26OS4r16nKhU3"
+          },
+          {
+            "title": "HIPPORIZZ 河馬引力(@hipporizz.official) - Instagram",
+            "description": "HIPPORIZZ 河馬引力(@hipporizz.official) - Instagram — HIPPORIZZ 河馬引力，注重設計細節極致工藝，打造高品質3C．生活周邊❮ 設計× 規格強化❯ 成就更好的日常. Follow. Message. 把世界的喧囂關在門外，今天，只留給自己你專屬的 ...",
+            "url": "https://www.instagram.com/hipporizz.official/"
+          },
+          {
+            "title": "Hipporizz 河馬引力Zeno Qi2.2 25W 三合一無線充電器 - 方格子",
+            "description": "Hipporizz 河馬引力Zeno Qi2.2 25W 三合一無線充電器 - 方格子 — 《Hipporizz 河馬引力Zeno Qi2.2 25W 三合一無線充電器》在充電區背面及底座都有做散熱，這讓我給它5星好評！",
+            "url": "https://vocus.cc/article/69df49f6fd897800019ce5c4"
+          },
+          {
+            "title": "HIPPORIZZ-標籤文章彙整。 @旅咖趴趴走｜台中親子旅遊、在地美食 ...",
+            "description": "HIPPORIZZ-標籤文章彙整。 @旅咖趴趴走｜台中親子旅遊、在地美食 ... — 重點整理 本篇開箱實測HIPPORIZZ 河馬引力iPhone 17 系列的三款超人氣保護殼，包含還原裸機感且抗黃的Lucid 超透透明殼、自帶鏡子與隱形支架的Mirra 鏡面磁吸款，以及 ...",
+            "url": "https://luka-life.com/tag/hipporizz/"
+          },
+          {
+            "title": "快充充電器、充電線選購建議- Hipporizz 河馬引力Chargo 氮化鎵充電 ...",
+            "description": "快充充電器、充電線選購建議- Hipporizz 河馬引力Chargo 氮化鎵充電 ... — 快充充電器、充電線選購建議– Hipporizz 河馬引力Chargo 氮化鎵充電器、CAVO 充電線深度使用測試報告 · Chargo 67W 產品特色 · Chargo 47W 產品特色 ...",
+            "url": "https://texch.com.tw/blog/post/hipporizz-charger-and-cable"
+          },
+          {
+            "title": "【開箱評測】HIPPORIZZ河馬引力CHARGO 快充系列＋CAVO 超 ...",
+            "description": "【開箱評測】HIPPORIZZ河馬引力CHARGO 快充系列＋CAVO 超 ... — 兼顧傳輸與供電的高速充電線，升級行動辦公效率的質感外出配件，那麼這組實力與顏值兼具的HIPPORIZZ 河馬引力系列，絕對是我由衷推薦的口袋首選。 以上實測 ...",
+            "url": "https://www.mobile01.com/topicdetail.php?f=738&t=7266426"
+          },
+          {
+            "title": "品牌故事 - HIPPORIZZ 河馬引力",
+            "description": "品牌故事 - HIPPORIZZ 河馬引力 — HIPPORIZZ 河馬引力，是一個輕奢潮流生活品牌，但更是一種「 相信美感與功能可以並存」的生活態度。 關於我們. 品牌故事 實體門市據點 品牌合作招商 大宗採購. 顧客服務.",
+            "url": "https://hipporizz.com.tw/pages/about-us?srsltid=AfmBOooAapDVBRPWFRkBgJ4k9IORKjnWpaN-XQBx_qFfHfOYRq27skHQ"
+          },
+          {
+            "title": "電量焦慮救星️｜三合一無線充電器分享 - Threads",
+            "description": "電量焦慮救星️｜三合一無線充電器分享 - Threads — ... 《Hipporizz 河馬引力Zeno Qi2.2 25W 三合一無線充電器》 被 ... 想問一下有沒有推薦或是自己有用過覺得很好用的行動電源！ 之前買的是 ...",
+            "url": "https://www.threads.com/@my_airlife/post/DXOj1GkkTU_/video-%E9%9B%BB%E9%87%8F%E7%84%A6%E6%85%AE%E6%95%91%E6%98%9F%EF%B8%8F%E4%B8%89%E5%90%88%E4%B8%80%E7%84%A1%E7%B7%9A%E5%85%85%E9%9B%BB%E5%99%A8%E5%88%86%E4%BA%AB%E8%BA%AB%E7%82%BA-apple-%E5%85%A8%E5%AE%B6%E6%A1%B6%E4%BD%BF%E7%94%A8%E8%80%85-%E6%AF%8F%E5%A4%A9%E6%9C%80%E5%B4%A9%E6%BD%B0%E7%9A%84%E4%B8%8D%E6%98%AF%E6%B2%92%E9%9B%BB%E8%80%8C%E6%98%AF%E4%B8%80%E5%A0%86%E7%B7%9A%E4%B8%8D%E7%AE%A1%E5%9C%A8%E5%93%AA%E9%83%BD%E5%9C%A8%E6%89%93%E7%B5%90hipporizz-%E6%B2%B3%E9%A6%AC%E5%BC%95%E5%8A%9B-zeno-qi22"
+          },
+          {
+            "title": "科技感，不該被時間染黃#河馬引力HIPPORIZZ Samsung Galaxy S26 ...",
+            "description": "科技感，不該被時間染黃#河馬引力HIPPORIZZ Samsung Galaxy S26 ... — 3C產品全機包膜 3C產品螢幕保護貼 iPhone 二手機收購 ‍ ... Join HIPPORIZZ 河馬引力on Instagram. Sign up for Instagram · Sign up ...",
+            "url": "https://www.instagram.com/reel/DVM0K6ZEztp/"
+          },
+          {
+            "title": "吃雞時間到啦～來看看宙斯機有多強悍 - Facebook",
+            "description": "吃雞時間到啦～來看看宙斯機有多強悍 - Facebook — 而Hipporizz 河馬引力深耕台灣多年的品牌，不僅為Apple 品牌推出全系列的保護殼周邊，現在連Samsung 三星手機也引進了旗艦的保護殼款式。今天筆者要 介紹兩款Hipporizz ...",
+            "url": "https://www.facebook.com/groups/146870855765623/permalink/607412856378085/"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T13:13:24.437Z"
+    },
+    {
+      "brand": {
+        "slug": "hanchor",
+        "name": "HANCHOR",
+        "productType": "outdoor",
+        "productTypeZh": "戶外運動保健",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "E",
+        "label": "Precision + Review Hybrid"
+      },
+      "query": "\"HANCHOR\" 戶外運動保健 品牌 介紹 評價 推薦 -徵才 -104 -人力 -site:formoria.com",
+      "parsed": {
+        "urls": [
+          "https://www.instagram.com/reel/DRkHKxFk5Dm/",
+          "https://www.hanchor.com/news/%E7%B6%93%E9%8A%B7%E6%93%9A%E9%BB%9E%EF%BD%9C%E8%80%81%E5%AD%97%E8%99%9F%E5%93%81%E7%89%8C-%E7%99%BB%E5%B1%B1%E5%8F%8B",
+          "https://www.instagram.com/p/CLbjYd3HtUy/",
+          "https://www.instagram.com/reel/DWSynRjE5H_/",
+          "https://hiking.biji.co/index.php?q=review&act=info&review_id=10556",
+          "https://www.threads.com/@wildwalker2020/post/DTHSkpgD1Yy/%E5%A6%82%E6%9E%9C%E4%BD%A0%E6%98%AF%E8%A6%81%E6%95%B4%E9%AB%94%E4%B8%8A%E8%80%83%E9%87%8F%E5%A5%BD%E8%83%8C%E8%80%90%E9%87%8D%E9%98%B2%E5%89%B2%E6%9A%B4%E9%9B%A8%E9%98%B2%E7%9B%9C%E8%83%8C%E5%B8%B6%E5%8F%AF%E6%8B%86%E7%AD%89%E7%AD%89%E8%80%90%E7%94%A8%E5%BA%A6%E8%B6%85%E5%BC%B7ortlieb-atrack-45l-%E6%88%B6%E5%A4%96-%E9%98%B2%E6%B0%B4%E5%BE%8C%E8%83%8C%E5%8C%85%E7%B5%95%E5%B0%8D%E5%8B%9D%E9%81%8E%E4%B8%8A%E9%9D%A2%E9%82%A3%E4%BA%9B%E7%99%BB%E5%B1%B1%E8%83%8C%E5%8C%85",
+          "https://www.instagram.com/reel/DKuKBa6s31r/",
+          "https://tw.hanchor.com/pages/%E8%83%8C%E5%8C%85%E5%AE%A2%E6%97%85%E8%A1%8C%E5%BF%85%E5%B8%B6%E5%AF%A6%E7%94%A8%E5%B0%8F%E7%89%A9%E6%8E%A8%E8%96%A6%EF%BD%9C%E6%97%85%E8%A1%8C%E8%83%8C%E5%8C%85%E4%BB%8B%E7%B4%B9",
+          "https://www.outsiders.com.tw/post/7145",
+          "https://www.instagram.com/reel/DXwYE8rPI6H/"
+        ],
+        "snippets": [
+          {
+            "title": "哪裡可以找到Hanchor? 快速帶你逛@keepon.outdoor 登山補給站 ...",
+            "description": "哪裡可以找到Hanchor? 快速帶你逛@keepon.outdoor 登山補給站 ... — 哪裡可以找到Hanchor? 快速帶你逛 @keepon.outdoor 登山補給站 台灣戶外裝備店老字號之一的「登山補給站」 地點：台北市萬華區和平西路三段70號（近龍 ...",
+            "url": "https://www.instagram.com/reel/DRkHKxFk5Dm/"
+          },
+          {
+            "title": "經銷據點｜老字號品牌登山友 - HANCHOR",
+            "description": "經銷據點｜老字號品牌登山友 - HANCHOR — 本單元戶外用品店開箱，將會一一介紹Hanchor的經銷據點，帶大家認識國內外的戶外裝備店。本期將介紹台灣老字號登山用品店，位於台北車站附近的「登山友」 ...",
+            "url": "https://www.hanchor.com/news/%E7%B6%93%E9%8A%B7%E6%93%9A%E9%BB%9E%EF%BD%9C%E8%80%81%E5%AD%97%E8%99%9F%E5%93%81%E7%89%8C-%E7%99%BB%E5%B1%B1%E5%8F%8B"
+          },
+          {
+            "title": "今天就來跟大家分享這顆Hanchor MARL 輕量化登山背包！﻿ ﻿ 「沒有人 ...",
+            "description": "今天就來跟大家分享這顆Hanchor MARL 輕量化登山背包！﻿ ﻿ 「沒有人 ... — 波寶投稿｜這顆Hanchor 10公斤背起來舒適嗎？﻿ ﻿ 這顆登山包也是被大家問到爛了，今天就來跟大家分享這顆Hanchor MARL 輕量化登山背包！",
+            "url": "https://www.instagram.com/p/CLbjYd3HtUy/"
+          },
+          {
+            "title": "哪裡可以找到Hanchor？ 快速帶你逛@tingsaniou1959 逛店開箱來 ...",
+            "description": "哪裡可以找到Hanchor？ 快速帶你逛@tingsaniou1959 逛店開箱來 ... — ... 22號，技術與戶外服飾裝備為主） ▴ 全文開箱介紹https://reurl.cc/V2D1vb #用力生活#Hanchor #台灣品牌#台灣製造#登山友\".",
+            "url": "https://www.instagram.com/reel/DWSynRjE5H_/"
+          },
+          {
+            "title": "來自台灣的輕量登山背包Hanchor Marl 51L - 健行筆記",
+            "description": "來自台灣的輕量登山背包Hanchor Marl 51L - 健行筆記 — Hanchor是台灣的品牌，2012年創立於台北。以設計背包為主，一開始主要著重攀岩的裝備，後來產品線延伸到各式戶外活動、旅行以及Urban Outdoor，致力於品質、 ...",
+            "url": "https://hiking.biji.co/index.php?q=review&act=info&review_id=10556"
+          },
+          {
+            "title": "如果你是要整體上考量，好背、耐重、防割、暴雨、防盜、背帶可拆 ...",
+            "description": "如果你是要整體上考量，好背、耐重、防割、暴雨、防盜、背帶可拆 ... — 推薦Hanchor Marl，最大可以裝到51L很夠，鋁條可拆，可以直接登機，我夏天冬天出國都帶這顆～ tw.hanchor.com/produ…",
+            "url": "https://www.threads.com/@wildwalker2020/post/DTHSkpgD1Yy/%E5%A6%82%E6%9E%9C%E4%BD%A0%E6%98%AF%E8%A6%81%E6%95%B4%E9%AB%94%E4%B8%8A%E8%80%83%E9%87%8F%E5%A5%BD%E8%83%8C%E8%80%90%E9%87%8D%E9%98%B2%E5%89%B2%E6%9A%B4%E9%9B%A8%E9%98%B2%E7%9B%9C%E8%83%8C%E5%B8%B6%E5%8F%AF%E6%8B%86%E7%AD%89%E7%AD%89%E8%80%90%E7%94%A8%E5%BA%A6%E8%B6%85%E5%BC%B7ortlieb-atrack-45l-%E6%88%B6%E5%A4%96-%E9%98%B2%E6%B0%B4%E5%BE%8C%E8%83%8C%E5%8C%85%E7%B5%95%E5%B0%8D%E5%8B%9D%E9%81%8E%E4%B8%8A%E9%9D%A2%E9%82%A3%E4%BA%9B%E7%99%BB%E5%B1%B1%E8%83%8C%E5%8C%85"
+          },
+          {
+            "title": "HANCHOR × KEEP ON 2025 MARL 輕量化登山背包登補限定色-月白 ...",
+            "description": "HANCHOR × KEEP ON 2025 MARL 輕量化登山背包登補限定色-月白 ... — HANCHOR × KEEP ON 2025 MARL 輕量化登山背包登補限定色-月白 純淨清新為夏天加一點清涼色彩 ... ᴷᴱᴱᴾᴼᴺ登山補給站營業時間pm12:00-pm9:00 地址：台北市萬華 ...",
+            "url": "https://www.instagram.com/reel/DKuKBa6s31r/"
+          },
+          {
+            "title": "背包客旅行必帶實用小物推薦｜旅行背包介紹 - HANCHOR",
+            "description": "背包客旅行必帶實用小物推薦｜旅行背包介紹 - HANCHOR — 從城市走入山林，皆滿足你每一種的冒險需求！ HANCHOR Breccia旅行背包 產品介紹：. • 模組式擴充 ...",
+            "url": "https://tw.hanchor.com/pages/%E8%83%8C%E5%8C%85%E5%AE%A2%E6%97%85%E8%A1%8C%E5%BF%85%E5%B8%B6%E5%AF%A6%E7%94%A8%E5%B0%8F%E7%89%A9%E6%8E%A8%E8%96%A6%EF%BD%9C%E6%97%85%E8%A1%8C%E8%83%8C%E5%8C%85%E4%BB%8B%E7%B4%B9?srsltid=AfmBOooomFZ-COOi5I5wyujqBSKccT-fn70h6uP2I321ypleI6YzKLpA"
+          },
+          {
+            "title": "【背包搜查隊】山女孩、山男孩的登山背包裡都裝些什麼？",
+            "description": "【背包搜查隊】山女孩、山男孩的登山背包裡都裝些什麼？ — Salomon越野跑鞋上郊山時穿輕量、抓地力佳的野跑鞋，減少體力消耗，可以走得更輕鬆。 背包：Hanchor PUMICE 極輕量登山背包、Kiu 輕便斜背小包; 頭部：KAVU ...",
+            "url": "https://www.outsiders.com.tw/post/7145"
+          },
+          {
+            "title": "2026.04.22八天七夜的進香長征， 這顆輕量包其實是「越級挑戰」了 ...",
+            "description": "2026.04.22八天七夜的進香長征， 這顆輕量包其實是「越級挑戰」了 ... — 裝備不需要最重，但要能陪你走得最遠、最從容。 ✨ 讓下一次出發更輕盈@hanchor_studio 官網：https://tw.hanchor.com/?sl-ref=futurecouple. TUFFY 背包： ...",
+            "url": "https://www.instagram.com/reel/DXwYE8rPI6H/"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T13:13:27.243Z"
+    },
+    {
+      "brand": {
+        "slug": "baby-baby-cool",
+        "name": "Baby Baby Cool",
+        "productType": "kids-pets",
+        "productTypeZh": "母嬰寵物",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "E",
+        "label": "Precision + Review Hybrid"
+      },
+      "query": "\"Baby Baby Cool\" 母嬰寵物 品牌 介紹 評價 推薦 -徵才 -104 -人力 -site:formoria.com",
+      "parsed": {
+        "urls": [
+          "https://www.threads.com/@_theageofinnocence/post/DWV3GLnkR6B/%E5%A5%BD%E8%AE%9A%E9%80%99%E6%A8%A3%E4%B8%80%E5%AE%B6%E9%83%BD%E7%A9%BF%E4%B8%80%E6%A8%A3%E7%9A%84%E6%9C%89%E9%A4%8A%E5%AF%B5%E7%89%A9%E6%88%96%E6%98%AF%E6%9C%89%E5%B0%8F%E5%AD%A9%E7%9A%84%E5%AE%B6%E5%BA%AD%E7%9C%8B%E9%81%8E%E4%BE%86-babybabycool_official",
+          "https://www.instagram.com/reel/DW1TZ3MkyFn/",
+          "https://www.instagram.com/reel/DSZEzB1E6Wz/",
+          "https://babybabycool.com/",
+          "https://www.instagram.com/p/DM7sUQLyrNb/",
+          "https://www.instagram.com/reel/DVaBCd5k6Ve/",
+          "https://www.pinkoi.com/product/m9urssz3",
+          "https://biggo.com.tw/s/baby+%E8%A1%A3%E6%9C%8D",
+          "https://www.instagram.com/reel/DXuJMv4k9Kp/",
+          "https://www.skm.com.tw/page/MxBDZEBIxA"
+        ],
+        "snippets": [
+          {
+            "title": "好讚這樣一家都穿一樣的，有養寵物或是有小孩的家庭看過來 ...",
+            "description": "好讚這樣一家都穿一樣的，有養寵物或是有小孩的家庭看過來 ... — babybabycool_official's profile picture · baby baby cool (bbc) (@babybabycool_official) · March 25, 2026 at 7:09 PM. 我們是台灣服裝自創品牌！目前有嬰幼兒、童裝 ...",
+            "url": "https://www.threads.com/@_theageofinnocence/post/DWV3GLnkR6B/%E5%A5%BD%E8%AE%9A%E9%80%99%E6%A8%A3%E4%B8%80%E5%AE%B6%E9%83%BD%E7%A9%BF%E4%B8%80%E6%A8%A3%E7%9A%84%E6%9C%89%E9%A4%8A%E5%AF%B5%E7%89%A9%E6%88%96%E6%98%AF%E6%9C%89%E5%B0%8F%E5%AD%A9%E7%9A%84%E5%AE%B6%E5%BA%AD%E7%9C%8B%E9%81%8E%E4%BE%86-babybabycool_official"
+          },
+          {
+            "title": "來自台灣的童裝品牌baby baby cool（bbc），在品牌十週年之際，於 ...",
+            "description": "來自台灣的童裝品牌baby baby cool（bbc），在品牌十週年之際，於 ... — 來自台灣的童裝品牌baby baby cool（bbc），在品牌十週年之際，於新宿伊勢丹呈現春夏系列「New Family Matching Collection」。 本系列以「家人」為核心，從 ...",
+            "url": "https://www.instagram.com/reel/DW1TZ3MkyFn/"
+          },
+          {
+            "title": "有些禮物不只是包裝裡的驚喜， 而是藏在每個「想起你」的瞬間。 從 ...",
+            "description": "有些禮物不只是包裝裡的驚喜， 而是藏在每個「想起你」的瞬間。 從 ... — 以柔軟、實用與溫度， 成為媽媽與寶寶日常的溫柔陪伴。 這不只是送給新手媽媽的一份禮物， 更是一份「理解與陪伴」的祝福。 baby baby cool，讓溫柔有了最 ...",
+            "url": "https://www.instagram.com/reel/DSZEzB1E6Wz/"
+          },
+          {
+            "title": "baby baby cool｜ 頂級有機棉精品童裝",
+            "description": "baby baby cool｜ 頂級有機棉精品童裝 — baby baby cool ; MAIN系列. 針對平日外出穿搭，用經典不退流行的設計理念，為孩子打造充滿自信的每一天。 discover ; BASIC系列. 針對居家穿著，透過無毒有機布料，與孩子共享從 ...",
+            "url": "https://babybabycool.com/?srsltid=AfmBOorvfg5ie0XWSpwxTSGd3ULH4W5WB9-69BsJPkN9dDYfNmYHX-2X"
+          },
+          {
+            "title": "你看見的「可愛」，可能正潛藏風險。 孩子每天穿的包屁衣、貼著 ...",
+            "description": "你看見的「可愛」，可能正潛藏風險。 孩子每天穿的包屁衣、貼著 ... — 在baby baby cool，我們不只是說「無毒」，我們要「驗證無毒」！ 全系列選用GOTS 認證有機棉，從種植、紡紗到染整，全程無毒、且可追溯。 因為寶寶的肌膚太珍貴 ...",
+            "url": "https://www.instagram.com/p/DM7sUQLyrNb/"
+          },
+          {
+            "title": "總監時間：衣服真的這麼重要嗎？ 其實bbc 一開始會存在， 就是因為 ...",
+            "description": "總監時間：衣服真的這麼重要嗎？ 其實bbc 一開始會存在， 就是因為 ... — bbc baby baby cool 衣服真的這麼重要嗎？ 子どもにとって服が重要な理由 ... 寶寶必備 #母嬰用品 #BabyCity · 5 days ago · rong_baby06111's ...",
+            "url": "https://www.instagram.com/reel/DVaBCd5k6Ve/"
+          },
+          {
+            "title": "有機棉男孩四角內褲六入組baby baby cool 有機棉精品童裝｜其他 ...",
+            "description": "有機棉男孩四角內褲六入組baby baby cool 有機棉精品童裝｜其他 ... — 關於品牌逛設計品牌. baby baby cool ... 媽咪寶寶 其他母嬰用品 其他. 商品運費. 從台灣臺北市 ... 購買評價. 本商品評價. 品牌所有評價. 5. (1). avatar. J Chang. 6 年前.",
+            "url": "https://www.pinkoi.com/product/m9urssz3"
+          },
+          {
+            "title": "baby 衣服的價格推薦- 2026年6月| 比價比個夠BigGo",
+            "description": "baby 衣服的價格推薦- 2026年6月| 比價比個夠BigGo — Mamaway 媽媽餵母嬰品牌領導者. 新北市. 【baby baby cool】拿破崙領上衣男童裝新年衣服女童裝新年衣服 ...",
+            "url": "https://biggo.com.tw/s/baby+%E8%A1%A3%E6%9C%8D"
+          },
+          {
+            "title": "也有說不出的感謝。 銀座三越快閃店現正開幕Ginza Mitsukoshi 4/29 ...",
+            "description": "也有說不出的感謝。 銀座三越快閃店現正開幕Ginza Mitsukoshi 4/29 ... — ... 母嬰用品 日本連線西松屋akachanhonpo petitmain BREEZE 3COINS DONKI ... baby baby cool 進入日本高端市場，推廣GOTS認證及兼具時尚與健康意識的 ...",
+            "url": "https://www.instagram.com/reel/DXuJMv4k9Kp/"
+          },
+          {
+            "title": "萌寶養成-媽咪&新生兒成長必備 - 新光三越",
+            "description": "萌寶養成-媽咪&新生兒成長必備 - 新光三越 — 台灣最專業有機棉童裝設計品牌，主打純淨柔軟，安全無毒，使用全球有機紡織品認證標準GOTS最高規格認證的天然有機棉，設計與剪裁工法比照成人時裝製作。 baby baby cool這裡找# ...",
+            "url": "https://www.skm.com.tw/page/MxBDZEBIxA"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T13:13:30.326Z"
+    },
+    {
+      "brand": {
+        "slug": "ecopeco",
+        "name": "Ecopeco",
+        "productType": "crafts",
+        "productTypeZh": "工藝文創",
+        "difficulty": "medium"
+      },
+      "variant": {
+        "id": "E",
+        "label": "Precision + Review Hybrid"
+      },
+      "query": "\"Ecopeco\" 工藝文創 品牌 介紹 評價 推薦 -徵才 -104 -人力 -site:formoria.com",
+      "parsed": {
+        "urls": [
+          "https://ecopeco.com.tw/%E9%81%B8%E6%93%87%E5%88%87%E5%89%B2%E5%A2%8A%E7%9A%84%E4%BA%94%E5%A4%A7%E8%A6%81%E9%BB%9E.html",
+          "https://www.instagram.com/ecopeco.taiwan/",
+          "https://www.pinkoi.com/recommend/product/MNHNAbWt",
+          "https://biggo.com.tw/s/%E5%AD%B8%E7%94%9F%E6%A1%8C%E5%A2%8A+%E7%84%A1%E6%AF%92/?p=4",
+          "https://www.lbj.tw/BJ/Query.aspx?k=%E9%9B%99%E5%B1%A4%E7%84%A1%E6%AF%92%E6%A1%8C%E5%A2%8A&chl=bd",
+          "https://hk.pinkoi.com/search?q=%E5%90%B8%E6%B0%B4%E6%A1%8C%E5%A2%8A",
+          "https://www.findprice.com.tw/b/%E7%84%A1%E6%AF%92%E5%AD%B8%E7%94%9F%E6%A1%8C",
+          "https://shopee.tw/search?keyword=%E9%9B%99%E5%B1%A4%E6%A1%8C%E5%B8%83",
+          "https://biggo.com.tw/s/pp+%E6%A1%8C%E5%A2%8A%E9%9C%A7%E9%9D%A2",
+          "https://www.instagram.com/secret_forest_leather/"
+        ],
+        "snippets": [
+          {
+            "title": "如何選擇切割墊 - ecopeco 艾可貝可文具",
+            "description": "如何選擇切割墊 - ecopeco 艾可貝可文具 — 台灣文創之光！本土品牌艾可貝可ecopeco於美國Amazon大獲好評. 打造你的簡法生活. 艾可貝可文具實業82443279 地址：427 台中市潭子區頭張東路2號Email : Service@ecopeco.",
+            "url": "https://ecopeco.com.tw/%E9%81%B8%E6%93%87%E5%88%87%E5%89%B2%E5%A2%8A%E7%9A%84%E4%BA%94%E5%A4%A7%E8%A6%81%E9%BB%9E.html"
+          },
+          {
+            "title": "簡法生活｜MIT環保品牌(@ecopeco.taiwan) - Instagram",
+            "description": "簡法生活｜MIT環保品牌(@ecopeco.taiwan) - Instagram — 422 followers · 445 following · 203 posts · @ecopeco.taiwan: “台灣製造的環保食品級無毒PP桌墊/切割墊喜歡藝文、手作的朋友持續關注我們艾編會每週分享藝文 ...",
+            "url": "https://www.instagram.com/ecopeco.taiwan/"
+          },
+          {
+            "title": "【學生專用】iMAT無毒環保桌墊1.5mm 網格/止滑- Pinkoi | 相似推薦",
+            "description": "【學生專用】iMAT無毒環保桌墊1.5mm 網格/止滑- Pinkoi | 相似推薦 — 聚會Party 玩樂靈感 · 其他書寫用具 · 滑鼠墊 · 【金輝】純手工胸針/胸花 · 【早鳥優惠】閃閃發亮許願御守 · 霧面桌墊ecopeco 台灣製專業無毒環保40x60cm · beflo Plateau 迷霧黑 ...",
+            "url": "https://www.pinkoi.com/recommend/product/MNHNAbWt"
+          },
+          {
+            "title": "學生桌墊無毒的價格推薦- 2026年4月| 比價比個夠BigGo",
+            "description": "學生桌墊無毒的價格推薦- 2026年4月| 比價比個夠BigGo — 熱銷/人氣商品眾多【免運費】. 新北市. [簡法生活] 艾可貝可台灣製正ecopeco原廠製造雙層款學生環保桌墊輕薄切割墊40x60cm ...",
+            "url": "https://biggo.com.tw/s/%E5%AD%B8%E7%94%9F%E6%A1%8C%E5%A2%8A+%E7%84%A1%E6%AF%92/?p=4"
+          },
+          {
+            "title": "雙層無毒桌墊在拍賣網站- 比價撿便宜- 優惠與推薦- 2026年5月",
+            "description": "雙層無毒桌墊在拍賣網站- 比價撿便宜- 優惠與推薦- 2026年5月 — [簡法生活] 艾可貝可台灣製正ecopeco原廠製造雙層款學生環保桌墊輕薄切割墊40x60cm 無毒材質霧面護眼. 180 歷史價格. 蝦皮 ...",
+            "url": "https://www.lbj.tw/BJ/Query.aspx?k=%E9%9B%99%E5%B1%A4%E7%84%A1%E6%AF%92%E6%A1%8C%E5%A2%8A&chl=bd"
+          },
+          {
+            "title": "吸水桌墊推薦| 2026 年5 月| Pinkoi 亞洲跨境設計購物平台",
+            "description": "吸水桌墊推薦| 2026 年5 月| Pinkoi 亞洲跨境設計購物平台 — HK$ 255.2. 霧面桌墊ecopeco 台灣製專業無毒環保40x60cm · ecopeco. HK$ 60.1. 可訂製 ...",
+            "url": "https://hk.pinkoi.com/search?q=%E5%90%B8%E6%B0%B4%E6%A1%8C%E5%A2%8A&srsltid=AfmBOorGKAwyqD-ayIyxQsYbtGGlfD3zPCSOuFafr9Q_oF99EPEaW9s_"
+          },
+          {
+            "title": "無毒學生桌- FindPrice 價格網2026年6月熱門拍賣商品",
+            "description": "無毒學生桌- FindPrice 價格網2026年6月熱門拍賣商品 — Coupang 酷澎熱門推薦商品. 兒童成長書桌升降 ... [簡法生活] ecopeco無毒環保護眼學生桌墊/ 具止滑 ... 蝦皮購物 - 晨陽文創diy -暢銷全球的工藝文具專家.",
+            "url": "https://www.findprice.com.tw/b/%E7%84%A1%E6%AF%92%E5%AD%B8%E7%94%9F%E6%A1%8C"
+          },
+          {
+            "title": "雙層桌布- 優惠推薦- 2026年7月| 蝦皮購物台灣",
+            "description": "雙層桌布- 優惠推薦- 2026年7月| 蝦皮購物台灣 — [ 簡法生活] 艾可貝可ecopeco 台灣製霧透款簡約 · 雙層霧透桌墊4K/8K-粉綠色無毒桌墊收納 · (學用品)安全桌墊.雙層學生桌墊系列60*.",
+            "url": "https://shopee.tw/search?keyword=%E9%9B%99%E5%B1%A4%E6%A1%8C%E5%B8%83"
+          },
+          {
+            "title": "pp 桌墊霧面的價格推薦- 2026年4月| 比價比個夠BigGo",
+            "description": "pp 桌墊霧面的價格推薦- 2026年4月| 比價比個夠BigGo — ... [簡法生活] 艾可貝可台灣原料台灣製作霧面半透明桌墊客製裁切無毒環保PP材質. 四角R10圓角加工$15. 蝦皮購物icon. 蝦皮購物. ecopeco簡法生活.",
+            "url": "https://biggo.com.tw/s/pp+%E6%A1%8C%E5%A2%8A%E9%9C%A7%E9%9D%A2"
+          },
+          {
+            "title": "森林的秘密文創有限公司｜皮革手作(@secret_forest_leather)",
+            "description": "森林的秘密文創有限公司｜皮革手作(@secret_forest_leather) — 我們使用的是@ecopeco.taiwan 的環保材質雙面雙色桌墊不僅耐用又非常的有質感！！ 喜歡的朋友們歡迎到ecopeco的官網／蝦皮賣場購買～ 只要輸入折扣碼Peco09 即可享用9 ...",
+            "url": "https://www.instagram.com/secret_forest_leather/"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T13:13:32.668Z"
+    },
+    {
+      "brand": {
+        "slug": "febbi",
+        "name": "FEBBI",
+        "productType": "jewelry",
+        "productTypeZh": "飾品珠寶",
+        "difficulty": "hard"
+      },
+      "variant": {
+        "id": "E",
+        "label": "Precision + Review Hybrid"
+      },
+      "query": "\"FEBBI\" 飾品珠寶 品牌 介紹 評價 推薦 -徵才 -104 -人力 -site:formoria.com",
+      "parsed": {
+        "urls": [
+          "https://www.instagram.com/febbifebbi02/reels/",
+          "https://www.threads.com/@febbifebbi02/post/DGhWtDyBDj-/%E9%97%9C%E6%96%BC%E8%80%B3%E9%87%9D%E7%9A%84%E5%B0%8F%E7%9F%A5%E8%AD%98%E8%A8%B1%E5%A4%9A%E5%AE%A2%E4%BA%BA%E5%95%8F%E6%88%91%E6%88%91%E7%9A%84%E8%80%B3%E6%9C%B5%E5%BE%88%E6%95%8F%E6%84%9Ffebbi-%E7%9A%84%E8%80%B3%E9%87%9D%E6%9C%83%E9%81%8E%E6%95%8F%E5%97%8E-%E4%BB%8A%E5%A4%A9febbi-%E8%B7%9F%E5%A4%A7%E5%AE%B6%E8%81%8A%E8%81%8A%E8%80%B3%E9%87%9D%E5%B8%82%E9%9D%A2%E4%B8%8A%E5%B8%B8%E8%A6%8B%E7%9A%84%E6%8A%97%E6%95%8F%E8%80%B3%E9%87%9D%E6%9C%89-925%E7%B4%94%E9%8A%80-%E5%92%8C-%E9%86%AB%E7%99%82%E7%B4%9A%E9%8B%BC%E9%87%9D%E8%80%8C-feb",
+          "https://wedding.diamondream.asia/1164/",
+          "https://www.pinkoi.com/product/jUkUg5WX",
+          "https://www.instagram.com/p/DZz9ytoGbNK/",
+          "https://www.instagram.com/reel/DSUrL4QEtDz/",
+          "https://www.eslitexpo.com/brands/199",
+          "https://www.facebook.com/febbifebbi01/posts/%E4%BB%99%E5%A5%B3%E5%AE%A2%E4%BA%BA%E7%9A%84%E8%A8%82%E5%96%AE%E5%88%86%E4%BA%AB%E4%BB%A5%E4%B8%8A%E7%9A%86%E7%B6%93%E5%AE%A2%E4%BA%BA%E5%90%8C%E6%84%8F%E5%88%86%E4%BA%AB%E8%AC%9B%E5%88%B0%E5%AE%A2%E4%BA%BA%E5%80%91%E7%9A%84%E5%88%86%E4%BA%AB%E6%83%B3%E5%88%B0%E4%B8%80%E5%80%8B%E4%B8%8A%E9%80%B1%E7%9A%84%E5%B0%8F%E6%8F%92%E6%9B%B2%E6%9C%89%E4%BD%8D%E5%A5%B3%E5%AD%A9%E8%B7%91%E4%BE%86%E6%AB%83%E4%B8%8A%E5%B0%8D%E6%88%91%E8%AA%AAfebbi%E4%BD%A0%E7%9F%A5%E9%81%93%E5%97%8E%E6%88%91%E6%9C%8B%E5%8F%8B%E5%89%9B%E5%BE%9E%E8%8B%B1%E5%9C%8B%E5%9B%9E%E4%BE%86%E6%9C%80%E8%BF%91%E4%B8%80%E7%9B%B4%E5%9C%A8%E6%89%BE%E6%BC%82%E4%BA%AE%E7%9A%84%E8%80%B3%E7%92%B0%E6%88%91%E9%A6%AC%E4%B8%8A/1126890216124027/",
+          "https://hiyori.cc/article/%E6%97%A5%E5%92%8C%E9%81%B8%E7%89%A9kava-accessories925%E7%B4%94%E9%8A%80%E7%B3%BB%E5%88%97%EF%BC%8C%E6%B0%A3%E8%B3%AA%E5%BE%A9%E5%8F%A4%E3%80%81%E4%BD%8E%E8%AA%BF%E5%A5%A2%E8%8F%AF",
+          "https://www.hk01.com/%E7%A9%BF%E6%90%AD%E7%AD%86%E8%A8%98/476829/%E9%A6%96%E9%A3%BE%E5%93%81%E7%89%8C-5%E5%80%8B%E5%B0%8F%E7%9C%BE%E8%80%B3%E7%92%B0%E5%93%81%E7%89%8C%E6%8E%A8%E8%96%A6-%E5%BE%A9%E5%8F%A4%E7%8F%8D%E7%8F%A0-%E7%B8%B7%E7%A9%BA%E5%88%BA%E7%B9%A1%E7%99%BE%E6%90%AD%E6%9C%89%E7%89%B9%E8%89%B2"
+        ],
+        "snippets": [
+          {
+            "title": "Febbi Accessories - 台灣手作飾品｜耳環|耳夾 - Instagram",
+            "description": "Febbi Accessories - 台灣手作飾品｜耳環|耳夾 - Instagram — Febbi 限定開放30組專屬設計飾品！ 新年新禮物. Febbi給大家漂亮魔法以往客製商品都屬於高價訂製品 這次的新年禮物Lucky Bag中你就可以擁有「做出屬於你的漂亮飾品」",
+            "url": "https://www.instagram.com/febbifebbi02/reels/"
+          },
+          {
+            "title": "FEBBI 的耳針會過敏嗎？ - Threads",
+            "description": "FEBBI 的耳針會過敏嗎？ - Threads — 許多客人問我： 「我的耳朵很敏感，FEBBI 的耳針會過敏嗎？」 · #今天Febbi 跟大家聊聊耳針。 · 市面上常見的抗敏耳針有#925純銀和醫療級鋼針，而FEBBI 選擇# ...",
+            "url": "https://www.threads.com/@febbifebbi02/post/DGhWtDyBDj-/%E9%97%9C%E6%96%BC%E8%80%B3%E9%87%9D%E7%9A%84%E5%B0%8F%E7%9F%A5%E8%AD%98%E8%A8%B1%E5%A4%9A%E5%AE%A2%E4%BA%BA%E5%95%8F%E6%88%91%E6%88%91%E7%9A%84%E8%80%B3%E6%9C%B5%E5%BE%88%E6%95%8F%E6%84%9Ffebbi-%E7%9A%84%E8%80%B3%E9%87%9D%E6%9C%83%E9%81%8E%E6%95%8F%E5%97%8E-%E4%BB%8A%E5%A4%A9febbi-%E8%B7%9F%E5%A4%A7%E5%AE%B6%E8%81%8A%E8%81%8A%E8%80%B3%E9%87%9D%E5%B8%82%E9%9D%A2%E4%B8%8A%E5%B8%B8%E8%A6%8B%E7%9A%84%E6%8A%97%E6%95%8F%E8%80%B3%E9%87%9D%E6%9C%89-925%E7%B4%94%E9%8A%80-%E5%92%8C-%E9%86%AB%E7%99%82%E7%B4%9A%E9%8B%BC%E9%87%9D%E8%80%8C-feb"
+          },
+          {
+            "title": "11間人氣輕珠寶品牌，帶你找到自己的風格- 小夢的新婚筆記",
+            "description": "11間人氣輕珠寶品牌，帶你找到自己的風格- 小夢的新婚筆記 — 異材質融合的細節滿滿，Febbi Accessories的飾品更像是藝術品，識別度很高，在其他地方幾乎難以看到同款。 » 更多推薦: 工程師推薦筆記本：智慧筆＋紙本的最佳搭檔",
+            "url": "https://wedding.diamondream.asia/1164/"
+          },
+          {
+            "title": "Febbi金穗系列-白色水鑽蜜蜂FEBBI｜耳環/耳夾/耳骨夾人氣榜- Pinkoi",
+            "description": "Febbi金穗系列-白色水鑽蜜蜂FEBBI｜耳環/耳夾/耳骨夾人氣榜- Pinkoi — FEBBI · 木槿花垂墜耳環耳夾情人節禮物手工耳環 · 燦爛煙火繁花第二代耳針耳夾情人節禮物 · 小雛菊Daisy 珐瑯小白花耳環醫療級不鏽鋼針耳夾 · 經典優雅山茶花戒指可調節尺寸 ...",
+            "url": "https://www.pinkoi.com/product/jUkUg5WX"
+          },
+          {
+            "title": "是夏季的溫柔芬多精大自然森林綠是Febbi專屬特調色優雅珍珠白女孩 ...",
+            "description": "是夏季的溫柔芬多精大自然森林綠是Febbi專屬特調色優雅珍珠白女孩 ... — febbifebbi02 on June 20, 2026: \"最近來逛誠品門市的你們有發現Febbi飾品櫃有著濃濃夏季氣息嗎？ 漂亮耳環們都換上夏天的顏色沁藍海岸藍，是夏季的溫柔 ...",
+            "url": "https://www.instagram.com/p/DZz9ytoGbNK/"
+          },
+          {
+            "title": "有沒有看過美麗的小事物後就想要努力戴上它？ 我就是從各種小單品 ...",
+            "description": "有沒有看過美麗的小事物後就想要努力戴上它？ 我就是從各種小單品 ... — 紫色的羽毛砂線針織衫超級柔軟又溫暖 #飾品 · @febbifebbi02 冬季絮語Winter Whisper 鳶尾紫款式 每一片花片使用Febbi手工特殊上色讓每一副耳環獨一無二 ...",
+            "url": "https://www.instagram.com/reel/DSUrL4QEtDz/"
+          },
+          {
+            "title": "關於EXPO > 合作品牌> Febbi - expo誠品生活文創平台",
+            "description": "關於EXPO > 合作品牌> Febbi - expo誠品生活文創平台 — Febbi品牌理念是不斷追尋著「屬於各個女孩們的特色」，每個女孩都是獨一無二、無法用「同種框架」來定義「不同的美」。 我就是我、 我不追流行，因為我就是流行。 BE FEBBI , ...",
+            "url": "https://www.eslitexpo.com/brands/199"
+          },
+          {
+            "title": "仙女客人的訂單分享   （以上皆經客人同意分享） #講到客人們的分享 ...",
+            "description": "仙女客人的訂單分享   （以上皆經客人同意分享） #講到客人們的分享 ... — ... Febbi你知道嗎？我朋友剛從英國回來， 最近一直在找漂亮的耳環， 我馬上就推薦了你們！」 結果她朋友問她： 「那Febbi是什麼風格的飾品？」...",
+            "url": "https://www.facebook.com/febbifebbi01/posts/%E4%BB%99%E5%A5%B3%E5%AE%A2%E4%BA%BA%E7%9A%84%E8%A8%82%E5%96%AE%E5%88%86%E4%BA%AB%E4%BB%A5%E4%B8%8A%E7%9A%86%E7%B6%93%E5%AE%A2%E4%BA%BA%E5%90%8C%E6%84%8F%E5%88%86%E4%BA%AB%E8%AC%9B%E5%88%B0%E5%AE%A2%E4%BA%BA%E5%80%91%E7%9A%84%E5%88%86%E4%BA%AB%E6%83%B3%E5%88%B0%E4%B8%80%E5%80%8B%E4%B8%8A%E9%80%B1%E7%9A%84%E5%B0%8F%E6%8F%92%E6%9B%B2%E6%9C%89%E4%BD%8D%E5%A5%B3%E5%AD%A9%E8%B7%91%E4%BE%86%E6%AB%83%E4%B8%8A%E5%B0%8D%E6%88%91%E8%AA%AAfebbi%E4%BD%A0%E7%9F%A5%E9%81%93%E5%97%8E%E6%88%91%E6%9C%8B%E5%8F%8B%E5%89%9B%E5%BE%9E%E8%8B%B1%E5%9C%8B%E5%9B%9E%E4%BE%86%E6%9C%80%E8%BF%91%E4%B8%80%E7%9B%B4%E5%9C%A8%E6%89%BE%E6%BC%82%E4%BA%AE%E7%9A%84%E8%80%B3%E7%92%B0%E6%88%91%E9%A6%AC%E4%B8%8A/1126890216124027/"
+          },
+          {
+            "title": "日和選物・Kava Accessories｜925純銀系列，氣質復古 - 日和Hiyori",
+            "description": "日和選物・Kava Accessories｜925純銀系列，氣質復古 - 日和Hiyori — 低調奢華的視覺設計，是身為飾品控的我近期首推品牌之一。內文將介紹 ... 「BE FEBBI BE UNIQUE」 ，來自台灣的手工飾品「Febbi Accessory」走的是 ...",
+            "url": "https://hiyori.cc/article/%E6%97%A5%E5%92%8C%E9%81%B8%E7%89%A9kava-accessories925%E7%B4%94%E9%8A%80%E7%B3%BB%E5%88%97%EF%BC%8C%E6%B0%A3%E8%B3%AA%E5%BE%A9%E5%8F%A4%E3%80%81%E4%BD%8E%E8%AA%BF%E5%A5%A2%E8%8F%AF"
+          },
+          {
+            "title": "首飾品牌  5個小眾耳環品牌推薦復古珍珠，縷空刺繡百搭有特色 - HK01",
+            "description": "首飾品牌  5個小眾耳環品牌推薦復古珍珠，縷空刺繡百搭有特色 - HK01 — 擅長將自然寶物製成生意盎然裝飾，並賦予其滿滿生命力的飾品品牌FEBBI，選用義大利皮革，將其削薄處理、塑形出茂盛花草造型，以圓珠搭配點綴，營造可愛中帶有 ...",
+            "url": "https://www.hk01.com/%E7%A9%BF%E6%90%AD%E7%AD%86%E8%A8%98/476829/%E9%A6%96%E9%A3%BE%E5%93%81%E7%89%8C-5%E5%80%8B%E5%B0%8F%E7%9C%BE%E8%80%B3%E7%92%B0%E5%93%81%E7%89%8C%E6%8E%A8%E8%96%A6-%E5%BE%A9%E5%8F%A4%E7%8F%8D%E7%8F%A0-%E7%B8%B7%E7%A9%BA%E5%88%BA%E7%B9%A1%E7%99%BE%E6%90%AD%E6%9C%89%E7%89%B9%E8%89%B2"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T13:13:35.703Z"
+    },
+    {
+      "brand": {
+        "slug": "chaiwood",
+        "name": "Chaiwood 柴屋",
+        "productType": "home",
+        "productTypeZh": "居家生活",
+        "difficulty": "hard"
+      },
+      "variant": {
+        "id": "E",
+        "label": "Precision + Review Hybrid"
+      },
+      "query": "\"Chaiwood 柴屋\" 居家生活 品牌 介紹 評價 推薦 -徵才 -104 -人力 -site:formoria.com",
+      "parsed": {
+        "urls": [
+          "https://www.instagram.com/p/DNQpUULRfO8/?img_index=5",
+          "https://www.threads.com/@vk123_zoomin/post/DaavvhMjySl/%E6%9C%A8%E4%BD%9C%E5%AF%A6%E6%9C%A8%E5%AE%B6%E5%85%B720-%E5%80%8B-%E6%8B%BE%E6%9C%AA-shiweii-%E6%89%8B%E5%B7%A5%E5%AF%A6%E6%9C%A8%E5%AE%B6%E5%85%B7%E5%B7%A5%E4%BD%9C%E5%AE%A4-chaiwood-%E6%9F%B4%E5%B1%8B-%E6%9C%A8%E4%BD%9C%E5%AE%B6%E5%85%B7%E8%88%87%E5%AE%B6%E9%A3%BE-%E8%B7%AF%E5%8A%9B%E5%AE%B6%E5%99%A8%E5%85%B7-%E5%8F%B0%E7%81%A3%E5%8E%9F%E5%89%B5%E5%AE%B6%E5%85%B7%E8%88%87%E5%99%A8%E5%85%B7-%E5%B8%83%E6%A3%AE%E5%AE%B6%E5%85%B7-tu-furn",
+          "https://www.instagram.com/reel/Daaway4PGMy/",
+          "https://www.facebook.com/RealFurnitureTW/mentions/",
+          "https://mattress.taiwan-furniturestore.com/item/121014/c003985.html",
+          "https://www.instagram.com/reel/C_vSxFcSOyC/?hl=ar",
+          "https://www.instagram.com/reel/C_n253uyOfa/",
+          "https://www.kindomliving.com.tw/?p=18016",
+          "https://hk.pinkoi.com/search?q=%E5%85%B7%E6%9F%B4",
+          "https://www.tnhs.com.tw/"
+        ],
+        "snippets": [
+          {
+            "title": "｜品牌名稱｜ Chaiwood柴屋｜成立年份｜ 2015 ｜品牌簡介｜ 喜歡 ...",
+            "description": "｜品牌名稱｜ Chaiwood柴屋｜成立年份｜ 2015 ｜品牌簡介｜ 喜歡 ... — ｜品牌名稱｜ Chaiwood柴屋｜成立年份｜ 2015 ｜品牌簡介｜ 喜歡自然材質獨有的質地與些微不可控的特性，透過細膩的工藝，讓設計被妥善實現，讓家具自然融入日常生活之中。",
+            "url": "https://www.instagram.com/p/DNQpUULRfO8/?img_index=5"
+          },
+          {
+            "title": "木作・實木家具（20 個） 拾未SHIWEII - Threads",
+            "description": "木作・實木家具（20 個） 拾未SHIWEII - Threads — ... Chaiwood 柴屋— 木作家具與家飾☻ 路力家器具— 台灣原創家具與器具☻ 布 ... 生活品牌. 1. vk123_zoomin's profile picture.",
+            "url": "https://www.threads.com/@vk123_zoomin/post/DaavvhMjySl/%E6%9C%A8%E4%BD%9C%E5%AF%A6%E6%9C%A8%E5%AE%B6%E5%85%B720-%E5%80%8B-%E6%8B%BE%E6%9C%AA-shiweii-%E6%89%8B%E5%B7%A5%E5%AF%A6%E6%9C%A8%E5%AE%B6%E5%85%B7%E5%B7%A5%E4%BD%9C%E5%AE%A4-chaiwood-%E6%9F%B4%E5%B1%8B-%E6%9C%A8%E4%BD%9C%E5%AE%B6%E5%85%B7%E8%88%87%E5%AE%B6%E9%A3%BE-%E8%B7%AF%E5%8A%9B%E5%AE%B6%E5%99%A8%E5%85%B7-%E5%8F%B0%E7%81%A3%E5%8E%9F%E5%89%B5%E5%AE%B6%E5%85%B7%E8%88%87%E5%99%A8%E5%85%B7-%E5%B8%83%E6%A3%AE%E5%AE%B6%E5%85%B7-tu-furn"
+          },
+          {
+            "title": "20260705 今天下台南逛好感空間展，認識了幾家很有 ... - Instagram",
+            "description": "20260705 今天下台南逛好感空間展，認識了幾家很有 ... - Instagram — 椛杍—女友很喜歡的花花椅子，本尊很好坐很美. FØRE Furniture —不鏽鋼桌板很滑順，木頭很溫潤，木頭燈座配上IKEA甜甜圈燈. Chaiwood 柴屋—皮革座椅很美. Pikó",
+            "url": "https://www.instagram.com/reel/Daaway4PGMy/"
+          },
+          {
+            "title": "里爾家具Real Furniture (@RealFurnitureTW) - Mentions | Facebook",
+            "description": "里爾家具Real Furniture (@RealFurnitureTW) - Mentions | Facebook — 今年的木質生活展，邀請了三個臺灣在地品牌，GIAN 匠家具、里爾家具Real Furniture、Chaiwood柴屋，他們以匠人之手，將木頭 與皮革交織成一件件作品，為家創造出更多層次的風景 ...",
+            "url": "https://www.facebook.com/RealFurnitureTW/mentions/"
+          },
+          {
+            "title": "Chaiwood柴屋｜在台中找家具、找床墊 - 台灣好生活家居指南",
+            "description": "Chaiwood柴屋｜在台中找家具、找床墊 - 台灣好生活家居指南 — Chaiwood柴屋環境 網友評價 營業時間與地點 了解更多 熱門推薦. 營業時間與地點. 詳細時間及國定假日，建議先電洽Chaiwood柴屋（04 2330 9690）確認。 了解更多. Chaiwood ...",
+            "url": "https://mattress.taiwan-furniturestore.com/item/121014/c003985.html"
+          },
+          {
+            "title": "［Workshop Visit：布森家具］ 做木工忙碌了十年來，自己個性也 ...",
+            "description": "［Workshop Visit：布森家具］ 做木工忙碌了十年來，自己個性也 ... — ｜品牌簡介｜拾未- 順其自然地生活, 撿拾未來。 工作室成員為泰瑞 ... ｜品牌名稱｜ Chaiwood柴屋｜成立年份｜ 2015 ｜品牌簡介｜ 喜歡自然材質 ...",
+            "url": "https://www.instagram.com/reel/C_vSxFcSOyC/?hl=ar"
+          },
+          {
+            "title": "[Workshop Visit：木夫] 這次參與木質生活展的品牌比以往更多了 ...",
+            "description": "[Workshop Visit：木夫] 這次參與木質生活展的品牌比以往更多了 ... — 里爾家具Real Furniture @realfntco. Chaiwood柴屋@chaiwoodtw 椛杍工坊Waza n Table @waza.n.table 路力家器具Lo Lat Furniture & Objects @lolatfo 與木 ...",
+            "url": "https://www.instagram.com/reel/C_n253uyOfa/"
+          },
+          {
+            "title": "【學設計】悠然森活台灣國產材的春天 - 居心誌",
+            "description": "【學設計】悠然森活台灣國產材的春天 - 居心誌 — 我們手中的每一件國產木製品，不僅僅是一種材料，更是支持永續的生活方式。 ... Photo／高森興業、Chaiwood柴屋、蛋牌The EGG、台灣木材網、達志影像 ...",
+            "url": "https://www.kindomliving.com.tw/?p=18016"
+          },
+          {
+            "title": "具柴推薦| 2026 年6 月| Pinkoi 亞洲跨境設計購物平台",
+            "description": "具柴推薦| 2026 年6 月| Pinkoi 亞洲跨境設計購物平台 — ... 品牌，包含 SHIBAINC | 柴犬工房 ， 拾月文創 ， 也可工房 ， Chaiwood柴屋 ， 傳壺工坊 等各地人氣具柴品牌，等Pinkoi 幫你將設計商品直送上門！ 下載Pinkoi APP.",
+            "url": "https://hk.pinkoi.com/search?q=%E5%85%B7%E6%9F%B4&srsltid=AfmBOorzgP0nt7gqaVvV5sUPn4-crSrxf7CPLgOLbNKwO_Bs6cGXkMwH"
+          },
+          {
+            "title": "好感空間展TNHS",
+            "description": "好感空間展TNHS — ... Chaiwood柴屋 · even · FØRE Furniture · 我們 · 方禾家具 · GIAN · 布森家具 · 拾未SHIWEII · 木 ... MARAIS 瑪黑家居作為國際家居策展通路，長期關注北歐經典設計，並持續 ...",
+            "url": "https://www.tnhs.com.tw/"
+          }
+        ],
+        "rawCount": 10,
+        "errorCount": 0
+      },
+      "timestamp": "2026-07-09T13:13:38.617Z"
+    }
+  ]
+}

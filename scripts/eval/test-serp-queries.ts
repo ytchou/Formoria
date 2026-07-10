@@ -17,16 +17,16 @@ type GoldenBrand = {
 }
 
 const GOLDEN_BRANDS: GoldenBrand[] = [
-  { slug: 'escura-x', name: 'ESCURA', productType: 'fashion', productTypeZh: '服飾鞋履', difficulty: 'easy' },
-  { slug: 'sobdeall', name: '沙伯迪澳 SOBDEALL', productType: 'bags-accessories', productTypeZh: '包袋配件', difficulty: 'easy' },
-  { slug: 'farmy-life', name: '日日好田 Farmy Life', productType: 'food-drink', productTypeZh: '食品飲料', difficulty: 'easy' },
-  { slug: 'mooni', name: '沐澧 Mooni', productType: 'beauty', productTypeZh: '美妝保養', difficulty: 'medium' },
-  { slug: 'evies-drawing-daily', name: "Evie's Drawing Daily", productType: 'crafts', productTypeZh: '工藝文創', difficulty: 'hard' },
-  { slug: 'qmat-設計館', name: 'QMAT', productType: 'outdoor', productTypeZh: '戶外運動保健', difficulty: 'medium' },
-  { slug: 'warmwood-living', name: '暖木家居 Warmwood Living', productType: 'home', productTypeZh: '居家生活', difficulty: 'medium' },
-  { slug: 'lianne-baby', name: 'Lianne Baby 梨安', productType: 'kids-pets', productTypeZh: '母嬰寵物', difficulty: 'medium' },
-  { slug: '1935', name: '鹿苑茶莊 1935', productType: 'food-drink', productTypeZh: '食品飲料', difficulty: 'medium' },
-  { slug: 'clm', name: 'CLM', productType: 'unknown', productTypeZh: '', difficulty: 'hard' },
+  { slug: 'anden-hud', name: 'Anden Hud', productType: 'fashion', productTypeZh: '服飾鞋履', difficulty: 'medium' },
+  { slug: 'aromase艾瑪絲-頭皮療癒永續品牌', name: 'AROMASE 艾瑪絲', productType: 'beauty', productTypeZh: '美妝保養', difficulty: 'easy' },
+  { slug: 'darker-than-black-bags', name: 'Darker Than Black Bags', productType: 'bags-accessories', productTypeZh: '包袋配件', difficulty: 'medium' },
+  { slug: 'djulis德朱利斯-台東必買伴手禮-紅藜穀物棒-紅藜小米起司棒-紅藜黑芝麻糕', name: 'Djulis 德朱利斯', productType: 'food-drink', productTypeZh: '食品飲料', difficulty: 'medium' },
+  { slug: 'hipporizz', name: 'HIPPORIZZ 河馬引力', productType: 'tech', productTypeZh: '3C科技', difficulty: 'medium' },
+  { slug: 'hanchor', name: 'HANCHOR', productType: 'outdoor', productTypeZh: '戶外露營', difficulty: 'medium' },
+  { slug: 'baby-baby-cool', name: 'Baby Baby Cool', productType: 'kids-pets', productTypeZh: '母嬰寵物', difficulty: 'medium' },
+  { slug: 'ecopeco', name: 'Ecopeco', productType: 'crafts', productTypeZh: '工藝文創', difficulty: 'medium' },
+  { slug: 'febbi', name: 'FEBBI', productType: 'jewelry', productTypeZh: '飾品珠寶', difficulty: 'hard' },
+  { slug: 'chaiwood', name: 'Chaiwood 柴屋', productType: 'home', productTypeZh: '居家生活', difficulty: 'hard' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -41,22 +41,12 @@ type QueryVariant = {
 
 const VARIANTS: QueryVariant[] = [
   {
-    id: 'A',
-    label: 'Broad Discovery',
-    build: (b) => `${b.name} 台灣`,
-  },
-  {
-    id: 'B',
-    label: 'Precision + Noise Filter',
+    id: 'E',
+    label: 'Precision + Review Hybrid',
     build: (b) => {
       const typeSegment = b.productTypeZh ? ` ${b.productTypeZh}` : ''
-      return `"${b.name}"${typeSegment} 品牌 -徵才 -104 -人力`
+      return `"${b.name}"${typeSegment} 品牌 介紹 評價 推薦 -徵才 -104 -人力 -site:formoria.com`
     },
-  },
-  {
-    id: 'C',
-    label: 'Third-Party Content Bias',
-    build: (b) => `${b.name} 品牌 介紹 評價 推薦`,
   },
 ]
 
@@ -252,10 +242,9 @@ function printSummary(results: BrandVariantResult[]): void {
   console.log('│ Brand                           │  A   │  B   │  C   │')
   console.log('├─────────────────────────────────┼──────┼──────┼──────┤')
 
-  const variantTotals: Record<string, { urls: number; snippets: number }> = {
-    A: { urls: 0, snippets: 0 },
-    B: { urls: 0, snippets: 0 },
-    C: { urls: 0, snippets: 0 },
+  const variantTotals: Record<string, { urls: number; snippets: number }> = {}
+  for (const v of VARIANTS) {
+    variantTotals[v.id] = { urls: 0, snippets: 0 }
   }
 
   for (const brand of GOLDEN_BRANDS) {

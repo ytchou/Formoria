@@ -137,6 +137,7 @@ async function runOperation(supabase: Supabase, job: CurationJob): Promise<Opera
           target: params.target ?? (params.slugs?.length ? 'brands' : 'submissions'),
           status,
           phases: params.phases ?? [...ENRICH_PHASES],
+          jobId: job.id,
         },
         operationSupabase(supabase)
       )

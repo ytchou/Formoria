@@ -9,6 +9,7 @@ export interface CurationConfig {
   status?: BrandStatus
   limit?: number
   onProgress?: (msg: string) => void
+  jobId?: string
 }
 
 export type PhaseStatus = 'succeeded' | 'skipped' | 'failed'

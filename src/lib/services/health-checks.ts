@@ -270,6 +270,29 @@ async function checkDeepSeek(): Promise<ServiceHealthResult> {
   }
 }
 
+async function checkOpenAI(): Promise<ServiceHealthResult> {
+  const { OPENAI_API_KEY } = process.env
+
+  if (!OPENAI_API_KEY) {
+    return result('OpenAI', 'unconfigured', 'OPENAI_API_KEY is not configured')
+  }
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/models/gpt-4o-mini', {
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
+      signal: AbortSignal.timeout(3000),
+    })
+
+    if (!response.ok) {
+      return result('OpenAI', 'down', `API returned ${response.status}`)
+    }
+
+    return result('OpenAI', 'healthy', 'API key valid')
+  } catch (error) {
+    return result('OpenAI', 'down', error instanceof Error ? error.message : 'Unknown error')
+  }
+}
+
 const serviceNames = [
   'Supabase',
   'Sentry',
@@ -280,6 +303,7 @@ const serviceNames = [
   'Railway',
   'Serper',
   'DeepSeek',
+  'OpenAI',
 ] as const
 
 export async function checkAllServices(): Promise<ServiceHealthResult[]> {
@@ -293,6 +317,7 @@ export async function checkAllServices(): Promise<ServiceHealthResult[]> {
     checkRailway(),
     checkSerper(),
     checkDeepSeek(),
+    checkOpenAI(),
   ])
 
   return checks.map((check, index) =>

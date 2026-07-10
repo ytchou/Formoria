@@ -2,15 +2,15 @@ import { languagePurity, lengthBand, type LanguageLocale, type LengthBand } from
 
 export type LocalizedTextValidation = {
   ok: boolean
-  reasons: string[]
+  reasons: string[]   // hard failures (language_purity) — field gets nulled
+  warnings: string[]  // soft signals (length_band) — field kept, logged
 }
 
 const LANGUAGE_PURITY_THRESHOLD: Record<LanguageLocale, number> = {
-  zh: 0.85,
-  en: 0.98,
+  zh: 0.70,
+  en: 0.95,
 }
 
-const CJK_REGEX = /[\u4E00-\u9FFF\u3400-\u4DBF]/u
 const LATIN_WORD_REGEX = /^[A-Za-z][A-Za-z'&.-]*$/u
 const MAX_LATIN_WORD_RUN_IN_ZH = 2
 
@@ -42,7 +42,7 @@ function failsLanguagePurity(text: string, locale: LanguageLocale): boolean {
     return hasLongLatinRun(text)
   }
 
-  return CJK_REGEX.test(text)
+  return false
 }
 
 export function validateLocalizedText(
@@ -51,17 +51,23 @@ export function validateLocalizedText(
   band: LengthBand
 ): LocalizedTextValidation {
   const reasons: string[] = []
+  const warnings: string[] = []
 
   if (failsLanguagePurity(text, locale)) {
     reasons.push('language_purity')
   }
 
   if (!lengthBand(text, band)) {
-    reasons.push('length_band')
+    if (locale === 'zh') {
+      reasons.push('length_band')
+    } else {
+      warnings.push('length_band')
+    }
   }
 
   return {
     ok: reasons.length === 0,
     reasons,
+    warnings,
   }
 }

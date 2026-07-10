@@ -10,6 +10,10 @@ export type AiTriageInput = {
   productType: string | null
   confidence: 'high' | 'medium' | 'low'
   rawResponse?: unknown
+  input?: unknown
+  attempt?: number
+  config?: unknown
+  latencyMs?: number
 }
 
 export type AiDescriptionInput = {
@@ -20,18 +24,26 @@ export type AiDescriptionInput = {
   priceRange?: number | null
   productTags?: string[]
   rawResponse?: unknown
+  input?: unknown
+  attempt?: number
+  config?: unknown
+  latencyMs?: number
 }
 
 export type AiExpansionInput = {
   brandId: string
   rawResponse?: unknown
+  input?: unknown
+  attempt?: number
+  config?: unknown
+  latencyMs?: number
 }
 
 export async function insertTriageResult(input: AiTriageInput): Promise<void> {
   const supabase = createServiceClient()
-  await supabase.from('brand_ai_results').insert({
+  const { error } = await supabase.from('brand_ai_results').insert({
     brand_id: input.brandId,
-    phase: 'triage',
+    phase: 'detect',
     is_non_brand: input.isNonBrand,
     non_brand_reason: input.nonBrandReason,
     slug_generated: input.slugGenerated,
@@ -39,12 +51,17 @@ export async function insertTriageResult(input: AiTriageInput): Promise<void> {
     confidence: input.confidence,
     model: DEEPSEEK_MODEL,
     raw_response: input.rawResponse ?? null,
+    input: input.input ?? null,
+    attempt: input.attempt ?? null,
+    config: input.config ?? null,
+    latency_ms: input.latencyMs ?? null,
   } as never)
+  if (error) console.error(`  [AI-RESULTS] insertTriageResult failed:`, error.message)
 }
 
 export async function insertDescriptionResult(input: AiDescriptionInput): Promise<void> {
   const supabase = createServiceClient()
-  await supabase.from('brand_ai_results').insert({
+  const { error } = await supabase.from('brand_ai_results').insert({
     brand_id: input.brandId,
     phase: 'description',
     description: input.description,
@@ -54,17 +71,27 @@ export async function insertDescriptionResult(input: AiDescriptionInput): Promis
     product_tags: input.productTags ?? [],
     model: DEEPSEEK_MODEL,
     raw_response: input.rawResponse ?? null,
+    input: input.input ?? null,
+    attempt: input.attempt ?? null,
+    config: input.config ?? null,
+    latency_ms: input.latencyMs ?? null,
   } as never)
+  if (error) console.error(`  [AI-RESULTS] insertDescriptionResult failed:`, error.message)
 }
 
 export async function insertExpansionResult(input: AiExpansionInput): Promise<void> {
   const supabase = createServiceClient()
-  await supabase.from('brand_ai_results').insert({
+  const { error } = await supabase.from('brand_ai_results').insert({
     brand_id: input.brandId,
     phase: 'expansion',
     model: DEEPSEEK_MODEL,
     raw_response: input.rawResponse ?? null,
+    input: input.input ?? null,
+    attempt: input.attempt ?? null,
+    config: input.config ?? null,
+    latency_ms: input.latencyMs ?? null,
   } as never)
+  if (error) console.error(`  [AI-RESULTS] insertExpansionResult failed:`, error.message)
 }
 
 export type AiClassificationInput = {
@@ -72,16 +99,25 @@ export type AiClassificationInput = {
   productType: string
   confidence: 'high' | 'medium' | 'low'
   rawResponse?: unknown
+  input?: unknown
+  attempt?: number
+  config?: unknown
+  latencyMs?: number
 }
 
 export async function insertClassificationResult(input: AiClassificationInput): Promise<void> {
   const supabase = createServiceClient()
-  await supabase.from('brand_ai_results').insert({
+  const { error } = await supabase.from('brand_ai_results').insert({
     brand_id: input.brandId,
     phase: 'classification',
     product_type: input.productType,
     confidence: input.confidence,
     model: DEEPSEEK_MODEL,
     raw_response: input.rawResponse ?? null,
+    input: input.input ?? null,
+    attempt: input.attempt ?? null,
+    config: input.config ?? null,
+    latency_ms: input.latencyMs ?? null,
   } as never)
+  if (error) console.error(`  [AI-RESULTS] insertClassificationResult failed:`, error.message)
 }

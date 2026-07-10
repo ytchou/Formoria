@@ -1,6 +1,8 @@
 import { insertExpansionResult } from '../ai-results'
 import { runExpansionResearch } from '../expansion-research'
 import { loadPersistedScrapeText } from './descriptions'
+import { buildEnrichmentConfig } from '@/lib/constants/enrichment-config'
+import { EXPANSION_SYSTEM_PROMPT } from '@/lib/prompts'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { EnrichScrapedData } from './types'
 import {
@@ -11,12 +13,21 @@ import {
   type EnrichPhase,
 } from './types'
 
+const EXPANSION_CONFIG_PARAMS = {
+  model: 'deepseek-v4-flash',
+  maxTokens: 1200,
+  temperature: 0.1,
+  snippetLimit: 10,
+  siteContentLimit: 4000,
+}
+
 type ExpansionPhaseOptions = {
   brand: EnrichBrand
   phases: EnrichPhase[]
   scrapedData: EnrichScrapedData | null
   serpSnippets: string[]
   overwrite?: boolean
+  reputationAlreadySet?: boolean
 }
 
 type ExpansionPhaseOutput = {
@@ -53,6 +64,7 @@ export async function runExpansionPhase({
   phases,
   serpSnippets,
   overwrite = false,
+  reputationAlreadySet = false,
 }: ExpansionPhaseOptions): Promise<ExpansionPhaseOutput> {
   if (!phases.includes('expansion')) {
     return {
@@ -63,6 +75,20 @@ export async function runExpansionPhase({
         0,
         undefined,
         'expansion phase not requested',
+      ),
+      patch: {},
+    }
+  }
+
+  if (reputationAlreadySet) {
+    return {
+      phaseResult: buildPhaseResult(
+        'expansion',
+        'skipped',
+        [],
+        0,
+        undefined,
+        'reputation_summary set by descriptions phase',
       ),
       patch: {},
     }
@@ -89,13 +115,14 @@ export async function runExpansionPhase({
       [brandSiteContent, persistedScrape.siteContent]
         .filter(Boolean)
         .join('\n\n') || null
-    const expansionResearch = await runExpansionResearch({
+    const expansionInput = {
       name: brand.name ?? '',
       description: brand.description ?? null,
       category: getCategory(brand),
       serpSnippets: [...serpSnippets, ...persistedScrape.snippets],
       siteContent,
-    })
+    }
+    const expansionResearch = await runExpansionResearch(expansionInput)
 
     if (!expansionResearch) {
       return { patch: {} }
@@ -107,13 +134,16 @@ export async function runExpansionPhase({
         : {}),
     }
 
-    return { patch, rawResponse: expansionResearch }
+    return { patch, rawResponse: expansionResearch, input: expansionInput, latencyMs: expansionResearch.latencyMs }
   })
 
   if (hasPatchValues(result.patch)) {
     await insertExpansionResult({
       brandId: brand.id,
       rawResponse: result.rawResponse,
+      input: result.input,
+      config: buildEnrichmentConfig('expansion', EXPANSION_SYSTEM_PROMPT, EXPANSION_CONFIG_PARAMS as Record<string, unknown>),
+      latencyMs: result.latencyMs,
     })
   }
 
