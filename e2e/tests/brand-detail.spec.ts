@@ -145,3 +145,36 @@ test.describe('Brand detail deep', () => {
     expect(faqLd.mainEntity.length).toBeGreaterThan(0);
   });
 });
+
+test.describe('Brand detail — brand without links', () => {
+  let seeded: SeededBrand;
+
+  test.beforeAll(async ({}, workerInfo) => {
+    // No withLinks — brand has no social/purchase URLs at all
+    seeded = await seedBrand({
+      name: 'nolinks',
+      status: 'approved',
+      workerIndex: workerInfo.workerIndex,
+    });
+  });
+
+  test.afterAll(async () => {
+    await seeded.cleanup();
+  });
+
+  test('no dangling social/purchase section headings when brand has no links', async ({ page }) => {
+    test.setTimeout(90_000);
+
+    // ISR pages may serve a stale cache — poll-reload until the seeded brand page renders
+    await expect(async () => {
+      await page.goto(`/brands/${seeded.slug}`, { waitUntil: 'domcontentloaded' });
+      await expect(page.getByRole('heading', { level: 1 })).toContainText('nolinks', {
+        timeout: 10_000,
+      });
+    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
+
+    // With no links seeded, neither section label may dangle without content
+    await expect(page.getByRole('heading', { name: '社群平台', level: 2 })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: '購買管道', level: 2 })).toHaveCount(0);
+  });
+});
