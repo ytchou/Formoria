@@ -51,12 +51,6 @@ export function MainNav({ categories, hasOwnedBrand = false, isAuthenticated = f
           >
             {t('about')}
           </Link>
-          <Link
-            href="/guides"
-            className="type-body-emphasis text-foreground/80 transition-colors hover:text-foreground"
-          >
-            {t('guides')}
-          </Link>
           {hasOwnedBrand ? (
             <Link
               href="/dashboard"
@@ -104,13 +98,6 @@ export function MainNav({ categories, hasOwnedBrand = false, isAuthenticated = f
                   onClick={() => setOpen(false)}
                 >
                   {t('about')}
-                </Link>
-                <Link
-                  href="/guides"
-                  className="block px-1 type-body-emphasis"
-                  onClick={() => setOpen(false)}
-                >
-                  {t('guides')}
                 </Link>
                 {hasOwnedBrand ? (
                   <Link

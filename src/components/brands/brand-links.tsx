@@ -11,10 +11,8 @@ import {
   AtSign,
   Globe,
   Link,
-  ShoppingBag,
   ShoppingCart,
   Store,
-  Users,
 } from 'lucide-react'
 import { InstagramIcon } from '@/components/icons/instagram-icon'
 import { buttonVariants } from '@/components/ui/button'
@@ -66,7 +64,6 @@ type LinkSlot = {
 
 type LinkSectionProps = {
   label: string
-  icon: ReactNode
   slots: LinkSlot[]
   brand: Brand
 }
@@ -79,21 +76,11 @@ const destinationLinkClassName =
     className: 'min-w-32 max-w-full justify-center gap-2',
   })
 
-const disabledDestinationLinkClassName =
-  buttonVariants({
-    variant: 'secondary',
-    shape: 'pill',
-    size: 'compact',
-    className: 'pointer-events-none min-w-32 max-w-full justify-center gap-2 opacity-45',
-  })
-
 function DestinationLinkButton({
   slot,
-  disabled = false,
   children,
 }: {
   slot: LinkSlot
-  disabled?: boolean
   children: ReactNode
 }) {
   return (
@@ -104,7 +91,7 @@ function DestinationLinkButton({
       >
         {slot.icon}
       </span>
-      <span className={cn('min-w-0 truncate', disabled && 'line-through')}>
+      <span className="min-w-0 truncate">
         {children}
       </span>
     </>
@@ -114,7 +101,6 @@ function DestinationLinkButton({
 function SectionLabel({
   children,
 }: {
-  icon?: ReactNode
   children: ReactNode
 }) {
   return (
@@ -124,50 +110,36 @@ function SectionLabel({
   )
 }
 
-function LinkSection({ label, icon, slots, brand }: LinkSectionProps) {
+function LinkSection({ label, slots, brand }: LinkSectionProps) {
   return (
     <section>
-      <SectionLabel icon={icon}>{label}</SectionLabel>
+      <SectionLabel>{label}</SectionLabel>
       <div className="flex flex-wrap gap-3">
-        {slots.map((slot, index) => {
+        {slots.filter((slot) => slot.url).map((slot, index) => {
           const slotKey = `${slot.linkType}:${slot.label}:${index}`
 
-          if (slot.url) {
-            return (
-              <a
-                key={slotKey}
-                href={slot.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={destinationLinkClassName}
-                onClick={() => {
-                  trackExternalLinkClicked(
-                    brand.slug,
-                    slot.linkType,
-                    typeof window !== 'undefined' ? window.location.pathname : '',
-                  )
-                  if (slot.dbDestination) {
-                    trackDbClick(brand.id, slot.dbDestination)
-                  }
-                }}
-              >
-                <DestinationLinkButton slot={slot}>
-                  {slot.label}
-                </DestinationLinkButton>
-              </a>
-            )
-          }
-
           return (
-            <span
+            <a
               key={slotKey}
-              aria-disabled="true"
-              className={disabledDestinationLinkClassName}
+              href={slot.url!}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={destinationLinkClassName}
+              onClick={() => {
+                trackExternalLinkClicked(
+                  brand.slug,
+                  slot.linkType,
+                  typeof window !== 'undefined' ? window.location.pathname : '',
+                )
+                if (slot.dbDestination) {
+                  trackDbClick(brand.id, slot.dbDestination)
+                }
+              }}
             >
-              <DestinationLinkButton slot={slot} disabled>
+              <DestinationLinkButton slot={slot}>
                 {slot.label}
               </DestinationLinkButton>
-            </span>
+            </a>
           )
         })}
       </div>
@@ -207,7 +179,6 @@ function BrandSocialLinks({ brand }: BrandLinksProps) {
   return (
     <LinkSection
       label={t('links.socialPlatforms')}
-      icon={<Users className="size-3.5 text-warm-caption" />}
       slots={socialSlots}
       brand={brand}
     />
@@ -247,7 +218,6 @@ function BrandPurchaseLinks({ brand }: BrandLinksProps) {
   return (
     <LinkSection
       label={t('links.purchaseChannels')}
-      icon={<ShoppingBag className="size-3.5 text-warm-caption" />}
       slots={purchaseSlots}
       brand={brand}
     />
@@ -277,7 +247,6 @@ function BrandOtherLinks({ brand }: BrandLinksProps) {
   return (
     <LinkSection
       label={t('links.otherLinks')}
-      icon={<Link className="size-3.5 text-warm-caption" />}
       slots={otherSlots}
       brand={brand}
     />

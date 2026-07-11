@@ -91,6 +91,15 @@ export function SignInForm({ claimToken, claimBrandName }: SignInFormProps) {
           />
         </div>
 
+        <div className="flex justify-end">
+          <Link
+            href="/auth/forgot-password"
+            className="type-caption text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+          >
+            {t("signIn.forgotPassword")}
+          </Link>
+        </div>
+
         <Button type="submit" className="w-full" size="large" disabled={pending}>
           {pending ? t("signIn.submitting") : t("signIn.submit")}
         </Button>

@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation'
+import { localizePath } from '@/i18n/locale-preference'
+import type { AppLocale } from '@/i18n/locale-preference'
 
 type FormPageProps = {
   params: Promise<{ locale: string }>
@@ -6,5 +8,5 @@ type FormPageProps = {
 
 export default async function LegacySubmitFormPage({ params }: FormPageProps) {
   const { locale } = await params
-  redirect(locale === 'en' ? '/en/submit/recommend' : '/submit/recommend')
+  redirect(localizePath('/submit/recommend', locale as AppLocale))
 }

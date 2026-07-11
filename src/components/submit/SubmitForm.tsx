@@ -29,7 +29,10 @@ import { FormField } from '@/components/forms/form-field'
 import { StandardForm, StandardFormStack } from '@/components/forms/form-layout'
 import { ImageUploadField } from '@/components/forms/image-upload-field'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { TurnstileWidget } from '@/components/submit/TurnstileWidget'
+import { cn } from '@/lib/utils'
 import {
   trackSubmissionCompleted,
   trackSubmissionFormOpened,
@@ -40,14 +43,8 @@ type SubmitFormProps = {
   variant?: 'recommend' | 'owner'
 }
 
-const submitInputClassName =
-  'h-12 w-full rounded-lg border border-border bg-white px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20'
-
-const submitSelectClassName =
-  'h-12 w-full rounded-lg border border-border bg-white px-3 text-sm focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20'
-
-const submitTextareaClassName =
-  'min-h-32 w-full rounded-lg border border-border bg-white px-3.5 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20'
+const selectClassName =
+  'h-12 w-full rounded-lg border border-border bg-background px-3 text-sm focus:border-primary focus:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
 
 export default function SubmitForm({
   source = 'hero_cta',
@@ -63,6 +60,7 @@ export default function SubmitForm({
   const nameBlurRequestRef = useRef(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [pendingRedirect, setPendingRedirect] = useState<string | null>(null)
+  const [turnstileError, setTurnstileError] = useState(false)
 
   const tSchema = useMemo(
     () => (key: string) => t(key as Parameters<typeof t>[0]),
@@ -115,6 +113,7 @@ export default function SubmitForm({
   })
 
   const pdpaConsent = useWatch({ control, name: 'pdpaConsent' })
+  const watchedCity = useWatch({ control, name: 'city' })
   const [nameSuggestion, setNameSuggestion] = useState<string | null>(null)
   const [urlSuggestion, setUrlSuggestion] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -152,6 +151,14 @@ export default function SubmitForm({
       setValue('turnstileToken', token, { shouldValidate: true }),
     [setValue],
   )
+
+  const handleTurnstileError = useCallback(() => {
+    setTurnstileError(true)
+  }, [])
+
+  const handleTurnstileExpire = useCallback(() => {
+    setValue('turnstileToken', '', { shouldValidate: true })
+  }, [setValue])
 
   function handleWebsiteBlur(value: string) {
     if (!value || !value.includes('?')) {
@@ -256,12 +263,11 @@ export default function SubmitForm({
             error={errors.name?.message}
             required
           >
-            <input
+            <Input
               id="submit-name"
               type="text"
               autoComplete="off"
               placeholder={tForm('brandNamePlaceholder')}
-              className={submitInputClassName}
               {...nameRegistration}
               onBlur={async (event) => {
                 nameRegistration.onBlur(event)
@@ -273,20 +279,22 @@ export default function SubmitForm({
               }}
             />
             {nameSuggestion ? (
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-white p-3 text-sm">
-                <span>
-                  {tForm('suggestedName')} <strong>{nameSuggestion}</strong>
-                </span>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    setValue('name', nameSuggestion)
-                    setNameSuggestion(null)
-                  }}
-                >
-                  {tForm('applySuggestion')}
-                </Button>
+              <div className="overflow-hidden transition-all duration-200">
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 text-sm">
+                  <span>
+                    {tForm('suggestedName')} <strong>{nameSuggestion}</strong>
+                  </span>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      setValue('name', nameSuggestion)
+                      setNameSuggestion(null)
+                    }}
+                  >
+                    {tForm('applySuggestion')}
+                  </Button>
+                </div>
               </div>
             ) : null}
           </FormField>
@@ -298,12 +306,11 @@ export default function SubmitForm({
             error={errors.website?.message}
             required
           >
-            <input
+            <Input
               id="submit-website"
               type="url"
               autoComplete="off"
               placeholder={tForm('websitePlaceholder')}
-              className={submitInputClassName}
               {...websiteRegistration}
               onBlur={(event) => {
                 websiteRegistration.onBlur(event)
@@ -315,20 +322,22 @@ export default function SubmitForm({
               }}
             />
             {urlSuggestion ? (
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-white p-3 text-sm">
-                <span>
-                  {tForm('suggestedUrl')} <strong>{urlSuggestion}</strong>
-                </span>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    setValue('website', urlSuggestion)
-                    setUrlSuggestion(null)
-                  }}
-                >
-                  {tForm('applySuggestion')}
-                </Button>
+              <div className="overflow-hidden transition-all duration-200">
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 text-sm">
+                  <span>
+                    {tForm('suggestedUrl')} <strong>{urlSuggestion}</strong>
+                  </span>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      setValue('website', urlSuggestion)
+                      setUrlSuggestion(null)
+                    }}
+                  >
+                    {tForm('applySuggestion')}
+                  </Button>
+                </div>
               </div>
             ) : null}
           </FormField>
@@ -340,13 +349,12 @@ export default function SubmitForm({
               description={tForm('guestEmailHint')}
               error={errors.guestEmail?.message}
             >
-              <input
+              <Input
                 id="submit-guest-email"
                 type="email"
                 autoComplete="email"
                 spellCheck={false}
                 placeholder={tForm('guestEmailPlaceholder')}
-                className={submitInputClassName}
                 {...register('guestEmail')}
               />
             </FormField>
@@ -359,12 +367,11 @@ export default function SubmitForm({
             error={errors.description?.message}
             required={variant === 'owner'}
           >
-            <textarea
+            <Textarea
               id="submit-description"
               rows={4}
               required={variant === 'owner'}
               placeholder={tForm('descriptionPlaceholder')}
-              className={submitTextareaClassName}
               {...register('description')}
             />
           </FormField>
@@ -404,7 +411,10 @@ export default function SubmitForm({
                 render={({ field }) => (
                   <select
                     id="submit-source"
-                    className={`${submitSelectClassName} ${field.value ? 'text-foreground' : 'text-muted-foreground'}`}
+                    className={cn(
+                      selectClassName,
+                      field.value ? 'text-foreground' : 'text-muted-foreground',
+                    )}
                     value={field.value ?? ''}
                     onChange={(event) =>
                       field.onChange(
@@ -435,7 +445,10 @@ export default function SubmitForm({
               >
                 <select
                   id="submit-city"
-                  className={`${submitSelectClassName} text-muted-foreground`}
+                  className={cn(
+                    selectClassName,
+                    !watchedCity && 'text-muted-foreground',
+                  )}
                   {...register('city', {
                     setValueAs: (value) => (value === '' ? undefined : value),
                   })}
@@ -458,22 +471,20 @@ export default function SubmitForm({
                     id="submit-instagram"
                     label={tForm('instagramLabel')}
                   >
-                    <input
+                    <Input
                       id="submit-instagram"
                       type="url"
                       autoComplete="off"
                       placeholder="https://instagram.com/yourbrand"
-                      className={submitInputClassName}
                       {...register('socialLinks.instagram')}
                     />
                   </FormField>
                   <FormField id="submit-threads" label={tForm('threadsLabel')}>
-                    <input
+                    <Input
                       id="submit-threads"
                       type="url"
                       autoComplete="off"
                       placeholder="https://threads.net/@yourbrand"
-                      className={submitInputClassName}
                       {...register('socialLinks.threads')}
                     />
                   </FormField>
@@ -481,32 +492,29 @@ export default function SubmitForm({
                     id="submit-facebook"
                     label={tForm('facebookLabel')}
                   >
-                    <input
+                    <Input
                       id="submit-facebook"
                       type="url"
                       autoComplete="off"
                       placeholder="https://facebook.com/yourbrand"
-                      className={submitInputClassName}
                       {...register('socialLinks.facebook')}
                     />
                   </FormField>
                   <FormField id="submit-pinkoi" label={tForm('pinkoiLabel')}>
-                    <input
+                    <Input
                       id="submit-pinkoi"
                       type="url"
                       autoComplete="off"
                       placeholder="https://pinkoi.com/store/yourbrand"
-                      className={submitInputClassName}
                       {...register('socialLinks.pinkoi')}
                     />
                   </FormField>
                   <FormField id="submit-shopee" label={tForm('shopeeLabel')}>
-                    <input
+                    <Input
                       id="submit-shopee"
                       type="url"
                       autoComplete="off"
                       placeholder="https://shopee.tw/yourbrand"
-                      className={submitInputClassName}
                       {...register('socialLinks.shopee')}
                     />
                   </FormField>
@@ -518,12 +526,11 @@ export default function SubmitForm({
                 label={t('fields.mitSmileMarkNumber')}
                 description={t('fields.mitSmileMarkNumberHint')}
               >
-                <input
+                <Input
                   id="submit-mit-smile-cert"
                   type="text"
                   autoComplete="off"
                   placeholder={t('fields.mitSmileMarkNumberPlaceholder')}
-                  className={submitInputClassName}
                   {...register('mitSmileCert')}
                 />
               </FormField>
@@ -578,9 +585,18 @@ export default function SubmitForm({
             aria-hidden="true"
           />
 
-          <div className="sr-only" aria-hidden="true">
-            <TurnstileWidget onSuccess={handleTurnstileSuccess} />
+          <div className="flex justify-center">
+            <TurnstileWidget
+              onSuccess={handleTurnstileSuccess}
+              onError={handleTurnstileError}
+              onExpire={handleTurnstileExpire}
+            />
           </div>
+          {turnstileError ? (
+            <p className="text-sm text-destructive" role="alert">
+              {t('errors.turnstileError')}
+            </p>
+          ) : null}
 
           {submitError ? (
             <p

@@ -28,7 +28,7 @@ export default async function SettingsPage({ params, searchParams }: Props) {
   const profile = user ? await getProfile(user.id) : null;
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-12">
+    <div className="page-gutter mx-auto max-w-2xl py-12">
       <h1 className="type-page-title-large">
         {t("heading")}
       </h1>

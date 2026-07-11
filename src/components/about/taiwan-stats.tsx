@@ -36,12 +36,14 @@ export default function TaiwanStats({
         <dl className="mt-12 grid gap-10 sm:grid-cols-3">
           {items.map((item) => (
             <div key={item.label} className="border-t border-border pt-4">
-              <dd className="type-stat-large">
-                {item.value}
-              </dd>
-              <dt className="mt-3 type-card-title">
-                {item.label}
-              </dt>
+              <div className="flex flex-col-reverse">
+                <dt className="mt-3 type-card-title">
+                  {item.label}
+                </dt>
+                <dd className="type-stat-large">
+                  {item.value}
+                </dd>
+              </div>
               <p className="mt-1 type-card-description">{item.detail}</p>
             </div>
           ))}

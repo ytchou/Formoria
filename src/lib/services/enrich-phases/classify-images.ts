@@ -19,6 +19,7 @@ const VALID_TAGS = new Set([
   'irrelevant',
 ])
 const JUNK_TAGS = new Set(['promo', 'text_banner', 'irrelevant', 'logo'])
+const MIN_HERO_SCORE = 50
 
 type ImageClassificationTag =
   | 'product'
@@ -419,7 +420,9 @@ export async function runClassifyImagesPhase({
 
     if (ordered.length === 0 && classifications.length > 0) {
       const best = classifications.toSorted((a, b) => b.score - a.score)[0]
-      await updateImage(supabase, best.id, { status: 'active', sort_order: 0 })
+      if (best.score >= MIN_HERO_SCORE) {
+        await updateImage(supabase, best.id, { status: 'active', sort_order: 0 })
+      }
     } else {
       for (const [index, image] of ordered.entries()) {
         await updateImage(supabase, image.id, { sort_order: index })

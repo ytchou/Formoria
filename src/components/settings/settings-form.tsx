@@ -46,7 +46,12 @@ export function SettingsForm({ profile, email, currentLocale }: Props) {
       {/* Email (read-only) */}
       <div className="space-y-2">
         <Label>{t("emailLabel")}</Label>
-        <Input value={email} disabled />
+        <Input
+          value={email}
+          readOnly
+          tabIndex={-1}
+          className="pointer-events-none cursor-not-allowed bg-input/50 opacity-50 dark:bg-input/80"
+        />
       </div>
 
       {/* Display Name */}

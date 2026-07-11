@@ -18,7 +18,7 @@ export default function Error({
   }, [error])
 
   return (
-    <main className="page-gutter mx-auto flex max-w-screen-xl flex-col items-start py-24">
+    <main className="page-gutter mx-auto flex max-w-screen-xl flex-col items-center justify-center py-24 text-center">
       <h1 className="type-page-title-large">
         Something went wrong
       </h1>

@@ -1,6 +1,9 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
+import { Link } from '@/i18n/navigation'
+import { ChevronRight } from 'lucide-react'
+import { routing } from '@/i18n/routing'
 import { getAllGuides, getGuideBySlug } from '@/lib/services/guides'
 import { FaqBlock } from '@/components/guides/faq-block'
 import { buildAlternates } from '@/lib/seo/alternates'
@@ -17,10 +20,9 @@ export const revalidate = 3600
 export async function generateStaticParams() {
   try {
     const guides = await getAllGuides()
-    return guides.map((guide) => ({
-      locale: 'zh-TW',
-      slug: guide.slug,
-    }))
+    return guides.flatMap((guide) =>
+      routing.locales.map((locale) => ({ locale, slug: guide.slug }))
+    )
   } catch {
     return []
   }
@@ -58,6 +60,8 @@ export default async function GuidePage({ params }: PageProps) {
     notFound()
   }
 
+  const t = await getTranslations('guides')
+
   const articleJsonLd = buildArticleJsonLd({
     title: guide.entry.frontmatter.title,
     description: guide.entry.frontmatter.description ?? '',
@@ -67,6 +71,23 @@ export default async function GuidePage({ params }: PageProps) {
 
   return (
     <main className="page-gutter mx-auto w-full max-w-[720px] py-12 md:py-16">
+      <nav aria-label="Breadcrumb" className="mb-6">
+        <ol className="flex items-center gap-1.5 type-card-description">
+          <li>
+            <Link href="/guides" className="hover:text-foreground transition-colors">
+              {t('breadcrumb')}
+            </Link>
+          </li>
+          <li aria-hidden="true">
+            <ChevronRight className="size-3.5" />
+          </li>
+          <li>
+            <span aria-current="page" className="text-foreground">
+              {guide.entry.frontmatter.title}
+            </span>
+          </li>
+        </ol>
+      </nav>
       <article className="space-y-8">
         <script
           type="application/ld+json"

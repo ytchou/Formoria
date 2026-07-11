@@ -1,5 +1,6 @@
 'use client'
 
+import { useSyncExternalStore } from 'react'
 import { Pencil, ShieldCheck, TrendingUp } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
@@ -25,6 +26,7 @@ const benefits = [
 
 export function OwnerBenefitsSection() {
   const { user } = useUser()
+  const mounted = useSyncExternalStore(() => () => {}, () => true, () => false)
   const t = useTranslations('gettingStarted.forOwners')
   const ctaT = useTranslations('gettingStarted.ctaFooter')
 
@@ -43,7 +45,7 @@ export function OwnerBenefitsSection() {
         ))}
       </div>
 
-      {!user && (
+      {mounted && !user && (
         <Link
           href="/submit"
           className={buttonVariants({ variant: 'primary', tone: 'cta' })}

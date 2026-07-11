@@ -33,7 +33,7 @@ export function WizardFooter({
       className={cn(
         'mt-8 flex items-center justify-between border-t border-border pt-6',
         isDirty &&
-          'sticky bottom-0 z-10 bg-background/95 backdrop-blur-sm px-8 pb-6 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]',
+          'sticky bottom-0 z-10 bg-background/95 backdrop-blur-sm page-gutter pb-6 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]',
       )}
     >
       <div>
@@ -44,7 +44,14 @@ export function WizardFooter({
             disabled={isSaving}
             onClick={onSave}
           >
-            {t('save')}
+            {isSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t('save')}
+              </>
+            ) : (
+              t('save')
+            )}
           </Button>
         ) : activeStep > 0 ? (
           <Button
@@ -59,7 +66,7 @@ export function WizardFooter({
       </div>
 
       {isDirty && (
-        <div className="flex items-center gap-1.5 type-caption text-mit-verified">
+        <div className="flex items-center gap-1.5 type-caption text-amber-600 dark:text-amber-500">
           <CircleAlert className="h-3.5 w-3.5" />
           <span>{t('unsavedChanges')}</span>
         </div>

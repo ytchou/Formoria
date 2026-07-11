@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { Link } from '@/i18n/navigation'
+import { localizePath } from '@/i18n/locale-preference'
+import type { AppLocale } from '@/i18n/locale-preference'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
@@ -50,8 +52,7 @@ export default async function SubmitOwnerPage({
   } = await supabase.auth.getUser()
 
   if (error || !user) {
-    const ownerPath = locale === 'en' ? '/en/submit/owner' : '/submit/owner'
-    redirect(`/auth/sign-in?next=${ownerPath}`)
+    redirect(`/auth/sign-in?next=${localizePath('/submit/owner', locale as AppLocale)}`)
   }
 
   const hasOwnedBrand = Boolean(await getUserBrand(user.id))
@@ -59,14 +60,11 @@ export default async function SubmitOwnerPage({
     requestedOwnedNotice && hasOwnedBrand && !hasAcknowledgedNotice
 
   const tSubmitConfirmation = await getTranslations('submit.confirmation')
-  const submitOwnerPath =
-    locale === 'en'
-      ? '/en/submit/owner?ownershipNoticeAcknowledged=1'
-      : '/submit/owner?ownershipNoticeAcknowledged=1'
-  const submitPagePath = locale === 'en' ? '/en/submit' : '/submit'
+  const submitOwnerPath = '/submit/owner?ownershipNoticeAcknowledged=1'
+  const submitPagePath = '/submit'
 
   return (
-    <div>
+    <div className="space-y-6">
       {shouldShowOwnedBrandNotice ? (
         <div className="page-gutter mx-auto max-w-2xl pt-8">
           <section

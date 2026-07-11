@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('next/navigation', () => ({ redirect: vi.fn() }))
+vi.mock('next-intl/server', () => ({ getLocale: vi.fn().mockResolvedValue('zh-TW') }))
 vi.mock('@/lib/auth/require-brand-editor', () => ({ requireBrandEditor: vi.fn() }))
 vi.mock('@/lib/services/brand-onboarding', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/lib/services/brand-onboarding')>(),

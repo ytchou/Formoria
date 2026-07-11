@@ -144,3 +144,20 @@ export async function signOut(returnTo?: string): Promise<void> {
   await supabase.auth.signOut({ scope: 'local' });
   redirect(returnTo && isRelativeUrl(returnTo) ? returnTo : "/");
 }
+
+export async function resetPassword(
+  _prevState: AuthState,
+  formData: FormData
+): Promise<AuthState> {
+  const email = formData.get("email") as string;
+  if (!email) return { error: "Please enter your email address" };
+
+  const supabase = await createClient();
+  const siteUrl = await getRequestOrigin();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${siteUrl}/auth/reset-password`,
+  });
+
+  if (error) return { error: error.message };
+  return { message: "Check your email for a password reset link" };
+}

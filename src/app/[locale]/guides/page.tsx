@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import { Link } from '@/i18n/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { getAllGuides, getGuidesByCategory } from '@/lib/services/guides'
@@ -23,8 +23,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-function formatGuideDate(date: string): string {
-  return new Intl.DateTimeFormat('zh-TW', {
+function formatGuideDate(date: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale === 'en' ? 'en-US' : 'zh-TW', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -79,7 +79,7 @@ export default async function GuidesHubPage({ params, searchParams }: PageProps)
                     : 'border-border text-muted-foreground hover:bg-secondary hover:text-foreground'
                 }`}
               >
-                {item.nameZh}
+                {locale === 'zh-TW' ? item.nameZh : item.name}
               </Link>
             )
           })}
@@ -110,7 +110,7 @@ export default async function GuidesHubPage({ params, searchParams }: PageProps)
                     </p>
                   </div>
                   <p className="type-caption">
-                    {formatGuideDate(guide.frontmatter.publishedAt)}
+                    {formatGuideDate(guide.frontmatter.publishedAt, locale)}
                   </p>
                 </div>
               </Link>

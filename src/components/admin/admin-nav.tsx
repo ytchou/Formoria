@@ -103,7 +103,7 @@ function NavItemWithDropdown({
       </Link>
 
       {open && (
-        <div className="absolute top-full left-0 z-50 mt-px min-w-48 rounded-md border bg-popover p-1 shadow-md">
+        <div className="absolute top-full left-0 z-50 mt-px min-w-48 rounded-md border bg-popover p-1 shadow-card-hover">
           {item.children!.map((child) => (
             <Link
               key={child.href}

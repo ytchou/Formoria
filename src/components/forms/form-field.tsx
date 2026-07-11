@@ -1,7 +1,15 @@
-import type { ReactNode } from 'react'
+'use client'
+
+import { createContext, useContext, type ReactNode } from 'react'
 import { Label } from '@/components/ui/label'
 import { fieldTextStyles } from '@/components/ui/text-styles'
 import { cn } from '@/lib/utils'
+
+type FormFieldContextValue = { error: boolean; errorId?: string }
+const FormFieldContext = createContext<FormFieldContextValue>({ error: false })
+export function useFormFieldContext() {
+  return useContext(FormFieldContext)
+}
 
 type FormFieldProps = {
   id?: string
@@ -24,6 +32,8 @@ export function FormField({
   className,
   children,
 }: FormFieldProps) {
+  const computedErrorId = errorId ?? (id && error ? `${id}-error` : undefined)
+
   const labelContent = (
     <>
       {label}
@@ -37,11 +47,9 @@ export function FormField({
   )
 
   return (
-    <div className={cn('space-y-2', className)} aria-invalid={Boolean(error)}>
+    <div className={cn('space-y-2', className)}>
       {label && id ? (
-        <Label htmlFor={id}>
-          {labelContent}
-        </Label>
+        <Label htmlFor={id}>{labelContent}</Label>
       ) : label ? (
         <p className={cn('flex items-center gap-2', fieldTextStyles.formLabel)}>
           {labelContent}
@@ -50,13 +58,11 @@ export function FormField({
       {description ? (
         <p className={fieldTextStyles.hint}>{description}</p>
       ) : null}
-      {children ? children : null}
+      <FormFieldContext value={{ error: Boolean(error), errorId: computedErrorId }}>
+        {children ? children : null}
+      </FormFieldContext>
       {error ? (
-        <p
-          id={errorId}
-          className={fieldTextStyles.error}
-          aria-live="polite"
-        >
+        <p id={computedErrorId} className={fieldTextStyles.error} aria-live="polite">
           {error}
         </p>
       ) : null}

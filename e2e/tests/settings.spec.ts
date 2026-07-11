@@ -29,7 +29,7 @@ test.describe('Settings page', () => {
     await expect(emailLabel).toBeVisible({ timeout: 10_000 })
 
     // Email field contains the test user's email address
-    const emailInput = userPage.locator('input[disabled]').first()
+    const emailInput = userPage.locator('input[readonly]').first()
     await expect(emailInput).toBeVisible({ timeout: 5_000 })
     await expect(emailInput).toHaveValue(process.env.E2E_USER_EMAIL ?? '', {
       timeout: 5_000,

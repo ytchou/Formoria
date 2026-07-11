@@ -44,6 +44,6 @@ describe('SubmitOverview', () => {
   it('renders owner CTA behind sign-in when logged out', () => {
     renderWithZhTW(<SubmitOverview />);
     const cta = screen.getByRole('link', { name: /登入後開始/i });
-    expect(cta).toHaveAttribute('href', '/auth/sign-in?next=/submit/owner');
+    expect(cta).toHaveAttribute('href', '/auth/sign-in?next=%2Fsubmit%2Fowner');
   });
 });

@@ -115,7 +115,7 @@ test.describe('Static & compliance pages', () => {
       anonPage.getByRole('heading', { name: '提交你的台灣品牌' }),
     ).toBeVisible({ timeout: 15_000 })
     await expect(anonPage.locator('a[href*="/submit/recommend"]')).toBeVisible({ timeout: 10_000 })
-    await expect(anonPage.locator('a[href*="/auth/sign-in?next=/submit/owner"]')).toBeVisible({ timeout: 10_000 })
+    await expect(anonPage.locator('a[href*="/auth/sign-in?next=%2Fsubmit%2Fowner"]')).toBeVisible({ timeout: 10_000 })
   })
 
   test('microsite renders for seeded brand', async ({ anonPage }) => {

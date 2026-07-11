@@ -1,6 +1,8 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
+
+type KeyedItem<T> = { key: number; item: T }
 
 type DynamicArrayFieldProps<T extends object> = {
   initialItems: T[]
@@ -17,11 +19,14 @@ export function DynamicArrayField<T extends object>({
   addLabel,
   maxItems,
 }: DynamicArrayFieldProps<T>) {
-  const [items, setItems] = useState<T[]>(initialItems)
+  const keyCounter = useRef(initialItems.length)
+  const [items, setItems] = useState<KeyedItem<T>[]>(() =>
+    initialItems.map((item, i) => ({ key: i, item }))
+  )
 
   function addItem() {
     if (maxItems !== undefined && items.length >= maxItems) return
-    setItems([...items, createItem()])
+    setItems([...items, { key: keyCounter.current++, item: createItem() }])
   }
 
   function removeItem(index: number) {
@@ -30,9 +35,9 @@ export function DynamicArrayField<T extends object>({
 
   return (
     <div className="space-y-3">
-      {items.map((item, index) => (
-        <div key={index}>
-          {renderItem(item, index, () => removeItem(index))}
+      {items.map((entry, index) => (
+        <div key={entry.key}>
+          {renderItem(entry.item, index, () => removeItem(index))}
         </div>
       ))}
       <Button

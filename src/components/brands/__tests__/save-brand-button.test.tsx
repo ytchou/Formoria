@@ -11,8 +11,11 @@ vi.mock('@/lib/auth/use-user', () => ({
   useUser: vi.fn(() => ({ user: mockUser, loading: false })),
 }))
 
-vi.mock('@/i18n/navigation', () => ({
+vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: mockPush })),
+}))
+
+vi.mock('@/i18n/navigation', () => ({
   usePathname: vi.fn(() => '/brands/test-brand'),
 }))
 

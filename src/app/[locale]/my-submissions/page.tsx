@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
+import { localizePath } from '@/i18n/locale-preference'
+import type { AppLocale } from '@/i18n/locale-preference'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
@@ -23,5 +25,5 @@ export async function generateMetadata({ params }: MySubmissionsPageProps): Prom
 export default async function MySubmissionsPage({ params }: MySubmissionsPageProps) {
   const { locale } = await params
   setRequestLocale(locale)
-  redirect('/dashboard')
+  redirect(localizePath('/dashboard', locale as AppLocale))
 }

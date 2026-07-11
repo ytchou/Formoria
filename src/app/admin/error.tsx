@@ -17,7 +17,7 @@ export default function AdminError({
   }, [error])
 
   return (
-    <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
+    <main className="page-gutter mx-auto flex max-w-screen-xl flex-col items-center justify-center py-24 text-center">
       <p className="type-card-title">
         發生錯誤
       </p>
@@ -30,6 +30,6 @@ export default function AdminError({
       >
         再試一次
       </Button>
-    </div>
+    </main>
   )
 }

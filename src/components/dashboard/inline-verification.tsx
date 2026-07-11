@@ -21,6 +21,7 @@ export function InlineVerification({
   mitEvidence,
 }: InlineVerificationProps) {
   const t = useTranslations('dashboard.mit')
+  const mounted = useSyncExternalStore(() => () => {}, () => true, () => false)
 
   const DISMISS_KEY = `formoria:dismiss-verification:${brandId}`
 
@@ -81,6 +82,7 @@ export function InlineVerification({
     )
   }
 
+  if (!mounted) return null
   if (!embedded && dismissed) return null
 
   return (
@@ -107,17 +109,24 @@ export function InlineVerification({
         ) : null}
       </div>
       <p className="type-caption mb-2.5">{t('description.unverified')}</p>
-      <div className="flex gap-2">
-        <Input
-          value={certNumber}
-          onChange={(e) => setCertNumber(e.target.value)}
-          placeholder={t('certPlaceholder')}
-          className="max-w-[200px] font-mono type-caption"
-        />
-        <Button size="compact" onClick={handleVerify} disabled={!certNumber.trim() || isPending}>
-          {t('verifyButton')}
-        </Button>
-      </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (certNumber.trim() && !isPending) handleVerify()
+        }}
+      >
+        <div className="flex gap-2">
+          <Input
+            value={certNumber}
+            onChange={(e) => setCertNumber(e.target.value)}
+            placeholder={t('certPlaceholder')}
+            className="max-w-[200px] font-mono type-caption"
+          />
+          <Button type="submit" size="compact" disabled={!certNumber.trim() || isPending}>
+            {t('verifyButton')}
+          </Button>
+        </div>
+      </form>
       {error && <p className="mt-2 type-error">{t(error)}</p>}
       {success && (
         <p className="mt-2 type-success">{t('verifySuccess')}</p>

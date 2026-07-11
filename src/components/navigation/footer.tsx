@@ -9,7 +9,7 @@ export function Footer() {
   return (
     <footer
       role="contentinfo"
-      className="border-t border-border bg-white"
+      className="border-t border-border bg-card"
     >
       <div className="page-gutter mx-auto max-w-screen-xl py-12">
         {/* Multi-column link grid */}
@@ -26,6 +26,14 @@ export function Footer() {
                   className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('directory')}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/stats"
+                  className="type-card-description hover:text-foreground transition-colors"
+                >
+                  {t('stats')}
                 </Link>
               </li>
               <li>

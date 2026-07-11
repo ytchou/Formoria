@@ -1,3 +1,4 @@
+import { pinyin } from 'pinyin-pro'
 import type { Brand, BrandFilters, OtherUrl } from '@/lib/types'
 import type { ReputationSummary, SiteContent, SiteProduct, SiteTokens } from '@/lib/types/brand'
 import type { Database } from '@/lib/supabase/database.types'
@@ -186,13 +187,22 @@ export type SimilarBrand = {
 // ---------------------------------------------------------------------------
 
 export function generateSlug(name: string): string {
-  return name
+  // Transliterate CJK characters to pinyin; non-CJK chars pass through unchanged
+  const transliterated = pinyin(name, { toneType: 'none', type: 'array' }).join(' ')
+
+  return transliterated
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
-    .replace(/[^a-z0-9\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]+/g, '-')
+    .replace(/[^a-z0-9]+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
+}
+
+const VALID_SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{2,79}$/
+
+export function isValidSlug(slug: string): boolean {
+  return VALID_SLUG_PATTERN.test(slug) && !slug.includes('--')
 }
 
 export function isReservedSlug(slug: string): boolean {

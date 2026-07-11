@@ -2,14 +2,14 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface SearchEmptyStateProps {
   query: string
   hasActiveFilters: boolean
-  categories: { productType: string; count: number }[]
+  categories: { productType: string; name: string; nameZh: string | null; count: number }[]
   featuredBrands: {
     id: string
     name: string
@@ -28,6 +28,7 @@ export function SearchEmptyState({
   onClearFilters,
 }: SearchEmptyStateProps) {
   const t = useTranslations('search')
+  const locale = useLocale()
 
   return (
     <div data-empty className="flex flex-col items-center py-16">
@@ -69,13 +70,13 @@ export function SearchEmptyState({
             {t('emptyState.browseCategories')}
           </p>
           <div className="scrollbar-hide mt-3 flex justify-center gap-2 overflow-x-auto flex-nowrap">
-            {categories.map(({ productType }) => (
+            {categories.map(({ productType, name, nameZh }) => (
               <Link
                 key={productType}
                 href={`?category=${encodeURIComponent(productType)}`}
                 className="whitespace-nowrap rounded-full border border-primary/20 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
-                {productType}
+                {locale === 'zh-TW' && nameZh ? nameZh : name}
               </Link>
             ))}
           </div>

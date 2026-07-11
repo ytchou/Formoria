@@ -15,11 +15,9 @@ vi.mock('@/hooks/use-filter-params', () => ({
   }),
 }))
 
-// Mock next/navigation
-vi.mock('next/navigation', () => ({
+// Mock navigation
+vi.mock('@/i18n/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
-  usePathname: () => '/',
 }))
 
 // Mock fetch for autocomplete API

@@ -47,6 +47,7 @@ import { normalizeRetailLocations } from '@/lib/brands/locations'
 import { getBrandFaq } from '@/lib/services/brand-faq'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { MapPin } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { NotFoundError } from '@/lib/errors'
 import { getUserBrand } from '@/lib/services/brand-owners'
 import { truncateForMeta } from '@/lib/text/truncate-for-meta'
@@ -283,7 +284,7 @@ export default async function BrandDetailPage({
   return (
     <>
       {previewMode && <PreviewBanner slug={slug} />}
-      <main className="page-gutter mx-auto max-w-screen-xl pt-10 pb-24 lg:pb-10">
+      <main className={cn('page-gutter mx-auto max-w-screen-xl pt-10 lg:pb-10', visitUrl ? 'pb-24' : 'pb-10')}>
         {!previewMode && (
           <>
             <BrandViewTracker brandSlug={slug} source={source} />

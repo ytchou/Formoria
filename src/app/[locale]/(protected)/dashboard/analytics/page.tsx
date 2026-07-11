@@ -1,5 +1,7 @@
 import { setRequestLocale } from 'next-intl/server'
 import { redirect } from 'next/navigation'
+import { localizePath } from '@/i18n/locale-preference'
+import type { AppLocale } from '@/i18n/locale-preference'
 import { createClient } from '@/lib/supabase/server'
 import { resolveBrand } from '../_lib/resolve-brand'
 
@@ -23,5 +25,5 @@ export default async function AnalyticsPage({ params, searchParams }: Props) {
   const selectedBrand = await resolveBrand(resolvedSearchParams, user.id, user.email)
   if (!selectedBrand) return null
 
-  redirect(`/${locale}/dashboard/brands/${selectedBrand.brandSlug}/analytics`)
+  redirect(localizePath(`/dashboard/brands/${selectedBrand.brandSlug}/analytics`, locale as AppLocale))
 }

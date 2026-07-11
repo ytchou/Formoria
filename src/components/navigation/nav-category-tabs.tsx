@@ -1,8 +1,9 @@
 'use client'
 
 import { Suspense } from 'react'
-import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { useTranslations } from 'next-intl'
+import { useSearchParams } from 'next/navigation'
+import { useRouter, usePathname } from '@/i18n/navigation'
+import { useLocale, useTranslations } from 'next-intl'
 import { trackCategoryFilterApplied } from '@/lib/analytics'
 
 interface NavCategoryTabsProps {
@@ -13,6 +14,7 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const pathname = usePathname()
+  const locale = useLocale()
   const t = useTranslations('nav')
 
   const isBrandsPage = pathname === '/brands'
@@ -55,7 +57,7 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
         </button>
         {categories.map((cat) => {
           const isActive = activeCategory === cat.slug
-          const label = cat.nameZh ?? cat.name
+          const label = locale === 'zh-TW' ? (cat.nameZh ?? cat.name) : cat.name
           return (
             <button
               key={cat.slug}

@@ -1,6 +1,6 @@
 'use client'
 
-import { Lock } from 'lucide-react'
+import { Store } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
@@ -12,7 +12,7 @@ export function DashboardEmptyState() {
     <section className="flex min-h-[calc(100vh-8rem)] items-center justify-center px-4 py-16">
       <div className="mx-auto flex max-w-[480px] flex-col items-center text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-          <Lock className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
+          <Store className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
         </div>
         <h1 className="mt-6 type-section-title-large">
           {t('title')}

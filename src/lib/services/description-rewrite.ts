@@ -1,7 +1,7 @@
 import { DESCRIPTION_SYSTEM_PROMPT } from '@/lib/prompts'
 import { buildEnrichmentConfig } from '@/lib/constants/enrichment-config'
 import { createDeepSeekClient, parseDeepSeekJson } from './deepseek-client'
-import { validateLocalizedText } from './enrich-validators'
+import { validateLocalizedText, detectAiArtifacts } from './enrich-validators'
 import { parseExtractionResult } from './product-type-classifier'
 
 const DEEPSEEK_TIMEOUT_MS = 30_000
@@ -211,6 +211,13 @@ function validateDescriptionFields(
     if (hasHardFailure) {
       descriptionZh = null
     }
+    if (descriptionZh) {
+      const artifacts = detectAiArtifacts(descriptionZh, 'zh')
+      if (artifacts.length > 0) {
+        validationRejections.push({ field: 'description_zh', reasons: artifacts, warnings: [], attempt })
+        descriptionZh = null
+      }
+    }
   } else {
     validationRejections.push({ field: 'description_zh', reasons: ['missing'], warnings: [], attempt })
   }
@@ -224,6 +231,13 @@ function validateDescriptionFields(
     }
     if (hasHardFailure) {
       descriptionEn = null
+    }
+    if (descriptionEn) {
+      const artifacts = detectAiArtifacts(descriptionEn, 'en')
+      if (artifacts.length > 0) {
+        validationRejections.push({ field: 'description_en', reasons: artifacts, warnings: [], attempt })
+        descriptionEn = null
+      }
     }
   } else {
     validationRejections.push({ field: 'description_en', reasons: ['missing'], warnings: [], attempt })
@@ -239,6 +253,13 @@ function validateDescriptionFields(
     if (hasHardFailure) {
       blurbZh = null
     }
+    if (blurbZh) {
+      const artifacts = detectAiArtifacts(blurbZh, 'zh')
+      if (artifacts.length > 0) {
+        validationRejections.push({ field: 'blurb_zh', reasons: artifacts, warnings: [], attempt })
+        blurbZh = null
+      }
+    }
   } else {
     validationRejections.push({ field: 'blurb_zh', reasons: ['missing'], warnings: [], attempt })
   }
@@ -252,6 +273,13 @@ function validateDescriptionFields(
     }
     if (hasHardFailure) {
       blurbEn = null
+    }
+    if (blurbEn) {
+      const artifacts = detectAiArtifacts(blurbEn, 'en')
+      if (artifacts.length > 0) {
+        validationRejections.push({ field: 'blurb_en', reasons: artifacts, warnings: [], attempt })
+        blurbEn = null
+      }
     }
   } else {
     validationRejections.push({ field: 'blurb_en', reasons: ['missing'], warnings: [], attempt })

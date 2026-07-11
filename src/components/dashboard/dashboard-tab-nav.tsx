@@ -20,7 +20,7 @@ export function DashboardTabNav({ brandSlug }: DashboardTabNavProps) {
 
   return (
     <nav
-      aria-label={t('profile')}
+      aria-label={t('dashboardNav')}
       className="flex min-h-12 gap-6 border-b border-border"
     >
       {tabs.map((tab) => {

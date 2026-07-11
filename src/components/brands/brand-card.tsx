@@ -67,7 +67,6 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
         interactive: true,
         padding: 'none',
       })}
-      aria-label={brand.name}
       onClick={() => trackBrandCardClicked(brand.slug, brand.category, position)}
     >
       {/* Image */}

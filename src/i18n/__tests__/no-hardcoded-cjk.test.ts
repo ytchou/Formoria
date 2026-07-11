@@ -41,6 +41,7 @@ const ALLOWLIST = [
   // Auth pages live outside [locale] (no request locale) — metadata zh fallback.
   'app/auth/sign-in/page.tsx',
   'app/auth/sign-up/page.tsx',
+  'app/auth/forgot-password/page.tsx',
   // Owner mailto subject — locale-branched template.
   'components/dashboard/inline-verification.tsx',
   // Non-display Chinese: a comment and scraper keyword regex.
@@ -57,6 +58,8 @@ const ALLOWLIST = [
   'lib/taxonomy/ontology.ts',
   // Slug generation regex uses CJK character ranges (not UI copy).
   'lib/services/brands.ts',
+  // AI-slop detector uses Chinese regex patterns (not UI copy).
+  'lib/services/enrich-validators.ts',
   // Brand cleanup uses Chinese keyword arrays and regex patterns (not UI copy).
   'lib/services/brand-cleanup.ts',
   // LLM system prompts centralised module (Chinese prompt text).

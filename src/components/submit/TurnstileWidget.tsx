@@ -12,6 +12,7 @@ declare global {
           sitekey: string
           callback: (token: string) => void
           'error-callback'?: () => void
+          'expired-callback'?: () => void
           theme?: 'light' | 'dark' | 'auto'
         }
       ) => string
@@ -23,20 +24,31 @@ declare global {
 type TurnstileWidgetProps = {
   onSuccess: (token: string) => void
   onError?: () => void
+  onExpire?: () => void
 }
 
-export function TurnstileWidget({ onSuccess, onError }: TurnstileWidgetProps) {
+export function TurnstileWidget({ onSuccess, onError, onExpire }: TurnstileWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const widgetIdRef = useRef<string | null>(null)
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
+  const onSuccessRef = useRef(onSuccess)
+  const onErrorRef = useRef(onError)
+  const onExpireRef = useRef(onExpire)
   useEffect(() => {
-    if (!siteKey || !containerRef.current || !window.turnstile) return
+    onSuccessRef.current = onSuccess
+    onErrorRef.current = onError
+    onExpireRef.current = onExpire
+  })
+
+  useEffect(() => {
+    if (!siteKey || !containerRef.current || !window.turnstile || widgetIdRef.current) return
 
     widgetIdRef.current = window.turnstile.render(containerRef.current, {
       sitekey: siteKey,
-      callback: onSuccess,
-      'error-callback': onError,
+      callback: (token: string) => onSuccessRef.current(token),
+      'error-callback': () => onErrorRef.current?.(),
+      'expired-callback': () => onExpireRef.current?.(),
       theme: 'light',
     })
 
@@ -46,7 +58,7 @@ export function TurnstileWidget({ onSuccess, onError }: TurnstileWidgetProps) {
         widgetIdRef.current = null
       }
     }
-  }, [siteKey, onSuccess, onError])
+  }, [siteKey])
 
   if (!siteKey) return null
 
@@ -56,11 +68,12 @@ export function TurnstileWidget({ onSuccess, onError }: TurnstileWidgetProps) {
         src="https://challenges.cloudflare.com/turnstile/v0/api.js"
         strategy="lazyOnload"
         onLoad={() => {
-          if (!containerRef.current || !window.turnstile) return
+          if (!containerRef.current || !window.turnstile || widgetIdRef.current) return
           widgetIdRef.current = window.turnstile.render(containerRef.current, {
             sitekey: siteKey,
-            callback: onSuccess,
-            'error-callback': onError,
+            callback: (token: string) => onSuccessRef.current(token),
+            'error-callback': () => onErrorRef.current?.(),
+            'expired-callback': () => onExpireRef.current?.(),
             theme: 'light',
           })
         }}

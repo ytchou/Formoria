@@ -99,6 +99,7 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
                     <button
                       key={value}
                       type="button"
+                      aria-pressed={selectedReasons.has(value)}
                       onClick={() => {
                         setSelectedReasons((prev) => {
                           const next = new Set(prev)

@@ -4,12 +4,14 @@ import { Upload } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useRef, useState, useTransition, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
 import { submitClaimAction } from '@/app/[locale]/brands/[slug]/actions'
+import NextLink from 'next/link'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useImageUpload } from '@/components/upload/useImageUpload'
 import { Link, usePathname } from '@/i18n/navigation'
+import { localizePath } from '@/i18n/locale-preference'
 import { useUser } from '@/lib/auth/use-user'
 import {
   CLAIM_PROOF_TYPES,
@@ -250,7 +252,7 @@ export function ClaimBrandCta({
         })}
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 space-y-1">
+          <div className="min-w-0 flex-1 space-y-1">
             <p className="type-subsection-title">{t('ownerLimitTitle')}</p>
             <p className="type-card-description">{t('ownerLimitBody')}</p>
           </div>
@@ -296,7 +298,7 @@ export function ClaimBrandCta({
     >
       {!isOpen ? (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 space-y-1">
+          <div className="min-w-0 flex-1 space-y-1">
             <p className="type-subsection-title">{t('communityTitle')}</p>
             <p className="type-card-description">{t('communityListing')}</p>
           </div>
@@ -313,12 +315,12 @@ export function ClaimBrandCta({
                 {t('claimButton')}
               </Button>
             ) : (
-              <Link
-                href={`/auth/sign-in?next=${encodeURIComponent(pathname)}`}
+              <NextLink
+                href={`/auth/sign-in?next=${encodeURIComponent(localizePath(pathname, locale))}`}
                 className={buttonVariants({ variant: 'primary', tone: 'cta' })}
               >
                 {t('signIn')}
-              </Link>
+              </NextLink>
             )}
             <Link href="/faq#claim" className="text-xs text-primary underline underline-offset-4">
               {t('whyClaim')}
@@ -488,9 +490,9 @@ export function ClaimBrandCta({
             <div aria-live="polite" className="space-y-2 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
               <p>{feedback.message}</p>
               {feedback.authRequired && (
-                <Link href={`/auth/sign-in?next=${encodeURIComponent(pathname)}`} className="inline-flex font-medium underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <NextLink href={`/auth/sign-in?next=${encodeURIComponent(localizePath(pathname, locale))}`} className="inline-flex font-medium underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   {t('signIn')}
-                </Link>
+                </NextLink>
               )}
             </div>
           )}

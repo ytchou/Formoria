@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
-import { useTranslations } from 'next-intl'
+import { Link } from '@/i18n/navigation'
+import { useTranslations, useLocale } from 'next-intl'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { PendingBrandEdit } from '@/lib/types/brand'
@@ -14,6 +14,7 @@ type Props = {
 
 export function EditReviewBanner({ edit, brandSlug }: Props) {
   const t = useTranslations('admin.pendingEdits')
+  const locale = useLocale()
   const [dismissed, setDismissed] = useState(false)
 
   if (edit === null) return null
@@ -27,7 +28,7 @@ export function EditReviewBanner({ edit, brandSlug }: Props) {
           <div>
             <p className="type-body-emphasis text-mit-verified">{t('pendingMessage')}</p>
             <p className="type-caption text-mit-verified">
-              {new Date(edit.createdAt).toLocaleDateString('zh-TW')}
+              {new Date(edit.createdAt).toLocaleDateString(locale === 'en' ? 'en-US' : 'zh-TW')}
             </p>
           </div>
           <span className="ml-auto rounded-full bg-background px-2 py-0.5 type-caption text-mit-verified">
@@ -71,7 +72,7 @@ export function EditReviewBanner({ edit, brandSlug }: Props) {
             <p className="type-success">{t('approved')}</p>
             {edit.reviewedAt && (
               <p className="type-caption">
-                {new Date(edit.reviewedAt).toLocaleDateString('zh-TW')}
+                {new Date(edit.reviewedAt).toLocaleDateString(locale === 'en' ? 'en-US' : 'zh-TW')}
               </p>
             )}
           </div>

@@ -1,8 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
+import { useRouter } from '@/i18n/navigation'
+import { localizePath } from '@/i18n/locale-preference'
+import type { AppLocale } from '@/i18n/locale-preference'
 import { useFilterParams } from '@/hooks/use-filter-params'
 import { cn } from '@/lib/utils'
 import {
@@ -21,6 +23,7 @@ interface SearchInputProps {
 
 function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = {}) {
   const t = useTranslations('brands')
+  const locale = useLocale()
   const { filters, setSearch } = useFilterParams()
   const [value, setValue] = useState(filters.search)
   const [suggestions, setSuggestions] = useState<SearchResult[]>([])
@@ -124,7 +127,7 @@ function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = 
       if (redirectTo) {
         // Use native navigation for cross-page redirects — router.push
         // intermittently fails in WebKit when navigating from / to /brands.
-        window.location.href = `${redirectTo}?search=${encodeURIComponent(q)}`
+        window.location.href = `${localizePath(redirectTo, locale as AppLocale)}?search=${encodeURIComponent(q)}`
       }
     }
   }
@@ -185,7 +188,7 @@ function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = 
         value={value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
-        className="w-full rounded-lg border border-border bg-card py-2 pl-9 pr-8 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        className="w-full rounded-lg border border-border bg-card py-2 pl-9 pr-8 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       />
 
       {/* Clear button */}
@@ -194,7 +197,7 @@ function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = 
           type="button"
           onClick={handleClear}
           aria-label={t('search.clear')}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-muted-foreground hover:text-foreground"
         >
           <svg
             className="h-4 w-4"

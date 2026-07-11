@@ -17,10 +17,8 @@ vi.mock('@/hooks/use-filter-params', () => ({
   }),
 }))
 
-vi.mock('next/navigation', () => ({
+vi.mock('@/i18n/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
-  useSearchParams: () => new URLSearchParams(),
-  usePathname: () => '/',
 }))
 
 global.fetch = vi.fn().mockResolvedValue({

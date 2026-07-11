@@ -11,10 +11,10 @@ interface AboutHeroProps {
 }
 
 export default async function AboutHero({ brandCount, categoryCount, recentBrands }: AboutHeroProps) {
-  const t = await getTranslations('landing.hero')
+  const t = await getTranslations('about.hero')
 
   return (
-    <SplitHero imageSrc="/images/manifesto-bg.png" eyebrow={t('eyebrow')} headline={t('headline')} subheadline={t('subheadline')}>
+    <SplitHero imageSrc="/images/manifesto-bg.png" eyebrow={t('eyebrow')} headline={t('title')} subheadline={t('subtitle')}>
           <div className="mt-6 flex items-start gap-6">
             <div>
               <p className="type-stat">{brandCount}</p>

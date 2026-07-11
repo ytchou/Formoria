@@ -43,7 +43,7 @@ export async function RelatedBrands({
           <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
         </Link>
       </div>
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {brands.map((brand) => (
           <BrandCard key={brand.id} brand={brand} />
         ))}

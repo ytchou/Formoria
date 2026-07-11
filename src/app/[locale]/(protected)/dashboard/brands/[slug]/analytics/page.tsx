@@ -31,8 +31,8 @@ export default async function AnalyticsPage({ params }: Props) {
   const [analytics, series, breakdown, sources, latestReview] =
     await Promise.all([
       getAnalytics(brand.id, 30),
-      getDailySeries(brand.id, 90),
-      getLinkClickBreakdown(brand.id, 90),
+      getDailySeries(brand.id, 30),
+      getLinkClickBreakdown(brand.id, 30),
       getSourceBreakdown(brand.id, 30),
       user
         ? getLatestReview({ brandId: brand.id }, user)
