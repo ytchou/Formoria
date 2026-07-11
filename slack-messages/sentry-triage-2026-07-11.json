@@ -1,0 +1,69 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Sentry Daily Triage — 2026-07-10 to 2026-07-11",
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Summary:* 3 issues found (0 critical, 0 moderate, 0 trivial actionable). All 3 issues validated as auto-resolved — error conditions no longer exist in the current codebase. No ticket created."
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Auto-Resolved (3):*\n- :white_check_mark: *<https://formoria.sentry.io/issues/FORMORIA-46|ReferenceError: categoryLabel is not defined>* — `categoryLabel` is now exported from `ontology.ts` and imported in `nav-category-tabs.tsx`; error was from a prior build snapshot\n- :white_check_mark: *<https://formoria.sentry.io/issues/FORMORIA-45|Error: Rendered more hooks than during the previous render>* (NavCategoryTabsInner) — all 5 hooks are unconditional in current code; triggered by React Fast Refresh HMR when `usePathname` was being added during active development\n- :white_check_mark: *<https://formoria.sentry.io/issues/FORMORIA-44|Error: Rendered more hooks than during the previous render>* (SearchInput) — all hooks are unconditional in current code; triggered by React Fast Refresh HMR when a `useEffect` was added during active development"
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        {
+          "type": "mrkdwn",
+          "text": "*Environment:* development (all 3 issues)"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*Users impacted:* 0 across all issues"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*Total events (24h):* 3 (1 each)"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*Incident mode:* No"
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Ticket:* No ticket needed — all issues validated as fixed in codebase"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Sentry Daily Triage · 2026-07-11T00:00:00+08:00 · <https://formoria.sentry.io/issues/|View in Sentry>"
+        }
+      ]
+    }
+  ]
+}
