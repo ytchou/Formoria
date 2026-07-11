@@ -30,4 +30,12 @@ Running inventory of e2e-covered user journeys. Updated by `/e2e-author` runs.
 | **Dashboard hero and product image persistence** | `e2e/tests/dashboard-image-upload.spec.ts` | 2026-07-07 |
 | **Submission hero image persistence** | `e2e/tests/submit-funnel.spec.ts` | 2026-07-07 |
 | **Persisted locale switching** | `e2e/tests/i18n-en.spec.ts` | 2026-07-07 |
+| **Password reset request + reset-page guard** | `e2e/tests/auth-password-reset.spec.ts` | 2026-07-11 |
+| **Brand without links — no dangling section headings** | `e2e/tests/brand-detail.spec.ts` | 2026-07-11 |
 | _(30+ existing deep specs omitted — see e2e/tests/ for full inventory)_ | | |
+
+## Carried backlog (from 2026-07-11 run)
+
+- Error-boundary rendering journey (force a route error, assert localized RouteError copy) — P3; negative assertions exist in brand-detail/guide-detail/cjk-slug/stats/admin specs.
+- Loading-skeleton visibility — P3; transient UI, flaky to assert.
+- Turnstile error/expiration handling in submit form — P3; no Turnstile TEST keys in e2e env.
