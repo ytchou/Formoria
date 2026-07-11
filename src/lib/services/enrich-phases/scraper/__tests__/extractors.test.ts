@@ -183,5 +183,7 @@ describe('emptyResult', () => {
     const r = emptyResult('https://site.com')
     expect(r.brandName).toBeNull()
     expect(r.story).toBeNull()
+    expect(r.stockistPageText).toBeNull()
+    expect(r.jsonLdImageUrls).toEqual([])
   })
 })

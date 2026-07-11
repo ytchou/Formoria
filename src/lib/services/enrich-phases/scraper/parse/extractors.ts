@@ -311,5 +311,7 @@ export function emptyResult(websiteUrl: string): ScrapedBrandData {
     categoryHints: [],
     websiteUrl,
     rawJsonLd: null,
+    stockistPageText: null,
+    jsonLdImageUrls: [],
   }
 }

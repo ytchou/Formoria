@@ -43,6 +43,8 @@ function emptyMergedResult(): ScrapedBrandData {
     categoryHints: [],
     websiteUrl: '',
     rawJsonLd: null,
+    stockistPageText: null,
+    jsonLdImageUrls: [],
   }
 }
 

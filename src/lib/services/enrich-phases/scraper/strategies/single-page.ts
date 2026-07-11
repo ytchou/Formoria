@@ -70,6 +70,8 @@ export class SinglePageStrategy implements ScrapeStrategy {
         categoryHints: extractCategoryHints($),
         websiteUrl: url,
         rawJsonLd,
+        stockistPageText: null,
+        jsonLdImageUrls: [],
       }
     } catch {
       return emptyResult(url)

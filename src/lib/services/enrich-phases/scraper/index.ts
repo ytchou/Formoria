@@ -29,6 +29,7 @@ function hasContent(data: ScrapedBrandData): boolean {
       data.purchasePinkoi ||
       data.purchaseShopee ||
       data.categoryHints.length > 0 ||
+      data.jsonLdImageUrls.length > 0 ||
       data.rawJsonLd
   )
 }
