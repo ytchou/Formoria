@@ -42,6 +42,16 @@ vi.mock('@/i18n/navigation', () => ({
   usePathname: vi.fn(() => '/'),
 }))
 
+vi.mock('next/image', () => ({
+  default: ({ alt = '', fill, ...props }: Record<string, unknown>) => {
+    void fill
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img alt={String(alt)} {...props} />
+    )
+  },
+}))
+
 import { BrandCard } from './brand-card'
 
 const mockBrand = {
@@ -112,6 +122,37 @@ describe('BrandCard', () => {
       'test-brand',
       'accessories',
       0,
+    )
+  })
+
+  it('loads prioritized card images eagerly and other cards lazily', () => {
+    const eagerBrand = {
+      ...mockBrand,
+      name: 'Eager Brand',
+      heroImageUrl:
+        'https://xkcayngbttpxyibgzern.supabase.co/storage/v1/object/public/brand-images/eager.webp',
+    }
+    const lazyBrand = {
+      ...mockBrand,
+      name: 'Lazy Brand',
+      heroImageUrl:
+        'https://xkcayngbttpxyibgzern.supabase.co/storage/v1/object/public/brand-images/lazy.webp',
+    }
+
+    renderWithProvider(
+      <>
+        <BrandCard brand={eagerBrand} priority />
+        <BrandCard brand={lazyBrand} />
+      </>,
+    )
+
+    expect(screen.getByRole('img', { name: 'Eager Brand' })).toHaveAttribute(
+      'loading',
+      'eager',
+    )
+    expect(screen.getByRole('img', { name: 'Lazy Brand' })).toHaveAttribute(
+      'loading',
+      'lazy',
     )
   })
 })

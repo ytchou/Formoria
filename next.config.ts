@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import { withAxiom } from 'next-axiom'
 import createNextIntlPlugin from 'next-intl/plugin'
 import { ALLOWED_IMAGE_HOSTS } from './src/lib/images/allowed-image-hosts'
 
@@ -45,7 +46,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               `img-src 'self' data: blob: ${imgSrcHosts} ${mapTileImgSrcHosts}`,
               "font-src 'self'",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://www.google-analytics.com https://challenges.cloudflare.com",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://www.google-analytics.com https://challenges.cloudflare.com https://api.axiom.co",
               "frame-src https://challenges.cloudflare.com",
               "frame-ancestors 'none'",
               "form-action 'self'",
@@ -163,7 +164,7 @@ const nextConfig: NextConfig = {
 
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts')
 
-export default withSentryConfig(withNextIntl(nextConfig), {
+export default withAxiom(withSentryConfig(withNextIntl(nextConfig), {
   // For all available options, see:
   // https://www.npmjs.com/package/@sentry/webpack-plugin#options
 
@@ -199,4 +200,4 @@ export default withSentryConfig(withNextIntl(nextConfig), {
       removeDebugLogging: true,
     },
   },
-});
+}));
