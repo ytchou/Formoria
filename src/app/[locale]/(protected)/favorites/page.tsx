@@ -74,7 +74,7 @@ function EmptyState({
   action: string
 }) {
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-5 py-16 lg:px-20">
+    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center page-gutter py-16">
       <div className="max-w-md text-center">
         <div className="mx-auto flex h-[72px] w-[72px] items-center justify-center rounded-full bg-muted text-muted-foreground">
           <Heart className="h-8 w-8" aria-hidden />
@@ -115,29 +115,33 @@ export default async function FavoritesPage({ params }: Props) {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
-        <div className="flex h-16 items-center justify-between gap-4 px-5 lg:px-20">
+        <div className="page-gutter flex h-16 items-center justify-between gap-4">
           <h1 className="type-section-title-large">
             {t('heading')}
           </h1>
-          <p className="type-metadata">
-            {t('count', { count: brands.length })}
-          </p>
+          {brands.length > 0 && (
+            <p className="type-metadata">
+              {t('count', { count: brands.length })}
+            </p>
+          )}
         </div>
       </header>
 
-      {brands.length > 0 ? (
-        <main className="grid grid-cols-1 gap-6 px-5 py-10 sm:grid-cols-2 lg:grid-cols-4 lg:px-20">
-          {brands.map((brand) => (
-            <SavedBrandCard key={brand.brandId} brand={brand} />
-          ))}
-        </main>
-      ) : (
-        <EmptyState
-          title={t('emptyTitle')}
-          description={t('emptyDescription')}
-          action={t('exploreBrands')}
-        />
-      )}
+      <main>
+        {brands.length > 0 ? (
+          <div className="page-gutter grid grid-cols-1 gap-6 py-10 sm:grid-cols-2 lg:grid-cols-4">
+            {brands.map((brand) => (
+              <SavedBrandCard key={brand.brandId} brand={brand} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            title={t('emptyTitle')}
+            description={t('emptyDescription')}
+            action={t('exploreBrands')}
+          />
+        )}
+      </main>
     </div>
   )
 }

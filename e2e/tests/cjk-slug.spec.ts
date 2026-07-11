@@ -48,7 +48,7 @@ test.describe('CJK slug brand detail', () => {
       expect(currentPath).toMatch(/^\/brands\//);
 
       // No error boundary or generic error message
-      await expect(page.getByText(/something went wrong|頁面錯誤|系統錯誤/i)).not.toBeVisible();
+      await expect(page.getByText(/something went wrong|頁面錯誤|系統錯誤|發生錯誤/i)).not.toBeVisible();
 
       break;
     }

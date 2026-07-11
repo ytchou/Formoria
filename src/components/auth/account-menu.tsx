@@ -1,7 +1,9 @@
 'use client'
 
+import NextLink from 'next/link'
 import { useLocale, useTranslations } from 'next-intl'
 import { Link, usePathname } from '@/i18n/navigation'
+import { localizePath, signInHref } from '@/i18n/locale-preference'
 
 import { signOut } from '@/app/auth/actions'
 import { setLocalePreference } from '@/app/actions/locale-preference'
@@ -33,12 +35,12 @@ export function AccountMenu() {
 
   if (!user) {
     return (
-      <Link
-        href={`/auth/sign-in?next=${encodeURIComponent(pathname)}`}
+      <NextLink
+        href={signInHref(pathname, locale)}
         className="inline-flex h-9 items-center justify-center rounded-md px-2.5 type-metadata transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         {t('nav.signIn')}
-      </Link>
+      </NextLink>
     )
   }
 
@@ -82,7 +84,7 @@ export function AccountMenu() {
           </form>
         ))}
         <DropdownMenuSeparator />
-        <form action={signOut.bind(null, pathname)}>
+        <form action={signOut.bind(null, localizePath(pathname, locale))}>
           <DropdownMenuItem
             variant="destructive"
             render={<button type="submit" className="w-full text-left" />}

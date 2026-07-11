@@ -1,12 +1,14 @@
 'use client'
 
 import { Heart } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useRouter } from 'next/navigation'
+import { useLocale, useTranslations } from 'next-intl'
 import type { MouseEvent } from 'react'
 
 import { useSavedBrands } from '@/hooks/use-saved-brands'
 import { buttonVariants } from '@/components/ui/button'
-import { usePathname, useRouter } from '@/i18n/navigation'
+import { usePathname } from '@/i18n/navigation'
+import { localizePath } from '@/i18n/locale-preference'
 import { useUser } from '@/lib/auth/use-user'
 import { cn } from '@/lib/utils'
 
@@ -22,6 +24,7 @@ export function SaveBrandButton({
   className,
 }: SaveBrandButtonProps) {
   const t = useTranslations('saveBrand')
+  const locale = useLocale()
   const router = useRouter()
   const pathname = usePathname()
   const { user, loading: userLoading } = useUser()
@@ -39,8 +42,9 @@ export function SaveBrandButton({
     }
 
     if (!user) {
+      const localizedPath = localizePath(pathname, locale)
       document.cookie = `post_auth_next=${encodeURIComponent(
-        pathname
+        localizedPath
       )}; path=/; max-age=600; SameSite=Lax`
       router.push('/auth/sign-in')
       return
@@ -61,7 +65,7 @@ export function SaveBrandButton({
               variant: 'secondary',
               size: 'icon',
               shape: 'pill',
-              className: 'absolute right-2 top-2 size-8 bg-white shadow-sm [&_svg:not([class*=size-])]:size-4',
+              className: 'absolute right-2 top-2 size-8 bg-card shadow-card [&_svg:not([class*=size-])]:size-4',
             })
           : buttonVariants({ variant: 'secondary', className: 'shrink-0' }),
         className
@@ -69,7 +73,7 @@ export function SaveBrandButton({
       onClick={handleClick}
     >
       <Heart
-        className={variant === 'overlay' ? 'h-4 w-4' : 'h-4 w-4'}
+        className="h-4 w-4"
         fill={isSaved ? 'currentColor' : 'none'}
         strokeWidth={2}
         aria-hidden

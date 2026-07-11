@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import { Link } from '@/i18n/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
+import { dateLocale } from '@/i18n/locale-preference'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { getAllGuides, getGuidesByCategory } from '@/lib/services/guides'
-import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 type PageProps = {
   params: Promise<{ locale: string }>
@@ -23,8 +24,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-function formatGuideDate(date: string): string {
-  return new Intl.DateTimeFormat('zh-TW', {
+function formatGuideDate(date: string, locale: string): string {
+  return new Intl.DateTimeFormat(dateLocale(locale), {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -79,7 +80,7 @@ export default async function GuidesHubPage({ params, searchParams }: PageProps)
                     : 'border-border text-muted-foreground hover:bg-secondary hover:text-foreground'
                 }`}
               >
-                {item.nameZh}
+                {categoryLabel(item, locale)}
               </Link>
             )
           })}
@@ -110,7 +111,7 @@ export default async function GuidesHubPage({ params, searchParams }: PageProps)
                     </p>
                   </div>
                   <p className="type-caption">
-                    {formatGuideDate(guide.frontmatter.publishedAt)}
+                    {formatGuideDate(guide.frontmatter.publishedAt, locale)}
                   </p>
                 </div>
               </Link>

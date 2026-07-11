@@ -84,7 +84,7 @@ export default async function FaqPage({ params }: PageProps) {
       <OpenTargetDetails />
       <div className="grid gap-10 md:grid-cols-[18rem_minmax(0,1fr)] md:gap-16">
         <aside className="space-y-4 md:sticky md:top-24 md:self-start">
-          <h1 className="type-page-title">{t('title')}</h1>
+          <h1 id="faq-heading" className="type-page-title">{t('title')}</h1>
           <p className="type-body-muted">{t('intro')}</p>
           <div className="space-y-2 pt-2">
           <p className="type-subsection-title">{t('stillHaveQuestions')}</p>
@@ -96,7 +96,7 @@ export default async function FaqPage({ params }: PageProps) {
             </a>
           </div>
         </aside>
-        <div className="divide-y divide-border">
+        <div role="region" aria-labelledby="faq-heading" className="divide-y divide-border">
           {plainItemKeys.map((key, i) => (
             <details key={i} id={key === 'claimBenefits' ? 'claim' : undefined} className="group scroll-mt-24 py-5">
               <summary className="flex cursor-pointer list-none items-center justify-between type-card-title [&::-webkit-details-marker]:hidden">

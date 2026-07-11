@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { decodeJwt } from "jose";
+import { getLocale } from "next-intl/server";
 import { SignUpForm } from "@/components/auth/sign-up-form";
 
-export const metadata: Metadata = {
-  title: "註冊",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  return { title: locale === 'en' ? 'Sign Up' : '註冊' };
+}
 
 type Props = {
   searchParams: Promise<{ claim?: string }>;

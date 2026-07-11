@@ -4,6 +4,7 @@ import { Pencil, ShieldCheck, TrendingUp } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { Link } from '@/i18n/navigation'
+import { useMounted } from '@/hooks/use-mounted'
 import { useUser } from '@/lib/auth/use-user'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
@@ -25,6 +26,7 @@ const benefits = [
 
 export function OwnerBenefitsSection() {
   const { user } = useUser()
+  const mounted = useMounted()
   const t = useTranslations('gettingStarted.forOwners')
   const ctaT = useTranslations('gettingStarted.ctaFooter')
 
@@ -43,7 +45,7 @@ export function OwnerBenefitsSection() {
         ))}
       </div>
 
-      {!user && (
+      {mounted && !user && (
         <Link
           href="/submit"
           className={buttonVariants({ variant: 'primary', tone: 'cta' })}

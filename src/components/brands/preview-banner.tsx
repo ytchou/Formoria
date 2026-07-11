@@ -22,7 +22,7 @@ export async function PreviewBanner({ slug }: PreviewBannerProps) {
           </Link>
         </div>
       </div>
-      <div aria-hidden="true" className="h-[65px]" />
+      <div aria-hidden="true" className="h-12" />
     </>
   )
 }

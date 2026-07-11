@@ -8,7 +8,8 @@ export function isAppLocale(value: string | null | undefined): value is AppLocal
   return routing.locales.includes(value as AppLocale)
 }
 
-export function localizePath(pathname: string, locale: AppLocale): string {
+export function localizePath(pathname: string, locale: string): string {
+  const safeLocale = isAppLocale(locale) ? locale : routing.defaultLocale
   const safePath = pathname.startsWith('/') && !pathname.startsWith('//') ? pathname : '/'
   const unprefixedPath = safePath === '/en' || safePath === '/zh-TW'
     ? '/'
@@ -17,9 +18,17 @@ export function localizePath(pathname: string, locale: AppLocale): string {
       : safePath.startsWith('/zh-TW/')
         ? safePath.slice(6)
         : safePath
-  return locale === routing.defaultLocale
+  return safeLocale === routing.defaultLocale
     ? unprefixedPath
     : `/en${unprefixedPath === '/' ? '' : unprefixedPath}`
+}
+
+export function signInHref(path: string, locale: string): string {
+  return `/auth/sign-in?next=${encodeURIComponent(localizePath(path, locale))}`
+}
+
+export function dateLocale(locale: string): string {
+  return locale === 'en' ? 'en-US' : 'zh-TW'
 }
 
 export function resolveInitialLocale({

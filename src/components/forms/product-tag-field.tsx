@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 
 type ProductTagFieldProps = {
   initialTags?: string[]
@@ -34,6 +35,7 @@ export function ProductTagField({
   const [internalTags, setInternalTags] = useState(() => (initialTags ?? []).slice(0, MAX_TAGS))
   const [value, setValue] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [selectedIndex, setSelectedIndex] = useState(-1)
   const tags = controlledTags ?? internalTags
   const normalizedValue = normalizeTag(value).toLocaleLowerCase('en')
   const filteredSuggestions = normalizedValue
@@ -65,6 +67,7 @@ export function ProductTagField({
     updateTags([...tags, tag])
     setValue('')
     setShowSuggestions(false)
+    setSelectedIndex(-1)
   }
 
   const listboxId = 'productTags-listbox'
@@ -103,19 +106,40 @@ export function ProductTagField({
             placeholder={placeholder}
             value={value}
             maxLength={40}
+            aria-activedescendant={
+              isExpanded && selectedIndex >= 0 && filteredSuggestions[selectedIndex]
+                ? `productTag-suggestion-${selectedIndex}`
+                : undefined
+            }
             onChange={(event) => {
               setValue(event.target.value)
               setShowSuggestions(true)
+              setSelectedIndex(-1)
             }}
             onFocus={() => setShowSuggestions(true)}
             onBlur={() => addTag(value)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ',') {
+              if (event.key === 'ArrowDown') {
+                event.preventDefault()
+                if (isExpanded) {
+                  setSelectedIndex((prev) => Math.min(prev + 1, filteredSuggestions.length - 1))
+                }
+              } else if (event.key === 'ArrowUp') {
+                event.preventDefault()
+                setSelectedIndex((prev) => Math.max(prev - 1, -1))
+              } else if (event.key === 'Enter') {
+                event.preventDefault()
+                if (selectedIndex >= 0 && filteredSuggestions[selectedIndex]) {
+                  addTag(filteredSuggestions[selectedIndex])
+                } else {
+                  addTag(value)
+                }
+              } else if (event.key === ',') {
                 event.preventDefault()
                 addTag(value)
-              }
-              if (event.key === 'Escape') {
+              } else if (event.key === 'Escape') {
                 setShowSuggestions(false)
+                setSelectedIndex(-1)
               }
             }}
           />
@@ -127,18 +151,23 @@ export function ProductTagField({
             aria-label={inputLabel}
             className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-border bg-popover py-1 shadow-md"
           >
-            {filteredSuggestions.map((suggestion) => (
-              <button
+            {filteredSuggestions.map((suggestion, index) => (
+              <div
                 key={suggestion.toLocaleLowerCase('en')}
-                type="button"
+                id={`productTag-suggestion-${index}`}
                 role="option"
-                aria-selected="false"
-                className="block w-full px-3 py-2 text-left text-sm hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none"
+                aria-selected={selectedIndex === index}
+                className={cn(
+                  'block w-full cursor-pointer px-3 py-2 text-left text-sm',
+                  selectedIndex === index
+                    ? 'bg-secondary'
+                    : 'hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none',
+                )}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => addTag(suggestion)}
               >
                 {suggestion}
-              </button>
+              </div>
             ))}
           </div>
         ) : null}

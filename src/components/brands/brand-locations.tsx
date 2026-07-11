@@ -69,7 +69,7 @@ function LocationCard({
           ) : null}
 
           {location.availabilityNote ? (
-            <p className="mt-2 text-sm text-foreground">
+            <p className="mt-2 type-field-value">
               {location.availabilityNote}
             </p>
           ) : (

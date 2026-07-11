@@ -10,9 +10,11 @@ import {
   Share2,
   X,
 } from 'lucide-react'
+import Image from 'next/image'
 import { trackBrandPageShared } from '@/lib/analytics'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 
 interface ShareDialogProps {
   brandSlug: string
@@ -43,6 +45,7 @@ function TwitterIcon(props: SVGProps<SVGSVGElement>) {
 
 export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialogProps) {
   const t = useTranslations('brandDetail.share')
+  const safeImage = brandImageUrl ? safeImageSrc(brandImageUrl) : null
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [origin, setOrigin] = useState('')
@@ -156,12 +159,13 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
           </div>
 
           <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-            {brandImageUrl && (
+            {safeImage && (
               <div
                 aria-hidden="true"
-                className="size-10 shrink-0 rounded-lg bg-cover bg-center"
-                style={{ backgroundImage: `url(${brandImageUrl})` }}
-              />
+                className="relative size-10 shrink-0 overflow-hidden rounded-lg"
+              >
+                <Image src={safeImage} alt="" fill className="object-cover" />
+              </div>
             )}
             <p className="min-w-0 truncate type-body-emphasis">
               {brandName}
@@ -174,7 +178,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
               className={buttonVariants({
                 variant: 'secondary',
                 className: cn(
-                  'h-22 cursor-pointer flex-col gap-2 rounded-xl',
+                  'h-20 cursor-pointer flex-col gap-2 rounded-xl',
                   copied && 'border-verified-green-bg bg-verified-green-bg hover:bg-verified-green-bg',
                 ),
               })}
@@ -190,7 +194,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
               type="button"
               className={buttonVariants({
                 variant: 'secondary',
-                className: 'h-22 cursor-pointer flex-col gap-2 rounded-xl',
+                className: 'h-20 cursor-pointer flex-col gap-2 rounded-xl',
               })}
               onClick={handleLineShare}
             >
@@ -202,7 +206,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
               type="button"
               className={buttonVariants({
                 variant: 'secondary',
-                className: 'h-22 cursor-pointer flex-col gap-2 rounded-xl',
+                className: 'h-20 cursor-pointer flex-col gap-2 rounded-xl',
               })}
               onClick={handleFacebookShare}
             >
@@ -214,7 +218,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
               type="button"
               className={buttonVariants({
                 variant: 'secondary',
-                className: 'h-22 cursor-pointer flex-col gap-2 rounded-xl',
+                className: 'h-20 cursor-pointer flex-col gap-2 rounded-xl',
               })}
               onClick={handleXShare}
             >

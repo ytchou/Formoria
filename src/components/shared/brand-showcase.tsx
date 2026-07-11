@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import { Link } from '@/i18n/navigation'
 import type { Brand } from '@/lib/types'
 import { BrandCard } from '@/components/brands/brand-card'
 

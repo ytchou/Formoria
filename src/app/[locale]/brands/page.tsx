@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { NextIntlClientProvider } from 'next-intl'
 import { getTranslations, setRequestLocale, getMessages } from 'next-intl/server'
 import { getBrands, getPopularCategories, getFeaturedBrands } from '@/lib/services/brands'
-import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildBrandsItemListJsonLd, buildWebSiteJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { parsePageParam, parseSortParam, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import {
@@ -73,7 +73,7 @@ export async function generateMetadata({ params, searchParams }: BrandsPageProps
 
     if (categoryTag) {
       const catT = await getTranslations('categories')
-      const displayName = safeLocale === 'zh-TW' ? categoryTag.nameZh : categoryTag.name
+      const displayName = categoryLabel(categoryTag, safeLocale)
       const description = catT.has(`descriptions.${categorySlug}`)
         ? catT(`descriptions.${categorySlug}`)
         : catT('metadata.description', { displayName, name: categoryTag.name })
@@ -171,14 +171,23 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   const hasActiveFilters =
     validCategoryFilter.length > 0 || priceRanges.length > 0 || verificationFilter !== 'all'
   let emptyStateData: {
-    categories: { productType: string; count: number }[]
+    categories: { productType: string; name: string; nameZh: string | null; count: number }[]
     featured: { id: string; name: string; slug: string; heroImageUrl: string | null; category: string }[]
   } | null = null
   if (totalCount === 0 && search) {
-    const [categories, featured] = await Promise.all([
+    const [rawCategories, featured] = await Promise.all([
       getPopularCategories(5),
       getFeaturedBrands(6),
     ])
+    const categories = rawCategories.map(({ productType, count }) => {
+      const match = PRODUCT_TYPE_CATEGORIES.find((c) => c.slug === productType)
+      return {
+        productType,
+        name: match?.name ?? productType,
+        nameZh: match?.nameZh ?? null,
+        count,
+      }
+    })
     emptyStateData = { categories, featured }
   }
 
@@ -212,7 +221,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
     const categoryTag = PRODUCT_TYPE_CATEGORIES.find((c) => c.slug === categorySlug)
 
     if (categoryTag) {
-      const categoryName = safeLocale === 'zh-TW' ? categoryTag.nameZh : categoryTag.name
+      const categoryName = categoryLabel(categoryTag, safeLocale)
       const editorialDescription = catT.has(`descriptions.${categorySlug}`)
         ? catT(`descriptions.${categorySlug}`)
         : undefined
@@ -311,7 +320,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center py-24 text-center">
-                  <p className="type-card-title">
+                  <p className="type-empty-title">
                     {t('emptyTitle')}
                   </p>
                   <p className="mt-1 type-card-description">

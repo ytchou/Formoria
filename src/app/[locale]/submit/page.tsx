@@ -51,12 +51,12 @@ export default async function SubmitPage({ params }: SubmitPageProps) {
 
   const isLoggedIn = !error && !!user
   const hasOwnedBrand = isLoggedIn ? Boolean(await getUserBrand(user.id)) : false
-  const ownerPath = locale === 'en' ? '/en/submit/owner' : '/submit/owner'
+  const ownerPath = hasOwnedBrand ? '/submit/owner?ownedNotice=1' : '/submit/owner'
 
   return (
     <SubmitOverview
-      ownerPath={hasOwnedBrand ? `${ownerPath}?ownedNotice=1` : ownerPath}
-      recommendPath={locale === 'en' ? '/en/submit/recommend' : '/submit/recommend'}
+      ownerPath={ownerPath}
+      recommendPath="/submit/recommend"
       isLoggedIn={isLoggedIn}
     />
   )

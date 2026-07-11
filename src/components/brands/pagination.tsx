@@ -62,7 +62,7 @@ export async function Pagination({
       {currentPage > 1 ? (
         <Link
           href={buildPageUrl(basePath, currentPage - 1, searchParams)}
-          className="inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20"
+          className="inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           aria-label={t('pagination.previousAria')}
         >
           {t('pagination.previous')}
@@ -104,7 +104,7 @@ export async function Pagination({
           <Link
             key={page}
             href={buildPageUrl(basePath, page, searchParams)}
-            className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20"
+            className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             {page}
           </Link>
@@ -115,7 +115,7 @@ export async function Pagination({
       {currentPage < totalPages ? (
         <Link
           href={buildPageUrl(basePath, currentPage + 1, searchParams)}
-          className="inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20"
+          className="inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           aria-label={t('pagination.nextAria')}
         >
           {t('pagination.next')}

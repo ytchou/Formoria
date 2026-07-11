@@ -39,6 +39,7 @@
     "tagline": "讓台灣品牌被世界看見",
     "discoverHeading": "探索",
     "directory": "品牌目錄",
+    "stats": "數據統計",
     "gettingStarted": "開始使用",
     "guides": "指南",
     "glossary": "名詞解說",
@@ -58,7 +59,7 @@
     "hero": {
       "eyebrow": "MADE IN TAIWAN",
       "headline": "探索台灣製造的精品品牌",
-      "subheadline": "Formoria 收錄經過嚴格驗證的台灣本土品牌，從文具、家居到食品飲料，讓您輕鬆探索真正的台灣製造。",
+      "subheadline": "社群共同策展的台灣品牌目錄——從文具、家居到食品飲料，讓您輕鬆探索台灣製造的好品牌。",
       "statsBrands": "品牌",
       "statsCategories": "分類",
       "recentWeek": "新品牌",
@@ -68,9 +69,11 @@
     "showcase": {
       "heading": "探索品牌",
       "all": "全部",
+      "filterLabel": "依分類篩選",
       "browseAll": "瀏覽全部品牌 →",
       "browseAllCategory": "瀏覽全部{category} →",
-      "emptyCategory": "目前此分類尚無品牌"
+      "emptyCategory": "目前此分類尚無品牌",
+      "showAll": "顯示所有品牌"
     },
     "valueChips": {
       "heading": "依品牌價值瀏覽",
@@ -237,7 +240,7 @@
   },
   "stats": {
     "metadata": {
-      "title": "台灣品牌數據 | Formoria",
+      "title": "台灣品牌數據",
       "description": "台灣品牌生態系即時數據——品牌總數、類別分布、MIT 認證比例、創立年代分布。"
     },
     "hero": {
@@ -256,11 +259,11 @@
       "description": "{total} 個品牌中有 {verified} 個通過 MIT 認證（{percentage}%）"
     },
     "geographicDistribution": "地理分布",
-    "geographicDistributionDesc": "台灣各縣市品牌數量分布",
+    "geographicDistributionDesc": "台灣各縣市品牌數量分布（僅含有地點資料的品牌）",
     "noCityData": "尚無城市資料",
     "foundingDecade": {
       "title": "創立年代分布",
-      "description": "台灣品牌的創立時間"
+      "description": "台灣品牌的創立時間（僅含有創立年份資料的品牌）"
     }
   },
   "cities": {
@@ -503,7 +506,7 @@
   },
   "glossary": {
     "metadata": {
-      "title": "名詞解說 | Formoria",
+      "title": "名詞解說",
       "description": "Formoria 名詞解說——台灣製造定義、信任標章說明，以及目錄分類標籤總覽。"
     },
     "eyebrow": "參考",
@@ -750,7 +753,7 @@
   },
   "about": {
     "metadata": {
-      "title": "關於 Formoria | 台灣製造品牌目錄",
+      "title": "關於 Formoria",
       "description": "Formoria 透過社群嚴選的品牌目錄，幫助優質台灣製造品牌被看見，讓世界認識台灣的設計、工藝與用心。"
     },
     "hero": {
@@ -758,6 +761,10 @@
       "title": "一個為台灣品牌而生的社群",
       "subtitle": "一個社群嚴選的台灣製造品牌目錄，讓人們從日常選物到設計好物，都能找到值得認識的台灣品牌",
       "statSuffix": "，持續增加中",
+      "statsBrands": "品牌收錄",
+      "statsCategories": "品牌分類",
+      "recentWeek": "本週新增",
+      "recentMonth": "本月新增",
       "cta": "探索品牌"
     },
     "origin": {
@@ -874,10 +881,34 @@
       "claimMessage": "登入以在 Formoria 認領 <strong>{brandName}</strong>。",
       "emailLabel": "電子郵件",
       "passwordLabel": "密碼",
+      "forgotPassword": "忘記密碼？",
       "submit": "登入",
       "submitting": "登入中...",
       "noAccount": "還沒有帳號？",
       "signUpLink": "註冊"
+    },
+    "forgotPassword": {
+      "heading": "重設密碼",
+      "subheading": "輸入您的電子郵件，我們會寄送重設連結",
+      "emailLabel": "電子郵件",
+      "submit": "傳送重設連結",
+      "submitting": "傳送中...",
+      "successMessage": "若此電子郵件已註冊帳號，我們已寄出密碼重設連結",
+      "backToSignIn": "記得密碼了？",
+      "signInLink": "登入"
+    },
+    "resetPassword": {
+      "heading": "設定新密碼",
+      "subheading": "請輸入您帳號的新密碼",
+      "passwordLabel": "新密碼",
+      "passwordPlaceholder": "至少 8 個字元",
+      "confirmPasswordLabel": "確認新密碼",
+      "submit": "更新密碼",
+      "submitting": "更新中...",
+      "sessionExpired": "重設連結已過期，請重新申請",
+      "success": "密碼已更新，請使用新密碼登入",
+      "backToSignIn": "記得密碼了？",
+      "signInLink": "登入"
     },
     "signUp": {
       "heading": "建立帳號",
@@ -987,7 +1018,8 @@
     "tabs": {
       "profile": "總覽",
       "analytics": "數據分析",
-      "submissions": "提交紀錄"
+      "submissions": "提交紀錄",
+      "dashboardNav": "帳號導覽"
     },
     "emptyState": {
       "title": "此頁面為品牌經營者專屬主控台",
@@ -1328,6 +1360,8 @@
     "boundary": {
       "title": "發生錯誤",
       "description": "發生了預期外的錯誤，請再試一次。",
+      "brandDescription": "無法載入此品牌，請再試一次。",
+      "guideDescription": "無法載入此指南，請再試一次。",
       "retry": "重試"
     }
   },
@@ -1585,7 +1619,8 @@
       "notAuthenticated": "請先登入才能提交品牌",
       "rateLimit": "提交次數過多，請稍後再試。",
       "validation": "驗證失敗，請再試一次。",
-      "unexpected": "發生預期外的錯誤，請再試一次。"
+      "unexpected": "發生預期外的錯誤，請再試一次。",
+      "turnstileError": "驗證失敗，請重新整理頁面後再試。"
     },
     "recommendForm": {
       "heading": "推薦品牌",
@@ -1840,13 +1875,19 @@
     "timeRemaining": "剩餘 {minutes} 分鐘"
   },
   "guides": {
-    "metaTitle": "台灣品牌指南 | Formoria",
+    "metaTitle": "台灣品牌指南",
     "metaDescription": "探索精選台灣品牌指南，從護膚到美食，深入了解台灣製造的優質品牌",
     "heading": "台灣品牌指南",
     "subheading": "探索台灣品牌、產業與選購脈絡，從日常保養到在地飲食，快速找到你想看的指南。",
     "badgeLabel": "指南中心",
     "allCategories": "全部",
-    "comingSoon": "敬請期待"
+    "comingSoon": "敬請期待",
+    "breadcrumb": "指南",
+    "notFound": {
+      "title": "找不到指南",
+      "description": "您所尋找的指南不存在或已被移除。",
+      "browseAll": "瀏覽所有指南"
+    }
   },
   "guideDetail": {
     "metadata": {

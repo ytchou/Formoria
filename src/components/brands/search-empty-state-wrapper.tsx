@@ -1,13 +1,14 @@
 'use client'
 
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
+import { useRouter } from '@/i18n/navigation'
 import { useCallback } from 'react'
 import { SearchEmptyState } from './search-empty-state'
 
 interface SearchEmptyStateWrapperProps {
   query: string
   hasActiveFilters: boolean
-  categories: { productType: string; count: number }[]
+  categories: { productType: string; name: string; nameZh: string | null; count: number }[]
   featuredBrands: {
     id: string
     name: string

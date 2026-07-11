@@ -19,8 +19,11 @@ vi.mock('@/hooks/use-saved-brands', () => ({
   useSavedBrands: vi.fn(() => ({ savedIds: new Set(), toggle: vi.fn(), loading: false })),
 }));
 
-vi.mock('@/i18n/navigation', () => ({
+vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: vi.fn() })),
+}));
+
+vi.mock('@/i18n/navigation', () => ({
   usePathname: vi.fn(() => '/'),
 }));
 

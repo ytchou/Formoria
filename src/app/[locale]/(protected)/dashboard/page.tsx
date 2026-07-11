@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
+import { localizePath } from '@/i18n/locale-preference'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { createClient } from '@/lib/supabase/server'
 import { resolveDashboardBrand } from '@/lib/services/resolve-dashboard-brand'
@@ -41,5 +42,5 @@ export default async function DashboardPage({ params, searchParams }: Props) {
     return null
   }
 
-  redirect(`/${locale}/dashboard/brands/${ctx.brand.brandSlug}`)
+  redirect(localizePath(`/dashboard/brands/${ctx.brand.brandSlug}`, locale))
 }

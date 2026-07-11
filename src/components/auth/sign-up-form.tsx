@@ -89,6 +89,7 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
             id="confirmPassword"
             name="confirmPassword"
             type="password"
+            placeholder={t("signUp.passwordPlaceholder")}
             required
             autoComplete="new-password"
           />

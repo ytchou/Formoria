@@ -71,3 +71,30 @@ export function validateLocalizedText(
     warnings,
   }
 }
+
+const AI_SLOP_EN = [
+  /^in a world where\b/i,
+  /^in an era\b/i,
+  /\bstands? as a testament\b/i,
+  /\bpioneering\b/i,
+  /\brevolutionary\b/i,
+  /\bgame.?changing\b/i,
+  /\bunparalleled\b/i,
+  /\bunrivale?d\b/i,
+  /\bredefining\b/i,
+  /\bcutting.?edge\b/i,
+  /\bseamlessly?\b/i,
+  /\bmeticulously\b/i,
+]
+
+const AI_SLOP_ZH = [
+  /^.{0,5}是一個台灣/,
+  /^.{0,5}為台灣/,
+]
+
+export function detectAiArtifacts(text: string, locale: LanguageLocale): string[] {
+  const patterns = locale === 'en' ? AI_SLOP_EN : AI_SLOP_ZH
+  return patterns
+    .filter((re) => re.test(text))
+    .map((re) => `ai_artifact:${re.source}`)
+}

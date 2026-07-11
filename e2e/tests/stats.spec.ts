@@ -39,7 +39,7 @@ test.describe('Stats page', () => {
     await expect(page.getByRole('heading', { level: 2, name: '類別分布' })).toBeVisible();
     await expect(page.getByRole('heading', { level: 2, name: 'MIT 認證' })).toBeVisible();
     // No error-boundary UI visible — confirms the TaiwanMap dynamic import did not crash the page
-    await expect(page.getByText(/something went wrong|error loading|頁面發生錯誤/i)).not.toBeVisible();
+    await expect(page.getByText(/something went wrong|error loading|頁面發生錯誤|發生錯誤/i)).not.toBeVisible();
   });
 
 });

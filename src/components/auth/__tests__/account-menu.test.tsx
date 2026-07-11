@@ -47,7 +47,7 @@ describe('AccountMenu', () => {
     })
     renderWithIntl(<AccountMenu />)
     const link = screen.getByRole('link', { name: 'Sign in' })
-    expect(link).toHaveAttribute('href', '/auth/sign-in?next=%2Fbrands%2Ftest')
+    expect(link).toHaveAttribute('href', '/auth/sign-in?next=%2Fen%2Fbrands%2Ftest')
   })
 
   it('shows a circular account trigger with the email initial when logged in', () => {

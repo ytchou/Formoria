@@ -13,7 +13,7 @@ import type { EnrichedData } from '@/lib/types/enriched-data'
 import { enrichedDataFromDb } from '@/lib/types/enriched-data'
 import { NotFoundError } from '@/lib/errors'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { generateSlug, isReservedSlug, updateBrand } from '@/lib/services/brands'
+import { generateSlug, isReservedSlug, isValidSlug, updateBrand } from '@/lib/services/brands'
 import { toSubmissionRow } from './field-map'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -590,7 +590,11 @@ export async function approveSubmission(
     overrideInsert.name ??
     enrichedInsert.name ??
     submission.brand_name
-  const slug = await resolveUniqueSlug(supabase, generateSlug(brandName))
+  const baseSlug = generateSlug(brandName)
+  if (!isValidSlug(baseSlug)) {
+    throw new Error(`Generated slug "${baseSlug}" is not valid kebab-case`)
+  }
+  const slug = await resolveUniqueSlug(supabase, baseSlug)
 
   const brandInsert: BrandInsert = {
     ...submissionToBrandBase(submission),

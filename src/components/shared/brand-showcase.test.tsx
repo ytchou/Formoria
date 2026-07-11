@@ -8,8 +8,8 @@ vi.mock('@/components/brands/brand-card', () => ({
   ),
 }))
 
-vi.mock('next/link', () => ({
-  default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => <a href={href} {...props}>{children}</a>,
+vi.mock('@/i18n/navigation', () => ({
+  Link: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => <a href={href} {...props}>{children}</a>,
 }))
 
 import BrandShowcase from './brand-showcase'

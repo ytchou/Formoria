@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import { dateLocale } from '@/i18n/locale-preference'
 import { getStatsPageData } from '@/lib/services/stats'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { TaiwanMapDynamic } from '@/components/stats/TaiwanMapDynamic'
@@ -14,7 +15,7 @@ interface StatsPageProps {
 export const revalidate = 3600
 
 function formatDate(date: Date, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale === 'en' ? 'en-US' : 'zh-TW', {
+  return new Intl.DateTimeFormat(dateLocale(locale), {
     year: 'numeric',
     month: 'long',
     day: 'numeric',

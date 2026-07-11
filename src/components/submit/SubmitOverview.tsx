@@ -1,7 +1,9 @@
 'use client'
 
-import { useTranslations } from 'next-intl'
+import NextLink from 'next/link'
+import { useLocale, useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
+import { signInHref } from '@/i18n/locale-preference'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { Check } from 'lucide-react'
@@ -19,6 +21,7 @@ export default function SubmitOverview({
   isLoggedIn = false,
 }: SubmitOverviewProps) {
   const t = useTranslations('submit.overview')
+  const locale = useLocale()
   return (
     <main className="page-gutter mx-auto max-w-5xl py-20">
       <div className="max-w-3xl">
@@ -95,12 +98,21 @@ export default function SubmitOverview({
               ),
             )}
           </ul>
-          <Link
-            href={isLoggedIn ? ownerPath : `/auth/sign-in?next=${ownerPath}`}
-            className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-6')}
-          >
-            {isLoggedIn ? t('ownerCtaLoggedIn') : t('ownerCta')}
-          </Link>
+          {isLoggedIn ? (
+            <Link
+              href={ownerPath}
+              className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-6')}
+            >
+              {t('ownerCtaLoggedIn')}
+            </Link>
+          ) : (
+            <NextLink
+              href={signInHref(ownerPath, locale)}
+              className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-6')}
+            >
+              {t('ownerCta')}
+            </NextLink>
+          )}
         </section>
       </div>
     </main>

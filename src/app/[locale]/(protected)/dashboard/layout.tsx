@@ -38,7 +38,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-background">
-      <main className="mx-auto max-w-screen-xl px-6 py-8">
+      <main className="page-gutter mx-auto max-w-screen-xl py-8">
         <div className="space-y-6">{children}</div>
       </main>
     </div>

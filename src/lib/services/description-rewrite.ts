@@ -1,7 +1,7 @@
 import { DESCRIPTION_SYSTEM_PROMPT } from '@/lib/prompts'
 import { buildEnrichmentConfig } from '@/lib/constants/enrichment-config'
 import { createDeepSeekClient, parseDeepSeekJson } from './deepseek-client'
-import { validateLocalizedText } from './enrich-validators'
+import { validateLocalizedText, detectAiArtifacts } from './enrich-validators'
 import { parseExtractionResult } from './product-type-classifier'
 
 const DEEPSEEK_TIMEOUT_MS = 30_000
@@ -201,6 +201,19 @@ function validateDescriptionFields(
   let blurbZh = parsed.blurb_zh
   let blurbEn = parsed.blurb_en
 
+  const rejectAiArtifacts = (
+    field: DescriptionRewriteResult['validationRejections'][number]['field'],
+    value: string,
+    locale: 'zh' | 'en'
+  ): string | null => {
+    const artifacts = detectAiArtifacts(value, locale)
+    if (artifacts.length > 0) {
+      validationRejections.push({ field, reasons: artifacts, warnings: [], attempt })
+      return null
+    }
+    return value
+  }
+
   if (descriptionZh) {
     const validation = validateLocalizedText(descriptionZh, 'zh', ZH_DESCRIPTION_BAND)
     const hasHardFailure = !validation.ok
@@ -210,6 +223,9 @@ function validateDescriptionFields(
     }
     if (hasHardFailure) {
       descriptionZh = null
+    }
+    if (descriptionZh) {
+      descriptionZh = rejectAiArtifacts('description_zh', descriptionZh, 'zh')
     }
   } else {
     validationRejections.push({ field: 'description_zh', reasons: ['missing'], warnings: [], attempt })
@@ -225,6 +241,9 @@ function validateDescriptionFields(
     if (hasHardFailure) {
       descriptionEn = null
     }
+    if (descriptionEn) {
+      descriptionEn = rejectAiArtifacts('description_en', descriptionEn, 'en')
+    }
   } else {
     validationRejections.push({ field: 'description_en', reasons: ['missing'], warnings: [], attempt })
   }
@@ -239,6 +258,9 @@ function validateDescriptionFields(
     if (hasHardFailure) {
       blurbZh = null
     }
+    if (blurbZh) {
+      blurbZh = rejectAiArtifacts('blurb_zh', blurbZh, 'zh')
+    }
   } else {
     validationRejections.push({ field: 'blurb_zh', reasons: ['missing'], warnings: [], attempt })
   }
@@ -252,6 +274,9 @@ function validateDescriptionFields(
     }
     if (hasHardFailure) {
       blurbEn = null
+    }
+    if (blurbEn) {
+      blurbEn = rejectAiArtifacts('blurb_en', blurbEn, 'en')
     }
   } else {
     validationRejections.push({ field: 'blurb_en', reasons: ['missing'], warnings: [], attempt })

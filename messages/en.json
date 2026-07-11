@@ -39,6 +39,7 @@
     "tagline": "Putting Taiwanese brands on the world map.",
     "discoverHeading": "Discover",
     "directory": "Brand Directory",
+    "stats": "Statistics",
     "gettingStarted": "Getting Started",
     "guides": "Guides",
     "glossary": "Glossary",
@@ -58,19 +59,21 @@
     "hero": {
       "eyebrow": "MADE IN TAIWAN",
       "headline": "Discover Premium Brands Made in Taiwan",
-      "subheadline": "Formoria curates verified Taiwanese brands — from stationery and homeware to food and drink. Explore the best of Made in Taiwan.",
+      "subheadline": "A community-curated directory of Made-in-Taiwan brands — from stationery and homeware to food and drink. Explore the best of Taiwan.",
       "statsBrands": "brands",
       "statsCategories": "categories",
-      "recentWeek": "brands added this week",
-      "recentMonth": "brands added this month",
+      "recentWeek": "new this week",
+      "recentMonth": "new this month",
       "cta": "Explore All Brands"
     },
     "showcase": {
       "heading": "Explore Brands",
       "all": "All",
+      "filterLabel": "Filter by category",
       "browseAll": "Browse All Brands →",
       "browseAllCategory": "Browse All {category} →",
-      "emptyCategory": "No brands in this category yet"
+      "emptyCategory": "No brands in this category yet",
+      "showAll": "Show all brands"
     },
     "valueChips": {
       "heading": "Browse by Brand Values",
@@ -170,7 +173,7 @@
     "verificationFilter": {
       "all": "All",
       "mit-verified": "MIT Verified",
-      "owned": "Owned"
+      "owned": "Owner-managed"
     },
     "claimCta": {
       "proofTypeRequired": "Please choose a valid proof type.",
@@ -237,7 +240,7 @@
   },
   "stats": {
     "metadata": {
-      "title": "Taiwan Brand Statistics | Formoria",
+      "title": "Taiwan Brand Statistics",
       "description": "Live statistics on Taiwan's brand ecosystem — total brands, category breakdown, MIT-verified share, and founding decade distribution."
     },
     "hero": {
@@ -256,11 +259,11 @@
       "description": "{verified} of {total} brands are MIT-verified ({percentage}%)"
     },
     "geographicDistribution": "Geographic Distribution",
-    "geographicDistributionDesc": "Brand distribution across Taiwan's cities and counties",
+    "geographicDistributionDesc": "Brand distribution across Taiwan's cities and counties (of brands with location data)",
     "noCityData": "No city data available yet",
     "foundingDecade": {
       "title": "Founding Decade Distribution",
-      "description": "When Taiwan's brands were established"
+      "description": "When Taiwan's brands were established (of brands with founding year data)"
     }
   },
   "cities": {
@@ -503,7 +506,7 @@
   },
   "glossary": {
     "metadata": {
-      "title": "Glossary | Formoria",
+      "title": "Glossary",
       "description": "Definitions for terms used across Formoria — from what Made in Taiwan means to how trust badges work and how we organise the directory."
     },
     "eyebrow": "Reference",
@@ -750,7 +753,7 @@
   },
   "about": {
     "metadata": {
-      "title": "About Formoria | Made-in-Taiwan Brand Directory",
+      "title": "About Formoria",
       "description": "Formoria helps quality Made-in-Taiwan brands get found through a community-curated directory built for discovery, craft, and care."
     },
     "hero": {
@@ -758,6 +761,10 @@
       "title": "A community built for Taiwan's brands",
       "subtitle": "A community-curated directory for discovering quality Made-in-Taiwan brands, from everyday staples to thoughtful design.",
       "statSuffix": " — and growing",
+      "statsBrands": "brands listed",
+      "statsCategories": "categories",
+      "recentWeek": "added this week",
+      "recentMonth": "added this month",
       "cta": "Explore brands"
     },
     "origin": {
@@ -874,10 +881,34 @@
       "claimMessage": "Sign in to claim <strong>{brandName}</strong> on Formoria.",
       "emailLabel": "Email",
       "passwordLabel": "Password",
+      "forgotPassword": "Forgot password?",
       "submit": "Sign In",
       "submitting": "Signing in...",
       "noAccount": "Don't have an account?",
       "signUpLink": "Sign up"
+    },
+    "forgotPassword": {
+      "heading": "Reset Password",
+      "subheading": "Enter your email and we'll send you a reset link",
+      "emailLabel": "Email",
+      "submit": "Send Reset Link",
+      "submitting": "Sending...",
+      "successMessage": "If an account exists for this email, a password reset link has been sent",
+      "backToSignIn": "Remember your password?",
+      "signInLink": "Sign in"
+    },
+    "resetPassword": {
+      "heading": "Set New Password",
+      "subheading": "Enter a new password for your account",
+      "passwordLabel": "New Password",
+      "passwordPlaceholder": "At least 8 characters",
+      "confirmPasswordLabel": "Confirm New Password",
+      "submit": "Update Password",
+      "submitting": "Updating...",
+      "sessionExpired": "Your reset link has expired. Please request a new one.",
+      "success": "Password updated. Please sign in with your new password.",
+      "backToSignIn": "Remember your password?",
+      "signInLink": "Sign in"
     },
     "signUp": {
       "heading": "Create Account",
@@ -987,7 +1018,8 @@
     "tabs": {
       "profile": "Overview",
       "analytics": "Analytics",
-      "submissions": "Submissions"
+      "submissions": "Submissions",
+      "dashboardNav": "Dashboard navigation"
     },
     "emptyState": {
       "title": "This page is for brand owners only",
@@ -1328,6 +1360,8 @@
     "boundary": {
       "title": "Something went wrong",
       "description": "An unexpected error occurred. Please try again.",
+      "brandDescription": "We couldn't load this brand. Please try again.",
+      "guideDescription": "We couldn't load this guide. Please try again.",
       "retry": "Try again"
     }
   },
@@ -1585,7 +1619,8 @@
       "notAuthenticated": "Please sign in before submitting a brand",
       "rateLimit": "Too many submissions, please try again later.",
       "validation": "Validation failed, please try again.",
-      "unexpected": "An unexpected error occurred, please try again."
+      "unexpected": "An unexpected error occurred, please try again.",
+      "turnstileError": "Verification failed. Please refresh and try again."
     },
     "recommendForm": {
       "heading": "Recommend a Brand",
@@ -1840,13 +1875,19 @@
     "timeRemaining": "{minutes}m remaining"
   },
   "guides": {
-    "metaTitle": "Taiwan Brand Guides | Formoria",
+    "metaTitle": "Taiwan Brand Guides",
     "metaDescription": "Explore curated Taiwan brand guides, from skincare to food, and discover the best Made in Taiwan brands.",
     "heading": "Taiwan Brand Guides",
     "subheading": "Explore Taiwan brands, industries, and purchasing context. From daily skincare to local food, find the guides you are looking for.",
     "badgeLabel": "Guide Hub",
     "allCategories": "All",
-    "comingSoon": "coming soon"
+    "comingSoon": "coming soon",
+    "breadcrumb": "Guides",
+    "notFound": {
+      "title": "Guide not found",
+      "description": "The guide you're looking for doesn't exist or has been removed.",
+      "browseAll": "Browse all guides"
+    }
   },
   "guideDetail": {
     "metadata": {

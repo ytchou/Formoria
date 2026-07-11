@@ -47,12 +47,12 @@ function ChallengeContent() {
         alignItems: 'center',
         justifyContent: 'center',
         padding: '24px',
-        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         background: 'var(--background)',
         color: 'var(--foreground)',
       }}
     >
       <section
+        className="shadow-card-hover"
         style={{
           width: '100%',
           maxWidth: '420px',
@@ -61,7 +61,6 @@ function ChallengeContent() {
           border: '1px solid var(--border)',
           borderRadius: '8px',
           background: 'var(--card)',
-          boxShadow: '0 12px 32px rgba(15, 23, 42, 0.08)',
         }}
       >
         <h1 style={{ margin: '0 0 12px', fontSize: '24px', lineHeight: 1.25 }}>

@@ -78,10 +78,13 @@ export default function FilterableBrandShowcase({
         <div
           ref={scrollRef}
           onScroll={updateScrollState}
+          role="group"
+          aria-label={t('filterLabel')}
           className="flex gap-2 overflow-x-auto scrollbar-none"
         >
           <button
             onClick={() => setSelectedCategory(null)}
+            aria-pressed={!selectedCategory}
             className={`shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-sm transition-colors ${
               !selectedCategory
                 ? 'border border-transparent bg-primary text-primary-foreground'
@@ -94,6 +97,7 @@ export default function FilterableBrandShowcase({
             <button
               key={cat.slug}
               onClick={() => setSelectedCategory(cat.slug)}
+              aria-pressed={selectedCategory === cat.slug}
               className={`shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-sm transition-colors ${
                 selectedCategory === cat.slug
                   ? 'border border-transparent bg-primary text-primary-foreground'
@@ -113,9 +117,16 @@ export default function FilterableBrandShowcase({
           ))}
         </div>
       ) : (
-        <p className="mt-6 type-card-description">
-          {t('emptyCategory')}
-        </p>
+        <div className="mt-6 text-center">
+          <p className="type-card-description">{t('emptyCategory')}</p>
+          <button
+            type="button"
+            onClick={() => setSelectedCategory(null)}
+            className="mt-3 type-body-emphasis text-cta hover:underline"
+          >
+            {t('showAll')}
+          </button>
+        </div>
       )}
 
       {filteredBrands.length > 0 && (

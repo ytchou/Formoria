@@ -8,6 +8,8 @@ import {
   isRelativeUrl,
   getSignInSchema,
   getSignUpSchema,
+  getForgotPasswordSchema,
+  getResetPasswordSchema,
 } from "@/lib/auth/validations";
 import { getRequestOrigin } from "@/lib/auth/site-url";
 
@@ -143,4 +145,67 @@ export async function signOut(returnTo?: string): Promise<void> {
   const supabase = await createClient();
   await supabase.auth.signOut({ scope: 'local' });
   redirect(returnTo && isRelativeUrl(returnTo) ? returnTo : "/");
+}
+
+export async function resetPassword(
+  _prevState: AuthState,
+  formData: FormData
+): Promise<AuthState> {
+  const tAuth = await getTranslations("auth");
+  // Wrap to satisfy the plain (key: string) => string Translator contract
+  const t = (key: string) => tAuth(key as Parameters<typeof tAuth>[0]);
+
+  const forgotPasswordSchema = getForgotPasswordSchema(t);
+  const parsed = forgotPasswordSchema.safeParse({
+    email: formData.get("email"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+  const siteUrl = await getRequestOrigin();
+  // Recovery link lands on /auth/callback, which exchanges the code for a
+  // session and then redirects to /auth/reset-password.
+  await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+    redirectTo: `${siteUrl}/auth/callback?next=/auth/reset-password`,
+  });
+
+  // Always return the same message, even on error, to prevent email enumeration
+  return { message: t("forgotPassword.successMessage") };
+}
+
+export async function updatePassword(
+  _prevState: AuthState,
+  formData: FormData
+): Promise<AuthState> {
+  const tAuth = await getTranslations("auth");
+  // Wrap to satisfy the plain (key: string) => string Translator contract
+  const t = (key: string) => tAuth(key as Parameters<typeof tAuth>[0]);
+
+  const resetPasswordSchema = getResetPasswordSchema(t);
+  const parsed = resetPasswordSchema.safeParse({
+    password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: t("resetPassword.sessionExpired") };
+  }
+
+  const { error } = await supabase.auth.updateUser({
+    password: parsed.data.password,
+  });
+  if (error) {
+    return { error: error.message };
+  }
+
+  redirect(`/auth/sign-in?message=${encodeURIComponent(t("resetPassword.success"))}`);
 }

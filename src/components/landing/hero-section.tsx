@@ -15,22 +15,22 @@ export default async function HeroSection({ brandCount, categoryCount, recentBra
 
   return (
     <SplitHero imageSrc="/images/hero-bg.png" eyebrow={t('eyebrow')} headline={t('headline')} subheadline={t('subheadline')}>
-          <div className="mt-6 flex items-start gap-6">
-            <div>
+          <div className="mt-6 flex items-start gap-4 sm:gap-6">
+            <div className="min-w-0">
               <p className="type-stat">{brandCount}</p>
-              <p className="mt-0.5 type-caption">{t('statsBrands')}</p>
+              <p className="mt-0.5 type-caption truncate">{t('statsBrands')}</p>
             </div>
-            <div className="h-10 w-px bg-border" />
-            <div>
+            <div className="h-10 w-px shrink-0 bg-border" />
+            <div className="min-w-0">
               <p className="type-stat">{categoryCount}</p>
-              <p className="mt-0.5 type-caption">{t('statsCategories')}</p>
+              <p className="mt-0.5 type-caption truncate">{t('statsCategories')}</p>
             </div>
             {recentBrands.count > 0 ? (
               <>
-                <div className="h-10 w-px bg-border" />
-                <div>
+                <div className="h-10 w-px shrink-0 bg-border" />
+                <div className="min-w-0">
                   <p className="type-stat text-cta">+{recentBrands.count}</p>
-                  <p className="mt-0.5 type-caption">{t(recentBrands.period === '7d' ? 'recentWeek' : 'recentMonth')}</p>
+                  <p className="mt-0.5 type-caption truncate">{t(recentBrands.period === '7d' ? 'recentWeek' : 'recentMonth')}</p>
                 </div>
               </>
             ) : null}

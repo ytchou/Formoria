@@ -2,14 +2,15 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { categoryLabel } from '@/lib/taxonomy/ontology'
 
 interface SearchEmptyStateProps {
   query: string
   hasActiveFilters: boolean
-  categories: { productType: string; count: number }[]
+  categories: { productType: string; name: string; nameZh: string | null; count: number }[]
   featuredBrands: {
     id: string
     name: string
@@ -28,6 +29,7 @@ export function SearchEmptyState({
   onClearFilters,
 }: SearchEmptyStateProps) {
   const t = useTranslations('search')
+  const locale = useLocale()
 
   return (
     <div data-empty className="flex flex-col items-center py-16">
@@ -68,14 +70,14 @@ export function SearchEmptyState({
           <p className="text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {t('emptyState.browseCategories')}
           </p>
-          <div className="scrollbar-hide mt-3 flex justify-center gap-2 overflow-x-auto flex-nowrap">
-            {categories.map(({ productType }) => (
+          <div className="scrollbar-none mt-3 flex justify-center gap-2 overflow-x-auto flex-nowrap">
+            {categories.map(({ productType, name, nameZh }) => (
               <Link
                 key={productType}
                 href={`?category=${encodeURIComponent(productType)}`}
                 className="whitespace-nowrap rounded-full border border-primary/20 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
-                {productType}
+                {categoryLabel({ name, nameZh }, locale)}
               </Link>
             ))}
           </div>
@@ -88,7 +90,7 @@ export function SearchEmptyState({
           <p className="text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {t('emptyState.featuredBrands')}
           </p>
-          <div className="scrollbar-hide mt-3 flex justify-center gap-3 overflow-x-auto flex-nowrap">
+          <div className="scrollbar-none mt-3 flex justify-center gap-3 overflow-x-auto flex-nowrap">
             {featuredBrands.map((brand) => (
               <Link
                 key={brand.id}
