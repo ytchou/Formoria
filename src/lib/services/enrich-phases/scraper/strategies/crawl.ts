@@ -2,9 +2,7 @@ import * as cheerio from 'cheerio'
 import { fetchHtml, fetchXml, resolveUrl } from '../fetch-guards'
 import {
   emptyResult,
-  extractAllJsonLd,
   extractCategoryHints,
-  extractJsonLdImages,
   extractPurchaseLinks,
   extractSocialLinks,
   MAX_JSON_LD_IMAGES,
@@ -263,8 +261,7 @@ export class CrawlStrategy implements ScrapeStrategy {
       let story = result.story
       let stockistPageText: string | null = null
 
-      const landing$ = cheerio.load(landingHtml)
-      const jsonLdImageSet = new Set(extractJsonLdImages(extractAllJsonLd(landing$), url))
+      const jsonLdImageSet = new Set(result.jsonLdImageUrls)
 
       for (const page of pages) {
         const $ = cheerio.load(page.html)
@@ -294,7 +291,7 @@ export class CrawlStrategy implements ScrapeStrategy {
           if (pageText) stockistPageText = pageText
         }
 
-        for (const imgUrl of extractJsonLdImages(extractAllJsonLd($), page.url)) {
+        for (const imgUrl of pageResult.jsonLdImageUrls) {
           jsonLdImageSet.add(imgUrl)
         }
       }
