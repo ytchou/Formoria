@@ -46,6 +46,33 @@ describe('mergeScrapedData', () => {
   })
 })
 
+describe('mergeScrapedData with stockistPageText', () => {
+  it('uses first-wins for stockistPageText', () => {
+    const official = { ...emptyResult('https://brand.com'), stockistPageText: 'Official stockists' }
+    const social = { ...emptyResult('https://instagram.com/brand'), stockistPageText: 'Social stockists' }
+    const result = mergeScrapedData([
+      { type: 'official-site', data: official },
+      { type: 'social', data: social },
+    ])
+    expect(result.stockistPageText).toBe('Official stockists')
+  })
+})
+
+describe('mergeScrapedData with jsonLdImageUrls', () => {
+  it('concatenates and deduplicates jsonLdImageUrls across sources', () => {
+    const official = { ...emptyResult('https://brand.com'), jsonLdImageUrls: ['https://a.com/1.jpg', 'https://a.com/2.jpg'] }
+    const ecommerce = { ...emptyResult('https://shopee.tw/brand'), jsonLdImageUrls: ['https://a.com/2.jpg', 'https://b.com/3.jpg'] }
+    const result = mergeScrapedData([
+      { type: 'official-site', data: official },
+      { type: 'e-commerce', data: ecommerce },
+    ])
+    expect(result.jsonLdImageUrls).toHaveLength(3)
+    expect(result.jsonLdImageUrls).toContain('https://a.com/1.jpg')
+    expect(result.jsonLdImageUrls).toContain('https://a.com/2.jpg')
+    expect(result.jsonLdImageUrls).toContain('https://b.com/3.jpg')
+  })
+})
+
 describe('mergeScrapedData with purchase fields', () => {
   it('merges purchase links from multiple sources with precedence', () => {
     const officialSite = {

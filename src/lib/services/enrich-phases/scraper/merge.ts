@@ -109,6 +109,18 @@ export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
     if (!hasValue(merged.rawJsonLd) && hasValue(data.rawJsonLd)) {
       merged.rawJsonLd = data.rawJsonLd
     }
+    if (!hasValue(merged.stockistPageText) && hasValue(data.stockistPageText)) {
+      merged.stockistPageText = data.stockistPageText
+    }
+    if (data.jsonLdImageUrls.length > 0) {
+      const seen = new Set(merged.jsonLdImageUrls)
+      for (const url of data.jsonLdImageUrls) {
+        if (!seen.has(url)) {
+          seen.add(url)
+          merged.jsonLdImageUrls.push(url)
+        }
+      }
+    }
 
     const socialLinks = mergeSocialLinks(merged, data)
     merged.socialInstagram = socialLinks.socialInstagram
