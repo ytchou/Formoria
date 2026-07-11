@@ -27,4 +27,14 @@ describe('runLinksPhase', () => {
     expect(result.patch).toEqual({})
     expect(result.scrapedData).toBeNull()
   })
+
+  it('returns empty jsonLdImageUrls when links phase is skipped', async () => {
+    const result = await runLinksPhase({
+      brand,
+      phases: ['clean'] as EnrichPhase[],
+      discoveredUrls: [],
+      knownUrls: [],
+    })
+    expect(result.jsonLdImageUrls).toEqual([])
+  })
 })

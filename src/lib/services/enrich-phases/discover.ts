@@ -11,12 +11,12 @@ import {
   type SearchPhaseResult,
 } from './types'
 
-function buildSerpQuery(brandName: string, productTypeSlug?: string | null): string {
+export function buildSerpQuery(brandName: string, productTypeSlug?: string | null): string {
   const typeZh = productTypeSlug
     ? PRODUCT_TYPE_CATEGORIES.find((c) => c.slug === productTypeSlug)?.nameZh
     : undefined
   const typeSegment = typeZh ? ` ${typeZh}` : ''
-  return `"${brandName}"${typeSegment} 品牌 介紹 評價 推薦 -徵才 -104 -人力 -site:formoria.com`
+  return `"${brandName}"${typeSegment} 品牌 介紹 評價 推薦 通路 -徵才 -104 -人力 -site:formoria.com`
 }
 
 function errorMessage(error: unknown): string {

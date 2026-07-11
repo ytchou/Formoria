@@ -295,6 +295,133 @@ export function filterHeroImage(rawUrl: string, pageUrl: string): string | null 
   return resolved
 }
 
+export const MAX_JSON_LD_IMAGES = 10
+
+export function extractAllJsonLd($: cheerio.CheerioAPI): Record<string, unknown>[] {
+  const results: Record<string, unknown>[] = []
+  $('script[type="application/ld+json"]').each((_, el) => {
+    const raw = $(el).html()
+    if (!raw) return
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>
+      results.push(parsed)
+    } catch {
+      // skip malformed JSON-LD
+    }
+  })
+  return results
+}
+
+function extractImageUrls(
+  image: unknown,
+  pageUrl: string,
+  urls: Set<string>
+): void {
+  if (typeof image === 'string') {
+    const resolved = resolveUrl(image, pageUrl)
+    if (!resolved) return
+    try {
+      const pathname = new URL(resolved).pathname
+      if (NON_PRODUCT_IMAGE_PATH_RE.test(pathname)) return
+    } catch {
+      return
+    }
+    urls.add(resolved)
+    return
+  }
+
+  if (Array.isArray(image)) {
+    for (const item of image) {
+      extractImageUrls(item, pageUrl, urls)
+    }
+    return
+  }
+
+  if (image && typeof image === 'object') {
+    const obj = image as Record<string, unknown>
+    if (obj.url && typeof obj.url === 'string') {
+      extractImageUrls(obj.url, pageUrl, urls)
+    }
+  }
+}
+
+function collectJsonLdImages(
+  objects: Record<string, unknown>[],
+  pageUrl: string,
+  urls: Set<string>
+): void {
+  for (const obj of objects) {
+    // Recurse into @graph
+    if (Array.isArray(obj['@graph'])) {
+      collectJsonLdImages(
+        obj['@graph'] as Record<string, unknown>[],
+        pageUrl,
+        urls
+      )
+    }
+
+    const type = obj['@type']
+    const types = Array.isArray(type) ? type : [type]
+
+    // Handle ItemList -> itemListElement[].item
+    if (types.includes('ItemList') && Array.isArray(obj.itemListElement)) {
+      for (const element of obj.itemListElement as Record<string, unknown>[]) {
+        if (element.item && typeof element.item === 'object') {
+          collectJsonLdImages(
+            [element.item as Record<string, unknown>],
+            pageUrl,
+            urls
+          )
+        }
+      }
+    }
+
+    // Extract image from any typed object that has one
+    if (obj.image !== undefined) {
+      extractImageUrls(obj.image, pageUrl, urls)
+    }
+  }
+}
+
+export function extractJsonLdImages(
+  jsonLdObjects: Record<string, unknown>[],
+  pageUrl: string
+): string[] {
+  const urls = new Set<string>()
+  collectJsonLdImages(jsonLdObjects, pageUrl, urls)
+  return [...urls].map(upgradeEcommerceImageUrl).slice(0, MAX_JSON_LD_IMAGES)
+}
+
+export function upgradeEcommerceImageUrl(url: string): string {
+  try {
+    const u = new URL(url)
+    const host = u.hostname
+
+    // Shopify: strip _NxN or _Nx dimension suffix before extension
+    if (host.includes('cdn.shopify.com') || host.includes('myshopify.com')) {
+      u.pathname = u.pathname.replace(/_\d+x\d*(?=\.\w+$)/, '')
+      return u.href
+    }
+
+    // Cyberbiz: strip -NxN dimension segment before extension
+    if (host.includes('cyberbiz.co')) {
+      u.pathname = u.pathname.replace(/-\d+x\d+(?=\.\w+$)/, '')
+      return u.href
+    }
+
+    // Shopline: strip w/width query params
+    if (host.includes('shoplineapp.com') || host.includes('shoplineimg.com')) {
+      u.searchParams.delete('w')
+      u.searchParams.delete('width')
+      return u.href
+    }
+
+    return url
+  } catch {
+    return url
+  }
+}
+
 export function emptyResult(websiteUrl: string): ScrapedBrandData {
   return {
     brandName: null,
@@ -311,5 +438,7 @@ export function emptyResult(websiteUrl: string): ScrapedBrandData {
     categoryHints: [],
     websiteUrl,
     rawJsonLd: null,
+    stockistPageText: null,
+    jsonLdImageUrls: [],
   }
 }

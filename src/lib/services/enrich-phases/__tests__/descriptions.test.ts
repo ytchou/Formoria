@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DescriptionRewriteResult } from '../../description-rewrite'
-import { runDescriptionsPhase } from '../descriptions'
+import { loadPersistedScrapeText, runDescriptionsPhase } from '../descriptions'
 import type { EnrichBrand, EnrichPhase } from '../types'
 
 const supabaseMocks = vi.hoisted(() => ({
@@ -58,6 +58,28 @@ function makeDescriptionRewriteResult(
     ...overrides,
   }
 }
+
+describe('loadPersistedScrapeText', () => {
+  beforeEach(() => {
+    supabaseMocks.data = null
+  })
+
+  it('includes stockistPageText in siteContent when present', async () => {
+    supabaseMocks.data = [
+      {
+        urls: ['https://example.com'],
+        snippets: [],
+        raw_response: {
+          stockistPageText: '寶雅',
+        },
+      },
+    ]
+
+    const result = await loadPersistedScrapeText('brand-id')
+    expect(result.siteContent).toContain('Stockist Page:')
+    expect(result.siteContent).toContain('寶雅')
+  })
+})
 
 describe('runDescriptionsPhase', () => {
   beforeEach(() => {

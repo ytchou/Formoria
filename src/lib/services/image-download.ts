@@ -6,6 +6,9 @@ import type { CandidateImageSource } from './enrich-phases/candidate-pool'
 const IMAGE_FETCH_TIMEOUT_MS = 10_000
 const MIN_IMAGE_SIZE_BYTES = 5_120
 const MIN_IMAGE_DIMENSION_PX = 400
+const SOURCE_MIN_DIMENSION: Partial<Record<CandidateImageSource, number>> = {
+  json_ld: 300,
+}
 
 type DownloadImageCandidate = string | {
   url: string
@@ -160,7 +163,7 @@ export async function downloadAndStoreImages(
         if (
           !width ||
           !height ||
-          Math.max(width, height) < MIN_IMAGE_DIMENSION_PX
+          Math.max(width, height) < (SOURCE_MIN_DIMENSION[source] ?? MIN_IMAGE_DIMENSION_PX)
         ) {
           throw new Error(
             `Image resolution too low (${width ?? 0}x${height ?? 0}), skipping`

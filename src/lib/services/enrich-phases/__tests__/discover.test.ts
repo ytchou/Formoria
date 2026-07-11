@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { runDiscoverPhase } from '../discover'
+import { buildSerpQuery, runDiscoverPhase } from '../discover'
 import type { BatchPhaseContext, EnrichBrand, EnrichPhase } from '../types'
 
 const brand: EnrichBrand = {
@@ -34,5 +34,19 @@ describe('runDiscoverPhase', () => {
     expect(result.phaseResult.status).toBe('skipped')
     expect(result.searchResults.size).toBe(0)
     expect(result.searchError).toBeNull()
+  })
+})
+
+describe('buildSerpQuery', () => {
+  it('includes 通路 in the query string', () => {
+    const query = buildSerpQuery('AROMASE')
+    expect(query).toContain('通路')
+    expect(query).toContain('"AROMASE"')
+    expect(query).toContain('品牌')
+  })
+
+  it('includes product type when provided', () => {
+    const query = buildSerpQuery('AROMASE', 'hair-care')
+    expect(query).toContain('通路')
   })
 })

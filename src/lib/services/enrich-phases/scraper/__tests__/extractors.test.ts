@@ -7,6 +7,9 @@ import {
   emptyResult,
   extractPinkoiProductImages,
   extractShopeeProductImages,
+  extractAllJsonLd,
+  extractJsonLdImages,
+  upgradeEcommerceImageUrl,
 } from '../parse/extractors'
 
 describe('filterHeroImage', () => {
@@ -183,5 +186,161 @@ describe('emptyResult', () => {
     const r = emptyResult('https://site.com')
     expect(r.brandName).toBeNull()
     expect(r.story).toBeNull()
+    expect(r.stockistPageText).toBeNull()
+    expect(r.jsonLdImageUrls).toEqual([])
+  })
+})
+
+
+describe('extractAllJsonLd', () => {
+  it('parses multiple JSON-LD script tags', () => {
+    const html = `<html><head>
+      <script type="application/ld+json">{"@type":"Organization","name":"Brand"}</script>
+      <script type="application/ld+json">{"@type":"Product","name":"Shampoo","image":"https://cdn.example.com/shampoo.jpg"}</script>
+    </head></html>`
+    const $ = cheerio.load(html)
+    const results = extractAllJsonLd($)
+    expect(results).toHaveLength(2)
+    expect(results[0]['@type']).toBe('Organization')
+    expect(results[1]['@type']).toBe('Product')
+  })
+
+  it('skips malformed JSON-LD tags', () => {
+    const html = `<html><head>
+      <script type="application/ld+json">{invalid json}</script>
+      <script type="application/ld+json">{"@type":"Product","name":"Valid"}</script>
+    </head></html>`
+    const $ = cheerio.load(html)
+    const results = extractAllJsonLd($)
+    expect(results).toHaveLength(1)
+  })
+
+  it('returns empty array when no JSON-LD tags', () => {
+    const $ = cheerio.load('<html><head></head></html>')
+    expect(extractAllJsonLd($)).toEqual([])
+  })
+})
+
+describe('extractJsonLdImages', () => {
+  it('extracts image string from Product', () => {
+    const jsonLd = [{ '@type': 'Product', image: 'https://cdn.example.com/product.jpg' }]
+    const images = extractJsonLdImages(jsonLd, 'https://example.com')
+    expect(images).toContain('https://cdn.example.com/product.jpg')
+  })
+
+  it('extracts image array from Product', () => {
+    const jsonLd = [{ '@type': 'Product', image: ['https://cdn.example.com/a.jpg', 'https://cdn.example.com/b.jpg'] }]
+    const images = extractJsonLdImages(jsonLd, 'https://example.com')
+    expect(images).toHaveLength(2)
+  })
+
+  it('extracts ImageObject url from Product', () => {
+    const jsonLd = [{ '@type': 'Product', image: { '@type': 'ImageObject', url: 'https://cdn.example.com/img.jpg' } }]
+    const images = extractJsonLdImages(jsonLd, 'https://example.com')
+    expect(images).toContain('https://cdn.example.com/img.jpg')
+  })
+
+  it('extracts images from @graph array', () => {
+    const jsonLd = [{ '@graph': [{ '@type': 'Product', image: 'https://cdn.example.com/graph.jpg' }] }]
+    const images = extractJsonLdImages(jsonLd, 'https://example.com')
+    expect(images).toContain('https://cdn.example.com/graph.jpg')
+  })
+
+  it('extracts images from ItemList', () => {
+    const jsonLd = [{
+      '@type': 'ItemList',
+      itemListElement: [
+        { '@type': 'ListItem', item: { '@type': 'Product', image: 'https://cdn.example.com/item1.jpg' } },
+        { '@type': 'ListItem', item: { '@type': 'Product', image: 'https://cdn.example.com/item2.jpg' } },
+      ],
+    }]
+    const images = extractJsonLdImages(jsonLd, 'https://example.com')
+    expect(images).toContain('https://cdn.example.com/item1.jpg')
+    expect(images).toContain('https://cdn.example.com/item2.jpg')
+  })
+
+  it('extracts image from Organization', () => {
+    const jsonLd = [{ '@type': 'Organization', image: 'https://cdn.example.com/org.jpg' }]
+    const images = extractJsonLdImages(jsonLd, 'https://example.com')
+    expect(images).toContain('https://cdn.example.com/org.jpg')
+  })
+
+  it('skips data: URIs', () => {
+    const jsonLd = [{ '@type': 'Product', image: 'data:image/png;base64,abc' }]
+    const images = extractJsonLdImages(jsonLd, 'https://example.com')
+    expect(images).toEqual([])
+  })
+
+  it('filters logo/icon paths', () => {
+    const jsonLd = [{ '@type': 'Product', image: 'https://cdn.example.com/logo/brand.png' }]
+    const images = extractJsonLdImages(jsonLd, 'https://example.com')
+    expect(images).toEqual([])
+  })
+
+  it('deduplicates URLs', () => {
+    const jsonLd = [
+      { '@type': 'Product', image: 'https://cdn.example.com/same.jpg' },
+      { '@type': 'Product', image: 'https://cdn.example.com/same.jpg' },
+    ]
+    const images = extractJsonLdImages(jsonLd, 'https://example.com')
+    expect(images).toHaveLength(1)
+  })
+
+  it('caps at 10 images', () => {
+    const products = Array.from({ length: 15 }, (_, i) => ({
+      '@type': 'Product', image: `https://cdn.example.com/p${i}.jpg`,
+    }))
+    const images = extractJsonLdImages(products, 'https://example.com')
+    expect(images).toHaveLength(10)
+  })
+
+  it('resolves relative URLs', () => {
+    const jsonLd = [{ '@type': 'Product', image: '/images/product.jpg' }]
+    const images = extractJsonLdImages(jsonLd, 'https://example.com')
+    expect(images).toContain('https://example.com/images/product.jpg')
+  })
+
+  it('upgrades Shopify thumbnail URLs to full-size', () => {
+    const jsonLd = [{ '@type': 'Product', image: 'https://cdn.shopify.com/s/files/1/products/widget_300x300.jpg' }]
+    const images = extractJsonLdImages(jsonLd, 'https://example.com')
+    expect(images[0]).toBe('https://cdn.shopify.com/s/files/1/products/widget.jpg')
+  })
+})
+
+describe('upgradeEcommerceImageUrl', () => {
+  it('strips _NxN from Shopify CDN URLs', () => {
+    expect(upgradeEcommerceImageUrl('https://cdn.shopify.com/s/files/1/products/photo_300x300.jpg'))
+      .toBe('https://cdn.shopify.com/s/files/1/products/photo.jpg')
+  })
+
+  it('strips _Nx from Shopify CDN URLs', () => {
+    expect(upgradeEcommerceImageUrl('https://cdn.shopify.com/s/files/1/products/photo_800x.jpg'))
+      .toBe('https://cdn.shopify.com/s/files/1/products/photo.jpg')
+  })
+
+  it('strips -NxN from Cyberbiz URLs', () => {
+    expect(upgradeEcommerceImageUrl('https://cyfood.cyberbiz.co/uploads/image-300x300.jpg'))
+      .toBe('https://cyfood.cyberbiz.co/uploads/image.jpg')
+  })
+
+  it('strips w query param from Shopline URLs', () => {
+    expect(upgradeEcommerceImageUrl('https://img.shoplineapp.com/media/image/original.png?w=300'))
+      .toBe('https://img.shoplineapp.com/media/image/original.png')
+  })
+
+  it('strips width param but keeps other params from Shopline URLs', () => {
+    const result = upgradeEcommerceImageUrl('https://shoplineimg.com/media/file.jpg?width=400&quality=80')
+    expect(result).toContain('quality=80')
+    expect(result).not.toContain('width=')
+  })
+
+  it('passes through non-matching URLs unchanged', () => {
+    const url = 'https://cdn.example.com/photo.jpg'
+    expect(upgradeEcommerceImageUrl(url)).toBe(url)
+  })
+
+  it('passes through URLs without dimension patterns', () => {
+    const url = 'https://cdn.shopify.com/s/files/1/products/photo.jpg'
+    expect(upgradeEcommerceImageUrl(url)).toBe(url)
   })
 })

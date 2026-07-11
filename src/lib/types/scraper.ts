@@ -13,4 +13,6 @@ export interface ScrapedBrandData {
   categoryHints: string[]
   websiteUrl: string
   rawJsonLd: Record<string, unknown> | null
+  stockistPageText: string | null
+  jsonLdImageUrls: string[]
 }

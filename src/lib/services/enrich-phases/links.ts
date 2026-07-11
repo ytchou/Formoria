@@ -22,6 +22,7 @@ type LinksPhaseOutput = {
   patch: Record<string, unknown>
   scrapedData: EnrichScrapedData | null
   scrapedImageUrls: string[]
+  jsonLdImageUrls: string[]
 }
 
 function uniqueUrls(urls: string[]): string[] {
@@ -58,7 +59,7 @@ function normalizeScrapedData(scrapedData: EnrichScrapedData): EnrichScrapedData
 }
 
 function buildScrapePayload(scrapedData: EnrichScrapedData): Record<string, unknown> | null {
-  if (!scrapedData.description && !scrapedData.story && !scrapedData.rawJsonLd) {
+  if (!scrapedData.description && !scrapedData.story && !scrapedData.rawJsonLd && !scrapedData.stockistPageText) {
     return null
   }
 
@@ -67,6 +68,7 @@ function buildScrapePayload(scrapedData: EnrichScrapedData): Record<string, unkn
     description: scrapedData.description ?? null,
     story: scrapedData.story ?? null,
     jsonLd: scrapedData.rawJsonLd ?? null,
+    stockistPageText: scrapedData.stockistPageText ?? null,
   }
 }
 
@@ -83,6 +85,7 @@ export async function runLinksPhase({
       patch: {},
       scrapedData: null,
       scrapedImageUrls: [],
+      jsonLdImageUrls: [],
     }
   }
 
@@ -119,6 +122,7 @@ export async function runLinksPhase({
       patch,
       scrapedData,
       scrapedImageUrls: scrapedData.galleryImageUrls ?? [],
+      jsonLdImageUrls: scrapedData.jsonLdImageUrls ?? [],
     }
   })
 
@@ -130,5 +134,6 @@ export async function runLinksPhase({
     patch: result.patch,
     scrapedData: result.scrapedData,
     scrapedImageUrls: result.scrapedImageUrls,
+    jsonLdImageUrls: result.jsonLdImageUrls,
   }
 }

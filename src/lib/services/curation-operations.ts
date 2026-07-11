@@ -922,6 +922,7 @@ export async function runEnrich(
 
         const candidateImages = buildCandidatePool({
           scraped: linksResult.scrapedImageUrls,
+          jsonLdImages: linksResult.jsonLdImageUrls,
           googleImages: imageSearchUrls,
         })
         const brandImageResult = await runBrandImagePhase({

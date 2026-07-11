@@ -1,4 +1,4 @@
-export type CandidateImageSource = 'scrape' | 'google_image'
+export type CandidateImageSource = 'scrape' | 'json_ld' | 'google_image'
 
 export type CandidateImage = {
   url: string
@@ -7,6 +7,7 @@ export type CandidateImage = {
 
 type CandidatePoolInput = {
   scraped: string[]
+  jsonLdImages?: string[]
   googleImages: string[]
 }
 
@@ -27,12 +28,14 @@ function addCandidates(
 
 export function buildCandidatePool({
   scraped,
+  jsonLdImages = [],
   googleImages,
 }: CandidatePoolInput): CandidateImage[] {
   const seen = new Set<string>()
   const pool: CandidateImage[] = []
 
   addCandidates(pool, seen, scraped, 'scrape')
+  addCandidates(pool, seen, jsonLdImages, 'json_ld')
   addCandidates(pool, seen, googleImages, 'google_image')
 
   return pool
