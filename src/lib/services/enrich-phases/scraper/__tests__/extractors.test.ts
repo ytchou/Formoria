@@ -9,6 +9,7 @@ import {
   extractShopeeProductImages,
   extractAllJsonLd,
   extractJsonLdImages,
+  upgradeEcommerceImageUrl,
 } from '../parse/extractors'
 
 describe('filterHeroImage', () => {
@@ -297,5 +298,49 @@ describe('extractJsonLdImages', () => {
     const jsonLd = [{ '@type': 'Product', image: '/images/product.jpg' }]
     const images = extractJsonLdImages(jsonLd, 'https://example.com')
     expect(images).toContain('https://example.com/images/product.jpg')
+  })
+
+  it('upgrades Shopify thumbnail URLs to full-size', () => {
+    const jsonLd = [{ '@type': 'Product', image: 'https://cdn.shopify.com/s/files/1/products/widget_300x300.jpg' }]
+    const images = extractJsonLdImages(jsonLd, 'https://example.com')
+    expect(images[0]).toBe('https://cdn.shopify.com/s/files/1/products/widget.jpg')
+  })
+})
+
+describe('upgradeEcommerceImageUrl', () => {
+  it('strips _NxN from Shopify CDN URLs', () => {
+    expect(upgradeEcommerceImageUrl('https://cdn.shopify.com/s/files/1/products/photo_300x300.jpg'))
+      .toBe('https://cdn.shopify.com/s/files/1/products/photo.jpg')
+  })
+
+  it('strips _Nx from Shopify CDN URLs', () => {
+    expect(upgradeEcommerceImageUrl('https://cdn.shopify.com/s/files/1/products/photo_800x.jpg'))
+      .toBe('https://cdn.shopify.com/s/files/1/products/photo.jpg')
+  })
+
+  it('strips -NxN from Cyberbiz URLs', () => {
+    expect(upgradeEcommerceImageUrl('https://cyfood.cyberbiz.co/uploads/image-300x300.jpg'))
+      .toBe('https://cyfood.cyberbiz.co/uploads/image.jpg')
+  })
+
+  it('strips w query param from Shopline URLs', () => {
+    expect(upgradeEcommerceImageUrl('https://img.shoplineapp.com/media/image/original.png?w=300'))
+      .toBe('https://img.shoplineapp.com/media/image/original.png')
+  })
+
+  it('strips width param but keeps other params from Shopline URLs', () => {
+    const result = upgradeEcommerceImageUrl('https://shoplineimg.com/media/file.jpg?width=400&quality=80')
+    expect(result).toContain('quality=80')
+    expect(result).not.toContain('width=')
+  })
+
+  it('passes through non-matching URLs unchanged', () => {
+    const url = 'https://cdn.example.com/photo.jpg'
+    expect(upgradeEcommerceImageUrl(url)).toBe(url)
+  })
+
+  it('passes through URLs without dimension patterns', () => {
+    const url = 'https://cdn.shopify.com/s/files/1/products/photo.jpg'
+    expect(upgradeEcommerceImageUrl(url)).toBe(url)
   })
 })

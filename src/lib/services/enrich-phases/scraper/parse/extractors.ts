@@ -389,7 +389,37 @@ export function extractJsonLdImages(
 ): string[] {
   const urls = new Set<string>()
   collectJsonLdImages(jsonLdObjects, pageUrl, urls)
-  return [...urls].slice(0, MAX_JSON_LD_IMAGES)
+  return [...urls].map(upgradeEcommerceImageUrl).slice(0, MAX_JSON_LD_IMAGES)
+}
+
+export function upgradeEcommerceImageUrl(url: string): string {
+  try {
+    const u = new URL(url)
+    const host = u.hostname
+
+    // Shopify: strip _NxN or _Nx dimension suffix before extension
+    if (host.includes('cdn.shopify.com') || host.includes('myshopify.com')) {
+      u.pathname = u.pathname.replace(/_\d+x\d*(?=\.\w+$)/, '')
+      return u.href
+    }
+
+    // Cyberbiz: strip -NxN dimension segment before extension
+    if (host.includes('cyberbiz.co')) {
+      u.pathname = u.pathname.replace(/-\d+x\d+(?=\.\w+$)/, '')
+      return u.href
+    }
+
+    // Shopline: strip w/width query params
+    if (host.includes('shoplineapp.com') || host.includes('shoplineimg.com')) {
+      u.searchParams.delete('w')
+      u.searchParams.delete('width')
+      return u.href
+    }
+
+    return url
+  } catch {
+    return url
+  }
 }
 
 export function emptyResult(websiteUrl: string): ScrapedBrandData {
