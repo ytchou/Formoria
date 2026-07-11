@@ -40,6 +40,8 @@ type BrandFilterDrawerProps = BrandFilterSidebarProps & {
 
 const verificationOptions: VerificationFilterValue[] = ['all', 'mit-verified', 'owned']
 const priceRangeOptions = [1, 2, 3] as const
+const filterOptionClassName =
+  'flex cursor-pointer items-center gap-2 type-card-description transition-colors hover:text-foreground'
 
 function parseCommaParam(value: string | null): string[] {
   return value
@@ -212,20 +214,17 @@ export function BrandFilterSidebar({
           {categories.map((category) => {
             const checked = activeCategories.has(category.slug)
             return (
-              <Label
+              <label
                 key={category.slug}
-                className={cn(
-                  'cursor-pointer justify-between gap-3 text-sm font-normal text-muted-foreground transition-colors hover:text-foreground',
-                  checked && 'text-primary'
-                )}
+                className={cn(filterOptionClassName, checked && 'text-primary')}
               >
-                <span>{categoryLabel(category)}</span>
                 <Checkbox
                   checked={checked}
                   onCheckedChange={(value: boolean) => toggleCategory(category.slug, value)}
                   aria-label={categoryLabel(category)}
                 />
-              </Label>
+                <span>{categoryLabel(category)}</span>
+              </label>
             )
           })}
         </div>
@@ -293,7 +292,7 @@ function FilterRadio({
   return (
     <label
       className={cn(
-        'flex cursor-pointer items-center gap-2 type-card-description transition-colors hover:text-foreground',
+        filterOptionClassName,
         checked && 'font-medium text-primary'
       )}
     >

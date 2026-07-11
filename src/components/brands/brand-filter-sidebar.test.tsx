@@ -31,7 +31,7 @@ vi.mock('next-intl', () => ({
   },
 }))
 
-describe('BrandFilterSidebar price range', () => {
+describe('BrandFilterSidebar', () => {
   beforeEach(() => {
     query = ''
     replace.mockClear()
@@ -55,5 +55,31 @@ describe('BrandFilterSidebar price range', () => {
     await user.click(screen.getByRole('button', { name: 'Clear all' }))
 
     expect(replace).toHaveBeenCalledWith('/brands', { scroll: false })
+  })
+
+  it('uses the same left-aligned option treatment for categories and status', () => {
+    render(
+      <BrandFilterSidebar
+        categories={[
+          {
+            slug: 'bags-accessories',
+            name: 'Bags & accessories',
+            nameZh: '包袋配件',
+          },
+        ]}
+      />
+    )
+
+    const categoryCheckbox = screen.getByRole('checkbox', {
+      name: 'Bags & accessories',
+    })
+    const categoryLabel = categoryCheckbox.closest('label')
+    const statusRadio = screen.getByRole('radio', { name: 'All' })
+    const statusLabel = statusRadio.closest('label')
+
+    expect(categoryLabel?.firstElementChild).toBe(categoryCheckbox)
+    expect(categoryLabel).not.toHaveClass('justify-between')
+    expect(categoryLabel).toHaveClass('type-card-description')
+    expect(statusLabel).toHaveClass('type-card-description')
   })
 })
