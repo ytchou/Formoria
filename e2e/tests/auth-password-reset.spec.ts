@@ -122,4 +122,34 @@ test.describe('Auth — reset password page guard', () => {
     ).toBeVisible();
     await expect(anonPage.getByText(/something went wrong|發生錯誤/i)).not.toBeVisible();
   });
+
+  test('authenticated user is NOT bounced off the reset page (recovery session flow)', async ({
+    userPage,
+  }) => {
+    test.setTimeout(120_000);
+
+    // Regression: the auth layout used to redirect any authenticated user to
+    // /dashboard, breaking the recovery flow (callback authenticates, then
+    // sends the user here). The guard now lives on sign-in/sign-up/forgot-password
+    // pages only — the reset form must render for a signed-in user.
+    await userPage.goto('/auth/reset-password', { timeout: 60_000 });
+
+    await expect(
+      userPage.getByRole('heading', { name: '設定新密碼', exact: true })
+    ).toBeVisible({ timeout: 60_000 });
+    await expect(userPage).toHaveURL(/\/auth\/reset-password(?:[/?#]|$)/);
+    await expect(userPage.getByLabel('新密碼', { exact: true })).toBeVisible();
+    await expect(userPage.getByLabel('確認新密碼', { exact: true })).toBeVisible();
+  });
+
+  test('authenticated user visiting sign-in is still redirected to dashboard', async ({
+    userPage,
+  }) => {
+    test.setTimeout(120_000);
+
+    // Inverse sanity: moving the guard out of the layout must not drop it
+    // from the sign-in page.
+    await userPage.goto('/auth/sign-in', { timeout: 60_000 });
+    await userPage.waitForURL(/\/dashboard/, { timeout: 60_000 });
+  });
 });

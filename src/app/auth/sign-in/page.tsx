@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { decodeJwt } from "jose";
 import { getLocale } from "next-intl/server";
+import { redirectIfAuthenticated } from "@/lib/auth/redirect-if-authenticated";
 import { SignInForm } from "@/components/auth/sign-in-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -13,6 +14,8 @@ type Props = {
 };
 
 export default async function SignInPage({ searchParams }: Props) {
+  await redirectIfAuthenticated();
+
   const params = await searchParams;
   const claimToken = params.claim;
   let claimBrandName: string | undefined;

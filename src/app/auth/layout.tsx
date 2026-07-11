@@ -1,10 +1,8 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { BrandMark } from "@/lib/brand/BrandMark";
-import { createClient } from "@/lib/supabase/server";
 import { localizePath } from "@/i18n/locale-preference";
 
 export default async function AuthLayout({
@@ -12,10 +10,6 @@ export default async function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
   const resolvedLocale = await getLocale();
   const locale = routing.locales.includes(
     resolvedLocale as (typeof routing.locales)[number]
@@ -23,10 +17,6 @@ export default async function AuthLayout({
     ? resolvedLocale
     : routing.defaultLocale;
   const messages = await getMessages();
-
-  if (user) {
-    redirect(localizePath('/dashboard', locale));
-  }
 
   const homePath = localizePath('/', locale);
 
