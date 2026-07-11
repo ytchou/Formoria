@@ -1,5 +1,13 @@
 # SPEC Changelog
 
+## 2026-07-10
+
+- Standardized public UI horizontal gutters with the shared `page-gutter` utility: 24px on mobile and 40px from the medium breakpoint upward. Full-bleed sections retain their visual treatment while inner content follows the shared gutter; admin, dashboard, auth, and microsite shells remain separate.
+
+## 2026-07-11
+
+- DEV-975 — Restored multi-location brand views with explicit chain/independent classification. Only independent locations with confirmed coordinates appear on the map; chain and unclassified locations remain visible in separate non-map lists.
+
 ## 2026-07-06
 
 - Removed legacy `brands.product_photos`, `brands.images_enriched_at`,

@@ -29,7 +29,7 @@ export function MainNav({ categories, hasOwnedBrand = false, isAuthenticated = f
   return (
     <header className="border-b border-border bg-background">
       {/* Row 1: Logo | Search | Actions */}
-      <div className="mx-auto flex h-14 max-w-screen-xl items-center gap-4 px-6">
+      <div className="page-gutter mx-auto flex h-14 max-w-screen-xl items-center gap-4">
         {/* Logo */}
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <BrandMark size={32} />

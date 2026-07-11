@@ -283,7 +283,7 @@ export default async function BrandDetailPage({
   return (
     <>
       {previewMode && <PreviewBanner slug={slug} />}
-      <main className="mx-auto max-w-screen-xl px-6 pt-10 pb-24 md:px-10 lg:pb-10">
+      <main className="page-gutter mx-auto max-w-screen-xl pt-10 pb-24 lg:pb-10">
         {!previewMode && (
           <>
             <BrandViewTracker brandSlug={slug} source={source} />

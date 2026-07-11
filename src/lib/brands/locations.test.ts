@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   getDuplicateRetailLocationIndex,
   hasLocationCoordinates,
+  isMappableRetailLocation,
   normalizeRetailLocations,
 } from './locations'
 
@@ -42,6 +43,61 @@ describe('normalizeRetailLocations', () => {
     expect(location).toBeDefined()
     expect(location && hasLocationCoordinates(location)).toBe(true)
     expect(location?.verificationStatus).toBe('verified')
+  })
+
+  it('preserves the chain classification from enrichment data', () => {
+    expect(
+      normalizeRetailLocations([
+        {
+          name: '康是美',
+          address: '台北市信義區',
+          type: 'chain',
+        },
+      ]),
+    ).toEqual([
+      expect.objectContaining({
+        name: '康是美',
+        type: 'chain',
+      }),
+    ])
+  })
+
+  it('only treats explicitly independent locations as mappable', () => {
+    const locations = normalizeRetailLocations([
+      {
+        name: '台北京站時尚廣場',
+        address: '台北市大同區承德路一段 1 號',
+        type: 'independent',
+        latitude: 25.049,
+        longitude: 121.517,
+      },
+      {
+        name: '康是美',
+        address: '台北市信義區',
+        type: 'chain',
+        latitude: 25.033,
+        longitude: 121.565,
+      },
+      {
+        name: 'Legacy location',
+        address: 'Taipei City',
+        latitude: 25.033,
+        longitude: 121.565,
+      },
+    ])
+
+    const independent = locations.at(0)
+    const chain = locations.at(1)
+    const unclassified = locations.at(2)
+
+    expect(independent).toBeDefined()
+    expect(chain).toBeDefined()
+    expect(unclassified).toBeDefined()
+    if (!independent || !chain || !unclassified) return
+
+    expect(isMappableRetailLocation(independent)).toBe(true)
+    expect(isMappableRetailLocation(chain)).toBe(false)
+    expect(isMappableRetailLocation(unclassified)).toBe(false)
   })
 
   it('drops empty rows', () => {

@@ -68,7 +68,7 @@ export default async function SubmitOwnerPage({
   return (
     <div>
       {shouldShowOwnedBrandNotice ? (
-        <div className="mx-auto max-w-2xl px-4 pt-8">
+        <div className="page-gutter mx-auto max-w-2xl pt-8">
           <section
             aria-labelledby="owned-brand-notice-title"
             className={surfaceCardStyles({ elevated: true, padding: 'lg' })}

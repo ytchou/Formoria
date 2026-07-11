@@ -1,6 +1,7 @@
 import type {
   RetailLocation,
   RetailLocationRelationshipType,
+  RetailLocationType,
   RetailLocationVerificationStatus,
 } from '@/lib/types/brand'
 
@@ -9,6 +10,8 @@ const RELATIONSHIP_TYPES = new Set<RetailLocationRelationshipType>([
   'stockist',
   'department_counter',
 ])
+
+const LOCATION_TYPES = new Set<RetailLocationType>(['chain', 'independent'])
 
 const VERIFICATION_STATUSES = new Set<RetailLocationVerificationStatus>([
   'verified',
@@ -86,6 +89,13 @@ function normalizeRelationshipType(
     : 'stockist'
 }
 
+function normalizeLocationType(value: unknown): RetailLocationType | undefined {
+  return typeof value === 'string' &&
+    LOCATION_TYPES.has(value as RetailLocationType)
+    ? (value as RetailLocationType)
+    : undefined
+}
+
 function normalizeVerificationStatus(
   value: unknown,
   latitude?: number,
@@ -115,12 +125,14 @@ function normalizeRetailLocation(value: unknown): RetailLocation | null {
     latitude <= 90 &&
     longitude >= -180 &&
     longitude <= 180
+  const type = normalizeLocationType(value.type ?? value.locationKind)
 
   if (!name && !address && !venueName) return null
 
   return {
     name: name ?? venueName ?? '',
     relationshipType: normalizeRelationshipType(value.relationshipType),
+    ...(type ? { type } : {}),
     address: address ?? '',
     city: optionalString(value.city),
     district: optionalString(value.district),
@@ -154,6 +166,16 @@ export function hasLocationCoordinates(
     typeof location.longitude === 'number' &&
     Number.isFinite(location.longitude)
   )
+}
+
+export function isMappableRetailLocation(
+  location: RetailLocation,
+): location is RetailLocation & {
+  type: 'independent'
+  latitude: number
+  longitude: number
+} {
+  return location.type === 'independent' && hasLocationCoordinates(location)
 }
 
 export function getLocationMapQuery(location: RetailLocation): string {

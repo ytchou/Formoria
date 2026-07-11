@@ -6,7 +6,7 @@ export default async function NotFound() {
   const t = await getTranslations('errors')
 
   return (
-    <main className="mx-auto flex max-w-screen-xl flex-col items-start px-6 py-24 md:px-10">
+    <main className="page-gutter mx-auto flex max-w-screen-xl flex-col items-start py-24">
       <h1 className="type-page-title-large">
         {t('notFound.title')}
       </h1>

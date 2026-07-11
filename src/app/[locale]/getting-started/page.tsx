@@ -63,7 +63,7 @@ export default async function GettingStartedPage({ params }: PageProps) {
   }))
 
   return (
-    <main className="mx-auto w-full max-w-screen-xl px-6 py-10 md:px-10">
+    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(buildFaqPageJsonLd(faqItems, safeLocale)) }}

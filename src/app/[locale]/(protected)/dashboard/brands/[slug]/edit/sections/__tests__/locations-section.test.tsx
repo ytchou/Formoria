@@ -38,6 +38,7 @@ describe('LocationsSection', () => {
     )
 
     expect(screen.getByLabelText('Location type')).toBeInTheDocument()
+    expect(screen.getByLabelText('Retailer type')).toBeInTheDocument()
     expect(
       screen.getByPlaceholderText('Search or enter the full address'),
     ).toBeInTheDocument()

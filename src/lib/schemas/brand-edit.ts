@@ -45,6 +45,7 @@ const retailLocationSchema = z
     relationshipType: z
       .enum(['brand_store', 'stockist', 'department_counter'])
       .optional(),
+    type: z.enum(['chain', 'independent']).optional(),
     address: z.string().optional(),
     city: z.string().optional(),
     district: z.string().optional(),

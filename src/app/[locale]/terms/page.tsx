@@ -50,7 +50,7 @@ export default async function TermsPage({ params }: PageProps) {
   const t = await getTranslations('legal.terms')
 
   return (
-    <main className="mx-auto w-full max-w-screen-xl px-6 py-10 md:px-10">
+    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
       <div className="grid gap-10 md:grid-cols-[18rem_minmax(0,1fr)] md:gap-16">
         <aside className="space-y-4 md:sticky md:top-24 md:self-start">
           <h1 className="type-page-title">{t('title')}</h1>

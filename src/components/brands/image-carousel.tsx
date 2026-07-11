@@ -73,7 +73,7 @@ export function ImageCarousel({ images, alt, imageAlts }: ImageCarouselProps) {
             fill
             className="object-contain"
             sizes="(max-width: 1024px) 100vw, 580px"
-            priority={current === 0}
+            loading="eager"
             onError={() => handleImageError(current)}
           />
         )}

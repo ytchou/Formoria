@@ -8,7 +8,7 @@ interface OriginStoryProps {
 export default function OriginStory({ heading, body1, body2, body3 }: OriginStoryProps) {
   return (
     <section className="py-16 md:py-24">
-      <div className="mx-auto max-w-5xl px-6 md:px-8">
+      <div className="page-gutter mx-auto max-w-5xl">
         <div className="grid gap-10 lg:grid-cols-[1fr_1.4fr] lg:gap-16">
           <div>
             <h2 className="type-page-title-large">

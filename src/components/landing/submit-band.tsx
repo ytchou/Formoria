@@ -16,7 +16,7 @@ export default async function SubmitBand() {
         className="object-cover"
       />
       <div className="absolute inset-0 bg-black/55" />
-      <div className="relative mx-auto max-w-3xl px-6 text-center md:px-10">
+      <div className="page-gutter relative mx-auto max-w-3xl text-center">
         <h2 className="type-hero-inverse">
           {t('headline')}
         </h2>

@@ -43,6 +43,7 @@ type ProvenanceSourceForm = {
 type RetailLocationForm = {
   name: string
   relationshipType: string
+  type: string
   address: string
   city: string
   district: string
@@ -152,6 +153,7 @@ export function parseBrandEditForm(formData: FormData): Partial<Brand> {
     parseArrayField<RetailLocationForm>(formData, 'retailLocations', [
       'name',
       'relationshipType',
+      'type',
       'address',
       'city',
       'district',

@@ -27,5 +27,6 @@ describe('SplitHero', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Main heading' })).toBeInTheDocument()
     expect(screen.getByText('Supporting subtitle')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Explore brands' })).toBeInTheDocument()
+    expect(document.querySelector('img')).toHaveAttribute('loading', 'eager')
   })
 })

@@ -17,12 +17,12 @@ export default function SplitHero({ imageSrc, eyebrow, headline, subheadline, ch
           src={imageSrc}
           alt=""
           fill
-          priority
+          loading="eager"
           sizes="(max-width: 1024px) 100vw, 50vw"
           className="object-cover object-right"
         />
       </div>
-      <div className="flex flex-col justify-center px-8 py-12 md:px-12 lg:py-16">
+      <div className="page-gutter flex flex-col justify-center py-12 lg:py-16">
         <div>
           <p className="type-eyebrow-cta">
             {eyebrow}
