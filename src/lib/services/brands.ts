@@ -188,7 +188,7 @@ export type SimilarBrand = {
 
 export function generateSlug(name: string): string {
   // Transliterate CJK characters to pinyin; non-CJK chars pass through unchanged
-  const transliterated = pinyin(name, { toneType: 'none', type: 'array' }).join(' ')
+  const transliterated = pinyin(name, { toneType: 'none', type: 'array', nonZh: 'consecutive' }).join(' ')
 
   return transliterated
     .normalize('NFKD')
@@ -199,7 +199,7 @@ export function generateSlug(name: string): string {
     .replace(/^-|-$/g, '')
 }
 
-const VALID_SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{2,79}$/
+const VALID_SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,79}$/
 
 export function isValidSlug(slug: string): boolean {
   return VALID_SLUG_PATTERN.test(slug) && !slug.includes('--')

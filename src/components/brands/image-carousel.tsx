@@ -110,7 +110,7 @@ export function ImageCarousel({ images, alt, imageAlts }: ImageCarouselProps) {
 
       {/* Thumbnail grid */}
       {total > 1 && (
-        <div className="scrollbar-hide flex gap-2 overflow-x-auto">
+        <div className="scrollbar-none flex gap-2 overflow-x-auto">
           {validImages.map((src, i) => (
             <button
               key={i}

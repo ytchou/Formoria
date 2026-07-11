@@ -2,6 +2,7 @@
 import { act } from 'react'
 import { hydrateRoot } from 'react-dom/client'
 import { renderToString } from 'react-dom/server'
+import { render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { InlineVerification } from './inline-verification'
 
@@ -24,11 +25,10 @@ afterEach(() => {
 })
 
 describe('InlineVerification hydration', () => {
-  it('renders without a nested card when embedded', () => {
-    const container = document.createElement('div')
-    container.innerHTML = renderToString(
-      <InlineVerification {...props} embedded />,
-    )
+  it('renders nothing on the server, then without a nested card when embedded', () => {
+    expect(renderToString(<InlineVerification {...props} embedded />)).toBe('')
+
+    const { container } = render(<InlineVerification {...props} embedded />)
 
     const verification = container.querySelector('#verification')
     expect(verification).not.toBeNull()

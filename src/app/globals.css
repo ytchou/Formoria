@@ -63,6 +63,7 @@
   --color-verified-green-bg: var(--verified-green-bg);
   --color-mit-verified: var(--mit-verified);
   --color-mit-verified-bg: var(--mit-verified-bg);
+  --color-warning: var(--warning);
   --color-cta: var(--cta);
   --color-cta-foreground: var(--cta-foreground);
   --color-primary-dark: var(--primary-dark);
@@ -103,6 +104,7 @@
 
   /* Semantic */
   --destructive: oklch(0.58 0.18 30);
+  --warning: oklch(0.666 0.179 58.3);                /* Amber #D97706 */
 
   /* Extended semantic tokens */
   --warm-caption: oklch(0.58 0.01 55);
@@ -158,6 +160,7 @@
   --accent: oklch(0.25 0.02 50);
   --accent-foreground: oklch(0.975 0.005 70);
   --destructive: oklch(0.704 0.191 22.216);
+  --warning: oklch(0.769 0.188 70.1);                /* Brighter amber on dark bg */
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.653 0.0529 171.5);                 /* Light green for focus ring on dark bg */

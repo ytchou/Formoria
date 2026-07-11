@@ -3,6 +3,7 @@
 import { useState, useSyncExternalStore, useTransition } from 'react'
 import { useTranslations } from 'next-intl'
 import { X } from 'lucide-react'
+import { useMounted } from '@/hooks/use-mounted'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { verifyMitAction } from '@/app/[locale]/(protected)/dashboard/actions'
@@ -21,7 +22,7 @@ export function InlineVerification({
   mitEvidence,
 }: InlineVerificationProps) {
   const t = useTranslations('dashboard.mit')
-  const mounted = useSyncExternalStore(() => () => {}, () => true, () => false)
+  const mounted = useMounted()
 
   const DISMISS_KEY = `formoria:dismiss-verification:${brandId}`
 

@@ -1,6 +1,7 @@
 import { getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 export default async function GuideNotFound() {
   const t = await getTranslations('guides')
@@ -11,7 +12,7 @@ export default async function GuideNotFound() {
       <p className="mt-3 type-card-description">{t('notFound.description')}</p>
       <Link
         href="/guides"
-        className={buttonVariants({ variant: 'primary', tone: 'cta' }) + ' mt-6'}
+        className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-6')}
       >
         {t('notFound.browseAll')}
       </Link>

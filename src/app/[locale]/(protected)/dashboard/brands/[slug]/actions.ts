@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getLocale, getTranslations } from 'next-intl/server'
 import { localizePath } from '@/i18n/locale-preference'
-import type { AppLocale } from '@/i18n/locale-preference'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
 import { createPendingEdit } from '@/lib/services/pending-edits'
 import {
@@ -251,7 +250,7 @@ export async function updateBrandAction(
   }
 
   const locale = await getLocale()
-  redirect(localizePath(`/dashboard/brands/${brandSlug}`, locale as AppLocale))
+  redirect(localizePath(`/dashboard/brands/${brandSlug}`, locale))
 }
 
 export async function publishDraftAction(
@@ -391,6 +390,6 @@ export async function publishDraftAction(
   }
 
   const locale = await getLocale()
-  redirect(localizePath(`/dashboard/brands/${brandSlug}`, locale as AppLocale))
+  redirect(localizePath(`/dashboard/brands/${brandSlug}`, locale))
 }
 

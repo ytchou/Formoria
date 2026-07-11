@@ -6,7 +6,6 @@ import { getLocale } from 'next-intl/server'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
 import { getOnboardingStepHref } from '@/lib/schemas/brand-edit'
 import { localizePath } from '@/i18n/locale-preference'
-import type { AppLocale } from '@/i18n/locale-preference'
 import {
   isOnboardingStepKey,
   setBrandOnboardingStepStatus,
@@ -31,5 +30,5 @@ export async function visitDashboardWalkthroughStep(
   })
   revalidatePath(`/dashboard/brands/${brandSlug}`)
   const locale = await getLocale()
-  redirect(localizePath(getOnboardingStepHref(step, brandSlug), locale as AppLocale))
+  redirect(localizePath(getOnboardingStepHref(step, brandSlug), locale))
 }

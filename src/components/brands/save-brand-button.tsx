@@ -9,7 +9,6 @@ import { useSavedBrands } from '@/hooks/use-saved-brands'
 import { buttonVariants } from '@/components/ui/button'
 import { usePathname } from '@/i18n/navigation'
 import { localizePath } from '@/i18n/locale-preference'
-import type { AppLocale } from '@/i18n/locale-preference'
 import { useUser } from '@/lib/auth/use-user'
 import { cn } from '@/lib/utils'
 
@@ -43,7 +42,7 @@ export function SaveBrandButton({
     }
 
     if (!user) {
-      const localizedPath = localizePath(pathname, locale as AppLocale)
+      const localizedPath = localizePath(pathname, locale)
       document.cookie = `post_auth_next=${encodeURIComponent(
         localizedPath
       )}; path=/; max-age=600; SameSite=Lax`

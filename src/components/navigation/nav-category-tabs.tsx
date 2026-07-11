@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { useRouter, usePathname } from '@/i18n/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { trackCategoryFilterApplied } from '@/lib/analytics'
+import { categoryLabel } from '@/lib/taxonomy/ontology'
 
 interface NavCategoryTabsProps {
   categories: Array<{ slug: string; name: string; nameZh: string | null }>
@@ -57,7 +58,7 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
         </button>
         {categories.map((cat) => {
           const isActive = activeCategory === cat.slug
-          const label = locale === 'zh-TW' ? (cat.nameZh ?? cat.name) : cat.name
+          const label = categoryLabel(cat, locale)
           return (
             <button
               key={cat.slug}

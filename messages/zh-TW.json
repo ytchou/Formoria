@@ -893,6 +893,20 @@
       "emailLabel": "電子郵件",
       "submit": "傳送重設連結",
       "submitting": "傳送中...",
+      "successMessage": "若此電子郵件已註冊帳號，我們已寄出密碼重設連結",
+      "backToSignIn": "記得密碼了？",
+      "signInLink": "登入"
+    },
+    "resetPassword": {
+      "heading": "設定新密碼",
+      "subheading": "請輸入您帳號的新密碼",
+      "passwordLabel": "新密碼",
+      "passwordPlaceholder": "至少 8 個字元",
+      "confirmPasswordLabel": "確認新密碼",
+      "submit": "更新密碼",
+      "submitting": "更新中...",
+      "sessionExpired": "重設連結已過期，請重新申請",
+      "success": "密碼已更新，請使用新密碼登入",
       "backToSignIn": "記得密碼了？",
       "signInLink": "登入"
     },
@@ -1346,6 +1360,8 @@
     "boundary": {
       "title": "發生錯誤",
       "description": "發生了預期外的錯誤，請再試一次。",
+      "brandDescription": "無法載入此品牌，請再試一次。",
+      "guideDescription": "無法載入此指南，請再試一次。",
       "retry": "重試"
     }
   },

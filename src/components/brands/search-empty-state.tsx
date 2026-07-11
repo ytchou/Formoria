@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { useTranslations, useLocale } from 'next-intl'
 import { Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { categoryLabel } from '@/lib/taxonomy/ontology'
 
 interface SearchEmptyStateProps {
   query: string
@@ -69,14 +70,14 @@ export function SearchEmptyState({
           <p className="text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {t('emptyState.browseCategories')}
           </p>
-          <div className="scrollbar-hide mt-3 flex justify-center gap-2 overflow-x-auto flex-nowrap">
+          <div className="scrollbar-none mt-3 flex justify-center gap-2 overflow-x-auto flex-nowrap">
             {categories.map(({ productType, name, nameZh }) => (
               <Link
                 key={productType}
                 href={`?category=${encodeURIComponent(productType)}`}
                 className="whitespace-nowrap rounded-full border border-primary/20 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
-                {locale === 'zh-TW' && nameZh ? nameZh : name}
+                {categoryLabel({ name, nameZh }, locale)}
               </Link>
             ))}
           </div>
@@ -89,7 +90,7 @@ export function SearchEmptyState({
           <p className="text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {t('emptyState.featuredBrands')}
           </p>
-          <div className="scrollbar-hide mt-3 flex justify-center gap-3 overflow-x-auto flex-nowrap">
+          <div className="scrollbar-none mt-3 flex justify-center gap-3 overflow-x-auto flex-nowrap">
             {featuredBrands.map((brand) => (
               <Link
                 key={brand.id}

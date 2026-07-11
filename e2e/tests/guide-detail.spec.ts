@@ -9,7 +9,7 @@ test.describe('Guide detail deep', () => {
     await expect(
       anonPage.getByRole('heading', { name: '台灣護膚品牌推薦', level: 1 })
     ).toBeVisible({ timeout: 10_000 });
-    await expect(anonPage.getByText(/something went wrong/i)).not.toBeVisible();
+    await expect(anonPage.getByText(/something went wrong|發生錯誤/i)).not.toBeVisible();
   });
 
   test('BrandCard components render (live card or not-found placeholder)', async ({ anonPage }) => {

@@ -147,8 +147,10 @@ export default function SubmitForm({
   }
 
   const handleTurnstileSuccess = useCallback(
-    (token: string) =>
-      setValue('turnstileToken', token, { shouldValidate: true }),
+    (token: string) => {
+      setTurnstileError(false)
+      setValue('turnstileToken', token, { shouldValidate: true })
+    },
     [setValue],
   )
 

@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 import { localizePath } from '@/i18n/locale-preference'
-import type { AppLocale } from '@/i18n/locale-preference'
 import { useFilterParams } from '@/hooks/use-filter-params'
 import { cn } from '@/lib/utils'
 import {
@@ -127,7 +126,7 @@ function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = 
       if (redirectTo) {
         // Use native navigation for cross-page redirects — router.push
         // intermittently fails in WebKit when navigating from / to /brands.
-        window.location.href = `${localizePath(redirectTo, locale as AppLocale)}?search=${encodeURIComponent(q)}`
+        window.location.href = `${localizePath(redirectTo, locale)}?search=${encodeURIComponent(q)}`
       }
     }
   }

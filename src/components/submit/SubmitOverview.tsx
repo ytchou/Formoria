@@ -3,8 +3,7 @@
 import NextLink from 'next/link'
 import { useLocale, useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
-import { localizePath } from '@/i18n/locale-preference'
-import type { AppLocale } from '@/i18n/locale-preference'
+import { signInHref } from '@/i18n/locale-preference'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { Check } from 'lucide-react'
@@ -108,7 +107,7 @@ export default function SubmitOverview({
             </Link>
           ) : (
             <NextLink
-              href={`/auth/sign-in?next=${encodeURIComponent(localizePath(ownerPath, locale as AppLocale))}`}
+              href={signInHref(ownerPath, locale)}
               className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-6')}
             >
               {t('ownerCta')}

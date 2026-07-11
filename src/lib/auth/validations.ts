@@ -22,6 +22,24 @@ export function getSignUpSchema(t: Translator) {
     });
 }
 
+export function getForgotPasswordSchema(t: Translator) {
+  return z.object({
+    email: z.email(t("validation.emailInvalid")),
+  });
+}
+
+export function getResetPasswordSchema(t: Translator) {
+  return z
+    .object({
+      password: z.string().min(8, t("validation.passwordMinLength")),
+      confirmPassword: z.string(),
+    })
+    .refine((data) => data.password === data.confirmPassword, {
+      message: t("validation.passwordMismatch"),
+      path: ["confirmPassword"],
+    });
+}
+
 export function isRelativeUrl(url: string): boolean {
   if (!url) return false;
   if (!url.startsWith("/")) return false;

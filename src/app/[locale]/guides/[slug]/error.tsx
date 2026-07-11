@@ -1,29 +1,10 @@
 'use client'
 
-import { useEffect } from 'react'
-import * as Sentry from '@sentry/nextjs'
-import { Button } from '@/components/ui/button'
+import { RouteError } from '@/components/shared/route-error'
 
-export default function GuideDetailError({
-  error,
-  reset,
-}: {
+export default function GuideDetailError(props: {
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  useEffect(() => {
-    Sentry.captureException(error)
-  }, [error])
-
-  return (
-    <main className="page-gutter mx-auto flex max-w-screen-xl flex-col items-center justify-center py-24 text-center">
-      <h1 className="type-page-title">Something went wrong</h1>
-      <p className="mt-3 type-card-description">
-        We couldn&apos;t load this guide. Please try again.
-      </p>
-      <Button variant="primary" tone="cta" onClick={reset} className="mt-6">
-        Try again
-      </Button>
-    </main>
-  )
+  return <RouteError {...props} descriptionKey="boundary.guideDescription" />
 }

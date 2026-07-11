@@ -1,8 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { Link } from '@/i18n/navigation'
-import { localizePath } from '@/i18n/locale-preference'
-import type { AppLocale } from '@/i18n/locale-preference'
+import { signInHref } from '@/i18n/locale-preference'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
@@ -52,7 +51,7 @@ export default async function SubmitOwnerPage({
   } = await supabase.auth.getUser()
 
   if (error || !user) {
-    redirect(`/auth/sign-in?next=${localizePath('/submit/owner', locale as AppLocale)}`)
+    redirect(signInHref('/submit/owner', locale))
   }
 
   const hasOwnedBrand = Boolean(await getUserBrand(user.id))

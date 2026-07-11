@@ -201,6 +201,19 @@ function validateDescriptionFields(
   let blurbZh = parsed.blurb_zh
   let blurbEn = parsed.blurb_en
 
+  const rejectAiArtifacts = (
+    field: DescriptionRewriteResult['validationRejections'][number]['field'],
+    value: string,
+    locale: 'zh' | 'en'
+  ): string | null => {
+    const artifacts = detectAiArtifacts(value, locale)
+    if (artifacts.length > 0) {
+      validationRejections.push({ field, reasons: artifacts, warnings: [], attempt })
+      return null
+    }
+    return value
+  }
+
   if (descriptionZh) {
     const validation = validateLocalizedText(descriptionZh, 'zh', ZH_DESCRIPTION_BAND)
     const hasHardFailure = !validation.ok
@@ -212,11 +225,7 @@ function validateDescriptionFields(
       descriptionZh = null
     }
     if (descriptionZh) {
-      const artifacts = detectAiArtifacts(descriptionZh, 'zh')
-      if (artifacts.length > 0) {
-        validationRejections.push({ field: 'description_zh', reasons: artifacts, warnings: [], attempt })
-        descriptionZh = null
-      }
+      descriptionZh = rejectAiArtifacts('description_zh', descriptionZh, 'zh')
     }
   } else {
     validationRejections.push({ field: 'description_zh', reasons: ['missing'], warnings: [], attempt })
@@ -233,11 +242,7 @@ function validateDescriptionFields(
       descriptionEn = null
     }
     if (descriptionEn) {
-      const artifacts = detectAiArtifacts(descriptionEn, 'en')
-      if (artifacts.length > 0) {
-        validationRejections.push({ field: 'description_en', reasons: artifacts, warnings: [], attempt })
-        descriptionEn = null
-      }
+      descriptionEn = rejectAiArtifacts('description_en', descriptionEn, 'en')
     }
   } else {
     validationRejections.push({ field: 'description_en', reasons: ['missing'], warnings: [], attempt })
@@ -254,11 +259,7 @@ function validateDescriptionFields(
       blurbZh = null
     }
     if (blurbZh) {
-      const artifacts = detectAiArtifacts(blurbZh, 'zh')
-      if (artifacts.length > 0) {
-        validationRejections.push({ field: 'blurb_zh', reasons: artifacts, warnings: [], attempt })
-        blurbZh = null
-      }
+      blurbZh = rejectAiArtifacts('blurb_zh', blurbZh, 'zh')
     }
   } else {
     validationRejections.push({ field: 'blurb_zh', reasons: ['missing'], warnings: [], attempt })
@@ -275,11 +276,7 @@ function validateDescriptionFields(
       blurbEn = null
     }
     if (blurbEn) {
-      const artifacts = detectAiArtifacts(blurbEn, 'en')
-      if (artifacts.length > 0) {
-        validationRejections.push({ field: 'blurb_en', reasons: artifacts, warnings: [], attempt })
-        blurbEn = null
-      }
+      blurbEn = rejectAiArtifacts('blurb_en', blurbEn, 'en')
     }
   } else {
     validationRejections.push({ field: 'blurb_en', reasons: ['missing'], warnings: [], attempt })

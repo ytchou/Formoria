@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { localizePath } from '@/i18n/locale-preference'
-import type { AppLocale } from '@/i18n/locale-preference'
 import { getTranslations } from 'next-intl/server'
 import { createClient } from '@/lib/supabase/server'
 import { canManageDashboardBrand } from '@/lib/auth/admin-mode'
@@ -44,7 +43,7 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
     brand.slug,
   )
 
-  if (!owner) redirect(localizePath('/dashboard', locale as AppLocale))
+  if (!owner) redirect(localizePath('/dashboard', locale))
 
   const [draft, productTagSuggestions] = await Promise.all([
     getBrandDraft(brand.id),

@@ -6,7 +6,6 @@ import { routing } from "@/i18n/routing";
 import { BrandMark } from "@/lib/brand/BrandMark";
 import { createClient } from "@/lib/supabase/server";
 import { localizePath } from "@/i18n/locale-preference";
-import type { AppLocale } from "@/i18n/locale-preference";
 
 export default async function AuthLayout({
   children,
@@ -26,10 +25,10 @@ export default async function AuthLayout({
   const messages = await getMessages();
 
   if (user) {
-    redirect(localizePath('/dashboard', locale as AppLocale));
+    redirect(localizePath('/dashboard', locale));
   }
 
-  const homePath = localizePath('/', locale as AppLocale);
+  const homePath = localizePath('/', locale);
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>

@@ -13,6 +13,13 @@ export const PRODUCT_TYPE_CATEGORIES = [
   { slug: 'kids-pets', name: 'Kids, Baby & Pets', nameZh: '母嬰寵物' },
 ] as const
 
+export function categoryLabel(
+  item: { name: string; nameZh: string | null },
+  locale: string,
+): string {
+  return locale === 'zh-TW' ? (item.nameZh ?? item.name) : item.name
+}
+
 export function deriveCategoryFromProductType(
   productType: string,
   productTypeNote?: string | null,

@@ -21,7 +21,7 @@ BEGIN
     setweight(to_tsvector('english', COALESCE(NEW.blurb_en, '')), 'D');
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql VOLATILE;
+$$ LANGUAGE plpgsql VOLATILE SET search_path = public;
 
 DROP TRIGGER IF EXISTS brands_search_vector_trigger ON brands;
 CREATE TRIGGER brands_search_vector_trigger
@@ -175,4 +175,4 @@ EXCEPTION
     ORDER BY scores.rank_score DESC
     LIMIT result_limit;
 END;
-$$ LANGUAGE plpgsql STABLE;
+$$ LANGUAGE plpgsql STABLE SET search_path = public;

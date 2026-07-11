@@ -41,7 +41,7 @@ test.describe('Brand detail deep', () => {
     await page.goto(brandHref);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
     // No error boundaries or 404
-    await expect(page.getByText(/something went wrong|not found|error/i)).not.toBeVisible();
+    await expect(page.getByText(/something went wrong|not found|error|發生錯誤/i)).not.toBeVisible();
   });
 
   test('brand detail shows social and purchase links in two separate sections', async ({ page }) => {

@@ -46,7 +46,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               `img-src 'self' data: blob: ${imgSrcHosts} ${mapTileImgSrcHosts}`,
               "font-src 'self'",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://www.google-analytics.com https://analytics.google.com https://www.google.com https://stats.g.doubleclick.net https://challenges.cloudflare.com https://api.axiom.co",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://www.google-analytics.com https://analytics.google.com https://www.google.com https://stats.g.doubleclick.net https://challenges.cloudflare.com https://cloudflareinsights.com https://api.axiom.co",
               "worker-src 'self' blob:",
               "frame-src https://challenges.cloudflare.com",
               "frame-ancestors 'none'",

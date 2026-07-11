@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useImageUpload } from '@/components/upload/useImageUpload'
 import { Link, usePathname } from '@/i18n/navigation'
-import { localizePath } from '@/i18n/locale-preference'
+import { signInHref } from '@/i18n/locale-preference'
 import { useUser } from '@/lib/auth/use-user'
 import {
   CLAIM_PROOF_TYPES,
@@ -316,7 +316,7 @@ export function ClaimBrandCta({
               </Button>
             ) : (
               <NextLink
-                href={`/auth/sign-in?next=${encodeURIComponent(localizePath(pathname, locale))}`}
+                href={signInHref(pathname, locale)}
                 className={buttonVariants({ variant: 'primary', tone: 'cta' })}
               >
                 {t('signIn')}
@@ -490,7 +490,7 @@ export function ClaimBrandCta({
             <div aria-live="polite" className="space-y-2 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
               <p>{feedback.message}</p>
               {feedback.authRequired && (
-                <NextLink href={`/auth/sign-in?next=${encodeURIComponent(localizePath(pathname, locale))}`} className="inline-flex font-medium underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <NextLink href={signInHref(pathname, locale)} className="inline-flex font-medium underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   {t('signIn')}
                 </NextLink>
               )}

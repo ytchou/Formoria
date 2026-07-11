@@ -111,11 +111,14 @@ function SectionLabel({
 }
 
 function LinkSection({ label, slots, brand }: LinkSectionProps) {
+  const visibleSlots = slots.filter((slot) => slot.url)
+  if (visibleSlots.length === 0) return null
+
   return (
     <section>
       <SectionLabel>{label}</SectionLabel>
       <div className="flex flex-wrap gap-3">
-        {slots.filter((slot) => slot.url).map((slot, index) => {
+        {visibleSlots.map((slot, index) => {
           const slotKey = `${slot.linkType}:${slot.label}:${index}`
 
           return (
@@ -241,8 +244,6 @@ function BrandOtherLinks({ brand }: BrandLinksProps) {
       },
     ]
   })
-
-  if (otherSlots.length === 0) return null
 
   return (
     <LinkSection
