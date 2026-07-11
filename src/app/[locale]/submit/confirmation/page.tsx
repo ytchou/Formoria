@@ -50,7 +50,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
   const isOwnerIntent = intent === 'owner_claim'
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-12">
+    <div className="page-gutter flex min-h-screen items-center justify-center py-12">
       <div
         className={surfaceCardStyles({
           className: 'w-full max-w-[560px] rounded-2xl p-10',

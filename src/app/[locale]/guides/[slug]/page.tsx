@@ -66,7 +66,7 @@ export default async function GuidePage({ params }: PageProps) {
   })
 
   return (
-    <main className="mx-auto w-full max-w-[720px] px-6 py-12 md:px-8 md:py-16">
+    <main className="page-gutter mx-auto w-full max-w-[720px] py-12 md:py-16">
       <article className="space-y-8">
         <script
           type="application/ld+json"

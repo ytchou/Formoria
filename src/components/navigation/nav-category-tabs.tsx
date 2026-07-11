@@ -39,7 +39,7 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
   }
 
   return (
-    <nav className="mx-auto max-w-screen-xl px-6">
+    <nav className="page-gutter mx-auto max-w-screen-xl">
       <div className="flex h-11 items-center gap-1 overflow-x-auto scrollbar-none">
         <button
           type="button"

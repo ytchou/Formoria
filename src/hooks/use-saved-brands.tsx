@@ -30,6 +30,7 @@ type SavedBrandsProviderProps = {
 
 export function SavedBrandsProvider({ children }: SavedBrandsProviderProps) {
   const { user, loading: userLoading } = useUser()
+  const userId = user?.id
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
   const [fetchLoading, setFetchLoading] = useState(false)
 
@@ -43,7 +44,7 @@ export function SavedBrandsProvider({ children }: SavedBrandsProviderProps) {
     }
 
     void (async () => {
-      if (!user) {
+      if (!userId) {
         if (isMounted) {
           setSavedIds(new Set())
           setFetchLoading(false)
@@ -73,7 +74,7 @@ export function SavedBrandsProvider({ children }: SavedBrandsProviderProps) {
     return () => {
       isMounted = false
     }
-  }, [user, userLoading])
+  }, [userId, userLoading])
 
   const toggle = useCallback((brandId: string) => {
     const snapshot = new Set(savedIds)

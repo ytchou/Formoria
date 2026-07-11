@@ -118,7 +118,7 @@ export default async function GlossaryPage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbJsonLd) }}
       />
       <main>
-        <div className="max-w-6xl mx-auto px-4 py-12 sm:px-6 md:py-16">
+        <div className="page-gutter mx-auto max-w-6xl py-12 md:py-16">
           {/* Page intro */}
           <div className="mb-10 max-w-[680px]">
             <p className="mb-3 type-eyebrow">

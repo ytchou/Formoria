@@ -23,7 +23,7 @@ export default function TaiwanStats({
 }: TaiwanStatsProps) {
   return (
     <section className="bg-secondary">
-      <div className="mx-auto max-w-5xl px-6 py-16 md:px-8 md:py-24">
+      <div className="page-gutter mx-auto max-w-5xl py-16 md:py-24">
         <p className="type-eyebrow-muted">
           {eyebrow}
         </p>

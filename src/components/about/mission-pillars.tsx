@@ -11,7 +11,7 @@ interface MissionPillarsProps {
 export default function MissionPillars({ heading, pillars }: MissionPillarsProps) {
   return (
     <section className="border-t border-border py-16 md:py-24">
-      <div className="mx-auto max-w-5xl px-6 md:px-8">
+      <div className="page-gutter mx-auto max-w-5xl">
         <h2 className="type-page-title-large">
           {heading}
         </h2>

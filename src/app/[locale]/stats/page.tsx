@@ -60,7 +60,7 @@ export default async function StatsPage({ params }: StatsPageProps) {
   const formattedDate = formatDate(new Date(), safeLocale)
 
   return (
-    <main className="mx-auto w-full max-w-5xl bg-background px-6 py-8 text-foreground md:px-10 md:py-12">
+    <main className="page-gutter mx-auto w-full max-w-5xl bg-background py-8 text-foreground md:py-12">
       <div className="space-y-12">
         <section className="space-y-3">
           <p className="type-metadata">{t('hero.subtitle')}</p>

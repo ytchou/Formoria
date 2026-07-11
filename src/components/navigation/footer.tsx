@@ -11,7 +11,7 @@ export function Footer() {
       role="contentinfo"
       className="border-t border-border bg-white"
     >
-      <div className="mx-auto max-w-screen-xl px-6 py-12 md:px-10">
+      <div className="page-gutter mx-auto max-w-screen-xl py-12">
         {/* Multi-column link grid */}
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
           {/* Discover */}

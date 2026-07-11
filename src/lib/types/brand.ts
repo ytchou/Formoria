@@ -33,6 +33,8 @@ export type RetailLocationRelationshipType =
   | 'stockist'
   | 'department_counter'
 
+export type RetailLocationType = 'chain' | 'independent'
+
 export type RetailLocationVerificationStatus =
   | 'verified'
   | 'manual'
@@ -41,6 +43,7 @@ export type RetailLocationVerificationStatus =
 export type RetailLocation = {
   name: string
   relationshipType?: RetailLocationRelationshipType
+  type?: RetailLocationType
   address: string
   city?: string
   district?: string

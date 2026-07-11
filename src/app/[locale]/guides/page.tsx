@@ -43,7 +43,7 @@ export default async function GuidesHubPage({ params, searchParams }: PageProps)
   const guides = activeCategory ? await getGuidesByCategory(activeCategory) : await getAllGuides()
 
   return (
-    <main className="mx-auto w-full max-w-screen-xl px-6 py-10 md:px-10">
+    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
       <div className="space-y-8">
         <header className="space-y-3">
           <p className="type-eyebrow-muted">

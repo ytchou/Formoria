@@ -3,9 +3,10 @@
 import { CircleMarker, MapContainer, Popup, TileLayer } from 'react-leaflet'
 import type { LatLngBoundsExpression, LatLngExpression } from 'leaflet'
 import type { RetailLocation } from '@/lib/types'
-import { hasLocationCoordinates } from '@/lib/brands/locations'
+import { isMappableRetailLocation } from '@/lib/brands/locations'
 
 type PinnedLocation = RetailLocation & {
+  type: 'independent'
   latitude: number
   longitude: number
 }
@@ -21,7 +22,7 @@ export function BrandLocationsLeaflet({
   locations: RetailLocation[]
   mapTitle: string
 }) {
-  const pinnedLocations = locations.filter(hasLocationCoordinates)
+  const pinnedLocations = locations.filter(isMappableRetailLocation)
   const firstLocation = pinnedLocations.at(0)
 
   if (!firstLocation) return null

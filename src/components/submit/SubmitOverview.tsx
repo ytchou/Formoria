@@ -20,7 +20,7 @@ export default function SubmitOverview({
 }: SubmitOverviewProps) {
   const t = useTranslations('submit.overview')
   return (
-    <main className="mx-auto max-w-5xl px-6 py-20">
+    <main className="page-gutter mx-auto max-w-5xl py-20">
       <div className="max-w-3xl">
         <h1 className="text-balance type-page-title-large">
           {t('heading')}

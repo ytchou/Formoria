@@ -12,7 +12,7 @@ export async function PreviewBanner({ slug }: PreviewBannerProps) {
   return (
     <>
       <div className="fixed top-0 inset-x-0 z-50 border-b border-border bg-accent text-accent-foreground">
-        <div className="mx-auto flex min-h-12 max-w-screen-xl items-center justify-between gap-4 px-6 py-2 text-sm font-medium md:px-10">
+        <div className="page-gutter mx-auto flex min-h-12 max-w-screen-xl items-center justify-between gap-4 py-2 text-sm font-medium">
           <span>{t('previewBanner')}</span>
           <Link
             href={`/dashboard/brands/${slug}/edit`}

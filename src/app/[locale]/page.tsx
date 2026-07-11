@@ -91,7 +91,7 @@ export default async function LandingPage({ params }: PageProps) {
           <Manifesto />
 
           <div className="py-6 md:py-8">
-            <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            <div className="mx-auto max-w-6xl page-gutter">
               <NextIntlClientProvider messages={messages}>
                 <FilterableBrandShowcase brands={allBrands} categories={[...PRODUCT_TYPE_CATEGORIES]} />
               </NextIntlClientProvider>
@@ -101,7 +101,7 @@ export default async function LandingPage({ params }: PageProps) {
           <SubmitBand />
 
           <div className="py-6 md:py-8">
-            <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            <div className="mx-auto max-w-6xl page-gutter">
               <BrandShowcase
                 brands={newBrands}
                 heading={t('newBrands.heading')}

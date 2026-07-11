@@ -22,7 +22,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { searchLocationAction } from '@/lib/actions/location-search'
 import type { BrandEditFormValues } from '@/lib/schemas/brand-edit'
 import type { LocationSearchResult } from '@/lib/services/location-search'
-import type { RetailLocationRelationshipType } from '@/lib/types'
+import type {
+  RetailLocationRelationshipType,
+  RetailLocationType,
+} from '@/lib/types'
 
 const RELATIONSHIP_OPTIONS: Array<{
   value: RetailLocationRelationshipType
@@ -33,9 +36,22 @@ const RELATIONSHIP_OPTIONS: Array<{
   { value: 'department_counter', labelKey: 'locationTypeDepartmentCounter' },
 ]
 
+const LOCATION_TYPE_OPTIONS: Array<{
+  value: RetailLocationType | 'unclassified'
+  labelKey:
+    | 'locationNetworkChain'
+    | 'locationNetworkIndependent'
+    | 'locationNetworkUnclassified'
+}> = [
+  { value: 'unclassified', labelKey: 'locationNetworkUnclassified' },
+  { value: 'independent', labelKey: 'locationNetworkIndependent' },
+  { value: 'chain', labelKey: 'locationNetworkChain' },
+]
+
 const EMPTY_LOCATION = {
   name: '',
   relationshipType: 'stockist' as const,
+  type: undefined,
   address: '',
   city: '',
   district: '',
@@ -192,7 +208,7 @@ export function LocationsSection({
                 </Button>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-[minmax(0,220px)_minmax(0,1fr)]">
+              <div className="grid gap-4 sm:grid-cols-3">
                 <DashboardFormField
                   id={`${fieldId}-relationshipType`}
                   label={t('fieldLocationType')}
@@ -222,6 +238,49 @@ export function LocationsSection({
                         </SelectTrigger>
                         <SelectContent>
                           {RELATIONSHIP_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {t(option.labelKey)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </DashboardFormField>
+
+                <DashboardFormField
+                  id={`${fieldId}-type`}
+                  label={t('fieldLocationNetwork')}
+                  className="px-0 py-0"
+                >
+                  <Controller
+                    control={form.control}
+                    name={`retailLocations.${index}.type`}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value ?? 'unclassified'}
+                        onValueChange={(value) =>
+                          field.onChange(
+                            value === 'unclassified' ? undefined : value,
+                          )
+                        }
+                      >
+                        <SelectTrigger
+                          id={`${fieldId}-type`}
+                          className="min-h-12 w-full bg-card"
+                        >
+                          <SelectValue>
+                            {(value) =>
+                              t(
+                                LOCATION_TYPE_OPTIONS.find(
+                                  (option) => option.value === value,
+                                )?.labelKey ?? 'locationNetworkUnclassified',
+                              )
+                            }
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {LOCATION_TYPE_OPTIONS.map((option) => (
                             <SelectItem key={option.value} value={option.value}>
                               {t(option.labelKey)}
                             </SelectItem>

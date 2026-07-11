@@ -28,6 +28,7 @@ const brandWithLocation: Brand = {
     {
       name: '大零售地點',
       relationshipType: 'stockist',
+      type: 'independent',
       address: '新北市林口區麗園一街11巷',
       latitude: 25.073,
       longitude: 121.389,
@@ -36,6 +37,7 @@ const brandWithLocation: Brand = {
     {
       name: '新光三越櫃位',
       relationshipType: 'department_counter',
+      type: 'chain',
       venueName: '新光三越 台北信義新天地 A11',
       floorOrCounter: '3F',
       address: '台北市信義區松壽路11號',
@@ -68,13 +70,17 @@ function renderWithIntl(ui: React.ReactElement) {
 }
 
 describe('BrandLocations', () => {
-  it('renders relationship-specific cards and outbound map links', () => {
+  it('separates map-safe locations from chain retailers', () => {
     renderWithIntl(<BrandLocations brand={brandWithLocation} />)
 
     expect(screen.getByText('大零售地點')).toBeInTheDocument()
+    expect(screen.getByText('地圖上的獨立地點')).toBeInTheDocument()
     expect(screen.getByText('販售地點')).toBeInTheDocument()
     expect(screen.getByText('新光三越櫃位')).toBeInTheDocument()
     expect(screen.getByText('百貨專櫃')).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: '連鎖通路' }),
+    ).toBeInTheDocument()
     expect(screen.getByText('手動地址')).toBeInTheDocument()
     expect(
       screen.getAllByRole('link', { name: /在 Google Maps 開啟/ }),

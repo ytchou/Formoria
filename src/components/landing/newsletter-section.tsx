@@ -17,7 +17,7 @@ export function NewsletterSection() {
         className="object-cover"
       />
       <div className="absolute inset-0 bg-black/55" />
-      <div className="relative mx-auto max-w-3xl space-y-5 px-5">
+      <div className="page-gutter relative mx-auto max-w-3xl space-y-5">
         <h2 className="text-center type-hero-inverse">
           {t('heading')}
         </h2>

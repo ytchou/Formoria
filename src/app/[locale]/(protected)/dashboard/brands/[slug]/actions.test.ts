@@ -323,6 +323,33 @@ describe('updateBrandAction', () => {
     expect(parseBrandEditForm(formData).retailLocations).toEqual([])
   })
 
+  it('persists the selected retail location network type', async () => {
+    const { parseBrandEditForm } = await import('./actions-utils')
+
+    const formData = form({
+      brandSlug: 'test-brand',
+      'retailLocations[0].name': '台北京站時尚廣場',
+      'retailLocations[0].relationshipType': 'stockist',
+      'retailLocations[0].type': 'independent',
+      'retailLocations[0].address': '台北市大同區承德路一段 1 號',
+      'retailLocations[0].city': 'taipei',
+      'retailLocations[0].district': '大同區',
+      'retailLocations[0].venueName': '台北京站時尚廣場',
+      'retailLocations[0].floorOrCounter': '',
+      'retailLocations[0].availabilityNote': '',
+      'retailLocations[0].latitude': '25.049',
+      'retailLocations[0].longitude': '121.517',
+      'retailLocations[0].verificationStatus': 'verified',
+    })
+
+    expect(parseBrandEditForm(formData).retailLocations).toEqual([
+      expect.objectContaining({
+        name: '台北京站時尚廣場',
+        type: 'independent',
+      }),
+    ])
+  })
+
   it('blocks duplicate retailLocations when parsing owner edits', async () => {
     const { InvalidBrandEditFormError, parseBrandEditForm } = await import(
       './actions-utils'
