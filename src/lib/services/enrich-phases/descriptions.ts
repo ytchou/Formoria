@@ -125,6 +125,7 @@ export async function loadPersistedScrapeText(brandId: string): Promise<Persiste
   const raw = isRecord(row.raw_response) ? row.raw_response : {}
   const description = stringValue(raw.description)
   const story = stringValue(raw.story)
+  const stockistPageText = stringValue(raw.stockistPageText)
   const jsonLd = raw.jsonLd ?? raw.json_ld ?? null
   const snippets = [
     ...(row.snippets ?? []),
@@ -135,6 +136,7 @@ export async function loadPersistedScrapeText(brandId: string): Promise<Persiste
     row.urls?.[0] ? `URL: ${row.urls[0]}` : '',
     description ? `Description: ${description}` : '',
     story ? `Story: ${story}` : '',
+    stockistPageText ? `Stockist Page: ${stockistPageText}` : '',
     jsonLd ? `JSON-LD: ${JSON.stringify(jsonLd)}` : '',
   ].filter(Boolean)
 
