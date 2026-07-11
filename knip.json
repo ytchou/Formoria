@@ -15,6 +15,7 @@
   "ignoreBinaries": ["dotenv"],
   "ignore": [
     "src/lib/supabase/database.types.ts",
+    "src/lib/logger.ts",
     "scripts/threads-scraper/**"
   ],
   "ignoreIssues": {

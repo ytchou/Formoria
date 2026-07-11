@@ -102,3 +102,6 @@ tina/__generated__/*
 !tina/__generated__/client.ts
 !tina/__generated__/databaseClient.ts
 public/admin/content/
+
+# Eval scripts (local experimentation)
+scripts/eval/
