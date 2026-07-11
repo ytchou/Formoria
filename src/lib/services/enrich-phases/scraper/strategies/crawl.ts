@@ -2,16 +2,19 @@ import * as cheerio from 'cheerio'
 import { fetchHtml, fetchXml, resolveUrl } from '../fetch-guards'
 import {
   emptyResult,
+  extractAllJsonLd,
   extractCategoryHints,
+  extractJsonLdImages,
   extractPurchaseLinks,
   extractSocialLinks,
+  MAX_JSON_LD_IMAGES,
 } from '../parse/extractors'
 import { mergePurchaseLinks } from '../merge'
 import { SinglePageStrategy } from './single-page'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import type { ScrapeContext, ScrapeStrategy } from './types'
 
-type CandidateKind = 'about' | 'products' | 'contact' | 'other'
+type CandidateKind = 'about' | 'products' | 'contact' | 'stockist' | 'other'
 type SocialLinkFields = Pick<ScrapedBrandData, 'socialInstagram' | 'socialThreads' | 'socialFacebook'>
 type PurchaseLinkFields = Pick<
   ScrapedBrandData,
@@ -89,11 +92,13 @@ function classifyCandidate(urlString: string, text: string): CandidateKind {
   if (/(about|story|關於|品牌)/i.test(haystack)) return 'about'
   if (/(product|shop|商品)/i.test(haystack)) return 'products'
   if (/(contact|聯絡)/i.test(haystack)) return 'contact'
+  if (/(where.to.buy|stores?|stockist|retailer|通路|銷售通路|購買通路|據點|門市|哪裡買)/i.test(haystack)) return 'stockist'
   return 'other'
 }
 
 function priorityFor(kind: CandidateKind): number {
   if (kind === 'about') return 0
+  if (kind === 'stockist') return 0
   if (kind === 'products') return 1
   if (kind === 'contact') return 2
   return 3
@@ -256,6 +261,10 @@ export class CrawlStrategy implements ScrapeStrategy {
       let categoryHints = result.categoryHints
       let description = result.description
       let story = result.story
+      let stockistPageText: string | null = null
+
+      const landing$ = cheerio.load(landingHtml)
+      const jsonLdImageSet = new Set(extractJsonLdImages(extractAllJsonLd(landing$), url))
 
       for (const page of pages) {
         const $ = cheerio.load(page.html)
@@ -279,6 +288,15 @@ export class CrawlStrategy implements ScrapeStrategy {
             story = pageText
           }
         }
+
+        if (page.kind === 'stockist' && !stockistPageText) {
+          const pageText = getPageText($)
+          if (pageText) stockistPageText = pageText
+        }
+
+        for (const imgUrl of extractJsonLdImages(extractAllJsonLd($), page.url)) {
+          jsonLdImageSet.add(imgUrl)
+        }
       }
 
       return {
@@ -288,6 +306,8 @@ export class CrawlStrategy implements ScrapeStrategy {
         ...socialLinks,
         ...purchaseLinks,
         categoryHints,
+        stockistPageText,
+        jsonLdImageUrls: [...jsonLdImageSet].slice(0, MAX_JSON_LD_IMAGES),
       }
     } catch {
       return emptyResult(url)

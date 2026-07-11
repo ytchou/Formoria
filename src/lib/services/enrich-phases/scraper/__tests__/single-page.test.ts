@@ -28,4 +28,21 @@ describe('SinglePageStrategy via scrapeBrandUrls', () => {
     const { data: r } = await scrapeBrandUrls(['https://acme.tw'])
     expect(r.heroImageUrl).toBeNull()
   })
+  it('extracts JSON-LD product images', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(page(
+      '<meta property="og:title" content="Acme">' +
+      '<script type="application/ld+json">{"@type":"Product","name":"Widget","image":["https://cdn.acme.tw/a.jpg","https://cdn.acme.tw/b.jpg"]}</script>'
+    )))
+    const { data: r } = await scrapeBrandUrls(['https://acme.tw'])
+    expect(r.jsonLdImageUrls).toContain('https://cdn.acme.tw/a.jpg')
+    expect(r.jsonLdImageUrls).toContain('https://cdn.acme.tw/b.jpg')
+  })
+  it('uses JSON-LD image as hero fallback when og:image is absent', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(page(
+      '<meta property="og:title" content="Acme">' +
+      '<script type="application/ld+json">{"@type":"Product","image":"https://cdn.acme.tw/hero.jpg"}</script>'
+    )))
+    const { data: r } = await scrapeBrandUrls(['https://acme.tw'])
+    expect(r.heroImageUrl).toBe('https://cdn.acme.tw/hero.jpg')
+  })
 })

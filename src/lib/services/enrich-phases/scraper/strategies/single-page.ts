@@ -2,9 +2,11 @@ import * as cheerio from 'cheerio'
 import { fetchHtml } from '../fetch-guards'
 import {
   emptyResult,
+  extractAllJsonLd,
   extractCategoryHints,
   extractGalleryImages,
   extractJsonLd,
+  extractJsonLdImages,
   extractPurchaseLinks,
   extractSocialLinks,
   filterHeroImage,
@@ -13,12 +15,6 @@ import type { ScrapeContext, ScrapeStrategy } from './types'
 
 function getMetaContent($: cheerio.CheerioAPI, selector: string): string | null {
   return $(selector).attr('content') || null
-}
-
-function getJsonLdImage(rawJsonLd: Record<string, unknown> | null): string | null {
-  if (!rawJsonLd) return null
-
-  return typeof rawJsonLd.image === 'string' ? rawJsonLd.image : null
 }
 
 export class SinglePageStrategy implements ScrapeStrategy {
@@ -31,6 +27,8 @@ export class SinglePageStrategy implements ScrapeStrategy {
 
       const $ = cheerio.load(html)
       const rawJsonLd = extractJsonLd($)
+      const allJsonLd = extractAllJsonLd($)
+      const jsonLdImageUrls = extractJsonLdImages(allJsonLd, url)
       const galleryImageUrls = extractGalleryImages($, url)
 
       const brandName =
@@ -47,7 +45,7 @@ export class SinglePageStrategy implements ScrapeStrategy {
       const heroCandidate =
         getMetaContent($, 'meta[property="og:image"]') ||
         getMetaContent($, 'meta[name="twitter:image"]') ||
-        getJsonLdImage(rawJsonLd)
+        (jsonLdImageUrls[0] ?? null)
       const heroImageUrl = heroCandidate
         ? filterHeroImage(heroCandidate, url) ?? galleryImageUrls[0] ?? null
         : galleryImageUrls[0] ?? null
@@ -71,7 +69,7 @@ export class SinglePageStrategy implements ScrapeStrategy {
         websiteUrl: url,
         rawJsonLd,
         stockistPageText: null,
-        jsonLdImageUrls: [],
+        jsonLdImageUrls,
       }
     } catch {
       return emptyResult(url)
