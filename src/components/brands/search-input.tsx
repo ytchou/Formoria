@@ -6,6 +6,7 @@ import { useRouter } from '@/i18n/navigation'
 import { localizePath } from '@/i18n/locale-preference'
 import { useFilterParams } from '@/hooks/use-filter-params'
 import { cn } from '@/lib/utils'
+import { Input } from '@/components/ui/input'
 import {
   trackSearchNoResults,
   trackSearchExecuted,
@@ -169,7 +170,7 @@ function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = 
         />
       </svg>
 
-      <input
+      <Input
         name="q"
         type="text"
         role="searchbox"
@@ -186,8 +187,7 @@ function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = 
         value={value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
-        // eslint-disable-next-line no-restricted-syntax -- ui-exception: custom accessible search input with complex ARIA, autocomplete, and keyboard navigation that cannot be abstracted to <Input>
-        className="w-full rounded-lg border border-border bg-card py-2 pl-9 pr-8 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="w-full pl-9 pr-8"
       />
 
       {/* Clear button */}
