@@ -64,6 +64,9 @@ function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = 
     if (debounceRef.current) clearTimeout(debounceRef.current)
 
     debounceRef.current = setTimeout(() => {
+      if (!redirectTo) {
+        setSearch(value)
+      }
       if (!value.trim()) {
         setSuggestions([])
         setShowDropdown(false)
@@ -75,7 +78,7 @@ function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [fetchSuggestions, value])
+  }, [fetchSuggestions, redirectTo, setSearch, value])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -92,11 +95,7 @@ function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = 
   }, [])
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const next = e.target.value
-    setValue(next)
-    if (!redirectTo) {
-      setSearch(next)
-    }
+    setValue(e.target.value)
   }
 
   function handleClear() {

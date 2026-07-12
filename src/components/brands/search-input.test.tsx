@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import { SearchInput } from './search-input'
@@ -47,14 +47,16 @@ describe('SearchInput', () => {
     expect(screen.getByLabelText(/搜尋/)).toBeInTheDocument()
   })
 
-  it('calls setSearch on user input', async () => {
+  it('calls setSearch on user input after debounce', async () => {
     const user = userEvent.setup()
     renderWithProvider(<SearchInput />)
 
     const input = screen.getByRole('searchbox')
     await user.type(input, 'tea')
 
-    expect(mockSetSearch).toHaveBeenLastCalledWith('tea')
+    await waitFor(() => {
+      expect(mockSetSearch).toHaveBeenLastCalledWith('tea')
+    })
   })
 
   it('shows clear button when input has value', async () => {

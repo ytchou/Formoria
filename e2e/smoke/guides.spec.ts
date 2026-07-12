@@ -8,7 +8,8 @@ import { test, expect } from '../fixtures/auth';
 //   them from /zh-TW/guides currently redirects to /brands/guides?category=…; those tests
 //   will fail until the routing gap is closed.
 // - The guide card href is /guides/taiwan-skincare-brands (2-segment path, no brand-slug
-//   redirect); that path returns 404 today because intl middleware is not invoked for it.
+//   redirect); the detail navigation test follows that link, while the locale smoke test
+//   below checks the explicit /zh-TW and /en detail URLs.
 
 test.describe('Guides hub smoke', () => {
   test('nav has visible 指南 link pointing to /guides', async ({ anonPage }) => {
@@ -37,6 +38,15 @@ test.describe('Guides hub smoke', () => {
     await expect(anonPage.locator('main a[href*="/guides/"]').first()).toBeVisible({
       timeout: 10_000,
     });
+  });
+
+  test('guide detail renders in both locales', async ({ anonPage }) => {
+    for (const locale of ['zh-TW', 'en']) {
+      await anonPage.goto(`/${locale}/guides/taiwan-skincare-brands`);
+      await expect(anonPage.getByRole('heading', { level: 1 })).toBeVisible({
+        timeout: 10_000,
+      });
+    }
   });
 
   test('category filter pill updates URL with ?category= and stays on hub', async ({ anonPage }) => {

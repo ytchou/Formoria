@@ -94,6 +94,20 @@ test.describe('Static & compliance pages', () => {
     ).toBeVisible({ timeout: 15_000 })
   })
 
+  test('legal page titles are single-suffixed', async ({ anonPage }) => {
+    const pages = [
+      ['/terms', '服務條款 | Formoria'],
+      ['/privacy', '隱私權政策 | Formoria'],
+      ['/en/terms', 'Terms of Service | Formoria'],
+      ['/en/privacy', 'Privacy Policy | Formoria'],
+    ] as const
+
+    for (const [path, title] of pages) {
+      await anonPage.goto(path, { timeout: 30_000 })
+      await expect(anonPage).toHaveTitle(title)
+    }
+  })
+
   test('challenge page renders Quick verification heading', async ({ anonPage }) => {
     test.setTimeout(30_000)
     // /challenge is NOT under [locale] — navigate directly

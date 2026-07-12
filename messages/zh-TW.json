@@ -618,7 +618,7 @@
   "legal": {
     "terms": {
       "metadata": {
-        "title": "服務條款 | Formoria",
+        "title": "服務條款",
         "description": "了解 Formoria 的服務條款，包括內容所有權、資料使用方式、品牌審核流程及免責聲明。"
       },
       "title": "服務條款",
@@ -647,7 +647,7 @@
     },
     "privacy": {
       "metadata": {
-        "title": "隱私權政策 | Formoria",
+        "title": "隱私權政策",
         "description": "了解 Formoria 如何依據《個人資料保護法》蒐集、處理及利用您的個人資料。"
       },
       "title": "隱私權政策",

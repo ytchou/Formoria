@@ -29,6 +29,7 @@ vi.mock('@/i18n/navigation', () => ({
 }))
 
 import { getTranslations } from 'next-intl/server'
+import { redirect } from 'next/navigation'
 
 type Messages = typeof zh
 
@@ -57,10 +58,19 @@ describe('MySubmissionsPage', () => {
     expect(typeof MySubmissionsPage).toBe('function')
   })
 
-  it('renders submission list when user has submissions', async () => {
+  it('redirects the default locale to the localized dashboard', async () => {
     const { default: MySubmissionsPage } = await import('./page')
-    const element = await MySubmissionsPage({ params: Promise.resolve({ locale: 'zh-TW' }) })
-    // Server Component returns a React element — check it's not null
-    expect(element).not.toBeNull()
+    await MySubmissionsPage({ params: Promise.resolve({ locale: 'zh-TW' }) })
+
+    expect(redirect).toHaveBeenCalledWith('/dashboard')
+  })
+
+  it('redirects English users to the English dashboard', async () => {
+    const { default: MySubmissionsPage } = await import('./page')
+    vi.mocked(redirect).mockClear()
+
+    await MySubmissionsPage({ params: Promise.resolve({ locale: 'en' }) })
+
+    expect(redirect).toHaveBeenCalledWith('/en/dashboard')
   })
 })

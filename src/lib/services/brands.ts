@@ -24,9 +24,25 @@ import {
   toImageFields,
 } from './brand-images'
 
-function shuffleArray<T>(arr: T[]): void {
+function mulberry32(seed: number): () => number {
+  return () => {
+    seed |= 0
+    seed = (seed + 0x6d2b79f5) | 0
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function getDailySeed(): number {
+  const d = new Date()
+  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate()
+}
+
+function shuffleArray<T>(arr: T[], seed?: number): void {
+  const rng = seed != null ? mulberry32(seed) : Math.random
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
+    const j = Math.floor(rng() * (i + 1))
     ;[arr[i], arr[j]] = [arr[j], arr[i]]
   }
 }
@@ -852,7 +868,7 @@ export async function getBrands(
 
     if (sortKey === 'random') {
       const shuffledIds = [...allIds]
-      shuffleArray(shuffledIds)
+      shuffleArray(shuffledIds, getDailySeed())
       const pageIds = shuffledIds.slice(offset, pageEnd)
       const positionById = new Map(pageIds.map((id, index) => [id, index]))
       const brands = (await hydrateByIds(pageIds)).sort(
@@ -918,7 +934,7 @@ export async function getBrands(
     throw error
   }
   const brands = (data ?? []).map(brandToDomain)
-  if (sortKey === 'random') shuffleArray(brands)
+  if (sortKey === 'random') shuffleArray(brands, getDailySeed())
   return { brands, totalCount: count ?? 0 }
 }
 

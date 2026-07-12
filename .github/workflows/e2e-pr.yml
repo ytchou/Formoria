@@ -56,9 +56,6 @@ jobs:
             ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
             ${{ runner.os }}-nextjs-
 
-      - name: Build Tina content
-        run: pnpm exec tinacms build --local --skip-cloud-checks
-
       - name: Build Next.js (production)
         run: pnpm build
 

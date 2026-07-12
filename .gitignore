@@ -35,6 +35,7 @@ e2e/playwright-report/
 *.pem
 Thumbs.db
 *.csv
+*.png
 scripts/.backfill-backup-*.json
 scripts/.quality-purge-backup-*.json
 scripts/backup/

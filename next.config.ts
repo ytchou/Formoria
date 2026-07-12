@@ -18,6 +18,7 @@ if (process.env.E2E_ADMIN_EMAIL) {
 
 const imgSrcHosts = ALLOWED_IMAGE_HOSTS.map((hostname) => `https://${hostname}`).join(' ')
 const mapTileImgSrcHosts = 'https://*.tile.openstreetmap.org'
+const googleAdsImgSrcHosts = 'https://www.google.com https://www.google.com.tw'
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ['adm-zip'],
@@ -44,7 +45,7 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://challenges.cloudflare.com https://*.sentry.io https://static.cloudflareinsights.com",
               "style-src 'self' 'unsafe-inline'",
-              `img-src 'self' data: blob: ${imgSrcHosts} ${mapTileImgSrcHosts}`,
+              `img-src 'self' data: blob: ${imgSrcHosts} ${mapTileImgSrcHosts} ${googleAdsImgSrcHosts}`,
               "font-src 'self'",
               "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://www.google-analytics.com https://analytics.google.com https://www.google.com https://stats.g.doubleclick.net https://challenges.cloudflare.com https://cloudflareinsights.com https://api.axiom.co",
               "worker-src 'self' blob:",
@@ -116,6 +117,36 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/categories/:category',
+        destination: '/brands?category=:category',
+        permanent: true,
+      },
+      {
+        source: '/en/category/:category',
+        destination: '/en/brands?category=:category',
+        permanent: true,
+      },
+      {
+        source: '/zh-TW/category/:category',
+        destination: '/brands?category=:category',
+        permanent: true,
+      },
+      {
+        source: '/en/categories',
+        destination: '/en/brands',
+        permanent: true,
+      },
+      {
+        source: '/zh-TW/categories',
+        destination: '/brands',
+        permanent: true,
+      },
+      {
+        source: '/en/categories/:category',
+        destination: '/en/brands?category=:category',
+        permanent: true,
+      },
+      {
+        source: '/zh-TW/categories/:category',
         destination: '/brands?category=:category',
         permanent: true,
       },

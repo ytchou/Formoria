@@ -1,27 +1,13 @@
-import { getTranslations } from 'next-intl/server'
-import { Link } from '@/i18n/navigation'
+'use client'
+
+import Link from 'next/link'
+import { useTranslations } from 'next-intl'
+import { usePathname, useSearchParams } from 'next/navigation'
 
 interface PaginationProps {
   totalCount: number
   currentPage: number
   pageSize: number
-  basePath?: string
-  searchParams?: Record<string, string>
-}
-
-function buildPageUrl(
-  basePath: string,
-  page: number,
-  searchParams: Record<string, string>
-) {
-  const params = new URLSearchParams(searchParams)
-  if (page > 1) {
-    params.set('page', String(page))
-  } else {
-    params.delete('page')
-  }
-  const str = params.toString()
-  return str ? `${basePath}?${str}` : basePath
 }
 
 function getPageRange(currentPage: number, totalPages: number): (number | 'ellipsis')[] {
@@ -42,14 +28,30 @@ function getPageRange(currentPage: number, totalPages: number): (number | 'ellip
   return pages
 }
 
-export async function Pagination({
+function buildPageUrl(pathname: string, searchParams: URLSearchParams, page: number): string {
+  const params = new URLSearchParams(searchParams.toString())
+  if (page > 1) {
+    params.set('page', String(page))
+  } else {
+    params.delete('page')
+  }
+  const str = params.toString()
+  return str ? `${pathname}?${str}` : pathname
+}
+
+const navLinkClass =
+  'inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
+const pageLinkClass =
+  'inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
+
+export function Pagination({
   totalCount,
   currentPage,
   pageSize,
-  basePath = '/',
-  searchParams = {},
 }: PaginationProps) {
-  const t = await getTranslations('brands')
+  const t = useTranslations('brands')
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const totalPages = Math.ceil(totalCount / pageSize)
 
   if (totalPages <= 1) return null
@@ -61,9 +63,10 @@ export async function Pagination({
       {/* Previous */}
       {currentPage > 1 ? (
         <Link
-          href={buildPageUrl(basePath, currentPage - 1, searchParams)}
-          className="inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          href={buildPageUrl(pathname, searchParams, currentPage - 1)}
+          className={navLinkClass}
           aria-label={t('pagination.previousAria')}
+          scroll={false}
         >
           {t('pagination.previous')}
         </Link>
@@ -103,8 +106,9 @@ export async function Pagination({
         return (
           <Link
             key={page}
-            href={buildPageUrl(basePath, page, searchParams)}
-            className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            href={buildPageUrl(pathname, searchParams, page)}
+            className={pageLinkClass}
+            scroll={false}
           >
             {page}
           </Link>
@@ -114,9 +118,10 @@ export async function Pagination({
       {/* Next */}
       {currentPage < totalPages ? (
         <Link
-          href={buildPageUrl(basePath, currentPage + 1, searchParams)}
-          className="inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          href={buildPageUrl(pathname, searchParams, currentPage + 1)}
+          className={navLinkClass}
           aria-label={t('pagination.nextAria')}
+          scroll={false}
         >
           {t('pagination.next')}
         </Link>

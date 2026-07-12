@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useMemo, useTransition } from 'react'
 import {
   parsePageParam,
   parseSortParam,
@@ -16,6 +16,7 @@ export function useFilterParams() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const [isPending, startTransition] = useTransition()
 
   const currentPage = useMemo(
     () => parsePageParam(searchParams.get('page') ?? undefined),
@@ -32,15 +33,6 @@ export function useFilterParams() {
     [searchParams]
   )
 
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Clean up timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
-    }
-  }, [])
-
   const buildUrl = useCallback(
     (params: URLSearchParams) => {
       const str = params.toString()
@@ -53,7 +45,9 @@ export function useFilterParams() {
     const params = new URLSearchParams(searchParams.toString())
     params.delete('search')
     params.delete('page')
-    router.push(buildUrl(params), { scroll: false })
+    startTransition(() => {
+      router.push(buildUrl(params), { scroll: false })
+    })
   }, [router, buildUrl, searchParams])
 
   const setPage = useCallback(
@@ -64,7 +58,9 @@ export function useFilterParams() {
       } else {
         params.set('page', String(page))
       }
-      router.push(buildUrl(params), { scroll: false })
+      startTransition(() => {
+        router.push(buildUrl(params), { scroll: false })
+      })
     },
     [router, buildUrl, searchParams]
   )
@@ -79,25 +75,25 @@ export function useFilterParams() {
       }
       // Reset page when sort changes
       params.delete('page')
-      router.push(buildUrl(params), { scroll: false })
+      startTransition(() => {
+        router.push(buildUrl(params), { scroll: false })
+      })
     },
     [router, buildUrl, searchParams]
   )
 
   const setSearch = useCallback(
     (term: string) => {
-      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
-
-      searchTimeoutRef.current = setTimeout(() => {
-        const params = new URLSearchParams(searchParams.toString())
-        if (term) {
-          params.set('search', term)
-        } else {
-          params.delete('search')
-        }
-        params.delete('page')
+      const params = new URLSearchParams(searchParams.toString())
+      if (term) {
+        params.set('search', term)
+      } else {
+        params.delete('search')
+      }
+      params.delete('page')
+      startTransition(() => {
         router.push(buildUrl(params), { scroll: false })
-      }, 300)
+      })
     },
     [router, buildUrl, searchParams]
   )
@@ -107,6 +103,7 @@ export function useFilterParams() {
     currentPage,
     currentSort,
     filters: { search: currentSearch },
+    isPending,
     setPage,
     setSort,
     setSearch,

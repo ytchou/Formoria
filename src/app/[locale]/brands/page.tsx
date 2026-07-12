@@ -191,14 +191,6 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
     emptyStateData = { categories, featured }
   }
 
-  // Build searchParams record for pagination links (excluding page)
-  const paginationParams: Record<string, string> = {}
-  if (search) paginationParams.search = search
-  if (sort !== 'name') paginationParams.sort = sort
-  if (validCategoryFilter.length > 0) paginationParams.category = validCategoryFilter.join(',')
-  if (priceRanges.length > 0) paginationParams.price = priceRanges.join(',')
-  if (verificationFilter !== 'all') paginationParams.verification = verificationFilter
-
   let categoryItemListJsonLd = null
   let categoryBreadcrumbJsonLd = null
   let brandsItemListJsonLd = null
@@ -291,60 +283,58 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
         </div>
 
         {/* Masonry brand grid */}
-        <Suspense
-          fallback={
-            <div
-              className="grid grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2 lg:grid-cols-4"
-              aria-label={t('loadingAria')}
-            >
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className={surfaceCardStyles({ padding: 'none' })}>
-                  <div className="aspect-[4/3] animate-pulse rounded-t-xl bg-muted" />
-                  <div className="p-4">
-                    <div className="h-4 animate-pulse rounded bg-muted" />
-                    <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-muted" />
+          <Suspense
+            fallback={
+              <div
+                className="grid grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2 lg:grid-cols-4"
+                aria-label={t('loadingAria')}
+              >
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className={surfaceCardStyles({ padding: 'none' })}>
+                    <div className="aspect-[4/3] animate-pulse rounded-t-xl bg-muted" />
+                    <div className="p-4">
+                      <div className="h-4 animate-pulse rounded bg-muted" />
+                      <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-muted" />
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          }
-        >
-          <SavedBrandsProvider>
-            {displayBrands.length === 0 ? (
-              emptyStateData ? (
-                <SearchEmptyStateWrapper
-                  query={search}
-                  hasActiveFilters={hasActiveFilters}
-                  categories={emptyStateData.categories}
-                  featuredBrands={emptyStateData.featured}
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center py-24 text-center">
-                  <p className="type-empty-title">
-                    {t('emptyTitle')}
-                  </p>
-                  <p className="mt-1 type-card-description">
-                    {t('emptyDescription')}
-                  </p>
-                </div>
-              )
-            ) : (
-              <MasonryGrid>
-                {displayBrands.map((brand, index) => (
-                  <BrandCard key={brand.id} brand={brand} priority={index < 4} />
                 ))}
-              </MasonryGrid>
-            )}
-          </SavedBrandsProvider>
-        </Suspense>
+              </div>
+            }
+          >
+            <SavedBrandsProvider>
+              {displayBrands.length === 0 ? (
+                emptyStateData ? (
+                  <SearchEmptyStateWrapper
+                    query={search}
+                    hasActiveFilters={hasActiveFilters}
+                    categories={emptyStateData.categories}
+                    featuredBrands={emptyStateData.featured}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-24 text-center">
+                    <p className="type-empty-title">
+                      {t('emptyTitle')}
+                    </p>
+                    <p className="mt-1 type-card-description">
+                      {t('emptyDescription')}
+                    </p>
+                  </div>
+                )
+              ) : (
+                <MasonryGrid>
+                  {displayBrands.map((brand, index) => (
+                    <BrandCard key={brand.id} brand={brand} priority={index < 4} />
+                  ))}
+                </MasonryGrid>
+              )}
+            </SavedBrandsProvider>
+          </Suspense>
 
-        <Pagination
-          totalCount={totalCount}
-          currentPage={clampedPage}
-          pageSize={DEFAULT_PAGE_SIZE}
-          basePath="/brands"
-          searchParams={paginationParams}
-        />
+          <Pagination
+            totalCount={totalCount}
+            currentPage={clampedPage}
+            pageSize={DEFAULT_PAGE_SIZE}
+          />
       </div>
     </main>
     </NextIntlClientProvider>
