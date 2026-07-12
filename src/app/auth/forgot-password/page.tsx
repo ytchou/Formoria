@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { getLocale } from 'next-intl/server'
+import { redirectIfAuthenticated } from '@/lib/auth/redirect-if-authenticated'
 import { ForgotPasswordForm } from '@/components/auth/forgot-password-form'
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -7,6 +8,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: locale === 'en' ? 'Forgot Password' : '忘記密碼' }
 }
 
-export default function ForgotPasswordPage() {
+export default async function ForgotPasswordPage() {
+  await redirectIfAuthenticated()
   return <ForgotPasswordForm />
 }
