@@ -1,0 +1,48 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "🔍 Sentry Daily Triage — 2026-07-11 to 2026-07-12",
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Summary:* 1 issue found · 1 critical · 0 moderate · 0 trivial · 0 auto-resolved\n*Incident mode:* No"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*:red_circle: Critical (1)*\n\n*<https://formoria.sentry.io/issues/FORMORIA-2H|Server Components Render Error on Guide Pages>*\nEvents: 11 · New · Severity: Critical\nRecommended action: Retrieve the Sentry error digest from the event detail page and reproduce locally to identify the underlying exception in the guides `[slug]` page render pipeline."
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Ticket Created:* <https://linear.app/ytchou/issue/DEV-1048/sentry-triage-2026-07-12-1-issue|DEV-1048> — [Sentry Triage] 2026-07-12 — 1 issue · Priority: Urgent · Labels: Bug, L"
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Sentry Daily Triage · 2026-07-12T23:13 UTC"
+        }
+      ]
+    }
+  ]
+}
