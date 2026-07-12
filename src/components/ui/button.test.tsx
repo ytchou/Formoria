@@ -69,4 +69,15 @@ describe('Button', () => {
       'px-5',
     )
   })
+
+  it('renders chip size for pill filters', () => {
+    render(
+      <Button variant="secondary" shape="pill" size="chip">
+        陶瓷
+      </Button>
+    )
+    const btn = screen.getByRole('button', { name: '陶瓷' })
+    expect(btn.className).toContain('h-8')
+    expect(btn.className).toContain('rounded-full')
+  })
 })

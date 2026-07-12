@@ -186,6 +186,7 @@ function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = 
         value={value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
+        // eslint-disable-next-line no-restricted-syntax -- ui-exception: custom accessible search input with complex ARIA, autocomplete, and keyboard navigation that cannot be abstracted to <Input>
         className="w-full rounded-lg border border-border bg-card py-2 pl-9 pr-8 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       />
 
@@ -195,6 +196,7 @@ function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = 
           type="button"
           onClick={handleClear}
           aria-label={t('search.clear')}
+          // eslint-disable-next-line no-restricted-syntax -- ui-exception: inline clear button inside custom search form, tightly coupled to search input layout
           className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-muted-foreground hover:text-foreground"
         >
           <svg
