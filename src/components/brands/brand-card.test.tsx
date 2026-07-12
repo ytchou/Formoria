@@ -139,20 +139,18 @@ describe('BrandCard', () => {
         'https://xkcayngbttpxyibgzern.supabase.co/storage/v1/object/public/brand-images/lazy.webp',
     }
 
-    renderWithProvider(
+    const { container } = renderWithProvider(
       <>
         <BrandCard brand={eagerBrand} priority />
         <BrandCard brand={lazyBrand} />
       </>,
     )
 
-    expect(screen.getByRole('img', { name: 'Eager Brand' })).toHaveAttribute(
-      'loading',
-      'eager',
-    )
-    expect(screen.getByRole('img', { name: 'Lazy Brand' })).toHaveAttribute(
-      'loading',
-      'lazy',
-    )
+    // Images are decorative (alt="") — query by URL to identify each card's image
+    const imgs = Array.from(container.querySelectorAll('img'))
+    const eagerImg = imgs.find((img) => img.src.includes('eager'))
+    const lazyImg = imgs.find((img) => img.src.includes('lazy'))
+    expect(eagerImg).toHaveAttribute('loading', 'eager')
+    expect(lazyImg).toHaveAttribute('loading', 'lazy')
   })
 })
