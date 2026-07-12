@@ -5,14 +5,16 @@ import Image from 'next/image'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
+import { BrandImageFallback } from './brand-image-fallback'
 
 interface ImageCarouselProps {
   images: string[]
   alt: string
+  category?: string | null
   imageAlts?: Array<{ altZh: string | null; altEn: string | null }>
 }
 
-export function ImageCarousel({ images, alt, imageAlts }: ImageCarouselProps) {
+export function ImageCarousel({ images, alt, category, imageAlts }: ImageCarouselProps) {
   const t = useTranslations('brandDetail')
   const locale = useLocale()
   const validImages = images.flatMap((image) => {
@@ -28,11 +30,7 @@ export function ImageCarousel({ images, alt, imageAlts }: ImageCarouselProps) {
   if (total === 0) {
     return (
       <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted">
-        <div className="flex h-full items-center justify-center">
-          <span className="text-4xl font-bold text-muted-foreground">
-            {initial}
-          </span>
-        </div>
+        <BrandImageFallback name={alt} category={category ?? null} size="detail" />
       </div>
     )
   }
@@ -61,11 +59,7 @@ export function ImageCarousel({ images, alt, imageAlts }: ImageCarouselProps) {
       {/* Hero image */}
       <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted">
         {isCurrentBroken ? (
-          <div className="flex h-full items-center justify-center">
-            <span className="text-4xl font-bold text-muted-foreground">
-              {initial}
-            </span>
-          </div>
+          <BrandImageFallback name={alt} category={category ?? null} size="detail" />
         ) : (
           <Image
             src={validImages[current]}

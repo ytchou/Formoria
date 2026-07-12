@@ -11,6 +11,7 @@ import { surfaceCardStyles } from '@/components/ui/card'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
 import { SaveBrandButton } from './save-brand-button'
+import { BrandImageFallback } from './brand-image-fallback'
 
 interface BrandCardProps {
   brand: Brand
@@ -82,14 +83,7 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
             onError={() => setImgError(true)}
           />
         ) : (
-          <div
-            data-testid="image-fallback"
-            className="flex h-full items-center justify-center bg-secondary"
-          >
-            <span className="text-2xl font-bold text-muted-foreground">
-              {[...brand.name][0]}
-            </span>
-          </div>
+          <BrandImageFallback name={brand.name} category={brand.category} size="card" />
         )}
         <SaveBrandButton brandId={brand.id} variant="overlay" />
       </div>
