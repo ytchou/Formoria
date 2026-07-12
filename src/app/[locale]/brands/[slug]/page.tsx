@@ -320,7 +320,7 @@ export default async function BrandDetailPage({
           {/* Left: sticky image gallery */}
           <div className="w-full lg:w-[580px] lg:shrink-0">
             <div className="lg:sticky lg:top-8">
-              <ImageCarousel images={galleryImages} alt={displayBrand.name} imageAlts={displayBrand.imageAlts} />
+              <ImageCarousel images={galleryImages} alt={displayBrand.name} category={productTypeSlug} imageAlts={displayBrand.imageAlts} />
             </div>
           </div>
 
