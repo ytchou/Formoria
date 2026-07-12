@@ -23,7 +23,6 @@ import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import type { Brand } from '@/lib/types'
 import { canManageBrand, isActingAsAdmin } from '@/lib/auth/admin-mode'
-import { createClient } from '@/lib/supabase/server'
 import { BrandViewTracker } from '@/components/brands/brand-view-tracker'
 import { PreviewBanner } from '@/components/brands/preview-banner'
 import { BrandAnalyticsTracker } from './brand-analytics-tracker'
@@ -51,6 +50,7 @@ import { cn } from '@/lib/utils'
 import { NotFoundError } from '@/lib/errors'
 import { getUserBrand } from '@/lib/services/brand-owners'
 import { truncateForMeta } from '@/lib/text/truncate-for-meta'
+import { getCachedUser } from '@/lib/auth/get-cached-user'
 
 // 1h ISR: ownership/verified-state changes propagate within ~an hour; route still statically served between regenerations
 export const revalidate = 3600
@@ -184,16 +184,8 @@ export default async function BrandDetailPage({
 
   let displayBrand: Brand = brand
   let previewMode = false
-  let supabase: Awaited<ReturnType<typeof createClient>> | null = null
-  const getSupabase = async () => {
-    supabase ??= await createClient()
-    return supabase
-  }
-
   if (previewRequested) {
-    const {
-      data: { user },
-    } = await (await getSupabase()).auth.getUser()
+    const user = await getCachedUser()
     const allowed =
       !!user && (await canManageBrand(user.id, user.email, brand.id))
 
@@ -210,21 +202,19 @@ export default async function BrandDetailPage({
 
   let userHasPendingClaim = false
   if (!displayBrand.isVerified) {
-    const {
-      data: { user },
-    } = await (await getSupabase()).auth.getUser()
+    const user = await getCachedUser()
     userHasPendingClaim = user
       ? await hasPendingClaim(user.id, displayBrand.id)
       : false
   }
 
-  const {
-    data: { user },
-  } = await (await getSupabase()).auth.getUser()
-  const ownedBrand = user ? await getUserBrand(user.id) : null
-  const isAdmin = await isActingAsAdmin(user?.email)
-  const tBrandDetail = await getTranslations('brandDetail')
-  const tCities = await getTranslations('cities')
+  const user = await getCachedUser()
+  const [ownedBrand, isAdmin, tBrandDetail, tCities] = await Promise.all([
+    user ? getUserBrand(user.id) : Promise.resolve(null),
+    isActingAsAdmin(user?.email),
+    getTranslations('brandDetail'),
+    getTranslations('cities'),
+  ])
   const tBrandFaq = ((key: string, params?: Record<string, unknown>) =>
     tBrandDetail(key, params as never)) as BrandFaqTranslateFn
   const faqItems = await getBrandFaq(displayBrand.id, displayBrand, tBrandFaq, safeLocale)

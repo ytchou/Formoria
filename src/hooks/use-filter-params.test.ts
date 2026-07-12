@@ -108,24 +108,18 @@ describe('useFilterParams', () => {
       vi.useRealTimers()
     })
 
-    it('setSearch debounces rapid calls (300ms)', () => {
-      vi.useFakeTimers()
+    it('setSearch pushes URL immediately (debounce lives in search-input)', () => {
       const { result } = renderHook(() => useFilterParams())
 
       act(() => {
-        result.current.setSearch('t')
-        result.current.setSearch('te')
         result.current.setSearch('tea')
       })
-
-      vi.advanceTimersByTime(300)
 
       expect(mockPush).toHaveBeenCalledTimes(1)
       expect(mockPush).toHaveBeenCalledWith(
         expect.stringContaining('search=tea'),
         { scroll: false }
       )
-      vi.useRealTimers()
     })
 
     it('clearFilters removes search param', () => {

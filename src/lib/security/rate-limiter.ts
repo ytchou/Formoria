@@ -177,6 +177,14 @@ export async function checkSoftRateLimit(request: NextRequest): Promise<boolean>
     return false
   }
 
+  if (request.headers.get('Next-Router-Prefetch') === '1') {
+    return false
+  }
+
+  if (isLikelyCrawler(request)) {
+    return false
+  }
+
   const ip = getClientIp(request)
   const key = `soft:${getSoftRateLimitPathPrefix(normalizedPathname)}:${ip}`
   const result = await rateLimiter.check(key, SOFT_LIMIT.windowMs, SOFT_LIMIT.maxRequests)

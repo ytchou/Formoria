@@ -618,7 +618,7 @@
   "legal": {
     "terms": {
       "metadata": {
-        "title": "Terms of Service | Formoria",
+        "title": "Terms of Service",
         "description": "Read Formoria's terms of service, including content ownership, data usage, brand review process, and disclaimer."
       },
       "title": "Terms of Service",
@@ -647,7 +647,7 @@
     },
     "privacy": {
       "metadata": {
-        "title": "Privacy Policy | Formoria",
+        "title": "Privacy Policy",
         "description": "Learn how Formoria collects, processes, and uses your personal data in compliance with Taiwan's Personal Data Protection Act."
       },
       "title": "Privacy Policy",

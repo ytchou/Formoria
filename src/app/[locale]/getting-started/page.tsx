@@ -15,6 +15,8 @@ import { buildFaqPageJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 
+export const revalidate = 86400
+
 type PageProps = {
   params: Promise<{ locale: string }>
 }

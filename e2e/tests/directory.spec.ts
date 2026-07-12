@@ -36,13 +36,13 @@ test.describe('Directory deep', () => {
     // Work around by navigating directly to page 2 to test the "previous" link.
     await page.goto('/brands');
     const pagination = page.locator('nav[aria-label="Pagination"]');
-    const nextLink = pagination.locator('a[aria-label="下一頁"]');
-    if (!(await nextLink.isVisible())) return; // fewer than 2 pages of data — skip
+    const nextButton = pagination.locator('button[aria-label="下一頁"]');
+    if (!(await nextButton.isVisible())) return; // fewer than 2 pages of data — skip
     // Navigate directly to page 2 to verify the "previous" affordance exists
     await page.goto('/brands?page=2');
     await expect(page).toHaveURL(/page=2/);
-    const prevLink = page.locator('nav[aria-label="Pagination"] a[aria-label="上一頁"]');
-    await expect(prevLink).toBeVisible({ timeout: 10_000 });
+    const prevButton = page.locator('nav[aria-label="Pagination"] button[aria-label="上一頁"]');
+    await expect(prevButton).toBeVisible({ timeout: 10_000 });
   });
 
   test('category page loads with filtered brands', async ({ page }) => {

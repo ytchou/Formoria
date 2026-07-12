@@ -52,6 +52,28 @@ test.describe('Visitor smoke', () => {
     }
   });
 
+  test('locale-prefixed legacy category URLs redirect to the localized directory', async ({ request }) => {
+    const redirects = [
+      ['/en/category/food-drink', '/en/brands?category=food-drink'],
+      ['/zh-TW/category/home', '/brands?category=home'],
+      ['/en/categories', '/en/brands'],
+      ['/zh-TW/categories', '/brands'],
+    ] as const;
+
+    for (const [source, destination] of redirects) {
+      const response = await request.get(source, { maxRedirects: 0 });
+      expect(response.status()).toBe(308);
+      expect(response.headers().location).toBe(destination);
+    }
+  });
+
+  test('CSP allows the GA4 audience pixel host', async ({ page }) => {
+    const response = await page.goto('/');
+    const contentSecurityPolicy = response?.headers()['content-security-policy'] ?? '';
+    expect(contentSecurityPolicy).toContain('img-src');
+    expect(contentSecurityPolicy).toContain('https://www.google.com.tw');
+  });
+
   test('search returns results', async ({ page }) => {
     await gotoBrandsPage(page);
     const searchInput = page.getByRole('searchbox').or(page.getByPlaceholder(/search/i)).first();

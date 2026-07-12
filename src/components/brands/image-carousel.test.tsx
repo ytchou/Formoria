@@ -27,6 +27,6 @@ describe('ImageCarousel', () => {
       </NextIntlClientProvider>,
     )
 
-    expect(screen.getByRole('img')).toHaveAttribute('loading', 'eager')
+    expect(screen.getByRole('img')).not.toHaveAttribute('loading', 'lazy')
   })
 })

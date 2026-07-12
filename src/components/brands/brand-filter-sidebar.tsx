@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, useTransition, type ReactNode } from 'react'
 import { ChevronDown, SlidersHorizontal } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
@@ -126,6 +126,7 @@ export function BrandFilterSidebar({
     activePriceRanges.size +
     (activeVerification !== 'all' ? 1 : 0)
   const useZh = locale === 'zh-TW'
+  const [, startTransition] = useTransition()
 
   function categoryLabel(category: CategoryOption) {
     return useZh ? category.nameZh ?? category.name : category.name
@@ -140,29 +141,33 @@ export function BrandFilterSidebar({
       next.delete(slug)
     }
 
-    router.replace(
-      updateParamUrl(pathname, searchParams, (params) => {
-        if (next.size > 0) {
-          params.set('category', Array.from(next).join(','))
-        } else {
-          params.delete('category')
-        }
-      }),
-      { scroll: false }
-    )
+    startTransition(() => {
+      router.replace(
+        updateParamUrl(pathname, searchParams, (params) => {
+          if (next.size > 0) {
+            params.set('category', Array.from(next).join(','))
+          } else {
+            params.delete('category')
+          }
+        }),
+        { scroll: false }
+      )
+    })
   }
 
   function setVerification(value: VerificationFilterValue) {
-    router.replace(
-      updateParamUrl(pathname, searchParams, (params) => {
-        if (value === 'all') {
-          params.delete('verification')
-        } else {
-          params.set('verification', value)
-        }
-      }),
-      { scroll: false }
-    )
+    startTransition(() => {
+      router.replace(
+        updateParamUrl(pathname, searchParams, (params) => {
+          if (value === 'all') {
+            params.delete('verification')
+          } else {
+            params.set('verification', value)
+          }
+        }),
+        { scroll: false }
+      )
+    })
   }
 
   function togglePriceRange(value: number, checked: boolean) {
@@ -170,24 +175,28 @@ export function BrandFilterSidebar({
     if (checked) next.add(value)
     else next.delete(value)
 
-    router.replace(
-      updateParamUrl(pathname, searchParams, (params) => {
-        if (next.size > 0) params.set('price', Array.from(next).sort().join(','))
-        else params.delete('price')
-      }),
-      { scroll: false }
-    )
+    startTransition(() => {
+      router.replace(
+        updateParamUrl(pathname, searchParams, (params) => {
+          if (next.size > 0) params.set('price', Array.from(next).sort().join(','))
+          else params.delete('price')
+        }),
+        { scroll: false }
+      )
+    })
   }
 
   function clearAll() {
-    router.replace(
-      updateParamUrl(pathname, searchParams, (params) => {
-        params.delete('category')
-        params.delete('price')
-        params.delete('verification')
-      }),
-      { scroll: false }
-    )
+    startTransition(() => {
+      router.replace(
+        updateParamUrl(pathname, searchParams, (params) => {
+          params.delete('category')
+          params.delete('price')
+          params.delete('verification')
+        }),
+        { scroll: false }
+      )
+    })
   }
 
   return (
@@ -359,16 +368,19 @@ function MobileClearAll({ onClear }: { onClear: () => void }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const [, startTransition] = useTransition()
 
   function clearAll() {
-    router.replace(
-      updateParamUrl(pathname, searchParams, (params) => {
-        params.delete('category')
-        params.delete('price')
-        params.delete('verification')
-      }),
-      { scroll: false }
-    )
+    startTransition(() => {
+      router.replace(
+        updateParamUrl(pathname, searchParams, (params) => {
+          params.delete('category')
+          params.delete('price')
+          params.delete('verification')
+        }),
+        { scroll: false }
+      )
+    })
     onClear()
   }
 

@@ -41,7 +41,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
             ${{ runner.os }}-nextjs-
-      - run: pnpm exec tinacms build --local --skip-cloud-checks
       - name: Build Next.js (production)
         run: pnpm build
       - run: npx playwright install --with-deps chromium

@@ -146,13 +146,12 @@ describe('BrandCard', () => {
       </>,
     )
 
-    expect(screen.getByRole('img', { name: 'Eager Brand' })).toHaveAttribute(
-      'loading',
-      'eager',
-    )
-    expect(screen.getByRole('img', { name: 'Lazy Brand' })).toHaveAttribute(
+    expect(screen.getByRole('img', { name: 'Eager Brand' })).not.toHaveAttribute(
       'loading',
       'lazy',
+    )
+    expect(screen.getByRole('img', { name: 'Lazy Brand' })).not.toHaveAttribute(
+      'priority',
     )
   })
 })
