@@ -1,16 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { PRODUCT_TYPE_CATEGORIES, deriveCategoryFromProductType } from '../ontology'
+import { PRODUCT_TYPE_CATEGORIES, deriveCategoryFromProductType, categoryTint } from '../ontology'
 
 describe('PRODUCT_TYPE_CATEGORIES', () => {
   it('has exactly 12 entries', () => {
     expect(PRODUCT_TYPE_CATEGORIES).toHaveLength(12)
   })
 
-  it('each entry has slug, name, nameZh', () => {
+  it('each entry has slug, name, nameZh, tint', () => {
     for (const cat of PRODUCT_TYPE_CATEGORIES) {
       expect(cat.slug).toBeTruthy()
       expect(cat.name).toBeTruthy()
       expect(cat.nameZh).toBeTruthy()
+      expect(cat.tint).toMatch(/^oklch\([\d.]+ [\d.]+ [\d.]+\)$/)
     }
   })
 
@@ -59,5 +60,21 @@ describe('deriveCategoryFromProductType', () => {
 
   it('returns null when neither product type nor note is available', () => {
     expect(deriveCategoryFromProductType('', '   ')).toBeNull()
+  })
+})
+
+describe('categoryTint', () => {
+  it('returns tint for known category', () => {
+    const result = categoryTint('fashion')
+    expect(result).toBe('oklch(0.935 0.022 350)')
+  })
+
+  it('returns Warm Surface for null/undefined', () => {
+    expect(categoryTint(null)).toBe('oklch(0.963 0.004 80)')
+    expect(categoryTint(undefined)).toBe('oklch(0.963 0.004 80)')
+  })
+
+  it('returns Warm Surface for unknown slug', () => {
+    expect(categoryTint('nonexistent')).toBe('oklch(0.963 0.004 80)')
   })
 })
