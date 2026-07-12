@@ -77,6 +77,7 @@ export function MainNav({ categories, hasOwnedBrand = false, isAuthenticated = f
               render={
                 <button
                   type="button"
+                  // eslint-disable-next-line no-restricted-syntax -- ui-exception: render-prop injection for SheetPrimitive.Trigger, raw button is required by Base UI render prop API
                   className={buttonVariants({ variant: 'ghost', size: 'icon' })}
                   aria-label="Open menu"
                 />

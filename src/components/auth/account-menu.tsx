@@ -75,7 +75,10 @@ export function AccountMenu() {
           <form key={targetLocale} action={setLocalePreference.bind(null, targetLocale, pathname)}>
             <DropdownMenuItem
               className={locale === targetLocale ? 'font-medium' : undefined}
-              render={<button type="submit" className="w-full text-left" aria-current={locale === targetLocale ? 'true' : undefined} />}
+              render={
+                // eslint-disable-next-line no-restricted-syntax -- ui-exception: render-prop injection for DropdownMenuItem, raw button is required by Base UI render prop API
+                <button type="submit" className="w-full text-left" aria-current={locale === targetLocale ? 'true' : undefined} />
+              }
             >
               {t(targetLocale === 'zh-TW'
                 ? 'nav.languageTraditionalChinese'
@@ -87,7 +90,10 @@ export function AccountMenu() {
         <form action={signOut.bind(null, localizePath(pathname, locale))}>
           <DropdownMenuItem
             variant="destructive"
-            render={<button type="submit" className="w-full text-left" />}
+            render={
+              // eslint-disable-next-line no-restricted-syntax -- ui-exception: render-prop injection for DropdownMenuItem, raw button is required by Base UI render prop API
+              <button type="submit" className="w-full text-left" />
+            }
           >
             {t('account.signOut')}
           </DropdownMenuItem>
