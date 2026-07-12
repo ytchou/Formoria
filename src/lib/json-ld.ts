@@ -244,27 +244,6 @@ export function buildDefinedTermSetJsonLd(
   }
 }
 
-/**
- * Build FAQPage JSON-LD structured data for the FAQ page.
- */
-export function buildFaqPageJsonLd(
-  items: Array<{ question: string; answer: string }>,
-  locale: Locale = 'zh-TW',
-): JsonLdObject {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    inLanguage: toInLanguage(locale),
-    mainEntity: items.map((item) => ({
-      '@type': 'Question',
-      name: item.question,
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: item.answer.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'),
-      },
-    })),
-  }
-}
 
 export function safeJsonLdStringify(data: Record<string, unknown>): string {
   return JSON.stringify(data).replace(/</g, '\\u003c')

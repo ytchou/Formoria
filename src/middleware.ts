@@ -5,7 +5,7 @@ import { routing } from '@/i18n/routing'
 import { isAppLocale, localizePath, LOCALE_COOKIE, resolveInitialLocale } from '@/i18n/locale-preference'
 import { IMPERSONATE_COOKIE, resolveImpersonationCookie } from '@/lib/auth/impersonation'
 import { verifyChallengeToken, CHALLENGE_COOKIE_NAME } from '@/lib/security/challenge'
-import { checkRateLimit, checkSoftRateLimit, getClientIp } from "@/lib/security/rate-limiter";
+import { checkRateLimit, checkSoftRateLimit, getClientIp, isLikelyCrawler } from "@/lib/security/rate-limiter";
 
 /**
  * Routes that are reserved for static pages and cannot be used as brand slugs.
@@ -212,7 +212,7 @@ export async function middleware(request: NextRequest) {
   const isPublicPath = isLocalizedPublicPath(pathname)
   const explicitLocale = isAppLocale(segments.at(0)) ? segments.at(0) : null
   const cookieLocale = request.cookies.get(LOCALE_COOKIE)?.value
-  const inferredLocale = isPublicPath && !explicitLocale
+  const inferredLocale = isPublicPath && !explicitLocale && !isLikelyCrawler(request)
     ? resolveInitialLocale({
         cookieLocale,
         acceptLanguage: request.headers.get('accept-language'),

@@ -33,6 +33,7 @@ vi.mock('@/lib/security/rate-limiter', () => ({
   checkRateLimit: vi.fn(() => null),
   checkSoftRateLimit: vi.fn().mockResolvedValue(false),
   getClientIp: vi.fn().mockReturnValue('127.0.0.1'),
+  isLikelyCrawler: vi.fn().mockReturnValue(false),
 }))
 
 vi.mock('@/lib/security/challenge', () => ({

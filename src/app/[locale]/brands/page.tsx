@@ -20,6 +20,7 @@ import { surfaceCardStyles } from '@/components/ui/card'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import { truncateForMeta } from '@/lib/text/truncate-for-meta'
 import type { BrandFilters } from '@/lib/types'
 
 // ISR: revalidate every hour
@@ -74,9 +75,11 @@ export async function generateMetadata({ params, searchParams }: BrandsPageProps
     if (categoryTag) {
       const catT = await getTranslations('categories')
       const displayName = categoryLabel(categoryTag, safeLocale)
-      const description = catT.has(`descriptions.${categorySlug}`)
-        ? catT(`descriptions.${categorySlug}`)
-        : catT('metadata.description', { displayName, name: categoryTag.name })
+      const description = truncateForMeta(
+        catT.has(`descriptions.${categorySlug}`)
+          ? catT(`descriptions.${categorySlug}`)
+          : catT('metadata.description', { displayName, name: categoryTag.name })
+      )
       const categoryCanonical = appendCategoryQuery(canonical, categorySlug)
       const categoryLanguages = Object.fromEntries(
         Object.entries(languages).map(([language, url]) => [
@@ -133,6 +136,10 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
     typeof sp.search === 'string' ? sp.search.trim() : ''
   const categoryFilter = parseCommaParam(sp.category)
   const validCategoryFilter = categoryFilter.filter((slug) => VALID_CATEGORY_SLUGS.has(slug))
+  const categoryTag = validCategoryFilter.length === 1
+    ? PRODUCT_TYPE_CATEGORIES.find((category) => category.slug === validCategoryFilter.at(0))
+    : undefined
+  const pageHeading = categoryTag ? categoryLabel(categoryTag, safeLocale) : t('heading')
   const priceRanges = parsePriceRanges(sp.price)
   const verificationFilter = parseVerificationParam(sp.verification)
 
@@ -207,28 +214,24 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   ) {
     brandsItemListJsonLd = buildBrandsItemListJsonLd(displayBrands, safeLocale)
   }
-  if (validCategoryFilter.length === 1) {
-    const categorySlug = validCategoryFilter[0]
+  if (categoryTag) {
+    const categorySlug = categoryTag.slug
     const catT = await getTranslations('categories')
-    const categoryTag = PRODUCT_TYPE_CATEGORIES.find((c) => c.slug === categorySlug)
-
-    if (categoryTag) {
-      const categoryName = categoryLabel(categoryTag, safeLocale)
-      const editorialDescription = catT.has(`descriptions.${categorySlug}`)
-        ? catT(`descriptions.${categorySlug}`)
-        : undefined
-      categoryItemListJsonLd = buildCategoryItemListJsonLd(
-        categoryName,
-        categorySlug,
-        displayBrands,
-        safeLocale,
-        editorialDescription
-      )
-      categoryBreadcrumbJsonLd = buildBreadcrumbJsonLd(
-        [{ label: 'Brands', href: '/brands' }, { label: categoryName }],
-        safeLocale
-      )
-    }
+    const categoryName = categoryLabel(categoryTag, safeLocale)
+    const editorialDescription = catT.has(`descriptions.${categorySlug}`)
+      ? catT(`descriptions.${categorySlug}`)
+      : undefined
+    categoryItemListJsonLd = buildCategoryItemListJsonLd(
+      categoryName,
+      categorySlug,
+      displayBrands,
+      safeLocale,
+      editorialDescription
+    )
+    categoryBreadcrumbJsonLd = buildBreadcrumbJsonLd(
+      [{ label: 'Brands', href: '/brands' }, { label: categoryName }],
+      safeLocale
+    )
   }
 
   return (
@@ -266,6 +269,8 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
       </aside>
 
       <div className="min-w-0">
+        <h1 className="mb-6 text-balance type-page-title">{pageHeading}</h1>
+
         {/* Count + sort header */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">

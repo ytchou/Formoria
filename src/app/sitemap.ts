@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { getAllBrandSlugs } from '@/lib/services/brands'
 import { getAllGuides } from '@/lib/services/guides'
+import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { buildAlternates } from '@/lib/seo/alternates'
 import { getSiteUrl } from '@/lib/seo/site-url'
 
@@ -43,6 +44,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     makeEntry('/faq', now, 'monthly', 0.5),
     makeEntry('/terms', now, 'monthly', 0.5),
     makeEntry('/privacy', now, 'monthly', 0.5),
+    makeEntry('/guides', now, 'weekly', 0.7),
+    makeEntry('/getting-started', now, 'monthly', 0.6),
+    makeEntry('/submit', now, 'monthly', 0.4),
   ]
 
   try {
@@ -60,8 +64,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         0.7
       )
     )
+    const categoryPages: MetadataRoute.Sitemap = PRODUCT_TYPE_CATEGORIES.map((cat) =>
+      makeEntry(`/brands?category=${cat.slug}`, now, 'weekly', 0.8)
+    )
 
-    return [...staticPages, ...brandPages, ...guidePages]
+    return [...staticPages, ...categoryPages, ...brandPages, ...guidePages]
   } catch {
     // Fallback: static pages only (DB unavailable)
     return staticPages

@@ -5,6 +5,8 @@ import { dateLocale } from '@/i18n/locale-preference'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { getAllGuides, getGuidesByCategory } from '@/lib/services/guides'
 import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { buildAlternates } from '@/lib/seo/alternates'
+import type { Locale } from '@/lib/seo/alternates'
 
 type PageProps = {
   params: Promise<{ locale: string }>
@@ -16,11 +18,14 @@ export const revalidate = 3600
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { locale } = await params
   setRequestLocale(locale)
+  const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const t = await getTranslations({ locale, namespace: 'guides' })
+  const { canonical, languages } = buildAlternates('/guides', safeLocale)
 
   return {
     title: t('metaTitle'),
     description: t('metaDescription'),
+    alternates: { canonical, languages },
   }
 }
 

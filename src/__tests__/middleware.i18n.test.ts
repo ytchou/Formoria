@@ -21,8 +21,8 @@ vi.mock('@supabase/ssr', () => ({
   })),
 }))
 
-function req(path: string) {
-  return new NextRequest(new URL(`https://x.test${path}`))
+function req(path: string, headers?: HeadersInit) {
+  return new NextRequest(new URL(`https://x.test${path}`), { headers })
 }
 
 describe('i18n middleware composition', () => {
@@ -41,5 +41,25 @@ describe('i18n middleware composition', () => {
     const res = await middleware(req('/brands'))
     const loc = res?.headers.get('location') ?? ''
     expect(loc).not.toContain('/brands/brands')
+    expect(loc).toContain('/en/brands')
+  })
+
+  it('does not locale-redirect prefix-free public paths for known crawlers', async () => {
+    const bots = [
+      'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+      'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)',
+      'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+      'Twitterbot/1.0',
+      'Mozilla/5.0 AppleWebKit/537.36 (compatible; GPTBot/1.0)',
+      'Mozilla/5.0 (compatible; PerplexityBot/1.0)',
+    ]
+
+    for (const ua of bots) {
+      const res = await middleware(req('/brands', {
+        'accept-language': 'en-US,en;q=0.9',
+        'user-agent': ua,
+      }))
+      expect(res?.headers.get('location')).toBeNull()
+    }
   })
 })

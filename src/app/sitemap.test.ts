@@ -39,9 +39,10 @@ describe('sitemap', () => {
         expect.stringContaining('/inblooom'),
       ])
     )
-    expect(urls).not.toEqual(
+    expect(urls).toEqual(
       expect.arrayContaining([
-        expect.stringContaining('/brands?category='),
+        expect.stringContaining('/brands?category=fashion'),
+        expect.stringContaining('/brands?category=outdoor'),
       ])
     )
   })
@@ -72,6 +73,30 @@ describe('sitemap', () => {
       expect(entry.url).toContain('/guides/')
       expect(entry.url).not.toContain('/zh-TW/guides/')
       expect(entry.lastModified).toBeDefined()
+    })
+  })
+
+  it('includes guides listing, getting-started, and submit pages', async () => {
+    const entries = await sitemap()
+    const urls = entries.map((e) => e.url)
+
+    expect(urls).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('/guides'),
+        expect.stringContaining('/getting-started'),
+        expect.stringContaining('/submit'),
+      ])
+    )
+  })
+
+  it('includes all 12 category filter pages', async () => {
+    const entries = await sitemap()
+    const categoryUrls = entries.filter((e) => e.url.includes('/brands?category='))
+
+    expect(categoryUrls).toHaveLength(12)
+    categoryUrls.forEach((entry) => {
+      expect(entry.changeFrequency).toBe('weekly')
+      expect(entry.priority).toBe(0.8)
     })
   })
 })

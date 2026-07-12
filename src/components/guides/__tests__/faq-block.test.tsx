@@ -1,12 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { FaqBlock } from '../faq-block'
-
-vi.mock('@/lib/json-ld', () => ({
-  buildFaqPageJsonLd: (items: unknown[]) => ({ '@type': 'FAQPage', mainEntity: items }),
-  safeJsonLdStringify: (data: unknown) => JSON.stringify(data),
-}))
 
 describe('FaqBlock', () => {
   it('returns null when questions is null (crash case)', () => {
