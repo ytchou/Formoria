@@ -142,7 +142,7 @@ function ClaimProofUpload({
       {typeof uploadState.progress === 'number' && uploadState.progress > 0 && (
         <p className="type-caption">{uploadState.progress}%</p>
       )}
-      {uploadState.error && <p className="text-xs text-destructive">{uploadState.error}</p>}
+      {uploadState.error && <p className="type-error">{uploadState.error}</p>}
     </div>
   )
 }
@@ -257,7 +257,7 @@ export function ClaimBrandCta({
             <p className="type-card-description">{t('ownerLimitBody')}</p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2">
-            <Link href="/dashboard" className="text-sm font-semibold text-primary underline underline-offset-4">
+            <Link href="/dashboard" className="type-link underline">
               {t('manageBrand')}
             </Link>
             {removalSlot}
@@ -322,7 +322,7 @@ export function ClaimBrandCta({
                 {t('signIn')}
               </NextLink>
             )}
-            <Link href="/faq#claim" className="text-xs text-primary underline underline-offset-4">
+            <Link href="/faq#claim" className="type-caption text-primary underline underline-offset-4">
               {t('whyClaim')}
             </Link>
             {user && removalSlot}
@@ -342,7 +342,7 @@ export function ClaimBrandCta({
 
           <div
             className={cn(
-              'rounded-lg border px-4 py-3 text-sm',
+              'rounded-lg border px-4 py-3 type-metadata',
               stillNeedCount > 0
                 ? 'border-border bg-muted text-muted-foreground'
                 : canSubmit
@@ -382,12 +382,12 @@ export function ClaimBrandCta({
                       </label>
                       <p className="type-card-description">{description}</p>
                       {type === 'domain_email' && (
-                        <p className="text-xs leading-relaxed text-muted-foreground">
+                        <p className="type-form-hint">
                           {t('proofTypes.domainEmail.helperText')}
                         </p>
                       )}
                       {type === 'business_doc' && (
-                        <p className="text-xs leading-relaxed text-muted-foreground">
+                        <p className="type-form-hint">
                           {t('proofTypes.businessDoc.privacyNote')}
                         </p>
                       )}
@@ -407,9 +407,9 @@ export function ClaimBrandCta({
                             value={proof.url}
                             onChange={(event) => updateProof(type, { url: event.target.value })}
                             placeholder={t('proofTypes.domainEmail.placeholder')}
-                            className="min-h-12 bg-card px-3.5 py-2.5 text-sm focus-visible:ring-2 focus-visible:ring-ring"
+                            className="min-h-12 bg-card px-3.5 py-2.5 focus-visible:ring-2 focus-visible:ring-ring"
                           />
-                          <p className="text-xs leading-relaxed text-muted-foreground">
+                          <p className="type-form-hint">
                             {t('proofTypes.domainEmail.helperText')}
                           </p>
                         </div>
@@ -417,7 +417,7 @@ export function ClaimBrandCta({
 
                       {type === 'backend_screenshot' && (
                         <div className="space-y-3 md:col-span-2">
-                          <ul className="list-disc space-y-1 pl-5 text-xs leading-relaxed text-muted-foreground">
+                          <ul className="list-disc space-y-1 pl-5 type-form-hint">
                             {(t.raw('proofTypes.backendScreenshot.examples') as string[]).map((example) => (
                               <li key={example}>{example}</li>
                             ))}
@@ -432,7 +432,7 @@ export function ClaimBrandCta({
                             acceptedTypes={IMAGE_ACCEPTED_TYPES}
                             onUploaded={(imageKey) => updateProof(type, { imageKey })}
                           />
-                          <p className="text-xs leading-relaxed text-muted-foreground">
+                          <p className="type-form-hint">
                             {t('proofTypes.backendScreenshot.loginNote')}
                           </p>
                         </div>
@@ -461,7 +461,7 @@ export function ClaimBrandCta({
                           id={`claim-${type}-note`}
                           value={proof.note}
                           onChange={(event) => updateProof(type, { note: event.target.value })}
-                          className="min-h-24 bg-card px-3.5 py-2.5 text-sm focus-visible:ring-2 focus-visible:ring-ring"
+                          className="min-h-24 bg-card px-3.5 py-2.5 focus-visible:ring-2 focus-visible:ring-ring"
                         />
                       </div>
                     </div>
@@ -481,16 +481,16 @@ export function ClaimBrandCta({
               type="text"
               value={mitSmileCert}
               onChange={(event) => setMitSmileCert(event.target.value)}
-              className="min-h-12 bg-card px-3.5 py-2.5 text-sm focus-visible:ring-2 focus-visible:ring-ring"
+              className="min-h-12 bg-card px-3.5 py-2.5 focus-visible:ring-2 focus-visible:ring-ring"
             />
             <p className="type-caption">{t('mitCertHint')}</p>
           </div>
 
           {feedback.type === 'error' && (
-            <div aria-live="polite" className="space-y-2 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <div aria-live="polite" className="space-y-2 rounded-lg bg-destructive/10 px-4 py-3 type-body text-destructive">
               <p>{feedback.message}</p>
               {feedback.authRequired && (
-                <NextLink href={signInHref(pathname, locale)} className="inline-flex font-medium underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <NextLink href={signInHref(pathname, locale)} className="inline-flex type-body-emphasis underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   {t('signIn')}
                 </NextLink>
               )}

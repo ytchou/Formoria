@@ -45,7 +45,6 @@ import { getBrandVisitHref } from '@/lib/brands/link-fallback'
 import { normalizeRetailLocations } from '@/lib/brands/locations'
 import { getBrandFaq } from '@/lib/services/brand-faq'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
-import { MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NotFoundError } from '@/lib/errors'
 import { getUserBrand } from '@/lib/services/brand-owners'
@@ -330,6 +329,7 @@ export default async function BrandDetailPage({
             <BrandHeader
               brand={displayBrand}
               categoryLabel={categoryLabel || null}
+              cityLabel={displayBrand.city ? tCities(displayBrand.city) : null}
               locale={safeLocale}
               adminSlot={
                 isAdmin ? (
@@ -347,13 +347,6 @@ export default async function BrandDetailPage({
                 </SavedBrandsProvider>
               }
             />
-
-            {displayBrand.city && (
-              <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium">
-                <MapPin className="h-3 w-3" />
-                {tCities(displayBrand.city)}
-              </span>
-            )}
 
             <hr className="border-border" />
 

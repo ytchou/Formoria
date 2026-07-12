@@ -1,13 +1,12 @@
 import type { Metadata } from 'next'
 import { NextIntlClientProvider } from 'next-intl'
 import { getTranslations, setRequestLocale, getMessages } from 'next-intl/server'
+import { Link } from '@/i18n/navigation'
 import { buildOrganizationJsonLd, buildWebSiteJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import HeroSection from '@/components/landing/hero-section'
-import Manifesto from '@/components/landing/manifesto'
-import { NewsletterSection } from '@/components/landing/newsletter-section'
 import BrandShowcase from '@/components/shared/brand-showcase'
 import FilterableBrandShowcase from '@/components/landing/filterable-brand-showcase'
-import SubmitBand from '@/components/landing/submit-band'
+import SectionBand from '@/components/landing/section-band'
 import { getBrands, getNewBrands, getRecentBrandCount } from '@/lib/services/brands'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { buildAlternates } from '@/lib/seo/alternates'
@@ -88,8 +87,6 @@ export default async function LandingPage({ params }: PageProps) {
         <HeroSection brandCount={totalBrandCount} categoryCount={PRODUCT_TYPE_CATEGORIES.length} recentBrands={recentBrands} />
 
         <SavedBrandsProvider>
-          <Manifesto />
-
           <div className="py-6 md:py-8">
             <div className="mx-auto max-w-6xl page-gutter">
               <NextIntlClientProvider messages={messages}>
@@ -98,7 +95,18 @@ export default async function LandingPage({ params }: PageProps) {
             </div>
           </div>
 
-          <SubmitBand />
+          {/* Manifesto pull-quote */}
+          <section className="py-12 md:py-16">
+            <div className="mx-auto max-w-4xl page-gutter text-center">
+              <blockquote className="type-page-title-large text-foreground">
+                {t('manifesto.headline')}
+              </blockquote>
+              <p className="mt-3 type-body-muted">{t('manifesto.body1')}</p>
+              <Link href="/about" className="mt-4 inline-block type-body-emphasis text-primary hover:underline underline-offset-4">
+                {t('manifesto.cta')}
+              </Link>
+            </div>
+          </section>
 
           <div className="py-6 md:py-8">
             <div className="mx-auto max-w-6xl page-gutter">
@@ -112,7 +120,7 @@ export default async function LandingPage({ params }: PageProps) {
           </div>
         </SavedBrandsProvider>
 
-        <NewsletterSection />
+        <SectionBand />
       </main>
     </>
   )

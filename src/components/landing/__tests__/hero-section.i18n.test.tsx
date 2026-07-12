@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { createElement } from 'react'
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import enMessages from '../../../../messages/en.json'
@@ -7,16 +6,17 @@ import zhMessages from '../../../../messages/zh-TW.json'
 
 const mockGetTranslations = vi.hoisted(() => vi.fn())
 
-vi.mock('next/image', () => ({
-  default: (props: Record<string, unknown>) => createElement('img', props),
-}))
-
 vi.mock('@/i18n/navigation', () => ({
   Link: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => <a href={href} {...props}>{children}</a>,
 }))
 
+vi.mock('@/components/brands/search-input', () => ({
+  SearchInput: ({ placeholder }: { placeholder?: string }) => <input role="searchbox" placeholder={placeholder} />,
+}))
+
 vi.mock('next-intl/server', () => ({
   getTranslations: mockGetTranslations,
+  getLocale: vi.fn().mockResolvedValue('zh-TW'),
 }))
 
 import HeroSection from '../hero-section'
@@ -33,7 +33,7 @@ describe('HeroSection (English)', () => {
     expect(screen.getByText(enMessages.landing.hero.headline)).toBeInTheDocument()
   })
 
-  it('omits the subheadline when the locale message is empty', async () => {
+  it('renders Chinese headline', async () => {
     mockGetTranslations.mockResolvedValue((key: string) => {
       const messages = zhMessages.landing.hero as Record<string, string>
       return messages[key] ?? key
@@ -41,6 +41,6 @@ describe('HeroSection (English)', () => {
 
     render(await HeroSection({ brandCount: 100, categoryCount: 20, recentBrands: { count: 5, period: '7d' } }))
 
-    expect(screen.queryByText(enMessages.landing.hero.subheadline)).not.toBeInTheDocument()
+    expect(screen.getByText(zhMessages.landing.hero.headline)).toBeInTheDocument()
   })
 })
