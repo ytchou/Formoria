@@ -1,4 +1,5 @@
 import { rewriteBrandDescription, type DescriptionAttempt, type DescriptionRewriteResult } from '../description-rewrite'
+import { normalizeProductTags } from '@/lib/services/product-tags'
 import { createServiceClient } from '@/lib/supabase/server'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { EnrichScrapedData } from './types'
@@ -186,8 +187,14 @@ export async function runDescriptionsPhase({
     const attempts = descriptionRewriteOutput?.attempts ?? []
 
     let descriptionPatch: Record<string, unknown> = {}
+    let crossBranchTags: string[] = []
     if (descriptionRewrite) {
-      const mergedTags = [...new Set(descriptionRewrite.productTags)]
+      const { tags: mergedTags, tagsEn: mergedTagsEn, crossBranch } = normalizeProductTags(
+        descriptionRewrite.productTags,
+        descriptionRewrite.productTagsEn,
+        brand.product_type ?? undefined,
+      )
+      crossBranchTags = crossBranch
 
       const shouldWrite = (existing: unknown) =>
         overwrite || existing == null || (typeof existing === 'string' && existing.trim() === '') || (Array.isArray(existing) && existing.length === 0)
@@ -199,7 +206,7 @@ export async function runDescriptionsPhase({
         ...(descriptionRewrite.blurb_en ? { blurb_en: descriptionRewrite.blurb_en } : {}),
         ...(descriptionRewrite.priceRange != null ? { price_range: descriptionRewrite.priceRange } : {}),
         ...(mergedTags.length > 0 ? { product_tags: mergedTags } : {}),
-        ...(descriptionRewrite.productTagsEn.length > 0 ? { product_tags_en: descriptionRewrite.productTagsEn } : {}),
+        ...(mergedTagsEn.length > 0 ? { product_tags_en: mergedTagsEn } : {}),
         ...(descriptionRewrite.city && shouldWrite(brand.city) ? { city: descriptionRewrite.city } : {}),
         ...(descriptionRewrite.foundingYear != null ? { founding_year: descriptionRewrite.foundingYear } : {}),
         ...(descriptionRewrite.reputationSummary && shouldWrite(brand.reputation_summary) ? {
@@ -225,11 +232,11 @@ export async function runDescriptionsPhase({
         } : {}),
       }
 
-      if (mergedTags.length > 0 && descriptionRewrite.productTagsEn.length > 0) {
+      if (mergedTags.length > 0 && mergedTagsEn.length > 0) {
         const supabase = createServiceClient()
-        const tagPairs = mergedTags.slice(0, descriptionRewrite.productTagsEn.length).map((zh, i) => ({
+        const tagPairs = mergedTags.map((zh, i) => ({
           tag_zh: zh,
-          tag_en: descriptionRewrite.productTagsEn[i] ?? zh,
+          tag_en: mergedTagsEn[i] ?? zh,
         }))
 
         await supabase
@@ -252,6 +259,7 @@ export async function runDescriptionsPhase({
       patch: descriptionPatch,
       descriptionRewrite,
       attempts,
+      crossBranch: crossBranchTags,
     }
   })
 

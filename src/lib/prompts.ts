@@ -1,4 +1,4 @@
-import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { PRODUCT_SUBCATEGORIES, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 const CATEGORY_EXAMPLES: Record<string, string> = {
   fashion: '服飾、鞋履、上衣、褲子、洋裝等穿戴服裝',
@@ -18,6 +18,18 @@ const CATEGORY_EXAMPLES: Record<string, string> = {
 const CATEGORY_LIST = PRODUCT_TYPE_CATEGORIES.map(
   (c) => `- ${c.slug}: ${CATEGORY_EXAMPLES[c.slug] ?? c.nameZh}`,
 ).join('\n')
+
+const _subcatByCategory = new Map<string, string[]>()
+for (const sub of PRODUCT_SUBCATEGORIES) {
+  const arr = _subcatByCategory.get(sub.category) ?? []
+  arr.push(sub.nameZh)
+  _subcatByCategory.set(sub.category, arr)
+}
+
+const PRODUCT_VOCAB_BLOCK = PRODUCT_TYPE_CATEGORIES.map(c => {
+  const subs = _subcatByCategory.get(c.slug) ?? []
+  return `- ${c.nameZh}：${subs.join('、')}`
+}).join('\n')
 
 export const CLASSIFY_SYSTEM_PROMPT = `你是台灣品牌分類專家。請根據品牌名稱和描述，將品牌分類到最適合的產品類別。
 
@@ -160,7 +172,12 @@ price_range 分級：
 - 3：高價／精品，平均商品價格高於 NT$5,000
 - 若價格線索不足，回傳 null
 
-product_tags：2-5 個具體商品描述（如「陶瓷馬克杯」「皮革托特包」），不要用寬泛分類（如「服飾」「配件」）。若資料不清楚回傳 []。
+product_tags：
+
+產品類型詞彙表：
+${PRODUCT_VOCAB_BLOCK}
+
+先列出品牌的產品線，每條產品線從詞彙表中選取對應類型（優先品牌所屬分類下的詞彙，明確跨分類時才選其他分支）。僅當找不到合適詞彙時，才輸出新的「類型層級」標籤（禁止：材質前綴、行銷詞、系列/款/限定/客製、尺寸詞如短/長/迷你）。2–5 個，資料不足回傳 []。
 
 faq：8-12 組常見問題，中英文交替排列（同一問題先中文再英文）。每組必須標記 category。
 有效 category：mit, where_to_buy, products, price, founded, reputation, custom。

@@ -7,6 +7,7 @@ import {
   normalizeRetailLocations,
 } from '@/lib/brands/locations'
 import { sanitizeHref } from '@/lib/url'
+import { deriveProductTagsEn } from '@/lib/services/product-tags'
 
 export class InvalidBrandEditFormError extends Error {}
 
@@ -205,7 +206,10 @@ export function parseBrandEditForm(formData: FormData): Partial<Brand> {
     updateData.priceRange =
       priceRange !== null && !isNaN(priceRange) ? priceRange : null
   }
-  if (formData.has('productTags')) updateData.productTags = productTags
+  if (formData.has('productTags')) {
+    updateData.productTags = productTags
+    updateData.productTagsEn = deriveProductTagsEn(productTags)
+  }
   if (formData.has('reputationSummary') || reputationSources.length > 0) {
     updateData.reputationSummary = {
       text: reputationSummaryText ?? '',

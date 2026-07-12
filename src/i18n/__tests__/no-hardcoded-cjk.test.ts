@@ -60,6 +60,8 @@ const ALLOWLIST = [
   'lib/services/brands.ts',
   // AI-slop detector uses Chinese regex patterns (not UI copy).
   'lib/services/enrich-validators.ts',
+  // Product-tag validator uses Chinese blocklist regex patterns (not UI copy).
+  'lib/services/product-tags.ts',
   // Brand cleanup uses Chinese keyword arrays and regex patterns (not UI copy).
   'lib/services/brand-cleanup.ts',
   // LLM system prompts centralised module (Chinese prompt text).

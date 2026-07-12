@@ -9,17 +9,27 @@ const supabaseMocks = vi.hoisted(() => ({
 
 vi.mock('@/lib/supabase/server', () => ({
   createServiceClient: () => ({
-    from: () => ({
-      select: () => ({
-        eq: () => ({
+    from: (table: string) => {
+      if (table === 'product_tag_translations') {
+        return {
+          upsert: () => Promise.resolve({ error: null }),
+          select: () => ({
+            in: () => Promise.resolve({ data: [] }),
+          }),
+        }
+      }
+      return {
+        select: () => ({
           eq: () => ({
-            order: () => ({
-              limit: () => Promise.resolve({ data: supabaseMocks.data }),
+            eq: () => ({
+              order: () => ({
+                limit: () => Promise.resolve({ data: supabaseMocks.data }),
+              }),
             }),
           }),
         }),
-      }),
-    }),
+      }
+    },
   }),
 }))
 
@@ -139,7 +149,7 @@ describe('runDescriptionsPhase', () => {
       result: makeDescriptionRewriteResult({
         description: 'Test Brand creates considered everyday accessories for modern homes.',
         priceRange: null,
-        productTags: ['ceramic mugs', 'linen placemats'],
+        productTags: ['斜背包', '口金包'],
       }),
       attempts: [],
     })
@@ -148,10 +158,10 @@ describe('runDescriptionsPhase', () => {
       brand,
       phases: ['descriptions'] as EnrichPhase[],
       scrapedData: null,
-      serpSnippets: ['Offers ceramic mugs and linen placemats for the table.'],
+      serpSnippets: ['Offers crossbody bags and clasp-frame bags.'],
     })
 
-    expect(result.patch.product_tags).toEqual(['ceramic mugs', 'linen placemats'])
+    expect(result.patch.product_tags).toEqual(['斜背包', '口金包'])
   })
 
   it('tracks price_range and product_tags in changedFields', async () => {
@@ -159,7 +169,7 @@ describe('runDescriptionsPhase', () => {
       result: makeDescriptionRewriteResult({
         description_zh: 'Test Brand creates considered everyday accessories for modern homes.',
         priceRange: 3,
-        productTags: ['leather totes', 'silk scarves'],
+        productTags: ['斜背包', '口金包'],
       }),
       attempts: [],
     })
@@ -168,10 +178,10 @@ describe('runDescriptionsPhase', () => {
       brand,
       phases: ['descriptions'] as EnrichPhase[],
       scrapedData: null,
-      serpSnippets: ['Sells leather totes and silk scarves above $200.'],
+      serpSnippets: ['Sells crossbody bags and clasp-frame bags above $200.'],
     })
 
-    expect(result.phaseResult.changedFields).toEqual(['description', 'price_range', 'product_tags'])
+    expect(result.phaseResult.changedFields).toEqual(['description', 'price_range', 'product_tags', 'product_tags_en'])
   })
 
 })

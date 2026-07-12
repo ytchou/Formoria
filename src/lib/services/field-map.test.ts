@@ -74,6 +74,7 @@ describe('field-map', () => {
       contact_email: 'hello@senzi.tw',
       price_range: 2,
       product_tags: ['handmade', 'home'],
+      product_tags_en: ['handmade', 'home'],
       is_demo: true,
     })
   })
