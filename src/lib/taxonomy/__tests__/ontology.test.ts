@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { PRODUCT_TYPE_CATEGORIES, deriveCategoryFromProductType, categoryTint } from '../ontology'
+import {
+  PRODUCT_TYPE_CATEGORIES,
+  PRODUCT_SUBCATEGORIES,
+  matchSubcategory,
+  subcategoryLabel,
+  deriveCategoryFromProductType,
+  categoryTint,
+} from '../ontology'
 
 describe('PRODUCT_TYPE_CATEGORIES', () => {
   it('has exactly 12 entries', () => {
@@ -76,5 +83,71 @@ describe('categoryTint', () => {
 
   it('returns Warm Surface for unknown slug', () => {
     expect(categoryTint('nonexistent')).toBe('oklch(0.963 0.004 80)')
+  })
+})
+
+describe('PRODUCT_SUBCATEGORIES', () => {
+  it('every subcategory has a valid L1 parent', () => {
+    const l1 = new Set(PRODUCT_TYPE_CATEGORIES.map((c) => c.slug))
+    for (const sub of PRODUCT_SUBCATEGORIES) {
+      expect(l1.has(sub.category), `${sub.slug} parent ${sub.category}`).toBe(true)
+    }
+  })
+
+  it('slugs are unique and kebab-case', () => {
+    const slugs = PRODUCT_SUBCATEGORIES.map((s) => s.slug)
+    expect(new Set(slugs).size).toBe(slugs.length)
+    for (const slug of slugs) expect(slug).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/)
+  })
+
+  it('canonical names and aliases are globally unambiguous', () => {
+    const seen = new Map<string, string>()
+    for (const sub of PRODUCT_SUBCATEGORIES) {
+      for (const key of [sub.nameZh, sub.nameEn.toLowerCase(), ...sub.aliases]) {
+        expect(seen.has(key), `duplicate match key "${key}" in ${sub.slug} and ${seen.get(key)}`).toBe(false)
+        seen.set(key, sub.slug)
+      }
+    }
+  })
+
+  it('has entries for every L1 category', () => {
+    const covered = new Set(PRODUCT_SUBCATEGORIES.map((s) => s.category))
+    expect(covered.size).toBe(PRODUCT_TYPE_CATEGORIES.length)
+  })
+})
+
+describe('matchSubcategory', () => {
+  it('matches canonical zh name', () => {
+    expect(matchSubcategory('托特包')?.slug).toBe('tote-bags')
+  })
+  it('matches aliases', () => {
+    expect(matchSubcategory('側背包')?.slug).toBe('crossbody-bags')
+    expect(matchSubcategory('斜挎包')?.slug).toBe('crossbody-bags')
+    expect(matchSubcategory('樂福鞋')?.slug).toBe('leather-shoes')
+  })
+  it('matches EN names case-insensitively', () => {
+    expect(matchSubcategory('tote bags')?.slug).toBe('tote-bags')
+    expect(matchSubcategory('Tote Bags')?.slug).toBe('tote-bags')
+  })
+  it('normalizes whitespace and full-width characters', () => {
+    expect(matchSubcategory(' 托特包 ')?.slug).toBe('tote-bags')
+    expect(matchSubcategory('ｔｏｔｅ ｂａｇｓ')?.slug).toBe('tote-bags')
+  })
+  it('treats ・ variants as equivalent', () => {
+    expect(matchSubcategory('皮夾・錢包')?.slug).toBe('wallets')
+    expect(matchSubcategory('皮夾錢包')?.slug).toBe('wallets')
+    expect(matchSubcategory('皮夾')?.slug).toBe('wallets')
+  })
+  it('returns null on no match', () => {
+    expect(matchSubcategory('口金短夾')).toBeNull()
+    expect(matchSubcategory('')).toBeNull()
+  })
+})
+
+describe('subcategoryLabel', () => {
+  it('returns locale-appropriate label', () => {
+    const sub = matchSubcategory('托特包')!
+    expect(subcategoryLabel(sub, 'zh-TW')).toBe('托特包')
+    expect(subcategoryLabel(sub, 'en')).toBe('Tote Bags')
   })
 })
