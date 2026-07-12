@@ -187,12 +187,14 @@ export async function runDescriptionsPhase({
     const attempts = descriptionRewriteOutput?.attempts ?? []
 
     let descriptionPatch: Record<string, unknown> = {}
+    let crossBranchTags: string[] = []
     if (descriptionRewrite) {
-      const { tags: mergedTags, tagsEn: mergedTagsEn } = normalizeProductTags(
+      const { tags: mergedTags, tagsEn: mergedTagsEn, crossBranch } = normalizeProductTags(
         descriptionRewrite.productTags,
         descriptionRewrite.productTagsEn,
         brand.product_type ?? undefined,
       )
+      crossBranchTags = crossBranch
 
       const shouldWrite = (existing: unknown) =>
         overwrite || existing == null || (typeof existing === 'string' && existing.trim() === '') || (Array.isArray(existing) && existing.length === 0)
@@ -257,6 +259,7 @@ export async function runDescriptionsPhase({
       patch: descriptionPatch,
       descriptionRewrite,
       attempts,
+      crossBranch: crossBranchTags,
     }
   })
 

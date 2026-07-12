@@ -67,7 +67,7 @@ export function deriveProductTagsEn(tags: string[]): string[] {
   return tags.map((tag) => matchSubcategory(tag)?.nameEn ?? tag)
 }
 
-export type TagBackfillMatch = {
+type TagBackfillMatch = {
   original: string
   canonicalZh: string
   canonicalEn: string
