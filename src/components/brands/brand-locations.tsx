@@ -1,6 +1,7 @@
 import { ExternalLink, MapPin } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
+import { buttonVariants } from '@/components/ui/button'
 import { BrandLocationsMap } from './brand-locations-map'
 import {
   getLocationMapQuery,
@@ -82,7 +83,7 @@ function LocationCard({
             href={getMapsHref(location)}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-3 inline-flex min-h-12 items-center gap-1.5 rounded-lg text-sm font-medium text-primary transition-colors hover:text-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className={buttonVariants({ variant: "secondary", className: "mt-3" })}
           >
             {t('locations.openInMaps')}
             <ExternalLink aria-hidden="true" className="size-4" />

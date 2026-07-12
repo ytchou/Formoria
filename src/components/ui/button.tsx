@@ -15,6 +15,7 @@ const buttonStyles = cva(
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
+        overlay: "bg-accent/80 text-accent-foreground backdrop-blur-sm hover:bg-accent",
       },
       tone: {
         default: "",
@@ -52,7 +53,7 @@ type ButtonToneProps =
       tone?: "default" | "cta"
     }
   | {
-      variant: "secondary" | "ghost" | "destructive"
+      variant: "secondary" | "ghost" | "destructive" | "overlay"
       tone?: "default"
     }
 
