@@ -75,13 +75,15 @@ function FilterSection({
 
   return (
     <section className="space-y-3">
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="compact"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className="flex w-full items-center justify-between text-left text-xs font-semibold uppercase tracking-wider text-foreground"
+        className="w-full justify-between text-left"
       >
-        {title}
+        <span className="text-xs font-semibold uppercase tracking-wider">{title}</span>
         <ChevronDown
           className={cn(
             'h-4 w-4 text-muted-foreground transition-transform',
@@ -89,7 +91,7 @@ function FilterSection({
           )}
           aria-hidden="true"
         />
-      </button>
+      </Button>
       {open && children}
     </section>
   )
@@ -207,13 +209,15 @@ export function BrandFilterSidebar({
             {t('appliedCount', { count: activeCount })}
           </p>
           {activeCount > 0 && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="chip"
               onClick={clearAll}
-              className="text-sm inline-link"
+              className="inline-link"
             >
               {t('clearAll')}
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -223,7 +227,7 @@ export function BrandFilterSidebar({
           {categories.map((category) => {
             const checked = activeCategories.has(category.slug)
             return (
-              <label
+              <Label
                 key={category.slug}
                 className={cn(filterOptionClassName, checked && 'text-primary')}
               >
@@ -233,7 +237,7 @@ export function BrandFilterSidebar({
                   aria-label={categoryLabel(category)}
                 />
                 <span>{categoryLabel(category)}</span>
-              </label>
+              </Label>
             )
           })}
         </div>
@@ -247,21 +251,18 @@ export function BrandFilterSidebar({
             const checked = activePriceRanges.has(value)
             const label = '$'.repeat(value)
             return (
-              <Label
+              <Button
                 key={value}
-                className={cn(
-                  'cursor-pointer rounded-full border border-border px-3 py-1.5 type-metadata transition-colors hover:border-primary hover:text-foreground',
-                  checked && 'border-primary bg-primary text-primary-foreground hover:text-primary-foreground'
-                )}
+                type="button"
+                variant="secondary"
+                shape="pill"
+                size="chip"
+                aria-pressed={checked}
+                onClick={() => togglePriceRange(value, !checked)}
+                className={cn(checked && 'border-primary bg-primary text-primary-foreground')}
               >
-                <Checkbox
-                  checked={checked}
-                  onCheckedChange={(selected: boolean) => togglePriceRange(value, selected)}
-                  aria-label={label}
-                  className="sr-only"
-                />
-                <span>{label}</span>
-              </Label>
+                {label}
+              </Button>
             )
           })}
         </div>
@@ -299,21 +300,16 @@ function FilterRadio({
   onChange: () => void
 }) {
   return (
-    <label
+    <Label
       className={cn(
         filterOptionClassName,
         checked && 'font-medium text-primary'
       )}
     >
-      <input
-        type="radio"
-        name={name}
-        checked={checked}
-        onChange={onChange}
-        className="h-4 w-4 accent-primary"
-      />
+      {/* eslint-disable-next-line no-restricted-syntax -- ui-exception: native radio input has no ui/ equivalent */}
+      <input type="radio" name={name} checked={checked} onChange={onChange} className="h-4 w-4 accent-primary" />
       <span>{label}</span>
-    </label>
+    </Label>
   )
 }
 
@@ -385,12 +381,14 @@ function MobileClearAll({ onClear }: { onClear: () => void }) {
   }
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="chip"
       onClick={clearAll}
       className="mx-auto type-card-description underline-offset-2 hover:text-foreground hover:underline"
     >
       {t('clearAll')}
-    </button>
+    </Button>
   )
 }

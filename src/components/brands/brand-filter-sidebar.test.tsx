@@ -41,7 +41,7 @@ describe('BrandFilterSidebar', () => {
     const user = userEvent.setup()
     render(<BrandFilterSidebar categories={[]} />)
 
-    await user.click(screen.getByRole('checkbox', { name: '$$' }))
+    await user.click(screen.getByRole('button', { name: '$$' }))
 
     expect(replace).toHaveBeenCalledWith('/brands?price=2', { scroll: false })
   })
