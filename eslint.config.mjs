@@ -80,8 +80,6 @@ const eslintConfig = defineConfig([
       "src/components/landing/filterable-brand-showcase.tsx",
       "src/components/navigation/nav-category-tabs.tsx",
       "src/components/newsletter/email-capture-form.tsx",
-      "src/components/settings/settings-form.tsx",
-      "src/components/submit/SubmitForm.tsx",
       "src/components/upload/ImageUploader.tsx",
     ],
     rules: {

@@ -8,8 +8,10 @@ import {
   type SettingsState,
 } from "@/app/[locale]/(protected)/settings/actions";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 
 type Props = {
   profile: Profile | null;
@@ -74,15 +76,14 @@ export function SettingsForm({ profile, email, currentLocale }: Props) {
       {/* Language Preference */}
       <div className="space-y-2">
         <Label htmlFor="localePreference">{t("localePreferenceLabel")}</Label>
-        <select
+        <NativeSelect
           id="localePreference"
           name="localePreference"
           defaultValue={profile?.localePreference ?? currentLocale}
-          className="flex h-12 w-full rounded-md border border-input bg-transparent px-3 py-2 type-body shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <option value="zh-TW">中文（繁體）</option>
           <option value="en">English</option>
-        </select>
+        </NativeSelect>
         {state.fieldErrors?.localePreference && (
           <p className="type-error">
             {state.fieldErrors.localePreference}
@@ -93,14 +94,13 @@ export function SettingsForm({ profile, email, currentLocale }: Props) {
       {/* Email Notifications */}
       <div className="flex items-start gap-3">
         <input type="hidden" name="emailNotifications" value="false" />
-        <input
-          type="checkbox"
+        <Checkbox
           id="emailNotifications"
           name="emailNotifications"
           value="true"
           checked={emailNotifications}
           onChange={(e) => setEmailNotifications(e.target.checked)}
-          className="mt-0.5 size-4 rounded border-input"
+          className="mt-0.5"
         />
         <div>
           <Label htmlFor="emailNotifications">

@@ -29,7 +29,10 @@ import { FormField } from '@/components/forms/form-field'
 import { StandardForm, StandardFormStack } from '@/components/forms/form-layout'
 import { ImageUploadField } from '@/components/forms/image-upload-field'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
 import { TurnstileWidget } from '@/components/submit/TurnstileWidget'
 import { cn } from '@/lib/utils'
@@ -42,9 +45,6 @@ type SubmitFormProps = {
   source?: 'header_cta' | 'hero_cta' | 'footer_link'
   variant?: 'recommend' | 'owner'
 }
-
-const selectClassName =
-  'h-12 w-full rounded-lg border border-border bg-background px-3 text-sm focus:border-primary focus:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
 
 export default function SubmitForm({
   source = 'hero_cta',
@@ -411,10 +411,9 @@ export default function SubmitForm({
                 name="sourceAttribution"
                 control={control}
                 render={({ field }) => (
-                  <select
+                  <NativeSelect
                     id="submit-source"
                     className={cn(
-                      selectClassName,
                       field.value ? 'text-foreground' : 'text-muted-foreground',
                     )}
                     value={field.value ?? ''}
@@ -432,7 +431,7 @@ export default function SubmitForm({
                         {t(`attribution.${value}` as Parameters<typeof t>[0])}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 )}
               />
             </FormField>
@@ -445,10 +444,9 @@ export default function SubmitForm({
                 label={t('city')}
                 description={tForm('cityHint')}
               >
-                <select
+                <NativeSelect
                   id="submit-city"
                   className={cn(
-                    selectClassName,
                     !watchedCity && 'text-muted-foreground',
                   )}
                   {...register('city', {
@@ -461,7 +459,7 @@ export default function SubmitForm({
                       {tCities(city.slug)}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </FormField>
 
               <FormField
@@ -545,13 +543,12 @@ export default function SubmitForm({
               control={control}
               render={({ field, fieldState }) => (
                 <div className="space-y-1">
-                  <label className="flex min-h-12 cursor-pointer items-start gap-3">
-                    <input
+                  <Label className="flex min-h-12 cursor-pointer items-start gap-3">
+                    <Checkbox
                       id="submit-pdpa"
-                      type="checkbox"
                       checked={field.value}
                       onChange={field.onChange}
-                      className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded border-border accent-primary"
+                      className="mt-0.5 h-[18px] w-[18px] shrink-0"
                     />
                     <span className="type-body">
                       {tReview.rich('pdpaConsent', {
@@ -567,7 +564,7 @@ export default function SubmitForm({
                         ),
                       })}
                     </span>
-                  </label>
+                  </Label>
                   {fieldState.error ? (
                     <p className="text-xs text-destructive">
                       {fieldState.error.message}
@@ -583,6 +580,7 @@ export default function SubmitForm({
             {...register('honeypot')}
             tabIndex={-1}
             autoComplete="off"
+            // eslint-disable-next-line no-restricted-syntax -- ui-exception: honeypot trap must be invisible native input
             className="pointer-events-none absolute -left-[9999px] h-0 w-0 opacity-0"
             aria-hidden="true"
           />

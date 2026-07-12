@@ -74,4 +74,14 @@ describe('SubmitForm', () => {
     renderForm('recommend')
     expect(screen.getByRole('button', { name: /送出推薦/ })).toBeDisabled()
   })
+
+  it("toggles the consent checkbox when its label text is clicked", async () => {
+    const { default: userEvent } = await import("@testing-library/user-event")
+    const user = userEvent.setup()
+    renderForm("recommend")
+    const consent = screen.getByRole("checkbox")
+    expect(consent).not.toBeChecked()
+    await user.click(screen.getByText(/隱私權政策/))
+    expect(consent).toBeChecked()
+  })
 })
