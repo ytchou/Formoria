@@ -1,7 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { useFilterParams } from '@/hooks/use-filter-params'
+import { usePathname, useSearchParams } from 'next/navigation'
 
 interface PaginationProps {
   totalCount: number
@@ -27,37 +28,48 @@ function getPageRange(currentPage: number, totalPages: number): (number | 'ellip
   return pages
 }
 
+function buildPageUrl(pathname: string, searchParams: URLSearchParams, page: number): string {
+  const params = new URLSearchParams(searchParams.toString())
+  if (page > 1) {
+    params.set('page', String(page))
+  } else {
+    params.delete('page')
+  }
+  const str = params.toString()
+  return str ? `${pathname}?${str}` : pathname
+}
+
+const navLinkClass =
+  'inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
+const pageLinkClass =
+  'inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
+
 export function Pagination({
   totalCount,
   currentPage,
   pageSize,
 }: PaginationProps) {
   const t = useTranslations('brands')
-  const { setPage, isPending } = useFilterParams()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const totalPages = Math.ceil(totalCount / pageSize)
 
   if (totalPages <= 1) return null
 
   const pages = getPageRange(currentPage, totalPages)
 
-  const navButtonClass =
-    'inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40'
-  const pageButtonClass =
-    'inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40'
-
   return (
     <nav aria-label="Pagination" className="mt-10 flex items-center justify-center gap-1">
       {/* Previous */}
       {currentPage > 1 ? (
-        <button
-          type="button"
-          onClick={() => setPage(currentPage - 1)}
-          disabled={isPending}
-          className={navButtonClass}
+        <Link
+          href={buildPageUrl(pathname, searchParams, currentPage - 1)}
+          className={navLinkClass}
           aria-label={t('pagination.previousAria')}
+          scroll={false}
         >
           {t('pagination.previous')}
-        </button>
+        </Link>
       ) : (
         <span className="inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/20">
           {t('pagination.previous')}
@@ -92,29 +104,27 @@ export function Pagination({
         }
 
         return (
-          <button
+          <Link
             key={page}
-            type="button"
-            onClick={() => setPage(page)}
-            disabled={isPending}
-            className={pageButtonClass}
+            href={buildPageUrl(pathname, searchParams, page)}
+            className={pageLinkClass}
+            scroll={false}
           >
             {page}
-          </button>
+          </Link>
         )
       })}
 
       {/* Next */}
       {currentPage < totalPages ? (
-        <button
-          type="button"
-          onClick={() => setPage(currentPage + 1)}
-          disabled={isPending}
-          className={navButtonClass}
+        <Link
+          href={buildPageUrl(pathname, searchParams, currentPage + 1)}
+          className={navLinkClass}
           aria-label={t('pagination.nextAria')}
+          scroll={false}
         >
           {t('pagination.next')}
-        </button>
+        </Link>
       ) : (
         <span className="inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/20">
           {t('pagination.next')}

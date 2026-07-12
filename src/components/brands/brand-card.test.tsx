@@ -43,11 +43,11 @@ vi.mock('@/i18n/navigation', () => ({
 }))
 
 vi.mock('next/image', () => ({
-  default: ({ alt = '', fill, ...props }: Record<string, unknown>) => {
+  default: ({ alt = '', fill, priority, ...props }: Record<string, unknown>) => {
     void fill
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img alt={String(alt)} {...props} />
+      <img alt={String(alt)} loading={priority ? 'eager' : 'lazy'} {...props} />
     )
   },
 }))
@@ -146,12 +146,13 @@ describe('BrandCard', () => {
       </>,
     )
 
-    expect(screen.getByRole('img', { name: 'Eager Brand' })).not.toHaveAttribute(
+    expect(screen.getByRole('img', { name: 'Eager Brand' })).toHaveAttribute(
+      'loading',
+      'eager',
+    )
+    expect(screen.getByRole('img', { name: 'Lazy Brand' })).toHaveAttribute(
       'loading',
       'lazy',
-    )
-    expect(screen.getByRole('img', { name: 'Lazy Brand' })).not.toHaveAttribute(
-      'priority',
     )
   })
 })

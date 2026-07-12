@@ -12,7 +12,6 @@ import {
 } from '@/components/brands/brand-filter-sidebar'
 import { MasonryGrid } from '@/components/brands/masonry-grid'
 import { BrandCard } from '@/components/brands/brand-card'
-import { BrandsGridWrapper } from '@/components/brands/brands-grid-wrapper'
 import { Pagination } from '@/components/brands/pagination'
 import { SortSelect } from '@/components/brands/sort-select'
 import { SearchEmptyStateWrapper } from '@/components/brands/search-empty-state-wrapper'
@@ -284,7 +283,6 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
         </div>
 
         {/* Masonry brand grid */}
-        <BrandsGridWrapper>
           <Suspense
             fallback={
               <div
@@ -337,7 +335,6 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
             currentPage={clampedPage}
             pageSize={DEFAULT_PAGE_SIZE}
           />
-        </BrandsGridWrapper>
       </div>
     </main>
     </NextIntlClientProvider>
