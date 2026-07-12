@@ -11,7 +11,6 @@ import {
 import { OwnerBenefitsSection } from '@/components/getting-started/OwnerBenefitsSection'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
-import { buildFaqPageJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 
@@ -53,23 +52,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function GettingStartedPage({ params }: PageProps) {
   const { locale } = await params
   setRequestLocale(locale)
-  const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const t = await getTranslations('gettingStarted')
 
   const steps = ['discover', 'submit', 'review', 'manage'] as const
   const questions = ['eligibility', 'details', 'review', 'approval', 'claim'] as const
   const tips = ['accurate', 'photos', 'links'] as const
-  const faqItems = questions.map((question) => ({
-    question: t(`questions.${question}.question`),
-    answer: t(`questions.${question}.answer`),
-  }))
 
   return (
     <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(buildFaqPageJsonLd(faqItems, safeLocale)) }}
-      />
       <section className="grid gap-8 border-b border-border pb-10 md:grid-cols-[minmax(0,1fr)_18rem] md:items-end">
         <div className="max-w-3xl">
           <p className="type-eyebrow">{t('hero.eyebrow')}</p>

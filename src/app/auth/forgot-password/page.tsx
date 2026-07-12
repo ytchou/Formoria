@@ -5,7 +5,10 @@ import { ForgotPasswordForm } from '@/components/auth/forgot-password-form'
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale()
-  return { title: locale === 'en' ? 'Forgot Password' : '忘記密碼' }
+  return {
+    title: locale === 'en' ? 'Forgot Password' : '忘記密碼',
+    robots: { index: false, follow: true },
+  }
 }
 
 export default async function ForgotPasswordPage() {

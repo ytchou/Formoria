@@ -12,7 +12,10 @@ export async function generateMetadata({ params }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("settings");
-  return { title: t("metadata.title") };
+  return {
+    title: t("metadata.title"),
+    robots: { index: false, follow: true },
+  };
 }
 
 export default async function SettingsPage({ params, searchParams }: Props) {

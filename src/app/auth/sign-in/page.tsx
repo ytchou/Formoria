@@ -6,7 +6,10 @@ import { SignInForm } from "@/components/auth/sign-in-form";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
-  return { title: locale === 'en' ? 'Sign In' : '登入' };
+  return {
+    title: locale === 'en' ? 'Sign In' : '登入',
+    robots: { index: false, follow: true },
+  };
 }
 
 type Props = {

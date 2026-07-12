@@ -6,7 +6,10 @@ import { SignUpForm } from "@/components/auth/sign-up-form";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
-  return { title: locale === 'en' ? 'Sign Up' : '註冊' };
+  return {
+    title: locale === 'en' ? 'Sign Up' : '註冊',
+    robots: { index: false, follow: true },
+  };
 }
 
 type Props = {

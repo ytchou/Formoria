@@ -49,16 +49,18 @@ describe('sitemap i18n alternates', () => {
     expect(brand?.alternates?.languages?.['en']).toBe(`${BASE}/en/brands/cha-zi-tang`)
   })
 
-  it('does not emit category entries', async () => {
+  it('category entries have correct alternates', async () => {
     const entries = await sitemap()
-    const category = entries.find((e) => e.url.includes('/brands?category=food'))
+    const category = entries.find((e) => e.url.includes('/brands?category=fashion'))
 
-    expect(category).toBeUndefined()
+    expect(category).toBeDefined()
+    expect(category?.alternates?.languages?.['zh-TW']).toBe(`${BASE}/brands?category=fashion`)
+    expect(category?.alternates?.languages?.['en']).toBe(`${BASE}/en/brands?category=fashion`)
   })
 
   it('no entry url contains operator/admin/auth/api routes', async () => {
     const entries = await sitemap()
-    const forbidden = ['/admin', '/submit', '/auth', '/api']
+    const forbidden = ['/admin', '/auth', '/api']
 
     for (const entry of entries) {
       for (const path of forbidden) {

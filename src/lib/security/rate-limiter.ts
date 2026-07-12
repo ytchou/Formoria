@@ -144,7 +144,7 @@ function stripLocalePrefix(pathname: string): string {
   return pathname
 }
 
-function isLikelyCrawler(request: NextRequest): boolean {
+export function isLikelyCrawler(request: NextRequest): boolean {
   const userAgent = request.headers.get('user-agent') ?? ''
   return CRAWLER_RE.test(userAgent)
 }

@@ -15,7 +15,6 @@ import { hasPendingClaim } from '@/lib/services/claim-requests'
 import {
   buildBrandJsonLd,
   buildBreadcrumbJsonLd,
-  buildFaqPageJsonLd,
   safeJsonLdStringify,
 } from '@/lib/json-ld'
 import type { BreadcrumbItem } from '@/lib/json-ld'
@@ -297,17 +296,6 @@ export default async function BrandDetailPage({
             ),
           }}
         />
-        {faqItems.length > 0 && (
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{
-              __html: safeJsonLdStringify(
-                buildFaqPageJsonLd(faqItems, safeLocale),
-              ),
-            }}
-          />
-        )}
-
         {/* Breadcrumb */}
         <BrandBreadcrumb
           categorySlug={categoryTag?.slug ?? null}

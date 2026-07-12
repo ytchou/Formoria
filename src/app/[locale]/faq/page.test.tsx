@@ -101,16 +101,6 @@ describe('FaqPage (zh-TW)', () => {
     expect(screen.getByText(/如何聯繫/)).toBeInTheDocument()
   })
 
-  it('includes FAQPage JSON-LD script tag', async () => {
-    const { container } = render(
-      await FaqPage({ params: Promise.resolve({ locale: 'zh-TW' }) })
-    )
-    const script = container.querySelector('script[type="application/ld+json"]')
-    expect(script).toBeInTheDocument()
-    const jsonLd = JSON.parse(script!.textContent!)
-    expect(jsonLd['@type']).toBe('FAQPage')
-  })
-
   it('generateMetadata includes openGraph and twitter properties', async () => {
     const { generateMetadata } = await import('./page')
     const metadata = await generateMetadata({ params: Promise.resolve({ locale: 'zh-TW' }) })

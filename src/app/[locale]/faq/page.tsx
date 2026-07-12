@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { ChevronDown } from 'lucide-react'
-import { buildFaqPageJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { CONTACT_EMAILS } from '@/lib/constants'
@@ -43,7 +42,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function FaqPage({ params }: PageProps) {
   const { locale } = await params
   setRequestLocale(locale)
-  const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const t = await getTranslations('faq')
 
   const plainItemKeys = [
@@ -61,26 +59,8 @@ export default async function FaqPage({ params }: PageProps) {
     'howVerified',
   ] as const
 
-  const faqItems = [
-    ...plainItemKeys.map((key) => ({
-      question: t(`items.${key}.question`),
-      answer: t(`items.${key}.answer`),
-    })),
-    {
-      question: t('items.contact.question'),
-      answer: t.rich('items.contact.answer', {
-        email: CONTACT_EMAILS.contact,
-        mail: (chunks) => String(chunks),
-      }) as unknown as string,
-    },
-  ]
-
   return (
     <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(buildFaqPageJsonLd(faqItems, safeLocale)) }}
-      />
       <OpenTargetDetails />
       <div className="grid gap-10 md:grid-cols-[18rem_minmax(0,1fr)] md:gap-16">
         <aside className="space-y-4 md:sticky md:top-24 md:self-start">

@@ -45,12 +45,4 @@ test.describe('Guide detail deep', () => {
     expect(hasArticle).toBe(true);
   });
 
-  test('FAQPage JSON-LD is present on guide detail page', async ({ anonPage }) => {
-    await anonPage.goto(GUIDE_URL);
-    const blocks = await anonPage
-      .locator('script[type="application/ld+json"]')
-      .allTextContents();
-    const hasFaqPage = blocks.some((b) => b.includes('"FAQPage"'));
-    expect(hasFaqPage).toBe(true);
-  });
 });
