@@ -61,21 +61,19 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
   const categoryLabel = getBrandCategoryLabel(brand, locale === 'en' ? 'en' : 'zh-TW')
 
   return (
-    <Link
-      href={`/brands/${brand.slug}`}
+    <article
       className={surfaceCardStyles({
-        className: 'group block shadow-card',
+        className: 'group relative block shadow-card has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring',
         interactive: true,
         padding: 'none',
       })}
-      onClick={() => trackBrandCardClicked(brand.slug, brand.category, position)}
     >
       {/* Image */}
-      <div className="relative aspect-[4/3] overflow-hidden rounded-t-xl bg-muted">
+      <div className="relative z-10 aspect-[4/3] overflow-hidden rounded-t-xl bg-muted">
         {showImage ? (
           <Image
             src={imageSrc}
-            alt={brand.name}
+            alt=""
             fill
             priority={priority}
             className="object-contain transition-transform group-hover:scale-[1.02]"
@@ -92,7 +90,13 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
       <div className="p-4">
         <div className="flex min-w-0 items-center gap-1.5">
           <h3 className="min-w-0 truncate type-subsection-title">
-            {brand.name}
+            <Link
+              href={`/brands/${brand.slug}`}
+              className="after:absolute after:inset-0 focus-visible:outline-none"
+              onClick={() => trackBrandCardClicked(brand.slug, brand.category, position)}
+            >
+              {brand.name}
+            </Link>
           </h3>
           {badges.length > 0 && (
             <div className="flex shrink-0 items-center gap-1.5">
@@ -137,6 +141,6 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
           )}
         </div>
       </div>
-    </Link>
+    </article>
   )
 }

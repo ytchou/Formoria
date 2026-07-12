@@ -41,7 +41,7 @@ export function ImageCarousel({ images, alt, category, imageAlts }: ImageCarouse
       const localeAlt = locale === 'en' ? (a.altEn ?? a.altZh) : (a.altZh ?? a.altEn)
       if (localeAlt) return localeAlt
     }
-    return t('gallery.photoAlt', { n: index + 1 })
+    return t('gallery.photoAltWithBrand', { brand: alt, n: index + 1 })
   }
 
   function handleImageError(index: number) {

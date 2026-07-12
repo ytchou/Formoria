@@ -5,7 +5,7 @@ test.describe('CJK slug brand detail', () => {
     await page.goto('/brands');
 
     // Collect all brand card hrefs that contain CJK characters (non-ASCII URL path segments)
-    const cards = page.locator('main a[aria-label]');
+    const cards = page.locator('main article a[href*="/brands/"]');
     await cards.first().waitFor({ state: 'visible', timeout: 10_000 });
 
     const allHrefs: string[] = await cards.evaluateAll((anchors) =>

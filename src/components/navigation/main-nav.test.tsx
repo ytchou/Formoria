@@ -35,6 +35,8 @@ vi.mock('next-intl', () => ({
           mySubmissions: '我的提交',
           submitBrand: '提交品牌',
           languageLabel: '切換語言',
+          languageTraditionalChinese: '繁體中文',
+          languageEnglish: 'English',
         },
       }
 
@@ -101,6 +103,7 @@ describe('MainNav', () => {
   it('renders the language switcher trigger', async () => {
     const { MainNav } = await import('./main-nav')
     render(<MainNav categories={mockCategories} />)
-    expect(screen.getByRole('button', { name: '切換語言' })).toBeInTheDocument()
+    // compact LocaleSwitcher shows the locale text as its accessible name
+    expect(screen.getByRole('button', { name: '繁體中文' })).toBeInTheDocument()
   })
 })

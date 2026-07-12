@@ -61,6 +61,7 @@ export function TaiwanMap({ data }: Props) {
                     },
                     pressed: { outline: 'none' },
                   }}
+                  tabIndex={-1}
                   aria-hidden="true"
                 />
               )

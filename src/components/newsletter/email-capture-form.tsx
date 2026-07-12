@@ -38,7 +38,7 @@ export function EmailCaptureForm() {
   }
 
   return (
-    <form action={formAction} className="space-y-4 text-white">
+    <form action={formAction} className="space-y-4 text-foreground">
       <input
         aria-hidden="true"
         autoComplete="off"
@@ -53,7 +53,7 @@ export function EmailCaptureForm() {
         <div className="min-w-0 flex-1">
           <Input
             aria-invalid={state.error ? 'true' : undefined}
-            className="h-12 rounded-lg border-white/30 bg-white/10 text-white placeholder:text-white/50 focus-visible:border-white focus-visible:ring-white/20 sm:h-11"
+            className="h-12 rounded-lg border-border bg-background/50 text-foreground placeholder:text-muted-foreground focus-visible:border-foreground focus-visible:ring-ring sm:h-11"
             name="email"
             placeholder={t('emailPlaceholder')}
             required
@@ -74,7 +74,7 @@ export function EmailCaptureForm() {
           {isPending ? (
             <span
               aria-hidden="true"
-              className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+              className="size-4 animate-spin rounded-full border-2 border-current/40 border-t-current"
             />
           ) : null}
           {t('subscribe')}
@@ -82,7 +82,7 @@ export function EmailCaptureForm() {
       </div>
 
       <div className="space-y-2">
-        <p className="text-sm font-medium text-white/70">
+        <p className="text-sm font-medium text-secondary-foreground">
           {t('interestsLabel')}
         </p>
         <div className="flex flex-row gap-2 overflow-x-auto">
@@ -94,10 +94,10 @@ export function EmailCaptureForm() {
                 key={chip.slug}
                 aria-pressed={isSelected}
                 className={cn(
-                  'h-9 shrink-0 whitespace-nowrap rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-white/20',
+                  'h-9 shrink-0 whitespace-nowrap rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring',
                   isSelected
-                    ? 'border-white bg-white text-black'
-                    : 'border-white/40 bg-transparent text-white hover:bg-white/10'
+                    ? 'border-foreground bg-foreground text-background'
+                    : 'border-border text-secondary-foreground hover:bg-muted'
                 )}
                 type="button"
                 onClick={() => toggleChip(chip.slug)}
