@@ -18,12 +18,6 @@ interface BrandActionsProps {
   brandName: string
 }
 
-const activeCta = buttonVariants({ variant: 'primary', tone: 'cta', className: 'flex-1' })
-const disabledCta = buttonVariants({
-  variant: 'secondary',
-  className: 'flex-1 cursor-default opacity-50',
-})
-
 export function BrandActions({ websiteUrl, brandSlug = '', brandId, brandName }: BrandActionsProps) {
   const t = useTranslations('brandDetail')
   const handleWebsiteClick = () => {
@@ -40,27 +34,29 @@ export function BrandActions({ websiteUrl, brandSlug = '', brandId, brandName }:
 
   return (
     <>
-      <div className="flex gap-2">
+      <div className="space-y-3">
         {websiteUrl ? (
           <a
             href={websiteUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className={activeCta}
+            className={buttonVariants({ variant: 'primary', tone: 'cta', className: 'w-full' })}
             onClick={handleWebsiteClick}
           >
             <ExternalLink className="size-[15px]" />
             {t('actions.visitWebsite')}
           </a>
         ) : (
-          <span className={disabledCta} aria-disabled="true">
+          <span className={buttonVariants({ variant: 'secondary', className: 'w-full cursor-default opacity-50' })} aria-disabled="true">
             <ExternalLink className="size-[15px]" />
             <span className="line-through">{t('actions.visitWebsite')}</span>
           </span>
         )}
-        <ShareDialog brandSlug={brandSlug} brandName={brandName} />
-        {brandId && <SaveBrandButton brandId={brandId} variant="inline" className="rounded-xl" />}
-        {brandId && <ReportDialog brandId={brandId} brandSlug={brandSlug} />}
+        <div className="flex gap-2">
+          <ShareDialog brandSlug={brandSlug} brandName={brandName} />
+          {brandId && <SaveBrandButton brandId={brandId} variant="inline" className="rounded-xl" />}
+          {brandId && <ReportDialog brandId={brandId} brandSlug={brandSlug} />}
+        </div>
       </div>
       {websiteUrl && (
         <div

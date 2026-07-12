@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Geist_Mono, Inter, Noto_Sans_TC } from "next/font/google";
+import { Bricolage_Grotesque, Geist_Mono, Inter, Noto_Sans_TC, Noto_Serif_TC } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { Agentation } from "agentation";
 import { Toaster } from "sonner";
@@ -23,6 +23,13 @@ const bricolage = Bricolage_Grotesque({
 const notoSansTC = Noto_Sans_TC({
   variable: "--font-noto-tc",
   weight: ["400", "500", "700"],
+  subsets: ["latin"],
+  preload: false,
+});
+
+const notoSerifTC = Noto_Serif_TC({
+  variable: "--font-noto-serif-tc",
+  weight: ["400", "600", "700"],
   subsets: ["latin"],
   preload: false,
 });
@@ -57,7 +64,7 @@ export default function RootLayout({
   return (
     <html
       lang="zh-TW"
-      className={`${inter.variable} ${bricolage.variable} ${notoSansTC.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${bricolage.variable} ${notoSansTC.variable} ${notoSerifTC.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <SessionTracker />

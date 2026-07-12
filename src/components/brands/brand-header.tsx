@@ -6,12 +6,13 @@ import { MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badge
 interface BrandHeaderProps {
   brand: Brand
   categoryLabel?: string | null
+  cityLabel?: string | null
   locale?: string
   actionsSlot?: ReactNode
   adminSlot?: ReactNode
 }
 
-export function BrandHeader({ brand, categoryLabel, locale, actionsSlot, adminSlot }: BrandHeaderProps) {
+export function BrandHeader({ brand, categoryLabel, cityLabel, locale, actionsSlot, adminSlot }: BrandHeaderProps) {
   const t = useTranslations('brandDetail')
   const hasMitVerifiedBadge = brand.mitVerified === true
   const hasOwnerVerifiedBadge = brand.isVerified
@@ -32,7 +33,14 @@ export function BrandHeader({ brand, categoryLabel, locale, actionsSlot, adminSl
       {actionsSlot}
 
       {/* Meta row */}
-      <div className="flex flex-wrap items-center gap-2 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        {/* City */}
+        {cityLabel && (
+          <span className="inline-flex items-center gap-1 type-caption">
+            {cityLabel}
+          </span>
+        )}
+
         {/* Founding year */}
         {brand.foundingYear && (
           <span className="type-caption">

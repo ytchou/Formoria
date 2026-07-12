@@ -1,8 +1,7 @@
 import { getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
-import SplitHero from '@/components/shared/split-hero'
-import { buttonVariants } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { SearchInput } from '@/components/brands/search-input'
+import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 interface HeroSectionProps {
   brandCount: number
@@ -14,33 +13,34 @@ export default async function HeroSection({ brandCount, categoryCount, recentBra
   const t = await getTranslations('landing.hero')
 
   return (
-    <SplitHero imageSrc="/images/hero-bg.png" eyebrow={t('eyebrow')} headline={t('headline')} subheadline={t('subheadline')}>
-          <div className="mt-6 flex items-start gap-4 sm:gap-6">
-            <div className="min-w-0">
-              <p className="type-stat">{brandCount}</p>
-              <p className="mt-0.5 type-caption truncate">{t('statsBrands')}</p>
-            </div>
-            <div className="h-10 w-px shrink-0 bg-border" />
-            <div className="min-w-0">
-              <p className="type-stat">{categoryCount}</p>
-              <p className="mt-0.5 type-caption truncate">{t('statsCategories')}</p>
-            </div>
-            {recentBrands.count > 0 ? (
-              <>
-                <div className="h-10 w-px shrink-0 bg-border" />
-                <div className="min-w-0">
-                  <p className="type-stat text-cta">+{recentBrands.count}</p>
-                  <p className="mt-0.5 type-caption truncate">{t(recentBrands.period === '7d' ? 'recentWeek' : 'recentMonth')}</p>
-                </div>
-              </>
-            ) : null}
-          </div>
-          <Link
-            href="/brands"
-            className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-6')}
-          >
-            {t('cta')}
-          </Link>
-    </SplitHero>
+    <section className="py-12 md:py-20">
+      <div className="mx-auto max-w-6xl page-gutter">
+        <h1 className="type-hero">{t('headline')}</h1>
+        <p className="mt-3 type-page-subtitle max-w-2xl">{t('subheadline')}</p>
+
+        <div className="mt-6 max-w-md">
+          <SearchInput placeholder={t('cta')} />
+        </div>
+
+        <nav className="mt-6 flex flex-wrap gap-2" aria-label={t('statsCategories')}>
+          {PRODUCT_TYPE_CATEGORIES.map((cat) => (
+            <Link
+              key={cat.slug}
+              href={`/brands?category=${cat.slug}`}
+              className="shrink-0 whitespace-nowrap rounded-full border border-border bg-transparent px-3 py-1 type-micro text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+            >
+              {cat.nameZh}
+            </Link>
+          ))}
+        </nav>
+
+        <p className="mt-6 type-metadata">
+          {brandCount} {t('statsBrands')} · {categoryCount} {t('statsCategories')}
+          {recentBrands.count > 0 && (
+            <span className="text-primary"> · +{recentBrands.count} {t(recentBrands.period === '7d' ? 'recentWeek' : 'recentMonth')}</span>
+          )}
+        </p>
+      </div>
+    </section>
   )
 }

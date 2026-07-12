@@ -131,7 +131,7 @@ export default function FilterableBrandShowcase({
 
       {filteredBrands.length > 0 && (
         <div className="mt-6">
-          <Link href={ctaHref} className="font-medium text-primary">
+          <Link href={ctaHref} className="type-body-emphasis text-primary">
             {ctaText}
           </Link>
         </div>

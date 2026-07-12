@@ -41,24 +41,20 @@ vi.mock('@/lib/services/brands', () => ({
   getRecentBrandCount: vi.fn(),
 }))
 
+vi.mock('@/i18n/navigation', () => ({
+  Link: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => <a href={href} {...props}>{children}</a>,
+}))
+
 vi.mock('@/components/landing/hero-section', () => ({
   default: () => <div data-testid="hero-section" />,
 }))
 
-vi.mock('@/components/landing/manifesto', () => ({
-  default: () => <div data-testid="manifesto" />,
-}))
-
-vi.mock('@/components/landing/submit-band', () => ({
-  default: () => <div data-testid="submit-band" />,
-}))
-
-vi.mock('@/components/landing/newsletter-section', () => ({
-  NewsletterSection: () => <div data-testid="newsletter-section" />,
-}))
-
 vi.mock('@/components/landing/filterable-brand-showcase', () => ({
   default: () => <div data-testid="filterable-brand-showcase" />,
+}))
+
+vi.mock('@/components/landing/section-band', () => ({
+  default: () => <div data-testid="section-band" />,
 }))
 
 vi.mock('@/hooks/use-saved-brands', () => ({
@@ -200,14 +196,8 @@ describe('LandingPage', () => {
   it('renders the landing page and fetches approved brands', async () => {
     render(await LandingPage({ params: Promise.resolve({ locale: 'zh-TW' }) }))
 
-    expect(screen.getByTestId('submit-band')).toBeInTheDocument()
-    // Verified rail was removed — no longer rendered
-    expect(
-      screen.queryByRole('heading', { name: '認證品牌' }),
-    ).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole('heading', { name: '社群推薦' }),
-    ).not.toBeInTheDocument()
+    expect(screen.getByTestId('hero-section')).toBeInTheDocument()
+    expect(screen.getByTestId('section-band')).toBeInTheDocument()
     expect(getBrands).toHaveBeenCalledTimes(1)
     expect(getBrands).toHaveBeenCalledWith({ status: 'approved', limit: 60 })
   })
