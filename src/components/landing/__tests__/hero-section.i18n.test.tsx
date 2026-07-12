@@ -16,6 +16,7 @@ vi.mock('@/components/brands/search-input', () => ({
 
 vi.mock('next-intl/server', () => ({
   getTranslations: mockGetTranslations,
+  getLocale: vi.fn().mockResolvedValue('zh-TW'),
 }))
 
 import HeroSection from '../hero-section'

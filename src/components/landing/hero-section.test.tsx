@@ -16,6 +16,7 @@ vi.mock('next-intl/server', () => ({
     const messages = zhMessages.landing.hero as Record<string, string>
     return messages[key] ?? key
   }),
+  getLocale: vi.fn().mockResolvedValue('zh-TW'),
 }))
 
 import HeroSection from './hero-section'

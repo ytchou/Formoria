@@ -1,7 +1,7 @@
-import { getTranslations } from 'next-intl/server'
+import { getLocale, getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { SearchInput } from '@/components/brands/search-input'
-import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 interface HeroSectionProps {
   brandCount: number
@@ -10,7 +10,7 @@ interface HeroSectionProps {
 }
 
 export default async function HeroSection({ brandCount, categoryCount, recentBrands }: HeroSectionProps) {
-  const t = await getTranslations('landing.hero')
+  const [t, locale] = await Promise.all([getTranslations('landing.hero'), getLocale()])
 
   return (
     <section className="py-12 md:py-20">
@@ -29,7 +29,7 @@ export default async function HeroSection({ brandCount, categoryCount, recentBra
               href={`/brands?category=${cat.slug}`}
               className="shrink-0 whitespace-nowrap rounded-full border border-border bg-transparent px-3 py-1 type-micro text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
             >
-              {cat.nameZh}
+              {categoryLabel(cat, locale)}
             </Link>
           ))}
         </nav>
