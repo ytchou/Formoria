@@ -9,6 +9,9 @@
  *   pnpm exec ts-node -P tsconfig.json scripts/normalize-product-tags.ts [--dry-run] [--batch-size=50]
  */
 
+import { config } from 'dotenv'
+config({ path: '.env.local' })
+
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
