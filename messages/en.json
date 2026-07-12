@@ -377,7 +377,6 @@
       "close": "Close photo viewer",
       "previous": "Previous photo",
       "next": "Next photo",
-      "photoAlt": "Product photo {n}",
       "photoAltWithBrand": "{brand} product {n}",
       "viewPhoto": "View photo {n}"
     },
