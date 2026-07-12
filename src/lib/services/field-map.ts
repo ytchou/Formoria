@@ -1,6 +1,8 @@
 import type { TablesInsert } from '@/lib/supabase/database.types'
+import { deriveProductTagsEn } from '@/lib/services/product-tags'
 
-type BrandInsertRow = TablesInsert<'brands'>
+// product_tags_en exists in the DB but is not yet in the generated types
+type BrandInsertRow = TablesInsert<'brands'> & { product_tags_en?: string[] | null }
 type SubmissionInsertRow = TablesInsert<'brand_submissions'>
 
 type CamelSocialPurchaseFields = {
@@ -126,6 +128,7 @@ export function toBrandRow(input: {
   contactEmail?: string | null
   priceRange?: number | null
   productTags?: string[] | null
+  productTagsEn?: string[] | null
   blurb?: string | null
   isDemo?: boolean
 }): BrandInsertRow {
@@ -146,6 +149,11 @@ export function toBrandRow(input: {
   copyMappedFields(input, row, BRAND_FIELD_MAP)
   row.price_range = input.priceRange ?? null
   row.product_tags = input.productTags ?? []
+  if (input.productTagsEn !== undefined) {
+    row.product_tags_en = input.productTagsEn
+  } else if (input.productTags !== undefined) {
+    row.product_tags_en = deriveProductTagsEn(input.productTags ?? [])
+  }
   if (input.isDemo) row.is_demo = input.isDemo
   return row as BrandInsertRow
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeProductTags, deriveProductTagsEn } from '../product-tags'
+import { normalizeProductTags, deriveProductTagsEn, planTagBackfill } from '../product-tags'
 
 describe('normalizeProductTags', () => {
   it('replaces vocab matches with canonical zh/en pairs', () => {
@@ -51,5 +51,18 @@ describe('deriveProductTagsEn', () => {
   })
   it('returns empty for empty input', () => {
     expect(deriveProductTagsEn([])).toEqual([])
+  })
+})
+
+describe('planTagBackfill', () => {
+  it('splits tags into deterministic matches and llm candidates', () => {
+    const plan = planTagBackfill(['側背包', '口金短夾', '登山背包'])
+    expect(plan.matched.map((m) => m.canonicalZh)).toEqual(['斜背包', '後背包'])
+    expect(plan.unmatched).toEqual(['口金短夾'])
+  })
+  it('is idempotent on already-canonical input', () => {
+    const plan = planTagBackfill(['斜背包', '後背包'])
+    expect(plan.matched.map((m) => m.canonicalZh)).toEqual(['斜背包', '後背包'])
+    expect(plan.unmatched).toEqual([])
   })
 })

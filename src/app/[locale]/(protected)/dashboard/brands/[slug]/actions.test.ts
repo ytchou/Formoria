@@ -439,6 +439,26 @@ describe('updateBrandAction', () => {
     )
   })
 
+  it('derives productTagsEn from productTags on update', async () => {
+    const { updateBrandAction } = await import('./actions')
+
+    try {
+      await updateBrandAction(undefined, form({
+        brandSlug: 'test-brand',
+        productTags: '托特包,口金包',
+      }))
+    } catch {
+      // redirect throws
+    }
+
+    expect(updateBrand).toHaveBeenCalledWith(
+      'brand-1',
+      expect.objectContaining({
+        productTagsEn: ['Tote Bags', 'Clasp-Frame Bags'],
+      })
+    )
+  })
+
   it('does not let governed fields reach updateBrand', async () => {
     const { updateBrandAction } = await import('./actions')
 

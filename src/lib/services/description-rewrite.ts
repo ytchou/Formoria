@@ -3,6 +3,7 @@ import { buildEnrichmentConfig } from '@/lib/constants/enrichment-config'
 import { createDeepSeekClient, parseDeepSeekJson } from './deepseek-client'
 import { validateLocalizedText, detectAiArtifacts } from './enrich-validators'
 import { parseExtractionResult } from './product-type-classifier'
+import { normalizeProductTags } from '@/lib/services/product-tags'
 
 const DEEPSEEK_TIMEOUT_MS = 30_000
 const ZH_DESCRIPTION_BAND = [150, 400] as const
@@ -31,6 +32,8 @@ export type DescriptionRewriteResult = {
     warnings: string[]
     attempt: number
   }>
+  rejected?: { tag: string; reason: string }[]
+  crossBranch?: string[]
   rawResponse?: unknown
 }
 
@@ -100,9 +103,11 @@ export function parseDescriptionRewriteResult(content: string): DescriptionRewri
     : null
 
   const rawProductTagsEn = parsed.product_tags_en
-  const productTagsEn = Array.isArray(rawProductTagsEn)
+  const productTagsEnRaw = Array.isArray(rawProductTagsEn)
     ? rawProductTagsEn.filter((t): t is string => typeof t === 'string' && t.trim().length > 0).map(t => t.trim())
     : []
+
+  const normalizedTags = normalizeProductTags(extraction.productTags, productTagsEnRaw)
 
   const rawRep = parsed.reputation_summary
   const reputationSummary = rawRep && typeof rawRep === 'object' && !Array.isArray(rawRep)
@@ -172,6 +177,9 @@ export function parseDescriptionRewriteResult(content: string): DescriptionRewri
       })()
     : null
 
+  const acceptedTags = normalizedTags.tags.length >= 1 ? normalizedTags.tags : []
+  const acceptedTagsEn = normalizedTags.tags.length >= 1 ? normalizedTags.tagsEn : []
+
   return {
     description_zh: descriptionZh,
     description_en: descriptionEn,
@@ -179,8 +187,8 @@ export function parseDescriptionRewriteResult(content: string): DescriptionRewri
     blurb_zh: blurbZh,
     blurb_en: blurbEn,
     priceRange: extraction.priceRange,
-    productTags: extraction.productTags.length >= 2 ? extraction.productTags : [],
-    productTagsEn,
+    productTags: acceptedTags,
+    productTagsEn: acceptedTagsEn,
     city: extraction.city,
     foundingYear: extraction.foundingYear,
     reputationSummary,
@@ -188,6 +196,8 @@ export function parseDescriptionRewriteResult(content: string): DescriptionRewri
     stockists: stockists && stockists.length > 0 ? stockists : null,
     mitIndicators,
     validationRejections: [],
+    rejected: normalizedTags.rejected,
+    crossBranch: normalizedTags.crossBranch,
   }
 }
 

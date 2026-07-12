@@ -66,3 +66,45 @@ export function normalizeProductTags(
 export function deriveProductTagsEn(tags: string[]): string[] {
   return tags.map((tag) => matchSubcategory(tag)?.nameEn ?? tag)
 }
+
+export type TagBackfillMatch = {
+  original: string
+  canonicalZh: string
+  canonicalEn: string
+  slug: string
+}
+
+export type TagBackfillPlan = {
+  matched: TagBackfillMatch[]
+  unmatched: string[]
+}
+
+/**
+ * Deterministic first pass for the normalize-product-tags backfill.
+ * Tags that hit the ontology vocab are resolved to canonical zh/en/slug.
+ * Tags that miss are returned as `unmatched` for LLM follow-up.
+ * Deduplication is by slug — first occurrence wins.
+ */
+export function planTagBackfill(tags: string[]): TagBackfillPlan {
+  const matched: TagBackfillMatch[] = []
+  const unmatched: string[] = []
+  const seenSlugs = new Set<string>()
+
+  for (const tag of tags) {
+    const sub = matchSubcategory(tag)
+    if (sub) {
+      if (seenSlugs.has(sub.slug)) continue
+      seenSlugs.add(sub.slug)
+      matched.push({
+        original: tag,
+        canonicalZh: sub.nameZh,
+        canonicalEn: sub.nameEn,
+        slug: sub.slug,
+      })
+    } else {
+      unmatched.push(tag)
+    }
+  }
+
+  return { matched, unmatched }
+}
