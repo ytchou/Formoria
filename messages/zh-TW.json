@@ -378,6 +378,7 @@
       "previous": "上一張",
       "next": "下一張",
       "photoAlt": "產品照片 {n}",
+      "photoAltWithBrand": "{brand} 產品 {n}",
       "viewPhoto": "檢視第 {n} 張照片"
     },
     "locations": {

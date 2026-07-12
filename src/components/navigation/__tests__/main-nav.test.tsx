@@ -60,7 +60,7 @@ describe('MainNav', () => {
     renderWithIntl(<MainNav categories={[]} />)
 
     expect(
-      screen.getAllByRole('button', { name: 'Switch language' }).length,
+      screen.getAllByRole('button', { name: 'English' }).length,
     ).toBeGreaterThan(0)
   })
 

@@ -29,9 +29,9 @@ export default async function AuthLayout({
             <span className="text-lg font-semibold tracking-tight">Formoria</span>
           </Link>
         </header>
-        <div className="flex flex-1 items-center justify-center px-4">
+        <main id="main-content" className="flex flex-1 items-center justify-center px-4">
           <div className="w-full max-w-md">{children}</div>
-        </div>
+        </main>
       </div>
     </NextIntlClientProvider>
   );

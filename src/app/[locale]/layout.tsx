@@ -92,7 +92,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps) {
           isAuthenticated={Boolean(user)}
         />
       </div>
-      <div className="flex-1">{children}</div>
+      <div id="main-content" className="flex-1">{children}</div>
       <Footer />
     </NextIntlClientProvider>
   )

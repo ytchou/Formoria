@@ -278,7 +278,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
               categories={[...PRODUCT_TYPE_CATEGORIES]}
               totalCount={totalCount}
             />
-            <p className="type-card-description">
+            <p className="type-card-description" aria-live="polite" aria-atomic="true">
               {totalCount > 0 ? t('count', { count: totalCount }) : t('notFound')}
             </p>
           </div>
