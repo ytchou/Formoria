@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
 import { surfaceCardStyles } from '@/components/ui/card'
 import {
   Table,
@@ -69,7 +71,7 @@ function RiskBadge({
   t: Awaited<ReturnType<typeof getTranslations<'admin.moderation'>>>
 }) {
   if (tier === 'block') {
-    return <Badge className="bg-destructive text-white">{t('riskHigh')}</Badge>
+    return <Badge variant="destructive">{t('riskHigh')}</Badge>
   }
 
   return (
@@ -103,31 +105,31 @@ export default async function ReviewQueueModerationPage({ searchParams }: Modera
       </p>
 
       <form className="mt-6 flex flex-wrap gap-3">
-        <label className="flex flex-col gap-1 text-sm font-medium text-warm-caption">
+        <Label className="flex flex-col gap-1 text-sm font-medium text-warm-caption">
           {t('filterByRisk')}
-          <select
+          <NativeSelect
             name="risk"
             defaultValue={riskFilter ?? ''}
-            className="rounded-md border bg-white px-3 py-2 text-foreground"
+            className="h-10"
           >
             <option value="">{t('flagCount', { count: unfilteredItems.length })}</option>
             <option value="high">{t('riskHigh')}</option>
             <option value="medium">{t('riskMedium')}</option>
             <option value="clean">{t('riskClean')}</option>
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm font-medium text-warm-caption">
+          </NativeSelect>
+        </Label>
+        <Label className="flex flex-col gap-1 text-sm font-medium text-warm-caption">
           {t('filterByTier')}
-          <select
+          <NativeSelect
             name="tier"
             defaultValue={tierFilter ?? ''}
-            className="rounded-md border bg-white px-3 py-2 text-foreground"
+            className="h-10"
           >
             <option value="">{t('flagCount', { count: unfilteredItems.length })}</option>
             <option value="block">block</option>
             <option value="flag">flag</option>
-          </select>
-        </label>
+          </NativeSelect>
+        </Label>
         <Button
           type="submit"
           variant="secondary"

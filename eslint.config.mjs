@@ -64,10 +64,7 @@ const eslintConfig = defineConfig([
   {
     files: [
       "src/app/\\[locale\\]/(protected)/dashboard/brands/\\[slug\\]/edit/sections/locations-section.tsx",
-      "src/app/admin/review-queue/moderation/page.tsx",
       "src/app/admin/review-queue/submissions/submissions-review-list.tsx",
-      "src/components/admin/brand-edit-dialog.tsx",
-      "src/components/admin/brand-list.tsx",
       "src/components/brands/brand-filter-sidebar.tsx",
       "src/components/brands/claim-brand-cta.tsx",
       "src/components/brands/image-carousel.tsx",

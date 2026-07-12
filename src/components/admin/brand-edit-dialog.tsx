@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
@@ -129,11 +130,10 @@ export function BrandEditDialog({
 
           <div className="space-y-2">
             <Label htmlFor="brand-product-type">Product Type</Label>
-            <select
+            <NativeSelect
               id="brand-product-type"
               value={productType}
               onChange={(e) => setProductType(e.target.value)}
-              className="h-12 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">—</option>
               {PRODUCT_TYPE_CATEGORIES.map((cat) => (
@@ -141,7 +141,7 @@ export function BrandEditDialog({
                   {cat.nameZh} ({cat.name})
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
 
           <div className="space-y-4 border-t border-border pt-4">
