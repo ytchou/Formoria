@@ -13,8 +13,8 @@ const allowedMatches = [
   },
   {
     file: 'src/components/brands/share-dialog.tsx',
-    names: ['raw hex color class', 'raw hex color literal'],
-    values: ['text-[#07B53B]', '#07B53B', 'text-[#1877F2]', '#1877F2'],
+    names: ['raw hex color class', 'raw hex color literal', 'raw-type-combo'],
+    values: ['text-[#07B53B]', '#07B53B', 'text-[#1877F2]', '#1877F2', 'text-sm font-medium'],
   },
   {
     file: 'src/components/brands/brand-links.tsx',
@@ -47,18 +47,174 @@ const allowedMatches = [
   },
   {
     file: 'src/components/microsite/contact-cta.tsx',
-    names: ['arbitrary numeric text size'],
-    values: ['text-[13px]'],
+    names: ['arbitrary numeric text size', 'raw-type-combo'],
+    values: ['text-[13px]', 'text-sm font-semibold'],
   },
   {
     file: 'src/components/microsite/hero.tsx',
-    names: ['arbitrary numeric text size'],
-    values: ['text-[clamp(2.5rem,8vw,6rem)]'],
+    names: ['arbitrary numeric text size', 'raw-type-combo'],
+    values: ['text-[clamp(2.5rem,8vw,6rem)]', 'text-sm font-semibold'],
   },
   {
     file: 'src/components/microsite/product-grid.tsx',
     names: ['arbitrary numeric text size'],
     values: ['text-[13px]'],
+  },
+  {
+    file: 'src/components/ui/button.tsx',
+    names: ['arbitrary numeric text size'],
+    values: ['text-[0.8125rem]'],
+  },
+  // raw-type-combo allowlist — existing code, migrated in wave 0
+  {
+    file: 'src/app/[locale]/(protected)/favorites/page.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-3xl font-bold'],
+  },
+  {
+    file: 'src/app/[locale]/getting-started/page.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-sm font-bold'],
+  },
+  {
+    file: 'src/app/[locale]/submit/confirmation/page.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-sm font-semibold'],
+  },
+  {
+    file: 'src/app/admin/review-queue/moderation/page.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-sm font-medium'],
+  },
+  {
+    file: 'src/app/admin/review-queue/submissions/submissions-review-list.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-xs font-semibold'],
+  },
+  {
+    file: 'src/app/auth/layout.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-lg font-semibold'],
+  },
+  {
+    file: 'src/app/layout.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-sm focus:font-medium'],
+  },
+  {
+    file: 'src/components/admin/admin-nav.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-sm font-medium'],
+  },
+  {
+    file: 'src/components/admin/brand-list.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-xs font-medium'],
+  },
+  {
+    file: 'src/components/admin/claim-requests-list.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-xs font-semibold', 'text-sm font-semibold'],
+  },
+  {
+    file: 'src/components/admin/edit-diff-view.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-xs font-semibold'],
+  },
+  {
+    file: 'src/components/admin/feedback-list.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-xs font-semibold'],
+  },
+  {
+    file: 'src/components/admin/queue-summary-card.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-sm font-semibold', 'text-sm font-medium'],
+  },
+  {
+    file: 'src/components/admin/reports-table.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-xs font-semibold'],
+  },
+  {
+    file: 'src/components/admin/status-badge.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-xs font-medium'],
+  },
+  {
+    file: 'src/components/auth/account-menu.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-sm font-semibold'],
+  },
+  {
+    file: 'src/components/brands/brand-filter-sidebar.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-xs font-semibold'],
+  },
+  {
+    file: 'src/components/brands/brand-image-fallback.tsx',
+    names: ['raw-type-combo'],
+    values: ["font-bold text-foreground ${size === 'detail' ? 'text-5xl' : 'text-3xl"],
+  },
+  {
+    file: 'src/components/brands/brand-locations.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-sm font-medium'],
+  },
+  {
+    file: 'src/components/brands/image-carousel.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-xs font-medium', 'text-xs font-bold'],
+  },
+  {
+    file: 'src/components/brands/preview-banner.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-sm font-medium'],
+  },
+  {
+    file: 'src/components/brands/related-brands.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-sm font-medium'],
+  },
+  {
+    file: 'src/components/brands/report-dialog.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-sm font-medium'],
+  },
+  {
+    file: 'src/components/brands/search-empty-state.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-xs font-semibold', 'text-sm font-medium'],
+  },
+  {
+    file: 'src/components/dashboard/analytics-chart.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-sm font-medium'],
+  },
+  {
+    file: 'src/components/dashboard/dashboard-tab-nav.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-sm font-medium'],
+  },
+  {
+    file: 'src/components/dashboard/owner-brand-overview.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-sm font-semibold'],
+  },
+  {
+    file: 'src/components/dashboard/profile-completeness-card.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-xs font-bold', 'text-xs font-medium', 'text-xs font-semibold'],
+  },
+  {
+    file: 'src/components/forms/product-tag-field.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-sm font-medium'],
+  },
+  {
+    file: 'src/components/newsletter/email-capture-form.tsx',
+    names: ['raw-type-combo'],
+    values: ['text-sm font-medium'],
   },
 ]
 
@@ -78,6 +234,10 @@ export const frontendTokenChecks = [
   {
     name: 'direct heading font',
     pattern: /font-heading|font-\[family-name:var\(--font-heading\)\]/g,
+  },
+  {
+    name: 'raw-type-combo',
+    pattern: /\btext-(xs|sm|base|lg|xl|[2-9]xl)\b.*\bfont-(medium|semibold|bold)\b|\bfont-(medium|semibold|bold)\b.*\btext-(xs|sm|base|lg|xl|[2-9]xl)\b/g,
   },
 ]
 
@@ -134,6 +294,7 @@ export function collectFrontendTokenFailures({
     const lines = source.split('\n')
 
     for (const check of frontendTokenChecks) {
+      if (check.name === 'raw-type-combo' && file.startsWith('src/components/ui/')) continue
       for (const [index, line] of lines.entries()) {
         const matches = [...line.matchAll(check.pattern)].map(
           (match) => match[0],

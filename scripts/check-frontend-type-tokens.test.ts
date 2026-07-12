@@ -84,4 +84,30 @@ describe('check-frontend-type-tokens', () => {
       }),
     ])
   })
+
+  it('flags hand-picked text-size + font-weight combos outside ui/', () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'frontend-tokens-'))
+
+    writeFixture(
+      cwd,
+      'src/components/brands/sample.tsx',
+      '<span className="text-sm font-medium text-foreground">x</span>',
+    )
+
+    const failures = collectFrontendTokenFailures({ cwd })
+    expect(failures.some((f) => f.name === 'raw-type-combo')).toBe(true)
+  })
+
+  it('does not flag combos inside ui/ primitives', () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'frontend-tokens-'))
+
+    writeFixture(
+      cwd,
+      'src/components/ui/button.tsx',
+      '"text-sm font-medium"',
+    )
+
+    const failures = collectFrontendTokenFailures({ cwd })
+    expect(failures.some((f) => f.name === 'raw-type-combo')).toBe(false)
+  })
 })
