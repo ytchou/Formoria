@@ -99,7 +99,7 @@ export function SettingsForm({ profile, email, currentLocale }: Props) {
           name="emailNotifications"
           value="true"
           checked={emailNotifications}
-          onChange={(e) => setEmailNotifications(e.target.checked)}
+          onCheckedChange={(checked) => setEmailNotifications(checked)}
           className="mt-0.5"
         />
         <div>

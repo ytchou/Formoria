@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 
@@ -75,13 +76,13 @@ describe('SubmitForm', () => {
     expect(screen.getByRole('button', { name: /送出推薦/ })).toBeDisabled()
   })
 
-  it("toggles the consent checkbox when its label text is clicked", async () => {
-    const { default: userEvent } = await import("@testing-library/user-event")
+  it('toggles the consent checkbox when its label text is clicked', async () => {
     const user = userEvent.setup()
-    renderForm("recommend")
-    const consent = screen.getByRole("checkbox")
+    renderForm('recommend')
+    const consent = screen.getByRole('checkbox')
     expect(consent).not.toBeChecked()
-    await user.click(screen.getByText(/隱私權政策/))
+    // Click the consent text span (bubbles to wrapping label, activating the checkbox)
+    await user.click(screen.getByText(/同意/, { selector: 'span' }))
     expect(consent).toBeChecked()
   })
 })

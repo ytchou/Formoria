@@ -547,8 +547,8 @@ export default function SubmitForm({
                     <Checkbox
                       id="submit-pdpa"
                       checked={field.value}
-                      onChange={field.onChange}
-                      className="mt-0.5 h-[18px] w-[18px] shrink-0"
+                      onCheckedChange={(checked) => field.onChange(checked)}
+                      className="mt-0.5 shrink-0"
                     />
                     <span className="type-body">
                       {tReview.rich('pdpaConsent', {
