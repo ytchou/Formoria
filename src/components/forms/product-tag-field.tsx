@@ -80,7 +80,7 @@ export function ProductTagField({
         {tags.map((tag) => (
           <span
             key={tag.toLowerCase()}
-            className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary"
+            className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 type-body-emphasis text-primary"
           >
             {tag}
             <button

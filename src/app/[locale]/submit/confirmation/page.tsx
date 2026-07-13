@@ -104,7 +104,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
                 </div>
                 <div className="pb-4">
                   <p
-                    className={`text-sm font-semibold ${
+                    className={`type-subsection-title ${
                       step.active ? 'text-foreground' : 'text-muted-foreground'
                     }`}
                   >

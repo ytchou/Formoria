@@ -43,7 +43,7 @@ function CompletenessRing({ score }: { score: number }) {
           strokeWidth="4"
         />
       </svg>
-      <span className="text-xs font-bold tabular-nums text-foreground">
+      <span className="type-label tabular-nums">
         {normalizedScore}%
       </span>
     </span>
@@ -79,7 +79,7 @@ export function ProfileCompletenessCard({
               })}
             </span>
           </span>
-          <span className="ml-auto text-xs font-medium text-primary">
+          <span className="ml-auto type-field-label text-primary">
             {open ? t('hideRecommendations') : t('viewRecommendations')}
           </span>
           <ChevronDown
@@ -101,7 +101,7 @@ export function ProfileCompletenessCard({
                     href={`/dashboard/brands/${slug}/edit?step=${component.step}`}
                     className="min-w-0 rounded-lg border border-border p-4 transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary"
                   >
-                    <span className="text-xs font-semibold text-primary">
+                    <span className="type-label text-primary">
                       {component.required
                         ? t('priority.required')
                         : t(`priority.weight${component.weight}`)}

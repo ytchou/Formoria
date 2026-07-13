@@ -67,7 +67,7 @@ export function SearchEmptyState({
       {/* Browse by Category */}
       {categories.length > 0 && (
         <div className="mt-8 w-full">
-          <p className="text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <p className="text-center type-eyebrow-foreground text-muted-foreground">
             {t('emptyState.browseCategories')}
           </p>
           <div className="scrollbar-none mt-3 flex justify-center gap-2 overflow-x-auto flex-nowrap">
@@ -87,7 +87,7 @@ export function SearchEmptyState({
       {/* Featured Brands */}
       {featuredBrands.length > 0 && (
         <div className="mt-8 w-full">
-          <p className="text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <p className="text-center type-eyebrow-foreground text-muted-foreground">
             {t('emptyState.featuredBrands')}
           </p>
           <div className="scrollbar-none mt-3 flex justify-center gap-3 overflow-x-auto flex-nowrap">

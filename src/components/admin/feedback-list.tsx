@@ -150,7 +150,7 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
                   onClick={() => handleRowClick(item.id)}
                 >
                   <TableCell>
-                    <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                    <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 type-label text-muted-foreground">
                       {SOURCE_LABELS[item.source]}
                     </span>
                   </TableCell>
@@ -160,7 +160,7 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
                   <TableCell>{formatDate(item.createdAt)}</TableCell>
                   <TableCell>
                     <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${getStatusBadgeClass(item.status)}`}
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 type-label ${getStatusBadgeClass(item.status)}`}
                     >
                       {STATUS_LABELS[item.status]}
                     </span>

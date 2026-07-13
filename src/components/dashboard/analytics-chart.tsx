@@ -153,10 +153,10 @@ export function AnalyticsChart({ series }: AnalyticsChartProps) {
                   aria-pressed={isActive}
                   onClick={() => setPeriod(value)}
                   className={cn(
-                    'rounded-[7px] px-3 py-1.5 text-sm font-medium transition-colors',
+                    'rounded-[7px] px-3 py-1.5 type-nav-item',
                     isActive
                       ? 'bg-foreground text-white'
-                      : 'bg-white text-muted-foreground'
+                      : 'bg-white'
                   )}
                 >
                   {value === '30d' ? t('period30') : t('period90')}

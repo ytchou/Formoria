@@ -25,7 +25,7 @@ export function QueueSummaryCard({
         <div className="flex min-w-0 items-center gap-2">
           <h3 className="truncate type-card-title">{title}</h3>
         </div>
-        <span className="rounded-full bg-muted px-2.5 py-1 text-sm font-semibold text-muted-foreground">
+        <span className="rounded-full bg-muted px-2.5 py-1 type-subsection-title text-muted-foreground">
           {count}
         </span>
       </div>
@@ -38,7 +38,7 @@ export function QueueSummaryCard({
         <Link
           href={href}
           className={cn(
-            'inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline',
+            'inline-flex type-link',
             count === 0 && 'mt-0'
           )}
         >

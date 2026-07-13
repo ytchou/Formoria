@@ -185,7 +185,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
               onClick={handleCopyLink}
             >
               {copied ? <Check className="size-5" /> : <Link className="size-5" />}
-              <span className="text-sm font-medium">
+              <span className="type-body-emphasis">
                 {copied ? t('copied') : t('copyLink')}
               </span>
             </button>
@@ -199,7 +199,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
               onClick={handleLineShare}
             >
               <MessageCircle className="size-5 text-[#07B53B]" />
-              <span className="text-sm font-medium">{t('line')}</span>
+              <span className="type-body-emphasis">{t('line')}</span>
             </button>
 
             <button
@@ -211,7 +211,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
               onClick={handleFacebookShare}
             >
               <FacebookIcon className="size-5 text-[#1877F2]" />
-              <span className="text-sm font-medium">{t('facebook')}</span>
+              <span className="type-body-emphasis">{t('facebook')}</span>
             </button>
 
             <button
@@ -223,7 +223,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
               onClick={handleXShare}
             >
               <TwitterIcon className="size-5 text-foreground" />
-              <span className="text-sm font-medium">{t('x')}</span>
+              <span className="type-body-emphasis">{t('x')}</span>
             </button>
           </div>
         </DialogPrimitive.Popup>

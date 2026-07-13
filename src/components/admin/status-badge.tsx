@@ -31,7 +31,7 @@ function StatusBadgeBase({ config }: { config: StatusConfig }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+        'inline-flex items-center rounded-full px-2.5 py-0.5 type-field-label',
         config.className
       )}
     >

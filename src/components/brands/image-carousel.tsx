@@ -102,7 +102,7 @@ export function ImageCarousel({ images, alt, category, imageAlts }: ImageCarouse
             </Button>
 
             {/* Counter badge */}
-            <span className="absolute bottom-4 right-4 rounded-full bg-accent/80 px-2.5 py-1 text-xs font-medium text-accent-foreground backdrop-blur-sm">
+            <span className="absolute bottom-4 right-4 rounded-full bg-accent/80 px-2.5 py-1 type-field-label text-accent-foreground backdrop-blur-sm">
               {current + 1} / {total}
             </span>
           </>
@@ -127,7 +127,7 @@ export function ImageCarousel({ images, alt, category, imageAlts }: ImageCarouse
             >
               {brokenImages.has(i) ? (
                 <div className="flex h-full items-center justify-center bg-muted">
-                  <span className="text-xs font-bold text-muted-foreground">
+                  <span className="type-label text-muted-foreground">
                     {initial}
                   </span>
                 </div>

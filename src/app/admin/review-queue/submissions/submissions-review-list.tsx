@@ -114,7 +114,7 @@ function ReadinessBadge({
   tone: 'green' | 'amber' | 'red' | 'grey'
 }) {
   return (
-    <span className={`inline-flex min-w-6 items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold ${readinessBadgeClass(tone)}`}>
+    <span className={`inline-flex min-w-6 items-center justify-center rounded-full px-2 py-0.5 type-label ${readinessBadgeClass(tone)}`}>
       {children}
     </span>
   )

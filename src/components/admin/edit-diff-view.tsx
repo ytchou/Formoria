@@ -78,11 +78,11 @@ export function EditDiffView({ fields }: { fields: DiffField[] }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <div className="rounded-lg bg-secondary px-3 py-2 text-center text-xs font-semibold">
+        <div className="rounded-lg bg-secondary px-3 py-2 text-center type-label">
           目前版本
         </div>
         <div
-          className="rounded-lg px-3 py-2 text-center text-xs font-semibold"
+          className="rounded-lg px-3 py-2 text-center type-label"
           style={{ background: 'var(--verified-green-bg)' }}
         >
           提案修改
@@ -91,7 +91,7 @@ export function EditDiffView({ fields }: { fields: DiffField[] }) {
 
       {fields.map((f) => (
         <div key={f.fieldKey} className="space-y-1">
-          <p className="text-xs font-semibold text-muted-foreground">
+          <p className="type-label text-muted-foreground">
             {f.field}
           </p>
           <div className="grid grid-cols-2 gap-4">

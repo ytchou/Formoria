@@ -30,7 +30,7 @@ export function EmailCaptureForm() {
 
   if (state.success) {
     return (
-      <div className="rounded-lg bg-verified-green-bg px-4 py-3 text-sm font-medium text-verified-green">
+      <div className="rounded-lg bg-verified-green-bg px-4 py-3 type-body-emphasis text-verified-green">
         {t('success')}
       </div>
     )
@@ -83,7 +83,7 @@ export function EmailCaptureForm() {
       </div>
 
       <div className="space-y-2">
-        <p className="text-sm font-medium text-secondary-foreground">
+        <p className="type-body-emphasis text-secondary-foreground">
           {t('interestsLabel')}
         </p>
         <div className="flex flex-row gap-2 overflow-x-auto">

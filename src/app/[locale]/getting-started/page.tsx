@@ -94,7 +94,7 @@ export default async function GettingStartedPage({ params }: PageProps) {
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           {steps.map((step, index) => (
             <article key={step} className={surfaceCardStyles()}>
-              <div className="flex size-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+              <div className="flex size-8 items-center justify-center rounded-full bg-primary type-body-emphasis text-primary-foreground">
                 {index + 1}
               </div>
               <h3 className="mt-4 type-card-title">
