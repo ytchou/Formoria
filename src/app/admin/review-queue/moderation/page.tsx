@@ -100,7 +100,7 @@ export default async function ReviewQueueModerationPage({ searchParams }: Modera
       <h1 className="type-page-title-large">
         {t('dashboard')}
       </h1>
-      <p className="mt-2 text-warm-caption">
+      <p className="mt-2 text-muted-foreground">
         {t('flagCount', { count: items.length })}
       </p>
 
