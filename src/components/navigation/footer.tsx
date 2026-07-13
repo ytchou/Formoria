@@ -23,6 +23,7 @@ export function Footer() {
               <li>
                 <Link
                   href="/brands"
+                  prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('directory')}
@@ -31,6 +32,7 @@ export function Footer() {
               <li>
                 <Link
                   href="/stats"
+                  prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('stats')}
@@ -39,6 +41,7 @@ export function Footer() {
               <li>
                 <Link
                   href="/getting-started"
+                  prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('gettingStarted')}
@@ -47,6 +50,7 @@ export function Footer() {
               <li>
                 <Link
                   href="/guides"
+                  prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('guides')}
@@ -55,6 +59,7 @@ export function Footer() {
               <li>
                 <Link
                   href="/submit"
+                  prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('submit')}
@@ -72,6 +77,7 @@ export function Footer() {
               <li>
                 <Link
                   href="/about"
+                  prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('about')}
@@ -80,6 +86,7 @@ export function Footer() {
               <li>
                 <Link
                   href="/faq"
+                  prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('faq')}
@@ -97,6 +104,7 @@ export function Footer() {
               <li>
                 <Link
                   href="/terms"
+                  prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('terms')}
@@ -105,6 +113,7 @@ export function Footer() {
               <li>
                 <Link
                   href="/privacy"
+                  prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('privacy')}

@@ -5,29 +5,22 @@ interface Pillar {
 
 interface MissionPillarsProps {
   heading: string
+  statement: string
   pillars: [Pillar, Pillar, Pillar]
 }
 
-export default function MissionPillars({ heading, pillars }: MissionPillarsProps) {
+export default function MissionPillars({ heading, statement, pillars }: MissionPillarsProps) {
   return (
-    <section className="border-t border-border py-16 md:py-24">
-      <div className="page-gutter mx-auto max-w-5xl">
-        <h2 className="type-page-title-large">
-          {heading}
-        </h2>
-        <div className="mt-12 grid gap-8 md:grid-cols-3">
-          {pillars.map((pillar, index) => (
-            <div key={pillar.heading} className="border-t border-border pt-5">
-              <p className="type-eyebrow-cta">
-                {String(index + 1).padStart(2, '0')}
-              </p>
-              <h3 className="mt-4 type-card-title">
-                {pillar.heading}
-              </h3>
-              <p className="mt-3 type-body-muted">
-                {pillar.body}
-              </p>
-            </div>
+    <section className="py-12 md:py-16">
+      <div className="page-gutter mx-auto max-w-6xl">
+        <p className="type-eyebrow-cta">{heading}</p>
+        <h2 className="mt-4 max-w-4xl type-page-title-large text-balance">{statement}</h2>
+        <div className="mt-10 grid gap-8 md:grid-cols-3">
+          {pillars.map((pillar) => (
+            <article key={pillar.heading} className="max-w-sm">
+              <h3 className="type-card-title text-cta">{pillar.heading}</h3>
+              <p className="mt-3 type-body-muted text-pretty">{pillar.body}</p>
+            </article>
           ))}
         </div>
       </div>

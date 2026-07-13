@@ -100,6 +100,16 @@ describe('useFilterParams', () => {
       )
     })
 
+    it('does not push when setting search leaves the URL unchanged', () => {
+      const { result } = renderHook(() => useFilterParams())
+
+      act(() => {
+        result.current.setSearch('')
+      })
+
+      expect(mockPush).not.toHaveBeenCalled()
+    })
+
     it('setSearch pushes URL immediately (debounce lives in search-input)', () => {
       const { result } = renderHook(() => useFilterParams())
 

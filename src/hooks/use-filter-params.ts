@@ -91,6 +91,7 @@ export function useFilterParams() {
         params.delete('search')
       }
       params.delete('page')
+      if (params.toString() === searchParams.toString()) return
       startTransition(() => {
         router.push(buildUrl(params), { scroll: false })
       })

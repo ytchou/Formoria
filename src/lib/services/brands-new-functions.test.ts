@@ -3,7 +3,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('@/lib/supabase/server')
 
 import { createServiceClient } from '@/lib/supabase/server'
-import { getRandomBrands, getNewBrands, getBrandStats, getPopularCategories, getFeaturedBrands } from './brands'
+import type { Brand } from '@/lib/types'
+import {
+  EXPLORE_BRAND_LIMIT,
+  getExploreBrands,
+  getRandomBrands,
+  getNewBrands,
+  getBrandStats,
+  getPopularCategories,
+  getFeaturedBrands,
+  selectCategoryBalancedBrands,
+} from './brands'
 
 const mockBrandRows = [
   {
@@ -37,7 +47,7 @@ const mockBrandRows = [
 
 function createMockChain(data: unknown[] | null, options?: { count?: number; error?: unknown }) {
   const chain: Record<string, unknown> = {}
-  const methods = ['select', 'eq', 'is', 'neq', 'not', 'order', 'limit', 'single', 'maybeSingle', 'gte']
+  const methods = ['select', 'eq', 'is', 'neq', 'not', 'order', 'limit', 'range', 'in', 'single', 'maybeSingle', 'gte']
   methods.forEach((m) => {
     chain[m] = vi.fn(() => chain)
   })
@@ -49,6 +59,61 @@ function createMockChain(data: unknown[] | null, options?: { count?: number; err
     }).then(resolve)
   return chain
 }
+
+function createSelectionBrand(id: string, productType: string | null): Brand {
+  return { id, productType } as Brand
+}
+
+describe('selectCategoryBalancedBrands', () => {
+  it('selects one brand per category before filling the remaining slots', () => {
+    const brands = [
+      createSelectionBrand('fashion-1', 'fashion'),
+      createSelectionBrand('fashion-2', 'fashion'),
+      createSelectionBrand('home-1', 'home'),
+      createSelectionBrand('beauty-1', 'beauty'),
+    ]
+
+    const result = selectCategoryBalancedBrands(brands, ['fashion', 'home', 'beauty'], 3)
+
+    expect(result.map((brand) => brand.id)).toEqual(['fashion-1', 'home-1', 'beauty-1'])
+  })
+
+  it('fills missing categories without returning duplicate brands', () => {
+    const brands = [
+      createSelectionBrand('fashion-1', 'fashion'),
+      createSelectionBrand('fashion-2', 'fashion'),
+    ]
+
+    const result = selectCategoryBalancedBrands(brands, ['fashion', 'home'], EXPLORE_BRAND_LIMIT)
+
+    expect(result.map((brand) => brand.id)).toEqual(['fashion-1', 'fashion-2'])
+  })
+})
+
+describe('getExploreBrands', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('returns a daily-random approved pool balanced across categories', async () => {
+    const categorySlugs = ['fashion', 'home', 'beauty']
+    const categoryRows = mockBrandRows.map((row, index) => ({
+      ...row,
+      product_type: categorySlugs.at(index) ?? null,
+    }))
+    const chain = createMockChain(categoryRows)
+    vi.mocked(createServiceClient).mockReturnValue({ from: vi.fn(() => chain) } as unknown as ReturnType<typeof createServiceClient>)
+
+    const result = await getExploreBrands(3)
+
+    expect(result.brands).toHaveLength(3)
+    expect(new Set(result.brands.map((brand) => brand.productType))).toEqual(
+      new Set(['fashion', 'home', 'beauty']),
+    )
+    expect(result.totalCount).toBe(3)
+    expect(chain.eq).toHaveBeenCalledWith('status', 'approved')
+  })
+})
 
 describe('getRandomBrands', () => {
   beforeEach(() => {
@@ -94,14 +159,15 @@ describe('getNewBrands', () => {
   })
 
   it('returns brands and queries with approved_at descending', async () => {
-    const chain = createMockChain(mockBrandRows.slice(0, 2))
+    const chain = createMockChain(mockBrandRows)
     vi.mocked(createServiceClient).mockReturnValue({ from: vi.fn(() => chain) } as unknown as ReturnType<typeof createServiceClient>)
 
     const result = await getNewBrands(2)
 
     expect(result).toHaveLength(2)
+    expect(chain.not).toHaveBeenCalledWith('approved_at', 'is', null)
     expect(chain.order).toHaveBeenCalledWith('approved_at', { ascending: false })
-    expect(chain.limit).toHaveBeenCalled()
+    expect(chain.limit).toHaveBeenCalledWith(20)
   })
 
   it('returns empty array when no brands exist', async () => {

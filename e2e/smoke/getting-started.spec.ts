@@ -6,26 +6,26 @@ test.describe('Getting Started page smoke', () => {
   });
 
   test('hero section renders', async ({ page }) => {
-    await expect(page.getByText('Formoria onboarding')).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByRole('heading', { level: 1, name: 'Getting Started guide' })).toBeVisible();
+    await expect(page.getByText('Explore Formoria')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { level: 1, name: 'Find your next favorite brand' })).toBeVisible();
   });
 
-  test('How Formoria works section renders with 4 step cards', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: 'How Formoria works' })).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByRole('article').filter({ hasText: 'Discover Taiwan-made brands' })).toBeVisible();
-    await expect(page.getByRole('article').filter({ hasText: 'Submit or suggest a brand' })).toBeVisible();
-    await expect(page.getByRole('article').filter({ hasText: 'Review and approval' })).toBeVisible();
-    await expect(page.getByRole('article').filter({ hasText: 'Claim and manage your listing' })).toBeVisible();
+  test('How to explore Formoria section renders with 4 step cards', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: 'How to explore Formoria' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('article').filter({ hasText: 'Start with what interests you' })).toBeVisible();
+    await expect(page.getByRole('article').filter({ hasText: 'Open a brand listing' })).toBeVisible();
+    await expect(page.getByRole('article').filter({ hasText: 'Compare the details' })).toBeVisible();
+    await expect(page.getByRole('article').filter({ hasText: 'Save brands for later' })).toBeVisible();
   });
 
-  test('Before you submit section renders with checklist', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: 'Before you submit' })).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText('Use accurate, public-facing brand information.')).toBeVisible();
-    await expect(page.getByText('Include official links so reviewers can verify the submission.')).toBeVisible();
+  test('While you browse section renders with checklist', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: 'While you browse' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Read the description and product details to understand what each brand offers.')).toBeVisible();
+    await expect(page.getByText('Follow official links to learn more or shop directly from the brand.')).toBeVisible();
   });
 
-  test('For Brand Owners section renders with benefit cards', async ({ page }) => {
-    const heading = page.getByRole('heading', { name: 'For Brand Owners' });
+  test('optional brand owner section renders with benefit cards', async ({ page }) => {
+    const heading = page.getByRole('heading', { name: 'If you own a brand' });
     await expect(heading).toBeVisible({ timeout: 10_000 });
     const section = page.locator('section').filter({ has: heading });
     await expect(section.getByRole('article').filter({ hasText: 'Claim Your Brand' })).toBeVisible();
@@ -33,29 +33,18 @@ test.describe('Getting Started page smoke', () => {
     await expect(section.getByRole('article').filter({ hasText: 'Track Performance' })).toBeVisible();
   });
 
-  test('FAQ section renders with first item expanded', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: 'Common questions' })).toBeVisible({ timeout: 10_000 });
-    // defaultValue="eligibility" — first FAQ answer is visible on load
-    await expect(
-      page.getByText('Anyone can suggest a Taiwan-made brand. You do not need to own the brand to submit it for review.')
-    ).toBeVisible();
+  test('links to the dedicated FAQ page', async ({ page }) => {
+    const faqLinks = page.getByRole('link', { name: 'Read the FAQ' });
+    await expect(faqLinks.first()).toHaveAttribute('href', /\/faq/);
+    await expect(faqLinks.last()).toHaveAttribute('href', /\/faq/);
   });
 
-  test('FAQ accordion expands a second item on click', async ({ page }) => {
-    await page.getByRole('heading', { name: 'Common questions' }).waitFor({ timeout: 10_000 });
-    // Click the second FAQ item trigger
-    await page.getByRole('button', { name: 'What information should I prepare?' }).click();
-    await expect(
-      page.getByText('Prepare the brand name, description, official website or social links')
-    ).toBeVisible({ timeout: 5_000 });
-  });
-
-  test('CTA footer section renders and Submit link points to /submit', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: 'Ready to add a Taiwan-made brand?' })).toBeVisible({ timeout: 10_000 });
-    const submitLink = page.getByRole('link', { name: 'Submit a brand' }).last();
-    await expect(submitLink).toBeVisible();
-    const href = await submitLink.getAttribute('href');
-    expect(href).toMatch(/\/submit/);
+  test('CTA footer section renders and Browse link points to /brands', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: 'Ready to explore Taiwan-made brands?' })).toBeVisible({ timeout: 10_000 });
+    const browseLink = page.getByRole('link', { name: 'Browse brands' }).last();
+    await expect(browseLink).toBeVisible();
+    const href = await browseLink.getAttribute('href');
+    expect(href).toMatch(/\/brands/);
   });
 
   test('footer contains Getting Started link', async ({ page }) => {

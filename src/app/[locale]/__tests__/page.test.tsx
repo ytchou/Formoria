@@ -36,7 +36,8 @@ vi.mock('@/lib/seo/alternates', () => ({
 }))
 
 vi.mock('@/lib/services/brands', () => ({
-  getBrands: vi.fn(),
+  EXPLORE_BRAND_LIMIT: 12,
+  getExploreBrands: vi.fn(),
   getNewBrands: vi.fn(),
   getRecentBrandCount: vi.fn(),
 }))
@@ -47,10 +48,6 @@ vi.mock('@/i18n/navigation', () => ({
 
 vi.mock('@/components/landing/hero-section', () => ({
   default: () => <div data-testid="hero-section" />,
-}))
-
-vi.mock('@/components/landing/filterable-brand-showcase', () => ({
-  default: () => <div data-testid="filterable-brand-showcase" />,
 }))
 
 vi.mock('@/components/landing/section-band', () => ({
@@ -94,7 +91,7 @@ vi.mock('@/components/shared/brand-showcase', () => ({
 
 import { getTranslations } from 'next-intl/server'
 import {
-  getBrands,
+  getExploreBrands,
   getNewBrands,
   getRecentBrandCount,
 } from '@/lib/services/brands'
@@ -171,7 +168,7 @@ describe('LandingPage', () => {
           ReturnType<typeof getTranslations>
         >,
     )
-    vi.mocked(getBrands).mockResolvedValue({
+    vi.mocked(getExploreBrands).mockResolvedValue({
       brands: [
         createBrand({
           id: 'verified-1',
@@ -198,7 +195,19 @@ describe('LandingPage', () => {
 
     expect(screen.getByTestId('hero-section')).toBeInTheDocument()
     expect(screen.getByTestId('section-band')).toBeInTheDocument()
-    expect(getBrands).toHaveBeenCalledTimes(1)
-    expect(getBrands).toHaveBeenCalledWith({ status: 'approved', limit: 60 })
+    expect(getExploreBrands).toHaveBeenCalledTimes(1)
+    expect(getExploreBrands).toHaveBeenCalledWith(12)
+    expect(screen.getByRole('heading', { name: '探索品牌' })).toBeInTheDocument()
+  })
+
+  it('keeps the newest brands section separate from the explore section', async () => {
+    vi.mocked(getNewBrands).mockResolvedValue([
+      createBrand({ id: 'newest-1', name: 'Newest Brand' }),
+    ])
+
+    render(await LandingPage({ params: Promise.resolve({ locale: 'zh-TW' }) }))
+
+    expect(screen.getAllByTestId('brand-showcase')).toHaveLength(2)
+    expect(screen.getByRole('heading', { name: '最新品牌' })).toBeInTheDocument()
   })
 })

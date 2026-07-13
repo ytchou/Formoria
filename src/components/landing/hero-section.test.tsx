@@ -8,7 +8,9 @@ vi.mock('@/i18n/navigation', () => ({
 }))
 
 vi.mock('@/components/brands/search-input', () => ({
-  SearchInput: ({ placeholder }: { placeholder?: string }) => <input role="searchbox" placeholder={placeholder} />,
+  SearchInput: ({ placeholder, redirectTo }: { placeholder?: string; redirectTo?: string }) => (
+    <input role="searchbox" data-redirect-to={redirectTo} placeholder={placeholder} />
+  ),
 }))
 
 vi.mock('next-intl/server', () => ({
@@ -30,7 +32,14 @@ describe('HeroSection', () => {
 
   it('renders search input', async () => {
     render(await HeroSection({ brandCount: 100, categoryCount: 20, recentBrands: { count: 5, period: '7d' } }))
-    expect(screen.getByRole('searchbox')).toBeInTheDocument()
+    const searchbox = screen.getByRole('searchbox')
+    expect(searchbox).toBeInTheDocument()
+    expect(searchbox).toHaveAttribute('placeholder', zhMessages.landing.hero.cta)
+  })
+
+  it('routes hero searches to the brand directory', async () => {
+    render(await HeroSection({ brandCount: 100, categoryCount: 20, recentBrands: { count: 5, period: '7d' } }))
+    expect(screen.getByRole('searchbox')).toHaveAttribute('data-redirect-to', '/brands')
   })
 
   it('renders trust stats line', async () => {

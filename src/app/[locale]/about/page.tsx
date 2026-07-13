@@ -1,13 +1,15 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildArticleJsonLd, buildOrganizationJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import { Link } from '@/i18n/navigation'
 import AboutHero from '@/components/about/about-hero'
 import OriginStory from '@/components/about/origin-story'
 import TaiwanStats from '@/components/about/taiwan-stats'
 import MissionPillars from '@/components/about/mission-pillars'
-import HowItWorks from '@/components/about/how-it-works'
+import { buttonVariants } from '@/components/ui/button'
 import { TrustModel } from '@/components/about/trust-model'
 import { getBrandStats, getRecentBrandCount } from '@/lib/services/brands'
 
@@ -114,6 +116,7 @@ export default async function AboutPage({ params }: PageProps) {
 
         <MissionPillars
           heading={t('mission.heading')}
+          statement={t('mission.statement')}
           pillars={[
             { heading: t('mission.promote.heading'), body: t('mission.promote.body') },
             { heading: t('mission.smallBusiness.heading'), body: t('mission.smallBusiness.body') },
@@ -121,17 +124,49 @@ export default async function AboutPage({ params }: PageProps) {
           ]}
         />
 
-        <HowItWorks
-          heading={t('howItWorks.heading')}
-          steps={[
-            { label: t('howItWorks.submit.label'), description: t('howItWorks.submit.description') },
-            { label: t('howItWorks.review.label'), description: t('howItWorks.review.description') },
-            { label: t('howItWorks.publish.label'), description: t('howItWorks.publish.description') },
-          ]}
-          cta={t('howItWorks.cta')}
-        />
-
         <TrustModel />
+
+        <section className="relative overflow-hidden py-12 md:py-16">
+          <Image
+            src="/images/hero-bg.png"
+            alt=""
+            fill
+            sizes="100vw"
+            className="object-cover object-right"
+          />
+          <div className="absolute inset-0 bg-background/75" aria-hidden="true" />
+          <div className="relative mx-auto max-w-6xl page-gutter">
+            <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h2 className="type-page-title-large text-balance">{t('guide.heading')}</h2>
+                <p className="mt-3 max-w-prose type-body-muted text-pretty">{t('guide.body')}</p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/brands"
+                  className={buttonVariants({
+                    variant: 'primary',
+                    tone: 'cta',
+                    size: 'large',
+                    className: 'min-h-12',
+                  })}
+                >
+                  {t('hero.cta')}
+                </Link>
+                <Link
+                  href="/getting-started"
+                  className={buttonVariants({
+                    variant: 'secondary',
+                    size: 'large',
+                    className: 'min-h-12',
+                  })}
+                >
+                  {t('guide.cta')}
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
     </>
   )
