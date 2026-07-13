@@ -978,6 +978,7 @@ export async function getExploreBrands(
   const { brands, totalCount } = await getBrands({
     status: 'approved',
     sort: 'random',
+    limit: 200,
   })
   const categorySlugs = PRODUCT_TYPE_CATEGORIES.map(({ slug }) => slug)
 

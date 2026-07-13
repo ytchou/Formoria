@@ -47,7 +47,7 @@ const mockBrandRows = [
 
 function createMockChain(data: unknown[] | null, options?: { count?: number; error?: unknown }) {
   const chain: Record<string, unknown> = {}
-  const methods = ['select', 'eq', 'is', 'neq', 'not', 'order', 'limit', 'single', 'maybeSingle', 'gte']
+  const methods = ['select', 'eq', 'is', 'neq', 'not', 'order', 'limit', 'range', 'in', 'single', 'maybeSingle', 'gte']
   methods.forEach((m) => {
     chain[m] = vi.fn(() => chain)
   })
