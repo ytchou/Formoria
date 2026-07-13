@@ -19,8 +19,8 @@ vi.mock('@/lib/seo/alternates', () => ({
 }))
 
 vi.mock('@/lib/services/guides', () => ({
-  getAllGuides: vi.fn(async () => []),
-  getGuidesByCategory: vi.fn(async () => []),
+  getAllGuides: vi.fn(async () => ({ ok: true, guides: [] })),
+  getGuidesByCategory: vi.fn(async () => ({ ok: true, guides: [] })),
 }))
 
 import { buildAlternates } from '@/lib/seo/alternates'

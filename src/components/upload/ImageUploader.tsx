@@ -5,6 +5,7 @@ import { Upload, X, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useImageUpload } from './useImageUpload'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 type ImageUploaderProps = {
   mode: 'single' | 'multi'
@@ -143,27 +144,30 @@ export function ImageUploader({
                   : 'h-20 w-20 rounded-lg object-cover'}
               />
               {onRemove && (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  shape="pill"
                   onClick={() => onRemove(index)}
                   aria-label={t('ariaRemove', { n: index + 1 })}
-                  className="absolute -right-3 -top-3 flex h-12 w-12 items-center justify-center rounded-full text-background opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary"
+                  className="absolute -right-3 -top-3 h-12 w-12 p-0 text-background opacity-0 transition-opacity hover:bg-transparent group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <span className="flex size-6 items-center justify-center rounded-full bg-foreground shadow-sm">
                     <X className="size-3" />
                   </span>
-                </button>
+                </Button>
               )}
               {mode === 'single' && (
-                <button
+                <Button
                   id={id ? `${id}-replace` : undefined}
                   type="button"
+                  variant="secondary"
                   onClick={() => inputRef.current?.click()}
-                  className="absolute bottom-3 left-3 inline-flex min-h-9 items-center gap-2 rounded-lg bg-background/95 px-3 type-body-emphasis shadow-sm transition-colors hover:bg-background focus-visible:ring-2 focus-visible:ring-primary"
+                  className="absolute bottom-3 left-3 bg-background/95 shadow-sm hover:bg-background"
                 >
                   <Upload className="size-4" />
                   {t('replace')}
-                </button>
+                </Button>
               )}
             </div>
           ))}
@@ -201,6 +205,7 @@ export function ImageUploader({
       )}
 
       {/* Hidden file input */}
+      {/* eslint-disable no-restricted-syntax -- ui-exception: native file input required for browser file picker */}
       <input
         id={id}
         ref={inputRef}
@@ -210,6 +215,7 @@ export function ImageUploader({
         className="hidden"
         onChange={handleFileSelect}
       />
+      {/* eslint-enable no-restricted-syntax */}
 
       {/* Error message */}
       {error && (

@@ -1,6 +1,7 @@
 import { useTranslations } from 'next-intl'
 import type { ReactNode } from 'react'
 import type { Brand } from '@/lib/types'
+import { Badge } from '@/components/ui/badge'
 import { MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badges'
 
 interface BrandHeaderProps {
@@ -65,12 +66,9 @@ export function BrandHeader({ brand, categoryLabel, cityLabel, locale, actionsSl
         {/* Product tags */}
         {brand.productTags.length > 0 &&
           (locale === 'en' ? (brand.productTagsEn.length > 0 ? brand.productTagsEn : brand.productTags) : brand.productTags).map((tag, index) => (
-            <span
-              key={`${tag}-${index}`}
-              className="rounded-full bg-secondary px-2 py-1 type-micro text-secondary-foreground"
-            >
+            <Badge key={`${tag}-${index}`} variant="secondary">
               {tag}
-            </span>
+            </Badge>
           ))}
 
         {(hasMitVerifiedBadge || hasOwnerVerifiedBadge) && (

@@ -6,7 +6,6 @@ import { useLocale, useTranslations } from 'next-intl'
 import { subscribeToNewsletter } from '@/app/actions/newsletter'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { cn } from '@/lib/utils'
 
 const INTEREST_CHIPS = [
   { slug: 'curated-picks', labelKey: 'interests.curated-picks' },
@@ -39,6 +38,7 @@ export function EmailCaptureForm() {
 
   return (
     <form action={formAction} className="space-y-4 text-foreground">
+      {/* eslint-disable no-restricted-syntax -- ui-exception: honeypot anti-spam field must be raw HTML */}
       <input
         aria-hidden="true"
         autoComplete="off"
@@ -47,6 +47,7 @@ export function EmailCaptureForm() {
         tabIndex={-1}
         type="text"
       />
+      {/* eslint-enable no-restricted-syntax */}
       <input type="hidden" name="locale" value={locale} />
 
       <div className="flex flex-col gap-2 sm:flex-row">
@@ -90,20 +91,17 @@ export function EmailCaptureForm() {
             const isSelected = selectedChips.includes(chip.slug)
 
             return (
-              <button
+              <Button
                 key={chip.slug}
-                aria-pressed={isSelected}
-                className={cn(
-                  'h-9 shrink-0 whitespace-nowrap rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring',
-                  isSelected
-                    ? 'border-foreground bg-foreground text-background'
-                    : 'border-border text-secondary-foreground hover:bg-muted'
-                )}
+                variant={isSelected ? 'primary' : 'secondary'}
+                shape="pill"
+                size="chip"
                 type="button"
+                aria-pressed={isSelected}
                 onClick={() => toggleChip(chip.slug)}
               >
                 {t(chip.labelKey)}
-              </button>
+              </Button>
             )
           })}
         </div>

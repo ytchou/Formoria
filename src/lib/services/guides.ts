@@ -1,7 +1,7 @@
 import { client } from '@tina/client'
 import { notFound } from 'next/navigation';
 
-export type GuideEntry = {
+type GuideEntry = {
   slug: string;
   frontmatter: {
     title: string;
@@ -44,6 +44,10 @@ export type GuideDetailResult = {
   tina: TinaGuideResult;
 };
 
+export type GuideListResult =
+  | { ok: true; guides: GuideEntry[] }
+  | { ok: false; error: Error };
+
 type TinaGuideConnectionResult = {
   data?: {
     guideConnection?: {
@@ -72,7 +76,13 @@ function toGuideEntry(node: TinaGuideNode): GuideEntry {
   };
 }
 
-export async function getAllGuides(): Promise<GuideEntry[]> {
+function guideListError(scope: string, error: unknown): GuideListResult {
+  const normalizedError = error instanceof Error ? error : new Error(String(error));
+  console.error(`[guides:${scope}] TinaCMS query failed`, normalizedError);
+  return { ok: false, error: normalizedError };
+}
+
+export async function getAllGuides(): Promise<GuideListResult> {
   try {
     const result = (await client.queries.guideConnection({
       first: 200,
@@ -81,29 +91,32 @@ export async function getAllGuides(): Promise<GuideEntry[]> {
 
     const edges = result.data?.guideConnection?.edges ?? [];
 
-    return edges
-      .map(edge => edge?.node)
-      .filter((node): node is TinaGuideNode => Boolean(node))
-      .map(toGuideEntry);
-  } catch {
-    return [];
+    return {
+      ok: true,
+      guides: edges
+        .map(edge => edge?.node)
+        .filter((node): node is TinaGuideNode => Boolean(node))
+        .map(toGuideEntry),
+    };
+  } catch (error) {
+    return guideListError('getAllGuides', error);
   }
 }
 
 export async function getGuideBySlug(slug: string): Promise<GuideDetailResult>;
 export async function getGuideBySlug(slug: string): Promise<GuideDetailResult> {
   const relativePath = `${slug}.mdx`;
-  let tina: TinaGuideResult;
+  let tina: TinaGuideResult | null | undefined;
   try {
     tina = (await client.queries.guide({
       relativePath,
-    })) as TinaGuideResult;
+    })) as TinaGuideResult | null | undefined;
   } catch {
     notFound();
   }
 
-  const node = tina.data?.guide;
-  if (!node) {
+  const node = tina?.data?.guide;
+  if (!tina || !node) {
     notFound();
   }
 
@@ -115,7 +128,7 @@ export async function getGuideBySlug(slug: string): Promise<GuideDetailResult> {
   };
 }
 
-export async function getGuidesByCategory(category: string): Promise<GuideEntry[]> {
+export async function getGuidesByCategory(category: string): Promise<GuideListResult> {
   try {
     const result = (await client.queries.guideConnection({
       first: 200,
@@ -128,11 +141,14 @@ export async function getGuidesByCategory(category: string): Promise<GuideEntry[
 
     const edges = result.data?.guideConnection?.edges ?? [];
 
-    return edges
-      .map(edge => edge?.node)
-      .filter((node): node is TinaGuideNode => Boolean(node))
-      .map(toGuideEntry);
-  } catch {
-    return [];
+    return {
+      ok: true,
+      guides: edges
+        .map(edge => edge?.node)
+        .filter((node): node is TinaGuideNode => Boolean(node))
+        .map(toGuideEntry),
+    };
+  } catch (error) {
+    return guideListError('getGuidesByCategory', error);
   }
 }

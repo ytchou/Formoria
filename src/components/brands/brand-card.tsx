@@ -3,28 +3,21 @@
 import { useState } from 'react'
 import { Link } from '@/i18n/navigation'
 import Image from 'next/image'
-import { BadgeCheck, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 import type { Brand } from '@/lib/types'
 import { trackBrandCardClicked } from '@/lib/analytics'
 import { surfaceCardStyles } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
 import { SaveBrandButton } from './save-brand-button'
 import { BrandImageFallback } from './brand-image-fallback'
+import { MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badges'
 
 interface BrandCardProps {
   brand: Brand
   position?: number
   priority?: boolean
-}
-
-type BrandCardBadge = {
-  key: 'mit' | 'owner'
-  label: string
-  title: string
-  className: string
-  icon: LucideIcon
 }
 
 export function BrandCard({ brand, position = 0, priority = false }: BrandCardProps) {
@@ -37,26 +30,6 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
       .map((url) => safeImageSrc(url))
       .find((src): src is string => src !== null) ?? null
   const showImage = imageSrc !== null && !imgError
-  const badges = [
-    brand.mitVerified === true
-      ? {
-          key: 'mit',
-          label: t('card.mitVerifiedBadge'),
-          title: tDetail('mitVerified'),
-          className: 'bg-mit-verified-bg text-mit-verified',
-          icon: ShieldCheck,
-        }
-      : null,
-    brand.isVerified
-      ? {
-          key: 'owner',
-          label: t('card.verifiedBadge'),
-          title: t('card.verifiedLabel'),
-          className: 'bg-verified-green-bg text-verified-green',
-          icon: BadgeCheck,
-        }
-      : null,
-  ].filter((badge): badge is BrandCardBadge => badge !== null)
 
   const categoryLabel = getBrandCategoryLabel(brand, locale === 'en' ? 'en' : 'zh-TW')
 
@@ -98,46 +71,43 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
               {brand.name}
             </Link>
           </h3>
-          {badges.length > 0 && (
+          {(brand.mitVerified === true || brand.isVerified) && (
             <div className="flex shrink-0 items-center gap-1.5">
-              {badges.map((badge) => {
-                const Icon = badge.icon
-
-                return (
-                  <span
-                    key={badge.key}
-                    aria-label={badge.title}
-                    title={badge.title}
-                    className={`inline-flex items-center gap-[3px] rounded-full px-[7px] py-0.5 type-micro ${badge.className}`}
-                  >
-                    <Icon className="h-[9px] w-[9px]" aria-hidden />
-                    {badge.label}
-                  </span>
-                )
-              })}
+              {brand.mitVerified === true && (
+                <MitVerifiedBadge
+                  label={t('card.mitVerifiedBadge')}
+                  title={tDetail('mitVerified')}
+                />
+              )}
+              {brand.isVerified && (
+                <OwnerVerifiedBadge
+                  label={t('card.verifiedBadge')}
+                  title={t('card.verifiedLabel')}
+                />
+              )}
             </div>
           )}
         </div>
         <p className="mt-1.5 min-h-[2.625rem] type-section-description line-clamp-2">
           {(locale === 'en'
             ? (brand.blurbEn ?? brand.descriptionEn ?? brand.blurb ?? brand.description)
-            : (brand.blurb ?? brand.description)) ?? ' '}
+            : (brand.blurb ?? brand.description)) ?? ' '}
         </p>
         <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
           {categoryLabel && (
-            <span className="shrink-0 rounded-full bg-secondary px-3 py-1 type-micro text-foreground whitespace-nowrap">
+            <Badge variant="secondary">
               {categoryLabel}
-            </span>
+            </Badge>
           )}
           {brand.priceRange != null && (
-            <span className="shrink-0 rounded-full bg-secondary px-2 py-1 type-micro text-foreground whitespace-nowrap">
+            <Badge variant="secondary">
               {'$'.repeat(brand.priceRange)}
-            </span>
+            </Badge>
           )}
           {brand.productTags[0] && (
-            <span className="truncate rounded-full bg-secondary px-3 py-1 type-micro text-foreground whitespace-nowrap">
+            <Badge variant="secondary" className="max-w-full truncate">
               {locale === 'en' ? (brand.productTagsEn[0] ?? brand.productTags[0]) : brand.productTags[0]}
-            </span>
+            </Badge>
           )}
         </div>
       </div>

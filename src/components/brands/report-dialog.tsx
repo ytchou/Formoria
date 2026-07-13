@@ -18,7 +18,6 @@ import {
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { cn } from '@/lib/utils'
 
 interface ReportDialogProps {
   brandId: string
@@ -96,10 +95,13 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
                 <Label className="text-sm font-medium">{t('description')}</Label>
                 <div className="grid grid-cols-2 gap-2">
                   {reasons.map(({ value, label }) => (
-                    <button
+                    <Button
                       key={value}
                       type="button"
+                      variant={selectedReasons.has(value) ? "primary" : "secondary"}
+                      size="chip"
                       aria-pressed={selectedReasons.has(value)}
+                      className="justify-start"
                       onClick={() => {
                         setSelectedReasons((prev) => {
                           const next = new Set(prev)
@@ -108,15 +110,9 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
                           return next
                         })
                       }}
-                      className={cn(
-                        'rounded-lg border px-3 py-2 text-left text-sm transition-colors',
-                        selectedReasons.has(value)
-                          ? 'border-foreground bg-foreground text-white'
-                          : 'border-border text-foreground hover:border-muted-foreground'
-                      )}
                     >
                       {label}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import zh from '../../../../messages/zh-TW.json'
+import zh from '../../../../../messages/zh-TW.json'
 
 vi.mock('next-intl/server', () => ({
   getTranslations: vi.fn(),

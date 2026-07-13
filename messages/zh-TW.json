@@ -124,8 +124,8 @@
   },
   "brands": {
     "metadata": {
-      "title": "Formoria — Made in Taiwan Brand Directory",
-      "description": "Discover thoughtfully curated Taiwanese brands. Browse by category, search, and explore the best of Made in Taiwan."
+      "title": "Formoria — 台灣品牌目錄",
+      "description": "探索精選的台灣品牌，依分類瀏覽、搜尋，發現最值得支持的台灣製造品牌。"
     },
     "heading": "台灣品牌目錄",
     "count": "共 {count} 個品牌",
@@ -238,6 +238,12 @@
     },
     "loadingAria": "載入品牌中...",
     "noResultsInSuggestions": "找不到結果"
+  },
+  "challenge": {
+    "title": "快速驗證",
+    "description": "請完成驗證以繼續瀏覽。",
+    "verifying": "驗證中…",
+    "error": "驗證失敗，請再試一次。"
   },
   "stats": {
     "metadata": {
@@ -1883,6 +1889,7 @@
     "badgeLabel": "指南中心",
     "allCategories": "全部",
     "comingSoon": "敬請期待",
+    "loadError": "指南暫時無法載入，請稍後再試。",
     "breadcrumb": "指南",
     "notFound": {
       "title": "找不到指南",

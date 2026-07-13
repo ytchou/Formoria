@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
+import { Button } from '@/components/ui/button'
 import { BrandImageFallback } from './brand-image-fallback'
 
 interface ImageCarouselProps {
@@ -75,24 +76,30 @@ export function ImageCarousel({ images, alt, category, imageAlts }: ImageCarouse
         {total > 1 && (
           <>
             {/* Prev button */}
-            <button
+            <Button
               type="button"
-              className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-accent/80 p-2 text-accent-foreground backdrop-blur-sm transition-colors hover:bg-accent"
+              variant="overlay"
+              shape="pill"
+              size="icon"
+              className="absolute left-4 top-1/2 -translate-y-1/2"
               onClick={() => goTo(current - 1)}
               aria-label={t('gallery.previous')}
             >
               <ChevronLeft className="size-5" />
-            </button>
+            </Button>
 
             {/* Next button */}
-            <button
+            <Button
               type="button"
-              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-accent/80 p-2 text-accent-foreground backdrop-blur-sm transition-colors hover:bg-accent"
+              variant="overlay"
+              shape="pill"
+              size="icon"
+              className="absolute right-4 top-1/2 -translate-y-1/2"
               onClick={() => goTo(current + 1)}
               aria-label={t('gallery.next')}
             >
               <ChevronRight className="size-5" />
-            </button>
+            </Button>
 
             {/* Counter badge */}
             <span className="absolute bottom-4 right-4 rounded-full bg-accent/80 px-2.5 py-1 text-xs font-medium text-accent-foreground backdrop-blur-sm">
@@ -106,11 +113,12 @@ export function ImageCarousel({ images, alt, category, imageAlts }: ImageCarouse
       {total > 1 && (
         <div className="scrollbar-none flex gap-2 overflow-x-auto">
           {validImages.map((src, i) => (
-            <button
+            <Button
               key={i}
               type="button"
+              variant="ghost"
               onClick={() => setCurrent(i)}
-              className={`relative size-16 shrink-0 overflow-hidden rounded-lg ${
+              className={`relative size-16 overflow-hidden rounded-lg p-0 hover:bg-transparent ${
                 i === current
                   ? 'ring-2 ring-primary ring-offset-2'
                   : 'opacity-70 hover:opacity-100'
@@ -133,7 +141,7 @@ export function ImageCarousel({ images, alt, category, imageAlts }: ImageCarouse
                   onError={() => handleImageError(i)}
                 />
               )}
-            </button>
+            </Button>
           ))}
         </div>
       )}

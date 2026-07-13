@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
+import { Button } from '@/components/ui/button'
 import { BrandCard } from '@/components/brands/brand-card'
 import type { Brand } from '@/lib/types/brand'
 
@@ -82,30 +83,26 @@ export default function FilterableBrandShowcase({
           aria-label={t('filterLabel')}
           className="flex gap-2 overflow-x-auto scrollbar-none"
         >
-          <button
-            onClick={() => setSelectedCategory(null)}
+          <Button
+            variant={!selectedCategory ? 'primary' : 'secondary'}
+            shape="pill"
+            size="chip"
             aria-pressed={!selectedCategory}
-            className={`shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-sm transition-colors ${
-              !selectedCategory
-                ? 'border border-transparent bg-primary text-primary-foreground'
-                : 'border border-border bg-transparent text-muted-foreground hover:border-foreground/30 hover:text-foreground'
-            }`}
+            onClick={() => setSelectedCategory(null)}
           >
             {t('all')}
-          </button>
+          </Button>
           {categories.map((cat) => (
-            <button
+            <Button
               key={cat.slug}
-              onClick={() => setSelectedCategory(cat.slug)}
+              variant={selectedCategory === cat.slug ? 'primary' : 'secondary'}
+              shape="pill"
+              size="chip"
               aria-pressed={selectedCategory === cat.slug}
-              className={`shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-sm transition-colors ${
-                selectedCategory === cat.slug
-                  ? 'border border-transparent bg-primary text-primary-foreground'
-                  : 'border border-border bg-transparent text-muted-foreground hover:border-foreground/30 hover:text-foreground'
-              }`}
+              onClick={() => setSelectedCategory(cat.slug)}
             >
               {locale === 'en' ? cat.name : (cat.nameZh ?? cat.name)}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -119,13 +116,15 @@ export default function FilterableBrandShowcase({
       ) : (
         <div className="mt-6 text-center">
           <p className="type-card-description">{t('emptyCategory')}</p>
-          <button
+          <Button
             type="button"
-            onClick={() => setSelectedCategory(null)}
+            variant="ghost"
+            size="chip"
             className="mt-3 type-body-emphasis text-cta hover:underline"
+            onClick={() => setSelectedCategory(null)}
           >
             {t('showAll')}
-          </button>
+          </Button>
         </div>
       )}
 

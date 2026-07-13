@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { getProductTypeLabel } from '../category-label'
+import type { Brand } from '@/lib/types'
+import { getBrandCategoryLabel, getProductTypeLabel } from '../category-label'
 
 describe('getProductTypeLabel', () => {
   it('returns zh-TW label for known slug', () => {
@@ -14,5 +15,13 @@ describe('getProductTypeLabel', () => {
   it('returns undefined for unknown slug', () => {
     expect(getProductTypeLabel('clothing')).toBeUndefined() // old slug
     expect(getProductTypeLabel('footwear')).toBeUndefined()
+  })
+})
+
+describe('getBrandCategoryLabel', () => {
+  it('translates a Chinese domain category for English pages', () => {
+    expect(
+      getBrandCategoryLabel({ category: '服飾鞋履' } as Brand, 'en'),
+    ).toBe('Fashion & Apparel')
   })
 })

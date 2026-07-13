@@ -94,4 +94,10 @@ describe('BrandHeader — verified badge', () => {
 
     expect(screen.queryByText('大零售地點')).not.toBeInTheDocument()
   })
+
+  it('renders the verified badge through the Badge primitive', () => {
+    renderWithIntl(<BrandHeader brand={makeBrand({ isVerified: true })} />)
+    const badge = screen.getByText('品牌經營')
+    expect(badge.closest('[data-slot="badge"]')).not.toBeNull()
+  })
 })
