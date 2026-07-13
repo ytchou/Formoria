@@ -31,6 +31,11 @@ describe('Button', () => {
     expect(buttonVariants({ variant: 'destructive' })).toContain('text-destructive')
   })
 
+  it('supports overlay variant for translucent surfaces', () => {
+    expect(buttonVariants({ variant: 'overlay' })).toContain('bg-accent/80')
+    expect(buttonVariants({ variant: 'overlay' })).toContain('backdrop-blur-sm')
+  })
+
   it('keeps shape separate from variant', () => {
     render(<Button shape="pill">Open</Button>)
 
