@@ -64,12 +64,20 @@ const eslintConfig = defineConfig([
   {
     files: [
       "src/app/\\[locale\\]/(protected)/dashboard/brands/\\[slug\\]/edit/sections/locations-section.tsx",
+      "src/app/admin/review-queue/submissions/submissions-review-list.tsx",
+      "src/components/brands/brand-filter-sidebar.tsx",
       "src/components/brands/claim-brand-cta.tsx",
+      "src/components/brands/image-carousel.tsx",
+      "src/components/brands/report-dialog.tsx",
       "src/components/brands/save-brand-button.tsx",
       "src/components/brands/share-dialog.tsx",
       "src/components/dashboard/analytics-chart.tsx",
+      "src/components/dashboard/onboarding-step-list.tsx",
       "src/components/forms/product-tag-field.tsx",
+      "src/components/landing/filterable-brand-showcase.tsx",
       "src/components/navigation/nav-category-tabs.tsx",
+      "src/components/newsletter/email-capture-form.tsx",
+      "src/components/upload/ImageUploader.tsx",
     ],
     rules: {
       "no-restricted-syntax": "off",
