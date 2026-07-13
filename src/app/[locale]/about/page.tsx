@@ -90,7 +90,6 @@ export default async function AboutPage({ params }: PageProps) {
         />
 
         <TaiwanStats
-          eyebrow={t('taiwanStats.eyebrow')}
           heading={t('taiwanStats.heading')}
           intro={t('taiwanStats.intro')}
           items={[

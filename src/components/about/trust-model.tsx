@@ -28,8 +28,7 @@ export function TrustModel() {
   return (
     <section className="bg-secondary py-12 md:py-16">
       <div className="page-gutter mx-auto max-w-6xl">
-        <p className="type-eyebrow-cta">{t('tagline')}</p>
-        <h2 className="mt-4 type-page-title-large text-balance">{t('heading')}</h2>
+        <h2 className="type-page-title-large text-balance">{t('heading')}</h2>
         <p className="mt-4 max-w-2xl type-body-muted text-pretty">{t('subtitle')}</p>
         <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
           {trustPillars.map(({ key, icon: Icon }) => (

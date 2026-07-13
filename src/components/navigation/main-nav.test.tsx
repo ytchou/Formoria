@@ -37,6 +37,8 @@ vi.mock('next-intl', () => ({
           languageLabel: '切換語言',
           languageTraditionalChinese: '繁體中文',
           languageEnglish: 'English',
+          openMenu: '開啟選單',
+          navigation: '導覽選單',
         },
       }
 
@@ -97,7 +99,7 @@ describe('MainNav', () => {
   it('renders mobile menu button on small screens', async () => {
     const { MainNav } = await import('./main-nav')
     render(<MainNav categories={mockCategories} />)
-    expect(screen.getByRole('button', { name: /menu/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '開啟選單' })).toBeInTheDocument()
   })
 
   it('renders the language switcher trigger', async () => {

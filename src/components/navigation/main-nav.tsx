@@ -79,14 +79,14 @@ export function MainNav({ categories, hasOwnedBrand = false, isAuthenticated = f
                   type="button"
                   // eslint-disable-next-line no-restricted-syntax -- ui-exception: render-prop injection for SheetPrimitive.Trigger, raw button is required by Base UI render prop API
                   className={buttonVariants({ variant: 'ghost', size: 'icon' })}
-                  aria-label="Open menu"
+                  aria-label={t('openMenu')}
                 />
               }
             >
               <Menu className="size-5" />
             </SheetPrimitive.Trigger>
             <SheetContent side="right" className="w-72">
-              <SheetTitle className="sr-only">Navigation</SheetTitle>
+              <SheetTitle className="sr-only">{t('navigation')}</SheetTitle>
               <div className="flex flex-col gap-4 pt-8">
                 {/* Search in mobile sheet */}
                 <div className="px-1">

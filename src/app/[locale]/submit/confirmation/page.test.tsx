@@ -93,5 +93,8 @@ describe('ConfirmationPage (zh-TW)', () => {
     const hrefs = [...links].map((a) => a.getAttribute('href'))
     expect(hrefs).toContain('/')
     expect(hrefs).toContain('/submit')
+    expect(container).toHaveTextContent(
+      '審核完成後，通過審核的品牌會出現在 Formoria 目錄中；如果你有留下電子郵件，我們也會通知你。',
+    )
   })
 })
