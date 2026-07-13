@@ -24,6 +24,7 @@ import { startCurationJobAction } from '@/app/admin/operations/actions'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 import { SurfaceCard } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -552,9 +553,9 @@ export function SubmissionsReviewList({
         {isBulkRejecting && selectedCount > 0 && (
           <div className="mt-3 flex flex-wrap items-end gap-3 rounded-md border bg-background p-3">
             <div className="min-w-[240px] flex-1 space-y-2">
-              <label className="type-subsection-title">
+              <Label className="type-subsection-title">
                 批次拒絕原因 <span className="text-destructive">*</span>
-              </label>
+              </Label>
               <Select
                 value={bulkRejectReason}
                 onValueChange={(value) =>
@@ -628,10 +629,10 @@ export function SubmissionsReviewList({
                       <div className="flex items-center gap-2">
                         <span className="truncate">{submission.brandName}</span>
                         {submission.moderationRiskLevel === 'high' && (
-                          <Badge className="bg-destructive text-xs text-white">{moderationT('riskHigh')}</Badge>
+                          <Badge variant="destructive">{moderationT('riskHigh')}</Badge>
                         )}
                         {submission.moderationRiskLevel === 'medium' && (
-                          <Badge className="border border-mit-verified/20 bg-mit-verified-bg text-xs text-mit-verified">{moderationT('riskMedium')}</Badge>
+                          <Badge variant="verified">{moderationT('riskMedium')}</Badge>
                         )}
                       </div>
                     </TableCell>
@@ -659,13 +660,9 @@ export function SubmissionsReviewList({
                     </TableCell>
                     <TableCell>
                       {submissionIntent === 'owner_claim' ? (
-                        <span className="inline-flex items-center rounded-full bg-foreground px-2 py-0.5 text-xs font-semibold text-white">
-                          品牌主開始申請
-                        </span>
+                        <Badge>品牌主開始申請</Badge>
                       ) : (
-                        <span className="inline-flex items-center rounded-full bg-verified-green-bg px-2 py-0.5 text-xs font-semibold text-verified-green">
-                          推薦提交
-                        </span>
+                        <Badge className="bg-verified-green-bg text-verified-green">推薦提交</Badge>
                       )}
                     </TableCell>
                     <TableCell>
@@ -933,9 +930,7 @@ export function SubmissionsReviewList({
 
                           {submission.productTypeNote?.trim() && (
                             <div>
-                              <span className="inline-flex items-center rounded-full border border-mit-verified/20 bg-mit-verified-bg px-2.5 py-0.5 type-caption text-mit-verified">
-                                分類缺口
-                              </span>
+                              <Badge variant="verified">分類缺口</Badge>
                               <p className="mt-1 type-card-description">
                                 {submission.productTypeNote}
                               </p>
@@ -953,12 +948,7 @@ export function SubmissionsReviewList({
                                   </p>
                                   <div className="mt-1 flex flex-wrap gap-2">
                                     {suggestedTags.map((tag) => (
-                                      <span
-                                        key={tag}
-                                        className="inline-flex rounded-full bg-secondary px-2.5 py-0.5 type-caption"
-                                      >
-                                        {tag}
-                                      </span>
+                                      <Badge key={tag} variant="secondary">{tag}</Badge>
                                     ))}
                                   </div>
                                 </div>
@@ -1005,9 +995,9 @@ export function SubmissionsReviewList({
                                 {rejectingId === submission.id && (
                                   <div className="mb-2 space-y-3">
                                     <div className="space-y-2">
-                                      <label className="type-subsection-title">
+                                      <Label className="type-subsection-title">
                                         拒絕原因 <span className="text-destructive">*</span>
-                                      </label>
+                                      </Label>
                                       <Select
                                         value={rejectReason}
                                         onValueChange={(value) =>
