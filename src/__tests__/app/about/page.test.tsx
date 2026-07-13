@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import type { ReactNode } from 'react'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -12,12 +13,16 @@ vi.mock('@/lib/services/brands', () => ({
   getRecentBrandCount: vi.fn(async () => 5),
 }))
 
-vi.mock('@/components/about/how-it-works', () => ({
-  default: () => <section data-testid="how-it-works" />,
-}))
-
 vi.mock('@/components/about/trust-model', () => ({
   TrustModel: () => <section data-testid="trust-model" />,
+}))
+
+vi.mock('@/i18n/navigation', () => ({
+  Link: ({ href, children, className }: { href: string; children: ReactNode; className?: string }) => (
+    <a href={href} className={className}>
+      {children}
+    </a>
+  ),
 }))
 
 vi.mock('@/components/about/about-hero', () => ({
@@ -52,17 +57,19 @@ vi.mock('@/lib/seo/alternates', () => ({
 }))
 
 describe('AboutPage', () => {
-  it('renders TrustModel immediately after HowItWorks', async () => {
+  it('finishes with next steps after the trust model', async () => {
     const { default: AboutPage } = await import('../../../app/[locale]/about/page')
 
     render(await AboutPage({ params: Promise.resolve({ locale: 'zh-TW' }) }))
 
-    const howItWorks = screen.getByTestId('how-it-works')
+    const guideLink = screen.getByRole('link', { name: 'guide.cta' })
+    const brandsLink = screen.getByRole('link', { name: 'hero.cta' })
     const trustModel = screen.getByTestId('trust-model')
 
-    expect(howItWorks.nextElementSibling).toBe(trustModel)
     expect(
-      howItWorks.compareDocumentPosition(trustModel) & Node.DOCUMENT_POSITION_FOLLOWING
+      trustModel.compareDocumentPosition(guideLink) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
+    expect(guideLink).toHaveAttribute('href', '/getting-started')
+    expect(brandsLink).toHaveAttribute('href', '/brands')
   })
 })

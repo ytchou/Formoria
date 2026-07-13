@@ -1,3 +1,5 @@
+import { SurfaceCard } from '@/components/ui/card'
+
 interface TaiwanStatItem {
   value: string
   label: string
@@ -22,33 +24,29 @@ export default function TaiwanStats({
   sourceName,
 }: TaiwanStatsProps) {
   return (
-    <section className="bg-secondary">
-      <div className="page-gutter mx-auto max-w-5xl py-16 md:py-24">
-        <p className="type-eyebrow-muted">
-          {eyebrow}
-        </p>
-        <h2 className="mt-4 type-page-title-large">
-          {heading}
-        </h2>
-        <p className="mt-4 max-w-prose type-body-muted">
-          {intro}
-        </p>
-        <dl className="mt-12 grid gap-10 sm:grid-cols-3">
+    <section className="bg-secondary py-12 md:py-16">
+      <div className="page-gutter mx-auto max-w-6xl">
+        <div className="max-w-3xl">
+          <p className="type-eyebrow-muted">{eyebrow}</p>
+          <h2 className="mt-4 type-page-title-large text-balance">{heading}</h2>
+          <p className="mt-4 max-w-prose type-body-muted text-pretty">{intro}</p>
+        </div>
+        <dl className="mt-8 grid gap-4 sm:grid-cols-3">
           {items.map((item) => (
-            <div key={item.label} className="border-t border-border pt-4">
+            <SurfaceCard key={item.label} tone="background" padding="lg" className="h-full">
               <div className="flex flex-col-reverse">
                 <dt className="mt-3 type-card-title">
                   {item.label}
                 </dt>
-                <dd className="type-stat-large">
+                <dd className="type-stat-large tabular-nums">
                   {item.value}
                 </dd>
               </div>
               <p className="mt-1 type-card-description">{item.detail}</p>
-            </div>
+            </SurfaceCard>
           ))}
         </dl>
-        <p className="mt-12 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border pt-6 type-caption">
+        <p className="mt-8 flex flex-wrap items-center gap-x-2 gap-y-1 type-caption">
           <span className="type-eyebrow-muted">{sourceLabel}</span>
           <a
             href="https://www.sme.gov.tw/article-tw-2853-13097"

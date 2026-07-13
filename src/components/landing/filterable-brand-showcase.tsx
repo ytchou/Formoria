@@ -44,7 +44,7 @@ export default function FilterableBrandShowcase({
 
   const filteredBrands = useMemo(() => {
     if (!selectedCategory) return brands
-    return brands.filter((b) => b.category === selectedCategory)
+    return brands.filter((brand) => brand.productType === selectedCategory)
   }, [brands, selectedCategory])
 
   const displayBrands = filteredBrands.slice(0, 4)

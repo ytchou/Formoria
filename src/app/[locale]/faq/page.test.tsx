@@ -79,6 +79,15 @@ describe('FaqPage (zh-TW)', () => {
     expect(container.querySelectorAll('details')).toHaveLength(13)
   })
 
+  it('keeps the contact prompt concise and distinguishes the contact link', async () => {
+    render(await FaqPage({ params: Promise.resolve({ locale: 'zh-TW' }) }))
+
+    expect(screen.getByText('若仍有疑問，歡迎透過頁面底部的聯絡方式與我們聯繫。')).toBeInTheDocument()
+    expect(screen.queryByText(/以下整理了訪客最常詢問/)).not.toBeInTheDocument()
+    expect(screen.getByText('還有問題？')).toHaveClass('type-body-muted')
+    expect(screen.getByRole('link', { name: '聯絡我們' })).toHaveClass('type-link')
+  })
+
   it('each item has a summary child element', async () => {
     const { container } = render(
       await FaqPage({ params: Promise.resolve({ locale: 'zh-TW' }) })

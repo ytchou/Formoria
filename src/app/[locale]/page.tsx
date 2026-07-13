@@ -1,28 +1,25 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import { NextIntlClientProvider } from 'next-intl'
 import { getTranslations, setRequestLocale, getMessages } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
+import { buttonVariants } from '@/components/ui/button'
 import { buildOrganizationJsonLd, buildWebSiteJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import HeroSection from '@/components/landing/hero-section'
 import BrandShowcase from '@/components/shared/brand-showcase'
-import FilterableBrandShowcase from '@/components/landing/filterable-brand-showcase'
 import SectionBand from '@/components/landing/section-band'
-import { getBrands, getNewBrands, getRecentBrandCount } from '@/lib/services/brands'
+import {
+  EXPLORE_BRAND_LIMIT,
+  getExploreBrands,
+  getNewBrands,
+  getRecentBrandCount,
+} from '@/lib/services/brands'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 export const revalidate = 3600
-
-function shuffle<T>(arr: T[]): T[] {
-  const copy = [...arr]
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[copy[i], copy[j]] = [copy[j]!, copy[i]!]
-  }
-  return copy
-}
 
 type PageProps = {
   params: Promise<{ locale: string }>
@@ -64,14 +61,12 @@ export default async function LandingPage({ params }: PageProps) {
   const jsonLd = buildWebSiteJsonLd(safeLocale)
   const organizationJsonLd = buildOrganizationJsonLd(safeLocale)
 
-  const [{ brands: fetchedBrands, totalCount: totalBrandCount }, newBrands, recentBrands, messages] = await Promise.all([
-    getBrands({ status: 'approved', limit: 60 }),
+  const [{ brands: exploreBrands, totalCount: totalBrandCount }, newBrands, recentBrands, messages] = await Promise.all([
+    getExploreBrands(EXPLORE_BRAND_LIMIT),
     getNewBrands(4),
     getRecentBrandCount(),
     getMessages(),
   ])
-
-  const allBrands = shuffle(fetchedBrands)
 
   return (
     <>
@@ -90,19 +85,32 @@ export default async function LandingPage({ params }: PageProps) {
           <div className="py-6 md:py-8">
             <div className="mx-auto max-w-6xl page-gutter">
               <NextIntlClientProvider messages={messages}>
-                <FilterableBrandShowcase brands={allBrands} categories={[...PRODUCT_TYPE_CATEGORIES]} />
+                <BrandShowcase
+                  brands={exploreBrands}
+                  heading={t('showcase.heading')}
+                  linkText={t('showcase.browseAll')}
+                  linkHref="/brands"
+                />
               </NextIntlClientProvider>
             </div>
           </div>
 
           {/* Manifesto pull-quote */}
-          <section className="py-12 md:py-16">
-            <div className="mx-auto max-w-4xl page-gutter text-center">
+          <section className="relative overflow-hidden py-12 md:py-16">
+            <Image
+              src="/images/manifesto-bg.png"
+              alt=""
+              fill
+              sizes="100vw"
+              className="object-cover"
+            />
+            <div className="absolute inset-0 bg-background/70" aria-hidden="true" />
+            <div className="relative mx-auto max-w-4xl page-gutter text-center">
               <blockquote className="type-page-title-large text-foreground">
                 {t('manifesto.headline')}
               </blockquote>
               <p className="mt-3 type-body-muted">{t('manifesto.body1')}</p>
-              <Link href="/about" className="mt-4 inline-block type-body-emphasis text-primary hover:underline underline-offset-4">
+              <Link href="/about" className={buttonVariants({ variant: 'primary', tone: 'cta', className: 'mt-4' })}>
                 {t('manifesto.cta')}
               </Link>
             </div>

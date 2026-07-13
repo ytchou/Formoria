@@ -8,7 +8,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { BRAND_SORT_CONFIG, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import { isNonImageHost } from '@/lib/images/allowed-image-hosts'
 import { RESERVED_ROUTES } from '@/middleware'
-import { deriveCategoryFromProductType } from '@/lib/taxonomy/ontology'
+import { deriveCategoryFromProductType, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { normalizeRetailLocations } from '@/lib/brands/locations'
 import { downloadAndStoreImages } from './image-download'
 import {
@@ -938,6 +938,55 @@ export async function getBrands(
   return { brands, totalCount: count ?? 0 }
 }
 
+export const EXPLORE_BRAND_LIMIT = 12
+
+export function selectCategoryBalancedBrands(
+  brands: Brand[],
+  categorySlugs: readonly string[],
+  limit = categorySlugs.length,
+): Brand[] {
+  const selectionLimit = Math.max(0, Math.floor(limit))
+  const selected: Brand[] = []
+  const selectedIds = new Set<string>()
+
+  for (const categorySlug of categorySlugs) {
+    if (selected.length >= selectionLimit) break
+
+    const brand = brands.find(
+      (candidate) => candidate.productType === categorySlug && !selectedIds.has(candidate.id),
+    )
+    if (!brand) continue
+
+    selected.push(brand)
+    selectedIds.add(brand.id)
+  }
+
+  for (const brand of brands) {
+    if (selected.length >= selectionLimit) break
+    if (selectedIds.has(brand.id)) continue
+
+    selected.push(brand)
+    selectedIds.add(brand.id)
+  }
+
+  return selected
+}
+
+export async function getExploreBrands(
+  limit = EXPLORE_BRAND_LIMIT,
+): Promise<{ brands: Brand[]; totalCount: number }> {
+  const { brands, totalCount } = await getBrands({
+    status: 'approved',
+    sort: 'random',
+  })
+  const categorySlugs = PRODUCT_TYPE_CATEGORIES.map(({ slug }) => slug)
+
+  return {
+    brands: selectCategoryBalancedBrands(brands, categorySlugs, limit),
+    totalCount,
+  }
+}
+
 export async function searchBrandsAutocomplete(
   query: string,
   limit?: number
@@ -1409,16 +1458,20 @@ export async function getRandomBrands(limit = 4): Promise<Brand[]> {
 }
 
 export async function getNewBrands(limit = 4): Promise<Brand[]> {
+  const newBrandPoolSize = 20
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('brands')
     .select(BRAND_SELECT)
     .eq('status', 'approved')
+    .not('approved_at', 'is', null)
     .order('approved_at', { ascending: false })
-    .limit(limit)
+    .limit(newBrandPoolSize)
 
   if (error) throw error
-  return (data ?? []).map(brandToDomain)
+  const rows = data ?? []
+  shuffleArray(rows)
+  return rows.slice(0, limit).map(brandToDomain)
 }
 
 export async function getRecentBrandCount(): Promise<{ count: number; period: '7d' | '30d' }> {

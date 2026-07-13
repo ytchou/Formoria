@@ -58,30 +58,24 @@ type BrandImagesTable = {
 type BrandImagesClient = {
   from: (table: 'brand_images') => BrandImagesTable
 }
-
-const HERO_TAGS = new Set(['product', 'lifestyle', 'packaging'])
-const REJECTED_HERO_TAGS = new Set([
-  'promo',
-  'text_banner',
-  'irrelevant',
-  'logo',
-])
+type BrandHeroTable = {
+  update: (row: { hero_image_url: string | null }) => {
+    eq: (
+      column: 'id',
+      value: string,
+    ) => Promise<{ error: QueryError | null }>
+  }
+}
+type BrandHeroClient = {
+  from: (table: 'brands') => BrandHeroTable
+}
 
 function brandImagesTable(supabase: unknown): BrandImagesTable {
   return (supabase as BrandImagesClient).from('brand_images')
 }
 
-function hasAnyTag(
-  row: Pick<BrandImageRow, 'tags'>,
-  tags: Set<string>,
-): boolean {
-  return (row.tags ?? []).some((tag) => tags.has(tag))
-}
-
-function scoreValue(row: Pick<BrandImageRow, 'score'>): number {
-  if (typeof row.score === 'number') return row.score
-  if (typeof row.score === 'string') return Number(row.score)
-  return 0
+function brandHeroTable(supabase: unknown): BrandHeroTable {
+  return (supabase as BrandHeroClient).from('brands')
 }
 
 export function toImageFields(rows: BrandImageRow[]): {
@@ -100,20 +94,6 @@ export function toImageFields(rows: BrandImageRow[]): {
     productPhotos: active.slice(1).map((row) => row.url),
     imageAlts: active.map((row) => ({ altZh: row.alt_zh ?? null, altEn: row.alt_en ?? null })),
   }
-}
-
-export function pickHero(candidates: BrandImageRow[]): BrandImageRow | null {
-  const eligible = candidates
-    .filter((row) => row.status === undefined || row.status === 'active')
-    .filter((row) => hasAnyTag(row, HERO_TAGS))
-    .filter((row) => !hasAnyTag(row, REJECTED_HERO_TAGS))
-    .toSorted((left, right) => {
-      const scoreDiff = scoreValue(right) - scoreValue(left)
-      if (scoreDiff !== 0) return scoreDiff
-      return (left.sort_order ?? 0) - (right.sort_order ?? 0)
-    })
-
-  return eligible.at(0) ?? null
 }
 
 export async function getBrandImages(
@@ -170,10 +150,12 @@ export async function syncHeroDenormalized(
   brandId: string,
 ): Promise<void> {
   const images = await getBrandImages(supabase, brandId)
-  const hero = pickHero(images) ?? images.at(0)
+  const heroImageUrl = images.at(0)?.url ?? null
 
-  if (!hero) return
+  // brand_images owns image ordering; hero_image_url is only its grid-card projection.
+  const { error } = await brandHeroTable(supabase)
+    .update({ hero_image_url: heroImageUrl })
+    .eq('id', brandId)
 
-  const { updateBrand } = await import('./brands')
-  await updateBrand(brandId, { heroImageUrl: hero.url }, { source: 'enriched' })
+  if (error) throw error
 }

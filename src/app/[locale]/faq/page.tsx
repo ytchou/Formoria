@@ -67,10 +67,10 @@ export default async function FaqPage({ params }: PageProps) {
           <h1 id="faq-heading" className="type-page-title">{t('title')}</h1>
           <p className="type-body-muted">{t('intro')}</p>
           <div className="space-y-2 pt-2">
-          <p className="type-subsection-title">{t('stillHaveQuestions')}</p>
+            <p className="type-body-muted">{t('stillHaveQuestions')}</p>
             <a
               href={`mailto:${CONTACT_EMAILS.contact}`}
-              className="type-link text-foreground"
+              className="type-link"
             >
               {t('contactCta')}
             </a>

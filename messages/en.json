@@ -64,7 +64,7 @@
       "statsCategories": "categories",
       "recentWeek": "new this week",
       "recentMonth": "new this month",
-      "cta": "Explore All Brands"
+      "cta": "Explore brands…"
     },
     "showcase": {
       "heading": "Explore Brands",
@@ -700,7 +700,7 @@
       "description": "Frequently asked questions about the Formoria Taiwanese brand directory — learn what Made in Taiwan means, how to submit a brand, the review process, and how to claim your brand page."
     },
     "title": "Frequently Asked Questions",
-    "intro": "Here are the most common questions we receive. If you still have questions, feel free to reach out via the contact information at the bottom of the page.",
+    "intro": "If you still have questions, feel free to reach out via the contact information at the bottom of the page.",
     "stillHaveQuestions": "Still have questions?",
     "contactCta": "Contact us",
     "items": {
@@ -825,21 +825,10 @@
       "brandUnit": "brands",
       "categoryUnit": "categories"
     },
-    "howItWorks": {
-      "heading": "How It Works",
-      "submit": {
-        "label": "Share a brand",
-        "description": "Submit a Taiwan-rooted brand you love, whether it is your own business or one the community should know."
-      },
-      "review": {
-        "label": "Curate with care",
-        "description": "We review each submission for authenticity, quality signals, and a meaningful Made-in-Taiwan connection."
-      },
-      "publish": {
-        "label": "Help it get found",
-        "description": "Approved brands join the directory with clear context so more people can discover, compare, and support them."
-      },
-      "cta": "Submit a Brand →"
+    "guide": {
+      "heading": "Ready to use Formoria?",
+      "body": "Learn how to browse, save, submit, and manage brand listings.",
+      "cta": "Get started →"
     },
     "trust": {
       "heading": "How We Build Trust",
@@ -1712,83 +1701,62 @@
   },
   "gettingStarted": {
     "metadata": {
-      "title": "Getting Started",
-      "description": "Learn how Formoria works, how to submit Taiwan-made brands, and what happens after review."
+      "title": "Explore Formoria",
+      "description": "Learn how to browse Taiwan-made brands, save favorites, and follow official links to learn more."
     },
     "hero": {
-      "eyebrow": "Formoria onboarding",
-      "title": "Getting Started guide",
-      "intro": "Use this guide to understand how to discover, submit, claim, and maintain Taiwan-made brand listings on Formoria.",
-      "primaryCta": "Submit a brand",
-      "secondaryCta": "Browse brands"
+      "eyebrow": "Explore Formoria",
+      "title": "Find your next favorite brand",
+      "intro": "Browse Taiwan-made brands by category, values, location, and shopping channel. Open a listing to learn more, save it for later, or follow official links to shop.",
+      "primaryCta": "Browse brands",
+      "secondaryCta": "Read the FAQ"
     },
     "steps": {
-      "heading": "How Formoria works",
+      "heading": "How to explore Formoria",
       "discover": {
-        "title": "Discover Taiwan-made brands",
-        "body": "Explore verified listings across categories, values, locations, and shopping channels."
+        "title": "Start with what interests you",
+        "body": "Browse by category, values, location, or shopping channel to find brands that match your interests.",
+        "cta": "Browse brands"
       },
       "submit": {
-        "title": "Submit or suggest a brand",
-        "body": "Share basic brand details, links, images, and value tags so the community can find them."
+        "title": "Open a brand listing",
+        "body": "Read the brand story, products, photos, locations, and official links in one place.",
+        "cta": "Explore brands"
       },
       "review": {
-        "title": "Review and approval",
-        "body": "Our team checks submissions for accuracy, Taiwan relevance, and listing quality before publishing."
+        "title": "Compare the details",
+        "body": "Use descriptions, photos, and links to understand what makes each brand different."
       },
       "manage": {
-        "title": "Claim and manage your listing",
-        "body": "Approved brand owners can claim their listing and keep information current from their dashboard."
-      }
-    },
-    "questions": {
-      "heading": "Common questions",
-      "eligibility": {
-        "question": "Who can submit a brand?",
-        "answer": "Anyone can suggest a Taiwan-made brand. You do not need to own the brand to submit it for review."
-      },
-      "details": {
-        "question": "What information should I prepare?",
-        "answer": "Prepare the brand name, description, official website or social links, product photos, purchase links, and any details that show the brand's Taiwan connection."
-      },
-      "review": {
-        "question": "How long does review take?",
-        "answer": "Most submissions are reviewed within 3 business days. We may contact you by email if we need more information."
-      },
-      "approval": {
-        "question": "What happens after approval?",
-        "answer": "The brand appears in the Formoria directory where visitors can discover it, save it, and follow links to learn more or buy."
-      },
-      "claim": {
-        "question": "Can I claim a brand listing?",
-        "answer": "Yes. Brand owners can request ownership after a listing is published, then manage updates through their account."
+        "title": "Save brands for later",
+        "body": "Keep brands you want to revisit in your saved list, then return when you are ready to learn more or shop."
       }
     },
     "tips": {
-      "heading": "Before you submit",
-      "accurate": "Use accurate, public-facing brand information.",
-      "photos": "Upload clear photos that show the product or brand experience.",
-      "links": "Include official links so reviewers can verify the submission."
+      "heading": "While you browse",
+      "accurate": "Read the description and product details to understand what each brand offers.",
+      "photos": "Use product photos to get a feel for the brand's materials, style, and range.",
+      "links": "Follow official links to learn more or shop directly from the brand."
     },
     "forOwners": {
-      "heading": "For Brand Owners",
+      "heading": "If you own a brand",
       "claim": {
         "title": "Claim Your Brand",
-        "description": "Verify your ownership and get full edit access to your listing"
+        "description": "If someone else submitted your brand, verify your ownership to manage the listing."
       },
       "manage": {
         "title": "Manage Your Listing",
-        "description": "Update your products, links, and descriptions anytime"
+        "description": "Update products, links, and descriptions when details change."
       },
       "track": {
         "title": "Track Performance",
-        "description": "See how visitors discover and interact with your brand"
+        "description": "See how visitors discover and interact with your brand."
       }
     },
     "cta": {
-      "heading": "Ready to add a Taiwan-made brand?",
-      "body": "Start with the submission form, or review the FAQ if you need more detail.",
-      "submit": "Submit a brand",
+      "heading": "Ready to explore Taiwan-made brands?",
+      "body": "Browse the directory to find brands that match your interests, or read the FAQ to learn how listings work.",
+      "browse": "Browse brands",
       "faq": "Read the FAQ"
     },
     "ctaFooter": {

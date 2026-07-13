@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import type { ReactNode } from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import { describe, expect, it, vi } from 'vitest'
 import messages from '../../../../messages/en.json'
+import zhMessages from '../../../../messages/zh-TW.json'
 
 vi.mock('next-intl/server', () => ({
   getTranslations: vi.fn(),
@@ -26,13 +27,6 @@ vi.mock('@/i18n/navigation', () => ({
   ),
 }))
 
-vi.mock('@/components/ui/accordion', () => ({
-  Accordion: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  AccordionContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  AccordionItem: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  AccordionTrigger: ({ children }: { children: ReactNode }) => <button>{children}</button>,
-}))
-
 vi.mock('@/lib/auth/use-user', () => ({
   useUser: vi.fn(() => ({ user: null, loading: false })),
 }))
@@ -41,6 +35,7 @@ import { getTranslations } from 'next-intl/server'
 import GettingStartedPage from './page'
 
 type Messages = typeof messages
+let activeMessages: Messages = messages
 
 function makeT(translations: Messages, namespace: string) {
   return (key: string) => {
@@ -58,16 +53,20 @@ function makeT(translations: Messages, namespace: string) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 vi.mocked(getTranslations).mockImplementation(async (namespace: any) => {
-  const t = makeT(messages, typeof namespace === 'string' ? namespace : '')
+  const t = makeT(activeMessages, typeof namespace === 'string' ? namespace : '')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return t as any
 })
 
-async function renderGettingStartedPage() {
-  const ui = await GettingStartedPage({ params: Promise.resolve({ locale: 'en' }) })
+async function renderGettingStartedPage(
+  locale = 'en',
+  translations: Messages = messages,
+) {
+  activeMessages = translations
+  const ui = await GettingStartedPage({ params: Promise.resolve({ locale }) })
 
   return render(
-    <NextIntlClientProvider locale="en" messages={messages}>
+    <NextIntlClientProvider locale={locale} messages={translations}>
       {ui}
     </NextIntlClientProvider>
   )
@@ -75,23 +74,52 @@ async function renderGettingStartedPage() {
 
 describe('GettingStartedPage', () => {
   it('renders the getting started guide content', async () => {
-    await renderGettingStartedPage()
+    const { container } = await renderGettingStartedPage()
 
-    expect(screen.getByRole('heading', { name: 'Getting Started guide' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'How Formoria works' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Common questions' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Find your next favorite brand' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'How to explore Formoria' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Common questions' })).not.toBeInTheDocument()
+    expect(container.querySelector('[data-accordion-type="multiple"]')).toBeNull()
 
-    expect(screen.getByText('Discover Taiwan-made brands')).toBeInTheDocument()
-    expect(screen.getByText('Submit or suggest a brand')).toBeInTheDocument()
-    expect(screen.getByText('Review and approval')).toBeInTheDocument()
-    expect(screen.getByText('Claim and manage your listing')).toBeInTheDocument()
+    expect(screen.getByText('Start with what interests you')).toBeInTheDocument()
+    expect(screen.getByText('Open a brand listing')).toBeInTheDocument()
+    expect(screen.getByText('Compare the details')).toBeInTheDocument()
+    expect(screen.getByText('Save brands for later')).toBeInTheDocument()
 
-    expect(screen.getByRole('button', { name: 'Who can submit a brand?' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'What information should I prepare?' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'How long does review take?' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'What happens after approval?' })).toBeInTheDocument()
+    const discoverCard = screen.getByRole('heading', { name: 'Start with what interests you' }).closest('article')
+    const submitCard = screen.getByRole('heading', { name: 'Open a brand listing' }).closest('article')
+    expect(discoverCard).not.toBeNull()
+    expect(submitCard).not.toBeNull()
+    expect(within(discoverCard as HTMLElement).getByRole('link', { name: 'Browse brands' })).toHaveAttribute(
+      'href',
+      '/brands',
+    )
+    expect(within(submitCard as HTMLElement).getByRole('link', { name: 'Explore brands' })).toHaveAttribute(
+      'href',
+      '/brands',
+    )
+    expect(
+      screen.getByText(
+        'Keep brands you want to revisit in your saved list, then return when you are ready to learn more or shop.',
+      ),
+    ).toBeInTheDocument()
 
-    const submitLinks = screen.getAllByRole('link', { name: 'Submit a brand' })
-    expect(submitLinks[0]).toHaveAttribute('href', '/submit')
+    expect(
+      screen
+        .getAllByRole('link', { name: 'Read the FAQ' })
+        .every((link) => link.getAttribute('href') === '/faq'),
+    ).toBe(true)
+  })
+
+  it('uses localized copy for the zh-TW guide', async () => {
+    await renderGettingStartedPage('zh-TW', zhMessages)
+
+    expect(screen.getByRole('heading', { name: '找到下一個喜歡的品牌' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '新手指南' })).not.toBeInTheDocument()
+    expect(
+      screen
+        .getAllByRole('link', { name: '瀏覽品牌' })
+        .every((link) => link.getAttribute('href') === '/brands'),
+    ).toBe(true)
   })
 })

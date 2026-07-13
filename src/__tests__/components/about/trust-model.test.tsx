@@ -11,6 +11,8 @@ describe('TrustModel', () => {
   it('renders the trust section heading', () => {
     render(<TrustModel />)
     expect(screen.getByRole('heading', { level: 2 })).toBeInTheDocument()
+    expect(screen.getByText('tagline')).toBeInTheDocument()
+    expect(screen.getByText('subtitle')).toBeInTheDocument()
   })
 
   it('renders all three trust pillars', () => {
