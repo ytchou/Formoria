@@ -65,6 +65,11 @@ const allowedMatches = [
     names: ['arbitrary numeric text size'],
     values: ['text-[0.8125rem]'],
   },
+  {
+    file: 'src/components/brands/brand-image-fallback.tsx',
+    names: ['raw-type-combo'],
+    values: ['font-bold text-foreground'],
+  },
 ]
 
 export const frontendTokenChecks = [

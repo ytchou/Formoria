@@ -105,7 +105,7 @@ export default async function ReviewQueueModerationPage({ searchParams }: Modera
       </p>
 
       <form className="mt-6 flex flex-wrap gap-3">
-        <Label className="flex flex-col gap-1 type-form-label text-muted-foreground">
+        <Label className="flex flex-col gap-1 type-body-emphasis text-muted-foreground">
           {t('filterByRisk')}
           <NativeSelect
             name="risk"
@@ -118,7 +118,7 @@ export default async function ReviewQueueModerationPage({ searchParams }: Modera
             <option value="clean">{t('riskClean')}</option>
           </NativeSelect>
         </Label>
-        <Label className="flex flex-col gap-1 type-form-label text-muted-foreground">
+        <Label className="flex flex-col gap-1 type-body-emphasis text-muted-foreground">
           {t('filterByTier')}
           <NativeSelect
             name="tier"

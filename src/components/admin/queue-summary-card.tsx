@@ -38,7 +38,7 @@ export function QueueSummaryCard({
         <Link
           href={href}
           className={cn(
-            'inline-flex type-link',
+            'inline-flex type-body-emphasis text-primary underline-offset-4 hover:underline',
             count === 0 && 'mt-0'
           )}
         >
