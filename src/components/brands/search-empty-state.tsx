@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useTranslations, useLocale } from 'next-intl'
 import { Search } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { categoryLabel } from '@/lib/taxonomy/ontology'
 
 interface SearchEmptyStateProps {
@@ -75,7 +75,7 @@ export function SearchEmptyState({
               <Link
                 key={productType}
                 href={`?category=${encodeURIComponent(productType)}`}
-                className="whitespace-nowrap rounded-full border border-primary/20 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className={buttonVariants({ variant: 'secondary', shape: 'pill', size: 'chip' })}
               >
                 {categoryLabel({ name, nameZh }, locale)}
               </Link>

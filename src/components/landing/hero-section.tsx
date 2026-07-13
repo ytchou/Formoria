@@ -1,7 +1,9 @@
 import { getLocale, getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { SearchInput } from '@/components/brands/search-input'
+import { buttonVariants } from '@/components/ui/button'
 import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { cn } from '@/lib/utils'
 
 interface HeroSectionProps {
   brandCount: number
@@ -27,7 +29,11 @@ export default async function HeroSection({ brandCount, categoryCount, recentBra
             <Link
               key={cat.slug}
               href={`/brands?category=${cat.slug}`}
-              className="shrink-0 whitespace-nowrap rounded-full border border-border bg-transparent px-3 py-1 type-micro text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+              // ui-exception: translucent hover border on hero, not in secondary variant; single site
+              className={cn(
+                buttonVariants({ variant: 'secondary', shape: 'pill', size: 'chip' }),
+                'bg-transparent text-muted-foreground hover:bg-transparent hover:border-foreground/30',
+              )}
             >
               {categoryLabel(cat, locale)}
             </Link>
