@@ -11,7 +11,7 @@ type AnySupabaseClient = SupabaseClient<any, any, any>
  *  - /about renders with heading
  *  - /privacy renders with heading
  *  - /terms renders with heading
- *  - /challenge renders "Quick verification" heading with Turnstile container
+ *  - /challenge renders the localized verification heading with Turnstile container
  *  - /submit landing renders heading and links to the recommendation and owner flows
  *  - /site/<slug> renders brand name and tagline for a seeded microsite brand
  *
@@ -108,13 +108,13 @@ test.describe('Static & compliance pages', () => {
     }
   })
 
-  test('challenge page renders Quick verification heading', async ({ anonPage }) => {
+  test('challenge page renders the localized verification heading', async ({ anonPage }) => {
     test.setTimeout(30_000)
-    // /challenge is NOT under [locale] — navigate directly
+    // /challenge uses the default zh-TW locale; /en/challenge is the English variant.
     const resp = await anonPage.goto('/challenge', { timeout: 30_000 })
     if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return }
     await expect(
-      anonPage.getByRole('heading', { name: 'Quick verification' }),
+      anonPage.getByRole('heading', { name: '快速驗證' }),
     ).toBeVisible({ timeout: 15_000 })
     // Turnstile container (div rendered by TurnstileWidget, or the "Verifying..." text)
     // The widget may redirect quickly in dev; assert the heading appeared above.

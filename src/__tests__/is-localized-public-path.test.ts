@@ -9,6 +9,8 @@ describe('isLocalizedPublicPath', () => {
     expect(isLocalizedPublicPath('/en/my-submissions')).toBe(true)
     expect(isLocalizedPublicPath('/dashboard')).toBe(true)
     expect(isLocalizedPublicPath('/en/dashboard')).toBe(true)
+    expect(isLocalizedPublicPath('/challenge')).toBe(true)
+    expect(isLocalizedPublicPath('/en/challenge')).toBe(true)
   })
 
   it('still excludes non-localized routes', () => {

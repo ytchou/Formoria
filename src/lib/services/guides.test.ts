@@ -50,7 +50,10 @@ describe('guides service (Tina-backed)', () => {
         },
       } as any);
 
-      const guides = await getAllGuides();
+      const result = await getAllGuides();
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw result.error;
+      const guides = result.guides;
 
       expect(guides).toHaveLength(1);
       expect(guides[0].slug).toBe('taiwan-skincare-brands');
@@ -91,12 +94,30 @@ describe('guides service (Tina-backed)', () => {
         data: { guideConnection: { edges: [{ node: nodeWithMissing }] } },
       } as any);
 
-      const guides = await getAllGuides();
+      const result = await getAllGuides();
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw result.error;
+      const guides = result.guides;
 
       expect(guides[0].frontmatter.updatedAt).toBeUndefined();
       expect(guides[0].frontmatter.sources).toEqual([]);
       expect(guides[0].frontmatter.faq).toEqual([]);
       expect(guides[0].frontmatter.draft).toBe(false);
+    });
+
+    it('returns a failure result and logs TinaCMS errors', async () => {
+      const error = new Error('TinaCMS unavailable');
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      vi.mocked(client.queries.guideConnection).mockRejectedValue(error);
+
+      const result = await getAllGuides();
+
+      expect(result).toEqual({ ok: false, error });
+      expect(consoleError).toHaveBeenCalledWith(
+        '[guides:getAllGuides] TinaCMS query failed',
+        error,
+      );
+      consoleError.mockRestore();
     });
   });
 
@@ -124,6 +145,13 @@ describe('guides service (Tina-backed)', () => {
       } as any);
 
       await expect(getGuideBySlug('missing-guide')).rejects.toThrow('NEXT_NOT_FOUND');
+      expect(notFound).toHaveBeenCalled();
+    });
+
+    it('throws notFound when Tina returns a malformed result', async () => {
+      vi.mocked(client.queries.guide).mockResolvedValue(null as any);
+
+      await expect(getGuideBySlug('malformed-guide')).rejects.toThrow('NEXT_NOT_FOUND');
       expect(notFound).toHaveBeenCalled();
     });
 

@@ -8,9 +8,13 @@ vi.mock('next-intl/server', () => {
     const translate = ((key: string) =>
       namespace === 'brands' && key === 'heading'
         ? 'Made in Taiwan Brand Directory'
+        : namespace === 'brands' && key === 'metadata.title'
+          ? 'Formoria — 台灣品牌目錄'
+          : namespace === 'brands' && key === 'metadata.description'
+            ? '探索精選的台灣品牌，依分類瀏覽、搜尋，發現最值得支持的台灣製造品牌。'
         : namespace === 'categories' && key === 'metadata.description'
           ? 'A'.repeat(435)
-        : key) as ((key: string, values?: Record<string, unknown>) => string) & {
+          : key) as ((key: string, values?: Record<string, unknown>) => string) & {
       has: (key: string) => boolean
     }
     translate.has = () => false
@@ -96,5 +100,15 @@ describe('brands directory headings', () => {
     })
 
     expect(metadata.description).toHaveLength(156)
+  })
+
+  it('uses localized base metadata for the zh-TW directory', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ locale: 'zh-TW' }),
+      searchParams: Promise.resolve({}),
+    })
+
+    expect(metadata.title).toEqual({ absolute: 'Formoria — 台灣品牌目錄' })
+    expect(metadata.description).toBe('探索精選的台灣品牌，依分類瀏覽、搜尋，發現最值得支持的台灣製造品牌。')
   })
 })

@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useCallback, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { TurnstileWidget } from '@/components/submit/TurnstileWidget'
 
@@ -9,6 +10,7 @@ type ChallengeState = 'idle' | 'verifying' | 'error'
 function ChallengeContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const t = useTranslations('challenge')
   const returnTo = searchParams.get('returnTo') ?? '/'
   const [state, setState] = useState<ChallengeState>('idle')
 
@@ -64,20 +66,20 @@ function ChallengeContent() {
         }}
       >
         <h1 style={{ margin: '0 0 12px', fontSize: '24px', lineHeight: 1.25 }}>
-          Quick verification
+          {t('title')}
         </h1>
         <p style={{ margin: '0 0 24px', color: 'var(--muted-foreground)', lineHeight: 1.5 }}>
-          Please complete the check to continue browsing.
+          {t('description')}
         </p>
         <div style={{ display: 'flex', justifyContent: 'center', minHeight: '65px' }}>
           <TurnstileWidget onSuccess={handleSuccess} onError={() => setState('error')} />
         </div>
         {state === 'verifying' ? (
-          <p style={{ margin: '20px 0 0', color: 'var(--muted-foreground)' }}>Verifying…</p>
+          <p style={{ margin: '20px 0 0', color: 'var(--muted-foreground)' }}>{t('verifying')}</p>
         ) : null}
         {state === 'error' ? (
           <p style={{ margin: '20px 0 0', color: 'var(--destructive)' }}>
-            Verification failed. Please try again.
+            {t('error')}
           </p>
         ) : null}
       </section>

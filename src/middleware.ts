@@ -55,6 +55,7 @@ const PUBLIC_INTL_SEGMENTS = new Set([
   'getting-started',
   'terms',
   'submit',
+  'challenge',
   'my-submissions',
   'dashboard',
   'settings',
@@ -91,6 +92,17 @@ export function isLocalizedPublicPath(pathname: string) {
   }
 
   return PUBLIC_INTL_SEGMENTS.has(firstSegment)
+}
+
+function normalizePathname(pathname: string): string {
+  const segments = pathname.split('/')
+  const canonicalLocale = routing.locales.find(
+    (locale) => locale.toLowerCase() === segments[1]?.toLowerCase(),
+  )
+
+  return segments
+    .map((segment, index) => (index === 1 && canonicalLocale ? canonicalLocale : segment.toLowerCase()))
+    .join('/')
 }
 
 async function refreshSupabaseSession(request: NextRequest, response: NextResponse) {
@@ -168,6 +180,13 @@ export async function middleware(request: NextRequest) {
 
   if (pathname.startsWith('/admin/content')) {
     return NextResponse.next()
+  }
+
+  const normalizedPathname = normalizePathname(pathname)
+  if (normalizedPathname !== pathname) {
+    const url = request.nextUrl.clone()
+    url.pathname = normalizedPathname
+    return NextResponse.redirect(url, 301)
   }
 
   // Check rate limit before regular request processing

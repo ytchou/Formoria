@@ -51,7 +51,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     const brandSlugs = await getAllBrandSlugs()
-    const guides = await getAllGuides()
+    const guideResult = await getAllGuides()
+    const guides = guideResult.ok ? guideResult.guides : []
 
     const brandPages: MetadataRoute.Sitemap = brandSlugs.map((slug) =>
       makeEntry(`/brands/${slug}`, now, 'weekly', 0.8)
