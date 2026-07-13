@@ -33,7 +33,7 @@ export function EditReviewBanner({ edit, brandSlug }: Props) {
               {new Date(edit.createdAt).toLocaleDateString(dateLocale(locale))}
             </p>
           </div>
-          <Badge variant="secondary" className="ml-auto">
+          <Badge variant="verified" className="ml-auto">
             {t('pending')}
           </Badge>
         </div>

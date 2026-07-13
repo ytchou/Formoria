@@ -109,7 +109,7 @@ export function GlossaryAnchorNav({ sections, sectionsLabel }: GlossaryAnchorNav
                 onClick={(e) => handleClick(e, id)}
                 className={cn(
                   buttonVariants({ variant: 'secondary', shape: 'pill', size: 'chip' }),
-                  'min-h-[44px] text-muted-foreground', // touch-target; secondary has no initial text color
+                  'min-h-[44px] text-muted-foreground', // touch-target; override inherited Ink to muted for inactive pills
                   isActive && 'border-primary bg-primary/10 font-semibold text-primary hover:bg-primary/10',
                 )}
               >

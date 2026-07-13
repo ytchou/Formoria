@@ -659,8 +659,9 @@ export function SubmissionsReviewList({
                       })()}
                     </TableCell>
                     <TableCell>
+                      {/* ui-exception: owner-claim badge is Ink (bg-foreground); community-submission uses verified-green — no matching variants */}
                       {submissionIntent === 'owner_claim' ? (
-                        <Badge>品牌主開始申請</Badge>
+                        <Badge className="bg-foreground text-white">品牌主開始申請</Badge>
                       ) : (
                         <Badge className="bg-verified-green-bg text-verified-green">推薦提交</Badge>
                       )}
