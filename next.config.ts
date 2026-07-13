@@ -21,7 +21,7 @@ const mapTileImgSrcHosts = 'https://*.tile.openstreetmap.org'
 const googleAdsImgSrcHosts = 'https://www.google.com https://www.google.com.tw'
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ['adm-zip'],
+  serverExternalPackages: ['adm-zip', '@playwright/test'],
   transpilePackages: ['react-simple-maps'],
   experimental: {
     serverActions: {

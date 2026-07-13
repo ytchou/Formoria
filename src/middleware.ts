@@ -153,6 +153,10 @@ async function refreshSupabaseSession(request: NextRequest, response: NextRespon
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const isPlaywrightTest = process.env.PLAYWRIGHT_TEST === 'true'
+  const isRscOrPrefetch =
+    request.headers.get('RSC') === '1' ||
+    request.headers.get('next-router-prefetch') === '1'
 
   const host = request.headers.get('host') ?? ''
   if (host === (process.env.MICROSITE_HOST ?? 'brand.formoria.com')) {
@@ -190,10 +194,12 @@ export async function middleware(request: NextRequest) {
   }
 
   // Check rate limit before regular request processing
-  const rateLimitResponse = await checkRateLimit(request)
-  if (rateLimitResponse) return rateLimitResponse
+  if (!isPlaywrightTest) {
+    const rateLimitResponse = await checkRateLimit(request)
+    if (rateLimitResponse) return rateLimitResponse
+  }
 
-  if (isSoftLimitPath(pathname)) {
+  if (!isPlaywrightTest && isSoftLimitPath(pathname)) {
     const challengeCookie = request.cookies.get(CHALLENGE_COOKIE_NAME)?.value
     let isVerified = false
     if (challengeCookie) {
@@ -243,11 +249,13 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = localizePath(pathname, 'en')
     const localeResponse = NextResponse.redirect(url)
-    localeResponse.cookies.set(LOCALE_COOKIE, 'en', {
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 365 * 24 * 60 * 60,
-    })
+    if (!isRscOrPrefetch) {
+      localeResponse.cookies.set(LOCALE_COOKIE, 'en', {
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 365 * 24 * 60 * 60,
+      })
+    }
     localeResponse.headers.set('Cache-Control', 'private, no-store')
     return localeResponse
   }
@@ -257,7 +265,7 @@ export async function middleware(request: NextRequest) {
     : NextResponse.next({ request })
 
   const resolvedLocale = explicitLocale ?? inferredLocale
-  if (resolvedLocale) {
+  if (resolvedLocale && !isRscOrPrefetch) {
     response.cookies.set(LOCALE_COOKIE, resolvedLocale, {
       sameSite: 'lax',
       path: '/',

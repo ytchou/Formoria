@@ -69,4 +69,27 @@ describe('i18n middleware composition', () => {
       expect(res?.headers.get('location')).toBeNull()
     }
   })
+  it.each([
+    ['an RSC response', { RSC: '1' }],
+    ['a router prefetch', { 'next-router-prefetch': '1' }],
+  ])('does not overwrite the locale cookie from %s', async (_, headers) => {
+    const res = await middleware(req('/en/brands', headers))
+
+    expect(res?.cookies.get('NEXT_LOCALE')).toBeUndefined()
+  })
+
+  it('does not set a locale cookie on an inferred-locale RSC redirect', async () => {
+    const res = await middleware(
+      req('/brands', { RSC: '1', 'accept-language': 'en-US,en;q=0.9' }),
+    )
+
+    expect(res?.headers.get('location')).toContain('/en/brands')
+    expect(res?.cookies.get('NEXT_LOCALE')).toBeUndefined()
+  })
+
+  it('sets the locale cookie for a document response', async () => {
+    const res = await middleware(req('/en/brands'))
+
+    expect(res?.cookies.get('NEXT_LOCALE')?.value).toBe('en')
+  })
 })

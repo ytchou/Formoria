@@ -110,6 +110,17 @@ describe('useFilterParams', () => {
       expect(mockPush).not.toHaveBeenCalled()
     })
 
+    it('does not reset pagination when the search term is unchanged', () => {
+      mockSearchParams = new URLSearchParams('page=3')
+      const { result } = renderHook(() => useFilterParams())
+
+      act(() => {
+        result.current.setSearch('')
+      })
+
+      expect(mockPush).not.toHaveBeenCalled()
+    })
+
     it('setSearch pushes URL immediately (debounce lives in search-input)', () => {
       const { result } = renderHook(() => useFilterParams())
 

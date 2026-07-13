@@ -25,14 +25,11 @@ export async function verifyTurnstileToken(
 ): Promise<TurnstileResult> {
   const secretKey = process.env.TURNSTILE_SECRET_KEY
 
-  if (isLocalDevHost(requestHost)) {
+  if (process.env.PLAYWRIGHT_TEST === 'true') {
     return { success: true }
   }
 
-  if (
-    process.env.NODE_ENV !== 'production' &&
-    process.env.E2E_USER_EMAIL
-  ) {
+  if (isLocalDevHost(requestHost)) {
     return { success: true }
   }
 
