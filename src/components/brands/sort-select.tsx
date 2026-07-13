@@ -6,25 +6,27 @@ import {
   type BrandSortOption,
 } from '@/lib/pagination'
 import { useFilterParams } from '@/hooks/use-filter-params'
+import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
 
 export function SortSelect() {
   const t = useTranslations('brands')
   const { currentSort, setSort } = useFilterParams()
 
   return (
-    <label className="inline-flex items-center gap-2 type-metadata">
+    <Label className="inline-flex items-center gap-2 type-metadata">
       {t('sortLabel')}
-      <select
+      <NativeSelect
         value={currentSort}
         onChange={(e) => setSort(e.target.value as BrandSortOption)}
-        className="rounded-lg border border-border bg-background px-3 py-1.5 type-body-emphasis transition-colors hover:border-foreground/20 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="w-fit"
       >
         {(Object.keys(BRAND_SORT_CONFIG) as BrandSortOption[]).map((key) => (
           <option key={key} value={key}>
             {t(`sort.${key}`)}
           </option>
         ))}
-      </select>
-    </label>
+      </NativeSelect>
+    </Label>
   )
 }

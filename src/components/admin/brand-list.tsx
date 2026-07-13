@@ -6,6 +6,7 @@ import { MoreHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Brand, BrandStatus } from '@/lib/types'
 import { surfaceCardStyles } from '@/components/ui/card'
+import { NativeSelect } from '@/components/ui/native-select'
 import { BrandStatusBadge } from './status-badge'
 import { BrandEditDialog } from './brand-edit-dialog'
 import { ConfirmDialog } from './confirm-dialog'
@@ -209,25 +210,25 @@ export function BrandList({ brands }: { brands: Brand[] }) {
           onChange={(e) => setSearchQuery(e.target.value)}
           className="h-8 w-56 text-sm"
         />
-        <select
+        <NativeSelect
           value={mitFilter}
           onChange={(e) => setMitFilter(e.target.value as typeof mitFilter)}
-          className="h-8 rounded-md border border-input bg-white px-2 text-sm text-foreground"
+          className="h-8 w-fit"
         >
           <option value="all">全部 MIT 狀態</option>
           <option value="unverified">MIT 未驗證</option>
           <option value="verified">MIT 微笑認證</option>
-        </select>
-        <select
+        </NativeSelect>
+        <NativeSelect
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
-          className="h-8 rounded-md border border-input bg-white px-2 text-sm text-foreground"
+          className="h-8 w-fit"
         >
           <option value="all">全部分類</option>
           {categories.map((cat) => (
             <option key={cat} value={cat}>{cat}</option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
 
       <div className={surfaceCardStyles({ className: 'mt-4 overflow-hidden', padding: 'none' })}>
