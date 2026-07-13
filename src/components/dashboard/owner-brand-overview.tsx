@@ -27,7 +27,7 @@ function OwnerSection({ children, description, editHref, title, editLabel }: Own
         {editHref && editLabel ? (
           <Link
             aria-label={`${editLabel}: ${title}`}
-            className="text-sm font-semibold text-primary underline-offset-4 hover:underline"
+            className="type-link"
             href={editHref}
           >
             {editLabel}

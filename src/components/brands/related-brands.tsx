@@ -37,7 +37,7 @@ export async function RelatedBrands({
         </div>
         <Link
           href={`/brands?category=${encodeURIComponent(category)}`}
-          className="group inline-flex min-h-12 items-center gap-1.5 self-start text-sm font-medium text-primary transition-colors hover:text-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:self-auto"
+          className="group inline-flex min-h-12 items-center gap-1.5 self-start type-body-emphasis text-primary transition-colors hover:text-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:self-auto"
         >
           {t('relatedBrands.viewAll')}
           <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />

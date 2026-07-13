@@ -34,10 +34,10 @@ export function DashboardTabNav({ brandSlug }: DashboardTabNavProps) {
             key={tab.key}
             aria-current={isActive ? 'page' : undefined}
             className={cn(
-              'inline-flex min-h-12 items-center border-b-2 px-1 text-sm font-medium transition-colors',
+              'inline-flex min-h-12 items-center border-b-2 px-1',
               isActive
-                ? 'border-foreground text-foreground font-semibold'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+                ? 'type-nav-item-active border-foreground'
+                : 'type-nav-item border-transparent'
             )}
             href={href}
           >

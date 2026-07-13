@@ -92,7 +92,7 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
               )}
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium">{t('description')}</Label>
+                <Label className="type-body-emphasis">{t('description')}</Label>
                 <div className="grid grid-cols-2 gap-2">
                   {reasons.map(({ value, label }) => (
                     <Button
@@ -118,7 +118,7 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="report-notes" className="text-sm font-medium">
+                <Label htmlFor="report-notes" className="type-body-emphasis">
                   {t('notesPlaceholder')}
                 </Label>
                 <Textarea id="report-notes" name="notes" maxLength={1000} rows={3} />

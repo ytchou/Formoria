@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils'
 import { categoryTint } from '@/lib/taxonomy/ontology'
 
 interface BrandImageFallbackProps {
@@ -15,7 +16,12 @@ export function BrandImageFallback({ name, category, size }: BrandImageFallbackP
       className="flex h-full items-center justify-center"
       style={{ backgroundColor: categoryTint(category) }}
     >
-      <span className={`font-bold text-foreground ${size === 'detail' ? 'text-5xl' : 'text-3xl'}`}>
+      <span
+        className={cn(
+          'font-bold text-foreground',
+          size === 'detail' ? 'text-5xl' : 'text-3xl'
+        )}
+      >
         {initial}
       </span>
     </div>

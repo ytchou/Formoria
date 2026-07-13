@@ -86,7 +86,7 @@ export function ReportsTable({ reports }: ReportsTableProps) {
                   <TableCell>{REASON_LABELS[r.reason]}</TableCell>
                   <TableCell>{formatDate(r.createdAt)}</TableCell>
                   <TableCell>
-                    <span className="inline-flex items-center rounded-full bg-background px-2 py-0.5 text-xs font-semibold text-cta border border-cta">
+                    <span className="inline-flex items-center rounded-full bg-background px-2 py-0.5 type-label text-cta border border-cta">
                       待處理
                     </span>
                   </TableCell>

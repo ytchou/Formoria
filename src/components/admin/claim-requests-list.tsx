@@ -193,7 +193,7 @@ export function ClaimRequestsList({
                   <TableCell>
                     <span>{claimRequest.requesterEmail ?? 'Unknown'}</span>
                     {claimRequest.existingOwnedBrand ? (
-                      <span className="mt-1 block text-xs font-semibold text-destructive">
+                      <span className="mt-1 block type-label text-destructive">
                         {adminClaimT('ownerAlreadyManagesShort')}
                       </span>
                     ) : null}
@@ -211,7 +211,7 @@ export function ClaimRequestsList({
                       <div className="space-y-4">
                         {claimRequest.existingOwnedBrand ? (
                           <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-                            <p className="text-sm font-semibold text-destructive">
+                            <p className="type-subsection-title text-destructive">
                               {adminClaimT('ownerAlreadyManagesTitle')}
                             </p>
                             <p className="mt-1 type-card-description">
@@ -221,7 +221,7 @@ export function ClaimRequestsList({
                             </p>
                             <a
                               href={`/brands/${claimRequest.existingOwnedBrand.brandSlug}`}
-                              className="mt-2 inline-block text-sm font-semibold text-primary underline underline-offset-4"
+                              className="mt-2 inline-block type-link underline"
                               onClick={(event) => event.stopPropagation()}
                             >
                               {claimRequest.existingOwnedBrand.brandName}

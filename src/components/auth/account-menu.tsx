@@ -50,7 +50,7 @@ export function AccountMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={t('account.menuLabel')}
-        className="inline-flex size-9 items-center justify-center rounded-full bg-secondary text-sm font-semibold text-secondary-foreground transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="inline-flex size-9 items-center justify-center rounded-full bg-secondary type-subsection-title text-secondary-foreground transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         {initial}
       </DropdownMenuTrigger>

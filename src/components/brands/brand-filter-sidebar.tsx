@@ -83,7 +83,7 @@ function FilterSection({
         onClick={() => setOpen((value) => !value)}
         className="w-full justify-between text-left"
       >
-        <span className="text-xs font-semibold uppercase tracking-wider">{title}</span>
+        <span className="type-eyebrow-foreground">{title}</span>
         <ChevronDown
           className={cn(
             'h-4 w-4 text-muted-foreground transition-transform',

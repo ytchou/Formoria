@@ -45,10 +45,10 @@ export function AdminNav({ items }: AdminNavProps) {
             key={item.href}
             href={item.href}
             className={cn(
-              '-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition-colors',
+              '-mb-px border-b-2 px-4 py-2.5 type-nav-item',
               isActive(item.href)
                 ? 'border-cta text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+                : 'border-transparent'
             )}
           >
             {item.label}
@@ -92,10 +92,10 @@ function NavItemWithDropdown({
       <Link
         href={item.href}
         className={cn(
-          '-mb-px flex items-center gap-1 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors',
+          '-mb-px flex items-center gap-1 border-b-2 px-4 py-2.5 type-nav-item',
           isActive
             ? 'border-cta text-foreground'
-            : 'border-transparent text-muted-foreground hover:text-foreground'
+            : 'border-transparent'
         )}
       >
         {item.label}

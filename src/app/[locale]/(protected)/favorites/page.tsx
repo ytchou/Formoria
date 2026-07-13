@@ -20,7 +20,7 @@ function BrandImage({ brand }: { brand: SavedBrand }) {
   if (!heroImageUrl) {
     return (
       <div className="flex h-full items-center justify-center bg-secondary">
-        <span className="text-3xl font-bold text-muted-foreground">
+        <span className="type-page-title-large text-muted-foreground">
           {[...brand.brandName][0]}
         </span>
       </div>
