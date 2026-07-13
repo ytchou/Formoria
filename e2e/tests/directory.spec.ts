@@ -31,16 +31,12 @@ test.describe('Directory deep', () => {
   });
 
   test('pagination controls work', async ({ page }) => {
-    // NOTE: Clicking the "next" link from /brands navigates to /?verification=all&page=2
-    // (root path) instead of /brands?page=2 — pagination URL generation bug in the app.
-    // Work around by navigating directly to page 2 to test the "previous" link.
     await page.goto('/brands');
     const pagination = page.locator('nav[aria-label="Pagination"]');
     const nextLink = pagination.locator('a[aria-label="下一頁"]');
     if (!(await nextLink.isVisible())) return; // fewer than 2 pages of data — skip
-    // Navigate directly to page 2 to verify the "previous" affordance exists
-    await page.goto('/brands?page=2');
-    await expect(page).toHaveURL(/page=2/);
+    await nextLink.click();
+    await expect(page).toHaveURL(/\/brands\?[^#]*page=2(?:&|$)/);
     const prevLink = page.locator('nav[aria-label="Pagination"] a[aria-label="上一頁"]');
     await expect(prevLink).toBeVisible({ timeout: 10_000 });
   });

@@ -114,7 +114,9 @@ test.describe('Auth — sign-up flow', () => {
       // The error div from sign-up-form.tsx: {state.error && <div>…{state.error}</div>}
       // Filter out the empty Next.js route announcer which also has role="alert".
       await expect(anonPage).toHaveURL(/\/auth\/sign-up/);
-      await expect(anonPage.getByRole('alert').filter({ hasText: /.+/ })).toBeVisible({ timeout: 5_000 });
+      await expect(
+        anonPage.locator('[role="alert"]:not(#__next-route-announcer__)'),
+      ).toBeVisible({ timeout: 5_000 });
     }
   });
 });
