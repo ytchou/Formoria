@@ -19,10 +19,12 @@ export const revalidate = 3600
 
 export async function generateStaticParams() {
   try {
-    const guides = await getAllGuides()
-    return guides.flatMap((guide) =>
-      routing.locales.map((locale) => ({ locale, slug: guide.slug }))
-    )
+    const result = await getAllGuides()
+    return result.ok
+      ? result.guides.flatMap((guide) =>
+          routing.locales.map((locale) => ({ locale, slug: guide.slug }))
+        )
+      : []
   } catch {
     return []
   }
@@ -33,7 +35,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const slug = decodeURIComponent(rawSlug)
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const t = await getTranslations('guideDetail')
+  const t = await getTranslations({ locale, namespace: 'guideDetail' })
   const guide = await getGuideBySlug(slug)
 
   if (!guide) {
@@ -60,7 +62,7 @@ export default async function GuidePage({ params }: PageProps) {
     notFound()
   }
 
-  const t = await getTranslations('guides')
+  const t = await getTranslations({ locale, namespace: 'guides' })
 
   const articleJsonLd = buildArticleJsonLd({
     title: guide.entry.frontmatter.title,

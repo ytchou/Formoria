@@ -108,10 +108,11 @@ export async function generateMetadata({ params, searchParams }: BrandsPageProps
     }
   }
 
+  const brandsT = await getTranslations('brands')
+
   return {
-    title: { absolute: 'Formoria — Made in Taiwan Brand Directory' },
-    description:
-      'Discover thoughtfully curated Taiwanese brands. Browse by category, search, and explore the best of Made in Taiwan.',
+    title: { absolute: brandsT('metadata.title') },
+    description: brandsT('metadata.description'),
     alternates: { canonical, languages },
     openGraph: {
       locale: ogLocale,

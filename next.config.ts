@@ -104,6 +104,11 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      {
+        source: '/index.html',
+        destination: '/',
+        permanent: true,
+      },
       // Legacy category routes consolidate into the brands directory filter.
       {
         source: '/category/:category',

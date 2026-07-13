@@ -47,7 +47,8 @@ export default async function GuidesHubPage({ params, searchParams }: PageProps)
   const activeCategory = category && PRODUCT_TYPE_CATEGORIES.some((item) => item.slug === category)
     ? category
     : null
-  const guides = activeCategory ? await getGuidesByCategory(activeCategory) : await getAllGuides()
+  const guideResult = activeCategory ? await getGuidesByCategory(activeCategory) : await getAllGuides()
+  const guides = guideResult.ok ? guideResult.guides : []
 
   return (
     <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
@@ -84,7 +85,14 @@ export default async function GuidesHubPage({ params, searchParams }: PageProps)
           })}
         </nav>
 
-        {guides.length === 0 ? (
+        {!guideResult.ok ? (
+          <div
+            role="alert"
+            className="flex min-h-[40vh] items-center justify-center rounded-2xl border border-border bg-secondary px-6 py-16 text-center"
+          >
+            <p className="type-empty-title">{t('loadError')}</p>
+          </div>
+        ) : guides.length === 0 ? (
           <div className="flex min-h-[40vh] items-center justify-center rounded-2xl border border-border bg-secondary px-6 py-16 text-center">
             <p className="type-empty-body">{t('comingSoon')}</p>
           </div>

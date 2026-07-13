@@ -5,23 +5,26 @@ vi.mock('@/lib/services/brands', () => ({
 }))
 
 vi.mock('@/lib/services/guides', () => ({
-  getAllGuides: vi.fn().mockResolvedValue([
-    {
-      slug: 'taiwan-skincare-brands',
-      frontmatter: {
-        title: 'Taiwan Skincare Brands',
-        description: 'Test',
+  getAllGuides: vi.fn().mockResolvedValue({
+    ok: true,
+    guides: [
+      {
         slug: 'taiwan-skincare-brands',
-        category: 'beauty',
-        locale: 'zh-TW',
-        publishedAt: '2026-06-15T00:00:00.000Z',
-        updatedAt: '2026-07-01T00:00:00.000Z',
-        draft: false,
-        sources: [],
-        faq: [],
+        frontmatter: {
+          title: 'Taiwan Skincare Brands',
+          description: 'Test',
+          slug: 'taiwan-skincare-brands',
+          category: 'beauty',
+          locale: 'zh-TW',
+          publishedAt: '2026-06-15T00:00:00.000Z',
+          updatedAt: '2026-07-01T00:00:00.000Z',
+          draft: false,
+          sources: [],
+          faq: [],
+        },
       },
-    },
-  ]),
+    ],
+  }),
 }))
 
 import sitemap from './sitemap'

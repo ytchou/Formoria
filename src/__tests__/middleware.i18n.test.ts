@@ -44,6 +44,13 @@ describe('i18n middleware composition', () => {
     expect(loc).toContain('/en/brands')
   })
 
+  it('permanently normalizes uppercase public paths', async () => {
+    const res = await middleware(req('/Brands'))
+
+    expect(res?.status).toBe(301)
+    expect(res?.headers.get('location')).toContain('/brands')
+  })
+
   it('does not locale-redirect prefix-free public paths for known crawlers', async () => {
     const bots = [
       'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',

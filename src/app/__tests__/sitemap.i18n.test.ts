@@ -5,7 +5,7 @@ vi.mock('@/lib/services/brands', () => ({
 }))
 
 vi.mock('@/lib/services/guides', () => ({
-  getAllGuides: vi.fn().mockResolvedValue([]),
+  getAllGuides: vi.fn().mockResolvedValue({ ok: true, guides: [] }),
 }))
 
 import sitemap from '../sitemap'

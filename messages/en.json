@@ -239,6 +239,12 @@
     "loadingAria": "Loading brands...",
     "noResultsInSuggestions": "No results found"
   },
+  "challenge": {
+    "title": "Quick verification",
+    "description": "Please complete the check to continue browsing.",
+    "verifying": "Verifying…",
+    "error": "Verification failed. Please try again."
+  },
   "stats": {
     "metadata": {
       "title": "Taiwan Brand Statistics",
@@ -1883,6 +1889,7 @@
     "badgeLabel": "Guide Hub",
     "allCategories": "All",
     "comingSoon": "coming soon",
+    "loadError": "Guides are temporarily unavailable. Please try again later.",
     "breadcrumb": "Guides",
     "notFound": {
       "title": "Guide not found",
