@@ -3,6 +3,7 @@ import { Link } from '@/i18n/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { dateLocale } from '@/i18n/locale-preference'
 import { surfaceCardStyles } from '@/components/ui/card'
+import { buttonVariants } from '@/components/ui/button'
 import { getAllGuides, getGuidesByCategory } from '@/lib/services/guides'
 import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { buildAlternates } from '@/lib/seo/alternates'
@@ -64,11 +65,7 @@ export default async function GuidesHubPage({ params, searchParams }: PageProps)
         <nav aria-label="Guide categories" className="flex flex-wrap gap-2">
           <Link
             href="/guides"
-            className={`rounded-full border px-3.5 py-1.5 type-nav-item transition-colors ${
-              activeCategory === null
-                ? 'border-foreground bg-foreground text-white'
-                : 'border-border text-muted-foreground hover:bg-secondary hover:text-foreground'
-            }`}
+            className={buttonVariants({ variant: activeCategory === null ? 'primary' : 'secondary', shape: 'pill', size: 'chip' })}
           >
             {t('allCategories')}
           </Link>
@@ -79,11 +76,7 @@ export default async function GuidesHubPage({ params, searchParams }: PageProps)
               <Link
                 key={item.slug}
                 href={`/guides?category=${encodeURIComponent(item.slug)}`}
-                className={`rounded-full border px-3.5 py-1.5 type-nav-item transition-colors ${
-                  isActive
-                    ? 'border-foreground bg-foreground text-white'
-                    : 'border-border text-muted-foreground hover:bg-secondary hover:text-foreground'
-                }`}
+                className={buttonVariants({ variant: isActive ? 'primary' : 'secondary', shape: 'pill', size: 'chip' })}
               >
                 {categoryLabel(item, locale)}
               </Link>

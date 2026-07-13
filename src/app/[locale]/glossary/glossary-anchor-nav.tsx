@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 type Section = {
   id: string
@@ -105,13 +107,11 @@ export function GlossaryAnchorNav({ sections, sectionsLabel }: GlossaryAnchorNav
                 key={id}
                 href={`#${id}`}
                 onClick={(e) => handleClick(e, id)}
-                className={[
-                  'inline-flex shrink-0 items-center rounded-full border border-border px-3 py-2 transition-colors',
-                  'min-h-[44px] whitespace-nowrap',
-                  isActive
-                    ? 'border-primary bg-primary/10 font-semibold text-primary'
-                    : 'bg-background text-muted-foreground hover:text-foreground',
-                ].join(' ')}
+                className={cn(
+                  buttonVariants({ variant: 'secondary', shape: 'pill', size: 'chip' }),
+                  'min-h-[44px] text-muted-foreground', // touch-target; override inherited Ink to muted for inactive pills
+                  isActive && 'border-primary bg-primary/10 font-semibold text-primary hover:bg-primary/10',
+                )}
               >
                 {label}
               </a>
