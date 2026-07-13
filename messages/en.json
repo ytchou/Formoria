@@ -22,6 +22,8 @@
     "searchPlaceholder": "Search brands...",
     "searchAria": "Search brands",
     "clearSearch": "Clear search",
+    "openMenu": "Open menu",
+    "navigation": "Navigation",
     "signIn": "Sign in",
     "languageLabel": "Switch language",
     "languageTraditionalChinese": "Traditional Chinese",
@@ -764,14 +766,13 @@
       "description": "Formoria helps quality Made-in-Taiwan brands get found through a community-curated directory built for discovery, craft, and care."
     },
     "hero": {
-      "eyebrow": "Formoria",
       "title": "A community built for Taiwan's brands",
       "subtitle": "A community-curated directory for discovering quality Made-in-Taiwan brands, from everyday staples to thoughtful design.",
       "statSuffix": " — and growing",
-      "statsBrands": "brands listed",
+      "statsBrands": "brands",
       "statsCategories": "categories",
-      "recentWeek": "added this week",
-      "recentMonth": "added this month",
+      "recentWeek": "new brands",
+      "recentMonth": "new brands",
       "cta": "Explore brands"
     },
     "origin": {
@@ -782,7 +783,7 @@
     },
     "mission": {
       "heading": "Our Mission",
-      "statement": "Our mission is to help quality Made-in-Taiwan brands get found — and put Taiwan on the map for design, craft, and care.",
+      "statement": "Our mission is to help quality Made-in-Taiwan brands get found and put Taiwan on the map for design, craft, and care.",
       "promote": {
         "heading": "Promote Taiwanese Brands",
         "body": "Make it easier for people around the world to discover Taiwanese brands with strong products, thoughtful stories, and a real connection to place."
@@ -797,7 +798,6 @@
       }
     },
     "taiwanStats": {
-      "eyebrow": "Why back Taiwan's brands",
       "heading": "Taiwan's economy is built by small brands.",
       "intro": "Behind every brand in our directory is a small or medium business. In Taiwan, those businesses were never a side act.",
       "items": {
@@ -832,15 +832,14 @@
     },
     "trust": {
       "heading": "How We Build Trust",
-      "subtitle": "Listings start as community contributions — and when an owner steps forward with proof, they manage their brand directly.",
-      "tagline": "Community-curated. Owner-claimed. Proof-reviewed.",
+      "subtitle": "Listings start as community contributions. When an owner steps forward with proof, they can manage their brand directly.",
       "pillar1": {
         "title": "Community-curated",
-        "desc": "Brands are discovered and shared by people who care about Taiwanese makers — real contributors, not automated bots."
+        "desc": "Brands are discovered and shared by people who care about Taiwanese makers. These are real contributors, not automated bots."
       },
       "pillar2": {
         "title": "Owner-claimed",
-        "desc": "Brand owners submit business proof — domain email, backend access, or official documents — to take ownership of their listing."
+        "desc": "Brand owners submit business proof, such as a domain email, backend access, or official documents, to take ownership of their listing."
       },
       "pillar3": {
         "title": "Proof-reviewed",
@@ -1556,7 +1555,7 @@
         },
         "result": {
           "label": "Result Notification",
-          "description": "Once reviewed, you'll receive an email with the result. Approved brands will appear in the Formoria directory"
+          "description": "Once reviewed, approved brands will appear in the Formoria directory. If you provided an email address, we'll notify you too."
         },
         "ownerResult": {
           "label": "Claim Invitation",
@@ -1633,7 +1632,6 @@
       "descriptionLabel": "Extra context (optional)",
       "descriptionHint": "If you know the brand story, products, or why it matters, add it here.",
       "descriptionPlaceholder": "For example: I bought their handmade furniture at a local design market…",
-      "heroImageHintRecommend": "Optional. Upload a representative image if you already have one.",
       "sourceLabel": "How do you know this brand?",
       "sourceHint": "This helps us understand the context behind the recommendation.",
       "sourcePlaceholder": "Select how you know this brand",

@@ -378,26 +378,24 @@ export default function SubmitForm({
             />
           </FormField>
 
-          <Controller
-            name="heroImageUrl"
-            control={control}
-            render={({ field, fieldState }) => (
-              <ImageUploadField
-                name={field.name}
-                label={t('fields.heroImage')}
-                description={
-                  variant === 'owner'
-                    ? tForm('heroImageHintOwner')
-                    : tForm('heroImageHintRecommend')
-                }
-                uploadPath={`submissions/${sessionId}/hero`}
-                value={field.value ?? ''}
-                onChange={(value) => field.onChange(value)}
-                required={variant === 'owner'}
-                error={fieldState.error?.message}
-              />
-            )}
-          />
+          {variant === 'owner' ? (
+            <Controller
+              name="heroImageUrl"
+              control={control}
+              render={({ field, fieldState }) => (
+                <ImageUploadField
+                  name={field.name}
+                  label={t('fields.heroImage')}
+                  description={tForm('heroImageHintOwner')}
+                  uploadPath={`submissions/${sessionId}/hero`}
+                  value={field.value ?? ''}
+                  onChange={(value) => field.onChange(value)}
+                  required
+                  error={fieldState.error?.message}
+                />
+              )}
+            />
+          ) : null}
 
           {variant === 'recommend' ? (
             <FormField
@@ -550,7 +548,7 @@ export default function SubmitForm({
                       onCheckedChange={(checked) => field.onChange(checked)}
                       className="mt-0.5 size-[18px] shrink-0"
                     />
-                    <span className="type-body">
+                    <span className="type-body font-normal">
                       {tReview.rich('pdpaConsent', {
                         privacyPolicy: (chunks) => (
                           <a

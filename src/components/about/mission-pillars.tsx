@@ -13,13 +13,13 @@ export default function MissionPillars({ heading, statement, pillars }: MissionP
   return (
     <section className="py-12 md:py-16">
       <div className="page-gutter mx-auto max-w-6xl">
-        <p className="type-eyebrow-cta">{heading}</p>
-        <h2 className="mt-4 max-w-4xl type-page-title-large text-balance">{statement}</h2>
-        <div className="mt-10 grid gap-8 md:grid-cols-3">
+        <h2 className="type-section-title-large text-balance">{heading}</h2>
+        <p className="mt-4 max-w-3xl type-page-subtitle text-pretty">{statement}</p>
+        <div className="mt-8 max-w-3xl space-y-6">
           {pillars.map((pillar) => (
-            <article key={pillar.heading} className="max-w-sm">
+            <article key={pillar.heading}>
               <h3 className="type-card-title text-cta">{pillar.heading}</h3>
-              <p className="mt-3 type-body-muted text-pretty">{pillar.body}</p>
+              <p className="mt-2 type-body-muted text-pretty">{pillar.body}</p>
             </article>
           ))}
         </div>
