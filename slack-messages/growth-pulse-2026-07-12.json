@@ -1,0 +1,18 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Growth Pulse — Jul 12"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "🚨 *GA4 data unavailable* — could not read the Growth Pulse data sheet. The Google Drive connector requires re-authorization in this session. Check that the Apps Script ran and the Sheet is shared, then re-authorize the Google Drive connector via claude.ai connector settings. Manually check <https://analytics.google.com/analytics/web/#/p538232091/reports/|GA4 Dashboard>."
+      }
+    }
+  ]
+}
