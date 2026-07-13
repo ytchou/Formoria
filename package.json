@@ -40,7 +40,7 @@
     "@tinacms/mdx": "^2.1.9",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
-    "adm-zip": "^0.5.17",
+    "adm-zip": "^0.6.0",
     "agentation": "^3.0.2",
     "cheerio": "^1.2.0",
     "class-variance-authority": "^0.7.1",
