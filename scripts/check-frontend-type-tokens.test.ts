@@ -98,6 +98,13 @@ describe('check-frontend-type-tokens', () => {
     expect(failures.some((f) => f.name === 'raw-type-combo')).toBe(true)
   })
 
+  it('accepts type-label as a compliant role (no raw-type-combo flag)', () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'frontend-tokens-'))
+    writeFixture(cwd, 'src/components/admin/sample.tsx', '<span className="type-label">高風險</span>')
+    const failures = collectFrontendTokenFailures({ cwd })
+    expect(failures.some((f) => f.name === 'raw-type-combo')).toBe(false)
+  })
+
   it('does not flag combos inside ui/ primitives', () => {
     const cwd = mkdtempSync(join(tmpdir(), 'frontend-tokens-'))
 

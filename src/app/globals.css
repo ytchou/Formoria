@@ -260,6 +260,10 @@
   @apply text-sm font-semibold leading-snug text-foreground;
 }
 
+@utility type-label {
+  @apply text-xs font-semibold leading-[1.4] text-foreground;
+}
+
 @utility type-field-label {
   @apply text-xs font-medium leading-5 text-muted-foreground;
 }
