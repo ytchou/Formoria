@@ -1,7 +1,7 @@
 import { client } from '@tina/client'
 import { notFound } from 'next/navigation';
 
-export type GuideEntry = {
+type GuideEntry = {
   slug: string;
   frontmatter: {
     title: string;
