@@ -49,7 +49,7 @@
     "jose": "^6.2.3",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.23.0",
-    "next": "16.2.9",
+    "next": "16.2.10",
     "next-axiom": "^1.10.0",
     "next-intl": "^4.13.0",
     "pinyin-pro": "^3.28.1",
