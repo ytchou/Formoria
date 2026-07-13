@@ -1,0 +1,82 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": { "type": "plain_text", "text": "Directory Health — 2026-07-13 (full scan)" }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*353 brands total* (+8 today)\n98.0% have complete profiles (description + image) — 0 zero-content brands"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": ":warning: *Possible Broken (3)*\n• `BoingBoing` — boing.com.tw indexed HTTP-only; HTTPS may not be served\n• `FYE` — foryourearth.com indexed as http://www.foryourearth.com/; HTTPS no-www form unverified\n• `sNug` — legacy PHP URL (snug.com.tw/u/index.php?p=socks3); live site is shop.snug.com.tw"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": ":grey_question: *Unknown / Unverified (7)*\n• `BEST Ti` — best-ti-shop.com not indexed anywhere\n• `C.C.W.` — ccw-official.com not indexed despite brand's social presence\n• `Journey of Sole` — journeyofsole.com not found\n• `JSwood 樜樂花` — jswood.com.tw not found\n• `Kikō` — shop.kiko2050.com not found\n• `MI MI LEO` — mi-mi-leo.com (may need .com.tw)\n• `MONOCEAN` — monocean.co has zero web presence"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": ":link: *Suspicious — Third-party (54 brands)*\nMajority of `purchase_website` entries point to external platforms. Top categories:\n\n*Marketplaces:* BOXKITTY & Soar&Arrow (Coupang), Matchwood & Tumaz (Yahoo Shopping), Uma Hana (momo), 奕綢口罩 (Yahoo Auction), 嶼霧茶堂 (twbuystore), 金旗山城 (afasale.tw), 淡然有味 (LINE Gift), 川衣 (waca.ec), URNAVY (breezeonline), LEEDS WEATHER (citiesocial), CuCare (searchingc), KOPER & 布物設計 (books.com.tw)\n\n*Price comparison:* Funmay, Gallop, YUE TRAVELER (biggo.com.tw), JadeGaze (biggo.hk), Desrochers x 曜生活 / Miss Luna / 京都奈口金包 (findprice.com.tw)\n\n*Blog posts / media:* 10 brands on pixnet.net (Lisscode, Mittag Jewelry, PhotoFast, Sudio, Chez。城市系列, 森活小飾, 源作木坊…); LUCGLE (cool-style), Lotus Fitness (fashionguide), COLORSMITH (penguinma), Newstar ×2 (vocus.cc), Playmetoys (niusnews), odd CIRKUS (zhihu), nsòu (dcard), Fartech (douyin)\n\n*Social / link-in-bio:* 暖木家居 (Threads), I am so good (portaly.cc), Southgate (LINE)\n\n*Government PDF / no site:* 創設小物工作室 (taipeicdd.taipei PDF), 方粣/源作木坊/暖木家居 (no owned domain found)"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*DB Health*\nTop tables: `brands` (11 MB), `brand_ai_results` (9.2 MB), `storage.objects` (8 MB), `brand_search_results` (7.1 MB), `brand_faq` (5.4 MB)\nConnections: 1 active / 19 idle / 0 idle-in-txn (22 total) — healthy\n\n:red_circle: *Dead tuples > 20% — VACUUM needed:*\n• `brands` — 21.3% dead (89 dead / 417 live)\n• `brand_analytics` — 20.2% dead (99 dead / 490 live)\n\n:red_circle: *Critical missing index — `brand_owners`:*\n7,018,792 seq scans vs 158,541 idx scans (only 2.3% idx hit rate). Table is being full-scanned at massive scale. Add index on `brand_id` and/or `user_id`.\nAlso under-indexed: `pending_brand_edits` (19,640 seq), `moderation_flags` (14,063 seq), `claim_requests` (12,694 seq), `newsletter_subscribers` (9,746 seq)\n\nSlow queries (pg_stat_statements): top mean 2,241ms (one-time DO $$ maintenance block); app query peak 776ms (image backfill CTE). No recurring slow app queries detected."
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Dependency Audit (Monday)*\n:grey_question: Skipped — `gh` CLI unavailable in remote environment; Dependabot API not accessible via MCP."
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Stale Branches (Monday)*\n:white_check_mark: No merged branches found — all remote branches are unmerged or already cleaned up."
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Missing Indexes (Monday)*\n• `brand_owners` — 7.0M seq scans, 158K idx scans (2.3% hit) :rotating_light:\n• `pending_brand_edits` — 19.6K seq scans, 452 idx scans\n• `moderation_flags` — 14.1K seq scans, 157 idx scans\n• `claim_requests` — 12.7K seq scans, 249 idx scans\n• `newsletter_subscribers` — 9.7K seq scans, 31 idx scans"
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "1 Linear ticket created (DEV-1056) | Stale branches: 0 | Dep audit: skipped | Directory Health v2"
+        }
+      ]
+    }
+  ]
+}
