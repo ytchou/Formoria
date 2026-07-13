@@ -3,6 +3,7 @@ import { getTranslations, getMessages, setRequestLocale } from 'next-intl/server
 import { buildDefinedTermSetJsonLd, buildBreadcrumbJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import { Badge } from '@/components/ui/badge'
 import { MitVerifiedBadge, OwnerVerifiedBadge } from '@/components/brands/brand-verification-badges'
 import { GlossaryAnchorNav } from './glossary-anchor-nav'
 
@@ -196,9 +197,9 @@ export default async function GlossaryPage({ params }: PageProps) {
                               />
                             )}
                             {term.range && (
-                              <span className="inline-flex items-center rounded-full border border-border bg-secondary px-2.5 py-0.5 type-caption">
+                              <Badge variant="secondary">
                                 {term.range}
-                              </span>
+                              </Badge>
                             )}
                           </dt>
                           <dd className="type-body-muted">

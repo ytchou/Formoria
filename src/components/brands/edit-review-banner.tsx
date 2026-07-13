@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Link } from '@/i18n/navigation'
 import { useTranslations, useLocale } from 'next-intl'
 import { X } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { dateLocale } from '@/i18n/locale-preference'
 import type { PendingBrandEdit } from '@/lib/types/brand'
@@ -32,9 +33,9 @@ export function EditReviewBanner({ edit, brandSlug }: Props) {
               {new Date(edit.createdAt).toLocaleDateString(dateLocale(locale))}
             </p>
           </div>
-          <span className="ml-auto rounded-full bg-background px-2 py-0.5 type-caption text-mit-verified">
+          <Badge variant="secondary" className="ml-auto">
             {t('pending')}
-          </span>
+          </Badge>
         </div>
       </div>
     )

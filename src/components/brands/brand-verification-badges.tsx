@@ -1,7 +1,5 @@
 import { BadgeCheck, ShieldCheck } from 'lucide-react'
-
-const badgeClassName =
-  'inline-flex items-center gap-1 rounded-full px-2.5 py-1 type-micro'
+import { Badge } from '@/components/ui/badge'
 
 type BrandVerificationBadgeProps = {
   label: string
@@ -10,18 +8,18 @@ type BrandVerificationBadgeProps = {
 
 export function MitVerifiedBadge({ label, title }: BrandVerificationBadgeProps) {
   return (
-    <span title={title} className={`${badgeClassName} bg-mit-verified-bg text-mit-verified`}>
+    <Badge variant="verified" title={title} aria-label={title}>
       <ShieldCheck className="h-[11px] w-[11px]" aria-hidden />
       {label}
-    </span>
+    </Badge>
   )
 }
 
 export function OwnerVerifiedBadge({ label, title }: BrandVerificationBadgeProps) {
   return (
-    <span title={title} className={`${badgeClassName} bg-verified-green-bg text-verified-green`}>
+    <Badge variant="verified" className="bg-verified-green-bg text-verified-green" title={title} aria-label={title}>
       <BadgeCheck className="h-[11px] w-[11px]" aria-hidden />
       {label}
-    </span>
+    </Badge>
   )
 }
