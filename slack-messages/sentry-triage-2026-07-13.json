@@ -1,0 +1,55 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Sentry Daily Triage — 2026-07-12 to 2026-07-13",
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Summary:* 3 issues found — 1 :red_circle: Critical, 0 Moderate, 0 Trivial, 2 Noise\n*Ticket created:* <https://linear.app/ytchou/issue/DEV-1055/sentry-triage-2026-07-13-1-issue|DEV-1055> — [Sentry Triage] 2026-07-13 — 1 issue · Priority: Urgent · Labels: Bug, L\n*Auto-resolved:* 0"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": ":red_circle: *<https://formoria.sentry.io/issues/FORMORIA-2H|An error occurred in the Server Components render>*\nEvents: 80 (24h) · Recurring · Severity: Critical\nInvestigate TinaCMS client failure on the guides page — the `catch { notFound() }` pattern in `src/lib/services/guides.ts:114` may be surfacing as an unhandled 500 in production SSR."
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": ":white_check_mark: *Noise — excluded (2 issues):*\n- :no_entry_sign: *NotFoundError: Brand not found: e2e-edit-description-1783927882599* (FORMORIA-47) — E2E test artifact; slug contains `e2e-` prefix and a timestamp, HeadlessChrome, 2 events\n- :no_entry_sign: *SyntaxError: Unexpected end of JSON input* (FORMORIA-22) — `development` environment only, corrupted `.next` build manifest, 2 events"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Ticket Created:* <https://linear.app/ytchou/issue/DEV-1055/sentry-triage-2026-07-13-1-issue|DEV-1055> — [Sentry Triage] 2026-07-13 — 1 issue · Priority: Urgent · Labels: Bug, L"
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Sentry Daily Triage · 2026-07-13T06:00 CST · <https://formoria.sentry.io/issues/?query=is%3Aunresolved|View in Sentry>"
+        }
+      ]
+    }
+  ]
+}
