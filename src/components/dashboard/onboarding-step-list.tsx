@@ -56,7 +56,7 @@ function StepItem({
   showArrow: boolean
 }) {
   const itemClasses = cn(
-    'group flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+    'group flex h-auto w-full items-start gap-3 whitespace-normal rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
     step.isHighlighted
       ? 'border-primary/30 bg-primary/5 hover:bg-primary/10'
       : 'border-transparent hover:bg-muted'
