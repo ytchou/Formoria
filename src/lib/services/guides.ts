@@ -1,5 +1,4 @@
 import { client } from '@tina/client'
-import { notFound } from 'next/navigation';
 
 type GuideEntry = {
   slug: string;
@@ -103,8 +102,7 @@ export async function getAllGuides(): Promise<GuideListResult> {
   }
 }
 
-export async function getGuideBySlug(slug: string): Promise<GuideDetailResult>;
-export async function getGuideBySlug(slug: string): Promise<GuideDetailResult> {
+export async function getGuideBySlug(slug: string): Promise<GuideDetailResult | null> {
   const relativePath = `${slug}.mdx`;
   let tina: TinaGuideResult | null | undefined;
   try {
@@ -112,12 +110,12 @@ export async function getGuideBySlug(slug: string): Promise<GuideDetailResult> {
       relativePath,
     })) as TinaGuideResult | null | undefined;
   } catch {
-    notFound();
+    return null;
   }
 
   const node = tina?.data?.guide;
   if (!tina || !node) {
-    notFound();
+    return null;
   }
 
   const entry = toGuideEntry(node);

@@ -32,6 +32,7 @@ Running inventory of e2e-covered user journeys. Updated by `/e2e-author` runs.
 | **Persisted locale switching** | `e2e/tests/i18n-en.spec.ts` | 2026-07-07 |
 | **Password reset request + reset-page guard** | `e2e/tests/auth-password-reset.spec.ts` | 2026-07-11 |
 | **Brand without links — no dangling section headings** | `e2e/tests/brand-detail.spec.ts` | 2026-07-11 |
+| **Admin enrichment job history, detail, and manual rerun** | `e2e/tests/admin-jobs.spec.ts` | 2026-07-13 |
 | _(30+ existing deep specs omitted — see e2e/tests/ for full inventory)_ | | |
 
 ## Carried backlog (from 2026-07-11 run)

@@ -132,27 +132,42 @@ describe('guides service (Tina-backed)', () => {
 
       const result = await getGuideBySlug('taiwan-skincare-brands');
 
+      expect(result).not.toBeNull();
+      if (!result) throw new Error('Expected guide detail result');
       expect(result.entry.slug).toBe('taiwan-skincare-brands');
       expect(result.entry.frontmatter.title).toBe('Taiwan Skincare Brands');
       expect(result.tina).toBe(tinaResult);
     });
 
-    it('throws notFound when the guide is missing', async () => {
+    it('returns null when the guide is missing', async () => {
       vi.mocked(client.queries.guide).mockResolvedValue({
         data: { guide: null },
         query: '',
         variables: {},
       } as any);
 
-      await expect(getGuideBySlug('missing-guide')).rejects.toThrow('NEXT_NOT_FOUND');
-      expect(notFound).toHaveBeenCalled();
+      const result = await getGuideBySlug('missing-guide');
+
+      expect(result).toBeNull();
+      expect(notFound).not.toHaveBeenCalled();
     });
 
-    it('throws notFound when Tina returns a malformed result', async () => {
+    it('returns null when Tina returns a malformed result', async () => {
       vi.mocked(client.queries.guide).mockResolvedValue(null as any);
 
-      await expect(getGuideBySlug('malformed-guide')).rejects.toThrow('NEXT_NOT_FOUND');
-      expect(notFound).toHaveBeenCalled();
+      const result = await getGuideBySlug('malformed-guide');
+
+      expect(result).toBeNull();
+      expect(notFound).not.toHaveBeenCalled();
+    });
+
+    it('returns null when Tina fails to load the guide', async () => {
+      vi.mocked(client.queries.guide).mockRejectedValue(new Error('TinaCMS unavailable'));
+
+      const result = await getGuideBySlug('unavailable-guide');
+
+      expect(result).toBeNull();
+      expect(notFound).not.toHaveBeenCalled();
     });
 
     it('queries by relativePath with .mdx extension', async () => {
