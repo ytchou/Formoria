@@ -970,6 +970,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_submission: {
+        Args: {
+          p_brand_data: Json
+          p_reviewer_id: string
+          p_submission_id: string
+        }
+        Returns: {
+          brand_id: string
+          brand_name: string
+          is_brand_owner: boolean
+          suggested_tags: Json | null
+          submitter_email: string
+          submitter_name: string | null
+        }[]
+      }
       approve_claim_request: {
         Args: { p_claim_id: string; p_reviewer_id: string }
         Returns: undefined

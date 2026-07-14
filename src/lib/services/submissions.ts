@@ -8,12 +8,9 @@ import type {
   SourceAttribution,
 } from "@/lib/types";
 import type { DuplicateCheckResult } from "@/lib/types/submission";
-import type { Database } from "@/lib/supabase/database.types";
+import type { Database, Json } from "@/lib/supabase/database.types";
 import type { EnrichedData } from "@/lib/types/enriched-data";
-import {
-  enrichedDataFromDb,
-  hasCompleteEnrichment,
-} from "@/lib/types/enriched-data";
+import { enrichedDataFromDb } from "@/lib/types/enriched-data";
 import type { CurationTargetStatus } from "@/lib/services/curation-jobs";
 import { NotFoundError } from "@/lib/errors";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
@@ -94,21 +91,14 @@ type SubmissionRowInput = Pick<
 type SuggestedTagsInput = string[] | { values?: string[] };
 type ServiceClient = SupabaseClient<Database>;
 type BrandInsert = Database["public"]["Tables"]["brands"]["Insert"];
-type FieldStateInsert = {
-  brand_id: string;
-  field: string;
-  source: "enriched" | "owner";
-  updated_by: string | null;
-};
-type BrandFieldStateWriteTable = {
-  upsert: (
-    rows: FieldStateInsert[],
-    options: { onConflict: "brand_id,field"; ignoreDuplicates: true },
-  ) => Promise<{ error: { message?: string } | null }>;
-};
 
 const GENERATED_GUEST_EMAIL_DOMAIN = "guest.formoria.invalid";
 const CURATION_TARGET_HISTORY_PAGE_SIZE = 1_000;
+const APPROVAL_RPC_ERROR_MESSAGES = new Set([
+  "Submission already processed",
+  "Submission must have complete enrichment before approval",
+  "Submission must have a successful enrichment run before approval",
+]);
 
 export type SubmissionApprovalOverrides = Partial<
   Pick<
@@ -401,46 +391,6 @@ function approvalOverridesToBrandInsert(
   });
 }
 
-function brandFieldStateWriteTable(client: unknown): BrandFieldStateWriteTable {
-  return (
-    client as {
-      from: (table: "brand_field_state") => BrandFieldStateWriteTable;
-    }
-  ).from("brand_field_state");
-}
-
-function isPopulatedFieldValue(value: unknown): boolean {
-  if (value == null) return false;
-  if (typeof value === "string") return value.trim().length > 0;
-  if (Array.isArray(value)) return value.length > 0;
-  return true;
-}
-
-async function writeInitialBrandFieldState(
-  supabase: ServiceClient,
-  brandId: string,
-  brandInsert: BrandInsert,
-  source: "enriched" | "owner",
-): Promise<void> {
-  const rows = Object.entries(brandInsert)
-    .filter(([, value]) => isPopulatedFieldValue(value))
-    .map(([field]) => ({
-      brand_id: brandId,
-      field,
-      source,
-      updated_by: null,
-    }));
-
-  if (rows.length === 0) return;
-
-  const { error } = await brandFieldStateWriteTable(supabase).upsert(rows, {
-    onConflict: "brand_id,field",
-    ignoreDuplicates: true,
-  });
-
-  if (error) throw error;
-}
-
 async function resolveUniqueSlug(
   supabase: ServiceClient,
   slug: string,
@@ -727,34 +677,10 @@ export async function approveSubmission(
     throw new NotFoundError("BrandSubmission", id, { cause: fetchError });
   }
 
-  if (submission.status !== "pending" || submission.brand_id !== null) {
-    throw new Error("Submission already processed");
-  }
-
   const enrichedDataRaw = submission.enriched_data;
   const enrichedData: EnrichedData | null = isEnrichedData(enrichedDataRaw)
     ? enrichedDataFromDb(enrichedDataRaw as Record<string, unknown>)
     : null;
-
-  if (!hasCompleteEnrichment(enrichedData, submission.hero_image_url)) {
-    throw new Error("Submission must have complete enrichment before approval");
-  }
-
-  const { data: latestTarget, error: targetHistoryError } = await supabase
-    .from("curation_job_targets")
-    .select("status")
-    .eq("target_type", "submission")
-    .eq("target_id", id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (targetHistoryError) throw targetHistoryError;
-  if (latestTarget && latestTarget.status !== "succeeded") {
-    throw new Error(
-      "Submission must have a successful enrichment run before approval",
-    );
-  }
 
   const overrideInsert = approvalOverridesToBrandInsert(overrides);
   const enrichedInsert = enrichedDataToBrandInsert(enrichedData);
@@ -775,54 +701,51 @@ export async function approveSubmission(
     status: "approved",
   };
 
-  const { data: brand, error: brandError } = await supabase
-    .from("brands")
-    .insert(brandInsert)
-    .select("id")
-    .single();
-
-  if (brandError || !brand)
-    throw brandError ?? new Error("Failed to create brand");
-  const provenanceSource = submission.is_brand_owner ? "owner" : "enriched";
-  await writeInitialBrandFieldState(
-    supabase,
-    brand.id,
-    brandInsert,
-    provenanceSource,
+  const { data: approvalRows, error: approvalError } = await supabase.rpc(
+    "approve_submission",
+    {
+      p_brand_data: brandInsert as unknown as Json,
+      p_reviewer_id: reviewerId,
+      p_submission_id: id,
+    },
   );
 
-  const { data, error } = await supabase
-    .from("brand_submissions")
-    .update({
-      brand_id: brand.id,
-      status: "approved",
-      reviewed_at: new Date().toISOString(),
-      reviewed_by: reviewerId,
-    })
-    .eq("id", id)
-    .eq("status", "pending")
-    .select("*")
-    .single();
+  if (approvalError) {
+    if (approvalError.code === "P0002") {
+      throw new NotFoundError("BrandSubmission", id, {
+        cause: approvalError,
+      });
+    }
 
-  if (error || !data)
-    throw new NotFoundError("BrandSubmission", id, { cause: error });
+    if (APPROVAL_RPC_ERROR_MESSAGES.has(approvalError.message)) {
+      throw new Error(approvalError.message);
+    }
+
+    throw approvalError;
+  }
+
+  const approval = approvalRows?.at(0);
+  if (!approval)
+    throw new NotFoundError("BrandSubmission", id, { cause: approvalError });
+
+  const provenanceSource = approval.is_brand_owner ? "owner" : "enriched";
   if (
-    isStructuredTags(submission.suggested_tags) &&
-    submission.suggested_tags.productType &&
+    isStructuredTags(approval.suggested_tags) &&
+    approval.suggested_tags.productType &&
     !Object.prototype.hasOwnProperty.call(overrides ?? {}, "productType")
   ) {
     await updateBrand(
-      brand.id,
-      { product_type: submission.suggested_tags.productType } as never,
+      approval.brand_id,
+      { product_type: approval.suggested_tags.productType } as never,
       { source: provenanceSource },
     );
   }
   return {
-    brandId: brand.id,
-    submitterEmail: submission.submitter_email,
-    brandName: submission.brand_name,
-    submitterName: submission.submitter_name ?? null,
-    isBrandOwner: submission.is_brand_owner ?? false,
+    brandId: approval.brand_id,
+    submitterEmail: approval.submitter_email,
+    brandName: approval.brand_name,
+    submitterName: approval.submitter_name ?? null,
+    isBrandOwner: approval.is_brand_owner ?? false,
   };
 }
 
