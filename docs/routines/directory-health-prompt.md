@@ -184,26 +184,36 @@ Filter to branches with last commit older than 14 days. Produce a list of stale 
 
 Cap at 30 branches to keep the digest manageable. If more exist, note the total count and list the 30 oldest.
 
-### 11. Missing Index Detection
+### 11. Index Usage Review
 
 ```sql
 SELECT
-  schemaname,
-  relname AS table_name,
-  seq_scan,
-  seq_tup_read,
-  idx_scan,
-  CASE WHEN seq_scan > 0
-    THEN round(seq_tup_read::numeric / seq_scan, 0)
+  s.schemaname,
+  s.relname AS table_name,
+  s.n_live_tup AS estimated_rows,
+  s.seq_scan,
+  s.seq_tup_read,
+  s.idx_scan,
+  (
+    SELECT COUNT(*)
+    FROM pg_indexes AS i
+    WHERE i.schemaname = s.schemaname
+      AND i.tablename = s.relname
+  ) AS index_count,
+  CASE WHEN s.seq_scan > 0
+    THEN round(s.seq_tup_read::numeric / s.seq_scan, 0)
     ELSE 0
   END AS avg_rows_per_seq_scan
-FROM pg_stat_user_tables
-WHERE schemaname = 'public'
-  AND seq_scan > 100
-  AND (idx_scan IS NULL OR idx_scan < seq_scan * 0.1)
+FROM pg_stat_user_tables AS s
+WHERE s.schemaname = 'public'
+  AND s.n_live_tup > 100
+  AND s.seq_scan > 100
+  AND (s.idx_scan IS NULL OR s.idx_scan < s.seq_scan * 0.1)
 ORDER BY seq_tup_read DESC
 LIMIT 10;
 ```
+
+Do not classify a low index-scan ratio as a missing index by itself. Small tables may be scanned sequentially even when correctly indexed. Before recommending a schema change, inspect `pg_indexes` and the relevant query plan; report this result as an index-usage review unless a missing predicate index is confirmed.
 
 ## Analysis & Classification
 
@@ -220,7 +230,7 @@ After collecting all data, classify findings by severity:
 | Critical/High Dependabot alerts | Critical | Yes — separate ticket per alert |
 | Medium/Low Dependabot alerts | Info | Report in digest only |
 | Stale branches > 14 days | Info | Yes — single batch cleanup ticket |
-| Tables with seq_scan >> idx_scan | Warning | Yes — in main health audit ticket, suggest index |
+| Large tables with high sequential-scan ratio | Warning | Yes — in main health audit ticket after query-plan confirmation |
 
 ## Linear Ticket Phase
 
@@ -266,7 +276,7 @@ If any brand data issues OR DB health warnings were found:
 
 ### DB Health Warnings
 
-{list any DB health warnings: dead tuples, connections, slow queries, missing indexes}
+{list any DB health warnings: dead tuples, connections, slow queries, and confirmed index-usage findings}
 
 ---
 Source: Directory Health routine v2
@@ -364,13 +374,13 @@ If no alerts: `"*Dependency Audit*\n:white_check_mark: No open Dependabot alerts
 ```
 If none: `"*Stale Branches*\n:white_check_mark: No stale branches detected."`
 
-**Missing Indexes section (only if issues found):**
+**Index Usage Review section (only if query-plan review confirms an issue):**
 ```json
 {
   "type": "section",
   "text": {
     "type": "mrkdwn",
-    "text": "*Missing Indexes*\n• `{table}` — {seq_scan} seq scans vs {idx_scan} idx scans (avg {avg_rows} rows/scan)"
+    "text": "*Index Usage Review*\n• `{table}` — {seq_scan} seq scans vs {idx_scan} idx scans, {index_count} indexes (avg {avg_rows} rows/scan)"
   }
 }
 ```
@@ -477,7 +487,7 @@ DB health: {healthy / N warnings}
 Slow queries: {N detected / skipped}
 Dependency alerts: {N} (Monday only)
 Stale branches: {N} (Monday only)
-Missing indexes: {N} (Monday only)
+Index-usage reviews: {N} (Monday only)
 Tickets created: {N}
 Digest delivered: yes/no
 ```
