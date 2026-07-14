@@ -42,7 +42,7 @@ export function RerunJobButton({
       className="min-h-12"
     >
       <RotateCcw aria-hidden="true" />
-      {isPending ? "排入佇列中…" : label}
+      {isPending ? "Queuing…" : label}
     </Button>
   );
 }

@@ -17,9 +17,9 @@ import { Button } from '@/components/ui/button'
 type Tab = 'all' | FeedbackStatus
 
 const STATUS_LABELS: Record<FeedbackStatus, string> = {
-  open: '待處理',
-  reviewed: '已審閱',
-  closed: '已關閉',
+  open: 'Open',
+  reviewed: 'Reviewed',
+  closed: 'Closed',
 }
 
 const SOURCE_LABELS: Record<FeedbackItem['source'], string> = {
@@ -88,7 +88,7 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
         if ('error' in result) {
           setSyncMessage(result.error)
         } else {
-          setSyncMessage(`已同步 ${result.synced} 筆回饋。`)
+          setSyncMessage(`Synced ${result.synced} feedback items.`)
         }
       } finally {
         setSyncing(false)
@@ -104,12 +104,12 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
           onValueChange={(value) => setActiveTab(value as Tab)}
         >
           <TabsList>
-            <TabsTrigger value="all">全部 ({tabCounts.all})</TabsTrigger>
-            <TabsTrigger value="open">待處理 ({tabCounts.open})</TabsTrigger>
+            <TabsTrigger value="all">All ({tabCounts.all})</TabsTrigger>
+            <TabsTrigger value="open">Open ({tabCounts.open})</TabsTrigger>
             <TabsTrigger value="reviewed">
-              已審閱 ({tabCounts.reviewed})
+              Reviewed ({tabCounts.reviewed})
             </TabsTrigger>
-            <TabsTrigger value="closed">已關閉 ({tabCounts.closed})</TabsTrigger>
+            <TabsTrigger value="closed">Closed ({tabCounts.closed})</TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -120,7 +120,7 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
             onClick={handleSync}
             disabled={syncing}
           >
-            {syncing ? '同步中...' : '同步 Sentry'}
+            {syncing ? 'Syncing...' : 'Sync Sentry'}
           </Button>
           {syncMessage && (
             <p className="type-card-description">{syncMessage}</p>
@@ -136,10 +136,10 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>來源</TableHead>
-              <TableHead>標題</TableHead>
-              <TableHead>日期</TableHead>
-              <TableHead>狀態</TableHead>
+              <TableHead>Source</TableHead>
+              <TableHead>Title</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -174,7 +174,7 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
                         {item.body && (
                           <div>
                             <p className="type-metadata">
-                              內容
+                              Content
                             </p>
                             <p className="mt-1 whitespace-pre-wrap text-sm">
                               {item.body}
@@ -185,7 +185,7 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
                         {item.url && (
                           <div>
                             <p className="type-metadata">
-                              頁面 URL
+                              Page URL
                             </p>
                             <a
                               href={item.url}
@@ -202,7 +202,7 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
                         {item.userEmail && (
                           <div>
                             <p className="type-metadata">
-                              使用者信箱
+                              User email
                             </p>
                             <p className="mt-1 text-sm">{item.userEmail}</p>
                           </div>
@@ -228,7 +228,7 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
                               }}
                               disabled={isPending}
                             >
-                              標記已審閱
+                              Mark reviewed
                             </Button>
                           )}
                           {item.status !== 'closed' && (
@@ -240,7 +240,7 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
                               }}
                               disabled={isPending}
                             >
-                              關閉
+                              Close
                             </Button>
                           )}
                         </div>
@@ -256,7 +256,7 @@ export function FeedbackList({ items }: { items: FeedbackItem[] }) {
                   colSpan={4}
                   className="py-8 text-center text-muted-foreground"
                 >
-                  找不到回饋記錄。
+                  No feedback items found.
                 </TableCell>
               </TableRow>
             )}

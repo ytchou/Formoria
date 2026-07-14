@@ -12,8 +12,12 @@ config({ path: ".env.local", quiet: true });
 const { claimCurationJob, getCurationJob, getCurationJobDetail } =
   await import("@/lib/services/curation-jobs");
 const { runJob, sanitizeJobError } = await import("@/lib/services/job-runner");
+const { runScheduledCuration } = await import(
+  "@/lib/services/curation-worker"
+);
 
 const MAX_BODY_BYTES = 16 * 1024;
+const CRON_SCHEDULE = process.env.CURATION_CRON_SCHEDULE ?? "";
 const controlToken = process.env.CURATION_WORKER_CONTROL_TOKEN?.trim();
 const port = parsePort(process.env.PORT);
 const activeJobs = new Set<string>();
@@ -37,7 +41,75 @@ const server = createServer((request, response) => {
 
 server.listen(port, "0.0.0.0", () => {
   console.log(`[curation-worker] listening on port ${port}`);
+  if (CRON_SCHEDULE) {
+    startCronScheduler(CRON_SCHEDULE);
+  }
 });
+
+// ---------------------------------------------------------------------------
+// Cron scheduler — runs runScheduledCuration() at the configured times
+// ---------------------------------------------------------------------------
+
+function startCronScheduler(schedule: string) {
+  const hours = parseCronHours(schedule);
+  if (hours.length === 0) {
+    console.warn(`[curation-cron] invalid schedule "${schedule}", cron disabled`);
+    return;
+  }
+  console.log(
+    `[curation-cron] enabled — will run at UTC hours: ${hours.join(", ")}`,
+  );
+  // Check every minute if it's time to run
+  let lastRunHour = -1;
+  setInterval(() => {
+    const now = new Date();
+    const currentHour = now.getUTCHours();
+    const currentMinute = now.getUTCMinutes();
+    if (currentMinute === 0 && hours.includes(currentHour) && lastRunHour !== currentHour) {
+      lastRunHour = currentHour;
+      void runCron();
+    }
+    // Reset lastRunHour when the minute changes past 0
+    if (currentMinute > 0 && lastRunHour === currentHour) {
+      lastRunHour = -1;
+    }
+  }, 30_000);
+}
+
+function parseCronHours(schedule: string): number[] {
+  // Parse "0 4,10,16,22 * * *" → [4, 10, 16, 22]
+  const parts = schedule.trim().split(/\s+/);
+  if (parts.length < 5) return [];
+  const hourPart = parts[1];
+  return hourPart
+    .split(",")
+    .map((h) => Number.parseInt(h, 10))
+    .filter((h) => Number.isInteger(h) && h >= 0 && h < 24);
+}
+
+async function runCron(): Promise<void> {
+  console.log("[curation-cron] starting scheduled run");
+  try {
+    const result = await runScheduledCuration();
+    const scheduled = result.scheduledJob
+      ? `queued ${result.scheduledJob.id} for ${result.scheduledJob.scheduled_for}; `
+      : "";
+    console.log(
+      `[curation-cron] ${scheduled}processed ${result.processed} ${result.processed === 1 ? "job" : "jobs"}`,
+    );
+  } catch (error) {
+    console.error(
+      "[curation-cron]",
+      error instanceof Error
+        ? error.message
+        : JSON.stringify(error, null, 2),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// HTTP handler — manual dispatch from admin UI
+// ---------------------------------------------------------------------------
 
 async function handleRequest(
   request: IncomingMessage,
@@ -132,6 +204,10 @@ async function runWithImmediateRetry(
     await runJob(claimedRetry, retryToken);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Utilities
+// ---------------------------------------------------------------------------
 
 function parsePort(value: string | undefined): number {
   const parsed = Number.parseInt(value ?? "8080", 10);

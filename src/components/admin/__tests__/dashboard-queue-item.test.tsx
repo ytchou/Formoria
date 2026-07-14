@@ -20,7 +20,7 @@ describe('DashboardQueueItem', () => {
   it('renders approve button and calls onApprove when clicked', async () => {
     const onApprove = vi.fn().mockResolvedValue(undefined)
     render(<DashboardQueueItem label="好丘 Goodchos" date="2026-06-13" onApprove={onApprove} />)
-    const approveBtn = screen.getByRole('button', { name: /核准|Approve/i })
+    const approveBtn = screen.getByRole('button', { name: /Approve/i })
     await userEvent.click(approveBtn)
     expect(onApprove).toHaveBeenCalledTimes(1)
   })
@@ -38,9 +38,9 @@ describe('DashboardQueueItem', () => {
   })
 
   it.each([
-    ['high', '高風險'],
-    ['medium', '中風險'],
-    ['clean', '通過'],
+    ['high', 'High risk'],
+    ['medium', 'Medium risk'],
+    ['clean', 'Clean'],
   ] as const)('shows localized %s risk badge', (riskLevel, label) => {
     render(
       <DashboardQueueItem
@@ -62,6 +62,6 @@ describe('DashboardQueueItem', () => {
         isPending
       />
     )
-    expect(screen.getByRole('button', { name: /核准|Approve/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Approve/i })).toBeDisabled()
   })
 })

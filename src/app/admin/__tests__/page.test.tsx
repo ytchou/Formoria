@@ -45,6 +45,41 @@ vi.mock('@/lib/services/brands', () => ({
   getBrands: vi.fn(),
 }))
 
+vi.mock('next-intl/server', () => {
+  const messages: Record<string, string> = {
+    'queues.edits.title': 'Brand Edits',
+    'queues.edits.empty': 'No pending brand edits.',
+    'queues.claims.title': 'Brand Claims',
+    'queues.claims.empty': 'No pending brand claims.',
+    'queues.reports.title': 'Brand Reports',
+    'queues.reports.empty': 'No pending brand reports.',
+    'queues.feedback.title': 'User Feedback',
+    'queues.feedback.empty': 'No pending user feedback.',
+    'stats.totalBrandsLabel': 'Total Brands',
+    'stats.totalBrandsDesc': 'Brand records in the database',
+    'stats.flaggedContentLabel': 'Pending Content Flags',
+    'stats.flaggedContentDesc': 'Flags in the content review queue',
+    'stages.needsData': 'Needs Data Work',
+    'stages.readyToReview': 'Ready for Review',
+    'stages.emptyNeedsData': 'No pending data work.',
+    'stages.emptyReadyToReview': 'No brand submissions ready to approve.',
+    description: 'Review queues, brand data, and categorization status requiring action.',
+    reviewQueues: 'Review Queues',
+    reviewQueuesSub: 'Sorted by current pending count.',
+    newSubmissions: 'New Brand Submissions',
+    newSubmissionsSub: 'Data enrichment must be complete before manual review.',
+    overview: 'Overview',
+    overviewSub: 'Quick metrics on site data and governance scope.',
+    newsletterSection: 'Newsletter Subscribers',
+    newsletterSectionSub: 'Email capture list and subscription confirmation status.',
+    noDate: 'No date',
+    unnamedFeedback: 'Unnamed feedback',
+  }
+  return {
+    getTranslations: vi.fn(() => Promise.resolve((key: string) => messages[key] ?? key)),
+  }
+})
+
 vi.mock('@/app/admin/actions', () => ({
   approveSubmissionAction: vi.fn(),
   approvePendingEditAction: vi.fn(),
@@ -292,16 +327,16 @@ describe('AdminPage', () => {
     render(await AdminDashboardPage())
 
     const cards = screen.getAllByTestId('queue-summary-card')
-    expect(within(cards[0]).getByText('品牌認領')).toBeInTheDocument()
+    expect(within(cards[0]).getByText('Brand Claims')).toBeInTheDocument()
     expect(within(cards[0]).getByText('4')).toBeInTheDocument()
-    expect(screen.getByText('待資料處理')).toBeInTheDocument()
+    expect(screen.getByText('Needs Data Work')).toBeInTheDocument()
     expect(screen.getByText('3')).toBeInTheDocument()
-    expect(within(cards[1]).getByText('品牌編輯')).toBeInTheDocument()
+    expect(within(cards[1]).getByText('Brand Edits')).toBeInTheDocument()
     expect(within(cards[1]).getByText('2')).toBeInTheDocument()
     expect(
       screen
-        .getAllByRole('link', { name: '查看全部 →' })
-        .find((link) => link.getAttribute('href') === '/admin/review-queue/submissions?stage=needs_data'),
+        .getAllByRole('link', { name: 'View all →' })
+        .find((link) => link.getAttribute('href') === '/admin/submissions?stage=needs_data'),
     ).toBeInTheDocument()
   })
 
@@ -313,17 +348,17 @@ describe('AdminPage', () => {
 
     render(await AdminDashboardPage())
 
-    expect(screen.getByText('品牌總數')).toBeInTheDocument()
+    expect(screen.getByText('Total Brands')).toBeInTheDocument()
     expect(screen.getByText('42')).toBeInTheDocument()
   })
 
   it('shows empty collapsed state for zero-count queues', async () => {
     render(await AdminDashboardPage())
 
-    expect(screen.getByText('目前沒有待處理的資料工作。')).toBeInTheDocument()
-    expect(screen.getByText('目前沒有待審核的品牌編輯。')).toBeInTheDocument()
+    expect(screen.getByText('No pending data work.')).toBeInTheDocument()
+    expect(screen.getByText('No pending brand edits.')).toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: /核准|Approve/i }),
+      screen.queryByRole('button', { name: /Approve/i }),
     ).not.toBeInTheDocument()
   })
 })

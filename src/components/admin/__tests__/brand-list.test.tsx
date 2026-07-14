@@ -137,36 +137,36 @@ describe('BrandList', () => {
 
   it('renders status filter tabs', () => {
     render(<BrandList brands={mockBrands} />)
-    expect(screen.getByRole('tab', { name: /全部/ })).toBeDefined()
-    expect(screen.queryByRole('tab', { name: /待審核/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /已上架/ })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /已隱藏/ })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /All/ })).toBeDefined()
+    expect(screen.queryByRole('tab', { name: /Pending/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Live/ })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Hidden/ })).toBeInTheDocument()
   })
 
   it('filters brands by status tab', () => {
     render(<BrandList brands={mockBrands} />)
-    fireEvent.click(screen.getByRole('tab', { name: /已隱藏/ }))
+    fireEvent.click(screen.getByRole('tab', { name: /Hidden/ }))
     expect(screen.queryByText('Pottery Studio')).toBeNull()
     expect(screen.getByText('Tea House')).toBeDefined()
   })
 
   it('renders action buttons per row', () => {
     render(<BrandList brands={mockBrands} />)
-    const editButtons = screen.getAllByRole('button', { name: '編輯' })
+    const editButtons = screen.getAllByRole('button', { name: 'Edit' })
     expect(editButtons.length).toBeGreaterThanOrEqual(1)
   })
 
   it('shows Hide button for approved brands and Unhide for hidden brands', () => {
     render(<BrandList brands={mockBrands} />)
     // 2 approved brands → 2 Hide buttons; 1 hidden brand → 1 Unhide button
-    const hideButtons = screen.getAllByRole('button', { name: '隱藏' })
+    const hideButtons = screen.getAllByRole('button', { name: 'Hide' })
     expect(hideButtons.length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByRole('button', { name: '取消隱藏' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Unhide' })).toBeDefined()
   })
 
   it('opens edit dialog when edit button is clicked', () => {
     render(<BrandList brands={mockBrands} />)
-    const editButtons = screen.getAllByRole('button', { name: '編輯' })
+    const editButtons = screen.getAllByRole('button', { name: 'Edit' })
     fireEvent.click(editButtons[0])
     expect(screen.getByDisplayValue('Pottery Studio')).toBeDefined()
   })

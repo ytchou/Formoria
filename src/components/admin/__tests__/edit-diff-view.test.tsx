@@ -5,25 +5,25 @@ import { EditDiffView, computeDiffFields } from '../edit-diff-view'
 import type { DiffField } from '../edit-diff-view'
 
 const FIELDS: DiffField[] = [
-  { field: '品牌描述', fieldKey: 'description', currentValue: 'Old desc', proposedValue: 'New desc', changed: true },
-  { field: '品牌名稱', fieldKey: 'name', currentValue: 'Brand A', proposedValue: 'Brand A', changed: false },
+  { field: 'Brand description', fieldKey: 'description', currentValue: 'Old desc', proposedValue: 'New desc', changed: true },
+  { field: 'Brand name', fieldKey: 'name', currentValue: 'Brand A', proposedValue: 'Brand A', changed: false },
 ]
 
 it('renders changed fields with proposed value highlighted', () => {
   render(<EditDiffView fields={FIELDS} />)
   expect(screen.getByText('Old desc')).toBeInTheDocument()
   expect(screen.getByText('New desc')).toBeInTheDocument()
-  expect(screen.getByText('目前版本')).toBeInTheDocument()
-  expect(screen.getByText('提案修改')).toBeInTheDocument()
+  expect(screen.getByText('Current version')).toBeInTheDocument()
+  expect(screen.getByText('Proposed change')).toBeInTheDocument()
 })
 
 it('shows both unchanged and changed fields', () => {
   render(<EditDiffView fields={FIELDS} />)
-  expect(screen.getAllByText('品牌描述').length).toBeGreaterThan(0)
-  expect(screen.getAllByText('品牌名稱').length).toBeGreaterThan(0)
+  expect(screen.getAllByText('Brand description').length).toBeGreaterThan(0)
+  expect(screen.getAllByText('Brand name').length).toBeGreaterThan(0)
 })
 
-it('labels mitStory as "MIT 故事" in the diff view', () => {
+it('labels mitStory as "MIT story" in the diff view', () => {
   const proposed = { mitStory: 'Our story.' }
   const current = { mitStory: null }
   const fields = computeDiffFields(
@@ -33,7 +33,7 @@ it('labels mitStory as "MIT 故事" in the diff view', () => {
 
   render(<EditDiffView fields={fields} />)
 
-  expect(screen.getByText('MIT 故事')).toBeInTheDocument()
+  expect(screen.getByText('MIT story')).toBeInTheDocument()
 })
 
 describe('computeDiffFields', () => {

@@ -24,7 +24,7 @@ export function AdminNav({ items }: AdminNavProps) {
 
   return (
     <nav
-      aria-label="管理後台主導覽"
+      aria-label="Admin main navigation"
       className="mt-6 overflow-x-auto border-b border-border"
     >
       <div className="flex min-w-max gap-1">
@@ -44,7 +44,7 @@ export function AdminNav({ items }: AdminNavProps) {
             {item.count && item.count > 0 ? (
               <span
                 className="rounded-full bg-muted px-2 py-0.5 type-caption"
-                aria-label={`${item.count} 項待處理`}
+                aria-label={`${item.count} pending`}
               >
                 {item.count}
               </span>

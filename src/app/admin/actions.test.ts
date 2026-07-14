@@ -486,14 +486,14 @@ describe('reviewReportAction', () => {
 })
 
 describe('reviewFeedbackAction', () => {
-  it('calls updateFeedbackStatus and revalidates /admin/signals/feedback', async () => {
+  it('calls updateFeedbackStatus and revalidates /admin/feedback', async () => {
     const { reviewFeedbackAction } = await import('./actions')
     const { updateFeedbackStatus } = await import('@/lib/services/feedback')
 
     const result = await reviewFeedbackAction('feedback-id-1', 'reviewed')
 
     expect(updateFeedbackStatus).toHaveBeenCalledWith('feedback-id-1', 'reviewed')
-    expect(revalidatePath).toHaveBeenCalledWith('/admin/signals/feedback')
+    expect(revalidatePath).toHaveBeenCalledWith('/admin/feedback')
     expect(result).toBeUndefined()
   })
 

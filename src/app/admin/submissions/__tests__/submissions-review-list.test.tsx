@@ -5,7 +5,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BrandSubmission } from '@/lib/types'
 import type { EnrichedData } from '@/lib/types/enriched-data'
-import messages from '../../../../../../messages/zh-TW.json'
+import messages from '../../../../../messages/en.json'
 import { getEnrichmentStatus, SubmissionsReviewList, type TabValue } from '../submissions-review-list'
 import { startCurationJobAction } from '@/app/admin/operations/actions'
 import { toast } from 'sonner'
@@ -16,7 +16,7 @@ vi.mock('next/navigation', () => ({
     push: vi.fn(),
     replace: vi.fn(),
   }),
-  usePathname: () => '/admin/review-queue/submissions',
+  usePathname: () => '/admin/submissions',
 }))
 
 vi.mock('@/app/admin/actions', () => ({
@@ -45,7 +45,7 @@ beforeEach(() => {
 
 function renderWithIntl(ui: Parameters<typeof render>[0]) {
   return render(
-    <NextIntlClientProvider locale="zh-TW" messages={messages}>
+    <NextIntlClientProvider locale="en" messages={messages}>
       {ui}
     </NextIntlClientProvider>
   )
@@ -121,7 +121,7 @@ function getExpandedRowActionButton(brandName: string, name: string | RegExp) {
 }
 
 function getBulkRejectButton() {
-  const button = screen.getAllByRole('button', { name: '拒絕' })[0]
+  const button = screen.getAllByRole('button', { name: 'Reject' })[0]
   expect(button).toBeDefined()
   return button as HTMLElement
 }
@@ -132,7 +132,7 @@ async function expandAndStartReject() {
 
   const row = getSubmissionRow('Test Brand')
   await user.click(within(row).getByText('Test Brand'))
-  await user.click(getExpandedRowActionButton('Test Brand', '拒絕'))
+  await user.click(getExpandedRowActionButton('Test Brand', 'Reject'))
 
   return user
 }
@@ -179,7 +179,7 @@ describe('SubmissionsReviewList — enrichment approval gate', () => {
 
     expect(screen.getByText('Ready Brand')).toBeInTheDocument()
     expect(screen.queryByText('Partial Brand')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: '核准' }).some((button) => !button.hasAttribute('disabled'))).toBe(true)
+    expect(screen.getAllByRole('button', { name: 'Approve' }).some((button) => !button.hasAttribute('disabled'))).toBe(true)
   })
 
   it('keeps a failed target in data work and links its tracked job', () => {
@@ -195,12 +195,12 @@ describe('SubmissionsReviewList — enrichment approval gate', () => {
       }),
     ], 'needs_data')
 
-    expect(screen.getByText('抓取失敗')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '查看工作' })).toHaveAttribute(
+    expect(screen.getByText('Failed')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'View job' })).toHaveAttribute(
       'href',
       '/admin/jobs/failed-job',
     )
-    expect(screen.getAllByRole('button', { name: '核准' }).every((button) => button.hasAttribute('disabled'))).toBe(true)
+    expect(screen.getAllByRole('button', { name: 'Approve' }).every((button) => button.hasAttribute('disabled'))).toBe(true)
   })
 })
 
@@ -218,16 +218,16 @@ describe('SubmissionsReviewList — bulk rejection', () => {
     await user.click(getBulkRejectButton())
 
     const reasonSelect = screen.getByRole('combobox', {
-      name: /批次拒絕原因/,
+      name: /Bulk rejection reason/i,
     })
     expect(reasonSelect).toBeInTheDocument()
 
     await user.click(reasonSelect)
-    expect(await screen.findByRole('option', { name: '非台灣製造' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: '資訊不足' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: '重複提交' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: '違反政策' })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: '其他' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: 'Not Made in Taiwan' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Insufficient Information' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Duplicate Submission' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Policy Violation' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Other' })).not.toBeInTheDocument()
   })
 
   it('disables bulk reject confirm until reason is selected', async () => {
@@ -242,7 +242,7 @@ describe('SubmissionsReviewList — bulk rejection', () => {
     await user.click(checkboxes[2])
     await user.click(getBulkRejectButton())
 
-    expect(screen.getByRole('button', { name: '確認批次拒絕' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Confirm Bulk Reject' })).toBeDisabled()
   })
 })
 
@@ -260,13 +260,13 @@ describe('SubmissionsReviewList — bulk enrichment', () => {
 
     const checkboxes = screen.getAllByRole('checkbox')
     await user.click(checkboxes[1])
-    await user.click(screen.getByRole('button', { name: '抓取資料' }))
+    await user.click(screen.getByRole('button', { name: 'Fetch Data' }))
 
     await waitFor(() => {
       expect(toast.info).toHaveBeenCalledWith(
         'Queued 1 curation job.',
         expect.objectContaining({
-          action: expect.objectContaining({ label: '查看工作' }),
+          action: expect.objectContaining({ label: 'View job' }),
         })
       )
     })
@@ -280,18 +280,18 @@ describe('SubmissionsReviewList rejection reasons', () => {
     const expandedRow = getExpandedSubmissionRow('Test Brand')
 
     const reasonSelect = within(expandedRow).getByRole('combobox', {
-      name: /拒絕原因/,
+      name: /Rejection reason/i,
     })
     expect(reasonSelect).toBeInTheDocument()
 
     await user.click(reasonSelect)
     // Use findByRole (async) because Radix UI Select renders options into a
     // portal after pointer events settle; getByRole would race the open state.
-    expect(await screen.findByRole('option', { name: '非台灣製造' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: '資訊不足' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: '重複提交' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: '違反政策' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: '其他' })).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: 'Not Made in Taiwan' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Insufficient Information' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Duplicate Submission' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Policy Violation' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Other' })).toBeInTheDocument()
   })
 
   it('disables confirm button until reason is selected', async () => {
@@ -300,7 +300,7 @@ describe('SubmissionsReviewList rejection reasons', () => {
 
     expect(
       within(expandedRow).getByRole('button', {
-        name: '確認拒絕',
+        name: 'Confirm Reject',
       })
     ).toBeDisabled()
   })
@@ -309,9 +309,9 @@ describe('SubmissionsReviewList rejection reasons', () => {
     const user = await expandAndStartReject()
     const expandedRow = getExpandedSubmissionRow('Test Brand')
 
-    await user.click(within(expandedRow).getByRole('combobox', { name: /拒絕原因/ }))
-    await user.click(await screen.findByRole('option', { name: '其他' }))
+    await user.click(within(expandedRow).getByRole('combobox', { name: /Rejection reason/i }))
+    await user.click(await screen.findByRole('option', { name: 'Other' }))
 
-    expect(within(expandedRow).getByPlaceholderText('補充說明（必填）')).toBeInTheDocument()
+    expect(within(expandedRow).getByPlaceholderText('Additional notes (required)')).toBeInTheDocument()
   })
 })

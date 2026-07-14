@@ -1817,6 +1817,7 @@
         "insufficient_info": "資訊不足",
         "duplicate": "重複提交",
         "policy_violation": "違反政策",
+        "admin_reject": "管理員拒絕",
         "other": "其他"
       }
     }

@@ -155,15 +155,15 @@ export function ClaimRequestsList({
         onValueChange={(value) => setActiveTab(value as TabValue)}
       >
         <TabsList>
-          <TabsTrigger value="all">全部 ({tabCounts.all})</TabsTrigger>
+          <TabsTrigger value="all">All ({tabCounts.all})</TabsTrigger>
           <TabsTrigger value="pending">
-            待審核 ({tabCounts.pending})
+            Pending ({tabCounts.pending})
           </TabsTrigger>
           <TabsTrigger value="approved">
-            已核准 ({tabCounts.approved})
+            Approved ({tabCounts.approved})
           </TabsTrigger>
           <TabsTrigger value="rejected">
-            已拒絕 ({tabCounts.rejected})
+            Rejected ({tabCounts.rejected})
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -172,11 +172,11 @@ export function ClaimRequestsList({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>品牌</TableHead>
-              <TableHead>申請者</TableHead>
-              <TableHead>證明</TableHead>
-              <TableHead>日期</TableHead>
-              <TableHead>狀態</TableHead>
+              <TableHead>Brand</TableHead>
+              <TableHead>Requester</TableHead>
+              <TableHead>Proof</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -398,7 +398,7 @@ export function ClaimRequestsList({
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                  找不到認領申請。
+                  No claim requests found.
                 </TableCell>
               </TableRow>
             )}

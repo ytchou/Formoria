@@ -1,30 +1,5 @@
-import type { Metadata } from 'next'
-import { FeedbackList } from '@/components/admin/feedback-list'
-import { getFeedbackItems } from '@/lib/services/feedback'
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: '用戶回饋 | Formoria Admin' }
-
-export default async function FeedbackPage() {
-  let items: Awaited<ReturnType<typeof getFeedbackItems>> = []
-  try {
-    items = await getFeedbackItems()
-  } catch (err) {
-    console.error('[admin:feedback]', err)
-  }
-
-  return (
-    <div>
-      <div className="mb-6">
-        <h1 className="type-section-title-large">用戶回饋</h1>
-        <p className="mt-1 type-body-muted">
-          管理來自 Sentry 和 Tally 的用戶回饋與錯誤報告
-        </p>
-      </div>
-      {items.length === 0 ? (
-        <p className="type-body-muted">目前沒有回饋項目。</p>
-      ) : (
-        <FeedbackList items={items} />
-      )}
-    </div>
-  )
+export default function SignalsFeedbackRedirect(): never {
+  redirect("/admin/feedback");
 }

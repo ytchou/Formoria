@@ -1,8 +1,0 @@
-{
-  "$schema": "https://railway.com/railway.schema.json",
-  "deploy": {
-    "startCommand": "pnpm curation:schedule",
-    "cronSchedule": "0 4,10,16,22 * * *",
-    "restartPolicyType": "NEVER"
-  }
-}

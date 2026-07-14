@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
-import { getMessages } from "next-intl/server";
+import { getMessages, getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { isActingAsAdmin } from "@/lib/auth/admin-mode";
 import { AdminNav } from "@/components/admin/admin-nav";
@@ -29,7 +29,7 @@ export default async function AdminLayout({
     redirect("/");
   }
 
-  const [messages, submissions, flaggedContent, edits, reports, feedbackItems] =
+  const [messages, submissions, flaggedContent, edits, reports, feedbackItems, t] =
     await Promise.all([
       getMessages(),
       getSubmissions("pending"),
@@ -37,42 +37,43 @@ export default async function AdminLayout({
       getPendingEdits("pending"),
       getPendingReports(),
       getFeedbackItems({ status: "open" }),
+      getTranslations("admin.layout"),
     ]);
 
   const navItems: NavItem[] = [
-    { label: "總覽", href: "/admin" },
+    { label: t("nav.overview"), href: "/admin" },
     {
-      label: "新品牌提交",
-      href: "/admin/review-queue/submissions",
+      label: t("nav.submissions"),
+      href: "/admin/submissions",
       count: submissions.length,
     },
+    { label: t("nav.jobs"), href: "/admin/jobs" },
     {
-      label: "內容審核",
-      href: "/admin/review-queue/moderation",
+      label: t("nav.moderation"),
+      href: "/admin/moderation",
       count: flaggedContent.items.length,
     },
     {
-      label: "品牌編輯",
-      href: "/admin/review-queue/edits",
+      label: t("nav.edits"),
+      href: "/admin/edits",
       count: edits.length,
     },
-    { label: "認領申請", href: "/admin/claims" },
-    { label: "檢舉", href: "/admin/signals/reports", count: reports.length },
+    { label: t("nav.claims"), href: "/admin/claims" },
+    { label: t("nav.reports"), href: "/admin/reports", count: reports.length },
     {
-      label: "Feedback",
-      href: "/admin/signals/feedback",
+      label: t("nav.feedback"),
+      href: "/admin/feedback",
       count: feedbackItems.length,
     },
-    { label: "品牌目錄", href: "/admin/catalog/brands" },
-    { label: "資料工作", href: "/admin/jobs" },
-    { label: "品質儀表板", href: "/admin/quality" },
+    { label: t("nav.brands"), href: "/admin/brands" },
+    { label: t("nav.quality"), href: "/admin/quality" },
   ];
 
   return (
-    <NextIntlClientProvider locale="zh-TW" messages={messages}>
+    <NextIntlClientProvider locale="en" messages={messages}>
       <div className="min-h-screen bg-background">
         <main className="mx-auto max-w-screen-2xl px-10 pb-8 pt-8">
-          <h1 className="type-page-title-large">管理後台</h1>
+          <h1 className="type-page-title-large">{t("title")}</h1>
           <AdminNav items={navItems} />
           <div className="mt-8">{children}</div>
         </main>

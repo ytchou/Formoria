@@ -4,7 +4,7 @@ import { DataCard, SurfaceCard } from '@/components/ui/card'
 import { getQualityMetrics } from '@/lib/services/brand-quality'
 
 export const metadata: Metadata = {
-  title: '品質儀表板 | 管理後台',
+  title: 'Quality Dashboard | Admin',
 }
 
 export const revalidate = 0
@@ -78,10 +78,10 @@ export default async function AdminQualityPage() {
   return (
     <div>
       <h1 className="type-page-title-large">
-        品質儀表板
+        Quality Dashboard
       </h1>
       <p className="mt-2 text-muted-foreground">
-        追蹤品牌資料的圖片、連結、描述與完整度品質。
+        Track brand data quality for images, links, descriptions, and completeness.
       </p>
 
       <div className="mt-8 grid gap-4 md:grid-cols-2">

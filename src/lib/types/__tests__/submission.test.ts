@@ -4,12 +4,13 @@ import {
 } from '../submission'
 
 describe('DenialReason', () => {
-  it('has exactly 5 preset reasons', () => {
-    expect(DENIAL_REASONS).toHaveLength(5)
+  it('has exactly 6 preset reasons', () => {
+    expect(DENIAL_REASONS).toHaveLength(6)
     expect(DENIAL_REASONS).toContain('not_mit')
     expect(DENIAL_REASONS).toContain('insufficient_info')
     expect(DENIAL_REASONS).toContain('duplicate')
     expect(DENIAL_REASONS).toContain('policy_violation')
+    expect(DENIAL_REASONS).toContain('admin_reject')
     expect(DENIAL_REASONS).toContain('other')
   })
 })

@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation'
+import { redirect } from "next/navigation";
 
-export default function ReviewQueuePage() {
-  redirect('/admin/review-queue/submissions')
+export default function ReviewQueueRedirect(): never {
+  redirect("/admin/submissions");
 }

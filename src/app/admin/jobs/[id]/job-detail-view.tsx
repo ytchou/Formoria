@@ -39,12 +39,12 @@ type PhaseResult = {
 };
 
 const filters: Array<{ value: "all" | CurationTargetStatus; label: string }> = [
-  { value: "all", label: "全部" },
-  { value: "pending", label: "待處理" },
-  { value: "running", label: "執行中" },
-  { value: "succeeded", label: "成功" },
-  { value: "skipped", label: "略過" },
-  { value: "failed", label: "失敗" },
+  { value: "all", label: "All" },
+  { value: "pending", label: "Pending" },
+  { value: "running", label: "Running" },
+  { value: "succeeded", label: "Succeeded" },
+  { value: "skipped", label: "Skipped" },
+  { value: "failed", label: "Failed" },
 ];
 
 export function JobDetailView({
@@ -86,10 +86,10 @@ export function JobDetailView({
             href="/admin/jobs"
             className="inline-flex min-h-12 items-center type-body-emphasis text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            返回資料工作
+            ← Back to Data Jobs
           </Link>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="type-section-title-large">資料工作</h1>
+            <h1 className="type-section-title-large">Job Detail</h1>
             <JobStatusBadge job={job} />
           </div>
           <p className="break-all font-mono text-sm text-muted-foreground">
@@ -125,74 +125,74 @@ export function JobDetailView({
               })}
             >
               <ExternalLink aria-hidden="true" />
-              Railway 原始紀錄
+              Railway Logs
             </a>
           ) : null}
         </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <DataCard label="目標總數" value={job.target_total} />
-        <DataCard label="成功" value={job.succeeded_count} />
-        <DataCard label="略過" value={job.skipped_count} />
-        <DataCard label="失敗" value={job.failed_count} />
+        <DataCard label="Total Targets" value={job.target_total} />
+        <DataCard label="Succeeded" value={job.succeeded_count} />
+        <DataCard label="Skipped" value={job.skipped_count} />
+        <DataCard label="Failed" value={job.failed_count} />
       </div>
 
       <SurfaceCard padding="lg">
-        <h2 className="type-card-title">執行資訊</h2>
+        <h2 className="type-card-title">Execution Info</h2>
         <dl className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          <InfoField label="觸發來源" value={jobTriggerLabel(job.trigger)} />
-          <InfoField label="嘗試次數" value={job.attempt} />
+          <InfoField label="Trigger" value={jobTriggerLabel(job.trigger)} />
+          <InfoField label="Attempt" value={job.attempt} />
           <InfoField
-            label="排定時間"
+            label="Scheduled"
             value={formatJobDate(job.scheduled_for)}
           />
-          <InfoField label="開始時間" value={formatJobDate(job.started_at)} />
-          <InfoField label="完成時間" value={formatJobDate(job.completed_at)} />
+          <InfoField label="Started" value={formatJobDate(job.started_at)} />
+          <InfoField label="Completed" value={formatJobDate(job.completed_at)} />
           <InfoField
-            label="耗時"
+            label="Duration"
             value={formatJobDuration(job.started_at, job.completed_at)}
           />
-          <InfoField label="執行者" value={job.started_by} />
+          <InfoField label="Started by" value={job.started_by} />
           <InfoField
-            label="目前品牌"
+            label="Current brand"
             value={currentTarget?.brand_name ?? "-"}
           />
-          <InfoField label="目前階段" value={job.current_phase ?? "-"} />
+          <InfoField label="Current phase" value={job.current_phase ?? "-"} />
           <InfoField
-            label="派送狀態"
+            label="Dispatch status"
             value={
               job.dispatch_status === "failed"
-                ? "派送失敗"
+                ? "Dispatch failed"
                 : job.dispatch_status === "dispatched"
-                  ? "已派送"
-                  : "待派送"
+                  ? "Dispatched"
+                  : "Pending dispatch"
             }
           />
           {job.dispatch_error ? (
-            <InfoField label="派送錯誤" value={job.dispatch_error} wide />
+            <InfoField label="Dispatch error" value={job.dispatch_error} wide />
           ) : null}
           {job.job_error ? (
-            <InfoField label="工作錯誤" value={job.job_error} wide />
+            <InfoField label="Job error" value={job.job_error} wide />
           ) : null}
         </dl>
       </SurfaceCard>
 
       {parent || children.length > 0 ? (
         <SurfaceCard padding="lg">
-          <h2 className="type-card-title">重試關聯</h2>
+          <h2 className="type-card-title">Retry Lineage</h2>
           <div className="mt-4 flex flex-wrap gap-3">
             {parent ? (
               <LineageLink
                 id={parent.id}
-                label={`上一個工作（第 ${parent.attempt} 次）`}
+                label={`Previous job (attempt ${parent.attempt})`}
               />
             ) : null}
             {children.map((child) => (
               <LineageLink
                 key={child.id}
                 id={child.id}
-                label={`${jobTriggerLabel(child.trigger)}（第 ${child.attempt} 次）`}
+                label={`${jobTriggerLabel(child.trigger)} (attempt ${child.attempt})`}
               />
             ))}
           </div>
@@ -202,13 +202,13 @@ export function JobDetailView({
       <section className="space-y-4" aria-labelledby="job-targets-heading">
         <div>
           <h2 id="job-targets-heading" className="type-card-title">
-            品牌明細
+            Brand Details
           </h2>
           <p className="mt-1 type-card-description">
-            每個品牌的階段結果、欄位變更與錯誤摘要。
+            Phase results, changed fields, and error summary per brand.
           </p>
         </div>
-        <nav aria-label="品牌狀態篩選" className="flex flex-wrap gap-2">
+        <nav aria-label="Filter brands by status" className="flex flex-wrap gap-2">
           {filters.map((filter) => {
             const selected = selectedStatus === filter.value;
             const href =
@@ -235,18 +235,18 @@ export function JobDetailView({
         <SurfaceCard padding="none" className="overflow-x-auto">
           {visibleTargets.length === 0 ? (
             <p className="p-6 text-center text-muted-foreground">
-              此篩選條件沒有品牌。
+              No brands match this filter.
             </p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>品牌</TableHead>
-                  <TableHead>類型</TableHead>
-                  <TableHead>狀態</TableHead>
-                  <TableHead>目前階段</TableHead>
-                  <TableHead>耗時</TableHead>
-                  <TableHead>詳細資料</TableHead>
+                  <TableHead>Brand</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Current Phase</TableHead>
+                  <TableHead>Duration</TableHead>
+                  <TableHead>Details</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -257,8 +257,8 @@ export function JobDetailView({
                     </TableCell>
                     <TableCell>
                       {target.target_type === "submission"
-                        ? "品牌提交"
-                        : "品牌"}
+                        ? "Submission"
+                        : "Brand"}
                     </TableCell>
                     <TableCell>
                       <TargetStatusBadge target={target} />
@@ -300,31 +300,31 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
   return (
     <details className="group min-w-72">
       <summary className="flex min-h-12 cursor-pointer list-none items-center font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        查看明細
+        View details
       </summary>
       <div className="pb-4 pr-4">
         <dl className="grid gap-4 rounded-lg bg-muted/40 p-4 sm:grid-cols-2 lg:grid-cols-4">
           <InfoField label="Slug" value={target.brand_slug ?? "-"} />
           <InfoField
-            label="變更欄位"
+            label="Changed fields"
             value={
               target.changed_fields.length
-                ? target.changed_fields.join("、")
+                ? target.changed_fields.join(", ")
                 : "-"
             }
           />
           {target.error ? (
             <InfoField
-              label={target.status === "skipped" ? "略過原因" : "錯誤"}
+              label={target.status === "skipped" ? "Skip reason" : "Error"}
               value={target.error}
               wide
             />
           ) : null}
         </dl>
         <div className="mt-4 space-y-2">
-          <h3 className="type-body-emphasis">階段紀錄</h3>
+          <h3 className="type-body-emphasis">Phase log</h3>
           {phases.length === 0 ? (
-            <p className="text-sm text-muted-foreground">尚無階段紀錄。</p>
+            <p className="text-sm text-muted-foreground">No phase records yet.</p>
           ) : (
             <ol className="space-y-2">
               {phases.map((phase, index) => (
@@ -353,7 +353,7 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
                   <p className="mt-1 text-sm text-muted-foreground">
                     {formatMilliseconds(phase.durationMs)}
                     {phase.changedFields.length
-                      ? ` · 變更：${phase.changedFields.join("、")}`
+                      ? ` · Changed: ${phase.changedFields.join(", ")}`
                       : ""}
                   </p>
                   {phase.detail ? (
@@ -415,5 +415,5 @@ function formatTargetDuration(target: CurationJobTarget): string {
 
 function formatMilliseconds(durationMs: number): string {
   if (durationMs < 1_000) return `${Math.max(0, Math.round(durationMs))} ms`;
-  return `${(durationMs / 1_000).toFixed(1)} 秒`;
+  return `${(durationMs / 1_000).toFixed(1)} s`;
 }

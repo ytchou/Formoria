@@ -9,22 +9,28 @@ vi.mock('next/navigation', () => ({
 describe('old route redirect stubs', () => {
   beforeEach(() => { mockRedirect.mockClear() })
 
-  it('/admin/submissions redirects to /admin/review-queue/submissions', async () => {
-    const { default: Page } = await import('../submissions/page')
+  it('/admin/review-queue/submissions redirects to /admin/submissions', async () => {
+    const { default: Page } = await import('../review-queue/submissions/page')
     expect(() => Page()).toThrow('REDIRECT')
-    expect(mockRedirect).toHaveBeenCalledWith('/admin/review-queue/submissions')
+    expect(mockRedirect).toHaveBeenCalledWith('/admin/submissions')
   })
 
-  it('/admin/moderation redirects to /admin/review-queue/moderation', async () => {
-    const { default: Page } = await import('../moderation/page')
+  it('/admin/review-queue/moderation redirects to /admin/moderation', async () => {
+    const { default: Page } = await import('../review-queue/moderation/page')
     expect(() => Page()).toThrow('REDIRECT')
-    expect(mockRedirect).toHaveBeenCalledWith('/admin/review-queue/moderation')
+    expect(mockRedirect).toHaveBeenCalledWith('/admin/moderation')
   })
 
-  it('/admin/pending-edits redirects to /admin/review-queue/edits', async () => {
+  it('/admin/review-queue/edits redirects to /admin/edits', async () => {
+    const { default: Page } = await import('../review-queue/edits/page')
+    expect(() => Page()).toThrow('REDIRECT')
+    expect(mockRedirect).toHaveBeenCalledWith('/admin/edits')
+  })
+
+  it('/admin/pending-edits redirects to /admin/edits', async () => {
     const { default: Page } = await import('../pending-edits/page')
     expect(() => Page()).toThrow('REDIRECT')
-    expect(mockRedirect).toHaveBeenCalledWith('/admin/review-queue/edits')
+    expect(mockRedirect).toHaveBeenCalledWith('/admin/edits')
   })
 
   it('/admin/claim-requests redirects to /admin/claims', async () => {
@@ -33,22 +39,22 @@ describe('old route redirect stubs', () => {
     expect(mockRedirect).toHaveBeenCalledWith('/admin/claims')
   })
 
-  it('/admin/reports redirects to /admin/signals/reports', async () => {
-    const { default: Page } = await import('../reports/page')
+  it('/admin/signals/reports redirects to /admin/reports', async () => {
+    const { default: Page } = await import('../signals/reports/page')
     expect(() => Page()).toThrow('REDIRECT')
-    expect(mockRedirect).toHaveBeenCalledWith('/admin/signals/reports')
+    expect(mockRedirect).toHaveBeenCalledWith('/admin/reports')
   })
 
-  it('/admin/feedback redirects to /admin/signals/feedback', async () => {
-    const { default: Page } = await import('../feedback/page')
+  it('/admin/signals/feedback redirects to /admin/feedback', async () => {
+    const { default: Page } = await import('../signals/feedback/page')
     expect(() => Page()).toThrow('REDIRECT')
-    expect(mockRedirect).toHaveBeenCalledWith('/admin/signals/feedback')
+    expect(mockRedirect).toHaveBeenCalledWith('/admin/feedback')
   })
 
-  it('/admin/brands redirects to /admin/catalog/brands', async () => {
-    const { default: Page } = await import('../brands/page')
+  it('/admin/catalog/brands redirects to /admin/brands', async () => {
+    const { default: Page } = await import('../catalog/brands/page')
     expect(() => Page()).toThrow('REDIRECT')
-    expect(mockRedirect).toHaveBeenCalledWith('/admin/catalog/brands')
+    expect(mockRedirect).toHaveBeenCalledWith('/admin/brands')
   })
 
 })

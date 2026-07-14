@@ -53,18 +53,18 @@ export function PendingEditsList({ edits }: { edits: PendingBrandEditWithRisk[] 
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-semibold">{edit.brand.name}</p>
                   {edit.moderationRiskLevel === 'high' && (
-                    <Badge variant="destructive">高風險</Badge>
+                    <Badge variant="destructive">High risk</Badge>
                   )}
                   {edit.moderationRiskLevel === 'medium' && (
-                    <Badge variant="verified">中風險</Badge>
+                    <Badge variant="verified">Medium risk</Badge>
                   )}
                 </div>
                 <p className="type-card-description">{edit.submittedBy}</p>
               </div>
               <p className="type-card-description">
-                {new Date(edit.createdAt).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' })}
+                {new Date(edit.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
               </p>
-              <Badge variant="verified">待審核</Badge>
+              <Badge variant="verified">Pending review</Badge>
               <Button
                 variant="ghost"
                 size="compact"
@@ -72,11 +72,11 @@ export function PendingEditsList({ edits }: { edits: PendingBrandEditWithRisk[] 
               >
                 {isExpanded ? (
                   <>
-                    收合 <ChevronUp className="ml-1 h-4 w-4" />
+                    Collapse <ChevronUp className="ml-1 h-4 w-4" />
                   </>
                 ) : (
                   <>
-                    展開 <ChevronDown className="ml-1 h-4 w-4" />
+                    Expand <ChevronDown className="ml-1 h-4 w-4" />
                   </>
                 )}
               </Button>
@@ -96,7 +96,7 @@ export function PendingEditsList({ edits }: { edits: PendingBrandEditWithRisk[] 
                     onClick={() => handleApprove(edit.id)}
                     disabled={isPending}
                   >
-                    核准
+                    Approve
                   </Button>
 
                   <div className="flex flex-col gap-2">
@@ -107,14 +107,14 @@ export function PendingEditsList({ edits }: { edits: PendingBrandEditWithRisk[] 
                         onClick={() => setRejectNoteId(edit.id)}
                         disabled={isPending}
                       >
-                        退回
+                        Reject
                       </Button>
                     )}
 
                     {isRejecting && (
                       <>
                         <Textarea
-                          placeholder="退回原因"
+                          placeholder="Rejection reason"
                           value={rejectNote}
                           onChange={(e) => setRejectNote(e.target.value)}
                           className="min-w-[240px]"
@@ -128,7 +128,7 @@ export function PendingEditsList({ edits }: { edits: PendingBrandEditWithRisk[] 
                               setRejectNote('')
                             }}
                           >
-                            取消
+                            Cancel
                           </Button>
                           <Button
                             variant="destructive"
@@ -136,7 +136,7 @@ export function PendingEditsList({ edits }: { edits: PendingBrandEditWithRisk[] 
                             onClick={() => handleRejectConfirm(edit.id)}
                             disabled={isPending}
                           >
-                            確認退回
+                            Confirm reject
                           </Button>
                         </div>
                       </>
@@ -151,7 +151,7 @@ export function PendingEditsList({ edits }: { edits: PendingBrandEditWithRisk[] 
 
       {edits.length === 0 && (
         <div className="py-8 text-center text-muted-foreground">
-          目前沒有待審核的編輯申請。
+          No pending brand edits.
         </div>
       )}
     </div>

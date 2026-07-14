@@ -57,15 +57,15 @@ describe('JobDetailView', () => {
     const user = userEvent.setup()
     render(<JobDetailView detail={detail()} selectedStatus="all" />)
 
-    expect(screen.getByText('完成但有失敗')).toBeInTheDocument()
+    expect(screen.getByText('Completed with failures')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Rerun failed submissions/ })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /上一個工作/ })).toHaveAttribute('href', '/admin/jobs/parent-job')
+    expect(screen.getByRole('link', { name: /Previous job/ })).toHaveAttribute('href', '/admin/jobs/parent-job')
 
     const targetRow = screen.getByText('台北工坊').closest('tr')
     expect(targetRow).not.toBeNull()
-    await user.click(within(targetRow!).getByText('查看明細'))
+    await user.click(within(targetRow!).getByText('View details'))
     expect(within(targetRow!).getByText('descriptions')).toBeInTheDocument()
-    expect(within(targetRow!).getByText(/變更：description、price_range/)).toBeInTheDocument()
+    expect(within(targetRow!).getByText(/Changed: description, price_range/)).toBeInTheDocument()
     expect(screen.getAllByText('Provider timeout').length).toBeGreaterThan(0)
   })
 
@@ -75,7 +75,7 @@ describe('JobDetailView', () => {
       detailPath: '/admin/jobs/manual-job',
       queued: true,
       dispatchStatus: 'dispatched',
-      message: '已排入佇列',
+      message: 'Rerun job created for failed or unfinished brands, dispatching now.',
     })
     const user = userEvent.setup()
     render(<JobDetailView detail={detail()} selectedStatus="failed" />)
@@ -91,7 +91,7 @@ describe('JobDetailView', () => {
 
     expect(screen.queryByText('台北工坊')).not.toBeInTheDocument()
     expect(screen.getByText('成功品牌')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '失敗' })).toHaveAttribute('href', '/admin/jobs/job-1?status=failed')
+    expect(screen.getByRole('link', { name: 'Failed' })).toHaveAttribute('href', '/admin/jobs/job-1?status=failed')
   })
 })
 

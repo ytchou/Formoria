@@ -58,11 +58,11 @@ const MIT_STATUS_CONFIG: Record<
   { label: string; className: string }
 > = {
   unverified: {
-    label: "MIT 未驗證",
+    label: "MIT Unverified",
     className: "bg-secondary text-muted-foreground",
   },
   verified: {
-    label: "MIT 微笑認證",
+    label: "MIT Smile Certified",
     className: "bg-verified-green-bg text-verified-green",
   },
 };
@@ -163,7 +163,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
           result.dispatchStatus === "failed" ? toast.error : toast.info;
         notify(result.message, {
           action: {
-            label: "查看工作",
+            label: "View job",
             onClick: () => router.push(result.detailPath),
           },
         });
@@ -187,12 +187,12 @@ export function BrandList({ brands }: { brands: Brand[] }) {
         onValueChange={(v) => setActiveTab(v as TabValue)}
       >
         <TabsList>
-          <TabsTrigger value="all">全部 ({brands.length})</TabsTrigger>
+          <TabsTrigger value="all">All ({brands.length})</TabsTrigger>
           <TabsTrigger value="approved">
-            已上架 ({brands.filter((b) => b.status === "approved").length})
+            Live ({brands.filter((b) => b.status === "approved").length})
           </TabsTrigger>
           <TabsTrigger value="hidden">
-            已隱藏 ({brands.filter((b) => b.status === "hidden").length})
+            Hidden ({brands.filter((b) => b.status === "hidden").length})
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -201,7 +201,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Input
-          placeholder="搜尋品牌名稱..."
+          placeholder="Search brand name..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="h-8 w-56 text-sm"
@@ -211,16 +211,16 @@ export function BrandList({ brands }: { brands: Brand[] }) {
           onChange={(e) => setMitFilter(e.target.value as typeof mitFilter)}
           className="h-8 w-fit"
         >
-          <option value="all">全部 MIT 狀態</option>
-          <option value="unverified">MIT 未驗證</option>
-          <option value="verified">MIT 微笑認證</option>
+          <option value="all">All MIT status</option>
+          <option value="unverified">MIT Unverified</option>
+          <option value="verified">MIT Smile Certified</option>
         </NativeSelect>
         <NativeSelect
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
           className="h-8 w-fit"
         >
-          <option value="all">全部分類</option>
+          <option value="all">All categories</option>
           {categories.map((cat) => (
             <option key={cat} value={cat}>
               {cat}
@@ -238,12 +238,12 @@ export function BrandList({ brands }: { brands: Brand[] }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>品牌</TableHead>
-              <TableHead>狀態</TableHead>
+              <TableHead>Brand</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>MIT</TableHead>
-              <TableHead>分類</TableHead>
-              <TableHead>建立日期</TableHead>
-              <TableHead className="min-w-[300px] text-right">操作</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead className="min-w-[300px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -286,7 +286,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                         size="compact"
                         onClick={() => setEditingBrand(brand)}
                       >
-                        編輯
+                        Edit
                       </Button>
                       <Link
                         href={`/${routing.defaultLocale}/dashboard/brands/${brand.slug}`}
@@ -295,7 +295,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                           size: "compact",
                         })}
                       >
-                        在 Dashboard 查看
+                        View in Dashboard
                       </Link>
                       {brand.status === "approved" && (
                         <Button
@@ -304,7 +304,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                           onClick={() => handleHide(brand)}
                           disabled={isPending}
                         >
-                          隱藏
+                          Hide
                         </Button>
                       )}
                       {brand.status === "hidden" && (
@@ -314,7 +314,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                           onClick={() => handleUnhide(brand)}
                           disabled={isPending}
                         >
-                          取消隱藏
+                          Unhide
                         </Button>
                       )}
                       <DropdownMenu>
@@ -356,7 +356,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                         className="text-destructive hover:text-destructive"
                         onClick={() => setDeletingBrand(brand)}
                       >
-                        刪除
+                        Delete
                       </Button>
                     </div>
                   </TableCell>
@@ -369,7 +369,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                   colSpan={6}
                   className="py-8 text-center text-muted-foreground"
                 >
-                  找不到品牌。
+                  No brands found.
                 </TableCell>
               </TableRow>
             )}
@@ -391,10 +391,10 @@ export function BrandList({ brands }: { brands: Brand[] }) {
         onOpenChange={(open) => {
           if (!open) setDeletingBrand(null);
         }}
-        title="刪除品牌"
-        description="此操作無法撤銷。品牌及其所有關聯資料將被永久刪除。"
+        title="Delete brand"
+        description="This action cannot be undone. The brand and all associated data will be permanently deleted."
         onConfirm={handleDelete}
-        confirmLabel="刪除"
+        confirmLabel="Delete"
         variant="destructive"
         confirmText={deletingBrand?.name}
         isPending={isPending}

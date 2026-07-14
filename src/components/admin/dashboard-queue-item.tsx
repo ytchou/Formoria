@@ -22,9 +22,9 @@ const riskClassNames = {
 } satisfies Record<NonNullable<DashboardQueueItemProps['riskLevel']>, string>
 
 const riskLabels = {
-  high: '高風險',
-  medium: '中風險',
-  clean: '通過',
+  high: 'High risk',
+  medium: 'Medium risk',
+  clean: 'Clean',
 } as const
 
 export function DashboardQueueItem({
@@ -61,7 +61,7 @@ export function DashboardQueueItem({
         }}
         disabled={isDisabled}
       >
-        核准
+        Approve
       </Button>
     </div>
   )

@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import { PendingEditsList } from './pending-edits-list'
 import type { PendingBrandEditWithBrand } from '@/lib/types/brand'
-import messages from '../../../messages/zh-TW.json'
+import messages from '../../../messages/en.json'
 
 vi.mock('@/app/admin/actions', () => ({
   approvePendingEditAction: vi.fn().mockResolvedValue(undefined),
@@ -61,27 +61,27 @@ function makeEdit(
 describe('PendingEditsList moderation risk badges', () => {
   it('renders a high risk badge', () => {
     render(
-      <NextIntlClientProvider locale="zh-TW" messages={messages}>
+      <NextIntlClientProvider locale="en" messages={messages}>
         <PendingEditsList edits={[makeEdit({ moderationRiskLevel: 'high' })]} />
       </NextIntlClientProvider>,
     )
-    expect(screen.getByText('高風險')).toBeInTheDocument()
+    expect(screen.getByText('High risk')).toBeInTheDocument()
   })
 
   it('renders a medium risk badge', () => {
     render(
-      <NextIntlClientProvider locale="zh-TW" messages={messages}>
+      <NextIntlClientProvider locale="en" messages={messages}>
         <PendingEditsList
           edits={[makeEdit({ moderationRiskLevel: 'medium' })]}
         />
       </NextIntlClientProvider>,
     )
-    expect(screen.getByText('中風險')).toBeInTheDocument()
+    expect(screen.getByText('Medium risk')).toBeInTheDocument()
   })
 
   it('does not render a risk badge for clean or absent risk', () => {
     render(
-      <NextIntlClientProvider locale="zh-TW" messages={messages}>
+      <NextIntlClientProvider locale="en" messages={messages}>
         <PendingEditsList
           edits={[
             makeEdit({ id: 'clean-edit', moderationRiskLevel: 'clean' }),
@@ -91,7 +91,7 @@ describe('PendingEditsList moderation risk badges', () => {
       </NextIntlClientProvider>,
     )
 
-    expect(screen.queryByText('高風險')).not.toBeInTheDocument()
-    expect(screen.queryByText('中風險')).not.toBeInTheDocument()
+    expect(screen.queryByText('High risk')).not.toBeInTheDocument()
+    expect(screen.queryByText('Medium risk')).not.toBeInTheDocument()
   })
 })

@@ -1763,6 +1763,64 @@
     }
   },
   "admin": {
+    "layout": {
+      "title": "Admin",
+      "nav": {
+        "overview": "Overview",
+        "submissions": "Brand Submissions",
+        "jobs": "Data Jobs",
+        "moderation": "Content Moderation",
+        "edits": "Brand Edits",
+        "claims": "Claim Requests",
+        "reports": "Reports",
+        "feedback": "Feedback",
+        "brands": "Brand Catalog",
+        "quality": "Quality Dashboard"
+      }
+    },
+    "dashboard": {
+      "description": "Review queues, brand data, and categorization status requiring action.",
+      "reviewQueues": "Review Queues",
+      "reviewQueuesSub": "Sorted by current pending count.",
+      "newSubmissions": "New Brand Submissions",
+      "newSubmissionsSub": "Data enrichment must be complete before manual review.",
+      "overview": "Overview",
+      "overviewSub": "Quick metrics on site data and governance scope.",
+      "newsletterSection": "Newsletter Subscribers",
+      "newsletterSectionSub": "Email capture list and subscription confirmation status.",
+      "stages": {
+        "needsData": "Needs Data Work",
+        "readyToReview": "Ready for Review",
+        "emptyNeedsData": "No pending data work.",
+        "emptyReadyToReview": "No brand submissions ready to approve."
+      },
+      "stats": {
+        "totalBrandsLabel": "Total Brands",
+        "totalBrandsDesc": "Brand records in the database",
+        "flaggedContentLabel": "Pending Content Flags",
+        "flaggedContentDesc": "Flags in the content review queue"
+      },
+      "queues": {
+        "edits": {
+          "title": "Brand Edits",
+          "empty": "No pending brand edits."
+        },
+        "claims": {
+          "title": "Brand Claims",
+          "empty": "No pending brand claims."
+        },
+        "reports": {
+          "title": "Brand Reports",
+          "empty": "No pending brand reports."
+        },
+        "feedback": {
+          "title": "User Feedback",
+          "empty": "No pending user feedback."
+        }
+      },
+      "noDate": "No date",
+      "unnamedFeedback": "Unnamed feedback"
+    },
     "pendingEdits": {
       "title": "Brand Edit Review",
       "submittedForReview": "Your edit has been submitted for review",
@@ -1817,8 +1875,108 @@
         "insufficient_info": "Insufficient Information",
         "duplicate": "Duplicate Submission",
         "policy_violation": "Policy Violation",
+        "admin_reject": "Admin Rejected",
         "other": "Other"
-      }
+      },
+      "title": "Brand Submissions",
+      "description": "Complete data enrichment before manual approval or rejection.",
+      "noSubmitter": "Not provided",
+      "viewJob": "View job",
+      "notFound": "No submissions found.",
+      "confirmBulkApprove": "Approve {count} selected submissions?",
+      "confirmReject": "Reject this submission?",
+      "fetching": "Fetching...",
+      "fetchData": "Fetch Data",
+      "approve": "Approve",
+      "reject": "Reject",
+      "confirmRejectButton": "Confirm Reject",
+      "selectedCount": "{count} selected",
+      "confirmBulkReject": "Confirm Bulk Reject",
+      "bulkRejectReason": "Bulk Rejection Reason",
+      "selectReason": "Select rejection reason",
+      "tabs": {
+        "needsData": "Needs Data",
+        "enriching": "Enriching",
+        "ready": "Ready for Review",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "all": "All"
+      },
+      "intentFilter": {
+        "ariaLabel": "Filter by submission intent",
+        "all": "All Submissions",
+        "recommend": "Community Submissions",
+        "ownerClaim": "Owner Submissions"
+      },
+      "table": {
+        "brand": "Brand",
+        "category": "Category",
+        "images": "Images",
+        "source": "Source",
+        "status": "Status",
+        "enrichment": "Enrichment",
+        "submitter": "Submitter",
+        "date": "Date",
+        "actions": "Actions"
+      },
+      "enrichmentStatus": {
+        "queued": "Queued",
+        "running": "Running",
+        "failed": "Failed",
+        "skipped": "Skipped",
+        "complete": "Complete",
+        "partial": "Partial",
+        "none": "Pending"
+      },
+      "intent": {
+        "ownerClaim": "Owner Submission",
+        "recommend": "Community Submission"
+      },
+      "sourceAttribution": {
+        "question": "How do you know this brand?",
+        "bought_product": "Bought their products",
+        "saw_at_market": "Saw at a market or event",
+        "found_online": "Found online",
+        "friend_recommended": "Recommended by a friend",
+        "work_there": "Work there or know the team"
+      },
+      "fields": {
+        "description": "Brand Description",
+        "productType": "Product Type",
+        "purchaseLinks": "Purchase Links",
+        "socialLinks": "Social Links",
+        "heroImages": "Hero / Product Images",
+        "noImages": "No images",
+        "label": "Label",
+        "url": "URL",
+        "remove": "Remove",
+        "addLink": "Add link",
+        "mainImage": "Main image"
+      },
+      "placeholders": {
+        "description": "Brand description",
+        "selectProductType": "Select product type",
+        "officialWebsite": "Official website URL",
+        "pinkoiLink": "Pinkoi URL",
+        "shopeeLink": "Shopee URL",
+        "instagramLink": "Instagram URL",
+        "threadsLink": "Threads URL",
+        "facebookLink": "Facebook URL",
+        "notesRequired": "Additional notes (required)",
+        "notesOptional": "Additional notes (optional)"
+      },
+      "rejectReasonLabel": "Rejection Reason",
+      "rejectReasonAriaLabel": "Rejection reason",
+      "bulkRejectAriaLabel": "Bulk rejection reason",
+      "errors": {
+        "selectReason": "Please select a rejection reason",
+        "enterNotes": "Please enter additional notes"
+      },
+      "claimNote": "After approval, a brand claim invitation will be sent to the submitter; subsequent proof review will be handled in the claim requests queue.",
+      "categoryGap": "Category Gap",
+      "suggestedTags": "Suggested Tags",
+      "approvalRequired": "Complete enrichment required before approval.",
+      "notSet": "Not set"
     }
   },
   "saveBrand": {

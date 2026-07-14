@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdminAction } from "@/lib/auth/require-admin";
+import { createServiceClient } from "@/lib/supabase/server";
 import {
   enqueueAdminCurationJob,
   enqueueManualRerun,
@@ -50,9 +51,9 @@ export async function startCurationJobAction(
       startedBy: auth.user.email ?? auth.user.id,
     });
     revalidatePath("/admin/jobs");
-    revalidatePath("/admin/review-queue/submissions");
+    revalidatePath("/admin/submissions");
 
-    return dispatchQueuedJob(job.id, "資料抓取工作已建立，正在立即執行。");
+    return dispatchQueuedJob(job.id, "Data job created and dispatching now.");
   } catch (error) {
     console.error("[admin:startCurationJobAction]", error);
     return {
@@ -78,7 +79,7 @@ export async function rerunCurationJobAction(
 
     return dispatchQueuedJob(
       job.id,
-      "失敗或未完成的品牌已建立重跑工作，正在立即執行。",
+      "Rerun job created for failed or unfinished brands, dispatching now.",
     );
   } catch (error) {
     console.error("[admin:rerunCurationJobAction]", error);
@@ -134,7 +135,7 @@ export async function dispatchCurationJobAction(
       return { error: "Only queued jobs can be dispatched" };
     }
 
-    const result = await dispatchQueuedJob(job.id, "資料工作已接受立即執行要求。");
+    const result = await dispatchQueuedJob(job.id, "Job dispatch request accepted.");
     revalidatePath("/admin/jobs");
     revalidatePath(`/admin/jobs/${jobId}`);
     return result;
@@ -160,12 +161,48 @@ export async function retryCurationDispatchAction(
     }
 
     await markCurationJobDispatchPending(job.id);
-    const result = await dispatchQueuedJob(job.id, "資料工作派送已重試。");
+    const result = await dispatchQueuedJob(job.id, "Job dispatch retry initiated.");
     revalidatePath("/admin/jobs");
     revalidatePath(`/admin/jobs/${jobId}`);
     return result;
   } catch (error) {
     console.error("[admin:retryCurationDispatchAction]", error);
+    return {
+      error:
+        error instanceof Error ? error.message : "An unexpected error occurred",
+    };
+  }
+}
+
+export async function dismissCurationJobAction(
+  jobId: string,
+): Promise<{ dismissed: true } | { error: string }> {
+  try {
+    const auth = await requireAdminAction();
+    if ("error" in auth) return auth;
+
+    const job = await getCurationJob(jobId);
+    if (job.status !== "pending") {
+      return { error: "Only pending jobs can be dismissed" };
+    }
+
+    const supabase = createServiceClient();
+    const { error } = await supabase
+      .from("curation_jobs")
+      .update({
+        status: "cancelled" as string,
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", jobId)
+      .eq("status", "pending");
+
+    if (error) throw error;
+
+    revalidatePath("/admin/jobs");
+    revalidatePath(`/admin/jobs/${jobId}`);
+    return { dismissed: true };
+  } catch (error) {
+    console.error("[admin:dismissCurationJobAction]", error);
     return {
       error:
         error instanceof Error ? error.message : "An unexpected error occurred",
@@ -218,7 +255,7 @@ async function dispatchQueuedJob(
 
     return queuedJobResult(
       jobId,
-      `${successMessage} 但派送失敗：${message} 請在資料工作中重試派送。`,
+      `${successMessage} Dispatch failed: ${message} Retry dispatch from the jobs page.`,
       "failed",
     );
   }

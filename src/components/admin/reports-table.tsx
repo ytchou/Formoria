@@ -20,11 +20,11 @@ interface ReportsTableProps {
 }
 
 const REASON_LABELS: Record<ReportReason, string> = {
-  not_mit: '非台灣製造',
-  incorrect_info: '資訊有誤',
-  broken_link: '連結失效',
-  inappropriate: '不當內容',
-  removal_request: '要求移除',
+  not_mit: 'Not Made in Taiwan',
+  incorrect_info: 'Incorrect information',
+  broken_link: 'Broken link',
+  inappropriate: 'Inappropriate content',
+  removal_request: 'Removal request',
 }
 
 export function ReportsTable({ reports }: ReportsTableProps) {
@@ -54,17 +54,17 @@ export function ReportsTable({ reports }: ReportsTableProps) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>品牌</TableHead>
-            <TableHead>原因</TableHead>
-            <TableHead>日期</TableHead>
-            <TableHead>狀態</TableHead>
+            <TableHead>Brand</TableHead>
+            <TableHead>Reason</TableHead>
+            <TableHead>Date</TableHead>
+            <TableHead>Status</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {reports.length === 0 ? (
             <TableRow>
               <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
-                目前沒有待處理的檢舉。
+                No pending reports.
               </TableCell>
             </TableRow>
           ) : (
@@ -87,7 +87,7 @@ export function ReportsTable({ reports }: ReportsTableProps) {
                   <TableCell>{formatDate(r.createdAt)}</TableCell>
                   <TableCell>
                     <span className="inline-flex items-center rounded-full bg-background px-2 py-0.5 type-label text-cta border border-cta">
-                      待處理
+                      Pending
                     </span>
                   </TableCell>
                 </TableRow>
@@ -99,7 +99,7 @@ export function ReportsTable({ reports }: ReportsTableProps) {
                         {r.notes && (
                           <div>
                             <p className="type-metadata">
-                              補充說明
+                              Additional notes
                             </p>
                             <p className="mt-1 text-sm">
                               {r.notes}
@@ -115,7 +115,7 @@ export function ReportsTable({ reports }: ReportsTableProps) {
                             }}
                             disabled={isPending}
                           >
-                            審核
+                            Mark reviewed
                           </Button>
                           <Button
                             variant="destructive"
@@ -125,7 +125,7 @@ export function ReportsTable({ reports }: ReportsTableProps) {
                             }}
                             disabled={isPending}
                           >
-                            忽略
+                            Dismiss
                           </Button>
                         </div>
                       </div>

@@ -9,7 +9,7 @@ import type {
 } from "@/lib/services/curation-jobs";
 import { JobHistoryList } from "./job-history-list";
 
-export const metadata: Metadata = { title: "資料工作 | 管理後台" };
+export const metadata: Metadata = { title: "Data Jobs | Admin" };
 export const revalidate = 0;
 
 const validViews = new Set<CurationJobView>(["attention", "active", "history"]);
@@ -32,7 +32,7 @@ export default async function JobsPage({
   if ("error" in result || "error" in countsResult) {
     return (
       <div className="space-y-4">
-        <h1 className="type-section-title-large">資料工作</h1>
+        <h1 className="type-section-title-large">Data Jobs</h1>
         <p className="type-error">
           {"error" in result ? result.error : countsResult.error}
         </p>
@@ -45,9 +45,9 @@ export default async function JobsPage({
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="type-section-title-large">資料工作</h1>
+        <h1 className="type-section-title-large">Data Jobs</h1>
         <p className="mt-1 type-card-description">
-          追蹤資料充實工作的派送、執行進度與結果。
+          Track data enrichment job dispatch, execution progress, and results.
         </p>
       </div>
       <JobHistoryList

@@ -86,7 +86,7 @@ describe("curation server actions", () => {
       queued: true,
       dispatchStatus: "dispatched",
       message:
-        "資料抓取工作已建立，正在立即執行。",
+        "Data job created and dispatching now.",
     });
     expect(revalidatePath).toHaveBeenCalledWith("/admin/jobs");
   });
@@ -137,7 +137,7 @@ describe("curation server actions", () => {
       queued: true,
       dispatchStatus: "dispatched",
       message:
-        "失敗或未完成的品牌已建立重跑工作，正在立即執行。",
+        "Rerun job created for failed or unfinished brands, dispatching now.",
     });
     expect(revalidatePath).toHaveBeenCalledWith("/admin/jobs/job-1");
   });

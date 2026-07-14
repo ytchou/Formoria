@@ -29,20 +29,20 @@ describe('ReportsTable', () => {
     expect(screen.getByText('Test Brand')).toBeInTheDocument()
   })
 
-  it('renders the reason in Chinese', () => {
+  it('renders the reason label', () => {
     render(<ReportsTable reports={mockReports} />)
-    expect(screen.getByText('非台灣製造')).toBeInTheDocument()
+    expect(screen.getByText('Not Made in Taiwan')).toBeInTheDocument()
   })
 
   it('renders Review and Dismiss buttons after expanding row', () => {
     render(<ReportsTable reports={mockReports} />)
-    fireEvent.click(screen.getByText('非台灣製造'))
-    expect(screen.getByRole('button', { name: /審核/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /忽略/i })).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Not Made in Taiwan'))
+    expect(screen.getByRole('button', { name: /Review/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Dismiss/i })).toBeInTheDocument()
   })
 
   it('renders empty state when no reports', () => {
     render(<ReportsTable reports={[]} />)
-    expect(screen.getByText(/沒有待處理/i)).toBeInTheDocument()
+    expect(screen.getByText(/No pending reports/i)).toBeInTheDocument()
   })
 })
