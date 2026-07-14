@@ -573,7 +573,7 @@ async function resolvePendingSubmissionTargets(): Promise<EnqueueTarget[]> {
     .from("brand_submissions")
     .select("id, brand_name, hero_image_url, enriched_data, brand_id")
     .eq("status", "pending")
-    .order("created_at", { ascending: true });
+    .order("submitted_at", { ascending: true });
 
   if (error) throw error;
 
