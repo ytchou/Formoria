@@ -14,13 +14,13 @@ export function computeDiffFields(
   proposedData: Record<string, unknown>,
 ): DiffField[] {
   const FIELD_LABELS: Record<string, string> = {
-    name: '品牌名稱',
-    description: '品牌描述',
-    heroImageUrl: '封面圖片',
-    category: '類別',
-    contactEmail: '聯絡信箱',
-    foundingYear: '創立年份',
-    mitStory: 'MIT 故事',
+    name: 'Brand name',
+    description: 'Brand description',
+    heroImageUrl: 'Cover image',
+    category: 'Category',
+    contactEmail: 'Contact email',
+    foundingYear: 'Founding year',
+    mitStory: 'MIT story',
   }
 
   const IMAGE_FIELDS = new Set(['heroImageUrl'])
@@ -79,13 +79,13 @@ export function EditDiffView({ fields }: { fields: DiffField[] }) {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="rounded-lg bg-secondary px-3 py-2 text-center type-label">
-          目前版本
+          Current version
         </div>
         <div
           className="rounded-lg px-3 py-2 text-center type-label"
           style={{ background: 'var(--verified-green-bg)' }}
         >
-          提案修改
+          Proposed change
         </div>
       </div>
 

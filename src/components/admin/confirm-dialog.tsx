@@ -66,13 +66,13 @@ export function ConfirmDialog({
         )}
 
         <AlertDialogFooter>
-          <AlertDialogCancel>取消</AlertDialogCancel>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
           <Button
             variant={variant}
             onClick={onConfirm}
             disabled={isConfirmDisabled}
           >
-            {isPending ? '處理中…' : confirmLabel}
+            {isPending ? 'Processing…' : confirmLabel}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

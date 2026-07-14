@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import {
   approveClaimAction,
   approvePendingEditAction,
@@ -43,7 +44,7 @@ type ReviewQueue = {
 };
 
 function formatQueueDate(value: string | null | undefined): string {
-  if (!value) return "未記錄";
+  if (!value) return "No date";
   return value.slice(0, 10);
 }
 
@@ -79,6 +80,7 @@ export default async function AdminPage() {
     brandResult,
     healthResults,
     newsletterData,
+    t,
   ] = await Promise.all([
     getSubmissionsForReview().catch(() => []),
     getPendingEdits("pending", { limit: 5 }).catch(() => []),
@@ -95,6 +97,7 @@ export default async function AdminPage() {
     })),
     checkAllServices().catch((): ServiceHealthResult[] => []),
     getNewsletterDashboardData(),
+    getTranslations("admin.dashboard"),
   ]);
 
   const flaggedContent = flaggedContentResult.items;
@@ -119,10 +122,10 @@ export default async function AdminPage() {
   const queues: ReviewQueue[] = [
     {
       key: "edits",
-      title: "品牌編輯",
+      title: t("queues.edits.title"),
       count: pendingEdits.length,
-      href: "/admin/review-queue/edits",
-      emptyMessage: "目前沒有待審核的品牌編輯。",
+      href: "/admin/edits",
+      emptyMessage: t("queues.edits.empty"),
       items: pendingEdits.map((edit) => ({
         id: edit.id,
         label: edit.brand.name || edit.brandId,
@@ -133,10 +136,10 @@ export default async function AdminPage() {
     },
     {
       key: "claims",
-      title: "品牌認領",
+      title: t("queues.claims.title"),
       count: claimRequests.length,
       href: "/admin/claims",
-      emptyMessage: "目前沒有待審核的品牌認領。",
+      emptyMessage: t("queues.claims.empty"),
       items: claimRequests.map((claim) => ({
         id: claim.id,
         label: claim.brandName ?? claim.brandId,
@@ -147,10 +150,10 @@ export default async function AdminPage() {
     },
     {
       key: "reports",
-      title: "品牌檢舉",
+      title: t("queues.reports.title"),
       count: reports.length,
-      href: "/admin/signals/reports",
-      emptyMessage: "目前沒有待審核的品牌檢舉。",
+      href: "/admin/reports",
+      emptyMessage: t("queues.reports.empty"),
       items: reports.map((report) => ({
         id: report.id,
         label: report.brandName ?? report.brandId,
@@ -162,13 +165,13 @@ export default async function AdminPage() {
     },
     {
       key: "feedback",
-      title: "使用者回饋",
+      title: t("queues.feedback.title"),
       count: feedbackItems.length,
-      href: "/admin/signals/feedback",
-      emptyMessage: "目前沒有待處理的使用者回饋。",
+      href: "/admin/feedback",
+      emptyMessage: t("queues.feedback.empty"),
       items: feedbackItems.map((feedback) => ({
         id: feedback.id,
-        label: feedback.title ?? feedback.body ?? "未命名回饋",
+        label: feedback.title ?? feedback.body ?? t("unnamedFeedback"),
         sublabel: feedback.userEmail ?? feedback.source,
         date: formatQueueDate(feedback.createdAt),
         action: reviewFeedbackAction.bind(null, feedback.id, "reviewed"),
@@ -178,14 +181,14 @@ export default async function AdminPage() {
 
   const overviewStats = [
     {
-      label: "品牌總數",
+      label: t("stats.totalBrandsLabel"),
       value: brandResult.totalCount,
-      description: "資料庫中的品牌筆數",
+      description: t("stats.totalBrandsDesc"),
     },
     {
-      label: "待審核內容警示",
+      label: t("stats.flaggedContentLabel"),
       value: flaggedContent.length,
-      description: "內容審查佇列中的旗標",
+      description: t("stats.flaggedContentDesc"),
     },
   ];
 
@@ -193,7 +196,7 @@ export default async function AdminPage() {
     <div className="space-y-8">
       <div>
         <p className="text-warm-caption">
-          檢視需要處理的審核佇列、品牌資料與分類狀態。
+          {t("description")}
         </p>
       </div>
 
@@ -203,9 +206,9 @@ export default async function AdminPage() {
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
             <h2 id="review-queues" className="type-section-title-large">
-              審核佇列
+              {t("reviewQueues")}
             </h2>
-            <p className="mt-1 type-card-description">依目前待處理數量排序。</p>
+            <p className="mt-1 type-card-description">{t("reviewQueuesSub")}</p>
           </div>
         </div>
 
@@ -237,25 +240,25 @@ export default async function AdminPage() {
       <section aria-labelledby="submission-stages">
         <div className="mb-4">
           <h2 id="submission-stages" className="type-section-title-large">
-            新品牌提交
+            {t("newSubmissions")}
           </h2>
           <p className="mt-1 type-card-description">
-            資料充實完成後，才會進入人工審核。
+            {t("newSubmissionsSub")}
           </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <QueueSummaryCard
-            title="待資料處理"
+            title={t("stages.needsData")}
             count={dataWorkSubmissions.length}
-            href="/admin/review-queue/submissions?stage=needs_data"
-            emptyMessage="目前沒有待處理的資料工作。"
+            href="/admin/submissions?stage=needs_data"
+            emptyMessage={t("stages.emptyNeedsData")}
           />
           <QueueSummaryCard
-            title="待人工審核"
+            title={t("stages.readyToReview")}
             count={readySubmissions.length}
-            href="/admin/review-queue/submissions?stage=ready"
-            emptyMessage="目前沒有可核准的新品牌提交。"
+            href="/admin/submissions?stage=ready"
+            emptyMessage={t("stages.emptyReadyToReview")}
           />
         </div>
       </section>
@@ -263,10 +266,10 @@ export default async function AdminPage() {
       <section aria-labelledby="overview">
         <div className="mb-4">
           <h2 id="overview" className="type-section-title-large">
-            總覽
+            {t("overview")}
           </h2>
           <p className="mt-1 type-card-description">
-            站台資料與治理範圍的快速指標。
+            {t("overviewSub")}
           </p>
         </div>
 
@@ -286,10 +289,10 @@ export default async function AdminPage() {
       <section aria-labelledby="newsletter-subscribers">
         <div className="mb-4">
           <h2 id="newsletter-subscribers" className="type-section-title-large">
-            Newsletter Subscribers
+            {t("newsletterSection")}
           </h2>
           <p className="mt-1 type-card-description">
-            Email capture list and subscription confirmation status.
+            {t("newsletterSectionSub")}
           </p>
         </div>
 

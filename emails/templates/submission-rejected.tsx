@@ -43,6 +43,10 @@ const DENIAL_GUIDANCE: Record<DenialReason, { en: string; zh: string }> = {
     en: "This submission doesn't meet our community guidelines.",
     zh: '此提交內容不符合我們的社群規範。',
   },
+  admin_reject: {
+    en: 'This submission was not approved after admin review.',
+    zh: '此提交經管理員審核後未通過。',
+  },
   other: {
     en: 'Please see the reviewer notes below for details.',
     zh: '請參閱下方審核意見以了解詳細資訊。',
@@ -65,6 +69,10 @@ const DENIAL_REASON_LABELS: Record<DenialReason, { en: string; zh: string }> = {
   policy_violation: {
     en: 'Policy Violation',
     zh: '違反政策',
+  },
+  admin_reject: {
+    en: 'Admin Rejected',
+    zh: '管理員拒絕',
   },
   other: {
     en: 'Other',

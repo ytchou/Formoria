@@ -42,7 +42,7 @@ export function QueueSummaryCard({
             count === 0 && 'mt-0'
           )}
         >
-          查看全部 →
+          View all →
         </Link>
       </div>
     </SurfaceCard>

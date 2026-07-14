@@ -6,15 +6,15 @@ type StatusConfig = { label: string; className: string }
 
 const submissionStatusConfig: Record<SubmissionStatus, StatusConfig> = {
   pending: {
-    label: '待審核',
+    label: 'Pending',
     className: 'bg-muted text-muted-foreground',
   },
   approved: {
-    label: '已核准',
+    label: 'Approved',
     className: 'bg-verified-green-bg text-verified-green',
   },
   rejected: {
-    label: '已拒絕',
+    label: 'Rejected',
     className: 'bg-cta/10 text-destructive',
   },
 }
@@ -22,7 +22,7 @@ const submissionStatusConfig: Record<SubmissionStatus, StatusConfig> = {
 const brandStatusConfig: Record<BrandStatus, StatusConfig> = {
   approved: submissionStatusConfig.approved,
   hidden: {
-    label: '已隱藏',
+    label: 'Hidden',
     className: 'bg-muted text-muted-foreground',
   },
   pending_enrichment: {

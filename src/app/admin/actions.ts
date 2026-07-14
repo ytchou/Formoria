@@ -126,7 +126,7 @@ export async function approveSubmissionAction(
       }))
     }
 
-    revalidatePath('/admin/review-queue/submissions')
+    revalidatePath('/admin/submissions')
     revalidatePath('/admin')
     revalidatePath('/')
     revalidatePath('/brands')
@@ -169,7 +169,7 @@ export async function rejectSubmissionAction(
       }))
     }
 
-    revalidatePath('/admin/review-queue/submissions')
+    revalidatePath('/admin/submissions')
     revalidatePath('/admin')
     revalidatePath('/')
     revalidatePath('/brands')
@@ -316,7 +316,7 @@ export async function approvePendingEditAction(
       console.error('[edit-approved-email] send failed', err)
     }
 
-    revalidatePath('/admin/review-queue/edits')
+    revalidatePath('/admin/edits')
     revalidatePath('/admin')
     revalidatePath('/[locale]', 'page')
     revalidatePath('/[locale]/brands', 'page')
@@ -356,7 +356,7 @@ export async function rejectPendingEditAction(
       console.error('[edit-rejected-email] send failed', err)
     }
 
-    revalidatePath('/admin/review-queue/edits')
+    revalidatePath('/admin/edits')
     revalidatePath('/admin')
     revalidatePath('/[locale]', 'page')
     revalidatePath('/[locale]/brands', 'page')
@@ -433,7 +433,7 @@ export async function updateBrandAction(
       }
     }
 
-    revalidatePath('/admin/catalog/brands')
+    revalidatePath('/admin/brands')
     revalidatePath('/admin')
     revalidatePath('/')
     revalidatePath('/brands')
@@ -455,7 +455,7 @@ export async function hideBrandAction(
 
     await updateBrand(brandId, { status: 'hidden' })
 
-    revalidatePath('/admin/catalog/brands')
+    revalidatePath('/admin/brands')
     revalidatePath('/admin')
     revalidatePath('/')
     revalidatePath('/brands')
@@ -477,7 +477,7 @@ export async function unhideBrandAction(
 
     await updateBrand(brandId, { status: 'approved' })
 
-    revalidatePath('/admin/catalog/brands')
+    revalidatePath('/admin/brands')
     revalidatePath('/admin')
     revalidatePath('/')
     revalidatePath('/brands')
@@ -499,7 +499,7 @@ export async function deleteBrandAction(
 
     await deleteBrand(brandId)
 
-    revalidatePath('/admin/catalog/brands')
+    revalidatePath('/admin/brands')
     revalidatePath('/admin')
     revalidatePath('/')
     revalidatePath('/brands')
@@ -522,7 +522,7 @@ export async function reviewReportAction(
 
     await updateReportStatus(reportId, decision)
 
-    revalidatePath('/admin/signals/reports')
+    revalidatePath('/admin/reports')
     revalidatePath('/admin')
     return undefined
   } catch (err) {
@@ -542,7 +542,7 @@ export async function reviewFeedbackAction(
     if ('error' in auth) return auth
 
     await updateFeedbackStatus(feedbackId, decision)
-    revalidatePath('/admin/signals/feedback')
+    revalidatePath('/admin/feedback')
     revalidatePath('/admin')
     return undefined
   } catch (err) {
@@ -559,7 +559,7 @@ export async function syncSentryFeedbackAction(): Promise<
     if ('error' in auth) return { error: auth.error }
 
     const { synced } = await syncSentryFeedback()
-    revalidatePath('/admin/signals/feedback')
+    revalidatePath('/admin/feedback')
     revalidatePath('/admin')
     return { synced }
   } catch (err) {

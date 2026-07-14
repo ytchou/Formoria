@@ -47,8 +47,8 @@ export function DispatchJobButton({
     <Button
       onClick={handleDispatch}
       disabled={isPending}
-      size="large"
-      className="min-h-12"
+      size="chip"
+      variant="secondary"
     >
       {isRetry ? <RotateCcw aria-hidden="true" /> : <Play aria-hidden="true" />}
       {isPending ? "Dispatching…" : label}

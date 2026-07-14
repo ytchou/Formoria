@@ -6,34 +6,34 @@ import { QueueSummaryCard } from '../queue-summary-card'
 describe('QueueSummaryCard', () => {
   it('renders title and count', () => {
     render(
-      <QueueSummaryCard title="待審核提交" count={3} href="/admin/review-queue/submissions" emptyMessage="沒有待審核的提交">
+      <QueueSummaryCard title="Pending Submissions" count={3} href="/admin/submissions" emptyMessage="No pending submissions">
         <div>item content</div>
       </QueueSummaryCard>
     )
-    expect(screen.getByText('待審核提交')).toBeInTheDocument()
+    expect(screen.getByText('Pending Submissions')).toBeInTheDocument()
     expect(screen.getByText('3')).toBeInTheDocument()
   })
 
   it('renders View all link with correct href', () => {
     render(
-      <QueueSummaryCard title="待審核提交" count={3} href="/admin/review-queue/submissions" emptyMessage="沒有待審核的提交">
+      <QueueSummaryCard title="Pending Submissions" count={3} href="/admin/submissions" emptyMessage="No pending submissions">
         <div>item</div>
       </QueueSummaryCard>
     )
-    const link = screen.getByRole('link', { name: /查看全部|View all/i })
-    expect(link).toHaveAttribute('href', '/admin/review-queue/submissions')
+    const link = screen.getByRole('link', { name: 'View all →' })
+    expect(link).toHaveAttribute('href', '/admin/submissions')
   })
 
   it('shows empty message when count is 0', () => {
     render(
-      <QueueSummaryCard title="待審核提交" count={0} href="/admin/review-queue/submissions" emptyMessage="沒有待審核的提交" />
+      <QueueSummaryCard title="Pending Submissions" count={0} href="/admin/submissions" emptyMessage="No pending submissions" />
     )
-    expect(screen.getByText('沒有待審核的提交')).toBeInTheDocument()
+    expect(screen.getByText('No pending submissions')).toBeInTheDocument()
   })
 
   it('renders children when count > 0', () => {
     render(
-      <QueueSummaryCard title="待審核提交" count={2} href="/admin/review-queue/submissions" emptyMessage="沒有待審核的提交">
+      <QueueSummaryCard title="Pending Submissions" count={2} href="/admin/submissions" emptyMessage="No pending submissions">
         <div data-testid="child-item">Brand A</div>
       </QueueSummaryCard>
     )

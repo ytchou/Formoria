@@ -8,16 +8,16 @@ vi.mock('next/navigation', () => ({
 }))
 
 const items: NavItem[] = [
-  { label: '總覽', href: '/admin' },
-  { label: '新品牌提交', href: '/admin/review-queue/submissions', count: 3 },
-  { label: '內容審核', href: '/admin/review-queue/moderation', count: 0 },
-  { label: '品牌編輯', href: '/admin/review-queue/edits', count: 1 },
-  { label: '認領申請', href: '/admin/claims' },
-  { label: '檢舉', href: '/admin/signals/reports', count: 2 },
-  { label: 'Feedback', href: '/admin/signals/feedback', count: 0 },
-  { label: '品牌目錄', href: '/admin/catalog/brands' },
-  { label: '資料工作', href: '/admin/jobs' },
-  { label: '品質儀表板', href: '/admin/quality' },
+  { label: 'Overview', href: '/admin' },
+  { label: 'Brand Submissions', href: '/admin/submissions', count: 3 },
+  { label: 'Data Jobs', href: '/admin/jobs' },
+  { label: 'Content Moderation', href: '/admin/moderation', count: 0 },
+  { label: 'Brand Edits', href: '/admin/edits', count: 1 },
+  { label: 'Claim Requests', href: '/admin/claims' },
+  { label: 'Reports', href: '/admin/reports', count: 2 },
+  { label: 'Feedback', href: '/admin/feedback', count: 0 },
+  { label: 'Brand Catalog', href: '/admin/brands' },
+  { label: 'Quality Dashboard', href: '/admin/quality' },
 ]
 
 async function renderAdminNav() {
@@ -33,13 +33,13 @@ describe('AdminNav', () => {
 
   it('shows each operational workspace without a hover-only dropdown', async () => {
     await renderAdminNav()
-    expect(screen.getByRole('link', { name: /新品牌提交/ })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /Brand Submissions/ })).toHaveAttribute(
       'href',
-      '/admin/review-queue/submissions',
+      '/admin/submissions',
     )
-    expect(screen.getByRole('link', { name: /檢舉/ })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /Reports/ })).toHaveAttribute(
       'href',
-      '/admin/signals/reports',
+      '/admin/reports',
     )
   })
 

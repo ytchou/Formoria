@@ -184,7 +184,7 @@ export async function submitReportAction(_prevState: ReportState, formData: Form
     }
 
     await createReport({ brandId, reason: reason as SubmitReportReason, notes })
-    revalidatePath('/admin/signals/reports')
+    revalidatePath('/admin/reports')
     revalidatePath('/admin')
     return { success: true }
   } catch (err: unknown) {

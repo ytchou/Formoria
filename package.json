@@ -21,7 +21,6 @@
     "knip": "knip",
     "prepare": "git config core.hooksPath scripts/hooks 2>/dev/null || true",
     "curate": "tsx --env-file=.env.local scripts/curate-brands.ts",
-    "curation:schedule": "tsx scripts/schedule-enrichment.ts",
     "curation:worker": "tsx scripts/curation-worker-server.ts",
     "backfill-images": "tsx --env-file=.env.local scripts/backfill-brand-images.ts",
     "remove-brand": "tsx --env-file=.env.local scripts/remove-brand.ts",

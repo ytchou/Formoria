@@ -34,23 +34,23 @@ export function SystemStatusCard({ initialResults }: { initialResults: ServiceHe
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className={`h-2 w-2 rounded-full ${STATUS_DOT[overallStatus]}`} />
-          <h2 className="type-section-title-large">系統狀態</h2>
+          <h2 className="type-section-title-large">System Status</h2>
         </div>
         <div className="flex items-center gap-2">
-          <span className="type-caption">載入頁面時自動更新</span>
+          <span className="type-caption">Auto-refreshes on page load</span>
           <Button
             variant="secondary"
             size="compact"
             onClick={handleRefresh}
             disabled={isPending}
           >
-            {isPending ? '更新中…' : '重新整理'}
+            {isPending ? 'Refreshing…' : 'Refresh'}
           </Button>
         </div>
       </div>
       <SurfaceCard padding="lg" className="space-y-2">
           {initialResults.length === 0 && (
-            <p className="text-center type-card-description">無資料</p>
+            <p className="text-center type-card-description">No data</p>
           )}
           {initialResults.map((result) => (
             <div key={result.service} className="flex items-center justify-between text-sm">

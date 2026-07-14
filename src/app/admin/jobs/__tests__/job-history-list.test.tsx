@@ -17,9 +17,9 @@ describe('JobHistoryList', () => {
     render(<JobHistoryList initialJobs={[job({ status: 'completed', failed_count: 2 })]} />)
 
     expect(screen.getByRole('link', { name: /2026/ })).toHaveAttribute('href', '/admin/jobs/job-1')
-    expect(screen.getByText('完成但有失敗')).toBeInTheDocument()
-    expect(screen.getByText('0 成功、0 略過、2 失敗')).toBeInTheDocument()
-    expect(screen.getByText('排程')).toBeInTheDocument()
+    expect(screen.getByText('Completed with failures')).toBeInTheDocument()
+    expect(screen.getByText('0 ok, 0 skipped, 2 failed')).toBeInTheDocument()
+    expect(screen.getByText('Scheduled')).toBeInTheDocument()
   })
 
   it('polls every five seconds only while a visible run is active', () => {
@@ -43,7 +43,7 @@ describe('JobHistoryList', () => {
       />,
     )
 
-    expect(screen.getByText('派送失敗')).toBeInTheDocument()
+    expect(screen.getByText('Dispatch failed')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Retry dispatch' })).toBeInTheDocument()
   })
 })

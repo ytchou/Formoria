@@ -22,6 +22,7 @@ import {
   JobStatusBadge,
 } from "./job-display";
 import { DispatchJobButton } from "./dispatch-job-button";
+import { DismissJobButton } from "./dismiss-job-button";
 
 function formatProgress(job: CurationJob): string {
   const complete = job.succeeded_count + job.skipped_count + job.failed_count;
@@ -29,7 +30,7 @@ function formatProgress(job: CurationJob): string {
 }
 
 function formatOutcome(job: CurationJob): string {
-  return `${job.succeeded_count} 成功、${job.skipped_count} 略過、${job.failed_count} 失敗`;
+  return `${job.succeeded_count} ok, ${job.skipped_count} skipped, ${job.failed_count} failed`;
 }
 
 export function JobHistoryList({
@@ -50,21 +51,21 @@ export function JobHistoryList({
   return (
     <div className="space-y-3">
       <JobAutoRefresh active={hasActiveJob} />
-      <nav aria-label="資料工作篩選" className="flex flex-wrap gap-2">
+      <nav aria-label="Filter data jobs" className="flex flex-wrap gap-2">
         <JobViewLink
           view={view}
           value="attention"
-          label={`需要處理 (${counts.attention})`}
+          label={`Needs Attention (${counts.attention})`}
         />
         <JobViewLink
           view={view}
           value="active"
-          label={`執行中 (${counts.active})`}
+          label={`Active (${counts.active})`}
         />
         <JobViewLink
           view={view}
           value="history"
-          label={`歷史 (${counts.history})`}
+          label={`History (${counts.history})`}
         />
       </nav>
       {railwayLogsUrl ? (
@@ -80,7 +81,7 @@ export function JobHistoryList({
             })}
           >
             <ExternalLink aria-hidden="true" />
-            Railway 原始紀錄
+            Railway Logs
           </a>
         </div>
       ) : null}
@@ -89,13 +90,13 @@ export function JobHistoryList({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>建立時間</TableHead>
-              <TableHead>觸發來源</TableHead>
-              <TableHead>嘗試</TableHead>
-              <TableHead>狀態</TableHead>
-              <TableHead>進度</TableHead>
-              <TableHead>結果</TableHead>
-              <TableHead>耗時</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead>Trigger</TableHead>
+              <TableHead>Attempt</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Progress</TableHead>
+              <TableHead>Outcome</TableHead>
+              <TableHead>Duration</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -105,7 +106,7 @@ export function JobHistoryList({
                   colSpan={7}
                   className="py-8 text-center text-muted-foreground"
                 >
-                  此檢視目前沒有資料工作。
+                  No data jobs in this view.
                 </TableCell>
               </TableRow>
             ) : (
@@ -125,12 +126,13 @@ export function JobHistoryList({
                     <JobStatusBadge job={job} />
                     {job.status === "pending" &&
                     job.dispatch_status === "failed" ? (
-                      <div className="mt-2">
+                      <div className="mt-2 flex gap-2">
                         <DispatchJobButton
                           jobId={job.id}
                           label="Retry dispatch"
                           retry
                         />
+                        <DismissJobButton jobId={job.id} />
                       </div>
                     ) : null}
                   </TableCell>

@@ -3,7 +3,7 @@ import { getCurationJobDetailAction } from "@/app/admin/operations/actions";
 import type { CurationTargetStatus } from "@/lib/services/curation-jobs";
 import { JobDetailView } from "./job-detail-view";
 
-export const metadata: Metadata = { title: "資料工作明細 | 管理後台" };
+export const metadata: Metadata = { title: "Job Detail | Admin" };
 export const revalidate = 0;
 
 const validStatuses = new Set<string>([
@@ -34,7 +34,7 @@ export default async function JobDetailPage({
   if ("error" in result) {
     return (
       <div className="space-y-4">
-        <h1 className="type-section-title-large">資料工作明細</h1>
+        <h1 className="type-section-title-large">Job Detail</h1>
         <p className="type-error">{result.error}</p>
       </div>
     );

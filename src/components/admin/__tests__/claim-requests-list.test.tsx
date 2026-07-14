@@ -9,7 +9,7 @@ import {
   rejectClaimAction,
 } from '@/app/admin/actions'
 import type { ClaimRequest } from '@/lib/services/claim-requests'
-import messages from '../../../../messages/zh-TW.json'
+import messages from '../../../../messages/en.json'
 
 vi.mock('@/app/admin/actions', () => ({
   approveClaimAction: vi.fn(),
@@ -58,7 +58,7 @@ function renderList(claimRequests: Partial<ClaimRequestWithSignedProof>[]) {
   }))
 
   return render(
-    <NextIntlClientProvider locale="zh-TW" messages={messages}>
+    <NextIntlClientProvider locale="en" messages={messages}>
       <ClaimRequestsList claimRequests={normalized} />
     </NextIntlClientProvider>
   )
@@ -93,7 +93,7 @@ describe('ClaimRequestsList', () => {
 
     await user.click(screen.getByText('Sun Room Studio'))
 
-    expect(screen.getByText('已擁有品牌')).toBeInTheDocument()
+    expect(screen.getByText('Already owns a brand')).toBeInTheDocument()
     expect(screen.getByText('Existing Brand')).toHaveAttribute('href', '/brands/existing-brand')
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled()
   })
@@ -124,8 +124,8 @@ describe('ClaimRequestsList', () => {
         { type: 'backend_screenshot', imageKey: 'claim-proofs/u1/b1/a.webp', signedUrl: 'https://x.supabase.co/sign/a' },
       ], mitSmileCert: 'MIT-2023-12345' }])
     fireEvent.click(screen.getByText('Wuxiang'))
-    expect(screen.getByText('品牌網域信箱')).toBeInTheDocument()
-    expect(screen.getByText('後台截圖')).toBeInTheDocument()
+    expect(screen.getByText('Brand domain email')).toBeInTheDocument()
+    expect(screen.getByText('Admin/backend screenshot')).toBeInTheDocument()
     expect(screen.getByText('owner@wuxiang.com')).toBeInTheDocument()
     expect(screen.getByRole('img')).toHaveAttribute('src', expect.stringContaining('sign/a'))
   })

@@ -13,6 +13,7 @@ export type DenialReason =
   | 'insufficient_info'
   | 'duplicate'
   | 'policy_violation'
+  | 'admin_reject'
   | 'other'
 export type OwnerLocale = 'zh-TW' | 'en'
 
@@ -29,6 +30,7 @@ export const DENIAL_REASONS = [
   'insufficient_info',
   'duplicate',
   'policy_violation',
+  'admin_reject',
   'other',
 ] as const satisfies readonly DenialReason[]
 

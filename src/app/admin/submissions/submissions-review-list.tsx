@@ -79,17 +79,9 @@ type OverrideForm = Required<Omit<SubmissionApprovalOverrides, "otherUrls">> & {
   otherUrls: OtherUrl[];
 };
 
-const SOURCE_ATTRIBUTION_LABELS: Record<SourceAttribution, string> = {
-  bought_product: "我買過他們的產品",
-  saw_at_market: "我在市集或活動看過",
-  found_online: "我在網路上發現的",
-  friend_recommended: "朋友推薦的",
-  work_there: "我在那裡工作或認識團隊",
-};
-
 const PRODUCT_TYPE_EMPTY = "__none";
 const BULK_DENIAL_REASONS = DENIAL_REASONS.filter(
-  (reason) => reason !== "other",
+  (reason) => reason !== "other" && reason !== "admin_reject",
 );
 
 type EnrichmentStatus = "not_enriched" | "enriched" | "partially_enriched";
@@ -104,17 +96,19 @@ function getSubmissionIntent(
 
 function getSubmitterLabel(
   submission: Pick<BrandSubmission, "submitterEmail">,
+  noSubmitterLabel: string,
 ) {
   return submission.submitterEmail.endsWith(GENERATED_GUEST_EMAIL_SUFFIX)
-    ? "未提供"
+    ? noSubmitterLabel
     : submission.submitterEmail;
 }
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("zh-TW", {
+  return new Date(dateStr).toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
+    timeZone: "Asia/Taipei",
   });
 }
 
@@ -253,26 +247,29 @@ function matchesTab(
   }
 }
 
-function enrichmentLabel(submission: BrandSubmissionWithRisk): {
+function enrichmentLabel(
+  submission: BrandSubmissionWithRisk,
+  t: ReturnType<typeof useTranslations<"admin.submissions">>,
+): {
   label: string;
   tone: "green" | "amber" | "red" | "grey";
 } {
   if (submission.latestCurationTargetStatus === "pending")
-    return { label: "已排入", tone: "amber" };
+    return { label: t("enrichmentStatus.queued"), tone: "amber" };
   if (submission.latestCurationTargetStatus === "running")
-    return { label: "抓取中", tone: "amber" };
+    return { label: t("enrichmentStatus.running"), tone: "amber" };
   if (submission.latestCurationTargetStatus === "failed")
-    return { label: "抓取失敗", tone: "red" };
+    return { label: t("enrichmentStatus.failed"), tone: "red" };
   if (submission.latestCurationTargetStatus === "skipped")
-    return { label: "已略過", tone: "grey" };
+    return { label: t("enrichmentStatus.skipped"), tone: "grey" };
 
   const status = getEnrichmentStatus(
     submission.enriched_data ?? null,
     submission.heroImageUrl,
   );
-  if (status === "enriched") return { label: "已完成", tone: "green" };
-  if (status === "partially_enriched") return { label: "部分", tone: "amber" };
-  return { label: "未處理", tone: "grey" };
+  if (status === "enriched") return { label: t("enrichmentStatus.complete"), tone: "green" };
+  if (status === "partially_enriched") return { label: t("enrichmentStatus.partial"), tone: "amber" };
+  return { label: t("enrichmentStatus.none"), tone: "grey" };
 }
 
 function getImageCount(
@@ -325,6 +322,7 @@ export function SubmissionsReviewList({
 }) {
   const moderationT = useTranslations("admin.moderation");
   const denialReasonsT = useTranslations("admin.submissions.denialReasons");
+  const t = useTranslations("admin.submissions");
   const [activeTab, setActiveTab] = useState<TabValue>(initialTab);
   const [intentFilter, setIntentFilter] = useState<IntentFilter>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -436,11 +434,11 @@ export function SubmissionsReviewList({
       return;
     }
     if (!rejectReason) {
-      setError("請選擇拒絕原因");
+      setError(t("errors.selectReason"));
       return;
     }
     if (rejectReason === "other" && !rejectNotes.trim()) {
-      setError("請填寫補充說明");
+      setError(t("errors.enterNotes"));
       return;
     }
     startTransition(async () => {
@@ -488,7 +486,7 @@ export function SubmissionsReviewList({
       (s) => isReadyForReview(s) && selectedIds.has(s.id),
     );
     if (pendingSelected.length === 0) return;
-    if (!confirm(`確定要核准 ${pendingSelected.length} 筆提交？`)) return;
+    if (!confirm(t("confirmBulkApprove", { count: pendingSelected.length }))) return;
     startTransition(async () => {
       setError(null);
       for (const submission of pendingSelected) {
@@ -553,7 +551,7 @@ export function SubmissionsReviewList({
     }
 
     if (!bulkRejectReason) {
-      setBulkRejectError("請選擇拒絕原因");
+      setBulkRejectError(t("errors.selectReason"));
       return;
     }
 
@@ -602,7 +600,7 @@ export function SubmissionsReviewList({
           result.dispatchStatus === "failed" ? toast.error : toast.info;
         notify(result.message, {
           action: {
-            label: "查看工作",
+            label: t("viewJob"),
             onClick: () => router.push(result.detailPath),
           },
         });
@@ -641,21 +639,21 @@ export function SubmissionsReviewList({
         <div className="flex items-center justify-between gap-4">
           <TabsList>
             <TabsTrigger value="needs_data">
-              待資料處理 ({tabCounts.needs_data})
+              {t("tabs.needsData")} ({tabCounts.needs_data})
             </TabsTrigger>
             <TabsTrigger value="enriching">
-              資料處理中 ({tabCounts.enriching})
+              {t("tabs.enriching")} ({tabCounts.enriching})
             </TabsTrigger>
             <TabsTrigger value="ready">
-              待人工審核 ({tabCounts.ready})
+              {t("tabs.ready")} ({tabCounts.ready})
             </TabsTrigger>
             <TabsTrigger value="approved">
-              已核准 ({tabCounts.approved})
+              {t("tabs.approved")} ({tabCounts.approved})
             </TabsTrigger>
             <TabsTrigger value="rejected">
-              已拒絕 ({tabCounts.rejected})
+              {t("tabs.rejected")} ({tabCounts.rejected})
             </TabsTrigger>
-            <TabsTrigger value="all">全部 ({tabCounts.all})</TabsTrigger>
+            <TabsTrigger value="all">{t("tabs.all")} ({tabCounts.all})</TabsTrigger>
           </TabsList>
 
           <div className="flex items-center gap-2">
@@ -664,26 +662,26 @@ export function SubmissionsReviewList({
               onValueChange={(value) => setIntentFilter(value as IntentFilter)}
             >
               <SelectTrigger
-                aria-label="提交意圖篩選"
+                aria-label={t("intentFilter.ariaLabel")}
                 className="w-[220px]"
               >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent align="end">
                 <SelectItem value="all">
-                  全部提交 ({intentCounts.all})
+                  {t("intentFilter.all")} ({intentCounts.all})
                 </SelectItem>
                 <SelectItem value="recommend">
-                  推薦提交 ({intentCounts.recommend})
+                  {t("intentFilter.recommend")} ({intentCounts.recommend})
                 </SelectItem>
                 <SelectItem value="owner_claim">
-                  品牌主開始申請 ({intentCounts.owner_claim})
+                  {t("intentFilter.ownerClaim")} ({intentCounts.owner_claim})
                 </SelectItem>
               </SelectContent>
             </Select>
             {selectedCount > 0 && (
               <span className="type-card-description">
-                已選擇 {selectedCount} 筆
+                {t("selectedCount", { count: selectedCount })}
               </span>
             )}
             {bulkRejectError && (
@@ -698,7 +696,7 @@ export function SubmissionsReviewList({
                 selectedCount === 0 || isEnriching || activeTab !== "needs_data"
               }
             >
-              {isEnriching ? "啟動中…" : "抓取資料"}
+              {isEnriching ? t("fetching") : t("fetchData")}
             </Button>
             <Button
               size="compact"
@@ -708,7 +706,7 @@ export function SubmissionsReviewList({
                 selectedCount === 0 || isPending || activeTab !== "ready"
               }
             >
-              核准
+              {t("approve")}
             </Button>
             <Button
               size="compact"
@@ -720,7 +718,7 @@ export function SubmissionsReviewList({
                 (isBulkRejecting && !bulkRejectReason)
               }
             >
-              {isBulkRejecting ? "確認批次拒絕" : "拒絕"}
+              {isBulkRejecting ? t("confirmBulkReject") : t("reject")}
             </Button>
           </div>
         </div>
@@ -728,7 +726,7 @@ export function SubmissionsReviewList({
           <div className="mt-3 flex flex-wrap items-end gap-3 rounded-md border bg-background p-3">
             <div className="min-w-[240px] flex-1 space-y-2">
               <Label className="type-subsection-title">
-                批次拒絕原因 <span className="text-destructive">*</span>
+                {t("bulkRejectReason")} <span className="text-destructive">*</span>
               </Label>
               <Select
                 value={bulkRejectReason}
@@ -737,10 +735,10 @@ export function SubmissionsReviewList({
                 }
               >
                 <SelectTrigger
-                  aria-label="批次拒絕原因"
+                  aria-label={t("bulkRejectAriaLabel")}
                   className="h-12 w-full focus-visible:ring-2 focus-visible:ring-primary/60"
                 >
-                  <SelectValue placeholder="選擇拒絕原因" />
+                  <SelectValue placeholder={t("selectReason")} />
                 </SelectTrigger>
                 <SelectContent align="start">
                   {BULK_DENIAL_REASONS.map((reason) => (
@@ -768,15 +766,15 @@ export function SubmissionsReviewList({
                   />
                 </div>
               </TableHead>
-              <TableHead>品牌</TableHead>
-              <TableHead className="w-16">分類</TableHead>
-              <TableHead className="w-16">圖片</TableHead>
-              <TableHead>來源</TableHead>
-              <TableHead>狀態</TableHead>
-              <TableHead>資料充實</TableHead>
-              <TableHead>提交者</TableHead>
-              <TableHead>日期</TableHead>
-              <TableHead className="w-28 text-right">操作</TableHead>
+              <TableHead>{t("table.brand")}</TableHead>
+              <TableHead className="w-16">{t("table.category")}</TableHead>
+              <TableHead className="w-16">{t("table.images")}</TableHead>
+              <TableHead>{t("table.source")}</TableHead>
+              <TableHead>{t("table.status")}</TableHead>
+              <TableHead>{t("table.enrichment")}</TableHead>
+              <TableHead>{t("table.submitter")}</TableHead>
+              <TableHead>{t("table.date")}</TableHead>
+              <TableHead className="w-28 text-right">{t("table.actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -785,7 +783,7 @@ export function SubmissionsReviewList({
                 overridesById[submission.id] ?? createOverrideForm(submission);
               const hasEnrichment = Boolean(submission.enriched_data);
               const submissionIntent = getSubmissionIntent(submission);
-              const enrichment = enrichmentLabel(submission);
+              const enrichment = enrichmentLabel(submission, t);
               const readyForReview = isReadyForReview(submission);
 
               return (
@@ -857,11 +855,11 @@ export function SubmissionsReviewList({
                       {/* ui-exception: owner-claim badge is Ink (bg-foreground); community-submission uses verified-green — no matching variants */}
                       {submissionIntent === "owner_claim" ? (
                         <Badge className="bg-foreground text-white">
-                          品牌主開始申請
+                          {t("intent.ownerClaim")}
                         </Badge>
                       ) : (
                         <Badge className="bg-verified-green-bg text-verified-green">
-                          推薦提交
+                          {t("intent.recommend")}
                         </Badge>
                       )}
                     </TableCell>
@@ -879,13 +877,13 @@ export function SubmissionsReviewList({
                             onClick={(event) => event.stopPropagation()}
                             className="text-xs text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
-                            查看工作
+                            {t("viewJob")}
                           </Link>
                         )}
                       </div>
                     </TableCell>
                     <TableCell className="max-w-[160px] truncate">
-                      {getSubmitterLabel(submission)}
+                      {getSubmitterLabel(submission, t("noSubmitter"))}
                     </TableCell>
                     <TableCell>{formatDate(submission.submittedAt)}</TableCell>
                     <TableCell className="text-right">
@@ -901,28 +899,31 @@ export function SubmissionsReviewList({
                               onClick={() => handleApprove(submission)}
                               disabled={isPending}
                             >
-                              核准
+                              {t("approve")}
                             </Button>
                           ) : null}
                           <Button
                             size="compact"
                             variant="destructive"
                             onClick={async () => {
-                              if (!confirm("確定要拒絕此提交？")) return;
+                              if (!confirm(t("confirmReject"))) return;
                               startTransition(async () => {
                                 setError(null);
                                 const result = await rejectSubmissionAction(
                                   submission.id,
-                                  "other",
+                                  "admin_reject",
                                   "",
                                 );
-                                if (result?.error) setError(result.error);
+                                if (result?.error) {
+                                  setError(result.error);
+                                  toast.error(result.error);
+                                }
                               });
                             }}
                             disabled={isPending}
                             className="min-h-12 px-2 text-xs"
                           >
-                            拒絕
+                            {t("reject")}
                           </Button>
                         </div>
                       )}
@@ -936,7 +937,7 @@ export function SubmissionsReviewList({
                           <EnrichedCard auto={hasEnrichment}>
                             <div className="space-y-3">
                               <FieldLabel auto={hasEnrichment}>
-                                品牌描述
+                                {t("fields.description")}
                               </FieldLabel>
                               <Textarea
                                 value={form.description ?? ""}
@@ -948,7 +949,7 @@ export function SubmissionsReviewList({
                                   )
                                 }
                                 onClick={(e) => e.stopPropagation()}
-                                placeholder="品牌描述"
+                                placeholder={t("placeholders.description")}
                                 className={
                                   hasEnrichment
                                     ? "border-dashed bg-white/80"
@@ -961,7 +962,7 @@ export function SubmissionsReviewList({
                           <EnrichedCard auto={hasEnrichment}>
                             <div className="space-y-3">
                               <FieldLabel auto={hasEnrichment}>
-                                產品類型
+                                {t("fields.productType")}
                               </FieldLabel>
                               <Select
                                 value={form.productType || PRODUCT_TYPE_EMPTY}
@@ -981,11 +982,11 @@ export function SubmissionsReviewList({
                                       : undefined
                                   }
                                 >
-                                  <SelectValue placeholder="選擇產品類型" />
+                                  <SelectValue placeholder={t("placeholders.selectProductType")} />
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value={PRODUCT_TYPE_EMPTY}>
-                                    未設定
+                                    {t("notSet")}
                                   </SelectItem>
                                   {form.productType &&
                                     !PRODUCT_TYPE_CATEGORIES.some(
@@ -1011,12 +1012,12 @@ export function SubmissionsReviewList({
                           <EnrichedCard auto={hasEnrichment}>
                             <div className="space-y-3">
                               <FieldLabel auto={hasEnrichment}>
-                                購買連結
+                                {t("fields.purchaseLinks")}
                               </FieldLabel>
                               <div className="grid gap-3 sm:grid-cols-3">
                                 <Input
                                   type="url"
-                                  placeholder="官網連結"
+                                  placeholder={t("placeholders.officialWebsite")}
                                   value={form.purchaseWebsite ?? ""}
                                   onChange={(e) =>
                                     updateOverride(
@@ -1034,7 +1035,7 @@ export function SubmissionsReviewList({
                                 />
                                 <Input
                                   type="url"
-                                  placeholder="Pinkoi 連結"
+                                  placeholder={t("placeholders.pinkoiLink")}
                                   value={form.purchasePinkoi ?? ""}
                                   onChange={(e) =>
                                     updateOverride(
@@ -1052,7 +1053,7 @@ export function SubmissionsReviewList({
                                 />
                                 <Input
                                   type="url"
-                                  placeholder="蝦皮連結"
+                                  placeholder={t("placeholders.shopeeLink")}
                                   value={form.purchaseShopee ?? ""}
                                   onChange={(e) =>
                                     updateOverride(
@@ -1076,7 +1077,7 @@ export function SubmissionsReviewList({
                                     className="grid gap-2 sm:grid-cols-[160px_1fr_auto]"
                                   >
                                     <Input
-                                      placeholder="標籤"
+                                      placeholder={t("fields.label")}
                                       value={link.label}
                                       onChange={(e) =>
                                         updateOtherUrl(
@@ -1095,7 +1096,7 @@ export function SubmissionsReviewList({
                                     />
                                     <Input
                                       type="url"
-                                      placeholder="連結"
+                                      placeholder={t("fields.url")}
                                       value={link.url}
                                       onChange={(e) =>
                                         updateOtherUrl(
@@ -1120,7 +1121,7 @@ export function SubmissionsReviewList({
                                         removeOtherUrl(submission.id, index);
                                       }}
                                     >
-                                      移除
+                                      {t("fields.remove")}
                                     </Button>
                                   </div>
                                 ))}
@@ -1132,7 +1133,7 @@ export function SubmissionsReviewList({
                                     addOtherUrl(submission.id);
                                   }}
                                 >
-                                  新增連結
+                                  {t("fields.addLink")}
                                 </Button>
                               </div>
                             </div>
@@ -1141,12 +1142,12 @@ export function SubmissionsReviewList({
                           <EnrichedCard auto={hasEnrichment}>
                             <div className="space-y-3">
                               <FieldLabel auto={hasEnrichment}>
-                                社群連結
+                                {t("fields.socialLinks")}
                               </FieldLabel>
                               <div className="grid gap-3 sm:grid-cols-3">
                                 <Input
                                   type="url"
-                                  placeholder="Instagram 連結"
+                                  placeholder={t("placeholders.instagramLink")}
                                   value={form.socialInstagram ?? ""}
                                   onChange={(e) =>
                                     updateOverride(
@@ -1164,7 +1165,7 @@ export function SubmissionsReviewList({
                                 />
                                 <Input
                                   type="url"
-                                  placeholder="Threads 連結"
+                                  placeholder={t("placeholders.threadsLink")}
                                   value={form.socialThreads ?? ""}
                                   onChange={(e) =>
                                     updateOverride(
@@ -1182,7 +1183,7 @@ export function SubmissionsReviewList({
                                 />
                                 <Input
                                   type="url"
-                                  placeholder="Facebook 連結"
+                                  placeholder={t("placeholders.facebookLink")}
                                   value={form.socialFacebook ?? ""}
                                   onChange={(e) =>
                                     updateOverride(
@@ -1211,7 +1212,7 @@ export function SubmissionsReviewList({
                             return hasImages ? (
                               <EnrichedCard auto>
                                 <div className="space-y-3">
-                                  <FieldLabel auto>主圖 / 產品圖片</FieldLabel>
+                                  <FieldLabel auto>{t("fields.heroImages")}</FieldLabel>
                                   <div className="grid gap-3 sm:grid-cols-4">
                                     {(submission.enriched_data?.heroImageUrl ||
                                       submission.heroImageUrl) && (
@@ -1239,7 +1240,7 @@ export function SubmissionsReviewList({
                                           className="aspect-square w-full object-cover"
                                         />
                                         <span className="block px-2 py-1 type-caption">
-                                          主圖
+                                          {t("fields.mainImage")}
                                         </span>
                                       </a>
                                     )}
@@ -1247,7 +1248,7 @@ export function SubmissionsReviewList({
                                   {!submission.heroImageUrl &&
                                     !submission.enriched_data?.heroImageUrl && (
                                       <p className="type-card-description">
-                                        尚無圖片
+                                        {t("fields.noImages")}
                                       </p>
                                     )}
                                 </div>
@@ -1259,27 +1260,23 @@ export function SubmissionsReviewList({
                             submission.sourceAttribution && (
                               <div>
                                 <p className="type-metadata">
-                                  你怎麼知道這個品牌？
+                                  {t("sourceAttribution.question")}
                                 </p>
                                 <p className="mt-1 text-sm">
-                                  {
-                                    SOURCE_ATTRIBUTION_LABELS[
-                                      submission.sourceAttribution
-                                    ]
-                                  }
+                                  {t(`sourceAttribution.${submission.sourceAttribution}` as `sourceAttribution.${SourceAttribution}`)}
                                 </p>
                               </div>
                             )}
 
                           {submissionIntent === "owner_claim" ? (
                             <div className="rounded-lg border border-border bg-card p-4 type-card-description">
-                              核准後，系統會寄送品牌認領邀請給提交者；後續的證明審核會在認領申請佇列處理。
+                              {t("claimNote")}
                             </div>
                           ) : null}
 
                           {submission.productTypeNote?.trim() && (
                             <div>
-                              <Badge variant="verified">分類缺口</Badge>
+                              <Badge variant="verified">{t("categoryGap")}</Badge>
                               <p className="mt-1 type-card-description">
                                 {submission.productTypeNote}
                               </p>
@@ -1294,7 +1291,7 @@ export function SubmissionsReviewList({
                               return (
                                 suggestedTags.length > 0 && (
                                   <div>
-                                    <p className="type-metadata">建議標籤</p>
+                                    <p className="type-metadata">{t("suggestedTags")}</p>
                                     <div className="mt-1 flex flex-wrap gap-2">
                                       {suggestedTags.map((tag) => (
                                         <Badge key={tag} variant="secondary">
@@ -1316,10 +1313,10 @@ export function SubmissionsReviewList({
                               return (
                                 values.length > 0 && (
                                   <div>
-                                    <p className="type-metadata">建議標籤</p>
+                                    <p className="type-metadata">{t("suggestedTags")}</p>
                                     <div className="mt-1 space-y-1 text-sm">
                                       {values.length > 0 && (
-                                        <p>特色：{values.join(", ")}</p>
+                                        <p>Values: {values.join(", ")}</p>
                                       )}
                                     </div>
                                   </div>
@@ -1344,11 +1341,11 @@ export function SubmissionsReviewList({
                                   }}
                                   disabled={isPending}
                                 >
-                                  核准
+                                  {t("approve")}
                                 </Button>
                               ) : (
                                 <p className="flex-1 type-card-description">
-                                  完整資料完成後才能核准。
+                                  {t("approvalRequired")}
                                   {submission.latestCurationError
                                     ? ` ${submission.latestCurationError}`
                                     : ""}
@@ -1359,7 +1356,7 @@ export function SubmissionsReviewList({
                                   <div className="mb-2 space-y-3">
                                     <div className="space-y-2">
                                       <Label className="type-subsection-title">
-                                        拒絕原因{" "}
+                                        {t("rejectReasonLabel")}{" "}
                                         <span className="text-destructive">
                                           *
                                         </span>
@@ -1371,11 +1368,11 @@ export function SubmissionsReviewList({
                                         }
                                       >
                                         <SelectTrigger
-                                          aria-label="拒絕原因"
+                                          aria-label={t("rejectReasonAriaLabel")}
                                           onClick={(e) => e.stopPropagation()}
                                           className="h-12 w-full focus-visible:ring-2 focus-visible:ring-primary/60"
                                         >
-                                          <SelectValue placeholder="選擇拒絕原因" />
+                                          <SelectValue placeholder={t("selectReason")} />
                                         </SelectTrigger>
                                         <SelectContent align="start">
                                           {DENIAL_REASONS.map((reason) => (
@@ -1392,8 +1389,8 @@ export function SubmissionsReviewList({
                                     <Textarea
                                       placeholder={
                                         rejectReason === "other"
-                                          ? "補充說明（必填）"
-                                          : "補充說明（選填）"
+                                          ? t("placeholders.notesRequired")
+                                          : t("placeholders.notesOptional")
                                       }
                                       value={rejectNotes}
                                       onChange={(e) =>
@@ -1416,8 +1413,8 @@ export function SubmissionsReviewList({
                                   }
                                 >
                                   {rejectingId === submission.id
-                                    ? "確認拒絕"
-                                    : "拒絕"}
+                                    ? t("confirmRejectButton")
+                                    : t("reject")}
                                 </Button>
                               </div>
                             </div>
@@ -1435,7 +1432,7 @@ export function SubmissionsReviewList({
                   colSpan={11}
                   className="py-8 text-center text-muted-foreground"
                 >
-                  找不到提交記錄。
+                  {t("notFound")}
                 </TableCell>
               </TableRow>
             )}

@@ -3,7 +3,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import { ClaimRequestsList } from '@/components/admin/claim-requests-list'
 import { requireAdminPage } from '@/lib/auth/require-admin'
 import { attachSignedProofUrls, listClaimRequests } from '@/lib/services/claim-requests'
-import messages from '../../../../messages/zh-TW.json'
+import messages from '../../../../messages/en.json'
 
 export const metadata: Metadata = {
   title: 'Claim Requests | Admin',
@@ -23,7 +23,7 @@ export default async function ClaimRequestsPage() {
       </p>
 
       <div className="mt-8">
-        <NextIntlClientProvider locale="zh-TW" messages={messages}>
+        <NextIntlClientProvider locale="en" messages={messages}>
           <ClaimRequestsList claimRequests={claimRequests} />
         </NextIntlClientProvider>
       </div>
