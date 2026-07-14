@@ -15,7 +15,9 @@ try {
 } catch (error) {
   console.error(
     "[curation-scheduler]",
-    error instanceof Error ? error.message : String(error),
+    error instanceof Error
+      ? error.message
+      : JSON.stringify(error, null, 2),
   );
   process.exitCode = 1;
 }
