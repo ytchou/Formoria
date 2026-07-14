@@ -9,7 +9,7 @@ export const JOB_HEARTBEAT_INTERVAL_MS = 30_000;
 const JOB_STALE_AFTER_MS = 10 * 60_000;
 const CURATION_TARGET_PAGE_SIZE = 1_000;
 
-type CurationJobStatus = "pending" | "running" | "completed" | "failed";
+type CurationJobStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
 export type CurationDispatchStatus = "pending" | "dispatched" | "failed";
 export type CurationJobView = "attention" | "active" | "history";
 type CurationJobTrigger = "admin" | "cron" | "automatic_retry" | "manual_rerun";
@@ -441,7 +441,7 @@ export async function listCurationJobs(options?: {
   if (options?.view === "active") {
     query = query.in("status", ["pending", "running"]);
   } else if (options?.view === "history") {
-    query = query.in("status", ["completed", "failed"]);
+    query = query.in("status", ["completed", "failed", "cancelled"]);
   } else if (options?.view === "attention" || !options?.view) {
     query = query.or(
       "status.eq.failed,and(status.eq.completed,failed_count.gt.0),and(status.eq.pending,dispatch_status.eq.failed)",
@@ -468,7 +468,7 @@ export async function getCurationJobCounts(): Promise<CurationJobCounts> {
       if (isCurationJobNeedsAttention(job)) counts.attention += 1;
       if (job.status === "pending" || job.status === "running")
         counts.active += 1;
-      if (job.status === "completed" || job.status === "failed")
+      if (job.status === "completed" || job.status === "failed" || job.status === "cancelled")
         counts.history += 1;
       return counts;
     },
@@ -486,6 +486,20 @@ export async function getCurationJob(jobId: string): Promise<CurationJob> {
 
   if (error) throw error;
   return data as CurationJob;
+}
+
+export async function cancelCurationJob(jobId: string): Promise<void> {
+  const supabase = createServiceClient();
+  const { error } = await supabase
+    .from("curation_jobs")
+    .update({
+      status: "cancelled",
+      completed_at: new Date().toISOString(),
+    })
+    .eq("id", jobId)
+    .eq("status", "pending");
+
+  if (error) throw error;
 }
 
 export async function getCurationJobDetail(

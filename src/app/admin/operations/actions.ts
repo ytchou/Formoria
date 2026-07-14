@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdminAction } from "@/lib/auth/require-admin";
-import { createServiceClient } from "@/lib/supabase/server";
 import {
+  cancelCurationJob,
   enqueueAdminCurationJob,
   enqueueManualRerun,
   getCurationJob,
@@ -186,17 +186,7 @@ export async function dismissCurationJobAction(
       return { error: "Only pending jobs can be dismissed" };
     }
 
-    const supabase = createServiceClient();
-    const { error } = await supabase
-      .from("curation_jobs")
-      .update({
-        status: "cancelled" as string,
-        completed_at: new Date().toISOString(),
-      })
-      .eq("id", jobId)
-      .eq("status", "pending");
-
-    if (error) throw error;
+    await cancelCurationJob(jobId);
 
     revalidatePath("/admin/jobs");
     revalidatePath(`/admin/jobs/${jobId}`);
