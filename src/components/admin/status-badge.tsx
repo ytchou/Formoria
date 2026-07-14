@@ -25,6 +25,10 @@ const brandStatusConfig: Record<BrandStatus, StatusConfig> = {
     label: '已隱藏',
     className: 'bg-muted text-muted-foreground',
   },
+  pending_enrichment: {
+    label: 'Pending Enrichment',
+    className: 'bg-muted text-muted-foreground',
+  },
 }
 
 function StatusBadgeBase({ config }: { config: StatusConfig }) {
@@ -51,6 +55,7 @@ export function SubmissionStatusBadge({ status }: { status: SubmissionStatus }) 
 const statusConfig: Record<Status, StatusConfig> = {
   ...submissionStatusConfig,
   hidden: brandStatusConfig.hidden,
+  pending_enrichment: brandStatusConfig.pending_enrichment,
 }
 
 export function StatusBadge({ status }: { status: Status }) {

@@ -687,6 +687,43 @@ export async function persistSubmissionEnrichmentResults(
   }
 }
 
+async function ensurePendingEnrichmentBrand(
+  supabase: SupabaseLike,
+  submission: SubmissionEnrichmentRow,
+): Promise<string> {
+  if (submission.brand_id) {
+    const { data: existing } = await supabase
+      .from("brands")
+      .select("id, status")
+      .eq("id", submission.brand_id)
+      .single();
+    if (existing?.status === "pending_enrichment") return existing.id;
+  }
+
+  const slug = `submission-${submission.id}`;
+  const { data: brand, error } = await supabase
+    .from("brands")
+    .insert({
+      name: submission.brand_name,
+      slug,
+      status: "pending_enrichment" as string,
+      is_demo: false,
+      mit_status: "unverified",
+      other_urls: [],
+    })
+    .select("id")
+    .single();
+
+  if (error) throw error;
+
+  await supabase
+    .from("brand_submissions")
+    .update({ brand_id: brand.id })
+    .eq("id", submission.id);
+
+  return brand.id;
+}
+
 function submissionToEnrichBrand(
   submission: SubmissionEnrichmentRow,
 ): EnrichBrand {
@@ -695,7 +732,7 @@ function submissionToEnrichBrand(
     : {};
 
   return {
-    id: submission.id,
+    id: submission.brand_id ?? submission.id,
     slug: `submission-${submission.id}`,
     name:
       typeof existing.name === "string" ? existing.name : submission.brand_name,
@@ -805,11 +842,12 @@ export async function runEnrich(
     let query = supabase
       .from("brand_submissions")
       .select("*")
-      .eq("status", "pending")
-      .is("brand_id", null);
+      .eq("status", "pending");
 
     if (config.submissionIds?.length) {
       query = query.in("id", config.submissionIds);
+    } else {
+      query = query.is("brand_id", null);
     }
 
     if (!config.overwrite && !config.submissionIds?.length) {
@@ -829,9 +867,22 @@ export async function runEnrich(
       throw error;
     }
 
-    allBrands = ((submissions ?? []) as SubmissionEnrichmentRow[]).map(
-      submissionToEnrichBrand,
-    );
+    const submissionRows = (submissions ?? []) as SubmissionEnrichmentRow[];
+    const readySubmissions: SubmissionEnrichmentRow[] = [];
+
+    for (const submission of submissionRows) {
+      try {
+        const brandId = await ensurePendingEnrichmentBrand(supabase, submission);
+        submission.brand_id = brandId;
+        readySubmissions.push(submission);
+      } catch (err) {
+        onProgress(
+          `[ENRICH] Skipping ${submission.brand_name} — failed to create pending_enrichment brand: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    allBrands = readySubmissions.map(submissionToEnrichBrand);
   } else {
     let query = supabase
       .from("brands")

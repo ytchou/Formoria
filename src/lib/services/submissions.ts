@@ -764,6 +764,13 @@ export async function rejectSubmission(
   notes?: string,
 ): Promise<BrandSubmission> {
   const supabase = createServiceClient();
+
+  const { data: pre } = await supabase
+    .from("brand_submissions")
+    .select("brand_id")
+    .eq("id", id)
+    .single();
+
   const { data, error } = await supabase
     .from("brand_submissions")
     .update({
@@ -780,6 +787,27 @@ export async function rejectSubmission(
 
   if (error || !data)
     throw new NotFoundError("BrandSubmission", id, { cause: error });
+
+  if (pre?.brand_id) {
+    const { data: brand } = await supabase
+      .from("brands")
+      .select("id, status")
+      .eq("id", pre.brand_id)
+      .single();
+    if (brand?.status === "pending_enrichment") {
+      const { error: deleteError } = await supabase
+        .from("brands")
+        .delete()
+        .eq("id", brand.id);
+      if (deleteError) {
+        console.error(
+          `[rejectSubmission] Failed to delete pending_enrichment brand ${brand.id}:`,
+          deleteError.message,
+        );
+      }
+    }
+  }
+
   return submissionToDomain(data);
 }
 

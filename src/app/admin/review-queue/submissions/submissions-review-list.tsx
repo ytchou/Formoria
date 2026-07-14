@@ -49,7 +49,13 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
-export type TabValue = "all" | "needs_data" | "ready" | "approved" | "rejected";
+export type TabValue =
+  | "all"
+  | "needs_data"
+  | "enriching"
+  | "ready"
+  | "approved"
+  | "rejected";
 type IntentFilter = "all" | SubmissionIntent;
 
 type BrandSubmissionWithRisk = BrandSubmission & {
@@ -211,8 +217,20 @@ function isReadyForReview(submission: BrandSubmissionWithRisk): boolean {
   );
 }
 
+function isEnrichingActive(submission: BrandSubmissionWithRisk): boolean {
+  return (
+    submission.status === "pending" &&
+    (submission.latestCurationTargetStatus === "pending" ||
+      submission.latestCurationTargetStatus === "running")
+  );
+}
+
 function needsDataWork(submission: BrandSubmissionWithRisk): boolean {
-  return submission.status === "pending" && !isReadyForReview(submission);
+  return (
+    submission.status === "pending" &&
+    !isReadyForReview(submission) &&
+    !isEnrichingActive(submission)
+  );
 }
 
 function matchesTab(
@@ -222,6 +240,8 @@ function matchesTab(
   switch (tab) {
     case "needs_data":
       return needsDataWork(submission);
+    case "enriching":
+      return isEnrichingActive(submission);
     case "ready":
       return isReadyForReview(submission);
     case "approved":
@@ -298,7 +318,7 @@ function getStructuredSuggestedTagSections(tags: StructuredSuggestedTags) {
 
 export function SubmissionsReviewList({
   submissions,
-  initialTab = "ready",
+  initialTab = "needs_data",
 }: {
   submissions: BrandSubmissionWithRisk[];
   initialTab?: TabValue;
@@ -443,6 +463,7 @@ export function SubmissionsReviewList({
     () => ({
       all: submissions.length,
       needs_data: submissions.filter(needsDataWork).length,
+      enriching: submissions.filter(isEnrichingActive).length,
       ready: submissions.filter(isReadyForReview).length,
       approved: submissions.filter((s) => s.status === "approved").length,
       rejected: submissions.filter((s) => s.status === "rejected").length,
@@ -619,9 +640,11 @@ export function SubmissionsReviewList({
       >
         <div className="flex items-center justify-between gap-4">
           <TabsList>
-            <TabsTrigger value="all">全部 ({tabCounts.all})</TabsTrigger>
             <TabsTrigger value="needs_data">
               待資料處理 ({tabCounts.needs_data})
+            </TabsTrigger>
+            <TabsTrigger value="enriching">
+              資料處理中 ({tabCounts.enriching})
             </TabsTrigger>
             <TabsTrigger value="ready">
               待人工審核 ({tabCounts.ready})
@@ -632,6 +655,7 @@ export function SubmissionsReviewList({
             <TabsTrigger value="rejected">
               已拒絕 ({tabCounts.rejected})
             </TabsTrigger>
+            <TabsTrigger value="all">全部 ({tabCounts.all})</TabsTrigger>
           </TabsList>
 
           <div className="flex items-center gap-2">

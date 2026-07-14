@@ -46,9 +46,9 @@ beforeEach(() => {
     error: null,
   })
 
-  mockSelect.mockReturnValue({ order: mockOrder, single: mockSingle })
+  mockSelect.mockReturnValue({ order: mockOrder, single: mockSingle, eq: mockEq })
   mockInsert.mockReturnValue({ select: vi.fn().mockReturnValue({ single: mockSingle }) })
-  mockEq.mockReturnValue({ eq: mockEq, select: mockSelect })
+  mockEq.mockReturnValue({ eq: mockEq, select: mockSelect, single: mockSingle })
   mockUpdate.mockReturnValue({ eq: mockEq })
   mockFrom.mockReturnValue({
     insert: mockInsert,
@@ -213,6 +213,10 @@ describe('rejectSubmission', () => {
 
   it('persists denial_reason alongside status and reviewer_notes', async () => {
     mockSingle.mockResolvedValueOnce({
+      data: { brand_id: null },
+      error: null,
+    })
+    mockSingle.mockResolvedValueOnce({
       data: {
         id: 'submission-1',
         brand_id: 'brand-123',
@@ -259,6 +263,10 @@ describe('rejectSubmission', () => {
   })
 
   it('allows rejection without notes', async () => {
+    mockSingle.mockResolvedValueOnce({
+      data: { brand_id: null },
+      error: null,
+    })
     mockSingle.mockResolvedValueOnce({
       data: {
         id: 'submission-1',

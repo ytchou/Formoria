@@ -332,7 +332,6 @@ export async function enqueueManualRerun(
           : null;
       if (
         submission.status === "pending" &&
-        submission.brand_id === null &&
         !hasCompleteEnrichment(enrichedData, submission.hero_image_url)
       ) {
         incompleteSubmissionIds.add(submission.id);
@@ -572,14 +571,28 @@ async function resolvePendingSubmissionTargets(): Promise<EnqueueTarget[]> {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("brand_submissions")
-    .select("id, brand_name, hero_image_url, enriched_data")
+    .select("id, brand_name, hero_image_url, enriched_data, brand_id")
     .eq("status", "pending")
-    .is("brand_id", null)
     .order("created_at", { ascending: true });
 
   if (error) throw error;
 
+  const linkedBrandIds = (data ?? [])
+    .map((s) => s.brand_id)
+    .filter((id): id is string => id !== null);
+  let approvedBrandIds = new Set<string>();
+  if (linkedBrandIds.length > 0) {
+    const { data: brands } = await supabase
+      .from("brands")
+      .select("id")
+      .in("id", linkedBrandIds)
+      .neq("status", "pending_enrichment");
+    approvedBrandIds = new Set((brands ?? []).map((b) => b.id));
+  }
+
   const candidates = (data ?? []).filter((submission) => {
+    if (submission.brand_id && approvedBrandIds.has(submission.brand_id))
+      return false;
     const enrichedData =
       submission.enriched_data &&
       typeof submission.enriched_data === "object" &&
