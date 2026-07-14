@@ -795,7 +795,16 @@ export async function rejectSubmission(
       .eq("id", pre.brand_id)
       .single();
     if (brand?.status === "pending_enrichment") {
-      await supabase.from("brands").delete().eq("id", brand.id);
+      const { error: deleteError } = await supabase
+        .from("brands")
+        .delete()
+        .eq("id", brand.id);
+      if (deleteError) {
+        console.error(
+          `[rejectSubmission] Failed to delete pending_enrichment brand ${brand.id}:`,
+          deleteError.message,
+        );
+      }
     }
   }
 

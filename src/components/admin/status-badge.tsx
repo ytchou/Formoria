@@ -27,7 +27,7 @@ const brandStatusConfig: Record<BrandStatus, StatusConfig> = {
   },
   pending_enrichment: {
     label: 'Pending Enrichment',
-    className: 'bg-mit-verified-bg text-mit-verified',
+    className: 'bg-muted text-muted-foreground',
   },
 }
 

@@ -868,19 +868,21 @@ export async function runEnrich(
     }
 
     const submissionRows = (submissions ?? []) as SubmissionEnrichmentRow[];
+    const readySubmissions: SubmissionEnrichmentRow[] = [];
 
     for (const submission of submissionRows) {
       try {
         const brandId = await ensurePendingEnrichmentBrand(supabase, submission);
         submission.brand_id = brandId;
+        readySubmissions.push(submission);
       } catch (err) {
         onProgress(
-          `[ENRICH] Failed to create pending_enrichment brand for ${submission.brand_name}: ${err instanceof Error ? err.message : String(err)}`,
+          `[ENRICH] Skipping ${submission.brand_name} — failed to create pending_enrichment brand: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }
 
-    allBrands = submissionRows.map(submissionToEnrichBrand);
+    allBrands = readySubmissions.map(submissionToEnrichBrand);
   } else {
     let query = supabase
       .from("brands")
