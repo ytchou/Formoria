@@ -1,96 +1,239 @@
-'use server'
+"use server";
 
-import { requireAdminAction } from '@/lib/auth/require-admin'
+import { revalidatePath } from "next/cache";
+import { requireAdminAction } from "@/lib/auth/require-admin";
 import {
-  cancelCurationJob,
-  checkForRunningJob,
-  createCurationJob,
+  enqueueAdminCurationJob,
+  enqueueManualRerun,
+  getCurationJob,
+  getCurationJobCounts,
+  getCurationJobDetail,
+  markCurationJobDispatchPending,
+  markCurationJobDispatched,
+  recordCurationDispatchFailure,
   listCurationJobs,
-  recoverStaleJobs,
-  splitIntoBatches,
   type CurationJob,
+  type CurationDispatchStatus,
+  type CurationJobDetail,
   type CurationJobParams,
-} from '@/lib/services/curation-jobs'
-import { runJob } from '@/lib/services/job-runner'
-import type { EnrichmentSummary } from '@/lib/services/enrichment-logger'
+  type CurationJobView,
+} from "@/lib/services/curation-jobs";
+import {
+  dispatchCurationJob,
+  sanitizeDispatchError,
+} from "@/lib/services/curation-dispatch";
 
-const BATCH_SIZE = 20
-
-type CurationOperation = 'enrich'
-type StartCurationOperation = CurationOperation | 'clean-names'
-type StartCurationJobResult =
-  | { jobId: string; jobIds: string[]; summary: EnrichmentSummary }
-  | { jobIds: string[]; queued: true; message: string }
-  | { error: string }
+type StartCurationOperation = "enrich" | "clean-names";
+export type QueuedJobResult = {
+  jobId: string;
+  detailPath: string;
+  queued: true;
+  dispatchStatus: CurationDispatchStatus;
+  message: string;
+};
 
 export async function startCurationJobAction(
   operation: StartCurationOperation,
   params: CurationJobParams,
-  dryRun: boolean
-): Promise<StartCurationJobResult> {
+  dryRun: boolean,
+): Promise<QueuedJobResult | { error: string }> {
   try {
-    const auth = await requireAdminAction()
-    if ('error' in auth) return auth
-
-    await recoverStaleJobs()
-
-    const runningJob = await checkForRunningJob()
-    if (runningJob.error) {
-      return { error: runningJob.error }
+    const auth = await requireAdminAction();
+    if ("error" in auth) return auth;
+    if (operation !== "enrich") {
+      return { error: "Operation removed — use enrich instead" };
     }
 
-    const batches = splitIntoBatches(params, BATCH_SIZE)
-    const jobs: CurationJob[] = []
+    const job = await enqueueAdminCurationJob({
+      params,
+      dryRun,
+      startedBy: auth.user.email ?? auth.user.id,
+    });
+    revalidatePath("/admin/jobs");
+    revalidatePath("/admin/review-queue/submissions");
 
-    for (const batch of batches) {
-      const createdJob = await createCurationJob({
-        operation,
-        params: batch,
-        dryRun,
-        startedBy: auth.user.email ?? '',
-      })
-
-      if ('error' in createdJob) {
-        await Promise.all(jobs.map((j) => cancelCurationJob(j.id)))
-        return { error: createdJob.error }
-      }
-
-      jobs.push(createdJob.job)
-    }
-
-    if (runningJob.hasRunningJob) {
-      return {
-        jobIds: jobs.map((job) => job.id),
-        queued: true,
-        message: `Queued ${jobs.length} curation ${jobs.length === 1 ? 'job' : 'jobs'}.`,
-      }
-    }
-
-    const summary = await runJob(jobs[0])
-
-    return { jobId: jobs[0].id, jobIds: jobs.map((j) => j.id), summary }
-  } catch (err) {
-    console.error('[admin:startCurationJobAction]', err)
+    return dispatchQueuedJob(job.id, "資料抓取工作已建立，正在立即執行。");
+  } catch (error) {
+    console.error("[admin:startCurationJobAction]", error);
     return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
-    }
+      error:
+        error instanceof Error ? error.message : "An unexpected error occurred",
+    };
   }
 }
 
-export async function listCurationJobsAction(
-  options?: { limit?: number }
-): Promise<{ jobs: CurationJob[] } | { error: string }> {
+export async function rerunCurationJobAction(
+  jobId: string,
+): Promise<QueuedJobResult | { error: string }> {
   try {
-    const auth = await requireAdminAction()
-    if ('error' in auth) return auth
+    const auth = await requireAdminAction();
+    if ("error" in auth) return auth;
 
-    const jobs = await listCurationJobs(options)
+    const job = await enqueueManualRerun(
+      jobId,
+      auth.user.email ?? auth.user.id,
+    );
+    revalidatePath("/admin/jobs");
+    revalidatePath(`/admin/jobs/${jobId}`);
 
-    return { jobs }
-  } catch (err) {
-    console.error('[admin:listCurationJobsAction]', err)
+    return dispatchQueuedJob(
+      job.id,
+      "失敗或未完成的品牌已建立重跑工作，正在立即執行。",
+    );
+  } catch (error) {
+    console.error("[admin:rerunCurationJobAction]", error);
     return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
-    }
+      error:
+        error instanceof Error ? error.message : "An unexpected error occurred",
+    };
   }
+}
+
+export async function listCurationJobsAction(options?: {
+  limit?: number;
+  view?: CurationJobView;
+}): Promise<{ jobs: CurationJob[] } | { error: string }> {
+  try {
+    const auth = await requireAdminAction();
+    if ("error" in auth) return auth;
+
+    return { jobs: await listCurationJobs(options) };
+  } catch (error) {
+    console.error("[admin:listCurationJobsAction]", error);
+    return {
+      error:
+        error instanceof Error ? error.message : "An unexpected error occurred",
+    };
+  }
+}
+
+export async function getCurationJobCountsAction() {
+  try {
+    const auth = await requireAdminAction();
+    if ("error" in auth) return auth;
+
+    return { counts: await getCurationJobCounts() };
+  } catch (error) {
+    console.error("[admin:getCurationJobCountsAction]", error);
+    return {
+      error:
+        error instanceof Error ? error.message : "An unexpected error occurred",
+    };
+  }
+}
+
+export async function dispatchCurationJobAction(
+  jobId: string,
+): Promise<QueuedJobResult | { error: string }> {
+  try {
+    const auth = await requireAdminAction();
+    if ("error" in auth) return auth;
+
+    const job = await getCurationJob(jobId);
+    if (job.status !== "pending") {
+      return { error: "Only queued jobs can be dispatched" };
+    }
+
+    const result = await dispatchQueuedJob(job.id, "資料工作已接受立即執行要求。");
+    revalidatePath("/admin/jobs");
+    revalidatePath(`/admin/jobs/${jobId}`);
+    return result;
+  } catch (error) {
+    console.error("[admin:dispatchCurationJobAction]", error);
+    return {
+      error:
+        error instanceof Error ? error.message : "An unexpected error occurred",
+    };
+  }
+}
+
+export async function retryCurationDispatchAction(
+  jobId: string,
+): Promise<QueuedJobResult | { error: string }> {
+  try {
+    const auth = await requireAdminAction();
+    if ("error" in auth) return auth;
+
+    const job = await getCurationJob(jobId);
+    if (job.status !== "pending") {
+      return { error: "Only queued jobs can retry dispatch" };
+    }
+
+    await markCurationJobDispatchPending(job.id);
+    const result = await dispatchQueuedJob(job.id, "資料工作派送已重試。");
+    revalidatePath("/admin/jobs");
+    revalidatePath(`/admin/jobs/${jobId}`);
+    return result;
+  } catch (error) {
+    console.error("[admin:retryCurationDispatchAction]", error);
+    return {
+      error:
+        error instanceof Error ? error.message : "An unexpected error occurred",
+    };
+  }
+}
+
+export async function getCurationJobDetailAction(
+  jobId: string,
+): Promise<{ detail: CurationJobDetail } | { error: string }> {
+  try {
+    const auth = await requireAdminAction();
+    if ("error" in auth) return auth;
+
+    return { detail: await getCurationJobDetail(jobId) };
+  } catch (error) {
+    console.error("[admin:getCurationJobDetailAction]", error);
+    return {
+      error:
+        error instanceof Error ? error.message : "An unexpected error occurred",
+    };
+  }
+}
+
+async function dispatchQueuedJob(
+  jobId: string,
+  successMessage: string,
+): Promise<QueuedJobResult> {
+  try {
+    await dispatchCurationJob(jobId);
+    try {
+      await markCurationJobDispatched(jobId);
+    } catch (error) {
+      console.error(
+        "[admin:dispatchCurationJobAction:mark-dispatched]",
+        sanitizeDispatchError(error),
+      );
+    }
+    return queuedJobResult(jobId, successMessage, "dispatched");
+  } catch (error) {
+    const message = sanitizeDispatchError(error);
+    try {
+      await recordCurationDispatchFailure(jobId, message);
+    } catch (persistError) {
+      console.error(
+        "[admin:dispatchCurationJobAction:persist-failure]",
+        sanitizeDispatchError(persistError),
+      );
+    }
+
+    return queuedJobResult(
+      jobId,
+      `${successMessage} 但派送失敗：${message} 請在資料工作中重試派送。`,
+      "failed",
+    );
+  }
+}
+
+function queuedJobResult(
+  jobId: string,
+  message: string,
+  dispatchStatus: CurationDispatchStatus,
+): QueuedJobResult {
+  return {
+    jobId,
+    detailPath: `/admin/jobs/${jobId}`,
+    queued: true,
+    dispatchStatus,
+    message,
+  };
 }

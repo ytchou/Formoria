@@ -9,17 +9,16 @@ import { getFeedbackItems } from '@/lib/services/feedback'
 import { getFlaggedContent } from '@/lib/services/moderation'
 import { getPendingEdits } from '@/lib/services/pending-edits'
 import { getPendingReports } from '@/lib/services/reports'
-import { getSubmissions } from '@/lib/services/submissions'
+import { getSubmissionsForReview, type BrandSubmissionForReview } from '@/lib/services/submissions'
 import type { BrandReport } from '@/lib/services/reports'
 import type { FeedbackItem } from '@/lib/services/feedback'
 import type { FlaggedContentItem } from '@/lib/services/moderation'
-import type { BrandSubmission } from '@/lib/types'
 import type { PendingBrandEditWithBrand } from '@/lib/types/brand'
 import type { ClaimRequest } from '@/lib/services/claim-requests'
 import type { Brand } from '@/lib/types'
 
 vi.mock('@/lib/services/submissions', () => ({
-  getSubmissions: vi.fn(),
+  getSubmissionsForReview: vi.fn(),
 }))
 
 vi.mock('@/lib/services/pending-edits', () => ({
@@ -55,8 +54,8 @@ vi.mock('@/app/admin/actions', () => ({
 }))
 
 function makeSubmission(
-  overrides: Partial<BrandSubmission> = {},
-): BrandSubmission {
+  overrides: Partial<BrandSubmissionForReview> = {},
+): BrandSubmissionForReview {
   return {
     id: 'submission-1',
     brandId: 'brand-1',
@@ -83,6 +82,13 @@ function makeSubmission(
     notifiedAt: null,
     isBrandOwner: false,
     sourceAttribution: null,
+    websiteUrl: null,
+    productTypeNote: null,
+    enriched_data: null,
+    latestCurationTargetStatus: null,
+    latestCurationJobId: null,
+    latestCurationPhase: null,
+    latestCurationError: null,
     ...overrides,
   }
 }
@@ -244,7 +250,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
 }
 
 beforeEach(() => {
-  vi.mocked(getSubmissions).mockResolvedValue([])
+  vi.mocked(getSubmissionsForReview).mockResolvedValue([])
   vi.mocked(getPendingEdits).mockResolvedValue([])
   vi.mocked(listClaimRequests).mockResolvedValue([])
   vi.mocked(getPendingReports).mockResolvedValue([])
@@ -261,7 +267,7 @@ beforeEach(() => {
 
 describe('AdminPage', () => {
   it('renders queue summary cards sorted by highest pending count first', async () => {
-    vi.mocked(getSubmissions).mockResolvedValueOnce([
+    vi.mocked(getSubmissionsForReview).mockResolvedValueOnce([
       makeSubmission({ id: 'submission-1', brandName: 'First Submission' }),
       makeSubmission({ id: 'submission-2', brandName: 'Second Submission' }),
       makeSubmission({ id: 'submission-3', brandName: 'Third Submission' }),
@@ -288,10 +294,15 @@ describe('AdminPage', () => {
     const cards = screen.getAllByTestId('queue-summary-card')
     expect(within(cards[0]).getByText('品牌認領')).toBeInTheDocument()
     expect(within(cards[0]).getByText('4')).toBeInTheDocument()
-    expect(within(cards[1]).getByText('新品牌提交')).toBeInTheDocument()
-    expect(within(cards[1]).getByText('3')).toBeInTheDocument()
-    expect(within(cards[2]).getByText('品牌編輯')).toBeInTheDocument()
-    expect(within(cards[2]).getByText('2')).toBeInTheDocument()
+    expect(screen.getByText('待資料處理')).toBeInTheDocument()
+    expect(screen.getByText('3')).toBeInTheDocument()
+    expect(within(cards[1]).getByText('品牌編輯')).toBeInTheDocument()
+    expect(within(cards[1]).getByText('2')).toBeInTheDocument()
+    expect(
+      screen
+        .getAllByRole('link', { name: '查看全部 →' })
+        .find((link) => link.getAttribute('href') === '/admin/review-queue/submissions?stage=needs_data'),
+    ).toBeInTheDocument()
   })
 
   it('renders overview metrics for total brands', async () => {
@@ -309,7 +320,7 @@ describe('AdminPage', () => {
   it('shows empty collapsed state for zero-count queues', async () => {
     render(await AdminDashboardPage())
 
-    expect(screen.getByText('目前沒有待審核的新品牌提交。')).toBeInTheDocument()
+    expect(screen.getByText('目前沒有待處理的資料工作。')).toBeInTheDocument()
     expect(screen.getByText('目前沒有待審核的品牌編輯。')).toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: /核准|Approve/i }),

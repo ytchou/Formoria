@@ -1,6 +1,11 @@
-import { ExternalLink } from 'lucide-react'
-import type { CurationJob } from '@/lib/services/curation-jobs'
-import { Badge } from '@/components/ui/badge'
+import Link from "next/link";
+import { ExternalLink } from "lucide-react";
+import type {
+  CurationJob,
+  CurationJobCounts,
+  CurationJobView,
+} from "@/lib/services/curation-jobs";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -8,142 +13,138 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import type { Json } from '@/lib/supabase/database.types'
+} from "@/components/ui/table";
+import { JobAutoRefresh } from "./job-auto-refresh";
+import {
+  formatJobDate,
+  formatJobDuration,
+  jobTriggerLabel,
+  JobStatusBadge,
+} from "./job-display";
+import { DispatchJobButton } from "./dispatch-job-button";
 
-type JobSummary = {
-  success: number
-  skipped: number
-  failed: number
+function formatProgress(job: CurationJob): string {
+  const complete = job.succeeded_count + job.skipped_count + job.failed_count;
+  return `${complete} / ${job.target_total}`;
 }
 
-function isRecord(v: Json | null | undefined): v is Record<string, Json | undefined> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
-
-function readNum(v: Json | undefined): number {
-  return typeof v === 'number' && Number.isFinite(v) ? v : 0
-}
-
-function asSummary(json: Json | null): JobSummary | null {
-  if (!isRecord(json)) return null
-  const hasSummaryCount =
-    typeof json.success === 'number' ||
-    typeof json.skipped === 'number' ||
-    typeof json.failed === 'number'
-
-  if (!hasSummaryCount) return null
-
-  return {
-    success: readNum(json.success),
-    skipped: readNum(json.skipped),
-    failed: readNum(json.failed),
-  }
-}
-
-function formatSummary(result: Json | null): string {
-  const summary = asSummary(result)
-
-  if (!summary) return '-'
-
-  return `${summary.success} success, ${summary.skipped} skipped, ${summary.failed} failed`
-}
-
-function formatDuration(startedAt: string | null, completedAt: string | null) {
-  if (!startedAt || !completedAt) return '-'
-
-  const endMs = new Date(completedAt).getTime()
-  const startMs = new Date(startedAt).getTime()
-
-  if (!Number.isFinite(endMs) || !Number.isFinite(startMs) || endMs < startMs) {
-    return '-'
-  }
-
-  const seconds = Math.round((endMs - startMs) / 1000)
-  if (seconds < 60) return `${seconds} 秒`
-
-  return `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`
-}
-
-function formatDate(dateStr: string | null) {
-  if (!dateStr) return '-'
-
-  return new Date(dateStr).toLocaleString('zh-TW', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function operationLabel(op: string, dryRun: boolean) {
-  const label = op === 'enrich' ? '資料抓取' : op
-  return dryRun ? `${label} (預覽)` : label
-}
-
-function JobStatusBadge({ status }: { status: CurationJob['status'] }) {
-  const config: Record<CurationJob['status'], { label: string; className: string }> = {
-    pending: { label: '待處理', className: 'bg-secondary text-muted-foreground' },
-    running: { label: '執行中', className: 'animate-pulse bg-secondary text-muted-foreground' },
-    completed: { label: '已完成', className: 'bg-verified-green-bg text-verified-green' },
-    failed: { label: '失敗', className: 'bg-destructive/10 text-destructive' },
-  }
-
-  return <Badge className={config[status].className}>{config[status].label}</Badge>
+function formatOutcome(job: CurationJob): string {
+  return `${job.succeeded_count} 成功、${job.skipped_count} 略過、${job.failed_count} 失敗`;
 }
 
 export function JobHistoryList({
   initialJobs,
+  counts = { attention: 0, active: 0, history: initialJobs.length },
+  view = "attention",
   railwayLogsUrl,
 }: {
-  initialJobs: CurationJob[]
-  railwayLogsUrl?: string
+  initialJobs: CurationJob[];
+  counts?: CurationJobCounts;
+  view?: CurationJobView;
+  railwayLogsUrl?: string;
 }) {
+  const hasActiveJob = initialJobs.some(
+    (job) => job.status === "pending" || job.status === "running",
+  );
+
   return (
     <div className="space-y-3">
-      {railwayLogsUrl && (
+      <JobAutoRefresh active={hasActiveJob} />
+      <nav aria-label="資料工作篩選" className="flex flex-wrap gap-2">
+        <JobViewLink
+          view={view}
+          value="attention"
+          label={`需要處理 (${counts.attention})`}
+        />
+        <JobViewLink
+          view={view}
+          value="active"
+          label={`執行中 (${counts.active})`}
+        />
+        <JobViewLink
+          view={view}
+          value="history"
+          label={`歷史 (${counts.history})`}
+        />
+      </nav>
+      {railwayLogsUrl ? (
         <div className="flex justify-end">
           <a
             href={railwayLogsUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-md border border-border bg-white px-3 py-2.5 type-body-emphasis shadow-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className={buttonVariants({
+              variant: "secondary",
+              size: "large",
+              className: "min-h-12",
+            })}
           >
-            <ExternalLink className="h-4 w-4" aria-hidden="true" />
-            View Railway Logs
+            <ExternalLink aria-hidden="true" />
+            Railway 原始紀錄
           </a>
         </div>
-      )}
+      ) : null}
 
-      <div className="overflow-hidden rounded-lg border border-border bg-white">
+      <div className="overflow-x-auto rounded-xl border border-border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>建立時間</TableHead>
-              <TableHead>類型</TableHead>
+              <TableHead>觸發來源</TableHead>
+              <TableHead>嘗試</TableHead>
               <TableHead>狀態</TableHead>
-              <TableHead>摘要</TableHead>
+              <TableHead>進度</TableHead>
+              <TableHead>結果</TableHead>
               <TableHead>耗時</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {initialJobs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                  目前沒有任何工作紀錄。
+                <TableCell
+                  colSpan={7}
+                  className="py-8 text-center text-muted-foreground"
+                >
+                  此檢視目前沒有資料工作。
                 </TableCell>
               </TableRow>
             ) : (
               initialJobs.map((job) => (
-                <TableRow key={job.id} className="hover:bg-muted/50">
-                  <TableCell>{formatDate(job.created_at)}</TableCell>
-                  <TableCell>{operationLabel(job.operation, job.dry_run)}</TableCell>
+                <TableRow key={job.id}>
                   <TableCell>
-                    <JobStatusBadge status={job.status} />
+                    <Link
+                      href={`/admin/jobs/${job.id}`}
+                      className="font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {formatJobDate(job.created_at)}
+                    </Link>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{formatSummary(job.result)}</TableCell>
-                  <TableCell>{formatDuration(job.started_at, job.completed_at)}</TableCell>
+                  <TableCell>{jobTriggerLabel(job.trigger)}</TableCell>
+                  <TableCell>{job.attempt}</TableCell>
+                  <TableCell>
+                    <JobStatusBadge job={job} />
+                    {job.status === "pending" &&
+                    job.dispatch_status === "failed" ? (
+                      <div className="mt-2">
+                        <DispatchJobButton
+                          jobId={job.id}
+                          label="Retry dispatch"
+                          retry
+                        />
+                      </div>
+                    ) : null}
+                  </TableCell>
+                  <TableCell>{formatProgress(job)}</TableCell>
+                  <TableCell
+                    className={
+                      job.failed_count > 0 ? "font-medium text-destructive" : ""
+                    }
+                  >
+                    {formatOutcome(job)}
+                  </TableCell>
+                  <TableCell>
+                    {formatJobDuration(job.started_at, job.completed_at)}
+                  </TableCell>
                 </TableRow>
               ))
             )}
@@ -151,5 +152,29 @@ export function JobHistoryList({
         </Table>
       </div>
     </div>
-  )
+  );
+}
+
+function JobViewLink({
+  view,
+  value,
+  label,
+}: {
+  view: CurationJobView;
+  value: CurationJobView;
+  label: string;
+}) {
+  return (
+    <Link
+      href={`/admin/jobs?view=${value}`}
+      aria-current={view === value ? "page" : undefined}
+      className={buttonVariants({
+        variant: view === value ? "primary" : "secondary",
+        size: "default",
+        className: "min-h-12",
+      })}
+    >
+      {label}
+    </Link>
+  );
 }

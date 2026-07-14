@@ -1,263 +1,446 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createTestClient, describeWithDb } from '@/test/setup'
-import type { EnrichmentSummary } from '@/lib/services/enrichment-logger'
-import type { CurationJob } from '@/lib/services/curation-jobs'
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type {
+  CurationJob,
+  CurationJobTarget,
+} from "@/lib/services/curation-jobs";
+import type { CurationTargetProgressEvent } from "@/lib/types/curation";
 
-const dbClient =
-  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
-    ? createTestClient()
-    : null
+const mocks = vi.hoisted(() => ({
+  runEnrich: vi.fn(),
+  enqueueAutomaticRetry: vi.fn(),
+  finalizeCurationJob: vi.fn(),
+  heartbeatCurationJob: vi.fn(),
+  listCurationJobTargets: vi.fn(),
+  updateCurationJobTarget: vi.fn(),
+  createServiceClient: vi.fn(),
+}));
 
-type MockSubmission = {
-  id: string
-  brand_id: string | null
-  brand_name: string
-}
+vi.mock("../curation-operations", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../curation-operations")>();
+  return { ...actual, runEnrich: mocks.runEnrich };
+});
+vi.mock("@/lib/services/curation-jobs", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/services/curation-jobs")>();
+  return {
+    ...actual,
+    enqueueAutomaticRetry: mocks.enqueueAutomaticRetry,
+    finalizeCurationJob: mocks.finalizeCurationJob,
+    heartbeatCurationJob: mocks.heartbeatCurationJob,
+    listCurationJobTargets: mocks.listCurationJobTargets,
+    updateCurationJobTarget: mocks.updateCurationJobTarget,
+  };
+});
+vi.mock("@/lib/supabase/server", () => ({
+  createServiceClient: mocks.createServiceClient,
+}));
 
-const operationResult = {
-  processed: 1,
-  updated: 1,
-  skipped: 0,
-  errors: [],
-  brandOutcomes: [{ slug: 'brand-a', name: 'Brand A', status: 'succeeded' as const }],
-  enrichmentSummary: {
-    success: 1,
-    skipped: 0,
-    failed: 0,
-    failedBrands: [],
-    durationMs: 10,
-  },
-}
+import { runJob, sanitizeJobError } from "../job-runner";
 
-afterEach(() => {
-  vi.clearAllMocks()
-  vi.resetModules()
-  vi.doUnmock('../curation-operations')
-  vi.doUnmock('@/lib/supabase/server')
-  vi.doUnmock('@/lib/services/curation-jobs')
-  vi.doUnmock('next/cache')
-})
+describe("durable curation job runner", () => {
+  let targets: CurationJobTarget[];
 
-describe('job-runner enrich routing', () => {
-  it('should default to submissions target when no slugs or submissionIds', async () => {
-    const { runEnrich, runJob } = await importRunnerWithMocks()
+  beforeEach(() => {
+    vi.clearAllMocks();
+    targets = [target()];
+    mocks.listCurationJobTargets.mockImplementation(async () => targets);
+    mocks.heartbeatCurationJob.mockResolvedValue(true);
+    mocks.finalizeCurationJob.mockResolvedValue(true);
+    mocks.enqueueAutomaticRetry.mockResolvedValue(null);
+    mocks.createServiceClient.mockReturnValue(mockSupabase());
+    mocks.updateCurationJobTarget.mockImplementation(
+      async (_jobId, targetId, patch) => {
+        targets = targets.map((item) =>
+          item.target_id === targetId ? { ...item, ...patch } : item,
+        );
+      },
+    );
+  });
 
-    await runJob(job({ params: {} }))
+  it("completes when every target fails and does not create an automatic retry", async () => {
+    mocks.runEnrich.mockImplementation(async (config) => {
+      await emit(config.onTargetProgress, {
+        status: "failed",
+        error: "Provider did not return usable content",
+        phaseResults: [
+          {
+            phase: "descriptions",
+            status: "failed",
+            changedFields: [],
+            durationMs: 25,
+            error: "Provider did not return usable content",
+          },
+        ],
+      });
+      return operationResult("failed");
+    });
 
-    expect(runEnrich).toHaveBeenCalledWith(
-      expect.objectContaining({ target: 'submissions' }),
-      expect.anything()
-    )
-  })
+    const summary = await runJob(job({ trigger: "cron" }), "worker-token");
 
-  it('should set brands target when slugs provided', async () => {
-    const { runEnrich, runJob } = await importRunnerWithMocks()
+    expect(summary).toMatchObject({ success: 0, skipped: 0, failed: 1 });
+    expect(mocks.finalizeCurationJob).toHaveBeenCalledWith(
+      "job-1",
+      "worker-token",
+      expect.objectContaining({ status: "completed", failed_count: 1 }),
+    );
+    expect(mocks.enqueueAutomaticRetry).not.toHaveBeenCalled();
+  });
 
-    await runJob(job({ params: { slugs: ['brand-a'] } }))
+  it("completes a zero-target scheduled run without calling enrichment providers", async () => {
+    targets = [];
 
-    expect(runEnrich).toHaveBeenCalledWith(
-      expect.objectContaining({ slugs: ['brand-a'], target: 'brands' }),
-      expect.anything()
-    )
-  })
+    const summary = await runJob(
+      job({ trigger: "cron", target_total: 0 }),
+      "worker-token",
+    );
 
-  it('should route to runSubmissionEnrichment when submissionIds provided', async () => {
-    const { runEnrich, runJob } = await importRunnerWithMocks([
-      { id: 'id-1', brand_id: null, brand_name: 'Brand One' },
-      { id: 'id-2', brand_id: null, brand_name: 'Brand Two' },
-    ])
-
-    await runJob(job({ params: { submissionIds: ['id-1', 'id-2'] } }))
-
-    expect(runEnrich).toHaveBeenCalledWith(
+    expect(mocks.runEnrich).not.toHaveBeenCalled();
+    expect(summary).toMatchObject({ success: 0, skipped: 0, failed: 0 });
+    expect(mocks.finalizeCurationJob).toHaveBeenCalledWith(
+      "job-1",
+      "worker-token",
       expect.objectContaining({
-        submissionIds: ['id-1', 'id-2'],
-        target: 'submissions',
+        status: "completed",
+        target_total: 0,
+        succeeded_count: 0,
+        skipped_count: 0,
+        failed_count: 0,
       }),
-      expect.anything()
-    )
-  })
-})
+    );
+  });
 
-describe('job-runner single-job processing', () => {
-  it('processes exactly one job per call without draining the queue', async () => {
-    const { runEnrich, runJob } = await importRunnerWithMocks()
+  it("creates one immediate linked retry when a cron orchestration attempt fails", async () => {
+    const cronJob = job({ trigger: "cron", attempt: 1 });
+    mocks.runEnrich.mockRejectedValue(new Error("Database connection lost"));
 
-    const summary = await runJob(job({ id: 'job-1', params: { slugs: ['brand-a'] } }))
+    await runJob(cronJob, "worker-token");
 
-    expect(runEnrich).toHaveBeenCalledTimes(1)
-    expect(summary).toMatchObject({ success: 1, skipped: 0, failed: 0, durationMs: 10 })
-  })
+    expect(mocks.finalizeCurationJob).toHaveBeenCalledWith(
+      cronJob.id,
+      "worker-token",
+      expect.objectContaining({
+        status: "failed",
+        job_error: "Database connection lost",
+      }),
+    );
+    expect(mocks.enqueueAutomaticRetry).toHaveBeenCalledOnce();
+    expect(mocks.enqueueAutomaticRetry).toHaveBeenCalledWith(cronJob);
+  });
 
-  it('returns a failed summary when the job throws without processing further jobs', async () => {
-    const runEnrich = vi.fn().mockRejectedValueOnce(new Error('first job failed'))
-    const { runJob } = await importRunnerWithMocks([], runEnrich)
+  it("does not create another retry after a failed automatic retry", async () => {
+    const failedJob = job({
+      trigger: "automatic_retry",
+      attempt: 2,
+      parent_job_id: "job-parent",
+    });
+    mocks.runEnrich.mockRejectedValue(new Error("Orchestration stopped"));
 
-    const summary = await runJob(job({ id: 'job-1' }))
+    await runJob(failedJob, "worker-token");
 
-    expect(runEnrich).toHaveBeenCalledTimes(1)
-    expect(summary.success).toBe(0)
-    expect(summary.failed).toBe(1)
-    expect(summary.failedBrands[0]).toMatchObject({
-      slug: 'job-1',
-      phase: 'job',
-      error: 'first job failed',
-    })
-  })
+    expect(mocks.enqueueAutomaticRetry).not.toHaveBeenCalled();
+  });
 
-  it('calls recoverStaleJobs at the start of each run', async () => {
-    const { recoverStaleJobs, runJob } = await importRunnerWithMocks()
+  it("creates one retry for an orchestration failure from an admin run", async () => {
+    const failedJob = job({ trigger: "admin" });
+    mocks.runEnrich.mockRejectedValue(new Error("Orchestration stopped"));
 
-    await runJob(job({ id: 'job-1' }))
+    await runJob(failedJob, "worker-token");
 
-    expect(recoverStaleJobs).toHaveBeenCalledTimes(1)
-  })
+    expect(mocks.enqueueAutomaticRetry).toHaveBeenCalledOnce();
+    expect(mocks.enqueueAutomaticRetry).toHaveBeenCalledWith(failedJob);
+  });
 
-  it('merges enrichment summaries from multiple jobs', async () => {
-    const { mergeSummaries } = await import('../job-runner')
-    const summaries: EnrichmentSummary[] = [
-      {
-        success: 2,
-        skipped: 1,
-        failed: 1,
-        failedBrands: [{ slug: 'a', phase: 'links', error: 'bad url' }],
-        durationMs: 100,
-      },
-      {
-        success: 3,
-        skipped: 2,
-        failed: 1,
-        failedBrands: [{ slug: 'b', phase: 'images', error: 'missing' }],
-        durationMs: 250,
-      },
-    ]
+  it("does not finalize with a stale worker token after the lease is lost", async () => {
+    mocks.runEnrich.mockImplementation(async (config) => {
+      mocks.heartbeatCurationJob.mockResolvedValueOnce(false);
+      await emit(config.onTargetProgress, { status: "succeeded" });
+      return operationResult("succeeded");
+    });
+    mocks.finalizeCurationJob.mockResolvedValue(false);
 
-    expect(mergeSummaries(summaries)).toEqual({
-      success: 5,
-      skipped: 3,
-      failed: 2,
-      failedBrands: [
-        { slug: 'a', phase: 'links', error: 'bad url' },
-        { slug: 'b', phase: 'images', error: 'missing' },
-      ],
-      durationMs: 350,
-    })
-  })
-})
+    const summary = await runJob(job({ trigger: "cron" }), "stale-token");
 
-describeWithDb('runSubmissionEnrichment direct submissions', () => {
-  const supabase = dbClient!
-  let submissionId: string | null = null
+    expect(summary.failed).toBe(1);
+    expect(mocks.enqueueAutomaticRetry).not.toHaveBeenCalled();
+  });
 
-  afterEach(async () => {
-    if (submissionId) {
-      await supabase.from('brand_submissions').delete().eq('id', submissionId)
-      submissionId = null
-    }
-  })
+  it("persists phase progress and sanitized terminal errors", async () => {
+    mocks.runEnrich.mockImplementation(async (config) => {
+      await emit(config.onTargetProgress, {
+        status: "running",
+        currentPhase: "links",
+        phaseResults: [
+          {
+            phase: "clean",
+            status: "failed",
+            changedFields: ["name"],
+            durationMs: 8,
+            error: "Bearer phase-secret",
+          },
+        ],
+      });
+      await emit(config.onTargetProgress, {
+        status: "failed",
+        error: "Bearer secret-token-value",
+      });
+      return operationResult("failed");
+    });
 
-  it('should call runEnrich with target=submissions for direct submissions', async () => {
-    const { data: submission, error } = await supabase
-      .from('brand_submissions')
-      .insert({
-        brand_name: '[TEST-JOB-RUNNER] Direct Submission',
-        submitter_email: 'job-runner-direct@example.com',
-        status: 'pending',
-        brand_id: null,
-      })
-      .select('id')
-      .single()
+    await runJob(job(), "worker-token");
 
-    if (error) {
-      throw error
-    }
+    expect(mocks.updateCurationJobTarget).toHaveBeenCalledWith(
+      "job-1",
+      "brand-1",
+      expect.objectContaining({
+        status: "running",
+        current_phase: "links",
+        phase_results: [
+          expect.objectContaining({ error: "Bearer [REDACTED]" }),
+        ],
+      }),
+    );
+    expect(mocks.updateCurationJobTarget).toHaveBeenLastCalledWith(
+      "job-1",
+      "brand-1",
+      expect.objectContaining({ status: "failed", error: "Bearer [REDACTED]" }),
+    );
+  });
 
-    const insertedSubmissionId = submission!.id
-    submissionId = insertedSubmissionId
+  it("records deleted, approved, and already-enriched manual rerun targets as skipped", async () => {
+    targets = [
+      target({
+        target_type: "submission",
+        target_id: "submission-deleted",
+        brand_slug: null,
+      }),
+      target({
+        id: "target-row-2",
+        target_type: "submission",
+        target_id: "submission-enriched",
+        brand_slug: null,
+      }),
+      target({
+        id: "target-row-3",
+        target_type: "submission",
+        target_id: "submission-approved",
+        brand_slug: null,
+      }),
+    ];
+    mocks.createServiceClient.mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === "brand_submissions") {
+          return {
+            select: vi.fn(() => ({
+              in: vi.fn(async () => ({
+                data: [
+                  {
+                    id: "submission-enriched",
+                    status: "pending",
+                    brand_id: null,
+                    hero_image_url: "https://example.com/already-done.jpg",
+                    enriched_data: {
+                      description: "Already done",
+                      hero_image_url: "https://example.com/already-done.jpg",
+                      product_type: "crafts",
+                    },
+                  },
+                  {
+                    id: "submission-approved",
+                    status: "approved",
+                    brand_id: "brand-approved",
+                    enriched_data: null,
+                  },
+                ],
+                error: null,
+              })),
+            })),
+          };
+        }
 
-    const { runSubmissionEnrichment } = await import('../job-runner')
-    const result = await runSubmissionEnrichment(
-      supabase as never,
-      { submissionIds: [insertedSubmissionId] },
-      { dryRun: true, phases: ['clean'] }
-    )
+        if (table === "curation_job_targets") {
+          return {
+            update: vi.fn((patch) =>
+              targetMutation(
+                patch,
+                () => targets,
+                (next) => {
+                  targets = next;
+                },
+              ),
+            ),
+          };
+        }
 
-    expect(result.processed).toBeGreaterThanOrEqual(0)
-  })
-})
+        return { update: vi.fn(() => chain()) };
+      }),
+    });
 
-async function importRunnerWithMocks(
-  submissions: MockSubmission[] = [],
-  runEnrich = vi.fn().mockResolvedValue(operationResult)
+    const summary = await runJob(
+      job({
+        trigger: "manual_rerun",
+        params: { submissionIds: targets.map((item) => item.target_id) },
+      }),
+      "worker-token",
+    );
+
+    expect(mocks.runEnrich).not.toHaveBeenCalled();
+    expect(summary).toMatchObject({ success: 0, skipped: 3, failed: 0 });
+    expect(targets.map((item) => item.error)).toEqual(
+      expect.arrayContaining([
+        "Submission was deleted before the rerun",
+        "Submission was already enriched before the rerun",
+        "Submission was approved or changed before the rerun",
+      ]),
+    );
+  });
+
+  it("redacts credentials from stored job errors", () => {
+    expect(sanitizeJobError("Bearer abc.def-123")).toBe("Bearer [REDACTED]");
+    expect(sanitizeJobError("eyJheader.eyJpayload.signature")).toBe(
+      "[REDACTED_JWT]",
+    );
+    expect(sanitizeJobError("api_key=provider-secret")).toBe(
+      "api_key=[REDACTED]",
+    );
+  });
+});
+
+async function emit(
+  callback:
+    | ((event: CurationTargetProgressEvent) => void | Promise<void>)
+    | undefined,
+  overrides: Partial<CurationTargetProgressEvent>,
 ) {
-  const createServiceClient = vi.fn(() => mockSupabase(submissions))
-  const recoverStaleJobs = vi.fn().mockResolvedValue(undefined)
+  await callback?.({
+    targetId: "brand-1",
+    targetType: "brand",
+    slug: "taipei-maker",
+    name: "台北工坊",
+    status: "running",
+    ...overrides,
+  });
+}
 
-  vi.doMock('next/cache', () => ({
-    revalidateTag: vi.fn(),
-  }))
-  vi.doMock('@/lib/supabase/server', () => ({
-    createServiceClient,
-  }))
-  vi.doMock('@/lib/services/curation-jobs', () => ({
-    recoverStaleJobs,
-  }))
-  vi.doMock('../curation-operations', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('../curation-operations')>()
-    return {
-      ...actual,
-      runEnrich,
-    }
-  })
-
-  const runner = await import('../job-runner')
-  return { ...runner, createServiceClient, recoverStaleJobs, runEnrich }
+function operationResult(status: "succeeded" | "failed") {
+  return {
+    processed: 1,
+    updated: status === "succeeded" ? 1 : 0,
+    skipped: 0,
+    errors:
+      status === "failed" ? ["Provider did not return usable content"] : [],
+    brandOutcomes: [
+      {
+        slug: "taipei-maker",
+        name: "台北工坊",
+        status,
+        ...(status === "failed"
+          ? { error: "Provider did not return usable content" }
+          : {}),
+      },
+    ],
+  };
 }
 
 function job(overrides: Partial<CurationJob> = {}): CurationJob {
   return {
-    id: 'job-1',
-    operation: 'enrich',
-    status: 'pending',
-    params: null,
-    dry_run: true,
+    id: "job-1",
+    operation: "enrich",
+    status: "running",
+    trigger: "admin",
+    attempt: 1,
+    parent_job_id: null,
+    params: { slugs: ["taipei-maker"] },
+    dry_run: false,
     progress: null,
     result: null,
-    started_by: 'tester',
-    created_at: null,
+    started_by: "admin@example.com",
+    created_at: "2026-07-13T00:00:00.000Z",
+    started_at: "2026-07-13T00:00:01.000Z",
+    completed_at: null,
+    scheduled_for: null,
+    run_after: "2026-07-13T00:00:00.000Z",
+    dedupe_key: null,
+    heartbeat_at: "2026-07-13T00:00:01.000Z",
+    worker_token: "worker-token",
+    job_error: null,
+    current_target_id: null,
+    current_phase: null,
+    target_total: 1,
+    succeeded_count: 0,
+    skipped_count: 0,
+    failed_count: 0,
+    dispatch_status: 'pending',
+    dispatch_error: null,
+    dispatched_at: null,
+    ...overrides,
+  };
+}
+
+function target(overrides: Partial<CurationJobTarget> = {}): CurationJobTarget {
+  return {
+    id: "target-row-1",
+    job_id: "job-1",
+    target_type: "brand",
+    target_id: "brand-1",
+    brand_name: "台北工坊",
+    brand_slug: "taipei-maker",
+    status: "pending",
+    current_phase: null,
+    phase_results: [],
+    changed_fields: [],
+    error: null,
     started_at: null,
     completed_at: null,
+    duration_ms: null,
+    created_at: "2026-07-13T00:00:00.000Z",
     ...overrides,
-  }
+  };
 }
 
-function mockSupabase(submissions: MockSubmission[]) {
+function mockSupabase() {
   return {
-    from: vi.fn((table: string) => {
-      if (table === 'curation_jobs') {
-        return {
-          update: vi.fn(() => mutation()),
-        }
-      }
-
-      if (table === 'brand_submissions') {
-        return {
-          select: vi.fn(() => ({
-            in: vi.fn(async () => ({ data: submissions, error: null })),
-          })),
-        }
-      }
-
-      throw new Error(`Unexpected table: ${table}`)
-    }),
-  }
-}
-
-function mutation() {
-  return {
-    eq: vi.fn(() => Promise.resolve({ error: null })),
-    neq: vi.fn(() => ({
-      or: vi.fn(() => Promise.resolve({ error: null })),
+    from: vi.fn(() => ({
+      update: vi.fn(() => chain()),
     })),
-  }
+  };
+}
+
+function chain(): Record<string, unknown> {
+  const result: Record<string, unknown> = {
+    eq: vi.fn(() => result),
+    in: vi.fn(async () => ({ error: null })),
+    then: (resolve: (value: { error: null }) => unknown) =>
+      Promise.resolve({ error: null }).then(resolve),
+  };
+  return result;
+}
+
+function targetMutation(
+  patch: Partial<CurationJobTarget>,
+  getTargets: () => CurationJobTarget[],
+  setTargets: (targets: CurationJobTarget[]) => void,
+) {
+  const filters = new Map<string, unknown>();
+  const builder = {
+    eq(field: string, value: unknown) {
+      filters.set(field, value);
+      return builder;
+    },
+    async in(field: string, values: unknown[]) {
+      setTargets(
+        getTargets().map((item) => {
+          const matchesEquals = [...filters].every(
+            ([key, value]) => item[key as keyof CurationJobTarget] === value,
+          );
+          const matchesIn = values.includes(
+            item[field as keyof CurationJobTarget],
+          );
+          return matchesEquals && matchesIn ? { ...item, ...patch } : item;
+        }),
+      );
+      return { error: null };
+    },
+  };
+  return builder;
 }

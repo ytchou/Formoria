@@ -1,183 +1,194 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CurationJob } from '@/lib/services/curation-jobs'
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type {
+  CurationJob,
+  CurationJobDetail,
+} from "@/lib/services/curation-jobs";
 
-const getUser = vi.fn()
-const isActingAsAdmin = vi.fn()
-const recoverStaleJobs = vi.fn()
-const checkForRunningJob = vi.fn()
-const createCurationJob = vi.fn()
-const cancelCurationJob = vi.fn()
-const listCurationJobs = vi.fn()
-const runJob = vi.fn()
+const requireAdminAction = vi.fn();
+const enqueueAdminCurationJob = vi.fn();
+const enqueueManualRerun = vi.fn();
+const getCurationJobDetail = vi.fn();
+const listCurationJobs = vi.fn();
+const getCurationJob = vi.fn();
+const markCurationJobDispatched = vi.fn();
+const markCurationJobDispatchPending = vi.fn();
+const recordCurationDispatchFailure = vi.fn();
+const dispatchCurationJob = vi.fn();
+const revalidatePath = vi.fn();
 
-// auth.getUser mock required — action validates admin role before proceeding
-// (intentional deviation from CLAUDE.md "no mocking Supabase": only the auth guard is mocked, not queries)
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(async () => ({
-    auth: { getUser },
-  })),
-}))
-
-vi.mock('@/lib/auth/admin-mode', () => ({
-  isActingAsAdmin,
-}))
-
-vi.mock('@/lib/services/curation-jobs', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/services/curation-jobs')>()
+vi.mock("@/lib/auth/require-admin", () => ({ requireAdminAction }));
+vi.mock("next/cache", () => ({ revalidatePath }));
+vi.mock("@/lib/services/curation-jobs", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/services/curation-jobs")>();
   return {
     ...actual,
-    recoverStaleJobs,
-    checkForRunningJob,
-    createCurationJob,
-    cancelCurationJob,
+    enqueueAdminCurationJob,
+    enqueueManualRerun,
+    getCurationJob,
+    getCurationJobDetail,
     listCurationJobs,
-  }
-})
+    markCurationJobDispatched,
+    markCurationJobDispatchPending,
+    recordCurationDispatchFailure,
+  };
+});
+vi.mock('@/lib/services/curation-dispatch', () => ({
+  dispatchCurationJob,
+  sanitizeDispatchError: (error: unknown) => (error instanceof Error ? error.message : String(error)),
+}));
 
-vi.mock('@/lib/services/job-runner', () => ({
-  runJob,
-}))
-
-describe('curation server actions', () => {
+describe("curation server actions", () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-    getUser.mockResolvedValue({
-      data: { user: { id: '550e8400-e29b-41d4-a716-446655440000', email: 'admin@example.com' } },
-      error: null,
-    })
-    isActingAsAdmin.mockResolvedValue(true)
-    recoverStaleJobs.mockResolvedValue(undefined)
-    cancelCurationJob.mockResolvedValue(undefined)
-    checkForRunningJob.mockResolvedValue({ hasRunningJob: false })
-    createCurationJob.mockImplementation(async ({ params }) => ({
-      job: job({ id: `job-${createCurationJob.mock.calls.length}`, params }),
-    }))
-    runJob.mockResolvedValue({
-      success: 1,
-      skipped: 0,
-      failed: 0,
-      failedBrands: [],
-      durationMs: 10,
-    })
-  })
+    vi.clearAllMocks();
+    requireAdminAction.mockResolvedValue({
+      user: {
+        id: "550e8400-e29b-41d4-a716-446655440000",
+        email: "admin@example.com",
+      },
+    });
+    enqueueAdminCurationJob.mockResolvedValue(job());
+    enqueueManualRerun.mockResolvedValue(
+      job({ id: "rerun-job", trigger: "manual_rerun" }),
+    );
+    listCurationJobs.mockResolvedValue([job()]);
+    getCurationJobDetail.mockResolvedValue(detail());
+    getCurationJob.mockResolvedValue(job());
+    markCurationJobDispatched.mockResolvedValue(undefined);
+    markCurationJobDispatchPending.mockResolvedValue(undefined);
+    recordCurationDispatchFailure.mockResolvedValue(undefined);
+    dispatchCurationJob.mockResolvedValue({ accepted: true, status: 'started' });
+  });
 
-  it('startCurationJobAction is a callable function', async () => {
-    const mod = await import('../operations/actions')
-    expect(mod.startCurationJobAction).toBeDefined()
-    expect(typeof mod.startCurationJobAction).toBe('function')
-  })
-
-  it('recovers stale jobs before checking for a running job', async () => {
-    const callOrder: string[] = []
-    recoverStaleJobs.mockImplementationOnce(async () => {
-      callOrder.push('recover')
-    })
-    checkForRunningJob.mockImplementationOnce(async () => {
-      callOrder.push('check')
-      return { hasRunningJob: false }
-    })
-
-    const { startCurationJobAction } = await import('../operations/actions')
-    await startCurationJobAction('enrich', { submissionIds: ['6ba7b810-9dad-11d1-80b4-00c04fd430c8'] }, false)
-
-    expect(callOrder).toEqual(['recover', 'check'])
-  })
-
-  it('batches submission ids into pending curation jobs', async () => {
-    const { startCurationJobAction } = await import('../operations/actions')
+  it("queues one durable job without running it inside the request", async () => {
+    const { startCurationJobAction } = await import("../operations/actions");
     const submissionIds = Array.from(
       { length: 23 },
-      (_, index) => `6ba7b810-9dad-11d1-80b4-${String(index + 1).padStart(12, '0')}`
-    )
-
-    await startCurationJobAction('enrich', { submissionIds }, false)
-
-    expect(createCurationJob).toHaveBeenCalledTimes(2)
-    expect(createCurationJob).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        params: expect.objectContaining({ submissionIds: submissionIds.slice(0, 20) }),
-      })
-    )
-    expect(createCurationJob).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        params: expect.objectContaining({ submissionIds: submissionIds.slice(20) }),
-      })
-    )
-    expect(runJob).toHaveBeenCalledWith(expect.objectContaining({ id: 'job-1' }))
-  })
-
-  it('returns queued jobs when a job is already running', async () => {
-    checkForRunningJob.mockResolvedValueOnce({ hasRunningJob: true })
-    const { startCurationJobAction } = await import('../operations/actions')
+      (_, index) =>
+        `6ba7b810-9dad-11d1-80b4-${String(index + 1).padStart(12, "0")}`,
+    );
 
     const result = await startCurationJobAction(
-      'enrich',
-      {
-        submissionIds: Array.from(
-          { length: 23 },
-          (_, index) => `6ba7b810-9dad-11d1-80b4-${String(index + 1).padStart(12, '0')}`
-        ),
-      },
-      false
-    )
+      "enrich",
+      { submissionIds },
+      false,
+    );
 
-    expect(result).toMatchObject({
+    expect(enqueueAdminCurationJob).toHaveBeenCalledOnce();
+    expect(enqueueAdminCurationJob).toHaveBeenCalledWith({
+      params: { submissionIds },
+      dryRun: false,
+      startedBy: "admin@example.com",
+    });
+    expect(result).toEqual({
+      jobId: "job-1",
+      detailPath: "/admin/jobs/job-1",
       queued: true,
-      jobIds: ['job-1', 'job-2'],
-    })
-    expect(runJob).not.toHaveBeenCalled()
-  })
+      dispatchStatus: "dispatched",
+      message:
+        "資料抓取工作已建立，正在立即執行。",
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/jobs");
+  });
 
-  it('cancels orphaned jobs when a later batch creation fails', async () => {
-    createCurationJob
-      .mockResolvedValueOnce({ job: job({ id: 'job-1', params: {} }) })
-      .mockResolvedValueOnce({ error: 'DB write failed' })
+  it("rejects removed operations before enqueueing", async () => {
+    const { startCurationJobAction } = await import("../operations/actions");
 
-    const { startCurationJobAction } = await import('../operations/actions')
-    const submissionIds = Array.from(
-      { length: 23 },
-      (_, index) => `6ba7b810-9dad-11d1-80b4-${String(index + 1).padStart(12, '0')}`
-    )
+    await expect(
+      startCurationJobAction("clean-names", {}, false),
+    ).resolves.toEqual({
+      error: "Operation removed — use enrich instead",
+    });
+    expect(enqueueAdminCurationJob).not.toHaveBeenCalled();
+  });
 
-    const result = await startCurationJobAction('enrich', { submissionIds }, false)
+  it("keeps a queued job durable when immediate dispatch fails", async () => {
+    dispatchCurationJob.mockRejectedValueOnce(new Error("worker unavailable"));
 
-    expect(result).toMatchObject({ error: 'DB write failed' })
-    expect(cancelCurationJob).toHaveBeenCalledWith('job-1')
-    expect(cancelCurationJob).toHaveBeenCalledTimes(1)
-    expect(runJob).not.toHaveBeenCalled()
-  })
-
-  it('returns all job IDs in the non-queued path for multi-batch operations', async () => {
-    const { startCurationJobAction } = await import('../operations/actions')
-    const submissionIds = Array.from(
-      { length: 23 },
-      (_, index) => `6ba7b810-9dad-11d1-80b4-${String(index + 1).padStart(12, '0')}`
-    )
-
-    const result = await startCurationJobAction('enrich', { submissionIds }, false)
+    const { startCurationJobAction } = await import("../operations/actions");
+    const result = await startCurationJobAction("enrich", {}, false);
 
     expect(result).toMatchObject({
-      jobId: 'job-1',
-      jobIds: ['job-1', 'job-2'],
-    })
-  })
-})
+      jobId: "job-1",
+      queued: true,
+      dispatchStatus: "failed",
+    });
+    expect(result).toMatchObject({
+      message: expect.stringContaining("worker unavailable"),
+    });
+    expect(recordCurationDispatchFailure).toHaveBeenCalledWith(
+      "job-1",
+      "worker unavailable",
+    );
+  });
+
+  it("queues a linked manual rerun and returns its detail route", async () => {
+    const { rerunCurationJobAction } = await import("../operations/actions");
+
+    const result = await rerunCurationJobAction("job-1");
+
+    expect(enqueueManualRerun).toHaveBeenCalledWith(
+      "job-1",
+      "admin@example.com",
+    );
+    expect(result).toMatchObject({
+      jobId: "rerun-job",
+      detailPath: "/admin/jobs/rerun-job",
+      queued: true,
+      dispatchStatus: "dispatched",
+      message:
+        "失敗或未完成的品牌已建立重跑工作，正在立即執行。",
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/jobs/job-1");
+  });
+
+  it("returns job history and detail only after admin authorization", async () => {
+    const { getCurationJobDetailAction, listCurationJobsAction } =
+      await import("../operations/actions");
+
+    await expect(listCurationJobsAction()).resolves.toEqual({ jobs: [job()] });
+    await expect(getCurationJobDetailAction("job-1")).resolves.toEqual({
+      detail: detail(),
+    });
+    expect(requireAdminAction).toHaveBeenCalledTimes(2);
+  });
+});
 
 function job(overrides: Partial<CurationJob> = {}): CurationJob {
   return {
-    id: 'job-1',
-    operation: 'enrich',
-    status: 'pending',
+    id: "job-1",
+    operation: "enrich",
+    status: "pending",
+    trigger: "admin",
+    attempt: 1,
+    parent_job_id: null,
     params: null,
     dry_run: false,
     progress: null,
     result: null,
-    started_by: 'admin@example.com',
-    created_at: null,
+    started_by: "admin@example.com",
+    created_at: "2026-07-13T00:00:00.000Z",
     started_at: null,
     completed_at: null,
+    scheduled_for: null,
+    run_after: "2026-07-13T00:00:00.000Z",
+    dedupe_key: null,
+    heartbeat_at: null,
+    worker_token: null,
+    job_error: null,
+    current_target_id: null,
+    current_phase: null,
+    target_total: 1,
+    succeeded_count: 0,
+    skipped_count: 0,
+    failed_count: 0,
+    dispatch_status: "pending",
+    dispatch_error: null,
+    dispatched_at: null,
     ...overrides,
-  }
+  };
+}
+
+function detail(): CurationJobDetail {
+  return { job: job(), targets: [], parent: null, children: [] };
 }

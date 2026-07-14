@@ -3,6 +3,14 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { BrandList } from '../brand-list'
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}))
+
+vi.mock('@/app/admin/operations/actions', () => ({
+  startCurationJobAction: vi.fn(),
+}))
+
 vi.mock('@/app/admin/actions', () => ({
   updateBrandAction: vi.fn(),
   hideBrandAction: vi.fn(),
@@ -130,9 +138,7 @@ describe('BrandList', () => {
   it('renders status filter tabs', () => {
     render(<BrandList brands={mockBrands} />)
     expect(screen.getByRole('tab', { name: /全部/ })).toBeDefined()
-    expect(
-      screen.queryByRole('tab', { name: /待審核/ }),
-    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: /待審核/ })).not.toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /已上架/ })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /已隱藏/ })).toBeInTheDocument()
   })

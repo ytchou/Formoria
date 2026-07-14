@@ -48,7 +48,7 @@ beforeEach(() => {
 
   mockSelect.mockReturnValue({ order: mockOrder, single: mockSingle })
   mockInsert.mockReturnValue({ select: vi.fn().mockReturnValue({ single: mockSingle }) })
-  mockEq.mockReturnValue({ select: mockSelect })
+  mockEq.mockReturnValue({ eq: mockEq, select: mockSelect })
   mockUpdate.mockReturnValue({ eq: mockEq })
   mockFrom.mockReturnValue({
     insert: mockInsert,

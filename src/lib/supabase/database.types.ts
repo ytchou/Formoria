@@ -630,45 +630,169 @@ export type Database = {
       }
       curation_jobs: {
         Row: {
+          attempt: number
           completed_at: string | null
           created_at: string | null
+          dispatch_error: string | null
+          dispatch_status: string
+          dispatched_at: string | null
+          current_phase: string | null
+          current_target_id: string | null
+          dedupe_key: string | null
           dry_run: boolean
+          failed_count: number
+          heartbeat_at: string | null
           id: string
+          job_error: string | null
           operation: string
+          parent_job_id: string | null
           params: Json | null
           progress: Json | null
           result: Json | null
+          run_after: string
+          scheduled_for: string | null
+          skipped_count: number
           started_at: string | null
           started_by: string
           status: string
+          succeeded_count: number
+          target_total: number
+          trigger: string
+          worker_token: string | null
         }
         Insert: {
+          attempt?: number
           completed_at?: string | null
           created_at?: string | null
+          dispatch_error?: string | null
+          dispatch_status?: string
+          dispatched_at?: string | null
+          current_phase?: string | null
+          current_target_id?: string | null
+          dedupe_key?: string | null
           dry_run?: boolean
+          failed_count?: number
+          heartbeat_at?: string | null
           id?: string
+          job_error?: string | null
           operation: string
+          parent_job_id?: string | null
           params?: Json | null
           progress?: Json | null
           result?: Json | null
+          run_after?: string
+          scheduled_for?: string | null
+          skipped_count?: number
           started_at?: string | null
           started_by: string
           status?: string
+          succeeded_count?: number
+          target_total?: number
+          trigger?: string
+          worker_token?: string | null
         }
         Update: {
+          attempt?: number
           completed_at?: string | null
           created_at?: string | null
+          dispatch_error?: string | null
+          dispatch_status?: string
+          dispatched_at?: string | null
+          current_phase?: string | null
+          current_target_id?: string | null
+          dedupe_key?: string | null
           dry_run?: boolean
+          failed_count?: number
+          heartbeat_at?: string | null
           id?: string
+          job_error?: string | null
           operation?: string
+          parent_job_id?: string | null
           params?: Json | null
           progress?: Json | null
           result?: Json | null
+          run_after?: string
+          scheduled_for?: string | null
+          skipped_count?: number
           started_at?: string | null
           started_by?: string
           status?: string
+          succeeded_count?: number
+          target_total?: number
+          trigger?: string
+          worker_token?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "curation_jobs_parent_job_id_fkey"
+            columns: ["parent_job_id"]
+            isOneToOne: false
+            referencedRelation: "curation_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curation_job_targets: {
+        Row: {
+          brand_name: string
+          brand_slug: string | null
+          changed_fields: string[]
+          completed_at: string | null
+          created_at: string
+          current_phase: string | null
+          duration_ms: number | null
+          error: string | null
+          id: string
+          job_id: string
+          phase_results: Json
+          started_at: string | null
+          status: string
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          brand_name: string
+          brand_slug?: string | null
+          changed_fields?: string[]
+          completed_at?: string | null
+          created_at?: string
+          current_phase?: string | null
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          job_id: string
+          phase_results?: Json
+          started_at?: string | null
+          status?: string
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          brand_name?: string
+          brand_slug?: string | null
+          changed_fields?: string[]
+          completed_at?: string | null
+          created_at?: string
+          current_phase?: string | null
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          job_id?: string
+          phase_results?: Json
+          started_at?: string | null
+          status?: string
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curation_job_targets_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "curation_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_sends: {
         Row: {
@@ -970,13 +1094,52 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_submission: {
+        Args: {
+          p_brand_data: Json
+          p_reviewer_id: string
+          p_submission_id: string
+        }
+        Returns: {
+          brand_id: string
+          brand_name: string
+          is_brand_owner: boolean
+          suggested_tags: Json | null
+          submitter_email: string
+          submitter_name: string | null
+        }[]
+      }
       approve_claim_request: {
         Args: { p_claim_id: string; p_reviewer_id: string }
         Returns: undefined
       }
+      claim_next_curation_job: {
+        Args: { p_worker_token: string }
+        Returns: Database["public"]["Tables"]["curation_jobs"]["Row"][]
+      }
+      claim_curation_job: {
+        Args: { p_job_id: string; p_worker_token: string }
+        Returns: Database["public"]["Tables"]["curation_jobs"]["Row"][]
+      }
       check_brand_duplicates: {
         Args: { p_name: string; p_ubn?: string }
         Returns: Json
+      }
+      enqueue_curation_job: {
+        Args: {
+          p_attempt: number
+          p_dedupe_key: string | null
+          p_dry_run: boolean
+          p_operation: string
+          p_params: Json
+          p_parent_job_id: string | null
+          p_run_after: string
+          p_scheduled_for: string | null
+          p_started_by: string
+          p_targets: Json
+          p_trigger: string
+        }
+        Returns: string
       }
       find_similar_brands: {
         Args: { p_names: string[]; p_threshold?: number }
@@ -998,6 +1161,24 @@ export type Database = {
       increment_brand_view: {
         Args: { p_brand_id: string; p_source?: string }
         Returns: undefined
+      }
+      mark_unreported_curation_job_targets_skipped: {
+        Args: { p_job_id: string; p_worker_token: string }
+        Returns: boolean
+      }
+      persist_curation_job_target_progress: {
+        Args: {
+          p_current_phase?: string | null
+          p_current_target_id?: string | null
+          p_job_id: string
+          p_updates: Json
+          p_worker_token: string
+        }
+        Returns: boolean
+      }
+      recover_stale_curation_jobs: {
+        Args: { p_stale_before: string }
+        Returns: Database["public"]["Tables"]["curation_jobs"]["Row"][]
       }
       search_brands: {
         Args: {
