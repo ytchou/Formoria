@@ -285,11 +285,32 @@ async function runSubmissionEnrichment(
     brand_id: string | null;
     brand_name: string;
   }>;
+
+  let pendingEnrichmentBrandIds = new Set<string>();
+  const allBrandIds = submissions
+    .map((s) => s.brand_id)
+    .filter((id): id is string => Boolean(id));
+  if (allBrandIds.length > 0) {
+    const { data: peBrands } = await supabase
+      .from("brands")
+      .select("id")
+      .in("id", allBrandIds)
+      .eq("status", "pending_enrichment" as string);
+    pendingEnrichmentBrandIds = new Set(
+      (peBrands ?? []).map((b) => b.id),
+    );
+  }
+
   const linkedBrandIds = submissions
     .map((submission) => submission.brand_id)
-    .filter((brandId): brandId is string => Boolean(brandId));
+    .filter(
+      (brandId): brandId is string =>
+        typeof brandId === "string" && !pendingEnrichmentBrandIds.has(brandId),
+    );
   const directSubmissions = submissions.filter(
-    (submission) => !submission.brand_id,
+    (submission) =>
+      !submission.brand_id ||
+      pendingEnrichmentBrandIds.has(submission.brand_id),
   );
   const slugs = await getBrandSlugsForIds(supabase, linkedBrandIds);
   const brandSlugs = [...new Set([...(params.slugs ?? []), ...slugs])];
