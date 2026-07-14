@@ -332,7 +332,6 @@ export async function enqueueManualRerun(
           : null;
       if (
         submission.status === "pending" &&
-        submission.brand_id === null &&
         !hasCompleteEnrichment(enrichedData, submission.hero_image_url)
       ) {
         incompleteSubmissionIds.add(submission.id);

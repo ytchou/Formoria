@@ -34,7 +34,7 @@ type OperationSupabase = Parameters<typeof runEnrich>[1];
 type ValidOperation = "enrich";
 type EnrichPhase = (typeof ENRICH_PHASES)[number];
 type EnrichTarget = "brands" | "submissions";
-type BrandStatus = "approved" | "hidden";
+type BrandStatus = "approved" | "hidden" | "pending_enrichment";
 
 type JobParams = {
   slugs?: string[];
@@ -357,7 +357,7 @@ async function getBrandSlugsForIds(
     );
 }
 
-const BRAND_STATUSES: readonly BrandStatus[] = ["approved", "hidden"];
+const BRAND_STATUSES: readonly BrandStatus[] = ["approved", "hidden", "pending_enrichment"];
 const ENRICH_TARGETS: readonly EnrichTarget[] = ["brands", "submissions"];
 
 function parseTarget(value: unknown): EnrichTarget | undefined {
@@ -620,7 +620,7 @@ async function filterManualRerunTargets(
     if (target.target_type === "submission") {
       const submission = submissions.get(target.target_id);
       if (!submission) reason = "Submission was deleted before the rerun";
-      else if (submission.status !== "pending" || submission.brand_id) {
+      else if (submission.status !== "pending") {
         reason = "Submission was approved or changed before the rerun";
       } else {
         const enrichedData =

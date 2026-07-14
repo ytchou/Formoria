@@ -28,6 +28,7 @@ export default async function ReviewQueueSubmissionsPage({
   const validStages = new Set<TabValue>([
     "all",
     "needs_data",
+    "enriching",
     "ready",
     "approved",
     "rejected",
@@ -35,7 +36,7 @@ export default async function ReviewQueueSubmissionsPage({
   const initialTab: TabValue =
     stageParam && validStages.has(stageParam as TabValue)
       ? (stageParam as TabValue)
-      : "ready";
+      : "needs_data";
   const submissions = await getSubmissionsForReview();
   const brandIds = submissions
     .map((submission) => submission.brandId)
