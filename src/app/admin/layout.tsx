@@ -32,7 +32,7 @@ export default async function AdminLayout({
   const [messages, submissions, flaggedContent, edits, reports, feedbackItems] =
     await Promise.all([
       getMessages(),
-      getSubmissions(),
+      getSubmissions("pending"),
       getFlaggedContent({ status: "pending" }),
       getPendingEdits("pending"),
       getPendingReports(),
@@ -42,32 +42,30 @@ export default async function AdminLayout({
   const navItems: NavItem[] = [
     { label: "總覽", href: "/admin" },
     {
-      label: "審核佇列",
-      href: "/admin/review-queue",
-      children: [
-        { label: "待審核提交", href: "/admin/review-queue/submissions", count: submissions.length },
-        { label: "內容審核", href: "/admin/review-queue/moderation", count: flaggedContent.items.length },
-        { label: "品牌編輯審核", href: "/admin/review-queue/edits", count: edits.length },
-      ],
+      label: "新品牌提交",
+      href: "/admin/review-queue/submissions",
+      count: submissions.length,
+    },
+    {
+      label: "內容審核",
+      href: "/admin/review-queue/moderation",
+      count: flaggedContent.items.length,
+    },
+    {
+      label: "品牌編輯",
+      href: "/admin/review-queue/edits",
+      count: edits.length,
     },
     { label: "認領申請", href: "/admin/claims" },
+    { label: "檢舉", href: "/admin/signals/reports", count: reports.length },
     {
-      label: "信號",
-      href: "/admin/signals",
-      children: [
-        { label: "檢舉", href: "/admin/signals/reports", count: reports.length },
-        { label: "Feedback", href: "/admin/signals/feedback", count: feedbackItems.length },
-      ],
+      label: "Feedback",
+      href: "/admin/signals/feedback",
+      count: feedbackItems.length,
     },
-    {
-      label: "目錄管理",
-      href: "/admin/catalog",
-      children: [
-        { label: "品牌", href: "/admin/catalog/brands" },
-      ],
-    },
+    { label: "品牌目錄", href: "/admin/catalog/brands" },
+    { label: "資料工作", href: "/admin/jobs" },
     { label: "品質儀表板", href: "/admin/quality" },
-    { label: "工作紀錄", href: "/admin/jobs" },
   ];
 
   return (
