@@ -1763,6 +1763,64 @@
     }
   },
   "admin": {
+    "layout": {
+      "title": "Admin",
+      "nav": {
+        "overview": "總覽",
+        "submissions": "品牌提交",
+        "jobs": "資料任務",
+        "moderation": "內容審核",
+        "edits": "品牌編輯",
+        "claims": "認領申請",
+        "reports": "檢舉",
+        "feedback": "意見回饋",
+        "brands": "品牌目錄",
+        "quality": "品質儀表板"
+      }
+    },
+    "dashboard": {
+      "description": "待處理的審核佇列、品牌資料及分類狀態。",
+      "reviewQueues": "審核佇列",
+      "reviewQueuesSub": "依目前待審數量排序。",
+      "newSubmissions": "新品牌提交",
+      "newSubmissionsSub": "人工審核前需完成資料抓取。",
+      "overview": "總覽",
+      "overviewSub": "站台資料與治理範圍的快速指標。",
+      "newsletterSection": "電子報訂閱者",
+      "newsletterSectionSub": "電子郵件收集清單與訂閱確認狀態。",
+      "stages": {
+        "needsData": "待資料處理",
+        "readyToReview": "可供審核",
+        "emptyNeedsData": "無待處理資料工作。",
+        "emptyReadyToReview": "目前沒有可審核的品牌提交。"
+      },
+      "stats": {
+        "totalBrandsLabel": "品牌總數",
+        "totalBrandsDesc": "資料庫中的品牌記錄",
+        "flaggedContentLabel": "待審內容標記",
+        "flaggedContentDesc": "內容審核佇列中的標記數量"
+      },
+      "queues": {
+        "edits": {
+          "title": "品牌編輯",
+          "empty": "無待審品牌編輯。"
+        },
+        "claims": {
+          "title": "品牌認領",
+          "empty": "無待審品牌認領。"
+        },
+        "reports": {
+          "title": "品牌檢舉",
+          "empty": "無待審品牌檢舉。"
+        },
+        "feedback": {
+          "title": "用戶意見",
+          "empty": "無待審用戶意見。"
+        }
+      },
+      "noDate": "無日期",
+      "unnamedFeedback": "未命名意見"
+    },
     "pendingEdits": {
       "title": "品牌編輯審核",
       "submittedForReview": "您的編輯已提交審核",
@@ -1819,7 +1877,106 @@
         "policy_violation": "違反政策",
         "admin_reject": "管理員拒絕",
         "other": "其他"
-      }
+      },
+      "title": "品牌提交",
+      "description": "人工核准或拒絕前請先完成資料抓取。",
+      "noSubmitter": "未提供",
+      "viewJob": "查看任務",
+      "notFound": "找不到提交記錄。",
+      "confirmBulkApprove": "核准已選取的 {count} 筆提交？",
+      "confirmReject": "拒絕此提交？",
+      "fetching": "抓取中…",
+      "fetchData": "抓取資料",
+      "approve": "核准",
+      "reject": "拒絕",
+      "confirmRejectButton": "確認拒絕",
+      "selectedCount": "已選取 {count} 筆",
+      "confirmBulkReject": "確認批次拒絕",
+      "bulkRejectReason": "批次拒絕原因",
+      "selectReason": "選擇拒絕原因",
+      "tabs": {
+        "needsData": "待資料處理",
+        "enriching": "抓取中",
+        "ready": "可供審核",
+        "approved": "已核准",
+        "rejected": "已拒絕",
+        "all": "全部"
+      },
+      "intentFilter": {
+        "ariaLabel": "依提交意圖篩選",
+        "all": "全部提交",
+        "recommend": "社群提交",
+        "ownerClaim": "業主提交"
+      },
+      "table": {
+        "brand": "品牌",
+        "category": "類別",
+        "images": "圖片",
+        "source": "來源",
+        "status": "狀態",
+        "enrichment": "資料抓取",
+        "submitter": "提交者",
+        "date": "日期",
+        "actions": "操作"
+      },
+      "enrichmentStatus": {
+        "queued": "排隊中",
+        "running": "執行中",
+        "failed": "失敗",
+        "skipped": "略過",
+        "complete": "完成",
+        "partial": "部分完成",
+        "none": "待處理"
+      },
+      "intent": {
+        "ownerClaim": "業主提交",
+        "recommend": "社群提交"
+      },
+      "sourceAttribution": {
+        "question": "你如何認識這個品牌？",
+        "bought_product": "買過他們的產品",
+        "saw_at_market": "在市集或活動看到",
+        "found_online": "在網路上發現",
+        "friend_recommended": "朋友推薦",
+        "work_there": "在那裡工作或認識團隊"
+      },
+      "fields": {
+        "description": "品牌描述",
+        "productType": "產品類型",
+        "purchaseLinks": "購買連結",
+        "socialLinks": "社群連結",
+        "heroImages": "主視覺 / 產品圖片",
+        "noImages": "無圖片",
+        "label": "標籤",
+        "url": "網址",
+        "remove": "移除",
+        "addLink": "新增連結",
+        "mainImage": "主要圖片"
+      },
+      "placeholders": {
+        "description": "品牌描述",
+        "selectProductType": "選擇產品類型",
+        "officialWebsite": "官方網站網址",
+        "pinkoiLink": "Pinkoi 網址",
+        "shopeeLink": "蝦皮網址",
+        "instagramLink": "Instagram 網址",
+        "threadsLink": "Threads 網址",
+        "facebookLink": "Facebook 網址",
+        "notesRequired": "補充說明（必填）",
+        "notesOptional": "補充說明（選填）"
+      },
+      "rejectReasonLabel": "拒絕原因",
+      "rejectReasonAriaLabel": "拒絕原因",
+      "bulkRejectAriaLabel": "批次拒絕原因",
+      "errors": {
+        "selectReason": "請選擇拒絕原因",
+        "enterNotes": "請輸入補充說明"
+      },
+      "claimNote": "核准後，系統將發送品牌認領邀請給提交者；後續證明審核將在認領申請佇列中處理。",
+      "categoryGap": "類別缺口",
+      "suggestedTags": "建議標籤",
+      "approvalRequired": "需完成資料抓取才可核准。",
+      "notSet": "未設定"
     }
   },
   "saveBrand": {
