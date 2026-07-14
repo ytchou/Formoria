@@ -2,7 +2,7 @@ name: E2E Nightly (Deep)
 
 on:
   schedule:
-    - cron: '0 22 * * *' # 06:00 TST (UTC+8) daily
+    - cron: "0 22 * * *" # 06:00 TST (UTC+8) daily
   workflow_dispatch: # allow manual trigger
 
 jobs:
@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
+      actions: read
       contents: read
       issues: write
     env:
@@ -25,14 +26,14 @@ jobs:
       NEXT_PUBLIC_SITE_URL: http://localhost:3000
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
       TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
-      PLAYWRIGHT_TEST: 'true'
+      PLAYWRIGHT_TEST: "true"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'pnpm'
+          cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - name: Restore Next.js build cache
         uses: actions/cache@v4
@@ -45,7 +46,10 @@ jobs:
       - name: Build Next.js (production)
         run: pnpm build
       - run: npx playwright install --with-deps chromium
-      - run: pnpm exec playwright test --project=deep
+      - name: Run deep Playwright tests
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-results.json
+        run: pnpm exec playwright test --project=deep --reporter=html,json
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
@@ -121,16 +125,83 @@ jobs:
               core.warning(`Unable to create or update nightly e2e alert issue: ${message}`);
               console.log(error);
             }
-      - name: Notify Slack on failure
-        if: failure()
-        continue-on-error: true
+      - name: Report E2E results to Agent Hub
+        if: ${{ always() }}
         env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_E2E_NIGHTLY }}
+          AGENT_HUB_SUPABASE_URL: ${{ secrets.AGENT_HUB_SUPABASE_URL }}
+          AGENT_HUB_SERVICE_KEY: ${{ secrets.AGENT_HUB_SERVICE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          JOB_STATUS: ${{ job.status }}
         run: |
-          curl -fsSL -X POST "$SLACK_WEBHOOK" \
-            -H 'Content-Type: application/json' \
-            -d "$(jq -n \
-              --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-              --arg date "$(date -u +%Y-%m-%d)" \
-              '{text: ":red_circle: *E2E nightly failed* (\($date))\n<\($url)|View run>"}'
-            )"
+          workflow_started_at=$(curl -fsSL \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" | \
+            jq -r '.run_started_at')
+          results_file="playwright-results.json"
+          if [ -f "$results_file" ]; then
+            total_specs=$(jq '(.stats.expected // 0) + (.stats.unexpected // 0) + (.stats.skipped // 0) + (.stats.flaky // 0)' "$results_file")
+            passed=$(jq '(.stats.expected // 0) + (.stats.flaky // 0)' "$results_file")
+            failed=$(jq '.stats.unexpected // 0' "$results_file")
+            skipped=$(jq '.stats.skipped // 0' "$results_file")
+            duration_seconds=$(jq '((.stats.duration // 0) / 1000) | round' "$results_file")
+            failed_specs=$(jq -c '[.suites[]? | recurse(.suites[]?) as $suite | $suite.specs[]? | select(.ok == false) | {file: ($suite.file // null), title}]' "$results_file")
+          else
+            echo "Playwright JSON results were not generated; reporting zero collected specs."
+            total_specs=0
+            passed=0
+            failed=0
+            skipped=0
+            duration_seconds=0
+            failed_specs='[]'
+          fi
+
+          verdict_text="E2E: $JOB_STATUS -- $passed specs passed, $failed failed"
+          payload=$(jq -n \
+            --arg routine "e2e-nightly" \
+            --arg project "formoria" \
+            --arg status "$JOB_STATUS" \
+            --arg started_at "$workflow_started_at" \
+            --arg report_date "$(TZ=Asia/Taipei date +%F)" \
+            --arg verdict_severity "${{ job.status == 'success' && 'ok' || 'critical' }}" \
+            --arg verdict_text "$verdict_text" \
+            --arg summary "E2E nightly: $JOB_STATUS" \
+            --argjson total_specs "$total_specs" \
+            --argjson passed "$passed" \
+            --argjson failed "$failed" \
+            --argjson skipped "$skipped" \
+            --argjson duration_seconds "$duration_seconds" \
+            --argjson failed_specs "$failed_specs" \
+            --arg workflow_url "$WORKFLOW_URL" \
+            '{
+              p_routine_name: $routine,
+              p_project: $project,
+              p_status: $status,
+              p_started_at: $started_at,
+              p_report_date: $report_date,
+              p_verdict_severity: $verdict_severity,
+              p_verdict_text: $verdict_text,
+              p_summary: $summary,
+              p_metadata: {
+                total_specs: $total_specs,
+                passed: $passed,
+                failed: $failed,
+                skipped: $skipped,
+                duration_seconds: $duration_seconds,
+                failed_specs: $failed_specs,
+                workflow_url: $workflow_url
+              }
+            }')
+
+          http_status=$(curl -sS -o /tmp/agent-hub-e2e-response.json -w '%{http_code}' \
+            -X POST "$AGENT_HUB_SUPABASE_URL/rest/v1/rpc/insert_routine_run" \
+            -H "apikey: $AGENT_HUB_SERVICE_KEY" \
+            -H "Authorization: Bearer $AGENT_HUB_SERVICE_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$payload")
+          if [ "$http_status" != "200" ]; then
+            echo "Agent Hub reporting failed with HTTP $http_status"
+            cat /tmp/agent-hub-e2e-response.json
+            exit 1
+          fi
