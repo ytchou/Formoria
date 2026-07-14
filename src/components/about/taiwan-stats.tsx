@@ -7,7 +7,6 @@ interface TaiwanStatItem {
 }
 
 interface TaiwanStatsProps {
-  eyebrow: string
   heading: string
   intro: string
   items: [TaiwanStatItem, TaiwanStatItem, TaiwanStatItem]
@@ -16,7 +15,6 @@ interface TaiwanStatsProps {
 }
 
 export default function TaiwanStats({
-  eyebrow,
   heading,
   intro,
   items,
@@ -27,8 +25,7 @@ export default function TaiwanStats({
     <section className="bg-secondary py-12 md:py-16">
       <div className="page-gutter mx-auto max-w-6xl">
         <div className="max-w-3xl">
-          <p className="type-eyebrow-muted">{eyebrow}</p>
-          <h2 className="mt-4 type-page-title-large text-balance">{heading}</h2>
+          <h2 className="type-page-title-large text-balance">{heading}</h2>
           <p className="mt-4 max-w-prose type-body-muted text-pretty">{intro}</p>
         </div>
         <dl className="mt-8 grid gap-4 sm:grid-cols-3">

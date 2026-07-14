@@ -21,18 +21,9 @@ test.describe('Brand share dialog', () => {
     // Resolve a brand href from the directory — mirrors brand-detail.spec.ts pattern
     const page = await browser.newPage();
     await page.goto('/brands');
-    const firstCard = page.locator('main a[aria-label]').first();
-    await firstCard.waitFor({ state: 'visible', timeout: 10_000 }).catch(async () => {
-      // Fallback: any list link in main pointing to /brands/
-      await page
-        .locator('main a[href^="/brands/"]')
-        .first()
-        .waitFor({ state: 'visible', timeout: 10_000 });
-    });
-
-    const href =
-      (await page.locator('main a[aria-label]').first().getAttribute('href').catch(() => null)) ??
-      (await page.locator('main a[href^="/brands/"]').first().getAttribute('href').catch(() => null));
+    const brandLinks = page.locator('main a[href^="/brands/"]');
+    await brandLinks.first().waitFor({ state: 'visible', timeout: 10_000 });
+    const href = await brandLinks.first().getAttribute('href');
     await page.close();
 
     if (!href) {

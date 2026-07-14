@@ -42,7 +42,26 @@ describe('AboutHero', () => {
       'href',
       '/getting-started',
     )
-    expect(screen.getByText('345')).toBeInTheDocument()
-    expect(screen.getByText('+24')).toBeInTheDocument()
+    const stats = screen.getByText((_, element) => element?.classList.contains('type-metadata') ?? false)
+    expect(stats).toHaveTextContent('345 brands · 12 categories · +24 new brands')
+  })
+
+  it('uses the landing page hero image treatment', async () => {
+    render(
+      await AboutHero({
+        brandCount: 0,
+        categoryCount: 0,
+        recentBrands: { count: 0, period: '30d' },
+      }),
+    )
+
+    const heroImage = screen.getByAltText('')
+    expect(heroImage).toHaveAttribute('src', expect.stringContaining('hero-bg.png'))
+    expect(heroImage).toHaveClass('object-cover', 'object-right')
+    expect(heroImage.closest('section')).toHaveClass('py-12', 'md:py-20')
+    expect(heroImage.closest('section')?.querySelector('[aria-hidden="true"]')).toHaveClass(
+      'bg-background/70',
+      'md:bg-background/45',
+    )
   })
 })

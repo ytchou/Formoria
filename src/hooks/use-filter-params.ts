@@ -84,6 +84,8 @@ export function useFilterParams() {
 
   const setSearch = useCallback(
     (term: string) => {
+      if (term === currentSearch) return
+
       const params = new URLSearchParams(searchParams.toString())
       if (term) {
         params.set('search', term)
@@ -96,7 +98,7 @@ export function useFilterParams() {
         router.push(buildUrl(params), { scroll: false })
       })
     },
-    [router, buildUrl, searchParams]
+    [router, buildUrl, currentSearch, searchParams]
   )
 
   return {

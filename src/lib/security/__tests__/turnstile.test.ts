@@ -8,6 +8,7 @@ describe('verifyTurnstileToken', () => {
   beforeEach(() => {
     process.env.TURNSTILE_SECRET_KEY = 'test-secret-key'
     vi.stubEnv('NODE_ENV', 'test')
+    vi.stubEnv('PLAYWRIGHT_TEST', 'false')
   })
 
   afterEach(() => {
@@ -61,6 +62,33 @@ describe('verifyTurnstileToken', () => {
     )
 
     const result = await verifyTurnstileToken('valid-token', undefined, 'localhost:3000')
+
+    expect(result.success).toBe(true)
+    expect(fetchSpy).toHaveBeenCalled()
+  })
+
+  it('skips verification for the production Playwright test server', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('PLAYWRIGHT_TEST', 'true')
+    const fetchSpy = vi.spyOn(global, 'fetch')
+
+    const result = await verifyTurnstileToken(
+      'test-token',
+      undefined,
+      'localhost:3010',
+    )
+
+    expect(result.success).toBe(true)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('does not bypass verification for E2E_USER_EMAIL alone', async () => {
+    vi.stubEnv('E2E_USER_EMAIL', 'e2e-user@example.com')
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: true }), { status: 200 })
+    )
+
+    const result = await verifyTurnstileToken('test-token')
 
     expect(result.success).toBe(true)
     expect(fetchSpy).toHaveBeenCalled()

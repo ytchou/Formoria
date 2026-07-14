@@ -3,8 +3,7 @@ import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { ChevronRight } from 'lucide-react'
-import { routing } from '@/i18n/routing'
-import { getAllGuides, getGuideBySlug } from '@/lib/services/guides'
+import { getGuideBySlug } from '@/lib/services/guides'
 import { FaqBlock } from '@/components/guides/faq-block'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
@@ -15,20 +14,8 @@ type PageProps = {
   params: Promise<{ locale: string; slug: string }>
 }
 
-export const revalidate = 3600
-
-export async function generateStaticParams() {
-  try {
-    const result = await getAllGuides()
-    return result.ok
-      ? result.guides.flatMap((guide) =>
-          routing.locales.map((locale) => ({ locale, slug: guide.slug }))
-        )
-      : []
-  } catch {
-    return []
-  }
-}
+// The shared locale layout reads auth cookies, so guide pages must render per request.
+export const revalidate = 0
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { locale, slug: rawSlug } = await params

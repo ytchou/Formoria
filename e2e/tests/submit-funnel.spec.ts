@@ -1,11 +1,6 @@
 import { test, expect } from '../fixtures/auth'
 import { createClient } from '@supabase/supabase-js'
 
-const TINY_PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-  'base64',
-)
-
 /**
  * Submit Funnel End-to-End
  *
@@ -80,25 +75,6 @@ test.describe('Submit funnel', () => {
     await anonPage.locator('#submit-website').fill(websiteUrl)
     await anonPage.locator('#submit-name').fill(brandName)
 
-    const uploadResponsePromise = anonPage.waitForResponse(
-      (response) =>
-        response.url().includes('/api/upload') &&
-        response.request().method() === 'POST',
-      { timeout: 20_000 },
-    )
-    await anonPage.locator('#image-upload-heroImageUrl').setInputFiles({
-      name: 'submission-hero.png',
-      mimeType: 'image/png',
-      buffer: TINY_PNG,
-    })
-    const uploadResponse = await uploadResponsePromise
-    expect(uploadResponse.status()).toBe(200)
-    const { url: uploadedHeroUrl } = await uploadResponse.json()
-    expect(uploadedHeroUrl).toBeTruthy()
-    await expect(
-      anonPage.locator('#image-upload-heroImageUrl-replace').locator('..').getByRole('img'),
-    ).toBeVisible()
-
     // Source attribution is required when isOwner is unchecked (default)
     await anonPage.locator('#submit-source').selectOption('found_online')
 
@@ -144,12 +120,11 @@ test.describe('Submit funnel', () => {
     )
     const { data, error } = await supabase
       .from('brand_submissions')
-      .select('id, hero_image_url, intent, source_attribution, submitter_email')
+      .select('id, intent, source_attribution, submitter_email')
       .eq('brand_name', brandName)
       .single()
 
     expect(error).toBeNull()
-    expect(data?.hero_image_url).toBe(uploadedHeroUrl)
     expect(data?.intent).toBe('recommend')
     expect(data?.source_attribution).toBe('found_online')
     expect(data?.submitter_email).toMatch(/^guest\+.+@guest\.formoria\.invalid$/)

@@ -64,7 +64,7 @@ export default defineConfig({
   globalTeardown: './e2e/global-teardown.ts',
   webServer: {
     command: process.env.CI
-      ? 'pnpm start'
+      ? 'PLAYWRIGHT_TEST=true pnpm start'
       : process.env.BASE_URL
         ? `PORT=${new URL(process.env.BASE_URL).port} pnpm dev`
         : 'pnpm dev',
