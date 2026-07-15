@@ -1,52 +1,160 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react'
 
-import type { User } from '@supabase/supabase-js'
-
+import {
+  getViewerContextAction,
+  type ViewerContext,
+} from '@/lib/actions/viewer-context'
 import { createClient } from '@/lib/supabase/client'
 
-type UseUserState = {
-  user: User | null
-  loading: boolean
+type ViewerUser = {
+  id: string
+  email: string | null
+  provider: string
 }
 
-export function useUser(): UseUserState {
-  const [state, setState] = useState<UseUserState>({
+type UseUserState = {
+  user: ViewerUser | null
+  loading: boolean
+  viewer: ViewerContext
+  viewerLoading: boolean
+  refreshViewer: () => Promise<void>
+}
+
+const EMPTY_VIEWER_CONTEXT: ViewerContext = {
+  hasOwnedBrand: false,
+  isAdmin: false,
+  impersonation: null,
+}
+
+const UserContext = createContext<UseUserState | null>(null)
+
+function toViewerUser(user: {
+  id: string
+  email?: string | null
+  app_metadata?: { provider?: string }
+} | null): ViewerUser | null {
+  return user
+    ? {
+        id: user.id,
+        email: user.email ?? null,
+        provider: user.app_metadata?.provider ?? 'email',
+      }
+    : null
+}
+
+export function ViewerProvider({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<Omit<UseUserState, 'refreshViewer'>>({
     user: null,
     loading: true,
+    viewer: EMPTY_VIEWER_CONTEXT,
+    viewerLoading: true,
   })
+  const refreshViewer = useCallback(async () => {
+    setState((current) => ({ ...current, viewerLoading: true }))
+    let viewer = EMPTY_VIEWER_CONTEXT
+    try {
+      viewer = await getViewerContextAction()
+    } catch {
+      // Viewer state controls privileged UI, so failures must resolve closed.
+    }
+    setState((current) =>
+      current.user?.id === state.user?.id
+        ? { ...current, viewer, viewerLoading: false }
+        : current,
+    )
+  }, [state.user?.id])
 
   useEffect(() => {
     const supabase = createClient()
-    let isMounted = true
+    let authEventVersion = 0
+    let active = true
+    let viewerRequestId = 0
+
+    async function setAuthenticatedUser(user: ViewerUser | null) {
+      const requestId = ++viewerRequestId
+      if (!active) return
+
+      if (!user) {
+        setState({
+          user: null,
+          loading: false,
+          viewer: EMPTY_VIEWER_CONTEXT,
+          viewerLoading: false,
+        })
+        return
+      }
+
+      setState((current) => ({
+        ...current,
+        user,
+        loading: false,
+        viewerLoading: true,
+      }))
+
+      let viewer = EMPTY_VIEWER_CONTEXT
+      try {
+        viewer = await getViewerContextAction()
+      } catch {
+        // Viewer state controls privileged UI, so failures must resolve closed.
+      }
+      if (!active || requestId !== viewerRequestId) {
+        return
+      }
+      setState({ user, loading: false, viewer, viewerLoading: false })
+    }
 
     void (async () => {
+      const initialAuthEventVersion = authEventVersion
       const { data, error } = await supabase.auth.getUser()
 
-      if (!isMounted) {
+      if (
+        !active ||
+        authEventVersion !== initialAuthEventVersion
+      ) {
         return
       }
 
       if (error) {
-        setState({ user: null, loading: false })
+        await setAuthenticatedUser(null)
         return
       }
 
-      setState({ user: data.user ?? null, loading: false })
+      await setAuthenticatedUser(toViewerUser(data.user))
     })()
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setState({ user: session?.user ?? null, loading: false })
+      authEventVersion += 1
+      void setAuthenticatedUser(toViewerUser(session?.user ?? null))
     })
 
     return () => {
-      isMounted = false
+      active = false
+      viewerRequestId += 1
       subscription.unsubscribe()
     }
   }, [])
 
+  return createElement(
+    UserContext.Provider,
+    { value: { ...state, refreshViewer } },
+    children,
+  )
+}
+
+export function useUser(): UseUserState {
+  const state = useContext(UserContext)
+  if (!state) throw new Error('useUser must be used within ViewerProvider')
   return state
 }

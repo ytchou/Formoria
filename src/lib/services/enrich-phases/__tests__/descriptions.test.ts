@@ -5,6 +5,7 @@ import type { EnrichBrand, EnrichPhase } from '../types'
 
 const supabaseMocks = vi.hoisted(() => ({
   data: null as unknown[] | null,
+  upsert: vi.fn(() => Promise.resolve({ error: null })),
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -12,7 +13,7 @@ vi.mock('@/lib/supabase/server', () => ({
     from: (table: string) => {
       if (table === 'product_tag_translations') {
         return {
-          upsert: () => Promise.resolve({ error: null }),
+          upsert: supabaseMocks.upsert,
           select: () => ({
             in: () => Promise.resolve({ data: [] }),
           }),
@@ -95,6 +96,7 @@ describe('runDescriptionsPhase', () => {
   beforeEach(() => {
     rewriteBrandDescription.mockReset()
     supabaseMocks.data = null
+    supabaseMocks.upsert.mockClear()
   })
 
   it('returns skipped when descriptions is not in requested phases', async () => {
@@ -182,6 +184,69 @@ describe('runDescriptionsPhase', () => {
     })
 
     expect(result.phaseResult.changedFields).toEqual(['description', 'price_range', 'product_tags', 'product_tags_en'])
+  })
+
+  it('fills missing English copy without overwriting populated fields', async () => {
+    rewriteBrandDescription.mockResolvedValue({
+      result: makeDescriptionRewriteResult({
+        description_zh: '新的中文介紹',
+        description_en: 'New English description.',
+        blurb_zh: '新的中文摘要',
+        blurb_en: 'New English summary.',
+        priceRange: 3,
+        productTags: ['新標籤'],
+        productTagsEn: ['New tag'],
+        foundingYear: 2020,
+      }),
+      attempts: [],
+    })
+
+    const result = await runDescriptionsPhase({
+      brand: {
+        ...brand,
+        description: '既有中文介紹',
+        description_en: null,
+        blurb: '既有中文摘要',
+        blurb_en: null,
+        price_range: 2,
+        product_tags: ['既有標籤'],
+        product_tags_en: ['Existing tag'],
+        founding_year: 2018,
+      },
+      phases: ['descriptions'] as EnrichPhase[],
+      serpSnippets: ['Existing source material.'],
+      overwrite: false,
+    })
+
+    expect(result.patch).toMatchObject({
+      description_en: 'New English description.',
+      blurb_en: 'New English summary.',
+    })
+    expect(result.patch).not.toHaveProperty('description')
+    expect(result.patch).not.toHaveProperty('blurb')
+    expect(result.patch).not.toHaveProperty('price_range')
+    expect(result.patch).not.toHaveProperty('product_tags')
+    expect(result.patch).not.toHaveProperty('product_tags_en')
+    expect(result.patch).not.toHaveProperty('founding_year')
+  })
+
+  it('does not persist tag translations during a dry run', async () => {
+    rewriteBrandDescription.mockResolvedValue({
+      result: makeDescriptionRewriteResult({
+        productTags: ['標籤'],
+        productTagsEn: ['Tag'],
+      }),
+      attempts: [],
+    })
+
+    await runDescriptionsPhase({
+      brand,
+      phases: ['descriptions'] as EnrichPhase[],
+      serpSnippets: ['Existing source material.'],
+      dryRun: true,
+    })
+
+    expect(supabaseMocks.upsert).not.toHaveBeenCalled()
   })
 
 })

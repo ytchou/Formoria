@@ -3,10 +3,19 @@ import type { MouseEventHandler, ReactNode } from 'react'
 
 import { render, screen } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import enMessages from '../../../../messages/en.json'
 import { MainNav } from '../main-nav'
+
+let hasOwnedBrand = false
+
+vi.mock('@/lib/auth/use-user', () => ({
+  useUser: () => ({
+    user: null,
+    viewer: { hasOwnedBrand, isAdmin: false, impersonation: null },
+  }),
+}))
 
 vi.mock('@/i18n/navigation', () => ({
   Link: ({
@@ -48,6 +57,10 @@ function renderWithIntl(ui: ReactNode) {
 }
 
 describe('MainNav', () => {
+  beforeEach(() => {
+    hasOwnedBrand = false
+  })
+
   it('renders the account entry point', () => {
     renderWithIntl(<MainNav categories={[]} />)
 
@@ -65,7 +78,8 @@ describe('MainNav', () => {
   })
 
   it('shows only My Brand when the account already owns a brand', () => {
-    renderWithIntl(<MainNav categories={[]} hasOwnedBrand />)
+    hasOwnedBrand = true
+    renderWithIntl(<MainNav categories={[]} />)
 
     expect(screen.getByRole('link', { name: 'My Brand' })).toHaveAttribute('href', '/dashboard')
     expect(screen.queryByRole('link', { name: 'Submit a Brand' })).not.toBeInTheDocument()

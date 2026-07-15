@@ -35,6 +35,7 @@ type DescriptionsPhaseOptions = {
   scrapedData?: EnrichScrapedData | null
   serpSnippets: string[]
   overwrite?: boolean
+  dryRun?: boolean
   target?: EnrichmentTarget
 }
 
@@ -160,6 +161,7 @@ export async function runDescriptionsPhase({
   phases,
   serpSnippets,
   overwrite = false,
+  dryRun = false,
   target,
 }: DescriptionsPhaseOptions): Promise<DescriptionsPhaseOutput> {
   if (!phases.includes('descriptions')) {
@@ -211,13 +213,13 @@ export async function runDescriptionsPhase({
       descriptionPatch = {
         ...(descriptionRewrite.description_zh && shouldWrite(brand.description) ? { description: descriptionRewrite.description_zh } : {}),
         ...(descriptionRewrite.description_en && shouldWrite(brand.description_en) ? { description_en: descriptionRewrite.description_en } : {}),
-        ...(descriptionRewrite.blurb_zh ? { blurb: descriptionRewrite.blurb_zh } : {}),
-        ...(descriptionRewrite.blurb_en ? { blurb_en: descriptionRewrite.blurb_en } : {}),
-        ...(descriptionRewrite.priceRange != null ? { price_range: descriptionRewrite.priceRange } : {}),
-        ...(mergedTags.length > 0 ? { product_tags: mergedTags } : {}),
-        ...(mergedTagsEn.length > 0 ? { product_tags_en: mergedTagsEn } : {}),
+        ...(descriptionRewrite.blurb_zh && shouldWrite(brand.blurb) ? { blurb: descriptionRewrite.blurb_zh } : {}),
+        ...(descriptionRewrite.blurb_en && shouldWrite(brand.blurb_en) ? { blurb_en: descriptionRewrite.blurb_en } : {}),
+        ...(descriptionRewrite.priceRange != null && shouldWrite(brand.price_range) ? { price_range: descriptionRewrite.priceRange } : {}),
+        ...(mergedTags.length > 0 && shouldWrite(brand.product_tags) ? { product_tags: mergedTags } : {}),
+        ...(mergedTagsEn.length > 0 && shouldWrite(brand.product_tags_en) ? { product_tags_en: mergedTagsEn } : {}),
         ...(descriptionRewrite.city && shouldWrite(brand.city) ? { city: descriptionRewrite.city } : {}),
-        ...(descriptionRewrite.foundingYear != null ? { founding_year: descriptionRewrite.foundingYear } : {}),
+        ...(descriptionRewrite.foundingYear != null && shouldWrite(brand.founding_year) ? { founding_year: descriptionRewrite.foundingYear } : {}),
         ...(descriptionRewrite.reputationSummary && shouldWrite(brand.reputation_summary) ? {
           reputation_summary: {
             text: descriptionRewrite.reputationSummary.text,
@@ -241,7 +243,11 @@ export async function runDescriptionsPhase({
         } : {}),
       }
 
-      if (mergedTags.length > 0 && mergedTagsEn.length > 0) {
+      if (
+        !dryRun &&
+        Array.isArray(descriptionPatch.product_tags) &&
+        Array.isArray(descriptionPatch.product_tags_en)
+      ) {
         const supabase = createServiceClient()
         const tagPairs = mergedTags.map((zh, i) => ({
           tag_zh: zh,

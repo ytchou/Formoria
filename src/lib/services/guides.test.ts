@@ -16,7 +16,12 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 
-import { getAllGuides, getGuideBySlug, getGuidesByCategory } from './guides';
+import {
+  getAllGuides,
+  getGuideBySlug,
+  getGuidesByCategory,
+  getPublishedGuideBySlug,
+} from './guides';
 import { client } from '@tina/client'
 import { notFound } from 'next/navigation';
 
@@ -182,6 +187,20 @@ describe('guides service (Tina-backed)', () => {
       expect(client.queries.guide).toHaveBeenCalledWith({
         relativePath: 'taiwan-skincare-brands.mdx',
       });
+    });
+  });
+
+  describe('getPublishedGuideBySlug', () => {
+    it('does not expose a draft guide through the public query', async () => {
+      vi.mocked(client.queries.guide).mockResolvedValue({
+        data: { guide: { ...mockGuideNode, draft: true } },
+        query: '',
+        variables: {},
+      } as any);
+
+      await expect(
+        getPublishedGuideBySlug('taiwan-skincare-brands'),
+      ).resolves.toBeNull();
     });
   });
 

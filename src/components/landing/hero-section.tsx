@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import { Suspense } from 'react'
 import { getLocale, getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { SearchInput } from '@/components/brands/search-input'
@@ -32,7 +33,9 @@ export default async function HeroSection({ brandCount, categoryCount, recentBra
         <p className="mt-3 type-page-subtitle max-w-2xl">{t('subheadline')}</p>
 
         <div className="mt-6 max-w-md rounded-lg bg-background/85">
-          <SearchInput redirectTo="/brands" placeholder={t('cta')} />
+          <Suspense>
+            <SearchInput redirectTo="/brands" placeholder={t('cta')} />
+          </Suspense>
         </div>
 
         <nav className="mt-6 flex flex-wrap gap-2" aria-label={t('statsCategories')}>

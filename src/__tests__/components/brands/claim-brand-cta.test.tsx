@@ -22,7 +22,12 @@ vi.mock('next-intl', () => ({
 }))
 
 vi.mock('@/lib/auth/use-user', () => ({
-  useUser: () => ({ user: null, loading: false }),
+  useUser: () => ({
+    user: null,
+    loading: false,
+    viewer: { hasOwnedBrand: false, isAdmin: false, impersonation: null },
+    viewerLoading: false,
+  }),
 }))
 
 vi.mock('@/i18n/navigation', () => ({
@@ -51,6 +56,7 @@ vi.mock('@/components/upload/useImageUpload', () => ({
 }))
 
 vi.mock('@/app/[locale]/brands/[slug]/actions', () => ({
+  getPendingClaimStatusAction: vi.fn(),
   submitClaimAction: vi.fn(),
 }))
 

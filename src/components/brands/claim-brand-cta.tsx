@@ -2,8 +2,11 @@
 
 import { Upload } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { useRef, useState, useTransition, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
-import { submitClaimAction } from '@/app/[locale]/brands/[slug]/actions'
+import { useEffect, useRef, useState, useTransition, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
+import {
+  getPendingClaimStatusAction,
+  submitClaimAction,
+} from '@/app/[locale]/brands/[slug]/actions'
 import NextLink from 'next/link'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
@@ -22,8 +25,6 @@ import { cn } from '@/lib/utils'
 
 type ClaimBrandCtaProps = {
   brandId: string
-  hasPendingClaim?: boolean
-  hasOwnedBrand?: boolean
   removalSlot?: ReactNode
 }
 
@@ -149,21 +150,21 @@ function ClaimProofUpload({
 
 export function ClaimBrandCta({
   brandId,
-  hasPendingClaim = false,
-  hasOwnedBrand = false,
   removalSlot,
 }: ClaimBrandCtaProps) {
   const t = useTranslations('brands.claimCta')
   const claimErrorsT = useTranslations('brandDetail.claim.errors')
   const locale = useLocale() as 'zh-TW' | 'en'
   const pathname = usePathname()
-  const { user } = useUser()
+  const { user, loading, viewer, viewerLoading } = useUser()
   const [isOpen, setIsOpen] = useState(false)
   const [proofs, setProofs] = useState<Record<ClaimProofType, ProofState>>(INITIAL_PROOFS)
   const [mitSmileCert, setMitSmileCert] = useState('')
-  const [feedback, setFeedback] = useState<FeedbackState>(
-    hasPendingClaim ? { type: 'pending' } : { type: 'idle' },
-  )
+  const [feedback, setFeedback] = useState<FeedbackState>({ type: 'idle' })
+  const [pendingClaim, setPendingClaim] = useState<{
+    key: string | null
+    pending: boolean
+  }>({ key: null, pending: false })
   const [isPending, startTransition] = useTransition()
   const userId = user?.id ?? 'anonymous'
   const selectedProofs = CLAIM_PROOF_TYPES.filter((type) => proofs[type].selected)
@@ -174,6 +175,38 @@ export function ClaimBrandCta({
     return hasRequiredEvidence(type, proof)
   })
   const canSubmit = selectedCount >= 1 && selectedProofsHaveEvidence && !isPending
+
+  useEffect(() => {
+    let active = true
+
+    if (!user) return
+
+    const key = `${user.id}:${brandId}`
+    void (async () => {
+      let pending = false
+      try {
+        pending = await getPendingClaimStatusAction(brandId)
+      } catch {
+        // Submission still enforces uniqueness if this read is unavailable.
+      }
+      if (active) {
+        setPendingClaim({ key, pending })
+      }
+    })()
+
+    return () => {
+      active = false
+    }
+  }, [brandId, user])
+
+  const pendingClaimKey = user ? `${user.id}:${brandId}` : null
+  const hasExistingPendingClaim =
+    pendingClaim.key === pendingClaimKey && pendingClaim.pending
+  const pendingClaimLoading = Boolean(pendingClaimKey) &&
+    pendingClaim.key !== pendingClaimKey
+  const verificationEmail = feedback.type === 'pending'
+    ? feedback.domainEmailVerificationSentTo
+    : undefined
 
   function openForm() {
     setIsOpen(true)
@@ -242,7 +275,9 @@ export function ClaimBrandCta({
     })
   }
 
-  if (hasOwnedBrand) {
+  if (loading || viewerLoading || pendingClaimLoading) return null
+
+  if (viewer.hasOwnedBrand) {
     return (
       <section
         className={surfaceCardStyles({
@@ -267,7 +302,7 @@ export function ClaimBrandCta({
     )
   }
 
-  if (feedback.type === 'pending') {
+  if (feedback.type === 'pending' || hasExistingPendingClaim) {
     return (
       <section
         className={surfaceCardStyles({
@@ -279,8 +314,8 @@ export function ClaimBrandCta({
         <div className="space-y-1">
           <p className="type-subsection-title">{t('pendingTitle')}</p>
           <p className="type-card-description">
-            {feedback.domainEmailVerificationSentTo
-              ? t('pendingDomainEmailBody', { email: feedback.domainEmailVerificationSentTo })
+            {verificationEmail
+              ? t('pendingDomainEmailBody', { email: verificationEmail })
               : t('pendingBody')}
           </p>
         </div>

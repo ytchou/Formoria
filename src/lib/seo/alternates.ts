@@ -7,6 +7,10 @@ export type AlternatesResult = {
   languages: Record<string, string>
 }
 
+function encodeServedPath(path: string): string {
+  return encodeURI(path).replace(/%[0-9A-F]{2}/g, (escape) => escape.toLowerCase())
+}
+
 /**
  * Build hreflang alternates and per-locale canonical for a given path.
  *
@@ -17,23 +21,28 @@ export type AlternatesResult = {
  * @param path   Prefix-free public path, e.g. '/brands', '/brands/acme', '' or '/'
  * @param locale The locale of the current page (determines the self-referencing canonical)
  */
-export function buildAlternates(path: string, locale: Locale): AlternatesResult {
+export function buildAlternates(
+  path: string,
+  locale: Locale,
+  availableLocales: readonly Locale[] = ['zh-TW', 'en'],
+): AlternatesResult {
   const base = getSiteUrl()
 
   // Normalize: home path ('' or '/') → no trailing slash; other paths start with '/'
-  const normalizedPath = path === '' || path === '/' ? '' : `/${path.replace(/^\//, '')}`
+  const normalizedPath = path === '' || path === '/'
+    ? ''
+    : encodeServedPath(`/${path.replace(/^\//, '')}`)
 
   const zhUrl = `${base}${normalizedPath}`
   const enUrl = `${base}/en${normalizedPath}`
 
   const canonical = locale === 'zh-TW' ? zhUrl : enUrl
 
-  return {
-    canonical,
-    languages: {
-      'zh-TW': zhUrl,
-      en: enUrl,
-      'x-default': zhUrl,
-    },
-  }
+  const languages: Record<string, string> = {}
+  if (availableLocales.includes('zh-TW')) languages['zh-TW'] = zhUrl
+  if (availableLocales.includes('en')) languages.en = enUrl
+  const defaultUrl = languages['zh-TW'] ?? languages.en
+  if (defaultUrl) languages['x-default'] = defaultUrl
+
+  return { canonical, languages }
 }

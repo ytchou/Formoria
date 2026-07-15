@@ -1,29 +1,19 @@
 import { notFound, permanentRedirect } from 'next/navigation'
-import { connection } from 'next/server'
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import {
-  getBrandBySlug,
+  getApprovedBrandBySlug,
   findBrandByOldSlug,
   getRelatedBrands,
   getBrandCountByCategory,
   getAllBrandSlugs,
-  getBrandDraft,
-  mergeDraftOverBrand,
 } from '@/lib/services/brands'
-import { hasPendingClaim } from '@/lib/services/claim-requests'
-import {
-  buildBrandJsonLd,
-  buildBreadcrumbJsonLd,
-  safeJsonLdStringify,
-} from '@/lib/json-ld'
+import { buildBrandJsonLd, buildBreadcrumbJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import type { BreadcrumbItem } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import type { Brand } from '@/lib/types'
-import { canManageBrand, isActingAsAdmin } from '@/lib/auth/admin-mode'
 import { BrandViewTracker } from '@/components/brands/brand-view-tracker'
-import { PreviewBanner } from '@/components/brands/preview-banner'
 import { BrandAnalyticsTracker } from './brand-analytics-tracker'
 import { BrandBreadcrumb } from '@/components/brands/brand-breadcrumb'
 import { ImageCarousel } from '@/components/brands/image-carousel'
@@ -46,12 +36,12 @@ import { getBrandFaq } from '@/lib/services/brand-faq'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { cn } from '@/lib/utils'
 import { NotFoundError } from '@/lib/errors'
-import { getUserBrand } from '@/lib/services/brand-owners'
 import { truncateForMeta } from '@/lib/text/truncate-for-meta'
-import { getCachedUser } from '@/lib/auth/get-cached-user'
+import { getBrandIndexability } from '@/lib/seo/brand-indexability'
 
 // 1h ISR: ownership/verified-state changes propagate within ~an hour; route still statically served between regenerations
 export const revalidate = 3600
+export const dynamic = 'force-static'
 
 export async function generateStaticParams() {
   try {
@@ -64,17 +54,11 @@ export async function generateStaticParams() {
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>
-  searchParams: Promise<{ source?: string; preview?: string }>
 }
 
-type BrandFaqTranslateFn = (
-  key: string,
-  params?: Record<string, unknown>,
-) => string
+type BrandFaqTranslateFn = (key: string, params?: Record<string, unknown>) => string
 
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { locale, slug: rawSlug } = await params
   const slug = decodeURIComponent(rawSlug)
   setRequestLocale(locale)
@@ -82,31 +66,40 @@ export async function generateMetadata({
   const t = await getTranslations('brandDetail')
 
   try {
-    const brand = await getBrandBySlug(slug)
+    const brand = await getApprovedBrandBySlug(slug)
+    const indexability = getBrandIndexability(brand)
+    const availableLocales: Locale[] = [
+      ...(indexability['zh-TW'] ? (['zh-TW'] as const) : []),
+      ...(indexability.en ? (['en'] as const) : []),
+    ]
     const heroImageUrl = safeImageSrc(brand.heroImageUrl)
     const { canonical, languages } = buildAlternates(
       `/brands/${brand.slug}`,
       safeLocale,
+      availableLocales,
     )
     const ogLocale = safeLocale === 'zh-TW' ? 'zh_TW' : 'en_US'
     const ogAlternateLocale = safeLocale === 'zh-TW' ? 'en_US' : 'zh_TW'
-    const rawDescription = safeLocale === 'en'
-      ? (brand.blurbEn ?? brand.descriptionEn ?? brand.blurb ?? brand.description)
-      : (brand.blurb ?? brand.description)
+    const rawDescription =
+      safeLocale === 'en'
+        ? (brand.blurbEn ?? brand.descriptionEn ?? brand.blurb ?? brand.description)
+        : (brand.blurb ?? brand.description)
     const description = truncateForMeta(
-      rawDescription ||
-        t('metadata.fallbackDescription', { name: brand.name }),
+      rawDescription || t('metadata.fallbackDescription', { name: brand.name }),
     )
     return {
       title: brand.name,
       description,
       alternates: { canonical, languages },
+      robots: indexability[safeLocale] ? undefined : { index: false, follow: true },
       openGraph: {
         title: brand.name,
         description,
         images: heroImageUrl ? [{ url: heroImageUrl }] : undefined,
         locale: ogLocale,
-        alternateLocale: [ogAlternateLocale],
+        alternateLocale: availableLocales.includes(safeLocale === 'en' ? 'zh-TW' : 'en')
+          ? [ogAlternateLocale]
+          : undefined,
       },
       twitter: {
         title: brand.name,
@@ -118,56 +111,33 @@ export async function generateMetadata({
     try {
       const redirectSlug = await findBrandByOldSlug(slug)
       if (redirectSlug) {
-        permanentRedirect(
-          `/${locale}/brands/${encodeURIComponent(redirectSlug)}`,
-        )
+        permanentRedirect(`/${locale}/brands/${encodeURIComponent(redirectSlug)}`)
       }
     } catch {
       // Fall through to original error handling.
     }
 
     if (error instanceof NotFoundError) {
-      return { title: t('metadata.notFoundTitle') }
+      notFound()
     }
 
     throw error
   }
 }
 
-export default async function BrandDetailPage({
-  params,
-  searchParams,
-}: PageProps) {
+export default async function BrandDetailPage({ params }: PageProps) {
   const { locale, slug: rawSlug } = await params
   const slug = decodeURIComponent(rawSlug)
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const { source: sourceParam, preview } = await searchParams
-  const previewRequested = preview === '1'
-
-  if (previewRequested) {
-    await connection()
-  }
-
-  const source =
-    sourceParam === 'search' ||
-    sourceParam === 'category' ||
-    sourceParam === 'directory' ||
-    sourceParam === 'direct' ||
-    sourceParam === 'recommendation'
-      ? sourceParam
-      : 'direct'
-
   let brand
   try {
-    brand = await getBrandBySlug(slug)
+    brand = await getApprovedBrandBySlug(slug)
   } catch (error) {
     try {
       const redirectSlug = await findBrandByOldSlug(slug)
       if (redirectSlug) {
-        permanentRedirect(
-          `/${locale}/brands/${encodeURIComponent(redirectSlug)}`,
-        )
+        permanentRedirect(`/${locale}/brands/${encodeURIComponent(redirectSlug)}`)
       }
     } catch {
       // Fall through to original error handling.
@@ -180,36 +150,8 @@ export default async function BrandDetailPage({
     throw error
   }
 
-  let displayBrand: Brand = brand
-  let previewMode = false
-  if (previewRequested) {
-    const user = await getCachedUser()
-    const allowed =
-      !!user && (await canManageBrand(user.id, user.email, brand.id))
-
-    if (allowed) {
-      displayBrand = mergeDraftOverBrand(brand, await getBrandDraft(brand.id))
-      previewMode = true
-    }
-  }
-
-  // Non-approved brands should 404
-  if (!previewMode && brand.status !== 'approved') {
-    notFound()
-  }
-
-  let userHasPendingClaim = false
-  if (!displayBrand.isVerified) {
-    const user = await getCachedUser()
-    userHasPendingClaim = user
-      ? await hasPendingClaim(user.id, displayBrand.id)
-      : false
-  }
-
-  const user = await getCachedUser()
-  const [ownedBrand, isAdmin, tBrandDetail, tCities] = await Promise.all([
-    user ? getUserBrand(user.id) : Promise.resolve(null),
-    isActingAsAdmin(user?.email),
+  const displayBrand: Brand = brand
+  const [tBrandDetail, tCities] = await Promise.all([
     getTranslations('brandDetail'),
     getTranslations('cities'),
   ])
@@ -218,14 +160,12 @@ export default async function BrandDetailPage({
   const faqItems = await getBrandFaq(displayBrand.id, displayBrand, tBrandFaq, safeLocale)
 
   // Gallery images: hero + product photos
-  const galleryImages = [
-    displayBrand.heroImageUrl,
-    ...displayBrand.productPhotos,
-  ].filter((url): url is string => Boolean(url))
+  const galleryImages = [displayBrand.heroImageUrl, ...displayBrand.productPhotos].filter(
+    (url): url is string => Boolean(url),
+  )
 
   const productTypeSlug =
-    (displayBrand as Brand & { product_type?: string | null }).product_type ??
-    null
+    (displayBrand as Brand & { product_type?: string | null }).product_type ?? null
   const productTypeCategory = PRODUCT_TYPE_CATEGORIES.find(
     (category) => category.slug === productTypeSlug,
   )
@@ -242,9 +182,7 @@ export default async function BrandDetailPage({
     categoryTag
       ? getRelatedBrands(categoryTag.slug, displayBrand.slug, 4)
       : Promise.resolve<Brand[]>([]),
-    categoryTag
-      ? getBrandCountByCategory(categoryTag.slug, displayBrand.slug)
-      : Promise.resolve(0),
+    categoryTag ? getBrandCountByCategory(categoryTag.slug, displayBrand.slug) : Promise.resolve(0),
   ])
 
   const visitUrl = getBrandVisitHref(displayBrand)
@@ -252,7 +190,9 @@ export default async function BrandDetailPage({
   // Breadcrumb items for JSON-LD
   const directoryLabel = tBrandDetail('breadcrumb.directory')
   const categoryLabel = productTypeCategory
-    ? (safeLocale === 'en' ? productTypeCategory.name : productTypeCategory.nameZh)
+    ? safeLocale === 'en'
+      ? productTypeCategory.name
+      : productTypeCategory.nameZh
     : getBrandCategoryLabel(displayBrand, safeLocale === 'en' ? 'en' : 'zh-TW')
   const hasRetailLocations = normalizeRetailLocations(displayBrand.retailLocations).length > 0
 
@@ -271,29 +211,25 @@ export default async function BrandDetailPage({
 
   return (
     <>
-      {previewMode && <PreviewBanner slug={slug} />}
-      <main className={cn('page-gutter mx-auto max-w-screen-xl pt-10 lg:pb-10', visitUrl ? 'pb-24' : 'pb-10')}>
-        {!previewMode && (
-          <>
-            <BrandViewTracker brandSlug={slug} source={source} />
-            <BrandAnalyticsTracker brandId={displayBrand.id} source={source} />
-          </>
+      <main
+        className={cn(
+          'page-gutter mx-auto max-w-screen-xl pt-10 lg:pb-10',
+          visitUrl ? 'pb-24' : 'pb-10',
         )}
+      >
+        <BrandViewTracker brandSlug={slug} />
+        <BrandAnalyticsTracker brandId={displayBrand.id} />
         {/* JSON-LD structured data */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: safeJsonLdStringify(
-              buildBrandJsonLd(displayBrand, safeLocale),
-            ),
+            __html: safeJsonLdStringify(buildBrandJsonLd(displayBrand, safeLocale)),
           }}
         />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: safeJsonLdStringify(
-              buildBreadcrumbJsonLd(breadcrumbItems, safeLocale),
-            ),
+            __html: safeJsonLdStringify(buildBreadcrumbJsonLd(breadcrumbItems, safeLocale)),
           }}
         />
         {/* Breadcrumb */}
@@ -308,7 +244,12 @@ export default async function BrandDetailPage({
           {/* Left: sticky image gallery */}
           <div className="w-full lg:w-[580px] lg:shrink-0">
             <div className="lg:sticky lg:top-8">
-              <ImageCarousel images={galleryImages} alt={displayBrand.name} category={productTypeSlug} imageAlts={displayBrand.imageAlts} />
+              <ImageCarousel
+                images={galleryImages}
+                alt={displayBrand.name}
+                category={productTypeSlug}
+                imageAlts={displayBrand.imageAlts}
+              />
             </div>
           </div>
 
@@ -319,11 +260,7 @@ export default async function BrandDetailPage({
               categoryLabel={categoryLabel || null}
               cityLabel={displayBrand.city ? tCities(displayBrand.city) : null}
               locale={safeLocale}
-              adminSlot={
-                isAdmin ? (
-                  <AdminBrandMenu brandSlug={displayBrand.slug} />
-                ) : undefined
-              }
+              adminSlot={<AdminBrandMenu brandSlug={displayBrand.slug} />}
               actionsSlot={
                 <SavedBrandsProvider>
                   <BrandActions
@@ -361,17 +298,11 @@ export default async function BrandDetailPage({
             {!displayBrand.isVerified && (
               <ClaimBrandCta
                 brandId={displayBrand.id}
-                hasPendingClaim={userHasPendingClaim}
-                hasOwnedBrand={Boolean(ownedBrand)}
                 removalSlot={
-                  <RequestRemoval
-                    brandName={displayBrand.name}
-                    brandSlug={displayBrand.slug}
-                  />
+                  <RequestRemoval brandName={displayBrand.name} brandSlug={displayBrand.slug} />
                 }
               />
             )}
-
           </div>
         </div>
 

@@ -1,7 +1,24 @@
 import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('@/lib/services/brands', () => ({
-  getAllBrandSlugs: vi.fn().mockResolvedValue(['cha-zi-tang', 'daylily']),
+  getBrandSeoEntries: vi.fn().mockResolvedValue([
+    {
+      slug: 'cha-zi-tang',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      productType: 'fashion',
+      description: '中文品牌介紹',
+      descriptionEn: 'A complete English description for this Taiwanese brand.',
+      blurbEn: 'A concise English summary for the brand.',
+    },
+    {
+      slug: 'daylily',
+      updatedAt: '2026-07-02T00:00:00.000Z',
+      productType: 'beauty',
+      description: '中文品牌介紹',
+      descriptionEn: 'A complete English description for this Taiwanese brand.',
+      blurbEn: 'A concise English summary for the brand.',
+    },
+  ]),
 }))
 
 vi.mock('@/lib/services/guides', () => ({

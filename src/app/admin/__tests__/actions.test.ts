@@ -138,7 +138,10 @@ describe('rejectSubmissionAction', () => {
 
     vi.doMock('@/lib/services/brands', () => ({
       deleteBrand: vi.fn(),
-      getBrandById: vi.fn(),
+      getBrandById: vi.fn().mockResolvedValue({
+        id: 'brand-niizo',
+        slug: 'niizo',
+      }),
       syncBrandImages: vi.fn(),
       updateBrand: vi.fn(),
     }))

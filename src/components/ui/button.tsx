@@ -22,7 +22,7 @@ const buttonStyles = cva(
         cta: "bg-cta text-cta-foreground [a]:hover:bg-cta/90 hover:bg-cta/90",
       },
       shape: {
-        default: "rounded-lg",
+        default: "rounded-xl",
         pill: "rounded-full",
         square: "rounded-md",
       },

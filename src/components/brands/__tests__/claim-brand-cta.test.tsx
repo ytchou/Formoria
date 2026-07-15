@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import { beforeEach, expect, it, vi } from 'vitest'
 import messages from '@/../messages/zh-TW.json'
@@ -8,8 +8,17 @@ import { ClaimBrandCta } from '@/components/brands/claim-brand-cta'
 const uploadMock = vi.fn()
 const mockUploadConfigs: Array<{ bucket: string; path: string; acceptedTypes?: string[]; uploadFields?: Record<string, string> }> = []
 let mockUser: { id: string } | null = { id: 'user-1' }
+let mockHasOwnedBrand = false
+const getPendingClaimStatusAction = vi.fn<() => Promise<boolean>>()
 
-vi.mock('@/lib/auth/use-user', () => ({ useUser: () => ({ user: mockUser, loading: false }) }))
+vi.mock('@/lib/auth/use-user', () => ({
+  useUser: () => ({
+    user: mockUser,
+    loading: false,
+    viewer: { hasOwnedBrand: mockHasOwnedBrand, isAdmin: false, impersonation: null },
+    viewerLoading: false,
+  }),
+}))
 vi.mock('@/i18n/navigation', () => ({
   Link: ({ href, children, ...rest }: { href: string; children: React.ReactNode; [key: string]: unknown }) => (
     <a href={href} {...rest}>{children}</a>
@@ -26,7 +35,10 @@ const submitClaimAction = vi.fn(async (input: unknown) => {
   void input
   return { ok: true }
 })
-vi.mock('@/app/[locale]/brands/[slug]/actions', () => ({ submitClaimAction: (...a: unknown[]) => submitClaimAction(a[0]) }))
+vi.mock('@/app/[locale]/brands/[slug]/actions', () => ({
+  getPendingClaimStatusAction: () => getPendingClaimStatusAction(),
+  submitClaimAction: (...a: unknown[]) => submitClaimAction(a[0]),
+}))
 
 const renderCta = (props: Partial<React.ComponentProps<typeof ClaimBrandCta>> = {}) => render(
   <NextIntlClientProvider locale="zh-TW" messages={messages}>
@@ -36,6 +48,9 @@ const renderCta = (props: Partial<React.ComponentProps<typeof ClaimBrandCta>> = 
 
 beforeEach(() => {
   mockUser = { id: 'user-1' }
+  mockHasOwnedBrand = false
+  getPendingClaimStatusAction.mockReset()
+  getPendingClaimStatusAction.mockResolvedValue(false)
   uploadMock.mockReset()
   uploadMock.mockResolvedValue({ key: 'claim-proofs/user-1/b1/server.webp', url: null })
   mockUploadConfigs.length = 0
@@ -63,26 +78,49 @@ it('shows a sign-in gate instead of the claim form when logged out', () => {
   expect(screen.getByRole('link', { name: '為什麼要認領？了解好處' })).toHaveAttribute('href', '/faq#claim')
 })
 
-it('renders the pending state on load when the user already has a pending claim', () => {
-  renderCta({ hasPendingClaim: true })
+it('renders the pending state on load when the user already has a pending claim', async () => {
+  getPendingClaimStatusAction.mockResolvedValueOnce(true)
+  renderCta()
 
-  expect(screen.getByText('已收到你的認領申請')).toBeInTheDocument()
+  expect(await screen.findByText('已收到你的認領申請')).toBeInTheDocument()
   expect(screen.getByText('我們會盡快審核你提交的擁有證明，並以 Email 通知你結果。')).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: '認領這個品牌' })).not.toBeInTheDocument()
   expect(screen.queryByText('提交認領證明')).not.toBeInTheDocument()
 })
 
-it('replaces the claim form with the owner-limit message for existing owners', () => {
-  renderCta({ hasOwnedBrand: true })
+it('waits for the pending-claim check before enabling a new claim', async () => {
+  let resolvePendingStatus: (pending: boolean) => void = () => {}
+  getPendingClaimStatusAction.mockReturnValueOnce(
+    new Promise((resolve) => {
+      resolvePendingStatus = resolve
+    }),
+  )
 
-  expect(screen.getByText('你的帳號已管理一個品牌')).toBeInTheDocument()
+  renderCta()
+
+  expect(
+    screen.queryByRole('button', { name: '認領這個品牌' }),
+  ).not.toBeInTheDocument()
+
+  await act(async () => resolvePendingStatus(false))
+
+  expect(
+    await screen.findByRole('button', { name: '認領這個品牌' }),
+  ).toBeInTheDocument()
+})
+
+it('replaces the claim form with the owner-limit message for existing owners', async () => {
+  mockHasOwnedBrand = true
+  renderCta()
+
+  expect(await screen.findByText('你的帳號已管理一個品牌')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: '前往我的品牌' })).toHaveAttribute('href', '/dashboard')
   expect(screen.queryByRole('button', { name: '認領這個品牌' })).not.toBeInTheDocument()
 })
 
-it('renders a domain email input without URL or upload controls', () => {
+it('renders a domain email input without URL or upload controls', async () => {
   renderCta()
-  fireEvent.click(screen.getByText('認領這個品牌'))
+  fireEvent.click(await screen.findByText('認領這個品牌'))
   fireEvent.click(screen.getByLabelText('品牌網域信箱'))
   expect(screen.getByRole('button', { name: /送出認領申請/ })).toBeDisabled()
 
@@ -95,9 +133,9 @@ it('renders a domain email input without URL or upload controls', () => {
   expect(screen.getByRole('button', { name: /送出認領申請/ })).toBeEnabled()
 })
 
-it('requires a valid email for domain email proof', () => {
+it('requires a valid email for domain email proof', async () => {
   renderCta()
-  fireEvent.click(screen.getByText('認領這個品牌'))
+  fireEvent.click(await screen.findByText('認領這個品牌'))
   fireEvent.click(screen.getByLabelText('品牌網域信箱'))
 
   const emailInput = document.querySelector<HTMLInputElement>('#claim-domain_email-email')
@@ -107,9 +145,9 @@ it('requires a valid email for domain email proof', () => {
   expect(screen.getByRole('button', { name: /送出認領申請/ })).toBeDisabled()
 })
 
-it('always enables domain email proof regardless of whether the brand has a website', () => {
+it('always enables domain email proof regardless of whether the brand has a website', async () => {
   renderCta()
-  fireEvent.click(screen.getByText('認領這個品牌'))
+  fireEvent.click(await screen.findByText('認領這個品牌'))
 
   expect(screen.getByLabelText('品牌網域信箱')).toBeEnabled()
   expect(screen.queryByText('此品牌尚未登錄官網，無法使用 Email 驗證，請改用商業登記文件。')).not.toBeInTheDocument()
@@ -122,16 +160,16 @@ it('always enables domain email proof regardless of whether the brand has a webs
   expect(screen.getByRole('button', { name: /送出認領申請/ })).toBeEnabled()
 })
 
-it('does not render the removed 備註 field or the MIT email line', () => {
+it('does not render the removed 備註 field or the MIT email line', async () => {
   renderCta()
-  fireEvent.click(screen.getByText('認領這個品牌'))
+  fireEvent.click(await screen.findByText('認領這個品牌'))
   expect(screen.queryByText('認領備註')).not.toBeInTheDocument()
   expect(screen.queryByText(/來信.*申請驗證/)).not.toBeInTheDocument()
 })
 
 it('submits the server-returned claim-proof image key after upload succeeds', async () => {
   renderCta()
-  fireEvent.click(screen.getByText('認領這個品牌'))
+  fireEvent.click(await screen.findByText('認領這個品牌'))
   fireEvent.click(screen.getByLabelText('後台截圖'))
   expect(screen.getByText(/Instagram／社群/)).toBeInTheDocument()
 
@@ -167,9 +205,9 @@ it('submits the server-returned claim-proof image key after upload succeeds', as
   })
 })
 
-it('renders business document upload with PDF support', () => {
+it('renders business document upload with PDF support', async () => {
   renderCta()
-  fireEvent.click(screen.getByText('認領這個品牌'))
+  fireEvent.click(await screen.findByText('認領這個品牌'))
   fireEvent.click(screen.getByLabelText('商業登記文件'))
 
   const businessDocInput = document.querySelector<HTMLInputElement>('#claim-business_doc-image')

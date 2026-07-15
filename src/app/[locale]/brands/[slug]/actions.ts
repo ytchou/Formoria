@@ -13,6 +13,7 @@ import { getBrandById } from '@/lib/services/brands'
 import {
   CLAIM_PROOF_TYPES,
   createClaimRequest,
+  hasPendingClaim,
   type ProofEvidence,
 } from '@/lib/services/claim-requests'
 import { createReport } from '@/lib/services/reports'
@@ -35,6 +36,11 @@ export type SubmitClaimResult =
   | { error: string }
 
 const reportRateLimiter = createInMemoryRateLimiter()
+
+export async function getPendingClaimStatusAction(brandId: string): Promise<boolean> {
+  const user = await requireClaimUser()
+  return user ? hasPendingClaim(user.id, brandId) : false
+}
 
 function buildFieldSchemas(t: Translator) {
   const proofSchema = z

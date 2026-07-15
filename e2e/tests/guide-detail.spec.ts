@@ -45,4 +45,23 @@ test.describe('Guide detail deep', () => {
     expect(hasArticle).toBe(true);
   });
 
+  test('authored locale is indexable and only advertises available alternates', async ({
+    anonPage,
+  }) => {
+    await anonPage.goto(GUIDE_URL);
+
+    await expect(anonPage.locator('meta[name="robots"][content*="noindex" i]')).toHaveCount(0);
+    await expect(anonPage.locator('link[rel="alternate"][hreflang="zh-TW"]')).toHaveCount(1);
+    await expect(anonPage.locator('link[rel="alternate"][hreflang="x-default"]')).toHaveCount(1);
+    await expect(anonPage.locator('link[rel="alternate"][hreflang="en"]')).toHaveCount(0);
+  });
+
+  test('unavailable English locale stays readable but is not indexable', async ({ anonPage }) => {
+    const response = await anonPage.goto(`/en${GUIDE_URL}`);
+
+    expect(response?.status()).toBe(200);
+    await expect(anonPage.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/i);
+    await expect(anonPage.locator('link[rel="alternate"][hreflang="zh-TW"]')).toHaveCount(1);
+    await expect(anonPage.locator('link[rel="alternate"][hreflang="en"]')).toHaveCount(0);
+  });
 });

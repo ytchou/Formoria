@@ -54,3 +54,20 @@ describe('toBrandRow city mapping', () => {
     expect(row.city).toBeNull()
   })
 })
+
+describe('toBrandRow localized copy mapping', () => {
+  it('maps camelCase English description and blurb fields', () => {
+    const row = toBrandRow({
+      descriptionEn:
+        'Niizo crafts durable bags in Taiwan from natural canvas and leather.',
+      blurbEn: 'Taiwanese slow-fashion bags made from natural materials.',
+    })
+
+    expect(row.description_en).toBe(
+      'Niizo crafts durable bags in Taiwan from natural canvas and leather.',
+    )
+    expect(row.blurb_en).toBe(
+      'Taiwanese slow-fashion bags made from natural materials.',
+    )
+  })
+})

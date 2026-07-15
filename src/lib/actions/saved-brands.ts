@@ -1,6 +1,5 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
 import {
   getUserSavedBrandIds,
   isBrandSaved,
@@ -41,8 +40,6 @@ export async function toggleSaveAction(brandId: string) {
   } else {
     await saveBrand(user.id, brandId)
   }
-
-  revalidatePath('/', 'layout')
 
   return { ok: true as const, saved: !alreadySaved }
 }

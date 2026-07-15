@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { isOwnerOf } from '@/lib/services/brand-owners'
 import { verifyMitByCert } from '@/lib/services/mit-verification'
+import { getBrandById } from '@/lib/services/brands'
+import { revalidatePublicBrand } from '@/lib/cache/public-brand-cache'
 
 export async function verifyMitAction(
   brandId: string,
@@ -29,7 +31,8 @@ export async function verifyMitAction(
       return { error: result.error }
     }
 
-    revalidatePath('/[locale]/brands/[slug]', 'page')
+    const brand = await getBrandById(brandId)
+    revalidatePublicBrand({ slug: brand.slug })
     revalidatePath('/dashboard')
 
     return undefined
