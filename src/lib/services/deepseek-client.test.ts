@@ -26,7 +26,12 @@ describe('createDeepSeekClient', () => {
       ),
     )
     const events: ChatAuditEvent[] = []
-    const client = createDeepSeekClient({ apiKey: 'k', onChatComplete: (event) => events.push(event) })
+    const client = createDeepSeekClient({
+      apiKey: 'k',
+      onChatComplete: (event) => {
+        events.push(event)
+      },
+    })
 
     await client.chat({ system: 'system prompt', user: 'user prompt' })
 
@@ -38,7 +43,12 @@ describe('createDeepSeekClient', () => {
   it('fires onChatComplete with data null on HTTP failure', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 429 }))
     const events: ChatAuditEvent[] = []
-    const client = createDeepSeekClient({ apiKey: 'k', onChatComplete: (event) => events.push(event) })
+    const client = createDeepSeekClient({
+      apiKey: 'k',
+      onChatComplete: (event) => {
+        events.push(event)
+      },
+    })
 
     await client.chat({ system: 'system prompt', user: 'user prompt' })
 

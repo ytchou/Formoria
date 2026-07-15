@@ -14,7 +14,12 @@ describe('createOpenAIClient', () => {
       ),
     )
     const events: ChatAuditEvent[] = []
-    const client = createOpenAIClient({ apiKey: 'k', onChatComplete: (event) => events.push(event) })
+    const client = createOpenAIClient({
+      apiKey: 'k',
+      onChatComplete: (event) => {
+        events.push(event)
+      },
+    })
 
     await client.chat({ system: 'system prompt', user: 'user prompt' })
 
@@ -27,7 +32,12 @@ describe('createOpenAIClient', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 429 }))
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const events: ChatAuditEvent[] = []
-    const client = createOpenAIClient({ apiKey: 'k', onChatComplete: (event) => events.push(event) })
+    const client = createOpenAIClient({
+      apiKey: 'k',
+      onChatComplete: (event) => {
+        events.push(event)
+      },
+    })
 
     await client.chat({ system: 'system prompt', user: 'user prompt' })
 
