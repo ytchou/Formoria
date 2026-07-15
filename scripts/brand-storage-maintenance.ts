@@ -1,9 +1,18 @@
+import { readdir, readFile, stat, writeFile } from 'node:fs/promises'
+import path from 'node:path'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 const BUCKET = 'brand-images'
 const PAGE_SIZE = 1_000
 const LIST_CONCURRENCY = 20
+const DELETE_CHUNK_SIZE = 100
+const SOAK_PROTECTION_MS = 7 * 24 * 60 * 60 * 1_000
 const STORAGE_KEY_PREFIXES = ['brands/', 'submissions/'] as const
+const DEFAULT_PURGE_OPTIONS = {
+  expectedRejected: 1_820,
+  expectedUntracked: 2_056,
+  tolerance: 0.15,
+} as const
 
 export type BucketObject = {
   path: string
@@ -17,7 +26,7 @@ export type StorageReferences = {
   soakProtectedPaths: Set<string>
 }
 
-type CategorizedObjects = {
+export type CategorizedObjects = {
   protected: BucketObject[]
   anomalies: BucketObject[]
   live: BucketObject[]
@@ -25,10 +34,35 @@ type CategorizedObjects = {
   untracked: BucketObject[]
 }
 
+type PurgeCategory = 'rejected' | 'untracked'
+
+type PurgeManifestEntry = {
+  key: string
+  category: PurgeCategory
+  size: number
+}
+
+type PurgeOptions = {
+  expectedRejected: number
+  expectedUntracked: number
+  tolerance: number
+}
+
+type PurgePlan = {
+  entries: PurgeManifestEntry[]
+  toDelete: string[]
+  withinSanityGate: boolean
+}
+
 type ImageReferenceRow = {
   storage_path: string | null
   url: string | null
   status: string
+}
+
+type BrandImageStorageRow = {
+  id: string
+  storage_path: string | null
 }
 
 type BrandReferenceRow = {
@@ -289,17 +323,105 @@ export function categorizeObjects(
   return result
 }
 
+export function planPurge(
+  categorized: CategorizedObjects,
+  options: PurgeOptions,
+): PurgePlan {
+  const entries: PurgeManifestEntry[] = [
+    ...categorized.rejected.map((object) => ({
+      key: object.path,
+      category: 'rejected' as const,
+      size: object.size,
+    })),
+    ...categorized.untracked.map((object) => ({
+      key: object.path,
+      category: 'untracked' as const,
+      size: object.size,
+    })),
+  ]
+  const rejectedWithinTolerance =
+    Math.abs(categorized.rejected.length - options.expectedRejected) <=
+    options.expectedRejected * options.tolerance
+  const untrackedWithinTolerance =
+    Math.abs(categorized.untracked.length - options.expectedUntracked) <=
+    options.expectedUntracked * options.tolerance
+
+  return {
+    entries,
+    toDelete: entries.map((entry) => entry.key),
+    withinSanityGate:
+      rejectedWithinTolerance && untrackedWithinTolerance,
+  }
+}
+
+function collectStorageKeys(value: unknown, keys: Set<string>): void {
+  if (typeof value === 'string') {
+    const key = isStorageKey(value) ? value : storageKeyFromPublicUrl(value)
+    if (key) keys.add(key)
+    return
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectStorageKeys(item, keys)
+    return
+  }
+  if (typeof value === 'object' && value !== null) {
+    for (const item of Object.values(value)) collectStorageKeys(item, keys)
+  }
+}
+
+async function loadSoakProtectedPaths(): Promise<Set<string>> {
+  const scriptsDirectory = 'scripts'
+  const names = await readdir(scriptsDirectory)
+  const manifestNames = names.filter((name) =>
+    /^\.reencode-originals-.*\.json$/.test(name),
+  )
+  const now = Date.now()
+  const manifests = await Promise.all(
+    manifestNames.map(async (name) => {
+      const manifestPath = path.join(scriptsDirectory, name)
+      const fileStat = await stat(manifestPath)
+      if (now - fileStat.mtimeMs >= SOAK_PROTECTION_MS) return null
+      return {
+        manifestPath,
+        raw: await readFile(manifestPath, 'utf8'),
+      }
+    }),
+  )
+  const keys = new Set<string>()
+
+  for (const manifest of manifests) {
+    if (!manifest) continue
+    try {
+      collectStorageKeys(JSON.parse(manifest.raw) as unknown, keys)
+    } catch (error) {
+      throw new Error(
+        `Invalid re-encode manifest ${manifest.manifestPath}: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+  }
+
+  return keys
+}
+
 function sizeInMb(objects: BucketObject[]): string {
   const bytes = objects.reduce((total, object) => total + object.size, 0)
   return (bytes / 1024 / 1024).toFixed(2)
 }
 
-async function audit(): Promise<void> {
+type AuditResult = {
+  supabase: ReturnType<typeof createServiceClient>
+  objects: BucketObject[]
+  categorized: CategorizedObjects
+}
+
+async function audit(): Promise<AuditResult> {
   const supabase = createServiceClient()
-  const [objects, refs] = await Promise.all([
+  const [objects, refs, soakProtectedPaths] = await Promise.all([
     listAllObjects(supabase),
     buildReferenceSet(supabase),
+    loadSoakProtectedPaths(),
   ])
+  refs.soakProtectedPaths = soakProtectedPaths
   const categorized = categorizeObjects(objects, refs)
 
   console.table(
@@ -318,17 +440,167 @@ async function audit(): Promise<void> {
       console.log(`- ${object.path}`)
     }
   }
+
+  return { supabase, objects, categorized }
+}
+
+function purgeManifestPath(): string {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  return path.join(
+    'scripts',
+    `.storage-purge-manifest-${timestamp}.json`,
+  )
+}
+
+async function writePurgeManifest(
+  entries: PurgeManifestEntry[],
+): Promise<string> {
+  const outputPath = purgeManifestPath()
+  await writeFile(
+    outputPath,
+    `${JSON.stringify(entries, null, 2)}\n`,
+    'utf8',
+  )
+  return outputPath
+}
+
+async function removeObjects(
+  supabase: ReturnType<typeof createServiceClient>,
+  keys: string[],
+): Promise<string[]> {
+  const deleted: string[] = []
+
+  for (let index = 0; index < keys.length; index += DELETE_CHUNK_SIZE) {
+    const chunk = keys.slice(index, index + DELETE_CHUNK_SIZE)
+    try {
+      const { error } = await supabase.storage.from(BUCKET).remove(chunk)
+      if (error) throw error
+      deleted.push(...chunk)
+    } catch (error) {
+      console.error(
+        `Failed to delete storage chunk ${index / DELETE_CHUNK_SIZE + 1}:`,
+        error instanceof Error ? error.message : error,
+      )
+    }
+  }
+
+  return deleted
+}
+
+async function clearRejectedBrandImagePaths(
+  supabase: ReturnType<typeof createServiceClient>,
+  paths: string[],
+): Promise<void> {
+  for (let index = 0; index < paths.length; index += DELETE_CHUNK_SIZE) {
+    const chunk = paths.slice(index, index + DELETE_CHUNK_SIZE)
+    const { error } = await supabase
+      .from('brand_images')
+      .update({ storage_path: null })
+      .eq('status', 'rejected')
+      .in('storage_path', chunk)
+    if (error) {
+      throw new Error(
+        `Failed to clear rejected brand_images storage paths: ${error.message}`,
+      )
+    }
+  }
+}
+
+async function fixDanglingBrandImageRows(
+  supabase: ReturnType<typeof createServiceClient>,
+  existingObjectPaths: Set<string>,
+): Promise<number> {
+  const rows = await fetchAllRows<BrandImageStorageRow>(
+    'brand_images',
+    (from, to) =>
+      supabase
+        .from('brand_images')
+        .select('id, storage_path')
+        .order('id', { ascending: true })
+        .range(from, to),
+  )
+  const danglingIds = rows.flatMap((row) =>
+    row.storage_path && !existingObjectPaths.has(row.storage_path)
+      ? [row.id]
+      : [],
+  )
+
+  for (
+    let index = 0;
+    index < danglingIds.length;
+    index += DELETE_CHUNK_SIZE
+  ) {
+    const chunk = danglingIds.slice(index, index + DELETE_CHUNK_SIZE)
+    const { error } = await supabase
+      .from('brand_images')
+      .update({ status: 'rejected', storage_path: null })
+      .in('id', chunk)
+    if (error) {
+      throw new Error(`Failed to fix dangling brand_images row: ${error.message}`)
+    }
+  }
+
+  return danglingIds.length
+}
+
+async function purge(live: boolean): Promise<void> {
+  const { supabase, objects, categorized } = await audit()
+  const plan = planPurge(categorized, DEFAULT_PURGE_OPTIONS)
+  const manifestPath = await writePurgeManifest(plan.entries)
+
+  console.log(
+    `\nPurge plan: ${categorized.rejected.length} rejected + ${categorized.untracked.length} untracked = ${plan.toDelete.length} objects`,
+  )
+  console.log(`Sanity gate: ${plan.withinSanityGate ? 'pass' : 'fail'}`)
+  console.log(`Manifest: ${manifestPath}`)
+
+  if (!live) {
+    console.log('Dry run complete. Re-run with --live to delete these objects.')
+    return
+  }
+  if (!plan.withinSanityGate) {
+    throw new Error('Purge aborted: object counts failed the sanity gate')
+  }
+
+  const deletedPaths = await removeObjects(supabase, plan.toDelete)
+  const rejectedPaths = new Set(
+    categorized.rejected.map((object) => object.path),
+  )
+  await clearRejectedBrandImagePaths(
+    supabase,
+    deletedPaths.filter((key) => rejectedPaths.has(key)),
+  )
+  const danglingRowsFixed = await fixDanglingBrandImageRows(
+    supabase,
+    new Set(objects.map((object) => object.path)),
+  )
+
+  console.log(`Deleted ${deletedPaths.length} of ${plan.toDelete.length} objects.`)
+  console.log(`Fixed ${danglingRowsFixed} dangling brand_images row(s).`)
 }
 
 async function main(): Promise<void> {
   const subcommand = process.argv[2] ?? 'audit'
-  if (subcommand !== 'audit') {
+  const args = process.argv.slice(3)
+  if (subcommand === 'audit' && args.length === 0) {
+    await audit()
+    return
+  }
+  if (
+    subcommand === 'purge' &&
+    args.every((argument) => argument === '--live') &&
+    args.filter((argument) => argument === '--live').length <= 1
+  ) {
+    await purge(args.includes('--live'))
+    return
+  }
+  if (subcommand !== 'audit' && subcommand !== 'purge') {
     throw new Error(
-      `Unknown subcommand "${subcommand}". Available subcommands: audit`,
+      `Unknown subcommand "${subcommand}". Available subcommands: audit, purge [--live]`,
     )
   }
 
-  await audit()
+  throw new Error(`Invalid arguments for ${subcommand}`)
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

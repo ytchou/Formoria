@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { categorizeObjects } from '../brand-storage-maintenance'
+import { categorizeObjects, planPurge } from '../brand-storage-maintenance'
 
 const refs = {
   activePaths: new Set(['brands/b1/live.webp', 'submissions/s1/hero.png']),
@@ -52,5 +52,78 @@ describe('categorizeObjects', () => {
 
     expect(result.anomalies.map((object) => object.path)).toEqual([path])
     expect(result.rejected).toEqual([])
+  })
+})
+
+describe('planPurge', () => {
+  const categorized = {
+    protected: [{ path: 'brands/protected.webp', size: 100 }],
+    anomalies: [{ path: 'brands/anomaly.webp', size: 100 }],
+    live: [{ path: 'brands/live.webp', size: 100 }],
+    rejected: Array.from({ length: 1_820 }, (_, index) => ({
+      path: `brands/rejected-${index}.webp`,
+      size: 100,
+    })),
+    untracked: Array.from({ length: 2_056 }, (_, index) => ({
+      path: `brands/untracked-${index}.webp`,
+      size: 100,
+    })),
+  }
+
+  it('plans deletions for rejected+untracked, respects sanity gate', () => {
+    const plan = planPurge(categorized, {
+      expectedRejected: 1_820,
+      expectedUntracked: 2_056,
+      tolerance: 0.15,
+    })
+
+    expect(plan.toDelete).toEqual(
+      [...categorized.rejected, ...categorized.untracked].map(
+        (object) => object.path,
+      ),
+    )
+    expect(plan.withinSanityGate).toBe(true)
+  })
+
+  it('fails the sanity gate when counts deviate beyond tolerance', () => {
+    const categorizedTiny = {
+      ...categorized,
+      rejected: [{ path: 'brands/rejected.webp', size: 100 }],
+      untracked: [{ path: 'brands/untracked.webp', size: 100 }],
+    }
+    const plan = planPurge(categorizedTiny, {
+      expectedRejected: 1_820,
+      expectedUntracked: 2_056,
+      tolerance: 0.15,
+    })
+
+    expect(plan.withinSanityGate).toBe(false)
+  })
+
+  it('excludes soak-protected keys from untracked deletions', () => {
+    const protectedPath = 'brands/reencode-original.webp'
+    const categorizedWithSoakProtection = categorizeObjects(
+      [
+        { path: protectedPath, size: 100 },
+        { path: 'brands/untracked.webp', size: 100 },
+      ],
+      {
+        activePaths: new Set(),
+        rejectedPaths: new Set(),
+        otherReferencedPaths: new Set(),
+        soakProtectedPaths: new Set([protectedPath]),
+      },
+    )
+
+    const plan = planPurge(categorizedWithSoakProtection, {
+      expectedRejected: 0,
+      expectedUntracked: 1,
+      tolerance: 0.15,
+    })
+
+    expect(categorizedWithSoakProtection.protected).toEqual([
+      { path: protectedPath, size: 100 },
+    ])
+    expect(plan.toDelete).not.toContain(protectedPath)
   })
 })
