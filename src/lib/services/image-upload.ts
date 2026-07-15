@@ -92,6 +92,7 @@ async function uploadStorageObject(input: UploadImageInput): Promise<string> {
   const { data, error: uploadError } = await supabase.storage
     .from(input.bucket)
     .upload(input.path, input.data, {
+      cacheControl: '31536000',
       contentType: input.contentType,
       upsert: false,
     })
