@@ -106,3 +106,7 @@ public/admin/content/
 
 # Eval scripts (local experimentation)
 scripts/eval/
+
+# brand-storage-maintenance local manifests (operational artifacts, never committed)
+scripts/.storage-purge-manifest-*.json
+scripts/.reencode-originals-*.json
