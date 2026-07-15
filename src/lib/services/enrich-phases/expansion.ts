@@ -31,6 +31,7 @@ type ExpansionPhaseOptions = {
   overwrite?: boolean
   reputationAlreadySet?: boolean
   target?: EnrichmentTarget
+  jobId?: string
 }
 
 type ExpansionPhaseOutput = {
@@ -69,6 +70,7 @@ export async function runExpansionPhase({
   overwrite = false,
   reputationAlreadySet = false,
   target,
+  jobId,
 }: ExpansionPhaseOptions): Promise<ExpansionPhaseOutput> {
   if (!phases.includes('expansion')) {
     return {
@@ -127,7 +129,16 @@ export async function runExpansionPhase({
       serpSnippets: [...serpSnippets, ...persistedScrape.snippets],
       siteContent,
     }
-    const expansionResearch = await runExpansionResearch(expansionInput)
+    const expansionResearch = await runExpansionResearch(expansionInput, {
+      target: auditTarget,
+      phase: 'expansion',
+      ...(jobId ? { jobId } : {}),
+      config: buildEnrichmentConfig(
+        'expansion',
+        EXPANSION_SYSTEM_PROMPT,
+        EXPANSION_CONFIG_PARAMS as Record<string, unknown>,
+      ),
+    })
 
     if (!expansionResearch) {
       return { patch: {} }
@@ -144,17 +155,13 @@ export async function runExpansionPhase({
         : {}),
     }
 
-    return { patch, rawResponse: expansionResearch, input: expansionInput, latencyMs: expansionResearch.latencyMs }
+    return { patch }
   })
 
   if (hasPatchValues(result.patch)) {
     await insertExpansionResult({
       brandId: brand.id,
       target: target ?? brandTarget(brand.id),
-      rawResponse: result.rawResponse,
-      input: result.input,
-      config: buildEnrichmentConfig('expansion', EXPANSION_SYSTEM_PROMPT, EXPANSION_CONFIG_PARAMS as Record<string, unknown>),
-      latencyMs: result.latencyMs,
     })
   }
 

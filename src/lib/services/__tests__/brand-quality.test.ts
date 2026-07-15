@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { computeQualityMetrics, type QualityMetrics } from '../brand-quality'
+import {
+  computeQualityMetrics,
+  countDescriptionValidationRetries,
+  type QualityMetrics,
+} from '../brand-quality'
 
 describe('QualityMetrics type', () => {
   it('has the expected shape', () => {
@@ -45,5 +49,18 @@ describe('computeQualityMetrics', () => {
     expect(m.promoHeroCount).toBe(1)
     expect(m.heroClassifiedPct).toBe(100)
     expect(m.validationFailures).toBe(3)
+  })
+})
+
+describe('countDescriptionValidationRetries', () => {
+  it('counts hook rows for retry attempts and ignores domain rows without raw responses', () => {
+    expect(
+      countDescriptionValidationRetries([
+        { attempt: 1, raw_response: { response: { choices: [] }, usage: { total_tokens: 120 } } },
+        { attempt: 2, raw_response: { response: { choices: [] }, usage: { total_tokens: 80 } } },
+        { attempt: 3, raw_response: { response: { choices: [] }, usage: { total_tokens: 60 } } },
+        { attempt: null, raw_response: null },
+      ]),
+    ).toBe(2)
   })
 })

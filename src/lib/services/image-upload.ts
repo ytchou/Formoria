@@ -25,6 +25,10 @@ interface UploadImageInput {
 
 type PublicUploadImageInput = UploadImageInput & { bucket: 'brand-images' }
 type PrivateUploadImageInput = UploadImageInput & { bucket: 'claim-proofs' }
+export type PrivateUploadFileInput = Omit<UploadImageInput, 'bucket'> & {
+  bucket: 'claim-proofs' | 'run-logs'
+  upsert?: boolean
+}
 
 export function getUploadImageProcessingConfig(
   bucket: AllowedUploadBucket
@@ -86,7 +90,7 @@ export async function deleteStoredImagePaths(paths: string[]): Promise<void> {
   }
 }
 
-async function uploadStorageObject(input: UploadImageInput): Promise<string> {
+async function uploadStorageObject(input: UploadImageInput | PrivateUploadFileInput): Promise<string> {
   const supabase = createServiceClient()
 
   const { data, error: uploadError } = await supabase.storage
@@ -94,7 +98,7 @@ async function uploadStorageObject(input: UploadImageInput): Promise<string> {
     .upload(input.path, input.data, {
       cacheControl: '31536000',
       contentType: input.contentType,
-      upsert: false,
+      upsert: 'upsert' in input ? input.upsert ?? false : false,
     })
 
   if (uploadError) {
@@ -110,7 +114,7 @@ export async function uploadPrivateImage(input: PrivateUploadImageInput): Promis
   return { key: `${input.bucket}/${path}` }
 }
 
-export async function uploadPrivateFile(input: PrivateUploadImageInput): Promise<{ key: string }> {
+export async function uploadPrivateFile(input: PrivateUploadFileInput): Promise<{ key: string }> {
   const path = await uploadStorageObject(input)
 
   return { key: `${input.bucket}/${path}` }

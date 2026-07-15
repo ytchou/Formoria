@@ -17,6 +17,7 @@ type LinksPhaseOptions = {
   knownUrls: string[]
   dryRun?: boolean
   target?: EnrichmentTarget
+  jobId?: string
 }
 
 type LinksPhaseOutput = {
@@ -81,6 +82,7 @@ export async function runLinksPhase({
   knownUrls,
   dryRun = false,
   target,
+  jobId,
 }: LinksPhaseOptions): Promise<LinksPhaseOutput> {
   if (!phases.includes('links')) {
     return {
@@ -117,7 +119,10 @@ export async function runLinksPhase({
         pageUrl,
         pageUrl ? [pageUrl] : [],
         [scrapedData.description, scrapedData.story].filter((text): text is string => Boolean(text)),
-        scrapePayload
+        scrapePayload,
+        undefined,
+        undefined,
+        jobId,
       )
     }
 

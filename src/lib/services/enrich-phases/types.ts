@@ -79,6 +79,7 @@ export type BatchPhaseContext = {
   onProgress?: CurationConfig['onProgress']
   supabase: SupabaseClient<Database>
   targetType?: EnrichmentTarget['type']
+  jobId?: string
 }
 
 export type BrandEnrichState = {

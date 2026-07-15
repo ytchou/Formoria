@@ -123,6 +123,32 @@ describe('JobDetailView', () => {
     expect(within(targetRow!).getByText(/detection service returned no usable result for this brand/)).toBeInTheDocument()
     expect(within(targetRow!).queryByText('no detect result')).not.toBeInTheDocument()
   })
+
+  it('links to the live runlog, download, and available snapshot', () => {
+    render(
+      <JobDetailView
+        detail={detail()}
+        selectedStatus="all"
+        snapshotUrl="https://storage.example/job-1.html"
+      />,
+    )
+
+    expect(screen.getByRole('link', { name: 'Run Log' })).toHaveAttribute('href', '/admin/jobs/job-1/runlog')
+    expect(screen.getByRole('link', { name: 'Download HTML' })).toHaveAttribute(
+      'href',
+      '/admin/jobs/job-1/runlog?download=1',
+    )
+    expect(screen.getByRole('link', { name: 'Snapshot' })).toHaveAttribute(
+      'href',
+      'https://storage.example/job-1.html',
+    )
+  })
+
+  it('does not show a snapshot link when no archived snapshot exists', () => {
+    render(<JobDetailView detail={detail()} selectedStatus="all" />)
+
+    expect(screen.queryByRole('link', { name: 'Snapshot' })).not.toBeInTheDocument()
+  })
 })
 
 function detail(): CurationJobDetail {

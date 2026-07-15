@@ -114,11 +114,12 @@ type EnrichmentImageRow = {
 
 type EnrichmentAiResultRow = Pick<
   Database['public']['Tables']['brand_ai_results']['Row'],
-  'raw_response'
+  'attempt' | 'raw_response'
 >
 
 type EnrichmentEqQuery<T> = {
   eq: (column: string, value: string | number) => EnrichmentEqQuery<T>
+  not: (column: string, operator: string, value: unknown) => EnrichmentEqQuery<T>
 } & Promise<{ data: T[] | null; error: unknown }>
 
 type EnrichmentQualityClient = {
@@ -333,8 +334,9 @@ async function getEnrichmentQualityMetrics(
       .eq('sort_order', 0),
     client
       .from('brand_ai_results')
-      .select('raw_response')
-      .eq('phase', 'description'),
+      .select('attempt, raw_response')
+      .eq('phase', 'description')
+      .not('raw_response', 'is', null),
   ])
 
   return computeQualityMetrics({
@@ -352,9 +354,7 @@ async function getEnrichmentQualityMetrics(
         })),
     aiRejections: aiResultsResult.error || !aiResultsResult.data
       ? 0
-      : aiResultsResult.data.reduce((total, row) => {
-          return total + validationRejectionCount(row.raw_response)
-        }, 0),
+      : countDescriptionValidationRetries(aiResultsResult.data),
   })
 }
 
@@ -371,15 +371,10 @@ function firstImageTag(tags: string[] | null): string | null {
   return tags?.find(hasText) ?? null
 }
 
-function validationRejectionCount(rawResponse: unknown): number {
-  if (!isRecord(rawResponse)) return 0
-
-  const rejections = rawResponse.validation_rejections ?? rawResponse.validationRejections
-  return Array.isArray(rejections) ? rejections.length : 0
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
+export function countDescriptionValidationRetries(
+  rows: readonly Pick<EnrichmentAiResultRow, 'attempt' | 'raw_response'>[],
+): number {
+  return rows.filter((row) => row.raw_response != null && (row.attempt ?? 0) > 1).length
 }
 
 function completenessBucket(row: BrandQualityRow): keyof QualityMetrics['completeness'] {

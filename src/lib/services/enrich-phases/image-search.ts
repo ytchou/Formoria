@@ -92,7 +92,10 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext, serpResults?: 
             rows.at(0)?.query ?? `${brandName} 台灣`,
             rows.map((row: BrandImageSearchResult) => row.url),
             [],
-            rows.map((row: BrandImageSearchResult) => ({ url: row.url, query: row.query }))
+            rows.map((row: BrandImageSearchResult) => ({ url: row.url, query: row.query })),
+            undefined,
+            undefined,
+            ctx.jobId,
           )
           imageBrandIds.push(brand.id)
         }

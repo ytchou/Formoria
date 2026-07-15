@@ -1,10 +1,24 @@
 import { CLASSIFY_SYSTEM_PROMPT, DETECT_SYSTEM_PROMPT } from '@/lib/prompts'
 import { createDeepSeekClient } from '@/lib/services/deepseek-client'
+import { createAuditedDeepSeekClient } from '@/lib/services/llm-audit'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import type { EnrichmentTarget } from './enrichment-target'
 
 export type ClassificationResult = { productType: string; confidence: 'high' | 'medium' | 'low' }
-export type BatchClassificationItem = { slug: string; name: string; description: string | null }
-export type DetectBatchItem = { slug: string; name: string; description: string | null; website: string | null; snippets?: string[] }
+export type BatchClassificationItem = {
+  slug: string
+  name: string
+  description: string | null
+  target?: EnrichmentTarget
+}
+export type DetectBatchItem = {
+  slug: string
+  name: string
+  description: string | null
+  website: string | null
+  snippets?: string[]
+  target?: EnrichmentTarget
+}
 export type DetectResult = {
   isNonBrand: boolean
   nonBrandReason: string | null
@@ -30,6 +44,24 @@ const VALID_PRODUCT_TYPES = new Set<string>(PRODUCT_TYPE_CATEGORIES.map(category
 
 
 type UnknownRecord = Record<string, unknown>
+
+function createClassifierClient(
+  apiKey: string,
+  phase: 'classification' | 'detect',
+  target: EnrichmentTarget | undefined,
+  jobId?: string,
+) {
+  if (!target) return createDeepSeekClient({ apiKey })
+
+  return createAuditedDeepSeekClient(
+    {
+      target,
+      phase,
+      ...(jobId ? { jobId } : {}),
+    },
+    { apiKey },
+  )
+}
 
 function isConfidence(value: unknown): value is ClassificationResult['confidence'] {
   return value === 'high' || value === 'medium' || value === 'low'
@@ -234,15 +266,15 @@ function parseSingleTriageResponse(content: string, slug: string): DetectResult 
 }
 
 async function classifyProductType(
-  brandName: string,
-  description: string | null
+  brand: BatchClassificationItem,
+  jobId?: string,
 ): Promise<ClassificationResult | null> {
   const token = process.env.DEEPSEEK_API_KEY
   if (!token) return null
 
-  const userContent = `品牌名稱：${brandName}\n描述：${description ?? '無'}`
+  const userContent = `品牌名稱：${brand.name}\n描述：${brand.description ?? '無'}`
 
-  const client = createDeepSeekClient({ apiKey: token })
+  const client = createClassifierClient(token, 'classification', brand.target, jobId)
 
   try {
     const { response, data, content } = await client.chat({
@@ -278,7 +310,8 @@ async function classifyProductType(
 }
 
 async function classifyProductTypeBatchChunk(
-  brands: BatchClassificationItem[]
+  brands: BatchClassificationItem[],
+  jobId?: string,
 ): Promise<Map<string, ClassificationResult> | null> {
   const token = process.env.DEEPSEEK_API_KEY
   if (!token) return null
@@ -289,7 +322,7 @@ async function classifyProductTypeBatchChunk(
   }).join('\n')
   const userContent = `請將以下品牌分類：\n${list}`
 
-  const client = createDeepSeekClient({ apiKey: token })
+  const client = createClassifierClient(token, 'classification', brands.at(0)?.target, jobId)
 
   try {
     const { response, data, content } = await client.chat({
@@ -325,13 +358,14 @@ async function classifyProductTypeBatchChunk(
 }
 
 export async function classifyProductTypeBatch(
-  brands: BatchClassificationItem[]
+  brands: BatchClassificationItem[],
+  jobId?: string,
 ): Promise<Map<string, ClassificationResult>> {
   const results = new Map<string, ClassificationResult>()
 
   for (let i = 0; i < brands.length; i += 20) {
     const batch = brands.slice(i, i + 20)
-    const batchResults = await classifyProductTypeBatchChunk(batch)
+    const batchResults = await classifyProductTypeBatchChunk(batch, jobId)
 
     if (batchResults) {
       for (const [slug, result] of batchResults) {
@@ -341,7 +375,7 @@ export async function classifyProductTypeBatch(
     }
 
     for (const brand of batch) {
-      const result = await classifyProductType(brand.name, brand.description)
+      const result = await classifyProductType(brand, jobId)
       if (result) {
         results.set(brand.slug, result)
       }
@@ -351,14 +385,14 @@ export async function classifyProductTypeBatch(
   return results
 }
 
-async function detectBrand(brand: DetectBatchItem): Promise<DetectResult | null> {
+async function detectBrand(brand: DetectBatchItem, jobId?: string): Promise<DetectResult | null> {
   const token = process.env.DEEPSEEK_API_KEY
   if (!token) return null
 
   const snippetLine = brand.snippets?.length ? `\n搜尋摘要：${brand.snippets.slice(0, 10).join('；')}` : ''
   const userContent = `品牌 slug：${brand.slug}\n品牌名稱：${brand.name}\n描述：${brand.description ?? '無'}\n網站：${brand.website ?? '無'}${snippetLine}`
 
-  const client = createDeepSeekClient({ apiKey: token })
+  const client = createClassifierClient(token, 'detect', brand.target, jobId)
 
   try {
     const { response, data, content } = await client.chat({
@@ -394,7 +428,8 @@ async function detectBrand(brand: DetectBatchItem): Promise<DetectResult | null>
 }
 
 async function detectBrandsBatchChunk(
-  brands: DetectBatchItem[]
+  brands: DetectBatchItem[],
+  jobId?: string,
 ): Promise<Map<string, DetectResult> | null> {
   const token = process.env.DEEPSEEK_API_KEY
   if (!token) return null
@@ -406,7 +441,7 @@ async function detectBrandsBatchChunk(
   }).join('\n')
   const userContent = `請判斷以下項目是否為實際品牌，並為實際品牌分類：\n${list}`
 
-  const client = createDeepSeekClient({ apiKey: token })
+  const client = createClassifierClient(token, 'detect', brands.at(0)?.target, jobId)
 
   try {
     const { response, data, content } = await client.chat({
@@ -442,13 +477,14 @@ async function detectBrandsBatchChunk(
 }
 
 export async function detectBrandsBatch(
-  brands: DetectBatchItem[]
+  brands: DetectBatchItem[],
+  jobId?: string,
 ): Promise<Map<string, DetectResult>> {
   const results = new Map<string, DetectResult>()
 
   for (let i = 0; i < brands.length; i += 20) {
     const batch = brands.slice(i, i + 20)
-    const batchResults = await detectBrandsBatchChunk(batch)
+    const batchResults = await detectBrandsBatchChunk(batch, jobId)
 
     if (batchResults) {
       for (const [slug, result] of batchResults) {
@@ -458,7 +494,7 @@ export async function detectBrandsBatch(
     }
 
     for (const brand of batch) {
-      const result = await detectBrand(brand)
+      const result = await detectBrand(brand, jobId)
       if (result) {
         results.set(brand.slug, result)
       }
