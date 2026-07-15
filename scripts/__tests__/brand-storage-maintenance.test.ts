@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   categorizeObjects,
   planPurge,
+  selectPurgeableManifests,
   shouldReencode,
 } from '../brand-storage-maintenance'
 
@@ -61,6 +62,24 @@ it.each([
   ],
 ])('shouldReencode(%o) -> %s', (obj, expected) => {
   expect(shouldReencode(obj, { webpSkipBytes: 150 * 1024 })).toBe(expected)
+})
+
+it('only selects manifests at least 7 days old', () => {
+  const now = new Date('2026-07-25T00:00:00Z')
+  const manifests = [
+    {
+      file: '.reencode-originals-2026-07-16T00-00-00.json',
+      createdAt: new Date('2026-07-16T00:00:00Z'),
+    },
+    {
+      file: '.reencode-originals-2026-07-20T00-00-00.json',
+      createdAt: new Date('2026-07-20T00:00:00Z'),
+    },
+  ]
+
+  expect(selectPurgeableManifests(manifests, now).map((m) => m.file)).toEqual([
+    '.reencode-originals-2026-07-16T00-00-00.json',
+  ])
 })
 
 describe('categorizeObjects', () => {

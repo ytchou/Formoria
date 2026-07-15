@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { readdir, readFile, stat, writeFile } from 'node:fs/promises'
+import { readdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import sharp from 'sharp'
@@ -13,9 +13,12 @@ const PAGE_SIZE = 1_000
 const LIST_CONCURRENCY = 20
 const REENCODE_CONCURRENCY = 4
 const DELETE_CHUNK_SIZE = 100
-const SOAK_PROTECTION_MS = 7 * 24 * 60 * 60 * 1_000
+const DAY_MS = 24 * 60 * 60 * 1_000
+const SOAK_PROTECTION_MS = 7 * DAY_MS
 const WEBP_SKIP_BYTES = 150 * 1024
 const STORAGE_KEY_PREFIXES = ['brands/', 'submissions/'] as const
+const ACTIVE_REENCODE_MANIFEST_PATTERN =
+  /^\.reencode-originals-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})(?:-(\d{3}))?Z?\.json$/
 const DEFAULT_PURGE_OPTIONS = {
   expectedRejected: 1_820,
   expectedUntracked: 2_056,
@@ -122,6 +125,11 @@ type ReencodeTarget = {
 type ReencodeFailure = {
   path: string
   message: string
+}
+
+export type ReencodeManifest = {
+  file: string
+  createdAt: Date
 }
 
 type QueryError = {
@@ -436,38 +444,74 @@ function collectStorageKeys(value: unknown, keys: Set<string>): void {
   }
 }
 
-async function loadSoakProtectedPaths(): Promise<Set<string>> {
+function reencodeManifestCreatedAt(manifest: ReencodeManifest): Date {
+  const match = ACTIVE_REENCODE_MANIFEST_PATTERN.exec(manifest.file)
+  if (!match) return manifest.createdAt
+  const [, date, hour, minute, second, millisecond] = match
+  if (!date || !hour || !minute || !second) return manifest.createdAt
+
+  const timestamp = Date.parse(
+    `${date}T${hour}:${minute}:${second}.${millisecond ?? '000'}Z`,
+  )
+  return Number.isNaN(timestamp) ? manifest.createdAt : new Date(timestamp)
+}
+
+export function selectPurgeableManifests(
+  manifests: ReencodeManifest[],
+  now: Date,
+): ReencodeManifest[] {
+  return manifests.filter(
+    (manifest) =>
+      now.getTime() - reencodeManifestCreatedAt(manifest).getTime() >=
+      SOAK_PROTECTION_MS,
+  )
+}
+
+async function listReencodeManifests(): Promise<ReencodeManifest[]> {
   const scriptsDirectory = 'scripts'
   const names = await readdir(scriptsDirectory)
   const manifestNames = names.filter((name) =>
-    /^\.reencode-originals-.*\.json$/.test(name),
+    ACTIVE_REENCODE_MANIFEST_PATTERN.test(name),
   )
-  const now = Date.now()
-  const manifests = await Promise.all(
-    manifestNames.map(async (name) => {
-      const manifestPath = path.join(scriptsDirectory, name)
-      const fileStat = await stat(manifestPath)
-      if (now - fileStat.mtimeMs >= SOAK_PROTECTION_MS) return null
-      return {
-        manifestPath,
-        raw: await readFile(manifestPath, 'utf8'),
-      }
+
+  return Promise.all(
+    manifestNames.map(async (file) => {
+      const fileStat = await stat(path.join(scriptsDirectory, file))
+      return { file, createdAt: fileStat.mtime }
     }),
   )
-  const keys = new Set<string>()
+}
 
-  for (const manifest of manifests) {
-    if (!manifest) continue
-    try {
-      collectStorageKeys(JSON.parse(manifest.raw) as unknown, keys)
-    } catch (error) {
-      throw new Error(
-        `Invalid re-encode manifest ${manifest.manifestPath}: ${error instanceof Error ? error.message : String(error)}`,
-      )
-    }
+async function loadReencodeManifestKeys(
+  manifest: ReencodeManifest,
+): Promise<string[]> {
+  const manifestPath = path.join('scripts', manifest.file)
+  try {
+    const raw = await readFile(manifestPath, 'utf8')
+    const keys = new Set<string>()
+    collectStorageKeys(JSON.parse(raw) as unknown, keys)
+    return [...keys]
+  } catch (error) {
+    throw new Error(
+      `Invalid re-encode manifest ${manifestPath}: ${error instanceof Error ? error.message : String(error)}`,
+    )
   }
+}
 
-  return keys
+async function loadSoakProtectedPaths(): Promise<Set<string>> {
+  const manifests = await listReencodeManifests()
+  const purgeableFiles = new Set(
+    selectPurgeableManifests(manifests, new Date()).map(
+      (manifest) => manifest.file,
+    ),
+  )
+  const keys = await Promise.all(
+    manifests
+      .filter((manifest) => !purgeableFiles.has(manifest.file))
+      .map(loadReencodeManifestKeys),
+  )
+
+  return new Set(keys.flat())
 }
 
 function sizeInMb(objects: BucketObject[]): string {
@@ -552,6 +596,75 @@ async function removeObjects(
   }
 
   return deleted
+}
+
+async function purgeOriginals(live: boolean): Promise<void> {
+  const now = new Date()
+  const manifests = await listReencodeManifests()
+  const purgeable = selectPurgeableManifests(manifests, now)
+  const purgeableFiles = new Set(
+    purgeable.map((manifest) => manifest.file),
+  )
+
+  for (const manifest of manifests) {
+    if (purgeableFiles.has(manifest.file)) continue
+    const ageMs = now.getTime() - reencodeManifestCreatedAt(manifest).getTime()
+    const daysLeft = Math.max(
+      0,
+      Math.ceil((SOAK_PROTECTION_MS - ageMs) / DAY_MS),
+    )
+    console.log(`${manifest.file}: still soaking (${daysLeft} days left)`)
+  }
+
+  const loaded = await Promise.all(
+    purgeable.map(async (manifest) => ({
+      manifest,
+      keys: await loadReencodeManifestKeys(manifest),
+    })),
+  )
+  const keys = [...new Set(loaded.flatMap(({ keys: manifestKeys }) => manifestKeys))]
+
+  console.table(
+    loaded.flatMap(({ manifest, keys: manifestKeys }) =>
+      manifestKeys.map((key) => ({ manifest: manifest.file, key })),
+    ),
+  )
+  console.log(
+    `Purge originals plan: ${keys.length} object(s) from ${purgeable.length} manifest(s).`,
+  )
+
+  if (!live) {
+    console.log(
+      'Dry run complete. Re-run with purge-originals --live to delete these objects.',
+    )
+    return
+  }
+  if (purgeable.length === 0) {
+    console.log('No soaked originals are ready to purge.')
+    return
+  }
+
+  const supabase = createServiceClient()
+  const deleted = new Set(await removeObjects(supabase, keys))
+  let consumed = 0
+
+  for (const { manifest, keys: manifestKeys } of loaded) {
+    if (!manifestKeys.every((key) => deleted.has(key))) {
+      console.error(
+        `Keeping ${manifest.file} because one or more objects failed to delete.`,
+      )
+      continue
+    }
+
+    const sourcePath = path.join('scripts', manifest.file)
+    const donePath = sourcePath.replace(/\.json$/, '.done.json')
+    await rename(sourcePath, donePath)
+    consumed += 1
+    console.log(`Consumed manifest: ${donePath}`)
+  }
+
+  console.log(`Deleted ${deleted.size} of ${keys.length} object(s).`)
+  console.log(`Consumed ${consumed} of ${purgeable.length} manifest(s).`)
 }
 
 async function clearRejectedBrandImagePaths(
@@ -978,12 +1091,16 @@ async function main(): Promise<void> {
     return
   }
   if (
-    (subcommand === 'purge' || subcommand === 'reencode') &&
+    (subcommand === 'purge' ||
+      subcommand === 'purge-originals' ||
+      subcommand === 'reencode') &&
     args.every((argument) => argument === '--live') &&
     args.filter((argument) => argument === '--live').length <= 1
   ) {
     if (subcommand === 'purge') {
       await purge(args.includes('--live'))
+    } else if (subcommand === 'purge-originals') {
+      await purgeOriginals(args.includes('--live'))
     } else {
       await reencode(args.includes('--live'))
     }
@@ -992,10 +1109,11 @@ async function main(): Promise<void> {
   if (
     subcommand !== 'audit' &&
     subcommand !== 'purge' &&
+    subcommand !== 'purge-originals' &&
     subcommand !== 'reencode'
   ) {
     throw new Error(
-      `Unknown subcommand "${subcommand}". Available subcommands: audit, purge [--live], reencode [--live]`,
+      `Unknown subcommand "${subcommand}". Available subcommands: audit, purge [--live], purge-originals [--live], reencode [--live]`,
     )
   }
 
