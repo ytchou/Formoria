@@ -134,6 +134,13 @@ jobs:
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}
         run: |
+          case "$JOB_STATUS" in
+            success) agent_hub_status=success ;;
+            failure) agent_hub_status=failed ;;
+            cancelled|skipped) agent_hub_status=skipped ;;
+            *) agent_hub_status=failed ;;
+          esac
+
           workflow_started_at=$(curl -fsSL \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github+json" \
@@ -161,7 +168,7 @@ jobs:
           payload=$(jq -n \
             --arg routine "e2e-nightly" \
             --arg project "formoria" \
-            --arg status "$JOB_STATUS" \
+            --arg status "$agent_hub_status" \
             --arg started_at "$workflow_started_at" \
             --arg report_date "$(TZ=Asia/Taipei date +%F)" \
             --arg verdict_severity "${{ job.status == 'success' && 'ok' || 'critical' }}" \
