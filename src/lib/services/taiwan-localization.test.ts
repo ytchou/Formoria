@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { localizeToTW } from "./taiwan-localization";
+import { localizeToTW, stripAiToolArtifacts } from "./taiwan-localization";
 
 const VOCABULARY_CASES = [
   ["人工智能", "人工智慧"],
@@ -176,5 +176,44 @@ describe("localizeToTW — emoji removal", () => {
   it("preserves text with no emoji", () => {
     const r = localizeToTW("台灣品牌專注設計");
     expect(r.text).toBe("台灣品牌專注設計");
+  });
+});
+
+describe("stripAiToolArtifacts", () => {
+  it("strips utm_source=chatgpt.com from URLs", () => {
+    const r = stripAiToolArtifacts(
+      "https://example.com?utm_source=chatgpt.com&ref=1",
+    );
+    expect(r).toBe("https://example.com?ref=1");
+  });
+
+  it("strips utm_source=openai from URLs", () => {
+    const r = stripAiToolArtifacts("https://example.com?utm_source=openai");
+    expect(r).toBe("https://example.com");
+  });
+
+  it("strips referrer=grok.com from URLs", () => {
+    const r = stripAiToolArtifacts("https://example.com?referrer=grok.com");
+    expect(r).toBe("https://example.com");
+  });
+
+  it("strips turn0search placeholder codes", () => {
+    const r = stripAiToolArtifacts("根據 turn0search0 的結果");
+    expect(r).toBe("根據  的結果");
+  });
+
+  it("strips citeturn codes", () => {
+    const r = stripAiToolArtifacts("資料來源 citeturn0news2 顯示");
+    expect(r).toBe("資料來源  顯示");
+  });
+
+  it("preserves author UTM parameters", () => {
+    const r = stripAiToolArtifacts("https://example.com?utm_source=newsletter");
+    expect(r).toBe("https://example.com?utm_source=newsletter");
+  });
+
+  it("returns unchanged text with no artifacts", () => {
+    const r = stripAiToolArtifacts("一般的品牌描述文字");
+    expect(r).toBe("一般的品牌描述文字");
   });
 });
