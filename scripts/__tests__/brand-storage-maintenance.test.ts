@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { categorizeObjects, planPurge } from '../brand-storage-maintenance'
+import {
+  categorizeObjects,
+  planPurge,
+  shouldReencode,
+} from '../brand-storage-maintenance'
 
 const refs = {
   activePaths: new Set(['brands/b1/live.webp', 'submissions/s1/hero.png']),
@@ -8,6 +12,56 @@ const refs = {
   otherReferencedPaths: new Set(['brands/b1/draft-ref.jpg']),
   soakProtectedPaths: new Set(['brands/b1/old-original.jpg']),
 }
+
+it.each([
+  [
+    {
+      path: 'brands/b/x.jpg',
+      size: 900_000,
+      contentType: 'image/jpeg',
+      jsonbReferenced: false,
+    },
+    true,
+  ],
+  [
+    {
+      path: 'brands/b/x.webp',
+      size: 90_000,
+      contentType: 'image/webp',
+      jsonbReferenced: false,
+    },
+    false,
+  ],
+  [
+    {
+      path: 'brands/b/x.webp',
+      size: 400_000,
+      contentType: 'image/webp',
+      jsonbReferenced: false,
+    },
+    true,
+  ],
+  [
+    {
+      path: 'brands/b/x.gif',
+      size: 900_000,
+      contentType: 'image/gif',
+      jsonbReferenced: false,
+    },
+    false,
+  ],
+  [
+    {
+      path: 'brands/b/x.jpg',
+      size: 900_000,
+      contentType: 'image/jpeg',
+      jsonbReferenced: true,
+    },
+    false,
+  ],
+])('shouldReencode(%o) -> %s', (obj, expected) => {
+  expect(shouldReencode(obj, { webpSkipBytes: 150 * 1024 })).toBe(expected)
+})
 
 describe('categorizeObjects', () => {
   it('categorizes bucket objects into live / rejected / untracked / protected', () => {

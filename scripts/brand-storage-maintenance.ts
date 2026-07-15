@@ -1,12 +1,20 @@
+import { randomUUID } from 'node:crypto'
 import { readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import sharp from 'sharp'
+
+import { processImage } from '@/lib/security/image-processor'
+import { syncHeroDenormalized } from '@/lib/services/brand-images'
+import { computeDHash } from '@/lib/services/image-download'
 
 const BUCKET = 'brand-images'
 const PAGE_SIZE = 1_000
 const LIST_CONCURRENCY = 20
+const REENCODE_CONCURRENCY = 4
 const DELETE_CHUNK_SIZE = 100
 const SOAK_PROTECTION_MS = 7 * 24 * 60 * 60 * 1_000
+const WEBP_SKIP_BYTES = 150 * 1024
 const STORAGE_KEY_PREFIXES = ['brands/', 'submissions/'] as const
 const DEFAULT_PURGE_OPTIONS = {
   expectedRejected: 1_820,
@@ -17,6 +25,18 @@ const DEFAULT_PURGE_OPTIONS = {
 export type BucketObject = {
   path: string
   size: number
+  contentType?: string | null
+}
+
+type ReencodeObject = {
+  path: string
+  size: number
+  contentType: string | null
+  jsonbReferenced: boolean
+}
+
+type ReencodeOptions = {
+  webpSkipBytes: number
 }
 
 export type StorageReferences = {
@@ -75,6 +95,35 @@ type SubmissionReferenceRow = {
   enriched_data: unknown
 }
 
+type BrandReencodeRow = {
+  id: string
+  brand_id: string
+  storage_path: string | null
+  url: string
+}
+
+type SubmissionReencodeRow = {
+  id: string
+  submission_id: string
+  storage_path: string | null
+  url: string
+}
+
+type ReencodeTarget = {
+  id: string
+  kind: 'brand' | 'submission'
+  ownerId: string
+  path: string
+  oldUrl: string
+  size: number
+  contentType: string | null
+}
+
+type ReencodeFailure = {
+  path: string
+  message: string
+}
+
 type QueryError = {
   message: string
 }
@@ -102,6 +151,20 @@ function createServiceClient() {
 
 function isStorageKey(value: string): boolean {
   return STORAGE_KEY_PREFIXES.some((prefix) => value.startsWith(prefix))
+}
+
+export function shouldReencode(
+  object: ReencodeObject,
+  options: ReencodeOptions,
+): boolean {
+  if (object.jsonbReferenced) return false
+
+  const contentType = object.contentType?.split(';', 1)[0]?.trim().toLowerCase()
+  const extension = path.extname(object.path).toLowerCase()
+  if (contentType === 'image/gif' || extension === '.gif') return false
+
+  const isWebp = contentType === 'image/webp' || extension === '.webp'
+  return !isWebp || object.size >= options.webpSkipBytes
 }
 
 function storageKeyFromPublicUrl(url: string): string | null {
@@ -187,7 +250,11 @@ async function listPrefix(
       } else {
         const size =
           typeof entry.metadata?.size === 'number' ? entry.metadata.size : 0
-        objects.push({ path, size })
+        const contentType =
+          typeof entry.metadata?.mimetype === 'string'
+            ? entry.metadata.mimetype
+            : null
+        objects.push({ path, size, contentType })
       }
     }
 
@@ -579,6 +646,330 @@ async function purge(live: boolean): Promise<void> {
   console.log(`Fixed ${danglingRowsFixed} dangling brand_images row(s).`)
 }
 
+function contentTypeFromPath(storagePath: string): string | null {
+  const extension = path.extname(storagePath).toLowerCase()
+  const contentTypes: Record<string, string> = {
+    '.gif': 'image/gif',
+    '.jpeg': 'image/jpeg',
+    '.jpg': 'image/jpeg',
+    '.png': 'image/png',
+    '.webp': 'image/webp',
+  }
+  return contentTypes[extension] ?? null
+}
+
+function dominantColorToHex(dominant: {
+  r: number
+  g: number
+  b: number
+}): string {
+  const toHex = (value: number) =>
+    Math.max(0, Math.min(255, Math.round(value)))
+      .toString(16)
+      .padStart(2, '0')
+  return `#${toHex(dominant.r)}${toHex(dominant.g)}${toHex(dominant.b)}`
+}
+
+function reencodeManifestPath(): string {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  return path.join('scripts', `.reencode-originals-${timestamp}.json`)
+}
+
+async function createReencodeManifest(): Promise<{
+  outputPath: string
+  append: (storagePath: string) => Promise<void>
+}> {
+  const outputPath = reencodeManifestPath()
+  const originals = new Set<string>()
+  let pendingWrite = writeFile(outputPath, '[]\n', 'utf8')
+
+  return {
+    outputPath,
+    append(storagePath: string) {
+      originals.add(storagePath)
+      const snapshot = [...originals]
+      pendingWrite = pendingWrite.then(() =>
+        writeFile(
+          outputPath,
+          `${JSON.stringify(snapshot, null, 2)}\n`,
+          'utf8',
+        ),
+      )
+      return pendingWrite
+    },
+  }
+}
+
+async function loadReencodeTargets(
+  supabase: ReturnType<typeof createServiceClient>,
+): Promise<{ targets: ReencodeTarget[]; failures: ReencodeFailure[] }> {
+  const [brandRows, submissionRows, brands, submissions, objects] =
+    await Promise.all([
+      fetchAllRows<BrandReencodeRow>('brand_images', (from, to) =>
+        supabase
+          .from('brand_images')
+          .select('id, brand_id, storage_path, url')
+          .eq('status', 'active')
+          .not('storage_path', 'is', null)
+          .order('id', { ascending: true })
+          .range(from, to),
+      ),
+      fetchAllRows<SubmissionReencodeRow>('submission_images', (from, to) =>
+        supabase
+          .from('submission_images')
+          .select('id, submission_id, storage_path, url')
+          .eq('status', 'active')
+          .not('storage_path', 'is', null)
+          .order('id', { ascending: true })
+          .range(from, to),
+      ),
+      fetchAllRows<Pick<BrandReferenceRow, 'draft_data'>>(
+        'brands',
+        (from, to) =>
+          supabase
+            .from('brands')
+            .select('draft_data')
+            .order('id', { ascending: true })
+            .range(from, to),
+      ),
+      fetchAllRows<Pick<SubmissionReferenceRow, 'enriched_data'>>(
+        'brand_submissions',
+        (from, to) =>
+          supabase
+            .from('brand_submissions')
+            .select('enriched_data')
+            .order('id', { ascending: true })
+            .range(from, to),
+      ),
+      listAllObjects(supabase),
+    ])
+
+  const jsonbReferencedPaths = new Set<string>()
+  for (const brand of brands) {
+    collectStorageKeys(brand.draft_data, jsonbReferencedPaths)
+  }
+  for (const submission of submissions) {
+    collectStorageKeys(submission.enriched_data, jsonbReferencedPaths)
+  }
+
+  const objectsByPath = new Map(objects.map((object) => [object.path, object]))
+  const failures: ReencodeFailure[] = []
+  const targets: ReencodeTarget[] = []
+  const rows = [
+    ...brandRows.map((row) => ({
+      ...row,
+      kind: 'brand' as const,
+      ownerId: row.brand_id,
+    })),
+    ...submissionRows.map((row) => ({
+      ...row,
+      kind: 'submission' as const,
+      ownerId: row.submission_id,
+    })),
+  ]
+
+  for (const row of rows) {
+    if (!row.storage_path) continue
+    const object = objectsByPath.get(row.storage_path)
+    if (!object) {
+      failures.push({
+        path: row.storage_path,
+        message: 'Active database row points to a missing storage object',
+      })
+      continue
+    }
+
+    const contentType =
+      object.contentType ?? contentTypeFromPath(row.storage_path)
+    if (
+      !shouldReencode(
+        {
+          path: row.storage_path,
+          size: object.size,
+          contentType,
+          jsonbReferenced: jsonbReferencedPaths.has(row.storage_path),
+        },
+        { webpSkipBytes: WEBP_SKIP_BYTES },
+      )
+    ) {
+      continue
+    }
+
+    targets.push({
+      id: row.id,
+      kind: row.kind,
+      ownerId: row.ownerId,
+      path: row.storage_path,
+      oldUrl: row.url,
+      size: object.size,
+      contentType,
+    })
+  }
+
+  return { targets, failures }
+}
+
+async function reencodeTarget(
+  supabase: ReturnType<typeof createServiceClient>,
+  target: ReencodeTarget,
+  appendOriginal: (storagePath: string) => Promise<void>,
+): Promise<void> {
+  const prefix = target.kind === 'brand' ? 'brands' : 'submissions'
+  const newPath = `${prefix}/${target.ownerId}/${randomUUID()}.webp`
+  let uploaded = false
+  let rowUpdated = false
+
+  try {
+    const { data: blob, error: downloadError } = await supabase.storage
+      .from(BUCKET)
+      .download(target.path)
+    if (downloadError) throw downloadError
+    if (!blob) throw new Error('Storage download returned no data')
+
+    const inputBuffer = Buffer.from(await blob.arrayBuffer())
+    const processed = await processImage(inputBuffer, {
+      maxWidth: 1600,
+      maxHeight: 1600,
+      maxFileSizeBytes: 40 * 1024 * 1024,
+    })
+    const [phash, stats] = await Promise.all([
+      computeDHash(processed.buffer),
+      sharp(processed.buffer).stats(),
+    ])
+    const dominantColor = dominantColorToHex(stats.dominant)
+
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET)
+      .upload(newPath, processed.buffer, {
+        contentType: 'image/webp',
+        cacheControl: '31536000',
+      })
+    if (uploadError) throw uploadError
+    uploaded = true
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from(BUCKET).getPublicUrl(newPath)
+
+    await appendOriginal(target.path)
+
+    const table = target.kind === 'brand' ? 'brand_images' : 'submission_images'
+    const { error: updateError } = await supabase
+      .from(table)
+      .update({
+        url: publicUrl,
+        storage_path: newPath,
+        width: processed.width,
+        height: processed.height,
+        phash,
+        dominant_color: dominantColor,
+      })
+      .eq('id', target.id)
+    if (updateError) throw updateError
+    rowUpdated = true
+
+    if (target.kind === 'submission') {
+      const { error: heroUpdateError } = await supabase
+        .from('brand_submissions')
+        .update({ hero_image_url: publicUrl })
+        .eq('id', target.ownerId)
+        .eq('hero_image_url', target.oldUrl)
+      if (heroUpdateError) throw heroUpdateError
+    }
+  } catch (error) {
+    if (uploaded && !rowUpdated) {
+      const { error: cleanupError } = await supabase.storage
+        .from(BUCKET)
+        .remove([newPath])
+      if (cleanupError) {
+        console.error(`Failed to clean up ${newPath}: ${cleanupError.message}`)
+      }
+    }
+    throw error
+  }
+}
+
+async function reencode(live: boolean): Promise<void> {
+  if (live) {
+    console.warn(
+      'WARNING: Ensure the curation worker is idle before running reencode --live.',
+    )
+  }
+
+  const supabase = createServiceClient()
+  const { targets, failures } = await loadReencodeTargets(supabase)
+  const estimatedBytes = targets.reduce((total, target) => total + target.size, 0)
+
+  console.table(
+    targets.map((target) => ({
+      table: target.kind === 'brand' ? 'brand_images' : 'submission_images',
+      id: target.id,
+      storage_path: target.path,
+      content_type: target.contentType,
+      bytes: target.size,
+    })),
+  )
+  console.log(
+    `Reencode plan: ${targets.length} object(s), ${(estimatedBytes / 1024 / 1024).toFixed(2)} MB to download.`,
+  )
+
+  if (!live) {
+    if (failures.length > 0) console.table(failures)
+    console.log('Dry run complete. Re-run with --live to re-encode these objects.')
+    return
+  }
+  if (targets.length === 0) {
+    if (failures.length > 0) console.table(failures)
+    if (failures.length > 0) {
+      throw new Error(`Reencode completed with ${failures.length} failure(s)`)
+    }
+    console.log('No eligible objects to re-encode.')
+    return
+  }
+
+  const manifest = await createReencodeManifest()
+  let completed = 0
+  for (let index = 0; index < targets.length; index += REENCODE_CONCURRENCY) {
+    await Promise.all(
+      targets.slice(index, index + REENCODE_CONCURRENCY).map(async (target) => {
+        try {
+          await reencodeTarget(supabase, target, manifest.append)
+          completed += 1
+        } catch (error) {
+          failures.push({
+            path: target.path,
+            message: error instanceof Error ? error.message : String(error),
+          })
+        }
+      }),
+    )
+  }
+
+  const brandIds = new Set(
+    targets
+      .filter((target) => target.kind === 'brand')
+      .map((target) => target.ownerId),
+  )
+  for (const brandId of brandIds) {
+    try {
+      await syncHeroDenormalized(supabase, brandId)
+    } catch (error) {
+      failures.push({
+        path: `brand:${brandId}`,
+        message: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
+  console.log(`Re-encoded ${completed} of ${targets.length} object(s).`)
+  console.log(`Originals manifest: ${manifest.outputPath}`)
+  if (failures.length > 0) {
+    console.error(`Reencode failures (${failures.length}):`)
+    console.table(failures)
+    throw new Error(`Reencode completed with ${failures.length} failure(s)`)
+  }
+}
+
 async function main(): Promise<void> {
   const subcommand = process.argv[2] ?? 'audit'
   const args = process.argv.slice(3)
@@ -587,16 +978,24 @@ async function main(): Promise<void> {
     return
   }
   if (
-    subcommand === 'purge' &&
+    (subcommand === 'purge' || subcommand === 'reencode') &&
     args.every((argument) => argument === '--live') &&
     args.filter((argument) => argument === '--live').length <= 1
   ) {
-    await purge(args.includes('--live'))
+    if (subcommand === 'purge') {
+      await purge(args.includes('--live'))
+    } else {
+      await reencode(args.includes('--live'))
+    }
     return
   }
-  if (subcommand !== 'audit' && subcommand !== 'purge') {
+  if (
+    subcommand !== 'audit' &&
+    subcommand !== 'purge' &&
+    subcommand !== 'reencode'
+  ) {
     throw new Error(
-      `Unknown subcommand "${subcommand}". Available subcommands: audit, purge [--live]`,
+      `Unknown subcommand "${subcommand}". Available subcommands: audit, purge [--live], reencode [--live]`,
     )
   }
 
