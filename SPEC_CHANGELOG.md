@@ -1,5 +1,11 @@
 # SPEC Changelog
 
+## 2026-07-15
+
+### DEV-1059 — BrandImage storage invariants
+
+Rejection now deletes the storage object and nulls `storage_path` (rows kept as permanent dedup tombstones); all stored images are WebP at rest (≤1600px enrichment, ≤1200px owner uploads) via `processImage`; every storage upload sets `cacheControl: '31536000'`; owner-sourced images are excluded from auto-classification. Maintenance subcommands `audit|purge|reencode|purge-originals` live in `scripts/brand-storage-maintenance.ts`.
+
 ## 2026-07-10
 
 - Standardized public UI horizontal gutters with the shared `page-gutter` utility: 24px on mobile and 40px from the medium breakpoint upward. Full-bleed sections retain their visual treatment while inner content follows the shared gutter; admin, dashboard, auth, and microsite shells remain separate.

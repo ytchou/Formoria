@@ -180,6 +180,12 @@ See `docs/strategy/brand-success-playbook.md` for full specification.
 - tags[], score, sort_order
 - createdAt, updatedAt
 
+Storage invariants (DEV-1059):
+- Setting `status = 'rejected'` deletes the storage object and nulls `storage_path` in the same step. Rejected rows are permanent dedup tombstones — they are never reactivated or re-queued for classification.
+- All stored images are WebP re-encoded via `processImage`: longest edge ≤1600px for enrichment/SERP images, ≤1200px for owner uploads.
+- Every storage upload carries `cacheControl: '31536000'` (filenames are UUIDs, safe to cache 1 year).
+- Owner-sourced images (`source = 'owner'`) are never auto-classified or auto-rejected by the enrichment pipeline.
+
 ### BrandFieldState
 - brand_id, field
 - source: owner | enriched | admin
