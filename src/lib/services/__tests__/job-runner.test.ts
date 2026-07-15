@@ -13,6 +13,9 @@ const mocks = vi.hoisted(() => ({
   listCurationJobTargets: vi.fn(),
   updateCurationJobTarget: vi.fn(),
   createServiceClient: vi.fn(),
+  exportJobRunLog: vi.fn(),
+  renderRunLogHtml: vi.fn(),
+  uploadRunLogSnapshot: vi.fn(),
 }));
 
 vi.mock("../curation-operations", async (importOriginal) => {
@@ -35,6 +38,15 @@ vi.mock("@/lib/services/curation-jobs", async (importOriginal) => {
 vi.mock("@/lib/supabase/server", () => ({
   createServiceClient: mocks.createServiceClient,
 }));
+vi.mock("@/lib/services/runlog-export", () => ({
+  exportJobRunLog: mocks.exportJobRunLog,
+}));
+vi.mock("@/lib/runlog", () => ({
+  renderRunLogHtml: mocks.renderRunLogHtml,
+}));
+vi.mock("@/lib/services/runlog-storage", () => ({
+  uploadRunLogSnapshot: mocks.uploadRunLogSnapshot,
+}));
 
 import { runJob, sanitizeJobError } from "../job-runner";
 
@@ -49,6 +61,10 @@ describe("durable curation job runner", () => {
     mocks.finalizeCurationJob.mockResolvedValue(true);
     mocks.enqueueAutomaticRetry.mockResolvedValue(null);
     mocks.createServiceClient.mockReturnValue(mockSupabase());
+    mocks.runEnrich.mockResolvedValue(operationResult("succeeded"));
+    mocks.exportJobRunLog.mockResolvedValue({ run: { id: "job-1" } });
+    mocks.renderRunLogHtml.mockReturnValue("<!doctype html><title>Run log</title>");
+    mocks.uploadRunLogSnapshot.mockResolvedValue(undefined);
     mocks.updateCurationJobTarget.mockImplementation(
       async (_jobId, targetId, patch) => {
         targets = targets.map((item) =>
@@ -107,6 +123,45 @@ describe("durable curation job runner", () => {
         skipped_count: 0,
         failed_count: 0,
       }),
+    );
+  });
+
+  it("archives a snapshot after a completed job is finalized", async () => {
+    await runJob(job(), "worker-token");
+
+    expect(mocks.uploadRunLogSnapshot).toHaveBeenCalledWith(
+      "job-1",
+      "<!doctype html><title>Run log</title>",
+    );
+  });
+
+  it("archives a snapshot after a failed job is finalized", async () => {
+    mocks.runEnrich.mockRejectedValue(new Error("Provider unavailable"));
+
+    await runJob(
+      job({ trigger: "automatic_retry", attempt: 2 }),
+      "worker-token",
+    );
+
+    expect(mocks.uploadRunLogSnapshot).toHaveBeenCalledWith(
+      "job-1",
+      "<!doctype html><title>Run log</title>",
+    );
+  });
+
+  it("keeps the job result unchanged when snapshot upload fails", async () => {
+    targets = [target({ status: "succeeded" })];
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.uploadRunLogSnapshot.mockRejectedValueOnce(
+      new Error("Storage unavailable"),
+    );
+
+    const summary = await runJob(job(), "worker-token");
+
+    expect(summary).toMatchObject({ success: 1, skipped: 0, failed: 0 });
+    expect(console.error).toHaveBeenCalledWith(
+      "[curation-worker:runlog]",
+      "Storage unavailable",
     );
   });
 
