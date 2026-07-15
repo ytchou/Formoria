@@ -124,6 +124,9 @@ function makeSubmission(
     latestCurationJobId: null,
     latestCurationPhase: null,
     latestCurationError: null,
+    latestCurationJobStatus: null,
+    latestCurationDispatchStatus: null,
+    reviewStage: 'needs_data',
     ...overrides,
   }
 }

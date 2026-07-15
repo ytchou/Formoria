@@ -10,11 +10,17 @@ import { getEnrichmentStatus, SubmissionsReviewList, type TabValue } from '../su
 import { startCurationJobAction } from '@/app/admin/operations/actions'
 import { toast } from 'sonner'
 
+const navigationMocks = vi.hoisted(() => ({
+  refresh: vi.fn(),
+  push: vi.fn(),
+  replace: vi.fn(),
+}))
+
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
-    refresh: vi.fn(),
-    push: vi.fn(),
-    replace: vi.fn(),
+    refresh: navigationMocks.refresh,
+    push: navigationMocks.push,
+    replace: navigationMocks.replace,
   }),
   usePathname: () => '/admin/submissions',
 }))
@@ -270,7 +276,29 @@ describe('SubmissionsReviewList — bulk enrichment', () => {
         })
       )
     })
-    expect(checkboxes[1]).not.toBeChecked()
+    expect(navigationMocks.replace).toHaveBeenCalledWith(
+      '/admin/submissions?stage=enriching',
+    )
+  })
+
+  it('keeps a dispatch failure in needs data', async () => {
+    vi.mocked(startCurationJobAction).mockResolvedValueOnce({
+      queued: true,
+      jobId: 'job-1',
+      detailPath: '/admin/jobs/job-1',
+      dispatchStatus: 'failed',
+      message: 'Dispatch failed.',
+    })
+    const user = userEvent.setup()
+    renderReviewList()
+
+    await user.click(screen.getAllByRole('checkbox')[1])
+    await user.click(screen.getByRole('button', { name: 'Fetch Data' }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled())
+    expect(navigationMocks.replace).not.toHaveBeenCalledWith(
+      '/admin/submissions?stage=enriching',
+    )
   })
 })
 
