@@ -3,6 +3,7 @@ import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { buildEnrichmentConfig } from '@/lib/constants/enrichment-config'
 import { createOpenAIClient, parseJson } from '../openai-client'
 import { syncHeroDenormalized, type BrandImageRow } from '../brand-images'
+import { localizeToTW } from '../taiwan-localization'
 import { createServiceClient } from '@/lib/supabase/server'
 import type { PhaseResult } from '@/lib/types/curation'
 import { buildPhaseResult, timePhase, type EnrichBrand, type EnrichPhase } from './types'
@@ -158,7 +159,7 @@ export function parseClassification(responseText: string): ParsedImageClassifica
   return {
     tag: raw.tag,
     score: Math.max(0, Math.min(100, Math.round(score))),
-    altZh: typeof raw.alt_zh === 'string' ? raw.alt_zh : '',
+    altZh: typeof raw.alt_zh === 'string' ? localizeToTW(raw.alt_zh).text : '',
     altEn: typeof raw.alt_en === 'string' ? raw.alt_en : '',
   }
 }
@@ -197,7 +198,7 @@ export function parseClassificationBatch(
     return {
       tag: item.tag,
       score: Math.max(0, Math.min(100, Math.round(score))),
-      altZh: typeof item.alt_zh === 'string' ? item.alt_zh : '',
+      altZh: typeof item.alt_zh === 'string' ? localizeToTW(item.alt_zh).text : '',
       altEn: typeof item.alt_en === 'string' ? item.alt_en : '',
     }
   })
