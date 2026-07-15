@@ -2,6 +2,7 @@ import { downloadAndStoreImages } from '../image-download'
 import { buildImageEnrichPatch, hasLinkValue } from '../link-enrichment'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { CandidateImage } from './candidate-pool'
+import { brandTarget, type EnrichmentTarget } from '../enrichment-target'
 import { buildPhaseResult, timePhase, type EnrichBrand, type EnrichPhase } from './types'
 
 type BrandImagePhaseOptions = {
@@ -10,7 +11,7 @@ type BrandImagePhaseOptions = {
   imageSearchUrls: string[]
   candidateImages?: CandidateImage[]
   dryRun?: boolean
-  imageStorageId?: string
+  target?: EnrichmentTarget
 }
 
 type BrandImagePhaseOutput = {
@@ -50,7 +51,7 @@ export async function runBrandImagePhase({
   imageSearchUrls,
   candidateImages,
   dryRun = false,
-  imageStorageId,
+  target,
 }: BrandImagePhaseOptions): Promise<BrandImagePhaseOutput> {
   if (!phases.includes('images')) {
     return {
@@ -71,7 +72,7 @@ export async function runBrandImagePhase({
   const { result, durationMs } = await timePhase(async () => {
     const imageStoredUrls = dryRun
       ? imageCandidates.map((candidate) => typeof candidate === 'string' ? candidate : candidate.url)
-      : await downloadAndStoreImages(imageCandidates, imageStorageId ?? brand.id)
+      : await downloadAndStoreImages(imageCandidates, target ?? brandTarget(brand.id))
     const patch = imageStoredUrls.filter(hasLinkValue).length > 0
       ? imagePatchToDbPatch(buildImageEnrichPatch(normalizeImageBrand(brand), imageStoredUrls))
       : {}

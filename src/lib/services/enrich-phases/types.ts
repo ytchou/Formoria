@@ -9,6 +9,7 @@ import type {
 import type { SiteContent } from '@/lib/types/brand'
 import type { Database } from '@/lib/supabase/database.types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
+import type { EnrichmentTarget } from '../enrichment-target'
 
 export type EnrichPhase = (typeof ENRICH_PHASES)[number]
 
@@ -71,6 +72,7 @@ export type BatchPhaseContext = {
   dryRun: boolean
   onProgress?: CurationConfig['onProgress']
   supabase: SupabaseClient<Database>
+  targetType?: EnrichmentTarget['type']
 }
 
 export type BrandEnrichState = {

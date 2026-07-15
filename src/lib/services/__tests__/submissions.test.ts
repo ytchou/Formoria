@@ -7,16 +7,24 @@ const mockSelect = vi.fn()
 const mockOrder = vi.fn()
 const mockSingle = vi.fn()
 const mockFrom = vi.fn()
+const mockRpc = vi.fn()
+const mockDeleteStoredImagePaths = vi.fn()
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: async () => ({ from: mockFrom }),
-  createServiceClient: () => ({ from: mockFrom }),
+  createServiceClient: () => ({ from: mockFrom, rpc: mockRpc }),
+}))
+
+vi.mock('@/lib/services/image-upload', () => ({
+  deleteStoredImagePaths: mockDeleteStoredImagePaths,
 }))
 
 beforeEach(() => {
   vi.clearAllMocks()
 
   mockOrder.mockResolvedValue({ data: [], error: null })
+  mockRpc.mockResolvedValue({ data: [], error: null })
+  mockDeleteStoredImagePaths.mockResolvedValue(undefined)
   mockSingle.mockResolvedValue({
     data: {
       id: 'submission-1',
@@ -212,8 +220,8 @@ describe('rejectSubmission', () => {
   const TEST_REVIEWER_ID = 'reviewer-123'
 
   it('persists denial_reason alongside status and reviewer_notes', async () => {
-    mockSingle.mockResolvedValueOnce({
-      data: { brand_id: null },
+    mockRpc.mockResolvedValueOnce({
+      data: ['submissions/submission-1/image.webp'],
       error: null,
     })
     mockSingle.mockResolvedValueOnce({
@@ -252,21 +260,21 @@ describe('rejectSubmission', () => {
       'Brand manufactures in China, not Taiwan'
     )
 
-    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
-      status: 'rejected',
-      denial_reason: 'not_mit',
-      reviewer_notes: 'Brand manufactures in China, not Taiwan',
-    }))
+    expect(mockRpc).toHaveBeenCalledWith('reject_submission', {
+      p_denial_reason: 'not_mit',
+      p_reviewer_id: TEST_REVIEWER_ID,
+      p_reviewer_notes: 'Brand manufactures in China, not Taiwan',
+      p_submission_id: 'submission-1',
+    })
+    expect(mockDeleteStoredImagePaths).toHaveBeenCalledWith([
+      'submissions/submission-1/image.webp',
+    ])
     expect(result.status).toBe('rejected')
     expect(result.denialReason).toBe('not_mit')
     expect(result.reviewerNotes).toBe('Brand manufactures in China, not Taiwan')
   })
 
   it('allows rejection without notes', async () => {
-    mockSingle.mockResolvedValueOnce({
-      data: { brand_id: null },
-      error: null,
-    })
     mockSingle.mockResolvedValueOnce({
       data: {
         id: 'submission-1',
@@ -298,11 +306,12 @@ describe('rejectSubmission', () => {
 
     const result = await rejectSubmission('submission-1', TEST_REVIEWER_ID, 'duplicate')
 
-    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
-      status: 'rejected',
-      denial_reason: 'duplicate',
-      reviewer_notes: null,
-    }))
+    expect(mockRpc).toHaveBeenCalledWith('reject_submission', {
+      p_denial_reason: 'duplicate',
+      p_reviewer_id: TEST_REVIEWER_ID,
+      p_reviewer_notes: null,
+      p_submission_id: 'submission-1',
+    })
     expect(result.status).toBe('rejected')
     expect(result.denialReason).toBe('duplicate')
     expect(result.reviewerNotes).toBeNull()

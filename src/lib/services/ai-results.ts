@@ -1,9 +1,11 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { brandTarget, targetForeignKey, type EnrichmentTarget } from './enrichment-target'
 
 const DEEPSEEK_MODEL = 'deepseek-v4-flash'
 
 export type AiTriageInput = {
   brandId: string
+  target?: EnrichmentTarget
   isNonBrand: boolean
   nonBrandReason: string | null
   slugGenerated: string | null
@@ -18,6 +20,7 @@ export type AiTriageInput = {
 
 export type AiDescriptionInput = {
   brandId: string
+  target?: EnrichmentTarget
   description: string
   productType?: string | null
   confidence?: 'high' | 'medium' | 'low'
@@ -32,6 +35,7 @@ export type AiDescriptionInput = {
 
 export type AiExpansionInput = {
   brandId: string
+  target?: EnrichmentTarget
   rawResponse?: unknown
   input?: unknown
   attempt?: number
@@ -42,7 +46,7 @@ export type AiExpansionInput = {
 export async function insertTriageResult(input: AiTriageInput): Promise<void> {
   const supabase = createServiceClient()
   const { error } = await supabase.from('brand_ai_results').insert({
-    brand_id: input.brandId,
+    ...targetForeignKey(input.target ?? brandTarget(input.brandId)),
     phase: 'detect',
     is_non_brand: input.isNonBrand,
     non_brand_reason: input.nonBrandReason,
@@ -62,7 +66,7 @@ export async function insertTriageResult(input: AiTriageInput): Promise<void> {
 export async function insertDescriptionResult(input: AiDescriptionInput): Promise<void> {
   const supabase = createServiceClient()
   const { error } = await supabase.from('brand_ai_results').insert({
-    brand_id: input.brandId,
+    ...targetForeignKey(input.target ?? brandTarget(input.brandId)),
     phase: 'description',
     description: input.description,
     product_type: input.productType ?? null,
@@ -82,7 +86,7 @@ export async function insertDescriptionResult(input: AiDescriptionInput): Promis
 export async function insertExpansionResult(input: AiExpansionInput): Promise<void> {
   const supabase = createServiceClient()
   const { error } = await supabase.from('brand_ai_results').insert({
-    brand_id: input.brandId,
+    ...targetForeignKey(input.target ?? brandTarget(input.brandId)),
     phase: 'expansion',
     model: DEEPSEEK_MODEL,
     raw_response: input.rawResponse ?? null,
@@ -96,6 +100,7 @@ export async function insertExpansionResult(input: AiExpansionInput): Promise<vo
 
 export type AiClassificationInput = {
   brandId: string
+  target?: EnrichmentTarget
   productType: string
   confidence: 'high' | 'medium' | 'low'
   rawResponse?: unknown
@@ -108,7 +113,7 @@ export type AiClassificationInput = {
 export async function insertClassificationResult(input: AiClassificationInput): Promise<void> {
   const supabase = createServiceClient()
   const { error } = await supabase.from('brand_ai_results').insert({
-    brand_id: input.brandId,
+    ...targetForeignKey(input.target ?? brandTarget(input.brandId)),
     phase: 'classification',
     product_type: input.productType,
     confidence: input.confidence,

@@ -46,11 +46,14 @@ export type Database = {
       }
       brand_ai_results: {
         Row: {
-          brand_id: string
+          attempt: number | null
+          brand_id: string | null
           confidence: string | null
+          config: Json | null
           created_at: string
           description: string | null
           id: string
+          input: Json | null
           is_non_brand: boolean | null
           model: string
           non_brand_reason: string | null
@@ -60,13 +63,18 @@ export type Database = {
           product_type: string | null
           raw_response: Json | null
           slug_generated: string | null
+          submission_id: string | null
+          latency_ms: number | null
         }
         Insert: {
-          brand_id: string
+          attempt?: number | null
+          brand_id?: string | null
           confidence?: string | null
+          config?: Json | null
           created_at?: string
           description?: string | null
           id?: string
+          input?: Json | null
           is_non_brand?: boolean | null
           model: string
           non_brand_reason?: string | null
@@ -76,13 +84,18 @@ export type Database = {
           product_type?: string | null
           raw_response?: Json | null
           slug_generated?: string | null
+          submission_id?: string | null
+          latency_ms?: number | null
         }
         Update: {
-          brand_id?: string
+          attempt?: number | null
+          brand_id?: string | null
           confidence?: string | null
+          config?: Json | null
           created_at?: string
           description?: string | null
           id?: string
+          input?: Json | null
           is_non_brand?: boolean | null
           model?: string
           non_brand_reason?: string | null
@@ -92,6 +105,8 @@ export type Database = {
           product_type?: string | null
           raw_response?: Json | null
           slug_generated?: string | null
+          submission_id?: string | null
+          latency_ms?: number | null
         }
         Relationships: [
           {
@@ -99,6 +114,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_ai_results_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "brand_submissions"
             referencedColumns: ["id"]
           },
         ]
@@ -277,33 +299,42 @@ export type Database = {
       }
       brand_search_results: {
         Row: {
-          brand_id: string
+          brand_id: string | null
+          config: Json | null
           created_at: string
           id: string
+          latency_ms: number | null
           query: string
           raw_response: Json | null
           search_type: string
           snippets: string[]
+          submission_id: string | null
           urls: string[]
         }
         Insert: {
-          brand_id: string
+          brand_id?: string | null
+          config?: Json | null
           created_at?: string
           id?: string
+          latency_ms?: number | null
           query: string
           raw_response?: Json | null
           search_type: string
           snippets?: string[]
+          submission_id?: string | null
           urls?: string[]
         }
         Update: {
-          brand_id?: string
+          brand_id?: string | null
+          config?: Json | null
           created_at?: string
           id?: string
+          latency_ms?: number | null
           query?: string
           raw_response?: Json | null
           search_type?: string
           snippets?: string[]
+          submission_id?: string | null
           urls?: string[]
         }
         Relationships: [
@@ -312,6 +343,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_search_results_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "brand_submissions"
             referencedColumns: ["id"]
           },
         ]
@@ -448,6 +486,74 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      submission_images: {
+        Row: {
+          alt_en: string | null
+          alt_zh: string | null
+          created_at: string
+          dominant_color: string | null
+          height: number | null
+          id: string
+          phash: string | null
+          score: number | null
+          sort_order: number
+          source: string
+          source_url: string | null
+          status: string
+          storage_path: string | null
+          submission_id: string
+          tags: string[] | null
+          url: string
+          width: number | null
+        }
+        Insert: {
+          alt_en?: string | null
+          alt_zh?: string | null
+          created_at?: string
+          dominant_color?: string | null
+          height?: number | null
+          id?: string
+          phash?: string | null
+          score?: number | null
+          sort_order?: number
+          source: string
+          source_url?: string | null
+          status?: string
+          storage_path?: string | null
+          submission_id: string
+          tags?: string[] | null
+          url: string
+          width?: number | null
+        }
+        Update: {
+          alt_en?: string | null
+          alt_zh?: string | null
+          created_at?: string
+          dominant_color?: string | null
+          height?: number | null
+          id?: string
+          phash?: string | null
+          score?: number | null
+          sort_order?: number
+          source?: string
+          source_url?: string | null
+          status?: string
+          storage_path?: string | null
+          submission_id?: string
+          tags?: string[] | null
+          url?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submission_images_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "brand_submissions"
             referencedColumns: ["id"]
           },
         ]
@@ -1179,6 +1285,15 @@ export type Database = {
       recover_stale_curation_jobs: {
         Args: { p_stale_before: string }
         Returns: Database["public"]["Tables"]["curation_jobs"]["Row"][]
+      }
+      reject_submission: {
+        Args: {
+          p_denial_reason: string
+          p_reviewer_id: string
+          p_reviewer_notes: string | null
+          p_submission_id: string
+        }
+        Returns: string[]
       }
       search_brands: {
         Args: {

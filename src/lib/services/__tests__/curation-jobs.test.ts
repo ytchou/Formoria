@@ -15,6 +15,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 import {
+  enqueueAdminCurationJob,
   enqueueAutomaticRetry,
   listCurationJobTargets,
 } from "../curation-jobs";
@@ -50,6 +51,59 @@ describe("curation job target loading", () => {
     expect(targetQuery.order).toHaveBeenNthCalledWith(2, "id", {
       ascending: true,
     });
+  });
+});
+
+describe("admin curation target resolution", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("keeps a legacy provisional brand linked submission as a submission target", async () => {
+    const submissionQuery = {
+      select: vi.fn(() => ({
+        in: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: "submission-1",
+              brand_id: "brand-1",
+              brand_name: "小島誌",
+              status: "pending",
+            },
+          ],
+          error: null,
+        }),
+      })),
+    };
+    const jobQuery = singleQuery(job({ id: "job-1", status: "pending" }));
+    mocks.from.mockImplementation((table: string) =>
+      table === "brand_submissions" ? submissionQuery : jobQuery,
+    );
+    mocks.rpc.mockResolvedValue({ data: "job-1", error: null });
+    mocks.createServiceClient.mockReturnValue({
+      from: mocks.from,
+      rpc: mocks.rpc,
+    });
+
+    await enqueueAdminCurationJob({
+      params: { submissionIds: ["submission-1"] },
+      dryRun: false,
+      startedBy: "admin-1",
+    });
+
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "enqueue_curation_job",
+      expect.objectContaining({
+        p_targets: [
+          {
+            target_type: "submission",
+            target_id: "submission-1",
+            brand_name: "小島誌",
+            brand_slug: null,
+          },
+        ],
+      }),
+    );
   });
 });
 

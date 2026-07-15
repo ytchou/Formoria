@@ -31,9 +31,20 @@ describe("submission review curation history", () => {
       order: vi.fn().mockResolvedValue({ data: rows, error: null }),
     };
     const historyQuery = pagedQuery(historyPages, ranges);
-    mocks.from.mockImplementation((table: string) =>
-      table === "brand_submissions" ? submissionQuery : historyQuery,
+    const jobsQuery = listQuery(
+      rows.map((row) => ({
+        id: `job-${row.id}`,
+        status: row.id === "submission-1000" ? "running" : "completed",
+        dispatch_status: "dispatched",
+        dispatch_error: null,
+        job_error: null,
+      })),
     );
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "brand_submissions") return submissionQuery;
+      if (table === "curation_job_targets") return historyQuery;
+      return jobsQuery;
+    });
 
     const result = await getSubmissionsForReview();
     const olderSubmission = result.find(
@@ -43,6 +54,7 @@ describe("submission review curation history", () => {
     expect(olderSubmission).toMatchObject({
       latestCurationTargetStatus: "running",
       latestCurationJobId: "job-submission-1000",
+      reviewStage: "enriching",
     });
     expect(ranges).toEqual([
       [0, 999],
@@ -79,6 +91,14 @@ function pagedQuery(
     ranges.push([from, to]);
     return { data: pages[page++] ?? [], error: null };
   });
+  return query;
+}
+
+function listQuery(rows: Array<Record<string, unknown>>) {
+  const query = {
+    select: vi.fn(() => query),
+    in: vi.fn().mockResolvedValue({ data: rows, error: null }),
+  };
   return query;
 }
 

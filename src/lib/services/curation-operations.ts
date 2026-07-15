@@ -48,6 +48,7 @@ import {
   hasPatchValues,
 } from "./enrich-phases";
 import { buildCandidatePool } from "./enrich-phases/candidate-pool";
+import type { EnrichmentTarget } from "./enrichment-target";
 import {
   formatBrandComplete,
   formatJobStart,
@@ -185,10 +186,12 @@ async function upsertBrandFaq(
 async function logDescriptionAiResult(
   brandId: string,
   attempts: DescriptionAttempt[],
+  target?: EnrichmentTarget,
 ): Promise<void> {
   for (const attempt of attempts) {
     await insertDescriptionResult({
       brandId,
+      target,
       description: attempt.parsed.description_zh ?? "",
       priceRange: attempt.parsed.priceRange,
       productTags: attempt.parsed.productTags,
@@ -345,7 +348,6 @@ type SubmissionEnrichmentRow = {
   other_urls: unknown;
   enriched_data: unknown;
   status: string;
-  brand_id: string | null;
 };
 
 function isRequestedPhase(phases: string[], phase: EnrichPhase): boolean {
@@ -687,43 +689,6 @@ export async function persistSubmissionEnrichmentResults(
   }
 }
 
-async function ensurePendingEnrichmentBrand(
-  supabase: SupabaseLike,
-  submission: SubmissionEnrichmentRow,
-): Promise<string> {
-  if (submission.brand_id) {
-    const { data: existing } = await supabase
-      .from("brands")
-      .select("id, status")
-      .eq("id", submission.brand_id)
-      .single();
-    if (existing?.status === "pending_enrichment") return existing.id;
-  }
-
-  const slug = `submission-${submission.id}`;
-  const { data: brand, error } = await supabase
-    .from("brands")
-    .insert({
-      name: submission.brand_name,
-      slug,
-      status: "pending_enrichment" as string,
-      is_demo: false,
-      mit_status: "unverified",
-      other_urls: [],
-    })
-    .select("id")
-    .single();
-
-  if (error) throw error;
-
-  await supabase
-    .from("brand_submissions")
-    .update({ brand_id: brand.id })
-    .eq("id", submission.id);
-
-  return brand.id;
-}
-
 function submissionToEnrichBrand(
   submission: SubmissionEnrichmentRow,
 ): EnrichBrand {
@@ -732,7 +697,7 @@ function submissionToEnrichBrand(
     : {};
 
   return {
-    id: submission.brand_id ?? submission.id,
+    id: submission.id,
     slug: `submission-${submission.id}`,
     name:
       typeof existing.name === "string" ? existing.name : submission.brand_name,
@@ -842,12 +807,11 @@ export async function runEnrich(
     let query = supabase
       .from("brand_submissions")
       .select("*")
-      .eq("status", "pending");
+      .eq("status", "pending")
+      .is("brand_id", null);
 
     if (config.submissionIds?.length) {
       query = query.in("id", config.submissionIds);
-    } else {
-      query = query.is("brand_id", null);
     }
 
     if (!config.overwrite && !config.submissionIds?.length) {
@@ -867,22 +831,9 @@ export async function runEnrich(
       throw error;
     }
 
-    const submissionRows = (submissions ?? []) as SubmissionEnrichmentRow[];
-    const readySubmissions: SubmissionEnrichmentRow[] = [];
-
-    for (const submission of submissionRows) {
-      try {
-        const brandId = await ensurePendingEnrichmentBrand(supabase, submission);
-        submission.brand_id = brandId;
-        readySubmissions.push(submission);
-      } catch (err) {
-        onProgress(
-          `[ENRICH] Skipping ${submission.brand_name} — failed to create pending_enrichment brand: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-    }
-
-    allBrands = readySubmissions.map(submissionToEnrichBrand);
+    allBrands = ((submissions ?? []) as SubmissionEnrichmentRow[]).map(
+      submissionToEnrichBrand,
+    );
   } else {
     let query = supabase
       .from("brands")
@@ -959,6 +910,8 @@ export async function runEnrich(
     );
 
     const chunkBrandNames = chunk.map(getDisplayBrandName);
+    const targetType: EnrichmentTarget["type"] =
+      target === "submissions" ? "submission" : "brand";
     const batchContext = {
       chunk,
       chunkBrandNames,
@@ -966,9 +919,9 @@ export async function runEnrich(
       dryRun: config.dryRun,
       onProgress,
       supabase: supabase as unknown as SupabaseClient,
+      targetType,
     };
 
-    const targetType = target === "submissions" ? "submission" : "brand";
     const pendingTargetProgress: CurationTargetProgressEvent[] = [];
     let lastTargetProgressFlushAt = Date.now();
     const flushTargetProgress = async (force: boolean): Promise<void> => {
@@ -1076,6 +1029,7 @@ export async function runEnrich(
     ) {
       const cached = await loadCachedSearchResults(
         chunk.map((brand) => brand.id),
+        targetType,
       );
       const cachedByName = new Map<string, SearchPhaseResult>();
       for (const brand of chunk) {
@@ -1168,12 +1122,18 @@ export async function runEnrich(
       };
       const recordOutcome = async (outcome: BrandOutcome): Promise<void> => {
         result.brandOutcomes.push(outcome);
-        await emitTargetProgress(outcome.status, {
+        await emitTargetProgressBatch([{
+          targetId: brand.id,
+          targetType,
+          slug: brand.slug,
+          name: getDisplayBrandName(brand),
+          status: outcome.status,
+          currentPhase,
           phaseResults: outcome.phaseResults,
           changedFields: outcome.changedFields,
           error: outcome.error,
           durationMs: Date.now() - brandStartedAt,
-        });
+        }]);
       };
       let outcomePhaseResults: PhaseResult[] = [];
 
@@ -1230,9 +1190,10 @@ export async function runEnrich(
             `  [NON-BRAND] ${brand.slug}: ${detectResult?.nonBrandReason ?? "non-brand"} (${detectResult?.confidence})`,
           );
 
-          if (target === "brands" && !config.dryRun) {
+          if (!config.dryRun) {
             await insertTriageResult({
               brandId: brand.id,
+              target: { type: targetType, id: brand.id },
               isNonBrand: true,
               nonBrandReason: detectResult?.nonBrandReason ?? null,
               slugGenerated: detectResult?.slugGenerated ?? null,
@@ -1240,14 +1201,16 @@ export async function runEnrich(
               confidence: detectResult?.confidence ?? "high",
               rawResponse: detectResult,
             });
-            await updateBrand(
-              brand.id,
-              {
-                status: "hidden",
-                brand_enriched_at: new Date().toISOString(),
-              } as never,
-              { source: "enriched" },
-            );
+            if (target === "brands") {
+              await updateBrand(
+                brand.id,
+                {
+                  status: "hidden",
+                  brand_enriched_at: new Date().toISOString(),
+                } as never,
+                { source: "enriched" },
+              );
+            }
           }
 
           await recordOutcome({
@@ -1343,6 +1306,7 @@ export async function runEnrich(
           discoveredUrls: state.discoveredUrls,
           knownUrls: state.knownUrls,
           dryRun: config.dryRun,
+          target: { type: targetType, id: brand.id },
         });
         state.phaseResults.push(linksResult.phaseResult);
         await logCurrentPhase(linksResult.phaseResult);
@@ -1361,7 +1325,7 @@ export async function runEnrich(
           imageSearchUrls,
           candidateImages,
           dryRun: config.dryRun,
-          imageStorageId: brand.id,
+          target: { type: targetType, id: brand.id },
         });
         state.phaseResults.push(brandImageResult.phaseResult);
         await logCurrentPhase(brandImageResult.phaseResult);
@@ -1371,11 +1335,13 @@ export async function runEnrich(
         const classifyImagesResult = await runClassifyImagesPhase({
           brand,
           phases,
-          dryRun: config.dryRun || target !== "brands",
+          dryRun: config.dryRun,
           overwrite: config.overwrite,
+          target: { type: targetType, id: brand.id },
         });
         state.phaseResults.push(classifyImagesResult.phaseResult);
         await logCurrentPhase(classifyImagesResult.phaseResult);
+        appendPatch(state, classifyImagesResult.patch);
 
         await markCurrentPhase("descriptions");
         const descriptionsResult = await runDescriptionsPhase({
@@ -1383,6 +1349,7 @@ export async function runEnrich(
           phases,
           serpSnippets: state.serpSnippets,
           overwrite: config.overwrite,
+          target: { type: targetType, id: brand.id },
         });
         state.phaseResults.push(descriptionsResult.phaseResult);
         await logCurrentPhase(descriptionsResult.phaseResult);
@@ -1398,6 +1365,7 @@ export async function runEnrich(
           scrapedData: state.scrapedData,
           overwrite: config.overwrite,
           reputationAlreadySet,
+          target: { type: targetType, id: brand.id },
         });
         state.phaseResults.push(expansionResult.phaseResult);
         await logCurrentPhase(expansionResult.phaseResult);
@@ -1474,10 +1442,13 @@ export async function runEnrich(
           }
           if (
             !config.dryRun &&
-            target === "brands" &&
             descriptionsResult.attempts.length > 0
           ) {
-            await logDescriptionAiResult(brand.id, descriptionsResult.attempts);
+            await logDescriptionAiResult(
+              brand.id,
+              descriptionsResult.attempts,
+              { type: targetType, id: brand.id },
+            );
           }
           const skippedOutcome: BrandOutcome = {
             slug: brand.slug,
@@ -1501,9 +1472,10 @@ export async function runEnrich(
         }
 
         if (!config.dryRun) {
-          if (target === "brands" && detectResult) {
+          if (detectResult) {
             await insertTriageResult({
               brandId: brand.id,
+              target: { type: targetType, id: brand.id },
               isNonBrand: false,
               nonBrandReason: null,
               slugGenerated: detectResult.slugGenerated,
@@ -1512,12 +1484,17 @@ export async function runEnrich(
               rawResponse: detectResult,
             });
           }
-          if (target === "brands" && descriptionsResult.attempts.length > 0) {
-            await logDescriptionAiResult(brand.id, descriptionsResult.attempts);
+          if (descriptionsResult.attempts.length > 0) {
+            await logDescriptionAiResult(
+              brand.id,
+              descriptionsResult.attempts,
+              { type: targetType, id: brand.id },
+            );
           }
-          if (target === "brands" && classification) {
+          if (classification) {
             await insertClassificationResult({
               brandId: brand.id,
+              target: { type: targetType, id: brand.id },
               productType: classification.productType,
               confidence: classification.confidence,
               rawResponse: classification,

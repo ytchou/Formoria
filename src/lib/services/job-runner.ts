@@ -24,17 +24,13 @@ import type {
   CurationTargetProgressEvent,
   PhaseResult,
 } from "@/lib/types/curation";
-import {
-  enrichedDataFromDb,
-  hasCompleteEnrichment,
-} from "@/lib/types/enriched-data";
 
 type Supabase = ReturnType<typeof createServiceClient>;
 type OperationSupabase = Parameters<typeof runEnrich>[1];
 type ValidOperation = "enrich";
 type EnrichPhase = (typeof ENRICH_PHASES)[number];
 type EnrichTarget = "brands" | "submissions";
-type BrandStatus = "approved" | "hidden" | "pending_enrichment";
+type BrandStatus = "approved" | "hidden";
 
 type JobParams = {
   slugs?: string[];
@@ -262,123 +258,22 @@ async function runSubmissionEnrichment(
   params: JobParams,
   config: JobTargetProgressConfig,
 ): Promise<OperationWithSummary> {
-  const startedAt = Date.now();
   const submissionIds = params.submissionIds ?? [];
-  const result: CurationOperationResult = {
-    processed: 0,
-    updated: 0,
-    skipped: 0,
-    errors: [],
-    brandOutcomes: [],
-  };
-  const { data, error } = await supabase
-    .from("brand_submissions")
-    .select("id, brand_id, brand_name")
-    .in("id", submissionIds);
-
-  if (error) {
-    throw error;
-  }
-
-  const submissions = (data ?? []) as Array<{
-    id: string;
-    brand_id: string | null;
-    brand_name: string;
-  }>;
-
-  let pendingEnrichmentBrandIds = new Set<string>();
-  const allBrandIds = submissions
-    .map((s) => s.brand_id)
-    .filter((id): id is string => Boolean(id));
-  if (allBrandIds.length > 0) {
-    const { data: peBrands } = await supabase
-      .from("brands")
-      .select("id")
-      .in("id", allBrandIds)
-      .eq("status", "pending_enrichment" as string);
-    pendingEnrichmentBrandIds = new Set(
-      (peBrands ?? []).map((b) => b.id),
-    );
-  }
-
-  const linkedBrandIds = submissions
-    .map((submission) => submission.brand_id)
-    .filter(
-      (brandId): brandId is string =>
-        typeof brandId === "string" && !pendingEnrichmentBrandIds.has(brandId),
-    );
-  const directSubmissions = submissions.filter(
-    (submission) =>
-      !submission.brand_id ||
-      pendingEnrichmentBrandIds.has(submission.brand_id),
+  const directResult = await runEnrich(
+    {
+      ...config,
+      target: "submissions",
+      submissionIds,
+      status: params.status,
+      phases: params.phases ?? config.phases ?? [...ENRICH_PHASES],
+    },
+    operationSupabase(supabase),
   );
-  const slugs = await getBrandSlugsForIds(supabase, linkedBrandIds);
-  const brandSlugs = [...new Set([...(params.slugs ?? []), ...slugs])];
 
-  if (brandSlugs.length > 0) {
-    const brandResult = await runEnrich(
-      {
-        ...config,
-        slugs: brandSlugs,
-        status: params.status,
-        phases: params.phases ?? config.phases ?? [...ENRICH_PHASES],
-      },
-      operationSupabase(supabase),
-    );
-    result.processed += brandResult.processed;
-    result.updated += brandResult.updated;
-    result.skipped += brandResult.skipped;
-    result.errors.push(...brandResult.errors);
-    result.brandOutcomes.push(...brandResult.brandOutcomes);
-  }
-
-  const directIds = directSubmissions.map((submission) => submission.id);
-  if (directIds.length > 0) {
-    const directResult = await runEnrich(
-      {
-        ...config,
-        target: "submissions",
-        submissionIds: directIds,
-        status: params.status,
-        phases: params.phases ?? config.phases ?? [...ENRICH_PHASES],
-      },
-      operationSupabase(supabase),
-    );
-    result.processed += directResult.processed;
-    result.updated += directResult.updated;
-    result.skipped += directResult.skipped;
-    result.errors.push(...directResult.errors);
-    result.brandOutcomes.push(...directResult.brandOutcomes);
-  }
-
-  return attachEnrichmentSummary(result, Date.now() - startedAt);
+  return directResult;
 }
 
-async function getBrandSlugsForIds(
-  supabase: Supabase,
-  brandIds: string[],
-): Promise<string[]> {
-  if (brandIds.length === 0) {
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from("brands")
-    .select("slug")
-    .in("id", brandIds);
-
-  if (error) {
-    throw error;
-  }
-
-  return ((data ?? []) as Array<{ slug: string | null }>)
-    .map((brand) => brand.slug)
-    .filter(
-      (slug): slug is string => typeof slug === "string" && slug.trim() !== "",
-    );
-}
-
-const BRAND_STATUSES: readonly BrandStatus[] = ["approved", "hidden", "pending_enrichment"];
+const BRAND_STATUSES: readonly BrandStatus[] = ["approved", "hidden"];
 const ENRICH_TARGETS: readonly EnrichTarget[] = ["brands", "submissions"];
 
 function parseTarget(value: unknown): EnrichTarget | undefined {
@@ -616,7 +511,7 @@ async function filterManualRerunTargets(
     submissionIds.length
       ? supabase
           .from("brand_submissions")
-          .select("id, status, brand_id, hero_image_url, enriched_data")
+          .select("id, status")
           .in("id", submissionIds)
       : Promise.resolve({ data: [], error: null }),
     brandIds.length
@@ -643,18 +538,6 @@ async function filterManualRerunTargets(
       if (!submission) reason = "Submission was deleted before the rerun";
       else if (submission.status !== "pending") {
         reason = "Submission was approved or changed before the rerun";
-      } else {
-        const enrichedData =
-          submission.enriched_data &&
-          typeof submission.enriched_data === "object" &&
-          !Array.isArray(submission.enriched_data)
-            ? enrichedDataFromDb(
-                submission.enriched_data as Record<string, unknown>,
-              )
-            : null;
-        if (hasCompleteEnrichment(enrichedData, submission.hero_image_url)) {
-          reason = "Submission was already enriched before the rerun";
-        }
       }
     } else {
       const brand = brands.get(target.target_id);

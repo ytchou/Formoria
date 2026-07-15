@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { brandTarget, targetForeignKey, type EnrichmentTarget } from './enrichment-target'
 
 export type SearchType = 'serp' | 'image' | 'scrape'
 
@@ -11,7 +12,7 @@ export type SearchResultRow = {
 }
 
 export async function insertSearchResult(
-  brandId: string,
+  targetOrBrandId: EnrichmentTarget | string,
   searchType: SearchType,
   query: string,
   urls: string[],
@@ -21,8 +22,11 @@ export async function insertSearchResult(
   latencyMs?: number
 ): Promise<void> {
   const supabase = createServiceClient()
+  const target = typeof targetOrBrandId === 'string'
+    ? brandTarget(targetOrBrandId)
+    : targetOrBrandId
   const { error } = await supabase.from('brand_search_results').insert({
-    brand_id: brandId,
+    ...targetForeignKey(target),
     search_type: searchType,
     query,
     urls,
@@ -35,23 +39,26 @@ export async function insertSearchResult(
 }
 
 export async function getLatestSearchResults(
-  brandIds: string[],
-  searchType: SearchType
+  targetIds: string[],
+  searchType: SearchType,
+  targetType: EnrichmentTarget['type'] = 'brand'
 ): Promise<Map<string, SearchResultRow>> {
-  if (brandIds.length === 0) return new Map()
+  if (targetIds.length === 0) return new Map()
   const supabase = createServiceClient()
+  const foreignKey = targetType === 'brand' ? 'brand_id' : 'submission_id'
   const { data } = await supabase
     .from('brand_search_results')
-    .select('brand_id, search_type, query, urls, snippets')
-    .in('brand_id', brandIds)
+    .select(`${foreignKey}, search_type, query, urls, snippets`)
+    .in(foreignKey, targetIds)
     .eq('search_type', searchType)
     .order('created_at', { ascending: false })
 
   const results = new Map<string, SearchResultRow>()
   for (const row of data ?? []) {
-    if (results.has(row.brand_id)) continue
-    results.set(row.brand_id, {
-      brandId: row.brand_id,
+    const targetId = (row as Record<string, unknown>)[foreignKey]
+    if (typeof targetId !== 'string' || results.has(targetId)) continue
+    results.set(targetId, {
+      brandId: targetId,
       searchType: row.search_type as SearchType,
       query: row.query,
       urls: row.urls ?? [],

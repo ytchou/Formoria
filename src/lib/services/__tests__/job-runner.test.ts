@@ -207,7 +207,7 @@ describe("durable curation job runner", () => {
     );
   });
 
-  it("records deleted, approved, and already-enriched manual rerun targets as skipped", async () => {
+  it("reruns complete failed submissions while skipping deleted and approved targets", async () => {
     targets = [
       target({
         target_type: "submission",
@@ -275,6 +275,14 @@ describe("durable curation job runner", () => {
         return { update: vi.fn(() => chain()) };
       }),
     });
+    mocks.runEnrich.mockImplementation(async (config) => {
+      await emit(config.onTargetProgress, {
+        targetId: "submission-enriched",
+        targetType: "submission",
+        status: "succeeded",
+      });
+      return operationResult("succeeded");
+    });
 
     const summary = await runJob(
       job({
@@ -284,12 +292,17 @@ describe("durable curation job runner", () => {
       "worker-token",
     );
 
-    expect(mocks.runEnrich).not.toHaveBeenCalled();
-    expect(summary).toMatchObject({ success: 0, skipped: 3, failed: 0 });
+    expect(mocks.runEnrich).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: "submissions",
+        submissionIds: ["submission-enriched"],
+      }),
+      expect.anything(),
+    );
+    expect(summary).toMatchObject({ success: 1, skipped: 2, failed: 0 });
     expect(targets.map((item) => item.error)).toEqual(
       expect.arrayContaining([
         "Submission was deleted before the rerun",
-        "Submission was already enriched before the rerun",
         "Submission was approved or changed before the rerun",
       ]),
     );

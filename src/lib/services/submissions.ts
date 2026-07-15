@@ -10,8 +10,18 @@ import type {
 import type { DuplicateCheckResult } from "@/lib/types/submission";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import type { EnrichedData } from "@/lib/types/enriched-data";
-import { enrichedDataFromDb } from "@/lib/types/enriched-data";
-import type { CurationTargetStatus } from "@/lib/services/curation-jobs";
+import {
+  enrichedDataFromDb,
+  hasCompleteEnrichment,
+} from "@/lib/types/enriched-data";
+import type {
+  CurationDispatchStatus,
+  CurationTargetStatus,
+} from "@/lib/services/curation-jobs";
+import {
+  deriveSubmissionReviewStage,
+  type SubmissionReviewStage,
+} from "./submission-review-stage";
 import { NotFoundError } from "@/lib/errors";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import {
@@ -22,6 +32,7 @@ import {
 } from "@/lib/services/brands";
 import { toSubmissionRow } from "./field-map";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { deleteStoredImagePaths } from "./image-upload";
 
 // ---------------------------------------------------------------------------
 // Row types
@@ -37,6 +48,10 @@ type CurationTargetHistoryRow = Pick<
   | "current_phase"
   | "error"
   | "created_at"
+>;
+type CurationJobReviewRow = Pick<
+  Database["public"]["Tables"]["curation_jobs"]["Row"],
+  "id" | "status" | "dispatch_status" | "dispatch_error" | "job_error"
 >;
 type SubmissionRowWithProductTypeNote = SubmissionRow & {
   hero_image_url?: string | null;
@@ -59,6 +74,9 @@ export type BrandSubmissionForReview = BrandSubmissionWithProductTypeNote & {
   latestCurationJobId: string | null;
   latestCurationPhase: string | null;
   latestCurationError: string | null;
+  latestCurationJobStatus: string | null;
+  latestCurationDispatchStatus: CurationDispatchStatus | null;
+  reviewStage: SubmissionReviewStage;
 };
 
 /**
@@ -591,19 +609,57 @@ export async function getSubmissionsForReview(): Promise<
     }
   }
 
+  const latestJobIds = [
+    ...new Set([...latestTargetBySubmission.values()].map((target) => target.job_id)),
+  ];
+  const latestJobById = new Map<string, CurationJobReviewRow>();
+  if (latestJobIds.length > 0) {
+    const { data: jobData, error: jobsError } = await supabase
+      .from("curation_jobs")
+      .select("id, status, dispatch_status, dispatch_error, job_error")
+      .in("id", latestJobIds);
+
+    if (jobsError) throw jobsError;
+    for (const job of (jobData ?? []) as CurationJobReviewRow[]) {
+      latestJobById.set(job.id, job);
+    }
+  }
+
   return rows.map((row) => {
     const latestTarget = latestTargetBySubmission.get(row.id);
+    const latestJob = latestTarget
+      ? latestJobById.get(latestTarget.job_id)
+      : undefined;
+    const submission = submissionToDomain(row);
+    const enrichedData = isEnrichedData(row.enriched_data)
+      ? enrichedDataFromDb(row.enriched_data as Record<string, unknown>)
+      : null;
+    const targetStatus = isCurationTargetStatus(latestTarget?.status)
+      ? latestTarget.status
+      : null;
+    const dispatchStatus = isCurationDispatchStatus(latestJob?.dispatch_status)
+      ? latestJob.dispatch_status
+      : null;
     return {
-      ...submissionToDomain(row),
-      enriched_data: isEnrichedData(row.enriched_data)
-        ? enrichedDataFromDb(row.enriched_data as Record<string, unknown>)
-        : null,
-      latestCurationTargetStatus: isCurationTargetStatus(latestTarget?.status)
-        ? latestTarget.status
-        : null,
+      ...submission,
+      enriched_data: enrichedData,
+      latestCurationTargetStatus: targetStatus,
       latestCurationJobId: latestTarget?.job_id ?? null,
       latestCurationPhase: latestTarget?.current_phase ?? null,
-      latestCurationError: latestTarget?.error ?? null,
+      latestCurationError:
+        latestTarget?.error ?? latestJob?.job_error ?? latestJob?.dispatch_error ?? null,
+      latestCurationJobStatus: latestJob?.status ?? null,
+      latestCurationDispatchStatus: dispatchStatus,
+      reviewStage: deriveSubmissionReviewStage({
+        submissionStatus: submission.status,
+        enrichmentComplete: hasCompleteEnrichment(
+          enrichedData,
+          submission.heroImageUrl,
+        ),
+        targetStatus,
+        jobStatus: latestJob?.status ?? null,
+        dispatchStatus,
+      }),
     };
   });
 }
@@ -757,6 +813,12 @@ function isCurationTargetStatus(
   );
 }
 
+function isCurationDispatchStatus(
+  value: string | null | undefined,
+): value is CurationDispatchStatus {
+  return ["pending", "dispatched", "failed"].includes(value ?? "");
+}
+
 export async function rejectSubmission(
   id: string,
   reviewerId: string,
@@ -765,47 +827,33 @@ export async function rejectSubmission(
 ): Promise<BrandSubmission> {
   const supabase = createServiceClient();
 
-  const { data: pre } = await supabase
-    .from("brand_submissions")
-    .select("brand_id")
-    .eq("id", id)
-    .single();
+  const { data: storagePaths, error: rejectionError } = await supabase.rpc(
+    "reject_submission",
+    {
+      p_denial_reason: denialReason,
+      p_reviewer_notes: notes ?? null,
+      p_reviewer_id: reviewerId,
+      p_submission_id: id,
+    },
+  );
+  if (rejectionError) throw rejectionError;
 
   const { data, error } = await supabase
     .from("brand_submissions")
-    .update({
-      status: "rejected",
-      reviewed_at: new Date().toISOString(),
-      reviewed_by: reviewerId,
-      denial_reason: denialReason,
-      reviewer_notes: notes ?? null,
-    })
-    .eq("id", id)
-    .eq("status", "pending")
     .select("*")
+    .eq("id", id)
     .single();
-
-  if (error || !data)
+  if (error || !data) {
     throw new NotFoundError("BrandSubmission", id, { cause: error });
+  }
 
-  if (pre?.brand_id) {
-    const { data: brand } = await supabase
-      .from("brands")
-      .select("id, status")
-      .eq("id", pre.brand_id)
-      .single();
-    if (brand?.status === "pending_enrichment") {
-      const { error: deleteError } = await supabase
-        .from("brands")
-        .delete()
-        .eq("id", brand.id);
-      if (deleteError) {
-        console.error(
-          `[rejectSubmission] Failed to delete pending_enrichment brand ${brand.id}:`,
-          deleteError.message,
-        );
-      }
-    }
+  try {
+    await deleteStoredImagePaths(storagePaths ?? []);
+  } catch (storageError) {
+    console.error(
+      `[rejectSubmission] Failed to delete staged images for ${id}:`,
+      storageError,
+    );
   }
 
   return submissionToDomain(data);

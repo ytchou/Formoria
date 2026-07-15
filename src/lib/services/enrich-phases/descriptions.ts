@@ -3,6 +3,7 @@ import { normalizeProductTags } from '@/lib/services/product-tags'
 import { createServiceClient } from '@/lib/supabase/server'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { EnrichScrapedData } from './types'
+import { brandTarget, type EnrichmentTarget } from '../enrichment-target'
 import { buildPhaseResult, getDisplayBrandName, hasPatchValues, timePhase, type EnrichBrand, type EnrichPhase } from './types'
 
 type StockistEntry = {
@@ -34,6 +35,7 @@ type DescriptionsPhaseOptions = {
   scrapedData?: EnrichScrapedData | null
   serpSnippets: string[]
   overwrite?: boolean
+  target?: EnrichmentTarget
 }
 
 type DescriptionsPhaseOutput = {
@@ -108,12 +110,18 @@ export type PersistedScrapeText = {
   siteContent: string | null
 }
 
-export async function loadPersistedScrapeText(brandId: string): Promise<PersistedScrapeText> {
+export async function loadPersistedScrapeText(
+  targetOrBrandId: EnrichmentTarget | string
+): Promise<PersistedScrapeText> {
   const supabase = createServiceClient()
+  const target = typeof targetOrBrandId === 'string'
+    ? brandTarget(targetOrBrandId)
+    : targetOrBrandId
+  const foreignKey = target.type === 'brand' ? 'brand_id' : 'submission_id'
   const { data } = await supabase
     .from('brand_search_results')
     .select('urls, snippets, raw_response')
-    .eq('brand_id', brandId)
+    .eq(foreignKey, target.id)
     .eq('search_type', 'scrape')
     .order('created_at', { ascending: false })
     .limit(1)
@@ -152,6 +160,7 @@ export async function runDescriptionsPhase({
   phases,
   serpSnippets,
   overwrite = false,
+  target,
 }: DescriptionsPhaseOptions): Promise<DescriptionsPhaseOutput> {
   if (!phases.includes('descriptions')) {
     return {
@@ -162,7 +171,7 @@ export async function runDescriptionsPhase({
     }
   }
 
-  const persistedScrape = await loadPersistedScrapeText(brand.id)
+  const persistedScrape = await loadPersistedScrapeText(target ?? brandTarget(brand.id))
   const effectiveSnippets = [...serpSnippets, ...persistedScrape.snippets]
 
   if (effectiveSnippets.length === 0 && !brand.description) {

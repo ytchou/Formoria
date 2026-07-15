@@ -1,6 +1,6 @@
 import type { BrandSortOption } from '@/lib/pagination'
 
-export type BrandStatus = 'approved' | 'hidden' | 'pending_enrichment'
+export type BrandStatus = 'approved' | 'hidden'
 export type SubmissionStatus = 'pending' | 'approved' | 'rejected'
 
 export type OtherUrl = {
