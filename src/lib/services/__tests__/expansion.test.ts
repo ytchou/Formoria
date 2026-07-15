@@ -76,6 +76,8 @@ describe('runExpansionPhase', () => {
       phases: ['expansion'],
       serpSnippets: ['Snippet'],
       scrapedData: {},
+      jobId: 'job-1',
+      target: { type: 'brand', id: 'brand-1' },
     })
     expect(patch).toEqual({
       reputation_summary: {
@@ -84,6 +86,14 @@ describe('runExpansionPhase', () => {
       },
     })
     expect(insertExpansionResult).toHaveBeenCalledOnce()
+    expect(insertExpansionResult).toHaveBeenCalledWith({
+      brandId: 'brand-1',
+      target: { type: 'brand', id: 'brand-1' },
+    })
+    expect(runExpansionResearch).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ jobId: 'job-1', phase: 'expansion', target: { type: 'brand', id: 'brand-1' } }),
+    )
   })
 
   it('localizes zh reputation summaries before writing the patch', async () => {

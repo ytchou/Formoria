@@ -114,8 +114,9 @@ export async function runDetectPhase(
       description: brand.description ?? null,
       website: brand.purchase_website ?? null,
       snippets: searchResults.get(ctx.chunkBrandNames[index])?.snippets ?? [],
+      target: { type: ctx.targetType ?? 'brand', id: brand.id },
     }))
-    const detectResults = await detectBrandsBatch(detectItems)
+    const detectResults = await detectBrandsBatch(detectItems, ctx.jobId)
     const nonBrandCount = [...detectResults.values()].filter((detectResult) => detectResult.isNonBrand).length
     ctx.onProgress?.(`  [DETECT] OK — ${detectResults.size} results, ${nonBrandCount} non-brands`)
 
@@ -158,8 +159,9 @@ export async function runStandaloneClassification(
       slug: brand.slug,
       name: getDisplayBrandName(brand),
       description: brand.description ?? null,
+      target: { type: ctx.targetType ?? 'brand', id: brand.id },
     }))
-    const batchClassifications = await classifyProductTypeBatch(classifyItems)
+    const batchClassifications = await classifyProductTypeBatch(classifyItems, ctx.jobId)
     ctx.onProgress?.(`  [TAGS] OK — ${batchClassifications.size} classifications`)
 
     return batchClassifications

@@ -43,11 +43,6 @@ export type AiTriageInput = {
   slugGenerated: string | null
   productType: string | null
   confidence: 'high' | 'medium' | 'low'
-  rawResponse?: unknown
-  input?: unknown
-  attempt?: number
-  config?: unknown
-  latencyMs?: number
 }
 
 export type AiDescriptionInput = {
@@ -58,21 +53,11 @@ export type AiDescriptionInput = {
   confidence?: 'high' | 'medium' | 'low'
   priceRange?: number | null
   productTags?: string[]
-  rawResponse?: unknown
-  input?: unknown
-  attempt?: number
-  config?: unknown
-  latencyMs?: number
 }
 
 export type AiExpansionInput = {
   brandId: string
   target?: EnrichmentTarget
-  rawResponse?: unknown
-  input?: unknown
-  attempt?: number
-  config?: unknown
-  latencyMs?: number
 }
 
 export async function insertTriageResult(input: AiTriageInput): Promise<void> {
@@ -86,11 +71,6 @@ export async function insertTriageResult(input: AiTriageInput): Promise<void> {
     product_type: input.productType,
     confidence: input.confidence,
     model: DEEPSEEK_MODEL,
-    raw_response: input.rawResponse ?? null,
-    input: input.input ?? null,
-    attempt: input.attempt ?? null,
-    config: input.config ?? null,
-    latency_ms: input.latencyMs ?? null,
   } as never)
   if (error) console.error(`  [AI-RESULTS] insertTriageResult failed:`, error.message)
 }
@@ -106,11 +86,6 @@ export async function insertDescriptionResult(input: AiDescriptionInput): Promis
     price_range: input.priceRange ?? null,
     product_tags: input.productTags ?? [],
     model: DEEPSEEK_MODEL,
-    raw_response: input.rawResponse ?? null,
-    input: input.input ?? null,
-    attempt: input.attempt ?? null,
-    config: input.config ?? null,
-    latency_ms: input.latencyMs ?? null,
   } as never)
   if (error) console.error(`  [AI-RESULTS] insertDescriptionResult failed:`, error.message)
 }
@@ -121,11 +96,6 @@ export async function insertExpansionResult(input: AiExpansionInput): Promise<vo
     ...targetForeignKey(input.target ?? brandTarget(input.brandId)),
     phase: 'expansion',
     model: DEEPSEEK_MODEL,
-    raw_response: input.rawResponse ?? null,
-    input: input.input ?? null,
-    attempt: input.attempt ?? null,
-    config: input.config ?? null,
-    latency_ms: input.latencyMs ?? null,
   } as never)
   if (error) console.error(`  [AI-RESULTS] insertExpansionResult failed:`, error.message)
 }
@@ -135,11 +105,6 @@ export type AiClassificationInput = {
   target?: EnrichmentTarget
   productType: string
   confidence: 'high' | 'medium' | 'low'
-  rawResponse?: unknown
-  input?: unknown
-  attempt?: number
-  config?: unknown
-  latencyMs?: number
 }
 
 export async function insertClassificationResult(input: AiClassificationInput): Promise<void> {
@@ -150,11 +115,6 @@ export async function insertClassificationResult(input: AiClassificationInput): 
     product_type: input.productType,
     confidence: input.confidence,
     model: DEEPSEEK_MODEL,
-    raw_response: input.rawResponse ?? null,
-    input: input.input ?? null,
-    attempt: input.attempt ?? null,
-    config: input.config ?? null,
-    latency_ms: input.latencyMs ?? null,
   } as never)
   if (error) console.error(`  [AI-RESULTS] insertClassificationResult failed:`, error.message)
 }

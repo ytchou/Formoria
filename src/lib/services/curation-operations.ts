@@ -201,19 +201,6 @@ async function logDescriptionAiResult(
       description: attempt.parsed.description_zh ?? "",
       priceRange: attempt.parsed.priceRange,
       productTags: attempt.parsed.productTags,
-      rawResponse: {
-        description_en: attempt.parsed.description_en,
-        city: attempt.parsed.city,
-        founding_year: attempt.parsed.foundingYear,
-        reputation_summary: attempt.parsed.reputationSummary,
-        faq: attempt.parsed.faq,
-        validation_rejections: attempt.validationRejections,
-        response: attempt.rawResponse,
-      },
-      input: attempt.input,
-      attempt: attempt.attempt,
-      config: attempt.config,
-      latencyMs: attempt.latencyMs,
     });
   }
 }
@@ -934,6 +921,7 @@ export async function runEnrich(
       onProgress,
       supabase: supabase as unknown as SupabaseClient,
       targetType,
+      jobId: config.jobId,
     };
 
     const pendingTargetProgress: CurationTargetProgressEvent[] = [];
@@ -1215,7 +1203,6 @@ export async function runEnrich(
               slugGenerated: detectResult?.slugGenerated ?? null,
               productType: detectResult?.productType ?? null,
               confidence: detectResult?.confidence ?? "high",
-              rawResponse: detectResult,
             });
             if (target === "brands") {
               await updateBrand(
@@ -1323,6 +1310,7 @@ export async function runEnrich(
           knownUrls: state.knownUrls,
           dryRun: config.dryRun,
           target: { type: targetType, id: brand.id },
+          jobId: config.jobId,
         });
         state.phaseResults.push(linksResult.phaseResult);
         await logCurrentPhase(linksResult.phaseResult);
@@ -1354,6 +1342,7 @@ export async function runEnrich(
           dryRun: config.dryRun,
           overwrite: config.overwrite,
           target: { type: targetType, id: brand.id },
+          jobId: config.jobId,
         });
         state.phaseResults.push(classifyImagesResult.phaseResult);
         await logCurrentPhase(classifyImagesResult.phaseResult);
@@ -1366,6 +1355,7 @@ export async function runEnrich(
           serpSnippets: state.serpSnippets,
           overwrite: config.overwrite,
           target: { type: targetType, id: brand.id },
+          jobId: config.jobId,
         });
         state.phaseResults.push(descriptionsResult.phaseResult);
         await logCurrentPhase(descriptionsResult.phaseResult);
@@ -1382,6 +1372,7 @@ export async function runEnrich(
           overwrite: config.overwrite,
           reputationAlreadySet,
           target: { type: targetType, id: brand.id },
+          jobId: config.jobId,
         });
         state.phaseResults.push(expansionResult.phaseResult);
         await logCurrentPhase(expansionResult.phaseResult);
@@ -1494,7 +1485,6 @@ export async function runEnrich(
               slugGenerated: detectResult.slugGenerated,
               productType: detectResult.productType,
               confidence: detectResult.confidence,
-              rawResponse: detectResult,
             });
           }
           if (descriptionsResult.attempts.length > 0) {
@@ -1510,7 +1500,6 @@ export async function runEnrich(
               target: { type: targetType, id: brand.id },
               productType: classification.productType,
               confidence: classification.confidence,
-              rawResponse: classification,
             });
           }
           await markCurrentPhase("persist");

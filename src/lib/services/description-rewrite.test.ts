@@ -1,11 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { parseDescriptionRewriteResult, rewriteBrandDescription } from './description-rewrite'
-import { createDeepSeekClient } from './deepseek-client'
+import { createAuditedDeepSeekClient } from './llm-audit'
 
-vi.mock('./deepseek-client', async () => {
-  const actual = await vi.importActual<typeof import('./deepseek-client')>('./deepseek-client')
-  return { ...actual, createDeepSeekClient: vi.fn() }
-})
+vi.mock('./llm-audit', () => ({ createAuditedDeepSeekClient: vi.fn() }))
 
 function makeTagFixture(
   product_tags: string[],
@@ -154,7 +151,7 @@ describe('parseDescriptionRewriteResult', () => {
         founding_year: null,
       }),
     })
-    vi.mocked(createDeepSeekClient).mockReturnValue({ chat } as never)
+    vi.mocked(createAuditedDeepSeekClient).mockReturnValue({ chat } as never)
     vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
 
     const output = await rewriteBrandDescription(
@@ -162,6 +159,10 @@ describe('parseDescriptionRewriteResult', () => {
       null,
       ['摘要 https://example.com?utm_source=chatgpt.com&ref=1 turn0search0'],
       '網站內容 citeturn0news2 https://example.com?utm_source=openai',
+      {
+        jobId: 'job-1',
+        target: { type: 'brand', id: 'brand-1' },
+      },
     )
 
     const request = chat.mock.calls.at(0)?.[0]
@@ -174,5 +175,9 @@ describe('parseDescriptionRewriteResult', () => {
     expect(output?.result.description_zh).toContain('品質')
     expect(output?.result.description_zh).toContain('資訊')
     expect(output?.result.blurb_zh?.startsWith('信息設計坊')).toBe(true)
+    expect(createAuditedDeepSeekClient).toHaveBeenCalledWith(
+      expect.objectContaining({ jobId: 'job-1', phase: 'description', target: { type: 'brand', id: 'brand-1' } }),
+      { apiKey: 'test-key' },
+    )
   })
 })

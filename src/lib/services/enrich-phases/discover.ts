@@ -80,7 +80,8 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
               searchResult.snippets,
               searchResult.rawEntries,
               buildSerpConfig(),
-              searchResult.latencyMs
+              searchResult.latencyMs,
+              ctx.jobId,
             )
             serpBrandIds.push(brand.id)
           }

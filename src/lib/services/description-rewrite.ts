@@ -1,6 +1,7 @@
 import { DESCRIPTION_SYSTEM_PROMPT } from '@/lib/prompts'
 import { buildEnrichmentConfig } from '@/lib/constants/enrichment-config'
-import { createDeepSeekClient, parseDeepSeekJson } from './deepseek-client'
+import { parseDeepSeekJson } from './deepseek-client'
+import { createAuditedDeepSeekClient, type LlmAuditContext } from './llm-audit'
 import { validateLocalizedText, detectAiArtifacts } from './enrich-validators'
 import { localizeToTW, stripAiToolArtifacts } from './taiwan-localization'
 import { parseExtractionResult } from './product-type-classifier'
@@ -326,7 +327,8 @@ export async function rewriteBrandDescription(
   brandName: string,
   existingDescription: string | null,
   snippets: string[],
-  siteContent: string | null
+  siteContent: string | null,
+  audit: Pick<LlmAuditContext, 'jobId' | 'target'>,
 ): Promise<DescriptionRewriteOutput | null> {
   const token = process.env.DEEPSEEK_API_KEY
   if (!token) return null
@@ -354,7 +356,6 @@ export async function rewriteBrandDescription(
     DESCRIPTION_CONFIG_PARAMS as Record<string, unknown>
   )
 
-  const client = createDeepSeekClient({ apiKey: token })
   let bestResult: DescriptionRewriteResult | null = null
   let acceptedDescriptionZh: string | null = null
   let acceptedDescriptionEn: string | null = null
@@ -372,6 +373,15 @@ export async function rewriteBrandDescription(
         : `\n\n前一次輸出未通過品質檢查：${JSON.stringify(allValidationRejections)}。請只修正不合格欄位。注意：description_zh 必須全文繁體中文，description_en 必須全文英文（品牌中文名可保留）。兩者獨立撰寫，不可只產出其中一種語言。`
 
       const startAt = Date.now()
+      const client = createAuditedDeepSeekClient(
+        {
+          ...audit,
+          phase: 'description',
+          attempt: attemptIndex + 1,
+          config: attemptConfig,
+        },
+        { apiKey: token },
+      )
       const { response, data, content } = await client.chat({
         system: DESCRIPTION_SYSTEM_PROMPT,
         user: `${userContent}${retryInstruction}`,

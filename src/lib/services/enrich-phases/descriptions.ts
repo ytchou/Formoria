@@ -36,6 +36,7 @@ type DescriptionsPhaseOptions = {
   serpSnippets: string[]
   overwrite?: boolean
   target?: EnrichmentTarget
+  jobId?: string
 }
 
 type DescriptionsPhaseOutput = {
@@ -161,6 +162,7 @@ export async function runDescriptionsPhase({
   serpSnippets,
   overwrite = false,
   target,
+  jobId,
 }: DescriptionsPhaseOptions): Promise<DescriptionsPhaseOutput> {
   if (!phases.includes('descriptions')) {
     return {
@@ -189,7 +191,16 @@ export async function runDescriptionsPhase({
       : brand.description ? [brand.description] : []
     const truncatedSiteContent = persistedScrape.siteContent?.slice(0, 4000) ?? null
     const descriptionRewriteOutput = rewriteSnippets.length > 0
-      ? await rewriteBrandDescription(getDisplayBrandName(brand), brand.description ?? null, rewriteSnippets, truncatedSiteContent)
+      ? await rewriteBrandDescription(
+          getDisplayBrandName(brand),
+          brand.description ?? null,
+          rewriteSnippets,
+          truncatedSiteContent,
+          {
+            target: target ?? brandTarget(brand.id),
+            ...(jobId ? { jobId } : {}),
+          },
+        )
       : null
 
     const descriptionRewrite = descriptionRewriteOutput?.result ?? null

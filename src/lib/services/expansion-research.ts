@@ -1,12 +1,11 @@
 import { EXPANSION_SYSTEM_PROMPT } from '@/lib/prompts'
-import { createDeepSeekClient } from '@/lib/services/deepseek-client'
+import { createAuditedDeepSeekClient, type LlmAuditContext } from '@/lib/services/llm-audit'
 import type { ReputationSummary } from '@/lib/types/brand'
 
 const DEEPSEEK_TIMEOUT_MS = 60_000
 
 export type ExpansionResult = {
   reputationSummary: ReputationSummary | null
-  latencyMs?: number
 }
 
 type ExpansionInput = {
@@ -61,6 +60,7 @@ function parseExpansionResult(content: string): ExpansionResult | null {
 
 export async function runExpansionResearch(
   input: ExpansionInput,
+  audit: LlmAuditContext,
 ): Promise<ExpansionResult | null> {
   const token = process.env.DEEPSEEK_API_KEY
   if (!token) return null
@@ -83,10 +83,9 @@ export async function runExpansionResearch(
     .filter(Boolean)
     .join('\n\n')
 
-  const client = createDeepSeekClient({ apiKey: token })
+  const client = createAuditedDeepSeekClient(audit, { apiKey: token })
 
   try {
-    const startAt = Date.now()
     const { response, content } = await client.chat({
       system: EXPANSION_SYSTEM_PROMPT,
       user: userContent,
@@ -95,13 +94,11 @@ export async function runExpansionResearch(
       maxTokens: 1200,
       temperature: 0.1,
     })
-    const latencyMs = Date.now() - startAt
-
     if (!response.ok) return null
 
     if (!content) return null
     const parsed = parseExpansionResult(content)
-    return parsed ? { ...parsed, latencyMs } : null
+    return parsed
   } catch {
     return null
   }

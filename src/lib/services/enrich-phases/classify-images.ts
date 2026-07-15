@@ -1,7 +1,8 @@
 import { IMAGE_CLASSIFY_SYSTEM_PROMPT } from '@/lib/prompts'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { buildEnrichmentConfig } from '@/lib/constants/enrichment-config'
-import { createOpenAIClient, parseJson } from '../openai-client'
+import { parseJson } from '../openai-client'
+import { createAuditedOpenAIClient } from '../llm-audit'
 import { syncHeroDenormalized, type BrandImageRow } from '../brand-images'
 import { deleteStoredImagePaths } from '../image-upload'
 import { localizeToTW } from '../taiwan-localization'
@@ -9,7 +10,6 @@ import { createServiceClient } from '@/lib/supabase/server'
 import type { PhaseResult } from '@/lib/types/curation'
 import {
   brandTarget,
-  targetForeignKey,
   targetImageStorage,
   type EnrichmentTarget,
 } from '../enrichment-target'
@@ -65,6 +65,7 @@ type ClassifyImagesPhaseOptions = {
   dryRun?: boolean
   overwrite?: boolean
   target?: EnrichmentTarget
+  jobId?: string
 }
 
 type ClassifyImagesPhaseOutput = {
@@ -96,10 +97,6 @@ type BrandImagesUpdateQuery = {
   then: Promise<{ error: unknown }>['then']
 }
 
-type AiResultsTable = {
-  insert: (row: Record<string, unknown>) => Promise<{ error: unknown }>
-}
-
 type BrandImagesTable = {
   select: (columns: string) => BrandImagesSelectQuery
   update: (row: Record<string, unknown>) => BrandImagesUpdateQuery
@@ -107,7 +104,6 @@ type BrandImagesTable = {
 
 type ClassifyImagesClient = {
   from(table: 'brand_images' | 'submission_images'): BrandImagesTable
-  from(table: 'brand_ai_results'): AiResultsTable
 }
 
 function normalizeLooseJson(content: string): string | null {
@@ -259,28 +255,6 @@ function classifyImagesClient(supabase: unknown): ClassifyImagesClient {
   return supabase as ClassifyImagesClient
 }
 
-async function insertRawClassificationResult(
-  supabase: unknown,
-  target: EnrichmentTarget,
-  imageId: string,
-  rawResponse: string | null,
-  config: unknown,
-  latencyMs: number
-): Promise<void> {
-  const { error } = await classifyImagesClient(supabase)
-    .from('brand_ai_results')
-    .insert({
-      ...targetForeignKey(target),
-      phase: 'classify_images',
-      model: 'gpt-4o-mini',
-      raw_response: { imageId, response: rawResponse },
-      config,
-      latency_ms: latencyMs,
-    })
-
-  if (error) throw error
-}
-
 export async function getUnclassifiedImages(
   supabase: unknown,
   target: EnrichmentTarget
@@ -353,6 +327,7 @@ export async function runClassifyImagesPhase({
   dryRun = false,
   overwrite = false,
   target: requestedTarget,
+  jobId,
 }: ClassifyImagesPhaseOptions): Promise<ClassifyImagesPhaseOutput> {
   const target = requestedTarget ?? brandTarget(brand.id)
   if (!phases.includes('classify_images')) {
@@ -400,12 +375,17 @@ export async function runClassifyImagesPhase({
     }
   }
 
-  const client = createOpenAIClient()
   const config = buildEnrichmentConfig('classify_images', IMAGE_CLASSIFY_SYSTEM_PROMPT, {
     model: 'gpt-4o-mini',
     batchSize: BATCH_SIZE,
     detail: 'low',
     temperature: 0,
+  })
+  const client = createAuditedOpenAIClient({
+    target,
+    phase: 'classify_images',
+    ...(jobId ? { jobId } : {}),
+    config,
   })
   const { result, durationMs } = await timePhase(async () => {
     const classifications: ClassifiedImage[] = []
@@ -414,7 +394,6 @@ export async function runClassifyImagesPhase({
     for (let i = 0; i < images.length; i += BATCH_SIZE) {
       const chunk = images.slice(i, i + BATCH_SIZE)
 
-      const batchStart = Date.now()
       const productTypeZh = brand.product_type
         ? PRODUCT_TYPE_CATEGORIES.find((c) => c.slug === brand.product_type)?.nameZh
         : undefined
@@ -429,16 +408,15 @@ export async function runClassifyImagesPhase({
         json: true,
         maxTokens: 250 * chunk.length,
         temperature: 0,
+        meta: {
+          imageIds: chunk.map((image) => image.id),
+          imageUrls: chunk.map((image) => image.url),
+        },
       })
-      const batchLatencyMs = Date.now() - batchStart
 
       const parsed = response.content
         ? parseClassificationBatch(response.content, chunk.length)
         : Array<null>(chunk.length).fill(null)
-
-      const firstImage = chunk.at(0)
-      if (!firstImage) continue
-      await insertRawClassificationResult(supabase, target, firstImage.id, response.content, config, batchLatencyMs)
 
       for (let j = 0; j < chunk.length; j++) {
         const image = chunk[j]

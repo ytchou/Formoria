@@ -1,11 +1,24 @@
-import { describe, it, expect } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createAuditedOpenAIClient } from '../llm-audit'
 import {
   applyClassifications,
   getUnclassifiedImages,
   parseClassification,
   parseClassificationBatch,
   resetImageTags,
+  runClassifyImagesPhase,
 } from './classify-images'
+
+const mocks = vi.hoisted(() => ({
+  createServiceClient: vi.fn(),
+  deleteStoredImagePaths: vi.fn(),
+  syncHeroDenormalized: vi.fn(),
+}))
+
+vi.mock('../llm-audit', () => ({ createAuditedOpenAIClient: vi.fn() }))
+vi.mock('@/lib/supabase/server', () => ({ createServiceClient: mocks.createServiceClient }))
+vi.mock('../image-upload', () => ({ deleteStoredImagePaths: mocks.deleteStoredImagePaths }))
+vi.mock('../brand-images', () => ({ syncHeroDenormalized: mocks.syncHeroDenormalized }))
 
 describe('parseClassification', () => {
   it('parses a vision response into tags/score/alt', () => {
@@ -154,5 +167,76 @@ describe('classification query filters', () => {
 
     expect(filters).toContainEqual(['eq', 'status', 'active'])
     expect(filters).toContainEqual(['neq', 'source', 'owner'])
+  })
+})
+
+describe('runClassifyImagesPhase auditing', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('uses the audited client with job context and does not insert a raw result directly', async () => {
+    const image = {
+      id: 'image-1',
+      url: 'https://images.example/acme-product.webp',
+      source: 'search',
+      status: 'active',
+      tags: null,
+      score: null,
+      sort_order: 0,
+      storage_path: 'brands/acme/product.webp',
+    }
+    let selectCount = 0
+    const from = vi.fn((table: string) => {
+      if (table === 'brand_ai_results') throw new Error('direct AI result insert is not allowed')
+      return {
+        select: () => {
+          const rows = selectCount++ === 0 ? [image] : [{ ...image, tags: ['product'], score: 88 }]
+          const query = {
+            eq: () => query,
+            neq: () => query,
+            is: () => query,
+            order: async () => ({ data: rows, error: null }),
+          }
+          return query
+        },
+        update: () => {
+          const query = {
+            eq: () => query,
+            neq: () => query,
+            not: () => query,
+            select: async () => ({ data: [], error: null }),
+            then: (resolve: (value: { error: null }) => unknown) => Promise.resolve({ error: null }).then(resolve),
+          }
+          return query
+        },
+      }
+    })
+    mocks.createServiceClient.mockReturnValue({ from })
+    const chat = vi.fn().mockResolvedValue({
+      content: '{"classifications":[{"tag":"product","score":88,"alt_zh":"木製餐盤","alt_en":"Wooden plate"}]}',
+    })
+    vi.mocked(createAuditedOpenAIClient).mockReturnValue({ chat } as never)
+
+    await runClassifyImagesPhase({
+      brand: { id: 'brand-1', slug: 'acme', name: 'Acme' },
+      phases: ['classify_images'],
+      target: { type: 'brand', id: 'brand-1' },
+      jobId: 'job-1',
+    })
+
+    expect(createAuditedOpenAIClient).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: 'classify_images',
+        jobId: 'job-1',
+        target: { type: 'brand', id: 'brand-1' },
+      }),
+    )
+    expect(chat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meta: expect.objectContaining({ imageIds: ['image-1'] }),
+      }),
+    )
+    expect(from).not.toHaveBeenCalledWith('brand_ai_results')
   })
 })

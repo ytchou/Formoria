@@ -19,7 +19,8 @@ export async function insertSearchResult(
   snippets: string[],
   rawResponse?: unknown,
   config?: unknown,
-  latencyMs?: number
+  latencyMs?: number,
+  jobId?: string,
 ): Promise<void> {
   const supabase = createServiceClient()
   const target = typeof targetOrBrandId === 'string'
@@ -27,6 +28,7 @@ export async function insertSearchResult(
     : targetOrBrandId
   const { error } = await supabase.from('brand_search_results').insert({
     ...targetForeignKey(target),
+    job_id: jobId ?? null,
     search_type: searchType,
     query,
     urls,

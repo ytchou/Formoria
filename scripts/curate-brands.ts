@@ -59,6 +59,7 @@ type EvalBrandRow = {
   hero_image_url: string | null
 }
 type AiResultRow = {
+  input: unknown
   raw_response: unknown
 }
 type EvalBrandScore = {
@@ -255,7 +256,36 @@ function extractUrlTagPairs(value: unknown): Array<readonly [string, string]> {
 }
 
 function buildPredictedImageTags(aiRows: AiResultRow[]): Map<string, string> {
-  return new Map(aiRows.flatMap((row) => extractUrlTagPairs(row.raw_response)))
+  return new Map(aiRows.flatMap((row) => [
+    ...extractUrlTagPairs(row.raw_response),
+    ...extractAuditedImageTags(row),
+  ]))
+}
+
+function extractAuditedImageTags(row: AiResultRow): ReadonlyArray<readonly [string, string]> {
+  if (!isRecord(row.input) || !isRecord(row.input.meta) || !Array.isArray(row.input.meta.imageUrls)) return []
+  if (!isRecord(row.raw_response) || !isRecord(row.raw_response.response)) return []
+
+  const choices = row.raw_response.response.choices
+  const firstChoice = Array.isArray(choices) ? choices.at(0) : null
+  if (!isRecord(firstChoice) || !isRecord(firstChoice.message) || typeof firstChoice.message.content !== 'string') return []
+
+  try {
+    const parsed = JSON.parse(firstChoice.message.content) as unknown
+    const classifications = Array.isArray(parsed)
+      ? parsed
+      : isRecord(parsed) && Array.isArray(parsed.classifications)
+        ? parsed.classifications
+        : []
+    return row.input.meta.imageUrls.flatMap((url, index) => {
+      const classification = classifications.at(index)
+      return typeof url === 'string' && isRecord(classification) && typeof classification.tag === 'string'
+        ? [[url, classification.tag] as const]
+        : []
+    })
+  } catch {
+    return []
+  }
 }
 
 function hasHeroJunkViolation(brand: EvalBrandRow, labels: GoldenBrand['labels']): boolean {
@@ -330,8 +360,10 @@ async function runEval(supabase: CurationSupabaseClient): Promise<OperationResul
     const brand = brandResult.data as EvalBrandRow
     const aiResult = await supabase
       .from('brand_ai_results')
-      .select('raw_response')
+      .select('input, raw_response')
       .eq('brand_id', brand.id)
+      .eq('phase', 'classify_images')
+      .not('raw_response', 'is', null)
       .order('created_at', { ascending: false })
 
     if (aiResult.error) {
