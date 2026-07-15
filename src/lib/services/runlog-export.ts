@@ -115,6 +115,7 @@ function addTokens(left: TokenUsage | undefined, right: TokenUsage | undefined):
 function phaseName(value: string): string {
   const normalized = value.replaceAll('_', '-').toLowerCase()
   const aliases: Record<string, string> = {
+    image: 'image-search',
     'image-search': 'image-search',
     'classify-images': 'classify_images',
     description: 'descriptions',
@@ -236,21 +237,27 @@ async function queryLegacy(
   completedAt: string,
 ): Promise<unknown[]> {
   const client = createServiceClient() as unknown as AuditClient
-  const rows: unknown[] = []
+  const queries: AuditQuery[] = []
   for (const targetType of ['brand', 'submission'] as const) {
     const ids = targets.filter((target) => target.target_type === targetType).map((target) => target.target_id)
     const foreignKey = targetType === 'brand' ? 'brand_id' : 'submission_id'
     for (let index = 0; index < ids.length; index += LEGACY_QUERY_CHUNK_SIZE) {
-      const { data, error } = await client
-        .from(table)
-        .select(columns)
-        .in(foreignKey, ids.slice(index, index + LEGACY_QUERY_CHUNK_SIZE))
-        .gte('created_at', startedAt)
-        .lte('created_at', completedAt)
-        .order('created_at', { ascending: true })
-      if (error) throw error
-      rows.push(...(data ?? []))
+      queries.push(
+        client
+          .from(table)
+          .select(columns)
+          .in(foreignKey, ids.slice(index, index + LEGACY_QUERY_CHUNK_SIZE))
+          .gte('created_at', startedAt)
+          .lte('created_at', completedAt)
+          .order('created_at', { ascending: true }),
+      )
     }
+  }
+
+  const rows: unknown[] = []
+  for (const { data, error } of await Promise.all(queries)) {
+    if (error) throw error
+    rows.push(...(data ?? []))
   }
 
   const seen = new Set<string>()

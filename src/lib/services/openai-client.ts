@@ -41,7 +41,7 @@ export type ChatAuditEvent = {
   model: string
   ok: boolean
   status: number
-  data: OpenAIChatResponse | null
+  data: unknown
   usage?: ChatUsage
   latencyMs: number
   request: {
@@ -140,12 +140,13 @@ export function createOpenAIClient({ apiKey, model = DEFAULT_OPENAI_MODEL, onCha
             const retryAfter = response.headers.get('retry-after')
             console.error(`  [OPENAI] Rate limited (429). Retry-After: ${retryAfter ?? 'not provided'}`)
           }
+          const data = (await response.clone().json().catch(() => null)) as unknown
           await emitAudit({
             provider: 'openai',
             model,
             ok: false,
             status: response.status,
-            data: null,
+            data,
             latencyMs: performance.now() - startedAt,
             request: { system, user, imageCount: images?.length ?? 0 },
             ...(meta ? { meta } : {}),

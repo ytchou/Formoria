@@ -55,6 +55,26 @@ describe('createDeepSeekClient', () => {
     expect(events[0]).toMatchObject({ provider: 'deepseek', ok: false, data: null })
   })
 
+  it('includes the provider response payload in an HTTP failure audit', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ error: { message: 'rate limit exceeded' } }), {
+        status: 429,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    const events: ChatAuditEvent[] = []
+    const client = createDeepSeekClient({
+      apiKey: 'k',
+      onChatComplete: (event) => {
+        events.push(event)
+      },
+    })
+
+    await client.chat({ system: 'system prompt', user: 'user prompt' })
+
+    expect(events[0]?.data).toEqual({ error: { message: 'rate limit exceeded' } })
+  })
+
   it('does not reject chat when the audit hook throws', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ choices: [{ message: { content: 'hi' } }] })),

@@ -42,7 +42,7 @@ export type ChatAuditEvent = {
   model: string
   ok: boolean
   status: number
-  data: DeepSeekChatResponse | null
+  data: unknown
   usage?: ChatUsage
   latencyMs: number
   request: {
@@ -139,12 +139,13 @@ export function createDeepSeekClient({
         })
 
         if (!response.ok) {
+          const data = (await response.clone().json().catch(() => null)) as unknown
           await emitAudit({
             provider: 'deepseek',
             model,
             ok: false,
             status: response.status,
-            data: null,
+            data,
             latencyMs: performance.now() - startedAt,
             request: { system, user, imageCount: images?.length ?? 0 },
             ...(meta ? { meta } : {}),

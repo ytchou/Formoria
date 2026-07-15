@@ -55,6 +55,7 @@ export type Database = {
           id: string
           input: Json | null
           is_non_brand: boolean | null
+          job_id: string | null
           model: string
           non_brand_reason: string | null
           phase: string
@@ -76,6 +77,7 @@ export type Database = {
           id?: string
           input?: Json | null
           is_non_brand?: boolean | null
+          job_id?: string | null
           model: string
           non_brand_reason?: string | null
           phase: string
@@ -97,6 +99,7 @@ export type Database = {
           id?: string
           input?: Json | null
           is_non_brand?: boolean | null
+          job_id?: string | null
           model?: string
           non_brand_reason?: string | null
           phase?: string
@@ -114,6 +117,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_ai_results_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "curation_jobs"
             referencedColumns: ["id"]
           },
           {
@@ -303,6 +313,7 @@ export type Database = {
           config: Json | null
           created_at: string
           id: string
+          job_id: string | null
           latency_ms: number | null
           query: string
           raw_response: Json | null
@@ -316,6 +327,7 @@ export type Database = {
           config?: Json | null
           created_at?: string
           id?: string
+          job_id?: string | null
           latency_ms?: number | null
           query: string
           raw_response?: Json | null
@@ -329,6 +341,7 @@ export type Database = {
           config?: Json | null
           created_at?: string
           id?: string
+          job_id?: string | null
           latency_ms?: number | null
           query?: string
           raw_response?: Json | null
@@ -343,6 +356,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_search_results_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "curation_jobs"
             referencedColumns: ["id"]
           },
           {

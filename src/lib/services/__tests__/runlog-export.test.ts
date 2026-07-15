@@ -192,6 +192,29 @@ describe('exportJobRunLog', () => {
     expect(detect?.events.at(0)?.status).toBe('error')
   })
 
+  it('groups image search audit rows into the image-search pipeline phase', async () => {
+    mockQueryRows({
+      brand_ai_results: { direct: [] },
+      brand_search_results: {
+        direct: [{
+          id: 'search-image-1',
+          brand_id: 'brand-1',
+          submission_id: null,
+          search_type: 'image',
+          query: 'Acme product photos',
+          urls: ['https://acme.example/product.jpg'],
+          latency_ms: 500,
+          created_at: '2026-07-15T02:00:01.000Z',
+        }],
+      },
+    })
+
+    const runlog = await exportJobRunLog('job-1')
+
+    expect(runlog.phases.map((phase) => phase.name)).toContain('image-search')
+    expect(runlog.phases.map((phase) => phase.name)).not.toContain('image')
+  })
+
   it('falls back to target and time-window queries for legacy jobs', async () => {
     mockQueryRows({
       brand_ai_results: {
