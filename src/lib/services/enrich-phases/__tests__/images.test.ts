@@ -180,21 +180,21 @@ describe('downloadAndStoreImages', () => {
     )
   })
 
-  it('uploads GIFs as-is (no processImage) but still with cacheControl', async () => {
+  it('drops GIF candidates — processImage rejects unsupported formats', async () => {
     const gifBuffer = await createImageFixture('gif')
     stubImageFetch(gifBuffer, 'image/gif')
-
-    await callActualDownload(['https://example.com/image.gif'], brand.id)
-
-    expect(mocks.processImage).not.toHaveBeenCalled()
-    expect(mocks.storageUpload).toHaveBeenCalledWith(
-      expect.stringMatching(/\.gif$/),
-      gifBuffer,
-      expect.objectContaining({
-        contentType: 'image/gif',
-        cacheControl: '31536000',
-      })
+    mocks.processImage.mockRejectedValue(
+      new Error('Unsupported image format: gif. Allowed formats: jpeg, png, webp')
     )
+
+    const result = await callActualDownload(
+      ['https://example.com/image.gif'],
+      brand.id
+    )
+
+    expect(mocks.processImage).toHaveBeenCalled()
+    expect(result[0]).toBeNull()
+    expect(mocks.storageUpload).not.toHaveBeenCalled()
   })
 
   it('skips the candidate when processImage throws', async () => {

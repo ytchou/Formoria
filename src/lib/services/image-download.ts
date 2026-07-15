@@ -21,16 +21,6 @@ type DownloadImageCandidate = string | {
   source: CandidateImageSource
 }
 
-function getExtFromContentType(contentType: string): string {
-  const map: Record<string, string> = {
-    'image/jpeg': 'jpg',
-    'image/png': 'png',
-    'image/webp': 'webp',
-    'image/gif': 'gif',
-  }
-  return map[contentType] ?? 'jpg'
-}
-
 function normalizeCandidate(candidate: DownloadImageCandidate): {
   url: string
   source: CandidateImageSource
@@ -199,23 +189,19 @@ export async function downloadAndStoreImages(
           throw new Error(`Perceptual duplicate detected (dHash), skipping`)
         }
 
-        let uploadBuffer: Buffer = buffer
-        let uploadContentType = contentType
-        let uploadWidth = width
-        let uploadHeight = height
-        let ext = getExtFromContentType(contentType || 'image/jpeg')
-        if (contentType !== 'image/gif') {
-          const processed = await processImage(buffer, {
-            maxWidth: 1600,
-            maxHeight: 1600,
-            maxFileSizeBytes: 30 * 1024 * 1024,
-          })
-          uploadBuffer = processed.buffer
-          uploadContentType = processed.contentType
-          uploadWidth = processed.width
-          uploadHeight = processed.height
-          ext = 'webp'
-        }
+        // Static images only: every candidate must survive processImage
+        // (jpeg/png/webp allowlist — GIFs and other formats throw and the
+        // candidate is dropped).
+        const processed = await processImage(buffer, {
+          maxWidth: 1600,
+          maxHeight: 1600,
+          maxFileSizeBytes: 30 * 1024 * 1024,
+        })
+        const uploadBuffer = processed.buffer
+        const uploadContentType = processed.contentType
+        const uploadWidth = processed.width
+        const uploadHeight = processed.height
+        const ext = 'webp'
 
         const filename = `${storage.prefix}/${target.id}/${crypto.randomUUID()}.${ext}`
         const dominantColor = dominantColorToHex(stats.dominant)
