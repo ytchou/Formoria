@@ -34,6 +34,8 @@ Running inventory of e2e-covered user journeys. Updated by `/e2e-author` runs.
 | **Brand without links — no dangling section headings** | `e2e/tests/brand-detail.spec.ts` | 2026-07-11 |
 | **Admin enrichment job history, detail, and manual rerun** | `e2e/tests/admin-jobs.spec.ts` | 2026-07-13 |
 | **Admin submission enrichment lifecycle and approval** | `e2e/tests/admin-submission-enrichment.spec.ts` | 2026-07-15 |
+| **Localized brand indexability and hidden-brand exclusion** | `e2e/tests/seo.spec.ts`, `e2e/tests/brand-detail.spec.ts` | 2026-07-15 |
+| **Guide locale indexability** | `e2e/tests/guide-detail.spec.ts` | 2026-07-15 |
 | _(30+ existing deep specs omitted — see e2e/tests/ for full inventory)_ | | |
 
 ## Carried backlog (from 2026-07-11 run)

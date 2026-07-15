@@ -6,4 +6,6 @@ export const routing = defineRouting({
   localePrefix: 'as-needed',
   localeDetection: false,
   localeCookie: false,
+  // Page metadata owns hreflang so locale-ineligible URLs can be omitted.
+  alternateLinks: false,
 })

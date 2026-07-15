@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { startImpersonationAction } from '@/lib/actions/impersonation'
+import { useUser } from '@/lib/auth/use-user'
 
 interface AdminBrandMenuProps {
   brandSlug: string
@@ -20,11 +21,15 @@ export function AdminBrandMenu({ brandSlug }: AdminBrandMenuProps) {
   const t = useTranslations('brandDetail.adminMenu')
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const { viewer, viewerLoading, refreshViewer } = useUser()
+
+  if (viewerLoading || !viewer.isAdmin) return null
 
   function handleViewAsOwner() {
     startTransition(async () => {
       const result = await startImpersonationAction(brandSlug)
       if (result.ok) {
+        await refreshViewer()
         router.push(`/dashboard/brands/${brandSlug}`)
       }
     })

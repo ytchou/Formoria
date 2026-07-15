@@ -264,7 +264,11 @@ export function needsPhase(
   phase: RunEnrichPhase,
 ): boolean {
   if (phase === "descriptions") {
-    return isEmptyField(brand.description);
+    return (
+      isEmptyField(brand.description) ||
+      isEmptyField(brand.description_en) ||
+      isEmptyField(brand.blurb_en)
+    );
   }
 
   if (phase === "images") {
@@ -852,7 +856,7 @@ export async function runEnrich(
     let query = supabase
       .from("brands")
       .select(
-        "id, slug, name, status, description, description_en, product_type, category_attributes, site_content, reputation_summary, retail_locations, mit_evidence, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, hero_image_url, city",
+        "id, slug, name, status, description, description_en, blurb, blurb_en, price_range, product_tags, product_tags_en, founding_year, product_type, category_attributes, site_content, reputation_summary, retail_locations, mit_evidence, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, hero_image_url, city",
       );
 
     if (config.slugs && config.slugs.length > 0) {
@@ -1365,6 +1369,7 @@ export async function runEnrich(
           phases,
           serpSnippets: state.serpSnippets,
           overwrite: config.overwrite,
+          dryRun: config.dryRun,
           target: { type: targetType, id: brand.id },
         });
         state.phaseResults.push(descriptionsResult.phaseResult);

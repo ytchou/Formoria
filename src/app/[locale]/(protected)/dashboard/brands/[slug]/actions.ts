@@ -42,6 +42,7 @@ import {
   parseBrandEditForm,
   buildModerationPayload,
 } from './actions-utils'
+import { revalidatePublicBrand } from '@/lib/cache/public-brand-cache'
 
 type ActionState =
   | {
@@ -162,7 +163,10 @@ async function applyBrandUpdate(
   )
   await deleteBrandImages(draftOnlyImages)
 
-  revalidatePath('/[locale]/brands/[slug]', 'page')
+  revalidatePublicBrand({
+    slug: updatedBrand.slug,
+    previousSlug: brand.slug,
+  })
   revalidatePath('/dashboard')
 }
 
@@ -333,7 +337,10 @@ export async function publishDraftAction(
         }
         await deleteBrandImages(orphans)
 
-        revalidatePath('/[locale]/brands/[slug]', 'page')
+        revalidatePublicBrand({
+          slug: publishCandidate.slug,
+          previousSlug: brand.slug,
+        })
         revalidatePath('/dashboard')
       } else {
         await createPendingEdit(brand.id, user.id, draftPartial)
@@ -379,7 +386,10 @@ export async function publishDraftAction(
         brand.id,
       )
 
-      revalidatePath('/[locale]/brands/[slug]', 'page')
+      revalidatePublicBrand({
+        slug: publishCandidate.slug,
+        previousSlug: brand.slug,
+      })
       revalidatePath('/dashboard')
     }
   } catch (err) {
@@ -392,4 +402,3 @@ export async function publishDraftAction(
   const locale = await getLocale()
   redirect(localizePath(`/dashboard/brands/${brandSlug}`, locale))
 }
-

@@ -71,6 +71,16 @@ describe('enrichment write guards', () => {
     const brand = { brand_enriched_at: '2026-06-01', description: null, hero_image_url: 'x' }
     expect(needsPhase(brand, 'descriptions')).toBe(true)
   })
+
+  it('selects brands that have Chinese copy but are missing required English copy', () => {
+    const brand = {
+      description: '既有中文品牌介紹',
+      description_en: null,
+      blurb_en: null,
+    }
+
+    expect(needsPhase(brand, 'descriptions')).toBe(true)
+  })
 })
 
 describe('processEnrichBrand with cleanup phases', () => {

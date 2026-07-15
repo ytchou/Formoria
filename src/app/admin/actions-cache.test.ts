@@ -104,8 +104,9 @@ describe('admin actions cache invalidation', () => {
   it('approveSubmissionAction revalidates public brand pages', async () => {
     await approveSubmissionAction('sub-1')
 
-    expect(mockRevalidatePath).toHaveBeenCalledWith('/')
-    expect(mockRevalidatePath).toHaveBeenCalledWith('/brands')
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/brands/test-brand')
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/en/brands/test-brand')
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/sitemap.xml')
   })
 
   it('approveSubmissionAction returns undefined on success', async () => {
@@ -114,46 +115,47 @@ describe('admin actions cache invalidation', () => {
     expect(result).toBeUndefined()
   })
 
-  it('rejectSubmissionAction revalidates public brand pages', async () => {
+  it('rejectSubmissionAction does not invalidate unchanged public pages', async () => {
     await rejectSubmissionAction('sub-1', 'insufficient_info', 'not good')
 
-    expect(mockRevalidatePath).toHaveBeenCalledWith('/')
-    expect(mockRevalidatePath).toHaveBeenCalledWith('/brands')
+    expect(mockRevalidatePath).not.toHaveBeenCalledWith('/brands')
+    expect(mockRevalidatePath).not.toHaveBeenCalledWith('/sitemap.xml')
   })
 
   it('approveClaimAction revalidates locale-aware public brand pages', async () => {
     await approveClaimAction('claim-1')
 
-    expect(mockRevalidatePath).toHaveBeenCalledWith('/[locale]/brands/[slug]', 'page')
-    expect(mockRevalidatePath).toHaveBeenCalledWith('/[locale]/brands', 'page')
-    expect(mockRevalidatePath).toHaveBeenCalledWith('/[locale]', 'page')
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/brands/test-brand')
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/en/brands/test-brand')
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/sitemap.xml')
   })
 
   it('updateBrandAction revalidates public brand pages', async () => {
     await updateBrandAction('brand-1', { status: 'approved' })
 
-    expect(mockRevalidatePath).toHaveBeenCalledWith('/')
-    expect(mockRevalidatePath).toHaveBeenCalledWith('/brands')
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/brands/test-brand')
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/en/brands/test-brand')
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/sitemap.xml')
   })
 
   it('hideBrandAction revalidates public brand pages', async () => {
     await hideBrandAction('brand-1')
 
-    expect(mockRevalidatePath).toHaveBeenCalledWith('/')
-    expect(mockRevalidatePath).toHaveBeenCalledWith('/brands')
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/brands/test-brand')
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/sitemap.xml')
   })
 
   it('unhideBrandAction revalidates public brand pages', async () => {
     await unhideBrandAction('brand-1')
 
-    expect(mockRevalidatePath).toHaveBeenCalledWith('/')
-    expect(mockRevalidatePath).toHaveBeenCalledWith('/brands')
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/brands/test-brand')
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/sitemap.xml')
   })
 
   it('deleteBrandAction revalidates public brand pages', async () => {
     await deleteBrandAction('brand-1')
 
-    expect(mockRevalidatePath).toHaveBeenCalledWith('/')
-    expect(mockRevalidatePath).toHaveBeenCalledWith('/brands')
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/brands/test-brand')
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/sitemap.xml')
   })
 })

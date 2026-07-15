@@ -5,6 +5,7 @@ import { Agentation } from "agentation";
 import { Toaster } from "sonner";
 import { GaUserSync } from "@/components/analytics/ga-user-sync";
 import { SessionTracker } from "@/components/analytics/session-tracker";
+import { ViewerProvider } from "@/lib/auth/use-user";
 import { getSiteUrl } from "@/lib/seo/site-url";
 import "./globals.css";
 
@@ -67,16 +68,18 @@ export default function RootLayout({
         >
           Skip to content
         </a>
-        <SessionTracker />
-        {children}
-        {process.env.NODE_ENV === "development" && !process.env.PLAYWRIGHT_TEST && <Agentation />}
-        {process.env.NEXT_PUBLIC_GA_ID && (
-          <>
-            <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />
-            <GaUserSync />
-          </>
-        )}
-        <Toaster richColors position="top-right" />
+        <ViewerProvider>
+          <SessionTracker />
+          {children}
+          {process.env.NODE_ENV === "development" && !process.env.PLAYWRIGHT_TEST && <Agentation />}
+          {process.env.NEXT_PUBLIC_GA_ID && (
+            <>
+              <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />
+              <GaUserSync />
+            </>
+          )}
+          <Toaster richColors position="top-right" />
+        </ViewerProvider>
       </body>
     </html>
   )

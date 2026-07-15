@@ -531,7 +531,7 @@ describe('updateBrandAction', () => {
     expect(deleteBrandImages).toHaveBeenCalledWith([oldHeroUrl, oldProductUrl])
   })
 
-  it('revalidates the locale-prefixed public brand page', async () => {
+  it('revalidates both public brand locales and the sitemap', async () => {
     const { revalidatePath } = await import('next/cache')
     const { updateBrandAction } = await import('./actions')
 
@@ -544,7 +544,9 @@ describe('updateBrandAction', () => {
       // redirect throws
     }
 
-    expect(revalidatePath).toHaveBeenCalledWith('/[locale]/brands/[slug]', 'page')
+    expect(revalidatePath).toHaveBeenCalledWith('/brands/test-brand')
+    expect(revalidatePath).toHaveBeenCalledWith('/en/brands/test-brand')
+    expect(revalidatePath).toHaveBeenCalledWith('/sitemap.xml')
   })
 })
 

@@ -2,13 +2,14 @@
 import { useEffect, useRef } from 'react'
 import { bucketSource } from '@/lib/analytics/source-bucket'
 
-export function BrandAnalyticsTracker({ brandId, source }: { brandId: string; source?: string }) {
+export function BrandAnalyticsTracker({ brandId }: { brandId: string }) {
   const trackedRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (trackedRef.current === brandId) return
     trackedRef.current = brandId
 
+    const source = new URLSearchParams(window.location.search).get('source') ?? undefined
     const bucket = bucketSource(
       source,
       typeof document !== 'undefined' ? document.referrer : '',
@@ -20,6 +21,6 @@ export function BrandAnalyticsTracker({ brandId, source }: { brandId: string; so
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ brandId, event: 'view', source: bucket }),
     }).catch(() => {})
-  }, [brandId, source])
+  }, [brandId])
   return null
 }

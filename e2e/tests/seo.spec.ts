@@ -32,6 +32,50 @@ test.describe('SEO deep', () => {
     expect(body).toContain('<urlset');
   });
 
+  test('eligible brand locales are indexed with reciprocal canonical and hreflang links', async ({
+    page,
+    request,
+  }) => {
+    const sitemapResponse = await request.get('/sitemap.xml');
+    expect(sitemapResponse.status()).toBe(200);
+    const sitemap = await sitemapResponse.text();
+    const locations = Array.from(sitemap.matchAll(/<loc>([^<]+)<\/loc>/g), (match) => match[1]);
+    const zhBrandUrl = locations.find((location) => {
+      const url = new URL(location);
+      return (
+        url.pathname.startsWith('/brands/') && locations.includes(`${url.origin}/en${url.pathname}`)
+      );
+    });
+
+    expect(zhBrandUrl, 'expected at least one brand eligible in both locales').toBeTruthy();
+    const zhUrl = new URL(zhBrandUrl!);
+    const enUrl = `${zhUrl.origin}/en${zhUrl.pathname}`;
+
+    for (const [path, canonicalUrl] of [
+      [zhUrl.pathname, zhUrl.toString()],
+      [`/en${zhUrl.pathname}`, enUrl],
+    ]) {
+      const response = await page.goto(path);
+      expect(response?.status()).toBe(200);
+
+      const canonical = await page.locator('link[rel="canonical"]').getAttribute('href');
+      expect(canonical).toBe(canonicalUrl);
+      await expect(page.locator('meta[name="robots"][content*="noindex" i]')).toHaveCount(0);
+      await expect(page.locator('link[rel="alternate"][hreflang="zh-TW"]')).toHaveAttribute(
+        'href',
+        zhUrl.toString(),
+      );
+      await expect(page.locator('link[rel="alternate"][hreflang="en"]')).toHaveAttribute(
+        'href',
+        enUrl,
+      );
+      await expect(page.locator('link[rel="alternate"][hreflang="x-default"]')).toHaveAttribute(
+        'href',
+        zhUrl.toString(),
+      );
+    }
+  });
+
   test('category page has unique title and description', async ({ page }) => {
     const categorySlug = process.env.E2E_CATEGORY_SLUG ?? 'clothing';
     await page.goto(`/brands?category=${categorySlug}`);

@@ -6,9 +6,14 @@ import { NextIntlClientProvider } from 'next-intl'
 
 const mockUser = { id: 'user-123', email: 'test@example.com' }
 const mockPush = vi.fn()
+const viewerState = {
+  viewer: { hasOwnedBrand: false, isAdmin: false, impersonation: null },
+  viewerLoading: false,
+  refreshViewer: vi.fn(async () => {}),
+}
 
 vi.mock('@/lib/auth/use-user', () => ({
-  useUser: vi.fn(() => ({ user: mockUser, loading: false })),
+  useUser: vi.fn(() => ({ user: mockUser, loading: false, ...viewerState })),
 }))
 
 vi.mock('next/navigation', () => ({
@@ -85,7 +90,11 @@ describe('SaveBrandButton', () => {
   })
 
   it('redirects to login when clicked by unauthenticated user', () => {
-    vi.mocked(useUser).mockReturnValue({ user: null, loading: false })
+    vi.mocked(useUser).mockReturnValue({
+      user: null,
+      loading: false,
+      ...viewerState,
+    })
     renderWithProviders(<SaveBrandButton brandId="brand-1" />)
     const button = screen.getByRole('button', { name: '收藏這個品牌' })
     fireEvent.click(button)

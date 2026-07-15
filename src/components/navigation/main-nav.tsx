@@ -16,16 +16,17 @@ import { NavCategoryTabs } from './nav-category-tabs'
 import { BrandMark } from '@/lib/brand/BrandMark'
 import { LocaleSwitcher } from '@/components/i18n/locale-switcher'
 import { buttonVariants } from '@/components/ui/button'
+import { useUser } from '@/lib/auth/use-user'
 
 interface MainNavProps {
   categories: Array<{ slug: string; name: string; nameZh: string | null }>
-  hasOwnedBrand?: boolean
-  isAuthenticated?: boolean
 }
 
-export function MainNav({ categories, hasOwnedBrand = false, isAuthenticated = false }: MainNavProps) {
+export function MainNav({ categories }: MainNavProps) {
   const [open, setOpen] = useState(false)
   const t = useTranslations('nav')
+  const { user, viewer } = useUser()
+  const hasOwnedBrand = viewer.hasOwnedBrand
   return (
     <header className="border-b border-border bg-background">
       {/* Row 1: Logo | Search | Actions */}
@@ -66,7 +67,7 @@ export function MainNav({ categories, hasOwnedBrand = false, isAuthenticated = f
               {t('submitBrand')}
             </Link>
           )}
-          {!isAuthenticated ? <LocaleSwitcher compact /> : null}
+          {!user ? <LocaleSwitcher compact /> : null}
           <AccountMenu />
         </div>
 

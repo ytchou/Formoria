@@ -126,6 +126,13 @@ export async function getGuideBySlug(slug: string): Promise<GuideDetailResult | 
   };
 }
 
+export async function getPublishedGuideBySlug(
+  slug: string,
+): Promise<GuideDetailResult | null> {
+  const guide = await getGuideBySlug(slug)
+  return guide?.entry.frontmatter.draft ? null : guide
+}
+
 export async function getGuidesByCategory(category: string): Promise<GuideListResult> {
   try {
     const result = (await client.queries.guideConnection({
