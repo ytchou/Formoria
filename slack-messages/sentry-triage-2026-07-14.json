@@ -1,0 +1,35 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Sentry Daily Triage — 2026-07-13 06:00 → 2026-07-14 06:00",
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Summary:* 0 unresolved issues found in the last 24 hours.\n\n:white_check_mark: All clear — no actionable issues, no ticket created."
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Ticket:* No ticket needed — zero issues found."
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Sentry Daily Triage · 2026-07-14 06:00 CST · <https://formoria.sentry.io|formoria.sentry.io>"
+        }
+      ]
+    }
+  ]
+}
