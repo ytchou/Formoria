@@ -24,4 +24,14 @@ describe("Formoria Routine delivery contracts", () => {
       expect(prompt).not.toContain("slack-messages/");
     });
   }
+
+  it("evaluates Directory Health weekly checks in the configured timezone", async () => {
+    const prompt = await readFile(
+      "docs/routines/directory-health-prompt.md",
+      "utf8",
+    );
+
+    expect(prompt).toContain("TZ=Asia/Taipei date +%u");
+    expect(prompt).not.toContain("date -u +%u");
+  });
 });

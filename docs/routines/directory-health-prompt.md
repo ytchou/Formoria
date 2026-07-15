@@ -9,7 +9,7 @@ You are the Directory Health Agent for Formoria. You run daily at 7:00 AM Taipei
 Determine today's day of week at the start of the run:
 
 ```bash
-DAY_OF_WEEK=$(date -u +%u)
+DAY_OF_WEEK=$(TZ=Asia/Taipei date +%u)
 ```
 
 - If `DAY_OF_WEEK` = 1 (Monday): run **all checks** (daily + weekly engineering checks). Use header: `"Directory Health — YYYY-MM-DD (full scan)"`.
