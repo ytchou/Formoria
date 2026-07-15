@@ -49,7 +49,7 @@ test.describe('Admin dashboard deep', () => {
     test.setTimeout(120_000);
     await adminPage.goto('/admin', { timeout: 60_000 });
     // At minimum: page loads with headings and some stat indicators
-    await expect(adminPage.getByRole('heading', { name: /管理後台/i })).toBeVisible({ timeout: 60_000 });
+    await expect(adminPage.getByRole('heading', { name: /^Admin$/ })).toBeVisible({ timeout: 60_000 });
     // No broken layout: check there's no React error boundary text
     await expect(adminPage.getByText(/something went wrong|minified react error/i)).not.toBeVisible();
   });
@@ -72,16 +72,16 @@ test.describe('Admin dashboard deep', () => {
   });
 
   test('approve submission makes brand visible in directory', async ({ adminPage }) => {
-    // DEV-762: /admin/review-queue/submissions cold-compiles in CI; give the page and the
+    // DEV-762: /admin/submissions cold-compiles in CI; give the page and the
     // approve action generous budgets.
     test.setTimeout(120_000);
     if (!testSubmissionId) test.skip();
-    await adminPage.goto('/admin/review-queue/submissions', { timeout: 60_000 });
+    await adminPage.goto('/admin/submissions', { timeout: 60_000 });
     // Wait for the page to be interactive before looking for the seeded row.
     await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
     // Click the row text to expand the detail section (approve button is inside it)
     await adminPage.getByText(testBrandName).click();
-    const approveBtn = adminPage.locator('td[colspan="11"]').getByRole('button', { name: '核准' });
+    const approveBtn = adminPage.locator('td[colspan="11"]').getByRole('button', { name: 'Approve' });
     await expect(approveBtn).toBeVisible({ timeout: 10_000 });
     await approveBtn.click();
     // After approval the server action revalidates and the button disappears
@@ -104,26 +104,26 @@ test.describe('Admin dashboard deep', () => {
       .select('id')
       .single();
 
-    await adminPage.goto('/admin/review-queue/submissions', { timeout: 60_000 });
+    await adminPage.goto('/admin/submissions', { timeout: 60_000 });
     await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
     // Click the row text to expand the detail section (reject button is inside it)
     await adminPage.getByText(rejectBrandName).click();
 
-    // Step 1: click "拒絕" to enter two-step rejection flow
-    const rejectBtn = adminPage.locator('td[colspan="11"]').getByRole('button', { name: '拒絕' });
+    // Step 1: click "Reject" to enter two-step rejection flow
+    const rejectBtn = adminPage.locator('td[colspan="11"]').getByRole('button', { name: 'Reject' });
     await expect(rejectBtn).toBeVisible({ timeout: 10_000 });
     await rejectBtn.click();
 
-    // Step 2: denial reason dropdown appears — select first reason "非台灣製造"
-    // The SelectTrigger renders as role=combobox with aria-label="拒絕原因"
-    const reasonCombobox = adminPage.getByRole('combobox', { name: '拒絕原因' });
+    // Step 2: denial reason dropdown appears — select first reason "Not Made in Taiwan"
+    // The SelectTrigger renders as role=combobox with aria-label="Rejection reason"
+    const reasonCombobox = adminPage.getByRole('combobox', { name: 'Rejection reason' });
     await expect(reasonCombobox).toBeVisible({ timeout: 5_000 });
     await reasonCombobox.click();
     // Options render in a Radix UI portal — use page-level getByRole
-    await adminPage.getByRole('option', { name: '非台灣製造' }).click();
+    await adminPage.getByRole('option', { name: 'Not Made in Taiwan' }).click();
 
     // Step 3: confirm rejection — button is enabled once a reason is selected
-    const confirmBtn = adminPage.getByRole('button', { name: '確認拒絕' });
+    const confirmBtn = adminPage.getByRole('button', { name: 'Confirm Reject' });
     await expect(confirmBtn).toBeEnabled({ timeout: 5_000 });
     await confirmBtn.click();
 

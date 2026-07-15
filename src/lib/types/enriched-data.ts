@@ -1,9 +1,22 @@
+import type { Json } from "@/lib/supabase/database.types";
+
 export type EnrichedData = {
   description?: string;
+  descriptionEn?: string;
+  blurb?: string;
+  blurbEn?: string;
+  city?: string;
+  categoryAttributes?: Json;
+  reputationSummary?: Json;
+  retailLocations?: Json;
+  mitEvidence?: Json;
+  siteContent?: Json;
+  foundingYear?: number;
   heroImageUrl?: string;
   productType?: string;
   priceRange?: number;
   productTags?: string[];
+  productTagsEn?: string[];
   socialInstagram?: string;
   socialThreads?: string;
   socialFacebook?: string;
@@ -56,6 +69,30 @@ export function enrichedDataFromDb(
     ...(typeof json.description === "string"
       ? { description: json.description }
       : {}),
+    ...(typeof json.description_en === "string"
+      ? { descriptionEn: json.description_en }
+      : {}),
+    ...(typeof json.blurb === "string" ? { blurb: json.blurb } : {}),
+    ...(typeof json.blurb_en === "string" ? { blurbEn: json.blurb_en } : {}),
+    ...(typeof json.city === "string" ? { city: json.city } : {}),
+    ...(json.category_attributes !== undefined
+      ? { categoryAttributes: json.category_attributes as Json }
+      : {}),
+    ...(json.reputation_summary !== undefined
+      ? { reputationSummary: json.reputation_summary as Json }
+      : {}),
+    ...(json.retail_locations !== undefined
+      ? { retailLocations: json.retail_locations as Json }
+      : {}),
+    ...(json.mit_evidence !== undefined
+      ? { mitEvidence: json.mit_evidence as Json }
+      : {}),
+    ...(json.site_content !== undefined
+      ? { siteContent: json.site_content as Json }
+      : {}),
+    ...(typeof json.founding_year === "number"
+      ? { foundingYear: json.founding_year }
+      : {}),
     ...(typeof json.name === "string" ? { name: json.name } : {}),
     ...(typeof json.hero_image_url === "string"
       ? { heroImageUrl: json.hero_image_url }
@@ -68,6 +105,9 @@ export function enrichedDataFromDb(
       : {}),
     ...(Array.isArray(json.product_tags)
       ? { productTags: json.product_tags as string[] }
+      : {}),
+    ...(Array.isArray(json.product_tags_en)
+      ? { productTagsEn: json.product_tags_en as string[] }
       : {}),
     ...(typeof json.social_instagram === "string"
       ? { socialInstagram: json.social_instagram }
@@ -96,12 +136,28 @@ export function enrichedDataFromDb(
 export function enrichedDataToDb(data: EnrichedData): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   if (data.description !== undefined) result.description = data.description;
+  if (data.descriptionEn !== undefined)
+    result.description_en = data.descriptionEn;
+  if (data.blurb !== undefined) result.blurb = data.blurb;
+  if (data.blurbEn !== undefined) result.blurb_en = data.blurbEn;
+  if (data.city !== undefined) result.city = data.city;
+  if (data.categoryAttributes !== undefined)
+    result.category_attributes = data.categoryAttributes;
+  if (data.reputationSummary !== undefined)
+    result.reputation_summary = data.reputationSummary;
+  if (data.retailLocations !== undefined)
+    result.retail_locations = data.retailLocations;
+  if (data.mitEvidence !== undefined) result.mit_evidence = data.mitEvidence;
+  if (data.siteContent !== undefined) result.site_content = data.siteContent;
+  if (data.foundingYear !== undefined) result.founding_year = data.foundingYear;
   if (data.name !== undefined) result.name = data.name;
   if (data.heroImageUrl !== undefined)
     result.hero_image_url = data.heroImageUrl;
   if (data.productType !== undefined) result.product_type = data.productType;
   if (data.priceRange !== undefined) result.price_range = data.priceRange;
   if (data.productTags !== undefined) result.product_tags = data.productTags;
+  if (data.productTagsEn !== undefined)
+    result.product_tags_en = data.productTagsEn;
   if (data.socialInstagram !== undefined)
     result.social_instagram = data.socialInstagram;
   if (data.socialThreads !== undefined)

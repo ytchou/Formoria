@@ -403,7 +403,9 @@ export async function runClassifyImagesPhase({
         ? parseClassificationBatch(response.content, chunk.length)
         : Array<null>(chunk.length).fill(null)
 
-      await insertRawClassificationResult(supabase, target, chunk[0].id, response.content, config, batchLatencyMs)
+      const firstImage = chunk.at(0)
+      if (!firstImage) continue
+      await insertRawClassificationResult(supabase, target, firstImage.id, response.content, config, batchLatencyMs)
 
       for (let j = 0; j < chunk.length; j++) {
         const image = chunk[j]
@@ -462,7 +464,7 @@ export async function runClassifyImagesPhase({
     return {
       classifiedCount: classifications.length,
       rejectedCount: rejectedIds.length,
-      heroImageUrl: finalActiveImages[0]?.url ?? null,
+      heroImageUrl: finalActiveImages.at(0)?.url ?? null,
     }
   })
 

@@ -56,6 +56,10 @@ describe("submission approval", () => {
         name: "Enriched Brand",
         slug: "enriched-brand",
         status: "approved",
+        description_en: "Taiwanese handmade skincare brand",
+        blurb: "手工保養",
+        category_attributes: { material: "botanical" },
+        product_tags_en: ["Soap", "Balm"],
       }),
       p_reviewer_id: "reviewer-1",
       p_submission_id: "submission-1",
@@ -109,6 +113,10 @@ function enrichedPendingSubmission(): Record<string, unknown> {
       product_type: "skincare",
       price_range: 2,
       product_tags: ["soap", "balm"],
+      product_tags_en: ["Soap", "Balm"],
+      description_en: "Taiwanese handmade skincare brand",
+      blurb: "手工保養",
+      category_attributes: { material: "botanical" },
     },
   };
 }

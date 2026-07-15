@@ -149,8 +149,11 @@ test.describe("Admin submission enrichment lifecycle", () => {
       .update({
         enriched_data: {
           description: "完整的品牌資料抓取結果。",
+          description_en: "Complete enriched brand profile.",
+          blurb: "完整品牌摘要",
           hero_image_url: heroUrl,
-          product_type: "accessories",
+          product_type: "bags-accessories",
+          product_tags_en: ["Handmade Bags"],
         },
       })
       .eq("id", submissionId);
@@ -185,7 +188,9 @@ test.describe("Admin submission enrichment lifecycle", () => {
 
     await readyRow.getByRole("checkbox").click();
     adminPage.once("dialog", (dialog) => dialog.accept());
-    await adminPage.getByRole("button", { name: "核准", exact: true }).click();
+    await adminPage
+      .getByRole("button", { name: "Approve", exact: true })
+      .click();
 
     await expect(async () => {
       const { data: submission, error } = await supabase
@@ -201,11 +206,14 @@ test.describe("Admin submission enrichment lifecycle", () => {
 
     const { data: brand, error: brandError } = await supabase
       .from("brands")
-      .select("id, status")
+      .select("id, status, description_en, blurb, product_tags_en")
       .eq("id", approvedBrandId!)
       .single();
     expect(brandError).toBeNull();
     expect(brand?.status).toBe("approved");
+    expect(brand?.description_en).toBe("Complete enriched brand profile.");
+    expect(brand?.blurb).toBe("完整品牌摘要");
+    expect(brand?.product_tags_en).toEqual(["Handmade Bags"]);
 
     const [{ count: stagedCount }, { data: promotedImages }] =
       await Promise.all([

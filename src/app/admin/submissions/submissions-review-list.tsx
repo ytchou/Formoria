@@ -77,7 +77,7 @@ type BrandSubmissionWithRisk = BrandSubmission & {
   latestCurationError?: string | null;
   latestCurationJobStatus?: string | null;
   latestCurationDispatchStatus?: "pending" | "dispatched" | "failed" | null;
-  reviewStage?: SubmissionReviewStage;
+  reviewStage: SubmissionReviewStage;
 };
 
 type OverrideForm = Required<Omit<SubmissionApprovalOverrides, "otherUrls">> & {
@@ -205,40 +205,15 @@ export function getEnrichmentStatus(
 }
 
 function isReadyForReview(submission: BrandSubmissionWithRisk): boolean {
-  return getReviewStage(submission) === "ready";
+  return submission.reviewStage === "ready";
 }
 
 function isEnrichingActive(submission: BrandSubmissionWithRisk): boolean {
-  return getReviewStage(submission) === "enriching";
+  return submission.reviewStage === "enriching";
 }
 
 function needsDataWork(submission: BrandSubmissionWithRisk): boolean {
-  return getReviewStage(submission) === "needs_data";
-}
-
-function getReviewStage(
-  submission: BrandSubmissionWithRisk,
-): SubmissionReviewStage {
-  if (submission.reviewStage) return submission.reviewStage;
-  if (submission.status === "approved" || submission.status === "rejected") {
-    return submission.status;
-  }
-  if (
-    submission.latestCurationTargetStatus === "pending" ||
-    submission.latestCurationTargetStatus === "running"
-  ) {
-    return "enriching";
-  }
-  if (
-    submission.latestCurationTargetStatus === "succeeded" &&
-    getEnrichmentCompleteness(
-      submission.enriched_data,
-      submission.heroImageUrl,
-    ) === "complete"
-  ) {
-    return "ready";
-  }
-  return "needs_data";
+  return submission.reviewStage === "needs_data";
 }
 
 function matchesTab(
@@ -268,11 +243,17 @@ function enrichmentLabel(
   label: string;
   tone: "green" | "amber" | "red" | "grey";
 } {
-  if (submission.latestCurationTargetStatus === "pending")
-    return { label: t("enrichmentStatus.queued"), tone: "amber" };
-  if (submission.latestCurationTargetStatus === "running")
-    return { label: t("enrichmentStatus.running"), tone: "amber" };
-  if (submission.latestCurationTargetStatus === "failed")
+  if (submission.reviewStage === "enriching") {
+    return submission.latestCurationTargetStatus === "running"
+      ? { label: t("enrichmentStatus.running"), tone: "amber" }
+      : { label: t("enrichmentStatus.queued"), tone: "amber" };
+  }
+  if (
+    submission.latestCurationTargetStatus === "failed" ||
+    submission.latestCurationDispatchStatus === "failed" ||
+    submission.latestCurationJobStatus === "failed" ||
+    submission.latestCurationJobStatus === "cancelled"
+  )
     return { label: t("enrichmentStatus.failed"), tone: "red" };
   if (submission.latestCurationTargetStatus === "skipped")
     return { label: t("enrichmentStatus.skipped"), tone: "grey" };

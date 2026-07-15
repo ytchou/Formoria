@@ -356,8 +356,13 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
                       ? ` · Changed: ${phase.changedFields.join(", ")}`
                       : ""}
                   </p>
+                  {phaseDescription(phase.phase) ? (
+                    <p className="mt-2 text-sm">
+                      {phaseDescription(phase.phase)}
+                    </p>
+                  ) : null}
                   {phase.detail ? (
-                    <p className="mt-2 text-sm">{phase.detail}</p>
+                    <p className="mt-2 text-sm">{formatPhaseDetail(phase)}</p>
                   ) : null}
                   {phase.error ? (
                     <p className="mt-2 text-sm text-destructive">
@@ -398,6 +403,26 @@ function parsePhaseResults(value: Json): PhaseResult[] {
       },
     ];
   });
+}
+
+function phaseDescription(phase: string): string | null {
+  if (phase === "detect") {
+    return "Checks whether this entry is a real brand and may update its name, slug, or product type.";
+  }
+
+  return null;
+}
+
+function formatPhaseDetail(phase: PhaseResult): string {
+  if (
+    phase.phase === "detect" &&
+    phase.status === "skipped" &&
+    phase.detail === "no detect result"
+  ) {
+    return "Skipped because the detection service returned no usable result for this brand. No detection fields were changed, and the job continued with the other phases.";
+  }
+
+  return phase.detail ?? "";
 }
 
 function formatTargetDuration(target: CurationJobTarget): string {

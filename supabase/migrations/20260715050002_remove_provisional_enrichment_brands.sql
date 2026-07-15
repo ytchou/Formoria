@@ -12,10 +12,21 @@ set enriched_data = coalesce(submission.enriched_data, '{}'::jsonb) ||
   jsonb_strip_nulls(jsonb_build_object(
     'name', brand.name,
     'description', brand.description,
+    'description_en', brand.description_en,
+    'blurb', brand.blurb,
+    'blurb_en', brand.blurb_en,
+    'city', brand.city,
+    'category_attributes', brand.category_attributes,
+    'reputation_summary', brand.reputation_summary,
+    'retail_locations', brand.retail_locations,
+    'mit_evidence', brand.mit_evidence,
+    'site_content', brand.site_content,
+    'founding_year', brand.founding_year,
     'hero_image_url', brand.hero_image_url,
     'product_type', brand.product_type,
     'price_range', brand.price_range,
     'product_tags', brand.product_tags,
+    'product_tags_en', brand.product_tags_en,
     'social_instagram', brand.social_instagram,
     'social_threads', brand.social_threads,
     'social_facebook', brand.social_facebook,
@@ -241,6 +252,13 @@ begin
     name,
     slug,
     description,
+    description_en,
+    blurb,
+    blurb_en,
+    city,
+    category_attributes,
+    reputation_summary,
+    mit_evidence,
     hero_image_url,
     status,
     is_demo,
@@ -259,12 +277,20 @@ begin
     submitted_at,
     approved_at,
     price_range,
-    product_tags
+    product_tags,
+    product_tags_en
   )
   select
     brand.name,
     brand.slug,
     brand.description,
+    brand.description_en,
+    brand.blurb,
+    brand.blurb_en,
+    brand.city,
+    brand.category_attributes,
+    brand.reputation_summary,
+    brand.mit_evidence,
     brand.hero_image_url,
     'approved',
     coalesce(brand.is_demo, false),
@@ -283,11 +309,19 @@ begin
     brand.submitted_at,
     brand.approved_at,
     brand.price_range,
-    brand.product_tags
+    brand.product_tags,
+    brand.product_tags_en
   from jsonb_to_record(coalesce(p_brand_data, '{}'::jsonb)) as brand(
     name text,
     slug text,
     description text,
+    description_en text,
+    blurb text,
+    blurb_en text,
+    city text,
+    category_attributes jsonb,
+    reputation_summary jsonb,
+    mit_evidence jsonb,
     hero_image_url text,
     is_demo boolean,
     product_type text,
@@ -305,7 +339,8 @@ begin
     submitted_at timestamptz,
     approved_at timestamptz,
     price_range smallint,
-    product_tags text[]
+    product_tags text[],
+    product_tags_en text[]
   )
   returning id into v_brand_id;
 

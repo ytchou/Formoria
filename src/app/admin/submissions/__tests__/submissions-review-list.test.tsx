@@ -63,6 +63,9 @@ type ReviewSubmission = BrandSubmission & {
   latestCurationJobId?: string | null
   latestCurationPhase?: string | null
   latestCurationError?: string | null
+  latestCurationJobStatus?: string | null
+  latestCurationDispatchStatus?: 'pending' | 'dispatched' | 'failed' | null
+  reviewStage: 'needs_data' | 'enriching' | 'ready' | 'approved' | 'rejected'
 }
 
 function makeSubmission(overrides: Partial<ReviewSubmission> = {}): ReviewSubmission {
@@ -93,6 +96,7 @@ function makeSubmission(overrides: Partial<ReviewSubmission> = {}): ReviewSubmis
     intent: 'owner_claim',
     isBrandOwner: true,
     sourceAttribution: null,
+    reviewStage: 'needs_data',
     ...overrides,
   }
 }
@@ -102,7 +106,7 @@ function renderReviewList(initialTab: TabValue = 'needs_data') {
 }
 
 function renderReviewListWithSubmissions(
-  submissions: BrandSubmission[],
+  submissions: ReviewSubmission[],
   initialTab: TabValue = 'needs_data',
 ) {
   return renderWithIntl(<SubmissionsReviewList submissions={submissions} initialTab={initialTab} />)
@@ -179,6 +183,7 @@ describe('SubmissionsReviewList — enrichment approval gate', () => {
           productType: 'crafts',
         },
         latestCurationTargetStatus: 'succeeded',
+        reviewStage: 'ready',
       }),
       makeSubmission({ id: 'partial-submission', brandName: 'Partial Brand' }),
     ], 'ready')
@@ -207,6 +212,20 @@ describe('SubmissionsReviewList — enrichment approval gate', () => {
       '/admin/jobs/failed-job',
     )
     expect(screen.getAllByRole('button', { name: 'Approve' }).every((button) => button.hasAttribute('disabled'))).toBe(true)
+  })
+
+  it('does not label a target as running after its parent job failed', () => {
+    renderReviewListWithSubmissions([
+      makeSubmission({
+        brandName: 'Stopped Enrichment',
+        latestCurationTargetStatus: 'running',
+        latestCurationJobStatus: 'failed',
+        reviewStage: 'needs_data',
+      }),
+    ])
+
+    expect(screen.getByText('Failed')).toBeInTheDocument()
+    expect(screen.queryByText('Running')).not.toBeInTheDocument()
   })
 })
 
@@ -292,7 +311,9 @@ describe('SubmissionsReviewList — bulk enrichment', () => {
     const user = userEvent.setup()
     renderReviewList()
 
-    await user.click(screen.getAllByRole('checkbox')[1])
+    const submissionCheckbox = screen.getAllByRole('checkbox').at(1)
+    if (!submissionCheckbox) throw new Error('Submission checkbox not found')
+    await user.click(submissionCheckbox)
     await user.click(screen.getByRole('button', { name: 'Fetch Data' }))
 
     await waitFor(() => expect(toast.error).toHaveBeenCalled())

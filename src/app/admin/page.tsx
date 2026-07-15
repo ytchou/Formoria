@@ -23,7 +23,6 @@ import { getPendingEdits } from "@/lib/services/pending-edits";
 import { getPendingReports } from "@/lib/services/reports";
 import { getSubmissionsForReview } from "@/lib/services/submissions";
 import { createServiceClient } from "@/lib/supabase/server";
-import { hasCompleteEnrichment } from "@/lib/types/enriched-data";
 
 type QueueItem = {
   id: string;
@@ -107,16 +106,10 @@ export default async function AdminPage() {
     (submission) => submission.status === "pending",
   );
   const readySubmissions = pendingSubmissions.filter(
-    (submission) =>
-      hasCompleteEnrichment(
-        submission.enriched_data,
-        submission.heroImageUrl,
-      ) &&
-      (!submission.latestCurationTargetStatus ||
-        submission.latestCurationTargetStatus === "succeeded"),
+    (submission) => submission.reviewStage === "ready",
   );
   const dataWorkSubmissions = pendingSubmissions.filter(
-    (submission) => !readySubmissions.includes(submission),
+    (submission) => submission.reviewStage !== "ready",
   );
 
   const queues: ReviewQueue[] = [

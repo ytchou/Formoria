@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { cleanBrandName } from "./brand-cleanup";
 import { insertSlugRedirect, updateBrand } from "./brands";
 import type { BrandFlatLinkColumns } from "@/lib/types";
+import type { SiteContent } from "@/lib/types/brand";
 import type { ScrapedBrandData } from "@/lib/types/scraper";
 import { ENRICH_PHASES } from "@/lib/constants/enrich-phases";
 import {
@@ -73,8 +74,13 @@ type CurationBrand = {
   status?: string | null;
   description?: string | null;
   description_en?: string | null;
+  city?: string | null;
   product_type?: string | null;
   category_attributes?: unknown | null;
+  site_content?: SiteContent | null;
+  reputation_summary?: unknown | null;
+  retail_locations?: unknown | null;
+  mit_evidence?: unknown | null;
   purchase_website?: string | null;
   purchaseWebsite?: string | null;
 };
@@ -227,11 +233,7 @@ export { ENRICH_PHASES };
 
 type EnrichPhase = "clean" | "links" | "images" | "descriptions" | "tags";
 type RunEnrichPhase =
-  | EnrichPhase
-  | "discover"
-  | "detect"
-  | "slugs"
-  | "expansion";
+  EnrichPhase | "discover" | "detect" | "slugs" | "expansion";
 
 type EnrichBrand = CurationBrand &
   Partial<BrandFlatLinkColumns> & {
@@ -706,6 +708,18 @@ function submissionToEnrichBrand(
       typeof existing.description === "string"
         ? existing.description
         : submission.description,
+    description_en:
+      typeof existing.description_en === "string"
+        ? existing.description_en
+        : null,
+    city: typeof existing.city === "string" ? existing.city : null,
+    category_attributes: existing.category_attributes ?? null,
+    site_content: isPlainObject(existing.site_content)
+      ? (existing.site_content as EnrichBrand["site_content"])
+      : null,
+    reputation_summary: existing.reputation_summary ?? null,
+    retail_locations: existing.retail_locations ?? null,
+    mit_evidence: existing.mit_evidence ?? null,
     product_type:
       typeof existing.product_type === "string" ? existing.product_type : null,
     social_instagram:
@@ -1122,18 +1136,20 @@ export async function runEnrich(
       };
       const recordOutcome = async (outcome: BrandOutcome): Promise<void> => {
         result.brandOutcomes.push(outcome);
-        await emitTargetProgressBatch([{
-          targetId: brand.id,
-          targetType,
-          slug: brand.slug,
-          name: getDisplayBrandName(brand),
-          status: outcome.status,
-          currentPhase,
-          phaseResults: outcome.phaseResults,
-          changedFields: outcome.changedFields,
-          error: outcome.error,
-          durationMs: Date.now() - brandStartedAt,
-        }]);
+        await emitTargetProgressBatch([
+          {
+            targetId: brand.id,
+            targetType,
+            slug: brand.slug,
+            name: getDisplayBrandName(brand),
+            status: outcome.status,
+            currentPhase,
+            phaseResults: outcome.phaseResults,
+            changedFields: outcome.changedFields,
+            error: outcome.error,
+            durationMs: Date.now() - brandStartedAt,
+          },
+        ]);
       };
       let outcomePhaseResults: PhaseResult[] = [];
 
@@ -1440,10 +1456,7 @@ export async function runEnrich(
               `  [WEAK-BRAND] ${brand.slug}: no useful data found (${state.discoveredUrls.length} search results, no enrichment changes)`,
             );
           }
-          if (
-            !config.dryRun &&
-            descriptionsResult.attempts.length > 0
-          ) {
+          if (!config.dryRun && descriptionsResult.attempts.length > 0) {
             await logDescriptionAiResult(
               brand.id,
               descriptionsResult.attempts,

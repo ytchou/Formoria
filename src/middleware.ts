@@ -47,6 +47,8 @@ export const RESERVED_ROUTES = new Set([
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{2,79}$/
 const intlMiddleware = createMiddleware(routing)
 const KNOWN_LOCALES = new Set<string>(routing.locales)
+const ADMIN_DEFAULT_LOCALE = 'en'
+const NEXT_INTL_LOCALE_HEADER = 'X-NEXT-INTL-LOCALE'
 const PUBLIC_INTL_SEGMENTS = new Set([
   'brands',
   'guides',
@@ -260,9 +262,16 @@ export async function middleware(request: NextRequest) {
     return localeResponse
   }
 
-  const response = isPublicPath
-    ? intlMiddleware(request)
-    : NextResponse.next({ request })
+  let response: NextResponse
+  if (isPublicPath) {
+    response = intlMiddleware(request)
+  } else {
+    const requestHeaders = new Headers(request.headers)
+    if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+      requestHeaders.set(NEXT_INTL_LOCALE_HEADER, ADMIN_DEFAULT_LOCALE)
+    }
+    response = NextResponse.next({ request: { headers: requestHeaders } })
+  }
 
   const resolvedLocale = explicitLocale ?? inferredLocale
   if (resolvedLocale && !isRscOrPrefetch) {

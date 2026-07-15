@@ -149,7 +149,7 @@ test.describe('Admin curation jobs deep', () => {
     test.setTimeout(120_000);
 
     await adminPage.goto('/admin/jobs', { timeout: 60_000 });
-    await expect(adminPage.getByRole('heading', { name: '資料工作' })).toBeVisible({ timeout: 60_000 });
+    await expect(adminPage.getByRole('heading', { name: 'Data Jobs' })).toBeVisible({ timeout: 60_000 });
 
     const historyLink = adminPage.locator(`a[href="/admin/jobs/${parentJobId}"]`);
     const historyRow = adminPage.locator('tbody tr').filter({ has: historyLink });
@@ -157,28 +157,28 @@ test.describe('Admin curation jobs deep', () => {
       await adminPage.reload({ timeout: 60_000 });
       await expect(historyLink).toHaveCount(1);
       await expect(historyRow).toBeVisible();
-      await expect(historyRow).toContainText('完成但有失敗');
-      await expect(historyRow).toContainText('0 成功、0 略過、1 失敗');
+      await expect(historyRow).toContainText('Completed with failures');
+      await expect(historyRow).toContainText('0 ok, 0 skipped, 1 failed');
     }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
 
     await historyLink.click();
     await expect(adminPage).toHaveURL(new RegExp(`/admin/jobs/${parentJobId}$`), { timeout: 60_000 });
-    await expect(adminPage.getByRole('heading', { name: '資料工作' })).toBeVisible({ timeout: 60_000 });
+    await expect(adminPage.getByRole('heading', { name: 'Job Detail' })).toBeVisible({ timeout: 60_000 });
     await expect(adminPage.getByText(parentJobId, { exact: true })).toBeVisible();
 
-    const triggerField = adminPage.getByText('觸發來源', { exact: true }).locator('..');
-    const attemptField = adminPage.getByText('嘗試次數', { exact: true }).locator('..');
-    const startedByField = adminPage.getByText('執行者', { exact: true }).locator('..');
-    await expect(triggerField).toContainText('管理員');
+    const triggerField = adminPage.getByText('Trigger', { exact: true }).locator('..');
+    const attemptField = adminPage.getByText('Attempt', { exact: true }).locator('..');
+    const startedByField = adminPage.getByText('Started by', { exact: true }).locator('..');
+    await expect(triggerField).toContainText('Admin');
     await expect(attemptField).toContainText('1');
     await expect(startedByField).toContainText('e2e-admin-jobs');
 
     const targetRow = adminPage.locator('tbody tr').filter({ hasText: brandName });
     await expect(targetRow).toBeVisible();
-    await expect(targetRow).toContainText('失敗');
+    await expect(targetRow).toContainText('Failed');
     await expect(targetRow).toContainText('descriptions');
 
-    const detailsToggle = targetRow.getByText('查看明細', { exact: true });
+    const detailsToggle = targetRow.getByText('View details', { exact: true });
     await expect(detailsToggle).toHaveCount(1);
     await detailsToggle.click();
 
@@ -202,19 +202,19 @@ test.describe('Admin curation jobs deep', () => {
 
     const childTargetRow = adminPage.locator('tbody tr').filter({ hasText: brandName });
     const parentLineageLink = adminPage.getByRole('link', {
-      name: '上一個工作（第 1 次）',
+      name: 'Previous job (attempt 1)',
       exact: true,
     });
     await expect(async () => {
       await adminPage.reload({ timeout: 60_000 });
-      const childTriggerField = adminPage.getByText('觸發來源', { exact: true }).locator('..');
-      await expect(childTriggerField).toContainText('手動重跑');
+      const childTriggerField = adminPage.getByText('Trigger', { exact: true }).locator('..');
+      await expect(childTriggerField).toContainText('Manual rerun');
       await expect(childTargetRow).toBeVisible();
       await expect(childTargetRow).toContainText(brandName);
       await expect(parentLineageLink).toHaveAttribute('href', `/admin/jobs/${parentJobId}`);
     }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
 
-    const childDetailsToggle = childTargetRow.getByText('查看明細', { exact: true });
+    const childDetailsToggle = childTargetRow.getByText('View details', { exact: true });
     await expect(childDetailsToggle).toHaveCount(1);
     await childDetailsToggle.click();
     await expect(childTargetRow.locator('details')).toContainText(brandSlug);

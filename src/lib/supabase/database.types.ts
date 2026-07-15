@@ -564,9 +564,12 @@ export type Database = {
           brand_enriched_at: string | null
           category_attributes: Json | null
           city: string | null
+          blurb: string | null
+          blurb_en: string | null
           contact_email: string | null
           created_at: string | null
           description: string | null
+          description_en: string | null
           draft_data: Json | null
           draft_updated_at: string | null
           founding_year: number | null
@@ -581,6 +584,7 @@ export type Database = {
           other_urls: Json
           price_range: number | null
           product_tags: string[] | null
+          product_tags_en: string[] | null
           product_type: string | null
           purchase_pinkoi: string | null
           purchase_shopee: string | null
@@ -603,9 +607,12 @@ export type Database = {
           brand_enriched_at?: string | null
           category_attributes?: Json | null
           city?: string | null
+          blurb?: string | null
+          blurb_en?: string | null
           contact_email?: string | null
           created_at?: string | null
           description?: string | null
+          description_en?: string | null
           draft_data?: Json | null
           draft_updated_at?: string | null
           founding_year?: number | null
@@ -620,6 +627,7 @@ export type Database = {
           other_urls?: Json
           price_range?: number | null
           product_tags?: string[] | null
+          product_tags_en?: string[] | null
           product_type?: string | null
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null
@@ -642,9 +650,12 @@ export type Database = {
           brand_enriched_at?: string | null
           category_attributes?: Json | null
           city?: string | null
+          blurb?: string | null
+          blurb_en?: string | null
           contact_email?: string | null
           created_at?: string | null
           description?: string | null
+          description_en?: string | null
           draft_data?: Json | null
           draft_updated_at?: string | null
           founding_year?: number | null
@@ -659,6 +670,7 @@ export type Database = {
           other_urls?: Json
           price_range?: number | null
           product_tags?: string[] | null
+          product_tags_en?: string[] | null
           product_type?: string | null
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null
