@@ -17,6 +17,10 @@
     "e2e/tests/admin-dashboard.spec.ts",
     "e2e/tests/admin-moderation.spec.ts"
   ],
+  "src/app/admin/jobs": [
+    "e2e/tests/admin-jobs.spec.ts",
+    "e2e/tests/admin-runlog.spec.ts"
+  ],
   "src/app/[locale]/guides": [
     "e2e/tests/guide-detail.spec.ts",
     "e2e/tests/glossary.spec.ts"
