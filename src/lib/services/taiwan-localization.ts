@@ -75,13 +75,12 @@ function protectSpans(
     return `\u0000TW_PROTECTED_${index}\u0000`;
   };
 
-  let protectedText = text.replace(URL_PATTERN, protect);
+  let protectedText = text.replace(QUOTED_SPAN_PATTERN, protect);
+  protectedText = protectedText.replace(URL_PATTERN, protect);
 
   if (brandName) {
     protectedText = protectedText.split(brandName).join(protect(brandName));
   }
-
-  protectedText = protectedText.replace(QUOTED_SPAN_PATTERN, protect);
 
   return { text: protectedText, spans };
 }

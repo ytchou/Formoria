@@ -94,6 +94,14 @@ describe("localizeToTW — vocabulary", () => {
     expect(r.text).toBe("信息設計坊提供優質資訊服務");
   });
 
+  it("preserves a brand name inside protected quotes without leaving placeholders", () => {
+    const r = localizeToTW("品牌「信息設計坊」提供信息服務", {
+      brandName: "信息設計坊",
+    });
+    expect(r.text).toBe("品牌「信息設計坊」提供資訊服務");
+    expect(r.text).not.toContain("TW_PROTECTED");
+  });
+
   it("preserves text inside「」quotes", () => {
     const r = localizeToTW("他說「這個視頻質量不錯」但我覺得信息不足");
     expect(r.text).toBe("他說「這個視頻質量不錯」但我覺得資訊不足");
