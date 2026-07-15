@@ -1,5 +1,6 @@
 import sharp from 'sharp'
 
+import { processImage } from '@/lib/security/image-processor'
 import { createServiceClient } from '@/lib/supabase/server'
 import type { CandidateImageSource } from './enrich-phases/candidate-pool'
 import {
@@ -64,7 +65,7 @@ function deduplicateCandidates(candidates: DownloadImageCandidate[]): DownloadIm
 
 const PHASH_HAMMING_THRESHOLD = 5
 
-async function computeDHash(buffer: Buffer): Promise<string> {
+export async function computeDHash(buffer: Buffer): Promise<string> {
   const pixels = await sharp(buffer)
     .greyscale()
     .resize(9, 8, { fit: 'fill' })
@@ -198,13 +199,33 @@ export async function downloadAndStoreImages(
           throw new Error(`Perceptual duplicate detected (dHash), skipping`)
         }
 
-        const ext = getExtFromContentType(contentType || 'image/jpeg')
+        let uploadBuffer: Buffer = buffer
+        let uploadContentType = contentType
+        let uploadWidth = width
+        let uploadHeight = height
+        let ext = getExtFromContentType(contentType || 'image/jpeg')
+        if (contentType !== 'image/gif') {
+          const processed = await processImage(buffer, {
+            maxWidth: 1600,
+            maxHeight: 1600,
+            maxFileSizeBytes: 30 * 1024 * 1024,
+          })
+          uploadBuffer = processed.buffer
+          uploadContentType = processed.contentType
+          uploadWidth = processed.width
+          uploadHeight = processed.height
+          ext = 'webp'
+        }
+
         const filename = `${storage.prefix}/${target.id}/${crypto.randomUUID()}.${ext}`
         const dominantColor = dominantColorToHex(stats.dominant)
 
         const { error: uploadError } = await supabase.storage
           .from('brand-images')
-          .upload(filename, buffer, { contentType })
+          .upload(filename, uploadBuffer, {
+            contentType: uploadContentType,
+            cacheControl: '31536000',
+          })
 
         if (uploadError) {
           throw uploadError
@@ -223,8 +244,8 @@ export async function downloadAndStoreImages(
             source_url: url,
             storage_path: filename,
             status: 'active',
-            width,
-            height,
+            width: uploadWidth,
+            height: uploadHeight,
             dominant_color: dominantColor,
             phash,
           } as never, { onConflict: `${storage.foreignKey},source_url` })
