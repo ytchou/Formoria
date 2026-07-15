@@ -15,8 +15,7 @@
   "ignoreBinaries": ["dotenv"],
   "ignore": [
     "src/lib/supabase/database.types.ts",
-    "src/lib/logger.ts",
-    "scripts/threads-scraper/**"
+    "src/lib/logger.ts"
   ],
   "ignoreIssues": {
     "src/components/ui/card.tsx": ["exports"]
