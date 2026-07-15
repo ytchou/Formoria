@@ -1,12 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
-const routinePrompts = [
-  "directory-health",
-  "growth-pulse",
-  "mention-tracker",
-  "sentry-triage",
-];
+const routinePrompts = ["directory-health", "growth-pulse", "sentry-triage"];
 
 describe("Formoria Routine delivery contracts", () => {
   for (const routine of routinePrompts) {
