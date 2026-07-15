@@ -51,10 +51,12 @@ export function JobDetailView({
   detail,
   selectedStatus,
   railwayLogsUrl,
+  snapshotUrl,
 }: {
   detail: CurationJobDetail;
   selectedStatus: "all" | CurationTargetStatus;
   railwayLogsUrl?: string;
+  snapshotUrl?: string | null;
 }) {
   const { job, targets, parent, children } = detail;
   const visibleTargets =
@@ -112,6 +114,41 @@ export function JobDetailView({
               jobId={job.id}
               label="Rerun unfinished submissions"
             />
+          ) : null}
+          <Link
+            href={`/admin/jobs/${job.id}/runlog`}
+            className={buttonVariants({
+              variant: "secondary",
+              size: "large",
+              className: "min-h-12",
+            })}
+          >
+            Run Log
+          </Link>
+          <a
+            href={`/admin/jobs/${job.id}/runlog?download=1`}
+            className={buttonVariants({
+              variant: "secondary",
+              size: "large",
+              className: "min-h-12",
+            })}
+          >
+            Download HTML
+          </a>
+          {snapshotUrl ? (
+            <a
+              href={snapshotUrl}
+              target="_blank"
+              rel="noreferrer"
+              className={buttonVariants({
+                variant: "secondary",
+                size: "large",
+                className: "min-h-12",
+              })}
+            >
+              <ExternalLink aria-hidden="true" />
+              Snapshot
+            </a>
           ) : null}
           {railwayLogsUrl ? (
             <a

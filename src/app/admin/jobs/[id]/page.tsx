@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getCurationJobDetailAction } from "@/app/admin/operations/actions";
 import type { CurationTargetStatus } from "@/lib/services/curation-jobs";
+import { getRunLogSnapshotUrl } from "@/lib/services/runlog-storage";
 import { JobDetailView } from "./job-detail-view";
 
 export const metadata: Metadata = { title: "Job Detail | Admin" };
@@ -13,6 +14,7 @@ const validStatuses = new Set<string>([
   "skipped",
   "failed",
 ]);
+const terminalJobStatuses = new Set(["completed", "failed", "cancelled"]);
 
 export default async function JobDetailPage({
   params,
@@ -40,11 +42,21 @@ export default async function JobDetailPage({
     );
   }
 
+  let snapshotUrl: string | null = null;
+  if (terminalJobStatuses.has(result.detail.job.status)) {
+    try {
+      snapshotUrl = await getRunLogSnapshotUrl(id);
+    } catch {
+      snapshotUrl = null;
+    }
+  }
+
   return (
     <JobDetailView
       detail={result.detail}
       selectedStatus={selectedStatus}
       railwayLogsUrl={process.env.RAILWAY_LOGS_URL}
+      snapshotUrl={snapshotUrl}
     />
   );
 }
