@@ -87,7 +87,7 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext, serpResults?: 
         const rows = imageSearchRows.get(brandName)
         if (rows && rows.length > 0) {
           await insertSearchResult(
-            brand.id,
+            { type: ctx.targetType ?? 'brand', id: brand.id },
             'image',
             rows.at(0)?.query ?? `${brandName} 台灣`,
             rows.map((row: BrandImageSearchResult) => row.url),

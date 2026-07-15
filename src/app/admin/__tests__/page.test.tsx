@@ -124,6 +124,9 @@ function makeSubmission(
     latestCurationJobId: null,
     latestCurationPhase: null,
     latestCurationError: null,
+    latestCurationJobStatus: null,
+    latestCurationDispatchStatus: null,
+    reviewStage: 'needs_data',
     ...overrides,
   }
 }
@@ -350,6 +353,41 @@ describe('AdminPage', () => {
 
     expect(screen.getByText('Total Brands')).toBeInTheDocument()
     expect(screen.getByText('42')).toBeInTheDocument()
+  })
+
+  it('uses the derived submission stage for dashboard queue counts', async () => {
+    vi.mocked(getSubmissionsForReview).mockResolvedValueOnce([
+      makeSubmission({
+        id: 'complete-without-success',
+        enriched_data: {
+          description: 'Complete data without a successful run',
+          heroImageUrl: 'https://example.com/incomplete-run.webp',
+          productType: 'crafts',
+        },
+        reviewStage: 'needs_data',
+      }),
+      makeSubmission({
+        id: 'successful-enrichment',
+        enriched_data: {
+          description: 'Complete data from a successful run',
+          heroImageUrl: 'https://example.com/ready.webp',
+          productType: 'crafts',
+        },
+        latestCurationTargetStatus: 'succeeded',
+        reviewStage: 'ready',
+      }),
+    ])
+
+    render(await AdminDashboardPage())
+
+    const needsDataHeader = screen.getByRole('heading', {
+      name: 'Needs Data Work',
+    })
+    const readyHeader = screen.getByRole('heading', {
+      name: 'Ready for Review',
+    })
+    expect(needsDataHeader.parentElement?.parentElement).toHaveTextContent('1')
+    expect(readyHeader.parentElement?.parentElement).toHaveTextContent('1')
   })
 
   it('shows empty collapsed state for zero-count queues', async () => {

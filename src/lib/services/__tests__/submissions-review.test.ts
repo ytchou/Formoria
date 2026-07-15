@@ -16,14 +16,15 @@ describe("submission review curation history", () => {
   });
 
   it("pages target history so older submissions retain their latest state", async () => {
-    const rows = Array.from({ length: 1_001 }, (_, index) =>
-      submission(`submission-${index}`),
-    );
+    const rows = [submission("submission-1")];
     const historyPages = [
-      Array.from({ length: 1_000 }, (_, index) =>
-        target(`submission-${index}`, "succeeded"),
-      ),
-      [target("submission-1000", "running")],
+      [
+        target("submission-1", "running"),
+        ...Array.from({ length: 999 }, () =>
+          target("submission-1", "succeeded"),
+        ),
+      ],
+      [target("submission-1", "succeeded")],
     ];
     const ranges: Array<[number, number]> = [];
     const submissionQuery = {
@@ -31,18 +32,30 @@ describe("submission review curation history", () => {
       order: vi.fn().mockResolvedValue({ data: rows, error: null }),
     };
     const historyQuery = pagedQuery(historyPages, ranges);
-    mocks.from.mockImplementation((table: string) =>
-      table === "brand_submissions" ? submissionQuery : historyQuery,
+    const jobsQuery = listQuery(
+      rows.map((row) => ({
+        id: `job-${row.id}`,
+        status: "running",
+        dispatch_status: "dispatched",
+        dispatch_error: null,
+        job_error: null,
+      })),
     );
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "brand_submissions") return submissionQuery;
+      if (table === "curation_job_targets") return historyQuery;
+      return jobsQuery;
+    });
 
     const result = await getSubmissionsForReview();
     const olderSubmission = result.find(
-      (item) => item.id === "submission-1000",
+      (item) => item.id === "submission-1",
     );
 
     expect(olderSubmission).toMatchObject({
       latestCurationTargetStatus: "running",
-      latestCurationJobId: "job-submission-1000",
+      latestCurationJobId: "job-submission-1",
+      reviewStage: "enriching",
     });
     expect(ranges).toEqual([
       [0, 999],
@@ -54,6 +67,26 @@ describe("submission review curation history", () => {
     expect(historyQuery.order).toHaveBeenNthCalledWith(2, "id", {
       ascending: false,
     });
+  });
+
+  it("chunks large submission filters before querying PostgREST", async () => {
+    const rows = Array.from({ length: 201 }, (_, index) =>
+      submission(`submission-${index}`),
+    );
+    const targetIdChunks: string[][] = [];
+    const submissionQuery = {
+      select: vi.fn(() => submissionQuery),
+      order: vi.fn().mockResolvedValue({ data: rows, error: null }),
+    };
+    const historyQuery = pagedQuery([[], []], [], targetIdChunks);
+    mocks.from.mockImplementation((table: string) =>
+      table === "brand_submissions" ? submissionQuery : historyQuery,
+    );
+
+    await getSubmissionsForReview();
+
+    expect(targetIdChunks).toHaveLength(2);
+    expect(targetIdChunks.every((ids) => ids.length <= 200)).toBe(true);
   });
 });
 
@@ -68,17 +101,29 @@ type Query = {
 function pagedQuery(
   pages: Array<Array<Record<string, unknown>>>,
   ranges: Array<[number, number]>,
+  targetIdChunks: string[][] = [],
 ): Query {
   let page = 0;
   const query = {} as Query;
   query.select = vi.fn(() => query);
   query.eq = vi.fn(() => query);
-  query.in = vi.fn(() => query);
+  query.in = vi.fn((_column: string, ids: string[]) => {
+    targetIdChunks.push(ids);
+    return query;
+  });
   query.order = vi.fn(() => query);
   query.range = vi.fn(async (from: number, to: number) => {
     ranges.push([from, to]);
     return { data: pages[page++] ?? [], error: null };
   });
+  return query;
+}
+
+function listQuery(rows: Array<Record<string, unknown>>) {
+  const query = {
+    select: vi.fn(() => query),
+    in: vi.fn().mockResolvedValue({ data: rows, error: null }),
+  };
   return query;
 }
 

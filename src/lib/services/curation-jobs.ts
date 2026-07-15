@@ -332,6 +332,7 @@ export async function enqueueManualRerun(
           : null;
       if (
         submission.status === "pending" &&
+        submission.brand_id === null &&
         !hasCompleteEnrichment(enrichedData, submission.hero_image_url)
       ) {
         incompleteSubmissionIds.add(submission.id);
@@ -585,28 +586,14 @@ async function resolvePendingSubmissionTargets(): Promise<EnqueueTarget[]> {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("brand_submissions")
-    .select("id, brand_name, hero_image_url, enriched_data, brand_id")
+    .select("id, brand_name, hero_image_url, enriched_data")
     .eq("status", "pending")
+    .is("brand_id", null)
     .order("submitted_at", { ascending: true });
 
   if (error) throw error;
 
-  const linkedBrandIds = (data ?? [])
-    .map((s) => s.brand_id)
-    .filter((id): id is string => id !== null);
-  let approvedBrandIds = new Set<string>();
-  if (linkedBrandIds.length > 0) {
-    const { data: brands } = await supabase
-      .from("brands")
-      .select("id")
-      .in("id", linkedBrandIds)
-      .neq("status", "pending_enrichment");
-    approvedBrandIds = new Set((brands ?? []).map((b) => b.id));
-  }
-
   const candidates = (data ?? []).filter((submission) => {
-    if (submission.brand_id && approvedBrandIds.has(submission.brand_id))
-      return false;
     const enrichedData =
       submission.enriched_data &&
       typeof submission.enriched_data === "object" &&
@@ -650,47 +637,19 @@ async function resolveSubmissionTargets(
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("brand_submissions")
-    .select("id, brand_id, brand_name")
+    .select("id, brand_name, status")
     .in("id", submissionIds);
 
   if (error) throw error;
 
-  const linkedBrandIds = (data ?? [])
-    .map((submission) => submission.brand_id)
-    .filter((brandId): brandId is string => Boolean(brandId));
-  const linkedBrands = new Map<
-    string,
-    { id: string; name: string; slug: string }
-  >();
-
-  if (linkedBrandIds.length > 0) {
-    const { data: brands, error: brandsError } = await supabase
-      .from("brands")
-      .select("id, name, slug")
-      .in("id", linkedBrandIds);
-
-    if (brandsError) throw brandsError;
-    for (const brand of brands ?? []) linkedBrands.set(brand.id, brand);
-  }
-
-  const targets = (data ?? []).map((submission) => {
-    const linkedBrand = submission.brand_id
-      ? linkedBrands.get(submission.brand_id)
-      : null;
-    return linkedBrand
-      ? {
-          targetType: "brand" as const,
-          targetId: linkedBrand.id,
-          brandName: linkedBrand.name,
-          brandSlug: linkedBrand.slug,
-        }
-      : {
-          targetType: "submission" as const,
-          targetId: submission.id,
-          brandName: submission.brand_name,
-          brandSlug: null,
-        };
-  });
+  const targets = (data ?? [])
+    .filter((submission) => submission.status === "pending")
+    .map((submission) => ({
+      targetType: "submission" as const,
+      targetId: submission.id,
+      brandName: submission.brand_name,
+      brandSlug: null,
+    }));
 
   return [
     ...new Map(

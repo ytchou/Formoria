@@ -6,6 +6,12 @@ import { syncHeroDenormalized, type BrandImageRow } from '../brand-images'
 import { localizeToTW } from '../taiwan-localization'
 import { createServiceClient } from '@/lib/supabase/server'
 import type { PhaseResult } from '@/lib/types/curation'
+import {
+  brandTarget,
+  targetForeignKey,
+  targetImageStorage,
+  type EnrichmentTarget,
+} from '../enrichment-target'
 import { buildPhaseResult, timePhase, type EnrichBrand, type EnrichPhase } from './types'
 
 const BATCH_SIZE = 20
@@ -49,10 +55,12 @@ type ClassifyImagesPhaseOptions = {
   phases: EnrichPhase[]
   dryRun?: boolean
   overwrite?: boolean
+  target?: EnrichmentTarget
 }
 
 type ClassifyImagesPhaseOutput = {
   phaseResult: PhaseResult
+  patch: Record<string, unknown>
 }
 
 type BrandImageForClassification = BrandImageRow & {
@@ -87,7 +95,7 @@ type BrandImagesTable = {
 }
 
 type ClassifyImagesClient = {
-  from(table: 'brand_images'): BrandImagesTable
+  from(table: 'brand_images' | 'submission_images'): BrandImagesTable
   from(table: 'brand_ai_results'): AiResultsTable
 }
 
@@ -224,7 +232,7 @@ function classifyImagesClient(supabase: unknown): ClassifyImagesClient {
 
 async function insertRawClassificationResult(
   supabase: unknown,
-  brandId: string,
+  target: EnrichmentTarget,
   imageId: string,
   rawResponse: string | null,
   config: unknown,
@@ -233,7 +241,7 @@ async function insertRawClassificationResult(
   const { error } = await classifyImagesClient(supabase)
     .from('brand_ai_results')
     .insert({
-      brand_id: brandId,
+      ...targetForeignKey(target),
       phase: 'classify_images',
       model: 'gpt-4o-mini',
       raw_response: { imageId, response: rawResponse },
@@ -246,12 +254,13 @@ async function insertRawClassificationResult(
 
 async function getUnclassifiedImages(
   supabase: unknown,
-  brandId: string
+  target: EnrichmentTarget
 ): Promise<BrandImageForClassification[]> {
+  const storage = targetImageStorage(target)
   const { data, error } = await classifyImagesClient(supabase)
-    .from('brand_images')
+    .from(storage.table)
     .select('id, url, status, tags, score, sort_order')
-    .eq('brand_id', brandId)
+    .eq(storage.foreignKey, target.id)
     .eq('status', 'active')
     .is('tags', null)
     .order('sort_order', { ascending: true })
@@ -262,12 +271,13 @@ async function getUnclassifiedImages(
 
 async function getActiveImages(
   supabase: unknown,
-  brandId: string
+  target: EnrichmentTarget
 ): Promise<BrandImageForClassification[]> {
+  const storage = targetImageStorage(target)
   const { data, error } = await classifyImagesClient(supabase)
-    .from('brand_images')
+    .from(storage.table)
     .select('id, url, status, tags, score, sort_order')
-    .eq('brand_id', brandId)
+    .eq(storage.foreignKey, target.id)
     .eq('status', 'active')
     .order('sort_order', { ascending: true })
 
@@ -277,22 +287,28 @@ async function getActiveImages(
 
 async function updateImage(
   supabase: unknown,
+  target: EnrichmentTarget,
   imageId: string,
   row: Record<string, unknown>
 ): Promise<void> {
+  const storage = targetImageStorage(target)
   const { error } = await classifyImagesClient(supabase)
-    .from('brand_images')
+    .from(storage.table)
     .update(row)
     .eq('id', imageId)
 
   if (error) throw error
 }
 
-async function resetImageTags(supabase: unknown, brandId: string): Promise<number> {
+async function resetImageTags(
+  supabase: unknown,
+  target: EnrichmentTarget
+): Promise<number> {
+  const storage = targetImageStorage(target)
   const { data, error } = await classifyImagesClient(supabase)
-    .from('brand_images')
+    .from(storage.table)
     .update({ tags: null, score: null, alt_zh: null, alt_en: null, status: 'active' })
-    .eq('brand_id', brandId)
+    .eq(storage.foreignKey, target.id)
     .not('tags', 'is', null)
     .select('id')
   if (error) throw error
@@ -304,7 +320,9 @@ export async function runClassifyImagesPhase({
   phases,
   dryRun = false,
   overwrite = false,
+  target: requestedTarget,
 }: ClassifyImagesPhaseOptions): Promise<ClassifyImagesPhaseOutput> {
+  const target = requestedTarget ?? brandTarget(brand.id)
   if (!phases.includes('classify_images')) {
     return {
       phaseResult: buildPhaseResult(
@@ -315,25 +333,27 @@ export async function runClassifyImagesPhase({
         undefined,
         'classify_images phase not requested'
       ),
+      patch: {},
     }
   }
 
   if (dryRun) {
     return {
       phaseResult: buildPhaseResult('classify_images', 'skipped', [], 0, undefined, 'dry run'),
+      patch: {},
     }
   }
 
   const supabase = createServiceClient()
 
   if (overwrite) {
-    const resetCount = await resetImageTags(supabase, brand.id)
+    const resetCount = await resetImageTags(supabase, target)
     if (resetCount > 0) {
       console.log(`  [CLASSIFY] Reset tags on ${resetCount} images for reclassification`)
     }
   }
 
-  const images = await getUnclassifiedImages(supabase, brand.id)
+  const images = await getUnclassifiedImages(supabase, target)
   if (images.length === 0) {
     return {
       phaseResult: buildPhaseResult(
@@ -344,6 +364,7 @@ export async function runClassifyImagesPhase({
         undefined,
         'no unclassified images'
       ),
+      patch: {},
     }
   }
 
@@ -382,14 +403,16 @@ export async function runClassifyImagesPhase({
         ? parseClassificationBatch(response.content, chunk.length)
         : Array<null>(chunk.length).fill(null)
 
-      await insertRawClassificationResult(supabase, brand.id, chunk[0].id, response.content, config, batchLatencyMs)
+      const firstImage = chunk.at(0)
+      if (!firstImage) continue
+      await insertRawClassificationResult(supabase, target, firstImage.id, response.content, config, batchLatencyMs)
 
       for (let j = 0; j < chunk.length; j++) {
         const image = chunk[j]
         const classification = parsed[j] ?? null
 
         if (!classification) {
-          await updateImage(supabase, image.id, { status: 'rejected' })
+          await updateImage(supabase, target, image.id, { status: 'rejected' })
           continue
         }
 
@@ -398,7 +421,7 @@ export async function runClassifyImagesPhase({
           tag: classification.tag,
           score: classification.score,
         })
-        await updateImage(supabase, image.id, {
+        await updateImage(supabase, target, image.id, {
           tags: [classification.tag],
           score: classification.score,
           alt_zh: classification.altZh,
@@ -408,7 +431,7 @@ export async function runClassifyImagesPhase({
       }
     }
 
-    const activeImages = await getActiveImages(supabase, brand.id)
+    const activeImages = await getActiveImages(supabase, target)
     const { rejectedIds, ordered } = applyClassifications(
       activeImages
         .map(classifiedImageFromRow)
@@ -416,31 +439,41 @@ export async function runClassifyImagesPhase({
     )
 
     for (const id of rejectedIds) {
-      await updateImage(supabase, id, { status: 'rejected' })
+      await updateImage(supabase, target, id, { status: 'rejected' })
     }
 
     if (ordered.length === 0 && classifications.length > 0) {
       const best = classifications.toSorted((a, b) => b.score - a.score)[0]
       if (best.score >= MIN_HERO_SCORE) {
-        await updateImage(supabase, best.id, { status: 'active', sort_order: 0 })
+        await updateImage(supabase, target, best.id, { status: 'active', sort_order: 0 })
       }
     } else {
       for (const [index, image] of ordered.entries()) {
-        await updateImage(supabase, image.id, { sort_order: index })
+        await updateImage(supabase, target, image.id, { sort_order: index })
       }
     }
 
-    await syncHeroDenormalized(supabase, brand.id)
+    if (target.type === 'brand') {
+      await syncHeroDenormalized(supabase, target.id)
+    }
+
+    const finalActiveImages = target.type === 'submission'
+      ? await getActiveImages(supabase, target)
+      : []
 
     return {
       classifiedCount: classifications.length,
       rejectedCount: rejectedIds.length,
+      heroImageUrl: finalActiveImages.at(0)?.url ?? null,
     }
   })
 
   const changedFields = result.classifiedCount > 0
-    ? ['brand_images']
+    ? [target.type === 'brand' ? 'brand_images' : 'submission_images']
     : []
+  const patch = target.type === 'submission' && result.classifiedCount > 0
+    ? { hero_image_url: result.heroImageUrl }
+    : {}
 
   return {
     phaseResult: buildPhaseResult(
@@ -451,5 +484,6 @@ export async function runClassifyImagesPhase({
       undefined,
       `${result.classifiedCount} classified, ${result.rejectedCount} rejected`
     ),
+    patch,
   }
 }

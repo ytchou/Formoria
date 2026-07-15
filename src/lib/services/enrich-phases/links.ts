@@ -7,6 +7,7 @@ import { scrapeBrandUrls } from './scraper'
 import { classifyByDomain } from './scraper/input-detector'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { EnrichScrapedData } from './types'
+import { brandTarget, type EnrichmentTarget } from '../enrichment-target'
 import { buildPhaseResult, hasPatchValues, timePhase, type EnrichBrand, type EnrichPhase } from './types'
 
 type LinksPhaseOptions = {
@@ -15,6 +16,7 @@ type LinksPhaseOptions = {
   discoveredUrls: string[]
   knownUrls: string[]
   dryRun?: boolean
+  target?: EnrichmentTarget
 }
 
 type LinksPhaseOutput = {
@@ -78,6 +80,7 @@ export async function runLinksPhase({
   discoveredUrls,
   knownUrls,
   dryRun = false,
+  target,
 }: LinksPhaseOptions): Promise<LinksPhaseOutput> {
   if (!phases.includes('links')) {
     return {
@@ -109,7 +112,7 @@ export async function runLinksPhase({
         ? scrapePayload.pageUrl
         : derivedWebsite ?? urls[0] ?? ''
       await insertSearchResult(
-        brand.id,
+        target ?? brandTarget(brand.id),
         'scrape',
         pageUrl,
         pageUrl ? [pageUrl] : [],

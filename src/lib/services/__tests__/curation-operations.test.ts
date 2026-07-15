@@ -335,7 +335,7 @@ describeWithDb("runEnrich submissions mode", () => {
 })
 
 describeWithDb('runEnrich persist routing', () => {
-  const testBrandName = '[TEST] Persist Routing'
+  const testBrandName = '✨ [TEST] Persist Routing ✨'
   let testSubmissionId: string | null = null
 
   beforeEach(async () => {
@@ -397,17 +397,23 @@ describeWithDb('runEnrich persist routing', () => {
   })
 
   it('should record submissionId in BrandOutcome', async () => {
+    const progressTargetIds: string[] = []
     const result = await runEnrich(
       {
         dryRun: false,
         target: 'submissions',
         submissionIds: [testSubmissionId!],
         phases: ['clean'],
+        onTargetProgress: (event) => {
+          progressTargetIds.push(event.targetId)
+        },
       },
       serviceSupabase!
     )
 
     expect(result.brandOutcomes.some((outcome) => outcome.submissionId === testSubmissionId)).toBe(true)
+    expect(progressTargetIds).not.toHaveLength(0)
+    expect(progressTargetIds.every((targetId) => targetId === testSubmissionId)).toBe(true)
   })
 })
 

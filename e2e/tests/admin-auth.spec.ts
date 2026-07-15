@@ -8,10 +8,10 @@ test.describe('Admin auth guards', () => {
     await expect(anonPage).toHaveURL(/\/sign-in|\/login/i, { timeout: 60_000 });
   });
 
-  test('unauthenticated user is redirected from /admin/review-queue/submissions', async ({ anonPage }) => {
+  test('unauthenticated user is redirected from /admin/submissions', async ({ anonPage }) => {
     test.setTimeout(120_000);
 
-    await anonPage.goto('/admin/review-queue/submissions', { timeout: 60_000 });
+    await anonPage.goto('/admin/submissions', { timeout: 60_000 });
     await expect(anonPage).toHaveURL(/\/sign-in|\/login/i, { timeout: 60_000 });
   });
 

@@ -2,6 +2,11 @@ import sharp from 'sharp'
 
 import { createServiceClient } from '@/lib/supabase/server'
 import type { CandidateImageSource } from './enrich-phases/candidate-pool'
+import {
+  brandTarget,
+  targetImageStorage,
+  type EnrichmentTarget,
+} from './enrichment-target'
 
 const IMAGE_FETCH_TIMEOUT_MS = 10_000
 const MIN_IMAGE_SIZE_BYTES = 5_120
@@ -84,13 +89,14 @@ function hammingDistance(a: string, b: string): number {
 
 async function isDuplicateByHash(
   supabase: ReturnType<typeof createServiceClient>,
-  brandId: string,
+  target: EnrichmentTarget,
   hash: string
 ): Promise<boolean> {
+  const storage = targetImageStorage(target)
   const { data } = await supabase
-    .from('brand_images')
+    .from(storage.table)
     .select('phash')
-    .eq('brand_id', brandId)
+    .eq(storage.foreignKey, target.id)
     .not('phash', 'is', null) as { data: Array<{ phash: string }> | null }
   if (!data) return false
   return data.some((row) => hammingDistance(row.phash, hash) < PHASH_HAMMING_THRESHOLD)
@@ -108,7 +114,7 @@ function dominantColorToHex(dominant: { r: number; g: number; b: number }): stri
 
 export async function downloadAndStoreImages(
   candidates: DownloadImageCandidate[],
-  brandId: string
+  targetOrBrandId: EnrichmentTarget | string
 ): Promise<(string | null)[]> {
   if (candidates.length === 0) return []
 
@@ -118,6 +124,10 @@ export async function downloadAndStoreImages(
   }
 
   const supabase = createServiceClient()
+  const target = typeof targetOrBrandId === 'string'
+    ? brandTarget(targetOrBrandId)
+    : targetOrBrandId
+  const storage = targetImageStorage(target)
 
   const results = await Promise.allSettled(
     dedupedCandidates.map(async (candidate) => {
@@ -184,12 +194,12 @@ export async function downloadAndStoreImages(
         }
 
         const phash = await computeDHash(buffer)
-        if (await isDuplicateByHash(supabase as never, brandId, phash)) {
+        if (await isDuplicateByHash(supabase as never, target, phash)) {
           throw new Error(`Perceptual duplicate detected (dHash), skipping`)
         }
 
         const ext = getExtFromContentType(contentType || 'image/jpeg')
-        const filename = `brands/${brandId}/${crypto.randomUUID()}.${ext}`
+        const filename = `${storage.prefix}/${target.id}/${crypto.randomUUID()}.${ext}`
         const dominantColor = dominantColorToHex(stats.dominant)
 
         const { error: uploadError } = await supabase.storage
@@ -205,9 +215,9 @@ export async function downloadAndStoreImages(
         } = supabase.storage.from('brand-images').getPublicUrl(filename)
 
         const { error: insertError } = await supabase
-          .from('brand_images')
+          .from(storage.table)
           .upsert({
-            brand_id: brandId,
+            [storage.foreignKey]: target.id,
             url: publicUrl,
             source,
             source_url: url,
@@ -217,9 +227,10 @@ export async function downloadAndStoreImages(
             height,
             dominant_color: dominantColor,
             phash,
-          } as never, { onConflict: 'brand_id,source_url' })
+          } as never, { onConflict: `${storage.foreignKey},source_url` })
 
         if (insertError) {
+          await supabase.storage.from('brand-images').remove([filename])
           throw insertError
         }
 

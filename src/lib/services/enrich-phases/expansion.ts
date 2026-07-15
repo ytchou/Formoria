@@ -6,6 +6,7 @@ import { EXPANSION_SYSTEM_PROMPT } from '@/lib/prompts'
 import { localizeToTW } from '../taiwan-localization'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { EnrichScrapedData } from './types'
+import { brandTarget, type EnrichmentTarget } from '../enrichment-target'
 import {
   buildPhaseResult,
   hasPatchValues,
@@ -29,6 +30,7 @@ type ExpansionPhaseOptions = {
   serpSnippets: string[]
   overwrite?: boolean
   reputationAlreadySet?: boolean
+  target?: EnrichmentTarget
 }
 
 type ExpansionPhaseOutput = {
@@ -66,6 +68,7 @@ export async function runExpansionPhase({
   serpSnippets,
   overwrite = false,
   reputationAlreadySet = false,
+  target,
 }: ExpansionPhaseOptions): Promise<ExpansionPhaseOutput> {
   if (!phases.includes('expansion')) {
     return {
@@ -110,7 +113,8 @@ export async function runExpansionPhase({
   }
 
   const { result, durationMs } = await timePhase(async () => {
-    const persistedScrape = await loadPersistedScrapeText(brand.id)
+    const auditTarget = target ?? brandTarget(brand.id)
+    const persistedScrape = await loadPersistedScrapeText(auditTarget)
     const brandSiteContent = getBrandSiteContent(brand)
     const siteContent =
       [brandSiteContent, persistedScrape.siteContent]
@@ -146,6 +150,7 @@ export async function runExpansionPhase({
   if (hasPatchValues(result.patch)) {
     await insertExpansionResult({
       brandId: brand.id,
+      target: target ?? brandTarget(brand.id),
       rawResponse: result.rawResponse,
       input: result.input,
       config: buildEnrichmentConfig('expansion', EXPANSION_SYSTEM_PROMPT, EXPANSION_CONFIG_PARAMS as Record<string, unknown>),

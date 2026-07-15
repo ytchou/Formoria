@@ -26,6 +26,12 @@ function req(path: string, headers?: HeadersInit) {
 }
 
 describe('i18n middleware composition', () => {
+  it('defaults admin requests to English', async () => {
+    const res = await middleware(req('/admin/submissions'))
+
+    expect(res?.headers.get('x-middleware-request-x-next-intl-locale')).toBe('en')
+  })
+
   it('does not slug-redirect a locale prefix to /brands/<locale>', async () => {
     const res = await middleware(req('/en'))
     const loc = res?.headers.get('location') ?? ''

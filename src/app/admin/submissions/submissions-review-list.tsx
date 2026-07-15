@@ -48,6 +48,8 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { JobAutoRefresh } from "@/app/admin/jobs/job-auto-refresh";
+import type { SubmissionReviewStage } from "@/lib/services/submission-review-stage";
 
 export type TabValue =
   | "all"
@@ -73,6 +75,9 @@ type BrandSubmissionWithRisk = BrandSubmission & {
   latestCurationJobId?: string | null;
   latestCurationPhase?: string | null;
   latestCurationError?: string | null;
+  latestCurationJobStatus?: string | null;
+  latestCurationDispatchStatus?: "pending" | "dispatched" | "failed" | null;
+  reviewStage: SubmissionReviewStage;
 };
 
 type OverrideForm = Required<Omit<SubmissionApprovalOverrides, "otherUrls">> & {
@@ -200,31 +205,15 @@ export function getEnrichmentStatus(
 }
 
 function isReadyForReview(submission: BrandSubmissionWithRisk): boolean {
-  return (
-    submission.status === "pending" &&
-    getEnrichmentCompleteness(
-      submission.enriched_data,
-      submission.heroImageUrl,
-    ) === "complete" &&
-    (!submission.latestCurationTargetStatus ||
-      submission.latestCurationTargetStatus === "succeeded")
-  );
+  return submission.reviewStage === "ready";
 }
 
 function isEnrichingActive(submission: BrandSubmissionWithRisk): boolean {
-  return (
-    submission.status === "pending" &&
-    (submission.latestCurationTargetStatus === "pending" ||
-      submission.latestCurationTargetStatus === "running")
-  );
+  return submission.reviewStage === "enriching";
 }
 
 function needsDataWork(submission: BrandSubmissionWithRisk): boolean {
-  return (
-    submission.status === "pending" &&
-    !isReadyForReview(submission) &&
-    !isEnrichingActive(submission)
-  );
+  return submission.reviewStage === "needs_data";
 }
 
 function matchesTab(
@@ -254,11 +243,17 @@ function enrichmentLabel(
   label: string;
   tone: "green" | "amber" | "red" | "grey";
 } {
-  if (submission.latestCurationTargetStatus === "pending")
-    return { label: t("enrichmentStatus.queued"), tone: "amber" };
-  if (submission.latestCurationTargetStatus === "running")
-    return { label: t("enrichmentStatus.running"), tone: "amber" };
-  if (submission.latestCurationTargetStatus === "failed")
+  if (submission.reviewStage === "enriching") {
+    return submission.latestCurationTargetStatus === "running"
+      ? { label: t("enrichmentStatus.running"), tone: "amber" }
+      : { label: t("enrichmentStatus.queued"), tone: "amber" };
+  }
+  if (
+    submission.latestCurationTargetStatus === "failed" ||
+    submission.latestCurationDispatchStatus === "failed" ||
+    submission.latestCurationJobStatus === "failed" ||
+    submission.latestCurationJobStatus === "cancelled"
+  )
     return { label: t("enrichmentStatus.failed"), tone: "red" };
   if (submission.latestCurationTargetStatus === "skipped")
     return { label: t("enrichmentStatus.skipped"), tone: "grey" };
@@ -605,6 +600,10 @@ export function SubmissionsReviewList({
           },
         });
         setSelectedIds(new Set());
+        if (result.dispatchStatus !== "failed") {
+          setActiveTab("enriching");
+          router.replace(`${pathname}?stage=enriching`);
+        }
         router.refresh();
         return;
       }
@@ -623,6 +622,7 @@ export function SubmissionsReviewList({
 
   return (
     <div>
+      <JobAutoRefresh active={submissions.some(isEnrichingActive)} />
       <Tabs
         value={activeTab}
         onValueChange={(v) => {

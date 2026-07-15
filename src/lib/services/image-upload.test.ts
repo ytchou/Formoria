@@ -1,6 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createServiceClient } from '@/lib/supabase/server'
-import { deleteBrandImages, diffRemovedImageUrls, storageKeyFromPublicUrl } from './image-upload'
+import {
+  deleteBrandImages,
+  deleteStoredImagePaths,
+  diffRemovedImageUrls,
+  storageKeyFromPublicUrl,
+} from './image-upload'
 
 const mockRemove = vi.fn()
 const mockFrom = vi.fn(() => ({
@@ -103,5 +108,25 @@ describe('deleteBrandImages', () => {
 
     expect(mockFrom).toHaveBeenCalledWith('brand-images')
     expect(mockRemove).toHaveBeenCalledWith(['brands/x/a.webp'])
+  })
+})
+
+describe('deleteStoredImagePaths', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockFrom.mockReturnValue({ remove: mockRemove })
+    mockRemove.mockResolvedValue({ data: null, error: null })
+  })
+
+  it('deletes trusted submission paths and ignores unrelated keys', async () => {
+    await deleteStoredImagePaths([
+      'submissions/submission-1/image.webp',
+      'avatars/user-1.webp',
+      'submissions/submission-1/image.webp',
+    ])
+
+    expect(mockRemove).toHaveBeenCalledWith([
+      'submissions/submission-1/image.webp',
+    ])
   })
 })

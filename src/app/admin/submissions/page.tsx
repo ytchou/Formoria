@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { getSubmissionsForReview } from "@/lib/services/submissions";
 import { getModerationFlagsBatch } from "@/lib/services/moderation";
 import type { ModerationFlag, RiskLevel } from "@/lib/services/moderation";
@@ -8,9 +9,11 @@ import {
   type TabValue,
 } from "./submissions-review-list";
 
-export const metadata: Metadata = {
-  title: "Pending Submissions | Admin",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.submissions");
+
+  return { title: t("title") };
+}
 
 function getRiskLevel(flags: ModerationFlag[]): RiskLevel {
   if (flags.some((flag) => flag.tier === "block")) return "high";
@@ -23,6 +26,7 @@ export default async function ReviewQueueSubmissionsPage({
 }: {
   searchParams: Promise<{ stage?: string | string[] }>;
 }) {
+  const t = await getTranslations("admin.submissions");
   const query = await searchParams;
   const stageParam = Array.isArray(query.stage) ? query.stage[0] : query.stage;
   const validStages = new Set<TabValue>([
@@ -58,10 +62,8 @@ export default async function ReviewQueueSubmissionsPage({
 
   return (
     <div>
-      <h1 className="type-page-title-large">Brand Submissions</h1>
-      <p className="mt-2 type-body-muted">
-        Complete data enrichment before manual approval or rejection.
-      </p>
+      <h1 className="type-page-title-large">{t("title")}</h1>
+      <p className="mt-2 type-body-muted">{t("description")}</p>
 
       <div className="mt-8">
         <SubmissionsReviewList

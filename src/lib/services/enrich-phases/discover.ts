@@ -3,6 +3,7 @@ import { batchSearchBrandsWithSnippets } from './scraper/search'
 import { getLatestSearchResults, insertSearchResult } from '../search-results'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { buildSerpConfig } from '@/lib/constants/enrichment-config'
+import type { EnrichmentTarget } from '../enrichment-target'
 import {
   buildPhaseResult,
   getDisplayBrandName,
@@ -72,7 +73,7 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
           const searchResult = searchResults.get(brandName)
           if (searchResult && (searchResult.urls.length > 0 || searchResult.snippets.length > 0)) {
             await insertSearchResult(
-              brand.id,
+              { type: ctx.targetType ?? 'brand', id: brand.id },
               'serp',
               queryTemplate(brandName),
               searchResult.urls,
@@ -116,9 +117,10 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
 }
 
 export async function loadCachedSearchResults(
-  brandIds: string[]
+  targetIds: string[],
+  targetType: EnrichmentTarget['type'] = 'brand'
 ): Promise<Map<string, SearchPhaseResult>> {
-  const cached = await getLatestSearchResults(brandIds, 'serp')
+  const cached = await getLatestSearchResults(targetIds, 'serp', targetType)
   const searchResults = new Map<string, SearchPhaseResult>()
 
   for (const [brandId, row] of cached) {

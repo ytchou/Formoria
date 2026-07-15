@@ -71,6 +71,21 @@ export async function deleteBrandImages(urls: string[]): Promise<void> {
   }
 }
 
+export async function deleteStoredImagePaths(paths: string[]): Promise<void> {
+  const keys = [...new Set(paths)].filter(
+    (path) => path.startsWith('brands/') || path.startsWith('submissions/')
+  )
+  if (keys.length === 0) return
+
+  const supabase = createServiceClient()
+  for (let index = 0; index < keys.length; index += 1_000) {
+    const { error } = await supabase.storage
+      .from(BRAND_IMAGES_BUCKET)
+      .remove(keys.slice(index, index + 1_000))
+    if (error) throw error
+  }
+}
+
 async function uploadStorageObject(input: UploadImageInput): Promise<string> {
   const supabase = createServiceClient()
 

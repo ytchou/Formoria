@@ -10,11 +10,17 @@ import { getEnrichmentStatus, SubmissionsReviewList, type TabValue } from '../su
 import { startCurationJobAction } from '@/app/admin/operations/actions'
 import { toast } from 'sonner'
 
+const navigationMocks = vi.hoisted(() => ({
+  refresh: vi.fn(),
+  push: vi.fn(),
+  replace: vi.fn(),
+}))
+
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
-    refresh: vi.fn(),
-    push: vi.fn(),
-    replace: vi.fn(),
+    refresh: navigationMocks.refresh,
+    push: navigationMocks.push,
+    replace: navigationMocks.replace,
   }),
   usePathname: () => '/admin/submissions',
 }))
@@ -57,6 +63,9 @@ type ReviewSubmission = BrandSubmission & {
   latestCurationJobId?: string | null
   latestCurationPhase?: string | null
   latestCurationError?: string | null
+  latestCurationJobStatus?: string | null
+  latestCurationDispatchStatus?: 'pending' | 'dispatched' | 'failed' | null
+  reviewStage: 'needs_data' | 'enriching' | 'ready' | 'approved' | 'rejected'
 }
 
 function makeSubmission(overrides: Partial<ReviewSubmission> = {}): ReviewSubmission {
@@ -87,6 +96,7 @@ function makeSubmission(overrides: Partial<ReviewSubmission> = {}): ReviewSubmis
     intent: 'owner_claim',
     isBrandOwner: true,
     sourceAttribution: null,
+    reviewStage: 'needs_data',
     ...overrides,
   }
 }
@@ -96,7 +106,7 @@ function renderReviewList(initialTab: TabValue = 'needs_data') {
 }
 
 function renderReviewListWithSubmissions(
-  submissions: BrandSubmission[],
+  submissions: ReviewSubmission[],
   initialTab: TabValue = 'needs_data',
 ) {
   return renderWithIntl(<SubmissionsReviewList submissions={submissions} initialTab={initialTab} />)
@@ -173,6 +183,7 @@ describe('SubmissionsReviewList — enrichment approval gate', () => {
           productType: 'crafts',
         },
         latestCurationTargetStatus: 'succeeded',
+        reviewStage: 'ready',
       }),
       makeSubmission({ id: 'partial-submission', brandName: 'Partial Brand' }),
     ], 'ready')
@@ -201,6 +212,20 @@ describe('SubmissionsReviewList — enrichment approval gate', () => {
       '/admin/jobs/failed-job',
     )
     expect(screen.getAllByRole('button', { name: 'Approve' }).every((button) => button.hasAttribute('disabled'))).toBe(true)
+  })
+
+  it('does not label a target as running after its parent job failed', () => {
+    renderReviewListWithSubmissions([
+      makeSubmission({
+        brandName: 'Stopped Enrichment',
+        latestCurationTargetStatus: 'running',
+        latestCurationJobStatus: 'failed',
+        reviewStage: 'needs_data',
+      }),
+    ])
+
+    expect(screen.getByText('Failed')).toBeInTheDocument()
+    expect(screen.queryByText('Running')).not.toBeInTheDocument()
   })
 })
 
@@ -270,7 +295,31 @@ describe('SubmissionsReviewList — bulk enrichment', () => {
         })
       )
     })
-    expect(checkboxes[1]).not.toBeChecked()
+    expect(navigationMocks.replace).toHaveBeenCalledWith(
+      '/admin/submissions?stage=enriching',
+    )
+  })
+
+  it('keeps a dispatch failure in needs data', async () => {
+    vi.mocked(startCurationJobAction).mockResolvedValueOnce({
+      queued: true,
+      jobId: 'job-1',
+      detailPath: '/admin/jobs/job-1',
+      dispatchStatus: 'failed',
+      message: 'Dispatch failed.',
+    })
+    const user = userEvent.setup()
+    renderReviewList()
+
+    const submissionCheckbox = screen.getAllByRole('checkbox').at(1)
+    if (!submissionCheckbox) throw new Error('Submission checkbox not found')
+    await user.click(submissionCheckbox)
+    await user.click(screen.getByRole('button', { name: 'Fetch Data' }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled())
+    expect(navigationMocks.replace).not.toHaveBeenCalledWith(
+      '/admin/submissions?stage=enriching',
+    )
   })
 })
 

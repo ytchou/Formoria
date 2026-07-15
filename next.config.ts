@@ -156,16 +156,6 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
-        source: '/admin/submissions',
-        destination: '/admin/review-queue/submissions',
-        permanent: true,
-      },
-      {
-        source: '/admin/moderation',
-        destination: '/admin/review-queue/moderation',
-        permanent: true,
-      },
-      {
         source: '/admin/pending-edits',
         destination: '/admin/review-queue/edits',
         permanent: true,
@@ -173,21 +163,6 @@ const nextConfig: NextConfig = {
       {
         source: '/admin/claim-requests',
         destination: '/admin/claims',
-        permanent: true,
-      },
-      {
-        source: '/admin/reports',
-        destination: '/admin/signals/reports',
-        permanent: true,
-      },
-      {
-        source: '/admin/feedback',
-        destination: '/admin/signals/feedback',
-        permanent: true,
-      },
-      {
-        source: '/admin/brands',
-        destination: '/admin/catalog/brands',
         permanent: true,
       },
       {

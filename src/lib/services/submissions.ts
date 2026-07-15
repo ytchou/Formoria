@@ -10,8 +10,18 @@ import type {
 import type { DuplicateCheckResult } from "@/lib/types/submission";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import type { EnrichedData } from "@/lib/types/enriched-data";
-import { enrichedDataFromDb } from "@/lib/types/enriched-data";
-import type { CurationTargetStatus } from "@/lib/services/curation-jobs";
+import {
+  enrichedDataFromDb,
+  hasCompleteEnrichment,
+} from "@/lib/types/enriched-data";
+import type {
+  CurationDispatchStatus,
+  CurationTargetStatus,
+} from "@/lib/services/curation-jobs";
+import {
+  deriveSubmissionReviewStage,
+  type SubmissionReviewStage,
+} from "./submission-review-stage";
 import { NotFoundError } from "@/lib/errors";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import {
@@ -22,6 +32,7 @@ import {
 } from "@/lib/services/brands";
 import { toSubmissionRow } from "./field-map";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { deleteStoredImagePaths } from "./image-upload";
 
 // ---------------------------------------------------------------------------
 // Row types
@@ -37,6 +48,10 @@ type CurationTargetHistoryRow = Pick<
   | "current_phase"
   | "error"
   | "created_at"
+>;
+type CurationJobReviewRow = Pick<
+  Database["public"]["Tables"]["curation_jobs"]["Row"],
+  "id" | "status" | "dispatch_status" | "dispatch_error" | "job_error"
 >;
 type SubmissionRowWithProductTypeNote = SubmissionRow & {
   hero_image_url?: string | null;
@@ -59,6 +74,9 @@ export type BrandSubmissionForReview = BrandSubmissionWithProductTypeNote & {
   latestCurationJobId: string | null;
   latestCurationPhase: string | null;
   latestCurationError: string | null;
+  latestCurationJobStatus: string | null;
+  latestCurationDispatchStatus: CurationDispatchStatus | null;
+  reviewStage: SubmissionReviewStage;
 };
 
 /**
@@ -94,6 +112,7 @@ type BrandInsert = Database["public"]["Tables"]["brands"]["Insert"];
 
 const GENERATED_GUEST_EMAIL_DOMAIN = "guest.formoria.invalid";
 const CURATION_TARGET_HISTORY_PAGE_SIZE = 1_000;
+const SUPABASE_IN_FILTER_CHUNK_SIZE = 200;
 const APPROVAL_RPC_ERROR_MESSAGES = new Set([
   "Submission already processed",
   "Submission must have complete enrichment before approval",
@@ -126,6 +145,14 @@ export type ApproveSubmissionResult = {
   submitterName: string | null;
   isBrandOwner: boolean;
 };
+
+function chunkValues<T>(values: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 // ---------------------------------------------------------------------------
 // Pure record builder (no DB calls — testable in isolation)
@@ -325,10 +352,21 @@ function enrichedDataToBrandInsert(
   return cleanRecord({
     name: normalizeString(enrichedData.name) ?? undefined,
     description: normalizeString(enrichedData.description) ?? undefined,
+    description_en: normalizeString(enrichedData.descriptionEn) ?? undefined,
+    blurb: normalizeString(enrichedData.blurb) ?? undefined,
+    blurb_en: normalizeString(enrichedData.blurbEn) ?? undefined,
+    city: normalizeString(enrichedData.city) ?? undefined,
+    category_attributes: enrichedData.categoryAttributes,
+    reputation_summary: enrichedData.reputationSummary,
+    retail_locations: enrichedData.retailLocations,
+    mit_evidence: enrichedData.mitEvidence,
+    site_content: enrichedData.siteContent,
+    founding_year: enrichedData.foundingYear,
     hero_image_url: normalizeString(enrichedData.heroImageUrl) ?? undefined,
     product_type: normalizeString(enrichedData.productType) ?? undefined,
     price_range: enrichedData.priceRange,
     product_tags: enrichedData.productTags,
+    product_tags_en: enrichedData.productTagsEn,
     social_instagram:
       normalizeString(enrichedData.socialInstagram) ?? undefined,
     social_threads: normalizeString(enrichedData.socialThreads) ?? undefined,
@@ -553,27 +591,37 @@ export async function getSubmissionsForReview(): Promise<
 
   const rows = (data ?? []) as unknown as SubmissionRowWithProductTypeNote[];
   const submissionIds = rows.map((row) => row.id);
-  const targetHistory: CurationTargetHistoryRow[] = [];
+  const targetHistory = (
+    await Promise.all(
+      chunkValues(submissionIds, SUPABASE_IN_FILTER_CHUNK_SIZE).map(
+        async (targetIds) => {
+          const chunkHistory: CurationTargetHistoryRow[] = [];
+          for (let page = 0; ; page += 1) {
+            const { data: pageData, error: targetHistoryError } = await supabase
+              .from("curation_job_targets")
+              .select(
+                "id, target_id, job_id, status, current_phase, error, created_at",
+              )
+              .eq("target_type", "submission")
+              .in("target_id", targetIds)
+              .order("created_at", { ascending: false })
+              .order("id", { ascending: false })
+              .range(
+                page * CURATION_TARGET_HISTORY_PAGE_SIZE,
+                (page + 1) * CURATION_TARGET_HISTORY_PAGE_SIZE - 1,
+              );
 
-  for (let page = 0; submissionIds.length > 0; page += 1) {
-    const { data: pageData, error: targetHistoryError } = await supabase
-      .from("curation_job_targets")
-      .select("id, target_id, job_id, status, current_phase, error, created_at")
-      .eq("target_type", "submission")
-      .in("target_id", submissionIds)
-      .order("created_at", { ascending: false })
-      .order("id", { ascending: false })
-      .range(
-        page * CURATION_TARGET_HISTORY_PAGE_SIZE,
-        (page + 1) * CURATION_TARGET_HISTORY_PAGE_SIZE - 1,
-      );
+            if (targetHistoryError) throw targetHistoryError;
 
-    if (targetHistoryError) throw targetHistoryError;
-
-    const pageRows = (pageData ?? []) as CurationTargetHistoryRow[];
-    targetHistory.push(...pageRows);
-    if (pageRows.length < CURATION_TARGET_HISTORY_PAGE_SIZE) break;
-  }
+            const pageRows = (pageData ?? []) as CurationTargetHistoryRow[];
+            chunkHistory.push(...pageRows);
+            if (pageRows.length < CURATION_TARGET_HISTORY_PAGE_SIZE) break;
+          }
+          return chunkHistory;
+        },
+      ),
+    )
+  ).flat();
 
   const latestTargetBySubmission = new Map<
     string,
@@ -591,19 +639,68 @@ export async function getSubmissionsForReview(): Promise<
     }
   }
 
+  const latestJobIds = [
+    ...new Set(
+      [...latestTargetBySubmission.values()].map((target) => target.job_id),
+    ),
+  ];
+  const latestJobById = new Map<string, CurationJobReviewRow>();
+  if (latestJobIds.length > 0) {
+    const jobChunks = await Promise.all(
+      chunkValues(latestJobIds, SUPABASE_IN_FILTER_CHUNK_SIZE).map(
+        async (jobIds) => {
+          const { data: jobData, error: jobsError } = await supabase
+            .from("curation_jobs")
+            .select("id, status, dispatch_status, dispatch_error, job_error")
+            .in("id", jobIds);
+          if (jobsError) throw jobsError;
+          return (jobData ?? []) as CurationJobReviewRow[];
+        },
+      ),
+    );
+    for (const job of jobChunks.flat()) {
+      latestJobById.set(job.id, job);
+    }
+  }
+
   return rows.map((row) => {
     const latestTarget = latestTargetBySubmission.get(row.id);
+    const latestJob = latestTarget
+      ? latestJobById.get(latestTarget.job_id)
+      : undefined;
+    const submission = submissionToDomain(row);
+    const enrichedData = isEnrichedData(row.enriched_data)
+      ? enrichedDataFromDb(row.enriched_data as Record<string, unknown>)
+      : null;
+    const targetStatus = isCurationTargetStatus(latestTarget?.status)
+      ? latestTarget.status
+      : null;
+    const dispatchStatus = isCurationDispatchStatus(latestJob?.dispatch_status)
+      ? latestJob.dispatch_status
+      : null;
     return {
-      ...submissionToDomain(row),
-      enriched_data: isEnrichedData(row.enriched_data)
-        ? enrichedDataFromDb(row.enriched_data as Record<string, unknown>)
-        : null,
-      latestCurationTargetStatus: isCurationTargetStatus(latestTarget?.status)
-        ? latestTarget.status
-        : null,
+      ...submission,
+      enriched_data: enrichedData,
+      latestCurationTargetStatus: targetStatus,
       latestCurationJobId: latestTarget?.job_id ?? null,
       latestCurationPhase: latestTarget?.current_phase ?? null,
-      latestCurationError: latestTarget?.error ?? null,
+      latestCurationError:
+        latestTarget?.error ??
+        latestJob?.job_error ??
+        latestJob?.dispatch_error ??
+        null,
+      latestCurationJobStatus: latestJob?.status ?? null,
+      latestCurationDispatchStatus: dispatchStatus,
+      reviewStage: deriveSubmissionReviewStage({
+        submissionStatus: submission.status,
+        enrichmentComplete: hasCompleteEnrichment(
+          enrichedData,
+          submission.heroImageUrl,
+        ),
+        targetStatus,
+        jobStatus: latestJob?.status ?? null,
+        dispatchStatus,
+      }),
     };
   });
 }
@@ -664,8 +761,7 @@ export async function approveSubmission(
   const id = typeof first === "string" ? first : second;
   const reviewerId = typeof first === "string" ? second : (third as string);
   const overrides = (typeof first === "string" ? third : fourth) as
-    | SubmissionApprovalOverrides
-    | undefined;
+    SubmissionApprovalOverrides | undefined;
 
   const { data: submission, error: fetchError } = await supabase
     .from("brand_submissions")
@@ -757,6 +853,12 @@ function isCurationTargetStatus(
   );
 }
 
+function isCurationDispatchStatus(
+  value: string | null | undefined,
+): value is CurationDispatchStatus {
+  return ["pending", "dispatched", "failed"].includes(value ?? "");
+}
+
 export async function rejectSubmission(
   id: string,
   reviewerId: string,
@@ -765,47 +867,33 @@ export async function rejectSubmission(
 ): Promise<BrandSubmission> {
   const supabase = createServiceClient();
 
-  const { data: pre } = await supabase
-    .from("brand_submissions")
-    .select("brand_id")
-    .eq("id", id)
-    .single();
+  const { data: storagePaths, error: rejectionError } = await supabase.rpc(
+    "reject_submission",
+    {
+      p_denial_reason: denialReason,
+      p_reviewer_notes: notes ?? null,
+      p_reviewer_id: reviewerId,
+      p_submission_id: id,
+    },
+  );
+  if (rejectionError) throw rejectionError;
 
   const { data, error } = await supabase
     .from("brand_submissions")
-    .update({
-      status: "rejected",
-      reviewed_at: new Date().toISOString(),
-      reviewed_by: reviewerId,
-      denial_reason: denialReason,
-      reviewer_notes: notes ?? null,
-    })
-    .eq("id", id)
-    .eq("status", "pending")
     .select("*")
+    .eq("id", id)
     .single();
-
-  if (error || !data)
+  if (error || !data) {
     throw new NotFoundError("BrandSubmission", id, { cause: error });
+  }
 
-  if (pre?.brand_id) {
-    const { data: brand } = await supabase
-      .from("brands")
-      .select("id, status")
-      .eq("id", pre.brand_id)
-      .single();
-    if (brand?.status === "pending_enrichment") {
-      const { error: deleteError } = await supabase
-        .from("brands")
-        .delete()
-        .eq("id", brand.id);
-      if (deleteError) {
-        console.error(
-          `[rejectSubmission] Failed to delete pending_enrichment brand ${brand.id}:`,
-          deleteError.message,
-        );
-      }
-    }
+  try {
+    await deleteStoredImagePaths(storagePaths ?? []);
+  } catch (storageError) {
+    console.error(
+      `[rejectSubmission] Failed to delete staged images for ${id}:`,
+      storageError,
+    );
   }
 
   return submissionToDomain(data);

@@ -93,6 +93,36 @@ describe('JobDetailView', () => {
     expect(screen.getByText('成功品牌')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Failed' })).toHaveAttribute('href', '/admin/jobs/job-1?status=failed')
   })
+
+  it('explains what detect does and why a missing result is skipped', async () => {
+    const user = userEvent.setup()
+    const skippedDetail = detail()
+    skippedDetail.targets = [
+      target({
+        status: 'succeeded',
+        phase_results: [
+          {
+            phase: 'detect',
+            status: 'skipped',
+            changedFields: [],
+            durationMs: 0,
+            detail: 'no detect result',
+          },
+        ],
+        changed_fields: [],
+        error: null,
+      }),
+    ]
+
+    render(<JobDetailView detail={skippedDetail} selectedStatus="all" />)
+
+    const targetRow = screen.getByText('台北工坊').closest('tr')
+    expect(targetRow).not.toBeNull()
+    await user.click(within(targetRow!).getByText('View details'))
+    expect(within(targetRow!).getByText(/Checks whether this entry is a real brand/)).toBeInTheDocument()
+    expect(within(targetRow!).getByText(/detection service returned no usable result for this brand/)).toBeInTheDocument()
+    expect(within(targetRow!).queryByText('no detect result')).not.toBeInTheDocument()
+  })
 })
 
 function detail(): CurationJobDetail {
