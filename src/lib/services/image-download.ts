@@ -109,7 +109,7 @@ function channelToHex(value: number): string {
     .padStart(2, '0')
 }
 
-function dominantColorToHex(dominant: { r: number; g: number; b: number }): string {
+export function dominantColorToHex(dominant: { r: number; g: number; b: number }): string {
   return `#${channelToHex(dominant.r)}${channelToHex(dominant.g)}${channelToHex(dominant.b)}`
 }
 

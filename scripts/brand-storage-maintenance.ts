@@ -6,7 +6,7 @@ import sharp from 'sharp'
 
 import { processImage } from '@/lib/security/image-processor'
 import { syncHeroDenormalized } from '@/lib/services/brand-images'
-import { computeDHash } from '@/lib/services/image-download'
+import { computeDHash, dominantColorToHex } from '@/lib/services/image-download'
 
 const BUCKET = 'brand-images'
 const PAGE_SIZE = 1_000
@@ -667,60 +667,65 @@ async function purgeOriginals(live: boolean): Promise<void> {
   console.log(`Consumed ${consumed} of ${purgeable.length} manifest(s).`)
 }
 
-async function clearRejectedBrandImagePaths(
+async function clearRejectedImagePaths(
   supabase: ReturnType<typeof createServiceClient>,
   paths: string[],
 ): Promise<void> {
-  for (let index = 0; index < paths.length; index += DELETE_CHUNK_SIZE) {
-    const chunk = paths.slice(index, index + DELETE_CHUNK_SIZE)
-    const { error } = await supabase
-      .from('brand_images')
-      .update({ storage_path: null })
-      .eq('status', 'rejected')
-      .in('storage_path', chunk)
-    if (error) {
-      throw new Error(
-        `Failed to clear rejected brand_images storage paths: ${error.message}`,
-      )
+  for (const table of ['brand_images', 'submission_images'] as const) {
+    for (let index = 0; index < paths.length; index += DELETE_CHUNK_SIZE) {
+      const chunk = paths.slice(index, index + DELETE_CHUNK_SIZE)
+      const { error } = await supabase
+        .from(table)
+        .update({ storage_path: null })
+        .eq('status', 'rejected')
+        .in('storage_path', chunk)
+      if (error) {
+        throw new Error(
+          `Failed to clear rejected ${table} storage paths: ${error.message}`,
+        )
+      }
     }
   }
 }
 
-async function fixDanglingBrandImageRows(
+async function fixDanglingImageRows(
   supabase: ReturnType<typeof createServiceClient>,
   existingObjectPaths: Set<string>,
 ): Promise<number> {
-  const rows = await fetchAllRows<BrandImageStorageRow>(
-    'brand_images',
-    (from, to) =>
-      supabase
-        .from('brand_images')
-        .select('id, storage_path')
-        .order('id', { ascending: true })
-        .range(from, to),
-  )
-  const danglingIds = rows.flatMap((row) =>
-    row.storage_path && !existingObjectPaths.has(row.storage_path)
-      ? [row.id]
-      : [],
-  )
+  let total = 0
+  for (const table of ['brand_images', 'submission_images'] as const) {
+    const rows = await fetchAllRows<BrandImageStorageRow>(
+      table,
+      (from, to) =>
+        supabase
+          .from(table)
+          .select('id, storage_path')
+          .order('id', { ascending: true })
+          .range(from, to),
+    )
+    const danglingIds = rows.flatMap((row) =>
+      row.storage_path && !existingObjectPaths.has(row.storage_path)
+        ? [row.id]
+        : [],
+    )
 
-  for (
-    let index = 0;
-    index < danglingIds.length;
-    index += DELETE_CHUNK_SIZE
-  ) {
-    const chunk = danglingIds.slice(index, index + DELETE_CHUNK_SIZE)
-    const { error } = await supabase
-      .from('brand_images')
-      .update({ status: 'rejected', storage_path: null })
-      .in('id', chunk)
-    if (error) {
-      throw new Error(`Failed to fix dangling brand_images row: ${error.message}`)
+    for (
+      let index = 0;
+      index < danglingIds.length;
+      index += DELETE_CHUNK_SIZE
+    ) {
+      const chunk = danglingIds.slice(index, index + DELETE_CHUNK_SIZE)
+      const { error } = await supabase
+        .from(table)
+        .update({ status: 'rejected', storage_path: null })
+        .in('id', chunk)
+      if (error) {
+        throw new Error(`Failed to fix dangling ${table} row: ${error.message}`)
+      }
     }
+    total += danglingIds.length
   }
-
-  return danglingIds.length
+  return total
 }
 
 async function purge(live: boolean): Promise<void> {
@@ -746,17 +751,17 @@ async function purge(live: boolean): Promise<void> {
   const rejectedPaths = new Set(
     categorized.rejected.map((object) => object.path),
   )
-  await clearRejectedBrandImagePaths(
+  await clearRejectedImagePaths(
     supabase,
     deletedPaths.filter((key) => rejectedPaths.has(key)),
   )
-  const danglingRowsFixed = await fixDanglingBrandImageRows(
+  const danglingRowsFixed = await fixDanglingImageRows(
     supabase,
     new Set(objects.map((object) => object.path)),
   )
 
   console.log(`Deleted ${deletedPaths.length} of ${plan.toDelete.length} objects.`)
-  console.log(`Fixed ${danglingRowsFixed} dangling brand_images row(s).`)
+  console.log(`Fixed ${danglingRowsFixed} dangling image row(s).`)
 }
 
 function contentTypeFromPath(storagePath: string): string | null {
@@ -769,18 +774,6 @@ function contentTypeFromPath(storagePath: string): string | null {
     '.webp': 'image/webp',
   }
   return contentTypes[extension] ?? null
-}
-
-function dominantColorToHex(dominant: {
-  r: number
-  g: number
-  b: number
-}): string {
-  const toHex = (value: number) =>
-    Math.max(0, Math.min(255, Math.round(value)))
-      .toString(16)
-      .padStart(2, '0')
-  return `#${toHex(dominant.r)}${toHex(dominant.g)}${toHex(dominant.b)}`
 }
 
 function reencodeManifestPath(): string {
@@ -964,8 +957,6 @@ async function reencodeTarget(
       data: { publicUrl },
     } = supabase.storage.from(BUCKET).getPublicUrl(newPath)
 
-    await appendOriginal(target.path)
-
     const table = target.kind === 'brand' ? 'brand_images' : 'submission_images'
     const { error: updateError } = await supabase
       .from(table)
@@ -980,6 +971,9 @@ async function reencodeTarget(
       .eq('id', target.id)
     if (updateError) throw updateError
     rowUpdated = true
+
+    // Invariant: a key may only enter the soak manifest once it is no longer referenced.
+    await appendOriginal(target.path)
 
     if (target.kind === 'submission') {
       const { error: heroUpdateError } = await supabase
