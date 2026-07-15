@@ -116,3 +116,65 @@ describe("localizeToTW — vocabulary", () => {
     expect(r.substitutions).toEqual([]);
   });
 });
+
+describe("localizeToTW — punctuation", () => {
+  it("normalizes half-width punctuation between CJK characters", () => {
+    const r = localizeToTW("品牌,設計:好;用!");
+    expect(r.text).toBe("品牌，設計：好；用！");
+  });
+
+  it("preserves half-width punctuation in English context", () => {
+    const r = localizeToTW("Hello, world! 你好");
+    expect(r.text).toContain("Hello, world!");
+  });
+
+  it("normalizes ellipsis to ⋯⋯", () => {
+    const r = localizeToTW("品牌創立於2015年...至今已十年");
+    expect(r.text).toBe("品牌創立於2015年⋯⋯至今已十年");
+  });
+
+  it("normalizes half-width period at CJK sentence end", () => {
+    const r = localizeToTW("這是台灣品牌.");
+    expect(r.text).toBe("這是台灣品牌。");
+  });
+
+  it("normalizes parentheses between CJK characters", () => {
+    const r = localizeToTW("台灣(品牌)設計");
+    expect(r.text).toBe("台灣（品牌）設計");
+  });
+});
+
+describe("localizeToTW — markdown stripping", () => {
+  it("strips bold markers", () => {
+    const r = localizeToTW("這是**品牌特色**的介紹");
+    expect(r.text).toBe("這是品牌特色的介紹");
+    expect(r.substitutions).toContain("markdown:bold");
+  });
+
+  it("strips underscore bold markers", () => {
+    const r = localizeToTW("這是__品牌__的故事");
+    expect(r.text).toBe("這是品牌的故事");
+  });
+
+  it("strips heading prefixes", () => {
+    const r = localizeToTW("## 品牌簡介\n以手工皮革聞名");
+    expect(r.text).toBe("品牌簡介\n以手工皮革聞名");
+  });
+
+  it("strips list markers", () => {
+    const r = localizeToTW("- 手工皮革\n- 台灣設計");
+    expect(r.text).toBe("手工皮革\n台灣設計");
+  });
+});
+
+describe("localizeToTW — emoji removal", () => {
+  it("strips emoji from text", () => {
+    const r = localizeToTW("台灣品牌🎉專注設計✨");
+    expect(r.text).toBe("台灣品牌專注設計");
+  });
+
+  it("preserves text with no emoji", () => {
+    const r = localizeToTW("台灣品牌專注設計");
+    expect(r.text).toBe("台灣品牌專注設計");
+  });
+});

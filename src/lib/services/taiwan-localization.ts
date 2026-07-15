@@ -186,15 +186,15 @@ function normalizePunctuation(text: string, substitutions: string[]): string {
     "）",
   );
   replaceAdjacentToCjk(
-    new RegExp(`(?<=${CJK_CHARACTER})\\.|\\.(?=${CJK_CHARACTER})`, "gu"),
-    "。",
-  );
-  replaceAdjacentToCjk(
     new RegExp(
       `(?<=${CJK_CHARACTER})\\.\\.\\.|\\.\\.\\.(?=${CJK_CHARACTER})`,
       "gu",
     ),
     "⋯⋯",
+  );
+  replaceAdjacentToCjk(
+    new RegExp(`(?<=${CJK_CHARACTER})\\.|\\.(?=${CJK_CHARACTER})`, "gu"),
+    "。",
   );
 
   if (changed) substitutions.push("punctuation:normalized");
