@@ -3,6 +3,38 @@ import { brandTarget, targetForeignKey, type EnrichmentTarget } from './enrichme
 
 const DEEPSEEK_MODEL = 'deepseek-v4-flash'
 
+export type AiCallInput = {
+  target: EnrichmentTarget
+  phase: string
+  model: string
+  jobId?: string
+  rawResponse: unknown
+  input: unknown
+  attempt?: number
+  config?: unknown
+  latencyMs: number
+}
+
+export async function insertAiCallResult(input: AiCallInput): Promise<void> {
+  try {
+    const supabase = createServiceClient()
+    const { error } = await supabase.from('brand_ai_results').insert({
+      ...targetForeignKey(input.target),
+      job_id: input.jobId ?? null,
+      phase: input.phase,
+      model: input.model,
+      raw_response: input.rawResponse,
+      input: input.input,
+      attempt: input.attempt ?? null,
+      config: input.config ?? null,
+      latency_ms: input.latencyMs,
+    } as never)
+    if (error) console.error(`  [AI-RESULTS] insertAiCallResult failed:`, error.message)
+  } catch (error) {
+    console.error(`  [AI-RESULTS] insertAiCallResult failed:`, error instanceof Error ? error.message : String(error))
+  }
+}
+
 export type AiTriageInput = {
   brandId: string
   target?: EnrichmentTarget
