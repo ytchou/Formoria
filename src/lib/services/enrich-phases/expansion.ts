@@ -3,6 +3,7 @@ import { runExpansionResearch } from '../expansion-research'
 import { loadPersistedScrapeText } from './descriptions'
 import { buildEnrichmentConfig } from '@/lib/constants/enrichment-config'
 import { EXPANSION_SYSTEM_PROMPT } from '@/lib/prompts'
+import { localizeToTW } from '../taiwan-localization'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { EnrichScrapedData } from './types'
 import {
@@ -130,7 +131,12 @@ export async function runExpansionPhase({
 
     const patch = {
       ...(expansionResearch.reputationSummary != null
-        ? { reputation_summary: expansionResearch.reputationSummary }
+        ? {
+            reputation_summary: {
+              ...expansionResearch.reputationSummary,
+              text: localizeToTW(expansionResearch.reputationSummary.text).text,
+            },
+          }
         : {}),
     }
 

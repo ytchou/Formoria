@@ -85,4 +85,27 @@ describe('runExpansionPhase', () => {
     })
     expect(insertExpansionResult).toHaveBeenCalledOnce()
   })
+
+  it('localizes zh reputation summaries before writing the patch', async () => {
+    vi.mocked(runExpansionResearch).mockResolvedValue({
+      reputationSummary: {
+        text: '這個品牌的視頻質量受到信息媒體關注',
+        sources: [{ url: 'https://example.com/review' }],
+      },
+    })
+
+    const { patch } = await runExpansionPhase({
+      brand: { ...baseBrand, reputation_summary: null },
+      phases: ['expansion'],
+      serpSnippets: ['Snippet'],
+      scrapedData: {},
+    })
+
+    expect(patch).toEqual({
+      reputation_summary: {
+        text: '這個品牌的影片品質受到資訊媒體關注',
+        sources: [{ url: 'https://example.com/review' }],
+      },
+    })
+  })
 })

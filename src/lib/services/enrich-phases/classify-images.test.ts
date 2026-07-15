@@ -10,6 +10,10 @@ describe('parseClassification', () => {
     const r = parseClassification('{"tag":"lifestyle","score":72,"alt_zh":"戶外背包","alt_en":"Outdoor backpack"}')
     expect(r).toEqual({ tag: 'lifestyle', score: 72, altZh: '戶外背包', altEn: 'Outdoor backpack' })
   })
+  it('localizes zh-TW alt text', () => {
+    const r = parseClassification('{"tag":"product","score":88,"alt_zh":"視頻質量很高","alt_en":"High-quality video"}')
+    expect(r?.altZh).toBe('影片品質很高')
+  })
   it('returns null classification (not a throw) on malformed response', () => {
     expect(parseClassification('cannot classify')).toBeNull()
   })
@@ -28,6 +32,11 @@ describe('parseClassificationBatch', () => {
     expect(results).toHaveLength(2)
     expect(results[0]?.tag).toBe('lifestyle')
     expect(results[1]?.tag).toBe('packaging')
+  })
+  it('localizes zh-TW alt text in batches', () => {
+    const input = '{"classifications":[{"tag":"product","score":85,"alt_zh":"視頻質量很高","alt_en":"High-quality video"}]}'
+    const results = parseClassificationBatch(input, 1)
+    expect(results[0]?.altZh).toBe('影片品質很高')
   })
   it('handles flat object for single-image batch', () => {
     const input = '{"tag":"product","score":90,"alt_zh":"登山背包","alt_en":"Hiking backpack"}'

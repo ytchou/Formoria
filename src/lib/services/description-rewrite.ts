@@ -2,6 +2,7 @@ import { DESCRIPTION_SYSTEM_PROMPT } from '@/lib/prompts'
 import { buildEnrichmentConfig } from '@/lib/constants/enrichment-config'
 import { createDeepSeekClient, parseDeepSeekJson } from './deepseek-client'
 import { validateLocalizedText, detectAiArtifacts } from './enrich-validators'
+import { localizeToTW, stripAiToolArtifacts } from './taiwan-localization'
 import { parseExtractionResult } from './product-type-classifier'
 import { normalizeProductTags } from '@/lib/services/product-tags'
 
@@ -10,6 +11,10 @@ const ZH_DESCRIPTION_BAND = [150, 400] as const
 const EN_DESCRIPTION_BAND = [300, 700] as const
 const ZH_BLURB_BAND = [40, 80] as const
 const EN_BLURB_BAND = [60, 150] as const
+
+function localizeZhText(text: string): string {
+  return /[一-鿿]/u.test(text) ? localizeToTW(text).text : text
+}
 
 export type DescriptionRewriteResult = {
   description_zh: string | null
@@ -113,7 +118,9 @@ export function parseDescriptionRewriteResult(content: string): DescriptionRewri
   const reputationSummary = rawRep && typeof rawRep === 'object' && !Array.isArray(rawRep)
     ? (() => {
         const rep = rawRep as Record<string, unknown>
-        const text = typeof rep.text === 'string' && rep.text.trim().length > 0 ? rep.text.trim() : null
+        const text = typeof rep.text === 'string' && rep.text.trim().length > 0
+          ? localizeToTW(rep.text.trim()).text
+          : null
         const textEn = typeof rep.text_en === 'string' && rep.text_en.trim().length > 0 ? rep.text_en.trim() : null
         const sources = Array.isArray(rep.sources)
           ? rep.sources.filter((s: unknown): s is { url: string } =>
@@ -136,8 +143,8 @@ export function parseDescriptionRewriteResult(content: string): DescriptionRewri
         )
         .map((item) => ({
           category: typeof item.category === 'string' ? item.category : 'custom',
-          question: item.question as string,
-          answer: item.answer as string,
+          question: localizeZhText(item.question as string),
+          answer: localizeZhText(item.answer as string),
         }))
     : null
 
@@ -325,18 +332,21 @@ export async function rewriteBrandDescription(
   if (!token) return null
   if (snippets.length === 0 && !existingDescription) return null
 
+  const sanitizedSnippets = snippets.slice(0, 10).map(stripAiToolArtifacts)
+  const sanitizedSiteContent = siteContent ? stripAiToolArtifacts(siteContent) : null
+
   const userContent = [
     `品牌名稱：${brandName}`,
     existingDescription ? `現有描述：${existingDescription}` : '',
-    snippets.length > 0 ? `搜尋摘要：\n${snippets.slice(0, 10).join('\n')}` : '',
-    siteContent ? `網站內容：\n${siteContent}` : '',
+    sanitizedSnippets.length > 0 ? `搜尋摘要：\n${sanitizedSnippets.join('\n')}` : '',
+    sanitizedSiteContent ? `網站內容：\n${sanitizedSiteContent}` : '',
   ].filter(Boolean).join('\n\n')
 
   const attemptInput: DescriptionAttemptInput = {
     brandName,
     existingDescription,
-    snippets: snippets.slice(0, 10),
-    siteContent,
+    snippets: sanitizedSnippets,
+    siteContent: sanitizedSiteContent,
   }
   const attemptConfig = buildEnrichmentConfig(
     'description',
@@ -352,6 +362,8 @@ export async function rewriteBrandDescription(
   let acceptedBlurbEn: string | null = null
   const allValidationRejections: DescriptionRewriteResult['validationRejections'] = []
   const attempts: DescriptionAttempt[] = []
+  const localizeAcceptedZh = (value: string | null): string | null =>
+    value ? localizeToTW(value, { brandName }).text : null
 
   try {
     for (let attemptIndex = 0; attemptIndex < 2; attemptIndex += 1) {
@@ -431,9 +443,9 @@ export async function rewriteBrandDescription(
       })
 
       allValidationRejections.push(...validated.validationRejections)
-      acceptedDescriptionZh ??= validated.description_zh
+      acceptedDescriptionZh ??= localizeAcceptedZh(validated.description_zh)
       acceptedDescriptionEn ??= validated.description_en
-      acceptedBlurbZh ??= validated.blurb_zh
+      acceptedBlurbZh ??= localizeAcceptedZh(validated.blurb_zh)
       acceptedBlurbEn ??= validated.blurb_en
       bestResult = {
         ...validated,
