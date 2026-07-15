@@ -7,7 +7,10 @@ import {
   type PhaseKind,
   type PhaseStatus,
   type Producer,
+  type Provenance,
+  type Run,
   type RunLog,
+  type RunSummary,
   type RunStatus,
   type StepEvent,
   type SummaryChip,
@@ -188,7 +191,7 @@ function normalize(input: unknown): RunLog {
       ...(number(run?.attempt) !== undefined ? { attempt: number(run?.attempt) } : {}),
       ...(string(run?.parentRunId) ? { parentRunId: string(run?.parentRunId) } : {}),
       ...(stringMap(run?.labels) ? { labels: stringMap(run?.labels) } : {}),
-    },
+    } satisfies Run,
     summary: {
       phaseCount: number(summary?.phaseCount) ?? phases.length,
       ...(number(summary?.durationMs) !== undefined ? { durationMs: number(summary?.durationMs) } : {}),
@@ -198,7 +201,7 @@ function normalize(input: unknown): RunLog {
       ...(cost(summary?.cost) ? { cost: cost(summary?.cost) } : {}),
       ...(numberMap(summary?.outcomes) ? { outcomes: numberMap(summary?.outcomes) } : {}),
       ...(extraChips ? { extraChips } : {}),
-    },
+    } satisfies RunSummary,
     phases,
     provenance: {
       producer: producer(provenance?.producer, 'unknown'),
@@ -207,7 +210,7 @@ function normalize(input: unknown): RunLog {
         : {}),
       ...(string(provenance?.sourceRef) ? { sourceRef: string(provenance?.sourceRef) } : {}),
       generatedAt: string(provenance?.generatedAt) ?? new Date(0).toISOString(),
-    },
+    } satisfies Provenance,
     ...(gaps.length || suppliedGaps.length ? { gaps: [...suppliedGaps, ...gaps] } : {}),
   }
 }

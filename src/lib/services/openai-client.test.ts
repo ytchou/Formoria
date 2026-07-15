@@ -1,15 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createOpenAIClient, type ChatAuditEvent } from './openai-client'
+import { createOpenAIClient, type ChatAuditEvent, type ChatUsage } from './openai-client'
 
 afterEach(() => vi.restoreAllMocks())
 
 describe('createOpenAIClient', () => {
   it('fires onChatComplete with usage and latency on success', async () => {
+    const usage: ChatUsage = { prompt_tokens: 21, completion_tokens: 8, total_tokens: 29 }
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
         JSON.stringify({
           choices: [{ message: { content: 'hi' } }],
-          usage: { prompt_tokens: 21, completion_tokens: 8, total_tokens: 29 },
+          usage,
         }),
       ),
     )

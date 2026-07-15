@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createDeepSeekClient, parseDeepSeekJson, type ChatAuditEvent } from './deepseek-client'
+import { createDeepSeekClient, parseDeepSeekJson, type ChatAuditEvent, type ChatUsage } from './deepseek-client'
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -17,11 +17,12 @@ describe('createDeepSeekClient', () => {
   })
 
   it('fires onChatComplete with usage and latency on success', async () => {
+    const usage: ChatUsage = { prompt_tokens: 12, completion_tokens: 5, total_tokens: 17 }
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
         JSON.stringify({
           choices: [{ message: { content: 'hi' } }],
-          usage: { prompt_tokens: 12, completion_tokens: 5, total_tokens: 17 },
+          usage,
         }),
       ),
     )
