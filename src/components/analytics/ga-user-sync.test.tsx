@@ -44,14 +44,14 @@ describe('GaUserSync', () => {
 
   it('sets user properties for authenticated user', async () => {
     mockUseUser.mockReturnValue({
-      user: { id: 'user-1', email: 'owner@example.com' },
+      user: { id: 'user-niizo', email: 'owner@niizo.tw', provider: 'email' },
       loading: false,
     })
     const { GaUserSync } = await import('./ga-user-sync')
 
     render(<GaUserSync />)
 
-    expect(window.gtag).toHaveBeenCalledWith('set', { user_id: 'user-1' })
+    expect(window.gtag).toHaveBeenCalledWith('set', { user_id: 'user-niizo' })
     expect(window.gtag).toHaveBeenCalledWith('set', {
       user_properties: {
         user_type: 'authenticated',
@@ -83,9 +83,9 @@ describe('GaUserSync', () => {
 
     mockUseUser.mockReturnValue({
       user: {
-        id: 'user-1',
-        email: 'owner@example.com',
-        app_metadata: { provider: 'google' },
+        id: 'user-niizo',
+        email: 'owner@niizo.tw',
+        provider: 'google',
       },
       loading: false,
     })
@@ -103,9 +103,9 @@ describe('GaUserSync', () => {
 
     mockUseUser.mockReturnValue({
       user: {
-        id: 'user-1',
-        email: 'owner@example.com',
-        app_metadata: { provider: 'google' },
+        id: 'user-niizo',
+        email: 'owner@niizo.tw',
+        provider: 'google',
       },
       loading: false,
     })
@@ -124,9 +124,9 @@ describe('GaUserSync', () => {
 
     mockUseUser.mockReturnValue({
       user: {
-        id: 'user-1',
-        email: 'owner@example.com',
-        app_metadata: { provider: 'google' },
+        id: 'user-niizo',
+        email: 'owner@niizo.tw',
+        provider: 'google',
       },
       loading: false,
     })
@@ -144,9 +144,9 @@ describe('GaUserSync', () => {
 
     mockUseUser.mockReturnValue({
       user: {
-        id: 'user-1',
-        email: 'owner@example.com',
-        app_metadata: { provider: 'email' },
+        id: 'user-niizo',
+        email: 'owner@niizo.tw',
+        provider: 'email',
       },
       loading: false,
     })
@@ -156,13 +156,13 @@ describe('GaUserSync', () => {
     expect(mockTrackLogin).toHaveBeenCalledWith('email')
   })
 
-  it('defaults to email method when app_metadata is absent', async () => {
+  it('uses the email provider projected by the viewer context', async () => {
     const { GaUserSync } = await import('./ga-user-sync')
 
     const { rerender } = render(<GaUserSync />)
 
     mockUseUser.mockReturnValue({
-      user: { id: 'user-1', email: 'owner@example.com' },
+      user: { id: 'user-niizo', email: 'owner@niizo.tw', provider: 'email' },
       loading: false,
     })
 
@@ -183,9 +183,9 @@ describe('GaUserSync', () => {
 
     mockUseUser.mockReturnValue({
       user: {
-        id: 'user-1',
-        email: 'owner@example.com',
-        app_metadata: { provider: 'google' },
+        id: 'user-niizo',
+        email: 'owner@niizo.tw',
+        provider: 'google',
       },
       loading: false,
     })

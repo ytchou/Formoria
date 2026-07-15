@@ -1231,6 +1231,33 @@ export async function getAllBrandSlugs(): Promise<string[]> {
   return (data ?? []).map((row) => row.slug)
 }
 
+export type BrandSeoEntry = {
+  slug: string
+  updatedAt: string
+  productType: string | null
+  description: string | null
+  descriptionEn: string | null
+  blurbEn: string | null
+}
+
+export async function getBrandSeoEntries(): Promise<BrandSeoEntry[]> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brands')
+    .select('slug, updated_at, product_type, description, description_en, blurb_en')
+    .eq('status', 'approved')
+
+  if (error) throw error
+  return (data ?? []).map((row) => ({
+    slug: row.slug,
+    updatedAt: row.updated_at,
+    productType: row.product_type,
+    description: row.description,
+    descriptionEn: row.description_en,
+    blurbEn: row.blurb_en,
+  }))
+}
+
 export async function getMicrositeSlugs(): Promise<string[]> {
   const supabase = createServiceClient()
   const { data, error } = await supabase

@@ -2,34 +2,28 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { endImpersonationAction } from '@/lib/actions/impersonation'
-
-type ImpersonationBannerProps = {
-  brandName: string
-  expiresAt: number
-  labels: {
-    banner: string
-    exit: string
-    timeRemaining: string
-  }
-}
+import { useUser } from '@/lib/auth/use-user'
 
 function getMinutesLeft(expiresAt: number) {
   return Math.max(0, Math.ceil((expiresAt - Date.now() / 1000) / 60))
 }
 
-export function ImpersonationBanner({
-  brandName,
-  expiresAt,
-  labels,
-}: ImpersonationBannerProps) {
+export function ImpersonationBanner() {
   const router = useRouter()
+  const t = useTranslations('impersonation')
+  const { viewer, viewerLoading, refreshViewer } = useUser()
   const [isPending, startTransition] = useTransition()
   const [minutesLeft, setMinutesLeft] = useState(0)
+  const impersonation = viewer.impersonation
+  const expiresAt = impersonation?.expiresAt ?? 0
 
   useEffect(() => {
+    if (!expiresAt) return
+
     const updateMinutesLeft = () => {
       const remaining = getMinutesLeft(expiresAt)
       setMinutesLeft(remaining)
@@ -42,14 +36,18 @@ export function ImpersonationBanner({
       const remaining = updateMinutesLeft()
       if (remaining <= 0) {
         clearInterval(interval)
-        router.refresh()
+        void refreshViewer().then(() => router.refresh())
       }
     }, 30_000)
     return () => {
       clearTimeout(timeout)
       clearInterval(interval)
     }
-  }, [expiresAt, router])
+  }, [expiresAt, refreshViewer, router])
+
+  if (viewerLoading || !impersonation) return null
+
+  const brandName = impersonation.brandName
 
   return (
     <div className="border-b border-mit-verified/20 bg-mit-verified-bg px-3 py-2">
@@ -60,10 +58,10 @@ export function ImpersonationBanner({
             {brandName}
           </Badge>
           <span className="truncate type-body-emphasis text-mit-verified">
-            {labels.banner}
+            {t('banner', { brandName })}
           </span>
           <span className="type-caption text-mit-verified" suppressHydrationWarning>
-            {labels.timeRemaining.replace('{minutes}', String(minutesLeft))}
+            {t.raw('timeRemaining').replace('{minutes}', String(minutesLeft))}
           </span>
         </div>
         <Button
@@ -75,11 +73,12 @@ export function ImpersonationBanner({
           onClick={() => {
             startTransition(async () => {
               await endImpersonationAction()
+              await refreshViewer()
               router.push('/dashboard')
             })
           }}
         >
-          {labels.exit}
+          {t('exit')}
         </Button>
       </div>
     </div>

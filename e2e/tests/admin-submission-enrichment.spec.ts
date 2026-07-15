@@ -188,7 +188,7 @@ test.describe("Admin submission enrichment lifecycle", () => {
 
     await readyRow.getByRole("checkbox").click();
     adminPage.once("dialog", (dialog) => dialog.accept());
-    await adminPage
+    await readyRow
       .getByRole("button", { name: "Approve", exact: true })
       .click();
 

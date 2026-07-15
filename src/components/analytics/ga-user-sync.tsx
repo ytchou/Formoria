@@ -39,7 +39,7 @@ export function GaUserSync() {
     if (previousUserWasNull === true && user) {
       const params = new URLSearchParams(window.location.search)
       const isNewUser = params.get('is_new_user') === '1'
-      const method = user.app_metadata?.provider ?? 'email'
+      const method = user.provider
 
       if (isNewUser) {
         trackSignUp(method)

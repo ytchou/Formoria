@@ -71,5 +71,34 @@ describe('buildAlternates', () => {
       expect(result.canonical).toBe(`${base}/brands/acme`)
       expect(result.languages['en']).toBe(`${base}/en/brands/acme`)
     })
+
+    it('uses the lowercase percent encoding served by Next for CJK slugs', () => {
+      const result = buildAlternates('/brands/阿媽牌生鐵鍋', 'zh-TW')
+
+      expect(result.canonical).toBe(
+        `${base}/brands/%e9%98%bf%e5%aa%bd%e7%89%8c%e7%94%9f%e9%90%b5%e9%8d%8b`,
+      )
+      expect(result.languages.en).toBe(
+        `${base}/en/brands/%e9%98%bf%e5%aa%bd%e7%89%8c%e7%94%9f%e9%90%b5%e9%8d%8b`,
+      )
+    })
+  })
+
+  it('omits unavailable locales while preserving a self-canonical', () => {
+    const zh = buildAlternates('/brands/acme', 'zh-TW', ['zh-TW'])
+    const en = buildAlternates('/brands/acme', 'en', ['zh-TW'])
+
+    expect(zh.languages).toEqual({
+      'zh-TW': `${base}/brands/acme`,
+      'x-default': `${base}/brands/acme`,
+    })
+    expect(en.canonical).toBe(`${base}/en/brands/acme`)
+    expect(en.languages.en).toBeUndefined()
+  })
+
+  it('does not advertise a fallback locale when no locale is indexable', () => {
+    const result = buildAlternates('/brands/incomplete', 'zh-TW', [])
+
+    expect(result.languages).toEqual({})
   })
 })

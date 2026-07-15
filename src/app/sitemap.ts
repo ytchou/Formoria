@@ -1,77 +1,101 @@
 import type { MetadataRoute } from 'next'
-import { getAllBrandSlugs } from '@/lib/services/brands'
+import { getBrandSeoEntries } from '@/lib/services/brands'
 import { getAllGuides } from '@/lib/services/guides'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
-import { buildAlternates } from '@/lib/seo/alternates'
-import { getSiteUrl } from '@/lib/seo/site-url'
+import { buildAlternates, type Locale } from '@/lib/seo/alternates'
+import { getBrandIndexability } from '@/lib/seo/brand-indexability'
 
-export const revalidate = 3600 // 1hr ISR
+export const revalidate = 3600
 
-function makeEntry(
+const ALL_LOCALES: readonly Locale[] = ['zh-TW', 'en']
+
+function localizedEntries(
   path: string,
-  now: Date,
-  changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency'],
-  priority: number
-): MetadataRoute.Sitemap[number] {
-  const base = getSiteUrl()
-  const { languages } = buildAlternates(path, 'zh-TW')
-  const normalizedPath = path === '' || path === '/' ? '' : `/${path.replace(/^\//, '')}`
-  // Sitemap canonical = zh-TW (prefix-free) URL
-  const url = `${base}${normalizedPath}`
-  return {
-    url,
-    lastModified: now,
-    changeFrequency,
-    priority,
-    alternates: {
-      languages: {
-        'zh-TW': languages['zh-TW'],
-        en: languages['en'],
-      },
-    },
-  }
+  availableLocales: readonly Locale[] = ALL_LOCALES,
+  lastModified?: Date,
+): MetadataRoute.Sitemap {
+  return availableLocales.map((locale) => {
+    const { canonical, languages } = buildAlternates(path, locale, availableLocales)
+    return {
+      url: canonical,
+      ...(lastModified ? { lastModified } : {}),
+      alternates: { languages },
+    }
+  })
+}
+
+function validDate(value: string | undefined): Date | undefined {
+  if (!value) return undefined
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? undefined : date
+}
+
+function latestBrandDate(
+  entries: Array<{ updatedAt: string }>,
+): Date | undefined {
+  const timestamps = entries
+    .map((entry) => validDate(entry.updatedAt)?.getTime())
+    .filter((value): value is number => value !== undefined)
+  return timestamps.length > 0 ? new Date(Math.max(...timestamps)) : undefined
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const now = new Date()
-
-  const staticPages: MetadataRoute.Sitemap = [
-    makeEntry('/', now, 'daily', 1.0),
-    makeEntry('/brands', now, 'weekly', 0.9),
-    makeEntry('/stats', now, 'weekly', 0.6),
-    makeEntry('/about', now, 'monthly', 0.5),
-    makeEntry('/glossary', now, 'monthly', 0.5),
-    makeEntry('/faq', now, 'monthly', 0.5),
-    makeEntry('/terms', now, 'monthly', 0.5),
-    makeEntry('/privacy', now, 'monthly', 0.5),
-    makeEntry('/guides', now, 'weekly', 0.7),
-    makeEntry('/getting-started', now, 'monthly', 0.6),
-    makeEntry('/submit', now, 'monthly', 0.4),
-  ]
+  const staticPages = [
+    '/',
+    '/brands',
+    '/stats',
+    '/about',
+    '/glossary',
+    '/faq',
+    '/terms',
+    '/privacy',
+    '/guides',
+    '/getting-started',
+    '/submit',
+  ].flatMap((path) => localizedEntries(path))
 
   try {
-    const brandSlugs = await getAllBrandSlugs()
-    const guideResult = await getAllGuides()
+    const [brands, guideResult] = await Promise.all([
+      getBrandSeoEntries(),
+      getAllGuides(),
+    ])
     const guides = guideResult.ok ? guideResult.guides : []
 
-    const brandPages: MetadataRoute.Sitemap = brandSlugs.map((slug) =>
-      makeEntry(`/brands/${slug}`, now, 'weekly', 0.8)
-    )
-    const guidePages: MetadataRoute.Sitemap = guides.map((guide) =>
-      makeEntry(
-        `/guides/${guide.frontmatter.slug}`,
-        new Date(guide.frontmatter.updatedAt || guide.frontmatter.publishedAt),
-        'weekly',
-        0.7
+    const brandPages = brands.flatMap((brand) => {
+      const indexability = getBrandIndexability(brand)
+      const availableLocales: Locale[] = [
+        ...(indexability['zh-TW'] ? (['zh-TW'] as const) : []),
+        ...(indexability.en ? (['en'] as const) : []),
+      ]
+      return localizedEntries(
+        `/brands/${brand.slug}`,
+        availableLocales,
+        validDate(brand.updatedAt),
       )
-    )
-    const categoryPages: MetadataRoute.Sitemap = PRODUCT_TYPE_CATEGORIES.map((cat) =>
-      makeEntry(`/brands?category=${cat.slug}`, now, 'weekly', 0.8)
-    )
+    })
+
+    const categoryPages = PRODUCT_TYPE_CATEGORIES.flatMap((category) => {
+      const categoryBrands = brands.filter(
+        (brand) => brand.productType === category.slug,
+      )
+      return localizedEntries(
+        `/brands?category=${category.slug}`,
+        ALL_LOCALES,
+        latestBrandDate(categoryBrands),
+      )
+    })
+
+    const guidePages = guides.flatMap((guide) => {
+      const locale: Locale = guide.frontmatter.locale === 'en' ? 'en' : 'zh-TW'
+      return localizedEntries(
+        `/guides/${guide.frontmatter.slug}`,
+        [locale],
+        validDate(guide.frontmatter.updatedAt || guide.frontmatter.publishedAt),
+      )
+    })
 
     return [...staticPages, ...categoryPages, ...brandPages, ...guidePages]
   } catch {
-    // Fallback: static pages only (DB unavailable)
     return staticPages
   }
 }

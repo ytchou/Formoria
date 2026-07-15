@@ -7,17 +7,28 @@ type BrandViewSource = 'search' | 'category' | 'directory' | 'direct' | 'recomme
 
 interface BrandViewTrackerProps {
   brandSlug: string
-  source?: BrandViewSource
 }
 
-export function BrandViewTracker({ brandSlug, source = 'direct' }: BrandViewTrackerProps) {
+const BRAND_VIEW_SOURCES = new Set<BrandViewSource>([
+  'search',
+  'category',
+  'directory',
+  'direct',
+  'recommendation',
+])
+
+export function BrandViewTracker({ brandSlug }: BrandViewTrackerProps) {
   const trackedRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (trackedRef.current === brandSlug) return
     trackedRef.current = brandSlug
+    const rawSource = new URLSearchParams(window.location.search).get('source')
+    const source = rawSource && BRAND_VIEW_SOURCES.has(rawSource as BrandViewSource)
+      ? (rawSource as BrandViewSource)
+      : 'direct'
     trackBrandDetailViewed(brandSlug, source)
-  }, [brandSlug, source])
+  }, [brandSlug])
 
   return null
 }

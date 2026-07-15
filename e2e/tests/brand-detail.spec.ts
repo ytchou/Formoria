@@ -166,3 +166,26 @@ test.describe('Brand detail — brand without links', () => {
     await expect(page.getByRole('heading', { name: '購買管道', level: 2 })).toHaveCount(0);
   });
 });
+
+test.describe('Brand detail — hidden brand', () => {
+  let seeded: SeededBrand;
+
+  test.beforeAll(async ({}, workerInfo) => {
+    seeded = await seedBrand({
+      name: 'hidden-brand',
+      status: 'hidden',
+      workerIndex: workerInfo.workerIndex,
+    });
+  });
+
+  test.afterAll(async () => {
+    await seeded.cleanup();
+  });
+
+  test('hidden brands are not publicly accessible', async ({ page }) => {
+    await page.goto(`/brands/${seeded.slug}`);
+
+    await expect(page.getByRole('heading', { name: seeded.brand.name })).toHaveCount(0);
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/i);
+  });
+});

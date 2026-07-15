@@ -26,6 +26,12 @@ vi.mock('@/i18n/navigation', () => ({
 
 vi.mock('@/lib/auth/use-user', () => ({ useUser: vi.fn() }))
 
+const viewerState = {
+  viewer: { hasOwnedBrand: false, isAdmin: false, impersonation: null },
+  viewerLoading: false,
+  refreshViewer: vi.fn(async () => {}),
+}
+
 function renderWithIntl(ui: ReactElement) {
   return render(
     <NextIntlClientProvider locale="en" messages={enMessages}>
@@ -40,7 +46,11 @@ describe('OwnerBenefitsSection', () => {
   })
 
   it('renders visitor benefits and submit CTA when unauthenticated', () => {
-    vi.mocked(useUser).mockReturnValue({ user: null, loading: false })
+    vi.mocked(useUser).mockReturnValue({
+      user: null,
+      loading: false,
+      ...viewerState,
+    })
 
     renderWithIntl(<OwnerBenefitsSection />)
 
@@ -57,6 +67,7 @@ describe('OwnerBenefitsSection', () => {
     vi.mocked(useUser).mockReturnValue({
       user: { id: 'user-123', email: 'owner@example.com' } as ReturnType<typeof useUser>['user'],
       loading: false,
+      ...viewerState,
     })
 
     renderWithIntl(<OwnerBenefitsSection />)

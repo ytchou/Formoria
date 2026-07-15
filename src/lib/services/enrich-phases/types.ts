@@ -20,6 +20,12 @@ export type EnrichBrand = {
   status?: string | null
   description?: string | null
   description_en?: string | null
+  blurb?: string | null
+  blurb_en?: string | null
+  price_range?: number | null
+  product_tags?: string[] | null
+  product_tags_en?: string[] | null
+  founding_year?: number | null
   city?: string | null
   site_content?: SiteContent | null
   category_attributes?: unknown | null

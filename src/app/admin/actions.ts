@@ -48,6 +48,7 @@ import type { FeedbackStatus } from '@/lib/services/feedback'
 import { checkAllServices } from '@/lib/services/health-checks'
 import { DENIAL_REASONS, type DenialReason, type OtherUrl } from '@/lib/types'
 import { getSiteUrl } from '@/lib/site-url'
+import { revalidatePublicBrand } from '@/lib/cache/public-brand-cache'
 
 async function getPendingEditEmailContext(
   editId: string
@@ -128,8 +129,7 @@ export async function approveSubmissionAction(
 
     revalidatePath('/admin/submissions')
     revalidatePath('/admin')
-    revalidatePath('/')
-    revalidatePath('/brands')
+    revalidatePublicBrand({ slug: brand.slug })
     if (imageSyncWarning) return { imageSyncWarning }
     return undefined
   } catch (err) {
@@ -171,8 +171,6 @@ export async function rejectSubmissionAction(
 
     revalidatePath('/admin/submissions')
     revalidatePath('/admin')
-    revalidatePath('/')
-    revalidatePath('/brands')
     return undefined
   } catch (err) {
     console.error('[admin:rejectSubmission]', err)
@@ -213,11 +211,9 @@ export async function approveClaimAction(
 
     revalidatePath('/admin/claims')
     revalidatePath('/admin')
-    revalidatePath('/[locale]', 'page')
-    revalidatePath('/[locale]/brands', 'page')
 
     if (claimRequest.brandSlug) {
-      revalidatePath('/[locale]/brands/[slug]', 'page')
+      revalidatePublicBrand({ slug: claimRequest.brandSlug })
     }
 
     try {
@@ -258,12 +254,6 @@ export async function rejectClaimAction(
 
     revalidatePath('/admin/claims')
     revalidatePath('/admin')
-    revalidatePath('/[locale]', 'page')
-    revalidatePath('/[locale]/brands', 'page')
-
-    if (claimRequest.brandSlug) {
-      revalidatePath('/[locale]/brands/[slug]', 'page')
-    }
 
     try {
       if (claimRequest.requesterEmail && claimRequest.brandName) {
@@ -295,7 +285,9 @@ export async function approvePendingEditAction(
     if ('error' in auth) return auth
 
     const edit = await getPendingEditEmailContext(editId)
+    const previousBrand = await getBrandById(edit.brandId)
     await approvePendingEdit(editId, auth.user.id)
+    const updatedBrand = await getBrandById(edit.brandId)
 
     try {
       await markFlagsReviewed(edit.brandId)
@@ -318,9 +310,10 @@ export async function approvePendingEditAction(
 
     revalidatePath('/admin/edits')
     revalidatePath('/admin')
-    revalidatePath('/[locale]', 'page')
-    revalidatePath('/[locale]/brands', 'page')
-    revalidatePath('/[locale]/brands/[slug]', 'page')
+    revalidatePublicBrand({
+      slug: updatedBrand.slug,
+      previousSlug: previousBrand.slug,
+    })
 
     return undefined
   } catch (err) {
@@ -358,9 +351,6 @@ export async function rejectPendingEditAction(
 
     revalidatePath('/admin/edits')
     revalidatePath('/admin')
-    revalidatePath('/[locale]', 'page')
-    revalidatePath('/[locale]/brands', 'page')
-    revalidatePath('/[locale]/brands/[slug]', 'page')
 
     return undefined
   } catch (err) {
@@ -394,7 +384,11 @@ export async function updateBrandAction(
     const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
-    await updateBrand(brandId, data as Parameters<typeof updateBrand>[1])
+    const previousBrand = await getBrandById(brandId)
+    const updatedBrand = await updateBrand(
+      brandId,
+      data as Parameters<typeof updateBrand>[1],
+    )
 
     const {
       name,
@@ -435,8 +429,10 @@ export async function updateBrandAction(
 
     revalidatePath('/admin/brands')
     revalidatePath('/admin')
-    revalidatePath('/')
-    revalidatePath('/brands')
+    revalidatePublicBrand({
+      slug: updatedBrand.slug,
+      previousSlug: previousBrand.slug,
+    })
     return undefined
   } catch (err) {
     console.error('[admin:updateBrand]', err)
@@ -453,12 +449,11 @@ export async function hideBrandAction(
     const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
-    await updateBrand(brandId, { status: 'hidden' })
+    const brand = await updateBrand(brandId, { status: 'hidden' })
 
     revalidatePath('/admin/brands')
     revalidatePath('/admin')
-    revalidatePath('/')
-    revalidatePath('/brands')
+    revalidatePublicBrand({ slug: brand.slug })
     return undefined
   } catch (err) {
     console.error('[admin:hideBrand]', err)
@@ -475,12 +470,11 @@ export async function unhideBrandAction(
     const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
-    await updateBrand(brandId, { status: 'approved' })
+    const brand = await updateBrand(brandId, { status: 'approved' })
 
     revalidatePath('/admin/brands')
     revalidatePath('/admin')
-    revalidatePath('/')
-    revalidatePath('/brands')
+    revalidatePublicBrand({ slug: brand.slug })
     return undefined
   } catch (err) {
     console.error('[admin:unhideBrand]', err)
@@ -497,12 +491,12 @@ export async function deleteBrandAction(
     const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
+    const brand = await getBrandById(brandId)
     await deleteBrand(brandId)
 
     revalidatePath('/admin/brands')
     revalidatePath('/admin')
-    revalidatePath('/')
-    revalidatePath('/brands')
+    revalidatePublicBrand({ slug: brand.slug })
     return undefined
   } catch (err) {
     console.error('[admin:deleteBrand]', err)
