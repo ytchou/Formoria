@@ -44,6 +44,13 @@ describe('processImage', () => {
     await expect(processImage(oversized)).rejects.toThrow(/size/i)
   })
 
+  it('rejects input above the configured maxFileSizeBytes', async () => {
+    const buf = Buffer.alloc(6 * 1024 * 1024, 1)
+    await expect(
+      processImage(buf, { maxFileSizeBytes: 5 * 1024 * 1024 })
+    ).rejects.toThrow()
+  })
+
   it('rejects non-image files with wrong magic bytes', async () => {
     const textFile = Buffer.from('This is not an image file at all')
     await expect(processImage(textFile)).rejects.toThrow(/format/i)
@@ -54,6 +61,29 @@ describe('processImage', () => {
     const result = await processImage(large)
     expect(result.width).toBeLessThanOrEqual(DEFAULT_CONFIG.maxWidth)
     expect(result.height).toBeLessThanOrEqual(DEFAULT_CONFIG.maxHeight)
+  })
+
+  it('honors config overrides for max dimensions and max input size', async () => {
+    const big = await sharp({
+      create: {
+        width: 2000,
+        height: 1400,
+        channels: 3,
+        background: { r: 120, g: 80, b: 40 },
+      },
+    })
+      .jpeg({ quality: 90 })
+      .toBuffer()
+
+    const result = await processImage(big, {
+      maxWidth: 1600,
+      maxHeight: 1600,
+      maxFileSizeBytes: 40 * 1024 * 1024,
+    })
+
+    expect(result.contentType).toBe('image/webp')
+    expect(Math.max(result.width, result.height)).toBeLessThanOrEqual(1600)
+    expect(Math.max(result.width, result.height)).toBeGreaterThan(1200)
   })
 
   it('does not enlarge small images', async () => {
