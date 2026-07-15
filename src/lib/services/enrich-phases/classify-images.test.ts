@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { parseClassification, parseClassificationBatch, applyClassifications } from './classify-images'
+import {
+  applyClassifications,
+  getUnclassifiedImages,
+  parseClassification,
+  parseClassificationBatch,
+  resetImageTags,
+} from './classify-images'
 
 describe('parseClassification', () => {
   it('parses a vision response into tags/score/alt', () => {
@@ -61,5 +67,92 @@ describe('applyClassifications', () => {
     const result = applyClassifications(images as never)
     expect(result.rejectedIds).toEqual(['1'])
     expect(result.ordered.map((i) => i.id)).toEqual(['3', '2'])
+  })
+
+  it('returns storage paths to delete for rejected images', () => {
+    const images = [
+      { id: '1', tag: 'promo', score: 95, storage_path: 'brands/b/x.jpg' },
+      { id: '2', tag: 'product', score: 80, storage_path: 'brands/b/y.jpg' },
+      { id: '3', tag: null, score: 0, storage_path: null },
+    ]
+
+    const result = applyClassifications(images as never)
+
+    expect(result.pathsToDelete).toEqual(['brands/b/x.jpg'])
+    expect(result.rejectedUpdates).toEqual([
+      { id: '1', row: { status: 'rejected', storage_path: null } },
+      { id: '3', row: { status: 'rejected', storage_path: null } },
+    ])
+  })
+})
+
+describe('classification query filters', () => {
+  it('getUnclassifiedImages query excludes owner-sourced images', async () => {
+    const filters: Array<[string, string, unknown]> = []
+    const query = {
+      eq(column: string, value: string) {
+        filters.push(['eq', column, value])
+        return this
+      },
+      neq(column: string, value: string) {
+        filters.push(['neq', column, value])
+        return this
+      },
+      is(column: string, value: null) {
+        filters.push(['is', column, value])
+        return this
+      },
+      async order() {
+        return { data: [], error: null }
+      },
+    }
+    const supabase = {
+      from() {
+        return {
+          select() {
+            return query
+          },
+        }
+      },
+    }
+
+    await getUnclassifiedImages(supabase, { type: 'brand', id: 'brand-1' })
+
+    expect(filters).toContainEqual(['neq', 'source', 'owner'])
+  })
+
+  it('resetImageTags only re-queues active rows and never owner rows', async () => {
+    const filters: Array<[string, string, unknown]> = []
+    const query = {
+      eq(column: string, value: string) {
+        filters.push(['eq', column, value])
+        return this
+      },
+      neq(column: string, value: string) {
+        filters.push(['neq', column, value])
+        return this
+      },
+      not(column: string, operator: string, value: unknown) {
+        filters.push(['not', column, [operator, value]])
+        return this
+      },
+      async select() {
+        return { data: [], error: null }
+      },
+    }
+    const supabase = {
+      from() {
+        return {
+          update() {
+            return query
+          },
+        }
+      },
+    }
+
+    await resetImageTags(supabase, { type: 'brand', id: 'brand-1' })
+
+    expect(filters).toContainEqual(['eq', 'status', 'active'])
+    expect(filters).toContainEqual(['neq', 'source', 'owner'])
   })
 })

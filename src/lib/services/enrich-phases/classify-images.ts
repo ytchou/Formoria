@@ -3,6 +3,7 @@ import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { buildEnrichmentConfig } from '@/lib/constants/enrichment-config'
 import { createOpenAIClient, parseJson } from '../openai-client'
 import { syncHeroDenormalized, type BrandImageRow } from '../brand-images'
+import { deleteStoredImagePaths } from '../image-upload'
 import { localizeToTW } from '../taiwan-localization'
 import { createServiceClient } from '@/lib/supabase/server'
 import type { PhaseResult } from '@/lib/types/curation'
@@ -48,6 +49,14 @@ export type ClassifiedImage = {
   id: string
   tag: ImageClassificationTag
   score: number
+  storage_path?: string | null
+}
+
+type ImageClassificationInput = ClassifiedImage | {
+  id: string
+  tag: null
+  score: 0
+  storage_path?: string | null
 }
 
 type ClassifyImagesPhaseOptions = {
@@ -71,6 +80,7 @@ type BrandImageForClassification = BrandImageRow & {
 
 type BrandImagesSelectQuery = {
   eq: (column: string, value: string) => BrandImagesSelectQuery
+  neq: (column: string, value: string) => BrandImagesSelectQuery
   is: (column: string, value: null) => BrandImagesSelectQuery
   order: (
     column: string,
@@ -80,6 +90,7 @@ type BrandImagesSelectQuery = {
 
 type BrandImagesUpdateQuery = {
   eq: (column: string, value: string) => BrandImagesUpdateQuery
+  neq: (column: string, value: string) => BrandImagesUpdateQuery
   not: (column: string, operator: string, value: unknown) => BrandImagesUpdateQuery
   select: (columns: string) => Promise<{ data: Array<{ id: string }> | null; error: unknown }>
   then: Promise<{ error: unknown }>['then']
@@ -137,6 +148,8 @@ function scoreValue(value: BrandImageRow['score']): number {
 }
 
 function classifiedImageFromRow(row: BrandImageForClassification): ClassifiedImage | null {
+  if (row.source === 'owner') return null
+
   const tag = row.tags?.find(isImageClassificationTag)
   if (!tag) return null
 
@@ -144,6 +157,7 @@ function classifiedImageFromRow(row: BrandImageForClassification): ClassifiedIma
     id: row.id,
     tag,
     score: scoreValue(row.score),
+    storage_path: row.storage_path,
   }
 }
 
@@ -212,18 +226,33 @@ export function parseClassificationBatch(
   })
 }
 
-export function applyClassifications(images: ClassifiedImage[]): {
+export function applyClassifications(images: ImageClassificationInput[]): {
   rejectedIds: string[]
+  rejectedUpdates: Array<{
+    id: string
+    row: { status: 'rejected'; storage_path: null }
+  }>
+  pathsToDelete: string[]
   ordered: ClassifiedImage[]
 } {
-  const rejectedIds = images
-    .filter((image) => JUNK_TAGS.has(image.tag))
-    .map((image) => image.id)
+  const rejected = images.filter(
+    (image) => image.tag === null || JUNK_TAGS.has(image.tag)
+  )
+  const rejectedIds = rejected.map((image) => image.id)
+  const rejectedUpdates = rejected.map((image) => ({
+    id: image.id,
+    row: { status: 'rejected' as const, storage_path: null },
+  }))
+  const pathsToDelete = rejected.flatMap((image) =>
+    image.storage_path ? [image.storage_path] : []
+  )
   const ordered = images
-    .filter((image) => !JUNK_TAGS.has(image.tag))
+    .filter(
+      (image): image is ClassifiedImage => image.tag !== null && !JUNK_TAGS.has(image.tag)
+    )
     .toSorted((left, right) => right.score - left.score)
 
-  return { rejectedIds, ordered }
+  return { rejectedIds, rejectedUpdates, pathsToDelete, ordered }
 }
 
 function classifyImagesClient(supabase: unknown): ClassifyImagesClient {
@@ -252,16 +281,17 @@ async function insertRawClassificationResult(
   if (error) throw error
 }
 
-async function getUnclassifiedImages(
+export async function getUnclassifiedImages(
   supabase: unknown,
   target: EnrichmentTarget
 ): Promise<BrandImageForClassification[]> {
   const storage = targetImageStorage(target)
   const { data, error } = await classifyImagesClient(supabase)
     .from(storage.table)
-    .select('id, url, status, tags, score, sort_order')
+    .select('id, url, source, status, tags, score, sort_order, storage_path')
     .eq(storage.foreignKey, target.id)
     .eq('status', 'active')
+    .neq('source', 'owner')
     .is('tags', null)
     .order('sort_order', { ascending: true })
 
@@ -276,7 +306,7 @@ async function getActiveImages(
   const storage = targetImageStorage(target)
   const { data, error } = await classifyImagesClient(supabase)
     .from(storage.table)
-    .select('id, url, status, tags, score, sort_order')
+    .select('id, url, source, status, tags, score, sort_order, storage_path')
     .eq(storage.foreignKey, target.id)
     .eq('status', 'active')
     .order('sort_order', { ascending: true })
@@ -300,15 +330,17 @@ async function updateImage(
   if (error) throw error
 }
 
-async function resetImageTags(
+export async function resetImageTags(
   supabase: unknown,
   target: EnrichmentTarget
 ): Promise<number> {
   const storage = targetImageStorage(target)
   const { data, error } = await classifyImagesClient(supabase)
     .from(storage.table)
-    .update({ tags: null, score: null, alt_zh: null, alt_en: null, status: 'active' })
+    .update({ tags: null, score: null, alt_zh: null, alt_en: null })
     .eq(storage.foreignKey, target.id)
+    .eq('status', 'active')
+    .neq('source', 'owner')
     .not('tags', 'is', null)
     .select('id')
   if (error) throw error
@@ -377,6 +409,7 @@ export async function runClassifyImagesPhase({
   })
   const { result, durationMs } = await timePhase(async () => {
     const classifications: ClassifiedImage[] = []
+    const pathsToDelete: string[] = []
 
     for (let i = 0; i < images.length; i += BATCH_SIZE) {
       const chunk = images.slice(i, i + BATCH_SIZE)
@@ -412,39 +445,67 @@ export async function runClassifyImagesPhase({
         const classification = parsed[j] ?? null
 
         if (!classification) {
-          await updateImage(supabase, target, image.id, { status: 'rejected' })
+          const classificationResult = applyClassifications([{
+            id: image.id,
+            tag: null,
+            score: 0,
+            storage_path: image.storage_path,
+          }])
+          const rejectedUpdate = classificationResult.rejectedUpdates.at(0)
+          if (rejectedUpdate) {
+            await updateImage(supabase, target, rejectedUpdate.id, rejectedUpdate.row)
+          }
+          pathsToDelete.push(...classificationResult.pathsToDelete)
           continue
         }
 
-        classifications.push({
+        const classifiedImage = {
           id: image.id,
           tag: classification.tag,
           score: classification.score,
-        })
+          storage_path: image.storage_path,
+        }
+        classifications.push(classifiedImage)
+        const classificationResult = applyClassifications([classifiedImage])
+        const rejectedUpdate = classificationResult.rejectedUpdates.at(0)
+        pathsToDelete.push(...classificationResult.pathsToDelete)
         await updateImage(supabase, target, image.id, {
           tags: [classification.tag],
           score: classification.score,
           alt_zh: classification.altZh,
           alt_en: classification.altEn,
-          status: JUNK_TAGS.has(classification.tag) ? 'rejected' : 'active',
+          ...(rejectedUpdate?.row ?? { status: 'active' }),
         })
       }
     }
 
     const activeImages = await getActiveImages(supabase, target)
-    const { rejectedIds, ordered } = applyClassifications(
+    const { rejectedIds, rejectedUpdates, pathsToDelete: existingPathsToDelete, ordered } = applyClassifications(
       activeImages
         .map(classifiedImageFromRow)
         .filter((image): image is ClassifiedImage => image !== null)
     )
 
-    for (const id of rejectedIds) {
-      await updateImage(supabase, target, id, { status: 'rejected' })
+    for (const update of rejectedUpdates) {
+      await updateImage(supabase, target, update.id, update.row)
+    }
+    pathsToDelete.push(...existingPathsToDelete)
+
+    try {
+      await deleteStoredImagePaths(pathsToDelete)
+    } catch (storageError) {
+      console.error(
+        `[CLASSIFY] Failed to delete rejected images for ${target.type} ${target.id}:`,
+        storageError
+      )
     }
 
     if (ordered.length === 0 && classifications.length > 0) {
-      const best = classifications.toSorted((a, b) => b.score - a.score)[0]
-      if (best.score >= MIN_HERO_SCORE) {
+      const best = classifications
+        .filter((image) => !JUNK_TAGS.has(image.tag))
+        .toSorted((a, b) => b.score - a.score)
+        .at(0)
+      if (best && best.score >= MIN_HERO_SCORE) {
         await updateImage(supabase, target, best.id, { status: 'active', sort_order: 0 })
       }
     } else {

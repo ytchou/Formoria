@@ -26,6 +26,7 @@ describe('image upload service', () => {
 
     expect(res.key).toBe('claim-proofs/u1/b1/x.webp')
     expect(uploadMock).toHaveBeenCalledWith('u1/b1/x.webp', Buffer.from('x'), {
+      cacheControl: '31536000',
       contentType: 'image/webp',
       upsert: false,
     })
@@ -41,6 +42,11 @@ describe('image upload service', () => {
     })
 
     expect(res.url).toBe('https://x.supabase.co/pub')
+    expect(uploadMock).toHaveBeenCalledWith(
+      'b/y.webp',
+      Buffer.from('y'),
+      expect.objectContaining({ cacheControl: '31536000' }),
+    )
     expect(getPublicUrlMock).toHaveBeenCalledWith('b/y.webp')
   })
 })

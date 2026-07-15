@@ -1,3 +1,5 @@
+import { deleteStoredImagePaths } from './image-upload'
+
 type BrandImageStatus = 'active' | 'rejected'
 type BrandImageSource = 'scrape' | 'google_image' | 'owner' | 'admin' | 'legacy'
 
@@ -31,6 +33,10 @@ export type BrandImageInsert = {
 type QueryError = { code?: string; message?: string }
 type BrandImagesSelectQuery = {
   eq: (column: 'brand_id' | 'status', value: string) => BrandImagesSelectQuery
+  in: (
+    column: 'url',
+    values: string[],
+  ) => Promise<{ data: BrandImageRow[] | null; error: QueryError | null }>
   order: (
     column: 'sort_order',
     options: { ascending: boolean },
@@ -138,8 +144,29 @@ export async function rejectBrandImages(
   urls: string[],
 ): Promise<void> {
   if (urls.length === 0) return
+
+  const { data: rows, error: selectError } = await brandImagesTable(supabase)
+    .select('storage_path')
+    .eq('brand_id', brandId)
+    .in('url', urls)
+  if (selectError) throw selectError
+
+  const storagePaths = (rows ?? []).flatMap((row) =>
+    row.storage_path ? [row.storage_path] : [],
+  )
+  if (storagePaths.length > 0) {
+    try {
+      await deleteStoredImagePaths(storagePaths)
+    } catch (storageError) {
+      console.error(
+        `[rejectBrandImages] Failed to delete rejected images for ${brandId}:`,
+        storageError,
+      )
+    }
+  }
+
   const { error } = await brandImagesTable(supabase)
-    .update({ status: 'rejected' })
+    .update({ status: 'rejected', storage_path: null })
     .eq('brand_id', brandId)
     .in('url', urls)
   if (error) throw error
