@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 const routinePrompts = [
   "directory-health",
   "growth-pulse",
-  "mention-tracker",
   "sentry-triage",
 ];
 

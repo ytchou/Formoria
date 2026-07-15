@@ -9,7 +9,7 @@ describe('Button', () => {
 
     expect(screen.getByRole('button', { name: 'Save' })).toHaveClass(
       'h-10',
-      'rounded-lg',
+      'rounded-xl',
       'bg-primary',
     )
   })
@@ -19,7 +19,7 @@ describe('Button', () => {
 
     expect(screen.getByRole('button', { name: 'Publish' })).toHaveClass(
       'h-10',
-      'rounded-lg',
+      'rounded-xl',
       'bg-cta',
     )
   })

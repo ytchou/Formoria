@@ -126,8 +126,8 @@
   /* Signature token — seal-stamp for verified badges */
   --signature-seal: oklch(0.563 0.1600 37.6);          /* Kiln — seal/stamp accent */
 
-  /* Radius — 4px editorial flat */
-  --radius: 0.25rem;
+  /* Radius — 6px softened editorial */
+  --radius: 0.375rem;
 
   /* Sidebar */
   --sidebar: oklch(0.975 0.003 85);
