@@ -14,7 +14,7 @@ vi.mock('@/lib/supabase/server', () => ({
   createServiceClient: () => ({ from: mocks.from }),
 }))
 
-function mockQueryRows(rowsByTable: Record<string, { direct: unknown[]; legacy?: unknown[] }>) {
+function mockQueryRows(rowsByTable: Record<string, { direct: unknown[]; legacy?: unknown[]; directError?: unknown }>) {
   mocks.from.mockImplementation((table: string) => {
     const filters = new Map<string, unknown>()
     const query = {
@@ -30,9 +30,10 @@ function mockQueryRows(rowsByTable: Record<string, { direct: unknown[]; legacy?:
       gte: () => query,
       lte: () => query,
       order: () => query,
-      then: (resolve: (value: { data: unknown[]; error: null }) => unknown) => {
+      then: (resolve: (value: { data: unknown[]; error: unknown }) => unknown) => {
+        const error = filters.has('job_id') ? rowsByTable[table]?.directError ?? null : null
         const source = filters.has('job_id') ? rowsByTable[table]?.direct ?? [] : rowsByTable[table]?.legacy ?? []
-        return Promise.resolve({ data: source, error: null }).then(resolve)
+        return Promise.resolve({ data: source, error }).then(resolve)
       },
     }
     return query
@@ -240,5 +241,25 @@ describe('exportJobRunLog', () => {
 
     expect(runlog.summary.callCount).toBe(1)
     expect(runlog.gaps).toEqual(expect.arrayContaining([expect.stringContaining('legacy')]))
+  })
+
+  it('uses the legacy fallback while the job_id migration is rolling out', async () => {
+    mockQueryRows({
+      brand_ai_results: {
+        direct: [],
+        directError: { code: '42703', message: 'column brand_ai_results.job_id does not exist' },
+        legacy: [],
+      },
+      brand_search_results: {
+        direct: [],
+        directError: { code: '42703', message: 'column brand_search_results.job_id does not exist' },
+        legacy: [],
+      },
+    })
+
+    const runlog = await exportJobRunLog('job-1')
+
+    expect(runlog.run.id).toBe('job-1')
+    expect(runlog.gaps).toEqual(expect.arrayContaining([expect.stringContaining('job_id migration')]))
   })
 })

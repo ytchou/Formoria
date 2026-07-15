@@ -83,12 +83,22 @@ type AuditClient = {
   from: (table: string) => AuditQuery
 }
 
+type JobAuditQueryResult = {
+  rows: unknown[]
+  jobIdColumnMissing: boolean
+}
+
 function record(value: unknown): UnknownRecord | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as UnknownRecord) : null
 }
 
 function finiteNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function isMissingJobIdColumn(error: unknown): boolean {
+  const source = record(error)
+  return source?.code === '42703' && typeof source.message === 'string' && source.message.includes('job_id')
 }
 
 function tokenUsage(value: unknown): TokenUsage | undefined {
@@ -222,11 +232,14 @@ function capEvents(events: StepEvent[]): { events: StepEvent[]; eventsTruncated?
   }
 }
 
-async function queryByJob(table: string, columns: string, jobId: string): Promise<unknown[]> {
+async function queryByJob(table: string, columns: string, jobId: string): Promise<JobAuditQueryResult> {
   const client = createServiceClient() as unknown as AuditClient
   const { data, error } = await client.from(table).select(columns).eq('job_id', jobId).order('created_at', { ascending: true })
-  if (error) throw error
-  return data ?? []
+  if (error) {
+    if (isMissingJobIdColumn(error)) return { rows: [], jobIdColumnMissing: true }
+    throw error
+  }
+  return { rows: data ?? [], jobIdColumnMissing: false }
 }
 
 async function queryLegacy(
@@ -273,13 +286,18 @@ const AI_COLUMNS = 'id, brand_id, submission_id, phase, model, latency_ms, creat
 const SEARCH_COLUMNS = 'id, brand_id, submission_id, search_type, query, urls, latency_ms, created_at'
 
 export async function exportJobRunLog(jobId: string): Promise<RunLog> {
-  const [job, targets, directAiRows, directSearchRows] = await Promise.all([
+  const [job, targets, aiQuery, searchQuery] = await Promise.all([
     getCurationJob(jobId),
     listCurationJobTargets(jobId),
     queryByJob('brand_ai_results', AI_COLUMNS, jobId),
     queryByJob('brand_search_results', SEARCH_COLUMNS, jobId),
   ])
   const gaps: string[] = []
+  const directAiRows = aiQuery.rows
+  const directSearchRows = searchQuery.rows
+  if (aiQuery.jobIdColumnMissing || searchQuery.jobIdColumnMissing) {
+    gaps.push('Job-scoped audit columns are unavailable; using the legacy fallback until the job_id migration is applied')
+  }
   const startedAt = job.started_at ?? job.created_at ?? new Date(0).toISOString()
   const completedAt = job.completed_at ?? new Date().toISOString()
   const aiRows = (directAiRows.length > 0
