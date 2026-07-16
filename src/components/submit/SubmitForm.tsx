@@ -12,14 +12,11 @@ import { useForm, useWatch, Controller, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslations } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
-import { TAIWAN_CITIES } from '@/lib/constants/taiwan-cities'
 import {
-  createOwnerSubmissionSchema,
   createRecommendationSubmissionSchema,
   type SubmissionFormData,
 } from '@/lib/validations/submission'
 import {
-  submitOwnerBrand,
   submitRecommendation,
   suggestCleanName,
 } from '@/app/[locale]/submit/actions'
@@ -27,7 +24,6 @@ import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
 import type { SourceAttribution } from '@/lib/types/submission'
 import { FormField } from '@/components/forms/form-field'
 import { StandardForm, StandardFormStack } from '@/components/forms/form-layout'
-import { ImageUploadField } from '@/components/forms/image-upload-field'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -43,19 +39,15 @@ import {
 
 type SubmitFormProps = {
   source?: 'header_cta' | 'hero_cta' | 'footer_link'
-  variant?: 'recommend' | 'owner'
 }
 
 export default function SubmitForm({
   source = 'hero_cta',
-  variant = 'recommend',
 }: SubmitFormProps) {
   const t = useTranslations('submit')
-  const tForm = useTranslations(`submit.${variant}Form`)
-  const tCities = useTranslations('cities')
+  const tForm = useTranslations('submit.recommendForm')
   const tReview = useTranslations('submit.review')
   const router = useRouter()
-  const sessionId = useMemo(() => crypto.randomUUID(), [])
   const mountTimeRef = useRef<number | null>(null)
   const nameBlurRequestRef = useRef(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -67,11 +59,8 @@ export default function SubmitForm({
     [t],
   )
   const schema = useMemo(
-    () =>
-      variant === 'owner'
-        ? createOwnerSubmissionSchema(tSchema)
-        : createRecommendationSubmissionSchema(tSchema),
-    [tSchema, variant],
+    () => createRecommendationSubmissionSchema(tSchema),
+    [tSchema],
   )
   const resolver = useMemo(
     () => zodResolver(schema as never) as Resolver<SubmissionFormData>,
@@ -93,38 +82,22 @@ export default function SubmitForm({
       description: '',
       guestEmail: '',
       sourceAttribution: undefined,
-      city: undefined,
-      mitSmileCert: '',
       pdpaConsent: false,
       turnstileToken: '',
       honeypot: '',
-      socialLinks: {
-        instagram: '',
-        threads: '',
-        facebook: '',
-        pinkoi: '',
-        shopee: '',
-        website: '',
-      },
-      purchaseLinks: [],
-      heroImageUrl: '',
     },
     mode: 'onTouched',
   })
 
   const pdpaConsent = useWatch({ control, name: 'pdpaConsent' })
-  const watchedCity = useWatch({ control, name: 'city' })
   const [nameSuggestion, setNameSuggestion] = useState<string | null>(null)
   const [urlSuggestion, setUrlSuggestion] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   useEffect(() => {
     mountTimeRef.current = Date.now()
-    trackSubmissionFormOpened(
-      source,
-      variant === 'owner' ? 'owner_claim' : 'recommend',
-    )
-  }, [source, variant])
+    trackSubmissionFormOpened(source, 'recommend')
+  }, [source])
 
   const handleNameBlur = async () => {
     const currentName = getValues('name')
@@ -196,10 +169,7 @@ export default function SubmitForm({
       try {
         const result:
           | { error?: string; ownershipAdjusted?: boolean }
-          | undefined =
-          variant === 'owner'
-            ? await submitOwnerBrand(data)
-            : await submitRecommendation(data)
+          | undefined = await submitRecommendation(data)
 
         if (result?.error) {
           setSubmitError(result.error)
@@ -207,7 +177,7 @@ export default function SubmitForm({
         }
 
         const query = new URLSearchParams({
-          intent: variant === 'owner' ? 'owner_claim' : 'recommend',
+          intent: 'recommend',
         })
         if (result?.ownershipAdjusted) {
           query.set('ownership', 'community')
@@ -221,15 +191,15 @@ export default function SubmitForm({
             '',
             Boolean(data.heroImageUrl),
             elapsed,
-            variant === 'owner' ? 'owner_claim' : 'recommend',
-            !data.guestEmail && variant === 'recommend',
+            'recommend',
+            !data.guestEmail,
           )
         }
       } finally {
         setIsSubmitting(false)
       }
     },
-    [isSubmitting, variant],
+    [isSubmitting],
   )
 
   const onSubmit = useCallback(
@@ -344,196 +314,71 @@ export default function SubmitForm({
             ) : null}
           </FormField>
 
-          {variant === 'recommend' ? (
-            <FormField
+          <FormField
+            id="submit-guest-email"
+            label={tForm('guestEmailLabel')}
+            description={tForm('guestEmailHint')}
+            error={errors.guestEmail?.message}
+          >
+            <Input
               id="submit-guest-email"
-              label={tForm('guestEmailLabel')}
-              description={tForm('guestEmailHint')}
-              error={errors.guestEmail?.message}
-            >
-              <Input
-                id="submit-guest-email"
-                type="email"
-                autoComplete="email"
-                spellCheck={false}
-                placeholder={tForm('guestEmailPlaceholder')}
-                {...register('guestEmail')}
-              />
-            </FormField>
-          ) : null}
+              type="email"
+              autoComplete="email"
+              spellCheck={false}
+              placeholder={tForm('guestEmailPlaceholder')}
+              {...register('guestEmail')}
+            />
+          </FormField>
 
           <FormField
             id="submit-description"
             label={tForm('descriptionLabel')}
             description={tForm('descriptionHint')}
             error={errors.description?.message}
-            required={variant === 'owner'}
           >
             <Textarea
               id="submit-description"
               rows={4}
-              required={variant === 'owner'}
               placeholder={tForm('descriptionPlaceholder')}
               {...register('description')}
             />
           </FormField>
 
-          {variant === 'owner' ? (
+          <FormField
+            id="submit-source"
+            label={tForm('sourceLabel')}
+            description={tForm('sourceHint')}
+            error={errors.sourceAttribution?.message}
+            required
+          >
             <Controller
-              name="heroImageUrl"
+              name="sourceAttribution"
               control={control}
-              render={({ field, fieldState }) => (
-                <ImageUploadField
-                  name={field.name}
-                  label={t('fields.heroImage')}
-                  description={tForm('heroImageHintOwner')}
-                  uploadPath={`submissions/${sessionId}/hero`}
-                  value={field.value ?? ''}
-                  onChange={(value) => field.onChange(value)}
-                  required
-                  error={fieldState.error?.message}
-                />
-              )}
-            />
-          ) : null}
-
-          {variant === 'recommend' ? (
-            <FormField
-              id="submit-source"
-              label={tForm('sourceLabel')}
-              description={tForm('sourceHint')}
-              error={errors.sourceAttribution?.message}
-              required
-            >
-              <Controller
-                name="sourceAttribution"
-                control={control}
-                render={({ field }) => (
-                  <NativeSelect
-                    id="submit-source"
-                    className={cn(
-                      field.value ? 'text-foreground' : 'text-muted-foreground',
-                    )}
-                    value={field.value ?? ''}
-                    onChange={(event) =>
-                      field.onChange(
-                        (event.target.value as SourceAttribution) || undefined,
-                      )
-                    }
-                  >
-                    <option value="" disabled>
-                      {tForm('sourcePlaceholder')}
-                    </option>
-                    {SOURCE_ATTRIBUTION_VALUES.map((value) => (
-                      <option key={value} value={value}>
-                        {t(`attribution.${value}` as Parameters<typeof t>[0])}
-                      </option>
-                    ))}
-                  </NativeSelect>
-                )}
-              />
-            </FormField>
-          ) : null}
-
-          {variant === 'owner' ? (
-            <>
-              <FormField
-                id="submit-city"
-                label={t('city')}
-                description={tForm('cityHint')}
-              >
+              render={({ field }) => (
                 <NativeSelect
-                  id="submit-city"
+                  id="submit-source"
                   className={cn(
-                    !watchedCity && 'text-muted-foreground',
+                    field.value ? 'text-foreground' : 'text-muted-foreground',
                   )}
-                  {...register('city', {
-                    setValueAs: (value) => (value === '' ? undefined : value),
-                  })}
+                  value={field.value ?? ''}
+                  onChange={(event) =>
+                    field.onChange(
+                      (event.target.value as SourceAttribution) || undefined,
+                    )
+                  }
                 >
-                  <option value="">{t('cityPlaceholder')}</option>
-                  {TAIWAN_CITIES.map((city) => (
-                    <option key={city.slug} value={city.slug}>
-                      {tCities(city.slug)}
+                  <option value="" disabled>
+                    {tForm('sourcePlaceholder')}
+                  </option>
+                  {SOURCE_ATTRIBUTION_VALUES.map((value) => (
+                    <option key={value} value={value}>
+                      {t(`attribution.${value}` as Parameters<typeof t>[0])}
                     </option>
                   ))}
                 </NativeSelect>
-              </FormField>
-
-              <FormField
-                label={tForm('linksHeading')}
-                description={tForm('linksHint')}
-              >
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField
-                    id="submit-instagram"
-                    label={tForm('instagramLabel')}
-                  >
-                    <Input
-                      id="submit-instagram"
-                      type="url"
-                      autoComplete="off"
-                      placeholder="https://instagram.com/yourbrand"
-                      {...register('socialLinks.instagram')}
-                    />
-                  </FormField>
-                  <FormField id="submit-threads" label={tForm('threadsLabel')}>
-                    <Input
-                      id="submit-threads"
-                      type="url"
-                      autoComplete="off"
-                      placeholder="https://threads.net/@yourbrand"
-                      {...register('socialLinks.threads')}
-                    />
-                  </FormField>
-                  <FormField
-                    id="submit-facebook"
-                    label={tForm('facebookLabel')}
-                  >
-                    <Input
-                      id="submit-facebook"
-                      type="url"
-                      autoComplete="off"
-                      placeholder="https://facebook.com/yourbrand"
-                      {...register('socialLinks.facebook')}
-                    />
-                  </FormField>
-                  <FormField id="submit-pinkoi" label={tForm('pinkoiLabel')}>
-                    <Input
-                      id="submit-pinkoi"
-                      type="url"
-                      autoComplete="off"
-                      placeholder="https://pinkoi.com/store/yourbrand"
-                      {...register('socialLinks.pinkoi')}
-                    />
-                  </FormField>
-                  <FormField id="submit-shopee" label={tForm('shopeeLabel')}>
-                    <Input
-                      id="submit-shopee"
-                      type="url"
-                      autoComplete="off"
-                      placeholder="https://shopee.tw/yourbrand"
-                      {...register('socialLinks.shopee')}
-                    />
-                  </FormField>
-                </div>
-              </FormField>
-
-              <FormField
-                id="submit-mit-smile-cert"
-                label={t('fields.mitSmileMarkNumber')}
-                description={t('fields.mitSmileMarkNumberHint')}
-              >
-                <Input
-                  id="submit-mit-smile-cert"
-                  type="text"
-                  autoComplete="off"
-                  placeholder={t('fields.mitSmileMarkNumberPlaceholder')}
-                  {...register('mitSmileCert')}
-                />
-              </FormField>
-            </>
-          ) : null}
+              )}
+            />
+          </FormField>
 
           <div className="space-y-2">
             <Controller

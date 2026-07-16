@@ -6,7 +6,6 @@ import { vi, describe, it, expect, beforeEach } from 'vitest'
 
 vi.mock('@/app/[locale]/submit/actions', () => ({
   submitRecommendation: vi.fn(),
-  submitOwnerBrand: vi.fn(),
   suggestCleanName: vi.fn(),
 }))
 
@@ -32,10 +31,10 @@ vi.mock('@/lib/analytics', () => ({
 import SubmitForm from './SubmitForm'
 import messages from '@/../messages/zh-TW.json'
 
-function renderForm(variant: 'recommend' | 'owner') {
+function renderForm() {
   return render(
     <NextIntlClientProvider locale="zh-TW" messages={messages}>
-      <SubmitForm variant={variant} />
+      <SubmitForm />
     </NextIntlClientProvider>,
   )
 }
@@ -46,7 +45,7 @@ describe('SubmitForm', () => {
   })
 
   it('renders recommendation form for guest users', () => {
-    renderForm('recommend')
+    renderForm()
     expect(
       screen.getByRole('heading', { name: /推薦品牌/ }),
     ).toBeInTheDocument()
@@ -57,13 +56,13 @@ describe('SubmitForm', () => {
   })
 
   it('renders submit button disabled before required fields are completed', () => {
-    renderForm('recommend')
+    renderForm()
     expect(screen.getByRole('button', { name: /送出推薦/ })).toBeDisabled()
   })
 
   it('toggles the consent checkbox when its label text is clicked', async () => {
     const user = userEvent.setup()
-    renderForm('recommend')
+    renderForm()
     const consent = screen.getByRole('checkbox')
     const consentText = screen.getByText(/同意/, { selector: 'span' })
     expect(consent).not.toBeChecked()
