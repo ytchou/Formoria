@@ -84,6 +84,34 @@ describe('brandEditSchema', () => {
 
     expect(result.success).toBe(false)
   })
+
+  it('accepts a romanized name and social handles', () => {
+    const result = brandEditSchema.safeParse({
+      romanizedName: 'Warmwood Living',
+      socialInstagram: '@warmwood.living',
+      socialThreads: 'warmwood.living',
+    })
+
+    expect(result.success).toBe(true)
+  })
+
+  it('requires both values in a partially completed other link', () => {
+    expect(
+      brandEditSchema.safeParse({
+        otherUrls: [{ label: '', url: 'https://example.com' }],
+      }).success,
+    ).toBe(false)
+    expect(
+      brandEditSchema.safeParse({
+        otherUrls: [{ label: 'Retailer', url: '' }],
+      }).success,
+    ).toBe(false)
+    expect(
+      brandEditSchema.safeParse({
+        otherUrls: [{ label: '', url: '' }],
+      }).success,
+    ).toBe(true)
+  })
 })
 
 describe('brandPublishSchema', () => {
@@ -116,6 +144,7 @@ describe('SECTION_FIELDS', () => {
   })
   it('includes name in basicInfo fields', () => {
     expect(SECTION_FIELDS.basicInfo).toContain('name')
+    expect(SECTION_FIELDS.basicInfo).toContain('romanizedName')
   })
 })
 

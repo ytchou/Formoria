@@ -617,6 +617,7 @@ export type Database = {
           purchase_website: string | null
           reputation_summary: Json | null
           retail_locations: Json | null
+          romanized_name: string | null
           search_vector: unknown
           site_content: Json | null
           slug: string
@@ -660,6 +661,7 @@ export type Database = {
           purchase_website?: string | null
           reputation_summary?: Json | null
           retail_locations?: Json | null
+          romanized_name?: string | null
           search_vector?: unknown
           site_content?: Json | null
           slug: string
@@ -703,6 +705,7 @@ export type Database = {
           purchase_website?: string | null
           reputation_summary?: Json | null
           retail_locations?: Json | null
+          romanized_name?: string | null
           search_vector?: unknown
           site_content?: Json | null
           slug?: string
@@ -1277,6 +1280,21 @@ export type Database = {
     }
     Functions: {
       approve_submission: {
+        Args: {
+          p_brand_data: Json
+          p_reviewer_id: string
+          p_submission_id: string
+        }
+        Returns: {
+          brand_id: string
+          brand_name: string
+          is_brand_owner: boolean
+          suggested_tags: Json | null
+          submitter_email: string
+          submitter_name: string | null
+        }[]
+      }
+      approve_submission_with_romanized_name: {
         Args: {
           p_brand_data: Json
           p_reviewer_id: string

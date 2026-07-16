@@ -15,6 +15,7 @@ export function computeDiffFields(
 ): DiffField[] {
   const FIELD_LABELS: Record<string, string> = {
     name: 'Brand name',
+    romanizedName: 'English / romanized name (public URL)',
     description: 'Brand description',
     heroImageUrl: 'Cover image',
     category: 'Category',

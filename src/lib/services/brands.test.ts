@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { brandToDomain, brandToInsert, generateSlug, extractLatinRun, deleteBrand } from './brands'
+import {
+  BRAND_SELECT,
+  brandToDomain,
+  brandToInsert,
+  generateSlug,
+  extractLatinRun,
+  deleteBrand,
+} from './brands'
 import { NotFoundError } from '@/lib/errors'
 import { RESERVED_ROUTES } from '@/middleware'
 
@@ -116,6 +123,12 @@ describe('brandToDomain', () => {
     expect(brand.contactEmail).toBe('test@example.com')
     expect(brand.submittedAt).toBe('2026-01-01T00:00:00Z')
     expect(brand.approvedAt).toBe('2026-01-02T00:00:00Z')
+  })
+})
+
+describe('brand select rollout compatibility', () => {
+  it('keeps migration-dependent romanized metadata out of general page queries', () => {
+    expect(BRAND_SELECT).not.toContain('romanized_name')
   })
 })
 
@@ -417,6 +430,169 @@ describe('brand slug redirects', () => {
   })
 })
 
+describe('updateBrand romanized slug lifecycle', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockRpc.mockResolvedValue({ error: null })
+  })
+
+  it('sends romanized metadata and its available slug through one brand patch', async () => {
+    const currentQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: { slug: 'warmwood-living' },
+        error: null,
+      }),
+    }
+    const collisionQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      neq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    }
+    const updatedQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          id: 'brand-1',
+          name: 'Warmwood Living',
+          slug: 'warmwood-home',
+          romanized_name: 'Warmwood Home',
+          status: 'approved',
+          submitted_at: null,
+          created_at: null,
+          updated_at: null,
+        },
+        error: null,
+      }),
+    }
+    mockFrom
+      .mockReturnValueOnce(currentQuery)
+      .mockReturnValueOnce(collisionQuery)
+      .mockReturnValueOnce(updatedQuery)
+
+    const { updateBrand } = await import('./brands')
+    const result = await updateBrand('brand-1', {
+      romanizedName: 'Warmwood Home',
+    })
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'apply_brand_patch',
+      expect.objectContaining({
+        p_patch: expect.objectContaining({
+          romanized_name: 'Warmwood Home',
+          slug: 'warmwood-home',
+        }),
+      }),
+    )
+    expect(result.slug).toBe('warmwood-home')
+  })
+
+  it('clears romanized metadata without changing the existing slug', async () => {
+    const currentQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: { slug: 'warmwood-living' },
+        error: null,
+      }),
+    }
+    const updatedQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          id: 'brand-1',
+          name: 'Warmwood Living',
+          slug: 'warmwood-living',
+          romanized_name: null,
+          status: 'approved',
+          submitted_at: null,
+          created_at: null,
+          updated_at: null,
+        },
+        error: null,
+      }),
+    }
+    mockFrom.mockReturnValueOnce(currentQuery).mockReturnValueOnce(updatedQuery)
+
+    const { updateBrand } = await import('./brands')
+    await updateBrand('brand-1', { romanizedName: null })
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'apply_brand_patch',
+      expect.objectContaining({
+        p_patch: expect.not.objectContaining({ slug: expect.anything() }),
+      }),
+    )
+  })
+
+  it('re-resolves a concurrent slug collision before retrying the patch', async () => {
+    const currentQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: { slug: 'warmwood-living' },
+        error: null,
+      }),
+    }
+    const availableQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      neq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    }
+    const takenQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      neq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { id: 'brand-2' },
+        error: null,
+      }),
+    }
+    const updatedQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          id: 'brand-1',
+          name: 'Warmwood Living',
+          slug: 'warmwood-home-2',
+          romanized_name: 'Warmwood Home',
+          status: 'approved',
+          submitted_at: null,
+          created_at: null,
+          updated_at: null,
+        },
+        error: null,
+      }),
+    }
+    mockFrom
+      .mockReturnValueOnce(currentQuery)
+      .mockReturnValueOnce(availableQuery)
+      .mockReturnValueOnce(takenQuery)
+      .mockReturnValueOnce(availableQuery)
+      .mockReturnValueOnce(updatedQuery)
+    mockRpc
+      .mockResolvedValueOnce({ error: { code: '23505' } })
+      .mockResolvedValueOnce({ error: null })
+
+    const { updateBrand } = await import('./brands')
+    await updateBrand('brand-1', { romanizedName: 'Warmwood Home' })
+
+    expect(mockRpc).toHaveBeenNthCalledWith(
+      2,
+      'apply_brand_patch',
+      expect.objectContaining({
+        p_patch: expect.objectContaining({ slug: 'warmwood-home-2' }),
+      }),
+    )
+  })
+})
+
 describe('brand not found errors preserve Supabase cause', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -444,6 +620,48 @@ describe('brand not found errors preserve Supabase cause', () => {
     })
 
     await expectNotFoundCause(() => getBrandBySlug('missing-brand'), supabaseError)
+  })
+
+  it('retries without romanized metadata while the brands migration is pending', async () => {
+    const { getBrandBySlug } = await import('./brands')
+    const missingColumnQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: null,
+        error: { code: '42703', message: 'column brands.romanized_name does not exist' },
+      }),
+    }
+    const compatibleQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: 'brand-1',
+          name: 'Warmwood Living',
+          slug: 'warmwood-living',
+          status: 'approved',
+        },
+        error: null,
+      }),
+    }
+    const imageQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({ data: [], error: null }),
+    }
+    mockFrom
+      .mockReturnValueOnce(missingColumnQuery)
+      .mockReturnValueOnce(compatibleQuery)
+      .mockReturnValueOnce(imageQuery)
+
+    const brand = await getBrandBySlug('warmwood-living', { includeRomanizedName: true })
+
+    expect(brand.romanizedName).toBeNull()
+    expect(missingColumnQuery.select).toHaveBeenCalledWith(
+      expect.stringContaining('romanized_name'),
+    )
+    expect(compatibleQuery.select).toHaveBeenCalledWith(BRAND_SELECT)
   })
 
   it('updateBrand wraps original error as the NotFoundError cause', async () => {

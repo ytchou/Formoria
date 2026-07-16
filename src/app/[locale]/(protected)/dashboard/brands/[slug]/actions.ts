@@ -43,6 +43,7 @@ import {
   buildModerationPayload,
 } from './actions-utils'
 import { revalidatePublicBrand } from '@/lib/cache/public-brand-cache'
+import { slugifyRomanizedName } from '@/lib/brands/slug'
 
 type ActionState =
   | {
@@ -143,7 +144,7 @@ async function applyBrandUpdate(
   brand: Brand,
   updateData: Partial<Brand>,
   options: { syncOwnerImages?: boolean } = {},
-): Promise<void> {
+): Promise<Brand> {
   const previousImageUrls = imageUrlsFromBrand(brand)
   const nextImageUrls = imageUrlsFromBrand({ ...brand, ...updateData })
   const orphans = diffRemovedImageUrls(previousImageUrls, nextImageUrls)
@@ -168,6 +169,20 @@ async function applyBrandUpdate(
     previousSlug: brand.slug,
   })
   revalidatePath('/dashboard')
+  return updatedBrand
+}
+
+function requestsReviewedSlugChange(
+  brand: Pick<Brand, 'slug'>,
+  proposedData: Record<string, unknown>,
+): boolean {
+  if (!Object.prototype.hasOwnProperty.call(proposedData, 'romanizedName')) {
+    return false
+  }
+  if (typeof proposedData.romanizedName !== 'string') return false
+
+  const requestedSlug = slugifyRomanizedName(proposedData.romanizedName)
+  return Boolean(requestedSlug && requestedSlug !== brand.slug)
 }
 
 export async function updateBrandAction(
@@ -179,6 +194,7 @@ export async function updateBrandAction(
   if (!brandSlug) {
     return { error: 'Missing brand slug' }
   }
+  let redirectSlug = brandSlug
 
   try {
     const editor = await requireBrandEditor(brandSlug)
@@ -204,12 +220,16 @@ export async function updateBrandAction(
 
     if (!configuredAdmin) {
       const autoApprove =
+        !requestsReviewedSlugChange(brand, proposedData) &&
         moderationResult.flags.length === 0
           ? await shouldAutoApprove(moderationResult, user.id)
           : false
 
       if (autoApprove) {
-        await applyBrandUpdate(brand, updateData, { syncOwnerImages: owner })
+        const updatedBrand = await applyBrandUpdate(brand, updateData, {
+          syncOwnerImages: owner,
+        })
+        redirectSlug = updatedBrand.slug
         await completeOnboardingAfterOwnerSubmit(
           formData,
           brand.id,
@@ -232,7 +252,10 @@ export async function updateBrandAction(
         return { success: true, message: 'brandEditSubmittedForReview' }
       }
     } else {
-      await applyBrandUpdate(brand, updateData, { syncOwnerImages: owner })
+      const updatedBrand = await applyBrandUpdate(brand, updateData, {
+        syncOwnerImages: owner,
+      })
+      redirectSlug = updatedBrand.slug
       await completeOnboardingAfterOwnerSubmit(formData, brand.id, user.id, owner)
       await logAdminActionIfAdmin(
         actingAdmin,
@@ -254,7 +277,7 @@ export async function updateBrandAction(
   }
 
   const locale = await getLocale()
-  redirect(localizePath(`/dashboard/brands/${brandSlug}`, locale))
+  redirect(localizePath(`/dashboard/brands/${redirectSlug}`, locale))
 }
 
 export async function publishDraftAction(
@@ -266,6 +289,7 @@ export async function publishDraftAction(
   if (!brandSlug) {
     return { error: 'Missing brand slug' }
   }
+  let redirectSlug = brandSlug
 
   try {
     const editor = await requireBrandEditor(brandSlug)
@@ -302,6 +326,7 @@ export async function publishDraftAction(
 
     if (!configuredAdmin) {
       const autoApprove =
+        !requestsReviewedSlugChange(brand, draftPartial) &&
         moderationResult.flags.length === 0
           ? await shouldAutoApprove(moderationResult, user.id)
           : false
@@ -327,7 +352,8 @@ export async function publishDraftAction(
           imageUrlsFromBrand(brand),
           nextImageUrls,
         )
-        await publishDraft(brand.id)
+        const publishedBrand = await publishDraft(brand.id)
+        redirectSlug = publishedBrand.slug
         if (owner) {
           await syncOwnerUploadedImages(
             brand.id,
@@ -338,7 +364,7 @@ export async function publishDraftAction(
         await deleteBrandImages(orphans)
 
         revalidatePublicBrand({
-          slug: publishCandidate.slug,
+          slug: publishedBrand.slug,
           previousSlug: brand.slug,
         })
         revalidatePath('/dashboard')
@@ -369,7 +395,8 @@ export async function publishDraftAction(
         imageUrlsFromBrand(brand),
         nextImageUrls,
       )
-      await publishDraft(brand.id)
+      const publishedBrand = await publishDraft(brand.id)
+      redirectSlug = publishedBrand.slug
       if (owner) {
         await syncOwnerUploadedImages(
           brand.id,
@@ -387,7 +414,7 @@ export async function publishDraftAction(
       )
 
       revalidatePublicBrand({
-        slug: publishCandidate.slug,
+        slug: publishedBrand.slug,
         previousSlug: brand.slug,
       })
       revalidatePath('/dashboard')
@@ -400,5 +427,5 @@ export async function publishDraftAction(
   }
 
   const locale = await getLocale()
-  redirect(localizePath(`/dashboard/brands/${brandSlug}`, locale))
+  redirect(localizePath(`/dashboard/brands/${redirectSlug}`, locale))
 }

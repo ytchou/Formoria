@@ -35,7 +35,7 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
 
   if (!user) redirect('/auth/sign-in')
 
-  const brand = await getBrandBySlug(slug)
+  const brand = await getBrandBySlug(slug, { includeRomanizedName: true })
   const owner = await canManageDashboardBrand(
     user.id,
     user.email,

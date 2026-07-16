@@ -30,7 +30,7 @@ type PendingEditReviewRow = {
 }
 
 const PENDING_EDIT_WITH_BRAND_SELECT =
-  '*, brands(id, name, slug, description, description_en, blurb, hero_image_url, product_type, city, contact_email, founding_year, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, other_urls, retail_locations, site_content, mit_story)'
+  '*, brands(id, name, slug, romanized_name, description, description_en, blurb, hero_image_url, product_type, city, contact_email, founding_year, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, other_urls, retail_locations, site_content, mit_story)'
 
 type ExtendedBrandRow = Partial<BrandRow> & BrandFlatLinkColumns & {
   description_en?: string | null
@@ -68,6 +68,7 @@ function proposedStringOrNull(
   key: keyof Pick<
     Brand,
     | 'socialInstagram'
+    | 'romanizedName'
     | 'socialThreads'
     | 'socialFacebook'
     | 'purchaseWebsite'
@@ -115,6 +116,11 @@ export function pendingEditWithBrandToDomain(
       id: brand?.id ?? edit.brandId,
       name: brand?.name ?? '',
       slug: brand?.slug ?? '',
+      romanizedName: proposedStringOrNull(
+        proposedData,
+        'romanizedName',
+        brand?.romanized_name,
+      ),
       description: brand?.description ?? null,
       descriptionEn: brand?.description_en ?? null,
       blurb: brand?.blurb ?? null,

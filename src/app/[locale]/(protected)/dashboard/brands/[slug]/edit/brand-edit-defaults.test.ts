@@ -36,6 +36,14 @@ describe('buildBrandEditDefaultValues', () => {
     expect(defaults.reputationSources).toEqual([{ url: 'https://example.com/review' }])
   })
 
+  it('includes stored romanizedName in dashboard form defaults', () => {
+    const defaults = buildBrandEditDefaultValues({
+      romanizedName: 'Warmwood Living',
+    } as Brand)
+
+    expect(defaults.romanizedName).toBe('Warmwood Living')
+  })
+
   it('ignores internal progress metadata when building form defaults', () => {
     const defaults = buildBrandEditDefaultValues(
       { name: 'Brand One' } as Brand,

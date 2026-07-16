@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cleanBrandName } from "./brand-cleanup";
-import { insertSlugRedirect, updateBrand } from "./brands";
+import { updateBrand } from "./brands";
 import type { BrandFlatLinkColumns } from "@/lib/types";
 import type { SiteContent } from "@/lib/types/brand";
 import type { ScrapedBrandData } from "@/lib/types/scraper";
@@ -1600,9 +1600,6 @@ export async function runEnrich(
               brand.id,
               descriptionsResult.descriptionRewrite.faq,
             );
-          }
-          if (target === "brands" && detectedSlug) {
-            await insertSlugRedirect(brand.slug, detectedSlug);
           }
         }
 

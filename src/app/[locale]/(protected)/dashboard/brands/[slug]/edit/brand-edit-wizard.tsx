@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useCallback, useMemo } from 'react'
-import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -17,9 +16,10 @@ import {
 } from '@/lib/schemas/brand-edit'
 import { saveSectionDraftAction } from '@/lib/actions/brand-edit-wizard'
 import { publishDraftAction } from '@/app/[locale]/(protected)/dashboard/brands/[slug]/actions'
+import { useWizardController } from '@/components/brand-wizard/use-wizard-controller'
 import type { Brand } from '@/lib/types'
 
-import { DirtyFieldsContext } from './dirty-fields-context'
+import { DirtyFieldsContext } from '@/components/brand-wizard/dirty-fields-context'
 
 // Section components
 import { BasicInfoSection } from './sections/basic-info-section'
@@ -81,13 +81,7 @@ export function BrandEditWizard({
   initialStep = 0,
   productTagSuggestions = [],
 }: BrandEditWizardProps) {
-  const pathname = usePathname()
   const t = useTranslations('dashboard.edit')
-
-  const [activeStep, setActiveStep] = useState(initialStep)
-  const [completedSteps, setCompletedSteps] = useState<Set<number>>(() =>
-    deriveCompletedSteps(defaultValues, initialCompletedSteps),
-  )
   const [isSaving, setIsSaving] = useState(false)
 
   const form = useForm<BrandEditFormValues>({
@@ -95,41 +89,21 @@ export function BrandEditWizard({
     resolver: zodResolver(brandEditSchema),
   })
 
-  const currentStepKey = WIZARD_STEPS[activeStep]?.key ?? 'basicInfo'
-  const currentSectionFields = useMemo(
-    () => SECTION_FIELDS[currentStepKey] ?? [],
-    [currentStepKey],
-  )
-
-  const navigateTo = useCallback(
-    (step: number) => {
-      setActiveStep(step)
-      const params = new URLSearchParams(window.location.search)
-      params.set('step', String(step))
-      window.history.replaceState(
-        window.history.state,
-        '',
-        `${pathname}?${params.toString()}`,
-      )
-    },
-    [pathname],
-  )
-
-  const markSectionSaved = useCallback(() => {
-    for (const field of currentSectionFields) {
+  const markSectionSaved = useCallback((stepKey: string) => {
+    for (const field of SECTION_FIELDS[stepKey] ?? []) {
       form.resetField(field, { defaultValue: form.getValues(field) })
     }
-  }, [currentSectionFields, form])
+  }, [form])
 
-  const handleSaveAndContinue = useCallback(async () => {
-    const validationFields = STEP_VALIDATION_FIELDS[currentStepKey] ?? []
+  const validateStep = useCallback(async (stepKey: string) => {
+    const validationFields = STEP_VALIDATION_FIELDS[stepKey] ?? []
     if (validationFields.length > 0) {
       const valid = await form.trigger(validationFields)
-      if (!valid) return
+      if (!valid) return false
     }
 
     if (
-      currentStepKey === 'links' &&
+      stepKey === 'links' &&
       !form.getValues('purchaseWebsite')?.trim()
     ) {
       form.setError('purchaseWebsite', {
@@ -137,84 +111,64 @@ export function BrandEditWizard({
         message: t('requiredFieldError'),
       })
       form.setFocus('purchaseWebsite')
-      return
+      return false
     }
 
+    return true
+  }, [form, t])
+
+  const persistStepDraft = useCallback(async (stepKey: string) => {
+    const sectionData = form.getValues()
+    const result = await saveSectionDraftAction(
+      brand.id,
+      brand.slug,
+      stepKey,
+      sectionData as Record<string, unknown>,
+    )
+    if (result.error) {
+      toast.error(result.error)
+      return false
+    }
+    markSectionSaved(stepKey)
+    return true
+  }, [brand.id, brand.slug, form, markSectionSaved])
+
+  const saveStepDraft = useCallback(async (stepKey: string) => {
     setIsSaving(true)
     try {
-      const sectionData = form.getValues()
-      const result = await saveSectionDraftAction(
-        brand.id,
-        brand.slug,
-        currentStepKey,
-        sectionData as Record<string, unknown>,
-      )
-      if (result.error) {
-        toast.error(result.error)
-        return
-      }
-      markSectionSaved()
-      setCompletedSteps((prev) => new Set([...prev, activeStep]))
-      if (activeStep < WIZARD_STEPS.length - 1) {
-        navigateTo(activeStep + 1)
-      }
+      return await persistStepDraft(stepKey)
     } finally {
       setIsSaving(false)
     }
-  }, [
-    form,
-    currentStepKey,
-    brand.id,
-    brand.slug,
-    activeStep,
-    navigateTo,
-    markSectionSaved,
-    t,
-  ])
+  }, [persistStepDraft])
 
-  const handleSidebarClick = useCallback(
-    async (targetStep: number) => {
-      if (targetStep === activeStep) return
-      const sectionData = form.getValues()
-      const result = await saveSectionDraftAction(
-        brand.id,
-        brand.slug,
-        currentStepKey,
-        sectionData as Record<string, unknown>,
-      )
-      if (result.error) {
-        toast.error(result.error)
-        return
-      }
-      markSectionSaved()
-      navigateTo(targetStep)
-    },
-    [activeStep, currentStepKey, brand.id, brand.slug, form, navigateTo, markSectionSaved],
+  const {
+    activeStep,
+    completedSteps,
+    currentStepKey,
+    navigateTo,
+    goToStep,
+    continueToNext,
+    goBack,
+  } = useWizardController({
+    steps: WIZARD_STEPS,
+    initialStep,
+    initialCompletedSteps: deriveCompletedSteps(
+      defaultValues,
+      initialCompletedSteps,
+    ),
+    validateStep,
+    beforeStepChange: saveStepDraft,
+  })
+
+  const currentSectionFields = useMemo(
+    () => SECTION_FIELDS[currentStepKey] ?? [],
+    [currentStepKey],
   )
 
-  const handleBack = useCallback(() => {
-    if (activeStep > 0) navigateTo(activeStep - 1)
-  }, [activeStep, navigateTo])
-
   const handleSave = useCallback(async () => {
-    setIsSaving(true)
-    try {
-      const sectionData = form.getValues()
-      const result = await saveSectionDraftAction(
-        brand.id,
-        brand.slug,
-        currentStepKey,
-        sectionData as Record<string, unknown>,
-      )
-      if (result.error) {
-        toast.error(result.error)
-        return
-      }
-      markSectionSaved()
-    } finally {
-      setIsSaving(false)
-    }
-  }, [form, currentStepKey, brand.id, brand.slug, markSectionSaved])
+    await saveStepDraft(currentStepKey)
+  }, [currentStepKey, saveStepDraft])
 
   const handlePublish = useCallback(async () => {
     const result = brandPublishSchema.safeParse(form.getValues())
@@ -250,19 +204,7 @@ export function BrandEditWizard({
 
     setIsSaving(true)
     try {
-      // Save current section first, then publish the accumulated changes.
-      const sectionData = form.getValues()
-      const saveResult = await saveSectionDraftAction(
-        brand.id,
-        brand.slug,
-        currentStepKey,
-        sectionData as Record<string, unknown>,
-      )
-      if (saveResult.error) {
-        toast.error(saveResult.error)
-        return
-      }
-      markSectionSaved()
+      if (!(await persistStepDraft(currentStepKey))) return
       const formData = new FormData()
       formData.set('brandSlug', brand.slug)
       const publishResult = await publishDraftAction(undefined, formData)
@@ -272,7 +214,7 @@ export function BrandEditWizard({
     } finally {
       setIsSaving(false)
     }
-  }, [form, brand, currentStepKey, navigateTo, markSectionSaved, t])
+  }, [form, brand.slug, currentStepKey, navigateTo, persistStepDraft, t])
 
   const SectionComponent =
     activeStep > 0 ? SECTION_COMPONENTS[activeStep - 1] : null
@@ -285,7 +227,7 @@ export function BrandEditWizard({
         steps={WIZARD_STEPS}
         activeStep={activeStep}
         completedSteps={completedSteps}
-        onStepClick={handleSidebarClick}
+        onStepClick={(targetStep) => void goToStep(targetStep)}
       />
       <main className="flex-1 min-w-0 px-8 py-6 pb-32">
         <DirtyFieldsContext.Provider value={dirtyFields}>
@@ -293,6 +235,7 @@ export function BrandEditWizard({
             <BasicInfoSection
               form={form}
               productTagSuggestions={productTagSuggestions}
+              currentSlug={brand.slug}
             />
           ) : (
             SectionComponent && <SectionComponent form={form} />
@@ -303,8 +246,8 @@ export function BrandEditWizard({
           totalSteps={WIZARD_STEPS.length}
           isSaving={isSaving}
           isDirty={isDirty}
-          onBack={handleBack}
-          onSaveAndContinue={handleSaveAndContinue}
+          onBack={goBack}
+          onSaveAndContinue={() => void continueToNext()}
           onSave={handleSave}
           onPublish={handlePublish}
         />

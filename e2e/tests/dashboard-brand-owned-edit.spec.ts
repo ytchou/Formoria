@@ -324,8 +324,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     // Triple-click selects all text before fill to avoid appending to existing value
     await userPage.locator('#name').click({ clickCount: 3 });
     await userPage.locator('#name').fill(nextName);
-    await userPage.locator('#priceRange').click();
-    await userPage.getByRole('option', { name: /中價位/ }).click();
+    await userPage.locator('#priceRange').selectOption('2');
 
     await userPage.getByRole('button', { name: '儲存並繼續' }).click();
     // Increase timeout: saveSectionDraftAction can be slow when dev server is under load
@@ -352,6 +351,47 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     await userPage.locator('aside nav button').filter({ hasText: '基本資料' }).click();
     await expect(userPage.locator('#basic-info')).toBeVisible({ timeout: 30_000 });
     await expect(userPage.locator('#name')).toHaveValue(nextName);
+  });
+
+  test('shared URL preview and link rows match the dashboard persistence flow', async ({ userPage }) => {
+    test.setTimeout(90_000);
+
+    const basicResp = await userPage.goto(
+      `/dashboard/brands/${wizardBrandSlug}/edit?step=0`,
+      { timeout: 60_000 },
+    );
+    if (basicResp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
+
+    await expect(userPage.locator('#romanizedName')).toBeVisible({ timeout: 30_000 });
+    await userPage.locator('#romanizedName').fill('Wizard Public Name');
+    await expect(userPage.locator('#brand-url-preview')).toHaveValue(
+      '/brands/wizard-public-name',
+    );
+
+    const linksResp = await userPage.goto(
+      `/dashboard/brands/${wizardBrandSlug}/edit?step=2`,
+      { timeout: 60_000 },
+    );
+    if (linksResp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
+
+    await expect(userPage.locator('#purchase fieldset')).toHaveCount(3);
+    await expect(userPage.locator('#purchase [data-platform-row]')).toHaveCount(6);
+    for (const field of [
+      'socialInstagram',
+      'socialThreads',
+      'socialFacebook',
+      'purchaseWebsite',
+      'purchasePinkoi',
+      'purchaseShopee',
+    ]) {
+      await expect(
+        userPage.locator(`[data-platform-row]:has(#${field})`),
+      ).toBeVisible();
+    }
+    await expect(userPage.locator('#purchaseWebsite')).toHaveAttribute(
+      'aria-required',
+      'true',
+    );
   });
 
   test('sidebar click jumps non-linearly to Reputation (step 4)', async ({ userPage }) => {

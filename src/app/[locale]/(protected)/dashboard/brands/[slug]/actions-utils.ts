@@ -8,6 +8,7 @@ import {
 } from '@/lib/brands/locations'
 import { sanitizeHref } from '@/lib/url'
 import { deriveProductTagsEn } from '@/lib/services/product-tags'
+import { romanizedNameSchema } from '@/lib/schemas/brand-wizard'
 
 export class InvalidBrandEditFormError extends Error {}
 
@@ -90,6 +91,10 @@ function getString(value: unknown): string | undefined {
 export function parseBrandEditForm(formData: FormData): Partial<Brand> {
   // Extract basic fields
   const name = formData.get('name') as string | null
+  const romanizedName = parseOptionalString(formData.get('romanizedName'))?.trim() ?? null
+  if (romanizedName && !romanizedNameSchema.safeParse(romanizedName).success) {
+    throw new InvalidBrandEditFormError('Invalid romanized name')
+  }
   const description = formData.get('description') as string | null
   const instagram = formData.get('socialInstagram') as string | null
   const threads = formData.get('socialThreads') as string | null
@@ -176,6 +181,9 @@ export function parseBrandEditForm(formData: FormData): Partial<Brand> {
   // Security-relevant allow-list: only explicitly permitted owner-editable fields may reach updateBrand.
   const updateData: Partial<Brand> = {}
   if (name) updateData.name = name
+  if (formData.has('romanizedName')) {
+    updateData.romanizedName = romanizedName
+  }
   if (description !== null) updateData.description = description
   if (formData.has('productType')) updateData.productType = productType
   if (formData.has('city')) updateData.city = city

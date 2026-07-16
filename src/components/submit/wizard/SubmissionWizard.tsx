@@ -18,6 +18,7 @@ import {
 } from 'react-hook-form'
 import { z } from 'zod'
 import { submitOwnerDetailedBrand } from '@/app/[locale]/submit/actions'
+import { useWizardController } from '@/components/brand-wizard/use-wizard-controller'
 import { WizardFooter } from '@/components/dashboard/wizard-footer'
 import { WizardSidebar } from '@/components/dashboard/wizard-sidebar'
 import { TurnstileWidget } from '@/components/submit/TurnstileWidget'
@@ -33,6 +34,7 @@ import type { WizardStep } from '@/lib/schemas/brand-edit'
 import {
   SUBMISSION_SECTION_FIELDS,
   SUBMISSION_WIZARD_STEPS,
+  type SubmissionWizardStepKey,
   submissionWizardRequiredSchema,
   submissionWizardSchema,
 } from '@/lib/schemas/submission-wizard'
@@ -103,10 +105,6 @@ export default function SubmissionWizard({
   const router = useRouter()
   const uploadSessionId = useId().replaceAll(':', '')
   const mountTimeRef = useRef<number | null>(null)
-  const [activeStep, setActiveStep] = useState(0)
-  const [completedSteps, setCompletedSteps] = useState<Set<number>>(
-    () => new Set(),
-  )
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [turnstileError, setTurnstileError] = useState(false)
@@ -145,12 +143,6 @@ export default function SubmissionWizard({
     mode: 'onTouched',
   })
 
-  const currentStepKey =
-    SUBMISSION_WIZARD_STEPS[activeStep]?.key ?? 'basicInfo'
-  const currentSectionFields = useMemo(
-    () => SUBMISSION_SECTION_FIELDS[currentStepKey],
-    [currentStepKey],
-  )
   const contextValue = useMemo(
     () => ({ form, productTagSuggestions, uploadSessionId }),
     [form, productTagSuggestions, uploadSessionId],
@@ -161,50 +153,28 @@ export default function SubmissionWizard({
     trackSubmissionFormOpened('hero_cta', 'owner_claim')
   }, [])
 
-  const navigateTo = useCallback((step: number) => {
-    setActiveStep(step)
-    const params = new URLSearchParams(window.location.search)
-    params.set('step', String(step))
-    window.history.replaceState(
-      window.history.state,
-      '',
-      `${window.location.pathname}?${params.toString()}`,
-    )
-  }, [])
-
-  const validateCurrentSection = useCallback(async () => {
-    let isValid = await form.trigger(currentSectionFields)
-    if (currentStepKey === 'media' && !form.getValues('heroImageUrl')) {
+  const validateStep = useCallback(async (stepKey: SubmissionWizardStepKey) => {
+    const sectionFields = SUBMISSION_SECTION_FIELDS[stepKey] ?? []
+    let isValid = await form.trigger(sectionFields)
+    if (stepKey === 'media' && !form.getValues('heroImageUrl')) {
       form.setError('heroImageUrl', { type: 'required' })
       isValid = false
     }
-    if (isValid) {
-      setCompletedSteps((previous) =>
-        new Set([...previous, activeStep]),
-      )
-    }
     return isValid
-  }, [activeStep, currentSectionFields, currentStepKey, form])
+  }, [form])
 
-  const handleContinue = useCallback(async () => {
-    if (!(await validateCurrentSection())) return
-    if (activeStep < SUBMISSION_WIZARD_STEPS.length - 1) {
-      navigateTo(activeStep + 1)
-    }
-  }, [activeStep, navigateTo, validateCurrentSection])
-
-  const handleSidebarClick = useCallback(
-    async (targetStep: number) => {
-      if (targetStep === activeStep) return
-      if (targetStep > activeStep && !(await validateCurrentSection())) return
-      navigateTo(targetStep)
-    },
-    [activeStep, navigateTo, validateCurrentSection],
-  )
-
-  const handleBack = useCallback(() => {
-    if (activeStep > 0) navigateTo(activeStep - 1)
-  }, [activeStep, navigateTo])
+  const {
+    activeStep,
+    completedSteps,
+    currentStepKey,
+    navigateTo,
+    goToStep,
+    continueToNext,
+    goBack,
+  } = useWizardController({
+    steps: SUBMISSION_WIZARD_STEPS,
+    validateStep,
+  })
 
   const submitForm = useCallback(
     async (values: SubmissionWizardValues) => {
@@ -294,7 +264,7 @@ export default function SubmissionWizard({
             steps={SIDEBAR_STEPS}
             activeStep={activeStep}
             completedSteps={completedSteps}
-            onStepClick={(targetStep) => void handleSidebarClick(targetStep)}
+            onStepClick={(targetStep) => void goToStep(targetStep)}
           />
 
           <main className="min-w-0 flex-1 pb-20">
@@ -387,7 +357,7 @@ export default function SubmissionWizard({
                     type="button"
                     variant="secondary"
                     disabled={isSubmitting}
-                    onClick={handleBack}
+                    onClick={goBack}
                   >
                     {t('submissionWizard.backButton')}
                   </Button>
@@ -413,8 +383,8 @@ export default function SubmissionWizard({
                 activeStep={activeStep}
                 totalSteps={SUBMISSION_WIZARD_STEPS.length}
                 isSaving={false}
-                onBack={handleBack}
-                onSaveAndContinue={() => void handleContinue()}
+                onBack={goBack}
+                onSaveAndContinue={() => void continueToNext()}
                 onSave={() => undefined}
                 onPublish={() => undefined}
               />
