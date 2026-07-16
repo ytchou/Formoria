@@ -1,5 +1,11 @@
 # SPEC Changelog
 
+## 2026-07-16
+
+### DEV-1032 — Subcategory filtering + app_settings
+
+Replaced stale `brand_taxonomy`/`TaxonomyTag` model with canonical-zh `product_tags` ontology. Added `?sub=` subcategory filtering on /brands (chips with counts, OR semantics, single-category gate). New `app_settings` table for runtime feature flags with admin kill switch at /admin. Sub-filtered views canonical to parent category. `search_brands` RPC gains `filter_tags` array overlap in all 3 branches + `mit-verified` fix.
+
 ## 2026-07-15
 
 ### DEV-1059 — BrandImage storage invariants

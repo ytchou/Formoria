@@ -102,13 +102,29 @@ Post-claim management surface at `/dashboard` (protected; Supabase Auth; brand o
 8. Auto-tagging assigns product categories via keyword matching as an automated supplement to admin-defined taxonomy. Admin can override auto-assigned categories.
 9. Share assets (badge snippet, share card) are exposed only for approved brands — hidden or pending brands never serve a share card (404) or show the badge section.
 
-### Taxonomy Closed Vocabularies (DEV-802)
+### Taxonomy & Product Classification
+
+**Closed vocabularies (DEV-802):**
 - `region`: closed vocabulary of Taiwan's 22 cities/counties plus `全台灣`; max 1 per brand.
 - `value`: closed vocabulary of admin-curated tags; max 3 per brand.
-- `product_type`: Each brand has exactly one product type, **AI-classified by the enrichment pipeline** (see `PRODUCT_TYPE_CATEGORIES` in `ontology.ts`). Stored as a column on the `brands` table (NOT via `brand_taxonomy` junction table) and validated via a CHECK constraint on the `brands` table. Not submitter-selected — populated automatically during the batch enrichment run before admin review. Admin may override the AI-assigned classification during submission review.
-- `brand_submissions.suggested_tags` accepts the legacy `string[]` `suggestedTags` format for backwards compatibility.
-- New structured submission format is `{ region?: string, values?: string[] }`, stored in the `brand_submissions.suggested_tags` JSONB column.
-- On admin approval, accepted structured region/value taxonomy is auto-applied to `brand_taxonomy`.
+- `product_type`: Each brand has exactly one L1 category, **AI-classified by the enrichment pipeline** (see `PRODUCT_TYPE_CATEGORIES` in `ontology.ts`). Stored as a column on `brands`; validated via CHECK constraint. Not submitter-selected.
+
+**Product tags — canonical-zh ontology model (DEV-1032):**
+- `brands.product_tags text[]`: canonical zh subcategory names (e.g. `['口金包', '手提包']`). AI-classified by enrichment; admin may override.
+- `brands.product_tags_en text[]`: English translations, same order. Display-only.
+- Ontology source of truth: `src/lib/taxonomy/ontology.ts` — defines `PRODUCT_TYPE_CATEGORIES[].subcategories[]` with `{ nameZh, nameEn, slug, aliases }`.
+- Slug resolution: `subcategoryBySlug(slug)` and `resolveSubcategorySlugs(categorySlug, slugs)` map URL `?sub=` slugs to canonical zh names.
+- GIN index `idx_brands_product_tags` enables `.overlaps()` and RPC `filter_tags` array overlap filtering.
+
+**Subcategory filtering on /brands (DEV-1032):**
+- URL: `?category=X&sub=Y` (comma-separated, OR semantics). Only active when exactly one L1 category is selected.
+- `app_settings` table: runtime feature flag `subcategory_filter_enabled` (jsonb). Fail-open (default true on read error). Admin toggle at `/admin`.
+- When enabled: subcategory chips with counts appear under the checked L1 category in the filter sidebar/drawer. Counts from `getSubcategoryCounts()`.
+- Canonical URL: sub-filtered views point canonical + hreflang to the parent `/brands?category=X` (no `sub=`). Sitemap unchanged.
+- `search_brands` RPC: `filter_tags` parameter filters all three query branches (FTS, trigram, EXCEPTION fallback).
+
+**Submissions:**
+- `brand_submissions.suggested_tags`: `{ region?: string, values?: string[] }` JSONB (structured format, DEV-802); legacy `string[]` accepted for backwards compatibility.
 
 ## Trust & Verification Model
 
@@ -198,11 +214,10 @@ Storage invariants (DEV-1059):
 - source, actor, job_id
 - created_at
 
-### TaxonomyTag
-- id, slug, label, labelZh
-- category: `product_type` | `region` | `value` (closed enum — DEV-802)
-- isActive (admin can deactivate)
-- suggestedBy (nullable, links to submission that suggested it)
+### AppSetting (DEV-1032)
+- key (text PK)
+- value (jsonb)
+- updated_at (timestamptz)
 
 ### BrandSubmission
 - id, brandId (nullable until approved)
