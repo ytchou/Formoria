@@ -7,6 +7,7 @@ import { buildEditApprovedEmail } from '@emails/templates/edit-approved'
 import { buildEditRejectedEmail } from '@emails/templates/edit-rejected'
 import { buildMicrositeSpotlightEmail } from '@emails/templates/microsite-spotlight'
 import { buildNewsletterConfirmEmail } from '@emails/templates/newsletter-confirm'
+import { buildOwnershipRevokedEmail } from '@emails/templates/ownership-revoked'
 import { buildProfileNudgeEmail } from '@emails/templates/profile-nudge'
 import { buildReEngagementEmail } from '@emails/templates/re-engagement'
 import { buildApprovalEmail } from '@emails/templates/submission-approved'
@@ -82,6 +83,13 @@ const claimRejected = (locale: Locale, brandName: string) =>
     reviewerNotes: 'Insufficient proof',
     siteUrl: SITE_URL,
     locale,
+  })
+
+const ownershipRevoked = (brandName: string) =>
+  buildOwnershipRevokedEmail({
+    ownerEmail: EMAIL,
+    brandName,
+    reason: 'Ownership could not be verified',
   })
 
 const editApproved = (locale: Locale, brandName: string) =>
@@ -224,6 +232,13 @@ const SUBJECT_CASES: SubjectCase[] = [
     locale: 'en',
     build: () => claimRejected('en', EN_BRAND),
     expected: 'Your brand claim for "Test Brand" was not approved — Formoria',
+    includesBrandName: true,
+  },
+  {
+    name: 'ownership-revoked',
+    locale: 'zh-TW',
+    build: () => ownershipRevoked(ZH_BRAND),
+    expected: '「測試品牌」品牌管理權限已移除 / Brand management access removed — Formoria',
     includesBrandName: true,
   },
   {
