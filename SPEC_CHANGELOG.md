@@ -1,5 +1,11 @@
 # SPEC Changelog
 
+## 2026-07-16
+
+### DEV-771 — Ownership dispute / admin revoke
+
+Added BrandReport and OwnershipRevocation to Data Model. BrandReport.reason is CHECK-constrained (5 values including `ownership_dispute`); dispute reports carry `user_id` for reporter attribution. `owner_select_brand_reports` RLS excludes disputes from brand owners. `revoke_brand_ownership` SECURITY DEFINER atomically deletes the owner row, writes an audit row, and nulls `contact_email`.
+
 ## 2026-07-15
 
 ### DEV-1059 — BrandImage storage invariants
