@@ -7,10 +7,15 @@ import {
 } from "@/app/admin/actions";
 import { DashboardQueueItem } from "@/components/admin/dashboard-queue-item";
 import { NewsletterSubscribersList } from "@/components/admin/newsletter-subscribers";
+import { FeatureTogglesCard } from "@/components/admin/feature-toggles-card";
 import { QueueSummaryCard } from "@/components/admin/queue-summary-card";
 import { SystemStatusCard } from "@/components/admin/system-status-card";
 import { DataCard } from "@/components/ui/card";
 import { getBrands } from "@/lib/services/brands";
+import {
+  getAppSetting,
+  SUBCATEGORY_FILTER_KEY,
+} from "@/lib/services/app-settings";
 import { listClaimRequests } from "@/lib/services/claim-requests";
 import { getFeedbackItems } from "@/lib/services/feedback";
 import {
@@ -78,6 +83,7 @@ export default async function AdminPage() {
     flaggedContentResult,
     brandResult,
     healthResults,
+    subcategoryFilterEnabled,
     newsletterData,
     t,
   ] = await Promise.all([
@@ -95,6 +101,7 @@ export default async function AdminPage() {
       totalCount: 0,
     })),
     checkAllServices().catch((): ServiceHealthResult[] => []),
+    getAppSetting<boolean>(SUBCATEGORY_FILTER_KEY, true),
     getNewsletterDashboardData(),
     getTranslations("admin.dashboard"),
   ]);
@@ -193,7 +200,12 @@ export default async function AdminPage() {
         </p>
       </div>
 
-      <SystemStatusCard initialResults={healthResults} />
+      <div className="grid gap-4 xl:grid-cols-2">
+        <SystemStatusCard initialResults={healthResults} />
+        <FeatureTogglesCard
+          initialSubcategoryFilterEnabled={subcategoryFilterEnabled ?? true}
+        />
+      </div>
 
       <section aria-labelledby="review-queues">
         <div className="mb-4 flex items-end justify-between gap-4">

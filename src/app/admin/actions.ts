@@ -46,6 +46,10 @@ import { updateReportStatus } from '@/lib/services/reports'
 import { updateFeedbackStatus, syncSentryFeedback } from '@/lib/services/feedback'
 import type { FeedbackStatus } from '@/lib/services/feedback'
 import { checkAllServices } from '@/lib/services/health-checks'
+import {
+  setAppSetting,
+  SUBCATEGORY_FILTER_KEY,
+} from '@/lib/services/app-settings'
 import { DENIAL_REASONS, type DenialReason, type OtherUrl } from '@/lib/types'
 import { getSiteUrl } from '@/lib/site-url'
 import { revalidatePublicBrand } from '@/lib/cache/public-brand-cache'
@@ -573,4 +577,32 @@ export async function refreshHealthChecks(): Promise<void> {
     console.error('[admin:refreshHealthChecks]', err)
   }
   revalidatePath('/admin')
+}
+
+export async function setFeatureFlagAction(
+  key: string,
+  enabled: boolean
+): Promise<{
+  error?: string
+  code?: 'unauthenticated' | 'forbidden'
+}> {
+  try {
+    const auth = await requireAdminAction()
+    if ('error' in auth) return auth
+
+    if (key !== SUBCATEGORY_FILTER_KEY) {
+      return { error: 'Unknown feature flag' }
+    }
+
+    await setAppSetting(key, enabled)
+    revalidatePath('/brands')
+    revalidatePath('/en/brands')
+    revalidatePath('/admin')
+    return {}
+  } catch (err) {
+    console.error('[admin:setFeatureFlag]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
 }
