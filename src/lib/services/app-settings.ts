@@ -18,11 +18,11 @@ export async function getAppSetting<T extends Json = Json>(
     .eq('key', key)
     .maybeSingle()
 
-  if (error || !data) {
-    console.error(
-      'getAppSetting app_settings query error:',
-      error ?? `No app setting found for key: ${key}`
-    )
+  if (error) {
+    console.error('getAppSetting query error:', error)
+    return defaultValue
+  }
+  if (!data) {
     return defaultValue
   }
 

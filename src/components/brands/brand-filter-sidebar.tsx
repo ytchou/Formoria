@@ -289,7 +289,7 @@ export function BrandFilterSidebar({
                           )}
                         >
                           {subcategory.label}{' '}
-                          <span className="text-muted-foreground">{subcategory.count}</span>
+                          <span className={cn(subcategoryChecked ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{subcategory.count}</span>
                         </Button>
                       )
                     })}

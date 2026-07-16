@@ -197,7 +197,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
     : []
   const subcategoryOptions = subcategoriesWithCounts.map((subcategory) => ({
     slug: subcategory.slug,
-    label: subcategory.nameZh,
+    label: safeLocale === 'zh-TW' ? subcategory.nameZh : subcategory.nameEn,
     count: subcategory.count,
   }))
   const activeSubSlugs = resolvedSubs.map((subcategory) => subcategory.slug)
