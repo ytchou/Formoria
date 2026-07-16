@@ -173,60 +173,59 @@ export async function evaluateDrips(
     supabase,
     optedInOwners.map((owner) => owner.user_id),
   )
-  const results = await Promise.all(optedInOwners.map(async (owner) => {
-    try {
-      // [Important 3] Optimistic lock: insert the email_sends record BEFORE sending.
-      // The UNIQUE(user_id, template_key) constraint provides atomic dedup —
-      // if a concurrent cron run already claimed this slot, the insert fails
-      // and we skip instead of double-sending.
-      const insertResult = await supabase.from('email_sends').insert?.({
-        user_id: owner.user_id,
-        template_key: drip.key,
-      })
-
-      if (insertResult?.error) {
-        // Duplicate key = already sent (concurrent run or prior run)
-        return 'skipped' as const
-      }
-
-      const message = await drip.builder({
-        to: owner.email,
-        brandName: owner.brand_name,
-        brandSlug: owner.brand_slug,
-        unsubscribeToken: owner.unsubscribe_token,
-        locale: ownerLocales.get(owner.user_id) ?? owner.locale_preference,
-        ...profileCompleteness(owner),
-      })
-
-      const delivery = await sendEmail(message)
-      if (!delivery.success) {
-        throw new Error(delivery.error ?? 'Email delivery failed')
-      }
-      return 'sent' as const
-    } catch (err) {
-      // Send failed after we already inserted the record — roll back so
-      // the next cron run can retry this owner.
+  const BATCH_SIZE = 5
+  const results: ('sent' | 'skipped' | 'error')[] = []
+  for (let i = 0; i < optedInOwners.length; i += BATCH_SIZE) {
+    const batch = optedInOwners.slice(i, i + BATCH_SIZE)
+    const batchResults = await Promise.all(batch.map(async (owner) => {
       try {
-        const deleteQuery = supabase
-          .from<Record<string, unknown>>('email_sends')
-          .delete?.()
-        if (deleteQuery?.eq) {
-          const filtered = deleteQuery.eq('user_id', owner.user_id)
-          if (filtered.eq) {
-            await filtered.eq('template_key', drip.key)
-          }
+        const insertResult = await supabase.from('email_sends').insert?.({
+          user_id: owner.user_id,
+          template_key: drip.key,
+        })
+
+        if (insertResult?.error) {
+          return 'skipped' as const
         }
-      } catch {
-        // Best-effort cleanup
+
+        const message = await drip.builder({
+          to: owner.email,
+          brandName: owner.brand_name,
+          brandSlug: owner.brand_slug,
+          unsubscribeToken: owner.unsubscribe_token,
+          locale: ownerLocales.get(owner.user_id) ?? owner.locale_preference,
+          ...profileCompleteness(owner),
+        })
+
+        const delivery = await sendEmail(message)
+        if (!delivery.success) {
+          throw new Error(delivery.error ?? 'Email delivery failed')
+        }
+        return 'sent' as const
+      } catch (err) {
+        try {
+          const deleteQuery = supabase
+            .from<Record<string, unknown>>('email_sends')
+            .delete?.()
+          if (deleteQuery?.eq) {
+            const filtered = deleteQuery.eq('user_id', owner.user_id)
+            if (filtered.eq) {
+              await filtered.eq('template_key', drip.key)
+            }
+          }
+        } catch {
+          // Best-effort cleanup
+        }
+        console.error('Failed to send drip email', {
+          dripType,
+          userId: owner.user_id,
+          error: err,
+        })
+        return 'error' as const
       }
-      console.error('Failed to send drip email', {
-        dripType,
-        userId: owner.user_id,
-        error: err,
-      })
-      return 'error' as const
-    }
-  }))
+    }))
+    results.push(...batchResults)
+  }
 
   return {
     sent: results.filter((result) => result === 'sent').length,

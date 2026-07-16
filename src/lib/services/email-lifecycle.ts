@@ -75,11 +75,26 @@ export async function setLifecycleEmailPreference(
   input: SetLifecycleEmailPreferenceInput,
 ): Promise<void> {
   const now = new Date().toISOString()
+
+  const { data: existing } = await emailLifecycleTable(
+    supabase,
+    'owner_email_preferences',
+  )
+    .select('unsubscribe_token')
+    .eq('user_id', input.userId)
+    .maybeSingle()
+
+  const existingRow = existing as EmailPreferencesRow | null
+
   const values: Record<string, unknown> = {
     user_id: input.userId,
     lifecycle_opted_in_at: input.enabled ? now : null,
     unsubscribed_at: input.enabled ? null : now,
-    unsubscribe_token: crypto.randomUUID(),
+  }
+
+  // Only mint a token for new rows — preserves unsubscribe links in delivered emails
+  if (!existingRow?.unsubscribe_token) {
+    values.unsubscribe_token = crypto.randomUUID()
   }
 
   if (input.enabled) {
