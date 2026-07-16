@@ -211,16 +211,11 @@ test.describe('Dashboard brand edit', () => {
       userPage.getByRole('heading', { name: /^編輯 / }),
     ).toBeVisible({ timeout: 60_000 });
 
-    const cityTrigger = userPage.locator('#city');
-    await expect(cityTrigger).toBeVisible({ timeout: 10_000 });
-    // Radix Select sets data-placeholder="" when no value is selected.
-    await expect(cityTrigger).toHaveAttribute('data-placeholder', '');
-
-    await cityTrigger.click();
-    await expect(
-      userPage.getByRole('option', { name: '臺北市' }),
-    ).toBeVisible({ timeout: 5_000 });
-    await userPage.keyboard.press('Escape');
+    const citySelect = userPage.locator('#city');
+    await expect(citySelect).toBeVisible({ timeout: 10_000 });
+    await expect(citySelect).toHaveValue('');
+    await expect(citySelect.locator('option').first()).toHaveText('請選擇品牌創立城市');
+    await expect(citySelect.locator('option[value="taipei"]')).toHaveText('臺北市');
   });
 
   test('owner can edit description and change persists', async ({ userPage }) => {
@@ -397,12 +392,16 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
   test('sidebar click jumps non-linearly to Reputation (step 4)', async ({ userPage }) => {
     test.setTimeout(60_000);
 
-    const resp = await userPage.goto(`/dashboard/brands/${wizardBrandSlug}/edit`, { timeout: 60_000 });
+    const resp = await userPage.goto(
+      `/dashboard/brands/${wizardBrandSlug}/edit?step=0`,
+      { timeout: 60_000 },
+    );
     if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
     await expect(
       userPage.getByRole('heading', { name: /^編輯 / }),
     ).toBeVisible({ timeout: 60_000 });
+    await expect(userPage.locator('#basic-info')).toBeVisible({ timeout: 30_000 });
 
     const sidebarNav = userPage.locator('aside nav');
     await sidebarNav.locator('button').filter({ hasText: '品牌口碑' }).click();
