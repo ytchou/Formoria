@@ -28,6 +28,7 @@ export interface SubmitBrandForReviewParams {
   productType?: string | null
   productTypeNote?: string | null
   mitSmileCert?: string
+  ownerData?: Record<string, unknown>
 }
 
 export interface SubmitBrandForReviewResult {
@@ -93,6 +94,7 @@ export async function submitBrandForReview(
     sourceAttribution: params.sourceAttribution ?? null,
     pdpaConsentAt: params.pdpaConsent ? new Date().toISOString() : undefined,
     productTypeNote: params.productTypeNote ?? null,
+    ownerData: params.ownerData,
   }, options)
 
   return { submissionId: submission.id }

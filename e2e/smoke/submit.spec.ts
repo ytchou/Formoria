@@ -15,16 +15,12 @@ test.describe('Submit smoke', () => {
     await expect(anonPage.locator('#submit-guest-email')).toBeVisible();
   });
 
-  test('owner form shows city select and brand links', async ({ userPage }) => {
+  test('owner quick form shows name, website, and description fields', async ({ userPage }) => {
     test.setTimeout(60_000);
     await gotoSubmitOwner(userPage);
 
-    const citySelect = userPage.locator('#submit-city');
-    await expect(citySelect).toBeVisible({ timeout: 5_000 });
-    await expect(citySelect.locator('option[value=""]')).toHaveCount(1);
-    const taipeiOption = citySelect.locator('option[value="taipei"]');
-    await expect(taipeiOption).toHaveCount(1);
-    await expect(taipeiOption).toHaveText('臺北市');
-    await expect(userPage.locator('#submit-instagram')).toBeVisible();
+    await expect(userPage.locator('#submit-name')).toBeVisible({ timeout: 5_000 });
+    await expect(userPage.locator('#submit-website')).toBeVisible();
+    await expect(userPage.locator('#submit-description')).toBeVisible();
   });
 });

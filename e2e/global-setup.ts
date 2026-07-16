@@ -91,8 +91,8 @@ async function globalSetup() {
       const page = await context.newPage();
       await page.goto(`${baseURL}/submit/recommend`, { waitUntil: 'domcontentloaded', timeout: 60000 });
       await page.locator('input[type="url"]').first().waitFor({ state: 'visible', timeout: 120_000 });
-      await page.goto(`${baseURL}/submit/owner`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-      await page.locator('#submit-city').waitFor({ state: 'visible', timeout: 120_000 });
+      await page.goto(`${baseURL}/submit/owner/quick`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await page.locator('input[type="url"]').first().waitFor({ state: 'visible', timeout: 120_000 });
       try {
         await page.goto(baseURL + '/dashboard', { waitUntil: 'domcontentloaded', timeout: 60000 });
         console.log('[global-setup] /dashboard warm-up complete');

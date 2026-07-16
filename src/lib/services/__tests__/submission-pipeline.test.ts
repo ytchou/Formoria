@@ -63,4 +63,61 @@ describeWithDb('submitBrandForReview (submission-first)', () => {
     expect(result.submissionId).toBeDefined()
     expect(result.brandSlug).toBeUndefined()
   })
+
+  it('stores owner_data when provided', async () => {
+    const ownerData = {
+      productType: 'bags-accessories',
+      foundingYear: 2018,
+      productTags: ['leather', 'handmade'],
+      city: 'tainan',
+      priceRange: 2,
+      productPhotos: ['https://storage.example.com/p1.webp'],
+      retailLocations: [],
+    }
+
+    const result = await submitBrandForReview({
+      brandName: testBrandName,
+      websiteUrl: 'https://test-submit.example.com',
+      submitterEmail: 'owner@example.com',
+      submitterName: 'Test Owner',
+      isBrandOwner: true,
+      pdpaConsent: true,
+      ownerData,
+    })
+
+    expect(result.submissionId).toBeDefined()
+
+    const { data: submission } = await supabase!
+      .from('brand_submissions')
+      .select('owner_data')
+      .eq('id', result.submissionId)
+      .single()
+
+    expect(submission!.owner_data).toMatchObject({
+      productType: 'bags-accessories',
+      foundingYear: 2018,
+      productTags: ['leather', 'handmade'],
+      city: 'tainan',
+      priceRange: 2,
+    })
+  })
+
+  it('stores null owner_data when not provided', async () => {
+    const result = await submitBrandForReview({
+      brandName: testBrandName,
+      websiteUrl: 'https://test-submit.example.com',
+      submitterEmail: 'owner@example.com',
+      submitterName: 'Test Owner',
+      isBrandOwner: true,
+      pdpaConsent: true,
+    })
+
+    const { data: submission } = await supabase!
+      .from('brand_submissions')
+      .select('owner_data')
+      .eq('id', result.submissionId)
+      .single()
+
+    expect(submission!.owner_data).toBeNull()
+  })
 })

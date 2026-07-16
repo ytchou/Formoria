@@ -239,4 +239,88 @@ describe('submit actions', () => {
       expect.objectContaining({ isBrandOwner: false, intent: 'recommend' }),
     )
   })
+
+  describe('submitOwnerQuick', () => {
+    beforeEach(() => {
+      mockGetUser.mockResolvedValue({
+        data: { user: { id: 'user-1', email: 'owner@test.com', user_metadata: { full_name: 'Owner' } } },
+      })
+      mockVerifyTurnstileToken.mockResolvedValue({ success: true })
+      mockSubmitBrandForReview.mockResolvedValue({ submissionId: 'sub-1' })
+      mockGetUserBrand.mockResolvedValue(null)
+    })
+
+    it('creates submission with owner_claim intent and no ownerData', async () => {
+      const { submitOwnerQuick } = await import('../actions')
+      await submitOwnerQuick({
+        name: 'Quick Brand',
+        website: 'https://quick.tw',
+        description: 'A quick submission',
+        pdpaConsent: true,
+        turnstileToken: 'token-123',
+        honeypot: '',
+      })
+      expect(mockSubmitBrandForReview).toHaveBeenCalledWith(
+        expect.objectContaining({
+          brandName: 'Quick Brand',
+          websiteUrl: 'https://quick.tw',
+          description: 'A quick submission',
+          intent: 'owner_claim',
+          isBrandOwner: true,
+        }),
+      )
+      expect(mockSubmitBrandForReview.mock.calls[0][0].ownerData).toBeUndefined()
+    })
+  })
+
+  describe('submitOwnerDetailedBrand', () => {
+    beforeEach(() => {
+      mockGetUser.mockResolvedValue({
+        data: { user: { id: 'user-1', email: 'owner@test.com', user_metadata: { full_name: 'Owner' } } },
+      })
+      mockVerifyTurnstileToken.mockResolvedValue({ success: true })
+      mockSubmitBrandForReview.mockResolvedValue({ submissionId: 'sub-1' })
+      mockGetUserBrand.mockResolvedValue(null)
+    })
+
+    it('creates submission with ownerData from wizard fields', async () => {
+      const { submitOwnerDetailedBrand } = await import('../actions')
+      await submitOwnerDetailedBrand({
+        name: 'Detailed Brand',
+        website: 'https://detailed.tw',
+        description: 'Full wizard submission',
+        heroImageUrl: 'https://storage.example.com/hero.webp',
+        productType: 'fashion',
+        foundingYear: 2020,
+        productTags: ['sustainable'],
+        city: 'taipei',
+        priceRange: 2,
+        productPhotos: [],
+        socialInstagram: 'https://instagram.com/detailed',
+        socialThreads: '',
+        socialFacebook: '',
+        purchaseWebsite: 'https://detailed.tw/shop',
+        purchasePinkoi: '',
+        purchaseShopee: '',
+        otherUrls: [],
+        retailLocations: [],
+        pdpaConsent: true,
+        turnstileToken: 'token-456',
+        honeypot: '',
+      })
+      expect(mockSubmitBrandForReview).toHaveBeenCalledWith(
+        expect.objectContaining({
+          brandName: 'Detailed Brand',
+          intent: 'owner_claim',
+          isBrandOwner: true,
+          ownerData: expect.objectContaining({
+            productType: 'fashion',
+            foundingYear: 2020,
+            city: 'taipei',
+            priceRange: 2,
+          }),
+        }),
+      )
+    })
+  })
 })

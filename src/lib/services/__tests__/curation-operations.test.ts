@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createServiceClient } from '@/lib/supabase/server'
 import * as brandWrites from '../brands'
-import { processEnrichBrand, mergeEnrichPatches, persistEnrichmentResults, persistSubmissionEnrichmentResults, runEnrich, needsPhase } from '../curation-operations'
+import { processEnrichBrand, mergeEnrichPatches, persistEnrichmentResults, persistSubmissionEnrichmentResults, runEnrich, needsPhase, seedEnrichedDataFromOwnerData } from '../curation-operations'
 import type { CurationConfig } from '../curation-operations'
 import { describeWithDb } from '@/test/setup'
 
@@ -12,6 +12,52 @@ vi.mock('../product-type-classifier', async (importOriginal) => {
     ...actual,
     detectBrandsBatch: vi.fn(),
   }
+})
+
+describe('seedEnrichedDataFromOwnerData', () => {
+  it('seeds enriched_data fields from owner_data', () => {
+    const ownerData = {
+      productType: 'bags-accessories',
+      foundingYear: 2018,
+      city: 'tainan',
+      priceRange: 2,
+      productTags: ['leather', 'handmade'],
+    }
+    const result = seedEnrichedDataFromOwnerData(ownerData, null)
+    expect(result).toMatchObject({
+      product_type: 'bags-accessories',
+      founding_year: 2018,
+      city: 'tainan',
+      price_range: 2,
+      product_tags: ['leather', 'handmade'],
+    })
+  })
+
+  it('does not overwrite existing enriched_data fields', () => {
+    const ownerData = {
+      productType: 'bags-accessories',
+      city: 'tainan',
+    }
+    const existingEnriched = {
+      product_type: 'fashion',
+      description: 'Existing description',
+    }
+    const result = seedEnrichedDataFromOwnerData(ownerData, existingEnriched)
+    expect(result.product_type).toBe('fashion')
+    expect(result.city).toBe('tainan')
+    expect(result.description).toBe('Existing description')
+  })
+
+  it('returns existing enriched_data when owner_data is null', () => {
+    const existing = { description: 'Hello' }
+    const result = seedEnrichedDataFromOwnerData(null, existing)
+    expect(result).toEqual(existing)
+  })
+
+  it('returns empty object when both are null', () => {
+    const result = seedEnrichedDataFromOwnerData(null, null)
+    expect(result).toEqual({})
+  })
 })
 
 describe('processEnrichBrand', () => {

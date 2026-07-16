@@ -317,7 +317,7 @@ export async function enqueueManualRerun(
     const supabase = createServiceClient();
     const { data, error } = await supabase
       .from("brand_submissions")
-      .select("id, status, brand_id, hero_image_url, enriched_data")
+      .select("id, status, brand_id, hero_image_url, enriched_data, owner_data")
       .in("id", submissionIds);
 
     if (error) throw error;

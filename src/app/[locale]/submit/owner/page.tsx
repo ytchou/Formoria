@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getUserBrand } from '@/lib/services/brand-owners'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
-import SubmitForm from '@/components/submit/SubmitForm'
+import OwnerForkClient from './owner-fork-client'
 
 type OwnerPageProps = {
   params: Promise<{ locale: string }>
@@ -100,7 +100,7 @@ export default async function SubmitOwnerPage({
         </div>
       ) : null}
 
-      <SubmitForm variant="owner" />
+      <OwnerForkClient />
     </div>
   )
 }
