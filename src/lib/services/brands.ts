@@ -1078,11 +1078,19 @@ export async function getBrandBySlug(
   options: { includeRomanizedName?: boolean } = {},
 ): Promise<Brand> {
   const supabase = createServiceClient()
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('brands')
     .select(options.includeRomanizedName ? BRAND_SELECT_WITH_ROMANIZED_NAME : BRAND_SELECT)
     .eq('slug', slug)
     .maybeSingle()
+
+  if (options.includeRomanizedName && error?.code === '42703') {
+    ;({ data, error } = await supabase
+      .from('brands')
+      .select(BRAND_SELECT)
+      .eq('slug', slug)
+      .maybeSingle())
+  }
 
   if (error || !data) throw new NotFoundError('Brand', slug, { cause: error })
   return brandToDomainWithImages(supabase, data)

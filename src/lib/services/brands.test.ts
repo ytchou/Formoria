@@ -622,6 +622,48 @@ describe('brand not found errors preserve Supabase cause', () => {
     await expectNotFoundCause(() => getBrandBySlug('missing-brand'), supabaseError)
   })
 
+  it('retries without romanized metadata while the brands migration is pending', async () => {
+    const { getBrandBySlug } = await import('./brands')
+    const missingColumnQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: null,
+        error: { code: '42703', message: 'column brands.romanized_name does not exist' },
+      }),
+    }
+    const compatibleQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: 'brand-1',
+          name: 'Warmwood Living',
+          slug: 'warmwood-living',
+          status: 'approved',
+        },
+        error: null,
+      }),
+    }
+    const imageQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({ data: [], error: null }),
+    }
+    mockFrom
+      .mockReturnValueOnce(missingColumnQuery)
+      .mockReturnValueOnce(compatibleQuery)
+      .mockReturnValueOnce(imageQuery)
+
+    const brand = await getBrandBySlug('warmwood-living', { includeRomanizedName: true })
+
+    expect(brand.romanizedName).toBeNull()
+    expect(missingColumnQuery.select).toHaveBeenCalledWith(
+      expect.stringContaining('romanized_name'),
+    )
+    expect(compatibleQuery.select).toHaveBeenCalledWith(BRAND_SELECT)
+  })
+
   it('updateBrand wraps original error as the NotFoundError cause', async () => {
     const { updateBrand } = await import('./brands')
     const supabaseError = { code: 'PGRST301', message: 'Database error' }
