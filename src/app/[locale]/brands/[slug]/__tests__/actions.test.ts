@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const createClaimRequest = vi.hoisted(() => vi.fn())
+const createReport = vi.hoisted(() => vi.fn())
 
 vi.mock('next/headers', () => ({
   headers: vi.fn().mockResolvedValue(
@@ -15,7 +16,7 @@ vi.mock('next-intl/server', () => ({
 }))
 
 vi.mock('@/lib/services/reports', () => ({
-  createReport: vi.fn().mockResolvedValue(undefined),
+  createReport: (...a: unknown[]) => createReport(...a),
 }))
 
 vi.mock('@/lib/services/claim-requests', () => ({
@@ -174,5 +175,74 @@ describe('submitReportAction', () => {
     const result = await submitReportAction({}, fd)
     expect(result.error).toBeTruthy()
     expect(result.success).toBeUndefined()
+  })
+})
+
+describe('submitReportAction — ownership_dispute', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    createReport.mockResolvedValue(undefined)
+
+    const { headers } = await import('next/headers')
+    vi.mocked(headers).mockResolvedValue(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      new Map([['cf-connecting-ip', '198.51.100.9']]) as any
+    )
+  })
+
+  it('rejects ownership_dispute from unauthenticated users', async () => {
+    const { requireClaimUser } = await import('@/lib/auth/claim-user')
+    vi.mocked(requireClaimUser).mockResolvedValueOnce(null)
+
+    const result = await submitReportAction({}, makeFormData({
+      brandId: 'b1',
+      reason: 'ownership_dispute',
+    }))
+
+    expect(result.error).toBeTruthy()
+    expect(requireClaimUser).toHaveBeenCalledOnce()
+    expect(createReport).not.toHaveBeenCalled()
+  })
+
+  it('rejects ownership_dispute combined with other reasons', async () => {
+    const result = await submitReportAction({}, makeFormData({
+      brandId: 'b1',
+      reason: 'ownership_dispute,broken_link',
+    }))
+
+    expect(result.error).toBeTruthy()
+    expect(createReport).not.toHaveBeenCalled()
+  })
+
+  it('passes userId through for authenticated sole-reason disputes', async () => {
+    const { requireClaimUser } = await import('@/lib/auth/claim-user')
+    vi.mocked(requireClaimUser).mockResolvedValueOnce({ id: 'user-uuid-9' })
+
+    const result = await submitReportAction({}, makeFormData({
+      brandId: 'b1',
+      reason: 'ownership_dispute',
+    }))
+
+    expect(result.success).toBe(true)
+    expect(createReport).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'user-uuid-9',
+    }))
+  })
+
+  it('keeps other reasons anonymous (no auth requirement)', async () => {
+    const { requireClaimUser } = await import('@/lib/auth/claim-user')
+
+    const result = await submitReportAction({}, makeFormData({
+      brandId: 'b1',
+      reason: 'broken_link',
+    }))
+
+    expect(result.success).toBe(true)
+    expect(requireClaimUser).not.toHaveBeenCalled()
+    expect(createReport).toHaveBeenCalledWith({
+      brandId: 'b1',
+      reason: 'broken_link',
+      notes: null,
+    })
   })
 })

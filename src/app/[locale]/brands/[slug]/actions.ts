@@ -18,7 +18,13 @@ import {
 } from '@/lib/services/claim-requests'
 import { createReport } from '@/lib/services/reports'
 
-const REPORT_REASONS = ['not_mit', 'incorrect_info', 'broken_link', 'inappropriate'] as const
+const REPORT_REASONS = [
+  'not_mit',
+  'incorrect_info',
+  'broken_link',
+  'inappropriate',
+  'ownership_dispute',
+] as const
 type SubmitReportReason = (typeof REPORT_REASONS)[number]
 type Translator = Awaited<ReturnType<typeof getTranslations<'brandDetail.claim.errors'>>>
 
@@ -174,6 +180,19 @@ export async function submitReportAction(_prevState: ReportState, formData: Form
     }
     const reason = reasons.join(',')
 
+    let userId: string | undefined
+    if (reasons.includes('ownership_dispute')) {
+      if (reasons.length > 1) {
+        return { error: t('invalidReason') }
+      }
+
+      const user = await requireClaimUser()
+      if (!user) {
+        const claimT = await getTranslations('brandDetail.claim.errors')
+        return { error: claimT('notLoggedIn') }
+      }
+      userId = user.id
+    }
 
     const notesRaw = formData.get('notes') as string | null
     const notes = notesRaw?.trim() || null
@@ -189,7 +208,12 @@ export async function submitReportAction(_prevState: ReportState, formData: Form
       return { error: t('rateLimited') }
     }
 
-    await createReport({ brandId, reason: reason as SubmitReportReason, notes })
+    await createReport({
+      brandId,
+      reason: reason as SubmitReportReason,
+      notes,
+      ...(userId ? { userId } : {}),
+    })
     revalidatePath('/admin/reports')
     revalidatePath('/admin')
     return { success: true }

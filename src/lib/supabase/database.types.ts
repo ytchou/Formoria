@@ -249,6 +249,7 @@ export type Database = {
           reason: string
           reviewed_at: string | null
           status: string
+          user_id: string | null
         }
         Insert: {
           brand_id: string
@@ -258,6 +259,7 @@ export type Database = {
           reason: string
           reviewed_at?: string | null
           status?: string
+          user_id?: string | null
         }
         Update: {
           brand_id?: string
@@ -267,6 +269,7 @@ export type Database = {
           reason?: string
           reviewed_at?: string | null
           status?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -1156,6 +1159,44 @@ export type Database = {
         }
         Relationships: []
       }
+      ownership_revocations: {
+        Row: {
+          brand_id: string
+          id: string
+          reason: string
+          revoked_at: string
+          revoked_by: string
+          revoked_user_email: string
+          revoked_user_id: string | null
+        }
+        Insert: {
+          brand_id: string
+          id?: string
+          reason: string
+          revoked_at?: string
+          revoked_by: string
+          revoked_user_email: string
+          revoked_user_id?: string | null
+        }
+        Update: {
+          brand_id?: string
+          id?: string
+          reason?: string
+          revoked_at?: string
+          revoked_by?: string
+          revoked_user_email?: string
+          revoked_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ownership_revocations_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pending_brand_edits: {
         Row: {
           brand_id: string
@@ -1329,6 +1370,17 @@ export type Database = {
           p_submission_id: string
         }
         Returns: string[]
+      }
+      revoke_brand_ownership: {
+        Args: {
+          p_brand_id: string
+          p_revoked_by: string
+          p_reason: string
+        }
+        Returns: {
+          revoked_user_id: string
+          revoked_user_email: string
+        }[]
       }
       search_brands: {
         Args: {

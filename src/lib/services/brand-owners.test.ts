@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockFrom = vi.fn()
+const mockRpc = vi.fn()
 vi.mock('@/lib/supabase/server', () => ({
-  createServiceClient: vi.fn(() => ({ from: mockFrom })),
+  createServiceClient: vi.fn(() => ({ from: mockFrom, rpc: mockRpc })),
 }))
 
 describe('brand-owners service', () => {
@@ -100,6 +101,40 @@ describe('brand-owners service', () => {
 
       const result = await isOwnerOf('user-1', 'brand-1')
       expect(result).toBe(false)
+    })
+  })
+
+  describe('revokeOwnership', () => {
+    it('calls the revoke_brand_ownership RPC and returns the revoked owner', async () => {
+      const { revokeOwnership } = await import('./brand-owners')
+
+      mockRpc.mockResolvedValueOnce({
+        data: [{ revoked_user_id: 'user-uuid-9', revoked_user_email: 'owner@haoshan-tea.tw' }],
+        error: null,
+      })
+
+      const result = await revokeOwnership(
+        'brand-uuid-123',
+        'admin@formoria.tw',
+        'Dispute upheld'
+      )
+
+      expect(mockRpc).toHaveBeenCalledWith('revoke_brand_ownership', {
+        p_brand_id: 'brand-uuid-123',
+        p_revoked_by: 'admin@formoria.tw',
+        p_reason: 'Dispute upheld',
+      })
+      expect(result).toEqual({ userId: 'user-uuid-9', email: 'owner@haoshan-tea.tw' })
+    })
+
+    it('throws when the brand has no owner', async () => {
+      const { revokeOwnership } = await import('./brand-owners')
+
+      mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'Brand owner not found' } })
+
+      await expect(
+        revokeOwnership('brand-uuid-123', 'admin@formoria.tw', 'x')
+      ).rejects.toThrow(/Brand owner not found/)
     })
   })
 })
