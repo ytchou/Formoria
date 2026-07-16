@@ -354,12 +354,16 @@
       "reasonIncorrectInfo": "Incorrect information",
       "reasonBrokenLink": "Broken link",
       "reasonInappropriate": "Inappropriate content",
+      "reasonOwnershipDispute": "Ownership dispute (I represent this brand)",
+      "disputeSignInPrompt": "Sign in to submit an ownership dispute",
+      "disputeSignInCta": "Sign in",
       "notesPlaceholder": "Additional notes (optional)",
       "submitting": "Submitting...",
       "submit": "Submit Report",
       "errors": {
         "missingBrandId": "Missing brand ID",
         "invalidReason": "Please select a valid report reason",
+        "disputeRequiresSignIn": "You must sign in to report an ownership dispute",
         "notesTooLong": "Additional notes must be 1000 characters or fewer",
         "rateLimited": "Too many reports. Please try again later.",
         "unknown": "An unknown error occurred"

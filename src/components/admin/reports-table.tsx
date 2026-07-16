@@ -2,10 +2,21 @@
 
 import { Fragment, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { reviewReportAction } from '@/app/admin/actions'
+import { reviewReportAction, revokeOwnershipAction } from '@/app/admin/actions'
 import type { BrandReport, ReportReason } from '@/lib/services/reports'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
 import {
   Table,
   TableBody,
@@ -14,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Textarea } from '@/components/ui/textarea'
 
 interface ReportsTableProps {
   reports: BrandReport[]
@@ -29,15 +41,32 @@ const REASON_LABELS: Record<ReportReason, string> = {
 
 export function ReportsTable({ reports }: ReportsTableProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [revokeReason, setRevokeReason] = useState('')
+  const [isRevokeDialogOpen, setIsRevokeDialogOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
 
   function handleRowClick(id: string) {
     setExpandedId((prev) => (prev === id ? null : id))
+    setRevokeReason('')
+    setIsRevokeDialogOpen(false)
   }
 
   function handleReview(id: string, decision: 'reviewed' | 'dismissed') {
     startTransition(async () => {
       await reviewReportAction(id, decision)
+    })
+  }
+
+  function handleRevoke(brandId: string) {
+    const reason = revokeReason.trim()
+    if (!reason) return
+
+    startTransition(async () => {
+      const result = await revokeOwnershipAction(brandId, reason)
+      if (!result?.error) {
+        setIsRevokeDialogOpen(false)
+        setRevokeReason('')
+      }
     })
   }
 
@@ -107,8 +136,20 @@ export function ReportsTable({ reports }: ReportsTableProps) {
                           </div>
                         )}
 
+                        {r.reason === 'ownership_dispute' && (
+                          <dl>
+                            <div>
+                              <dt className="type-field-label">Reporter email</dt>
+                              <dd className="mt-1 type-field-value">
+                                {r.reporterEmail ?? 'Unavailable'}
+                              </dd>
+                            </div>
+                          </dl>
+                        )}
+
                         <div className="flex items-start gap-3">
                           <Button
+                            className="min-h-12"
                             onClick={(e) => {
                               e.stopPropagation()
                               handleReview(r.id, 'reviewed')
@@ -119,6 +160,7 @@ export function ReportsTable({ reports }: ReportsTableProps) {
                           </Button>
                           <Button
                             variant="destructive"
+                            className="min-h-12"
                             onClick={(e) => {
                               e.stopPropagation()
                               handleReview(r.id, 'dismissed')
@@ -128,6 +170,61 @@ export function ReportsTable({ reports }: ReportsTableProps) {
                             Dismiss
                           </Button>
                         </div>
+
+                        {r.reason === 'ownership_dispute' && r.brandHasOwner && (
+                          <>
+                            <Separator />
+                            <div className="space-y-3">
+                              <div className="space-y-2">
+                                <Label htmlFor={`revoke-reason-${r.id}`}>
+                                  Revocation reason
+                                </Label>
+                                <Textarea
+                                  id={`revoke-reason-${r.id}`}
+                                  value={revokeReason}
+                                  onChange={(e) => setRevokeReason(e.target.value)}
+                                  required
+                                />
+                              </div>
+                              <Button
+                                variant="destructive"
+                                className="min-h-12"
+                                disabled={!revokeReason.trim() || isPending}
+                                onClick={() => setIsRevokeDialogOpen(true)}
+                              >
+                                Revoke ownership
+                              </Button>
+                            </div>
+
+                            <AlertDialog
+                              open={isRevokeDialogOpen}
+                              onOpenChange={setIsRevokeDialogOpen}
+                            >
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Revoke ownership?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This removes the current owner from {r.brandName}.
+                                    The owner will be notified by email.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel className="min-h-12">
+                                    Cancel
+                                  </AlertDialogCancel>
+                                  <Button
+                                    variant="destructive"
+                                    className="min-h-12"
+                                    disabled={isPending}
+                                    onClick={() => handleRevoke(r.brandId)}
+                                  >
+                                    {isPending ? 'Revoking…' : 'Confirm revoke'}
+                                  </Button>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

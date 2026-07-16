@@ -354,12 +354,16 @@
       "reasonIncorrectInfo": "資訊有誤",
       "reasonBrokenLink": "連結失效",
       "reasonInappropriate": "不當內容",
+      "reasonOwnershipDispute": "所有權爭議（我是品牌方）",
+      "disputeSignInPrompt": "請登入以提出所有權爭議",
+      "disputeSignInCta": "登入",
       "notesPlaceholder": "補充說明（選填）",
       "submitting": "送出中...",
       "submit": "送出檢舉",
       "errors": {
         "missingBrandId": "缺少品牌 ID",
         "invalidReason": "請選擇有效的檢舉原因",
+        "disputeRequiresSignIn": "必須登入才能提出所有權爭議",
         "notesTooLong": "補充說明不得超過 1000 字",
         "rateLimited": "檢舉次數過多，請稍後再試。",
         "unknown": "發生未知錯誤"

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useActionState } from 'react'
-import { useTranslations } from 'next-intl'
+import NextLink from 'next/link'
+import { useLocale, useTranslations } from 'next-intl'
 import { Flag } from 'lucide-react'
 import { submitReportAction, type ReportState } from '@/app/[locale]/brands/[slug]/actions'
 import {
@@ -18,6 +19,9 @@ import {
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { usePathname } from '@/i18n/navigation'
+import { signInHref } from '@/i18n/locale-preference'
+import { useUser } from '@/lib/auth/use-user'
 
 interface ReportDialogProps {
   brandId: string
@@ -26,9 +30,14 @@ interface ReportDialogProps {
 
 export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
   const t = useTranslations('brandDetail.report')
+  const locale = useLocale() as 'zh-TW' | 'en'
+  const pathname = usePathname()
+  const { user, loading } = useUser()
   const [state, action, pending] = useActionState<ReportState, FormData>(submitReportAction, {})
   const [selectedReasons, setSelectedReasons] = useState<Set<string>>(new Set())
   const [alreadyReported, setAlreadyReported] = useState(false)
+  const ownershipDisputeSelected = selectedReasons.has('ownership_dispute')
+  const disputeRequiresSignIn = ownershipDisputeSelected && !loading && !user
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -54,6 +63,7 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
     { value: 'incorrect_info', label: t('reasonIncorrectInfo') },
     { value: 'broken_link', label: t('reasonBrokenLink') },
     { value: 'inappropriate', label: t('reasonInappropriate') },
+    { value: 'ownership_dispute', label: t('reasonOwnershipDispute') },
   ]
 
   return (
@@ -98,15 +108,23 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
                     <Button
                       key={value}
                       type="button"
-                      variant={selectedReasons.has(value) ? "primary" : "secondary"}
+                      variant={selectedReasons.has(value) ? 'primary' : 'secondary'}
                       size="chip"
                       aria-pressed={selectedReasons.has(value)}
-                      className="justify-start"
+                      className="min-h-12 justify-start"
                       onClick={() => {
                         setSelectedReasons((prev) => {
+                          if (prev.has(value)) {
+                            const next = new Set(prev)
+                            next.delete(value)
+                            return next
+                          }
+                          if (value === 'ownership_dispute') {
+                            return new Set([value])
+                          }
                           const next = new Set(prev)
-                          if (next.has(value)) next.delete(value)
-                          else next.add(value)
+                          next.delete('ownership_dispute')
+                          next.add(value)
                           return next
                         })
                       }}
@@ -117,12 +135,27 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="report-notes" className="type-body-emphasis">
-                  {t('notesPlaceholder')}
-                </Label>
-                <Textarea id="report-notes" name="notes" maxLength={1000} rows={3} />
-              </div>
+              {disputeRequiresSignIn ? (
+                <div className="space-y-3">
+                  <p className="type-card-description">{t('disputeSignInPrompt')}</p>
+                  <NextLink
+                    href={signInHref(pathname, locale)}
+                    className={buttonVariants({
+                      variant: 'secondary',
+                      className: 'min-h-12 focus-visible:ring-2 focus-visible:ring-brand',
+                    })}
+                  >
+                    {t('disputeSignInCta')}
+                  </NextLink>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="report-notes" className="type-body-emphasis">
+                    {t('notesPlaceholder')}
+                  </Label>
+                  <Textarea id="report-notes" name="notes" maxLength={1000} rows={3} />
+                </div>
+              )}
 
               {state.error && (
                 <p className="text-sm text-destructive">{state.error}</p>
@@ -133,12 +166,19 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
               <DialogClose render={<Button variant="secondary" />}>
                 {t('close')}
               </DialogClose>
-              <Button
-                type="submit"
-                disabled={pending || alreadyReported || selectedReasons.size === 0}
-              >
-                {pending ? t('submitting') : t('submit')}
-              </Button>
+              {!disputeRequiresSignIn && (
+                <Button
+                  type="submit"
+                  disabled={
+                    pending ||
+                    alreadyReported ||
+                    selectedReasons.size === 0 ||
+                    (ownershipDisputeSelected && loading)
+                  }
+                >
+                  {pending ? t('submitting') : t('submit')}
+                </Button>
+              )}
             </DialogFooter>
           </form>
         )}
