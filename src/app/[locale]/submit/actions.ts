@@ -173,6 +173,7 @@ export async function submitOwnerBrand(
     await submitBrandForReview({
       intent: ownershipAdjusted ? 'recommend' : 'owner_claim',
       brandName: parsed.name,
+      romanizedName: parsed.romanizedName?.trim() || undefined,
       websiteUrl: parsed.website,
       description: parsed.description?.trim() || undefined,
       heroImageUrl: parsed.heroImageUrl || undefined,
@@ -206,6 +207,13 @@ export async function submitOwnerQuick(
   try {
     const parsed = z.object({
       name: z.string().min(1),
+      romanizedName: z
+        .string()
+        .min(2)
+        .max(100)
+        .regex(/^[a-zA-Z0-9\s\-'.]+$/)
+        .optional()
+        .or(z.literal('')),
       website: z.string().url(),
       description: z.string().min(1),
       pdpaConsent: z.literal(true),
@@ -246,6 +254,7 @@ export async function submitOwnerQuick(
 
     await submitBrandForReview({
       brandName: parsed.name,
+      romanizedName: parsed.romanizedName?.trim() || undefined,
       websiteUrl: parsed.website,
       description: parsed.description,
       intent: ownershipAdjusted ? 'recommend' : 'owner_claim',
@@ -321,6 +330,7 @@ export async function submitOwnerDetailedBrand(
 
     await submitBrandForReview({
       brandName: parsed.name,
+      romanizedName: parsed.romanizedName?.trim() || undefined,
       websiteUrl: parsed.website,
       description: parsed.description,
       heroImageUrl: parsed.heroImageUrl,

@@ -25,6 +25,7 @@ import {
 import { NotFoundError } from "@/lib/errors";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import {
+  extractLatinRun,
   generateSlug,
   isReservedSlug,
   isValidSlug,
@@ -256,6 +257,7 @@ export function submissionToDomain(
 
 export function submissionToInsert(
   data: Partial<Omit<BrandSubmission, "suggestedTags">> & {
+    romanizedName?: string | null;
     websiteUrl?: string | null;
     suggestedTags?: SuggestedTagsInput;
     productTypeNote?: string | null;
@@ -281,6 +283,15 @@ function isEnrichedData(value: unknown): value is EnrichedData {
 function normalizeString(value: string | null | undefined): string | null {
   const trimmed = value?.trim() ?? "";
   return trimmed ? trimmed : null;
+}
+
+function generateSubmissionSlug(row: SubmissionRow): string {
+  const slugSource =
+    normalizeString(row.romanized_name) ??
+    extractLatinRun(row.brand_name) ??
+    row.brand_name;
+
+  return generateSlug(slugSource);
 }
 
 export function buildGuestSubmissionEmail(): string {
@@ -328,7 +339,7 @@ function submissionToBrandBase(row: SubmissionRow): BrandInsert {
 
   return {
     name: row.brand_name,
-    slug: generateSlug(row.brand_name),
+    slug: generateSubmissionSlug(row),
     description: row.description,
     hero_image_url: rowWithSubmissionImages.hero_image_url ?? null,
     status: "approved",
@@ -483,6 +494,7 @@ export async function createSubmission(
       >
     > & {
       websiteUrl?: string | null;
+      romanizedName?: string | null;
       suggestedTags?: SuggestedTagsInput;
       productTypeNote?: string | null;
       intent?: SubmissionIntent;
@@ -791,7 +803,7 @@ export async function approveSubmission(
   const enrichedInsert = enrichedDataToBrandInsert(enrichedData);
   const brandName =
     overrideInsert.name ?? enrichedInsert.name ?? submission.brand_name;
-  const baseSlug = generateSlug(brandName);
+  const baseSlug = generateSubmissionSlug(submission);
   if (!isValidSlug(baseSlug)) {
     throw new Error(`Generated slug "${baseSlug}" is not valid kebab-case`);
   }

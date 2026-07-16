@@ -6,6 +6,7 @@ import { classifySubmittedUrl } from '@/lib/services/link-enrichment'
 export interface SubmitBrandForReviewParams {
   intent?: SubmissionIntent
   brandName: string
+  romanizedName?: string | null
   websiteUrl?: string
   heroImageUrl?: string
   isBrandOwner?: boolean
@@ -77,6 +78,7 @@ export async function submitBrandForReview(
     brandId: null,
     intent: params.intent ?? 'recommend',
     brandName: params.brandName,
+    romanizedName: params.romanizedName,
     submitterEmail: params.submitterEmail,
     submitterName: params.submitterName,
     description: params.description ?? null,
