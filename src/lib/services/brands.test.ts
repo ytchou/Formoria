@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { brandToDomain, brandToInsert, generateSlug, deleteBrand } from './brands'
+import { brandToDomain, brandToInsert, generateSlug, extractLatinRun, deleteBrand } from './brands'
 import { NotFoundError } from '@/lib/errors'
 import { RESERVED_ROUTES } from '@/middleware'
 
@@ -35,6 +35,44 @@ describe('generateSlug', () => {
 
   it('trims leading/trailing hyphens', () => {
     expect(generateSlug(' -Brand- ')).toBe('brand')
+  })
+
+  it('converts CJK names to Wade-Giles (not Hanyu Pinyin)', () => {
+    expect(generateSlug('鼎泰豐')).toBe('ting-tai-feng')
+  })
+
+  it('converts 遇合 to Wade-Giles', () => {
+    expect(generateSlug('遇合')).toBe('yu-ho')
+  })
+
+  it('converts 廣源良 to Wade-Giles', () => {
+    expect(generateSlug('廣源良')).toBe('kuang-yuan-liang')
+  })
+
+  it('uses WG hsin for pinyin xin', () => {
+    expect(generateSlug('新光')).toBe('hsin-kuang')
+  })
+})
+
+describe('extractLatinRun', () => {
+  it('extracts Latin substring from mixed-script name', () => {
+    expect(extractLatinRun('愛麗絲傢俱 iliz')).toBe('iliz')
+  })
+
+  it('returns null for CJK-only name', () => {
+    expect(extractLatinRun('遇合')).toBeNull()
+  })
+
+  it('returns null for empty string', () => {
+    expect(extractLatinRun('')).toBeNull()
+  })
+
+  it('returns the full name if already Latin', () => {
+    expect(extractLatinRun('SunnyHills')).toBe('SunnyHills')
+  })
+
+  it('extracts longest Latin run', () => {
+    expect(extractLatinRun('台灣 Good Cho 好丘')).toBe('Good Cho')
   })
 })
 
