@@ -2,8 +2,10 @@ alter table public.brands
   add column romanized_name text;
 
 update public.brands
-set romanized_name = replace(slug, '-', ' ')
-where romanized_name is null;
+set romanized_name = btrim(replace(slug, '-', ' '))
+where romanized_name is null
+  and char_length(btrim(replace(slug, '-', ' '))) between 1 and 100
+  and btrim(replace(slug, '-', ' ')) ~ '^[a-zA-Z0-9 .''-]+$';
 
 alter table public.brands
   add constraint brands_romanized_name_format
