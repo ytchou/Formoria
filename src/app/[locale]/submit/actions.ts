@@ -2,11 +2,13 @@
 
 import { headers } from 'next/headers'
 import { getTranslations } from 'next-intl/server'
+import { z } from 'zod'
 import {
   createOwnerSubmissionSchema,
   createRecommendationSubmissionSchema,
   type SubmissionFormData,
 } from '@/lib/validations/submission'
+import { submissionWizardSchema } from '@/lib/schemas/submission-wizard'
 import { submitBrandForReview } from '@/lib/services/submission-pipeline'
 import { cleanBrandName } from '@/lib/services/brand-cleanup'
 import { createClient } from '@/lib/supabase/server'
@@ -190,6 +192,159 @@ export async function submitOwnerBrand(
       isDnsResolutionError(err)
     ) {
       console.error('Submit owner brand DNS resolution failure:', err)
+      return { error: t('unexpected') }
+    }
+    return { error: t('unexpected') }
+  }
+}
+
+export async function submitOwnerQuick(
+  data: unknown,
+): Promise<{ error?: string; ownershipAdjusted?: boolean } | undefined> {
+  const t = await getTranslations('submit.errors')
+
+  try {
+    const parsed = z.object({
+      name: z.string().min(1),
+      website: z.string().url(),
+      description: z.string().min(1),
+      pdpaConsent: z.literal(true),
+      turnstileToken: z.string().min(1),
+      honeypot: z.string(),
+    }).parse(data)
+
+    if (parsed.honeypot) {
+      return undefined
+    }
+
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return { error: t('notAuthenticated') }
+    }
+
+    const rateResult = ownerSubmissionRateLimiter.check(user.id, 60_000, 5)
+    if (!rateResult.allowed) {
+      return { error: t('rateLimit') }
+    }
+
+    const headerStore = await headers()
+    const turnstile = await verifyTurnstileToken(
+      parsed.turnstileToken,
+      undefined,
+      getRequestHost(headerStore),
+    )
+    if (!turnstile.success) {
+      return { error: t('validation') }
+    }
+
+    const ownershipAdjusted = Boolean(await getUserBrand(user.id))
+
+    await submitBrandForReview({
+      brandName: parsed.name,
+      websiteUrl: parsed.website,
+      description: parsed.description,
+      intent: ownershipAdjusted ? 'recommend' : 'owner_claim',
+      isBrandOwner: !ownershipAdjusted,
+      submitterEmail: user.email!,
+      submitterName: user.user_metadata?.full_name ?? '',
+      pdpaConsent: true,
+    })
+
+    return ownershipAdjusted ? { ownershipAdjusted: true } : undefined
+  } catch (err) {
+    console.error('Submit owner quick error:', err)
+    if (isDnsResolutionError(err)) {
+      console.error('Submit owner quick DNS resolution failure:', err)
+      return { error: t('unexpected') }
+    }
+    return { error: t('unexpected') }
+  }
+}
+
+export async function submitOwnerDetailedBrand(
+  data: unknown,
+): Promise<{ error?: string; ownershipAdjusted?: boolean } | undefined> {
+  const t = await getTranslations('submit.errors')
+
+  try {
+    const parsed = submissionWizardSchema.extend({
+      pdpaConsent: z.literal(true),
+      turnstileToken: z.string().min(1),
+      honeypot: z.string(),
+    }).parse(data)
+
+    if (parsed.honeypot) {
+      return undefined
+    }
+
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return { error: t('notAuthenticated') }
+    }
+
+    const rateResult = ownerSubmissionRateLimiter.check(user.id, 60_000, 5)
+    if (!rateResult.allowed) {
+      return { error: t('rateLimit') }
+    }
+
+    const headerStore = await headers()
+    const turnstile = await verifyTurnstileToken(
+      parsed.turnstileToken,
+      undefined,
+      getRequestHost(headerStore),
+    )
+    if (!turnstile.success) {
+      return { error: t('validation') }
+    }
+
+    const ownershipAdjusted = Boolean(await getUserBrand(user.id))
+    const ownerData = {
+      productType: parsed.productType,
+      foundingYear: parsed.foundingYear,
+      productTags: parsed.productTags,
+      city: parsed.city,
+      priceRange: parsed.priceRange,
+      productPhotos: parsed.productPhotos,
+      retailLocations: parsed.retailLocations,
+      mitStory: parsed.mitStory,
+    }
+
+    await submitBrandForReview({
+      brandName: parsed.name,
+      websiteUrl: parsed.website,
+      description: parsed.description,
+      heroImageUrl: parsed.heroImageUrl,
+      intent: ownershipAdjusted ? 'recommend' : 'owner_claim',
+      isBrandOwner: !ownershipAdjusted,
+      socialLinks: {
+        instagram: parsed.socialInstagram,
+        threads: parsed.socialThreads,
+        facebook: parsed.socialFacebook,
+        pinkoi: parsed.purchasePinkoi,
+        shopee: parsed.purchaseShopee,
+        website: parsed.purchaseWebsite,
+      },
+      ownerData,
+      submitterEmail: user.email!,
+      submitterName: user.user_metadata?.full_name ?? '',
+      pdpaConsent: true,
+    })
+
+    return ownershipAdjusted ? { ownershipAdjusted: true } : undefined
+  } catch (err) {
+    console.error('Submit owner detailed brand error:', err)
+    if (isDnsResolutionError(err)) {
+      console.error('Submit owner detailed brand DNS resolution failure:', err)
       return { error: t('unexpected') }
     }
     return { error: t('unexpected') }
