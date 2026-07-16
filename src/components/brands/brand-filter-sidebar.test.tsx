@@ -8,6 +8,11 @@ import { BrandFilterSidebar } from './brand-filter-sidebar'
 const replace = vi.fn()
 let query = ''
 
+const subs = [
+  { slug: 'clasp-frame-bags', label: '口金包', count: 8 },
+  { slug: 'backpacks', label: '後背包', count: 19 },
+]
+
 vi.mock('next/navigation', () => ({
   usePathname: () => '/brands',
   useRouter: () => ({ replace }),
@@ -81,5 +86,68 @@ describe('BrandFilterSidebar', () => {
     expect(categoryLabel).not.toHaveClass('justify-between')
     expect(categoryLabel).toHaveClass('type-card-description')
     expect(statusLabel).toHaveClass('type-card-description')
+  })
+
+  describe('subcategory chips', () => {
+    it('renders chips under a checked category with counts', () => {
+      query = 'category=bags-accessories&sub=clasp-frame-bags'
+      render(
+        <BrandFilterSidebar
+          categories={[
+            {
+              slug: 'bags-accessories',
+              name: 'Bags & accessories',
+              nameZh: '包袋配件',
+            },
+          ]}
+          subcategories={subs}
+          activeSubSlugs={['clasp-frame-bags']}
+        />
+      )
+
+      expect(screen.getByRole('button', { name: '口金包 8' })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      )
+      expect(screen.getByRole('button', { name: '後背包 19' })).toHaveAttribute(
+        'aria-pressed',
+        'false'
+      )
+    })
+
+    it('renders no chip block when subcategories is empty', () => {
+      query = 'category=bags-accessories'
+      render(
+        <BrandFilterSidebar
+          categories={[
+            {
+              slug: 'bags-accessories',
+              name: 'Bags & accessories',
+              nameZh: '包袋配件',
+            },
+          ]}
+          subcategories={[]}
+          activeSubSlugs={[]}
+        />
+      )
+
+      expect(screen.queryByRole('button', { name: /口金包/ })).not.toBeInTheDocument()
+    })
+
+    it('removes the sub param when clearing all filters', async () => {
+      query = 'sub=clasp-frame-bags&sort=name'
+      const user = userEvent.setup()
+      render(
+        <BrandFilterSidebar
+          categories={[]}
+          subcategories={subs}
+          activeSubSlugs={['clasp-frame-bags']}
+        />
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Clear all' }))
+
+      expect(replace).toHaveBeenCalledWith('/brands?sort=name', { scroll: false })
+    })
   })
 })
