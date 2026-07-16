@@ -302,7 +302,12 @@ describe('submit actions', () => {
         purchaseWebsite: 'https://detailed.tw/shop',
         purchasePinkoi: '',
         purchaseShopee: '',
-        otherUrls: [],
+        otherUrls: [
+          {
+            label: 'Retail partner',
+            url: 'https://retailer.example.com/detailed',
+          },
+        ],
         retailLocations: [],
         pdpaConsent: true,
         turnstileToken: 'token-456',
@@ -313,6 +318,13 @@ describe('submit actions', () => {
           brandName: 'Detailed Brand',
           intent: 'owner_claim',
           isBrandOwner: true,
+          purchaseWebsite: 'https://detailed.tw/shop',
+          otherUrls: [
+            {
+              label: 'Retail partner',
+              url: 'https://retailer.example.com/detailed',
+            },
+          ],
           ownerData: expect.objectContaining({
             productType: 'fashion',
             foundingYear: 2020,

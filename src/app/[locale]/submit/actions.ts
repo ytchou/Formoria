@@ -334,6 +334,7 @@ export async function submitOwnerDetailedBrand(
       websiteUrl: parsed.website,
       description: parsed.description,
       heroImageUrl: parsed.heroImageUrl,
+      purchaseWebsite: parsed.purchaseWebsite?.trim() || undefined,
       intent: ownershipAdjusted ? 'recommend' : 'owner_claim',
       isBrandOwner: !ownershipAdjusted,
       socialLinks: {
@@ -342,8 +343,15 @@ export async function submitOwnerDetailedBrand(
         facebook: parsed.socialFacebook,
         pinkoi: parsed.purchasePinkoi,
         shopee: parsed.purchaseShopee,
-        website: parsed.purchaseWebsite,
       },
+      otherUrls: parsed.otherUrls?.flatMap(({ label, url }) => {
+        const normalizedLabel = label?.trim()
+        const normalizedUrl = url?.trim()
+
+        return normalizedLabel && normalizedUrl
+          ? [{ label: normalizedLabel, url: normalizedUrl }]
+          : []
+      }),
       ownerData,
       submitterEmail: user.email ?? '',
       submitterName: user.user_metadata?.full_name ?? undefined,

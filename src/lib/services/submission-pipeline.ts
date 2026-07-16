@@ -15,13 +15,13 @@ export interface SubmitBrandForReviewParams {
   submitterEmail: string
   submitterName?: string
   description?: string | null
+  purchaseWebsite?: string | null
   socialLinks?: {
     instagram?: string
     threads?: string
     facebook?: string
     pinkoi?: string
     shopee?: string
-    website?: string
   } | null
   purchaseLinks?: Array<{ platform: string; url: string }> | null
   otherUrls?: OtherUrl[] | null
@@ -56,7 +56,7 @@ export async function submitBrandForReview(
     .filter((l) => l.platform !== 'pinkoi' && l.platform !== 'shopee')
     .map((l) => ({ label: l.platform, url: l.url }))
 
-  let purchaseWebsite: string | null = null
+  let purchaseWebsite = params.purchaseWebsite?.trim() || null
 
   if (params.websiteUrl) {
     const classified = classifySubmittedUrl(params.websiteUrl)
@@ -65,7 +65,9 @@ export async function submitBrandForReview(
     if (classified.socialFacebook && !socialFacebook) socialFacebook = classified.socialFacebook
     if (classified.purchasePinkoi && !purchasePinkoi) purchasePinkoi = classified.purchasePinkoi
     if (classified.purchaseShopee && !purchaseShopee) purchaseShopee = classified.purchaseShopee
-    if (classified.purchaseWebsite) purchaseWebsite = classified.purchaseWebsite
+    if (classified.purchaseWebsite && !purchaseWebsite) {
+      purchaseWebsite = classified.purchaseWebsite
+    }
   }
 
   const suggestedTags = {

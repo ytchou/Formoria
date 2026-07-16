@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import zhMessages from '../../../../../messages/zh-TW.json'
 
@@ -33,6 +33,10 @@ vi.mock('@/components/forms/product-tag-field', () => ({
 }))
 
 describe('SubmissionWizard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('renders step 1 (Basic Info) by default', async () => {
     const { default: SubmissionWizard } = await import('../SubmissionWizard')
     render(
@@ -54,5 +58,31 @@ describe('SubmissionWizard', () => {
       </NextIntlClientProvider>
     )
     expect(screen.getAllByText(/1.*4/).length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('does not submit while navigating between wizard steps', async () => {
+    const { submitOwnerDetailedBrand } = await import('@/app/[locale]/submit/actions')
+    const { default: SubmissionWizard } = await import('../SubmissionWizard')
+    render(
+      <NextIntlClientProvider locale='zh-TW' messages={zhMessages}>
+        <SubmissionWizard />
+      </NextIntlClientProvider>
+    )
+
+    fireEvent.change(screen.getByLabelText(/品牌名稱/i), {
+      target: { value: '暖木生活' },
+    })
+    fireEvent.change(screen.getByLabelText(/網站/i), {
+      target: { value: 'https://warmwood.example' },
+    })
+    fireEvent.change(screen.getByLabelText(/品牌介紹/i), {
+      target: { value: '台灣居家生活品牌' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /儲存並繼續/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('產品圖片')).toBeInTheDocument()
+    })
+    expect(submitOwnerDetailedBrand).not.toHaveBeenCalled()
   })
 })
