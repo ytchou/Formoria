@@ -26,5 +26,5 @@ export default async function SubmitRecommendPage({ params }: RecommendPageProps
   const { locale } = await params
   setRequestLocale(locale)
 
-  return <SubmitForm variant="recommend" />
+  return <SubmitForm />
 }
