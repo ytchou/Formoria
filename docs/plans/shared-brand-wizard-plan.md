@@ -44,4 +44,3 @@ Section heading                          * required hint
 - Other links require complete label/URL pairs and are submitted instead of discarded.
 - Owners can influence URLs only through `romanizedName`; slug-changing edits require review and preserve old public URLs.
 - Existing brands are backfilled from their slug, while `romanizedName` remains public-display metadata only.
-
