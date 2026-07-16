@@ -1,15 +1,16 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { signInWithGoogle, signUp } from "@/app/auth/actions";
 import type { AuthState } from "@/app/auth/actions";
 import { GoogleButton } from "@/components/auth/google-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MarketingEmailOptInField } from "@/components/forms/marketing-email-opt-in-field";
 
 type SignUpFormProps = {
   claimToken?: string;
@@ -18,9 +19,17 @@ type SignUpFormProps = {
 
 export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
   const [state, action, pending] = useActionState<AuthState, FormData>(signUp, {});
+  const [marketingEmailOptIn, setMarketingEmailOptIn] = useState(false);
   const searchParams = useSearchParams();
   const email = searchParams.get("email") ?? "";
-  const googleAction = signInWithGoogle.bind(null, claimToken, undefined);
+  const locale = useLocale();
+  const googleAction = signInWithGoogle.bind(
+    null,
+    claimToken,
+    undefined,
+    marketingEmailOptIn,
+    locale,
+  );
   const t = useTranslations("auth");
 
   const signInHref = claimToken
@@ -94,6 +103,15 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
             autoComplete="new-password"
           />
         </div>
+
+        <MarketingEmailOptInField
+          id="signup-marketing-email"
+          name="marketingEmailOptIn"
+          variant="newsletter-and-lifecycle"
+          checked={marketingEmailOptIn}
+          onCheckedChange={setMarketingEmailOptIn}
+          disabled={pending}
+        />
 
         <Button type="submit" className="w-full" size="large" disabled={pending}>
           {pending ? t("signUp.submitting") : t("signUp.submit")}

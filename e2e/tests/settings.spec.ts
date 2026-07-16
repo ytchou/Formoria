@@ -42,7 +42,11 @@ test.describe('Settings page', () => {
     const localeSelect = userPage.locator('#localePreference')
     await expect(localeSelect).toBeVisible({ timeout: 5_000 })
 
-    // Email notifications checkbox
-    await expect(userPage.locator('#emailNotifications')).toBeVisible({ timeout: 5_000 })
+    // Independently managed marketing categories
+    await expect(userPage.locator('#newsletterMarketing')).toBeVisible({ timeout: 5_000 })
+    await expect(userPage.locator('#lifecycleMarketing')).toBeVisible({ timeout: 5_000 })
+    await expect(
+      userPage.getByRole('button', { name: '取消所有行銷電子郵件' }),
+    ).toBeVisible({ timeout: 5_000 })
   })
 })

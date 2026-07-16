@@ -63,4 +63,12 @@ describe('SignUpForm', () => {
       expect.stringContaining('claim=test-token')
     )
   })
+
+  it('renders marketing consent unchecked', () => {
+    renderWithZhTW(<SignUpForm />)
+
+    expect(screen.getByRole('checkbox', {
+      name: /品牌主的經營提醒與功能建議/,
+    })).not.toBeChecked()
+  })
 })

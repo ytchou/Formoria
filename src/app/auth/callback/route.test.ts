@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const mockExchangeCodeForSession = vi.fn()
+const mockCookieGet = vi.fn()
+const mockCookieDelete = vi.fn()
+const mockEnrollInMarketingEmails = vi.fn()
 
 const mockFrom = vi.fn().mockReturnValue({
   select: vi.fn().mockReturnValue({
@@ -22,10 +25,14 @@ vi.mock('@/lib/supabase/server', () => ({
   }),
 }))
 
+vi.mock('@/lib/services/marketing-email-consent', () => ({
+  enrollInMarketingEmails: mockEnrollInMarketingEmails,
+}))
+
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({
-    get: vi.fn().mockReturnValue(undefined),
-    delete: vi.fn(),
+    get: mockCookieGet,
+    delete: mockCookieDelete,
     set: vi.fn(),
   }),
   headers: vi.fn().mockResolvedValue(
@@ -44,6 +51,7 @@ const { GET } = await import('./route')
 describe('GET /auth/callback', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockCookieGet.mockReturnValue(undefined)
     vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://app.example.com')
 
     mockExchangeCodeForSession.mockResolvedValue({
@@ -122,6 +130,31 @@ describe('GET /auth/callback', () => {
 
     const loc = new URL(location!)
     expect(loc.searchParams.has('is_new_user')).toBe(false)
+  })
+
+  it('consumes explicit Google sign-up consent after session exchange', async () => {
+    mockCookieGet.mockImplementation((name: string) => {
+      if (name === 'post_auth_marketing_opt_in') return { value: '1' }
+      if (name === 'post_auth_marketing_locale') return { value: 'en' }
+      return undefined
+    })
+
+    const request = new NextRequest('http://localhost:8080/auth/callback?code=test-code')
+    await GET(request)
+
+    expect(mockEnrollInMarketingEmails).toHaveBeenCalledWith(
+      expect.objectContaining({ from: expect.any(Function) }),
+      {
+        email: 'u@example.com',
+        userId: 'u1',
+        locale: 'en',
+        source: 'google_signup',
+        newsletter: true,
+        lifecycle: true,
+      },
+    )
+    expect(mockCookieDelete).toHaveBeenCalledWith('post_auth_marketing_opt_in')
+    expect(mockCookieDelete).toHaveBeenCalledWith('post_auth_marketing_locale')
   })
 })
 

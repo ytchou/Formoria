@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 
-export async function requireClaimUser(): Promise<{ id: string } | null> {
+export async function requireClaimUser(): Promise<{
+  id: string
+  email: string | null
+} | null> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -11,5 +14,5 @@ export async function requireClaimUser(): Promise<{ id: string } | null> {
     return null
   }
 
-  return { id: user.id }
+  return { id: user.id, email: user.email ?? null }
 }

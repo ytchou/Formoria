@@ -121,14 +121,14 @@ export async function approveSubmissionAction(
     if (isBrandOwner && !existingOwnedBrand) {
       const token = await generateClaimToken(brandId, submitterEmail, brandName)
       const claimUrl = `${siteUrl}/auth/sign-up?claim=${token}`
-      sendEmail(await buildClaimEmail({
+      await sendEmail(await buildClaimEmail({
         submitterEmail,
         brandName,
         claimUrl,
         siteUrl,
       }))
     } else if (shouldEmailSubmitter) {
-      sendEmail(await buildApprovalEmail({
+      await sendEmail(await buildApprovalEmail({
         submitterEmail,
         brandName,
         brandSlug: brand.slug,
@@ -170,7 +170,7 @@ export async function rejectSubmissionAction(
     await rejectSubmission(submissionId, auth.user.id, denialReason, notes)
 
     if (!isGeneratedGuestSubmissionEmail(submission.submitterEmail)) {
-      sendEmail(await buildRejectionEmail({
+      await sendEmail(await buildRejectionEmail({
         submitterEmail: submission.submitterEmail,
         brandName: submission.brandName,
         denialReason,
@@ -551,7 +551,7 @@ export async function revokeOwnershipAction(
     const result = await revokeOwnership(brandId, auth.user.email, trimmedReason)
     const brand = await getBrandById(brandId)
 
-    sendEmail(await buildOwnershipRevokedEmail({
+    await sendEmail(await buildOwnershipRevokedEmail({
       ownerEmail: result.email,
       brandName: brand.name,
       reason: trimmedReason,

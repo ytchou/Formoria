@@ -48,7 +48,7 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
             src={imageSrc}
             alt=""
             fill
-            priority={priority}
+            loading={priority ? 'eager' : 'lazy'}
             className="object-contain transition-transform group-hover:scale-[1.02]"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
             onError={() => setImgError(true)}

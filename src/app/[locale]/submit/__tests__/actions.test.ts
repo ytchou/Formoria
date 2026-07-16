@@ -9,6 +9,8 @@ const {
   mockGuestRateLimiterCheck,
   mockGetUserBrand,
   mockCheckBrandDuplicates,
+  mockEnrollInMarketingEmails,
+  mockServiceClient,
 } = vi.hoisted(() => ({
   mockGetUser: vi.fn(),
   mockSubmitBrandForReview: vi.fn(),
@@ -17,6 +19,11 @@ const {
   mockGuestRateLimiterCheck: vi.fn().mockReturnValue({ allowed: true }),
   mockGetUserBrand: vi.fn(),
   mockCheckBrandDuplicates: vi.fn().mockResolvedValue({ nameMatches: [] }),
+  mockEnrollInMarketingEmails: vi.fn().mockResolvedValue({
+    newsletter: 'skipped',
+    lifecycle: 'skipped',
+  }),
+  mockServiceClient: {},
 }))
 
 function makeT(messages: Record<string, unknown>, namespace: string) {
@@ -33,6 +40,7 @@ function makeT(messages: Record<string, unknown>, namespace: string) {
 
 vi.mock('next-intl/server', () => ({
   getTranslations: vi.fn(),
+  getLocale: vi.fn().mockResolvedValue('zh-TW'),
   setRequestLocale: vi.fn(),
 }))
 
@@ -53,6 +61,11 @@ vi.mock('@/lib/supabase/server', () => ({
       auth: { getUser: mockGetUser },
     }),
   ),
+  createServiceClient: vi.fn(() => mockServiceClient),
+}))
+
+vi.mock('@/lib/services/marketing-email-consent', () => ({
+  enrollInMarketingEmails: mockEnrollInMarketingEmails,
 }))
 
 vi.mock('@/lib/services/submission-pipeline', () => ({
@@ -153,6 +166,31 @@ describe('submit actions', () => {
       'test-token',
       '127.0.0.1',
       'localhost:3000',
+    )
+  })
+
+  it('enrolls an opted-in guest after the recommendation succeeds', async () => {
+    await submitRecommendation({
+      name: 'Test Brand',
+      website: 'https://test.com',
+      guestEmail: 'reader@example.com',
+      sourceAttribution: 'found_online',
+      pdpaConsent: true,
+      marketingEmailOptIn: true,
+      turnstileToken: 'test-token',
+      honeypot: '',
+    })
+
+    expect(mockSubmitBrandForReview).toHaveBeenCalledOnce()
+    expect(mockEnrollInMarketingEmails).toHaveBeenCalledWith(
+      mockServiceClient,
+      {
+        email: 'reader@example.com',
+        locale: 'zh-TW',
+        source: 'guest_recommendation',
+        newsletter: true,
+        lifecycle: false,
+      },
     )
   })
 
@@ -271,6 +309,30 @@ describe('submit actions', () => {
       )
       expect(mockSubmitBrandForReview.mock.calls[0][0].ownerData).toBeUndefined()
     })
+
+    it('enrolls an opted-in owner after a quick submission succeeds', async () => {
+      const { submitOwnerQuick } = await import('../actions')
+      await submitOwnerQuick({
+        name: 'Quick Brand',
+        website: 'https://quick.tw',
+        description: 'A quick submission',
+        pdpaConsent: true,
+        marketingEmailOptIn: true,
+        turnstileToken: 'token-123',
+        honeypot: '',
+      })
+
+      expect(mockEnrollInMarketingEmails).toHaveBeenCalledWith(
+        mockServiceClient,
+        expect.objectContaining({
+          email: 'owner@test.com',
+          userId: 'user-1',
+          source: 'owner_quick_submission',
+          newsletter: true,
+          lifecycle: true,
+        }),
+      )
+    })
   })
 
   describe('submitOwnerDetailedBrand', () => {
@@ -331,6 +393,41 @@ describe('submit actions', () => {
             city: 'taipei',
             priceRange: 2,
           }),
+        }),
+      )
+    })
+
+    it('enrolls an opted-in owner after a detailed submission succeeds', async () => {
+      const { submitOwnerDetailedBrand } = await import('../actions')
+      await submitOwnerDetailedBrand({
+        name: 'Detailed Brand',
+        website: 'https://detailed.tw',
+        description: 'Full wizard submission',
+        productType: 'fashion',
+        productTags: [],
+        productPhotos: [],
+        socialInstagram: '',
+        socialThreads: '',
+        socialFacebook: '',
+        purchaseWebsite: '',
+        purchasePinkoi: '',
+        purchaseShopee: '',
+        otherUrls: [],
+        retailLocations: [],
+        pdpaConsent: true,
+        marketingEmailOptIn: true,
+        turnstileToken: 'token-456',
+        honeypot: '',
+      })
+
+      expect(mockEnrollInMarketingEmails).toHaveBeenCalledWith(
+        mockServiceClient,
+        expect.objectContaining({
+          email: 'owner@test.com',
+          userId: 'user-1',
+          source: 'owner_detailed_submission',
+          newsletter: true,
+          lifecycle: true,
         }),
       )
     })

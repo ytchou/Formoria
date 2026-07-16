@@ -49,4 +49,17 @@ describe('SubmitQuickForm', () => {
     expect(screen.queryByLabelText(/Instagram/i)).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/城市/i)).not.toBeInTheDocument()
   })
+
+  it('renders owner marketing consent unchecked', async () => {
+    const { default: SubmitQuickForm } = await import('../SubmitQuickForm')
+    render(
+      <NextIntlClientProvider locale="zh-TW" messages={zhMessages}>
+        <SubmitQuickForm />
+      </NextIntlClientProvider>,
+    )
+
+    expect(screen.getByRole('checkbox', {
+      name: /品牌主的經營提醒與功能建議/,
+    })).not.toBeChecked()
+  })
 })

@@ -15,6 +15,7 @@ import { z } from 'zod'
 import { submitOwnerQuick, suggestCleanName } from '@/app/[locale]/submit/actions'
 import { FormField } from '@/components/forms/form-field'
 import { StandardForm, StandardFormStack } from '@/components/forms/form-layout'
+import { MarketingEmailOptInField } from '@/components/forms/marketing-email-opt-in-field'
 import { TurnstileWidget } from '@/components/submit/TurnstileWidget'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -44,6 +45,7 @@ function createQuickSubmissionSchema(t: Translator) {
     pdpaConsent: z.literal(true, {
       error: t('validation.pdpaRequired'),
     }),
+    marketingEmailOptIn: z.boolean(),
     turnstileToken: z.string().min(1, t('validation.turnstileRequired')),
     honeypot: z.string(),
   })
@@ -88,6 +90,7 @@ export default function SubmitQuickForm() {
       website: '',
       description: '',
       pdpaConsent: false as QuickSubmissionFormData['pdpaConsent'],
+      marketingEmailOptIn: false,
       turnstileToken: '',
       honeypot: '',
     },
@@ -376,6 +379,19 @@ export default function SubmitQuickForm() {
               )}
             />
           </div>
+
+          <Controller
+            name="marketingEmailOptIn"
+            control={control}
+            render={({ field }) => (
+              <MarketingEmailOptInField
+                id="submit-marketing-email"
+                variant="newsletter-and-lifecycle"
+                checked={field.value}
+                onCheckedChange={field.onChange}
+              />
+            )}
+          />
 
           <input
             type="text"

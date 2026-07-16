@@ -2,8 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { getTranslations } from "next-intl/server";
-import { createClient } from "@/lib/supabase/server";
+import { getLocale, getTranslations } from "next-intl/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import {
   isRelativeUrl,
   getSignInSchema,
@@ -12,6 +12,7 @@ import {
   getResetPasswordSchema,
 } from "@/lib/auth/validations";
 import { getRequestOrigin } from "@/lib/auth/site-url";
+import { enrollInMarketingEmails } from "@/lib/services/marketing-email-consent";
 
 export type AuthState = {
   error?: string;
@@ -76,6 +77,7 @@ export async function signUp(
   }
 
   const claimToken = formData.get("claimToken") as string | null;
+  const marketingEmailOptIn = formData.get("marketingEmailOptIn") === "true";
   const siteUrl = await getRequestOrigin();
 
   const emailRedirectTo = claimToken
@@ -83,7 +85,7 @@ export async function signUp(
     : `${siteUrl}/auth/callback`;
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({
+  const { data: signUpData, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
@@ -95,12 +97,25 @@ export async function signUp(
     return { error: error.message };
   }
 
+  if (marketingEmailOptIn && signUpData.user) {
+    await enrollInMarketingEmails(createServiceClient(), {
+      email: parsed.data.email,
+      userId: signUpData.user.id,
+      locale: await getLocale(),
+      source: "account_signup",
+      newsletter: true,
+      lifecycle: true,
+    });
+  }
+
   redirect(`/auth/sign-in?message=${encodeURIComponent(t("confirmEmail"))}`);
 }
 
 export async function signInWithGoogle(
   claimToken?: string,
-  next?: string
+  next?: string,
+  marketingEmailOptIn = false,
+  marketingLocale = "zh-TW",
 ): Promise<void> {
   const supabase = await createClient();
   const siteUrl = await getRequestOrigin();
@@ -123,6 +138,17 @@ export async function signInWithGoogle(
   }
   if (next && isRelativeUrl(next)) {
     cookieStore.set("post_auth_next", next, intentCookie);
+  }
+  if (marketingEmailOptIn) {
+    cookieStore.set("post_auth_marketing_opt_in", "1", intentCookie);
+    cookieStore.set(
+      "post_auth_marketing_locale",
+      marketingLocale === "en" ? "en" : "zh-TW",
+      intentCookie,
+    );
+  } else {
+    cookieStore.delete("post_auth_marketing_opt_in");
+    cookieStore.delete("post_auth_marketing_locale");
   }
 
   const redirectTo = `${siteUrl}/auth/callback`;

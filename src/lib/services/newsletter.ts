@@ -20,6 +20,9 @@ export type NewsletterSubscriber = {
   confirm_token: string
   unsubscribe_token: string
   unsubscribed_at: string | null
+  consent_source: string | null
+  consent_version: string | null
+  consent_recorded_at: string | null
   created_at: string
 }
 
@@ -29,6 +32,9 @@ type NewsletterSubscriberInsert = {
   interests: NewsletterInterest[]
   locale?: string
   confirmed_at: null
+  consent_source: string
+  consent_version: string
+  consent_recorded_at: string
 }
 
 type NewsletterSubscriberUpdate = Partial<{
@@ -40,6 +46,9 @@ type NewsletterSubscriberUpdate = Partial<{
   unsubscribe_token: string
   unsubscribed_at: string | null
   subscribed_at: string
+  consent_source: string
+  consent_version: string
+  consent_recorded_at: string
 }>
 
 type NewsletterError = {
@@ -95,8 +104,10 @@ type NewsletterClient = {
 export type CreateSubscriberInput = {
   email: string
   name?: string
-  interests: string[]
+  interests?: string[]
   locale?: string
+  consentSource: string
+  consentVersion: string
 }
 
 export type CreateSubscriberResult = {
@@ -118,6 +129,11 @@ export type SubscriberStats = {
   total: number
   confirmed: number
   unsubscribed: number
+}
+
+export type NewsletterPreference = {
+  status: 'off' | 'pending' | 'on'
+  subscriber: NewsletterSubscriber | null
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -159,7 +175,14 @@ export function normalizeInterests(interests: string[]): NewsletterInterest[] {
 
 export async function createSubscriber(
   supabase: SupabaseClient,
-  { email, name, interests, locale }: CreateSubscriberInput
+  {
+    email,
+    name,
+    interests,
+    locale,
+    consentSource,
+    consentVersion,
+  }: CreateSubscriberInput
 ): Promise<CreateSubscriberResult> {
   const normalizedEmail = normalizeEmail(email)
 
@@ -167,7 +190,6 @@ export async function createSubscriber(
     throw new Error('Invalid email')
   }
 
-  const normalizedInterests = normalizeInterests(interests)
   const table = newsletterTable(supabase)
   const { data: existingSubscriber, error: lookupError } = await table
     .select('*')
@@ -175,6 +197,11 @@ export async function createSubscriber(
     .maybeSingle()
 
   assertNoError(lookupError)
+
+  const normalizedInterests = interests === undefined
+    ? normalizeInterests(existingSubscriber?.interests ?? ['curated-picks'])
+    : normalizeInterests(interests)
+  const consentRecordedAt = new Date().toISOString()
 
   if (existingSubscriber) {
     if (existingSubscriber.unsubscribed_at !== null) {
@@ -188,6 +215,9 @@ export async function createSubscriber(
           unsubscribe_token: newToken(),
           unsubscribed_at: null,
           subscribed_at: new Date().toISOString(),
+          consent_source: consentSource,
+          consent_version: consentVersion,
+          consent_recorded_at: consentRecordedAt,
         })
         .eq('email', normalizedEmail)
         .select()
@@ -203,8 +233,23 @@ export async function createSubscriber(
     }
 
     if (existingSubscriber.confirmed_at !== null) {
+      const { data, error } = await table
+        .update({
+          name: name ?? existingSubscriber.name,
+          interests: normalizedInterests,
+          locale: locale ?? existingSubscriber.locale ?? 'zh-TW',
+          consent_source: consentSource,
+          consent_version: consentVersion,
+          consent_recorded_at: consentRecordedAt,
+        })
+        .eq('email', normalizedEmail)
+        .select()
+        .single()
+
+      assertNoError(error)
+
       return {
-        subscriber: existingSubscriber,
+        subscriber: data as NewsletterSubscriber,
         isNew: false,
         needsConfirmation: false,
       }
@@ -214,8 +259,12 @@ export async function createSubscriber(
       .update({
         name: name ?? existingSubscriber.name,
         interests: normalizedInterests,
+        locale: locale ?? existingSubscriber.locale ?? 'zh-TW',
         confirm_token: newToken(),
         unsubscribe_token: newToken(),
+        consent_source: consentSource,
+        consent_version: consentVersion,
+        consent_recorded_at: consentRecordedAt,
       })
       .eq('email', normalizedEmail)
       .select()
@@ -237,6 +286,9 @@ export async function createSubscriber(
       interests: normalizedInterests,
       locale: locale ?? 'zh-TW',
       confirmed_at: null,
+      consent_source: consentSource,
+      consent_version: consentVersion,
+      consent_recorded_at: consentRecordedAt,
     })
     .select()
     .single()
@@ -261,6 +313,10 @@ export async function confirmSubscriber(
     .maybeSingle()
 
   if (lookupError || existingSubscriber === null) {
+    return { success: false, error: 'Token not found' }
+  }
+
+  if (existingSubscriber.unsubscribed_at) {
     return { success: false, error: 'Token not found' }
   }
 
@@ -308,6 +364,52 @@ export async function unsubscribeNewsletter(
   }
 
   return { success: true, subscriber: data }
+}
+
+export async function getNewsletterPreferenceByEmail(
+  supabase: SupabaseClient,
+  email: string,
+): Promise<NewsletterPreference> {
+  const normalizedEmail = normalizeEmail(email)
+  if (!validateEmail(normalizedEmail)) {
+    return { status: 'off', subscriber: null }
+  }
+
+  const { data, error } = await newsletterTable(supabase)
+    .select('*')
+    .eq('email', normalizedEmail)
+    .maybeSingle()
+
+  assertNoError(error)
+
+  if (!data || data.unsubscribed_at) {
+    return { status: 'off', subscriber: data }
+  }
+
+  return {
+    status: data.confirmed_at ? 'on' : 'pending',
+    subscriber: data,
+  }
+}
+
+export async function unsubscribeNewsletterByEmail(
+  supabase: SupabaseClient,
+  email: string,
+): Promise<void> {
+  const normalizedEmail = normalizeEmail(email)
+  if (!validateEmail(normalizedEmail)) {
+    throw new Error('Invalid email')
+  }
+
+  const { error } = await newsletterTable(supabase)
+    .update({
+      unsubscribed_at: new Date().toISOString(),
+      confirm_token: newToken(),
+      unsubscribe_token: newToken(),
+    })
+    .eq('email', normalizedEmail)
+
+  assertNoError(error)
 }
 
 export async function getSubscribers(

@@ -110,6 +110,21 @@ export function EmailCaptureForm() {
       {selectedChips.map((slug) => (
         <input key={slug} name="interests" type="hidden" value={slug} />
       ))}
+
+      <p className="type-form-hint">
+        {t.rich('consentNotice', {
+          privacyPolicy: (chunks) => (
+            <a
+              href="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {chunks}
+            </a>
+          ),
+        })}
+      </p>
     </form>
   )
 }

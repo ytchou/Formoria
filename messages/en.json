@@ -122,7 +122,14 @@
       "tooManyRequests": "Too many requests, please try again later",
       "generic": "Something went wrong, please try again"
     },
-    "alreadySubscribed": "You are already subscribed!"
+    "alreadySubscribed": "You are already subscribed!",
+    "consentNotice": "By selecting “Subscribe,” you agree to receive the Formoria newsletter. Confirm your email to activate delivery; you can unsubscribe free of charge at any time. See our <privacyPolicy>Privacy Policy</privacyPolicy>."
+  },
+  "marketingEmailConsent": {
+    "newsletterOnlyLabel": "I agree to receive the Formoria newsletter (optional)",
+    "combinedLabel": "I agree to receive Formoria newsletters and, when relevant, brand-management tips and product guidance (optional)",
+    "newsletterOnlyDescription": "Content includes brand stories, new brands, and curated trends. Confirm your email to activate delivery; you can unsubscribe free of charge at any time. See our <privacyPolicy>Privacy Policy</privacyPolicy>.",
+    "combinedDescription": "Newsletter delivery starts after email confirmation. You can later disable either category or unsubscribe from all free of charge in Settings. See our <privacyPolicy>Privacy Policy</privacyPolicy>."
   },
   "brands": {
     "metadata": {
@@ -668,18 +675,18 @@
       },
       "title": "Privacy Policy",
       "intro": "Formoria values your privacy. This policy explains how we collect, process, and use your personal data in accordance with Taiwan's Personal Data Protection Act (個人資料保護法).",
-      "lastUpdated": "Last updated: June 2026",
+      "lastUpdated": "Last updated: July 2026",
       "dataCollection": {
         "heading": "Data Collection",
-        "body": "When you use Formoria, we may collect the following personal data: email address and name (optional) when submitting a brand, brand name, official website URL, brand region, social links (Instagram, Threads, Facebook), purchase links, brand ownership status, and source attribution. When you create an account, we collect your email and authentication details through Supabase Auth. Additionally, we automatically collect anonymized browsing data (page views, events, anonymized IP addresses) through Google Analytics."
+        "body": "When you use Formoria, we may collect your email address and optional name when you submit a brand, send feedback, or contact support, along with brand details, social and purchase links, ownership status, and source attribution. When you create an account, we collect your email and authentication details through Supabase Auth. If you choose to receive marketing email, we also record the consent category, source, version, and time. We additionally collect anonymized browsing data through Google Analytics."
       },
       "purpose": {
         "heading": "Purpose of Use",
-        "body": "We collect personal data for the following purposes: building and maintaining the Taiwan brand directory, providing brand discovery and search functionality, improving brand information quality through data enrichment, preventing spam and abuse, improving website functionality and user experience, and processing your brand submissions and account-related matters."
+        "body": "We collect personal data to build and maintain the Taiwan brand directory, provide discovery and search, improve brand information, prevent spam and abuse, improve the service, and send submission, claim, verification, security, and account-related notices. We send newsletters or owner lifecycle content such as operating reminders and feature guidance only after separate consent; you can turn off either marketing category independently. Declining marketing email does not affect brand submissions, account creation, or core service access."
       },
       "thirdParty": {
         "heading": "Third-Party Services",
-        "body": "To provide our service, we use the following third-party providers: Supabase (database and authentication, servers in the US), Google Analytics 4 (website analytics, data processed in the US), Sentry (error monitoring, data processed in the US), Cloudflare Turnstile (bot protection), and Railway (web hosting, servers in the US). We do not sell your personal data to third parties. Data is shared only to the extent necessary to provide our services."
+        "body": "To provide our service, we use the following third-party providers: Supabase (database and authentication, servers in the US), Resend (email delivery, data may be processed in the US), Google Analytics 4 (website analytics, data processed in the US), Sentry (error monitoring, data processed in the US), Cloudflare Turnstile (bot protection), and Railway (web hosting, servers in the US). We do not sell your personal data to third parties. Data is shared only to the extent necessary to provide our services."
       },
       "userRights": {
         "heading": "Your Rights",
@@ -687,7 +694,7 @@
       },
       "dataProtection": {
         "heading": "Data Protection",
-        "body": "We implement appropriate security measures to protect your personal data, including: HTTPS encryption across the entire site, access controls to restrict data access, and regular security reviews. Your brand data is retained for as long as the brand is listed in the directory. Account data is retained for the duration of your account. You may request deletion of your data at any time."
+        "body": "We protect personal data with HTTPS, access controls, and regular security reviews. Brand data is retained while the brand is listed, account data while the account remains active, and marketing-consent records until you withdraw consent or request deletion. After an unsubscribe request, we may retain a minimal suppression record so we do not send marketing email you have declined."
       },
       "cookies": {
         "heading": "Cookies and Tracking",
@@ -955,8 +962,16 @@
     "displayNamePlaceholder": "Enter your name",
     "emailLabel": "Email",
     "localePreferenceLabel": "Language Preference",
-    "emailNotificationsLabel": "Email Notifications",
-    "emailNotificationsDescription": "Receive updates about brand status, claims, and more",
+    "marketingHeading": "Marketing email",
+    "marketingDescription": "Manage newsletters and optional owner guidance separately. Account verification, password resets, and review results are unaffected.",
+    "newsletterMarketingLabel": "Formoria newsletter",
+    "newsletterMarketingDescription": "Brand stories, new brands, and curated trends. Email confirmation is required when enabling this category.",
+    "newsletterPending": "Confirmation sent; newsletter delivery starts only after you confirm your email.",
+    "lifecycleMarketingLabel": "Brand-management tips and product guidance",
+    "lifecycleMarketingDescription": "Optional operating reminders, usage tips, and feature guidance for brand owners.",
+    "unsubscribeAllMarketing": "Unsubscribe from all marketing email",
+    "marketingUnsubscribedAll": "You have been unsubscribed from all marketing email",
+    "marketingUpdateError": "Some email preferences could not be updated. Please try again.",
     "submit": "Save Settings",
     "submitting": "Saving…",
     "saved": "Settings saved",
@@ -1608,6 +1623,7 @@
       "heroImageRequired": "Please upload a brand hero image",
       "photosMax": "You can upload up to 6 photos",
       "emailInvalid": "Please enter a valid email address",
+      "emailRequiredForNewsletter": "Enter an email address to subscribe to the newsletter",
       "platformRequired": "Please select a platform",
       "urlInvalid": "Please enter a valid URL",
       "locationNameRequired": "Please enter a location name",
@@ -1635,10 +1651,10 @@
       "brandNamePlaceholder": "e.g. Warmwood Living",
       "brandNameHint": "Use the official brand name so we can verify it and avoid duplicates.",
       "guestEmailLabel": "Your email (optional)",
-      "guestEmailHint": "Leave an email if you’re open to follow-up questions from our team.",
+      "guestEmailHint": "Leave your email if you’d like review updates for this recommendation.",
       "guestEmailPlaceholder": "name@example.com",
       "descriptionLabel": "Extra context (optional)",
-      "descriptionHint": "If you know the brand story, products, or why it matters, add it here.",
+      "descriptionHint": "If you know the brand story, products, or background, add it here to help us review.",
       "descriptionPlaceholder": "For example: I bought their handmade furniture at a local design market…",
       "sourceLabel": "How do you know this brand?",
       "sourceHint": "This helps us understand the context behind the recommendation.",

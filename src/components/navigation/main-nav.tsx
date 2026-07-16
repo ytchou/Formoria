@@ -67,7 +67,7 @@ export function MainNav({ categories }: MainNavProps) {
               {t('submitBrand')}
             </Link>
           )}
-          {!user ? <LocaleSwitcher compact /> : null}
+          {!user ? <LocaleSwitcher /> : null}
           <AccountMenu />
         </div>
 

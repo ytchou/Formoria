@@ -55,6 +55,50 @@ describe('SubmitForm', () => {
     expect(screen.queryByLabelText(/Instagram/)).not.toBeInTheDocument()
   })
 
+  it('places the recommendation source before email and extra context', () => {
+    renderForm()
+    const source = screen.getByLabelText(/你如何知道這個品牌/)
+    const email = screen.getByLabelText(/你的電子郵件/)
+    const description = screen.getByLabelText(/補充說明/)
+
+    expect(
+      source.compareDocumentPosition(email) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      email.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it('keeps review updates separate from newsletter consent', () => {
+    renderForm()
+
+    expect(
+      screen.getByText(
+        '若想收到這筆品牌推薦的審核進度，請留下電子郵件。',
+      ),
+    ).toBeInTheDocument()
+
+    const marketing = screen.getByRole('checkbox', {
+      name: /我同意接收 Formoria 電子報（選填）/,
+    })
+    expect(marketing).not.toBeChecked()
+    expect(
+      marketing.compareDocumentPosition(
+        screen.getByRole('button', { name: /送出推薦/ }),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it('explains that extra context helps the review', () => {
+    renderForm()
+
+    expect(
+      screen.getByText(
+        '如果你知道品牌特色、產品或背景，可以留在這裡，幫助我們審核。',
+      ),
+    ).toBeInTheDocument()
+  })
+
   it('renders submit button disabled before required fields are completed', () => {
     renderForm()
     expect(screen.getByRole('button', { name: /送出推薦/ })).toBeDisabled()
@@ -63,8 +107,8 @@ describe('SubmitForm', () => {
   it('toggles the consent checkbox when its label text is clicked', async () => {
     const user = userEvent.setup()
     renderForm()
-    const consent = screen.getByRole('checkbox')
-    const consentText = screen.getByText(/同意/, { selector: 'span' })
+    const consent = screen.getByRole('checkbox', { name: /隱私權政策/ })
+    const consentText = screen.getByText(/我同意依據/, { selector: 'span' })
     expect(consent).not.toBeChecked()
     expect(consentText).toHaveClass('font-normal')
     // Click the consent text span (bubbles to wrapping label, activating the checkbox)

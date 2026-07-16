@@ -69,12 +69,10 @@ describe('MainNav', () => {
     ).toBeGreaterThan(0)
   })
 
-  it('renders the language switcher trigger', () => {
+  it('renders the logged-out desktop language switcher as an icon button', () => {
     renderWithIntl(<MainNav categories={[]} />)
 
-    expect(
-      screen.getAllByRole('button', { name: 'English' }).length,
-    ).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'Switch language' })).toBeInTheDocument()
   })
 
   it('shows only My Brand when the account already owns a brand', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { GET } from '../route'
+import { GET, POST } from '../route'
 import { NextRequest } from 'next/server'
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -51,5 +51,22 @@ describe('GET /api/email/unsubscribe', () => {
     const res = await GET(req)
 
     expect(res.status).toBe(404)
+  })
+
+  it('supports RFC 8058 one-click POST', async () => {
+    vi.mocked(createServiceClient).mockReturnValue({} as ReturnType<typeof createServiceClient>)
+    vi.mocked(unsubscribeByToken).mockResolvedValue({ success: true })
+
+    const req = new NextRequest(
+      'http://localhost/api/email/unsubscribe?token=valid-token-uuid',
+      { method: 'POST' },
+    )
+    const res = await POST(req)
+
+    expect(res.status).toBe(200)
+    expect(unsubscribeByToken).toHaveBeenCalledWith(
+      expect.anything(),
+      'valid-token-uuid',
+    )
   })
 })

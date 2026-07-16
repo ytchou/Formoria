@@ -7,8 +7,8 @@ import { test, expect } from '@playwright/test';
  *   zh-TW (default) — prefix-free: /brands
  *   en               — under /en:   /en/brands
  *
- * The LocaleSwitcher renders as a compact dropdown (visible text = current locale name):
- *   button "English" (en) | "繁體中文" (zh-TW)
+ * The header LocaleSwitcher renders as a globe icon button:
+ *   button "Switch language" (en) | "切換語言" (zh-TW)
  *   → menu with persisted locale actions for Traditional Chinese and English
  */
 test.describe('i18n English browse', () => {
@@ -40,8 +40,7 @@ test.describe('i18n English browse', () => {
   }) => {
     await page.goto('/en/brands');
 
-    // Compact LocaleSwitcher shows current locale name as visible text.
-    const switcherBtn = page.getByRole('banner').getByRole('button', { name: 'English' });
+    const switcherBtn = page.getByRole('banner').getByRole('button', { name: 'Switch language' });
     await expect(switcherBtn).toBeVisible({ timeout: 10_000 });
     await switcherBtn.click();
 
@@ -59,8 +58,7 @@ test.describe('i18n English browse', () => {
   test('LocaleSwitcher "English" menuitem on /brands navigates to /en/brands', async ({ page }) => {
     await page.goto('/brands');
 
-    // Compact LocaleSwitcher shows current locale name as visible text.
-    const switcherBtn = page.getByRole('banner').getByRole('button', { name: '繁體中文' });
+    const switcherBtn = page.getByRole('banner').getByRole('button', { name: '切換語言' });
     await expect(switcherBtn).toBeVisible({ timeout: 10_000 });
     await switcherBtn.click();
 
@@ -90,8 +88,7 @@ test.describe('i18n English browse', () => {
     page,
   }) => {
     await page.goto('/');
-    // Compact LocaleSwitcher shows current locale name as visible text.
-    const switcherBtn = page.getByRole('banner').getByRole('button', { name: '繁體中文' });
+    const switcherBtn = page.getByRole('banner').getByRole('button', { name: '切換語言' });
     await expect(switcherBtn).toBeVisible({ timeout: 10_000 });
     await switcherBtn.click();
     const enItem = page.getByRole('menuitem', { name: 'English' });

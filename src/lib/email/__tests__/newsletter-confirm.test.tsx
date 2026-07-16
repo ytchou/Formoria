@@ -6,6 +6,7 @@ describe('NewsletterConfirmEmail', () => {
   const defaultProps = {
     to: 'visitor@example.com',
     confirmToken: 'abc-123-def',
+    unsubscribeToken: 'unsubscribe-456',
     interests: ['brand-stories', 'new-brands'],
   }
 
@@ -26,7 +27,12 @@ describe('NewsletterConfirmEmail', () => {
 
   it('includes unsubscribe link', async () => {
     const html = await render(NewsletterConfirmEmail(defaultProps))
-    expect(html).toContain('/api/newsletter/unsubscribe')
+    expect(html).toContain(
+      '/api/newsletter/unsubscribe?token=unsubscribe-456',
+    )
+    expect(html).not.toContain(
+      '/api/newsletter/unsubscribe?token=abc-123-def',
+    )
   })
 
   it('renders locale-specific content for zh-TW', async () => {
@@ -48,6 +54,8 @@ describe('NewsletterConfirmEmail', () => {
     expect(msg.to).toBe(defaultProps.to)
     expect(msg.subject).toContain('Formoria')
     expect(msg.html).toBeTruthy()
-    expect(msg.headers?.['List-Unsubscribe']).toBeTruthy()
+    expect(msg.headers?.['List-Unsubscribe']).toContain(
+      '/api/newsletter/unsubscribe?token=unsubscribe-456',
+    )
   })
 })

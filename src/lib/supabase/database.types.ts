@@ -1101,6 +1101,9 @@ export type Database = {
       }
       newsletter_subscribers: {
         Row: {
+          consent_recorded_at: string | null
+          consent_source: string | null
+          consent_version: string | null
           confirm_token: string
           confirmed_at: string | null
           created_at: string
@@ -1114,6 +1117,9 @@ export type Database = {
           unsubscribed_at: string | null
         }
         Insert: {
+          consent_recorded_at?: string | null
+          consent_source?: string | null
+          consent_version?: string | null
           confirm_token?: string
           confirmed_at?: string | null
           created_at?: string
@@ -1127,6 +1133,9 @@ export type Database = {
           unsubscribed_at?: string | null
         }
         Update: {
+          consent_recorded_at?: string | null
+          consent_source?: string | null
+          consent_version?: string | null
           confirm_token?: string
           confirmed_at?: string | null
           created_at?: string
@@ -1143,19 +1152,28 @@ export type Database = {
       }
       owner_email_preferences: {
         Row: {
+          consent_source: string | null
+          consent_version: string | null
           created_at: string
+          lifecycle_opted_in_at: string | null
           unsubscribe_token: string
           unsubscribed_at: string | null
           user_id: string
         }
         Insert: {
+          consent_source?: string | null
+          consent_version?: string | null
           created_at?: string
+          lifecycle_opted_in_at?: string | null
           unsubscribe_token?: string
           unsubscribed_at?: string | null
           user_id: string
         }
         Update: {
+          consent_source?: string | null
+          consent_version?: string | null
           created_at?: string
+          lifecycle_opted_in_at?: string | null
           unsubscribe_token?: string
           unsubscribed_at?: string | null
           user_id?: string
@@ -1251,7 +1269,6 @@ export type Database = {
         Row: {
           created_at: string
           display_name: string | null
-          email_notifications: boolean
           id: string
           locale_preference: string
           updated_at: string
@@ -1259,7 +1276,6 @@ export type Database = {
         Insert: {
           created_at?: string
           display_name?: string | null
-          email_notifications?: boolean
           id: string
           locale_preference?: string
           updated_at?: string
@@ -1267,7 +1283,6 @@ export type Database = {
         Update: {
           created_at?: string
           display_name?: string | null
-          email_notifications?: boolean
           id?: string
           locale_preference?: string
           updated_at?: string

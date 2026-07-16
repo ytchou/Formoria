@@ -1,7 +1,7 @@
 'use server'
 
 import { headers } from 'next/headers'
-import { getTranslations } from 'next-intl/server'
+import { getLocale, getTranslations } from 'next-intl/server'
 import { z } from 'zod'
 import {
   createOwnerSubmissionSchema,
@@ -11,7 +11,7 @@ import {
 import { submissionWizardSchema } from '@/lib/schemas/submission-wizard'
 import { submitBrandForReview } from '@/lib/services/submission-pipeline'
 import { cleanBrandName } from '@/lib/services/brand-cleanup'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
 import { createInMemoryRateLimiter } from '@/lib/security/rate-limiter'
 import type { SourceAttribution } from '@/lib/types/submission'
@@ -20,6 +20,7 @@ import {
   buildGuestSubmissionEmail,
   checkBrandDuplicates,
 } from '@/lib/services/submissions'
+import { enrollInMarketingEmails } from '@/lib/services/marketing-email-consent'
 
 // Per-user in-action rate limiter for brand submissions (5 per 60s)
 const ownerSubmissionRateLimiter = createInMemoryRateLimiter()
@@ -116,6 +117,16 @@ export async function submitRecommendation(
       sourceAttribution: parsed.sourceAttribution,
       submitterEmail: parsed.guestEmail?.trim() || buildGuestSubmissionEmail(),
     }, { useServiceRole: true })
+
+    if (parsed.marketingEmailOptIn && parsed.guestEmail?.trim()) {
+      await enrollInMarketingEmails(createServiceClient(), {
+        email: parsed.guestEmail,
+        locale: await getLocale(),
+        source: 'guest_recommendation',
+        newsletter: true,
+        lifecycle: false,
+      })
+    }
 
     return undefined
   } catch (err) {
@@ -217,6 +228,7 @@ export async function submitOwnerQuick(
       website: z.string().url(),
       description: z.string().min(1),
       pdpaConsent: z.literal(true),
+      marketingEmailOptIn: z.boolean().default(false),
       turnstileToken: z.string().min(1),
       honeypot: z.string(),
     }).parse(data)
@@ -264,6 +276,17 @@ export async function submitOwnerQuick(
       pdpaConsent: true,
     })
 
+    if (parsed.marketingEmailOptIn && user.email) {
+      await enrollInMarketingEmails(createServiceClient(), {
+        email: user.email,
+        userId: user.id,
+        locale: await getLocale(),
+        source: 'owner_quick_submission',
+        newsletter: true,
+        lifecycle: true,
+      })
+    }
+
     return ownershipAdjusted ? { ownershipAdjusted: true } : undefined
   } catch (err) {
     console.error('Submit owner quick error:', err)
@@ -283,6 +306,7 @@ export async function submitOwnerDetailedBrand(
   try {
     const parsed = submissionWizardSchema.extend({
       pdpaConsent: z.literal(true),
+      marketingEmailOptIn: z.boolean().default(false),
       turnstileToken: z.string().min(1),
       honeypot: z.string(),
     }).parse(data)
@@ -357,6 +381,17 @@ export async function submitOwnerDetailedBrand(
       submitterName: user.user_metadata?.full_name ?? undefined,
       pdpaConsent: true,
     })
+
+    if (parsed.marketingEmailOptIn && user.email) {
+      await enrollInMarketingEmails(createServiceClient(), {
+        email: user.email,
+        userId: user.id,
+        locale: await getLocale(),
+        source: 'owner_detailed_submission',
+        newsletter: true,
+        lifecycle: true,
+      })
+    }
 
     return ownershipAdjusted ? { ownershipAdjusted: true } : undefined
   } catch (err) {

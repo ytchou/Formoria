@@ -148,6 +148,7 @@ const newsletterConfirm = (locale: Locale) =>
   buildNewsletterConfirmEmail({
     to: EMAIL,
     confirmToken: 'newsletter-token',
+    unsubscribeToken: 'newsletter-unsubscribe-token',
     interests: ['brand-stories'],
     locale,
   })

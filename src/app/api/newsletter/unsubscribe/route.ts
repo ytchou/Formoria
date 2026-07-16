@@ -29,7 +29,7 @@ function htmlResponse(message: string, status: number) {
   )
 }
 
-export async function GET(request: NextRequest) {
+async function unsubscribe(request: NextRequest) {
   const token = extractToken(new URL(request.url))
 
   if (!token) {
@@ -45,3 +45,6 @@ export async function GET(request: NextRequest) {
 
   return htmlResponse('You have been unsubscribed from Formoria newsletter.', 200)
 }
+
+export const GET = unsubscribe
+export const POST = unsubscribe

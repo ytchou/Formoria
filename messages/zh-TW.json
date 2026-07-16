@@ -122,7 +122,14 @@
       "tooManyRequests": "請求過於頻繁，請稍後再試",
       "generic": "發生錯誤，請再試一次"
     },
-    "alreadySubscribed": "您已經訂閱了！"
+    "alreadySubscribed": "您已經訂閱了！",
+    "consentNotice": "按下「訂閱」即表示你同意接收 Formoria 電子報。送出後需完成信箱確認，可隨時免費取消。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。"
+  },
+  "marketingEmailConsent": {
+    "newsletterOnlyLabel": "我同意接收 Formoria 電子報（選填）",
+    "combinedLabel": "我同意接收 Formoria 電子報，以及適用於品牌主的經營提醒與功能建議（選填）",
+    "newsletterOnlyDescription": "內容包含品牌故事、新品牌與精選趨勢。送出後需完成信箱確認，可隨時免費取消。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。",
+    "combinedDescription": "電子報需完成信箱確認；你之後可在設定中分別關閉任一類別，或全部免費取消。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。"
   },
   "brands": {
     "metadata": {
@@ -668,18 +675,18 @@
       },
       "title": "隱私權政策",
       "intro": "Formoria 重視您的隱私。本政策說明我們如何依據中華民國《個人資料保護法》蒐集、處理及利用您的個人資料。",
-      "lastUpdated": "最後更新：2026 年 6 月",
+      "lastUpdated": "最後更新：2026 年 7 月",
       "dataCollection": {
         "heading": "資料蒐集",
-        "body": "當您使用 Formoria 時，我們可能蒐集以下個人資料：提交品牌時提供的電子郵件地址、姓名（選填）、品牌名稱、品牌官方網站、品牌所在地區、社群連結（Instagram、Threads、Facebook）、購買連結、是否為品牌負責人、以及資料來源。註冊帳號時，我們透過 Supabase Auth 蒐集您的電子郵件與驗證資訊。此外，我們透過 Google Analytics 自動蒐集匿名化的瀏覽資料（頁面瀏覽、事件、匿名化 IP 位址）。"
+        "body": "當您使用 Formoria 時，我們可能蒐集以下個人資料：提交品牌、提供意見或聯絡支援時留下的電子郵件地址與姓名（選填）、品牌名稱、品牌官方網站、品牌所在地區、社群連結、購買連結、是否為品牌負責人，以及資料來源。註冊帳號時，我們透過 Supabase Auth 蒐集您的電子郵件與驗證資訊。若您選擇接收行銷信件，我們也會保存同意類別、來源、版本與時間。此外，我們透過 Google Analytics 自動蒐集匿名化的瀏覽資料（頁面瀏覽、事件、匿名化 IP 位址）。"
       },
       "purpose": {
         "heading": "使用目的",
-        "body": "我們蒐集個人資料的目的包括：建立及維護台灣品牌目錄、提供品牌探索與搜尋功能、補充與校正品牌資料、提高品牌資訊的完整度與準確性、防止垃圾訊息與濫用、改善網站功能與使用體驗，以及處理您的品牌提交與帳號相關事宜。"
+        "body": "我們蒐集個人資料的目的包括：建立及維護台灣品牌目錄、提供品牌探索與搜尋功能、補充與校正品牌資料、防止垃圾訊息與濫用、改善網站功能與使用體驗，以及處理您的品牌提交、認領、驗證、安全性與帳號相關通知。只有在您另外選擇同意後，我們才會寄送電子報，或適用於品牌主的經營提醒與功能建議；這兩類行銷信件可分別關閉。是否同意行銷信件不影響您提交品牌、建立帳號或使用核心服務。"
       },
       "thirdParty": {
         "heading": "第三方服務",
-        "body": "為提供本服務，我們使用以下第三方服務供應商：Supabase（資料庫與身分驗證，伺服器位於美國）、Google Analytics 4（網站分析，資料處理於美國）、Sentry（錯誤監控，資料處理於美國）、Cloudflare Turnstile（機器人防護），以及 Railway（網站託管，伺服器位於美國）。我們不會將您的個人資料出售予第三方。資料僅在提供服務所必要之範圍內共享。"
+        "body": "為提供本服務，我們使用以下第三方服務供應商：Supabase（資料庫與身分驗證，伺服器位於美國）、Resend（電子郵件寄送，資料可能於美國處理）、Google Analytics 4（網站分析，資料處理於美國）、Sentry（錯誤監控，資料處理於美國）、Cloudflare Turnstile（機器人防護），以及 Railway（網站託管，伺服器位於美國）。我們不會將您的個人資料出售予第三方。資料僅在提供服務所必要之範圍內共享。"
       },
       "userRights": {
         "heading": "您的權利",
@@ -687,7 +694,7 @@
       },
       "dataProtection": {
         "heading": "資料保護",
-        "body": "我們採取適當的安全措施保護您的個人資料，包括：全站使用 HTTPS 加密連線、實施存取控制以限制資料存取權限、以及定期檢視安全措施。您的品牌資料將於品牌列示於目錄期間保留，帳號資料將於帳號存續期間保留。您可隨時要求刪除您的資料。"
+        "body": "我們採取適當的安全措施保護您的個人資料，包括：全站使用 HTTPS 加密連線、實施存取控制以限制資料存取權限，以及定期檢視安全措施。品牌資料於品牌列示期間保留，帳號資料於帳號存續期間保留，行銷同意紀錄則保留至您撤回同意或要求刪除為止。退訂後，我們可能保留最少量的退訂紀錄，以避免再次寄送您已拒絕的行銷信件。"
       },
       "cookies": {
         "heading": "Cookie 與追蹤技術",
@@ -955,8 +962,16 @@
     "displayNamePlaceholder": "輸入您的名稱",
     "emailLabel": "電子郵件",
     "localePreferenceLabel": "語言偏好",
-    "emailNotificationsLabel": "接收電子郵件通知",
-    "emailNotificationsDescription": "接收品牌更新、認領狀態等相關通知",
+    "marketingHeading": "行銷電子郵件",
+    "marketingDescription": "分別管理電子報與品牌主經營信件。帳號驗證、密碼重設及審核結果等必要信件不受影響。",
+    "newsletterMarketingLabel": "Formoria 電子報",
+    "newsletterMarketingDescription": "品牌故事、新品牌與精選趨勢。開啟後需完成信箱確認。",
+    "newsletterPending": "確認信已寄出；完成信箱確認後才會開始寄送電子報。",
+    "lifecycleMarketingLabel": "品牌經營提醒與功能建議",
+    "lifecycleMarketingDescription": "適用於品牌主的非必要經營提醒、使用建議與功能介紹。",
+    "unsubscribeAllMarketing": "取消所有行銷電子郵件",
+    "marketingUnsubscribedAll": "已取消所有行銷電子郵件",
+    "marketingUpdateError": "部分電子郵件偏好無法更新，請再試一次",
     "submit": "儲存設定",
     "submitting": "儲存中…",
     "saved": "設定已儲存",
@@ -1608,6 +1623,7 @@
       "heroImageRequired": "請上傳品牌主圖",
       "photosMax": "最多可上傳 6 張照片",
       "emailInvalid": "請輸入有效的電子郵件地址",
+      "emailRequiredForNewsletter": "若要訂閱電子報，請填寫電子郵件地址",
       "platformRequired": "請選擇平台",
       "urlInvalid": "請輸入有效的網址",
       "locationNameRequired": "請輸入地點名稱",
@@ -1635,10 +1651,10 @@
       "brandNamePlaceholder": "例：暖木家居",
       "brandNameHint": "請填正式品牌名稱，方便我們後續驗重與查證。",
       "guestEmailLabel": "你的電子郵件",
-      "guestEmailHint": "你可以留下聯絡方式以接收品牌審核狀態更新，我們也會將你加入未來品牌電子報。",
+      "guestEmailHint": "若想收到這筆品牌推薦的審核進度，請留下電子郵件。",
       "guestEmailPlaceholder": "name@example.com",
       "descriptionLabel": "補充說明",
-      "descriptionHint": "如果你知道品牌特色、產品或背景，可以留在這裡。",
+      "descriptionHint": "如果你知道品牌特色、產品或背景，可以留在這裡，幫助我們審核。",
       "descriptionPlaceholder": "例如：我在設計市集買過他們的木作家具……",
       "sourceLabel": "你如何知道這個品牌？",
       "sourceHint": "幫助我們理解這筆推薦的來源。",
