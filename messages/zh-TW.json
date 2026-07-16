@@ -180,6 +180,7 @@
     },
     "card": {
       "foundingYear": "創立於 {year}",
+      "viewBrand": "查看品牌",
       "verifiedLabel": "由品牌方經營管理",
       "verifiedBadge": "已認領",
       "mitVerifiedLabel": "MIT 微笑認證",
@@ -2061,13 +2062,30 @@
   },
   "search": {
     "emptyState": {
-      "title": "找不到「{query}」相關的品牌",
-      "description": "試試其他關鍵字或瀏覽分類",
-      "withFiltersTitle": "使用目前的篩選條件找不到「{query}」相關的品牌",
-      "withFiltersDescription": "試著移除部分篩選條件或搜尋其他內容",
-      "clearFilters": "清除所有篩選",
-      "browseCategories": "依分類瀏覽",
-      "featuredBrands": "MIT 認證品牌"
+      "noticeSearchCategory": "目前沒有符合「{query}」且屬於「{category}」的品牌。",
+      "noticeSearchFilters": "目前沒有符合「{query}」與目前篩選條件的品牌。",
+      "noticeSearch": "目前沒有符合「{query}」的品牌。",
+      "noticeFilters": "目前沒有符合目前篩選條件的品牌。",
+      "noticeAll": "目前沒有可顯示的品牌。",
+      "currentConditions": "目前套用條件",
+      "title": "找不到符合的品牌",
+      "description": "嘗試調整條件，或瀏覽更多品牌探索靈感。",
+      "actions": {
+        "removeSearch": {
+          "title": "移除品牌關鍵字",
+          "description": "保留其他條件並查看更多品牌"
+        },
+        "clearFilters": {
+          "title": "清除篩選條件",
+          "description": "保留品牌關鍵字並移除其他條件"
+        },
+        "browseAll": {
+          "title": "瀏覽所有品牌",
+          "description": "探索 Formoria 全部品牌"
+        }
+      },
+      "recommendations": "你可能想找",
+      "viewAll": "查看全部"
     }
   },
   "impersonation": {

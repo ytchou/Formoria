@@ -66,6 +66,8 @@
   --color-warning: var(--warning);
   --color-filter-active: var(--filter-active);
   --color-filter-active-bg: var(--filter-active-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
   --color-cta: var(--cta);
   --color-cta-foreground: var(--cta-foreground);
   --color-primary-dark: var(--primary-dark);
@@ -109,6 +111,8 @@
   --warning: oklch(0.666 0.179 58.3);
   --filter-active: oklch(0.40 0.10 140);
   --filter-active-bg: oklch(0.95 0.02 140);
+  --info: oklch(0.48 0.12 250);
+  --info-bg: oklch(0.97 0.02 250);
 
   /* Extended semantic tokens */
   --warm-caption: oklch(0.528 0 0);                    /* Merged with muted-foreground */
@@ -174,6 +178,8 @@
   --warning: oklch(0.769 0.188 70.1);
   --filter-active: oklch(0.72 0.09 140);
   --filter-active-bg: oklch(0.23 0.025 140);
+  --info: oklch(0.75 0.10 250);
+  --info-bg: oklch(0.22 0.03 250);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.680 0.1400 37.6);

@@ -180,6 +180,7 @@
     },
     "card": {
       "foundingYear": "Est. {year}",
+      "viewBrand": "View brand",
       "verifiedLabel": "Managed by the brand owner",
       "verifiedBadge": "Claimed",
       "mitVerifiedLabel": "MIT Verified",
@@ -2061,13 +2062,30 @@
   },
   "search": {
     "emptyState": {
-      "title": "No brands found for \"{query}\"",
-      "description": "Try a different search or browse by category",
-      "withFiltersTitle": "No brands found for \"{query}\" with the current filters",
-      "withFiltersDescription": "Try removing some filters or searching for something else",
-      "clearFilters": "Clear all filters",
-      "browseCategories": "Browse by category",
-      "featuredBrands": "Verified MIT brands"
+      "noticeSearchCategory": "No brands match “{query}” in “{category}”.",
+      "noticeSearchFilters": "No brands match “{query}” with the current filters.",
+      "noticeSearch": "No brands match “{query}”.",
+      "noticeFilters": "No brands match the current filters.",
+      "noticeAll": "There are no brands to show right now.",
+      "currentConditions": "Current conditions",
+      "title": "No matching brands found",
+      "description": "Adjust a condition or explore more brands for inspiration.",
+      "actions": {
+        "removeSearch": {
+          "title": "Remove brand keyword",
+          "description": "Keep the other conditions and see more brands"
+        },
+        "clearFilters": {
+          "title": "Clear filters",
+          "description": "Keep the brand keyword and remove other filters"
+        },
+        "browseAll": {
+          "title": "Browse all brands",
+          "description": "Explore every brand on Formoria"
+        }
+      },
+      "recommendations": "You may be looking for",
+      "viewAll": "View all"
     }
   },
   "impersonation": {
