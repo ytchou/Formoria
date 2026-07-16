@@ -340,6 +340,7 @@ type SubmissionEnrichmentRow = {
   purchase_shopee: string | null;
   other_urls: unknown;
   enriched_data: unknown;
+  owner_data: unknown;
   status: string;
 };
 
@@ -349,6 +350,42 @@ function isRequestedPhase(phases: string[], phase: EnrichPhase): boolean {
 
 function isPlainObject(value: unknown): value is JsonObject {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+export function seedEnrichedDataFromOwnerData(
+  ownerData: unknown,
+  existingEnriched: JsonObject | null | undefined,
+): JsonObject {
+  const existing = existingEnriched ?? {};
+  if (!isPlainObject(ownerData)) return existing;
+
+  const merged = { ...existing };
+  const fieldMappings = [
+    ["productType", "product_type"],
+    ["foundingYear", "founding_year"],
+    ["city", "city"],
+    ["priceRange", "price_range"],
+    ["productTags", "product_tags"],
+    ["productPhotos", "product_photos"],
+    ["retailLocations", "retail_locations"],
+    ["mitStory", "mit_story"],
+    ["heroImageUrl", "hero_image_url"],
+    ["description", "description"],
+    ["socialInstagram", "social_instagram"],
+    ["socialThreads", "social_threads"],
+    ["socialFacebook", "social_facebook"],
+    ["purchaseWebsite", "purchase_website"],
+    ["purchasePinkoi", "purchase_pinkoi"],
+    ["purchaseShopee", "purchase_shopee"],
+  ] as const;
+
+  for (const [ownerKey, enrichedKey] of fieldMappings) {
+    if (merged[enrichedKey] == null && ownerData[ownerKey] !== undefined) {
+      merged[enrichedKey] = ownerData[ownerKey];
+    }
+  }
+
+  return merged;
 }
 
 function deepMergeJsonObjects(base: JsonObject, patch: JsonObject): JsonObject {
@@ -685,11 +722,16 @@ export async function persistSubmissionEnrichmentResults(
 function submissionToEnrichBrand(
   submission: SubmissionEnrichmentRow,
 ): EnrichBrand {
-  const existing = isPlainObject(submission.enriched_data)
+  const existingEnriched = isPlainObject(submission.enriched_data)
     ? submission.enriched_data
     : {};
+  const existing = seedEnrichedDataFromOwnerData(
+    submission.owner_data,
+    existingEnriched,
+  );
 
   return {
+    ...existing,
     id: submission.id,
     slug: `submission-${submission.id}`,
     name:

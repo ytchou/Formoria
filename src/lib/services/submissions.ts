@@ -180,6 +180,7 @@ export type CreateSubmissionInput = {
   isOwner?: boolean;
   sourceAttribution?: SourceAttribution | null;
   productTypeNote?: string | null;
+  ownerData?: Record<string, unknown>;
 };
 
 export function buildSubmissionRecord(
@@ -206,6 +207,7 @@ export function buildSubmissionRecord(
     is_brand_owner: input.isOwner ?? false,
     source_attribution: input.sourceAttribution ?? null,
     product_type_note: input.productTypeNote ?? null,
+    owner_data: input.ownerData ?? null,
   };
 }
 
@@ -257,9 +259,13 @@ export function submissionToInsert(
     websiteUrl?: string | null;
     suggestedTags?: SuggestedTagsInput;
     productTypeNote?: string | null;
+    ownerData?: Record<string, unknown>;
   },
 ): Record<string, unknown> {
-  return toSubmissionRow(data);
+  return {
+    ...toSubmissionRow(data),
+    owner_data: data.ownerData ?? null,
+  };
 }
 
 function isStructuredTags(
@@ -480,6 +486,7 @@ export async function createSubmission(
       suggestedTags?: SuggestedTagsInput;
       productTypeNote?: string | null;
       intent?: SubmissionIntent;
+      ownerData?: Record<string, unknown>;
     },
   options?: { useServiceRole?: boolean },
 ): Promise<BrandSubmissionWithProductTypeNote> {
@@ -527,7 +534,8 @@ const ADMIN_SUBMISSIONS_SELECT = `
   intent,
   source_attribution,
   product_type_note,
-  enriched_data
+  enriched_data,
+  owner_data
 `;
 
 const ADMIN_REVIEW_SUBMISSIONS_SELECT = `
@@ -560,7 +568,8 @@ const ADMIN_REVIEW_SUBMISSIONS_SELECT = `
   intent,
   source_attribution,
   product_type_note,
-  enriched_data
+  enriched_data,
+  owner_data
 `;
 
 export async function getAdminSubmissions(): Promise<
@@ -573,7 +582,7 @@ export async function getAdminSubmissions(): Promise<
     .order("submitted_at", { ascending: false });
 
   if (error) throw error;
-  return ((data ?? []) as SubmissionRowWithProductTypeNote[]).map(
+  return ((data ?? []) as unknown as SubmissionRowWithProductTypeNote[]).map(
     submissionToDomain,
   );
 }
