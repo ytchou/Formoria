@@ -3,7 +3,7 @@
 PNPM ?= corepack pnpm
 
 dev-all:
-	$(PNPM) dev
+	ulimit -S -n 32768 && exec $(PNPM) dev
 
 doctor:
 	@bash scripts/doctor.sh

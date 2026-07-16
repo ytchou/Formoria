@@ -185,9 +185,6 @@
       "communityTitle": "Is this your brand?",
       "communityListing": "Claim your listing with business proof — domain email, backend access, or an official document. Once reviewed, you manage your brand's presence directly: update details, add products, and build trust with customers.",
       "claimButton": "Claim this brand",
-      "ownerLimitTitle": "You already manage a brand",
-      "ownerLimitBody": "Each account can manage one brand. You can still submit this brand as a community listing.",
-      "manageBrand": "Go to My Brand",
       "proofHeading": "Submit claim proof",
       "proofPrompt": "Submit proof of ownership so we can review your claim request.",
       "proofTypeLabel": "Proof type",
@@ -346,18 +343,26 @@
     "report": {
       "trigger": "Report",
       "title": "Report Brand",
-      "description": "Please select a reason for reporting",
+      "description": "Select a reason and we'll review the report and take appropriate action.",
       "success": "Thank you for your report. We'll review it shortly.",
       "close": "Close",
+      "cancel": "Cancel",
       "alreadyReported": "You have already reported this brand",
+      "reasonHeading": "Select a report reason",
       "reasonNotMit": "Not Made in Taiwan",
       "reasonIncorrectInfo": "Incorrect information",
       "reasonBrokenLink": "Broken link",
       "reasonInappropriate": "Inappropriate content",
+      "brandRepresentativeHeading": "Brand representative requests",
       "reasonOwnershipDispute": "Ownership dispute (I represent this brand)",
+      "ownershipDisputeDescription": "Report a brand ownership issue",
+      "reasonRemovalRequest": "Request listing removal (I represent this brand)",
+      "removalRequestDescription": "Ask us to remove this brand listing",
       "disputeSignInPrompt": "Sign in to submit an ownership dispute",
+      "removalSignInPrompt": "Sign in to request listing removal",
       "disputeSignInCta": "Sign in",
-      "notesPlaceholder": "Additional notes (optional)",
+      "notesLabel": "Additional notes (optional)",
+      "notesPlaceholder": "Provide any details that will help us review this report",
       "submitting": "Submitting...",
       "submit": "Submit Report",
       "errors": {
@@ -424,11 +429,6 @@
       "heading": "More in {category}",
       "subtext": "{count} other brands in this category",
       "viewAll": "View all"
-    },
-    "removal": {
-      "trigger": "Request removal",
-      "mailtoSubject": "Brand removal request: {name}",
-      "mailtoBody": "Brand: {name} ({slug})\n\nPlease describe why this should be removed:\n"
     },
     "claim": {
       "errors": {

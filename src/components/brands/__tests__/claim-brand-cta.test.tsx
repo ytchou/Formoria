@@ -109,13 +109,12 @@ it('waits for the pending-claim check before enabling a new claim', async () => 
   ).toBeInTheDocument()
 })
 
-it('replaces the claim form with the owner-limit message for existing owners', async () => {
+it('renders nothing and skips claim-status lookup for existing owners', () => {
   mockHasOwnedBrand = true
-  renderCta()
+  const { container } = renderCta()
 
-  expect(await screen.findByText('你的帳號已管理一個品牌')).toBeInTheDocument()
-  expect(screen.getByRole('link', { name: '前往我的品牌' })).toHaveAttribute('href', '/dashboard')
-  expect(screen.queryByRole('button', { name: '認領這個品牌' })).not.toBeInTheDocument()
+  expect(container).toBeEmptyDOMElement()
+  expect(getPendingClaimStatusAction).not.toHaveBeenCalled()
 })
 
 it('renders a domain email input without URL or upload controls', async () => {

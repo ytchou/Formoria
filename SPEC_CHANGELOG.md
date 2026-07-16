@@ -2,13 +2,17 @@
 
 ## 2026-07-16
 
+### Brand removal report consolidation
+
+Moved listing-removal requests into the existing brand report dialog and removed the duplicate owner-limit/mailto UI. Reports now carry exactly one reason; `removal_request` is a distinct authenticated reason with reporter attribution, while `ownership_dispute` retains the owner-revocation workflow. Owner RLS hides both sensitive brand-representative reasons.
+
 ### DEV-1032 — Subcategory filtering + app_settings
 
 Replaced stale `brand_taxonomy`/`TaxonomyTag` model with canonical-zh `product_tags` ontology. Added `?sub=` subcategory filtering on /brands (chips with counts, OR semantics, single-category gate). New `app_settings` table for runtime feature flags with admin kill switch at /admin. Sub-filtered views canonical to parent category. `search_brands` RPC gains `filter_tags` array overlap in all 3 branches + `mit-verified` fix.
 
 ### DEV-771 — Ownership dispute / admin revoke
 
-Added BrandReport and OwnershipRevocation to Data Model. BrandReport.reason is CHECK-constrained (5 values including `ownership_dispute`); dispute reports carry `user_id` for reporter attribution. `owner_select_brand_reports` RLS excludes disputes from brand owners. `revoke_brand_ownership` SECURITY DEFINER atomically deletes the owner row, writes an audit row, and nulls `contact_email`.
+Added BrandReport and OwnershipRevocation to Data Model. BrandReport reasons are CHECK-constrained; dispute reports carry `user_id` for reporter attribution. `owner_select_brand_reports` RLS excludes disputes from brand owners. `revoke_brand_ownership` SECURITY DEFINER atomically deletes the owner row, writes an audit row, and nulls `contact_email`.
 
 ## 2026-07-15
 

@@ -21,7 +21,6 @@ import { BrandHeader } from '@/components/brands/brand-header'
 import { BrandActions } from '@/components/brands/brand-actions'
 import { AdminBrandMenu } from '@/components/brands/admin-brand-menu'
 import { ClaimBrandCta } from '@/components/brands/claim-brand-cta'
-import { RequestRemoval } from '@/components/brands/request-removal'
 import { BrandAbout } from '@/components/brands/brand-about'
 import { BrandFaqAccordion } from '@/components/brands/brand-faq-accordion'
 import { BrandLinks } from '@/components/brands/brand-links'
@@ -296,12 +295,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
             )}
 
             {!displayBrand.isVerified && (
-              <ClaimBrandCta
-                brandId={displayBrand.id}
-                removalSlot={
-                  <RequestRemoval brandName={displayBrand.name} brandSlug={displayBrand.slug} />
-                }
-              />
+              <ClaimBrandCta brandId={displayBrand.id} />
             )}
           </div>
         </div>

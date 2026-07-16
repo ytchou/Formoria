@@ -2,7 +2,7 @@
 
 import { Upload } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { useEffect, useRef, useState, useTransition, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, useTransition, type ChangeEvent, type FormEvent } from 'react'
 import {
   getPendingClaimStatusAction,
   submitClaimAction,
@@ -25,7 +25,6 @@ import { cn } from '@/lib/utils'
 
 type ClaimBrandCtaProps = {
   brandId: string
-  removalSlot?: ReactNode
 }
 
 type ProofState = {
@@ -148,10 +147,7 @@ function ClaimProofUpload({
   )
 }
 
-export function ClaimBrandCta({
-  brandId,
-  removalSlot,
-}: ClaimBrandCtaProps) {
+export function ClaimBrandCta({ brandId }: ClaimBrandCtaProps) {
   const t = useTranslations('brands.claimCta')
   const claimErrorsT = useTranslations('brandDetail.claim.errors')
   const locale = useLocale() as 'zh-TW' | 'en'
@@ -179,7 +175,7 @@ export function ClaimBrandCta({
   useEffect(() => {
     let active = true
 
-    if (!user) return
+    if (!user || viewer.hasOwnedBrand) return
 
     const key = `${user.id}:${brandId}`
     void (async () => {
@@ -197,12 +193,12 @@ export function ClaimBrandCta({
     return () => {
       active = false
     }
-  }, [brandId, user])
+  }, [brandId, user, viewer.hasOwnedBrand])
 
   const pendingClaimKey = user ? `${user.id}:${brandId}` : null
   const hasExistingPendingClaim =
     pendingClaim.key === pendingClaimKey && pendingClaim.pending
-  const pendingClaimLoading = Boolean(pendingClaimKey) &&
+  const pendingClaimLoading = !viewer.hasOwnedBrand && Boolean(pendingClaimKey) &&
     pendingClaim.key !== pendingClaimKey
   const verificationEmail = feedback.type === 'pending'
     ? feedback.domainEmailVerificationSentTo
@@ -278,28 +274,7 @@ export function ClaimBrandCta({
   if (loading || viewerLoading || pendingClaimLoading) return null
 
   if (viewer.hasOwnedBrand) {
-    return (
-      <section
-        className={surfaceCardStyles({
-          tone: 'background',
-          padding: 'sm',
-          className: 'text-left',
-        })}
-      >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 flex-1 space-y-1">
-            <p className="type-subsection-title">{t('ownerLimitTitle')}</p>
-            <p className="type-card-description">{t('ownerLimitBody')}</p>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2">
-            <Link href="/dashboard" className="type-link underline">
-              {t('manageBrand')}
-            </Link>
-            {removalSlot}
-          </div>
-        </div>
-      </section>
-    )
+    return null
   }
 
   if (feedback.type === 'pending' || hasExistingPendingClaim) {
@@ -360,7 +335,6 @@ export function ClaimBrandCta({
             <Link href="/faq#claim" className="type-caption text-primary underline underline-offset-4">
               {t('whyClaim')}
             </Link>
-            {user && removalSlot}
           </div>
         </div>
       ) : (

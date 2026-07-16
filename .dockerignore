@@ -3,7 +3,7 @@ node_modules
 .git
 e2e
 docs
-public
+public/admin/content
 coverage
 test-results
 playwright-report

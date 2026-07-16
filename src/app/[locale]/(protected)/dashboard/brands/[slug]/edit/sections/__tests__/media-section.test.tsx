@@ -4,6 +4,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import { useForm } from 'react-hook-form'
 import { describe, expect, it, vi } from 'vitest'
 import messages from '@/../messages/en.json'
+import zhMessages from '@/../messages/zh-TW.json'
 import type { BrandEditFormValues } from '@/lib/schemas/brand-edit'
 import { MediaSection } from '../media-section'
 
@@ -26,7 +27,21 @@ function Wrapper() {
   )
 }
 
+function ZhWrapper() {
+  const form = useForm<BrandEditFormValues>()
+  return (
+    <NextIntlClientProvider locale="zh-TW" messages={zhMessages}>
+      <MediaSection form={form} />
+    </NextIntlClientProvider>
+  )
+}
+
 describe('MediaSection', () => {
+  it('labels the section as product photos in Traditional Chinese', () => {
+    render(<ZhWrapper />)
+    expect(screen.getByRole('heading', { name: '產品圖片' })).toBeTruthy()
+  })
+
   it('renders image upload', () => {
     render(<Wrapper />)
     expect(
