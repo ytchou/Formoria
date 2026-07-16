@@ -26,9 +26,9 @@ export async function gotoSubmitOwner(
   const timeout = opts?.timeout ?? 90_000
 
   await expect(async () => {
-    await page.goto('/submit/owner', { timeout: 60_000 })
+    await page.goto('/submit/owner/quick', { timeout: 60_000 })
     await expect(
-      page.getByRole('heading', { name: '品牌主提交', exact: true }),
+      page.getByRole('heading', { name: '快速提交品牌', exact: true }),
     ).toBeVisible({ timeout: 5_000 })
   }).toPass({ timeout, intervals: [2_000, 4_000, 8_000] })
 }
