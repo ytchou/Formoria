@@ -27,7 +27,7 @@ export async function insertAiCallResult(input: AiCallInput): Promise<void> {
       input: input.input,
       attempt: input.attempt ?? null,
       config: input.config ?? null,
-      latency_ms: input.latencyMs,
+      latency_ms: Math.round(input.latencyMs),
     } as never)
     if (error) console.error(`  [AI-RESULTS] insertAiCallResult failed:`, error.message)
   } catch (error) {
