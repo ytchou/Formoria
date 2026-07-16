@@ -1,4 +1,4 @@
-export const MAX_BRAND_SLUG_LENGTH = 80
+const MAX_BRAND_SLUG_LENGTH = 80
 
 export function slugifyRomanizedName(value: string | null | undefined): string {
   return (value ?? '')

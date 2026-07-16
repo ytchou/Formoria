@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { brandToDomain, brandToInsert, generateSlug, extractLatinRun, deleteBrand } from './brands'
+import {
+  BRAND_SELECT,
+  brandToDomain,
+  brandToInsert,
+  generateSlug,
+  extractLatinRun,
+  deleteBrand,
+} from './brands'
 import { NotFoundError } from '@/lib/errors'
 import { RESERVED_ROUTES } from '@/middleware'
 
@@ -116,6 +123,12 @@ describe('brandToDomain', () => {
     expect(brand.contactEmail).toBe('test@example.com')
     expect(brand.submittedAt).toBe('2026-01-01T00:00:00Z')
     expect(brand.approvedAt).toBe('2026-01-02T00:00:00Z')
+  })
+})
+
+describe('brand select rollout compatibility', () => {
+  it('keeps migration-dependent romanized metadata out of general page queries', () => {
+    expect(BRAND_SELECT).not.toContain('romanized_name')
   })
 })
 

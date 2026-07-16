@@ -748,7 +748,7 @@ export function previewBrandPatch(
 // ---------------------------------------------------------------------------
 
 const BRAND_COLUMNS = [
-  'id', 'name', 'slug', 'romanized_name', 'description', 'description_en', 'blurb', 'blurb_en', 'hero_image_url',
+  'id', 'name', 'slug', 'description', 'description_en', 'blurb', 'blurb_en', 'hero_image_url',
   'product_type', 'contact_email', 'city', 'purchase_website', 'purchase_pinkoi',
   'purchase_shopee', 'social_instagram', 'social_threads', 'social_facebook',
   'other_urls', 'retail_locations', 'site_content',
@@ -763,6 +763,8 @@ const BRAND_COLUMNS = [
 
 export const BRAND_SELECT =
   `${BRAND_COLUMNS}, brand_owners(user_id)` as unknown as '*'
+const BRAND_SELECT_WITH_ROMANIZED_NAME =
+  `${BRAND_COLUMNS}, romanized_name, brand_owners(user_id)` as unknown as '*'
 const VERIFIED_BRAND_SELECT =
   `${BRAND_COLUMNS}, brand_owners!inner(user_id)` as unknown as '*'
 
@@ -1071,11 +1073,14 @@ export async function searchBrandsAutocomplete(
   }))
 }
 
-export async function getBrandBySlug(slug: string): Promise<Brand> {
+export async function getBrandBySlug(
+  slug: string,
+  options: { includeRomanizedName?: boolean } = {},
+): Promise<Brand> {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('brands')
-    .select(BRAND_SELECT)
+    .select(options.includeRomanizedName ? BRAND_SELECT_WITH_ROMANIZED_NAME : BRAND_SELECT)
     .eq('slug', slug)
     .maybeSingle()
 

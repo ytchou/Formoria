@@ -19,7 +19,7 @@ import { publishDraftAction } from '@/app/[locale]/(protected)/dashboard/brands/
 import { useWizardController } from '@/components/brand-wizard/use-wizard-controller'
 import type { Brand } from '@/lib/types'
 
-import { DirtyFieldsContext } from './dirty-fields-context'
+import { DirtyFieldsContext } from '@/components/brand-wizard/dirty-fields-context'
 
 // Section components
 import { BasicInfoSection } from './sections/basic-info-section'

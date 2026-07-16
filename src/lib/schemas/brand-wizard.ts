@@ -13,7 +13,7 @@ export const romanizedNameSchema = z
 const optionalUrlSchema = z.string().url().optional().or(z.literal(''))
 const socialHandlePattern = /^@?[a-zA-Z0-9][a-zA-Z0-9._-]*$/
 
-export const socialHandleOrUrlSchema = z
+const socialHandleOrUrlSchema = z
   .string()
   .trim()
   .refine((value) => {
@@ -39,7 +39,7 @@ export const brandWizardBasicInfoSchema = z.object({
   priceRange: z.union([z.number(), z.string()]).optional(),
 })
 
-export const brandWizardMediaSchema = z.object({
+const brandWizardMediaSchema = z.object({
   heroImageUrl: optionalUrlSchema,
   productPhotos: z.array(z.string().url()).max(6).optional(),
 })
@@ -60,7 +60,7 @@ const otherUrlSchema = z
     })
   })
 
-export const brandWizardLinksSchema = z.object({
+const brandWizardLinksSchema = z.object({
   socialInstagram: socialHandleOrUrlSchema,
   socialThreads: socialHandleOrUrlSchema,
   socialFacebook: optionalUrlSchema,
@@ -72,7 +72,7 @@ export const brandWizardLinksSchema = z.object({
 
 const optionalLocationNumberSchema = z.union([z.number(), z.string()]).optional()
 
-export const retailLocationSchema = z
+const retailLocationSchema = z
   .object({
     name: z.string().optional(),
     relationshipType: z.enum(['brand_store', 'stockist', 'department_counter']).optional(),
@@ -96,7 +96,7 @@ export const retailLocationSchema = z
     }
   })
 
-export const brandWizardLocationsSchema = z.object({
+const brandWizardLocationsSchema = z.object({
   retailLocations: z
     .array(retailLocationSchema)
     .superRefine((locations, context) => {
