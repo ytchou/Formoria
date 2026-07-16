@@ -363,7 +363,6 @@
       "errors": {
         "missingBrandId": "Missing brand ID",
         "invalidReason": "Please select a valid report reason",
-        "disputeRequiresSignIn": "You must sign in to report an ownership dispute",
         "notesTooLong": "Additional notes must be 1000 characters or fewer",
         "rateLimited": "Too many reports. Please try again later.",
         "unknown": "An unknown error occurred"

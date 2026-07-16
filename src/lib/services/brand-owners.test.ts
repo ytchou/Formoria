@@ -127,14 +127,14 @@ describe('brand-owners service', () => {
       expect(result).toEqual({ userId: 'user-uuid-9', email: 'owner@haoshan-tea.tw' })
     })
 
-    it('maps the NO_OWNER exception to an error result', async () => {
+    it('throws when the brand has no owner', async () => {
       const { revokeOwnership } = await import('./brand-owners')
 
-      mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'NO_OWNER' } })
+      mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'Brand owner not found' } })
 
       await expect(
         revokeOwnership('brand-uuid-123', 'admin@formoria.tw', 'x')
-      ).rejects.toThrow(/NO_OWNER/)
+      ).rejects.toThrow(/Brand owner not found/)
     })
   })
 })

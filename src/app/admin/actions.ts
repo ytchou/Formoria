@@ -563,9 +563,9 @@ export async function revokeOwnershipAction(
       typeof err === 'object'
       && err !== null
       && 'message' in err
-      && err.message === 'NO_OWNER'
+      && err.message === 'Brand owner not found'
     ) {
-      return { error: 'NO_OWNER' }
+      return { error: 'Brand owner not found' }
     }
     return {
       error: err instanceof Error ? err.message : 'An unexpected error occurred',

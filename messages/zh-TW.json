@@ -363,7 +363,6 @@
       "errors": {
         "missingBrandId": "缺少品牌 ID",
         "invalidReason": "請選擇有效的檢舉原因",
-        "disputeRequiresSignIn": "必須登入才能提出所有權爭議",
         "notesTooLong": "補充說明不得超過 1000 字",
         "rateLimited": "檢舉次數過多，請稍後再試。",
         "unknown": "發生未知錯誤"
