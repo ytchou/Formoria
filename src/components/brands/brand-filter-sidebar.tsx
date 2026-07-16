@@ -28,8 +28,16 @@ type CategoryOption = {
   nameZh: string | null
 }
 
+type SubcategoryOption = {
+  slug: string
+  label: string
+  count: number
+}
+
 type BrandFilterSidebarProps = {
   categories: CategoryOption[]
+  subcategories?: SubcategoryOption[]
+  activeSubSlugs?: string[]
   className?: string
   showSummary?: boolean
 }
@@ -99,6 +107,8 @@ function FilterSection({
 
 export function BrandFilterSidebar({
   categories,
+  subcategories = [],
+  activeSubSlugs = [],
   className,
   showSummary = true,
 }: BrandFilterSidebarProps) {
@@ -122,9 +132,11 @@ export function BrandFilterSidebar({
     () => new Set(parseCommaParam(searchParams.get('price')).map(Number)),
     [searchParams]
   )
+  const activeSubcategories = new Set(activeSubSlugs)
 
   const activeCount =
     activeCategories.size +
+    activeSubSlugs.length +
     activePriceRanges.size +
     (activeVerification !== 'all' ? 1 : 0)
   const useZh = locale === 'zh-TW'
@@ -151,6 +163,25 @@ export function BrandFilterSidebar({
           } else {
             params.delete('category')
           }
+          if (!checked || next.size > 1) {
+            params.delete('sub')
+          }
+        }),
+        { scroll: false }
+      )
+    })
+  }
+
+  function toggleSubcategory(slug: string, checked: boolean) {
+    const next = new Set(activeSubcategories)
+    if (checked) next.add(slug)
+    else next.delete(slug)
+
+    startTransition(() => {
+      router.replace(
+        updateParamUrl(pathname, searchParams, (params) => {
+          if (next.size > 0) params.set('sub', Array.from(next).join(','))
+          else params.delete('sub')
         }),
         { scroll: false }
       )
@@ -193,6 +224,7 @@ export function BrandFilterSidebar({
       router.replace(
         updateParamUrl(pathname, searchParams, (params) => {
           params.delete('category')
+          params.delete('sub')
           params.delete('price')
           params.delete('verification')
         }),
@@ -227,17 +259,43 @@ export function BrandFilterSidebar({
           {categories.map((category) => {
             const checked = activeCategories.has(category.slug)
             return (
-              <Label
-                key={category.slug}
-                className={cn(filterOptionClassName, checked && 'text-primary')}
-              >
-                <Checkbox
-                  checked={checked}
-                  onCheckedChange={(value: boolean) => toggleCategory(category.slug, value)}
-                  aria-label={categoryLabel(category)}
-                />
-                <span>{categoryLabel(category)}</span>
-              </Label>
+              <div key={category.slug} className="space-y-2">
+                <Label
+                  className={cn(filterOptionClassName, checked && 'text-primary')}
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={(value: boolean) => toggleCategory(category.slug, value)}
+                    aria-label={categoryLabel(category)}
+                  />
+                  <span>{categoryLabel(category)}</span>
+                </Label>
+                {checked && subcategories.length > 0 && (
+                  <div className="ml-6 flex flex-wrap gap-2">
+                    {subcategories.map((subcategory) => {
+                      const subcategoryChecked = activeSubcategories.has(subcategory.slug)
+                      return (
+                        <Button
+                          key={subcategory.slug}
+                          type="button"
+                          variant="secondary"
+                          shape="pill"
+                          size="chip"
+                          aria-pressed={subcategoryChecked}
+                          onClick={() => toggleSubcategory(subcategory.slug, !subcategoryChecked)}
+                          className={cn(
+                            subcategoryChecked &&
+                              'border-primary bg-primary text-primary-foreground'
+                          )}
+                        >
+                          {subcategory.label}{' '}
+                          <span className={cn(subcategoryChecked ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{subcategory.count}</span>
+                        </Button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             )
           })}
         </div>
@@ -306,7 +364,6 @@ function FilterRadio({
         checked && 'font-medium text-primary'
       )}
     >
-      {/* eslint-disable-next-line no-restricted-syntax -- ui-exception: native radio input has no ui/ equivalent */}
       <input type="radio" name={name} checked={checked} onChange={onChange} className="h-4 w-4 accent-primary" />
       <span>{label}</span>
     </Label>
@@ -315,6 +372,8 @@ function FilterRadio({
 
 export function BrandFilterDrawer({
   categories,
+  subcategories = [],
+  activeSubSlugs = [],
   totalCount,
 }: BrandFilterDrawerProps) {
   const [open, setOpen] = useState(false)
@@ -325,6 +384,7 @@ export function BrandFilterDrawer({
   const activePriceRanges = parseCommaParam(searchParams.get('price'))
   const activeCount =
     activeCategories.length +
+    activeSubSlugs.length +
     activePriceRanges.length +
     (activeVerification === 'mit-verified' || activeVerification === 'owned' ? 1 : 0)
 
@@ -345,6 +405,8 @@ export function BrandFilterDrawer({
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           <BrandFilterSidebar
             categories={categories}
+            subcategories={subcategories}
+            activeSubSlugs={activeSubSlugs}
             showSummary={false}
           />
         </div>
@@ -371,6 +433,7 @@ function MobileClearAll({ onClear }: { onClear: () => void }) {
       router.replace(
         updateParamUrl(pathname, searchParams, (params) => {
           params.delete('category')
+          params.delete('sub')
           params.delete('price')
           params.delete('verification')
         }),

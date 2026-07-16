@@ -3,6 +3,8 @@ import {
   PRODUCT_TYPE_CATEGORIES,
   PRODUCT_SUBCATEGORIES,
   matchSubcategory,
+  resolveSubcategorySlugs,
+  subcategoryBySlug,
   subcategoryLabel,
   deriveCategoryFromProductType,
   categoryTint,
@@ -149,5 +151,42 @@ describe('subcategoryLabel', () => {
     const sub = matchSubcategory('托特包')!
     expect(subcategoryLabel(sub, 'zh-TW')).toBe('托特包')
     expect(subcategoryLabel(sub, 'en')).toBe('Tote Bags')
+  })
+})
+
+describe('subcategoryBySlug', () => {
+  it('resolves a known slug to its subcategory', () => {
+    const sub = subcategoryBySlug('clasp-frame-bags')
+    expect(sub?.nameZh).toBe('口金包')
+    expect(sub?.category).toBe('bags-accessories')
+  })
+
+  it('returns null for unknown slugs', () => {
+    expect(subcategoryBySlug('not-a-slug')).toBeNull()
+  })
+})
+
+describe('resolveSubcategorySlugs', () => {
+  it('keeps only slugs belonging to the given L1 category', () => {
+    const subs = resolveSubcategorySlugs('bags-accessories', [
+      'clasp-frame-bags',
+      'tea',
+      'bogus',
+    ])
+    expect(subs.map((s) => s.nameZh)).toEqual(['口金包'])
+  })
+
+  it('preserves input order and removes duplicate slugs', () => {
+    const subs = resolveSubcategorySlugs('bags-accessories', [
+      'tote-bags',
+      'clasp-frame-bags',
+      'tote-bags',
+    ])
+    expect(subs.map((s) => s.slug)).toEqual(['tote-bags', 'clasp-frame-bags'])
+  })
+
+  it('returns [] when category is null or slugs empty', () => {
+    expect(resolveSubcategorySlugs(null, ['clasp-frame-bags'])).toEqual([])
+    expect(resolveSubcategorySlugs('bags-accessories', [])).toEqual([])
   })
 })

@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import AdminDashboardPage from '../page'
+import { getAppSetting } from '@/lib/services/app-settings'
 import { getBrands } from '@/lib/services/brands'
 import { listClaimRequests } from '@/lib/services/claim-requests'
 import { getFeedbackItems } from '@/lib/services/feedback'
@@ -43,6 +44,11 @@ vi.mock('@/lib/services/moderation', () => ({
 
 vi.mock('@/lib/services/brands', () => ({
   getBrands: vi.fn(),
+}))
+
+vi.mock('@/lib/services/app-settings', () => ({
+  SUBCATEGORY_FILTER_KEY: 'subcategory_filter_enabled',
+  getAppSetting: vi.fn(),
 }))
 
 vi.mock('next-intl/server', () => {
@@ -86,6 +92,7 @@ vi.mock('@/app/admin/actions', () => ({
   approveClaimAction: vi.fn(),
   reviewReportAction: vi.fn(),
   reviewFeedbackAction: vi.fn(),
+  setFeatureFlagAction: vi.fn(),
 }))
 
 function makeSubmission(
@@ -288,6 +295,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
 }
 
 beforeEach(() => {
+  vi.mocked(getAppSetting).mockResolvedValue(true)
   vi.mocked(getSubmissionsForReview).mockResolvedValue([])
   vi.mocked(getPendingEdits).mockResolvedValue([])
   vi.mocked(listClaimRequests).mockResolvedValue([])
@@ -304,6 +312,17 @@ beforeEach(() => {
 })
 
 describe('AdminPage', () => {
+  it('renders feature toggles with the initial subcategory filter state', async () => {
+    vi.mocked(getAppSetting).mockResolvedValueOnce(false)
+
+    render(await AdminDashboardPage())
+
+    expect(screen.getByText('Feature Toggles')).toBeInTheDocument()
+    expect(
+      screen.getByRole('switch', { name: 'Subcategory filter on /brands' }),
+    ).not.toBeChecked()
+  })
+
   it('renders queue summary cards sorted by highest pending count first', async () => {
     vi.mocked(getSubmissionsForReview).mockResolvedValueOnce([
       makeSubmission({ id: 'submission-1', brandName: 'First Submission' }),

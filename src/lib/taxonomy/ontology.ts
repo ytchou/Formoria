@@ -262,7 +262,37 @@ export function matchSubcategory(input: string): ProductSubcategory | null {
   return _subcategoryMap.get(key) ?? null
 }
 
+let _subcategorySlugMap: Map<string, ProductSubcategory> | null = null
+
+function _getSubcategorySlugMap(): Map<string, ProductSubcategory> {
+  if (!_subcategorySlugMap) {
+    _subcategorySlugMap = new Map(PRODUCT_SUBCATEGORIES.map((sub) => [sub.slug, sub]))
+  }
+  return _subcategorySlugMap
+}
+
+export function subcategoryBySlug(slug: string): ProductSubcategory | null {
+  return _getSubcategorySlugMap().get(slug) ?? null
+}
+
+export function resolveSubcategorySlugs(
+  categorySlug: string | null,
+  slugs: string[],
+): ProductSubcategory[] {
+  if (!categorySlug || slugs.length === 0) return []
+
+  const seen = new Set<string>()
+  const subcategories: ProductSubcategory[] = []
+  for (const slug of slugs) {
+    if (seen.has(slug)) continue
+    seen.add(slug)
+
+    const subcategory = subcategoryBySlug(slug)
+    if (subcategory?.category === categorySlug) subcategories.push(subcategory)
+  }
+  return subcategories
+}
+
 export function subcategoryLabel(sub: ProductSubcategory, locale: string): string {
   return locale === 'zh-TW' ? sub.nameZh : sub.nameEn
 }
-

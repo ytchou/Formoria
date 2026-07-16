@@ -9,7 +9,11 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { BRAND_SORT_CONFIG, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import { isNonImageHost } from '@/lib/images/allowed-image-hosts'
 import { RESERVED_ROUTES } from '@/middleware'
-import { deriveCategoryFromProductType, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import {
+  deriveCategoryFromProductType,
+  matchSubcategory,
+  PRODUCT_TYPE_CATEGORIES,
+} from '@/lib/taxonomy/ontology'
 import { normalizeRetailLocations } from '@/lib/brands/locations'
 import { downloadAndStoreImages } from './image-download'
 import {
@@ -770,7 +774,10 @@ export async function getBrandSlugsBatch(brandIds: string[]): Promise<Map<string
   return new Map((data ?? []).map(b => [b.id, b.slug]))
 }
 
-type GetBrandsFilters = BrandFilters & { page?: number }
+type GetBrandsFilters = BrandFilters & {
+  page?: number
+  subcategoryTags?: string[]
+}
 
 function getSearchPagination(filters: GetBrandsFilters): { offset: number; limit?: number } {
   if (filters.limit !== undefined) {
@@ -813,6 +820,7 @@ export async function getBrands(
       result_limit: null,
       prefix_mode: false,
       filter_categories: filters.category?.length ? filters.category : null,
+      filter_tags: filters.subcategoryTags?.length ? filters.subcategoryTags : null,
       filter_verification: verificationFilter,
       filter_status: filters.status || 'approved',
       include_test_brands: filters.includeTestBrands ?? false,
@@ -927,6 +935,9 @@ export async function getBrands(
   if (filters?.priceRanges && filters.priceRanges.length > 0) {
     query = query.in('price_range', filters.priceRanges)
   }
+  if (filters?.subcategoryTags && filters.subcategoryTags.length > 0) {
+    query = query.overlaps('product_tags', filters.subcategoryTags)
+  }
 
   // Sorting
   const sortKey = filters?.sort ?? 'random'
@@ -950,6 +961,38 @@ export async function getBrands(
   const brands = (data ?? []).map(brandToDomain)
   if (sortKey === 'random') shuffleArray(brands, getDailySeed())
   return { brands, totalCount: count ?? 0 }
+}
+
+export async function getSubcategoryCounts(categorySlug: string): Promise<Map<string, number>> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brands')
+    .select('product_tags')
+    .eq('status', 'approved')
+    .eq('product_type', categorySlug)
+    .not('name', 'like', '[E2E-TEST]%')
+
+  if (error) throw error
+
+  const brands = (data ?? []).map((row) => ({
+    productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
+  }))
+  const counts = new Map<string, number>()
+
+  for (const brand of brands) {
+    const canonicalTags = new Set<string>()
+    for (const tag of brand.productTags) {
+      const subcategory = matchSubcategory(tag)
+      if (subcategory?.category === categorySlug) {
+        canonicalTags.add(subcategory.nameZh)
+      }
+    }
+    for (const tag of canonicalTags) {
+      counts.set(tag, (counts.get(tag) ?? 0) + 1)
+    }
+  }
+
+  return counts
 }
 
 export const EXPLORE_BRAND_LIMIT = 12

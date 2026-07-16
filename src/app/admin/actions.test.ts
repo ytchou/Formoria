@@ -1,6 +1,6 @@
 import { revalidatePath } from 'next/cache'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { refreshHealthChecks } from './actions'
+import { refreshHealthChecks, setFeatureFlagAction } from './actions'
 import { checkAllServices } from '@/lib/services/health-checks'
 
 // Mocks must be at top-level for vitest hoisting
@@ -129,6 +129,11 @@ vi.mock('@/lib/services/feedback', () => ({
 
 vi.mock('@/lib/services/health-checks', () => ({
   checkAllServices: vi.fn(),
+}))
+
+vi.mock('@/lib/services/app-settings', () => ({
+  SUBCATEGORY_FILTER_KEY: 'subcategory_filter_enabled',
+  setAppSetting: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('@/lib/email/resend-adapter', () => ({
@@ -632,6 +637,43 @@ describe('refreshHealthChecks', () => {
 
     expect(checkAllServices).not.toHaveBeenCalled()
     expect(revalidatePath).not.toHaveBeenCalledWith('/admin')
+  })
+})
+
+describe('setFeatureFlagAction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('rejects non-admin callers', async () => {
+    const { requireAdminAction } = await import('@/lib/auth/require-admin')
+    vi.mocked(requireAdminAction).mockResolvedValueOnce({
+      error: 'You are not authorized to perform this action',
+      code: 'forbidden',
+    })
+
+    const res = await setFeatureFlagAction('subcategory_filter_enabled', false)
+
+    expect(res.error).toBeTruthy()
+  })
+
+  it('admin toggle writes the flag and revalidates /brands, /en/brands, /admin', async () => {
+    const { setAppSetting } = await import('@/lib/services/app-settings')
+
+    const res = await setFeatureFlagAction('subcategory_filter_enabled', false)
+
+    expect(res.error).toBeUndefined()
+    expect(setAppSetting).toHaveBeenCalledWith('subcategory_filter_enabled', false)
+    expect(revalidatePath).toHaveBeenCalledWith('/brands')
+    expect(revalidatePath).toHaveBeenCalledWith('/en/brands')
+    expect(revalidatePath).toHaveBeenCalledWith('/admin')
+    await setFeatureFlagAction('subcategory_filter_enabled', true)
+  })
+
+  it('rejects unknown flag keys', async () => {
+    const res = await setFeatureFlagAction('arbitrary_key', true)
+
+    expect(res.error).toBeTruthy()
   })
 })
 

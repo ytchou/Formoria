@@ -66,6 +66,7 @@ describe('getBrands search path', () => {
       result_limit: null,
       prefix_mode: false,
       filter_categories: null,
+      filter_tags: null,
       filter_verification: null,
       filter_status: 'approved',
       include_test_brands: false,

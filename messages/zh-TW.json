@@ -501,6 +501,10 @@
       "title": "{displayName} 台灣品牌",
       "description": "探索台灣製造的 {displayName} 品牌。"
     },
+    "subMetadata": {
+      "title": "台灣製造 {subName} 品牌 | {categoryName} | MIT Map",
+      "description": "探索台灣製造的{subName}品牌，從{categoryName}分類中發現值得支持的在地設計與優質產品。"
+    },
     "descriptions": {
       "fashion": "台灣服飾品牌承襲紡織廠、布料開發與成衣製造累積的技術底子，擅長把機能布料、舒適剪裁與當代設計語彙結合。從日常基本款、戶外機能服到獨立設計品牌，都能看見材料運用與穿著場景的細膩思考。Formoria 收錄這些兼具製造實力與設計感的台灣服裝品牌。",
       "bags-accessories": "台灣包袋品牌常結合皮件工藝、車縫技術與務實的製造經驗，也有越來越多品牌投入回收布料、植物皮革等永續材質。無論是通勤包、旅行配件或手工皮件，都重視耐用度、收納邏輯與手感細節。Formoria 帶你認識職人工作室、小量製作品牌與設計導向的包款選擇。",
