@@ -19,6 +19,7 @@ export type ReportReason =
   | 'broken_link'
   | 'inappropriate'
   | 'ownership_dispute'
+  | 'removal_request'
 
 type ReportStatus = ReviewStatus
 
@@ -36,29 +37,31 @@ export type BrandReport = {
   brandHasOwner?: boolean
 }
 
-type DisputeRow = {
+type ReportRowWithReporter = {
   reason: string
   user_id: string | null
   brand_id: string
 }
 
-type DisputeRowEnrichment = {
+type ReporterRowEnrichment = {
   reporterEmail?: string
   brandHasOwner?: boolean
 }
 
-export async function enrichDisputeRows<T extends DisputeRow>(
+export async function enrichReporterRows<T extends ReportRowWithReporter>(
   rows: T[],
   deps: {
     getEmail: (userId: string) => Promise<string | null>
     getOwnedBrandIds: () => Promise<Set<string>>
   }
-): Promise<Array<T & DisputeRowEnrichment>> {
-  const disputeRows = rows.filter((row) => row.reason === 'ownership_dispute')
-  if (disputeRows.length === 0) return rows
+): Promise<Array<T & ReporterRowEnrichment>> {
+  const reporterRows = rows.filter((row) =>
+    row.reason === 'ownership_dispute' || row.reason === 'removal_request'
+  )
+  if (reporterRows.length === 0) return rows
 
   const userIds = [
-    ...new Set(disputeRows.flatMap((row) => row.user_id ? [row.user_id] : [])),
+    ...new Set(reporterRows.flatMap((row) => row.user_id ? [row.user_id] : [])),
   ]
   const [ownedBrandIds, emailEntries] = await Promise.all([
     deps.getOwnedBrandIds(),
@@ -67,13 +70,15 @@ export async function enrichDisputeRows<T extends DisputeRow>(
   const emailByUserId = new Map(emailEntries)
 
   return rows.map((row) => {
-    if (row.reason !== 'ownership_dispute') return row
+    if (row.reason !== 'ownership_dispute' && row.reason !== 'removal_request') return row
 
     const reporterEmail = row.user_id ? emailByUserId.get(row.user_id) : null
     return {
       ...row,
       ...(reporterEmail ? { reporterEmail } : {}),
-      brandHasOwner: ownedBrandIds.has(row.brand_id),
+      ...(row.reason === 'ownership_dispute'
+        ? { brandHasOwner: ownedBrandIds.has(row.brand_id) }
+        : {}),
     }
   })
 }
@@ -135,13 +140,15 @@ export async function getPendingReports(options?: { limit?: number }): Promise<B
         .map((row) => row.brand_id)
     ),
   ]
-  const enrichedRows = await enrichDisputeRows(rows, {
+  const enrichedRows = await enrichReporterRows(rows, {
     getEmail: async (userId) => {
       const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId)
       if (userError) throw userError
       return userData.user.email ?? null
     },
     getOwnedBrandIds: async () => {
+      if (disputeBrandIds.length === 0) return new Set()
+
       const { data: ownershipRows, error: ownershipError } = await supabase
         .from('brand_owners')
         .select('brand_id')

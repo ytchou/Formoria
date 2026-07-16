@@ -37,6 +37,7 @@ const REASON_LABELS: Record<ReportReason, string> = {
   broken_link: 'Broken link',
   inappropriate: 'Inappropriate content',
   ownership_dispute: 'Ownership dispute',
+  removal_request: 'Removal request',
 }
 
 export function ReportsTable({ reports }: ReportsTableProps) {
@@ -136,7 +137,7 @@ export function ReportsTable({ reports }: ReportsTableProps) {
                           </div>
                         )}
 
-                        {r.reason === 'ownership_dispute' && (
+                        {(r.reason === 'ownership_dispute' || r.reason === 'removal_request') && (
                           <dl>
                             <div>
                               <dt className="type-field-label">Reporter email</dt>

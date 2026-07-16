@@ -1,10 +1,21 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useActionState } from 'react'
+import { useActionState, useEffect, useId, useState } from 'react'
 import NextLink from 'next/link'
 import { useLocale, useTranslations } from 'next-intl'
-import { Flag } from 'lucide-react'
+import {
+  BadgeX,
+  ChevronRight,
+  CircleCheck,
+  Factory,
+  Flag,
+  Info,
+  Link2Off,
+  ShieldAlert,
+  ShieldCheck,
+  TriangleAlert,
+  X,
+} from 'lucide-react'
 import { submitReportAction, type ReportState } from '@/app/[locale]/brands/[slug]/actions'
 import {
   Dialog,
@@ -19,9 +30,12 @@ import {
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
+import { Typography } from '@/components/ui/typography'
 import { usePathname } from '@/i18n/navigation'
 import { signInHref } from '@/i18n/locale-preference'
 import { useUser } from '@/lib/auth/use-user'
+import { cn } from '@/lib/utils'
 
 interface ReportDialogProps {
   brandId: string
@@ -34,37 +48,62 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
   const pathname = usePathname()
   const { user, loading } = useUser()
   const [state, action, pending] = useActionState<ReportState, FormData>(submitReportAction, {})
-  const [selectedReasons, setSelectedReasons] = useState<Set<string>>(new Set())
+  const [selectedReason, setSelectedReason] = useState<string | null>(null)
   const [alreadyReported, setAlreadyReported] = useState(false)
-  const ownershipDisputeSelected = selectedReasons.has('ownership_dispute')
-  const disputeRequiresSignIn = ownershipDisputeSelected && !loading && !user
+  const [notesLength, setNotesLength] = useState(0)
+  const generalHeadingId = useId()
+  const representativeHeadingId = useId()
+  const authenticatedReasonSelected = selectedReason === 'ownership_dispute' ||
+    selectedReason === 'removal_request'
+  const reportRequiresSignIn = authenticatedReasonSelected && !loading && !user
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      setAlreadyReported(!!window.localStorage.getItem(`report:${brandSlug}`))
+      setAlreadyReported(
+        selectedReason
+          ? !!window.localStorage.getItem(`report:${brandSlug}:${selectedReason}`)
+          : false
+      )
     }, 0)
 
     return () => window.clearTimeout(timeoutId)
-  }, [brandSlug])
+  }, [brandSlug, selectedReason])
 
   useEffect(() => {
-    if (state.success) {
-      window.localStorage.setItem(`report:${brandSlug}`, '1')
+    if (state.success && selectedReason) {
+      window.localStorage.setItem(`report:${brandSlug}:${selectedReason}`, '1')
       const timeoutId = window.setTimeout(() => {
         setAlreadyReported(true)
       }, 0)
 
       return () => window.clearTimeout(timeoutId)
     }
-  }, [brandSlug, state.success])
+  }, [brandSlug, selectedReason, state.success])
 
-  const reasons = [
-    { value: 'not_mit', label: t('reasonNotMit') },
-    { value: 'incorrect_info', label: t('reasonIncorrectInfo') },
-    { value: 'broken_link', label: t('reasonBrokenLink') },
-    { value: 'inappropriate', label: t('reasonInappropriate') },
-    { value: 'ownership_dispute', label: t('reasonOwnershipDispute') },
+  const generalReasons = [
+    { value: 'not_mit', label: t('reasonNotMit'), Icon: Factory },
+    { value: 'incorrect_info', label: t('reasonIncorrectInfo'), Icon: Info },
+    { value: 'broken_link', label: t('reasonBrokenLink'), Icon: Link2Off },
+    { value: 'inappropriate', label: t('reasonInappropriate'), Icon: ShieldAlert },
   ]
+  const representativeReasons = [
+    {
+      value: 'ownership_dispute',
+      label: t('reasonOwnershipDispute'),
+      description: t('ownershipDisputeDescription'),
+      Icon: ShieldCheck,
+    },
+    {
+      value: 'removal_request',
+      label: t('reasonRemovalRequest'),
+      description: t('removalRequestDescription'),
+      Icon: BadgeX,
+    },
+  ]
+
+  function selectReason(value: string) {
+    setSelectedReason((current) => current === value ? null : value)
+  }
 
   return (
     <Dialog>
@@ -74,106 +113,200 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
         <Flag className="size-4" />
         {t('trigger')}
       </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t('title')}</DialogTitle>
-          <DialogDescription>{t('description')}</DialogDescription>
+      <DialogContent
+        showCloseButton={false}
+        className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-w-lg"
+      >
+        <DialogClose
+          render={
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-3 right-3 z-10 sm:top-4 sm:right-4"
+              aria-label={t('close')}
+            />
+          }
+        >
+          <X className="size-4" aria-hidden="true" />
+        </DialogClose>
+
+        <DialogHeader className="flex-row gap-3 p-4 pr-14 sm:p-6 sm:pr-16">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <TriangleAlert className="size-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0 space-y-1">
+            <DialogTitle>{t('title')}</DialogTitle>
+            <DialogDescription>{t('description')}</DialogDescription>
+          </div>
         </DialogHeader>
 
         {state.success ? (
-          <>
-            <p className="py-4 type-card-description">{t('success')}</p>
-            <DialogFooter>
+          <div className="flex min-h-0 flex-col">
+            <Typography variant="cardDescription" className="flex-1 px-4 py-6 sm:px-6">
+              {t('success')}
+            </Typography>
+            <DialogFooter className="mx-0 mb-0 rounded-b-xl bg-background px-4 py-4 sm:px-6">
               <DialogClose render={<Button variant="secondary" />}>
                 {t('close')}
               </DialogClose>
             </DialogFooter>
-          </>
+          </div>
         ) : (
-          <form action={action}>
+          <form action={action} className="flex min-h-0 flex-col overflow-hidden">
             <input type="hidden" name="brandId" value={brandId} />
-            <input type="hidden" name="reason" value={[...selectedReasons].join(',')} />
+            <input type="hidden" name="reason" value={selectedReason ?? ''} />
 
-            <div className="space-y-4 py-4">
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
               {alreadyReported && (
-                <p className="rounded-lg border border-border p-3 type-card-description">
+                <Typography
+                  variant="cardDescription"
+                  role="status"
+                  className="rounded-lg border border-border bg-muted/50 p-3"
+                >
                   {t('alreadyReported')}
-                </p>
+                </Typography>
               )}
 
-              <div className="space-y-2">
-                <Label className="type-body-emphasis">{t('description')}</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {reasons.map(({ value, label }) => (
-                    <Button
-                      key={value}
-                      type="button"
-                      variant={selectedReasons.has(value) ? 'primary' : 'secondary'}
-                      size="chip"
-                      aria-pressed={selectedReasons.has(value)}
-                      className="min-h-12 justify-start"
-                      onClick={() => {
-                        setSelectedReasons((prev) => {
-                          if (prev.has(value)) {
-                            const next = new Set(prev)
-                            next.delete(value)
-                            return next
-                          }
-                          if (value === 'ownership_dispute') {
-                            return new Set([value])
-                          }
-                          const next = new Set(prev)
-                          next.delete('ownership_dispute')
-                          next.add(value)
-                          return next
-                        })
-                      }}
-                    >
-                      {label}
-                    </Button>
-                  ))}
+              <div role="group" aria-labelledby={generalHeadingId} className="space-y-3">
+                <Typography id={generalHeadingId} variant="subsectionTitle">
+                  {t('reasonHeading')}
+                </Typography>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {generalReasons.map(({ value, label, Icon }) => {
+                    const selected = selectedReason === value
+
+                    return (
+                      <Button
+                        key={value}
+                        type="button"
+                        variant="secondary"
+                        size="large"
+                        aria-pressed={selected}
+                        className={cn(
+                          'h-auto min-h-14 w-full justify-start gap-3 px-4 py-3 text-left whitespace-normal',
+                          selected &&
+                            'border-primary bg-primary/10 text-primary hover:bg-primary/10',
+                        )}
+                        onClick={() => selectReason(value)}
+                      >
+                        <Icon className="size-5" aria-hidden="true" />
+                        <span className="min-w-0 flex-1">{label}</span>
+                        {selected ? (
+                          <CircleCheck className="size-4" aria-hidden="true" />
+                        ) : null}
+                      </Button>
+                    )
+                  })}
                 </div>
               </div>
 
-              {disputeRequiresSignIn ? (
-                <div className="space-y-3">
-                  <p className="type-card-description">{t('disputeSignInPrompt')}</p>
-                  <NextLink
-                    href={signInHref(pathname, locale)}
-                    className={buttonVariants({
-                      variant: 'secondary',
-                      className: 'min-h-12 focus-visible:ring-2 focus-visible:ring-brand',
-                    })}
-                  >
-                    {t('disputeSignInCta')}
-                  </NextLink>
+              <Separator />
+
+              <div role="group" aria-labelledby={representativeHeadingId} className="space-y-3">
+                <Typography id={representativeHeadingId} variant="subsectionTitle">
+                  {t('brandRepresentativeHeading')}
+                </Typography>
+                <div className="grid gap-2">
+                  {representativeReasons.map(({ value, label, description, Icon }) => {
+                    const selected = selectedReason === value
+
+                    return (
+                      <Button
+                        key={value}
+                        type="button"
+                        variant="secondary"
+                        size="large"
+                        aria-pressed={selected}
+                        className={cn(
+                          'h-auto min-h-16 w-full justify-start gap-3 px-4 py-3 text-left whitespace-normal',
+                          selected &&
+                            'border-primary bg-primary/10 text-primary hover:bg-primary/10',
+                        )}
+                        onClick={() => selectReason(value)}
+                      >
+                        <Icon
+                          className={cn(
+                            'size-5 text-muted-foreground',
+                            selected && 'text-primary',
+                          )}
+                          aria-hidden="true"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block type-body-emphasis">{label}</span>
+                          <span className="mt-0.5 block type-card-description">{description}</span>
+                        </span>
+                        {selected ? (
+                          <CircleCheck className="size-4" aria-hidden="true" />
+                        ) : (
+                          <ChevronRight
+                            className="size-4 text-muted-foreground"
+                            aria-hidden="true"
+                          />
+                        )}
+                      </Button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <Separator />
+
+              {reportRequiresSignIn ? (
+                <div className="rounded-lg border border-border bg-muted/50 p-4">
+                  <Typography variant="cardDescription">
+                    {selectedReason === 'removal_request'
+                      ? t('removalSignInPrompt')
+                      : t('disputeSignInPrompt')}
+                  </Typography>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Label htmlFor="report-notes" className="type-body-emphasis">
-                    {t('notesPlaceholder')}
-                  </Label>
-                  <Textarea id="report-notes" name="notes" maxLength={1000} rows={3} />
+                  <div className="flex items-center justify-between gap-4">
+                    <Label htmlFor="report-notes">{t('notesLabel')}</Label>
+                    <span
+                      className="type-caption tabular-nums text-muted-foreground"
+                      aria-live="polite"
+                      aria-atomic="true"
+                    >
+                      {notesLength} / 1000
+                    </span>
+                  </div>
+                  <Textarea
+                    id="report-notes"
+                    name="notes"
+                    maxLength={1000}
+                    rows={4}
+                    placeholder={t('notesPlaceholder')}
+                    className="min-h-24 resize-y"
+                    onChange={(event) => setNotesLength(event.currentTarget.value.length)}
+                  />
                 </div>
               )}
 
               {state.error && (
-                <p className="text-sm text-destructive">{state.error}</p>
+                <Typography variant="error" role="alert">{state.error}</Typography>
               )}
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="mx-0 mb-0 rounded-b-xl bg-background px-4 py-4 sm:px-6">
               <DialogClose render={<Button variant="secondary" />}>
-                {t('close')}
+                {t('cancel')}
               </DialogClose>
-              {!disputeRequiresSignIn && (
+              {reportRequiresSignIn ? (
+                <NextLink
+                  href={signInHref(pathname, locale)}
+                  className={buttonVariants({ variant: 'primary' })}
+                >
+                  {t('disputeSignInCta')}
+                </NextLink>
+              ) : (
                 <Button
                   type="submit"
                   disabled={
                     pending ||
                     alreadyReported ||
-                    selectedReasons.size === 0 ||
-                    (ownershipDisputeSelected && loading)
+                    !selectedReason ||
+                    (authenticatedReasonSelected && loading)
                   }
                 >
                   {pending ? t('submitting') : t('submit')}

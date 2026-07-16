@@ -229,9 +229,9 @@ Storage invariants (DEV-1059):
 
 ### BrandReport
 - id, brand_id, reason, notes, status, user_id (nullable), created_at
-- reason CHECK constraint: `not_mit | incorrect_info | broken_link | inappropriate | ownership_dispute`
-- user_id: nullable FK to auth.users (SET NULL on deletion) — populated only for `ownership_dispute` reports (sign-in required)
-- RLS: `owner_select_brand_reports` policy excludes `ownership_dispute` rows — brand owners must not see dispute reports about their own brand
+- reason CHECK constraint: `not_mit | incorrect_info | broken_link | inappropriate | ownership_dispute | removal_request`
+- user_id: nullable FK to auth.users (SET NULL on deletion) — populated for `ownership_dispute` and `removal_request` reports (sign-in required)
+- RLS: `owner_select_brand_reports` excludes ownership disputes and removal requests so brand owners cannot see sensitive brand-representative reports about their own brand
 
 ### OwnershipRevocation
 - id, brand_id, revoked_user_id, revoked_user_email, revoked_by (admin email TEXT), reason, revoked_at

@@ -24,8 +24,13 @@ const REPORT_REASONS = [
   'broken_link',
   'inappropriate',
   'ownership_dispute',
+  'removal_request',
 ] as const
 type SubmitReportReason = (typeof REPORT_REASONS)[number]
+const AUTHENTICATED_REPORT_REASONS: readonly SubmitReportReason[] = [
+  'ownership_dispute',
+  'removal_request',
+]
 type Translator = Awaited<ReturnType<typeof getTranslations<'brandDetail.claim.errors'>>>
 
 export type ReportState = { error?: string; success?: boolean }
@@ -174,18 +179,13 @@ export async function submitReportAction(_prevState: ReportState, formData: Form
     if (!brandId) return { error: t('missingBrandId') }
 
     const reasonRaw = formData.get('reason') as string | null
-    const reasons = reasonRaw?.split(',').filter(Boolean) ?? []
-    if (reasons.length === 0 || reasons.some((r) => !REPORT_REASONS.includes(r as SubmitReportReason))) {
+    if (!reasonRaw || !REPORT_REASONS.includes(reasonRaw as SubmitReportReason)) {
       return { error: t('invalidReason') }
     }
-    const reason = reasons.join(',')
+    const reason = reasonRaw as SubmitReportReason
 
     let userId: string | undefined
-    if (reasons.includes('ownership_dispute')) {
-      if (reasons.length > 1) {
-        return { error: t('invalidReason') }
-      }
-
+    if (AUTHENTICATED_REPORT_REASONS.includes(reason)) {
       const user = await requireClaimUser()
       if (!user) {
         const claimT = await getTranslations('brandDetail.claim.errors')
@@ -210,7 +210,7 @@ export async function submitReportAction(_prevState: ReportState, formData: Form
 
     await createReport({
       brandId,
-      reason: reason as SubmitReportReason,
+      reason,
       notes,
       ...(userId ? { userId } : {}),
     })

@@ -134,6 +134,15 @@ describe('submitReportAction', () => {
     expect(result.error).toBeTruthy()
   })
 
+  it('rejects multiple otherwise-valid report reasons', async () => {
+    const result = await submitReportAction({}, makeFormData({
+      brandId: 'b1',
+      reason: 'broken_link,inappropriate',
+    }))
+    expect(result.error).toBeTruthy()
+    expect(createReport).not.toHaveBeenCalled()
+  })
+
   it('returns error when notes exceed 1000 chars', async () => {
     const result = await submitReportAction({}, makeFormData({
       brandId: 'b1',
@@ -164,10 +173,10 @@ describe('submitReportAction', () => {
   it('returns throttle error on 4th report from same IP', async () => {
     // Use a unique IP to avoid interference from other tests above (127.0.0.1 used 1 call)
     const { headers } = await import('next/headers')
-    vi.mocked(headers).mockResolvedValue(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      new Map([['cf-connecting-ip', '10.9.9.9'], ['x-forwarded-for', '10.9.9.9']]) as any
-    )
+    vi.mocked(headers).mockResolvedValue(new Map([
+      ['cf-connecting-ip', '10.9.9.9'],
+      ['x-forwarded-for', '10.9.9.9'],
+    ]) as unknown as Awaited<ReturnType<typeof headers>>)
     const fd = makeFormData({ brandId: 'b1', reason: 'not_mit' })
     await submitReportAction({}, fd)
     await submitReportAction({}, fd)
@@ -178,15 +187,14 @@ describe('submitReportAction', () => {
   })
 })
 
-describe('submitReportAction — ownership_dispute', () => {
+describe('submitReportAction — authenticated report reasons', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     createReport.mockResolvedValue(undefined)
 
     const { headers } = await import('next/headers')
     vi.mocked(headers).mockResolvedValue(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      new Map([['cf-connecting-ip', '198.51.100.9']]) as any
+      new Map([['cf-connecting-ip', '198.51.100.9']]) as unknown as Awaited<ReturnType<typeof headers>>
     )
   })
 
@@ -227,6 +235,38 @@ describe('submitReportAction — ownership_dispute', () => {
     expect(createReport).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'user-uuid-9',
     }))
+  })
+
+  it('rejects removal_request from unauthenticated users', async () => {
+    const { requireClaimUser } = await import('@/lib/auth/claim-user')
+    vi.mocked(requireClaimUser).mockResolvedValueOnce(null)
+
+    const result = await submitReportAction({}, makeFormData({
+      brandId: 'b1',
+      reason: 'removal_request',
+    }))
+
+    expect(result.error).toBeTruthy()
+    expect(requireClaimUser).toHaveBeenCalledOnce()
+    expect(createReport).not.toHaveBeenCalled()
+  })
+
+  it('passes userId through for authenticated removal requests', async () => {
+    const { requireClaimUser } = await import('@/lib/auth/claim-user')
+    vi.mocked(requireClaimUser).mockResolvedValueOnce({ id: 'user-uuid-10' })
+
+    const result = await submitReportAction({}, makeFormData({
+      brandId: 'b1',
+      reason: 'removal_request',
+    }))
+
+    expect(result.success).toBe(true)
+    expect(createReport).toHaveBeenCalledWith({
+      brandId: 'b1',
+      reason: 'removal_request',
+      notes: null,
+      userId: 'user-uuid-10',
+    })
   })
 
   it('keeps other reasons anonymous (no auth requirement)', async () => {

@@ -40,6 +40,15 @@ const disputeReport: BrandReport = {
   createdAt: '2026-07-16T00:00:00Z',
 }
 
+const removalReport: BrandReport = {
+  ...disputeReport,
+  id: 'r2',
+  reason: 'removal_request',
+  notes: '品牌方不希望繼續公開此頁',
+  reporterEmail: 'owner@example.com',
+  brandHasOwner: undefined,
+}
+
 describe('ReportsTable', () => {
   it('renders the brand name', () => {
     render(<ReportsTable reports={mockReports} />)
@@ -78,6 +87,15 @@ describe('ReportsTable', () => {
 
     fireEvent.click(screen.getByText('Ownership dispute'))
 
+    expect(screen.queryByRole('button', { name: 'Revoke ownership' })).not.toBeInTheDocument()
+  })
+
+  it('shows reporter email without revoke controls for removal requests', () => {
+    render(<ReportsTable reports={[removalReport]} />)
+
+    fireEvent.click(screen.getByText('Removal request'))
+
+    expect(screen.getByText('owner@example.com')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Revoke ownership' })).not.toBeInTheDocument()
   })
 

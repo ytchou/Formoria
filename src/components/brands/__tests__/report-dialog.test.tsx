@@ -42,6 +42,7 @@ function renderWithIntl(ui: React.ReactElement) {
 
 describe('ReportDialog', () => {
   beforeEach(() => {
+    window.localStorage.clear()
     ;(useUser as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       user: { id: 'user-uuid-9' },
       loading: false,
@@ -53,15 +54,52 @@ describe('ReportDialog', () => {
     expect(screen.getByRole('button', { name: /檢舉/i })).toBeInTheDocument()
   })
 
-  it('shows the 5 report reason options when dialog is open', async () => {
+  it('shows general reports and both brand representative request options', async () => {
     const user = userEvent.setup()
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    expect(screen.getByRole('group', { name: '選擇檢舉原因' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /非台灣製造/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /資訊有誤/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /連結失效/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /不當內容/i })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '品牌方申訴' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /所有權爭議/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /要求移除品牌頁/i })).toBeInTheDocument()
+    expect(screen.getByText('品牌所有權相關問題')).toBeInTheDocument()
+    expect(screen.getByText('請求移除此品牌頁面')).toBeInTheDocument()
+  })
+
+  it('uses the wider dialog shell and counts supplemental notes', async () => {
+    const user = userEvent.setup()
+    renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
+    await user.click(screen.getByRole('button', { name: /檢舉/i }))
+
+    expect(screen.getByRole('dialog')).toHaveClass('sm:max-w-lg')
+
+    const notes = screen.getByRole('textbox', { name: /補充說明/i })
+    expect(notes).toHaveAttribute('maxlength', '1000')
+    expect(notes).toHaveAttribute('placeholder', '請提供更多資訊，以協助我們更快處理')
+    expect(screen.getByText('0 / 1000')).toBeInTheDocument()
+
+    await user.type(notes, 'abc')
+    expect(screen.getByText('3 / 1000')).toBeInTheDocument()
+  })
+
+  it('allows exactly one report reason at a time', async () => {
+    const user = userEvent.setup()
+    renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
+    await user.click(screen.getByRole('button', { name: /檢舉/i }))
+
+    const brokenLink = screen.getByRole('button', { name: /連結失效/i })
+    const inappropriate = screen.getByRole('button', { name: /不當內容/i })
+    await user.click(brokenLink)
+    await user.click(inappropriate)
+
+    expect(brokenLink).toHaveAttribute('aria-pressed', 'false')
+    expect(inappropriate).toHaveAttribute('aria-pressed', 'true')
+    expect(document.querySelector<HTMLInputElement>('input[name="reason"]')?.value)
+      .toBe('inappropriate')
   })
 
   it('shows a sign-in prompt instead of submit when ownership dispute is selected signed-out', async () => {
@@ -94,6 +132,22 @@ describe('ReportDialog', () => {
     expect(screen.getByRole('button', { name: /送出檢舉/i })).toBeInTheDocument()
   })
 
+  it('requires sign-in for removal requests', async () => {
+    ;(useUser as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      user: null,
+      loading: false,
+    })
+    const user = userEvent.setup()
+    renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
+
+    await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await user.click(screen.getByRole('button', { name: /要求移除品牌頁/i }))
+
+    expect(screen.getByText('請登入以提出品牌頁移除要求')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '登入' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /送出檢舉/i })).not.toBeInTheDocument()
+  })
+
   it('keeps other reasons anonymous — no sign-in prompt when signed out', async () => {
     ;(useUser as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       user: null,
@@ -109,10 +163,24 @@ describe('ReportDialog', () => {
     expect(screen.getByRole('button', { name: /送出檢舉/i })).toBeInTheDocument()
   })
 
+  it('tracks prior reports per reason instead of blocking every report for a brand', async () => {
+    window.localStorage.setItem('report:test-brand:broken_link', '1')
+    const user = userEvent.setup()
+    renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
+
+    await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await user.click(screen.getByRole('button', { name: /要求移除品牌頁/i }))
+    expect(screen.queryByText('你已回報過此品牌')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /連結失效/i }))
+    expect(await screen.findByText('你已回報過此品牌')).toBeInTheDocument()
+  })
+
   it('shows success confirmation when state.success is true', async () => {
     const { useActionState } = await import('react')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(useActionState).mockReturnValue([{ success: true }, vi.fn(), false] as any)
+    vi.mocked(useActionState).mockReturnValue(
+      [{ success: true }, vi.fn(), false] as ReturnType<typeof useActionState>
+    )
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
     // Open dialog
     await userEvent.setup().click(screen.getByRole('button', { name: /檢舉/i }))
@@ -121,8 +189,9 @@ describe('ReportDialog', () => {
 
   it('shows error banner when state.error is set', async () => {
     const { useActionState } = await import('react')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(useActionState).mockReturnValue([{ error: '發生錯誤' }, vi.fn(), false] as any)
+    vi.mocked(useActionState).mockReturnValue(
+      [{ error: '發生錯誤' }, vi.fn(), false] as ReturnType<typeof useActionState>
+    )
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
     await userEvent.setup().click(screen.getByRole('button', { name: /檢舉/i }))
     expect(screen.getByText('發生錯誤')).toBeInTheDocument()
