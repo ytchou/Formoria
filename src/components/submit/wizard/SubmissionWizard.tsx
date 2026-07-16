@@ -22,6 +22,7 @@ import { useWizardController } from '@/components/brand-wizard/use-wizard-contro
 import { WizardFooter } from '@/components/dashboard/wizard-footer'
 import { WizardSidebar } from '@/components/dashboard/wizard-sidebar'
 import { TurnstileWidget } from '@/components/submit/TurnstileWidget'
+import { MarketingEmailOptInField } from '@/components/forms/marketing-email-opt-in-field'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
@@ -54,6 +55,7 @@ type SubmissionWizardProps = {
 const submissionStepFormSchema = submissionWizardSchema.and(
   z.object({
     pdpaConsent: z.boolean(),
+    marketingEmailOptIn: z.boolean(),
     turnstileToken: z.string(),
     honeypot: z.string(),
   }),
@@ -62,6 +64,7 @@ const submissionStepFormSchema = submissionWizardSchema.and(
 const submissionFormSchema = submissionWizardRequiredSchema.and(
   z.object({
     pdpaConsent: z.literal(true),
+    marketingEmailOptIn: z.boolean().default(false),
     turnstileToken: z.string().min(1),
     honeypot: z.string(),
   }),
@@ -93,6 +96,7 @@ const FIELD_STEPS: Partial<Record<keyof SubmissionWizardValues, number>> = {
   otherUrls: 2,
   retailLocations: 3,
   pdpaConsent: 3,
+  marketingEmailOptIn: 3,
   turnstileToken: 3,
   honeypot: 3,
 }
@@ -137,6 +141,7 @@ export default function SubmissionWizard({
       otherUrls: [],
       retailLocations: [],
       pdpaConsent: false,
+      marketingEmailOptIn: false,
       turnstileToken: '',
       honeypot: '',
     },
@@ -308,6 +313,19 @@ export default function SubmissionWizard({
                           </p>
                         ) : null}
                       </div>
+                    )}
+                  />
+
+                  <Controller
+                    name="marketingEmailOptIn"
+                    control={form.control}
+                    render={({ field }) => (
+                      <MarketingEmailOptInField
+                        id="submission-marketing-email"
+                        variant="newsletter-and-lifecycle"
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
                     )}
                   />
 

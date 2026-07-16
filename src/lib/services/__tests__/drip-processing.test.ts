@@ -5,7 +5,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 
 vi.mock('@/lib/email/send', () => ({
-  sendEmail: vi.fn().mockResolvedValue(undefined),
+  sendEmail: vi.fn().mockResolvedValue({ success: true }),
 }))
 
 // Mock the template builders
@@ -41,6 +41,67 @@ vi.mock('@/lib/email/templates', () => ({
 }))
 
 import { DRIP_TYPES, evaluateDrips } from '@/lib/services/drip-processing'
+import { sendEmail } from '@/lib/email/send'
+
+function eligibleOwner() {
+  return {
+    user_id: 'u1',
+    claimed_at: '2026-01-01T00:00:00Z',
+    brands: [{
+      name: 'Owner Brand',
+      slug: 'owner-brand',
+      brand_images: [],
+      product_tags: [],
+      other_urls: [],
+      retail_locations: [],
+    }],
+    owner_email_preferences: [{ unsubscribe_token: 'unsubscribe-token' }],
+    email: [{ email: 'owner@example.com' }],
+  }
+}
+
+function mockDripClient(activeUserIds: string[]) {
+  const deleteSecondEq = vi.fn().mockResolvedValue({ data: null, error: null })
+  const deleteFirstEq = vi.fn().mockReturnValue({ eq: deleteSecondEq })
+  const deleteRows = vi.fn().mockReturnValue({ eq: deleteFirstEq })
+  const insert = vi.fn().mockResolvedValue({ error: null })
+
+  return {
+    deleteRows,
+    from: vi.fn((table: string) => {
+      if (table === 'brand_owners') {
+        return {
+          select: vi.fn().mockReturnValue({
+            lt: vi.fn().mockResolvedValue({
+              data: [eligibleOwner()],
+              error: null,
+            }),
+          }),
+        }
+      }
+      if (table === 'owner_email_preferences') {
+        return {
+          select: vi.fn().mockReturnValue({
+            not: vi.fn().mockReturnValue({
+              is: vi.fn().mockResolvedValue({
+                data: activeUserIds.map((user_id) => ({ user_id })),
+                error: null,
+              }),
+            }),
+          }),
+        }
+      }
+      if (table === 'profiles') {
+        return {
+          select: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
+        }
+      }
+      return { insert, delete: deleteRows }
+    }),
+  }
+}
 
 describe('DRIP_TYPES', () => {
   it('exports 4 drip types', () => {
@@ -82,5 +143,35 @@ describe('evaluateDrips', () => {
     expect(result).toHaveProperty('skipped')
     expect(result).toHaveProperty('errors')
     expect(result.sent).toBe(0)
+  })
+
+  it('skips owners without explicit lifecycle consent', async () => {
+    const { createAdminClient } = await import('@/lib/supabase/server')
+    const client = mockDripClient([])
+    vi.mocked(createAdminClient).mockReturnValue(client)
+
+    await expect(evaluateDrips('welcome')).resolves.toEqual({
+      sent: 0,
+      skipped: 1,
+      errors: 0,
+    })
+    expect(sendEmail).not.toHaveBeenCalled()
+  })
+
+  it('removes the deduplication record when delivery fails', async () => {
+    const { createAdminClient } = await import('@/lib/supabase/server')
+    const client = mockDripClient(['u1'])
+    vi.mocked(createAdminClient).mockReturnValue(client)
+    vi.mocked(sendEmail).mockResolvedValueOnce({
+      success: false,
+      error: 'provider unavailable',
+    })
+
+    await expect(evaluateDrips('welcome')).resolves.toEqual({
+      sent: 0,
+      skipped: 0,
+      errors: 1,
+    })
+    expect(client.deleteRows).toHaveBeenCalledOnce()
   })
 })

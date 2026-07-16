@@ -50,7 +50,7 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
           onClick={() => handleClick('')}
           className={
             isBrandsPage && !activeCategory
-              ? 'type-body-emphasis border-b-2 border-foreground whitespace-nowrap px-3 py-2'
+              ? 'type-body-emphasis whitespace-nowrap px-3 py-2'
               : 'type-card-description hover:text-foreground whitespace-nowrap px-3 py-2 transition-colors'
           }
         >
@@ -67,7 +67,7 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
               onClick={() => handleClick(cat.slug)}
               className={
                 isActive
-                  ? 'type-body-emphasis border-b-2 border-foreground whitespace-nowrap px-3 py-2'
+                  ? 'type-body-emphasis whitespace-nowrap px-3 py-2'
                   : 'type-card-description hover:text-foreground whitespace-nowrap px-3 py-2 transition-colors'
               }
             >

@@ -133,13 +133,27 @@ function baseSubmissionSchema(t: Translator) {
     .merge(getBotDetectionSchema(t))
 }
 
-export function createRecommendationSubmissionSchema(t: Translator = zhT) {
+function recommendationSubmissionObject(t: Translator) {
   return baseSubmissionSchema(t).merge(
     z.object({
       sourceAttribution: sourceAttributionEnum,
       guestEmail: optionalEmail(t('validation.emailInvalid')),
+      marketingEmailOptIn: z.boolean().default(false),
     }),
   )
+}
+
+export function createRecommendationSubmissionSchema(t: Translator = zhT) {
+  return recommendationSubmissionObject(t)
+    .superRefine((data, context) => {
+      if (data.marketingEmailOptIn && !data.guestEmail?.trim()) {
+        context.addIssue({
+          code: 'custom',
+          path: ['guestEmail'],
+          message: t('validation.emailRequiredForNewsletter'),
+        })
+      }
+    })
 }
 
 export function createOwnerSubmissionSchema(t: Translator = zhT) {
@@ -187,7 +201,7 @@ export function createSubmissionSchema(isOwner: boolean, t: Translator = zhT) {
     : createRecommendationSubmissionSchema(t)
 }
 
-export const fullSubmissionSchema = createRecommendationSubmissionSchema(zhT)
+export const fullSubmissionSchema = recommendationSubmissionObject(zhT)
 
 export type SubmissionFormData = {
   name: string
@@ -195,6 +209,7 @@ export type SubmissionFormData = {
   description?: string
   heroImageUrl?: string | null
   guestEmail?: string
+  marketingEmailOptIn?: boolean
   sourceAttribution?: z.infer<typeof sourceAttributionEnum>
   city?: CitySlug
   mitSmileCert?: string

@@ -141,12 +141,17 @@ export async function evaluateDrips(
   const preferencesQuery = supabase
     .from<{ user_id: string }>('owner_email_preferences')
     .select('user_id')
-  const { data: unsubscribedRows, error: preferencesError } =
-    preferencesQuery.not
-      ? await preferencesQuery.not('unsubscribed_at', 'is', null)
+  const optedInQuery = preferencesQuery.not?.(
+    'lifecycle_opted_in_at',
+    'is',
+    null,
+  )
+  const { data: activePreferenceRows, error: preferencesError } =
+    optedInQuery?.is
+      ? await optedInQuery.is('unsubscribed_at', null)
       : {
           data: null,
-          error: { message: 'Supabase query builder is missing not()' },
+          error: { message: 'Supabase query builder is missing consent filters' },
         }
 
   if (preferencesError) {
@@ -157,24 +162,18 @@ export async function evaluateDrips(
     return { sent: 0, skipped: 0, errors: 1 }
   }
 
-  const unsubscribedUserIds = new Set(
-    (unsubscribedRows ?? []).map((row: { user_id: string }) => row.user_id),
+  const optedInUserIds = new Set(
+    (activePreferenceRows ?? []).map((row: { user_id: string }) => row.user_id),
   )
   const owners = ownerRows.map(normalizeOwnerRow)
+  const optedInOwners = owners.filter((owner) =>
+    optedInUserIds.has(owner.user_id),
+  )
   const ownerLocales = await queryOwnerLocales(
     supabase,
-    owners.map((owner) => owner.user_id),
+    optedInOwners.map((owner) => owner.user_id),
   )
-  let sent = 0
-  let skipped = 0
-  let errors = 0
-
-  for (const owner of owners) {
-    if (unsubscribedUserIds.has(owner.user_id)) {
-      skipped++
-      continue
-    }
-
+  const results = await Promise.all(optedInOwners.map(async (owner) => {
     try {
       // [Important 3] Optimistic lock: insert the email_sends record BEFORE sending.
       // The UNIQUE(user_id, template_key) constraint provides atomic dedup —
@@ -187,8 +186,7 @@ export async function evaluateDrips(
 
       if (insertResult?.error) {
         // Duplicate key = already sent (concurrent run or prior run)
-        skipped++
-        continue
+        return 'skipped' as const
       }
 
       const message = await drip.builder({
@@ -200,26 +198,24 @@ export async function evaluateDrips(
         ...profileCompleteness(owner),
       })
 
-      await sendEmail(message)
-      sent++
+      const delivery = await sendEmail(message)
+      if (!delivery.success) {
+        throw new Error(delivery.error ?? 'Email delivery failed')
+      }
+      return 'sent' as const
     } catch (err) {
       // Send failed after we already inserted the record — roll back so
       // the next cron run can retry this owner.
       try {
         const deleteQuery = supabase
           .from<Record<string, unknown>>('email_sends')
-          .select('id')
-        if (deleteQuery.eq) {
+          .delete?.()
+        if (deleteQuery?.eq) {
           const filtered = deleteQuery.eq('user_id', owner.user_id)
           if (filtered.eq) {
             await filtered.eq('template_key', drip.key)
           }
         }
-        // Note: ideally we'd call .delete() here, but the lightweight type
-        // system doesn't expose it on the query builder chain. The record
-        // will be retried on next run if the unique constraint check above
-        // finds it and the send subsequently succeeds. For production,
-        // consider adding a 'status' column to email_sends.
       } catch {
         // Best-effort cleanup
       }
@@ -228,11 +224,17 @@ export async function evaluateDrips(
         userId: owner.user_id,
         error: err,
       })
-      errors++
+      return 'error' as const
     }
-  }
+  }))
 
-  return { sent, skipped, errors }
+  return {
+    sent: results.filter((result) => result === 'sent').length,
+    skipped:
+      owners.length - optedInOwners.length +
+      results.filter((result) => result === 'skipped').length,
+    errors: results.filter((result) => result === 'error').length,
+  }
 }
 
 async function queryOwnerLocales(

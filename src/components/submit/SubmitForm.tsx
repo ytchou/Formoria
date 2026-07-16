@@ -24,6 +24,7 @@ import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
 import type { SourceAttribution } from '@/lib/types/submission'
 import { FormField } from '@/components/forms/form-field'
 import { StandardForm, StandardFormStack } from '@/components/forms/form-layout'
+import { MarketingEmailOptInField } from '@/components/forms/marketing-email-opt-in-field'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -81,6 +82,7 @@ export default function SubmitForm({
       website: '',
       description: '',
       guestEmail: '',
+      marketingEmailOptIn: false,
       sourceAttribution: undefined,
       pdpaConsent: false,
       turnstileToken: '',
@@ -315,36 +317,6 @@ export default function SubmitForm({
           </FormField>
 
           <FormField
-            id="submit-guest-email"
-            label={tForm('guestEmailLabel')}
-            description={tForm('guestEmailHint')}
-            error={errors.guestEmail?.message}
-          >
-            <Input
-              id="submit-guest-email"
-              type="email"
-              autoComplete="email"
-              spellCheck={false}
-              placeholder={tForm('guestEmailPlaceholder')}
-              {...register('guestEmail')}
-            />
-          </FormField>
-
-          <FormField
-            id="submit-description"
-            label={tForm('descriptionLabel')}
-            description={tForm('descriptionHint')}
-            error={errors.description?.message}
-          >
-            <Textarea
-              id="submit-description"
-              rows={4}
-              placeholder={tForm('descriptionPlaceholder')}
-              {...register('description')}
-            />
-          </FormField>
-
-          <FormField
             id="submit-source"
             label={tForm('sourceLabel')}
             description={tForm('sourceHint')}
@@ -377,6 +349,36 @@ export default function SubmitForm({
                   ))}
                 </NativeSelect>
               )}
+            />
+          </FormField>
+
+          <FormField
+            id="submit-guest-email"
+            label={tForm('guestEmailLabel')}
+            description={tForm('guestEmailHint')}
+            error={errors.guestEmail?.message}
+          >
+            <Input
+              id="submit-guest-email"
+              type="email"
+              autoComplete="email"
+              spellCheck={false}
+              placeholder={tForm('guestEmailPlaceholder')}
+              {...register('guestEmail')}
+            />
+          </FormField>
+
+          <FormField
+            id="submit-description"
+            label={tForm('descriptionLabel')}
+            description={tForm('descriptionHint')}
+            error={errors.description?.message}
+          >
+            <Textarea
+              id="submit-description"
+              rows={4}
+              placeholder={tForm('descriptionPlaceholder')}
+              {...register('description')}
             />
           </FormField>
 
@@ -417,6 +419,19 @@ export default function SubmitForm({
               )}
             />
           </div>
+
+          <Controller
+            name="marketingEmailOptIn"
+            control={control}
+            render={({ field }) => (
+              <MarketingEmailOptInField
+                id="submit-marketing-email"
+                variant="newsletter-only"
+                checked={field.value ?? false}
+                onCheckedChange={field.onChange}
+              />
+            )}
+          />
 
           <input
             type="text"

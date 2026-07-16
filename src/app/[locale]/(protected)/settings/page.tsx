@@ -1,6 +1,8 @@
 import { setRequestLocale, getTranslations } from "next-intl/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/services/profiles";
+import { getNewsletterPreferenceByEmail } from "@/lib/services/newsletter";
+import { getLifecycleEmailPreference } from "@/lib/services/email-lifecycle";
 import { SettingsForm } from "@/components/settings/settings-form";
 
 type Props = {
@@ -28,7 +30,18 @@ export default async function SettingsPage({ params, searchParams }: Props) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const profile = user ? await getProfile(user.id) : null;
+  const serviceSupabase = createServiceClient();
+  const [profile, newsletterPreference, lifecyclePreference] = user
+    ? await Promise.all([
+        getProfile(user.id),
+        getNewsletterPreferenceByEmail(serviceSupabase, user.email ?? ""),
+        getLifecycleEmailPreference(serviceSupabase, user.id),
+      ])
+    : [
+        null,
+        { status: "off" as const, subscriber: null },
+        { isOptedIn: false },
+      ];
 
   return (
     <div className="page-gutter mx-auto max-w-2xl py-12">
@@ -48,6 +61,8 @@ export default async function SettingsPage({ params, searchParams }: Props) {
           profile={profile}
           email={user?.email ?? ""}
           currentLocale={locale}
+          newsletterStatus={newsletterPreference.status}
+          lifecycleOptedIn={lifecyclePreference.isOptedIn}
         />
       </div>
     </div>

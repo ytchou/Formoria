@@ -6,6 +6,7 @@ import type { SubmissionWizardFormValues } from '@/lib/schemas/submission-wizard
 
 export type SubmissionWizardValues = SubmissionWizardFormValues & {
   pdpaConsent: boolean
+  marketingEmailOptIn: boolean
   turnstileToken: string
   honeypot: string
 }

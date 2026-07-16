@@ -5,6 +5,8 @@ import {
   recordEmailSend,
   hasSent,
   isUnsubscribed,
+  isLifecycleOptedIn,
+  setLifecycleEmailPreference,
 } from '../email-lifecycle'
 
 const mockSupabase = {
@@ -30,14 +32,23 @@ describe('email-lifecycle service', () => {
   })
 
   describe('createEmailPreferences', () => {
-    it('inserts a new preferences row for the user', async () => {
-      const chain = mockChain({ user_id: 'user-1', unsubscribe_token: 'token-abc' })
-      mockSupabase.from.mockReturnValue(chain)
+    it('upserts a preferences row without resetting existing consent', async () => {
+      const single = vi.fn().mockResolvedValue({
+        data: { user_id: 'user-1', unsubscribe_token: 'token-abc' },
+        error: null,
+      })
+      const upsert = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({ single }),
+      })
+      mockSupabase.from.mockReturnValue({ upsert })
 
       const result = await createEmailPreferences(mockSupabase as unknown, 'user-1')
 
       expect(mockSupabase.from).toHaveBeenCalledWith('owner_email_preferences')
-      expect(chain.insert).toHaveBeenCalledWith({ user_id: 'user-1' })
+      expect(upsert).toHaveBeenCalledWith(
+        { user_id: 'user-1' },
+        { onConflict: 'user_id' },
+      )
       expect(result.data).toEqual({ user_id: 'user-1', unsubscribe_token: 'token-abc' })
     })
   })
@@ -78,6 +89,90 @@ describe('email-lifecycle service', () => {
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('not found')
+    })
+
+    it('is idempotent when the token is already unsubscribed', async () => {
+      const chain = {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: {
+                user_id: 'user-1',
+                unsubscribed_at: '2026-07-15T00:00:00Z',
+              },
+              error: null,
+            }),
+          }),
+        }),
+      }
+      mockSupabase.from.mockReturnValue(chain)
+
+      await expect(
+        unsubscribeByToken(mockSupabase as unknown, 'token-abc'),
+      ).resolves.toEqual({ success: true })
+    })
+  })
+
+  describe('explicit lifecycle consent', () => {
+    it('records source, version, time, and a fresh unsubscribe token', async () => {
+      const single = vi.fn().mockResolvedValue({ data: { user_id: 'user-1' }, error: null })
+      const upsert = vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single }) })
+      mockSupabase.from.mockReturnValue({ upsert })
+
+      await setLifecycleEmailPreference(mockSupabase as unknown, {
+        userId: 'user-1',
+        enabled: true,
+        consentSource: 'account_signup',
+        consentVersion: '2026-07-16',
+      })
+
+      expect(upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: 'user-1',
+          lifecycle_opted_in_at: expect.any(String),
+          consent_source: 'account_signup',
+          consent_version: '2026-07-16',
+          unsubscribed_at: null,
+          unsubscribe_token: expect.any(String),
+        }),
+        { onConflict: 'user_id' },
+      )
+    })
+
+    it('treats a missing preference row as opted out', async () => {
+      const chain = {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          }),
+        }),
+      }
+      mockSupabase.from.mockReturnValue(chain)
+
+      await expect(
+        isLifecycleOptedIn(mockSupabase as unknown, 'user-1'),
+      ).resolves.toBe(false)
+    })
+
+    it('requires an opt-in timestamp and no unsubscribe timestamp', async () => {
+      const chain = {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                lifecycle_opted_in_at: '2026-07-16T00:00:00Z',
+                unsubscribed_at: null,
+              },
+              error: null,
+            }),
+          }),
+        }),
+      }
+      mockSupabase.from.mockReturnValue(chain)
+
+      await expect(
+        isLifecycleOptedIn(mockSupabase as unknown, 'user-1'),
+      ).resolves.toBe(true)
     })
   })
 

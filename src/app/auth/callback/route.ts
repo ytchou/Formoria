@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { isRelativeUrl } from "@/lib/auth/validations";
 import { verifyClaimToken } from "@/lib/auth/claim-token";
 import { getRequestOrigin } from "@/lib/auth/site-url";
 import { completeBrandClaim, getBrandById } from "@/lib/services/brands";
 import { getProfileAdmin } from "@/lib/services/profiles";
+import { enrollInMarketingEmails } from "@/lib/services/marketing-email-consent";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -18,8 +19,16 @@ export async function GET(request: NextRequest) {
   const next = cookieStore.get("post_auth_next")?.value ?? searchParams.get("next");
   const claimToken =
     cookieStore.get("post_auth_claim")?.value ?? searchParams.get("claim");
+  const marketingEmailOptIn =
+    cookieStore.get("post_auth_marketing_opt_in")?.value === "1";
+  const marketingLocale =
+    cookieStore.get("post_auth_marketing_locale")?.value === "en"
+      ? "en"
+      : "zh-TW";
   cookieStore.delete("post_auth_next");
   cookieStore.delete("post_auth_claim");
+  cookieStore.delete("post_auth_marketing_opt_in");
+  cookieStore.delete("post_auth_marketing_locale");
 
   if (!code && !claimToken) {
     return NextResponse.redirect(
@@ -57,6 +66,17 @@ export async function GET(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     userId = user?.id;
     userEmail = user?.email;
+  }
+
+  if (marketingEmailOptIn && userId && userEmail) {
+    await enrollInMarketingEmails(createServiceClient(), {
+      email: userEmail,
+      userId,
+      locale: marketingLocale,
+      source: "google_signup",
+      newsletter: true,
+      lifecycle: true,
+    });
   }
 
   // Process claim token if present

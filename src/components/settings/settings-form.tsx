@@ -17,16 +17,27 @@ type Props = {
   profile: Profile | null;
   email: string;
   currentLocale: string;
+  newsletterStatus: "off" | "pending" | "on";
+  lifecycleOptedIn: boolean;
 };
 
-export function SettingsForm({ profile, email, currentLocale }: Props) {
+export function SettingsForm({
+  profile,
+  email,
+  currentLocale,
+  newsletterStatus,
+  lifecycleOptedIn,
+}: Props) {
   const t = useTranslations("settings");
   const [state, action, pending] = useActionState<SettingsState, FormData>(
     updateSettings,
     {}
   );
-  const [emailNotifications, setEmailNotifications] = useState(
-    profile?.emailNotifications ?? true
+  const [newsletterMarketing, setNewsletterMarketing] = useState(
+    newsletterStatus !== "off"
+  );
+  const [lifecycleMarketing, setLifecycleMarketing] = useState(
+    lifecycleOptedIn
   );
 
   return (
@@ -91,26 +102,71 @@ export function SettingsForm({ profile, email, currentLocale }: Props) {
         )}
       </div>
 
-      {/* Email Notifications */}
-      <div className="flex items-start gap-3">
-        <input type="hidden" name="emailNotifications" value="false" />
-        <Checkbox
-          id="emailNotifications"
-          name="emailNotifications"
-          value="true"
-          checked={emailNotifications}
-          onCheckedChange={(checked) => setEmailNotifications(checked)}
-          className="mt-0.5"
-        />
+      <section className="space-y-4 rounded-lg border border-border p-4">
         <div>
-          <Label htmlFor="emailNotifications">
-            {t("emailNotificationsLabel")}
+          <h2 className="type-subsection-title">{t("marketingHeading")}</h2>
+          <p className="mt-1 type-form-hint">{t("marketingDescription")}</p>
+        </div>
+
+        <div className="space-y-1">
+          <input type="hidden" name="newsletterMarketing" value="false" />
+          <Label
+            htmlFor="newsletterMarketing"
+            className="flex min-h-12 cursor-pointer items-start gap-3"
+          >
+            <Checkbox
+              id="newsletterMarketing"
+              name="newsletterMarketing"
+              value="true"
+              checked={newsletterMarketing}
+              onCheckedChange={setNewsletterMarketing}
+              className="mt-0.5 size-[18px] shrink-0"
+            />
+            <span className="type-body font-normal">
+              {t("newsletterMarketingLabel")}
+            </span>
           </Label>
-          <p className="type-caption">
-            {t("emailNotificationsDescription")}
+          <p className="pl-[30px] type-form-hint">
+            {newsletterStatus === "pending"
+              ? t("newsletterPending")
+              : t("newsletterMarketingDescription")}
           </p>
         </div>
-      </div>
+
+        <div className="space-y-1">
+          <input type="hidden" name="lifecycleMarketing" value="false" />
+          <Label
+            htmlFor="lifecycleMarketing"
+            className="flex min-h-12 cursor-pointer items-start gap-3"
+          >
+            <Checkbox
+              id="lifecycleMarketing"
+              name="lifecycleMarketing"
+              value="true"
+              checked={lifecycleMarketing}
+              onCheckedChange={setLifecycleMarketing}
+              className="mt-0.5 size-[18px] shrink-0"
+            />
+            <span className="type-body font-normal">
+              {t("lifecycleMarketingLabel")}
+            </span>
+          </Label>
+          <p className="pl-[30px] type-form-hint">
+            {t("lifecycleMarketingDescription")}
+          </p>
+        </div>
+
+        <Button
+          type="submit"
+          name="_intent"
+          value="unsubscribeAll"
+          variant="secondary"
+          size="large"
+          disabled={pending}
+        >
+          {t("unsubscribeAllMarketing")}
+        </Button>
+      </section>
 
       <Button type="submit" disabled={pending}>
         {pending ? t("submitting") : t("submit")}

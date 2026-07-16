@@ -166,6 +166,15 @@ it('does not render the removed 備註 field or the MIT email line', async () =>
   expect(screen.queryByText(/來信.*申請驗證/)).not.toBeInTheDocument()
 })
 
+it('renders account marketing consent unchecked at the end of the claim form', async () => {
+  renderCta()
+  fireEvent.click(await screen.findByText('認領這個品牌'))
+
+  expect(screen.getByRole('checkbox', {
+    name: /品牌主的經營提醒與功能建議/,
+  })).not.toBeChecked()
+})
+
 it('submits the server-returned claim-proof image key after upload succeeds', async () => {
   renderCta()
   fireEvent.click(await screen.findByText('認領這個品牌'))

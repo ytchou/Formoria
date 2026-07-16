@@ -9,6 +9,7 @@ import {
 } from '@/app/[locale]/brands/[slug]/actions'
 import NextLink from 'next/link'
 import { Button, buttonVariants } from '@/components/ui/button'
+import { MarketingEmailOptInField } from '@/components/forms/marketing-email-opt-in-field'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -156,6 +157,7 @@ export function ClaimBrandCta({ brandId }: ClaimBrandCtaProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [proofs, setProofs] = useState<Record<ClaimProofType, ProofState>>(INITIAL_PROOFS)
   const [mitSmileCert, setMitSmileCert] = useState('')
+  const [marketingEmailOptIn, setMarketingEmailOptIn] = useState(false)
   const [feedback, setFeedback] = useState<FeedbackState>({ type: 'idle' })
   const [pendingClaim, setPendingClaim] = useState<{
     key: string | null
@@ -246,6 +248,7 @@ export function ClaimBrandCta({ brandId }: ClaimBrandCtaProps) {
             proofs: claimProofs,
             mitSmileCert: mitSmileCert.trim() || undefined,
             locale,
+            marketingEmailOptIn,
           })
 
           if ('error' in result) {
@@ -494,6 +497,14 @@ export function ClaimBrandCta({ brandId }: ClaimBrandCtaProps) {
             />
             <p className="type-caption">{t('mitCertHint')}</p>
           </div>
+
+          <MarketingEmailOptInField
+            id="claim-marketing-email"
+            variant="newsletter-and-lifecycle"
+            checked={marketingEmailOptIn}
+            onCheckedChange={setMarketingEmailOptIn}
+            disabled={isPending}
+          />
 
           {feedback.type === 'error' && (
             <div aria-live="polite" className="space-y-2 rounded-lg bg-destructive/10 px-4 py-3 type-body text-destructive">

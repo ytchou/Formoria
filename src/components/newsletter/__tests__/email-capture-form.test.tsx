@@ -6,7 +6,10 @@ import { EmailCaptureForm } from '../email-capture-form'
 
 // Mock next-intl
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => key,
+  useTranslations: () => Object.assign(
+    (key: string) => key,
+    { rich: (key: string) => key },
+  ),
   useLocale: () => 'zh-TW',
 }))
 
@@ -32,6 +35,12 @@ describe('EmailCaptureForm', () => {
   it('renders interest label text', () => {
     render(<EmailCaptureForm />)
     expect(screen.getByText(/interestsLabel/i)).toBeInTheDocument()
+  })
+
+  it('explains consent without a redundant checkbox', () => {
+    render(<EmailCaptureForm />)
+    expect(screen.getByText('consentNotice')).toBeInTheDocument()
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
   })
 
   it('renders honeypot field that is visually hidden', () => {

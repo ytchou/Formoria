@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const createClaimRequest = vi.hoisted(() => vi.fn())
 const createReport = vi.hoisted(() => vi.fn())
+const enrollInMarketingEmails = vi.hoisted(() => vi.fn())
+const serviceClient = vi.hoisted(() => ({}))
 
 vi.mock('next/headers', () => ({
   headers: vi.fn().mockResolvedValue(
@@ -32,7 +34,15 @@ vi.mock('@/lib/services/brands', () => ({
 }))
 
 vi.mock('@/lib/auth/claim-user', () => ({
-  requireClaimUser: vi.fn(async () => ({ id: 'u1' })),
+  requireClaimUser: vi.fn(async () => ({ id: 'u1', email: null })),
+}))
+
+vi.mock('@/lib/services/marketing-email-consent', () => ({
+  enrollInMarketingEmails,
+}))
+
+vi.mock('@/lib/supabase/server', () => ({
+  createServiceClient: vi.fn(() => serviceClient),
 }))
 
 function makeFormData(data: Record<string, string>) {
@@ -115,6 +125,31 @@ describe('submitClaimAction', () => {
         proofEvidence: [{ type: 'domain_email', url: 'owner@brand.example' }],
       })
     )
+  })
+
+  it('uses the authenticated account email for explicit marketing consent', async () => {
+    const { requireClaimUser } = await import('@/lib/auth/claim-user')
+    vi.mocked(requireClaimUser).mockResolvedValueOnce({
+      id: 'u1',
+      email: 'account@example.com',
+    })
+
+    const res = await submitClaimAction({
+      brandId: 'b1',
+      proofs: [{ type: 'domain_email', url: 'proof@brand.example' }],
+      locale: 'en',
+      marketingEmailOptIn: true,
+    })
+
+    expect(res).toEqual({ ok: true })
+    expect(enrollInMarketingEmails).toHaveBeenCalledWith(serviceClient, {
+      email: 'account@example.com',
+      userId: 'u1',
+      locale: 'en',
+      source: 'brand_claim',
+      newsletter: true,
+      lifecycle: true,
+    })
   })
 })
 
@@ -224,7 +259,7 @@ describe('submitReportAction — authenticated report reasons', () => {
 
   it('passes userId through for authenticated sole-reason disputes', async () => {
     const { requireClaimUser } = await import('@/lib/auth/claim-user')
-    vi.mocked(requireClaimUser).mockResolvedValueOnce({ id: 'user-uuid-9' })
+    vi.mocked(requireClaimUser).mockResolvedValueOnce({ id: 'user-uuid-9', email: null })
 
     const result = await submitReportAction({}, makeFormData({
       brandId: 'b1',
@@ -253,7 +288,7 @@ describe('submitReportAction — authenticated report reasons', () => {
 
   it('passes userId through for authenticated removal requests', async () => {
     const { requireClaimUser } = await import('@/lib/auth/claim-user')
-    vi.mocked(requireClaimUser).mockResolvedValueOnce({ id: 'user-uuid-10' })
+    vi.mocked(requireClaimUser).mockResolvedValueOnce({ id: 'user-uuid-10', email: null })
 
     const result = await submitReportAction({}, makeFormData({
       brandId: 'b1',

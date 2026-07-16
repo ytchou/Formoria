@@ -16,6 +16,7 @@ import { listUnsubscribeHeaders } from '@emails/utils'
 type NewsletterConfirmEmailProps = {
   to: string
   confirmToken: string
+  unsubscribeToken: string
   interests: string[]
   locale?: string
 }
@@ -69,6 +70,7 @@ function unsubscribeUrl(token: string) {
 
 export function NewsletterConfirmEmail({
   confirmToken,
+  unsubscribeToken,
   interests,
   locale = 'zh-TW',
 }: NewsletterConfirmEmailProps) {
@@ -76,7 +78,7 @@ export function NewsletterConfirmEmail({
   const copy = COPY[lang]
   const labels = INTEREST_LABELS[lang]
   const confirmationUrl = confirmUrl(confirmToken)
-  const unsubscribeLink = unsubscribeUrl(confirmToken)
+  const unsubscribeLink = unsubscribeUrl(unsubscribeToken)
   const selectedInterests = interests.map((interest) => labels[interest] ?? interest)
 
   return (
@@ -124,7 +126,7 @@ export async function buildNewsletterConfirmEmail(
     subject: COPY[lang].subject,
     html,
     replyTo: 'ops@formoria.com',
-    headers: listUnsubscribeHeaders(unsubscribeUrl(params.confirmToken)),
+    headers: listUnsubscribeHeaders(unsubscribeUrl(params.unsubscribeToken)),
   }
 }
 

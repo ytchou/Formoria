@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   createOwnerSubmissionSchema,
+  createRecommendationSubmissionSchema,
   fullSubmissionSchema,
 } from '../submission'
 
@@ -84,6 +85,34 @@ describe('simplified submission schema', () => {
     }
     const result = fullSubmissionSchema.safeParse(data)
     expect(result.success).toBe(false)
+  })
+
+  it('requires an email only when newsletter consent is checked', () => {
+    const schema = createRecommendationSubmissionSchema()
+    const base = {
+      name: 'TestBrand',
+      website: 'https://example.com',
+      sourceAttribution,
+      pdpaConsent: true,
+      turnstileToken: 'test-token',
+      honeypot: '',
+    }
+
+    expect(schema.safeParse({
+      ...base,
+      guestEmail: '',
+      marketingEmailOptIn: false,
+    }).success).toBe(true)
+    expect(schema.safeParse({
+      ...base,
+      guestEmail: '',
+      marketingEmailOptIn: true,
+    }).success).toBe(false)
+    expect(schema.safeParse({
+      ...base,
+      guestEmail: 'guest@example.com',
+      marketingEmailOptIn: true,
+    }).success).toBe(true)
   })
 })
 

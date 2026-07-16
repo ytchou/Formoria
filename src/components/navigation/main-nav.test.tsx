@@ -107,10 +107,11 @@ describe('MainNav', () => {
     expect(screen.getByRole('button', { name: '開啟選單' })).toBeInTheDocument()
   })
 
-  it('renders the language switcher trigger', async () => {
+  it('renders the logged-out desktop language switcher as an icon button', async () => {
     const { MainNav } = await import('./main-nav')
     render(<MainNav categories={mockCategories} />)
-    // compact LocaleSwitcher shows the locale text as its accessible name
-    expect(screen.getByRole('button', { name: '繁體中文' })).toBeInTheDocument()
+    const trigger = screen.getByRole('button', { name: '切換語言' })
+
+    expect(trigger.querySelector('svg')).toBeInTheDocument()
   })
 })

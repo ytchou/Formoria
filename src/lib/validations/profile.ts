@@ -12,6 +12,5 @@ export function getProfileSchema(t: Translator) {
     localePreference: z.enum(['zh-TW', 'en'], {
       error: t('settings.validation.invalidLocale'),
     }),
-    emailNotifications: z.coerce.boolean(),
   })
 }

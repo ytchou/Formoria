@@ -17,6 +17,8 @@ import {
   type ProofEvidence,
 } from '@/lib/services/claim-requests'
 import { createReport } from '@/lib/services/reports'
+import { enrollInMarketingEmails } from '@/lib/services/marketing-email-consent'
+import { createServiceClient } from '@/lib/supabase/server'
 
 const REPORT_REASONS = [
   'not_mit',
@@ -40,6 +42,7 @@ export type SubmitClaimInput = {
   proofs: ProofEvidence[]
   mitSmileCert?: string
   locale?: 'zh-TW' | 'en'
+  marketingEmailOptIn?: boolean
 }
 
 export type SubmitClaimResult =
@@ -90,6 +93,7 @@ function buildFieldSchemas(t: Translator) {
     proofs: z.array(proofSchema).min(1, t('proofsMin')),
     mitSmileCert: z.string().trim().optional(),
     locale: z.enum(['zh-TW', 'en']).optional(),
+    marketingEmailOptIn: z.boolean().optional().default(false),
   }
 }
 
@@ -142,13 +146,24 @@ export async function submitClaimAction(input: SubmitClaimInput): Promise<Submit
         console.log('[claim-email-verification]', verifyUrl)
       }
 
-      sendEmail(await buildClaimEmailVerificationEmail({
+      await sendEmail(await buildClaimEmailVerificationEmail({
         recipientEmail: verification.email,
         brandName: brand.name,
         verifyUrl,
         siteUrl,
         locale,
       }))
+    }
+
+    if (parsed.data.marketingEmailOptIn && user.email) {
+      await enrollInMarketingEmails(createServiceClient(), {
+        email: user.email,
+        userId: user.id,
+        locale,
+        source: 'brand_claim',
+        newsletter: true,
+        lifecycle: true,
+      })
     }
 
     revalidatePath('/admin')

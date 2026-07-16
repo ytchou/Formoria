@@ -28,7 +28,7 @@ function htmlResponse(message: string, status: number) {
   )
 }
 
-export async function GET(request: NextRequest) {
+async function unsubscribe(request: NextRequest) {
   const token = request.nextUrl.searchParams.get('token')
 
   if (!token) {
@@ -47,3 +47,6 @@ export async function GET(request: NextRequest) {
     200
   )
 }
+
+export const GET = unsubscribe
+export const POST = unsubscribe

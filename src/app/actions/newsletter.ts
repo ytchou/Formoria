@@ -1,14 +1,11 @@
 'use server'
 
 import { headers } from 'next/headers'
-import { buildNewsletterConfirmEmail } from '@emails/templates/newsletter-confirm'
-import { sendEmail } from '@/lib/email/send'
 import {
-  createSubscriber,
   normalizeEmail,
-  normalizeInterests,
   validateEmail,
 } from '@/lib/services/newsletter'
+import { requestNewsletterSubscription } from '@/lib/services/marketing-email-consent'
 import { rateLimit } from '@/lib/security/rate-limiter'
 import { createServiceClient } from '@/lib/supabase/server'
 import { isHoneypotFilled, parseSubscribeForm } from './newsletter-helpers'
@@ -54,20 +51,15 @@ export async function subscribeToNewsletter(
 
   try {
     const supabase = createServiceClient()
-    const normalizedInterests = normalizeInterests(interests)
-    const result = await createSubscriber(supabase, {
+    const status = await requestNewsletterSubscription(supabase, {
       email: normalizedEmail,
-      interests: normalizedInterests,
+      interests,
       locale,
+      source: 'homepage_newsletter',
     })
 
-    if (result.needsConfirmation) {
-      sendEmail(await buildNewsletterConfirmEmail({
-        to: result.subscriber.email,
-        confirmToken: result.subscriber.confirm_token,
-        interests: result.subscriber.interests ?? normalizedInterests,
-        locale: result.subscriber.locale,
-      }))
+    if (status === 'failed') {
+      return { error: 'Unable to send confirmation email' }
     }
 
     return { success: true }
