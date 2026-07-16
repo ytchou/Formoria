@@ -24,7 +24,7 @@ const REASON_LABELS: Record<ReportReason, string> = {
   incorrect_info: 'Incorrect information',
   broken_link: 'Broken link',
   inappropriate: 'Inappropriate content',
-  removal_request: 'Removal request',
+  ownership_dispute: 'Ownership dispute',
 }
 
 export function ReportsTable({ reports }: ReportsTableProps) {
