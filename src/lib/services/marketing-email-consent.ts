@@ -6,7 +6,7 @@ import { createSubscriber } from '@/lib/services/newsletter'
 
 export const MARKETING_CONSENT_VERSION = '2026-07-16'
 
-export const MARKETING_CONSENT_SOURCES = [
+const MARKETING_CONSENT_SOURCES = [
   'homepage_newsletter',
   'guest_recommendation',
   'account_signup',
@@ -17,7 +17,7 @@ export const MARKETING_CONSENT_SOURCES = [
   'settings',
 ] as const
 
-export type MarketingConsentSource =
+type MarketingConsentSource =
   (typeof MARKETING_CONSENT_SOURCES)[number]
 
 export type MarketingEnrollmentInput = {
