@@ -1,9 +1,11 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
+import { ChevronRight } from 'lucide-react'
 import { NextIntlClientProvider } from 'next-intl'
 import { getTranslations, setRequestLocale, getMessages } from 'next-intl/server'
-import { getBrands, getPopularCategories, getFeaturedBrands } from '@/lib/services/brands'
-import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { getBrands, getPopularCategories, getFeaturedBrands, getSubcategoryCounts } from '@/lib/services/brands'
+import { getAppSetting, SUBCATEGORY_FILTER_KEY } from '@/lib/services/app-settings'
+import { categoryLabel, PRODUCT_SUBCATEGORIES, PRODUCT_TYPE_CATEGORIES, resolveSubcategorySlugs } from '@/lib/taxonomy/ontology'
 import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildBrandsItemListJsonLd, buildWebSiteJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { parsePageParam, parseSortParam, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import {
@@ -18,6 +20,7 @@ import { SearchEmptyStateWrapper } from '@/components/brands/search-empty-state-
 import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
+import { Link } from '@/i18n/navigation'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { truncateForMeta } from '@/lib/text/truncate-for-meta'
@@ -67,19 +70,32 @@ export async function generateMetadata({ params, searchParams }: BrandsPageProps
   const ogLocale = safeLocale === 'zh-TW' ? 'zh_TW' : 'en_US'
   const ogAlternateLocale = safeLocale === 'zh-TW' ? 'en_US' : 'zh_TW'
   const sp = await searchParams
+  const categoryFilter = parseCommaParam(sp.category)
+  const validCategoryFilter = categoryFilter.filter((slug) => VALID_CATEGORY_SLUGS.has(slug))
+  const singleValidCategory = validCategoryFilter.length === 1
+    ? validCategoryFilter.at(0) ?? null
+    : null
+  const subcategoryFilterEnabled = await getAppSetting<boolean>(SUBCATEGORY_FILTER_KEY, true)
+  const resolvedSubs = subcategoryFilterEnabled
+    ? resolveSubcategorySlugs(singleValidCategory, parseCommaParam(sp.sub))
+    : []
 
-  if (typeof sp.category === 'string' && sp.category.trim() && !sp.category.includes(',')) {
-    const categorySlug = sp.category.trim()
+  if (singleValidCategory) {
+    const categorySlug = singleValidCategory
     const categoryTag = PRODUCT_TYPE_CATEGORIES.find((c) => c.slug === categorySlug)
 
     if (categoryTag) {
       const catT = await getTranslations('categories')
       const displayName = categoryLabel(categoryTag, safeLocale)
-      const description = truncateForMeta(
-        catT.has(`descriptions.${categorySlug}`)
+      const activeSubcategory = resolvedSubs.length === 1 ? resolvedSubs.at(0) : undefined
+      const subName = activeSubcategory
+        ? safeLocale === 'zh-TW' ? activeSubcategory.nameZh : activeSubcategory.nameEn
+        : undefined
+      const description = truncateForMeta(activeSubcategory && subName
+        ? catT('subMetadata.description', { subName, categoryName: displayName })
+        : catT.has(`descriptions.${categorySlug}`)
           ? catT(`descriptions.${categorySlug}`)
-          : catT('metadata.description', { displayName, name: categoryTag.name })
-      )
+          : catT('metadata.description', { displayName, name: categoryTag.name }))
       const categoryCanonical = appendCategoryQuery(canonical, categorySlug)
       const categoryLanguages = Object.fromEntries(
         Object.entries(languages).map(([language, url]) => [
@@ -87,7 +103,9 @@ export async function generateMetadata({ params, searchParams }: BrandsPageProps
           appendCategoryQuery(url, categorySlug),
         ])
       )
-      const title = catT('metadata.title', { displayName })
+      const title = activeSubcategory && subName
+        ? catT('subMetadata.title', { subName, categoryName: displayName })
+        : catT('metadata.title', { displayName })
 
       return {
         title,
@@ -125,9 +143,10 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   const { locale } = await params
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const [t, messages] = await Promise.all([
+  const [t, messages, subcategoryFilterEnabled] = await Promise.all([
     getTranslations('brands'),
     getMessages(),
+    getAppSetting<boolean>(SUBCATEGORY_FILTER_KEY, true),
   ])
   const sp = await searchParams
 
@@ -137,23 +156,51 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
     typeof sp.search === 'string' ? sp.search.trim() : ''
   const categoryFilter = parseCommaParam(sp.category)
   const validCategoryFilter = categoryFilter.filter((slug) => VALID_CATEGORY_SLUGS.has(slug))
-  const categoryTag = validCategoryFilter.length === 1
-    ? PRODUCT_TYPE_CATEGORIES.find((category) => category.slug === validCategoryFilter.at(0))
+  const singleValidCategory = validCategoryFilter.length === 1
+    ? validCategoryFilter.at(0) ?? null
+    : null
+  const categoryTag = singleValidCategory
+    ? PRODUCT_TYPE_CATEGORIES.find((category) => category.slug === singleValidCategory)
     : undefined
+  const resolvedSubs = subcategoryFilterEnabled
+    ? resolveSubcategorySlugs(singleValidCategory, parseCommaParam(sp.sub))
+    : []
+  const activeSubcategory = resolvedSubs.length === 1 ? resolvedSubs.at(0) : undefined
   const pageHeading = categoryTag ? categoryLabel(categoryTag, safeLocale) : t('heading')
   const priceRanges = parsePriceRanges(sp.price)
   const verificationFilter = parseVerificationParam(sp.verification)
 
-  const { brands, totalCount } = await getBrands({
-    status: 'approved',
-    search: search || undefined,
-    category: validCategoryFilter.length > 0 ? validCategoryFilter : undefined,
-    priceRanges: priceRanges.length > 0 ? priceRanges : undefined,
-    verificationFilter,
-    sort,
-    limit: DEFAULT_PAGE_SIZE,
-    offset: (page - 1) * DEFAULT_PAGE_SIZE,
-  })
+  const [{ brands, totalCount }, subcategoryCounts] = await Promise.all([
+    getBrands({
+      status: 'approved',
+      search: search || undefined,
+      category: validCategoryFilter.length > 0 ? validCategoryFilter : undefined,
+      subcategoryTags: resolvedSubs.map((subcategory) => subcategory.nameZh),
+      priceRanges: priceRanges.length > 0 ? priceRanges : undefined,
+      verificationFilter,
+      sort,
+      limit: DEFAULT_PAGE_SIZE,
+      offset: (page - 1) * DEFAULT_PAGE_SIZE,
+    }),
+    subcategoryFilterEnabled && singleValidCategory
+      ? getSubcategoryCounts(singleValidCategory)
+      : Promise.resolve(new Map<string, number>()),
+  ])
+  const subcategoriesWithCounts = singleValidCategory
+    ? PRODUCT_SUBCATEGORIES
+        .filter((subcategory) => subcategory.category === singleValidCategory)
+        .map((subcategory) => ({
+          ...subcategory,
+          count: subcategoryCounts.get(subcategory.nameZh) ?? 0,
+        }))
+        .filter((subcategory) => subcategory.count > 0)
+    : []
+  const subcategoryOptions = subcategoriesWithCounts.map((subcategory) => ({
+    slug: subcategory.slug,
+    label: subcategory.nameZh,
+    count: subcategory.count,
+  }))
+  const activeSubSlugs = resolvedSubs.map((subcategory) => subcategory.slug)
 
   // Clamp page to last valid page if user navigated beyond
   const totalPages = Math.ceil(totalCount / DEFAULT_PAGE_SIZE)
@@ -166,6 +213,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
       status: 'approved',
       search: search || undefined,
       category: validCategoryFilter.length > 0 ? validCategoryFilter : undefined,
+      subcategoryTags: resolvedSubs.map((subcategory) => subcategory.nameZh),
       priceRanges: priceRanges.length > 0 ? priceRanges : undefined,
       verificationFilter,
       sort,
@@ -177,7 +225,8 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
 
   // Fetch empty-state fallback data when search yields zero results
   const hasActiveFilters =
-    validCategoryFilter.length > 0 || priceRanges.length > 0 || verificationFilter !== 'all'
+    validCategoryFilter.length > 0 || resolvedSubs.length > 0 ||
+    priceRanges.length > 0 || verificationFilter !== 'all'
   let emptyStateData: {
     categories: { productType: string; name: string; nameZh: string | null; count: number }[]
     featured: { id: string; name: string; slug: string; heroImageUrl: string | null; category: string }[]
@@ -229,10 +278,21 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
       safeLocale,
       editorialDescription
     )
-    categoryBreadcrumbJsonLd = buildBreadcrumbJsonLd(
-      [{ label: 'Brands', href: '/brands' }, { label: categoryName }],
-      safeLocale
-    )
+    const breadcrumbItems = [
+      { label: 'Brands', href: '/brands' },
+      {
+        label: categoryName,
+        ...(activeSubcategory
+          ? { href: `/brands?category=${encodeURIComponent(categorySlug)}` }
+          : {}),
+      },
+    ]
+    if (activeSubcategory) {
+      breadcrumbItems.push({
+        label: safeLocale === 'zh-TW' ? activeSubcategory.nameZh : activeSubcategory.nameEn,
+      })
+    }
+    categoryBreadcrumbJsonLd = buildBreadcrumbJsonLd(breadcrumbItems, safeLocale)
   }
 
   return (
@@ -265,11 +325,45 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
 
       <aside className="hidden lg:block" aria-label={t('filters.title')}>
         <div className="sticky top-24">
-          <BrandFilterSidebar categories={[...PRODUCT_TYPE_CATEGORIES]} />
+          <BrandFilterSidebar
+            categories={[...PRODUCT_TYPE_CATEGORIES]}
+            subcategories={subcategoryOptions}
+            activeSubSlugs={activeSubSlugs}
+          />
         </div>
       </aside>
 
       <div className="min-w-0">
+        {activeSubcategory && categoryTag ? (
+          <nav aria-label="Breadcrumb" className="mb-6">
+            <ol className="flex items-center gap-1.5 type-card-description">
+              <li>
+                <Link href="/brands" className="transition-colors hover:text-foreground">
+                  {t('heading')}
+                </Link>
+              </li>
+              <li aria-hidden="true">
+                <ChevronRight className="size-3.5" />
+              </li>
+              <li>
+                <Link
+                  href={`/brands?category=${encodeURIComponent(categoryTag.slug)}`}
+                  className="transition-colors hover:text-foreground"
+                >
+                  {pageHeading}
+                </Link>
+              </li>
+              <li aria-hidden="true">
+                <ChevronRight className="size-3.5" />
+              </li>
+              <li>
+                <span aria-current="page" className="font-medium text-foreground">
+                  {safeLocale === 'zh-TW' ? activeSubcategory.nameZh : activeSubcategory.nameEn}
+                </span>
+              </li>
+            </ol>
+          </nav>
+        ) : null}
         <h1 className="mb-6 text-balance type-page-title">{pageHeading}</h1>
 
         {/* Count + sort header */}
@@ -277,6 +371,8 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
           <div className="flex items-center gap-3">
             <BrandFilterDrawer
               categories={[...PRODUCT_TYPE_CATEGORIES]}
+              subcategories={subcategoryOptions}
+              activeSubSlugs={activeSubSlugs}
               totalCount={totalCount}
             />
             <p className="type-card-description" aria-live="polite" aria-atomic="true">

@@ -498,6 +498,10 @@
       "title": "{displayName} Brands from Taiwan",
       "description": "Discover Made in Taiwan {name} brands."
     },
+    "subMetadata": {
+      "title": "Made in Taiwan {subName} Brands | {categoryName} | MIT Map",
+      "description": "Discover Made in Taiwan {subName} brands in {categoryName}, featuring local design and quality products worth supporting."
+    },
     "descriptions": {
       "fashion": "Taiwan clothing brands stand out for textile expertise built through decades of mills, dye houses, and technical fabric suppliers. Designers pair that manufacturing base with practical cuts, climate-aware materials, and a sharp contemporary point of view. You will find everyday essentials, outdoor-ready layers, and independent labels with global ambitions. Formoria highlights fashion shaped by both craft know-how and modern Taiwanese life.",
       "bags-accessories": "Taiwan bag brands often grow from a deep leather-working tradition and the island's practical manufacturing culture. Many workshops combine hand finishing, precise stitching, recycled fabrics, vegan leather, or other sustainable materials. The result is gear made for commuting, travel, and daily use without losing character. On Formoria, visitors can discover artisan studios, small-batch makers, and design-led labels refining how a bag should work.",
