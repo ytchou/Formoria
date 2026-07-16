@@ -250,8 +250,8 @@ export async function submitOwnerQuick(
       description: parsed.description,
       intent: ownershipAdjusted ? 'recommend' : 'owner_claim',
       isBrandOwner: !ownershipAdjusted,
-      submitterEmail: user.email!,
-      submitterName: user.user_metadata?.full_name ?? '',
+      submitterEmail: user.email ?? '',
+      submitterName: user.user_metadata?.full_name ?? undefined,
       pdpaConsent: true,
     })
 
@@ -335,8 +335,8 @@ export async function submitOwnerDetailedBrand(
         website: parsed.purchaseWebsite,
       },
       ownerData,
-      submitterEmail: user.email!,
-      submitterName: user.user_metadata?.full_name ?? '',
+      submitterEmail: user.email ?? '',
+      submitterName: user.user_metadata?.full_name ?? undefined,
       pdpaConsent: true,
     })
 

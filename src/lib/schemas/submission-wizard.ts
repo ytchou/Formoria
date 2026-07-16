@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { getDuplicateRetailLocationIndex } from '@/lib/brands/locations'
 
-export const basicInfoSchema = z.object({
+const basicInfoSchema = z.object({
   name: z.string().min(1),
   website: z.string().url(),
   description: z.string().min(1),
