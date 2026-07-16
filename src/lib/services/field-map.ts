@@ -65,6 +65,7 @@ const BRAND_FIELD_MAP = [
 const SUBMISSION_FIELD_MAP = [
   ['brandId', 'brand_id'],
   ['brandName', 'brand_name'],
+  ['romanizedName', 'romanized_name'],
   ['submitterEmail', 'submitter_email'],
   ['submitterName', 'submitter_name'],
   ['description', 'description'],
@@ -85,6 +86,7 @@ const SUBMISSION_FIELD_MAP = [
   {
     brandId?: string | null
     brandName?: string
+    romanizedName?: string | null
     submitterEmail?: string
     submitterName?: string | null
     description?: string | null
@@ -165,6 +167,7 @@ export function toBrandRow(input: {
 export function toSubmissionRow(input: {
   brandId?: string | null
   brandName?: string
+  romanizedName?: string | null
   submitterEmail?: string
   submitterName?: string | null
   description?: string | null

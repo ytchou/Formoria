@@ -54,7 +54,7 @@ describe("submission approval", () => {
     expect(mocks.rpc).toHaveBeenCalledWith("approve_submission", {
       p_brand_data: expect.objectContaining({
         name: "Enriched Brand",
-        slug: "enriched-brand",
+        slug: "submitted-brand",
         status: "approved",
         description_en: "Taiwanese handmade skincare brand",
         blurb: "手工保養",
@@ -73,7 +73,91 @@ describe("submission approval", () => {
     });
     expect(mocks.from).not.toHaveBeenCalledWith("brand_field_state");
   });
+
+  it("uses romanized_name for the slug when provided", async () => {
+    mockApproval({
+      ...enrichedPendingSubmission(),
+      brand_name: "鼎泰豐",
+      romanized_name: "Din Tai Fung",
+      enriched_data: null,
+    });
+
+    await approveSubmission("submission-1", "reviewer-1");
+
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "approve_submission",
+      expect.objectContaining({
+        p_brand_data: expect.objectContaining({ slug: "din-tai-fung" }),
+      }),
+    );
+  });
+
+  it("falls back to the Latin run when romanized_name is absent", async () => {
+    mockApproval({
+      ...enrichedPendingSubmission(),
+      brand_name: "愛麗絲傢俱 iliz",
+      romanized_name: null,
+      enriched_data: null,
+    });
+
+    await approveSubmission("submission-1", "reviewer-1");
+
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "approve_submission",
+      expect.objectContaining({
+        p_brand_data: expect.objectContaining({ slug: "iliz" }),
+      }),
+    );
+  });
+
+  it("falls back to Wade-Giles when no Latin name is available", async () => {
+    mockApproval({
+      ...enrichedPendingSubmission(),
+      brand_name: "遇合",
+      romanized_name: null,
+      enriched_data: null,
+    });
+
+    await approveSubmission("submission-1", "reviewer-1");
+
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "approve_submission",
+      expect.objectContaining({
+        p_brand_data: expect.objectContaining({ slug: "yu-ho" }),
+      }),
+    );
+  });
 });
+
+function mockApproval(submission: Record<string, unknown>): void {
+  const submissionQuery = {
+    select: vi.fn(() => submissionQuery),
+    eq: vi.fn(() => submissionQuery),
+    single: vi.fn().mockResolvedValue({ data: submission, error: null }),
+  };
+  const slugQuery = {
+    select: vi.fn(() => slugQuery),
+    eq: vi.fn(() => slugQuery),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+  };
+
+  mocks.from.mockImplementation((table: string) =>
+    table === "brand_submissions" ? submissionQuery : slugQuery,
+  );
+  mocks.rpc.mockResolvedValue({
+    data: [
+      {
+        brand_id: "brand-approved",
+        submitter_email: "maker@example.com",
+        brand_name: submission.brand_name,
+        submitter_name: "林怡君",
+        is_brand_owner: false,
+        suggested_tags: [],
+      },
+    ],
+    error: null,
+  });
+}
 
 function enrichedPendingSubmission(): Record<string, unknown> {
   return {

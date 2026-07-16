@@ -123,3 +123,26 @@ export async function getBrandBySlugForAdmin(slug: string): Promise<OwnedBrand |
     claimedAt: owners[0]?.claimed_at ?? new Date().toISOString(),
   }
 }
+
+export async function revokeOwnership(
+  brandId: string,
+  revokedBy: string,
+  reason: string
+): Promise<{ userId: string; email: string }> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase.rpc('revoke_brand_ownership', {
+    p_brand_id: brandId,
+    p_revoked_by: revokedBy,
+    p_reason: reason,
+  })
+
+  if (error) throw error
+
+  const [row] = data ?? []
+  if (!row) throw new Error('Ownership revocation returned no owner')
+
+  return {
+    userId: row.revoked_user_id,
+    email: row.revoked_user_email,
+  }
+}

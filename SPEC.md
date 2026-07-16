@@ -227,6 +227,18 @@ Storage invariants (DEV-1059):
 - suggestedTags: `{ region?: string, values?: string[] }` JSONB (structured format, DEV-802); legacy `string[]` accepted for backwards compatibility
 - submittedAt, reviewedAt, reviewedBy
 
+### BrandReport
+- id, brand_id, reason, notes, status, user_id (nullable), created_at
+- reason CHECK constraint: `not_mit | incorrect_info | broken_link | inappropriate | ownership_dispute`
+- user_id: nullable FK to auth.users (SET NULL on deletion) — populated only for `ownership_dispute` reports (sign-in required)
+- RLS: `owner_select_brand_reports` policy excludes `ownership_dispute` rows — brand owners must not see dispute reports about their own brand
+
+### OwnershipRevocation
+- id, brand_id, revoked_user_id, revoked_user_email, revoked_by (admin email TEXT), reason, revoked_at
+- Written atomically with the `brand_owners` row deletion by `revoke_brand_ownership` SECURITY DEFINER function
+- Invariant: an `ownership_revocations` row always exists when a `brand_owners` row is deleted via admin revoke — never one without the other
+- `revoke_brand_ownership` also nulls `brands.contact_email` (repopulated on re-claim)
+
 ## Compliance
 - Taiwan PDPA: brand owners consent during onboarding (checkbox + privacy policy link)
 - All collected data is business information (brand name, products, public social links)

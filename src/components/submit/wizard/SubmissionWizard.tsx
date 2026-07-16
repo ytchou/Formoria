@@ -71,6 +71,7 @@ const SIDEBAR_STEPS: WizardStep[] = SUBMISSION_WIZARD_STEPS.map((step) => ({
 
 const FIELD_STEPS: Partial<Record<keyof SubmissionWizardValues, number>> = {
   name: 0,
+  romanizedName: 0,
   website: 0,
   description: 0,
   productType: 0,
@@ -118,6 +119,7 @@ export default function SubmissionWizard({
     resolver,
     defaultValues: {
       name: '',
+      romanizedName: '',
       website: '',
       description: '',
       productType: undefined,

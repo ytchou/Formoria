@@ -160,6 +160,13 @@ export function createOwnerSubmissionSchema(t: Translator = zhT) {
     .merge(getLinksSchema(t))
     .merge(
       z.object({
+        romanizedName: z
+          .string()
+          .min(2)
+          .max(100)
+          .regex(/^[a-zA-Z0-9\s\-'.]+$/)
+          .optional()
+          .or(z.literal('')),
         city: z.enum(CITY_SLUGS).optional(),
         mitSmileCert: z.string().optional().default(''),
       }),

@@ -28,7 +28,11 @@ import {
   syncBrandImages,
   updateBrand,
 } from '@/lib/services/brands'
-import { getBrandOwnerEmail, getUserBrandByEmail } from '@/lib/services/brand-owners'
+import {
+  getBrandOwnerEmail,
+  getUserBrandByEmail,
+  revokeOwnership,
+} from '@/lib/services/brand-owners'
 import { scanContent, saveModerationFlags, markFlagsReviewed } from '@/lib/services/moderation'
 import { sendEmail } from '@/lib/email/send'
 import {
@@ -39,6 +43,7 @@ import {
   buildClaimRejectedEmail,
   buildEditApprovedEmail,
   buildEditRejectedEmail,
+  buildOwnershipRevokedEmail,
 } from '@/lib/email/templates'
 import { createEmailPreferences } from '@/lib/services/email-lifecycle'
 import { generateClaimToken } from '@/lib/auth/claim-token'
@@ -525,6 +530,47 @@ export async function reviewReportAction(
     return undefined
   } catch (err) {
     console.error('[admin:reviewReport]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
+}
+
+export async function revokeOwnershipAction(
+  brandId: string,
+  reason: string
+): Promise<{ error: string } | undefined> {
+  try {
+    const auth = await requireAdminAction()
+    if ('error' in auth) return auth
+
+    const trimmedReason = reason.trim()
+    if (!trimmedReason) return { error: 'Reason is required' }
+    if (!auth.user.email) return { error: 'Admin email is required' }
+
+    const result = await revokeOwnership(brandId, auth.user.email, trimmedReason)
+    const brand = await getBrandById(brandId)
+
+    sendEmail(await buildOwnershipRevokedEmail({
+      ownerEmail: result.email,
+      brandName: brand.name,
+      reason: trimmedReason,
+    }))
+
+    revalidatePath('/admin/reports')
+    revalidatePath('/admin')
+    revalidatePublicBrand({ slug: brand.slug })
+    return undefined
+  } catch (err) {
+    console.error('[admin:revokeOwnership]', err)
+    if (
+      typeof err === 'object'
+      && err !== null
+      && 'message' in err
+      && err.message === 'Brand owner not found'
+    ) {
+      return { error: 'Brand owner not found' }
+    }
     return {
       error: err instanceof Error ? err.message : 'An unexpected error occurred',
     }
