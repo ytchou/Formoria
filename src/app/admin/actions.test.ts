@@ -71,7 +71,7 @@ vi.mock('@/lib/security/rate-limiter', () => ({
 
 vi.mock('@/lib/services/brands', () => ({
   getBrandBySlug: vi.fn(),
-  getBrandById: vi.fn().mockResolvedValue({ id: 'brand-1', slug: 'test-brand' }),
+  getBrandById: vi.fn().mockResolvedValue({ id: 'brand-1', name: 'Test Brand', slug: 'test-brand' }),
   updateBrand: vi.fn().mockResolvedValue({ id: 'brand-1', slug: 'test-brand' }),
   createBrand: vi.fn(),
   deleteBrand: vi.fn(),
@@ -82,6 +82,7 @@ vi.mock('@/lib/services/brands', () => ({
 vi.mock('@/lib/services/brand-owners', () => ({
   getBrandOwnerEmail: vi.fn().mockResolvedValue('owner@example.com'),
   getUserBrandByEmail: vi.fn().mockResolvedValue(null),
+  revokeOwnership: vi.fn(),
 }))
 
 vi.mock('@/lib/services/submissions', () => ({
@@ -146,6 +147,7 @@ vi.mock('@/lib/email/templates', () => ({
   buildClaimRejectedEmail: vi.fn(),
   buildEditApprovedEmail: vi.fn(),
   buildEditRejectedEmail: vi.fn(),
+  buildOwnershipRevokedEmail: vi.fn(),
 }))
 
 vi.mock('@/lib/services/email-lifecycle', () => ({
@@ -482,6 +484,58 @@ describe('reviewReportAction', () => {
     const { reviewReportAction } = await import('./actions')
     const result = await reviewReportAction('report-uuid-1', 'reviewed')
     expect(result).toMatchObject({ error: expect.any(String) })
+  })
+})
+
+describe('revokeOwnershipAction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('requires admin', async () => {
+    const { requireAdminAction } = await import('@/lib/auth/require-admin')
+    const { revokeOwnership } = await import('@/lib/services/brand-owners')
+    vi.mocked(requireAdminAction).mockResolvedValueOnce({
+      error: 'You are not authorized to perform this action',
+      code: 'forbidden',
+    })
+
+    const { revokeOwnershipAction } = await import('./actions')
+    const result = await revokeOwnershipAction('brand-uuid-123', 'Dispute upheld')
+
+    expect(result).toMatchObject({ error: expect.any(String) })
+    expect(revokeOwnership).not.toHaveBeenCalled()
+  })
+
+  it('revokes, emails the ex-owner, and revalidates the brand page', async () => {
+    const { revokeOwnership } = await import('@/lib/services/brand-owners')
+    const { sendEmail } = await import('@/lib/email/send')
+    vi.mocked(revokeOwnership).mockResolvedValueOnce({
+      userId: 'user-uuid-9',
+      email: 'owner@haoshan-tea.tw',
+    })
+
+    const { revokeOwnershipAction } = await import('./actions')
+    const result = await revokeOwnershipAction('brand-uuid-123', 'Dispute upheld')
+
+    expect(revokeOwnership).toHaveBeenCalledWith(
+      'brand-uuid-123',
+      'admin@formoria.com',
+      'Dispute upheld'
+    )
+    expect(sendEmail).toHaveBeenCalled()
+    expect(revalidatePath).toHaveBeenCalledWith('/admin/reports')
+    expect(result).toBeUndefined()
+  })
+
+  it('rejects an empty reason', async () => {
+    const { revokeOwnership } = await import('@/lib/services/brand-owners')
+    const { revokeOwnershipAction } = await import('./actions')
+
+    const result = await revokeOwnershipAction('brand-uuid-123', '   ')
+
+    expect(result).toMatchObject({ error: expect.any(String) })
+    expect(revokeOwnership).not.toHaveBeenCalled()
   })
 })
 
