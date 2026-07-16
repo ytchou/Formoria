@@ -62,6 +62,25 @@ describe('submissionWizardSchema', () => {
       }).success,
     ).toBe(false)
   })
+
+  it('shares handle-or-URL social validation with dashboard editing', () => {
+    expect(
+      submissionWizardSchema.safeParse({
+        ...completeWizardData,
+        socialInstagram: '@greenroom.tw',
+        socialThreads: 'greenroom.tw',
+      }).success,
+    ).toBe(true)
+  })
+
+  it('rejects partial other links', () => {
+    expect(
+      submissionWizardSchema.safeParse({
+        ...completeWizardData,
+        otherUrls: [{ label: 'Stockist', url: '' }],
+      }).success,
+    ).toBe(false)
+  })
 })
 
 describe('submissionWizardRequiredSchema', () => {
