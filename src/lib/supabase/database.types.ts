@@ -418,6 +418,7 @@ export type Database = {
           purchase_pinkoi: string | null
           purchase_shopee: string | null
           purchase_website: string | null
+          romanized_name: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           reviewer_notes: string | null
@@ -451,6 +452,7 @@ export type Database = {
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null
           purchase_website?: string | null
+          romanized_name?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           reviewer_notes?: string | null
@@ -484,6 +486,7 @@ export type Database = {
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null
           purchase_website?: string | null
+          romanized_name?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           reviewer_notes?: string | null

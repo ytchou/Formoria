@@ -1,4 +1,5 @@
 import { pinyin } from 'pinyin-pro'
+import { convertPinyinToWadeGiles } from '@/lib/utils/pinyin-to-wade-giles'
 import type { Brand, BrandFilters, OtherUrl } from '@/lib/types'
 import type { ReputationSummary, SiteContent, SiteProduct, SiteTokens } from '@/lib/types/brand'
 import type { Database } from '@/lib/supabase/database.types'
@@ -202,9 +203,22 @@ export type SimilarBrand = {
 // Slug generation
 // ---------------------------------------------------------------------------
 
+export function extractLatinRun(name: string): string | null {
+  const runs = name.match(/[A-Za-z0-9 ]+/g)?.map((run) => run.trim()).filter(Boolean)
+
+  if (!runs?.length) {
+    return null
+  }
+
+  return runs.reduce((longest, run) => (run.length > longest.length ? run : longest))
+}
+
 export function generateSlug(name: string): string {
   // Transliterate CJK characters to pinyin; non-CJK chars pass through unchanged
-  const transliterated = pinyin(name, { toneType: 'none', type: 'array', nonZh: 'consecutive' }).join(' ')
+  const syllables = pinyin(name, { toneType: 'none', type: 'array', nonZh: 'consecutive' })
+  const transliterated = /\p{Script=Han}/u.test(name)
+    ? convertPinyinToWadeGiles(syllables).join(' ')
+    : syllables.join(' ')
 
   return transliterated
     .normalize('NFKD')

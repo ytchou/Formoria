@@ -102,6 +102,21 @@ export function BasicInfoSection() {
         </FormField>
 
         <FormField
+          id="submission-romanized-name"
+          label={t('ownerForm.romanizedNameLabel')}
+          description={t('ownerForm.romanizedNameHint')}
+          error={form.formState.errors.romanizedName?.message}
+        >
+          <Input
+            id="submission-romanized-name"
+            type="text"
+            autoComplete="off"
+            placeholder={t('ownerForm.romanizedNamePlaceholder')}
+            {...form.register('romanizedName')}
+          />
+        </FormField>
+
+        <FormField
           id="submission-website"
           label={t('ownerForm.websiteLabel')}
           description={t('ownerForm.websiteHint')}
