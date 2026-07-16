@@ -117,7 +117,16 @@ describe('email-lifecycle service', () => {
     it('records source, version, time, and a fresh unsubscribe token', async () => {
       const single = vi.fn().mockResolvedValue({ data: { user_id: 'user-1' }, error: null })
       const upsert = vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single }) })
-      mockSupabase.from.mockReturnValue({ upsert })
+      const tokenLookup = {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          }),
+        }),
+      }
+      mockSupabase.from
+        .mockReturnValueOnce(tokenLookup)
+        .mockReturnValueOnce({ upsert })
 
       await setLifecycleEmailPreference(mockSupabase as unknown, {
         userId: 'user-1',
