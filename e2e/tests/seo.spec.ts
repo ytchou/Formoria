@@ -200,4 +200,18 @@ test.describe('SEO deep', () => {
     }
   });
 
+  // DEV-1032: subcategory filter — canonical must always point to the parent category
+  // (sub= param must never leak into the canonical URL)
+  test('subcategory view canonical points to parent category', async ({ page }) => {
+    const E2E_CATEGORY_SLUG = 'bags-accessories';
+    const E2E_SUB_SLUG = 'clasp-frame-bags';
+    await page.goto(`/brands?category=${E2E_CATEGORY_SLUG}&sub=${E2E_SUB_SLUG}`);
+    const canonical = page.locator('link[rel="canonical"]');
+    // The canonical must end with ?category=<slug> — no sub= param
+    await expect(canonical).toHaveAttribute(
+      'href',
+      new RegExp(`/brands\\?category=${E2E_CATEGORY_SLUG}$`),
+    );
+  });
+
 });
