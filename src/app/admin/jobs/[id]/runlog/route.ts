@@ -1,4 +1,5 @@
 import { requireAdminAction } from '@/lib/auth/require-admin'
+import { getRequestOrigin } from '@/lib/auth/site-url'
 import { renderRunLogHtml } from '@/lib/runlog'
 import { exportJobRunLog } from '@/lib/services/runlog-export'
 
@@ -12,7 +13,7 @@ export async function GET(
   const auth = await requireAdminAction()
   if ('error' in auth) {
     if (auth.code === 'unauthenticated') {
-      const signInUrl = new URL('/auth/sign-in', request.url)
+      const signInUrl = new URL('/auth/sign-in', await getRequestOrigin())
       signInUrl.searchParams.set('next', `/admin/jobs/${id}/runlog`)
       return Response.redirect(signInUrl, 307)
     }
