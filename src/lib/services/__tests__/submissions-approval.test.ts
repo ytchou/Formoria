@@ -51,7 +51,7 @@ describe("submission approval", () => {
 
     const result = await approveSubmission("submission-1", "reviewer-1");
 
-    expect(mocks.rpc).toHaveBeenCalledWith("approve_submission", {
+    expect(mocks.rpc).toHaveBeenCalledWith("approve_submission_with_romanized_name", {
       p_brand_data: expect.objectContaining({
         name: "Enriched Brand",
         slug: "submitted-brand",
@@ -85,9 +85,12 @@ describe("submission approval", () => {
     await approveSubmission("submission-1", "reviewer-1");
 
     expect(mocks.rpc).toHaveBeenCalledWith(
-      "approve_submission",
+      "approve_submission_with_romanized_name",
       expect.objectContaining({
-        p_brand_data: expect.objectContaining({ slug: "din-tai-fung" }),
+        p_brand_data: expect.objectContaining({
+          slug: "din-tai-fung",
+          romanized_name: "Din Tai Fung",
+        }),
       }),
     );
   });
@@ -103,7 +106,7 @@ describe("submission approval", () => {
     await approveSubmission("submission-1", "reviewer-1");
 
     expect(mocks.rpc).toHaveBeenCalledWith(
-      "approve_submission",
+      "approve_submission_with_romanized_name",
       expect.objectContaining({
         p_brand_data: expect.objectContaining({ slug: "iliz" }),
       }),
@@ -121,7 +124,7 @@ describe("submission approval", () => {
     await approveSubmission("submission-1", "reviewer-1");
 
     expect(mocks.rpc).toHaveBeenCalledWith(
-      "approve_submission",
+      "approve_submission_with_romanized_name",
       expect.objectContaining({
         p_brand_data: expect.objectContaining({ slug: "yu-ho" }),
       }),

@@ -14,6 +14,7 @@ function makeT(messages: Record<string, unknown>, namespace: string) {
 }
 
 vi.mock('next-intl/server', () => ({
+  getLocale: vi.fn().mockResolvedValue('zh-TW'),
   getTranslations: vi.fn().mockImplementation(async (namespace: string) =>
     makeT(zhMessages as unknown as Record<string, unknown>, namespace)
   ),
@@ -300,6 +301,26 @@ describe('updateBrandAction', () => {
     const result = parseBrandEditForm(formData)
 
     expect(result.mitStory).toBeNull()
+  })
+
+  it('extracts and trims romanizedName from FormData', async () => {
+    const { parseBrandEditForm } = await import('./actions-utils')
+    const result = parseBrandEditForm(form({
+      brandSlug: 'test-brand',
+      romanizedName: '  Warmwood Living  ',
+    }))
+
+    expect(result.romanizedName).toBe('Warmwood Living')
+  })
+
+  it('preserves an explicit romanizedName clear as null', async () => {
+    const { parseBrandEditForm } = await import('./actions-utils')
+    const result = parseBrandEditForm(form({
+      brandSlug: 'test-brand',
+      romanizedName: '',
+    }))
+
+    expect(result.romanizedName).toBeNull()
   })
 
   it('persists an empty retailLocations array when submitted rows normalize away', async () => {
@@ -686,6 +707,26 @@ describe('updateBrandAction — edit gating', () => {
     expect(createPendingEdit).not.toHaveBeenCalled()
   })
 
+  it('always queues a non-admin owner edit that requests a slug change', async () => {
+    isActingAsAdmin.mockResolvedValueOnce(false)
+
+    const { updateBrandAction } = await import('./actions')
+    const result = await updateBrandAction(undefined, form({
+      brandSlug: 'test-brand',
+      name: 'Test Brand',
+      romanizedName: 'New Public Name',
+    }))
+
+    expect(createPendingEdit).toHaveBeenCalledWith(
+      'brand-1',
+      'user-1',
+      expect.objectContaining({ romanizedName: 'New Public Name' }),
+    )
+    expect(updateBrand).not.toHaveBeenCalled()
+    expect(shouldAutoApprove).not.toHaveBeenCalled()
+    expect(result?.message).toBe('brandEditSubmittedForReview')
+  })
+
   it('queues flagged non-admin owner edits and saves moderation flags', async () => {
     isActingAsAdmin.mockResolvedValueOnce(false)
     const flags = [
@@ -778,6 +819,24 @@ describe('updateBrandAction — edit gating', () => {
     expect(updateBrand).toHaveBeenCalled()
   })
 
+  it('redirects an immediate admin slug change to the new dashboard URL', async () => {
+    isActingAsAdmin.mockResolvedValue(true)
+    updateBrand.mockResolvedValueOnce({ slug: 'new-public-name' })
+    const { redirect } = await import('next/navigation')
+    const { updateBrandAction } = await import('./actions')
+
+    await expect(
+      updateBrandAction(undefined, form({
+        brandSlug: 'test-brand',
+        romanizedName: 'New Public Name',
+      })),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(redirect).toHaveBeenCalledWith(
+      expect.stringContaining('/dashboard/brands/new-public-name'),
+    )
+  })
+
   it('blocks non-admin update immediately when scan returns high risk (tier-1 hard block)', async () => {
     isActingAsAdmin.mockResolvedValue(false)
     scanContent.mockReturnValue({ riskLevel: 'high', flags: [
@@ -839,6 +898,25 @@ describe('publishDraftAction — edit gating', () => {
     )
     expect(discardDraft).toHaveBeenCalledWith('brand-1')
     expect(publishDraft).not.toHaveBeenCalled()
+    expect(result?.message).toBe('brandEditSubmittedForReview')
+  })
+
+  it('queues a trusted owner draft when romanizedName changes the slug', async () => {
+    isActingAsAdmin.mockResolvedValueOnce(false)
+    getBrandDraft.mockResolvedValueOnce({ romanizedName: 'New Public Name' })
+
+    const { publishDraftAction } = await import('./actions')
+    const result = await publishDraftAction(undefined, form({
+      brandSlug: 'test-brand',
+    }))
+
+    expect(createPendingEdit).toHaveBeenCalledWith(
+      'brand-1',
+      'user-1',
+      expect.objectContaining({ romanizedName: 'New Public Name' }),
+    )
+    expect(publishDraft).not.toHaveBeenCalled()
+    expect(shouldAutoApprove).not.toHaveBeenCalled()
     expect(result?.message).toBe('brandEditSubmittedForReview')
   })
 

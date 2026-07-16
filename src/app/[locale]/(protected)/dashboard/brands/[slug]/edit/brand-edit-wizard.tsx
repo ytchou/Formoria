@@ -235,6 +235,7 @@ export function BrandEditWizard({
             <BasicInfoSection
               form={form}
               productTagSuggestions={productTagSuggestions}
+              currentSlug={brand.slug}
             />
           ) : (
             SectionComponent && <SectionComponent form={form} />

@@ -168,6 +168,17 @@ describe('pendingEditWithBrandToDomain', () => {
     expect(mapped.brand.mitStory).toBe('Handcrafted in New Taipei.')
   })
 
+  it('shows the proposed romanizedName in admin review data', () => {
+    const mapped = pendingEditWithBrandToDomain(
+      makePendingEditWithBrandRow({
+        proposed_data: { romanizedName: 'New Public Name' },
+        brands: { romanized_name: 'Current Public Name' },
+      }),
+    )
+
+    expect(mapped.brand.romanizedName).toBe('New Public Name')
+  })
+
   it('defaults brand.mitStory to null when mit_story absent', () => {
     const rawEdit = makePendingEditWithBrandRow({
       brands: { mit_story: null },

@@ -11,6 +11,7 @@ const liveBrand: Brand = {
   id: 'b1',
   name: 'Live Name',
   slug: 'live-name',
+  romanizedName: 'Live Name',
   description: 'live desc',
   heroImageUrl: 'https://x.supabase.co/hero-live.png',
   status: 'approved',
@@ -141,6 +142,11 @@ describe('draftSnapshotToDomain', () => {
     const snapshot = brandToDraftSnapshot(liveBrand)
     const restored = draftSnapshotToDomain(snapshot, liveBrand)
     expect(restored.mitStory).toBe('Our fabrics come from Changhua.')
+  })
+
+  it('round-trips romanizedName through draft snapshot', () => {
+    const snapshot = brandToDraftSnapshot(liveBrand)
+    expect(draftSnapshotToDomain(snapshot).romanizedName).toBe('Live Name')
   })
 
   it('handles null mitStory in draft snapshot', () => {

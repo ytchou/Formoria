@@ -89,6 +89,7 @@ export type Brand = {
   id: string
   name: string
   slug: string
+  romanizedName?: string | null
   description: string | null
   descriptionEn: string | null
   blurb: string | null
@@ -159,6 +160,7 @@ export type PendingBrandEditWithBrand = PendingBrandEdit & {
     | 'id'
     | 'name'
     | 'slug'
+    | 'romanizedName'
     | 'description'
     | 'descriptionEn'
     | 'blurb'

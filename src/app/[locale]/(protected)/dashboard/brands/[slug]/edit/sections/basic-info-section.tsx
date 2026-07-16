@@ -8,9 +8,11 @@ import type { BrandEditFormValues } from '@/lib/schemas/brand-edit'
 export function BasicInfoSection({
   form,
   productTagSuggestions = [],
+  currentSlug,
 }: {
   form: UseFormReturn<BrandEditFormValues>
   productTagSuggestions?: string[]
+  currentSlug?: string
 }) {
   return (
     <FormProvider {...form}>
@@ -24,6 +26,7 @@ export function BasicInfoSection({
           priceRange: true,
         }}
         suggestName={suggestCleanName}
+        currentSlug={currentSlug}
       />
     </FormProvider>
   )

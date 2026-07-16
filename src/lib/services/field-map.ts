@@ -44,6 +44,7 @@ const SOCIAL_PURCHASE_FIELD_MAP = [
 >
 
 const BRAND_FIELD_MAP = [
+  ['romanizedName', 'romanized_name'],
   ['contactEmail', 'contact_email'],
   ['mitStory', 'mit_story'],
   ['city', 'city'],
@@ -51,6 +52,7 @@ const BRAND_FIELD_MAP = [
   ['retailLocations', 'retail_locations'],
 ] as const satisfies FieldMap<
   {
+    romanizedName?: string | null
     contactEmail?: string | null
     mitStory?: string | null
     city?: string | null
@@ -111,6 +113,7 @@ const SUBMISSION_FIELD_MAP = [
 export function toBrandRow(input: {
   name?: string
   slug?: string
+  romanizedName?: string | null
   description?: string | null
   descriptionEn?: string | null
   heroImageUrl?: string | null

@@ -34,6 +34,7 @@ import {
 import { toSubmissionRow } from "./field-map";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { deleteStoredImagePaths } from "./image-upload";
+import { slugifyRomanizedName } from "@/lib/brands/slug";
 
 // ---------------------------------------------------------------------------
 // Row types
@@ -286,10 +287,10 @@ function normalizeString(value: string | null | undefined): string | null {
 }
 
 function generateSubmissionSlug(row: SubmissionRow): string {
-  const slugSource =
-    normalizeString(row.romanized_name) ??
-    extractLatinRun(row.brand_name) ??
-    row.brand_name;
+  const romanizedSlug = slugifyRomanizedName(row.romanized_name);
+  if (romanizedSlug) return romanizedSlug;
+
+  const slugSource = extractLatinRun(row.brand_name) ?? row.brand_name;
 
   return generateSlug(slugSource);
 }
@@ -340,6 +341,7 @@ function submissionToBrandBase(row: SubmissionRow): BrandInsert {
   return {
     name: row.brand_name,
     slug: generateSubmissionSlug(row),
+    romanized_name: normalizeString(row.romanized_name),
     description: row.description,
     hero_image_url: rowWithSubmissionImages.hero_image_url ?? null,
     status: "approved",
@@ -819,7 +821,7 @@ export async function approveSubmission(
   };
 
   const { data: approvalRows, error: approvalError } = await supabase.rpc(
-    "approve_submission",
+    "approve_submission_with_romanized_name",
     {
       p_brand_data: brandInsert as unknown as Json,
       p_reviewer_id: reviewerId,

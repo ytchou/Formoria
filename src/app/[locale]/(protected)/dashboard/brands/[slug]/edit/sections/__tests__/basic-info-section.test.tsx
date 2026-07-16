@@ -9,13 +9,15 @@ import { BasicInfoSection } from '../basic-info-section'
 
 function Wrapper({
   defaultValues = {},
+  currentSlug,
 }: {
   defaultValues?: Partial<BrandEditFormValues>
+  currentSlug?: string
 }) {
   const form = useForm<BrandEditFormValues>({ defaultValues })
   return (
     <NextIntlClientProvider locale="en" messages={messages}>
-      <BasicInfoSection form={form} />
+      <BasicInfoSection form={form} currentSlug={currentSlug} />
     </NextIntlClientProvider>
   )
 }
@@ -34,6 +36,19 @@ describe('BasicInfoSection', () => {
   it('pre-fills name with defaultValues', () => {
     render(<Wrapper defaultValues={{ name: 'Warmwood Living' }} />)
     expect(screen.getByDisplayValue('Warmwood Living')).toBeInTheDocument()
+  })
+
+  it('previews the URL derived from romanizedName', () => {
+    render(
+      <Wrapper
+        currentSlug="warmwood-living"
+        defaultValues={{ romanizedName: 'Warmwood Home' }}
+      />
+    )
+
+    expect(screen.getByDisplayValue('/brands/warmwood-home')).toHaveAttribute(
+      'readonly',
+    )
   })
 
   it('shows meaningful labels for selected taxonomy values', () => {

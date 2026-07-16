@@ -2,7 +2,7 @@
 
 import { useRef, useState, type ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
-import { Controller, useFormContext } from 'react-hook-form'
+import { Controller, useFormContext, useWatch } from 'react-hook-form'
 import { DashboardFormField } from './dashboard-form-field'
 import {
   StandardFormSection,
@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { TAIWAN_CITIES } from '@/lib/constants/taiwan-cities'
 import type { BrandWizardCommonValues } from '@/lib/schemas/brand-wizard'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { slugifyRomanizedName } from '@/lib/brands/slug'
 
 type RequiredBasicField =
   | 'name'
@@ -30,6 +31,7 @@ export function BrandBasicInfoSection({
   requiredFields = {},
   afterRomanizedName,
   suggestName,
+  currentSlug,
 }: {
   productTagSuggestions?: string[]
   requiredFields?: Partial<Record<RequiredBasicField, boolean>>
@@ -38,6 +40,7 @@ export function BrandBasicInfoSection({
     changed: boolean
     suggestion?: string | null
   }>
+  currentSlug?: string
 }) {
   const form = useFormContext<BrandWizardCommonValues>()
   const t = useTranslations('dashboard.edit')
@@ -46,6 +49,11 @@ export function BrandBasicInfoSection({
   const [nameSuggestion, setNameSuggestion] = useState<string | null>(null)
   const nameBlurRequestRef = useRef(0)
   const nameRegistration = form.register('name')
+  const romanizedName = useWatch({
+    control: form.control,
+    name: 'romanizedName',
+  })
+  const previewSlug = slugifyRomanizedName(romanizedName) || currentSlug || ''
   const tx = (key: string, fallback: string) => (t.has(key) ? t(key) : fallback)
   const getPriceRangeLabel = (value: unknown) => {
     const labels: Record<string, string> = {
@@ -149,6 +157,19 @@ export function BrandBasicInfoSection({
             }
             className="min-h-12 bg-card"
             {...form.register('romanizedName')}
+          />
+        </DashboardFormField>
+
+        <DashboardFormField
+          id="brand-url-preview"
+          label={tSubmit('ownerForm.urlPreviewLabel')}
+          description={tSubmit('ownerForm.urlPreviewHint')}
+        >
+          <Input
+            id="brand-url-preview"
+            readOnly
+            value={previewSlug ? `/brands/${previewSlug}` : ''}
+            className="min-h-12 bg-muted text-muted-foreground"
           />
         </DashboardFormField>
 

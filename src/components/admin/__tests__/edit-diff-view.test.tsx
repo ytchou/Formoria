@@ -56,4 +56,14 @@ describe('computeDiffFields', () => {
     const hero = result.find((f: DiffField) => f.fieldKey === 'heroImageUrl')
     expect(hero?.isImage).toBe(true)
   })
+
+  it('labels romanizedName as a public URL change', () => {
+    const [field] = computeDiffFields(
+      { romanizedName: 'Current Name' },
+      { romanizedName: 'New Name' },
+    )
+
+    expect(field.field).toBe('English / romanized name (public URL)')
+    expect(field.changed).toBe(true)
+  })
 })

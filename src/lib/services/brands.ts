@@ -15,6 +15,7 @@ import {
   PRODUCT_TYPE_CATEGORIES,
 } from '@/lib/taxonomy/ontology'
 import { normalizeRetailLocations } from '@/lib/brands/locations'
+import { slugifyRomanizedName, withSlugSuffix } from '@/lib/brands/slug'
 import { downloadAndStoreImages } from './image-download'
 import {
   resolveWritablePatch,
@@ -68,9 +69,6 @@ type BrandSlugRedirectTable = {
       }>
     }
   }
-  upsert: (row: { old_slug: string; new_slug: string }) => Promise<{
-    error: { code?: string; message?: string } | null
-  }>
 }
 type BrandFlatLinkColumns = {
   social_instagram?: string | null
@@ -136,7 +134,7 @@ type BrandFieldStateTable = {
 }
 type BrandPatchRpcClient = {
   rpc: (fn: 'apply_brand_patch', args: ApplyBrandPatchArgs) => Promise<{
-    error: { message?: string } | null
+    error: { code?: string; message?: string } | null
   }>
 }
 
@@ -409,6 +407,7 @@ export function curatedSubmissionToBrand(input: CuratedSubmissionInput): Curated
 
 const BRAND_DRAFT_EDITABLE_KEYS = [
   'name',
+  'romanizedName',
   'description',
   'productType',
   'foundingYear',
@@ -542,6 +541,9 @@ export function draftSnapshotToDomain(
       case 'name':
         partial.name = snapshot.name as Brand['name']
         break
+      case 'romanizedName':
+        partial.romanizedName = snapshot.romanizedName as Brand['romanizedName']
+        break
       case 'description':
         partial.description = snapshot.description as Brand['description']
         break
@@ -629,6 +631,7 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     id: row.id,
     name: row.name,
     slug: row.slug,
+    romanizedName: row.romanized_name ?? null,
     description: row.description ?? null,
     descriptionEn: row.description_en ?? null,
     blurb: row.blurb ?? null,
@@ -745,7 +748,7 @@ export function previewBrandPatch(
 // ---------------------------------------------------------------------------
 
 const BRAND_COLUMNS = [
-  'id', 'name', 'slug', 'description', 'description_en', 'blurb', 'blurb_en', 'hero_image_url',
+  'id', 'name', 'slug', 'romanized_name', 'description', 'description_en', 'blurb', 'blurb_en', 'hero_image_url',
   'product_type', 'contact_email', 'city', 'purchase_website', 'purchase_pinkoi',
   'purchase_shopee', 'social_instagram', 'social_threads', 'social_facebook',
   'other_urls', 'retail_locations', 'site_content',
@@ -1109,11 +1112,30 @@ export async function findBrandByOldSlug(oldSlug: string): Promise<string | null
   return data?.new_slug ?? null
 }
 
-export async function insertSlugRedirect(oldSlug: string, newSlug: string): Promise<void> {
-  const supabase = createServiceClient()
-  const { error } = await brandSlugRedirectsTable(supabase).upsert({ old_slug: oldSlug, new_slug: newSlug })
+async function resolveUniqueRomanizedSlug(
+  supabase: ReturnType<typeof createServiceClient>,
+  baseSlug: string,
+  brandId: string,
+): Promise<string> {
+  let candidate = baseSlug
+  let suffix = 2
 
-  if (error) throw error
+  while (true) {
+    if (!isReservedSlug(candidate)) {
+      const { data, error } = await supabase
+        .from('brands')
+        .select('id')
+        .eq('slug', candidate)
+        .neq('id', brandId)
+        .maybeSingle()
+
+      if (error) throw error
+      if (!data) return candidate
+    }
+
+    candidate = withSlugSuffix(baseSlug, suffix)
+    suffix += 1
+  }
 }
 
 export async function updateBrand(
@@ -1122,18 +1144,60 @@ export async function updateBrand(
   actor: BrandWriteActor = { source: 'admin' }
 ): Promise<BrandWriteResult> {
   const supabase = createServiceClient()
-  const row = brandToUpdate(data)
+  const normalizedData =
+    data.romanizedName === undefined
+      ? data
+      : { ...data, romanizedName: data.romanizedName?.trim() || null }
+  const row = brandToUpdate(normalizedData)
+  let romanizedSlugBase: string | null = null
+
+  if (normalizedData.romanizedName !== undefined) {
+    const { data: current, error: currentError } = await supabase
+      .from('brands')
+      .select('slug')
+      .eq('id', id)
+      .single()
+
+    if (currentError || !current) {
+      throw new NotFoundError('Brand', id, { cause: currentError })
+    }
+
+    romanizedSlugBase = slugifyRomanizedName(normalizedData.romanizedName)
+    if (romanizedSlugBase && romanizedSlugBase !== current.slug) {
+      row.slug = await resolveUniqueRomanizedSlug(
+        supabase,
+        romanizedSlugBase,
+        id,
+      )
+    }
+  }
+
   const fieldState = actor.source === 'admin' ? {} : await loadBrandFieldState(supabase, id)
   const { allowed, skipped } = resolveWritablePatch(row, fieldState, actor)
 
   if (Object.keys(allowed).length > 0) {
-    const { error: patchError } = await brandPatchRpc(supabase).rpc('apply_brand_patch', {
+    let { error: patchError } = await brandPatchRpc(supabase).rpc('apply_brand_patch', {
       p_brand_id: id,
       p_patch: allowed,
       p_source: actor.source,
       p_actor: actor.userId ?? null,
       p_job_id: actor.jobId ?? null,
     })
+
+    if (patchError?.code === '23505' && romanizedSlugBase && allowed.slug) {
+      allowed.slug = await resolveUniqueRomanizedSlug(
+        supabase,
+        romanizedSlugBase,
+        id,
+      )
+      ;({ error: patchError } = await brandPatchRpc(supabase).rpc('apply_brand_patch', {
+        p_brand_id: id,
+        p_patch: allowed,
+        p_source: actor.source,
+        p_actor: actor.userId ?? null,
+        p_job_id: actor.jobId ?? null,
+      }))
+    }
 
     if (patchError) throw patchError
   }

@@ -59,6 +59,13 @@ describe('brandToDomain — isVerified', () => {
   })
 })
 
+describe('brandToDomain — romanized name', () => {
+  it('maps romanized_name to public-display metadata', () => {
+    const brand = brandToDomain(makeBrandRow({ romanized_name: 'Warmwood Living' }))
+    expect(brand.romanizedName).toBe('Warmwood Living')
+  })
+})
+
 describe('brandToDomain — isDemo', () => {
   it('maps is_demo true to isDemo true', () => {
     const row = makeBrandRow({ is_demo: true })
@@ -209,6 +216,14 @@ describe('brandToInsert — isDemo', () => {
   it('does not include is_demo when isDemo is undefined', () => {
     const result = brandToInsert({ name: 'Test' })
     expect(result).not.toHaveProperty('is_demo')
+  })
+})
+
+describe('brandToInsert — romanized name', () => {
+  it('serializes romanizedName to romanized_name', () => {
+    expect(brandToInsert({ romanizedName: 'Warmwood Living' })).toMatchObject({
+      romanized_name: 'Warmwood Living',
+    })
   })
 })
 
