@@ -32,6 +32,13 @@ type Translator = (key: string) => string
 function createQuickSubmissionSchema(t: Translator) {
   return z.object({
     name: z.string().min(1, t('validation.nameMinLength')),
+    romanizedName: z
+      .string()
+      .min(2)
+      .max(100)
+      .regex(/^[a-zA-Z0-9\s\-'.]+$/)
+      .optional()
+      .or(z.literal('')),
     website: z.string().url(t('validation.urlInvalid')),
     description: z.string().min(1, t('validation.descriptionRequired')),
     pdpaConsent: z.literal(true, {
@@ -77,6 +84,7 @@ export default function SubmitQuickForm() {
     mode: 'onTouched',
     defaultValues: {
       name: '',
+      romanizedName: '',
       website: '',
       description: '',
       pdpaConsent: false as QuickSubmissionFormData['pdpaConsent'],
@@ -255,6 +263,21 @@ export default function SubmitQuickForm() {
                 </div>
               </div>
             ) : null}
+          </FormField>
+
+          <FormField
+            id="submit-romanized-name"
+            label={t('ownerForm.romanizedNameLabel')}
+            description={t('ownerForm.romanizedNameHint')}
+            error={errors.romanizedName?.message}
+          >
+            <Input
+              id="submit-romanized-name"
+              type="text"
+              autoComplete="off"
+              placeholder={t('ownerForm.romanizedNamePlaceholder')}
+              {...register('romanizedName')}
+            />
           </FormField>
 
           <FormField

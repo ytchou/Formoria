@@ -3,6 +3,13 @@ import { getDuplicateRetailLocationIndex } from '@/lib/brands/locations'
 
 const basicInfoSchema = z.object({
   name: z.string().min(1),
+  romanizedName: z
+    .string()
+    .min(2)
+    .max(100)
+    .regex(/^[a-zA-Z0-9\s\-'.]+$/)
+    .optional()
+    .or(z.literal('')),
   website: z.string().url(),
   description: z.string().min(1),
   productType: z.string().optional(),
@@ -112,6 +119,7 @@ export const SUBMISSION_SECTION_FIELDS: Record<
 > = {
   basicInfo: [
     'name',
+    'romanizedName',
     'website',
     'description',
     'productType',
