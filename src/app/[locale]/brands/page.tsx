@@ -329,6 +329,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
             categories={[...PRODUCT_TYPE_CATEGORIES]}
             subcategories={subcategoryOptions}
             activeSubSlugs={activeSubSlugs}
+            totalCount={totalCount}
           />
         </div>
       </aside>

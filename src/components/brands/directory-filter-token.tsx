@@ -1,7 +1,7 @@
 'use client'
 
 import { X } from 'lucide-react'
-import { Link } from '@/i18n/navigation'
+import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
