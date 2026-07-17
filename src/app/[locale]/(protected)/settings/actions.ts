@@ -119,7 +119,7 @@ export async function updateSettings(
   cookieStore.set("NEXT_LOCALE", parsed.data.localePreference, {
     sameSite: "lax",
     httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production" && process.env.PLAYWRIGHT_TEST !== "true",
     path: "/",
     maxAge: 365 * 24 * 60 * 60,
   });

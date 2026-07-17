@@ -1,20 +1,38 @@
-import { test, expect } from '../fixtures/auth';
+import path from 'node:path';
+import type { Page } from '@playwright/test';
+import { test as baseTest, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { writeAuthStorageStateForCredentials } from '../helpers/auth-session';
+
+const test = baseTest.extend<{ userPage: Page }>({
+  userPage: async ({ browser, isolatedUser }, provideFixture, testInfo) => {
+    const storagePath = path.join(testInfo.outputDir, 'isolated-owner.json');
+    await writeAuthStorageStateForCredentials(
+      isolatedUser.email,
+      isolatedUser.password,
+      storagePath,
+      'isolated-owner',
+    );
+    const context = await browser.newContext({ storageState: storagePath });
+    const page = await context.newPage();
+    await provideFixture(page);
+    await context.close();
+  },
+});
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
 // ─── Why one serial file? ────────────────────────────────────────────────────
 //
-// All tests here require the E2E owner account to own the brand being edited.
+// All tests here require one owner account to own the brand being edited.
 // The `brand_owners` table has a UNIQUE constraint on `user_id` — only one
-// brand per account. With fullyParallel=true, concurrent workers race to upsert
-// ownership, causing server-side redirects away from the edit page.
+// brand per account. This file uses a worker-scoped throwaway account so its
+// ownership transitions cannot race with the shared dashboard fixtures.
 //
 // test.describe.configure({ mode: 'serial' }) at FILE SCOPE forces every test
 // in this file onto a SINGLE WORKER.  No cross-test ownership races are possible
-// inside the file; any other file that calls ensureOwnedBrand will simply inherit
-// whichever brand this file currently owns without changing it.
+// inside the file.
 //
 // Each describe section gets its OWN dedicated brand to avoid the single
 // pending_brand_edits-per-brand unique constraint that fires when multiple
@@ -60,7 +78,7 @@ let adminBrandSlug: string;
 
 // ─── File-scope setup ────────────────────────────────────────────────────────
 
-test.beforeAll(async () => {
+test.beforeAll(async ({ isolatedUser }) => {
   supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -69,10 +87,7 @@ test.beforeAll(async () => {
   const { data: usersData, error: usersError } = await supabase.auth.admin.listUsers();
   if (usersError) throw new Error(`Failed to list users: ${usersError.message}`);
 
-  const testUser = usersData.users.find((u) => u.email === process.env.E2E_USER_EMAIL);
-  if (!testUser)
-    throw new Error(`E2E test user not found: ${process.env.E2E_USER_EMAIL}. Run global-setup first.`);
-  testUserId = testUser.id;
+  testUserId = isolatedUser.id;
 
   const adminUser = usersData.users.find((u) => u.email === process.env.E2E_ADMIN_EMAIL);
   if (!adminUser)
@@ -667,12 +682,13 @@ test.describe('Dashboard EditReviewBanner', () => {
     });
     if (editErr) throw new Error(`seed pending edit: ${editErr.message}`);
 
-    const resp = await userPage.goto(`/dashboard?brand=${bannerBrandSlug}`, { timeout: 60_000 });
+    const resp = await userPage.goto(`/dashboard/brands/${bannerBrandSlug}`, { timeout: 60_000 });
     if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
+    const mainContent = userPage.locator('#main-content');
     await expect(userPage.getByRole('link', { name: '編輯品牌' }).first()).toBeVisible({ timeout: 60_000 });
-    await expect(userPage.getByText('您的編輯正在審核中')).toBeVisible({ timeout: 10_000 });
-    await expect(userPage.getByText('審核中', { exact: true })).toBeVisible({ timeout: 5_000 });
+    await expect(mainContent.getByText('您的編輯正在審核中')).toBeVisible({ timeout: 10_000 });
+    await expect(mainContent.getByText('審核中', { exact: true })).toBeVisible({ timeout: 5_000 });
   });
 
   test('rejected edit shows rejection banner with notes and resubmit link', async ({ userPage }) => {
@@ -689,12 +705,13 @@ test.describe('Dashboard EditReviewBanner', () => {
     });
     if (editErr) throw new Error(`seed rejected edit: ${editErr.message}`);
 
-    const resp = await userPage.goto(`/dashboard?brand=${bannerBrandSlug}`, { timeout: 60_000 });
+    const resp = await userPage.goto(`/dashboard/brands/${bannerBrandSlug}`, { timeout: 60_000 });
     if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
+    const mainContent = userPage.locator('#main-content');
     await expect(userPage.getByRole('link', { name: '編輯品牌' }).first()).toBeVisible({ timeout: 60_000 });
-    await expect(userPage.getByText('編輯需要修改')).toBeVisible({ timeout: 10_000 });
-    await expect(userPage.getByText('Test rejection reason for banner')).toBeVisible({ timeout: 5_000 });
+    await expect(mainContent.getByText('編輯需要修改')).toBeVisible({ timeout: 10_000 });
+    await expect(mainContent.getByText('Test rejection reason for banner')).toBeVisible({ timeout: 5_000 });
 
     const resubmitLink = userPage.getByRole('link', { name: '重新編輯' });
     await expect(resubmitLink).toBeVisible({ timeout: 5_000 });
@@ -715,15 +732,16 @@ test.describe('Dashboard EditReviewBanner', () => {
     });
     if (editErr) throw new Error(`seed approved edit: ${editErr.message}`);
 
-    const resp = await userPage.goto(`/dashboard?brand=${bannerBrandSlug}`, { timeout: 60_000 });
+    const resp = await userPage.goto(`/dashboard/brands/${bannerBrandSlug}`, { timeout: 60_000 });
     if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
+    const mainContent = userPage.locator('#main-content');
     await expect(userPage.getByRole('link', { name: '編輯品牌' }).first()).toBeVisible({ timeout: 60_000 });
-    await expect(userPage.getByText('編輯已通過並上線')).toBeVisible({ timeout: 10_000 });
+    await expect(mainContent.getByText('編輯已通過並上線')).toBeVisible({ timeout: 10_000 });
 
     const dismissBtn = userPage.getByRole('button', { name: '關閉' });
     await expect(dismissBtn).toBeVisible({ timeout: 5_000 });
     await dismissBtn.click();
-    await expect(userPage.getByText('編輯已通過並上線')).toBeHidden({ timeout: 5_000 });
+    await expect(mainContent.getByText('編輯已通過並上線')).toBeHidden({ timeout: 5_000 });
   });
 });

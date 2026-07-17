@@ -53,9 +53,11 @@ function createChunks(key: string, value: string): Array<{ name: string; value: 
  * issue distinct concurrent sessions (distinct refresh tokens) so workers
  * never share a refresh token.
  */
-export async function writeAuthStorageState(
-  role: 'admin' | 'user',
-  outputPath: string
+export async function writeAuthStorageStateForCredentials(
+  email: string,
+  password: string,
+  outputPath: string,
+  label = 'user',
 ): Promise<void> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -63,10 +65,6 @@ export async function writeAuthStorageState(
   const hostname = new URL(supabaseUrl).hostname;
   const projectRef = hostname.split('.')[0];
   const storageKey = `sb-${projectRef}-auth-token`;
-
-  const email = role === 'admin' ? process.env.E2E_ADMIN_EMAIL! : process.env.E2E_USER_EMAIL!;
-  const password =
-    role === 'admin' ? process.env.E2E_ADMIN_PASSWORD! : process.env.E2E_USER_PASSWORD!;
 
   const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000';
   const domain = new URL(baseURL).hostname;
@@ -76,7 +74,7 @@ export async function writeAuthStorageState(
 
   if (error || !data.session) {
     throw new Error(
-      `Auth failed for ${role} (${email}): ${error?.message ?? 'no session returned'}`
+      `Auth failed for ${label} (${email}): ${error?.message ?? 'no session returned'}`
     );
   }
 
@@ -109,5 +107,16 @@ export async function writeAuthStorageState(
   const dir = path.dirname(outputPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(outputPath, JSON.stringify(storageState, null, 2));
-  console.log(`[auth-session] ${role}: wrote ${cookies.length} cookie chunk(s) to ${outputPath}`);
+  console.log(`[auth-session] ${label}: wrote ${cookies.length} cookie chunk(s) to ${outputPath}`);
+}
+
+export async function writeAuthStorageState(
+  role: 'admin' | 'user',
+  outputPath: string,
+): Promise<void> {
+  const email = role === 'admin' ? process.env.E2E_ADMIN_EMAIL! : process.env.E2E_USER_EMAIL!;
+  const password =
+    role === 'admin' ? process.env.E2E_ADMIN_PASSWORD! : process.env.E2E_USER_PASSWORD!;
+
+  await writeAuthStorageStateForCredentials(email, password, outputPath, role);
 }

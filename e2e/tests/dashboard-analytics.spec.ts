@@ -44,31 +44,32 @@ test.describe('Dashboard — analytics', () => {
       return
     }
 
+    const mainContent = userPage.locator('#main-content')
     await expect(userPage.getByRole('heading', { name: '瀏覽與點擊' })).toBeVisible({
       timeout: 30_000,
     })
     // pageViews and outboundClicks are <p> labels in DataCard, not headings
-    await expect(userPage.getByText('頁面瀏覽', { exact: true })).toBeVisible({
+    await expect(mainContent.getByText('頁面瀏覽', { exact: true })).toBeVisible({
       timeout: 10_000,
     })
-    await expect(userPage.getByText('外部連結點擊', { exact: true })).toBeVisible({
+    await expect(mainContent.getByText('外部連結點擊', { exact: true })).toBeVisible({
       timeout: 10_000,
     })
 
     await expect(
       userPage.getByRole('heading', { name: '流量來源' }),
     ).toBeVisible({ timeout: 10_000 })
-    await expect(userPage.getByText('尚無流量資料', { exact: true })).toBeVisible({
+    await expect(mainContent.getByText('尚無流量資料', { exact: true })).toBeVisible({
       timeout: 10_000,
     })
 
-    await expect(userPage.getByText('趨勢', { exact: true })).toBeVisible({
+    await expect(mainContent.getByText('趨勢', { exact: true })).toBeVisible({
       timeout: 10_000,
     })
     await expect(
       userPage.getByRole('heading', { name: '各連結點擊數' }),
     ).toBeVisible({ timeout: 10_000 })
-    await expect(userPage.getByText('尚無連結點擊', { exact: true })).toBeVisible({
+    await expect(mainContent.getByText('尚無連結點擊', { exact: true })).toBeVisible({
       timeout: 10_000,
     })
   })

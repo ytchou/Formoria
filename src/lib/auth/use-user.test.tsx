@@ -13,6 +13,12 @@ const authMocks = vi.hoisted(() => ({
   getViewerContextAction: vi.fn(),
 }))
 
+const navigationMocks = vi.hoisted(() => ({ pathname: '/auth/sign-in' }))
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => navigationMocks.pathname,
+}))
+
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
     auth: {
@@ -147,5 +153,34 @@ describe('ViewerProvider', () => {
     expect(
       await screen.findByText('owner@niizo.tw:false'),
     ).toBeInTheDocument()
+  })
+
+  it('rechecks the server-written session after a server action changes the route', async () => {
+    authMocks.getUser
+      .mockResolvedValueOnce({ data: { user: null }, error: null })
+      .mockResolvedValueOnce({
+        data: { user: { id: 'user-niizo', email: 'owner@niizo.tw' } },
+        error: null,
+      })
+
+    const rendered = render(
+      <ViewerProvider>
+        <Probe />
+      </ViewerProvider>,
+    )
+
+    expect(await screen.findByText('anonymous:false')).toBeInTheDocument()
+
+    navigationMocks.pathname = '/dashboard'
+    await act(async () => {
+      rendered.rerender(
+        <ViewerProvider>
+          <Probe />
+        </ViewerProvider>,
+      )
+    })
+
+    expect(await screen.findByText('owner@niizo.tw:true')).toBeInTheDocument()
+    expect(authMocks.getUser).toHaveBeenCalledTimes(2)
   })
 })

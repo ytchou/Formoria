@@ -2,6 +2,7 @@
 import { test as base, type Page } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
+import { createClient } from '@supabase/supabase-js';
 import { writeAuthStorageState } from '../helpers/auth-session';
 
 const AUTH_DIR = path.join(__dirname, '../.auth');
@@ -36,9 +37,44 @@ type AuthFixtures = {
 type WorkerAuthFixtures = {
   adminStorageState: string;
   userStorageState: string;
+  isolatedUser: {
+    id: string;
+    email: string;
+    password: string;
+  };
 };
 
 export const test = base.extend<AuthFixtures, WorkerAuthFixtures>({
+  isolatedUser: [
+    async ({}, use, workerInfo) => {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      );
+      const suffix = `${Date.now()}-${workerInfo.workerIndex}`;
+      const email = `e2e-isolated-owner-${suffix}@test.local`;
+      const password = `IsolatedOwner${suffix}A!`;
+      const { data, error } = await supabase.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      });
+      if (error || !data.user) {
+        throw new Error(`Failed to create isolated E2E owner: ${error?.message ?? 'missing user'}`);
+      }
+
+      try {
+        await use({ id: data.user.id, email, password });
+      } finally {
+        const { error: deleteError } = await supabase.auth.admin.deleteUser(data.user.id);
+        if (deleteError) {
+          console.warn(`[e2e-cleanup] isolated owner deletion failed: ${deleteError.message}`);
+        }
+      }
+    },
+    { scope: 'worker' },
+  ],
+
   // Worker-scoped: one session per worker, created lazily on first use.
   // Multiple workers signing in as the same account is intentional —
   // Supabase issues a distinct refresh token per signInWithPassword call.
