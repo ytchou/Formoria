@@ -6,9 +6,11 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
+import { usePathname } from 'next/navigation'
 
 import {
   getViewerContextAction,
@@ -53,6 +55,9 @@ function toViewerUser(user: {
 }
 
 export function ViewerProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname()
+  const previousPathname = useRef(pathname)
+  const reloadAuthRef = useRef<(() => Promise<void>) | null>(null)
   const [state, setState] = useState<Omit<UseUserState, 'refreshViewer'>>({
     user: null,
     loading: true,
@@ -77,6 +82,7 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const supabase = createClient()
     let authEventVersion = 0
+    let authRequestId = 0
     let active = true
     let viewerRequestId = 0
 
@@ -113,12 +119,14 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
       setState({ user, loading: false, viewer, viewerLoading: false })
     }
 
-    void (async () => {
+    async function loadUser(authClient = supabase) {
+      const requestId = ++authRequestId
       const initialAuthEventVersion = authEventVersion
-      const { data, error } = await supabase.auth.getUser()
+      const { data, error } = await authClient.auth.getUser()
 
       if (
         !active ||
+        requestId !== authRequestId ||
         authEventVersion !== initialAuthEventVersion
       ) {
         return
@@ -130,7 +138,10 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
       }
 
       await setAuthenticatedUser(toViewerUser(data.user))
-    })()
+    }
+
+    reloadAuthRef.current = () => loadUser(createClient())
+    void loadUser()
 
     const {
       data: { subscription },
@@ -141,10 +152,18 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
 
     return () => {
       active = false
+      reloadAuthRef.current = null
       viewerRequestId += 1
       subscription.unsubscribe()
     }
   }, [])
+
+  useEffect(() => {
+    if (previousPathname.current === pathname) return
+
+    previousPathname.current = pathname
+    void reloadAuthRef.current?.()
+  }, [pathname])
 
   return createElement(
     UserContext.Provider,

@@ -78,6 +78,9 @@ describe('i18n middleware composition', () => {
   it.each([
     ['an RSC response', { RSC: '1' }],
     ['a router prefetch', { 'next-router-prefetch': '1' }],
+    ['a Server Action response', { 'next-action': 'action-id' }],
+    ['a Next router request', { 'next-url': '/en/brands' }],
+    ['a router fetch without internal headers', { accept: '*/*' }],
   ])('does not overwrite the locale cookie from %s', async (_, headers) => {
     const res = await middleware(req('/en/brands', headers))
 

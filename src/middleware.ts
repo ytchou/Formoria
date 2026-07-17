@@ -156,9 +156,18 @@ async function refreshSupabaseSession(request: NextRequest, response: NextRespon
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isPlaywrightTest = process.env.PLAYWRIGHT_TEST === 'true'
+  const isServerAction = request.headers.has('next-action')
   const isRscOrPrefetch =
     request.headers.get('RSC') === '1' ||
     request.headers.get('next-router-prefetch') === '1'
+  // Next 16 consumes RSC/prefetch headers before invoking middleware. The
+  // surviving next-url header identifies some internal router requests. The
+  // remaining router fetches retain only their non-document Accept header.
+  const isRouterRequest =
+    isRscOrPrefetch ||
+    isServerAction ||
+    request.headers.has('next-url') ||
+    request.headers.get('accept') === '*/*'
 
   const host = request.headers.get('host') ?? ''
   if (host === (process.env.MICROSITE_HOST ?? 'brand.formoria.com')) {
@@ -251,7 +260,7 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = localizePath(pathname, 'en')
     const localeResponse = NextResponse.redirect(url)
-    if (!isRscOrPrefetch) {
+    if (!isRouterRequest) {
       localeResponse.cookies.set(LOCALE_COOKIE, 'en', {
         sameSite: 'lax',
         path: '/',
@@ -274,7 +283,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const resolvedLocale = explicitLocale ?? inferredLocale
-  if (resolvedLocale && !isRscOrPrefetch) {
+  if (resolvedLocale && !isRouterRequest) {
     response.cookies.set(LOCALE_COOKIE, resolvedLocale, {
       sameSite: 'lax',
       path: '/',

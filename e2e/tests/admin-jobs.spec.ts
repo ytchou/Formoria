@@ -191,7 +191,13 @@ test.describe('Admin curation jobs deep', () => {
     const rerunButton = adminPage.getByRole('button', { name: 'Rerun failed submissions', exact: true });
     await expect(rerunButton).toBeVisible();
     await rerunButton.click();
-    await expect(adminPage).toHaveURL(/\/admin\/jobs\/[^/]+$/, { timeout: 60_000 });
+
+    await expect
+      .poll(
+        () => new URL(adminPage.url()).pathname,
+        { timeout: 60_000, intervals: [500, 1_000, 2_000, 5_000] },
+      )
+      .toMatch(new RegExp(`^/admin/jobs/(?!${parentJobId}$)[^/]+$`));
 
     const childPath = new URL(adminPage.url()).pathname;
     const childMatch = /^\/admin\/jobs\/([^/]+)$/.exec(childPath);

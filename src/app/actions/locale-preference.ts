@@ -13,7 +13,8 @@ export async function setLocalePreference(locale: AppLocale, pathname: string) {
   cookieStore.set(LOCALE_COOKIE, locale, {
     sameSite: 'lax',
     httpOnly: false,
-    secure: process.env.NODE_ENV === 'production',
+    // The CI server is production-mode but runs on plain HTTP localhost.
+    secure: process.env.NODE_ENV === 'production' && process.env.PLAYWRIGHT_TEST !== 'true',
     path: '/',
     maxAge: 365 * 24 * 60 * 60,
   })
