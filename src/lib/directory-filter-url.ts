@@ -1,4 +1,4 @@
-export type DirectoryFilterKey =
+type DirectoryFilterKey =
   | 'search'
   | 'category'
   | 'sub'
