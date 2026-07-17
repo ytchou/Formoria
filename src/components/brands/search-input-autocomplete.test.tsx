@@ -128,4 +128,16 @@ describe('SearchInput autocomplete', () => {
       expect(screen.getByText(/no results/i)).toBeInTheDocument()
     })
   })
+
+  it('does not request autocomplete when suggestions are disabled', async () => {
+    const user = userEvent.setup()
+    renderWithProvider(<SearchInput showAutocomplete={false} />)
+
+    await user.type(screen.getByRole('searchbox'), 'tea')
+
+    await waitFor(() => {
+      expect(mockFetch).not.toHaveBeenCalled()
+    })
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
 })

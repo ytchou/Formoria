@@ -7,20 +7,28 @@ import { useTranslations, useLocale } from 'next-intl'
 import type { Brand } from '@/lib/types'
 import { trackBrandCardClicked } from '@/lib/analytics'
 import { surfaceCardStyles } from '@/components/ui/card'
+import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
 import { SaveBrandButton } from './save-brand-button'
 import { BrandImageFallback } from './brand-image-fallback'
 import { MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badges'
+import { cn } from '@/lib/utils'
 
 interface BrandCardProps {
   brand: Brand
   position?: number
   priority?: boolean
+  variant?: 'directory' | 'recommendation'
 }
 
-export function BrandCard({ brand, position = 0, priority = false }: BrandCardProps) {
+export function BrandCard({
+  brand,
+  position = 0,
+  priority = false,
+  variant = 'directory',
+}: BrandCardProps) {
   const t = useTranslations('brands')
   const tDetail = useTranslations('brandDetail')
   const locale = useLocale()
@@ -56,7 +64,9 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
         ) : (
           <BrandImageFallback name={brand.name} category={brand.category} size="card" />
         )}
-        <SaveBrandButton brandId={brand.id} variant="overlay" />
+        {variant === 'directory' ? (
+          <SaveBrandButton brandId={brand.id} variant="overlay" />
+        ) : null}
       </div>
 
       {/* Content */}
@@ -65,7 +75,10 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
           <h3 className="min-w-0 truncate type-subsection-title">
             <Link
               href={`/brands/${brand.slug}`}
-              className="after:absolute after:inset-0 focus-visible:outline-none"
+              className={cn(
+                'focus-visible:outline-none',
+                variant === 'directory' && 'after:absolute after:inset-0',
+              )}
               onClick={() => trackBrandCardClicked(brand.slug, brand.category, position)}
             >
               {brand.name}
@@ -88,28 +101,44 @@ export function BrandCard({ brand, position = 0, priority = false }: BrandCardPr
             </div>
           )}
         </div>
-        <p className="mt-1.5 min-h-[2.625rem] type-section-description line-clamp-2">
-          {(locale === 'en'
-            ? (brand.blurbEn ?? brand.descriptionEn ?? brand.blurb ?? brand.description)
-            : (brand.blurb ?? brand.description)) ?? ' '}
-        </p>
-        <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
-          {categoryLabel && (
-            <Badge variant="secondary">
-              {categoryLabel}
-            </Badge>
-          )}
-          {brand.priceRange != null && (
-            <Badge variant="secondary">
-              {'$'.repeat(brand.priceRange)}
-            </Badge>
-          )}
-          {brand.productTags[0] && (
-            <Badge variant="secondary" className="max-w-full truncate">
-              {locale === 'en' ? (brand.productTagsEn[0] ?? brand.productTags[0]) : brand.productTags[0]}
-            </Badge>
-          )}
-        </div>
+        {variant === 'recommendation' ? (
+          <>
+            {categoryLabel ? (
+              <p className="mt-1 truncate type-card-description">{categoryLabel}</p>
+            ) : null}
+            <Link
+              href={`/brands/${brand.slug}`}
+              className={buttonVariants({
+                variant: 'secondary',
+                className: 'relative z-20 mt-4 min-h-12 w-full',
+              })}
+              onClick={() => trackBrandCardClicked(brand.slug, brand.category, position)}
+            >
+              {t('card.viewBrand')}
+            </Link>
+          </>
+        ) : (
+          <>
+            <p className="mt-1.5 min-h-[2.625rem] type-section-description line-clamp-2">
+              {(locale === 'en'
+                ? (brand.blurbEn ?? brand.descriptionEn ?? brand.blurb ?? brand.description)
+                : (brand.blurb ?? brand.description)) ?? ' '}
+            </p>
+            <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
+              {categoryLabel && <Badge variant="secondary">{categoryLabel}</Badge>}
+              {brand.priceRange != null && (
+                <Badge variant="secondary">{'$'.repeat(brand.priceRange)}</Badge>
+              )}
+              {brand.productTags[0] && (
+                <Badge variant="secondary" className="max-w-full truncate">
+                  {locale === 'en'
+                    ? (brand.productTagsEn[0] ?? brand.productTags[0])
+                    : brand.productTags[0]}
+                </Badge>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </article>
   )

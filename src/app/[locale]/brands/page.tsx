@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { ChevronRight } from 'lucide-react'
 import { NextIntlClientProvider } from 'next-intl'
 import { getTranslations, setRequestLocale, getMessages } from 'next-intl/server'
-import { getBrands, getPopularCategories, getFeaturedBrands, getSubcategoryCounts } from '@/lib/services/brands'
+import { getBrands, getRandomBrands, getSubcategoryCounts } from '@/lib/services/brands'
 import { getAppSetting, SUBCATEGORY_FILTER_KEY } from '@/lib/services/app-settings'
 import { categoryLabel, PRODUCT_SUBCATEGORIES, PRODUCT_TYPE_CATEGORIES, resolveSubcategorySlugs } from '@/lib/taxonomy/ontology'
 import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildBrandsItemListJsonLd, buildWebSiteJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
@@ -16,7 +16,11 @@ import { MasonryGrid } from '@/components/brands/masonry-grid'
 import { BrandCard } from '@/components/brands/brand-card'
 import { Pagination } from '@/components/brands/pagination'
 import { SortSelect } from '@/components/brands/sort-select'
-import { SearchEmptyStateWrapper } from '@/components/brands/search-empty-state-wrapper'
+import {
+  SearchEmptyState,
+  type ActiveDirectoryFilter,
+  type EmptyStateRecoveryAction,
+} from '@/components/brands/search-empty-state'
 import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
@@ -24,12 +28,18 @@ import { Link } from '@/i18n/navigation'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { truncateForMeta } from '@/lib/text/truncate-for-meta'
-import type { BrandFilters } from '@/lib/types'
+import type { Brand, BrandFilters } from '@/lib/types'
+import { localizePath } from '@/i18n/locale-preference'
+import {
+  clearDirectoryFilters,
+  updateDirectoryUrl,
+} from '@/lib/directory-filter-url'
 
 // ISR: revalidate every hour
 export const revalidate = 3600
 
 const VALID_CATEGORY_SLUGS: Set<string> = new Set(PRODUCT_TYPE_CATEGORIES.map((c) => c.slug))
+const EMPTY_STATE_RECOMMENDATION_LIMIT = 4
 
 interface BrandsPageProps {
   params: Promise<{ locale: string }>
@@ -143,8 +153,9 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   const { locale } = await params
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const [t, messages, subcategoryFilterEnabled] = await Promise.all([
+  const [t, verificationT, messages, subcategoryFilterEnabled] = await Promise.all([
     getTranslations('brands'),
+    getTranslations('brands.verificationFilter'),
     getMessages(),
     getAppSetting<boolean>(SUBCATEGORY_FILTER_KEY, true),
   ])
@@ -223,29 +234,143 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
     displayBrands = refetched.brands
   }
 
-  // Fetch empty-state fallback data when search yields zero results
   const hasActiveFilters =
     validCategoryFilter.length > 0 || resolvedSubs.length > 0 ||
     priceRanges.length > 0 || verificationFilter !== 'all'
-  let emptyStateData: {
-    categories: { productType: string; name: string; nameZh: string | null; count: number }[]
-    featured: { id: string; name: string; slug: string; heroImageUrl: string | null; category: string }[]
-  } | null = null
-  if (totalCount === 0 && search) {
-    const [rawCategories, featured] = await Promise.all([
-      getPopularCategories(5),
-      getFeaturedBrands(6),
-    ])
-    const categories = rawCategories.map(({ productType, count }) => {
-      const match = PRODUCT_TYPE_CATEGORIES.find((c) => c.slug === productType)
-      return {
-        productType,
-        name: match?.name ?? productType,
-        nameZh: match?.nameZh ?? null,
-        count,
-      }
+  const directoryPath = localizePath('/brands', safeLocale)
+  const normalizedParams = new URLSearchParams()
+  if (search) normalizedParams.set('search', search)
+  if (validCategoryFilter.length > 0) {
+    normalizedParams.set('category', validCategoryFilter.join(','))
+  }
+  if (activeSubSlugs.length > 0) normalizedParams.set('sub', activeSubSlugs.join(','))
+  if (priceRanges.length > 0) normalizedParams.set('price', priceRanges.join(','))
+  if (verificationFilter !== 'all') normalizedParams.set('verification', verificationFilter)
+  if (sort !== 'random') normalizedParams.set('sort', sort)
+
+  const activeFilters: ActiveDirectoryFilter[] = []
+  if (search) {
+    activeFilters.push({
+      id: 'search',
+      label: t('filters.activeSearch'),
+      value: search,
+      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, { search: null }),
+      removeLabel: t('filters.removeFilter', {
+        label: t('filters.activeSearch'),
+        value: search,
+      }),
     })
-    emptyStateData = { categories, featured }
+  }
+  for (const slug of validCategoryFilter) {
+    const category = PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === slug)
+    if (!category) continue
+    const value = categoryLabel(category, safeLocale)
+    const remainingCategories = validCategoryFilter.filter((item) => item !== slug)
+    activeFilters.push({
+      id: `category-${slug}`,
+      label: t('filters.activeCategory'),
+      value,
+      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, {
+        category: remainingCategories.length > 0 ? remainingCategories.join(',') : null,
+        sub: null,
+      }),
+      removeLabel: t('filters.removeFilter', {
+        label: t('filters.activeCategory'),
+        value,
+      }),
+    })
+  }
+  for (const subcategory of resolvedSubs) {
+    const value = safeLocale === 'zh-TW' ? subcategory.nameZh : subcategory.nameEn
+    const remainingSubs = resolvedSubs.filter((item) => item.slug !== subcategory.slug)
+    activeFilters.push({
+      id: `subcategory-${subcategory.slug}`,
+      label: t('filters.activeSubcategory'),
+      value,
+      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, {
+        sub: remainingSubs.length > 0
+          ? remainingSubs.map((item) => item.slug).join(',')
+          : null,
+      }),
+      removeLabel: t('filters.removeFilter', {
+        label: t('filters.activeSubcategory'),
+        value,
+      }),
+    })
+  }
+  for (const priceRange of priceRanges) {
+    const value = '$'.repeat(priceRange)
+    const remainingPrices = priceRanges.filter((item) => item !== priceRange)
+    activeFilters.push({
+      id: `price-${priceRange}`,
+      label: t('filters.activePrice'),
+      value,
+      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, {
+        price: remainingPrices.length > 0 ? remainingPrices.join(',') : null,
+      }),
+      removeLabel: t('filters.removeFilter', {
+        label: t('filters.activePrice'),
+        value,
+      }),
+    })
+  }
+  if (verificationFilter !== 'all') {
+    const value = verificationT(verificationFilter)
+    activeFilters.push({
+      id: 'verification',
+      label: t('filters.activeStatus'),
+      value,
+      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, { verification: null }),
+      removeLabel: t('filters.removeFilter', {
+        label: t('filters.activeStatus'),
+        value,
+      }),
+    })
+  }
+
+  const recoveryCandidates: EmptyStateRecoveryAction[] = [
+    ...(search
+      ? [{
+          kind: 'removeSearch' as const,
+          href: updateDirectoryUrl(directoryPath, normalizedParams, { search: null }),
+        }]
+      : []),
+    ...(hasActiveFilters
+      ? [{
+          kind: 'clearFilters' as const,
+          href: clearDirectoryFilters(directoryPath, normalizedParams),
+        }]
+      : []),
+    { kind: 'browseAll', href: directoryPath },
+  ]
+  const seenRecoveryHrefs = new Set<string>()
+  const recoveryActions = recoveryCandidates.filter((action) => {
+    if (seenRecoveryHrefs.has(action.href)) return false
+    seenRecoveryHrefs.add(action.href)
+    return true
+  })
+
+  let recommendedBrands: Brand[] = []
+  let recommendationsHref = directoryPath
+  if (totalCount === 0) {
+    if (validCategoryFilter.length > 0) {
+      const recommendations = await getBrands({
+        status: 'approved',
+        category: validCategoryFilter,
+        sort: 'random',
+        limit: EMPTY_STATE_RECOMMENDATION_LIMIT,
+        offset: 0,
+      })
+      recommendedBrands = recommendations.brands
+      if (recommendedBrands.length > 0) {
+        recommendationsHref = updateDirectoryUrl(directoryPath, new URLSearchParams(), {
+          category: validCategoryFilter.join(','),
+        })
+      }
+    }
+    if (recommendedBrands.length === 0) {
+      recommendedBrands = await getRandomBrands(EMPTY_STATE_RECOMMENDATION_LIMIT)
+    }
   }
 
   let categoryItemListJsonLd = null
@@ -329,6 +454,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
             categories={[...PRODUCT_TYPE_CATEGORIES]}
             subcategories={subcategoryOptions}
             activeSubSlugs={activeSubSlugs}
+            totalCount={totalCount}
           />
         </div>
       </aside>
@@ -364,25 +490,49 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
             </ol>
           </nav>
         ) : null}
-        <h1 className="mb-6 text-balance type-page-title">{pageHeading}</h1>
-
-        {/* Count + sort header */}
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <BrandFilterDrawer
-              categories={[...PRODUCT_TYPE_CATEGORIES]}
-              subcategories={subcategoryOptions}
-              activeSubSlugs={activeSubSlugs}
-              totalCount={totalCount}
-            />
-            <p className="type-card-description" aria-live="polite" aria-atomic="true">
-              {totalCount > 0 ? t('count', { count: totalCount }) : t('notFound')}
-            </p>
+        {displayBrands.length === 0 ? (
+          <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="flex flex-wrap items-baseline gap-3">
+                <h1 className="text-balance type-page-title">{pageHeading}</h1>
+                <p className="type-card-description" aria-live="polite" aria-atomic="true">
+                  {t('notFound')}
+                </p>
+              </div>
+              <div className="mt-3 lg:hidden">
+                <BrandFilterDrawer
+                  categories={[...PRODUCT_TYPE_CATEGORIES]}
+                  subcategories={subcategoryOptions}
+                  activeSubSlugs={activeSubSlugs}
+                  totalCount={totalCount}
+                />
+              </div>
+            </div>
+            <Suspense fallback={null}>
+              <SortSelect />
+            </Suspense>
           </div>
-          <Suspense fallback={null}>
-            <SortSelect />
-          </Suspense>
-        </div>
+        ) : (
+          <>
+            <h1 className="mb-6 text-balance type-page-title">{pageHeading}</h1>
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <BrandFilterDrawer
+                  categories={[...PRODUCT_TYPE_CATEGORIES]}
+                  subcategories={subcategoryOptions}
+                  activeSubSlugs={activeSubSlugs}
+                  totalCount={totalCount}
+                />
+                <p className="type-card-description" aria-live="polite" aria-atomic="true">
+                  {t('count', { count: totalCount })}
+                </p>
+              </div>
+              <Suspense fallback={null}>
+                <SortSelect />
+              </Suspense>
+            </div>
+          </>
+        )}
 
         {/* Masonry brand grid */}
           <Suspense
@@ -405,23 +555,14 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
           >
             <SavedBrandsProvider>
               {displayBrands.length === 0 ? (
-                emptyStateData ? (
-                  <SearchEmptyStateWrapper
-                    query={search}
-                    hasActiveFilters={hasActiveFilters}
-                    categories={emptyStateData.categories}
-                    featuredBrands={emptyStateData.featured}
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-24 text-center">
-                    <p className="type-empty-title">
-                      {t('emptyTitle')}
-                    </p>
-                    <p className="mt-1 type-card-description">
-                      {t('emptyDescription')}
-                    </p>
-                  </div>
-                )
+                <SearchEmptyState
+                  query={search}
+                  categoryLabel={categoryTag ? categoryLabel(categoryTag, safeLocale) : undefined}
+                  activeFilters={activeFilters}
+                  recoveryActions={recoveryActions}
+                  recommendedBrands={recommendedBrands}
+                  recommendationsHref={recommendationsHref}
+                />
               ) : (
                 <MasonryGrid>
                   {displayBrands.map((brand, index) => (

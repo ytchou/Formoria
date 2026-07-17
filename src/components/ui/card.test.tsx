@@ -36,6 +36,16 @@ describe('SurfaceCard', () => {
       'focus-visible:ring-2',
     )
   })
+
+  it('supports the semantic information tone', () => {
+    render(<SurfaceCard tone="info">Information</SurfaceCard>)
+
+    expect(screen.getByText('Information')).toHaveClass(
+      'border-info/30',
+      'bg-info-bg',
+      'text-info',
+    )
+  })
 })
 
 describe('surfaceCardStyles', () => {

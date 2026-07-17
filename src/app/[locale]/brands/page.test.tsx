@@ -1,13 +1,26 @@
 // @vitest-environment jsdom
 import type { ReactNode } from 'react'
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Brand } from '@/lib/types'
+
+const searchEmptyStateSpy = vi.hoisted(() => vi.fn())
 
 vi.mock('next-intl/server', () => {
   const makeTranslations = (namespace: string) => {
     const translate = ((key: string, values?: Record<string, unknown>) =>
       namespace === 'brands' && key === 'heading'
         ? 'Made in Taiwan Brand Directory'
+        : namespace === 'brands' && key === 'filters.activeSearch'
+          ? 'Brand name search'
+          : namespace === 'brands' && key === 'filters.activeCategory'
+            ? 'Category'
+            : namespace === 'brands' && key === 'filters.activePrice'
+              ? 'Price range'
+              : namespace === 'brands' && key === 'filters.activeStatus'
+                ? 'Brand status'
+                : namespace === 'brands.verificationFilter' && key === 'owned'
+                  ? 'Owner-managed'
         : namespace === 'brands' && key === 'metadata.title'
           ? 'Formoria — 台灣品牌目錄'
           : namespace === 'brands' && key === 'metadata.description'
@@ -40,8 +53,7 @@ vi.mock('next-intl', () => ({
 
 vi.mock('@/lib/services/brands', () => ({
   getBrands: vi.fn(async () => ({ brands: [], totalCount: 0 })),
-  getFeaturedBrands: vi.fn(async () => []),
-  getPopularCategories: vi.fn(async () => []),
+  getRandomBrands: vi.fn(async () => []),
   getSubcategoryCounts: vi.fn(async () => new Map()),
 }))
 
@@ -67,8 +79,11 @@ vi.mock('@/components/brands/masonry-grid', () => ({
   MasonryGrid: ({ children }: { children: ReactNode }) => <>{children}</>,
 }))
 vi.mock('@/components/brands/pagination', () => ({ Pagination: () => null }))
-vi.mock('@/components/brands/search-empty-state-wrapper', () => ({
-  SearchEmptyStateWrapper: () => null,
+vi.mock('@/components/brands/search-empty-state', () => ({
+  SearchEmptyState: (props: unknown) => {
+    searchEmptyStateSpy(props)
+    return null
+  },
 }))
 vi.mock('@/components/brands/sort-select', () => ({ SortSelect: () => null }))
 vi.mock('@/components/analytics/view-item-list-tracker', () => ({
@@ -80,10 +95,23 @@ vi.mock('@/hooks/use-saved-brands', () => ({
 }))
 
 import BrandsPage, { generateMetadata } from './page'
+import { getBrands, getRandomBrands } from '@/lib/services/brands'
+
+const recommendedBrand = {
+  id: 'brand-1',
+  name: 'Little OH!',
+  slug: 'little-oh',
+} as Brand
 
 const pageProps = (locale: string, searchParams: Record<string, string> = {}) => ({
   params: Promise.resolve({ locale }),
   searchParams: Promise.resolve(searchParams),
+})
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  vi.mocked(getBrands).mockResolvedValue({ brands: [], totalCount: 0 })
+  vi.mocked(getRandomBrands).mockResolvedValue([])
 })
 
 describe('brands directory headings', () => {
@@ -156,5 +184,71 @@ describe('generateMetadata with ?sub=', () => {
 
     expect(metadata.title).toEqual({ absolute: 'Formoria — 台灣品牌目錄' })
     expect(metadata.alternates?.canonical).not.toContain('sub=')
+  })
+})
+
+describe('brands directory empty state', () => {
+  it('loads recommendations from the active parent category without the failed search filters', async () => {
+    vi.mocked(getBrands)
+      .mockResolvedValueOnce({ brands: [], totalCount: 0 })
+      .mockResolvedValueOnce({ brands: [recommendedBrand], totalCount: 1 })
+
+    render(await BrandsPage(pageProps('en', {
+      search: 'herbs',
+      category: 'jewelry',
+      price: '2',
+    })))
+
+    expect(getBrands).toHaveBeenNthCalledWith(2, {
+      status: 'approved',
+      category: ['jewelry'],
+      sort: 'random',
+      limit: 4,
+      offset: 0,
+    })
+    expect(searchEmptyStateSpy).toHaveBeenCalledWith(expect.objectContaining({
+      query: 'herbs',
+      recommendedBrands: [recommendedBrand],
+      recommendationsHref: '/en/brands?category=jewelry',
+    }))
+  })
+
+  it('falls back to approved random brands when the active category has no recommendations', async () => {
+    vi.mocked(getRandomBrands).mockResolvedValue([recommendedBrand])
+
+    render(await BrandsPage(pageProps('en', {
+      search: 'herbs',
+      category: 'jewelry',
+    })))
+
+    expect(getRandomBrands).toHaveBeenCalledWith(4)
+    expect(searchEmptyStateSpy).toHaveBeenCalledWith(expect.objectContaining({
+      recommendedBrands: [recommendedBrand],
+      recommendationsHref: '/en/brands',
+    }))
+  })
+
+  it('builds contextual filter tokens and deduplicated recovery actions', async () => {
+    render(await BrandsPage(pageProps('en', {
+      search: 'herbs',
+      category: 'jewelry',
+      price: '2',
+      verification: 'owned',
+    })))
+
+    expect(searchEmptyStateSpy).toHaveBeenCalledWith(expect.objectContaining({
+      categoryLabel: 'Jewelry',
+      activeFilters: expect.arrayContaining([
+        expect.objectContaining({ id: 'search', value: 'herbs' }),
+        expect.objectContaining({ id: 'category-jewelry', value: 'Jewelry' }),
+        expect.objectContaining({ id: 'price-2', value: '$$' }),
+        expect.objectContaining({ id: 'verification', value: 'Owner-managed' }),
+      ]),
+      recoveryActions: [
+        expect.objectContaining({ kind: 'removeSearch' }),
+        expect.objectContaining({ kind: 'clearFilters' }),
+        expect.objectContaining({ kind: 'browseAll' }),
+      ],
+    }))
   })
 })

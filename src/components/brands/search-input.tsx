@@ -19,19 +19,33 @@ interface SearchInputProps {
   redirectTo?: string
   placeholder?: string
   className?: string
+  formAriaLabel?: string
+  showAutocomplete?: boolean
 }
 
-function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = {}) {
+function SearchInput({
+  redirectTo,
+  placeholder,
+  className,
+  formAriaLabel,
+  showAutocomplete = true,
+}: SearchInputProps = {}) {
   const t = useTranslations('brands')
   const locale = useLocale()
   const { filters, setSearch } = useFilterParams()
   const [value, setValue] = useState(filters.search)
+  const [lastUrlSearch, setLastUrlSearch] = useState(filters.search)
   const [suggestions, setSuggestions] = useState<SearchResult[]>([])
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const [showDropdown, setShowDropdown] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef = useRef<HTMLFormElement>(null)
   const router = useRouter()
+
+  if (filters.search !== lastUrlSearch) {
+    setLastUrlSearch(filters.search)
+    setValue(filters.search)
+  }
 
   const fetchSuggestions = useCallback(async (q: string) => {
     if (!q.trim()) {
@@ -71,15 +85,18 @@ function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = 
       if (!value.trim()) {
         setSuggestions([])
         setShowDropdown(false)
-      } else {
+      } else if (showAutocomplete) {
         fetchSuggestions(value)
+      } else {
+        setSuggestions([])
+        setShowDropdown(false)
       }
     }, 300)
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [fetchSuggestions, redirectTo, setSearch, value])
+  }, [fetchSuggestions, redirectTo, setSearch, showAutocomplete, value])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -152,7 +169,13 @@ function SearchInput({ redirectTo, placeholder, className }: SearchInputProps = 
   }
 
   return (
-    <form ref={containerRef} role="search" onSubmit={handleSubmit} className={cn('relative w-full max-w-md', className)}>
+    <form
+      ref={containerRef}
+      role="search"
+      aria-label={formAriaLabel ?? t('search.aria')}
+      onSubmit={handleSubmit}
+      className={cn('relative w-full max-w-md', className)}
+    >
       {/* Search icon */}
       <svg
         className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"

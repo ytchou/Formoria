@@ -1,124 +1,154 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
-import { useTranslations, useLocale } from 'next-intl'
-import { Search } from 'lucide-react'
-import { Button, buttonVariants } from '@/components/ui/button'
-import { categoryLabel } from '@/lib/taxonomy/ontology'
+import {
+  ArrowRight,
+  Grid2X2,
+  ListFilter,
+  Search,
+  SlidersHorizontal,
+  Sparkles,
+} from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import type { Brand } from '@/lib/types'
+import { surfaceCardStyles, SurfaceCard } from '@/components/ui/card'
+import { DirectoryFilterToken } from './directory-filter-token'
+import { BrandCard } from './brand-card'
 
-interface SearchEmptyStateProps {
-  query: string
-  hasActiveFilters: boolean
-  categories: { productType: string; name: string; nameZh: string | null; count: number }[]
-  featuredBrands: {
-    id: string
-    name: string
-    slug: string
-    heroImageUrl: string | null
-    category: string
-  }[]
-  onClearFilters: () => void
+export type ActiveDirectoryFilter = {
+  id: string
+  label: string
+  value: string
+  removeHref: string
+  removeLabel: string
 }
+
+export type EmptyStateRecoveryAction = {
+  kind: 'removeSearch' | 'clearFilters' | 'browseAll'
+  href: string
+}
+
+type SearchEmptyStateProps = {
+  query: string
+  categoryLabel?: string
+  activeFilters: ActiveDirectoryFilter[]
+  recoveryActions: EmptyStateRecoveryAction[]
+  recommendedBrands: Brand[]
+  recommendationsHref: string
+}
+
+const RECOVERY_ICONS = {
+  removeSearch: Search,
+  clearFilters: ListFilter,
+  browseAll: Grid2X2,
+} satisfies Record<EmptyStateRecoveryAction['kind'], typeof Search>
 
 export function SearchEmptyState({
   query,
-  hasActiveFilters,
-  categories,
-  featuredBrands,
-  onClearFilters,
+  categoryLabel,
+  activeFilters,
+  recoveryActions,
+  recommendedBrands,
+  recommendationsHref,
 }: SearchEmptyStateProps) {
-  const t = useTranslations('search')
-  const locale = useLocale()
+  const t = useTranslations('search.emptyState')
+  const hasNonSearchFilters = activeFilters.some((filter) => filter.id !== 'search')
+  const notice = query && categoryLabel
+    ? t('noticeSearchCategory', { query, category: categoryLabel })
+    : query && hasNonSearchFilters
+      ? t('noticeSearchFilters', { query })
+      : query
+        ? t('noticeSearch', { query })
+        : hasNonSearchFilters
+          ? t('noticeFilters')
+          : t('noticeAll')
 
   return (
-    <div data-empty className="flex flex-col items-center py-16">
-      {/* Icon */}
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted/50">
-        <Search className="h-12 w-12 text-muted-foreground" />
-      </div>
+    <div data-empty className="space-y-8">
+      {activeFilters.length > 0 ? (
+        <SurfaceCard padding="sm" className="flex flex-wrap items-center gap-2">
+          <span className="mr-1 type-body-emphasis">{t('currentConditions')}</span>
+          {activeFilters.map((filter) => (
+            <DirectoryFilterToken
+              key={filter.id}
+              href={filter.removeHref}
+              label={filter.label}
+              removeLabel={filter.removeLabel}
+              value={filter.value}
+              variant="chip"
+            />
+          ))}
+        </SurfaceCard>
+      ) : null}
 
-      {/* Heading */}
-      <h2 className="mt-4 text-center type-card-title">
-        {hasActiveFilters
-          ? t('emptyState.withFiltersTitle', { query })
-          : t('emptyState.title', { query })}
-      </h2>
+      <SurfaceCard tone="info" padding="sm" role="status" className="flex items-start gap-3">
+        <Sparkles className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+        <p className="type-card-description text-current">{notice}</p>
+      </SurfaceCard>
 
-      {/* Subtitle */}
-      <p className="mt-1 text-center type-card-description">
-        {hasActiveFilters
-          ? t('emptyState.withFiltersDescription')
-          : t('emptyState.description')}
-      </p>
-
-      {/* Clear filters button */}
-      {hasActiveFilters && (
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={onClearFilters}
-          className="mt-3"
-        >
-          {t('emptyState.clearFilters')}
-        </Button>
-      )}
-
-      {/* Browse by Category */}
-      {categories.length > 0 && (
-        <div className="mt-8 w-full">
-          <p className="text-center type-eyebrow-foreground text-muted-foreground">
-            {t('emptyState.browseCategories')}
-          </p>
-          <div className="scrollbar-none mt-3 flex justify-center gap-2 overflow-x-auto flex-nowrap">
-            {categories.map(({ productType, name, nameZh }) => (
-              <Link
-                key={productType}
-                href={`?category=${encodeURIComponent(productType)}`}
-                className={buttonVariants({ variant: 'secondary', shape: 'pill', size: 'chip' })}
-              >
-                {categoryLabel({ name, nameZh }, locale)}
-              </Link>
-            ))}
-          </div>
+      <section className="flex flex-col items-center py-2 text-center">
+        <div className="relative flex size-28 items-center justify-center" aria-hidden="true">
+          <div className="absolute inset-3 rotate-6 rounded-xl border border-border bg-card shadow-card" />
+          <div className="absolute inset-5 -rotate-3 rounded-xl border border-border bg-background" />
+          <Search className="relative size-12 text-foreground" strokeWidth={1.75} />
+          <SlidersHorizontal className="absolute bottom-1 right-0 size-6 text-filter-active" />
         </div>
-      )}
+        <h2 className="mt-3 type-empty-title">{t('title')}</h2>
+        <p className="mt-2 max-w-xl type-card-description">{t('description')}</p>
 
-      {/* Featured Brands */}
-      {featuredBrands.length > 0 && (
-        <div className="mt-8 w-full">
-          <p className="text-center type-eyebrow-foreground text-muted-foreground">
-            {t('emptyState.featuredBrands')}
-          </p>
-          <div className="scrollbar-none mt-3 flex justify-center gap-3 overflow-x-auto flex-nowrap">
-            {featuredBrands.map((brand) => (
-              <Link
+        {recoveryActions.length > 0 ? (
+          <div className="mt-6 grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {recoveryActions.map((action) => {
+              const Icon = RECOVERY_ICONS[action.kind]
+              return (
+                <Link
+                  key={action.kind}
+                  href={action.href}
+                  replace
+                  scroll={false}
+                  className={surfaceCardStyles({
+                    interactive: true,
+                    padding: 'sm',
+                    className: 'group flex min-h-24 items-center gap-3 text-left',
+                  })}
+                >
+                  <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-secondary">
+                    <Icon className="size-5" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block type-body-emphasis">{t(`actions.${action.kind}.title`)}</span>
+                    <span className="mt-1 block type-caption">{t(`actions.${action.kind}.description`)}</span>
+                  </span>
+                  <ArrowRight className="size-4 shrink-0 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                </Link>
+              )
+            })}
+          </div>
+        ) : null}
+      </section>
+
+      {recommendedBrands.length > 0 ? (
+        <section className="border-t border-border pt-6">
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <h2 className="type-section-title">{t('recommendations')}</h2>
+            <Link href={recommendationsHref} className="inline-flex min-h-12 items-center gap-1 font-medium hover:text-primary">
+              {t('viewAll')}
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {recommendedBrands.map((brand, index) => (
+              <BrandCard
                 key={brand.id}
-                href={`/brands/${brand.slug}`}
-                className="w-32 flex-shrink-0 overflow-hidden rounded-lg bg-card shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                {brand.heroImageUrl ? (
-                  <Image
-                    src={brand.heroImageUrl}
-                    alt={brand.name}
-                    width={128}
-                    height={96}
-                    className="aspect-[4/3] w-full object-cover"
-                  />
-                ) : (
-                  <div className="aspect-[4/3] w-full bg-muted" />
-                )}
-                <p className="truncate px-2 pt-1.5 type-body-emphasis">
-                  {brand.name}
-                </p>
-                <p className="truncate px-2 pb-2 type-caption">
-                  {brand.category}
-                </p>
-              </Link>
+                brand={brand}
+                position={index}
+                priority={index < 2}
+                variant="recommendation"
+              />
             ))}
           </div>
-        </div>
-      )}
+        </section>
+      ) : null}
     </div>
   )
 }

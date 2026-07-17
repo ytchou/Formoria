@@ -10,9 +10,10 @@ import zh from '../../../messages/zh-TW.json'
 
 const mockSetSearch = vi.fn()
 const mockPush = vi.fn()
+let mockSearch = ''
 vi.mock('@/hooks/use-filter-params', () => ({
   useFilterParams: () => ({
-    filters: { search: '' },
+    filters: { search: mockSearch },
     setSearch: mockSetSearch,
   }),
 }))
@@ -37,14 +38,14 @@ function renderWithProvider(ui: React.ReactElement) {
 describe('SearchInput', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockSearch = ''
   })
 
   it('renders a search input with accessible label', () => {
     renderWithProvider(<SearchInput />)
 
-    const input = screen.getByRole('searchbox')
+    const input = screen.getByRole('searchbox', { name: /搜尋品牌/ })
     expect(input).toBeInTheDocument()
-    expect(screen.getByLabelText(/搜尋/)).toBeInTheDocument()
   })
 
   it('calls setSearch on user input after debounce', async () => {
@@ -87,6 +88,28 @@ describe('SearchInput', () => {
 
     const input = screen.getByRole('searchbox')
     expect(input).toHaveAttribute('maxLength', '100')
+  })
+
+  it('synchronizes its value when another filter control changes the URL search', () => {
+    const { rerender } = renderWithProvider(<SearchInput />)
+    expect(screen.getByRole('searchbox')).toHaveValue('')
+
+    mockSearch = 'herbs'
+    rerender(
+      <NextIntlClientProvider locale="zh-TW" messages={zh}>
+        <SearchInput />
+      </NextIntlClientProvider>,
+    )
+
+    expect(screen.getByRole('searchbox')).toHaveValue('herbs')
+  })
+
+  it('accepts a distinct accessible label for the search landmark', () => {
+    renderWithProvider(<SearchInput formAriaLabel="Filter brands by name" />)
+
+    expect(
+      screen.getByRole('search', { name: 'Filter brands by name' }),
+    ).toBeInTheDocument()
   })
 })
 

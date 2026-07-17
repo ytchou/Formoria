@@ -11,6 +11,7 @@ const surfaceCardStyles = cva(
         card: "bg-card",
         white: "bg-white",
         background: "bg-background",
+        info: "border-info/30 bg-info-bg text-info",
       },
       padding: {
         none: "p-0",

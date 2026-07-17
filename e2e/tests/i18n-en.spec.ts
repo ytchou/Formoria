@@ -30,7 +30,7 @@ test.describe('i18n English browse', () => {
       page
         .locator('main [role="list"] [role="listitem"]')
         .first()
-        .or(page.getByText(/no brands found/i))
+        .or(page.locator('[data-empty]').first())
     ).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   });

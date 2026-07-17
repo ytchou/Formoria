@@ -134,4 +134,15 @@ describe('BrandCard badges', () => {
 
     expect(screen.getByRole('button', { name: /收藏/ })).toBeInTheDocument()
   })
+
+  it('reuses the card shell for a compact recommendation', () => {
+    renderWithProvider(<BrandCard brand={makeBrand()} variant="recommendation" />)
+
+    expect(screen.getByRole('link', { name: '查看品牌' })).toHaveAttribute(
+      'href',
+      '/brands/test-brand',
+    )
+    expect(screen.queryByRole('button', { name: /收藏/ })).toBeNull()
+    expect(screen.queryByText('品牌描述')).toBeNull()
+  })
 })
