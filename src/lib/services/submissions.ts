@@ -107,7 +107,7 @@ export type SubmissionReviewData = {
   purchaseShopee: string | null;
   otherUrls: OtherUrl[];
 };
-export type SubmissionReviewMissingField =
+type SubmissionReviewMissingField =
   | "description"
   | "productType"
   | "productTags"

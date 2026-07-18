@@ -28,13 +28,13 @@ export type EnrichedData = {
   name?: string;
 };
 
-export type EnrichmentCompleteness = "none" | "partial" | "complete";
+type EnrichmentCompleteness = "none" | "partial" | "complete";
 
 function hasText(value: unknown): value is string {
   return typeof value === "string" && value.trim() !== "";
 }
 
-export function getEnrichmentCompleteness(
+function getEnrichmentCompleteness(
   enrichedData: EnrichedData | null | undefined,
   heroImageUrl?: string | null,
 ): EnrichmentCompleteness {
