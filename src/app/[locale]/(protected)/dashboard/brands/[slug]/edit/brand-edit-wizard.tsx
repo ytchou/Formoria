@@ -17,6 +17,7 @@ import {
 import { saveSectionDraftAction } from '@/lib/actions/brand-edit-wizard'
 import { publishDraftAction } from '@/app/[locale]/(protected)/dashboard/brands/[slug]/actions'
 import { useWizardController } from '@/components/brand-wizard/use-wizard-controller'
+import type { ContentViolation } from '@/lib/services/moderation'
 import type { Brand } from '@/lib/types'
 
 import { DirtyFieldsContext } from '@/components/brand-wizard/dirty-fields-context'
@@ -208,6 +209,21 @@ export function BrandEditWizard({
       const formData = new FormData()
       formData.set('brandSlug', brand.slug)
       const publishResult = await publishDraftAction(undefined, formData)
+      if (publishResult?.violations && publishResult.violations.length > 0) {
+        for (const violation of publishResult.violations as ContentViolation[]) {
+          form.setError(violation.field as keyof BrandEditFormValues, {
+            type: 'server',
+            message: violation.userMessage,
+          })
+        }
+        const firstField = publishResult.violations[0]
+          .field as keyof BrandEditFormValues
+        if (firstField && FIELD_STEPS[firstField] !== undefined) {
+          navigateTo(FIELD_STEPS[firstField]!)
+        }
+        toast.error(t('violationSummary'))
+        return
+      }
       if (publishResult?.error) {
         toast.error(publishResult.error)
       }

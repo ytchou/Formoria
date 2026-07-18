@@ -18,6 +18,7 @@ import { TAIWAN_CITIES } from '@/lib/constants/taiwan-cities'
 import type { BrandWizardCommonValues } from '@/lib/schemas/brand-wizard'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { slugifyRomanizedName } from '@/lib/brands/slug'
+import { cn } from '@/lib/utils'
 
 type RequiredBasicField =
   | 'name'
@@ -53,6 +54,7 @@ export function BrandBasicInfoSection({
     control: form.control,
     name: 'romanizedName',
   })
+  const isExistingBrand = Boolean(currentSlug)
   const previewSlug = slugifyRomanizedName(romanizedName) || currentSlug || ''
   const tx = (key: string, fallback: string) => (t.has(key) ? t(key) : fallback)
   const getPriceRangeLabel = (value: unknown) => {
@@ -148,6 +150,7 @@ export function BrandBasicInfoSection({
           <Input
             id="romanizedName"
             autoComplete="off"
+            readOnly={isExistingBrand}
             placeholder={tSubmit('ownerForm.romanizedNamePlaceholder')}
             aria-invalid={Boolean(form.formState.errors.romanizedName)}
             aria-describedby={
@@ -155,9 +158,17 @@ export function BrandBasicInfoSection({
                 ? 'romanizedName-error'
                 : undefined
             }
-            className="min-h-12 bg-card"
+            className={cn(
+              'min-h-12',
+              isExistingBrand ? 'bg-muted text-muted-foreground' : 'bg-card',
+            )}
             {...form.register('romanizedName')}
           />
+          {isExistingBrand && (
+            <p className="text-sm text-muted-foreground mt-1">
+              {t('slugChangeBlocked')}
+            </p>
+          )}
         </DashboardFormField>
 
         <DashboardFormField

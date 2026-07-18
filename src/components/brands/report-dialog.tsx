@@ -30,6 +30,7 @@ import {
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
 import { Separator } from '@/components/ui/separator'
 import { Typography } from '@/components/ui/typography'
 import { usePathname } from '@/i18n/navigation'
@@ -49,6 +50,7 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
   const { user, loading } = useUser()
   const [state, action, pending] = useActionState<ReportState, FormData>(submitReportAction, {})
   const [selectedReason, setSelectedReason] = useState<string | null>(null)
+  const [reportedField, setReportedField] = useState('')
   const [alreadyReported, setAlreadyReported] = useState(false)
   const [notesLength, setNotesLength] = useState(0)
   const generalHeadingId = useId()
@@ -74,6 +76,7 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
       window.localStorage.setItem(`report:${brandSlug}:${selectedReason}`, '1')
       const timeoutId = window.setTimeout(() => {
         setAlreadyReported(true)
+        setReportedField('')
       }, 0)
 
       return () => window.clearTimeout(timeoutId)
@@ -105,8 +108,12 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
     setSelectedReason((current) => current === value ? null : value)
   }
 
+  function handleOpenChange(open: boolean) {
+    if (!open) setReportedField('')
+  }
+
   return (
-    <Dialog>
+    <Dialog onOpenChange={handleOpenChange}>
       <DialogTrigger
         className={buttonVariants({ variant: 'secondary', className: 'shrink-0' })}
       >
@@ -247,6 +254,27 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
                     )
                   })}
                 </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-2">
+                <Label htmlFor="report-field">{t('reportFieldLabel')}</Label>
+                <NativeSelect
+                  id="report-field"
+                  name="reportedField"
+                  value={reportedField}
+                  onChange={(event) => setReportedField(event.currentTarget.value)}
+                >
+                  <option value="">{t('reportFieldNone')}</option>
+                  <option value="name">{t('reportFieldName')}</option>
+                  <option value="description">{t('reportFieldDescription')}</option>
+                  <option value="website">{t('reportFieldWebsite')}</option>
+                  <option value="purchaseUrl">{t('reportFieldPurchaseUrl')}</option>
+                  <option value="images">{t('reportFieldImages')}</option>
+                  <option value="socialLinks">{t('reportFieldSocialLinks')}</option>
+                  <option value="other">{t('reportFieldOther')}</option>
+                </NativeSelect>
               </div>
 
               <Separator />
