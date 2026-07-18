@@ -44,7 +44,7 @@ describe('checkAllServices', () => {
     process.env = { ...originalEnv }
   })
 
-  it('returns an array of 9 ServiceHealthResults', async () => {
+  it('returns an array of 8 ServiceHealthResults', async () => {
     const { createServiceClient } = await import('@/lib/supabase/server')
     vi.mocked(createServiceClient).mockReturnValue(asMockServiceClient(mockSupabase()))
     fetchMock.mockImplementation((url: string) => {
