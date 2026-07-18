@@ -156,11 +156,6 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
-        source: '/admin/pending-edits',
-        destination: '/admin/review-queue/edits',
-        permanent: true,
-      },
-      {
         source: '/admin/claim-requests',
         destination: '/admin/claims',
         permanent: true,

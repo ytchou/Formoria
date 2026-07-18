@@ -10,7 +10,6 @@ import { DashboardContentLayout } from '@/components/dashboard/dashboard-content
 import { WelcomeBanner } from '@/components/dashboard/welcome-banner'
 import { BrandDashboardShell } from '@/components/dashboard/brand-dashboard-shell'
 import { getBrandOnboardingProgress } from '@/lib/services/brand-onboarding'
-import { getLatestReview } from '../../_lib/latest-review'
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
@@ -26,12 +25,11 @@ export default async function BrandOverviewPage({ params }: Props) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const [ownerCheck, walkthrough, latestReview] = await Promise.all([
+  const [ownerCheck, walkthrough] = await Promise.all([
     user
       ? canManageDashboardBrand(user.id, user.email, brand.id, slug)
       : Promise.resolve(false),
     getBrandOnboardingProgress(brand.id),
-    user ? getLatestReview({ brandId: brand.id }, user) : Promise.resolve(null),
   ])
   const completeness = computeProfileCompleteness(brand)
 
@@ -58,7 +56,6 @@ export default async function BrandOverviewPage({ params }: Props) {
     <BrandDashboardShell
       brandName={brand.name}
       brandSlug={brand.slug}
-      latestReview={latestReview}
     >
       <DashboardContentLayout
         showOnboarding={ownerCheck && !walkthrough.isComplete}

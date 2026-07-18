@@ -1,22 +1,18 @@
 import type { ReactNode } from 'react'
 import { getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
-import { EditReviewBanner } from '@/components/brands/edit-review-banner'
 import { buttonVariants } from '@/components/ui/button'
 import { DashboardTabNav } from './dashboard-tab-nav'
-import type { PendingBrandEdit } from '@/lib/types/brand'
 
 type BrandDashboardShellProps = {
   brandName: string
   brandSlug: string
-  latestReview?: PendingBrandEdit | null
   children: ReactNode
 }
 
 export async function BrandDashboardShell({
   brandName,
   brandSlug,
-  latestReview = null,
   children,
 }: BrandDashboardShellProps) {
   const t = await getTranslations('dashboard.manage')
@@ -48,10 +44,6 @@ export async function BrandDashboardShell({
 
         <DashboardTabNav brandSlug={brandSlug} />
       </div>
-
-      {latestReview ? (
-        <EditReviewBanner edit={latestReview} brandSlug={brandSlug} />
-      ) : null}
 
       {children}
     </section>

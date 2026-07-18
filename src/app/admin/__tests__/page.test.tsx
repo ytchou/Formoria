@@ -8,22 +8,16 @@ import { getBrands } from '@/lib/services/brands'
 import { listClaimRequests } from '@/lib/services/claim-requests'
 import { getFeedbackItems } from '@/lib/services/feedback'
 import { getFlaggedContent } from '@/lib/services/moderation'
-import { getPendingEdits } from '@/lib/services/pending-edits'
 import { getPendingReports } from '@/lib/services/reports'
 import { getSubmissionsForReview, type BrandSubmissionForReview } from '@/lib/services/submissions'
 import type { BrandReport } from '@/lib/services/reports'
 import type { FeedbackItem } from '@/lib/services/feedback'
 import type { FlaggedContentItem } from '@/lib/services/moderation'
-import type { PendingBrandEditWithBrand } from '@/lib/types/brand'
 import type { ClaimRequest } from '@/lib/services/claim-requests'
 import type { Brand } from '@/lib/types'
 
 vi.mock('@/lib/services/submissions', () => ({
   getSubmissionsForReview: vi.fn(),
-}))
-
-vi.mock('@/lib/services/pending-edits', () => ({
-  getPendingEdits: vi.fn(),
 }))
 
 vi.mock('@/lib/services/claim-requests', () => ({
@@ -53,8 +47,6 @@ vi.mock('@/lib/services/app-settings', () => ({
 
 vi.mock('next-intl/server', () => {
   const messages: Record<string, string> = {
-    'queues.edits.title': 'Brand Edits',
-    'queues.edits.empty': 'No pending brand edits.',
     'queues.claims.title': 'Brand Claims',
     'queues.claims.empty': 'No pending brand claims.',
     'queues.reports.title': 'Brand Reports',
@@ -88,7 +80,6 @@ vi.mock('next-intl/server', () => {
 
 vi.mock('@/app/admin/actions', () => ({
   approveSubmissionAction: vi.fn(),
-  approvePendingEditAction: vi.fn(),
   approveClaimAction: vi.fn(),
   reviewReportAction: vi.fn(),
   reviewFeedbackAction: vi.fn(),
@@ -174,49 +165,6 @@ function makeSubmission(
         'additionalImage',
         'successfulEnrichment',
       ],
-    },
-    ...overrides,
-  }
-}
-
-function makePendingEdit(
-  overrides: Partial<PendingBrandEditWithBrand> = {},
-): PendingBrandEditWithBrand {
-  return {
-    id: 'edit-1',
-    brandId: 'brand-2',
-    submittedBy: 'owner-1',
-    proposedData: {},
-    status: 'pending',
-    reviewerNotes: null,
-    reviewedAt: null,
-    reviewedBy: null,
-    createdAt: '2026-06-13T03:00:00.000Z',
-    updatedAt: '2026-06-13T03:00:00.000Z',
-    brand: {
-      id: 'brand-2',
-      name: 'Quiet Goods',
-      slug: 'quiet-goods',
-      description: null,
-      city: null,
-      heroImageUrl: null,
-      category: null,
-      contactEmail: 'owner@example.com',
-      foundingYear: null,
-      socialInstagram: null,
-      socialThreads: null,
-      socialFacebook: null,
-      purchaseWebsite: null,
-      purchasePinkoi: null,
-      purchaseShopee: null,
-      otherUrls: [],
-      retailLocations: [],
-      productPhotos: [],
-      siteContent: null,
-      priceRange: null,
-      productTags: [],
-      descriptionEn: null,
-      blurb: null,
     },
     ...overrides,
   }
@@ -338,7 +286,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
 beforeEach(() => {
   vi.mocked(getAppSetting).mockResolvedValue(true)
   vi.mocked(getSubmissionsForReview).mockResolvedValue([])
-  vi.mocked(getPendingEdits).mockResolvedValue([])
   vi.mocked(listClaimRequests).mockResolvedValue([])
   vi.mocked(getPendingReports).mockResolvedValue([])
   vi.mocked(getFeedbackItems).mockResolvedValue([])
@@ -370,10 +317,6 @@ describe('AdminPage', () => {
       makeSubmission({ id: 'submission-2', brandName: 'Second Submission' }),
       makeSubmission({ id: 'submission-3', brandName: 'Third Submission' }),
     ])
-    vi.mocked(getPendingEdits).mockResolvedValueOnce([
-      makePendingEdit({ id: 'edit-1' }),
-      makePendingEdit({ id: 'edit-2' }),
-    ])
     vi.mocked(listClaimRequests).mockResolvedValueOnce([
       makeClaim({ id: 'claim-1' }),
       makeClaim({ id: 'claim-2' }),
@@ -394,8 +337,6 @@ describe('AdminPage', () => {
     expect(within(cards[0]).getByText('4')).toBeInTheDocument()
     expect(screen.getByText('Needs Data Work')).toBeInTheDocument()
     expect(screen.getByText('3')).toBeInTheDocument()
-    expect(within(cards[1]).getByText('Brand Edits')).toBeInTheDocument()
-    expect(within(cards[1]).getByText('2')).toBeInTheDocument()
     expect(
       screen
         .getAllByRole('link', { name: 'View all →' })
@@ -454,7 +395,6 @@ describe('AdminPage', () => {
     render(await AdminDashboardPage())
 
     expect(screen.getByText('No pending data work.')).toBeInTheDocument()
-    expect(screen.getByText('No pending brand edits.')).toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: /Approve/i }),
     ).not.toBeInTheDocument()

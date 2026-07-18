@@ -12,7 +12,6 @@ const items: NavItem[] = [
   { label: 'Brand Submissions', href: '/admin/submissions', count: 3 },
   { label: 'Data Jobs', href: '/admin/jobs' },
   { label: 'Content Moderation', href: '/admin/moderation', count: 0 },
-  { label: 'Brand Edits', href: '/admin/edits', count: 1 },
   { label: 'Claim Requests', href: '/admin/claims' },
   { label: 'Reports', href: '/admin/reports', count: 2 },
   { label: 'Feedback', href: '/admin/feedback', count: 0 },
@@ -46,7 +45,6 @@ describe('AdminNav', () => {
   it('shows count badges for items with count > 0', async () => {
     await renderAdminNav()
     expect(screen.getByText('3')).toBeInTheDocument()
-    expect(screen.getByText('1')).toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument()
   })
 })

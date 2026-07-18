@@ -32,11 +32,12 @@ type ModerationFlagRow =
   Database["public"]["Tables"]["moderation_flags"]["Row"];
 type ModerationFlagInsert =
   Database["public"]["Tables"]["moderation_flags"]["Insert"];
-type StoredModerationTier = ModerationFlagRow["tier"];
+export type ModerationTier = "block" | "flag";
+export type RiskLevel = "clean" | "medium" | "high";
 
-interface StoredModerationFlag {
+export interface ModerationFlag {
   fieldName: string;
-  tier: StoredModerationTier;
+  tier: ModerationTier;
   reason: string;
   flaggedContent: string;
 }
@@ -298,9 +299,9 @@ export async function saveModerationFlags(
 
 export async function getModerationFlagsBatch(
   brandIds: string[],
-): Promise<Map<string, StoredModerationFlag[]>> {
+): Promise<Map<string, ModerationFlag[]>> {
   const uniqueBrandIds = Array.from(new Set(brandIds.filter(Boolean)));
-  const flagsByBrandId = new Map<string, StoredModerationFlag[]>();
+  const flagsByBrandId = new Map<string, ModerationFlag[]>();
 
   for (const brandId of uniqueBrandIds) {
     flagsByBrandId.set(brandId, []);
@@ -324,7 +325,7 @@ export async function getModerationFlagsBatch(
     const flags = flagsByBrandId.get(row.brand_id) ?? [];
     flags.push({
       fieldName: row.field_name,
-      tier: row.tier,
+      tier: row.tier as ModerationTier,
       reason: row.flag_reason,
       flaggedContent: row.flagged_content,
     });
@@ -347,7 +348,7 @@ export interface FlaggedContentItem {
   brandId: string;
   brandName: string;
   fieldName: string;
-  tier: StoredModerationTier;
+  tier: ModerationTier;
   reason: string;
   flaggedContent: string;
   status: string;
@@ -391,7 +392,7 @@ export async function getFlaggedContent(
     brandId: row.brand_id,
     brandName: getJoinedBrandName(row.brands),
     fieldName: row.field_name,
-    tier: row.tier,
+    tier: row.tier as ModerationTier,
     reason: row.flag_reason,
     flaggedContent: row.flagged_content,
     status: row.status,

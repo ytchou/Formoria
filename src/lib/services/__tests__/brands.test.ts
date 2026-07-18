@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { brandToDomain, brandToInsert } from '../brands'
-import { pendingEditWithBrandToDomain } from '../pending-edits'
 
 // Minimal row shape matching Supabase SELECT output
 function makeBrandRow(overrides: Record<string, unknown> = {}) {
@@ -261,40 +260,5 @@ describe('brandToInsert — brand detail enrichment fields', () => {
   it('serializes empty productTags as [] to allow clearing the field', () => {
     const result = brandToInsert({ productTags: [] })
     expect(result.product_tags).toEqual([])
-  })
-})
-
-describe('pendingEditWithBrandToDomain (flat links)', () => {
-  it('reconstructs brand with flat link fields from edit data', () => {
-    const edit = pendingEditWithBrandToDomain({
-      id: 'edit-1',
-      brand_id: 'brand-1',
-      submitted_by: 'user-1',
-      proposed_data: {
-        socialInstagram: 'proposed_ig',
-        purchaseWebsite: 'https://proposed.example.com',
-        otherUrls: [{ label: 'Blog', url: 'https://blog.example.com' }],
-      },
-      status: 'pending',
-      brands: makeBrandRow({
-        social_instagram: 'current_ig',
-        social_threads: '@current',
-        social_facebook: 'https://facebook.com/current',
-        purchase_website: 'https://current.example.com',
-        purchase_pinkoi: 'https://pinkoi.com/store/current',
-        purchase_shopee: 'https://shopee.tw/current',
-        other_urls: [{ label: 'Shop', url: 'https://shop.example.com' }],
-      }),
-    })
-
-    expect(edit.brand.socialInstagram).toBe('proposed_ig')
-    expect(edit.brand.socialThreads).toBe('@current')
-    expect(edit.brand.socialFacebook).toBe('https://facebook.com/current')
-    expect(edit.brand.purchaseWebsite).toBe('https://proposed.example.com')
-    expect(edit.brand.purchasePinkoi).toBe('https://pinkoi.com/store/current')
-    expect(edit.brand.purchaseShopee).toBe('https://shopee.tw/current')
-    expect(edit.brand.otherUrls).toEqual([
-      { label: 'Blog', url: 'https://blog.example.com' },
-    ])
   })
 })

@@ -6,7 +6,6 @@ import { isActingAsAdmin } from "@/lib/auth/admin-mode";
 import { AdminNav } from "@/components/admin/admin-nav";
 import type { NavItem } from "@/components/admin/admin-nav";
 import { getFlaggedContent } from "@/lib/services/moderation";
-import { getPendingEdits } from "@/lib/services/pending-edits";
 import { getSubmissions } from "@/lib/services/submissions";
 import { getPendingReports } from "@/lib/services/reports";
 import { getFeedbackItems } from "@/lib/services/feedback";
@@ -29,12 +28,11 @@ export default async function AdminLayout({
     redirect("/");
   }
 
-  const [messages, submissions, flaggedContent, edits, reports, feedbackItems, t] =
+  const [messages, submissions, flaggedContent, reports, feedbackItems, t] =
     await Promise.all([
       getMessages(),
       getSubmissions("pending"),
       getFlaggedContent({ status: "pending" }),
-      getPendingEdits("pending"),
       getPendingReports(),
       getFeedbackItems({ status: "open" }),
       getTranslations("admin.layout"),
@@ -52,11 +50,6 @@ export default async function AdminLayout({
       label: t("nav.moderation"),
       href: "/admin/moderation",
       count: flaggedContent.items.length,
-    },
-    {
-      label: t("nav.edits"),
-      href: "/admin/edits",
-      count: edits.length,
     },
     { label: t("nav.claims"), href: "/admin/claims" },
     { label: t("nav.reports"), href: "/admin/reports", count: reports.length },

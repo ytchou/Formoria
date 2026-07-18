@@ -1354,7 +1354,10 @@
       "mitStoryHint": "Shown on the brand page if provided",
       "cityHint": "Your brand will be shown on the map if provided",
       "fieldPriceRangeHint": "Used for filtering",
-      "unsavedChanges": "Unsaved changes"
+      "unsavedChanges": "Unsaved changes",
+      "brandEditPublished": "Your edit is now live!",
+      "violationSummary": "Some fields need attention before publishing.",
+      "slugChangeBlocked": "Your brand URL is based on this name. To change it, contact us."
     },
     "brandProfile": {
       "productPhotos": "Product Photos",
@@ -1855,7 +1858,6 @@
         "submissions": "Brand Submissions",
         "jobs": "Data Jobs",
         "moderation": "Content Moderation",
-        "edits": "Brand Edits",
         "claims": "Claim Requests",
         "reports": "Reports",
         "feedback": "Feedback",
@@ -1886,10 +1888,6 @@
         "flaggedContentDesc": "Flags in the content review queue"
       },
       "queues": {
-        "edits": {
-          "title": "Brand Edits",
-          "empty": "No pending brand edits."
-        },
         "claims": {
           "title": "Brand Claims",
           "empty": "No pending brand claims."
@@ -1905,17 +1903,6 @@
       },
       "noDate": "No date",
       "unnamedFeedback": "Unnamed feedback"
-    },
-    "pendingEdits": {
-      "title": "Brand Edit Review",
-      "submittedForReview": "Your edit has been submitted for review",
-      "brandEditSubmittedForReview": "Your edit has been submitted for review",
-      "pending": "Under review",
-      "pendingMessage": "Your edit is under review",
-      "approved": "Edit approved and live",
-      "rejected": "Edit needs revision",
-      "resubmit": "Edit again",
-      "close": "Dismiss"
     },
     "enrichment": {
       "complete": "Enrichment complete: {success} success, {skipped} skipped, {failed} failed"

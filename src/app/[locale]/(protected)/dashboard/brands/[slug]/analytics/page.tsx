@@ -1,5 +1,4 @@
 import { setRequestLocale } from 'next-intl/server'
-import { createClient } from '@/lib/supabase/server'
 import { getBrandBySlug } from '@/lib/services/brands'
 import {
   getAnalytics,
@@ -12,7 +11,6 @@ import { AnalyticsChart } from '@/components/dashboard/analytics-chart'
 import { LinkBreakdown } from '@/components/dashboard/link-breakdown'
 import { SourcesBreakdownCard } from '@/components/dashboard/sources-breakdown-card'
 import { BrandDashboardShell } from '@/components/dashboard/brand-dashboard-shell'
-import { getLatestReview } from '../../../_lib/latest-review'
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
@@ -23,27 +21,19 @@ export default async function AnalyticsPage({ params }: Props) {
   setRequestLocale(locale)
 
   const brand = await getBrandBySlug(slug)
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
 
-  const [analytics, series, breakdown, sources, latestReview] =
+  const [analytics, series, breakdown, sources] =
     await Promise.all([
       getAnalytics(brand.id, 30),
       getDailySeries(brand.id, 30),
       getLinkClickBreakdown(brand.id, 30),
       getSourceBreakdown(brand.id, 30),
-      user
-        ? getLatestReview({ brandId: brand.id }, user)
-        : Promise.resolve(null),
     ])
 
   return (
     <BrandDashboardShell
       brandName={brand.name}
       brandSlug={brand.slug}
-      latestReview={latestReview}
     >
       <div className="space-y-6">
         <AnalyticsCards

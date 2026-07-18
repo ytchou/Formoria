@@ -72,7 +72,6 @@ describe('rejectSubmissionAction', () => {
     '@/lib/auth/admin-mode',
     '@/lib/services/submissions',
     '@/lib/services/claim-requests',
-    '@/lib/services/pending-edits',
     '@/lib/services/mit-verification',
     '@/lib/services/brands',
     '@/lib/services/brand-owners',
@@ -126,12 +125,6 @@ describe('rejectSubmissionAction', () => {
       rejectClaimRequest: vi.fn(),
     }))
 
-    vi.doMock('@/lib/services/pending-edits', () => ({
-      approvePendingEdit: vi.fn(),
-      getPendingEditForReview: vi.fn(),
-      rejectPendingEdit: vi.fn(),
-    }))
-
     vi.doMock('@/lib/services/mit-verification', () => ({
       verifyMitByCert: vi.fn(),
     }))
@@ -147,7 +140,6 @@ describe('rejectSubmissionAction', () => {
     }))
 
     vi.doMock('@/lib/services/brand-owners', () => ({
-      getBrandOwnerEmail: vi.fn(),
       getUserBrandByEmail: vi.fn().mockResolvedValue(null),
     }))
 
@@ -167,8 +159,6 @@ describe('rejectSubmissionAction', () => {
       buildClaimEmail: vi.fn(),
       buildClaimApprovedEmail: vi.fn(),
       buildClaimRejectedEmail: vi.fn(),
-      buildEditApprovedEmail: vi.fn(),
-      buildEditRejectedEmail: vi.fn(),
     }))
 
     vi.doMock('@/lib/services/email-lifecycle', () => ({
@@ -222,95 +212,4 @@ describe('rejectSubmissionAction', () => {
     expect(result).toEqual({ error: expect.stringContaining('Invalid') })
   })
 
-  describe('edit email locale wiring', () => {
-    async function mockPendingEditEmailContext(localePreference: 'zh-TW' | 'en' | null) {
-      const { createServiceClient } = await import('@/lib/supabase/server')
-      const { getBrandOwnerEmail } = await import('@/lib/services/brand-owners')
-      const { getPendingEditForReview } = await import('@/lib/services/pending-edits')
-
-      vi.mocked(getPendingEditForReview).mockResolvedValue({
-        brandId: 'brand-1',
-        brandName: 'Test Brand',
-      } as never)
-      vi.mocked(getBrandOwnerEmail).mockResolvedValue('owner@example.com')
-      vi.mocked(createServiceClient).mockReturnValue({
-        from: vi.fn((table: string) => {
-          if (table === 'brand_owners') {
-            return {
-              select: vi.fn(() => ({
-                eq: vi.fn(() => ({
-                  limit: vi.fn(() => ({
-                    maybeSingle: vi.fn().mockResolvedValue({
-                      data: { user_id: 'owner-1' },
-                      error: null,
-                    }),
-                  })),
-                })),
-              })),
-            }
-          }
-
-          return {
-            select: vi.fn(() => ({
-              eq: vi.fn(() => ({
-                maybeSingle: vi.fn().mockResolvedValue({
-                  data: { locale_preference: localePreference },
-                  error: null,
-                }),
-              })),
-            })),
-          }
-        }),
-      } as never)
-    }
-
-    it('approvePendingEditAction passes owner locale to email builder', async () => {
-      await mockPendingEditEmailContext('en')
-      const { buildEditApprovedEmail } = await import('@/lib/email/templates')
-      vi.mocked(buildEditApprovedEmail).mockResolvedValue({} as never)
-
-      const { approvePendingEditAction } = await import('../actions')
-      const result = await approvePendingEditAction('edit-1')
-
-      expect(result).toBeUndefined()
-      expect(buildEditApprovedEmail).toHaveBeenCalledWith({
-        brandName: 'Test Brand',
-        ownerEmail: 'owner@example.com',
-        locale: 'en',
-      })
-    })
-
-    it('rejectPendingEditAction passes owner locale to email builder', async () => {
-      await mockPendingEditEmailContext('zh-TW')
-      const { buildEditRejectedEmail } = await import('@/lib/email/templates')
-      vi.mocked(buildEditRejectedEmail).mockResolvedValue({} as never)
-
-      const { rejectPendingEditAction } = await import('../actions')
-      const result = await rejectPendingEditAction('edit-1', 'Please add clearer product details')
-
-      expect(result).toBeUndefined()
-      expect(buildEditRejectedEmail).toHaveBeenCalledWith({
-        brandName: 'Test Brand',
-        ownerEmail: 'owner@example.com',
-        notes: 'Please add clearer product details',
-        locale: 'zh-TW',
-      })
-    })
-
-    it('defaults to zh-TW when owner has no locale preference', async () => {
-      await mockPendingEditEmailContext(null)
-      const { buildEditApprovedEmail } = await import('@/lib/email/templates')
-      vi.mocked(buildEditApprovedEmail).mockResolvedValue({} as never)
-
-      const { approvePendingEditAction } = await import('../actions')
-      const result = await approvePendingEditAction('edit-1')
-
-      expect(result).toBeUndefined()
-      expect(buildEditApprovedEmail).toHaveBeenCalledWith({
-        brandName: 'Test Brand',
-        ownerEmail: 'owner@example.com',
-        locale: 'zh-TW',
-      })
-    })
-  })
 })
