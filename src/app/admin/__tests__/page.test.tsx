@@ -47,7 +47,15 @@ vi.mock('@/lib/services/brands', () => ({
 }))
 
 vi.mock('@/lib/services/app-settings', () => ({
-  SUBCATEGORY_FILTER_KEY: 'subcategory_filter_enabled',
+  FEATURE_FLAGS: [
+    {
+      key: 'subcategory_filter_enabled',
+      label: 'Subcategory filter on /brands',
+      description: 'Shows product-type chips in the directory filter sidebar',
+      defaultValue: false,
+      revalidatePaths: ['/brands', '/en/brands', '/admin'],
+    },
+  ],
   getAppSetting: vi.fn(),
 }))
 
@@ -362,6 +370,10 @@ describe('AdminPage', () => {
     expect(
       screen.getByRole('switch', { name: 'Subcategory filter on /brands' }),
     ).not.toBeChecked()
+    expect(getAppSetting).toHaveBeenCalledWith(
+      'subcategory_filter_enabled',
+      false,
+    )
   })
 
   it('renders queue summary cards sorted by highest pending count first', async () => {

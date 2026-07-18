@@ -132,7 +132,15 @@ vi.mock('@/lib/services/health-checks', () => ({
 }))
 
 vi.mock('@/lib/services/app-settings', () => ({
-  SUBCATEGORY_FILTER_KEY: 'subcategory_filter_enabled',
+  FEATURE_FLAGS: [
+    {
+      key: 'subcategory_filter_enabled',
+      label: 'Subcategory filter on /brands',
+      description: 'Shows product-type chips in the directory filter sidebar',
+      defaultValue: false,
+      revalidatePaths: ['/brands', '/en/brands', '/admin'],
+    },
+  ],
   setAppSetting: vi.fn().mockResolvedValue(undefined),
 }))
 
@@ -668,6 +676,23 @@ describe('setFeatureFlagAction', () => {
     expect(revalidatePath).toHaveBeenCalledWith('/en/brands')
     expect(revalidatePath).toHaveBeenCalledWith('/admin')
     await setFeatureFlagAction('subcategory_filter_enabled', true)
+  })
+
+  it('revalidates exactly the paths declared in the registry for the given key', async () => {
+    const { FEATURE_FLAGS } = await import('@/lib/services/app-settings')
+    const flag = FEATURE_FLAGS.find(
+      (entry) => entry.key === 'subcategory_filter_enabled',
+    )
+
+    expect(flag).toBeDefined()
+    if (!flag) throw new Error('Expected feature flag fixture')
+
+    await setFeatureFlagAction(flag.key, true)
+
+    expect(revalidatePath).toHaveBeenCalledTimes(flag.revalidatePaths.length)
+    flag.revalidatePaths.forEach((path) => {
+      expect(revalidatePath).toHaveBeenCalledWith(path)
+    })
   })
 
   it('rejects unknown flag keys', async () => {
