@@ -1,6 +1,5 @@
 import type { Brand, OtherUrl, RetailLocation } from '@/lib/types'
 import type { ReputationSummary } from '@/lib/types/brand'
-import type { ContentPayload } from '@/lib/services/moderation'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import {
   getDuplicateRetailLocationIndex,
@@ -234,7 +233,10 @@ export function parseBrandEditForm(formData: FormData): Partial<Brand> {
 export function buildModerationPayload(
   proposedData: Record<string, unknown>,
   brandName: string,
-): ContentPayload {
+): {
+  brandName: string
+  fields: Record<string, string | undefined>
+} {
   const proposedName = getString(proposedData.name)
   const productTags = Array.isArray(proposedData.productTags)
     ? proposedData.productTags
