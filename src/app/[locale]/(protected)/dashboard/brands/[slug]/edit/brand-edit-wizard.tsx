@@ -55,6 +55,11 @@ const FIELD_STEPS: Partial<Record<keyof BrandEditFormValues, number>> = {
   purchaseWebsite: 2,
 }
 
+const SCAN_FIELD_TO_FORM_FIELD: Record<string, keyof BrandEditFormValues> = {
+  website: 'purchaseWebsite',
+  purchaseUrl: 'purchaseWebsite',
+}
+
 const STEP_VALIDATION_FIELDS: Partial<
   Record<string, (keyof BrandEditFormValues)[]>
 > = {
@@ -211,13 +216,14 @@ export function BrandEditWizard({
       const publishResult = await publishDraftAction(undefined, formData)
       if (publishResult?.violations && publishResult.violations.length > 0) {
         for (const violation of publishResult.violations as ContentViolation[]) {
-          form.setError(violation.field as keyof BrandEditFormValues, {
+          const formField = SCAN_FIELD_TO_FORM_FIELD[violation.field] ?? violation.field as keyof BrandEditFormValues
+          form.setError(formField, {
             type: 'server',
             message: violation.userMessage,
           })
         }
-        const firstField = publishResult.violations[0]
-          .field as keyof BrandEditFormValues
+        const firstViolation = publishResult.violations[0]
+        const firstField = SCAN_FIELD_TO_FORM_FIELD[firstViolation.field] ?? firstViolation.field as keyof BrandEditFormValues
         if (firstField && FIELD_STEPS[firstField] !== undefined) {
           navigateTo(FIELD_STEPS[firstField]!)
         }

@@ -44,13 +44,15 @@ async function main() {
 
     if (profile?.email) {
       try {
+        const escapeMap: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
+        const safeBrandName = brandName.replace(/[&<>"']/g, (c: string) => escapeMap[c] ?? c)
         await sendEmail({
           to: profile.email,
           from: 'Formoria <no-reply@formoria.com>',
           subject: `品牌編輯流程更新：${brandName} — Formoria`,
           html: `
             <p>我們簡化了品牌編輯流程。</p>
-            <p>您先前為「${brandName}」提交的編輯已被清除。請重新提交您的編輯，更改將立即生效。</p>
+            <p>您先前為「${safeBrandName}」提交的編輯已被清除。請重新提交您的編輯，更改將立即生效。</p>
             <p>— Formoria 團隊</p>
           `,
         })
