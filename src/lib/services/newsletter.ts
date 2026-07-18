@@ -124,11 +124,6 @@ export type SubscriberActionResult =
   | { success: true; subscriber: NewsletterSubscriber }
   | { success: false; error: string }
 
-export type GetSubscribersOptions = {
-  page?: number
-  limit?: number
-}
-
 export type SubscriberStats = {
   total: number
   active: number
@@ -463,24 +458,6 @@ export async function unsubscribeNewsletterByEmail(
     .eq('email', normalizedEmail)
 
   assertNoError(error)
-}
-
-export async function getSubscribers(
-  supabase: SupabaseClient,
-  { page = 1, limit = 50 }: GetSubscribersOptions = {}
-): Promise<NewsletterSubscriber[]> {
-  const currentPage = Math.max(1, page)
-  const pageLimit = Math.max(1, limit)
-  const from = (currentPage - 1) * pageLimit
-  const to = from + pageLimit - 1
-  const { data, error } = await newsletterTable(supabase)
-    .select('*')
-    .order('subscribed_at', { ascending: false })
-    .range(from, to)
-
-  assertNoError(error)
-
-  return data ?? []
 }
 
 export async function getSubscriberStats(supabase: SupabaseClient): Promise<SubscriberStats> {

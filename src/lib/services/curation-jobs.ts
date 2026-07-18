@@ -81,7 +81,7 @@ export type CurationJobDetail = {
   children: CurationJob[];
 };
 
-export type CurationJobCursor = {
+type CurationJobCursor = {
   createdAt: string;
   id: string;
 };
