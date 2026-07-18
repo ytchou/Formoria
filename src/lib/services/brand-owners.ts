@@ -85,22 +85,6 @@ export async function isOwnerOf(
   return data !== null
 }
 
-export async function getBrandOwnerEmail(brandId: string): Promise<string | null> {
-  const supabase = createServiceClient()
-  const { data: owner, error } = await supabase
-    .from('brand_owners')
-    .select('user_id')
-    .eq('brand_id', brandId)
-    .maybeSingle()
-
-  if (error) throw error
-  if (!owner?.user_id) return null
-
-  const { data, error: userError } = await supabase.auth.admin.getUserById(owner.user_id)
-  if (userError) throw userError
-
-  return data.user.email ?? null
-}
 
 export async function getBrandBySlugForAdmin(slug: string): Promise<OwnedBrand | null> {
   const supabase = createServiceClient()
