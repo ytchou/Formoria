@@ -4,6 +4,8 @@ import {
   validateEmail,
   VALID_INTERESTS,
   normalizeInterests,
+  deriveNewsletterStatus,
+  calculateConfirmationRate,
 } from '../newsletter'
 
 describe('newsletter service — pure functions', () => {
@@ -50,5 +52,13 @@ describe('newsletter service — pure functions', () => {
       expect(VALID_INTERESTS).toContain('curated-picks')
       expect(VALID_INTERESTS).toContain('mit-trends')
     })
+  })
+
+  it('gives unsubscribe precedence and calculates active conversion', () => {
+    expect(deriveNewsletterStatus({ confirmed_at: null, unsubscribed_at: null })).toBe('pending')
+    expect(deriveNewsletterStatus({ confirmed_at: '2026-07-18', unsubscribed_at: null })).toBe('active')
+    expect(deriveNewsletterStatus({ confirmed_at: '2026-07-18', unsubscribed_at: '2026-07-19' })).toBe('unsubscribed')
+    expect(calculateConfirmationRate({ active: 3, pending: 1 })).toBe(75)
+    expect(calculateConfirmationRate({ active: 0, pending: 0 })).toBe(0)
   })
 })

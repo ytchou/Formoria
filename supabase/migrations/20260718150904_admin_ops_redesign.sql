@@ -372,17 +372,23 @@ create policy service_role_all_newsletter_subscribers
   using (true) with check (true);
 
 revoke all on public.newsletter_subscribers from anon, authenticated;
-grant select, update on public.newsletter_subscribers to service_role;
+grant select, insert, update on public.newsletter_subscribers to service_role;
 
-create index newsletter_subscribers_status_created_idx
-  on public.newsletter_subscribers (subscribed_at desc, id desc);
+create index newsletter_subscribers_active_created_idx
+  on public.newsletter_subscribers (subscribed_at desc, id desc)
+  where confirmed_at is not null and unsubscribed_at is null;
+create index newsletter_subscribers_pending_created_idx
+  on public.newsletter_subscribers (subscribed_at desc, id desc)
+  where confirmed_at is null and unsubscribed_at is null;
+create index newsletter_subscribers_unsubscribed_created_idx
+  on public.newsletter_subscribers (subscribed_at desc, id desc)
+  where unsubscribed_at is not null;
 create index newsletter_subscribers_interests_idx
   on public.newsletter_subscribers using gin (interests);
-create extension if not exists pg_trgm with schema extensions;
 create index newsletter_subscribers_email_trgm_idx
-  on public.newsletter_subscribers using gin (email extensions.gin_trgm_ops);
+  on public.newsletter_subscribers using gin (email gin_trgm_ops);
 create index newsletter_subscribers_name_trgm_idx
-  on public.newsletter_subscribers using gin (name extensions.gin_trgm_ops);
+  on public.newsletter_subscribers using gin (name gin_trgm_ops);
 
 create or replace function public.admin_list_newsletter_subscribers(
   p_query text default null,
@@ -445,10 +451,35 @@ language sql
 security invoker
 set search_path = ''
 as $$
-  select coalesce(jsonb_agg(to_jsonb(result) order by result.subscribed_at desc, result.id desc), '[]'::jsonb)
-  from public.admin_list_newsletter_subscribers(
-    p_query, p_status, p_interest, null, null, 'next', 1000000
-  ) as result;
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id', subscriber.id,
+    'email', subscriber.email,
+    'name', subscriber.name,
+    'interests', subscriber.interests,
+    'locale', subscriber.locale,
+    'subscribed_at', subscriber.subscribed_at,
+    'confirmed_at', subscriber.confirmed_at,
+    'unsubscribed_at', subscriber.unsubscribed_at,
+    'consent_source', subscriber.consent_source,
+    'consent_version', subscriber.consent_version,
+    'consent_recorded_at', subscriber.consent_recorded_at,
+    'subscriber_status', case
+      when subscriber.unsubscribed_at is not null then 'unsubscribed'
+      when subscriber.confirmed_at is not null then 'active'
+      else 'pending'
+    end
+  ) order by subscriber.subscribed_at desc, subscriber.id desc), '[]'::jsonb)
+  from public.newsletter_subscribers as subscriber
+  where (p_query is null or p_query = '' or subscriber.email ilike '%' || p_query || '%' or coalesce(subscriber.name, '') ilike '%' || p_query || '%')
+    and (p_interest is null or p_interest = any(subscriber.interests))
+    and (
+      p_status is null
+      or p_status = case
+        when subscriber.unsubscribed_at is not null then 'unsubscribed'
+        when subscriber.confirmed_at is not null then 'active'
+        else 'pending'
+      end
+    );
 $$;
 
 revoke execute on function public.cancel_curation_job(uuid, text) from public, anon, authenticated;

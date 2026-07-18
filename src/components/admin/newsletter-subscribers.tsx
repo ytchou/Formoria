@@ -1,8 +1,17 @@
-'use client'
+"use client";
 
-import { Check, X } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { DataCard, surfaceCardStyles } from '@/components/ui/card'
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { MailCheck, UserMinus } from "lucide-react";
+import { toast } from "sonner";
+import {
+  resendNewsletterConfirmationAction,
+  unsubscribeNewsletterSubscriberAction,
+} from "@/app/admin/newsletter/actions";
+import { ConfirmDialog } from "@/components/admin/confirm-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { surfaceCardStyles } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -10,130 +19,136 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import type { NewsletterSubscriber, SubscriberStats } from '@/lib/services/newsletter'
-
-type NewsletterSubscribersListProps = {
-  subscribers: Pick<
-    NewsletterSubscriber,
-    'id' | 'email' | 'interests' | 'confirmed_at' | 'subscribed_at' | 'unsubscribed_at'
-  >[]
-  stats: SubscriberStats
-}
+} from "@/components/ui/table";
+import type { AdminNewsletterSubscriber } from "@/lib/services/newsletter";
 
 const INTEREST_LABELS: Record<string, string> = {
-  'brand-stories': 'Brand stories',
-  'new-brands': 'New brands',
-  'curated-picks': 'Curated picks',
-  'mit-trends': 'MIT trends',
-}
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
-function formatInterest(interest: string) {
-  return INTEREST_LABELS[interest] ?? interest
-}
+  "brand-stories": "Brand stories",
+  "new-brands": "New brands",
+  "curated-picks": "Curated picks",
+  "mit-trends": "MIT trends",
+};
 
 export function NewsletterSubscribersList({
   subscribers,
-  stats,
-}: NewsletterSubscribersListProps) {
-  const statCards = [
-    {
-      label: 'Total subscribers',
-      value: stats.total,
-      description: 'All newsletter signups',
-    },
-    {
-      label: 'Confirmed',
-      value: stats.confirmed,
-      description: 'Subscribers with confirmed email',
-    },
-    {
-      label: 'Unsubscribed',
-      value: stats.unsubscribed,
-      description: 'Subscribers who opted out',
-    },
-  ]
+}: {
+  subscribers: AdminNewsletterSubscriber[];
+}) {
+  const [unsubscribeId, setUnsubscribeId] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  function resend(subscriberId: string) {
+    startTransition(async () => {
+      const result = await resendNewsletterConfirmationAction(subscriberId);
+      if ("error" in result) toast.error(result.error);
+      else toast.success("Confirmation email sent");
+    });
+  }
+
+  function unsubscribe() {
+    if (!unsubscribeId) return;
+    startTransition(async () => {
+      const result = await unsubscribeNewsletterSubscriberAction(unsubscribeId);
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+      setUnsubscribeId(null);
+      toast.success("Subscriber unsubscribed");
+      router.refresh();
+    });
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-3">
-        {statCards.map((stat) => (
-          <DataCard
-            key={stat.label}
-            label={stat.label}
-            value={stat.value}
-            description={stat.description}
-            padding="lg"
-          />
-        ))}
-      </div>
-
-      <div className={surfaceCardStyles({ padding: 'none' })}>
+    <>
+      <div className={surfaceCardStyles({ padding: "none", className: "overflow-x-auto" })}>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Email</TableHead>
+              <TableHead>Subscriber</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Interests</TableHead>
-              <TableHead>Confirmed</TableHead>
-              <TableHead>Subscribed Date</TableHead>
+              <TableHead>Locale</TableHead>
+              <TableHead>Subscribed</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {subscribers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
-                  No newsletter subscribers yet.
+                <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                  No subscribers match these filters.
                 </TableCell>
               </TableRow>
             ) : (
               subscribers.map((subscriber) => (
                 <TableRow key={subscriber.id}>
-                  <TableCell className="font-medium">{subscriber.email}</TableCell>
                   <TableCell>
-                    {subscriber.interests && subscriber.interests.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {subscriber.interests.map((interest) => (
-                          <Badge
-                            key={interest}
-                            variant="outline"
-                            className="bg-background text-muted-foreground"
-                          >
-                            {formatInterest(interest)}
-                          </Badge>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">None</span>
-                    )}
+                    <p className="font-medium">{subscriber.email}</p>
+                    {subscriber.name ? <p className="text-sm text-muted-foreground">{subscriber.name}</p> : null}
                   </TableCell>
+                  <TableCell><StatusBadge status={subscriber.status} /></TableCell>
                   <TableCell>
-                    {subscriber.confirmed_at ? (
-                      <Check
-                        className="size-4 text-verified-green"
-                        aria-label="Confirmed"
-                      />
-                    ) : (
-                      <X
-                        className="size-4 text-muted-foreground"
-                        aria-label="Not confirmed"
-                      />
-                    )}
+                    <div className="flex max-w-72 flex-wrap gap-1.5">
+                      {(subscriber.interests ?? []).map((interest) => (
+                        <Badge key={interest} variant="outline">{INTEREST_LABELS[interest] ?? interest}</Badge>
+                      ))}
+                    </div>
                   </TableCell>
+                  <TableCell>{subscriber.locale}</TableCell>
                   <TableCell>{formatDate(subscriber.subscribed_at)}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-2">
+                      {subscriber.status === "pending" ? (
+                        <Button
+                          variant="secondary"
+                          className="min-h-12"
+                          disabled={isPending}
+                          onClick={() => resend(subscriber.id)}
+                        >
+                          <MailCheck aria-hidden="true" />
+                          Resend confirmation
+                        </Button>
+                      ) : null}
+                      {subscriber.status !== "unsubscribed" ? (
+                        <Button
+                          variant="secondary"
+                          className="min-h-12"
+                          disabled={isPending}
+                          onClick={() => setUnsubscribeId(subscriber.id)}
+                        >
+                          <UserMinus aria-hidden="true" />
+                          Unsubscribe
+                        </Button>
+                      ) : null}
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
       </div>
-    </div>
-  )
+      <ConfirmDialog
+        open={unsubscribeId !== null}
+        onOpenChange={(open) => { if (!open) setUnsubscribeId(null); }}
+        title="Unsubscribe this address?"
+        description="This immediately opts the subscriber out and rotates their email tokens. Reactivation is not available from admin."
+        onConfirm={unsubscribe}
+        confirmLabel="Confirm unsubscribe"
+        variant="destructive"
+        isPending={isPending}
+      />
+    </>
+  );
+}
+
+function StatusBadge({ status }: { status: AdminNewsletterSubscriber["status"] }) {
+  const label = status === "active" ? "Active" : status === "unsubscribed" ? "Unsubscribed" : "Pending";
+  return <Badge variant={status === "active" ? "verified" : status === "unsubscribed" ? "outline" : "secondary"}>{label}</Badge>;
+}
+
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat("en-US", { year: "numeric", month: "short", day: "numeric" }).format(new Date(value));
 }
