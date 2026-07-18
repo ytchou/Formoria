@@ -45,12 +45,6 @@ describe('old route redirect stubs', () => {
     expect(mockRedirect).toHaveBeenCalledWith('/admin/reports')
   })
 
-  it('/admin/signals/feedback redirects to /admin/feedback', async () => {
-    const { default: Page } = await import('../signals/feedback/page')
-    expect(() => Page()).toThrow('REDIRECT')
-    expect(mockRedirect).toHaveBeenCalledWith('/admin/feedback')
-  })
-
   it('/admin/catalog/brands redirects to /admin/brands', async () => {
     const { default: Page } = await import('../catalog/brands/page')
     expect(() => Page()).toThrow('REDIRECT')

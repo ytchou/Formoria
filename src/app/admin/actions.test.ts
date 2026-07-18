@@ -122,11 +122,6 @@ vi.mock('@/lib/services/reports', () => ({
   updateReportStatus: vi.fn().mockResolvedValue(undefined),
 }))
 
-vi.mock('@/lib/services/feedback', () => ({
-  updateFeedbackStatus: vi.fn().mockResolvedValue(undefined),
-  syncSentryFeedback: vi.fn().mockResolvedValue({ synced: 3, errors: 0 }),
-}))
-
 vi.mock('@/lib/services/health-checks', () => ({
   checkAllServices: vi.fn(),
 }))
@@ -541,60 +536,6 @@ describe('revokeOwnershipAction', () => {
 
     expect(result).toMatchObject({ error: expect.any(String) })
     expect(revokeOwnership).not.toHaveBeenCalled()
-  })
-})
-
-describe('reviewFeedbackAction', () => {
-  it('calls updateFeedbackStatus and revalidates /admin/feedback', async () => {
-    const { reviewFeedbackAction } = await import('./actions')
-    const { updateFeedbackStatus } = await import('@/lib/services/feedback')
-
-    const result = await reviewFeedbackAction('feedback-id-1', 'reviewed')
-
-    expect(updateFeedbackStatus).toHaveBeenCalledWith('feedback-id-1', 'reviewed')
-    expect(revalidatePath).toHaveBeenCalledWith('/admin/feedback')
-    expect(result).toBeUndefined()
-  })
-
-  it('returns error when user is not admin', async () => {
-    const { requireAdminAction } = await import('@/lib/auth/require-admin')
-    vi.mocked(requireAdminAction).mockResolvedValueOnce({
-      error: 'You are not authorized to perform this action',
-      code: 'forbidden',
-    })
-    const { reviewFeedbackAction } = await import('./actions')
-    const result = await reviewFeedbackAction('feedback-id-1', 'reviewed')
-
-    expect(result).toMatchObject({ error: expect.any(String) })
-  })
-
-  it('returns error when service throws', async () => {
-    const { updateFeedbackStatus } = await import('@/lib/services/feedback')
-    vi.mocked(updateFeedbackStatus).mockRejectedValueOnce(new Error('db unavailable'))
-
-    const { reviewFeedbackAction } = await import('./actions')
-    const result = await reviewFeedbackAction('feedback-id-1', 'reviewed')
-
-    expect(result).toEqual({ error: 'db unavailable' })
-  })
-})
-
-describe('syncSentryFeedbackAction', () => {
-  it('returns synced count on success', async () => {
-    const { syncSentryFeedbackAction } = await import('./actions')
-    const result = await syncSentryFeedbackAction()
-
-    expect(result).toEqual({ synced: 3 })
-  })
-
-  it('returns error when sync throws', async () => {
-    const { syncSentryFeedback } = await import('@/lib/services/feedback')
-    vi.mocked(syncSentryFeedback).mockRejectedValueOnce(new Error('Sentry API unreachable'))
-
-    const { syncSentryFeedbackAction } = await import('./actions')
-    const result = await syncSentryFeedbackAction()
-
-    expect(result).toEqual({ error: 'Sentry API unreachable' })
   })
 })
 

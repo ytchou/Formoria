@@ -85,8 +85,6 @@ const ALLOWLIST = [
   'app/(microsite)/',
   // Sentry feedback widget: static SDK config outside next-intl (zh-TW default).
   'instrumentation-client.ts',
-  // Tally webhook matches Chinese form field labels (external form, not UI copy).
-  'app/api/webhooks/tally/route.ts',
   // MIT registry parser uses Chinese column header keys from the government CSV dataset (not UI copy).
   'lib/services/mit-registry.ts',
   // Share card is a satori-rendered PNG image (same as OG images) — zh-TW headline by design.

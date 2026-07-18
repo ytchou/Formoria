@@ -1858,7 +1858,6 @@
         "edits": "Brand Edits",
         "claims": "Claim Requests",
         "reports": "Reports",
-        "feedback": "Feedback",
         "brands": "Brand Catalog",
         "quality": "Quality Dashboard"
       }
@@ -1897,14 +1896,9 @@
         "reports": {
           "title": "Brand Reports",
           "empty": "No pending brand reports."
-        },
-        "feedback": {
-          "title": "User Feedback",
-          "empty": "No pending user feedback."
         }
       },
-      "noDate": "No date",
-      "unnamedFeedback": "Unnamed feedback"
+      "noDate": "No date"
     },
     "pendingEdits": {
       "title": "Brand Edit Review",
