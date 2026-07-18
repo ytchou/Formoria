@@ -9,7 +9,6 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 
 import { listClaimRequests } from '../claim-requests'
-import { getFeedbackItems } from '../feedback'
 import { getPendingEdits } from '../pending-edits'
 import { getPendingReports } from '../reports'
 import { getSubmissions } from '../submissions'
@@ -92,16 +91,4 @@ describe('service limit params', () => {
     expect(chain.limit).toHaveBeenCalledWith(5)
   })
 
-  it('applies limit to getFeedbackItems when provided', async () => {
-    const chain = createQueryChain()
-    mockFrom.mockReturnValue(chain)
-
-    await getFeedbackItems({ status: 'open', limit: 5 })
-
-    expect(mockFrom).toHaveBeenCalledWith('feedback')
-    expect(chain.select).toHaveBeenCalledWith('*')
-    expect(chain.eq).toHaveBeenCalledWith('status', 'open')
-    expect(chain.order).toHaveBeenCalledWith('created_at', { ascending: false })
-    expect(chain.limit).toHaveBeenCalledWith(5)
-  })
 })

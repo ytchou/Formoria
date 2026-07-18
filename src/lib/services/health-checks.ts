@@ -1,5 +1,4 @@
 import { createDeepSeekClient } from '@/lib/services/deepseek-client'
-import { resolveSentryProject } from '@/lib/services/sentry'
 import { createServiceClient } from '@/lib/supabase/server'
 
 type HealthStatus = 'healthy' | 'degraded' | 'down' | 'unconfigured'
@@ -9,10 +8,6 @@ export interface ServiceHealthResult {
   status: HealthStatus
   message: string
   checkedAt: string
-}
-
-type TallySubmission = {
-  created_at: string | null
 }
 
 const checkedAt = () => new Date().toISOString()
@@ -40,33 +35,6 @@ async function checkSupabase(): Promise<ServiceHealthResult> {
     return result('Supabase', 'healthy', 'Connection healthy')
   } catch (error) {
     return result('Supabase', 'down', error instanceof Error ? error.message : 'Unknown error')
-  }
-}
-
-async function checkSentry(): Promise<ServiceHealthResult> {
-  const token = process.env.SENTRY_AUTH_TOKEN
-
-  if (!token) {
-    return result('Sentry', 'unconfigured', 'SENTRY_AUTH_TOKEN is not configured')
-  }
-
-  try {
-    const { org, project } = await resolveSentryProject(token)
-    const response = await fetch(
-      `https://sentry.io/api/0/projects/${org}/${project}/user-feedback/?limit=1`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        signal: AbortSignal.timeout(3000),
-      }
-    )
-
-    return response.ok
-      ? result('Sentry', 'healthy', 'API reachable')
-      : result('Sentry', 'down', `API returned ${response.status}`)
-  } catch (error) {
-    return result('Sentry', 'down', error instanceof Error ? error.message : 'Unknown error')
   }
 }
 
@@ -147,48 +115,6 @@ async function checkTurnstile(): Promise<ServiceHealthResult> {
     return result('Turnstile', 'healthy', 'API reachable')
   } catch (error) {
     return result('Turnstile', 'down', error instanceof Error ? error.message : 'Unknown error')
-  }
-}
-
-async function checkTally(): Promise<ServiceHealthResult> {
-  try {
-    const supabase = createServiceClient()
-    const query = supabase
-      .from('feedback')
-      .select('created_at')
-      .not('tally_response_id', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(1)
-
-    const { data, error } = (await query) as {
-      data: TallySubmission[] | null
-      error: { message: string } | null
-    }
-
-    if (error) {
-      return result('Tally', 'down', error.message)
-    }
-
-    const latestSubmission = data?.[0]
-
-    if (!latestSubmission?.created_at) {
-      return result('Tally', 'healthy', 'No submissions yet')
-    }
-
-    const ageMs = Date.now() - new Date(latestSubmission.created_at).getTime()
-    const ageDays = ageMs / (1000 * 60 * 60 * 24)
-
-    if (ageDays < 30) {
-      return result('Tally', 'healthy', 'Recent submissions found')
-    }
-
-    if (ageDays <= 90) {
-      return result('Tally', 'degraded', 'No submissions in the last 30 days')
-    }
-
-    return result('Tally', 'down', 'No submissions in the last 90 days')
-  } catch (error) {
-    return result('Tally', 'down', error instanceof Error ? error.message : 'Unknown error')
   }
 }
 
@@ -295,11 +221,9 @@ async function checkOpenAI(): Promise<ServiceHealthResult> {
 
 const serviceNames = [
   'Supabase',
-  'Sentry',
   'Resend',
   'Upstash Redis',
   'Turnstile',
-  'Tally',
   'Railway',
   'Serper',
   'DeepSeek',
@@ -309,11 +233,9 @@ const serviceNames = [
 export async function checkAllServices(): Promise<ServiceHealthResult[]> {
   const checks = await Promise.allSettled([
     checkSupabase(),
-    checkSentry(),
     checkResend(),
     checkUpstashRedis(),
     checkTurnstile(),
-    checkTally(),
     checkRailway(),
     checkSerper(),
     checkDeepSeek(),

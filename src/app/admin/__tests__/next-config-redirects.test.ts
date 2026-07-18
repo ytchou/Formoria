@@ -8,7 +8,6 @@ describe("admin redirects", () => {
       "/admin/submissions",
       "/admin/moderation",
       "/admin/reports",
-      "/admin/feedback",
       "/admin/brands",
     ]);
 

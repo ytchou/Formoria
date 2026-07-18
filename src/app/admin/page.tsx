@@ -2,7 +2,6 @@ import { getTranslations } from "next-intl/server";
 import {
   approveClaimAction,
   approvePendingEditAction,
-  reviewFeedbackAction,
   reviewReportAction,
 } from "@/app/admin/actions";
 import { DashboardQueueItem } from "@/components/admin/dashboard-queue-item";
@@ -17,7 +16,6 @@ import {
   SUBCATEGORY_FILTER_KEY,
 } from "@/lib/services/app-settings";
 import { listClaimRequests } from "@/lib/services/claim-requests";
-import { getFeedbackItems } from "@/lib/services/feedback";
 import {
   checkAllServices,
   type ServiceHealthResult,
@@ -79,7 +77,6 @@ export default async function AdminPage() {
     pendingEdits,
     claimRequests,
     reports,
-    feedbackItems,
     flaggedContentResult,
     brandResult,
     healthResults,
@@ -91,7 +88,6 @@ export default async function AdminPage() {
     getPendingEdits("pending", { limit: 5 }).catch(() => []),
     listClaimRequests("pending", { limit: 5 }).catch(() => []),
     getPendingReports({ limit: 5 }).catch(() => []),
-    getFeedbackItems({ status: "open", limit: 5 }).catch(() => []),
     getFlaggedContent({ status: "pending", limit: 5 }).catch(() => ({
       items: [],
       nextCursor: null,
@@ -161,20 +157,6 @@ export default async function AdminPage() {
         date: formatQueueDate(report.createdAt),
         riskLevel: "medium" as const,
         action: reviewReportAction.bind(null, report.id, "reviewed"),
-      })),
-    },
-    {
-      key: "feedback",
-      title: t("queues.feedback.title"),
-      count: feedbackItems.length,
-      href: "/admin/feedback",
-      emptyMessage: t("queues.feedback.empty"),
-      items: feedbackItems.map((feedback) => ({
-        id: feedback.id,
-        label: feedback.title ?? feedback.body ?? t("unnamedFeedback"),
-        sublabel: feedback.userEmail ?? feedback.source,
-        date: formatQueueDate(feedback.createdAt),
-        action: reviewFeedbackAction.bind(null, feedback.id, "reviewed"),
       })),
     },
   ].sort((left, right) => right.count - left.count);
