@@ -31,10 +31,13 @@ describe("submission approval", () => {
       eq: vi.fn(() => slugQuery),
       maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
     };
+    const imagesQuery = submissionImagesQuery();
 
-    mocks.from.mockImplementation((table: string) =>
-      table === "brand_submissions" ? submissionQuery : slugQuery,
-    );
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "brand_submissions") return submissionQuery;
+      if (table === "submission_images") return imagesQuery;
+      return slugQuery;
+    });
     mocks.rpc.mockResolvedValue({
       data: [
         {
@@ -72,6 +75,35 @@ describe("submission approval", () => {
       isBrandOwner: false,
     });
     expect(mocks.from).not.toHaveBeenCalledWith("brand_field_state");
+  });
+
+  it("builds approval data from persisted effective fields without blank overwrites", async () => {
+    mockApproval({
+      ...enrichedPendingSubmission(),
+      suggested_tags: { values: ["手工皂"], productType: "beauty" },
+      enriched_data: {
+        description: " ",
+        hero_image_url: "",
+        product_type: "",
+        product_tags: [],
+        purchase_website: "",
+      },
+    });
+
+    await approveSubmission("submission-1", "reviewer-1");
+
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "approve_submission_with_romanized_name",
+      expect.objectContaining({
+        p_brand_data: expect.objectContaining({
+          description: "手工保養品牌",
+          product_type: "beauty",
+          product_tags: ["手工皂"],
+          purchase_website: "https://submitted.example.com/shop",
+          hero_image_url: "https://cdn.example.com/hero.jpg",
+        }),
+      }),
+    );
   });
 
   it("uses romanized_name for the slug when provided", async () => {
@@ -144,9 +176,12 @@ function mockApproval(submission: Record<string, unknown>): void {
     maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
   };
 
-  mocks.from.mockImplementation((table: string) =>
-    table === "brand_submissions" ? submissionQuery : slugQuery,
-  );
+  const imagesQuery = submissionImagesQuery();
+  mocks.from.mockImplementation((table: string) => {
+    if (table === "brand_submissions") return submissionQuery;
+    if (table === "submission_images") return imagesQuery;
+    return slugQuery;
+  });
   mocks.rpc.mockResolvedValue({
     data: [
       {
@@ -160,6 +195,45 @@ function mockApproval(submission: Record<string, unknown>): void {
     ],
     error: null,
   });
+}
+
+function submissionImagesQuery() {
+  const query = {
+    select: vi.fn(() => query),
+    eq: vi.fn(() => query),
+    order: vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: "hero-image",
+          submission_id: "submission-1",
+          storage_path: "submissions/submission-1/hero.webp",
+          url: "https://cdn.example.com/hero.jpg",
+          source: "admin",
+          status: "active",
+          sort_order: 0,
+          alt_zh: null,
+          alt_en: null,
+          width: 1200,
+          height: 900,
+        },
+        {
+          id: "detail-image",
+          submission_id: "submission-1",
+          storage_path: "submissions/submission-1/detail.webp",
+          url: "https://cdn.example.com/detail.jpg",
+          source: "admin",
+          status: "active",
+          sort_order: 1,
+          alt_zh: null,
+          alt_en: null,
+          width: 1200,
+          height: 900,
+        },
+      ],
+      error: null,
+    }),
+  };
+  return query;
 }
 
 function enrichedPendingSubmission(): Record<string, unknown> {

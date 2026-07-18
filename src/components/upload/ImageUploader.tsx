@@ -6,16 +6,18 @@ import { useTranslations } from 'next-intl'
 import { useImageUpload } from './useImageUpload'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import type { ImageUploadMetadata } from './useImageUpload'
 
 type ImageUploaderProps = {
   mode: 'single' | 'multi'
   bucket: string
   path: string
   value?: string | string[]
-  onUpload: (url: string) => void
+  onUpload: (url: string, metadata?: ImageUploadMetadata) => void
   onRemove?: (index: number) => void
   maxFiles?: number
   id?: string
+  uploadEndpoint?: string
 }
 
 export function ImageUploader({
@@ -27,12 +29,14 @@ export function ImageUploader({
   onRemove,
   maxFiles = 6,
   id,
+  uploadEndpoint,
 }: ImageUploaderProps) {
   const t = useTranslations('forms.uploader')
   const inputRef = useRef<HTMLInputElement>(null)
-  const { status, url, error, upload, reset } = useImageUpload({
+  const { status, url, metadata, error, upload, reset } = useImageUpload({
     bucket,
     path,
+    endpoint: uploadEndpoint,
   })
   const queueRef = useRef<File[]>([])
   const onUploadRef = useRef(onUpload)
@@ -57,11 +61,11 @@ export function ImageUploader({
 
   useEffect(() => {
     if (url) {
-      onUploadRef.current(url)
+      onUploadRef.current(url, metadata ?? undefined)
       reset()
       processNext()
     }
-  }, [url, reset, processNext])
+  }, [url, metadata, reset, processNext])
 
   useEffect(() => {
     if (status === 'error' && processingQueue) {
@@ -205,7 +209,6 @@ export function ImageUploader({
       )}
 
       {/* Hidden file input */}
-      {/* eslint-disable no-restricted-syntax -- ui-exception: native file input required for browser file picker */}
       <input
         id={id}
         ref={inputRef}
@@ -215,7 +218,6 @@ export function ImageUploader({
         className="hidden"
         onChange={handleFileSelect}
       />
-      {/* eslint-enable no-restricted-syntax */}
 
       {/* Error message */}
       {error && (

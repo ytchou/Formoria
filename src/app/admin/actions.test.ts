@@ -378,7 +378,7 @@ describe('approveSubmissionAction - approval flow', () => {
     const result = await approveSubmissionAction('sub-1')
 
     expect(result).toBeUndefined()
-    expect(approveSubmission).toHaveBeenCalledWith('sub-1', 'admin-1', undefined)
+    expect(approveSubmission).toHaveBeenCalledWith('sub-1', 'admin-1')
   })
 
   it('approveSubmissionAction calls markFlagsReviewed', async () => {
@@ -674,77 +674,6 @@ describe('setFeatureFlagAction', () => {
     const res = await setFeatureFlagAction('arbitrary_key', true)
 
     expect(res.error).toBeTruthy()
-  })
-})
-
-describe('approveSubmissionAction - MIT auto-verify', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('calls verifyMitByCert when overrides include mitSmileCert', async () => {
-    const { approveSubmission } = await import('@/lib/services/submissions')
-    const { getBrandById } = await import('@/lib/services/brands')
-    const { verifyMitByCert } = await import('@/lib/services/mit-verification')
-
-    vi.mocked(approveSubmission).mockResolvedValue({
-      brandId: 'brand-1',
-      submitterEmail: 'submitter@example.com',
-      brandName: 'Test Brand',
-      submitterName: null,
-      isBrandOwner: false,
-    })
-    vi.mocked(getBrandById).mockResolvedValue({ id: 'brand-1', slug: 'test-brand', heroImageUrl: null } as Awaited<ReturnType<typeof getBrandById>>)
-    vi.mocked(verifyMitByCert).mockResolvedValue({ data: {} })
-
-    const { approveSubmissionAction } = await import('./actions')
-    const result = await approveSubmissionAction('sub-1', { mitSmileCert: '01200024-02134' })
-
-    expect(result).toBeUndefined()
-    expect(verifyMitByCert).toHaveBeenCalledWith('brand-1', '01200024-02134')
-  })
-
-  it('does not call verifyMitByCert when overrides have no mitSmileCert', async () => {
-    const { approveSubmission } = await import('@/lib/services/submissions')
-    const { getBrandById } = await import('@/lib/services/brands')
-    const { verifyMitByCert } = await import('@/lib/services/mit-verification')
-
-    vi.mocked(approveSubmission).mockResolvedValue({
-      brandId: 'brand-1',
-      submitterEmail: 'submitter@example.com',
-      brandName: 'Test Brand',
-      submitterName: null,
-      isBrandOwner: false,
-    })
-    vi.mocked(getBrandById).mockResolvedValue({ id: 'brand-1', slug: 'test-brand', heroImageUrl: null } as Awaited<ReturnType<typeof getBrandById>>)
-
-    const { approveSubmissionAction } = await import('./actions')
-    const result = await approveSubmissionAction('sub-1')
-
-    expect(result).toBeUndefined()
-    expect(verifyMitByCert).not.toHaveBeenCalled()
-  })
-
-  it('approval succeeds even when verifyMitByCert rejects', async () => {
-    const { approveSubmission } = await import('@/lib/services/submissions')
-    const { getBrandById } = await import('@/lib/services/brands')
-    const { verifyMitByCert } = await import('@/lib/services/mit-verification')
-
-    vi.mocked(approveSubmission).mockResolvedValue({
-      brandId: 'brand-1',
-      submitterEmail: 'submitter@example.com',
-      brandName: 'Test Brand',
-      submitterName: null,
-      isBrandOwner: false,
-    })
-    vi.mocked(getBrandById).mockResolvedValue({ id: 'brand-1', slug: 'test-brand', heroImageUrl: null } as Awaited<ReturnType<typeof getBrandById>>)
-    vi.mocked(verifyMitByCert).mockRejectedValue(new Error('Registry unavailable'))
-
-    const { approveSubmissionAction } = await import('./actions')
-    const result = await approveSubmissionAction('sub-1', { mitSmileCert: '01200024-02134' })
-
-    expect(result).toBeUndefined()
-    expect(verifyMitByCert).toHaveBeenCalledWith('brand-1', '01200024-02134')
   })
 })
 

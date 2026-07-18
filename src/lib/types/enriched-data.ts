@@ -1,4 +1,5 @@
 import type { Json } from "@/lib/supabase/database.types";
+import type { OtherUrl } from "@/lib/types/brand";
 
 export type EnrichedData = {
   description?: string;
@@ -23,17 +24,17 @@ export type EnrichedData = {
   purchaseWebsite?: string;
   purchasePinkoi?: string;
   purchaseShopee?: string;
-  otherUrls?: string[];
+  otherUrls?: OtherUrl[];
   name?: string;
 };
 
-export type EnrichmentCompleteness = "none" | "partial" | "complete";
+type EnrichmentCompleteness = "none" | "partial" | "complete";
 
 function hasText(value: unknown): value is string {
   return typeof value === "string" && value.trim() !== "";
 }
 
-export function getEnrichmentCompleteness(
+function getEnrichmentCompleteness(
   enrichedData: EnrichedData | null | undefined,
   heroImageUrl?: string | null,
 ): EnrichmentCompleteness {
@@ -128,7 +129,15 @@ export function enrichedDataFromDb(
       ? { purchaseShopee: json.purchase_shopee }
       : {}),
     ...(Array.isArray(json.other_urls)
-      ? { otherUrls: json.other_urls as string[] }
+      ? {
+          otherUrls: json.other_urls.filter(
+            (value): value is OtherUrl =>
+              typeof value === "object" &&
+              value !== null &&
+              typeof (value as Partial<OtherUrl>).label === "string" &&
+              typeof (value as Partial<OtherUrl>).url === "string",
+          ),
+        }
       : {}),
   };
 }

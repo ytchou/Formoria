@@ -1970,11 +1970,30 @@
       "viewJob": "View job",
       "notFound": "No submissions found.",
       "confirmBulkApprove": "Approve {count} selected submissions?",
+      "bulkApprove": "Bulk approve",
+      "bulkReject": "Bulk reject",
       "confirmReject": "Reject this submission?",
       "fetching": "Fetching...",
       "fetchData": "Fetch Data",
       "approve": "Approve",
       "reject": "Reject",
+      "edit": "Edit",
+      "save": "Save changes",
+      "cancel": "Cancel",
+      "saved": "Review saved",
+      "reviewDetails": "Submission review details",
+      "missingRequired": "Missing required fields",
+      "searchLabel": "Search submissions",
+      "searchPlaceholder": "Search brand, submitter, email, or website",
+      "selectVisible": "Select submissions on this page",
+      "selectSubmission": "Select {name}",
+      "expandReview": "Expand review for {name}",
+      "collapseReview": "Collapse review for {name}",
+      "imageAlt": "Review image {n}",
+      "setHero": "Set image {n} as hero",
+      "moveLeft": "Move image {n} left",
+      "moveRight": "Move image {n} right",
+      "removeImage": "Remove image {n}",
       "confirmRejectButton": "Confirm Reject",
       "selectedCount": "{count} selected",
       "confirmBulkReject": "Confirm Bulk Reject",
@@ -2003,7 +2022,55 @@
         "enrichment": "Enrichment",
         "submitter": "Submitter",
         "date": "Date",
-        "actions": "Actions"
+        "actions": "Actions",
+        "details": "Review details"
+      },
+      "enrichmentFilter": {
+        "label": "Filter by enrichment completeness",
+        "all": "All enrichment",
+        "complete": "Complete",
+        "incomplete": "Incomplete"
+      },
+      "pagination": {
+        "summary": "Showing {from}–{to} of {total}",
+        "pageSize": "Rows per page",
+        "previous": "Previous page",
+        "next": "Next page"
+      },
+      "missingFields": {
+        "description": "Description",
+        "productType": "Valid product type",
+        "productTags": "1–5 product tags",
+        "priceRange": "Price range",
+        "website": "Valid official website",
+        "heroImage": "Hero image",
+        "additionalImage": "At least one additional image",
+        "successfulEnrichment": "Successful latest enrichment"
+      },
+      "details": {
+        "content": "Content",
+        "brandName": "Brand name",
+        "chineseContent": "Chinese content",
+        "englishContent": "English content",
+        "chineseDescription": "Chinese description",
+        "englishDescription": "English description",
+        "chineseBlurb": "Chinese summary",
+        "englishBlurb": "English summary",
+        "blurb": "Short summary",
+        "catalog": "Catalog classification",
+        "priceRange": "Price range",
+        "productTags": "Product tags",
+        "tagsPlaceholder": "Separate up to five tags with commas",
+        "city": "City",
+        "foundingYear": "Founding year",
+        "links": "Links",
+        "otherLinks": "Other links",
+        "mitEvidence": "MIT evidence",
+        "reputation": "Reputation sources",
+        "locations": "Retail locations"
+      },
+      "links": {
+        "official": "Official website"
       },
       "enrichmentStatus": {
         "queued": "Queued",
@@ -2056,7 +2123,9 @@
       "bulkRejectAriaLabel": "Bulk rejection reason",
       "errors": {
         "selectReason": "Please select a rejection reason",
-        "enterNotes": "Please enter additional notes"
+        "enterNotes": "Please enter additional notes",
+        "invalidUploadResponse": "The uploaded image could not be added to this review",
+        "imageLimit": "A review can contain at most seven images"
       },
       "claimNote": "After approval, a brand claim invitation will be sent to the submitter; subsequent proof review will be handled in the claim requests queue.",
       "categoryGap": "Category Gap",

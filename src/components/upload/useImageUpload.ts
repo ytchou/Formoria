@@ -13,22 +13,26 @@ type UseImageUploadConfig = {
   acceptedTypes?: string[]
   uploadFields?: Record<string, string>
   invalidTypeMessage?: string
+  endpoint?: string
 }
 
-type UploadResponse = {
+export type ImageUploadMetadata = {
   url?: string
   key?: string
+  [key: string]: unknown
 }
 
 type UploadResult = {
   url: string | null
   key: string | null
+  metadata: ImageUploadMetadata
 }
 
 type UseImageUploadReturn = {
   status: UploadStatus
   url: string | null
   key: string | null
+  metadata: ImageUploadMetadata | null
   error: string | null
   upload: (file: File) => Promise<UploadResult | null>
   reset: () => void
@@ -38,6 +42,7 @@ export function useImageUpload(config: UseImageUploadConfig): UseImageUploadRetu
   const [status, setStatus] = useState<UploadStatus>('idle')
   const [url, setUrl] = useState<string | null>(null)
   const [key, setKey] = useState<string | null>(null)
+  const [metadata, setMetadata] = useState<ImageUploadMetadata | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const upload = useCallback(
@@ -49,6 +54,7 @@ export function useImageUpload(config: UseImageUploadConfig): UseImageUploadRetu
         setError(config.invalidTypeMessage ?? 'Please upload an image file (JPEG, PNG, or WebP)')
         setUrl(null)
         setKey(null)
+        setMetadata(null)
         return null
       }
 
@@ -57,6 +63,7 @@ export function useImageUpload(config: UseImageUploadConfig): UseImageUploadRetu
         setError('File size must be under 5MB')
         setUrl(null)
         setKey(null)
+        setMetadata(null)
         return null
       }
 
@@ -64,6 +71,7 @@ export function useImageUpload(config: UseImageUploadConfig): UseImageUploadRetu
       setError(null)
       setUrl(null)
       setKey(null)
+      setMetadata(null)
 
       try {
         const formData = new FormData()
@@ -74,7 +82,7 @@ export function useImageUpload(config: UseImageUploadConfig): UseImageUploadRetu
           formData.append(key, value)
         })
 
-        const response = await fetch('/api/upload', {
+        const response = await fetch(config.endpoint ?? '/api/upload', {
           method: 'POST',
           body: formData,
         })
@@ -86,30 +94,33 @@ export function useImageUpload(config: UseImageUploadConfig): UseImageUploadRetu
           return null
         }
 
-        const data = (await response.json()) as UploadResponse
+        const data = (await response.json()) as ImageUploadMetadata
         const nextUrl = data.url ?? null
         const nextKey = data.key ?? null
         setUrl(nextUrl)
         setKey(nextKey)
+        setMetadata(data)
         setStatus('success')
-        return { url: nextUrl, key: nextKey }
+        return { url: nextUrl, key: nextKey, metadata: data }
       } catch (err) {
         setStatus('error')
         setError(err instanceof Error ? err.message : 'Upload failed')
         setUrl(null)
         setKey(null)
+        setMetadata(null)
         return null
       }
     },
-    [config.acceptedTypes, config.bucket, config.invalidTypeMessage, config.path, config.uploadFields]
+    [config.acceptedTypes, config.bucket, config.endpoint, config.invalidTypeMessage, config.path, config.uploadFields]
   )
 
   const reset = useCallback(() => {
     setStatus('idle')
     setUrl(null)
     setKey(null)
+    setMetadata(null)
     setError(null)
   }, [])
 
-  return { status, url, key, error, upload, reset }
+  return { status, url, key, metadata, error, upload, reset }
 }

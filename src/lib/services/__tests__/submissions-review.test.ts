@@ -41,10 +41,12 @@ describe("submission review curation history", () => {
         job_error: null,
       })),
     );
+    const imagesQuery = imageListQuery([]);
     mocks.from.mockImplementation((table: string) => {
       if (table === "brand_submissions") return submissionQuery;
       if (table === "curation_job_targets") return historyQuery;
-      return jobsQuery;
+      if (table === "curation_jobs") return jobsQuery;
+      return imagesQuery;
     });
 
     const result = await getSubmissionsForReview();
@@ -79,14 +81,83 @@ describe("submission review curation history", () => {
       order: vi.fn().mockResolvedValue({ data: rows, error: null }),
     };
     const historyQuery = pagedQuery([[], []], [], targetIdChunks);
-    mocks.from.mockImplementation((table: string) =>
-      table === "brand_submissions" ? submissionQuery : historyQuery,
-    );
+    const imagesQuery = imageListQuery([]);
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "brand_submissions") return submissionQuery;
+      if (table === "curation_job_targets") return historyQuery;
+      return imagesQuery;
+    });
 
     await getSubmissionsForReview();
 
     expect(targetIdChunks).toHaveLength(2);
     expect(targetIdChunks.every((ids) => ids.length <= 200)).toBe(true);
+  });
+
+  it("batch-loads staged images and exposes the same normalized persisted review", async () => {
+    const rows = [
+      {
+        ...submission("submission-1"),
+        enriched_data: {
+          description: "豐富後介紹",
+          product_type: "crafts",
+          product_tags: ["木工"],
+          price_range: 2,
+          purchase_website: "https://brand.example.com",
+        },
+      },
+    ];
+    const submissionQuery = {
+      select: vi.fn(() => submissionQuery),
+      order: vi.fn().mockResolvedValue({ data: rows, error: null }),
+    };
+    const historyQuery = pagedQuery(
+      [[target("submission-1", "succeeded")]],
+      [],
+    );
+    const jobsQuery = listQuery([
+      {
+        id: "job-submission-1",
+        status: "succeeded",
+        dispatch_status: "dispatched",
+        dispatch_error: null,
+        job_error: null,
+      },
+    ]);
+    const imageIds: string[][] = [];
+    const imagesQuery = imageListQuery(
+      [
+        submissionImage("hero", "https://cdn.example.com/hero.webp", 0),
+        submissionImage("detail", "https://cdn.example.com/detail.webp", 1),
+      ],
+      imageIds,
+    );
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "brand_submissions") return submissionQuery;
+      if (table === "curation_job_targets") return historyQuery;
+      if (table === "curation_jobs") return jobsQuery;
+      return imagesQuery;
+    });
+
+    const [result] = await getSubmissionsForReview();
+
+    expect(imageIds).toEqual([["submission-1"]]);
+    expect(result).toMatchObject({
+      reviewData: {
+        description: "豐富後介紹",
+        productType: "crafts",
+        productTags: ["木工"],
+        priceRange: 2,
+        websiteUrl: "https://brand.example.com",
+        heroImageUrl: "https://cdn.example.com/hero.webp",
+      },
+      reviewCompleteness: { complete: true, missingFields: [] },
+      reviewStage: "ready",
+    });
+    expect(result?.reviewImages.map((image) => image.id)).toEqual([
+      "hero",
+      "detail",
+    ]);
   });
 });
 
@@ -123,6 +194,25 @@ function listQuery(rows: Array<Record<string, unknown>>) {
   const query = {
     select: vi.fn(() => query),
     in: vi.fn().mockResolvedValue({ data: rows, error: null }),
+  };
+  return query;
+}
+
+function imageListQuery(
+  rows: Array<Record<string, unknown>>,
+  ids: string[][] = [],
+) {
+  const query = {
+    select: vi.fn(() => query),
+    in: vi.fn((_column: string, values: string[]) => {
+      ids.push(values);
+      return query;
+    }),
+    order: vi.fn((column: string) =>
+      column === "sort_order"
+        ? query
+        : Promise.resolve({ data: rows, error: null }),
+    ),
   };
   return query;
 }
@@ -173,6 +263,28 @@ function target(
     status,
     current_phase: status === "running" ? "links" : null,
     error: null,
+    created_at: "2026-07-13T16:00:00.000Z",
+  };
+}
+
+function submissionImage(id: string, url: string, sortOrder: number) {
+  return {
+    id,
+    submission_id: "submission-1",
+    storage_path: `submissions/submission-1/${id}.webp`,
+    url,
+    source: "admin",
+    status: "active",
+    tags: null,
+    score: null,
+    alt_zh: null,
+    alt_en: null,
+    width: 1200,
+    height: 900,
+    dominant_color: null,
+    sort_order: sortOrder,
+    source_url: null,
+    phash: null,
     created_at: "2026-07-13T16:00:00.000Z",
   };
 }
