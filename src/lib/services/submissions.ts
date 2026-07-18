@@ -810,14 +810,17 @@ export async function getAdminSubmissions(): Promise<
   );
 }
 
-export async function getSubmissionsForReview(): Promise<
+export async function getSubmissionsForReview(options?: {
+  status?: SubmissionStatus;
+}): Promise<
   BrandSubmissionForReview[]
 > {
   const supabase = createServiceClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("brand_submissions")
-    .select(ADMIN_REVIEW_SUBMISSIONS_SELECT)
-    .order("submitted_at", { ascending: false });
+    .select(ADMIN_REVIEW_SUBMISSIONS_SELECT);
+  if (options?.status) query = query.eq("status", options.status);
+  const { data, error } = await query.order("submitted_at", { ascending: false });
 
   if (error) throw error;
 

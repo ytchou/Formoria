@@ -5,9 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isActingAsAdmin } from "@/lib/auth/admin-mode";
 import { AdminNav } from "@/components/admin/admin-nav";
 import type { NavItem } from "@/components/admin/admin-nav";
-import { getFlaggedContent } from "@/lib/services/moderation";
-import { getSubmissions } from "@/lib/services/submissions";
-import { getPendingReports } from "@/lib/services/reports";
+import { getAdminNavCounts } from "@/lib/services/admin-operations";
 
 export default async function AdminLayout({
   children,
@@ -27,12 +25,10 @@ export default async function AdminLayout({
     redirect("/");
   }
 
-  const [messages, submissions, flaggedContent, reports, t] =
+  const [messages, counts, t] =
     await Promise.all([
       getMessages(),
-      getSubmissions("pending"),
-      getFlaggedContent({ status: "pending" }),
-      getPendingReports(),
+      getAdminNavCounts(),
       getTranslations("admin.layout"),
     ]);
 
@@ -41,18 +37,20 @@ export default async function AdminLayout({
     {
       label: t("nav.submissions"),
       href: "/admin/submissions",
-      count: submissions.length,
+      count: counts.submissions ?? undefined,
     },
     { label: t("nav.jobs"), href: "/admin/jobs" },
     {
       label: t("nav.moderation"),
       href: "/admin/moderation",
-      count: flaggedContent.items.length,
+      count: counts.moderation ?? undefined,
     },
     { label: t("nav.claims"), href: "/admin/claims" },
-    { label: t("nav.reports"), href: "/admin/reports", count: reports.length },
+    { label: t("nav.reports"), href: "/admin/reports", count: counts.reports ?? undefined },
     { label: t("nav.brands"), href: "/admin/brands" },
     { label: t("nav.quality"), href: "/admin/quality" },
+    { label: t("nav.newsletter"), href: "/admin/newsletter" },
+    { label: t("nav.settings"), href: "/admin/settings" },
   ];
 
   return (

@@ -21,6 +21,7 @@ import {
   sanitizeDispatchError,
 } from "@/lib/services/curation-dispatch";
 import { logAdminAction } from "@/lib/services/admin-audit";
+import { getSubmissionsForReview } from "@/lib/services/submissions";
 
 type StartCurationOperation = "enrich" | "clean-names";
 export type QueuedJobResult = {
@@ -58,6 +59,35 @@ export async function startCurationJobAction(
       error:
         error instanceof Error ? error.message : "An unexpected error occurred",
     };
+  }
+}
+
+export async function startNeedsDataSubmissionEnrichmentAction(): Promise<
+  QueuedJobResult | { error: string }
+> {
+  try {
+    const auth = await requireAdminAction();
+    if ("error" in auth) return auth;
+
+    const submissionIds = (await getSubmissionsForReview({ status: "pending" }))
+      .filter((submission) => submission.reviewStage === "needs_data")
+      .map((submission) => submission.id);
+    if (submissionIds.length === 0) {
+      return { error: "No needs-data submissions are waiting for enrichment" };
+    }
+
+    const job = await enqueueAdminCurationJob({
+      params: { submissionIds },
+      dryRun: false,
+      startedBy: auth.user.email ?? auth.user.id,
+    });
+    revalidatePath("/admin");
+    revalidatePath("/admin/jobs");
+    revalidatePath("/admin/submissions");
+    return dispatchQueuedJob(job.id, `${submissionIds.length} submissions queued for enrichment.`);
+  } catch (error) {
+    console.error("[admin:startNeedsDataSubmissionEnrichmentAction]", error);
+    return { error: error instanceof Error ? error.message : "An unexpected error occurred" };
   }
 }
 

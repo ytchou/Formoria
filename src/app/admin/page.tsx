@@ -1,280 +1,104 @@
-import { getTranslations } from "next-intl/server";
-import {
-  approveClaimAction,
-  reviewReportAction,
-} from "@/app/admin/actions";
-import { DashboardQueueItem } from "@/components/admin/dashboard-queue-item";
-import { NewsletterSubscribersList } from "@/components/admin/newsletter-subscribers";
-import { FeatureTogglesCard } from "@/components/admin/feature-toggles-card";
-import { QueueSummaryCard } from "@/components/admin/queue-summary-card";
-import { SystemStatusCard } from "@/components/admin/system-status-card";
-import { DataCard } from "@/components/ui/card";
-import { getBrands } from "@/lib/services/brands";
-import {
-  FEATURE_FLAGS,
-  getAppSetting,
-} from "@/lib/services/app-settings";
-import { listClaimRequests } from "@/lib/services/claim-requests";
-import {
-  checkAllServices,
-  type ServiceHealthResult,
-} from "@/lib/services/health-checks";
-import { getFlaggedContent } from "@/lib/services/moderation";
-import { getSubscribers, getSubscriberStats } from "@/lib/services/newsletter";
-import { getPendingReports } from "@/lib/services/reports";
-import { getSubmissionsForReview } from "@/lib/services/submissions";
-import { createServiceClient } from "@/lib/supabase/server";
+import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
+import { AdminQuickActions } from "@/components/admin/admin-quick-actions";
+import { JobStatusBadge, formatJobDate } from "@/app/admin/jobs/job-display";
+import { getAdminOperationsSnapshot, type AdminOperationsMetrics } from "@/lib/services/admin-operations";
 
-type QueueItem = {
-  id: string;
+type Metric = {
+  key: keyof AdminOperationsMetrics;
   label: string;
-  sublabel?: string;
-  date: string;
-  riskLevel?: "high" | "medium" | "clean";
-  action: () => Promise<unknown>;
-};
-
-type ReviewQueue = {
-  key: string;
-  title: string;
-  count: number;
+  description: string;
   href: string;
-  emptyMessage: string;
-  items: QueueItem[];
 };
 
-function formatQueueDate(value: string | null | undefined): string {
-  if (!value) return "No date";
-  return value.slice(0, 10);
-}
-
-async function getNewsletterDashboardData() {
-  try {
-    const supabase = createServiceClient();
-    const [subscribers, subscriberStats] = await Promise.all([
-      getSubscribers(supabase),
-      getSubscriberStats(supabase),
-    ]);
-
-    return { subscribers, subscriberStats };
-  } catch {
-    return {
-      subscribers: [],
-      subscriberStats: {
-        total: 0,
-        confirmed: 0,
-        unsubscribed: 0,
-      },
-    };
-  }
-}
+const metrics: Metric[] = [
+  { key: "needsData", label: "Needs data", description: "Submissions awaiting enrichment", href: "/admin/submissions?stage=needs_data" },
+  { key: "ready", label: "Ready", description: "Submissions ready for review", href: "/admin/submissions?stage=ready" },
+  { key: "moderation", label: "Content flags", description: "Pending moderation decisions", href: "/admin/moderation" },
+  { key: "claims", label: "Claims", description: "Ownership requests awaiting review", href: "/admin/claims" },
+  { key: "reports", label: "Reports", description: "Open brand reports", href: "/admin/reports" },
+  { key: "activeJobs", label: "Active jobs", description: "Pending or running data jobs", href: "/admin/jobs" },
+  { key: "brands", label: "Total brands", description: "Records in the brand catalog", href: "/admin/brands" },
+  { key: "subscribers", label: "Subscribers", description: "Active newsletter subscribers", href: "/admin/newsletter?status=active" },
+];
 
 export default async function AdminPage() {
-  const [
-    submissions,
-    claimRequests,
-    reports,
-    flaggedContentResult,
-    brandResult,
-    healthResults,
-    newsletterData,
-    flagValues,
-    t,
-  ] = await Promise.all([
-    getSubmissionsForReview().catch(() => []),
-    listClaimRequests("pending", { limit: 5 }).catch(() => []),
-    getPendingReports({ limit: 5 }).catch(() => []),
-    getFlaggedContent({ status: "pending", limit: 5 }).catch(() => ({
-      items: [],
-      nextCursor: null,
-    })),
-    getBrands({ includeTestBrands: true, limit: 5 }).catch(() => ({
-      brands: [],
-      totalCount: 0,
-    })),
-    checkAllServices().catch((): ServiceHealthResult[] => []),
-    getNewsletterDashboardData(),
-    (async () => {
-      const flagEntries = await Promise.all(
-        FEATURE_FLAGS.map(async (flag) => [
-          flag.key,
-          await getAppSetting(flag.key, flag.defaultValue),
-        ] as const),
-      );
-      return Object.fromEntries(flagEntries) as Record<string, boolean>;
-    })(),
-    getTranslations("admin.dashboard"),
-  ]);
-
-  const flaggedContent = flaggedContentResult.items;
-  const { subscribers, subscriberStats } = newsletterData;
-
-  const pendingSubmissions = submissions.filter(
-    (submission) => submission.status === "pending",
-  );
-  const readySubmissions = pendingSubmissions.filter(
-    (submission) => submission.reviewStage === "ready",
-  );
-  const dataWorkSubmissions = pendingSubmissions.filter(
-    (submission) => submission.reviewStage !== "ready",
-  );
-
-  const queues: ReviewQueue[] = [
-    {
-      key: "claims",
-      title: t("queues.claims.title"),
-      count: claimRequests.length,
-      href: "/admin/claims",
-      emptyMessage: t("queues.claims.empty"),
-      items: claimRequests.map((claim) => ({
-        id: claim.id,
-        label: claim.brandName ?? claim.brandId,
-        sublabel: claim.requesterEmail ?? claim.proofUrl ?? claim.userId,
-        date: formatQueueDate(claim.createdAt),
-        action: approveClaimAction.bind(null, claim.id),
-      })),
-    },
-    {
-      key: "reports",
-      title: t("queues.reports.title"),
-      count: reports.length,
-      href: "/admin/reports",
-      emptyMessage: t("queues.reports.empty"),
-      items: reports.map((report) => ({
-        id: report.id,
-        label: report.brandName ?? report.brandId,
-        sublabel: report.notes ?? report.reason,
-        date: formatQueueDate(report.createdAt),
-        riskLevel: "medium" as const,
-        action: reviewReportAction.bind(null, report.id, "reviewed"),
-      })),
-    },
-  ].sort((left, right) => right.count - left.count);
-
-  const overviewStats = [
-    {
-      label: t("stats.totalBrandsLabel"),
-      value: brandResult.totalCount,
-      description: t("stats.totalBrandsDesc"),
-    },
-    {
-      label: t("stats.flaggedContentLabel"),
-      value: flaggedContent.length,
-      description: t("stats.flaggedContentDesc"),
-    },
-  ];
+  const snapshot = await getAdminOperationsSnapshot();
 
   return (
-    <div className="space-y-8">
-      <div>
-        <p className="text-warm-caption">
-          {t("description")}
-        </p>
-      </div>
+    <div className="space-y-10">
+      <section aria-labelledby="operations-overview-heading">
+        <div className="mb-5 max-w-2xl">
+          <h2 id="operations-overview-heading" className="type-section-title-large">
+            Operations overview
+          </h2>
+          <p className="mt-1 type-card-description">
+            Triage the queues that need a decision, then open the workspace that owns the work.
+          </p>
+        </div>
+        <div className="grid overflow-hidden rounded-xl border-l border-t border-border sm:grid-cols-2 xl:grid-cols-5">
+          {metrics.map((metric) => {
+            const value = snapshot.metrics[metric.key];
+            return (
+              <Link
+                key={metric.key}
+                href={metric.href}
+                className="group flex min-h-40 flex-col justify-between border-b border-r border-border bg-card p-5 transition-colors hover:bg-muted/50 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className="type-body-emphasis">{metric.label}</span>
+                  <ArrowUpRight className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="type-stat">{value ?? "—"}</p>
+                  <p className="mt-1 type-card-description">
+                    {value === null ? "Unavailable" : metric.description}
+                  </p>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <SystemStatusCard initialResults={healthResults} />
-        <FeatureTogglesCard initialValues={flagValues} />
-      </div>
+      <section aria-labelledby="quick-operations-heading" className="border-t border-border pt-8">
+        <div className="mb-4">
+          <h2 id="quick-operations-heading" className="type-card-title">Quick operations</h2>
+          <p className="mt-1 type-card-description">Start the recurring enrichment workflow without leaving the overview.</p>
+        </div>
+        <AdminQuickActions needsDataCount={snapshot.metrics.needsData} />
+      </section>
 
-      <section aria-labelledby="review-queues">
+      <section aria-labelledby="recent-jobs-heading" className="border-t border-border pt-8">
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
-            <h2 id="review-queues" className="type-section-title-large">
-              {t("reviewQueues")}
-            </h2>
-            <p className="mt-1 type-card-description">{t("reviewQueuesSub")}</p>
+            <h2 id="recent-jobs-heading" className="type-card-title">Recent data jobs</h2>
+            <p className="mt-1 type-card-description">The five newest runs, ordered by creation time.</p>
           </div>
+          <Link
+            href="/admin/jobs"
+            className="inline-flex min-h-12 items-center text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            View all jobs
+          </Link>
         </div>
-
-        <div className="grid gap-4 xl:grid-cols-2">
-          {queues.map((queue) => (
-            <div key={queue.key} data-testid="queue-summary-card">
-              <QueueSummaryCard
-                title={queue.title}
-                count={queue.count}
-                href={queue.href}
-                emptyMessage={queue.emptyMessage}
+        <div className="divide-y divide-border border-y border-border">
+          {snapshot.recentJobs.length === 0 ? (
+            <p className="py-8 text-center text-muted-foreground">No data jobs yet.</p>
+          ) : (
+            snapshot.recentJobs.map((job) => (
+              <Link
+                key={job.id}
+                href={`/admin/jobs/${job.id}`}
+                className="grid min-h-16 gap-2 py-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:grid-cols-[minmax(220px,1fr)_auto_auto] sm:items-center sm:px-3"
               >
-                {queue.items.map((item) => (
-                  <DashboardQueueItem
-                    key={item.id}
-                    label={item.label}
-                    sublabel={item.sublabel}
-                    date={item.date}
-                    riskLevel={item.riskLevel}
-                    onApprove={item.action}
-                  />
-                ))}
-              </QueueSummaryCard>
-            </div>
-          ))}
+                <span className="font-medium">{formatJobDate(job.created_at)}</span>
+                <span className="text-sm text-muted-foreground">{job.succeeded_count + job.skipped_count + job.failed_count + (job.cancelled_count ?? 0)} / {job.target_total}</span>
+                <JobStatusBadge job={job} />
+              </Link>
+            ))
+          )}
         </div>
-      </section>
-
-      <section aria-labelledby="submission-stages">
-        <div className="mb-4">
-          <h2 id="submission-stages" className="type-section-title-large">
-            {t("newSubmissions")}
-          </h2>
-          <p className="mt-1 type-card-description">
-            {t("newSubmissionsSub")}
-          </p>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <QueueSummaryCard
-            title={t("stages.needsData")}
-            count={dataWorkSubmissions.length}
-            href="/admin/submissions?stage=needs_data"
-            emptyMessage={t("stages.emptyNeedsData")}
-          />
-          <QueueSummaryCard
-            title={t("stages.readyToReview")}
-            count={readySubmissions.length}
-            href="/admin/submissions?stage=ready"
-            emptyMessage={t("stages.emptyReadyToReview")}
-          />
-        </div>
-      </section>
-
-      <section aria-labelledby="overview">
-        <div className="mb-4">
-          <h2 id="overview" className="type-section-title-large">
-            {t("overview")}
-          </h2>
-          <p className="mt-1 type-card-description">
-            {t("overviewSub")}
-          </p>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          {overviewStats.map((stat) => (
-            <DataCard
-              key={stat.label}
-              label={stat.label}
-              value={stat.value}
-              description={stat.description}
-              padding="lg"
-            />
-          ))}
-        </div>
-      </section>
-
-      <section aria-labelledby="newsletter-subscribers">
-        <div className="mb-4">
-          <h2 id="newsletter-subscribers" className="type-section-title-large">
-            {t("newsletterSection")}
-          </h2>
-          <p className="mt-1 type-card-description">
-            {t("newsletterSectionSub")}
-          </p>
-        </div>
-
-        <NewsletterSubscribersList
-          subscribers={subscribers}
-          stats={subscriberStats}
-        />
       </section>
     </div>
   );

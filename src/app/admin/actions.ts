@@ -39,7 +39,6 @@ import {
 import { createEmailPreferences } from '@/lib/services/email-lifecycle'
 import { generateClaimToken } from '@/lib/auth/claim-token'
 import { updateReportStatus } from '@/lib/services/reports'
-import { checkAllServices } from '@/lib/services/health-checks'
 import { FEATURE_FLAGS, setAppSetting } from '@/lib/services/app-settings'
 import { DENIAL_REASONS, type DenialReason, type OtherUrl } from '@/lib/types'
 import { getSiteUrl } from '@/lib/site-url'
@@ -451,19 +450,6 @@ export async function revokeOwnershipAction(
       error: err instanceof Error ? err.message : 'An unexpected error occurred',
     }
   }
-}
-
-export async function refreshHealthChecks(): Promise<void> {
-  const auth = await requireAdminAction()
-  if ('error' in auth) {
-    return
-  }
-  try {
-    await checkAllServices()
-  } catch (err) {
-    console.error('[admin:refreshHealthChecks]', err)
-  }
-  revalidatePath('/admin')
 }
 
 export async function setFeatureFlagAction(

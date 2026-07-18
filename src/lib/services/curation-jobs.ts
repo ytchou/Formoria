@@ -36,7 +36,7 @@ type CurationJobTargetRow =
 
 export type CurationJob = Omit<
   CurationJobRow,
-  "status" | "trigger" | "operation" | "dispatch_status"
+  "status" | "trigger" | "operation" | "dispatch_status" | "cancelled_count"
 > & {
   operation: "enrich";
   status: CurationJobStatus;
@@ -489,7 +489,10 @@ export async function cancelCurationJob(
 
 function encodeCurationJobCursor(job: Pick<CurationJob, "created_at" | "id">): string {
   return Buffer.from(
-    JSON.stringify({ createdAt: job.created_at, id: job.id } satisfies CurationJobCursor),
+    JSON.stringify({
+      createdAt: job.created_at ?? new Date(0).toISOString(),
+      id: job.id,
+    } satisfies CurationJobCursor),
   ).toString("base64url");
 }
 

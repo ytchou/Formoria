@@ -81,7 +81,6 @@ describe('rejectSubmissionAction', () => {
     '@/lib/services/email-lifecycle',
     '@/lib/auth/claim-token',
     '@/lib/services/reports',
-    '@/lib/services/health-checks',
   ]
 
   beforeEach(() => {
@@ -170,10 +169,6 @@ describe('rejectSubmissionAction', () => {
 
     vi.doMock('@/lib/services/reports', () => ({
       updateReportStatus: vi.fn(),
-    }))
-
-    vi.doMock('@/lib/services/health-checks', () => ({
-      checkAllServices: vi.fn(),
     }))
   })
 
