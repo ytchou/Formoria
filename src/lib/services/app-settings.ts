@@ -2,7 +2,25 @@ import { createClient } from '@supabase/supabase-js'
 import type { Json } from '@/lib/supabase/database.types'
 import { createServiceClient } from '@/lib/supabase/server'
 
-export const SUBCATEGORY_FILTER_KEY = 'subcategory_filter_enabled'
+export type FeatureFlag = {
+  key: string
+  label: string
+  description: string
+  defaultValue: boolean
+  revalidatePaths: string[]
+}
+
+export const FEATURE_FLAGS: FeatureFlag[] = [
+  {
+    key: 'subcategory_filter_enabled',
+    label: 'Subcategory filter on /brands',
+    description: 'Shows product-type chips in the directory filter sidebar',
+    defaultValue: false,
+    revalidatePaths: ['/brands', '/en/brands', '/admin'],
+  },
+]
+
+export const SUBCATEGORY_FILTER_KEY = FEATURE_FLAGS[0].key
 
 export async function getAppSetting<T extends Json = Json>(
   key: string,
