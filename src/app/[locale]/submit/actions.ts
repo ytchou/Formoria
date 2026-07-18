@@ -25,6 +25,7 @@ import { enrollInMarketingEmails } from '@/lib/services/marketing-email-consent'
 // Per-user in-action rate limiter for brand submissions (5 per 60s)
 const ownerSubmissionRateLimiter = createInMemoryRateLimiter()
 const guestRecommendationRateLimiter = createInMemoryRateLimiter()
+const nameInspectionRateLimiter = createInMemoryRateLimiter()
 
 type SubmitBrandInput = SubmissionFormData & {
   guestEmail?: string
@@ -75,6 +76,13 @@ export async function inspectRecommendationName(name: string) {
   const parsed = z.string().trim().min(2).max(200).safeParse(name)
 
   if (!parsed.success) {
+    return { ...suggestion, hasDuplicate: false }
+  }
+
+  const headerStore = await headers()
+  const ip = getRequestIp(headerStore)
+  const rateResult = nameInspectionRateLimiter.check(ip, 60_000, 10)
+  if (!rateResult.allowed) {
     return { ...suggestion, hasDuplicate: false }
   }
 
