@@ -447,7 +447,7 @@ Reuse the Linear IDs resolved in Section 1 (team, project, milestone, user, labe
 
 ### Query Phase
 
-1. Use `mcp__sentry__search_issues` to find unresolved issues in the Formoria project with events in the last 24 hours.
+1. Use `mcp__sentry__search_issues` with `is:unresolved lastSeen:-24h environment:production` to find unresolved production issues in the Formoria project with events in the last 24 hours.
 2. Cap at 20 issues. If more than 20 unresolved issues exist with recent events, flag this as **incident mode** and prioritize by event count (highest first).
 3. Filter out issues already marked as resolved or ignored.
 
@@ -458,6 +458,8 @@ For each issue returned:
 1. Call `mcp__sentry__analyze_issue_with_seer` to get Seer AI's root cause analysis.
 2. If Seer's response seems incomplete or the issue appears trivial based on event data alone, fall back to event-data classification (title, event count, trend).
 3. Record: issue title, Sentry URL, event count (24h), whether Seer provided analysis, and the raw Seer output.
+
+Development-only events are Noise. If an issue lookup reveals only `environment=development`, `localhost` URLs, or development hot-reload frames, exclude it from actionable counts and do not create a Linear ticket for it.
 
 ### Classification Rubric
 
@@ -662,6 +664,13 @@ Thresholds (apply only when the **higher** of the two values is >= 30 sessions â
 | **Informational** | Everything else | Include in digest |
 
 Do not create tickets for warning-level signals. Only critical triggers create tickets.
+
+#### Bot-traffic evidence gate
+
+- GA4 excludes known bots automatically; there is no bot-filter setting to enable. Do not recommend toggling one.
+- A session spike, high bounce rate, short duration, direct traffic, or internal routes appearing in Top Pages can justify investigation, but none proves bot traffic. Internal routes may indicate staff use or analytics instrumentation leakage.
+- Confirm suspected bots with CDN/origin request evidence such as concentrated user agents, IPs/ASNs, countries, request rates, or WAF bot scores. If those logs are unavailable, say the cause is unconfirmed and keep the signal informational.
+- Do not create a ticket based on GA metrics alone. Create one only when request evidence identifies a concrete mitigation, or when a separate verified application defect explains the anomaly.
 
 #### Signal Categories
 

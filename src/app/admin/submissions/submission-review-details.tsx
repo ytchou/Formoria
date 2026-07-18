@@ -205,16 +205,17 @@ export function SubmissionReviewDetails({ submission }: Props) {
       aria-label={t("reviewDetails")}
       className="space-y-6"
     >
-      {!submission.reviewCompleteness.complete && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4">
-          <p className="type-body-emphasis">{t("missingRequired")}</p>
-          <ul className="mt-2 list-disc space-y-1 pl-5 type-card-description">
-            {missingLabels.map((label) => (
-              <li key={label}>{label}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {submission.status === "pending" &&
+        !submission.reviewCompleteness.complete && (
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4">
+            <p className="type-body-emphasis">{t("missingRequired")}</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 type-card-description">
+              {missingLabels.map((label) => (
+                <li key={label}>{label}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
       {editing ? (
         <EditReview

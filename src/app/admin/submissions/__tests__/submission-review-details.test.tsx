@@ -103,6 +103,22 @@ describe("SubmissionReviewDetails", () => {
     expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
   });
 
+  it("hides stale missing-field warnings after review", () => {
+    renderDetails(
+      makeSubmission({
+        status: "approved",
+        reviewCompleteness: {
+          complete: false,
+          missingFields: ["description"],
+        },
+      }),
+    );
+
+    expect(
+      screen.queryByText("Missing required fields"),
+    ).not.toBeInTheDocument();
+  });
+
   it("saves edited persisted review data and ordered active images", async () => {
     const user = userEvent.setup();
     renderDetails(makeSubmission());

@@ -34,7 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { DenialReason, SubmissionIntent } from "@/lib/types";
+import type { DenialReason } from "@/lib/types";
 import { DENIAL_REASONS } from "@/lib/types";
 import type {
   BrandSubmissionForReview,
@@ -422,11 +422,10 @@ export function SubmissionsReviewList({
                 />
               </TableHead>
               <TableHead>{t("table.brand")}</TableHead>
-              <TableHead>{t("table.source")}</TableHead>
               <TableHead>{t("table.status")}</TableHead>
-              <TableHead>{t("table.enrichment")}</TableHead>
               <TableHead>{t("table.submitter")}</TableHead>
               <TableHead>{t("table.date")}</TableHead>
+              <TableHead>{t("table.enrichment")}</TableHead>
               <TableHead className="text-right">{t("table.actions")}</TableHead>
               <TableHead className="w-12">
                 <span className="sr-only">{t("table.details")}</span>
@@ -436,7 +435,6 @@ export function SubmissionsReviewList({
           <TableBody>
             {visible.map((submission) => {
               const expanded = expandedId === submission.id;
-              const intent = getSubmissionIntent(submission);
               const enrichment = enrichmentLabel(submission, t);
               return (
                 <Fragment key={submission.id}>
@@ -475,29 +473,7 @@ export function SubmissionsReviewList({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary">
-                        {intent === "owner_claim"
-                          ? t("intent.ownerClaim")
-                          : t("intent.recommend")}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
                       <SubmissionStatusBadge status={submission.status} />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={enrichment.variant}>
-                          {enrichment.label}
-                        </Badge>
-                        {submission.latestCurationJobId && (
-                          <Link
-                            className="type-link"
-                            href={`/admin/jobs/${submission.latestCurationJobId}`}
-                          >
-                            {t("viewJob")}
-                          </Link>
-                        )}
-                      </div>
                     </TableCell>
                     <TableCell className="max-w-[200px]">
                       <span className="block truncate">
@@ -517,6 +493,21 @@ export function SubmissionsReviewList({
                       )}
                     </TableCell>
                     <TableCell>{formatDate(submission.submittedAt)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={enrichment.variant}>
+                          {enrichment.label}
+                        </Badge>
+                        {submission.latestCurationJobId && (
+                          <Link
+                            className="type-link"
+                            href={`/admin/jobs/${submission.latestCurationJobId}`}
+                          >
+                            {t("viewJob")}
+                          </Link>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">
                         {submission.status === "pending" && (
@@ -571,7 +562,7 @@ export function SubmissionsReviewList({
                   </TableRow>
                   {expanded && (
                     <TableRow>
-                      <TableCell colSpan={9} className="bg-background p-6">
+                      <TableCell colSpan={8} className="bg-background p-6">
                         <SubmissionReviewDetails submission={submission} />
                       </TableCell>
                     </TableRow>
@@ -582,7 +573,7 @@ export function SubmissionsReviewList({
             {visible.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={9}
+                  colSpan={8}
                   className="py-10 text-center type-body-muted"
                 >
                   {t("notFound")}
@@ -662,12 +653,6 @@ function matchesTab(submission: ReviewSubmission, tab: TabValue) {
 function tabKey(tab: TabValue) {
   if (tab === "needs_data") return "needsData" as const;
   return tab;
-}
-
-function getSubmissionIntent(submission: ReviewSubmission): SubmissionIntent {
-  return (
-    submission.intent ?? (submission.isBrandOwner ? "owner_claim" : "recommend")
-  );
 }
 
 function getSubmitterLabel(email: string, fallback: string) {

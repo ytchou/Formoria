@@ -50,4 +50,26 @@ describe("Formoria unified routine delivery contracts", () => {
     expect(prompt).toMatch(/"routine":\s*"sentry-triage"/);
     expect(prompt).toMatch(/"routine":\s*"growth-pulse"/);
   });
+
+  it("keeps development-only Sentry events out of actionable triage", async () => {
+    const prompt = await readFile(
+      "docs/routines/formoria-health-prompt.md",
+      "utf8",
+    );
+
+    expect(prompt).toContain("environment:production");
+    expect(prompt).toContain("Development-only events are Noise");
+  });
+
+  it("requires request evidence before classifying a traffic spike as bots", async () => {
+    const prompt = await readFile(
+      "docs/routines/formoria-health-prompt.md",
+      "utf8",
+    );
+
+    expect(prompt).toContain("GA4 excludes known bots automatically");
+    expect(prompt).toContain(
+      "Do not create a ticket based on GA metrics alone",
+    );
+  });
 });
