@@ -372,7 +372,7 @@ describe('AdminPage', () => {
     ).not.toBeChecked()
     expect(getAppSetting).toHaveBeenCalledWith(
       'subcategory_filter_enabled',
-      false,
+      true,
     )
   })
 

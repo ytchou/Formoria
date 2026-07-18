@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import { setFeatureFlagAction } from '@/app/admin/actions'
 import { SurfaceCard } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -13,16 +13,24 @@ export function FeatureTogglesCard({
   initialValues: Record<string, boolean>
 }) {
   const [values, setValues] = useState(initialValues)
-  const [isPending, startTransition] = useTransition()
+  const [savingKeys, setSavingKeys] = useState<Set<string>>(() => new Set())
 
-  function handleCheckedChange(key: string, nextEnabled: boolean) {
+  async function handleCheckedChange(key: string, nextEnabled: boolean) {
     setValues((current) => ({ ...current, [key]: nextEnabled }))
-    startTransition(async () => {
+    setSavingKeys((current) => new Set(current).add(key))
+
+    try {
       const result = await setFeatureFlagAction(key, nextEnabled)
       if (result?.error) {
         setValues((current) => ({ ...current, [key]: !nextEnabled }))
       }
-    })
+    } finally {
+      setSavingKeys((current) => {
+        const next = new Set(current)
+        next.delete(key)
+        return next
+      })
+    }
   }
 
   return (
@@ -43,7 +51,7 @@ export function FeatureTogglesCard({
             <Switch
               id={`${flag.key}-toggle`}
               checked={values[flag.key] ?? flag.defaultValue}
-              disabled={isPending}
+              disabled={savingKeys.has(flag.key)}
               onCheckedChange={(nextEnabled) =>
                 handleCheckedChange(flag.key, nextEnabled)
               }

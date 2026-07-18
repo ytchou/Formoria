@@ -74,14 +74,6 @@ async function getNewsletterDashboardData() {
 }
 
 export default async function AdminPage() {
-  const flagEntries = await Promise.all(
-    FEATURE_FLAGS.map(async (flag) => [
-      flag.key,
-      await getAppSetting(flag.key, flag.defaultValue),
-    ] as const),
-  );
-  const flagValues = Object.fromEntries(flagEntries) as Record<string, boolean>;
-
   const [
     submissions,
     pendingEdits,
@@ -92,6 +84,7 @@ export default async function AdminPage() {
     brandResult,
     healthResults,
     newsletterData,
+    flagValues,
     t,
   ] = await Promise.all([
     getSubmissionsForReview().catch(() => []),
@@ -109,6 +102,15 @@ export default async function AdminPage() {
     })),
     checkAllServices().catch((): ServiceHealthResult[] => []),
     getNewsletterDashboardData(),
+    (async () => {
+      const flagEntries = await Promise.all(
+        FEATURE_FLAGS.map(async (flag) => [
+          flag.key,
+          await getAppSetting(flag.key, flag.defaultValue),
+        ] as const),
+      );
+      return Object.fromEntries(flagEntries) as Record<string, boolean>;
+    })(),
     getTranslations("admin.dashboard"),
   ]);
 
