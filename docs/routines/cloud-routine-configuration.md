@@ -1,8 +1,8 @@
 # Claude Routine Configuration
 
-The three analysis agents remain Claude Routines so they continue to use the Claude subscription. Their saved prompts are bootstraps only; the versioned prompt files in this repository are authoritative.
+A single unified "Formoria Health Agent" routine runs all three health checks (Directory Health, Sentry Triage, Growth Pulse) sequentially in one session. The versioned prompt file in this repository is authoritative; the saved prompt in Claude Routines is a bootstrap only.
 
-## Common configuration
+## Configuration
 
 - Repository: `ytchou/Formoria`
 - Branch: default branch, refreshed at the start of every run
@@ -10,28 +10,25 @@ The three analysis agents remain Claude Routines so they continue to use the Cla
 - Network allowlist: the Agent Hub Supabase function host
 - Do not configure `AGENT_HUB_SERVICE_KEY` or `ANTHROPIC_API_KEY`
 
-Use this saved prompt, replacing the file name for each routine:
+Saved prompt:
 
 ```text
-Open a fresh checkout of the default branch of ytchou/Formoria. Read docs/routines/<routine>-prompt.md and follow it exactly. That repository file is the source of truth; do not use remembered delivery instructions. Always run its Agent Hub delivery step, including after a data-source failure.
+Open a fresh checkout of the default branch of ytchou/Formoria. Read docs/routines/formoria-health-prompt.md and follow it exactly. That repository file is the source of truth; do not use remembered delivery instructions. Always run its Agent Hub delivery step for each section, including after a data-source failure.
 ```
 
-## Routines
+## Routine
 
-| Routine | Schedule (Asia/Taipei) | Prompt file | Required connectors or secrets |
+| Routine | Schedule (Asia/Taipei) | Prompt file | Required connectors |
 |---|---:|---|---|
-| Directory Health | Daily 07:00 | `docs/routines/directory-health-prompt.md` | Formoria Supabase, GitHub, Linear, Web Search |
-| Sentry Triage | Daily 07:00 | `docs/routines/sentry-triage-prompt.md` | Sentry |
-| Growth Pulse | Daily 07:10 | `docs/routines/growth-pulse-prompt.md` | Google Drive, Linear |
+| Formoria Health Agent | Daily 07:10 | `docs/routines/formoria-health-prompt.md` | Formoria Supabase, GitHub, Linear, Web Search, Sentry, Google Drive |
 
-Keep the common Agent Hub token identical across all three routines and GitHub Actions so rotation is one coordinated operation.
+Keep the Agent Hub token identical across this routine and GitHub Actions so rotation is one coordinated operation.
 
-## Cutover check
+## Cutover from three separate routines
 
-After the Agent Hub migration and Edge Function are deployed and the Formoria producer change is merged:
-
-1. Update each saved prompt and its environment.
-2. Use `Run now` once for each routine.
-3. Confirm one row per routine for the logical Asia/Taipei date in Personal OS.
-4. Replay one output and confirm no duplicate row appears.
-5. Remove obsolete service-role and relay configuration only after all three deliveries succeed.
+1. Delete the three old routines (Directory Health, Sentry Triage, Growth Pulse) from Claude Routines.
+2. Create one new routine "Formoria Health Agent" with the configuration above.
+3. Use `Run now` once.
+4. Confirm three rows appear in Personal OS Agent Hub (one per check: `directory-health`, `sentry-triage`, `growth-pulse`) for the logical Asia/Taipei date.
+5. Replay one output and confirm no duplicate row appears.
+6. Archive prompts are in `docs/routines/archive/` for reference.
