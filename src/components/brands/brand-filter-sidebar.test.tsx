@@ -68,23 +68,21 @@ describe("BrandFilterSidebar", () => {
     const user = userEvent.setup();
     render(<BrandFilterSidebar categories={[]} totalCount={0} />);
 
+    await user.click(screen.getByRole("button", { name: /Price range/ }));
     await user.click(screen.getByRole("button", { name: "$$" }));
 
     expect(replace).toHaveBeenCalledWith("/brands?price=2", { scroll: false });
   });
 
-  it("counts and clears active price ranges", async () => {
+  it("counts active price ranges in the header", () => {
     query = "price=1%2C3";
-    const user = userEvent.setup();
     render(<BrandFilterSidebar categories={[]} totalCount={0} />);
 
     expect(screen.getByText("2 filters applied")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Clear all" }));
-
-    expect(replace).toHaveBeenCalledWith("/brands", { scroll: false });
   });
 
-  it("uses the same left-aligned option treatment for categories and status", () => {
+  it("uses the same left-aligned option treatment for categories and status", async () => {
+    const user = userEvent.setup();
     render(
       <BrandFilterSidebar
         totalCount={12}
@@ -97,6 +95,9 @@ describe("BrandFilterSidebar", () => {
         ]}
       />,
     );
+
+    await user.click(screen.getByRole("button", { name: /Category/ }));
+    await user.click(screen.getByRole("button", { name: /Brand status/ }));
 
     const categoryCheckbox = screen.getByRole("checkbox", {
       name: "Bags & accessories",
@@ -111,7 +112,7 @@ describe("BrandFilterSidebar", () => {
     expect(statusLabel).toHaveClass("type-card-description");
   });
 
-  it("counts search and category conditions and renders removable rows", () => {
+  it("counts search and category conditions in the header", () => {
     query = "search=herbs&category=jewelry&sort=name";
     render(
       <BrandFilterSidebar
@@ -121,16 +122,11 @@ describe("BrandFilterSidebar", () => {
     );
 
     expect(screen.getByText("2 filters applied")).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Remove Brand search herbs" }),
-    ).toHaveAttribute("href", "/brands?category=jewelry&sort=name");
-    expect(
-      screen.getByRole("link", { name: "Remove Category Jewelry" }),
-    ).toHaveAttribute("href", "/brands?search=herbs&sort=name");
   });
 
-  it("shows the aggregate result count only beside a single selected category", () => {
+  it("shows the aggregate result count only beside a single selected category", async () => {
     query = "category=jewelry";
+    const user = userEvent.setup();
     render(
       <BrandFilterSidebar
         totalCount={0}
@@ -138,6 +134,7 @@ describe("BrandFilterSidebar", () => {
       />,
     );
 
+    await user.click(screen.getByRole("button", { name: /Category/ }));
     expect(screen.getByText("0")).toBeInTheDocument();
   });
 
@@ -160,8 +157,9 @@ describe("BrandFilterSidebar", () => {
   });
 
   describe("subcategory chips", () => {
-    it("renders chips under a checked category with counts", () => {
+    it("renders chips under a checked category with counts", async () => {
       query = "category=bags-accessories&sub=clasp-frame-bags";
+      const user = userEvent.setup();
       render(
         <BrandFilterSidebar
           totalCount={8}
@@ -177,6 +175,7 @@ describe("BrandFilterSidebar", () => {
         />,
       );
 
+      await user.click(screen.getByRole("button", { name: /Category/ }));
       expect(screen.getByRole("button", { name: "口金包 8" })).toHaveAttribute(
         "aria-pressed",
         "true",
@@ -209,9 +208,8 @@ describe("BrandFilterSidebar", () => {
       ).not.toBeInTheDocument();
     });
 
-    it("removes the sub param when clearing all filters", async () => {
+    it("counts active subcategories in the header", () => {
       query = "sub=clasp-frame-bags&sort=name";
-      const user = userEvent.setup();
       render(
         <BrandFilterSidebar
           totalCount={0}
@@ -221,11 +219,7 @@ describe("BrandFilterSidebar", () => {
         />,
       );
 
-      await user.click(screen.getByRole("button", { name: "Clear all" }));
-
-      expect(replace).toHaveBeenCalledWith("/brands?sort=name", {
-        scroll: false,
-      });
+      expect(screen.getByText("1 filters applied")).toBeInTheDocument();
     });
   });
 });

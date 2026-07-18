@@ -19,7 +19,6 @@ import { SortSelect } from '@/components/brands/sort-select'
 import {
   SearchEmptyState,
   type ActiveDirectoryFilter,
-  type EmptyStateRecoveryAction,
 } from '@/components/brands/search-empty-state'
 import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
 import { surfaceCardStyles } from '@/components/ui/card'
@@ -234,9 +233,6 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
     displayBrands = refetched.brands
   }
 
-  const hasActiveFilters =
-    validCategoryFilter.length > 0 || resolvedSubs.length > 0 ||
-    priceRanges.length > 0 || verificationFilter !== 'all'
   const directoryPath = localizePath('/brands', safeLocale)
   const normalizedParams = new URLSearchParams()
   if (search) normalizedParams.set('search', search)
@@ -327,28 +323,6 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
       }),
     })
   }
-
-  const recoveryCandidates: EmptyStateRecoveryAction[] = [
-    ...(search
-      ? [{
-          kind: 'removeSearch' as const,
-          href: updateDirectoryUrl(directoryPath, normalizedParams, { search: null }),
-        }]
-      : []),
-    ...(hasActiveFilters
-      ? [{
-          kind: 'clearFilters' as const,
-          href: clearDirectoryFilters(directoryPath, normalizedParams),
-        }]
-      : []),
-    { kind: 'browseAll', href: directoryPath },
-  ]
-  const seenRecoveryHrefs = new Set<string>()
-  const recoveryActions = recoveryCandidates.filter((action) => {
-    if (seenRecoveryHrefs.has(action.href)) return false
-    seenRecoveryHrefs.add(action.href)
-    return true
-  })
 
   let recommendedBrands: Brand[] = []
   let recommendationsHref = directoryPath
@@ -559,7 +533,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
                   query={search}
                   categoryLabel={categoryTag ? categoryLabel(categoryTag, safeLocale) : undefined}
                   activeFilters={activeFilters}
-                  recoveryActions={recoveryActions}
+                  clearAllHref={clearDirectoryFilters(directoryPath, normalizedParams, { includeSearch: true })}
                   recommendedBrands={recommendedBrands}
                   recommendationsHref={recommendationsHref}
                 />

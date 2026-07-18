@@ -25,9 +25,6 @@ export function MarketingEmailOptInField({
   const labelKey = variant === 'newsletter-only'
     ? 'newsletterOnlyLabel'
     : 'combinedLabel'
-  const descriptionKey = variant === 'newsletter-only'
-    ? 'newsletterOnlyDescription'
-    : 'combinedDescription'
 
   return (
     <div className="space-y-1">
@@ -46,20 +43,22 @@ export function MarketingEmailOptInField({
         />
         <span className="type-body font-normal">{t(labelKey)}</span>
       </Label>
-      <p className="pl-[30px] type-form-hint">
-        {t.rich(descriptionKey, {
-          privacyPolicy: (chunks) => (
-            <a
-              href="/privacy"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {chunks}
-            </a>
-          ),
-        })}
-      </p>
+      {variant === 'newsletter-and-lifecycle' ? (
+        <p className="pl-[30px] type-form-hint">
+          {t.rich('combinedDescription', {
+            privacyPolicy: (chunks) => (
+              <a
+                href="/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {chunks}
+              </a>
+            ),
+          })}
+        </p>
+      ) : null}
     </div>
   )
 }

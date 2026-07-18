@@ -17,8 +17,8 @@ import {
   type SubmissionFormData,
 } from '@/lib/validations/submission'
 import {
+  inspectRecommendationName,
   submitRecommendation,
-  suggestCleanName,
 } from '@/app/[locale]/submit/actions'
 import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
 import type { SourceAttribution } from '@/lib/types/submission'
@@ -93,6 +93,7 @@ export default function SubmitForm({
 
   const pdpaConsent = useWatch({ control, name: 'pdpaConsent' })
   const [nameSuggestion, setNameSuggestion] = useState<string | null>(null)
+  const [nameDuplicate, setNameDuplicate] = useState(false)
   const [urlSuggestion, setUrlSuggestion] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
@@ -107,8 +108,9 @@ export default function SubmitForm({
 
     const requestId = ++nameBlurRequestRef.current
     try {
-      const result = await suggestCleanName(currentName)
+      const result = await inspectRecommendationName(currentName)
       if (requestId !== nameBlurRequestRef.current) return
+      setNameDuplicate(result.hasDuplicate)
       if (result.changed && result.suggestion) {
         setNameSuggestion(result.suggestion)
       } else {
@@ -117,6 +119,7 @@ export default function SubmitForm({
     } catch {
       if (requestId === nameBlurRequestRef.current) {
         setNameSuggestion(null)
+        setNameDuplicate(false)
       }
     }
   }
@@ -211,7 +214,8 @@ export default function SubmitForm({
     [handleSubmit, submitForm],
   )
 
-  const isSubmitDisabled = !isValid || !pdpaConsent || isSubmitting
+  const isSubmitDisabled =
+    !isValid || !pdpaConsent || nameDuplicate || isSubmitting
 
   return (
     <div className="page-gutter mx-auto max-w-2xl py-12">
@@ -234,7 +238,10 @@ export default function SubmitForm({
             id="submit-name"
             label={tForm('brandNameLabel')}
             description={tForm('brandNameHint')}
-            error={errors.name?.message}
+            error={
+              errors.name?.message ??
+              (nameDuplicate ? t('fields.nameDuplicateTitle') : undefined)
+            }
             required
           >
             <Input
@@ -248,7 +255,10 @@ export default function SubmitForm({
                 await handleNameBlur()
               }}
               onChange={(event) => {
+                nameBlurRequestRef.current += 1
                 setNameSuggestion(null)
+                setNameDuplicate(false)
+                setSubmitError(null)
                 nameRegistration.onChange(event)
               }}
             />

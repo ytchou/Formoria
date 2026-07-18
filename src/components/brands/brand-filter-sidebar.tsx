@@ -24,7 +24,6 @@ import {
   clearDirectoryFilters,
   updateDirectoryUrl,
 } from "@/lib/directory-filter-url";
-import { DirectoryFilterToken } from "./directory-filter-token";
 import { SearchInput } from "./search-input";
 
 type VerificationFilterValue = NonNullable<BrandFilters["verificationFilter"]>;
@@ -74,13 +73,15 @@ function parseCommaParam(value: string | null): string[] {
 function FilterSection({
   title,
   action,
+  defaultOpen = false,
   children,
 }: {
   title: string;
   action?: ReactNode;
+  defaultOpen?: boolean;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(defaultOpen);
 
   return (
     <section className="space-y-3">
@@ -212,15 +213,6 @@ export function BrandFilterSidebar({
     });
   }
 
-  function clearAll() {
-    startTransition(() => {
-      router.replace(
-        clearDirectoryFilters(pathname, searchParams, { includeSearch: true }),
-        { scroll: false },
-      );
-    });
-  }
-
   function clearCategories() {
     startTransition(() => {
       router.replace(
@@ -228,35 +220,6 @@ export function BrandFilterSidebar({
         { scroll: false },
       );
     });
-  }
-
-  function removeCategoryHref(slug: string) {
-    const next = new Set(activeCategories);
-    next.delete(slug);
-    return updateDirectoryUrl(pathname, searchParams, {
-      category: next.size > 0 ? Array.from(next).join(",") : null,
-      sub: null,
-    });
-  }
-
-  function removeSubcategoryHref(slug: string) {
-    const next = new Set(activeSubcategories);
-    next.delete(slug);
-    return updateDirectoryUrl(pathname, searchParams, {
-      sub: next.size > 0 ? Array.from(next).join(",") : null,
-    });
-  }
-
-  function removePriceHref(value: number) {
-    const next = new Set(activePriceRanges);
-    next.delete(value);
-    return updateDirectoryUrl(pathname, searchParams, {
-      price: next.size > 0 ? Array.from(next).sort().join(",") : null,
-    });
-  }
-
-  function removeLabel(label: string, value: string) {
-    return t("removeFilter", { label, value });
   }
 
   return (
@@ -274,96 +237,6 @@ export function BrandFilterSidebar({
       </div>
 
       <div className="space-y-6 p-4">
-        {activeCount > 0 && (
-          <section className="space-y-3">
-            <div className="flex min-h-12 items-center justify-between gap-2">
-              <h2 className="type-body-emphasis">{t("currentConditions")}</h2>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={clearAll}
-                className="min-h-12 px-2 text-primary"
-              >
-                {t("clearAll")}
-              </Button>
-            </div>
-            <div className="space-y-2">
-              {activeSearch && (
-                <DirectoryFilterToken
-                  href={updateDirectoryUrl(pathname, searchParams, {
-                    search: null,
-                  })}
-                  label={t("activeSearch")}
-                  removeLabel={removeLabel(t("activeSearch"), activeSearch)}
-                  value={activeSearch}
-                  variant="row"
-                />
-              )}
-              {categories
-                .filter((category) => activeCategories.has(category.slug))
-                .map((category) => {
-                  const value = categoryLabel(category);
-                  return (
-                    <DirectoryFilterToken
-                      key={category.slug}
-                      href={removeCategoryHref(category.slug)}
-                      label={t("activeCategory")}
-                      removeLabel={removeLabel(t("activeCategory"), value)}
-                      value={value}
-                      variant="row"
-                    />
-                  );
-                })}
-              {subcategories
-                .filter((subcategory) =>
-                  activeSubcategories.has(subcategory.slug),
-                )
-                .map((subcategory) => (
-                  <DirectoryFilterToken
-                    key={subcategory.slug}
-                    href={removeSubcategoryHref(subcategory.slug)}
-                    label={t("activeSubcategory")}
-                    removeLabel={removeLabel(
-                      t("activeSubcategory"),
-                      subcategory.label,
-                    )}
-                    value={subcategory.label}
-                    variant="row"
-                  />
-                ))}
-              {Array.from(activePriceRanges)
-                .sort()
-                .map((value) => {
-                  const label = "$".repeat(value);
-                  return (
-                    <DirectoryFilterToken
-                      key={value}
-                      href={removePriceHref(value)}
-                      label={t("activePrice")}
-                      removeLabel={removeLabel(t("activePrice"), label)}
-                      value={label}
-                      variant="row"
-                    />
-                  );
-                })}
-              {activeVerification !== "all" && (
-                <DirectoryFilterToken
-                  href={updateDirectoryUrl(pathname, searchParams, {
-                    verification: null,
-                  })}
-                  label={t("activeStatus")}
-                  removeLabel={removeLabel(
-                    t("activeStatus"),
-                    verificationT(activeVerification),
-                  )}
-                  value={verificationT(activeVerification)}
-                  variant="row"
-                />
-              )}
-            </div>
-          </section>
-        )}
-
         <section className="space-y-3">
           <div className="flex items-center gap-1.5">
             <h2 className="type-body-emphasis">{t("brandSearch")}</h2>

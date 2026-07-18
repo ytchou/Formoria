@@ -63,23 +63,12 @@ test.describe('Directory deep', () => {
     await expect(page.locator('[data-empty]')).toBeVisible({ timeout: 5_000 });
   });
 
-  test('empty filtered search offers contextual recovery actions', async ({ page }) => {
+  test('empty filtered search shows empty state without recovery actions', async ({ page }) => {
     await page.goto('/brands?search=zzzzzzzzzzzzz_nonexistent&category=jewelry');
 
     const emptyState = page.locator('[data-empty]');
     await expect(emptyState.getByRole('heading', { name: '找不到符合的品牌' })).toBeVisible();
 
-    const removeSearch = emptyState.getByRole('link', { name: /移除品牌關鍵字/ });
-    await expect(removeSearch).toHaveAttribute('href', /category=jewelry/);
-    await expect(removeSearch).not.toHaveAttribute('href', /search=/);
-
-    const clearFilters = emptyState.getByRole('link', { name: /清除篩選條件/ });
-    await expect(clearFilters).toHaveAttribute('href', /search=zzzzzzzzzzzzz_nonexistent/);
-    await expect(clearFilters).not.toHaveAttribute('href', /category=/);
-
-    await expect(emptyState.getByRole('link', { name: /瀏覽所有品牌/ })).toHaveAttribute(
-      'href',
-      '/brands',
-    );
+    await expect(emptyState.getByRole('link', { name: /移除品牌關鍵字/ })).not.toBeVisible();
   });
 });

@@ -106,6 +106,7 @@ vi.mock('@/lib/services/submissions', () => ({
 
 import { getTranslations } from 'next-intl/server'
 import {
+  inspectRecommendationName,
   submitOwnerBrand,
   submitRecommendation,
 } from '@/app/[locale]/submit/actions'
@@ -138,6 +139,19 @@ describe('submit actions', () => {
     mockCheckBrandDuplicates.mockResolvedValue({ nameMatches: [] })
     mockOwnerRateLimiterCheck.mockReturnValue({ allowed: true })
     mockGuestRateLimiterCheck.mockReturnValue({ allowed: true })
+  })
+
+  it('reports duplicate recommendation names before submission', async () => {
+    mockCheckBrandDuplicates.mockResolvedValue({
+      nameMatches: [
+        { id: 'b1', name: 'Test Brand', slug: 'test-brand', similarity: 0.95 },
+      ],
+    })
+
+    const result = await inspectRecommendationName('Test Brand')
+
+    expect(result.hasDuplicate).toBe(true)
+    expect(mockCheckBrandDuplicates).toHaveBeenCalledWith('Test Brand')
   })
 
   it('submits a guest recommendation with source attribution', async () => {

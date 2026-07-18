@@ -5,8 +5,8 @@ import { NextIntlClientProvider } from 'next-intl'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 
 vi.mock('@/app/[locale]/submit/actions', () => ({
+  inspectRecommendationName: vi.fn(),
   submitRecommendation: vi.fn(),
-  suggestCleanName: vi.fn(),
 }))
 
 vi.mock('@/components/submit/TurnstileWidget', () => ({
@@ -30,6 +30,7 @@ vi.mock('@/lib/analytics', () => ({
 
 import SubmitForm from './SubmitForm'
 import messages from '@/../messages/zh-TW.json'
+import { inspectRecommendationName } from '@/app/[locale]/submit/actions'
 
 function renderForm() {
   return render(
@@ -42,6 +43,12 @@ function renderForm() {
 describe('SubmitForm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(inspectRecommendationName).mockResolvedValue({
+      changed: false,
+      suggestion: null,
+      patterns: [],
+      hasDuplicate: false,
+    })
   })
 
   it('renders recommendation form for guest users', () => {
@@ -79,9 +86,12 @@ describe('SubmitForm', () => {
     ).toBeInTheDocument()
 
     const marketing = screen.getByRole('checkbox', {
-      name: /我同意接收 Formoria 電子報（選填）/,
+      name: '我同意接收 Formoria 電子報',
     })
     expect(marketing).not.toBeChecked()
+    expect(
+      screen.queryByText(/內容包含品牌故事、新品牌與精選趨勢/),
+    ).not.toBeInTheDocument()
     expect(
       marketing.compareDocumentPosition(
         screen.getByRole('button', { name: /送出推薦/ }),
@@ -97,6 +107,32 @@ describe('SubmitForm', () => {
         '如果你知道品牌特色、產品或背景，可以留在這裡，幫助我們審核。',
       ),
     ).toBeInTheDocument()
+    expect(
+      screen.getByPlaceholderText(
+        '例如：品牌在台南設計，並與台灣在地工坊合作生產。',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('checks for an existing brand when the name field loses focus', async () => {
+    const user = userEvent.setup()
+    vi.mocked(inspectRecommendationName).mockResolvedValue({
+      changed: false,
+      suggestion: null,
+      patterns: [],
+      hasDuplicate: true,
+    })
+    renderForm()
+
+    const name = screen.getByLabelText(/品牌名稱/)
+    await user.type(name, 'Existing Brand')
+    await user.tab()
+
+    expect(inspectRecommendationName).toHaveBeenCalledWith('Existing Brand')
+    expect(await screen.findByText('發現相似品牌名稱')).toBeInTheDocument()
+
+    await user.type(name, ' New')
+    expect(screen.queryByText('發現相似品牌名稱')).not.toBeInTheDocument()
   })
 
   it('renders submit button disabled before required fields are completed', () => {

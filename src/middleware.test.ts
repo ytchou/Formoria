@@ -41,7 +41,7 @@ vi.mock('@/lib/security/challenge', () => ({
   CHALLENGE_COOKIE_NAME: 'fm_verified',
 }))
 
-import { RESERVED_ROUTES } from './middleware'
+import { RESERVED_ROUTES } from './proxy'
 
 describe('RESERVED_ROUTES', () => {
   it('includes all known static route prefixes', () => {
