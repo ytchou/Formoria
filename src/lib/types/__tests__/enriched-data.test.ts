@@ -12,6 +12,16 @@ describe('enrichedDataFromDb', () => {
     })
   })
 
+  it('maps structured other_urls to OtherUrl values', () => {
+    expect(
+      enrichedDataFromDb({
+        other_urls: [{ label: 'Stockist', url: 'https://stockist.example.com' }],
+      }),
+    ).toEqual({
+      otherUrls: [{ label: 'Stockist', url: 'https://stockist.example.com' }],
+    })
+  })
+
   it('preserves expanded enrichment fields', () => {
     expect(
       enrichedDataFromDb({

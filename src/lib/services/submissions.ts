@@ -10,10 +10,7 @@ import type {
 import type { DuplicateCheckResult } from "@/lib/types/submission";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import type { EnrichedData } from "@/lib/types/enriched-data";
-import {
-  enrichedDataFromDb,
-  hasCompleteEnrichment,
-} from "@/lib/types/enriched-data";
+import { enrichedDataFromDb } from "@/lib/types/enriched-data";
 import type {
   CurationDispatchStatus,
   CurationTargetStatus,
@@ -35,6 +32,7 @@ import { toSubmissionRow } from "./field-map";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { deleteStoredImagePaths } from "./image-upload";
 import { slugifyRomanizedName } from "@/lib/brands/slug";
+import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 
 // ---------------------------------------------------------------------------
 // Row types
@@ -66,10 +64,65 @@ type SubmissionRowWithProductTypeNote = SubmissionRow & {
   purchase_shopee?: string | null;
   other_urls?: OtherUrl[] | null;
 };
+type SubmissionImageRow = Database["public"]["Tables"]["submission_images"]["Row"];
 export type BrandSubmissionWithProductTypeNote = BrandSubmission & {
   websiteUrl: string | null;
   productTypeNote: string | null;
 };
+export type SubmissionReviewImage = {
+  id: string;
+  submissionId: string;
+  storagePath: string | null;
+  url: string;
+  source: string;
+  status: "active" | "draft" | "rejected";
+  sortOrder: number;
+  altZh: string | null;
+  altEn: string | null;
+  width: number | null;
+  height: number | null;
+};
+export type SubmissionReviewData = {
+  name: string;
+  description: string | null;
+  descriptionEn: string | null;
+  blurb: string | null;
+  blurbEn: string | null;
+  city: string | null;
+  categoryAttributes: Json | null;
+  reputationSummary: Json | null;
+  retailLocations: Json | null;
+  mitEvidence: Json | null;
+  siteContent: Json | null;
+  foundingYear: number | null;
+  heroImageUrl: string | null;
+  productType: string | null;
+  priceRange: number | null;
+  productTags: string[];
+  productTagsEn: string[];
+  websiteUrl: string | null;
+  socialInstagram: string | null;
+  socialThreads: string | null;
+  socialFacebook: string | null;
+  purchaseWebsite: string | null;
+  purchasePinkoi: string | null;
+  purchaseShopee: string | null;
+  otherUrls: OtherUrl[];
+};
+export type SubmissionReviewMissingField =
+  | "description"
+  | "productType"
+  | "productTags"
+  | "priceRange"
+  | "website"
+  | "heroImage"
+  | "additionalImage"
+  | "successfulEnrichment";
+export type SubmissionReviewCompleteness = {
+  complete: boolean;
+  missingFields: SubmissionReviewMissingField[];
+};
+export type EnrichmentFilter = "all" | "complete" | "incomplete";
 export type BrandSubmissionForReview = BrandSubmissionWithProductTypeNote & {
   enriched_data: EnrichedData | null;
   latestCurationTargetStatus: CurationTargetStatus | null;
@@ -79,6 +132,9 @@ export type BrandSubmissionForReview = BrandSubmissionWithProductTypeNote & {
   latestCurationJobStatus: string | null;
   latestCurationDispatchStatus: CurationDispatchStatus | null;
   reviewStage: SubmissionReviewStage;
+  reviewData: SubmissionReviewData;
+  reviewImages: SubmissionReviewImage[];
+  reviewCompleteness: SubmissionReviewCompleteness;
 };
 
 /**
@@ -325,6 +381,216 @@ function normalizeOtherUrls(value: unknown): OtherUrl[] {
       return { label: "", url: "" };
     })
     .filter((link) => link.label || link.url);
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  return [...new Set(
+    value
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter(Boolean),
+  )];
+}
+
+function preferText(
+  preferred: string | null | undefined,
+  fallback: string | null | undefined,
+): string | null {
+  return normalizeString(preferred) ?? normalizeString(fallback);
+}
+
+function originalSuggestedTags(
+  value: BrandSubmission["suggestedTags"],
+): { productType: string | null; productTags: string[] } {
+  if (Array.isArray(value)) {
+    return { productType: null, productTags: normalizeStringArray(value) };
+  }
+
+  return {
+    productType: normalizeString(value.productType),
+    productTags: normalizeStringArray(value.values),
+  };
+}
+
+function isHttpUrl(value: string | null | undefined): boolean {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      Boolean(url.hostname) &&
+      !url.username &&
+      !url.password
+    );
+  } catch {
+    return false;
+  }
+}
+
+function imageStatus(value: string): SubmissionReviewImage["status"] {
+  if (value === "draft" || value === "rejected") return value;
+  return "active";
+}
+
+function submissionImageToReviewImage(
+  row: SubmissionImageRow,
+): SubmissionReviewImage {
+  return {
+    id: row.id,
+    submissionId: row.submission_id,
+    storagePath: row.storage_path,
+    url: row.url,
+    source: row.source,
+    status: imageStatus(row.status),
+    sortOrder: row.sort_order,
+    altZh: row.alt_zh,
+    altEn: row.alt_en,
+    width: row.width,
+    height: row.height,
+  };
+}
+
+export function normalizeSubmissionReviewImages(
+  images: SubmissionReviewImage[],
+): SubmissionReviewImage[] {
+  const statusRank = { active: 0, draft: 1, rejected: 2 } as const;
+  const seenUrls = new Set<string>();
+
+  return images
+    .toSorted(
+      (left, right) =>
+        statusRank[left.status] - statusRank[right.status] ||
+        left.sortOrder - right.sortOrder ||
+        left.id.localeCompare(right.id),
+    )
+    .filter((image) => {
+      const url = image.url.trim();
+      if (!url || seenUrls.has(url)) return false;
+      seenUrls.add(url);
+      return true;
+    });
+}
+
+type SubmissionReviewSource = Pick<
+  BrandSubmissionWithProductTypeNote,
+  | "brandName"
+  | "description"
+  | "websiteUrl"
+  | "heroImageUrl"
+  | "socialInstagram"
+  | "socialThreads"
+  | "socialFacebook"
+  | "purchaseWebsite"
+  | "purchasePinkoi"
+  | "purchaseShopee"
+  | "otherUrls"
+  | "suggestedTags"
+>;
+
+export function buildSubmissionReviewData(
+  submission: SubmissionReviewSource,
+  enrichedData: EnrichedData | null | undefined,
+  images: SubmissionReviewImage[],
+): SubmissionReviewData {
+  const originalTags = originalSuggestedTags(submission.suggestedTags);
+  const enrichedTags = normalizeStringArray(enrichedData?.productTags);
+  const enrichedOtherUrls = normalizeOtherUrls(enrichedData?.otherUrls);
+  const activeImages = normalizeSubmissionReviewImages(images).filter(
+    (image) => image.status === "active",
+  );
+  const imageHero = activeImages.find((image) => image.sortOrder === 0);
+  const websiteUrl = preferText(
+    enrichedData?.purchaseWebsite,
+    submission.purchaseWebsite ?? submission.websiteUrl,
+  );
+
+  return {
+    name: preferText(enrichedData?.name, submission.brandName) ?? submission.brandName,
+    description: preferText(enrichedData?.description, submission.description),
+    descriptionEn: normalizeString(enrichedData?.descriptionEn),
+    blurb: normalizeString(enrichedData?.blurb),
+    blurbEn: normalizeString(enrichedData?.blurbEn),
+    city: normalizeString(enrichedData?.city),
+    categoryAttributes: enrichedData?.categoryAttributes ?? null,
+    reputationSummary: enrichedData?.reputationSummary ?? null,
+    retailLocations: enrichedData?.retailLocations ?? null,
+    mitEvidence: enrichedData?.mitEvidence ?? null,
+    siteContent: enrichedData?.siteContent ?? null,
+    foundingYear: enrichedData?.foundingYear ?? null,
+    heroImageUrl:
+      normalizeString(imageHero?.url) ??
+      preferText(enrichedData?.heroImageUrl, submission.heroImageUrl),
+    productType: preferText(enrichedData?.productType, originalTags.productType),
+    priceRange: enrichedData?.priceRange ?? null,
+    productTags: enrichedTags.length > 0 ? enrichedTags : originalTags.productTags,
+    productTagsEn: normalizeStringArray(enrichedData?.productTagsEn),
+    websiteUrl,
+    socialInstagram: preferText(
+      enrichedData?.socialInstagram,
+      submission.socialInstagram,
+    ),
+    socialThreads: preferText(
+      enrichedData?.socialThreads,
+      submission.socialThreads,
+    ),
+    socialFacebook: preferText(
+      enrichedData?.socialFacebook,
+      submission.socialFacebook,
+    ),
+    purchaseWebsite: websiteUrl,
+    purchasePinkoi: preferText(
+      enrichedData?.purchasePinkoi,
+      submission.purchasePinkoi,
+    ),
+    purchaseShopee: preferText(
+      enrichedData?.purchaseShopee,
+      submission.purchaseShopee,
+    ),
+    otherUrls:
+      enrichedOtherUrls.length > 0
+        ? enrichedOtherUrls
+        : normalizeOtherUrls(submission.otherUrls),
+  };
+}
+
+export function getSubmissionReviewCompleteness(
+  data: SubmissionReviewData,
+  images: SubmissionReviewImage[],
+  latestTargetStatus: CurationTargetStatus | null,
+): SubmissionReviewCompleteness {
+  const missingFields: SubmissionReviewMissingField[] = [];
+  const validProductTypes = new Set(
+    PRODUCT_TYPE_CATEGORIES.map((category) => category.slug),
+  );
+  const activeImages = normalizeSubmissionReviewImages(images).filter(
+    (image) => image.status === "active",
+  );
+  const heroImage = activeImages.find(
+    (image) => image.sortOrder === 0 && image.url === data.heroImageUrl,
+  );
+
+  if (!normalizeString(data.description)) missingFields.push("description");
+  if (!data.productType || !validProductTypes.has(data.productType)) {
+    missingFields.push("productType");
+  }
+  if (data.productTags.length < 1 || data.productTags.length > 5) {
+    missingFields.push("productTags");
+  }
+  if (![1, 2, 3].includes(data.priceRange ?? 0)) {
+    missingFields.push("priceRange");
+  }
+  if (!isHttpUrl(data.websiteUrl)) missingFields.push("website");
+  if (!heroImage) missingFields.push("heroImage");
+  if (activeImages.filter((image) => image.id !== heroImage?.id).length < 1) {
+    missingFields.push("additionalImage");
+  }
+  if (latestTargetStatus !== "succeeded") {
+    missingFields.push("successfulEnrichment");
+  }
+
+  return { complete: missingFields.length === 0, missingFields };
 }
 
 function cleanRecord<T extends Record<string, unknown>>(record: T): Partial<T> {
@@ -686,6 +952,32 @@ export async function getSubmissionsForReview(): Promise<
     }
   }
 
+  const reviewImagesBySubmission = new Map<string, SubmissionReviewImage[]>();
+  if (submissionIds.length > 0) {
+    const imageChunks = await Promise.all(
+      chunkValues(submissionIds, SUPABASE_IN_FILTER_CHUNK_SIZE).map(
+        async (targetIds) => {
+          const { data: imageData, error: imagesError } = await supabase
+            .from("submission_images")
+            .select(
+              "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, width, height",
+            )
+            .in("submission_id", targetIds)
+            .order("sort_order", { ascending: true })
+            .order("created_at", { ascending: true });
+          if (imagesError) throw imagesError;
+          return (imageData ?? []) as SubmissionImageRow[];
+        },
+      ),
+    );
+
+    for (const image of imageChunks.flat().map(submissionImageToReviewImage)) {
+      const current = reviewImagesBySubmission.get(image.submissionId) ?? [];
+      current.push(image);
+      reviewImagesBySubmission.set(image.submissionId, current);
+    }
+  }
+
   return rows.map((row) => {
     const latestTarget = latestTargetBySubmission.get(row.id);
     const latestJob = latestTarget
@@ -701,6 +993,19 @@ export async function getSubmissionsForReview(): Promise<
     const dispatchStatus = isCurationDispatchStatus(latestJob?.dispatch_status)
       ? latestJob.dispatch_status
       : null;
+    const reviewImages = normalizeSubmissionReviewImages(
+      reviewImagesBySubmission.get(row.id) ?? [],
+    );
+    const reviewData = buildSubmissionReviewData(
+      submission,
+      enrichedData,
+      reviewImages,
+    );
+    const reviewCompleteness = getSubmissionReviewCompleteness(
+      reviewData,
+      reviewImages,
+      targetStatus,
+    );
     return {
       ...submission,
       enriched_data: enrichedData,
@@ -714,12 +1019,12 @@ export async function getSubmissionsForReview(): Promise<
         null,
       latestCurationJobStatus: latestJob?.status ?? null,
       latestCurationDispatchStatus: dispatchStatus,
+      reviewData,
+      reviewImages,
+      reviewCompleteness,
       reviewStage: deriveSubmissionReviewStage({
         submissionStatus: submission.status,
-        enrichmentComplete: hasCompleteEnrichment(
-          enrichedData,
-          submission.heroImageUrl,
-        ),
+        enrichmentComplete: reviewCompleteness.complete,
         targetStatus,
         jobStatus: latestJob?.status ?? null,
         dispatchStatus,
