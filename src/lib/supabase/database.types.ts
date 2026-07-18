@@ -1324,6 +1324,14 @@ export type Database = {
           submitter_name: string | null
         }[]
       }
+      save_submission_review: {
+        Args: {
+          p_images: Json
+          p_review_data: Json
+          p_submission_id: string
+        }
+        Returns: undefined
+      }
       approve_claim_request: {
         Args: { p_claim_id: string; p_reviewer_id: string }
         Returns: undefined

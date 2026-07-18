@@ -26,7 +26,6 @@ import {
   generateSlug,
   isReservedSlug,
   isValidSlug,
-  updateBrand,
 } from "@/lib/services/brands";
 import { toSubmissionRow } from "./field-map";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -327,12 +326,6 @@ export function submissionToInsert(
   };
 }
 
-function isStructuredTags(
-  v: unknown,
-): v is { values?: string[]; productType?: string } {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
-}
-
 function isEnrichedData(value: unknown): value is EnrichedData {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -593,12 +586,6 @@ export function getSubmissionReviewCompleteness(
   return { complete: missingFields.length === 0, missingFields };
 }
 
-function cleanRecord<T extends Record<string, unknown>>(record: T): Partial<T> {
-  return Object.fromEntries(
-    Object.entries(record).filter(([, value]) => value !== undefined),
-  ) as Partial<T>;
-}
-
 function submissionToBrandBase(row: SubmissionRow): BrandInsert {
   const rowWithSubmissionImages = row as SubmissionRow & {
     hero_image_url?: string | null;
@@ -629,89 +616,64 @@ function submissionToBrandBase(row: SubmissionRow): BrandInsert {
   };
 }
 
-function enrichedDataToBrandInsert(
-  enrichedData: EnrichedData | null,
+function submissionReviewDataToBrandInsert(
+  data: SubmissionReviewData,
 ): Partial<BrandInsert> {
-  if (!enrichedData) return {};
-
-  return cleanRecord({
-    name: normalizeString(enrichedData.name) ?? undefined,
-    description: normalizeString(enrichedData.description) ?? undefined,
-    description_en: normalizeString(enrichedData.descriptionEn) ?? undefined,
-    blurb: normalizeString(enrichedData.blurb) ?? undefined,
-    blurb_en: normalizeString(enrichedData.blurbEn) ?? undefined,
-    city: normalizeString(enrichedData.city) ?? undefined,
-    category_attributes: enrichedData.categoryAttributes,
-    reputation_summary: enrichedData.reputationSummary,
-    retail_locations: enrichedData.retailLocations,
-    mit_evidence: enrichedData.mitEvidence,
-    site_content: enrichedData.siteContent,
-    founding_year: enrichedData.foundingYear,
-    hero_image_url: normalizeString(enrichedData.heroImageUrl) ?? undefined,
-    product_type: normalizeString(enrichedData.productType) ?? undefined,
-    price_range: enrichedData.priceRange,
-    product_tags: enrichedData.productTags,
-    product_tags_en: enrichedData.productTagsEn,
-    social_instagram:
-      normalizeString(enrichedData.socialInstagram) ?? undefined,
-    social_threads: normalizeString(enrichedData.socialThreads) ?? undefined,
-    social_facebook: normalizeString(enrichedData.socialFacebook) ?? undefined,
-    purchase_website:
-      normalizeString(enrichedData.purchaseWebsite) ?? undefined,
-    purchase_pinkoi: normalizeString(enrichedData.purchasePinkoi) ?? undefined,
-    purchase_shopee: normalizeString(enrichedData.purchaseShopee) ?? undefined,
-    other_urls: enrichedData.otherUrls
-      ? normalizeOtherUrls(enrichedData.otherUrls)
-      : undefined,
-  });
+  return {
+    name: data.name,
+    description: data.description,
+    description_en: data.descriptionEn,
+    blurb: data.blurb,
+    blurb_en: data.blurbEn,
+    city: data.city,
+    category_attributes: data.categoryAttributes,
+    reputation_summary: data.reputationSummary,
+    retail_locations: data.retailLocations ?? [],
+    mit_evidence: data.mitEvidence,
+    site_content: data.siteContent,
+    founding_year: data.foundingYear,
+    hero_image_url: data.heroImageUrl,
+    product_type: data.productType,
+    price_range: data.priceRange,
+    product_tags: data.productTags,
+    product_tags_en: data.productTagsEn,
+    social_instagram: data.socialInstagram,
+    social_threads: data.socialThreads,
+    social_facebook: data.socialFacebook,
+    purchase_website: data.websiteUrl,
+    purchase_pinkoi: data.purchasePinkoi,
+    purchase_shopee: data.purchaseShopee,
+    other_urls: data.otherUrls,
+  };
 }
 
-function approvalOverridesToBrandInsert(
-  overrides: SubmissionApprovalOverrides | undefined,
-): Partial<BrandInsert> {
-  if (!overrides) return {};
-  const productType = normalizeString(overrides.productType);
-
-  return cleanRecord({
-    name: normalizeString(overrides.name) ?? undefined,
-    description:
-      overrides.description === undefined
-        ? undefined
-        : normalizeString(overrides.description),
-    hero_image_url:
-      overrides.heroImageUrl === undefined
-        ? undefined
-        : normalizeString(overrides.heroImageUrl),
-    product_type: productType ?? undefined,
-    social_instagram:
-      overrides.socialInstagram === undefined
-        ? undefined
-        : normalizeString(overrides.socialInstagram),
-    social_threads:
-      overrides.socialThreads === undefined
-        ? undefined
-        : normalizeString(overrides.socialThreads),
-    social_facebook:
-      overrides.socialFacebook === undefined
-        ? undefined
-        : normalizeString(overrides.socialFacebook),
-    purchase_website:
-      overrides.purchaseWebsite === undefined
-        ? undefined
-        : normalizeString(overrides.purchaseWebsite),
-    purchase_pinkoi:
-      overrides.purchasePinkoi === undefined
-        ? undefined
-        : normalizeString(overrides.purchasePinkoi),
-    purchase_shopee:
-      overrides.purchaseShopee === undefined
-        ? undefined
-        : normalizeString(overrides.purchaseShopee),
-    other_urls:
-      overrides.otherUrls === undefined
-        ? undefined
-        : normalizeOtherUrls(overrides.otherUrls),
-  });
+function submissionReviewDataToDb(data: SubmissionReviewData): Json {
+  return {
+    name: data.name,
+    description: data.description,
+    description_en: data.descriptionEn,
+    blurb: data.blurb,
+    blurb_en: data.blurbEn,
+    city: data.city,
+    category_attributes: data.categoryAttributes,
+    reputation_summary: data.reputationSummary,
+    retail_locations: data.retailLocations,
+    mit_evidence: data.mitEvidence,
+    site_content: data.siteContent,
+    founding_year: data.foundingYear,
+    hero_image_url: data.heroImageUrl,
+    product_type: data.productType,
+    price_range: data.priceRange,
+    product_tags: data.productTags,
+    product_tags_en: data.productTagsEn,
+    social_instagram: data.socialInstagram,
+    social_threads: data.socialThreads,
+    social_facebook: data.socialFacebook,
+    purchase_website: data.websiteUrl,
+    purchase_pinkoi: data.purchasePinkoi,
+    purchase_shopee: data.purchaseShopee,
+    other_urls: data.otherUrls as unknown as Json,
+  };
 }
 
 async function resolveUniqueSlug(
@@ -1068,28 +1030,45 @@ export async function getSubmissions(
   return (data ?? []).map(submissionToDomain);
 }
 
+export type SaveSubmissionReviewInput = SubmissionReviewData & {
+  images: Array<{ id: string; isHero: boolean; sortOrder: number }>;
+};
+
+export async function saveSubmissionReview(
+  id: string,
+  input: SaveSubmissionReviewInput,
+): Promise<void> {
+  const supabase = createServiceClient();
+  const { error } = await supabase.rpc("save_submission_review", {
+    p_submission_id: id,
+    p_review_data: submissionReviewDataToDb(input),
+    p_images: input.images.map((image) => ({
+      id: image.id,
+      is_hero: image.isHero,
+      sort_order: image.sortOrder,
+    })) as unknown as Json,
+  });
+
+  if (error) throw error;
+}
+
 export async function approveSubmission(
   id: string,
   reviewerId: string,
-  overrides?: SubmissionApprovalOverrides,
 ): Promise<ApproveSubmissionResult>;
 export async function approveSubmission(
   supabase: ServiceClient,
   id: string,
   reviewerId: string,
-  overrides?: SubmissionApprovalOverrides,
 ): Promise<ApproveSubmissionResult>;
 export async function approveSubmission(
   first: string | ServiceClient,
   second: string,
-  third?: string | SubmissionApprovalOverrides,
-  fourth?: SubmissionApprovalOverrides,
+  third?: string,
 ): Promise<ApproveSubmissionResult> {
   const supabase = typeof first === "string" ? createServiceClient() : first;
   const id = typeof first === "string" ? first : second;
   const reviewerId = typeof first === "string" ? second : (third as string);
-  const overrides = (typeof first === "string" ? third : fourth) as
-    SubmissionApprovalOverrides | undefined;
 
   const { data: submission, error: fetchError } = await supabase
     .from("brand_submissions")
@@ -1106,10 +1085,24 @@ export async function approveSubmission(
     ? enrichedDataFromDb(enrichedDataRaw as Record<string, unknown>)
     : null;
 
-  const overrideInsert = approvalOverridesToBrandInsert(overrides);
-  const enrichedInsert = enrichedDataToBrandInsert(enrichedData);
-  const brandName =
-    overrideInsert.name ?? enrichedInsert.name ?? submission.brand_name;
+  const { data: imageRows, error: imageError } = await supabase
+    .from("submission_images")
+    .select(
+      "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, width, height",
+    )
+    .eq("submission_id", id)
+    .order("sort_order", { ascending: true });
+  if (imageError) throw imageError;
+
+  const reviewImages = normalizeSubmissionReviewImages(
+    ((imageRows ?? []) as SubmissionImageRow[]).map(submissionImageToReviewImage),
+  );
+  const reviewData = buildSubmissionReviewData(
+    submissionToDomain(submission),
+    enrichedData,
+    reviewImages,
+  );
+
   const baseSlug = generateSubmissionSlug(submission);
   if (!isValidSlug(baseSlug)) {
     throw new Error(`Generated slug "${baseSlug}" is not valid kebab-case`);
@@ -1118,9 +1111,8 @@ export async function approveSubmission(
 
   const brandInsert: BrandInsert = {
     ...submissionToBrandBase(submission),
-    ...enrichedInsert,
-    ...overrideInsert,
-    name: brandName,
+    ...submissionReviewDataToBrandInsert(reviewData),
+    name: reviewData.name,
     slug,
     status: "approved",
   };
@@ -1152,18 +1144,6 @@ export async function approveSubmission(
   if (!approval)
     throw new NotFoundError("BrandSubmission", id, { cause: approvalError });
 
-  const provenanceSource = approval.is_brand_owner ? "owner" : "enriched";
-  if (
-    isStructuredTags(approval.suggested_tags) &&
-    approval.suggested_tags.productType &&
-    !Object.prototype.hasOwnProperty.call(overrides ?? {}, "productType")
-  ) {
-    await updateBrand(
-      approval.brand_id,
-      { product_type: approval.suggested_tags.productType } as never,
-      { source: provenanceSource },
-    );
-  }
   return {
     brandId: approval.brand_id,
     submitterEmail: approval.submitter_email,
