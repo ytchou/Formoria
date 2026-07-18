@@ -327,13 +327,13 @@ describe('updateBrandAction moderation audit', () => {
     vi.clearAllMocks()
   })
 
-  it('updateBrandAction (admin edit) calls scanContent and saveModerationFlags when flags exist, then markFlagsReviewed', async () => {
+  it('updateBrandAction (admin edit) calls scanContent and saveModerationFlags when violations exist, then markFlagsReviewed', async () => {
     const { updateBrand } = await import('@/lib/services/brands')
     const { scanContent, saveModerationFlags, markFlagsReviewed } = await import('@/lib/services/moderation')
-    const flags = [
-      { type: 'profanity', severity: 'medium', field: 'description', value: 'bad word' },
-    ] as unknown as ReturnType<typeof scanContent>['flags']
-    vi.mocked(scanContent).mockReturnValue({ riskLevel: 'medium', flags })
+    const violations = [
+      { field: 'description', rule: 'contact_injection_phone', userMessage: 'Phone detected' },
+    ]
+    vi.mocked(scanContent).mockReturnValue({ violations })
 
     const { updateBrandAction } = await import('./actions')
     const result = await updateBrandAction('brand-1', {
@@ -348,16 +348,19 @@ describe('updateBrandAction moderation audit', () => {
       description: 'bad word',
       category: 'apparel',
     })
-    expect(scanContent).toHaveBeenCalledWith({
-      fields: {
-        name: 'Test Brand',
-        description: 'bad word',
-        website: undefined,
-        purchaseUrl: undefined,
-      },
-      brandName: 'Test Brand',
+    expect(scanContent).toHaveBeenCalledWith('Test Brand', {
+      name: 'Test Brand',
+      description: 'bad word',
+      website: undefined,
+      purchaseUrl: undefined,
+      socialInstagram: undefined,
+      socialThreads: undefined,
+      socialFacebook: undefined,
+      purchaseWebsite: undefined,
+      purchasePinkoi: undefined,
+      purchaseShopee: undefined,
     })
-    expect(saveModerationFlags).toHaveBeenCalledWith('brand-1', 'admin-1', flags)
+    expect(saveModerationFlags).toHaveBeenCalledWith('brand-1', 'admin-1', violations)
     expect(markFlagsReviewed).toHaveBeenCalledWith('brand-1')
   })
 })

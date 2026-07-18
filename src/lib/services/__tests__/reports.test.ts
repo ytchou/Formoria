@@ -12,6 +12,7 @@ describe('buildReportRecord', () => {
       brand_id: 'brand-uuid-123',
       reason: 'not_mit',
       notes: 'Brand makes products in China',
+      reported_field: null,
       user_id: null,
     })
   })
