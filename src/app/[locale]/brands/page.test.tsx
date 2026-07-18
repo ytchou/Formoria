@@ -244,11 +244,6 @@ describe('brands directory empty state', () => {
         expect.objectContaining({ id: 'price-2', value: '$$' }),
         expect.objectContaining({ id: 'verification', value: 'Owner-managed' }),
       ]),
-      recoveryActions: [
-        expect.objectContaining({ kind: 'removeSearch' }),
-        expect.objectContaining({ kind: 'clearFilters' }),
-        expect.objectContaining({ kind: 'browseAll' }),
-      ],
     }))
   })
 })

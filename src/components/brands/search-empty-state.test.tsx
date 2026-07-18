@@ -47,11 +47,7 @@ function renderEmptyState(overrides: Partial<React.ComponentProps<typeof SearchE
             removeLabel: 'Remove Brand name search: herbs',
           },
         ]}
-        recoveryActions={[
-          { kind: 'removeSearch', href: '/en/brands?category=jewelry' },
-          { kind: 'clearFilters', href: '/en/brands?search=herbs' },
-          { kind: 'browseAll', href: '/en/brands' },
-        ]}
+        clearAllHref="/en/brands"
         recommendedBrands={[recommendedBrand]}
         recommendationsHref="/en/brands?category=jewelry"
         {...overrides}
@@ -61,23 +57,12 @@ function renderEmptyState(overrides: Partial<React.ComponentProps<typeof SearchE
 }
 
 describe('SearchEmptyState', () => {
-  it('shows the active conditions and contextual recovery actions', () => {
+  it('shows the active conditions with clear all link', () => {
     renderEmptyState()
 
     expect(screen.getByText('No brands match “herbs” in “Jewelry”.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Remove Brand name search: herbs' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Remove brand keyword/ })).toHaveAttribute(
-      'href',
-      '/en/brands?category=jewelry',
-    )
-    expect(screen.getByRole('link', { name: /Clear filters/ })).toHaveAttribute(
-      'href',
-      '/en/brands?search=herbs',
-    )
-    expect(screen.getByRole('link', { name: /Browse all brands/ })).toHaveAttribute(
-      'href',
-      '/en/brands',
-    )
+    expect(screen.getByRole('link', { name: 'Clear all' })).toHaveAttribute('href', '/en/brands')
   })
 
   it('renders recommendation cards through the shared BrandCard variant', () => {

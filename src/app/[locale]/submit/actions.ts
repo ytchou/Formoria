@@ -70,6 +70,21 @@ export async function suggestCleanName(name: string) {
   return { suggestion: null, changed: false, patterns: [] as string[] }
 }
 
+export async function inspectRecommendationName(name: string) {
+  const suggestion = await suggestCleanName(name)
+  const parsed = z.string().trim().min(2).max(200).safeParse(name)
+
+  if (!parsed.success) {
+    return { ...suggestion, hasDuplicate: false }
+  }
+
+  const duplicates = await checkBrandDuplicates(parsed.data)
+  return {
+    ...suggestion,
+    hasDuplicate: duplicates.nameMatches.length > 0,
+  }
+}
+
 export async function submitRecommendation(
   data: SubmitBrandInput
 ): Promise<{ error?: string } | undefined> {

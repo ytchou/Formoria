@@ -2,7 +2,7 @@ import { test, expect } from '../fixtures/auth';
 
 // Routing context (DEV-930):
 // - /guides bare is caught by the brand-slug redirect middleware → /brands/guides (like /glossary).
-//   Until "guides" is added to RESERVED_ROUTES + PUBLIC_INTL_SEGMENTS in middleware.ts,
+//   Until "guides" is added to RESERVED_ROUTES + PUBLIC_INTL_SEGMENTS in proxy.ts,
 //   tests that need the hub to load navigate directly via /zh-TW/guides.
 // - Category filter links on the hub use /guides?category=… (no locale prefix), so clicking
 //   them from /zh-TW/guides currently redirects to /brands/guides?category=…; those tests

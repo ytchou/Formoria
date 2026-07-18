@@ -126,9 +126,8 @@
     "consentNotice": "按下「訂閱」即表示你同意接收 Formoria 電子報。送出後需完成信箱確認，可隨時免費取消。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。"
   },
   "marketingEmailConsent": {
-    "newsletterOnlyLabel": "我同意接收 Formoria 電子報（選填）",
+    "newsletterOnlyLabel": "我同意接收 Formoria 電子報",
     "combinedLabel": "我同意接收 Formoria 電子報，以及適用於品牌主的經營提醒與功能建議（選填）",
-    "newsletterOnlyDescription": "內容包含品牌故事、新品牌與精選趨勢。送出後需完成信箱確認，可隨時免費取消。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。",
     "combinedDescription": "電子報需完成信箱確認；你之後可在設定中分別關閉任一類別，或全部免費取消。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。"
   },
   "brands": {
@@ -1583,15 +1582,15 @@
       "timeline": {
         "review": {
           "label": "審核中",
-          "description": "我們的團隊通常在 3 個工作天內完成審核"
+          "description": "我們的團隊通常在 2 個工作天內完成審核"
         },
         "ownerReview": {
           "label": "列表審核中",
           "description": "我們會先審核品牌資料是否適合收錄進目錄。"
         },
         "result": {
-          "label": "結果通知",
-          "description": "審核完成後，通過審核的品牌會出現在 Formoria 目錄中；如果你有留下電子郵件，我們也會通知你。"
+          "label": "品牌上架",
+          "description": "審核完成後，通過審核的品牌會出現在 Formoria 目錄中；若您有留下電子郵件，我們會通知您審核結果。"
         },
         "ownerResult": {
           "label": "寄送認領邀請",
@@ -1606,7 +1605,7 @@
         "heading": "接下來會發生什麼",
         "reviewTime": {
           "question": "審核需要多久？",
-          "answer": "我們的團隊通常會在 3 個工作天內完成審核。"
+          "answer": "我們的團隊通常會在 2 個工作天內完成審核。"
         },
         "contact": {
           "question": "你們會如何聯繫我？",
@@ -1668,7 +1667,7 @@
       "guestEmailPlaceholder": "name@example.com",
       "descriptionLabel": "補充說明",
       "descriptionHint": "如果你知道品牌特色、產品或背景，可以留在這裡，幫助我們審核。",
-      "descriptionPlaceholder": "例如：我在設計市集買過他們的木作家具……",
+      "descriptionPlaceholder": "例如：品牌在台南設計，並與台灣在地工坊合作生產。",
       "sourceLabel": "你如何知道這個品牌？",
       "sourceHint": "幫助我們理解這筆推薦的來源。",
       "sourcePlaceholder": "選擇你認識這品牌的方式",
@@ -2101,7 +2100,8 @@
         }
       },
       "recommendations": "你可能想找",
-      "viewAll": "查看全部"
+      "viewAll": "查看全部",
+      "clearAll": "清除全部"
     }
   },
   "impersonation": {

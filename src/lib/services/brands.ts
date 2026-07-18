@@ -8,7 +8,7 @@ import { NotFoundError, ValidationError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
 import { BRAND_SORT_CONFIG, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import { isNonImageHost } from '@/lib/images/allowed-image-hosts'
-import { RESERVED_ROUTES } from '@/middleware'
+import { RESERVED_ROUTES } from '@/proxy'
 import {
   deriveCategoryFromProductType,
   matchSubcategory,

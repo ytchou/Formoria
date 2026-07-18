@@ -153,14 +153,14 @@ async function refreshSupabaseSession(request: NextRequest, response: NextRespon
   return supabaseResponse;
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isPlaywrightTest = process.env.PLAYWRIGHT_TEST === 'true'
   const isServerAction = request.headers.has('next-action')
   const isRscOrPrefetch =
     request.headers.get('RSC') === '1' ||
     request.headers.get('next-router-prefetch') === '1'
-  // Next 16 consumes RSC/prefetch headers before invoking middleware. The
+  // Next 16 consumes RSC/prefetch headers before invoking proxy. The
   // surviving next-url header identifies some internal router requests. The
   // remaining router fetches retain only their non-document Accept header.
   const isRouterRequest =

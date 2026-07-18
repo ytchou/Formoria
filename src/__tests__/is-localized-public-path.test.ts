@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isLocalizedPublicPath } from '@/middleware'
+import { isLocalizedPublicPath } from '@/proxy'
 
 describe('isLocalizedPublicPath', () => {
   it('treats moved app routes as localized (prefix-free + /en)', () => {

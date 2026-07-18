@@ -8,7 +8,7 @@ import {
   deleteBrand,
 } from './brands'
 import { NotFoundError } from '@/lib/errors'
-import { RESERVED_ROUTES } from '@/middleware'
+import { RESERVED_ROUTES } from '@/proxy'
 
 vi.mock('@supabase/ssr', () => ({
   createServerClient: vi.fn(() => ({

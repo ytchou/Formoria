@@ -3,15 +3,13 @@
 import Link from 'next/link'
 import {
   ArrowRight,
-  Grid2X2,
-  ListFilter,
   Search,
   SlidersHorizontal,
   Sparkles,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { Brand } from '@/lib/types'
-import { surfaceCardStyles, SurfaceCard } from '@/components/ui/card'
+import { SurfaceCard } from '@/components/ui/card'
 import { DirectoryFilterToken } from './directory-filter-token'
 import { BrandCard } from './brand-card'
 
@@ -23,31 +21,20 @@ export type ActiveDirectoryFilter = {
   removeLabel: string
 }
 
-export type EmptyStateRecoveryAction = {
-  kind: 'removeSearch' | 'clearFilters' | 'browseAll'
-  href: string
-}
-
 type SearchEmptyStateProps = {
   query: string
   categoryLabel?: string
   activeFilters: ActiveDirectoryFilter[]
-  recoveryActions: EmptyStateRecoveryAction[]
+  clearAllHref: string
   recommendedBrands: Brand[]
   recommendationsHref: string
 }
-
-const RECOVERY_ICONS = {
-  removeSearch: Search,
-  clearFilters: ListFilter,
-  browseAll: Grid2X2,
-} satisfies Record<EmptyStateRecoveryAction['kind'], typeof Search>
 
 export function SearchEmptyState({
   query,
   categoryLabel,
   activeFilters,
-  recoveryActions,
+  clearAllHref,
   recommendedBrands,
   recommendationsHref,
 }: SearchEmptyStateProps) {
@@ -78,6 +65,9 @@ export function SearchEmptyState({
               variant="chip"
             />
           ))}
+          <Link href={clearAllHref} replace scroll={false} className="ml-auto text-sm font-medium text-primary hover:underline">
+            {t('clearAll')}
+          </Link>
         </SurfaceCard>
       ) : null}
 
@@ -96,35 +86,6 @@ export function SearchEmptyState({
         <h2 className="mt-3 type-empty-title">{t('title')}</h2>
         <p className="mt-2 max-w-xl type-card-description">{t('description')}</p>
 
-        {recoveryActions.length > 0 ? (
-          <div className="mt-6 grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {recoveryActions.map((action) => {
-              const Icon = RECOVERY_ICONS[action.kind]
-              return (
-                <Link
-                  key={action.kind}
-                  href={action.href}
-                  replace
-                  scroll={false}
-                  className={surfaceCardStyles({
-                    interactive: true,
-                    padding: 'sm',
-                    className: 'group flex min-h-24 items-center gap-3 text-left',
-                  })}
-                >
-                  <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-secondary">
-                    <Icon className="size-5" aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block type-body-emphasis">{t(`actions.${action.kind}.title`)}</span>
-                    <span className="mt-1 block type-caption">{t(`actions.${action.kind}.description`)}</span>
-                  </span>
-                  <ArrowRight className="size-4 shrink-0 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-                </Link>
-              )
-            })}
-          </div>
-        ) : null}
       </section>
 
       {recommendedBrands.length > 0 ? (

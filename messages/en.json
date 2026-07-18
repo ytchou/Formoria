@@ -126,9 +126,8 @@
     "consentNotice": "By selecting “Subscribe,” you agree to receive the Formoria newsletter. Confirm your email to activate delivery; you can unsubscribe free of charge at any time. See our <privacyPolicy>Privacy Policy</privacyPolicy>."
   },
   "marketingEmailConsent": {
-    "newsletterOnlyLabel": "I agree to receive the Formoria newsletter (optional)",
+    "newsletterOnlyLabel": "I agree to receive the Formoria newsletter",
     "combinedLabel": "I agree to receive Formoria newsletters and, when relevant, brand-management tips and product guidance (optional)",
-    "newsletterOnlyDescription": "Content includes brand stories, new brands, and curated trends. Confirm your email to activate delivery; you can unsubscribe free of charge at any time. See our <privacyPolicy>Privacy Policy</privacyPolicy>.",
     "combinedDescription": "Newsletter delivery starts after email confirmation. You can later disable either category or unsubscribe from all free of charge in Settings. See our <privacyPolicy>Privacy Policy</privacyPolicy>."
   },
   "brands": {
@@ -1583,15 +1582,15 @@
       "timeline": {
         "review": {
           "label": "Under Review",
-          "description": "Our team typically completes the review within 3 business days"
+          "description": "Our team typically completes the review within 2 business days"
         },
         "ownerReview": {
           "label": "Listing Review",
           "description": "We’ll review the listing details first to confirm the brand fits the directory."
         },
         "result": {
-          "label": "Result Notification",
-          "description": "Once reviewed, approved brands will appear in the Formoria directory. If you provided an email address, we'll notify you too."
+          "label": "Brand Listing",
+          "description": "Once reviewed, approved brands will appear in the Formoria directory. If you provided an email address, we’ll notify you of the review result."
         },
         "ownerResult": {
           "label": "Claim Invitation",
@@ -1606,7 +1605,7 @@
         "heading": "What Happens Next",
         "reviewTime": {
           "question": "How long does review take?",
-          "answer": "Our team typically completes reviews within 3 business days."
+          "answer": "Our team typically completes reviews within 2 business days."
         },
         "contact": {
           "question": "How will I be contacted?",
@@ -1668,7 +1667,7 @@
       "guestEmailPlaceholder": "name@example.com",
       "descriptionLabel": "Extra context (optional)",
       "descriptionHint": "If you know the brand story, products, or background, add it here to help us review.",
-      "descriptionPlaceholder": "For example: I bought their handmade furniture at a local design market…",
+      "descriptionPlaceholder": "For example: The brand designs in Tainan and works with local workshops in Taiwan.",
       "sourceLabel": "How do you know this brand?",
       "sourceHint": "This helps us understand the context behind the recommendation.",
       "sourcePlaceholder": "Select how you know this brand",
@@ -2101,7 +2100,8 @@
         }
       },
       "recommendations": "You may be looking for",
-      "viewAll": "View all"
+      "viewAll": "View all",
+      "clearAll": "Clear all"
     }
   },
   "impersonation": {
