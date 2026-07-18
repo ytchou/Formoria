@@ -65,7 +65,7 @@ export function SearchEmptyState({
               variant="chip"
             />
           ))}
-          <Link href={clearAllHref} replace scroll={false} className="ml-auto text-sm font-medium text-primary hover:underline">
+          <Link href={clearAllHref} replace scroll={false} className="ml-auto type-link">
             {t('clearAll')}
           </Link>
         </SurfaceCard>
