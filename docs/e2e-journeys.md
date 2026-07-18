@@ -34,7 +34,9 @@ Running inventory of e2e-covered user journeys. Updated by `/e2e-author` runs.
 | **Persisted locale switching** | `e2e/tests/i18n-en.spec.ts` | 2026-07-07 |
 | **Password reset request + reset-page guard** | `e2e/tests/auth-password-reset.spec.ts` | 2026-07-11 |
 | **Brand without links — no dangling section headings** | `e2e/tests/brand-detail.spec.ts` | 2026-07-11 |
-| **Admin enrichment job history, detail, and manual rerun** | `e2e/tests/admin-jobs.spec.ts` | 2026-07-13 |
+| **Admin operations ledger, quick actions, and responsive layout** | `e2e/tests/admin-dashboard.spec.ts` | 2026-07-18 |
+| **Admin unified job log, cancellation, detail, and manual rerun** | `e2e/tests/admin-jobs.spec.ts` | 2026-07-18 |
+| **Admin newsletter filtering, safe fields, and export scope** | `e2e/tests/admin-newsletter.spec.ts` | 2026-07-18 |
 | **Admin run-log HTML access and anonymous auth gate** | `e2e/tests/admin-runlog.spec.ts` | 2026-07-15 |
 | **Admin submission enrichment lifecycle and approval** | `e2e/tests/admin-submission-enrichment.spec.ts` | 2026-07-15 |
 | **Localized brand indexability and hidden-brand exclusion** | `e2e/tests/seo.spec.ts`, `e2e/tests/brand-detail.spec.ts` | 2026-07-15 |

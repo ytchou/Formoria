@@ -33,17 +33,27 @@ export default async function AdminNewsletterPage({
   });
   const supabase = createServiceClient();
 
+  let page;
+  let stats;
   try {
-    const [page, stats] = await Promise.all([
+    [page, stats] = await Promise.all([
       getAdminNewsletterSubscribers(supabase, filters),
       getSubscriberStats(supabase),
     ]);
-    const exportParams = new URLSearchParams();
-    if (filters.q) exportParams.set("q", filters.q);
-    if (filters.status) exportParams.set("status", filters.status);
-    if (filters.interest) exportParams.set("interest", filters.interest);
-
+  } catch (error) {
     return (
+      <div className="space-y-3">
+        <h1 className="type-section-title-large">Newsletter</h1>
+        <p className="type-error">{error instanceof Error ? error.message : "Newsletter data is unavailable"}</p>
+      </div>
+    );
+  }
+  const exportParams = new URLSearchParams();
+  if (filters.q) exportParams.set("q", filters.q);
+  if (filters.status) exportParams.set("status", filters.status);
+  if (filters.interest) exportParams.set("interest", filters.interest);
+
+  return (
       <div className="space-y-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -99,15 +109,7 @@ export default async function AdminNewsletterPage({
           </nav>
         ) : null}
       </div>
-    );
-  } catch (error) {
-    return (
-      <div className="space-y-3">
-        <h1 className="type-section-title-large">Newsletter</h1>
-        <p className="type-error">{error instanceof Error ? error.message : "Newsletter data is unavailable"}</p>
-      </div>
-    );
-  }
+  );
 }
 
 function PaginationLink({ label, cursor, direction, filters }: {
