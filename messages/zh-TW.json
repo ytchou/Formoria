@@ -1970,11 +1970,30 @@
       "viewJob": "查看任務",
       "notFound": "找不到提交記錄。",
       "confirmBulkApprove": "核准已選取的 {count} 筆提交？",
+      "bulkApprove": "批次核准",
+      "bulkReject": "批次拒絕",
       "confirmReject": "拒絕此提交？",
       "fetching": "抓取中…",
       "fetchData": "抓取資料",
       "approve": "核准",
       "reject": "拒絕",
+      "edit": "編輯",
+      "save": "儲存變更",
+      "cancel": "取消",
+      "saved": "審核內容已儲存",
+      "reviewDetails": "提交內容審核",
+      "missingRequired": "尚缺必填資料",
+      "searchLabel": "搜尋提交記錄",
+      "searchPlaceholder": "搜尋品牌、提交者、Email 或網站",
+      "selectVisible": "選取本頁提交記錄",
+      "selectSubmission": "選取 {name}",
+      "expandReview": "展開 {name} 的審核內容",
+      "collapseReview": "收合 {name} 的審核內容",
+      "imageAlt": "審核圖片 {n}",
+      "setHero": "將圖片 {n} 設為主圖",
+      "moveLeft": "將圖片 {n} 向左移",
+      "moveRight": "將圖片 {n} 向右移",
+      "removeImage": "移除圖片 {n}",
       "confirmRejectButton": "確認拒絕",
       "selectedCount": "已選取 {count} 筆",
       "confirmBulkReject": "確認批次拒絕",
@@ -2003,7 +2022,55 @@
         "enrichment": "資料抓取",
         "submitter": "提交者",
         "date": "日期",
-        "actions": "操作"
+        "actions": "操作",
+        "details": "審核內容"
+      },
+      "enrichmentFilter": {
+        "label": "依資料完整度篩選",
+        "all": "全部資料狀態",
+        "complete": "完整",
+        "incomplete": "不完整"
+      },
+      "pagination": {
+        "summary": "顯示第 {from}–{to} 筆，共 {total} 筆",
+        "pageSize": "每頁筆數",
+        "previous": "上一頁",
+        "next": "下一頁"
+      },
+      "missingFields": {
+        "description": "品牌描述",
+        "productType": "有效的產品類型",
+        "productTags": "1–5 個產品標籤",
+        "priceRange": "價格區間",
+        "website": "有效的官方網站",
+        "heroImage": "主圖",
+        "additionalImage": "至少一張額外圖片",
+        "successfulEnrichment": "最近一次資料抓取成功"
+      },
+      "details": {
+        "content": "內容",
+        "brandName": "品牌名稱",
+        "chineseContent": "中文內容",
+        "englishContent": "英文內容",
+        "chineseDescription": "中文描述",
+        "englishDescription": "英文描述",
+        "chineseBlurb": "中文摘要",
+        "englishBlurb": "英文摘要",
+        "blurb": "簡短摘要",
+        "catalog": "目錄分類",
+        "priceRange": "價格區間",
+        "productTags": "產品標籤",
+        "tagsPlaceholder": "以逗號分隔，最多五個標籤",
+        "city": "城市",
+        "foundingYear": "創立年份",
+        "links": "連結",
+        "otherLinks": "其他連結",
+        "mitEvidence": "台灣製造證據",
+        "reputation": "口碑來源",
+        "locations": "實體通路"
+      },
+      "links": {
+        "official": "官方網站"
       },
       "enrichmentStatus": {
         "queued": "排隊中",
@@ -2056,7 +2123,9 @@
       "bulkRejectAriaLabel": "批次拒絕原因",
       "errors": {
         "selectReason": "請選擇拒絕原因",
-        "enterNotes": "請輸入補充說明"
+        "enterNotes": "請輸入補充說明",
+        "invalidUploadResponse": "無法將上傳的圖片加入本次審核",
+        "imageLimit": "每筆審核最多可保留七張圖片"
       },
       "claimNote": "核准後，系統將發送品牌認領邀請給提交者；後續證明審核將在認領申請佇列中處理。",
       "categoryGap": "類別缺口",

@@ -12,6 +12,13 @@ const supabase =
         process.env.SUPABASE_SERVICE_ROLE_KEY,
       )
     : null;
+const untypedSupabase =
+  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+      )
+    : null;
 
 describeWithDb("trusted submission review RPCs", () => {
   const submissionIds: string[] = [];
@@ -92,7 +99,7 @@ describeWithDb("trusted submission review RPCs", () => {
     const result = await approveSubmission(supabase!, submissionId, reviewerId);
     brandIds.push(result.brandId);
 
-    const { data: promoted } = await supabase!
+    const { data: promoted } = await untypedSupabase!
       .from("brand_images")
       .select("url, status, sort_order")
       .eq("brand_id", result.brandId)
@@ -139,7 +146,7 @@ describeWithDb("trusted submission review RPCs", () => {
       p_parent_job_id: null,
       p_attempt: 1,
       p_scheduled_for: null,
-      p_run_after: null,
+      p_run_after: new Date().toISOString(),
       p_dedupe_key: `trusted-review:${suffix}:${randomUUID()}`,
       p_targets: [
         {

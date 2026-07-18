@@ -291,7 +291,7 @@ begin
     or v_price_range is null
     or v_price_range not between 1 and 3
     or nullif(btrim(v_website_url), '') is null
-    or v_website_url !~* '^https?://[^[:space:]]+$'
+    or v_website_url !~* '^https?://[^/@[:space:]]+([/:?#][^[:space:]]*)?$'
     or v_hero_url is null
     or (
       select count(distinct image.url)

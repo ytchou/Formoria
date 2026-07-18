@@ -27,8 +27,8 @@ test.describe("Admin submission enrichment lifecycle", () => {
   let jobId: string | undefined;
   let approvedBrandId: string | undefined;
   let brandName: string;
-  let storagePath: string;
-  let heroUrl: string;
+  let storagePaths: string[];
+  let imageUrls: string[];
 
   test.beforeAll(async () => {
     supabase = createClient(
@@ -39,18 +39,21 @@ test.describe("Admin submission enrichment lifecycle", () => {
     const suffix = `${Date.now()}-${randomUUID().slice(0, 8)}`;
     submissionId = randomUUID();
     brandName = `[E2E-TEST] Submission lifecycle ${suffix}`;
-    storagePath = `submissions/${submissionId}/hero.png`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("brand-images")
-      .upload(storagePath, PNG_1X1, { contentType: "image/png" });
-    if (uploadError)
-      throw new Error(`image seed failed: ${uploadError.message}`);
-
-    const { data: publicImage } = supabase.storage
-      .from("brand-images")
-      .getPublicUrl(storagePath);
-    heroUrl = publicImage.publicUrl;
+    storagePaths = [
+      `submissions/${submissionId}/hero.png`,
+      `submissions/${submissionId}/detail.png`,
+    ];
+    for (const path of storagePaths) {
+      const { error: uploadError } = await supabase.storage
+        .from("brand-images")
+        .upload(path, PNG_1X1, { contentType: "image/png" });
+      if (uploadError)
+        throw new Error(`image seed failed: ${uploadError.message}`);
+    }
+    imageUrls = storagePaths.map(
+      (path) =>
+        supabase.storage.from("brand-images").getPublicUrl(path).data.publicUrl,
+    );
 
     const { error: submissionError } = await supabase
       .from("brand_submissions")
@@ -82,8 +85,8 @@ test.describe("Admin submission enrichment lifecycle", () => {
     if (submissionId) {
       await supabase.from("brand_submissions").delete().eq("id", submissionId);
     }
-    if (storagePath) {
-      await supabase.storage.from("brand-images").remove([storagePath]);
+    if (storagePaths?.length) {
+      await supabase.storage.from("brand-images").remove(storagePaths);
     }
   });
 
@@ -132,15 +135,17 @@ test.describe("Admin submission enrichment lifecycle", () => {
 
     const { error: imageError } = await supabase
       .from("submission_images")
-      .insert({
-        submission_id: submissionId,
-        storage_path: storagePath,
-        url: heroUrl,
-        source_url: heroUrl,
-        source: "admin",
-        status: "active",
-        sort_order: 0,
-      });
+      .insert(
+        storagePaths.map((storagePath, index) => ({
+          submission_id: submissionId,
+          storage_path: storagePath,
+          url: imageUrls[index]!,
+          source_url: imageUrls[index]!,
+          source: "admin",
+          status: "active",
+          sort_order: index,
+        })),
+      );
     if (imageError)
       throw new Error(`submission image seed failed: ${imageError.message}`);
 
@@ -151,9 +156,12 @@ test.describe("Admin submission enrichment lifecycle", () => {
           description: "完整的品牌資料抓取結果。",
           description_en: "Complete enriched brand profile.",
           blurb: "完整品牌摘要",
-          hero_image_url: heroUrl,
+          hero_image_url: imageUrls[0],
           product_type: "bags-accessories",
+          product_tags: ["手工包袋"],
           product_tags_en: ["Handmade Bags"],
+          price_range: 2,
+          purchase_website: "https://e2e-submission.example.com",
         },
       })
       .eq("id", submissionId);
@@ -186,8 +194,19 @@ test.describe("Admin submission enrichment lifecycle", () => {
     await expect(readyRow).toBeVisible();
     await expectBrandCount(0);
 
+    await readyRow
+      .getByRole("button", { name: `Expand review for ${brandName}` })
+      .click();
+    const review = adminPage.locator(`#submission-review-${submissionId}`);
+    await expect(review.getByText("完整的品牌資料抓取結果。")).toBeVisible();
+    await expect(
+      review.getByText("Complete enriched brand profile."),
+    ).toBeVisible();
+    await review.getByRole("button", { name: "Edit" }).click();
+    await review.getByRole("button", { name: "Save changes" }).click();
+    await expect(review.getByRole("button", { name: "Edit" })).toBeVisible();
+
     await readyRow.getByRole("checkbox").click();
-    adminPage.once("dialog", (dialog) => dialog.accept());
     await readyRow
       .getByRole("button", { name: "Approve", exact: true })
       .click();
@@ -227,7 +246,9 @@ test.describe("Admin submission enrichment lifecycle", () => {
           .eq("brand_id", approvedBrandId!),
       ]);
     expect(stagedCount).toBe(0);
-    expect(promotedImages).toEqual(expect.arrayContaining([{ url: heroUrl }]));
+    expect(promotedImages).toEqual(
+      expect.arrayContaining(imageUrls.map((url) => ({ url }))),
+    );
   });
 
   async function expectBrandCount(expected: number) {

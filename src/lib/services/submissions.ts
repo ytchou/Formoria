@@ -1,5 +1,4 @@
 import type {
-  Brand,
   BrandSubmission,
   DenialReason,
   OtherUrl,
@@ -52,7 +51,7 @@ type CurationJobReviewRow = Pick<
   Database["public"]["Tables"]["curation_jobs"]["Row"],
   "id" | "status" | "dispatch_status" | "dispatch_error" | "job_error"
 >;
-type SubmissionRowWithProductTypeNote = SubmissionRow & {
+type SubmissionRowWithProductTypeNote = Omit<SubmissionRow, "other_urls"> & {
   hero_image_url?: string | null;
   product_type_note?: string | null;
   social_instagram?: string | null;
@@ -175,25 +174,6 @@ const APPROVAL_RPC_ERROR_MESSAGES = new Set([
   "Submission must have complete enrichment before approval",
   "Submission must have a successful enrichment run before approval",
 ]);
-
-export type SubmissionApprovalOverrides = Partial<
-  Pick<
-    Brand,
-    | "description"
-    | "heroImageUrl"
-    | "socialInstagram"
-    | "socialThreads"
-    | "socialFacebook"
-    | "purchaseWebsite"
-    | "purchasePinkoi"
-    | "purchaseShopee"
-    | "otherUrls"
-  >
-> & {
-  name?: string | null;
-  productType?: string | null;
-  mitSmileCert?: string | null;
-};
 
 export type ApproveSubmissionResult = {
   brandId: string;
@@ -401,9 +381,10 @@ function originalSuggestedTags(
     return { productType: null, productTags: normalizeStringArray(value) };
   }
 
+  const structured = value as { values?: string[]; productType?: string };
   return {
-    productType: normalizeString(value.productType),
-    productTags: normalizeStringArray(value.values),
+    productType: normalizeString(structured.productType),
+    productTags: normalizeStringArray(structured.values),
   };
 }
 
@@ -554,7 +535,7 @@ export function getSubmissionReviewCompleteness(
   latestTargetStatus: CurationTargetStatus | null,
 ): SubmissionReviewCompleteness {
   const missingFields: SubmissionReviewMissingField[] = [];
-  const validProductTypes = new Set(
+  const validProductTypes = new Set<string>(
     PRODUCT_TYPE_CATEGORIES.map((category) => category.slug),
   );
   const activeImages = normalizeSubmissionReviewImages(images).filter(
@@ -1052,6 +1033,84 @@ export async function saveSubmissionReview(
   if (error) throw error;
 }
 
+export type StageSubmissionReviewImageInput = {
+  submissionId: string;
+  storagePath: string;
+  url: string;
+  width: number;
+  height: number;
+};
+
+export async function stageSubmissionReviewImage(
+  input: StageSubmissionReviewImageInput,
+): Promise<SubmissionReviewImage> {
+  const supabase = createServiceClient();
+  const { data: submission, error: submissionError } = await supabase
+    .from("brand_submissions")
+    .select("id")
+    .eq("id", input.submissionId)
+    .eq("status", "pending")
+    .is("brand_id", null)
+    .maybeSingle();
+  if (submissionError) throw submissionError;
+  if (!submission)
+    throw new NotFoundError("BrandSubmission", input.submissionId);
+
+  const { data, error } = await supabase
+    .from("submission_images")
+    .insert({
+      submission_id: input.submissionId,
+      storage_path: input.storagePath,
+      url: input.url,
+      source_url: input.url,
+      source: "admin",
+      status: "draft",
+      sort_order: 0,
+      width: input.width,
+      height: input.height,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return submissionImageToReviewImage(data);
+}
+
+export async function cleanupSubmissionDraftImages(
+  submissionId: string,
+  imageIds: string[],
+): Promise<void> {
+  if (imageIds.length === 0) return;
+
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("submission_images")
+    .select("id, storage_path")
+    .eq("submission_id", submissionId)
+    .eq("status", "draft")
+    .in("id", imageIds);
+  if (error) throw error;
+
+  const draftRows = data ?? [];
+  await deleteStoredImagePaths(
+    draftRows.flatMap((image) =>
+      image.storage_path ? [image.storage_path] : [],
+    ),
+  );
+
+  if (draftRows.length > 0) {
+    const { error: deleteError } = await supabase
+      .from("submission_images")
+      .delete()
+      .eq("submission_id", submissionId)
+      .eq("status", "draft")
+      .in(
+        "id",
+        draftRows.map((image) => image.id),
+      );
+    if (deleteError) throw deleteError;
+  }
+}
+
 export async function approveSubmission(
   id: string,
   reviewerId: string,
@@ -1098,7 +1157,10 @@ export async function approveSubmission(
     ((imageRows ?? []) as SubmissionImageRow[]).map(submissionImageToReviewImage),
   );
   const reviewData = buildSubmissionReviewData(
-    submissionToDomain(submission),
+    submissionToDomain({
+      ...submission,
+      other_urls: normalizeOtherUrls(submission.other_urls),
+    }),
     enrichedData,
     reviewImages,
   );

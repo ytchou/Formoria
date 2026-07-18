@@ -1,366 +1,283 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { NextIntlClientProvider } from 'next-intl'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { BrandSubmission } from '@/lib/types'
-import type { EnrichedData } from '@/lib/types/enriched-data'
-import messages from '../../../../../messages/en.json'
-import { getEnrichmentStatus, SubmissionsReviewList, type TabValue } from '../submissions-review-list'
-import { startCurationJobAction } from '@/app/admin/operations/actions'
-import { toast } from 'sonner'
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { NextIntlClientProvider } from "next-intl";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import messages from "../../../../../messages/en.json";
+import type { ReviewSubmission, TabValue } from "../submissions-review-list";
+import { SubmissionsReviewList } from "../submissions-review-list";
 
-const navigationMocks = vi.hoisted(() => ({
+const navigation = vi.hoisted(() => ({
   refresh: vi.fn(),
   push: vi.fn(),
   replace: vi.fn(),
-}))
+}));
+const actions = vi.hoisted(() => ({
+  approve: vi.fn(),
+  reject: vi.fn(),
+  enrich: vi.fn(),
+}));
 
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({
-    refresh: navigationMocks.refresh,
-    push: navigationMocks.push,
-    replace: navigationMocks.replace,
-  }),
-  usePathname: () => '/admin/submissions',
-}))
-
-vi.mock('@/app/admin/actions', () => ({
-  rejectSubmissionAction: vi.fn(),
-}))
-
-vi.mock('../actions', () => ({
-  approveSubmissionWithOverridesAction: vi.fn(),
-}))
-
-vi.mock('@/app/admin/operations/actions', () => ({
-  startCurationJobAction: vi.fn(),
-}))
-
-vi.mock('sonner', () => ({
-  toast: {
-    error: vi.fn(),
-    info: vi.fn(),
-    success: vi.fn(),
-  },
-}))
+vi.mock("next/navigation", () => ({
+  useRouter: () => navigation,
+  usePathname: () => "/admin/submissions",
+}));
+vi.mock("@/app/admin/actions", () => ({
+  approveSubmissionAction: actions.approve,
+  rejectSubmissionAction: actions.reject,
+}));
+vi.mock("@/app/admin/operations/actions", () => ({
+  startCurationJobAction: actions.enrich,
+}));
+vi.mock("../submission-review-details", () => ({
+  SubmissionReviewDetails: ({
+    submission,
+  }: {
+    submission: ReviewSubmission;
+  }) => <div>{`details-${submission.id}`}</div>,
+}));
 
 beforeEach(() => {
-  vi.clearAllMocks()
-})
+  vi.clearAllMocks();
+  actions.approve.mockResolvedValue(undefined);
+  actions.reject.mockResolvedValue(undefined);
+});
 
-function renderWithIntl(ui: Parameters<typeof render>[0]) {
-  return render(
-    <NextIntlClientProvider locale="en" messages={messages}>
-      {ui}
-    </NextIntlClientProvider>
-  )
-}
+describe("SubmissionsReviewList", () => {
+  it("filters by complete or incomplete persisted review state", async () => {
+    const user = userEvent.setup();
+    renderList(
+      [
+        makeSubmission({ id: "complete", brandName: "Complete Brand" }),
+        makeSubmission({
+          id: "incomplete",
+          brandName: "Incomplete Brand",
+          reviewStage: "needs_data",
+          reviewCompleteness: {
+            complete: false,
+            missingFields: ["priceRange"],
+          },
+        }),
+      ],
+      "all",
+    );
 
-type ReviewSubmission = BrandSubmission & {
-  enriched_data?: EnrichedData | null
-  latestCurationTargetStatus?: 'pending' | 'running' | 'succeeded' | 'skipped' | 'failed' | null
-  latestCurationJobId?: string | null
-  latestCurationPhase?: string | null
-  latestCurationError?: string | null
-  latestCurationJobStatus?: string | null
-  latestCurationDispatchStatus?: 'pending' | 'dispatched' | 'failed' | null
-  reviewStage: 'needs_data' | 'enriching' | 'ready' | 'approved' | 'rejected'
-}
+    await user.click(
+      screen.getByRole("combobox", { name: /enrichment completeness/i }),
+    );
+    await user.click(await screen.findByRole("option", { name: "Complete" }));
+    expect(screen.getByText("Complete Brand")).toBeInTheDocument();
+    expect(screen.queryByText("Incomplete Brand")).not.toBeInTheDocument();
 
-function makeSubmission(overrides: Partial<ReviewSubmission> = {}): ReviewSubmission {
+    await user.click(
+      screen.getByRole("combobox", { name: /enrichment completeness/i }),
+    );
+    await user.click(await screen.findByRole("option", { name: "Incomplete" }));
+    expect(screen.queryByText("Complete Brand")).not.toBeInTheDocument();
+    expect(screen.getByText("Incomplete Brand")).toBeInTheDocument();
+  });
+
+  it("searches brand, submitter, email, and website before pagination", async () => {
+    const user = userEvent.setup();
+    renderList(
+      [
+        makeSubmission({ id: "one", brandName: "Wood Studio" }),
+        makeSubmission({
+          id: "two",
+          brandName: "Tea House",
+          submitterName: "Mei Lin",
+          submitterEmail: "mei@example.com",
+          reviewData: {
+            ...baseReviewData,
+            name: "Tea House",
+            websiteUrl: "https://tea.example.com",
+          },
+        }),
+      ],
+      "all",
+    );
+
+    const search = screen.getByRole("textbox", { name: "Search submissions" });
+    await user.type(search, "tea.example.com");
+
+    expect(screen.getByText("Tea House")).toBeInTheDocument();
+    expect(screen.queryByText("Wood Studio")).not.toBeInTheDocument();
+  });
+
+  it("paginates by ten and select-all affects only the visible page", async () => {
+    const user = userEvent.setup();
+    renderList(
+      Array.from({ length: 11 }, (_, index) =>
+        makeSubmission({
+          id: `submission-${index + 1}`,
+          brandName: `Brand ${index + 1}`,
+          reviewData: { ...baseReviewData, name: `Brand ${index + 1}` },
+        }),
+      ),
+      "all",
+    );
+
+    expect(screen.getByText("Brand 10")).toBeInTheDocument();
+    expect(screen.queryByText("Brand 11")).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole("checkbox", { name: "Select submissions on this page" }),
+    );
+
+    const visibleSelection = screen
+      .getAllByRole<HTMLInputElement>("checkbox")
+      .filter((checkbox) => checkbox.checked);
+    expect(visibleSelection).toHaveLength(11);
+
+    await user.click(screen.getByRole("button", { name: "Next page" }));
+    expect(screen.getByText("Brand 11")).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: "Select Brand 11" }),
+    ).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "Bulk reject" })).toBeDisabled();
+  });
+
+  it("opens one accessible review disclosure and ignores row action clicks", async () => {
+    const user = userEvent.setup();
+    renderList(
+      [
+        makeSubmission({ id: "one", brandName: "First Brand" }),
+        makeSubmission({ id: "two", brandName: "Second Brand" }),
+      ],
+      "all",
+    );
+
+    const firstChevron = screen.getByRole("button", {
+      name: "Expand review for First Brand",
+    });
+    expect(firstChevron).toHaveAttribute("aria-expanded", "false");
+    await user.click(firstChevron);
+    expect(screen.getByText("details-one")).toBeInTheDocument();
+    expect(firstChevron).toHaveAttribute("aria-expanded", "true");
+
+    await user.click(
+      screen.getByRole("button", { name: "Expand review for Second Brand" }),
+    );
+    expect(screen.queryByText("details-one")).not.toBeInTheDocument();
+    expect(screen.getByText("details-two")).toBeInTheDocument();
+
+    const secondRow = screen.getByText("Second Brand").closest("tr");
+    expect(secondRow).not.toBeNull();
+    await user.click(
+      within(secondRow!).getByRole("button", { name: "Approve" }),
+    );
+    expect(screen.getByText("details-two")).toBeInTheDocument();
+  });
+});
+
+const baseReviewData = {
+  name: "Test Brand",
+  description: "完整中文介紹",
+  descriptionEn: "Complete English description",
+  blurb: "品牌摘要",
+  blurbEn: "Brand summary",
+  city: "台中",
+  categoryAttributes: null,
+  reputationSummary: null,
+  retailLocations: null,
+  mitEvidence: null,
+  siteContent: null,
+  foundingYear: 2018,
+  heroImageUrl: "https://cdn.example.com/hero.webp",
+  productType: "crafts",
+  priceRange: 2,
+  productTags: ["木工"],
+  productTagsEn: ["Woodwork"],
+  websiteUrl: "https://brand.example.com",
+  socialInstagram: null,
+  socialThreads: null,
+  socialFacebook: null,
+  purchaseWebsite: "https://brand.example.com",
+  purchasePinkoi: null,
+  purchaseShopee: null,
+  otherUrls: [],
+};
+
+function makeSubmission(
+  overrides: Partial<ReviewSubmission> = {},
+): ReviewSubmission {
+  const effectiveReviewData =
+    overrides.reviewData ??
+    (overrides.brandName
+      ? { ...baseReviewData, name: overrides.brandName }
+      : baseReviewData);
+
   return {
-    id: 'submission-1',
+    id: "submission-1",
     brandId: null,
-    brandName: 'Test Brand',
-    submitterEmail: 'submitter@example.com',
+    brandName: "Test Brand",
+    submitterEmail: "submitter@example.com",
     submitterName: null,
-    description: 'A brand submission description.',
+    description: "完整中文介紹",
+    websiteUrl: "https://brand.example.com",
+    heroImageUrl: "https://cdn.example.com/hero.webp",
     socialInstagram: null,
     socialThreads: null,
     socialFacebook: null,
-    purchaseWebsite: null,
+    purchaseWebsite: "https://brand.example.com",
     purchasePinkoi: null,
     purchaseShopee: null,
     otherUrls: [],
     suggestedTags: [],
-    status: 'pending',
+    status: "pending",
     reviewerNotes: null,
-    submittedAt: '2026-06-13T00:00:00.000Z',
+    submittedAt: "2026-07-18T00:00:00.000Z",
     reviewedAt: null,
     reviewedBy: null,
     pdpaConsentAt: null,
     validationStatus: null,
     validationErrors: null,
     notifiedAt: null,
-    intent: 'owner_claim',
-    isBrandOwner: true,
-    sourceAttribution: null,
-    reviewStage: 'needs_data',
+    isBrandOwner: false,
+    sourceAttribution: "found_online",
+    productTypeNote: null,
+    enriched_data: null,
+    latestCurationTargetStatus: "succeeded",
+    latestCurationJobId: null,
+    latestCurationPhase: null,
+    latestCurationError: null,
+    latestCurationJobStatus: "completed",
+    latestCurationDispatchStatus: "dispatched",
+    reviewStage: "ready",
+    reviewData: effectiveReviewData,
+    reviewImages: [
+      image("hero", "https://cdn.example.com/hero.webp", 0),
+      image("detail", "https://cdn.example.com/detail.webp", 1),
+    ],
+    reviewCompleteness: { complete: true, missingFields: [] },
+    moderationRiskLevel: "clean",
+    brandSlug: null,
     ...overrides,
-  }
+  };
 }
 
-function renderReviewList(initialTab: TabValue = 'needs_data') {
-  return renderWithIntl(<SubmissionsReviewList submissions={[makeSubmission()]} initialTab={initialTab} />)
+function image(id: string, url: string, sortOrder: number) {
+  return {
+    id,
+    submissionId: "submission-1",
+    storagePath: `submissions/submission-1/${id}.webp`,
+    url,
+    source: "admin",
+    status: "active" as const,
+    sortOrder,
+    altZh: null,
+    altEn: null,
+    width: 1200,
+    height: 900,
+  };
 }
 
-function renderReviewListWithSubmissions(
-  submissions: ReviewSubmission[],
-  initialTab: TabValue = 'needs_data',
-) {
-  return renderWithIntl(<SubmissionsReviewList submissions={submissions} initialTab={initialTab} />)
+function renderList(submissions: ReviewSubmission[], initialTab: TabValue) {
+  return render(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <SubmissionsReviewList
+        submissions={submissions}
+        initialTab={initialTab}
+      />
+    </NextIntlClientProvider>,
+  );
 }
-
-function getSubmissionRow(brandName: string) {
-  const row = screen.getByText(brandName).closest('tr')
-  expect(row).not.toBeNull()
-  return row as HTMLElement
-}
-
-function getExpandedSubmissionRow(brandName: string) {
-  const expandedRow = getSubmissionRow(brandName).nextElementSibling
-  expect(expandedRow).not.toBeNull()
-  return expandedRow as HTMLElement
-}
-
-function getExpandedRowActionButton(brandName: string, name: string | RegExp) {
-  return within(getExpandedSubmissionRow(brandName)).getByRole('button', {
-    name,
-  })
-}
-
-function getBulkRejectButton() {
-  const button = screen.getAllByRole('button', { name: 'Reject' })[0]
-  expect(button).toBeDefined()
-  return button as HTMLElement
-}
-
-async function expandAndStartReject() {
-  const user = userEvent.setup()
-  renderReviewList()
-
-  const row = getSubmissionRow('Test Brand')
-  await user.click(within(row).getByText('Test Brand'))
-  await user.click(getExpandedRowActionButton('Test Brand', 'Reject'))
-
-  return user
-}
-
-describe('getEnrichmentStatus from enriched_data', () => {
-  it('returns not_enriched when enriched_data is null', () => {
-    const status = getEnrichmentStatus(null)
-    expect(status).toBe('not_enriched')
-  })
-
-  it('returns partially_enriched when only some fields are present', () => {
-    const status = getEnrichmentStatus({
-      description: 'A brand',
-    })
-    expect(status).toBe('partially_enriched')
-  })
-
-  it('returns enriched when all key fields are present', () => {
-    const status = getEnrichmentStatus({
-      description: 'A brand',
-      heroImageUrl: 'https://example.com/hero.jpg',
-      productType: 'crafts',
-    })
-    expect(status).toBe('enriched')
-  })
-})
-
-describe('SubmissionsReviewList — enrichment approval gate', () => {
-  it('defaults to the human-review stage and only exposes approval for complete enrichment', () => {
-    renderReviewListWithSubmissions([
-      makeSubmission({
-        id: 'ready-submission',
-        brandName: 'Ready Brand',
-        heroImageUrl: 'https://example.com/ready.jpg',
-        enriched_data: {
-          description: 'A complete description',
-          heroImageUrl: 'https://example.com/ready.jpg',
-          productType: 'crafts',
-        },
-        latestCurationTargetStatus: 'succeeded',
-        reviewStage: 'ready',
-      }),
-      makeSubmission({ id: 'partial-submission', brandName: 'Partial Brand' }),
-    ], 'ready')
-
-    expect(screen.getByText('Ready Brand')).toBeInTheDocument()
-    expect(screen.queryByText('Partial Brand')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: 'Approve' }).some((button) => !button.hasAttribute('disabled'))).toBe(true)
-  })
-
-  it('keeps a failed target in data work and links its tracked job', () => {
-    renderReviewListWithSubmissions([
-      makeSubmission({
-        brandName: 'Needs Rerun',
-        enriched_data: {
-          description: 'Partial description',
-        },
-        latestCurationTargetStatus: 'failed',
-        latestCurationJobId: 'failed-job',
-        latestCurationError: 'Provider timeout',
-      }),
-    ], 'needs_data')
-
-    expect(screen.getByText('Failed')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'View job' })).toHaveAttribute(
-      'href',
-      '/admin/jobs/failed-job',
-    )
-    expect(screen.getAllByRole('button', { name: 'Approve' }).every((button) => button.hasAttribute('disabled'))).toBe(true)
-  })
-
-  it('does not label a target as running after its parent job failed', () => {
-    renderReviewListWithSubmissions([
-      makeSubmission({
-        brandName: 'Stopped Enrichment',
-        latestCurationTargetStatus: 'running',
-        latestCurationJobStatus: 'failed',
-        reviewStage: 'needs_data',
-      }),
-    ])
-
-    expect(screen.getByText('Failed')).toBeInTheDocument()
-    expect(screen.queryByText('Running')).not.toBeInTheDocument()
-  })
-})
-
-describe('SubmissionsReviewList — bulk rejection', () => {
-  it('shows reason dropdown with 4 presets only (no Other) for bulk reject', async () => {
-    const user = userEvent.setup()
-    renderReviewListWithSubmissions([
-      makeSubmission({ id: 'submission-1', brandName: 'First Brand' }),
-      makeSubmission({ id: 'submission-2', brandName: 'Second Brand' }),
-    ])
-
-    const checkboxes = screen.getAllByRole('checkbox')
-    await user.click(checkboxes[1])
-    await user.click(checkboxes[2])
-    await user.click(getBulkRejectButton())
-
-    const reasonSelect = screen.getByRole('combobox', {
-      name: /Bulk rejection reason/i,
-    })
-    expect(reasonSelect).toBeInTheDocument()
-
-    await user.click(reasonSelect)
-    expect(await screen.findByRole('option', { name: 'Not Made in Taiwan' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Insufficient Information' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Duplicate Submission' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Policy Violation' })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: 'Other' })).not.toBeInTheDocument()
-  })
-
-  it('disables bulk reject confirm until reason is selected', async () => {
-    const user = userEvent.setup()
-    renderReviewListWithSubmissions([
-      makeSubmission({ id: 'submission-1', brandName: 'First Brand' }),
-      makeSubmission({ id: 'submission-2', brandName: 'Second Brand' }),
-    ])
-
-    const checkboxes = screen.getAllByRole('checkbox')
-    await user.click(checkboxes[1])
-    await user.click(checkboxes[2])
-    await user.click(getBulkRejectButton())
-
-    expect(screen.getByRole('button', { name: 'Confirm Bulk Reject' })).toBeDisabled()
-  })
-})
-
-describe('SubmissionsReviewList — bulk enrichment', () => {
-  it('shows queued toast and clears selected submissions', async () => {
-    vi.mocked(startCurationJobAction).mockResolvedValueOnce({
-      queued: true,
-      jobId: 'job-1',
-      detailPath: '/admin/jobs/job-1',
-      dispatchStatus: 'dispatched',
-      message: 'Queued 1 curation job.',
-    })
-    const user = userEvent.setup()
-    renderReviewList()
-
-    const checkboxes = screen.getAllByRole('checkbox')
-    await user.click(checkboxes[1])
-    await user.click(screen.getByRole('button', { name: 'Fetch Data' }))
-
-    await waitFor(() => {
-      expect(toast.info).toHaveBeenCalledWith(
-        'Queued 1 curation job.',
-        expect.objectContaining({
-          action: expect.objectContaining({ label: 'View job' }),
-        })
-      )
-    })
-    expect(navigationMocks.replace).toHaveBeenCalledWith(
-      '/admin/submissions?stage=enriching',
-    )
-  })
-
-  it('keeps a dispatch failure in needs data', async () => {
-    vi.mocked(startCurationJobAction).mockResolvedValueOnce({
-      queued: true,
-      jobId: 'job-1',
-      detailPath: '/admin/jobs/job-1',
-      dispatchStatus: 'failed',
-      message: 'Dispatch failed.',
-    })
-    const user = userEvent.setup()
-    renderReviewList()
-
-    const submissionCheckbox = screen.getAllByRole('checkbox').at(1)
-    if (!submissionCheckbox) throw new Error('Submission checkbox not found')
-    await user.click(submissionCheckbox)
-    await user.click(screen.getByRole('button', { name: 'Fetch Data' }))
-
-    await waitFor(() => expect(toast.error).toHaveBeenCalled())
-    expect(navigationMocks.replace).not.toHaveBeenCalledWith(
-      '/admin/submissions?stage=enriching',
-    )
-  })
-})
-
-describe('SubmissionsReviewList rejection reasons', () => {
-  it('shows denial reason dropdown when reject is clicked', async () => {
-    const user = await expandAndStartReject()
-    const expandedRow = getExpandedSubmissionRow('Test Brand')
-
-    const reasonSelect = within(expandedRow).getByRole('combobox', {
-      name: /Rejection reason/i,
-    })
-    expect(reasonSelect).toBeInTheDocument()
-
-    await user.click(reasonSelect)
-    // Use findByRole (async) because Radix UI Select renders options into a
-    // portal after pointer events settle; getByRole would race the open state.
-    expect(await screen.findByRole('option', { name: 'Not Made in Taiwan' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Insufficient Information' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Duplicate Submission' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Policy Violation' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Other' })).toBeInTheDocument()
-  })
-
-  it('disables confirm button until reason is selected', async () => {
-    await expandAndStartReject()
-    const expandedRow = getExpandedSubmissionRow('Test Brand')
-
-    expect(
-      within(expandedRow).getByRole('button', {
-        name: 'Confirm Reject',
-      })
-    ).toBeDisabled()
-  })
-
-  it('requires notes when Other reason is selected', async () => {
-    const user = await expandAndStartReject()
-    const expandedRow = getExpandedSubmissionRow('Test Brand')
-
-    await user.click(within(expandedRow).getByRole('combobox', { name: /Rejection reason/i }))
-    await user.click(await screen.findByRole('option', { name: 'Other' }))
-
-    expect(within(expandedRow).getByPlaceholderText('Additional notes (required)')).toBeInTheDocument()
-  })
-})

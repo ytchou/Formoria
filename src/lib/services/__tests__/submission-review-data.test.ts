@@ -144,7 +144,7 @@ describe("getSubmissionReviewCompleteness", () => {
     ["website", { websiteUrl: "javascript:alert(1)" }],
   ] as const)("reports a missing %s requirement", (missingField, patch) => {
     const result = getSubmissionReviewCompleteness(
-      { ...completeData(), ...patch },
+      { ...completeData(), ...patch } as ReturnType<typeof completeData>,
       activeImages,
       "succeeded",
     );

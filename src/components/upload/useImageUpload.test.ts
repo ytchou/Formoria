@@ -104,6 +104,42 @@ describe('useImageUpload', () => {
     expect((body as FormData).get('proofType')).toBe('business_doc')
   })
 
+  it('returns staged metadata from a custom upload endpoint', async () => {
+    const stagedImage = {
+      id: 'image-1',
+      submissionId: 'submission-1',
+      url: 'https://storage.example.com/submission/image.webp',
+      status: 'draft',
+    }
+    const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify(stagedImage), { status: 201 })
+    )
+    const { result } = renderHook(() =>
+      useImageUpload({
+        bucket: 'brand-images',
+        path: 'submissions/submission-1',
+        endpoint: '/api/admin/submissions/submission-1/images',
+      })
+    )
+
+    let uploaded
+    await act(async () => {
+      uploaded = await result.current.upload(
+        createMockFile('detail.png', 1024, 'image/png')
+      )
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/admin/submissions/submission-1/images',
+      expect.objectContaining({ method: 'POST' })
+    )
+    expect(uploaded).toMatchObject({
+      url: stagedImage.url,
+      metadata: stagedImage,
+    })
+    expect(result.current.metadata).toEqual(stagedImage)
+  })
+
   it('handles upload errors gracefully', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValueOnce(
       new Response(JSON.stringify({ error: 'Bucket not found' }), { status: 500 })

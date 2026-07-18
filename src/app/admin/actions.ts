@@ -9,7 +9,6 @@ import {
   rejectSubmission,
   isGeneratedGuestSubmissionEmail,
 } from '@/lib/services/submissions'
-import type { SubmissionApprovalOverrides } from '@/lib/services/submissions'
 import { getOwnerLocale } from '@/lib/services/profiles'
 import {
   approveClaimRequest,
@@ -72,8 +71,7 @@ async function getPendingEditEmailContext(
 }
 
 export async function approveSubmissionAction(
-  submissionId: string,
-  overrides?: SubmissionApprovalOverrides
+  submissionId: string
 ): Promise<{ error?: string; imageSyncWarning?: { synced: number; failed: number } } | undefined> {
   try {
     const auth = await requireAdminAction()
@@ -81,7 +79,7 @@ export async function approveSubmissionAction(
 
     const siteUrl = getSiteUrl()
 
-    const { brandId, submitterEmail, brandName, isBrandOwner } = await approveSubmission(submissionId, auth.user.id, overrides)
+    const { brandId, submitterEmail, brandName, isBrandOwner } = await approveSubmission(submissionId, auth.user.id)
     const brand = await getBrandById(brandId)
     let imageSyncWarning: { synced: number; failed: number } | undefined
 
@@ -101,16 +99,6 @@ export async function approveSubmissionAction(
       }
     }
 
-    if (overrides?.mitSmileCert) {
-      try {
-        const mitResult = await verifyMitByCert(brandId, overrides.mitSmileCert)
-        if (mitResult.error) {
-          console.warn('[admin:approveSubmission] MIT auto-verify skipped:', mitResult.error)
-        }
-      } catch (err) {
-        console.warn('[admin:approveSubmission] MIT auto-verify error:', err)
-      }
-    }
 
     const existingOwnedBrand = isBrandOwner
       ? await getUserBrandByEmail(submitterEmail)
