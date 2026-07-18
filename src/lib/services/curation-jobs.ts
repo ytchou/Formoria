@@ -11,14 +11,14 @@ const CURATION_TARGET_PAGE_SIZE = 1_000;
 
 type CurationJobStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
 export type CurationDispatchStatus = "pending" | "dispatched" | "failed";
-export type CurationJobView = "attention" | "active" | "history";
 type CurationJobTrigger = "admin" | "cron" | "automatic_retry" | "manual_rerun";
 export type CurationTargetStatus =
   | "pending"
   | "running"
   | "succeeded"
   | "skipped"
-  | "failed";
+  | "failed"
+  | "cancelled";
 type CurationTargetType = "submission" | "brand";
 
 export type CurationJobParams = Record<string, Json | undefined> & {
@@ -42,6 +42,7 @@ export type CurationJob = Omit<
   status: CurationJobStatus;
   trigger: CurationJobTrigger;
   dispatch_status: CurationDispatchStatus;
+  cancelled_count?: number;
 };
 
 export type CurationJobTarget = Omit<
@@ -80,19 +81,17 @@ export type CurationJobDetail = {
   children: CurationJob[];
 };
 
-export type CurationJobCounts = {
-  attention: number;
-  active: number;
-  history: number;
+export type CurationJobCursor = {
+  createdAt: string;
+  id: string;
 };
 
-function isCurationJobNeedsAttention(job: CurationJob): boolean {
-  return (
-    job.status === "failed" ||
-    (job.status === "completed" && job.failed_count > 0) ||
-    (job.status === "pending" && job.dispatch_status === "failed")
-  );
-}
+export type CurationJobPage = {
+  jobs: CurationJob[];
+  nextCursor: string | null;
+  previousCursor: string | null;
+  total: number;
+};
 
 async function enqueueCurationJob(
   input: EnqueueCurationJobInput,
@@ -200,22 +199,6 @@ export async function markCurationJobDispatched(jobId: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function markCurationJobDispatchPending(
-  jobId: string,
-): Promise<void> {
-  const supabase = createServiceClient();
-  const { error } = await supabase
-    .from("curation_jobs")
-    .update({
-      dispatch_status: "pending",
-      dispatch_error: null,
-    })
-    .eq("id", jobId)
-    .eq("status", "pending");
-
-  if (error) throw error;
-}
-
 export async function recordCurationDispatchFailure(
   jobId: string,
   errorMessage: string,
@@ -224,11 +207,16 @@ export async function recordCurationDispatchFailure(
   const { error } = await supabase
     .from("curation_jobs")
     .update({
+      status: "failed",
       dispatch_status: "failed",
       dispatch_error: errorMessage,
+      completed_at: new Date().toISOString(),
+      job_error: errorMessage,
+      result: { status: "failed", reason: "dispatch_failed" },
     })
     .eq("id", jobId)
-    .eq("status", "pending");
+    .eq("status", "pending")
+    .select("id");
 
   if (error) throw error;
 }
@@ -242,12 +230,7 @@ export async function recoverStaleJobs(): Promise<CurationJob[]> {
 
   if (error) throw error;
 
-  const recovered = (data ?? []) as CurationJob[];
-  for (const job of recovered) {
-    await enqueueAutomaticRetry(job);
-  }
-
-  return recovered;
+  return (data ?? []) as CurationJob[];
 }
 
 export async function ensureAutomaticRetries(): Promise<CurationJob[]> {
@@ -256,6 +239,7 @@ export async function ensureAutomaticRetries(): Promise<CurationJob[]> {
     .from("curation_jobs")
     .select("*")
     .eq("status", "failed")
+    .eq("dispatch_status", "dispatched")
     .eq("attempt", 1)
     .order("completed_at", { ascending: true });
 
@@ -306,7 +290,9 @@ export async function enqueueManualRerun(
 ): Promise<CurationJob> {
   const source = await getCurationJob(sourceJobId);
   const retryStatuses: CurationTargetStatus[] =
-    source.status === "failed" ? ["pending", "running", "failed"] : ["failed"];
+    source.status === "failed" || source.status === "cancelled"
+      ? ["pending", "running", "failed", "cancelled"]
+      : ["failed"];
   const allTargets = await listCurationJobTargets(source.id);
   const submissionIds = allTargets
     .filter((target) => target.target_type === "submission")
@@ -431,50 +417,47 @@ export async function finalizeCurationJob(
 
 export async function listCurationJobs(options?: {
   limit?: number;
-  view?: CurationJobView;
-}): Promise<CurationJob[]> {
+  cursor?: string;
+  direction?: "next" | "previous";
+}): Promise<CurationJobPage> {
   const supabase = createServiceClient();
+  const limit = Math.min(Math.max(options?.limit ?? 50, 1), 100);
+  const direction = options?.direction ?? "next";
+  const cursor = options?.cursor ? decodeCurationJobCursor(options.cursor) : null;
+  const ascending = direction === "previous";
   let query = supabase
     .from("curation_jobs")
-    .select("*")
-    .order("created_at", { ascending: false });
+    .select("*", { count: "exact" })
+    .order("created_at", { ascending })
+    .order("id", { ascending });
 
-  if (options?.view === "active") {
-    query = query.in("status", ["pending", "running"]);
-  } else if (options?.view === "history") {
-    query = query.in("status", ["completed", "failed", "cancelled"]);
-  } else if (options?.view === "attention" || !options?.view) {
+  if (cursor) {
+    const comparator = direction === "previous" ? "gt" : "lt";
     query = query.or(
-      "status.eq.failed,and(status.eq.completed,failed_count.gt.0),and(status.eq.pending,dispatch_status.eq.failed)",
+      `created_at.${comparator}.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.${comparator}.${cursor.id})`,
     );
   }
 
-  const { data, error } = await query.limit(options?.limit ?? 100);
+  const { data, error, count } = await query.limit(limit + 1);
 
   if (error) throw error;
-  return (data ?? []) as CurationJob[];
-}
+  const rows = (data ?? []) as CurationJob[];
+  const hasMore = rows.length > limit;
+  const visible = rows.slice(0, limit);
+  if (ascending) visible.reverse();
 
-export async function getCurationJobCounts(): Promise<CurationJobCounts> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("curation_jobs")
-    .select("status, dispatch_status, failed_count");
-
-  if (error) throw error;
-
-  return (data ?? []).reduce<CurationJobCounts>(
-    (counts, row) => {
-      const job = row as CurationJob;
-      if (isCurationJobNeedsAttention(job)) counts.attention += 1;
-      if (job.status === "pending" || job.status === "running")
-        counts.active += 1;
-      if (job.status === "completed" || job.status === "failed" || job.status === "cancelled")
-        counts.history += 1;
-      return counts;
-    },
-    { attention: 0, active: 0, history: 0 },
-  );
+  return {
+    jobs: visible,
+    total: count ?? visible.length,
+    previousCursor:
+      cursor && visible[0]
+        ? encodeCurationJobCursor(visible[0])
+        : null,
+    nextCursor:
+      (hasMore || direction === "previous") && visible.at(-1)
+        ? encodeCurationJobCursor(visible.at(-1)!)
+        : null,
+  };
 }
 
 export async function getCurationJob(jobId: string): Promise<CurationJob> {
@@ -489,18 +472,42 @@ export async function getCurationJob(jobId: string): Promise<CurationJob> {
   return data as CurationJob;
 }
 
-export async function cancelCurationJob(jobId: string): Promise<void> {
+export async function cancelCurationJob(
+  jobId: string,
+  reason = "Cancelled by admin",
+): Promise<CurationJob> {
   const supabase = createServiceClient();
-  const { error } = await supabase
-    .from("curation_jobs")
-    .update({
-      status: "cancelled",
-      completed_at: new Date().toISOString(),
-    })
-    .eq("id", jobId)
-    .eq("status", "pending");
+  const { data, error } = await supabase.rpc("cancel_curation_job", {
+    p_job_id: jobId,
+    p_reason: reason,
+  });
 
   if (error) throw error;
+  if (!data?.[0]) throw new Error("Job is no longer active");
+  return data[0] as CurationJob;
+}
+
+function encodeCurationJobCursor(job: Pick<CurationJob, "created_at" | "id">): string {
+  return Buffer.from(
+    JSON.stringify({ createdAt: job.created_at, id: job.id } satisfies CurationJobCursor),
+  ).toString("base64url");
+}
+
+function decodeCurationJobCursor(value: string): CurationJobCursor {
+  try {
+    const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as Partial<CurationJobCursor>;
+    if (
+      typeof parsed.createdAt !== "string" ||
+      Number.isNaN(Date.parse(parsed.createdAt)) ||
+      typeof parsed.id !== "string" ||
+      !/^[0-9a-f-]{36}$/i.test(parsed.id)
+    ) {
+      throw new Error("Invalid cursor");
+    }
+    return { createdAt: parsed.createdAt, id: parsed.id };
+  } catch {
+    throw new Error("Invalid data jobs cursor");
+  }
 }
 
 export async function getCurationJobDetail(

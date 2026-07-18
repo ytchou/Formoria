@@ -778,6 +778,7 @@ export type Database = {
       curation_jobs: {
         Row: {
           attempt: number
+          cancelled_count: number
           completed_at: string | null
           created_at: string | null
           dispatch_error: string | null
@@ -809,6 +810,7 @@ export type Database = {
         }
         Insert: {
           attempt?: number
+          cancelled_count?: number
           completed_at?: string | null
           created_at?: string | null
           dispatch_error?: string | null
@@ -840,6 +842,7 @@ export type Database = {
         }
         Update: {
           attempt?: number
+          cancelled_count?: number
           completed_at?: string | null
           created_at?: string | null
           dispatch_error?: string | null
@@ -1324,6 +1327,48 @@ export type Database = {
           submitter_name: string | null
         }[]
       }
+      admin_export_newsletter_subscribers: {
+        Args: {
+          p_interest?: string | null
+          p_query?: string | null
+          p_status?: string | null
+        }
+        Returns: Json
+      }
+      admin_list_newsletter_subscribers: {
+        Args: {
+          p_cursor_at?: string | null
+          p_cursor_id?: string | null
+          p_direction?: string
+          p_interest?: string | null
+          p_limit?: number
+          p_query?: string | null
+          p_status?: string | null
+        }
+        Returns: {
+          confirmed_at: string | null
+          consent_recorded_at: string | null
+          consent_source: string | null
+          consent_version: string | null
+          email: string
+          id: string
+          interests: string[]
+          locale: string
+          name: string | null
+          subscribed_at: string
+          subscriber_status: string
+          total_count: number
+          unsubscribed_at: string | null
+        }[]
+      }
+      apply_submission_enrichment_result: {
+        Args: {
+          p_enriched_data: Json
+          p_job_id: string
+          p_submission_id: string
+        }
+        Returns: boolean
+      }
       save_submission_review: {
         Args: {
           p_images: Json
@@ -1342,6 +1387,10 @@ export type Database = {
       }
       claim_curation_job: {
         Args: { p_job_id: string; p_worker_token: string }
+        Returns: Database["public"]["Tables"]["curation_jobs"]["Row"][]
+      }
+      cancel_curation_job: {
+        Args: { p_job_id: string; p_reason: string }
         Returns: Database["public"]["Tables"]["curation_jobs"]["Row"][]
       }
       check_brand_duplicates: {

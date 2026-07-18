@@ -53,11 +53,12 @@ export function targetStatusLabel(status: CurationTargetStatus): string {
     succeeded: "Succeeded",
     skipped: "Skipped",
     failed: "Failed",
+    cancelled: "Cancelled",
   }[status];
 }
 
 export function JobStatusBadge({ job }: { job: CurationJob }) {
-  if (job.status === "pending" && job.dispatch_status === "failed") {
+  if (job.dispatch_status === "failed") {
     return <Badge variant="destructive">Dispatch failed</Badge>;
   }
 

@@ -1218,7 +1218,7 @@ export async function approveSubmission(
 function isCurationTargetStatus(
   value: string | null | undefined,
 ): value is CurationTargetStatus {
-  return ["pending", "running", "succeeded", "skipped", "failed"].includes(
+  return ["pending", "running", "succeeded", "skipped", "failed", "cancelled"].includes(
     value ?? "",
   );
 }
