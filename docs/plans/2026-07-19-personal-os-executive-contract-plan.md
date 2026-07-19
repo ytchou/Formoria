@@ -24,4 +24,4 @@ The contract includes approved-brand and confirmed-subscriber movement, claimed 
 
 ## Dependency note
 
-The admin-ops redesign is not merged into `origin/main` as of 2026-07-19. New executive services therefore remain outside `/admin` and depend only on stable service interfaces. Integration with the eventual admin-ops branch must preserve this boundary.
+The executive integration is rebased onto the admin-ops redesign merged on 2026-07-19. Executive services remain outside `/admin` and depend only on stable service interfaces, preserving the boundary between Personal OS reporting and Formoria operations.
