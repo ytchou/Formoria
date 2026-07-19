@@ -32,9 +32,14 @@ export async function createClient() {
  * Bypasses RLS — use only in service layer functions for admin operations.
  * Does not need cookies since the service role key grants full access.
  */
+let _serviceClient: ReturnType<typeof createSupabaseClient> | null = null
+
 export function createServiceClient() {
-  return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  if (!_serviceClient) {
+    _serviceClient = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    )
+  }
+  return _serviceClient
 }
