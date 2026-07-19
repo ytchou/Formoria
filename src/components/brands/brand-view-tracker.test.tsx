@@ -4,16 +4,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'
 
-vi.mock('@next/third-parties/google', () => ({
-  sendGAEvent: vi.fn(),
-}))
-
-import { sendGAEvent } from '@next/third-parties/google'
 import { BrandViewTracker } from './brand-view-tracker'
+
+const sendGAEvent = vi.fn()
 
 describe('BrandViewTracker', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    window.gtag = sendGAEvent
     window.history.replaceState({}, '', '/')
   })
 
