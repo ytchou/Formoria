@@ -7,6 +7,9 @@ type AdminAction =
   | 'draft_save'
   | 'draft_publish'
   | 'draft_discard'
+  | 'curation_job_cancelled'
+  | 'newsletter_confirmation_resent'
+  | 'newsletter_unsubscribed'
 
 type LogAdminActionParams = {
   adminUserId: string

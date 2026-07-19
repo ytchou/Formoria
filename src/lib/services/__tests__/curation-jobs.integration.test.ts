@@ -93,7 +93,7 @@ describeWithDb('durable curation job queue integration', () => {
     ).resolves.toBe(true)
   })
 
-  it('recovers stale runs and permits exactly one automatic retry', async () => {
+  it('recovers stale runs as cancelled without scheduling a retry', async () => {
     const client = createTestClient()
     const parentId = await enqueue(client, {
       trigger: 'cron',
@@ -112,29 +112,48 @@ describeWithDb('durable curation job queue integration', () => {
     })
     expect(recoveryError).toBeNull()
     expect(recovered?.map((job: { id: string }) => job.id)).toContain(parentId)
-
-    const retryArgs = enqueueArgs({
-      trigger: 'automatic_retry',
-      parentJobId: parentId,
-      attempt: 2,
-      dedupeKey: null,
-      runAfter: new Date().toISOString(),
-    })
-    const [firstRetry, secondRetry] = await Promise.all([
-      client.rpc('enqueue_curation_job', retryArgs),
-      client.rpc('enqueue_curation_job', retryArgs),
-    ])
-    expect(firstRetry.error).toBeNull()
-    expect(secondRetry.error).toBeNull()
-    expect(firstRetry.data).toBe(secondRetry.data)
-    createdJobIds.add(firstRetry.data!)
-
-    const { count } = await client
+    expect(recovered?.find((job: { id: string }) => job.id === parentId)?.status).toBe('cancelled')
+    const { data: targets } = await client
+      .from('curation_job_targets')
+      .select('status')
+      .eq('job_id', parentId)
+    expect(targets?.every((target) => target.status === 'cancelled')).toBe(true)
+    const { count: retryCount } = await client
       .from('curation_jobs')
       .select('*', { count: 'exact', head: true })
       .eq('parent_job_id', parentId)
       .eq('trigger', 'automatic_retry')
-    expect(count).toBe(1)
+    expect(retryCount).toBe(0)
+  })
+
+  it('fences progress and finalization after an active job is cancelled', async () => {
+    const client = createTestClient()
+    const jobId = await enqueue(client, { runAfter: '2000-01-01T00:00:00.000Z' })
+    const workerToken = randomUUID()
+    const { data: claimed } = await client.rpc('claim_next_curation_job', {
+      p_worker_token: workerToken,
+    })
+    expect(claimed?.[0]?.id).toBe(jobId)
+
+    const { data: cancelled, error: cancelError } = await client.rpc('cancel_curation_job', {
+      p_job_id: jobId,
+      p_reason: 'Integration cancellation',
+    })
+    expect(cancelError).toBeNull()
+    expect(cancelled?.[0]?.status).toBe('cancelled')
+
+    const { data: progressAccepted } = await client.rpc('persist_curation_job_target_progress', {
+      p_job_id: jobId,
+      p_worker_token: workerToken,
+      p_updates: [],
+      p_current_target_id: null,
+      p_current_phase: null,
+    })
+    expect(progressAccepted).toBe(false)
+    await expect(finalizeCurationJob(jobId, workerToken, {
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+    })).resolves.toBe(false)
   })
 })
 

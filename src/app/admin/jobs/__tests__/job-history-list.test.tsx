@@ -34,17 +34,20 @@ describe('JobHistoryList', () => {
     expect(refresh).toHaveBeenCalledOnce()
   })
 
-  it('surfaces a dispatch failure with an explicit retry action', () => {
+  it('renders one unified log with cancellation only for active work', () => {
     render(
       <JobHistoryList
-        initialJobs={[job({ dispatch_status: 'failed', dispatch_error: 'worker unavailable' })]}
-        counts={{ attention: 1, active: 0, history: 0 }}
-        view="attention"
+        initialJobs={[
+          job({ id: 'running-job', status: 'running' }),
+          job({ id: 'failed-job', status: 'failed', dispatch_status: 'failed', dispatch_error: 'worker unavailable' }),
+        ]}
       />,
     )
 
     expect(screen.getByText('Dispatch failed')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Retry dispatch' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel job' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Retry dispatch' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Filter data jobs' })).not.toBeInTheDocument()
   })
 })
 

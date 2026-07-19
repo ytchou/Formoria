@@ -16,6 +16,8 @@ const items: NavItem[] = [
   { label: 'Reports', href: '/admin/reports', count: 2 },
   { label: 'Brand Catalog', href: '/admin/brands' },
   { label: 'Quality Dashboard', href: '/admin/quality' },
+  { label: 'Newsletter', href: '/admin/newsletter' },
+  { label: 'Settings', href: '/admin/settings' },
 ]
 
 async function renderAdminNav() {

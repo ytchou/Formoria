@@ -1,4 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/lib/supabase/database.types'
+import { buildNewsletterConfirmEmail } from '@emails/templates/newsletter-confirm'
+import { sendEmail } from '@/lib/email/send'
 
 export const VALID_INTERESTS = [
   'brand-stories',
@@ -69,6 +72,7 @@ type NewsletterEqBuilder<T> = PromiseLike<{
 }> & {
   eq(column: string, value: string): NewsletterEqBuilder<T>
   not(column: string, operator: string, value: string | null): NewsletterEqBuilder<T>
+  is(column: string, value: null): NewsletterEqBuilder<T>
   order(column: string, options?: { ascending?: boolean }): NewsletterRangeBuilder<T>
   maybeSingle(): NewsletterResult<T>
   single(): NewsletterResult<T>
@@ -120,15 +124,44 @@ export type SubscriberActionResult =
   | { success: true; subscriber: NewsletterSubscriber }
   | { success: false; error: string }
 
-export type GetSubscribersOptions = {
-  page?: number
+export type SubscriberStats = {
+  total: number
+  active: number
+  pending: number
+  unsubscribed: number
+  confirmationRate: number
+}
+
+export type NewsletterSubscriberStatus = 'active' | 'pending' | 'unsubscribed'
+
+export type AdminNewsletterSubscriber = Pick<
+  NewsletterSubscriber,
+  | 'id'
+  | 'email'
+  | 'name'
+  | 'interests'
+  | 'locale'
+  | 'subscribed_at'
+  | 'confirmed_at'
+  | 'unsubscribed_at'
+  | 'consent_source'
+  | 'consent_version'
+  | 'consent_recorded_at'
+> & { status: NewsletterSubscriberStatus }
+
+export type AdminNewsletterFilters = {
+  q?: string
+  status?: NewsletterSubscriberStatus
+  interest?: NewsletterInterest
+  cursor?: string
+  direction?: 'next' | 'previous'
   limit?: number
 }
 
-export type SubscriberStats = {
-  total: number
-  confirmed: number
-  unsubscribed: number
+export type AdminNewsletterPage = {
+  subscribers: AdminNewsletterSubscriber[]
+  nextCursor: string | null
+  previousCursor: string | null
 }
 
 export type NewsletterPreference = {
@@ -171,6 +204,21 @@ export function normalizeInterests(interests: string[]): NewsletterInterest[] {
   }
 
   return normalized
+}
+
+export function deriveNewsletterStatus(
+  subscriber: Pick<NewsletterSubscriber, 'confirmed_at' | 'unsubscribed_at'>,
+): NewsletterSubscriberStatus {
+  if (subscriber.unsubscribed_at) return 'unsubscribed'
+  return subscriber.confirmed_at ? 'active' : 'pending'
+}
+
+export function calculateConfirmationRate({
+  active,
+  pending,
+}: Pick<SubscriberStats, 'active' | 'pending'>): number {
+  const eligible = active + pending
+  return eligible === 0 ? 0 : Math.round((active / eligible) * 100)
 }
 
 export async function createSubscriber(
@@ -412,42 +460,214 @@ export async function unsubscribeNewsletterByEmail(
   assertNoError(error)
 }
 
-export async function getSubscribers(
-  supabase: SupabaseClient,
-  { page = 1, limit = 50 }: GetSubscribersOptions = {}
-): Promise<NewsletterSubscriber[]> {
-  const currentPage = Math.max(1, page)
-  const pageLimit = Math.max(1, limit)
-  const from = (currentPage - 1) * pageLimit
-  const to = from + pageLimit - 1
-  const { data, error } = await newsletterTable(supabase)
-    .select('*')
-    .order('subscribed_at', { ascending: false })
-    .range(from, to)
-
-  assertNoError(error)
-
-  return data ?? []
-}
-
 export async function getSubscriberStats(supabase: SupabaseClient): Promise<SubscriberStats> {
   const table = newsletterTable(supabase)
-  const [{ count: total, error: totalError }, { count: confirmed, error: confirmedError }, {
+  const [{ count: total, error: totalError }, { count: active, error: activeError }, {
+    count: pending,
+    error: pendingError,
+  }, {
     count: unsubscribed,
     error: unsubscribedError,
   }] = await Promise.all([
     table.select('id', { count: 'exact', head: true }),
-    table.select('id', { count: 'exact', head: true }).not('confirmed_at', 'is', null),
+    table.select('id', { count: 'exact', head: true }).not('confirmed_at', 'is', null).is('unsubscribed_at', null),
+    table.select('id', { count: 'exact', head: true }).is('confirmed_at', null).is('unsubscribed_at', null),
     table.select('id', { count: 'exact', head: true }).not('unsubscribed_at', 'is', null),
   ])
 
   assertNoError(totalError)
-  assertNoError(confirmedError)
+  assertNoError(activeError)
+  assertNoError(pendingError)
   assertNoError(unsubscribedError)
 
-  return {
+  const normalized = {
     total: total ?? 0,
-    confirmed: confirmed ?? 0,
+    active: active ?? 0,
+    pending: pending ?? 0,
     unsubscribed: unsubscribed ?? 0,
+  }
+  return {
+    ...normalized,
+    confirmationRate: calculateConfirmationRate(normalized),
+  }
+}
+
+export async function getAdminNewsletterSubscribers(
+  supabase: SupabaseClient,
+  filters: AdminNewsletterFilters = {},
+): Promise<AdminNewsletterPage> {
+  const limit = Math.min(Math.max(filters.limit ?? 50, 1), 100)
+  const cursor = filters.cursor ? decodeNewsletterCursor(filters.cursor) : null
+  const direction = filters.direction === 'previous' ? 'previous' : 'next'
+  const { data, error } = await supabase.rpc('admin_list_newsletter_subscribers', {
+    p_query: normalizeAdminQuery(filters.q),
+    p_status: filters.status ?? null,
+    p_interest: filters.interest ?? null,
+    p_cursor_at: cursor?.subscribedAt ?? null,
+    p_cursor_id: cursor?.id ?? null,
+    p_direction: direction,
+    p_limit: limit + 1,
+  })
+  assertNoError(error)
+
+  const rows = (data ?? []).map((row: Database['public']['Functions']['admin_list_newsletter_subscribers']['Returns'][number]) => ({
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    interests: row.interests,
+    locale: row.locale,
+    subscribed_at: row.subscribed_at,
+    confirmed_at: row.confirmed_at,
+    unsubscribed_at: row.unsubscribed_at,
+    consent_source: row.consent_source,
+    consent_version: row.consent_version,
+    consent_recorded_at: row.consent_recorded_at,
+    status: parseNewsletterStatus(row.subscriber_status),
+  }))
+  const hasMore = rows.length > limit
+  const visible = rows.slice(0, limit)
+  if (direction === 'previous') visible.reverse()
+
+  return {
+    subscribers: visible,
+    previousCursor:
+      cursor && visible[0] ? encodeNewsletterCursor(visible[0]) : null,
+    nextCursor:
+      (hasMore || direction === 'previous') && visible.at(-1)
+        ? encodeNewsletterCursor(visible.at(-1)!)
+        : null,
+  }
+}
+
+export async function getAdminNewsletterExport(
+  supabase: SupabaseClient,
+  filters: Pick<AdminNewsletterFilters, 'q' | 'status' | 'interest'>,
+): Promise<AdminNewsletterSubscriber[]> {
+  const { data, error } = await supabase.rpc('admin_export_newsletter_subscribers', {
+    p_query: normalizeAdminQuery(filters.q),
+    p_status: filters.status ?? null,
+    p_interest: filters.interest ?? null,
+  })
+  assertNoError(error)
+  if (!Array.isArray(data)) return []
+  return data.flatMap((value) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return []
+    const row = value as Record<string, unknown>
+    if (typeof row.id !== 'string' || typeof row.email !== 'string' || typeof row.subscribed_at !== 'string') return []
+    return [{
+      id: row.id,
+      email: row.email,
+      name: typeof row.name === 'string' ? row.name : null,
+      interests: Array.isArray(row.interests) ? row.interests.filter((item): item is string => typeof item === 'string') : [],
+      locale: typeof row.locale === 'string' ? row.locale : 'zh-TW',
+      subscribed_at: row.subscribed_at,
+      confirmed_at: typeof row.confirmed_at === 'string' ? row.confirmed_at : null,
+      unsubscribed_at: typeof row.unsubscribed_at === 'string' ? row.unsubscribed_at : null,
+      consent_source: typeof row.consent_source === 'string' ? row.consent_source : null,
+      consent_version: typeof row.consent_version === 'string' ? row.consent_version : null,
+      consent_recorded_at: typeof row.consent_recorded_at === 'string' ? row.consent_recorded_at : null,
+      status: parseNewsletterStatus(row.subscriber_status),
+    }]
+  })
+}
+
+export async function resendNewsletterConfirmation(
+  supabase: SupabaseClient,
+  subscriberId: string,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('newsletter_subscribers')
+    .select('email, interests, locale, confirmed_at, unsubscribed_at, confirm_token, unsubscribe_token')
+    .eq('id', subscriberId)
+    .single()
+  assertNoError(error)
+  if (!data || data.confirmed_at || data.unsubscribed_at) {
+    throw new Error('Only pending subscribers can receive a confirmation reminder')
+  }
+
+  const delivery = await sendEmail(await buildNewsletterConfirmEmail({
+    to: data.email,
+    confirmToken: data.confirm_token,
+    unsubscribeToken: data.unsubscribe_token,
+    interests: data.interests ?? ['curated-picks'],
+    locale: data.locale,
+  }))
+  if (!delivery.success) throw new Error(delivery.error ?? 'Confirmation email could not be sent')
+}
+
+export async function adminUnsubscribeNewsletterSubscriber(
+  supabase: SupabaseClient,
+  subscriberId: string,
+): Promise<void> {
+  const { data: current, error: lookupError } = await supabase
+    .from('newsletter_subscribers')
+    .select('id, unsubscribed_at')
+    .eq('id', subscriberId)
+    .single()
+  assertNoError(lookupError)
+  if (!current || current.unsubscribed_at) {
+    throw new Error('Subscriber is already unsubscribed or no longer exists')
+  }
+
+  const { data, error } = await supabase
+    .from('newsletter_subscribers')
+    .update({
+      unsubscribed_at: new Date().toISOString(),
+      confirm_token: newToken(),
+      unsubscribe_token: newToken(),
+    })
+    .eq('id', subscriberId)
+    .is('unsubscribed_at', null)
+    .select('id')
+  assertNoError(error)
+  if (!data?.length) throw new Error('Subscriber is already unsubscribed')
+}
+
+export function parseAdminNewsletterFilters(input: {
+  q?: string
+  status?: string
+  interest?: string
+  cursor?: string
+  direction?: string
+}): AdminNewsletterFilters {
+  return {
+    q: normalizeAdminQuery(input.q) ?? undefined,
+    status: ['active', 'pending', 'unsubscribed'].includes(input.status ?? '')
+      ? input.status as NewsletterSubscriberStatus
+      : undefined,
+    interest: (VALID_INTERESTS as readonly string[]).includes(input.interest ?? '')
+      ? input.interest as NewsletterInterest
+      : undefined,
+    cursor: input.cursor || undefined,
+    direction: input.direction === 'previous' ? 'previous' : 'next',
+  }
+}
+
+function normalizeAdminQuery(value: string | undefined): string | null {
+  const normalized = value?.trim().slice(0, 200) ?? ''
+  return normalized || null
+}
+
+function parseNewsletterStatus(value: unknown): NewsletterSubscriberStatus {
+  if (value === 'active' || value === 'unsubscribed') return value
+  return 'pending'
+}
+
+function encodeNewsletterCursor(subscriber: Pick<AdminNewsletterSubscriber, 'subscribed_at' | 'id'>): string {
+  return Buffer.from(JSON.stringify({ subscribedAt: subscriber.subscribed_at, id: subscriber.id })).toString('base64url')
+}
+
+function decodeNewsletterCursor(value: string): { subscribedAt: string; id: string } {
+  try {
+    const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as Record<string, unknown>
+    if (
+      typeof parsed.subscribedAt !== 'string' ||
+      Number.isNaN(Date.parse(parsed.subscribedAt)) ||
+      typeof parsed.id !== 'string' ||
+      !/^[0-9a-f-]{36}$/i.test(parsed.id)
+    ) throw new Error('invalid')
+    return { subscribedAt: parsed.subscribedAt, id: parsed.id }
+  } catch {
+    throw new Error('Invalid newsletter cursor')
   }
 }

@@ -1861,7 +1861,9 @@
         "claims": "認領申請",
         "reports": "檢舉",
         "brands": "品牌目錄",
-        "quality": "品質儀表板"
+        "quality": "品質儀表板",
+        "newsletter": "電子報",
+        "settings": "設定"
       }
     },
     "dashboard": {

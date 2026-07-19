@@ -9,7 +9,7 @@ import type { CurationJob } from "@/lib/services/curation-jobs";
 
 config({ path: ".env.local", quiet: true });
 
-const { claimCurationJob, getCurationJob, getCurationJobDetail } =
+const { claimCurationJob, getCurationJob, getCurationJobDetail, recoverStaleJobs } =
   await import("@/lib/services/curation-jobs");
 const { runJob, sanitizeJobError } = await import("@/lib/services/job-runner");
 const { runScheduledCuration } = await import(
@@ -41,10 +41,27 @@ const server = createServer((request, response) => {
 
 server.listen(port, "0.0.0.0", () => {
   console.log(`[curation-worker] listening on port ${port}`);
+  startStaleJobMaintenance();
   if (CRON_SCHEDULE) {
     startCronScheduler(CRON_SCHEDULE);
   }
 });
+
+function startStaleJobMaintenance(): void {
+  let inFlight = false;
+  const interval = setInterval(() => {
+    if (inFlight) return;
+    inFlight = true;
+    void recoverStaleJobs()
+      .catch((error) => {
+        console.error("[curation-worker:stale-maintenance]", sanitizeJobError(error));
+      })
+      .finally(() => {
+        inFlight = false;
+      });
+  }, 60_000);
+  interval.unref();
+}
 
 // ---------------------------------------------------------------------------
 // Cron scheduler — runs runScheduledCuration() at the configured times

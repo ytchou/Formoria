@@ -152,11 +152,30 @@ test.describe('Admin dashboard deep', () => {
 
   test('admin dashboard shows accurate stats', async ({ adminPage }) => {
     test.setTimeout(120_000);
+    await adminPage.setViewportSize({ width: 1512, height: 828 });
     await adminPage.goto('/admin', { timeout: 60_000 });
-    // At minimum: page loads with headings and some stat indicators
     await expect(adminPage.getByRole('heading', { name: /^Admin$/ })).toBeVisible({ timeout: 60_000 });
-    // No broken layout: check there's no React error boundary text
+    await expect(adminPage.getByRole('heading', { name: 'Operations overview' })).toBeVisible();
+    await expect(adminPage.getByRole('link', { name: /Needs data/ })).toHaveAttribute(
+      'href',
+      '/admin/submissions?stage=needs_data',
+    );
+    await expect(adminPage.getByRole('link', { name: /Subscribers/ })).toHaveAttribute(
+      'href',
+      '/admin/newsletter?status=active',
+    );
+    await expect(adminPage.getByText('System Status')).toHaveCount(0);
+    await expect(adminPage.getByText('Feature Toggles')).toHaveCount(0);
     await expect(adminPage.getByText(/something went wrong|minified react error/i)).not.toBeVisible();
+  });
+
+  test('operations ledger remains actionable on mobile', async ({ adminPage }) => {
+    await adminPage.setViewportSize({ width: 390, height: 844 });
+    await adminPage.goto('/admin', { timeout: 60_000 });
+    const needsData = adminPage.getByRole('link', { name: /Needs data/ });
+    await expect(needsData).toBeVisible({ timeout: 60_000 });
+    await expect(needsData).toHaveCSS('min-height', '160px');
+    await expect(adminPage.getByRole('button', { name: 'Enrich needs-data submissions' })).toBeVisible();
   });
 
   test('admin nav links all work', async ({ adminPage }) => {
@@ -212,7 +231,7 @@ test.describe('Admin dashboard deep', () => {
     await adminPage.goto('/admin/submissions', { timeout: 60_000 });
     await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
     const rejectRow = adminPage.locator('tbody tr').filter({ hasText: rejectBrandName });
-    const rejectBtn = rejectRow.getByRole('button', { name: 'Reject' });
+    const rejectBtn = rejectRow.getByRole('button', { name: 'Reject', exact: true });
     await expect(rejectBtn).toBeVisible({ timeout: 10_000 });
     adminPage.once('dialog', (dialog) => dialog.accept());
     await rejectBtn.click();

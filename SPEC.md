@@ -44,6 +44,8 @@ Self-serve brand submission flow.
 
 ### Admin
 Content management and moderation.
+- Operations overview (`/admin`) — an exact-count, linked triage ledger for submissions, moderation, claims, reports, active jobs, brands, and newsletter subscribers
+- Quick operations on the overview — enrich the current needs-data submissions
 - Submission review queue (approve/reject with notes) — admins review submissions after enrichment, not before
 - Enrichment status badge on each submission: `Not Enriched` | `Partially Enriched` | `Enriched` — indicates how much AI-derived data has been populated before the admin makes a decision
 - Batch enrichment pipeline: admins run enrichment from the admin UI or CLI (`pnpm curate enrich ...`); enrichment is not Railway-cron-triggered
@@ -51,23 +53,13 @@ Content management and moderation.
 - Taxonomy tag management (add, merge, rename)
 - New tag suggestion review
 - Content moderation dashboard (`/admin/moderation`) — pending flags with risk badges
-- System health monitoring — real-time service status card showing health of all 8 integrated services (Supabase, Sentry, Resend, Turnstile, Tally, Browserless, Railway, Upstash Redis)
+- Newsletter operations (`/admin/newsletter`) — status metrics, search/filtering, cursor pagination, safe CSV export, confirmation resend, and irreversible admin unsubscribe; email action tokens never reach the browser
+- Feature toggles live at `/admin/settings`
 
 #### Data Curation
-Admin UI provides 9 data curation operations:
-- `clean-names`
-- `detect-non-brands`
-- `normalize-slugs`
-- `enrich-descriptions`
-- `auto-tag`
-- `enrich-links`
-- `enrich-images`
-- `score-and-scrape`
-- `set-visibility`
+Admin data curation uses the unified `enrich` operation. Long-running work runs through a durable background job system with progress persisted in `curation_jobs` and target-level state in `curation_job_targets`.
 
-Curation operations use a **dry-run -> confirm -> execute** workflow so admins can preview proposed changes before mutating production data.
-
-Long-running curation work runs through a background job system with progress tracking persisted in the `curation_jobs` table.
+`/admin/jobs` is one reverse-chronological cursor-paginated log. Pending and running jobs can be cancelled cooperatively: worker leases, progress, finalization, and canonical brand/submission writes are fenced so provider work that returns after cancellation cannot become canonical. Stale jobs become cancelled without automatic retry. Dispatch failures are terminal; manual reruns create linked attempts rather than rewriting job history.
 
 The admin brand list exposes per-brand enrichment actions for targeted cleanup and enrichment without running a bulk operation.
 
@@ -249,7 +241,7 @@ Storage invariants (DEV-1059):
 - PostHog: page views, filter usage, brand detail visits, submission funnel
 - Sentry: error tracking with source maps
 - Railway: built-in request metrics and logs
-- In-app: Admin dashboard system status card — server-side health checks on demand (not a replacement for external dashboards)
+- In-app: admin operations pages expose queue and job state; service monitoring remains in the external operations stack
 - CI/CD alerting: Agent Hub records nightly E2E results; GitHub Issues provide the failure audit trail
 
 ## Performance Targets

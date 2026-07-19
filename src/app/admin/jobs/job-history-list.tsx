@@ -1,10 +1,6 @@
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
-import type {
-  CurationJob,
-  CurationJobCounts,
-  CurationJobView,
-} from "@/lib/services/curation-jobs";
+import type { CurationJob } from "@/lib/services/curation-jobs";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Table,
@@ -21,27 +17,31 @@ import {
   jobTriggerLabel,
   JobStatusBadge,
 } from "./job-display";
-import { DispatchJobButton } from "./dispatch-job-button";
-import { DismissJobButton } from "./dismiss-job-button";
+import { CancelJobButton } from "./cancel-job-button";
 
 function formatProgress(job: CurationJob): string {
-  const complete = job.succeeded_count + job.skipped_count + job.failed_count;
+  const complete =
+    job.succeeded_count +
+    job.skipped_count +
+    job.failed_count +
+    (job.cancelled_count ?? 0);
   return `${complete} / ${job.target_total}`;
 }
 
 function formatOutcome(job: CurationJob): string {
-  return `${job.succeeded_count} ok, ${job.skipped_count} skipped, ${job.failed_count} failed`;
+  const cancelled = job.cancelled_count ?? 0;
+  return `${job.succeeded_count} ok, ${job.skipped_count} skipped, ${job.failed_count} failed${cancelled ? `, ${cancelled} cancelled` : ""}`;
 }
 
 export function JobHistoryList({
   initialJobs,
-  counts = { attention: 0, active: 0, history: initialJobs.length },
-  view = "attention",
+  nextCursor,
+  previousCursor,
   railwayLogsUrl,
 }: {
   initialJobs: CurationJob[];
-  counts?: CurationJobCounts;
-  view?: CurationJobView;
+  nextCursor?: string | null;
+  previousCursor?: string | null;
   railwayLogsUrl?: string;
 }) {
   const hasActiveJob = initialJobs.some(
@@ -51,23 +51,6 @@ export function JobHistoryList({
   return (
     <div className="space-y-3">
       <JobAutoRefresh active={hasActiveJob} />
-      <nav aria-label="Filter data jobs" className="flex flex-wrap gap-2">
-        <JobViewLink
-          view={view}
-          value="attention"
-          label={`Needs Attention (${counts.attention})`}
-        />
-        <JobViewLink
-          view={view}
-          value="active"
-          label={`Active (${counts.active})`}
-        />
-        <JobViewLink
-          view={view}
-          value="history"
-          label={`History (${counts.history})`}
-        />
-      </nav>
       {railwayLogsUrl ? (
         <div className="flex justify-end">
           <a
@@ -97,16 +80,17 @@ export function JobHistoryList({
               <TableHead>Progress</TableHead>
               <TableHead>Outcome</TableHead>
               <TableHead>Duration</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {initialJobs.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={8}
                   className="py-8 text-center text-muted-foreground"
                 >
-                  No data jobs in this view.
+                  No data jobs yet.
                 </TableCell>
               </TableRow>
             ) : (
@@ -124,17 +108,6 @@ export function JobHistoryList({
                   <TableCell>{job.attempt}</TableCell>
                   <TableCell>
                     <JobStatusBadge job={job} />
-                    {job.status === "pending" &&
-                    job.dispatch_status === "failed" ? (
-                      <div className="mt-2 flex gap-2">
-                        <DispatchJobButton
-                          jobId={job.id}
-                          label="Retry dispatch"
-                          retry
-                        />
-                        <DismissJobButton jobId={job.id} />
-                      </div>
-                    ) : null}
                   </TableCell>
                   <TableCell>{formatProgress(job)}</TableCell>
                   <TableCell
@@ -147,31 +120,42 @@ export function JobHistoryList({
                   <TableCell>
                     {formatJobDuration(job.started_at, job.completed_at)}
                   </TableCell>
+                  <TableCell>
+                    {job.status === "pending" || job.status === "running" ? (
+                      <CancelJobButton jobId={job.id} />
+                    ) : null}
+                  </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
       </div>
+      {previousCursor || nextCursor ? (
+        <nav aria-label="Data jobs pagination" className="flex justify-between gap-3">
+          <CursorLink cursor={previousCursor} direction="previous" label="Newer" />
+          <CursorLink cursor={nextCursor} direction="next" label="Older" />
+        </nav>
+      ) : null}
     </div>
   );
 }
 
-function JobViewLink({
-  view,
-  value,
+function CursorLink({
+  cursor,
+  direction,
   label,
 }: {
-  view: CurationJobView;
-  value: CurationJobView;
+  cursor?: string | null;
+  direction: "next" | "previous";
   label: string;
 }) {
+  if (!cursor) return <span />;
   return (
     <Link
-      href={`/admin/jobs?view=${value}`}
-      aria-current={view === value ? "page" : undefined}
+      href={`/admin/jobs?cursor=${encodeURIComponent(cursor)}&direction=${direction}`}
       className={buttonVariants({
-        variant: view === value ? "primary" : "secondary",
+        variant: "secondary",
         size: "default",
         className: "min-h-12",
       })}

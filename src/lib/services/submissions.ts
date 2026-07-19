@@ -810,14 +810,17 @@ export async function getAdminSubmissions(): Promise<
   );
 }
 
-export async function getSubmissionsForReview(): Promise<
+export async function getSubmissionsForReview(options?: {
+  status?: SubmissionStatus;
+}): Promise<
   BrandSubmissionForReview[]
 > {
   const supabase = createServiceClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("brand_submissions")
-    .select(ADMIN_REVIEW_SUBMISSIONS_SELECT)
-    .order("submitted_at", { ascending: false });
+    .select(ADMIN_REVIEW_SUBMISSIONS_SELECT);
+  if (options?.status) query = query.eq("status", options.status);
+  const { data, error } = await query.order("submitted_at", { ascending: false });
 
   if (error) throw error;
 
@@ -987,28 +990,6 @@ export async function getSubmission(id: string): Promise<BrandSubmission> {
   if (error || !data)
     throw new NotFoundError("BrandSubmission", id, { cause: error });
   return submissionToDomain(data);
-}
-
-export async function getSubmissions(
-  status?: SubmissionStatus,
-  options?: { limit?: number },
-): Promise<BrandSubmission[]> {
-  const supabase = createServiceClient();
-  let query = supabase.from("brand_submissions").select("*");
-
-  if (status) {
-    query = query.eq("status", status);
-  }
-
-  query = query.order("submitted_at", { ascending: false });
-  if (options?.limit) {
-    query = query.limit(options.limit);
-  }
-
-  const { data, error } = await query;
-
-  if (error) throw error;
-  return (data ?? []).map(submissionToDomain);
 }
 
 export type SaveSubmissionReviewInput = SubmissionReviewData & {
@@ -1218,7 +1199,7 @@ export async function approveSubmission(
 function isCurationTargetStatus(
   value: string | null | undefined,
 ): value is CurationTargetStatus {
-  return ["pending", "running", "succeeded", "skipped", "failed"].includes(
+  return ["pending", "running", "succeeded", "skipped", "failed", "cancelled"].includes(
     value ?? "",
   );
 }

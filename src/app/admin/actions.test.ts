@@ -1,7 +1,6 @@
 import { revalidatePath } from 'next/cache'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { refreshHealthChecks, setFeatureFlagAction } from './actions'
-import { checkAllServices } from '@/lib/services/health-checks'
+import { setFeatureFlagAction } from './actions'
 
 // Mocks must be at top-level for vitest hoisting
 vi.mock('@/lib/supabase/server', () => ({
@@ -111,10 +110,6 @@ vi.mock('@/lib/services/reports', () => ({
   updateReportStatus: vi.fn().mockResolvedValue(undefined),
 }))
 
-vi.mock('@/lib/services/health-checks', () => ({
-  checkAllServices: vi.fn(),
-}))
-
 vi.mock('@/lib/services/app-settings', () => ({
   FEATURE_FLAGS: [
     {
@@ -122,7 +117,7 @@ vi.mock('@/lib/services/app-settings', () => ({
       label: 'Subcategory filter on /brands',
       description: 'Shows product-type chips in the directory filter sidebar',
       defaultValue: true,
-      revalidatePaths: ['/brands', '/en/brands', '/admin'],
+      revalidatePaths: ['/brands', '/en/brands', '/admin/settings'],
     },
   ],
   setAppSetting: vi.fn().mockResolvedValue(undefined),
@@ -454,48 +449,6 @@ describe('revokeOwnershipAction', () => {
   })
 })
 
-describe('refreshHealthChecks', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('calls checkAllServices and revalidates /admin', async () => {
-    vi.mocked(checkAllServices).mockResolvedValue([
-      {
-        service: 'Supabase',
-        status: 'healthy',
-        message: 'Connected',
-        checkedAt: new Date().toISOString(),
-      },
-    ])
-
-    await refreshHealthChecks()
-
-    expect(checkAllServices).toHaveBeenCalledOnce()
-    expect(revalidatePath).toHaveBeenCalledWith('/admin')
-  })
-
-  it('revalidates /admin even if checkAllServices throws', async () => {
-    vi.mocked(checkAllServices).mockRejectedValue(new Error('service down'))
-
-    await expect(refreshHealthChecks()).resolves.not.toThrow()
-    expect(revalidatePath).toHaveBeenCalledWith('/admin')
-  })
-
-  it('returns early for non-admin callers', async () => {
-    const { requireAdminAction } = await import('@/lib/auth/require-admin')
-    vi.mocked(requireAdminAction).mockResolvedValueOnce({
-      error: 'You must authenticate to perform this action',
-      code: 'unauthenticated',
-    })
-
-    await refreshHealthChecks()
-
-    expect(checkAllServices).not.toHaveBeenCalled()
-    expect(revalidatePath).not.toHaveBeenCalledWith('/admin')
-  })
-})
-
 describe('setFeatureFlagAction', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -513,7 +466,7 @@ describe('setFeatureFlagAction', () => {
     expect(res.error).toBeTruthy()
   })
 
-  it('admin toggle writes the flag and revalidates /brands, /en/brands, /admin', async () => {
+  it('admin toggle writes the flag and revalidates the brands pages and settings', async () => {
     const { setAppSetting } = await import('@/lib/services/app-settings')
 
     const res = await setFeatureFlagAction('subcategory_filter_enabled', false)
@@ -522,7 +475,7 @@ describe('setFeatureFlagAction', () => {
     expect(setAppSetting).toHaveBeenCalledWith('subcategory_filter_enabled', false)
     expect(revalidatePath).toHaveBeenCalledWith('/brands')
     expect(revalidatePath).toHaveBeenCalledWith('/en/brands')
-    expect(revalidatePath).toHaveBeenCalledWith('/admin')
+    expect(revalidatePath).toHaveBeenCalledWith('/admin/settings')
     await setFeatureFlagAction('subcategory_filter_enabled', true)
   })
 

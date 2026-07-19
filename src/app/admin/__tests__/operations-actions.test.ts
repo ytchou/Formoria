@@ -51,7 +51,12 @@ describe("curation server actions", () => {
     enqueueManualRerun.mockResolvedValue(
       job({ id: "rerun-job", trigger: "manual_rerun" }),
     );
-    listCurationJobs.mockResolvedValue([job()]);
+    listCurationJobs.mockResolvedValue({
+      jobs: [job()],
+      nextCursor: null,
+      previousCursor: null,
+      total: 1,
+    });
     getCurationJobDetail.mockResolvedValue(detail());
     getCurationJob.mockResolvedValue(job());
     markCurationJobDispatched.mockResolvedValue(undefined);
@@ -146,7 +151,12 @@ describe("curation server actions", () => {
     const { getCurationJobDetailAction, listCurationJobsAction } =
       await import("../operations/actions");
 
-    await expect(listCurationJobsAction()).resolves.toEqual({ jobs: [job()] });
+    await expect(listCurationJobsAction()).resolves.toEqual({
+      jobs: [job()],
+      nextCursor: null,
+      previousCursor: null,
+      total: 1,
+    });
     await expect(getCurationJobDetailAction("job-1")).resolves.toEqual({
       detail: detail(),
     });

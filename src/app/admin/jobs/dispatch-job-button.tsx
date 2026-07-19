@@ -2,34 +2,24 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Play, RotateCcw } from "lucide-react";
+import { Play } from "lucide-react";
 import { toast } from "sonner";
-import {
-  dispatchCurationJobAction,
-  retryCurationDispatchAction,
-} from "@/app/admin/operations/actions";
+import { dispatchCurationJobAction } from "@/app/admin/operations/actions";
 import { Button } from "@/components/ui/button";
 
 export function DispatchJobButton({
   jobId,
   label = "Run now",
-  retry = false,
 }: {
   jobId: string;
   label?: string;
-  retry?: boolean;
 }) {
   const [isPending, setIsPending] = useState(false);
   const router = useRouter();
-  const isRetry = label.toLowerCase().includes("retry");
-
   async function handleDispatch() {
     setIsPending(true);
     try {
-      const action = retry
-        ? retryCurationDispatchAction
-        : dispatchCurationJobAction;
-      const result = await action(jobId);
+      const result = await dispatchCurationJobAction(jobId);
       if ("error" in result) {
         toast.error(result.error);
         return;
@@ -50,7 +40,7 @@ export function DispatchJobButton({
       size="chip"
       variant="secondary"
     >
-      {isRetry ? <RotateCcw aria-hidden="true" /> : <Play aria-hidden="true" />}
+      <Play aria-hidden="true" />
       {isPending ? "Dispatching…" : label}
     </Button>
   );

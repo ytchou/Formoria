@@ -28,6 +28,7 @@ import {
 } from "../job-display";
 import { RerunJobButton } from "./rerun-job-button";
 import { DispatchJobButton } from "../dispatch-job-button";
+import { CancelJobButton } from "../cancel-job-button";
 
 type PhaseResult = {
   phase: string;
@@ -45,6 +46,7 @@ const filters: Array<{ value: "all" | CurationTargetStatus; label: string }> = [
   { value: "succeeded", label: "Succeeded" },
   { value: "skipped", label: "Skipped" },
   { value: "failed", label: "Failed" },
+  { value: "cancelled", label: "Cancelled" },
 ];
 
 export function JobDetailView({
@@ -69,15 +71,15 @@ export function JobDetailView({
   const active = job.status === "pending" || job.status === "running";
   const canRerunFailures = job.status === "completed" && job.failed_count > 0;
   const canRerunUnfinished =
-    job.status === "failed" &&
+    (job.status === "failed" || job.status === "cancelled") &&
     targets.some(
       (target) =>
         target.status === "pending" ||
         target.status === "running" ||
-        target.status === "failed",
+        target.status === "failed" ||
+        target.status === "cancelled",
     );
-  const canDispatch = job.status === "pending";
-  const dispatchFailed = canDispatch && job.dispatch_status === "failed";
+  const canDispatch = job.status === "pending" && job.dispatch_status !== "failed";
 
   return (
     <div className="space-y-6">
@@ -100,12 +102,9 @@ export function JobDetailView({
         </div>
         <div className="flex flex-wrap gap-3">
           {canDispatch ? (
-            <DispatchJobButton
-              jobId={job.id}
-              label={dispatchFailed ? "Retry dispatch" : "Run now"}
-              retry={dispatchFailed}
-            />
+            <DispatchJobButton jobId={job.id} label="Run now" />
           ) : null}
+          {active ? <CancelJobButton jobId={job.id} /> : null}
           {canRerunFailures ? (
             <RerunJobButton jobId={job.id} label="Rerun failed submissions" />
           ) : null}
@@ -168,11 +167,12 @@ export function JobDetailView({
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <DataCard label="Total Targets" value={job.target_total} />
         <DataCard label="Succeeded" value={job.succeeded_count} />
         <DataCard label="Skipped" value={job.skipped_count} />
         <DataCard label="Failed" value={job.failed_count} />
+        <DataCard label="Cancelled" value={job.cancelled_count ?? 0} />
       </div>
 
       <SurfaceCard padding="lg">

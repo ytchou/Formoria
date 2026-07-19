@@ -674,6 +674,7 @@ export async function persistSubmissionEnrichmentResults(
   supabase: SupabaseClient,
   submissionId: string,
   patch: JsonObject,
+  jobId?: string,
 ): Promise<void> {
   const { data: row, error: selectError } = await supabase
     .from("brand_submissions")
@@ -700,6 +701,28 @@ export async function persistSubmissionEnrichmentResults(
     existing,
     patch as Record<string, unknown>,
   );
+  if (jobId) {
+    const { data, error } = await (
+      supabase as unknown as {
+        rpc: (
+          name: "apply_submission_enrichment_result",
+          args: {
+            p_submission_id: string;
+            p_enriched_data: JsonObject;
+            p_job_id: string;
+          },
+        ) => Promise<{ data: boolean; error: { message?: string } | null }>;
+      }
+    ).rpc("apply_submission_enrichment_result", {
+      p_submission_id: submissionId,
+      p_enriched_data: merged as JsonObject,
+      p_job_id: jobId,
+    });
+    if (error) throw new Error(error.message ?? "Failed to persist submission enrichment");
+    if (!data) throw new Error("Curation job is no longer running");
+    return;
+  }
+
   const { error: updateError, count } = await supabase
     .from("brand_submissions")
     .update({ enriched_data: merged }, { count: "exact" })
@@ -1257,7 +1280,7 @@ export async function runEnrich(
                   status: "hidden",
                   brand_enriched_at: new Date().toISOString(),
                 } as never,
-                { source: "enriched" },
+                { source: "enriched", jobId: config.jobId },
               );
             }
           }
@@ -1556,6 +1579,7 @@ export async function runEnrich(
                 supabase as unknown as SupabaseClient,
                 brand.id,
                 patch as JsonObject,
+                config.jobId,
               );
             } else {
               await persistEnrichmentResults(

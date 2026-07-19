@@ -1861,7 +1861,9 @@
         "claims": "Claim Requests",
         "reports": "Reports",
         "brands": "Brand Catalog",
-        "quality": "Quality Dashboard"
+        "quality": "Quality Dashboard",
+        "newsletter": "Newsletter",
+        "settings": "Settings"
       }
     },
     "dashboard": {
