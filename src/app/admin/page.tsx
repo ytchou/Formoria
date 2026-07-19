@@ -1,7 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import {
   approveClaimAction,
-  approvePendingEditAction,
   reviewReportAction,
 } from "@/app/admin/actions";
 import { DashboardQueueItem } from "@/components/admin/dashboard-queue-item";
@@ -22,7 +21,6 @@ import {
 } from "@/lib/services/health-checks";
 import { getFlaggedContent } from "@/lib/services/moderation";
 import { getSubscribers, getSubscriberStats } from "@/lib/services/newsletter";
-import { getPendingEdits } from "@/lib/services/pending-edits";
 import { getPendingReports } from "@/lib/services/reports";
 import { getSubmissionsForReview } from "@/lib/services/submissions";
 import { createServiceClient } from "@/lib/supabase/server";
@@ -74,7 +72,6 @@ async function getNewsletterDashboardData() {
 export default async function AdminPage() {
   const [
     submissions,
-    pendingEdits,
     claimRequests,
     reports,
     flaggedContentResult,
@@ -85,7 +82,6 @@ export default async function AdminPage() {
     t,
   ] = await Promise.all([
     getSubmissionsForReview().catch(() => []),
-    getPendingEdits("pending", { limit: 5 }).catch(() => []),
     listClaimRequests("pending", { limit: 5 }).catch(() => []),
     getPendingReports({ limit: 5 }).catch(() => []),
     getFlaggedContent({ status: "pending", limit: 5 }).catch(() => ({
@@ -124,20 +120,6 @@ export default async function AdminPage() {
   );
 
   const queues: ReviewQueue[] = [
-    {
-      key: "edits",
-      title: t("queues.edits.title"),
-      count: pendingEdits.length,
-      href: "/admin/edits",
-      emptyMessage: t("queues.edits.empty"),
-      items: pendingEdits.map((edit) => ({
-        id: edit.id,
-        label: edit.brand.name || edit.brandId,
-        sublabel: edit.brand.contactEmail ?? edit.submittedBy,
-        date: formatQueueDate(edit.createdAt),
-        action: approvePendingEditAction.bind(null, edit.id),
-      })),
-    },
     {
       key: "claims",
       title: t("queues.claims.title"),

@@ -26,11 +26,6 @@ vi.mock('../dashboard-tab-nav', () => ({
     <nav data-testid="tab-nav">Tabs for: {brandSlug}</nav>
   ),
 }))
-vi.mock('@/components/brands/edit-review-banner', () => ({
-  EditReviewBanner: ({ brandSlug }: { brandSlug: string }) => (
-    <div data-testid="review-banner">{brandSlug}</div>
-  ),
-}))
 
 import { BrandDashboardShell } from '../brand-dashboard-shell'
 
@@ -40,7 +35,6 @@ describe('BrandDashboardShell', () => {
       await BrandDashboardShell({
         brandName: 'Warmwood Living',
         brandSlug: 'warmwood-living',
-        latestReview: null,
         children: <div>dashboard content</div>,
       }),
     )
@@ -62,29 +56,4 @@ describe('BrandDashboardShell', () => {
     expect(screen.getByText('dashboard content')).toBeInTheDocument()
   })
 
-  it('renders the review banner inside the page shell when present', async () => {
-    render(
-      await BrandDashboardShell({
-        brandName: 'Warmwood Living',
-        brandSlug: 'warmwood-living',
-        latestReview: {
-          id: 'review-1',
-          brandId: 'brand-1',
-          createdAt: '2026-01-01',
-          proposedData: {},
-          reviewerNotes: null,
-          reviewedAt: null,
-          reviewedBy: null,
-          submittedBy: 'user-1',
-          status: 'pending',
-          updatedAt: '2026-01-01',
-        },
-        children: <div>dashboard content</div>,
-      }),
-    )
-
-    expect(screen.getByTestId('review-banner')).toHaveTextContent(
-      'warmwood-living',
-    )
-  })
 })

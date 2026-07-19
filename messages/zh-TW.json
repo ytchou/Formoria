@@ -1354,7 +1354,10 @@
       "mitStoryHint": "若有填寫會顯示在品牌頁面上",
       "cityHint": "填寫後品牌會顯示在地圖上",
       "fieldPriceRangeHint": "用於篩選",
-      "unsavedChanges": "有未儲存的變更"
+      "unsavedChanges": "有未儲存的變更",
+      "brandEditPublished": "您的編輯已上線！",
+      "violationSummary": "部分欄位需要修改後才能發布。",
+      "slugChangeBlocked": "品牌網址基於此名稱。如需更改，請聯繫我們。"
     },
     "brandProfile": {
       "productPhotos": "產品照片",
@@ -1855,7 +1858,6 @@
         "submissions": "品牌提交",
         "jobs": "資料任務",
         "moderation": "內容審核",
-        "edits": "品牌編輯",
         "claims": "認領申請",
         "reports": "檢舉",
         "brands": "品牌目錄",
@@ -1885,10 +1887,6 @@
         "flaggedContentDesc": "內容審核佇列中的標記數量"
       },
       "queues": {
-        "edits": {
-          "title": "品牌編輯",
-          "empty": "無待審品牌編輯。"
-        },
         "claims": {
           "title": "品牌認領",
           "empty": "無待審品牌認領。"
@@ -1899,17 +1897,6 @@
         }
       },
       "noDate": "無日期"
-    },
-    "pendingEdits": {
-      "title": "品牌編輯審核",
-      "submittedForReview": "您的編輯已提交審核",
-      "brandEditSubmittedForReview": "您的編輯已提交審核",
-      "pending": "審核中",
-      "pendingMessage": "您的編輯正在審核中",
-      "approved": "編輯已通過並上線",
-      "rejected": "編輯需要修改",
-      "resubmit": "重新編輯",
-      "close": "關閉"
     },
     "enrichment": {
       "complete": "資料抓取完成：{success} 筆成功、{skipped} 筆略過、{failed} 筆失敗"

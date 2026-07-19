@@ -87,12 +87,20 @@ export function buildReportRecord(input: {
   brandId: string
   reason: ReportReason
   notes?: string | null
+  reportedField?: string | null
   userId?: string
-}): { brand_id: string; reason: ReportReason; notes: string | null; user_id: string | null } {
+}): {
+  brand_id: string
+  reason: ReportReason
+  notes: string | null
+  reported_field: string | null
+  user_id: string | null
+} {
   return {
     brand_id: input.brandId,
     reason: input.reason,
     notes: input.notes ?? null,
+    reported_field: input.reportedField ?? null,
     user_id: input.userId ?? null,
   }
 }
@@ -101,6 +109,7 @@ export async function createReport(input: {
   brandId: string
   reason: ReportReason
   notes?: string | null
+  reportedField?: string | null
   userId?: string
 }): Promise<void> {
   const { createServiceClient } = await import('@/lib/supabase/server')

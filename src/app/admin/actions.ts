@@ -15,11 +15,6 @@ import {
   getClaimRequest,
   rejectClaimRequest,
 } from '@/lib/services/claim-requests'
-import {
-  approvePendingEdit,
-  getPendingEditForReview,
-  rejectPendingEdit,
-} from '@/lib/services/pending-edits'
 import { verifyMitByCert } from '@/lib/services/mit-verification'
 import {
   deleteBrand,
@@ -28,7 +23,6 @@ import {
   updateBrand,
 } from '@/lib/services/brands'
 import {
-  getBrandOwnerEmail,
   getUserBrandByEmail,
   revokeOwnership,
 } from '@/lib/services/brand-owners'
@@ -40,8 +34,6 @@ import {
   buildClaimEmail,
   buildClaimApprovedEmail,
   buildClaimRejectedEmail,
-  buildEditApprovedEmail,
-  buildEditRejectedEmail,
   buildOwnershipRevokedEmail,
 } from '@/lib/email/templates'
 import { createEmailPreferences } from '@/lib/services/email-lifecycle'
@@ -52,18 +44,6 @@ import { FEATURE_FLAGS, setAppSetting } from '@/lib/services/app-settings'
 import { DENIAL_REASONS, type DenialReason, type OtherUrl } from '@/lib/types'
 import { getSiteUrl } from '@/lib/site-url'
 import { revalidatePublicBrand } from '@/lib/cache/public-brand-cache'
-
-async function getPendingEditEmailContext(
-  editId: string
-): Promise<{ brandId: string; brandName: string; ownerEmail: string | null }> {
-  const edit = await getPendingEditForReview(editId)
-
-  return {
-    brandId: edit.brandId,
-    brandName: edit.brandName,
-    ownerEmail: await getBrandOwnerEmail(edit.brandId),
-  }
-}
 
 export async function approveSubmissionAction(
   submissionId: string
@@ -269,90 +249,6 @@ export async function rejectClaimAction(
   }
 }
 
-export async function approvePendingEditAction(
-  editId: string
-): Promise<{ error: string } | undefined> {
-  try {
-    const auth = await requireAdminAction()
-    if ('error' in auth) return auth
-
-    const edit = await getPendingEditEmailContext(editId)
-    const previousBrand = await getBrandById(edit.brandId)
-    await approvePendingEdit(editId, auth.user.id)
-    const updatedBrand = await getBrandById(edit.brandId)
-
-    try {
-      await markFlagsReviewed(edit.brandId)
-    } catch (err) {
-      console.error('[admin] markFlagsReviewed failed:', err)
-    }
-
-    try {
-      if (edit.ownerEmail && edit.brandName) {
-        const locale = await getOwnerLocale(edit.brandId)
-        await sendEmail(await buildEditApprovedEmail({
-          brandName: edit.brandName,
-          ownerEmail: edit.ownerEmail,
-          locale,
-        }))
-      }
-    } catch (err) {
-      console.error('[edit-approved-email] send failed', err)
-    }
-
-    revalidatePath('/admin/edits')
-    revalidatePath('/admin')
-    revalidatePublicBrand({
-      slug: updatedBrand.slug,
-      previousSlug: previousBrand.slug,
-    })
-
-    return undefined
-  } catch (err) {
-    console.error('[admin:approvePendingEditAction]', err)
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
-    }
-  }
-}
-
-export async function rejectPendingEditAction(
-  editId: string,
-  notes?: string
-): Promise<{ error: string } | undefined> {
-  try {
-    const auth = await requireAdminAction()
-    if ('error' in auth) return auth
-
-    const edit = await getPendingEditEmailContext(editId)
-    await rejectPendingEdit(editId, auth.user.id, notes)
-
-    try {
-      if (edit.ownerEmail && edit.brandName) {
-        const locale = await getOwnerLocale(edit.brandId)
-        await sendEmail(await buildEditRejectedEmail({
-          brandName: edit.brandName,
-          ownerEmail: edit.ownerEmail,
-          notes,
-          locale,
-        }))
-      }
-    } catch (err) {
-      console.error('[edit-rejected-email] send failed', err)
-    }
-
-    revalidatePath('/admin/edits')
-    revalidatePath('/admin')
-
-    return undefined
-  } catch (err) {
-    console.error('[admin:rejectPendingEditAction]', err)
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
-    }
-  }
-}
-
 export async function updateBrandAction(
   brandId: string,
   data: {
@@ -394,25 +290,22 @@ export async function updateBrandAction(
       purchasePinkoi,
       purchaseShopee,
     } = data
-    const moderationPayload = {
-      fields: {
-        name,
-        description,
-        website,
-        purchaseUrl,
-        socialInstagram: socialInstagram ?? undefined,
-        socialThreads: socialThreads ?? undefined,
-        socialFacebook: socialFacebook ?? undefined,
-        purchaseWebsite: purchaseWebsite ?? undefined,
-        purchasePinkoi: purchasePinkoi ?? undefined,
-        purchaseShopee: purchaseShopee ?? undefined,
-      },
-      brandName: name ?? '',
+    const moderationFields = {
+      name,
+      description,
+      website,
+      purchaseUrl,
+      socialInstagram: socialInstagram ?? undefined,
+      socialThreads: socialThreads ?? undefined,
+      socialFacebook: socialFacebook ?? undefined,
+      purchaseWebsite: purchaseWebsite ?? undefined,
+      purchasePinkoi: purchasePinkoi ?? undefined,
+      purchaseShopee: purchaseShopee ?? undefined,
     }
-    const moderationResult = scanContent(moderationPayload)
-    if (moderationResult.flags.length > 0) {
+    const { violations } = scanContent(name ?? '', moderationFields)
+    if (violations.length > 0) {
       try {
-        await saveModerationFlags(brandId, auth.user.id, moderationResult.flags)
+        await saveModerationFlags(brandId, auth.user.id, violations)
         await markFlagsReviewed(brandId)
       } catch (err) {
         console.error('[admin] moderation audit failed:', err)

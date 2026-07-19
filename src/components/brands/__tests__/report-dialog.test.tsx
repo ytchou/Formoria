@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import zh from '../../../../messages/zh-TW.json'
+
+const dispatchReportAction = vi.hoisted(() => vi.fn())
 
 // Mock server action
 vi.mock('@/app/[locale]/brands/[slug]/actions', () => ({
@@ -23,7 +25,7 @@ vi.mock('react', async (importOriginal) => {
     ...actual,
     useActionState: vi.fn((_action: unknown, initialState: unknown) => [
       initialState,
-      vi.fn(),
+      dispatchReportAction,
       false,
     ]),
   }
@@ -43,6 +45,7 @@ function renderWithIntl(ui: React.ReactElement) {
 describe('ReportDialog', () => {
   beforeEach(() => {
     window.localStorage.clear()
+    dispatchReportAction.mockClear()
     ;(useUser as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       user: { id: 'user-uuid-9' },
       loading: false,
@@ -68,6 +71,30 @@ describe('ReportDialog', () => {
     expect(screen.getByRole('button', { name: /要求移除品牌頁/i })).toBeInTheDocument()
     expect(screen.getByText('品牌所有權相關問題')).toBeInTheDocument()
     expect(screen.getByText('請求移除此品牌頁面')).toBeInTheDocument()
+  })
+
+  it('renders an optional field picker', async () => {
+    const user = userEvent.setup()
+    renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
+
+    await user.click(screen.getByRole('button', { name: /檢舉/i }))
+
+    expect(screen.getByRole('combobox')).toHaveAttribute('name', 'reportedField')
+  })
+
+  it('includes reportedField in form submission', async () => {
+    const user = userEvent.setup()
+    renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
+
+    await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await user.click(screen.getByRole('button', { name: /連結失效/i }))
+    await user.selectOptions(screen.getByRole('combobox'), 'website')
+    await user.click(screen.getByRole('button', { name: /送出檢舉/i }))
+
+    await waitFor(() => expect(dispatchReportAction).toHaveBeenCalledOnce())
+    const submittedFormData = dispatchReportAction.mock.calls[0]?.[0]
+    expect(submittedFormData).toBeInstanceOf(FormData)
+    expect(submittedFormData.get('reportedField')).toBe('website')
   })
 
   it('uses the wider dialog shell and counts supplemental notes', async () => {

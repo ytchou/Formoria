@@ -5,12 +5,10 @@ import { redirect } from 'next/navigation'
 import { getLocale, getTranslations } from 'next-intl/server'
 import { localizePath } from '@/i18n/locale-preference'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
-import { createPendingEdit } from '@/lib/services/pending-edits'
-import {
-  scanContent,
-  shouldAutoApprove,
-  saveModerationFlags,
-} from '@/lib/services/moderation'
+import { scanContent, saveModerationFlags } from '@/lib/services/moderation'
+import type { ContentViolation } from '@/lib/services/moderation'
+import { buildViolationAdminNotificationEmail } from '@/lib/email/templates'
+import { sendEmail } from '@/lib/email/send'
 import {
   insertBrandImage,
   rejectBrandImages,
@@ -36,7 +34,6 @@ import {
   setBrandOnboardingStepStatus,
 } from '@/lib/services/brand-onboarding'
 import type { Brand } from '@/lib/types'
-import type { ModerationResult } from '@/lib/services/moderation'
 import {
   InvalidBrandEditFormError,
   parseBrandEditForm,
@@ -51,6 +48,7 @@ type ActionState =
       message?: string
       error?: string
       fieldErrors?: Record<string, string>
+      violations?: ContentViolation[]
     }
   | undefined
 
@@ -96,22 +94,6 @@ function imageUrlsFromSnapshot(
         )
       : []),
   ].filter((url): url is string => Boolean(url))
-}
-
-async function saveModerationFlagsQuietly(
-  brandId: string,
-  userId: string,
-  moderationResult: ModerationResult,
-): Promise<void> {
-  if (moderationResult.flags.length === 0) {
-    return
-  }
-
-  try {
-    await saveModerationFlags(brandId, userId, moderationResult.flags)
-  } catch (error) {
-    console.error('[brand:moderation] saveModerationFlags failed:', error)
-  }
 }
 
 async function syncOwnerUploadedImages(
@@ -172,7 +154,7 @@ async function applyBrandUpdate(
   return updatedBrand
 }
 
-function requestsReviewedSlugChange(
+function detectsSlugChange(
   brand: Pick<Brand, 'slug'>,
   proposedData: Record<string, unknown>,
 ): boolean {
@@ -211,46 +193,62 @@ export async function updateBrandAction(
 
     const updateData = parseBrandEditForm(formData)
     const proposedData = updateData as Record<string, unknown>
-    const moderationResult = scanContent(
-      buildModerationPayload(proposedData, brand.name),
-    )
-    if (moderationResult.riskLevel === 'high') {
-      return { error: t('unknown') }
-    }
 
     if (!configuredAdmin) {
-      const autoApprove =
-        !requestsReviewedSlugChange(brand, proposedData) &&
-        moderationResult.flags.length === 0
-          ? await shouldAutoApprove(moderationResult, user.id)
-          : false
-
-      if (autoApprove) {
-        const updatedBrand = await applyBrandUpdate(brand, updateData, {
-          syncOwnerImages: owner,
-        })
-        redirectSlug = updatedBrand.slug
-        await completeOnboardingAfterOwnerSubmit(
-          formData,
-          brand.id,
-          user.id,
-          owner,
-        )
-      } else {
-        await createPendingEdit(
-          brand.id,
-          user.id,
-          updateData as Record<string, unknown>,
-        )
-        await saveModerationFlagsQuietly(brand.id, user.id, moderationResult)
-        await completeOnboardingAfterOwnerSubmit(
-          formData,
-          brand.id,
-          user.id,
-          owner,
-        )
-        return { success: true, message: 'brandEditSubmittedForReview' }
+      if (detectsSlugChange(brand, proposedData)) {
+        return { error: t('slugChangeBlocked') }
       }
+
+      const {
+        brandName: moderationBrandName,
+        fields: moderationFields,
+      } = buildModerationPayload(proposedData, brand.name)
+      const { violations } = scanContent(
+        moderationBrandName,
+        moderationFields,
+      )
+      if (violations.length > 0) {
+        try {
+          await saveModerationFlags(
+            brand.id,
+            user.id,
+            violations,
+            'auto_rejected',
+          )
+        } catch (err) {
+          console.error('[brand:moderation] saveModerationFlags failed:', err)
+        }
+
+        try {
+          const email = await buildViolationAdminNotificationEmail({
+            brandName: brand.name,
+            ownerEmail: user.email ?? 'unknown',
+            violations,
+          })
+          await sendEmail(email)
+        } catch (err) {
+          console.error('[brand:moderation] admin notification failed:', err)
+        }
+
+        await completeOnboardingAfterOwnerSubmit(
+          formData,
+          brand.id,
+          user.id,
+          owner,
+        )
+        return { violations }
+      }
+
+      const updatedBrand = await applyBrandUpdate(brand, updateData, {
+        syncOwnerImages: owner,
+      })
+      redirectSlug = updatedBrand.slug
+      await completeOnboardingAfterOwnerSubmit(
+        formData,
+        brand.id,
+        user.id,
+        owner,
+      )
     } else {
       const updatedBrand = await applyBrandUpdate(brand, updateData, {
         syncOwnerImages: owner,
@@ -317,63 +315,94 @@ export async function publishDraftAction(
     }
 
     const draftPartial = snapshot
-    const moderationResult = scanContent(
-      buildModerationPayload(draftPartial, brand.name),
-    )
-    if (moderationResult.riskLevel === 'high') {
-      return { error: t('unknown') }
-    }
 
     if (!configuredAdmin) {
-      const autoApprove =
-        !requestsReviewedSlugChange(brand, draftPartial) &&
-        moderationResult.flags.length === 0
-          ? await shouldAutoApprove(moderationResult, user.id)
-          : false
+      if (detectsSlugChange(brand, draftPartial)) {
+        return { error: t('slugChangeBlocked') }
+      }
 
-      if (autoApprove) {
-        const nextImageUrls = imageUrlsFromBrand({
-          heroImageUrl:
-            'heroImageUrl' in snapshot
-              ? typeof snapshot.heroImageUrl === 'string'
-                ? snapshot.heroImageUrl
-                : null
-              : brand.heroImageUrl,
-          productPhotos:
-            'productPhotos' in snapshot
-              ? Array.isArray(snapshot.productPhotos)
-                ? snapshot.productPhotos.filter(
-                    (url): url is string => typeof url === 'string',
-                  )
-                : []
-              : brand.productPhotos,
-        })
-        const orphans = diffRemovedImageUrls(
+      const {
+        brandName: moderationBrandName,
+        fields: moderationFields,
+      } = buildModerationPayload(draftPartial, brand.name)
+      const { violations } = scanContent(
+        moderationBrandName,
+        moderationFields,
+      )
+      if (violations.length > 0) {
+        try {
+          await saveModerationFlags(
+            brand.id,
+            user.id,
+            violations,
+            'auto_rejected',
+          )
+        } catch (err) {
+          console.error('[brand:moderation] saveModerationFlags failed:', err)
+        }
+
+        try {
+          const email = await buildViolationAdminNotificationEmail({
+            brandName: brand.name,
+            ownerEmail: user.email ?? 'unknown',
+            violations,
+          })
+          await sendEmail(email)
+        } catch (err) {
+          console.error('[brand:moderation] admin notification failed:', err)
+        }
+
+        await completeOnboardingAfterOwnerSubmit(
+          formData,
+          brand.id,
+          user.id,
+          owner,
+        )
+        return { violations }
+      }
+
+      const nextImageUrls = imageUrlsFromBrand({
+        heroImageUrl:
+          'heroImageUrl' in snapshot
+            ? typeof snapshot.heroImageUrl === 'string'
+              ? snapshot.heroImageUrl
+              : null
+            : brand.heroImageUrl,
+        productPhotos:
+          'productPhotos' in snapshot
+            ? Array.isArray(snapshot.productPhotos)
+              ? snapshot.productPhotos.filter(
+                  (url): url is string => typeof url === 'string',
+                )
+              : []
+            : brand.productPhotos,
+      })
+      const orphans = diffRemovedImageUrls(
+        imageUrlsFromBrand(brand),
+        nextImageUrls,
+      )
+      const publishedBrand = await publishDraft(brand.id)
+      redirectSlug = publishedBrand.slug
+      if (owner) {
+        await syncOwnerUploadedImages(
+          brand.id,
           imageUrlsFromBrand(brand),
           nextImageUrls,
         )
-        const publishedBrand = await publishDraft(brand.id)
-        redirectSlug = publishedBrand.slug
-        if (owner) {
-          await syncOwnerUploadedImages(
-            brand.id,
-            imageUrlsFromBrand(brand),
-            nextImageUrls,
-          )
-        }
-        await deleteBrandImages(orphans)
-
-        revalidatePublicBrand({
-          slug: publishedBrand.slug,
-          previousSlug: brand.slug,
-        })
-        revalidatePath('/dashboard')
-      } else {
-        await createPendingEdit(brand.id, user.id, draftPartial)
-        await saveModerationFlagsQuietly(brand.id, user.id, moderationResult)
-        await discardDraft(brand.id)
-        return { success: true, message: 'brandEditSubmittedForReview' }
       }
+      await deleteBrandImages(orphans)
+
+      revalidatePublicBrand({
+        slug: publishedBrand.slug,
+        previousSlug: brand.slug,
+      })
+      revalidatePath('/dashboard')
+      await completeOnboardingAfterOwnerSubmit(
+        formData,
+        brand.id,
+        user.id,
+        owner,
+      )
     } else {
       const nextImageUrls = imageUrlsFromBrand({
         heroImageUrl:

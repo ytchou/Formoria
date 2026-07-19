@@ -80,7 +80,6 @@ vi.mock('@/lib/services/brands', () => ({
 }))
 
 vi.mock('@/lib/services/brand-owners', () => ({
-  getBrandOwnerEmail: vi.fn().mockResolvedValue('owner@example.com'),
   getUserBrandByEmail: vi.fn().mockResolvedValue(null),
   revokeOwnership: vi.fn(),
 }))
@@ -102,16 +101,6 @@ vi.mock('@/lib/services/claim-requests', () => ({
   getClaimRequest: vi.fn(),
   approveClaimRequest: vi.fn().mockResolvedValue(undefined),
   rejectClaimRequest: vi.fn().mockResolvedValue(undefined),
-}))
-
-vi.mock('@/lib/services/pending-edits', () => ({
-  getPendingEdit: vi.fn(),
-  getPendingEditForReview: vi.fn().mockResolvedValue({
-    brandId: 'brand-1',
-    brandName: 'Test Brand',
-  }),
-  approvePendingEdit: vi.fn().mockResolvedValue(undefined),
-  rejectPendingEdit: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('@/lib/services/mit-verification', () => ({
@@ -153,8 +142,6 @@ vi.mock('@/lib/email/templates', () => ({
   buildClaimEmail: vi.fn(),
   buildClaimApprovedEmail: vi.fn(),
   buildClaimRejectedEmail: vi.fn(),
-  buildEditApprovedEmail: vi.fn(),
-  buildEditRejectedEmail: vi.fn(),
   buildOwnershipRevokedEmail: vi.fn(),
 }))
 
@@ -184,8 +171,6 @@ describe('admin actions module', () => {
     expect(typeof mod.hideBrandAction).toBe('function')
     expect(typeof mod.unhideBrandAction).toBe('function')
     expect(typeof mod.deleteBrandAction).toBe('function')
-    expect(typeof mod.approvePendingEditAction).toBe('function')
-    expect(typeof mod.rejectPendingEditAction).toBe('function')
   })
 })
 
@@ -260,87 +245,6 @@ describe('approveClaimAction', () => {
     expect(buildClaimApprovedEmail).toHaveBeenCalledWith(
       expect.objectContaining({ locale: 'en' }),
     )
-  })
-})
-
-describe('pending edit admin actions', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('approves a pending edit with the admin id', async () => {
-    const { approvePendingEdit, getPendingEditForReview } = await import('@/lib/services/pending-edits')
-    const { sendEmail } = await import('@/lib/email/send')
-    const { buildEditApprovedEmail } = await import('@/lib/email/templates')
-    const message = { to: 'owner@example.com', from: 'ops@formoria.com', subject: 'approved', html: '' }
-    vi.mocked(buildEditApprovedEmail).mockResolvedValue(message)
-
-    const { approvePendingEditAction } = await import('./actions')
-    const result = await approvePendingEditAction('edit-1')
-
-    expect(result).toBeUndefined()
-    expect(getPendingEditForReview).toHaveBeenCalledWith('edit-1')
-    expect(approvePendingEdit).toHaveBeenCalledWith('edit-1', 'admin-1')
-    expect(buildEditApprovedEmail).toHaveBeenCalledWith({
-      brandName: 'Test Brand',
-      ownerEmail: 'owner@example.com',
-      locale: 'zh-TW',
-    })
-    expect(sendEmail).toHaveBeenCalledWith(message)
-  })
-
-  it('approvePendingEditAction calls markFlagsReviewed with brandId', async () => {
-    const { markFlagsReviewed } = await import('@/lib/services/moderation')
-
-    const { approvePendingEditAction } = await import('./actions')
-    const result = await approvePendingEditAction('edit-1')
-
-    expect(result).toBeUndefined()
-    expect(markFlagsReviewed).toHaveBeenCalledWith('brand-1')
-  })
-
-  it('rejects a pending edit with the admin id and notes', async () => {
-    const { rejectPendingEdit, getPendingEditForReview } = await import('@/lib/services/pending-edits')
-    const { sendEmail } = await import('@/lib/email/send')
-    const { buildEditRejectedEmail } = await import('@/lib/email/templates')
-    const message = { to: 'owner@example.com', from: 'ops@formoria.com', subject: 'rejected', html: '' }
-    vi.mocked(buildEditRejectedEmail).mockResolvedValue(message)
-
-    const { rejectPendingEditAction } = await import('./actions')
-    const result = await rejectPendingEditAction('edit-1', 'Please add clearer product details')
-
-    expect(result).toBeUndefined()
-    expect(getPendingEditForReview).toHaveBeenCalledWith('edit-1')
-    expect(rejectPendingEdit).toHaveBeenCalledWith('edit-1', 'admin-1', 'Please add clearer product details')
-    expect(buildEditRejectedEmail).toHaveBeenCalledWith({
-      brandName: 'Test Brand',
-      ownerEmail: 'owner@example.com',
-      notes: 'Please add clearer product details',
-      locale: 'zh-TW',
-    })
-    expect(sendEmail).toHaveBeenCalledWith(message)
-  })
-})
-
-describe('pending edit email templates', () => {
-  it('builds an approved email with the brand name in the subject and html', async () => {
-    const { buildEditApprovedEmail } =
-      await vi.importActual<typeof import('@/lib/email/templates')>('@/lib/email/templates')
-
-    const email = await buildEditApprovedEmail('Formosa Bikes', 'owner@example.com')
-
-    expect(email.to).toBe('owner@example.com')
-    expect(email.subject).toContain('Formosa Bikes')
-    expect(email.html).toContain('Formosa Bikes')
-  })
-
-  it('builds a rejected email with reviewer notes in the html', async () => {
-    const { buildEditRejectedEmail } =
-      await vi.importActual<typeof import('@/lib/email/templates')>('@/lib/email/templates')
-
-    const email = await buildEditRejectedEmail('Formosa Bikes', 'owner@example.com', 'Please clarify factory location')
-
-    expect(email.html).toContain('Please clarify factory location')
   })
 })
 
@@ -426,13 +330,13 @@ describe('updateBrandAction moderation audit', () => {
     vi.clearAllMocks()
   })
 
-  it('updateBrandAction (admin edit) calls scanContent and saveModerationFlags when flags exist, then markFlagsReviewed', async () => {
+  it('updateBrandAction (admin edit) calls scanContent and saveModerationFlags when violations exist, then markFlagsReviewed', async () => {
     const { updateBrand } = await import('@/lib/services/brands')
     const { scanContent, saveModerationFlags, markFlagsReviewed } = await import('@/lib/services/moderation')
-    const flags = [
-      { type: 'profanity', severity: 'medium', field: 'description', value: 'bad word' },
-    ] as unknown as ReturnType<typeof scanContent>['flags']
-    vi.mocked(scanContent).mockReturnValue({ riskLevel: 'medium', flags })
+    const violations = [
+      { field: 'description', rule: 'contact_injection_phone', userMessage: 'Phone detected' },
+    ]
+    vi.mocked(scanContent).mockReturnValue({ violations })
 
     const { updateBrandAction } = await import('./actions')
     const result = await updateBrandAction('brand-1', {
@@ -447,16 +351,19 @@ describe('updateBrandAction moderation audit', () => {
       description: 'bad word',
       category: 'apparel',
     })
-    expect(scanContent).toHaveBeenCalledWith({
-      fields: {
-        name: 'Test Brand',
-        description: 'bad word',
-        website: undefined,
-        purchaseUrl: undefined,
-      },
-      brandName: 'Test Brand',
+    expect(scanContent).toHaveBeenCalledWith('Test Brand', {
+      name: 'Test Brand',
+      description: 'bad word',
+      website: undefined,
+      purchaseUrl: undefined,
+      socialInstagram: undefined,
+      socialThreads: undefined,
+      socialFacebook: undefined,
+      purchaseWebsite: undefined,
+      purchasePinkoi: undefined,
+      purchaseShopee: undefined,
     })
-    expect(saveModerationFlags).toHaveBeenCalledWith('brand-1', 'admin-1', flags)
+    expect(saveModerationFlags).toHaveBeenCalledWith('brand-1', 'admin-1', violations)
     expect(markFlagsReviewed).toHaveBeenCalledWith('brand-1')
   })
 })

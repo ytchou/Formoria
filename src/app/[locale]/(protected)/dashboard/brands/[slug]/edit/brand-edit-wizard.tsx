@@ -17,6 +17,7 @@ import {
 import { saveSectionDraftAction } from '@/lib/actions/brand-edit-wizard'
 import { publishDraftAction } from '@/app/[locale]/(protected)/dashboard/brands/[slug]/actions'
 import { useWizardController } from '@/components/brand-wizard/use-wizard-controller'
+import type { ContentViolation } from '@/lib/services/moderation'
 import type { Brand } from '@/lib/types'
 
 import { DirtyFieldsContext } from '@/components/brand-wizard/dirty-fields-context'
@@ -52,6 +53,11 @@ const FIELD_STEPS: Partial<Record<keyof BrandEditFormValues, number>> = {
   heroImageUrl: 1,
   productPhotos: 1,
   purchaseWebsite: 2,
+}
+
+const SCAN_FIELD_TO_FORM_FIELD: Record<string, keyof BrandEditFormValues> = {
+  website: 'purchaseWebsite',
+  purchaseUrl: 'purchaseWebsite',
 }
 
 const STEP_VALIDATION_FIELDS: Partial<
@@ -208,6 +214,22 @@ export function BrandEditWizard({
       const formData = new FormData()
       formData.set('brandSlug', brand.slug)
       const publishResult = await publishDraftAction(undefined, formData)
+      if (publishResult?.violations && publishResult.violations.length > 0) {
+        for (const violation of publishResult.violations as ContentViolation[]) {
+          const formField = SCAN_FIELD_TO_FORM_FIELD[violation.field] ?? violation.field as keyof BrandEditFormValues
+          form.setError(formField, {
+            type: 'server',
+            message: violation.userMessage,
+          })
+        }
+        const firstViolation = publishResult.violations[0]
+        const firstField = SCAN_FIELD_TO_FORM_FIELD[firstViolation.field] ?? firstViolation.field as keyof BrandEditFormValues
+        if (firstField && FIELD_STEPS[firstField] !== undefined) {
+          navigateTo(FIELD_STEPS[firstField]!)
+        }
+        toast.error(t('violationSummary'))
+        return
+      }
       if (publishResult?.error) {
         toast.error(publishResult.error)
       }

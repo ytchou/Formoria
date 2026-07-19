@@ -215,6 +215,11 @@ export async function submitReportAction(_prevState: ReportState, formData: Form
       return { error: t('notesTooLong') }
     }
 
+    const reportedFieldRaw = formData.get('reportedField')
+    const reportedField = typeof reportedFieldRaw === 'string'
+      ? reportedFieldRaw.trim() || undefined
+      : undefined
+
     const h = await headers()
     const ip = h.get('cf-connecting-ip') ?? h.get('x-forwarded-for')?.split(',')[0].trim() ?? h.get('x-real-ip') ?? 'unknown'
 
@@ -227,6 +232,7 @@ export async function submitReportAction(_prevState: ReportState, formData: Form
       brandId,
       reason,
       notes,
+      ...(reportedField ? { reportedField } : {}),
       ...(userId ? { userId } : {}),
     })
     revalidatePath('/admin/reports')

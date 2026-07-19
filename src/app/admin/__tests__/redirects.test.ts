@@ -21,18 +21,6 @@ describe('old route redirect stubs', () => {
     expect(mockRedirect).toHaveBeenCalledWith('/admin/moderation')
   })
 
-  it('/admin/review-queue/edits redirects to /admin/edits', async () => {
-    const { default: Page } = await import('../review-queue/edits/page')
-    expect(() => Page()).toThrow('REDIRECT')
-    expect(mockRedirect).toHaveBeenCalledWith('/admin/edits')
-  })
-
-  it('/admin/pending-edits redirects to /admin/edits', async () => {
-    const { default: Page } = await import('../pending-edits/page')
-    expect(() => Page()).toThrow('REDIRECT')
-    expect(mockRedirect).toHaveBeenCalledWith('/admin/edits')
-  })
-
   it('/admin/claim-requests redirects to /admin/claims', async () => {
     const { default: Page } = await import('../claim-requests/page')
     expect(() => Page()).toThrow('REDIRECT')
