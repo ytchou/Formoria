@@ -425,6 +425,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
       <aside className="hidden lg:block" aria-label={t('filters.title')}>
         <div className="sticky top-24">
           <BrandFilterSidebar
+            activeFilters={activeFilters}
             categories={[...PRODUCT_TYPE_CATEGORIES]}
             subcategories={subcategoryOptions}
             activeSubSlugs={activeSubSlugs}
@@ -475,6 +476,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
               </div>
               <div className="mt-3 lg:hidden">
                 <BrandFilterDrawer
+                  activeFilters={activeFilters}
                   categories={[...PRODUCT_TYPE_CATEGORIES]}
                   subcategories={subcategoryOptions}
                   activeSubSlugs={activeSubSlugs}
@@ -492,6 +494,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <BrandFilterDrawer
+                  activeFilters={activeFilters}
                   categories={[...PRODUCT_TYPE_CATEGORIES]}
                   subcategories={subcategoryOptions}
                   activeSubSlugs={activeSubSlugs}

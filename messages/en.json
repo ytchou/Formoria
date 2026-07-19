@@ -151,9 +151,8 @@
       "priceRange": "Price range",
       "brandStatus": "Brand status",
       "brandValues": "Brand values",
-      "appliedCount": "Currently using {count} conditions",
-      "appliedHint": "Brand search and filters apply together",
-      "currentConditions": "Current conditions",
+      "appliedHint": "Select × on a tag to remove that filter.",
+      "currentConditions": "Active filters",
       "brandSearch": "Brand name search",
       "brandSearchHelp": "This search is applied with every active filter",
       "brandSearchLandmark": "Filter by brand name",
@@ -164,11 +163,10 @@
       "activeStatus": "Brand status",
       "removeFilter": "Remove {label}: {value}",
       "clearAll": "Clear all",
-      "clearCategories": "Clear categories",
       "showResults": "Show {count} results"
     },
     "sort": {
-      "random": "Discover",
+      "random": "Random",
       "name": "A-Z",
       "newest": "Newest",
       "year": "Founding Year"

@@ -66,7 +66,8 @@ export function TurnstileWidget({ onSuccess, onError, onExpire }: TurnstileWidge
     <>
       <Script
         src="https://challenges.cloudflare.com/turnstile/v0/api.js"
-        strategy="lazyOnload"
+        strategy="afterInteractive"
+        onError={() => onErrorRef.current?.()}
         onLoad={() => {
           if (!containerRef.current || !window.turnstile || widgetIdRef.current) return
           widgetIdRef.current = window.turnstile.render(containerRef.current, {

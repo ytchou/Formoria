@@ -9,6 +9,7 @@ describe('verifyTurnstileToken', () => {
     process.env.TURNSTILE_SECRET_KEY = 'test-secret-key'
     vi.stubEnv('NODE_ENV', 'test')
     vi.stubEnv('PLAYWRIGHT_TEST', 'false')
+    vi.spyOn(console, 'info').mockImplementation(() => undefined)
   })
 
   afterEach(() => {
@@ -39,6 +40,26 @@ describe('verifyTurnstileToken', () => {
     const result = await verifyTurnstileToken('bad-token')
     expect(result.success).toBe(false)
     expect(result.errorCodes).toContain('invalid-input-response')
+  })
+
+  it('fails closed when Cloudflare returns a non-success HTTP status', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: true }), { status: 503 }),
+    )
+
+    const result = await verifyTurnstileToken('valid-token')
+
+    expect(result.success).toBe(false)
+  })
+
+  it('fails closed when Cloudflare returns a malformed success value', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: 'true' }), { status: 200 }),
+    )
+
+    const result = await verifyTurnstileToken('valid-token')
+
+    expect(result.success).toBe(false)
   })
 
   it('skips verification when TURNSTILE_SECRET_KEY is not set', async () => {
@@ -110,11 +131,45 @@ describe('verifyTurnstileToken', () => {
       expect.objectContaining({
         method: 'POST',
         body: expect.any(URLSearchParams),
+        signal: expect.any(AbortSignal),
       })
     )
     const body = fetchSpy.mock.calls[0][1]?.body as URLSearchParams
     expect(body.get('secret')).toBe('test-secret-key')
     expect(body.get('response')).toBe('test-token')
     expect(body.get('remoteip')).toBe('1.2.3.4')
+  })
+
+  it('audits the redacted request, provider response, latency, and status', async () => {
+    const auditSpy = vi.mocked(console.info)
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ success: false, 'error-codes': ['invalid-input-response'] }),
+        { status: 200 },
+      ),
+    )
+
+    await verifyTurnstileToken('sensitive-token', '1.2.3.4', 'formoria.com')
+
+    expect(auditSpy).toHaveBeenCalledWith(
+      '[turnstile:audit]',
+      expect.objectContaining({
+        request: {
+          tokenLength: 15,
+          remoteIpProvided: true,
+          requestHost: 'formoria.com',
+        },
+        response: {
+          httpStatus: 200,
+          success: false,
+          errorCodes: ['invalid-input-response'],
+        },
+        latencyMs: expect.any(Number),
+        status: 'rejected',
+      }),
+    )
+    expect(JSON.stringify(auditSpy.mock.calls)).not.toContain('sensitive-token')
+    expect(JSON.stringify(auditSpy.mock.calls)).not.toContain('test-secret-key')
+    expect(JSON.stringify(auditSpy.mock.calls)).not.toContain('1.2.3.4')
   })
 })

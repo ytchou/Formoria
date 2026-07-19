@@ -31,6 +31,7 @@ import type {
   SubmissionReviewData,
   SubmissionReviewImage,
 } from "@/lib/services/submissions";
+import { deriveProductTagsEn } from "@/lib/services/product-tags";
 import {
   cleanupSubmissionDraftImagesAction,
   saveSubmissionReviewAction,
@@ -572,7 +573,9 @@ function EditReview({
             value={tagsText}
             onChange={(event) => {
               setTagsText(event.target.value);
-              onUpdate("productTags", parseTags(event.target.value));
+              const tags = parseTags(event.target.value);
+              onUpdate("productTags", tags);
+              onUpdate("productTagsEn", deriveProductTagsEn(tags));
             }}
             placeholder={t("details.tagsPlaceholder")}
           />

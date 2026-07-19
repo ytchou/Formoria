@@ -50,6 +50,7 @@ import {
 } from "./enrich-phases";
 import { buildCandidatePool } from "./enrich-phases/candidate-pool";
 import type { EnrichmentTarget } from "./enrichment-target";
+import { MAX_PRODUCT_TAGS } from "./product-tags";
 import {
   formatBrandComplete,
   formatJobStart,
@@ -393,6 +394,14 @@ function deepMergeJsonObjects(base: JsonObject, patch: JsonObject): JsonObject {
 
   for (const [key, value] of Object.entries(patch)) {
     const existing = merged[key];
+    if (
+      (key === "product_tags" || key === "product_tags_en") &&
+      Array.isArray(value)
+    ) {
+      merged[key] = value.slice(0, MAX_PRODUCT_TAGS);
+      continue;
+    }
+
     if (Array.isArray(existing) && Array.isArray(value)) {
       merged[key] = [...new Set([...existing, ...value])];
       continue;
@@ -405,6 +414,13 @@ function deepMergeJsonObjects(base: JsonObject, patch: JsonObject): JsonObject {
   }
 
   return merged;
+}
+
+export function mergeSubmissionEnrichedData(
+  base: JsonObject,
+  patch: JsonObject,
+): JsonObject {
+  return deepMergeJsonObjects(base, patch);
 }
 
 function uniqueUrls(urls: string[]): string[] {
@@ -697,7 +713,7 @@ export async function persistSubmissionEnrichmentResults(
   }
 
   const existing = (row.enriched_data ?? {}) as Record<string, unknown>;
-  const merged = deepMergeJsonObjects(
+  const merged = mergeSubmissionEnrichedData(
     existing,
     patch as Record<string, unknown>,
   );

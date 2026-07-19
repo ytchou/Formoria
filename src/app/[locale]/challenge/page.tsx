@@ -2,17 +2,24 @@
 
 import { Suspense, useCallback, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { TurnstileWidget } from '@/components/submit/TurnstileWidget'
 
 type ChallengeState = 'idle' | 'verifying' | 'error'
 
+const CHALLENGE_VERIFY_TIMEOUT_MS = 15_000
+
 function ChallengeContent() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const t = useTranslations('challenge')
   const returnTo = searchParams.get('returnTo') ?? '/'
   const [state, setState] = useState<ChallengeState>('idle')
+  const [widgetKey, setWidgetKey] = useState(0)
+
+  const handleVerificationFailure = useCallback(() => {
+    setState('error')
+    setWidgetKey((current) => current + 1)
+  }, [])
 
   const handleSuccess = useCallback(
     async (token: string) => {
@@ -25,20 +32,21 @@ function ChallengeContent() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ token, returnTo }),
+          signal: AbortSignal.timeout(CHALLENGE_VERIFY_TIMEOUT_MS),
         })
 
         if (!response.ok) {
-          setState('error')
+          handleVerificationFailure()
           return
         }
 
         const data = (await response.json()) as { redirectTo?: string }
-        router.push(data.redirectTo ?? '/')
+        window.location.href = data.redirectTo ?? '/'
       } catch {
-        setState('error')
+        handleVerificationFailure()
       }
     },
-    [returnTo, router]
+    [handleVerificationFailure, returnTo]
   )
 
   return (
@@ -72,7 +80,11 @@ function ChallengeContent() {
           {t('description')}
         </p>
         <div style={{ display: 'flex', justifyContent: 'center', minHeight: '65px' }}>
-          <TurnstileWidget onSuccess={handleSuccess} onError={() => setState('error')} />
+          <TurnstileWidget
+            key={widgetKey}
+            onSuccess={handleSuccess}
+            onError={() => setState('error')}
+          />
         </div>
         {state === 'verifying' ? (
           <p style={{ margin: '20px 0 0', color: 'var(--muted-foreground)' }}>{t('verifying')}</p>

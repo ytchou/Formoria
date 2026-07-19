@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BrandFilterSidebar } from "./brand-filter-sidebar";
@@ -25,8 +25,8 @@ vi.mock("next-intl", () => ({
     (namespace: string) =>
     (key: string, values?: Record<string, string | number>) => {
       const messages: Record<string, string> = {
-        "brands.filters.appliedCount": `${values?.count ?? 0} filters applied`,
-        "brands.filters.appliedHint": "Search and filters apply together",
+        "brands.filters.appliedHint":
+          "Select × on a tag to remove that filter.",
         "brands.filters.currentConditions": "Current filters",
         "brands.filters.brandSearch": "Brand name search",
         "brands.filters.brandSearchHelp": "Applied with every active filter",
@@ -38,7 +38,6 @@ vi.mock("next-intl", () => ({
         "brands.filters.activeStatus": "Brand status",
         "brands.filters.removeFilter": `Remove ${values?.label ?? ""} ${values?.value ?? ""}`,
         "brands.filters.clearAll": "Clear all",
-        "brands.filters.clearCategories": "Clear categories",
         "brands.filters.category": "Category",
         "brands.filters.priceRange": "Price range",
         "brands.filters.brandStatus": "Brand status",
@@ -74,11 +73,41 @@ describe("BrandFilterSidebar", () => {
     expect(replace).toHaveBeenCalledWith("/brands?price=2", { scroll: false });
   });
 
-  it("counts active price ranges in the header", () => {
-    query = "price=1%2C3";
+  it("renders active filters as removable chips in the summary band", () => {
+    query = "category=jewelry";
+    render(
+      <BrandFilterSidebar
+        activeFilters={[
+          {
+            id: "category-jewelry",
+            label: "Category",
+            value: "Jewelry",
+            removeHref: "/brands",
+            removeLabel: "Remove Category Jewelry",
+          },
+        ]}
+        categories={[{ slug: "jewelry", name: "Jewelry", nameZh: "飾品珠寶" }]}
+        totalCount={9}
+      />,
+    );
+
+    const summary = screen.getByRole("region", { name: "Current filters" });
+    expect(
+      within(summary).getByRole("link", {
+        name: "Remove Category Jewelry",
+      }),
+    ).toHaveAttribute("href", "/brands");
+    expect(
+      within(summary).getByText("Select × on a tag to remove that filter."),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the active-filter summary when no filters are applied", () => {
     render(<BrandFilterSidebar categories={[]} totalCount={0} />);
 
-    expect(screen.getByText("2 filters applied")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Current filters" }),
+    ).not.toBeInTheDocument();
   });
 
   it("uses the same left-aligned option treatment for categories and status", async () => {
@@ -112,18 +141,6 @@ describe("BrandFilterSidebar", () => {
     expect(statusLabel).toHaveClass("type-card-description");
   });
 
-  it("counts search and category conditions in the header", () => {
-    query = "search=herbs&category=jewelry&sort=name";
-    render(
-      <BrandFilterSidebar
-        totalCount={0}
-        categories={[{ slug: "jewelry", name: "Jewelry", nameZh: "飾品珠寶" }]}
-      />,
-    );
-
-    expect(screen.getByText("2 filters applied")).toBeInTheDocument();
-  });
-
   it("shows the aggregate result count only beside a single selected category", async () => {
     query = "category=jewelry";
     const user = userEvent.setup();
@@ -136,24 +153,6 @@ describe("BrandFilterSidebar", () => {
 
     await user.click(screen.getByRole("button", { name: /Category/ }));
     expect(screen.getByText("0")).toBeInTheDocument();
-  });
-
-  it("clears categories and dependent subcategories while preserving other state", async () => {
-    query = "search=herbs&category=jewelry&sub=earrings&price=2&sort=name";
-    const user = userEvent.setup();
-    render(
-      <BrandFilterSidebar
-        totalCount={0}
-        categories={[{ slug: "jewelry", name: "Jewelry", nameZh: "飾品珠寶" }]}
-      />,
-    );
-
-    await user.click(screen.getByRole("button", { name: "Clear categories" }));
-
-    expect(replace).toHaveBeenCalledWith(
-      "/brands?search=herbs&price=2&sort=name",
-      { scroll: false },
-    );
   });
 
   describe("subcategory chips", () => {
@@ -206,20 +205,6 @@ describe("BrandFilterSidebar", () => {
       expect(
         screen.queryByRole("button", { name: /口金包/ }),
       ).not.toBeInTheDocument();
-    });
-
-    it("counts active subcategories in the header", () => {
-      query = "sub=clasp-frame-bags&sort=name";
-      render(
-        <BrandFilterSidebar
-          totalCount={0}
-          categories={[]}
-          subcategories={subs}
-          activeSubSlugs={["clasp-frame-bags"]}
-        />,
-      );
-
-      expect(screen.getByText("1 filters applied")).toBeInTheDocument();
     });
   });
 });

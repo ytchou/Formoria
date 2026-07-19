@@ -151,9 +151,8 @@
       "priceRange": "價格區間",
       "brandStatus": "品牌狀態",
       "brandValues": "品牌價值",
-      "appliedCount": "目前套用 {count} 個條件",
-      "appliedHint": "品牌名稱搜尋與篩選條件會同時套用",
-      "currentConditions": "目前套用條件",
+      "appliedHint": "點擊標籤上的 × 可移除篩選條件",
+      "currentConditions": "目前套用的篩選",
       "brandSearch": "品牌名稱搜尋",
       "brandSearchHelp": "此搜尋會與所有篩選條件同時套用",
       "brandSearchLandmark": "依品牌名稱篩選",
@@ -164,11 +163,10 @@
       "activeStatus": "品牌狀態",
       "removeFilter": "移除{label}：{value}",
       "clearAll": "清除全部",
-      "clearCategories": "清除分類",
       "showResults": "顯示 {count} 個結果"
     },
     "sort": {
-      "random": "探索",
+      "random": "隨機",
       "name": "A-Z",
       "newest": "最新",
       "year": "創立年份"
