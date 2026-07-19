@@ -10,6 +10,9 @@ import zh from '../../../messages/zh-TW.json'
 
 const mockSetSearch = vi.fn()
 const mockPush = vi.fn()
+const mockTrackSearchExecuted = vi.fn()
+const mockTrackSearchNoResults = vi.fn()
+const mockTrackSearchResultClicked = vi.fn()
 let mockSearch = ''
 vi.mock('@/hooks/use-filter-params', () => ({
   useFilterParams: () => ({
@@ -20,6 +23,12 @@ vi.mock('@/hooks/use-filter-params', () => ({
 
 vi.mock('@/i18n/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
+}))
+
+vi.mock('@/lib/analytics', () => ({
+  trackSearchExecuted: (...args: unknown[]) => mockTrackSearchExecuted(...args),
+  trackSearchNoResults: (...args: unknown[]) => mockTrackSearchNoResults(...args),
+  trackSearchResultClicked: (...args: unknown[]) => mockTrackSearchResultClicked(...args),
 }))
 
 global.fetch = vi.fn().mockResolvedValue({
@@ -110,6 +119,50 @@ describe('SearchInput', () => {
     expect(
       screen.getByRole('search', { name: 'Filter brands by name' }),
     ).toBeInTheDocument()
+  })
+
+  it('does not emit a no-results event for autocomplete', async () => {
+    const user = userEvent.setup()
+    renderWithProvider(<SearchInput />)
+
+    await user.type(screen.getByRole('searchbox'), 'missing')
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled())
+
+    expect(mockTrackSearchNoResults).not.toHaveBeenCalled()
+  })
+
+  it('emits search before search_no_results when a submitted query has no results', async () => {
+    const user = userEvent.setup()
+    renderWithProvider(<SearchInput showAutocomplete={false} />)
+
+    await user.type(screen.getByRole('searchbox'), 'missing')
+    await user.keyboard('{Enter}')
+
+    expect(mockTrackSearchExecuted).toHaveBeenCalledWith('missing', 0)
+    expect(mockTrackSearchNoResults).toHaveBeenCalledWith('missing')
+    expect(mockTrackSearchExecuted.mock.invocationCallOrder[0]).toBeLessThan(
+      mockTrackSearchNoResults.mock.invocationCallOrder[0],
+    )
+  })
+
+  it('emits search before a selected result click', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        results: [{ id: 'brand-1', name: 'Coffee Brand', slug: 'coffee-brand', category: 'Food' }],
+      }),
+    } as Response)
+    const user = userEvent.setup()
+    renderWithProvider(<SearchInput />)
+
+    await user.type(screen.getByRole('searchbox'), 'coffee')
+    await user.click(await screen.findByRole('option', { name: /Coffee Brand/ }))
+
+    expect(mockTrackSearchExecuted).toHaveBeenCalledWith('coffee', 1)
+    expect(mockTrackSearchResultClicked).toHaveBeenCalledWith('coffee', 0)
+    expect(mockTrackSearchExecuted.mock.invocationCallOrder[0]).toBeLessThan(
+      mockTrackSearchResultClicked.mock.invocationCallOrder[0],
+    )
   })
 })
 

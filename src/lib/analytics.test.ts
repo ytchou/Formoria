@@ -2,13 +2,10 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 
 const mockSendGAEvent = vi.fn()
-vi.mock('@next/third-parties/google', () => ({
-  sendGAEvent: (...args: unknown[]) => mockSendGAEvent(...args),
-}))
-
 import * as analytics from './analytics'
 import {
   getContentGroup,
+  isPublicAnalyticsPath,
   getUtmParams,
   persistUtmTouchPoints,
   trackBrandDetailViewed,
@@ -25,7 +22,6 @@ import {
   trackSubmissionCompleted,
   trackSubmissionFormAbandoned,
   trackGalleryPhotoView,
-  trackSessionStart,
   trackBrandPageShared,
   trackSignUp,
   trackLogin,
@@ -34,6 +30,8 @@ import {
 
 beforeEach(() => {
   mockSendGAEvent.mockClear()
+  window.gtag = mockSendGAEvent
+  window.history.replaceState({}, '', '/')
 })
 
 describe('analytics — onboarding events removed', () => {
@@ -115,6 +113,27 @@ describe('getContentGroup', () => {
   it('maps /zh-TW/privacy to other', () => {
     expect(getContentGroup('/zh-TW/privacy')).toBe('other')
   })
+})
+
+describe('isPublicAnalyticsPath', () => {
+  it.each([
+    '/admin',
+    '/admin/reports',
+    '/zh-TW/admin',
+    '/dashboard',
+    '/en/dashboard/brands',
+    '/auth/callback',
+    '/zh-TW/auth/login',
+  ])('rejects protected path %s', (pathname) => {
+    expect(isPublicAnalyticsPath(pathname)).toBe(false)
+  })
+
+  it.each(['/', '/zh-TW', '/en/brands', '/zh-TW/brands/formoria']) (
+    'accepts public path %s',
+    (pathname) => {
+      expect(isPublicAnalyticsPath(pathname)).toBe(true)
+    },
+  )
 })
 
 describe('persistUtmTouchPoints', () => {
@@ -305,20 +324,12 @@ describe('analytics', () => {
     })
   })
 
-  it('trackSessionStart sends session_start with returning info', () => {
-    trackSessionStart(true, 3)
-    expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'session_start', {
-      is_returning: true,
-      days_since_last_visit: 3,
-    })
-  })
+  it('does not send events from protected paths', () => {
+    window.history.replaceState({}, '', '/zh-TW/dashboard/brands')
 
-  it('trackSessionStart sends session_start with null days on first visit', () => {
-    trackSessionStart(false, null)
-    expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'session_start', {
-      is_returning: false,
-      days_since_last_visit: null,
-    })
+    trackBrandDetailViewed('private-brand')
+
+    expect(mockSendGAEvent).not.toHaveBeenCalled()
   })
 
   it('trackBrandPageShared is a stub that does nothing', () => {
@@ -354,7 +365,7 @@ describe('analytics', () => {
     })
   })
 
-  it('does not throw when sendGAEvent fails', () => {
+  it('does not throw when gtag fails', () => {
     mockSendGAEvent.mockImplementation(() => {
       throw new Error('gtag not loaded')
     })

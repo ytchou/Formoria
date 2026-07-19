@@ -1,5 +1,3 @@
-import { sendGAEvent } from '@next/third-parties/google'
-
 const UTM_KEYS = [
   'utm_source',
   'utm_medium',
@@ -11,13 +9,30 @@ const UTM_KEYS = [
 const UTM_FIRST_TOUCH_KEY = 'formoria_utm_first_touch'
 const UTM_LAST_TOUCH_KEY = 'formoria_utm_last_touch'
 
-function safeGAEvent(...args: Parameters<typeof sendGAEvent>) {
+const PROTECTED_ANALYTICS_SEGMENTS = ['/admin', '/dashboard', '/auth'] as const
+
+function stripLocale(pathname: string): string {
+  return pathname.replace(/^\/(?:zh-TW|en)(?=\/|$)/, '') || '/'
+}
+
+export function isPublicAnalyticsPath(pathname: string): boolean {
+  const pathWithoutLocale = stripLocale(pathname)
+
+  return !PROTECTED_ANALYTICS_SEGMENTS.some(
+    (segment) =>
+      pathWithoutLocale === segment || pathWithoutLocale.startsWith(`${segment}/`),
+  )
+}
+
+function safeGAEvent(
+  command: 'event',
+  eventName: string,
+  params?: Record<string, unknown>,
+) {
   try {
     if (typeof window === 'undefined') return
-    // Ensure dataLayer exists before GA script loads.
-    // window.dataLayer is typed by @next/third-parties as Object[] | undefined.
-    window.dataLayer = window.dataLayer ?? []
-    sendGAEvent(...args)
+    if (!isPublicAnalyticsPath(window.location.pathname)) return
+    window.gtag?.(command, eventName, params)
   } catch {
     // Silently swallow — analytics must never break the app
   }
@@ -38,7 +53,7 @@ export function getUtmParams(search: string): Record<string, string> {
 }
 
 export function getContentGroup(pathname: string): string {
-  const pathWithoutLocale = pathname.replace(/^\/(?:zh-TW|en)(?=\/|$)/, '') || '/'
+  const pathWithoutLocale = stripLocale(pathname)
 
   if (pathWithoutLocale === '/' || pathWithoutLocale === '/brands') {
     return 'directory'
@@ -227,16 +242,6 @@ export function trackSubmissionFormAbandoned(
   safeGAEvent('event', 'submission_form_abandoned', {
     last_step_completed: lastStepCompleted,
     time_spent_seconds: timeSpentSeconds,
-  })
-}
-
-export function trackSessionStart(
-  isReturning: boolean,
-  daysSinceLastVisit: number | null
-) {
-  safeGAEvent('event', 'session_start', {
-    is_returning: isReturning,
-    days_since_last_visit: daysSinceLastVisit,
   })
 }
 
