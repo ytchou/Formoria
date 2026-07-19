@@ -28,6 +28,8 @@ DECLARE
   tsq tsquery;
 BEGIN
   IF prefix_mode THEN
+    search_query := regexp_replace(search_query, '[!&|()<>:/''"\\*]', '', 'g');
+    search_query := trim(both from search_query);
     tsq := to_tsquery('english', regexp_replace(search_query, '\s+', ':* & ', 'g') || ':*');
   ELSE
     tsq := websearch_to_tsquery('english', search_query);
