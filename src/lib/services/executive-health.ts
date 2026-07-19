@@ -1,7 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 
-export type ExecutiveHealthStatus = 'healthy' | 'degraded' | 'down' | 'unconfigured'
-export type ExecutiveHealthTier = 'customer-critical' | 'customer-flow' | 'back-office'
+type ExecutiveHealthStatus = 'healthy' | 'degraded' | 'down' | 'unconfigured'
+type ExecutiveHealthTier = 'customer-critical' | 'customer-flow' | 'back-office'
 export type ExecutiveOverallHealth = 'healthy' | 'warning' | 'critical'
 
 export interface ExecutiveServiceHealth {

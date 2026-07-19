@@ -66,7 +66,7 @@ function countNetConfirmations(
   return confirmations - unsubscribes;
 }
 
-export function summarizeLocalEngagement(
+function summarizeLocalEngagement(
   brands: ApprovedBrandRow[],
   analytics: AnalyticsRow[],
   links: LinkClickRow[],
