@@ -18,6 +18,8 @@ export async function GET(request: Request) {
   const parsedLimit = limitParam ? parseInt(limitParam, 10) || 5 : 5
   const limit = Math.min(Math.max(parsedLimit, 1), 10)
 
+  const t0 = performance.now()
+
   try {
     const results = await searchBrandsAutocomplete(query, limit)
 
@@ -26,15 +28,18 @@ export async function GET(request: Request) {
       {
         headers: {
           'Cache-Control': CACHE_CONTROL,
+          'Server-Timing': `rpc;dur=${(performance.now() - t0).toFixed(1)}`,
         },
       },
     )
   } catch {
     return NextResponse.json(
-      { results: [] },
+      { error: 'search_unavailable' },
       {
+        status: 503,
         headers: {
-          'Cache-Control': CACHE_CONTROL,
+          'Cache-Control': 'no-store',
+          'Server-Timing': `rpc;dur=${(performance.now() - t0).toFixed(1)}`,
         },
       },
     )

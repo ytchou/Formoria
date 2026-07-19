@@ -40,6 +40,7 @@ function SearchInput({
   const [showDropdown, setShowDropdown] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputVersionRef = useRef(0)
+  const abortRef = useRef<AbortController | null>(null)
   const containerRef = useRef<HTMLFormElement>(null)
   const router = useRouter()
 
@@ -58,7 +59,12 @@ function SearchInput({
     const inputVersion = inputVersionRef.current
 
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=5`)
+      abortRef.current?.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=5`, {
+        signal: controller.signal,
+      })
       if (inputVersion !== inputVersionRef.current) return
       if (!res.ok) {
         setSuggestions([])
@@ -73,7 +79,8 @@ function SearchInput({
       setSuggestions(results)
       setShowDropdown(true)
       setSelectedIndex(-1)
-    } catch {
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return
       if (inputVersion !== inputVersionRef.current) return
       setSuggestions([])
       setShowDropdown(false)
@@ -118,12 +125,17 @@ function SearchInput({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  useEffect(() => () => {
+    abortRef.current?.abort()
+  }, [])
+
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     inputVersionRef.current += 1
     setValue(e.target.value)
   }
 
   function handleClear() {
+    abortRef.current?.abort()
     inputVersionRef.current += 1
     setValue('')
     if (!redirectTo) {

@@ -158,22 +158,25 @@ test.describe.serial('Public brand search edge cases', () => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
     const typo = `${englishToken.slice(0, 2)}${englishToken[3]}${englishToken[2]}${englishToken.slice(4)}`;
-    const cases = [
+    const autocompleteCases = [
       { query: `棱 鏡`, slug: exactSlug },
       { query: englishToken, slug: bilingualSlug },
       { query: englishToken.toUpperCase(), slug: bilingualSlug },
       { query: englishToken.slice(0, -3), slug: bilingualSlug },
-      { query: typo, slug: bilingualSlug },
       { query: `${englishToken}!`, slug: bilingualSlug },
     ];
 
-    for (const { query, slug } of cases) {
+    for (const { query, slug } of autocompleteCases) {
       const results = await apiSearch(request, query);
       expect(
         results.some((result) => result.slug === slug),
         `seeded slug ${slug} missing for ${JSON.stringify(query)}`,
       ).toBe(true);
     }
+
+    // Typo tolerance uses trigram — only available via full directory search (prefix_mode=false)
+    await page.goto(`/en/brands?search=${encodeURIComponent(typo)}`);
+    await expect(page.getByRole('link', { name: bilingualName })).toBeVisible({ timeout: 15_000 });
 
     await page.goto(`/en/brands?search=${encodeURIComponent(englishToken)}`);
     await expect(page).toHaveURL(/\/en\/brands\?search=/);
