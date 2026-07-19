@@ -48,10 +48,7 @@ import { createEmailPreferences } from '@/lib/services/email-lifecycle'
 import { generateClaimToken } from '@/lib/auth/claim-token'
 import { updateReportStatus } from '@/lib/services/reports'
 import { checkAllServices } from '@/lib/services/health-checks'
-import {
-  setAppSetting,
-  SUBCATEGORY_FILTER_KEY,
-} from '@/lib/services/app-settings'
+import { FEATURE_FLAGS, setAppSetting } from '@/lib/services/app-settings'
 import { DENIAL_REASONS, type DenialReason, type OtherUrl } from '@/lib/types'
 import { getSiteUrl } from '@/lib/site-url'
 import { revalidatePublicBrand } from '@/lib/cache/public-brand-cache'
@@ -587,14 +584,13 @@ export async function setFeatureFlagAction(
     const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
-    if (key !== SUBCATEGORY_FILTER_KEY) {
+    const flag = FEATURE_FLAGS.find((entry) => entry.key === key)
+    if (!flag) {
       return { error: 'Unknown feature flag' }
     }
 
     await setAppSetting(key, enabled)
-    revalidatePath('/brands')
-    revalidatePath('/en/brands')
-    revalidatePath('/admin')
+    flag.revalidatePaths.forEach((path) => revalidatePath(path))
     return {}
   } catch (err) {
     console.error('[admin:setFeatureFlag]', err)

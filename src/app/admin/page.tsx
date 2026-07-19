@@ -12,8 +12,8 @@ import { SystemStatusCard } from "@/components/admin/system-status-card";
 import { DataCard } from "@/components/ui/card";
 import { getBrands } from "@/lib/services/brands";
 import {
+  FEATURE_FLAGS,
   getAppSetting,
-  SUBCATEGORY_FILTER_KEY,
 } from "@/lib/services/app-settings";
 import { listClaimRequests } from "@/lib/services/claim-requests";
 import {
@@ -80,8 +80,8 @@ export default async function AdminPage() {
     flaggedContentResult,
     brandResult,
     healthResults,
-    subcategoryFilterEnabled,
     newsletterData,
+    flagValues,
     t,
   ] = await Promise.all([
     getSubmissionsForReview().catch(() => []),
@@ -97,8 +97,16 @@ export default async function AdminPage() {
       totalCount: 0,
     })),
     checkAllServices().catch((): ServiceHealthResult[] => []),
-    getAppSetting<boolean>(SUBCATEGORY_FILTER_KEY, true),
     getNewsletterDashboardData(),
+    (async () => {
+      const flagEntries = await Promise.all(
+        FEATURE_FLAGS.map(async (flag) => [
+          flag.key,
+          await getAppSetting(flag.key, flag.defaultValue),
+        ] as const),
+      );
+      return Object.fromEntries(flagEntries) as Record<string, boolean>;
+    })(),
     getTranslations("admin.dashboard"),
   ]);
 
@@ -184,9 +192,7 @@ export default async function AdminPage() {
 
       <div className="grid gap-4 xl:grid-cols-2">
         <SystemStatusCard initialResults={healthResults} />
-        <FeatureTogglesCard
-          initialSubcategoryFilterEnabled={subcategoryFilterEnabled ?? true}
-        />
+        <FeatureTogglesCard initialValues={flagValues} />
       </div>
 
       <section aria-labelledby="review-queues">
