@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { useForm, useWatch, Controller, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { ShieldCheck } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 import {
@@ -23,7 +24,7 @@ import {
 import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
 import type { SourceAttribution } from '@/lib/types/submission'
 import { FormField } from '@/components/forms/form-field'
-import { StandardForm, StandardFormStack } from '@/components/forms/form-layout'
+import { StandardForm } from '@/components/forms/form-layout'
 import { MarketingEmailOptInField } from '@/components/forms/marketing-email-opt-in-field'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -221,113 +222,119 @@ export default function SubmitForm({
     !isValid || !pdpaConsent || nameDuplicate || isSubmitting
 
   return (
-    <div className="page-gutter mx-auto max-w-2xl py-12">
-      <div className="mb-8">
-        <h1 className="text-balance text-center type-page-title">
+    <div className="page-gutter mx-auto max-w-3xl py-20">
+      <div className="mb-10">
+        <h1 className="text-balance text-center type-page-title-large">
           {tForm('heading')}
         </h1>
-        <p className="mt-3 text-center type-card-description">
+        <span
+          className="mx-auto mt-4 block h-0.5 w-8 bg-cta"
+          aria-hidden="true"
+        />
+        <p className="mt-4 text-center type-body-muted">
           {tForm('subheading')}
         </p>
       </div>
 
       <StandardForm onSubmit={onSubmit} noValidate>
-        <p className="mb-5 type-caption">
-          <span className="text-destructive">*</span> {tForm('requiredHint')}
-        </p>
+        <div className="flex flex-col gap-5">
+          <p className="type-caption">
+            <span className="text-destructive">*</span> {tForm('requiredHint')}
+          </p>
 
-        <StandardFormStack>
-          <FormField
-            id="submit-name"
-            label={tForm('brandNameLabel')}
-            description={tForm('brandNameHint')}
-            error={
-              errors.name?.message ??
-              (nameDuplicate ? t('fields.nameDuplicateTitle') : undefined)
-            }
-            required
-          >
-            <Input
+          <div className="grid gap-5 md:grid-cols-2">
+            <FormField
               id="submit-name"
-              type="text"
-              autoComplete="off"
-              placeholder={tForm('brandNamePlaceholder')}
-              {...nameRegistration}
-              onBlur={async (event) => {
-                nameRegistration.onBlur(event)
-                await handleNameBlur()
-              }}
-              onChange={(event) => {
-                nameBlurRequestRef.current += 1
-                setNameSuggestion(null)
-                setNameDuplicate(false)
-                setSubmitError(null)
-                nameRegistration.onChange(event)
-              }}
-            />
-            {nameSuggestion ? (
-              <div className="overflow-hidden transition-all duration-200">
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 text-sm">
-                  <span>
-                    {tForm('suggestedName')} <strong>{nameSuggestion}</strong>
-                  </span>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => {
-                      setValue('name', nameSuggestion)
-                      setNameSuggestion(null)
-                    }}
-                  >
-                    {tForm('applySuggestion')}
-                  </Button>
+              label={tForm('brandNameLabel')}
+              description={tForm('brandNameHint')}
+              error={
+                errors.name?.message ??
+                (nameDuplicate ? t('fields.nameDuplicateTitle') : undefined)
+              }
+              required
+            >
+              <Input
+                id="submit-name"
+                type="text"
+                autoComplete="off"
+                placeholder={tForm('brandNamePlaceholder')}
+                {...nameRegistration}
+                onBlur={async (event) => {
+                  nameRegistration.onBlur(event)
+                  await handleNameBlur()
+                }}
+                onChange={(event) => {
+                  nameBlurRequestRef.current += 1
+                  setNameSuggestion(null)
+                  setNameDuplicate(false)
+                  setSubmitError(null)
+                  nameRegistration.onChange(event)
+                }}
+              />
+              {nameSuggestion ? (
+                <div className="overflow-hidden transition-all duration-200">
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 text-sm">
+                    <span>
+                      {tForm('suggestedName')} <strong>{nameSuggestion}</strong>
+                    </span>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        setValue('name', nameSuggestion)
+                        setNameSuggestion(null)
+                      }}
+                    >
+                      {tForm('applySuggestion')}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ) : null}
-          </FormField>
+              ) : null}
+            </FormField>
 
-          <FormField
-            id="submit-website"
-            label={tForm('websiteLabel')}
-            description={tForm('websiteHint')}
-            error={errors.website?.message}
-            required
-          >
-            <Input
+            <FormField
               id="submit-website"
-              type="url"
-              autoComplete="off"
-              placeholder={tForm('websitePlaceholder')}
-              {...websiteRegistration}
-              onBlur={(event) => {
-                websiteRegistration.onBlur(event)
-                handleWebsiteBlur(event.target.value)
-              }}
-              onChange={(event) => {
-                websiteRegistration.onChange(event)
-                setUrlSuggestion(null)
-              }}
-            />
-            {urlSuggestion ? (
-              <div className="overflow-hidden transition-all duration-200">
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 text-sm">
-                  <span>
-                    {tForm('suggestedUrl')} <strong>{urlSuggestion}</strong>
-                  </span>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => {
-                      setValue('website', urlSuggestion)
-                      setUrlSuggestion(null)
-                    }}
-                  >
-                    {tForm('applySuggestion')}
-                  </Button>
+              label={tForm('websiteLabel')}
+              description={tForm('websiteHint')}
+              error={errors.website?.message}
+              required
+            >
+              <Input
+                id="submit-website"
+                type="url"
+                autoComplete="off"
+                placeholder={tForm('websitePlaceholder')}
+                {...websiteRegistration}
+                onBlur={(event) => {
+                  websiteRegistration.onBlur(event)
+                  handleWebsiteBlur(event.target.value)
+                }}
+                onChange={(event) => {
+                  websiteRegistration.onChange(event)
+                  setUrlSuggestion(null)
+                }}
+              />
+              {urlSuggestion ? (
+                <div className="overflow-hidden transition-all duration-200">
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 text-sm">
+                    <span>
+                      {tForm('suggestedUrl')} <strong>{urlSuggestion}</strong>
+                    </span>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        setValue('website', urlSuggestion)
+                        setUrlSuggestion(null)
+                      }}
+                    >
+                      {tForm('applySuggestion')}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ) : null}
-          </FormField>
+              ) : null}
+            </FormField>
+          </div>
 
           <FormField
             id="submit-source"
@@ -365,89 +372,103 @@ export default function SubmitForm({
             />
           </FormField>
 
-          <FormField
-            id="submit-guest-email"
-            label={tForm('guestEmailLabel')}
-            description={tForm('guestEmailHint')}
-            error={errors.guestEmail?.message}
-          >
-            <Input
+          <div className="grid gap-5 md:grid-cols-2">
+            <FormField
               id="submit-guest-email"
-              type="email"
-              autoComplete="email"
-              spellCheck={false}
-              placeholder={tForm('guestEmailPlaceholder')}
-              {...register('guestEmail')}
-            />
-            <Controller
-              name="marketingEmailOptIn"
-              control={control}
-              render={({ field }) => (
-                <MarketingEmailOptInField
-                  id="submit-marketing-email"
-                  variant="newsletter-only"
-                  checked={field.value ?? false}
-                  onCheckedChange={field.onChange}
-                />
-              )}
-            />
-          </FormField>
+              label={tForm('guestEmailLabel')}
+              description={tForm('guestEmailHint')}
+              error={errors.guestEmail?.message}
+            >
+              <Input
+                id="submit-guest-email"
+                type="email"
+                autoComplete="email"
+                spellCheck={false}
+                placeholder={tForm('guestEmailPlaceholder')}
+                {...register('guestEmail')}
+              />
+              <Controller
+                name="marketingEmailOptIn"
+                control={control}
+                render={({ field }) => (
+                  <MarketingEmailOptInField
+                    id="submit-marketing-email"
+                    variant="newsletter-only"
+                    checked={field.value ?? false}
+                    onCheckedChange={field.onChange}
+                  />
+                )}
+              />
+            </FormField>
 
-          <FormField
-            id="submit-description"
-            label={tForm('descriptionLabel')}
-            description={tForm('descriptionHint')}
-            error={errors.description?.message}
-          >
-            <Textarea
+            <FormField
               id="submit-description"
-              rows={4}
-              placeholder={tForm('descriptionPlaceholder')}
-              {...register('description')}
-            />
-          </FormField>
+              label={tForm('descriptionLabel')}
+              description={tForm('descriptionHint')}
+              error={errors.description?.message}
+            >
+              <Textarea
+                id="submit-description"
+                rows={4}
+                placeholder={tForm('descriptionPlaceholder')}
+                {...register('description')}
+              />
+            </FormField>
+          </div>
 
-          <div className="space-y-2">
-            <Controller
-              name="pdpaConsent"
-              control={control}
-              render={({ field, fieldState }) => (
-                <div className="space-y-1">
-                  <Label className="flex min-h-12 cursor-pointer items-start gap-3">
-                    <Checkbox
-                      id="submit-pdpa"
-                      checked={field.value}
-                      onCheckedChange={(checked) => field.onChange(checked)}
-                      className="mt-0.5 size-[18px] shrink-0"
-                      aria-required="true"
-                    />
-                    <span className="type-body font-normal">
-                      {tReview.rich('pdpaConsent', {
-                        privacyPolicy: (chunks) => (
-                          <a
-                            href="/privacy"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          >
-                            {chunks}
-                          </a>
-                        ),
-                      })}
-                      <span aria-hidden="true" className="text-destructive">
-                        {' '}
-                        *
+          <div
+            data-testid="consent-panel"
+            className="flex items-start gap-4 rounded-lg border border-border bg-muted/50 p-5"
+          >
+            <span
+              data-testid="consent-shield"
+              aria-hidden="true"
+              className="flex size-10 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-foreground"
+            >
+              <ShieldCheck className="size-5" />
+            </span>
+            <div className="space-y-3">
+              <Controller
+                name="pdpaConsent"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <div className="space-y-1">
+                    <Label className="flex min-h-12 cursor-pointer items-start gap-3">
+                      <Checkbox
+                        id="submit-pdpa"
+                        checked={field.value}
+                        onCheckedChange={(checked) => field.onChange(checked)}
+                        className="mt-0.5 size-[18px] shrink-0"
+                        aria-required="true"
+                      />
+                      <span className="type-body font-normal">
+                        {tReview.rich('pdpaConsent', {
+                          privacyPolicy: (chunks) => (
+                            <a
+                              href="/privacy"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                              {chunks}
+                            </a>
+                          ),
+                        })}
+                        <span aria-hidden="true" className="text-destructive">
+                          {' '}
+                          *
+                        </span>
                       </span>
-                    </span>
-                  </Label>
-                  {fieldState.error ? (
-                    <p className="text-xs text-destructive">
-                      {fieldState.error.message}
-                    </p>
-                  ) : null}
-                </div>
-              )}
-            />
+                    </Label>
+                    {fieldState.error ? (
+                      <p className="text-xs text-destructive">
+                        {fieldState.error.message}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+              />
+            </div>
           </div>
 
           <input
@@ -491,7 +512,7 @@ export default function SubmitForm({
           >
             {isSubmitting ? tForm('submittingButton') : tForm('submitButton')}
           </Button>
-        </StandardFormStack>
+        </div>
       </StandardForm>
     </div>
   )
