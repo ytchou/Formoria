@@ -249,3 +249,6 @@ Storage invariants (DEV-1059):
 - Directory page with filters: < 1s response
 - Brand detail page: statically generated (ISR), < 500ms
 - Category pages: statically generated for SEO
+## Personal OS executive integration
+
+Formoria `/admin` owns operational workflows. Personal OS consumes a separate CEO projection through bearer-protected, `no-store` internal routes. The projection includes approved-brand and confirmed-subscriber movement, local ranking/destination context, curation health, and cached customer-facing system status. Public discovery funnels remain GA4-owned, exclude protected routes, and use complete windows ending at T-2. The Growth Pulse envelope remains top-level version 1 and adds `data.executive.schema_version: 1`.
