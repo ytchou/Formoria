@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { isRelativeUrl } from '@/lib/auth/validations'
 import { signChallengeToken, CHALLENGE_COOKIE_NAME } from '@/lib/security/challenge'
 import { getClientIp, rateLimit } from '@/lib/security/rate-limiter'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
@@ -9,11 +10,7 @@ type ChallengeVerifyBody = {
 }
 
 function getSafeRedirectPath(returnTo: unknown): string {
-  if (typeof returnTo !== 'string') {
-    return '/'
-  }
-
-  return returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/'
+  return typeof returnTo === 'string' && isRelativeUrl(returnTo) ? returnTo : '/'
 }
 
 export async function POST(request: NextRequest) {

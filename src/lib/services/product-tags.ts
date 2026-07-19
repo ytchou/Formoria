@@ -7,7 +7,7 @@ export type NormalizeProductTagsResult = {
   crossBranch: string[]
 }
 
-const MAX_TAGS = 5
+export const MAX_PRODUCT_TAGS = 5
 const MIN_NOVEL_LENGTH = 2
 const MAX_NOVEL_LENGTH = 8
 
@@ -54,7 +54,7 @@ export function normalizeProductTags(
     }
   }
 
-  const capped = pairs.slice(0, MAX_TAGS)
+  const capped = pairs.slice(0, MAX_PRODUCT_TAGS)
   return {
     tags: capped.map((p) => p.zh),
     tagsEn: capped.map((p) => p.en),

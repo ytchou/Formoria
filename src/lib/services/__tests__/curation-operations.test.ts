@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createServiceClient } from '@/lib/supabase/server'
 import * as brandWrites from '../brands'
-import { processEnrichBrand, mergeEnrichPatches, persistEnrichmentResults, persistSubmissionEnrichmentResults, runEnrich, needsPhase, seedEnrichedDataFromOwnerData } from '../curation-operations'
+import { processEnrichBrand, mergeEnrichPatches, mergeSubmissionEnrichedData, persistEnrichmentResults, persistSubmissionEnrichmentResults, runEnrich, needsPhase, seedEnrichedDataFromOwnerData } from '../curation-operations'
 import type { CurationConfig } from '../curation-operations'
 import { describeWithDb } from '@/test/setup'
 
@@ -57,6 +57,24 @@ describe('seedEnrichedDataFromOwnerData', () => {
   it('returns empty object when both are null', () => {
     const result = seedEnrichedDataFromOwnerData(null, null)
     expect(result).toEqual({})
+  })
+})
+
+describe('mergeSubmissionEnrichedData', () => {
+  it('replaces and caps product tag pairs instead of accumulating rerun outputs', () => {
+    const result = mergeSubmissionEnrichedData(
+      {
+        product_tags: ['既有一', '既有二', '既有三'],
+        product_tags_en: ['Existing 1', 'Existing 2', 'Existing 3'],
+      },
+      {
+        product_tags: ['新一', '新二', '新三', '新四', '新五', '新六'],
+        product_tags_en: ['New 1', 'New 2', 'New 3', 'New 4', 'New 5', 'New 6'],
+      },
+    )
+
+    expect(result.product_tags).toEqual(['新一', '新二', '新三', '新四', '新五'])
+    expect(result.product_tags_en).toEqual(['New 1', 'New 2', 'New 3', 'New 4', 'New 5'])
   })
 })
 

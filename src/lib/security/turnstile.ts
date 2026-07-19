@@ -4,9 +4,11 @@ export interface TurnstileResult {
 }
 
 interface TurnstileApiResponse {
-  success: boolean
-  'error-codes'?: string[]
+  success?: unknown
+  'error-codes'?: unknown
 }
+
+const TURNSTILE_VERIFY_TIMEOUT_MS = 10_000
 
 function isLocalDevHost(requestHost?: string): boolean {
   if (process.env.NODE_ENV === 'production' || !requestHost) return false
@@ -39,6 +41,13 @@ export async function verifyTurnstileToken(
     return { success: true }
   }
 
+  const startedAt = Date.now()
+  const requestPayload = {
+    tokenLength: token.length,
+    remoteIpProvided: Boolean(remoteIp),
+    requestHost: requestHost ?? null,
+  }
+
   try {
     const body = new URLSearchParams({
       secret: secretKey,
@@ -54,16 +63,39 @@ export async function verifyTurnstileToken(
       {
         method: 'POST',
         body,
+        signal: AbortSignal.timeout(TURNSTILE_VERIFY_TIMEOUT_MS),
       }
     )
 
     const data = (await response.json()) as TurnstileApiResponse
+    const success = response.ok && data.success === true
+    const errorCodes = Array.isArray(data['error-codes'])
+      ? data['error-codes'].filter((code): code is string => typeof code === 'string')
+      : undefined
+    console.info('[turnstile:audit]', {
+      request: requestPayload,
+      response: {
+        httpStatus: response.status,
+        success,
+        errorCodes: errorCodes ?? [],
+      },
+      latencyMs: Date.now() - startedAt,
+      status: success ? 'success' : response.ok ? 'rejected' : 'provider_error',
+    })
 
     return {
-      success: data.success,
-      errorCodes: data['error-codes'],
+      success,
+      errorCodes,
     }
-  } catch {
+  } catch (error) {
+    console.info('[turnstile:audit]', {
+      request: requestPayload,
+      response: {
+        error: error instanceof Error ? error.name : 'UnknownError',
+      },
+      latencyMs: Date.now() - startedAt,
+      status: 'network_error',
+    })
     return { success: false, errorCodes: ['network-error'] }
   }
 }

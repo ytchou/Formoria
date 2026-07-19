@@ -155,6 +155,43 @@ describe("SubmissionReviewDetails", () => {
     );
   });
 
+  it("keeps translated product tags paired when trimming an over-limit review", async () => {
+    const user = userEvent.setup();
+    renderDetails(
+      makeSubmission({
+        reviewData: {
+          ...reviewData,
+          productTags: ["一", "二", "三", "四", "五", "六", "七"],
+          productTagsEn: ["1", "2", "3", "4", "5", "6", "7"],
+        },
+        reviewCompleteness: {
+          complete: false,
+          missingFields: ["productTags"],
+        },
+      }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    const productTags = screen.getByRole("textbox", { name: "Product tags" });
+    await user.clear(productTags);
+    await user.type(productTags, "手工皂, 臉部保養, 身體保養, 洗沐清潔, 香水");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(reviewActions.save).toHaveBeenCalledWith(
+      "00000000-0000-4000-8000-000000000001",
+      expect.objectContaining({
+        productTags: ["手工皂", "臉部保養", "身體保養", "洗沐清潔", "香水"],
+        productTagsEn: [
+          "Handmade Soap",
+          "Skincare",
+          "Body Care",
+          "Bath & Shower",
+          "Fragrance",
+        ],
+      }),
+    );
+  });
+
   it("cleans up staged uploads and restores the active gallery on cancel", async () => {
     const user = userEvent.setup();
     renderDetails(makeSubmission());

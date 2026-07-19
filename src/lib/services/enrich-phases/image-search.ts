@@ -27,13 +27,16 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext, serpResults?: 
     }
   }
 
+  const activeSubmissionImageCounts = await loadActiveSubmissionImageCounts(ctx)
   const brandsNeedingImages: typeof ctx.chunk = []
-  let skippedHasImages = 0
+  let skippedEnoughImages = 0
   let skippedNoSerp = 0
   for (const brand of ctx.chunk) {
-    const hasImages = !!brand.hero_image_url
-    if (hasImages) {
-      skippedHasImages++
+    const hasEnoughImages = ctx.targetType === 'submission'
+      ? (activeSubmissionImageCounts.get(brand.id) ?? 0) >= 2
+      : !!brand.hero_image_url
+    if (hasEnoughImages) {
+      skippedEnoughImages++
       continue
     }
     const brandName = getDisplayBrandName(brand)
@@ -45,9 +48,9 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext, serpResults?: 
     brandsNeedingImages.push(brand)
   }
 
-  if (skippedHasImages > 0) {
+  if (skippedEnoughImages > 0) {
     ctx.onProgress?.(
-      `  [IMAGES] Skipping image search for ${skippedHasImages} brand(s) with user-provided images`
+      `  [IMAGES] Skipping image search for ${skippedEnoughImages} brand(s) with enough active images`
     )
   }
   if (skippedNoSerp > 0) {
@@ -113,4 +116,29 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext, serpResults?: 
     phaseResult: buildPhaseResult('image-search', 'succeeded', result.changedFields, durationMs),
     imageSearchResults: result.imageSearchResults,
   }
+}
+
+async function loadActiveSubmissionImageCounts(
+  ctx: BatchPhaseContext,
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>()
+  if (ctx.targetType !== 'submission') return counts
+
+  const submissionIds = ctx.chunk.map((brand) => brand.id)
+  const { data, error } = await ctx.supabase
+    .from('submission_images')
+    .select('submission_id')
+    .in('submission_id', submissionIds)
+    .eq('status', 'active')
+
+  if (error) {
+    ctx.onProgress?.('  [IMAGES] Active image lookup failed; continuing with image search')
+    return counts
+  }
+
+  for (const image of data ?? []) {
+    counts.set(image.submission_id, (counts.get(image.submission_id) ?? 0) + 1)
+  }
+
+  return counts
 }

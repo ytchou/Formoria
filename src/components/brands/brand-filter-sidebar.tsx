@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition, type ReactNode } from "react";
-import { ChevronDown, Info, ListFilter, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, Info, SlidersHorizontal } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { trackCategoryFilterApplied } from "@/lib/analytics";
@@ -24,7 +24,9 @@ import {
   clearDirectoryFilters,
   updateDirectoryUrl,
 } from "@/lib/directory-filter-url";
+import { DirectoryFilterToken } from "./directory-filter-token";
 import { SearchInput } from "./search-input";
+import type { ActiveDirectoryFilter } from "./search-empty-state";
 
 type VerificationFilterValue = NonNullable<BrandFilters["verificationFilter"]>;
 
@@ -41,6 +43,7 @@ type SubcategoryOption = {
 };
 
 type BrandFilterSidebarProps = {
+  activeFilters?: ActiveDirectoryFilter[];
   categories: CategoryOption[];
   subcategories?: SubcategoryOption[];
   activeSubSlugs?: string[];
@@ -72,12 +75,10 @@ function parseCommaParam(value: string | null): string[] {
 
 function FilterSection({
   title,
-  action,
   defaultOpen = false,
   children,
 }: {
   title: string;
-  action?: ReactNode;
   defaultOpen?: boolean;
   children: ReactNode;
 }) {
@@ -102,7 +103,6 @@ function FilterSection({
             aria-hidden="true"
           />
         </Button>
-        {action}
       </div>
       {open && children}
     </section>
@@ -110,6 +110,7 @@ function FilterSection({
 }
 
 export function BrandFilterSidebar({
+  activeFilters = [],
   categories,
   subcategories = [],
   activeSubSlugs = [],
@@ -137,14 +138,6 @@ export function BrandFilterSidebar({
     [searchParams],
   );
   const activeSubcategories = new Set(activeSubSlugs);
-  const activeSearch = searchParams.get("search")?.trim() ?? "";
-
-  const activeCount =
-    (activeSearch ? 1 : 0) +
-    activeCategories.size +
-    activeSubSlugs.length +
-    activePriceRanges.size +
-    (activeVerification !== "all" ? 1 : 0);
   const useZh = locale === "zh-TW";
   const [, startTransition] = useTransition();
 
@@ -213,28 +206,34 @@ export function BrandFilterSidebar({
     });
   }
 
-  function clearCategories() {
-    startTransition(() => {
-      router.replace(
-        updateDirectoryUrl(pathname, searchParams, { category: null }),
-        { scroll: false },
-      );
-    });
-  }
-
   return (
     <SurfaceCard className={cn("overflow-hidden", className)} padding="none">
-      <div className="flex gap-3 bg-filter-active-bg px-4 py-3 text-filter-active">
-        <ListFilter className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
-        <div>
-          <p className="type-body-emphasis text-inherit">
-            {t("appliedCount", { count: activeCount })}
-          </p>
-          <p className="mt-0.5 type-caption text-inherit/80">
-            {t("appliedHint")}
-          </p>
-        </div>
-      </div>
+      {activeFilters.length > 0 ? (
+        <section
+          aria-label={t("currentConditions")}
+          className="space-y-3 bg-filter-active-bg px-4 py-4 text-filter-active"
+        >
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="size-5 shrink-0" aria-hidden="true" />
+            <h2 className="type-body-emphasis text-inherit">
+              {t("currentConditions")}
+            </h2>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {activeFilters.map((filter) => (
+              <DirectoryFilterToken
+                key={filter.id}
+                href={filter.removeHref}
+                label={filter.label}
+                removeLabel={filter.removeLabel}
+                value={filter.value}
+                variant="chip"
+              />
+            ))}
+          </div>
+          <p className="type-caption text-inherit/80">{t("appliedHint")}</p>
+        </section>
+      ) : null}
 
       <div className="space-y-6 p-4">
         <section className="space-y-3">
@@ -252,21 +251,7 @@ export function BrandFilterSidebar({
 
         <Separator />
 
-        <FilterSection
-          title={t("category")}
-          action={
-            activeCategories.size > 0 ? (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={clearCategories}
-                className="min-h-12 px-2 text-primary"
-              >
-                {t("clearCategories")}
-              </Button>
-            ) : undefined
-          }
-        >
+        <FilterSection title={t("category")}>
           <div className="space-y-1">
             {categories.map((category) => {
               const checked = activeCategories.has(category.slug);
@@ -424,6 +409,7 @@ function FilterRadio({
 }
 
 export function BrandFilterDrawer({
+  activeFilters = [],
   categories,
   subcategories = [],
   activeSubSlugs = [],
@@ -431,19 +417,6 @@ export function BrandFilterDrawer({
 }: BrandFilterDrawerProps) {
   const [open, setOpen] = useState(false);
   const t = useTranslations("brands.filters");
-  const searchParams = useSearchParams();
-  const activeCategories = parseCommaParam(searchParams.get("category"));
-  const activeVerification = searchParams.get("verification");
-  const activePriceRanges = parseCommaParam(searchParams.get("price"));
-  const activeSearch = searchParams.get("search")?.trim() ?? "";
-  const activeCount =
-    (activeSearch ? 1 : 0) +
-    activeCategories.length +
-    activeSubSlugs.length +
-    activePriceRanges.length +
-    (activeVerification === "mit-verified" || activeVerification === "owned"
-      ? 1
-      : 0);
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -453,7 +426,7 @@ export function BrandFilterDrawer({
         }
       >
         <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-        {t("trigger", { count: activeCount })}
+        {t("trigger", { count: activeFilters.length })}
       </SheetTrigger>
       <SheetContent
         side="left"
@@ -465,6 +438,7 @@ export function BrandFilterDrawer({
         </SheetHeader>
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           <BrandFilterSidebar
+            activeFilters={activeFilters}
             categories={categories}
             subcategories={subcategories}
             activeSubSlugs={activeSubSlugs}
