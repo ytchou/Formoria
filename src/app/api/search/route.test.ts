@@ -120,16 +120,30 @@ describe('GET /api/search', () => {
     expect(mockSearchBrandsAutocomplete).toHaveBeenCalledWith('tea', expected)
   })
 
-  it('returns empty results on service error', async () => {
-    mockSearchBrandsAutocomplete.mockRejectedValue(new Error('DB down'))
+  it('returns 503 with stable error shape on service failure', async () => {
+    mockSearchBrandsAutocomplete.mockRejectedValue(new Error('connection refused'))
 
     const response = await GET(makeRequest('http://localhost/api/search?q=tea'))
     const body = await response.json()
 
-    expect(response.status).toBe(200)
-    expect(body.results).toEqual([])
-    expect(response.headers.get('Cache-Control')).toBe(
-      'public, s-maxage=60, stale-while-revalidate=300'
-    )
+    expect(response.status).toBe(503)
+    expect(body).toEqual({ error: 'search_unavailable' })
+    expect(response.headers.get('Cache-Control')).toBe('no-store')
+  })
+
+  it('includes Server-Timing header on successful response', async () => {
+    mockSearchBrandsAutocomplete.mockResolvedValue([])
+
+    const response = await GET(makeRequest('http://localhost/api/search?q=tea'))
+
+    expect(response.headers.get('Server-Timing')).toMatch(/^rpc;dur=\d/)
+  })
+
+  it('includes Server-Timing header on error response', async () => {
+    mockSearchBrandsAutocomplete.mockRejectedValue(new Error('timeout'))
+
+    const response = await GET(makeRequest('http://localhost/api/search?q=tea'))
+
+    expect(response.headers.get('Server-Timing')).toMatch(/^rpc;dur=\d/)
   })
 })

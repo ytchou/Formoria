@@ -102,7 +102,9 @@ describe('SearchInput autocomplete', () => {
     expect(options[0]).toHaveTextContent('Tea House')
     expect(options[1]).toHaveTextContent('Tea Garden')
     expect(mockFetch).toHaveBeenCalledTimes(1)
-    expect(mockFetch).toHaveBeenCalledWith('/api/search?q=tea&limit=5')
+    expect(mockFetch).toHaveBeenCalledWith('/api/search?q=tea&limit=5', {
+      signal: expect.any(AbortSignal),
+    })
   })
 
   it('navigates suggestions with arrow keys', async () => {
@@ -245,5 +247,44 @@ describe('SearchInput autocomplete', () => {
 
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2))
     await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument())
+  })
+
+  it('aborts the previous request when a new fetch starts', async () => {
+    const abortSpy = vi.spyOn(AbortController.prototype, 'abort')
+    const user = userEvent.setup()
+    renderWithProvider(<SearchInput />)
+    const input = screen.getByRole('searchbox')
+
+    await user.type(input, 'ab')
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
+    await user.type(input, 'c')
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2))
+
+    expect(abortSpy).toHaveBeenCalled()
+    abortSpy.mockRestore()
+  })
+
+  it('aborts in-flight request on clear', async () => {
+    const abortSpy = vi.spyOn(AbortController.prototype, 'abort')
+    const user = userEvent.setup()
+    renderWithProvider(<SearchInput />)
+
+    await user.type(screen.getByRole('searchbox'), 'tea')
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
+    await user.click(screen.getByRole('button', { name: /clear/i }))
+
+    expect(abortSpy).toHaveBeenCalled()
+    abortSpy.mockRestore()
+  })
+
+  it('does not surface AbortError as an error state', async () => {
+    mockFetch.mockRejectedValueOnce(new DOMException('Aborted', 'AbortError'))
+    const user = userEvent.setup()
+    renderWithProvider(<SearchInput />)
+
+    await user.type(screen.getByRole('searchbox'), 'tea')
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
 })
