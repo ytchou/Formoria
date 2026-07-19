@@ -51,6 +51,7 @@ export default function SubmitForm({
   const router = useRouter()
   const mountTimeRef = useRef<number | null>(null)
   const nameBlurRequestRef = useRef(0)
+  const submitLockRef = useRef(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [pendingRedirect, setPendingRedirect] = useState<string | null>(null)
   const [turnstileError, setTurnstileError] = useState(false)
@@ -166,7 +167,8 @@ export default function SubmitForm({
 
   const submitForm = useCallback(
     async (data: SubmissionFormData) => {
-      if (isSubmitting) return
+      if (submitLockRef.current) return
+      submitLockRef.current = true
 
       setSubmitError(null)
       setIsSubmitting(true)
@@ -201,10 +203,11 @@ export default function SubmitForm({
           )
         }
       } finally {
+        submitLockRef.current = false
         setIsSubmitting(false)
       }
     },
-    [isSubmitting],
+    [],
   )
 
   const onSubmit = useCallback(
@@ -376,6 +379,18 @@ export default function SubmitForm({
               placeholder={tForm('guestEmailPlaceholder')}
               {...register('guestEmail')}
             />
+            <Controller
+              name="marketingEmailOptIn"
+              control={control}
+              render={({ field }) => (
+                <MarketingEmailOptInField
+                  id="submit-marketing-email"
+                  variant="newsletter-only"
+                  checked={field.value ?? false}
+                  onCheckedChange={field.onChange}
+                />
+              )}
+            />
           </FormField>
 
           <FormField
@@ -404,6 +419,7 @@ export default function SubmitForm({
                       checked={field.value}
                       onCheckedChange={(checked) => field.onChange(checked)}
                       className="mt-0.5 size-[18px] shrink-0"
+                      aria-required="true"
                     />
                     <span className="type-body font-normal">
                       {tReview.rich('pdpaConsent', {
@@ -418,6 +434,10 @@ export default function SubmitForm({
                           </a>
                         ),
                       })}
+                      <span aria-hidden="true" className="text-destructive">
+                        {' '}
+                        *
+                      </span>
                     </span>
                   </Label>
                   {fieldState.error ? (
@@ -429,19 +449,6 @@ export default function SubmitForm({
               )}
             />
           </div>
-
-          <Controller
-            name="marketingEmailOptIn"
-            control={control}
-            render={({ field }) => (
-              <MarketingEmailOptInField
-                id="submit-marketing-email"
-                variant="newsletter-only"
-                checked={field.value ?? false}
-                onCheckedChange={field.onChange}
-              />
-            )}
-          />
 
           <input
             type="text"

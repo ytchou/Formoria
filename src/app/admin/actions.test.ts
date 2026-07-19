@@ -85,6 +85,7 @@ vi.mock('@/lib/services/brand-owners', () => ({
 
 vi.mock('@/lib/services/submissions', () => ({
   getSubmission: vi.fn(),
+  getApprovedOwnerSubmissionRecipients: vi.fn(),
   approveSubmission: vi.fn(),
   rejectSubmission: vi.fn(),
   isGeneratedGuestSubmissionEmail: vi.fn(() => false),
@@ -128,13 +129,18 @@ vi.mock('@/lib/email/resend-adapter', () => ({
 }))
 
 vi.mock('@/lib/email/send', () => ({
-  sendEmail: vi.fn(),
+  sendEmail: vi.fn().mockResolvedValue({ success: true }),
 }))
 
 vi.mock('@/lib/email/templates', () => ({
   buildApprovalEmail: vi.fn(),
   buildRejectionEmail: vi.fn(),
-  buildClaimEmail: vi.fn(),
+  buildClaimEmail: vi.fn().mockResolvedValue({
+    to: 'owner@example.com',
+    from: 'ops@formoria.com',
+    subject: 'Claim your brand',
+    html: '',
+  }),
   buildClaimApprovedEmail: vi.fn(),
   buildClaimRejectedEmail: vi.fn(),
   buildOwnershipRevokedEmail: vi.fn(),
@@ -149,7 +155,7 @@ vi.mock('@/lib/services/profiles', () => ({
 }))
 
 vi.mock('@/lib/auth/claim-token', () => ({
-  generateClaimToken: vi.fn(),
+  generateClaimToken: vi.fn().mockResolvedValue('claim-token'),
 }))
 
 vi.mock('next/cache', () => ({
@@ -166,6 +172,124 @@ describe('admin actions module', () => {
     expect(typeof mod.hideBrandAction).toBe('function')
     expect(typeof mod.unhideBrandAction).toBe('function')
     expect(typeof mod.deleteBrandAction).toBe('function')
+    expect(typeof mod.resendClaimInviteAction).toBe('function')
+  })
+})
+
+describe('resendClaimInviteAction', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    const { getBrandById } = await import('@/lib/services/brands')
+    const { getApprovedOwnerSubmissionRecipients } = await import('@/lib/services/submissions')
+    const { sendEmail } = await import('@/lib/email/send')
+    vi.mocked(getBrandById).mockResolvedValue({
+      id: 'brand-1',
+      name: 'Test Brand',
+      slug: 'test-brand',
+      status: 'approved',
+      isVerified: false,
+    } as Awaited<ReturnType<typeof getBrandById>>)
+    vi.mocked(getApprovedOwnerSubmissionRecipients).mockResolvedValue(
+      new Map([['brand-1', { submitterEmail: 'owner@example.com' }]])
+    )
+    vi.mocked(sendEmail).mockResolvedValue({ success: true })
+  })
+
+  it('requires admin authorization before reading brand data', async () => {
+    const { requireAdminAction } = await import('@/lib/auth/require-admin')
+    const { getBrandById } = await import('@/lib/services/brands')
+    vi.mocked(requireAdminAction).mockResolvedValueOnce({
+      error: 'You are not authorized to perform this action',
+      code: 'forbidden',
+    })
+    const { resendClaimInviteAction } = await import('./actions')
+
+    await expect(resendClaimInviteAction('brand-1')).resolves.toEqual({
+      error: 'You are not authorized to perform this action',
+      code: 'forbidden',
+    })
+    expect(getBrandById).not.toHaveBeenCalled()
+  })
+
+  it('sends a fresh claim invitation for an approved unowned owner submission', async () => {
+    const { generateClaimToken } = await import('@/lib/auth/claim-token')
+    const { buildClaimEmail } = await import('@/lib/email/templates')
+    const { sendEmail } = await import('@/lib/email/send')
+    const { resendClaimInviteAction } = await import('./actions')
+
+    const result = await resendClaimInviteAction('brand-1')
+
+    expect(result).toEqual({ resent: true })
+    expect(generateClaimToken).toHaveBeenCalledWith(
+      'brand-1',
+      'owner@example.com',
+      'Test Brand'
+    )
+    expect(buildClaimEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        submitterEmail: 'owner@example.com',
+        brandName: 'Test Brand',
+      })
+    )
+    expect(sendEmail).toHaveBeenCalled()
+    expect(revalidatePath).toHaveBeenCalledWith('/admin/brands')
+  })
+
+  it('rejects brands that are hidden or already owned', async () => {
+    const { getBrandById } = await import('@/lib/services/brands')
+    const { getApprovedOwnerSubmissionRecipients } = await import('@/lib/services/submissions')
+    const { sendEmail } = await import('@/lib/email/send')
+    const { resendClaimInviteAction } = await import('./actions')
+
+    vi.mocked(getBrandById).mockResolvedValueOnce({
+      id: 'brand-1',
+      name: 'Test Brand',
+      slug: 'test-brand',
+      status: 'hidden',
+      isVerified: false,
+    } as Awaited<ReturnType<typeof getBrandById>>)
+    await expect(resendClaimInviteAction('brand-1')).resolves.toEqual({
+      error: 'Claim invitations can only be resent for approved brands',
+    })
+
+    vi.mocked(getBrandById).mockResolvedValueOnce({
+      id: 'brand-1',
+      name: 'Test Brand',
+      slug: 'test-brand',
+      status: 'approved',
+      isVerified: true,
+    } as Awaited<ReturnType<typeof getBrandById>>)
+    await expect(resendClaimInviteAction('brand-1')).resolves.toEqual({
+      error: 'This brand already has an owner',
+    })
+
+    expect(getApprovedOwnerSubmissionRecipients).not.toHaveBeenCalled()
+    expect(sendEmail).not.toHaveBeenCalled()
+  })
+
+  it('rejects brands without an approved owner submission', async () => {
+    const { getApprovedOwnerSubmissionRecipients } = await import('@/lib/services/submissions')
+    const { sendEmail } = await import('@/lib/email/send')
+    vi.mocked(getApprovedOwnerSubmissionRecipients).mockResolvedValueOnce(new Map())
+    const { resendClaimInviteAction } = await import('./actions')
+
+    await expect(resendClaimInviteAction('brand-1')).resolves.toEqual({
+      error: 'No approved owner submission was found for this brand',
+    })
+    expect(sendEmail).not.toHaveBeenCalled()
+  })
+
+  it('reports delivery failures instead of claiming success', async () => {
+    const { sendEmail } = await import('@/lib/email/send')
+    vi.mocked(sendEmail).mockResolvedValueOnce({
+      success: false,
+      error: 'Email provider unavailable',
+    })
+    const { resendClaimInviteAction } = await import('./actions')
+
+    await expect(resendClaimInviteAction('brand-1')).resolves.toEqual({
+      error: 'Email provider unavailable',
+    })
   })
 })
 

@@ -9,7 +9,16 @@ const routeMap = {
   'src/app/[locale]/brands': [
     'e2e/tests/directory.spec.ts',
     'e2e/tests/directory-sort.spec.ts',
+    'e2e/tests/search-edge-cases.spec.ts',
   ],
+  'src/app/api/search': ['e2e/tests/search-edge-cases.spec.ts'],
+  'src/components/brands/search-input.tsx': [
+    'e2e/tests/search-edge-cases.spec.ts',
+  ],
+  'src/components/brands/search-suggestions.tsx': [
+    'e2e/tests/search-edge-cases.spec.ts',
+  ],
+  'src/lib/services/brands.ts': ['e2e/tests/search-edge-cases.spec.ts'],
   'src/app/[locale]/submit': ['e2e/tests/community-submit.spec.ts'],
 }
 
@@ -65,5 +74,16 @@ describe('selectSpecs', () => {
     )
     expect(result).toContain('e2e/tests/brand-detail.spec.ts')
     expect(result).toContain('e2e/tests/community-submit.spec.ts')
+  })
+
+  it.each([
+    'src/app/api/search/route.ts',
+    'src/components/brands/search-input.tsx',
+    'src/components/brands/search-suggestions.tsx',
+    'src/lib/services/brands.ts',
+  ])('selects search coverage for %s', (changedFile) => {
+    expect(selectSpecs([changedFile], routeMap)).toContain(
+      'e2e/tests/search-edge-cases.spec.ts',
+    )
   })
 })

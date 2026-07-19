@@ -216,6 +216,58 @@ describe('createSubmission — product_type_note', () => {
   })
 })
 
+describe('getApprovedOwnerSubmissionRecipients', () => {
+  it('returns the latest approved owner-submission recipient for each requested brand', async () => {
+    const mockIn = vi.fn()
+    const ownerQuery = {
+      eq: vi.fn(),
+      order: vi.fn().mockResolvedValue({
+        data: [
+          {
+            brand_id: 'brand-1',
+            submitter_email: 'latest@example.com',
+            submitted_at: '2026-07-19T10:00:00Z',
+          },
+          {
+            brand_id: 'brand-1',
+            submitter_email: 'older@example.com',
+            submitted_at: '2026-07-18T10:00:00Z',
+          },
+          {
+            brand_id: 'brand-2',
+            submitter_email: 'second@example.com',
+            submitted_at: '2026-07-17T10:00:00Z',
+          },
+        ],
+        error: null,
+      }),
+    }
+    ownerQuery.eq.mockReturnValue(ownerQuery)
+    mockIn.mockReturnValue(ownerQuery)
+    mockSelect.mockReturnValueOnce({ in: mockIn })
+    const { getApprovedOwnerSubmissionRecipients } = await import('../submissions')
+
+    const recipients = await getApprovedOwnerSubmissionRecipients(['brand-1', 'brand-2'])
+
+    expect(mockIn).toHaveBeenCalledWith('brand_id', ['brand-1', 'brand-2'])
+    expect(ownerQuery.eq).toHaveBeenNthCalledWith(1, 'status', 'approved')
+    expect(ownerQuery.eq).toHaveBeenNthCalledWith(2, 'is_brand_owner', true)
+    expect(recipients).toEqual(
+      new Map([
+        ['brand-1', { submitterEmail: 'latest@example.com' }],
+        ['brand-2', { submitterEmail: 'second@example.com' }],
+      ])
+    )
+  })
+
+  it('does not query Supabase when no brand IDs are requested', async () => {
+    const { getApprovedOwnerSubmissionRecipients } = await import('../submissions')
+
+    await expect(getApprovedOwnerSubmissionRecipients([])).resolves.toEqual(new Map())
+    expect(mockFrom).not.toHaveBeenCalled()
+  })
+})
+
 describe('rejectSubmission', () => {
   const TEST_REVIEWER_ID = 'reviewer-123'
 

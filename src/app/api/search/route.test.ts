@@ -49,6 +49,47 @@ describe('GET /api/search', () => {
     expect(response.status).toBe(400)
   })
 
+  it('returns 400 when q contains only whitespace', async () => {
+    const response = await GET(makeRequest('http://localhost/api/search?q=%20%20%20'))
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      error: "Query parameter 'q' is required and must be 1-100 characters",
+    })
+    expect(mockSearchBrandsAutocomplete).not.toHaveBeenCalled()
+  })
+
+  it('accepts exactly 100 characters and rejects 101 characters', async () => {
+    mockSearchBrandsAutocomplete.mockResolvedValue([])
+    const accepted = 'a'.repeat(100)
+    const rejected = 'a'.repeat(101)
+
+    const acceptedResponse = await GET(
+      makeRequest(`http://localhost/api/search?q=${accepted}`),
+    )
+    const rejectedResponse = await GET(
+      makeRequest(`http://localhost/api/search?q=${rejected}`),
+    )
+
+    expect(acceptedResponse.status).toBe(200)
+    expect(rejectedResponse.status).toBe(400)
+    expect(mockSearchBrandsAutocomplete).toHaveBeenCalledTimes(1)
+    expect(mockSearchBrandsAutocomplete).toHaveBeenCalledWith(accepted, 5)
+  })
+
+  it('passes Unicode and reserved characters to the service unchanged', async () => {
+    mockSearchBrandsAutocomplete.mockResolvedValue([])
+    const query = '台 灣茶 & coffee/器物?'
+
+    await GET(
+      makeRequest(
+        `http://localhost/api/search?q=${encodeURIComponent(query)}`,
+      ),
+    )
+
+    expect(mockSearchBrandsAutocomplete).toHaveBeenCalledWith(query, 5)
+  })
+
   it('respects custom limit param', async () => {
     mockSearchBrandsAutocomplete.mockResolvedValue([])
 
@@ -65,6 +106,20 @@ describe('GET /api/search', () => {
     expect(mockSearchBrandsAutocomplete).toHaveBeenCalledWith('tea', 10)
   })
 
+  it.each([
+    ['missing', '', 5],
+    ['invalid', '&limit=invalid', 5],
+    ['negative', '&limit=-4', 1],
+    ['zero', '&limit=0', 5],
+    ['over limit', '&limit=999', 10],
+  ])('normalizes a %s limit', async (_label, suffix, expected) => {
+    mockSearchBrandsAutocomplete.mockResolvedValue([])
+
+    await GET(makeRequest(`http://localhost/api/search?q=tea${suffix}`))
+
+    expect(mockSearchBrandsAutocomplete).toHaveBeenCalledWith('tea', expected)
+  })
+
   it('returns empty results on service error', async () => {
     mockSearchBrandsAutocomplete.mockRejectedValue(new Error('DB down'))
 
@@ -73,5 +128,8 @@ describe('GET /api/search', () => {
 
     expect(response.status).toBe(200)
     expect(body.results).toEqual([])
+    expect(response.headers.get('Cache-Control')).toBe(
+      'public, s-maxage=60, stale-while-revalidate=300'
+    )
   })
 })

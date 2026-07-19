@@ -7,7 +7,6 @@ describe("deriveSubmissionReviewStage", () => {
     expect(
       deriveSubmissionReviewStage({
         submissionStatus: "pending",
-        enrichmentComplete: false,
         targetStatus: null,
         jobStatus: null,
         dispatchStatus: null,
@@ -21,7 +20,6 @@ describe("deriveSubmissionReviewStage", () => {
       expect(
         deriveSubmissionReviewStage({
           submissionStatus: "pending",
-          enrichmentComplete: false,
           targetStatus,
           jobStatus: "running",
           dispatchStatus: "dispatched",
@@ -30,11 +28,10 @@ describe("deriveSubmissionReviewStage", () => {
     },
   );
 
-  it("shows a complete successful target as ready", () => {
+  it("shows a successful target as ready", () => {
     expect(
       deriveSubmissionReviewStage({
         submissionStatus: "pending",
-        enrichmentComplete: true,
         targetStatus: "succeeded",
         jobStatus: "completed",
         dispatchStatus: "dispatched",
@@ -65,7 +62,6 @@ describe("deriveSubmissionReviewStage", () => {
       expect(
         deriveSubmissionReviewStage({
           submissionStatus: "pending",
-          enrichmentComplete: false,
           ...state,
         }),
       ).toBe("needs_data");
@@ -76,7 +72,6 @@ describe("deriveSubmissionReviewStage", () => {
     expect(
       deriveSubmissionReviewStage({
         submissionStatus: "approved",
-        enrichmentComplete: true,
         targetStatus: "succeeded",
         jobStatus: "completed",
         dispatchStatus: "dispatched",

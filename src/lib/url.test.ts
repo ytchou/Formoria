@@ -1,5 +1,28 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeInstagramHref, normalizeThreadsHref, sanitizeHref } from './url'
+import {
+  isPrivateUrl,
+  normalizeInstagramHref,
+  normalizeThreadsHref,
+  sanitizeHref,
+} from './url'
+
+describe('isPrivateUrl', () => {
+  it.each([
+    'http://localhost',
+    'http://127.0.0.1',
+    'http://[::1]',
+    'http://10.0.0.1',
+    'http://172.16.0.1',
+    'http://192.168.1.1',
+    'http://169.254.1.1',
+  ])('blocks private URL %s', (url) => {
+    expect(isPrivateUrl(url)).toBe(true)
+  })
+
+  it('allows public HTTP URLs', () => {
+    expect(isPrivateUrl('https://example.com')).toBe(false)
+  })
+})
 
 describe('sanitizeHref', () => {
   it('returns null for null, undefined, empty string', () => {

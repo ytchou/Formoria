@@ -81,8 +81,10 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
           <div className="space-y-4">
               {([
               {
-                label: isOwnerIntent ? t('timeline.ownerReview.label') : t('timeline.review.label'),
-                description: isOwnerIntent ? t('timeline.ownerReview.description') : t('timeline.review.description'),
+                label: t('timeline.review.label'),
+                description: isOwnerIntent
+                  ? t('timeline.ownerReview.description')
+                  : t('timeline.review.description'),
                 active: true,
               },
               {
@@ -120,7 +122,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
         </div>
 
         <p className="mt-4 type-card-description">
-          {t.rich(isOwnerIntent ? 'whatNext.ownerLearnMore.answer' : 'whatNext.learnMore.answer', {
+          {t.rich('whatNext.learnMore.answer', {
             link: (chunks) => (
               <Link href="/getting-started" className="text-foreground underline">
                 {chunks}

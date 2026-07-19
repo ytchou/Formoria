@@ -183,6 +183,59 @@ describe('submit actions', () => {
     )
   })
 
+  it('normalizes recommendation names and websites before submission', async () => {
+    await submitRecommendation({
+      name: '  Test Brand  ',
+      website: '  https://test.com/store  ',
+      sourceAttribution: 'found_online',
+      pdpaConsent: true,
+      turnstileToken: 'test-token',
+      honeypot: '',
+    })
+
+    expect(mockCheckBrandDuplicates).toHaveBeenCalledWith('Test Brand')
+    expect(mockSubmitBrandForReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brandName: 'Test Brand',
+        websiteUrl: 'https://test.com/store',
+      }),
+      { useServiceRole: true },
+    )
+  })
+
+  it('silently ignores recommendations caught by the honeypot', async () => {
+    const result = await submitRecommendation({
+      name: 'Test Brand',
+      website: 'https://test.com',
+      sourceAttribution: 'found_online',
+      pdpaConsent: true,
+      turnstileToken: 'test-token',
+      honeypot: 'bot-filled-this',
+    })
+
+    expect(result).toBeUndefined()
+    expect(mockVerifyTurnstileToken).not.toHaveBeenCalled()
+    expect(mockCheckBrandDuplicates).not.toHaveBeenCalled()
+    expect(mockSubmitBrandForReview).not.toHaveBeenCalled()
+  })
+
+  it('rejects recommendations when server-side Turnstile verification fails', async () => {
+    mockVerifyTurnstileToken.mockResolvedValue({ success: false })
+
+    const result = await submitRecommendation({
+      name: 'Test Brand',
+      website: 'https://test.com',
+      sourceAttribution: 'found_online',
+      pdpaConsent: true,
+      turnstileToken: 'invalid-token',
+      honeypot: '',
+    })
+
+    expect(result).toEqual({ error: expect.any(String) })
+    expect(mockCheckBrandDuplicates).not.toHaveBeenCalled()
+    expect(mockSubmitBrandForReview).not.toHaveBeenCalled()
+  })
+
   it('enrolls an opted-in guest after the recommendation succeeds', async () => {
     await submitRecommendation({
       name: 'Test Brand',

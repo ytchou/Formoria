@@ -45,7 +45,7 @@ describe('SubmissionWizard', () => {
       </NextIntlClientProvider>
     )
     expect(screen.getByLabelText(/品牌名稱/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/羅馬拼音/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/品牌英文名稱/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/網站/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/品牌介紹/i)).toBeInTheDocument()
   })

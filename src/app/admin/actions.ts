@@ -5,6 +5,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdminAction } from '@/lib/auth/require-admin'
 import {
   getSubmission,
+  getApprovedOwnerSubmissionRecipients,
   approveSubmission,
   rejectSubmission,
   isGeneratedGuestSubmissionEmail,
@@ -43,6 +44,50 @@ import { FEATURE_FLAGS, setAppSetting } from '@/lib/services/app-settings'
 import { DENIAL_REASONS, type DenialReason, type OtherUrl } from '@/lib/types'
 import { getSiteUrl } from '@/lib/site-url'
 import { revalidatePublicBrand } from '@/lib/cache/public-brand-cache'
+
+export async function resendClaimInviteAction(
+  brandId: string
+): Promise<{ resent: true } | { error: string }> {
+  try {
+    const auth = await requireAdminAction()
+    if ('error' in auth) return auth
+
+    const brand = await getBrandById(brandId)
+    if (brand.status !== 'approved') {
+      return { error: 'Claim invitations can only be resent for approved brands' }
+    }
+    if (brand.isVerified) {
+      return { error: 'This brand already has an owner' }
+    }
+
+    const recipients = await getApprovedOwnerSubmissionRecipients([brandId])
+    const recipient = recipients.get(brandId)
+    if (!recipient) {
+      return { error: 'No approved owner submission was found for this brand' }
+    }
+
+    const siteUrl = getSiteUrl()
+    const token = await generateClaimToken(brandId, recipient.submitterEmail, brand.name)
+    const claimUrl = `${siteUrl}/auth/sign-up?claim=${token}`
+    const delivery = await sendEmail(await buildClaimEmail({
+      submitterEmail: recipient.submitterEmail,
+      brandName: brand.name,
+      claimUrl,
+      siteUrl,
+    }))
+    if (!delivery.success) {
+      throw new Error(delivery.error ?? 'Claim invitation could not be sent')
+    }
+
+    revalidatePath('/admin/brands')
+    return { resent: true }
+  } catch (err) {
+    console.error('[admin:resendClaimInvite]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
+}
 
 export async function approveSubmissionAction(
   submissionId: string

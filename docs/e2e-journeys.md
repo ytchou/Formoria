@@ -21,6 +21,7 @@ Running inventory of e2e-covered user journeys. Updated by `/e2e-author` runs.
 |---------|------|-------------|
 | **Guide detail rendering + SEO** | `e2e/tests/guide-detail.spec.ts` | 2026-07-03 |
 | **Submit funnel end-to-end** | `e2e/tests/submit-funnel.spec.ts` | 2026-07-05 |
+| **Submit recommendation — duplicate recovery and rapid repeat-submit persistence** | `e2e/tests/submit-recommend-edge-cases.spec.ts` | 2026-07-19 |
 | **Detailed owner wizard — final-only persistence, shared links, romanized URL preview** | `e2e/tests/submit-funnel.spec.ts` | 2026-07-16 |
 | **Dashboard analytics** | `e2e/tests/dashboard-analytics.spec.ts` | 2026-07-05 |
 | **User settings** | `e2e/tests/settings.spec.ts` | 2026-07-05 |
@@ -42,6 +43,7 @@ Running inventory of e2e-covered user journeys. Updated by `/e2e-author` runs.
 | **Localized brand indexability and hidden-brand exclusion** | `e2e/tests/seo.spec.ts`, `e2e/tests/brand-detail.spec.ts` | 2026-07-15 |
 | **Guide locale indexability** | `e2e/tests/guide-detail.spec.ts` | 2026-07-15 |
 | **Directory filters, zero-result recovery, and contextual recommendations** | `e2e/tests/directory.spec.ts` | 2026-07-16 |
+| **Public search — API boundaries, ranking, bilingual/fuzzy matching, entry points, async state, filters, and recovery** | `e2e/tests/search-edge-cases.spec.ts` | 2026-07-19 |
 | _(30+ existing deep specs omitted — see e2e/tests/ for full inventory)_ | | |
 
 ## Carried backlog (from 2026-07-11 run)

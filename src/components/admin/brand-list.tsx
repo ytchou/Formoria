@@ -3,7 +3,7 @@
 import { Fragment, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MoreHorizontal } from "lucide-react";
+import { MailCheck, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import type { Brand, BrandStatus } from "@/lib/types";
 import { surfaceCardStyles } from "@/components/ui/card";
@@ -15,6 +15,7 @@ import {
   hideBrandAction,
   unhideBrandAction,
   deleteBrandAction,
+  resendClaimInviteAction,
 } from "@/app/admin/actions";
 import { startCurationJobAction } from "@/app/admin/operations/actions";
 import type { CurationJobParams } from "@/lib/services/curation-jobs";
@@ -87,7 +88,13 @@ function MitStatusBadge({ status }: { status: MitStatus }) {
   );
 }
 
-export function BrandList({ brands }: { brands: Brand[] }) {
+export function BrandList({
+  brands,
+  claimInviteBrandIds = [],
+}: {
+  brands: Brand[];
+  claimInviteBrandIds?: string[];
+}) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabValue>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -97,6 +104,7 @@ export function BrandList({ brands }: { brands: Brand[] }) {
   const [deletingBrand, setDeletingBrand] = useState<Brand | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const claimInviteBrandIdSet = new Set(claimInviteBrandIds);
 
   const categories = Array.from(
     new Set(brands.map((b) => b.category).filter(Boolean) as string[]),
@@ -135,6 +143,17 @@ export function BrandList({ brands }: { brands: Brand[] }) {
       const result = await deleteBrandAction(deletingBrand.id);
       if (result?.error) setError(result.error);
       else setDeletingBrand(null);
+    });
+  }
+
+  function handleResendClaimInvite(brand: Brand) {
+    startTransition(async () => {
+      const result = await resendClaimInviteAction(brand.id);
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Claim invitation sent");
     });
   }
 
@@ -297,6 +316,17 @@ export function BrandList({ brands }: { brands: Brand[] }) {
                       >
                         View in Dashboard
                       </Link>
+                      {claimInviteBrandIdSet.has(brand.id) && (
+                        <Button
+                          variant="secondary"
+                          size="compact"
+                          onClick={() => handleResendClaimInvite(brand)}
+                          disabled={isPending}
+                        >
+                          <MailCheck className="size-4" aria-hidden />
+                          Resend claim invite
+                        </Button>
+                      )}
                       {brand.status === "approved" && (
                         <Button
                           variant="secondary"

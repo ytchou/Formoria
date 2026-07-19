@@ -8,7 +8,6 @@ export type SubmissionReviewStage =
 
 type SubmissionReviewStageInput = {
   submissionStatus: string;
-  enrichmentComplete: boolean;
   targetStatus: CurationTargetStatus | null;
   jobStatus: string | null;
   dispatchStatus: CurationDispatchStatus | null;
@@ -16,7 +15,6 @@ type SubmissionReviewStageInput = {
 
 export function deriveSubmissionReviewStage({
   submissionStatus,
-  enrichmentComplete,
   targetStatus,
   jobStatus,
   dispatchStatus,
@@ -35,7 +33,7 @@ export function deriveSubmissionReviewStage({
     return "enriching";
   }
 
-  if (targetStatus === "succeeded" && enrichmentComplete) {
+  if (targetStatus === "succeeded") {
     return "ready";
   }
 

@@ -727,6 +727,47 @@ export async function createSubmission(
   return submissionToDomain(inserted);
 }
 
+export type ApprovedOwnerSubmissionRecipient = {
+  submitterEmail: string;
+};
+
+export async function getApprovedOwnerSubmissionRecipients(
+  brandIds: string[],
+): Promise<Map<string, ApprovedOwnerSubmissionRecipient>> {
+  const uniqueBrandIds = [...new Set(brandIds.filter(Boolean))];
+  if (uniqueBrandIds.length === 0) return new Map();
+
+  const supabase = createServiceClient();
+  const chunks = chunkValues(
+    uniqueBrandIds,
+    SUPABASE_IN_FILTER_CHUNK_SIZE,
+  );
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      supabase
+        .from("brand_submissions")
+        .select("brand_id, submitter_email, submitted_at")
+        .in("brand_id", chunk)
+        .eq("status", "approved")
+        .eq("is_brand_owner", true)
+        .order("submitted_at", { ascending: false, nullsFirst: false }),
+    ),
+  );
+
+  const recipients = new Map<string, ApprovedOwnerSubmissionRecipient>();
+  for (const { data, error } of results) {
+    if (error) throw error;
+    for (const submission of data ?? []) {
+      if (!submission.brand_id || recipients.has(submission.brand_id)) continue;
+      recipients.set(submission.brand_id, {
+        submitterEmail: submission.submitter_email,
+      });
+    }
+  }
+
+  return recipients;
+}
+
 const ADMIN_SUBMISSIONS_SELECT = `
   id,
   brand_id,
@@ -970,7 +1011,6 @@ export async function getSubmissionsForReview(options?: {
       reviewCompleteness,
       reviewStage: deriveSubmissionReviewStage({
         submissionStatus: submission.status,
-        enrichmentComplete: reviewCompleteness.complete,
         targetStatus,
         jobStatus: latestJob?.status ?? null,
         dispatchStatus,

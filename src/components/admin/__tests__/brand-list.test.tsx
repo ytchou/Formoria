@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { BrandList } from '../brand-list'
+
+const resendClaimInviteAction = vi.hoisted(() => vi.fn())
+const toastSuccess = vi.hoisted(() => vi.fn())
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -16,7 +19,12 @@ vi.mock('@/app/admin/actions', () => ({
   hideBrandAction: vi.fn(),
   unhideBrandAction: vi.fn(),
   deleteBrandAction: vi.fn(),
+  resendClaimInviteAction,
   rejectMitAction: vi.fn(),
+}))
+
+vi.mock('sonner', () => ({
+  toast: { success: toastSuccess, error: vi.fn(), info: vi.fn() },
 }))
 
 const mockBrands = [
@@ -169,5 +177,36 @@ describe('BrandList', () => {
     const editButtons = screen.getAllByRole('button', { name: 'Edit' })
     fireEvent.click(editButtons[0])
     expect(screen.getByDisplayValue('Pottery Studio')).toBeDefined()
+  })
+
+  it('only offers claim-invite resend for eligible brands', () => {
+    render(<BrandList brands={mockBrands} claimInviteBrandIds={['brand-1']} />)
+
+    const eligibleRow = screen.getByText('Pottery Studio').closest('tr')
+    const ineligibleRow = screen.getByText('Bamboo Craft').closest('tr')
+    expect(eligibleRow).not.toBeNull()
+    expect(ineligibleRow).not.toBeNull()
+    expect(
+      within(eligibleRow as HTMLElement).getByRole('button', {
+        name: 'Resend claim invite',
+      })
+    ).toBeInTheDocument()
+    expect(
+      within(ineligibleRow as HTMLElement).queryByRole('button', {
+        name: 'Resend claim invite',
+      })
+    ).not.toBeInTheDocument()
+  })
+
+  it('resends an eligible claim invite and reports success', async () => {
+    resendClaimInviteAction.mockResolvedValue({ resent: true })
+    render(<BrandList brands={mockBrands} claimInviteBrandIds={['brand-1']} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Resend claim invite' }))
+
+    await waitFor(() => {
+      expect(resendClaimInviteAction).toHaveBeenCalledWith('brand-1')
+    })
+    expect(toastSuccess).toHaveBeenCalledWith('Claim invitation sent')
   })
 })

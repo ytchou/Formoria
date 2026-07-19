@@ -1,6 +1,7 @@
 import { z } from 'zod/v3'
 import { CITY_SLUGS, type CitySlug } from '@/lib/constants/taiwan-cities'
 import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
+import { isPrivateUrl } from '@/lib/url'
 
 type Translator = (key: string) => string
 
@@ -16,12 +17,28 @@ function hasHttpScheme(value: string): boolean {
 function httpUrl(message?: string) {
   return z
     .string()
+    .trim()
     .url(message)
     .refine(hasHttpScheme, message ?? 'Invalid URL scheme')
+    .refine((value) => !isPrivateUrl(value), message ?? 'Invalid URL')
+}
+
+const graphemeSegmenter = new Intl.Segmenter(undefined, {
+  granularity: 'grapheme',
+})
+
+function hasMinimumVisibleCharacters(value: string, minimum: number) {
+  return Array.from(graphemeSegmenter.segment(value)).length >= minimum
 }
 
 function buildFieldSchemas(t: Translator) {
-  const nameField = z.string().min(2, t('validation.nameMinLength')).max(100)
+  const nameField = z
+    .string()
+    .trim()
+    .max(100)
+    .refine((value) => hasMinimumVisibleCharacters(value, 2), {
+      message: t('validation.nameMinLength'),
+    })
   const websiteField = httpUrl(t('validation.urlInvalid'))
 
   const purchaseLinkSchema = z.object({
@@ -94,7 +111,7 @@ function getBotDetectionSchema(_t: Translator) {
   void _t
   return z.object({
     turnstileToken: z.string().min(1),
-    honeypot: z.string().max(0).optional().default(''),
+    honeypot: z.string().optional().default(''),
   })
 }
 
@@ -125,7 +142,12 @@ function baseSubmissionSchema(t: Translator) {
   return getBrandInfoSchema(t)
     .merge(
       z.object({
-        heroImageUrl: z.string().url().optional().or(z.literal('')),
+        heroImageUrl: z
+          .string()
+          .url()
+          .optional()
+          .nullable()
+          .or(z.literal('')),
         description: z.string().max(500).optional().default(''),
       }),
     )

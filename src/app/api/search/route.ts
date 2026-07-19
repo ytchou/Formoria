@@ -15,7 +15,8 @@ export async function GET(request: Request) {
     )
   }
 
-  const limit = Math.min(limitParam ? parseInt(limitParam, 10) || 5 : 5, 10)
+  const parsedLimit = limitParam ? parseInt(limitParam, 10) || 5 : 5
+  const limit = Math.min(Math.max(parsedLimit, 1), 10)
 
   try {
     const results = await searchBrandsAutocomplete(query, limit)
