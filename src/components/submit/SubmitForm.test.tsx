@@ -159,6 +159,16 @@ describe('SubmitForm', () => {
     expect(screen.getByRole('button', { name: /送出推薦/ })).toBeDisabled()
   })
 
+  it('wraps the privacy consent in a shield-badged consent panel', () => {
+    renderForm()
+    const privacyConsent = screen.getByRole('checkbox', { name: /隱私權政策/ })
+    const consentPanel = privacyConsent.closest('[data-testid="consent-panel"]')
+    expect(consentPanel).toBeInTheDocument()
+    expect(consentPanel).toHaveClass('rounded-lg')
+    const shieldIcon = consentPanel!.querySelector('[data-testid="consent-shield"]')
+    expect(shieldIcon).toBeInTheDocument()
+  })
+
   it('toggles the consent checkbox when its label text is clicked', async () => {
     const user = userEvent.setup()
     renderForm()
