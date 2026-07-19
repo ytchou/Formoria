@@ -44,7 +44,7 @@ Self-serve brand submission flow.
 
 ### Admin
 Content management and moderation.
-- Operations overview (`/admin`) — an exact-count, linked triage ledger for submissions, moderation, edits, claims, reports, feedback, active jobs, brands, and newsletter subscribers
+- Operations overview (`/admin`) — an exact-count, linked triage ledger for submissions, moderation, claims, reports, active jobs, brands, and newsletter subscribers
 - Quick operations on the overview — enrich the current needs-data submissions
 - Submission review queue (approve/reject with notes) — admins review submissions after enrichment, not before
 - Enrichment status badge on each submission: `Not Enriched` | `Partially Enriched` | `Enriched` — indicates how much AI-derived data has been populated before the admin makes a decision

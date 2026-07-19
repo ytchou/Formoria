@@ -117,7 +117,7 @@ vi.mock('@/lib/services/app-settings', () => ({
       label: 'Subcategory filter on /brands',
       description: 'Shows product-type chips in the directory filter sidebar',
       defaultValue: true,
-      revalidatePaths: ['/brands', '/en/brands', '/admin'],
+      revalidatePaths: ['/brands', '/en/brands', '/admin/settings'],
     },
   ],
   setAppSetting: vi.fn().mockResolvedValue(undefined),

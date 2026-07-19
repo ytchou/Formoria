@@ -992,28 +992,6 @@ export async function getSubmission(id: string): Promise<BrandSubmission> {
   return submissionToDomain(data);
 }
 
-export async function getSubmissions(
-  status?: SubmissionStatus,
-  options?: { limit?: number },
-): Promise<BrandSubmission[]> {
-  const supabase = createServiceClient();
-  let query = supabase.from("brand_submissions").select("*");
-
-  if (status) {
-    query = query.eq("status", status);
-  }
-
-  query = query.order("submitted_at", { ascending: false });
-  if (options?.limit) {
-    query = query.limit(options.limit);
-  }
-
-  const { data, error } = await query;
-
-  if (error) throw error;
-  return (data ?? []).map(submissionToDomain);
-}
-
 export type SaveSubmissionReviewInput = SubmissionReviewData & {
   images: Array<{ id: string; isHero: boolean; sortOrder: number }>;
 };
