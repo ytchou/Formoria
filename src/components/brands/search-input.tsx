@@ -67,9 +67,6 @@ function SearchInput({
       setSuggestions(results)
       setShowDropdown(true)
       setSelectedIndex(-1)
-      if (results.length === 0 && q.trim()) {
-        trackSearchNoResults(q)
-      }
     } catch {
       // Ignore fetch errors; search filtering still works.
     }
@@ -126,6 +123,7 @@ function SearchInput({
   }
 
   function handleSelect(slug: string, index: number) {
+    trackSearchExecuted(value, suggestions.length)
     trackSearchResultClicked(value, index)
     setShowDropdown(false)
     router.push(`/brands/${slug}`)
@@ -140,6 +138,9 @@ function SearchInput({
     const q = (new FormData(e.currentTarget).get('q') as string)?.trim() ?? ''
     if (q) {
       trackSearchExecuted(q, suggestions.length)
+      if (suggestions.length === 0) {
+        trackSearchNoResults(q)
+      }
       if (redirectTo) {
         // Use native navigation for cross-page redirects — router.push
         // intermittently fails in WebKit when navigating from / to /brands.

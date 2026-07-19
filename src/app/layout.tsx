@@ -1,10 +1,9 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Geist_Mono, Inter, Noto_Sans_TC } from "next/font/google";
-import { GoogleAnalytics } from "@next/third-parties/google";
 import { Agentation } from "agentation";
 import { Toaster } from "sonner";
-import { GaUserSync } from "@/components/analytics/ga-user-sync";
-import { SessionTracker } from "@/components/analytics/session-tracker";
+import { PublicGoogleAnalytics } from "@/components/analytics/public-google-analytics";
 import { ViewerProvider } from "@/lib/auth/use-user";
 import { getSiteUrl } from "@/lib/seo/site-url";
 import "./globals.css";
@@ -69,14 +68,12 @@ export default function RootLayout({
           Skip to content
         </a>
         <ViewerProvider>
-          <SessionTracker />
           {children}
           {process.env.NODE_ENV === "development" && !process.env.PLAYWRIGHT_TEST && <Agentation />}
           {process.env.NEXT_PUBLIC_GA_ID && (
-            <>
-              <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />
-              <GaUserSync />
-            </>
+            <Suspense fallback={null}>
+              <PublicGoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />
+            </Suspense>
           )}
           <Toaster richColors position="top-right" />
         </ViewerProvider>
