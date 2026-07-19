@@ -6,12 +6,10 @@ import AdminDashboardPage from '../page'
 import { getAppSetting } from '@/lib/services/app-settings'
 import { getBrands } from '@/lib/services/brands'
 import { listClaimRequests } from '@/lib/services/claim-requests'
-import { getFeedbackItems } from '@/lib/services/feedback'
 import { getFlaggedContent } from '@/lib/services/moderation'
 import { getPendingReports } from '@/lib/services/reports'
 import { getSubmissionsForReview, type BrandSubmissionForReview } from '@/lib/services/submissions'
 import type { BrandReport } from '@/lib/services/reports'
-import type { FeedbackItem } from '@/lib/services/feedback'
 import type { FlaggedContentItem } from '@/lib/services/moderation'
 import type { ClaimRequest } from '@/lib/services/claim-requests'
 import type { Brand } from '@/lib/types'
@@ -28,10 +26,6 @@ vi.mock('@/lib/services/reports', () => ({
   getPendingReports: vi.fn(),
 }))
 
-vi.mock('@/lib/services/feedback', () => ({
-  getFeedbackItems: vi.fn(),
-}))
-
 vi.mock('@/lib/services/moderation', () => ({
   getFlaggedContent: vi.fn(),
 }))
@@ -41,7 +35,15 @@ vi.mock('@/lib/services/brands', () => ({
 }))
 
 vi.mock('@/lib/services/app-settings', () => ({
-  SUBCATEGORY_FILTER_KEY: 'subcategory_filter_enabled',
+  FEATURE_FLAGS: [
+    {
+      key: 'subcategory_filter_enabled',
+      label: 'Subcategory filter on /brands',
+      description: 'Shows product-type chips in the directory filter sidebar',
+      defaultValue: true,
+      revalidatePaths: ['/brands', '/en/brands', '/admin'],
+    },
+  ],
   getAppSetting: vi.fn(),
 }))
 
@@ -51,8 +53,6 @@ vi.mock('next-intl/server', () => {
     'queues.claims.empty': 'No pending brand claims.',
     'queues.reports.title': 'Brand Reports',
     'queues.reports.empty': 'No pending brand reports.',
-    'queues.feedback.title': 'User Feedback',
-    'queues.feedback.empty': 'No pending user feedback.',
     'stats.totalBrandsLabel': 'Total Brands',
     'stats.totalBrandsDesc': 'Brand records in the database',
     'stats.flaggedContentLabel': 'Pending Content Flags',
@@ -71,7 +71,6 @@ vi.mock('next-intl/server', () => {
     newsletterSection: 'Newsletter Subscribers',
     newsletterSectionSub: 'Email capture list and subscription confirmation status.',
     noDate: 'No date',
-    unnamedFeedback: 'Unnamed feedback',
   }
   return {
     getTranslations: vi.fn(() => Promise.resolve((key: string) => messages[key] ?? key)),
@@ -82,7 +81,6 @@ vi.mock('@/app/admin/actions', () => ({
   approveSubmissionAction: vi.fn(),
   approveClaimAction: vi.fn(),
   reviewReportAction: vi.fn(),
-  reviewFeedbackAction: vi.fn(),
   setFeatureFlagAction: vi.fn(),
 }))
 
@@ -207,26 +205,6 @@ function makeReport(overrides: Partial<BrandReport> = {}): BrandReport {
   }
 }
 
-function makeFeedback(overrides: Partial<FeedbackItem> = {}): FeedbackItem {
-  return {
-    id: 'feedback-1',
-    source: 'tally',
-    type: 'feedback',
-    title: 'Search issue',
-    body: 'Could not find a brand',
-    url: null,
-    status: 'open',
-    userEmail: 'reader@example.com',
-    sentryEventId: null,
-    sentryFeedbackId: null,
-    tallyResponseId: 'response-1',
-    metadata: {},
-    reviewedAt: null,
-    createdAt: '2026-06-13T06:00:00.000Z',
-    ...overrides,
-  }
-}
-
 function makeFlag(
   overrides: Partial<FlaggedContentItem> = {},
 ): FlaggedContentItem {
@@ -288,7 +266,6 @@ beforeEach(() => {
   vi.mocked(getSubmissionsForReview).mockResolvedValue([])
   vi.mocked(listClaimRequests).mockResolvedValue([])
   vi.mocked(getPendingReports).mockResolvedValue([])
-  vi.mocked(getFeedbackItems).mockResolvedValue([])
   vi.mocked(getFlaggedContent).mockResolvedValue({
     items: [],
     nextCursor: null,
@@ -309,6 +286,10 @@ describe('AdminPage', () => {
     expect(
       screen.getByRole('switch', { name: 'Subcategory filter on /brands' }),
     ).not.toBeChecked()
+    expect(getAppSetting).toHaveBeenCalledWith(
+      'subcategory_filter_enabled',
+      true,
+    )
   })
 
   it('renders queue summary cards sorted by highest pending count first', async () => {
@@ -324,7 +305,6 @@ describe('AdminPage', () => {
       makeClaim({ id: 'claim-4' }),
     ])
     vi.mocked(getPendingReports).mockResolvedValueOnce([makeReport()])
-    vi.mocked(getFeedbackItems).mockResolvedValueOnce([makeFeedback()])
     vi.mocked(getFlaggedContent).mockResolvedValueOnce({
       items: [makeFlag()],
       nextCursor: null,

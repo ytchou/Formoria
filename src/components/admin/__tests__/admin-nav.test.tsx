@@ -14,7 +14,6 @@ const items: NavItem[] = [
   { label: 'Content Moderation', href: '/admin/moderation', count: 0 },
   { label: 'Claim Requests', href: '/admin/claims' },
   { label: 'Reports', href: '/admin/reports', count: 2 },
-  { label: 'Feedback', href: '/admin/feedback', count: 0 },
   { label: 'Brand Catalog', href: '/admin/brands' },
   { label: 'Quality Dashboard', href: '/admin/quality' },
 ]

@@ -1,7 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import {
   approveClaimAction,
-  reviewFeedbackAction,
   reviewReportAction,
 } from "@/app/admin/actions";
 import { DashboardQueueItem } from "@/components/admin/dashboard-queue-item";
@@ -12,11 +11,10 @@ import { SystemStatusCard } from "@/components/admin/system-status-card";
 import { DataCard } from "@/components/ui/card";
 import { getBrands } from "@/lib/services/brands";
 import {
+  FEATURE_FLAGS,
   getAppSetting,
-  SUBCATEGORY_FILTER_KEY,
 } from "@/lib/services/app-settings";
 import { listClaimRequests } from "@/lib/services/claim-requests";
-import { getFeedbackItems } from "@/lib/services/feedback";
 import {
   checkAllServices,
   type ServiceHealthResult,
@@ -76,18 +74,16 @@ export default async function AdminPage() {
     submissions,
     claimRequests,
     reports,
-    feedbackItems,
     flaggedContentResult,
     brandResult,
     healthResults,
-    subcategoryFilterEnabled,
     newsletterData,
+    flagValues,
     t,
   ] = await Promise.all([
     getSubmissionsForReview().catch(() => []),
     listClaimRequests("pending", { limit: 5 }).catch(() => []),
     getPendingReports({ limit: 5 }).catch(() => []),
-    getFeedbackItems({ status: "open", limit: 5 }).catch(() => []),
     getFlaggedContent({ status: "pending", limit: 5 }).catch(() => ({
       items: [],
       nextCursor: null,
@@ -97,8 +93,16 @@ export default async function AdminPage() {
       totalCount: 0,
     })),
     checkAllServices().catch((): ServiceHealthResult[] => []),
-    getAppSetting<boolean>(SUBCATEGORY_FILTER_KEY, true),
     getNewsletterDashboardData(),
+    (async () => {
+      const flagEntries = await Promise.all(
+        FEATURE_FLAGS.map(async (flag) => [
+          flag.key,
+          await getAppSetting(flag.key, flag.defaultValue),
+        ] as const),
+      );
+      return Object.fromEntries(flagEntries) as Record<string, boolean>;
+    })(),
     getTranslations("admin.dashboard"),
   ]);
 
@@ -145,20 +149,6 @@ export default async function AdminPage() {
         action: reviewReportAction.bind(null, report.id, "reviewed"),
       })),
     },
-    {
-      key: "feedback",
-      title: t("queues.feedback.title"),
-      count: feedbackItems.length,
-      href: "/admin/feedback",
-      emptyMessage: t("queues.feedback.empty"),
-      items: feedbackItems.map((feedback) => ({
-        id: feedback.id,
-        label: feedback.title ?? feedback.body ?? t("unnamedFeedback"),
-        sublabel: feedback.userEmail ?? feedback.source,
-        date: formatQueueDate(feedback.createdAt),
-        action: reviewFeedbackAction.bind(null, feedback.id, "reviewed"),
-      })),
-    },
   ].sort((left, right) => right.count - left.count);
 
   const overviewStats = [
@@ -184,9 +174,7 @@ export default async function AdminPage() {
 
       <div className="grid gap-4 xl:grid-cols-2">
         <SystemStatusCard initialResults={healthResults} />
-        <FeatureTogglesCard
-          initialSubcategoryFilterEnabled={subcategoryFilterEnabled ?? true}
-        />
+        <FeatureTogglesCard initialValues={flagValues} />
       </div>
 
       <section aria-labelledby="review-queues">

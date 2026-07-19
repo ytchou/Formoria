@@ -1860,7 +1860,6 @@
         "moderation": "Content Moderation",
         "claims": "Claim Requests",
         "reports": "Reports",
-        "feedback": "Feedback",
         "brands": "Brand Catalog",
         "quality": "Quality Dashboard"
       }
@@ -1895,14 +1894,9 @@
         "reports": {
           "title": "Brand Reports",
           "empty": "No pending brand reports."
-        },
-        "feedback": {
-          "title": "User Feedback",
-          "empty": "No pending user feedback."
         }
       },
-      "noDate": "No date",
-      "unnamedFeedback": "Unnamed feedback"
+      "noDate": "No date"
     },
     "enrichment": {
       "complete": "Enrichment complete: {success} success, {skipped} skipped, {failed} failed"

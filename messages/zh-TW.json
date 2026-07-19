@@ -1860,7 +1860,6 @@
         "moderation": "內容審核",
         "claims": "認領申請",
         "reports": "檢舉",
-        "feedback": "意見回饋",
         "brands": "品牌目錄",
         "quality": "品質儀表板"
       }
@@ -1895,14 +1894,9 @@
         "reports": {
           "title": "品牌檢舉",
           "empty": "無待審品牌檢舉。"
-        },
-        "feedback": {
-          "title": "用戶意見",
-          "empty": "無待審用戶意見。"
         }
       },
-      "noDate": "無日期",
-      "unnamedFeedback": "未命名意見"
+      "noDate": "無日期"
     },
     "enrichment": {
       "complete": "資料抓取完成：{success} 筆成功、{skipped} 筆略過、{failed} 筆失敗"

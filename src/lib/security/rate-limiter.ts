@@ -119,7 +119,6 @@ export async function rateLimit(
 const RATE_LIMIT_RULES: Record<string, { windowMs: number; maxRequests: number }> = {
   '/admin/operations': { windowMs: 60_000, maxRequests: 3 },
   '/api/upload': { windowMs: 60_000, maxRequests: 20 },
-  '/api/webhooks/tally': { windowMs: 60_000, maxRequests: 30 },
   '/api/': { windowMs: 60_000, maxRequests: 60 },
   '/brands/': { windowMs: 60_000, maxRequests: 40 },
   '/sitemap.xml': { windowMs: 60_000, maxRequests: 3 },

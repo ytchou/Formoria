@@ -8,7 +8,6 @@ import type { NavItem } from "@/components/admin/admin-nav";
 import { getFlaggedContent } from "@/lib/services/moderation";
 import { getSubmissions } from "@/lib/services/submissions";
 import { getPendingReports } from "@/lib/services/reports";
-import { getFeedbackItems } from "@/lib/services/feedback";
 
 export default async function AdminLayout({
   children,
@@ -28,13 +27,12 @@ export default async function AdminLayout({
     redirect("/");
   }
 
-  const [messages, submissions, flaggedContent, reports, feedbackItems, t] =
+  const [messages, submissions, flaggedContent, reports, t] =
     await Promise.all([
       getMessages(),
       getSubmissions("pending"),
       getFlaggedContent({ status: "pending" }),
       getPendingReports(),
-      getFeedbackItems({ status: "open" }),
       getTranslations("admin.layout"),
     ]);
 
@@ -53,11 +51,6 @@ export default async function AdminLayout({
     },
     { label: t("nav.claims"), href: "/admin/claims" },
     { label: t("nav.reports"), href: "/admin/reports", count: reports.length },
-    {
-      label: t("nav.feedback"),
-      href: "/admin/feedback",
-      count: feedbackItems.length,
-    },
     { label: t("nav.brands"), href: "/admin/brands" },
     { label: t("nav.quality"), href: "/admin/quality" },
   ];

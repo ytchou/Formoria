@@ -81,7 +81,6 @@ describe('rejectSubmissionAction', () => {
     '@/lib/services/email-lifecycle',
     '@/lib/auth/claim-token',
     '@/lib/services/reports',
-    '@/lib/services/feedback',
     '@/lib/services/health-checks',
   ]
 
@@ -171,11 +170,6 @@ describe('rejectSubmissionAction', () => {
 
     vi.doMock('@/lib/services/reports', () => ({
       updateReportStatus: vi.fn(),
-    }))
-
-    vi.doMock('@/lib/services/feedback', () => ({
-      updateFeedbackStatus: vi.fn(),
-      syncSentryFeedback: vi.fn(),
     }))
 
     vi.doMock('@/lib/services/health-checks', () => ({
