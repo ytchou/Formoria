@@ -1420,7 +1420,13 @@
       "ownerPoint2": "Complete the owner claim flow, and we’ll send an invitation after approval",
       "ownerPoint3": "Use your dashboard to manage the brand page afterwards",
       "ownerCta": "Sign in to start",
-      "ownerCtaLoggedIn": "Submit as the brand owner"
+      "ownerCtaLoggedIn": "Submit my brand",
+      "ownerLimitTitle": "You already own a brand",
+      "ownerLimitDescription": "Each account can manage only one brand, so you can’t submit another through the brand owner flow. To share a different brand, use the community recommendation flow.",
+      "ownerLimitRecommendCta": "Recommend a brand",
+      "ownerLimitCancelCta": "Cancel",
+      "ownerLimitCloseCta": "Close",
+      "ownerLimitNavigationError": "We couldn’t open the recommendation flow. Please try again."
     },
     "wizard": {
       "heading": "Submit a Brand",
@@ -1579,17 +1585,13 @@
       "subheading": "We’ve received your brand recommendation",
       "ownerSubheading": "We’ve received your owner submission",
       "communityOwnershipNotice": "Because your account already manages a brand, this submission was accepted as a community listing and cannot be claimed by this account.",
-      "communityOwnershipContinue": "You can still proceed, and this submission will be treated as a community listing.",
-      "communityOwnershipContinueCta": "Continue Submitting",
-      "communityOwnershipBackCta": "Back",
       "timeline": {
         "review": {
           "label": "Under Review",
           "description": "Our team typically completes the review within 2 business days"
         },
         "ownerReview": {
-          "label": "Listing Review",
-          "description": "We’ll review the listing details first to confirm the brand fits the directory."
+          "description": "Our team typically completes the review within 2 business days"
         },
         "result": {
           "label": "Brand Listing",
@@ -1621,10 +1623,6 @@
         "learnMore": {
           "question": "Want to learn more?",
           "answer": "Want to learn more about Formoria? Check out our <link>Getting Started guide</link>."
-        },
-        "ownerLearnMore": {
-          "question": "What happens next?",
-          "answer": "Want to understand the claim and management flow? Read our <link>Getting Started guide</link>."
         }
       }
     },
@@ -1690,8 +1688,8 @@
       "brandNameLabel": "Brand Name",
       "brandNamePlaceholder": "e.g. Warmwood Living",
       "brandNameHint": "Use the official public brand name. It will shape both the listing and the later claim flow.",
-      "romanizedNameLabel": "Brand English / Romanized Name",
-      "romanizedNameHint": "Used for your brand's URL (e.g. din-tai-fung)",
+      "romanizedNameLabel": "Brand English Name",
+      "romanizedNameHint": "If not provided, Wade-Giles romanization will be used for the brand URL",
       "romanizedNamePlaceholder": "e.g. Din Tai Fung",
       "urlPreviewLabel": "Public brand URL",
       "urlPreviewHint": "URL changes from dashboard edits are applied after review. Clearing the romanized name keeps the current URL.",
@@ -1715,21 +1713,21 @@
       "applySuggestion": "Apply"
     },
     "ownerFork": {
-      "heading": "Choose Your Submission Path",
+      "heading": "Choose How to Build Your Brand Page",
       "description": "Pick the option that best fits your time and needs.",
       "quickEyebrow": "Quick Submit",
-      "quickTitle": "Just Your Brand URL",
-      "quickDescription": "Provide basic info and let our system auto-enrich your brand details. Best for time-pressed founders.",
-      "quickPoint1": "Only brand name, website, and description needed",
-      "quickPoint2": "Our system auto-enriches your brand data",
-      "quickPoint3": "Complete submission in under 1 minute",
+      "quickTitle": "Submit Basic Brand Info",
+      "quickDescription": "Our system will try to crawl your brand information based on the basics you provide, but we cannot guarantee data accuracy. Best for time-pressed founders — review will be needed afterwards.",
+      "quickPoint1": "Just provide brand name, official website, and description",
+      "quickPoint2": "System crawls brand info based on what you provide",
+      "quickPoint3": "Data enrichment completed within 3 business days",
       "quickCta": "Quick Submit",
       "detailsEyebrow": "Full Details",
-      "detailsTitle": "Fill in Brand Details Yourself",
-      "detailsDescription": "Provide complete brand info to ensure accurate representation. Best for brand-conscious founders.",
-      "detailsPoint1": "Full control over how your brand appears",
-      "detailsPoint2": "Upload brand photos and product images",
-      "detailsPoint3": "Add social links and sales channels",
+      "detailsTitle": "Provide Full Brand Details",
+      "detailsDescription": "You'll fill in complete brand information yourself, ensuring every detail accurately represents your brand.",
+      "detailsPoint1": "Write your brand story and product descriptions",
+      "detailsPoint2": "Upload brand logo, cover photo, and product images",
+      "detailsPoint3": "Add social accounts, website, and sales channels",
       "detailsCta": "Fill in Details"
     },
     "quickForm": {

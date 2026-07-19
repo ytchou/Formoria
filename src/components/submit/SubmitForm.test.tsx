@@ -99,6 +99,25 @@ describe('SubmitForm', () => {
     ).toBeTruthy()
   })
 
+  it('groups newsletter consent with email and marks privacy consent as required', () => {
+    renderForm()
+
+    const email = screen.getByLabelText(/你的電子郵件/)
+    const marketing = screen.getByRole('checkbox', {
+      name: '我同意接收 Formoria 電子報',
+    })
+    expect(email.parentElement).toContainElement(marketing)
+
+    const privacyConsent = screen.getByRole('checkbox', {
+      name: /隱私權政策/,
+    })
+    const privacyLabel = privacyConsent.closest('label')
+    const requiredMarker = privacyLabel?.querySelector('[aria-hidden="true"]')
+    expect(privacyConsent).toHaveAttribute('aria-required', 'true')
+    expect(requiredMarker).toHaveTextContent('*')
+    expect(requiredMarker).toHaveClass('text-destructive')
+  })
+
   it('explains that extra context helps the review', () => {
     renderForm()
 

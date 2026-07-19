@@ -59,7 +59,7 @@ describe('SubmitQuickForm', () => {
     )
 
     expect(screen.getByRole('checkbox', {
-      name: /品牌主的經營提醒與功能建議/,
+      name: /Formoria 電子報/,
     })).not.toBeChecked()
   })
 })

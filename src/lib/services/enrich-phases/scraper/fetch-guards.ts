@@ -1,40 +1,10 @@
+import { isPrivateUrl } from '@/lib/url'
+
+export { isPrivateUrl } from '@/lib/url'
+
 const FETCH_TIMEOUT_MS = 10_000
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024
 const SCRAPER_USER_AGENT = 'Formoria-Bot/1.0'
-
-const BLOCKED_HOSTNAMES = new Set([
-  'localhost',
-  '127.0.0.1',
-  '0.0.0.0',
-  '[::1]',
-])
-
-export function isPrivateUrl(urlString: string): boolean {
-  try {
-    const parsed = new URL(urlString)
-    const hostname = parsed.hostname
-
-    if (BLOCKED_HOSTNAMES.has(hostname)) return true
-
-    // Block private IP ranges: 10.x, 172.16-31.x, 192.168.x, 169.254.x
-    const parts = hostname.split('.')
-    if (parts.length === 4 && parts.every((p) => /^\d+$/.test(p))) {
-      const [a, b] = parts.map(Number)
-      if (a === 10) return true
-      if (a === 172 && b >= 16 && b <= 31) return true
-      if (a === 192 && b === 168) return true
-      if (a === 169 && b === 254) return true
-      if (a === 0) return true
-    }
-
-    // Block non-http(s) schemes
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return true
-
-    return false
-  } catch {
-    return true
-  }
-}
 
 export function resolveUrl(rawUrl: string, pageUrl: string): string | null {
   if (!rawUrl || rawUrl.startsWith('data:')) return null

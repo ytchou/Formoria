@@ -100,6 +100,34 @@ describe('useFilterParams', () => {
       )
     })
 
+    it('preserves category and sort while resetting pagination', () => {
+      mockSearchParams = new URLSearchParams(
+        'category=crafts&sort=name&page=3',
+      )
+      const { result } = renderHook(() => useFilterParams())
+
+      act(() => result.current.setSearch('tea'))
+
+      expect(mockPush).toHaveBeenCalledWith(
+        '/?category=crafts&sort=name&search=tea',
+        { scroll: false },
+      )
+    })
+
+    it('clears search while preserving unrelated filters', () => {
+      mockSearchParams = new URLSearchParams(
+        'search=tea&category=crafts&sort=newest&page=2',
+      )
+      const { result } = renderHook(() => useFilterParams())
+
+      act(() => result.current.setSearch(''))
+
+      expect(mockPush).toHaveBeenCalledWith(
+        '/?category=crafts&sort=newest',
+        { scroll: false },
+      )
+    })
+
     it('does not push when setting search leaves the URL unchanged', () => {
       const { result } = renderHook(() => useFilterParams())
 

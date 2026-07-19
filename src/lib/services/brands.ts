@@ -884,22 +884,11 @@ export async function getBrands(
 
     const sortKey = filters.sort
 
-    if (!sortKey) {
+    if (!sortKey || sortKey === 'random') {
       const pageIds = allIds.slice(offset, pageEnd)
       const rankById = new Map(pageIds.map((id, index) => [id, index]))
       const brands = (await hydrateByIds(pageIds)).sort(
         (left, right) => (rankById.get(left.id) ?? 0) - (rankById.get(right.id) ?? 0)
-      )
-      return { brands, totalCount }
-    }
-
-    if (sortKey === 'random') {
-      const shuffledIds = [...allIds]
-      shuffleArray(shuffledIds, getDailySeed())
-      const pageIds = shuffledIds.slice(offset, pageEnd)
-      const positionById = new Map(pageIds.map((id, index) => [id, index]))
-      const brands = (await hydrateByIds(pageIds)).sort(
-        (left, right) => (positionById.get(left.id) ?? 0) - (positionById.get(right.id) ?? 0)
       )
       return { brands, totalCount }
     }

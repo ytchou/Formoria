@@ -23,10 +23,7 @@ export default function OwnerForkClient() {
 
       <div className="mt-10 grid gap-6 md:grid-cols-2">
         <section className={surfaceCardStyles({ padding: 'lg' })}>
-          <p className="type-eyebrow-muted">
-            {t('ownerFork.quickEyebrow')}
-          </p>
-          <h2 className="mt-2 type-section-title-large text-foreground">
+          <h2 className="type-section-title-large text-foreground">
             {t('ownerFork.quickTitle')}
           </h2>
           <p className="mt-3 type-card-description">
@@ -61,10 +58,7 @@ export default function OwnerForkClient() {
         </section>
 
         <section className={surfaceCardStyles({ padding: 'lg' })}>
-          <p className="type-eyebrow-muted">
-            {t('ownerFork.detailsEyebrow')}
-          </p>
-          <h2 className="mt-2 type-section-title-large text-foreground">
+          <h2 className="type-section-title-large text-foreground">
             {t('ownerFork.detailsTitle')}
           </h2>
           <p className="mt-3 type-card-description">

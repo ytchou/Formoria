@@ -114,6 +114,96 @@ describe('simplified submission schema', () => {
       marketingEmailOptIn: true,
     }).success).toBe(true)
   })
+
+  it.each(['  ', '茶', '😀'])(
+    'rejects a name with fewer than two visible characters: %j',
+    (name) => {
+      const result = createRecommendationSubmissionSchema().safeParse({
+        name,
+        website: 'https://example.com',
+        sourceAttribution,
+        pdpaConsent: true,
+        turnstileToken: 'test-token',
+        honeypot: '',
+      })
+
+      expect(result.success).toBe(false)
+    },
+  )
+
+  it('accepts two emoji as two visible characters', () => {
+    const result = createRecommendationSubmissionSchema().safeParse({
+      name: '😀😀',
+      website: 'https://example.com',
+      sourceAttribution,
+      pdpaConsent: true,
+      turnstileToken: 'test-token',
+      honeypot: '',
+    })
+
+    expect(result.success).toBe(true)
+  })
+
+  it('trims names and HTTP URLs before returning parsed data', () => {
+    const result = createRecommendationSubmissionSchema().parse({
+      name: '  Test Brand  ',
+      website: '  https://example.com/store  ',
+      sourceAttribution,
+      pdpaConsent: true,
+      turnstileToken: 'test-token',
+      honeypot: '',
+    })
+
+    expect(result.name).toBe('Test Brand')
+    expect(result.website).toBe('https://example.com/store')
+  })
+
+  it.each([
+    'http://localhost:3000',
+    'http://127.0.0.1/private',
+    'http://10.0.0.1',
+    'http://172.16.0.1',
+    'http://192.168.1.1',
+    'http://169.254.1.1',
+  ])('rejects a private website URL: %s', (website) => {
+    const result = createRecommendationSubmissionSchema().safeParse({
+      name: 'Test Brand',
+      website,
+      sourceAttribution,
+      pdpaConsent: true,
+      turnstileToken: 'test-token',
+      honeypot: '',
+    })
+
+    expect(result.success).toBe(false)
+  })
+
+  it('accepts a populated honeypot for silent bot handling', () => {
+    const result = createRecommendationSubmissionSchema().safeParse({
+      name: 'Test Brand',
+      website: 'https://example.com',
+      sourceAttribution,
+      pdpaConsent: true,
+      turnstileToken: 'test-token',
+      honeypot: 'bot-filled-this',
+    })
+
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts a null optional recommendation image', () => {
+    const result = createRecommendationSubmissionSchema().safeParse({
+      name: 'Test Brand',
+      website: 'https://example.com',
+      heroImageUrl: null,
+      sourceAttribution,
+      pdpaConsent: true,
+      turnstileToken: 'test-token',
+      honeypot: '',
+    })
+
+    expect(result.success).toBe(true)
+  })
 })
 
 describe('owner submission romanizedName validation', () => {
@@ -147,6 +237,15 @@ describe('owner submission romanizedName validation', () => {
     const result = ownerSchema.safeParse({
       ...validOwnerSubmission,
       romanizedName: 'D',
+    })
+
+    expect(result.success).toBe(false)
+  })
+
+  it('still rejects a null required hero image', () => {
+    const result = ownerSchema.safeParse({
+      ...validOwnerSubmission,
+      heroImageUrl: null,
     })
 
     expect(result.success).toBe(false)

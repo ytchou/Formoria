@@ -39,6 +39,7 @@ function SearchInput({
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const [showDropdown, setShowDropdown] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const inputVersionRef = useRef(0)
   const containerRef = useRef<HTMLFormElement>(null)
   const router = useRouter()
 
@@ -54,21 +55,29 @@ function SearchInput({
       return
     }
 
+    const inputVersion = inputVersionRef.current
+
     try {
       const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=5`)
+      if (inputVersion !== inputVersionRef.current) return
       if (!res.ok) {
         setSuggestions([])
         setShowDropdown(false)
+        setSelectedIndex(-1)
         return
       }
 
       const data = await res.json()
+      if (inputVersion !== inputVersionRef.current) return
       const results = data.results ?? []
       setSuggestions(results)
       setShowDropdown(true)
       setSelectedIndex(-1)
     } catch {
-      // Ignore fetch errors; search filtering still works.
+      if (inputVersion !== inputVersionRef.current) return
+      setSuggestions([])
+      setShowDropdown(false)
+      setSelectedIndex(-1)
     }
   }, [])
 
@@ -110,10 +119,12 @@ function SearchInput({
   }, [])
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    inputVersionRef.current += 1
     setValue(e.target.value)
   }
 
   function handleClear() {
+    inputVersionRef.current += 1
     setValue('')
     if (!redirectTo) {
       setSearch('')

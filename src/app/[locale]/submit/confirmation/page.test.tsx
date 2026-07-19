@@ -99,4 +99,28 @@ describe('ConfirmationPage (zh-TW)', () => {
       '審核完成後，通過審核的品牌會出現在 Formoria 目錄中；若您有留下電子郵件，我們會通知您審核結果。',
     )
   })
+
+  it('shares review and guidance copy while preserving the owner-specific outcome', async () => {
+    const { container: recommendation } = render(
+      await ConfirmationPage({ params: Promise.resolve({ locale: 'zh-TW' }) })
+    )
+    const { container: ownerClaim } = render(
+      await ConfirmationPage({
+        params: Promise.resolve({ locale: 'zh-TW' }),
+        searchParams: Promise.resolve({ intent: 'owner_claim' }),
+      })
+    )
+
+    for (const confirmation of [recommendation, ownerClaim]) {
+      expect(confirmation).toHaveTextContent('審核中')
+      expect(confirmation).toHaveTextContent('想更了解 Formoria？請參閱我們的入門指南。')
+    }
+
+    expect(recommendation).toHaveTextContent('我們已收到你的品牌推薦')
+    expect(recommendation).toHaveTextContent('我們的團隊通常在 2 個工作天內完成審核')
+    expect(recommendation).toHaveTextContent('品牌上架')
+    expect(ownerClaim).toHaveTextContent('我們已收到你的品牌主提交')
+    expect(ownerClaim).toHaveTextContent('我們的團隊通常在 2 個工作天內完成審核')
+    expect(ownerClaim).toHaveTextContent('寄送認領邀請')
+  })
 })

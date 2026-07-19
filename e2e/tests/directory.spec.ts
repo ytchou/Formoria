@@ -18,16 +18,23 @@ test.describe('Directory deep', () => {
   });
 
   test('search autocomplete shows suggestions', async ({ page }) => {
+    await page.route('**/api/search**', async (route) => {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          results: [{
+            id: 'directory-search-result',
+            name: 'Directory Search Result',
+            slug: 'directory-search-result',
+            category: 'crafts',
+          }],
+        }),
+      });
+    });
     await page.goto('/brands');
-    const search = page.locator('form[role="search"] input[role="searchbox"]:visible').first();
-    await search.fill('te');
-    const dropdown = page.locator('[role="listbox"]:visible');
-    const hasDropdown = await dropdown.isVisible({ timeout: 5_000 }).catch(() => false);
-    if (hasDropdown) {
-      await expect(
-        dropdown.locator('[role="option"]').first().or(page.getByText(/no results found/i))
-      ).toBeVisible({ timeout: 5_000 });
-    }
+    const search = page.locator('header form[role="search"] input[role="searchbox"]:visible');
+    await search.fill('directory');
+    await expect(page.getByRole('option', { name: /Directory Search Result/ })).toBeVisible();
   });
 
   test('pagination controls work', async ({ page }) => {

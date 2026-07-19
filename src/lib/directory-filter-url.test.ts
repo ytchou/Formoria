@@ -44,4 +44,14 @@ describe('directory filter URLs', () => {
       clearDirectoryFilters('/brands', params, { includeSearch: true }),
     ).toBe('/brands?sort=name')
   })
+
+  it('adds search while preserving category and sort and removing page', () => {
+    const params = new URLSearchParams(
+      'category=crafts&sort=newest&page=4',
+    )
+
+    expect(updateDirectoryUrl('/en/brands', params, { search: '台 茶' })).toBe(
+      '/en/brands?category=crafts&sort=newest&search=%E5%8F%B0+%E8%8C%B6',
+    )
+  })
 })

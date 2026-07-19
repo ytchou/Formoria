@@ -507,6 +507,11 @@ export function SubmissionsReviewList({
                           </Link>
                         )}
                       </div>
+                      {submission.reviewCompleteness.missingFields.length > 0 && (
+                        <p className="mt-1 type-caption text-muted-foreground">
+                          {submission.reviewCompleteness.missingFields.join(", ")}
+                        </p>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">

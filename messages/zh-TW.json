@@ -1405,7 +1405,7 @@
     },
     "overview": {
       "heading": "提交你的台灣品牌",
-      "description": "你可以推薦喜歡的品牌，也可以用品牌主身份開始後續的認領與管理流程。",
+      "description": "你可以推薦喜歡的品牌，也可以用品牌主身份提交以進行後續品牌管理。",
       "recommendEyebrow": "社群推薦",
       "recommendTitle": "推薦一個值得被看見的品牌",
       "recommendDescription": "提供你看到的品牌資訊，通過審核後即可讓更多人看見。",
@@ -1414,13 +1414,19 @@
       "recommendPoint3": "審核通過後會收錄進 Formoria",
       "recommendCta": "推薦品牌",
       "ownerEyebrow": "品牌主",
-      "ownerTitle": "開始你的品牌管理流程",
+      "ownerTitle": "開始創建完整品牌資訊",
       "ownerDescription": "提交審核通過後將直接擁有編輯管理權",
       "ownerPoint1": "填寫品牌基本資料與代表性連結",
       "ownerPoint2": "完成認領流程，審核通過後我們會寄送認領邀請",
       "ownerPoint3": "你即可進入後台管理品牌頁面",
       "ownerCta": "登入後開始",
-      "ownerCtaLoggedIn": "以品牌主身份提交"
+      "ownerCtaLoggedIn": "提交我的品牌",
+      "ownerLimitTitle": "你已經擁有一個品牌",
+      "ownerLimitDescription": "每個帳號只能管理一個品牌，因此你無法再以品牌主身分提交其他品牌。若想分享其他品牌，請改用社群推薦流程。",
+      "ownerLimitRecommendCta": "前往推薦品牌",
+      "ownerLimitCancelCta": "取消",
+      "ownerLimitCloseCta": "關閉",
+      "ownerLimitNavigationError": "目前無法前往推薦流程，請再試一次。"
     },
     "wizard": {
       "heading": "提交品牌",
@@ -1579,17 +1585,13 @@
       "subheading": "我們已收到你的品牌推薦",
       "ownerSubheading": "我們已收到你的品牌主提交",
       "communityOwnershipNotice": "你的帳號已管理一個品牌，因此這次提交會以社群品牌資料受理，且無法由此帳號認領。",
-      "communityOwnershipContinue": "你仍可繼續提交，系統將以社群品牌資料受理。",
-      "communityOwnershipContinueCta": "繼續提交",
-      "communityOwnershipBackCta": "返回",
       "timeline": {
         "review": {
           "label": "審核中",
           "description": "我們的團隊通常在 2 個工作天內完成審核"
         },
         "ownerReview": {
-          "label": "列表審核中",
-          "description": "我們會先審核品牌資料是否適合收錄進目錄。"
+          "description": "我們的團隊通常在 2 個工作天內完成審核"
         },
         "result": {
           "label": "品牌上架",
@@ -1621,10 +1623,6 @@
         "learnMore": {
           "question": "想了解更多？",
           "answer": "想更了解 Formoria？請參閱我們的<link>入門指南</link>。"
-        },
-        "ownerLearnMore": {
-          "question": "接下來呢？",
-          "answer": "想先了解認領與管理流程？請參閱我們的<link>入門指南</link>。"
         }
       }
     },
@@ -1690,8 +1688,8 @@
       "brandNameLabel": "品牌名稱",
       "brandNamePlaceholder": "例：暖木家居",
       "brandNameHint": "請填寫品牌正式名稱，會直接影響目錄頁與後續認領流程。",
-      "romanizedNameLabel": "品牌英文/羅馬拼音名稱",
-      "romanizedNameHint": "用於品牌網址（例：din-tai-fung）",
+      "romanizedNameLabel": "品牌英文名稱",
+      "romanizedNameHint": "若無提供，將會用威妥瑪拼音轉譯運用於品牌網址",
       "romanizedNamePlaceholder": "例：Din Tai Fung",
       "urlPreviewLabel": "品牌公開網址",
       "urlPreviewHint": "從後台修改網址需通過審核；清空英文／羅馬拼音名稱時，會保留目前網址。",
@@ -1715,21 +1713,21 @@
       "applySuggestion": "套用"
     },
     "ownerFork": {
-      "heading": "選擇提交方式",
+      "heading": "選擇品牌建立方式",
       "description": "依照你的時間與需求，選擇最適合的方式提交品牌資料。",
       "quickEyebrow": "快速提交",
-      "quickTitle": "只需品牌網址",
-      "quickDescription": "提供基本資訊，讓我們的系統自動擷取品牌資料。適合時間有限的品牌主。",
-      "quickPoint1": "只需填寫品牌名稱、網站和簡介",
-      "quickPoint2": "系統自動擷取品牌資料",
-      "quickPoint3": "最快 1 分鐘完成提交",
+      "quickTitle": "提交品牌基本資訊",
+      "quickDescription": "我們系統會根據您提供的基本資訊盡可能從網路上爬取您的資訊，但無法保證資料的正確性。適合目前時間有限的品牌主，但需要後續的檢查。",
+      "quickPoint1": "只需提供品牌名稱、官方網站、品牌簡介",
+      "quickPoint2": "系統根據您提供的資料爬取品牌資訊",
+      "quickPoint3": "將會於三個工作天內完成資料爬取",
       "quickCta": "快速提交",
       "detailsEyebrow": "完整資料",
-      "detailsTitle": "自己填寫品牌資料",
-      "detailsDescription": "親自填寫完整品牌資料，確保資訊精準呈現。適合重視品牌形象的品牌主。",
-      "detailsPoint1": "完整控制品牌呈現方式",
-      "detailsPoint2": "上傳品牌照片與產品圖",
-      "detailsPoint3": "填寫社群連結與銷售通路",
+      "detailsTitle": "提供完整品牌資料",
+      "detailsDescription": "您將親自填寫完整品牌資訊，確保每個細節都能精準呈現品牌特色。",
+      "detailsPoint1": "自行填寫品牌故事與產品介紹",
+      "detailsPoint2": "上傳品牌 Logo、封面照與產品圖",
+      "detailsPoint3": "填寫社群帳號、官網與銷售通路",
       "detailsCta": "填寫完整資料"
     },
     "quickForm": {

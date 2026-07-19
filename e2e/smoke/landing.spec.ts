@@ -2,16 +2,16 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Landing page smoke', () => {
   test('renders hero and search on /', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     // Hero section heading visible
     await expect(page.getByRole('heading').first()).toBeVisible({ timeout: 10_000 });
     // Search input present (moved inside HeroSection but still findable by role)
-    await expect(page.getByRole('searchbox')).toBeVisible();
+    await expect(page.locator('main form[role="search"] input[role="searchbox"]')).toBeVisible();
   });
 
   test('search from landing page navigates to /brands?search=', async ({ page }) => {
-    await page.goto('/');
-    const searchbox = page.getByRole('searchbox');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    const searchbox = page.locator('main form[role="search"] input[role="searchbox"]');
     await searchbox.click();
     // Use pressSequentially instead of fill() — fill() does not reliably
     // trigger React onChange on controlled inputs in WebKit.

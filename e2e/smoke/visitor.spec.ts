@@ -75,18 +75,24 @@ test.describe('Visitor smoke', () => {
   });
 
   test('search returns results', async ({ page }) => {
+    await page.route('**/api/search**', async (route) => {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          results: [{
+            id: 'visitor-search-result',
+            name: 'Visitor Search Result',
+            slug: 'visitor-search-result',
+            category: 'crafts',
+          }],
+        }),
+      });
+    });
     await gotoBrandsPage(page);
-    const searchInput = page.getByRole('searchbox').or(page.getByPlaceholder(/search/i)).first();
+    const searchInput = page.locator('header form[role="search"] input[role="searchbox"]:visible');
     await searchInput.click();
-    await expect(async () => {
-      await searchInput.fill('a');
-      await expect(searchInput).toHaveValue('a', { timeout: 2_000 });
-    }).toPass({ timeout: 10_000, intervals: [1_000, 2_000, 3_000] });
-    const listbox = page.locator('[role="listbox"]');
-    const appeared = await listbox.isVisible({ timeout: 5_000 }).catch(() => false);
-    if (appeared) {
-      await expect(listbox).toBeVisible();
-    }
+    await searchInput.fill('visitor');
+    await expect(page.getByRole('option', { name: /Visitor Search Result/ })).toBeVisible();
   });
 
   test('FAQ page renders with accordion items', async ({ page }) => {
