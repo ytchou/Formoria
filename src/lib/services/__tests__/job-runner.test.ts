@@ -63,7 +63,9 @@ describe("durable curation job runner", () => {
     mocks.createServiceClient.mockReturnValue(mockSupabase());
     mocks.runEnrich.mockResolvedValue(operationResult("succeeded"));
     mocks.exportJobRunLog.mockResolvedValue({ run: { id: "job-1" } });
-    mocks.renderRunLogHtml.mockReturnValue("<!doctype html><title>Run log</title>");
+    mocks.renderRunLogHtml.mockReturnValue(
+      "<!doctype html><title>Run log</title>",
+    );
     mocks.uploadRunLogSnapshot.mockResolvedValue(undefined);
     mocks.updateCurationJobTarget.mockImplementation(
       async (_jobId, targetId, patch) => {
@@ -194,6 +196,34 @@ describe("durable curation job runner", () => {
     await runJob(failedJob, "worker-token");
 
     expect(mocks.enqueueAutomaticRetry).not.toHaveBeenCalled();
+  });
+
+  it("rejects a historical brand target without running enrichment", async () => {
+    targets = [
+      target({
+        target_type: "brand",
+        target_id: "legacy-brand-1",
+        brand_slug: "legacy-brand",
+      }),
+    ];
+
+    const summary = await runJob(
+      job({ trigger: "automatic_retry", attempt: 2 }),
+      "worker-token",
+    );
+
+    expect(mocks.runEnrich).not.toHaveBeenCalled();
+    expect(summary).toMatchObject({ failed: 1 });
+    expect(mocks.finalizeCurationJob).toHaveBeenCalledWith(
+      "job-1",
+      "worker-token",
+      expect.objectContaining({
+        status: "failed",
+        job_error: expect.stringContaining(
+          "Brand-target enrichment jobs are retired",
+        ),
+      }),
+    );
   });
 
   it("creates one retry for an orchestration failure from an admin run", async () => {
@@ -376,13 +406,12 @@ describe("durable curation job runner", () => {
 
 async function emit(
   callback:
-    | ((event: CurationTargetProgressEvent) => void | Promise<void>)
-    | undefined,
+    ((event: CurationTargetProgressEvent) => void | Promise<void>) | undefined,
   overrides: Partial<CurationTargetProgressEvent>,
 ) {
   await callback?.({
     targetId: "brand-1",
-    targetType: "brand",
+    targetType: "submission",
     slug: "taipei-maker",
     name: "台北工坊",
     status: "running",
@@ -418,7 +447,7 @@ function job(overrides: Partial<CurationJob> = {}): CurationJob {
     trigger: "admin",
     attempt: 1,
     parent_job_id: null,
-    params: { slugs: ["taipei-maker"] },
+    params: { submissionIds: ["brand-1"], target: "submissions" },
     dry_run: false,
     progress: null,
     result: null,
@@ -438,7 +467,7 @@ function job(overrides: Partial<CurationJob> = {}): CurationJob {
     succeeded_count: 0,
     skipped_count: 0,
     failed_count: 0,
-    dispatch_status: 'pending',
+    dispatch_status: "pending",
     dispatch_error: null,
     dispatched_at: null,
     ...overrides,
@@ -449,10 +478,10 @@ function target(overrides: Partial<CurationJobTarget> = {}): CurationJobTarget {
   return {
     id: "target-row-1",
     job_id: "job-1",
-    target_type: "brand",
+    target_type: "submission",
     target_id: "brand-1",
     brand_name: "台北工坊",
-    brand_slug: "taipei-maker",
+    brand_slug: null,
     status: "pending",
     current_phase: null,
     phase_results: [],

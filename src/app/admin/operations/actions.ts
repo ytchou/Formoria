@@ -84,10 +84,16 @@ export async function startNeedsDataSubmissionEnrichmentAction(): Promise<
     revalidatePath("/admin");
     revalidatePath("/admin/jobs");
     revalidatePath("/admin/submissions");
-    return dispatchQueuedJob(job.id, `${submissionIds.length} submissions queued for enrichment.`);
+    return dispatchQueuedJob(
+      job.id,
+      `${submissionIds.length} submissions queued for enrichment.`,
+    );
   } catch (error) {
     console.error("[admin:startNeedsDataSubmissionEnrichmentAction]", error);
-    return { error: error instanceof Error ? error.message : "An unexpected error occurred" };
+    return {
+      error:
+        error instanceof Error ? error.message : "An unexpected error occurred",
+    };
   }
 }
 
@@ -157,7 +163,10 @@ export async function dispatchCurationJobAction(
       return { error: "Only queued jobs can be dispatched" };
     }
 
-    const result = await dispatchQueuedJob(job.id, "Job dispatch request accepted.");
+    const result = await dispatchQueuedJob(
+      job.id,
+      "Job dispatch request accepted.",
+    );
     revalidatePath("/admin/jobs");
     revalidatePath(`/admin/jobs/${jobId}`);
     return result;
@@ -249,14 +258,16 @@ async function dispatchQueuedJob(
 
     return queuedJobResult(
       jobId,
-      `${successMessage} Dispatch failed: ${message} The job is marked failed; create a rerun when the worker is available.`,
+      `${successMessage} Dispatch failed: ${message} The job is marked failed and will receive one automatic retry when the worker is available.`,
       "failed",
     );
   }
 }
 
 function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
 }
 
 function queuedJobResult(

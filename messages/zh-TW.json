@@ -1958,6 +1958,9 @@
       "fetching": "抓取中…",
       "fetchData": "抓取資料",
       "approve": "核准",
+      "applyRefresh": "套用更新",
+      "refreshBadge": "資料更新",
+      "storageCleanupWarning": "資料已更新，但部分已淘汰的圖片檔案仍需清理。",
       "reject": "拒絕",
       "edit": "編輯",
       "save": "儲存變更",
@@ -2071,7 +2074,8 @@
       },
       "intent": {
         "ownerClaim": "業主提交",
-        "recommend": "社群提交"
+        "recommend": "社群提交",
+        "refresh": "資料更新"
       },
       "sourceAttribution": {
         "question": "你如何認識這個品牌？",

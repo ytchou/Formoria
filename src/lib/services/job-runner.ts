@@ -161,11 +161,17 @@ async function runOperation(
   workerToken: string,
 ): Promise<OperationWithSummary> {
   const operation = parseOperation(job.operation);
+  const storedTargets = await listCurationJobTargets(job.id);
+  if (storedTargets.some((target) => target.target_type === "brand")) {
+    throw new Error(
+      "Brand-target enrichment jobs are retired; request a refresh submission",
+    );
+  }
   const targets = await filterManualRerunTargets(
     supabase,
     job,
     workerToken,
-    await listCurationJobTargets(job.id),
+    storedTargets,
   );
   const params = paramsForTargets(parseParams(job.params), targets);
   if (targets.length === 0) {

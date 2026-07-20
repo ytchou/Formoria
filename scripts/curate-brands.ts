@@ -7,6 +7,7 @@ import {
   type OperationResult,
   runEnrich,
 } from '@/lib/services/curation-operations'
+import { requestBrandRefreshesBySlugs } from '@/lib/services/submissions'
 import {
   classificationPrecision,
   languagePurity,
@@ -96,9 +97,7 @@ function parseNumberFlag(args: string[], name: string): number | undefined {
 }
 
 function parseCsvFlag(args: string[], name: string): string[] | undefined {
-  const rawValue = args
-    .find((arg) => arg.startsWith(`--${name}=`))
-    ?.replace(`--${name}=`, '')
+  const rawValue = args.find((arg) => arg.startsWith(`--${name}=`))?.replace(`--${name}=`, '')
 
   if (!rawValue) {
     return undefined
@@ -145,7 +144,9 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
   const statusRaw = parseStringFlag(args, 'status')
   const VALID_BRAND_STATUSES = ['approved', 'hidden'] as const
   type BrandStatus = (typeof VALID_BRAND_STATUSES)[number]
-  const status = VALID_BRAND_STATUSES.includes(statusRaw as BrandStatus) ? (statusRaw as BrandStatus) : undefined
+  const status = VALID_BRAND_STATUSES.includes(statusRaw as BrandStatus)
+    ? (statusRaw as BrandStatus)
+    : undefined
 
   if (status && !slugs?.length) {
     console.warn(
@@ -181,16 +182,20 @@ function printUsage(): void {
   console.log('Usage: pnpm curate <command> [options]')
   console.log('')
   console.log('Commands:')
-  console.log('  enrich           Clean, detect, discover links, enrich images/descriptions, and classify tags')
+  console.log(
+    '  enrich           Clean, detect, discover links, enrich images/descriptions, and classify tags'
+  )
   console.log('  eval             Score current enriched DB state against the approved golden set')
   console.log('')
   console.log('Options:')
   console.log('  --dry-run')
-  console.log('  --slugs=a,b')
+  console.log(
+    '  --slugs=a,b                                  queue scheduled brand refresh requests'
+  )
   console.log('  --status=approved')
   console.log('  --limit=10')
   console.log('  --phases=clean,detect,slugs,tags,discover,links,images,descriptions  enrich only')
-  console.log('  --overwrite                                  re-enrich already enriched brands')
+  console.log('  --overwrite                                  submission enrichment only')
 }
 
 function printResult(command: CurationCommand, result: OperationResult, dryRun: boolean): void {
@@ -249,26 +254,35 @@ function extractUrlTagPairs(value: unknown): Array<readonly [string, string]> {
   const url = value.url
   const tag = value.tag ?? value.classification ?? value.label ?? value.type
   const current = typeof url === 'string' && typeof tag === 'string' ? [[url, tag] as const] : []
-  const nested = ['images', 'imageClassifications', 'classifications', 'results', 'items']
-    .flatMap((key) => extractUrlTagPairs(value[key]))
+  const nested = ['images', 'imageClassifications', 'classifications', 'results', 'items'].flatMap(
+    (key) => extractUrlTagPairs(value[key])
+  )
 
   return [...current, ...nested]
 }
 
 function buildPredictedImageTags(aiRows: AiResultRow[]): Map<string, string> {
-  return new Map(aiRows.flatMap((row) => [
-    ...extractUrlTagPairs(row.raw_response),
-    ...extractAuditedImageTags(row),
-  ]))
+  return new Map(
+    aiRows.flatMap((row) => [
+      ...extractUrlTagPairs(row.raw_response),
+      ...extractAuditedImageTags(row),
+    ])
+  )
 }
 
 function extractAuditedImageTags(row: AiResultRow): ReadonlyArray<readonly [string, string]> {
-  if (!isRecord(row.input) || !isRecord(row.input.meta) || !Array.isArray(row.input.meta.imageUrls)) return []
+  if (!isRecord(row.input) || !isRecord(row.input.meta) || !Array.isArray(row.input.meta.imageUrls))
+    return []
   if (!isRecord(row.raw_response) || !isRecord(row.raw_response.response)) return []
 
   const choices = row.raw_response.response.choices
   const firstChoice = Array.isArray(choices) ? choices.at(0) : null
-  if (!isRecord(firstChoice) || !isRecord(firstChoice.message) || typeof firstChoice.message.content !== 'string') return []
+  if (
+    !isRecord(firstChoice) ||
+    !isRecord(firstChoice.message) ||
+    typeof firstChoice.message.content !== 'string'
+  )
+    return []
 
   try {
     const parsed = JSON.parse(firstChoice.message.content) as unknown
@@ -279,7 +293,9 @@ function extractAuditedImageTags(row: AiResultRow): ReadonlyArray<readonly [stri
         : []
     return row.input.meta.imageUrls.flatMap((url, index) => {
       const classification = classifications.at(index)
-      return typeof url === 'string' && isRecord(classification) && typeof classification.tag === 'string'
+      return typeof url === 'string' &&
+        isRecord(classification) &&
+        typeof classification.tag === 'string'
         ? [[url, classification.tag] as const]
         : []
     })
@@ -312,7 +328,8 @@ function printEvalScores(scores: EvalBrandScore[]): void {
     )
   }
 
-  const avgPurity = scores.reduce((sum, score) => sum + score.purity, 0) / Math.max(scores.length, 1)
+  const avgPurity =
+    scores.reduce((sum, score) => sum + score.purity, 0) / Math.max(scores.length, 1)
   const lengthPasses = scores.filter((score) => score.lengthOk).length
   const heroJunkViolations = scores.filter((score) => score.heroJunkViolation).length
   const precisionScores = scores
@@ -326,7 +343,9 @@ function printEvalScores(scores: EvalBrandScore[]): void {
   console.log(`Average purity: ${avgPurity.toFixed(3)}`)
   console.log(`Length band pass: ${lengthPasses}/${scores.length}`)
   console.log(`Hero-junk violations: ${heroJunkViolations}`)
-  console.log(`Classification precision: ${precisionScores.length === 0 ? 'n/a' : avgPrecision.toFixed(3)}`)
+  console.log(
+    `Classification precision: ${precisionScores.length === 0 ? 'n/a' : avgPrecision.toFixed(3)}`
+  )
 }
 
 async function runEval(supabase: CurationSupabaseClient): Promise<OperationResult> {
@@ -334,7 +353,13 @@ async function runEval(supabase: CurationSupabaseClient): Promise<OperationResul
 
   if (!fixture.approved || fixture.brands.length === 0) {
     console.log('No approved golden set. Run select-golden first.')
-    return { processed: 0, updated: 0, skipped: 0, errors: [], brandOutcomes: [] }
+    return {
+      processed: 0,
+      updated: 0,
+      skipped: 0,
+      errors: [],
+      brandOutcomes: [],
+    }
   }
 
   const scores: EvalBrandScore[] = []
@@ -381,9 +406,7 @@ async function runEval(supabase: CurationSupabaseClient): Promise<OperationResul
       purity: languagePurity(brand.description ?? '', 'zh'),
       lengthOk: lengthBand(brand.description ?? '', [300, 600]),
       heroJunkViolation: hasHeroJunkViolation(brand, goldenBrand.labels),
-      precision: hasClassifications
-        ? classificationPrecision(labeledImages, predicted)
-        : null,
+      precision: hasClassifications ? classificationPrecision(labeledImages, predicted) : null,
     })
 
     console.log(
@@ -415,7 +438,32 @@ async function runCommand({ command, config }: ParsedCliArgs): Promise<Operation
   }
 
   switch (command) {
-    case 'enrich':
+    case 'enrich': {
+      if (config.slugs?.length) {
+        const requesterEmail = process.env.ADMIN_EMAILS?.split(',')
+          .map((email) => email.trim())
+          .find(Boolean)
+        if (!requesterEmail) {
+          throw new Error('ADMIN_EMAILS must contain an admin account to request brand refreshes')
+        }
+        const outcomes = await requestBrandRefreshesBySlugs(config.slugs, requesterEmail, {
+          dryRun: config.dryRun,
+        })
+        return {
+          processed: outcomes.length,
+          updated: outcomes.filter((outcome) => outcome.error === null).length,
+          skipped: outcomes.filter((outcome) => outcome.error !== null).length,
+          errors: outcomes.flatMap((outcome) =>
+            outcome.error ? [`${outcome.slug}: ${outcome.error}`] : []
+          ),
+          brandOutcomes: outcomes.map((outcome) => ({
+            slug: outcome.slug,
+            name: outcome.name,
+            status: outcome.error ? 'failed' : 'succeeded',
+            changedFields: outcome.submissionId ? ['refresh_request'] : [],
+          })),
+        }
+      }
       return runEnrich(
         {
           ...runConfig,
@@ -423,6 +471,7 @@ async function runCommand({ command, config }: ParsedCliArgs): Promise<Operation
         },
         supabase
       )
+    }
     case 'eval':
       return runEval(supabase)
   }

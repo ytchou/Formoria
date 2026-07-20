@@ -54,9 +54,13 @@ type Props = {
 export function SubmissionReviewDetails({ submission }: Props) {
   const t = useTranslations("admin.submissions");
   const router = useRouter();
-  const [editingSection, setEditingSection] = useState<EditableSection | null>(null);
+  const [editingSection, setEditingSection] = useState<EditableSection | null>(
+    null,
+  );
   const [language, setLanguage] = useState<"mandarin" | "english">("mandarin");
-  const [draft, setDraft] = useState<SubmissionReviewData>(submission.reviewData);
+  const [draft, setDraft] = useState<SubmissionReviewData>(
+    submission.reviewData,
+  );
   const [draftImages, setDraftImages] = useState<SubmissionReviewImage[]>(
     activeImages(submission.reviewImages),
   );
@@ -86,8 +90,8 @@ export function SubmissionReviewDetails({ submission }: Props) {
   const reputation = parseReputationSummary(data.reputationSummary);
   const hasEnglishNarrative = Boolean(
     nonEmptyString(data.descriptionEn) ||
-      nonEmptyString(data.blurbEn) ||
-      reputation.textEn,
+    nonEmptyString(data.blurbEn) ||
+    reputation.textEn,
   );
   const narrative =
     language === "english"
@@ -315,7 +319,8 @@ export function SubmissionReviewDetails({ submission }: Props) {
                     label={t("fields.productType")}
                     value={
                       data.productType
-                        ? (getProductTypeLabel(data.productType) ?? data.productType)
+                        ? (getProductTypeLabel(data.productType) ??
+                          data.productType)
                         : null
                     }
                   />
@@ -482,6 +487,10 @@ export function SubmissionReviewDetails({ submission }: Props) {
                         className="h-12 w-full"
                         variant="ghost"
                         onClick={() => removeImage(image.id)}
+                        disabled={
+                          image.originBrandImageId !== null &&
+                          (image.source === "owner" || image.source === "admin")
+                        }
                         aria-label={t("removeImage", { n: index + 1 })}
                       >
                         <Trash2 className="size-4" aria-hidden="true" />
@@ -557,7 +566,9 @@ function InlineEditSection({
 }) {
   const t = useTranslations("admin.submissions");
   return (
-    <section className={editing ? "space-y-4 rounded-lg bg-muted/40 p-4" : "space-y-3"}>
+    <section
+      className={editing ? "space-y-4 rounded-lg bg-muted/40 p-4" : "space-y-3"}
+    >
       <div className="flex items-center justify-between">
         <h3 className="type-subsection-title">{title}</h3>
         {canEdit && !editing && (
@@ -683,9 +694,7 @@ function CatalogEditor({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={EMPTY_SELECT_VALUE}>
-                {t("notSet")}
-              </SelectItem>
+              <SelectItem value={EMPTY_SELECT_VALUE}>{t("notSet")}</SelectItem>
               {PRODUCT_TYPE_CATEGORIES.map((category) => (
                 <SelectItem key={category.slug} value={category.slug}>
                   {category.nameZh} ({category.name})
@@ -708,9 +717,7 @@ function CatalogEditor({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={EMPTY_SELECT_VALUE}>
-                {t("notSet")}
-              </SelectItem>
+              <SelectItem value={EMPTY_SELECT_VALUE}>{t("notSet")}</SelectItem>
               {[1, 2, 3].map((value) => (
                 <SelectItem key={value} value={value.toString()}>
                   {" "}
@@ -865,11 +872,7 @@ function ReputationEditor({
     parsed.sources.map((s) => s.href).join("\n"),
   );
 
-  function sync(
-    nextZh: string,
-    nextEn: string,
-    nextSourcesText: string,
-  ) {
+  function sync(nextZh: string, nextEn: string, nextSourcesText: string) {
     const sources = nextSourcesText
       .split("\n")
       .map((line) => line.trim())
@@ -1202,9 +1205,9 @@ function nonEmptyString(value: unknown): string | null {
 function isReviewImageMetadata(metadata?: ImageUploadMetadata): boolean {
   return Boolean(
     metadata &&
-      typeof metadata.id === "string" &&
-      typeof metadata.submissionId === "string" &&
-      typeof metadata.url === "string" &&
-      metadata.status === "draft",
+    typeof metadata.id === "string" &&
+    typeof metadata.submissionId === "string" &&
+    typeof metadata.url === "string" &&
+    metadata.status === "draft",
   );
 }

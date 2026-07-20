@@ -106,10 +106,16 @@ describeWithDb('durable curation job queue integration', () => {
     expect(claimError).toBeNull()
     expect(claims?.[0]?.id).toBe(parentId)
 
-    await client.from('curation_jobs').update({ heartbeat_at: '2000-01-01T00:00:00.000Z' }).eq('id', parentId)
-    const { data: recovered, error: recoveryError } = await client.rpc('recover_stale_curation_jobs', {
-      p_stale_before: '2001-01-01T00:00:00.000Z',
-    })
+    await client
+      .from('curation_jobs')
+      .update({ heartbeat_at: '2000-01-01T00:00:00.000Z' })
+      .eq('id', parentId)
+    const { data: recovered, error: recoveryError } = await client.rpc(
+      'recover_stale_curation_jobs',
+      {
+        p_stale_before: '2001-01-01T00:00:00.000Z',
+      }
+    )
     expect(recoveryError).toBeNull()
     expect(recovered?.map((job: { id: string }) => job.id)).toContain(parentId)
     expect(recovered?.find((job: { id: string }) => job.id === parentId)?.status).toBe('cancelled')
@@ -128,7 +134,9 @@ describeWithDb('durable curation job queue integration', () => {
 
   it('fences progress and finalization after an active job is cancelled', async () => {
     const client = createTestClient()
-    const jobId = await enqueue(client, { runAfter: '2000-01-01T00:00:00.000Z' })
+    const jobId = await enqueue(client, {
+      runAfter: '2000-01-01T00:00:00.000Z',
+    })
     const workerToken = randomUUID()
     const { data: claimed } = await client.rpc('claim_next_curation_job', {
       p_worker_token: workerToken,
@@ -150,26 +158,105 @@ describeWithDb('durable curation job queue integration', () => {
       p_current_phase: null,
     })
     expect(progressAccepted).toBe(false)
-    await expect(finalizeCurationJob(jobId, workerToken, {
-      status: 'completed',
-      completed_at: new Date().toISOString(),
-    })).resolves.toBe(false)
+    await expect(
+      finalizeCurationJob(jobId, workerToken, {
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+      })
+    ).resolves.toBe(false)
   })
 })
 
-describe.skipIf(!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)('curation queue service-role access', () => {
-  it('blocks table and queue RPC access for anonymous clients', async () => {
-    const client = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+describe.skipIf(!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)(
+  'curation queue service-role access',
+  () => {
+    it('blocks table and queue RPC access for anonymous clients', async () => {
+      const client = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
 
-    const tableResult = await client.from('curation_jobs').select('id').limit(1)
-    const rpcResult = await client.rpc('claim_next_curation_job', {
-      p_worker_token: randomUUID(),
+      const tableResult = await client.from('curation_jobs').select('id').limit(1)
+      const rpcResult = await client.rpc('claim_next_curation_job', {
+        p_worker_token: randomUUID(),
+      })
+      const refreshRequest = await client.rpc('request_brand_refresh', {
+        p_brand_id: randomUUID(),
+        p_requested_by: randomUUID(),
+        p_requester_email: 'anonymous@example.com',
+      })
+      const refreshApply = await client.rpc('apply_brand_refresh', {
+        p_submission_id: randomUUID(),
+        p_reviewer_id: randomUUID(),
+      })
+      const directRefresh = await client.from('brand_submissions').insert({
+        brand_id: randomUUID(),
+        brand_name: 'Anonymous refresh attack',
+        submitter_email: 'anonymous@example.com',
+        intent: 'refresh',
+        base_brand_data: { name: 'Forged snapshot' },
+        base_brand_updated_at: new Date().toISOString(),
+      })
+
+      expect(tableResult.error).not.toBeNull()
+      expect(rpcResult.error).not.toBeNull()
+      expect(refreshRequest.error).not.toBeNull()
+      expect(refreshApply.error).not.toBeNull()
+      expect(directRefresh.error).not.toBeNull()
     })
 
-    expect(tableResult.error).not.toBeNull()
-    expect(rpcResult.error).not.toBeNull()
-  })
-})
+    it('blocks direct refresh inserts for authenticated non-admin users', async () => {
+      const serviceClient = createTestClient()
+      const suffix = randomUUID()
+      const email = `refresh-policy-${suffix}@example.com`
+      const password = `Refresh-policy-${suffix}`
+      const { data: createdUser, error: userError } = await serviceClient.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      })
+      expect(userError).toBeNull()
+      expect(createdUser.user).not.toBeNull()
+
+      const { data: brand, error: brandError } = await serviceClient
+        .from('brands')
+        .insert({
+          name: 'Refresh policy target',
+          slug: `refresh-policy-${suffix}`,
+          status: 'approved',
+        })
+        .select('id, updated_at')
+        .single()
+      expect(brandError).toBeNull()
+
+      try {
+        const authenticatedClient = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        )
+        const { error: signInError } = await authenticatedClient.auth.signInWithPassword({
+          email,
+          password,
+        })
+        expect(signInError).toBeNull()
+
+        const { error } = await authenticatedClient.from('brand_submissions').insert({
+          brand_id: brand!.id,
+          brand_name: 'Forged refresh',
+          submitter_email: email,
+          intent: 'refresh',
+          base_brand_data: { name: 'Forged snapshot' },
+          base_brand_updated_at: brand!.updated_at,
+          refresh_requested_by: createdUser.user!.id,
+        })
+        expect(error).not.toBeNull()
+      } finally {
+        await serviceClient.from('brands').delete().eq('id', brand!.id)
+        await serviceClient.auth.admin.deleteUser(createdUser.user!.id)
+      }
+    })
+  }
+)
 
 async function enqueue(
   client: ReturnType<typeof createTestClient>,
@@ -202,7 +289,8 @@ function enqueueArgs(
     p_attempt: overrides.attempt ?? 1,
     p_scheduled_for: null,
     p_run_after: overrides.runAfter ?? '2099-01-01T00:00:00.000Z',
-    p_dedupe_key: overrides.dedupeKey === undefined ? `integration-job:${randomUUID()}` : overrides.dedupeKey,
+    p_dedupe_key:
+      overrides.dedupeKey === undefined ? `integration-job:${randomUUID()}` : overrides.dedupeKey,
     p_targets: overrides.targets ?? [
       {
         target_type: 'submission',

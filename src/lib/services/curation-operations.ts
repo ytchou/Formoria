@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cleanBrandName } from "./brand-cleanup";
-import { updateBrand } from "./brands";
+import { resolveRefreshEnrichmentPatch } from "./brand-write-policy";
 import type { BrandFlatLinkColumns } from "@/lib/types";
 import type { SiteContent } from "@/lib/types/brand";
 import type { ScrapedBrandData } from "@/lib/types/scraper";
@@ -21,7 +21,6 @@ import {
   insertDescriptionResult,
   insertClassificationResult,
 } from "./ai-results";
-import { createServiceClient } from "@/lib/supabase/server";
 import type {
   BrandOutcome,
   CurationConfig,
@@ -112,84 +111,6 @@ function errorMessage(error: unknown): string {
   return String(error);
 }
 
-const FAQ_CATEGORY_COLUMNS: Record<string, string> = {
-  mit: "faq_mit",
-  where_to_buy: "faq_where_to_buy",
-  products: "faq_products",
-  price: "faq_price",
-  founded: "faq_founded",
-  reputation: "faq_reputation",
-};
-
-async function upsertBrandFaq(
-  supabase: SupabaseClient,
-  brandId: string,
-  faqItems: Array<{ category: string; question: string; answer: string }>,
-): Promise<void> {
-  const row: Record<string, unknown> = {
-    brand_id: brandId,
-    updated_at: new Date().toISOString(),
-  };
-
-  const byCategory = new Map<
-    string,
-    Array<{ question: string; answer: string }>
-  >();
-  for (const item of faqItems) {
-    const cat = item.category || "custom";
-    const list = byCategory.get(cat) ?? [];
-    list.push({ question: item.question, answer: item.answer });
-    byCategory.set(cat, list);
-  }
-
-  for (const [category, items] of byCategory) {
-    const column = FAQ_CATEGORY_COLUMNS[category];
-    if (column && items.length >= 1) {
-      const zhItem = items.find((i) => /[一-鿿]/.test(i.question));
-      const enItem = items.find((i) => !/[一-鿿]/.test(i.question));
-      if (zhItem || enItem) {
-        row[column] = {
-          question_zh: zhItem?.question ?? null,
-          answer_zh: zhItem?.answer ?? null,
-          question_en: enItem?.question ?? null,
-          answer_en: enItem?.answer ?? null,
-        };
-      }
-    }
-  }
-
-  let customIndex = 1;
-  for (const [category, items] of byCategory) {
-    if (FAQ_CATEGORY_COLUMNS[category]) continue;
-    for (let i = 0; i < items.length && customIndex <= 4; i += 2) {
-      const zhItem = items[i];
-      const enItem = items[i + 1];
-      if (zhItem) {
-        row[`faq_custom_${customIndex}`] = enItem
-          ? {
-              question_zh: zhItem.question,
-              answer_zh: zhItem.answer,
-              question_en: enItem.question,
-              answer_en: enItem.answer,
-            }
-          : {
-              question_zh: zhItem.question,
-              answer_zh: zhItem.answer,
-              question_en: null,
-              answer_en: null,
-            };
-        customIndex += 1;
-      }
-    }
-  }
-
-  const { error } = await supabase
-    .from("brand_faq")
-    .upsert(row, { onConflict: "brand_id" });
-  if (error)
-    console.error(`  [FAQ] upsert failed for ${brandId}:`, error.message);
-}
-
 async function logDescriptionAiResult(
   brandId: string,
   attempts: DescriptionAttempt[],
@@ -271,19 +192,6 @@ export function needsPhase(
   return true;
 }
 
-function shouldSelectForRequestedPhases(
-  brand: Record<string, unknown>,
-  phases: RunEnrichPhase[],
-): boolean {
-  const fillGapPhases = phases.filter(
-    (phase) =>
-      phase === "descriptions" || phase === "images" || phase === "expansion",
-  );
-
-  if (fillGapPhases.length === 0) return true;
-  return fillGapPhases.some((phase) => needsPhase(brand, phase));
-}
-
 type EnrichCleanPhase = {
   changed: boolean;
   original?: string;
@@ -331,6 +239,8 @@ type ProcessEnrichResult = {
 type SubmissionEnrichmentRow = {
   id: string;
   brand_id: string | null;
+  intent: string;
+  base_brand_data: unknown;
   brand_name: string;
   description: string | null;
   website_url: string | null;
@@ -696,7 +606,7 @@ export async function persistSubmissionEnrichmentResults(
 ): Promise<void> {
   const { data: row, error: selectError } = await supabase
     .from("brand_submissions")
-    .select("enriched_data, status")
+    .select("enriched_data, status, intent, brand_id, base_brand_data")
     .eq("id", submissionId)
     .single();
 
@@ -714,11 +624,40 @@ export async function persistSubmissionEnrichmentResults(
     return;
   }
 
+  let persistablePatch = patch as Record<string, unknown>;
+  if (row.intent === "refresh") {
+    if (!row.brand_id || !isPlainObject(row.base_brand_data)) {
+      throw new Error("Refresh submission is missing its brand snapshot");
+    }
+    const { data: fieldStates, error: fieldStateError } = await supabase
+      .from("brand_field_state")
+      .select("field, source, admin_locked")
+      .eq("brand_id", row.brand_id);
+    if (fieldStateError) throw fieldStateError;
+
+    const fieldState = Object.fromEntries(
+      (fieldStates ?? []).map((state) => [
+        state.field,
+        { source: state.source, adminLocked: state.admin_locked },
+      ]),
+    );
+    const filtered = resolveRefreshEnrichmentPatch(
+      persistablePatch,
+      row.base_brand_data,
+      fieldState,
+    );
+    persistablePatch = filtered.allowed;
+    if (filtered.skipped.length > 0) {
+      console.info("[refresh-enrichment:protected-fields]", {
+        submissionId,
+        brandId: row.brand_id,
+        skipped: filtered.skipped,
+      });
+    }
+  }
+
   const existing = (row.enriched_data ?? {}) as Record<string, unknown>;
-  const merged = mergeSubmissionEnrichedData(
-    existing,
-    patch as Record<string, unknown>,
-  );
+  const merged = mergeSubmissionEnrichedData(existing, persistablePatch);
   if (jobId) {
     const { data, error } = await (
       supabase as unknown as {
@@ -736,7 +675,10 @@ export async function persistSubmissionEnrichmentResults(
       p_enriched_data: merged as JsonObject,
       p_job_id: jobId,
     });
-    if (error) throw new Error(error.message ?? "Failed to persist submission enrichment");
+    if (error)
+      throw new Error(
+        error.message ?? "Failed to persist submission enrichment",
+      );
     if (!data) throw new Error("Curation job is no longer running");
     return;
   }
@@ -760,21 +702,22 @@ export async function persistSubmissionEnrichmentResults(
   }
 }
 
-function submissionToEnrichBrand(
+export function submissionToEnrichBrand(
   submission: SubmissionEnrichmentRow,
 ): EnrichBrand {
   const existingEnriched = isPlainObject(submission.enriched_data)
     ? submission.enriched_data
     : {};
-  const existing = seedEnrichedDataFromOwnerData(
-    submission.owner_data,
-    existingEnriched,
-  );
+  const isRefresh = submission.intent === "refresh";
+  const existing =
+    isRefresh && isPlainObject(submission.base_brand_data)
+      ? deepMergeJsonObjects(submission.base_brand_data, existingEnriched)
+      : seedEnrichedDataFromOwnerData(submission.owner_data, existingEnriched);
 
   return {
     ...existing,
     id: submission.id,
-    overwrite_enrichment: submission.brand_id !== null,
+    overwrite_enrichment: isRefresh,
     slug: `submission-${submission.id}`,
     name:
       typeof existing.name === "string" ? existing.name : submission.brand_name,
@@ -844,25 +787,11 @@ export async function persistEnrichmentResults(
   patchOrJobId?: JsonObject | string,
 ): Promise<void> {
   void supabase;
-
-  const patches = Array.isArray(brandIdOrPatches)
-    ? brandIdOrPatches
-    : [{ brandId: brandIdOrPatches, patch: patchOrJobId as JsonObject }];
-  const jobId =
-    Array.isArray(brandIdOrPatches) && typeof patchOrJobId === "string"
-      ? patchOrJobId
-      : undefined;
-
-  for (const item of patches) {
-    await updateBrand(
-      item.brandId,
-      {
-        ...item.patch,
-        brand_enriched_at: new Date().toISOString(),
-      } as never,
-      { source: "enriched", jobId },
-    );
-  }
+  void brandIdOrPatches;
+  void patchOrJobId;
+  throw new Error(
+    "Direct brand enrichment is retired; create a refresh submission instead",
+  );
 }
 
 export async function runEnrich(
@@ -885,6 +814,11 @@ export async function runEnrich(
   const phases = config.phases as RunEnrichPhase[];
   const target =
     config.target ?? (config.slugs?.length ? "brands" : "submissions");
+  if (target === "brands") {
+    throw new Error(
+      "Brand-target enrichment is retired; create a refresh submission instead",
+    );
+  }
   const enrichDelayMs = phases.includes("discover")
     ? SEARCH_DELAY_MS
     : SCRAPE_DELAY_MS;
@@ -892,80 +826,37 @@ export async function runEnrich(
   let weakBrandCount = 0;
   let allBrands: EnrichBrand[] = [];
 
-  if (target === "submissions") {
-    let query = supabase
-      .from("brand_submissions")
-      .select("*")
-      .eq("status", "pending");
+  let query = supabase
+    .from("brand_submissions")
+    .select("*")
+    .eq("status", "pending");
 
-    if (config.submissionIds?.length) {
-      query = query.in("id", config.submissionIds);
-    } else {
-      query = query.is("brand_id", null);
-    }
-
-    if (!config.overwrite && !config.submissionIds?.length) {
-      query = query.is("enriched_data", null);
-    }
-
-    if (config.limit !== undefined) {
-      query = query.limit(config.limit);
-    }
-
-    const { data: submissions, error } = await query;
-
-    if (error) {
-      const message = error.message ?? "Failed to fetch submissions";
-      result.errors.push(message);
-      onProgress(`[ENRICH] ERROR: Failed to fetch submissions: ${message}`);
-      throw error;
-    }
-
-    allBrands = ((submissions ?? []) as SubmissionEnrichmentRow[]).map(
-      submissionToEnrichBrand,
-    );
+  if (config.submissionIds?.length) {
+    query = query.in("id", config.submissionIds);
   } else {
-    let query = supabase
-      .from("brands")
-      .select(
-        "id, slug, name, status, description, description_en, blurb, blurb_en, price_range, product_tags, product_tags_en, founding_year, product_type, category_attributes, site_content, reputation_summary, retail_locations, mit_evidence, social_instagram, social_threads, social_facebook, purchase_website, purchase_pinkoi, purchase_shopee, hero_image_url, city",
-      );
-
-    if (config.slugs && config.slugs.length > 0) {
-      query = query.in("slug", config.slugs);
-    }
-
-    if (config.status) {
-      query = query.eq("status", config.status);
-    }
-
-    if (config.limit !== undefined && config.overwrite) {
-      query = query.limit(config.limit);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      const message = error.message ?? "Failed to fetch brands";
-      result.errors.push(message);
-      onProgress(`[ENRICH] ERROR: Failed to fetch brands: ${message}`);
-      throw error;
-    }
-
-    const brands = (data ?? []) as EnrichBrand[];
-    const phaseEligibleBrands = config.overwrite
-      ? brands
-      : brands.filter((brand) =>
-          shouldSelectForRequestedPhases(
-            brand as Record<string, unknown>,
-            phases,
-          ),
-        );
-    allBrands =
-      config.limit === undefined
-        ? phaseEligibleBrands
-        : phaseEligibleBrands.slice(0, config.limit);
+    query = query.is("brand_id", null);
   }
+
+  if (!config.overwrite && !config.submissionIds?.length) {
+    query = query.is("enriched_data", null);
+  }
+
+  if (config.limit !== undefined) {
+    query = query.limit(config.limit);
+  }
+
+  const { data: submissions, error } = await query;
+
+  if (error) {
+    const message = error.message ?? "Failed to fetch submissions";
+    result.errors.push(message);
+    onProgress(`[ENRICH] ERROR: Failed to fetch submissions: ${message}`);
+    throw error;
+  }
+
+  allBrands = ((submissions ?? []) as SubmissionEnrichmentRow[]).map(
+    submissionToEnrichBrand,
+  );
 
   const totalBrands = allBrands.length;
   for (const line of formatJobStart(totalBrands)) {
@@ -1165,8 +1056,7 @@ export async function runEnrich(
       result.processed += 1;
       const brandIndex = result.processed;
       const brandStartedAt = Date.now();
-      const overwrite =
-        config.overwrite || brand.overwrite_enrichment === true;
+      const overwrite = brand.overwrite_enrichment === true;
       const phaseOrder = buildBrandPhaseOrder(phases, hasDetectPhases);
       const totalPhases = phaseOrder.length;
       let currentPhase: string | undefined;
@@ -1257,29 +1147,6 @@ export async function runEnrich(
         }
         appendPatch(state, detectApplication.patch);
 
-        let detectedSlug = state.patches.slug;
-
-        if (target === "brands" && detectedSlug && !config.dryRun) {
-          const svc = createServiceClient();
-          const { data: slugOwner } = await svc
-            .from("brands")
-            .select("id")
-            .eq("slug", detectedSlug)
-            .neq("id", brand.id)
-            .maybeSingle();
-          if (slugOwner) {
-            onProgress(
-              `  [SLUG-CONFLICT] "${detectedSlug}" already taken — keeping original slug`,
-            );
-            delete state.patches.slug;
-            detectApplication.phaseResult.changedFields =
-              detectApplication.phaseResult.changedFields.filter(
-                (field) => field !== "slug",
-              );
-            detectedSlug = undefined;
-          }
-        }
-
         if (detectApplication.isNonBrand) {
           onProgress(
             `  [NON-BRAND] ${brand.slug}: ${detectResult?.nonBrandReason ?? "non-brand"} (${detectResult?.confidence})`,
@@ -1295,16 +1162,6 @@ export async function runEnrich(
               productType: detectResult?.productType ?? null,
               confidence: detectResult?.confidence ?? "high",
             });
-            if (target === "brands") {
-              await updateBrand(
-                brand.id,
-                {
-                  status: "hidden",
-                  brand_enriched_at: new Date().toISOString(),
-                } as never,
-                { source: "enriched", jobId: config.jobId },
-              );
-            }
           }
 
           await recordOutcome({
@@ -1596,20 +1453,12 @@ export async function runEnrich(
           }
           await markCurrentPhase("persist");
           try {
-            if (target === "submissions") {
-              await persistSubmissionEnrichmentResults(
-                supabase as unknown as SupabaseClient,
-                brand.id,
-                patch as JsonObject,
-                config.jobId,
-              );
-            } else {
-              await persistEnrichmentResults(
-                supabase as unknown as SupabaseClient,
-                [{ brandId: brand.id, patch: patch as JsonObject }],
-                config.jobId,
-              );
-            }
+            await persistSubmissionEnrichmentResults(
+              supabase as unknown as SupabaseClient,
+              brand.id,
+              patch as JsonObject,
+              config.jobId,
+            );
           } catch (err) {
             const errMsg = errorMessage(err);
             outcomePhaseResults.push(
@@ -1635,17 +1484,6 @@ export async function runEnrich(
               ),
             );
             continue;
-          }
-
-          if (
-            target === "brands" &&
-            descriptionsResult.descriptionRewrite?.faq
-          ) {
-            await upsertBrandFaq(
-              supabase as unknown as SupabaseClient,
-              brand.id,
-              descriptionsResult.descriptionRewrite.faq,
-            );
           }
         }
 

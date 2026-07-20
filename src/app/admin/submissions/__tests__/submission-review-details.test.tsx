@@ -283,7 +283,9 @@ describe("SubmissionReviewDetails", () => {
 
     const contentHeading = screen.getByText("Content");
     const contentSection = contentHeading.closest("section")!;
-    await user.click(within(contentSection).getByRole("button", { name: "Edit" }));
+    await user.click(
+      within(contentSection).getByRole("button", { name: "Edit" }),
+    );
 
     const descriptions = screen.getAllByRole("textbox", {
       name: /description/i,
@@ -316,7 +318,9 @@ describe("SubmissionReviewDetails", () => {
 
     const catalogHeading = screen.getByText("Catalog classification");
     const catalogSection = catalogHeading.closest("section")!;
-    await user.click(within(catalogSection).getByRole("button", { name: "Edit" }));
+    await user.click(
+      within(catalogSection).getByRole("button", { name: "Edit" }),
+    );
 
     const productTags = screen.getByRole("textbox", { name: "Product tags" });
     await user.clear(productTags);
@@ -345,7 +349,9 @@ describe("SubmissionReviewDetails", () => {
     const imagesSection = screen
       .getByText("Hero / Product Images")
       .closest("section")!;
-    await user.click(within(imagesSection).getByRole("button", { name: "Edit" }));
+    await user.click(
+      within(imagesSection).getByRole("button", { name: "Edit" }),
+    );
 
     const heroButton = screen.getByRole("button", {
       name: "Set image 1 as hero",
@@ -363,13 +369,59 @@ describe("SubmissionReviewDetails", () => {
     expect(removeButton).not.toHaveTextContent("Remove");
   });
 
+  it("preserves referenced owner images while allowing enrichment images to retire", async () => {
+    const user = userEvent.setup();
+    const ownerImage = {
+      ...reviewImage(
+        "00000000-0000-4000-8000-000000000011",
+        "https://cdn.example.com/hero.webp",
+        0,
+      ),
+      source: "owner",
+      originBrandImageId: "00000000-0000-4000-8000-000000000021",
+    };
+    const enrichmentImage = {
+      ...reviewImage(
+        "00000000-0000-4000-8000-000000000012",
+        "https://cdn.example.com/detail.webp",
+        1,
+      ),
+      source: "legacy",
+      originBrandImageId: "00000000-0000-4000-8000-000000000022",
+    };
+    renderDetails(
+      makeSubmission({
+        intent: "refresh",
+        reviewKind: "refresh",
+        brandId: "00000000-0000-4000-8000-000000000031",
+        reviewImages: [ownerImage, enrichmentImage],
+      }),
+    );
+
+    const imagesSection = screen
+      .getByText("Hero / Product Images")
+      .closest("section")!;
+    await user.click(
+      within(imagesSection).getByRole("button", { name: "Edit" }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Remove image 1" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Remove image 2" }),
+    ).toBeEnabled();
+  });
+
   it("cleans up staged uploads and restores the active gallery on cancel", async () => {
     const user = userEvent.setup();
     renderDetails(makeSubmission());
 
     const imagesHeading = screen.getByText("Hero / Product Images");
     const imagesSection = imagesHeading.closest("section")!;
-    await user.click(within(imagesSection).getByRole("button", { name: "Edit" }));
+    await user.click(
+      within(imagesSection).getByRole("button", { name: "Edit" }),
+    );
 
     await user.click(
       screen.getByRole("button", { name: "Upload staged image" }),
@@ -449,7 +501,12 @@ function makeSubmission(
     notifiedAt: null,
     isBrandOwner: false,
     sourceAttribution: "found_online",
+    intent: "recommend",
     productTypeNote: null,
+    reviewKind: "new",
+    baseBrandData: null,
+    baseBrandUpdatedAt: null,
+    reviewOverrides: {},
     enriched_data: null,
     latestCurationTargetStatus: "succeeded",
     latestCurationJobId: null,
@@ -493,6 +550,7 @@ function reviewImage(
     altEn: null,
     width: 1200,
     height: 900,
+    originBrandImageId: null,
   };
 }
 

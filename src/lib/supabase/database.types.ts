@@ -403,8 +403,45 @@ export type Database = {
           },
         ]
       }
+      brand_field_state: {
+        Row: {
+          admin_locked: boolean
+          brand_id: string
+          field: string
+          source: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          admin_locked?: boolean
+          brand_id: string
+          field: string
+          source: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          admin_locked?: boolean
+          brand_id?: string
+          field?: string
+          source?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_field_state_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_submissions: {
         Row: {
+          base_brand_data: Json | null
+          base_brand_updated_at: string | null
           brand_id: string | null
           brand_name: string
           denial_reason: string | null
@@ -415,12 +452,15 @@ export type Database = {
           intent: string
           is_brand_owner: boolean | null
           notified_at: string | null
+          owner_data: Json | null
           other_urls: Json
           pdpa_consent_at: string | null
           product_type_note: string | null
           purchase_pinkoi: string | null
           purchase_shopee: string | null
           purchase_website: string | null
+          refresh_requested_by: string | null
+          review_overrides: Json
           romanized_name: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -439,6 +479,8 @@ export type Database = {
           website_url: string | null
         }
         Insert: {
+          base_brand_data?: Json | null
+          base_brand_updated_at?: string | null
           brand_id?: string | null
           brand_name: string
           denial_reason?: string | null
@@ -449,12 +491,15 @@ export type Database = {
           intent?: string
           is_brand_owner?: boolean | null
           notified_at?: string | null
+          owner_data?: Json | null
           other_urls?: Json
           pdpa_consent_at?: string | null
           product_type_note?: string | null
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null
           purchase_website?: string | null
+          refresh_requested_by?: string | null
+          review_overrides?: Json
           romanized_name?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -473,6 +518,8 @@ export type Database = {
           website_url?: string | null
         }
         Update: {
+          base_brand_data?: Json | null
+          base_brand_updated_at?: string | null
           brand_id?: string | null
           brand_name?: string
           denial_reason?: string | null
@@ -483,12 +530,15 @@ export type Database = {
           intent?: string
           is_brand_owner?: boolean | null
           notified_at?: string | null
+          owner_data?: Json | null
           other_urls?: Json
           pdpa_consent_at?: string | null
           product_type_note?: string | null
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null
           purchase_website?: string | null
+          refresh_requested_by?: string | null
+          review_overrides?: Json
           romanized_name?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -524,6 +574,7 @@ export type Database = {
           dominant_color: string | null
           height: number | null
           id: string
+          origin_brand_image_id: string | null
           phash: string | null
           score: number | null
           sort_order: number
@@ -543,6 +594,7 @@ export type Database = {
           dominant_color?: string | null
           height?: number | null
           id?: string
+          origin_brand_image_id?: string | null
           phash?: string | null
           score?: number | null
           sort_order?: number
@@ -562,6 +614,7 @@ export type Database = {
           dominant_color?: string | null
           height?: number | null
           id?: string
+          origin_brand_image_id?: string | null
           phash?: string | null
           score?: number | null
           sort_order?: number
@@ -1327,6 +1380,10 @@ export type Database = {
           submitter_name: string | null
         }[]
       }
+      apply_brand_refresh: {
+        Args: { p_reviewer_id: string; p_submission_id: string }
+        Returns: string[]
+      }
       admin_export_newsletter_subscribers: {
         Args: {
           p_interest?: string | null
@@ -1461,6 +1518,14 @@ export type Database = {
         }
         Returns: string[]
       }
+      request_brand_refresh: {
+        Args: {
+          p_brand_id: string
+          p_requested_by: string
+          p_requester_email: string
+        }
+        Returns: string
+      }
       revoke_brand_ownership: {
         Args: {
           p_brand_id: string
@@ -1513,12 +1578,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1540,13 +1605,12 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1565,13 +1629,12 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1590,13 +1653,12 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1609,11 +1671,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

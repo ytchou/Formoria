@@ -2,7 +2,6 @@
 
 import { Fragment, useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   ChevronLeft,
   ChevronRight,
@@ -20,10 +19,9 @@ import {
   hideBrandAction,
   unhideBrandAction,
   deleteBrandAction,
+  requestBrandRefreshAction,
   resendClaimInviteAction,
 } from "@/app/admin/actions";
-import { startCurationJobAction } from "@/app/admin/operations/actions";
-import type { CurationJobParams } from "@/lib/services/curation-jobs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,18 +45,7 @@ import { cn } from "@/lib/utils";
 
 type TabValue = "all" | BrandStatus;
 type MitStatus = NonNullable<Brand["mitStatus"]>;
-type CurationOperation = "enrich";
 const PAGE_SIZES = [10, 25, 50] as const;
-
-const CURATION_ACTIONS: Array<{
-  label: string;
-  operation: CurationOperation;
-  phases?: CurationJobParams["phases"];
-}> = [
-  { label: "Enrich Brand", operation: "enrich" },
-  { label: "Enrich Links", operation: "enrich", phases: ["discover", "links"] },
-  { label: "Enrich Images", operation: "enrich", phases: ["images"] },
-];
 
 const MIT_STATUS_CONFIG: Record<
   MitStatus,
@@ -101,16 +88,15 @@ export function BrandList({
   brands: Brand[];
   claimInviteBrandIds?: string[];
 }) {
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabValue>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [mitFilter, setMitFilter] = useState<"all" | MitStatus>("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] =
-    useState<(typeof PAGE_SIZES)[number]>(10);
+  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(10);
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
   const [deletingBrand, setDeletingBrand] = useState<Brand | null>(null);
+  const [refreshingBrand, setRefreshingBrand] = useState<Brand | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const claimInviteBrandIdSet = new Set(claimInviteBrandIds);
@@ -172,37 +158,17 @@ export function BrandList({
     });
   }
 
-  function handleStartCurationJob(
-    brand: Brand,
-    operation: CurationOperation,
-    phases?: CurationJobParams["phases"],
-  ) {
+  function handleRequestRefresh() {
+    if (!refreshingBrand) return;
     startTransition(async () => {
       setError(null);
-      const params: CurationJobParams = { slugs: [brand.slug] };
-
-      if (phases) {
-        params.phases = phases;
-      }
-
-      const result = await startCurationJobAction(operation, params, false);
-
+      const result = await requestBrandRefreshAction(refreshingBrand.id);
       if ("error" in result) {
         setError(result.error);
         return;
       }
-
-      if ("queued" in result) {
-        const notify =
-          result.dispatchStatus === "failed" ? toast.error : toast.info;
-        notify(result.message, {
-          action: {
-            label: "View job",
-            onClick: () => router.push(result.detailPath),
-          },
-        });
-        return;
-      }
+      toast.success("Re-enrichment requested for the next scheduled run");
+      setRefreshingBrand(null);
     });
   }
 
@@ -289,7 +255,9 @@ export function BrandList({
               <TableHead>MIT</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Created</TableHead>
-              <TableHead className="min-w-[300px] text-right">Actions</TableHead>
+              <TableHead className="min-w-[300px] text-right">
+                Actions
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -374,39 +342,33 @@ export function BrandList({
                           Unhide
                         </Button>
                       )}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          aria-label={`Open curation actions for ${brand.name}`}
-                          className={buttonVariants({
-                            variant: "ghost",
-                            size: "icon",
-                            shape: "pill",
-                          })}
-                        >
-                          <MoreHorizontal className="size-4" aria-hidden />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          className="w-40 min-w-40 rounded-lg border border-border bg-card shadow-card-hover"
-                        >
-                          {CURATION_ACTIONS.map((action) => (
+                      {(brand.status === "approved" ||
+                        brand.status === "hidden") && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            aria-label={`Open brand actions for ${brand.name}`}
+                            className={buttonVariants({
+                              variant: "ghost",
+                              size: "icon",
+                              shape: "pill",
+                            })}
+                          >
+                            <MoreHorizontal className="size-4" aria-hidden />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-40 min-w-40 rounded-lg border border-border bg-card shadow-card-hover"
+                          >
                             <DropdownMenuItem
-                              key={action.label}
                               disabled={isPending}
                               className="text-foreground hover:bg-muted focus:bg-muted"
-                              onClick={() =>
-                                handleStartCurationJob(
-                                  brand,
-                                  action.operation,
-                                  action.phases,
-                                )
-                              }
+                              onClick={() => setRefreshingBrand(brand)}
                             >
-                              {action.label}
+                              Request re-enrichment
                             </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                       <Button
                         variant="secondary"
                         size="compact"
@@ -437,15 +399,17 @@ export function BrandList({
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="type-card-description">
           Showing {filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}
-          –{Math.min(currentPage * pageSize, filtered.length)} of {filtered.length}{" "}
-          brands
+          –{Math.min(currentPage * pageSize, filtered.length)} of{" "}
+          {filtered.length} brands
         </p>
         <div className="flex items-center gap-2">
           <NativeSelect
             aria-label="Brands per page"
             value={pageSize}
             onChange={(event) => {
-              setPageSize(Number(event.target.value) as (typeof PAGE_SIZES)[number]);
+              setPageSize(
+                Number(event.target.value) as (typeof PAGE_SIZES)[number],
+              );
               setPage(1);
             }}
             className="h-12 w-auto"
@@ -489,6 +453,18 @@ export function BrandList({
         onOpenChange={(open) => {
           if (!open) setEditingBrand(null);
         }}
+      />
+
+      <ConfirmDialog
+        open={refreshingBrand !== null}
+        onOpenChange={(open) => {
+          if (!open) setRefreshingBrand(null);
+        }}
+        title="Request re-enrichment"
+        description="A refresh will run on the next six-hour schedule and return to the submissions queue for review. The live brand will not change until the refresh is applied."
+        onConfirm={handleRequestRefresh}
+        confirmLabel="Request re-enrichment"
+        isPending={isPending}
       />
 
       <ConfirmDialog
