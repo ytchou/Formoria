@@ -62,9 +62,9 @@ export default async function LandingPage({ params }: PageProps) {
   const organizationJsonLd = buildOrganizationJsonLd(safeLocale)
 
   const [{ brands: exploreBrands, totalCount: totalBrandCount }, newBrands, recentBrands, messages] = await Promise.all([
-    getExploreBrands(EXPLORE_BRAND_LIMIT),
-    getNewBrands(4),
-    getRecentBrandCount(),
+    getExploreBrands(EXPLORE_BRAND_LIMIT).catch(() => ({ brands: [], totalCount: 0 })),
+    getNewBrands(4).catch(() => []),
+    getRecentBrandCount().catch(() => ({ count: 0, period: '30d' as const })),
     getMessages(),
   ])
 

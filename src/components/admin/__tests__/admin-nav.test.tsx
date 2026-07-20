@@ -17,6 +17,7 @@ const items: NavItem[] = [
   { label: 'Brand Catalog', href: '/admin/brands' },
   { label: 'Quality Dashboard', href: '/admin/quality' },
   { label: 'Newsletter', href: '/admin/newsletter' },
+  { label: 'Scripts', href: '/admin/scripts' },
   { label: 'Settings', href: '/admin/settings' },
 ]
 

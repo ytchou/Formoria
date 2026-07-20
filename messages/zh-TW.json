@@ -1859,6 +1859,7 @@
         "brands": "品牌目錄",
         "quality": "品質儀表板",
         "newsletter": "電子報",
+        "scripts": "工具",
         "settings": "設定"
       }
     },
@@ -1948,8 +1949,11 @@
       "viewJob": "查看任務",
       "notFound": "找不到提交記錄。",
       "confirmBulkApprove": "核准已選取的 {count} 筆提交？",
-      "bulkApprove": "批次核准",
-      "bulkReject": "批次拒絕",
+      "approveSelected": "核准已選取的 {count} 筆",
+      "rejectSelected": "拒絕已選取的 {count} 筆",
+      "confirmRejectSelected": "確認拒絕已選取的 {count} 筆",
+      "expandReview": "展開 {name} 的審核",
+      "collapseReview": "收合 {name} 的審核",
       "confirmReject": "拒絕此提交？",
       "fetching": "抓取中…",
       "fetchData": "抓取資料",
@@ -1971,8 +1975,6 @@
       "moveRight": "將圖片 {n} 向右移",
       "removeImage": "移除圖片 {n}",
       "confirmRejectButton": "確認拒絕",
-      "selectedCount": "已選取 {count} 筆",
-      "confirmBulkReject": "確認批次拒絕",
       "bulkRejectReason": "批次拒絕原因",
       "selectReason": "選擇拒絕原因",
       "tabs": {

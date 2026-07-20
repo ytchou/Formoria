@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -29,25 +29,15 @@ vi.mock("@/app/admin/actions", () => ({
 vi.mock("@/app/admin/operations/actions", () => ({
   startCurationJobAction: actions.enrich,
 }));
-vi.mock("@/components/ui/sheet", () => ({
-  Sheet: ({ children, open }: { children: React.ReactNode; open: boolean }) =>
-    open ? <div data-testid="sheet">{children}</div> : null,
-  SheetContent: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  SheetHeader: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  SheetFooter: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  SheetTitle: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-}));
 vi.mock("../submission-review-details", () => ({
-  SubmissionReviewDetails: ({ submission }: { submission: { id: string } }) => (
-    <div>{`details-${submission.id}`}</div>
+  SubmissionReviewDetails: ({
+    submission,
+    initiallyEditing,
+  }: {
+    submission: ReviewSubmission;
+    initiallyEditing?: boolean;
+  }) => (
+    <div>{`${initiallyEditing ? "editing" : "details"}-${submission.id}`}</div>
   ),
 }));
 
@@ -118,17 +108,18 @@ describe("SubmissionsReviewList", () => {
     expect(screen.queryByText("Wood Studio")).not.toBeInTheDocument();
   });
 
-  it("paginates by ten and select-all affects only the visible page", async () => {
+  it("paginates needs-data selection by ten and selects only the visible page", async () => {
     const user = userEvent.setup();
     renderList(
       Array.from({ length: 11 }, (_, index) =>
         makeSubmission({
           id: `submission-${index + 1}`,
           brandName: `Brand ${index + 1}`,
+          reviewStage: "needs_data",
           reviewData: { ...baseReviewData, name: `Brand ${index + 1}` },
         }),
       ),
-      "all",
+      "needs_data",
     );
 
     expect(screen.getByText("Brand 10")).toBeInTheDocument();
@@ -147,11 +138,94 @@ describe("SubmissionsReviewList", () => {
     expect(
       screen.getByRole("checkbox", { name: "Select Brand 11" }),
     ).not.toBeChecked();
-    expect(screen.getByRole("button", { name: "Bulk reject" })).toBeDisabled();
   });
 
-  it("opens drawer on row click and closes on overlay dismiss", async () => {
+  it("bulk approves exactly the selected ready submissions", async () => {
     const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderList(
+      Array.from({ length: 5 }, (_, index) =>
+        makeSubmission({
+          id: `ready-${index + 1}`,
+          brandName: `Ready Brand ${index + 1}`,
+          reviewData: { ...baseReviewData, name: `Ready Brand ${index + 1}` },
+        }),
+      ),
+      "ready",
+    );
+
+    for (const name of ["Ready Brand 1", "Ready Brand 3", "Ready Brand 5"]) {
+      await user.click(
+        screen.getByRole("checkbox", { name: `Select ${name}` }),
+      );
+    }
+    await user.click(
+      screen.getByRole("button", { name: "Approve 3 selected" }),
+    );
+
+    expect(actions.approve).toHaveBeenCalledTimes(3);
+    expect(actions.approve.mock.calls.map(([id]) => id)).toEqual([
+      "ready-1",
+      "ready-3",
+      "ready-5",
+    ]);
+  });
+
+  it("shows only the actions owned by the active review stage", () => {
+    const readyView = renderList([makeSubmission()], "ready");
+
+    expect(
+      screen.queryByRole("button", { name: "Fetch Data" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Approve 0 selected" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Reject 0 selected" }),
+    ).toBeDisabled();
+    expect(screen.getAllByRole("checkbox")).toHaveLength(2);
+    expect(
+      screen.getByRole("button", { name: /^Approve$/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^Reject$/ }),
+    ).toBeInTheDocument();
+
+    readyView.unmount();
+    renderList(
+      [
+        makeSubmission({
+          reviewStage: "needs_data",
+          latestCurationTargetStatus: null,
+          reviewCompleteness: {
+            complete: false,
+            missingFields: ["successfulEnrichment"],
+          },
+        }),
+      ],
+      "needs_data",
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Fetch Data" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Approve \d+ selected/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Reject \d+ selected/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^Approve$/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^Reject$/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens one accessible review disclosure and ignores row action clicks", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
     renderList(
       [
         makeSubmission({ id: "one", brandName: "First Brand" }),
@@ -160,14 +234,67 @@ describe("SubmissionsReviewList", () => {
       "all",
     );
 
-    expect(screen.queryByText("details-one")).not.toBeInTheDocument();
-
-    await user.click(screen.getByText("First Brand"));
+    const firstChevron = screen.getByRole("button", {
+      name: "Expand review for First Brand",
+    });
+    expect(firstChevron).toHaveAttribute("aria-expanded", "false");
+    await user.click(firstChevron);
     expect(screen.getByText("details-one")).toBeInTheDocument();
+    expect(firstChevron).toHaveAttribute("aria-expanded", "true");
 
-    await user.click(screen.getByText("Second Brand"));
+    await user.click(
+      screen.getByRole("button", { name: "Expand review for Second Brand" }),
+    );
     expect(screen.queryByText("details-one")).not.toBeInTheDocument();
     expect(screen.getByText("details-two")).toBeInTheDocument();
+
+    const secondRow = screen.getByText("Second Brand").closest("tr");
+    expect(secondRow).not.toBeNull();
+    await user.click(
+      within(secondRow!).getByRole("button", { name: "Approve" }),
+    );
+    expect(actions.approve).toHaveBeenCalledTimes(1);
+    expect(actions.approve).toHaveBeenCalledWith("two");
+    expect(screen.getByText("details-two")).toBeInTheDocument();
+
+    const firstRow = screen.getByText("First Brand").closest("tr");
+    expect(firstRow).not.toBeNull();
+    await user.click(within(firstRow!).getByRole("button", { name: "Reject" }));
+    expect(actions.reject).toHaveBeenCalledTimes(1);
+    expect(actions.reject).toHaveBeenCalledWith("one", "admin_reject", "");
+  });
+
+  it("opens Edit from the row beside Reject", async () => {
+    const user = userEvent.setup();
+    renderList(
+      [makeSubmission({ id: "one", brandName: "First Brand" })],
+      "all",
+    );
+
+    const row = screen.getByText("First Brand").closest("tr");
+    expect(row).not.toBeNull();
+    const reject = within(row!).getByRole("button", { name: "Reject" });
+    const edit = within(row!).getByRole("button", { name: "Edit" });
+    expect(reject.nextElementSibling).toBe(edit);
+
+    await user.click(edit);
+    expect(screen.getByText("editing-one")).toBeInTheDocument();
+  });
+
+  it("keeps row approval disabled when review data is incomplete", () => {
+    renderList(
+      [
+        makeSubmission({
+          reviewCompleteness: {
+            complete: false,
+            missingFields: ["description"],
+          },
+        }),
+      ],
+      "ready",
+    );
+
+    expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
   });
 });
 

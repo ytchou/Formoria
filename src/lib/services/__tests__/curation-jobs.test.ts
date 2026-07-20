@@ -105,6 +105,54 @@ describe("admin curation target resolution", () => {
       }),
     );
   });
+
+  it("resolves every explicit submission target in bounded filter chunks", async () => {
+    const submissionIds = Array.from(
+      { length: 201 },
+      (_, index) => `submission-${index}`,
+    );
+    const queriedChunks: string[][] = [];
+    const submissionQuery = {
+      select: vi.fn(() => submissionQuery),
+      in: vi.fn((_column: string, ids: string[]) => {
+        queriedChunks.push(ids);
+        return Promise.resolve({
+          data: ids.map((id) => ({
+            id,
+            brand_name: `Brand ${id}`,
+            status: "pending",
+          })),
+          error: null,
+        });
+      }),
+    };
+    const jobQuery = singleQuery(job({ id: "job-1", status: "pending" }));
+    mocks.from.mockImplementation((table: string) =>
+      table === "brand_submissions" ? submissionQuery : jobQuery,
+    );
+    mocks.rpc.mockResolvedValue({ data: "job-1", error: null });
+    mocks.createServiceClient.mockReturnValue({
+      from: mocks.from,
+      rpc: mocks.rpc,
+    });
+
+    await enqueueAdminCurationJob({
+      params: { submissionIds },
+      dryRun: false,
+      startedBy: "admin-1",
+    });
+
+    expect(queriedChunks).toHaveLength(2);
+    expect(queriedChunks.every((ids) => ids.length <= 200)).toBe(true);
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "enqueue_curation_job",
+      expect.objectContaining({
+        p_targets: expect.arrayContaining([
+          expect.objectContaining({ target_id: "submission-200" }),
+        ]),
+      }),
+    );
+  });
 });
 
 describe("automatic curation retries", () => {
