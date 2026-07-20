@@ -7,7 +7,7 @@ create table marketing_calendar (
   target_date date,
   platforms text[] not null default '{}',
   media text check (media in ('text-only','carousel','video','both')),
-  lang text not null default 'zh',
+  lang text not null default 'zh' check (lang in ('zh','en')),
   source_type text,
   source_detected_by text,
   source_detected_at date,
