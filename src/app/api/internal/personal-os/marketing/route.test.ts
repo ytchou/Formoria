@@ -9,10 +9,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/internal/personal-os-auth', () => ({
   isPersonalOsRequestAuthorized: mocks.isAuthorized,
 }))
-vi.mock('@/lib/services/marketing-calendar', () => ({
-  listMarketingItems: mocks.listItems,
-  createMarketingItem: mocks.createItem,
-}))
+vi.mock(import('@/lib/services/marketing-calendar'), async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, listMarketingItems: mocks.listItems, createMarketingItem: mocks.createItem }
+})
 
 import { GET, POST } from './route'
 

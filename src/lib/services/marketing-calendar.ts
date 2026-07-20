@@ -1,5 +1,19 @@
 import { createServiceClient } from '@/lib/supabase/server'
 
+export const VALID_TYPES = ['idea', 'brand-highlight', 'event', 'milestone', 'trend', 'series'] as const
+export const VALID_STATUSES = [
+  'idea',
+  'brief',
+  'scheduled',
+  'producing',
+  'review',
+  'published',
+  'archived',
+] as const
+export const VALID_PRIORITIES = ['low', 'medium', 'high'] as const
+export const VALID_MEDIA = ['text-only', 'carousel', 'video', 'both'] as const
+export const VALID_LANGS = ['zh', 'en'] as const
+
 export type MarketingCalendarItem = {
   id: string
   title: string

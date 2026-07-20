@@ -9,10 +9,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/internal/personal-os-auth', () => ({
   isPersonalOsRequestAuthorized: mocks.isAuthorized,
 }))
-vi.mock('@/lib/services/marketing-calendar', () => ({
-  updateMarketingItem: mocks.updateItem,
-  deleteMarketingItem: mocks.deleteItem,
-}))
+vi.mock(import('@/lib/services/marketing-calendar'), async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, updateMarketingItem: mocks.updateItem, deleteMarketingItem: mocks.deleteItem }
+})
 
 import { DELETE, PATCH } from './route'
 
@@ -21,6 +21,16 @@ const callPatch = (body: unknown, id = 'test-id') =>
     new Request('http://localhost/api/internal/personal-os/marketing/test-id', {
       method: 'PATCH',
       body: JSON.stringify(body),
+    }),
+    { params: Promise.resolve({ id }) },
+  )
+
+const callPatchRaw = (rawBody: string, id = 'test-id') =>
+  PATCH(
+    new Request('http://localhost/api/internal/personal-os/marketing/test-id', {
+      method: 'PATCH',
+      body: rawBody,
+      headers: { 'Content-Type': 'application/json' },
     }),
     { params: Promise.resolve({ id }) },
   )
@@ -95,6 +105,26 @@ describe('PATCH /api/internal/personal-os/marketing/[id]', () => {
     const response = await callPatch({ title: 'Boom' })
 
     expect(response.status).toBe(503)
+  })
+
+  it('returns 400 (not 503) when the request body is malformed JSON', async () => {
+    mocks.isAuthorized.mockReturnValue(true)
+
+    const response = await callPatchRaw('{not valid json')
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({ error: 'Invalid JSON body' })
+    expect(mocks.updateItem).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 when createdAt is included in the body (immutable)', async () => {
+    mocks.isAuthorized.mockReturnValue(true)
+
+    const response = await callPatch({ createdAt: '2024-01-01T00:00:00Z', title: 'Sneak' })
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({ error: 'createdAt is immutable' })
+    expect(mocks.updateItem).not.toHaveBeenCalled()
   })
 })
 

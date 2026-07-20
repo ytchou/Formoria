@@ -1,21 +1,15 @@
 import { isPersonalOsRequestAuthorized } from '@/lib/internal/personal-os-auth'
-import { listMarketingItems, createMarketingItem } from '@/lib/services/marketing-calendar'
+import {
+  listMarketingItems,
+  createMarketingItem,
+  VALID_TYPES,
+  VALID_STATUSES,
+  VALID_PRIORITIES,
+  VALID_MEDIA,
+  VALID_LANGS,
+} from '@/lib/services/marketing-calendar'
 
 const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' }
-
-const VALID_TYPES = ['idea', 'brand-highlight', 'event', 'milestone', 'trend', 'series'] as const
-const VALID_STATUSES = [
-  'idea',
-  'brief',
-  'scheduled',
-  'producing',
-  'review',
-  'published',
-  'archived',
-] as const
-const VALID_PRIORITIES = ['low', 'medium', 'high'] as const
-const VALID_MEDIA = ['text-only', 'carousel', 'video', 'both'] as const
-const VALID_LANGS = ['zh', 'en'] as const
 
 export async function GET(request: Request): Promise<Response> {
   if (!isPersonalOsRequestAuthorized(request)) {
