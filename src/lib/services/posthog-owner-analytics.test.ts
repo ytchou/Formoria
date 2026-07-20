@@ -53,5 +53,12 @@ describe('PostHog owner analytics', () => {
     expect(acquisitionSql).toContain(
       "properties.$session_id IN (SELECT DISTINCT properties.$session_id FROM events WHERE event = 'brand_detail_viewed'",
     )
+    expect(acquisitionSql).toContain(
+      "argMin(coalesce(properties.$utm_source, ''), timestamp)",
+    )
+    expect(acquisitionSql).toContain(
+      "argMin(coalesce(properties.$referring_domain, ''), timestamp)",
+    )
+    expect(acquisitionSql).toContain("BETWEEN toDate('2026-06-19') AND toDate('2026-07-19')")
   })
 })

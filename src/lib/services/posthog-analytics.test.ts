@@ -98,6 +98,13 @@ describe('PostHog analytics service', () => {
     expect(acquisitionSql).toContain(
       "properties.$session_id IN (SELECT DISTINCT properties.$session_id FROM events WHERE event = '$pageview'",
     )
+    expect(acquisitionSql).toContain(
+      "argMin(coalesce(properties.$utm_source, ''), timestamp)",
+    )
+    expect(acquisitionSql).toContain(
+      "argMin(coalesce(properties.$referring_domain, ''), timestamp)",
+    )
+    expect(acquisitionSql).toContain("BETWEEN toDate('2026-07-12') AND toDate('2026-07-19')")
   })
 
   it('returns null rates for zero denominators and null prior values while the baseline is incomplete', async () => {

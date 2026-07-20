@@ -118,15 +118,19 @@ ORDER BY date
 }
 
 function acquisitionQuery(window: DateWindow): string {
+  const pageviewWindow = {
+    startDate: shiftIsoDate(window.startDate, -1),
+    endDate: window.endDate,
+  }
   return `
 SELECT source, medium, count() AS sessions
 FROM (
   SELECT
     ${SESSION_ID} AS session_id,
-    if(notEmpty(argMin(properties.$utm_source, timestamp)), argMin(properties.$utm_source, timestamp), if(notEmpty(argMin(properties.$referring_domain, timestamp)), argMin(properties.$referring_domain, timestamp), 'Direct')) AS source,
-    if(notEmpty(argMin(properties.$utm_medium, timestamp)), argMin(properties.$utm_medium, timestamp), if(notEmpty(argMin(properties.$referring_domain, timestamp)), 'referral', 'direct')) AS medium
+    if(notEmpty(argMin(coalesce(properties.$utm_source, ''), timestamp)), argMin(coalesce(properties.$utm_source, ''), timestamp), if(notEmpty(argMin(coalesce(properties.$referring_domain, ''), timestamp)), argMin(coalesce(properties.$referring_domain, ''), timestamp), 'Direct')) AS source,
+    if(notEmpty(argMin(coalesce(properties.$utm_medium, ''), timestamp)), argMin(coalesce(properties.$utm_medium, ''), timestamp), if(notEmpty(argMin(coalesce(properties.$referring_domain, ''), timestamp)), 'referral', 'direct')) AS medium
   FROM events
-  WHERE event = '$pageview' AND ${PUBLIC_EVENT} AND ${SESSION_ID} IN (${publicSessionsSubquery(window)})
+  WHERE event = '$pageview' AND ${PUBLIC_EVENT} AND ${dateCondition(pageviewWindow)} AND ${SESSION_ID} IN (${publicSessionsSubquery(window)})
   GROUP BY session_id
 )
 GROUP BY source, medium

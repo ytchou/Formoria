@@ -7,18 +7,28 @@ const UTM_KEYS = new Set([
   'utm_term',
   'utm_content',
 ])
+const POSTHOG_UTM_KEYS = new Set(Array.from(UTM_KEYS).flatMap((key) => [key, `$${key}`]))
+const SAFE_CAMPAIGN_VALUE = /^[\p{L}\p{N}][\p{L}\p{N}._~-]{0,99}$/u
 
 const SENSITIVE_PROPERTY_KEYS = new Set([
+  '$el_text',
   'access_token',
+  'action',
+  'attr__action',
+  'attr__href',
+  'attr__value',
+  'attributes',
   'auth_code',
   'authorization',
   'brand_name',
   'code',
   'email',
   'email_address',
+  'element_text',
   'form_values',
   'form_data',
   'full_name',
+  'href',
   'first_name',
   'last_name',
   'name',
@@ -28,9 +38,11 @@ const SENSITIVE_PROPERTY_KEYS = new Set([
   'query',
   'refresh_token',
   'search_term',
+  'text',
   'token',
   'user_email',
   'user_name',
+  'value',
 ])
 
 const URL_PROPERTY_KEYS = new Set([
@@ -60,6 +72,12 @@ function pathnameFrom(value: string): string {
   }
 }
 
+function sanitizeCampaignValue(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return SAFE_CAMPAIGN_VALUE.test(trimmed) ? trimmed : null
+}
+
 export function isPostHogAnalyticsPath(value: string): boolean {
   const pathname = stripLocale(pathnameFrom(value))
   return !BLOCKED_PATH_SEGMENTS.some(
@@ -78,13 +96,14 @@ export function sanitizePostHogUrl(value: string): string {
     }
     const safeParams = new URLSearchParams()
     for (const [key, parameterValue] of url.searchParams) {
-      if (UTM_KEYS.has(key)) safeParams.append(key, parameterValue)
+      const safeValue = UTM_KEYS.has(key) ? sanitizeCampaignValue(parameterValue) : null
+      if (safeValue) safeParams.append(key, safeValue)
     }
     url.search = safeParams.toString()
     url.hash = ''
     return url.toString()
   } catch {
-    return pathnameFrom(value)
+    return 'https://formoria.com/'
   }
 }
 
@@ -120,6 +139,13 @@ export function sanitizePostHogEvent<T extends PostHogEvent>(event: T): T | null
     if (typeof properties[key] === 'string') {
       properties[key] = sanitizePostHogUrl(properties[key])
     }
+  }
+
+  for (const key of POSTHOG_UTM_KEYS) {
+    if (!(key in properties)) continue
+    const safeValue = sanitizeCampaignValue(properties[key])
+    if (safeValue) properties[key] = safeValue
+    else delete properties[key]
   }
 
   const scrubbed = scrubValue(properties) as Record<string, unknown>

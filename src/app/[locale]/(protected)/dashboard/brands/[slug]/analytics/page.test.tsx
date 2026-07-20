@@ -24,10 +24,13 @@ vi.mock('next-intl/server', () => ({
     openPostHog: 'Open in PostHog',
     sessionTrendAria: 'Daily profile and outbound sessions',
     trendUnavailable: 'Daily trend is temporarily unavailable.',
+    trendEmpty: 'No profile sessions in this window.',
     acquisitionSources: 'Acquisition sources',
     acquisitionUnavailable: 'Acquisition is temporarily unavailable.',
+    acquisitionEmpty: 'No acquisition sessions in this window.',
     outboundDestinations: 'Outbound destinations',
     destinationsUnavailable: 'Destinations are temporarily unavailable.',
+    destinationsEmpty: 'No outbound sessions in this window.',
     source: 'Source',
     dataThrough: 'Data through',
     generated: 'Generated',
@@ -98,5 +101,28 @@ describe('owner analytics page authorization', () => {
       'href',
       snapshot.sourceUrl,
     )
+  })
+
+  it('distinguishes available zero-result breakdowns from provider failures', async () => {
+    mocks.requireBrandEditor.mockResolvedValue({
+      user: { id: 'user-1' },
+      brand: { id: 'brand-uuid', name: 'Alpha', slug: 'alpha' },
+      owner: true,
+      actingAdmin: false,
+      configuredAdmin: false,
+    })
+    mocks.getSnapshot.mockResolvedValue({
+      ...snapshot,
+      daily: [{ date: '2026-07-19', profileSessions: 0, outboundSessions: 0 }],
+      acquisition: [],
+      destinations: [],
+    })
+
+    render(await AnalyticsPage({ params: Promise.resolve({ locale: 'en', slug: 'alpha' }) }))
+
+    expect(screen.getByText('No profile sessions in this window.')).toBeInTheDocument()
+    expect(screen.getByText('No acquisition sessions in this window.')).toBeInTheDocument()
+    expect(screen.getByText('No outbound sessions in this window.')).toBeInTheDocument()
+    expect(screen.queryByText('Daily trend is temporarily unavailable.')).not.toBeInTheDocument()
   })
 })

@@ -76,6 +76,25 @@ describe('PostHog Query API adapter', () => {
     })
   })
 
+  it('redacts string result values from the audit trail', async () => {
+    configure()
+    const audit = vi.fn()
+    const client = createPostHogQueryClient({
+      fetchImpl: vi.fn().mockResolvedValue(Response.json({
+        columns: ['source', 'sessions'],
+        results: [['private@example.com', 4]],
+      })),
+      audit,
+    })
+
+    await client.run('acquisition', 'select source, sessions')
+
+    const auditJson = JSON.stringify(audit.mock.calls)
+    expect(auditJson).toContain('[redacted]')
+    expect(auditJson).toContain('[[\"[redacted]\",4]]')
+    expect(auditJson).not.toContain('private@example.com')
+  })
+
   it('rejects structurally invalid provider responses', async () => {
     configure()
     const client = createPostHogQueryClient({

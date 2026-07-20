@@ -70,6 +70,18 @@ function validResult(value: unknown): value is PostHogQueryResult {
     && candidate.results.every((row) => Array.isArray(row))
 }
 
+function sanitizedResultForAudit(result: PostHogQueryResult): Record<string, unknown> {
+  return {
+    columns: result.columns,
+    resultCount: result.results.length,
+    results: result.results.map((row) => row.map((value) =>
+      value === null || typeof value === 'number' || typeof value === 'boolean'
+        ? value
+        : '[redacted]',
+    )),
+  }
+}
+
 export function createPostHogQueryClient({
   fetchImpl = fetch,
   audit = defaultAudit,
@@ -142,7 +154,7 @@ export function createPostHogQueryClient({
           provider: 'PostHog',
           queryName: name,
           request: { endpoint, payload },
-          response: { httpStatus: response.status, body },
+          response: { httpStatus: response.status, body: sanitizedResultForAudit(body) },
           latencyMs: Math.round(performance.now() - startedAt),
           status: 'success',
           outcome: 'success',

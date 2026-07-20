@@ -1,6 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 
-export type FormoriaFeedbackItem = {
+type FormoriaFeedbackItem = {
   source: 'tally' | 'sentry'
   externalId: string
   title: string

@@ -28,12 +28,13 @@ describe('PostHog path privacy', () => {
   it('keeps only approved UTM parameters and removes hashes', () => {
     expect(
       sanitizePostHogUrl(
-        'https://formoria.com/zh-TW/brands?search=private&utm_source=threads&utm_medium=social&code=secret#email',
+        'https://formoria.com/zh-TW/brands?search=private&utm_source=threads&utm_medium=social&utm_campaign=person@example.com&code=secret#email',
       ),
     ).toBe('https://formoria.com/zh-TW/brands?utm_source=threads&utm_medium=social')
     expect(
       sanitizePostHogUrl('https://referrer.example/private/path?email=person@example.com'),
     ).toBe('https://referrer.example/')
+    expect(sanitizePostHogUrl('https://%')).toBe('https://formoria.com/')
   })
 
   it('drops protected events and direct identifiers before send', () => {
@@ -56,6 +57,7 @@ describe('PostHog path privacy', () => {
           full_name: 'Private Person',
           phone_number: '0912345678',
           form_data: { proposal: 'Private proposal' },
+          $elements: [{ text: 'Private Person', attr__href: '/brands?email=person@example.com' }],
           authorization: 'Bearer secret',
           query_length: 7,
         },
@@ -88,5 +90,44 @@ describe('PostHog path privacy', () => {
     expect(serialized).not.toContain('0912345678')
     expect(serialized).not.toContain('Private proposal')
     expect(serialized).not.toContain('Bearer secret')
+    expect(serialized).not.toContain('person@example.com')
+  })
+
+  it('removes nested autocapture text and attributes', () => {
+    const sanitized = sanitizePostHogEvent({
+      event: '$autocapture',
+      properties: {
+        $current_url: 'https://formoria.com/en/brands',
+        $elements: [{
+          tag_name: 'a',
+          text: 'Private Person',
+          attr__href: '/brands?email=private@example.com',
+          attributes: { value: 'private@example.com' },
+        }],
+      },
+    })
+
+    const serialized = JSON.stringify(sanitized)
+    expect(serialized).toContain('tag_name')
+    expect(serialized).not.toContain('Private Person')
+    expect(serialized).not.toContain('private@example.com')
+  })
+
+  it('drops unsafe UTM property values while preserving campaign tokens', () => {
+    const sanitized = sanitizePostHogEvent({
+      event: 'user_signed_up',
+      properties: {
+        $current_url: 'https://formoria.com/en/dashboard',
+        $utm_source: 'person@example.com',
+        utm_medium: 'paid_social',
+        utm_campaign: 'launch-2026',
+      },
+    })
+
+    expect(sanitized?.properties).not.toHaveProperty('$utm_source')
+    expect(sanitized?.properties).toMatchObject({
+      utm_medium: 'paid_social',
+      utm_campaign: 'launch-2026',
+    })
   })
 })

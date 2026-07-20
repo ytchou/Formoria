@@ -29,10 +29,13 @@ type OwnerAnalyticsCopy = {
   openPostHog: string
   trendAria: string
   trendUnavailable: string
+  trendEmpty: string
   acquisitionTitle: string
   acquisitionUnavailable: string
+  acquisitionEmpty: string
   destinationsTitle: string
   destinationsUnavailable: string
+  destinationsEmpty: string
   source: string
   dataThrough: string
   generated: string
@@ -63,6 +66,7 @@ function OwnerAnalytics({
     ...(snapshot.daily ?? []).map((point) => point.profileSessions),
     1,
   )
+  const hasDailySessions = snapshot.daily?.some((point) => point.profileSessions > 0) ?? false
 
   return (
     <div className="space-y-6">
@@ -102,14 +106,18 @@ function OwnerAnalytics({
             {copy.openPostHog}
           </a>
         </div>
-        {snapshot.daily ? (
+        {snapshot.daily && hasDailySessions ? (
           <figure className="mt-6" aria-label={copy.trendAria}>
             <div className="flex h-40 items-end gap-1" aria-hidden="true">
               {snapshot.daily.map((point) => (
                 <span
                   key={point.date}
                   className="min-w-1 flex-1 rounded-t-sm bg-primary"
-                  style={{ height: `${Math.max((point.profileSessions / maxDaily) * 100, 2)}%` }}
+                  style={{
+                    height: point.profileSessions === 0
+                      ? '0%'
+                      : `${Math.max((point.profileSessions / maxDaily) * 100, 2)}%`,
+                  }}
                   title={`${point.date}: ${point.profileSessions} profile, ${point.outboundSessions} outbound sessions`}
                 />
               ))}
@@ -118,15 +126,15 @@ function OwnerAnalytics({
               {snapshot.windows.trend.startDate} – {snapshot.windows.trend.endDate} · Asia/Taipei
             </figcaption>
           </figure>
-        ) : (
-          <p className="mt-6 type-card-description">{copy.trendUnavailable}</p>
-        )}
+        ) : <p className="mt-6 type-card-description">
+          {snapshot.daily === null ? copy.trendUnavailable : copy.trendEmpty}
+        </p>}
       </SurfaceCard>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SurfaceCard padding="lg">
           <h2 className="type-card-title">{copy.acquisitionTitle}</h2>
-          {snapshot.acquisition ? (
+          {snapshot.acquisition && snapshot.acquisition.length > 0 ? (
             <ul className="mt-4 space-y-3">
               {snapshot.acquisition.map((row) => (
                 <li className="flex justify-between gap-4" key={`${row.source}:${row.medium}`}>
@@ -135,12 +143,14 @@ function OwnerAnalytics({
                 </li>
               ))}
             </ul>
-          ) : <p className="mt-4 type-card-description">{copy.acquisitionUnavailable}</p>}
+          ) : <p className="mt-4 type-card-description">
+            {snapshot.acquisition === null ? copy.acquisitionUnavailable : copy.acquisitionEmpty}
+          </p>}
         </SurfaceCard>
 
         <SurfaceCard padding="lg">
           <h2 className="type-card-title">{copy.destinationsTitle}</h2>
-          {snapshot.destinations ? (
+          {snapshot.destinations && snapshot.destinations.length > 0 ? (
             <ul className="mt-4 space-y-3">
               {snapshot.destinations.map((row) => (
                 <li className="flex justify-between gap-4" key={row.destination}>
@@ -149,7 +159,9 @@ function OwnerAnalytics({
                 </li>
               ))}
             </ul>
-          ) : <p className="mt-4 type-card-description">{copy.destinationsUnavailable}</p>}
+          ) : <p className="mt-4 type-card-description">
+            {snapshot.destinations === null ? copy.destinationsUnavailable : copy.destinationsEmpty}
+          </p>}
         </SurfaceCard>
       </div>
 
@@ -192,10 +204,13 @@ export default async function AnalyticsPage({ params }: Props) {
     openPostHog: t('openPostHog'),
     trendAria: t('sessionTrendAria'),
     trendUnavailable: t('trendUnavailable'),
+    trendEmpty: t('trendEmpty'),
     acquisitionTitle: t('acquisitionSources'),
     acquisitionUnavailable: t('acquisitionUnavailable'),
+    acquisitionEmpty: t('acquisitionEmpty'),
     destinationsTitle: t('outboundDestinations'),
     destinationsUnavailable: t('destinationsUnavailable'),
+    destinationsEmpty: t('destinationsEmpty'),
     source: t('source'),
     dataThrough: t('dataThrough'),
     generated: t('generated'),
