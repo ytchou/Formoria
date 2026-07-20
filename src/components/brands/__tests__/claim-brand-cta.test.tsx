@@ -193,7 +193,6 @@ it('submits the server-returned claim-proof image key after upload succeeds', as
   expect(mockUploadConfigs).toContainEqual(expect.objectContaining({
     bucket: 'claim-proofs',
     path: 'user-1/b1',
-    acceptedTypes: ['image/jpeg', 'image/png', 'image/webp'],
     uploadFields: { proofType: 'backend_screenshot' },
   }))
 

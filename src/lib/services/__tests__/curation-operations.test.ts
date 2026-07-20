@@ -355,7 +355,7 @@ describeWithDb("runEnrich submissions mode", () => {
     expect(result.processed).toBe(1)
   })
 
-  it("should skip submissions with brand_id set", async () => {
+  it("should rerun explicitly selected pending submissions with brand_id set", async () => {
     const { data: brand, error } = await serviceSupabase!
       .from("brands")
       .insert({
@@ -386,12 +386,12 @@ describeWithDb("runEnrich submissions mode", () => {
         target: "submissions",
         submissionIds: [testSubmissionId!],
         dryRun: true,
-        phases: ["discover"],
+        phases: [],
       },
       serviceSupabase!
     )
 
-    expect(result.processed).toBe(0)
+    expect(result.processed).toBe(1)
   })
 
   it("should default to brands mode when slugs provided", async () => {

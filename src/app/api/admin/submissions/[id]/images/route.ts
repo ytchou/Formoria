@@ -11,7 +11,6 @@ import {
 import { stageSubmissionReviewImage } from "@/lib/services/submissions";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
-const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export async function POST(
   request: Request,
@@ -45,9 +44,9 @@ export async function POST(
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
-    if (!ACCEPTED_TYPES.has(file.type)) {
+    if (!file.type.startsWith("image/")) {
       return NextResponse.json(
-        { error: "Please upload a JPEG, PNG, or WebP image" },
+        { error: "Please upload an image file" },
         { status: 400 },
       );
     }

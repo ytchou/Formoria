@@ -21,6 +21,7 @@ const badgeVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         success: "bg-verified-green-bg text-verified-green",
         verified: "bg-mit-verified-bg text-mit-verified",
+        warning: "bg-warning/10 text-warning [a]:hover:bg-warning/20",
       },
     },
     defaultVariants: {

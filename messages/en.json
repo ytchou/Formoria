@@ -1967,6 +1967,10 @@
       "missingRequired": "Missing required fields",
       "searchLabel": "Search submissions",
       "searchPlaceholder": "Search brand, submitter, email, or website",
+      "submittedDate": {
+        "from": "Submitted from",
+        "to": "Submitted through"
+      },
       "selectVisible": "Select submissions on this page",
       "selectSubmission": "Select {name}",
       "imageAlt": "Review image {n}",
@@ -2035,6 +2039,11 @@
         "chineseBlurb": "Chinese summary",
         "englishBlurb": "English summary",
         "blurb": "Short summary",
+        "languageTabs": {
+          "label": "Narrative language",
+          "mandarin": "Mandarin",
+          "english": "English"
+        },
         "catalog": "Catalog classification",
         "priceRange": "Price range",
         "productTags": "Product tags",
@@ -2044,7 +2053,8 @@
         "links": "Links",
         "otherLinks": "Other links",
         "mitEvidence": "MIT evidence",
-        "reputation": "Reputation sources",
+        "reputation": "Reputation",
+        "reputationSources": "Sources",
         "locations": "Retail locations"
       },
       "links": {

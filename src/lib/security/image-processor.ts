@@ -14,7 +14,6 @@ export interface ImageProcessorConfig {
   maxWidth: number
   maxHeight: number
   quality: number
-  allowedFormats: string[]
 }
 
 export const DEFAULT_CONFIG: ImageProcessorConfig = {
@@ -22,7 +21,6 @@ export const DEFAULT_CONFIG: ImageProcessorConfig = {
   maxWidth: 1200,
   maxHeight: 1200,
   quality: 80,
-  allowedFormats: ['jpeg', 'png', 'webp'],
 }
 
 export async function processImage(
@@ -38,21 +36,7 @@ export async function processImage(
     )
   }
 
-  // 2. Read metadata to validate format (magic bytes via sharp)
-  let metadata: sharp.Metadata
-  try {
-    metadata = await sharp(buffer).metadata()
-  } catch {
-    throw new Error('Invalid image format: could not read image metadata')
-  }
-
-  if (!metadata.format || !cfg.allowedFormats.includes(metadata.format)) {
-    throw new Error(
-      `Unsupported image format: ${metadata.format ?? 'unknown'}. Allowed formats: ${cfg.allowedFormats.join(', ')}`
-    )
-  }
-
-  // 3. Process: auto-rotate (strips EXIF), resize (fit inside, no upscale), encode to WebP
+  // 2. Process: auto-rotate (strips EXIF), resize (fit inside, no upscale), encode to WebP
   const processed = await sharp(buffer)
     .rotate() // auto-rotate based on EXIF orientation, strips EXIF
     .resize({

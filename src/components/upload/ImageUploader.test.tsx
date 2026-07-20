@@ -120,7 +120,7 @@ describe('ImageUploader', () => {
     )
     const input = document.querySelector('input[type="file"]')
     expect(input).toHaveAttribute('id', 'hero-upload')
-    expect(input).toHaveAttribute('accept', 'image/jpeg,image/png,image/webp')
+    expect(input).toHaveAttribute('accept', 'image/*')
     expect(screen.getByRole('button')).toHaveAttribute(
       'id',
       'hero-upload-dropzone',

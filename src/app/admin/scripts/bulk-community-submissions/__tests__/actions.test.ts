@@ -41,6 +41,7 @@ const drafts = [{ id: "row-1", name: "Alpha", website: "alpha.test" }];
 describe("community submission actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.buildGuestEmail.mockReturnValue("guest+admin@guest.formoria.invalid");
     mocks.requireAdminAction.mockResolvedValue({
       user: { id: "admin-1", email: "admin@example.com" },
     });
@@ -105,9 +106,14 @@ describe("community submission actions", () => {
       expect.objectContaining({
         repository: expect.any(Object),
         submit: expect.any(Function),
-        buildGuestEmail: mocks.buildGuestEmail,
+        buildSubmitter: expect.any(Function),
       }),
     );
+    const dependencies = mocks.execute.mock.calls[0]?.[1];
+    expect(dependencies?.buildSubmitter()).toEqual({
+      submitterEmail: "guest+admin@guest.formoria.invalid",
+      submitterName: "Admin",
+    });
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/submissions");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin");
   });

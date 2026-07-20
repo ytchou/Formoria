@@ -213,7 +213,7 @@ export function ImageUploader({
         id={id}
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/*"
         multiple={mode === 'multi'}
         className="hidden"
         onChange={handleFileSelect}

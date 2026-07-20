@@ -32,7 +32,10 @@ function dependencies(
       loadExistingRecords: vi.fn().mockResolvedValue(existing),
     },
     submit: vi.fn().mockResolvedValue({ submissionId: "submission-1" }),
-    buildGuestEmail: vi.fn(() => "guest+test@guest.formoria.invalid"),
+    buildSubmitter: vi.fn(() => ({
+      submitterEmail: "guest+test@guest.formoria.invalid",
+      submitterName: "Admin",
+    })),
   };
 }
 
@@ -207,6 +210,7 @@ describe("community submission execution", () => {
       brandName: "Alpha",
       websiteUrl: "https://alpha.test",
       submitterEmail: "guest+test@guest.formoria.invalid",
+      submitterName: "Admin",
       isBrandOwner: false,
       pdpaConsent: false,
       sourceAttribution: "found_online",

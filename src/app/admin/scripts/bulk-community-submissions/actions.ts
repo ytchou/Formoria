@@ -77,7 +77,10 @@ export async function executeCommunitySubmissionsAction(
       repository: communitySubmissionsRepository,
       submit: (params) =>
         submitBrandForReview(params, { useServiceRole: true }),
-      buildGuestEmail: buildGuestSubmissionEmail,
+      buildSubmitter: () => ({
+        submitterEmail: buildGuestSubmissionEmail(),
+        submitterName: "Admin",
+      }),
     });
     if (results.some((result) => result.status === "created")) {
       revalidatePath("/admin/submissions");

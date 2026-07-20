@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
-const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const ACCEPTED_TYPE_PREFIX = 'image/'
 
 type UploadStatus = 'idle' | 'uploading' | 'success' | 'error'
 
@@ -48,10 +48,12 @@ export function useImageUpload(config: UseImageUploadConfig): UseImageUploadRetu
   const upload = useCallback(
     async (file: File) => {
       // Client-side pre-filter: validate file type and size before hitting server
-      const acceptedTypes = config.acceptedTypes ?? ACCEPTED_TYPES
-      if (!acceptedTypes.includes(file.type)) {
+      const typeOk = config.acceptedTypes
+        ? config.acceptedTypes.includes(file.type)
+        : file.type.startsWith(ACCEPTED_TYPE_PREFIX)
+      if (!typeOk) {
         setStatus('error')
-        setError(config.invalidTypeMessage ?? 'Please upload an image file (JPEG, PNG, or WebP)')
+        setError(config.invalidTypeMessage ?? 'Please upload an image file')
         setUrl(null)
         setKey(null)
         setMetadata(null)

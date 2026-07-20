@@ -57,31 +57,186 @@ beforeEach(() => {
 });
 
 describe("SubmissionReviewDetails", () => {
-  it("renders Chinese content before English and omits empty optional groups", () => {
+  it("shows one narrative language at a time and defaults to Mandarin", async () => {
+    const user = userEvent.setup();
     renderDetails(makeSubmission());
 
-    const chinese = screen.getByText("完整中文介紹");
-    const english = screen.getByText("Complete English description");
+    const languageTabs = screen.getByRole("tablist", {
+      name: "Narrative language",
+    });
+    expect(languageTabs).toHaveClass(
+      "border-b",
+      "border-border",
+      "bg-transparent",
+    );
+    expect(languageTabs).not.toHaveClass("rounded-lg", "bg-muted");
+    expect(screen.getByRole("tab", { name: "Mandarin" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByText("完整中文介紹")).toBeInTheDocument();
+    expect(screen.getByText("品牌摘要")).toBeInTheDocument();
     expect(
-      chinese.compareDocumentPosition(english) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(screen.queryByText("MIT evidence")).not.toBeInTheDocument();
-    expect(screen.queryByText("Reputation")).not.toBeInTheDocument();
-    expect(screen.queryByText("Retail locations")).not.toBeInTheDocument();
+      screen.queryByText("Complete English description"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Brand summary")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "English" }));
+
+    expect(screen.queryByText("完整中文介紹")).not.toBeInTheDocument();
+    expect(screen.queryByText("品牌摘要")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Complete English description"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Brand summary")).toBeInTheDocument();
   });
 
-  it("omits duplicate actions from the read-only details", () => {
-    renderDetails(makeSubmission());
+  it("renders structured reputation prose and deduplicated hostname sources", async () => {
+    const user = userEvent.setup();
+    const reputationUrl = "https://www.example.com/reviews/formoria";
+    renderDetails(
+      makeSubmission({
+        reviewData: {
+          ...reviewData,
+          reputationSummary: {
+            text: "中文口碑摘要",
+            text_en: "English reputation summary",
+            sources: [
+              { url: reputationUrl },
+              { url: reputationUrl },
+              { url: "http://press.example.org/article" },
+              { url: "ftp://invalid.example.com/reputation" },
+              { url: "not a URL" },
+              "https://raw.example.com/source",
+              null,
+            ],
+          },
+        },
+      }),
+    );
+
+    const summary = screen.getByText("中文口碑摘要");
+    expect(summary.tagName).toBe("P");
+    expect(summary.closest("li")).toBeNull();
+    expect(
+      screen.queryByText("English reputation summary"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Sources")).toBeInTheDocument();
+
+    const reputationLinks = screen.getAllByRole("link", {
+      name: "example.com",
+    });
+    expect(reputationLinks).toHaveLength(1);
+    expect(reputationLinks[0]).toHaveAttribute("href", reputationUrl);
+    expect(
+      screen.getByRole("link", { name: "press.example.org" }),
+    ).toHaveAttribute("href", "http://press.example.org/article");
+    expect(screen.queryByText(reputationUrl)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("ftp://invalid.example.com/reputation"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("not a URL")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("https://raw.example.com/source"),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "English" }));
+
+    expect(screen.queryByText("中文口碑摘要")).not.toBeInTheDocument();
+    expect(screen.getByText("English reputation summary")).toBeInTheDocument();
+  });
+
+  it("supports camel-case English reputation text", async () => {
+    const user = userEvent.setup();
+    renderDetails(
+      makeSubmission({
+        reviewData: {
+          ...reviewData,
+          descriptionEn: null,
+          blurbEn: null,
+          reputationSummary: {
+            text: "中文口碑摘要",
+            textEn: "Camel-case English reputation",
+            sources: [],
+          },
+        },
+      }),
+    );
+
+    await user.click(screen.getByRole("tab", { name: "English" }));
 
     expect(
+      screen.getByText("Camel-case English reputation"),
+    ).toBeInTheDocument();
+  });
+
+  it("falls back to Mandarin reputation in an otherwise-English narrative", async () => {
+    const user = userEvent.setup();
+    renderDetails(
+      makeSubmission({
+        reviewData: {
+          ...reviewData,
+          reputationSummary: {
+            text: "中文備用口碑",
+            sources: [],
+          },
+        },
+      }),
+    );
+
+    await user.click(screen.getByRole("tab", { name: "English" }));
+
+    expect(
+      screen.getByText("Complete English description"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("中文備用口碑")).toBeInTheDocument();
+  });
+
+  it("disables English when no English narrative exists", () => {
+    renderDetails(
+      makeSubmission({
+        reviewData: {
+          ...reviewData,
+          descriptionEn: null,
+          blurbEn: null,
+          reputationSummary: {
+            text: "只有中文口碑",
+            sources: [],
+          },
+        },
+      }),
+    );
+
+    expect(screen.getByRole("tab", { name: "English" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
+  it("renders the product type as a Mandarin taxonomy label", () => {
+    renderDetails(
+      makeSubmission({
+        reviewData: {
+          ...reviewData,
+          productType: "beauty",
+        },
+      }),
+    );
+
+    expect(screen.getByText("美妝保養")).toBeInTheDocument();
+    expect(screen.queryByText("beauty")).not.toBeInTheDocument();
+  });
+
+  it("shows per-section Edit links for pending submissions", () => {
+    renderDetails(makeSubmission());
+    const editButtons = screen.getAllByRole("button", { name: "Edit" });
+    expect(editButtons.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("hides Edit links for non-pending submissions", () => {
+    renderDetails(makeSubmission({ status: "approved" }));
+    expect(
       screen.queryByRole("button", { name: "Edit" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Reject" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Approve" }),
     ).not.toBeInTheDocument();
   });
 
@@ -122,38 +277,24 @@ describe("SubmissionReviewDetails", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("saves edited persisted review data and ordered active images", async () => {
+  it("saves edited content via inline section save", async () => {
     const user = userEvent.setup();
-    renderDetails(makeSubmission(), true);
+    renderDetails(makeSubmission());
+
+    const contentHeading = screen.getByText("Content");
+    const contentSection = contentHeading.closest("section")!;
+    await user.click(within(contentSection).getByRole("button", { name: "Edit" }));
 
     const descriptions = screen.getAllByRole("textbox", {
       name: /description/i,
     });
     await user.clear(descriptions[0]!);
     await user.type(descriptions[0]!, "更新後的中文介紹");
-    await user.click(
-      screen.getByRole("button", { name: "Set image 2 as hero" }),
-    );
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
     expect(reviewActions.save).toHaveBeenCalledWith(
       "00000000-0000-4000-8000-000000000001",
-      expect.objectContaining({
-        description: "更新後的中文介紹",
-        heroImageUrl: "https://cdn.example.com/detail.webp",
-        images: [
-          {
-            id: "00000000-0000-4000-8000-000000000012",
-            isHero: true,
-            sortOrder: 0,
-          },
-          {
-            id: "00000000-0000-4000-8000-000000000011",
-            isHero: false,
-            sortOrder: 1,
-          },
-        ],
-      }),
+      expect.objectContaining({ description: "更新後的中文介紹" }),
     );
   });
 
@@ -171,8 +312,11 @@ describe("SubmissionReviewDetails", () => {
           missingFields: ["productTags"],
         },
       }),
-      true,
     );
+
+    const catalogHeading = screen.getByText("Catalog classification");
+    const catalogSection = catalogHeading.closest("section")!;
+    await user.click(within(catalogSection).getByRole("button", { name: "Edit" }));
 
     const productTags = screen.getByRole("textbox", { name: "Product tags" });
     await user.clear(productTags);
@@ -194,9 +338,38 @@ describe("SubmissionReviewDetails", () => {
     );
   });
 
+  it("keeps image actions contained in drawer-safe gallery cards", async () => {
+    const user = userEvent.setup();
+    renderDetails(makeSubmission());
+
+    const imagesSection = screen
+      .getByText("Hero / Product Images")
+      .closest("section")!;
+    await user.click(within(imagesSection).getByRole("button", { name: "Edit" }));
+
+    const heroButton = screen.getByRole("button", {
+      name: "Set image 1 as hero",
+    });
+    const removeButton = screen.getByRole("button", {
+      name: "Remove image 1",
+    });
+    const gallery = heroButton.parentElement?.parentElement?.parentElement;
+
+    expect(gallery).toHaveClass("sm:grid-cols-2");
+    expect(gallery).not.toHaveClass("lg:grid-cols-3", "xl:grid-cols-4");
+    expect(heroButton).toHaveClass("absolute", "left-2", "top-2");
+    expect(removeButton.parentElement).toHaveClass("grid", "grid-cols-3");
+    expect(removeButton).toHaveClass("h-12", "w-full");
+    expect(removeButton).not.toHaveTextContent("Remove");
+  });
+
   it("cleans up staged uploads and restores the active gallery on cancel", async () => {
     const user = userEvent.setup();
-    renderDetails(makeSubmission(), true);
+    renderDetails(makeSubmission());
+
+    const imagesHeading = screen.getByText("Hero / Product Images");
+    const imagesSection = imagesHeading.closest("section")!;
+    await user.click(within(imagesSection).getByRole("button", { name: "Edit" }));
 
     await user.click(
       screen.getByRole("button", { name: "Upload staged image" }),
@@ -323,16 +496,10 @@ function reviewImage(
   };
 }
 
-function renderDetails(
-  submission: BrandSubmissionForReview,
-  initiallyEditing = false,
-) {
+function renderDetails(submission: BrandSubmissionForReview) {
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>
-      <SubmissionReviewDetails
-        submission={submission}
-        initiallyEditing={initiallyEditing}
-      />
+      <SubmissionReviewDetails submission={submission} />
     </NextIntlClientProvider>,
   );
 }

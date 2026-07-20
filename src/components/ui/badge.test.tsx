@@ -19,6 +19,13 @@ describe("Badge", () => {
     expect(badge.className).toContain("text-verified-green");
   });
 
+  it("renders the warning variant with warning tokens", () => {
+    render(<Badge variant="warning">Partial</Badge>);
+    const badge = screen.getByText("Partial");
+    expect(badge.className).toContain("bg-warning/10");
+    expect(badge.className).toContain("text-warning");
+  });
+
   it("keeps default variant unchanged", () => {
     render(<Badge>tag</Badge>);
     expect(screen.getByText("tag").className).toContain("bg-primary");
