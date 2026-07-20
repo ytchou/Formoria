@@ -1965,8 +1965,6 @@
       "searchPlaceholder": "Search brand, submitter, email, or website",
       "selectVisible": "Select submissions on this page",
       "selectSubmission": "Select {name}",
-      "expandReview": "Expand review for {name}",
-      "collapseReview": "Collapse review for {name}",
       "imageAlt": "Review image {n}",
       "setHero": "Set image {n} as hero",
       "moveLeft": "Move image {n} left",
