@@ -1,0 +1,85 @@
+version: 1
+items:
+  - id: "2026-06-15-launch-announcement"
+    title: "島藏正式上線 — 台灣製造品牌目錄"
+    type: milestone
+    status: published
+    priority: high
+    target_date: "2026-06-15"
+    platforms: [threads, ig]
+    media: carousel
+    lang: zh
+    source:
+      type: milestone
+      detected_by: manual
+      detected_at: "2026-06-10"
+      url: null
+    brief_path: null
+    output_path: null
+    todoist_task_id: null
+    notes: "Launch day post. Published manually before calendar system existed."
+    created_at: "2026-07-20T10:00:00+08:00"
+    updated_at: "2026-07-20T10:00:00+08:00"
+
+  - id: "2026-07-22-brand-count-350"
+    title: "島藏收錄突破 350 個台灣製造品牌"
+    type: milestone
+    status: brief
+    priority: medium
+    target_date: "2026-07-22"
+    platforms: [threads, ig]
+    media: carousel
+    lang: zh
+    source:
+      type: milestone
+      detected_by: manual
+      detected_at: "2026-07-18"
+      url: null
+    brief_path: "marketing/briefs/2026-07-22-brand-count-350.md"
+    output_path: null
+    todoist_task_id: null
+    notes: null
+    created_at: "2026-07-20T10:00:00+08:00"
+    updated_at: "2026-07-20T10:00:00+08:00"
+
+  - id: "2026-07-25-ceramics-festival"
+    title: "台灣國際陶藝雙年展 — 島藏有收錄的參展品牌"
+    type: event
+    status: scheduled
+    priority: high
+    target_date: "2026-07-25"
+    platforms: [threads, ig]
+    media: carousel
+    lang: zh
+    source:
+      type: event
+      detected_by: routine
+      detected_at: "2026-07-20"
+      url: null
+    brief_path: "marketing/briefs/2026-07-25-ceramics-festival.md"
+    output_path: null
+    todoist_task_id: null
+    notes: "Biennial runs Aug 1-Oct 31. Tie-in with local brands."
+    created_at: "2026-07-20T10:00:00+08:00"
+    updated_at: "2026-07-20T10:00:00+08:00"
+
+  - id: "2026-07-28-summer-skincare"
+    title: "夏日防曬保養 — 台灣製造的護膚選擇"
+    type: series
+    status: idea
+    priority: low
+    target_date: "2026-07-28"
+    platforms: [threads, ig]
+    media: null
+    lang: zh
+    source:
+      type: trend
+      detected_by: manual
+      detected_at: "2026-07-20"
+      url: null
+    brief_path: null
+    output_path: null
+    todoist_task_id: null
+    notes: null
+    created_at: "2026-07-20T10:00:00+08:00"
+    updated_at: "2026-07-20T10:00:00+08:00"
