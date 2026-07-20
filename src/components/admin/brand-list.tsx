@@ -3,7 +3,12 @@
 import { Fragment, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MailCheck, MoreHorizontal } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  MailCheck,
+  MoreHorizontal,
+} from "lucide-react";
 import { toast } from "sonner";
 import type { Brand, BrandStatus } from "@/lib/types";
 import { surfaceCardStyles } from "@/components/ui/card";
@@ -43,6 +48,7 @@ import { cn } from "@/lib/utils";
 type TabValue = "all" | BrandStatus;
 type MitStatus = NonNullable<Brand["mitStatus"]>;
 type CurationOperation = "enrich";
+const PAGE_SIZES = [10, 25, 50] as const;
 
 const CURATION_ACTIONS: Array<{
   label: string;
@@ -100,6 +106,9 @@ export function BrandList({
   const [searchQuery, setSearchQuery] = useState("");
   const [mitFilter, setMitFilter] = useState<"all" | MitStatus>("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] =
+    useState<(typeof PAGE_SIZES)[number]>(10);
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
   const [deletingBrand, setDeletingBrand] = useState<Brand | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -119,6 +128,12 @@ export function BrandList({
     )
     .filter((b) => mitFilter === "all" || getMitStatus(b) === mitFilter)
     .filter((b) => categoryFilter === "all" || b.category === categoryFilter);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const visible = filtered.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
   function handleHide(brand: Brand) {
     startTransition(async () => {
@@ -203,7 +218,10 @@ export function BrandList({
     <div>
       <Tabs
         value={activeTab}
-        onValueChange={(v) => setActiveTab(v as TabValue)}
+        onValueChange={(v) => {
+          setActiveTab(v as TabValue);
+          setPage(1);
+        }}
       >
         <TabsList>
           <TabsTrigger value="all">All ({brands.length})</TabsTrigger>
@@ -222,13 +240,19 @@ export function BrandList({
         <Input
           placeholder="Search brand name..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="h-8 w-56 text-sm"
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setPage(1);
+          }}
+          className="w-56"
         />
         <NativeSelect
           value={mitFilter}
-          onChange={(e) => setMitFilter(e.target.value as typeof mitFilter)}
-          className="h-8 w-fit"
+          onChange={(e) => {
+            setMitFilter(e.target.value as typeof mitFilter);
+            setPage(1);
+          }}
+          className="w-fit"
         >
           <option value="all">All MIT status</option>
           <option value="unverified">MIT Unverified</option>
@@ -236,8 +260,11 @@ export function BrandList({
         </NativeSelect>
         <NativeSelect
           value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="h-8 w-fit"
+          onChange={(e) => {
+            setCategoryFilter(e.target.value);
+            setPage(1);
+          }}
+          className="w-fit"
         >
           <option value="all">All categories</option>
           {categories.map((cat) => (
@@ -266,7 +293,7 @@ export function BrandList({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((brand) => (
+            {visible.map((brand) => (
               <Fragment key={brand.id}>
                 <TableRow>
                   <TableCell className="max-w-[180px] font-medium">
@@ -393,7 +420,7 @@ export function BrandList({
                 </TableRow>
               </Fragment>
             ))}
-            {filtered.length === 0 && (
+            {visible.length === 0 && (
               <TableRow>
                 <TableCell
                   colSpan={6}
@@ -405,6 +432,54 @@ export function BrandList({
             )}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="type-card-description">
+          Showing {filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}
+          –{Math.min(currentPage * pageSize, filtered.length)} of {filtered.length}{" "}
+          brands
+        </p>
+        <div className="flex items-center gap-2">
+          <NativeSelect
+            aria-label="Brands per page"
+            value={pageSize}
+            onChange={(event) => {
+              setPageSize(Number(event.target.value) as (typeof PAGE_SIZES)[number]);
+              setPage(1);
+            }}
+            className="h-12 w-auto"
+          >
+            {PAGE_SIZES.map((size) => (
+              <option key={size} value={size}>
+                {size} per page
+              </option>
+            ))}
+          </NativeSelect>
+          <Button
+            shape="pill"
+            variant="secondary"
+            className="h-12 w-12 p-0"
+            onClick={() => setPage((value) => Math.max(1, value - 1))}
+            disabled={currentPage === 1}
+            aria-label="Previous page"
+          >
+            <ChevronLeft className="size-4" aria-hidden />
+          </Button>
+          <span className="min-w-16 text-center type-card-description">
+            {currentPage} / {pageCount}
+          </span>
+          <Button
+            shape="pill"
+            variant="secondary"
+            className="h-12 w-12 p-0"
+            onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
+            disabled={currentPage === pageCount}
+            aria-label="Next page"
+          >
+            <ChevronRight className="size-4" aria-hidden />
+          </Button>
+        </div>
       </div>
 
       <BrandEditDialog

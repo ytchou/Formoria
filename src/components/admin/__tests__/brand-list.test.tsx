@@ -151,11 +151,41 @@ describe('BrandList', () => {
     expect(screen.getByRole('tab', { name: /Hidden/ })).toBeInTheDocument()
   })
 
+  it('keeps filter controls tall enough for their text', () => {
+    render(<BrandList brands={mockBrands} />)
+
+    expect(screen.getByPlaceholderText('Search brand name...')).toHaveClass('h-12')
+    expect(screen.getByDisplayValue('All MIT status')).toHaveClass('h-12')
+    expect(screen.getByDisplayValue('All categories')).toHaveClass('h-12')
+  })
+
   it('filters brands by status tab', () => {
     render(<BrandList brands={mockBrands} />)
     fireEvent.click(screen.getByRole('tab', { name: /Hidden/ }))
     expect(screen.queryByText('Pottery Studio')).toBeNull()
     expect(screen.getByText('Tea House')).toBeDefined()
+  })
+
+  it('paginates the filtered brand rows', () => {
+    const brands = Array.from({ length: 12 }, (_, index) => ({
+      ...mockBrands[0],
+      id: `brand-${index + 1}`,
+      name: `Brand ${index + 1}`,
+      slug: `brand-${index + 1}`,
+    }))
+
+    render(<BrandList brands={brands} />)
+
+    expect(screen.getByText('Brand 10')).toBeInTheDocument()
+    expect(screen.queryByText('Brand 11')).not.toBeInTheDocument()
+    expect(screen.getByText('Showing 1–10 of 12 brands')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }))
+
+    expect(screen.queryByText('Brand 10')).not.toBeInTheDocument()
+    expect(screen.getByText('Brand 11')).toBeInTheDocument()
+    expect(screen.getByText('Brand 12')).toBeInTheDocument()
+    expect(screen.getByText('Showing 11–12 of 12 brands')).toBeInTheDocument()
   })
 
   it('renders action buttons per row', () => {

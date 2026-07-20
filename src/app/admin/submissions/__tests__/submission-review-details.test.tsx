@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -71,6 +71,20 @@ describe("SubmissionReviewDetails", () => {
     expect(screen.queryByText("Retail locations")).not.toBeInTheDocument();
   });
 
+  it("omits duplicate actions from the read-only details", () => {
+    renderDetails(makeSubmission());
+
+    expect(
+      screen.queryByRole("button", { name: "Edit" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Reject" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Approve" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows every missing required field", () => {
     renderDetails(
       makeSubmission({
@@ -108,71 +122,38 @@ describe("SubmissionReviewDetails", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("saves Content section edits via per-section Save", async () => {
+  it("saves edited persisted review data and ordered active images", async () => {
     const user = userEvent.setup();
-    renderDetails(makeSubmission());
+    renderDetails(makeSubmission(), true);
 
-    expect(
-      screen.queryByRole("button", { name: "Save changes" }),
-    ).not.toBeInTheDocument();
-    const contentSection = screen.getByText("Content").closest("section");
-    expect(contentSection).not.toBeNull();
+    const descriptions = screen.getAllByRole("textbox", {
+      name: /description/i,
+    });
+    await user.clear(descriptions[0]!);
+    await user.type(descriptions[0]!, "更新後的中文介紹");
     await user.click(
-      within(contentSection!).getByRole("button", { name: "Edit" }),
+      screen.getByRole("button", { name: "Set image 2 as hero" }),
     );
-    const description = await waitFor(() =>
-      screen.getByRole("textbox", { name: "Chinese description" }),
-    );
-    await user.clear(description);
-    fireEvent.change(description, { target: { value: "Updated description" } });
-    await user.click(
-      within(contentSection!).getByRole("button", { name: "Save changes" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
 
     expect(reviewActions.save).toHaveBeenCalledWith(
       "00000000-0000-4000-8000-000000000001",
       expect.objectContaining({
-        description: "Updated description",
+        description: "更新後的中文介紹",
+        heroImageUrl: "https://cdn.example.com/detail.webp",
+        images: [
+          {
+            id: "00000000-0000-4000-8000-000000000012",
+            isHero: true,
+            sortOrder: 0,
+          },
+          {
+            id: "00000000-0000-4000-8000-000000000011",
+            isHero: false,
+            sortOrder: 1,
+          },
+        ],
       }),
-    );
-  });
-
-  it("auto-cancels previous section and restores draft on switch", async () => {
-    const user = userEvent.setup();
-    renderDetails(makeSubmission());
-
-    const contentSection = screen.getByText("Content").closest("section");
-    expect(contentSection).not.toBeNull();
-    await user.click(
-      within(contentSection!).getByRole("button", { name: "Edit" }),
-    );
-    const description = await waitFor(() =>
-      screen.getByRole("textbox", { name: "Chinese description" }),
-    );
-    await user.clear(description);
-    fireEvent.change(description, { target: { value: "Unsaved change" } });
-
-    const catalogSection = screen
-      .getByText("Catalog classification")
-      .closest("section");
-    expect(catalogSection).not.toBeNull();
-    await user.click(
-      within(catalogSection!).getByRole("button", { name: "Edit" }),
-    );
-
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("textbox", { name: "Chinese description" }),
-      ).not.toBeInTheDocument();
-    });
-    expect(screen.getByText("Product Type")).toBeInTheDocument();
-    await user.click(
-      within(catalogSection!).getByRole("button", { name: "Save changes" }),
-    );
-
-    expect(reviewActions.save).toHaveBeenCalledWith(
-      "00000000-0000-4000-8000-000000000001",
-      expect.objectContaining({ description: "完整中文介紹" }),
     );
   });
 
@@ -190,18 +171,10 @@ describe("SubmissionReviewDetails", () => {
           missingFields: ["productTags"],
         },
       }),
+      true,
     );
 
-    const catalogSection = screen
-      .getByText("Catalog classification")
-      .closest("section");
-    expect(catalogSection).not.toBeNull();
-    await user.click(
-      within(catalogSection!).getByRole("button", { name: "Edit" }),
-    );
-    const productTags = await waitFor(() =>
-      screen.getByRole("textbox", { name: "Product tags" }),
-    );
+    const productTags = screen.getByRole("textbox", { name: "Product tags" });
     await user.clear(productTags);
     await user.type(productTags, "手工皂, 臉部保養, 身體保養, 洗沐清潔, 香水");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
@@ -223,25 +196,15 @@ describe("SubmissionReviewDetails", () => {
 
   it("cleans up staged uploads and restores the active gallery on cancel", async () => {
     const user = userEvent.setup();
-    renderDetails(makeSubmission());
+    renderDetails(makeSubmission(), true);
 
-    const imagesSection = screen
-      .getByText("Hero / Product Images")
-      .closest("section");
-    expect(imagesSection).not.toBeNull();
     await user.click(
-      within(imagesSection!).getByRole("button", { name: "Edit" }),
-    );
-    const uploadButton = await waitFor(() =>
       screen.getByRole("button", { name: "Upload staged image" }),
     );
-    await user.click(uploadButton);
     expect(
       screen.getByRole("button", { name: "Set image 3 as hero" }),
     ).toBeInTheDocument();
-    await user.click(
-      within(imagesSection!).getByRole("button", { name: "Cancel" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(reviewActions.cleanup).toHaveBeenCalledWith(
       "00000000-0000-4000-8000-000000000001",
@@ -360,10 +323,16 @@ function reviewImage(
   };
 }
 
-function renderDetails(submission: BrandSubmissionForReview) {
+function renderDetails(
+  submission: BrandSubmissionForReview,
+  initiallyEditing = false,
+) {
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>
-      <SubmissionReviewDetails submission={submission} />
+      <SubmissionReviewDetails
+        submission={submission}
+        initiallyEditing={initiallyEditing}
+      />
     </NextIntlClientProvider>,
   );
 }
