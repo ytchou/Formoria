@@ -39,7 +39,7 @@
     "@sentry/nextjs": "^10.51.0",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.110.3",
-    "@tinacms/mdx": "^2.1.9",
+    "@tinacms/mdx": "^2.1.11",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
     "adm-zip": "^0.6.0",
