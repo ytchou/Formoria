@@ -229,6 +229,7 @@ type EnrichBrand = CurationBrand &
     product_images?: string[] | null;
     heroImageUrl?: string | null;
     productPhotos?: string[] | null;
+    overwrite_enrichment?: boolean;
   };
 
 type EnrichScrapedData = Partial<ScrapedBrandData> &
@@ -329,6 +330,7 @@ type ProcessEnrichResult = {
 
 type SubmissionEnrichmentRow = {
   id: string;
+  brand_id: string | null;
   brand_name: string;
   description: string | null;
   website_url: string | null;
@@ -772,6 +774,7 @@ function submissionToEnrichBrand(
   return {
     ...existing,
     id: submission.id,
+    overwrite_enrichment: submission.brand_id !== null,
     slug: `submission-${submission.id}`,
     name:
       typeof existing.name === "string" ? existing.name : submission.brand_name,
@@ -893,11 +896,12 @@ export async function runEnrich(
     let query = supabase
       .from("brand_submissions")
       .select("*")
-      .eq("status", "pending")
-      .is("brand_id", null);
+      .eq("status", "pending");
 
     if (config.submissionIds?.length) {
       query = query.in("id", config.submissionIds);
+    } else {
+      query = query.is("brand_id", null);
     }
 
     if (!config.overwrite && !config.submissionIds?.length) {
@@ -1161,6 +1165,8 @@ export async function runEnrich(
       result.processed += 1;
       const brandIndex = result.processed;
       const brandStartedAt = Date.now();
+      const overwrite =
+        config.overwrite || brand.overwrite_enrichment === true;
       const phaseOrder = buildBrandPhaseOrder(phases, hasDetectPhases);
       const totalPhases = phaseOrder.length;
       let currentPhase: string | undefined;
@@ -1425,7 +1431,7 @@ export async function runEnrich(
           brand,
           phases,
           dryRun: config.dryRun,
-          overwrite: config.overwrite,
+          overwrite,
           target: { type: targetType, id: brand.id },
           jobId: config.jobId,
         });
@@ -1438,7 +1444,7 @@ export async function runEnrich(
           brand,
           phases,
           serpSnippets: state.serpSnippets,
-          overwrite: config.overwrite,
+          overwrite,
           dryRun: config.dryRun,
           target: { type: targetType, id: brand.id },
           jobId: config.jobId,
@@ -1455,7 +1461,7 @@ export async function runEnrich(
           phases,
           serpSnippets: state.serpSnippets,
           scrapedData: state.scrapedData,
-          overwrite: config.overwrite,
+          overwrite,
           reputationAlreadySet,
           target: { type: targetType, id: brand.id },
           jobId: config.jobId,

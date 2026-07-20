@@ -62,8 +62,7 @@ const INITIAL_PROOFS = CLAIM_PROOF_TYPES.reduce(
   }),
   {} as Record<ClaimProofType, ProofState>,
 )
-const IMAGE_ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-const BUSINESS_DOC_ACCEPTED_TYPES = [...IMAGE_ACCEPTED_TYPES, 'application/pdf']
+const BUSINESS_DOC_ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function isAuthError(message: string) {
@@ -95,7 +94,7 @@ function ClaimProofUpload({
   label: string
   hint: string
   accept: string
-  acceptedTypes: string[]
+  acceptedTypes?: string[]
   onUploaded: (imageKey: string) => void
 }) {
   const t = useTranslations('brands.claimCta')
@@ -441,7 +440,6 @@ export function ClaimBrandCta({ brandId }: ClaimBrandCtaProps) {
                             label={t('proofTypes.backendScreenshot.uploadLabel')}
                             hint={t('proofTypes.backendScreenshot.uploadHint')}
                             accept="image/*"
-                            acceptedTypes={IMAGE_ACCEPTED_TYPES}
                             onUploaded={(imageKey) => updateProof(type, { imageKey })}
                           />
                           <p className="type-form-hint">

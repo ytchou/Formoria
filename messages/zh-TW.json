@@ -1967,6 +1967,10 @@
       "missingRequired": "尚缺必填資料",
       "searchLabel": "搜尋提交記錄",
       "searchPlaceholder": "搜尋品牌、提交者、Email 或網站",
+      "submittedDate": {
+        "from": "提交日期起始",
+        "to": "提交日期截止"
+      },
       "selectVisible": "選取本頁提交記錄",
       "selectSubmission": "選取 {name}",
       "imageAlt": "審核圖片 {n}",
@@ -2035,6 +2039,11 @@
         "chineseBlurb": "中文摘要",
         "englishBlurb": "英文摘要",
         "blurb": "簡短摘要",
+        "languageTabs": {
+          "label": "敘述語言",
+          "mandarin": "中文",
+          "english": "英文"
+        },
         "catalog": "目錄分類",
         "priceRange": "價格區間",
         "productTags": "產品標籤",
@@ -2044,7 +2053,8 @@
         "links": "連結",
         "otherLinks": "其他連結",
         "mitEvidence": "台灣製造證據",
-        "reputation": "口碑來源",
+        "reputation": "口碑摘要",
+        "reputationSources": "來源",
         "locations": "實體通路"
       },
       "links": {

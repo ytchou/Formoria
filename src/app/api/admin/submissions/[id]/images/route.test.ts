@@ -81,11 +81,15 @@ describe("POST /api/admin/submissions/[id]/images", () => {
     expect(request.formData).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["image/gif", 4],
-    ["image/png", 5 * 1024 * 1024 + 1],
-  ])("rejects invalid %s uploads", async (type, size) => {
-    const response = await POST(uploadRequest(type, size), context());
+  it("rejects non-image uploads", async () => {
+    const response = await POST(uploadRequest("text/plain", 4), context());
+
+    expect(response.status).toBe(400);
+    expect(mocks.uploadPublicImage).not.toHaveBeenCalled();
+  });
+
+  it("rejects oversized uploads", async () => {
+    const response = await POST(uploadRequest("image/png", 5 * 1024 * 1024 + 1), context());
 
     expect(response.status).toBe(400);
     expect(mocks.uploadPublicImage).not.toHaveBeenCalled();

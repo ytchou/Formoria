@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../../../messages/en.json";
 import type { ReviewSubmission, TabValue } from "../submissions-review-list";
 import { SubmissionsReviewList } from "../submissions-review-list";
@@ -30,14 +30,10 @@ vi.mock("@/app/admin/operations/actions", () => ({
   startCurationJobAction: actions.enrich,
 }));
 vi.mock("../submission-review-details", () => ({
-  SubmissionReviewDetails: ({
-    submission,
-    initiallyEditing,
-  }: {
-    submission: ReviewSubmission;
-    initiallyEditing?: boolean;
-  }) => (
-    <div>{`${initiallyEditing ? "editing" : "details"}-${submission.id}`}</div>
+  SubmissionReviewDetails: ({ submission }: { submission: ReviewSubmission }) => (
+    <div>
+      <span>{`details-${submission.id}`}</span>
+    </div>
   ),
 }));
 
@@ -45,6 +41,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   actions.approve.mockResolvedValue(undefined);
   actions.reject.mockResolvedValue(undefined);
+});
+
+afterEach(() => {
+  Reflect.deleteProperty(HTMLInputElement.prototype, "showPicker");
 });
 
 describe("SubmissionsReviewList", () => {
@@ -106,6 +106,70 @@ describe("SubmissionsReviewList", () => {
 
     expect(screen.getByText("Tea House")).toBeInTheDocument();
     expect(screen.queryByText("Wood Studio")).not.toBeInTheDocument();
+  });
+
+  it("selects and orders an inclusive submitted date range from one input", () => {
+    const showPicker = vi.fn();
+    Object.defineProperty(HTMLInputElement.prototype, "showPicker", {
+      configurable: true,
+      value: showPicker,
+    });
+    renderList(
+      [
+        makeSubmission({
+          id: "before",
+          brandName: "Before Range",
+          submittedAt: "2026-07-17T15:59:00.000Z",
+        }),
+        makeSubmission({
+          id: "start",
+          brandName: "Start Boundary",
+          submittedAt: "2026-07-17T16:00:00.000Z",
+        }),
+        makeSubmission({
+          id: "end",
+          brandName: "End Boundary",
+          submittedAt: "2026-07-18T15:59:00.000Z",
+        }),
+        makeSubmission({
+          id: "after",
+          brandName: "After Range",
+          submittedAt: "2026-07-18T16:00:00.000Z",
+        }),
+      ],
+      "all",
+    );
+
+    const submittedRange = screen.getByLabelText(
+      "Submitted from / Submitted through",
+    );
+    fireEvent.click(submittedRange);
+    expect(showPicker).toHaveBeenCalledOnce();
+    expect(submittedRange).not.toHaveClass(
+      "[&::-webkit-calendar-picker-indicator]:opacity-0",
+    );
+    fireEvent.change(submittedRange, {
+      target: { value: "2026-07-19" },
+    });
+    expect(
+      screen.getByText("2026-07-19 – Submitted through"),
+    ).toBeInTheDocument();
+    fireEvent.change(submittedRange, {
+      target: { value: "2026-07-18" },
+    });
+
+    expect(screen.queryByText("Before Range")).not.toBeInTheDocument();
+    expect(screen.getByText("Start Boundary")).toBeInTheDocument();
+    expect(screen.getByText("End Boundary")).toBeInTheDocument();
+    expect(screen.getByText("After Range")).toBeInTheDocument();
+    expect(screen.getByText("2026-07-18 – 2026-07-19")).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Remove Submitted from / Submitted through",
+      }),
+    );
+    expect(screen.getByText("Before Range")).toBeInTheDocument();
   });
 
   it("paginates needs-data selection by ten and selects only the visible page", async () => {
@@ -223,7 +287,7 @@ describe("SubmissionsReviewList", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("opens one accessible review disclosure and ignores row action clicks", async () => {
+  it("opens a wide accessible review drawer and keeps row actions independent", async () => {
     const user = userEvent.setup();
     vi.spyOn(window, "confirm").mockReturnValue(true);
     renderList(
@@ -241,12 +305,17 @@ describe("SubmissionsReviewList", () => {
     await user.click(firstChevron);
     expect(screen.getByText("details-one")).toBeInTheDocument();
     expect(firstChevron).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("dialog", { name: "First Brand" })).toHaveClass(
+      "data-[side=right]:sm:max-w-6xl",
+    );
+    await user.click(screen.getByRole("button", { name: "Close" }));
 
     await user.click(
       screen.getByRole("button", { name: "Expand review for Second Brand" }),
     );
     expect(screen.queryByText("details-one")).not.toBeInTheDocument();
     expect(screen.getByText("details-two")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Close" }));
 
     const secondRow = screen.getByText("Second Brand").closest("tr");
     expect(secondRow).not.toBeNull();
@@ -255,7 +324,7 @@ describe("SubmissionsReviewList", () => {
     );
     expect(actions.approve).toHaveBeenCalledTimes(1);
     expect(actions.approve).toHaveBeenCalledWith("two");
-    expect(screen.getByText("details-two")).toBeInTheDocument();
+    expect(screen.queryByText("details-two")).not.toBeInTheDocument();
 
     const firstRow = screen.getByText("First Brand").closest("tr");
     expect(firstRow).not.toBeNull();
@@ -264,30 +333,13 @@ describe("SubmissionsReviewList", () => {
     expect(actions.reject).toHaveBeenCalledWith("one", "admin_reject", "");
   });
 
-  it("opens Edit from the row beside Reject", async () => {
-    const user = userEvent.setup();
-    renderList(
-      [makeSubmission({ id: "one", brandName: "First Brand" })],
-      "all",
-    );
-
-    const row = screen.getByText("First Brand").closest("tr");
-    expect(row).not.toBeNull();
-    const reject = within(row!).getByRole("button", { name: "Reject" });
-    const edit = within(row!).getByRole("button", { name: "Edit" });
-    expect(reject.nextElementSibling).toBe(edit);
-
-    await user.click(edit);
-    expect(screen.getByText("editing-one")).toBeInTheDocument();
-  });
-
   it("keeps row approval disabled when review data is incomplete", () => {
     renderList(
       [
         makeSubmission({
           reviewCompleteness: {
             complete: false,
-            missingFields: ["description"],
+            missingFields: ["heroImage", "additionalImage"],
           },
         }),
       ],
@@ -295,6 +347,15 @@ describe("SubmissionsReviewList", () => {
     );
 
     expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
+    expect(screen.getByText("Partial")).toHaveClass(
+      "bg-warning/10",
+      "text-warning",
+    );
+    expect(
+      screen.getByText(
+        "Missing required fields: Hero image, At least one additional image",
+      ),
+    ).toHaveClass("text-warning");
   });
 });
 

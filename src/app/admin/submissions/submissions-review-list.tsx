@@ -4,7 +4,14 @@ import { Fragment, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ChevronDown, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import {
+  CalendarRange,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   approveSubmissionAction,
@@ -25,6 +32,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Table,
   TableBody,
@@ -72,11 +85,12 @@ export function SubmissionsReviewList({
   const [enrichmentFilter, setEnrichmentFilter] =
     useState<EnrichmentFilter>("all");
   const [search, setSearch] = useState("");
+  const [submittedFrom, setSubmittedFrom] = useState("");
+  const [submittedTo, setSubmittedTo] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(10);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [bulkRejecting, setBulkRejecting] = useState(false);
   const [bulkRejectReason, setBulkRejectReason] = useState<DenialReason | "">(
     "",
@@ -107,6 +121,7 @@ export function SubmissionsReviewList({
   const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
     return stageFiltered.filter((submission) => {
+      const submittedDate = formatTaipeiDate(submission.submittedAt);
       if (
         enrichmentFilter === "complete" &&
         !submission.reviewCompleteness.complete
@@ -117,6 +132,8 @@ export function SubmissionsReviewList({
         submission.reviewCompleteness.complete
       )
         return false;
+      if (submittedFrom && submittedDate < submittedFrom) return false;
+      if (submittedTo && submittedDate > submittedTo) return false;
       if (!query) return true;
 
       return [
@@ -127,7 +144,7 @@ export function SubmissionsReviewList({
         submission.reviewData.websiteUrl,
       ].some((value) => value?.toLocaleLowerCase().includes(query));
     });
-  }, [enrichmentFilter, search, stageFiltered]);
+  }, [enrichmentFilter, search, stageFiltered, submittedFrom, submittedTo]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
@@ -135,6 +152,8 @@ export function SubmissionsReviewList({
     (currentPage - 1) * pageSize,
     currentPage * pageSize,
   );
+  const expandedSubmission =
+    submissions.find((submission) => submission.id === expandedId) ?? null;
   const selectableVisible = visible.filter(
     (submission) => submission.status === "pending",
   );
@@ -155,6 +174,22 @@ export function SubmissionsReviewList({
     setBulkRejecting(false);
     setBulkRejectReason("");
     setError(null);
+    setExpandedId(null);
+  }
+
+  function selectSubmittedDate(value: string) {
+    if (!value) return;
+
+    if (!submittedFrom || submittedTo) {
+      setSubmittedFrom(value);
+      setSubmittedTo("");
+    } else if (value < submittedFrom) {
+      setSubmittedFrom(value);
+      setSubmittedTo(submittedFrom);
+    } else {
+      setSubmittedTo(value);
+    }
+    resetView();
   }
 
   function toggleSelection(id: string) {
@@ -177,13 +212,7 @@ export function SubmissionsReviewList({
   }
 
   function toggleExpanded(id: string) {
-    setEditingId(null);
     setExpandedId((current) => (current === id ? null : id));
-  }
-
-  function editOne(id: string) {
-    setEditingId(id);
-    setExpandedId(id);
   }
 
   function approveOne(id: string) {
@@ -316,7 +345,7 @@ export function SubmissionsReviewList({
         </TabsList>
       </Tabs>
 
-      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(260px,1fr)_220px_auto] lg:items-center">
+      <div className="mt-4 grid gap-3 lg:grid-cols-2 lg:items-center xl:grid-cols-[minmax(260px,1fr)_220px_minmax(340px,auto)_auto]">
         <div className="relative">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
@@ -353,6 +382,49 @@ export function SubmissionsReviewList({
             </SelectItem>
           </SelectContent>
         </Select>
+        <div className="relative">
+          <Input
+            type="date"
+            value=""
+            aria-label={`${t("submittedDate.from")} / ${t("submittedDate.to")}`}
+            className="cursor-pointer text-transparent"
+            onClick={(event) => event.currentTarget.showPicker?.()}
+            onChange={(event) => selectSubmittedDate(event.target.value)}
+          />
+          <div
+            className="pointer-events-none absolute inset-y-0 left-3.5 right-12 flex items-center gap-2"
+            aria-hidden="true"
+          >
+            <CalendarRange
+              className="size-4 shrink-0 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <span
+              className={`min-w-0 truncate ${submittedFrom ? "type-body" : "type-body-muted"}`}
+            >
+              {submittedFrom
+                ? `${submittedFrom} – ${submittedTo || t("submittedDate.to")}`
+                : `${t("submittedDate.from")} – ${t("submittedDate.to")}`}
+            </span>
+          </div>
+          {submittedFrom && (
+            <Button
+              type="button"
+              variant="ghost"
+              shape="square"
+              size="icon"
+              className="absolute right-1 top-1 z-10 size-10"
+              aria-label={`${t("fields.remove")} ${t("submittedDate.from")} / ${t("submittedDate.to")}`}
+              onClick={() => {
+                setSubmittedFrom("");
+                setSubmittedTo("");
+                resetView();
+              }}
+            >
+              <X className="size-4" aria-hidden="true" />
+            </Button>
+          )}
+        </div>
         <div className="flex flex-wrap justify-end gap-2">
           {activeTab === "needs_data" ? (
             <Button
@@ -533,10 +605,10 @@ export function SubmissionsReviewList({
                       </div>
                       {submission.reviewCompleteness.missingFields.length >
                         0 && (
-                        <p className="mt-1 type-caption text-muted-foreground">
-                          {submission.reviewCompleteness.missingFields.join(
-                            ", ",
-                          )}
+                        <p className="mt-1 type-caption text-warning">
+                          {`${t("missingRequired")}: ${submission.reviewCompleteness.missingFields
+                            .map((field) => t(`missingFields.${field}`))
+                            .join(", ")}`}
                         </p>
                       )}
                     </TableCell>
@@ -566,15 +638,6 @@ export function SubmissionsReviewList({
                               >
                                 {t("reject")}
                               </Button>
-                              <Button
-                                size="compact"
-                                className="min-h-12"
-                                variant="secondary"
-                                onClick={() => editOne(submission.id)}
-                                disabled={isPending}
-                              >
-                                {t("edit")}
-                              </Button>
                             </>
                           )}
                       </div>
@@ -602,20 +665,6 @@ export function SubmissionsReviewList({
                       </Button>
                     </TableCell>
                   </TableRow>
-                  {expanded && (
-                    <TableRow>
-                      <TableCell colSpan={8} className="bg-background p-6">
-                        <SubmissionReviewDetails
-                          key={`${submission.id}-${
-                            editingId === submission.id ? "editing" : "read"
-                          }`}
-                          submission={submission}
-                          initiallyEditing={editingId === submission.id}
-                          onEditingEnd={() => setEditingId(null)}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </Fragment>
               );
             })}
@@ -632,6 +681,39 @@ export function SubmissionsReviewList({
           </TableBody>
         </Table>
       </div>
+
+      <Sheet
+        open={Boolean(expandedSubmission)}
+        onOpenChange={(open) => {
+          if (open) return;
+          setExpandedId(null);
+        }}
+      >
+        <SheetContent
+          side="right"
+          className="gap-0 p-0 data-[side=right]:w-[calc(100vw-1rem)] data-[side=right]:max-w-none data-[side=right]:sm:w-3/4 data-[side=right]:sm:max-w-6xl"
+        >
+          {expandedSubmission && (
+            <>
+              <SheetHeader className="border-b p-5 pr-16">
+                <SheetTitle>
+                  {expandedSubmission.reviewData.name ||
+                    expandedSubmission.brandName}
+                </SheetTitle>
+                <p className="type-metadata">
+                  {formatDate(expandedSubmission.submittedAt)}
+                </p>
+              </SheetHeader>
+              <div className="flex-1 overflow-y-auto p-5">
+                <SubmissionReviewDetails
+                  key={expandedSubmission.id}
+                  submission={expandedSubmission}
+                />
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="type-card-description">
@@ -717,10 +799,26 @@ function formatDate(value: string) {
   });
 }
 
+function formatTaipeiDate(value: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: "Asia/Taipei",
+  }).formatToParts(new Date(value));
+  const values = Object.fromEntries(
+    parts.map((part) => [part.type, part.value]),
+  );
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 function enrichmentLabel(
   submission: ReviewSubmission,
   t: ReturnType<typeof useTranslations<"admin.submissions">>,
-): { label: string; variant: "verified" | "secondary" | "destructive" } {
+): {
+  label: string;
+  variant: "verified" | "secondary" | "destructive" | "warning";
+} {
   if (submission.reviewStage === "enriching") {
     return {
       label:
@@ -743,7 +841,7 @@ function enrichmentLabel(
   }
   return submission.reviewCompleteness.complete
     ? { label: t("enrichmentStatus.complete"), variant: "verified" }
-    : { label: t("enrichmentStatus.partial"), variant: "secondary" };
+    : { label: t("enrichmentStatus.partial"), variant: "warning" };
 }
 
 function isInteractiveTarget(target: EventTarget | null) {

@@ -58,7 +58,10 @@ export type CommunitySubmissionDependencies =
     submit(
       params: SubmitBrandForReviewParams,
     ): Promise<SubmitBrandForReviewResult>;
-    buildGuestEmail(): string;
+    buildSubmitter(): Pick<
+      SubmitBrandForReviewParams,
+      "submitterEmail" | "submitterName"
+    >;
   };
 
 type ValidatedDraft = CommunitySubmissionDraft & {
@@ -326,7 +329,7 @@ export async function executeCommunitySubmissions(
           intent: "recommend",
           brandName: row.normalizedName!,
           websiteUrl: row.normalizedWebsite!,
-          submitterEmail: dependencies.buildGuestEmail(),
+          ...dependencies.buildSubmitter(),
           isBrandOwner: false,
           pdpaConsent: false,
           sourceAttribution: "found_online",
