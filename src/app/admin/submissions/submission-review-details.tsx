@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ChevronLeft, ChevronRight, Star } from "lucide-react";
@@ -48,7 +48,12 @@ type UpdateReviewData = <K extends keyof SubmissionReviewData>(
   value: SubmissionReviewData[K],
 ) => void;
 
-export function SubmissionReviewDetails({ submission }: Props) {
+export type SubmissionReviewDetailsHandle = {
+  cleanup: () => Promise<void>;
+};
+
+export const SubmissionReviewDetails = forwardRef<SubmissionReviewDetailsHandle, Props>(
+  function SubmissionReviewDetails({ submission }, ref) {
   const t = useTranslations("admin.submissions");
   const router = useRouter();
   const [editingSection, setEditingSection] = useState<ReviewSection | null>(
@@ -68,6 +73,18 @@ export function SubmissionReviewDetails({ submission }: Props) {
   const [uploadedDraftIds, setUploadedDraftIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  useImperativeHandle(ref, () => ({
+    cleanup: async () => {
+      if (uploadedDraftIds.length > 0) {
+        await cleanupSubmissionDraftImagesAction(
+          submission.id,
+          uploadedDraftIds,
+        );
+        setUploadedDraftIds([]);
+      }
+    },
+  }));
 
   useEffect(() => {
     if (
@@ -409,7 +426,8 @@ export function SubmissionReviewDetails({ submission }: Props) {
       )}
     </div>
   );
-}
+  }
+);
 
 function ContentDetails({ data }: { data: SubmissionReviewData }) {
   const t = useTranslations("admin.submissions");

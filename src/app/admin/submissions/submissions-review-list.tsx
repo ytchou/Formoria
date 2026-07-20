@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -48,7 +48,7 @@ import type {
   EnrichmentFilter,
 } from "@/lib/services/submissions";
 import { cn } from "@/lib/utils";
-import { SubmissionReviewDetails } from "./submission-review-details";
+import { SubmissionReviewDetails, type SubmissionReviewDetailsHandle } from "./submission-review-details";
 
 export type TabValue =
   "all" | "needs_data" | "enriching" | "ready" | "approved" | "rejected";
@@ -93,6 +93,7 @@ export function SubmissionsReviewList({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isEnriching, startEnrichTransition] = useTransition();
+  const detailsRef = useRef<SubmissionReviewDetailsHandle>(null);
 
   const tabCounts = useMemo(
     () => ({
@@ -192,6 +193,11 @@ export function SubmissionsReviewList({
 
   function closeDrawer() {
     setDrawerSubmissionId(null);
+  }
+
+  async function handleDrawerClose() {
+    await detailsRef.current?.cleanup();
+    closeDrawer();
   }
 
   function approveOne(id: string) {
@@ -578,7 +584,7 @@ export function SubmissionsReviewList({
       <Sheet
         open={!!drawerSubmission}
         onOpenChange={(open) => {
-          if (!open) closeDrawer();
+          if (!open) void handleDrawerClose();
         }}
       >
         <SheetContent
@@ -600,13 +606,14 @@ export function SubmissionsReviewList({
                     <SubmissionStatusBadge status={drawerSubmission.status} />
                   </p>
                 </div>
-                <Button variant="ghost" size="icon" onClick={closeDrawer}>
+                <Button variant="ghost" size="icon" onClick={() => void handleDrawerClose()}>
                   <XIcon className="size-4" />
                   <span className="sr-only">Close</span>
                 </Button>
               </SheetHeader>
               <div className="flex-1 overflow-y-auto">
                 <SubmissionReviewDetails
+                  ref={detailsRef}
                   key={drawerSubmission.id}
                   submission={drawerSubmission}
                 />
@@ -617,8 +624,20 @@ export function SubmissionsReviewList({
                     <Button
                       variant="destructive"
                       onClick={() => {
-                        rejectOne(drawerSubmission.id);
-                        closeDrawer();
+                        if (!confirm(t("confirmReject"))) return;
+                        startTransition(async () => {
+                          setError(null);
+                          const result = await rejectSubmissionAction(
+                            drawerSubmission.id,
+                            "admin_reject",
+                            "",
+                          );
+                          if (result?.error) setError(result.error);
+                          else {
+                            await handleDrawerClose();
+                            router.refresh();
+                          }
+                        });
                       }}
                       disabled={isPending}
                     >
@@ -627,8 +646,17 @@ export function SubmissionsReviewList({
                     <Button
                       variant="primary"
                       onClick={() => {
-                        approveOne(drawerSubmission.id);
-                        closeDrawer();
+                        startTransition(async () => {
+                          setError(null);
+                          const result = await approveSubmissionAction(
+                            drawerSubmission.id,
+                          );
+                          if (result?.error) setError(result.error);
+                          else {
+                            await handleDrawerClose();
+                            router.refresh();
+                          }
+                        });
                       }}
                       disabled={
                         isPending ||
