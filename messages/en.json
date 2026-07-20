@@ -1952,6 +1952,8 @@
       "approveSelected": "Approve {count} selected",
       "rejectSelected": "Reject {count} selected",
       "confirmRejectSelected": "Confirm reject {count} selected",
+      "expandReview": "Expand review for {name}",
+      "collapseReview": "Collapse review for {name}",
       "confirmReject": "Reject this submission?",
       "fetching": "Fetching...",
       "fetchData": "Fetch Data",

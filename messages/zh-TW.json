@@ -1952,6 +1952,8 @@
       "approveSelected": "核准已選取的 {count} 筆",
       "rejectSelected": "拒絕已選取的 {count} 筆",
       "confirmRejectSelected": "確認拒絕已選取的 {count} 筆",
+      "expandReview": "展開 {name} 的審核",
+      "collapseReview": "收合 {name} 的審核",
       "confirmReject": "拒絕此提交？",
       "fetching": "抓取中…",
       "fetchData": "抓取資料",
