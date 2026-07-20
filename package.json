@@ -37,7 +37,7 @@
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.0.9",
     "@sentry/nextjs": "^10.51.0",
-    "@supabase/ssr": "^0.10.2",
+    "@supabase/ssr": "^0.12.1",
     "@supabase/supabase-js": "^2.110.3",
     "@tinacms/mdx": "^2.1.9",
     "@upstash/ratelimit": "^2.0.8",
