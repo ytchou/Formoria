@@ -5,17 +5,20 @@ import Image from 'next/image'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
+import { trackGalleryPhotoView } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
 import { BrandImageFallback } from './brand-image-fallback'
 
 interface ImageCarouselProps {
   images: string[]
   alt: string
+  brandId: string
+  brandSlug: string
   category?: string | null
   imageAlts?: Array<{ altZh: string | null; altEn: string | null }>
 }
 
-export function ImageCarousel({ images, alt, category, imageAlts }: ImageCarouselProps) {
+export function ImageCarousel({ images, alt, brandId, brandSlug, category, imageAlts }: ImageCarouselProps) {
   const t = useTranslations('brandDetail')
   const locale = useLocale()
   const validImages = images.flatMap((image) => {
@@ -50,7 +53,9 @@ export function ImageCarousel({ images, alt, category, imageAlts }: ImageCarouse
   }
 
   function goTo(index: number) {
-    setCurrent(((index % total) + total) % total)
+    const next = ((index % total) + total) % total
+    setCurrent(next)
+    if (next !== current) trackGalleryPhotoView(brandSlug, next, brandId)
   }
 
   const isCurrentBroken = brokenImages.has(current)
@@ -117,7 +122,7 @@ export function ImageCarousel({ images, alt, category, imageAlts }: ImageCarouse
               key={i}
               type="button"
               variant="ghost"
-              onClick={() => setCurrent(i)}
+              onClick={() => goTo(i)}
               className={`relative size-16 overflow-hidden rounded-lg p-0 hover:bg-transparent ${
                 i === current
                   ? 'ring-2 ring-primary ring-offset-2'

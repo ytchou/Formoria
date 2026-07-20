@@ -1,8 +1,12 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import zh from '../../../messages/zh-TW.json'
+
+const mocks = vi.hoisted(() => ({ trackGalleryPhotoView: vi.fn() }))
+vi.mock('@/lib/analytics', () => ({ trackGalleryPhotoView: mocks.trackGalleryPhotoView }))
 
 vi.mock('next/image', () => ({
   default: ({ alt = '', fill, ...props }: Record<string, unknown>) => {
@@ -23,10 +27,28 @@ describe('ImageCarousel', () => {
   it('eagerly loads the visible hero image', () => {
     render(
       <NextIntlClientProvider locale="zh-TW" messages={zh}>
-        <ImageCarousel images={[imageUrl]} alt="測試品牌" />
+        <ImageCarousel images={[imageUrl]} alt="測試品牌" brandId="brand-uuid" brandSlug="test-brand" />
       </NextIntlClientProvider>,
     )
 
     expect(screen.getByRole('img')).not.toHaveAttribute('loading', 'lazy')
+  })
+
+  it('tracks gallery navigation with immutable ID, public slug, and photo index', async () => {
+    const user = userEvent.setup()
+    render(
+      <NextIntlClientProvider locale="zh-TW" messages={zh}>
+        <ImageCarousel
+          images={[imageUrl, imageUrl.replace('test.jpg', 'test-2.jpg')]}
+          alt="測試品牌"
+          brandId="brand-uuid"
+          brandSlug="test-brand"
+        />
+      </NextIntlClientProvider>,
+    )
+
+    await user.click(screen.getByRole('button', { name: '下一張' }))
+
+    expect(mocks.trackGalleryPhotoView).toHaveBeenCalledWith('test-brand', 1, 'brand-uuid')
   })
 })

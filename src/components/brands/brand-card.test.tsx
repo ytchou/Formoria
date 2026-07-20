@@ -111,6 +111,7 @@ describe('BrandCard', () => {
       'test-brand',
       'accessories',
       2,
+      'b1',
     )
   })
 
@@ -122,6 +123,7 @@ describe('BrandCard', () => {
       'test-brand',
       'accessories',
       0,
+      'b1',
     )
   })
 

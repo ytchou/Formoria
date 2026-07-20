@@ -70,6 +70,14 @@ check_env() {
     if ! grep -q "SENTRY_AUTH_TOKEN=" .env.local 2>/dev/null; then
       echo "WARN: SENTRY_AUTH_TOKEN may not be set — Sentry source map upload will be skipped at build (check .env.local)"
     fi
+    if ! grep -q "NEXT_PUBLIC_POSTHOG_HOST=https://e.formoria.com" .env.local 2>/dev/null; then
+      echo "WARN: NEXT_PUBLIC_POSTHOG_HOST must be https://e.formoria.com for production analytics capture"
+    fi
+    for var in NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN NEXT_PUBLIC_POSTHOG_UI_HOST POSTHOG_PROJECT_ID POSTHOG_PERSONAL_API_KEY POSTHOG_API_HOST POSTHOG_DASHBOARD_URL PERSONAL_OS_INTERNAL_TOKEN; do
+      if ! grep -q "${var}=." .env.local 2>/dev/null; then
+        echo "WARN: ${var} may not be set (required for the PostHog analytics hub)"
+      fi
+    done
     if ! grep -q "RAILWAY_LOGS_URL=." .env.local 2>/dev/null; then
       echo "WARN: RAILWAY_LOGS_URL not set (admin jobs page won't show logs link)"
     fi

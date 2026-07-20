@@ -79,7 +79,7 @@ export function BrandCard({
                 'focus-visible:outline-none',
                 variant === 'directory' && 'after:absolute after:inset-0',
               )}
-              onClick={() => trackBrandCardClicked(brand.slug, brand.category, position)}
+              onClick={() => trackBrandCardClicked(brand.slug, brand.category, position, brand.id)}
             >
               {brand.name}
             </Link>
@@ -112,7 +112,7 @@ export function BrandCard({
                 variant: 'secondary',
                 className: 'relative z-20 mt-4 min-h-12 w-full',
               })}
-              onClick={() => trackBrandCardClicked(brand.slug, brand.category, position)}
+              onClick={() => trackBrandCardClicked(brand.slug, brand.category, position, brand.id)}
             >
               {t('card.viewBrand')}
             </Link>

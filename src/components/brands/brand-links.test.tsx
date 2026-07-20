@@ -73,6 +73,7 @@ describe('BrandLinks', () => {
       'test-brand',
       expect.any(String),
       expect.any(String),
+      'b1',
     )
   })
 

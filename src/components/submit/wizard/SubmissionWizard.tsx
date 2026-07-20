@@ -3,10 +3,8 @@
 import {
   type FormEvent,
   useCallback,
-  useEffect,
   useId,
   useMemo,
-  useRef,
   useState,
 } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -27,10 +25,8 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { useRouter } from '@/i18n/navigation'
-import {
-  trackSubmissionCompleted,
-  trackSubmissionFormOpened,
-} from '@/lib/analytics'
+import { trackSubmissionCompleted } from '@/lib/analytics'
+import { useSubmissionAnalytics } from '@/hooks/use-submission-analytics'
 import type { WizardStep } from '@/lib/schemas/brand-edit'
 import {
   SUBMISSION_SECTION_FIELDS,
@@ -108,7 +104,11 @@ export default function SubmissionWizard({
   const tReview = useTranslations('submit.review')
   const router = useRouter()
   const uploadSessionId = useId().replaceAll(':', '')
-  const mountTimeRef = useRef<number | null>(null)
+  const { complete, stepCompleted } = useSubmissionAnalytics(
+    'hero_cta',
+    'owner_claim',
+    'opened',
+  )
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [turnstileError, setTurnstileError] = useState(false)
@@ -153,11 +153,6 @@ export default function SubmissionWizard({
     [form, productTagSuggestions, uploadSessionId],
   )
 
-  useEffect(() => {
-    mountTimeRef.current = Date.now()
-    trackSubmissionFormOpened('hero_cta', 'owner_claim')
-  }, [])
-
   const validateStep = useCallback(async (stepKey: SubmissionWizardStepKey) => {
     const sectionFields = SUBMISSION_SECTION_FIELDS[stepKey] ?? []
     let isValid = await form.trigger(sectionFields)
@@ -181,6 +176,18 @@ export default function SubmissionWizard({
     validateStep,
   })
 
+  const handleStepClick = useCallback(async (targetStep: number) => {
+    const previousStep = currentStepKey
+    if (await goToStep(targetStep) && targetStep > activeStep) {
+      stepCompleted(previousStep)
+    }
+  }, [activeStep, currentStepKey, goToStep, stepCompleted])
+
+  const handleContinue = useCallback(async () => {
+    const previousStep = currentStepKey
+    if (await continueToNext()) stepCompleted(previousStep)
+  }, [continueToNext, currentStepKey, stepCompleted])
+
   const submitForm = useCallback(
     async (values: SubmissionWizardValues) => {
       if (isSubmitting) return
@@ -194,15 +201,14 @@ export default function SubmissionWizard({
           return
         }
 
-        if (mountTimeRef.current !== null) {
-          trackSubmissionCompleted(
-            values.name,
-            values.productType ?? '',
-            Boolean(values.heroImageUrl),
-            Math.round((Date.now() - mountTimeRef.current) / 1000),
-            'owner_claim',
-          )
-        }
+        stepCompleted(currentStepKey)
+        trackSubmissionCompleted(
+          values.name,
+          values.productType ?? '',
+          Boolean(values.heroImageUrl),
+          complete(),
+          'owner_claim',
+        )
 
         const params = new URLSearchParams({ intent: 'owner_claim' })
         if (result?.ownershipAdjusted) {
@@ -213,7 +219,7 @@ export default function SubmissionWizard({
         setIsSubmitting(false)
       }
     },
-    [isSubmitting, router],
+    [complete, currentStepKey, isSubmitting, router, stepCompleted],
   )
 
   const handlePublish = useCallback(async () => {
@@ -269,7 +275,7 @@ export default function SubmissionWizard({
             steps={SIDEBAR_STEPS}
             activeStep={activeStep}
             completedSteps={completedSteps}
-            onStepClick={(targetStep) => void goToStep(targetStep)}
+            onStepClick={(targetStep) => void handleStepClick(targetStep)}
           />
 
           <main className="min-w-0 flex-1 pb-20">
@@ -402,7 +408,7 @@ export default function SubmissionWizard({
                 totalSteps={SUBMISSION_WIZARD_STEPS.length}
                 isSaving={false}
                 onBack={goBack}
-                onSaveAndContinue={() => void continueToNext()}
+                onSaveAndContinue={() => void handleContinue()}
                 onSave={() => undefined}
                 onPublish={() => undefined}
               />

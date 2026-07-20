@@ -5,8 +5,8 @@ import { seedBrand } from '../helpers/seed'
  * Dashboard Analytics
  *
  * Journey: Brand owner navigates to /dashboard/brands/<slug>/analytics and
- * sees all analytics UI components in their empty-state form (new brand with
- * no view/click data yet).
+ * sees the PostHog session dashboard or its explicit provider-unavailable
+ * state. Ownership is seeded before the request reaches analytics.
  *
  * Actor: userPage (authenticated)
  * Seed: one brand owned by the E2E user
@@ -30,7 +30,7 @@ test.describe('Dashboard — analytics', () => {
     await cleanup?.()
   })
 
-  test('renders analytics page with empty-state components', async ({ userPage }) => {
+  test('renders authorized PostHog session analytics with an explicit provider state', async ({ userPage }) => {
     test.setTimeout(60_000)
 
     const resp = await userPage.goto(
@@ -44,33 +44,20 @@ test.describe('Dashboard — analytics', () => {
       return
     }
 
-    const mainContent = userPage.locator('#main-content')
-    await expect(userPage.getByRole('heading', { name: '瀏覽與點擊' })).toBeVisible({
-      timeout: 30_000,
-    })
-    // pageViews and outboundClicks are <p> labels in DataCard, not headings
-    await expect(mainContent.getByText('頁面瀏覽', { exact: true })).toBeVisible({
-      timeout: 10_000,
-    })
-    await expect(mainContent.getByText('外部連結點擊', { exact: true })).toBeVisible({
-      timeout: 10_000,
-    })
+    const available = userPage.getByText(/^(Profile sessions|品牌頁工作階段)$/)
+    const unavailable = userPage.getByRole('heading', { name: /^(Analytics temporarily unavailable|數據分析暫時無法使用)$/ })
+    await expect(available.or(unavailable)).toBeVisible({ timeout: 30_000 })
 
-    await expect(
-      userPage.getByRole('heading', { name: '流量來源' }),
-    ).toBeVisible({ timeout: 10_000 })
-    await expect(mainContent.getByText('尚無流量資料', { exact: true })).toBeVisible({
-      timeout: 10_000,
-    })
-
-    await expect(mainContent.getByText('趨勢', { exact: true })).toBeVisible({
-      timeout: 10_000,
-    })
-    await expect(
-      userPage.getByRole('heading', { name: '各連結點擊數' }),
-    ).toBeVisible({ timeout: 10_000 })
-    await expect(mainContent.getByText('尚無連結點擊', { exact: true })).toBeVisible({
-      timeout: 10_000,
-    })
+    if (await available.isVisible()) {
+      await expect(userPage.getByText(/^(Outbound sessions|外連工作階段)$/)).toBeVisible()
+      await expect(userPage.getByText(/^(Outbound conversion|外連轉換率)$/)).toBeVisible()
+      await expect(userPage.getByRole('heading', { name: /^(30-day session trend|30 天工作階段趨勢)$/ })).toBeVisible()
+      await expect(userPage.getByRole('heading', { name: /^(Acquisition sources|流量來源)$/ })).toBeVisible()
+      await expect(userPage.getByRole('heading', { name: /^(Outbound destinations|外連目的地)$/ })).toBeVisible()
+      await expect(userPage.getByRole('link', { name: /^(Open in PostHog|在 PostHog 開啟)$/ })).toHaveAttribute('href', /^https:\/\//)
+      await expect(userPage.getByText(/^(Source|資料來源) · PostHog$/)).toBeVisible()
+    } else {
+      await expect(userPage.getByText(/PostHog.*(could not load|目前無法載入)/)).toBeVisible()
+    }
   })
 })

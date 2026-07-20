@@ -63,4 +63,14 @@ Sentry.init({
   },
 });
 
+if (
+  process.env.NODE_ENV === 'production'
+  && process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN
+  && process.env.NEXT_PUBLIC_POSTHOG_HOST === 'https://e.formoria.com'
+) {
+  void import('@/lib/analytics/posthog-client')
+    .then(({ initializePostHog }) => initializePostHog())
+    .catch(() => undefined)
+}
+
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

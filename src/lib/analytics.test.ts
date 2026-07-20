@@ -2,6 +2,10 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 
 const mockSendGAEvent = vi.fn()
+const mockPostHogCapture = vi.fn()
+vi.mock('./analytics/posthog-provider', () => ({
+  capturePostHogEvent: (...args: unknown[]) => mockPostHogCapture(...args),
+}))
 import * as analytics from './analytics'
 import {
   getContentGroup,
@@ -30,6 +34,7 @@ import {
 
 beforeEach(() => {
   mockSendGAEvent.mockClear()
+  mockPostHogCapture.mockClear()
   window.gtag = mockSendGAEvent
   window.history.replaceState({}, '', '/')
 })
@@ -222,6 +227,59 @@ describe('GA4 standard event names', () => {
 })
 
 describe('analytics', () => {
+  it('maps brand events to versioned PostHog names without changing GA4', () => {
+    trackBrandDetailViewed('my-brand', 'search', 'brand-uuid')
+
+    expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'view_item', {
+      item_id: 'my-brand',
+      source: 'search',
+    })
+    expect(mockPostHogCapture).toHaveBeenCalledWith('brand_detail_viewed', {
+      brand_id: 'brand-uuid',
+      brand_slug: 'my-brand',
+      source: 'search',
+    })
+  })
+
+  it('includes immutable IDs and public slugs on PostHog brand interactions', () => {
+    trackSearchResultClicked('private query', 2, 'brand-uuid', 'my-brand')
+    trackSearchSuggestionSelect('my-brand', 'brand-uuid')
+    trackGalleryPhotoView('my-brand', 1, 'brand-uuid')
+
+    expect(mockPostHogCapture).toHaveBeenNthCalledWith(1, 'search_result_clicked', {
+      query_length: 13,
+      position_in_results: 2,
+      brand_id: 'brand-uuid',
+      brand_slug: 'my-brand',
+    })
+    expect(mockPostHogCapture).toHaveBeenNthCalledWith(2, 'search_suggestion_selected', {
+      brand_id: 'brand-uuid',
+      brand_slug: 'my-brand',
+    })
+    expect(mockPostHogCapture).toHaveBeenNthCalledWith(3, 'gallery_photo_view', {
+      brand_id: 'brand-uuid',
+      brand_slug: 'my-brand',
+      photo_index: 1,
+    })
+    expect(JSON.stringify(mockPostHogCapture.mock.calls)).not.toContain('private query')
+  })
+
+  it('never sends raw search text or proposed brand names to PostHog', () => {
+    trackSearchExecuted('private query', 4)
+    trackSearchNoResults('another private query')
+    trackSubmissionCompleted('Secret proposed brand', 'fashion', true, 120)
+
+    expect(mockPostHogCapture).toHaveBeenNthCalledWith(1, 'search_executed', {
+      query_length: 13,
+      result_count: 4,
+      has_results: true,
+    })
+    expect(mockPostHogCapture).toHaveBeenNthCalledWith(2, 'search_no_results', {
+      query_length: 21,
+    })
+    expect(JSON.stringify(mockPostHogCapture.mock.calls)).not.toContain('private query')
+    expect(JSON.stringify(mockPostHogCapture.mock.calls)).not.toContain('Secret proposed brand')
+  })
   it('trackBrandDetailViewed sends view_item with source', () => {
     trackBrandDetailViewed('my-brand', 'search')
     expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'view_item', {
@@ -294,6 +352,19 @@ describe('analytics', () => {
     expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'submission_form_opened', {
       source: 'hero_cta',
       intent: 'recommend',
+    })
+  })
+
+  it('preserves quick-owner GA4 taxonomy while normalizing PostHog intent', () => {
+    trackSubmissionFormOpened('quick', 'owner')
+
+    expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'submission_form_opened', {
+      source: 'quick',
+      intent: 'owner',
+    })
+    expect(mockPostHogCapture).toHaveBeenCalledWith('submission_form_opened', {
+      source: 'quick',
+      intent: 'owner_claim',
     })
   })
 
