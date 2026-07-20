@@ -83,7 +83,7 @@
     "@types/react-dom": "^19",
     "@vitest/coverage-v8": "4.1.9",
     "eslint": "^9",
-    "eslint-config-next": "16.2.9",
+    "eslint-config-next": "16.2.10",
     "jsdom": "^29.1.1",
     "knip": "^6.23.0",
     "prettier": "^3.9.5",
