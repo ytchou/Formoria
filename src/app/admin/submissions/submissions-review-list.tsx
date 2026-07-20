@@ -1,10 +1,10 @@
 "use client";
 
-import { Fragment, useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ChevronDown, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
   approveSubmissionAction,
@@ -26,6 +26,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Sheet,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   Table,
   TableBody,
   TableCell,
@@ -40,7 +47,8 @@ import type {
   BrandSubmissionForReview,
   EnrichmentFilter,
 } from "@/lib/services/submissions";
-import { SubmissionReviewDetails } from "./submission-review-details";
+import { cn } from "@/lib/utils";
+import { SubmissionReviewDetails, type SubmissionReviewDetailsHandle } from "./submission-review-details";
 
 export type TabValue =
   "all" | "needs_data" | "enriching" | "ready" | "approved" | "rejected";
@@ -75,7 +83,9 @@ export function SubmissionsReviewList({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(10);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [drawerSubmissionId, setDrawerSubmissionId] = useState<string | null>(
+    null,
+  );
   const [bulkRejecting, setBulkRejecting] = useState(false);
   const [bulkRejectReason, setBulkRejectReason] = useState<DenialReason | "">(
     "",
@@ -83,6 +93,7 @@ export function SubmissionsReviewList({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isEnriching, startEnrichTransition] = useTransition();
+  const detailsRef = useRef<SubmissionReviewDetailsHandle>(null);
 
   const tabCounts = useMemo(
     () => ({
@@ -134,6 +145,9 @@ export function SubmissionsReviewList({
     (currentPage - 1) * pageSize,
     currentPage * pageSize,
   );
+  const drawerSubmission =
+    submissions.find((submission) => submission.id === drawerSubmissionId) ??
+    null;
   const selectableVisible = visible.filter(
     (submission) => submission.status === "pending",
   );
@@ -151,6 +165,7 @@ export function SubmissionsReviewList({
     setBulkRejecting(false);
     setBulkRejectReason("");
     setError(null);
+    setDrawerSubmissionId(null);
   }
 
   function toggleSelection(id: string) {
@@ -172,8 +187,17 @@ export function SubmissionsReviewList({
     );
   }
 
-  function toggleExpanded(id: string) {
-    setExpandedId((current) => (current === id ? null : id));
+  function openDrawer(id: string) {
+    setDrawerSubmissionId(id);
+  }
+
+  function closeDrawer() {
+    setDrawerSubmissionId(null);
+  }
+
+  async function handleDrawerClose() {
+    await detailsRef.current?.cleanup();
+    closeDrawer();
   }
 
   function approveOne(id: string) {
@@ -427,158 +451,126 @@ export function SubmissionsReviewList({
               <TableHead>{t("table.date")}</TableHead>
               <TableHead>{t("table.enrichment")}</TableHead>
               <TableHead className="text-right">{t("table.actions")}</TableHead>
-              <TableHead className="w-12">
-                <span className="sr-only">{t("table.details")}</span>
-              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {visible.map((submission) => {
-              const expanded = expandedId === submission.id;
               const enrichment = enrichmentLabel(submission, t);
               return (
-                <Fragment key={submission.id}>
-                  <TableRow
-                    className="cursor-pointer hover:bg-secondary"
-                    onClick={(event) => {
-                      if (isInteractiveTarget(event.target)) return;
-                      toggleExpanded(submission.id);
-                    }}
-                  >
-                    <TableCell>
-                      <Checkbox
-                        aria-label={t("selectSubmission", {
-                          name: submission.brandName,
-                        })}
-                        checked={selectedIds.has(submission.id)}
-                        disabled={submission.status !== "pending"}
-                        onCheckedChange={() => toggleSelection(submission.id)}
-                      />
-                    </TableCell>
-                    <TableCell className="max-w-[240px] font-medium">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate">
-                          {submission.reviewData.name}
-                        </span>
-                        {submission.moderationRiskLevel === "high" && (
-                          <Badge variant="destructive">
-                            {moderationT("riskHigh")}
-                          </Badge>
-                        )}
-                        {submission.moderationRiskLevel === "medium" && (
-                          <Badge variant="verified">
-                            {moderationT("riskMedium")}
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <SubmissionStatusBadge status={submission.status} />
-                    </TableCell>
-                    <TableCell className="max-w-[200px]">
-                      <span className="block truncate">
-                        {submission.submitterName ||
-                          getSubmitterLabel(
-                            submission.submitterEmail,
-                            t("noSubmitter"),
-                          )}
-                      </span>
-                      {submission.submitterName && (
-                        <span className="block truncate type-caption">
-                          {getSubmitterLabel(
-                            submission.submitterEmail,
-                            t("noSubmitter"),
-                          )}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell>{formatDate(submission.submittedAt)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={enrichment.variant}>
-                          {enrichment.label}
-                        </Badge>
-                        {submission.latestCurationJobId && (
-                          <Link
-                            className="type-link"
-                            href={`/admin/jobs/${submission.latestCurationJobId}`}
-                          >
-                            {t("viewJob")}
-                          </Link>
-                        )}
-                      </div>
-                      {submission.reviewCompleteness.missingFields.length > 0 && (
-                        <p className="mt-1 type-caption text-muted-foreground">
-                          {submission.reviewCompleteness.missingFields.join(", ")}
-                        </p>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-1">
-                        {submission.status === "pending" && (
-                          <Button
-                            size="compact"
-                            className="min-h-12"
-                            variant="primary"
-                            onClick={() => approveOne(submission.id)}
-                            disabled={
-                              isPending ||
-                              !submission.reviewCompleteness.complete
-                            }
-                          >
-                            {t("approve")}
-                          </Button>
-                        )}
-                        {submission.status === "pending" && (
-                          <Button
-                            size="compact"
-                            className="min-h-12"
-                            variant="destructive"
-                            onClick={() => rejectOne(submission.id)}
-                            disabled={isPending}
-                          >
-                            {t("reject")}
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        shape="pill"
-                        variant="ghost"
-                        className="h-12 w-12 p-0"
-                        onClick={() => toggleExpanded(submission.id)}
-                        aria-expanded={expanded}
-                        aria-controls={`submission-review-${submission.id}`}
-                        aria-label={
-                          expanded
-                            ? t("collapseReview", {
-                                name: submission.brandName,
-                              })
-                            : t("expandReview", { name: submission.brandName })
-                        }
-                      >
-                        <ChevronDown
-                          className={`size-4 transition-transform ${expanded ? "rotate-180" : ""}`}
-                          aria-hidden="true"
-                        />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                  {expanded && (
-                    <TableRow>
-                      <TableCell colSpan={8} className="bg-background p-6">
-                        <SubmissionReviewDetails submission={submission} />
-                      </TableCell>
-                    </TableRow>
+                <TableRow
+                  key={submission.id}
+                  className={cn(
+                    "cursor-pointer hover:bg-secondary",
+                    drawerSubmissionId === submission.id && "bg-secondary",
                   )}
-                </Fragment>
+                  onClick={(event) => {
+                    if (isInteractiveTarget(event.target)) return;
+                    openDrawer(submission.id);
+                  }}
+                >
+                  <TableCell>
+                    <Checkbox
+                      aria-label={t("selectSubmission", {
+                        name: submission.brandName,
+                      })}
+                      checked={selectedIds.has(submission.id)}
+                      disabled={submission.status !== "pending"}
+                      onCheckedChange={() => toggleSelection(submission.id)}
+                    />
+                  </TableCell>
+                  <TableCell className="max-w-[240px] font-medium">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate">
+                        {submission.reviewData.name}
+                      </span>
+                      {submission.moderationRiskLevel === "high" && (
+                        <Badge variant="destructive">
+                          {moderationT("riskHigh")}
+                        </Badge>
+                      )}
+                      {submission.moderationRiskLevel === "medium" && (
+                        <Badge variant="verified">
+                          {moderationT("riskMedium")}
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <SubmissionStatusBadge status={submission.status} />
+                  </TableCell>
+                  <TableCell className="max-w-[200px]">
+                    <span className="block truncate">
+                      {submission.submitterName ||
+                        getSubmitterLabel(
+                          submission.submitterEmail,
+                          t("noSubmitter"),
+                        )}
+                    </span>
+                    {submission.submitterName && (
+                      <span className="block truncate type-caption">
+                        {getSubmitterLabel(
+                          submission.submitterEmail,
+                          t("noSubmitter"),
+                        )}
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell>{formatDate(submission.submittedAt)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={enrichment.variant}>
+                        {enrichment.label}
+                      </Badge>
+                      {submission.latestCurationJobId && (
+                        <Link
+                          className="type-link"
+                          href={`/admin/jobs/${submission.latestCurationJobId}`}
+                        >
+                          {t("viewJob")}
+                        </Link>
+                      )}
+                    </div>
+                    {submission.reviewCompleteness.missingFields.length > 0 && (
+                      <p className="mt-1 type-caption text-muted-foreground">
+                        {submission.reviewCompleteness.missingFields.join(", ")}
+                      </p>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-end gap-1">
+                      {submission.status === "pending" && (
+                        <Button
+                          size="compact"
+                          className="min-h-12"
+                          variant="primary"
+                          onClick={() => approveOne(submission.id)}
+                          disabled={
+                            isPending || !submission.reviewCompleteness.complete
+                          }
+                        >
+                          {t("approve")}
+                        </Button>
+                      )}
+                      {submission.status === "pending" && (
+                        <Button
+                          size="compact"
+                          className="min-h-12"
+                          variant="destructive"
+                          onClick={() => rejectOne(submission.id)}
+                          disabled={isPending}
+                        >
+                          {t("reject")}
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
               );
             })}
             {visible.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={7}
                   className="py-10 text-center type-body-muted"
                 >
                   {t("notFound")}
@@ -588,6 +580,98 @@ export function SubmissionsReviewList({
           </TableBody>
         </Table>
       </div>
+
+      <Sheet
+        open={!!drawerSubmission}
+        onOpenChange={(open) => {
+          if (!open) void handleDrawerClose();
+        }}
+      >
+        <SheetContent
+          side="right"
+          className="w-[580px] max-w-[90vw] gap-0 p-0 sm:max-w-[580px]"
+          showCloseButton={false}
+        >
+          {drawerSubmission && (
+            <>
+              <SheetHeader className="flex-row items-start justify-between gap-3 border-b p-4">
+                <div>
+                  <SheetTitle>
+                    {drawerSubmission.reviewData.name ||
+                      drawerSubmission.brandName}
+                  </SheetTitle>
+                  <p className="mt-1 type-metadata">
+                    {formatDate(drawerSubmission.submittedAt)}
+                    {" · "}
+                    <SubmissionStatusBadge status={drawerSubmission.status} />
+                  </p>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => void handleDrawerClose()}>
+                  <XIcon className="size-4" />
+                  <span className="sr-only">Close</span>
+                </Button>
+              </SheetHeader>
+              <div className="flex-1 overflow-y-auto">
+                <SubmissionReviewDetails
+                  ref={detailsRef}
+                  key={drawerSubmission.id}
+                  submission={drawerSubmission}
+                />
+              </div>
+              <SheetFooter className="flex-row justify-end gap-2 border-t p-4">
+                {drawerSubmission.status === "pending" && (
+                  <>
+                    <Button
+                      variant="destructive"
+                      onClick={() => {
+                        if (!confirm(t("confirmReject"))) return;
+                        startTransition(async () => {
+                          setError(null);
+                          const result = await rejectSubmissionAction(
+                            drawerSubmission.id,
+                            "admin_reject",
+                            "",
+                          );
+                          if (result?.error) setError(result.error);
+                          else {
+                            await handleDrawerClose();
+                            router.refresh();
+                          }
+                        });
+                      }}
+                      disabled={isPending}
+                    >
+                      {t("reject")}
+                    </Button>
+                    <Button
+                      variant="primary"
+                      onClick={() => {
+                        startTransition(async () => {
+                          setError(null);
+                          const result = await approveSubmissionAction(
+                            drawerSubmission.id,
+                          );
+                          if (result?.error) setError(result.error);
+                          else {
+                            await handleDrawerClose();
+                            router.refresh();
+                          }
+                        });
+                      }}
+                      disabled={
+                        isPending ||
+                        !drawerSubmission.reviewCompleteness.complete
+                      }
+                    >
+                      {t("approve")}
+                    </Button>
+                  </>
+                )}
+              </SheetFooter>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="type-card-description">

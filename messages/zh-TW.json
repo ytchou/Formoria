@@ -1965,8 +1965,6 @@
       "searchPlaceholder": "搜尋品牌、提交者、Email 或網站",
       "selectVisible": "選取本頁提交記錄",
       "selectSubmission": "選取 {name}",
-      "expandReview": "展開 {name} 的審核內容",
-      "collapseReview": "收合 {name} 的審核內容",
       "imageAlt": "審核圖片 {n}",
       "setHero": "將圖片 {n} 設為主圖",
       "moveLeft": "將圖片 {n} 向左移",

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -29,12 +29,26 @@ vi.mock("@/app/admin/actions", () => ({
 vi.mock("@/app/admin/operations/actions", () => ({
   startCurationJobAction: actions.enrich,
 }));
+vi.mock("@/components/ui/sheet", () => ({
+  Sheet: ({ children, open }: { children: React.ReactNode; open: boolean }) =>
+    open ? <div data-testid="sheet">{children}</div> : null,
+  SheetContent: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  SheetHeader: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  SheetFooter: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  SheetTitle: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+}));
 vi.mock("../submission-review-details", () => ({
-  SubmissionReviewDetails: ({
-    submission,
-  }: {
-    submission: ReviewSubmission;
-  }) => <div>{`details-${submission.id}`}</div>,
+  SubmissionReviewDetails: ({ submission }: { submission: { id: string } }) => (
+    <div>{`details-${submission.id}`}</div>
+  ),
 }));
 
 beforeEach(() => {
@@ -136,7 +150,7 @@ describe("SubmissionsReviewList", () => {
     expect(screen.getByRole("button", { name: "Bulk reject" })).toBeDisabled();
   });
 
-  it("opens one accessible review disclosure and ignores row action clicks", async () => {
+  it("opens drawer on row click and closes on overlay dismiss", async () => {
     const user = userEvent.setup();
     renderList(
       [
@@ -146,25 +160,13 @@ describe("SubmissionsReviewList", () => {
       "all",
     );
 
-    const firstChevron = screen.getByRole("button", {
-      name: "Expand review for First Brand",
-    });
-    expect(firstChevron).toHaveAttribute("aria-expanded", "false");
-    await user.click(firstChevron);
-    expect(screen.getByText("details-one")).toBeInTheDocument();
-    expect(firstChevron).toHaveAttribute("aria-expanded", "true");
-
-    await user.click(
-      screen.getByRole("button", { name: "Expand review for Second Brand" }),
-    );
     expect(screen.queryByText("details-one")).not.toBeInTheDocument();
-    expect(screen.getByText("details-two")).toBeInTheDocument();
 
-    const secondRow = screen.getByText("Second Brand").closest("tr");
-    expect(secondRow).not.toBeNull();
-    await user.click(
-      within(secondRow!).getByRole("button", { name: "Approve" }),
-    );
+    await user.click(screen.getByText("First Brand"));
+    expect(screen.getByText("details-one")).toBeInTheDocument();
+
+    await user.click(screen.getByText("Second Brand"));
+    expect(screen.queryByText("details-one")).not.toBeInTheDocument();
     expect(screen.getByText("details-two")).toBeInTheDocument();
   });
 });
