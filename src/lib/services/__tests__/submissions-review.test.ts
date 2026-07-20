@@ -27,10 +27,7 @@ describe("submission review curation history", () => {
       [target("submission-1", "succeeded")],
     ];
     const ranges: Array<[number, number]> = [];
-    const submissionQuery = {
-      select: vi.fn(() => submissionQuery),
-      order: vi.fn().mockResolvedValue({ data: rows, error: null }),
-    };
+    const submissionQuery = pagedSubmissionQuery([rows], rows.length, []);
     const historyQuery = pagedQuery(historyPages, ranges);
     const jobsQuery = listQuery(
       rows.map((row) => ({
@@ -76,10 +73,7 @@ describe("submission review curation history", () => {
       submission(`submission-${index}`),
     );
     const targetIdChunks: string[][] = [];
-    const submissionQuery = {
-      select: vi.fn(() => submissionQuery),
-      order: vi.fn().mockResolvedValue({ data: rows, error: null }),
-    };
+    const submissionQuery = pagedSubmissionQuery([rows], rows.length, []);
     const historyQuery = pagedQuery([[], []], [], targetIdChunks);
     const imagesQuery = imageListQuery([]);
     mocks.from.mockImplementation((table: string) => {
@@ -92,6 +86,37 @@ describe("submission review curation history", () => {
 
     expect(targetIdChunks).toHaveLength(2);
     expect(targetIdChunks.every((ids) => ids.length <= 200)).toBe(true);
+  });
+
+  it("loads every review submission page past the PostgREST row limit", async () => {
+    const firstPage = Array.from({ length: 1_000 }, (_, index) =>
+      submission(`submission-${index}`),
+    );
+    const secondPage = [submission("submission-1000")];
+    const submissionRanges: Array<[number, number]> = [];
+    const submissionQuery = pagedSubmissionQuery(
+      [firstPage, secondPage],
+      1_001,
+      submissionRanges,
+    );
+    const historyQuery = pagedQuery(
+      Array.from({ length: 6 }, () => []),
+      [],
+    );
+    const imagesQuery = imageListQuery([]);
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "brand_submissions") return submissionQuery;
+      if (table === "curation_job_targets") return historyQuery;
+      return imagesQuery;
+    });
+
+    const result = await getSubmissionsForReview({ status: "pending" });
+
+    expect(result).toHaveLength(1_001);
+    expect(submissionRanges).toEqual([
+      [0, 999],
+      [1_000, 1_999],
+    ]);
   });
 
   it("batch-loads staged images and exposes the same normalized persisted review", async () => {
@@ -107,10 +132,7 @@ describe("submission review curation history", () => {
         },
       },
     ];
-    const submissionQuery = {
-      select: vi.fn(() => submissionQuery),
-      order: vi.fn().mockResolvedValue({ data: rows, error: null }),
-    };
+    const submissionQuery = pagedSubmissionQuery([rows], rows.length, []);
     const historyQuery = pagedQuery(
       [[target("submission-1", "succeeded")]],
       [],
@@ -168,6 +190,24 @@ type Query = {
   order: ReturnType<typeof vi.fn>;
   range: ReturnType<typeof vi.fn>;
 };
+
+function pagedSubmissionQuery(
+  pages: Array<Array<Record<string, unknown>>>,
+  count: number,
+  ranges: Array<[number, number]>,
+) {
+  let page = 0;
+  const query = {
+    select: vi.fn(() => query),
+    eq: vi.fn(() => query),
+    order: vi.fn(() => query),
+    range: vi.fn(async (from: number, to: number) => {
+      ranges.push([from, to]);
+      return { data: pages[page++] ?? [], count, error: null };
+    }),
+  };
+  return query;
+}
 
 function pagedQuery(
   pages: Array<Array<Record<string, unknown>>>,

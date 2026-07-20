@@ -210,4 +210,17 @@ describe('LandingPage', () => {
     expect(screen.getAllByTestId('brand-showcase')).toHaveLength(2)
     expect(screen.getByRole('heading', { name: '最新品牌' })).toBeInTheDocument()
   })
+
+  it('keeps rendering when landing page brand queries fail', async () => {
+    const databaseError = new Error('Supabase project restricted')
+    vi.mocked(getExploreBrands).mockRejectedValue(databaseError)
+    vi.mocked(getNewBrands).mockRejectedValue(databaseError)
+    vi.mocked(getRecentBrandCount).mockRejectedValue(databaseError)
+
+    render(await LandingPage({ params: Promise.resolve({ locale: 'zh-TW' }) }))
+
+    expect(screen.getByTestId('hero-section')).toBeInTheDocument()
+    expect(screen.getByTestId('section-band')).toBeInTheDocument()
+    expect(screen.queryByTestId('brand-showcase')).not.toBeInTheDocument()
+  })
 })

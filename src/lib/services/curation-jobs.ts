@@ -8,6 +8,7 @@ import {
 export const JOB_HEARTBEAT_INTERVAL_MS = 30_000;
 const JOB_STALE_AFTER_MS = 10 * 60_000;
 const CURATION_TARGET_PAGE_SIZE = 1_000;
+const SUPABASE_IN_FILTER_CHUNK_SIZE = 200;
 
 type CurationJobStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
 export type CurationDispatchStatus = "pending" | "dispatched" | "failed";
@@ -85,6 +86,14 @@ type CurationJobCursor = {
   createdAt: string;
   id: string;
 };
+
+function chunkValues<T>(values: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 export type CurationJobPage = {
   jobs: CurationJob[];
@@ -645,14 +654,20 @@ async function resolveSubmissionTargets(
   submissionIds: string[],
 ): Promise<EnqueueTarget[]> {
   const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("brand_submissions")
-    .select("id, brand_name, status")
-    .in("id", submissionIds);
-
-  if (error) throw error;
-
-  const targets = (data ?? [])
+  const pages = await Promise.all(
+    chunkValues(submissionIds, SUPABASE_IN_FILTER_CHUNK_SIZE).map(
+      async (ids) => {
+        const { data, error } = await supabase
+          .from("brand_submissions")
+          .select("id, brand_name, status")
+          .in("id", ids);
+        if (error) throw error;
+        return data ?? [];
+      },
+    ),
+  );
+  const targets = pages
+    .flat()
     .filter((submission) => submission.status === "pending")
     .map((submission) => ({
       targetType: "submission" as const,

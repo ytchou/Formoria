@@ -203,19 +203,18 @@ test.describe('Admin dashboard deep', () => {
     await adminPage.goto('/admin/submissions?stage=ready', { timeout: 60_000 });
     // Wait for the page to be interactive before looking for the seeded row.
     await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
-    // Click the row text to expand the persisted review sheet.
-    await adminPage.getByText(testBrandName).click();
-    const approveBtn = adminPage.locator('td[colspan="9"]').getByRole('button', { name: 'Approve' });
+    const readyRow = adminPage.locator('tbody tr').filter({ hasText: testBrandName }).first();
+    const approveBtn = readyRow.getByRole('button', { name: 'Approve' });
     await expect(approveBtn).toBeVisible({ timeout: 10_000 });
     await approveBtn.click();
     // After approval the server action revalidates and the button disappears
     await expect(approveBtn).toBeHidden({ timeout: 30_000 });
   });
 
-  test('reject submission keeps brand out of directory', async ({ adminPage }) => {
+  test('needs-data submission only exposes data fetching', async ({ adminPage }) => {
     test.setTimeout(120_000);
 
-    // Create a separate submission for rejection test
+    // Create a separate submission that remains in the needs-data stage.
     const rejectBrandName = `[E2E-TEST] Rejected Brand ${Date.now()}`;
     const { data } = await supabase
       .from('brand_submissions')
@@ -228,14 +227,13 @@ test.describe('Admin dashboard deep', () => {
       .select('id')
       .single();
 
-    await adminPage.goto('/admin/submissions', { timeout: 60_000 });
+    await adminPage.goto('/admin/submissions?stage=needs_data', { timeout: 60_000 });
     await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
     const rejectRow = adminPage.locator('tbody tr').filter({ hasText: rejectBrandName });
-    const rejectBtn = rejectRow.getByRole('button', { name: 'Reject', exact: true });
-    await expect(rejectBtn).toBeVisible({ timeout: 10_000 });
-    adminPage.once('dialog', (dialog) => dialog.accept());
-    await rejectBtn.click();
-    await expect(rejectBtn).toBeHidden({ timeout: 15_000 });
+    await expect(rejectRow).toBeVisible({ timeout: 10_000 });
+    await expect(rejectRow.getByRole('button', { name: 'Approve', exact: true })).toHaveCount(0);
+    await expect(rejectRow.getByRole('button', { name: 'Reject', exact: true })).toHaveCount(0);
+    await expect(adminPage.getByRole('button', { name: 'Fetch Data' })).toBeVisible();
 
     if (data?.id) {
       await supabase.from('brand_submissions').delete().eq('id', data.id);

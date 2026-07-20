@@ -40,16 +40,35 @@ describe("Admin operations dashboard", () => {
   it("puts the connected operations overview first and links every metric", async () => {
     render(await AdminDashboardPage());
 
-    expect(screen.getByRole("heading", { name: "Operations overview" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Operations overview" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Needs data 7/ })).toHaveAttribute(
       "href",
       "/admin/submissions?stage=needs_data",
     );
-    expect(screen.getByRole("link", { name: /Subscribers 30/ })).toHaveAttribute(
-      "href",
-      "/admin/newsletter?status=active",
+    expect(
+      screen.getByRole("link", { name: /Subscribers 30/ }),
+    ).toHaveAttribute("href", "/admin/newsletter?status=active");
+    for (const name of [
+      /Needs data 7/,
+      /Ready 3/,
+      /Content flags 2/,
+      /Claims 4/,
+      /Reports 5/,
+      /Active jobs 2/,
+    ]) {
+      expect(screen.getByRole("link", { name })).toHaveClass("bg-warning/10");
+    }
+    expect(screen.getByRole("link", { name: /Total brands 91/ })).toHaveClass(
+      "bg-card",
     );
-    expect(screen.queryByRole("link", { name: /Brand edits/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Subscribers 30/ })).toHaveClass(
+      "bg-card",
+    );
+    expect(
+      screen.queryByRole("link", { name: /Brand edits/ }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("System Status")).not.toBeInTheDocument();
     expect(screen.queryByText("Feature Toggles")).not.toBeInTheDocument();
   });
@@ -72,18 +91,33 @@ describe("Admin operations dashboard", () => {
     render(await AdminDashboardPage());
 
     expect(screen.getAllByText("Unavailable").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Enrich needs-data submissions" })).toBeDisabled();
+    expect(screen.getByRole("link", { name: /Content flags 0/ })).toHaveClass(
+      "bg-card",
+    );
+    expect(
+      screen.getByRole("button", { name: "Enrich needs-data submissions" }),
+    ).toBeDisabled();
   });
 
   it("shows the quick operation and only the newest job summary", async () => {
     render(await AdminDashboardPage());
 
-    expect(screen.getByRole("button", { name: "Enrich needs-data submissions" })).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "Start the recurring enrichment workflow without leaving the overview.",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Enrich needs-data submissions" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /2026/ })).toHaveAttribute(
       "href",
       "/admin/jobs/550e8400-e29b-41d4-a716-446655440000",
     );
-    expect(screen.getByRole("link", { name: "View all jobs" })).toHaveAttribute("href", "/admin/jobs");
+    expect(screen.getByRole("link", { name: "View all jobs" })).toHaveAttribute(
+      "href",
+      "/admin/jobs",
+    );
   });
 });
 

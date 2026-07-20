@@ -2,24 +2,77 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { AdminQuickActions } from "@/components/admin/admin-quick-actions";
 import { JobStatusBadge, formatJobDate } from "@/app/admin/jobs/job-display";
-import { getAdminOperationsSnapshot, type AdminOperationsMetrics } from "@/lib/services/admin-operations";
+import {
+  getAdminOperationsSnapshot,
+  type AdminOperationsMetrics,
+} from "@/lib/services/admin-operations";
+import { cn } from "@/lib/utils";
 
 type Metric = {
   key: keyof AdminOperationsMetrics;
   label: string;
   description: string;
   href: string;
+  requiresAction: boolean;
 };
 
 const metrics: Metric[] = [
-  { key: "needsData", label: "Needs data", description: "Submissions awaiting enrichment", href: "/admin/submissions?stage=needs_data" },
-  { key: "ready", label: "Ready", description: "Submissions ready for review", href: "/admin/submissions?stage=ready" },
-  { key: "moderation", label: "Content flags", description: "Pending moderation decisions", href: "/admin/moderation" },
-  { key: "claims", label: "Claims", description: "Ownership requests awaiting review", href: "/admin/claims" },
-  { key: "reports", label: "Reports", description: "Open brand reports", href: "/admin/reports" },
-  { key: "activeJobs", label: "Active jobs", description: "Pending or running data jobs", href: "/admin/jobs" },
-  { key: "brands", label: "Total brands", description: "Records in the brand catalog", href: "/admin/brands" },
-  { key: "subscribers", label: "Subscribers", description: "Active newsletter subscribers", href: "/admin/newsletter?status=active" },
+  {
+    key: "needsData",
+    label: "Needs data",
+    description: "Submissions awaiting enrichment",
+    href: "/admin/submissions?stage=needs_data",
+    requiresAction: true,
+  },
+  {
+    key: "ready",
+    label: "Ready",
+    description: "Submissions ready for review",
+    href: "/admin/submissions?stage=ready",
+    requiresAction: true,
+  },
+  {
+    key: "moderation",
+    label: "Content flags",
+    description: "Pending moderation decisions",
+    href: "/admin/moderation",
+    requiresAction: true,
+  },
+  {
+    key: "claims",
+    label: "Claims",
+    description: "Ownership requests awaiting review",
+    href: "/admin/claims",
+    requiresAction: true,
+  },
+  {
+    key: "reports",
+    label: "Reports",
+    description: "Open brand reports",
+    href: "/admin/reports",
+    requiresAction: true,
+  },
+  {
+    key: "activeJobs",
+    label: "Active jobs",
+    description: "Pending or running data jobs",
+    href: "/admin/jobs",
+    requiresAction: true,
+  },
+  {
+    key: "brands",
+    label: "Total brands",
+    description: "Records in the brand catalog",
+    href: "/admin/brands",
+    requiresAction: false,
+  },
+  {
+    key: "subscribers",
+    label: "Subscribers",
+    description: "Active newsletter subscribers",
+    href: "/admin/newsletter?status=active",
+    requiresAction: false,
+  },
 ];
 
 export default async function AdminPage() {
@@ -29,11 +82,15 @@ export default async function AdminPage() {
     <div className="space-y-10">
       <section aria-labelledby="operations-overview-heading">
         <div className="mb-5 max-w-2xl">
-          <h2 id="operations-overview-heading" className="type-section-title-large">
+          <h2
+            id="operations-overview-heading"
+            className="type-section-title-large"
+          >
             Operations overview
           </h2>
           <p className="mt-1 type-card-description">
-            Triage the queues that need a decision, then open the workspace that owns the work.
+            Triage the queues that need a decision, then open the workspace that
+            owns the work.
           </p>
         </div>
         <div className="grid overflow-hidden rounded-xl border-l border-t border-border sm:grid-cols-2 xl:grid-cols-5">
@@ -43,11 +100,19 @@ export default async function AdminPage() {
               <Link
                 key={metric.key}
                 href={metric.href}
-                className="group flex min-h-40 flex-col justify-between border-b border-r border-border bg-card p-5 transition-colors hover:bg-muted/50 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className={cn(
+                  "group flex min-h-40 flex-col justify-between border-b border-r border-border p-5 transition-colors focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  metric.requiresAction && value !== null && value > 0
+                    ? "bg-warning/10 hover:bg-warning/20"
+                    : "bg-card hover:bg-muted/50",
+                )}
               >
                 <div className="flex items-start justify-between gap-3">
                   <span className="type-body-emphasis">{metric.label}</span>
-                  <ArrowUpRight className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden="true" />
+                  <ArrowUpRight
+                    className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                    aria-hidden="true"
+                  />
                 </div>
                 <div>
                   <p className="type-stat">{value ?? "—"}</p>
@@ -61,19 +126,30 @@ export default async function AdminPage() {
         </div>
       </section>
 
-      <section aria-labelledby="quick-operations-heading" className="border-t border-border pt-8">
+      <section
+        aria-labelledby="quick-operations-heading"
+        className="border-t border-border pt-8"
+      >
         <div className="mb-4">
-          <h2 id="quick-operations-heading" className="type-card-title">Quick operations</h2>
-          <p className="mt-1 type-card-description">Start the recurring enrichment workflow without leaving the overview.</p>
+          <h2 id="quick-operations-heading" className="type-card-title">
+            Quick operations
+          </h2>
         </div>
         <AdminQuickActions needsDataCount={snapshot.metrics.needsData} />
       </section>
 
-      <section aria-labelledby="recent-jobs-heading" className="border-t border-border pt-8">
+      <section
+        aria-labelledby="recent-jobs-heading"
+        className="border-t border-border pt-8"
+      >
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
-            <h2 id="recent-jobs-heading" className="type-card-title">Recent data jobs</h2>
-            <p className="mt-1 type-card-description">The five newest runs, ordered by creation time.</p>
+            <h2 id="recent-jobs-heading" className="type-card-title">
+              Recent data jobs
+            </h2>
+            <p className="mt-1 type-card-description">
+              The five newest runs, ordered by creation time.
+            </p>
           </div>
           <Link
             href="/admin/jobs"
@@ -84,7 +160,9 @@ export default async function AdminPage() {
         </div>
         <div className="divide-y divide-border border-y border-border">
           {snapshot.recentJobs.length === 0 ? (
-            <p className="py-8 text-center text-muted-foreground">No data jobs yet.</p>
+            <p className="py-8 text-center text-muted-foreground">
+              No data jobs yet.
+            </p>
           ) : (
             snapshot.recentJobs.map((job) => (
               <Link
@@ -92,8 +170,16 @@ export default async function AdminPage() {
                 href={`/admin/jobs/${job.id}`}
                 className="grid min-h-16 gap-2 py-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:grid-cols-[minmax(220px,1fr)_auto_auto] sm:items-center sm:px-3"
               >
-                <span className="font-medium">{formatJobDate(job.created_at)}</span>
-                <span className="text-sm text-muted-foreground">{job.succeeded_count + job.skipped_count + job.failed_count + (job.cancelled_count ?? 0)} / {job.target_total}</span>
+                <span className="font-medium">
+                  {formatJobDate(job.created_at)}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {job.succeeded_count +
+                    job.skipped_count +
+                    job.failed_count +
+                    (job.cancelled_count ?? 0)}{" "}
+                  / {job.target_total}
+                </span>
                 <JobStatusBadge job={job} />
               </Link>
             ))

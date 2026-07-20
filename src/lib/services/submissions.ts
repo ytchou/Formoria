@@ -167,6 +167,7 @@ type ServiceClient = SupabaseClient<Database>;
 type BrandInsert = Database["public"]["Tables"]["brands"]["Insert"];
 
 const GENERATED_GUEST_EMAIL_DOMAIN = "guest.formoria.invalid";
+const ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE = 1_000;
 const CURATION_TARGET_HISTORY_PAGE_SIZE = 1_000;
 const SUPABASE_IN_FILTER_CHUNK_SIZE = 200;
 const APPROVAL_RPC_ERROR_MESSAGES = new Set([
@@ -857,15 +858,41 @@ export async function getSubmissionsForReview(options?: {
   BrandSubmissionForReview[]
 > {
   const supabase = createServiceClient();
-  let query = supabase
-    .from("brand_submissions")
-    .select(ADMIN_REVIEW_SUBMISSIONS_SELECT);
-  if (options?.status) query = query.eq("status", options.status);
-  const { data, error } = await query.order("submitted_at", { ascending: false });
+  const fetchPage = async (from: number, to: number) => {
+    let query = supabase
+      .from("brand_submissions")
+      .select(ADMIN_REVIEW_SUBMISSIONS_SELECT, { count: "exact" });
+    if (options?.status) query = query.eq("status", options.status);
+    return query
+      .order("submitted_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to);
+  };
+  const firstPage = await fetchPage(0, ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE - 1);
+  if (firstPage.error) throw firstPage.error;
 
-  if (error) throw error;
+  const total = firstPage.count ?? firstPage.data?.length ?? 0;
+  const remainingPages = await Promise.all(
+    Array.from(
+      {
+        length: Math.max(
+          0,
+          Math.ceil(total / ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE) - 1,
+        ),
+      },
+      (_, index) => {
+        const from = (index + 1) * ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE;
+        return fetchPage(from, from + ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE - 1);
+      },
+    ),
+  );
+  const failedPage = remainingPages.find((page) => page.error);
+  if (failedPage?.error) throw failedPage.error;
 
-  const rows = (data ?? []) as unknown as SubmissionRowWithProductTypeNote[];
+  const rows = [firstPage, ...remainingPages].flatMap(
+    (page) =>
+      (page.data ?? []) as unknown as SubmissionRowWithProductTypeNote[],
+  );
   const submissionIds = rows.map((row) => row.id);
   const targetHistory = (
     await Promise.all(

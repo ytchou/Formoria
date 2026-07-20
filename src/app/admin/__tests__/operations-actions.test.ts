@@ -15,6 +15,7 @@ const markCurationJobDispatchPending = vi.fn();
 const recordCurationDispatchFailure = vi.fn();
 const dispatchCurationJob = vi.fn();
 const revalidatePath = vi.fn();
+const getSubmissionsForReview = vi.fn();
 
 vi.mock("@/lib/auth/require-admin", () => ({ requireAdminAction }));
 vi.mock("next/cache", () => ({ revalidatePath }));
@@ -37,6 +38,7 @@ vi.mock('@/lib/services/curation-dispatch', () => ({
   dispatchCurationJob,
   sanitizeDispatchError: (error: unknown) => (error instanceof Error ? error.message : String(error)),
 }));
+vi.mock("@/lib/services/submissions", () => ({ getSubmissionsForReview }));
 
 describe("curation server actions", () => {
   beforeEach(() => {
@@ -63,6 +65,7 @@ describe("curation server actions", () => {
     markCurationJobDispatchPending.mockResolvedValue(undefined);
     recordCurationDispatchFailure.mockResolvedValue(undefined);
     dispatchCurationJob.mockResolvedValue({ accepted: true, status: 'started' });
+    getSubmissionsForReview.mockResolvedValue([]);
   });
 
   it("queues one durable job without running it inside the request", async () => {
@@ -105,6 +108,25 @@ describe("curation server actions", () => {
       error: "Operation removed — use enrich instead",
     });
     expect(enqueueAdminCurationJob).not.toHaveBeenCalled();
+  });
+
+  it("queues every pending submission in the needs-data stage", async () => {
+    getSubmissionsForReview.mockResolvedValueOnce([
+      { id: "submission-1", reviewStage: "needs_data" },
+      { id: "submission-2", reviewStage: "enriching" },
+      { id: "submission-3", reviewStage: "needs_data" },
+    ]);
+
+    const { startNeedsDataSubmissionEnrichmentAction } =
+      await import("../operations/actions");
+    await startNeedsDataSubmissionEnrichmentAction();
+
+    expect(getSubmissionsForReview).toHaveBeenCalledWith({ status: "pending" });
+    expect(enqueueAdminCurationJob).toHaveBeenCalledWith({
+      params: { submissionIds: ["submission-1", "submission-3"] },
+      dryRun: false,
+      startedBy: "admin@example.com",
+    });
   });
 
   it("keeps a queued job durable when immediate dispatch fails", async () => {

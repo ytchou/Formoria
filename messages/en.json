@@ -1859,6 +1859,7 @@
         "brands": "Brand Catalog",
         "quality": "Quality Dashboard",
         "newsletter": "Newsletter",
+        "scripts": "Scripts",
         "settings": "Settings"
       }
     },
@@ -1948,8 +1949,9 @@
       "viewJob": "View job",
       "notFound": "No submissions found.",
       "confirmBulkApprove": "Approve {count} selected submissions?",
-      "bulkApprove": "Bulk approve",
-      "bulkReject": "Bulk reject",
+      "approveSelected": "Approve {count} selected",
+      "rejectSelected": "Reject {count} selected",
+      "confirmRejectSelected": "Confirm reject {count} selected",
       "confirmReject": "Reject this submission?",
       "fetching": "Fetching...",
       "fetchData": "Fetch Data",
@@ -1971,8 +1973,6 @@
       "moveRight": "Move image {n} right",
       "removeImage": "Remove image {n}",
       "confirmRejectButton": "Confirm Reject",
-      "selectedCount": "{count} selected",
-      "confirmBulkReject": "Confirm Bulk Reject",
       "bulkRejectReason": "Bulk Rejection Reason",
       "selectReason": "Select rejection reason",
       "tabs": {
