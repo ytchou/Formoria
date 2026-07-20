@@ -12,7 +12,7 @@ export type CommunitySubmissionDraft = {
   website: string;
 };
 
-export type CommunitySubmissionPreviewStatus =
+type CommunitySubmissionPreviewStatus =
   "ready" | "similar" | "duplicate" | "invalid";
 
 export type CommunitySubmissionPreview = CommunitySubmissionDraft & {
