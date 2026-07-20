@@ -120,9 +120,9 @@ describe("SubmissionReviewDetails", () => {
     await user.click(
       within(contentSection!).getByRole("button", { name: "Edit" }),
     );
-    const description = screen.getByRole("textbox", {
-      name: "Chinese description",
-    });
+    const description = await waitFor(() =>
+      screen.getByRole("textbox", { name: "Chinese description" }),
+    );
     await user.clear(description);
     fireEvent.change(description, { target: { value: "Updated description" } });
     await user.click(
@@ -146,9 +146,9 @@ describe("SubmissionReviewDetails", () => {
     await user.click(
       within(contentSection!).getByRole("button", { name: "Edit" }),
     );
-    const description = screen.getByRole("textbox", {
-      name: "Chinese description",
-    });
+    const description = await waitFor(() =>
+      screen.getByRole("textbox", { name: "Chinese description" }),
+    );
     await user.clear(description);
     fireEvent.change(description, { target: { value: "Unsaved change" } });
 
@@ -199,7 +199,9 @@ describe("SubmissionReviewDetails", () => {
     await user.click(
       within(catalogSection!).getByRole("button", { name: "Edit" }),
     );
-    const productTags = screen.getByRole("textbox", { name: "Product tags" });
+    const productTags = await waitFor(() =>
+      screen.getByRole("textbox", { name: "Product tags" }),
+    );
     await user.clear(productTags);
     await user.type(productTags, "手工皂, 臉部保養, 身體保養, 洗沐清潔, 香水");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
@@ -230,9 +232,10 @@ describe("SubmissionReviewDetails", () => {
     await user.click(
       within(imagesSection!).getByRole("button", { name: "Edit" }),
     );
-    await user.click(
+    const uploadButton = await waitFor(() =>
       screen.getByRole("button", { name: "Upload staged image" }),
     );
+    await user.click(uploadButton);
     expect(
       screen.getByRole("button", { name: "Set image 3 as hero" }),
     ).toBeInTheDocument();
