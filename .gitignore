@@ -72,6 +72,8 @@ next-env.d.ts
 *.md
 !README.md
 !marketing/cards/**/*.md
+!marketing/briefs/*.md
+!marketing/social/brand-voice.md
 docs/
 *.pen
 
