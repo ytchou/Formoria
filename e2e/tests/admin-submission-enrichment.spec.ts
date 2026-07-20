@@ -194,17 +194,16 @@ test.describe("Admin submission enrichment lifecycle", () => {
     await expect(readyRow).toBeVisible();
     await expectBrandCount(0);
 
-    await readyRow
-      .getByRole("button", { name: `Expand review for ${brandName}` })
-      .click();
+    await readyRow.getByText(brandName).click();
     const review = adminPage.locator(`#submission-review-${submissionId}`);
     await expect(review.getByText("完整的品牌資料抓取結果。")).toBeVisible();
     await expect(
       review.getByText("Complete enriched brand profile."),
     ).toBeVisible();
-    await review.getByRole("button", { name: "Edit" }).click();
+    const contentSection = review.getByText("Content").locator("xpath=ancestor::section");
+    await contentSection.getByRole("button", { name: "Edit" }).click();
     await review.getByRole("button", { name: "Save changes" }).click();
-    await expect(review.getByRole("button", { name: "Edit" })).toBeVisible();
+    await expect(contentSection.getByRole("button", { name: "Edit" })).toBeVisible();
 
     await readyRow.getByRole("checkbox").click();
     await readyRow
