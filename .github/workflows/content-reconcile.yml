@@ -1,0 +1,64 @@
+name: Content Reconcile
+
+on:
+  pull_request:
+    types: [closed]
+    paths:
+      - 'marketing/items/**'
+
+concurrency:
+  group: content-reconcile-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      AGENT_HUB_SUPABASE_URL: ${{ secrets.AGENT_HUB_SUPABASE_URL }}
+      AGENT_HUB_SUPABASE_SERVICE_KEY: ${{ secrets.AGENT_HUB_SUPABASE_SERVICE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Reconcile frontmatter with DB
+        run: |
+          # Find all changed brief.md files in this PR
+          CHANGED=$(git diff --name-only HEAD~1 -- marketing/items/)
+          for file in $CHANGED; do
+            if [[ "$file" == */brief.md ]]; then
+              DIR=$(dirname "$file")
+              FOLDER=$(basename "$DIR")
+              ITEM_ID="formoria/$FOLDER"
+
+              # Extract frontmatter status
+              STATUS=$(python3 -c "
+          import re, sys
+          with open('$file') as f:
+              content = f.read()
+          m = re.search(r'^status:\s*(\S+)', content, re.MULTILINE)
+          print(m.group(1) if m else 'proposed')
+          ")
+
+              echo "Reconciling $ITEM_ID → status=$STATUS"
+              # Upsert via Agent Hub Supabase
+              # If this is a sense-PR merge (status=proposed in frontmatter), flip to approved
+              # If this is a produce-PR merge (has post-*.md files), keep review
+              if ls "$DIR"/post-*.md 2>/dev/null | head -1 > /dev/null; then
+                FINAL_STATUS="review"
+              else
+                FINAL_STATUS="approved"
+              fi
+
+              curl -s -X POST "${AGENT_HUB_SUPABASE_URL}/rest/v1/content_items" \
+                -H "apikey: ${AGENT_HUB_SUPABASE_SERVICE_KEY}" \
+                -H "Authorization: Bearer ${AGENT_HUB_SUPABASE_SERVICE_KEY}" \
+                -H "Content-Type: application/json" \
+                -H "Prefer: resolution=merge-duplicates" \
+                -d "{\"id\": \"$ITEM_ID\", \"project\": \"formoria\", \"status\": \"$FINAL_STATUS\", \"item_path\": \"$file\"}"
+            fi
+          done

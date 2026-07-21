@@ -1,0 +1,58 @@
+name: Content Sense
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+concurrency:
+  group: content-sense
+  cancel-in-progress: false
+
+jobs:
+  sense:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      AGENT_HUB_SUPABASE_URL: ${{ secrets.AGENT_HUB_SUPABASE_URL }}
+      AGENT_HUB_SUPABASE_SERVICE_KEY: ${{ secrets.AGENT_HUB_SUPABASE_SERVICE_KEY }}
+      TODOIST_API_TOKEN: ${{ secrets.TODOIST_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run content sensing
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          npx @anthropic-ai/claude-code --print \
+            "Read marketing/strategy/* and the content_items table (Agent Hub Supabase tdwsnhizvskyhbgbblfg, project='formoria'). \
+             Identify 2-4 content opportunities. For each, create marketing/items/<date-slug>/brief.md with shared-contract frontmatter (item_id, status: proposed, platforms, target_date, lang). \
+             Do not create items that duplicate existing content_items rows."
+
+      - name: Create PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="content/sense-$(date +%Y%m%d)"
+          git checkout -b "$BRANCH"
+          git add marketing/items/
+          if git diff --cached --quiet; then
+            echo "No new items proposed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "content(sense): propose new items $(date +%Y-%m-%d)"
+          git push -u origin "$BRANCH"
+          gh pr create --title "Content sense: $(date +%Y-%m-%d)" \
+            --body "Auto-generated content proposals from weekly sensing." \
+            --label "content"

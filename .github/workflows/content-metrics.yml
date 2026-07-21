@@ -1,0 +1,48 @@
+name: Content Metrics
+
+on:
+  schedule:
+    - cron: '0 6 * * 6'
+  workflow_dispatch:
+
+concurrency:
+  group: content-metrics
+  cancel-in-progress: false
+
+jobs:
+  metrics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      AGENT_HUB_SUPABASE_URL: ${{ secrets.AGENT_HUB_SUPABASE_URL }}
+      AGENT_HUB_SUPABASE_SERVICE_KEY: ${{ secrets.AGENT_HUB_SUPABASE_SERVICE_KEY }}
+      TODOIST_API_TOKEN: ${{ secrets.TODOIST_API_TOKEN }}
+      NEXT_PUBLIC_POSTHOG_KEY: ${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
+      POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Collect metrics and generate digest
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          npx @anthropic-ai/claude-code --print \
+            "Query content_items (Agent Hub Supabase tdwsnhizvskyhbgbblfg, project='formoria', status='published'). \
+             For each with published_urls, fetch PostHog pageview metrics for those URLs. \
+             Update content_items.metrics with the latest data. \
+             Write a summary report to marketing/strategy/sense-report.md. \
+             Also check for 'ready' items past target_date — create a Todoist task with a digest (use GitHub file URLs, never localhost)."
+
+      - name: Commit report
+        run: |
+          git add marketing/strategy/sense-report.md
+          if git diff --cached --quiet; then
+            echo "No report changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "content(metrics): weekly report $(date +%Y-%m-%d)"
+          git push
