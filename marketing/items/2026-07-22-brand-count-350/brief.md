@@ -1,7 +1,9 @@
 ---
-calendar_id: "2026-07-22-brand-count-350"
+item_id: "formoria/2026-07-22-brand-count-350"
 title: "島藏收錄突破 350 個台灣製造品牌"
+status: proposed
 platforms: [threads, ig]
+target_date: "2026-07-22"
 lang: zh
 media: carousel
 tone: calm

@@ -1,11 +1,13 @@
 ---
+item_id: "formoria/2026-07-21-intro-carousel"
 title: "Formoria 島藏 — ZH-TW intro carousel (8 cards)"
+status: proposed
+platforms: [ig, threads]
+target_date: "2026-07-21"
 lang: zh
 total: 8
 theme: marketing/cards/theme.json
 templateDir: marketing/cards/templates
-platforms: "IG (CTA note 連結在簡介) · Threads (CTA note formoria.com)"
-status: "DRAFT — founder sign-off pending (see TODOs)"
 ---
 
 # Formoria 島藏 — ZH-TW Intro Carousel Brief

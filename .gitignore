@@ -72,8 +72,8 @@ next-env.d.ts
 *.md
 !README.md
 !marketing/cards/**/*.md
-!marketing/briefs/*.md
-!marketing/social/brand-voice.md
+!marketing/items/**/*.md
+!marketing/strategy/**/*.md
 !.github/selfheal/*.md
 docs/
 *.pen
