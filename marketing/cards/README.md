@@ -6,11 +6,11 @@ Image-led 1080×1350 social cards for Formoria / 島藏, built on the global `/c
 
 - `theme.json` — design tokens: palette, type scale (Noto Sans TC), `background.scrim` stops by card type, `accentRules` keyed by background mode, and `cards.templateDir`.
 - `templates/` — HTML templates with `{{TOKEN}}` placeholders: `cover.html`, `text.html` (content modes: bullets / prose / numbered / quote / keyword / big-statement), `cta.html`, `brand-highlight.html`.
-- `briefs/` — one markdown brief per card set (e.g. `intro-set.md`): per-card type, template, mode, background, and ZH-TW copy.
+- Card set briefs live in `marketing/items/<dir>/brief.md` (e.g. `../items/2026-07-21-intro-carousel/brief.md`): per-card type, template, mode, background, and ZH-TW copy.
 
 ## How to generate a card set
 
-1. Author or pick a brief in `briefs/`. Each card entry specifies: type, template, mode, background `{type, value, scrim}`, and copy.
+1. Author or pick a brief in `marketing/items/<dir>/brief.md`. Each card entry specifies: type, template, mode, background `{type, value, scrim}`, and copy.
 2. For image-mode cards, source a photo (founder-supplied or AI-generated) pre-cropped to 1080×1350.
 3. Run `/content-cards` pointed at this engine:
    ```
@@ -29,7 +29,7 @@ Image-led 1080×1350 social cards for Formoria / 島藏, built on the global `/c
 
 ## Add a new card type or set
 
-- **New set (same look):** add a brief in `briefs/` and reuse the existing templates — no skill or template change needed.
+- **New set (same look):** add a brief in `marketing/items/<dir>/brief.md` and reuse the existing templates — no skill or template change needed.
 - **New card type:** add `templates/<type>.html` using the token contract below; reference it from a brief.
 
 ## Token contract
@@ -119,4 +119,4 @@ Templates and theme are reusable for these future sets — each needs only a new
 - **v1 ZH-TW only.** Bilingual support is deferred. Distribution is manual native upload (IG, Threads).
 - **Image sourcing** is a content-time concern. The engine consumes an image path per card; it does not source or generate images.
 - **Logo asset:** `theme.brand.logo` is `null`. The v1 placeholder is the text wordmark 島藏 / Formoria rendered in Noto Sans TC.
-- **Pending founder sign-off** (see `briefs/intro-set.md` TODOs): cover tagline wording, founder quote wording, IG / Threads handles.
+- **Pending founder sign-off** (see `../items/2026-07-21-intro-carousel/brief.md` TODOs): cover tagline wording, founder quote wording, IG / Threads handles.

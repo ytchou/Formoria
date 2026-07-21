@@ -1158,71 +1158,127 @@ export type Database = {
         }
         Relationships: []
       }
-      marketing_calendar: {
+      health_fix_queue: {
         Row: {
-          brief_path: string | null
+          attempted_at: string | null
+          created_at: string
+          fixed_at: string | null
+          id: string
+          key_frames: Json | null
+          pr_url: string | null
+          recommended_action: string | null
+          seer_root_cause: string | null
+          sentry_issue_id: string
+          status: string
+          title: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          attempted_at?: string | null
+          created_at?: string
+          fixed_at?: string | null
+          id?: string
+          key_frames?: Json | null
+          pr_url?: string | null
+          recommended_action?: string | null
+          seer_root_cause?: string | null
+          sentry_issue_id: string
+          status?: string
+          title: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          attempted_at?: string | null
+          created_at?: string
+          fixed_at?: string | null
+          id?: string
+          key_frames?: Json | null
+          pr_url?: string | null
+          recommended_action?: string | null
+          seer_root_cause?: string | null
+          sentry_issue_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
+      health_snapshots: {
+        Row: {
           created_at: string
           id: string
-          lang: string
-          media: string | null
-          notes: string | null
-          output_path: string | null
-          platforms: string[]
-          priority: string
-          source_detected_at: string | null
-          source_detected_by: string | null
-          source_type: string | null
-          source_url: string | null
-          status: string
-          target_date: string | null
-          title: string
-          todoist_task_id: string | null
-          type: string
+          metrics: Json
+          snapshot_date: string
           updated_at: string
         }
         Insert: {
-          brief_path?: string | null
           created_at?: string
-          id: string
-          lang?: string
-          media?: string | null
-          notes?: string | null
-          output_path?: string | null
-          platforms?: string[]
-          priority?: string
-          source_detected_at?: string | null
-          source_detected_by?: string | null
-          source_type?: string | null
-          source_url?: string | null
-          status?: string
-          target_date?: string | null
-          title: string
-          todoist_task_id?: string | null
-          type: string
+          id?: string
+          metrics: Json
+          snapshot_date: string
           updated_at?: string
         }
         Update: {
-          brief_path?: string | null
           created_at?: string
           id?: string
-          lang?: string
-          media?: string | null
-          notes?: string | null
-          output_path?: string | null
-          platforms?: string[]
-          priority?: string
-          source_detected_at?: string | null
-          source_detected_by?: string | null
-          source_type?: string | null
-          source_url?: string | null
-          status?: string
-          target_date?: string | null
-          title?: string
-          todoist_task_id?: string | null
-          type?: string
+          metrics?: Json
+          snapshot_date?: string
           updated_at?: string
         }
         Relationships: []
+      }
+      link_check_results: {
+        Row: {
+          auto_nulled_at: string | null
+          brand_id: string
+          consecutive_failures: number
+          created_at: string
+          field: string
+          id: string
+          last_checked_at: string | null
+          last_ok_at: string | null
+          last_status_code: number | null
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          auto_nulled_at?: string | null
+          brand_id: string
+          consecutive_failures?: number
+          created_at?: string
+          field: string
+          id?: string
+          last_checked_at?: string | null
+          last_ok_at?: string | null
+          last_status_code?: number | null
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          auto_nulled_at?: string | null
+          brand_id?: string
+          consecutive_failures?: number
+          created_at?: string
+          field?: string
+          id?: string
+          last_checked_at?: string | null
+          last_ok_at?: string | null
+          last_status_code?: number | null
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "link_check_results_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       mit_registry: {
         Row: {
@@ -1837,6 +1893,25 @@ export type Database = {
           brand_slug: string
           input_name: string
           similarity_score: number
+        }[]
+      }
+      get_brand_quality_metrics: {
+        Args: never
+        Returns: {
+          avg_description_length: number
+          completeness_excellent: number
+          completeness_fair: number
+          completeness_good: number
+          completeness_poor: number
+          description_count: number
+          hero_image_count: number
+          purchase_pinkoi_count: number
+          purchase_shopee_count: number
+          purchase_website_count: number
+          social_facebook_count: number
+          social_instagram_count: number
+          social_threads_count: number
+          total_brands: number
         }[]
       }
       increment_brand_click: {

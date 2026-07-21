@@ -1,7 +1,9 @@
 ---
-calendar_id: "2026-07-25-ceramics-festival"
+item_id: "formoria/2026-07-25-ceramics-festival"
 title: "台灣國際陶藝雙年展 — 島藏有收錄的參展品牌"
+status: proposed
 platforms: [threads, ig]
+target_date: "2026-07-25"
 lang: zh
 media: carousel
 tone: calm

@@ -1,31 +1,20 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('@tina/client', () => ({
-  client: {
-    queries: {
-      guideConnection: vi.fn(),
-      guide: vi.fn(),
-    },
-  },
-}));
+vi.mock('fs')
+vi.mock('gray-matter', () => ({
+  default: vi.fn(),
+}))
 
-vi.mock('next/navigation', () => ({
-  notFound: vi.fn(() => {
-    throw new Error('NEXT_NOT_FOUND');
-  }),
-}));
-
+import fs from 'fs'
+import matter from 'gray-matter'
 import {
   getAllGuides,
   getGuideBySlug,
   getGuidesByCategory,
   getPublishedGuideBySlug,
-} from './guides';
-import { client } from '@tina/client'
-import { notFound } from 'next/navigation';
+} from './guides'
 
-const mockGuideNode = {
+const mockFrontmatter = {
   title: 'Taiwan Skincare Brands',
   description: 'Top skincare brands from Taiwan',
   slug: 'taiwan-skincare-brands',
@@ -36,190 +25,178 @@ const mockGuideNode = {
   draft: false,
   sources: ['https://example.com/source'],
   faq: [{ q: 'What makes Taiwan skincare special?', a: 'High-quality ingredients and innovation.' }],
-  body: { type: 'root', children: [] },
-  _sys: { filename: 'taiwan-skincare-brands.mdx', relativePath: 'taiwan-skincare-brands.mdx' },
-};
+}
 
-describe('guides service (Tina-backed)', () => {
+const mockRawMdx = `---\ntitle: Taiwan Skincare Brands\n---\n\nContent here.`
+
+describe('guides service (filesystem-backed)', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-  });
+    vi.clearAllMocks()
+  })
 
   describe('getAllGuides', () => {
     it('returns guides with preserved nested frontmatter shape', async () => {
-      vi.mocked(client.queries.guideConnection).mockResolvedValue({
-        data: {
-          guideConnection: {
-            edges: [{ node: mockGuideNode }],
-          },
-        },
-      } as any);
+      vi.mocked(fs.readdirSync).mockReturnValue(['taiwan-skincare-brands.mdx'] as unknown as ReturnType<typeof fs.readdirSync>)
+      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
+      vi.mocked(matter).mockReturnValue({ data: mockFrontmatter, content: 'Content here.' } as unknown as ReturnType<typeof matter>)
 
-      const result = await getAllGuides();
-      expect(result.ok).toBe(true);
-      if (!result.ok) throw result.error;
-      const guides = result.guides;
+      const result = await getAllGuides()
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw result.error
+      const guides = result.guides
 
-      expect(guides).toHaveLength(1);
-      expect(guides[0].slug).toBe('taiwan-skincare-brands');
-      expect(guides[0].frontmatter.title).toBe('Taiwan Skincare Brands');
-      expect(guides[0].frontmatter.description).toBe('Top skincare brands from Taiwan');
-      expect(guides[0].frontmatter.category).toBe('beauty');
-      expect(guides[0].frontmatter.locale).toBe('zh-TW');
-      expect(guides[0].frontmatter.publishedAt).toBe('2026-06-15T00:00:00.000Z');
+      expect(guides).toHaveLength(1)
+      expect(guides[0].slug).toBe('taiwan-skincare-brands')
+      expect(guides[0].frontmatter.title).toBe('Taiwan Skincare Brands')
+      expect(guides[0].frontmatter.description).toBe('Top skincare brands from Taiwan')
+      expect(guides[0].frontmatter.category).toBe('beauty')
+      expect(guides[0].frontmatter.locale).toBe('zh-TW')
+      expect(guides[0].frontmatter.publishedAt).toBe('2026-06-15T00:00:00.000Z')
       expect(guides[0].frontmatter.faq).toEqual([
         { q: 'What makes Taiwan skincare special?', a: 'High-quality ingredients and innovation.' },
-      ]);
-      expect(guides[0].frontmatter.sources).toEqual(['https://example.com/source']);
-      expect(guides[0].frontmatter.draft).toBe(false);
-    });
+      ])
+      expect(guides[0].frontmatter.sources).toEqual(['https://example.com/source'])
+      expect(guides[0].frontmatter.draft).toBe(false)
+    })
 
-    it('filters by locale zh-TW and non-draft', async () => {
-      vi.mocked(client.queries.guideConnection).mockResolvedValue({
-        data: { guideConnection: { edges: [] } },
-      } as any);
+    it('filters out non-zh-TW locale guides', async () => {
+      vi.mocked(fs.readdirSync).mockReturnValue(['en-guide.mdx'] as unknown as ReturnType<typeof fs.readdirSync>)
+      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
+      vi.mocked(matter).mockReturnValue({
+        data: { ...mockFrontmatter, locale: 'en' },
+        content: 'Content.',
+      } as unknown as ReturnType<typeof matter>)
 
-      await getAllGuides();
+      const result = await getAllGuides()
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw result.error
+      expect(result.guides).toHaveLength(0)
+    })
 
-      expect(client.queries.guideConnection).toHaveBeenCalledWith({
-        first: 200,
-        filter: { locale: { eq: 'zh-TW' }, draft: { eq: false } },
-      });
-    });
+    it('filters out draft guides', async () => {
+      vi.mocked(fs.readdirSync).mockReturnValue(['draft-guide.mdx'] as unknown as ReturnType<typeof fs.readdirSync>)
+      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
+      vi.mocked(matter).mockReturnValue({
+        data: { ...mockFrontmatter, draft: true },
+        content: 'Content.',
+      } as unknown as ReturnType<typeof matter>)
+
+      const result = await getAllGuides()
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw result.error
+      expect(result.guides).toHaveLength(0)
+    })
 
     it('handles missing optional fields with defaults', async () => {
-      const nodeWithMissing = {
-        ...mockGuideNode,
-        updatedAt: undefined,
-        sources: undefined,
-        faq: undefined,
-        draft: undefined,
-      };
-      vi.mocked(client.queries.guideConnection).mockResolvedValue({
-        data: { guideConnection: { edges: [{ node: nodeWithMissing }] } },
-      } as any);
+      vi.mocked(fs.readdirSync).mockReturnValue(['taiwan-skincare-brands.mdx'] as unknown as ReturnType<typeof fs.readdirSync>)
+      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
+      vi.mocked(matter).mockReturnValue({
+        data: {
+          ...mockFrontmatter,
+          updatedAt: undefined,
+          sources: undefined,
+          faq: undefined,
+          draft: undefined,
+        },
+        content: 'Content.',
+      } as unknown as ReturnType<typeof matter>)
 
-      const result = await getAllGuides();
-      expect(result.ok).toBe(true);
-      if (!result.ok) throw result.error;
-      const guides = result.guides;
+      const result = await getAllGuides()
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw result.error
+      const guides = result.guides
 
-      expect(guides[0].frontmatter.updatedAt).toBeUndefined();
-      expect(guides[0].frontmatter.sources).toEqual([]);
-      expect(guides[0].frontmatter.faq).toEqual([]);
-      expect(guides[0].frontmatter.draft).toBe(false);
-    });
+      expect(guides[0].frontmatter.updatedAt).toBeUndefined()
+      expect(guides[0].frontmatter.sources).toEqual([])
+      expect(guides[0].frontmatter.faq).toEqual([])
+      expect(guides[0].frontmatter.draft).toBe(false)
+    })
 
-    it('returns a failure result and logs TinaCMS errors', async () => {
-      const error = new Error('TinaCMS unavailable');
-      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-      vi.mocked(client.queries.guideConnection).mockRejectedValue(error);
+    it('returns a failure result and logs filesystem errors', async () => {
+      const error = new Error('ENOENT: directory not found')
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.mocked(fs.readdirSync).mockImplementation(() => { throw error })
 
-      const result = await getAllGuides();
+      const result = await getAllGuides()
 
-      expect(result).toEqual({ ok: false, error });
+      expect(result).toEqual({ ok: false, error })
       expect(consoleError).toHaveBeenCalledWith(
-        '[guides:getAllGuides] TinaCMS query failed',
+        '[guides:getAllGuides] filesystem read failed',
         error,
-      );
-      consoleError.mockRestore();
-    });
-  });
+      )
+      consoleError.mockRestore()
+    })
+  })
 
   describe('getGuideBySlug', () => {
-    it('returns entry with preserved shape and raw tina result', async () => {
-      const tinaResult = {
-        data: { guide: mockGuideNode },
-        query: 'query { guide { ... } }',
-        variables: { relativePath: 'taiwan-skincare-brands.mdx' },
-      };
-      vi.mocked(client.queries.guide).mockResolvedValue(tinaResult as any);
+    it('returns entry with preserved shape and raw content string', async () => {
+      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
+      vi.mocked(matter).mockReturnValue({
+        data: mockFrontmatter,
+        content: 'Content here.',
+      } as unknown as ReturnType<typeof matter>)
 
-      const result = await getGuideBySlug('taiwan-skincare-brands');
+      const result = await getGuideBySlug('taiwan-skincare-brands')
 
-      expect(result).not.toBeNull();
-      if (!result) throw new Error('Expected guide detail result');
-      expect(result.entry.slug).toBe('taiwan-skincare-brands');
-      expect(result.entry.frontmatter.title).toBe('Taiwan Skincare Brands');
-      expect(result.tina).toBe(tinaResult);
-    });
+      expect(result).not.toBeNull()
+      if (!result) throw new Error('Expected guide detail result')
+      expect(result.entry.slug).toBe('taiwan-skincare-brands')
+      expect(result.entry.frontmatter.title).toBe('Taiwan Skincare Brands')
+      expect(typeof result.content).toBe('string')
+    })
 
-    it('returns null when the guide is missing', async () => {
-      vi.mocked(client.queries.guide).mockResolvedValue({
-        data: { guide: null },
-        query: '',
-        variables: {},
-      } as any);
+    it('returns null when the file does not exist', async () => {
+      vi.mocked(fs.readFileSync).mockImplementation(() => {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+      })
 
-      const result = await getGuideBySlug('missing-guide');
+      const result = await getGuideBySlug('missing-guide')
 
-      expect(result).toBeNull();
-      expect(notFound).not.toHaveBeenCalled();
-    });
-
-    it('returns null when Tina returns a malformed result', async () => {
-      vi.mocked(client.queries.guide).mockResolvedValue(null as any);
-
-      const result = await getGuideBySlug('malformed-guide');
-
-      expect(result).toBeNull();
-      expect(notFound).not.toHaveBeenCalled();
-    });
-
-    it('returns null when Tina fails to load the guide', async () => {
-      vi.mocked(client.queries.guide).mockRejectedValue(new Error('TinaCMS unavailable'));
-
-      const result = await getGuideBySlug('unavailable-guide');
-
-      expect(result).toBeNull();
-      expect(notFound).not.toHaveBeenCalled();
-    });
-
-    it('queries by relativePath with .mdx extension', async () => {
-      vi.mocked(client.queries.guide).mockResolvedValue({
-        data: { guide: mockGuideNode },
-        query: '',
-        variables: {},
-      } as any);
-
-      await getGuideBySlug('taiwan-skincare-brands');
-
-      expect(client.queries.guide).toHaveBeenCalledWith({
-        relativePath: 'taiwan-skincare-brands.mdx',
-      });
-    });
-  });
+      expect(result).toBeNull()
+    })
+  })
 
   describe('getPublishedGuideBySlug', () => {
     it('does not expose a draft guide through the public query', async () => {
-      vi.mocked(client.queries.guide).mockResolvedValue({
-        data: { guide: { ...mockGuideNode, draft: true } },
-        query: '',
-        variables: {},
-      } as any);
+      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
+      vi.mocked(matter).mockReturnValue({
+        data: { ...mockFrontmatter, draft: true },
+        content: 'Content.',
+      } as unknown as ReturnType<typeof matter>)
 
       await expect(
         getPublishedGuideBySlug('taiwan-skincare-brands'),
-      ).resolves.toBeNull();
-    });
-  });
+      ).resolves.toBeNull()
+    })
+
+    it('returns the guide when it is published', async () => {
+      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
+      vi.mocked(matter).mockReturnValue({
+        data: { ...mockFrontmatter, draft: false },
+        content: 'Content.',
+      } as unknown as ReturnType<typeof matter>)
+
+      const result = await getPublishedGuideBySlug('taiwan-skincare-brands')
+      expect(result).not.toBeNull()
+    })
+  })
 
   describe('getGuidesByCategory', () => {
     it('filters by category, locale, and draft status', async () => {
-      vi.mocked(client.queries.guideConnection).mockResolvedValue({
-        data: { guideConnection: { edges: [] } },
-      } as any);
+      const files = ['beauty-guide.mdx', 'food-guide.mdx']
+      vi.mocked(fs.readdirSync).mockReturnValue(files as unknown as ReturnType<typeof fs.readdirSync>)
+      vi.mocked(fs.readFileSync)
+        .mockReturnValueOnce(mockRawMdx)
+        .mockReturnValueOnce(mockRawMdx)
+      vi.mocked(matter)
+        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'beauty-guide', category: 'beauty' }, content: 'content' } as unknown as ReturnType<typeof matter>)
+        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'food-guide', category: 'food' }, content: 'content' } as unknown as ReturnType<typeof matter>)
 
-      await getGuidesByCategory('beauty');
-
-      expect(client.queries.guideConnection).toHaveBeenCalledWith({
-        first: 200,
-        filter: {
-          category: { eq: 'beauty' },
-          locale: { eq: 'zh-TW' },
-          draft: { eq: false },
-        },
-      });
-    });
-  });
-});
+      const result = await getGuidesByCategory('beauty')
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw result.error
+      expect(result.guides).toHaveLength(1)
+      expect(result.guides[0].frontmatter.category).toBe('beauty')
+    })
+  })
+})

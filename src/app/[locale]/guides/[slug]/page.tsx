@@ -8,7 +8,7 @@ import { FaqBlock } from '@/components/guides/faq-block'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { buildArticleJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
-import { GuideClient } from './guide-client'
+import { GuideContent } from './guide-client'
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>
@@ -100,11 +100,7 @@ export default async function GuidePage({ params }: PageProps) {
           <p className="type-page-subtitle">{guide.entry.frontmatter.description}</p>
         </header>
         <div className="prose prose-neutral max-w-none prose-headings:scroll-mt-24 prose-a:break-words dark:prose-invert">
-          <GuideClient
-            data={guide.tina.data ?? {}}
-            query={guide.tina.query}
-            variables={guide.tina.variables}
-          />
+          <GuideContent source={guide.content} />
         </div>
         {guide.entry.frontmatter.faq && guide.entry.frontmatter.faq.length > 0 && (
           <FaqBlock questions={guide.entry.frontmatter.faq} />

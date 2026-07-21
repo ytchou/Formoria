@@ -1,0 +1,73 @@
+name: Content Produce
+
+on:
+  schedule:
+    - cron: '0 6 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      item_id:
+        description: 'Specific item ID to produce (optional)'
+        type: string
+        default: ''
+
+concurrency:
+  group: content-produce
+  cancel-in-progress: false
+
+jobs:
+  produce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      AGENT_HUB_SUPABASE_URL: ${{ secrets.AGENT_HUB_SUPABASE_URL }}
+      AGENT_HUB_SUPABASE_SERVICE_KEY: ${{ secrets.AGENT_HUB_SUPABASE_SERVICE_KEY }}
+      TODOIST_API_TOKEN: ${{ secrets.TODOIST_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Produce content
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          ITEM_FILTER="${{ inputs.item_id }}"
+          npx @anthropic-ai/claude-code --print \
+            "Query content_items (Agent Hub Supabase tdwsnhizvskyhbgbblfg, project='formoria', status='approved'${ITEM_FILTER:+, id='$ITEM_FILTER'}). \
+             For each item, read its brief at marketing/items/<folder>/brief.md. \
+             Produce Threads and IG posts, saving to marketing/items/<folder>/post-threads.md and post-instagram.md. \
+             If media=carousel, produce cards in marketing/cards/<slug>/."
+
+      - name: zh-TW quality gate
+        run: |
+          python3 scripts/zh-check/check.py --channel social marketing/items/*/post-*.md
+          if [ $? -ne 0 ]; then
+            echo "::error::zh-TW quality check failed"
+            exit 1
+          fi
+
+      - name: Create PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="content/produce-$(date +%Y%m%d)"
+          git checkout -b "$BRANCH"
+          git add marketing/items/ marketing/cards/
+          if git diff --cached --quiet; then
+            echo "No content produced"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "content(produce): produce approved items $(date +%Y-%m-%d)"
+          git push -u origin "$BRANCH"
+          gh pr create --title "Content produce: $(date +%Y-%m-%d)" \
+            --body "Auto-produced content from approved items." \
+            --label "content"
