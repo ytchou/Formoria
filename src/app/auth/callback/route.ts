@@ -7,6 +7,7 @@ import { getRequestOrigin } from "@/lib/auth/site-url";
 import { completeBrandClaim, getBrandById } from "@/lib/services/brands";
 import { getProfileAdmin } from "@/lib/services/profiles";
 import { enrollInMarketingEmails } from "@/lib/services/marketing-email-consent";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -103,6 +104,16 @@ export async function GET(request: NextRequest) {
       });
 
       const brand = await getBrandById(claim.brandId);
+      const posthog = getPostHogClient();
+      posthog.capture({
+        distinctId: userId,
+        event: "brand_claim_completed",
+        properties: {
+          brand_id: claim.brandId,
+          is_new_user: isNewUser,
+        },
+      });
+      await posthog.flush();
       const url = new URL(`/dashboard/brands/${brand.slug}`, await getRequestOrigin());
       if (isNewUser) {
         url.searchParams.set("is_new_user", "1");
@@ -130,6 +141,23 @@ export async function GET(request: NextRequest) {
         maxAge: 365 * 24 * 60 * 60,
       });
     }
+  }
+
+  if (userId) {
+    const posthog = getPostHogClient();
+    posthog.identify({
+      distinctId: userId,
+      properties: userEmail ? { email: userEmail } : {},
+    });
+    posthog.capture({
+      distinctId: userId,
+      event: "user_authenticated",
+      properties: {
+        is_new_user: isNewUser,
+        has_claim_intent: Boolean(claimToken),
+      },
+    });
+    await posthog.flush();
   }
 
   const redirectTo = next && isRelativeUrl(next) ? next : "/dashboard";

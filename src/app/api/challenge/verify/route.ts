@@ -3,6 +3,7 @@ import { isRelativeUrl } from '@/lib/auth/validations'
 import { signChallengeToken, CHALLENGE_COOKIE_NAME } from '@/lib/security/challenge'
 import { getClientIp, rateLimit } from '@/lib/security/rate-limiter'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
+import { getPostHogClient } from '@/lib/posthog-server'
 
 type ChallengeVerifyBody = {
   token?: unknown
@@ -52,6 +53,16 @@ export async function POST(request: NextRequest) {
     sameSite: 'lax',
     path: '/',
   })
+
+  const posthog = getPostHogClient()
+  posthog.capture({
+    distinctId: request.headers.get('x-posthog-distinct-id') ?? crypto.randomUUID(),
+    event: 'challenge_verified',
+    properties: {
+      has_custom_return_path: redirectTo !== '/',
+    },
+  })
+  await posthog.flush()
 
   return response
 }

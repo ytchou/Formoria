@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import * as Sentry from '@sentry/nextjs'
+import { getPostHogClient } from '@/lib/posthog-server'
 import { createClient } from '@/lib/supabase/server'
 import { sanitizeErrorResponse } from '@/lib/errors'
 import { processImage } from '@/lib/security/image-processor'
@@ -13,6 +14,20 @@ import {
   type AllowedUploadBucket,
 } from '@/lib/services/image-upload'
 import { getClientIp } from '@/lib/security/rate-limiter'
+
+async function captureAssetUploaded(
+  request: Request,
+  userId: string | null,
+  properties: Record<string, unknown>,
+): Promise<void> {
+  const posthog = getPostHogClient()
+  posthog.capture({
+    distinctId: userId ?? request.headers.get('x-posthog-distinct-id') ?? crypto.randomUUID(),
+    event: 'asset_uploaded',
+    properties,
+  })
+  await posthog.flush()
+}
 
 const uploadRateLimiter = createInMemoryRateLimiter()
 const UPLOAD_RATE_LIMIT_WINDOW_MS = 60_000
@@ -113,6 +128,12 @@ export async function POST(request: Request) {
           contentType: 'application/pdf',
         })
 
+        await captureAssetUploaded(request, userId, {
+          bucket,
+          asset_type: 'document',
+          size_bytes: buffer.length,
+          authenticated: true,
+        })
         return NextResponse.json({
           key: result.key,
         })
@@ -145,6 +166,14 @@ export async function POST(request: Request) {
           contentType: 'image/webp',
         })
 
+        await captureAssetUploaded(request, userId, {
+          bucket,
+          asset_type: 'image',
+          size_bytes: buffer.length,
+          width: processed.width,
+          height: processed.height,
+          authenticated: true,
+        })
         return NextResponse.json({
           key: result.key,
           width: processed.width,
@@ -159,6 +188,14 @@ export async function POST(request: Request) {
         contentType: 'image/webp',
       })
 
+      await captureAssetUploaded(request, userId, {
+        bucket,
+        asset_type: 'image',
+        size_bytes: buffer.length,
+        width: processed.width,
+        height: processed.height,
+        authenticated: false,
+      })
       return NextResponse.json({
         url: result.url,
         width: processed.width,
