@@ -1877,9 +1877,9 @@ export type Database = {
           p_dry_run: boolean
           p_operation: string
           p_params: Json
-          p_parent_job_id: string
+          p_parent_job_id: string | null
           p_run_after: string
-          p_scheduled_for: string
+          p_scheduled_for: string | null
           p_started_by: string
           p_targets: Json
           p_trigger: string
