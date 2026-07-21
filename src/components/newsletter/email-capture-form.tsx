@@ -1,11 +1,12 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState, useEffect, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 
 import { subscribeToNewsletter } from '@/app/actions/newsletter'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { trackNewsletterSubscribed } from '@/lib/analytics'
 
 const INTEREST_CHIPS = [
   { slug: 'curated-picks', labelKey: 'interests.curated-picks' },
@@ -19,6 +20,13 @@ export function EmailCaptureForm() {
   const t = useTranslations('newsletter')
   const [state, formAction, isPending] = useActionState(subscribeToNewsletter, {})
   const [selectedChips, setSelectedChips] = useState<string[]>(['curated-picks'])
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (state.success) {
+      trackNewsletterSubscribed(selectedChips, true)
+    }
+  }, [state.success])
 
   function toggleChip(slug: string) {
     setSelectedChips((current) =>
@@ -69,6 +77,7 @@ export function EmailCaptureForm() {
 
         <Button
           variant="primary" tone="cta"
+          data-ph-no-autocapture
           disabled={isPending}
           type="submit"
         >

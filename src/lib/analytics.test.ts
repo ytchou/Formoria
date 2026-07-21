@@ -20,7 +20,6 @@ import {
   trackSearchResultClicked,
   trackSearchNoResults,
   trackSearchSuggestionSelect,
-  trackFilterSearch,
   trackSubmissionFormOpened,
   trackSubmissionFormStepCompleted,
   trackSubmissionCompleted,
@@ -30,6 +29,28 @@ import {
   trackSignUp,
   trackLogin,
   trackViewItemList,
+  trackHeroCategoryClicked,
+  trackDirectorySortChanged,
+  trackDirectoryPageNavigated,
+  trackSubcategoryFilterApplied,
+  trackPriceFilterApplied,
+  trackVerificationFilterApplied,
+  trackFilterCleared,
+  trackLanguageSwitched,
+  trackBrandSaved,
+  trackBrandUnsaved,
+  trackRecommendationBrandClicked,
+  trackRecommendationSectionViewed,
+  trackGalleryCompleted,
+  trackFaqItemExpanded,
+  trackSubmissionPathSelected,
+  trackNewsletterSubscribed,
+  trackBrandClaimStarted,
+  trackBrandClaimFormSubmitted,
+  trackBrandReported,
+  trackCtaClicked,
+  trackSubmissionFormErrorShown,
+  trackApiErrorShown,
 } from './analytics'
 
 beforeEach(() => {
@@ -256,7 +277,7 @@ describe('analytics', () => {
       brand_id: 'brand-uuid',
       brand_slug: 'my-brand',
     })
-    expect(mockPostHogCapture).toHaveBeenNthCalledWith(3, 'gallery_photo_view', {
+    expect(mockPostHogCapture).toHaveBeenNthCalledWith(3, 'gallery_photo_viewed', {
       brand_id: 'brand-uuid',
       brand_slug: 'my-brand',
       photo_index: 1,
@@ -269,12 +290,12 @@ describe('analytics', () => {
     trackSearchNoResults('another private query')
     trackSubmissionCompleted('Secret proposed brand', 'fashion', true, 120)
 
-    expect(mockPostHogCapture).toHaveBeenNthCalledWith(1, 'search_executed', {
+    expect(mockPostHogCapture).toHaveBeenNthCalledWith(1, 'brand_search_executed', {
       query_length: 13,
       result_count: 4,
       has_results: true,
     })
-    expect(mockPostHogCapture).toHaveBeenNthCalledWith(2, 'search_no_results', {
+    expect(mockPostHogCapture).toHaveBeenNthCalledWith(2, 'brand_search_empty', {
       query_length: 21,
     })
     expect(JSON.stringify(mockPostHogCapture.mock.calls)).not.toContain('private query')
@@ -403,14 +424,21 @@ describe('analytics', () => {
     expect(mockSendGAEvent).not.toHaveBeenCalled()
   })
 
-  it('trackBrandPageShared is a stub that does nothing', () => {
-    expect(() => trackBrandPageShared('my-brand')).not.toThrow()
+  it('trackBrandPageShared calls PostHog with brand_page_shared event', () => {
+    trackBrandPageShared('my-brand', 'brand-uuid', 'copy_link')
+    expect(mockPostHogCapture).toHaveBeenCalledWith('brand_page_shared', {
+      brand_id: 'brand-uuid',
+      brand_slug: 'my-brand',
+      method: 'copy_link',
+    })
   })
 
-  it('trackFilterSearch sends filter_search event', () => {
-    trackFilterSearch(5)
-    expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'filter_search', {
-      query_length: 5,
+  it('trackBrandPageShared works with only slug (backward-compatible call site)', () => {
+    trackBrandPageShared('my-brand')
+    expect(mockPostHogCapture).toHaveBeenCalledWith('brand_page_shared', {
+      brand_id: undefined,
+      brand_slug: 'my-brand',
+      method: undefined,
     })
   })
 
@@ -513,6 +541,281 @@ describe('trackViewItemList', () => {
     expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'view_item_list', {
       item_list_name: 'category:food',
       item_count: 5,
+    })
+  })
+})
+
+describe('trackHeroCategoryClicked', () => {
+  it('calls PostHog with hero_category_clicked and correct properties', () => {
+    trackHeroCategoryClicked('fashion', '/brands?category=fashion')
+    expect(mockPostHogCapture).toHaveBeenCalledWith('hero_category_clicked', {
+      category: 'fashion',
+      destination_url: '/brands?category=fashion',
+    })
+  })
+})
+
+describe('trackDirectorySortChanged', () => {
+  it('calls PostHog with directory_sort_changed and correct properties', () => {
+    trackDirectorySortChanged('name_asc', 'newest')
+    expect(mockPostHogCapture).toHaveBeenCalledWith('directory_sort_changed', {
+      sort_value: 'name_asc',
+      previous_sort: 'newest',
+    })
+  })
+})
+
+describe('trackDirectoryPageNavigated', () => {
+  it('calls PostHog with directory_page_navigated and correct properties', () => {
+    trackDirectoryPageNavigated(3, 'next', 10)
+    expect(mockPostHogCapture).toHaveBeenCalledWith('directory_page_navigated', {
+      page_number: 3,
+      direction: 'next',
+      total_pages: 10,
+    })
+  })
+})
+
+describe('trackSubcategoryFilterApplied', () => {
+  it('calls PostHog with subcategory_filter_applied and correct properties', () => {
+    trackSubcategoryFilterApplied('sneakers', 'fashion')
+    expect(mockPostHogCapture).toHaveBeenCalledWith('subcategory_filter_applied', {
+      subcategory: 'sneakers',
+      parent_category: 'fashion',
+    })
+  })
+})
+
+describe('trackPriceFilterApplied', () => {
+  it('calls PostHog with price_filter_applied and correct properties', () => {
+    trackPriceFilterApplied('under_1000')
+    expect(mockPostHogCapture).toHaveBeenCalledWith('price_filter_applied', {
+      price_range: 'under_1000',
+    })
+  })
+})
+
+describe('trackVerificationFilterApplied', () => {
+  it('calls PostHog with verification_filter_applied and correct properties', () => {
+    trackVerificationFilterApplied('verified')
+    expect(mockPostHogCapture).toHaveBeenCalledWith('verification_filter_applied', {
+      status: 'verified',
+    })
+  })
+})
+
+describe('trackFilterCleared', () => {
+  it('calls PostHog with filter_cleared and all optional properties', () => {
+    trackFilterCleared('single', 'category', 'fashion')
+    expect(mockPostHogCapture).toHaveBeenCalledWith('filter_cleared', {
+      clear_type: 'single',
+      filter_type: 'category',
+      filter_value: 'fashion',
+    })
+  })
+
+  it('calls PostHog with filter_cleared with only required property', () => {
+    trackFilterCleared('all')
+    expect(mockPostHogCapture).toHaveBeenCalledWith('filter_cleared', {
+      clear_type: 'all',
+      filter_type: undefined,
+      filter_value: undefined,
+    })
+  })
+})
+
+describe('trackLanguageSwitched', () => {
+  it('calls PostHog with language_switched and correct properties', () => {
+    trackLanguageSwitched('zh-TW', 'en', 'header')
+    expect(mockPostHogCapture).toHaveBeenCalledWith('language_switched', {
+      from_locale: 'zh-TW',
+      to_locale: 'en',
+      location: 'header',
+    })
+  })
+})
+
+describe('trackBrandSaved', () => {
+  it('calls PostHog with brand_saved and correct properties', () => {
+    trackBrandSaved('brand-uuid', 'my-brand', 'brand_card')
+    expect(mockPostHogCapture).toHaveBeenCalledWith('brand_saved', {
+      brand_id: 'brand-uuid',
+      brand_slug: 'my-brand',
+      location: 'brand_card',
+    })
+  })
+})
+
+describe('trackBrandUnsaved', () => {
+  it('calls PostHog with brand_unsaved and correct properties', () => {
+    trackBrandUnsaved('brand-uuid', 'my-brand', 'brand_detail')
+    expect(mockPostHogCapture).toHaveBeenCalledWith('brand_unsaved', {
+      brand_id: 'brand-uuid',
+      brand_slug: 'my-brand',
+      location: 'brand_detail',
+    })
+  })
+})
+
+describe('trackRecommendationBrandClicked', () => {
+  it('calls PostHog with recommendation_brand_clicked and correct properties', () => {
+    trackRecommendationBrandClicked('brand-uuid', 'target-brand', 'source-brand', 2)
+    expect(mockPostHogCapture).toHaveBeenCalledWith('recommendation_brand_clicked', {
+      brand_id: 'brand-uuid',
+      brand_slug: 'target-brand',
+      source_brand_slug: 'source-brand',
+      position: 2,
+    })
+  })
+})
+
+describe('trackRecommendationSectionViewed', () => {
+  it('calls PostHog with recommendation_section_viewed and correct properties', () => {
+    trackRecommendationSectionViewed('source-brand', 5)
+    expect(mockPostHogCapture).toHaveBeenCalledWith('recommendation_section_viewed', {
+      source_brand_slug: 'source-brand',
+      recommendation_count: 5,
+    })
+  })
+})
+
+describe('trackGalleryCompleted', () => {
+  it('calls PostHog with gallery_completed and correct properties', () => {
+    trackGalleryCompleted('brand-uuid', 'my-brand', 8)
+    expect(mockPostHogCapture).toHaveBeenCalledWith('gallery_completed', {
+      brand_id: 'brand-uuid',
+      brand_slug: 'my-brand',
+      image_count: 8,
+    })
+  })
+})
+
+describe('trackFaqItemExpanded', () => {
+  it('calls PostHog with faq_item_expanded and correct properties', () => {
+    trackFaqItemExpanded('my-brand', 2)
+    expect(mockPostHogCapture).toHaveBeenCalledWith('faq_item_expanded', {
+      brand_slug: 'my-brand',
+      item_index: 2,
+    })
+  })
+})
+
+describe('trackSubmissionPathSelected', () => {
+  it('calls PostHog with submission_path_selected and correct properties', () => {
+    trackSubmissionPathSelected('recommend', true)
+    expect(mockPostHogCapture).toHaveBeenCalledWith(
+      'submission_path_selected',
+      expect.objectContaining({
+        path: 'recommend',
+        is_authenticated: true,
+      })
+    )
+  })
+
+  it('includes UTM params when present', () => {
+    window.history.pushState({}, '', '/?utm_source=google&utm_medium=cpc')
+    trackSubmissionPathSelected('owner_claim', false)
+    expect(mockPostHogCapture).toHaveBeenCalledWith(
+      'submission_path_selected',
+      expect.objectContaining({
+        path: 'owner_claim',
+        is_authenticated: false,
+        utm_source: 'google',
+        utm_medium: 'cpc',
+      })
+    )
+  })
+})
+
+describe('trackNewsletterSubscribed', () => {
+  it('calls PostHog with newsletter_subscribed and correct properties', () => {
+    trackNewsletterSubscribed(['fashion', 'food'], true)
+    expect(mockPostHogCapture).toHaveBeenCalledWith(
+      'newsletter_subscribed',
+      expect.objectContaining({
+        interests: ['fashion', 'food'],
+        has_email: true,
+      })
+    )
+  })
+
+  it('includes UTM params when present', () => {
+    window.history.pushState({}, '', '/?utm_source=newsletter')
+    trackNewsletterSubscribed([], false)
+    expect(mockPostHogCapture).toHaveBeenCalledWith(
+      'newsletter_subscribed',
+      expect.objectContaining({
+        interests: [],
+        has_email: false,
+        utm_source: 'newsletter',
+      })
+    )
+  })
+})
+
+describe('trackBrandClaimStarted', () => {
+  it('calls PostHog with brand_claim_started and correct properties', () => {
+    trackBrandClaimStarted('brand-uuid', 'my-brand', false)
+    expect(mockPostHogCapture).toHaveBeenCalledWith('brand_claim_started', {
+      brand_id: 'brand-uuid',
+      brand_slug: 'my-brand',
+      is_authenticated: false,
+    })
+  })
+})
+
+describe('trackBrandClaimFormSubmitted', () => {
+  it('calls PostHog with brand_claim_form_submitted and correct properties', () => {
+    trackBrandClaimFormSubmitted('brand-uuid', 'my-brand', ['business_license', 'social_media'])
+    expect(mockPostHogCapture).toHaveBeenCalledWith('brand_claim_form_submitted', {
+      brand_id: 'brand-uuid',
+      brand_slug: 'my-brand',
+      proof_types: ['business_license', 'social_media'],
+    })
+  })
+})
+
+describe('trackBrandReported', () => {
+  it('calls PostHog with brand_reported and correct properties', () => {
+    trackBrandReported('my-brand', 'incorrect_info', 'consumer')
+    expect(mockPostHogCapture).toHaveBeenCalledWith('brand_reported', {
+      brand_slug: 'my-brand',
+      reason: 'incorrect_info',
+      reporter_role: 'consumer',
+    })
+  })
+})
+
+describe('trackCtaClicked', () => {
+  it('calls PostHog with cta_clicked and correct properties', () => {
+    trackCtaClicked('submit_brand', 'hero', '/submit', '/')
+    expect(mockPostHogCapture).toHaveBeenCalledWith('cta_clicked', {
+      cta_name: 'submit_brand',
+      cta_location: 'hero',
+      destination_url: '/submit',
+      page_url: '/',
+    })
+  })
+})
+
+describe('trackSubmissionFormErrorShown', () => {
+  it('calls PostHog with submission_form_error_shown and correct properties', () => {
+    trackSubmissionFormErrorShown('brand_name', 'required', 'step_1')
+    expect(mockPostHogCapture).toHaveBeenCalledWith('submission_form_error_shown', {
+      field: 'brand_name',
+      error_type: 'required',
+      step: 'step_1',
+    })
+  })
+})
+
+describe('trackApiErrorShown', () => {
+  it('calls PostHog with api_error_shown and correct properties', () => {
+    trackApiErrorShown('/api/brands', 500, 'submit_form')
+    expect(mockPostHogCapture).toHaveBeenCalledWith('api_error_shown', {
+      endpoint: '/api/brands',
+      status_code: 500,
+      user_action: 'submit_form',
     })
   })
 })

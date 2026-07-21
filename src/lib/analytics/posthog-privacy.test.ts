@@ -47,7 +47,7 @@ describe('PostHog path privacy', () => {
 
     expect(
       sanitizePostHogEvent({
-        event: 'search_executed',
+        event: 'brand_search_executed',
         properties: {
           $current_url: 'https://formoria.com/en/brands?search=private&utm_campaign=launch',
           query: 'private',
@@ -63,7 +63,7 @@ describe('PostHog path privacy', () => {
         },
       }),
     ).toEqual({
-      event: 'search_executed',
+      event: 'brand_search_executed',
       properties: expect.objectContaining({
         $current_url: 'https://formoria.com/en/brands?utm_campaign=launch',
         query_length: 7,

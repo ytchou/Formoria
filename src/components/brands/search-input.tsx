@@ -202,6 +202,7 @@ function SearchInput({
       aria-label={formAriaLabel ?? t('search.aria')}
       onSubmit={handleSubmit}
       className={cn('relative w-full max-w-md', className)}
+      data-ph-no-autocapture
     >
       {/* Search icon */}
       <svg

@@ -59,4 +59,20 @@ describe('BrandActions', () => {
 
     expect(screen.getByRole('button', { name: /分享/i })).toBeInTheDocument()
   })
+
+  it('has data-ph-no-autocapture on the Visit Website link', () => {
+    renderWithIntl(
+      <BrandActions
+        brandId="brand-1"
+        brandName="測試品牌"
+        brandSlug="test-brand"
+        websiteUrl="https://example.com"
+      />
+    )
+
+    const visitLinks = screen.getAllByRole('link', { name: /前往官網|前往品牌官網/ })
+    for (const link of visitLinks) {
+      expect(link).toHaveAttribute('data-ph-no-autocapture')
+    }
+  })
 })

@@ -10,16 +10,19 @@ import { buttonVariants } from '@/components/ui/button'
 import { usePathname } from '@/i18n/navigation'
 import { localizePath } from '@/i18n/locale-preference'
 import { useUser } from '@/lib/auth/use-user'
+import { trackBrandSaved, trackBrandUnsaved } from '@/lib/analytics'
 import { cn } from '@/lib/utils'
 
 type SaveBrandButtonProps = {
   brandId: string
+  slug: string
   variant?: 'overlay' | 'inline'
   className?: string
 }
 
 export function SaveBrandButton({
   brandId,
+  slug,
   variant = 'overlay',
   className,
 }: SaveBrandButtonProps) {
@@ -50,6 +53,11 @@ export function SaveBrandButton({
       return
     }
 
+    if (isSaved) {
+      trackBrandUnsaved(brandId, slug, variant)
+    } else {
+      trackBrandSaved(brandId, slug, variant)
+    }
     toggle(brandId)
   }
 
@@ -71,6 +79,7 @@ export function SaveBrandButton({
         className
       )}
       onClick={handleClick}
+      data-ph-no-autocapture
     >
       <Heart
         className="h-4 w-4"

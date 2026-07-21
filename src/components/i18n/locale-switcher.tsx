@@ -11,11 +11,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { usePathname } from '@/i18n/navigation'
+import { trackLanguageSwitched } from '@/lib/analytics'
 
 export function LocaleSwitcher({ compact = false }: { compact?: boolean }) {
   const locale = useLocale()
   const pathname = usePathname()
   const t = useTranslations('nav')
+  const location = compact ? 'mobile_menu' : 'header'
 
   return (
     <DropdownMenu>
@@ -33,8 +35,15 @@ export function LocaleSwitcher({ compact = false }: { compact?: boolean }) {
             <DropdownMenuItem
               className={locale === targetLocale ? 'font-medium' : undefined}
               render={
-                // eslint-disable-next-line no-restricted-syntax -- ui-exception: render-prop injection for DropdownMenuItem, raw button is required by Base UI render prop API
-                <button type="submit" className="w-full text-left" aria-current={locale === targetLocale ? 'true' : undefined} />
+                /* eslint-disable no-restricted-syntax -- ui-exception: render-prop injection for DropdownMenuItem, raw button is required by Base UI render prop API */
+                <button
+                  type="submit"
+                  className="w-full text-left"
+                  aria-current={locale === targetLocale ? 'true' : undefined}
+                  data-ph-no-autocapture
+                  onClick={() => trackLanguageSwitched(locale, targetLocale, location)}
+                />
+                /* eslint-enable no-restricted-syntax */
               }
             >
               {t(targetLocale === 'zh-TW' ? 'languageTraditionalChinese' : 'languageEnglish')}

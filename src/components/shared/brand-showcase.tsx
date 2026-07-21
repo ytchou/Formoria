@@ -1,6 +1,9 @@
+'use client'
+
 import { Link } from '@/i18n/navigation'
 import type { Brand } from '@/lib/types'
 import { BrandCard } from '@/components/brands/brand-card'
+import { trackCtaClicked } from '@/lib/analytics'
 
 interface BrandShowcaseProps {
   brands: Brand[]
@@ -33,7 +36,12 @@ export default function BrandShowcase({
         ))}
       </div>
       <div className="mt-6">
-        <Link href={linkHref} className="font-medium text-primary">
+        <Link
+          href={linkHref}
+          data-ph-no-autocapture
+          onClick={() => trackCtaClicked('browse_all', 'showcase', linkHref, '/')}
+          className="font-medium text-primary"
+        >
           {linkText}
         </Link>
       </div>

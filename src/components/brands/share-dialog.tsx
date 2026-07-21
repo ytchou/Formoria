@@ -20,6 +20,7 @@ interface ShareDialogProps {
   brandSlug: string
   brandName: string
   brandImageUrl?: string
+  brandId?: string
 }
 
 function FacebookIcon(props: SVGProps<SVGSVGElement>) {
@@ -43,7 +44,7 @@ function TwitterIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
-export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialogProps) {
+export function ShareDialog({ brandSlug, brandName, brandImageUrl, brandId }: ShareDialogProps) {
   const t = useTranslations('brandDetail.share')
   const safeImage = brandImageUrl ? safeImageSrc(brandImageUrl) : null
   const [open, setOpen] = useState(false)
@@ -68,15 +69,11 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
     }
   }, [])
 
-  const trackShare = () => {
-    trackBrandPageShared(brandSlug)
-  }
-
   const handleTriggerClick = async () => {
     if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
       try {
         await navigator.share({ title: brandName, url: shareUrl })
-        trackShare()
+        trackBrandPageShared(brandSlug, brandId, 'native')
         return
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
@@ -91,7 +88,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl)
-      trackShare()
+      trackBrandPageShared(brandSlug, brandId, 'copy_link')
       setCopied(true)
 
       if (copiedTimeoutRef.current) {
@@ -108,7 +105,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
   }
 
   const handleLineShare = () => {
-    trackShare()
+    trackBrandPageShared(brandSlug, brandId, 'line')
     window.open(
       `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(shareUrl)}`,
       '_blank',
@@ -117,7 +114,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
   }
 
   const handleFacebookShare = () => {
-    trackShare()
+    trackBrandPageShared(brandSlug, brandId, 'facebook')
     window.open(
       `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
       '_blank',
@@ -126,7 +123,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
   }
 
   const handleXShare = () => {
-    trackShare()
+    trackBrandPageShared(brandSlug, brandId, 'x')
     window.open(
       `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(brandName)}`,
       '_blank',
@@ -141,6 +138,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
         className={buttonVariants({ variant: 'secondary', className: 'shrink-0' })}
         aria-label={t('trigger')}
         onClick={handleTriggerClick}
+        data-ph-no-autocapture
       >
         <Share2 size={16} />
         {t('trigger')}
@@ -183,6 +181,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
                 ),
               })}
               onClick={handleCopyLink}
+              data-ph-no-autocapture
             >
               {copied ? <Check className="size-5" /> : <Link className="size-5" />}
               <span className="type-body-emphasis">
@@ -197,6 +196,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
                 className: 'h-20 cursor-pointer flex-col gap-2 rounded-xl',
               })}
               onClick={handleLineShare}
+              data-ph-no-autocapture
             >
               <MessageCircle className="size-5 text-[#07B53B]" />
               <span className="type-body-emphasis">{t('line')}</span>
@@ -209,6 +209,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
                 className: 'h-20 cursor-pointer flex-col gap-2 rounded-xl',
               })}
               onClick={handleFacebookShare}
+              data-ph-no-autocapture
             >
               <FacebookIcon className="size-5 text-[#1877F2]" />
               <span className="type-body-emphasis">{t('facebook')}</span>
@@ -221,6 +222,7 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl }: ShareDialog
                 className: 'h-20 cursor-pointer flex-col gap-2 rounded-xl',
               })}
               onClick={handleXShare}
+              data-ph-no-autocapture
             >
               <TwitterIcon className="size-5 text-foreground" />
               <span className="type-body-emphasis">{t('x')}</span>

@@ -5,6 +5,22 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BrandFilterSidebar } from "./brand-filter-sidebar";
 
+const mockTrackSubcategoryFilterApplied = vi.fn();
+const mockTrackPriceFilterApplied = vi.fn();
+const mockTrackVerificationFilterApplied = vi.fn();
+const mockTrackFilterCleared = vi.fn();
+
+vi.mock("@/lib/analytics", () => ({
+  trackCategoryFilterApplied: vi.fn(),
+  trackSubcategoryFilterApplied: (...args: unknown[]) =>
+    mockTrackSubcategoryFilterApplied(...args),
+  trackPriceFilterApplied: (...args: unknown[]) =>
+    mockTrackPriceFilterApplied(...args),
+  trackVerificationFilterApplied: (...args: unknown[]) =>
+    mockTrackVerificationFilterApplied(...args),
+  trackFilterCleared: (...args: unknown[]) => mockTrackFilterCleared(...args),
+}));
+
 const replace = vi.fn();
 let query = "";
 
@@ -61,6 +77,10 @@ describe("BrandFilterSidebar", () => {
   beforeEach(() => {
     query = "";
     replace.mockClear();
+    mockTrackSubcategoryFilterApplied.mockClear();
+    mockTrackPriceFilterApplied.mockClear();
+    mockTrackVerificationFilterApplied.mockClear();
+    mockTrackFilterCleared.mockClear();
   });
 
   it("renders price ranges as tags and writes the selected values to the URL", async () => {
@@ -205,6 +225,85 @@ describe("BrandFilterSidebar", () => {
       expect(
         screen.queryByRole("button", { name: /口金包/ }),
       ).not.toBeInTheDocument();
+    });
+  });
+
+  describe("analytics tracking", () => {
+    it("fires trackSubcategoryFilterApplied when an unchecked subcategory pill is clicked", async () => {
+      query = "category=bags-accessories";
+      const user = userEvent.setup();
+      render(
+        <BrandFilterSidebar
+          totalCount={19}
+          categories={[
+            {
+              slug: "bags-accessories",
+              name: "Bags & accessories",
+              nameZh: "包袋配件",
+            },
+          ]}
+          subcategories={subs}
+          activeSubSlugs={[]}
+        />,
+      );
+
+      await user.click(screen.getByRole("button", { name: /Category/ }));
+      await user.click(screen.getByRole("button", { name: "後背包 19" }));
+
+      expect(mockTrackSubcategoryFilterApplied).toHaveBeenCalledWith(
+        "backpacks",
+        "bags-accessories",
+      );
+    });
+
+    it("fires trackFilterCleared when an active subcategory pill is clicked to deselect it", async () => {
+      query = "category=bags-accessories&sub=clasp-frame-bags";
+      const user = userEvent.setup();
+      render(
+        <BrandFilterSidebar
+          totalCount={8}
+          categories={[
+            {
+              slug: "bags-accessories",
+              name: "Bags & accessories",
+              nameZh: "包袋配件",
+            },
+          ]}
+          subcategories={subs}
+          activeSubSlugs={["clasp-frame-bags"]}
+        />,
+      );
+
+      await user.click(screen.getByRole("button", { name: /Category/ }));
+      await user.click(screen.getByRole("button", { name: "口金包 8" }));
+
+      expect(mockTrackFilterCleared).toHaveBeenCalledWith(
+        "single",
+        "subcategory",
+        "clasp-frame-bags",
+      );
+    });
+
+    it("fires trackPriceFilterApplied when a price pill is clicked", async () => {
+      const user = userEvent.setup();
+      render(<BrandFilterSidebar categories={[]} totalCount={0} />);
+
+      await user.click(screen.getByRole("button", { name: /Price range/ }));
+      await user.click(screen.getByRole("button", { name: "$$" }));
+
+      expect(mockTrackPriceFilterApplied).toHaveBeenCalledWith("2");
+    });
+
+    it("fires trackVerificationFilterApplied when a verification radio is changed", async () => {
+      const user = userEvent.setup();
+      render(<BrandFilterSidebar categories={[]} totalCount={0} />);
+
+      await user.click(screen.getByRole("button", { name: /Brand status/ }));
+      await user.click(screen.getByRole("radio", { name: "MIT verified" }));
+
+      expect(mockTrackVerificationFilterApplied).toHaveBeenCalledWith(
+        "mit-verified",
+      );
     });
   });
 });

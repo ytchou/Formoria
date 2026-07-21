@@ -1,11 +1,9 @@
 import Image from 'next/image'
 import { Suspense } from 'react'
 import { getLocale, getTranslations } from 'next-intl/server'
-import { Link } from '@/i18n/navigation'
 import { SearchInput } from '@/components/brands/search-input'
-import { buttonVariants } from '@/components/ui/button'
+import { HeroCategoryChips } from '@/components/landing/hero-category-chips'
 import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
-import { cn } from '@/lib/utils'
 
 interface HeroSectionProps {
   brandCount: number
@@ -39,19 +37,12 @@ export default async function HeroSection({ brandCount, categoryCount, recentBra
         </div>
 
         <nav className="mt-6 flex flex-wrap gap-2" aria-label={t('statsCategories')}>
-          {PRODUCT_TYPE_CATEGORIES.map((cat) => (
-            <Link
-              key={cat.slug}
-              href={`/brands?category=${cat.slug}`}
-              // ui-exception: translucent hover border on hero, not in secondary variant; single site
-              className={cn(
-                buttonVariants({ variant: 'secondary', shape: 'pill', size: 'chip' }),
-                'bg-background/80 text-muted-foreground hover:bg-background hover:border-foreground/30',
-              )}
-            >
-              {categoryLabel(cat, locale)}
-            </Link>
-          ))}
+          <HeroCategoryChips
+            categories={PRODUCT_TYPE_CATEGORIES.map((cat) => ({
+              slug: cat.slug,
+              label: categoryLabel(cat, locale),
+            }))}
+          />
         </nav>
 
         <p className="mt-6 type-metadata">

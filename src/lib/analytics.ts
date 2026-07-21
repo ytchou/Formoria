@@ -221,7 +221,7 @@ export function trackSearchExecuted(query: string, resultCount: number) {
     result_count: resultCount,
     has_results: resultCount > 0,
   })
-  capturePostHogEvent('search_executed', {
+  capturePostHogEvent('brand_search_executed', {
     query_length: query.length,
     result_count: resultCount,
     has_results: resultCount > 0,
@@ -308,16 +308,12 @@ export function trackSubmissionFormAbandoned(
   })
 }
 
-// Stub — share UI doesn't exist yet
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function trackBrandPageShared(_slug: string) {
-  // stub
-}
-
-// Keep as-is: non-spec extras with useful signal
-export function trackFilterSearch(queryLength: number) {
-  safeGAEvent('event', 'filter_search', { query_length: queryLength })
-  capturePostHogEvent('filter_search', { query_length: queryLength })
+export function trackBrandPageShared(slug: string, brandId?: string, method?: string) {
+  capturePostHogEvent('brand_page_shared', {
+    brand_id: brandId,
+    brand_slug: slug,
+    method,
+  })
 }
 
 export function trackGalleryPhotoView(slug: string, index: number, brandId?: string) {
@@ -326,7 +322,7 @@ export function trackGalleryPhotoView(slug: string, index: number, brandId?: str
     photo_index: index,
   })
   if (brandId) {
-    capturePostHogEvent('gallery_photo_view', {
+    capturePostHogEvent('gallery_photo_viewed', {
       brand_id: brandId,
       brand_slug: slug,
       photo_index: index,
@@ -348,7 +344,7 @@ export function trackSearchSuggestionSelect(slug: string, brandId?: string) {
 
 export function trackSearchNoResults(searchTerm: string) {
   safeGAEvent('event', 'search_no_results', { search_term: searchTerm })
-  capturePostHogEvent('search_no_results', { query_length: searchTerm.length })
+  capturePostHogEvent('brand_search_empty', { query_length: searchTerm.length })
 }
 
 export function trackSignUp(method: string) {
@@ -375,5 +371,195 @@ export function trackViewItemList(listName: string, itemCount: number) {
   capturePostHogEvent('brand_list_viewed', {
     list_name: listName,
     item_count: itemCount,
+  })
+}
+
+export function trackHeroCategoryClicked(category: string, destinationUrl: string) {
+  capturePostHogEvent('hero_category_clicked', { category, destination_url: destinationUrl })
+}
+
+export function trackDirectorySortChanged(sortValue: string, previousSort: string) {
+  capturePostHogEvent('directory_sort_changed', {
+    sort_value: sortValue,
+    previous_sort: previousSort,
+  })
+}
+
+export function trackDirectoryPageNavigated(
+  pageNumber: number,
+  direction: string,
+  totalPages: number,
+) {
+  capturePostHogEvent('directory_page_navigated', {
+    page_number: pageNumber,
+    direction,
+    total_pages: totalPages,
+  })
+}
+
+export function trackSubcategoryFilterApplied(subcategory: string, parentCategory: string) {
+  capturePostHogEvent('subcategory_filter_applied', {
+    subcategory,
+    parent_category: parentCategory,
+  })
+}
+
+export function trackPriceFilterApplied(priceRange: string) {
+  capturePostHogEvent('price_filter_applied', { price_range: priceRange })
+}
+
+export function trackVerificationFilterApplied(status: string) {
+  capturePostHogEvent('verification_filter_applied', { status })
+}
+
+export function trackFilterCleared(clearType: string, filterType?: string, filterValue?: string) {
+  capturePostHogEvent('filter_cleared', {
+    clear_type: clearType,
+    filter_type: filterType,
+    filter_value: filterValue,
+  })
+}
+
+export function trackLanguageSwitched(fromLocale: string, toLocale: string, location: string) {
+  capturePostHogEvent('language_switched', {
+    from_locale: fromLocale,
+    to_locale: toLocale,
+    location,
+  })
+}
+
+export function trackBrandSaved(brandId: string, slug: string, location: string) {
+  capturePostHogEvent('brand_saved', {
+    brand_id: brandId,
+    brand_slug: slug,
+    location,
+  })
+}
+
+export function trackBrandUnsaved(brandId: string, slug: string, location: string) {
+  capturePostHogEvent('brand_unsaved', {
+    brand_id: brandId,
+    brand_slug: slug,
+    location,
+  })
+}
+
+export function trackRecommendationBrandClicked(
+  brandId: string,
+  slug: string,
+  sourceBrandSlug: string,
+  position: number,
+) {
+  capturePostHogEvent('recommendation_brand_clicked', {
+    brand_id: brandId,
+    brand_slug: slug,
+    source_brand_slug: sourceBrandSlug,
+    position,
+  })
+}
+
+export function trackRecommendationSectionViewed(sourceBrandSlug: string, count: number) {
+  capturePostHogEvent('recommendation_section_viewed', {
+    source_brand_slug: sourceBrandSlug,
+    recommendation_count: count,
+  })
+}
+
+export function trackGalleryCompleted(brandId: string, slug: string, imageCount: number) {
+  capturePostHogEvent('gallery_completed', {
+    brand_id: brandId,
+    brand_slug: slug,
+    image_count: imageCount,
+  })
+}
+
+export function trackFaqItemExpanded(brandSlug: string, index: number) {
+  capturePostHogEvent('faq_item_expanded', {
+    brand_slug: brandSlug,
+    item_index: index,
+  })
+}
+
+export function trackSubmissionPathSelected(path: string, isAuthenticated: boolean) {
+  const utmParams =
+    typeof window !== 'undefined' ? getUtmParams(window.location.search) : {}
+
+  capturePostHogEvent('submission_path_selected', {
+    path,
+    is_authenticated: isAuthenticated,
+    ...utmParams,
+  })
+}
+
+export function trackNewsletterSubscribed(interests: string[], hasEmail: boolean) {
+  const utmParams =
+    typeof window !== 'undefined' ? getUtmParams(window.location.search) : {}
+
+  capturePostHogEvent('newsletter_subscribed', {
+    interests,
+    has_email: hasEmail,
+    ...utmParams,
+  })
+}
+
+export function trackBrandClaimStarted(
+  brandId: string,
+  brandSlug: string,
+  isAuthenticated: boolean,
+) {
+  capturePostHogEvent('brand_claim_started', {
+    brand_id: brandId,
+    brand_slug: brandSlug,
+    is_authenticated: isAuthenticated,
+  })
+}
+
+export function trackBrandClaimFormSubmitted(
+  brandId: string,
+  brandSlug: string,
+  proofTypes: string[],
+) {
+  capturePostHogEvent('brand_claim_form_submitted', {
+    brand_id: brandId,
+    brand_slug: brandSlug,
+    proof_types: proofTypes,
+  })
+}
+
+export function trackBrandReported(slug: string, reason: string, reporterRole: string) {
+  capturePostHogEvent('brand_reported', {
+    brand_slug: slug,
+    reason,
+    reporter_role: reporterRole,
+  })
+}
+
+export function trackCtaClicked(
+  ctaName: string,
+  ctaLocation: string,
+  destinationUrl: string,
+  pageUrl: string,
+) {
+  capturePostHogEvent('cta_clicked', {
+    cta_name: ctaName,
+    cta_location: ctaLocation,
+    destination_url: destinationUrl,
+    page_url: pageUrl,
+  })
+}
+
+export function trackSubmissionFormErrorShown(field: string, errorType: string, step: string) {
+  capturePostHogEvent('submission_form_error_shown', {
+    field,
+    error_type: errorType,
+    step,
+  })
+}
+
+export function trackApiErrorShown(endpoint: string, statusCode: number, userAction: string) {
+  capturePostHogEvent('api_error_shown', {
+    endpoint,
+    status_code: statusCode,
+    user_action: userAction,
   })
 }

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { usePathname, useSearchParams } from 'next/navigation'
+import { trackDirectoryPageNavigated } from '@/lib/analytics'
 
 interface PaginationProps {
   totalCount: number
@@ -44,6 +45,15 @@ const navLinkClass =
 const pageLinkClass =
   'inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
 
+function getPageDirection(
+  targetPage: number,
+  currentPage: number,
+): 'prev' | 'next' | 'jump' {
+  if (targetPage < currentPage) return 'prev'
+  if (targetPage === currentPage + 1) return 'next'
+  return 'jump'
+}
+
 export function Pagination({
   totalCount,
   currentPage,
@@ -67,6 +77,10 @@ export function Pagination({
           className={navLinkClass}
           aria-label={t('pagination.previousAria')}
           scroll={false}
+          onClick={() =>
+            trackDirectoryPageNavigated(currentPage - 1, 'prev', totalPages)
+          }
+          data-ph-no-autocapture
         >
           {t('pagination.previous')}
         </Link>
@@ -109,6 +123,14 @@ export function Pagination({
             href={buildPageUrl(pathname, searchParams, page)}
             className={pageLinkClass}
             scroll={false}
+            onClick={() =>
+              trackDirectoryPageNavigated(
+                page,
+                getPageDirection(page, currentPage),
+                totalPages,
+              )
+            }
+            data-ph-no-autocapture
           >
             {page}
           </Link>
@@ -122,6 +144,10 @@ export function Pagination({
           className={navLinkClass}
           aria-label={t('pagination.nextAria')}
           scroll={false}
+          onClick={() =>
+            trackDirectoryPageNavigated(currentPage + 1, 'next', totalPages)
+          }
+          data-ph-no-autocapture
         >
           {t('pagination.next')}
         </Link>

@@ -4,7 +4,13 @@ import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { ChevronDown, Info, SlidersHorizontal } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { trackCategoryFilterApplied } from "@/lib/analytics";
+import {
+  trackCategoryFilterApplied,
+  trackFilterCleared,
+  trackPriceFilterApplied,
+  trackSubcategoryFilterApplied,
+  trackVerificationFilterApplied,
+} from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { SurfaceCard } from "@/components/ui/card";
@@ -165,10 +171,19 @@ export function BrandFilterSidebar({
     });
   }
 
-  function toggleSubcategory(slug: string, checked: boolean) {
+  function toggleSubcategory(
+    slug: string,
+    checked: boolean,
+    parentCategorySlug: string,
+  ) {
     const next = new Set(activeSubcategories);
-    if (checked) next.add(slug);
-    else next.delete(slug);
+    if (checked) {
+      next.add(slug);
+      trackSubcategoryFilterApplied(slug, parentCategorySlug);
+    } else {
+      next.delete(slug);
+      trackFilterCleared("single", "subcategory", slug);
+    }
 
     startTransition(() => {
       router.replace(
@@ -181,6 +196,7 @@ export function BrandFilterSidebar({
   }
 
   function setVerification(value: VerificationFilterValue) {
+    trackVerificationFilterApplied(value);
     startTransition(() => {
       router.replace(
         updateDirectoryUrl(pathname, searchParams, {
@@ -193,8 +209,13 @@ export function BrandFilterSidebar({
 
   function togglePriceRange(value: number, checked: boolean) {
     const next = new Set(activePriceRanges);
-    if (checked) next.add(value);
-    else next.delete(value);
+    if (checked) {
+      next.add(value);
+      trackPriceFilterApplied(String(value));
+    } else {
+      next.delete(value);
+      trackFilterCleared("single", "price", String(value));
+    }
 
     startTransition(() => {
       router.replace(
@@ -269,6 +290,7 @@ export function BrandFilterSidebar({
                         toggleCategory(category.slug, value)
                       }
                       aria-label={categoryLabel(category)}
+                      data-ph-no-autocapture
                     />
                     <span>{categoryLabel(category)}</span>
                     {checked && activeCategories.size === 1 && (
@@ -297,6 +319,7 @@ export function BrandFilterSidebar({
                               toggleSubcategory(
                                 subcategory.slug,
                                 !subcategoryChecked,
+                                category.slug,
                               )
                             }
                             className={cn(
@@ -304,6 +327,7 @@ export function BrandFilterSidebar({
                               subcategoryChecked &&
                                 "border-primary bg-primary text-primary-foreground",
                             )}
+                            data-ph-no-autocapture
                           >
                             {subcategory.label}{" "}
                             <span
@@ -346,6 +370,7 @@ export function BrandFilterSidebar({
                     checked &&
                       "border-primary bg-primary text-primary-foreground",
                   )}
+                  data-ph-no-autocapture
                 >
                   {label}
                 </Button>
@@ -402,6 +427,7 @@ function FilterRadio({
         checked={checked}
         onChange={onChange}
         className="h-4 w-4 accent-primary"
+        data-ph-no-autocapture
       />
       <span>{label}</span>
     </Label>
@@ -468,6 +494,7 @@ function MobileClearAll({ onClear }: { onClear: () => void }) {
   const [, startTransition] = useTransition();
 
   function clearAll() {
+    trackFilterCleared("all");
     startTransition(() => {
       router.replace(
         clearDirectoryFilters(pathname, searchParams, { includeSearch: true }),
@@ -483,6 +510,7 @@ function MobileClearAll({ onClear }: { onClear: () => void }) {
       variant="ghost"
       onClick={clearAll}
       className="mx-auto min-h-12 type-card-description underline-offset-2 hover:text-foreground hover:underline"
+      data-ph-no-autocapture
     >
       {t("clearAll")}
     </Button>

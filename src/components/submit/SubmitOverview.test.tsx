@@ -5,6 +5,11 @@ import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { NextIntlClientProvider } from 'next-intl';
 import zhMessages from '../../../messages/zh-TW.json';
 import SubmitOverview from './SubmitOverview';
+import { trackSubmissionPathSelected } from '@/lib/analytics';
+
+vi.mock('@/lib/analytics', () => ({
+  trackSubmissionPathSelected: vi.fn(),
+}))
 
 const { push, toastError } = vi.hoisted(() => ({
   push: vi.fn(),
@@ -20,12 +25,14 @@ vi.mock('@/i18n/navigation', () => ({
     href,
     children,
     className,
+    onClick,
   }: {
     href: string;
     children: React.ReactNode;
     className?: string;
+    onClick?: () => void;
   }) => (
-    <a href={href} className={className}>
+    <a href={href} className={className} onClick={onClick}>
       {children}
     </a>
   ),
@@ -140,5 +147,23 @@ describe('SubmitOverview', () => {
     expect(toastError).toHaveBeenCalledWith(
       '目前無法前往推薦流程，請再試一次。',
     );
+  });
+
+  it('calls trackSubmissionPathSelected when recommendation CTA is clicked', async () => {
+    const user = userEvent.setup();
+    renderWithZhTW(<SubmitOverview isLoggedIn />);
+
+    await user.click(screen.getByRole('link', { name: /推薦品牌/i }));
+
+    expect(trackSubmissionPathSelected).toHaveBeenCalledWith('recommend', true);
+  });
+
+  it('calls trackSubmissionPathSelected when owner CTA is clicked', async () => {
+    const user = userEvent.setup();
+    renderWithZhTW(<SubmitOverview isLoggedIn />);
+
+    await user.click(screen.getByRole('link', { name: zhMessages.submit.overview.ownerCtaLoggedIn }));
+
+    expect(trackSubmissionPathSelected).toHaveBeenCalledWith('claim', true);
   });
 });

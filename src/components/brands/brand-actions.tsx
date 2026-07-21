@@ -42,6 +42,7 @@ export function BrandActions({ websiteUrl, brandSlug = '', brandId, brandName }:
             target="_blank"
             rel="noopener noreferrer"
             className={buttonVariants({ variant: 'primary', tone: 'cta', className: 'w-full' })}
+            data-ph-no-autocapture
             onClick={handleWebsiteClick}
           >
             <ExternalLink className="size-[15px]" />
@@ -54,8 +55,8 @@ export function BrandActions({ websiteUrl, brandSlug = '', brandId, brandName }:
           </span>
         )}
         <div className="flex gap-2">
-          <ShareDialog brandSlug={brandSlug} brandName={brandName} />
-          {brandId && <SaveBrandButton brandId={brandId} variant="inline" className="rounded-xl" />}
+          <ShareDialog brandSlug={brandSlug} brandName={brandName} brandId={brandId} />
+          {brandId && <SaveBrandButton brandId={brandId} slug={brandSlug} variant="inline" className="rounded-xl" />}
           {brandId && <ReportDialog brandId={brandId} brandSlug={brandSlug} />}
         </div>
       </div>
@@ -69,6 +70,7 @@ export function BrandActions({ websiteUrl, brandSlug = '', brandId, brandName }:
             target="_blank"
             rel="noopener noreferrer"
             aria-label={t('actions.visitOfficialWebsiteAria')}
+            data-ph-no-autocapture
             onClick={handleWebsiteClick}
             className={buttonVariants({ variant: 'primary', tone: 'cta', className: 'w-full' })}
           >

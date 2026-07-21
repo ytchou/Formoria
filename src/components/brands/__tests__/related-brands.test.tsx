@@ -35,6 +35,10 @@ vi.mock('../brand-card', () => ({
   ),
 }))
 
+vi.mock('../related-brands-tracker', () => ({
+  RelatedBrandsTracker: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}))
+
 const relatedBrand = {
   id: 'brand-1',
   name: 'Related Brand',

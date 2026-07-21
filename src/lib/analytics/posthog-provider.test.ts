@@ -47,7 +47,7 @@ describe('PostHog provider registry', () => {
   it('resets persisted identity and drops buffered events when logout precedes registration', () => {
     const provider = { capture: vi.fn(), identify: vi.fn(), reset: vi.fn() }
 
-    capturePostHogEvent('search_executed', { query_length: 3 })
+    capturePostHogEvent('brand_search_executed', { query_length: 3 })
     resetPostHogUser()
     registerPostHogProvider(provider)
 

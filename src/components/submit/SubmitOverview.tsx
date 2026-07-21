@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Link, useRouter } from '@/i18n/navigation'
 import { signInHref } from '@/i18n/locale-preference'
+import { trackSubmissionPathSelected } from '@/lib/analytics'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -87,6 +88,8 @@ export default function SubmitOverview({
           </ul>
           <Link
             href={recommendPath}
+            data-ph-no-autocapture
+            onClick={() => trackSubmissionPathSelected('recommend', isLoggedIn)}
             className={cn(
               buttonVariants({ variant: 'primary', tone: 'cta' }),
               'mt-6',
@@ -126,7 +129,11 @@ export default function SubmitOverview({
                 type="button"
                 tone="cta"
                 className="mt-6 min-h-12"
-                onClick={() => setIsOwnerLimitOpen(true)}
+                data-ph-no-autocapture
+                onClick={() => {
+                  trackSubmissionPathSelected('claim', true)
+                  setIsOwnerLimitOpen(true)
+                }}
               >
                 {t('ownerCtaLoggedIn')}
               </Button>
@@ -177,6 +184,8 @@ export default function SubmitOverview({
           ) : isLoggedIn ? (
             <Link
               href={ownerPath}
+              data-ph-no-autocapture
+              onClick={() => trackSubmissionPathSelected('claim', true)}
               className={cn(
                 buttonVariants({ variant: 'primary', tone: 'cta' }),
                 'mt-6',
@@ -187,6 +196,8 @@ export default function SubmitOverview({
           ) : (
             <NextLink
               href={signInHref(ownerPath, locale)}
+              data-ph-no-autocapture
+              onClick={() => trackSubmissionPathSelected('claim', false)}
               className={cn(
                 buttonVariants({ variant: 'primary', tone: 'cta' }),
                 'mt-6',

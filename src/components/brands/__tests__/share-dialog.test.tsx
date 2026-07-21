@@ -4,8 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextIntlClientProvider } from 'next-intl'
 import { ShareDialog } from '../share-dialog'
 
-vi.mock('@/lib/analytics', () => ({
+const analyticsMocks = vi.hoisted(() => ({
   trackBrandPageShared: vi.fn(),
+}))
+
+vi.mock('@/lib/analytics', () => ({
+  trackBrandPageShared: analyticsMocks.trackBrandPageShared,
 }))
 
 const messages = {
@@ -22,13 +26,14 @@ const messages = {
   },
 }
 
-function renderDialog(props?: Partial<{ brandSlug: string; brandName: string; brandImageUrl: string }>) {
+function renderDialog(props?: Partial<{ brandSlug: string; brandName: string; brandImageUrl: string; brandId: string }>) {
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>
       <ShareDialog
         brandSlug={props?.brandSlug ?? 'test-brand'}
         brandName={props?.brandName ?? 'Test Brand'}
         brandImageUrl={props?.brandImageUrl}
+        brandId={props?.brandId}
       />
     </NextIntlClientProvider>,
   )
@@ -140,5 +145,24 @@ describe('ShareDialog', () => {
       '_blank',
       'noopener,noreferrer',
     )
+  })
+
+  it('calls trackBrandPageShared with copy_link method when Copy Link clicked', async () => {
+    renderDialog({ brandSlug: 'test-brand', brandId: 'brand-id-123' })
+    fireEvent.click(screen.getByRole('button', { name: /share/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Copy Link')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('Copy Link'))
+
+    await waitFor(() => {
+      expect(analyticsMocks.trackBrandPageShared).toHaveBeenCalledWith(
+        'test-brand',
+        'brand-id-123',
+        'copy_link',
+      )
+    })
   })
 })

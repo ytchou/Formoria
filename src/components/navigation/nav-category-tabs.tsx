@@ -47,6 +47,7 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
         <button
           type="button"
           data-active={isBrandsPage && !activeCategory ? 'true' : 'false'}
+          data-ph-no-autocapture
           onClick={() => handleClick('')}
           className={
             isBrandsPage && !activeCategory
@@ -64,6 +65,7 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
               key={cat.slug}
               type="button"
               data-active={isActive ? 'true' : 'false'}
+              data-ph-no-autocapture
               onClick={() => handleClick(cat.slug)}
               className={
                 isActive

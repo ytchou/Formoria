@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Link } from '@/i18n/navigation'
+import { Link, usePathname } from '@/i18n/navigation'
 import { Menu } from 'lucide-react'
 import {
   Sheet,
@@ -17,6 +17,7 @@ import { BrandMark } from '@/lib/brand/BrandMark'
 import { LocaleSwitcher } from '@/components/i18n/locale-switcher'
 import { buttonVariants } from '@/components/ui/button'
 import { useUser } from '@/lib/auth/use-user'
+import { trackCtaClicked } from '@/lib/analytics'
 
 interface MainNavProps {
   categories: Array<{ slug: string; name: string; nameZh: string | null }>
@@ -27,6 +28,7 @@ export function MainNav({ categories }: MainNavProps) {
   const t = useTranslations('nav')
   const { user, viewer } = useUser()
   const hasOwnedBrand = viewer.hasOwnedBrand
+  const pathname = usePathname()
   return (
     <header className="border-b border-border bg-background">
       {/* Row 1: Logo | Search | Actions */}
@@ -62,6 +64,8 @@ export function MainNav({ categories }: MainNavProps) {
           ) : (
             <Link
               href="/submit"
+              data-ph-no-autocapture
+              onClick={() => trackCtaClicked('submit_brand', 'header_nav', '/submit', pathname)}
               className={buttonVariants({ variant: 'primary', tone: 'cta' })}
             >
               {t('submitBrand')}
@@ -112,8 +116,12 @@ export function MainNav({ categories }: MainNavProps) {
                 ) : (
                   <Link
                     href="/submit"
+                    data-ph-no-autocapture
+                    onClick={() => {
+                      trackCtaClicked('submit_brand', 'header_nav', '/submit', pathname)
+                      setOpen(false)
+                    }}
                     className={buttonVariants({ variant: 'primary', tone: 'cta', className: 'w-full' })}
-                    onClick={() => setOpen(false)}
                   >
                     {t('submitBrand')}
                   </Link>

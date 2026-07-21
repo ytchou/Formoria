@@ -292,12 +292,12 @@ export default async function BrandDetailPage({ params }: PageProps) {
             {faqItems.length > 0 && (
               <>
                 <hr className="border-border" />
-                <BrandFaqAccordion items={faqItems} />
+                <BrandFaqAccordion items={faqItems} brandSlug={displayBrand.slug} />
               </>
             )}
 
             {!displayBrand.isVerified && (
-              <ClaimBrandCta brandId={displayBrand.id} />
+              <ClaimBrandCta brandId={displayBrand.id} brandSlug={displayBrand.slug} />
             )}
           </div>
         </div>
@@ -310,6 +310,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
             categoryName={categoryLabel || categoryTag.name}
             categoryLabel={categoryLabel || null}
             count={categoryCount}
+            currentBrandSlug={displayBrand.slug}
           />
         )}
       </main>

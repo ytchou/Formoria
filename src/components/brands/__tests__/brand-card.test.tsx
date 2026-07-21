@@ -6,8 +6,14 @@ import { BrandCard } from '../brand-card'
 import type { Brand } from '@/lib/types'
 import zh from '../../../../messages/zh-TW.json'
 
-vi.mock('@/lib/analytics', () => ({
+const analyticsMocks = vi.hoisted(() => ({
   trackBrandCardClicked: vi.fn(),
+  trackRecommendationBrandClicked: vi.fn(),
+}))
+
+vi.mock('@/lib/analytics', () => ({
+  trackBrandCardClicked: analyticsMocks.trackBrandCardClicked,
+  trackRecommendationBrandClicked: analyticsMocks.trackRecommendationBrandClicked,
 }))
 
 vi.mock('@/i18n/navigation', () => ({
@@ -25,15 +31,18 @@ vi.mock('@/i18n/navigation', () => ({
 vi.mock('../save-brand-button', () => ({
   SaveBrandButton: ({
     brandId,
+    slug,
     variant,
   }: {
     brandId: string
+    slug: string
     variant: 'overlay' | 'inline'
   }) => (
     <button
       type="button"
       aria-label="收藏品牌"
       data-brand-id={brandId}
+      data-slug={slug}
       data-variant={variant}
     />
   ),
@@ -144,5 +153,28 @@ describe('BrandCard badges', () => {
     )
     expect(screen.queryByRole('button', { name: /收藏/ })).toBeNull()
     expect(screen.queryByText('品牌描述')).toBeNull()
+  })
+
+  it('fires trackRecommendationBrandClicked instead of trackBrandCardClicked for recommendation variant', async () => {
+    const { default: userEvent } = await import('@testing-library/user-event')
+    const user = userEvent.setup()
+    renderWithProvider(
+      <BrandCard
+        brand={makeBrand()}
+        variant="recommendation"
+        sourceBrandSlug="source-brand"
+        position={2}
+      />,
+    )
+
+    await user.click(screen.getByRole('link', { name: '查看品牌' }))
+
+    expect(analyticsMocks.trackRecommendationBrandClicked).toHaveBeenCalledWith(
+      'brand-1',
+      'test-brand',
+      'source-brand',
+      2,
+    )
+    expect(analyticsMocks.trackBrandCardClicked).not.toHaveBeenCalled()
   })
 })

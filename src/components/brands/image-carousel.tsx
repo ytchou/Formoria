@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import Image from 'next/image'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
-import { trackGalleryPhotoView } from '@/lib/analytics'
+import { trackGalleryPhotoView, trackGalleryCompleted } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
 import { BrandImageFallback } from './brand-image-fallback'
 
@@ -28,6 +28,8 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
   const [current, setCurrent] = useState(0)
   const [brokenImages, setBrokenImages] = useState<Set<number>>(new Set())
   const total = validImages.length
+  const viewedIndices = useRef(new Set<number>([0]))
+  const completedFired = useRef(false)
 
   const initial = [...alt][0]
 
@@ -55,7 +57,12 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
   function goTo(index: number) {
     const next = ((index % total) + total) % total
     setCurrent(next)
+    viewedIndices.current.add(next)
     if (next !== current) trackGalleryPhotoView(brandSlug, next, brandId)
+    if (!completedFired.current && viewedIndices.current.size >= total) {
+      completedFired.current = true
+      trackGalleryCompleted(brandId, brandSlug, total)
+    }
   }
 
   const isCurrentBroken = brokenImages.has(current)
@@ -89,6 +96,7 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
               className="absolute left-4 top-1/2 -translate-y-1/2"
               onClick={() => goTo(current - 1)}
               aria-label={t('gallery.previous')}
+              data-ph-no-autocapture
             >
               <ChevronLeft className="size-5" />
             </Button>
@@ -102,6 +110,7 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
               className="absolute right-4 top-1/2 -translate-y-1/2"
               onClick={() => goTo(current + 1)}
               aria-label={t('gallery.next')}
+              data-ph-no-autocapture
             >
               <ChevronRight className="size-5" />
             </Button>
@@ -129,6 +138,7 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
                   : 'opacity-70 hover:opacity-100'
               }`}
               aria-label={t('gallery.viewPhoto', { n: i + 1 })}
+              data-ph-no-autocapture
             >
               {brokenImages.has(i) ? (
                 <div className="flex h-full items-center justify-center bg-muted">

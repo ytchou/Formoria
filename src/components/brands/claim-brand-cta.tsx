@@ -22,10 +22,12 @@ import {
   PROOF_TYPE_I18N_KEYS,
   type ClaimProofType,
 } from '@/lib/services/claim-proofs'
+import { trackBrandClaimStarted, trackBrandClaimFormSubmitted } from '@/lib/analytics'
 import { cn } from '@/lib/utils'
 
 type ClaimBrandCtaProps = {
   brandId: string
+  brandSlug: string
 }
 
 type ProofState = {
@@ -147,7 +149,7 @@ function ClaimProofUpload({
   )
 }
 
-export function ClaimBrandCta({ brandId }: ClaimBrandCtaProps) {
+export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
   const t = useTranslations('brands.claimCta')
   const claimErrorsT = useTranslations('brandDetail.claim.errors')
   const locale = useLocale() as 'zh-TW' | 'en'
@@ -208,6 +210,7 @@ export function ClaimBrandCta({ brandId }: ClaimBrandCtaProps) {
   function openForm() {
     setIsOpen(true)
     setFeedback({ type: 'idle' })
+    trackBrandClaimStarted(brandId, brandSlug, !!user)
   }
 
   function updateProof(type: ClaimProofType, patch: Partial<ProofState>) {
@@ -238,6 +241,7 @@ export function ClaimBrandCta({ brandId }: ClaimBrandCtaProps) {
       .filter((proof) => proof.url || proof.imageKey)
 
     setFeedback({ type: 'idle' })
+    trackBrandClaimFormSubmitted(brandId, brandSlug, selectedProofs)
 
     startTransition(() => {
       void (async () => {
@@ -322,6 +326,7 @@ export function ClaimBrandCta({ brandId }: ClaimBrandCtaProps) {
               <Button
                 type="button"
                 variant="primary" tone="cta"
+                data-ph-no-autocapture
                 onClick={openForm}
               >
                 {t('claimButton')}
@@ -519,6 +524,7 @@ export function ClaimBrandCta({ brandId }: ClaimBrandCtaProps) {
             <Button
               type="submit"
               variant="primary" tone="cta"
+              data-ph-no-autocapture
               disabled={!canSubmit}
             >
               {isPending ? t('submitting') : t('submit')}

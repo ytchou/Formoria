@@ -36,6 +36,7 @@ import { Typography } from '@/components/ui/typography'
 import { usePathname } from '@/i18n/navigation'
 import { signInHref } from '@/i18n/locale-preference'
 import { useUser } from '@/lib/auth/use-user'
+import { trackBrandReported } from '@/lib/analytics'
 import { cn } from '@/lib/utils'
 
 interface ReportDialogProps {
@@ -159,7 +160,15 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
             </DialogFooter>
           </div>
         ) : (
-          <form action={action} className="flex min-h-0 flex-col overflow-hidden">
+          <form
+            action={action}
+            className="flex min-h-0 flex-col overflow-hidden"
+            onSubmit={() => {
+              if (selectedReason) {
+                trackBrandReported(brandSlug, selectedReason, 'general')
+              }
+            }}
+          >
             <input type="hidden" name="brandId" value={brandId} />
             <input type="hidden" name="reason" value={selectedReason ?? ''} />
 
@@ -330,6 +339,7 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
               ) : (
                 <Button
                   type="submit"
+                  data-ph-no-autocapture
                   disabled={
                     pending ||
                     alreadyReported ||
