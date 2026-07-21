@@ -38,27 +38,25 @@ jobs:
               # Extract frontmatter status
               STATUS=$(python3 -c "
           import re, sys
-          with open('$file') as f:
+          with open(sys.argv[1]) as f:
               content = f.read()
           m = re.search(r'^status:\s*(\S+)', content, re.MULTILINE)
           print(m.group(1) if m else 'proposed')
-          ")
+          " "$file")
 
               echo "Reconciling $ITEM_ID → status=$STATUS"
-              # Upsert via Agent Hub Supabase
-              # If this is a sense-PR merge (status=proposed in frontmatter), flip to approved
               # If this is a produce-PR merge (has post-*.md files), keep review
-              if ls "$DIR"/post-*.md 2>/dev/null | head -1 > /dev/null; then
+              # Otherwise (sense-PR merge), flip to approved
+              if compgen -G "$DIR/post-*.md" > /dev/null; then
                 FINAL_STATUS="review"
               else
                 FINAL_STATUS="approved"
               fi
 
-              curl -s -X POST "${AGENT_HUB_SUPABASE_URL}/rest/v1/content_items" \
+              curl -s -X PATCH "${AGENT_HUB_SUPABASE_URL}/rest/v1/content_items?item_path=eq.marketing/items/${FOLDER}" \
                 -H "apikey: ${AGENT_HUB_SUPABASE_SERVICE_KEY}" \
                 -H "Authorization: Bearer ${AGENT_HUB_SUPABASE_SERVICE_KEY}" \
                 -H "Content-Type: application/json" \
-                -H "Prefer: resolution=merge-duplicates" \
-                -d "{\"id\": \"$ITEM_ID\", \"project\": \"formoria\", \"status\": \"$FINAL_STATUS\", \"item_path\": \"$file\"}"
+                -d "{\"status\": \"$FINAL_STATUS\"}"
             fi
           done
