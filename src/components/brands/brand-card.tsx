@@ -5,7 +5,7 @@ import { Link } from '@/i18n/navigation'
 import Image from 'next/image'
 import { useTranslations, useLocale } from 'next-intl'
 import type { Brand } from '@/lib/types'
-import { trackBrandCardClicked } from '@/lib/analytics'
+import { trackBrandCardClicked, trackRecommendationBrandClicked } from '@/lib/analytics'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -21,6 +21,7 @@ interface BrandCardProps {
   position?: number
   priority?: boolean
   variant?: 'directory' | 'recommendation'
+  sourceBrandSlug?: string
 }
 
 export function BrandCard({
@@ -28,6 +29,7 @@ export function BrandCard({
   position = 0,
   priority = false,
   variant = 'directory',
+  sourceBrandSlug,
 }: BrandCardProps) {
   const t = useTranslations('brands')
   const tDetail = useTranslations('brandDetail')
@@ -65,7 +67,7 @@ export function BrandCard({
           <BrandImageFallback name={brand.name} category={brand.category} size="card" />
         )}
         {variant === 'directory' ? (
-          <SaveBrandButton brandId={brand.id} variant="overlay" />
+          <SaveBrandButton brandId={brand.id} slug={brand.slug} variant="overlay" />
         ) : null}
       </div>
 
@@ -79,7 +81,14 @@ export function BrandCard({
                 'focus-visible:outline-none',
                 variant === 'directory' && 'after:absolute after:inset-0',
               )}
-              onClick={() => trackBrandCardClicked(brand.slug, brand.category, position, brand.id)}
+              onClick={() => {
+                if (variant === 'recommendation') {
+                  trackRecommendationBrandClicked(brand.id, brand.slug, sourceBrandSlug ?? '', position)
+                } else {
+                  trackBrandCardClicked(brand.slug, brand.category, position, brand.id)
+                }
+              }}
+              data-ph-no-autocapture
             >
               {brand.name}
             </Link>
@@ -112,7 +121,8 @@ export function BrandCard({
                 variant: 'secondary',
                 className: 'relative z-20 mt-4 min-h-12 w-full',
               })}
-              onClick={() => trackBrandCardClicked(brand.slug, brand.category, position, brand.id)}
+              onClick={() => trackRecommendationBrandClicked(brand.id, brand.slug, sourceBrandSlug ?? '', position)}
+              data-ph-no-autocapture
             >
               {t('card.viewBrand')}
             </Link>

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
@@ -28,11 +28,13 @@ vi.mock('@/lib/analytics', () => ({
   trackSubmissionFormStepCompleted: vi.fn(),
   trackSubmissionFormAbandoned: vi.fn(),
   trackSubmissionCompleted: vi.fn(),
+  trackSubmissionFormErrorShown: vi.fn(),
 }))
 
 import SubmitForm from './SubmitForm'
 import messages from '@/../messages/zh-TW.json'
 import { inspectRecommendationName } from '@/app/[locale]/submit/actions'
+import { trackSubmissionFormErrorShown } from '@/lib/analytics'
 
 function renderForm() {
   return render(
@@ -181,5 +183,22 @@ describe('SubmitForm', () => {
     // Click the consent text span (bubbles to wrapping label, activating the checkbox)
     await user.click(consentText)
     expect(consent).toBeChecked()
+  })
+
+  it('calls trackSubmissionFormErrorShown when form is submitted with invalid fields', async () => {
+    renderForm()
+
+    // Submit the form directly to bypass the disabled button and trigger validation error handler
+    const form = document.querySelector('form')!
+    fireEvent.submit(form)
+
+    await waitFor(() => {
+      expect(trackSubmissionFormErrorShown).toHaveBeenCalled()
+    })
+    expect(trackSubmissionFormErrorShown).toHaveBeenCalledWith(
+      expect.any(String),
+      'validation',
+      'recommendation',
+    )
   })
 })

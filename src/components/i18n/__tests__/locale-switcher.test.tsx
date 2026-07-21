@@ -6,6 +6,11 @@ import { NextIntlClientProvider } from 'next-intl'
 
 import enMessages from '../../../../messages/en.json'
 import { LocaleSwitcher } from '@/components/i18n/locale-switcher'
+import { trackLanguageSwitched } from '@/lib/analytics'
+
+vi.mock('@/lib/analytics', () => ({
+  trackLanguageSwitched: vi.fn(),
+}))
 
 vi.mock('@/app/actions/locale-preference', () => ({
   setLocalePreference: vi.fn(),
@@ -48,5 +53,17 @@ describe('LocaleSwitcher', () => {
 
     expect((await screen.findAllByRole('menuitem', { name: 'Traditional Chinese' })).length).toBeGreaterThan(0)
     expect((await screen.findAllByRole('menuitem', { name: 'English' })).length).toBeGreaterThan(0)
+  })
+
+  it('calls trackLanguageSwitched when a locale option is clicked', async () => {
+    const user = userEvent.setup()
+
+    renderAt('zh-TW')
+
+    await user.click(screen.getByRole('button', { name: 'Switch language' }))
+    const englishOption = (await screen.findAllByRole('menuitem', { name: 'English' }))[0]
+    await user.click(englishOption!)
+
+    expect(trackLanguageSwitched).toHaveBeenCalledWith('zh-TW', 'en', 'header')
   })
 })

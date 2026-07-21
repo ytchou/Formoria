@@ -4,6 +4,12 @@ import { NextIntlClientProvider } from 'next-intl'
 import { beforeEach, expect, it, vi } from 'vitest'
 import messages from '@/../messages/zh-TW.json'
 import { ClaimBrandCta } from '@/components/brands/claim-brand-cta'
+import { trackBrandClaimStarted } from '@/lib/analytics'
+
+vi.mock('@/lib/analytics', () => ({
+  trackBrandClaimStarted: vi.fn(),
+  trackBrandClaimFormSubmitted: vi.fn(),
+}))
 
 const uploadMock = vi.fn()
 const mockUploadConfigs: Array<{ bucket: string; path: string; acceptedTypes?: string[]; uploadFields?: Record<string, string> }> = []
@@ -42,7 +48,7 @@ vi.mock('@/app/[locale]/brands/[slug]/actions', () => ({
 
 const renderCta = (props: Partial<React.ComponentProps<typeof ClaimBrandCta>> = {}) => render(
   <NextIntlClientProvider locale="zh-TW" messages={messages}>
-    <ClaimBrandCta brandId="b1" {...props} />
+    <ClaimBrandCta brandId="b1" brandSlug="test-brand" {...props} />
   </NextIntlClientProvider>,
 )
 
@@ -221,4 +227,11 @@ it('renders business document upload with PDF support', async () => {
   expect(businessDocInput).not.toBeNull()
   expect(businessDocInput?.accept).toBe('application/pdf,image/*')
   expect(screen.getByText('PDF / JPG / PNG，最大 5MB')).toBeInTheDocument()
+})
+
+it('calls trackBrandClaimStarted when claim form opens', async () => {
+  renderCta()
+  fireEvent.click(await screen.findByText('認領這個品牌'))
+
+  expect(trackBrandClaimStarted).toHaveBeenCalledWith('b1', 'test-brand', true)
 })

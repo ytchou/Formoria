@@ -10,6 +10,7 @@ import {
 import { useTranslations } from 'next-intl'
 import type { Brand } from '@/lib/types'
 import { SurfaceCard } from '@/components/ui/card'
+import { trackCtaClicked } from '@/lib/analytics'
 import { DirectoryFilterToken } from './directory-filter-token'
 import { BrandCard } from './brand-card'
 
@@ -65,7 +66,14 @@ export function SearchEmptyState({
               variant="chip"
             />
           ))}
-          <Link href={clearAllHref} replace scroll={false} className="ml-auto type-link">
+          <Link
+            href={clearAllHref}
+            replace
+            scroll={false}
+            data-ph-no-autocapture
+            onClick={() => trackCtaClicked('clear_all', 'empty_state', clearAllHref, '/brands')}
+            className="ml-auto type-link"
+          >
             {t('clearAll')}
           </Link>
         </SurfaceCard>
@@ -92,7 +100,12 @@ export function SearchEmptyState({
         <section className="border-t border-border pt-6">
           <div className="mb-4 flex items-center justify-between gap-4">
             <h2 className="type-section-title">{t('recommendations')}</h2>
-            <Link href={recommendationsHref} className="inline-flex min-h-12 items-center gap-1 font-medium hover:text-primary">
+            <Link
+              href={recommendationsHref}
+              data-ph-no-autocapture
+              onClick={() => trackCtaClicked('view_all', 'empty_state', recommendationsHref, '/brands')}
+              className="inline-flex min-h-12 items-center gap-1 font-medium hover:text-primary"
+            >
               {t('viewAll')}
               <ArrowRight className="size-4" aria-hidden="true" />
             </Link>

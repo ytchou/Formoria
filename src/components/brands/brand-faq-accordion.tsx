@@ -1,7 +1,8 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
+import { trackFaqItemExpanded } from '@/lib/analytics'
 
 import {
   Accordion,
@@ -41,19 +42,30 @@ function renderLinkedText(text: string): ReactNode {
 
 interface BrandFaqAccordionProps {
   items: Array<{ question: string; answer: string }>
+  brandSlug: string
 }
 
-export function BrandFaqAccordion({ items }: BrandFaqAccordionProps) {
+export function BrandFaqAccordion({ items, brandSlug }: BrandFaqAccordionProps) {
   const t = useTranslations('brandDetail.sections')
+  const [openItems, setOpenItems] = useState<string[]>([])
 
   if (items.length === 0) return null
+
+  function handleValueChange(values: string[]) {
+    const newlyOpened = values.filter((v) => !openItems.includes(v))
+    for (const val of newlyOpened) {
+      const index = parseInt(val.replace('faq-', ''), 10)
+      if (!isNaN(index)) trackFaqItemExpanded(brandSlug, index)
+    }
+    setOpenItems(values)
+  }
 
   return (
     <section>
       <h2 className="mb-3 type-section-title">
         {t('faq')}
       </h2>
-      <Accordion type="multiple">
+      <Accordion type="multiple" value={openItems} onValueChange={handleValueChange}>
         {items.map((item, index) => (
           <AccordionItem key={`${item.question}-${index}`} value={`faq-${index}`}>
             <AccordionTrigger>{item.question}</AccordionTrigger>

@@ -1,7 +1,7 @@
 import { getTranslations } from 'next-intl/server'
-import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
 import { EmailCaptureForm } from '@/components/newsletter/email-capture-form'
+import { SectionBandCtaLink } from '@/components/landing/section-band-cta-link'
 import { cn } from '@/lib/utils'
 
 export default async function SectionBand() {
@@ -16,12 +16,11 @@ export default async function SectionBand() {
           <div>
             <h2 className="type-section-title-large">{tSubmit('headline')}</h2>
             <p className="mt-2 type-body-muted">{tSubmit('body')}</p>
-            <Link
+            <SectionBandCtaLink
               href="/submit"
+              label={tSubmit('cta')}
               className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-4')}
-            >
-              {tSubmit('cta')}
-            </Link>
+            />
           </div>
 
           {/* Newsletter */}

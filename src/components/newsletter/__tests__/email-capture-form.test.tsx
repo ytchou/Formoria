@@ -1,8 +1,32 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { EmailCaptureForm } from '../email-capture-form'
+import { trackNewsletterSubscribed } from '@/lib/analytics'
+
+vi.mock('@/lib/analytics', () => ({
+  trackNewsletterSubscribed: vi.fn(),
+}))
+
+vi.mock('@/app/actions/newsletter', () => ({
+  subscribeToNewsletter: vi.fn(),
+}))
+
+const dispatchNewsletterAction = vi.hoisted(() => vi.fn())
+let mockActionState: Record<string, unknown> = {}
+
+vi.mock('react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react')>()
+  return {
+    ...actual,
+    useActionState: vi.fn((_action: unknown, _initialState: unknown) => [
+      mockActionState,
+      dispatchNewsletterAction,
+      false,
+    ]),
+  }
+})
 
 // Mock next-intl
 vi.mock('next-intl', () => ({
@@ -14,6 +38,12 @@ vi.mock('next-intl', () => ({
 }))
 
 describe('EmailCaptureForm', () => {
+  beforeEach(() => {
+    mockActionState = {}
+    vi.mocked(trackNewsletterSubscribed).mockClear()
+    dispatchNewsletterAction.mockClear()
+  })
+
   it('renders email input and submit button', () => {
     render(<EmailCaptureForm />)
     expect(screen.getByPlaceholderText(/email/i)).toBeInTheDocument()
@@ -60,5 +90,17 @@ describe('EmailCaptureForm', () => {
 
     await user.click(brandStoriesChip)
     expect(brandStoriesChip).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('calls trackNewsletterSubscribed when subscription succeeds', async () => {
+    mockActionState = { success: true }
+    render(<EmailCaptureForm />)
+
+    await waitFor(() => {
+      expect(trackNewsletterSubscribed).toHaveBeenCalledWith(
+        ['curated-picks'],
+        true,
+      )
+    })
   })
 })

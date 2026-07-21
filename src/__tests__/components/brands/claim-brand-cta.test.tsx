@@ -60,15 +60,20 @@ vi.mock('@/app/[locale]/brands/[slug]/actions', () => ({
   submitClaimAction: vi.fn(),
 }))
 
+vi.mock('@/lib/analytics', () => ({
+  trackBrandClaimStarted: vi.fn(),
+  trackBrandClaimFormSubmitted: vi.fn(),
+}))
+
 describe('ClaimBrandCta', () => {
   it('renders proof-based claim body copy', () => {
-    render(<ClaimBrandCta brandId="brand-1" />)
+    render(<ClaimBrandCta brandId="brand-1" brandSlug="brand-1-slug" />)
 
     expect(screen.getByText(/Claim your listing with business proof/)).toBeInTheDocument()
   })
 
   it('does not render legacy submit-proof copy', () => {
-    render(<ClaimBrandCta brandId="brand-1" />)
+    render(<ClaimBrandCta brandId="brand-1" brandSlug="brand-1-slug" />)
 
     expect(screen.queryByText(/submit proof to claim and manage/)).not.toBeInTheDocument()
   })

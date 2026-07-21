@@ -34,7 +34,7 @@ import { NativeSelect } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
 import { TurnstileWidget } from '@/components/submit/TurnstileWidget'
 import { cn } from '@/lib/utils'
-import { trackSubmissionCompleted } from '@/lib/analytics'
+import { trackSubmissionCompleted, trackSubmissionFormErrorShown } from '@/lib/analytics'
 import { useSubmissionAnalytics } from '@/hooks/use-submission-analytics'
 
 type SubmitFormProps = {
@@ -203,7 +203,13 @@ export default function SubmitForm({
 
   const onSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
-      void handleSubmit(submitForm)(event)
+      void handleSubmit(submitForm, (validationErrors) => {
+        for (const [fieldName, error] of Object.entries(validationErrors)) {
+          if (error?.message) {
+            trackSubmissionFormErrorShown(fieldName, 'validation', 'recommendation')
+          }
+        }
+      })(event)
     },
     [handleSubmit, submitForm],
   )
