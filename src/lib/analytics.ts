@@ -221,7 +221,7 @@ export function trackSearchExecuted(query: string, resultCount: number) {
     result_count: resultCount,
     has_results: resultCount > 0,
   })
-  capturePostHogEvent('search_executed', {
+  capturePostHogEvent('brand_search_executed', {
     query_length: query.length,
     result_count: resultCount,
     has_results: resultCount > 0,
@@ -314,19 +314,13 @@ export function trackBrandPageShared(_slug: string) {
   // stub
 }
 
-// Keep as-is: non-spec extras with useful signal
-export function trackFilterSearch(queryLength: number) {
-  safeGAEvent('event', 'filter_search', { query_length: queryLength })
-  capturePostHogEvent('filter_search', { query_length: queryLength })
-}
-
 export function trackGalleryPhotoView(slug: string, index: number, brandId?: string) {
   safeGAEvent('event', 'gallery_photo_view', {
     brand_slug: slug,
     photo_index: index,
   })
   if (brandId) {
-    capturePostHogEvent('gallery_photo_view', {
+    capturePostHogEvent('gallery_photo_viewed', {
       brand_id: brandId,
       brand_slug: slug,
       photo_index: index,
@@ -348,7 +342,7 @@ export function trackSearchSuggestionSelect(slug: string, brandId?: string) {
 
 export function trackSearchNoResults(searchTerm: string) {
   safeGAEvent('event', 'search_no_results', { search_term: searchTerm })
-  capturePostHogEvent('search_no_results', { query_length: searchTerm.length })
+  capturePostHogEvent('brand_search_empty', { query_length: searchTerm.length })
 }
 
 export function trackSignUp(method: string) {

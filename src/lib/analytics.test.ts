@@ -20,7 +20,6 @@ import {
   trackSearchResultClicked,
   trackSearchNoResults,
   trackSearchSuggestionSelect,
-  trackFilterSearch,
   trackSubmissionFormOpened,
   trackSubmissionFormStepCompleted,
   trackSubmissionCompleted,
@@ -256,7 +255,7 @@ describe('analytics', () => {
       brand_id: 'brand-uuid',
       brand_slug: 'my-brand',
     })
-    expect(mockPostHogCapture).toHaveBeenNthCalledWith(3, 'gallery_photo_view', {
+    expect(mockPostHogCapture).toHaveBeenNthCalledWith(3, 'gallery_photo_viewed', {
       brand_id: 'brand-uuid',
       brand_slug: 'my-brand',
       photo_index: 1,
@@ -269,12 +268,12 @@ describe('analytics', () => {
     trackSearchNoResults('another private query')
     trackSubmissionCompleted('Secret proposed brand', 'fashion', true, 120)
 
-    expect(mockPostHogCapture).toHaveBeenNthCalledWith(1, 'search_executed', {
+    expect(mockPostHogCapture).toHaveBeenNthCalledWith(1, 'brand_search_executed', {
       query_length: 13,
       result_count: 4,
       has_results: true,
     })
-    expect(mockPostHogCapture).toHaveBeenNthCalledWith(2, 'search_no_results', {
+    expect(mockPostHogCapture).toHaveBeenNthCalledWith(2, 'brand_search_empty', {
       query_length: 21,
     })
     expect(JSON.stringify(mockPostHogCapture.mock.calls)).not.toContain('private query')
@@ -405,13 +404,6 @@ describe('analytics', () => {
 
   it('trackBrandPageShared is a stub that does nothing', () => {
     expect(() => trackBrandPageShared('my-brand')).not.toThrow()
-  })
-
-  it('trackFilterSearch sends filter_search event', () => {
-    trackFilterSearch(5)
-    expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'filter_search', {
-      query_length: 5,
-    })
   })
 
   it('trackGalleryPhotoView sends gallery_photo_view event', () => {
