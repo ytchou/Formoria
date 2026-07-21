@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { isInternalUserEmail } from '@/lib/analytics/internal-users'
 import {
   identifyPostHogUser,
   resetPostHogUser,
@@ -18,7 +19,9 @@ export function PostHogUserSync() {
       resetPostHogUser()
     }
     if (nextUserId && previousUserId.current !== nextUserId) {
-      identifyPostHogUser(nextUserId)
+      identifyPostHogUser(nextUserId, {
+        is_internal: isInternalUserEmail(user?.email),
+      })
     }
 
     previousUserId.current = nextUserId

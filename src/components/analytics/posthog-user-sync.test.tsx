@@ -19,11 +19,19 @@ describe('PostHogUserSync', () => {
     mocks.useUser.mockReturnValue({ user: { id: 'user-uuid', email: 'private@example.com', provider: 'google' } })
     const view = render(<PostHogUserSync />)
 
-    expect(mocks.identify).toHaveBeenCalledWith('user-uuid')
+    expect(mocks.identify).toHaveBeenCalledWith('user-uuid', { is_internal: false })
     expect(JSON.stringify(mocks.identify.mock.calls)).not.toContain('private@example.com')
 
     mocks.useUser.mockReturnValue({ user: null })
     view.rerender(<PostHogUserSync />)
     expect(mocks.reset).toHaveBeenCalledOnce()
+  })
+
+  it('flags internal team accounts without sending the email', () => {
+    mocks.useUser.mockReturnValue({ user: { id: 'team-uuid', email: 'Patrick.Ytchou@gmail.com', provider: 'google' } })
+    render(<PostHogUserSync />)
+
+    expect(mocks.identify).toHaveBeenCalledWith('team-uuid', { is_internal: true })
+    expect(JSON.stringify(mocks.identify.mock.calls)).not.toContain('gmail.com')
   })
 })

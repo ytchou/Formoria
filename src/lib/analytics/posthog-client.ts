@@ -5,7 +5,7 @@ import { sanitizePostHogEvent } from './posthog-privacy'
 type PostHogClient = {
   init(token: string, config: Record<string, unknown>): unknown
   capture(event: string, properties?: Record<string, unknown>): void
-  identify(distinctId: string): void
+  identify(distinctId: string, setProperties?: Record<string, unknown>): void
   reset(): void
 }
 
