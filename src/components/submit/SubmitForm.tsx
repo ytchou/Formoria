@@ -34,10 +34,8 @@ import { NativeSelect } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
 import { TurnstileWidget } from '@/components/submit/TurnstileWidget'
 import { cn } from '@/lib/utils'
-import {
-  trackSubmissionCompleted,
-  trackSubmissionFormOpened,
-} from '@/lib/analytics'
+import { trackSubmissionCompleted } from '@/lib/analytics'
+import { useSubmissionAnalytics } from '@/hooks/use-submission-analytics'
 
 type SubmitFormProps = {
   source?: 'header_cta' | 'hero_cta' | 'footer_link'
@@ -50,7 +48,7 @@ export default function SubmitForm({
   const tForm = useTranslations('submit.recommendForm')
   const tReview = useTranslations('submit.review')
   const router = useRouter()
-  const mountTimeRef = useRef<number | null>(null)
+  const { complete } = useSubmissionAnalytics(source, 'recommend', 'opened')
   const nameBlurRequestRef = useRef(0)
   const submitLockRef = useRef(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -98,11 +96,6 @@ export default function SubmitForm({
   const [nameDuplicate, setNameDuplicate] = useState(false)
   const [urlSuggestion, setUrlSuggestion] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
-
-  useEffect(() => {
-    mountTimeRef.current = Date.now()
-    trackSubmissionFormOpened(source, 'recommend')
-  }, [source])
 
   const handleNameBlur = async () => {
     const currentName = getValues('name')
@@ -192,23 +185,20 @@ export default function SubmitForm({
         }
         setPendingRedirect(`/submit/confirmation?${query.toString()}`)
 
-        if (mountTimeRef.current !== null) {
-          const elapsed = Math.round((Date.now() - mountTimeRef.current) / 1000)
-          trackSubmissionCompleted(
-            data.name,
-            '',
-            Boolean(data.heroImageUrl),
-            elapsed,
-            'recommend',
-            !data.guestEmail,
-          )
-        }
+        trackSubmissionCompleted(
+          data.name,
+          '',
+          Boolean(data.heroImageUrl),
+          complete(),
+          'recommend',
+          !data.guestEmail,
+        )
       } finally {
         submitLockRef.current = false
         setIsSubmitting(false)
       }
     },
-    [],
+    [complete],
   )
 
   const onSubmit = useCallback(

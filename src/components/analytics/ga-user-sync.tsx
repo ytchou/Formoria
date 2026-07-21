@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import {
   getContentGroup,
   getUtmParams,
+  isPublicAnalyticsPath,
   persistUtmTouchPoints,
   trackLogin,
   trackSignUp,
@@ -31,6 +32,7 @@ export function GaUserSync() {
   const { user } = useUser()
   const pathname = usePathname()
   const previousUserWasNullRef = useRef<boolean | null>(null)
+  const utmInitializedRef = useRef(false)
 
   useEffect(() => {
     const userType = user ? 'authenticated' : 'visitor'
@@ -58,20 +60,29 @@ export function GaUserSync() {
 
     previousUserWasNullRef.current = user === null
 
-    safeGtag('set', { user_id: user?.id ?? null })
-    safeGtag('set', {
-      user_properties: {
-        user_type: userType,
-        preferred_locale: getPreferredLocale(pathname),
-      },
-    })
+    if (isPublicAnalyticsPath(pathname)) {
+      safeGtag('set', { user_id: user?.id ?? null })
+      safeGtag('set', {
+        user_properties: {
+          user_type: userType,
+          preferred_locale: getPreferredLocale(pathname),
+        },
+      })
+    }
   }, [pathname, user])
 
   useEffect(() => {
+    if (!isPublicAnalyticsPath(pathname)) return
     safeGtag('set', { content_group: getContentGroup(pathname) })
   }, [pathname])
 
   useEffect(() => {
+    if (!isPublicAnalyticsPath(pathname)) {
+      utmInitializedRef.current = false
+      return
+    }
+    if (utmInitializedRef.current) return
+    utmInitializedRef.current = true
     const utmParams = getUtmParams(window.location.search)
     if (Object.keys(utmParams).length === 0) return
 
@@ -79,7 +90,7 @@ export function GaUserSync() {
     if (!touchPoints) return
 
     safeGtag('set', { user_properties: { ...touchPoints } })
-  }, [])
+  }, [pathname])
 
   return null
 }

@@ -14,10 +14,6 @@ vi.mock('next/script', () => ({
   default: ({ id }: { id: string }) => <script data-testid={id} />,
 }))
 
-vi.mock('./ga-user-sync', () => ({
-  GaUserSync: () => <div data-testid="ga-user-sync" />,
-}))
-
 beforeEach(() => {
   vi.clearAllMocks()
   mockUseSearchParams.mockReturnValue(new URLSearchParams())

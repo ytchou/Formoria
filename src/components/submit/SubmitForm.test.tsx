@@ -25,6 +25,8 @@ vi.mock('@/i18n/navigation', () => ({
 
 vi.mock('@/lib/analytics', () => ({
   trackSubmissionFormOpened: vi.fn(),
+  trackSubmissionFormStepCompleted: vi.fn(),
+  trackSubmissionFormAbandoned: vi.fn(),
   trackSubmissionCompleted: vi.fn(),
 }))
 

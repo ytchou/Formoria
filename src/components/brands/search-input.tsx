@@ -11,6 +11,7 @@ import {
   trackSearchNoResults,
   trackSearchExecuted,
   trackSearchResultClicked,
+  trackSearchSuggestionSelect,
 } from '@/lib/analytics'
 import type { SearchResult } from '@/lib/services/brands'
 import { SearchSuggestions, SEARCH_SUGGESTIONS_ID } from './search-suggestions'
@@ -146,8 +147,10 @@ function SearchInput({
   }
 
   function handleSelect(slug: string, index: number) {
+    const selected = suggestions[index]
     trackSearchExecuted(value, suggestions.length)
-    trackSearchResultClicked(value, index)
+    trackSearchResultClicked(value, index, selected?.id, slug)
+    trackSearchSuggestionSelect(slug, selected?.id)
     setShowDropdown(false)
     router.push(`/brands/${slug}`)
   }

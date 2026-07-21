@@ -6,6 +6,7 @@ import { trackBrandDetailViewed } from '@/lib/analytics'
 type BrandViewSource = 'search' | 'category' | 'directory' | 'direct' | 'recommendation'
 
 interface BrandViewTrackerProps {
+  brandId?: string
   brandSlug: string
 }
 
@@ -17,7 +18,7 @@ const BRAND_VIEW_SOURCES = new Set<BrandViewSource>([
   'recommendation',
 ])
 
-export function BrandViewTracker({ brandSlug }: BrandViewTrackerProps) {
+export function BrandViewTracker({ brandId, brandSlug }: BrandViewTrackerProps) {
   const trackedRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -27,8 +28,8 @@ export function BrandViewTracker({ brandSlug }: BrandViewTrackerProps) {
     const source = rawSource && BRAND_VIEW_SOURCES.has(rawSource as BrandViewSource)
       ? (rawSource as BrandViewSource)
       : 'direct'
-    trackBrandDetailViewed(brandSlug, source)
-  }, [brandSlug])
+    trackBrandDetailViewed(brandSlug, source, brandId)
+  }, [brandId, brandSlug])
 
   return null
 }

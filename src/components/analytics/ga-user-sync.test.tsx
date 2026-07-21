@@ -95,6 +95,22 @@ describe('GaUserSync', () => {
     expect(mockTrackLogin).toHaveBeenCalledWith('google')
   })
 
+  it('tracks product-route login without writing GA properties on the protected route', async () => {
+    mockUsePathname.mockReturnValue('/en/dashboard')
+    const { GaUserSync } = await import('./ga-user-sync')
+    const { rerender } = render(<GaUserSync />)
+
+    vi.clearAllMocks()
+    mockUseUser.mockReturnValue({
+      user: { id: 'user-niizo', email: 'owner@niizo.tw', provider: 'google' },
+      loading: false,
+    })
+    rerender(<GaUserSync />)
+
+    expect(mockTrackLogin).toHaveBeenCalledWith('google')
+    expect(window.gtag).not.toHaveBeenCalled()
+  })
+
   it('tracks sign_up when is_new_user=1 is in the URL', async () => {
     window.history.replaceState({}, '', '/en/brands?is_new_user=1')
     const { GaUserSync } = await import('./ga-user-sync')

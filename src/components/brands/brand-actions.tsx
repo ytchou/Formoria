@@ -24,7 +24,8 @@ export function BrandActions({ websiteUrl, brandSlug = '', brandId, brandName }:
     trackExternalLinkClicked(
       brandSlug,
       'website',
-      typeof window !== 'undefined' ? window.location.pathname : ''
+      typeof window !== 'undefined' ? window.location.pathname : '',
+      brandId,
     )
 
     if (brandId) {

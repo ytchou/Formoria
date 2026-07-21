@@ -23,10 +23,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useRouter } from '@/i18n/navigation'
-import {
-  trackSubmissionCompleted,
-  trackSubmissionFormOpened,
-} from '@/lib/analytics'
+import { trackSubmissionCompleted } from '@/lib/analytics'
+import { useSubmissionAnalytics } from '@/hooks/use-submission-analytics'
 
 type Translator = (key: string) => string
 
@@ -59,7 +57,7 @@ export default function SubmitQuickForm() {
   const t = useTranslations('submit')
   const tReview = useTranslations('submit.review')
   const router = useRouter()
-  const mountTimeRef = useRef<number | null>(null)
+  const { complete } = useSubmissionAnalytics('quick', 'owner', 'opened')
   const nameBlurRequestRef = useRef(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [pendingRedirect, setPendingRedirect] = useState<string | null>(null)
@@ -99,15 +97,6 @@ export default function SubmitQuickForm() {
   const pdpaConsent = useWatch({ control, name: 'pdpaConsent' })
   const nameRegistration = register('name')
   const websiteRegistration = register('website')
-
-  useEffect(() => {
-    mountTimeRef.current = Date.now()
-    // Remove these casts when the shared analytics helper adopts the quick-form taxonomy.
-    trackSubmissionFormOpened(
-      'quick' as Parameters<typeof trackSubmissionFormOpened>[0],
-      'owner' as Parameters<typeof trackSubmissionFormOpened>[1],
-    )
-  }, [])
 
   useEffect(() => {
     if (!pendingRedirect) return
@@ -184,21 +173,18 @@ export default function SubmitQuickForm() {
 
         setPendingRedirect('/submit/confirmation?intent=owner_claim')
 
-        if (mountTimeRef.current !== null) {
-          const elapsed = Math.round((Date.now() - mountTimeRef.current) / 1000)
-          trackSubmissionCompleted(
-            data.name,
-            '',
-            false,
-            elapsed,
-            'owner_claim',
-          )
-        }
+        trackSubmissionCompleted(
+          data.name,
+          '',
+          false,
+          complete(),
+          'owner_claim',
+        )
       } finally {
         setIsSubmitting(false)
       }
     },
-    [isSubmitting],
+    [complete, isSubmitting],
   )
 
   const onSubmit = useCallback(

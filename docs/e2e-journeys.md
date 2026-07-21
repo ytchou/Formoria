@@ -23,7 +23,7 @@ Running inventory of e2e-covered user journeys. Updated by `/e2e-author` runs.
 | **Submit funnel end-to-end** | `e2e/tests/submit-funnel.spec.ts` | 2026-07-05 |
 | **Submit recommendation — duplicate recovery and rapid repeat-submit persistence** | `e2e/tests/submit-recommend-edge-cases.spec.ts` | 2026-07-19 |
 | **Detailed owner wizard — final-only persistence, shared links, romanized URL preview** | `e2e/tests/submit-funnel.spec.ts` | 2026-07-16 |
-| **Dashboard analytics** | `e2e/tests/dashboard-analytics.spec.ts` | 2026-07-05 |
+| **Owner-authorized PostHog session analytics and provider state** | `e2e/tests/dashboard-analytics.spec.ts` | 2026-07-20 |
 | **User settings** | `e2e/tests/settings.spec.ts` | 2026-07-05 |
 | **Static & compliance pages** | `e2e/tests/static-pages.spec.ts` | 2026-07-05 |
 | **API contracts** | `e2e/tests/api-contracts.spec.ts` | 2026-07-05 |

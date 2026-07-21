@@ -13,6 +13,7 @@ const mockPush = vi.fn()
 const mockTrackSearchExecuted = vi.fn()
 const mockTrackSearchNoResults = vi.fn()
 const mockTrackSearchResultClicked = vi.fn()
+const mockTrackSearchSuggestionSelect = vi.fn()
 let mockSearch = ''
 vi.mock('@/hooks/use-filter-params', () => ({
   useFilterParams: () => ({
@@ -29,6 +30,7 @@ vi.mock('@/lib/analytics', () => ({
   trackSearchExecuted: (...args: unknown[]) => mockTrackSearchExecuted(...args),
   trackSearchNoResults: (...args: unknown[]) => mockTrackSearchNoResults(...args),
   trackSearchResultClicked: (...args: unknown[]) => mockTrackSearchResultClicked(...args),
+  trackSearchSuggestionSelect: (...args: unknown[]) => mockTrackSearchSuggestionSelect(...args),
 }))
 
 global.fetch = vi.fn().mockResolvedValue({
@@ -159,7 +161,8 @@ describe('SearchInput', () => {
     await user.click(await screen.findByRole('option', { name: /Coffee Brand/ }))
 
     expect(mockTrackSearchExecuted).toHaveBeenCalledWith('coffee', 1)
-    expect(mockTrackSearchResultClicked).toHaveBeenCalledWith('coffee', 0)
+    expect(mockTrackSearchResultClicked).toHaveBeenCalledWith('coffee', 0, 'brand-1', 'coffee-brand')
+    expect(mockTrackSearchSuggestionSelect).toHaveBeenCalledWith('coffee-brand', 'brand-1')
     expect(mockTrackSearchExecuted.mock.invocationCallOrder[0]).toBeLessThan(
       mockTrackSearchResultClicked.mock.invocationCallOrder[0],
     )

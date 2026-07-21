@@ -688,7 +688,7 @@
       "lastUpdated": "Last updated: July 2026",
       "dataCollection": {
         "heading": "Data Collection",
-        "body": "When you use Formoria, we may collect your email address and optional name when you submit a brand, send feedback, or contact support, along with brand details, social and purchase links, ownership status, and source attribution. When you create an account, we collect your email and authentication details through Supabase Auth. If you choose to receive marketing email, we also record the consent category, source, version, and time. We additionally collect anonymized browsing data through Google Analytics."
+        "body": "When you use Formoria, we may collect your email address and optional name when you submit a brand, send feedback, or contact support, along with brand details, social and purchase links, ownership status, and source attribution. When you create an account, we collect your email and authentication details through Supabase Auth. If you choose to receive marketing email, we also record the consent category, source, version, and time. We collect browsing and product-usage events through PostHog and continue collecting Google Analytics data. Analytics events exclude form values, search text, names, email addresses, phone numbers, authentication codes, and tokens."
       },
       "purpose": {
         "heading": "Purpose of Use",
@@ -696,7 +696,7 @@
       },
       "thirdParty": {
         "heading": "Third-Party Services",
-        "body": "To provide our service, we use the following third-party providers: Supabase (database and authentication, servers in the US), Resend (email delivery, data may be processed in the US), Google Analytics 4 (website analytics, data processed in the US), Sentry (error monitoring, data processed in the US), Cloudflare Turnstile (bot protection), and Railway (web hosting, servers in the US). We do not sell your personal data to third parties. Data is shared only to the extent necessary to provide our services."
+        "body": "To provide our service, we use the following third-party providers: Supabase (database and authentication, servers in the US), Resend (email delivery, data may be processed in the US), PostHog and Google Analytics 4 (website analytics, data processed in the US), Sentry (error monitoring, data processed in the US), Cloudflare Turnstile (bot protection), and Railway (web hosting, servers in the US). We do not sell your personal data to third parties. Data is shared only to the extent necessary to provide our services."
       },
       "userRights": {
         "heading": "Your Rights",
@@ -708,7 +708,7 @@
       },
       "cookies": {
         "heading": "Cookies and Tracking",
-        "body": "This website uses Google Analytics 4 cookies to record page views and usage events, with IP addresses anonymized. We also use Cloudflare Turnstile session cookies for bot detection to protect forms from spam. This website does not use any advertising cookies or third-party tracking cookies."
+        "body": "This website uses PostHog and Google Analytics 4 to record page views and usage events. PostHog is delivered through our e.formoria.com analytics endpoint, does not retain IP addresses, and has session replay disabled. Cloudflare Turnstile uses session cookies for bot detection to protect forms from spam. We do not use advertising cookies."
       },
       "changes": {
         "heading": "Policy Changes",
@@ -1056,6 +1056,31 @@
       "browseCta": "Browse brands"
     },
     "analytics": {
+      "profileSessions": "Profile sessions",
+      "outboundSessions": "Outbound sessions",
+      "outboundConversion": "Outbound conversion",
+      "collectingBaseline": "Collecting comparison baseline",
+      "priorChangeUnavailable": "Prior-period change unavailable",
+      "currentRateUnavailable": "Current rate unavailable",
+      "versusPrior": "{change} vs prior 30 days",
+      "conversionDefinition": "Outbound sessions ÷ profile sessions",
+      "sessionTrend": "30-day session trend",
+      "sessionTrendDescription": "Profile sessions with outbound sessions shown in the tooltip.",
+      "openPostHog": "Open in PostHog",
+      "sessionTrendAria": "Daily profile and outbound sessions",
+      "trendUnavailable": "Daily trend is temporarily unavailable.",
+      "trendEmpty": "No profile sessions in this window.",
+      "acquisitionSources": "Acquisition sources",
+      "acquisitionUnavailable": "Acquisition is temporarily unavailable.",
+      "acquisitionEmpty": "No acquisition sessions in this window.",
+      "outboundDestinations": "Outbound destinations",
+      "destinationsUnavailable": "Destinations are temporarily unavailable.",
+      "destinationsEmpty": "No outbound sessions in this window.",
+      "source": "Source",
+      "dataThrough": "Data through",
+      "generated": "Generated",
+      "unavailableTitle": "Analytics temporarily unavailable",
+      "unavailableBody": "PostHog could not load this brand’s session metrics. Try again later.",
       "trendsLabel": "TRENDS",
       "viewsClicksTitle": "Views & Clicks",
       "dailyTrend": "Daily trend",

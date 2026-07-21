@@ -1,3 +1,5 @@
+import { capturePostHogEvent } from './analytics/posthog-provider'
+
 const UTM_KEYS = [
   'utm_source',
   'utm_medium',
@@ -139,33 +141,58 @@ export function persistUtmTouchPoints(
 
 export function trackBrandDetailViewed(
   slug: string,
-  source: 'search' | 'category' | 'directory' | 'direct' | 'recommendation' = 'direct'
+  source: 'search' | 'category' | 'directory' | 'direct' | 'recommendation' = 'direct',
+  brandId?: string,
 ) {
   safeGAEvent('event', 'view_item', { item_id: slug, source })
+  if (brandId) {
+    capturePostHogEvent('brand_detail_viewed', {
+      brand_id: brandId,
+      brand_slug: slug,
+      source,
+    })
+  }
 }
 
 export function trackBrandCardClicked(
   slug: string,
   category: string | null | undefined,
-  positionInGrid: number
+  positionInGrid: number,
+  brandId?: string,
 ) {
   safeGAEvent('event', 'select_item', {
     item_id: slug,
     category: category ?? null,
     position_in_grid: positionInGrid,
   })
+  if (brandId) {
+    capturePostHogEvent('brand_card_clicked', {
+      brand_id: brandId,
+      brand_slug: slug,
+      category: category ?? null,
+      position_in_grid: positionInGrid,
+    })
+  }
 }
 
 export function trackExternalLinkClicked(
   slug: string,
   linkType: string,
-  referrerPage: string
+  referrerPage: string,
+  brandId?: string,
 ) {
   safeGAEvent('event', 'external_link_clicked', {
     brand_slug: slug,
     link_type: linkType,
     referrer_page: referrerPage,
   })
+  if (brandId) {
+    capturePostHogEvent('external_link_clicked', {
+      brand_id: brandId,
+      brand_slug: slug,
+      link_type: linkType,
+    })
+  }
 }
 
 export function trackDbClick(brandId: string, destination: string): void {
@@ -185,6 +212,7 @@ export function trackDbClick(brandId: string, destination: string): void {
 
 export function trackCategoryFilterApplied(category: string) {
   safeGAEvent('event', 'category_filter_applied', { category })
+  capturePostHogEvent('category_filter_applied', { category })
 }
 
 export function trackSearchExecuted(query: string, resultCount: number) {
@@ -193,24 +221,47 @@ export function trackSearchExecuted(query: string, resultCount: number) {
     result_count: resultCount,
     has_results: resultCount > 0,
   })
+  capturePostHogEvent('search_executed', {
+    query_length: query.length,
+    result_count: resultCount,
+    has_results: resultCount > 0,
+  })
 }
 
-export function trackSearchResultClicked(query: string, positionInResults: number) {
+export function trackSearchResultClicked(
+  query: string,
+  positionInResults: number,
+  brandId?: string,
+  brandSlug?: string,
+) {
   safeGAEvent('event', 'search_result_clicked', {
     query,
     position_in_results: positionInResults,
   })
+  if (brandId && brandSlug) {
+    capturePostHogEvent('search_result_clicked', {
+      query_length: query.length,
+      position_in_results: positionInResults,
+      brand_id: brandId,
+      brand_slug: brandSlug,
+    })
+  }
 }
 
 export function trackSubmissionFormOpened(
-  source: 'header_cta' | 'hero_cta' | 'footer_link' = 'hero_cta',
-  intent: 'recommend' | 'owner_claim' = 'recommend'
+  source: 'header_cta' | 'hero_cta' | 'footer_link' | 'quick' = 'hero_cta',
+  intent: 'recommend' | 'owner_claim' | 'owner' = 'recommend'
 ) {
   safeGAEvent('event', 'submission_form_opened', { source, intent })
+  capturePostHogEvent('submission_form_opened', {
+    source,
+    intent: intent === 'owner' ? 'owner_claim' : intent,
+  })
 }
 
 export function trackSubmissionFormStepCompleted(step: string) {
   safeGAEvent('event', 'submission_form_step_completed', { step })
+  capturePostHogEvent('submission_form_step_completed', { step })
 }
 
 export function trackSubmissionCompleted(
@@ -233,6 +284,14 @@ export function trackSubmissionCompleted(
     guest_submission: guestSubmission,
     ...utmParams,
   })
+  capturePostHogEvent('submission_completed', {
+    category,
+    has_logo: hasLogo,
+    time_spent_seconds: timeSpentSeconds,
+    intent,
+    guest_submission: guestSubmission,
+    ...utmParams,
+  })
 }
 
 export function trackSubmissionFormAbandoned(
@@ -240,6 +299,10 @@ export function trackSubmissionFormAbandoned(
   timeSpentSeconds: number
 ) {
   safeGAEvent('event', 'submission_form_abandoned', {
+    last_step_completed: lastStepCompleted,
+    time_spent_seconds: timeSpentSeconds,
+  })
+  capturePostHogEvent('submission_form_abandoned', {
     last_step_completed: lastStepCompleted,
     time_spent_seconds: timeSpentSeconds,
   })
@@ -254,23 +317,38 @@ export function trackBrandPageShared(_slug: string) {
 // Keep as-is: non-spec extras with useful signal
 export function trackFilterSearch(queryLength: number) {
   safeGAEvent('event', 'filter_search', { query_length: queryLength })
+  capturePostHogEvent('filter_search', { query_length: queryLength })
 }
 
-export function trackGalleryPhotoView(slug: string, index: number) {
+export function trackGalleryPhotoView(slug: string, index: number, brandId?: string) {
   safeGAEvent('event', 'gallery_photo_view', {
     brand_slug: slug,
     photo_index: index,
   })
+  if (brandId) {
+    capturePostHogEvent('gallery_photo_view', {
+      brand_id: brandId,
+      brand_slug: slug,
+      photo_index: index,
+    })
+  }
 }
 
-export function trackSearchSuggestionSelect(slug: string) {
+export function trackSearchSuggestionSelect(slug: string, brandId?: string) {
   safeGAEvent('event', 'search_suggestion_select', {
     brand_slug: slug,
   })
+  if (brandId) {
+    capturePostHogEvent('search_suggestion_selected', {
+      brand_id: brandId,
+      brand_slug: slug,
+    })
+  }
 }
 
 export function trackSearchNoResults(searchTerm: string) {
   safeGAEvent('event', 'search_no_results', { search_term: searchTerm })
+  capturePostHogEvent('search_no_results', { query_length: searchTerm.length })
 }
 
 export function trackSignUp(method: string) {
@@ -281,15 +359,21 @@ export function trackSignUp(method: string) {
     method,
     ...utmParams,
   })
+  capturePostHogEvent('user_signed_up', { method, ...utmParams })
 }
 
 export function trackLogin(method: string) {
   safeGAEvent('event', 'login', { method })
+  capturePostHogEvent('user_logged_in', { method })
 }
 
 export function trackViewItemList(listName: string, itemCount: number) {
   safeGAEvent('event', 'view_item_list', {
     item_list_name: listName,
+    item_count: itemCount,
+  })
+  capturePostHogEvent('brand_list_viewed', {
+    list_name: listName,
     item_count: itemCount,
   })
 }

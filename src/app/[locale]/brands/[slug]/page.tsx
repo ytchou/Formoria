@@ -216,7 +216,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
           visitUrl ? 'pb-24' : 'pb-10',
         )}
       >
-        <BrandViewTracker brandSlug={slug} />
+        <BrandViewTracker brandId={displayBrand.id} brandSlug={slug} />
         <BrandAnalyticsTracker brandId={displayBrand.id} />
         {/* JSON-LD structured data */}
         <script
@@ -246,6 +246,8 @@ export default async function BrandDetailPage({ params }: PageProps) {
               <ImageCarousel
                 images={galleryImages}
                 alt={displayBrand.name}
+                brandId={displayBrand.id}
+                brandSlug={displayBrand.slug}
                 category={productTypeSlug}
                 imageAlts={displayBrand.imageAlts}
               />

@@ -5,7 +5,6 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import Script from 'next/script'
 
 import { isPublicAnalyticsPath } from '@/lib/analytics'
-import { GaUserSync } from './ga-user-sync'
 
 interface PublicGoogleAnalyticsProps {
   gaId: string
@@ -51,7 +50,6 @@ export function PublicGoogleAnalytics({ gaId }: PublicGoogleAnalyticsProps) {
         src={`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(gaId)}`}
         strategy="afterInteractive"
       />
-      <GaUserSync />
     </>
   )
 }

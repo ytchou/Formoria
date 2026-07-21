@@ -4,6 +4,8 @@ import { Bricolage_Grotesque, Geist_Mono, Inter, Noto_Sans_TC } from "next/font/
 import { Agentation } from "agentation";
 import { Toaster } from "sonner";
 import { PublicGoogleAnalytics } from "@/components/analytics/public-google-analytics";
+import { GaUserSync } from "@/components/analytics/ga-user-sync";
+import { PostHogUserSync } from "@/components/analytics/posthog-user-sync";
 import { ViewerProvider } from "@/lib/auth/use-user";
 import { getSiteUrl } from "@/lib/seo/site-url";
 import "./globals.css";
@@ -68,6 +70,8 @@ export default function RootLayout({
           Skip to content
         </a>
         <ViewerProvider>
+          <PostHogUserSync />
+          <GaUserSync />
           {children}
           {process.env.NODE_ENV === "development" && !process.env.PLAYWRIGHT_TEST && <Agentation />}
           {process.env.NEXT_PUBLIC_GA_ID && (

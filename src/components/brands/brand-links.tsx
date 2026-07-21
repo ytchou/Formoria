@@ -133,6 +133,7 @@ function LinkSection({ label, slots, brand }: LinkSectionProps) {
                   brand.slug,
                   slot.linkType,
                   typeof window !== 'undefined' ? window.location.pathname : '',
+                  brand.id,
                 )
                 if (slot.dbDestination) {
                   trackDbClick(brand.id, slot.dbDestination)

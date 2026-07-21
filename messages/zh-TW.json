@@ -688,7 +688,7 @@
       "lastUpdated": "最後更新：2026 年 7 月",
       "dataCollection": {
         "heading": "資料蒐集",
-        "body": "當您使用 Formoria 時，我們可能蒐集以下個人資料：提交品牌、提供意見或聯絡支援時留下的電子郵件地址與姓名（選填）、品牌名稱、品牌官方網站、品牌所在地區、社群連結、購買連結、是否為品牌負責人，以及資料來源。註冊帳號時，我們透過 Supabase Auth 蒐集您的電子郵件與驗證資訊。若您選擇接收行銷信件，我們也會保存同意類別、來源、版本與時間。此外，我們透過 Google Analytics 自動蒐集匿名化的瀏覽資料（頁面瀏覽、事件、匿名化 IP 位址）。"
+        "body": "當您使用 Formoria 時，我們可能蒐集以下個人資料：提交品牌、提供意見或聯絡支援時留下的電子郵件地址與姓名（選填）、品牌名稱、品牌官方網站、品牌所在地區、社群連結、購買連結、是否為品牌負責人，以及資料來源。註冊帳號時，我們透過 Supabase Auth 蒐集您的電子郵件與驗證資訊。若您選擇接收行銷信件，我們也會保存同意類別、來源、版本與時間。我們透過 PostHog 蒐集瀏覽與產品使用事件，並持續使用 Google Analytics。分析事件不包含表單內容、搜尋文字、姓名、電子郵件地址、電話號碼、驗證碼或權杖。"
       },
       "purpose": {
         "heading": "使用目的",
@@ -696,7 +696,7 @@
       },
       "thirdParty": {
         "heading": "第三方服務",
-        "body": "為提供本服務，我們使用以下第三方服務供應商：Supabase（資料庫與身分驗證，伺服器位於美國）、Resend（電子郵件寄送，資料可能於美國處理）、Google Analytics 4（網站分析，資料處理於美國）、Sentry（錯誤監控，資料處理於美國）、Cloudflare Turnstile（機器人防護），以及 Railway（網站託管，伺服器位於美國）。我們不會將您的個人資料出售予第三方。資料僅在提供服務所必要之範圍內共享。"
+        "body": "為提供本服務，我們使用以下第三方服務供應商：Supabase（資料庫與身分驗證，伺服器位於美國）、Resend（電子郵件寄送，資料可能於美國處理）、PostHog 與 Google Analytics 4（網站分析，資料處理於美國）、Sentry（錯誤監控，資料處理於美國）、Cloudflare Turnstile（機器人防護），以及 Railway（網站託管，伺服器位於美國）。我們不會將您的個人資料出售予第三方。資料僅在提供服務所必要之範圍內共享。"
       },
       "userRights": {
         "heading": "您的權利",
@@ -708,7 +708,7 @@
       },
       "cookies": {
         "heading": "Cookie 與追蹤技術",
-        "body": "本網站使用 Google Analytics 4 的 Cookie 來記錄頁面瀏覽與使用事件，IP 位址已匿名化處理。我們也使用 Cloudflare Turnstile 的工作階段 Cookie 進行機器人偵測，以保護表單免受垃圾訊息攻擊。本網站不使用任何廣告 Cookie 或第三方追蹤 Cookie。"
+        "body": "本網站使用 PostHog 與 Google Analytics 4 記錄頁面瀏覽與使用事件。PostHog 透過我們的 e.formoria.com 分析端點傳送資料，不保留 IP 位址，且已停用工作階段重播。Cloudflare Turnstile 會使用工作階段 Cookie 偵測機器人，以保護表單免受垃圾訊息攻擊。本網站不使用廣告 Cookie。"
       },
       "changes": {
         "heading": "政策變更",
@@ -1056,6 +1056,31 @@
       "browseCta": "瀏覽品牌目錄"
     },
     "analytics": {
+      "profileSessions": "品牌頁工作階段",
+      "outboundSessions": "外連工作階段",
+      "outboundConversion": "外連轉換率",
+      "collectingBaseline": "正在累積比較基準",
+      "priorChangeUnavailable": "無法計算前期變化",
+      "currentRateUnavailable": "目前無法計算比率",
+      "versusPrior": "較前 30 天 {change}",
+      "conversionDefinition": "外連工作階段 ÷ 品牌頁工作階段",
+      "sessionTrend": "30 天工作階段趨勢",
+      "sessionTrendDescription": "圖表呈現品牌頁工作階段；提示資訊包含外連工作階段。",
+      "openPostHog": "在 PostHog 開啟",
+      "sessionTrendAria": "每日品牌頁與外連工作階段",
+      "trendUnavailable": "每日趨勢暫時無法使用。",
+      "trendEmpty": "此期間沒有品牌頁工作階段。",
+      "acquisitionSources": "流量來源",
+      "acquisitionUnavailable": "流量來源明細暫時無法使用。",
+      "acquisitionEmpty": "此期間沒有流量來源工作階段。",
+      "outboundDestinations": "外連目的地",
+      "destinationsUnavailable": "外連目的地明細暫時無法使用。",
+      "destinationsEmpty": "此期間沒有外連工作階段。",
+      "source": "資料來源",
+      "dataThrough": "資料截至",
+      "generated": "產生時間",
+      "unavailableTitle": "數據分析暫時無法使用",
+      "unavailableBody": "PostHog 目前無法載入此品牌的工作階段指標，請稍後再試。",
       "trendsLabel": "趨勢",
       "viewsClicksTitle": "瀏覽與點擊",
       "dailyTrend": "每日趨勢",
