@@ -195,21 +195,6 @@ export function trackExternalLinkClicked(
   }
 }
 
-export function trackDbClick(brandId: string, destination: string): void {
-  try {
-    void fetch('/api/analytics/track', {
-      method: 'POST',
-      keepalive: true,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ brandId, event: 'click', destination }),
-    }).catch(() => {})
-  } catch {
-    // Silently swallow — analytics must never break the app
-  }
-}
-
 export function trackCategoryFilterApplied(category: string) {
   safeGAEvent('event', 'category_filter_applied', { category })
   capturePostHogEvent('category_filter_applied', { category })

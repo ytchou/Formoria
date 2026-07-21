@@ -14,7 +14,6 @@ import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import type { Brand } from '@/lib/types'
 import { BrandViewTracker } from '@/components/brands/brand-view-tracker'
-import { BrandAnalyticsTracker } from './brand-analytics-tracker'
 import { BrandBreadcrumb } from '@/components/brands/brand-breadcrumb'
 import { ImageCarousel } from '@/components/brands/image-carousel'
 import { BrandHeader } from '@/components/brands/brand-header'
@@ -217,7 +216,6 @@ export default async function BrandDetailPage({ params }: PageProps) {
         )}
       >
         <BrandViewTracker brandId={displayBrand.id} brandSlug={slug} />
-        <BrandAnalyticsTracker brandId={displayBrand.id} />
         {/* JSON-LD structured data */}
         <script
           type="application/ld+json"
