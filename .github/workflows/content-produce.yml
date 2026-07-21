@@ -34,26 +34,50 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      - name: Produce content
-        env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      - name: fetch-approved-items
+        id: fetch
         run: |
           ITEM_FILTER="${{ inputs.item_id }}"
-          npx @anthropic-ai/claude-code --print \
-            "Query content_items (Agent Hub Supabase tdwsnhizvskyhbgbblfg, project='formoria', status='approved'${ITEM_FILTER:+, id='$ITEM_FILTER'}). \
-             For each item, read its brief at marketing/items/<folder>/brief.md. \
-             Produce Threads and IG posts, saving to marketing/items/<folder>/post-threads.md and post-instagram.md. \
-             If media=carousel, produce cards in marketing/cards/<slug>/."
+          URL="${AGENT_HUB_SUPABASE_URL}/rest/v1/content_items?project=eq.formoria&status=eq.approved&select=id,title,item_path,platforms,target_date,notes"
+          if [ -n "$ITEM_FILTER" ]; then
+            URL="${URL}&id=eq.${ITEM_FILTER}"
+          fi
+          HTTP_STATUS=$(curl -sS -w '%{http_code}' -o items.json \
+            -H "apikey: ${AGENT_HUB_SUPABASE_SERVICE_KEY}" \
+            -H "Authorization: Bearer ${AGENT_HUB_SUPABASE_SERVICE_KEY}" \
+            "$URL")
+          if ! [[ "$HTTP_STATUS" =~ ^2 ]]; then
+            echo "::error::Supabase fetch failed with HTTP $HTTP_STATUS"
+            cat items.json
+            exit 1
+          fi
+          HAS_ITEMS=$(jq 'length > 0' items.json)
+          echo "has_items=${HAS_ITEMS}" >> "$GITHUB_OUTPUT"
+          if [ "$HAS_ITEMS" = "false" ]; then
+            echo "No approved items — nothing to produce"
+          fi
 
-      - name: zh-TW quality gate
+      - name: produce-content
+        if: steps.fetch.outputs.has_items == 'true'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          CLAUDE_PROMPT: |
+            The approved content items are already fetched into items.json in the repo root (fields: id, title, item_path, platforms, target_date, notes). Do NOT attempt any database access. For each item: its folder is item_path; read <item_path>/brief.md; produce Threads and Instagram posts at <item_path>/post-threads.md and <item_path>/post-instagram.md following marketing/strategy/brand-voice.md; if the brief specifies media: carousel, render cards into <item_path>/cards/ using the templates in marketing/cards/. Work autonomously; never ask questions; if a brief is missing, skip that item and note it in the output.
         run: |
-          python3 scripts/zh-check/check.py --channel social marketing/items/*/post-*.md
-          if [ $? -ne 0 ]; then
-            echo "::error::zh-TW quality check failed"
+          npx @anthropic-ai/claude-code --print "$CLAUDE_PROMPT"
+
+      - name: zh-TW-quality-gate
+        if: steps.fetch.outputs.has_items == 'true'
+        run: |
+          if compgen -G "marketing/items/*/post-*.md" > /dev/null 2>&1; then
+            python3 scripts/zh-check/check.py --channel social marketing/items/*/post-*.md
+          else
+            echo "::error::produce step wrote no post files"
             exit 1
           fi
 
-      - name: Create PR
+      - name: create-pr
+        if: steps.fetch.outputs.has_items == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -68,6 +92,28 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "content(produce): produce approved items $(date +%Y-%m-%d)"
           git push -u origin "$BRANCH"
-          gh pr create --title "Content produce: $(date +%Y-%m-%d)" \
+          PR_URL=$(gh pr create --title "Content produce: $(date +%Y-%m-%d)" \
             --body "Auto-produced content from approved items." \
-            --label "content"
+            --label "content")
+
+          # Flip each produced item to status='review'
+          while IFS= read -r ITEM_ID; do
+            curl -sS -X PATCH \
+              "${AGENT_HUB_SUPABASE_URL}/rest/v1/content_items?id=eq.${ITEM_ID}" \
+              -H "apikey: ${AGENT_HUB_SUPABASE_SERVICE_KEY}" \
+              -H "Authorization: Bearer ${AGENT_HUB_SUPABASE_SERVICE_KEY}" \
+              -H "Content-Type: application/json" \
+              -H "Prefer: return=minimal" \
+              -d '{"status":"review"}'
+          done < <(jq -r '.[].id' items.json)
+
+          # Todoist review task — skip silently if token is unset
+          if [ -n "$TODOIST_API_TOKEN" ]; then
+            PRODUCE_DATE=$(date +%Y-%m-%d)
+            curl -sS -X POST "https://api.todoist.com/rest/v2/tasks" \
+              -H "Authorization: Bearer ${TODOIST_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"content\": \"Review produced content: ${PRODUCE_DATE}\", \"description\": \"${PR_URL}\"}"
+          else
+            echo "TODOIST_API_TOKEN not set — skipping notification"
+          fi
