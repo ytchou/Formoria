@@ -345,6 +345,33 @@ describe('runLinkHealthCheck', () => {
     expect(spies.linkDeleteIn).toHaveBeenCalledWith('id', ['r1'])
   })
 
+  it('does NOT delete auto-nulled audit rows even though the brand field is null', async () => {
+    // Post-auto-null state: brand field cleared, audit row retained with auto_nulled_at
+    const brand: BrandRow = { id: 'b1', purchase_website: null, purchase_pinkoi: null, purchase_shopee: null, hero_image_url: null }
+    const existing: LinkCheckRow = { id: 'r1', brand_id: 'b1', field: 'purchase_website', url: 'https://dead.example.com', consecutive_failures: 3, last_ok_at: null, auto_nulled_at: '2026-07-20T00:00:00Z' }
+    const { client, spies } = makeSupabaseMock([brand], [existing])
+    vi.mocked(createServiceClient).mockReturnValue(client as never)
+
+    await runLinkHealthCheck({ fetchFn: okFetch, deliverFn: silentDeliver })
+
+    expect(spies.linkDeleteIn).not.toHaveBeenCalled()
+  })
+
+  it('does not stamp auto_nulled_at when the brands.update fails (retry next run)', async () => {
+    const brand: BrandRow = { id: 'b1', purchase_website: 'https://example.com', purchase_pinkoi: null, purchase_shopee: null, hero_image_url: null }
+    const existing: LinkCheckRow = { id: 'r1', brand_id: 'b1', field: 'purchase_website', url: 'https://example.com', consecutive_failures: 2, last_ok_at: null, auto_nulled_at: null }
+    const { client, spies } = makeSupabaseMock([brand], [existing])
+    spies.brandsUpdateEq.mockResolvedValue({ error: { message: 'transient failure' } })
+    vi.mocked(createServiceClient).mockReturnValue(client as never)
+
+    const brokenFetch = vi.fn().mockResolvedValue({ status: 500, ok: false } as Response)
+    const result = await runLinkHealthCheck({ fetchFn: brokenFetch, deliverFn: silentDeliver })
+
+    // auto_nulled_at must NOT be stamped and the summary must not report a null
+    expect(spies.linkUpdateFn).not.toHaveBeenCalled()
+    expect(result.autoNulled).toHaveLength(0)
+  })
+
   it('resets counter when brand URL changes', async () => {
     // Brand URL changed from old to new
     const brand: BrandRow = { id: 'b1', purchase_website: 'https://new.example.com', purchase_pinkoi: null, purchase_shopee: null, hero_image_url: null }

@@ -176,8 +176,9 @@ SELECT
   field,
   count(*)                                                                          AS total,
   count(*) FILTER (WHERE last_status_code BETWEEN 200 AND 299)                     AS ok_count,
+  count(*) FILTER (WHERE last_status_code IN (403, 429))                           AS blocked_count,
   count(*) FILTER (
-    WHERE last_status_code >= 400
+    WHERE (last_status_code >= 400 AND last_status_code NOT IN (403, 429))
        OR (last_status_code IS NULL AND consecutive_failures > 0)
   )                                                                                 AS broken_count,
   count(*) FILTER (WHERE auto_nulled_at IS NOT NULL)                               AS auto_nulled_count,
@@ -194,10 +195,12 @@ SELECT
   lcr.consecutive_failures, lcr.auto_nulled_at
 FROM link_check_results lcr
 JOIN brands b ON b.id = lcr.brand_id
-WHERE lcr.last_status_code >= 400
+WHERE (lcr.last_status_code >= 400 AND lcr.last_status_code NOT IN (403, 429))
    OR (lcr.last_status_code IS NULL AND lcr.consecutive_failures > 0)
 ORDER BY b.name, lcr.field;
 ```
+
+Status codes 403 and 429 are `blocked` (WAF-fronted shops), not broken — report `blocked_count` as informational only and never list blocked URLs as broken links.
 
 Map results to the `link_health` envelope field (fields `purchase_website`, `purchase_pinkoi`, `purchase_shopee`) and the `image_health` envelope field (field `hero_image_url`). The `ok`, `broken`, and `issues` subfields map from the query results.
 

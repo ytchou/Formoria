@@ -260,8 +260,10 @@ export async function runLinkHealthCheck(deps?: LinkHealthDeps): Promise<LinkHea
 
   // ── 4. Identify and delete stale rows (URL cleared) ──────────────────────
   const currentUrlSet = new Set(urlTasks.map((t) => `${t.brandId}:${t.field}`))
+  // Auto-nulled rows are the audit trail — the brand field is null by design, so they
+  // always look "stale"; never delete them.
   const staleIds = existingRows
-    .filter((row) => !currentUrlSet.has(`${row.brand_id}:${row.field}`))
+    .filter((row) => !currentUrlSet.has(`${row.brand_id}:${row.field}`) && !row.auto_nulled_at)
     .map((row) => row.id)
 
   if (staleIds.length > 0) {
@@ -401,10 +403,23 @@ export async function runLinkHealthCheck(deps?: LinkHealthDeps): Promise<LinkHea
 
   for (const row of autoNullCandidates) {
     // Null the brand field
-    await supabase
+    const { error: nullError } = await supabase
       .from('brands')
       .update({ [row.field as PurchaseField]: null })
       .eq('id', row.brand_id)
+
+    // If the null failed, do NOT stamp auto_nulled_at — leave the row eligible for retry
+    if (nullError) {
+      console.error(
+        JSON.stringify({
+          event: 'link_health_auto_null_failed',
+          brandId: row.brand_id,
+          field: row.field,
+          error: nullError.message,
+        }),
+      )
+      continue
+    }
 
     // Stamp auto_nulled_at on the audit row (keep row + url)
     await supabase
