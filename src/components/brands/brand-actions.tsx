@@ -42,6 +42,7 @@ export function BrandActions({ websiteUrl, brandSlug = '', brandId, brandName }:
             target="_blank"
             rel="noopener noreferrer"
             className={buttonVariants({ variant: 'primary', tone: 'cta', className: 'w-full' })}
+            data-ph-no-autocapture
             onClick={handleWebsiteClick}
           >
             <ExternalLink className="size-[15px]" />
@@ -69,6 +70,7 @@ export function BrandActions({ websiteUrl, brandSlug = '', brandId, brandName }:
             target="_blank"
             rel="noopener noreferrer"
             aria-label={t('actions.visitOfficialWebsiteAria')}
+            data-ph-no-autocapture
             onClick={handleWebsiteClick}
             className={buttonVariants({ variant: 'primary', tone: 'cta', className: 'w-full' })}
           >

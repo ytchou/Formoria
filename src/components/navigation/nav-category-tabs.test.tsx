@@ -34,4 +34,20 @@ describe('NavCategoryTabs', () => {
     expect(selectedCategory).toHaveAttribute('data-active', 'true')
     expect(selectedCategory).not.toHaveClass('border-b-2', 'border-foreground')
   })
+
+  it('has data-ph-no-autocapture on category tab buttons', () => {
+    render(
+      <NavCategoryTabs
+        categories={[
+          { slug: 'jewelry', name: 'Jewelry', nameZh: '飾品珠寶' },
+        ]}
+      />,
+    )
+
+    const allBrandsButton = screen.getByRole('button', { name: '全部品牌' })
+    const categoryButton = screen.getByRole('button', { name: '飾品珠寶' })
+
+    expect(allBrandsButton).toHaveAttribute('data-ph-no-autocapture')
+    expect(categoryButton).toHaveAttribute('data-ph-no-autocapture')
+  })
 })

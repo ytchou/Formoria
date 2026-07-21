@@ -152,6 +152,12 @@ describe('BrandLinks', () => {
     expect(screen.queryByRole('link', { name: /品牌官網/i })).not.toBeInTheDocument()
   })
 
+  it('has data-ph-no-autocapture on outbound link elements', () => {
+    renderWithIntl(<BrandLinks brand={mockBrand} />)
+    const link = screen.getByRole('link', { name: /品牌官網/i })
+    expect(link).toHaveAttribute('data-ph-no-autocapture')
+  })
+
   it('uses standardized pill buttons with destination icon accents', () => {
     renderWithIntl(
       <BrandLinks

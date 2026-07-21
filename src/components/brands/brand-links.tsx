@@ -128,6 +128,7 @@ function LinkSection({ label, slots, brand }: LinkSectionProps) {
               target="_blank"
               rel="noopener noreferrer"
               className={destinationLinkClassName}
+              data-ph-no-autocapture
               onClick={() => {
                 trackExternalLinkClicked(
                   brand.slug,

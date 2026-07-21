@@ -123,6 +123,12 @@ describe('SearchInput', () => {
     ).toBeInTheDocument()
   })
 
+  it('has data-ph-no-autocapture on the search form', () => {
+    renderWithProvider(<SearchInput />)
+    const form = screen.getByRole('search')
+    expect(form).toHaveAttribute('data-ph-no-autocapture')
+  })
+
   it('does not emit a no-results event for autocomplete', async () => {
     const user = userEvent.setup()
     renderWithProvider(<SearchInput />)
