@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveWritablePatch } from './brand-write-policy'
+import { resolveRefreshEnrichmentPatch, resolveWritablePatch } from './brand-write-policy'
 
 const state = (over: Record<string, { source: string; adminLocked?: boolean }>) => over
 
@@ -24,5 +24,65 @@ describe('resolveWritablePatch', () => {
     const s = state({ description: { source: 'admin', adminLocked: true } })
     expect(resolveWritablePatch({ description: 'x' }, s, { source: 'owner' }).allowed).toEqual({})
     expect(resolveWritablePatch({ description: 'x' }, s, { source: 'admin' }).allowed).toEqual({ description: 'x' })
+  })
+})
+
+describe('resolveRefreshEnrichmentPatch', () => {
+  it('allows empty and enrichment-owned fields while protecting submitted and identity fields', () => {
+    expect(
+      resolveRefreshEnrichmentPatch(
+        {
+          description: 'new description',
+          city: '台北',
+          product_type: 'fashion',
+          name: 'renamed by AI',
+        },
+        {
+          description: 'owner description',
+          city: null,
+          product_type: 'home',
+          name: 'Original identity',
+        },
+        {
+          description: { source: 'submitted' },
+          product_type: { source: 'enriched' },
+        }
+      )
+    ).toEqual({
+      allowed: { city: '台北', product_type: 'fashion' },
+      skipped: [
+        { field: 'description', reason: 'protected:submitted' },
+        { field: 'name', reason: 'excluded:identity' },
+      ],
+    })
+  })
+
+  it('protects non-empty unclassified and admin-locked base fields', () => {
+    expect(
+      resolveRefreshEnrichmentPatch(
+        { city: '台中', description: 'candidate' },
+        { city: '台南', description: null },
+        { description: { source: 'enriched', adminLocked: true } }
+      )
+    ).toEqual({
+      allowed: {},
+      skipped: [
+        { field: 'city', reason: 'protected:unclassified' },
+        { field: 'description', reason: 'protected:admin_locked' },
+      ],
+    })
+  })
+
+  it('protects owner provenance even when the snapshotted value is empty', () => {
+    expect(
+      resolveRefreshEnrichmentPatch(
+        { description: 'candidate' },
+        { description: null },
+        { description: { source: 'owner' } }
+      )
+    ).toEqual({
+      allowed: {},
+      skipped: [{ field: 'description', reason: 'protected:owner' }],
+    })
   })
 })

@@ -30,7 +30,11 @@ vi.mock("@/app/admin/operations/actions", () => ({
   startCurationJobAction: actions.enrich,
 }));
 vi.mock("../submission-review-details", () => ({
-  SubmissionReviewDetails: ({ submission }: { submission: ReviewSubmission }) => (
+  SubmissionReviewDetails: ({
+    submission,
+  }: {
+    submission: ReviewSubmission;
+  }) => (
     <div>
       <span>{`details-${submission.id}`}</span>
     </div>
@@ -235,6 +239,43 @@ describe("SubmissionsReviewList", () => {
     ]);
   });
 
+  it("labels refreshes and routes mixed bulk approval through the shared action", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderList(
+      [
+        makeSubmission({ id: "new-1", brandName: "New Brand" }),
+        makeSubmission({
+          id: "refresh-1",
+          brandId: "brand-1",
+          brandName: "Existing Brand",
+          intent: "refresh",
+          reviewKind: "refresh",
+        }),
+      ],
+      "ready",
+    );
+
+    expect(screen.getByText("Refresh")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Apply refresh" }),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("checkbox", { name: "Select New Brand" }),
+    );
+    await user.click(
+      screen.getByRole("checkbox", { name: "Select Existing Brand" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Approve 2 selected" }),
+    );
+
+    expect(actions.approve.mock.calls.map(([id]) => id)).toEqual([
+      "new-1",
+      "refresh-1",
+    ]);
+  });
+
   it("shows only the actions owned by the active review stage", () => {
     const readyView = renderList([makeSubmission()], "ready");
 
@@ -285,6 +326,32 @@ describe("SubmissionsReviewList", () => {
     expect(
       screen.queryByRole("button", { name: /^Reject$/ }),
     ).not.toBeInTheDocument();
+  });
+
+  it("keeps refresh requests on the scheduled path while they need data", () => {
+    renderList(
+      [
+        makeSubmission({
+          id: "refresh-1",
+          brandName: "Scheduled Brand",
+          brandId: "brand-1",
+          intent: "refresh",
+          reviewKind: "refresh",
+          reviewStage: "needs_data",
+          latestCurationTargetStatus: null,
+          reviewCompleteness: {
+            complete: false,
+            missingFields: ["successfulEnrichment"],
+          },
+        }),
+      ],
+      "needs_data",
+    );
+
+    expect(
+      screen.getByRole("checkbox", { name: "Select Scheduled Brand" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Fetch Data" })).toBeDisabled();
   });
 
   it("opens a wide accessible review drawer and keeps row actions independent", async () => {
@@ -424,7 +491,12 @@ function makeSubmission(
     notifiedAt: null,
     isBrandOwner: false,
     sourceAttribution: "found_online",
+    intent: "recommend",
     productTypeNote: null,
+    reviewKind: "new",
+    baseBrandData: null,
+    baseBrandUpdatedAt: null,
+    reviewOverrides: {},
     enriched_data: null,
     latestCurationTargetStatus: "succeeded",
     latestCurationJobId: null,
@@ -458,6 +530,7 @@ function image(id: string, url: string, sortOrder: number) {
     altEn: null,
     width: 1200,
     height: 900,
+    originBrandImageId: null,
   };
 }
 

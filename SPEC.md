@@ -39,16 +39,16 @@ Individual brand pages with rich content.
 ### Onboarding
 Self-serve brand submission flow.
 - Single-screen flat form collecting: brand URL, brand name, region (1 of 23 options), ownership declaration, PDPA consent, and optional social/purchase links
-- No description, product type, images, tags, or UBN required at submission — these are auto-enriched by the batch enrichment pipeline post-submission
-- Submission enters admin approval queue pending enrichment
+- No description, product type, images, tags, or UBN required at submission — these are auto-enriched by the scheduled batch enrichment pipeline
+- Submission enters Needs Data, is discovered by the six-hour scheduler, and reaches the admin approval queue after enrichment
 
 ### Admin
 Content management and moderation.
 - Operations overview (`/admin`) — an exact-count, linked triage ledger for submissions, moderation, claims, reports, active jobs, brands, and newsletter subscribers
-- Quick operations on the overview — enrich the current needs-data submissions
+- Quick operations on the overview — inspect the current enrichment queue and jobs
 - Submission review queue (approve/reject with notes) — admins review submissions after enrichment, not before
 - Enrichment status badge on each submission: `Not Enriched` | `Partially Enriched` | `Enriched` — indicates how much AI-derived data has been populated before the admin makes a decision
-- Batch enrichment pipeline: admins run enrichment from the admin UI or CLI (`pnpm curate enrich ...`); enrichment is not Railway-cron-triggered
+- Batch enrichment pipeline: Railway runs the full submission enrichment pipeline every six hours. Admins may request a reviewed refresh for an approved or hidden brand; `pnpm curate enrich --slugs=...` creates the same scheduled refresh request and never writes directly to a live brand.
 - Brand listing management (edit, hide, delete)
 - Taxonomy tag management (add, merge, rename)
 - New tag suggestion review
@@ -57,11 +57,11 @@ Content management and moderation.
 - Feature toggles live at `/admin/settings`
 
 #### Data Curation
-Admin data curation uses the unified `enrich` operation. Long-running work runs through a durable background job system with progress persisted in `curation_jobs` and target-level state in `curation_job_targets`.
+Admin data curation uses the unified `enrich` operation. Long-running work runs through a durable background job system with progress persisted in `curation_jobs` and target-level state in `curation_job_targets`. New submissions and append-only brand refresh requests are discovered by the existing six-hour scheduler.
 
-`/admin/jobs` is one reverse-chronological cursor-paginated log. Pending and running jobs can be cancelled cooperatively: worker leases, progress, finalization, and canonical brand/submission writes are fenced so provider work that returns after cancellation cannot become canonical. Stale jobs become cancelled without automatic retry. Dispatch failures are terminal; manual reruns create linked attempts rather than rewriting job history.
+`/admin/jobs` is one reverse-chronological cursor-paginated log. Pending and running jobs can be cancelled cooperatively: worker leases, progress, finalization, and canonical brand/submission writes are fenced so provider work that returns after cancellation cannot become canonical. Stale jobs become cancelled without automatic retry. Dispatch and orchestration failures receive one linked automatic retry; manual reruns create additional linked attempts rather than rewriting job history.
 
-The admin brand list exposes per-brand enrichment actions for targeted cleanup and enrichment without running a bulk operation.
+The admin brand list exposes one confirmed **Request re-enrichment** action. It snapshots the current approved or hidden brand into a linked refresh submission; enrichment is staged for review and only an explicit **Apply refresh** updates the existing brand.
 
 The quality dashboard tracks curation health metrics: hero image coverage, link coverage, description completeness, and completeness distribution.
 
@@ -196,7 +196,7 @@ Storage invariants (DEV-1059):
 
 ### BrandFieldState
 - brand_id, field
-- source: owner | enriched | admin
+- source: owner | submitted | enriched | admin
 - admin_locked
 - updated_by, updated_at
 

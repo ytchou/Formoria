@@ -735,14 +735,6 @@ async function loadBrandFieldState(
   )
 }
 
-export function previewBrandPatch(
-  data: BrandWriteInput,
-  fieldState: Record<string, BrandFieldWriteState>,
-  actor: BrandWriteActor
-): ReturnType<typeof resolveWritablePatch> {
-  return resolveWritablePatch(brandToUpdate(data), fieldState, actor)
-}
-
 // ---------------------------------------------------------------------------
 // Service functions
 // ---------------------------------------------------------------------------

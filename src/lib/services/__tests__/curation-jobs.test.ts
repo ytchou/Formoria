@@ -17,8 +17,75 @@ vi.mock("@/lib/supabase/server", () => ({
 import {
   enqueueAdminCurationJob,
   enqueueAutomaticRetry,
+  isScheduledSubmissionEligible,
   listCurationJobTargets,
 } from "../curation-jobs";
+
+describe("scheduled refresh eligibility", () => {
+  it("queues every new refresh regardless of completeness", () => {
+    expect(
+      isScheduledSubmissionEligible({
+        intent: "refresh",
+        complete: true,
+        targetStatuses: [],
+      }),
+    ).toBe(true);
+  });
+
+  it.each(["pending", "running", "succeeded", "skipped", "cancelled"])(
+    "does not queue a refresh after latest %s",
+    (status) => {
+      expect(
+        isScheduledSubmissionEligible({
+          intent: "refresh",
+          complete: false,
+          targetStatuses: [status],
+        }),
+      ).toBe(false);
+    },
+  );
+
+  it("retries one completed target failure and then stops", () => {
+    expect(
+      isScheduledSubmissionEligible({
+        intent: "refresh",
+        complete: false,
+        targetStatuses: ["failed"],
+      }),
+    ).toBe(true);
+    expect(
+      isScheduledSubmissionEligible({
+        intent: "refresh",
+        complete: false,
+        targetStatuses: ["failed", "failed"],
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps new submissions on the existing incomplete-and-unattempted rule", () => {
+    expect(
+      isScheduledSubmissionEligible({
+        intent: "recommend",
+        complete: false,
+        targetStatuses: [],
+      }),
+    ).toBe(true);
+    expect(
+      isScheduledSubmissionEligible({
+        intent: "recommend",
+        complete: true,
+        targetStatuses: [],
+      }),
+    ).toBe(false);
+    expect(
+      isScheduledSubmissionEligible({
+        intent: "recommend",
+        complete: false,
+        targetStatuses: ["failed"],
+      }),
+    ).toBe(false);
+  });
+});
 
 describe("curation job target loading", () => {
   beforeEach(() => {
@@ -104,6 +171,35 @@ describe("admin curation target resolution", () => {
         ],
       }),
     );
+  });
+
+  it("leaves explicit refresh targets for the scheduler", async () => {
+    const submissionQuery = {
+      select: vi.fn(() => ({
+        in: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: "refresh-1",
+              brand_name: "PERMEATE",
+              status: "pending",
+              intent: "refresh",
+            },
+          ],
+          error: null,
+        }),
+      })),
+    };
+    mocks.from.mockReturnValue(submissionQuery);
+    mocks.createServiceClient.mockReturnValue({ from: mocks.from });
+
+    await expect(
+      enqueueAdminCurationJob({
+        params: { submissionIds: ["refresh-1"] },
+        dryRun: false,
+        startedBy: "admin-1",
+      }),
+    ).rejects.toThrow("wait for scheduled enrichment");
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
   it("resolves every explicit submission target in bounded filter chunks", async () => {
@@ -214,6 +310,23 @@ describe("automatic curation retries", () => {
       ],
       [],
     );
+    mocks.from.mockReturnValue(targetQuery);
+    mocks.createServiceClient.mockReturnValue({
+      from: mocks.from,
+      rpc: mocks.rpc,
+    });
+
+    await expect(enqueueAutomaticRetry(job())).resolves.toBeNull();
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("does not retry historical brand targets", async () => {
+    const legacyTarget = {
+      ...target("legacy-brand", "pending"),
+      target_type: "brand" as const,
+      brand_slug: "legacy-brand",
+    };
+    const targetQuery = pagedQuery([[legacyTarget]], []);
     mocks.from.mockReturnValue(targetQuery);
     mocks.createServiceClient.mockReturnValue({
       from: mocks.from,

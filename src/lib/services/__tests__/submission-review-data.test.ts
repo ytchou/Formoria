@@ -37,6 +37,7 @@ const activeImages: SubmissionReviewImage[] = [
     altEn: null,
     width: 1200,
     height: 900,
+    originBrandImageId: null,
   },
   {
     id: "detail",
@@ -50,6 +51,7 @@ const activeImages: SubmissionReviewImage[] = [
     altEn: null,
     width: 1200,
     height: 900,
+    originBrandImageId: null,
   },
 ];
 

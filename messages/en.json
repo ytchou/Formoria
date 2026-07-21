@@ -1983,6 +1983,9 @@
       "fetching": "Fetching...",
       "fetchData": "Fetch Data",
       "approve": "Approve",
+      "applyRefresh": "Apply refresh",
+      "refreshBadge": "Refresh",
+      "storageCleanupWarning": "The refresh was applied, but some retired image files still need cleanup.",
       "reject": "Reject",
       "edit": "Edit",
       "save": "Save changes",
@@ -2096,7 +2099,8 @@
       },
       "intent": {
         "ownerClaim": "Owner Submission",
-        "recommend": "Community Submission"
+        "recommend": "Community Submission",
+        "refresh": "Refresh"
       },
       "sourceAttribution": {
         "question": "How do you know this brand?",

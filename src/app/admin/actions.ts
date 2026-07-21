@@ -7,7 +7,9 @@ import {
   getSubmission,
   getApprovedOwnerSubmissionRecipients,
   approveSubmission,
+  applyBrandRefresh,
   rejectSubmission,
+  requestBrandRefresh,
   isGeneratedGuestSubmissionEmail,
 } from '@/lib/services/submissions'
 import { getOwnerLocale } from '@/lib/services/profiles'
@@ -88,13 +90,30 @@ export async function resendClaimInviteAction(
     }
   }
 }
-
 export async function approveSubmissionAction(
   submissionId: string
-): Promise<{ error?: string; imageSyncWarning?: { synced: number; failed: number } } | undefined> {
+): Promise<
+  | {
+      error?: string
+      imageSyncWarning?: { synced: number; failed: number }
+      storageCleanupWarning?: true
+    }
+  | undefined
+> {
   try {
     const auth = await requireAdminAction()
     if ('error' in auth) return auth
+
+    const submission = await getSubmission(submissionId)
+    if (submission.intent === 'refresh') {
+      const refresh = await applyBrandRefresh(submissionId, auth.user.id)
+      const brand = await getBrandById(refresh.brandId)
+      revalidatePath('/admin/submissions')
+      revalidatePath('/admin/brands')
+      revalidatePath('/admin')
+      revalidatePublicBrand({ slug: brand.slug })
+      return refresh.cleanupFailed ? { storageCleanupWarning: true } : undefined
+    }
 
     const siteUrl = getSiteUrl()
 
@@ -156,6 +175,35 @@ export async function approveSubmissionAction(
   }
 }
 
+export async function requestBrandRefreshAction(
+  brandId: string
+): Promise<{ submissionId: string } | { error: string }> {
+  try {
+    const auth = await requireAdminAction()
+    if ('error' in auth) return auth
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(brandId)
+    ) {
+      return { error: 'Invalid brand ID' }
+    }
+    if (!auth.user.email) return { error: 'Admin email is required' }
+
+    const result = await requestBrandRefresh(brandId, {
+      id: auth.user.id,
+      email: auth.user.email,
+    })
+    revalidatePath('/admin/brands')
+    revalidatePath('/admin/submissions')
+    revalidatePath('/admin')
+    return result
+  } catch (err) {
+    console.error('[admin:requestBrandRefresh]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
+}
+
 export async function rejectSubmissionAction(
   submissionId: string,
   denialReason: DenialReason,
@@ -176,7 +224,10 @@ export async function rejectSubmissionAction(
     const submission = await getSubmission(submissionId)
     await rejectSubmission(submissionId, auth.user.id, denialReason, notes)
 
-    if (!isGeneratedGuestSubmissionEmail(submission.submitterEmail)) {
+    if (
+      submission.intent !== 'refresh' &&
+      !isGeneratedGuestSubmissionEmail(submission.submitterEmail)
+    ) {
       await sendEmail(await buildRejectionEmail({
         submitterEmail: submission.submitterEmail,
         brandName: submission.brandName,

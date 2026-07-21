@@ -113,6 +113,8 @@ describe('rejectSubmissionAction', () => {
         submitterEmail: 'submitter@example.com',
       }),
       approveSubmission: vi.fn(),
+      applyBrandRefresh: vi.fn(),
+      requestBrandRefresh: vi.fn(),
       rejectSubmission: vi.fn().mockResolvedValue(undefined),
       isGeneratedGuestSubmissionEmail: vi.fn(() => false),
     }))
@@ -200,5 +202,4 @@ describe('rejectSubmissionAction', () => {
 
     expect(result).toEqual({ error: expect.stringContaining('Invalid') })
   })
-
 })

@@ -8,6 +8,7 @@ type AdminAction =
   | 'draft_publish'
   | 'draft_discard'
   | 'curation_job_cancelled'
+  | 'refresh_requested'
   | 'newsletter_confirmation_resent'
   | 'newsletter_unsubscribed'
 

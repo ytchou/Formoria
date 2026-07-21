@@ -10,16 +10,12 @@ const JOB_STALE_AFTER_MS = 10 * 60_000;
 const CURATION_TARGET_PAGE_SIZE = 1_000;
 const SUPABASE_IN_FILTER_CHUNK_SIZE = 200;
 
-type CurationJobStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+type CurationJobStatus =
+  "pending" | "running" | "completed" | "failed" | "cancelled";
 export type CurationDispatchStatus = "pending" | "dispatched" | "failed";
 type CurationJobTrigger = "admin" | "cron" | "automatic_retry" | "manual_rerun";
 export type CurationTargetStatus =
-  | "pending"
-  | "running"
-  | "succeeded"
-  | "skipped"
-  | "failed"
-  | "cancelled";
+  "pending" | "running" | "succeeded" | "skipped" | "failed" | "cancelled";
 type CurationTargetType = "submission" | "brand";
 
 export type CurationJobParams = Record<string, Json | undefined> & {
@@ -248,7 +244,7 @@ export async function ensureAutomaticRetries(): Promise<CurationJob[]> {
     .from("curation_jobs")
     .select("*")
     .eq("status", "failed")
-    .eq("dispatch_status", "dispatched")
+    .in("dispatch_status", ["dispatched", "failed"])
     .eq("attempt", 1)
     .order("completed_at", { ascending: true });
 
@@ -277,6 +273,7 @@ export async function enqueueAutomaticRetry(
   ).filter(
     (target) => target.status === "pending" || target.status === "running",
   );
+  if (targets.some((target) => target.target_type === "brand")) return null;
   if (targets.length === 0) return null;
 
   return enqueueCurationJob({
@@ -303,6 +300,11 @@ export async function enqueueManualRerun(
       ? ["pending", "running", "failed", "cancelled"]
       : ["failed"];
   const allTargets = await listCurationJobTargets(source.id);
+  if (allTargets.some((target) => target.target_type === "brand")) {
+    throw new Error(
+      "Brand-target enrichment jobs are retired; request a refresh submission",
+    );
+  }
   const submissionIds = allTargets
     .filter((target) => target.target_type === "submission")
     .map((target) => target.target_id);
@@ -432,7 +434,9 @@ export async function listCurationJobs(options?: {
   const supabase = createServiceClient();
   const limit = Math.min(Math.max(options?.limit ?? 50, 1), 100);
   const direction = options?.direction ?? "next";
-  const cursor = options?.cursor ? decodeCurationJobCursor(options.cursor) : null;
+  const cursor = options?.cursor
+    ? decodeCurationJobCursor(options.cursor)
+    : null;
   const ascending = direction === "previous";
   let query = supabase
     .from("curation_jobs")
@@ -459,9 +463,7 @@ export async function listCurationJobs(options?: {
     jobs: visible,
     total: count ?? visible.length,
     previousCursor:
-      cursor && visible[0]
-        ? encodeCurationJobCursor(visible[0])
-        : null,
+      cursor && visible[0] ? encodeCurationJobCursor(visible[0]) : null,
     nextCursor:
       (hasMore || direction === "previous") && visible.at(-1)
         ? encodeCurationJobCursor(visible.at(-1)!)
@@ -496,7 +498,9 @@ export async function cancelCurationJob(
   return data[0] as CurationJob;
 }
 
-function encodeCurationJobCursor(job: Pick<CurationJob, "created_at" | "id">): string {
+function encodeCurationJobCursor(
+  job: Pick<CurationJob, "created_at" | "id">,
+): string {
   return Buffer.from(
     JSON.stringify({
       createdAt: job.created_at ?? new Date(0).toISOString(),
@@ -507,7 +511,9 @@ function encodeCurationJobCursor(job: Pick<CurationJob, "created_at" | "id">): s
 
 function decodeCurationJobCursor(value: string): CurationJobCursor {
   try {
-    const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as Partial<CurationJobCursor>;
+    const parsed = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8"),
+    ) as Partial<CurationJobCursor>;
     if (
       typeof parsed.createdAt !== "string" ||
       Number.isNaN(Date.parse(parsed.createdAt)) ||
@@ -595,7 +601,9 @@ async function resolveTargets(
   }
 
   if (params.slugs?.length) {
-    return resolveBrandTargets(params.slugs);
+    throw new Error(
+      "Brand-target enrichment is retired; request a refresh submission",
+    );
   }
 
   return resolvePendingSubmissionTargets();
@@ -605,14 +613,13 @@ async function resolvePendingSubmissionTargets(): Promise<EnqueueTarget[]> {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("brand_submissions")
-    .select("id, brand_name, hero_image_url, enriched_data")
+    .select("id, brand_name, hero_image_url, enriched_data, intent")
     .eq("status", "pending")
-    .is("brand_id", null)
     .order("submitted_at", { ascending: true });
 
   if (error) throw error;
 
-  const candidates = (data ?? []).filter((submission) => {
+  const candidates = (data ?? []).map((submission) => {
     const enrichedData =
       submission.enriched_data &&
       typeof submission.enriched_data === "object" &&
@@ -621,27 +628,42 @@ async function resolvePendingSubmissionTargets(): Promise<EnqueueTarget[]> {
             submission.enriched_data as Record<string, unknown>,
           )
         : null;
-    return !hasCompleteEnrichment(enrichedData, submission.hero_image_url);
+    return {
+      ...submission,
+      complete: hasCompleteEnrichment(enrichedData, submission.hero_image_url),
+    };
   });
 
   if (candidates.length === 0) return [];
 
   const { data: targetHistory, error: targetHistoryError } = await supabase
     .from("curation_job_targets")
-    .select("target_id")
+    .select("target_id, status, created_at, id")
     .eq("target_type", "submission")
     .in(
       "target_id",
       candidates.map((submission) => submission.id),
-    );
+    )
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
 
   if (targetHistoryError) throw targetHistoryError;
 
-  const attemptedIds = new Set(
-    (targetHistory ?? []).map((target) => target.target_id),
-  );
+  const statusesBySubmission = new Map<string, string[]>();
+  for (const target of targetHistory ?? []) {
+    statusesBySubmission.set(target.target_id, [
+      ...(statusesBySubmission.get(target.target_id) ?? []),
+      target.status,
+    ]);
+  }
   return candidates
-    .filter((submission) => !attemptedIds.has(submission.id))
+    .filter((submission) =>
+      isScheduledSubmissionEligible({
+        intent: submission.intent,
+        complete: submission.complete,
+        targetStatuses: statusesBySubmission.get(submission.id) ?? [],
+      }),
+    )
     .map((submission) => ({
       targetType: "submission",
       targetId: submission.id,
@@ -659,7 +681,7 @@ async function resolveSubmissionTargets(
       async (ids) => {
         const { data, error } = await supabase
           .from("brand_submissions")
-          .select("id, brand_name, status")
+          .select("id, brand_name, status, intent")
           .in("id", ids);
         if (error) throw error;
         return data ?? [];
@@ -668,7 +690,10 @@ async function resolveSubmissionTargets(
   );
   const targets = pages
     .flat()
-    .filter((submission) => submission.status === "pending")
+    .filter(
+      (submission) =>
+        submission.status === "pending" && submission.intent !== "refresh",
+    )
     .map((submission) => ({
       targetType: "submission" as const,
       targetId: submission.id,
@@ -676,7 +701,7 @@ async function resolveSubmissionTargets(
       brandSlug: null,
     }));
 
-  return [
+  const uniqueTargets = [
     ...new Map(
       targets.map((target) => [
         `${target.targetType}:${target.targetId}`,
@@ -684,23 +709,33 @@ async function resolveSubmissionTargets(
       ]),
     ).values(),
   ];
+  if (uniqueTargets.length === 0 && submissionIds.length > 0) {
+    throw new Error("Refresh submissions wait for scheduled enrichment");
+  }
+  return uniqueTargets;
 }
 
-async function resolveBrandTargets(slugs: string[]): Promise<EnqueueTarget[]> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("brands")
-    .select("id, name, slug")
-    .in("slug", slugs);
-
-  if (error) throw error;
-
-  return (data ?? []).map((brand) => ({
-    targetType: "brand",
-    targetId: brand.id,
-    brandName: brand.name,
-    brandSlug: brand.slug,
-  }));
+export function isScheduledSubmissionEligible(input: {
+  intent: string;
+  complete: boolean;
+  targetStatuses: string[];
+}): boolean {
+  if (input.intent !== "refresh") {
+    return !input.complete && input.targetStatuses.length === 0;
+  }
+  if (input.targetStatuses.length === 0) return true;
+  if (
+    input.targetStatuses.some((status) =>
+      ["pending", "running", "succeeded", "skipped", "cancelled"].includes(
+        status,
+      ),
+    )
+  ) {
+    return false;
+  }
+  return (
+    input.targetStatuses.length === 1 && input.targetStatuses[0] === "failed"
+  );
 }
 
 function targetToEnqueueInput(target: CurationJobTarget): EnqueueTarget {
