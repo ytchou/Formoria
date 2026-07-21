@@ -75,6 +75,7 @@ next-env.d.ts
 !marketing/items/**/*.md
 !marketing/strategy/**/*.md
 !.github/selfheal/*.md
+!scripts/zh-check/*.md
 docs/
 *.pen
 
