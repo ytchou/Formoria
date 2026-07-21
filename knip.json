@@ -8,11 +8,9 @@
   "project": [
     "src/**/*.{ts,tsx}",
     "scripts/**/*.{ts,mjs}",
-    "emails/**/*.{ts,tsx}",
-    "tina/__generated__/client.ts"
+    "emails/**/*.{ts,tsx}"
   ],
   "ignoreDependencies": ["tw-animate-css", "tailwindcss", "shadcn", "@react-email/ui"],
-  "ignoreBinaries": ["dotenv"],
   "ignore": [
     "src/lib/supabase/database.types.ts",
     "src/lib/logger.ts"
@@ -21,7 +19,4 @@
     "src/components/ui/card.tsx": ["exports"],
     "src/components/ui/chart.tsx": ["exports", "types"]
   },
-  "paths": {
-    "@tina/*": ["tina/__generated__/*"]
-  }
 }

@@ -15,7 +15,7 @@ function BrandCardLink({ slug }: { slug: string }) {
   )
 }
 
-export const tinaComponentMap = {
+export const guideComponentMap = {
   BrandCard: (props: { slug: string }) =>
     createElement(BrandCardLink, { slug: props.slug }),
   StatsCallout: (props: { stat: string; label: string }) =>

@@ -1,6 +1,11 @@
-import { client } from '@tina/client'
+import fs from 'fs'
+import path from 'path'
 
-type GuideEntry = {
+import matter from 'gray-matter'
+
+const GUIDES_DIR = path.join(process.cwd(), 'content', 'guides')
+
+export type GuideEntry = {
   slug: string;
   frontmatter: {
     title: string;
@@ -16,114 +21,79 @@ type GuideEntry = {
   };
 };
 
-type TinaGuideNode = {
-  title?: string;
-  description?: string;
-  slug?: string;
-  category?: string;
-  locale?: string;
-  publishedAt?: string;
-  updatedAt?: string;
-  draft?: boolean;
-  sources?: string[];
-  faq?: Array<{ q: string; a: string }>;
-  body?: string | Record<string, unknown> | null;
-};
-
-type TinaGuideResult = {
-  data?: {
-    guide?: TinaGuideNode | null;
-  };
-  query?: string;
-  variables?: Record<string, unknown>;
-};
-
 export type GuideDetailResult = {
   entry: GuideEntry;
-  tina: TinaGuideResult;
+  content: string;
 };
 
 export type GuideListResult =
   | { ok: true; guides: GuideEntry[] }
   | { ok: false; error: Error };
 
-type TinaGuideConnectionResult = {
-  data?: {
-    guideConnection?: {
-      edges?: Array<{
-        node?: TinaGuideNode | null;
-      } | null>;
-    } | null;
-  };
-};
+function parseGuideFile(slug: string): GuideDetailResult | null {
+  const filePath = path.join(GUIDES_DIR, `${slug}.mdx`)
+  let raw: string
+  try {
+    raw = fs.readFileSync(filePath, 'utf8')
+  } catch {
+    return null
+  }
 
-function toGuideEntry(node: TinaGuideNode): GuideEntry {
-  return {
-    slug: node.slug ?? '',
+  const { data, content } = matter(raw)
+
+  const entry: GuideEntry = {
+    slug,
     frontmatter: {
-      title: node.title ?? '',
-      description: node.description,
-      slug: node.slug ?? '',
-      category: node.category,
-      locale: node.locale ?? 'zh-TW',
-      publishedAt: node.publishedAt ?? '',
-      updatedAt: node.updatedAt,
-      draft: node.draft ?? false,
-      sources: node.sources ?? [],
-      faq: node.faq ?? [],
+      title: data.title ?? '',
+      description: data.description,
+      slug: data.slug ?? slug,
+      category: data.category,
+      locale: data.locale ?? 'zh-TW',
+      publishedAt: data.publishedAt != null ? String(data.publishedAt) : '',
+      updatedAt: data.updatedAt != null ? String(data.updatedAt) : undefined,
+      draft: data.draft ?? false,
+      sources: Array.isArray(data.sources) ? data.sources : [],
+      faq: Array.isArray(data.faq) ? data.faq : [],
     },
-  };
+  }
+
+  return { entry, content }
 }
 
 function guideListError(scope: string, error: unknown): GuideListResult {
-  const normalizedError = error instanceof Error ? error : new Error(String(error));
-  console.error(`[guides:${scope}] TinaCMS query failed`, normalizedError);
-  return { ok: false, error: normalizedError };
+  const normalizedError = error instanceof Error ? error : new Error(String(error))
+  console.error(`[guides:${scope}] filesystem read failed`, normalizedError)
+  return { ok: false, error: normalizedError }
 }
 
 export async function getAllGuides(): Promise<GuideListResult> {
   try {
-    const result = (await client.queries.guideConnection({
-      first: 200,
-      filter: { locale: { eq: 'zh-TW' }, draft: { eq: false } },
-    })) as TinaGuideConnectionResult;
+    const files = fs.readdirSync(GUIDES_DIR).filter(f => f.endsWith('.mdx'))
 
-    const edges = result.data?.guideConnection?.edges ?? [];
+    const guides = files
+      .map(file => {
+        const slug = file.replace(/\.mdx$/, '')
+        const result = parseGuideFile(slug)
+        return result?.entry ?? null
+      })
+      .filter((entry): entry is GuideEntry => entry !== null)
+      .filter(
+        entry => entry.frontmatter.locale === 'zh-TW' && !entry.frontmatter.draft,
+      )
 
-    return {
-      ok: true,
-      guides: edges
-        .map(edge => edge?.node)
-        .filter((node): node is TinaGuideNode => Boolean(node))
-        .map(toGuideEntry),
-    };
+    return { ok: true, guides }
   } catch (error) {
-    return guideListError('getAllGuides', error);
+    return guideListError('getAllGuides', error)
   }
 }
 
 export async function getGuideBySlug(slug: string): Promise<GuideDetailResult | null> {
-  const relativePath = `${slug}.mdx`;
-  let tina: TinaGuideResult | null | undefined;
   try {
-    tina = (await client.queries.guide({
-      relativePath,
-    })) as TinaGuideResult | null | undefined;
-  } catch {
-    return null;
+    return parseGuideFile(slug)
+  } catch (error) {
+    console.error(`[guides:getGuideBySlug] filesystem read failed`, error)
+    return null
   }
-
-  const node = tina?.data?.guide;
-  if (!tina || !node) {
-    return null;
-  }
-
-  const entry = toGuideEntry(node);
-
-  return {
-    entry,
-    tina,
-  };
 }
 
 export async function getPublishedGuideBySlug(
@@ -135,25 +105,24 @@ export async function getPublishedGuideBySlug(
 
 export async function getGuidesByCategory(category: string): Promise<GuideListResult> {
   try {
-    const result = (await client.queries.guideConnection({
-      first: 200,
-      filter: {
-        category: { eq: category },
-        locale: { eq: 'zh-TW' },
-        draft: { eq: false },
-      },
-    })) as TinaGuideConnectionResult;
+    const files = fs.readdirSync(GUIDES_DIR).filter(f => f.endsWith('.mdx'))
 
-    const edges = result.data?.guideConnection?.edges ?? [];
+    const guides = files
+      .map(file => {
+        const slug = file.replace(/\.mdx$/, '')
+        const result = parseGuideFile(slug)
+        return result?.entry ?? null
+      })
+      .filter((entry): entry is GuideEntry => entry !== null)
+      .filter(
+        entry =>
+          entry.frontmatter.locale === 'zh-TW' &&
+          !entry.frontmatter.draft &&
+          entry.frontmatter.category === category,
+      )
 
-    return {
-      ok: true,
-      guides: edges
-        .map(edge => edge?.node)
-        .filter((node): node is TinaGuideNode => Boolean(node))
-        .map(toGuideEntry),
-    };
+    return { ok: true, guides }
   } catch (error) {
-    return guideListError('getGuidesByCategory', error);
+    return guideListError('getGuidesByCategory', error)
   }
 }

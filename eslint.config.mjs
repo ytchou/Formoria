@@ -15,7 +15,6 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "public/admin/content/**",
     "scripts/threads-scraper/**",
-    "tina/__generated__/**",
   ]),
   // UI sourcing rules: raw styled HTML elements must use ui/ primitives.
   {

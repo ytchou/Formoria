@@ -78,28 +78,6 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      {
-        source: '/admin/content/:path*',
-        headers: [
-          {
-            key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:4001",
-              "style-src 'self' 'unsafe-inline'",
-              "connect-src 'self' http://localhost:4001 ws://localhost:4001 https://content.tinajs.io https://identity.tinajs.io",
-              "img-src 'self' data: blob: https://assets.tinajs.io",
-              "font-src 'self' data:",
-              "frame-src https://identity.tinajs.io",
-              "frame-ancestors 'self'",
-            ].join('; '),
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'SAMEORIGIN',
-          },
-        ],
-      },
     ]
   },
   async redirects() {

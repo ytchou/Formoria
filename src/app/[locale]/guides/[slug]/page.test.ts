@@ -43,7 +43,7 @@ describe('guide detail metadata', () => {
           faq: [],
         },
       },
-      tina: {},
+      content: '# Test content',
     })
   })
 
