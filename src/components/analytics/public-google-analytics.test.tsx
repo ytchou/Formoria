@@ -31,6 +31,27 @@ describe('PublicGoogleAnalytics', () => {
     expect(window.gtag).not.toHaveBeenCalled()
   })
 
+  it('defines a gtag shim that pushes arguments objects, not arrays', async () => {
+    mockUsePathname.mockReturnValue('/en/brands')
+    // @ts-expect-error -- simulate gtag.js not yet loaded
+    delete window.gtag
+    window.dataLayer = []
+    const { PublicGoogleAnalytics } = await import('./public-google-analytics')
+
+    render(<PublicGoogleAnalytics gaId="G-TEST" />)
+
+    const commands = window.dataLayer
+    expect(commands.length).toBeGreaterThanOrEqual(3)
+    for (const entry of commands) {
+      // gtag.js silently ignores commands pushed as plain arrays — it only
+      // executes `arguments` objects (array-like, but not Array instances)
+      expect(Array.isArray(entry)).toBe(false)
+      expect(typeof (entry as { length?: number }).length).toBe('number')
+    }
+    expect((commands[0] as unknown as unknown[])[0]).toBe('js')
+    expect((commands[1] as unknown as unknown[])[0]).toBe('config')
+  })
+
   it('sends a manual page view for public routes', async () => {
     mockUsePathname.mockReturnValue('/en/brands')
     mockUseSearchParams.mockReturnValue(new URLSearchParams('category=food'))

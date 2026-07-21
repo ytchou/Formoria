@@ -23,8 +23,11 @@ export function PublicGoogleAnalytics({ gaId }: PublicGoogleAnalyticsProps) {
     window.dataLayer = window.dataLayer ?? []
     window.gtag =
       window.gtag ??
-      function gtag(...args: unknown[]) {
-        window.dataLayer?.push(args as never)
+      function gtag() {
+        // gtag.js executes commands only when given an `arguments` object —
+        // a plain array pushed to dataLayer is silently ignored (no hits sent)
+        // eslint-disable-next-line prefer-rest-params
+        window.dataLayer?.push(arguments as never)
       }
 
     if (!initializedRef.current) {
