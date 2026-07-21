@@ -1,5 +1,6 @@
 'use client'
 
+import posthog from 'posthog-js'
 import NextLink from 'next/link'
 import { useLocale, useTranslations } from 'next-intl'
 import { Link, usePathname } from '@/i18n/navigation'
@@ -16,6 +17,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+
+function handleSignOut() {
+  posthog.capture('user_signed_out')
+  posthog.reset()
+}
 
 function getUserInitial(email?: string | null): string {
   const initial = email?.trim().charAt(0).toUpperCase()
@@ -92,7 +98,7 @@ export function AccountMenu() {
             variant="destructive"
             render={
               // eslint-disable-next-line no-restricted-syntax -- ui-exception: render-prop injection for DropdownMenuItem, raw button is required by Base UI render prop API
-              <button type="submit" className="w-full text-left" />
+              <button type="submit" className="w-full text-left" onClick={handleSignOut} />
             }
           >
             {t('account.signOut')}
