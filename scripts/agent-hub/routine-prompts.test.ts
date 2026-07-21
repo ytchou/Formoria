@@ -84,7 +84,7 @@ describe("Formoria unified routine delivery contracts", () => {
     expect(prompt).toContain("health_fix_queue");
     expect(prompt).toContain("health_snapshots");
     expect(prompt).toContain("max_connections");
-    expect(prompt).toContain("ytchou/mitmap");
+    expect(prompt).toContain("ytchou/Formoria");
   });
 
   it("does not contain removed WebSearch workarounds, VACUUM instructions, or branch-deletion commands", async () => {
@@ -93,7 +93,7 @@ describe("Formoria unified routine delivery contracts", () => {
       "utf8",
     );
 
-    expect(prompt).not.toContain("ytchou/Formoria");
+    expect(prompt).not.toContain("ytchou/mitmap");
     expect(prompt).not.toContain(
       "use WebSearch as a workaround to verify URLs are reachable",
     );
