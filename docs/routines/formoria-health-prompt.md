@@ -240,10 +240,10 @@ When `purchase_website_count` or `hero_image_count` drops, check `auto_nulled_at
 Query GitHub Dependabot alerts for the repository:
 
 ```bash
-gh api repos/ytchou/mitmap/dependabot/alerts --jq '[.[] | select(.state == "open") | {package: .security_vulnerability.package.name, severity: .security_advisory.severity, summary: .security_advisory.summary}]'
+gh api repos/ytchou/Formoria/dependabot/alerts --jq '[.[] | select(.state == "open") | {package: .security_vulnerability.package.name, severity: .security_advisory.severity, summary: .security_advisory.summary}]'
 ```
 
-If `gh` CLI is unavailable or the command errors, note "Dependency audit skipped — gh CLI unavailable or Dependabot not enabled" in the digest and continue. If the API returns an error because Dependabot is not enabled on `ytchou/mitmap`, note it in the digest and continue — do NOT treat this as a failure.
+If `gh` CLI is unavailable or the command errors, note "Dependency audit skipped — gh CLI unavailable or Dependabot not enabled" in the digest and continue. If the API returns an error because Dependabot is not enabled on `ytchou/Formoria`, note it in the digest and continue — do NOT treat this as a failure.
 
 **Classification:**
 | Severity | Action |

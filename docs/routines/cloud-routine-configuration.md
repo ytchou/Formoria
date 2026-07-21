@@ -4,7 +4,7 @@ A single unified "Formoria Health Agent" routine runs all three health checks (D
 
 ## Configuration
 
-- Repository: `ytchou/mitmap`
+- Repository: `ytchou/Formoria`
 - Branch: default branch, refreshed at the start of every run
 - Environment variables: `AGENT_HUB_INGEST_URL`, `AGENT_HUB_INGEST_TOKEN`, `PERSONAL_OS_INTERNAL_TOKEN`, `FORMORIA_RAILWAY_URL`
 - Network allowlist: the Agent Hub Supabase function host, the Formoria Railway direct host
@@ -13,7 +13,7 @@ A single unified "Formoria Health Agent" routine runs all three health checks (D
 Saved prompt:
 
 ```text
-Open a fresh checkout of the default branch of ytchou/mitmap. Read docs/routines/formoria-health-prompt.md and follow it exactly. That repository file is the source of truth; do not use remembered delivery instructions. Always run its Agent Hub delivery step for each section, including after a data-source failure.
+Open a fresh checkout of the default branch of ytchou/Formoria. Read docs/routines/formoria-health-prompt.md and follow it exactly. That repository file is the source of truth; do not use remembered delivery instructions. Always run its Agent Hub delivery step for each section, including after a data-source failure.
 ```
 
 ## Routine
@@ -57,7 +57,3 @@ The routine now writes to two tables on each run (in addition to reading from `l
 4. Confirm three rows appear in Personal OS Agent Hub (one per check: `directory-health`, `sentry-triage`, `growth-pulse`) for the logical Asia/Taipei date.
 5. Replay one output and confirm no duplicate row appears.
 6. Archive prompts are in `docs/routines/archive/` for reference.
-
-## MANUAL CUTOVER REQUIRED — saved prompt in Claude Routines UI
-
-The saved prompt stored in the Claude Routines UI still references `ytchou/Formoria`. An operator must manually edit that saved prompt in the Claude Routines UI to replace `ytchou/Formoria` with `ytchou/mitmap`. The prompt in this file is already correct; only the UI-stored copy needs updating.
