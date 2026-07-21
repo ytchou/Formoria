@@ -113,6 +113,20 @@ describe('PostHog path privacy', () => {
     expect(serialized).not.toContain('private@example.com')
   })
 
+  it('preserves the top-level PostHog ingestion token while scrubbing nested tokens', () => {
+    const sanitized = sanitizePostHogEvent({
+      event: '$pageview',
+      properties: {
+        $current_url: 'https://formoria.com/zh-TW/brands',
+        token: 'phc_project_api_token',
+        form_data: { token: 'secret-auth-token' },
+      },
+    })
+
+    expect(sanitized?.properties?.token).toBe('phc_project_api_token')
+    expect(JSON.stringify(sanitized)).not.toContain('secret-auth-token')
+  })
+
   it('drops unsafe UTM property values while preserving campaign tokens', () => {
     const sanitized = sanitizePostHogEvent({
       event: 'user_signed_up',

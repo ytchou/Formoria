@@ -149,6 +149,12 @@ export function sanitizePostHogEvent<T extends PostHogEvent>(event: T): T | null
   }
 
   const scrubbed = scrubValue(properties) as Record<string, unknown>
+  // posthog-js requires properties.token (the public project API key) for
+  // ingestion and drops any event where before_send removed it — restore the
+  // top-level token after the scrub; nested `token` keys stay removed.
+  if (typeof properties.token === 'string') {
+    scrubbed.token = properties.token
+  }
   scrubbed.analytics_schema_version = 1
   scrubbed.environment = 'production'
   scrubbed.locale = analyticsLocale(pathname)

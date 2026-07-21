@@ -14,6 +14,80 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_log: {
+        Row: {
+          action: string
+          admin_email: string
+          admin_user_id: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          target_brand_id: string | null
+          target_brand_slug: string | null
+        }
+        Insert: {
+          action: string
+          admin_email: string
+          admin_user_id: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          target_brand_id?: string | null
+          target_brand_slug?: string | null
+        }
+        Update: {
+          action?: string
+          admin_email?: string
+          admin_user_id?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          target_brand_id?: string | null
+          target_brand_slug?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_audit_log_target_brand_id_fkey"
+            columns: ["target_brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      app_secrets: {
+        Row: {
+          key: string
+          value: string
+        }
+        Insert: {
+          key: string
+          value: string
+        }
+        Update: {
+          key?: string
+          value?: string
+        }
+        Relationships: []
+      }
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       batch_processing_log: {
         Row: {
           duration_ms: number | null
@@ -56,6 +130,7 @@ export type Database = {
           input: Json | null
           is_non_brand: boolean | null
           job_id: string | null
+          latency_ms: number | null
           model: string
           non_brand_reason: string | null
           phase: string
@@ -65,7 +140,6 @@ export type Database = {
           raw_response: Json | null
           slug_generated: string | null
           submission_id: string | null
-          latency_ms: number | null
         }
         Insert: {
           attempt?: number | null
@@ -78,6 +152,7 @@ export type Database = {
           input?: Json | null
           is_non_brand?: boolean | null
           job_id?: string | null
+          latency_ms?: number | null
           model: string
           non_brand_reason?: string | null
           phase: string
@@ -87,7 +162,6 @@ export type Database = {
           raw_response?: Json | null
           slug_generated?: string | null
           submission_id?: string | null
-          latency_ms?: number | null
         }
         Update: {
           attempt?: number | null
@@ -100,6 +174,7 @@ export type Database = {
           input?: Json | null
           is_non_brand?: boolean | null
           job_id?: string | null
+          latency_ms?: number | null
           model?: string
           non_brand_reason?: string | null
           phase?: string
@@ -109,7 +184,6 @@ export type Database = {
           raw_response?: Json | null
           slug_generated?: string | null
           submission_id?: string | null
-          latency_ms?: number | null
         }
         Relationships: [
           {
@@ -135,37 +209,138 @@ export type Database = {
           },
         ]
       }
-      brand_analytics: {
+      brand_faq: {
         Row: {
           brand_id: string
-          clicks: number
-          created_at: string
-          date: string
-          id: string
-          source: string
-          views: number
+          faq_custom_1: Json | null
+          faq_custom_2: Json | null
+          faq_custom_3: Json | null
+          faq_custom_4: Json | null
+          faq_founded: Json | null
+          faq_mit: Json | null
+          faq_price: Json | null
+          faq_products: Json | null
+          faq_reputation: Json | null
+          faq_where_to_buy: Json | null
+          updated_at: string | null
         }
         Insert: {
           brand_id: string
-          clicks?: number
-          created_at?: string
-          date?: string
-          id?: string
-          source?: string
-          views?: number
+          faq_custom_1?: Json | null
+          faq_custom_2?: Json | null
+          faq_custom_3?: Json | null
+          faq_custom_4?: Json | null
+          faq_founded?: Json | null
+          faq_mit?: Json | null
+          faq_price?: Json | null
+          faq_products?: Json | null
+          faq_reputation?: Json | null
+          faq_where_to_buy?: Json | null
+          updated_at?: string | null
         }
         Update: {
           brand_id?: string
-          clicks?: number
-          created_at?: string
-          date?: string
-          id?: string
-          source?: string
-          views?: number
+          faq_custom_1?: Json | null
+          faq_custom_2?: Json | null
+          faq_custom_3?: Json | null
+          faq_custom_4?: Json | null
+          faq_founded?: Json | null
+          faq_mit?: Json | null
+          faq_price?: Json | null
+          faq_products?: Json | null
+          faq_reputation?: Json | null
+          faq_where_to_buy?: Json | null
+          updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "brand_analytics_brand_id_fkey"
+            foreignKeyName: "brand_faq_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_field_events: {
+        Row: {
+          actor: string | null
+          brand_id: string
+          created_at: string
+          field: string
+          id: number
+          job_id: string | null
+          new_value: Json | null
+          old_value: Json | null
+          source: string
+        }
+        Insert: {
+          actor?: string | null
+          brand_id: string
+          created_at?: string
+          field: string
+          id?: number
+          job_id?: string | null
+          new_value?: Json | null
+          old_value?: Json | null
+          source: string
+        }
+        Update: {
+          actor?: string | null
+          brand_id?: string
+          created_at?: string
+          field?: string
+          id?: number
+          job_id?: string | null
+          new_value?: Json | null
+          old_value?: Json | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_field_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_field_events_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "curation_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_field_state: {
+        Row: {
+          admin_locked: boolean
+          brand_id: string
+          field: string
+          source: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          admin_locked?: boolean
+          brand_id: string
+          field: string
+          source: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          admin_locked?: boolean
+          brand_id?: string
+          field?: string
+          source?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_field_state_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
@@ -173,34 +348,105 @@ export type Database = {
           },
         ]
       }
-      brand_link_clicks: {
+      brand_images: {
         Row: {
+          alt_en: string | null
+          alt_zh: string | null
           brand_id: string
-          clicks: number
           created_at: string
-          date: string
-          destination: string
+          dominant_color: string | null
+          height: number | null
           id: string
+          phash: string | null
+          score: number | null
+          sort_order: number
+          source: string
+          source_url: string | null
+          status: string
+          storage_path: string | null
+          tags: string[] | null
+          url: string
+          width: number | null
         }
         Insert: {
+          alt_en?: string | null
+          alt_zh?: string | null
           brand_id: string
-          clicks?: number
           created_at?: string
-          date?: string
-          destination: string
+          dominant_color?: string | null
+          height?: number | null
           id?: string
+          phash?: string | null
+          score?: number | null
+          sort_order?: number
+          source: string
+          source_url?: string | null
+          status?: string
+          storage_path?: string | null
+          tags?: string[] | null
+          url: string
+          width?: number | null
         }
         Update: {
+          alt_en?: string | null
+          alt_zh?: string | null
           brand_id?: string
-          clicks?: number
           created_at?: string
-          date?: string
-          destination?: string
+          dominant_color?: string | null
+          height?: number | null
           id?: string
+          phash?: string | null
+          score?: number | null
+          sort_order?: number
+          source?: string
+          source_url?: string | null
+          status?: string
+          storage_path?: string | null
+          tags?: string[] | null
+          url?: string
+          width?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "brand_link_clicks_brand_id_fkey"
+            foreignKeyName: "brand_images_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_onboarding_steps: {
+        Row: {
+          brand_id: string
+          completed_at: string | null
+          completed_by_user_id: string | null
+          started_at: string | null
+          status: string
+          step_key: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          completed_at?: string | null
+          completed_by_user_id?: string | null
+          started_at?: string | null
+          status?: string
+          step_key: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          completed_at?: string | null
+          completed_by_user_id?: string | null
+          started_at?: string | null
+          status?: string
+          step_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_onboarding_steps_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
@@ -403,41 +649,6 @@ export type Database = {
           },
         ]
       }
-      brand_field_state: {
-        Row: {
-          admin_locked: boolean
-          brand_id: string
-          field: string
-          source: string
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          admin_locked?: boolean
-          brand_id: string
-          field: string
-          source: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          admin_locked?: boolean
-          brand_id?: string
-          field?: string
-          source?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "brand_field_state_brand_id_fkey"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       brand_submissions: {
         Row: {
           base_brand_data: Json | null
@@ -452,8 +663,8 @@ export type Database = {
           intent: string
           is_brand_owner: boolean | null
           notified_at: string | null
-          owner_data: Json | null
           other_urls: Json
+          owner_data: Json | null
           pdpa_consent_at: string | null
           product_type_note: string | null
           purchase_pinkoi: string | null
@@ -461,10 +672,10 @@ export type Database = {
           purchase_website: string | null
           refresh_requested_by: string | null
           review_overrides: Json
-          romanized_name: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           reviewer_notes: string | null
+          romanized_name: string | null
           social_facebook: string | null
           social_instagram: string | null
           social_threads: string | null
@@ -491,8 +702,8 @@ export type Database = {
           intent?: string
           is_brand_owner?: boolean | null
           notified_at?: string | null
-          owner_data?: Json | null
           other_urls?: Json
+          owner_data?: Json | null
           pdpa_consent_at?: string | null
           product_type_note?: string | null
           purchase_pinkoi?: string | null
@@ -500,10 +711,10 @@ export type Database = {
           purchase_website?: string | null
           refresh_requested_by?: string | null
           review_overrides?: Json
-          romanized_name?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           reviewer_notes?: string | null
+          romanized_name?: string | null
           social_facebook?: string | null
           social_instagram?: string | null
           social_threads?: string | null
@@ -530,8 +741,8 @@ export type Database = {
           intent?: string
           is_brand_owner?: boolean | null
           notified_at?: string | null
-          owner_data?: Json | null
           other_urls?: Json
+          owner_data?: Json | null
           pdpa_consent_at?: string | null
           product_type_note?: string | null
           purchase_pinkoi?: string | null
@@ -539,10 +750,10 @@ export type Database = {
           purchase_website?: string | null
           refresh_requested_by?: string | null
           review_overrides?: Json
-          romanized_name?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           reviewer_notes?: string | null
+          romanized_name?: string | null
           social_facebook?: string | null
           social_instagram?: string | null
           social_threads?: string | null
@@ -566,85 +777,14 @@ export type Database = {
           },
         ]
       }
-      submission_images: {
-        Row: {
-          alt_en: string | null
-          alt_zh: string | null
-          created_at: string
-          dominant_color: string | null
-          height: number | null
-          id: string
-          origin_brand_image_id: string | null
-          phash: string | null
-          score: number | null
-          sort_order: number
-          source: string
-          source_url: string | null
-          status: string
-          storage_path: string | null
-          submission_id: string
-          tags: string[] | null
-          url: string
-          width: number | null
-        }
-        Insert: {
-          alt_en?: string | null
-          alt_zh?: string | null
-          created_at?: string
-          dominant_color?: string | null
-          height?: number | null
-          id?: string
-          origin_brand_image_id?: string | null
-          phash?: string | null
-          score?: number | null
-          sort_order?: number
-          source: string
-          source_url?: string | null
-          status?: string
-          storage_path?: string | null
-          submission_id: string
-          tags?: string[] | null
-          url: string
-          width?: number | null
-        }
-        Update: {
-          alt_en?: string | null
-          alt_zh?: string | null
-          created_at?: string
-          dominant_color?: string | null
-          height?: number | null
-          id?: string
-          origin_brand_image_id?: string | null
-          phash?: string | null
-          score?: number | null
-          sort_order?: number
-          source?: string
-          source_url?: string | null
-          status?: string
-          storage_path?: string | null
-          submission_id?: string
-          tags?: string[] | null
-          url?: string
-          width?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "submission_images_submission_id_fkey"
-            columns: ["submission_id"]
-            isOneToOne: false
-            referencedRelation: "brand_submissions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       brands: {
         Row: {
           approved_at: string | null
+          blurb: string | null
+          blurb_en: string | null
           brand_enriched_at: string | null
           category_attributes: Json | null
           city: string | null
-          blurb: string | null
-          blurb_en: string | null
           contact_email: string | null
           created_at: string | null
           description: string | null
@@ -684,11 +824,11 @@ export type Database = {
         }
         Insert: {
           approved_at?: string | null
+          blurb?: string | null
+          blurb_en?: string | null
           brand_enriched_at?: string | null
           category_attributes?: Json | null
           city?: string | null
-          blurb?: string | null
-          blurb_en?: string | null
           contact_email?: string | null
           created_at?: string | null
           description?: string | null
@@ -728,11 +868,11 @@ export type Database = {
         }
         Update: {
           approved_at?: string | null
+          blurb?: string | null
+          blurb_en?: string | null
           brand_enriched_at?: string | null
           category_attributes?: Json | null
           city?: string | null
-          blurb?: string | null
-          blurb_en?: string | null
           contact_email?: string | null
           created_at?: string | null
           description?: string | null
@@ -828,113 +968,6 @@ export type Database = {
           },
         ]
       }
-      curation_jobs: {
-        Row: {
-          attempt: number
-          cancelled_count: number
-          completed_at: string | null
-          created_at: string | null
-          dispatch_error: string | null
-          dispatch_status: string
-          dispatched_at: string | null
-          current_phase: string | null
-          current_target_id: string | null
-          dedupe_key: string | null
-          dry_run: boolean
-          failed_count: number
-          heartbeat_at: string | null
-          id: string
-          job_error: string | null
-          operation: string
-          parent_job_id: string | null
-          params: Json | null
-          progress: Json | null
-          result: Json | null
-          run_after: string
-          scheduled_for: string | null
-          skipped_count: number
-          started_at: string | null
-          started_by: string
-          status: string
-          succeeded_count: number
-          target_total: number
-          trigger: string
-          worker_token: string | null
-        }
-        Insert: {
-          attempt?: number
-          cancelled_count?: number
-          completed_at?: string | null
-          created_at?: string | null
-          dispatch_error?: string | null
-          dispatch_status?: string
-          dispatched_at?: string | null
-          current_phase?: string | null
-          current_target_id?: string | null
-          dedupe_key?: string | null
-          dry_run?: boolean
-          failed_count?: number
-          heartbeat_at?: string | null
-          id?: string
-          job_error?: string | null
-          operation: string
-          parent_job_id?: string | null
-          params?: Json | null
-          progress?: Json | null
-          result?: Json | null
-          run_after?: string
-          scheduled_for?: string | null
-          skipped_count?: number
-          started_at?: string | null
-          started_by: string
-          status?: string
-          succeeded_count?: number
-          target_total?: number
-          trigger?: string
-          worker_token?: string | null
-        }
-        Update: {
-          attempt?: number
-          cancelled_count?: number
-          completed_at?: string | null
-          created_at?: string | null
-          dispatch_error?: string | null
-          dispatch_status?: string
-          dispatched_at?: string | null
-          current_phase?: string | null
-          current_target_id?: string | null
-          dedupe_key?: string | null
-          dry_run?: boolean
-          failed_count?: number
-          heartbeat_at?: string | null
-          id?: string
-          job_error?: string | null
-          operation?: string
-          parent_job_id?: string | null
-          params?: Json | null
-          progress?: Json | null
-          result?: Json | null
-          run_after?: string
-          scheduled_for?: string | null
-          skipped_count?: number
-          started_at?: string | null
-          started_by?: string
-          status?: string
-          succeeded_count?: number
-          target_total?: number
-          trigger?: string
-          worker_token?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "curation_jobs_parent_job_id_fkey"
-            columns: ["parent_job_id"]
-            isOneToOne: false
-            referencedRelation: "curation_jobs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       curation_job_targets: {
         Row: {
           brand_name: string
@@ -997,6 +1030,113 @@ export type Database = {
           },
         ]
       }
+      curation_jobs: {
+        Row: {
+          attempt: number
+          cancelled_count: number
+          completed_at: string | null
+          created_at: string | null
+          current_phase: string | null
+          current_target_id: string | null
+          dedupe_key: string | null
+          dispatch_error: string | null
+          dispatch_status: string
+          dispatched_at: string | null
+          dry_run: boolean
+          failed_count: number
+          heartbeat_at: string | null
+          id: string
+          job_error: string | null
+          operation: string
+          params: Json | null
+          parent_job_id: string | null
+          progress: Json | null
+          result: Json | null
+          run_after: string
+          scheduled_for: string | null
+          skipped_count: number
+          started_at: string | null
+          started_by: string
+          status: string
+          succeeded_count: number
+          target_total: number
+          trigger: string
+          worker_token: string | null
+        }
+        Insert: {
+          attempt?: number
+          cancelled_count?: number
+          completed_at?: string | null
+          created_at?: string | null
+          current_phase?: string | null
+          current_target_id?: string | null
+          dedupe_key?: string | null
+          dispatch_error?: string | null
+          dispatch_status?: string
+          dispatched_at?: string | null
+          dry_run?: boolean
+          failed_count?: number
+          heartbeat_at?: string | null
+          id?: string
+          job_error?: string | null
+          operation: string
+          params?: Json | null
+          parent_job_id?: string | null
+          progress?: Json | null
+          result?: Json | null
+          run_after?: string
+          scheduled_for?: string | null
+          skipped_count?: number
+          started_at?: string | null
+          started_by: string
+          status?: string
+          succeeded_count?: number
+          target_total?: number
+          trigger?: string
+          worker_token?: string | null
+        }
+        Update: {
+          attempt?: number
+          cancelled_count?: number
+          completed_at?: string | null
+          created_at?: string | null
+          current_phase?: string | null
+          current_target_id?: string | null
+          dedupe_key?: string | null
+          dispatch_error?: string | null
+          dispatch_status?: string
+          dispatched_at?: string | null
+          dry_run?: boolean
+          failed_count?: number
+          heartbeat_at?: string | null
+          id?: string
+          job_error?: string | null
+          operation?: string
+          params?: Json | null
+          parent_job_id?: string | null
+          progress?: Json | null
+          result?: Json | null
+          run_after?: string
+          scheduled_for?: string | null
+          skipped_count?: number
+          started_at?: string | null
+          started_by?: string
+          status?: string
+          succeeded_count?: number
+          target_total?: number
+          trigger?: string
+          worker_token?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curation_jobs_parent_job_id_fkey"
+            columns: ["parent_job_id"]
+            isOneToOne: false
+            referencedRelation: "curation_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_sends: {
         Row: {
           id: string
@@ -1018,54 +1158,69 @@ export type Database = {
         }
         Relationships: []
       }
-      feedback: {
+      marketing_calendar: {
         Row: {
-          body: string | null
+          brief_path: string | null
           created_at: string
           id: string
-          metadata: Json | null
-          reviewed_at: string | null
-          sentry_event_id: string | null
-          sentry_feedback_id: string | null
-          source: string
+          lang: string
+          media: string | null
+          notes: string | null
+          output_path: string | null
+          platforms: string[]
+          priority: string
+          source_detected_at: string | null
+          source_detected_by: string | null
+          source_type: string | null
+          source_url: string | null
           status: string
-          tally_response_id: string | null
-          title: string | null
+          target_date: string | null
+          title: string
+          todoist_task_id: string | null
           type: string
-          url: string | null
-          user_email: string | null
+          updated_at: string
         }
         Insert: {
-          body?: string | null
+          brief_path?: string | null
           created_at?: string
-          id?: string
-          metadata?: Json | null
-          reviewed_at?: string | null
-          sentry_event_id?: string | null
-          sentry_feedback_id?: string | null
-          source: string
+          id: string
+          lang?: string
+          media?: string | null
+          notes?: string | null
+          output_path?: string | null
+          platforms?: string[]
+          priority?: string
+          source_detected_at?: string | null
+          source_detected_by?: string | null
+          source_type?: string | null
+          source_url?: string | null
           status?: string
-          tally_response_id?: string | null
-          title?: string | null
+          target_date?: string | null
+          title: string
+          todoist_task_id?: string | null
           type: string
-          url?: string | null
-          user_email?: string | null
+          updated_at?: string
         }
         Update: {
-          body?: string | null
+          brief_path?: string | null
           created_at?: string
           id?: string
-          metadata?: Json | null
-          reviewed_at?: string | null
-          sentry_event_id?: string | null
-          sentry_feedback_id?: string | null
-          source?: string
+          lang?: string
+          media?: string | null
+          notes?: string | null
+          output_path?: string | null
+          platforms?: string[]
+          priority?: string
+          source_detected_at?: string | null
+          source_detected_by?: string | null
+          source_type?: string | null
+          source_url?: string | null
           status?: string
-          tally_response_id?: string | null
-          title?: string | null
+          target_date?: string | null
+          title?: string
+          todoist_task_id?: string | null
           type?: string
-          url?: string | null
-          user_email?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1157,11 +1312,11 @@ export type Database = {
       }
       newsletter_subscribers: {
         Row: {
+          confirm_token: string
+          confirmed_at: string | null
           consent_recorded_at: string | null
           consent_source: string | null
           consent_version: string | null
-          confirm_token: string
-          confirmed_at: string | null
           created_at: string
           email: string
           id: string
@@ -1173,11 +1328,11 @@ export type Database = {
           unsubscribed_at: string | null
         }
         Insert: {
+          confirm_token?: string
+          confirmed_at?: string | null
           consent_recorded_at?: string | null
           consent_source?: string | null
           consent_version?: string | null
-          confirm_token?: string
-          confirmed_at?: string | null
           created_at?: string
           email: string
           id?: string
@@ -1189,11 +1344,11 @@ export type Database = {
           unsubscribed_at?: string | null
         }
         Update: {
+          confirm_token?: string
+          confirmed_at?: string | null
           consent_recorded_at?: string | null
           consent_source?: string | null
           consent_version?: string | null
-          confirm_token?: string
-          confirmed_at?: string | null
           created_at?: string
           email?: string
           id?: string
@@ -1321,6 +1476,24 @@ export type Database = {
           },
         ]
       }
+      product_tag_translations: {
+        Row: {
+          created_at: string | null
+          tag_en: string
+          tag_zh: string
+        }
+        Insert: {
+          created_at?: string | null
+          tag_en: string
+          tag_zh: string
+        }
+        Update: {
+          created_at?: string | null
+          tag_en?: string
+          tag_zh?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -1345,11 +1518,145 @@ export type Database = {
         }
         Relationships: []
       }
+      submission_images: {
+        Row: {
+          alt_en: string | null
+          alt_zh: string | null
+          created_at: string
+          dominant_color: string | null
+          height: number | null
+          id: string
+          origin_brand_image_id: string | null
+          phash: string | null
+          score: number | null
+          sort_order: number
+          source: string
+          source_url: string | null
+          status: string
+          storage_path: string | null
+          submission_id: string
+          tags: string[] | null
+          url: string
+          width: number | null
+        }
+        Insert: {
+          alt_en?: string | null
+          alt_zh?: string | null
+          created_at?: string
+          dominant_color?: string | null
+          height?: number | null
+          id?: string
+          origin_brand_image_id?: string | null
+          phash?: string | null
+          score?: number | null
+          sort_order?: number
+          source: string
+          source_url?: string | null
+          status?: string
+          storage_path?: string | null
+          submission_id: string
+          tags?: string[] | null
+          url: string
+          width?: number | null
+        }
+        Update: {
+          alt_en?: string | null
+          alt_zh?: string | null
+          created_at?: string
+          dominant_color?: string | null
+          height?: number | null
+          id?: string
+          origin_brand_image_id?: string | null
+          phash?: string | null
+          score?: number | null
+          sort_order?: number
+          source?: string
+          source_url?: string | null
+          status?: string
+          storage_path?: string | null
+          submission_id?: string
+          tags?: string[] | null
+          url?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submission_images_origin_brand_image_id_fkey"
+            columns: ["origin_brand_image_id"]
+            isOneToOne: false
+            referencedRelation: "brand_images"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "submission_images_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "brand_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      admin_export_newsletter_subscribers: {
+        Args: { p_interest?: string; p_query?: string; p_status?: string }
+        Returns: Json
+      }
+      admin_list_newsletter_subscribers: {
+        Args: {
+          p_cursor_at?: string
+          p_cursor_id?: string
+          p_direction?: string
+          p_interest?: string
+          p_limit?: number
+          p_query?: string
+          p_status?: string
+        }
+        Returns: {
+          confirmed_at: string
+          consent_recorded_at: string
+          consent_source: string
+          consent_version: string
+          email: string
+          id: string
+          interests: string[]
+          locale: string
+          name: string
+          subscribed_at: string
+          subscriber_status: string
+          total_count: number
+          unsubscribed_at: string
+        }[]
+      }
+      apply_brand_patch: {
+        Args: {
+          p_actor: string
+          p_brand_id: string
+          p_job_id: string
+          p_patch: Json
+          p_source: string
+        }
+        Returns: undefined
+      }
+      apply_brand_refresh: {
+        Args: { p_reviewer_id: string; p_submission_id: string }
+        Returns: string[]
+      }
+      apply_submission_enrichment_result: {
+        Args: {
+          p_enriched_data: Json
+          p_job_id: string
+          p_submission_id: string
+        }
+        Returns: boolean
+      }
+      approve_claim_request: {
+        Args: { p_claim_id: string; p_reviewer_id: string }
+        Returns: undefined
+      }
       approve_submission: {
         Args: {
           p_brand_data: Json
@@ -1360,9 +1667,9 @@ export type Database = {
           brand_id: string
           brand_name: string
           is_brand_owner: boolean
-          suggested_tags: Json | null
           submitter_email: string
-          submitter_name: string | null
+          submitter_name: string
+          suggested_tags: Json
         }[]
       }
       approve_submission_with_romanized_name: {
@@ -1375,89 +1682,142 @@ export type Database = {
           brand_id: string
           brand_name: string
           is_brand_owner: boolean
-          suggested_tags: Json | null
           submitter_email: string
-          submitter_name: string | null
+          submitter_name: string
+          suggested_tags: Json
         }[]
-      }
-      apply_brand_refresh: {
-        Args: { p_reviewer_id: string; p_submission_id: string }
-        Returns: string[]
-      }
-      admin_export_newsletter_subscribers: {
-        Args: {
-          p_interest?: string | null
-          p_query?: string | null
-          p_status?: string | null
-        }
-        Returns: Json
-      }
-      admin_list_newsletter_subscribers: {
-        Args: {
-          p_cursor_at?: string | null
-          p_cursor_id?: string | null
-          p_direction?: string
-          p_interest?: string | null
-          p_limit?: number
-          p_query?: string | null
-          p_status?: string | null
-        }
-        Returns: {
-          confirmed_at: string | null
-          consent_recorded_at: string | null
-          consent_source: string | null
-          consent_version: string | null
-          email: string
-          id: string
-          interests: string[]
-          locale: string
-          name: string | null
-          subscribed_at: string
-          subscriber_status: string
-          total_count: number
-          unsubscribed_at: string | null
-        }[]
-      }
-      apply_submission_enrichment_result: {
-        Args: {
-          p_enriched_data: Json
-          p_job_id: string
-          p_submission_id: string
-        }
-        Returns: boolean
-      }
-      save_submission_review: {
-        Args: {
-          p_images: Json
-          p_review_data: Json
-          p_submission_id: string
-        }
-        Returns: undefined
-      }
-      approve_claim_request: {
-        Args: { p_claim_id: string; p_reviewer_id: string }
-        Returns: undefined
-      }
-      claim_next_curation_job: {
-        Args: { p_worker_token: string }
-        Returns: Database["public"]["Tables"]["curation_jobs"]["Row"][]
-      }
-      claim_curation_job: {
-        Args: { p_job_id: string; p_worker_token: string }
-        Returns: Database["public"]["Tables"]["curation_jobs"]["Row"][]
       }
       cancel_curation_job: {
         Args: { p_job_id: string; p_reason: string }
-        Returns: Database["public"]["Tables"]["curation_jobs"]["Row"][]
+        Returns: {
+          attempt: number
+          cancelled_count: number
+          completed_at: string | null
+          created_at: string | null
+          current_phase: string | null
+          current_target_id: string | null
+          dedupe_key: string | null
+          dispatch_error: string | null
+          dispatch_status: string
+          dispatched_at: string | null
+          dry_run: boolean
+          failed_count: number
+          heartbeat_at: string | null
+          id: string
+          job_error: string | null
+          operation: string
+          params: Json | null
+          parent_job_id: string | null
+          progress: Json | null
+          result: Json | null
+          run_after: string
+          scheduled_for: string | null
+          skipped_count: number
+          started_at: string | null
+          started_by: string
+          status: string
+          succeeded_count: number
+          target_total: number
+          trigger: string
+          worker_token: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "curation_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       check_brand_duplicates: {
         Args: { p_name: string; p_ubn?: string }
         Returns: Json
       }
+      claim_curation_job: {
+        Args: { p_job_id: string; p_worker_token: string }
+        Returns: {
+          attempt: number
+          cancelled_count: number
+          completed_at: string | null
+          created_at: string | null
+          current_phase: string | null
+          current_target_id: string | null
+          dedupe_key: string | null
+          dispatch_error: string | null
+          dispatch_status: string
+          dispatched_at: string | null
+          dry_run: boolean
+          failed_count: number
+          heartbeat_at: string | null
+          id: string
+          job_error: string | null
+          operation: string
+          params: Json | null
+          parent_job_id: string | null
+          progress: Json | null
+          result: Json | null
+          run_after: string
+          scheduled_for: string | null
+          skipped_count: number
+          started_at: string | null
+          started_by: string
+          status: string
+          succeeded_count: number
+          target_total: number
+          trigger: string
+          worker_token: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "curation_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      claim_next_curation_job: {
+        Args: { p_worker_token: string }
+        Returns: {
+          attempt: number
+          cancelled_count: number
+          completed_at: string | null
+          created_at: string | null
+          current_phase: string | null
+          current_target_id: string | null
+          dedupe_key: string | null
+          dispatch_error: string | null
+          dispatch_status: string
+          dispatched_at: string | null
+          dry_run: boolean
+          failed_count: number
+          heartbeat_at: string | null
+          id: string
+          job_error: string | null
+          operation: string
+          params: Json | null
+          parent_job_id: string | null
+          progress: Json | null
+          result: Json | null
+          run_after: string
+          scheduled_for: string | null
+          skipped_count: number
+          started_at: string | null
+          started_by: string
+          status: string
+          succeeded_count: number
+          target_total: number
+          trigger: string
+          worker_token: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "curation_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       enqueue_curation_job: {
         Args: {
           p_attempt: number
-          p_dedupe_key: string | null
+          p_dedupe_key: string
           p_dry_run: boolean
           p_operation: string
           p_params: Json
@@ -1497,8 +1857,8 @@ export type Database = {
       }
       persist_curation_job_target_progress: {
         Args: {
-          p_current_phase?: string | null
-          p_current_target_id?: string | null
+          p_current_phase?: string
+          p_current_target_id?: string
           p_job_id: string
           p_updates: Json
           p_worker_token: string
@@ -1507,13 +1867,50 @@ export type Database = {
       }
       recover_stale_curation_jobs: {
         Args: { p_stale_before: string }
-        Returns: Database["public"]["Tables"]["curation_jobs"]["Row"][]
+        Returns: {
+          attempt: number
+          cancelled_count: number
+          completed_at: string | null
+          created_at: string | null
+          current_phase: string | null
+          current_target_id: string | null
+          dedupe_key: string | null
+          dispatch_error: string | null
+          dispatch_status: string
+          dispatched_at: string | null
+          dry_run: boolean
+          failed_count: number
+          heartbeat_at: string | null
+          id: string
+          job_error: string | null
+          operation: string
+          params: Json | null
+          parent_job_id: string | null
+          progress: Json | null
+          result: Json | null
+          run_after: string
+          scheduled_for: string | null
+          skipped_count: number
+          started_at: string | null
+          started_by: string
+          status: string
+          succeeded_count: number
+          target_total: number
+          trigger: string
+          worker_token: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "curation_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       reject_submission: {
         Args: {
           p_denial_reason: string
           p_reviewer_id: string
-          p_reviewer_notes: string | null
+          p_reviewer_notes: string
           p_submission_id: string
         }
         Returns: string[]
@@ -1527,15 +1924,15 @@ export type Database = {
         Returns: string
       }
       revoke_brand_ownership: {
-        Args: {
-          p_brand_id: string
-          p_revoked_by: string
-          p_reason: string
-        }
+        Args: { p_brand_id: string; p_reason: string; p_revoked_by: string }
         Returns: {
-          revoked_user_id: string
           revoked_user_email: string
+          revoked_user_id: string
         }[]
+      }
+      save_submission_review: {
+        Args: { p_images: Json; p_review_data: Json; p_submission_id: string }
+        Returns: undefined
       }
       search_brands: {
         Args: {
@@ -1578,12 +1975,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1605,12 +2002,13 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1629,12 +2027,13 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1653,12 +2052,13 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1671,11 +2071,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
