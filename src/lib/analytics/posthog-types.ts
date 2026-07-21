@@ -25,6 +25,12 @@ export type TopBrandRow = {
   outboundSessions: number
 }
 
+export type TopPageRow = {
+  pagePath: string
+  pageviews: Comparison
+  sessions: Comparison
+}
+
 export type AnalyticsSnapshotV1 = {
   schemaVersion: 1
   generatedAt: string
@@ -45,6 +51,13 @@ export type AnalyticsSnapshotV1 = {
   daily: DailyPoint[] | null
   acquisition: AcquisitionRow[] | null
   topBrands: TopBrandRow[] | null
+  engagement?: {
+    bounceRate: RateComparison
+    avgDurationSeconds: Comparison
+    searchSessions: Comparison
+    searchEvents: number
+  } | null
+  topPages?: TopPageRow[] | null
   completeness: {
     comparisonReady: boolean
     availableFrom: string | null
