@@ -53,49 +53,38 @@ Use Supabase MCP `execute_sql` for all queries. Query only `status = 'approved'`
    WHERE status = 'approved';
    ```
 
-2. **Completeness stats:**
+2. **Directory-wide quality metrics:**
    ```sql
-   SELECT
-     COUNT(*) AS total,
-     COUNT(*) FILTER (WHERE description IS NOT NULL AND description != '') AS has_description,
-     COUNT(*) FILTER (WHERE hero_image_url IS NOT NULL AND hero_image_url != '') AS has_image,
-     COUNT(*) FILTER (
-       WHERE description IS NOT NULL AND description != ''
-       AND hero_image_url IS NOT NULL AND hero_image_url != ''
-     ) AS complete_profiles
-   FROM brands
-   WHERE status = 'approved';
+   SELECT * FROM get_brand_quality_metrics();
    ```
+   This returns completeness and content counts across all brands. Record all returned columns for the trend snapshot upsert.
 
-3. **Brands with website URLs (for link checking):**
+3. **Invariant checks — approved brands (each expected to return 0 rows):**
+
+   *(a) Approved brand missing hero image or with description shorter than 20 trimmed characters:*
    ```sql
-   SELECT name, slug, purchase_website
+   SELECT id, name, slug
    FROM brands
    WHERE status = 'approved'
-     AND purchase_website IS NOT NULL
-     AND purchase_website != ''
+     AND (
+       hero_image_url IS NULL
+       OR length(trim(coalesce(description, ''))) < 20
+     )
    ORDER BY name;
    ```
 
-4. **Zero-content brands (no description AND no image):**
+   *(b) Approved brand with `approved_at IS NULL`:*
    ```sql
-   SELECT name, slug
+   SELECT id, name, slug
    FROM brands
    WHERE status = 'approved'
-     AND (description IS NULL OR description = '')
-     AND (hero_image_url IS NULL OR hero_image_url = '')
+     AND approved_at IS NULL
    ORDER BY name;
    ```
 
-5. **Brands with hero image URLs (for image link checking):**
-   ```sql
-   SELECT name, slug, hero_image_url
-   FROM brands
-   WHERE status = 'approved'
-     AND hero_image_url IS NOT NULL
-     AND hero_image_url != ''
-   ORDER BY name;
-   ```
+   Any row returned by either invariant check is an **approval gate leak**. Report each violation in the `zero_content` field of the envelope and include an "approval gate leak" warning in the health ticket description.
+
+**Rule: this routine never backfills brand content.** The routine observes and reports; it never writes to the `brands` table or any content fields.
 
 ### Data Collection Phase — DB Infrastructure (daily)
 
@@ -127,6 +116,8 @@ Use Supabase MCP `execute_sql` for all queries. Query only `status = 'approved'`
    ORDER BY n_live_tup DESC;
    ```
 
+   Dead tuple context: a nightly pg_cron VACUUM runs at 04:00 Asia/Taipei on all tables. Report dead-tuple percentages as-is — do NOT instruct VACUUM to be run manually from this routine. Only escalate if any table shows >20% dead tuples across ≥2 consecutive daily snapshots (compare against yesterday's `health_snapshots` metrics).
+
 8. **Active connections:**
    ```sql
    SELECT
@@ -134,10 +125,13 @@ Use Supabase MCP `execute_sql` for all queries. Query only `status = 'approved'`
      count(*) FILTER (WHERE state = 'active') AS active,
      count(*) FILTER (WHERE state = 'idle') AS idle,
      count(*) FILTER (WHERE state = 'idle in transaction') AS idle_in_transaction,
-     max(EXTRACT(EPOCH FROM (now() - query_start))) FILTER (WHERE state = 'active') AS longest_running_sec
+     max(EXTRACT(EPOCH FROM (now() - query_start))) FILTER (WHERE state = 'active') AS longest_running_sec,
+     (SELECT setting::int FROM pg_settings WHERE name = 'max_connections') AS max_connections
    FROM pg_stat_activity
    WHERE datname = current_database();
    ```
+
+   Compare `total_connections` against `max_connections` from this result — the critical threshold is 80% of `max_connections`.
 
 9. **Slow queries (conditional — check extension first):**
    ```sql
@@ -163,28 +157,79 @@ Use Supabase MCP `execute_sql` for all queries. Query only `status = 'approved'`
 
    If the extension is not available, note "pg_stat_statements not enabled — slow query analysis skipped" in the digest and move on.
 
-### Link Health Check Phase (daily)
+### Link & Image Health Read-Back Phase (daily)
 
-For each brand with a `purchase_website` URL, check reachability. Outbound HTTP is blocked in this environment — use WebSearch as a workaround to verify URLs are reachable.
+Read link health data from the `link_check_results` table (populated by the background link-checker workflow, not by this routine).
 
-**Classification (use your judgment to categorize):**
-| Category | Description |
-|----------|-------------|
-| Broken | URL returns error, domain doesn't resolve, or site is clearly down |
-| Possible Broken | Site appears in maintenance or returns inconsistent results |
-| Unknown / Unverified | Domain exists but could not be verified via search |
-| Suspicious — Third-party | URL points to a third-party site, not the brand's own domain |
-| OK | URL is reachable and correct |
+**Step 1 — Check table state:**
+```sql
+SELECT count(*) AS row_count, max(last_checked_at) AS latest_check
+FROM link_check_results;
+```
 
-**Batching:** Process in groups of ~10 to avoid overwhelming the routine. Record for each check: brand name, slug, URL, classification, explanation.
+- If `row_count = 0`: set `link_health` and `image_health` envelope fields to `{"status": "checker_not_run"}` and include the note "link checker hasn't run yet" in the health ticket. Skip remaining steps in this phase.
+- If `latest_check < now() - interval '36 hours'`: add a staleness warning to the envelope and the health ticket: "link check data is stale (last checked: <timestamp>)".
 
-### Hero Image Health Check Phase (daily)
+**Step 2 — Summarize by field:**
+```sql
+SELECT
+  field,
+  count(*)                                                                          AS total,
+  count(*) FILTER (WHERE last_status_code BETWEEN 200 AND 299)                     AS ok_count,
+  count(*) FILTER (WHERE last_status_code IN (403, 429))                           AS blocked_count,
+  count(*) FILTER (
+    WHERE (last_status_code >= 400 AND last_status_code NOT IN (403, 429))
+       OR (last_status_code IS NULL AND consecutive_failures > 0)
+  )                                                                                 AS broken_count,
+  count(*) FILTER (WHERE auto_nulled_at IS NOT NULL)                               AS auto_nulled_count,
+  max(last_checked_at)                                                              AS latest_check
+FROM link_check_results
+GROUP BY field
+ORDER BY field;
+```
 
-For each brand with a `hero_image_url` (query 5 above), check reachability using the same WebSearch-based method as purchase websites.
+**Step 3 — Retrieve broken records (for ticket body):**
+```sql
+SELECT
+  b.name, b.slug, lcr.field, lcr.url, lcr.last_status_code,
+  lcr.consecutive_failures, lcr.auto_nulled_at
+FROM link_check_results lcr
+JOIN brands b ON b.id = lcr.brand_id
+WHERE (lcr.last_status_code >= 400 AND lcr.last_status_code NOT IN (403, 429))
+   OR (lcr.last_status_code IS NULL AND lcr.consecutive_failures > 0)
+ORDER BY b.name, lcr.field;
+```
 
-**Classification:** Use the same classification table as the Link Health Check Phase (OK / Broken / Possible Broken / Unknown / Unverified / Suspicious — Third-party).
+Status codes 403 and 429 are `blocked` (WAF-fronted shops), not broken — report `blocked_count` as informational only and never list blocked URLs as broken links.
 
-**Batching:** Process in groups of ~10. Record for each check: brand name, slug, image URL, classification, explanation.
+Map results to the `link_health` envelope field (fields `purchase_website`, `purchase_pinkoi`, `purchase_shopee`) and the `image_health` envelope field (field `hero_image_url`). The `ok`, `broken`, and `issues` subfields map from the query results.
+
+**Purchase-link drop attribution rule:** When `purchase_website_count` from `get_brand_quality_metrics()` drops compared to the prior snapshot, check `auto_nulled_at IS NOT NULL` rows in `link_check_results` first — attribute the drop to the link-checker's auto-null action before raising an alarm.
+
+### Trend Snapshot Phase (daily)
+
+Upsert today's quality metrics into `health_snapshots` and compute deltas against yesterday.
+
+**Step 1 — Build today's metrics JSONB** from the `get_brand_quality_metrics()` result plus the `link_check_results` summary. Include at minimum: `total_brands`, `description_count`, `hero_image_count`, `purchase_website_count`, `completeness_excellent`, `completeness_good`, `completeness_fair`, `completeness_poor`, `link_broken_count`, `image_broken_count`.
+
+**Step 2 — Upsert today's snapshot:**
+```sql
+INSERT INTO health_snapshots (snapshot_date, metrics)
+VALUES (CURRENT_DATE, '<metrics_jsonb>'::jsonb)
+ON CONFLICT (snapshot_date) DO UPDATE
+  SET metrics = EXCLUDED.metrics,
+      updated_at = now();
+```
+
+**Step 3 — Read yesterday's snapshot:**
+```sql
+SELECT metrics FROM health_snapshots
+WHERE snapshot_date = CURRENT_DATE - 1;
+```
+
+**Step 4 — Report deltas.** Compare today's metrics against yesterday's snapshot. Alert only on regressions (count decreases, or broken-link count increases). If no yesterday row exists, note "first snapshot — no baseline yet" and skip delta reporting.
+
+When `purchase_website_count` or `hero_image_count` drops, check `auto_nulled_at IS NOT NULL` rows in `link_check_results` first. If the drop matches the auto-nulled count, attribute the regression to the link-checker — not an alarm.
 
 ### Monday-Only Engineering Checks
 
@@ -195,10 +240,10 @@ For each brand with a `hero_image_url` (query 5 above), check reachability using
 Query GitHub Dependabot alerts for the repository:
 
 ```bash
-gh api repos/ytchou/Formoria/dependabot/alerts --jq '[.[] | select(.state == "open") | {package: .security_vulnerability.package.name, severity: .security_advisory.severity, summary: .security_advisory.summary}]'
+gh api repos/ytchou/mitmap/dependabot/alerts --jq '[.[] | select(.state == "open") | {package: .security_vulnerability.package.name, severity: .security_advisory.severity, summary: .security_advisory.summary}]'
 ```
 
-If `gh` CLI is unavailable or the command errors, note "Dependency audit skipped — gh CLI unavailable or Dependabot not enabled" in the digest and continue.
+If `gh` CLI is unavailable or the command errors, note "Dependency audit skipped — gh CLI unavailable or Dependabot not enabled" in the digest and continue. If the API returns an error because Dependabot is not enabled on `ytchou/mitmap`, note it in the digest and continue — do NOT treat this as a failure.
 
 **Classification:**
 | Severity | Action |
@@ -221,9 +266,9 @@ For each merged branch, check last commit date:
 git log -1 --format='%ci' origin/<branch-name>
 ```
 
-Filter to branches with last commit older than 14 days. Produce a list of stale branches with their last commit dates and `git push origin --delete <branch>` commands.
+Filter to branches with last commit older than 14 days. Produce a list of stale branches with their last commit dates.
 
-**Do NOT auto-delete branches.** Report in digest and create a Linear ticket with the deletion commands.
+Report stale branches in the digest only — do NOT create a Linear ticket, and do NOT produce branch-deletion commands. Branch deletion is handled by the health-selfheal workflow's Monday step.
 
 Cap at 30 branches to keep the digest manageable. If more exist, note the total count and list the 30 oldest.
 
@@ -267,13 +312,13 @@ After collecting all data, classify findings by severity:
 | Broken links (purchase_website) | Warning | Yes — in main health audit ticket |
 | Broken images (hero_image_url) | Warning | Yes — in main health audit ticket |
 | Zero-content brands | Warning | Yes — in main health audit ticket |
-| Dead row % > 20% on any table | Warning | Yes — in main health audit ticket, recommend VACUUM |
-| Total connections > 80% of limit | Critical | Yes — in main health audit ticket |
+| Dead row % > 20% on any table | Warning — report-only | No — nightly pg_cron VACUUM handles cleanup; escalate only if >20% persists across ≥2 consecutive snapshots |
+| Total connections > 80% of max_connections (pg_settings) | Critical | Yes — in main health audit ticket |
 | Longest running query > 60s | Warning | Yes — in main health audit ticket |
 | Mean query time > 500ms (top query) | Info | Report in digest only |
 | Critical/High Dependabot alerts | Critical | Yes — separate ticket per alert |
 | Medium/Low Dependabot alerts | Info | Report in digest only |
-| Stale branches > 14 days | Info | Yes — single batch cleanup ticket |
+| Stale branches > 14 days | Info | Report-only (deletion handled by health-selfheal workflow Monday step) |
 | Large tables with high sequential-scan ratio | Warning | Yes — in main health audit ticket after query-plan confirmation |
 
 ### Linear Ticket Phase
@@ -333,15 +378,6 @@ If any brand data issues OR DB health warnings were found:
 ---
 Source: Formoria Health routine (directory-health)
 ```
-
-#### Stale branch cleanup ticket (Monday only, if stale branches found)
-
-- Title: `[Health] Stale branch cleanup $REPORT_DATE`
-- Label: `Ops`
-- Assign to: Yung-Tang (Patrick) Chou
-- Status: Todo
-- Priority: Low (4)
-- Description: list of stale branches with last commit dates and ready-to-run deletion commands
 
 #### Dependency vulnerability tickets (Monday only, critical/high only)
 
@@ -476,6 +512,50 @@ Tag each issue as:
 - **New** — first seen within the last 24 hours
 - **Recurring** — existed before the query window
 
+### health_fix_queue Triage Phase
+
+After classifying all issues, process Trivial issues for automated fix queueing.
+
+**Step 1 — Queue new Trivial issues:**
+
+For each issue classified as Trivial:
+
+1. Check if it is already queued — use Supabase MCP `execute_sql`:
+   ```sql
+   SELECT id, status FROM health_fix_queue
+   WHERE sentry_issue_id = '<issue_id>'
+     AND status IN ('pending', 'attempted', 'pr_opened', 'fixed');
+   ```
+2. If a row is found with any of those statuses, skip this issue (already tracked).
+3. If no row is found, INSERT a new row:
+   ```sql
+   INSERT INTO health_fix_queue
+     (sentry_issue_id, title, url, seer_root_cause, recommended_action, key_frames, status)
+   VALUES
+     ('<issue_id>', '<title>', '<url>', '<seer_root_cause>', '<recommended_action>', '<key_frames_jsonb>'::jsonb, 'pending');
+   ```
+4. If the INSERT fails for any reason, record `queue_write_failed: true` in the Section 2 envelope — never drop the failure silently.
+
+Record the count of successfully queued rows as `queued_count`.
+
+**Step 2 — Close the loop on fixed issues:**
+
+Query recently fixed rows (those fixed since approximately the last routine run):
+```sql
+SELECT id, sentry_issue_id, title, url, pr_url
+FROM health_fix_queue
+WHERE status = 'fixed'
+  AND fixed_at > now() - interval '25 hours';
+```
+
+For each row returned:
+1. Resolve the Sentry issue via Sentry MCP `update_issue` (set status to `resolved`).
+2. Include a "Resolved since last run" note in the Sentry digest Linear ticket: "auto-fixed by <pr_url>" for each resolved issue.
+
+Record the count of newly resolved rows as `resolved_count`.
+
+If Supabase MCP is unavailable for this phase: set `queued_count` to `null` and `resolved_count` to `null`, set `queue_write_failed: true`, and continue to Linear ticket creation.
+
 ### Linear Ticket Creation (Phase 2)
 
 Create **one bundled ticket per day** (NOT one per issue). Only create a ticket if there are non-noise issues.
@@ -540,6 +620,9 @@ Write one structured JSON envelope with this exact top-level shape:
       "trivial": 0,
       "noise": 0
     },
+    "queued_count": 0,
+    "resolved_count": 0,
+    "queue_write_failed": false,
     "issues": [
       {
         "title": "Issue title from Sentry",
@@ -931,6 +1014,8 @@ Section 1 — Directory Health
 Section 2 — Sentry Triage
   Issues found: {N} (Critical: {N}, Moderate: {N}, Trivial: {N}, Noise: {N})
   Incident mode: yes/no
+  Queued for auto-fix: {N}
+  Resolved by fix workflow: {N}
   Tickets created: {N}
   Delivered: yes/no
 

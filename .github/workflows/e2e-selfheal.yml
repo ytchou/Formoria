@@ -238,7 +238,7 @@ jobs:
           fi
 
       - name: Report to Agent Hub
-        if: always()
+        if: always() && steps.guard.outputs.skip != 'true'
         env:
           AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}
           AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}

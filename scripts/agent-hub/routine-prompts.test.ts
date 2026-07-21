@@ -72,4 +72,32 @@ describe("Formoria unified routine delivery contracts", () => {
       "Do not create a ticket based on analytics metrics alone",
     );
   });
+
+  it("uses DB RPC and tables introduced in Phase 3 migrations", async () => {
+    const prompt = await readFile(
+      "docs/routines/formoria-health-prompt.md",
+      "utf8",
+    );
+
+    expect(prompt).toContain("get_brand_quality_metrics");
+    expect(prompt).toContain("link_check_results");
+    expect(prompt).toContain("health_fix_queue");
+    expect(prompt).toContain("health_snapshots");
+    expect(prompt).toContain("max_connections");
+    expect(prompt).toContain("ytchou/mitmap");
+  });
+
+  it("does not contain removed WebSearch workarounds, VACUUM instructions, or branch-deletion commands", async () => {
+    const prompt = await readFile(
+      "docs/routines/formoria-health-prompt.md",
+      "utf8",
+    );
+
+    expect(prompt).not.toContain("ytchou/Formoria");
+    expect(prompt).not.toContain(
+      "use WebSearch as a workaround to verify URLs are reachable",
+    );
+    expect(prompt).not.toContain("recommend VACUUM");
+    expect(prompt).not.toContain("git push origin --delete");
+  });
 });
