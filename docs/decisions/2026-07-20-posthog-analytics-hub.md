@@ -2,7 +2,7 @@
 
 Date: 2026-07-20
 
-Status: Accepted for implementation; production launch requires legal and data validation
+Status: Implemented — legacy code removed, health routine migrated to PostHog
 
 ## Decision
 
@@ -33,6 +33,8 @@ The legacy executive endpoint, local analytics tables/functions, and Growth Puls
 6. The updated English and Traditional Chinese privacy policy receives legal review.
 
 After those gates pass, a forward migration may record row counts and drop only the approved local analytics tables/functions. Growth Pulse automation may then be disabled and archived while historical Agent Hub runs and their renderer remain readable.
+
+> **Update 2026-07-21:** Health routine Section 3 migrated from GA4/Google Sheets to the PostHog Query API (via the internal analytics endpoint). Growth Pulse decommissioned 2026-07-21. The rollout gates above are kept as a historical record.
 
 ## Failure mode
 
