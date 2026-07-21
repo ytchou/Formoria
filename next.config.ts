@@ -43,7 +43,7 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://challenges.cloudflare.com https://*.sentry.io https://static.cloudflareinsights.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://challenges.cloudflare.com https://*.sentry.io https://static.cloudflareinsights.com https://e.formoria.com",
               "style-src 'self' 'unsafe-inline'",
               `img-src 'self' data: blob: ${imgSrcHosts} ${mapTileImgSrcHosts} ${googleAdsImgSrcHosts}`,
               "font-src 'self'",
