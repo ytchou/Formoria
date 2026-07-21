@@ -15,7 +15,8 @@ CREATE TABLE link_check_results (
 );
 
 ALTER TABLE link_check_results ENABLE ROW LEVEL SECURITY;
--- No policies — service_role access only
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON link_check_results TO service_role;
 
 CREATE TRIGGER link_check_results_updated_at
   BEFORE UPDATE ON link_check_results

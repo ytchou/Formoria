@@ -16,24 +16,24 @@ RETURNS TABLE(
   completeness_poor      bigint
 )
 LANGUAGE sql STABLE
+SET search_path = public
 AS $$
   WITH brand_scores AS (
     SELECT
-      (hero_image_url IS NOT NULL)::int
+      (trim(coalesce(hero_image_url, '')) != '')::int
       + (length(trim(coalesce(description, ''))) >= 20)::int
-      + (purchase_website IS NOT NULL
-         OR purchase_pinkoi IS NOT NULL
-         OR purchase_shopee IS NOT NULL
-         OR (other_urls IS NOT NULL
-             AND other_urls != '[]'::jsonb
-             AND jsonb_array_length(other_urls) > 0))::int
-      + (social_instagram IS NOT NULL
-         OR social_threads IS NOT NULL
-         OR social_facebook IS NOT NULL)::int
+      + (trim(coalesce(purchase_website, '')) != ''
+         OR trim(coalesce(purchase_pinkoi, '')) != ''
+         OR trim(coalesce(purchase_shopee, '')) != ''
+         OR (jsonb_typeof(other_urls) = 'array'
+             AND other_urls != '[]'::jsonb))::int
+      + (trim(coalesce(social_instagram, '')) != ''
+         OR trim(coalesce(social_threads, '')) != ''
+         OR trim(coalesce(social_facebook, '')) != '')::int
       + (founding_year IS NOT NULL)::int
       + (retail_locations IS NOT NULL
-         AND retail_locations != '[]'::jsonb
-         AND jsonb_array_length(retail_locations) > 0)::int
+         AND jsonb_typeof(retail_locations) = 'array'
+         AND retail_locations != '[]'::jsonb)::int
         AS completed,
       hero_image_url,
       social_instagram,
@@ -46,20 +46,21 @@ AS $$
     FROM brands
   )
   SELECT
-    count(*)                                                        AS total_brands,
-    count(*) FILTER (WHERE hero_image_url IS NOT NULL)              AS hero_image_count,
-    count(*) FILTER (WHERE social_instagram IS NOT NULL)            AS social_instagram_count,
-    count(*) FILTER (WHERE social_threads IS NOT NULL)              AS social_threads_count,
-    count(*) FILTER (WHERE social_facebook IS NOT NULL)             AS social_facebook_count,
-    count(*) FILTER (WHERE purchase_website IS NOT NULL)            AS purchase_website_count,
-    count(*) FILTER (WHERE purchase_pinkoi IS NOT NULL)             AS purchase_pinkoi_count,
-    count(*) FILTER (WHERE purchase_shopee IS NOT NULL)             AS purchase_shopee_count,
-    count(*) FILTER (WHERE length(trim(coalesce(description, ''))) >= 20) AS description_count,
-    avg(length(trim(description))) FILTER (WHERE description IS NOT NULL) AS avg_description_length,
-    count(*) FILTER (WHERE completed >= 5)                          AS completeness_excellent,
-    count(*) FILTER (WHERE completed = 4)                           AS completeness_good,
-    count(*) FILTER (WHERE completed = 3)                           AS completeness_fair,
-    count(*) FILTER (WHERE completed <= 2)                          AS completeness_poor
+    count(*)                                                                  AS total_brands,
+    count(*) FILTER (WHERE trim(coalesce(hero_image_url, '')) != '')          AS hero_image_count,
+    count(*) FILTER (WHERE trim(coalesce(social_instagram, '')) != '')        AS social_instagram_count,
+    count(*) FILTER (WHERE trim(coalesce(social_threads, '')) != '')          AS social_threads_count,
+    count(*) FILTER (WHERE trim(coalesce(social_facebook, '')) != '')         AS social_facebook_count,
+    count(*) FILTER (WHERE trim(coalesce(purchase_website, '')) != '')        AS purchase_website_count,
+    count(*) FILTER (WHERE trim(coalesce(purchase_pinkoi, '')) != '')         AS purchase_pinkoi_count,
+    count(*) FILTER (WHERE trim(coalesce(purchase_shopee, '')) != '')         AS purchase_shopee_count,
+    count(*) FILTER (WHERE length(trim(coalesce(description, ''))) >= 20)    AS description_count,
+    avg(length(trim(description)))
+      FILTER (WHERE length(trim(coalesce(description, ''))) >= 20)           AS avg_description_length,
+    count(*) FILTER (WHERE completed >= 5)                                    AS completeness_excellent,
+    count(*) FILTER (WHERE completed = 4)                                     AS completeness_good,
+    count(*) FILTER (WHERE completed = 3)                                     AS completeness_fair,
+    count(*) FILTER (WHERE completed <= 2)                                    AS completeness_poor
   FROM brand_scores;
 $$;
 

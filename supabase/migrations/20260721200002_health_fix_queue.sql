@@ -1,6 +1,6 @@
 CREATE TABLE health_fix_queue (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  sentry_issue_id text NOT NULL,
+  sentry_issue_id text NOT NULL CHECK (sentry_issue_id <> ''),
   title text NOT NULL,
   url text,
   seer_root_cause text,
@@ -22,7 +22,8 @@ CREATE UNIQUE INDEX health_fix_queue_active_issue_idx
   WHERE status IN ('pending', 'attempted', 'pr_opened');
 
 ALTER TABLE health_fix_queue ENABLE ROW LEVEL SECURITY;
--- No policies — service_role access only
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON health_fix_queue TO service_role;
 
 CREATE TRIGGER health_fix_queue_updated_at
   BEFORE UPDATE ON health_fix_queue

@@ -7,7 +7,8 @@ CREATE TABLE health_snapshots (
 );
 
 ALTER TABLE health_snapshots ENABLE ROW LEVEL SECURITY;
--- No policies — service_role access only
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON health_snapshots TO service_role;
 
 CREATE TRIGGER health_snapshots_updated_at
   BEFORE UPDATE ON health_snapshots
