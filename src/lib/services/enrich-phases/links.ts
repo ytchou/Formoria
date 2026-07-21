@@ -1,3 +1,4 @@
+import { normalizeToRootUrl } from '@/lib/url'
 import {
   buildLinkEnrichPatch,
   extractLinksFromUrls,
@@ -46,7 +47,8 @@ function uniqueUrls(urls: string[]): string[] {
 }
 
 function deriveOfficialWebsite(urls: string[]): string | null {
-  return urls.find((url) => classifyByDomain(url) === null) ?? null
+  const url = urls.find((u) => classifyByDomain(u) === null)
+  return normalizeToRootUrl(url ?? null)
 }
 
 function normalizeScrapedData(scrapedData: EnrichScrapedData): EnrichScrapedData {
