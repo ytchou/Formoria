@@ -6,8 +6,8 @@ A single unified "Formoria Health Agent" routine runs all three health checks (D
 
 - Repository: `ytchou/Formoria`
 - Branch: default branch, refreshed at the start of every run
-- Environment variables: `AGENT_HUB_INGEST_URL`, `AGENT_HUB_INGEST_TOKEN`
-- Network allowlist: the Agent Hub Supabase function host
+- Environment variables: `AGENT_HUB_INGEST_URL`, `AGENT_HUB_INGEST_TOKEN`, `PERSONAL_OS_INTERNAL_TOKEN`, `FORMORIA_RAILWAY_URL`
+- Network allowlist: the Agent Hub Supabase function host, the Formoria Railway direct host
 - Do not configure `AGENT_HUB_SERVICE_KEY` or `ANTHROPIC_API_KEY`
 
 Saved prompt:
@@ -20,7 +20,9 @@ Open a fresh checkout of the default branch of ytchou/Formoria. Read docs/routin
 
 | Routine | Schedule (Asia/Taipei) | Prompt file | Required connectors |
 |---|---:|---|---|
-| Formoria Health Agent | Daily 07:10 | `docs/routines/formoria-health-prompt.md` | Formoria Supabase, GitHub, Linear, Web Search, Sentry, Google Drive |
+| Formoria Health Agent | Daily 07:10 | `docs/routines/formoria-health-prompt.md` | Formoria Supabase, GitHub, Linear, Web Search, Sentry |
+
+Google Drive MCP is no longer needed for any section — Growth Pulse (Section 3) now reads the PostHog analytics endpoint directly via `FORMORIA_RAILWAY_URL` with `PERSONAL_OS_INTERNAL_TOKEN` bearer auth.
 
 Keep the Agent Hub token identical across this routine and GitHub Actions so rotation is one coordinated operation.
 
