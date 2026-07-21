@@ -18,7 +18,8 @@
     "src/lib/logger.ts"
   ],
   "ignoreIssues": {
-    "src/components/ui/card.tsx": ["exports"]
+    "src/components/ui/card.tsx": ["exports"],
+    "src/components/ui/chart.tsx": ["exports", "types"]
   },
   "paths": {
     "@tina/*": ["tina/__generated__/*"]
