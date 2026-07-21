@@ -54,7 +54,9 @@ jobs:
         if: ${{ failure() }}
         with:
           name: playwright-report-nightly
-          path: playwright-report/
+          path: |
+            playwright-report/
+            playwright-results.json
           retention-days: 7
       - name: Report E2E results to Agent Hub
         if: ${{ always() }}
