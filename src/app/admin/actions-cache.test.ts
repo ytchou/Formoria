@@ -41,6 +41,8 @@ vi.mock('@/lib/services/submissions', () => ({
     isBrandOwner: false,
   }),
   approveSubmission: vi.fn().mockResolvedValue({ brandId: 'brand-1' }),
+  applyBrandRefresh: vi.fn(),
+  requestBrandRefresh: vi.fn(),
   rejectSubmission: vi.fn().mockResolvedValue(undefined),
   isGeneratedGuestSubmissionEmail: vi.fn(() => false),
 }))

@@ -155,7 +155,9 @@ export function SubmissionsReviewList({
   const expandedSubmission =
     submissions.find((submission) => submission.id === expandedId) ?? null;
   const selectableVisible = visible.filter(
-    (submission) => submission.status === "pending",
+    (submission) =>
+      submission.status === "pending" &&
+      !(activeTab === "needs_data" && submission.reviewKind === "refresh"),
   );
   const selectedVisible = selectableVisible.filter((submission) =>
     selectedIds.has(submission.id),
@@ -220,7 +222,12 @@ export function SubmissionsReviewList({
       setError(null);
       const result = await approveSubmissionAction(id);
       if (result?.error) setError(result.error);
-      else router.refresh();
+      else {
+        if (result?.storageCleanupWarning) {
+          toast.warning(t("storageCleanupWarning"));
+        }
+        router.refresh();
+      }
     });
   }
 
@@ -251,6 +258,9 @@ export function SubmissionsReviewList({
       if (failed?.result?.error) {
         setError(`${failed.submission.brandName}: ${failed.result.error}`);
         return;
+      }
+      if (results.some(({ result }) => result?.storageCleanupWarning)) {
+        toast.warning(t("storageCleanupWarning"));
       }
       setSelectedIds(new Set());
       router.refresh();
@@ -547,7 +557,11 @@ export function SubmissionsReviewList({
                           name: submission.brandName,
                         })}
                         checked={selectedIds.has(submission.id)}
-                        disabled={submission.status !== "pending"}
+                        disabled={
+                          submission.status !== "pending" ||
+                          (activeTab === "needs_data" &&
+                            submission.reviewKind === "refresh")
+                        }
                         onCheckedChange={() => toggleSelection(submission.id)}
                       />
                     </TableCell>
@@ -556,6 +570,9 @@ export function SubmissionsReviewList({
                         <span className="truncate">
                           {submission.reviewData.name}
                         </span>
+                        {submission.reviewKind === "refresh" && (
+                          <Badge variant="secondary">{t("refreshBadge")}</Badge>
+                        )}
                         {submission.moderationRiskLevel === "high" && (
                           <Badge variant="destructive">
                             {moderationT("riskHigh")}
@@ -627,7 +644,9 @@ export function SubmissionsReviewList({
                                   !submission.reviewCompleteness.complete
                                 }
                               >
-                                {t("approve")}
+                                {submission.reviewKind === "refresh"
+                                  ? t("applyRefresh")
+                                  : t("approve")}
                               </Button>
                               <Button
                                 size="compact"
@@ -697,8 +716,13 @@ export function SubmissionsReviewList({
             <>
               <SheetHeader className="border-b p-5 pr-16">
                 <SheetTitle>
-                  {expandedSubmission.reviewData.name ||
-                    expandedSubmission.brandName}
+                  <span className="flex items-center gap-2">
+                    {expandedSubmission.reviewData.name ||
+                      expandedSubmission.brandName}
+                    {expandedSubmission.reviewKind === "refresh" && (
+                      <Badge variant="secondary">{t("refreshBadge")}</Badge>
+                    )}
+                  </span>
                 </SheetTitle>
                 <p className="type-metadata">
                   {formatDate(expandedSubmission.submittedAt)}

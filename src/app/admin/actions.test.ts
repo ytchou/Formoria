@@ -70,7 +70,11 @@ vi.mock('@/lib/security/rate-limiter', () => ({
 
 vi.mock('@/lib/services/brands', () => ({
   getBrandBySlug: vi.fn(),
-  getBrandById: vi.fn().mockResolvedValue({ id: 'brand-1', name: 'Test Brand', slug: 'test-brand' }),
+  getBrandById: vi.fn().mockResolvedValue({
+    id: 'brand-1',
+    name: 'Test Brand',
+    slug: 'test-brand',
+  }),
   updateBrand: vi.fn().mockResolvedValue({ id: 'brand-1', slug: 'test-brand' }),
   createBrand: vi.fn(),
   deleteBrand: vi.fn(),
@@ -87,6 +91,8 @@ vi.mock('@/lib/services/submissions', () => ({
   getSubmission: vi.fn(),
   getApprovedOwnerSubmissionRecipients: vi.fn(),
   approveSubmission: vi.fn(),
+  applyBrandRefresh: vi.fn(),
+  requestBrandRefresh: vi.fn(),
   rejectSubmission: vi.fn(),
   isGeneratedGuestSubmissionEmail: vi.fn(() => false),
 }))
@@ -220,11 +226,7 @@ describe('resendClaimInviteAction', () => {
     const result = await resendClaimInviteAction('brand-1')
 
     expect(result).toEqual({ resent: true })
-    expect(generateClaimToken).toHaveBeenCalledWith(
-      'brand-1',
-      'owner@example.com',
-      'Test Brand'
-    )
+    expect(generateClaimToken).toHaveBeenCalledWith('brand-1', 'owner@example.com', 'Test Brand')
     expect(buildClaimEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         submitterEmail: 'owner@example.com',
@@ -361,9 +363,7 @@ describe('approveClaimAction', () => {
     const { approveClaimAction } = await import('./actions')
     await approveClaimAction('claim-1')
 
-    expect(buildClaimApprovedEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ locale: 'en' }),
-    )
+    expect(buildClaimApprovedEmail).toHaveBeenCalledWith(expect.objectContaining({ locale: 'en' }))
   })
 })
 
@@ -397,8 +397,17 @@ describe('approveSubmissionAction - approval flow', () => {
       notifiedAt: null,
     } as unknown as Awaited<ReturnType<typeof getSubmission>>
     vi.mocked(getSubmission).mockResolvedValue(submission)
-    vi.mocked(updateBrand).mockResolvedValue({ id: 'brand-1', slug: 'test-brand' } as Awaited<ReturnType<typeof updateBrand>>)
-    vi.mocked(approveSubmission).mockResolvedValue({ brandId: 'brand-1', submitterEmail: 'submitter@example.com', brandName: 'Test Brand', submitterName: null, isBrandOwner: false })
+    vi.mocked(updateBrand).mockResolvedValue({
+      id: 'brand-1',
+      slug: 'test-brand',
+    } as Awaited<ReturnType<typeof updateBrand>>)
+    vi.mocked(approveSubmission).mockResolvedValue({
+      brandId: 'brand-1',
+      submitterEmail: 'submitter@example.com',
+      brandName: 'Test Brand',
+      submitterName: null,
+      isBrandOwner: false,
+    })
 
     const { approveSubmissionAction } = await import('./actions')
     const result = await approveSubmissionAction('sub-1')
@@ -433,14 +442,77 @@ describe('approveSubmissionAction - approval flow', () => {
       notifiedAt: null,
     } as unknown as Awaited<ReturnType<typeof getSubmission>>
     vi.mocked(getSubmission).mockResolvedValue(submission)
-    vi.mocked(updateBrand).mockResolvedValue({ id: 'brand-1', slug: 'test-brand' } as Awaited<ReturnType<typeof updateBrand>>)
-    vi.mocked(approveSubmission).mockResolvedValue({ brandId: 'brand-1', submitterEmail: 'submitter@example.com', brandName: 'Test Brand', submitterName: null, isBrandOwner: false })
+    vi.mocked(updateBrand).mockResolvedValue({
+      id: 'brand-1',
+      slug: 'test-brand',
+    } as Awaited<ReturnType<typeof updateBrand>>)
+    vi.mocked(approveSubmission).mockResolvedValue({
+      brandId: 'brand-1',
+      submitterEmail: 'submitter@example.com',
+      brandName: 'Test Brand',
+      submitterName: null,
+      isBrandOwner: false,
+    })
 
     const { approveSubmissionAction } = await import('./actions')
     const result = await approveSubmissionAction('sub-1')
 
     expect(result).toBeUndefined()
     expect(markFlagsReviewed).toHaveBeenCalledWith('brand-1')
+  })
+
+  it('applies a refresh without sending approval or claim email', async () => {
+    const { getSubmission, applyBrandRefresh } = await import('@/lib/services/submissions')
+    const { sendEmail } = await import('@/lib/email/send')
+    vi.mocked(getSubmission).mockResolvedValue({
+      id: 'refresh-1',
+      intent: 'refresh',
+      brandId: 'brand-1',
+    } as Awaited<ReturnType<typeof getSubmission>>)
+    vi.mocked(applyBrandRefresh).mockResolvedValue({
+      brandId: 'brand-1',
+      cleanupFailed: false,
+    })
+
+    const { approveSubmissionAction } = await import('./actions')
+    await expect(approveSubmissionAction('refresh-1')).resolves.toBeUndefined()
+
+    expect(applyBrandRefresh).toHaveBeenCalledWith('refresh-1', 'admin-1')
+    expect(sendEmail).not.toHaveBeenCalled()
+  })
+})
+
+describe('requestBrandRefreshAction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('validates the brand id before requesting a refresh', async () => {
+    const { requestBrandRefresh } = await import('@/lib/services/submissions')
+    const { requestBrandRefreshAction } = await import('./actions')
+
+    await expect(requestBrandRefreshAction('not-a-uuid')).resolves.toEqual({
+      error: 'Invalid brand ID',
+    })
+    expect(requestBrandRefresh).not.toHaveBeenCalled()
+  })
+
+  it('creates an append-only request for the authenticated admin', async () => {
+    const { requestBrandRefresh } = await import('@/lib/services/submissions')
+    vi.mocked(requestBrandRefresh).mockResolvedValue({
+      submissionId: 'refresh-1',
+    })
+    const { requestBrandRefreshAction } = await import('./actions')
+
+    await expect(
+      requestBrandRefreshAction('00000000-0000-4000-8000-000000000020')
+    ).resolves.toEqual({
+      submissionId: 'refresh-1',
+    })
+    expect(requestBrandRefresh).toHaveBeenCalledWith('00000000-0000-4000-8000-000000000020', {
+      id: 'admin-1',
+      email: 'admin@formoria.com',
+    })
   })
 })
 
@@ -451,9 +523,14 @@ describe('updateBrandAction moderation audit', () => {
 
   it('updateBrandAction (admin edit) calls scanContent and saveModerationFlags when violations exist, then markFlagsReviewed', async () => {
     const { updateBrand } = await import('@/lib/services/brands')
-    const { scanContent, saveModerationFlags, markFlagsReviewed } = await import('@/lib/services/moderation')
+    const { scanContent, saveModerationFlags, markFlagsReviewed } =
+      await import('@/lib/services/moderation')
     const violations = [
-      { field: 'description', rule: 'contact_injection_phone', userMessage: 'Phone detected' },
+      {
+        field: 'description',
+        rule: 'contact_injection_phone',
+        userMessage: 'Phone detected',
+      },
     ]
     vi.mocked(scanContent).mockReturnValue({ violations })
 
@@ -605,9 +682,7 @@ describe('setFeatureFlagAction', () => {
 
   it('revalidates exactly the paths declared in the registry for the given key', async () => {
     const { FEATURE_FLAGS } = await import('@/lib/services/app-settings')
-    const flag = FEATURE_FLAGS.find(
-      (entry) => entry.key === 'subcategory_filter_enabled',
-    )
+    const flag = FEATURE_FLAGS.find((entry) => entry.key === 'subcategory_filter_enabled')
 
     expect(flag).toBeDefined()
     if (!flag) throw new Error('Expected feature flag fixture')

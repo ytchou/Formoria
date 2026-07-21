@@ -1,7 +1,7 @@
 import type { OtherUrl, SubmissionStatus } from './brand'
 
 type ValidationStatus = 'valid' | 'incomplete'
-export type SubmissionIntent = 'recommend' | 'owner_claim'
+export type SubmissionIntent = 'recommend' | 'owner_claim' | 'refresh'
 export type SourceAttribution =
   | 'bought_product'
   | 'saw_at_market'
@@ -54,7 +54,7 @@ export type BrandSubmission = {
   purchasePinkoi: string | null
   purchaseShopee: string | null
   otherUrls: OtherUrl[]
-  suggestedTags: string[] | { values?: string[] }
+  suggestedTags: string[] | { values?: string[]; productType?: string }
   status: SubmissionStatus
   reviewerNotes: string | null
   submittedAt: string

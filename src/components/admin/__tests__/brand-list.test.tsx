@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { BrandList } from '../brand-list'
 
 const resendClaimInviteAction = vi.hoisted(() => vi.fn())
+const requestBrandRefreshAction = vi.hoisted(() => vi.fn())
 const toastSuccess = vi.hoisted(() => vi.fn())
 
 vi.mock('next/navigation', () => ({
@@ -20,6 +21,7 @@ vi.mock('@/app/admin/actions', () => ({
   unhideBrandAction: vi.fn(),
   deleteBrandAction: vi.fn(),
   resendClaimInviteAction,
+  requestBrandRefreshAction,
   rejectMitAction: vi.fn(),
 }))
 
@@ -238,5 +240,42 @@ describe('BrandList', () => {
       expect(resendClaimInviteAction).toHaveBeenCalledWith('brand-1')
     })
     expect(toastSuccess).toHaveBeenCalledWith('Claim invitation sent')
+  })
+
+  it('confirms a scheduled refresh request without dispatching enrichment', async () => {
+    requestBrandRefreshAction.mockResolvedValue({ submissionId: 'refresh-1' })
+    render(<BrandList brands={mockBrands} />)
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Open brand actions for Pottery Studio',
+      })
+    )
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Request re-enrichment' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Request re-enrichment' }))
+
+    await waitFor(() => {
+      expect(requestBrandRefreshAction).toHaveBeenCalledWith('brand-1')
+    })
+    expect(toastSuccess).toHaveBeenCalledWith('Re-enrichment requested for the next scheduled run')
+  })
+
+  it('surfaces duplicate refresh requests from the transaction', async () => {
+    requestBrandRefreshAction.mockResolvedValue({
+      error: 'A refresh is already pending for this brand',
+    })
+    render(<BrandList brands={mockBrands} />)
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Open brand actions for Pottery Studio',
+      })
+    )
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Request re-enrichment' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Request re-enrichment' }))
+
+    expect(
+      await screen.findByText('A refresh is already pending for this brand')
+    ).toBeInTheDocument()
   })
 })

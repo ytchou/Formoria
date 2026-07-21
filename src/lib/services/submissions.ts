@@ -62,7 +62,8 @@ type SubmissionRowWithProductTypeNote = Omit<SubmissionRow, "other_urls"> & {
   purchase_shopee?: string | null;
   other_urls?: OtherUrl[] | null;
 };
-type SubmissionImageRow = Database["public"]["Tables"]["submission_images"]["Row"];
+type SubmissionImageRow =
+  Database["public"]["Tables"]["submission_images"]["Row"];
 export type BrandSubmissionWithProductTypeNote = BrandSubmission & {
   websiteUrl: string | null;
   productTypeNote: string | null;
@@ -79,6 +80,7 @@ export type SubmissionReviewImage = {
   altEn: string | null;
   width: number | null;
   height: number | null;
+  originBrandImageId: string | null;
 };
 export type SubmissionReviewData = {
   name: string;
@@ -122,6 +124,10 @@ export type SubmissionReviewCompleteness = {
 };
 export type EnrichmentFilter = "all" | "complete" | "incomplete";
 export type BrandSubmissionForReview = BrandSubmissionWithProductTypeNote & {
+  reviewKind: "new" | "refresh";
+  baseBrandData: Json | null;
+  baseBrandUpdatedAt: string | null;
+  reviewOverrides: Json;
   enriched_data: EnrichedData | null;
   latestCurationTargetStatus: CurationTargetStatus | null;
   latestCurationJobId: string | null;
@@ -311,6 +317,10 @@ function isEnrichedData(value: unknown): value is EnrichedData {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function normalizeString(value: string | null | undefined): string | null {
   const trimmed = value?.trim() ?? "";
   return trimmed ? trimmed : null;
@@ -360,12 +370,14 @@ function normalizeOtherUrls(value: unknown): OtherUrl[] {
 function normalizeStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
 
-  return [...new Set(
-    value
-      .filter((item): item is string => typeof item === "string")
-      .map((item) => item.trim())
-      .filter(Boolean),
-  )];
+  return [
+    ...new Set(
+      value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  ];
 }
 
 function preferText(
@@ -375,9 +387,10 @@ function preferText(
   return normalizeString(preferred) ?? normalizeString(fallback);
 }
 
-function originalSuggestedTags(
-  value: BrandSubmission["suggestedTags"],
-): { productType: string | null; productTags: string[] } {
+function originalSuggestedTags(value: BrandSubmission["suggestedTags"]): {
+  productType: string | null;
+  productTags: string[];
+} {
   if (Array.isArray(value)) {
     return { productType: null, productTags: normalizeStringArray(value) };
   }
@@ -424,6 +437,7 @@ function submissionImageToReviewImage(
     altEn: row.alt_en,
     width: row.width,
     height: row.height,
+    originBrandImageId: row.origin_brand_image_id,
   };
 }
 
@@ -482,7 +496,9 @@ export function buildSubmissionReviewData(
   );
 
   return {
-    name: preferText(enrichedData?.name, submission.brandName) ?? submission.brandName,
+    name:
+      preferText(enrichedData?.name, submission.brandName) ??
+      submission.brandName,
     description: preferText(enrichedData?.description, submission.description),
     descriptionEn: normalizeString(enrichedData?.descriptionEn),
     blurb: normalizeString(enrichedData?.blurb),
@@ -497,9 +513,13 @@ export function buildSubmissionReviewData(
     heroImageUrl:
       normalizeString(imageHero?.url) ??
       preferText(enrichedData?.heroImageUrl, submission.heroImageUrl),
-    productType: preferText(enrichedData?.productType, originalTags.productType),
+    productType: preferText(
+      enrichedData?.productType,
+      originalTags.productType,
+    ),
     priceRange: enrichedData?.priceRange ?? null,
-    productTags: enrichedTags.length > 0 ? enrichedTags : originalTags.productTags,
+    productTags:
+      enrichedTags.length > 0 ? enrichedTags : originalTags.productTags,
     productTagsEn: normalizeStringArray(enrichedData?.productTagsEn),
     websiteUrl,
     socialInstagram: preferText(
@@ -527,6 +547,117 @@ export function buildSubmissionReviewData(
       enrichedOtherUrls.length > 0
         ? enrichedOtherUrls
         : normalizeOtherUrls(submission.otherUrls),
+  };
+}
+
+function refreshReviewSource(
+  baseBrandData: Record<string, unknown>,
+  fallback: BrandSubmissionWithProductTypeNote,
+): SubmissionReviewSource {
+  const productType = normalizeString(
+    typeof baseBrandData.product_type === "string"
+      ? baseBrandData.product_type
+      : null,
+  );
+
+  return {
+    brandName:
+      typeof baseBrandData.name === "string"
+        ? baseBrandData.name
+        : fallback.brandName,
+    description:
+      typeof baseBrandData.description === "string"
+        ? baseBrandData.description
+        : null,
+    websiteUrl:
+      typeof baseBrandData.purchase_website === "string"
+        ? baseBrandData.purchase_website
+        : null,
+    heroImageUrl:
+      typeof baseBrandData.hero_image_url === "string"
+        ? baseBrandData.hero_image_url
+        : null,
+    socialInstagram:
+      typeof baseBrandData.social_instagram === "string"
+        ? baseBrandData.social_instagram
+        : null,
+    socialThreads:
+      typeof baseBrandData.social_threads === "string"
+        ? baseBrandData.social_threads
+        : null,
+    socialFacebook:
+      typeof baseBrandData.social_facebook === "string"
+        ? baseBrandData.social_facebook
+        : null,
+    purchaseWebsite:
+      typeof baseBrandData.purchase_website === "string"
+        ? baseBrandData.purchase_website
+        : null,
+    purchasePinkoi:
+      typeof baseBrandData.purchase_pinkoi === "string"
+        ? baseBrandData.purchase_pinkoi
+        : null,
+    purchaseShopee:
+      typeof baseBrandData.purchase_shopee === "string"
+        ? baseBrandData.purchase_shopee
+        : null,
+    otherUrls: normalizeOtherUrls(baseBrandData.other_urls),
+    suggestedTags: {
+      values: normalizeStringArray(baseBrandData.product_tags),
+      productType: productType ?? undefined,
+    },
+  };
+}
+
+export function buildRefreshSubmissionReviewData(
+  baseBrandData: Record<string, unknown>,
+  enrichedData: Record<string, unknown>,
+  fallback: SubmissionReviewData,
+): SubmissionReviewData {
+  const baseReview = reviewDataFromDb(baseBrandData, fallback);
+  return reviewDataFromDb(enrichedData, baseReview);
+}
+
+function buildReviewLayers(
+  row: SubmissionRowWithProductTypeNote,
+  submission: BrandSubmissionWithProductTypeNote,
+  enrichedData: EnrichedData | null,
+  images: SubmissionReviewImage[] = [],
+): {
+  baseline: SubmissionReviewData;
+  effective: SubmissionReviewData;
+  overrides: Record<string, unknown>;
+} {
+  const baseBrandData = isJsonObject(row.base_brand_data)
+    ? row.base_brand_data
+    : null;
+  const isRefresh = submission.intent === "refresh" && baseBrandData !== null;
+  const source = isRefresh
+    ? refreshReviewSource(baseBrandData, submission)
+    : submission;
+  let baseline = buildSubmissionReviewData(source, enrichedData, []);
+  if (isRefresh) {
+    baseline = buildRefreshSubmissionReviewData(
+      baseBrandData,
+      isJsonObject(row.enriched_data) ? row.enriched_data : {},
+      buildSubmissionReviewData(source, null, []),
+    );
+  }
+  const overrides = isJsonObject(row.review_overrides)
+    ? row.review_overrides
+    : {};
+  const effective = applySubmissionReviewOverrides(baseline, overrides);
+  if (!("hero_image_url" in overrides)) {
+    const selectedHero = normalizeSubmissionReviewImages(images).find(
+      (image) => image.status === "active" && image.sortOrder === 0,
+    );
+    if (selectedHero) effective.heroImageUrl = selectedHero.url;
+  }
+
+  return {
+    baseline,
+    effective,
+    overrides,
   };
 }
 
@@ -629,7 +760,9 @@ function submissionReviewDataToBrandInsert(
   };
 }
 
-function submissionReviewDataToDb(data: SubmissionReviewData): Json {
+function submissionReviewDataToDb(
+  data: SubmissionReviewData,
+): Record<string, Json | undefined> {
   return {
     name: data.name,
     description: data.description,
@@ -656,6 +789,139 @@ function submissionReviewDataToDb(data: SubmissionReviewData): Json {
     purchase_shopee: data.purchaseShopee,
     other_urls: data.otherUrls as unknown as Json,
   };
+}
+
+function reviewDataFromDb(
+  data: Record<string, unknown>,
+  fallback: SubmissionReviewData,
+): SubmissionReviewData {
+  return {
+    name: typeof data.name === "string" ? data.name : fallback.name,
+    description:
+      data.description === null || typeof data.description === "string"
+        ? data.description
+        : fallback.description,
+    descriptionEn:
+      data.description_en === null || typeof data.description_en === "string"
+        ? data.description_en
+        : fallback.descriptionEn,
+    blurb:
+      data.blurb === null || typeof data.blurb === "string"
+        ? data.blurb
+        : fallback.blurb,
+    blurbEn:
+      data.blurb_en === null || typeof data.blurb_en === "string"
+        ? data.blurb_en
+        : fallback.blurbEn,
+    city:
+      data.city === null || typeof data.city === "string"
+        ? data.city
+        : fallback.city,
+    categoryAttributes:
+      data.category_attributes === undefined
+        ? fallback.categoryAttributes
+        : (data.category_attributes as Json | null),
+    reputationSummary:
+      data.reputation_summary === undefined
+        ? fallback.reputationSummary
+        : (data.reputation_summary as Json | null),
+    retailLocations:
+      data.retail_locations === undefined
+        ? fallback.retailLocations
+        : (data.retail_locations as Json | null),
+    mitEvidence:
+      data.mit_evidence === undefined
+        ? fallback.mitEvidence
+        : (data.mit_evidence as Json | null),
+    siteContent:
+      data.site_content === undefined
+        ? fallback.siteContent
+        : (data.site_content as Json | null),
+    foundingYear:
+      data.founding_year === null || typeof data.founding_year === "number"
+        ? data.founding_year
+        : fallback.foundingYear,
+    heroImageUrl:
+      data.hero_image_url === null || typeof data.hero_image_url === "string"
+        ? data.hero_image_url
+        : fallback.heroImageUrl,
+    productType:
+      data.product_type === null || typeof data.product_type === "string"
+        ? data.product_type
+        : fallback.productType,
+    priceRange:
+      data.price_range === null || typeof data.price_range === "number"
+        ? data.price_range
+        : fallback.priceRange,
+    productTags: Array.isArray(data.product_tags)
+      ? normalizeStringArray(data.product_tags)
+      : fallback.productTags,
+    productTagsEn: Array.isArray(data.product_tags_en)
+      ? normalizeStringArray(data.product_tags_en)
+      : fallback.productTagsEn,
+    websiteUrl:
+      data.purchase_website === null ||
+      typeof data.purchase_website === "string"
+        ? data.purchase_website
+        : fallback.websiteUrl,
+    socialInstagram:
+      data.social_instagram === null ||
+      typeof data.social_instagram === "string"
+        ? data.social_instagram
+        : fallback.socialInstagram,
+    socialThreads:
+      data.social_threads === null || typeof data.social_threads === "string"
+        ? data.social_threads
+        : fallback.socialThreads,
+    socialFacebook:
+      data.social_facebook === null || typeof data.social_facebook === "string"
+        ? data.social_facebook
+        : fallback.socialFacebook,
+    purchaseWebsite:
+      data.purchase_website === null ||
+      typeof data.purchase_website === "string"
+        ? data.purchase_website
+        : fallback.purchaseWebsite,
+    purchasePinkoi:
+      data.purchase_pinkoi === null || typeof data.purchase_pinkoi === "string"
+        ? data.purchase_pinkoi
+        : fallback.purchasePinkoi,
+    purchaseShopee:
+      data.purchase_shopee === null || typeof data.purchase_shopee === "string"
+        ? data.purchase_shopee
+        : fallback.purchaseShopee,
+    otherUrls: Array.isArray(data.other_urls)
+      ? normalizeOtherUrls(data.other_urls)
+      : fallback.otherUrls,
+  };
+}
+
+function jsonValuesEqual(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+export function buildSubmissionReviewOverrides(
+  baseline: SubmissionReviewData,
+  edited: SubmissionReviewData,
+): Record<string, Json | undefined> {
+  const baselineRow = submissionReviewDataToDb(baseline);
+  const editedRow = submissionReviewDataToDb(edited);
+
+  return Object.fromEntries(
+    Object.entries(editedRow).filter(
+      ([key, value]) => !jsonValuesEqual(value, baselineRow[key]),
+    ),
+  );
+}
+
+export function applySubmissionReviewOverrides(
+  baseline: SubmissionReviewData,
+  overrides: Record<string, unknown>,
+): SubmissionReviewData {
+  return reviewDataFromDb(
+    { ...submissionReviewDataToDb(baseline), ...overrides },
+    baseline,
+  );
 }
 
 async function resolveUniqueSlug(
@@ -739,10 +1005,7 @@ export async function getApprovedOwnerSubmissionRecipients(
   if (uniqueBrandIds.length === 0) return new Map();
 
   const supabase = createServiceClient();
-  const chunks = chunkValues(
-    uniqueBrandIds,
-    SUPABASE_IN_FILTER_CHUNK_SIZE,
-  );
+  const chunks = chunkValues(uniqueBrandIds, SUPABASE_IN_FILTER_CHUNK_SIZE);
   const results = await Promise.all(
     chunks.map((chunk) =>
       supabase
@@ -771,6 +1034,8 @@ export async function getApprovedOwnerSubmissionRecipients(
 
 const ADMIN_SUBMISSIONS_SELECT = `
   id,
+  base_brand_data,
+  base_brand_updated_at,
   brand_id,
   brand_name,
   submitter_email,
@@ -800,11 +1065,15 @@ const ADMIN_SUBMISSIONS_SELECT = `
   source_attribution,
   product_type_note,
   enriched_data,
-  owner_data
+  owner_data,
+  review_overrides,
+  refresh_requested_by
 `;
 
 const ADMIN_REVIEW_SUBMISSIONS_SELECT = `
   id,
+  base_brand_data,
+  base_brand_updated_at,
   brand_id,
   brand_name,
   submitter_email,
@@ -834,7 +1103,9 @@ const ADMIN_REVIEW_SUBMISSIONS_SELECT = `
   source_attribution,
   product_type_note,
   enriched_data,
-  owner_data
+  owner_data,
+  review_overrides,
+  refresh_requested_by
 `;
 
 export async function getAdminSubmissions(): Promise<
@@ -854,9 +1125,7 @@ export async function getAdminSubmissions(): Promise<
 
 export async function getSubmissionsForReview(options?: {
   status?: SubmissionStatus;
-}): Promise<
-  BrandSubmissionForReview[]
-> {
+}): Promise<BrandSubmissionForReview[]> {
   const supabase = createServiceClient();
   const fetchPage = async (from: number, to: number) => {
     let query = supabase
@@ -974,7 +1243,7 @@ export async function getSubmissionsForReview(options?: {
           const { data: imageData, error: imagesError } = await supabase
             .from("submission_images")
             .select(
-              "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, width, height",
+              "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, width, height, origin_brand_image_id",
             )
             .in("submission_id", targetIds)
             .order("sort_order", { ascending: true })
@@ -1010,11 +1279,13 @@ export async function getSubmissionsForReview(options?: {
     const reviewImages = normalizeSubmissionReviewImages(
       reviewImagesBySubmission.get(row.id) ?? [],
     );
-    const reviewData = buildSubmissionReviewData(
+    const reviewLayers = buildReviewLayers(
+      row,
       submission,
       enrichedData,
       reviewImages,
     );
+    const reviewData = reviewLayers.effective;
     const reviewCompleteness = getSubmissionReviewCompleteness(
       reviewData,
       reviewImages,
@@ -1022,6 +1293,10 @@ export async function getSubmissionsForReview(options?: {
     );
     return {
       ...submission,
+      reviewKind: submission.intent === "refresh" ? "refresh" : "new",
+      baseBrandData: row.base_brand_data ?? null,
+      baseBrandUpdatedAt: row.base_brand_updated_at ?? null,
+      reviewOverrides: row.review_overrides ?? {},
       enriched_data: enrichedData,
       latestCurationTargetStatus: targetStatus,
       latestCurationJobId: latestTarget?.job_id ?? null,
@@ -1059,6 +1334,148 @@ export async function getSubmission(id: string): Promise<BrandSubmission> {
   return submissionToDomain(data);
 }
 
+export async function requestBrandRefresh(
+  brandId: string,
+  requester: { id: string; email: string },
+): Promise<{ submissionId: string }> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase.rpc("request_brand_refresh", {
+    p_brand_id: brandId,
+    p_requested_by: requester.id,
+    p_requester_email: requester.email,
+  });
+  if (error) throw error;
+  if (!data) throw new Error("Refresh request returned no submission ID");
+  return { submissionId: data };
+}
+
+export type BrandRefreshRequestOutcome = {
+  slug: string;
+  name: string;
+  submissionId: string | null;
+  error: string | null;
+};
+
+export async function requestBrandRefreshesBySlugs(
+  slugs: string[],
+  requesterEmail: string,
+  options?: { dryRun?: boolean },
+): Promise<BrandRefreshRequestOutcome[]> {
+  const normalizedSlugs = [
+    ...new Set(slugs.map((slug) => slug.trim()).filter(Boolean)),
+  ];
+  if (normalizedSlugs.length === 0) return [];
+
+  const supabase = createServiceClient();
+  const { data: brands, error: brandsError } = await supabase
+    .from("brands")
+    .select("id, name, slug, status")
+    .in("slug", normalizedSlugs);
+  if (brandsError) throw brandsError;
+
+  const brandBySlug = new Map(
+    (brands ?? []).map((brand) => [brand.slug, brand]),
+  );
+  const missing = normalizedSlugs.filter((slug) => !brandBySlug.has(slug));
+  if (missing.length > 0) {
+    throw new Error(`Brands not found: ${missing.join(", ")}`);
+  }
+
+  let requesterId: string | null = null;
+  for (let page = 1; requesterId === null; page += 1) {
+    const { data, error } = await supabase.auth.admin.listUsers({
+      page,
+      perPage: 1_000,
+    });
+    if (error) throw error;
+    requesterId =
+      data.users.find(
+        (user) => user.email?.toLowerCase() === requesterEmail.toLowerCase(),
+      )?.id ?? null;
+    if (data.users.length < 1_000) break;
+  }
+  if (!requesterId) {
+    throw new Error(`Configured admin user not found: ${requesterEmail}`);
+  }
+  const resolvedRequesterId = requesterId;
+
+  return Promise.all(
+    normalizedSlugs.map(async (slug) => {
+      const brand = brandBySlug.get(slug);
+      if (!brand) {
+        return {
+          slug,
+          name: slug,
+          submissionId: null,
+          error: "Brand not found",
+        };
+      }
+      if (brand.status !== "approved" && brand.status !== "hidden") {
+        return {
+          slug,
+          name: brand.name,
+          submissionId: null,
+          error: "Only approved or hidden brands can be refreshed",
+        };
+      }
+      if (options?.dryRun) {
+        return { slug, name: brand.name, submissionId: null, error: null };
+      }
+
+      const { data, error } = await supabase.rpc("request_brand_refresh", {
+        p_brand_id: brand.id,
+        p_requested_by: resolvedRequesterId,
+        p_requester_email: requesterEmail,
+      });
+      return {
+        slug,
+        name: brand.name,
+        submissionId: error ? null : data,
+        error: error?.message ?? null,
+      };
+    }),
+  );
+}
+
+export async function applyBrandRefresh(
+  submissionId: string,
+  reviewerId: string,
+): Promise<{ brandId: string; cleanupFailed: boolean }> {
+  const supabase = createServiceClient();
+  const { data: submission, error: submissionError } = await supabase
+    .from("brand_submissions")
+    .select("brand_id, intent, status")
+    .eq("id", submissionId)
+    .single();
+  if (submissionError || !submission?.brand_id) {
+    throw new NotFoundError("BrandSubmission", submissionId, {
+      cause: submissionError,
+    });
+  }
+  if (submission.intent !== "refresh" || submission.status !== "pending") {
+    throw new Error("Refresh submission already processed");
+  }
+
+  const { data: storagePaths, error } = await supabase.rpc(
+    "apply_brand_refresh",
+    { p_reviewer_id: reviewerId, p_submission_id: submissionId },
+  );
+  if (error) throw error;
+
+  let cleanupFailed = false;
+  try {
+    await deleteStoredImagePaths(storagePaths ?? []);
+  } catch (storageError) {
+    cleanupFailed = true;
+    console.error(
+      `[applyBrandRefresh] Failed to delete retired images for ${submissionId}:`,
+      storageError,
+    );
+  }
+
+  return { brandId: submission.brand_id, cleanupFailed };
+}
+
 export type SaveSubmissionReviewInput = SubmissionReviewData & {
   images: Array<{ id: string; isHero: boolean; sortOrder: number }>;
 };
@@ -1068,9 +1485,30 @@ export async function saveSubmissionReview(
   input: SaveSubmissionReviewInput,
 ): Promise<void> {
   const supabase = createServiceClient();
+  const { data: row, error: submissionError } = await supabase
+    .from("brand_submissions")
+    .select(ADMIN_REVIEW_SUBMISSIONS_SELECT)
+    .eq("id", id)
+    .eq("status", "pending")
+    .single();
+  if (submissionError || !row) {
+    throw new NotFoundError("BrandSubmission", id, { cause: submissionError });
+  }
+
+  const submissionRow = row as unknown as SubmissionRowWithProductTypeNote;
+  const submission = submissionToDomain(submissionRow);
+  const enrichedData = isEnrichedData(submissionRow.enriched_data)
+    ? enrichedDataFromDb(submissionRow.enriched_data as Record<string, unknown>)
+    : null;
+  const { baseline } = buildReviewLayers(
+    submissionRow,
+    submission,
+    enrichedData,
+  );
+  const overrides = buildSubmissionReviewOverrides(baseline, input);
   const { error } = await supabase.rpc("save_submission_review", {
     p_submission_id: id,
-    p_review_data: submissionReviewDataToDb(input),
+    p_review_data: overrides as Json,
     p_images: input.images.map((image) => ({
       id: image.id,
       is_hero: image.isHero,
@@ -1095,14 +1533,16 @@ export async function stageSubmissionReviewImage(
   const supabase = createServiceClient();
   const { data: submission, error: submissionError } = await supabase
     .from("brand_submissions")
-    .select("id")
+    .select("id, intent, brand_id")
     .eq("id", input.submissionId)
     .eq("status", "pending")
-    .is("brand_id", null)
     .maybeSingle();
   if (submissionError) throw submissionError;
   if (!submission)
     throw new NotFoundError("BrandSubmission", input.submissionId);
+  if (submission.brand_id && submission.intent !== "refresh") {
+    throw new NotFoundError("BrandSubmission", input.submissionId);
+  }
 
   const { data, error } = await supabase
     .from("submission_images")
@@ -1186,6 +1626,11 @@ export async function approveSubmission(
   if (fetchError || !submission) {
     throw new NotFoundError("BrandSubmission", id, { cause: fetchError });
   }
+  if (submission.intent === "refresh") {
+    throw new Error(
+      "Refresh submissions must be applied to the existing brand",
+    );
+  }
 
   const enrichedDataRaw = submission.enriched_data;
   const enrichedData: EnrichedData | null = isEnrichedData(enrichedDataRaw)
@@ -1195,23 +1640,28 @@ export async function approveSubmission(
   const { data: imageRows, error: imageError } = await supabase
     .from("submission_images")
     .select(
-      "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, width, height",
+      "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, width, height, origin_brand_image_id",
     )
     .eq("submission_id", id)
     .order("sort_order", { ascending: true });
   if (imageError) throw imageError;
-
   const reviewImages = normalizeSubmissionReviewImages(
-    ((imageRows ?? []) as SubmissionImageRow[]).map(submissionImageToReviewImage),
+    ((imageRows ?? []) as SubmissionImageRow[]).map(
+      submissionImageToReviewImage,
+    ),
   );
-  const reviewData = buildSubmissionReviewData(
-    submissionToDomain({
-      ...submission,
-      other_urls: normalizeOtherUrls(submission.other_urls),
-    }),
+
+  const typedSubmission = {
+    ...submission,
+    other_urls: normalizeOtherUrls(submission.other_urls),
+  } as unknown as SubmissionRowWithProductTypeNote;
+  const submissionDomain = submissionToDomain(typedSubmission);
+  const reviewData = buildReviewLayers(
+    typedSubmission,
+    submissionDomain,
     enrichedData,
     reviewImages,
-  );
+  ).effective;
 
   const baseSlug = generateSubmissionSlug(submission);
   if (!isValidSlug(baseSlug)) {
@@ -1266,9 +1716,14 @@ export async function approveSubmission(
 function isCurationTargetStatus(
   value: string | null | undefined,
 ): value is CurationTargetStatus {
-  return ["pending", "running", "succeeded", "skipped", "failed", "cancelled"].includes(
-    value ?? "",
-  );
+  return [
+    "pending",
+    "running",
+    "succeeded",
+    "skipped",
+    "failed",
+    "cancelled",
+  ].includes(value ?? "");
 }
 
 function isCurationDispatchStatus(
