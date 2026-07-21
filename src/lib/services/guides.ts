@@ -5,7 +5,7 @@ import matter from 'gray-matter'
 
 const GUIDES_DIR = path.join(process.cwd(), 'content', 'guides')
 
-export type GuideEntry = {
+type GuideEntry = {
   slug: string;
   frontmatter: {
     title: string;
