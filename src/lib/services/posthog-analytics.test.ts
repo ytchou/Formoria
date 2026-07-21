@@ -41,10 +41,37 @@ function client(overrides: Partial<Record<string, PostHogQueryResult | Error>> =
       if (name === 'personal os acquisition') {
         return { columns: ['source', 'medium', 'sessions'], results: [['Direct', 'direct', 50]] }
       }
-      return {
-        columns: ['brand_id', 'brand_profile_sessions', 'outbound_sessions'],
-        results: [['brand-a', 12, 4]],
+      if (name === 'personal os top brands') {
+        return {
+          columns: ['brand_id', 'brand_profile_sessions', 'outbound_sessions'],
+          results: [['brand-a', 12, 4]],
+        }
       }
+      if (name === 'personal os bounce rate') {
+        return {
+          columns: ['current_bounce_rate', 'prior_bounce_rate', 'current_single', 'current_total', 'prior_single', 'prior_total'],
+          results: [[0.3, 0.35, 30, 100, 28, 80]],
+        }
+      }
+      if (name === 'personal os avg duration') {
+        return {
+          columns: ['current_avg_duration', 'prior_avg_duration'],
+          results: [[90, 85]],
+        }
+      }
+      if (name === 'personal os top pages') {
+        return {
+          columns: ['page_path', 'current_pageviews', 'prior_pageviews', 'current_sessions', 'prior_sessions'],
+          results: [['/brands', 50, 40, 40, 30]],
+        }
+      }
+      if (name === 'personal os search sessions') {
+        return {
+          columns: ['current_search_sessions', 'prior_search_sessions', 'current_search_events'],
+          results: [[10, 8, 20]],
+        }
+      }
+      throw new Error(`Unexpected query: ${name}`)
     }),
   }
 }
@@ -155,7 +182,7 @@ describe('PostHog analytics service', () => {
 
     await getPostHogAnalyticsSnapshot(options)
     await getPostHogAnalyticsSnapshot(options)
-    expect(completeClient.run).toHaveBeenCalledTimes(4)
+    expect(completeClient.run).toHaveBeenCalledTimes(8)
 
     const partialClient = client({ 'personal os acquisition': new Error('outage') })
     const partialOptions = {
@@ -165,6 +192,98 @@ describe('PostHog analytics service', () => {
     }
     await getPostHogAnalyticsSnapshot(partialOptions)
     await getPostHogAnalyticsSnapshot(partialOptions)
-    expect(partialClient.run).toHaveBeenCalledTimes(8)
+    expect(partialClient.run).toHaveBeenCalledTimes(16)
+  })
+
+  it('includes engagement metrics and topPages when all queries succeed', async () => {
+    const queryClient = client({
+      'personal os bounce rate': {
+        columns: ['current_bounce_rate', 'prior_bounce_rate', 'current_single', 'current_total', 'prior_single', 'prior_total'],
+        results: [[0.45, 0.50, 45, 100, 40, 80]],
+      },
+      'personal os avg duration': {
+        columns: ['current_avg_duration', 'prior_avg_duration'],
+        results: [[125.5, 140.0]],
+      },
+      'personal os top pages': {
+        columns: ['page_path', 'current_pageviews', 'prior_pageviews', 'current_sessions', 'prior_sessions'],
+        results: [
+          ['/brands', 80, 60, 50, 40],
+          ['/brands/alpha', 30, 25, 20, 18],
+        ],
+      },
+      'personal os search sessions': {
+        columns: ['current_search_sessions', 'prior_search_sessions', 'current_search_events'],
+        results: [[15, 12, 28]],
+      },
+    })
+
+    const snapshot = await getPostHogAnalyticsSnapshot({
+      queryClient,
+      hydrateBrands: vi.fn().mockResolvedValue([{ id: 'brand-a', name: 'Alpha', slug: 'alpha' }]),
+      now: () => new Date('2026-07-20T08:00:00+08:00'),
+      sourceUrl: 'https://us.posthog.com/project/123/dashboard/456',
+      cache: false,
+    })
+
+    expect(snapshot.engagement).toEqual({
+      bounceRate: { current: 0.45, prior: 0.50 },
+      avgDurationSeconds: { current: 125.5, prior: 140.0 },
+      searchSessions: { current: 15, prior: 12 },
+      searchEvents: 28,
+    })
+    expect(snapshot.topPages).toEqual([
+      { pagePath: '/brands', pageviews: { current: 80, prior: 60 }, sessions: { current: 50, prior: 40 } },
+      { pagePath: '/brands/alpha', pageviews: { current: 30, prior: 25 }, sessions: { current: 20, prior: 18 } },
+    ])
+  })
+
+  it('returns null engagement and topPages when those queries fail without affecting core', async () => {
+    const snapshot = await getPostHogAnalyticsSnapshot({
+      queryClient: client({
+        'personal os bounce rate': new Error('outage'),
+        'personal os avg duration': new Error('outage'),
+        'personal os top pages': new Error('outage'),
+        'personal os search sessions': new Error('outage'),
+      }),
+      hydrateBrands: vi.fn().mockResolvedValue([{ id: 'brand-a', name: 'Alpha', slug: 'alpha' }]),
+      now: () => new Date('2026-07-20T08:00:00+08:00'),
+      sourceUrl: 'https://us.posthog.com/project/123/dashboard/456',
+      cache: false,
+    })
+
+    expect(snapshot.audience.publicSessions.current).toBe(90)
+    expect(snapshot.engagement).toBeNull()
+    expect(snapshot.topPages).toBeNull()
+    expect(snapshot.completeness.warnings).toContain('Engagement metrics are temporarily unavailable.')
+    expect(snapshot.completeness.warnings).toContain('Top pages breakdown is temporarily unavailable.')
+  })
+
+  it('handles bounce rate with incomplete comparison baseline', async () => {
+    const zeroCore = result(coreColumns, ['2026-07-06', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    const snapshot = await getPostHogAnalyticsSnapshot({
+      queryClient: client({
+        'personal os core totals': zeroCore,
+        'personal os bounce rate': {
+          columns: ['current_bounce_rate', 'prior_bounce_rate', 'current_single', 'current_total', 'prior_single', 'prior_total'],
+          results: [[null, null, 0, 0, 0, 0]],
+        },
+        'personal os avg duration': {
+          columns: ['current_avg_duration', 'prior_avg_duration'],
+          results: [[null, null]],
+        },
+        'personal os search sessions': {
+          columns: ['current_search_sessions', 'prior_search_sessions', 'current_search_events'],
+          results: [[0, 0, 0]],
+        },
+      }),
+      hydrateBrands: vi.fn().mockResolvedValue([]),
+      now: () => new Date('2026-07-20T08:00:00+08:00'),
+      sourceUrl: 'https://us.posthog.com/project/123/dashboard/456',
+      cache: false,
+    })
+
+    expect(snapshot.engagement?.bounceRate).toEqual({ current: null, prior: null })
+    expect(snapshot.engagement?.avgDurationSeconds).toEqual({ current: 0, prior: null })
   })
 })

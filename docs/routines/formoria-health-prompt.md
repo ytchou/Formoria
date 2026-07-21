@@ -577,83 +577,64 @@ Order issues by severity (critical first), then by event count (descending) with
 
 This section produces the `growth-pulse` envelope.
 
-**Data source:** Google Sheet titled "Formoria Growth Pulse Data", refreshed daily before this routine by an Apps Script that queries GA4 property `538232091`. GA4 data uses complete windows ending at T-2 and excludes `/admin`, `/dashboard`, and `/auth`, including localized variants.
+**Data source:** Formoria's PostHog analytics endpoint `GET /api/internal/personal-os/analytics`, served by the production app on Railway. It aggregates PostHog HogQL queries into a single `AnalyticsSnapshotV1` JSON snapshot (15-minute server-side cache, Asia/Taipei windows, complete days through T-1). Admin, dashboard, and auth surfaces are excluded at the event level.
 
 ### Query Phase
 
-#### Step 1 — Find the Sheet
+#### Step 1 — Fetch the snapshot
 
-Call `mcp__Google-Drive__search_files` with query `Formoria Growth Pulse Data` to locate the Sheet. Record its file ID. Search by name, not by ID.
+Call the endpoint via the Railway direct URL (Cloudflare in front of `formoria.com` blocks automation — never use the public domain):
 
-#### Step 2 — Read the data tabs
-
-Read each tab's content using `mcp__Google-Drive__read_file_content` with the file ID. The Sheet has 5 tabs, each exported as CSV:
-
-**Tab: "Scorecard"** — 3 data rows (T-2, T-3, and the same weekday in the prior window):
-```
-date, sessions, activeUsers, screenPageViews, bounceRate, averageSessionDuration
-last_updated, <timestamp>, property_id, 538232091
-2026-06-21, 45, 32, 120, 0.55, 85.3
-2026-06-20, 41, 29, 108, 0.52, 90.1
-2026-06-14, 38, 27, 95, 0.58, 78.6
+```bash
+curl -sf --max-time 60 \
+  -H "Authorization: Bearer $PERSONAL_OS_INTERNAL_TOKEN" \
+  "$FORMORIA_RAILWAY_URL/api/internal/personal-os/analytics" \
+  -o /tmp/formoria-analytics-snapshot.json
 ```
 
-Row 1 = headers. Row 2 = metadata (last_updated timestamp). Rows 3-5 = data (T-2, T-3, T-9).
+Both `PERSONAL_OS_INTERNAL_TOKEN` and `FORMORIA_RAILWAY_URL` come from the routine's environment variables. A non-2xx response, timeout, or unparseable JSON means the endpoint is unavailable — follow Section 3 Error Handling.
 
-**Tab: "Executive Summary"** — current 7 complete days and the preceding 7 days:
-```
-latest_complete_date,current_start,current_end,prior_start,prior_end,sessions_current,sessions_prior,users_current,users_prior,page_views_current,page_views_prior,brand_page_sessions_current,brand_page_sessions_prior,search_sessions_current,search_sessions_prior,search_events_current,search_events_prior,outbound_sessions_current,outbound_sessions_prior,outbound_events_current,outbound_events_prior,brand_page_rate_current,search_rate_current,outbound_rate_current
-last_updated,<timestamp>,property_id,538232091
-2026-07-17,2026-07-11,2026-07-17,2026-07-04,2026-07-10,120,100,90,78,310,270,72,55,18,12,25,17,31,20,39,27,0.6,0.15,0.4306
-```
+#### Step 2 — Parse the snapshot
 
-The funnel denominator is GA4 sessions only. `brand_page_rate` and `search_rate` divide by public sessions; `outbound_rate` divides by brand-page sessions. Never mix Formoria database analytics into these rates.
+The snapshot is an `AnalyticsSnapshotV1` object. Fields used by this section:
 
-**Tab: "Daily Trend"** — 28 complete daily rows ending at T-2:
-```
-date,sessions,activeUsers,screenPageViews,brandPageSessions,searchSessions,outboundSessions
-last_updated,<timestamp>,property_id,538232091
-2026-06-20,12,10,31,7,2,3
-```
+- `dataThrough` — latest complete day (T-1, Asia/Taipei)
+- `windows.current` / `windows.prior` — the two 7-complete-day comparison windows
+- `audience` — `uniqueVisitors`, `publicSessions`, `pageviews`, each `{ current, prior }`
+- `discovery` — `brandProfileSessions`, `outboundSessions` (`{ current, prior }`), `brandReachRate`, `outboundConversion` (rates, `{ current, prior }`)
+- `engagement` — `bounceRate` (rate), `avgDurationSeconds`, `searchSessions` (`{ current, prior }`), `searchEvents` (current-window number). May be `null` if those queries failed
+- `topPages` — up to 10 rows `{ pagePath, pageviews: { current, prior }, sessions: { current, prior } }`. May be `null`
+- `daily` — daily points `{ date, uniqueVisitors, publicSessions, pageviews, brandProfileSessions, outboundSessions }`, oldest to newest. May be `null`
+- `acquisition` — current-window rows `{ source, medium, sessions }` (no prior-window comparison). May be `null`
+- `completeness` — `comparisonReady` (prior-window values are `null` until enough history exists), `warnings`
+- `sourceUrl` — the PostHog dashboard URL
 
-**Tab: "Top Pages"** — top 10 public pages in the current 7-day window, with prior-window comparison:
-```
-pagePath, pageViews_current, users_current, pageViews_prev, users_prev
-last_updated, <timestamp>, property_id, 538232091
-/, 45, 30, 38, 25
-/brands, 22, 18, 20, 15
-```
-
-"current" = the latest complete 7-day window, "prev" = the preceding 7-day window.
-
-**Tab: "Referral Sources"** — top 10 sources in the current 7-day window, with prior-window comparison:
-```
-sessionSource, sessionMedium, sessions_current, users_current, sessions_prev, users_prev
-last_updated, <timestamp>, property_id, 538232091
-google, organic, 25, 20, 22, 18
-(direct), (none), 12, 10, 15, 12
-```
+`prior` values of `null` mean "no baseline yet" — treat affected comparisons as informational, never anomalies. The funnel denominator is PostHog public sessions only. `brandReachRate` divides by public sessions; `outboundConversion` divides by brand-profile sessions. Never mix Formoria database analytics into these rates.
 
 #### Step 3 — Data freshness check
 
-Parse the `last_updated` timestamp from any tab's row 2. If the date portion is not today's date (or yesterday's date, allowing for timezone differences), the data is stale. Note this in the digest verdict: "Data may be stale (last updated: <timestamp>)".
+Parse `dataThrough`. If it is older than yesterday (Asia/Taipei), the data is stale. Note this in the digest verdict: "Data may be stale (data through: <dataThrough>)". Also surface any `completeness.warnings` strings in the digest.
 
 #### Step 4 — Compute comparisons
 
-From the Executive Summary tab, compare the current 7-day window with the preceding 7-day window. This is the primary executive comparison. Use the Scorecard tab only for T-2 versus T-9 and T-2 versus T-3 daily context.
+The primary executive comparison is `windows.current` vs `windows.prior`, read directly from the `current`/`prior` pairs in `audience`, `discovery`, and `engagement`.
 
-From Top Pages and Referral Sources:
-- Compare `*_current` vs `*_prev` columns
-- Identify entries with `*_prev = 0` as NEW (present yesterday, absent last week)
+Daily scorecard context comes from the `daily` array: the last entry is T-1 (yesterday), and the same-weekday baseline is the entry 7 positions earlier (T-8). Compute WoW percentages from those two points.
+
+From `topPages`:
+- Compare `pageviews.current` vs `pageviews.prior` per path
+- Identify rows with `pageviews.prior` of `0` or `null` as NEW (present this window, absent last week)
+
+`acquisition` has no prior-window columns — report current-window source mix only, and mark WoW source comparisons as unavailable.
 
 #### Step 5 — Trend context
 
-After computing window-over-window metrics, check if the direction is consistent with the latest daily trajectory using the Scorecard tab's three data rows:
+After computing window-over-window metrics, check if the direction is consistent with the latest daily trajectory using the last entries of the `daily` array:
 
-- Row 3 = T-2, Row 4 = T-3, Row 5 = T-9
-- Compute the intermediate comparison: Row 4 vs Row 5 (was the metric already declining 2 days ago relative to the same-weekday baseline?)
-- If sessions were already declining 2 days ago AND yesterday continues the decline, classify the signal as a **"continuation"** rather than a **"new signal"**
-- If the direction reversed (e.g., 2 days ago was growing, yesterday is declining), classify as a **"new signal"**
+- T-1 = last entry, T-2 = second-to-last, T-8 = 7 positions before T-1, T-9 = 7 positions before T-2
+- Compute the intermediate comparison: T-2 vs T-9 (was the metric already declining the day before yesterday relative to the same-weekday baseline?)
+- If sessions were already declining the day before AND yesterday continues the decline, classify the signal as a **"continuation"** rather than a **"new signal"**
+- If the direction reversed (e.g., the day before was growing, yesterday is declining), classify as a **"new signal"**
 - If `data_stale: true`, append to trend context: "Trend computed from stale data"
 - Include this trend context in the relevant signal's `so_what` field
 
@@ -681,10 +662,10 @@ Do not create tickets for warning-level signals. Only critical triggers create t
 
 #### Bot-traffic evidence gate
 
-- GA4 excludes known bots automatically; there is no bot-filter setting to enable. Do not recommend toggling one.
+- PostHog filters known crawlers client-side and the proxy setup excludes obvious bots; there is no additional bot-filter setting to enable. Do not recommend toggling one.
 - A session spike, high bounce rate, short duration, direct traffic, or internal routes appearing in Top Pages can justify investigation, but none proves bot traffic. Internal routes may indicate staff use or analytics instrumentation leakage.
 - Confirm suspected bots with CDN/origin request evidence such as concentrated user agents, IPs/ASNs, countries, request rates, or WAF bot scores. If those logs are unavailable, say the cause is unconfirmed and keep the signal informational.
-- Do not create a ticket based on GA metrics alone. Create one only when request evidence identifies a concrete mitigation, or when a separate verified application defect explains the anomaly.
+- Do not create a ticket based on analytics metrics alone. Create one only when request evidence identifies a concrete mitigation, or when a separate verified application defect explains the anomaly.
 
 #### Signal Categories
 
@@ -730,7 +711,7 @@ description: |
      - **What:** <metric change>
      - **Action:** <specific fix>
 
-  **Dashboard:** https://analytics.google.com/analytics/web/#/p538232091/reports/
+  **Dashboard:** <the snapshot's `sourceUrl` (PostHog dashboard)>
 ```
 
 ### Section 3 Output
@@ -814,11 +795,16 @@ Use the selected verdict as the one-line `verdict_text`. Put created ticket IDs 
 
 #### Data population rules
 
-- Always populate the scorecard, top pages, top sources, signals, and `executive` fields. `executive.schema_version` is additive and remains `1`; the envelope's top-level `version` also remains `1`.
-- Populate `executive.daily` from all 28 rows in Daily Trend, ordered oldest to newest. Keep numeric values as numbers, not formatted strings.
-- Calculate rates for both windows with explicit zero-denominator handling: return `0` when the denominator is zero. GA4 sessions are the only funnel denominator.
+- Always populate the scorecard, top pages, top sources, signals, and `executive` fields. `executive.schema_version` is additive and remains `1`; the envelope's top-level `version` also remains `1`. The envelope shape is unchanged from the GA4 era — map snapshot fields into it as follows; use `null` where the snapshot has no equivalent, never invent values.
+- **`data_date`** ← `dataThrough`; **`data_stale`** ← the Step 3 freshness result.
+- **Scorecard** (daily, T-1 vs same weekday T-8, from the `daily` array): `sessions` ← `publicSessions`, `users` ← `uniqueVisitors`, `pageViews` ← `pageviews`, with `*_wow_pct` computed from the two points. `bounceRate` ← `engagement.bounceRate.current` and `avgDuration` ← `engagement.avgDurationSeconds.current` — these are 7-day-window values (PostHog does not expose them daily); their `*_wow_pct` compares the current window against the prior window (`bounceRate_wow_pct` in percentage points). If `engagement` is `null`, set those four fields to `null` and add a signal noting engagement metrics were unavailable.
+- **Top pages** ← `topPages`: `path` ← `pagePath`, `views` ← `pageviews.current`, `views_prev` ← `pageviews.prior` (use `0` when `null` and mark as NEW with `wow_pct: null`).
+- **Top sources** ← `acquisition`: `source`/`medium`/`sessions` map directly; `sessions_prev` and `wow_pct` are `null` — the snapshot has no prior-window source comparison.
+- **Executive** ← snapshot: `latest_complete_date` ← `dataThrough`; `windows` ← `windows.current`/`windows.prior` (as `start_date`/`end_date`); `audience.sessions` ← `audience.publicSessions`, `audience.users` ← `audience.uniqueVisitors`, `audience.page_views` ← `audience.pageviews`; `discovery.brand_page_sessions` ← `discovery.brandProfileSessions`; `discovery.search_sessions` ← `engagement.searchSessions`; `discovery.search_events` ← `{ current: engagement.searchEvents, prior: null }`; `discovery.outbound_sessions` ← `discovery.outboundSessions`; `discovery.outbound_events` ← `{ current: null, prior: null }` (not tracked in the snapshot); `discovery.brand_page_rate` ← `discovery.brandReachRate`; `discovery.outbound_rate` ← `discovery.outboundConversion`; `discovery.search_rate` ← computed `searchSessions / publicSessions` per window.
+- Populate `executive.daily` from the full `daily` array, ordered oldest to newest: `sessions` ← `publicSessions`, `users` ← `uniqueVisitors`, `page_views` ← `pageviews`, `brand_page_sessions` ← `brandProfileSessions`, `outbound_sessions` ← `outboundSessions`, `search_sessions` ← `null` (not in daily points). Keep numeric values as numbers, not formatted strings.
+- Calculate any computed rates for both windows with explicit zero-denominator handling: return `0` when the denominator is zero. PostHog public sessions are the only funnel denominator.
 - If the day was steady, use a signal object whose `what` is "No notable changes" and whose `so_what` and `now_what` explain that no action is needed.
-- Preserve the same-weekday comparison, 24-48 hour GA4 lag note, and ticket deduplication logic in the structured field values.
+- Preserve the same-weekday comparison, the data-completeness note (complete days through T-1), and ticket deduplication logic in the structured field values.
 - Keep the top five pages and top three referral sources, and mark items absent last week as new in the structured values (for example, `views_prev: 0` and `wow_pct: null`).
 
 #### Formatting rules
@@ -839,7 +825,8 @@ Use the selected verdict as the one-line `verdict_text`. Put created ticket IDs 
 
 ### Section 3 Error Handling
 
-- **Google Sheet not found or unreadable:** Write a failed structured envelope using the schema above, set `status` to `"failed"`, `verdict_severity` to `"error"`, set `data_stale` to `true`, and explain the unavailable data source in `verdict_text` and `data.signals`. **Deliver the failed envelope, then continue to Section 4.**
+- **PostHog analytics endpoint unavailable (non-2xx, timeout, or unparseable JSON):** Write a failed structured envelope using the schema above, set `status` to `"failed"`, `verdict_severity` to `"error"`, set `data_stale` to `true`, and explain the unavailable data source in `verdict_text` and `data.signals`. **Deliver the failed envelope, then continue to Section 4.**
+- **Snapshot returns with `engagement` or `topPages` null (partial degradation):** Not a failure — populate what is available, set the unavailable envelope fields to `null`, surface the snapshot's `completeness.warnings` in the digest, and continue normally.
 - **Zero traffic (all metrics are 0):** Report as-is. Classify as **Critical** only if the same weekday last week had >= 30 sessions (otherwise it may just be a quiet day). Create a ticket if critical.
 - **Linear MCP unavailable:** Skip ticket creation. Add to `verdict_text` or `data.signals`: "Could not create ticket — manual follow-up needed: <issue description>"
 - **Agent Hub delivery fails:** Log the reporter error and output the full structured envelope in the routine session for manual replay. Do not create a repository commit as a fallback. **Continue to Section 4.**
@@ -910,7 +897,7 @@ Each section is independently resilient. A failure in one section must NOT preve
 |---------|--------|
 | Supabase MCP unavailable | Deliver `directory-health` with `status: "failed"`, `verdict_severity: "error"`. Continue to Section 2. |
 | Sentry MCP unavailable | Deliver `sentry-triage` with `status: "failed"`, `verdict_severity: "error"`. Continue to Section 3. |
-| Google Drive MCP unavailable | Deliver `growth-pulse` with `status: "failed"`, `verdict_severity: "error"`. Continue to Section 4. |
+| PostHog analytics endpoint unavailable | Deliver `growth-pulse` with `status: "failed"`, `verdict_severity: "error"`. Continue to Section 4. |
 | Linear MCP unavailable | Skip ticket creation in all sections. Note in each affected `verdict_text`. Continue with delivery. |
 | `report-run.mjs` delivery fails | Log the error and output the full JSON envelope in the routine session for manual replay. Do NOT create a repository commit as fallback. Continue to the next section. |
 

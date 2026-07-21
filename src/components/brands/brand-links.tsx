@@ -18,10 +18,7 @@ import { InstagramIcon } from '@/components/icons/instagram-icon'
 import { buttonVariants } from '@/components/ui/button'
 import type { Brand } from '@/lib/types'
 import { cn } from '@/lib/utils'
-import {
-  trackDbClick,
-  trackExternalLinkClicked,
-} from '@/lib/analytics'
+import { trackExternalLinkClicked } from '@/lib/analytics'
 
 interface BrandLinksProps {
   brand: Brand
@@ -57,7 +54,6 @@ type LinkSlot = {
   label: string
   url: string | null
   linkType: LinkDestination | 'other'
-  dbDestination?: LinkDestination
   icon: ReactNode
   accentClassName?: string
 }
@@ -136,9 +132,6 @@ function LinkSection({ label, slots, brand }: LinkSectionProps) {
                   typeof window !== 'undefined' ? window.location.pathname : '',
                   brand.id,
                 )
-                if (slot.dbDestination) {
-                  trackDbClick(brand.id, slot.dbDestination)
-                }
               }}
             >
               <DestinationLinkButton slot={slot}>
@@ -160,7 +153,6 @@ function BrandSocialLinks({ brand }: BrandLinksProps) {
       label: t('links.instagram'),
       url: normalizeInstagramHref(brand.socialInstagram),
       linkType: 'instagram',
-      dbDestination: 'instagram',
       icon: <InstagramIcon className="size-4 text-current" />,
       accentClassName: 'text-[#E1306C]',
     },
@@ -168,14 +160,12 @@ function BrandSocialLinks({ brand }: BrandLinksProps) {
       label: t('links.threads'),
       url: normalizeThreadsHref(brand.socialThreads),
       linkType: 'threads',
-      dbDestination: 'threads',
       icon: <AtSign className="size-4 text-current" />,
     },
     {
       label: t('links.facebook'),
       url: normalizeDirectUrl(brand.socialFacebook),
       linkType: 'facebook',
-      dbDestination: 'facebook',
       icon: <FacebookIcon className="size-4 text-current" />,
       accentClassName: 'text-[#1877F2]',
     },
@@ -198,7 +188,6 @@ function BrandPurchaseLinks({ brand }: BrandLinksProps) {
       label: t('links.website'),
       url: normalizeDirectUrl(brand.purchaseWebsite),
       linkType: 'website',
-      dbDestination: 'website',
       icon: <Globe className="size-4 text-current" />,
       accentClassName: 'text-primary',
     },
@@ -206,7 +195,6 @@ function BrandPurchaseLinks({ brand }: BrandLinksProps) {
       label: t('links.pinkoi'),
       url: normalizeDirectUrl(brand.purchasePinkoi),
       linkType: 'pinkoi',
-      dbDestination: 'pinkoi',
       icon: <Store className="size-4 text-current" />,
       accentClassName: 'text-[#E05B6F]',
     },
@@ -214,7 +202,6 @@ function BrandPurchaseLinks({ brand }: BrandLinksProps) {
       label: t('links.shopee'),
       url: normalizeDirectUrl(brand.purchaseShopee),
       linkType: 'shopee',
-      dbDestination: 'shopee',
       icon: <ShoppingCart className="size-4 text-current" />,
       accentClassName: 'text-[#EE4D2D]',
     },

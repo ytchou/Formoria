@@ -2,10 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { ExternalLink } from 'lucide-react'
-import {
-  trackDbClick,
-  trackExternalLinkClicked,
-} from '@/lib/analytics'
+import { trackExternalLinkClicked } from '@/lib/analytics'
 import { ReportDialog } from '@/components/brands/report-dialog'
 import { buttonVariants } from '@/components/ui/button'
 import { SaveBrandButton } from './save-brand-button'
@@ -28,9 +25,6 @@ export function BrandActions({ websiteUrl, brandSlug = '', brandId, brandName }:
       brandId,
     )
 
-    if (brandId) {
-      trackDbClick(brandId, 'official_website')
-    }
   }
 
   return (

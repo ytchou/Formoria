@@ -67,9 +67,9 @@ describe("Formoria unified routine delivery contracts", () => {
       "utf8",
     );
 
-    expect(prompt).toContain("GA4 excludes known bots automatically");
+    expect(prompt).toContain("there is no additional bot-filter setting to enable");
     expect(prompt).toContain(
-      "Do not create a ticket based on GA metrics alone",
+      "Do not create a ticket based on analytics metrics alone",
     );
   });
 });

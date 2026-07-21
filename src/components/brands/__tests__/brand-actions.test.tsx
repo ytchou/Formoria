@@ -9,7 +9,6 @@ import { BrandActions } from '../brand-actions'
 
 vi.mock('@/lib/analytics', () => ({
   trackBrandPageShared: vi.fn(),
-  trackDbClick: vi.fn(),
   trackExternalLinkClicked: vi.fn(),
 }))
 

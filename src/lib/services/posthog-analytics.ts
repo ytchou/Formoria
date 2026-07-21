@@ -12,6 +12,7 @@ import type {
   DateWindow,
   RateComparison,
   TopBrandRow,
+  TopPageRow,
 } from '@/lib/analytics/posthog-types'
 import { createServiceClient } from '@/lib/supabase/server'
 
@@ -153,6 +154,74 @@ LIMIT 10
 `.trim()
 }
 
+function bounceRateQuery(windows: ReturnType<typeof getAnalyticsDateWindows>): string {
+  const broadWindow = { startDate: windows.prior.startDate, endDate: windows.current.endDate }
+  return `
+SELECT
+  countIf(session_cnt = 1 AND session_date BETWEEN toDate('${windows.current.startDate}') AND toDate('${windows.current.endDate}')) AS current_single,
+  countIf(session_date BETWEEN toDate('${windows.current.startDate}') AND toDate('${windows.current.endDate}')) AS current_total,
+  countIf(session_cnt = 1 AND session_date BETWEEN toDate('${windows.prior.startDate}') AND toDate('${windows.prior.endDate}')) AS prior_single,
+  countIf(session_date BETWEEN toDate('${windows.prior.startDate}') AND toDate('${windows.prior.endDate}')) AS prior_total
+FROM (
+  SELECT
+    ${SESSION_ID} AS session_id,
+    count() AS session_cnt,
+    toDate(toTimeZone(min(timestamp), '${TIME_ZONE}')) AS session_date
+  FROM events
+  WHERE event = '$pageview' AND ${PUBLIC_EVENT} AND ${dateCondition(broadWindow)}
+  GROUP BY session_id
+)
+`.trim()
+}
+
+function avgDurationQuery(windows: ReturnType<typeof getAnalyticsDateWindows>): string {
+  const broadWindow = { startDate: windows.prior.startDate, endDate: windows.current.endDate }
+  return `
+SELECT
+  avgIf(session_duration, session_date BETWEEN toDate('${windows.current.startDate}') AND toDate('${windows.current.endDate}')) AS current_avg_duration,
+  avgIf(session_duration, session_date BETWEEN toDate('${windows.prior.startDate}') AND toDate('${windows.prior.endDate}')) AS prior_avg_duration
+FROM (
+  SELECT
+    ${SESSION_ID} AS session_id,
+    dateDiff('second', min(timestamp), max(timestamp)) AS session_duration,
+    toDate(toTimeZone(min(timestamp), '${TIME_ZONE}')) AS session_date
+  FROM events
+  WHERE event = '$pageview' AND ${PUBLIC_EVENT} AND ${dateCondition(broadWindow)}
+  GROUP BY session_id
+  HAVING count() > 1
+)
+`.trim()
+}
+
+function topPagesQuery(windows: ReturnType<typeof getAnalyticsDateWindows>): string {
+  const broadWindow = { startDate: windows.prior.startDate, endDate: windows.current.endDate }
+  return `
+SELECT
+  properties.$pathname AS page_path,
+  countIf(${dateCondition(windows.current)}) AS current_pageviews,
+  countIf(${dateCondition(windows.prior)}) AS prior_pageviews,
+  uniqIf(${SESSION_ID}, ${dateCondition(windows.current)}) AS current_sessions,
+  uniqIf(${SESSION_ID}, ${dateCondition(windows.prior)}) AS prior_sessions
+FROM events
+WHERE event = '$pageview' AND ${PUBLIC_EVENT} AND ${dateCondition(broadWindow)}
+GROUP BY page_path
+ORDER BY current_pageviews DESC
+LIMIT 10
+`.trim()
+}
+
+function searchSessionsQuery(windows: ReturnType<typeof getAnalyticsDateWindows>): string {
+  const broadWindow = { startDate: windows.prior.startDate, endDate: windows.current.endDate }
+  return `
+SELECT
+  uniqIf(${SESSION_ID}, ${dateCondition(windows.current)}) AS current_search_sessions,
+  uniqIf(${SESSION_ID}, ${dateCondition(windows.prior)}) AS prior_search_sessions,
+  countIf(${dateCondition(windows.current)}) AS current_search_events
+FROM events
+WHERE event = 'search_executed' AND ${PUBLIC_EVENT} AND ${dateCondition(broadWindow)}
+`.trim()
+}
+
 function rowObjects(result: PostHogQueryResult): Array<Record<string, unknown>> {
   return result.results.map((row) => {
     if (row.length !== result.columns.length) invalidResponse()
@@ -288,6 +357,62 @@ async function parseTopBrands(
   })
 }
 
+function parseEngagement(
+  bounceResult: PostHogQueryResult,
+  avgResult: PostHogQueryResult,
+  searchResult: PostHogQueryResult,
+  comparisonReady: boolean,
+): NonNullable<AnalyticsSnapshotV1['engagement']> {
+  const bounceRows = rowObjects(bounceResult)
+  if (bounceRows.length !== 1) invalidResponse()
+  const bounceRow = bounceRows[0]
+
+  const avgRows = rowObjects(avgResult)
+  if (avgRows.length !== 1) invalidResponse()
+  const avgRow = avgRows[0]
+
+  const searchRows = rowObjects(searchResult)
+  if (searchRows.length !== 1) invalidResponse()
+  const searchRow = searchRows[0]
+
+  return {
+    bounceRate: rateComparison(
+      count(bounceRow, 'current_single'),
+      count(bounceRow, 'current_total'),
+      count(bounceRow, 'prior_single'),
+      count(bounceRow, 'prior_total'),
+      comparisonReady,
+    ),
+    avgDurationSeconds: comparison(
+      count(avgRow, 'current_avg_duration'),
+      count(avgRow, 'prior_avg_duration'),
+      comparisonReady,
+    ),
+    searchSessions: comparison(
+      count(searchRow, 'current_search_sessions'),
+      count(searchRow, 'prior_search_sessions'),
+      comparisonReady,
+    ),
+    searchEvents: count(searchRow, 'current_search_events'),
+  }
+}
+
+function parseTopPages(result: PostHogQueryResult, comparisonReady: boolean): TopPageRow[] {
+  return rowObjects(result).map((row) => ({
+    pagePath: text(row, 'page_path'),
+    pageviews: comparison(
+      count(row, 'current_pageviews'),
+      count(row, 'prior_pageviews'),
+      comparisonReady,
+    ),
+    sessions: comparison(
+      count(row, 'current_sessions'),
+      count(row, 'prior_sessions'),
+      comparisonReady,
+    ),
+  }))
+}
+
 async function defaultHydrateBrands(brandIds: string[]): Promise<BrandIdentity[]> {
   if (brandIds.length === 0) return []
   const { data, error } = await createServiceClient()
@@ -333,11 +458,24 @@ export async function getPostHogAnalyticsSnapshot({
   const cached = snapshotCache.get(cacheKey)
   if (cache && cached && cached.expiresAt > generatedAt.getTime()) return cached.value
 
-  const [coreResult, dailyResult, acquisitionResult, topBrandsResult] = await Promise.allSettled([
+  const [
+    coreResult,
+    dailyResult,
+    acquisitionResult,
+    topBrandsResult,
+    bounceRateResult,
+    avgDurationResult,
+    topPagesResult,
+    searchSessionsResult,
+  ] = await Promise.allSettled([
     queryClient.run('personal os core totals', coreQuery(windows)),
     queryClient.run('personal os daily trend', dailyQuery(windows.trend)),
     queryClient.run('personal os acquisition', acquisitionQuery(windows.current)),
     queryClient.run('personal os top brands', topBrandsQuery(windows.current)),
+    queryClient.run('personal os bounce rate', bounceRateQuery(windows)),
+    queryClient.run('personal os avg duration', avgDurationQuery(windows)),
+    queryClient.run('personal os top pages', topPagesQuery(windows)),
+    queryClient.run('personal os search sessions', searchSessionsQuery(windows)),
   ])
   if (coreResult.status === 'rejected') throw coreResult.reason
 
@@ -377,6 +515,37 @@ export async function getPostHogAnalyticsSnapshot({
     warnings.push('Top brands breakdown is temporarily unavailable.')
   }
 
+  let engagement: AnalyticsSnapshotV1['engagement'] = null
+  if (
+    bounceRateResult.status === 'fulfilled' &&
+    avgDurationResult.status === 'fulfilled' &&
+    searchSessionsResult.status === 'fulfilled'
+  ) {
+    try {
+      engagement = parseEngagement(
+        bounceRateResult.value,
+        avgDurationResult.value,
+        searchSessionsResult.value,
+        core.comparisonReady,
+      )
+    } catch {
+      warnings.push('Engagement metrics are temporarily unavailable.')
+    }
+  } else {
+    warnings.push('Engagement metrics are temporarily unavailable.')
+  }
+
+  let topPages: TopPageRow[] | null = null
+  if (topPagesResult.status === 'fulfilled') {
+    try {
+      topPages = parseTopPages(topPagesResult.value, core.comparisonReady)
+    } catch {
+      warnings.push('Top pages breakdown is temporarily unavailable.')
+    }
+  } else {
+    warnings.push('Top pages breakdown is temporarily unavailable.')
+  }
+
   const snapshot: AnalyticsSnapshotV1 = {
     schemaVersion: 1,
     generatedAt: generatedAt.toISOString(),
@@ -409,6 +578,8 @@ export async function getPostHogAnalyticsSnapshot({
     daily,
     acquisition,
     topBrands,
+    engagement,
+    topPages,
     completeness: {
       comparisonReady: core.comparisonReady,
       availableFrom: core.availableFrom,
