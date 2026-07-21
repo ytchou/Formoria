@@ -64,7 +64,7 @@ jobs:
           CLAUDE_PROMPT: |
             The approved content items are already fetched into items.json in the repo root (fields: id, title, item_path, platforms, target_date, notes). Do NOT attempt any database access. For each item: its folder is item_path; read <item_path>/brief.md; produce Threads and Instagram posts at <item_path>/post-threads.md and <item_path>/post-instagram.md following marketing/strategy/brand-voice.md; if the brief specifies media: carousel, render cards into <item_path>/cards/ using the templates in marketing/cards/. Work autonomously; never ask questions; if a brief is missing, skip that item and note it in the output.
         run: |
-          npx @anthropic-ai/claude-code --print "$CLAUDE_PROMPT"
+          npx @anthropic-ai/claude-code --print --dangerously-skip-permissions "$CLAUDE_PROMPT"
 
       - name: zh-TW-quality-gate
         if: steps.fetch.outputs.has_items == 'true'

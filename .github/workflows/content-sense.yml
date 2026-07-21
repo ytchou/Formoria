@@ -37,7 +37,7 @@ jobs:
             Env vars AGENT_HUB_SUPABASE_URL and AGENT_HUB_SUPABASE_SERVICE_KEY are set. Read/write content_items via the Supabase REST API with curl: GET "$AGENT_HUB_SUPABASE_URL/rest/v1/content_items?project=eq.formoria&select=id,title,item_path,status,platforms,target_date"; insert with POST to /rest/v1/content_items (Content-Type: application/json, Prefer: return=representation); always send headers apikey and Authorization: Bearer with the service key. Create Todoist tasks via POST https://api.todoist.com/rest/v2/tasks with Authorization: Bearer $TODOIST_API_TOKEN (skip silently if empty). Never print the secret values. Work autonomously; never ask questions.
             Identify 2-4 content opportunities. For each, create marketing/items/<date-slug>/brief.md with shared-contract frontmatter (item_id, status: proposed, platforms, target_date, lang). Do not create items that duplicate existing content_items rows.
         run: |
-          npx @anthropic-ai/claude-code --print "$CLAUDE_PROMPT"
+          npx @anthropic-ai/claude-code --print --dangerously-skip-permissions "$CLAUDE_PROMPT"
 
       - name: create-pr
         env:

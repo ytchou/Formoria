@@ -32,7 +32,7 @@ jobs:
             Env vars AGENT_HUB_SUPABASE_URL and AGENT_HUB_SUPABASE_SERVICE_KEY are set. Read/write content_items via the Supabase REST API with curl: GET "$AGENT_HUB_SUPABASE_URL/rest/v1/content_items?project=eq.formoria&status=eq.published&select=id,title,item_path,published_urls,metrics"; update rows with PATCH to /rest/v1/content_items?id=eq.<id> (Content-Type: application/json, Prefer: return=minimal); always send headers apikey and Authorization: Bearer with the service key. Create Todoist tasks via POST https://api.todoist.com/rest/v2/tasks with Authorization: Bearer $TODOIST_API_TOKEN (skip silently if empty). Never print the secret values. Work autonomously; never ask questions.
             For each published item with published_urls, fetch PostHog pageview metrics for those URLs using NEXT_PUBLIC_POSTHOG_KEY and POSTHOG_PERSONAL_API_KEY. Update content_items.metrics with the latest data. Write a summary report to marketing/strategy/sense-report.md. Also check for 'ready' items past target_date — create a Todoist task with a digest (use GitHub file URLs, never localhost).
         run: |
-          npx @anthropic-ai/claude-code --print "$CLAUDE_PROMPT"
+          npx @anthropic-ai/claude-code --print --dangerously-skip-permissions "$CLAUDE_PROMPT"
 
       - name: commit-report
         run: |
