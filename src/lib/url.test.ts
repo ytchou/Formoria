@@ -3,6 +3,7 @@ import {
   isPrivateUrl,
   normalizeInstagramHref,
   normalizeThreadsHref,
+  normalizeToRootUrl,
   sanitizeHref,
 } from './url'
 
@@ -21,6 +22,27 @@ describe('isPrivateUrl', () => {
 
   it('allows public HTTP URLs', () => {
     expect(isPrivateUrl('https://example.com')).toBe(false)
+  })
+})
+
+describe('normalizeToRootUrl', () => {
+  it('strips path from URLs', () => {
+    expect(normalizeToRootUrl('https://www.example.com/about')).toBe('https://www.example.com')
+    expect(normalizeToRootUrl('https://www.hh-tw.com/pages/journal')).toBe('https://www.hh-tw.com')
+  })
+
+  it('returns root URLs unchanged', () => {
+    expect(normalizeToRootUrl('https://www.example.com')).toBe('https://www.example.com')
+    expect(normalizeToRootUrl('https://www.example.com/')).toBe('https://www.example.com')
+  })
+
+  it('returns null for null/undefined', () => {
+    expect(normalizeToRootUrl(null)).toBeNull()
+    expect(normalizeToRootUrl(undefined)).toBeNull()
+  })
+
+  it('returns invalid strings as-is', () => {
+    expect(normalizeToRootUrl('not-a-url')).toBe('not-a-url')
   })
 })
 

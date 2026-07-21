@@ -5,6 +5,7 @@ import type { BrandFlatLinkColumns } from "@/lib/types";
 import type { SiteContent } from "@/lib/types/brand";
 import type { ScrapedBrandData } from "@/lib/types/scraper";
 import { ENRICH_PHASES } from "@/lib/constants/enrich-phases";
+import { normalizeToRootUrl } from "@/lib/url";
 import {
   buildLinkEnrichPatch,
   buildTextEnrichPatch,
@@ -755,7 +756,7 @@ export function submissionToEnrichBrand(
     purchase_website:
       typeof existing.purchase_website === "string"
         ? existing.purchase_website
-        : (submission.purchase_website ?? submission.website_url),
+        : normalizeToRootUrl(submission.purchase_website ?? submission.website_url),
     purchase_pinkoi:
       typeof existing.purchase_pinkoi === "string"
         ? existing.purchase_pinkoi

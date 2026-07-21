@@ -28,6 +28,16 @@ export function isPrivateUrl(urlString: string): boolean {
   }
 }
 
+export function normalizeToRootUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  try {
+    const parsed = new URL(url)
+    return parsed.origin
+  } catch {
+    return url
+  }
+}
+
 export function sanitizeHref(value: string | undefined | null): string | null {
   if (!value) return null
   const trimmed = value.trim()
