@@ -75,6 +75,10 @@ function SurfaceCard({
 
 type DataCardProps = Omit<SurfaceCardProps, "children"> & {
   children?: ReactNode;
+  delta?: {
+    direction: "up" | "down" | "flat";
+    text: string;
+  };
   description?: ReactNode;
   label: ReactNode;
   value: ReactNode;
@@ -82,6 +86,7 @@ type DataCardProps = Omit<SurfaceCardProps, "children"> & {
 
 function DataCard({
   children,
+  delta,
   description,
   label,
   padding = "sm",
@@ -93,6 +98,19 @@ function DataCard({
       <p className={textStyles({ variant: "metadata" })}>{label}</p>
       <div className="mt-2">
         <div className={textStyles({ variant: "stat" })}>{value}</div>
+        {delta ? (
+          <p
+            className={cn(
+              "mt-2 text-xs",
+              delta.direction === "up"
+                ? "text-verified-green"
+                : "text-muted-foreground",
+            )}
+            data-direction={delta.direction}
+          >
+            {delta.text}
+          </p>
+        ) : null}
         {description ? (
           <p className={cn("mt-2", textStyles({ variant: "cardDescription" }))}>
             {description}

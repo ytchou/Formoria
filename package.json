@@ -31,6 +31,7 @@
     "@base-ui/react": "^1.6.0",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.13",
+    "@radix-ui/react-tooltip": "^1.2.13",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.0.9",
     "@sentry/nextjs": "^10.51.0",

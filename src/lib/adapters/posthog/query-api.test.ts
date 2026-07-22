@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { PostHogQueryError, createPostHogQueryClient } from './query-api'
+import {
+  PostHogQueryError,
+  createPostHogEndpointClient,
+  createPostHogQueryClient,
+} from './query-api'
 
 afterEach(() => {
   vi.unstubAllEnvs()
@@ -119,6 +123,32 @@ describe('PostHog Query API adapter', () => {
     await expect(client.run('core totals', 'select 1')).rejects.toBeInstanceOf(PostHogQueryError)
     await expect(client.run('core totals', 'select 1')).rejects.toMatchObject({
       code: 'posthog_unavailable',
+    })
+  })
+})
+
+describe('createPostHogEndpointClient', () => {
+  it('POSTs variables to the versioned endpoint run URL with bearer auth', async () => {
+    configure()
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ results: [[12, 3]], columns: ['profile_sessions', 'outbound_sessions'] }), { status: 200 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const client = createPostHogEndpointClient()
+    const result = await client.runEndpoint('brand_core_totals', 2, { brand_id: 'b-123' })
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(String(url)).toContain('/endpoints/brand_core_totals/run?version=2')
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({ variables: { brand_id: 'b-123' } })
+    expect((init as RequestInit).headers).toMatchObject({ Authorization: expect.stringMatching(/^Bearer /) })
+    expect(result.results).toEqual([[12, 3]])
+  })
+
+  it('maps 404 to an endpoint_missing PostHogQueryError', async () => {
+    configure()
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('not found', { status: 404 })))
+    const client = createPostHogEndpointClient()
+    await expect(client.runEndpoint('brand_core_totals', 1, { brand_id: 'x' })).rejects.toMatchObject({
+      code: 'endpoint_missing',
     })
   })
 })
