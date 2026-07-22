@@ -147,6 +147,7 @@ jobs:
               tickets_created: [],
               log_url: $workflow_url,
               data: {
+                phase: "test",
                 total_specs: $total_specs,
                 passed: $passed,
                 failed: $failed,
@@ -518,7 +519,7 @@ jobs:
 
           payload=$(jq -n \
             --arg source_run_id "github-actions:${{ github.run_id }}:${{ github.run_attempt }}" \
-            --arg routine "e2e-selfheal" \
+            --arg routine "e2e-nightly" \
             --arg project "formoria" \
             --arg status "$STATUS" \
             --arg run_at "$RUN_AT" \
@@ -545,6 +546,7 @@ jobs:
               tickets_created: [],
               log_url: $workflow_url,
               data: {
+                phase: "selfheal",
                 failed_specs: $failed_specs,
                 pr_url: $pr_url,
                 merged: ($merged == "true"),
