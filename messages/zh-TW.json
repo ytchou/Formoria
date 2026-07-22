@@ -553,7 +553,16 @@
       },
       "isMadeInTaiwan": {
         "question": "{brandName} 有哪些製造驗證？",
-        "answer": "Formoria 已比對到 {brandName} 的產品與 MIT 微笑標章登錄資料；此驗證僅適用於登錄資料涵蓋的產品。"
+        "answer": "Formoria 已比對到 {brandName} 的產品與 MIT 微笑標章登錄資料；此驗證僅適用於登錄資料涵蓋的產品。",
+        "registrySource": "資料來源：MIT Smile 台灣製產品名錄。",
+        "scopeLabels": {
+          "all": "全部產品",
+          "most": "大部分產品",
+          "some": "部分產品",
+          "unspecified": "產品（聲明範圍未標示）"
+        },
+        "declaredAnswer": "依品牌聲明，{brandName} 的{scope}在台灣製造。此資訊由品牌方提供。",
+        "verificationMarker": "驗證"
       },
       "whereToBuy": {
         "question": "{brandName} 的產品在哪裡買？",

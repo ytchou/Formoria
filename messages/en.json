@@ -553,7 +553,16 @@
       },
       "isMadeInTaiwan": {
         "question": "What manufacturing verification does {brandName} have?",
-        "answer": "Formoria matched a product from {brandName} to the MIT Smile registry. This verification applies only to products covered by the registry entry."
+        "answer": "Formoria matched a product from {brandName} to the MIT Smile registry. This verification applies only to products covered by the registry entry.",
+        "registrySource": "Source: MIT Smile registry.",
+        "scopeLabels": {
+          "all": "all products",
+          "most": "most products",
+          "some": "some products",
+          "unspecified": "products (scope not specified)"
+        },
+        "declaredAnswer": "According to the brand declaration, {scope} from {brandName} are made in Taiwan. This information was provided by the brand.",
+        "verificationMarker": "verified"
       },
       "whereToBuy": {
         "question": "Where can I buy {brandName} products?",

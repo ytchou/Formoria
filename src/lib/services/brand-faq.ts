@@ -215,41 +215,27 @@ function buildBrandContext(brand: Brand, t: TFn): string {
     : ''
 }
 
-const MIT_SCOPE_LABELS = {
-  'zh-TW': {
-    all: '全部產品',
-    most: '大部分產品',
-    some: '部分產品',
-  },
-  en: {
-    all: 'all products',
-    most: 'most products',
-    some: 'some products',
-  },
-} as const
-
-function buildMitAnswer(brand: Brand, t: TFn, locale: string): string {
-  const isZh = locale.startsWith('zh')
-
+function buildMitAnswer(brand: Brand, t: TFn, _locale: string): string {
   if (brand.mitStatus === 'verified') {
     const verifiedAnswer = t('brandFaq.isMadeInTaiwan.answer', {
       brandName: brand.name,
     })
-    const registrySource = isZh
-      ? '資料來源：MIT Smile 台灣製產品名錄。'
-      : 'Source: MIT Smile registry.'
+    const registrySource = t('brandFaq.isMadeInTaiwan.registrySource')
     return hasValue(brand.mitStory)
       ? `${brand.mitStory}\n\n${verifiedAnswer} ${registrySource}`
       : `${verifiedAnswer} ${registrySource}`
   }
 
   const scope = brand.mitDeclaredScope
-    ? MIT_SCOPE_LABELS[isZh ? 'zh-TW' : 'en'][brand.mitDeclaredScope]
-    : (isZh ? '產品（聲明範圍未標示）' : 'products (scope not specified)')
-  const declaration = isZh
-    ? `依品牌聲明，${brand.name} 的${scope}在台灣製造。此資訊由品牌方提供。`
-    : `According to the brand declaration, ${scope} from ${brand.name} are made in Taiwan. This information was provided by the brand.`
-  const story = hasValue(brand.mitStory) && !/驗證|verified/i.test(brand.mitStory)
+    ? t(`brandFaq.isMadeInTaiwan.scopeLabels.${brand.mitDeclaredScope}`)
+    : t('brandFaq.isMadeInTaiwan.scopeLabels.unspecified')
+  const declaration = t('brandFaq.isMadeInTaiwan.declaredAnswer', {
+    brandName: brand.name,
+    scope,
+  })
+  const verificationMarker = t('brandFaq.isMadeInTaiwan.verificationMarker')
+  const story = hasValue(brand.mitStory)
+    && !brand.mitStory.toLocaleLowerCase().includes(verificationMarker.toLocaleLowerCase())
     ? `\n\n${brand.mitStory}`
     : ''
 

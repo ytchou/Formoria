@@ -91,8 +91,6 @@ const ALLOWLIST = [
   'lib/growth/share-card.tsx',
   // Badge embed snippet alt text is intentional zh-TW brand copy pasted into third-party sites.
   'lib/growth/share-assets.ts',
-  // MIT scope labels and FAQ answer strings are server-side generated content (not user-facing i18n copy).
-  'lib/services/brand-faq.ts',
 ]
 
 function isAllowlisted(relPath: string): boolean {

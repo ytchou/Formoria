@@ -16,7 +16,7 @@ test.describe('Visitor smoke', () => {
 
   test('brands page title is Formoria-branded, not duplicated', async ({ page }) => {
     await gotoBrandsPage(page);
-    await expect(page).toHaveTitle(/formoria|made in taiwan/i);
+    await expect(page).toHaveTitle(/formoria|taiwanese brand/i);
     const title = await page.title();
     expect((title.match(/formoria/gi) ?? []).length).toBeLessThanOrEqual(1);
   });
