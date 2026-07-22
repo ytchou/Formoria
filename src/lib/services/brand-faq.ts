@@ -101,6 +101,12 @@ function truncate<T>(items: T[], limit = 3): T[] {
   return items.slice(0, limit)
 }
 
+function summarizeNames(names: string[], separator: string): string {
+  const visibleNames = truncate(names)
+  const suffix = visibleNames.length < names.length ? `${separator}…` : ''
+  return `${visibleNames.join(separator)}${suffix}`
+}
+
 function collectPurchaseLinks(brand: Brand, t: TFn): string[] {
   const links: string[] = []
 
@@ -179,13 +185,13 @@ function buildPhysicalStoresAnswer(
 
   const details = [
     confirmed.length > 0
-      ? `${t('locations.confirmedHeading')} (${confirmed.length}): ${confirmed.join(sep)}.`
+      ? `${t('locations.confirmedHeading')} (${confirmed.length}): ${summarizeNames(confirmed, sep)}.`
       : null,
     unconfirmed.length > 0
-      ? `${t('locations.unconfirmedHeading')} (${unconfirmed.length}): ${unconfirmed.join(sep)}. ${t('locations.unconfirmedDisclaimer')}`
+      ? `${t('locations.unconfirmedHeading')} (${unconfirmed.length}): ${summarizeNames(unconfirmed, sep)}. ${t('locations.unconfirmedDisclaimer')}`
       : null,
     chains.length > 0
-      ? `${t('locations.chainHeading')} (${chains.length}): ${chains.join(sep)}. ${t('locations.chainDescription')}`
+      ? `${t('locations.chainHeading')} (${chains.length}): ${summarizeNames(chains, sep)}. ${t('locations.chainDescription')}`
       : null,
   ].filter(hasValue)
 

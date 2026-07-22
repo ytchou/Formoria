@@ -42,13 +42,13 @@ function normalizeExtractedStockists(
 function getOwnerConfirmedLocations(value: unknown): RetailLocation[] {
   if (!Array.isArray(value)) return []
 
-  return value.filter((location): location is RetailLocation => {
+  return value.flatMap((location) => {
     const [normalized] = normalizeRetailLocations([location])
-    return Boolean(
-      normalized &&
+    return normalized &&
       isPhysicalRetailLocation(normalized) &&
-      normalized.confirmationStatus === 'owner_confirmed',
-    )
+      normalized.confirmationStatus === 'owner_confirmed'
+      ? [normalized]
+      : []
   })
 }
 

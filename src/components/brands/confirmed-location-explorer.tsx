@@ -20,7 +20,7 @@ type ConfirmedLocation = Extract<RetailLocation, { kind: 'location' }> & {
 type LocationFilter = 'all' | 'brand-stores' | 'other-sales'
 type ViewMode = 'map' | 'list'
 
-export interface ConfirmedLocationExplorerLabels {
+interface ConfirmedLocationExplorerLabels {
   filterAll: string
   filterBrandStores: string
   filterOtherSales: string
@@ -28,6 +28,8 @@ export interface ConfirmedLocationExplorerLabels {
   viewAll: string
   mapTitle: string
   mapLoading: string
+  zoomIn: string
+  zoomOut: string
   openInMaps: string
   relationshipBrandStore: string
   relationshipStockist: string
@@ -233,6 +235,8 @@ export function ConfirmedLocationExplorer({
             locations={mappableLocations}
             mapTitle={labels.mapTitle}
             loadingLabel={labels.mapLoading}
+            zoomInLabel={labels.zoomIn}
+            zoomOutLabel={labels.zoomOut}
           />
           <ConfirmedLocationRows
             locations={filteredLocations.slice(0, 3)}

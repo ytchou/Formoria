@@ -14,6 +14,8 @@ const leafletMocks = vi.hoisted(() => ({
   fitBounds: vi.fn(),
   iconCreateFunction: undefined as ClusterIconFactory | undefined,
   setView: vi.fn(),
+  zoomIn: vi.fn(),
+  zoomOut: vi.fn(),
 }))
 
 vi.mock('leaflet', () => ({
@@ -44,13 +46,16 @@ vi.mock('react-leaflet', () => ({
   MapContainer: ({
     children,
     scrollWheelZoom,
+    zoomControl,
   }: {
     children: ReactNode
     scrollWheelZoom: boolean
+    zoomControl: boolean
   }) => (
     <div
       data-testid='map-container'
       data-scroll-wheel-zoom={String(scrollWheelZoom)}
+      data-zoom-control={String(zoomControl)}
     >
       {children}
     </div>
@@ -62,6 +67,8 @@ vi.mock('react-leaflet', () => ({
   useMap: () => ({
     fitBounds: leafletMocks.fitBounds,
     setView: leafletMocks.setView,
+    zoomIn: leafletMocks.zoomIn,
+    zoomOut: leafletMocks.zoomOut,
   }),
 }))
 
@@ -106,6 +113,8 @@ beforeEach(() => {
   leafletMocks.fitBounds.mockReset()
   leafletMocks.iconCreateFunction = undefined
   leafletMocks.setView.mockReset()
+  leafletMocks.zoomIn.mockReset()
+  leafletMocks.zoomOut.mockReset()
 })
 
 describe('BrandLocationsLeaflet', () => {
@@ -114,6 +123,8 @@ describe('BrandLocationsLeaflet', () => {
       <BrandLocationsLeaflet
         locations={[firstLocation, secondLocation]}
         mapTitle='品牌門市地圖'
+        zoomInLabel='放大地圖'
+        zoomOutLabel='縮小地圖'
       />,
     )
 
@@ -122,6 +133,16 @@ describe('BrandLocationsLeaflet', () => {
     expect(screen.getByTestId('map-container')).toHaveAttribute(
       'data-scroll-wheel-zoom',
       'false',
+    )
+    expect(screen.getByTestId('map-container')).toHaveAttribute(
+      'data-zoom-control',
+      'false',
+    )
+    expect(screen.getByRole('button', { name: '放大地圖' })).toHaveClass(
+      'min-h-12',
+    )
+    expect(screen.getByRole('button', { name: '縮小地圖' })).toHaveClass(
+      'min-h-12',
     )
 
     const cluster = screen.getByTestId('marker-cluster')
@@ -174,6 +195,8 @@ describe('BrandLocationsLeaflet', () => {
       <BrandLocationsLeaflet
         locations={[firstLocation]}
         mapTitle='品牌門市地圖'
+        zoomInLabel='放大地圖'
+        zoomOutLabel='縮小地圖'
       />,
     )
 
@@ -184,6 +207,8 @@ describe('BrandLocationsLeaflet', () => {
       <BrandLocationsLeaflet
         locations={[firstLocation, secondLocation]}
         mapTitle='品牌門市地圖'
+        zoomInLabel='放大地圖'
+        zoomOutLabel='縮小地圖'
       />,
     )
 

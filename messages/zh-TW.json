@@ -490,6 +490,8 @@
     "locations": {
       "mapTitle": "{name} 販售地點地圖",
       "mapLoading": "正在載入地圖…",
+      "zoomIn": "放大地圖",
+      "zoomOut": "縮小地圖",
       "confirmedHeading": "已確認地點",
       "stockDisclaimer": "以下地點資訊已由品牌主確認；前往前請先向店家確認販售商品與庫存。",
       "unconfirmedHeading": "待確認地點",

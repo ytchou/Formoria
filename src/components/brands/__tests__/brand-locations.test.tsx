@@ -43,6 +43,8 @@ const messages = {
         viewAll: '查看全部',
       },
       mapLoading: '地圖載入中',
+      zoomIn: '放大地圖',
+      zoomOut: '縮小地圖',
     },
   },
 }

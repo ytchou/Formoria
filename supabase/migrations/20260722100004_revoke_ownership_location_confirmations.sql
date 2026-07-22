@@ -89,6 +89,63 @@ BEGIN
       END
   WHERE id = p_brand_id;
 
+  -- Drafts are owner-staged snapshots and must lose the revoked owner's trust state too.
+  UPDATE public.brands
+  SET draft_data = jsonb_set(
+    draft_data,
+    '{retailLocations}',
+    (
+      SELECT coalesce(
+        jsonb_agg(
+          CASE
+            WHEN entry ->> 'kind' = 'location'
+              AND entry ->> 'confirmationStatus' = 'owner_confirmed'
+            THEN jsonb_set(
+              entry,
+              '{confirmationStatus}',
+              '"unconfirmed"'::jsonb
+            )
+            ELSE entry
+          END
+          ORDER BY ordinality
+        ),
+        '[]'::jsonb
+      )
+      FROM jsonb_array_elements(draft_data -> 'retailLocations')
+        WITH ORDINALITY AS entries(entry, ordinality)
+    )
+  )
+  WHERE id = p_brand_id
+    AND jsonb_typeof(draft_data -> 'retailLocations') = 'array';
+
+  UPDATE public.brands
+  SET draft_data = jsonb_set(
+    draft_data,
+    '{retail_locations}',
+    (
+      SELECT coalesce(
+        jsonb_agg(
+          CASE
+            WHEN entry ->> 'kind' = 'location'
+              AND entry ->> 'confirmationStatus' = 'owner_confirmed'
+            THEN jsonb_set(
+              entry,
+              '{confirmationStatus}',
+              '"unconfirmed"'::jsonb
+            )
+            ELSE entry
+          END
+          ORDER BY ordinality
+        ),
+        '[]'::jsonb
+      )
+      FROM jsonb_array_elements(draft_data -> 'retail_locations')
+        WITH ORDINALITY AS entries(entry, ordinality)
+    )
+  )
+  WHERE id = p_brand_id
+    AND jsonb_typeof(draft_data -> 'retail_locations') = 'array';
+
   RETURN QUERY
   SELECT v_owner.user_id, v_revoked_user_email;
 END;

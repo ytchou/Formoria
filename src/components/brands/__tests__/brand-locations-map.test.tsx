@@ -47,6 +47,8 @@ describe('BrandLocationsMap', () => {
         locations={[location]}
         loadingLabel='正在載入地圖'
         mapTitle='品牌門市地圖'
+        zoomInLabel='放大地圖'
+        zoomOutLabel='縮小地圖'
       />,
     )
 

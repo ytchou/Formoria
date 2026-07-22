@@ -40,7 +40,7 @@ export type RetailLocationVerificationStatus =
   | 'manual'
   | 'needs_review'
 
-export type RetailLocationConfirmationStatus =
+type RetailLocationConfirmationStatus =
   | 'unconfirmed'
   | 'owner_confirmed'
 

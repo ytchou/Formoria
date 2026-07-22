@@ -271,4 +271,24 @@ describe('buildBrandFaq', () => {
       'Availability is not live; check with the brand or retailer before visiting or ordering.',
     )
   })
+
+  it('keeps generated location answers concise for large location sets', () => {
+    const faq = buildBrandFaq(
+      makeBrand({
+        retailLocations: Array.from({ length: 5 }, (_, index) => ({
+          kind: 'location' as const,
+          name: `Confirmed Shop ${index + 1}`,
+          relationshipType: 'brand_store' as const,
+          confirmationStatus: 'owner_confirmed' as const,
+          address: `${index + 1} Main Street`,
+        })),
+      }),
+      locationT,
+      'en',
+    )
+    const locations = faq.find((item) => item.id === 'physical-stores')
+
+    expect(locations?.answer).toContain('Confirmed locations (5): Confirmed Shop 1, Confirmed Shop 2, Confirmed Shop 3, ….')
+    expect(locations?.answer).not.toContain('Confirmed Shop 4')
+  })
 })

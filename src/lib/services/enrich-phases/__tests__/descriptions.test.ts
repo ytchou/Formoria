@@ -471,6 +471,51 @@ describe('runDescriptionsPhase', () => {
     expect(result.phaseResult.changedFields).toContain('retail_locations')
   })
 
+  it('canonicalizes preserved owner-confirmed rows during overwrite', async () => {
+    rewriteBrandDescription.mockResolvedValue({
+      result: makeDescriptionRewriteResult({ stockists: null }),
+      attempts: [],
+    })
+
+    const result = await runDescriptionsPhase({
+      brand: {
+        ...brand,
+        retail_locations: [
+          {
+            kind: 'location',
+            name: 'Confirmed Location',
+            relationshipType: 'brand_store',
+            address: 'No. 3',
+            latitude: '25.033',
+            longitude: '121.565',
+            confirmationStatus: 'owner_confirmed',
+            type: 'independent',
+            legacyField: 'remove me',
+          },
+        ],
+      },
+      phases: ['descriptions'] as EnrichPhase[],
+      serpSnippets: ['No stockists found.'],
+      overwrite: true,
+    })
+
+    expect(result.patch.retail_locations).toEqual([
+      expect.objectContaining({
+        kind: 'location',
+        name: 'Confirmed Location',
+        latitude: 25.033,
+        longitude: 121.565,
+        confirmationStatus: 'owner_confirmed',
+      }),
+    ])
+    expect(result.patch.retail_locations).not.toEqual([
+      expect.objectContaining({ type: 'independent' }),
+    ])
+    expect(result.patch.retail_locations).not.toEqual([
+      expect.objectContaining({ legacyField: 'remove me' }),
+    ])
+  })
+
   it('tracks an explicit retail_locations clear as a changed field', async () => {
     rewriteBrandDescription.mockResolvedValue({
       result: makeDescriptionRewriteResult({ stockists: null }),

@@ -39,14 +39,23 @@ export function BrandLocationsMap({
   locations,
   mapTitle,
   loadingLabel,
+  zoomInLabel,
+  zoomOutLabel,
 }: {
   locations: BrandMapLocation[]
   mapTitle: string
   loadingLabel: string
+  zoomInLabel: string
+  zoomOutLabel: string
 }) {
   return (
     <MapLoadingLabelContext value={loadingLabel}>
-      <BrandLocationsLeaflet locations={locations} mapTitle={mapTitle} />
+      <BrandLocationsLeaflet
+        locations={locations}
+        mapTitle={mapTitle}
+        zoomInLabel={zoomInLabel}
+        zoomOutLabel={zoomOutLabel}
+      />
     </MapLoadingLabelContext>
   )
 }

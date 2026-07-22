@@ -490,6 +490,8 @@
     "locations": {
       "mapTitle": "{name} stockist map",
       "mapLoading": "Loading map…",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
       "confirmedHeading": "Confirmed locations",
       "stockDisclaimer": "The brand owner has confirmed these location details only. Contact the location to check products and stock before visiting.",
       "unconfirmedHeading": "Unconfirmed locations",

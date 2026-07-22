@@ -124,6 +124,8 @@ export function BrandLocations({ brand }: BrandLocationsProps) {
     viewAll: t('locations.views.viewAll'),
     mapTitle: t('locations.mapTitle', { name: brand.name }),
     mapLoading: t('locations.mapLoading'),
+    zoomIn: t('locations.zoomIn'),
+    zoomOut: t('locations.zoomOut'),
     openInMaps: t('locations.openInMaps'),
     relationshipBrandStore: t('locations.types.brand_store'),
     relationshipStockist: t('locations.types.stockist'),

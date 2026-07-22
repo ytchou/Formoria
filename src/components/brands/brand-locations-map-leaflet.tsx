@@ -10,6 +10,7 @@ import {
   useMap,
 } from 'react-leaflet'
 import MarkerClusterGroup from 'react-leaflet-cluster'
+import { Button } from '@/components/ui/button'
 import type { BrandMapLocation } from './brand-locations-map'
 
 const BOUNDS_PADDING: [number, number] = [24, 24]
@@ -52,12 +53,51 @@ function MapBoundsController({
   return null
 }
 
+function MapZoomControls({
+  zoomInLabel,
+  zoomOutLabel,
+}: {
+  zoomInLabel: string
+  zoomOutLabel: string
+}) {
+  const map = useMap()
+
+  return (
+    <div className='absolute right-3 top-3 z-[1000] flex flex-col gap-2'>
+      <Button
+        type='button'
+        variant='secondary'
+        size='icon'
+        className='min-h-12 min-w-12 bg-card/95 text-lg'
+        aria-label={zoomInLabel}
+        onClick={() => map.zoomIn()}
+      >
+        <span aria-hidden='true'>+</span>
+      </Button>
+      <Button
+        type='button'
+        variant='secondary'
+        size='icon'
+        className='min-h-12 min-w-12 bg-card/95 text-lg'
+        aria-label={zoomOutLabel}
+        onClick={() => map.zoomOut()}
+      >
+        <span aria-hidden='true'>−</span>
+      </Button>
+    </div>
+  )
+}
+
 export function BrandLocationsLeaflet({
   locations,
   mapTitle,
+  zoomInLabel,
+  zoomOutLabel,
 }: {
   locations: BrandMapLocation[]
   mapTitle: string
+  zoomInLabel: string
+  zoomOutLabel: string
 }) {
   const firstLocation = locations.at(0)
 
@@ -66,15 +106,20 @@ export function BrandLocationsLeaflet({
   return (
     <div
       aria-label={mapTitle}
-      className='h-72 overflow-hidden rounded-lg border border-border bg-muted'
+      className='relative h-72 overflow-hidden rounded-lg border border-border bg-muted'
       role='region'
     >
       <MapContainer
         center={getPosition(firstLocation)}
         className='h-full w-full'
         scrollWheelZoom={false}
+        zoomControl={false}
         zoom={15}
       >
+        <MapZoomControls
+          zoomInLabel={zoomInLabel}
+          zoomOutLabel={zoomOutLabel}
+        />
         <MapBoundsController locations={locations} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
