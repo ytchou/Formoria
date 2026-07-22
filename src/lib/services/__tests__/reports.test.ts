@@ -5,13 +5,13 @@ describe('buildReportRecord', () => {
   it('maps all fields to snake_case', () => {
     const result = buildReportRecord({
       brandId: 'brand-uuid-123',
-      reason: 'not_mit',
-      notes: 'Brand makes products in China',
+      reason: 'incorrect_info',
+      notes: 'The address is outdated',
     })
     expect(result).toEqual({
       brand_id: 'brand-uuid-123',
-      reason: 'not_mit',
-      notes: 'Brand makes products in China',
+      reason: 'incorrect_info',
+      notes: 'The address is outdated',
       reported_field: null,
       user_id: null,
     })

@@ -3,7 +3,7 @@
 import { Fragment, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { reviewReportAction, revokeOwnershipAction } from '@/app/admin/actions'
-import type { BrandReport, ReportReason } from '@/lib/services/reports'
+import type { BrandReport } from '@/lib/services/reports'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -31,7 +31,7 @@ interface ReportsTableProps {
   reports: BrandReport[]
 }
 
-const REASON_LABELS: Record<ReportReason, string> = {
+const REASON_LABELS: Record<BrandReport['reason'], string> = {
   not_mit: 'Not Made in Taiwan',
   incorrect_info: 'Incorrect information',
   broken_link: 'Broken link',

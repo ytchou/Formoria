@@ -27,7 +27,6 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { trackOriginEvidenceSubmitted } from '@/lib/analytics'
 
 const REPORT_REASONS = [
-  'not_mit',
   'incorrect_info',
   'broken_link',
   'inappropriate',

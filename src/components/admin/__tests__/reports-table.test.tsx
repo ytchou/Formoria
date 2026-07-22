@@ -18,7 +18,7 @@ const mockReports: BrandReport[] = [
     brandId: 'b1',
     brandName: 'Test Brand',
     brandSlug: 'test-brand',
-    reason: 'not_mit',
+    reason: 'not_mit' as BrandReport['reason'],
     notes: null,
     status: 'pending',
     reviewedAt: null,
