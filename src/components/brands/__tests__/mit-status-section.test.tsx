@@ -5,6 +5,12 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Brand } from '@/lib/types'
 import { MitStatusSection } from '../mit-status-section'
 
+vi.mock('@/components/brands/evidence-dialog', () => ({
+  EvidenceDialog: (_props: { brandId: string; brandSlug: string }) => (
+    <button type="button">回報產地資訊</button>
+  ),
+}))
+
 vi.mock('next-intl/server', () => ({
   getTranslations: vi.fn(async () => (key: string, params?: Record<string, unknown>) => {
     const messages: Record<string, string> = {

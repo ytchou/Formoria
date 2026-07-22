@@ -413,6 +413,55 @@
         "unknown": "發生未知錯誤"
       }
     },
+    "evidence": {
+      "trigger": "回報產地資訊",
+      "title": "提供產地證據",
+      "description": "分享你看到的產品產地資訊，協助我們核實品牌資料。",
+      "success": "感謝你提供產地證據，我們會盡快審核。",
+      "close": "關閉",
+      "cancel": "取消",
+      "loading": "正在確認登入狀態…",
+      "signInPrompt": "請先登入，再提供產地證據。",
+      "signIn": "登入",
+      "stanceLabel": "這項證據顯示",
+      "stances": {
+        "supports": "支持台灣製造",
+        "contradicts": "不支持台灣製造"
+      },
+      "productNameLabel": "產品名稱（選填）",
+      "productNamePlaceholder": "例如：產品或系列名稱",
+      "sourceTypeLabel": "證據來源",
+      "sourceTypes": {
+        "product_label": "產品標籤",
+        "packaging": "產品包裝",
+        "official_site": "官方網站",
+        "in_store": "實體店面",
+        "other": "其他"
+      },
+      "notesLabel": "補充說明（選填）",
+      "notesPlaceholder": "請描述你看到的產地資訊",
+      "photoLabel": "照片（選填）",
+      "photoHint": "上傳產品標籤、包裝或其他產地照片",
+      "uploading": "上傳中…",
+      "photoUploaded": "照片已上傳",
+      "retryUpload": "重試",
+      "submitting": "送出中…",
+      "submit": "送出",
+      "errors": {
+        "not_logged_in": "請先登入後再提供產地證據",
+        "missing_brand_id": "缺少品牌 ID",
+        "missing_brand_slug": "缺少品牌網址名稱",
+        "invalid_stance": "請選擇這項證據支持或不支持台灣製造",
+        "invalid_source_type": "請選擇有效的證據來源",
+        "notes_too_long": "補充說明不得超過 1000 字",
+        "invalid_photo_path": "上傳的照片不屬於目前使用者或品牌",
+        "pending_cap_reached": "你已有 3 筆此品牌的證據等待審核，請等候審核結果後再提交。",
+        "database_error": "無法儲存證據，請稍後再試。",
+        "unknown": "提交失敗，請稍後再試。",
+        "invalidPhotoType": "請上傳圖片檔案",
+        "uploadFailed": "照片上傳失敗，請重試。"
+      }
+    },
     "adminMenu": {
       "label": "管理選單",
       "viewAsOwner": "品牌主檢視"

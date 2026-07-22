@@ -413,6 +413,55 @@
         "unknown": "An unknown error occurred"
       }
     },
+    "evidence": {
+      "trigger": "Report origin information",
+      "title": "Submit origin evidence",
+      "description": "Share product origin information you have seen to help us verify this brand.",
+      "success": "Thank you for submitting origin evidence. We'll review it shortly.",
+      "close": "Close",
+      "cancel": "Cancel",
+      "loading": "Checking your sign-in status…",
+      "signInPrompt": "Please sign in to submit origin evidence.",
+      "signIn": "Sign in",
+      "stanceLabel": "This evidence",
+      "stances": {
+        "supports": "Supports Made in Taiwan",
+        "contradicts": "Contradicts Made in Taiwan"
+      },
+      "productNameLabel": "Product name (optional)",
+      "productNamePlaceholder": "For example, a product or collection name",
+      "sourceTypeLabel": "Evidence source",
+      "sourceTypes": {
+        "product_label": "Product label",
+        "packaging": "Packaging",
+        "official_site": "Official website",
+        "in_store": "In store",
+        "other": "Other"
+      },
+      "notesLabel": "Additional notes (optional)",
+      "notesPlaceholder": "Describe the origin information you found",
+      "photoLabel": "Photo (optional)",
+      "photoHint": "Upload a product label, package, or other origin photo",
+      "uploading": "Uploading…",
+      "photoUploaded": "Photo uploaded",
+      "retryUpload": "Retry",
+      "submitting": "Submitting…",
+      "submit": "Submit",
+      "errors": {
+        "not_logged_in": "Please sign in to submit origin evidence",
+        "missing_brand_id": "Missing brand ID",
+        "missing_brand_slug": "Missing brand slug",
+        "invalid_stance": "Choose whether this evidence supports or contradicts Made in Taiwan",
+        "invalid_source_type": "Choose a valid evidence source",
+        "notes_too_long": "Additional notes must be 1000 characters or fewer",
+        "invalid_photo_path": "The uploaded photo is not valid for this user or brand",
+        "pending_cap_reached": "You already have 3 submissions for this brand awaiting review. Please wait for a review before submitting another.",
+        "database_error": "We couldn't save this evidence. Please try again later.",
+        "unknown": "Submission failed. Please try again later.",
+        "invalidPhotoType": "Please upload an image file",
+        "uploadFailed": "Photo upload failed. Please try again."
+      }
+    },
     "adminMenu": {
       "label": "Admin menu",
       "viewAsOwner": "Brand view"
