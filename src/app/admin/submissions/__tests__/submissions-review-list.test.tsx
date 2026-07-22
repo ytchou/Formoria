@@ -511,7 +511,6 @@ function makeSubmission(
       image("detail", "https://cdn.example.com/detail.webp", 1),
     ],
     reviewCompleteness: { complete: true, missingFields: [] },
-    moderationRiskLevel: "clean",
     brandSlug: null,
     ...overrides,
   };

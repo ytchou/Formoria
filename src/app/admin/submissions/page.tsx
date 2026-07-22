@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { getSubmissionsForReview } from "@/lib/services/submissions";
-import { getModerationFlagsBatch } from "@/lib/services/moderation";
-import type { ModerationFlag, RiskLevel } from "@/lib/services/moderation";
 import { getBrandSlugsBatch } from "@/lib/services/brands";
 import {
   SubmissionsReviewList,
@@ -13,12 +11,6 @@ export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("admin.submissions");
 
   return { title: t("title") };
-}
-
-function getRiskLevel(flags: ModerationFlag[]): RiskLevel {
-  if (flags.some((flag) => flag.tier === "block")) return "high";
-  if (flags.some((flag) => flag.tier === "flag")) return "medium";
-  return "clean";
 }
 
 export default async function ReviewQueueSubmissionsPage({
@@ -46,16 +38,10 @@ export default async function ReviewQueueSubmissionsPage({
     .map((submission) => submission.brandId)
     .filter((brandId): brandId is string => Boolean(brandId));
 
-  const moderationFlagsByBrandId = await getModerationFlagsBatch(brandIds);
   const slugMap = await getBrandSlugsBatch(brandIds);
 
-  const submissionsWithRisk = submissions.map((submission) => ({
+  const submissionsWithSlugs = submissions.map((submission) => ({
     ...submission,
-    moderationRiskLevel: getRiskLevel(
-      submission.brandId
-        ? (moderationFlagsByBrandId.get(submission.brandId) ?? [])
-        : [],
-    ),
     enriched_data: submission.enriched_data,
     brandSlug: slugMap.get(submission.brandId ?? "") ?? null,
   }));
@@ -67,7 +53,7 @@ export default async function ReviewQueueSubmissionsPage({
 
       <div className="mt-8">
         <SubmissionsReviewList
-          submissions={submissionsWithRisk}
+          submissions={submissionsWithSlugs}
           initialTab={initialTab}
         />
       </div>

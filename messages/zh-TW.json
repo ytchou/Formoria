@@ -749,7 +749,7 @@
       },
       "reviewProcess": {
         "heading": "品牌審核流程",
-        "body": "所有提交的品牌資料須經過人工審核後方可上線。Formoria 保留拒絕或移除任何不符合平台標準之品牌資料的權利，且不承擔因審核結果對提交者造成影響的責任。審核通過不代表 Formoria 對該品牌的背書或認可。"
+        "body": "新提交的品牌資料會在發布前經過人工審核。已上線品牌的編輯會先經過自動掃描：沒有問題的變更會立即發布，被阻擋的變更則必須修正後才能發布。Formoria 保留拒絕或移除任何不符合平台標準之品牌資料的權利，且不承擔因審核結果對提交者造成影響的責任。審核通過不代表 Formoria 對該品牌的背書或認可。"
       },
       "disclaimer": {
         "heading": "免責聲明",
@@ -1513,7 +1513,17 @@
       "unsavedChanges": "有未儲存的變更",
       "brandEditPublished": "您的編輯已上線！",
       "violationSummary": "部分欄位需要修改後才能發布。",
-      "slugChangeBlocked": "品牌網址基於此名稱。如需更改，請聯繫我們。"
+      "slugChangeBlocked": "品牌網址基於此名稱。如需更改，請聯繫我們。",
+      "moderation": {
+        "suspiciousTld": "這個連結使用高風險網域結尾。請改用 .com 或 .tw 等一般網域的官方網站。",
+        "excessiveUrls": "這個欄位包含太多連結，請保留三個連結以內。",
+        "englishSpam": "這個欄位包含促銷式垃圾訊息，請移除「click here」或「buy now」等字句。",
+        "contactInjectionPhone": "此欄位不可放電話號碼，請移除電話並改用核准的連結提供聯絡資訊。",
+        "contactInjectionEmail": "此欄位不可放電子郵件地址，請移除地址並改用核准的連結提供聯絡資訊。",
+        "excessiveEmoji": "這個欄位的 emoji 太多，請控制在十個以內。",
+        "shortDescription": "這段介紹太短，請補充至少十個中文字的完整介紹。",
+        "identicalDescription": "這段介紹只重複品牌名稱，請改為說明品牌製作或販售的內容。"
+      }
     },
     "brandProfile": {
       "productPhotos": "產品照片",
@@ -2065,14 +2075,27 @@
       "complete": "資料抓取完成：{success} 筆成功、{skipped} 筆略過、{failed} 筆失敗"
     },
     "moderation": {
-      "riskHigh": "高風險",
-      "riskMedium": "中風險",
-      "riskClean": "無風險",
-      "flagCount": "{count} 個標記",
+      "blockedCount": "{count} 筆被阻擋的內容",
       "dashboard": "內容審核",
-      "filterByRisk": "按風險篩選",
-      "filterByTier": "按類型篩選",
-      "noFlaggedContent": "無待審內容"
+      "columnBrand": "品牌",
+      "columnField": "欄位",
+      "columnRule": "規則",
+      "columnExplanation": "說明",
+      "columnDetected": "偵測日期",
+      "columnActions": "操作",
+      "markReviewed": "標記為已查看",
+      "dismiss": "忽略",
+      "noBlockedContent": "目前沒有等待審核的被阻擋內容。",
+      "rules": {
+        "suspicious_tld": "可疑網域",
+        "excessive_urls": "連結過多",
+        "english_spam": "促銷式垃圾訊息",
+        "contact_injection_phone": "電話號碼",
+        "contact_injection_email": "電子郵件地址",
+        "excessive_emoji": "emoji 過多",
+        "short_description": "介紹太短",
+        "identical_description": "重複品牌名稱"
+      }
     },
     "evidence": {
       "title": "產地佐證",

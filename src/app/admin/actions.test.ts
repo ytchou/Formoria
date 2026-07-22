@@ -98,9 +98,10 @@ vi.mock('@/lib/services/submissions', () => ({
 }))
 
 vi.mock('@/lib/services/moderation', () => ({
-  scanContent: vi.fn().mockReturnValue({ riskLevel: 'clean', flags: [] }),
+  scanContent: vi.fn().mockReturnValue({ violations: [] }),
   saveModerationFlags: vi.fn().mockResolvedValue(undefined),
   markFlagsReviewed: vi.fn().mockResolvedValue(undefined),
+  updateModerationFlagStatus: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('@/lib/services/claim-requests', () => ({
@@ -516,12 +517,12 @@ describe('requestBrandRefreshAction', () => {
   })
 })
 
-describe('updateBrandAction moderation audit', () => {
+describe('updateBrandAction moderation blocking', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('updateBrandAction (admin edit) calls scanContent and saveModerationFlags when violations exist, then markFlagsReviewed', async () => {
+  it('blocks admin edits when scanContent finds violations', async () => {
     const { updateBrand } = await import('@/lib/services/brands')
     const { scanContent, saveModerationFlags, markFlagsReviewed } =
       await import('@/lib/services/moderation')
@@ -541,12 +542,8 @@ describe('updateBrandAction moderation audit', () => {
       category: 'apparel',
     })
 
-    expect(result).toBeUndefined()
-    expect(updateBrand).toHaveBeenCalledWith('brand-1', {
-      name: 'Test Brand',
-      description: 'bad word',
-      category: 'apparel',
-    })
+    expect(result).toEqual({ error: 'Phone detected' })
+    expect(updateBrand).not.toHaveBeenCalled()
     expect(scanContent).toHaveBeenCalledWith('Test Brand', {
       name: 'Test Brand',
       description: 'bad word',
@@ -559,8 +556,68 @@ describe('updateBrandAction moderation audit', () => {
       purchasePinkoi: undefined,
       purchaseShopee: undefined,
     })
-    expect(saveModerationFlags).toHaveBeenCalledWith('brand-1', 'admin-1', violations)
-    expect(markFlagsReviewed).toHaveBeenCalledWith('brand-1')
+    expect(saveModerationFlags).toHaveBeenCalledWith(
+      'brand-1',
+      'admin-1',
+      violations,
+      'pending',
+    )
+    expect(markFlagsReviewed).not.toHaveBeenCalled()
+  })
+
+  it('allows clean admin edits and does not create moderation flags', async () => {
+    const { updateBrand } = await import('@/lib/services/brands')
+    const { scanContent, saveModerationFlags } =
+      await import('@/lib/services/moderation')
+    vi.mocked(scanContent).mockReturnValue({ violations: [] })
+
+    const { updateBrandAction } = await import('./actions')
+    const result = await updateBrandAction('brand-1', {
+      name: 'Test Brand',
+      description: 'A clean description',
+    })
+
+    expect(result).toBeUndefined()
+    expect(updateBrand).toHaveBeenCalledWith('brand-1', {
+      name: 'Test Brand',
+      description: 'A clean description',
+    })
+    expect(saveModerationFlags).not.toHaveBeenCalled()
+  })
+})
+
+describe('reviewModerationFlagAction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('updates a valid flag and revalidates the moderation queue', async () => {
+    const { updateModerationFlagStatus } =
+      await import('@/lib/services/moderation')
+    const { reviewModerationFlagAction } = await import('./actions')
+
+    const result = await reviewModerationFlagAction(
+      '11111111-1111-4111-8111-111111111111',
+      'dismissed',
+    )
+
+    expect(result).toBeUndefined()
+    expect(updateModerationFlagStatus).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+      'dismissed',
+    )
+    expect(revalidatePath).toHaveBeenCalledWith('/admin/moderation')
+  })
+
+  it('rejects an invalid flag id before updating', async () => {
+    const { updateModerationFlagStatus } =
+      await import('@/lib/services/moderation')
+    const { reviewModerationFlagAction } = await import('./actions')
+
+    const result = await reviewModerationFlagAction('not-a-uuid', 'reviewed')
+
+    expect(result).toEqual({ error: 'Invalid moderation flag ID' })
+    expect(updateModerationFlagStatus).not.toHaveBeenCalled()
   })
 })
 
