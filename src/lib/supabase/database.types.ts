@@ -493,6 +493,7 @@ export type Database = {
           id: string
           notes: string | null
           reason: string
+          reported_field: string | null
           reviewed_at: string | null
           status: string
           user_id: string | null
@@ -503,6 +504,7 @@ export type Database = {
           id?: string
           notes?: string | null
           reason: string
+          reported_field?: string | null
           reviewed_at?: string | null
           status?: string
           user_id?: string | null
@@ -513,6 +515,7 @@ export type Database = {
           id?: string
           notes?: string | null
           reason?: string
+          reported_field?: string | null
           reviewed_at?: string | null
           status?: string
           user_id?: string | null
@@ -795,6 +798,9 @@ export type Database = {
           hero_image_url: string | null
           id: string
           is_demo: boolean
+          mit_declared_at: string | null
+          mit_declared_by: string | null
+          mit_declared_scope: string | null
           mit_evidence: Json | null
           mit_status: string
           mit_story: string | null
@@ -839,6 +845,9 @@ export type Database = {
           hero_image_url?: string | null
           id?: string
           is_demo?: boolean
+          mit_declared_at?: string | null
+          mit_declared_by?: string | null
+          mit_declared_scope?: string | null
           mit_evidence?: Json | null
           mit_status?: string
           mit_story?: string | null
@@ -883,6 +892,9 @@ export type Database = {
           hero_image_url?: string | null
           id?: string
           is_demo?: boolean
+          mit_declared_at?: string | null
+          mit_declared_by?: string | null
+          mit_declared_scope?: string | null
           mit_evidence?: Json | null
           mit_status?: string
           mit_story?: string | null
@@ -1417,6 +1429,62 @@ export type Database = {
         }
         Relationships: []
       }
+      origin_evidence: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          notes: string
+          photo_paths: string[]
+          product_name: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewer_notes: string | null
+          source_type: string
+          stance: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          notes: string
+          photo_paths?: string[]
+          product_name?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
+          source_type: string
+          stance: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          notes?: string
+          photo_paths?: string[]
+          product_name?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
+          source_type?: string
+          stance?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "origin_evidence_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       owner_email_preferences: {
         Row: {
           consent_source: string | null
@@ -1913,18 +1981,6 @@ export type Database = {
           social_threads_count: number
           total_brands: number
         }[]
-      }
-      increment_brand_click: {
-        Args: { p_brand_id: string }
-        Returns: undefined
-      }
-      increment_brand_link_click: {
-        Args: { p_brand_id: string; p_destination: string }
-        Returns: undefined
-      }
-      increment_brand_view: {
-        Args: { p_brand_id: string; p_source?: string }
-        Returns: undefined
       }
       mark_unreported_curation_job_targets_skipped: {
         Args: { p_job_id: string; p_worker_token: string }
