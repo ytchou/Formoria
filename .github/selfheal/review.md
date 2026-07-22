@@ -22,9 +22,27 @@ Any of the following MUST cause a REJECT:
 - No new dependencies added
 - Fix is minimal — no unrelated refactoring or cleanup
 
+### App code changes (EXPECTED, not suspicious)
+
+The triage agent is designed to fix both test code AND product code. Common legitimate
+app code changes include:
+- Adding `process.env.PLAYWRIGHT_TEST` guards to skip external calls (email, payments)
+- Fixing validation logic that incorrectly rejects valid inputs
+- Restoring accidentally removed UI elements
+
+These are PASS as long as each has a clear justification tied to a failing spec.
+
 ## Required Output
 
-Print a verdict summary consumed by the reporting step:
+Read `CLAUDE.md` in the repo root for project context. Then run `git diff HEAD~1` (or
+however many commits the triage agent made) to see all changes.
+
+For each changed file, verify:
+1. The change is justified by a specific failing spec
+2. The change doesn't weaken test coverage
+3. Product code changes don't alter production behavior beyond what's needed
+
+Print a verdict:
 
 ```
 VERDICT: PASS | REJECT
@@ -32,7 +50,5 @@ JUSTIFICATION: <one-line summary>
 APP_FILES: <comma-separated list of non-e2e files changed, or "none">
 RISK: low | medium | high
 ```
-
-If any non-`e2e/` file is in the diff, justify each one in the verdict text.
 
 Exit with code 0 for PASS, non-zero for REJECT.
