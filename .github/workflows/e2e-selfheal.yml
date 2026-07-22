@@ -100,7 +100,7 @@ jobs:
 
           LAST_GREEN_SHA=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/e2e-nightly.yml/runs?status=success&per_page=1" --jq '.workflow_runs[0].head_sha' || echo "")
           if [ -n "$LAST_GREEN_SHA" ]; then
-            REGRESSION_DIFF=$(git log "$LAST_GREEN_SHA..HEAD" --stat 2>/dev/null || echo "No diff available")
+            REGRESSION_DIFF=$(git log "$LAST_GREEN_SHA..HEAD" --oneline --stat 2>/dev/null | head -200 || echo "No diff available")
           else
             REGRESSION_DIFF="No previous green run found"
           fi
@@ -141,8 +141,7 @@ jobs:
             repeat_offenders: ${{ steps.context.outputs.repeat_offenders }}
 
             systemic: ${{ steps.context.outputs.systemic == '1' && 'true' || 'false' }}
-          max_turns: 30
-          timeout_minutes: 45
+          claude_args: "--max-turns 30"
 
       - name: Review fix
         if: steps.guard.outputs.skip != 'true' && steps.fix.outcome == 'success'
@@ -154,8 +153,7 @@ jobs:
           prompt: |
             Read .github/selfheal/review.md for your full instructions.
             Review the changes on this branch against the classification output.
-          max_turns: 10
-          timeout_minutes: 15
+          claude_args: "--max-turns 10"
 
       - name: Setup pnpm
         if: steps.guard.outputs.skip != 'true' && steps.review.outcome == 'success'
