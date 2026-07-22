@@ -19,6 +19,7 @@ import { RequiredFieldsHint } from '@/components/forms/required-fields-hint'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { fieldTextStyles } from '@/components/ui/text-styles'
 import type { BrandWizardCommonValues } from '@/lib/schemas/brand-wizard'
 import { cn } from '@/lib/utils'
 
@@ -252,20 +253,32 @@ function FixedPlatformRow({ row, required }: { row: PlatformRow; required: boole
         control={form.control}
         name={row.name}
         render={({ field }) => (
-          <Input
-            id={row.name}
-            type={row.inputType ?? 'text'}
-            inputMode="url"
-            autoComplete="url"
-            aria-label={row.label}
-            aria-required={required}
-            aria-invalid={Boolean(error)}
-            placeholder={row.placeholder}
-            className="min-h-12 bg-card"
-            value={field.value ?? ''}
-            onChange={field.onChange}
-            onBlur={field.onBlur}
-          />
+          <div className="min-w-0">
+            <Input
+              id={row.name}
+              type={row.inputType ?? 'text'}
+              inputMode="url"
+              autoComplete="url"
+              aria-label={row.label}
+              aria-required={required}
+              aria-invalid={Boolean(error)}
+              aria-describedby={error ? `${row.name}-error` : undefined}
+              placeholder={row.placeholder}
+              className="min-h-12 bg-card"
+              value={field.value ?? ''}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+            />
+            {typeof error?.message === 'string' ? (
+              <p
+                id={`${row.name}-error`}
+                className={fieldTextStyles.error}
+                aria-live="polite"
+              >
+                {error.message}
+              </p>
+            ) : null}
+          </div>
         )}
       />
     </div>

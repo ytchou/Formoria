@@ -49,8 +49,7 @@ test.describe('Admin content moderation dashboard', () => {
     if (brandErr || !brandData) throw new Error(`seed brand: ${brandErr?.message}`);
     brandId = brandData.id;
 
-    // Seed one high-risk flag (block) and one medium-risk flag (flag).
-    // The page maps block -> High Risk and flag -> Medium Risk.
+    // Seed two blocking violations for the queue.
     const { error: flagErr } = await supabase.from('moderation_flags').insert([
       {
         brand_id: brandId,
@@ -58,7 +57,6 @@ test.describe('Admin content moderation dashboard', () => {
         field_name: 'website',
         flag_reason: 'Suspicious TLD detected: .tk',
         flagged_content: 'https://freegiveaway.tk',
-        tier: 'block',
         status: 'pending',
       },
       {
@@ -67,7 +65,6 @@ test.describe('Admin content moderation dashboard', () => {
         field_name: 'description',
         flag_reason: 'Email address detected',
         flagged_content: '[E2E-TEST] Suspicious moderation test brand test@example.com',
-        tier: 'flag',
         status: 'pending',
       },
     ]);
@@ -81,7 +78,7 @@ test.describe('Admin content moderation dashboard', () => {
     }
   });
 
-  test('moderation dashboard shows page heading and flagged brand rows with risk badges', async ({
+  test('moderation dashboard shows blocked rows and review actions', async ({
     adminPage,
   }) => {
     test.setTimeout(120_000);
@@ -95,23 +92,22 @@ test.describe('Admin content moderation dashboard', () => {
     // The seeded brand's flag rows appear in the table
     await expect(adminPage.getByText(/\[E2E-TEST\] Moderation/).first()).toBeVisible({ timeout: 30_000 });
 
-    // High-risk badge is visible in the table (not the filter dropdown)
-    await expect(adminPage.locator('table').getByText('High Risk').first()).toBeVisible({ timeout: 10_000 });
-
-    // Medium-risk badge is visible in the table
-    await expect(adminPage.locator('table').getByText('Medium Risk').first()).toBeVisible({ timeout: 10_000 });
+    await expect(adminPage.locator('table').getByRole('columnheader', { name: 'Actions' })).toBeVisible();
+    await expect(adminPage.getByRole('button', { name: 'Mark reviewed' }).first()).toBeVisible();
+    await expect(adminPage.getByRole('button', { name: 'Dismiss' }).first()).toBeVisible();
   });
 
-  test('moderation dashboard filter by risk shows correct subset', async ({
+  test('moderation dashboard has no tier or risk filters', async ({
     adminPage,
   }) => {
     test.setTimeout(120_000);
 
-    await adminPage.goto('/admin/moderation?risk=high', { timeout: 60_000 });
+    await adminPage.goto('/admin/moderation', { timeout: 60_000 });
     await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
 
-    // Only high-risk rows shown — block flag for seeded brand visible
-    await expect(adminPage.getByText(/\[E2E-TEST\] Moderation/).first()).toBeVisible({ timeout: 30_000 });
-    await expect(adminPage.locator('table').getByText('High Risk').first()).toBeVisible({ timeout: 10_000 });
+    await expect(adminPage.getByText('Filter by risk')).toHaveCount(0);
+    await expect(adminPage.getByText('Filter by tier')).toHaveCount(0);
+    await expect(adminPage.getByText('Suspicious domain')).toBeVisible({ timeout: 10_000 });
+    await expect(adminPage.getByText('Email address')).toBeVisible({ timeout: 10_000 });
   });
 });

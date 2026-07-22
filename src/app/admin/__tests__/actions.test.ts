@@ -147,6 +147,7 @@ describe('rejectSubmissionAction', () => {
       scanContent: vi.fn(),
       saveModerationFlags: vi.fn(),
       markFlagsReviewed: vi.fn(),
+      updateModerationFlagStatus: vi.fn(),
     }))
 
     vi.doMock('@/lib/email/send', () => ({
