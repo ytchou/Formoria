@@ -897,7 +897,6 @@ const DIRECTORY_GITHUB_QUERY = `
           securityVulnerability {
             severity
             package { name }
-            firstPatchedVersion { identifier }
           }
         }
       }
@@ -920,18 +919,6 @@ async function tipIsAncestorOfMain(
   } catch {
     return false;
   }
-}
-
-function versionImpact(
-  value: unknown,
-): DependabotAlertEvidence["versionImpact"] {
-  const identifier = stringValue(value);
-  if (!identifier) return "unknown";
-  const parts = identifier.replace(/^v/i, "").split(".");
-  if (parts.length < 3 || parts.some((part) => !/^\d+/.test(part))) {
-    return "unknown";
-  }
-  return Number(parts[0]) === 0 ? "minor" : "unknown";
 }
 
 export async function collectGitHubDirectoryEvidence(
@@ -1059,16 +1046,13 @@ export async function collectGitHubDirectoryEvidence(
     ) {
       return [];
     }
-    const patched = isRecord(vulnerability.firstPatchedVersion)
-      ? vulnerability.firstPatchedVersion.identifier
-      : undefined;
     return [
       {
         alertId,
         packageName,
         severity,
         state: "open",
-        versionImpact: versionImpact(patched),
+        versionImpact: "unknown",
       },
     ];
   });

@@ -805,7 +805,17 @@ jobs:
       - name: Capture automatic patch
         if: always()
         run: |
+          set -euo pipefail
           mkdir -p .health-agent-artifacts
+          if jq -e '.automatic.finding_count > 0' .health-agent-artifacts/automatic-metadata.json >/dev/null; then
+            scripts/health-agent/validate-repair-patch.sh \
+              .health-agent-artifacts/automatic-metadata.json automatic
+            while IFS= read -r changed_path; do
+              if [[ -e "$changed_path" ]] && ! git ls-files --error-unmatch -- "$changed_path" >/dev/null 2>&1; then
+                git add --intent-to-add -- "$changed_path"
+              fi
+            done < <(jq -r '.automatic.traceability[].changedFiles[]' .health-agent-artifacts/automatic-metadata.json | sort -u)
+          fi
           git diff --binary > .health-agent-artifacts/automatic.patch
       - name: Require automatic patch for claimed findings
         if: always() && steps.automatic-batch.outputs.has_findings == 'true'
@@ -955,7 +965,17 @@ jobs:
       - name: Capture human patch
         if: always()
         run: |
+          set -euo pipefail
           mkdir -p .health-agent-artifacts
+          if jq -e '.human.finding_count > 0' .health-agent-artifacts/human-metadata.json >/dev/null; then
+            scripts/health-agent/validate-repair-patch.sh \
+              .health-agent-artifacts/human-metadata.json human
+            while IFS= read -r changed_path; do
+              if [[ -e "$changed_path" ]] && ! git ls-files --error-unmatch -- "$changed_path" >/dev/null 2>&1; then
+                git add --intent-to-add -- "$changed_path"
+              fi
+            done < <(jq -r '.human.traceability[].changedFiles[]' .health-agent-artifacts/human-metadata.json | sort -u)
+          fi
           git diff --binary > .health-agent-artifacts/human.patch
       - name: Require human patch for claimed findings
         if: always() && steps.human-batch.outputs.has_findings == 'true'
@@ -1070,20 +1090,17 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Download automatic patch
         if: needs.automatic-repair.result == 'success'
-        continue-on-error: true
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: health-repair-automatic-${{ github.run_id }}-${{ github.run_attempt }}
           path: .health-agent-artifacts/automatic
       - name: Download human patch
         if: needs.human-repair.result == 'success'
-        continue-on-error: true
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: health-repair-human-${{ github.run_id }}-${{ github.run_attempt }}
           path: .health-agent-artifacts/human
-      - name: Download canary snapshot
-        if: needs.gate.outputs.mode == 'canary_fix'
+      - name: Download repair batch metadata
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: health-repair-batches-${{ github.run_id }}-${{ github.run_attempt }}
@@ -1093,25 +1110,38 @@ jobs:
           HEALTH_AGENT_MODE: ${{ needs.gate.outputs.mode }}
         run: |
           set -euo pipefail
-          applied=false
-          for patch in .health-agent-artifacts/automatic/automatic.patch .health-agent-artifacts/human/human.patch; do
-            if [[ -s "$patch" ]]; then
-              git apply --check --binary "$patch"
-              git apply --binary "$patch"
-              applied=true
+          validator="$RUNNER_TEMP/validate-repair-patch.sh"
+          cp scripts/health-agent/validate-repair-patch.sh "$validator"
+          chmod 700 "$validator"
+          validated=false
+          for policy in automatic human; do
+            patch=".health-agent-artifacts/$policy/$policy.patch"
+            metadata=".health-agent-artifacts/metadata/$policy-metadata.json"
+            finding_count="$(jq -er --arg policy "$policy" '.[$policy].finding_count | select(type == "number" and floor == . and . >= 0)' "$metadata")"
+            if [[ "$finding_count" == "0" ]]; then
+              test ! -s "$patch"
+              continue
             fi
+            test -s "$patch"
+            git apply --check --index --binary "$patch"
+            git apply --index --binary "$patch"
+            "$validator" "$metadata" "$policy"
+            git reset HEAD --
+            if [[ "$HEALTH_AGENT_MODE" == "canary_fix" ]]; then
+              test "$policy" = automatic
+              scripts/health-agent/validate-canary-patch.sh \
+                .health-agent-artifacts/metadata/automatic-snapshot.json
+            fi
+            pnpm lint
+            pnpm exec tsc --noEmit --incremental false
+            pnpm exec vitest run scripts/health-agent
+            git apply --reverse --binary "$patch"
+            validated=true
           done
-          if [[ "$applied" != "true" ]]; then
+          if [[ "$validated" != "true" ]]; then
             echo "No validated patch was produced"
             exit 0
           fi
-          if [[ "$HEALTH_AGENT_MODE" == "canary_fix" ]]; then
-            scripts/health-agent/validate-canary-patch.sh \
-              .health-agent-artifacts/metadata/automatic-snapshot.json
-          fi
-          pnpm lint
-          pnpm exec tsc --noEmit --incremental false
-          pnpm exec vitest run scripts/health-agent
 
   publish-automatic-pr:
     needs: [gate, automatic-repair, validate-repair]
@@ -1149,13 +1179,11 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Download automatic patch
         if: needs.automatic-repair.result == 'success'
-        continue-on-error: true
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: health-repair-automatic-${{ github.run_id }}-${{ github.run_attempt }}
           path: .health-agent-artifacts/automatic
       - name: Download automatic traceability metadata
-        continue-on-error: true
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: health-repair-batches-${{ github.run_id }}-${{ github.run_attempt }}
@@ -1173,6 +1201,17 @@ jobs:
           SLACK_HEALTH_WEBHOOK_URL: ${{ secrets.SLACK_HEALTH_WEBHOOK_URL }}
         run: |
           set -euo pipefail
+          metadata_file=.health-agent-artifacts/metadata/automatic-metadata.json
+          finding_count="$(jq -er '.automatic.finding_count | select(type == "number" and floor == . and . >= 0)' "$metadata_file")"
+          if [[ "$finding_count" == "0" ]]; then
+            test ! -s .health-agent-artifacts/automatic/automatic.patch
+            echo "No automatic findings to publish"
+            exit 0
+          fi
+          test -s .health-agent-artifacts/automatic/automatic.patch
+          validator="$RUNNER_TEMP/validate-repair-patch.sh"
+          cp scripts/health-agent/validate-repair-patch.sh "$validator"
+          chmod 700 "$validator"
           git config user.name "formoria-health-agent[bot]"
           git config user.email "formoria-health-agent[bot]@users.noreply.github.com"
           gh label create health-agent --description "Formoria health-agent repair" --force
@@ -1181,22 +1220,20 @@ jobs:
             gh label create health-agent-canary --description "Controlled health-agent App canary" --force
             pr_labels+=(--label health-agent-canary)
           fi
-          if [[ ! -s .health-agent-artifacts/automatic/automatic.patch ]]; then
-            echo "No automatic patch to publish"
-            exit 0
-          fi
           git switch -C "health-agent/automatic-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" "$DEFAULT_BRANCH"
-          git apply --binary .health-agent-artifacts/automatic/automatic.patch
+          git apply --index --binary .health-agent-artifacts/automatic/automatic.patch
+          "$validator" "$metadata_file" automatic
+          git reset HEAD --
           if [[ "$HEALTH_AGENT_MODE" == "canary_fix" ]]; then
             scripts/health-agent/validate-canary-patch.sh \
               .health-agent-artifacts/metadata/automatic-snapshot.json
           fi
-          git add -A
+          while IFS= read -r changed_path; do
+            git add -A -- "$changed_path"
+          done < <(jq -r '.automatic.traceability[].changedFiles[]' "$metadata_file" | sort -u)
           git commit -m "fix: apply automatic health repairs"
           git push --force-with-lease origin HEAD
-          metadata_file=.health-agent-artifacts/metadata/automatic-metadata.json
           body_file=.health-agent-artifacts/automatic-pr-body.md
-          test -f "$metadata_file"
           {
             printf '%s\n\n' '<!-- health-agent:confirmation:v1 -->'
             printf '%s\n\n' 'Automatic health-repair batch. Traceability metadata:'
@@ -1212,7 +1249,6 @@ jobs:
             --body-file "$body_file")
           if [[ "$BATCH_KIND" == "automatic" ]]; then
             echo "auto_merge_enabled=true"
-            echo "merged=false"
             gh pr merge --auto --squash "$automatic_pr"
           fi
           automatic_pr_number="${automatic_pr##*/}"
@@ -1271,13 +1307,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Download human patch
-        continue-on-error: true
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: health-repair-human-${{ github.run_id }}-${{ github.run_attempt }}
           path: .health-agent-artifacts/human
       - name: Download human traceability metadata
-        continue-on-error: true
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: health-repair-batches-${{ github.run_id }}-${{ github.run_attempt }}
@@ -1293,21 +1327,30 @@ jobs:
           SLACK_HEALTH_WEBHOOK_URL: ${{ secrets.SLACK_HEALTH_WEBHOOK_URL }}
         run: |
           set -euo pipefail
-          if [[ ! -s .health-agent-artifacts/human/human.patch ]]; then
-            echo "No human patch to publish"
+          metadata_file=.health-agent-artifacts/metadata/human-metadata.json
+          finding_count="$(jq -er '.human.finding_count | select(type == "number" and floor == . and . >= 0)' "$metadata_file")"
+          if [[ "$finding_count" == "0" ]]; then
+            test ! -s .health-agent-artifacts/human/human.patch
+            echo "No human findings to publish"
             exit 0
           fi
+          test -s .health-agent-artifacts/human/human.patch
+          validator="$RUNNER_TEMP/validate-repair-patch.sh"
+          cp scripts/health-agent/validate-repair-patch.sh "$validator"
+          chmod 700 "$validator"
           git config user.name "formoria-health-agent[bot]"
           git config user.email "formoria-health-agent[bot]@users.noreply.github.com"
           gh label create health-agent --description "Formoria health-agent repair" --force
           git switch -C "health-agent/human-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" "$DEFAULT_BRANCH"
-          git apply --binary .health-agent-artifacts/human/human.patch
-          git add -A
+          git apply --index --binary .health-agent-artifacts/human/human.patch
+          "$validator" "$metadata_file" human
+          git reset HEAD --
+          while IFS= read -r changed_path; do
+            git add -A -- "$changed_path"
+          done < <(jq -r '.human.traceability[].changedFiles[]' "$metadata_file" | sort -u)
           git commit -m "fix: apply human health repairs"
           git push --force-with-lease origin HEAD
-          metadata_file=.health-agent-artifacts/metadata/human-metadata.json
           body_file=.health-agent-artifacts/human-pr-body.md
-          test -f "$metadata_file"
           {
             printf '%s\n\n' '<!-- health-agent:confirmation:v1 -->'
             printf '%s\n\n' 'Human-gated health-repair batch. Traceability metadata:'
@@ -1322,7 +1365,6 @@ jobs:
             --title "fix: human-reviewed health repairs" \
             --body-file "$body_file")
           echo "auto_merge_enabled=false"
-          echo "merged=false"
           human_pr_number="${human_pr##*/}"
           pnpm exec tsx scripts/health-agent/workflow-runtime.ts repair-result \
             --metadata "$metadata_file" \

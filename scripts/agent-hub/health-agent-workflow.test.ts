@@ -267,7 +267,6 @@ describe("unified health-agent workflow contract", () => {
     expect(workflow).toContain("repair-audit");
     expect(workflow).toContain("retention-days: 14");
     expect(workflow).toContain("BATCH_KIND: automatic");
-    expect(workflow).toContain('echo "merged=false"');
     expect(workflow).toContain('if [[ "$BATCH_KIND" == "automatic" ]]');
     expect(workflow).toContain("directory:canary:github-app-pr");
     expect(workflow).not.toContain("directory:stale-branch:canary");
@@ -292,5 +291,32 @@ describe("unified health-agent workflow contract", () => {
     await expect(
       access("scripts/agent-hub/health-selfheal-workflow.test.ts"),
     ).rejects.toThrow();
+  });
+
+  it("fails closed around repair artifacts and revalidates exact changed paths", async () => {
+    const workflow = await readFile(workflowPath, "utf8");
+    const validation = jobSection(
+      workflow,
+      "validate-repair",
+      "publish-automatic-pr",
+    );
+    const automaticPublisher = jobSection(
+      workflow,
+      "publish-automatic-pr",
+      "publish-human-pr",
+    );
+    const humanPublisher = jobSection(workflow, "publish-human-pr");
+
+    expect(validation).toContain("Download repair batch metadata");
+    expect(validation).not.toContain("continue-on-error");
+    expect(validation).toContain('finding_count="$(jq -er');
+    for (const section of [validation, automaticPublisher, humanPublisher]) {
+      expect(section).toContain("validate-repair-patch.sh");
+    }
+    for (const publisher of [automaticPublisher, humanPublisher]) {
+      expect(publisher).not.toContain("continue-on-error");
+      expect(publisher).not.toContain("git add -A\n");
+      expect(publisher).toContain("finding_count");
+    }
   });
 });

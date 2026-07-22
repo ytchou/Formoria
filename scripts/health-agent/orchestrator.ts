@@ -2306,9 +2306,6 @@ export async function runCommand(
   }
 }
 
-export const runHealthAgent = runCommand;
-export const executeHealthCommand = runCommand;
-
 function argument(argv: readonly string[], name: string): string | undefined {
   const index = argv.indexOf(name);
   const next = index >= 0 ? argv[index + 1] : undefined;

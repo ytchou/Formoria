@@ -22,6 +22,13 @@ describe("Directory Health policies", () => {
       expect(query.sql).not.toContain("get_brand_quality_metrics");
       expect(query.readOnly).toBe(true);
     }
+
+    expect(DIRECTORY_QUERY_SPECS.deadTuples.sql).toMatch(
+      /n_dead_tup\s*\/\s*\(n_live_tup\s*\+\s*n_dead_tup\)/i,
+    );
+    expect(DIRECTORY_QUERY_SPECS.deadTuples.sql).toMatch(
+      /n_live_tup\s*\+\s*n_dead_tup\s*>\s*0/i,
+    );
   });
 
   it("emits compact human-owned approval-gate findings in stable order", () => {
@@ -114,7 +121,7 @@ describe("Directory Health policies", () => {
     ]);
   });
 
-  it("applies strict DB thresholds and requires consecutive dead-tuple evidence", () => {
+  it("applies strict DB thresholds across the latest two dead-tuple snapshots", () => {
     const result = evaluateDatabaseEvidence({
       connections: { total: 81, maximum: 100 },
       activeQueries: [
@@ -170,24 +177,32 @@ describe("Directory Health policies", () => {
     ]);
   });
 
-  it("does not escalate exact boundaries or nonconsecutive dead-tuple snapshots", () => {
+  it("uses nonconsecutive snapshots while preserving exact threshold boundaries", () => {
     const result = evaluateDatabaseEvidence({
       connections: { total: 80, maximum: 100 },
       activeQueries: [{ queryId: "boundary", durationSeconds: 60 }],
       deadTupleSnapshots: [
         {
           snapshotDate: "2026-07-22",
-          tables: [{ tableName: "brands", deadTuplePercent: 99 }],
+          tables: [
+            { tableName: "brands", deadTuplePercent: 99 },
+            { tableName: "profiles", deadTuplePercent: 99 },
+          ],
         },
         {
           snapshotDate: "2026-07-20",
-          tables: [{ tableName: "brands", deadTuplePercent: 99 }],
+          tables: [
+            { tableName: "brands", deadTuplePercent: 99 },
+            { tableName: "profiles", deadTuplePercent: 20 },
+          ],
         },
       ],
       indexConcerns: [],
     });
 
-    expect(result.findings).toEqual([]);
+    expect(result.findings.map((finding) => finding.fingerprint)).toEqual([
+      "directory:dead-tuples:brands",
+    ]);
   });
 
   it("routes only high/critical Dependabot alerts by known version impact", () => {

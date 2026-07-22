@@ -521,8 +521,6 @@ export function decideRepairPolicy(
   };
 }
 
-export const classifyRepairFinding = decideRepairPolicy;
-
 function cloneJsonValue(value: JsonValue): JsonValue {
   if (Array.isArray(value)) return value.map(cloneJsonValue);
   if (isRecord(value)) {
@@ -672,8 +670,6 @@ export function buildRepairBranchName(
   return branchNameFor(batch.batchKind, batch.snapshotId);
 }
 
-export const deterministicRepairBranchName = buildRepairBranchName;
-
 function createBatch(
   snapshot: RepairSnapshot,
   batchKind: RepairBatchKind,
@@ -729,8 +725,6 @@ export function partitionRepairBatch(
     snapshot,
   };
 }
-
-export const partitionClaimedFindings = partitionRepairBatch;
 
 function stateForFinding(
   report: RepairCycleReport,
@@ -925,8 +919,6 @@ export function evaluateRepairCycles(
   };
 }
 
-export const evaluateTwoCyclePolicy = evaluateRepairCycles;
-
 function markdownValue(value: string): string {
   return value
     .replace(/[\r\n\t]+/g, " ")
@@ -1026,6 +1018,3 @@ export function buildRepairPrBody(input: RepairResult | RepairBatch): string {
 
   return lines.join("\n");
 }
-
-export const renderRepairPrBody = buildRepairPrBody;
-export const buildRepairPullRequestBody = buildRepairPrBody;

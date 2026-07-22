@@ -48,10 +48,24 @@ describe("E2E workflow contracts", () => {
       'auto_merge_enabled: ($auto_merge_enabled == "true")',
     );
     expect(workflow).toMatch(/anthropics\/claude-code-action@[0-9a-f]{40}/);
+    expect(workflow).toContain("steps.fix.outputs.structured_output");
+    expect(workflow).not.toContain("steps.fix.outputs.result");
+    expect(workflow).toContain('--json-schema {"type":"object"');
     expect(workflow).toMatch(/pnpm\/action-setup@[0-9a-f]{40}/);
     expect(
       remoteActions(workflow).every((action) => /@[0-9a-f]{40}$/.test(action)),
     ).toBe(true);
+  });
+
+  it("pins every remote action in the stable pull-request checks", async () => {
+    const workflow = await readFile(
+      ".github/workflows/frontend-ci.yml",
+      "utf8",
+    );
+    const actions = remoteActions(workflow);
+
+    expect(actions.length).toBeGreaterThan(0);
+    expect(actions.every((action) => /@[0-9a-f]{40}$/.test(action))).toBe(true);
   });
 
   it("propagates real Playwright failures and only accepts no-tests status", () => {

@@ -402,7 +402,8 @@ AS $$
         SELECT jsonb_agg(jsonb_build_object(
           'tableName', relname,
           'deadTuplePercent', CASE
-            WHEN n_live_tup > 0 THEN 100.0 * n_dead_tup / n_live_tup
+            WHEN n_live_tup + n_dead_tup > 0
+              THEN 100.0 * n_dead_tup / (n_live_tup + n_dead_tup)
             ELSE 0
           END
         ) ORDER BY relname)

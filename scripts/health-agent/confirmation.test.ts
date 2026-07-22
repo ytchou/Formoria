@@ -318,6 +318,18 @@ describe("Railway deployment confirmation", () => {
         newStatus: "fixed",
       }),
     );
+    expect(deps.agentHub).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          authoritative_merge_sha: mergeSha,
+          confirmed_fixed_count: 1,
+          deployment_status: "success",
+          deployment_timestamp: now.toISOString(),
+          production_smoke: true,
+        }),
+        routine: "health-selfheal",
+      }),
+    );
   });
 
   it("attempts Slack and Agent Hub independently", async () => {
@@ -335,5 +347,13 @@ describe("Railway deployment confirmation", () => {
     expect(result.delivery).toEqual({ agentHub: "sent", slack: "failed" });
     expect(deps.slack).toHaveBeenCalledTimes(1);
     expect(deps.agentHub).toHaveBeenCalledTimes(1);
+    expect(deps.agentHub).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          deployment_status: "failure",
+        }),
+        routine: "health-selfheal",
+      }),
+    );
   });
 });

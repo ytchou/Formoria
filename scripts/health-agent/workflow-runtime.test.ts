@@ -1072,6 +1072,7 @@ describe("default runtime dependencies", () => {
           alertId: "17",
           packageName: "vulnerable-package",
           severity: "high",
+          versionImpact: "unknown",
         }),
       ],
       links: [{ brandId: "approved-brand", recordId: "artifact-link" }],

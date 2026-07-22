@@ -119,6 +119,15 @@ describe("GitHub health agent foundation migration", () => {
     expect(telemetry).toContain("p_checked_at::date");
   });
 
+  it("calculates dead tuple percentage against all observed tuples", () => {
+    const snapshot = functionSql("read_health_directory_database_evidence");
+
+    expect(snapshot).toMatch(
+      /n_dead_tup\s*\/\s*\(n_live_tup\s*\+\s*n_dead_tup\)/,
+    );
+    expect(snapshot).toMatch(/n_live_tup\s*\+\s*n_dead_tup\s*>\s*0/);
+  });
+
   it("uses function-only writer grants and never grants brand writes", () => {
     expect(migration).toContain("create role health_agent_reader nologin");
     expect(migration).toContain("create role health_agent_writer nologin");

@@ -39,7 +39,9 @@ describe("Formoria health-agent retirement contract", () => {
 
     expect(tombstone).toContain("Growth Pulse is retired");
     expect(tombstone).not.toMatch(/report-run\.mjs|growth-pulse|PostHog/i);
-    expect(tombstone).not.toMatch(/traffic correlation|cross-check correlation/i);
+    expect(tombstone).not.toMatch(
+      /traffic correlation|cross-check correlation/i,
+    );
     expect(tombstone).not.toMatch(/Supabase MCP|Sentry MCP|\bSeer\b/i);
     expect(tombstone).not.toMatch(/cron:|07:10|10 0 \* \* \*/);
   });

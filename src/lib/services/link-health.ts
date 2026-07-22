@@ -10,7 +10,7 @@ export interface LinkHealthOptions {
   now?: () => Date;
 }
 
-export interface LinkHealthFinding {
+interface LinkHealthFinding {
   brandId: string;
   field: CheckedField;
   url: string;

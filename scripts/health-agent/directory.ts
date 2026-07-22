@@ -98,8 +98,8 @@ export const DIRECTORY_QUERY_SPECS = {
     readOnly: true,
     sql: `
       SELECT relname AS table_name,
-        CASE WHEN n_live_tup > 0
-          THEN 100.0 * n_dead_tup / n_live_tup
+        CASE WHEN n_live_tup + n_dead_tup > 0
+          THEN 100.0 * n_dead_tup / (n_live_tup + n_dead_tup)
           ELSE 0
         END AS dead_tuple_percent
       FROM pg_stat_user_tables
@@ -375,15 +375,6 @@ export interface DatabaseSnapshot {
   evidencedIndexConcernIds: string[];
 }
 
-function consecutiveIsoDates(earlier: string, later: string): boolean {
-  if (!isIsoDate(earlier) || !isIsoDate(later)) return false;
-  return (
-    Date.parse(`${later}T00:00:00.000Z`) -
-      Date.parse(`${earlier}T00:00:00.000Z`) ===
-    86_400_000
-  );
-}
-
 function nonempty(value: string): boolean {
   return value.trim().length > 0;
 }
@@ -447,11 +438,7 @@ export function evaluateDatabaseEvidence(evidence: DatabaseEvidence): {
   if (
     recentSnapshots.length === 2 &&
     recentSnapshots[0] &&
-    recentSnapshots[1] &&
-    consecutiveIsoDates(
-      recentSnapshots[0].snapshotDate,
-      recentSnapshots[1].snapshotDate,
-    )
+    recentSnapshots[1]
   ) {
     const earlierRates = new Map(
       recentSnapshots[0].tables.map((table) => [
@@ -473,7 +460,7 @@ export function evaluateDatabaseEvidence(evidence: DatabaseEvidence): {
           humanFinding(
             "dead-tuples",
             table.tableName,
-            "Dead tuples exceed 20% across consecutive snapshots",
+            "Dead tuples exceed 20% across the latest two snapshots",
             "high",
             {
               tableName: table.tableName,

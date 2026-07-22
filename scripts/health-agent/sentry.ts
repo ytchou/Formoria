@@ -48,7 +48,6 @@ export const SentryClassificationSchema = z
   })
   .strict();
 
-export const sentryClassificationSchema = SentryClassificationSchema;
 export type SentryClassification = z.infer<typeof SentryClassificationSchema>;
 
 export interface SentryRecurrenceEvidence {
@@ -644,7 +643,6 @@ export function sanitizeSentryIssue(value: unknown): SanitizedSentryIssue {
 }
 
 export const sanitizeSentryText = sanitizeExternalText;
-export const sanitizeSentryPayload = sanitizeSentryIssue;
 
 function opaqueIssueId(value: unknown): string | undefined {
   const candidate = stringValue(value)?.trim();
@@ -1373,6 +1371,3 @@ export async function collectSentryFindings(
     analyzedIssueCount: findings.length,
   };
 }
-
-export const collectSentryHealthFindings = collectSentryFindings;
-export const collectSentryHealth = collectSentryFindings;

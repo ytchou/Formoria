@@ -1,0 +1,117 @@
+{
+  "branch": "feat/github-health-agent-migration",
+  "base": "origin/main",
+  "reviewed_at": "2026-07-22T18:27:54Z",
+  "findings": [
+    {
+      "id": "RAF-001",
+      "severity": "critical",
+      "file": ".github/workflows/health-agent.yml",
+      "line": 1100,
+      "description": "Repair patches are validated semantically but are not deterministically restricted to the repository-relative files snapshotted for the claimed findings.",
+      "failure_scenario": "A compromised or mistaken repair step changes an unrelated application or control-plane file; tests and semantic review pass, so the App publishes the out-of-scope change.",
+      "flagged_by": ["Security", "Correctness", "Plan Alignment"],
+      "status": "valid"
+    },
+    {
+      "id": "RAF-002",
+      "severity": "important",
+      "file": ".github/workflows/health-agent.yml",
+      "line": 1070,
+      "description": "Validation and publication artifact downloads use continue-on-error and empty patches exit successfully.",
+      "failure_scenario": "An artifact download outage is interpreted as an empty batch, leaving claimed queue rows stranded without a PR or failure escalation.",
+      "flagged_by": ["Correctness", "Reliability"],
+      "status": "valid"
+    },
+    {
+      "id": "RAF-003",
+      "severity": "important",
+      "file": ".github/workflows/e2e-nightly.yml",
+      "line": 430,
+      "description": "The self-heal workflow reads the removed Claude action output named result instead of schema-validating and reading structured_output.",
+      "failure_scenario": "A successful fix produces an empty classification in the PR and silently loses the structured triage result.",
+      "flagged_by": ["Correctness", "Integration"],
+      "status": "valid"
+    },
+    {
+      "id": "RAF-004",
+      "severity": "important",
+      "file": "scripts/health-agent/workflow-runtime.ts",
+      "line": 925,
+      "description": "Dependabot impact is inferred only from the patched version and treats every 0.x patched release as minor.",
+      "failure_scenario": "A breaking pre-1.0 dependency change is placed in the automatic merge class without evidence of the installed version delta.",
+      "flagged_by": ["Correctness", "Security", "Plan Alignment"],
+      "status": "valid"
+    },
+    {
+      "id": "RAF-005",
+      "severity": "important",
+      "file": "supabase/migrations/20260722200000_github_health_agent_foundations.sql",
+      "line": 405,
+      "description": "Dead tuple percentage divides dead tuples by live tuples instead of total tuples.",
+      "failure_scenario": "Tables near the 20% policy threshold are overstated and generate false human incidents.",
+      "flagged_by": ["Correctness", "Data"],
+      "status": "valid"
+    },
+    {
+      "id": "RAF-006",
+      "severity": "important",
+      "file": "scripts/health-agent/directory.ts",
+      "line": 451,
+      "description": "Dead-tuple recurrence requires adjacent calendar dates although the policy requires two snapshots.",
+      "failure_scenario": "A skipped daily run causes a persistent database problem to disappear from Directory Health even when both latest snapshots exceed the threshold.",
+      "flagged_by": ["Correctness", "Plan Alignment"],
+      "status": "valid"
+    },
+    {
+      "id": "RAF-007",
+      "severity": "important",
+      "file": ".github/workflows/frontend-ci.yml",
+      "line": 19,
+      "description": "Changed PR CI jobs use mutable major-version action tags.",
+      "failure_scenario": "A future upstream tag change alters required-check execution without repository review.",
+      "flagged_by": ["Security", "Conventions"],
+      "status": "valid"
+    },
+    {
+      "id": "RAF-008",
+      "severity": "important",
+      "file": ".github/workflows/health-agent.yml",
+      "line": 1018,
+      "description": "The human cycle-two decision declares REVIEW_RESULT twice and the publisher emits merged=false twice.",
+      "failure_scenario": "Duplicated control-plane declarations drift independently and conceal accidental workflow edits during review.",
+      "flagged_by": ["Cleanup", "Clarity"],
+      "status": "valid"
+    },
+    {
+      "id": "RAF-009",
+      "severity": "important",
+      "file": "src/lib/services/link-health.ts",
+      "line": 13,
+      "description": "The changed branch fails the required dead-code check because of a needless exported type and duplicate public aliases in new health-agent modules.",
+      "failure_scenario": "The stable Quality check fails every pull request, preventing the migration PR and future repair PRs from merging.",
+      "flagged_by": ["Dead Code", "CI"],
+      "status": "valid"
+    },
+    {
+      "id": "RAF-010",
+      "severity": "critical",
+      "file": "scripts/health-agent/confirmation.ts",
+      "line": 100,
+      "description": "Confirmation envelopes use an unregistered health-confirmation routine instead of the preserved health-selfheal Agent Hub routine.",
+      "failure_scenario": "Personal OS cannot resolve the envelope to a registered Formoria agent, so merge and deployment confirmation is not stored even though the workflow reports delivery.",
+      "flagged_by": ["Integration", "Plan Alignment", "Correctness"],
+      "status": "valid"
+    },
+    {
+      "id": "RAF-011",
+      "severity": "important",
+      "file": "scripts/health-agent/confirmation.ts",
+      "line": 270,
+      "description": "Confirmation envelopes omit the stable merge, deployment, smoke, and confirmed-fix fields consumed by Personal OS.",
+      "failure_scenario": "A successful deployment is stored as only an opaque action and SHA, so the health report cannot distinguish merge recording from a production-confirmed fix.",
+      "flagged_by": ["Integration", "Plan Alignment"],
+      "status": "valid"
+    }
+  ]
+}

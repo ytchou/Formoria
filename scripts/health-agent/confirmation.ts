@@ -89,15 +89,21 @@ export interface ConfirmationDependencies {
 export interface ConfirmationEnvelope {
   data: {
     action: string;
+    authoritative_merge_sha?: string;
+    confirmed_fixed_count?: number;
+    deployment_status?: string;
+    deployment_timestamp?: string;
     finding_count: number;
     notification_owner: "github_actions";
     pr_number: number | null;
+    pr_url?: string;
+    production_smoke?: boolean;
     sha: string | null;
   };
   date: string;
   log_url?: string;
   project: "formoria";
-  routine: "health-confirmation";
+  routine: "health-selfheal";
   run_at: string;
   source: "github_actions";
   source_run_id: string;
@@ -257,18 +263,36 @@ function envelope({
 }): ConfirmationEnvelope {
   const prNumber = event.kind === "pull_request_closed" ? event.number : null;
   const sha = event.kind === "pull_request_closed" ? event.mergeSha : event.sha;
+  const deploymentConfirmed = action === "deployment_confirmed";
+  const mergeRecorded = action === "merged_recorded";
   return {
     data: {
       action,
+      ...(sha && (deploymentConfirmed || mergeRecorded)
+        ? { authoritative_merge_sha: sha }
+        : {}),
+      ...(deploymentConfirmed ? { confirmed_fixed_count: findingCount } : {}),
+      ...(event.kind === "deployment_status"
+        ? { deployment_status: event.state }
+        : {}),
+      ...(deploymentConfirmed
+        ? { deployment_timestamp: now.toISOString() }
+        : {}),
       finding_count: findingCount,
       notification_owner: "github_actions",
       pr_number: prNumber,
+      ...(event.kind === "pull_request_closed" ? { pr_url: event.url } : {}),
+      ...(deploymentConfirmed
+        ? { production_smoke: true }
+        : action === "smoke_failed"
+          ? { production_smoke: false }
+          : {}),
       sha,
     },
     date: taipeiDate(now),
     ...(workflowUrl ? { log_url: workflowUrl } : {}),
     project: "formoria",
-    routine: "health-confirmation",
+    routine: "health-selfheal",
     run_at: now.toISOString(),
     source: "github_actions",
     source_run_id: sourceRunId,

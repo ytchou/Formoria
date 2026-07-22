@@ -1345,9 +1345,3 @@ export function createAgentHubAdapter(
     report,
   };
 }
-
-export const sendSlackReport = sendSlackDigest;
-export const syncLinearIssues = syncLinearFindings;
-export const resolveSentry = resolveSentryIssues;
-export const deleteBranchIfSafe = deleteGitHubBranch;
-export const delegateAgentHub = delegateToAgentHub;

@@ -363,7 +363,7 @@ jobs:
             repeat_offenders: ${{ steps.context.outputs.repeat_offenders }}
 
             systemic: ${{ steps.context.outputs.systemic == '1' && 'true' || 'false' }}
-          claude_args: "--max-turns 60"
+          claude_args: '--max-turns 60 --json-schema {"type":"object","additionalProperties":true,"required":["classification"],"properties":{"classification":{"type":"array","items":{"type":"object","additionalProperties":true,"required":["file","title","category","reason"]}}}}'
 
       - name: Review fix
         if: steps.guard.outputs.skip != 'true' && steps.fix.outcome == 'success'
@@ -427,7 +427,7 @@ jobs:
         id: merge
         env:
           GH_TOKEN: ${{ secrets.SELFHEAL_PAT }}
-          FIX_RESULT: ${{ steps.fix.outputs.result }}
+          FIX_RESULT: ${{ steps.fix.outputs.structured_output }}
           FAILED_SPECS_JSON: ${{ steps.context.outputs.failed_specs }}
         run: |
           git push origin "${{ steps.branch.outputs.branch }}" --force-with-lease
