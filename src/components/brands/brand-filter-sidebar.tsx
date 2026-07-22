@@ -64,6 +64,7 @@ type BrandFilterDrawerProps = BrandFilterSidebarProps & {
 const verificationOptions: VerificationFilterValue[] = [
   "all",
   "mit-verified",
+  "mit-declared",
   "owned",
 ];
 const priceRangeOptions = [1, 2, 3] as const;
@@ -135,6 +136,7 @@ export function BrandFilterSidebar({
   );
   const activeVerification = (
     searchParams.get("verification") === "mit-verified" ||
+    searchParams.get("verification") === "mit-declared" ||
     searchParams.get("verification") === "owned"
       ? searchParams.get("verification")
       : "all"

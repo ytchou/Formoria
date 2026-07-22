@@ -115,6 +115,14 @@ beforeEach(() => {
 })
 
 describe('brands directory headings', () => {
+  it('preserves the mit-declared verification URL param', async () => {
+    render(await BrandsPage(pageProps('en', { verification: 'mit-declared' })))
+
+    expect(getBrands).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      verificationFilter: 'mit-declared',
+    }))
+  })
+
   it('renders a page-level heading for the base directory', async () => {
     render(await BrandsPage(pageProps('en')))
 

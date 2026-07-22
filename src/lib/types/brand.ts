@@ -135,7 +135,7 @@ export type BrandFilters = {
   status?: BrandStatus
   category?: string[]
   priceRanges?: (1 | 2 | 3)[]
-  verificationFilter?: 'all' | 'mit-verified' | 'owned'
+  verificationFilter?: 'all' | 'mit-verified' | 'mit-declared' | 'owned'
   search?: string
   sort?: BrandSortOption
   limit?: number

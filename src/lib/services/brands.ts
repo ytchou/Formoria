@@ -909,6 +909,8 @@ export async function getBrands(
 
   if (verificationFilter === 'mit-verified') {
     query = query.eq('mit_status', 'verified')
+  } else if (verificationFilter === 'mit-declared') {
+    query = query.eq('mit_status', 'declared')
   }
 
   if (!filters?.includeTestBrands) {

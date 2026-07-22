@@ -59,6 +59,7 @@ vi.mock("next-intl", () => ({
         "brands.filters.brandStatus": "Brand status",
         "brands.verificationFilter.all": "All",
         "brands.verificationFilter.mit-verified": "MIT verified",
+        "brands.verificationFilter.mit-declared": "品牌聲明",
         "brands.verificationFilter.owned": "Brand managed",
       };
       return messages[`${namespace}.${key}`] ?? key;
@@ -173,6 +174,27 @@ describe("BrandFilterSidebar", () => {
 
     await user.click(screen.getByRole("button", { name: /Category/ }));
     expect(screen.getByText("0")).toBeInTheDocument();
+  });
+
+  it("offers the mit-declared verification option", async () => {
+    const user = userEvent.setup();
+    render(<BrandFilterSidebar categories={[]} totalCount={0} />);
+
+    await user.click(screen.getByRole("button", { name: /Brand status/ }));
+
+    expect(
+      screen.getByRole("radio", { name: /品牌聲明/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("marks mit-declared active from the URL param", async () => {
+    query = "verification=mit-declared";
+    const user = userEvent.setup();
+    render(<BrandFilterSidebar categories={[]} totalCount={0} />);
+
+    await user.click(screen.getByRole("button", { name: /Brand status/ }));
+
+    expect(screen.getByRole("radio", { name: /品牌聲明/ })).toBeChecked();
   });
 
   describe("subcategory chips", () => {
@@ -299,10 +321,10 @@ describe("BrandFilterSidebar", () => {
       render(<BrandFilterSidebar categories={[]} totalCount={0} />);
 
       await user.click(screen.getByRole("button", { name: /Brand status/ }));
-      await user.click(screen.getByRole("radio", { name: "MIT verified" }));
+      await user.click(screen.getByRole("radio", { name: "品牌聲明" }));
 
       expect(mockTrackVerificationFilterApplied).toHaveBeenCalledWith(
-        "mit-verified",
+        "mit-declared",
       );
     });
   });
