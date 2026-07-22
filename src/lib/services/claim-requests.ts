@@ -13,7 +13,7 @@ type BrandRow = Database['public']['Tables']['brands']['Row']
 type BrandOwnerRow = Database['public']['Tables']['brand_owners']['Row']
 
 type ClaimRequestStatus = 'pending' | 'approved' | 'rejected'
-export type ClaimProofCleanupStatus = 'pending' | 'failed' | 'completed' | null
+type ClaimProofCleanupStatus = 'pending' | 'failed' | 'completed' | null
 const MAX_PROOF_URL_LENGTH = 2048
 const CLAIM_PROOF_BUCKET = 'claim-proofs'
 const CLAIM_PROOF_BUCKET_PREFIX = `${CLAIM_PROOF_BUCKET}/`
