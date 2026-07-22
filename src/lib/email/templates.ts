@@ -5,6 +5,7 @@ export { buildClaimEmailVerificationEmail } from '@emails/templates/claim-verifi
 export { buildClaimApprovedEmail } from '@emails/templates/claim-approved'
 export { buildClaimRejectedEmail } from '@emails/templates/claim-rejected'
 export { buildOwnershipRevokedEmail } from '@emails/templates/ownership-revoked'
+export { buildDeclarationRemovedEmail } from '@emails/templates/declaration-removed'
 export { buildWelcomeEmail } from '@emails/templates/welcome'
 export { buildProfileNudgeEmail } from '@emails/templates/profile-nudge'
 export { buildMicrositeSpotlightEmail } from '@emails/templates/microsite-spotlight'

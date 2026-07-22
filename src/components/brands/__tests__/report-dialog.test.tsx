@@ -67,7 +67,6 @@ describe('ReportDialog', () => {
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
     expect(screen.getByRole('group', { name: '選擇檢舉原因' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /非台灣製造/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /資訊有誤/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /連結失效/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /不當內容/i })).toBeInTheDocument()
@@ -76,6 +75,44 @@ describe('ReportDialog', () => {
     expect(screen.getByRole('button', { name: /要求移除品牌頁/i })).toBeInTheDocument()
     expect(screen.getByText('品牌所有權相關問題')).toBeInTheDocument()
     expect(screen.getByText('請求移除此品牌頁面')).toBeInTheDocument()
+  })
+
+  it('no longer offers the not_mit reason', async () => {
+    const user = userEvent.setup()
+    renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
+
+    await user.click(screen.getByRole('button', { name: /檢舉/i }))
+
+    expect(screen.queryByRole('radio', { name: /非台灣製造/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /非台灣製造/ })).not.toBeInTheDocument()
+  })
+
+  it('links MIT disputes into the evidence flow', async () => {
+    const user = userEvent.setup()
+    const handleEvidenceClick = vi.fn()
+    renderWithIntl(
+      <>
+        <button
+          type="button"
+          data-evidence-dialog-trigger
+          aria-label="Open evidence dialog"
+          onClick={handleEvidenceClick}
+        />
+        <ReportDialog brandId="b1" brandSlug="test-brand" />
+      </>
+    )
+
+    await user.click(screen.getByRole('button', { name: /檢舉/i }))
+
+    expect(screen.getByText(/產地資訊/)).toBeInTheDocument()
+    const evidenceLink = screen.getByRole('link', { name: /產地資訊/ })
+    expect(evidenceLink).toHaveAttribute(
+      'href',
+      '/brands/test-brand',
+    )
+    await user.click(evidenceLink)
+
+    await waitFor(() => expect(handleEvidenceClick).toHaveBeenCalledOnce())
   })
 
   it('renders an optional field picker', async () => {

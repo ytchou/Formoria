@@ -192,7 +192,7 @@ ${PRODUCT_VOCAB_BLOCK}
 先列出品牌的產品線，每條產品線從詞彙表中選取對應類型（優先品牌所屬分類下的詞彙，明確跨分類時才選其他分支）。僅當找不到合適詞彙時，才輸出新的「類型層級」標籤（禁止：材質前綴、行銷詞、系列/款/限定/客製、尺寸詞如短/長/迷你）。2–5 個，資料不足回傳 []。
 
 faq：8-12 組常見問題，中英文交替排列（同一問題先中文再英文）。每組必須標記 category。
-有效 category：mit, where_to_buy, products, price, founded, reputation, custom。
+有效 category：where_to_buy, products, price, founded, reputation, custom。
 
 必填標準問題（SEO 關鍵問答，每個都需要中英文各一組）：
 - products：「{品牌}的主要產品有哪些？」— 列出具體產品線與特色
@@ -201,8 +201,9 @@ faq：8-12 組常見問題，中英文交替排列（同一問題先中文再英
 - founded：「{品牌}是什麼時候成立的？」— 包含創辦年份與背景
 
 選填問題（有資料就加）：
-- mit：「{品牌}是台灣製造的嗎？」— 包含 MIT 相關證據
 - reputation：「{品牌}的評價如何？」— 包含具體評分或媒體報導
+
+MIT 問答由服務層依品牌的聲明或驗證狀態產生。不得根據搜尋摘要、製造故事或 mit_indicators 產生 category 為 mit 的 FAQ。
 
 回答必須有實質內容（具體事實、價格、地點、產品名稱），不可空泛。
 

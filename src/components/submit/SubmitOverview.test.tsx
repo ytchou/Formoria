@@ -64,7 +64,7 @@ describe('SubmitOverview', () => {
 
     expect(
       screen.getByText(
-        '你可以推薦喜歡的品牌，也可以用品牌主身份提交以進行後續品牌管理。',
+        '推薦你喜歡的品牌，或以品牌主身分提交，之後認領並管理品牌頁面。',
       ),
     ).toBeInTheDocument();
     expect(
@@ -72,6 +72,14 @@ describe('SubmitOverview', () => {
         level: 2,
         name: '開始創建完整品牌資訊',
       }),
+    ).toBeInTheDocument();
+  });
+
+  it('renders the Taiwanese brand inclusion criteria', () => {
+    renderWithZhTW(<SubmitOverview />);
+
+    expect(
+      screen.getByText('我們收錄在台灣創立、設計或製造的品牌。'),
     ).toBeInTheDocument();
   });
 

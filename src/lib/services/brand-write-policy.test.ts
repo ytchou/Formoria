@@ -20,11 +20,25 @@ describe('resolveWritablePatch', () => {
     expect(skipped[0]!.reason).toBe('excluded:mit_story')
   })
 
-  it('owner is blocked only by admin_locked; admin writes anything', () => {
+  it('owner is blocked by admin_locked; admin writes anything', () => {
     const s = state({ description: { source: 'admin', adminLocked: true } })
     expect(resolveWritablePatch({ description: 'x' }, s, { source: 'owner' }).allowed).toEqual({})
     expect(resolveWritablePatch({ description: 'x' }, s, { source: 'admin' }).allowed).toEqual({ description: 'x' })
   })
+
+  it.each(['mit_declared_scope', 'mit_declared_at', 'mit_declared_by'])(
+    'strips %s from owner writes',
+    (field) => {
+      const { allowed } = resolveWritablePatch(
+        { name: 'ok', [field]: 'x' },
+        {},
+        { source: 'owner' },
+      )
+
+      expect(allowed).toEqual({ name: 'ok' })
+      expect(allowed).not.toHaveProperty(field)
+    },
+  )
 })
 
 describe('resolveRefreshEnrichmentPatch', () => {

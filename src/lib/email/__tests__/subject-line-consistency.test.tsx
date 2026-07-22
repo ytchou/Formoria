@@ -3,6 +3,7 @@ import { buildClaimApprovedEmail } from '@emails/templates/claim-approved'
 import { buildClaimRejectedEmail } from '@emails/templates/claim-rejected'
 import { buildClaimEmail } from '@emails/templates/claim-submitted'
 import { buildClaimEmailVerificationEmail } from '@emails/templates/claim-verified'
+import { buildDeclarationRemovedEmail } from '@emails/templates/declaration-removed'
 import { buildMicrositeSpotlightEmail } from '@emails/templates/microsite-spotlight'
 import { buildNewsletterConfirmEmail } from '@emails/templates/newsletter-confirm'
 import { buildOwnershipRevokedEmail } from '@emails/templates/ownership-revoked'
@@ -88,6 +89,14 @@ const ownershipRevoked = (brandName: string) =>
     ownerEmail: EMAIL,
     brandName,
     reason: 'Ownership could not be verified',
+  })
+
+const declarationRemoved = (locale: Locale, brandName: string) =>
+  buildDeclarationRemovedEmail({
+    ownerEmail: EMAIL,
+    brandName,
+    reviewerNotes: 'Community evidence contradicted the declaration',
+    locale,
   })
 
 const welcome = (locale: Locale, brandName: string) =>
@@ -223,6 +232,20 @@ const SUBJECT_CASES: SubjectCase[] = [
     locale: 'zh-TW',
     build: () => ownershipRevoked(ZH_BRAND),
     expected: '「測試品牌」品牌管理權限已移除 / Brand management access removed — Formoria',
+    includesBrandName: true,
+  },
+  {
+    name: 'declaration-removed',
+    locale: 'zh-TW',
+    build: () => declarationRemoved('zh-TW', ZH_BRAND),
+    expected: '「測試品牌」的台灣製造聲明已移除 — Formoria',
+    includesBrandName: true,
+  },
+  {
+    name: 'declaration-removed',
+    locale: 'en',
+    build: () => declarationRemoved('en', EN_BRAND),
+    expected: 'MIT declaration removed for "Test Brand" — Formoria',
     includesBrandName: true,
   },
   {

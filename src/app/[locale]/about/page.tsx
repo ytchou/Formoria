@@ -123,6 +123,15 @@ export default async function AboutPage({ params }: PageProps) {
           ]}
         />
 
+        <section className="py-12 md:py-16">
+          <div className="page-gutter mx-auto max-w-6xl">
+            <h2 className="type-section-title-large text-balance">{t('qualifies.heading')}</h2>
+            <p className="mt-4 max-w-3xl type-page-subtitle text-pretty">
+              {t('qualifies.body')}
+            </p>
+          </div>
+        </section>
+
         <TrustModel />
 
         <section className="relative overflow-hidden py-12 md:py-16">

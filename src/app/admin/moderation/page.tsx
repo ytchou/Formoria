@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
 import { Badge } from '@/components/ui/badge'
+import { MitVerifiedBadge } from '@/components/brands/brand-verification-badges'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
@@ -79,11 +80,8 @@ function RiskBadge({
     return <Badge variant="destructive">{t('riskHigh')}</Badge>
   }
 
-  return (
-    <Badge className="border border-mit-verified/20 bg-mit-verified-bg text-mit-verified">
-      {t('riskMedium')}
-    </Badge>
-  )
+  const label = t('riskMedium')
+  return <MitVerifiedBadge label={label} title={label} />
 }
 
 export default async function ReviewQueueModerationPage({ searchParams }: ModerationPageProps) {

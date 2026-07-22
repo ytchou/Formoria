@@ -41,6 +41,12 @@ import {
 } from './actions-utils'
 import { revalidatePublicBrand } from '@/lib/cache/public-brand-cache'
 import { slugifyRomanizedName } from '@/lib/brands/slug'
+import {
+  declareMit,
+  withdrawDeclaration,
+  type MitDeclarationScope,
+} from '@/lib/services/mit-declaration'
+import { trackMitDeclared } from '@/lib/analytics'
 
 type ActionState =
   | {
@@ -51,6 +57,68 @@ type ActionState =
       violations?: ContentViolation[]
     }
   | undefined
+
+export type MitActionState =
+  | { success: true; error?: never }
+  | { success?: never; error: string }
+
+const MIT_DECLARATION_SCOPES: MitDeclarationScope[] = ['all', 'most', 'some']
+
+function isMitDeclarationScope(value: string): value is MitDeclarationScope {
+  return MIT_DECLARATION_SCOPES.includes(value as MitDeclarationScope)
+}
+
+function revalidateMitPages(brandSlug: string): void {
+  revalidatePath(`/brands/${brandSlug}`)
+  revalidatePath('/brands')
+}
+
+export async function declareMitAction(
+  brandSlug: string,
+  scope: string,
+): Promise<MitActionState> {
+  const t = await getTranslations('dashboard.mit.errors')
+  if (!isMitDeclarationScope(scope)) return { error: t('invalidScope') }
+
+  try {
+    const editor = await requireBrandEditor(brandSlug)
+    if ('error' in editor) return { error: t(editor.error) }
+
+    const result = await declareMit(editor.brand.id, scope, {
+      userId: editor.user.id,
+    })
+    if (!result.ok) return { error: t(result.code) }
+
+    trackMitDeclared(editor.brand.id, editor.brand.slug, scope)
+    revalidateMitPages(editor.brand.slug)
+    return { success: true }
+  } catch (error) {
+    console.error('[brand:declareMitAction]', error)
+    return { error: t('unknown') }
+  }
+}
+
+export async function withdrawDeclarationAction(
+  brandSlug: string,
+): Promise<MitActionState> {
+  const t = await getTranslations('dashboard.mit.errors')
+
+  try {
+    const editor = await requireBrandEditor(brandSlug)
+    if ('error' in editor) return { error: t(editor.error) }
+
+    const result = await withdrawDeclaration(editor.brand.id, {
+      userId: editor.user.id,
+    })
+    if (!result.ok) return { error: t(result.code) }
+
+    revalidateMitPages(editor.brand.slug)
+    return { success: true }
+  } catch (error) {
+    console.error('[brand:withdrawDeclarationAction]', error)
+    return { error: t('unknown') }
+  }
+}
 
 async function completeOnboardingAfterOwnerSubmit(
   formData: FormData,

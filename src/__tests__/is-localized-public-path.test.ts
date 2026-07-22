@@ -7,6 +7,8 @@ describe('isLocalizedPublicPath', () => {
     expect(isLocalizedPublicPath('/en/submit')).toBe(true)
     expect(isLocalizedPublicPath('/my-submissions')).toBe(true)
     expect(isLocalizedPublicPath('/en/my-submissions')).toBe(true)
+    expect(isLocalizedPublicPath('/contributions')).toBe(true)
+    expect(isLocalizedPublicPath('/en/contributions')).toBe(true)
     expect(isLocalizedPublicPath('/dashboard')).toBe(true)
     expect(isLocalizedPublicPath('/en/dashboard')).toBe(true)
     expect(isLocalizedPublicPath('/challenge')).toBe(true)

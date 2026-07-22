@@ -109,7 +109,7 @@ test.describe('MIT verification badges', () => {
     });
 
     // MIT badge in brand-header: label = 'MIT 微笑認證', title = '已通過 MIT 微笑標章登錄驗證'
-    const mitBadge = anonPage.locator('span[title="已通過 MIT 微笑標章登錄驗證"]');
+    const mitBadge = anonPage.locator('span[title="已通過 MIT 微笑標章登錄驗證"]').first();
     await expect(mitBadge).toBeVisible({ timeout: 5_000 });
     await expect(mitBadge).toContainText('MIT 微笑認證');
 

@@ -110,7 +110,7 @@ export function buildCategoryItemListJsonLd(
   const jsonLd: JsonLdObject = {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
-    name: `${categoryName} — Made in Taiwan Brands`,
+    name: `${categoryName} — Taiwanese Brands`,
     url: `${siteUrl}/brands?category=${categorySlug}`,
     inLanguage: toInLanguage(locale),
     numberOfItems: brands.length,

@@ -18,7 +18,7 @@ type BrandFaqEntry = {
 }
 
 const FAQ_COLUMN_ORDER = [
-  'faq_mit', 'faq_products', 'faq_price', 'faq_where_to_buy',
+  'faq_products', 'faq_price', 'faq_where_to_buy',
   'faq_founded', 'faq_reputation',
   'faq_custom_1', 'faq_custom_2', 'faq_custom_3', 'faq_custom_4',
 ] as const
@@ -51,9 +51,13 @@ export async function getBrandFaq(
     }
   }
 
-  if (items.length > 0) return items
+  const generated = buildBrandFaq(brand, t, locale)
+  if (items.length > 0) {
+    const mitItem = generated.find((item) => item.id === 'made-in-taiwan')
+    return mitItem ? [mitItem, ...items] : items
+  }
 
-  return buildBrandFaq(brand, t, locale)
+  return generated
 }
 
 type FaqGenerator = {
@@ -86,17 +90,6 @@ function compactValues(values: Array<string | null | undefined>): string[] {
 
 function truncate<T>(items: T[], limit = 3): T[] {
   return items.slice(0, limit)
-}
-
-function hasMitEnrichmentSignals(brand: Brand): boolean {
-  const evidence = brand.mitEvidence as Record<string, unknown> | null | undefined
-  return Array.isArray(evidence?.enrichment_signals) && evidence.enrichment_signals.length > 0
-}
-
-function getMitEnrichmentSignals(brand: Brand): string[] {
-  const evidence = brand.mitEvidence as Record<string, unknown> | null | undefined
-  const signals = evidence?.enrichment_signals
-  return Array.isArray(signals) ? signals.filter((s): s is string => typeof s === 'string') : []
 }
 
 function collectPurchaseLinks(brand: Brand, t: TFn): string[] {
@@ -222,30 +215,36 @@ function buildBrandContext(brand: Brand, t: TFn): string {
     : ''
 }
 
+function buildMitAnswer(brand: Brand, t: TFn, _locale: string): string {
+  if (brand.mitStatus === 'verified') {
+    const verifiedAnswer = t('brandFaq.isMadeInTaiwan.answer', {
+      brandName: brand.name,
+    })
+    const registrySource = t('brandFaq.isMadeInTaiwan.registrySource')
+    return hasValue(brand.mitStory)
+      ? `${brand.mitStory}\n\n${verifiedAnswer} ${registrySource}`
+      : `${verifiedAnswer} ${registrySource}`
+  }
+
+  const scope = brand.mitDeclaredScope
+    ? t(`brandFaq.isMadeInTaiwan.scopeLabels.${brand.mitDeclaredScope}`)
+    : t('brandFaq.isMadeInTaiwan.scopeLabels.unspecified')
+  const declaration = t('brandFaq.isMadeInTaiwan.declaredAnswer', {
+    brandName: brand.name,
+    scope,
+  })
+  const story = hasValue(brand.mitStory) ? `\n\n${brand.mitStory}` : ''
+
+  return `${declaration}${story}`
+}
+
 const FAQ_GENERATORS: FaqGenerator[] = [
   {
     id: 'made-in-taiwan',
     condition: (brand) =>
-      brand.mitStatus === 'verified' ||
-      hasValue(brand.mitStory) ||
-      hasMitEnrichmentSignals(brand),
+      brand.mitStatus === 'declared' || brand.mitStatus === 'verified',
     questionKey: 'brandFaq.isMadeInTaiwan.question',
-    buildAnswer: (brand, t, _locale) => {
-      const stampsAnswer = t('brandFaq.isMadeInTaiwan.answer', {
-        brandName: brand.name,
-      })
-      if (hasValue(brand.mitStory) && brand.mitStatus === 'verified') {
-        return `${brand.mitStory}\n\n${stampsAnswer}`
-      }
-      if (hasValue(brand.mitStory)) {
-        return brand.mitStory
-      }
-      const signals = getMitEnrichmentSignals(brand)
-      if (signals.length > 0) {
-        return signals.join('。') + '。'
-      }
-      return stampsAnswer
-    },
+    buildAnswer: buildMitAnswer,
   },
   {
     id: 'where-to-buy',

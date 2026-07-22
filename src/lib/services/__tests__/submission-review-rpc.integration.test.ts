@@ -144,6 +144,30 @@ describeWithDb("trusted submission review RPCs", () => {
     ]);
   });
 
+  it("persists the owner MIT story on the approved brand", async () => {
+    const submissionId = await seedSubmission("mit-story");
+    const images = await seedImages(submissionId);
+    const mitStory = "我們在台灣設計並製造每一件作品。";
+    const { error: ownerDataError } = await supabase!
+      .from("brand_submissions")
+      .update({ owner_data: { mitStory } })
+      .eq("id", submissionId);
+    expect(ownerDataError).toBeNull();
+    await seedSuccessfulTarget(submissionId, "mit-story");
+    await saveSubmissionReview(submissionId, completeReviewInput(images));
+
+    const result = await approveSubmission(supabase!, submissionId, reviewerId);
+    brandIds.push(result.brandId);
+
+    const { data: brand, error: brandError } = await supabase!
+      .from("brands")
+      .select("mit_story")
+      .eq("id", result.brandId)
+      .single();
+    expect(brandError).toBeNull();
+    expect(brand?.mit_story).toBe(mitStory);
+  });
+
   it("records matching community suggested tags as submitted provenance", async () => {
     const submissionId = await seedSubmission("submitted-provenance");
     const images = await seedImages(submissionId);

@@ -55,6 +55,7 @@ export default function SubmitOverview({
       <div className="max-w-3xl">
         <h1 className="text-balance type-page-title-large">{t('heading')}</h1>
         <p className="mt-4 type-body-muted">{t('description')}</p>
+        <p className="mt-2 type-body-muted">{t('criteria')}</p>
       </div>
 
       <div className="mt-10 grid gap-6 md:grid-cols-2">

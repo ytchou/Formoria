@@ -14,12 +14,13 @@ type ReportRowWithBrand = ReportRow & {
 }
 
 export type ReportReason =
-  | 'not_mit'
   | 'incorrect_info'
   | 'broken_link'
   | 'inappropriate'
   | 'ownership_dispute'
   | 'removal_request'
+
+type HistoricalReportReason = ReportReason | 'not_mit'
 
 type ReportStatus = ReviewStatus
 
@@ -28,7 +29,7 @@ export type BrandReport = {
   brandId: string
   brandName: string | null
   brandSlug: string | null
-  reason: ReportReason
+  reason: HistoricalReportReason
   notes: string | null
   status: ReportStatus
   reviewedAt: string | null
@@ -173,7 +174,7 @@ export async function getPendingReports(options?: { limit?: number }): Promise<B
     brandId: row.brand_id,
     brandName: row.brands?.name ?? null,
     brandSlug: row.brands?.slug ?? null,
-    reason: row.reason as ReportReason,
+    reason: row.reason as HistoricalReportReason,
     notes: row.notes ?? null,
     status: row.status as ReportStatus,
     reviewedAt: row.reviewed_at ?? null,

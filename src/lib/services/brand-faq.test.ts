@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { Brand } from '@/lib/types'
 import { buildBrandFaq } from '@/lib/services/brand-faq'
 
@@ -88,5 +88,65 @@ describe('buildBrandFaq', () => {
         'international-shipping',
       ]),
     )
+  })
+
+  it('renders no MIT FAQ entry for unverified brands with enrichment signals only', () => {
+    const faq = buildBrandFaq(
+      makeBrand({
+        mitStatus: 'unverified',
+        mitStory: '我們的工廠在台南',
+        mitEvidence: {
+          enrichment_signals: ['official_site_claims_mit'],
+        } as unknown as Brand['mitEvidence'],
+      }),
+      t,
+    )
+
+    expect(faq.some((item) => item.id === 'made-in-taiwan')).toBe(false)
+  })
+
+  it('renders a declared-scoped answer for declared brands', () => {
+    const translate = vi.fn(t)
+    const faq = buildBrandFaq(
+      makeBrand({ mitStatus: 'declared', mitDeclaredScope: 'most' }),
+      translate,
+    )
+    const mitEntry = faq.find((item) => item.id === 'made-in-taiwan')
+
+    expect(translate).toHaveBeenCalledWith(
+      'brandFaq.isMadeInTaiwan.scopeLabels.most',
+    )
+    expect(translate).toHaveBeenCalledWith(
+      'brandFaq.isMadeInTaiwan.declaredAnswer',
+      {
+        brandName: 'Test Brand',
+        scope: 'brandFaq.isMadeInTaiwan.scopeLabels.most|{}',
+      },
+    )
+    expect(translate).not.toHaveBeenCalledWith(
+      'brandFaq.isMadeInTaiwan.answer',
+      expect.anything(),
+    )
+    expect(mitEntry?.answer).toContain(
+      'brandFaq.isMadeInTaiwan.declaredAnswer',
+    )
+  })
+
+  it('includes a declared manufacturing story containing the locale verification marker', () => {
+    const translate = (key: string, params?: Record<string, unknown>) => {
+      if (key === 'brandFaq.isMadeInTaiwan.verificationMarker') return 'verified'
+      return t(key, params)
+    }
+    const faq = buildBrandFaq(
+      makeBrand({
+        mitStatus: 'declared',
+        mitStory: 'Products verified by an external registry.',
+      }),
+      translate,
+      'en',
+    )
+    const mitEntry = faq.find((item) => item.id === 'made-in-taiwan')
+
+    expect(mitEntry?.answer).toContain('Products verified')
   })
 })

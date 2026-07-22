@@ -1,5 +1,11 @@
 # SPEC Changelog
 
+## 2026-07-22
+
+### DEV-1137 — MIT tiering redesign
+
+Repositioned as Taiwanese brand directory with 3-tier MIT ladder. `mit_status` widened to `unverified | declared | verified` with `mit_declared_scope/at/by` columns. New `origin_evidence` table + `origin-evidence` storage bucket for authenticated community evidence submissions. `/admin/evidence` moderation queue with strip-declaration action. `/contributions` history page. Report dialog `not_mit` reason removed, replaced by evidence flow link. FAQ renders MIT entries only for declared/verified tiers. Copy sweep repositions all public surfaces from "Made in Taiwan directory" to "Taiwanese brand directory" with explicit inclusion criteria.
+
 ## 2026-07-16
 
 ### Brand removal report consolidation

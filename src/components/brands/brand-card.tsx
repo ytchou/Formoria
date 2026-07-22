@@ -13,7 +13,7 @@ import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
 import { SaveBrandButton } from './save-brand-button'
 import { BrandImageFallback } from './brand-image-fallback'
-import { MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badges'
+import { MitDeclaredBadge, MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badges'
 import { cn } from '@/lib/utils'
 
 interface BrandCardProps {
@@ -93,9 +93,15 @@ export function BrandCard({
               {brand.name}
             </Link>
           </h3>
-          {(brand.mitVerified === true || brand.isVerified) && (
+          {(brand.mitStatus === 'declared' || brand.mitStatus === 'verified' || brand.isVerified) && (
             <div className="flex shrink-0 items-center gap-1.5">
-              {brand.mitVerified === true && (
+              {brand.mitStatus === 'declared' && (
+                <MitDeclaredBadge
+                  label={t('card.mitDeclaredBadge')}
+                  title={tDetail('mitDeclaredTitle')}
+                />
+              )}
+              {brand.mitStatus === 'verified' && (
                 <MitVerifiedBadge
                   label={t('card.mitVerifiedBadge')}
                   title={tDetail('mitVerified')}

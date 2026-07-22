@@ -48,7 +48,9 @@ interface BrandsPageProps {
 function parseVerificationParam(
   value: string | string[] | undefined
 ): NonNullable<BrandFilters['verificationFilter']> {
-  return value === 'mit-verified' || value === 'owned' || value === 'all' ? value : 'all'
+  return value === 'mit-verified' || value === 'mit-declared' || value === 'owned' || value === 'all'
+    ? value
+    : 'all'
 }
 
 function parseCommaParam(value: string | string[] | undefined): string[] {

@@ -157,6 +157,9 @@ test.beforeAll(async ({ isolatedUser }) => {
       slug: governedBrandSlug,
       status: 'approved',
       mit_status: 'unverified',
+      mit_declared_scope: 'most',
+      mit_declared_at: '2026-07-22T01:02:03+00:00',
+      mit_declared_by: testUserId,
       product_type: 'crafts',
       description: '[E2E-TEST] Initial governed description.',
       retail_locations: [],
@@ -603,11 +606,14 @@ test.describe('Dashboard — governed field integrity', () => {
 
     const { data: row, error } = await supabase
       .from('brands')
-      .select('mit_status, status')
+      .select('mit_status, mit_declared_scope, mit_declared_at, mit_declared_by, status')
       .eq('id', governedBrandId)
       .single();
     expect(error).toBeNull();
     expect(row?.mit_status).toBe('unverified');
+    expect(row?.mit_declared_scope).toBe('most');
+    expect(row?.mit_declared_at).toBe('2026-07-22T01:02:03+00:00');
+    expect(row?.mit_declared_by).toBe(testUserId);
     expect(row?.status).toBe('approved');
   });
 });

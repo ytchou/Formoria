@@ -95,9 +95,9 @@ describe('FaqPage (zh-TW)', () => {
     expect(container.querySelectorAll('details > summary')).toHaveLength(13)
   })
 
-  it('includes the 什麼是 Formoria question', async () => {
+  it('includes the 收錄哪些品牌 question', async () => {
     render(await FaqPage({ params: Promise.resolve({ locale: 'zh-TW' }) }))
-    expect(screen.getByText(/什麼是 Formoria/)).toBeInTheDocument()
+    expect(screen.getByText(/Formoria 收錄哪些品牌/)).toBeInTheDocument()
   })
 
   it('includes the 如何提交品牌 question', async () => {
@@ -135,8 +135,8 @@ describe('FaqPage (en)', () => {
     expect(screen.getByRole('heading', { name: 'Frequently Asked Questions' })).toBeInTheDocument()
   })
 
-  it('includes the English What is Formoria question', async () => {
+  it('includes the English What brands are listed question', async () => {
     render(await FaqPage({ params: Promise.resolve({ locale: 'en' }) }))
-    expect(screen.getByText(/What is Formoria/)).toBeInTheDocument()
+    expect(screen.getByText(/What brands are listed on Formoria/)).toBeInTheDocument()
   })
 })

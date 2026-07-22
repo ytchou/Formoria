@@ -55,13 +55,13 @@
   },
   "landing": {
     "metadata": {
-      "title": "Formoria — 探索台灣製造品牌",
-      "description": "瀏覽台灣製造品牌，從食品、服飾到居家用品，認識台灣的設計與製造。"
+      "title": "Formoria — 台灣品牌目錄",
+      "description": "探索社群共同整理的台灣品牌目錄，從食品、服飾到居家與設計，找到更多台灣品牌。"
     },
     "hero": {
-      "eyebrow": "MADE IN TAIWAN",
-      "headline": "探索台灣製造品牌",
-      "subheadline": "由社群共同整理的台灣品牌目錄，涵蓋文具、居家與食品飲料，幫你找到更多台灣品牌。",
+      "eyebrow": "TAIWANESE BRANDS",
+      "headline": "探索台灣品牌目錄",
+      "subheadline": "由社群共同整理的台灣品牌目錄，涵蓋文具、居家與食品飲料，收錄在台灣創立、設計或製造的品牌。",
       "statsBrands": "品牌",
       "statsCategories": "分類",
       "recentWeek": "新品牌",
@@ -89,7 +89,7 @@
     },
     "manifesto": {
       "headline": "讓台灣品牌被世界看見",
-      "body1": "產地標籤只說明產品在哪裡做；我們也想讓你看見它怎麼做、由誰做。",
+      "body1": "台灣品牌不只是一個產地標籤，每個品牌都有自己的創意、工藝與故事。",
       "body2": "太多用心的品牌，仍默默耕耘、等待被看見",
       "body3": "Formoria 想成為他們與世界之間的橋樑",
       "cta": "了解我們的故事"
@@ -114,7 +114,7 @@
       "brand-stories": "品牌故事",
       "new-brands": "新品牌",
       "curated-picks": "選物推薦",
-      "mit-trends": "台灣製造趨勢"
+      "mit-trends": "台灣品牌趨勢"
     },
     "success": "請查看您的收件匣以確認訂閱",
     "error": {
@@ -133,7 +133,7 @@
   "brands": {
     "metadata": {
       "title": "Formoria — 台灣品牌目錄",
-      "description": "探索精選的台灣品牌，依分類瀏覽、搜尋，發現最值得支持的台灣製造品牌。"
+      "description": "探索精選的台灣品牌，依分類瀏覽、搜尋，認識在台灣創立、設計或製造的品牌。"
     },
     "heading": "台灣品牌目錄",
     "count": "共 {count} 個品牌",
@@ -188,11 +188,13 @@
       "verifiedLabel": "由品牌方經營管理",
       "verifiedBadge": "已認領",
       "mitVerifiedLabel": "MIT 微笑認證",
-      "mitVerifiedBadge": "MIT"
+      "mitVerifiedBadge": "MIT",
+      "mitDeclaredBadge": "品牌聲明"
     },
     "verificationFilter": {
       "all": "全部",
       "mit-verified": "MIT 微笑認證",
+      "mit-declared": "品牌聲明",
       "owned": "品牌經營"
     },
     "claimCta": {
@@ -315,14 +317,26 @@
   },
   "brandDetail": {
     "metadata": {
-      "fallbackDescription": "探索 {name}，台灣製造品牌。",
+      "fallbackDescription": "探索 {name} 的品牌故事、產品與官方連結。",
       "notFoundTitle": "找不到品牌"
     },
     "verified": "品牌經營",
     "verifiedTitle": "由品牌方經營管理",
     "mitVerified": "MIT 微笑認證",
     "mitVerifiedTitle": "已通過 MIT 微笑標章登錄驗證",
+    "mitDeclared": "品牌聲明",
+    "mitDeclaredTitle": "由品牌方自行聲明台灣製造；聲明範圍可能涵蓋部分、多數或全部商品",
     "mitProofLink": "MIT 微笑標章證號 {cert}",
+    "mitStatus": {
+      "scope": {
+        "all": "全部產品",
+        "most": "大部分產品",
+        "some": "部分產品"
+      },
+      "declaredOn": "聲明日期：{date}",
+      "registrySource": "資料來源：MIT 微笑標章產品驗證系統",
+      "reportOrigin": "回報產地資訊"
+    },
     "foundingYear": "創立於 {year}",
     "previewBanner": "預覽模式 — 尚未發布",
     "previewBackToEdit": "返回編輯",
@@ -366,10 +380,11 @@
       "cancel": "取消",
       "alreadyReported": "你已回報過此品牌",
       "reasonHeading": "選擇檢舉原因",
-      "reasonNotMit": "非台灣製造",
       "reasonIncorrectInfo": "資訊有誤",
       "reasonBrokenLink": "連結失效",
       "reasonInappropriate": "不當內容",
+      "mitDisputePrompt": "對品牌產地有疑問？請改用",
+      "mitDisputeLink": "產地資訊回報",
       "brandRepresentativeHeading": "品牌方申訴",
       "reasonOwnershipDispute": "所有權爭議（我是品牌方）",
       "ownershipDisputeDescription": "品牌所有權相關問題",
@@ -397,6 +412,55 @@
         "notesTooLong": "補充說明不得超過 1000 字",
         "rateLimited": "檢舉次數過多，請稍後再試。",
         "unknown": "發生未知錯誤"
+      }
+    },
+    "evidence": {
+      "trigger": "回報產地資訊",
+      "title": "提供產地證據",
+      "description": "分享你看到的產品產地資訊，協助我們核實品牌資料。",
+      "success": "感謝你提供產地證據，我們會盡快審核。",
+      "close": "關閉",
+      "cancel": "取消",
+      "loading": "正在確認登入狀態…",
+      "signInPrompt": "請先登入，再提供產地證據。",
+      "signIn": "登入",
+      "stanceLabel": "這項證據顯示",
+      "stances": {
+        "supports": "支持台灣製造",
+        "contradicts": "不支持台灣製造"
+      },
+      "productNameLabel": "產品名稱（選填）",
+      "productNamePlaceholder": "例如：產品或系列名稱",
+      "sourceTypeLabel": "證據來源",
+      "sourceTypes": {
+        "product_label": "產品標籤",
+        "packaging": "產品包裝",
+        "official_site": "官方網站",
+        "in_store": "實體店面",
+        "other": "其他"
+      },
+      "notesLabel": "補充說明（選填）",
+      "notesPlaceholder": "請描述你看到的產地資訊",
+      "photoLabel": "照片（選填）",
+      "photoHint": "上傳產品標籤、包裝或其他產地照片",
+      "uploading": "上傳中…",
+      "photoUploaded": "照片已上傳",
+      "retryUpload": "重試",
+      "submitting": "送出中…",
+      "submit": "送出",
+      "errors": {
+        "not_logged_in": "請先登入後再提供產地證據",
+        "missing_brand_id": "缺少品牌 ID",
+        "missing_brand_slug": "缺少品牌網址名稱",
+        "invalid_stance": "請選擇這項證據支持或不支持台灣製造",
+        "invalid_source_type": "請選擇有效的證據來源",
+        "notes_too_long": "補充說明不得超過 1000 字",
+        "invalid_photo_path": "上傳的照片不屬於目前使用者或品牌",
+        "pending_cap_reached": "你已有 3 筆此品牌的證據等待審核，請等候審核結果後再提交。",
+        "database_error": "無法儲存證據，請稍後再試。",
+        "unknown": "提交失敗，請稍後再試。",
+        "invalidPhotoType": "請上傳圖片檔案",
+        "uploadFailed": "照片上傳失敗，請重試。"
       }
     },
     "adminMenu": {
@@ -488,8 +552,17 @@
         "suffix": " 這個品牌{details}。"
       },
       "isMadeInTaiwan": {
-        "question": "{brandName} 是台灣製造嗎？",
-        "answer": "是的，{brandName} 是經過驗證的台灣製造品牌。"
+        "question": "{brandName} 有哪些製造驗證？",
+        "answer": "Formoria 已比對到 {brandName} 的產品與 MIT 微笑標章登錄資料；此驗證僅適用於登錄資料涵蓋的產品。",
+        "registrySource": "資料來源：MIT Smile 台灣製產品名錄。",
+        "scopeLabels": {
+          "all": "全部產品",
+          "most": "大部分產品",
+          "some": "部分產品",
+          "unspecified": "產品（聲明範圍未標示）"
+        },
+        "declaredAnswer": "依品牌聲明，{brandName} 的{scope}在台灣製造。此資訊由品牌方提供。",
+        "verificationMarker": "驗證"
       },
       "whereToBuy": {
         "question": "{brandName} 的產品在哪裡買？",
@@ -525,11 +598,11 @@
   "categories": {
     "metadata": {
       "title": "{displayName} 台灣品牌",
-      "description": "探索台灣製造的 {displayName} 品牌。"
+      "description": "探索台灣的 {displayName} 品牌。"
     },
     "subMetadata": {
-      "title": "台灣製造 {subName} 品牌 | {categoryName} | MIT Map",
-      "description": "探索台灣製造的{subName}品牌，從{categoryName}分類中發現值得支持的在地設計與優質產品。"
+      "title": "台灣 {subName} 品牌 | {categoryName} | Formoria",
+      "description": "探索台灣的{subName}品牌，從{categoryName}分類中發現在地設計與值得認識的產品。"
     },
     "descriptions": {
       "fashion": "台灣服飾品牌承襲紡織廠、布料開發與成衣製造累積的技術底子，擅長把機能布料、舒適剪裁與當代設計語彙結合。從日常基本款、戶外機能服到獨立設計品牌，都能看見材料運用與穿著場景的細膩思考。Formoria 收錄這些兼具製造實力與設計感的台灣服裝品牌。",
@@ -732,7 +805,7 @@
   "faq": {
     "metadata": {
       "title": "常見問題",
-      "description": "Formoria 台灣品牌目錄常見問題：了解台灣製造的定義、品牌提交、審核流程與認領方式。"
+      "description": "Formoria 台灣品牌目錄常見問題：了解收錄條件、信任層級、品牌提交、審核流程與認領方式。"
     },
     "title": "常見問題",
     "intro": "若仍有疑問，歡迎透過頁面底部的聯絡方式與我們聯繫。",
@@ -740,12 +813,12 @@
     "contactCta": "聯絡我們",
     "items": {
       "whatIsFormoria": {
-        "question": "什麼是 Formoria？",
-        "answer": "Formoria 是由社群共同整理的台灣品牌目錄。你可以依分類瀏覽或搜尋品牌，也可以提交資料或認領自己的品牌頁面。"
+        "question": "Formoria 收錄哪些品牌？",
+        "answer": "Formoria 是由社群共同整理的台灣品牌目錄，收錄在台灣創立、設計或製造的品牌，讓你探索品牌產品、故事與官方連結。"
       },
       "whatDoesMitMean": {
-        "question": "「MIT」是什麼意思？",
-        "answer": "MIT 原意是 Made in Taiwan，也就是台灣製造。Formoria 的收錄範圍較廣，包含在台灣創立、設計、生產，或與台灣有深刻連結的品牌。"
+        "question": "MIT 層級代表什麼？",
+        "answer": "「MIT 認證」代表 Formoria 已比對產品與官方 MIT 微笑標章登錄資料；「品牌聲明」則記錄品牌主聲明的製造範圍，可能是部分、多數或全部產品。兩者都不代表該品牌每項產品皆在台灣製造，請查看頁面標示的範圍與佐證。"
       },
       "howToSubmit": {
         "question": "如何提交品牌到 Formoria？",
@@ -753,7 +826,7 @@
       },
       "reviewTime": {
         "question": "品牌審核需要多久時間？",
-        "answer": "一般情況下，品牌審核約需 7 個工作天。審核期間，我們的團隊會確認品牌的真實性及其與台灣製造的連結。審核通過後，品牌即會出現在目錄中；若資料不完整，我們可能會透過信件與提交者聯繫補件。"
+        "answer": "品牌審核通常約需 7 個工作天。我們會確認品牌真實存在、提交資料完整，並符合收錄條件。審核通過後，品牌會出現在目錄中；若資料不完整，我們可能會透過信件聯繫提交者補件。"
       },
       "claimBenefits": {
         "question": "為什麼要認領品牌？認領後有什麼好處？",
@@ -769,7 +842,7 @@
       },
       "isBrandFree": {
         "question": "在 Formoria 刊登品牌需要付費嗎？",
-        "answer": "不用，提交品牌到 Formoria 完全免費。我們希望建立更完整的台灣製造品牌目錄，因此歡迎品牌經營者、品牌愛好者或社群成員一起提供資料。"
+        "answer": "不用，提交品牌到 Formoria 完全免費。歡迎品牌經營者、品牌愛好者或社群成員一起完善台灣品牌目錄。"
       },
       "editBrand": {
         "question": "品牌頁發布後還可以修改嗎？",
@@ -785,7 +858,7 @@
       },
       "howVerified": {
         "question": "品牌驗證是怎麼進行的？",
-        "answer": "Formoria 會在審核流程中確認品牌是否確實與台灣製造有關。品牌負責人通過認領審核後，頁面會顯示「由品牌方經營管理」標章，品牌主也能編輯品牌資訊。"
+        "answer": "品牌上架審核會確認品牌真實存在並符合收錄條件；品牌主驗證則確認誰可以管理頁面。製造資訊另行標示：「MIT 認證」會比對官方 MIT 微笑標章登錄資料，「品牌聲明」則記錄品牌主自行聲明的製造範圍。"
       },
       "contact": {
         "question": "如何聯繫 Formoria 團隊？",
@@ -800,7 +873,7 @@
     },
     "hero": {
       "title": "讓更多人找到台灣品牌的社群目錄",
-      "subtitle": "由社群共同整理台灣製造品牌，從日用品、食品到設計選物，都能依分類查找。",
+      "subtitle": "由社群共同整理的台灣品牌目錄，從日用品、食品到設計選物，都能依分類查找。",
       "statSuffix": "，持續增加中",
       "statsBrands": "品牌",
       "statsCategories": "分類",
@@ -812,7 +885,7 @@
       "heading": "Formoria 為什麼存在",
       "body1": "旅居海外的幾年裡，我常常想找那些讓家變得靠近的品牌：熟悉的食材、好用的日用品、有設計感的物件，以及我信任、卻很難向朋友介紹清楚的小品牌。許多獨立品牌並不缺品質、品味或用心，缺的是一個讓正在尋找它們的人找到的方式。",
       "body2": "葡萄牙水手航經台灣時，稱這裡為「Ilha Formosa」。Formoria，就是把這座美麗之島上值得珍藏的好品牌，聚集在一起的地方。",
-      "body3": "在 Formoria，MIT 代表品牌在台灣創立、設計、生產，或與台灣有深刻連結。我們重視品牌與台灣的實際連結、可查證的資訊，以及產品背後的製作方式。"
+      "body3": "Formoria 收錄在台灣創立、設計或製造的品牌；製造驗證會另外標示，讓訪客理解各項產品層級的資訊。"
     },
     "mission": {
       "heading": "我們的使命",
@@ -829,6 +902,10 @@
         "heading": "建立探索平台",
         "body": "整理品牌介紹、產品、照片與官方連結，讓消費者、旅人、編輯與海外台灣社群能集中查找台灣品牌"
       }
+    },
+    "qualifies": {
+      "heading": "收錄條件",
+      "body": "在台灣創立、設計或製造的品牌"
     },
     "taiwanStats": {
       "heading": "台灣 98% 的企業是中小企業",
@@ -960,6 +1037,8 @@
     "menuLabel": "帳號",
     "dashboard": "經營者主控台",
     "favorites": "收藏品牌",
+    "contributions": "我的貢獻",
+    "mySubmissions": "我的提交",
     "signOut": "登出",
     "settings": "帳號設定",
     "feedback": "意見回饋"
@@ -968,8 +1047,28 @@
     "heading": "收藏品牌",
     "count": "{count} 個品牌",
     "emptyTitle": "尚無收藏品牌",
-    "emptyDescription": "探索 MIT Map 上的台灣品牌，點擊愛心即可加入收藏。",
+    "emptyDescription": "探索台灣品牌目錄，點擊愛心即可加入收藏。",
     "exploreBrands": "探索品牌"
+  },
+  "contributions": {
+    "metadata": {
+      "title": "我的貢獻"
+    },
+    "heading": "我的貢獻",
+    "subheading": "查看你向 Formoria 社群提供的產地佐證與審核狀態。",
+    "status": {
+      "pending": "待審核",
+      "approved": "已通過",
+      "rejected": "未通過"
+    },
+    "stance": {
+      "supports": "支持台灣製造聲明",
+      "contradicts": "不支持台灣製造聲明"
+    },
+    "emptyTitle": "尚無貢獻",
+    "emptyDescription": "提供產地佐證，幫助社群了解更多台灣品牌。",
+    "exploreBrands": "探索品牌",
+    "unknownBrand": "未知品牌"
   },
   "settings": {
     "metadata": {
@@ -1060,7 +1159,7 @@
     },
     "emptyState": {
       "title": "此頁面為品牌經營者專屬主控台",
-      "description": "只有已登入的品牌帳號才能查看這個頁面。如果你是台灣在地品牌的主理人，歡迎提交你的品牌，加入 MIT Map 社群。",
+      "description": "只有已登入的品牌帳號才能查看這個頁面。如果你是台灣品牌的主理人，歡迎提交品牌，加入 Formoria 目錄。",
       "submitCta": "提交你的品牌",
       "browseCta": "瀏覽品牌目錄"
     },
@@ -1192,6 +1291,7 @@
       "title": "MIT 驗證狀態",
       "status": {
         "unverified": "尚未驗證",
+        "declared": "品牌聲明",
         "verified": "MIT 微笑認證"
       },
       "description": {
@@ -1206,7 +1306,45 @@
       "certExpired": "此 MIT 微笑標章已到期",
       "reviewNote": "審核備註",
       "resubmitCta": "以 Email 申請驗證",
-      "dismiss": "關閉"
+      "dismiss": "關閉",
+      "tier": {
+        "certTitle": "MIT 微笑標章認證",
+        "certDescription": "輸入 MIT 微笑標章編號，驗證官方登錄資料。",
+        "declareTitle": "品牌自行聲明",
+        "declareDescription": "若尚未取得官方認證，可先聲明台灣製造範圍。"
+      },
+      "or": "或",
+      "declare": {
+        "scopeLabel": "聲明範圍",
+        "scope": {
+          "all": "全部產品",
+          "most": "大部分產品",
+          "some": "部分產品"
+        },
+        "attestation": "我確認上述產品於台灣製造，且資訊真實無誤。",
+        "storyLabel": "台灣製造故事（選填）",
+        "storyPlaceholder": "分享品牌在台灣製造的背景與方式",
+        "submit": "送出聲明",
+        "success": "品牌聲明已送出。"
+      },
+      "declared": {
+        "scopeLabel": "聲明範圍",
+        "dateLabel": "聲明日期",
+        "withdraw": "撤回聲明",
+        "withdrawSuccess": "品牌聲明已撤回。"
+      },
+      "errors": {
+        "notLoggedIn": "請先登入。",
+        "forbidden": "你沒有編輯此品牌的權限。",
+        "brandNotFound": "找不到此品牌。",
+        "invalidScope": "請選擇有效的聲明範圍。",
+        "database_error": "儲存失敗，請稍後再試。",
+        "not_declared": "此品牌目前沒有可撤回的聲明。",
+        "not_found": "找不到此品牌。",
+        "already_verified": "此品牌已通過 MIT 認證，無法改為自行聲明。",
+        "invalid_state": "目前的 MIT 狀態無法執行此操作。",
+        "unknown": "發生未知錯誤，請稍後再試。"
+      }
     },
     "errors": {
       "invalidClaim": "認領連結無效或已過期，請聯繫客服。",
@@ -1341,7 +1479,7 @@
       "fieldValueTags": "品牌價值",
       "fieldValueTagsHint": "選擇最多 3 個品牌價值",
       "fieldValueTagsOptionalHint": "選填",
-      "mitStoryLabel": "MIT 製造故事",
+      "mitStoryLabel": "製造故事",
       "mitStoryPlaceholder": "分享您的製造工藝、材料來源與工廠合作關係…",
       "wizardProgress": "第 {current} 步，共 {total} 步",
       "wizardSidebarTitle": "編輯品牌資料",
@@ -1391,8 +1529,8 @@
       "sectionBrandImagesHint": "管理品牌圖片，決定搜尋結果封面與品牌頁面的圖片內容。",
       "sectionLinksHint": "整理官方社群、網站與購買管道，讓訪客更容易找到你的品牌。",
       "sectionLocationsHint": "提供實體門市或展示地點，讓訪客知道可以在哪裡找到你的品牌。",
-      "sectionVerification": "MIT 驗證",
-      "sectionVerificationHint": "驗證 MIT 微笑標章登錄，幫助消費者辨識台灣製造的產品。",
+      "sectionVerification": "製造驗證",
+      "sectionVerificationHint": "比對 MIT 微笑標章登錄資料，顯示該筆登錄涵蓋產品的驗證資訊。",
       "sectionReputationHint": "補充媒體報導、獎項與外部評價，建立品牌可信度。",
       "website": "網站",
       "pinkoi": "Pinkoi",
@@ -1419,11 +1557,12 @@
   "submit": {
     "metadata": {
       "title": "提交品牌",
-      "description": "將您的台灣製造品牌分享給社群"
+      "description": "提交台灣品牌到 Formoria 品牌目錄"
     },
     "overview": {
       "heading": "提交你的台灣品牌",
-      "description": "你可以推薦喜歡的品牌，也可以用品牌主身份提交以進行後續品牌管理。",
+      "description": "推薦你喜歡的品牌，或以品牌主身分提交，之後認領並管理品牌頁面。",
+      "criteria": "我們收錄在台灣創立、設計或製造的品牌。",
       "recommendEyebrow": "社群推薦",
       "recommendTitle": "推薦一個值得被看見的品牌",
       "recommendDescription": "提供你看到的品牌資訊，通過審核後即可讓更多人看見。",
@@ -1448,7 +1587,7 @@
     },
     "wizard": {
       "heading": "提交品牌",
-      "subheading": "將您的台灣製造品牌分享給社群",
+      "subheading": "與社群分享台灣品牌",
       "back": "返回",
       "next": "下一步",
       "submitting": "提交中...",
@@ -1463,7 +1602,7 @@
     },
     "url": {
       "heading": "提交你喜愛的品牌",
-      "subheading": "與社群分享台灣製造品牌",
+      "subheading": "與社群分享台灣品牌",
       "label": "品牌網站",
       "hint": "貼上品牌網站的網址，我們將自動填入您的提交資料",
       "socialLinksLabel": "社群連結",
@@ -1713,7 +1852,7 @@
       "urlPreviewHint": "從後台修改網址需通過審核；清空英文／羅馬拼音名稱時，會保留目前網址。",
       "descriptionLabel": "品牌簡介",
       "descriptionHint": "先提供一段品牌簡介，審核與建檔會更順利。",
-      "descriptionPlaceholder": "告訴我們你們做什麼、為什麼在台灣製作，以及品牌特色。",
+      "descriptionPlaceholder": "告訴我們品牌做什麼、與台灣的連結，以及品牌特色。",
       "heroImageHintOwner": "建議上傳首頁代表圖或最能代表品牌的主視覺。",
       "cityHint": "填寫品牌所在縣市，幫助顧客探索在地品牌。",
       "linksHeading": "品牌連結",
@@ -1777,7 +1916,7 @@
     },
     "form": {
       "heading": "提交品牌",
-      "subheading": "將您的台灣製造品牌分享給社群",
+      "subheading": "與社群分享台灣品牌",
       "websiteLabel": "品牌官方網站",
       "websitePlaceholder": "https://yourbrand.com",
       "brandNameLabel": "品牌名稱",
@@ -1874,6 +2013,7 @@
         "submissions": "品牌提交",
         "jobs": "資料任務",
         "moderation": "內容審核",
+        "evidence": "產地佐證",
         "claims": "認領申請",
         "reports": "檢舉",
         "brands": "品牌目錄",
@@ -1905,6 +2045,10 @@
         "flaggedContentLabel": "待審內容標記",
         "flaggedContentDesc": "內容審核佇列中的標記數量"
       },
+      "evidence": {
+        "label": "產地佐證",
+        "description": "等待審核的產地佐證"
+      },
       "queues": {
         "claims": {
           "title": "品牌認領",
@@ -1929,6 +2073,56 @@
       "filterByRisk": "按風險篩選",
       "filterByTier": "按類型篩選",
       "noFlaggedContent": "無待審內容"
+    },
+    "evidence": {
+      "title": "產地佐證",
+      "description": "審核用於支持或反駁台灣製造聲明的佐證資料。",
+      "tabs": {
+        "all": "全部",
+        "pending": "待審核",
+        "approved": "已核准",
+        "rejected": "已拒絕"
+      },
+      "table": {
+        "brand": "品牌",
+        "stance": "立場",
+        "product": "產品",
+        "date": "提交日期",
+        "status": "狀態"
+      },
+      "fields": {
+        "stance": "立場",
+        "product": "產品",
+        "sourceType": "來源類型",
+        "notes": "備註",
+        "photos": "照片",
+        "reviewerNotes": "審核備註"
+      },
+      "stances": {
+        "supports": "支持台灣製造聲明",
+        "contradicts": "反駁台灣製造聲明"
+      },
+      "sourceTypes": {
+        "product_label": "產品標籤",
+        "packaging": "包裝",
+        "official_site": "官方網站",
+        "in_store": "實體店面",
+        "other": "其他"
+      },
+      "actions": {
+        "approve": "核准",
+        "reject": "拒絕"
+      },
+      "reviewerNotesPlaceholder": "新增此決定的審核備註",
+      "stripDeclaration": "移除聲明",
+      "unknownBrand": "未知品牌",
+      "notProvided": "未提供",
+      "noEvidence": "找不到佐證資料。",
+      "photoAlt": "佐證照片 {index}",
+      "errors": {
+        "notesRequired": "拒絕佐證時必須填寫審核備註。",
+        "generic": "無法審核佐證，請再試一次。"
+      }
     },
     "claimRequests": {
       "adminProofLabel": "擁有權證明",
@@ -2193,7 +2387,7 @@
   },
   "guides": {
     "metaTitle": "台灣品牌指南",
-    "metaDescription": "探索精選台灣品牌指南，從護膚到美食，深入了解台灣製造的優質品牌",
+    "metaDescription": "探索精選台灣品牌指南，從護膚、美食到設計與日常用品，深入認識台灣品牌",
     "heading": "台灣品牌指南",
     "subheading": "探索台灣品牌、產業與選購脈絡，從日常保養到在地飲食，快速找到你想看的指南。",
     "badgeLabel": "指南中心",

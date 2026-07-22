@@ -2,7 +2,7 @@ import { useTranslations } from 'next-intl'
 import type { ReactNode } from 'react'
 import type { Brand } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
-import { MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badges'
+import { MitDeclaredBadge, MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badges'
 
 interface BrandHeaderProps {
   brand: Brand
@@ -15,7 +15,8 @@ interface BrandHeaderProps {
 
 export function BrandHeader({ brand, categoryLabel, cityLabel, locale, actionsSlot, adminSlot }: BrandHeaderProps) {
   const t = useTranslations('brandDetail')
-  const hasMitVerifiedBadge = brand.mitVerified === true
+  const hasMitDeclaredBadge = brand.mitStatus === 'declared'
+  const hasMitVerifiedBadge = brand.mitStatus === 'verified'
   const hasOwnerVerifiedBadge = brand.isVerified
   const mitSmileCert = hasMitVerifiedBadge ? brand.mitEvidence?.mit_smile_cert : undefined
   const priceRangeLabel = brand.priceRange != null ? '$'.repeat(brand.priceRange) : null
@@ -71,8 +72,11 @@ export function BrandHeader({ brand, categoryLabel, cityLabel, locale, actionsSl
             </Badge>
           ))}
 
-        {(hasMitVerifiedBadge || hasOwnerVerifiedBadge) && (
+        {(hasMitDeclaredBadge || hasMitVerifiedBadge || hasOwnerVerifiedBadge) && (
           <div className="flex items-center gap-2">
+            {hasMitDeclaredBadge && (
+              <MitDeclaredBadge label={t('mitDeclared')} title={t('mitDeclaredTitle')} />
+            )}
             {hasMitVerifiedBadge && (
               <MitVerifiedBadge label={t('mitVerified')} title={t('mitVerifiedTitle')} />
             )}

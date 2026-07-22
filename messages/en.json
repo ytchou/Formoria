@@ -55,13 +55,13 @@
   },
   "landing": {
     "metadata": {
-      "title": "Formoria — Discover Made in Taiwan Brands",
-      "description": "Explore and discover curated Made in Taiwan brands. From food to fashion, support local designers and manufacturers."
+      "title": "Formoria — Taiwanese Brand Directory",
+      "description": "Explore a community-curated directory of Taiwanese brands, from food and fashion to homeware and design."
     },
     "hero": {
-      "eyebrow": "MADE IN TAIWAN",
-      "headline": "Discover Premium Brands Made in Taiwan",
-      "subheadline": "A community-curated directory of Made-in-Taiwan brands — from stationery and homeware to food and drink. Explore the best of Taiwan.",
+      "eyebrow": "TAIWANESE BRANDS",
+      "headline": "Discover Taiwanese Brands",
+      "subheadline": "A community-curated Taiwanese brand directory — from stationery and homeware to food and drink. Explore brands founded, designed, or made in Taiwan.",
       "statsBrands": "brands",
       "statsCategories": "categories",
       "recentWeek": "new this week",
@@ -89,7 +89,7 @@
     },
     "manifesto": {
       "headline": "Putting Taiwanese Brands on the World Map",
-      "body1": "Made in Taiwan isn't just a label. It's a commitment to quality.",
+      "body1": "Taiwanese brands are more than an origin label. Each has its own craft, ideas, and story.",
       "body2": "Too many remarkable brands work in quiet, waiting to be found.",
       "body3": "Formoria is the bridge between them and the world.",
       "cta": "Learn Our Story"
@@ -106,7 +106,7 @@
   },
   "newsletter": {
     "heading": "Stay in the loop",
-    "subtext": "Get the latest on Made in Taiwan brands — stories, launches, and curated picks delivered to your inbox.",
+    "subtext": "Get the latest on Taiwanese brands — stories, launches, and curated picks delivered to your inbox.",
     "emailPlaceholder": "your@email.com",
     "subscribe": "Subscribe",
     "interestsLabel": "Choose what interests you",
@@ -132,10 +132,10 @@
   },
   "brands": {
     "metadata": {
-      "title": "Formoria — Made in Taiwan Brand Directory",
-      "description": "Discover thoughtfully curated Taiwanese brands. Browse by category, search, and explore the best of Made in Taiwan."
+      "title": "Formoria — Taiwanese Brand Directory",
+      "description": "Discover thoughtfully curated Taiwanese brands. Browse by category, search, and explore brands founded, designed, or made in Taiwan."
     },
-    "heading": "Made in Taiwan Brand Directory",
+    "heading": "Taiwanese Brand Directory",
     "count": "{count} brands",
     "notFound": "No brands found",
     "emptyTitle": "No brands found",
@@ -188,11 +188,13 @@
       "verifiedLabel": "Managed by the brand owner",
       "verifiedBadge": "Claimed",
       "mitVerifiedLabel": "MIT Verified",
-      "mitVerifiedBadge": "MIT"
+      "mitVerifiedBadge": "MIT",
+      "mitDeclaredBadge": "MIT Declared"
     },
     "verificationFilter": {
       "all": "All",
       "mit-verified": "MIT Verified",
+      "mit-declared": "MIT Declared",
       "owned": "Owner-managed"
     },
     "claimCta": {
@@ -315,14 +317,26 @@
   },
   "brandDetail": {
     "metadata": {
-      "fallbackDescription": "Explore {name}, a Made in Taiwan brand.",
+      "fallbackDescription": "Explore {name}, a Taiwanese brand featured on Formoria.",
       "notFoundTitle": "Brand Not Found"
     },
     "verified": "Brand-managed",
     "verifiedTitle": "Managed by the brand owner",
     "mitVerified": "MIT Verified",
     "mitVerifiedTitle": "Verified against the MIT Smile registry",
+    "mitDeclared": "MIT Declared",
+    "mitDeclaredTitle": "Self-attested as made in Taiwan by the brand owner; the declaration may cover some, most, or all products",
     "mitProofLink": "MIT Smile mark cert. {cert}",
+    "mitStatus": {
+      "scope": {
+        "all": "All products",
+        "most": "Most products",
+        "some": "Some products"
+      },
+      "declaredOn": "Declared on {date}",
+      "registrySource": "Source: MIT Smile Mark product registry",
+      "reportOrigin": "Report origin information"
+    },
     "foundingYear": "Est. {year}",
     "previewBanner": "Preview mode — not live",
     "previewBackToEdit": "Back to edit",
@@ -366,10 +380,11 @@
       "cancel": "Cancel",
       "alreadyReported": "You have already reported this brand",
       "reasonHeading": "Select a report reason",
-      "reasonNotMit": "Not Made in Taiwan",
       "reasonIncorrectInfo": "Incorrect information",
       "reasonBrokenLink": "Broken link",
       "reasonInappropriate": "Inappropriate content",
+      "mitDisputePrompt": "Questions about where this brand's products are made?",
+      "mitDisputeLink": "Report origin information",
       "brandRepresentativeHeading": "Brand representative requests",
       "reasonOwnershipDispute": "Ownership dispute (I represent this brand)",
       "ownershipDisputeDescription": "Report a brand ownership issue",
@@ -397,6 +412,55 @@
         "notesTooLong": "Additional notes must be 1000 characters or fewer",
         "rateLimited": "Too many reports. Please try again later.",
         "unknown": "An unknown error occurred"
+      }
+    },
+    "evidence": {
+      "trigger": "Report origin information",
+      "title": "Submit origin evidence",
+      "description": "Share product origin information you have seen to help us verify this brand.",
+      "success": "Thank you for submitting origin evidence. We'll review it shortly.",
+      "close": "Close",
+      "cancel": "Cancel",
+      "loading": "Checking your sign-in status…",
+      "signInPrompt": "Please sign in to submit origin evidence.",
+      "signIn": "Sign in",
+      "stanceLabel": "This evidence",
+      "stances": {
+        "supports": "Supports Made in Taiwan",
+        "contradicts": "Contradicts Made in Taiwan"
+      },
+      "productNameLabel": "Product name (optional)",
+      "productNamePlaceholder": "For example, a product or collection name",
+      "sourceTypeLabel": "Evidence source",
+      "sourceTypes": {
+        "product_label": "Product label",
+        "packaging": "Packaging",
+        "official_site": "Official website",
+        "in_store": "In store",
+        "other": "Other"
+      },
+      "notesLabel": "Additional notes (optional)",
+      "notesPlaceholder": "Describe the origin information you found",
+      "photoLabel": "Photo (optional)",
+      "photoHint": "Upload a product label, package, or other origin photo",
+      "uploading": "Uploading…",
+      "photoUploaded": "Photo uploaded",
+      "retryUpload": "Retry",
+      "submitting": "Submitting…",
+      "submit": "Submit",
+      "errors": {
+        "not_logged_in": "Please sign in to submit origin evidence",
+        "missing_brand_id": "Missing brand ID",
+        "missing_brand_slug": "Missing brand slug",
+        "invalid_stance": "Choose whether this evidence supports or contradicts Made in Taiwan",
+        "invalid_source_type": "Choose a valid evidence source",
+        "notes_too_long": "Additional notes must be 1000 characters or fewer",
+        "invalid_photo_path": "The uploaded photo is not valid for this user or brand",
+        "pending_cap_reached": "You already have 3 submissions for this brand awaiting review. Please wait for a review before submitting another.",
+        "database_error": "We couldn't save this evidence. Please try again later.",
+        "unknown": "Submission failed. Please try again later.",
+        "invalidPhotoType": "Please upload an image file",
+        "uploadFailed": "Photo upload failed. Please try again."
       }
     },
     "adminMenu": {
@@ -488,8 +552,17 @@
         "suffix": " It is {details}."
       },
       "isMadeInTaiwan": {
-        "question": "Is {brandName} made in Taiwan?",
-        "answer": "Yes, {brandName} is a verified Made in Taiwan brand."
+        "question": "What manufacturing verification does {brandName} have?",
+        "answer": "Formoria matched a product from {brandName} to the MIT Smile registry. This verification applies only to products covered by the registry entry.",
+        "registrySource": "Source: MIT Smile registry.",
+        "scopeLabels": {
+          "all": "all products",
+          "most": "most products",
+          "some": "some products",
+          "unspecified": "products (scope not specified)"
+        },
+        "declaredAnswer": "According to the brand declaration, {scope} from {brandName} are made in Taiwan. This information was provided by the brand.",
+        "verificationMarker": "verified"
       },
       "whereToBuy": {
         "question": "Where can I buy {brandName} products?",
@@ -525,11 +598,11 @@
   "categories": {
     "metadata": {
       "title": "{displayName} Brands from Taiwan",
-      "description": "Discover Made in Taiwan {name} brands."
+      "description": "Discover Taiwanese {name} brands."
     },
     "subMetadata": {
-      "title": "Made in Taiwan {subName} Brands | {categoryName} | MIT Map",
-      "description": "Discover Made in Taiwan {subName} brands in {categoryName}, featuring local design and quality products worth supporting."
+      "title": "Taiwanese {subName} Brands | {categoryName} | Formoria",
+      "description": "Discover Taiwanese {subName} brands in {categoryName}, featuring local design and products worth exploring."
     },
     "descriptions": {
       "fashion": "Taiwan clothing brands stand out for textile expertise built through decades of mills, dye houses, and technical fabric suppliers. Designers pair that manufacturing base with practical cuts, climate-aware materials, and a sharp contemporary point of view. You will find everyday essentials, outdoor-ready layers, and independent labels with global ambitions. Formoria highlights fashion shaped by both craft know-how and modern Taiwanese life.",
@@ -732,7 +805,7 @@
   "faq": {
     "metadata": {
       "title": "FAQ",
-      "description": "Frequently asked questions about the Formoria Taiwanese brand directory — learn what Made in Taiwan means, how to submit a brand, the review process, and how to claim your brand page."
+      "description": "Frequently asked questions about the Formoria Taiwanese brand directory, including which brands are listed, how trust tiers work, and how to submit or claim a brand page."
     },
     "title": "Frequently Asked Questions",
     "intro": "If you still have questions, feel free to reach out via the contact information at the bottom of the page.",
@@ -740,12 +813,12 @@
     "contactCta": "Contact us",
     "items": {
       "whatIsFormoria": {
-        "question": "What is Formoria?",
-        "answer": "Formoria is a community-driven directory of Taiwanese brands dedicated to helping people discover and support quality Made in Taiwan products. Whether you're a consumer looking to explore local brands or a brand owner hoping to reach more people, Formoria is your starting point."
+        "question": "What brands are listed on Formoria?",
+        "answer": "Formoria is a community-curated Taiwanese brand directory. We list brands founded, designed, or made in Taiwan so people can discover their products, stories, and official links."
       },
       "whatDoesMitMean": {
-        "question": "What does \"MIT\" mean?",
-        "answer": "\"MIT\" stands for Made in Taiwan. The brands listed on Formoria are primarily manufactured in Taiwan — including brands that are designed, produced, or founded in Taiwan. We care not just about the origin label, but about the craftsmanship and story behind each brand."
+        "question": "What do the MIT tiers mean?",
+        "answer": "MIT Verified means Formoria matched a product to the official MIT Smile registry. MIT Declared means the brand owner stated whether some, most, or all products are made in Taiwan. Neither tier implies that every product from the brand is made in Taiwan; check the listed scope and evidence."
       },
       "howToSubmit": {
         "question": "How do I submit a brand to Formoria?",
@@ -753,7 +826,7 @@
       },
       "reviewTime": {
         "question": "How long does the brand review take?",
-        "answer": "In most cases, brand reviews take about 7 business days. During that time, our team verifies the brand's authenticity and its connection to Made in Taiwan. Once approved, the brand will appear in the directory. If the submission is incomplete, we may reach out by email to request additional information."
+        "answer": "Brand reviews generally take about 7 business days. We check that the brand exists, the submission is complete, and it meets our inclusion criteria. Approved brands then appear in the directory; if information is missing, we may contact the submitter by email."
       },
       "claimBenefits": {
         "question": "Why claim a brand? What are the benefits?",
@@ -769,7 +842,7 @@
       },
       "isBrandFree": {
         "question": "Is it free to list a brand on Formoria?",
-        "answer": "Yes, submitting a brand to Formoria is completely free. Our goal is to build a comprehensive directory of Made in Taiwan brands, and we welcome submissions from anyone — brand owners, fans, or community members."
+        "answer": "Yes. Submitting a brand to Formoria is free, and brand owners, fans, and community members are all welcome to help build the Taiwanese brand directory."
       },
       "editBrand": {
         "question": "Can I edit a brand page after it's published?",
@@ -785,7 +858,7 @@
       },
       "howVerified": {
         "question": "How does brand verification work?",
-        "answer": "Brands on Formoria go through a review process to confirm they are genuinely Made in Taiwan. Brand owners can also claim and verify their pages for additional trust signals and editing access."
+        "answer": "Listing review checks that a brand exists and meets our inclusion criteria. Owner verification confirms who may manage the page. Manufacturing signals are separate: MIT Verified is matched to the official MIT Smile registry, while MIT Declared records the scope stated by the brand owner."
       },
       "contact": {
         "question": "How do I contact the Formoria team?",
@@ -796,11 +869,11 @@
   "about": {
     "metadata": {
       "title": "About Formoria",
-      "description": "Formoria helps quality Made-in-Taiwan brands get found through a community-curated directory built for discovery, craft, and care."
+      "description": "Formoria is a community-curated Taiwanese brand directory built to help more people discover brands founded, designed, or made in Taiwan."
     },
     "hero": {
       "title": "A community built for Taiwan's brands",
-      "subtitle": "A community-curated directory for discovering quality Made-in-Taiwan brands, from everyday staples to thoughtful design.",
+      "subtitle": "A community-curated Taiwanese brand directory, from everyday staples to thoughtful design.",
       "statSuffix": " — and growing",
       "statsBrands": "brands",
       "statsCategories": "categories",
@@ -812,11 +885,11 @@
       "heading": "Why Formoria Exists",
       "body1": "For years abroad, I kept looking for the brands that made home feel close: familiar pantry staples, well-made daily goods, design objects, and small labels I trusted but could never quite explain to friends. So many independent brands already have the quality, the taste, the care — what they lack is a simple way to be found by the people already looking for them.",
       "body2": "Portuguese sailors who sailed past Taiwan called it Ilha Formosa, the beautiful island. Formoria is the place that brings together the brands of this beautiful island worth treasuring.",
-      "body3": "On Formoria, MIT means a brand is founded, designed, produced, or deeply rooted in Taiwan. We look for real connection, considered quality, and a story worth helping more people discover."
+      "body3": "Formoria includes brands founded, designed, or made in Taiwan. Manufacturing verification appears separately so visitors can understand the available product-level signals."
     },
     "mission": {
       "heading": "Our Mission",
-      "statement": "Our mission is to help quality Made-in-Taiwan brands get found and put Taiwan on the map for design, craft, and care.",
+      "statement": "Our mission is to make Taiwanese brands easier to find through a clear, searchable directory built for discovery.",
       "promote": {
         "heading": "Promote Taiwanese Brands",
         "body": "Make it easier for people around the world to discover Taiwanese brands with strong products, thoughtful stories, and a real connection to place."
@@ -827,8 +900,12 @@
       },
       "platform": {
         "heading": "Build a Discovery Platform",
-        "body": "Create a clean, trusted place where shoppers, travelers, editors, and diaspora communities can find Taiwan-made brands worth remembering."
+        "body": "Create a clear, useful place where shoppers, travelers, editors, and diaspora communities can discover Taiwanese brands."
       }
+    },
+    "qualifies": {
+      "heading": "What qualifies",
+      "body": "Brands founded, designed, or made in Taiwan."
     },
     "taiwanStats": {
       "heading": "Taiwan's economy is built by small brands.",
@@ -960,6 +1037,8 @@
     "menuLabel": "Account",
     "dashboard": "Owner Dashboard",
     "favorites": "Saved Brands",
+    "contributions": "My Contributions",
+    "mySubmissions": "My Submissions",
     "signOut": "Sign out",
     "settings": "Settings",
     "feedback": "Feedback"
@@ -968,8 +1047,28 @@
     "heading": "Saved Brands",
     "count": "{count} brands",
     "emptyTitle": "No saved brands yet",
-    "emptyDescription": "Explore brands on MIT Map and tap the heart to save your favorites.",
+    "emptyDescription": "Explore the Taiwanese brand directory and tap the heart to save your favorites.",
     "exploreBrands": "Explore brands"
+  },
+  "contributions": {
+    "metadata": {
+      "title": "My Contributions"
+    },
+    "heading": "My Contributions",
+    "subheading": "Review the origin evidence you have shared with the Formoria community.",
+    "status": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "stance": {
+      "supports": "Supports made-in-Taiwan claim",
+      "contradicts": "Contradicts made-in-Taiwan claim"
+    },
+    "emptyTitle": "No contributions yet",
+    "emptyDescription": "Share origin evidence to help the community understand more Taiwanese brands.",
+    "exploreBrands": "Explore brands",
+    "unknownBrand": "Unknown brand"
   },
   "settings": {
     "metadata": {
@@ -1060,7 +1159,7 @@
     },
     "emptyState": {
       "title": "This page is for brand owners only",
-      "description": "Only logged-in brand accounts can view this page. If you are a brand owner in Taiwan, submit your brand to join the MIT Map community.",
+      "description": "Only logged-in brand accounts can view this page. If you own a Taiwanese brand, submit it to join the Formoria directory.",
       "submitCta": "Submit your brand",
       "browseCta": "Browse brands"
     },
@@ -1192,6 +1291,7 @@
       "title": "MIT Verification",
       "status": {
         "unverified": "Not verified",
+        "declared": "MIT Declared",
         "verified": "MIT Verified"
       },
       "description": {
@@ -1206,7 +1306,45 @@
       "certExpired": "This MIT certificate has expired",
       "reviewNote": "Reviewer note",
       "resubmitCta": "Request verification by email",
-      "dismiss": "Dismiss"
+      "dismiss": "Dismiss",
+      "tier": {
+        "certTitle": "MIT Smile Mark certification",
+        "certDescription": "Enter an MIT Smile Mark number to verify the official registry entry.",
+        "declareTitle": "Brand declaration",
+        "declareDescription": "If you do not have official certification yet, declare the scope of products made in Taiwan."
+      },
+      "or": "or",
+      "declare": {
+        "scopeLabel": "Declaration scope",
+        "scope": {
+          "all": "All products",
+          "most": "Most products",
+          "some": "Some products"
+        },
+        "attestation": "I confirm that the products above are made in Taiwan and that this information is accurate.",
+        "storyLabel": "Made-in-Taiwan story (optional)",
+        "storyPlaceholder": "Share how and why your brand manufactures in Taiwan",
+        "submit": "Submit declaration",
+        "success": "Your brand declaration has been submitted."
+      },
+      "declared": {
+        "scopeLabel": "Declaration scope",
+        "dateLabel": "Declaration date",
+        "withdraw": "Withdraw declaration",
+        "withdrawSuccess": "Your brand declaration has been withdrawn."
+      },
+      "errors": {
+        "notLoggedIn": "Please sign in first.",
+        "forbidden": "You do not have permission to edit this brand.",
+        "brandNotFound": "Brand not found.",
+        "invalidScope": "Choose a valid declaration scope.",
+        "database_error": "Could not save the declaration. Please try again.",
+        "not_declared": "This brand has no declaration to withdraw.",
+        "not_found": "Brand not found.",
+        "already_verified": "This brand is already MIT verified and cannot be self-declared.",
+        "invalid_state": "This action is not available for the brand's current MIT status.",
+        "unknown": "Something went wrong. Please try again."
+      }
     },
     "errors": {
       "invalidClaim": "The claim link is invalid or has expired. Please contact support.",
@@ -1341,7 +1479,7 @@
       "fieldValueTags": "Brand Values",
       "fieldValueTagsHint": "Select up to 3 values that describe the brand",
       "fieldValueTagsOptionalHint": "optional",
-      "mitStoryLabel": "MIT Manufacturing Story",
+      "mitStoryLabel": "Manufacturing Story",
       "mitStoryPlaceholder": "Share your manufacturing craftsmanship, materials sourcing, and factory partnerships…",
       "wizardProgress": "Step {current} of {total}",
       "wizardSidebarTitle": "Edit brand details",
@@ -1391,8 +1529,8 @@
       "sectionBrandImagesHint": "Manage the brand images shown in search results and on your public brand page.",
       "sectionLinksHint": "Keep official social profiles, websites, and purchase channels easy for visitors to find.",
       "sectionLocationsHint": "List physical shops or showrooms where visitors can find your brand.",
-      "sectionVerification": "MIT verification",
-      "sectionVerificationHint": "Verify your MIT Smile mark registration to help shoppers identify locally made products.",
+      "sectionVerification": "Manufacturing verification",
+      "sectionVerificationHint": "Match an MIT Smile registry entry to show verification for the products covered by that entry.",
       "sectionReputationHint": "Add press coverage, awards, and external references that strengthen brand credibility.",
       "website": "Website",
       "pinkoi": "Pinkoi",
@@ -1419,11 +1557,12 @@
   "submit": {
     "metadata": {
       "title": "Submit a Brand",
-      "description": "Share your Taiwan-made brand with the community"
+      "description": "Submit a Taiwanese brand to the Formoria directory"
     },
     "overview": {
       "heading": "Submit Your Taiwan Brand",
-      "description": "You can recommend a brand you love, or start the owner flow to claim and manage your own brand later.",
+      "description": "Recommend a brand you love, or start the owner flow to claim and manage your own listing.",
+      "criteria": "We list brands founded, designed, or made in Taiwan.",
       "recommendEyebrow": "Community recommendation",
       "recommendTitle": "Recommend a brand worth discovering",
       "recommendDescription": "Best for shoppers, fans, and friends. Just share the brand name and a URL so we can start reviewing it.",
@@ -1448,7 +1587,7 @@
     },
     "wizard": {
       "heading": "Submit a Brand",
-      "subheading": "Share your Taiwan-made brand with the community",
+      "subheading": "Share a Taiwanese brand with the community",
       "back": "Back",
       "next": "Next",
       "submitting": "Submitting...",
@@ -1463,7 +1602,7 @@
     },
     "url": {
       "heading": "Submit a brand you love",
-      "subheading": "Share Taiwan-made brands with the community",
+      "subheading": "Share a Taiwanese brand with the community",
       "label": "Brand Website URL",
       "hint": "Paste the brand's website URL and we'll auto-fill your submission data",
       "socialLinksLabel": "Social Links",
@@ -1674,7 +1813,7 @@
     },
     "recommendForm": {
       "heading": "Recommend a Brand",
-      "subheading": "Share the brand name and URL so we can review this Taiwan-made brand.",
+      "subheading": "Share the brand name and URL so we can review this Taiwanese brand.",
       "websiteLabel": "Official Brand URL",
       "websiteHint": "Paste the main website, storefront, or social homepage for the brand.",
       "websitePlaceholder": "https://brand.example",
@@ -1713,7 +1852,7 @@
       "urlPreviewHint": "URL changes from dashboard edits are applied after review. Clearing the romanized name keeps the current URL.",
       "descriptionLabel": "Brand Description",
       "descriptionHint": "A short brand description helps us review and structure the listing faster.",
-      "descriptionPlaceholder": "Tell us what you make, why it’s made in Taiwan, and what defines the brand.",
+      "descriptionPlaceholder": "Tell us what you make, how the brand is connected to Taiwan, and what defines it.",
       "heroImageHintOwner": "We recommend uploading the main visual or homepage hero image for the brand.",
       "cityHint": "Add the brand’s city so customers can discover local brands.",
       "linksHeading": "Brand Links",
@@ -1777,7 +1916,7 @@
     },
     "form": {
       "heading": "Submit a Brand",
-      "subheading": "Share your Taiwan-made brand with the community",
+      "subheading": "Share a Taiwanese brand with the community",
       "websiteLabel": "Official Brand Website",
       "websitePlaceholder": "https://yourbrand.com",
       "brandNameLabel": "Brand Name",
@@ -1805,12 +1944,12 @@
   "gettingStarted": {
     "metadata": {
       "title": "Explore Formoria",
-      "description": "Learn how to browse Taiwan-made brands, save favorites, and follow official links to learn more."
+      "description": "Learn how to browse Taiwanese brands, save favorites, and follow official links to learn more."
     },
     "hero": {
       "eyebrow": "Explore Formoria",
       "title": "Find your next favorite brand",
-      "intro": "Browse Taiwan-made brands by category, values, location, and shopping channel. Open a listing to learn more, save it for later, or follow official links to shop.",
+      "intro": "Browse Taiwanese brands by category, values, location, and shopping channel. Open a listing to learn more, save it for later, or follow official links to shop.",
       "primaryCta": "Browse brands",
       "secondaryCta": "Read the FAQ"
     },
@@ -1857,7 +1996,7 @@
       }
     },
     "cta": {
-      "heading": "Ready to explore Taiwan-made brands?",
+      "heading": "Ready to explore Taiwanese brands?",
       "body": "Browse the directory to find brands that match your interests, or read the FAQ to learn how listings work.",
       "browse": "Browse brands",
       "faq": "Read the FAQ"
@@ -1874,6 +2013,7 @@
         "submissions": "Brand Submissions",
         "jobs": "Data Jobs",
         "moderation": "Content Moderation",
+        "evidence": "Evidence",
         "claims": "Claim Requests",
         "reports": "Reports",
         "brands": "Brand Catalog",
@@ -1905,6 +2045,10 @@
         "flaggedContentLabel": "Pending Content Flags",
         "flaggedContentDesc": "Flags in the content review queue"
       },
+      "evidence": {
+        "label": "Evidence",
+        "description": "Origin evidence awaiting review"
+      },
       "queues": {
         "claims": {
           "title": "Brand Claims",
@@ -1929,6 +2073,56 @@
       "filterByRisk": "Filter by risk",
       "filterByTier": "Filter by tier",
       "noFlaggedContent": "No flagged content"
+    },
+    "evidence": {
+      "title": "Origin Evidence",
+      "description": "Review evidence submitted to support or contradict made-in-Taiwan claims.",
+      "tabs": {
+        "all": "All",
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected"
+      },
+      "table": {
+        "brand": "Brand",
+        "stance": "Stance",
+        "product": "Product",
+        "date": "Submitted",
+        "status": "Status"
+      },
+      "fields": {
+        "stance": "Stance",
+        "product": "Product",
+        "sourceType": "Source type",
+        "notes": "Notes",
+        "photos": "Photos",
+        "reviewerNotes": "Reviewer notes"
+      },
+      "stances": {
+        "supports": "Supports made-in-Taiwan claim",
+        "contradicts": "Contradicts made-in-Taiwan claim"
+      },
+      "sourceTypes": {
+        "product_label": "Product label",
+        "packaging": "Packaging",
+        "official_site": "Official website",
+        "in_store": "In store",
+        "other": "Other"
+      },
+      "actions": {
+        "approve": "Approve",
+        "reject": "Reject"
+      },
+      "reviewerNotesPlaceholder": "Add notes about this decision",
+      "stripDeclaration": "Remove declaration",
+      "unknownBrand": "Unknown brand",
+      "notProvided": "Not provided",
+      "noEvidence": "No evidence found.",
+      "photoAlt": "Evidence photo {index}",
+      "errors": {
+        "notesRequired": "Reviewer notes are required when rejecting evidence.",
+        "generic": "Unable to review evidence. Please try again."
+      }
     },
     "claimRequests": {
       "adminProofLabel": "Ownership proof",
@@ -2193,7 +2387,7 @@
   },
   "guides": {
     "metaTitle": "Taiwan Brand Guides",
-    "metaDescription": "Explore curated Taiwan brand guides, from skincare to food, and discover the best Made in Taiwan brands.",
+    "metaDescription": "Explore curated Taiwanese brand guides, from skincare and food to design and everyday goods.",
     "heading": "Taiwan Brand Guides",
     "subheading": "Explore Taiwan brands, industries, and purchasing context. From daily skincare to local food, find the guides you are looking for.",
     "badgeLabel": "Guide Hub",

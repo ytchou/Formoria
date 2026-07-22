@@ -57,6 +57,22 @@ vi.mock('@/lib/seo/alternates', () => ({
 }))
 
 describe('AboutPage', () => {
+  it('renders the brand inclusion criteria before the trust model', async () => {
+    const { default: AboutPage } = await import('../../../app/[locale]/about/page')
+
+    render(await AboutPage({ params: Promise.resolve({ locale: 'zh-TW' }) }))
+
+    const heading = screen.getByRole('heading', { level: 2, name: 'qualifies.heading' })
+    const body = screen.getByText('qualifies.body')
+    const trustModel = screen.getByTestId('trust-model')
+
+    expect(heading).toBeInTheDocument()
+    expect(body).toBeInTheDocument()
+    expect(
+      body.compareDocumentPosition(trustModel) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+  })
+
   it('finishes with next steps after the trust model', async () => {
     const { default: AboutPage } = await import('../../../app/[locale]/about/page')
 

@@ -55,6 +55,10 @@ const MIT_STATUS_CONFIG: Record<
     label: "MIT Unverified",
     className: "bg-secondary text-muted-foreground",
   },
+  declared: {
+    label: "品牌聲明",
+    className: "bg-secondary text-muted-foreground",
+  },
   verified: {
     label: "MIT Smile Certified",
     className: "bg-verified-green-bg text-verified-green",

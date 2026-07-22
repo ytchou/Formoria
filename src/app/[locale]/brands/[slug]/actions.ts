@@ -17,11 +17,16 @@ import {
   type ProofEvidence,
 } from '@/lib/services/claim-requests'
 import { createReport } from '@/lib/services/reports'
+import {
+  createEvidence,
+  type OriginEvidenceSourceType,
+  type OriginEvidenceStance,
+} from '@/lib/services/origin-evidence'
 import { enrollInMarketingEmails } from '@/lib/services/marketing-email-consent'
 import { createServiceClient } from '@/lib/supabase/server'
+import { trackOriginEvidenceSubmitted } from '@/lib/analytics'
 
 const REPORT_REASONS = [
-  'not_mit',
   'incorrect_info',
   'broken_link',
   'inappropriate',
@@ -36,6 +41,29 @@ const AUTHENTICATED_REPORT_REASONS: readonly SubmitReportReason[] = [
 type Translator = Awaited<ReturnType<typeof getTranslations<'brandDetail.claim.errors'>>>
 
 export type ReportState = { error?: string; success?: boolean }
+
+const EVIDENCE_STANCES = ['supports', 'contradicts'] as const
+const EVIDENCE_SOURCE_TYPES = [
+  'product_label',
+  'packaging',
+  'official_site',
+  'in_store',
+  'other',
+] as const
+
+type EvidenceErrorCode =
+  | 'not_logged_in'
+  | 'missing_brand_id'
+  | 'missing_brand_slug'
+  | 'invalid_stance'
+  | 'invalid_source_type'
+  | 'notes_too_long'
+  | 'invalid_photo_path'
+  | 'pending_cap_reached'
+  | 'database_error'
+  | 'unknown'
+
+export type EvidenceState = { error?: EvidenceErrorCode; success?: boolean }
 
 export type SubmitClaimInput = {
   brandId: string
@@ -242,5 +270,77 @@ export async function submitReportAction(_prevState: ReportState, formData: Form
     const message = err instanceof Error ? err.message : t('unknown')
     console.error('[brands:submitReport]', err)
     return { error: message }
+  }
+}
+
+export async function submitEvidenceAction(
+  _prevState: EvidenceState,
+  formData: FormData,
+): Promise<EvidenceState> {
+  try {
+    const user = await requireClaimUser()
+    if (!user) return { error: 'not_logged_in' }
+
+    const brandId = formData.get('brandId')
+    if (typeof brandId !== 'string' || !brandId.trim()) {
+      return { error: 'missing_brand_id' }
+    }
+
+    const brandSlug = formData.get('brandSlug')
+    if (typeof brandSlug !== 'string' || !brandSlug.trim()) {
+      return { error: 'missing_brand_slug' }
+    }
+
+    const stance = formData.get('stance')
+    if (
+      typeof stance !== 'string' ||
+      !EVIDENCE_STANCES.includes(stance as OriginEvidenceStance)
+    ) {
+      return { error: 'invalid_stance' }
+    }
+
+    const sourceType = formData.get('sourceType')
+    if (
+      typeof sourceType !== 'string' ||
+      !EVIDENCE_SOURCE_TYPES.includes(sourceType as OriginEvidenceSourceType)
+    ) {
+      return { error: 'invalid_source_type' }
+    }
+
+    const notesRaw = formData.get('notes')
+    const notes = typeof notesRaw === 'string' ? notesRaw.trim() : ''
+    if (notes.length > 1000) return { error: 'notes_too_long' }
+
+    const productNameRaw = formData.get('productName')
+    const productName = typeof productNameRaw === 'string'
+      ? productNameRaw.trim() || null
+      : null
+    const photoPaths = formData
+      .getAll('photoPaths')
+      .filter((path): path is string => typeof path === 'string' && path.length > 0)
+    const photoNamespace = `origin-evidence/${user.id}/${brandId.trim()}/`
+    if (photoPaths.some((path) => !path.startsWith(photoNamespace))) {
+      return { error: 'invalid_photo_path' }
+    }
+
+    const result = await createEvidence({
+      userId: user.id,
+      brandId: brandId.trim(),
+      stance: stance as OriginEvidenceStance,
+      productName,
+      sourceType: sourceType as OriginEvidenceSourceType,
+      notes,
+      photoPaths,
+    })
+    if (!result.ok) return { error: result.code }
+
+    trackOriginEvidenceSubmitted(brandId.trim(), brandSlug.trim(), stance)
+    revalidatePath(`/brands/${brandSlug.trim()}`)
+    revalidatePath('/admin/evidence')
+    revalidatePath('/contributions')
+    return { success: true }
+  } catch (err: unknown) {
+    console.error('[brands:submitEvidence]', err)
+    return { error: 'unknown' }
   }
 }

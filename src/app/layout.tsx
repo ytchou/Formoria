@@ -37,10 +37,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
   title: {
-    default: 'Formoria — 台灣製造品牌目錄',
+    default: 'Formoria — 台灣品牌目錄',
     template: '%s | Formoria',
   },
-  description: "台灣製造品牌目錄 — 探索精選台灣品牌",
+  description: "台灣品牌目錄 — 探索精選台灣品牌",
   openGraph: {
     siteName: 'Formoria',
     locale: 'zh_TW',

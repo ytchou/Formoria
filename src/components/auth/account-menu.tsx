@@ -72,6 +72,16 @@ export function AccountMenu() {
           {t('account.favorites')}
         </DropdownMenuItem>
         <DropdownMenuItem
+          render={<Link href="/contributions" />}
+        >
+          {t('account.contributions')}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          render={<Link href="/my-submissions" />}
+        >
+          {t('account.mySubmissions')}
+        </DropdownMenuItem>
+        <DropdownMenuItem
           render={<a href={FEEDBACK_FORM_URL} target="_blank" rel="noopener noreferrer" />}
         >
           {t('account.feedback')}

@@ -85,7 +85,7 @@ Post-claim management surface at `/dashboard` (protected; Supabase Auth; brand o
 
 ## Business Rules
 1. A brand must be approved by admin before appearing publicly
-2. Only products manufactured in Taiwan qualify (not just Taiwanese-owned)
+2. Brands founded, designed, or manufactured in Taiwan qualify for listing. Manufacturing verification uses a 3-tier ladder (see Trust & Verification Model).
 3. A brand can link to multiple sales platforms (no limit)
 4. A brand can optionally list physical retail locations where products are sold
 5. Taxonomy categories are admin-defined; brands can suggest new tags during submission (admin reviews and either adds or maps to existing)
@@ -124,9 +124,16 @@ A brand carries two **orthogonal** trust signals, plus an independent owner sign
 
 1. **Listing / approval status** (`brands.status`) — whether the brand is published in the directory. Managed via the admin approval queue (pending → approved | rejected | hidden). This governs visibility, not trustworthiness.
 
-2. **MIT verification tier** (`brands.mit_status`: `unverified` | `verified`) — automatically verified via weekly dataset sync from data.gov.tw #6027. When `verified`, the brand shows a gold **MIT 已驗證 / MIT Verified** badge. This is the registry-backed trust signal that resolves the self-attestation gap (see ASSUMPTIONS.md A7).
+2. **MIT verification tier** (`brands.mit_status`: `unverified` | `declared` | `verified`) — a 3-tier ladder:
+   - **Tier 1 — Registry-verified** (`verified`): automatically verified via weekly dataset sync from data.gov.tw #6027. Gold **MIT 認證** badge. Immutable by owners.
+   - **Tier 2 — Owner-declared** (`declared`): brand owner self-attests manufacturing origin with scope (`all`/`most`/`some` via `mit_declared_scope`). Muted **品牌聲明** pill. Can be withdrawn by owner or stripped by admin after community evidence review.
+   - **Tier 3 — Unlabeled** (`unverified`): no MIT signal. No badge. FAQ does not render MIT entries.
+   
+   Additional columns: `mit_declared_at` (timestamp), `mit_declared_by` (user FK), `mit_declared_scope` (all/most/some).
 
-3. **Owner / brand-managed signal** (independent) — the badge formerly labeled "Verified" is now **品牌經營 / Brand-managed**, indicating the listing is claimed and maintained by its owner. Independent of MIT status; both badges may appear on one brand.
+3. **Owner / brand-managed signal** (independent) — the badge **品牌經營 / Brand-managed** indicates the listing is claimed and maintained by its owner. Independent of MIT status; both badges may appear on one brand.
+
+**Origin evidence system:** authenticated users can submit origin evidence (supports/contradicts) with photos via the `origin_evidence` table. Evidence is moderated at `/admin/evidence`; admin can approve/reject with reviewer notes and optionally strip a declaration (resets `mit_status` to `unverified`, emails the owner). 3-pending cap per (user, brand).
 
 **Neutral Community absence:** a brand with neither the MIT nor the brand-managed badge displays a muted **社群品牌 / Community brand** label. Absence of a badge reads as intentional and complete, never as "missing" — MIT Smile certification is hard to obtain, so most brands legitimately lack it.
 
@@ -171,7 +178,10 @@ See `docs/strategy/brand-success-playbook.md` for full specification.
 ### Brand
 - id, slug, name, description, description_en, logoUrl
 - status: pending | approved | rejected | hidden (listing/approval signal)
-- mitStatus: unverified | verified (MIT 微笑標章 verification signal — orthogonal to status)
+- mitStatus: unverified | declared | verified (3-tier MIT ladder — orthogonal to listing status)
+- mitDeclaredScope: all | most | some | null (Tier 2 scope)
+- mitDeclaredAt: timestamp | null (Tier 2 declaration date)
+- mitDeclaredBy: user FK | null (Tier 2 declarer)
 - product_type (single product category, validated against PRODUCT_TYPE_CATEGORIES — one of: fashion, bags-accessories, jewelry, beauty, home, food-drink, crafts, tech, outdoor, kids-pets)
 - tags[] (additional taxonomy tags)
 - purchaseLinks[] (platform, url, label)
@@ -205,6 +215,17 @@ Storage invariants (DEV-1059):
 - old_value, new_value
 - source, actor, job_id
 - created_at
+
+### OriginEvidence (DEV-1137)
+- id, brand_id (FK cascade), user_id (FK)
+- stance: supports | contradicts
+- product_name (optional), source_type: product_label | packaging | official_site | in_store | other
+- notes (≤1000 chars), photo_paths text[]
+- status: pending | approved | rejected
+- reviewed_at, reviewed_by (FK), reviewer_notes
+- created_at
+
+RLS: users can view/insert own evidence. Admin reads via service-role client.
 
 ### AppSetting (DEV-1032)
 - key (text PK)

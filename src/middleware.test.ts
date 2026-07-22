@@ -48,7 +48,7 @@ describe('RESERVED_ROUTES', () => {
     const expected = [
       'admin', 'api', 'auth', 'submit',
       'brands', 'dashboard', 'faq', 'about',
-      'my-submissions', 'global-error',
+      'my-submissions', 'contributions', 'global-error',
       'sitemap.xml', 'robots.txt', 'favicon.ico',
     ]
     for (const route of expected) {

@@ -499,6 +499,30 @@ export function trackBrandClaimStarted(
   })
 }
 
+export function trackMitDeclared(
+  brandId: string,
+  brandSlug: string,
+  declaredScope: string,
+) {
+  capturePostHogEvent('mit_declared', {
+    brand_id: brandId,
+    brand_slug: brandSlug,
+    declared_scope: declaredScope,
+  })
+}
+
+export function trackOriginEvidenceSubmitted(
+  brandId: string,
+  brandSlug: string,
+  stance: string,
+) {
+  capturePostHogEvent('origin_evidence_submitted', {
+    brand_id: brandId,
+    brand_slug: brandSlug,
+    stance,
+  })
+}
+
 export function trackBrandClaimFormSubmitted(
   brandId: string,
   brandSlug: string,

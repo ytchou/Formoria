@@ -644,6 +644,8 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     category: deriveCategoryFromProductType(row.product_type ?? '') ?? row.product_type ?? null,
     isVerified: owners.length > 0,
     mitStatus: (row.mit_status as Brand['mitStatus']) ?? 'unverified',
+    mitDeclaredScope: (row.mit_declared_scope as Brand['mitDeclaredScope']) ?? null,
+    mitDeclaredAt: row.mit_declared_at ?? null,
     mitVerifiedAt: row.mit_verified_at ?? null,
     mitEvidence: (row.mit_evidence as Brand['mitEvidence']) ?? null,
     mitVerified: row.mit_status === 'verified',
@@ -748,7 +750,7 @@ const BRAND_COLUMNS = [
   'draft_data', 'draft_updated_at', 'founding_year',
   'price_range', 'product_tags', 'product_tags_en',
   'reputation_summary',
-  'mit_status', 'mit_verified_at',
+  'mit_status', 'mit_declared_scope', 'mit_declared_at', 'mit_verified_at',
   'mit_story',
   'mit_evidence', 'source', 'is_demo',
 ].join(', ')
@@ -907,6 +909,8 @@ export async function getBrands(
 
   if (verificationFilter === 'mit-verified') {
     query = query.eq('mit_status', 'verified')
+  } else if (verificationFilter === 'mit-declared') {
+    query = query.eq('mit_status', 'declared')
   }
 
   if (!filters?.includeTestBrands) {

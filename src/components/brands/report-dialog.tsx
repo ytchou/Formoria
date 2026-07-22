@@ -1,13 +1,12 @@
 'use client'
 
-import { useActionState, useEffect, useId, useState } from 'react'
+import { useActionState, useEffect, useId, useState, type MouseEvent } from 'react'
 import NextLink from 'next/link'
 import { useLocale, useTranslations } from 'next-intl'
 import {
   BadgeX,
   ChevronRight,
   CircleCheck,
-  Factory,
   Flag,
   Info,
   Link2Off,
@@ -85,7 +84,6 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
   }, [brandSlug, selectedReason, state.success])
 
   const generalReasons = [
-    { value: 'not_mit', label: t('reasonNotMit'), Icon: Factory },
     { value: 'incorrect_info', label: t('reasonIncorrectInfo'), Icon: Info },
     { value: 'broken_link', label: t('reasonBrokenLink'), Icon: Link2Off },
     { value: 'inappropriate', label: t('reasonInappropriate'), Icon: ShieldAlert },
@@ -111,6 +109,13 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
 
   function handleOpenChange(open: boolean) {
     if (!open) setReportedField('')
+  }
+
+  function handleMitDisputeClick(event: MouseEvent<HTMLAnchorElement>) {
+    event.preventDefault()
+    window.requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>('[data-evidence-dialog-trigger]')?.click()
+    })
   }
 
   return (
@@ -213,6 +218,23 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
                       </Button>
                     )
                   })}
+                </div>
+                <div className="flex min-h-12 items-center gap-3 rounded-lg border border-border bg-muted/50 p-3">
+                  <Info className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <Typography variant="cardDescription">
+                    {t('mitDisputePrompt')}{' '}
+                    <DialogClose
+                      render={
+                        <NextLink
+                          href={pathname}
+                          className="font-medium text-foreground underline underline-offset-4"
+                          onClick={handleMitDisputeClick}
+                        />
+                      }
+                    >
+                      {t('mitDisputeLink')}
+                    </DialogClose>
+                  </Typography>
                 </div>
               </div>
 

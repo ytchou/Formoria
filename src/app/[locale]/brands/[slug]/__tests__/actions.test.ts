@@ -159,7 +159,7 @@ describe('submitReportAction', () => {
   })
 
   it('returns error when brandId is missing', async () => {
-    const result = await submitReportAction({}, makeFormData({ reason: 'not_mit' }))
+    const result = await submitReportAction({}, makeFormData({ reason: 'broken_link' }))
     expect(result.error).toBeTruthy()
     expect(result.success).toBeUndefined()
   })
@@ -167,6 +167,17 @@ describe('submitReportAction', () => {
   it('returns error when reason is invalid', async () => {
     const result = await submitReportAction({}, makeFormData({ brandId: 'b1', reason: 'made_up' }))
     expect(result.error).toBeTruthy()
+  })
+
+  it('rejects not_mit as a report reason', async () => {
+    const result = await submitReportAction({}, makeFormData({
+      brandId: 'b1',
+      reason: 'not_mit',
+    }))
+
+    expect(result.error).toBeTruthy()
+    expect(result.success).toBeUndefined()
+    expect(createReport).not.toHaveBeenCalled()
   })
 
   it('rejects multiple otherwise-valid report reasons', async () => {
@@ -181,7 +192,7 @@ describe('submitReportAction', () => {
   it('returns error when notes exceed 1000 chars', async () => {
     const result = await submitReportAction({}, makeFormData({
       brandId: 'b1',
-      reason: 'not_mit',
+      reason: 'broken_link',
       notes: 'x'.repeat(1001),
     }))
     expect(result.error).toBeTruthy()
@@ -190,7 +201,7 @@ describe('submitReportAction', () => {
   it('returns success for valid minimal input', async () => {
     const result = await submitReportAction({}, makeFormData({
       brandId: 'b1',
-      reason: 'not_mit',
+      reason: 'broken_link',
     }))
     expect(result.success).toBe(true)
     expect(result.error).toBeUndefined()
@@ -212,7 +223,7 @@ describe('submitReportAction', () => {
       ['cf-connecting-ip', '10.9.9.9'],
       ['x-forwarded-for', '10.9.9.9'],
     ]) as unknown as Awaited<ReturnType<typeof headers>>)
-    const fd = makeFormData({ brandId: 'b1', reason: 'not_mit' })
+    const fd = makeFormData({ brandId: 'b1', reason: 'broken_link' })
     await submitReportAction({}, fd)
     await submitReportAction({}, fd)
     await submitReportAction({}, fd)
