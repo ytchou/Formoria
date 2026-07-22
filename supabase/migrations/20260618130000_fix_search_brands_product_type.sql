@@ -1,4 +1,6 @@
 -- Fix search_brands() to use product_type instead of dropped category column
+DROP FUNCTION IF EXISTS public.search_brands(text, integer);
+
 CREATE OR REPLACE FUNCTION public.search_brands(search_query text, result_limit integer DEFAULT 5)
  RETURNS TABLE(id uuid, name text, slug text, hero_image_url text, primary_category_name text, similarity_score real)
  LANGUAGE sql

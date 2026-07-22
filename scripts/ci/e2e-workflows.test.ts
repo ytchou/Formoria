@@ -68,6 +68,22 @@ describe("E2E workflow contracts", () => {
     expect(actions.every((action) => /@[0-9a-f]{40}$/.test(action))).toBe(true);
   });
 
+  it("drops the legacy search function before changing its returned row type", async () => {
+    const migration = await readFile(
+      "supabase/migrations/20260618130000_fix_search_brands_product_type.sql",
+      "utf8",
+    );
+    const drop = migration.indexOf(
+      "DROP FUNCTION IF EXISTS public.search_brands(text, integer);",
+    );
+    const create = migration.indexOf(
+      "CREATE OR REPLACE FUNCTION public.search_brands",
+    );
+
+    expect(drop).toBeGreaterThanOrEqual(0);
+    expect(create).toBeGreaterThan(drop);
+  });
+
   it("propagates real Playwright failures and only accepts no-tests status", () => {
     const run = (status: string) =>
       spawnSync("bash", ["scripts/ci/normalize-playwright-exit.sh", status], {
