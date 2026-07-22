@@ -3,37 +3,76 @@ name: Frontend CI
 on:
   pull_request:
     branches: [main]
-    paths:
-      - '**/*.ts'
-      - '**/*.tsx'
-      - '**/*.js'
-      - '**/*.jsx'
-      - 'src/app/favicon.ico'
-      - 'src/app/*.png'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - '.github/workflows/**'
+  pull_request_review:
+    branches: [main]
+    types: [submitted, dismissed]
 
 jobs:
-  lint-type-test:
+  quality:
+    name: Quality
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     permissions:
       contents: read
-      pull-requests: write
     steps:
-      - uses: actions/checkout@v4
-      - name: Nudge on potential e2e drift
-        if: github.event_name == 'pull_request'
-        continue-on-error: true
+      - name: Check out pull request merge
+        uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify favicon is RGBA
+        run: node scripts/check-favicon-rgba.mjs
+      - name: Lint
+        run: pnpm lint
+      - name: Type-check
+        run: pnpm tsc --noEmit
+      - name: Dead code
+        run: pnpm knip
+      - name: Unit coverage
+        run: pnpm test -- --coverage
+      - name: Restore Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('src/**/*.ts', 'src/**/*.tsx', 'src/**/*.js', 'src/**/*.jsx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
+      - name: Production build
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-public-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-local-service-role-key
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
+          TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
+
+  change-policy:
+    name: Change Policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Collect authoritative pull request evidence
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const marker = '<!-- e2e-drift-nudge -->';
+            const fs = require('node:fs');
+            const path = require('node:path');
             const pr = context.payload.pull_request;
 
-            if (!pr) {
-              core.info('No pull request context; skipping.');
+            if (!pr || !Number.isInteger(pr.number) || !pr.head?.sha) {
+              core.setFailed('Complete pull request context is required.');
               return;
             }
 
@@ -47,116 +86,61 @@ jobs:
               }
             );
 
-            const filenames = files.map((file) => file.filename);
-            const touchesUi = filenames.some((name) =>
-              name.startsWith('app/') ||
-              name.startsWith('src/app/') ||
-              name.startsWith('components/') ||
-              name.startsWith('src/components/') ||
-              /(^|\/)route\.(ts|tsx|js|jsx)$/.test(name)
-            );
-            const touchesE2E = filenames.some((name) => name.startsWith('e2e/'));
+            if (files.length >= 3000) {
+              core.setFailed('The changed-file list reached GitHub\'s 3,000-file limit.');
+              return;
+            }
 
-            const comments = await github.paginate(
-              github.rest.issues.listComments,
+            const reviews = await github.paginate(
+              github.rest.pulls.listReviews,
               {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: pr.number,
+                pull_number: pr.number,
                 per_page: 100,
               }
             );
 
-            const existing = comments.find((comment) =>
-              comment.body?.includes(marker) &&
-              comment.user?.type === 'Bot'
+            const evidence = {
+              pullRequest: {
+                number: pr.number,
+                headSha: pr.head.sha,
+              },
+              files: files.map((file) => ({
+                filename: file.filename,
+                previousFilename: file.previous_filename,
+                status: file.status,
+                additions: file.additions,
+                deletions: file.deletions,
+                patch: file.patch,
+              })),
+              reviews: reviews.map((review) => ({
+                state: review.state,
+                commitId: review.commit_id,
+                authorAssociation: review.author_association,
+                user: review.user && {
+                  login: review.user.login,
+                  type: review.user.type,
+                },
+              })),
+            };
+
+            fs.writeFileSync(
+              path.join(process.env.RUNNER_TEMP, 'change-policy-input.json'),
+              JSON.stringify(evidence),
+              { encoding: 'utf8', mode: 0o600 }
             );
-
-            if (touchesUi && !touchesE2E) {
-              const body = [
-                marker,
-                'Heads up: this PR changes `app/`, `src/app/`, `components/`, `src/components/`, or a `route.*` file, but it does not touch `e2e/`.',
-                '',
-                'Please check for potential e2e drift and update coverage if the UI or routing behavior changed.',
-              ].join('\n');
-
-              if (existing) {
-                await github.rest.issues.updateComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  comment_id: existing.id,
-                  body,
-                });
-                core.info('Updated existing e2e drift nudge comment.');
-                return;
-              }
-
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: pr.number,
-                body,
-              });
-              core.info('Created e2e drift nudge comment.');
-              return;
-            }
-
-            if (existing) {
-              await github.rest.issues.deleteComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-              });
-              core.info('Removed stale e2e drift nudge comment.');
-              return;
-            }
-
-            core.info('No e2e drift nudge needed.');
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - name: Check out pull request merge
+        uses: actions/checkout@v4
         with:
-          node-version: 20
-          cache: 'pnpm'
-      - name: Verify favicon is RGBA
-        run: node scripts/check-favicon-rgba.mjs
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm tsc --noEmit
-      - name: Dead code (knip)
-        run: pnpm knip
-      - run: pnpm test -- --coverage
-  # Production build gate. Nothing else in CI runs `next build`, and Railway builds on
-  # merge — so this catches build-only failures (SSG/ISR generation, server/client
-  # boundary, next/image config, route/metadata exports) before they break the deploy.
-  # Runs in parallel with the jobs above; the .next/cache restore keeps it incremental.
-  build:
-    if: github.actor != 'dependabot[bot]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      # Build statically generates category pages (SSG/ISR), which read Supabase, and
-      # inlines NEXT_PUBLIC_* values — so the build needs the same env Railway provides.
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      NEXT_PUBLIC_SITE_URL: http://localhost:3000
-      # Cloudflare Turnstile always-pass test keys (public test values, not real secrets)
-      NEXT_PUBLIC_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
-      TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
-    steps:
-      - uses: actions/checkout@v4
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          persist-credentials: false
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
-      - name: Restore Next.js build cache
-        uses: actions/cache@v4
-        with:
-          path: .next/cache
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('src/**/*.ts', 'src/**/*.tsx', 'src/**/*.js', 'src/**/*.jsx') }}
-          restore-keys: |
-            ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
-      - name: Production build
-        run: pnpm build
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Enforce change policy
+        run: pnpm tsx scripts/ci/change-policy.ts --input "$RUNNER_TEMP/change-policy-input.json"
