@@ -188,11 +188,13 @@
       "verifiedLabel": "由品牌方經營管理",
       "verifiedBadge": "已認領",
       "mitVerifiedLabel": "MIT 微笑認證",
-      "mitVerifiedBadge": "MIT"
+      "mitVerifiedBadge": "MIT",
+      "mitDeclaredBadge": "品牌聲明"
     },
     "verificationFilter": {
       "all": "全部",
       "mit-verified": "MIT 微笑認證",
+      "mit-declared": "品牌聲明",
       "owned": "品牌經營"
     },
     "claimCta": {
@@ -322,6 +324,8 @@
     "verifiedTitle": "由品牌方經營管理",
     "mitVerified": "MIT 微笑認證",
     "mitVerifiedTitle": "已通過 MIT 微笑標章登錄驗證",
+    "mitDeclared": "品牌聲明",
+    "mitDeclaredTitle": "由品牌方自行聲明台灣製造；聲明範圍可能涵蓋部分、多數或全部商品",
     "mitProofLink": "MIT 微笑標章證號 {cert}",
     "foundingYear": "創立於 {year}",
     "previewBanner": "預覽模式 — 尚未發布",

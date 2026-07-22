@@ -15,6 +15,14 @@ export function MitVerifiedBadge({ label, title }: BrandVerificationBadgeProps) 
   )
 }
 
+export function MitDeclaredBadge({ label, title }: BrandVerificationBadgeProps) {
+  return (
+    <Badge variant="declared" title={title} aria-label={title}>
+      {label}
+    </Badge>
+  )
+}
+
 export function OwnerVerifiedBadge({ label, title }: BrandVerificationBadgeProps) {
   return (
     // ui-exception: owner-verified uses green tokens distinct from MIT-verified amber; no dedicated variant

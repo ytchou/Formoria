@@ -54,6 +54,34 @@ function renderWithIntl(ui: React.ReactElement) {
 }
 
 describe('BrandHeader — verified badge', () => {
+  it('shows the MIT verified badge for MIT-verified brands', () => {
+    renderWithIntl(
+      <BrandHeader
+        brand={makeBrand({ mitStatus: 'verified', mitVerified: true })}
+      />,
+    )
+
+    expect(screen.getByTitle('已通過 MIT 微笑標章登錄驗證')).toHaveTextContent(
+      'MIT 微笑認證',
+    )
+  })
+
+  it('shows the declared badge without the MIT verified badge for declared brands', () => {
+    renderWithIntl(
+      <BrandHeader
+        brand={makeBrand({ mitStatus: 'declared', mitVerified: true })}
+      />,
+    )
+
+    expect(screen.getByText('品牌聲明')).toBeInTheDocument()
+    expect(
+      screen.getByTitle('由品牌方自行聲明台灣製造；聲明範圍可能涵蓋部分、多數或全部商品'),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByTitle('已通過 MIT 微笑標章登錄驗證'),
+    ).not.toBeInTheDocument()
+  })
+
   it('shows verified badge tooltip when isVerified is true', () => {
     renderWithIntl(<BrandHeader brand={makeBrand({ isVerified: true })} />)
     expect(screen.getByText('品牌經營')).toBeInTheDocument()

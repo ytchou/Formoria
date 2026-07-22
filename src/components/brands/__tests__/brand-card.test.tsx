@@ -111,6 +111,20 @@ describe('BrandCard badges', () => {
     expect(screen.getByTitle('MIT 微笑認證')).toHaveTextContent('MIT')
   })
 
+  it('renders the declared badge without the MIT verified badge for declared brands', () => {
+    renderWithProvider(
+      <BrandCard
+        brand={makeBrand({ mitStatus: 'declared', mitVerified: true })}
+      />,
+    )
+
+    expect(screen.getByText('品牌聲明')).toBeInTheDocument()
+    expect(
+      screen.getByTitle('由品牌方自行聲明台灣製造；聲明範圍可能涵蓋部分、多數或全部商品'),
+    ).toBeInTheDocument()
+    expect(screen.queryByTitle('MIT 微笑認證')).not.toBeInTheDocument()
+  })
+
   it('renders the owner badge for verified brands', () => {
     renderWithProvider(<BrandCard brand={makeBrand({ isVerified: true })} />)
 

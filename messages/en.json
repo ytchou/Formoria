@@ -188,11 +188,13 @@
       "verifiedLabel": "Managed by the brand owner",
       "verifiedBadge": "Claimed",
       "mitVerifiedLabel": "MIT Verified",
-      "mitVerifiedBadge": "MIT"
+      "mitVerifiedBadge": "MIT",
+      "mitDeclaredBadge": "MIT Declared"
     },
     "verificationFilter": {
       "all": "All",
       "mit-verified": "MIT Verified",
+      "mit-declared": "MIT Declared",
       "owned": "Owner-managed"
     },
     "claimCta": {
@@ -322,6 +324,8 @@
     "verifiedTitle": "Managed by the brand owner",
     "mitVerified": "MIT Verified",
     "mitVerifiedTitle": "Verified against the MIT Smile registry",
+    "mitDeclared": "MIT Declared",
+    "mitDeclaredTitle": "Self-attested as made in Taiwan by the brand owner; the declaration may cover some, most, or all products",
     "mitProofLink": "MIT Smile mark cert. {cert}",
     "foundingYear": "Est. {year}",
     "previewBanner": "Preview mode — not live",
