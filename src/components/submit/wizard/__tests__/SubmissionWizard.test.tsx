@@ -17,17 +17,58 @@ vi.mock('@/app/[locale]/submit/actions', () => ({
 vi.mock('@/lib/actions/location-search', () => ({
   searchLocationAction: vi.fn().mockResolvedValue({ success: true, results: [] }),
 }))
-vi.mock('@/components/brand-wizard/locations-section', () => ({
-  BrandLocationsSection: ({ isActualOwner }: { isActualOwner?: boolean }) => (
-    <div
-      data-testid='brand-locations-section'
-      data-actual-owner={String(isActualOwner)}
-    />
-  ),
-}))
+vi.mock('@/components/brand-wizard/locations-section', async () => {
+  const { useFormContext, useWatch } = await import('react-hook-form')
+
+  function MockBrandLocationsSection({
+    isActualOwner,
+    preserveOwnerConfirmation,
+  }: {
+    isActualOwner?: boolean
+    preserveOwnerConfirmation?: boolean
+  }) {
+    const form = useFormContext()
+    const retailLocations = useWatch({
+      control: form.control,
+      name: 'retailLocations',
+    })
+
+    return (
+      <div
+        data-testid='brand-locations-section'
+        data-actual-owner={String(isActualOwner)}
+        data-preserve-owner-confirmation={String(preserveOwnerConfirmation)}
+      >
+        <button
+          type='button'
+          onClick={() => {
+            form.setValue('heroImageUrl', 'https://warmwood.example/hero.jpg')
+            form.setValue('retailLocations', [
+              {
+                kind: 'location',
+                name: 'Warmwood Xinyi',
+                relationshipType: 'brand_store',
+                address: 'No. 1 Xinyi Road, Taipei',
+                availabilityNote: 'Weekend stock only.',
+                confirmationStatus: 'owner_confirmed',
+              },
+            ])
+          }}
+        >
+          Inject owner confirmation
+        </button>
+        <output data-testid='submission-location-values'>
+          {JSON.stringify(retailLocations ?? [])}
+        </output>
+      </div>
+    )
+  }
+
+  return { BrandLocationsSection: MockBrandLocationsSection }
+})
 vi.mock('@/components/submit/TurnstileWidget', () => ({
   TurnstileWidget: ({ onSuccess }: { onSuccess: (token: string) => void }) => (
-    <button data-testid='turnstile' onClick={() => onSuccess('mock-token')}>Turnstile</button>
+    <button type='button' data-testid='turnstile' onClick={() => onSuccess('mock-token')}>Turnstile</button>
   ),
 }))
 vi.mock('@/components/forms/image-upload-field', () => ({
@@ -119,6 +160,79 @@ describe('SubmissionWizard', () => {
       expect(screen.getByTestId('brand-locations-section')).toHaveAttribute(
         'data-actual-owner',
         'false',
+      )
+      expect(screen.getByTestId('brand-locations-section')).toHaveAttribute(
+        'data-preserve-owner-confirmation',
+        'false',
+      )
+    })
+  })
+
+  it('sanitizes an elevating location value before submission', async () => {
+    const { submitOwnerDetailedBrand } = await import('@/app/[locale]/submit/actions')
+    const { default: SubmissionWizard } = await import('../SubmissionWizard')
+    render(
+      <NextIntlClientProvider locale='zh-TW' messages={zhMessages}>
+        <SubmissionWizard />
+      </NextIntlClientProvider>
+    )
+
+    fireEvent.change(screen.getByLabelText(/品牌名稱/i), {
+      target: { value: '暖木生活' },
+    })
+    fireEvent.change(screen.getByLabelText(/網站/i), {
+      target: { value: 'https://warmwood.example' },
+    })
+    fireEvent.change(screen.getByLabelText(/品牌介紹/i), {
+      target: { value: '台灣居家生活品牌' },
+    })
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /販售地點/ })[0],
+    )
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Inject owner confirmation' }),
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('submission-location-values')).toHaveTextContent(
+        '"confirmationStatus":"unconfirmed"',
+      )
+      expect(screen.getByTestId('submission-location-values')).toHaveTextContent(
+        '"availabilityNote":"Weekend stock only."',
+      )
+    })
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /社群與購買連結/ })[0],
+    )
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId('submission-location-values'),
+      ).not.toBeInTheDocument()
+    })
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /販售地點/ })[0],
+    )
+    await waitFor(() => {
+      expect(screen.getByTestId('submission-location-values')).toHaveTextContent(
+        '"availabilityNote":"Weekend stock only."',
+      )
+    })
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /我同意依據/ }))
+    fireEvent.click(screen.getByTestId('turnstile'))
+    fireEvent.click(screen.getByRole('button', { name: '提交品牌資料' }))
+
+    await waitFor(() => {
+      expect(submitOwnerDetailedBrand).toHaveBeenCalledWith(
+        expect.objectContaining({
+          retailLocations: [
+            expect.objectContaining({
+              availabilityNote: 'Weekend stock only.',
+              confirmationStatus: 'unconfirmed',
+            }),
+          ],
+        }),
       )
     })
   })

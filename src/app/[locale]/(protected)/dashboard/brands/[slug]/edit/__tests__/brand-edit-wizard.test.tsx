@@ -140,14 +140,17 @@ describe('BrandEditWizard', () => {
     expect(screen.getByTestId('links-section')).toBeInTheDocument()
   })
 
-  it('passes actual ownership only to the locations step', () => {
-    renderWizard({ initialStep: 3, isActualOwner: true })
+  it.each([true, false])(
+    'forwards actual-owner presentation state %s to the locations step',
+    (isActualOwner) => {
+      renderWizard({ initialStep: 3, isActualOwner })
 
-    expect(screen.getByTestId('locations-section')).toHaveAttribute(
-      'data-actual-owner',
-      'true',
-    )
-  })
+      expect(screen.getByTestId('locations-section')).toHaveAttribute(
+        'data-actual-owner',
+        String(isActualOwner),
+      )
+    },
+  )
 
   it('restores completed steps from saved progress metadata', () => {
     renderWizard({

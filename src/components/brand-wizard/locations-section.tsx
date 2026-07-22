@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import {
   Controller,
   useFieldArray,
@@ -14,6 +14,7 @@ import {
   StandardFormSection,
   StandardFormStack,
 } from '@/components/forms/form-layout'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -68,12 +69,28 @@ const EMPTY_RETAIL_CHAIN = {
   availabilityNote: '',
 }
 
+const RETAIL_CHAIN_INCOMPATIBLE_FIELDS = [
+  'relationshipType',
+  'type',
+  'address',
+  'city',
+  'district',
+  'venueName',
+  'floorOrCounter',
+  'latitude',
+  'longitude',
+  'verificationStatus',
+  'confirmationStatus',
+] as const
+
 type BrandLocationsSectionProps = {
   isActualOwner?: boolean
+  preserveOwnerConfirmation?: boolean
 }
 
 export function BrandLocationsSection({
   isActualOwner = false,
+  preserveOwnerConfirmation = true,
 }: BrandLocationsSectionProps) {
   const form = useFormContext<BrandWizardCommonValues>()
   const locale = useLocale()
@@ -92,6 +109,108 @@ export function BrandLocationsSection({
   const [searchErrors, setSearchErrors] = useState<Record<string, string>>({})
   const [searchNotices, setSearchNotices] = useState<Record<string, string>>({})
   const [isSearching, startSearch] = useTransition()
+  const confirmationIdentities = useRef<Record<string, string>>({})
+  const confirmationStateSignature = JSON.stringify(
+    watchedLocations?.map((location) => [
+      location.kind,
+      location.name,
+      location.relationshipType,
+      location.address,
+      location.venueName,
+      location.floorOrCounter,
+      location.latitude,
+      location.longitude,
+      location.confirmationStatus,
+    ]),
+  )
+
+  useEffect(() => {
+    const nextIdentities: Record<string, string> = {}
+
+    fields.forEach((field, index) => {
+      const location = watchedLocations?.at(index)
+      if (!location) return
+
+      if (location.kind === 'retail_chain') {
+        if (
+          RETAIL_CHAIN_INCOMPATIBLE_FIELDS.some((key) =>
+            Object.prototype.hasOwnProperty.call(location, key),
+          )
+        ) {
+          form.setValue(
+            `retailLocations.${index}`,
+            {
+              kind: 'retail_chain',
+              name: location.name ?? '',
+              retailerUrl: location.retailerUrl ?? '',
+              availabilityNote: location.availabilityNote ?? '',
+            },
+            { shouldDirty: true },
+          )
+        }
+        return
+      }
+
+      const identity = JSON.stringify([
+        location.kind,
+        location.name,
+        location.relationshipType,
+        location.address,
+        location.venueName,
+        location.floorOrCounter,
+        location.latitude,
+        location.longitude,
+      ])
+      const previousIdentity = confirmationIdentities.current[field.id]
+      nextIdentities[field.id] = identity
+
+      if (
+        location.confirmationStatus === 'owner_confirmed' &&
+        (!location.address?.trim() ||
+          !preserveOwnerConfirmation ||
+          (previousIdentity !== undefined && previousIdentity !== identity))
+      ) {
+        form.setValue(
+          `retailLocations.${index}.confirmationStatus`,
+          'unconfirmed',
+          { shouldDirty: true },
+        )
+      }
+    })
+
+    confirmationIdentities.current = nextIdentities
+  }, [
+    confirmationStateSignature,
+    fields,
+    form,
+    preserveOwnerConfirmation,
+    watchedLocations,
+  ])
+
+  useEffect(() => {
+    const subscription = form.watch((_values, { name }) => {
+      const coordinateField =
+        /^retailLocations\.(\d+)\.(?:latitude|longitude)$/.exec(name ?? '')
+      const indexText = coordinateField?.at(1)
+      if (!indexText) return
+
+      const index = Number(indexText)
+      if (
+        form.getValues(`retailLocations.${index}.confirmationStatus`) !==
+        'owner_confirmed'
+      ) {
+        return
+      }
+
+      form.setValue(
+        `retailLocations.${index}.confirmationStatus`,
+        'unconfirmed',
+        { shouldDirty: true },
+      )
+    })
+
+    return () => subscription.unsubscribe()
+  }, [form])
 
   const clearSearchFeedback = (fieldKey: string) => {
     setSearchResults((previous) => {
@@ -228,6 +347,10 @@ export function BrandLocationsSection({
             fieldErrors?.retailerUrl?.message,
           )
           const results = searchResults[field.id] ?? []
+          const isOwnerConfirmed =
+            preserveOwnerConfirmation &&
+            currentLocation?.confirmationStatus === 'owner_confirmed' &&
+            Boolean(currentLocation.address?.trim())
 
           const changeInformationKind = (
             nextKind: 'location' | 'retail_chain',
@@ -235,8 +358,16 @@ export function BrandLocationsSection({
             if (nextKind === informationKind) return
             const replacement =
               nextKind === 'location'
-                ? { ...EMPTY_LOCATION }
-                : { ...EMPTY_RETAIL_CHAIN }
+                ? {
+                    ...EMPTY_LOCATION,
+                    name: currentLocation?.name ?? '',
+                    availabilityNote: currentLocation?.availabilityNote ?? '',
+                  }
+                : {
+                    ...EMPTY_RETAIL_CHAIN,
+                    name: currentLocation?.name ?? '',
+                    availabilityNote: currentLocation?.availabilityNote ?? '',
+                  }
             update(index, replacement)
             queueMicrotask(() => {
               form.unregister(`retailLocations.${index}`)
@@ -597,6 +728,25 @@ export function BrandLocationsSection({
                     />
                   </DashboardFormField>
 
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    aria-label={
+                      isOwnerConfirmed
+                        ? t('ownerConfirmationConfirmed')
+                        : t('ownerConfirmationUnconfirmed')
+                    }
+                    data-confirmation-status={
+                      isOwnerConfirmed ? 'owner_confirmed' : 'unconfirmed'
+                    }
+                  >
+                    <Badge variant={isOwnerConfirmed ? 'success' : 'outline'}>
+                      {isOwnerConfirmed
+                        ? t('ownerConfirmationConfirmed')
+                        : t('ownerConfirmationUnconfirmed')}
+                    </Badge>
+                  </div>
+
                   {isActualOwner ? (
                     <div className="space-y-1">
                       <Label
@@ -605,17 +755,39 @@ export function BrandLocationsSection({
                       >
                         <Checkbox
                           id={`${fieldId}-ownerConfirmed`}
-                          checked={
-                            currentLocation?.confirmationStatus ===
-                            'owner_confirmed'
-                          }
-                          onCheckedChange={(checked) =>
+                          checked={isOwnerConfirmed}
+                          onCheckedChange={(checked) => {
+                            if (
+                              checked === true &&
+                              !form
+                                .getValues(`retailLocations.${index}.address`)
+                                ?.trim()
+                            ) {
+                              resetConfirmation(index)
+                              form.setError(
+                                `retailLocations.${index}.address`,
+                                {
+                                  type: 'required',
+                                  message: t('ownerConfirmationAddressError'),
+                                },
+                              )
+                              form.setFocus(
+                                `retailLocations.${index}.address`,
+                              )
+                              return
+                            }
+
+                            form.clearErrors(
+                              `retailLocations.${index}.address`,
+                            )
                             form.setValue(
                               `retailLocations.${index}.confirmationStatus`,
-                              checked ? 'owner_confirmed' : 'unconfirmed',
+                              checked === true
+                                ? 'owner_confirmed'
+                                : 'unconfirmed',
                               { shouldDirty: true },
                             )
-                          }
+                          }}
                           aria-describedby={`${fieldId}-ownerConfirmed-help`}
                           className="size-[18px] shrink-0"
                         />

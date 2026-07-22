@@ -476,6 +476,7 @@
       "highlights": "Brand Highlights",
       "photos": "Photos",
       "locations": "Locations",
+      "locationsAndRetailChannels": "Locations & retail channels",
       "faq": "Frequently Asked Questions"
     },
     "gallery": {
@@ -488,21 +489,26 @@
     },
     "locations": {
       "mapTitle": "{name} stockist map",
-      "subheading": "Find brand stores, stockists, and counters that carry this brand.",
-      "mapHeading": "Independent locations on the map",
-      "mapDescription": "The map only shows locations marked independent with confirmed coordinates.",
-      "independentHeading": "Other independent locations",
-      "independentDescription": "These independent locations do not have usable map coordinates yet.",
-      "chainHeading": "Chain retailers",
-      "chainDescription": "Chain retailers stay off the brand map; use the retailer and branch details below.",
-      "unclassifiedHeading": "Unclassified locations",
-      "unclassifiedDescription": "Unclassified locations stay off the brand map until their retailer type is confirmed.",
-      "manualAddress": "Manual address",
+      "mapLoading": "Loading map…",
+      "confirmedHeading": "Confirmed locations",
+      "stockDisclaimer": "The brand owner has confirmed these location details only. Contact the location to check products and stock before visiting.",
+      "unconfirmedHeading": "Unconfirmed locations",
+      "unconfirmedDisclaimer": "These listings are based on best-effort public information. Until the brand owner confirms them, we do not provide addresses, map pins, or map links.",
+      "unconfirmedStatus": "Awaiting brand owner confirmation",
+      "chainHeading": "Retail chains",
+      "chainDescription": "Availability varies by branch. The retailer link provides general retailer information, not live stock.",
+      "chainBadge": "Retail chain",
+      "someStoresBadge": "Available at select stores",
+      "retailerWebsite": "Retailer information",
       "openInMaps": "Open in Google Maps",
-      "networkTypes": {
-        "chain": "Chain retailer",
-        "independent": "Independent location",
-        "unclassified": "Not classified"
+      "filters": {
+        "all": "All",
+        "brandStores": "Brand stores",
+        "otherSales": "Other retailers"
+      },
+      "views": {
+        "map": "Map",
+        "viewAll": "View all"
       },
       "types": {
         "brand_store": "Brand store",
@@ -1467,8 +1473,10 @@
       "fieldLongitude": "Longitude",
       "fieldAvailabilityNote": "Note",
     "fieldAvailabilityNotePlaceholder": "Carries selected products. Please call ahead.",
-    "ownerConfirmationLabel": "I confirm this physical location is current",
-    "ownerConfirmationHelp": "Owner confirmation describes this location, not live inventory. An address is required before publishing a confirmation.",
+    "ownerConfirmationLabel": "I confirm this is a current physical location where this brand's products can be purchased",
+    "ownerConfirmationHelp": "Confirmation is not live inventory. An exact address is required.",
+    "ownerConfirmationConfirmed": "Confirmed by the brand owner",
+    "ownerConfirmationUnconfirmed": "Not confirmed by the brand owner",
     "ownerConfirmationAddressError": "Add an address before confirming this location.",
       "saving": "Saving...",
       "saveDraft": "Save as draft",

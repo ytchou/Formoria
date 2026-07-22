@@ -1,7 +1,28 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import type { RetailLocation } from '@/lib/types'
+import { createContext, useContext } from 'react'
+import type { PhysicalRetailLocation } from '@/lib/types/brand'
+
+export type BrandMapLocation = PhysicalRetailLocation & {
+  kind: 'location'
+  address: string
+  latitude: number
+  longitude: number
+  confirmationStatus: 'owner_confirmed'
+}
+
+const MapLoadingLabelContext = createContext('')
+
+function BrandLocationsMapLoading() {
+  const loadingLabel = useContext(MapLoadingLabelContext)
+
+  return (
+    <div className='flex h-72 items-center justify-center rounded-lg border border-border bg-muted type-card-description'>
+      {loadingLabel}
+    </div>
+  )
+}
 
 const BrandLocationsLeaflet = dynamic(
   () =>
@@ -10,20 +31,22 @@ const BrandLocationsLeaflet = dynamic(
     ),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex h-72 items-center justify-center rounded-lg border border-border bg-muted type-card-description">
-        Loading map...
-      </div>
-    ),
+    loading: BrandLocationsMapLoading,
   },
 )
 
 export function BrandLocationsMap({
   locations,
   mapTitle,
+  loadingLabel,
 }: {
-  locations: RetailLocation[]
+  locations: BrandMapLocation[]
   mapTitle: string
+  loadingLabel: string
 }) {
-  return <BrandLocationsLeaflet locations={locations} mapTitle={mapTitle} />
+  return (
+    <MapLoadingLabelContext value={loadingLabel}>
+      <BrandLocationsLeaflet locations={locations} mapTitle={mapTitle} />
+    </MapLoadingLabelContext>
+  )
 }

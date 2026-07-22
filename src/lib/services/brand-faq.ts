@@ -1,5 +1,9 @@
 import type { Brand } from '@/lib/types'
-import { normalizeRetailLocations } from '@/lib/brands/locations'
+import {
+  isConfirmedRetailLocation,
+  isRetailChainChannel,
+  normalizeRetailLocations,
+} from '@/lib/brands/locations'
 import { createServiceClient } from '@/lib/supabase/server'
 
 type TFn = (key: string, params?: Record<string, unknown>) => string
@@ -62,9 +66,14 @@ export async function getBrandFaq(
 
 type FaqGenerator = {
   id: string
-  condition: (brand: Brand) => boolean
+  condition: (brand: Brand, context: BrandFaqContext) => boolean
   questionKey: string
-  buildAnswer: (brand: Brand, t: TFn, locale: string) => string
+  buildAnswer: (
+    brand: Brand,
+    t: TFn,
+    locale: string,
+    context: BrandFaqContext,
+  ) => string
 }
 
 const PRICE_RANGE_KEYS: Record<1 | 2 | 3, string> = {
@@ -105,12 +114,36 @@ function collectPurchaseLinks(brand: Brand, t: TFn): string[] {
   return links
 }
 
-function collectRetailLocations(brand: Brand): string[] {
-  return truncate(
-    normalizeRetailLocations(brand.retailLocations)
-      .map((location) => location.name)
-      .filter(Boolean),
-  )
+type RetailLocationSummary = {
+  confirmed: string[]
+  unconfirmed: string[]
+  chains: string[]
+}
+
+type BrandFaqContext = {
+  retailLocations: RetailLocationSummary
+}
+
+function collectRetailLocationSummary(
+  locations: ReturnType<typeof normalizeRetailLocations>,
+): RetailLocationSummary {
+  const summary: RetailLocationSummary = {
+    confirmed: [],
+    unconfirmed: [],
+    chains: [],
+  }
+
+  for (const location of locations) {
+    if (isRetailChainChannel(location)) {
+      summary.chains.push(location.name)
+    } else if (isConfirmedRetailLocation(location)) {
+      summary.confirmed.push(location.name)
+    } else {
+      summary.unconfirmed.push(location.name)
+    }
+  }
+
+  return summary
 }
 
 function collectSocialLinks(brand: Brand): string[] {
@@ -135,12 +168,32 @@ function buildWhereToBuyAnswer(brand: Brand, t: TFn, _locale: string): string {
   })
 }
 
-function buildPhysicalStoresAnswer(brand: Brand, t: TFn, _locale: string): string {
+function buildPhysicalStoresAnswer(
+  _brand: Brand,
+  t: TFn,
+  locale: string,
+  context: BrandFaqContext,
+): string {
+  const { confirmed, unconfirmed, chains } = context.retailLocations
   const sep = t('brandFaq.listSeparator')
-  return t('brandFaq.hasPhysicalStores.answer', {
-    brandName: brand.name,
-    locations: collectRetailLocations(brand).join(sep),
-  })
+
+  const details = [
+    confirmed.length > 0
+      ? `${t('locations.confirmedHeading')} (${confirmed.length}): ${confirmed.join(sep)}.`
+      : null,
+    unconfirmed.length > 0
+      ? `${t('locations.unconfirmedHeading')} (${unconfirmed.length}): ${unconfirmed.join(sep)}. ${t('locations.unconfirmedDisclaimer')}`
+      : null,
+    chains.length > 0
+      ? `${t('locations.chainHeading')} (${chains.length}): ${chains.join(sep)}. ${t('locations.chainDescription')}`
+      : null,
+  ].filter(hasValue)
+
+  const availabilityDisclaimer = locale.startsWith('zh')
+    ? '\u4ee5\u4e0a\u4e0d\u662f\u5373\u6642\u5eab\u5b58\u8cc7\u8a0a\uff1b\u9020\u8a2a\u6216\u4e0b\u55ae\u524d\uff0c\u8acb\u5148\u5411\u54c1\u724c\u6216\u901a\u8def\u78ba\u8a8d\u662f\u5426\u8ca9\u552e\u3002'
+    : 'Availability is not live; check with the brand or retailer before visiting or ordering.'
+
+  return `${details.join(' ')} ${availabilityDisclaimer}`
 }
 
 function buildMainProductsAnswer(brand: Brand, t: TFn, _locale: string): string {
@@ -257,7 +310,10 @@ const FAQ_GENERATORS: FaqGenerator[] = [
   },
   {
     id: 'physical-stores',
-    condition: (brand) => collectRetailLocations(brand).length > 0,
+    condition: (_brand, context) =>
+      context.retailLocations.confirmed.length > 0 ||
+      context.retailLocations.unconfirmed.length > 0 ||
+      context.retailLocations.chains.length > 0,
     questionKey: 'brandFaq.hasPhysicalStores.question',
     buildAnswer: buildPhysicalStoresAnswer,
   },
@@ -297,11 +353,21 @@ const FAQ_GENERATORS: FaqGenerator[] = [
 ]
 
 export function buildBrandFaq(brand: Brand, t: TFn, locale: string = 'zh-TW'): FaqItem[] {
-  return FAQ_GENERATORS.filter((generator) => generator.condition(brand)).map(
-    (generator) => ({
+  const context: BrandFaqContext = {
+    retailLocations: collectRetailLocationSummary(
+      normalizeRetailLocations(brand.retailLocations),
+    ),
+  }
+
+  return FAQ_GENERATORS.filter((generator) =>
+    generator.condition(brand, context),
+  ).map((generator) => ({
       id: generator.id,
-      question: t(generator.questionKey, { brandName: brand.name }),
-      answer: generator.buildAnswer(brand, t, locale),
+      question:
+        generator.id === 'physical-stores'
+          ? `${t('sections.locationsAndRetailChannels')}: ${brand.name}`
+          : t(generator.questionKey, { brandName: brand.name }),
+      answer: generator.buildAnswer(brand, t, locale, context),
     }),
   )
 }

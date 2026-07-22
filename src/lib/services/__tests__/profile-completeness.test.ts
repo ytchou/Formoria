@@ -101,6 +101,54 @@ describe('computeProfileCompleteness', () => {
     expect(result.score).toBe(14)
   })
 
+  it('counts unconfirmed locations and retail-chain channels as complete', () => {
+    for (const retailLocations of [
+      [
+        {
+          kind: 'location' as const,
+          name: 'Possible Shop',
+          relationshipType: 'stockist' as const,
+          confirmationStatus: 'unconfirmed' as const,
+          address: '台北市大安區',
+        },
+      ],
+      [{ kind: 'retail_chain' as const, name: 'Example Chain' }],
+    ]) {
+      const result = computeProfileCompleteness({
+        ...EMPTY,
+        retailLocations,
+      })
+
+      expect(
+        result.components.find((item) => item.key === 'retailLocations')
+          ?.complete,
+      ).toBe(true)
+    }
+  })
+
+  it('counts safely normalized legacy location and chain data as complete', () => {
+    for (const retailLocations of [
+      [
+        {
+          name: 'Legacy Shop',
+          address: '台北市信義區',
+          confirmationStatus: 'owner_confirmed',
+        },
+      ],
+      [{ name: 'Legacy Chain', type: 'chain' }],
+    ]) {
+      const result = computeProfileCompleteness({
+        ...EMPTY,
+        retailLocations: retailLocations as unknown as Brand['retailLocations'],
+      })
+
+      expect(
+        result.components.find((item) => item.key === 'retailLocations')
+          ?.complete,
+      ).toBe(true)
+    }
+  })
+
   it('requires both reputation text and a source URL', () => {
     const result = computeProfileCompleteness({
       ...EMPTY,

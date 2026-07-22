@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
-import { useForm, useWatch } from 'react-hook-form'
+import { useState } from 'react'
+import { FormProvider, useForm, useWatch } from 'react-hook-form'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import messages from '@/../messages/en.json'
+import { BrandLocationsSection } from '@/components/brand-wizard/locations-section'
 import { searchLocationAction } from '@/lib/actions/location-search'
 import type { BrandEditFormValues } from '@/lib/schemas/brand-edit'
 import { LocationsSection } from '../locations-section'
@@ -49,13 +51,22 @@ function Wrapper({
     control: form.control,
     name: 'retailLocations',
   })
+  const [showLocations, setShowLocations] = useState(true)
 
   return (
     <NextIntlClientProvider locale="en" messages={messages}>
-      <LocationsSection form={form} isActualOwner={isActualOwner} />
+      {showLocations ? (
+        <LocationsSection form={form} isActualOwner={isActualOwner} />
+      ) : null}
       <output data-testid="location-values">
         {JSON.stringify(watchedLocations ?? [])}
       </output>
+      <button
+        type="button"
+        onClick={() => setShowLocations((visible) => !visible)}
+      >
+        Toggle locations step
+      </button>
       <button
         type="button"
         onClick={() => {
@@ -72,6 +83,32 @@ function Wrapper({
       >
         Update map metadata
       </button>
+    </NextIntlClientProvider>
+  )
+}
+
+function SubmissionSurfaceWrapper({
+  retailLocations,
+}: Pick<WrapperProps, 'retailLocations'>) {
+  const form = useForm<BrandEditFormValues>({
+    defaultValues: { retailLocations },
+  })
+  const watchedLocations = useWatch({
+    control: form.control,
+    name: 'retailLocations',
+  })
+
+  return (
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <FormProvider {...form}>
+        <BrandLocationsSection
+          isActualOwner={false}
+          preserveOwnerConfirmation={false}
+        />
+      </FormProvider>
+      <output data-testid="location-values">
+        {JSON.stringify(watchedLocations ?? [])}
+      </output>
     </NextIntlClientProvider>
   )
 }
@@ -107,6 +144,12 @@ describe('LocationsSection', () => {
       relationshipType: 'stockist',
       confirmationStatus: 'unconfirmed',
     })
+    expect(
+      screen.getByRole('status', { name: 'Not confirmed by the brand owner' }),
+    ).toHaveAttribute(
+      'data-confirmation-status',
+      'unconfirmed',
+    )
     expect(screen.queryByLabelText('Map status')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Latitude')).not.toBeInTheDocument()
     expect(
@@ -129,9 +172,15 @@ describe('LocationsSection', () => {
 
     expect(
       screen.getByRole('checkbox', {
-        name: 'I confirm this physical location is current',
+        name: 'I confirm this is a current physical location where this brand\'s products can be purchased',
       }),
     ).toBeChecked()
+    expect(
+      screen.getByRole('status', { name: 'Confirmed by the brand owner' }),
+    ).toHaveAttribute(
+      'data-confirmation-status',
+      'owner_confirmed',
+    )
   })
 
   it('does not expose owner confirmation to non-owners', () => {
@@ -139,9 +188,49 @@ describe('LocationsSection', () => {
 
     expect(
       screen.queryByRole('checkbox', {
-        name: 'I confirm this physical location is current',
+        name: 'I confirm this is a current physical location where this brand\'s products can be purchased',
       }),
     ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('status', { name: 'Confirmed by the brand owner' }),
+    ).toHaveAttribute(
+      'data-confirmation-status',
+      'owner_confirmed',
+    )
+  })
+
+  it('requires an address before owner confirmation', async () => {
+    const user = userEvent.setup()
+    render(
+      <Wrapper
+        isActualOwner
+        retailLocations={[
+          {
+            ...CONFIRMED_LOCATION,
+            address: '   ',
+            confirmationStatus: 'unconfirmed',
+          },
+        ]}
+      />,
+    )
+
+    await user.click(
+      screen.getByRole('checkbox', {
+        name: 'I confirm this is a current physical location where this brand\'s products can be purchased',
+      }),
+    )
+
+    expect(
+      screen.getByText('Add an address before confirming this location.'),
+    ).toBeVisible()
+    expect(
+      screen.getByRole('checkbox', {
+        name: 'I confirm this is a current physical location where this brand\'s products can be purchased',
+      }),
+    ).not.toBeChecked()
+    expect(readLocationValues()[0]).toMatchObject({
+      confirmationStatus: 'unconfirmed',
+    })
   })
 
   it.each([
@@ -162,7 +251,7 @@ describe('LocationsSection', () => {
 
     expect(
       screen.getByRole('checkbox', {
-        name: 'I confirm this physical location is current',
+        name: 'I confirm this is a current physical location where this brand\'s products can be purchased',
       }),
     ).not.toBeChecked()
     expect(readLocationValues()[0]).toMatchObject({
@@ -180,16 +269,16 @@ describe('LocationsSection', () => {
     )
 
     await user.click(screen.getByRole('combobox', { name: 'Location type' }))
-    await user.click(screen.getByRole('option', { name: 'Stockist' }))
+    await user.click(await screen.findByRole('option', { name: 'Stockist' }))
 
     expect(
       screen.getByRole('checkbox', {
-        name: 'I confirm this physical location is current',
+        name: 'I confirm this is a current physical location where this brand\'s products can be purchased',
       }),
     ).not.toBeChecked()
   })
 
-  it('preserves confirmation for note and map metadata changes', async () => {
+  it('preserves confirmation when the availability note changes', async () => {
     const user = userEvent.setup()
     render(
       <Wrapper
@@ -198,13 +287,39 @@ describe('LocationsSection', () => {
       />,
     )
     const confirmation = screen.getByRole('checkbox', {
-      name: 'I confirm this physical location is current',
+        name: 'I confirm this is a current physical location where this brand\'s products can be purchased',
     })
 
     await user.type(screen.getByLabelText('Note'), ' Selected products only.')
-    await user.click(screen.getByRole('button', { name: 'Update map metadata' }))
 
     expect(confirmation).toBeChecked()
+    expect(readLocationValues()[0]).toMatchObject({
+      availabilityNote: 'Call ahead. Selected products only.',
+      confirmationStatus: 'owner_confirmed',
+    })
+  })
+
+  it('resets confirmation when coordinates change', async () => {
+    const user = userEvent.setup()
+    render(
+      <Wrapper
+        isActualOwner
+        retailLocations={[CONFIRMED_LOCATION]}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Update map metadata' }))
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('checkbox', {
+        name: 'I confirm this is a current physical location where this brand\'s products can be purchased',
+        }),
+      ).not.toBeChecked()
+      expect(readLocationValues()[0]).toMatchObject({
+        confirmationStatus: 'unconfirmed',
+      })
+    })
   })
 
   it('scrubs incompatible fields when switching information kind', async () => {
@@ -217,23 +332,26 @@ describe('LocationsSection', () => {
     )
 
     await user.click(screen.getByRole('combobox', { name: 'Information type' }))
-    await user.click(screen.getByRole('option', { name: 'Retail chain' }))
+    await user.click(
+      await screen.findByRole('option', { name: 'Retail chain' }),
+    )
 
     expect(screen.getByLabelText('Retail chain name')).toBeInTheDocument()
-    expect(screen.getByLabelText('Official or store-locator URL')).toBeInTheDocument()
+    expect(
+      screen.getByLabelText('Official or store-locator URL'),
+    ).toBeInTheDocument()
     expect(screen.queryByLabelText('Address')).not.toBeInTheDocument()
     expect(
       screen.queryByRole('checkbox', {
-        name: 'I confirm this physical location is current',
+        name: 'I confirm this is a current physical location where this brand\'s products can be purchased',
       }),
     ).not.toBeInTheDocument()
     expect(readLocationValues()[0]).toEqual({
       kind: 'retail_chain',
-      name: '',
+      name: 'Warmwood Xinyi',
       retailerUrl: '',
-      availabilityNote: '',
+      availabilityNote: 'Call ahead.',
     })
-
   })
 
   it('scrubs chain fields when switching to a physical location', async () => {
@@ -253,16 +371,88 @@ describe('LocationsSection', () => {
     )
 
     await user.click(screen.getByRole('combobox', { name: 'Information type' }))
-    await user.click(screen.getByRole('option', { name: 'Physical location' }))
+    await user.click(
+      await screen.findByRole('option', { name: 'Physical location' }),
+    )
 
     expect(screen.getByLabelText('Address')).toBeInTheDocument()
     expect(readLocationValues()[0]).toMatchObject({
       kind: 'location',
-      name: '',
+      name: 'Lifestyle Mart',
       relationshipType: 'stockist',
+      availabilityNote: 'Selected stores only.',
       confirmationStatus: 'unconfirmed',
     })
     expect(readLocationValues()[0]).not.toHaveProperty('retailerUrl')
+  })
+
+  it('scrubs retained physical data from a retail-chain draft', async () => {
+    render(
+      <Wrapper
+        retailLocations={[
+          {
+            ...CONFIRMED_LOCATION,
+            kind: 'retail_chain',
+            retailerUrl: 'https://retailer.example/stores',
+          },
+        ]}
+      />,
+    )
+
+    expect(screen.getByLabelText('Retail chain name')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Address')).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(readLocationValues()).toEqual([
+        {
+          kind: 'retail_chain',
+          name: 'Warmwood Xinyi',
+          retailerUrl: 'https://retailer.example/stores',
+          availabilityNote: 'Call ahead.',
+        },
+      ])
+    })
+  })
+
+  it('keeps a location draft when the wizard step remounts', async () => {
+    const user = userEvent.setup()
+    render(<Wrapper retailLocations={[CONFIRMED_LOCATION]} />)
+
+    await user.clear(screen.getByLabelText('Note'))
+    await user.type(screen.getByLabelText('Note'), 'Weekend stock only.')
+    await user.click(
+      screen.getByRole('button', { name: 'Toggle locations step' }),
+    )
+    await user.click(
+      screen.getByRole('button', { name: 'Toggle locations step' }),
+    )
+
+    expect(screen.getByLabelText('Note')).toHaveValue('Weekend stock only.')
+    expect(readLocationValues()[0]).toMatchObject({
+      availabilityNote: 'Weekend stock only.',
+    })
+  })
+
+  it('strips owner confirmation from the submission surface', async () => {
+    render(
+      <SubmissionSurfaceWrapper retailLocations={[CONFIRMED_LOCATION]} />,
+    )
+
+    expect(
+      screen.queryByRole('checkbox', {
+        name: 'I confirm this is a current physical location where this brand\'s products can be purchased',
+      }),
+    ).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(
+      screen.getByRole('status', { name: 'Not confirmed by the brand owner' }),
+      ).toHaveAttribute(
+        'data-confirmation-status',
+        'unconfirmed',
+      )
+      expect(readLocationValues()[0]).toMatchObject({
+        confirmationStatus: 'unconfirmed',
+      })
+    })
   })
 
   it('shows explicit feedback when address search has no results', async () => {
@@ -280,5 +470,4 @@ describe('LocationsSection', () => {
 
     expect(await screen.findByText(/No matching location found/)).toBeVisible()
   })
-
 })

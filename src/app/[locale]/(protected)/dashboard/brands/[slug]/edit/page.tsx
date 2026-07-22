@@ -38,7 +38,7 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
     )
     return null
   }
-  const { brand } = editor
+  const { brand, owner: isActualOwner } = editor
 
   const [draft, productTagSuggestions] = await Promise.all([
     getBrandDraft(brand.id),
@@ -68,7 +68,7 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
         defaultValues={defaultValues}
         initialCompletedSteps={initialCompletedSteps}
         initialStep={initialStep}
-        isActualOwner={editor.owner}
+        isActualOwner={isActualOwner}
         productTagSuggestions={productTagSuggestions}
       />
     </div>

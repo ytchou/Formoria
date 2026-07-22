@@ -244,6 +244,7 @@ export function BrandEditWizard({
     activeStep > 0 ? SECTION_COMPONENTS[activeStep - 1] : null
   const dirtyFields = form.formState.dirtyFields
   const isDirty = currentSectionFields.some((field) => Boolean(dirtyFields[field]))
+  const showActualOwnerLocationControls = isActualOwner === true
 
   return (
     <div className="flex gap-0 min-h-screen">
@@ -264,7 +265,7 @@ export function BrandEditWizard({
           ) : activeStep === 3 ? (
             <LocationsSection
               form={form}
-              isActualOwner={isActualOwner}
+              isActualOwner={showActualOwnerLocationControls}
             />
           ) : (
             SectionComponent && <SectionComponent form={form} />

@@ -476,6 +476,7 @@
       "highlights": "品牌亮點",
       "photos": "照片",
       "locations": "地點",
+      "locationsAndRetailChannels": "地點與販售通路",
       "faq": "常見問題"
     },
     "gallery": {
@@ -488,21 +489,26 @@
     },
     "locations": {
       "mapTitle": "{name} 販售地點地圖",
-      "subheading": "查看品牌門市、販售地點與百貨專櫃。",
-      "mapHeading": "地圖上的獨立地點",
-      "mapDescription": "地圖只顯示已標示為獨立地點且有確認座標的販售位置。",
-      "independentHeading": "其他獨立地點",
-      "independentDescription": "這些獨立地點目前沒有可用的地圖座標。",
-      "chainHeading": "連鎖通路",
-      "chainDescription": "連鎖通路不會放在品牌地圖上；請查看通路與分店資訊。",
-      "unclassifiedHeading": "尚未分類的地點",
-      "unclassifiedDescription": "尚未分類的地點不會顯示在品牌地圖上。",
-      "manualAddress": "手動地址",
+      "mapLoading": "正在載入地圖…",
+      "confirmedHeading": "已確認地點",
+      "stockDisclaimer": "以下地點資訊已由品牌主確認；前往前請先向店家確認販售商品與庫存。",
+      "unconfirmedHeading": "待確認地點",
+      "unconfirmedDisclaimer": "以下為盡力整理的公開資訊。品牌主確認前，不提供地址、地圖標記或地圖連結。",
+      "unconfirmedStatus": "待品牌主確認",
+      "chainHeading": "連鎖販售通路",
+      "chainDescription": "各分店販售情況不同；通路連結僅供查詢通路資訊，不代表即時庫存。",
+      "chainBadge": "連鎖通路",
+      "someStoresBadge": "部分門市販售",
+      "retailerWebsite": "查看通路資訊",
       "openInMaps": "在 Google Maps 開啟",
-      "networkTypes": {
-        "chain": "連鎖通路",
-        "independent": "獨立地點",
-        "unclassified": "尚未分類"
+      "filters": {
+        "all": "全部",
+        "brandStores": "品牌門市",
+        "otherSales": "其他販售通路"
+      },
+      "views": {
+        "map": "地圖",
+        "viewAll": "查看全部"
       },
       "types": {
         "brand_store": "品牌門市",
@@ -1467,8 +1473,10 @@
       "fieldLongitude": "經度",
       "fieldAvailabilityNote": "備註",
     "fieldAvailabilityNotePlaceholder": "販售部分商品，建議先致電確認。",
-    "ownerConfirmationLabel": "我確認這個實體販售地點的資訊正確",
-    "ownerConfirmationHelp": "品牌確認僅代表地點資訊正確，不代表即時庫存。勾選前須先填寫地址。",
+    "ownerConfirmationLabel": "我確認這是目前可購買本品牌商品的實體地點",
+    "ownerConfirmationHelp": "確認不代表即時庫存，且必須提供確切地址。",
+    "ownerConfirmationConfirmed": "品牌主已確認此地點",
+    "ownerConfirmationUnconfirmed": "品牌主尚未確認此地點",
     "ownerConfirmationAddressError": "請先填寫地址，再確認這個地點。",
       "saving": "儲存中...",
       "saveDraft": "儲存草稿",
