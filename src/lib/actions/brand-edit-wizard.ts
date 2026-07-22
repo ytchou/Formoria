@@ -1,5 +1,6 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
 import {
@@ -8,7 +9,12 @@ import {
   saveDraft,
 } from '@/lib/services/brands'
 import { WIZARD_STEPS } from '@/lib/schemas/brand-edit'
+import { completeOnboardingStepsForSection } from '@/lib/services/brand-onboarding'
 import type { Brand } from '@/lib/types'
+import {
+  normalizeRetailLocations,
+  reconcileRetailLocationConfirmations,
+} from '@/lib/brands/locations'
 
 type SaveSectionDraftResult = {
   success?: true
@@ -111,13 +117,32 @@ export async function saveSectionDraftAction(
     const existingDraft = await getBrandDraft(brandId)
     const existingReputation =
       existingDraft?.reputationSummary ?? editor.brand.reputationSummary
+    let normalizedSectionData = normalizeSectionData(
+      sectionData,
+      existingReputation,
+    )
+    if (
+      Object.prototype.hasOwnProperty.call(
+        normalizedSectionData,
+        'retailLocations',
+      )
+    ) {
+      normalizedSectionData = {
+        ...normalizedSectionData,
+        retailLocations: reconcileRetailLocationConfirmations({
+          previous: normalizeRetailLocations(editor.brand.retailLocations),
+          next: normalizeRetailLocations(normalizedSectionData.retailLocations),
+          isActualOwner: editor.owner,
+        }),
+      }
+    }
     const stepIndex = WIZARD_STEPS.findIndex(
       (step) => step.key === sectionKeyOrSectionData,
     )
     const completedSteps = getCompletedSteps(existingDraft)
     const mergedData = {
       ...(existingDraft ?? {}),
-      ...normalizeSectionData(sectionData, existingReputation),
+      ...normalizedSectionData,
       ...(stepIndex >= 0
         ? {
             [BRAND_DRAFT_PROGRESS_KEY]: Array.from(
@@ -128,6 +153,8 @@ export async function saveSectionDraftAction(
     }
 
     await saveDraft(brandId, mergedData as Partial<Brand>)
+    await completeOnboardingStepsForSection(brandId, sectionKeyOrSectionData)
+    revalidatePath(`/dashboard/brands/${brandSlug}`)
 
     return { success: true }
   } catch (error) {

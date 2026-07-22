@@ -239,7 +239,7 @@
         "businessDoc": {
           "label": "Business registration document",
           "description": "A registration document showing the responsible person's name",
-          "privacyNote": "Seen only by our reviewer and deleted after verification. You may black out everything except your business number, business name, and responsible person's name.",
+          "privacyNote": "Uploads are private and visible only to reviewers. After approval or rejection, deletion starts immediately and retries automatically if needed. Unsubmitted uploads are removed after 24 hours. You may black out everything except your business number, business name, and responsible person's name.",
           "uploadLabel": "Upload business registration document",
           "uploadHint": "PDF / JPG / PNG, max 5MB"
         }
@@ -476,6 +476,7 @@
       "highlights": "Brand Highlights",
       "photos": "Photos",
       "locations": "Locations",
+      "locationsAndRetailChannels": "Locations & retail channels",
       "faq": "Frequently Asked Questions"
     },
     "gallery": {
@@ -488,21 +489,28 @@
     },
     "locations": {
       "mapTitle": "{name} stockist map",
-      "subheading": "Find brand stores, stockists, and counters that carry this brand.",
-      "mapHeading": "Independent locations on the map",
-      "mapDescription": "The map only shows locations marked independent with confirmed coordinates.",
-      "independentHeading": "Other independent locations",
-      "independentDescription": "These independent locations do not have usable map coordinates yet.",
-      "chainHeading": "Chain retailers",
-      "chainDescription": "Chain retailers stay off the brand map; use the retailer and branch details below.",
-      "unclassifiedHeading": "Unclassified locations",
-      "unclassifiedDescription": "Unclassified locations stay off the brand map until their retailer type is confirmed.",
-      "manualAddress": "Manual address",
+      "mapLoading": "Loading map…",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "confirmedHeading": "Confirmed locations",
+      "stockDisclaimer": "The brand owner has confirmed these location details only. Contact the location to check products and stock before visiting.",
+      "unconfirmedHeading": "Unconfirmed locations",
+      "unconfirmedDisclaimer": "These listings are based on best-effort public information. Until the brand owner confirms them, we do not provide addresses, map pins, or map links.",
+      "unconfirmedStatus": "Awaiting brand owner confirmation",
+      "chainHeading": "Retail chains",
+      "chainDescription": "Availability varies by branch. The retailer link provides general retailer information, not live stock.",
+      "chainBadge": "Retail chain",
+      "someStoresBadge": "Available at select stores",
+      "retailerWebsite": "Retailer information",
       "openInMaps": "Open in Google Maps",
-      "networkTypes": {
-        "chain": "Chain retailer",
-        "independent": "Independent location",
-        "unclassified": "Not classified"
+      "filters": {
+        "all": "All",
+        "brandStores": "Brand stores",
+        "otherSales": "Other retailers"
+      },
+      "views": {
+        "map": "Map",
+        "viewAll": "View all"
       },
       "types": {
         "brand_store": "Brand store",
@@ -1378,7 +1386,7 @@
       "sectionBasicInfo": "Basic Info",
       "sectionMedia": "Product images",
       "sectionLinks": "Social & purchase links",
-      "sectionLocations": "Locations",
+    "sectionLocations": "Locations & retail channels",
       "fieldBrandName": "Brand name",
       "fieldProductType": "Product type",
       "fieldCategory": "Category",
@@ -1418,11 +1426,14 @@
       "fieldOtherLinks": "Other links",
       "addLink": "Add link",
       "removeItem": "Remove",
-      "addRetailLocation": "Add retail location",
+    "addRetailLocation": "Add location or retail chain",
       "fieldStoreName": "Store name",
       "fieldAddress": "Address",
-      "retailLocationItem": "Retail location {number}",
-      "sectionLocationsHelp": "Add brand-owned shops, stockists, or department counters. Only locations marked independent with confirmed coordinates appear on the brand map.",
+    "retailLocationItem": "Location or retail chain {number}",
+    "sectionLocationsHelp": "Add specific physical locations or a retail chain that carries selected products. Ask visitors to confirm availability before traveling.",
+    "fieldInformationKind": "Information type",
+    "informationKindLocation": "Physical location",
+    "informationKindRetailChain": "Retail chain",
       "fieldLocationType": "Location type",
       "locationTypeBrandStore": "Brand store",
       "locationTypeStockist": "Stockist",
@@ -1431,7 +1442,7 @@
       "locationNetworkUnclassified": "Not classified",
       "locationNetworkIndependent": "Independent location",
       "locationNetworkChain": "Chain retailer",
-      "fieldLocationSearch": "Location",
+    "fieldLocationSearch": "Address",
       "fieldLocationSearchPlaceholder": "Search or enter the full address",
       "searchLocation": "Search address",
       "locationSearchError": "Address search is unavailable. You can keep the address manually.",
@@ -1439,7 +1450,12 @@
       "locationDuplicateError": "This location has already been added.",
       "fieldLocationName": "Location name",
       "fieldLocationNamePlaceholder": "Store, counter, or stockist name",
-      "fieldLocationNameHint": "This is the public name visitors see first.",
+    "fieldLocationNameHint": "This is the public name visitors see first.",
+    "fieldRetailChainName": "Retail chain name",
+    "fieldRetailChainNamePlaceholder": "Retailer or chain name",
+    "fieldRetailerUrl": "Official or store-locator URL",
+    "fieldRetailerUrlPlaceholder": "https://retailer.example/stores",
+    "retailerUrlError": "Enter an HTTP(S) URL.",
       "fieldVenueName": "Venue name",
       "fieldVenueNamePlaceholder": "Department store, mall, or retailer",
       "fieldFloorOrCounter": "Floor or counter",
@@ -1458,7 +1474,12 @@
       "fieldLatitude": "Latitude",
       "fieldLongitude": "Longitude",
       "fieldAvailabilityNote": "Note",
-      "fieldAvailabilityNotePlaceholder": "Carries selected products. Please call ahead.",
+    "fieldAvailabilityNotePlaceholder": "Carries selected products. Please call ahead.",
+    "ownerConfirmationLabel": "I confirm this is a current physical location where this brand's products can be purchased",
+    "ownerConfirmationHelp": "Confirmation is not live inventory. An exact address is required.",
+    "ownerConfirmationConfirmed": "Confirmed by the brand owner",
+    "ownerConfirmationUnconfirmed": "Not confirmed by the brand owner",
+    "ownerConfirmationAddressError": "Add an address before confirming this location.",
       "saving": "Saving...",
       "saveDraft": "Save as draft",
       "savingDraft": "Saving draft…",
@@ -1482,9 +1503,11 @@
       "mitStoryLabel": "Manufacturing Story",
       "mitStoryPlaceholder": "Share your manufacturing craftsmanship, materials sourcing, and factory partnerships…",
       "wizardProgress": "Step {current} of {total}",
+      "wizardCompletedProgress": "{completed} of {total} completed",
       "wizardSidebarTitle": "Edit brand details",
       "wizardSaveAndContinue": "Save & Continue",
       "wizardBack": "Back",
+      "wizardBackToDashboard": "Back to dashboard",
       "wizardPublish": "Publish",
       "wizardSaveDraft": "Save Draft",
       "wizardStepBasicInfo": "Basic Info",
@@ -2154,6 +2177,22 @@
       "ownerAlreadyManagesShort": "Already owns a brand",
       "ownerAlreadyManagesTitle": "Approval blocked: owner limit reached",
       "ownerAlreadyManagesBody": "This requester already manages {brandName}. Reject this claim using the existing-owner reason.",
+      "cleanupWarning": "Decision saved. Proof deletion remains queued for automatic retry.",
+      "cleanupStatus": {
+        "label": "Proof file cleanup",
+        "pending": {
+          "label": "Queued / retrying",
+          "description": "Deletion is queued and will retry automatically."
+        },
+        "failed": {
+          "label": "Retry failed",
+          "description": "Automatic retries are exhausted. Admin intervention is required."
+        },
+        "completed": {
+          "label": "Deleted",
+          "description": "Private proof files were deleted."
+        }
+      },
       "proofTypes": {
         "domainEmail": "Brand domain email",
         "backendScreenshot": "Admin/backend screenshot",

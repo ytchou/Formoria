@@ -23,6 +23,7 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/dashboard/brands/test-brand/edit',
 }))
 vi.mock('@/i18n/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
   Link: ({ href, children, className }: React.ComponentProps<'a'>) => (
     <a href={href} className={className}>
       {children}
@@ -57,7 +58,12 @@ vi.mock('../sections/links-section', () => ({
   ),
 }))
 vi.mock('../sections/locations-section', () => ({
-  LocationsSection: () => <div data-testid="locations-section" />,
+  LocationsSection: ({ isActualOwner }: { isActualOwner?: boolean }) => (
+    <div
+      data-testid="locations-section"
+      data-actual-owner={String(isActualOwner)}
+    />
+  ),
 }))
 vi.mock('../sections/reputation-section', () => ({
   ReputationSection: ({
@@ -88,6 +94,7 @@ function renderWizard(props = {}) {
         brand={mockBrand}
         defaultValues={{ name: 'Test Brand', productType: 'fashion' }}
         initialStep={0}
+        isActualOwner={false}
         {...props}
       />
     </NextIntlClientProvider>,
@@ -112,13 +119,14 @@ describe('BrandEditWizard', () => {
           brand={mockBrand}
           defaultValues={{ name: 'Test Brand', productType: 'fashion' }}
           initialStep={0}
+          isActualOwner={false}
         />
       </NextIntlClientProvider>,
     )
 
     expect(screen.getAllByText('基本資料').length).toBeGreaterThanOrEqual(1)
     expect(
-      screen.getAllByRole('progressbar', { name: '第 1 步，共 5 步' }),
+      screen.getAllByRole('progressbar', { name: '已完成 0／5 步' }),
     ).toHaveLength(2)
   })
 
@@ -133,6 +141,18 @@ describe('BrandEditWizard', () => {
     expect(screen.getByTestId('links-section')).toBeInTheDocument()
   })
 
+  it.each([true, false])(
+    'forwards actual-owner presentation state %s to the locations step',
+    (isActualOwner) => {
+      renderWizard({ initialStep: 3, isActualOwner })
+
+      expect(screen.getByTestId('locations-section')).toHaveAttribute(
+        'data-actual-owner',
+        String(isActualOwner),
+      )
+    },
+  )
+
   it('restores completed steps from saved progress metadata', () => {
     renderWizard({
       initialStep: 2,
@@ -143,6 +163,26 @@ describe('BrandEditWizard', () => {
       name: 'Basic Info',
     })[0]
     expect(basicInfoButton.querySelector('svg')).toBeTruthy()
+  })
+
+  it('shows the persisted completion count when resuming at step 4', () => {
+    renderWizard({
+      initialStep: 3,
+      initialCompletedSteps: [0, 1, 2],
+    })
+
+    expect(screen.getAllByText('3 of 5 completed').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('renders focused mode without the guided sidebar', () => {
+    renderWizard({ initialStep: 2, isFocused: true })
+
+    expect(screen.getByTestId('links-section')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Edit brand details' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Back to dashboard' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Publish' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /save & continue/i })).not.toBeInTheDocument()
   })
 
   it('only shows unsaved changes for edits in the active section', async () => {

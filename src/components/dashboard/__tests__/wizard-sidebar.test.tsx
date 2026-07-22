@@ -40,7 +40,9 @@ describe('WizardSidebar', () => {
     expect(
       screen.getByRole('heading', { name: 'Edit brand details' }),
     ).toBeInTheDocument()
-    expect(screen.getAllByText('Step 2 of 3').length).toBeGreaterThanOrEqual(1)
+    expect(
+      screen.getAllByText('1 of 3 completed').length,
+    ).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Basic Info').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Brand images').length).toBeGreaterThanOrEqual(1)
     expect(
@@ -68,7 +70,7 @@ describe('WizardSidebar', () => {
     const progressBars = screen.getAllByRole('progressbar')
     expect(progressBars).toHaveLength(2)
     for (const progressBar of progressBars) {
-      expect(progressBar).toHaveAttribute('aria-valuenow', '2')
+      expect(progressBar).toHaveAttribute('aria-valuenow', '1')
       expect(progressBar).toHaveAttribute('aria-valuemax', '3')
     }
   })

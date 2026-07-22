@@ -21,6 +21,7 @@ import {
   getBrandDraft,
   mergeDraftOverBrand,
   publishDraft,
+  saveDraft,
   updateBrand,
 } from '@/lib/services/brands'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -47,6 +48,10 @@ import {
   type MitDeclarationScope,
 } from '@/lib/services/mit-declaration'
 import { trackMitDeclared } from '@/lib/analytics'
+import {
+  normalizeRetailLocations,
+  reconcileRetailLocationConfirmations,
+} from '@/lib/brands/locations'
 
 type ActionState =
   | {
@@ -260,6 +265,15 @@ export async function updateBrandAction(
     const { user, brand, owner, actingAdmin, configuredAdmin } = editor
 
     const updateData = parseBrandEditForm(formData)
+    if (
+      Object.prototype.hasOwnProperty.call(updateData, 'retailLocations')
+    ) {
+      updateData.retailLocations = reconcileRetailLocationConfirmations({
+        previous: normalizeRetailLocations(brand.retailLocations),
+        next: normalizeRetailLocations(updateData.retailLocations),
+        isActualOwner: owner,
+      })
+    }
     const proposedData = updateData as Record<string, unknown>
 
     if (!configuredAdmin && detectsSlugChange(brand, proposedData)) {
@@ -370,9 +384,23 @@ export async function publishDraftAction(
     }
     const { user, brand, owner, actingAdmin, configuredAdmin } = editor
 
-    const snapshot = await getBrandDraft(brand.id)
+    let snapshot = await getBrandDraft(brand.id)
     if (!snapshot) {
       return { error: t('noDraft') }
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(snapshot, 'retailLocations')
+    ) {
+      snapshot = {
+        ...snapshot,
+        retailLocations: reconcileRetailLocationConfirmations({
+          previous: normalizeRetailLocations(brand.retailLocations),
+          next: normalizeRetailLocations(snapshot.retailLocations),
+          isActualOwner: owner,
+        }),
+      }
+      await saveDraft(brand.id, snapshot as Partial<Brand>)
     }
 
     const publishCandidate = mergeDraftOverBrand(brand, snapshot)

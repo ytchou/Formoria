@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn() }))
 vi.mock('@/lib/auth/require-brand-editor', () => ({ requireBrandEditor: vi.fn() }))
 vi.mock('@/lib/services/brands', () => ({
@@ -7,12 +8,17 @@ vi.mock('@/lib/services/brands', () => ({
   getBrandDraft: vi.fn(),
   saveDraft: vi.fn(),
 }))
+vi.mock('@/lib/services/brand-onboarding', () => ({
+  completeOnboardingStepsForSection: vi.fn().mockResolvedValue(undefined),
+}))
 vi.mock('next/headers', () => ({ cookies: vi.fn(() => ({ getAll: () => [] })) }))
 
 import { saveSectionDraftAction } from './brand-edit-wizard'
 import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
 import { getBrandDraft, saveDraft } from '@/lib/services/brands'
+import { completeOnboardingStepsForSection } from '@/lib/services/brand-onboarding'
 
 describe('saveSectionDraftAction', () => {
   beforeEach(() => {
@@ -26,8 +32,15 @@ describe('saveSectionDraftAction', () => {
       },
     } as unknown as Awaited<ReturnType<typeof createClient>>)
     vi.mocked(requireBrandEditor).mockResolvedValue({
-      brand: { id: 'brand-id', slug: 'brand-slug' },
+      brand: {
+        id: 'brand-id',
+        slug: 'brand-slug',
+        retailLocations: [],
+      },
       user: { id: 'user-1' },
+      owner: true,
+      actingAdmin: false,
+      configuredAdmin: false,
     } as unknown as Awaited<ReturnType<typeof requireBrandEditor>>)
     vi.mocked(saveDraft).mockResolvedValue(undefined)
   })
@@ -48,6 +61,13 @@ describe('saveSectionDraftAction', () => {
         productType: 'fashion',
         __wizardCompletedSteps: [0],
       }),
+    )
+    expect(completeOnboardingStepsForSection).toHaveBeenCalledWith(
+      'brand-id',
+      'basicInfo',
+    )
+    expect(revalidatePath).toHaveBeenCalledWith(
+      '/dashboard/brands/brand-slug',
     )
   })
 
@@ -120,6 +140,68 @@ describe('saveSectionDraftAction', () => {
           sources: [{ url: 'https://example.com/warmwood-review' }],
         },
       }),
+    )
+  })
+
+  it('prevents an admin from introducing owner confirmation on any wizard step', async () => {
+    vi.mocked(getBrandDraft).mockResolvedValue({ name: 'Warmwood Living' })
+    vi.mocked(requireBrandEditor).mockResolvedValue({
+      brand: {
+        id: 'brand-id',
+        slug: 'brand-slug',
+        retailLocations: [],
+      },
+      user: { id: 'admin-1' },
+      owner: false,
+      actingAdmin: true,
+      configuredAdmin: true,
+    } as unknown as Awaited<ReturnType<typeof requireBrandEditor>>)
+
+    await saveSectionDraftAction('brand-id', 'brand-slug', 'basicInfo', {
+      name: 'Warmwood Living',
+      retailLocations: [
+        {
+          kind: 'location',
+          name: '台北旗艦店',
+          relationshipType: 'brand_store',
+          address: '台北市信義區市府路 45 號',
+          confirmationStatus: 'owner_confirmed',
+        },
+      ],
+    })
+
+    expect(saveDraft).toHaveBeenCalledWith(
+      'brand-id',
+      expect.objectContaining({
+        retailLocations: [
+          expect.objectContaining({ confirmationStatus: 'unconfirmed' }),
+        ],
+      }),
+    )
+  })
+
+  it('preserves an explicit retail location clear on non-location steps', async () => {
+    vi.mocked(getBrandDraft).mockResolvedValue({
+      name: 'Warmwood Living',
+      retailLocations: [
+        {
+          kind: 'location',
+          name: '台北旗艦店',
+          relationshipType: 'brand_store',
+          address: '台北市信義區市府路 45 號',
+          confirmationStatus: 'owner_confirmed',
+        },
+      ],
+    })
+
+    await saveSectionDraftAction('brand-id', 'brand-slug', 'basicInfo', {
+      name: 'Warmwood Living',
+      retailLocations: [],
+    })
+
+    expect(saveDraft).toHaveBeenCalledWith(
+      'brand-id',
+      expect.objectContaining({ retailLocations: [] }),
     )
   })
 

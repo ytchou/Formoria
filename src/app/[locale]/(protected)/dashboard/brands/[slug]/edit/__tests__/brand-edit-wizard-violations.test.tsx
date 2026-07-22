@@ -25,6 +25,9 @@ vi.mock('next-intl', () => ({
 vi.mock('sonner', () => ({
   toast: { error: vi.fn() },
 }))
+vi.mock('@/i18n/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}))
 
 vi.mock('../sections/basic-info-section', () => ({
   BasicInfoSection: () => <div data-testid="basic-info-section" />,

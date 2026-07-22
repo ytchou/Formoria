@@ -48,6 +48,7 @@ const FAKE_PENDING_CLAIM: ClaimRequestWithSignedProof = {
   brandName: 'Sun Room Studio',
   brandSlug: 'sun-room-studio',
   requesterEmail: 'owner@sunroom.test',
+  proofCleanupStatus: null,
 }
 
 function renderList(claimRequests: Partial<ClaimRequestWithSignedProof>[]) {
@@ -79,6 +80,89 @@ describe('ClaimRequestsList', () => {
     await user.click(screen.getByRole('button', { name: 'Approve' }))
 
     expect(approveClaimAction).toHaveBeenCalledWith(FAKE_PENDING_CLAIM.id)
+  })
+
+  it('shows cleanup status for terminal claims', async () => {
+    const user = userEvent.setup()
+    renderList([
+      { id: 'queued', brandName: 'Queued Brand', status: 'approved', proofCleanupStatus: 'pending' },
+      { id: 'failed', brandName: 'Failed Brand', status: 'rejected', proofCleanupStatus: 'failed' },
+      { id: 'deleted', brandName: 'Deleted Brand', status: 'approved', proofCleanupStatus: 'completed' },
+    ])
+
+    await user.click(screen.getByRole('tab', { name: 'All (3)' }))
+
+    await user.click(screen.getByText('Queued Brand'))
+    expect(screen.getByText('Queued / retrying')).toBeInTheDocument()
+    expect(screen.getByText('Deletion is queued and will retry automatically.')).toBeInTheDocument()
+
+    await user.click(screen.getByText('Failed Brand'))
+    expect(screen.getByText('Retry failed')).toBeInTheDocument()
+    expect(screen.getByText('Automatic retries are exhausted. Admin intervention is required.')).toBeInTheDocument()
+
+    await user.click(screen.getByText('Deleted Brand'))
+    expect(screen.getByText('Deleted')).toBeInTheDocument()
+    expect(screen.getByText('Private proof files were deleted.')).toBeInTheDocument()
+  })
+
+  it('hides cleanup status for null cleanup state and pending claims', async () => {
+    const user = userEvent.setup()
+    renderList([
+      { id: 'terminal-null', brandName: 'No Cleanup State', status: 'approved', proofCleanupStatus: null },
+      { id: 'still-pending', brandName: 'Pending Decision', status: 'pending', proofCleanupStatus: 'pending' },
+    ])
+
+    await user.click(screen.getByRole('tab', { name: 'All (2)' }))
+    await user.click(screen.getByText('No Cleanup State'))
+    expect(screen.queryByText('Proof file cleanup')).not.toBeInTheDocument()
+
+    await user.click(screen.getByText('Pending Decision'))
+    expect(screen.queryByText('Proof file cleanup')).not.toBeInTheDocument()
+  })
+
+  it('shows an action warning as a successful decision status, not an error', async () => {
+    const user = userEvent.setup()
+    vi.mocked(approveClaimAction).mockResolvedValue({ warning: 'cleanup queued' })
+    renderList([FAKE_PENDING_CLAIM])
+
+    await user.click(screen.getByText('Sun Room Studio'))
+    await user.click(screen.getByRole('button', { name: 'Approve' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Decision saved. Proof deletion remains queued for automatic retry.'
+    )
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('shows the same non-error cleanup warning after rejection', async () => {
+    const user = userEvent.setup()
+    vi.mocked(rejectClaimAction).mockResolvedValue({ warning: 'cleanup queued' })
+    renderList([FAKE_PENDING_CLAIM])
+
+    await user.click(screen.getByText('Sun Room Studio'))
+    await user.click(screen.getByRole('button', { name: 'Reject' }))
+    await user.type(
+      screen.getByPlaceholderText('Why are you rejecting this claim?'),
+      'insufficient proof'
+    )
+    await user.click(screen.getByRole('button', { name: 'Confirm reject' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Decision saved. Proof deletion remains queued for automatic retry.'
+    )
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('keeps action errors distinct from cleanup warnings', async () => {
+    const user = userEvent.setup()
+    vi.mocked(approveClaimAction).mockResolvedValue({ error: 'approval failed' })
+    renderList([FAKE_PENDING_CLAIM])
+
+    await user.click(screen.getByText('Sun Room Studio'))
+    await user.click(screen.getByRole('button', { name: 'Approve' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('approval failed')
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
   it('flags an existing owner and disables approval', async () => {

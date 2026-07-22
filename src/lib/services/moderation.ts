@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import * as supabaseServer from "@/lib/supabase/server";
+import { buildReviewUpdate, type ReviewDecision } from "./review-status";
 
 const SUSPICIOUS_TLDS = [".tk", ".ml", ".ga", ".cf", ".gq"];
 const MAX_URLS_IN_TEXT = 3;
@@ -30,6 +31,8 @@ type SupabaseServerModule = typeof supabaseServer & {
 
 type ModerationFlagInsert =
   Database["public"]["Tables"]["moderation_flags"]["Insert"];
+type ModerationFlagUpdate =
+  Database["public"]["Tables"]["moderation_flags"]["Update"];
 
 const URL_REGEX = /https?:\/\/[^\s]+/gi;
 const TAIWAN_PHONE_REGEX = /09\d{2}[-.]?\d{3}[-.]?\d{3}/;
@@ -362,13 +365,17 @@ export async function markFlagsReviewed(brandId: string): Promise<void> {
 
 export async function updateModerationFlagStatus(
   flagId: string,
-  status: "reviewed" | "dismissed",
+  decision: ReviewDecision,
 ): Promise<void> {
   const supabase = createModerationClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("moderation_flags")
-    .update({ status, reviewed_at: new Date().toISOString() })
-    .eq("id", flagId);
+    .update(buildReviewUpdate(decision) as ModerationFlagUpdate)
+    .eq("id", flagId)
+    .eq("status", "pending")
+    .select("id")
+    .maybeSingle();
 
   if (error) throw error;
+  if (!data) throw new Error("Moderation flag is no longer pending");
 }

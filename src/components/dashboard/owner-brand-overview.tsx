@@ -1,10 +1,17 @@
 import Image from 'next/image'
 import { getLocale, getTranslations } from 'next-intl/server'
+import { Badge } from '@/components/ui/badge'
+import { buttonVariants } from '@/components/ui/button'
 import { InfoField, InfoGroup, SurfaceCard } from '@/components/ui/card'
 import { Link } from '@/i18n/navigation'
 import { getProductTypeLabel } from '@/lib/brands/category-label'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
-import { normalizeRetailLocations } from '@/lib/brands/locations'
+import {
+  isConfirmedRetailLocation,
+  isRetailChainChannel,
+  isUnconfirmedRetailLocation,
+  normalizeRetailLocations,
+} from '@/lib/brands/locations'
 import type { Brand } from '@/lib/types'
 import type { RetailLocationRelationshipType } from '@/lib/types/brand'
 
@@ -14,9 +21,17 @@ type OwnerSectionProps = {
   editHref?: string
   title: string
   editLabel?: string
+  prominentEdit?: boolean
 }
 
-function OwnerSection({ children, description, editHref, title, editLabel }: OwnerSectionProps) {
+function OwnerSection({
+  children,
+  description,
+  editHref,
+  title,
+  editLabel,
+  prominentEdit = false,
+}: OwnerSectionProps) {
   return (
     <section className="space-y-3">
       <div className="flex items-start justify-between gap-4">
@@ -27,7 +42,15 @@ function OwnerSection({ children, description, editHref, title, editLabel }: Own
         {editHref && editLabel ? (
           <Link
             aria-label={`${editLabel}: ${title}`}
-            className="type-link"
+            className={
+              prominentEdit
+                ? buttonVariants({
+                    variant: 'secondary',
+                    size: 'large',
+                    className: 'min-h-12',
+                  })
+                : 'type-link'
+            }
             href={editHref}
           >
             {editLabel}
@@ -156,18 +179,48 @@ export async function OwnerBrandOverview({
         </dl>
       </OwnerSection>
 
-      <OwnerSection description={t('sectionLocationsHint')} editHref={`${editBase}3`} title={tEdit('wizardStepLocations')} editLabel={t('edit')}>
+      <OwnerSection description={t('sectionLocationsHint')} editHref={`${editBase}3`} title={tEdit('wizardStepLocations')} editLabel={t('edit')} prominentEdit>
         {retailLocations.length > 0 ? (
           <dl className="grid gap-4 sm:grid-cols-2">
-            {retailLocations.map((location, index) => (
-              <div key={`${location.name}-${index}`} className="rounded-lg bg-secondary p-4">
-                <dt className="type-field-label">{location.name}</dt>
-                <dd className="mt-1 type-form-hint">
-                  {tEdit(locationTypeLabelKey(location.relationshipType ?? 'stockist'))}
-                </dd>
-                <dd className="mt-1 break-words type-field-value">{location.address || <EmptyValue>{t('notSet')}</EmptyValue>}</dd>
-              </div>
-            ))}
+            {retailLocations.map((location, index) => {
+              const isConfirmed = isConfirmedRetailLocation(location)
+              const isUnconfirmed = isUnconfirmedRetailLocation(location)
+              const isRetailChain = isRetailChainChannel(location)
+              const statusLabel = isConfirmed
+                ? tEdit('ownerConfirmationLabel')
+                : isUnconfirmed
+                  ? tEdit('locationVerificationNeedsReview')
+                  : tEdit('informationKindRetailChain')
+
+              return (
+                <div key={`${location.name}-${index}`} className="rounded-lg bg-secondary p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <dt className="type-field-label">{location.name}</dt>
+                    <Badge
+                      variant={
+                        isConfirmed
+                          ? 'verified'
+                          : isUnconfirmed
+                            ? 'warning'
+                            : 'secondary'
+                      }
+                    >
+                      {statusLabel}
+                    </Badge>
+                  </div>
+                  <dd className="mt-1 type-form-hint">
+                    {isRetailChain
+                      ? tEdit('locationNetworkChain')
+                      : tEdit(locationTypeLabelKey(location.relationshipType))}
+                  </dd>
+                  <dd className="mt-1 break-words type-field-value">
+                    {(isRetailChain ? location.retailerUrl : location.address) || (
+                      <EmptyValue>{t('notSet')}</EmptyValue>
+                    )}
+                  </dd>
+                </div>
+              )
+            })}
           </dl>
         ) : <p className="type-field-value text-muted-foreground">{t('notSet')}</p>}
       </OwnerSection>

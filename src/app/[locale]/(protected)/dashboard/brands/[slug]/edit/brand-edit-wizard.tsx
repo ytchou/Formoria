@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { WizardSidebar } from '@/components/dashboard/wizard-sidebar'
 import { WizardFooter } from '@/components/dashboard/wizard-footer'
 import {
+  areAllWizardStepsComplete,
   brandEditSchema,
   brandPublishSchema,
   WIZARD_STEPS,
@@ -17,6 +18,7 @@ import {
 import { saveSectionDraftAction } from '@/lib/actions/brand-edit-wizard'
 import { publishDraftAction } from '@/app/[locale]/(protected)/dashboard/brands/[slug]/actions'
 import { useWizardController } from '@/components/brand-wizard/use-wizard-controller'
+import { useRouter } from '@/i18n/navigation'
 import type { ContentViolation } from '@/lib/services/moderation'
 import type { Brand } from '@/lib/types'
 
@@ -34,6 +36,8 @@ interface BrandEditWizardProps {
   defaultValues: Partial<BrandEditFormValues>
   initialCompletedSteps?: number[]
   initialStep?: number
+  isActualOwner?: boolean
+  isFocused?: boolean
   productTagSuggestions?: string[]
 }
 
@@ -79,26 +83,17 @@ const STEP_VALIDATION_FIELDS: Partial<
   locations: ['retailLocations'],
 }
 
-function deriveCompletedSteps(
-  defaultValues: Partial<BrandEditFormValues>,
-  initialCompletedSteps: number[] = [],
-): Set<number> {
-  const completed = new Set<number>(initialCompletedSteps)
-  if (defaultValues.name) completed.add(0)
-  if (defaultValues.heroImageUrl) {
-    completed.add(1)
-  }
-  return completed
-}
-
 export function BrandEditWizard({
   brand,
   defaultValues,
   initialCompletedSteps = [],
   initialStep = 0,
+  isActualOwner = false,
+  isFocused = false,
   productTagSuggestions = [],
 }: BrandEditWizardProps) {
   const t = useTranslations('dashboard.edit')
+  const router = useRouter()
   const [isSaving, setIsSaving] = useState(false)
 
   const form = useForm<BrandEditFormValues>({
@@ -163,6 +158,7 @@ export function BrandEditWizard({
     activeStep,
     completedSteps,
     currentStepKey,
+    markStepCompleted,
     navigateTo,
     goToStep,
     continueToNext,
@@ -170,10 +166,7 @@ export function BrandEditWizard({
   } = useWizardController({
     steps: WIZARD_STEPS,
     initialStep,
-    initialCompletedSteps: deriveCompletedSteps(
-      defaultValues,
-      initialCompletedSteps,
-    ),
+    initialCompletedSteps,
     validateStep,
     beforeStepChange: saveStepDraft,
   })
@@ -184,8 +177,10 @@ export function BrandEditWizard({
   )
 
   const handleSave = useCallback(async () => {
-    await saveStepDraft(currentStepKey)
-  }, [currentStepKey, saveStepDraft])
+    if (await saveStepDraft(currentStepKey)) {
+      markStepCompleted(activeStep)
+    }
+  }, [activeStep, currentStepKey, markStepCompleted, saveStepDraft])
 
   const handlePublish = useCallback(async () => {
     const result = brandPublishSchema.safeParse(form.getValues())
@@ -222,6 +217,7 @@ export function BrandEditWizard({
     setIsSaving(true)
     try {
       if (!(await persistStepDraft(currentStepKey))) return
+      markStepCompleted(activeStep)
       const formData = new FormData()
       formData.set('brandSlug', brand.slug)
       const publishResult = await publishDraftAction(undefined, formData)
@@ -251,21 +247,38 @@ export function BrandEditWizard({
     } finally {
       setIsSaving(false)
     }
-  }, [form, brand.slug, currentStepKey, navigateTo, persistStepDraft, t])
+  }, [
+    activeStep,
+    form,
+    brand.slug,
+    currentStepKey,
+    markStepCompleted,
+    navigateTo,
+    persistStepDraft,
+    t,
+  ])
 
   const SectionComponent =
     activeStep > 0 ? SECTION_COMPONENTS[activeStep - 1] : null
   const dirtyFields = form.formState.dirtyFields
   const isDirty = currentSectionFields.some((field) => Boolean(dirtyFields[field]))
+  const showActualOwnerLocationControls = isActualOwner === true
+  const isFocusedMode =
+    isFocused || areAllWizardStepsComplete(completedSteps, WIZARD_STEPS.length)
+  const handleExit = useCallback(() => {
+    router.push(`/dashboard/brands/${brand.slug}`)
+  }, [brand.slug, router])
 
   return (
     <div className="flex gap-0 min-h-screen">
-      <WizardSidebar
-        steps={WIZARD_STEPS}
-        activeStep={activeStep}
-        completedSteps={completedSteps}
-        onStepClick={(targetStep) => void goToStep(targetStep)}
-      />
+      {!isFocusedMode ? (
+        <WizardSidebar
+          steps={WIZARD_STEPS}
+          activeStep={activeStep}
+          completedSteps={completedSteps}
+          onStepClick={(targetStep) => void goToStep(targetStep)}
+        />
+      ) : null}
       <main className="flex-1 min-w-0 px-8 py-6 pb-32">
         <DirtyFieldsContext.Provider value={dirtyFields}>
           {activeStep === 0 ? (
@@ -274,6 +287,11 @@ export function BrandEditWizard({
               productTagSuggestions={productTagSuggestions}
               currentSlug={brand.slug}
             />
+          ) : activeStep === 3 ? (
+            <LocationsSection
+              form={form}
+              isActualOwner={showActualOwnerLocationControls}
+            />
           ) : (
             SectionComponent && <SectionComponent form={form} />
           )}
@@ -281,9 +299,10 @@ export function BrandEditWizard({
         <WizardFooter
           activeStep={activeStep}
           totalSteps={WIZARD_STEPS.length}
+          isFocused={isFocusedMode}
           isSaving={isSaving}
           isDirty={isDirty}
-          onBack={goBack}
+          onBack={isFocusedMode ? handleExit : goBack}
           onSaveAndContinue={() => void continueToNext()}
           onSave={handleSave}
           onPublish={handlePublish}

@@ -76,6 +76,20 @@ export const WIZARD_STEPS: WizardStep[] = [
   { key: 'reputation' },
 ]
 
+export function areAllWizardStepsComplete(
+  completedSteps: Iterable<number>,
+  totalSteps = WIZARD_STEPS.length,
+): boolean {
+  if (totalSteps <= 0) return false
+
+  const completed = new Set(completedSteps)
+  for (let step = 0; step < totalSteps; step += 1) {
+    if (!completed.has(step)) return false
+  }
+
+  return true
+}
+
 // --- Onboarding step mappings ---
 export function getOnboardingStepHref(
   key: OnboardingStepKey,

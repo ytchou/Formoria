@@ -239,7 +239,7 @@
         "businessDoc": {
           "label": "商業登記文件",
           "description": "顯示負責人姓名的登記文件",
-          "privacyNote": "此文件僅供審核人員私下查看，驗證後即刪除。除統一編號、商業名稱、負責人姓名外，其餘資訊可自行塗黑。",
+          "privacyNote": "上傳檔案僅供審核人員私下查看。申請核准或拒絕後會立即開始刪除；若刪除失敗，系統會自動重試。未送出申請的上傳檔案會在 24 小時後移除。除統一編號、商業名稱、負責人姓名外，其餘資訊可自行塗黑。",
           "uploadLabel": "上傳商業登記文件",
           "uploadHint": "PDF / JPG / PNG，最大 5MB"
         }
@@ -476,6 +476,7 @@
       "highlights": "品牌亮點",
       "photos": "照片",
       "locations": "地點",
+      "locationsAndRetailChannels": "地點與販售通路",
       "faq": "常見問題"
     },
     "gallery": {
@@ -488,21 +489,28 @@
     },
     "locations": {
       "mapTitle": "{name} 販售地點地圖",
-      "subheading": "查看品牌門市、販售地點與百貨專櫃。",
-      "mapHeading": "地圖上的獨立地點",
-      "mapDescription": "地圖只顯示已標示為獨立地點且有確認座標的販售位置。",
-      "independentHeading": "其他獨立地點",
-      "independentDescription": "這些獨立地點目前沒有可用的地圖座標。",
-      "chainHeading": "連鎖通路",
-      "chainDescription": "連鎖通路不會放在品牌地圖上；請查看通路與分店資訊。",
-      "unclassifiedHeading": "尚未分類的地點",
-      "unclassifiedDescription": "尚未分類的地點不會顯示在品牌地圖上。",
-      "manualAddress": "手動地址",
+      "mapLoading": "正在載入地圖…",
+      "zoomIn": "放大地圖",
+      "zoomOut": "縮小地圖",
+      "confirmedHeading": "已確認地點",
+      "stockDisclaimer": "以下地點資訊已由品牌主確認；前往前請先向店家確認販售商品與庫存。",
+      "unconfirmedHeading": "待確認地點",
+      "unconfirmedDisclaimer": "以下為盡力整理的公開資訊。品牌主確認前，不提供地址、地圖標記或地圖連結。",
+      "unconfirmedStatus": "待品牌主確認",
+      "chainHeading": "連鎖販售通路",
+      "chainDescription": "各分店販售情況不同；通路連結僅供查詢通路資訊，不代表即時庫存。",
+      "chainBadge": "連鎖通路",
+      "someStoresBadge": "部分門市販售",
+      "retailerWebsite": "查看通路資訊",
       "openInMaps": "在 Google Maps 開啟",
-      "networkTypes": {
-        "chain": "連鎖通路",
-        "independent": "獨立地點",
-        "unclassified": "尚未分類"
+      "filters": {
+        "all": "全部",
+        "brandStores": "品牌門市",
+        "otherSales": "其他販售通路"
+      },
+      "views": {
+        "map": "地圖",
+        "viewAll": "查看全部"
       },
       "types": {
         "brand_store": "品牌門市",
@@ -1378,7 +1386,7 @@
       "sectionBasicInfo": "品牌簡介",
       "sectionMedia": "產品圖片",
       "sectionLinks": "社群與購買連結",
-      "sectionLocations": "販售地點",
+    "sectionLocations": "地點與販售通路",
       "fieldBrandName": "品牌名稱",
       "fieldProductType": "產品類型",
       "fieldCategory": "分類",
@@ -1418,11 +1426,14 @@
       "fieldOtherLinks": "其他連結",
       "addLink": "新增連結",
       "removeItem": "移除",
-      "addRetailLocation": "新增販售地點",
+    "addRetailLocation": "新增地點或連鎖通路",
       "fieldStoreName": "店名",
       "fieldAddress": "地址",
-      "retailLocationItem": "販售地點 {number}",
-      "sectionLocationsHelp": "新增品牌門市、販售地點或百貨專櫃；只有明確標示為獨立地點且有確認座標的地點會顯示在品牌地圖上。",
+    "retailLocationItem": "地點或連鎖通路 {number}",
+    "sectionLocationsHelp": "新增明確的實體販售地點，或填寫有販售部分商品的連鎖通路。請提醒訪客前往前先確認實際販售情況。",
+    "fieldInformationKind": "資訊類型",
+    "informationKindLocation": "實體販售地點",
+    "informationKindRetailChain": "連鎖販售通路",
       "fieldLocationType": "地點類型",
       "locationTypeBrandStore": "品牌門市",
       "locationTypeStockist": "販售地點",
@@ -1431,7 +1442,7 @@
       "locationNetworkUnclassified": "尚未分類",
       "locationNetworkIndependent": "獨立地點",
       "locationNetworkChain": "連鎖通路",
-      "fieldLocationSearch": "地點",
+    "fieldLocationSearch": "地址",
       "fieldLocationSearchPlaceholder": "搜尋或輸入完整地址",
       "searchLocation": "搜尋地址",
       "locationSearchError": "目前無法搜尋地址。你仍可保留手動輸入的地址。",
@@ -1439,7 +1450,12 @@
       "locationDuplicateError": "這個地點已經新增過。",
       "fieldLocationName": "地點名稱",
       "fieldLocationNamePlaceholder": "門市、專櫃或販售店名",
-      "fieldLocationNameHint": "這是訪客最先看到的公開名稱。",
+    "fieldLocationNameHint": "這是訪客最先看到的公開名稱。",
+    "fieldRetailChainName": "連鎖通路名稱",
+    "fieldRetailChainNamePlaceholder": "零售商或連鎖通路名稱",
+    "fieldRetailerUrl": "官方或門市查詢網址",
+    "fieldRetailerUrlPlaceholder": "https://retailer.example/stores",
+    "retailerUrlError": "請輸入 HTTP(S) 網址。",
       "fieldVenueName": "場所名稱",
       "fieldVenueNamePlaceholder": "百貨、商場或零售店",
       "fieldFloorOrCounter": "樓層或櫃位",
@@ -1458,7 +1474,12 @@
       "fieldLatitude": "緯度",
       "fieldLongitude": "經度",
       "fieldAvailabilityNote": "備註",
-      "fieldAvailabilityNotePlaceholder": "販售部分商品，建議先致電確認。",
+    "fieldAvailabilityNotePlaceholder": "販售部分商品，建議先致電確認。",
+    "ownerConfirmationLabel": "我確認這是目前可購買本品牌商品的實體地點",
+    "ownerConfirmationHelp": "確認不代表即時庫存，且必須提供確切地址。",
+    "ownerConfirmationConfirmed": "品牌主已確認此地點",
+    "ownerConfirmationUnconfirmed": "品牌主尚未確認此地點",
+    "ownerConfirmationAddressError": "請先填寫地址，再確認這個地點。",
       "saving": "儲存中...",
       "saveDraft": "儲存草稿",
       "savingDraft": "儲存草稿中…",
@@ -1482,9 +1503,11 @@
       "mitStoryLabel": "製造故事",
       "mitStoryPlaceholder": "分享您的製造工藝、材料來源與工廠合作關係…",
       "wizardProgress": "第 {current} 步，共 {total} 步",
+      "wizardCompletedProgress": "已完成 {completed}／{total} 步",
       "wizardSidebarTitle": "編輯品牌資料",
       "wizardSaveAndContinue": "儲存並繼續",
       "wizardBack": "上一步",
+      "wizardBackToDashboard": "返回品牌管理",
       "wizardPublish": "發布",
       "wizardSaveDraft": "儲存草稿",
       "wizardStepBasicInfo": "基本資料",
@@ -2154,6 +2177,22 @@
       "ownerAlreadyManagesShort": "已擁有品牌",
       "ownerAlreadyManagesTitle": "無法核准：已達品牌管理上限",
       "ownerAlreadyManagesBody": "此申請者已管理 {brandName}。請使用已有品牌的原因拒絕此申請。",
+      "cleanupWarning": "審核決定已儲存，證明檔案仍在刪除佇列中，系統會自動重試。",
+      "cleanupStatus": {
+        "label": "證明檔案清理狀態",
+        "pending": {
+          "label": "已排入佇列／重試中",
+          "description": "刪除作業已排入佇列，失敗時會自動重試。"
+        },
+        "failed": {
+          "label": "重試失敗",
+          "description": "自動重試次數已用完，需要管理員介入處理。"
+        },
+        "completed": {
+          "label": "已刪除",
+          "description": "私密證明檔案已刪除。"
+        }
+      },
       "proofTypes": {
         "domainEmail": "品牌網域信箱",
         "backendScreenshot": "後台截圖",

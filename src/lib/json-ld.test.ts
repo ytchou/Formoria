@@ -35,7 +35,10 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     otherUrls: [],
     retailLocations: [
       {
+        kind: 'location',
         name: 'Nanzhuang Store',
+        relationshipType: 'brand_store',
+        confirmationStatus: 'unconfirmed',
         address: '苗栗縣南庄鄉',
         latitude: 24.59,
         longitude: 120.99,
@@ -159,29 +162,45 @@ describe('buildBrandJsonLd', () => {
     })
   })
 
-  it('includes PostalAddress from first retail location', () => {
-    const jsonLd = buildBrandJsonLd(makeBrand())
+  it('includes one owner-confirmed brand store as a PostalAddress object', () => {
+    const jsonLd = buildBrandJsonLd(
+      makeBrand({
+        retailLocations: [
+          {
+            kind: 'location',
+            name: 'Nanzhuang Store',
+            relationshipType: 'brand_store',
+            confirmationStatus: 'owner_confirmed',
+            address: '苗栗縣南庄鄉',
+          },
+        ],
+      }),
+    )
+
+    expect(Array.isArray(jsonLd.address)).toBe(false)
     expect(jsonLd.address).toEqual({
       '@type': 'PostalAddress',
       streetAddress: '苗栗縣南庄鄉',
     })
   })
 
-  it('includes all retail locations as PostalAddress array when multiple', () => {
+  it('includes multiple eligible addresses as a PostalAddress array', () => {
     const jsonLd = buildBrandJsonLd(
       makeBrand({
         retailLocations: [
           {
+            kind: 'location',
             name: 'Nanzhuang Store',
+            relationshipType: 'brand_store',
+            confirmationStatus: 'owner_confirmed',
             address: '苗栗縣南庄鄉',
-            latitude: 24.59,
-            longitude: 120.99,
           },
           {
+            kind: 'location',
             name: 'Taipei Store',
+            relationshipType: 'brand_store',
+            confirmationStatus: 'owner_confirmed',
             address: '台北市信義區',
-            latitude: 25.03,
-            longitude: 121.56,
           },
         ],
       }),
@@ -198,13 +217,53 @@ describe('buildBrandJsonLd', () => {
     ])
   })
 
-  it('keeps single retail location as PostalAddress object (backward-compatible)', () => {
-    const jsonLd = buildBrandJsonLd(makeBrand())
-    expect(Array.isArray(jsonLd.address)).toBe(false)
-    expect(jsonLd.address).toEqual({
-      '@type': 'PostalAddress',
-      streetAddress: '苗栗縣南庄鄉',
-    })
+  it('omits ineligible physical locations, chains, blank addresses, and unsafe legacy rows', () => {
+    const jsonLd = buildBrandJsonLd(
+      makeBrand({
+        retailLocations: [
+          {
+            kind: 'location',
+            name: 'Unconfirmed Store',
+            relationshipType: 'brand_store',
+            confirmationStatus: 'unconfirmed',
+            address: '台北市中山區',
+          },
+          {
+            kind: 'location',
+            name: 'Confirmed Stockist',
+            relationshipType: 'stockist',
+            confirmationStatus: 'owner_confirmed',
+            address: '台中市西區',
+          },
+          {
+            kind: 'location',
+            name: 'Confirmed Counter',
+            relationshipType: 'department_counter',
+            confirmationStatus: 'owner_confirmed',
+            address: '高雄市前鎮區',
+          },
+          {
+            kind: 'location',
+            name: 'Blank Address Store',
+            relationshipType: 'brand_store',
+            confirmationStatus: 'owner_confirmed',
+            address: '   ',
+          },
+          {
+            kind: 'retail_chain',
+            name: 'Chain Channel',
+          },
+          {
+            name: 'Legacy Store',
+            relationshipType: 'brand_store',
+            confirmationStatus: 'owner_confirmed',
+            address: '新北市板橋區',
+          },
+        ] as unknown as Brand['retailLocations'],
+      }),
+    )
+
+    expect(jsonLd.address).toBeUndefined()
   })
 
   it('omits optional fields when null', () => {

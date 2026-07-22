@@ -1,100 +1,34 @@
-import { ExternalLink, MapPin } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
-import { BrandLocationsMap } from './brand-locations-map'
+import { SurfaceCard } from '@/components/ui/card'
 import {
-  getLocationMapQuery,
-  hasLocationCoordinates,
-  isMappableRetailLocation,
+  isConfirmedRetailLocation,
+  isRetailChainChannel,
+  isUnconfirmedRetailLocation,
   normalizeRetailLocations,
 } from '@/lib/brands/locations'
 import type { Brand, RetailLocation } from '@/lib/types'
+import { ConfirmedLocationExplorer } from './confirmed-location-explorer'
 
 interface BrandLocationsProps {
   brand: Brand
 }
 
 type LocationTranslator = (key: string) => string
+type RetailChainChannel = Extract<RetailLocation, { kind: 'retail_chain' }>
 
-function getMapsHref(location: RetailLocation): string {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-    getLocationMapQuery(location),
-  )}`
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
 }
 
-function LocationCard({
-  location,
-  t,
-}: {
-  location: RetailLocation
-  t: LocationTranslator
-}) {
-  const relationshipType = location.relationshipType ?? 'stockist'
-  const networkType = location.type ?? 'unclassified'
-
-  return (
-    <article className="rounded-lg border border-border bg-card p-4">
-      <div className="flex items-start gap-3">
-        <MapPin
-          aria-hidden="true"
-          className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-        />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h4 className="type-subsection-title">{location.name}</h4>
-            <Badge variant="secondary">
-              {t(`locations.types.${relationshipType}`)}
-            </Badge>
-            <Badge variant={networkType === 'chain' ? 'outline' : 'secondary'}>
-              {t(`locations.networkTypes.${networkType}`)}
-            </Badge>
-            {!hasLocationCoordinates(location) ? (
-              <Badge variant="outline">{t('locations.manualAddress')}</Badge>
-            ) : null}
-          </div>
-
-          {location.venueName ? (
-            <p className="mt-1 type-card-description">
-              {location.venueName}
-              {location.floorOrCounter ? ` - ${location.floorOrCounter}` : ''}
-            </p>
-          ) : location.floorOrCounter ? (
-            <p className="mt-1 type-card-description">
-              {location.floorOrCounter}
-            </p>
-          ) : null}
-
-          {location.address ? (
-            <p className="mt-1 type-card-description">{location.address}</p>
-          ) : null}
-
-          {location.availabilityNote ? (
-            <p className="mt-2 type-field-value">
-              {location.availabilityNote}
-            </p>
-          ) : (
-            <p className="mt-2 type-card-description">
-              {t(`locations.defaultNotes.${relationshipType}`)}
-            </p>
-          )}
-
-          <a
-            href={getMapsHref(location)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={buttonVariants({ variant: "secondary", className: "mt-3" })}
-          >
-            {t('locations.openInMaps')}
-            <ExternalLink aria-hidden="true" className="size-4" />
-          </a>
-        </div>
-      </div>
-    </article>
-  )
-}
-
-function LocationCards({
+function UnconfirmedLocationCards({
   locations,
   t,
 }: {
@@ -102,14 +36,73 @@ function LocationCards({
   t: LocationTranslator
 }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {locations.map((location, index) => (
-        <LocationCard
-          key={`${location.name}-${location.address}-${index}`}
-          location={location}
-          t={t}
-        />
-      ))}
+    <div className='grid gap-3 sm:grid-cols-2'>
+      {locations.map((location, index) => {
+        if (location.kind !== 'location') return null
+
+        return (
+          <SurfaceCard
+            key={`${location.name}-${index}`}
+            padding='sm'
+            className='h-full'
+          >
+            <h4 className='type-subsection-title'>{location.name}</h4>
+            <div className='mt-2 flex flex-wrap gap-2'>
+              <Badge variant='secondary'>
+                {t(`locations.types.${location.relationshipType}`)}
+              </Badge>
+              <Badge variant='warning'>{t('locations.unconfirmedStatus')}</Badge>
+            </div>
+          </SurfaceCard>
+        )
+      })}
+    </div>
+  )
+}
+
+function ChainCards({
+  locations,
+  t,
+}: {
+  locations: RetailChainChannel[]
+  t: LocationTranslator
+}) {
+  return (
+    <div className='grid gap-3 sm:grid-cols-2'>
+      {locations.map((location, index) => {
+        const retailerUrl =
+          location.retailerUrl && isHttpUrl(location.retailerUrl)
+            ? location.retailerUrl
+            : undefined
+
+        return (
+          <SurfaceCard
+            key={`${location.name}-${index}`}
+            padding='sm'
+            className='h-full'
+          >
+            <h4 className='type-subsection-title'>{location.name}</h4>
+            <div className='mt-2 flex flex-wrap gap-2'>
+              <Badge variant='secondary'>{t('locations.chainBadge')}</Badge>
+              <Badge variant='outline'>{t('locations.someStoresBadge')}</Badge>
+            </div>
+            {retailerUrl ? (
+              <a
+                href={retailerUrl}
+                target='_blank'
+                rel='noopener noreferrer'
+                className={buttonVariants({
+                  variant: 'secondary',
+                  className: 'mt-3 min-h-12',
+                })}
+              >
+                {t('locations.retailerWebsite')}
+                <ExternalLink aria-hidden='true' className='size-4' />
+              </a>
+            ) : null}
+          </SurfaceCard>
+        )
+      })}
     </div>
   )
 }
@@ -117,86 +110,82 @@ function LocationCards({
 export function BrandLocations({ brand }: BrandLocationsProps) {
   const t = useTranslations('brandDetail')
   const locations = normalizeRetailLocations(brand.retailLocations)
-  const mappedLocations = locations.filter(isMappableRetailLocation)
-  const independentWithoutCoordinates = locations.filter(
-    (location) =>
-      location.type === 'independent' && !isMappableRetailLocation(location),
-  )
-  const chainLocations = locations.filter(
-    (location) => location.type === 'chain',
-  )
-  const unclassifiedLocations = locations.filter(
-    (location) => location.type === undefined,
-  )
+  const confirmedLocations = locations.filter(isConfirmedRetailLocation)
+  const unconfirmedLocations = locations.filter(isUnconfirmedRetailLocation)
+  const chainLocations = locations.filter(isRetailChainChannel)
 
   if (locations.length === 0) return null
 
-  return (
-    <section className="space-y-6">
-      <div>
-        <h2 className="type-card-title">{t('sections.locations')}</h2>
-        <p className="mt-1 type-card-description">
-          {t('locations.subheading')}
-        </p>
-      </div>
+  const explorerLabels = {
+    filterAll: t('locations.filters.all'),
+    filterBrandStores: t('locations.filters.brandStores'),
+    filterOtherSales: t('locations.filters.otherSales'),
+    mapView: t('locations.views.map'),
+    viewAll: t('locations.views.viewAll'),
+    mapTitle: t('locations.mapTitle', { name: brand.name }),
+    mapLoading: t('locations.mapLoading'),
+    zoomIn: t('locations.zoomIn'),
+    zoomOut: t('locations.zoomOut'),
+    openInMaps: t('locations.openInMaps'),
+    relationshipBrandStore: t('locations.types.brand_store'),
+    relationshipStockist: t('locations.types.stockist'),
+    relationshipDepartmentCounter: t('locations.types.department_counter'),
+    defaultNoteBrandStore: t('locations.defaultNotes.brand_store'),
+    defaultNoteStockist: t('locations.defaultNotes.stockist'),
+    defaultNoteDepartmentCounter: t(
+      'locations.defaultNotes.department_counter',
+    ),
+  }
 
-      {mappedLocations.length > 0 ? (
-        <div className="space-y-3">
+  return (
+    <section className='space-y-8'>
+      <h2 className='type-card-title'>
+        {t('sections.locationsAndRetailChannels')}
+      </h2>
+
+      {confirmedLocations.length > 0 ? (
+        <div className='space-y-3'>
           <div>
-            <h3 className="type-subsection-title">
-              {t('locations.mapHeading')}
+            <h3 className='type-subsection-title'>
+              {t('locations.confirmedHeading')} · {confirmedLocations.length}
             </h3>
-            <p className="mt-1 type-card-description">
-              {t('locations.mapDescription')}
+            <p className='mt-1 type-card-description'>
+              {t('locations.stockDisclaimer')}
             </p>
           </div>
-          <BrandLocationsMap
-            locations={mappedLocations}
-            mapTitle={t('locations.mapTitle', { name: brand.name })}
+          <ConfirmedLocationExplorer
+            locations={confirmedLocations}
+            labels={explorerLabels}
           />
-          <LocationCards locations={mappedLocations} t={t} />
         </div>
       ) : null}
 
-      {independentWithoutCoordinates.length > 0 ? (
-        <div className="space-y-3">
+      {unconfirmedLocations.length > 0 ? (
+        <div className='space-y-3'>
           <div>
-            <h3 className="type-subsection-title">
-              {t('locations.independentHeading')}
+            <h3 className='type-subsection-title'>
+              {t('locations.unconfirmedHeading')} ·{' '}
+              {unconfirmedLocations.length}
             </h3>
-            <p className="mt-1 type-card-description">
-              {t('locations.independentDescription')}
+            <p className='mt-1 type-card-description'>
+              {t('locations.unconfirmedDisclaimer')}
             </p>
           </div>
-          <LocationCards locations={independentWithoutCoordinates} t={t} />
+          <UnconfirmedLocationCards locations={unconfirmedLocations} t={t} />
         </div>
       ) : null}
 
       {chainLocations.length > 0 ? (
-        <div className="space-y-3">
+        <div className='space-y-3'>
           <div>
-            <h3 className="type-subsection-title">
-              {t('locations.chainHeading')}
+            <h3 className='type-subsection-title'>
+              {t('locations.chainHeading')} · {chainLocations.length}
             </h3>
-            <p className="mt-1 type-card-description">
+            <p className='mt-1 type-card-description'>
               {t('locations.chainDescription')}
             </p>
           </div>
-          <LocationCards locations={chainLocations} t={t} />
-        </div>
-      ) : null}
-
-      {unclassifiedLocations.length > 0 ? (
-        <div className="space-y-3">
-          <div>
-            <h3 className="type-subsection-title">
-              {t('locations.unclassifiedHeading')}
-            </h3>
-            <p className="mt-1 type-card-description">
-              {t('locations.unclassifiedDescription')}
-            </p>
-          </div>
-          <LocationCards locations={unclassifiedLocations} t={t} />
+          <ChainCards locations={chainLocations} t={t} />
         </div>
       ) : null}
     </section>

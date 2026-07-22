@@ -292,9 +292,9 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
       userPage.getByRole('heading', { name: /^編輯 / }),
     ).toBeVisible({ timeout: 60_000 });
 
-    await expect(userPage.locator('#basic-info')).toBeVisible({ timeout: 10_000 });
+    await expect(userPage.locator('#main-content #basic-info')).toBeVisible({ timeout: 10_000 });
     await expect(userPage.getByRole('heading', { name: '編輯品牌資料' })).toBeVisible();
-    await expect(userPage.getByText('第 1 步，共 5 步').first()).toBeVisible();
+    await expect(userPage.getByText('已完成 0／5 步').first()).toBeVisible();
     await expect(
       userPage.locator('aside nav button').first(),
     ).toHaveAttribute('aria-current', 'step', { timeout: 5_000 });
@@ -332,7 +332,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     await expect(
       userPage.getByRole('heading', { name: /^編輯 / }),
     ).toBeVisible({ timeout: 60_000 });
-    await expect(userPage.locator('#basic-info')).toBeVisible({ timeout: 10_000 });
+    await expect(userPage.locator('#main-content #basic-info')).toBeVisible({ timeout: 10_000 });
 
     // Triple-click selects all text before fill to avoid appending to existing value
     await userPage.locator('#name').click({ clickCount: 3 });
@@ -341,7 +341,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
 
     await userPage.getByRole('button', { name: '儲存並繼續' }).click();
     // Increase timeout: saveSectionDraftAction can be slow when dev server is under load
-    await expect(userPage.locator('#media')).toBeVisible({ timeout: 30_000 });
+    await expect(userPage.locator('#main-content #media')).toBeVisible({ timeout: 30_000 });
 
     // Poll for the draft save (async write after URL navigation)
     await expect.poll(async () => {
@@ -354,7 +354,8 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     }, { timeout: 15_000, intervals: [500, 1_000, 2_000] }).toEqual([0]);
 
     await userPage.reload();
-    await expect(userPage.locator('#media')).toBeVisible({ timeout: 30_000 });
+    await expect(userPage.locator('#main-content #media')).toBeVisible({ timeout: 30_000 });
+    await expect(userPage.getByText('已完成 1／5 步').first()).toBeVisible();
     await expect(userPage.locator('aside nav button').first().locator('svg')).toHaveCount(1);
     // Back button visible on step 1 (non-first, non-final step)
     await expect(
@@ -362,7 +363,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     ).toBeVisible({ timeout: 10_000 });
 
     await userPage.locator('aside nav button').filter({ hasText: '基本資料' }).click();
-    await expect(userPage.locator('#basic-info')).toBeVisible({ timeout: 30_000 });
+    await expect(userPage.locator('#main-content #basic-info')).toBeVisible({ timeout: 30_000 });
     await expect(userPage.locator('#name')).toHaveValue(nextName);
   });
 
@@ -416,11 +417,11 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     await expect(
       userPage.getByRole('heading', { name: /^編輯 / }),
     ).toBeVisible({ timeout: 60_000 });
-    await expect(userPage.locator('#basic-info')).toBeVisible({ timeout: 30_000 });
+    await expect(userPage.locator('#main-content #basic-info')).toBeVisible({ timeout: 30_000 });
 
     const sidebarNav = userPage.locator('aside nav');
     await sidebarNav.locator('button').filter({ hasText: '品牌口碑' }).click();
-    await expect(userPage.locator('#reputation')).toBeVisible({ timeout: 30_000 });
+    await expect(userPage.locator('#main-content #reputation')).toBeVisible({ timeout: 30_000 });
     await expect(userPage).toHaveURL(/\?step=4/, { timeout: 10_000 });
     await expect(
       sidebarNav.locator('button').filter({ hasText: '品牌口碑' }),
@@ -439,10 +440,67 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     await expect(
       userPage.getByRole('heading', { name: /^編輯 / }),
     ).toBeVisible({ timeout: 60_000 });
-    await expect(userPage.locator('#locations')).toBeVisible({ timeout: 30_000 });
+    await expect(userPage.locator('#main-content #locations')).toBeVisible({ timeout: 30_000 });
     await expect(
       userPage.locator('aside nav button').nth(3),
     ).toHaveAttribute('aria-current', 'step', { timeout: 10_000 });
+  });
+
+  test('owner confirms an exact physical location and keeps it after saving', async ({
+    userPage,
+  }) => {
+    test.setTimeout(120_000);
+    const locationName = `[E2E-TEST] Owner location ${Date.now()}`;
+    const exactAddress = '臺北市中正區忠孝西路一段 1 號';
+
+    const resp = await userPage.goto(
+      `/dashboard/brands/${wizardBrandSlug}/edit?step=3`,
+      { timeout: 60_000 },
+    );
+    if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
+
+    await expect(
+      userPage.getByRole('heading', { name: /^編輯 / }),
+    ).toBeVisible({ timeout: 60_000 });
+    await expect(userPage.locator('#locations')).toBeVisible({ timeout: 30_000 });
+    const addLocation = userPage
+      .locator('#locations')
+      .getByRole('button', { name: '新增地點或連鎖通路' });
+    await expect(addLocation).toBeVisible();
+    await addLocation.click();
+    await userPage.locator('#retailLocations-0-kind').click();
+    await userPage.getByRole('option', { name: '實體販售地點' }).click();
+    await userPage.locator('#retailLocations-0-name').fill(locationName);
+
+    const address = userPage.locator('#retailLocations-0-address');
+    const confirmation = userPage.getByLabel(
+      '我確認這是目前可購買本品牌商品的實體地點',
+    );
+    await confirmation.check();
+    await expect(address).toBeFocused();
+    await expect(
+      userPage.getByText('請先填寫地址，再確認這個地點。'),
+    ).toBeVisible();
+    await expect(confirmation).not.toBeChecked();
+
+    await address.fill(exactAddress);
+    await confirmation.check();
+    await expect(confirmation).toBeChecked();
+
+    await userPage.getByRole('button', { name: '儲存並繼續' }).click();
+    await expect(userPage.locator('#reputation')).toBeVisible({ timeout: 30_000 });
+
+    await userPage.goto(`/dashboard/brands/${wizardBrandSlug}/edit?step=3`);
+    await expect(userPage.locator('#retailLocations-0-name')).toHaveValue(
+      locationName,
+      { timeout: 30_000 },
+    );
+    await expect(userPage.locator('#retailLocations-0-address')).toHaveValue(
+      exactAddress,
+    );
+    await expect(
+      userPage.getByRole('status', { name: '品牌主已確認此地點' }),
+    ).toBeVisible();
   });
 });
 

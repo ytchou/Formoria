@@ -40,11 +40,17 @@ export type RetailLocationVerificationStatus =
   | 'manual'
   | 'needs_review'
 
-export type RetailLocation = {
+type RetailLocationConfirmationStatus =
+  | 'unconfirmed'
+  | 'owner_confirmed'
+
+export type PhysicalRetailLocation = {
+  kind: 'location'
   name: string
-  relationshipType?: RetailLocationRelationshipType
+  relationshipType: RetailLocationRelationshipType
+  /** @deprecated Legacy input only. Canonical rows use kind. */
   type?: RetailLocationType
-  address: string
+  address?: string
   city?: string
   district?: string
   venueName?: string
@@ -53,7 +59,30 @@ export type RetailLocation = {
   latitude?: number
   longitude?: number
   verificationStatus?: RetailLocationVerificationStatus
+  confirmationStatus: RetailLocationConfirmationStatus
+  retailerUrl?: never
 }
+
+export type RetailChainChannel = {
+  kind: 'retail_chain'
+  name: string
+  retailerUrl?: string
+  availabilityNote?: string
+  /** @deprecated Legacy input only. Canonical rows use kind. */
+  type?: RetailLocationType
+  relationshipType?: never
+  address?: never
+  city?: never
+  district?: never
+  venueName?: never
+  floorOrCounter?: never
+  latitude?: never
+  longitude?: never
+  verificationStatus?: never
+  confirmationStatus?: never
+}
+
+export type RetailLocation = PhysicalRetailLocation | RetailChainChannel
 
 type MitEvidence = {
   mit_smile_listed?: boolean
