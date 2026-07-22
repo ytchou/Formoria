@@ -141,7 +141,7 @@ jobs:
             repeat_offenders: ${{ steps.context.outputs.repeat_offenders }}
 
             systemic: ${{ steps.context.outputs.systemic == '1' && 'true' || 'false' }}
-          claude_args: "--max-turns 30"
+          claude_args: "--max-turns 60"
 
       - name: Review fix
         if: steps.guard.outputs.skip != 'true' && steps.fix.outcome == 'success'
