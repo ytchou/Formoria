@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { createClient } from '@supabase/supabase-js';
 import { seedBrand, SeededBrand } from "../helpers/seed";
 
 test.describe('Brand detail deep', () => {
@@ -188,4 +189,157 @@ test.describe('Brand detail — hidden brand', () => {
     await expect(page.getByRole('heading', { name: seeded.brand.name })).toHaveCount(0);
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/i);
   });
+});
+
+test.describe('Brand detail — public locations and retail channels', () => {
+  let seeded: SeededBrand;
+
+  const confirmedStoreName = '[E2E-TEST] Taipei brand store';
+  const confirmedStoreAddress = '台北市信義區信義路五段7號';
+  const confirmedStockistName = '[E2E-TEST] Taichung stockist';
+  const privateLeadName = '[E2E-TEST] Private physical lead';
+  const privateLeadAddress = '[E2E-TEST] Private Address 991 No Render Lane';
+  const chainName = '[E2E-TEST] Retail chain';
+  const retailerUrl = 'https://example.com/e2e-retailer';
+
+  test.beforeAll(async ({}, workerInfo) => {
+    seeded = await seedBrand({
+      name: 'mixed-locations',
+      status: 'approved',
+      workerIndex: workerInfo.workerIndex,
+    });
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error('Supabase service-role environment is required');
+    }
+
+    const serviceClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { error } = await serviceClient
+      .from('brands')
+      .update({
+        retail_locations: [
+          {
+            kind: 'location',
+            name: confirmedStoreName,
+            relationshipType: 'brand_store',
+            address: confirmedStoreAddress,
+            latitude: 25.033,
+            longitude: 121.5654,
+            confirmationStatus: 'owner_confirmed',
+          },
+          {
+            kind: 'location',
+            name: confirmedStockistName,
+            relationshipType: 'stockist',
+            address: '台中市西屯區台灣大道三段301號',
+            confirmationStatus: 'owner_confirmed',
+          },
+          {
+            kind: 'location',
+            name: privateLeadName,
+            relationshipType: 'stockist',
+            address: privateLeadAddress,
+            confirmationStatus: 'unconfirmed',
+          },
+          {
+            kind: 'retail_chain',
+            name: chainName,
+            retailerUrl,
+          },
+        ],
+      })
+      .eq('slug', seeded.slug);
+
+    expect(error).toBeNull();
+  });
+
+  test.afterAll(async () => {
+    await seeded.cleanup();
+  });
+
+  test('groups locations safely and supports mobile filter and view controls', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    await expect(async () => {
+      await page.goto(`/brands/${seeded.slug}`, { waitUntil: 'domcontentloaded' });
+      await expect(page.getByRole('heading', { level: 1 })).toContainText(
+        seeded.brand.name,
+        { timeout: 10_000 },
+      );
+      await expect(page.getByRole('heading', { name: '已確認地點 · 2', level: 3 })).toBeVisible();
+      await expect(page.getByRole('heading', { name: '待確認地點 · 1', level: 3 })).toBeVisible();
+      await expect(page.getByRole('heading', { name: '連鎖販售通路 · 1', level: 3 })).toBeVisible();
+    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
+
+    await expect(page.getByText('以下地點資訊已由品牌主確認；前往前請先向店家確認販售商品與庫存。')).toBeVisible();
+    await expect(page.getByText('以下為盡力整理的公開資訊。品牌主確認前，不提供地址、地圖標記或地圖連結。')).toBeVisible();
+    await expect(page.getByText('各分店販售情況不同；通路連結僅供查詢通路資訊，不代表即時庫存。')).toBeVisible();
+    await expect(page.getByText(privateLeadName)).toBeVisible();
+    await expect(page.getByText(privateLeadAddress)).toHaveCount(0);
+    await expect(page.getByRole('link', { name: '查看通路資訊' })).toHaveAttribute(
+      'href',
+      retailerUrl,
+    );
+
+    const map = page.getByRole('region', {
+      name: `${seeded.brand.name} 販售地點地圖`,
+    });
+    await expect(map).toBeVisible({ timeout: 10_000 });
+
+    const confirmedHeading = page.getByRole('heading', {
+      name: '已確認地點 · 2',
+      level: 3,
+    });
+    const confirmedGroup = confirmedHeading.locator('..').locator('..');
+    const allFilter = confirmedGroup.getByRole('button', { name: '全部 2' });
+    const brandStoreFilter = confirmedGroup.getByRole('button', {
+      name: '品牌門市 1',
+    });
+    const otherSalesFilter = confirmedGroup.getByRole('button', {
+      name: '其他販售通路 1',
+    });
+
+    await allFilter.focus();
+    await page.keyboard.press('Tab');
+    await expect(brandStoreFilter).toBeFocused();
+    const filterBox = await brandStoreFilter.boundingBox();
+    expect(filterBox).not.toBeNull();
+    expect(filterBox!.height).toBeGreaterThanOrEqual(48);
+
+    await brandStoreFilter.press('Enter');
+    await expect(brandStoreFilter).toHaveAttribute('aria-pressed', 'true');
+    await expect(confirmedGroup.getByText(confirmedStoreName)).toBeVisible();
+    await expect(confirmedGroup.getByText(confirmedStockistName)).toHaveCount(0);
+    await expect(confirmedGroup.getByText(privateLeadName)).toHaveCount(0);
+    await expect(confirmedGroup.getByText(chainName)).toHaveCount(0);
+
+    await otherSalesFilter.click();
+    await expect(confirmedGroup.getByText(confirmedStockistName)).toBeVisible();
+    await expect(confirmedGroup.getByText(confirmedStoreName)).toHaveCount(0);
+    await expect(map).toHaveCount(0);
+
+    await allFilter.click();
+    const mapView = confirmedGroup.getByRole('button', { name: '地圖' });
+    await expect(mapView).toBeVisible();
+    await mapView.click();
+    await expect(map).toBeVisible();
+
+    const viewAll = confirmedGroup.getByRole('button', { name: '查看全部' });
+    await viewAll.click();
+    await expect(map).toHaveCount(0);
+    await expect(confirmedGroup.getByText(confirmedStoreName)).toBeVisible();
+    await expect(confirmedGroup.getByText(confirmedStockistName)).toBeVisible();
+  });
+});
+
+test('brand with name-only best-effort locations does not render a map', async ({ page }) => {
+  await page.goto('/brands/littdlework', { waitUntil: 'domcontentloaded' });
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole('heading', { name: '永康旗艦店' })).toBeVisible();
+  await expect(page.getByRole('region', { name: /販售地點地圖|stockist map/i })).toHaveCount(0);
 });

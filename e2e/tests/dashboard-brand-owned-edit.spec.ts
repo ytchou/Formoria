@@ -444,6 +444,63 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
       userPage.locator('aside nav button').nth(3),
     ).toHaveAttribute('aria-current', 'step', { timeout: 10_000 });
   });
+
+  test('owner confirms an exact physical location and keeps it after saving', async ({
+    userPage,
+  }) => {
+    test.setTimeout(120_000);
+    const locationName = `[E2E-TEST] Owner location ${Date.now()}`;
+    const exactAddress = '臺北市中正區忠孝西路一段 1 號';
+
+    const resp = await userPage.goto(
+      `/dashboard/brands/${wizardBrandSlug}/edit?step=3`,
+      { timeout: 60_000 },
+    );
+    if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
+
+    await expect(
+      userPage.getByRole('heading', { name: /^編輯 / }),
+    ).toBeVisible({ timeout: 60_000 });
+    await expect(userPage.locator('#locations')).toBeVisible({ timeout: 30_000 });
+    const addLocation = userPage
+      .locator('#locations')
+      .getByRole('button', { name: '新增地點或連鎖通路' });
+    await expect(addLocation).toBeVisible();
+    await addLocation.click();
+    await userPage.locator('#retailLocations-0-kind').click();
+    await userPage.getByRole('option', { name: '實體販售地點' }).click();
+    await userPage.locator('#retailLocations-0-name').fill(locationName);
+
+    const address = userPage.locator('#retailLocations-0-address');
+    const confirmation = userPage.getByLabel(
+      '我確認這是目前可購買本品牌商品的實體地點',
+    );
+    await confirmation.check();
+    await expect(address).toBeFocused();
+    await expect(
+      userPage.getByText('請先填寫地址，再確認這個地點。'),
+    ).toBeVisible();
+    await expect(confirmation).not.toBeChecked();
+
+    await address.fill(exactAddress);
+    await confirmation.check();
+    await expect(confirmation).toBeChecked();
+
+    await userPage.getByRole('button', { name: '儲存並繼續' }).click();
+    await expect(userPage.locator('#reputation')).toBeVisible({ timeout: 30_000 });
+
+    await userPage.goto(`/dashboard/brands/${wizardBrandSlug}/edit?step=3`);
+    await expect(userPage.locator('#retailLocations-0-name')).toHaveValue(
+      locationName,
+      { timeout: 30_000 },
+    );
+    await expect(userPage.locator('#retailLocations-0-address')).toHaveValue(
+      exactAddress,
+    );
+    await expect(
+      userPage.getByRole('status', { name: '品牌主已確認此地點' }),
+    ).toBeVisible();
+  });
 });
 
 // ─── Image-upload tests ──────────────────────────────────────────────────────

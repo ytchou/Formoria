@@ -145,7 +145,7 @@ export function BrandLocations({ brand }: BrandLocationsProps) {
         <div className='space-y-3'>
           <div>
             <h3 className='type-subsection-title'>
-              {t('locations.confirmedHeading')}
+              {t('locations.confirmedHeading')} · {confirmedLocations.length}
             </h3>
             <p className='mt-1 type-card-description'>
               {t('locations.stockDisclaimer')}
@@ -162,7 +162,8 @@ export function BrandLocations({ brand }: BrandLocationsProps) {
         <div className='space-y-3'>
           <div>
             <h3 className='type-subsection-title'>
-              {t('locations.unconfirmedHeading')}
+              {t('locations.unconfirmedHeading')} ·{' '}
+              {unconfirmedLocations.length}
             </h3>
             <p className='mt-1 type-card-description'>
               {t('locations.unconfirmedDisclaimer')}
@@ -176,7 +177,7 @@ export function BrandLocations({ brand }: BrandLocationsProps) {
         <div className='space-y-3'>
           <div>
             <h3 className='type-subsection-title'>
-              {t('locations.chainHeading')}
+              {t('locations.chainHeading')} · {chainLocations.length}
             </h3>
             <p className='mt-1 type-card-description'>
               {t('locations.chainDescription')}

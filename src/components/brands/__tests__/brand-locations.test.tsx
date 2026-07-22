@@ -25,9 +25,9 @@ const messages = {
     },
     locations: {
       ...zh.brandDetail.locations,
-      confirmedHeading: '品牌確認地點',
+      confirmedHeading: '已確認地點',
       stockDisclaimer: '販售品項與庫存可能變動，前往前請先向店家確認。',
-      unconfirmedHeading: '其他公開地點資訊',
+      unconfirmedHeading: '待確認地點',
       unconfirmedDisclaimer: '以下是盡力整理的公開資訊，尚未經品牌確認。',
       unconfirmedStatus: '未經品牌確認',
       chainBadge: '連鎖通路',
@@ -171,14 +171,14 @@ describe('BrandLocations', () => {
       screen.getByRole('heading', { name: '販售地點與零售通路' }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: '品牌確認地點' }),
+      screen.getByRole('heading', { name: '已確認地點 · 4' }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: '其他公開地點資訊' }),
+      screen.getByRole('heading', { name: '待確認地點 · 1' }),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('heading', {
-        name: messages.brandDetail.locations.chainHeading,
+        name: `${messages.brandDetail.locations.chainHeading} · 2`,
       }),
     ).toBeInTheDocument()
     expect(
