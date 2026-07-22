@@ -84,6 +84,17 @@ describe("E2E workflow contracts", () => {
     expect(create).toBeGreaterThan(drop);
   });
 
+  it("creates the final enrichment timestamp on a clean migration replay", async () => {
+    const migration = await readFile(
+      "supabase/migrations/20260622130000_rename_tags_to_brand_enriched_at.sql",
+      "utf8",
+    );
+
+    expect(migration).toContain("column_name = 'tags_enriched_at'");
+    expect(migration).toContain("column_name = 'brand_enriched_at'");
+    expect(migration).toContain("ADD COLUMN brand_enriched_at timestamptz");
+  });
+
   it("propagates real Playwright failures and only accepts no-tests status", () => {
     const run = (status: string) =>
       spawnSync("bash", ["scripts/ci/normalize-playwright-exit.sh", status], {
