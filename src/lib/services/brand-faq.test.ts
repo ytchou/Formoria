@@ -89,4 +89,30 @@ describe('buildBrandFaq', () => {
       ]),
     )
   })
+
+  it('renders no MIT FAQ entry for unverified brands with enrichment signals only', () => {
+    const faq = buildBrandFaq(
+      makeBrand({
+        mitStatus: 'unverified',
+        mitStory: '我們的工廠在台南',
+        mitEvidence: {
+          enrichment_signals: ['official_site_claims_mit'],
+        } as unknown as Brand['mitEvidence'],
+      }),
+      t,
+    )
+
+    expect(faq.some((item) => item.id === 'made-in-taiwan')).toBe(false)
+  })
+
+  it('renders a declared-scoped answer for declared brands', () => {
+    const faq = buildBrandFaq(
+      makeBrand({ mitStatus: 'declared', mitDeclaredScope: 'most' }),
+      t,
+    )
+    const mitEntry = faq.find((item) => item.id === 'made-in-taiwan')
+
+    expect(mitEntry?.answer).toContain('品牌聲明')
+    expect(mitEntry?.answer).not.toContain('驗證')
+  })
 })

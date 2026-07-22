@@ -20,6 +20,12 @@ export type WritablePatchResult = {
 }
 
 const ENRICHMENT_EXCLUDED_FIELDS = new Set(['mitStory', 'mit_story'])
+const OWNER_PROTECTED_FIELDS = new Set([
+  'mit_status',
+  'mit_declared_scope',
+  'mit_declared_at',
+  'mit_declared_by',
+])
 const REFRESH_ENRICHMENT_EXCLUDED_FIELDS = new Set([
   'id',
   'name',
@@ -98,6 +104,11 @@ export function resolveWritablePatch(
     }
 
     if (actor.source === 'owner') {
+      if (OWNER_PROTECTED_FIELDS.has(field)) {
+        skipped.push({ field, reason: 'protected:service_managed' })
+        continue
+      }
+
       if (state?.adminLocked === true) {
         skipped.push({ field, reason: 'protected:admin_locked' })
         continue
