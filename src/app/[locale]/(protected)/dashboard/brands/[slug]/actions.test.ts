@@ -39,6 +39,9 @@ const buildViolationAdminNotificationEmail = vi.fn()
 const sendEmail = vi.fn().mockResolvedValue({ success: true })
 const isOnboardingStepKey = vi.fn().mockReturnValue(true)
 const setBrandOnboardingStepStatus = vi.fn().mockResolvedValue(undefined)
+const declareMit = vi.fn().mockResolvedValue({ ok: true })
+const withdrawDeclaration = vi.fn().mockResolvedValue({ ok: true })
+const trackMitDeclared = vi.fn()
 const rejectBrandImages = vi.fn().mockResolvedValue(undefined)
 const mergeDraftOverBrand = vi.fn((brand: Record<string, unknown>, snapshot: Record<string, unknown>) => ({
   ...brand,
@@ -116,6 +119,15 @@ vi.mock('@/lib/services/brand-onboarding', () => ({
   setBrandOnboardingStepStatus,
 }))
 
+vi.mock('@/lib/services/mit-declaration', () => ({
+  declareMit,
+  withdrawDeclaration,
+}))
+
+vi.mock('@/lib/analytics', () => ({
+  trackMitDeclared,
+}))
+
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }))
@@ -148,6 +160,30 @@ function mockUser(email: string, id = 'user-1') {
 
 beforeEach(() => {
   getImpersonatedBrandSlug.mockResolvedValue('test-brand')
+})
+
+describe('declareMitAction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockUser('owner@example.com')
+    getBrandBySlug.mockResolvedValue({
+      id: 'brand-1',
+      slug: 'test-brand',
+      name: 'Test Brand',
+    })
+  })
+
+  it('rejects users who cannot edit the brand', async () => {
+    const { isOwnerOf } = await import('@/lib/services/brand-owners')
+    vi.mocked(isOwnerOf).mockResolvedValueOnce(false)
+    isActingAsAdmin.mockResolvedValueOnce(false)
+
+    const { declareMitAction } = await import('./actions')
+    const result = await declareMitAction('test-brand', 'most')
+
+    expect(result.error).toContain('權限')
+    expect(declareMit).not.toHaveBeenCalled()
+  })
 })
 
 describe('updateBrandAction', () => {

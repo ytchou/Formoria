@@ -98,7 +98,7 @@ describe('AccountMenu', () => {
     expect((await screen.findAllByRole('menuitem', { name: 'English' })).length).toBeGreaterThan(0)
   })
 
-  it('shows a Saved Brands link when logged in', async () => {
+  it('shows account links when logged in', async () => {
     const user = userEvent.setup()
 
     ;(useUser as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -110,10 +110,20 @@ describe('AccountMenu', () => {
     await user.click(screen.getByRole('button', { name: 'Account' }))
 
     await screen.findAllByText('Saved Brands')
+    await screen.findAllByText('My Contributions')
+    await screen.findAllByText('My Submissions')
     const favoritesLink = Array.from(document.querySelectorAll('a')).find((a) =>
       a.textContent?.includes('Saved Brands'),
     )
+    const contributionsLink = Array.from(document.querySelectorAll('a')).find((a) =>
+      a.textContent?.includes('My Contributions'),
+    )
+    const submissionsLink = Array.from(document.querySelectorAll('a')).find((a) =>
+      a.textContent?.includes('My Submissions'),
+    )
     expect(favoritesLink).toHaveAttribute('href', '/favorites')
+    expect(contributionsLink).toHaveAttribute('href', '/contributions')
+    expect(submissionsLink).toHaveAttribute('href', '/my-submissions')
   })
 
   it('renders a non-interactive placeholder while loading', () => {

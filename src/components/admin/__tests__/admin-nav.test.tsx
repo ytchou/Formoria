@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { NavItem } from '../admin-nav'
 
@@ -12,6 +12,7 @@ const items: NavItem[] = [
   { label: 'Brand Submissions', href: '/admin/submissions', count: 3 },
   { label: 'Data Jobs', href: '/admin/jobs' },
   { label: 'Content Moderation', href: '/admin/moderation', count: 0 },
+  { label: 'Evidence', href: '/admin/evidence', count: 6 },
   { label: 'Claim Requests', href: '/admin/claims' },
   { label: 'Reports', href: '/admin/reports', count: 2 },
   { label: 'Brand Catalog', href: '/admin/brands' },
@@ -48,5 +49,12 @@ describe('AdminNav', () => {
     await renderAdminNav()
     expect(screen.getByText('3')).toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument()
+  })
+
+  it('renders an Evidence item with its pending count', async () => {
+    await renderAdminNav()
+    const evidenceLink = screen.getByRole('link', { name: /Evidence.*6/ })
+    expect(evidenceLink).toHaveAttribute('href', '/admin/evidence')
+    expect(within(evidenceLink).getByLabelText('6 pending')).toBeInTheDocument()
   })
 })

@@ -2,16 +2,32 @@
 import { act } from 'react'
 import { hydrateRoot } from 'react-dom/client'
 import { renderToString } from 'react-dom/server'
-import { render } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { InlineVerification } from './inline-verification'
 
+const translations: Record<string, string> = {
+  'declare.scopeLabel': '聲明範圍',
+  'declare.attestation': '我確認上述產品在台灣製造',
+  'declare.submit': '送出聲明',
+  'declared.withdraw': '撤回聲明',
+}
+
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => key,
+  useTranslations: () => (key: string) => translations[key] ?? key,
+}))
+
+vi.mock('next/navigation', () => ({
+  useParams: () => ({ slug: 'test-brand' }),
 }))
 
 vi.mock('@/app/[locale]/(protected)/dashboard/actions', () => ({
   verifyMitAction: vi.fn(),
+}))
+
+vi.mock('@/app/[locale]/(protected)/dashboard/brands/[slug]/actions', () => ({
+  declareMitAction: vi.fn(),
+  withdrawDeclarationAction: vi.fn(),
 }))
 
 const props = {
@@ -54,5 +70,33 @@ describe('InlineVerification hydration', () => {
     expect(container.querySelector('#verification')).toBeNull()
 
     await act(async () => root.unmount())
+  })
+})
+
+describe('InlineVerification MIT declaration', () => {
+  it('offers declaration scope and gates submission on attestation', () => {
+    render(<InlineVerification {...props} embedded />)
+
+    expect(screen.getByLabelText('聲明範圍')).toBeInTheDocument()
+    const attestation = screen.getByRole('checkbox', { name: /我確認/ })
+    const submit = screen.getByRole('button', { name: '送出聲明' })
+
+    expect(submit).toBeDisabled()
+    fireEvent.click(attestation)
+    expect(submit).toBeEnabled()
+  })
+
+  it('shows withdrawal for a declared brand', () => {
+    render(
+      <InlineVerification
+        {...props}
+        embedded
+        mitStatus="declared"
+        mitDeclaredScope="most"
+        mitDeclaredAt="2026-07-22T00:00:00.000Z"
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: '撤回聲明' })).toBeInTheDocument()
   })
 })

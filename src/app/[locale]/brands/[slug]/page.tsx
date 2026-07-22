@@ -17,6 +17,7 @@ import { BrandViewTracker } from '@/components/brands/brand-view-tracker'
 import { BrandBreadcrumb } from '@/components/brands/brand-breadcrumb'
 import { ImageCarousel } from '@/components/brands/image-carousel'
 import { BrandHeader } from '@/components/brands/brand-header'
+import { MitStatusSection } from '@/components/brands/mit-status-section'
 import { BrandActions } from '@/components/brands/brand-actions'
 import { AdminBrandMenu } from '@/components/brands/admin-brand-menu'
 import { ClaimBrandCta } from '@/components/brands/claim-brand-cta'
@@ -271,6 +272,8 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 </SavedBrandsProvider>
               }
             />
+
+            <MitStatusSection brand={displayBrand} locale={safeLocale} />
 
             <hr className="border-border" />
 

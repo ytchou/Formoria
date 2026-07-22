@@ -327,6 +327,16 @@
     "mitDeclared": "MIT Declared",
     "mitDeclaredTitle": "Self-attested as made in Taiwan by the brand owner; the declaration may cover some, most, or all products",
     "mitProofLink": "MIT Smile mark cert. {cert}",
+    "mitStatus": {
+      "scope": {
+        "all": "All products",
+        "most": "Most products",
+        "some": "Some products"
+      },
+      "declaredOn": "Declared on {date}",
+      "registrySource": "Source: MIT Smile Mark product registry",
+      "reportOrigin": "Report origin information"
+    },
     "foundingYear": "Est. {year}",
     "previewBanner": "Preview mode — not live",
     "previewBackToEdit": "Back to edit",
@@ -964,6 +974,8 @@
     "menuLabel": "Account",
     "dashboard": "Owner Dashboard",
     "favorites": "Saved Brands",
+    "contributions": "My Contributions",
+    "mySubmissions": "My Submissions",
     "signOut": "Sign out",
     "settings": "Settings",
     "feedback": "Feedback"
@@ -974,6 +986,26 @@
     "emptyTitle": "No saved brands yet",
     "emptyDescription": "Explore brands on MIT Map and tap the heart to save your favorites.",
     "exploreBrands": "Explore brands"
+  },
+  "contributions": {
+    "metadata": {
+      "title": "My Contributions"
+    },
+    "heading": "My Contributions",
+    "subheading": "Review the origin evidence you have shared with the Formoria community.",
+    "status": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "stance": {
+      "supports": "Supports made-in-Taiwan claim",
+      "contradicts": "Contradicts made-in-Taiwan claim"
+    },
+    "emptyTitle": "No contributions yet",
+    "emptyDescription": "Share origin evidence to help the community understand more Taiwanese brands.",
+    "exploreBrands": "Explore brands",
+    "unknownBrand": "Unknown brand"
   },
   "settings": {
     "metadata": {
@@ -1210,6 +1242,7 @@
       "title": "MIT Verification",
       "status": {
         "unverified": "Not verified",
+        "declared": "MIT Declared",
         "verified": "MIT Verified"
       },
       "description": {
@@ -1224,7 +1257,45 @@
       "certExpired": "This MIT certificate has expired",
       "reviewNote": "Reviewer note",
       "resubmitCta": "Request verification by email",
-      "dismiss": "Dismiss"
+      "dismiss": "Dismiss",
+      "tier": {
+        "certTitle": "MIT Smile Mark certification",
+        "certDescription": "Enter an MIT Smile Mark number to verify the official registry entry.",
+        "declareTitle": "Brand declaration",
+        "declareDescription": "If you do not have official certification yet, declare the scope of products made in Taiwan."
+      },
+      "or": "or",
+      "declare": {
+        "scopeLabel": "Declaration scope",
+        "scope": {
+          "all": "All products",
+          "most": "Most products",
+          "some": "Some products"
+        },
+        "attestation": "I confirm that the products above are made in Taiwan and that this information is accurate.",
+        "storyLabel": "Made-in-Taiwan story (optional)",
+        "storyPlaceholder": "Share how and why your brand manufactures in Taiwan",
+        "submit": "Submit declaration",
+        "success": "Your brand declaration has been submitted."
+      },
+      "declared": {
+        "scopeLabel": "Declaration scope",
+        "dateLabel": "Declaration date",
+        "withdraw": "Withdraw declaration",
+        "withdrawSuccess": "Your brand declaration has been withdrawn."
+      },
+      "errors": {
+        "notLoggedIn": "Please sign in first.",
+        "forbidden": "You do not have permission to edit this brand.",
+        "brandNotFound": "Brand not found.",
+        "invalidScope": "Choose a valid declaration scope.",
+        "database_error": "Could not save the declaration. Please try again.",
+        "not_declared": "This brand has no declaration to withdraw.",
+        "not_found": "Brand not found.",
+        "already_verified": "This brand is already MIT verified and cannot be self-declared.",
+        "invalid_state": "This action is not available for the brand's current MIT status.",
+        "unknown": "Something went wrong. Please try again."
+      }
     },
     "errors": {
       "invalidClaim": "The claim link is invalid or has expired. Please contact support.",
@@ -1892,6 +1963,7 @@
         "submissions": "Brand Submissions",
         "jobs": "Data Jobs",
         "moderation": "Content Moderation",
+        "evidence": "Evidence",
         "claims": "Claim Requests",
         "reports": "Reports",
         "brands": "Brand Catalog",
@@ -1923,6 +1995,10 @@
         "flaggedContentLabel": "Pending Content Flags",
         "flaggedContentDesc": "Flags in the content review queue"
       },
+      "evidence": {
+        "label": "Evidence",
+        "description": "Origin evidence awaiting review"
+      },
       "queues": {
         "claims": {
           "title": "Brand Claims",
@@ -1947,6 +2023,56 @@
       "filterByRisk": "Filter by risk",
       "filterByTier": "Filter by tier",
       "noFlaggedContent": "No flagged content"
+    },
+    "evidence": {
+      "title": "Origin Evidence",
+      "description": "Review evidence submitted to support or contradict made-in-Taiwan claims.",
+      "tabs": {
+        "all": "All",
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected"
+      },
+      "table": {
+        "brand": "Brand",
+        "stance": "Stance",
+        "product": "Product",
+        "date": "Submitted",
+        "status": "Status"
+      },
+      "fields": {
+        "stance": "Stance",
+        "product": "Product",
+        "sourceType": "Source type",
+        "notes": "Notes",
+        "photos": "Photos",
+        "reviewerNotes": "Reviewer notes"
+      },
+      "stances": {
+        "supports": "Supports made-in-Taiwan claim",
+        "contradicts": "Contradicts made-in-Taiwan claim"
+      },
+      "sourceTypes": {
+        "product_label": "Product label",
+        "packaging": "Packaging",
+        "official_site": "Official website",
+        "in_store": "In store",
+        "other": "Other"
+      },
+      "actions": {
+        "approve": "Approve",
+        "reject": "Reject"
+      },
+      "reviewerNotesPlaceholder": "Add notes about this decision",
+      "stripDeclaration": "Remove declaration",
+      "unknownBrand": "Unknown brand",
+      "notProvided": "Not provided",
+      "noEvidence": "No evidence found.",
+      "photoAlt": "Evidence photo {index}",
+      "errors": {
+        "notesRequired": "Reviewer notes are required when rejecting evidence.",
+        "generic": "Unable to review evidence. Please try again."
+      }
     },
     "claimRequests": {
       "adminProofLabel": "Ownership proof",

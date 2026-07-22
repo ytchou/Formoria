@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { AdminQuickActions } from "@/components/admin/admin-quick-actions";
 import { JobStatusBadge, formatJobDate } from "@/app/admin/jobs/job-display";
 import {
@@ -76,7 +77,21 @@ const metrics: Metric[] = [
 ];
 
 export default async function AdminPage() {
-  const snapshot = await getAdminOperationsSnapshot();
+  const [snapshot, t] = await Promise.all([
+    getAdminOperationsSnapshot(),
+    getTranslations("admin.dashboard"),
+  ]);
+  const dashboardMetrics: Metric[] = [
+    ...metrics.slice(0, 3),
+    {
+      key: "evidence",
+      label: t("evidence.label"),
+      description: t("evidence.description"),
+      href: "/admin/evidence",
+      requiresAction: true,
+    },
+    ...metrics.slice(3),
+  ];
 
   return (
     <div className="space-y-10">
@@ -94,7 +109,7 @@ export default async function AdminPage() {
           </p>
         </div>
         <div className="grid overflow-hidden rounded-xl border-l border-t border-border sm:grid-cols-2 xl:grid-cols-5">
-          {metrics.map((metric) => {
+          {dashboardMetrics.map((metric) => {
             const value = snapshot.metrics[metric.key];
             return (
               <Link

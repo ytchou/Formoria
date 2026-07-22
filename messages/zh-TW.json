@@ -327,6 +327,16 @@
     "mitDeclared": "品牌聲明",
     "mitDeclaredTitle": "由品牌方自行聲明台灣製造；聲明範圍可能涵蓋部分、多數或全部商品",
     "mitProofLink": "MIT 微笑標章證號 {cert}",
+    "mitStatus": {
+      "scope": {
+        "all": "全部產品",
+        "most": "大部分產品",
+        "some": "部分產品"
+      },
+      "declaredOn": "聲明日期：{date}",
+      "registrySource": "資料來源：MIT 微笑標章產品驗證系統",
+      "reportOrigin": "回報產地資訊"
+    },
     "foundingYear": "創立於 {year}",
     "previewBanner": "預覽模式 — 尚未發布",
     "previewBackToEdit": "返回編輯",
@@ -964,6 +974,8 @@
     "menuLabel": "帳號",
     "dashboard": "經營者主控台",
     "favorites": "收藏品牌",
+    "contributions": "我的貢獻",
+    "mySubmissions": "我的提交",
     "signOut": "登出",
     "settings": "帳號設定",
     "feedback": "意見回饋"
@@ -974,6 +986,26 @@
     "emptyTitle": "尚無收藏品牌",
     "emptyDescription": "探索 MIT Map 上的台灣品牌，點擊愛心即可加入收藏。",
     "exploreBrands": "探索品牌"
+  },
+  "contributions": {
+    "metadata": {
+      "title": "我的貢獻"
+    },
+    "heading": "我的貢獻",
+    "subheading": "查看你向 Formoria 社群提供的產地佐證與審核狀態。",
+    "status": {
+      "pending": "待審核",
+      "approved": "已通過",
+      "rejected": "未通過"
+    },
+    "stance": {
+      "supports": "支持台灣製造聲明",
+      "contradicts": "不支持台灣製造聲明"
+    },
+    "emptyTitle": "尚無貢獻",
+    "emptyDescription": "提供產地佐證，幫助社群了解更多台灣品牌。",
+    "exploreBrands": "探索品牌",
+    "unknownBrand": "未知品牌"
   },
   "settings": {
     "metadata": {
@@ -1210,6 +1242,7 @@
       "title": "MIT 驗證狀態",
       "status": {
         "unverified": "尚未驗證",
+        "declared": "品牌聲明",
         "verified": "MIT 微笑認證"
       },
       "description": {
@@ -1224,7 +1257,45 @@
       "certExpired": "此 MIT 微笑標章已到期",
       "reviewNote": "審核備註",
       "resubmitCta": "以 Email 申請驗證",
-      "dismiss": "關閉"
+      "dismiss": "關閉",
+      "tier": {
+        "certTitle": "MIT 微笑標章認證",
+        "certDescription": "輸入 MIT 微笑標章編號，驗證官方登錄資料。",
+        "declareTitle": "品牌自行聲明",
+        "declareDescription": "若尚未取得官方認證，可先聲明台灣製造範圍。"
+      },
+      "or": "或",
+      "declare": {
+        "scopeLabel": "聲明範圍",
+        "scope": {
+          "all": "全部產品",
+          "most": "大部分產品",
+          "some": "部分產品"
+        },
+        "attestation": "我確認上述產品於台灣製造，且資訊真實無誤。",
+        "storyLabel": "台灣製造故事（選填）",
+        "storyPlaceholder": "分享品牌在台灣製造的背景與方式",
+        "submit": "送出聲明",
+        "success": "品牌聲明已送出。"
+      },
+      "declared": {
+        "scopeLabel": "聲明範圍",
+        "dateLabel": "聲明日期",
+        "withdraw": "撤回聲明",
+        "withdrawSuccess": "品牌聲明已撤回。"
+      },
+      "errors": {
+        "notLoggedIn": "請先登入。",
+        "forbidden": "你沒有編輯此品牌的權限。",
+        "brandNotFound": "找不到此品牌。",
+        "invalidScope": "請選擇有效的聲明範圍。",
+        "database_error": "儲存失敗，請稍後再試。",
+        "not_declared": "此品牌目前沒有可撤回的聲明。",
+        "not_found": "找不到此品牌。",
+        "already_verified": "此品牌已通過 MIT 認證，無法改為自行聲明。",
+        "invalid_state": "目前的 MIT 狀態無法執行此操作。",
+        "unknown": "發生未知錯誤，請稍後再試。"
+      }
     },
     "errors": {
       "invalidClaim": "認領連結無效或已過期，請聯繫客服。",
@@ -1892,6 +1963,7 @@
         "submissions": "品牌提交",
         "jobs": "資料任務",
         "moderation": "內容審核",
+        "evidence": "產地佐證",
         "claims": "認領申請",
         "reports": "檢舉",
         "brands": "品牌目錄",
@@ -1923,6 +1995,10 @@
         "flaggedContentLabel": "待審內容標記",
         "flaggedContentDesc": "內容審核佇列中的標記數量"
       },
+      "evidence": {
+        "label": "產地佐證",
+        "description": "等待審核的產地佐證"
+      },
       "queues": {
         "claims": {
           "title": "品牌認領",
@@ -1947,6 +2023,56 @@
       "filterByRisk": "按風險篩選",
       "filterByTier": "按類型篩選",
       "noFlaggedContent": "無待審內容"
+    },
+    "evidence": {
+      "title": "產地佐證",
+      "description": "審核用於支持或反駁台灣製造聲明的佐證資料。",
+      "tabs": {
+        "all": "全部",
+        "pending": "待審核",
+        "approved": "已核准",
+        "rejected": "已拒絕"
+      },
+      "table": {
+        "brand": "品牌",
+        "stance": "立場",
+        "product": "產品",
+        "date": "提交日期",
+        "status": "狀態"
+      },
+      "fields": {
+        "stance": "立場",
+        "product": "產品",
+        "sourceType": "來源類型",
+        "notes": "備註",
+        "photos": "照片",
+        "reviewerNotes": "審核備註"
+      },
+      "stances": {
+        "supports": "支持台灣製造聲明",
+        "contradicts": "反駁台灣製造聲明"
+      },
+      "sourceTypes": {
+        "product_label": "產品標籤",
+        "packaging": "包裝",
+        "official_site": "官方網站",
+        "in_store": "實體店面",
+        "other": "其他"
+      },
+      "actions": {
+        "approve": "核准",
+        "reject": "拒絕"
+      },
+      "reviewerNotesPlaceholder": "新增此決定的審核備註",
+      "stripDeclaration": "移除聲明",
+      "unknownBrand": "未知品牌",
+      "notProvided": "未提供",
+      "noEvidence": "找不到佐證資料。",
+      "photoAlt": "佐證照片 {index}",
+      "errors": {
+        "notesRequired": "拒絕佐證時必須填寫審核備註。",
+        "generic": "無法審核佐證，請再試一次。"
+      }
     },
     "claimRequests": {
       "adminProofLabel": "擁有權證明",

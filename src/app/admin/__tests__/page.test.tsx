@@ -16,6 +16,13 @@ vi.mock("@/app/admin/operations/actions", () => ({
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
+vi.mock("next-intl/server", () => ({
+  getTranslations: vi.fn(async () => (key: string) => {
+    if (key === "evidence.label") return "Evidence";
+    if (key === "evidence.description") return "Pending origin evidence";
+    return key;
+  }),
+}));
 
 import AdminDashboardPage from "../page";
 
@@ -27,6 +34,7 @@ describe("Admin operations dashboard", () => {
         needsData: 7,
         ready: 3,
         moderation: 2,
+        evidence: 6,
         claims: 4,
         reports: 5,
         activeJobs: 2,
@@ -54,6 +62,7 @@ describe("Admin operations dashboard", () => {
       /Needs data 7/,
       /Ready 3/,
       /Content flags 2/,
+      /Evidence 6/,
       /Claims 4/,
       /Reports 5/,
       /Active jobs 2/,
@@ -79,6 +88,7 @@ describe("Admin operations dashboard", () => {
         needsData: null,
         ready: null,
         moderation: 0,
+        evidence: 0,
         claims: 0,
         reports: 0,
         activeJobs: 0,
