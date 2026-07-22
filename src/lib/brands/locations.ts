@@ -220,10 +220,39 @@ export function hasValidRetailLocationCoordinates(
 
 export const hasLocationCoordinates = hasValidRetailLocationCoordinates
 
+export function isConfirmedRetailLocation(
+  location: RetailLocation,
+): location is PhysicalRetailLocation & {
+  address: string
+  confirmationStatus: 'owner_confirmed'
+} {
+  return (
+    isPhysicalRetailLocation(location) &&
+    location.confirmationStatus === 'owner_confirmed' &&
+    Boolean(optionalString(location.address))
+  )
+}
+
+export function isUnconfirmedRetailLocation(
+  location: RetailLocation,
+): location is PhysicalRetailLocation {
+  return (
+    isPhysicalRetailLocation(location) && !isConfirmedRetailLocation(location)
+  )
+}
+
 export function isMappableRetailLocation(
   location: RetailLocation,
-): location is PhysicalRetailLocation & { latitude: number; longitude: number } {
-  return hasValidRetailLocationCoordinates(location)
+): location is PhysicalRetailLocation & {
+  address: string
+  latitude: number
+  longitude: number
+  confirmationStatus: 'owner_confirmed'
+} {
+  return (
+    isConfirmedRetailLocation(location) &&
+    hasValidRetailLocationCoordinates(location)
+  )
 }
 
 export function getLocationMapQuery(location: RetailLocation): string {
@@ -272,6 +301,9 @@ function getRetailLocationConfirmationIdentity(location: RetailLocation): string
     return ['retail_chain', normalizeTextIdentity(location.name)].join('|')
   }
 
+  const latitude = optionalNumber(location.latitude)
+  const longitude = optionalNumber(location.longitude)
+
   return [
     'location',
     normalizeTextIdentity(location.name),
@@ -279,6 +311,8 @@ function getRetailLocationConfirmationIdentity(location: RetailLocation): string
     getLocationAddressKey(location.address),
     normalizeTextIdentity(location.venueName),
     normalizeTextIdentity(location.floorOrCounter),
+    latitude === undefined ? '' : latitude,
+    longitude === undefined ? '' : longitude,
   ].join('|')
 }
 
@@ -318,6 +352,7 @@ export function reconcileRetailLocationConfirmation({
     previous !== undefined &&
     isPhysicalRetailLocation(previous) &&
     previous.confirmationStatus === 'owner_confirmed' &&
+    Boolean(optionalString(next.address)) &&
     getRetailLocationConfirmationIdentity(previous) ===
       getRetailLocationConfirmationIdentity(next)
 

@@ -249,12 +249,13 @@ describe('runDescriptionsPhase', () => {
     expect(supabaseMocks.upsert).not.toHaveBeenCalled()
   })
 
-  it('persists extracted stockists as canonical locations and channels', async () => {
+  it('maps generic networks to channels and named branches or counters to physical leads', async () => {
     rewriteBrandDescription.mockResolvedValue({
       result: makeDescriptionRewriteResult({
         stockists: [
-          { name: ' Chain Store ', city: 'Taipei', type: 'chain' },
-          { name: ' Independent Shop ', city: ' Tainan ', type: 'independent' },
+          { name: ' 寶雅 ', city: 'taipei', type: 'chain' },
+          { name: ' 誠品生活松菸店 ', city: ' taipei ', type: 'independent' },
+          { name: ' 新光三越台北信義新天地 A11 3F 專櫃 ', city: 'taipei', type: 'independent' },
         ],
       }),
       attempts: [],
@@ -267,19 +268,26 @@ describe('runDescriptionsPhase', () => {
     })
 
     const locations = result.patch.retail_locations as Array<Record<string, unknown>>
-    expect(locations).toHaveLength(2)
+    expect(locations).toHaveLength(3)
     expect(locations.at(0)).toMatchObject({
       kind: 'retail_chain',
-      name: 'Chain Store',
+      name: '寶雅',
     })
     expect(locations.at(0)).not.toHaveProperty('city')
     expect(locations.at(0)).not.toHaveProperty('relationshipType')
     expect(locations.at(0)).not.toHaveProperty('confirmationStatus')
     expect(locations.at(1)).toMatchObject({
       kind: 'location',
-      name: 'Independent Shop',
+      name: '誠品生活松菸店',
       relationshipType: 'stockist',
-      city: 'Tainan',
+      city: 'taipei',
+      confirmationStatus: 'unconfirmed',
+    })
+    expect(locations.at(2)).toMatchObject({
+      kind: 'location',
+      name: '新光三越台北信義新天地 A11 3F 專櫃',
+      relationshipType: 'stockist',
+      city: 'taipei',
       confirmationStatus: 'unconfirmed',
     })
     expect(locations.every((location) => !('type' in location))).toBe(true)
@@ -366,10 +374,25 @@ describe('runDescriptionsPhase', () => {
   })
 
   it('preserves owner-confirmed locations during overwrite without confirming new leads', async () => {
+    const confirmedLocation = {
+      kind: 'location' as const,
+      name: 'Confirmed Location',
+      relationshipType: 'brand_store' as const,
+      address: 'Owner-confirmed address',
+      city: 'Taipei',
+      district: 'Xinyi',
+      venueName: 'Owner Venue',
+      floorOrCounter: '3F',
+      availabilityNote: 'Owner note',
+      latitude: 25.033,
+      longitude: 121.565,
+      verificationStatus: 'verified' as const,
+      confirmationStatus: 'owner_confirmed' as const,
+    }
     rewriteBrandDescription.mockResolvedValue({
       result: makeDescriptionRewriteResult({
         stockists: [
-          { name: 'Confirmed Location', city: 'Changed City', type: 'independent' },
+          { name: 'Confirmed Location', city: 'Changed City', type: 'chain' },
           { name: 'New Lead', city: 'Taichung', type: 'independent' },
         ],
       }),
@@ -380,13 +403,7 @@ describe('runDescriptionsPhase', () => {
       brand: {
         ...brand,
         retail_locations: [
-          {
-            kind: 'location',
-            name: 'Confirmed Location',
-            relationshipType: 'stockist',
-            address: 'Owner-confirmed address',
-            confirmationStatus: 'owner_confirmed',
-          },
+          confirmedLocation,
           {
             kind: 'location',
             name: 'Old Lead',
@@ -402,11 +419,7 @@ describe('runDescriptionsPhase', () => {
 
     const locations = result.patch.retail_locations as Array<Record<string, unknown>>
     expect(locations).toHaveLength(2)
-    expect(locations.at(0)).toMatchObject({
-      name: 'Confirmed Location',
-      address: 'Owner-confirmed address',
-      confirmationStatus: 'owner_confirmed',
-    })
+    expect(locations.at(0)).toEqual(confirmedLocation)
     expect(locations.at(1)).toMatchObject({
       name: 'New Lead',
       city: 'Taichung',

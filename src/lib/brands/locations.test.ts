@@ -5,9 +5,11 @@ import {
   getLocationMapQuery,
   hasLocationCoordinates,
   hasValidRetailLocationCoordinates,
+  isConfirmedRetailLocation,
   isMappableRetailLocation,
   isPhysicalRetailLocation,
   isRetailChainChannel,
+  isUnconfirmedRetailLocation,
   normalizeRetailLocations,
   reconcileRetailLocationConfirmation,
   reconcileRetailLocationConfirmations,
@@ -160,7 +162,7 @@ describe('normalizeRetailLocations', () => {
     })
     expect(location && hasValidRetailLocationCoordinates(location)).toBe(true)
     expect(location && hasLocationCoordinates(location)).toBe(true)
-    expect(location && isMappableRetailLocation(location)).toBe(true)
+    expect(location && isMappableRetailLocation(location)).toBe(false)
   })
 
   it('drops incomplete, out-of-range coordinate pairs and empty rows', () => {
@@ -228,6 +230,57 @@ describe('getDuplicateRetailLocationIndex', () => {
   })
 })
 
+describe('retail location eligibility', () => {
+  const confirmed = physical({
+    address: 'No. 1',
+    latitude: 25.033,
+    longitude: 121.565,
+    confirmationStatus: 'owner_confirmed',
+  })
+
+  it('requires owner confirmation and a non-empty address for confirmed lists', () => {
+    expect(isConfirmedRetailLocation(confirmed)).toBe(true)
+    expect(
+      isConfirmedRetailLocation(
+        physical({
+          address: '   ',
+          confirmationStatus: 'owner_confirmed',
+        }),
+      ),
+    ).toBe(false)
+    expect(
+      isConfirmedRetailLocation(
+        physical({ address: 'No. 1', confirmationStatus: 'unconfirmed' }),
+      ),
+    ).toBe(false)
+  })
+
+  it('maps only confirmed locations with valid coordinates', () => {
+    expect(isMappableRetailLocation(confirmed)).toBe(true)
+    expect(
+      isMappableRetailLocation(
+        physical({ latitude: 25.033, longitude: 121.565 }),
+      ),
+    ).toBe(false)
+    expect(
+      isMappableRetailLocation(
+        physical({
+          address: 'No. 1',
+          confirmationStatus: 'owner_confirmed',
+        }),
+      ),
+    ).toBe(false)
+  })
+
+  it('classifies every remaining physical row as unconfirmed', () => {
+    expect(isUnconfirmedRetailLocation(confirmed)).toBe(false)
+    expect(isUnconfirmedRetailLocation(physical())).toBe(true)
+    expect(
+      isUnconfirmedRetailLocation({ kind: 'retail_chain', name: 'Chain' }),
+    ).toBe(false)
+  })
+})
+
 describe('retail location confirmation reconciliation', () => {
   const confirmed = physical({
     address: 'No. 1',
@@ -266,6 +319,34 @@ describe('retail location confirmation reconciliation', () => {
       reconcileRetailLocationConfirmation({
         previous: confirmed,
         next: { ...next, floorOrCounter: '3F' },
+        isActualOwner: false,
+      }),
+    ).toMatchObject({ confirmationStatus: 'unconfirmed' })
+    expect(
+      reconcileRetailLocationConfirmation({
+        previous: { ...confirmed, latitude: 25.033, longitude: 121.565 },
+        next: { ...next, latitude: 25.034, longitude: 121.565 },
+        isActualOwner: false,
+      }),
+    ).toMatchObject({ confirmationStatus: 'unconfirmed' })
+    expect(
+      reconcileRetailLocationConfirmation({
+        previous: confirmed,
+        next: { ...next, availabilityNote: 'Weekends only' },
+        isActualOwner: false,
+      }),
+    ).toMatchObject({ confirmationStatus: 'owner_confirmed' })
+  })
+
+  it('does not preserve invalid owner confirmation without an address', () => {
+    const invalidConfirmed = physical({
+      confirmationStatus: 'owner_confirmed',
+    })
+
+    expect(
+      reconcileRetailLocationConfirmation({
+        previous: invalidConfirmed,
+        next: { ...invalidConfirmed, confirmationStatus: 'unconfirmed' },
         isActualOwner: false,
       }),
     ).toMatchObject({ confirmationStatus: 'unconfirmed' })

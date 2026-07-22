@@ -11,8 +11,11 @@ import { buildPhaseResult, getDisplayBrandName, hasPatchValues, timePhase, type 
 type ExtractedStockist = NonNullable<DescriptionRewriteResult['stockists']>[number]
 
 function stockistIdentity(location: RetailLocation): string {
-  const name = location.name.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
-  return `${location.kind}:${name}`
+  return `${location.kind}:${stockistNameIdentity(location)}`
+}
+
+function stockistNameIdentity(location: RetailLocation): string {
+  return location.name.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
 }
 
 function normalizeExtractedStockists(
@@ -37,11 +40,16 @@ function normalizeExtractedStockists(
 }
 
 function getOwnerConfirmedLocations(value: unknown): RetailLocation[] {
-  return normalizeRetailLocations(value).filter(
-    (location) =>
-      isPhysicalRetailLocation(location) &&
-      location.confirmationStatus === 'owner_confirmed',
-  )
+  if (!Array.isArray(value)) return []
+
+  return value.filter((location): location is RetailLocation => {
+    const [normalized] = normalizeRetailLocations([location])
+    return Boolean(
+      normalized &&
+      isPhysicalRetailLocation(normalized) &&
+      normalized.confirmationStatus === 'owner_confirmed',
+    )
+  })
 }
 
 function getOverwriteRetailLocations(value: unknown): RetailLocation[] | null {
@@ -58,10 +66,16 @@ function mergeStockists(
     ? getOwnerConfirmedLocations(existing)
     : normalizeRetailLocations(existing)
   const identities = new Set(merged.map(stockistIdentity))
+  const protectedNames = overwrite
+    ? new Set(merged.map(stockistNameIdentity))
+    : null
 
   for (const stockist of normalizeExtractedStockists(newStockists)) {
     const identity = stockistIdentity(stockist)
-    if (!identities.has(identity)) {
+    if (
+      !identities.has(identity) &&
+      !protectedNames?.has(stockistNameIdentity(stockist))
+    ) {
       merged.push(stockist)
       identities.add(identity)
     }
