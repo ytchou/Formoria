@@ -127,7 +127,8 @@ jobs:
         uses: anthropics/claude-code-action@beta
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          prompt: |
+          github_token: ${{ secrets.SELFHEAL_PAT }}
+          direct_prompt: |
             Read .github/selfheal/triage-fix.md for your full instructions.
 
             Here are the inputs:
@@ -149,7 +150,8 @@ jobs:
         uses: anthropics/claude-code-action@beta
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          prompt: |
+          github_token: ${{ secrets.SELFHEAL_PAT }}
+          direct_prompt: |
             Read .github/selfheal/review.md for your full instructions.
             Review the changes on this branch against the classification output.
           max_turns: 10
