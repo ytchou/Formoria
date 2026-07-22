@@ -106,7 +106,9 @@ describe('SubmissionWizard', () => {
         <SubmissionWizard />
       </NextIntlClientProvider>
     )
-    expect(screen.getAllByText(/1.*4/).length).toBeGreaterThanOrEqual(1)
+    expect(
+      screen.getAllByText('已完成 0／4 步').length,
+    ).toBeGreaterThanOrEqual(1)
   })
 
   it('does not submit while navigating between wizard steps', async () => {

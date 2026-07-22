@@ -76,6 +76,16 @@ export function useWizardController<StepKey extends string>({
   const goBack = useCallback(() => {
     if (activeStep > 0) navigateTo(activeStep - 1)
   }, [activeStep, navigateTo])
+  const markStepCompleted = useCallback(
+    (step: number) => {
+      if (step < 0 || step > maxStep) return
+      setCompletedSteps((previous) => {
+        if (previous.has(step)) return previous
+        return new Set([...previous, step])
+      })
+    },
+    [maxStep],
+  )
 
   return useMemo(
     () => ({
@@ -86,6 +96,7 @@ export function useWizardController<StepKey extends string>({
       goToStep,
       continueToNext,
       goBack,
+      markStepCompleted,
     }),
     [
       activeStep,
@@ -94,6 +105,7 @@ export function useWizardController<StepKey extends string>({
       currentStepKey,
       goBack,
       goToStep,
+      markStepCompleted,
       navigateTo,
     ]
   )

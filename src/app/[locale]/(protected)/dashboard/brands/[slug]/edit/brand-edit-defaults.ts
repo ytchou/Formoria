@@ -38,7 +38,12 @@ export function getInitialWizardStep(
 
   if (completedSteps.length === 0) return 0
 
-  return Math.min(completedSteps[completedSteps.length - 1] + 1, maxIndex)
+  const completed = new Set(completedSteps)
+  for (let step = 0; step <= maxIndex; step += 1) {
+    if (!completed.has(step)) return step
+  }
+
+  return maxIndex
 }
 
 export function buildBrandEditDefaultValues(

@@ -10,6 +10,7 @@ type WizardFooterProps = {
   totalSteps: number
   isSaving: boolean
   isDirty?: boolean
+  isFocused?: boolean
   onBack: () => void
   onSaveAndContinue: () => void
   onSave: () => void
@@ -21,6 +22,7 @@ export function WizardFooter({
   totalSteps,
   isSaving,
   isDirty = false,
+  isFocused = false,
   onBack,
   onSaveAndContinue,
   onSave,
@@ -37,7 +39,16 @@ export function WizardFooter({
       )}
     >
       <div>
-        {isFinalStep ? (
+        {isFocused ? (
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={isSaving}
+            onClick={onBack}
+          >
+            {t('wizardBackToDashboard')}
+          </Button>
+        ) : isFinalStep ? (
           <Button
             type="button"
             variant="secondary"
@@ -72,7 +83,34 @@ export function WizardFooter({
         </div>
       )}
 
-      {isFinalStep ? (
+      {isFocused ? (
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={isSaving}
+            onClick={onSave}
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t('save')}
+              </>
+            ) : (
+              t('save')
+            )}
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            disabled={isSaving}
+            onClick={onPublish}
+          >
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {t('wizardPublish')}
+          </Button>
+        </div>
+      ) : isFinalStep ? (
         <Button
           type="button"
           variant="primary"

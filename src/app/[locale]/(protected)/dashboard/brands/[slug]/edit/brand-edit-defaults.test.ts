@@ -77,6 +77,10 @@ describe('getInitialWizardStep', () => {
     expect(getInitialWizardStep(undefined, [0, 1], 5)).toBe(2)
   })
 
+  it('resumes at the first missing step when saved progress is sparse', () => {
+    expect(getInitialWizardStep(undefined, [0, 2], 5)).toBe(1)
+  })
+
   it('caps the inferred step at the final wizard step', () => {
     expect(getInitialWizardStep(undefined, [0, 1, 2, 3, 4], 5)).toBe(4)
   })

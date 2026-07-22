@@ -53,4 +53,14 @@ describe('useWizardController', () => {
     await act(() => result.current.goToStep(2))
     expect(result.current.activeStep).toBe(2)
   })
+
+  it('marks a directly saved step as completed', async () => {
+    const { result } = renderHook(() =>
+      useWizardController({ steps }),
+    )
+
+    act(() => result.current.markStepCompleted(2))
+
+    expect(result.current.completedSteps.has(2)).toBe(true)
+  })
 })

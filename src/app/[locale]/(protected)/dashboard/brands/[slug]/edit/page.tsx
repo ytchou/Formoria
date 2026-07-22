@@ -11,6 +11,10 @@ import {
   getCompletedWizardSteps,
   getInitialWizardStep,
 } from './brand-edit-defaults'
+import {
+  areAllWizardStepsComplete,
+  WIZARD_STEPS,
+} from '@/lib/schemas/brand-edit'
 
 type Props = {
   params: Promise<{ slug: string; locale: string }>
@@ -47,8 +51,19 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
 
   const defaultValues = buildBrandEditDefaultValues(brand, draft)
   const initialCompletedSteps = getCompletedWizardSteps(draft)
+  const isWizardComplete = areAllWizardStepsComplete(
+    initialCompletedSteps,
+    WIZARD_STEPS.length,
+  )
 
-  const initialStep = getInitialWizardStep(rawStep, initialCompletedSteps, 5)
+  const initialStep =
+    !rawStep && isWizardComplete
+      ? 0
+      : getInitialWizardStep(
+          rawStep,
+          initialCompletedSteps,
+          WIZARD_STEPS.length,
+        )
 
   const t = await getTranslations('dashboard.edit')
 
@@ -69,6 +84,7 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
         initialCompletedSteps={initialCompletedSteps}
         initialStep={initialStep}
         isActualOwner={isActualOwner}
+        isFocused={isWizardComplete}
         productTagSuggestions={productTagSuggestions}
       />
     </div>

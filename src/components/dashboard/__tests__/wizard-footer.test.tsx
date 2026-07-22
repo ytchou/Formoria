@@ -49,6 +49,14 @@ describe('WizardFooter', () => {
     )
   })
 
+  it('shows dashboard exit, Save, and Publish in focused mode', () => {
+    renderFooter({ activeStep: 2, isFocused: true })
+    expect(screen.getByRole('button', { name: /back to dashboard/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /publish/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /save & continue/i })).not.toBeInTheDocument()
+  })
+
   it('hides Back button on first step', () => {
     renderFooter({ activeStep: 0 })
     expect(screen.queryByRole('button', { name: /back/i })).not.toBeInTheDocument()

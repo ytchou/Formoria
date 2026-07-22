@@ -1,5 +1,6 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
 import {
@@ -8,6 +9,7 @@ import {
   saveDraft,
 } from '@/lib/services/brands'
 import { WIZARD_STEPS } from '@/lib/schemas/brand-edit'
+import { completeOnboardingStepsForSection } from '@/lib/services/brand-onboarding'
 import type { Brand } from '@/lib/types'
 import {
   normalizeRetailLocations,
@@ -151,6 +153,8 @@ export async function saveSectionDraftAction(
     }
 
     await saveDraft(brandId, mergedData as Partial<Brand>)
+    await completeOnboardingStepsForSection(brandId, sectionKeyOrSectionData)
+    revalidatePath(`/dashboard/brands/${brandSlug}`)
 
     return { success: true }
   } catch (error) {
