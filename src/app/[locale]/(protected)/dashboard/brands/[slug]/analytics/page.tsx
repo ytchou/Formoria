@@ -3,56 +3,125 @@ import { redirect } from 'next/navigation'
 import { localizePath } from '@/i18n/locale-preference'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
 import type { OwnerAnalyticsSnapshotV1 } from '@/lib/analytics/posthog-types'
-import { getPostHogOwnerAnalyticsSnapshot } from '@/lib/services/posthog-owner-analytics'
-import { DataCard, SurfaceCard } from '@/components/ui/card'
+import { getPostHogOwnerAnalyticsSnapshot as getOwnerAnalyticsSnapshot } from '@/lib/services/posthog-owner-analytics'
+import { AnalyticsDonutCard } from '@/components/dashboard/analytics-donut-card'
 import { BrandDashboardShell } from '@/components/dashboard/brand-dashboard-shell'
+import { AnalyticsTrendChart } from '@/components/dashboard/analytics-trend-chart'
+import { DataCard, SurfaceCard } from '@/components/ui/card'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
+}
+
+type MetricDelta = {
+  direction: 'up' | 'down' | 'flat'
+  text: string
+}
+
+type OwnerAnalyticsCopy = {
+  profileVisits: string
+  outboundClicks: string
+  outboundClickRate: string
+  topTrafficSource: string
+  shareOfVisits: (share: number) => string
+  tooltipProfileVisits: string
+  tooltipOutboundClicks: string
+  tooltipOutboundClickRate: string
+  tooltipTopTrafficSource: string
+  collectingBaseline: string
+  currentRateUnavailable: string
+  trendTitle: string
+  trendAria: string
+  trendUnavailable: string
+  trendEmpty: string
+  trafficSources: string
+  trafficSourceSearch: string
+  trafficSourceCategory: string
+  trafficSourceHomepage: string
+  trafficSourceDirect: string
+  trafficSourceOther: string
+  trafficSourcesEmpty: string
+  outboundDestinations: string
+  destinationsEmpty: string
+  sectionUnavailable: string
+  nudgeTitle: string
+  nudgeBody: string
+  dataThrough: string
+  unavailableTitle: string
+  unavailableBody: string
 }
 
 function percent(value: number | null): string {
   return value === null ? '—' : `${(value * 100).toFixed(1)}%`
 }
 
-type OwnerAnalyticsCopy = {
-  profileSessions: string
-  outboundSessions: string
-  outboundConversion: string
-  collectingBaseline: string
-  priorChangeUnavailable: string
-  currentRateUnavailable: string
-  versusPrior: (change: string) => string
-  conversionDefinition: string
-  trendTitle: string
-  trendDescription: string
-  openPostHog: string
-  trendAria: string
-  trendUnavailable: string
-  trendEmpty: string
-  acquisitionTitle: string
-  acquisitionUnavailable: string
-  acquisitionEmpty: string
-  destinationsTitle: string
-  destinationsUnavailable: string
-  destinationsEmpty: string
-  source: string
-  dataThrough: string
-  generated: string
-  unavailableTitle: string
-  unavailableBody: string
+function direction(value: number): MetricDelta['direction'] {
+  if (value > 0) return 'up'
+  if (value < 0) return 'down'
+  return 'flat'
 }
 
-function comparisonDetail(
+function countDelta(current: number, prior: number | null): MetricDelta | undefined {
+  if (prior === null || prior === 0) return undefined
+  const change = ((current - prior) / prior) * 100
+  return {
+    direction: direction(change),
+    text: `${change > 0 ? '↑' : change < 0 ? '↓' : '—'} ${Math.abs(Math.round(change))}%`,
+  }
+}
+
+function rateDelta(current: number | null, prior: number | null): MetricDelta | undefined {
+  if (current === null || prior === null || prior === 0) return undefined
+  const change = (current - prior) * 100
+  return {
+    direction: direction(change),
+    text: `${change > 0 ? '↑' : change < 0 ? '↓' : '—'} ${Math.abs(change).toFixed(1)}pp`,
+  }
+}
+
+function comparisonDescription(
   current: number | null,
   prior: number | null,
   copy: OwnerAnalyticsCopy,
-): string {
+): string | undefined {
   if (current === null) return copy.currentRateUnavailable
-  if (prior === null) return copy.collectingBaseline
-  if (prior === 0) return copy.priorChangeUnavailable
-  const change = ((current - prior) / prior) * 100
-  return copy.versusPrior(`${change >= 0 ? '+' : ''}${change.toFixed(1)}%`)
+  if (prior === null || prior === 0) return copy.collectingBaseline
+  return undefined
+}
+
+function KpiLabel({ definition, label }: { definition: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1">
+      <span>{label}</span>
+      <Tooltip>
+        <TooltipTrigger
+          aria-label="definition"
+          className="flex min-h-12 min-w-12 items-center justify-center rounded-md text-muted-foreground"
+          type="button"
+        >
+          ⓘ
+        </TooltipTrigger>
+        <TooltipContent className="max-w-72">{definition}</TooltipContent>
+      </Tooltip>
+    </span>
+  )
+}
+
+function trafficSourceLabel(source: string, copy: OwnerAnalyticsCopy): string {
+  const labels: Record<string, string> = {
+    search: copy.trafficSourceSearch,
+    category: copy.trafficSourceCategory,
+    homepage: copy.trafficSourceHomepage,
+    direct: copy.trafficSourceDirect,
+    other: copy.trafficSourceOther,
+  }
+  return labels[source.toLowerCase()] ?? copy.trafficSourceOther
 }
 
 function OwnerAnalytics({
@@ -62,120 +131,147 @@ function OwnerAnalytics({
   snapshot: OwnerAnalyticsSnapshotV1
   copy: OwnerAnalyticsCopy
 }) {
-  const maxDaily = Math.max(
-    ...(snapshot.daily ?? []).map((point) => point.profileSessions),
-    1,
-  )
-  const hasDailySessions = snapshot.daily?.some((point) => point.profileSessions > 0) ?? false
+  const hasDailySessions = snapshot.daily?.some(
+    (point) => point.profileSessions > 0 || point.outboundSessions > 0,
+  ) ?? false
+  const topSource = snapshot.topTrafficSource
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <DataCard
-          tone="white"
-          label={copy.profileSessions}
-          value={snapshot.profileSessions.current}
-          description={comparisonDetail(snapshot.profileSessions.current, snapshot.profileSessions.prior, copy)}
-        />
-        <DataCard
-          tone="white"
-          label={copy.outboundSessions}
-          value={snapshot.outboundSessions.current}
-          description={comparisonDetail(snapshot.outboundSessions.current, snapshot.outboundSessions.prior, copy)}
-        />
-        <DataCard
-          tone="white"
-          label={copy.outboundConversion}
-          value={percent(snapshot.outboundConversion.current)}
-          description={`${comparisonDetail(snapshot.outboundConversion.current, snapshot.outboundConversion.prior, copy)} · ${copy.conversionDefinition}`}
-        />
-      </div>
-
-      <SurfaceCard padding="lg">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 className="type-card-title">{copy.trendTitle}</h2>
-            <p className="type-card-description">{copy.trendDescription}</p>
-          </div>
-          <a
-            className="type-link"
-            href={snapshot.sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {copy.openPostHog}
-          </a>
+    <TooltipProvider>
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <DataCard
+            tone="white"
+            label={<KpiLabel definition={copy.tooltipProfileVisits} label={copy.profileVisits} />}
+            value={snapshot.profileSessions?.current ?? '—'}
+            delta={snapshot.profileSessions
+              ? countDelta(snapshot.profileSessions.current, snapshot.profileSessions.prior)
+              : undefined}
+            description={snapshot.profileSessions
+              ? comparisonDescription(
+                  snapshot.profileSessions.current,
+                  snapshot.profileSessions.prior,
+                  copy,
+                )
+              : copy.currentRateUnavailable}
+          />
+          <DataCard
+            tone="white"
+            label={<KpiLabel definition={copy.tooltipOutboundClicks} label={copy.outboundClicks} />}
+            value={snapshot.outboundSessions?.current ?? '—'}
+            delta={snapshot.outboundSessions
+              ? countDelta(snapshot.outboundSessions.current, snapshot.outboundSessions.prior)
+              : undefined}
+            description={snapshot.outboundSessions
+              ? comparisonDescription(
+                  snapshot.outboundSessions.current,
+                  snapshot.outboundSessions.prior,
+                  copy,
+                )
+              : copy.currentRateUnavailable}
+          />
+          <DataCard
+            tone="white"
+            label={(
+              <KpiLabel
+                definition={copy.tooltipOutboundClickRate}
+                label={copy.outboundClickRate}
+              />
+            )}
+            value={snapshot.outboundConversion
+              ? percent(snapshot.outboundConversion.current)
+              : '—'}
+            delta={snapshot.outboundConversion
+              ? rateDelta(
+                  snapshot.outboundConversion.current,
+                  snapshot.outboundConversion.prior,
+                )
+              : undefined}
+            description={snapshot.outboundConversion
+              ? comparisonDescription(
+                  snapshot.outboundConversion.current,
+                  snapshot.outboundConversion.prior,
+                  copy,
+                )
+              : copy.currentRateUnavailable}
+          />
+          <DataCard
+            tone="white"
+            label={(
+              <KpiLabel
+                definition={copy.tooltipTopTrafficSource}
+                label={copy.topTrafficSource}
+              />
+            )}
+            value={topSource ? trafficSourceLabel(topSource.source, copy) : '—'}
+            description={topSource
+              ? copy.shareOfVisits(Math.round(topSource.share * 100))
+              : copy.currentRateUnavailable}
+          />
         </div>
-        {snapshot.daily && hasDailySessions ? (
-          <figure className="mt-6" aria-label={copy.trendAria}>
-            <div className="flex h-40 items-end gap-1" aria-hidden="true">
-              {snapshot.daily.map((point) => (
-                <span
-                  key={point.date}
-                  className="min-w-1 flex-1 rounded-t-sm bg-primary"
-                  style={{
-                    height: point.profileSessions === 0
-                      ? '0%'
-                      : `${Math.max((point.profileSessions / maxDaily) * 100, 2)}%`,
-                  }}
-                  title={`${point.date}: ${point.profileSessions} profile, ${point.outboundSessions} outbound sessions`}
-                />
-              ))}
+
+        <SurfaceCard padding="lg">
+          <h2 className="type-card-title">{copy.trendTitle}</h2>
+          {snapshot.daily && hasDailySessions ? (
+            <div className="mt-6">
+              <AnalyticsTrendChart
+                data={snapshot.daily.map((point) => ({
+                  date: point.date,
+                  profileSessions: point.profileSessions,
+                  outboundSessions: point.outboundSessions,
+                }))}
+                labels={{
+                  profile: copy.profileVisits,
+                  outbound: copy.outboundClicks,
+                  aria: copy.trendAria,
+                }}
+              />
             </div>
-            <figcaption className="mt-2 type-caption">
-              {snapshot.windows.trend.startDate} – {snapshot.windows.trend.endDate} · Asia/Taipei
-            </figcaption>
-          </figure>
-        ) : <p className="mt-6 type-card-description">
-          {snapshot.daily === null ? copy.trendUnavailable : copy.trendEmpty}
-        </p>}
-      </SurfaceCard>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <SurfaceCard padding="lg">
-          <h2 className="type-card-title">{copy.acquisitionTitle}</h2>
-          {snapshot.acquisition && snapshot.acquisition.length > 0 ? (
-            <ul className="mt-4 space-y-3">
-              {snapshot.acquisition.map((row) => (
-                <li className="flex justify-between gap-4" key={`${row.source}:${row.medium}`}>
-                  <span>{row.source} · {row.medium}</span>
-                  <strong>{row.sessions}</strong>
-                </li>
-              ))}
-            </ul>
-          ) : <p className="mt-4 type-card-description">
-            {snapshot.acquisition === null ? copy.acquisitionUnavailable : copy.acquisitionEmpty}
-          </p>}
+          ) : (
+            <p className="mt-6 type-card-description">
+              {snapshot.daily === null ? copy.trendUnavailable : copy.trendEmpty}
+            </p>
+          )}
         </SurfaceCard>
 
-        <SurfaceCard padding="lg">
-          <h2 className="type-card-title">{copy.destinationsTitle}</h2>
-          {snapshot.destinations && snapshot.destinations.length > 0 ? (
-            <ul className="mt-4 space-y-3">
-              {snapshot.destinations.map((row) => (
-                <li className="flex justify-between gap-4" key={row.destination}>
-                  <span>{row.destination}</span>
-                  <strong>{row.sessions}</strong>
-                </li>
-              ))}
-            </ul>
-          ) : <p className="mt-4 type-card-description">
-            {snapshot.destinations === null ? copy.destinationsUnavailable : copy.destinationsEmpty}
-          </p>}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <AnalyticsDonutCard
+            title={copy.trafficSources}
+            rows={(snapshot.trafficSources ?? []).map((row) => ({
+              key: row.source,
+              label: trafficSourceLabel(row.source, copy),
+              sessions: row.sessions,
+            }))}
+            emptyLabel={snapshot.trafficSources === null
+              ? copy.sectionUnavailable
+              : copy.trafficSourcesEmpty}
+          />
+          <AnalyticsDonutCard
+            title={copy.outboundDestinations}
+            rows={(snapshot.destinations ?? []).map((row) => ({
+              key: row.destination,
+              label: row.destination,
+              sessions: row.sessions,
+            }))}
+            emptyLabel={snapshot.destinations === null
+              ? copy.sectionUnavailable
+              : copy.destinationsEmpty}
+          />
+        </div>
+
+        <SurfaceCard tone="info" padding="lg">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="type-card-title">{copy.nudgeTitle}</h2>
+              <p className="mt-2 type-card-description">{copy.nudgeBody}</p>
+            </div>
+            <p className="shrink-0 type-caption sm:text-right">
+              {copy.dataThrough} · {snapshot.dataThrough}
+            </p>
+          </div>
         </SurfaceCard>
       </div>
-
-      <div className="flex flex-wrap gap-x-5 gap-y-2 border-t border-border pt-4 type-caption">
-        <span>{copy.source} · PostHog</span>
-        <span>{copy.dataThrough} · {snapshot.dataThrough}</span>
-        <span>{copy.generated} · {new Date(snapshot.generatedAt).toLocaleString('en-GB', { timeZone: snapshot.timeZone })}</span>
-      </div>
-      {snapshot.completeness.warnings.length > 0 ? (
-        <ul className="type-card-description">
-          {snapshot.completeness.warnings.map((warning) => <li key={warning}>{warning}</li>)}
-        </ul>
-      ) : null}
-    </div>
+    </TooltipProvider>
   )
 }
 
@@ -191,38 +287,43 @@ export default async function AnalyticsPage({ params }: Props) {
 
   const t = await getTranslations({ locale, namespace: 'dashboard.analytics' })
   const copy: OwnerAnalyticsCopy = {
-    profileSessions: t('profileSessions'),
-    outboundSessions: t('outboundSessions'),
-    outboundConversion: t('outboundConversion'),
+    profileVisits: t('profileVisits'),
+    outboundClicks: t('outboundClicks'),
+    outboundClickRate: t('outboundClickRate'),
+    topTrafficSource: t('topTrafficSource'),
+    shareOfVisits: (share) => t('shareOfVisits', { share }),
+    tooltipProfileVisits: t('tooltipProfileVisits'),
+    tooltipOutboundClicks: t('tooltipOutboundClicks'),
+    tooltipOutboundClickRate: t('tooltipOutboundClickRate'),
+    tooltipTopTrafficSource: t('tooltipTopTrafficSource'),
     collectingBaseline: t('collectingBaseline'),
-    priorChangeUnavailable: t('priorChangeUnavailable'),
     currentRateUnavailable: t('currentRateUnavailable'),
-    versusPrior: (change) => t('versusPrior', { change }),
-    conversionDefinition: t('conversionDefinition'),
-    trendTitle: t('sessionTrend'),
-    trendDescription: t('sessionTrendDescription'),
-    openPostHog: t('openPostHog'),
-    trendAria: t('sessionTrendAria'),
+    trendTitle: t('trendTitle'),
+    trendAria: t('trendAria'),
     trendUnavailable: t('trendUnavailable'),
     trendEmpty: t('trendEmpty'),
-    acquisitionTitle: t('acquisitionSources'),
-    acquisitionUnavailable: t('acquisitionUnavailable'),
-    acquisitionEmpty: t('acquisitionEmpty'),
-    destinationsTitle: t('outboundDestinations'),
-    destinationsUnavailable: t('destinationsUnavailable'),
+    trafficSources: t('trafficSources'),
+    trafficSourceSearch: t('trafficSourceSearch'),
+    trafficSourceCategory: t('trafficSourceCategory'),
+    trafficSourceHomepage: t('trafficSourceHomepage'),
+    trafficSourceDirect: t('trafficSourceDirect'),
+    trafficSourceOther: t('trafficSourceOther'),
+    trafficSourcesEmpty: t('trafficSourcesEmpty'),
+    outboundDestinations: t('outboundDestinations'),
     destinationsEmpty: t('destinationsEmpty'),
-    source: t('source'),
+    sectionUnavailable: t('sectionUnavailable'),
+    nudgeTitle: t('nudgeTitle'),
+    nudgeBody: t('nudgeBody'),
     dataThrough: t('dataThrough'),
-    generated: t('generated'),
     unavailableTitle: t('unavailableTitle'),
     unavailableBody: t('unavailableBody'),
   }
 
   let snapshot: OwnerAnalyticsSnapshotV1 | null = null
   try {
-    snapshot = await getPostHogOwnerAnalyticsSnapshot(editor.brand.id)
+    snapshot = await getOwnerAnalyticsSnapshot(editor.brand.id)
   } catch {
-    // The owner remains authorized; show a provider-specific unavailable state.
+    // The owner remains authorized while analytics are temporarily unavailable.
   }
 
   return (
