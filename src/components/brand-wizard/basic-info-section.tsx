@@ -27,6 +27,8 @@ type RequiredBasicField =
   | 'productTags'
   | 'priceRange'
 
+type BasicFieldName = RequiredBasicField | 'mitStory'
+
 export function BrandBasicInfoSection({
   productTagSuggestions = [],
   requiredFields = {},
@@ -57,6 +59,13 @@ export function BrandBasicInfoSection({
   const isExistingBrand = Boolean(currentSlug)
   const previewSlug = slugifyRomanizedName(romanizedName) || currentSlug || ''
   const tx = (key: string, fallback: string) => (t.has(key) ? t(key) : fallback)
+  const fieldError = (field: BasicFieldName) => {
+    const error = form.formState.errors[field]
+    if (!error) return undefined
+    return typeof error.message === 'string'
+      ? error.message
+      : t('requiredFieldError')
+  }
   const getPriceRangeLabel = (value: unknown) => {
     const labels: Record<string, string> = {
       '1': `$ · ${t('fieldPriceRangeBudget')}`,
@@ -93,9 +102,7 @@ export function BrandBasicInfoSection({
           fieldName="name"
           label={t('fieldBrandName')}
           required={Boolean(requiredFields.name)}
-          error={
-            form.formState.errors.name ? t('requiredFieldError') : undefined
-          }
+          error={fieldError('name')}
           errorId="name-error"
         >
           <Input
@@ -195,11 +202,7 @@ export function BrandBasicInfoSection({
             'Used for navigation, search, and filtering',
           )}
           required={Boolean(requiredFields.productType)}
-          error={
-            form.formState.errors.productType
-              ? t('requiredFieldError')
-              : undefined
-          }
+          error={fieldError('productType')}
           errorId="productType-error"
         >
           <NativeSelect
@@ -234,11 +237,7 @@ export function BrandBasicInfoSection({
             'Public description shown on the brand page',
           )}
           required={Boolean(requiredFields.description)}
-          error={
-            form.formState.errors.description
-              ? t('requiredFieldError')
-              : undefined
-          }
+          error={fieldError('description')}
           errorId="description-error"
         >
           <Textarea
@@ -279,11 +278,17 @@ export function BrandBasicInfoSection({
             'mitStoryHint',
             'Shown on the brand page if provided',
           )}
+          error={fieldError('mitStory')}
+          errorId="mitStory-error"
         >
           <Textarea
             id="mitStory"
             rows={5}
             placeholder={t('mitStoryPlaceholder')}
+            aria-invalid={Boolean(form.formState.errors.mitStory)}
+            aria-describedby={
+              form.formState.errors.mitStory ? 'mitStory-error' : undefined
+            }
             className="min-h-28 bg-card"
             {...form.register('mitStory')}
           />
@@ -295,11 +300,7 @@ export function BrandBasicInfoSection({
           label={tx('fieldProductTags', 'Product tags')}
           description={tx('productTagsMax', 'Up to 5 product tags')}
           required={Boolean(requiredFields.productTags)}
-          error={
-            form.formState.errors.productTags
-              ? t('requiredFieldError')
-              : undefined
-          }
+          error={fieldError('productTags')}
           errorId="productTags-error"
         >
           <div
@@ -362,11 +363,7 @@ export function BrandBasicInfoSection({
           label={tx('fieldPriceRange', 'Price Range')}
           description={tx('fieldPriceRangeHint', 'Used for filtering')}
           required={Boolean(requiredFields.priceRange)}
-          error={
-            form.formState.errors.priceRange
-              ? t('requiredFieldError')
-              : undefined
-          }
+          error={fieldError('priceRange')}
           errorId="priceRange-error"
         >
           <NativeSelect

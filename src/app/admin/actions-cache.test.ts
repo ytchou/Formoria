@@ -85,6 +85,7 @@ vi.mock('@/lib/services/moderation', () => ({
   scanContent: vi.fn().mockReturnValue({ violations: [] }),
   saveModerationFlags: vi.fn().mockResolvedValue(undefined),
   markFlagsReviewed: vi.fn().mockResolvedValue(undefined),
+  updateModerationFlagStatus: vi.fn().mockResolvedValue(undefined),
 }))
 
 const {

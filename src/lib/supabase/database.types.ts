@@ -1339,7 +1339,6 @@ export type Database = {
           previous_content: string | null
           reviewed_at: string | null
           status: string
-          tier: string
           user_id: string
         }
         Insert: {
@@ -1352,7 +1351,6 @@ export type Database = {
           previous_content?: string | null
           reviewed_at?: string | null
           status?: string
-          tier: string
           user_id: string
         }
         Update: {
@@ -1365,7 +1363,6 @@ export type Database = {
           previous_content?: string | null
           reviewed_at?: string | null
           status?: string
-          tier?: string
           user_id?: string
         }
         Relationships: [

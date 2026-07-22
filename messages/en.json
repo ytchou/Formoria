@@ -749,7 +749,7 @@
       },
       "reviewProcess": {
         "heading": "Brand Review Process",
-        "body": "All submitted brand information is subject to manual review before being published. Formoria reserves the right to reject or remove any brand information that does not meet our platform standards, without liability to the submitter. Approval does not constitute endorsement or certification of the brand by Formoria."
+        "body": "New brand submissions are subject to manual review before they are published. Edits to an existing brand are scanned automatically: clean changes are published immediately, while blocked changes are not published until corrected. Formoria reserves the right to reject or remove any brand information that does not meet our platform standards, without liability to the submitter. Approval does not constitute endorsement or certification of the brand by Formoria."
       },
       "disclaimer": {
         "heading": "Disclaimer",
@@ -1513,7 +1513,17 @@
       "unsavedChanges": "Unsaved changes",
       "brandEditPublished": "Your edit is now live!",
       "violationSummary": "Some fields need attention before publishing.",
-      "slugChangeBlocked": "Your brand URL is based on this name. To change it, contact us."
+      "slugChangeBlocked": "Your brand URL is based on this name. To change it, contact us.",
+      "moderation": {
+        "suspiciousTld": "This link uses a high-risk domain ending. Replace it with your official website on a standard domain such as .com or .tw.",
+        "excessiveUrls": "This field contains too many links. Keep it to three links or fewer.",
+        "englishSpam": "This field contains promotional spam language. Remove phrases such as “click here” or “buy now”.",
+        "contactInjectionPhone": "Phone numbers are not allowed in this field. Remove the number and use an approved link for contact details instead.",
+        "contactInjectionEmail": "Email addresses are not allowed in this field. Remove the address and use an approved link for contact details instead.",
+        "excessiveEmoji": "This field contains too many emoji. Keep it to ten emoji or fewer.",
+        "shortDescription": "This description is too short. Add a fuller description with at least ten Chinese characters.",
+        "identicalDescription": "This description repeats the brand name. Explain what the brand makes instead."
+      }
     },
     "brandProfile": {
       "productPhotos": "Product Photos",
@@ -2065,24 +2075,27 @@
       "complete": "Enrichment complete: {success} success, {skipped} skipped, {failed} failed"
     },
     "moderation": {
-      "riskHigh": "High Risk",
-      "riskMedium": "Medium Risk",
-      "riskClean": "Clean",
-      "flagCount": "{count} flags",
+      "blockedCount": "{count} blocked items",
       "dashboard": "Content Moderation",
-      "filterByRisk": "Filter by risk",
-      "filterByTier": "Filter by tier",
-      "noFlaggedContent": "No flagged content",
       "columnBrand": "Brand",
       "columnField": "Field",
-      "columnTier": "Tier",
-      "columnReason": "Reason",
-      "columnFlaggedContent": "Flagged content",
-      "columnRisk": "Risk",
+      "columnRule": "Rule",
+      "columnExplanation": "Explanation",
       "columnDetected": "Detected",
       "columnActions": "Actions",
       "markReviewed": "Mark reviewed",
-      "dismiss": "Dismiss"
+      "dismiss": "Dismiss",
+      "noBlockedContent": "No blocked content is waiting for review.",
+      "rules": {
+        "suspicious_tld": "Suspicious domain",
+        "excessive_urls": "Too many links",
+        "english_spam": "Promotional spam",
+        "contact_injection_phone": "Phone number",
+        "contact_injection_email": "Email address",
+        "excessive_emoji": "Too many emoji",
+        "short_description": "Short description",
+        "identical_description": "Repeated brand name"
+      }
     },
     "evidence": {
       "title": "Origin Evidence",

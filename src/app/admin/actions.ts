@@ -396,12 +396,6 @@ export async function updateBrandAction(
     const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
-    const previousBrand = await getBrandById(brandId)
-    const updatedBrand = await updateBrand(
-      brandId,
-      data as Parameters<typeof updateBrand>[1],
-    )
-
     const {
       name,
       description,
@@ -429,12 +423,19 @@ export async function updateBrandAction(
     const { violations } = scanContent(name ?? '', moderationFields)
     if (violations.length > 0) {
       try {
-        await saveModerationFlags(brandId, auth.user.id, violations)
-        await markFlagsReviewed(brandId)
+        await saveModerationFlags(brandId, auth.user.id, violations, 'pending')
       } catch (err) {
         console.error('[admin] moderation audit failed:', err)
       }
+
+      return { error: violations.map((violation) => violation.userMessage).join('. ') }
     }
+
+    const previousBrand = await getBrandById(brandId)
+    const updatedBrand = await updateBrand(
+      brandId,
+      data as Parameters<typeof updateBrand>[1],
+    )
 
     revalidatePath('/admin/brands')
     revalidatePath('/admin')

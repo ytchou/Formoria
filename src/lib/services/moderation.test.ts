@@ -25,6 +25,61 @@ describe("scanContent (flattened)", () => {
     expect(result.violations).toEqual([]);
   });
 
+  it("returns blocking violations for every scanner rule", () => {
+    const cases = [
+      {
+        brandName: "Brand",
+        fields: { website: "https://spam.tk" },
+        rule: "suspicious_tld",
+      },
+      {
+        brandName: "Brand",
+        fields: {
+          description:
+            "https://a.com https://b.com https://c.com https://d.com",
+        },
+        rule: "excessive_urls",
+      },
+      {
+        brandName: "Brand",
+        fields: { name: "Click here" },
+        rule: "english_spam",
+      },
+      {
+        brandName: "Brand",
+        fields: { description: "聯絡 0912-345-678" },
+        rule: "contact_injection_phone",
+      },
+      {
+        brandName: "Brand",
+        fields: { description: "Email test@example.com" },
+        rule: "contact_injection_email",
+      },
+      {
+        brandName: "Brand",
+        fields: { name: "😀😀😀😀😀😀😀😀😀😀😀" },
+        rule: "excessive_emoji",
+      },
+      {
+        brandName: "Brand",
+        fields: { description: "好皂品" },
+        rule: "short_description",
+      },
+      {
+        brandName: "Brand",
+        fields: { description: "Brand" },
+        rule: "identical_description",
+      },
+    ];
+
+    for (const { brandName, fields, rule } of cases) {
+      const result = scanContent(brandName, fields);
+      expect(result.violations).toEqual(
+        expect.arrayContaining([expect.objectContaining({ rule })]),
+      );
+    }
+  });
+
   it("returns violation with field+rule+message for suspicious TLD", () => {
     const result = scanContent("Brand", { website: "https://spam.tk" });
     expect(result.violations).toHaveLength(1);
@@ -106,7 +161,7 @@ describe("saveModerationFlags", () => {
     vi.clearAllMocks();
   });
 
-  it("maps violations to block-tier moderation rows with the requested status", async () => {
+  it("maps violations to moderation rows with the requested status", async () => {
     const insert = vi.fn().mockResolvedValue({ error: null });
     const { createServerClient } =
       (await import("@/lib/supabase/server")) as MockedSupabaseServerModule;
@@ -130,7 +185,6 @@ describe("saveModerationFlags", () => {
         field_name: "website",
         flag_reason: "suspicious_tld",
         flagged_content: "Suspicious URL — .tk domains are not allowed",
-        tier: "block",
         status: "reviewed",
       },
     ]);

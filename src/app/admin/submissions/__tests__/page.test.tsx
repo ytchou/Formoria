@@ -4,7 +4,6 @@ import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import zhMessages from "../../../../../messages/zh-TW.json";
 import { getBrandSlugsBatch } from "@/lib/services/brands";
-import { getModerationFlagsBatch } from "@/lib/services/moderation";
 import { getSubmissionsForReview } from "@/lib/services/submissions";
 import SubmissionsPage, { generateMetadata } from "../page";
 
@@ -32,10 +31,6 @@ vi.mock("@/lib/services/brands", () => ({
   getBrandSlugsBatch: vi.fn(),
 }));
 
-vi.mock("@/lib/services/moderation", () => ({
-  getModerationFlagsBatch: vi.fn(),
-}));
-
 vi.mock("@/lib/services/submissions", () => ({
   getSubmissionsForReview: vi.fn(),
 }));
@@ -43,7 +38,6 @@ vi.mock("@/lib/services/submissions", () => ({
 describe("SubmissionsPage", () => {
   beforeEach(() => {
     vi.mocked(getSubmissionsForReview).mockResolvedValue([]);
-    vi.mocked(getModerationFlagsBatch).mockResolvedValue(new Map());
     vi.mocked(getBrandSlugsBatch).mockResolvedValue(new Map());
   });
 
