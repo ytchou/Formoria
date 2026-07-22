@@ -35,7 +35,7 @@ type SelectQuery = {
   }
 }
 
-export type MitDeclarationClient = {
+type MitDeclarationClient = {
   from: (table: 'brands') => {
     select: (columns: 'mit_status') => SelectQuery
     update: (patch: BrandDeclarationPatch) => UpdateQuery

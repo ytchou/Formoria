@@ -20,7 +20,7 @@ export type ReportReason =
   | 'ownership_dispute'
   | 'removal_request'
 
-export type HistoricalReportReason = ReportReason | 'not_mit'
+type HistoricalReportReason = ReportReason | 'not_mit'
 
 type ReportStatus = ReviewStatus
 

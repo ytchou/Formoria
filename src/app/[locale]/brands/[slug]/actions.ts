@@ -51,7 +51,7 @@ const EVIDENCE_SOURCE_TYPES = [
   'other',
 ] as const
 
-export type EvidenceErrorCode =
+type EvidenceErrorCode =
   | 'not_logged_in'
   | 'missing_brand_id'
   | 'missing_brand_slug'

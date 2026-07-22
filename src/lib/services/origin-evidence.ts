@@ -35,7 +35,7 @@ type OriginEvidenceRowWithBrand = OriginEvidenceRow & {
   brands?: OriginEvidenceBrand | null
 }
 
-export type OriginEvidencePhoto = {
+type OriginEvidencePhoto = {
   path: string
   signedUrl?: string
 }
@@ -200,26 +200,6 @@ export async function listMyEvidence(userId: string): Promise<OriginEvidence[]> 
     .select('*, brands(name, slug)')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-
-  if (error) throw error
-  const evidence = ((data ?? []) as unknown as OriginEvidenceRowWithBrand[]).map(rowToEvidence)
-  return attachSignedPhotoUrls(evidence)
-}
-
-export async function listPendingEvidence(
-  options: ListPendingEvidenceOptions = {},
-): Promise<OriginEvidence[]> {
-  const requestedLimit = options.limit ?? options.pageSize ?? DEFAULT_PENDING_PAGE_SIZE
-  const limit = Math.min(Math.max(1, requestedLimit), MAX_PENDING_PAGE_SIZE)
-  const pageOffset = Math.max(0, (options.page ?? 1) - 1) * limit
-  const offset = Math.max(0, options.offset ?? pageOffset)
-  const supabase = createServiceClient()
-  const { data, error } = await supabase
-    .from('origin_evidence')
-    .select('*, brands(name, slug, mit_status)')
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1)
 
   if (error) throw error
   const evidence = ((data ?? []) as unknown as OriginEvidenceRowWithBrand[]).map(rowToEvidence)
