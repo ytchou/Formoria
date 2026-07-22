@@ -462,13 +462,16 @@ export function decideRepairPolicy(
   const sensitivePaths = sensitivePathsOf(finding);
 
   if (requiresHumanPolicy(finding)) reasons.push("requested_human");
-  if (finding.severity === "critical") reasons.push("critical_severity");
+  if (finding.severity === "critical" && defectKind !== "dependency")
+    reasons.push("critical_severity");
   if (sensitivePaths.length > 0) reasons.push("sensitive_path");
   if (finding.changesMergePolicy === true || likelyHumanDueToScope(finding))
     reasons.push("merge_policy_change");
   if (validationWeakeningOf(finding)) reasons.push("validation_weakening");
   if (!artifactReferenceOf(finding)) reasons.push("missing_evidence_artifact");
   if (changedFiles.length === 0) reasons.push("missing_changed_files");
+  if (dependencyImpact === "major" || dependencyImpact === "unknown")
+    reasons.push("dependency_impact_requires_human");
 
   if (defectKind === "unknown") {
     reasons.push("unsupported_defect_kind");
@@ -476,9 +479,16 @@ export function decideRepairPolicy(
     if (dependencyImpact !== "patch" && dependencyImpact !== "minor") {
       reasons.push("dependency_impact_requires_human");
     }
+    const behaviorRisk = behaviorRiskOf(finding);
+    if (behaviorRisk !== null && behaviorRisk !== "low")
+      reasons.push("behavior_risk_not_low");
   } else {
     const confidence = confidenceOf(finding);
-    if (confidence === null || confidence < AUTOMATIC_CONFIDENCE_THRESHOLD)
+    if (
+      confidence === null ||
+      confidence < AUTOMATIC_CONFIDENCE_THRESHOLD ||
+      confidence > 1
+    )
       reasons.push("confidence_below_threshold");
 
     const reproducible =

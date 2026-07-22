@@ -39,6 +39,10 @@ export const SentryClassificationSchema = z
     fixability: z.enum(["low", "medium", "high", "unknown"]),
     behaviorChangeRisk: z.enum(["low", "medium", "high", "unknown"]),
     sensitivePaths: z.array(z.string().min(1).max(200)).max(20),
+    changedFiles: z.array(z.string().min(1).max(200)).max(20).optional(),
+    rootCauseKey: z.string().min(1).max(200).optional(),
+    defectKind: z.enum(["application", "dependency", "unknown"]).optional(),
+    dependencyImpact: z.enum(["patch", "minor", "major", "unknown"]).optional(),
     recommendedAction: z.string().min(1).max(500),
     mergePolicy: z.enum(MERGE_POLICY_VALUES),
   })
@@ -1088,11 +1092,21 @@ function sanitizedClassification(value: SentryClassification): {
   const paths = value.sensitivePaths
     .map(sanitizePath)
     .filter((path): path is string => Boolean(path));
+  const changedFiles = (value.changedFiles ?? [])
+    .map(sanitizePath)
+    .filter((path): path is string => Boolean(path));
+  const rootCauseKey = value.rootCauseKey
+    ? sanitizeExternalText(value.rootCauseKey, 200)
+    : undefined;
   const textWasRedacted =
     rootCause !== value.rootCause ||
     recurrenceEvidence !== value.recurrence.evidence ||
     recommendedAction !== value.recommendedAction ||
     paths.some((path, index) => path !== value.sensitivePaths[index]);
+  const repairMetadataWasRedacted =
+    changedFiles.some(
+      (path, index) => path !== (value.changedFiles ?? [])[index],
+    ) || rootCauseKey !== value.rootCauseKey;
 
   return {
     classification: {
@@ -1103,9 +1117,18 @@ function sanitizedClassification(value: SentryClassification): {
         value.sensitivePaths.length > 0 && paths.length === 0
           ? ["[redacted path]"]
           : paths,
+      ...(value.changedFiles
+        ? {
+            changedFiles:
+              value.changedFiles.length > 0 && changedFiles.length === 0
+                ? ["[redacted path]"]
+                : changedFiles,
+          }
+        : {}),
+      ...(rootCauseKey ? { rootCauseKey } : {}),
       recommendedAction,
     },
-    textWasRedacted,
+    textWasRedacted: textWasRedacted || repairMetadataWasRedacted,
   };
 }
 
@@ -1137,8 +1160,10 @@ export function decideSentryMergePolicy(
     reasons.push("The proposed change may alter behavior.");
   if (classification.sensitivePaths.length > 0)
     reasons.push("Sensitive paths require human review.");
-  if (classification.fixability === "unknown")
-    reasons.push("Fixability is unknown.");
+  if (classification.fixability !== "high")
+    reasons.push("Fixability is not high confidence.");
+  if (!classification.changedFiles?.length)
+    reasons.push("No repository files were identified for a bounded repair.");
   if (!likelyApplicationDefect(classification.rootCause))
     reasons.push("The root cause is not a clearly scoped application defect.");
   if (options.incidentMode)
@@ -1273,6 +1298,24 @@ export function buildSentryHealthFinding(
       fixability: safeClassification.classification.fixability,
       behaviorChangeRisk: safeClassification.classification.behaviorChangeRisk,
       sensitivePaths: safeClassification.classification.sensitivePaths,
+      changedFiles: safeClassification.classification.changedFiles ?? [],
+      rootCauseKey:
+        safeClassification.classification.rootCauseKey ??
+        stableFingerprint(
+          "sentry",
+          "root-cause",
+          safeClassification.classification.rootCause,
+        ),
+      defectKind: safeClassification.classification.defectKind ?? "application",
+      ...(safeClassification.classification.dependencyImpact
+        ? {
+            dependencyImpact:
+              safeClassification.classification.dependencyImpact,
+          }
+        : {}),
+      evidenceArtifactRef: safeIssueId
+        ? `sentry-triage:${safeIssueId}`
+        : `sentry-triage:${fingerprintIdentity(issue)}`,
       recommendedAction: safeClassification.classification.recommendedAction,
     },
   };

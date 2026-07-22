@@ -366,6 +366,54 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION read_health_directory_database_evidence()
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = public, pg_catalog, pg_temp
+AS $$
+  SELECT jsonb_build_object(
+    'connections', jsonb_build_object(
+      'total', (
+        SELECT count(*)
+        FROM pg_catalog.pg_stat_activity
+        WHERE datname = current_database()
+      ),
+      'maximum', (
+        SELECT setting::integer
+        FROM pg_catalog.pg_settings
+        WHERE name = 'max_connections'
+      )
+    ),
+    'activeQueries', COALESCE((
+      SELECT jsonb_agg(jsonb_build_object(
+        'queryId', md5(COALESCE(query, '') || ':' || pid::text),
+        'durationSeconds', EXTRACT(EPOCH FROM (clock_timestamp() - query_start))
+      ) ORDER BY pid)
+      FROM pg_catalog.pg_stat_activity
+      WHERE datname = current_database()
+        AND state = 'active'
+        AND pid <> pg_backend_pid()
+    ), '[]'::jsonb),
+    'deadTupleSnapshots', jsonb_build_array(jsonb_build_object(
+      'snapshotDate', current_date,
+      'tables', COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+          'tableName', relname,
+          'deadTuplePercent', CASE
+            WHEN n_live_tup > 0 THEN 100.0 * n_dead_tup / n_live_tup
+            ELSE 0
+          END
+        ) ORDER BY relname)
+        FROM pg_catalog.pg_stat_user_tables
+        WHERE schemaname = 'public'
+      ), '[]'::jsonb)
+    )),
+    'indexConcerns', '[]'::jsonb
+  );
+$$;
+
 CREATE OR REPLACE FUNCTION claim_health_agent_run(
   p_routine text,
   p_logical_date date,
@@ -668,6 +716,7 @@ REVOKE ALL ON FUNCTION enqueue_health_fix(text, text, jsonb, text, text, text, t
 REVOKE ALL ON FUNCTION claim_health_fixes(text, text, interval) FROM PUBLIC;
 REVOKE ALL ON FUNCTION transition_health_fix(uuid, text, text, text, text, timestamptz, bigint, text, text, timestamptz, jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION record_health_snapshot(date, jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION read_health_directory_database_evidence() FROM PUBLIC;
 REVOKE ALL ON FUNCTION claim_health_agent_run(text, date, text, integer, boolean) FROM PUBLIC;
 REVOKE ALL ON FUNCTION complete_health_agent_run(text, date, text, integer, jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION fail_health_agent_run(text, date, text, integer, text, jsonb) FROM PUBLIC;
@@ -677,6 +726,7 @@ GRANT EXECUTE ON FUNCTION enqueue_health_fix(text, text, jsonb, text, text, text
 GRANT EXECUTE ON FUNCTION claim_health_fixes(text, text, interval) TO health_agent_writer, service_role;
 GRANT EXECUTE ON FUNCTION transition_health_fix(uuid, text, text, text, text, timestamptz, bigint, text, text, timestamptz, jsonb) TO health_agent_writer, service_role;
 GRANT EXECUTE ON FUNCTION record_health_snapshot(date, jsonb) TO health_agent_writer, service_role;
+GRANT EXECUTE ON FUNCTION read_health_directory_database_evidence() TO health_agent_reader, service_role;
 GRANT EXECUTE ON FUNCTION claim_health_agent_run(text, date, text, integer, boolean) TO health_agent_writer, service_role;
 GRANT EXECUTE ON FUNCTION complete_health_agent_run(text, date, text, integer, jsonb) TO health_agent_writer, service_role;
 GRANT EXECUTE ON FUNCTION fail_health_agent_run(text, date, text, integer, text, jsonb) TO health_agent_writer, service_role;

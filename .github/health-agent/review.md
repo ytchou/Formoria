@@ -51,6 +51,7 @@ Reject or escalate a finding when any of these is true:
 
 Patch/minor dependency work may be auto-merge eligible only after validation
 and this independent review pass. A human policy always remains human-gated.
+Human batches require Linear tracking and an explicit human gate.
 There are at most two fix/review cycles. If the second combined
 validation/review fails, every finding must be `needs_human`, Linear is
 required, and the result must explicitly contain `fixed: false` and

@@ -48,7 +48,8 @@ clearly scoped application defects with low behavior-change risk and no
 sensitive path. Patch/minor dependency work may remain in an automatic batch,
 but it is eligible for auto-merge only after validation and independent review
 pass. Major or unknown dependency impact is human-gated. A human batch must
-never be represented as auto-merged.
+never be represented as auto-merged and always requires a human gate with
+Linear tracking.
 
 Use at most two fix/review cycles for this exact snapshot. A cycle is one repair
 attempt followed by the validation and review result. If the second combined

@@ -63,6 +63,7 @@ function safeClassification(overrides: Record<string, unknown> = {}) {
   return {
     severity: "high",
     rootCause: "Application dereferences a missing cart value.",
+    rootCauseKey: "cart-total-missing-value",
     confidence: 0.95,
     recurrence: {
       status: "recurring",
@@ -73,6 +74,8 @@ function safeClassification(overrides: Record<string, unknown> = {}) {
     fixability: "high",
     behaviorChangeRisk: "low",
     sensitivePaths: [],
+    changedFiles: ["src/cart/total.ts", "src/cart/total.test.ts"],
+    defectKind: "application",
     recommendedAction:
       "Guard the missing cart value and add a regression test.",
     mergePolicy: "automatic",
